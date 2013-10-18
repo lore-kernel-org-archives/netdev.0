@@ -1,19 +1,15 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 4/4] net: misc: Remove extern from function prototypes
-Date: Fri, 18 Oct 2013 13:48:25 -0700
-Message-ID: <b03139ad9a2cf94a6ad8834f70d7ba592fcf5fa4.1382129045.git.joe@perches.com>
+Subject: [PATCH 2/4] net: dccp: Remove extern from function prototypes
+Date: Fri, 18 Oct 2013 13:48:23 -0700
+Message-ID: <f86fc8d077282f9c331c971196ceb6b65ebcd134.1382129045.git.joe@perches.com>
 References: <cover.1382129045.git.joe@perches.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0093.hostedemail.com ([216.40.44.93]:51552 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755330Ab3JRUsh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 16:48:37 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1382129045.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 There are a mix of function prototypes with and without extern
 in the kernel sources.  Standardize on not using extern for
@@ -25,575 +21,483 @@ using auto to declare automatic/local variables in a block.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/irda/irnet/irnet.h       |  15 ++---
- net/l2tp/l2tp_core.h         |  57 +++++++++-------
- net/mac80211/rate.h          |  12 ++--
- net/netfilter/nf_internals.h |  28 ++++----
- net/rds/rds.h                |   2 +-
- net/rxrpc/ar-internal.h      | 150 ++++++++++++++++++++-----------------------
- net/tipc/core.h              |  28 ++++----
- net/wimax/wimax-internal.h   |  18 +++---
- net/wireless/core.h          |   6 +-
- net/wireless/sysfs.h         |   4 +-
- net/xfrm/xfrm_hash.h         |   4 +-
- 11 files changed, 157 insertions(+), 167 deletions(-)
+ net/dccp/ackvec.h                   |  21 ++--
+ net/dccp/ccid.h                     |  18 ++--
+ net/dccp/ccids/lib/loss_interval.h  |   8 +-
+ net/dccp/ccids/lib/packet_history.h |  25 +++--
+ net/dccp/ccids/lib/tfrc.h           |  22 ++---
+ net/dccp/dccp.h                     | 186 +++++++++++++++++-------------------
+ net/dccp/feat.h                     |  26 ++---
+ 7 files changed, 148 insertions(+), 158 deletions(-)
 
-diff --git a/net/irda/irnet/irnet.h b/net/irda/irnet/irnet.h
-index 564eb0b..8d65bb9 100644
---- a/net/irda/irnet/irnet.h
-+++ b/net/irda/irnet/irnet.h
-@@ -509,16 +509,11 @@ typedef struct irnet_ctrl_channel
-  */
- 
- /* -------------------------- IRDA PART -------------------------- */
--extern int
--	irda_irnet_create(irnet_socket *);	/* Initialise a IrNET socket */
--extern int
--	irda_irnet_connect(irnet_socket *);	/* Try to connect over IrDA */
--extern void
--	irda_irnet_destroy(irnet_socket *);	/* Teardown  a IrNET socket */
--extern int
--	irda_irnet_init(void);		/* Initialise IrDA part of IrNET */
--extern void
--	irda_irnet_cleanup(void);	/* Teardown IrDA part of IrNET */
-+int irda_irnet_create(irnet_socket *);	/* Initialise an IrNET socket */
-+int irda_irnet_connect(irnet_socket *);	/* Try to connect over IrDA */
-+void irda_irnet_destroy(irnet_socket *);	/* Teardown an IrNET socket */
-+int irda_irnet_init(void);		/* Initialise IrDA part of IrNET */
-+void irda_irnet_cleanup(void);		/* Teardown IrDA part of IrNET */
- 
- /**************************** VARIABLES ****************************/
- 
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 6f251cb..1ee9f69 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -238,29 +238,40 @@ out:
- 	return tunnel;
- }
- 
--extern struct sock *l2tp_tunnel_sock_lookup(struct l2tp_tunnel *tunnel);
--extern void l2tp_tunnel_sock_put(struct sock *sk);
--extern struct l2tp_session *l2tp_session_find(struct net *net, struct l2tp_tunnel *tunnel, u32 session_id);
--extern struct l2tp_session *l2tp_session_find_nth(struct l2tp_tunnel *tunnel, int nth);
--extern struct l2tp_session *l2tp_session_find_by_ifname(struct net *net, char *ifname);
--extern struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id);
--extern struct l2tp_tunnel *l2tp_tunnel_find_nth(struct net *net, int nth);
--
--extern int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg, struct l2tp_tunnel **tunnelp);
--extern void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel);
--extern int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel);
--extern struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunnel, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg);
--extern void __l2tp_session_unhash(struct l2tp_session *session);
--extern int l2tp_session_delete(struct l2tp_session *session);
--extern void l2tp_session_free(struct l2tp_session *session);
--extern void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb, unsigned char *ptr, unsigned char *optr, u16 hdrflags, int length, int (*payload_hook)(struct sk_buff *skb));
--extern int l2tp_session_queue_purge(struct l2tp_session *session);
--extern int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb);
--
--extern int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len);
--
--extern int l2tp_nl_register_ops(enum l2tp_pwtype pw_type, const struct l2tp_nl_cmd_ops *ops);
--extern void l2tp_nl_unregister_ops(enum l2tp_pwtype pw_type);
-+struct sock *l2tp_tunnel_sock_lookup(struct l2tp_tunnel *tunnel);
-+void l2tp_tunnel_sock_put(struct sock *sk);
-+struct l2tp_session *l2tp_session_find(struct net *net,
-+				       struct l2tp_tunnel *tunnel,
-+				       u32 session_id);
-+struct l2tp_session *l2tp_session_find_nth(struct l2tp_tunnel *tunnel, int nth);
-+struct l2tp_session *l2tp_session_find_by_ifname(struct net *net, char *ifname);
-+struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id);
-+struct l2tp_tunnel *l2tp_tunnel_find_nth(struct net *net, int nth);
-+
-+int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id,
-+		       u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg,
-+		       struct l2tp_tunnel **tunnelp);
-+void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel);
-+int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel);
-+struct l2tp_session *l2tp_session_create(int priv_size,
-+					 struct l2tp_tunnel *tunnel,
-+					 u32 session_id, u32 peer_session_id,
-+					 struct l2tp_session_cfg *cfg);
-+void __l2tp_session_unhash(struct l2tp_session *session);
-+int l2tp_session_delete(struct l2tp_session *session);
-+void l2tp_session_free(struct l2tp_session *session);
-+void l2tp_recv_common(struct l2tp_session *session, struct sk_buff *skb,
-+		      unsigned char *ptr, unsigned char *optr, u16 hdrflags,
-+		      int length, int (*payload_hook)(struct sk_buff *skb));
-+int l2tp_session_queue_purge(struct l2tp_session *session);
-+int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb);
-+
-+int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb,
-+		  int hdr_len);
-+
-+int l2tp_nl_register_ops(enum l2tp_pwtype pw_type,
-+			 const struct l2tp_nl_cmd_ops *ops);
-+void l2tp_nl_unregister_ops(enum l2tp_pwtype pw_type);
- 
- /* Session reference counts. Incremented when code obtains a reference
-  * to a session.
-diff --git a/net/mac80211/rate.h b/net/mac80211/rate.h
-index 5dedc56..505bc0d 100644
---- a/net/mac80211/rate.h
-+++ b/net/mac80211/rate.h
-@@ -144,8 +144,8 @@ void rate_control_deinitialize(struct ieee80211_local *local);
- 
- /* Rate control algorithms */
- #ifdef CONFIG_MAC80211_RC_PID
--extern int rc80211_pid_init(void);
--extern void rc80211_pid_exit(void);
-+int rc80211_pid_init(void);
-+void rc80211_pid_exit(void);
- #else
- static inline int rc80211_pid_init(void)
- {
-@@ -157,8 +157,8 @@ static inline void rc80211_pid_exit(void)
- #endif
- 
- #ifdef CONFIG_MAC80211_RC_MINSTREL
--extern int rc80211_minstrel_init(void);
--extern void rc80211_minstrel_exit(void);
-+int rc80211_minstrel_init(void);
-+void rc80211_minstrel_exit(void);
- #else
- static inline int rc80211_minstrel_init(void)
- {
-@@ -170,8 +170,8 @@ static inline void rc80211_minstrel_exit(void)
- #endif
- 
- #ifdef CONFIG_MAC80211_RC_MINSTREL_HT
--extern int rc80211_minstrel_ht_init(void);
--extern void rc80211_minstrel_ht_exit(void);
-+int rc80211_minstrel_ht_init(void);
-+void rc80211_minstrel_ht_exit(void);
- #else
- static inline int rc80211_minstrel_ht_init(void)
- {
-diff --git a/net/netfilter/nf_internals.h b/net/netfilter/nf_internals.h
-index 3deec99..61a3c92 100644
---- a/net/netfilter/nf_internals.h
-+++ b/net/netfilter/nf_internals.h
-@@ -13,26 +13,20 @@
- 
- 
- /* core.c */
--extern unsigned int nf_iterate(struct list_head *head,
--				struct sk_buff *skb,
--				unsigned int hook,
--				const struct net_device *indev,
--				const struct net_device *outdev,
--				struct nf_hook_ops **elemp,
--				int (*okfn)(struct sk_buff *),
--				int hook_thresh);
-+unsigned int nf_iterate(struct list_head *head, struct sk_buff *skb,
-+			unsigned int hook, const struct net_device *indev,
-+			const struct net_device *outdev,
-+			struct nf_hook_ops **elemp,
-+			int (*okfn)(struct sk_buff *), int hook_thresh);
- 
- /* nf_queue.c */
--extern int nf_queue(struct sk_buff *skb,
--		    struct nf_hook_ops *elem,
--		    u_int8_t pf, unsigned int hook,
--		    struct net_device *indev,
--		    struct net_device *outdev,
--		    int (*okfn)(struct sk_buff *),
--		    unsigned int queuenum);
--extern int __init netfilter_queue_init(void);
-+int nf_queue(struct sk_buff *skb, struct nf_hook_ops *elem, u_int8_t pf,
-+	     unsigned int hook, struct net_device *indev,
-+	     struct net_device *outdev, int (*okfn)(struct sk_buff *),
-+	     unsigned int queuenum);
-+int __init netfilter_queue_init(void);
- 
- /* nf_log.c */
--extern int __init netfilter_log_init(void);
-+int __init netfilter_log_init(void);
- 
- #endif
-diff --git a/net/rds/rds.h b/net/rds/rds.h
-index ec1d731..48f8ffc 100644
---- a/net/rds/rds.h
-+++ b/net/rds/rds.h
-@@ -749,7 +749,7 @@ void rds_atomic_send_complete(struct rds_message *rm, int wc_status);
- int rds_cmsg_atomic(struct rds_sock *rs, struct rds_message *rm,
- 		    struct cmsghdr *cmsg);
- 
--extern void __rds_put_mr_final(struct rds_mr *mr);
-+void __rds_put_mr_final(struct rds_mr *mr);
- static inline void rds_mr_put(struct rds_mr *mr)
- {
- 	if (atomic_dec_and_test(&mr->r_refcount))
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index a693aca..5f43675 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -426,17 +426,16 @@ extern struct workqueue_struct *rxrpc_workqueue;
- /*
-  * ar-accept.c
-  */
--extern void rxrpc_accept_incoming_calls(struct work_struct *);
--extern struct rxrpc_call *rxrpc_accept_call(struct rxrpc_sock *,
--					    unsigned long);
--extern int rxrpc_reject_call(struct rxrpc_sock *);
-+void rxrpc_accept_incoming_calls(struct work_struct *);
-+struct rxrpc_call *rxrpc_accept_call(struct rxrpc_sock *, unsigned long);
-+int rxrpc_reject_call(struct rxrpc_sock *);
- 
- /*
-  * ar-ack.c
-  */
--extern void __rxrpc_propose_ACK(struct rxrpc_call *, u8, __be32, bool);
--extern void rxrpc_propose_ACK(struct rxrpc_call *, u8, __be32, bool);
--extern void rxrpc_process_call(struct work_struct *);
-+void __rxrpc_propose_ACK(struct rxrpc_call *, u8, __be32, bool);
-+void rxrpc_propose_ACK(struct rxrpc_call *, u8, __be32, bool);
-+void rxrpc_process_call(struct work_struct *);
- 
- /*
-  * ar-call.c
-@@ -445,19 +444,18 @@ extern struct kmem_cache *rxrpc_call_jar;
- extern struct list_head rxrpc_calls;
- extern rwlock_t rxrpc_call_lock;
- 
--extern struct rxrpc_call *rxrpc_get_client_call(struct rxrpc_sock *,
--						struct rxrpc_transport *,
--						struct rxrpc_conn_bundle *,
--						unsigned long, int, gfp_t);
--extern struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *,
--					      struct rxrpc_connection *,
--					      struct rxrpc_header *, gfp_t);
--extern struct rxrpc_call *rxrpc_find_server_call(struct rxrpc_sock *,
--						 unsigned long);
--extern void rxrpc_release_call(struct rxrpc_call *);
--extern void rxrpc_release_calls_on_socket(struct rxrpc_sock *);
--extern void __rxrpc_put_call(struct rxrpc_call *);
--extern void __exit rxrpc_destroy_all_calls(void);
-+struct rxrpc_call *rxrpc_get_client_call(struct rxrpc_sock *,
-+					 struct rxrpc_transport *,
-+					 struct rxrpc_conn_bundle *,
-+					 unsigned long, int, gfp_t);
-+struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *,
-+				       struct rxrpc_connection *,
-+				       struct rxrpc_header *, gfp_t);
-+struct rxrpc_call *rxrpc_find_server_call(struct rxrpc_sock *, unsigned long);
-+void rxrpc_release_call(struct rxrpc_call *);
-+void rxrpc_release_calls_on_socket(struct rxrpc_sock *);
-+void __rxrpc_put_call(struct rxrpc_call *);
-+void __exit rxrpc_destroy_all_calls(void);
- 
- /*
-  * ar-connection.c
-@@ -465,19 +463,16 @@ extern void __exit rxrpc_destroy_all_calls(void);
- extern struct list_head rxrpc_connections;
- extern rwlock_t rxrpc_connection_lock;
- 
--extern struct rxrpc_conn_bundle *rxrpc_get_bundle(struct rxrpc_sock *,
--						  struct rxrpc_transport *,
--						  struct key *,
--						  __be16, gfp_t);
--extern void rxrpc_put_bundle(struct rxrpc_transport *,
--			     struct rxrpc_conn_bundle *);
--extern int rxrpc_connect_call(struct rxrpc_sock *, struct rxrpc_transport *,
--			      struct rxrpc_conn_bundle *, struct rxrpc_call *,
--			      gfp_t);
--extern void rxrpc_put_connection(struct rxrpc_connection *);
--extern void __exit rxrpc_destroy_all_connections(void);
--extern struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *,
--						      struct rxrpc_header *);
-+struct rxrpc_conn_bundle *rxrpc_get_bundle(struct rxrpc_sock *,
-+					   struct rxrpc_transport *,
-+					   struct key *, __be16, gfp_t);
-+void rxrpc_put_bundle(struct rxrpc_transport *, struct rxrpc_conn_bundle *);
-+int rxrpc_connect_call(struct rxrpc_sock *, struct rxrpc_transport *,
-+		       struct rxrpc_conn_bundle *, struct rxrpc_call *, gfp_t);
-+void rxrpc_put_connection(struct rxrpc_connection *);
-+void __exit rxrpc_destroy_all_connections(void);
-+struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *,
-+					       struct rxrpc_header *);
- extern struct rxrpc_connection *
- rxrpc_incoming_connection(struct rxrpc_transport *, struct rxrpc_header *,
- 			  gfp_t);
-@@ -485,15 +480,15 @@ rxrpc_incoming_connection(struct rxrpc_transport *, struct rxrpc_header *,
- /*
-  * ar-connevent.c
-  */
--extern void rxrpc_process_connection(struct work_struct *);
--extern void rxrpc_reject_packet(struct rxrpc_local *, struct sk_buff *);
--extern void rxrpc_reject_packets(struct work_struct *);
-+void rxrpc_process_connection(struct work_struct *);
-+void rxrpc_reject_packet(struct rxrpc_local *, struct sk_buff *);
-+void rxrpc_reject_packets(struct work_struct *);
- 
- /*
-  * ar-error.c
-  */
--extern void rxrpc_UDP_error_report(struct sock *);
--extern void rxrpc_UDP_error_handler(struct work_struct *);
-+void rxrpc_UDP_error_report(struct sock *);
-+void rxrpc_UDP_error_handler(struct work_struct *);
- 
- /*
-  * ar-input.c
-@@ -501,18 +496,17 @@ extern void rxrpc_UDP_error_handler(struct work_struct *);
- extern unsigned long rxrpc_ack_timeout;
- extern const char *rxrpc_pkts[];
- 
--extern void rxrpc_data_ready(struct sock *, int);
--extern int rxrpc_queue_rcv_skb(struct rxrpc_call *, struct sk_buff *, bool,
--			       bool);
--extern void rxrpc_fast_process_packet(struct rxrpc_call *, struct sk_buff *);
-+void rxrpc_data_ready(struct sock *, int);
-+int rxrpc_queue_rcv_skb(struct rxrpc_call *, struct sk_buff *, bool, bool);
-+void rxrpc_fast_process_packet(struct rxrpc_call *, struct sk_buff *);
- 
- /*
-  * ar-local.c
-  */
- extern rwlock_t rxrpc_local_lock;
--extern struct rxrpc_local *rxrpc_lookup_local(struct sockaddr_rxrpc *);
--extern void rxrpc_put_local(struct rxrpc_local *);
--extern void __exit rxrpc_destroy_all_locals(void);
-+struct rxrpc_local *rxrpc_lookup_local(struct sockaddr_rxrpc *);
-+void rxrpc_put_local(struct rxrpc_local *);
-+void __exit rxrpc_destroy_all_locals(void);
- 
- /*
-  * ar-key.c
-@@ -520,31 +514,29 @@ extern void __exit rxrpc_destroy_all_locals(void);
- extern struct key_type key_type_rxrpc;
- extern struct key_type key_type_rxrpc_s;
- 
--extern int rxrpc_request_key(struct rxrpc_sock *, char __user *, int);
--extern int rxrpc_server_keyring(struct rxrpc_sock *, char __user *, int);
--extern int rxrpc_get_server_data_key(struct rxrpc_connection *, const void *,
--				     time_t, u32);
-+int rxrpc_request_key(struct rxrpc_sock *, char __user *, int);
-+int rxrpc_server_keyring(struct rxrpc_sock *, char __user *, int);
-+int rxrpc_get_server_data_key(struct rxrpc_connection *, const void *, time_t,
-+			      u32);
- 
- /*
-  * ar-output.c
-  */
- extern int rxrpc_resend_timeout;
- 
--extern int rxrpc_send_packet(struct rxrpc_transport *, struct sk_buff *);
--extern int rxrpc_client_sendmsg(struct kiocb *, struct rxrpc_sock *,
--				struct rxrpc_transport *, struct msghdr *,
--				size_t);
--extern int rxrpc_server_sendmsg(struct kiocb *, struct rxrpc_sock *,
--				struct msghdr *, size_t);
-+int rxrpc_send_packet(struct rxrpc_transport *, struct sk_buff *);
-+int rxrpc_client_sendmsg(struct kiocb *, struct rxrpc_sock *,
-+			 struct rxrpc_transport *, struct msghdr *, size_t);
-+int rxrpc_server_sendmsg(struct kiocb *, struct rxrpc_sock *, struct msghdr *,
-+			 size_t);
- 
- /*
-  * ar-peer.c
-  */
--extern struct rxrpc_peer *rxrpc_get_peer(struct sockaddr_rxrpc *, gfp_t);
--extern void rxrpc_put_peer(struct rxrpc_peer *);
--extern struct rxrpc_peer *rxrpc_find_peer(struct rxrpc_local *,
--					  __be32, __be16);
--extern void __exit rxrpc_destroy_all_peers(void);
-+struct rxrpc_peer *rxrpc_get_peer(struct sockaddr_rxrpc *, gfp_t);
-+void rxrpc_put_peer(struct rxrpc_peer *);
-+struct rxrpc_peer *rxrpc_find_peer(struct rxrpc_local *, __be32, __be16);
-+void __exit rxrpc_destroy_all_peers(void);
- 
- /*
-  * ar-proc.c
-@@ -556,38 +548,36 @@ extern const struct file_operations rxrpc_connection_seq_fops;
- /*
-  * ar-recvmsg.c
-  */
--extern void rxrpc_remove_user_ID(struct rxrpc_sock *, struct rxrpc_call *);
--extern int rxrpc_recvmsg(struct kiocb *, struct socket *, struct msghdr *,
--			 size_t, int);
-+void rxrpc_remove_user_ID(struct rxrpc_sock *, struct rxrpc_call *);
-+int rxrpc_recvmsg(struct kiocb *, struct socket *, struct msghdr *, size_t,
-+		  int);
- 
- /*
-  * ar-security.c
-  */
--extern int rxrpc_register_security(struct rxrpc_security *);
--extern void rxrpc_unregister_security(struct rxrpc_security *);
--extern int rxrpc_init_client_conn_security(struct rxrpc_connection *);
--extern int rxrpc_init_server_conn_security(struct rxrpc_connection *);
--extern int rxrpc_secure_packet(const struct rxrpc_call *, struct sk_buff *,
--			       size_t, void *);
--extern int rxrpc_verify_packet(const struct rxrpc_call *, struct sk_buff *,
--			       u32 *);
--extern void rxrpc_clear_conn_security(struct rxrpc_connection *);
-+int rxrpc_register_security(struct rxrpc_security *);
-+void rxrpc_unregister_security(struct rxrpc_security *);
-+int rxrpc_init_client_conn_security(struct rxrpc_connection *);
-+int rxrpc_init_server_conn_security(struct rxrpc_connection *);
-+int rxrpc_secure_packet(const struct rxrpc_call *, struct sk_buff *, size_t,
-+			void *);
-+int rxrpc_verify_packet(const struct rxrpc_call *, struct sk_buff *, u32 *);
-+void rxrpc_clear_conn_security(struct rxrpc_connection *);
- 
- /*
-  * ar-skbuff.c
-  */
--extern void rxrpc_packet_destructor(struct sk_buff *);
-+void rxrpc_packet_destructor(struct sk_buff *);
- 
- /*
-  * ar-transport.c
-  */
--extern struct rxrpc_transport *rxrpc_get_transport(struct rxrpc_local *,
--						   struct rxrpc_peer *,
--						   gfp_t);
--extern void rxrpc_put_transport(struct rxrpc_transport *);
--extern void __exit rxrpc_destroy_all_transports(void);
--extern struct rxrpc_transport *rxrpc_find_transport(struct rxrpc_local *,
--						    struct rxrpc_peer *);
-+struct rxrpc_transport *rxrpc_get_transport(struct rxrpc_local *,
-+					    struct rxrpc_peer *, gfp_t);
-+void rxrpc_put_transport(struct rxrpc_transport *);
-+void __exit rxrpc_destroy_all_transports(void);
-+struct rxrpc_transport *rxrpc_find_transport(struct rxrpc_local *,
-+					     struct rxrpc_peer *);
- 
- /*
-  * debug tracing
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index be72f8c..94895d4 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -90,21 +90,21 @@ extern int tipc_random __read_mostly;
- /*
-  * Routines available to privileged subsystems
-  */
--extern int tipc_core_start_net(unsigned long);
--extern int  tipc_handler_start(void);
--extern void tipc_handler_stop(void);
--extern int  tipc_netlink_start(void);
--extern void tipc_netlink_stop(void);
--extern int  tipc_socket_init(void);
--extern void tipc_socket_stop(void);
--extern int tipc_sock_create_local(int type, struct socket **res);
--extern void tipc_sock_release_local(struct socket *sock);
--extern int tipc_sock_accept_local(struct socket *sock,
--				  struct socket **newsock, int flags);
-+int tipc_core_start_net(unsigned long);
-+int tipc_handler_start(void);
-+void tipc_handler_stop(void);
-+int tipc_netlink_start(void);
-+void tipc_netlink_stop(void);
-+int tipc_socket_init(void);
-+void tipc_socket_stop(void);
-+int tipc_sock_create_local(int type, struct socket **res);
-+void tipc_sock_release_local(struct socket *sock);
-+int tipc_sock_accept_local(struct socket *sock, struct socket **newsock,
-+			   int flags);
- 
- #ifdef CONFIG_SYSCTL
--extern int tipc_register_sysctl(void);
--extern void tipc_unregister_sysctl(void);
-+int tipc_register_sysctl(void);
-+void tipc_unregister_sysctl(void);
- #else
- #define tipc_register_sysctl() 0
- #define tipc_unregister_sysctl()
-@@ -201,6 +201,6 @@ static inline struct tipc_msg *buf_msg(struct sk_buff *skb)
- 	return (struct tipc_msg *)skb->data;
- }
- 
--extern struct sk_buff *tipc_buf_acquire(u32 size);
-+struct sk_buff *tipc_buf_acquire(u32 size);
- 
- #endif
-diff --git a/net/wimax/wimax-internal.h b/net/wimax/wimax-internal.h
-index 1e743d2..5dcd9c0 100644
---- a/net/wimax/wimax-internal.h
-+++ b/net/wimax/wimax-internal.h
-@@ -63,11 +63,11 @@ void __wimax_state_set(struct wimax_dev *wimax_dev, enum wimax_st state)
- {
- 	wimax_dev->state = state;
- }
--extern void __wimax_state_change(struct wimax_dev *, enum wimax_st);
-+void __wimax_state_change(struct wimax_dev *, enum wimax_st);
- 
- #ifdef CONFIG_DEBUG_FS
--extern int wimax_debugfs_add(struct wimax_dev *);
--extern void wimax_debugfs_rm(struct wimax_dev *);
-+int wimax_debugfs_add(struct wimax_dev *);
-+void wimax_debugfs_rm(struct wimax_dev *);
- #else
- static inline int wimax_debugfs_add(struct wimax_dev *wimax_dev)
- {
-@@ -76,13 +76,13 @@ static inline int wimax_debugfs_add(struct wimax_dev *wimax_dev)
- static inline void wimax_debugfs_rm(struct wimax_dev *wimax_dev) {}
- #endif
- 
--extern void wimax_id_table_add(struct wimax_dev *);
--extern struct wimax_dev *wimax_dev_get_by_genl_info(struct genl_info *, int);
--extern void wimax_id_table_rm(struct wimax_dev *);
--extern void wimax_id_table_release(void);
-+void wimax_id_table_add(struct wimax_dev *);
-+struct wimax_dev *wimax_dev_get_by_genl_info(struct genl_info *, int);
-+void wimax_id_table_rm(struct wimax_dev *);
-+void wimax_id_table_release(void);
- 
--extern int wimax_rfkill_add(struct wimax_dev *);
--extern void wimax_rfkill_rm(struct wimax_dev *);
-+int wimax_rfkill_add(struct wimax_dev *);
-+void wimax_rfkill_rm(struct wimax_dev *);
- 
- extern struct genl_family wimax_gnl_family;
- extern struct genl_multicast_group wimax_gnl_mcg;
-diff --git a/net/wireless/core.h b/net/wireless/core.h
-index b43efac..74beff1 100644
---- a/net/wireless/core.h
-+++ b/net/wireless/core.h
-@@ -234,10 +234,10 @@ struct cfg80211_beacon_registration {
+diff --git a/net/dccp/ackvec.h b/net/dccp/ackvec.h
+index a269aa7..3284bfa 100644
+--- a/net/dccp/ackvec.h
++++ b/net/dccp/ackvec.h
+@@ -101,16 +101,16 @@ struct dccp_ackvec_record {
+ 	u8		 avr_ack_nonce:1;
  };
  
- /* free object */
--extern void cfg80211_dev_free(struct cfg80211_registered_device *rdev);
-+void cfg80211_dev_free(struct cfg80211_registered_device *rdev);
+-extern int dccp_ackvec_init(void);
+-extern void dccp_ackvec_exit(void);
++int dccp_ackvec_init(void);
++void dccp_ackvec_exit(void);
  
--extern int cfg80211_dev_rename(struct cfg80211_registered_device *rdev,
--			       char *newname);
-+int cfg80211_dev_rename(struct cfg80211_registered_device *rdev,
-+			char *newname);
+-extern struct dccp_ackvec *dccp_ackvec_alloc(const gfp_t priority);
+-extern void dccp_ackvec_free(struct dccp_ackvec *av);
++struct dccp_ackvec *dccp_ackvec_alloc(const gfp_t priority);
++void dccp_ackvec_free(struct dccp_ackvec *av);
  
- void ieee80211_set_bitrate_flags(struct wiphy *wiphy);
+-extern void dccp_ackvec_input(struct dccp_ackvec *av, struct sk_buff *skb);
+-extern int  dccp_ackvec_update_records(struct dccp_ackvec *av, u64 seq, u8 sum);
+-extern void dccp_ackvec_clear_state(struct dccp_ackvec *av, const u64 ackno);
+-extern u16  dccp_ackvec_buflen(const struct dccp_ackvec *av);
++void dccp_ackvec_input(struct dccp_ackvec *av, struct sk_buff *skb);
++int dccp_ackvec_update_records(struct dccp_ackvec *av, u64 seq, u8 sum);
++void dccp_ackvec_clear_state(struct dccp_ackvec *av, const u64 ackno);
++u16 dccp_ackvec_buflen(const struct dccp_ackvec *av);
  
-diff --git a/net/wireless/sysfs.h b/net/wireless/sysfs.h
-index 65acbeb..b533ed7 100644
---- a/net/wireless/sysfs.h
-+++ b/net/wireless/sysfs.h
-@@ -1,8 +1,8 @@
- #ifndef __WIRELESS_SYSFS_H
- #define __WIRELESS_SYSFS_H
+ static inline bool dccp_ackvec_is_empty(const struct dccp_ackvec *av)
+ {
+@@ -133,7 +133,6 @@ struct dccp_ackvec_parsed {
+ 	struct list_head node;
+ };
  
--extern int wiphy_sysfs_init(void);
--extern void wiphy_sysfs_exit(void);
-+int wiphy_sysfs_init(void);
-+void wiphy_sysfs_exit(void);
+-extern int dccp_ackvec_parsed_add(struct list_head *head,
+-				  u8 *vec, u8 len, u8 nonce);
+-extern void dccp_ackvec_parsed_cleanup(struct list_head *parsed_chunks);
++int dccp_ackvec_parsed_add(struct list_head *head, u8 *vec, u8 len, u8 nonce);
++void dccp_ackvec_parsed_cleanup(struct list_head *parsed_chunks);
+ #endif /* _ACKVEC_H */
+diff --git a/net/dccp/ccid.h b/net/dccp/ccid.h
+index fb85d37..6eb837a 100644
+--- a/net/dccp/ccid.h
++++ b/net/dccp/ccid.h
+@@ -93,8 +93,8 @@ extern struct ccid_operations ccid2_ops;
+ extern struct ccid_operations ccid3_ops;
+ #endif
  
- extern struct class ieee80211_class;
+-extern int  ccid_initialize_builtins(void);
+-extern void ccid_cleanup_builtins(void);
++int ccid_initialize_builtins(void);
++void ccid_cleanup_builtins(void);
  
-diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
-index 716502a..0622d31 100644
---- a/net/xfrm/xfrm_hash.h
-+++ b/net/xfrm/xfrm_hash.h
-@@ -130,7 +130,7 @@ static inline unsigned int __addr_hash(const xfrm_address_t *daddr,
- 	return h & hmask;
+ struct ccid {
+ 	struct ccid_operations *ccid_ops;
+@@ -106,12 +106,12 @@ static inline void *ccid_priv(const struct ccid *ccid)
+ 	return (void *)ccid->ccid_priv;
  }
  
--extern struct hlist_head *xfrm_hash_alloc(unsigned int sz);
--extern void xfrm_hash_free(struct hlist_head *n, unsigned int sz);
-+struct hlist_head *xfrm_hash_alloc(unsigned int sz);
-+void xfrm_hash_free(struct hlist_head *n, unsigned int sz);
+-extern bool ccid_support_check(u8 const *ccid_array, u8 array_len);
+-extern int  ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len);
+-extern int  ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
+-					  char __user *, int __user *);
++bool ccid_support_check(u8 const *ccid_array, u8 array_len);
++int ccid_get_builtin_ccids(u8 **ccid_array, u8 *array_len);
++int ccid_getsockopt_builtin_ccids(struct sock *sk, int len,
++				  char __user *, int __user *);
  
- #endif /* _XFRM_HASH_H */
+-extern struct ccid *ccid_new(const u8 id, struct sock *sk, bool rx);
++struct ccid *ccid_new(const u8 id, struct sock *sk, bool rx);
+ 
+ static inline int ccid_get_current_rx_ccid(struct dccp_sock *dp)
+ {
+@@ -131,8 +131,8 @@ static inline int ccid_get_current_tx_ccid(struct dccp_sock *dp)
+ 	return ccid->ccid_ops->ccid_id;
+ }
+ 
+-extern void ccid_hc_rx_delete(struct ccid *ccid, struct sock *sk);
+-extern void ccid_hc_tx_delete(struct ccid *ccid, struct sock *sk);
++void ccid_hc_rx_delete(struct ccid *ccid, struct sock *sk);
++void ccid_hc_tx_delete(struct ccid *ccid, struct sock *sk);
+ 
+ /*
+  * Congestion control of queued data packets via CCID decision.
+diff --git a/net/dccp/ccids/lib/loss_interval.h b/net/dccp/ccids/lib/loss_interval.h
+index d1d2f53..57f631a 100644
+--- a/net/dccp/ccids/lib/loss_interval.h
++++ b/net/dccp/ccids/lib/loss_interval.h
+@@ -65,9 +65,9 @@ static inline u8 tfrc_lh_length(struct tfrc_loss_hist *lh)
+ 
+ struct tfrc_rx_hist;
+ 
+-extern int  tfrc_lh_interval_add(struct tfrc_loss_hist *, struct tfrc_rx_hist *,
+-				 u32 (*first_li)(struct sock *), struct sock *);
+-extern u8   tfrc_lh_update_i_mean(struct tfrc_loss_hist *lh, struct sk_buff *);
+-extern void tfrc_lh_cleanup(struct tfrc_loss_hist *lh);
++int tfrc_lh_interval_add(struct tfrc_loss_hist *, struct tfrc_rx_hist *,
++			 u32 (*first_li)(struct sock *), struct sock *);
++u8 tfrc_lh_update_i_mean(struct tfrc_loss_hist *lh, struct sk_buff *);
++void tfrc_lh_cleanup(struct tfrc_loss_hist *lh);
+ 
+ #endif /* _DCCP_LI_HIST_ */
+diff --git a/net/dccp/ccids/lib/packet_history.h b/net/dccp/ccids/lib/packet_history.h
+index 7ee4a9d..ee362b0 100644
+--- a/net/dccp/ccids/lib/packet_history.h
++++ b/net/dccp/ccids/lib/packet_history.h
+@@ -60,8 +60,8 @@ static inline struct tfrc_tx_hist_entry *
+ 	return head;
+ }
+ 
+-extern int  tfrc_tx_hist_add(struct tfrc_tx_hist_entry **headp, u64 seqno);
+-extern void tfrc_tx_hist_purge(struct tfrc_tx_hist_entry **headp);
++int tfrc_tx_hist_add(struct tfrc_tx_hist_entry **headp, u64 seqno);
++void tfrc_tx_hist_purge(struct tfrc_tx_hist_entry **headp);
+ 
+ /* Subtraction a-b modulo-16, respects circular wrap-around */
+ #define SUB16(a, b) (((a) + 16 - (b)) & 0xF)
+@@ -139,20 +139,17 @@ static inline bool tfrc_rx_hist_loss_pending(const struct tfrc_rx_hist *h)
+ 	return h->loss_count > 0;
+ }
+ 
+-extern void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h,
+-				    const struct sk_buff *skb, const u64 ndp);
++void tfrc_rx_hist_add_packet(struct tfrc_rx_hist *h, const struct sk_buff *skb,
++			     const u64 ndp);
+ 
+-extern int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb);
++int tfrc_rx_hist_duplicate(struct tfrc_rx_hist *h, struct sk_buff *skb);
+ 
+ struct tfrc_loss_hist;
+-extern int  tfrc_rx_handle_loss(struct tfrc_rx_hist *h,
+-				struct tfrc_loss_hist *lh,
+-				struct sk_buff *skb, const u64 ndp,
+-				u32 (*first_li)(struct sock *sk),
+-				struct sock *sk);
+-extern u32 tfrc_rx_hist_sample_rtt(struct tfrc_rx_hist *h,
+-				   const struct sk_buff *skb);
+-extern int tfrc_rx_hist_alloc(struct tfrc_rx_hist *h);
+-extern void tfrc_rx_hist_purge(struct tfrc_rx_hist *h);
++int tfrc_rx_handle_loss(struct tfrc_rx_hist *h, struct tfrc_loss_hist *lh,
++			struct sk_buff *skb, const u64 ndp,
++			u32 (*first_li)(struct sock *sk), struct sock *sk);
++u32 tfrc_rx_hist_sample_rtt(struct tfrc_rx_hist *h, const struct sk_buff *skb);
++int tfrc_rx_hist_alloc(struct tfrc_rx_hist *h);
++void tfrc_rx_hist_purge(struct tfrc_rx_hist *h);
+ 
+ #endif /* _DCCP_PKT_HIST_ */
+diff --git a/net/dccp/ccids/lib/tfrc.h b/net/dccp/ccids/lib/tfrc.h
+index ed698c4..40ee7d6 100644
+--- a/net/dccp/ccids/lib/tfrc.h
++++ b/net/dccp/ccids/lib/tfrc.h
+@@ -55,21 +55,21 @@ static inline u32 tfrc_ewma(const u32 avg, const u32 newval, const u8 weight)
+ 	return avg ? (weight * avg + (10 - weight) * newval) / 10 : newval;
+ }
+ 
+-extern u32  tfrc_calc_x(u16 s, u32 R, u32 p);
+-extern u32  tfrc_calc_x_reverse_lookup(u32 fvalue);
+-extern u32  tfrc_invert_loss_event_rate(u32 loss_event_rate);
++u32 tfrc_calc_x(u16 s, u32 R, u32 p);
++u32 tfrc_calc_x_reverse_lookup(u32 fvalue);
++u32 tfrc_invert_loss_event_rate(u32 loss_event_rate);
+ 
+-extern int  tfrc_tx_packet_history_init(void);
+-extern void tfrc_tx_packet_history_exit(void);
+-extern int  tfrc_rx_packet_history_init(void);
+-extern void tfrc_rx_packet_history_exit(void);
++int tfrc_tx_packet_history_init(void);
++void tfrc_tx_packet_history_exit(void);
++int tfrc_rx_packet_history_init(void);
++void tfrc_rx_packet_history_exit(void);
+ 
+-extern int  tfrc_li_init(void);
+-extern void tfrc_li_exit(void);
++int tfrc_li_init(void);
++void tfrc_li_exit(void);
+ 
+ #ifdef CONFIG_IP_DCCP_TFRC_LIB
+-extern int  tfrc_lib_init(void);
+-extern void tfrc_lib_exit(void);
++int tfrc_lib_init(void);
++void tfrc_lib_exit(void);
+ #else
+ #define tfrc_lib_init() (0)
+ #define tfrc_lib_exit()
+diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
+index 708e75b..3094878 100644
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -53,7 +53,7 @@ extern struct inet_hashinfo dccp_hashinfo;
+ 
+ extern struct percpu_counter dccp_orphan_count;
+ 
+-extern void dccp_time_wait(struct sock *sk, int state, int timeo);
++void dccp_time_wait(struct sock *sk, int state, int timeo);
+ 
+ /*
+  *  Set safe upper bounds for header and option length. Since Data Offset is 8
+@@ -224,114 +224,108 @@ static inline void dccp_csum_outgoing(struct sk_buff *skb)
+ 	skb->csum = skb_checksum(skb, 0, (cov > skb->len)? skb->len : cov, 0);
+ }
+ 
+-extern void dccp_v4_send_check(struct sock *sk, struct sk_buff *skb);
++void dccp_v4_send_check(struct sock *sk, struct sk_buff *skb);
+ 
+-extern int  dccp_retransmit_skb(struct sock *sk);
++int dccp_retransmit_skb(struct sock *sk);
+ 
+-extern void dccp_send_ack(struct sock *sk);
+-extern void dccp_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
+-				struct request_sock *rsk);
++void dccp_send_ack(struct sock *sk);
++void dccp_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
++			 struct request_sock *rsk);
+ 
+-extern void dccp_send_sync(struct sock *sk, const u64 seq,
+-			   const enum dccp_pkt_type pkt_type);
++void dccp_send_sync(struct sock *sk, const u64 seq,
++		    const enum dccp_pkt_type pkt_type);
+ 
+ /*
+  * TX Packet Dequeueing Interface
+  */
+-extern void		dccp_qpolicy_push(struct sock *sk, struct sk_buff *skb);
+-extern bool		dccp_qpolicy_full(struct sock *sk);
+-extern void		dccp_qpolicy_drop(struct sock *sk, struct sk_buff *skb);
+-extern struct sk_buff	*dccp_qpolicy_top(struct sock *sk);
+-extern struct sk_buff	*dccp_qpolicy_pop(struct sock *sk);
+-extern bool		dccp_qpolicy_param_ok(struct sock *sk, __be32 param);
++void dccp_qpolicy_push(struct sock *sk, struct sk_buff *skb);
++bool dccp_qpolicy_full(struct sock *sk);
++void dccp_qpolicy_drop(struct sock *sk, struct sk_buff *skb);
++struct sk_buff *dccp_qpolicy_top(struct sock *sk);
++struct sk_buff *dccp_qpolicy_pop(struct sock *sk);
++bool dccp_qpolicy_param_ok(struct sock *sk, __be32 param);
+ 
+ /*
+  * TX Packet Output and TX Timers
+  */
+-extern void   dccp_write_xmit(struct sock *sk);
+-extern void   dccp_write_space(struct sock *sk);
+-extern void   dccp_flush_write_queue(struct sock *sk, long *time_budget);
++void dccp_write_xmit(struct sock *sk);
++void dccp_write_space(struct sock *sk);
++void dccp_flush_write_queue(struct sock *sk, long *time_budget);
+ 
+-extern void dccp_init_xmit_timers(struct sock *sk);
++void dccp_init_xmit_timers(struct sock *sk);
+ static inline void dccp_clear_xmit_timers(struct sock *sk)
+ {
+ 	inet_csk_clear_xmit_timers(sk);
+ }
+ 
+-extern unsigned int dccp_sync_mss(struct sock *sk, u32 pmtu);
++unsigned int dccp_sync_mss(struct sock *sk, u32 pmtu);
+ 
+-extern const char *dccp_packet_name(const int type);
++const char *dccp_packet_name(const int type);
+ 
+-extern void dccp_set_state(struct sock *sk, const int state);
+-extern void dccp_done(struct sock *sk);
++void dccp_set_state(struct sock *sk, const int state);
++void dccp_done(struct sock *sk);
+ 
+-extern int  dccp_reqsk_init(struct request_sock *rq, struct dccp_sock const *dp,
+-			    struct sk_buff const *skb);
++int dccp_reqsk_init(struct request_sock *rq, struct dccp_sock const *dp,
++		    struct sk_buff const *skb);
+ 
+-extern int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb);
++int dccp_v4_conn_request(struct sock *sk, struct sk_buff *skb);
+ 
+-extern struct sock *dccp_create_openreq_child(struct sock *sk,
+-					      const struct request_sock *req,
+-					      const struct sk_buff *skb);
++struct sock *dccp_create_openreq_child(struct sock *sk,
++				       const struct request_sock *req,
++				       const struct sk_buff *skb);
+ 
+-extern int dccp_v4_do_rcv(struct sock *sk, struct sk_buff *skb);
++int dccp_v4_do_rcv(struct sock *sk, struct sk_buff *skb);
+ 
+-extern struct sock *dccp_v4_request_recv_sock(struct sock *sk,
+-					      struct sk_buff *skb,
+-					      struct request_sock *req,
+-					      struct dst_entry *dst);
+-extern struct sock *dccp_check_req(struct sock *sk, struct sk_buff *skb,
+-				   struct request_sock *req,
+-				   struct request_sock **prev);
++struct sock *dccp_v4_request_recv_sock(struct sock *sk, struct sk_buff *skb,
++				       struct request_sock *req,
++				       struct dst_entry *dst);
++struct sock *dccp_check_req(struct sock *sk, struct sk_buff *skb,
++			    struct request_sock *req,
++			    struct request_sock **prev);
+ 
+-extern int dccp_child_process(struct sock *parent, struct sock *child,
+-			      struct sk_buff *skb);
+-extern int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+-				  struct dccp_hdr *dh, unsigned int len);
+-extern int dccp_rcv_established(struct sock *sk, struct sk_buff *skb,
+-				const struct dccp_hdr *dh, const unsigned int len);
++int dccp_child_process(struct sock *parent, struct sock *child,
++		       struct sk_buff *skb);
++int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
++			   struct dccp_hdr *dh, unsigned int len);
++int dccp_rcv_established(struct sock *sk, struct sk_buff *skb,
++			 const struct dccp_hdr *dh, const unsigned int len);
+ 
+-extern int dccp_init_sock(struct sock *sk, const __u8 ctl_sock_initialized);
+-extern void dccp_destroy_sock(struct sock *sk);
++int dccp_init_sock(struct sock *sk, const __u8 ctl_sock_initialized);
++void dccp_destroy_sock(struct sock *sk);
+ 
+-extern void		dccp_close(struct sock *sk, long timeout);
+-extern struct sk_buff	*dccp_make_response(struct sock *sk,
+-					    struct dst_entry *dst,
+-					    struct request_sock *req);
++void dccp_close(struct sock *sk, long timeout);
++struct sk_buff *dccp_make_response(struct sock *sk, struct dst_entry *dst,
++				   struct request_sock *req);
+ 
+-extern int	   dccp_connect(struct sock *sk);
+-extern int	   dccp_disconnect(struct sock *sk, int flags);
+-extern int	   dccp_getsockopt(struct sock *sk, int level, int optname,
+-				   char __user *optval, int __user *optlen);
+-extern int	   dccp_setsockopt(struct sock *sk, int level, int optname,
+-				   char __user *optval, unsigned int optlen);
++int dccp_connect(struct sock *sk);
++int dccp_disconnect(struct sock *sk, int flags);
++int dccp_getsockopt(struct sock *sk, int level, int optname,
++		    char __user *optval, int __user *optlen);
++int dccp_setsockopt(struct sock *sk, int level, int optname,
++		    char __user *optval, unsigned int optlen);
+ #ifdef CONFIG_COMPAT
+-extern int	   compat_dccp_getsockopt(struct sock *sk,
+-				int level, int optname,
+-				char __user *optval, int __user *optlen);
+-extern int	   compat_dccp_setsockopt(struct sock *sk,
+-				int level, int optname,
+-				char __user *optval, unsigned int optlen);
++int compat_dccp_getsockopt(struct sock *sk, int level, int optname,
++			   char __user *optval, int __user *optlen);
++int compat_dccp_setsockopt(struct sock *sk, int level, int optname,
++			   char __user *optval, unsigned int optlen);
+ #endif
+-extern int	   dccp_ioctl(struct sock *sk, int cmd, unsigned long arg);
+-extern int	   dccp_sendmsg(struct kiocb *iocb, struct sock *sk,
+-				struct msghdr *msg, size_t size);
+-extern int	   dccp_recvmsg(struct kiocb *iocb, struct sock *sk,
+-				struct msghdr *msg, size_t len, int nonblock,
+-				int flags, int *addr_len);
+-extern void	   dccp_shutdown(struct sock *sk, int how);
+-extern int	   inet_dccp_listen(struct socket *sock, int backlog);
+-extern unsigned int dccp_poll(struct file *file, struct socket *sock,
+-			     poll_table *wait);
+-extern int	   dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr,
+-				   int addr_len);
+-
+-extern struct sk_buff *dccp_ctl_make_reset(struct sock *sk,
+-					   struct sk_buff *skb);
+-extern int	   dccp_send_reset(struct sock *sk, enum dccp_reset_codes code);
+-extern void	   dccp_send_close(struct sock *sk, const int active);
+-extern int	   dccp_invalid_packet(struct sk_buff *skb);
+-extern u32	   dccp_sample_rtt(struct sock *sk, long delta);
++int dccp_ioctl(struct sock *sk, int cmd, unsigned long arg);
++int dccp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
++		 size_t size);
++int dccp_recvmsg(struct kiocb *iocb, struct sock *sk,
++		 struct msghdr *msg, size_t len, int nonblock, int flags,
++		 int *addr_len);
++void dccp_shutdown(struct sock *sk, int how);
++int inet_dccp_listen(struct socket *sock, int backlog);
++unsigned int dccp_poll(struct file *file, struct socket *sock,
++		       poll_table *wait);
++int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len);
++
++struct sk_buff *dccp_ctl_make_reset(struct sock *sk, struct sk_buff *skb);
++int dccp_send_reset(struct sock *sk, enum dccp_reset_codes code);
++void dccp_send_close(struct sock *sk, const int active);
++int dccp_invalid_packet(struct sk_buff *skb);
++u32 dccp_sample_rtt(struct sock *sk, long delta);
+ 
+ static inline int dccp_bad_service_code(const struct sock *sk,
+ 					const __be32 service)
+@@ -475,25 +469,25 @@ static inline int dccp_ack_pending(const struct sock *sk)
+ 	return dccp_ackvec_pending(sk) || inet_csk_ack_scheduled(sk);
+ }
+ 
+-extern int  dccp_feat_signal_nn_change(struct sock *sk, u8 feat, u64 nn_val);
+-extern int  dccp_feat_finalise_settings(struct dccp_sock *dp);
+-extern int  dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq);
+-extern int  dccp_feat_insert_opts(struct dccp_sock*, struct dccp_request_sock*,
+-				  struct sk_buff *skb);
+-extern int  dccp_feat_activate_values(struct sock *sk, struct list_head *fn);
+-extern void dccp_feat_list_purge(struct list_head *fn_list);
+-
+-extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
+-extern int dccp_insert_options_rsk(struct dccp_request_sock*, struct sk_buff*);
+-extern int dccp_insert_option_elapsed_time(struct sk_buff *skb, u32 elapsed);
+-extern u32 dccp_timestamp(void);
+-extern void dccp_timestamping_init(void);
+-extern int dccp_insert_option(struct sk_buff *skb, unsigned char option,
+-			      const void *value, unsigned char len);
++int dccp_feat_signal_nn_change(struct sock *sk, u8 feat, u64 nn_val);
++int dccp_feat_finalise_settings(struct dccp_sock *dp);
++int dccp_feat_server_ccid_dependencies(struct dccp_request_sock *dreq);
++int dccp_feat_insert_opts(struct dccp_sock*, struct dccp_request_sock*,
++			  struct sk_buff *skb);
++int dccp_feat_activate_values(struct sock *sk, struct list_head *fn);
++void dccp_feat_list_purge(struct list_head *fn_list);
++
++int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
++int dccp_insert_options_rsk(struct dccp_request_sock *, struct sk_buff *);
++int dccp_insert_option_elapsed_time(struct sk_buff *skb, u32 elapsed);
++u32 dccp_timestamp(void);
++void dccp_timestamping_init(void);
++int dccp_insert_option(struct sk_buff *skb, unsigned char option,
++		       const void *value, unsigned char len);
+ 
+ #ifdef CONFIG_SYSCTL
+-extern int dccp_sysctl_init(void);
+-extern void dccp_sysctl_exit(void);
++int dccp_sysctl_init(void);
++void dccp_sysctl_exit(void);
+ #else
+ static inline int dccp_sysctl_init(void)
+ {
+diff --git a/net/dccp/feat.h b/net/dccp/feat.h
+index 90b957d..0e75ceb 100644
+--- a/net/dccp/feat.h
++++ b/net/dccp/feat.h
+@@ -107,13 +107,13 @@ extern unsigned long sysctl_dccp_sequence_window;
+ extern int	     sysctl_dccp_rx_ccid;
+ extern int	     sysctl_dccp_tx_ccid;
+ 
+-extern int  dccp_feat_init(struct sock *sk);
+-extern void dccp_feat_initialise_sysctls(void);
+-extern int  dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
+-				  u8 const *list, u8 len);
+-extern int  dccp_feat_parse_options(struct sock *, struct dccp_request_sock *,
+-				    u8 mand, u8 opt, u8 feat, u8 *val, u8 len);
+-extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
++int dccp_feat_init(struct sock *sk);
++void dccp_feat_initialise_sysctls(void);
++int dccp_feat_register_sp(struct sock *sk, u8 feat, u8 is_local,
++			  u8 const *list, u8 len);
++int dccp_feat_parse_options(struct sock *, struct dccp_request_sock *,
++			    u8 mand, u8 opt, u8 feat, u8 *val, u8 len);
++int dccp_feat_clone_list(struct list_head const *, struct list_head *);
+ 
+ /*
+  * Encoding variable-length options and their maximum length.
+@@ -127,11 +127,11 @@ extern int  dccp_feat_clone_list(struct list_head const *, struct list_head *);
+  */
+ #define DCCP_OPTVAL_MAXLEN	6
+ 
+-extern void dccp_encode_value_var(const u64 value, u8 *to, const u8 len);
+-extern u64  dccp_decode_value_var(const u8 *bf, const u8 len);
+-extern u64  dccp_feat_nn_get(struct sock *sk, u8 feat);
++void dccp_encode_value_var(const u64 value, u8 *to, const u8 len);
++u64 dccp_decode_value_var(const u8 *bf, const u8 len);
++u64 dccp_feat_nn_get(struct sock *sk, u8 feat);
+ 
+-extern int  dccp_insert_option_mandatory(struct sk_buff *skb);
+-extern int  dccp_insert_fn_opt(struct sk_buff *skb, u8 type, u8 feat,
+-			       u8 *val, u8 len, bool repeat_first);
++int dccp_insert_option_mandatory(struct sk_buff *skb);
++int dccp_insert_fn_opt(struct sk_buff *skb, u8 type, u8 feat, u8 *val, u8 len,
++		       bool repeat_first);
+ #endif /* _DCCP_FEAT_H */
 -- 
 1.8.1.2.459.gbcd45b4.dirty
