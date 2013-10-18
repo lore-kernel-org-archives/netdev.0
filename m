@@ -1,64 +1,38 @@
-From: Seif Mazareeb <seif.mazareeb@gmail.com>
-Subject: [PATCH 1/1] net: fix cipso packet validation when !NETLABEL
-Date: Thu, 17 Oct 2013 20:33:21 -0700
-Message-ID: <1382067201-8286-1-git-send-email-seif.mazareeb@gmail.com>
-Cc: seif@marvell.com, netdev@vger.kernel.org
-To: paul@paul-moore.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:45245 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753519Ab3JRDeM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Oct 2013 23:34:12 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rr4so3205343pbb.6
-        for <netdev@vger.kernel.org>; Thu, 17 Oct 2013 20:34:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net V2 1/2] virtio-net: don't respond to cpu hotplug
+	notifier if we're not ready
+Date: Thu, 17 Oct 2013 23:48:16 -0400 (EDT)
+Message-ID: <20131017.234816.1960399038382112445.davem@davemloft.net>
+References: <8738o0aj9u.fsf@rustcorp.com.au>
+	<20131017050710.GA12141@redhat.com>
+	<87d2n3s89s.fsf@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, gregkh@linuxfoundation.org
+To: rusty@rustcorp.com.au
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <87d2n3s89s.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Seif Mazareeb <seif@marvell.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Fri, 18 Oct 2013 11:30:15 +1030
 
-When CONFIG_NETLABEL is disabled, the cipso_v4_validate() function could loop
-forever in the main loop if opt[opt_iter +1] == 0, this will causing a kernel
-crash in an SMP system, since the CPU executing this function will
-stall /not respond to IPIs.
+> Asking people to express 'CC: stable' in words is error-prone; if Dave
+> wants to filter it, he's quite capable.
 
-This problem can be reproduced by running the IP Stack Integrity Checker
-(http://isic.sourceforge.net) using the following command on a Linux machine
-connected to DUT:
+Filtering it one time is one thing.
 
-"icmpsic -s rand -d <DUT IP address> -r 123456"
-wait (1-2 min)
+Potentially acting on that filter 100 or so times a day...
 
-Signed-off-by: Seif Mazareeb <seif@marvell.com>
----
- include/net/cipso_ipv4.h | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h
-index a7a683e..a8c2ef6 100644
---- a/include/net/cipso_ipv4.h
-+++ b/include/net/cipso_ipv4.h
-@@ -290,6 +290,7 @@ static inline int cipso_v4_validate(const struct sk_buff *skb,
- 	unsigned char err_offset = 0;
- 	u8 opt_len = opt[1];
- 	u8 opt_iter;
-+	u8 tag_len;
- 
- 	if (opt_len < 8) {
- 		err_offset = 1;
-@@ -302,11 +303,12 @@ static inline int cipso_v4_validate(const struct sk_buff *skb,
- 	}
- 
- 	for (opt_iter = 6; opt_iter < opt_len;) {
--		if (opt[opt_iter + 1] > (opt_len - opt_iter)) {
-+		tag_len = opt[opt_iter + 1];
-+		if ((tag_len == 0) || (opt[opt_iter + 1] > (opt_len - opt_iter))) {
- 			err_offset = opt_iter + 1;
- 			goto out;
- 		}
--		opt_iter += opt[opt_iter + 1];
-+		opt_iter += tag_len;
- 	}
- 
- out:
--- 
-1.8.1.2
+That's completely another.
