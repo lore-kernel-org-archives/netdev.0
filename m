@@ -1,7 +1,7 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next v4 2/8] qlcnic: Enhance ethtool to display ring indices and interrupt mask
-Date: Fri, 18 Oct 2013 12:22:29 -0400
-Message-ID: <2ade3eacb60585e321f2fe6c9e1bab46e5984784.1382090311.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next v4 3/8] qlcnic: Firmware dump collection when auto recovery is disabled.
+Date: Fri, 18 Oct 2013 12:22:30 -0400
+Message-ID: <2d006c733f4e529fe8f40be671e59d407faf442d.1382090311.git.himanshu.madhani@qlogic.com>
 References: <cover.1382090311.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,146 +10,93 @@ Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
 	<himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:38547 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:12258 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756556Ab3JRQxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 12:53:15 -0400
+	by vger.kernel.org with ESMTP id S1756529Ab3JRQxO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 12:53:14 -0400
 In-Reply-To: <cover.1382090311.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pratik Pujar <pratik.pujar@qlogic.com>
 
-o Updated ethtool -d <ethX> option to display ring indices for Transmit(Tx),
-  Receive(Rx), and Status(St) rings.
-o Updated ethtool -d <ethX> option to display ring interrupt mask for Transmit(Tx),
-  and Status(St) rings.
+o Allow collecting the firmware dump of halted firmware when auto
+  recovery is disabled.
 
 Signed-off-by: Pratik Pujar <pratik.pujar@qlogic.com>
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  8 ++--
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    | 54 ++++++++++++++++------
- 2 files changed, 44 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c | 11 +++++++++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c      |  7 ++++++-
+ 2 files changed, 17 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 66e94dc..c2df4ce 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -3267,12 +3267,12 @@ int qlcnic_83xx_reg_test(struct qlcnic_adapter *adapter)
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index f09e787..d303fab 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -818,6 +818,7 @@ static int qlcnic_83xx_idc_ready_state(struct qlcnic_adapter *adapter)
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 	struct qlcnic_mailbox *mbx = ahw->mailbox;
+ 	int ret = 0;
++	u32 owner;
+ 	u32 val;
  
--int qlcnic_83xx_get_regs_len(struct qlcnic_adapter *adapter)
-+inline int qlcnic_83xx_get_regs_len(struct qlcnic_adapter *adapter)
- {
- 	return (ARRAY_SIZE(qlcnic_83xx_ext_reg_tbl) *
--		sizeof(adapter->ahw->ext_reg_tbl)) +
--		(ARRAY_SIZE(qlcnic_83xx_reg_tbl) +
--		sizeof(adapter->ahw->reg_tbl));
-+		sizeof(*adapter->ahw->ext_reg_tbl)) +
-+		(ARRAY_SIZE(qlcnic_83xx_reg_tbl) *
-+		sizeof(*adapter->ahw->reg_tbl));
- }
- 
- int qlcnic_83xx_get_registers(struct qlcnic_adapter *adapter, u32 *regs_buff)
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index ebe4c86..66355b7 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -187,8 +187,8 @@ static int qlcnic_dev_statistics_len(struct qlcnic_adapter *adapter)
- 		return -1;
- }
- 
--#define QLCNIC_RING_REGS_COUNT	20
--#define QLCNIC_RING_REGS_LEN	(QLCNIC_RING_REGS_COUNT * sizeof(u32))
-+#define	QLCNIC_TX_INTR_NOT_CONFIGURED	0X78563412
-+
- #define QLCNIC_MAX_EEPROM_LEN   1024
- 
- static const u32 diag_registers[] = {
-@@ -219,7 +219,15 @@ static const u32 ext_diag_registers[] = {
- };
- 
- #define QLCNIC_MGMT_API_VERSION	2
--#define QLCNIC_ETHTOOL_REGS_VER	3
-+#define QLCNIC_ETHTOOL_REGS_VER	4
-+
-+static inline int qlcnic_get_ring_regs_len(struct qlcnic_adapter *adapter)
-+{
-+	int ring_regs_cnt = (adapter->max_drv_tx_rings * 5) +
-+			    (adapter->max_rds_rings * 2) +
-+			    (adapter->max_sds_rings * 3) + 5;
-+	return ring_regs_cnt * sizeof(u32);
-+}
- 
- static int qlcnic_get_regs_len(struct net_device *dev)
- {
-@@ -231,7 +239,9 @@ static int qlcnic_get_regs_len(struct net_device *dev)
- 	else
- 		len = sizeof(ext_diag_registers) + sizeof(diag_registers);
- 
--	return QLCNIC_RING_REGS_LEN + len + QLCNIC_DEV_INFO_SIZE + 1;
-+	len += ((QLCNIC_DEV_INFO_SIZE + 2) * sizeof(u32));
-+	len += qlcnic_get_ring_regs_len(adapter);
-+	return len;
- }
- 
- static int qlcnic_get_eeprom_len(struct net_device *dev)
-@@ -493,6 +503,8 @@ qlcnic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
- 	struct qlcnic_adapter *adapter = netdev_priv(dev);
- 	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
- 	struct qlcnic_host_sds_ring *sds_ring;
-+	struct qlcnic_host_rds_ring *rds_rings;
-+	struct qlcnic_host_tx_ring *tx_ring;
- 	u32 *regs_buff = p;
- 	int ring, i = 0;
- 
-@@ -512,21 +524,35 @@ qlcnic_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
- 	if (!test_bit(__QLCNIC_DEV_UP, &adapter->state))
- 		return;
- 
--	regs_buff[i++] = 0xFFEFCDAB; /* Marker btw regs and ring count*/
--
--	regs_buff[i++] = 1; /* No. of tx ring */
--	regs_buff[i++] = le32_to_cpu(*(adapter->tx_ring->hw_consumer));
--	regs_buff[i++] = readl(adapter->tx_ring->crb_cmd_producer);
--
--	regs_buff[i++] = 2; /* No. of rx ring */
--	regs_buff[i++] = readl(recv_ctx->rds_rings[0].crb_rcv_producer);
--	regs_buff[i++] = readl(recv_ctx->rds_rings[1].crb_rcv_producer);
-+	/* Marker btw regs and TX ring count */
-+	regs_buff[i++] = 0xFFEFCDAB;
-+
-+	regs_buff[i++] = adapter->max_drv_tx_rings; /* No. of TX ring */
-+	for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
-+		tx_ring = &adapter->tx_ring[ring];
-+		regs_buff[i++] = le32_to_cpu(*(tx_ring->hw_consumer));
-+		regs_buff[i++] = tx_ring->sw_consumer;
-+		regs_buff[i++] = readl(tx_ring->crb_cmd_producer);
-+		regs_buff[i++] = tx_ring->producer;
-+		if (tx_ring->crb_intr_mask)
-+			regs_buff[i++] = readl(tx_ring->crb_intr_mask);
-+		else
-+			regs_buff[i++] = QLCNIC_TX_INTR_NOT_CONFIGURED;
-+	}
- 
--	regs_buff[i++] = adapter->max_sds_rings;
-+	regs_buff[i++] = adapter->max_rds_rings; /* No. of RX ring */
-+	for (ring = 0; ring < adapter->max_rds_rings; ring++) {
-+		rds_rings = &recv_ctx->rds_rings[ring];
-+		regs_buff[i++] = readl(rds_rings->crb_rcv_producer);
-+		regs_buff[i++] = rds_rings->producer;
-+	}
- 
-+	regs_buff[i++] = adapter->max_sds_rings; /* No. of SDS ring */
- 	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
- 		sds_ring = &(recv_ctx->sds_rings[ring]);
- 		regs_buff[i++] = readl(sds_ring->crb_sts_consumer);
-+		regs_buff[i++] = sds_ring->consumer;
-+		regs_buff[i++] = readl(sds_ring->crb_intr_mask);
+ 	/* Perform NIC configuration based ready state entry actions */
+@@ -846,6 +847,10 @@ static int qlcnic_83xx_idc_ready_state(struct qlcnic_adapter *adapter)
+ 			clear_bit(QLC_83XX_MBX_READY, &mbx->status);
+ 			set_bit(__QLCNIC_RESETTING, &adapter->state);
+ 			qlcnic_83xx_idc_enter_need_reset_state(adapter, 1);
++		}  else {
++			owner = qlcnic_83xx_idc_find_reset_owner_id(adapter);
++			if (ahw->pci_func == owner)
++				qlcnic_dump_fw(adapter);
+ 		}
+ 		return -EIO;
  	}
- }
+@@ -1058,6 +1063,12 @@ void qlcnic_83xx_idc_poll_dev_state(struct work_struct *work)
+ 	adapter->ahw->idc.prev_state = adapter->ahw->idc.curr_state;
+ 	qlcnic_83xx_periodic_tasks(adapter);
  
++	/* Do not reschedule if firmaware is in hanged state and auto
++	 * recovery is disabled
++	 */
++	if ((adapter->flags & QLCNIC_FW_HANG) && !qlcnic_auto_fw_reset)
++		return;
++
+ 	/* Re-schedule the function */
+ 	if (test_bit(QLC_83XX_MODULE_LOADED, &adapter->ahw->idc.status))
+ 		qlcnic_schedule_work(adapter, qlcnic_83xx_idc_poll_dev_state,
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 55e8b23..5195972 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -3353,6 +3353,8 @@ done:
+ static int
+ qlcnic_check_health(struct qlcnic_adapter *adapter)
+ {
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
++	struct qlcnic_fw_dump *fw_dump = &ahw->fw_dump;
+ 	u32 state = 0, heartbeat;
+ 	u32 peg_status;
+ 	int err = 0;
+@@ -3377,7 +3379,7 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
+ 		if (adapter->need_fw_reset)
+ 			goto detach;
+ 
+-		if (adapter->ahw->reset_context && qlcnic_auto_fw_reset)
++		if (ahw->reset_context && qlcnic_auto_fw_reset)
+ 			qlcnic_reset_hw_context(adapter);
+ 
+ 		return 0;
+@@ -3420,6 +3422,9 @@ detach:
+ 
+ 		qlcnic_schedule_work(adapter, qlcnic_detach_work, 0);
+ 		QLCDB(adapter, DRV, "fw recovery scheduled.\n");
++	} else if (!qlcnic_auto_fw_reset && fw_dump->enable &&
++		   adapter->flags & QLCNIC_FW_RESET_OWNER) {
++		qlcnic_dump_fw(adapter);
+ 	}
+ 
+ 	return 1;
 -- 
 1.8.1.4
