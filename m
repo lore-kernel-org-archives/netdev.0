@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: Do not trigger BUG_ON when deleting assoc
- without primary path
-Date: Fri, 18 Oct 2013 16:38:43 -0400 (EDT)
-Message-ID: <20131018.163843.394049429297788865.davem@davemloft.net>
-References: <1382031042-27339-1-git-send-email-vyasevich@gmail.com>
+Subject: Re: [PATCH net] qlcnic: Validate Tx queue only for 82xx adapters.
+Date: Fri, 18 Oct 2013 16:39:55 -0400 (EDT)
+Message-ID: <20131018.163955.575448416725967173.davem@davemloft.net>
+References: <ee136cd9c8e22123662b55a614e509277cfeba40.1382067199.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Mark.Thomas@metaswitch.com, dborkman@redhat.com,
-	nhorman@tuxdriver.com
-To: vyasevich@gmail.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: himanshu.madhani@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58263 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58272 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751013Ab3JRUip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 16:38:45 -0400
-In-Reply-To: <1382031042-27339-1-git-send-email-vyasevich@gmail.com>
+	with ESMTP id S1753193Ab3JRUj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 16:39:56 -0400
+In-Reply-To: <ee136cd9c8e22123662b55a614e509277cfeba40.1382067199.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevich@gmail.com>
-Date: Thu, 17 Oct 2013 13:30:42 -0400
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Date: Thu, 17 Oct 2013 18:26:38 -0400
 
-> It is possible to enter sctp_cmd_delete_tcb() without having a
-> primary path.  The situations this most often happens in is
-> when duplication cookie processing is triggered.  In this
-> case, we are deleting a temporarily created association that
-> is not fully populated.   Additially, at the time we
-> are deleting the offending association, it is really too
-> late to issue a BUG!
+> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+> 
+> o validate Tx queue only in case of adapters which supports
+>   multi Tx queue.
+> 
+>   This patch is to fix regression introduced in commit
+>   aa4a1f7df7cbb98797c9f4edfde3c726e2b3841f
+>   "qlcnic: Enable Tx queue changes using ethtool for 82xx Series adapter"
+> 
+> Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-Vlad, it looks like you and Daniel are working on an alternative
-scheme to handle this issue.  So I just toss this patch for now?
+Applied, thanks.
