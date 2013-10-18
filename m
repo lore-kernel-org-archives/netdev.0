@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: remove redundant code in
- __tcp_retransmit_skb()
-Date: Fri, 18 Oct 2013 16:22:29 -0400 (EDT)
-Message-ID: <20131018.162229.431923064763994923.davem@davemloft.net>
-References: <1381941411-30645-1-git-send-email-ncardwell@google.com>
+Subject: Re: [PATCH net-next] em_ipset: use dev_net() accessor
+Date: Fri, 18 Oct 2013 16:23:29 -0400 (EDT)
+Message-ID: <20131018.162329.1919694379284940208.davem@davemloft.net>
+References: <20131016153949.5f2257b4@nehalam.linuxnetplumber.net>
+	<525F2D7D.7010708@infradead.org>
+	<20131016172934.7913a297@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, ycheng@google.com
-To: ncardwell@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58130 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751735Ab3JRUWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 16:22:31 -0400
-In-Reply-To: <1381941411-30645-1-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rdunlap@infradead.org, lve@guap.ru, thierry.reding@gmail.com,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	broonie@kernel.org, netdev@vger.kernel.org, jhs@mojatatu.com
+To: stephen@networkplumber.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20131016172934.7913a297@nehalam.linuxnetplumber.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Wed, 16 Oct 2013 12:36:51 -0400
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Wed, 16 Oct 2013 17:29:34 -0700
 
-> Remove the specialized code in __tcp_retransmit_skb() that tries to trim
-> any ACKed payload preceding a FIN before we retransmit (this was added
-> in 1999 in v2.2.3pre3). This trimming code was made unreachable by the
-> more general code added above it that uses tcp_trim_head() to trim any
-> ACKed payload, with or without a FIN (this was added in "[NET]: Add
-> segmentation offload support to TCP." in 2002 circa v2.5.33).
+> Randy found that if network namespace not enabled then
+> nd_net does not exist and would cause compilation failure.
 > 
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> This is handled correctly by using the dev_net() macro.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Acked-by: Randy Dunlap <rdunlap@infradead.org>
 
-Applied, thanks Neal.
+Applied, thanks everyone.
