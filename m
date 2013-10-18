@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V2 1/2] virtio-net: don't respond to cpu hotplug
-	notifier if we're not ready
-Date: Thu, 17 Oct 2013 23:48:16 -0400 (EDT)
-Message-ID: <20131017.234816.1960399038382112445.davem@davemloft.net>
-References: <8738o0aj9u.fsf@rustcorp.com.au>
-	<20131017050710.GA12141@redhat.com>
-	<87d2n3s89s.fsf@rustcorp.com.au>
+Subject: Re: [PATCH 00/15] net: ethernet: remove unnecessary
+ pci_set_drvdata() part 1
+Date: Fri, 18 Oct 2013 00:04:30 -0400 (EDT)
+Message-ID: <20131018.000430.982140151062639781.davem@davemloft.net>
+References: <00ae01cecb97$44d45770$ce7d0650$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, gregkh@linuxfoundation.org
-To: rusty@rustcorp.com.au
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87d2n3s89s.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jg1.han@samsung.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50270 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750774Ab3JREEb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 00:04:31 -0400
+In-Reply-To: <00ae01cecb97$44d45770$ce7d0650$%han@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Fri, 18 Oct 2013 11:30:15 +1030
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Fri, 18 Oct 2013 09:16:19 +0900
 
-> Asking people to express 'CC: stable' in words is error-prone; if Dave
-> wants to filter it, he's quite capable.
+> Since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
+> (device-core: Ensure drvdata = NULL when no driver is bound),
+> the driver core clears the driver data to NULL after device_release
+> or on probe failure. Thus, it is not needed to manually clear the
+> device driver data to NULL.
 
-Filtering it one time is one thing.
-
-Potentially acting on that filter 100 or so times a day...
-
-That's completely another.
+Series applied, thanks.
