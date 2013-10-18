@@ -1,137 +1,65 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 3/4] ipv6: Add a receive path hook for vti6 in xfrm6_mode_tunnel.
-Date: Fri, 18 Oct 2013 10:42:09 +0200
-Message-ID: <1382085730-3415-4-git-send-email-steffen.klassert@secunet.com>
-References: <1382085730-3415-1-git-send-email-steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net] xen-netback: add the scenario which now
+ beyond the range time_after_eq().
+Date: Fri, 18 Oct 2013 16:55:11 +0800
+Message-ID: <5260F76F.2080508@oracle.com>
+References: <1381944167-24918-1-git-send-email-jianhai.luan@oracle.com> <525FBB4F02000078000FBB30@nat28.tlf.novell.com> <525FA79F.8060601@oracle.com> <525FC98002000078000FBBB5@nat28.tlf.novell.com> <52601274.5010008@oracle.com> <526102DE02000078000FBFBB@nat28.tlf.novell.com> <5260EDD8.4020608@oracle.com> <52610CD202000078000FC00B@nat28.tlf.novell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: wei.liu2@citrix.com, ian.campbell@citrix.com,
+	netdev@vger.kernel.org, david.vrabel@citrix.com,
+	xen-devel@lists.xenproject.org,
+	jianhai luan <jianhai.luan@oracle.com>
+To: Jan Beulich <JBeulich@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:51712 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753198Ab3JRImW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Oct 2013 04:42:22 -0400
-In-Reply-To: <1382085730-3415-1-git-send-email-steffen.klassert@secunet.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:47849 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751641Ab3JRIzd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 04:55:33 -0400
+In-Reply-To: <52610CD202000078000FC00B@nat28.tlf.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a receive path hook for the IPsec vritual tunnel interface.
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- include/net/xfrm.h           |    2 ++
- net/ipv6/xfrm6_mode_tunnel.c |   69 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 71 insertions(+)
+On 2013-10-18 16:26, Jan Beulich wrote:
+>>>> On 18.10.13 at 10:14, annie li <annie.li@oracle.com> wrote:
+>> On 2013-10-18 15:43, Jan Beulich wrote:
+>>>>>> On 17.10.13 at 18:38, annie li <annie.li@oracle.com> wrote:
+>>>> On 2013-10-17 17:26, Jan Beulich wrote:
+>>>>>> Yes, the issue only can be  reproduced in 32-bit Dom0 (Beyond
+>>>>>> MAX_ULONG/2 in 64-bit will need long long time)
+>>>>>>
+>>>>>> I think the gap should be think all environment even now extending 480+.
+>>>>>> if now fall in the gap,  one timer will be pending and replenish will be
+>>>>>> in time.  Please run the attachment test program.
+>>>>> Not sure what this is supposed to tell me. I recognize that there
+>>>>> are overflow conditions not handled properly, but (a) I have a
+>>>>> hard time thinking of a sensible guest that sits idle for over 240
+>>>>> days (host uptime usually isn't even coming close to that due to
+>>>>> maintenance requirements) and (b) if there is such a sensible
+>>>>> guest, then I can't see why dealing with one being idle for over
+>>>>> 480 days should be required too.
+>>>>>
+>>>> If the guest contains multiple NICs, that situation probably happens
+>>>> when one NIC keeps idle and others work under load. BTW, how do you get
+>>>> the 240?
+>>> 2^31 / 100 / 60 / 60 / 24
+>>>
+>>> Obviously with HZ=1000 the span would be smaller by a factor
+>>> of 10, which would make it even more clear that doubling the
+>>> span doesn't really help.
+>> My understanding is this patch does not simply double the span, it is
+>> just stricter than the original one. Please check my previous comments,
+>> I paste it here.
+> No, the code (on a 32-bit arch) just _can't_ handle jiffies differences
+> beyond 2^32, no matter how cleverly you use the respective macros.
+> All arithmetic there is done modulo 2^32.
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index b8a9ed8..6b82fdf 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1508,6 +1508,8 @@ int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
- void xfrm4_local_error(struct sk_buff *skb, u32 mtu);
- int xfrm4_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
- int xfrm4_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
-+int xfrm6_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler);
-+int xfrm6_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler);
- int xfrm6_extract_header(struct sk_buff *skb);
- int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb);
- int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
-diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
-index 4770d51..cb04f7a 100644
---- a/net/ipv6/xfrm6_mode_tunnel.c
-+++ b/net/ipv6/xfrm6_mode_tunnel.c
-@@ -18,6 +18,65 @@
- #include <net/ipv6.h>
- #include <net/xfrm.h>
- 
-+/* Informational hook. The decap is still done here. */
-+static struct xfrm_tunnel_notifier __rcu *rcv_notify_handlers __read_mostly;
-+static DEFINE_MUTEX(xfrm6_mode_tunnel_input_mutex);
-+
-+int xfrm6_mode_tunnel_input_register(struct xfrm_tunnel_notifier *handler)
-+{
-+	struct xfrm_tunnel_notifier __rcu **pprev;
-+	struct xfrm_tunnel_notifier *t;
-+	int ret = -EEXIST;
-+	int priority = handler->priority;
-+
-+	mutex_lock(&xfrm6_mode_tunnel_input_mutex);
-+
-+	for (pprev = &rcv_notify_handlers;
-+	     (t = rcu_dereference_protected(*pprev,
-+	     lockdep_is_held(&xfrm6_mode_tunnel_input_mutex))) != NULL;
-+	     pprev = &t->next) {
-+		if (t->priority > priority)
-+			break;
-+		if (t->priority == priority)
-+			goto err;
-+
-+	}
-+
-+	handler->next = *pprev;
-+	rcu_assign_pointer(*pprev, handler);
-+
-+	ret = 0;
-+
-+err:
-+	mutex_unlock(&xfrm6_mode_tunnel_input_mutex);
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(xfrm6_mode_tunnel_input_register);
-+
-+int xfrm6_mode_tunnel_input_deregister(struct xfrm_tunnel_notifier *handler)
-+{
-+	struct xfrm_tunnel_notifier __rcu **pprev;
-+	struct xfrm_tunnel_notifier *t;
-+	int ret = -ENOENT;
-+
-+	mutex_lock(&xfrm6_mode_tunnel_input_mutex);
-+	for (pprev = &rcv_notify_handlers;
-+	     (t = rcu_dereference_protected(*pprev,
-+	     lockdep_is_held(&xfrm6_mode_tunnel_input_mutex))) != NULL;
-+	     pprev = &t->next) {
-+		if (t == handler) {
-+			*pprev = handler->next;
-+			ret = 0;
-+			break;
-+		}
-+	}
-+	mutex_unlock(&xfrm6_mode_tunnel_input_mutex);
-+	synchronize_net();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(xfrm6_mode_tunnel_input_deregister);
-+
- static inline void ipip6_ecn_decapsulate(struct sk_buff *skb)
- {
- 	const struct ipv6hdr *outer_iph = ipv6_hdr(skb);
-@@ -63,8 +122,15 @@ static int xfrm6_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- 	return 0;
- }
- 
-+#define for_each_input_rcu(head, handler)	\
-+	for (handler = rcu_dereference(head);	\
-+	     handler != NULL;			\
-+	     handler = rcu_dereference(handler->next))
-+
-+
- static int xfrm6_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
- {
-+	struct xfrm_tunnel_notifier *handler;
- 	int err = -EINVAL;
- 
- 	if (XFRM_MODE_SKB_CB(skb)->protocol != IPPROTO_IPV6)
-@@ -72,6 +138,9 @@ static int xfrm6_mode_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
- 	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
- 		goto out;
- 
-+	for_each_input_rcu(rcv_notify_handlers, handler)
-+		handler->handler(skb);
-+
- 	err = skb_unclone(skb, GFP_ATOMIC);
- 	if (err)
- 		goto out;
--- 
-1.7.9.5
+On 32-bit arch, the jiffies difference beyond 2^32 is only in theory, 
+and the real value of jiffies would wrap around after 2^32. Then it will 
+still be verified by time_in_range_open, the code will either replenish 
+the credit or hit the timer soon.
+
+Thanks
+Annie
