@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][net-next] gianfar: Simplify MQ polling to avoid soft
- lockup
-Date: Fri, 18 Oct 2013 15:55:09 -0400 (EDT)
-Message-ID: <20131018.155509.1014087515327657926.davem@davemloft.net>
-References: <1381759509-26882-1-git-send-email-claudiu.manoil@freescale.com>
+Subject: Re: [PATCH net-next] {selinux, af_key} Rework
+ pfkey_sadb2xfrm_user_sec_ctx
+Date: Fri, 18 Oct 2013 15:58:33 -0400 (EDT)
+Message-ID: <20131018.155833.1412406960170647411.davem@davemloft.net>
+References: <1381904114-29556-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: claudiu.manoil@freescale.com
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: fan.du@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57937 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58007 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757695Ab3JRTzN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 15:55:13 -0400
-In-Reply-To: <1381759509-26882-1-git-send-email-claudiu.manoil@freescale.com>
+	with ESMTP id S1752230Ab3JRT6e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 15:58:34 -0400
+In-Reply-To: <1381904114-29556-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Date: Mon, 14 Oct 2013 17:05:09 +0300
+From: Fan Du <fan.du@windriver.com>
+Date: Wed, 16 Oct 2013 14:15:14 +0800
 
-> Under certain low traffic conditions, the single core
-> devices with multiple Rx/Tx queues (MQ mode) may reach
-> soft lockup due to gfar_poll not returning in proper time.
-> The following exception was obtained using iperf on a 100Mbit
-> half-duplex link, for a p1010 single core device:
- ...
-> To prevent this, the outer while() loop has been removed
-> allowing gfar_poll() to return faster even if there's
-> still budget left.  Also, there's no need to recompute
-> the budget per Rx queue anymore.
+> Taking advantages of sadb_x_sec_ctx and xfrm_user_sec_ctx share the same
+> structure arrangement, rework pfkey_sadb2xfrm_user_sec_ctx by casting
+> sadb_x_sec_ctx into xfrm_user_sec_ctx with minor len fix.
 > 
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+> Then we can:
+>  -Avoid kmalloc/free memory for xfrm_user_sec_ctx, sadb_x_sec_ctx would be fine.
+>  -Fix missing return value check bug for pfkey_compile_policy when kmalloc fails
+> 
+> Signed-off-by: Fan Du <fan.du@windriver.com>
 
-Applied, thanks.
+This isn't safe, one structure is packed and the other is not.
+
+Furthermore, unless there is some enormous gain (in this case there
+is not) losing the type checking by casting two data structures like
+this is undesirable.
