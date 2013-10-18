@@ -1,42 +1,94 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next  11/14] i40e: reorder block declarations in debugfs
-Date: Fri, 18 Oct 2013 18:13:26 +0400
-Message-ID: <52614206.7050404@cogentembedded.com>
-References: <1382102598-11343-1-git-send-email-jeffrey.t.kirsher@intel.com> <1382102598-11343-12-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net] bridge: clean the nf_bridge status when forwarding
+ the skb
+Date: Fri, 18 Oct 2013 10:32:09 -0400
+Message-ID: <52614669.5040301@redhat.com>
+References: <1381791096-3561-1-git-send-email-antonio@meshcoding.com> <20131017112857.GA11318@localhost> <20131017113735.GB2699@open-mesh.com> <20131018111041.GA10964@localhost> <20131018113555.GK2596@neomailbox.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, a@vger.kernel.org,
-	davem@davemloft.net
+Cc: Antonio Quartulli <antonio@open-mesh.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Antonio Quartulli <antonio@meshcoding.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:37550 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752791Ab3JROO1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 10:14:27 -0400
-Received: by mail-lb0-f169.google.com with SMTP id z5so3182042lbh.14
-        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 07:14:26 -0700 (PDT)
-In-Reply-To: <1382102598-11343-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:17808 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754829Ab3JROcV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Oct 2013 10:32:21 -0400
+In-Reply-To: <20131018113555.GK2596@neomailbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 10/18/2013 07:35 AM, Antonio Quartulli wrote:
+> On Fri, Oct 18, 2013 at 01:10:41PM +0200, Pablo Neira Ayuso wrote:
+>> On Thu, Oct 17, 2013 at 01:37:35PM +0200, Antonio Quartulli wrote:
+>>> On Thu, Oct 17, 2013 at 04:28:57AM -0700, Pablo Neira Ayuso wrote:
+>>>> Hi,
+>>>>> +
+>>>>> +/**
+>>>>> + * br_netfilter_skb_free - clean the NF bridge data in an skb
+>>>>> + * @skb: the skb which the data to free belongs to
+>>>>> + */
+>>>>> +void br_netfilter_skb_free(struct sk_buff *skb)
+>>>>> +{
+>>>>> +	nf_bridge_put(skb->nf_bridge);
+>>>>> +	skb->nf_bridge = NULL;
+>>>>> +}
+>>>>
+>>>> This should be nf_reset.
+>>>
+>>> You think I should directly use nf_reset instead of this function?
+>>>
+>>> I see that nf_reset() cleans up the conntrack part too: does it also become
+>>> useless once the packet exits the bridge interface?
+>>
+>> The conntrack should not attached if it's forwarded to another netif,
+>> see dev_forward_skb.
+>>
+>> But I'm not sure what scenario you're trying to handle with this
+>> change, if you could please elaborate.
+>
+>
+> This is a sample scenario (nf bridge is on):
+>
+> [eth0] ---> [br0] ---> [bat0] ---> [br1]
+>
 
-On 18-10-2013 17:23, Jeff Kirsher wrote:
+Another possible config that is out in the wild is
 
-> From: Shannon Nelson <shannon.nelson@intel.com>
+[eth0] ---> [br0] ---> [vlanX] ----> [br1]
 
-> This is a cleanup of the arguments declared at the beginning
-> of each function.
 
-    I hope you meant "local variables" because "arguments" are the values 
-passed to a function.
+> where the relation '[a] ---> [b]' means 'a is enslaved in b' (bat0 is a
+> batman-adv virtual interface..in this situation it should not matter: it
+> just removs an header from an incoming skb and delivers it).
+>
+> The problem I was having was due to an skb entering br0 first and br1 later.
+> When reaching br1 skb->nf_bridge was != NULL because of the previous processing
+> in br0.
+>
 
-> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Doesn't br_nf_pre_routing already take care of this for you?  It will 
+drop the ref on the current nf_bridge and allocate a new one.  Is that
+not sufficient?
 
-WBR, Sergei
+-vlad
+
+> To clarify, the packet arriving on eth0 is 'delivered' to br0. It is not
+> forwarded to another port of the bridge. Therefore I am not sure that we should
+> clean the conntrack part too.
+>
+>>
+>> Perhaps your fix is more conservative to avoid breaking strange setups
+>> that have been relying on this behaviour. I know of people deploying
+>> strange configurations using netfilter bridge.
+>>
+>
+> could be.
+>
+> Cheers,
+>
