@@ -1,61 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: for 3.0 : please add "c16a98e ipv6: tcp: fix panic in SYN
- processing"
-Date: Fri, 18 Oct 2013 13:31:19 -0400 (EDT)
-Message-ID: <20131018.133119.2049409060286197552.davem@davemloft.net>
-References: <20131018140442.GA16883@1wt.eu>
-	<20131018143433.GA27502@kroah.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: rename tcp_tso_segment()
+Date: Fri, 18 Oct 2013 10:36:17 -0700
+Message-ID: <1382117777.3284.26.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: w@1wt.eu, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	stable@vger.kernel.org
-To: gregkh@linuxfoundation.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20131018143433.GA27502@kroah.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:49883 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932253Ab3JRRgV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 13:36:21 -0400
+Received: by mail-pd0-f180.google.com with SMTP id p10so2599497pdj.25
+        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 10:36:18 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Fri, 18 Oct 2013 07:34:33 -0700
+From: Eric Dumazet <edumazet@google.com>
 
-> On Fri, Oct 18, 2013 at 04:04:42PM +0200, Willy Tarreau wrote:
->> Greg, David,
->> 
->> one of our customers faced a panic in latest 2.6.32 when both somaxconn
->> and the listen backlog are large on an IPv6 socket. It was also reported
->> by one haproxy user on the latest RHEL6 kernel a few months ago. We found
->> that the same bug affects 3.0 up to and including 3.0.100.
->> 
->> Eric had already spotted that bug and fixed it in 3.2 with the following
->> patch :
->> 
->>   commit c16a98ed91597b40b22b540c6517103497ef8e74
->>   Author: Eric Dumazet <eric.dumazet@gmail.com>
->>   Date:   Wed Nov 23 15:49:31 2011 -0500
->> 
->>     ipv6: tcp: fix panic in SYN processing
->>     
->>     commit 72a3effaf633bc ([NET]: Size listen hash tables using backlog
->>     hint) added a bug allowing inet6_synq_hash() to return an out of bound
->>     array index, because of u16 overflow.
->>     
->>     Bug can happen if system admins set net.core.somaxconn &
->>     net.ipv4.tcp_max_syn_backlog sysctls to values greater than 65536
->>     
->>     Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->>     Signed-off-by: David S. Miller <davem@davemloft.net>
->> 
->> In practice, the bug extends to lower values as well (32768 and above),
->> because reqsk_queue_alloc() can round the number of entries to double of
->> the backlog by doing roundup_pow_of_two(backlog+1), resulting in
->> inet6_csk_search_req() calling inet6_synq_hash() with too large an integer.
->> 
->> Could we please apply it to 3.0 before it finishes its life ?
-> 
-> Unless David objects, I can queue this up just in time for the last
-> 3.0.stable.
-> 
-> David?
+Rename tcp_tso_segment() to tcp_gso_segment(), to better reflect
+what is going on, and ease grep games.
 
-No objections.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/tcp.h        |    2 +-
+ net/ipv4/tcp_offload.c   |    6 +++---
+ net/ipv6/tcpv6_offload.c |    2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 1db3a01..372dccc 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1548,7 +1548,7 @@ extern struct request_sock_ops tcp6_request_sock_ops;
+ 
+ void tcp_v4_destroy_sock(struct sock *sk);
+ 
+-struct sk_buff *tcp_tso_segment(struct sk_buff *skb,
++struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+ 				netdev_features_t features);
+ struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb);
+ int tcp_gro_complete(struct sk_buff *skb);
+diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+index 3a7525e..8e3113f 100644
+--- a/net/ipv4/tcp_offload.c
++++ b/net/ipv4/tcp_offload.c
+@@ -14,7 +14,7 @@
+ #include <net/tcp.h>
+ #include <net/protocol.h>
+ 
+-struct sk_buff *tcp_tso_segment(struct sk_buff *skb,
++struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+ 				netdev_features_t features)
+ {
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
+@@ -139,7 +139,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb,
+ out:
+ 	return segs;
+ }
+-EXPORT_SYMBOL(tcp_tso_segment);
++EXPORT_SYMBOL(tcp_gso_segment);
+ 
+ struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ {
+@@ -320,7 +320,7 @@ static int tcp4_gro_complete(struct sk_buff *skb)
+ static const struct net_offload tcpv4_offload = {
+ 	.callbacks = {
+ 		.gso_send_check	=	tcp_v4_gso_send_check,
+-		.gso_segment	=	tcp_tso_segment,
++		.gso_segment	=	tcp_gso_segment,
+ 		.gro_receive	=	tcp4_gro_receive,
+ 		.gro_complete	=	tcp4_gro_complete,
+ 	},
+diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
+index 2ec6bf6..c1097c7 100644
+--- a/net/ipv6/tcpv6_offload.c
++++ b/net/ipv6/tcpv6_offload.c
+@@ -83,7 +83,7 @@ static int tcp6_gro_complete(struct sk_buff *skb)
+ static const struct net_offload tcpv6_offload = {
+ 	.callbacks = {
+ 		.gso_send_check	=	tcp_v6_gso_send_check,
+-		.gso_segment	=	tcp_tso_segment,
++		.gso_segment	=	tcp_gso_segment,
+ 		.gro_receive	=	tcp6_gro_receive,
+ 		.gro_complete	=	tcp6_gro_complete,
+ 	},
