@@ -1,58 +1,138 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net] bridge: clean the nf_bridge status when forwarding
- the skb
-Date: Fri, 18 Oct 2013 11:33:06 -0400
-Message-ID: <526154B2.2060900@redhat.com>
-References: <1381791096-3561-1-git-send-email-antonio@meshcoding.com> <20131017112857.GA11318@localhost> <20131017113735.GB2699@open-mesh.com> <20131018111041.GA10964@localhost> <20131018113555.GK2596@neomailbox.net> <52614669.5040301@redhat.com> <20131018144618.GL2596@neomailbox.net>
-Reply-To: vyasevic@redhat.com
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] veth: Showing peer of veth type dev in ip link (kernel
+ side)
+Date: Fri, 18 Oct 2013 17:34:36 +0200
+Message-ID: <5261550C.6010403@6wind.com>
+References: <1380854061-30091-1-git-send-email-yamato@redhat.com>	<20131008.152349.729447337097758010.davem@davemloft.net>	<20131008141337.1a8a556c@nehalam.linuxnetplumber.net>	<20131009165254.2e1c8332@nehalam.linuxnetplumber.net>	<87li22vv1w.fsf@xmission.com> <525D7109.4010004@6wind.com>	<87a9ias274.fsf@xmission.com> <525E659C.3000305@6wind.com>	<87txghm1qw.fsf@xmission.com> <52600ABC.1030701@6wind.com> <8738nzelxl.fsf@xmission.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Antonio Quartulli <antonio@open-mesh.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Antonio Quartulli <antonio@meshcoding.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>, yamato@redhat.com,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12582 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752338Ab3JRPdQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Oct 2013 11:33:16 -0400
-In-Reply-To: <20131018144618.GL2596@neomailbox.net>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:61276 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753163Ab3JRPem (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 11:34:42 -0400
+Received: by mail-wg0-f54.google.com with SMTP id c11so3890383wgh.21
+        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 08:34:40 -0700 (PDT)
+In-Reply-To: <8738nzelxl.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/18/2013 10:46 AM, Antonio Quartulli wrote:
-> On Fri, Oct 18, 2013 at 10:32:09AM -0400, Vlad Yasevich wrote:
->> On 10/18/2013 07:35 AM, Antonio Quartulli wrote:
->>> On Fri, Oct 18, 2013 at 01:10:41PM +0200, Pablo Neira Ayuso wrote:
->>>> On Thu, Oct 17, 2013 at 01:37:35PM +0200, Antonio Quartulli wrote:
->>>>> On Thu, Oct 17, 2013 at 04:28:57AM -0700, Pablo Neira Ayuso wrote:
+Le 17/10/2013 21:28, Eric W. Biederman a =C3=A9crit :
+> Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
 >
-> [...]
+>> Le 16/10/2013 21:53, Eric W. Biederman a =C3=A9crit :
 >
+>>> The age old question why can't we have global identifiers for
+>>> namespaces?
 >>>
->>> The problem I was having was due to an skb entering br0 first and br1 later.
->>> When reaching br1 skb->nf_bridge was != NULL because of the previous processing
->>> in br0.
+>>> The answer is that I don't want to implement a namespace for namesp=
+aces.
+>> Sorry, but I don't understand the problem. This ID is owned by the k=
+ernel, like
+>> the netns list (for_each_net()) is owned by it.
+>
+> The scenario where problem are likely to show up is something like th=
+is.
+>
+> For testing it would be reasonable to setup two linux containers that
+> look like full linux systems.  In those containers you run one instan=
+ce
+> of your virtual router managment daemons, and you arrange to synchron=
+ize
+> between the two linux containers for testing.
+>
+> It becomes even more interesting when we want to migrate one of those
+> linux containers to another physical machine.
+>
+> Global identifiers start breaking the first scenario, and really tras=
+h
+> the second scenario.
+>
+> At the same time migration of configuration and replication of
+> configuration are essentially the same problem, so it would be very
+> silly to design such that will cause problems.
+Ok, I'm now convinced ;-)
+
+>
+>>> While the proc inode does work today across different mounts of pro=
+c, I
+>>> reserve the right at some future date (if it solves a technical pro=
+blem)
+>>> to give each namespace a different inode number in each different m=
+ount
+>>> of proc.  So the inode number is not quite the unique identifier yo=
+u
+>>> want.  The inode number is a close as I am willing to get to a name=
+space
+>>> of namespaces.
 >>>
+>>> I think the simplest solution is to just not worry about which name=
+space
+>>> the other half of a veth pair is in.  But I have not encountered th=
+e
+>>> problem where I need to know exactly which namespace we are worryin=
+g
+>>> about.
+>> Ok, let's start by explaining our usecase.
 >>
->> Doesn't br_nf_pre_routing already take care of this for you?  It will
->> drop the ref on the current nf_bridge and allocate a new one.  Is that
->> not sufficient?
+>> We are using namespaces only to implement virtual routers (VR), ie o=
+nly
+>> the networking stack is virtualized. We don't care about other names=
+paces, we
+>> just want to run several network stacks and beeing able to manage th=
+em.
+>>
+>> For example, providers use this feature to isolate clients, one VR i=
+s opened
+>> for each client. You can have a large number of clients (+10 000) an=
+d thus the
+>> same number of netns.
+>> Considering these numbers, we don't want to run one instance per VR =
+for all of
+>> our network daemons, but have only one instance that manage all VR.
+>>
+>> You also have daemons that monitor the system and synchronize networ=
+k objects
+>> (interfaces, routes, etc.) on another linux. Goal is to implement an=
+ high
+>> availablity system: it's possible to switch to the other linux to av=
+oid service
+>> interruption.
+>> This kind of daemon wants to have the full information about interfa=
+ces to be
+>> able to build/configure them on the other linux.
+>>
+>>>
+>>> Global identifiers are easy until you hit the cases where they make
+>>> things impossible.
+>> I don't want specially to use ID, but I fear that the solution with =
+file
+>> descriptors will be a nightmare.
 >
-> In my case that line is not reached because
+> I can certainly see challenges.  In asking for symmetry between set a=
+nd
+> get the solution with file descriptors is the obvious answer and the
+> first answer I have been able to come up with so far.
 >
->   700         if (!IS_IP(skb) && !IS_VLAN_IP(skb) && !IS_PPPOE_IP(skb))
+> My original answer was that the ifindex happened to be unique across
+> namespaces but that actually turned out to be a problem for migration
+> so that abandoned.
 >
-> is always true: the packet getting analysed is a batman-adv encapsulated packet,
-> which does not match any of the three above.
+> Namespace file descriptors are the solution that I know semantically
+> will work.  Beyond that I don't have any good ideas right now.
 >
-> Cheers,
->
+> I just know that local names (aka file descriptors) are much easier t=
+o
+> work with semantically than global names.
+Yes sure. I will continue to think about this.
 
-Looking at other encapsulators (PPP, iptunnel, VXLAN), they do
-nf_reset() on input.  Would that be appropriate for batman as well?
 
--vlad
+Thank you,
+Nicolas
