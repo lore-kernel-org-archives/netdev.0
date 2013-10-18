@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 2/8] tipc: remove iovec length parameter from all sending functions
-Date: Fri, 18 Oct 2013 07:23:15 +0200
-Message-ID: <1382073801-22128-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 4/8] tipc: make bearer and media naming consistent
+Date: Fri, 18 Oct 2013 07:23:17 +0200
+Message-ID: <1382073801-22128-5-git-send-email-jon.maloy@ericsson.com>
 References: <1382073801-22128-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,421 +10,400 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.gq1.yahoo.com ([98.137.12.179]:46719 "HELO
+Received: from smtp104.biz.mail.gq1.yahoo.com ([98.137.12.179]:46728 "HELO
 	smtp104.biz.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750826Ab3JRFaQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 01:30:16 -0400
+	by vger.kernel.org with SMTP id S1750886Ab3JRFaU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 01:30:20 -0400
 In-Reply-To: <1382073801-22128-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ying Xue <ying.xue@windriver.com>
 
-tipc_msg_build() now copies message data from iovec to skb_buff
-using memcpy_fromiovecend(), which doesn't need to be passed the
-iovec length to perform the copying.
+TIPC 'bearer' exists as an abstract concept, while 'media'
+is deemed a specific implementation of a bearer, such as Ethernet
+or Infiniband media. When a component inside TIPC wants to control
+a specific media, it only needs to access the generic bearer API
+to achieve this. However, in the current media implementations,
+the 'bearer' name is also extensively used in media specific
+function and variable names.
 
-So we remove the parameter indicating iovec length in all
-functions where TIPC messages are built and sent.
+This may create confusion, so we choose to replace the term 'bearer'
+with 'media' in all function names, variable names, and prefixes
+where this is what really is meant.
+
+Note that this change is cosmetic only, and no runtime behaviour
+changes are made here.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/link.c   |   25 ++++++++------------
- net/tipc/link.h   |    4 +---
- net/tipc/msg.c    |    7 +++---
- net/tipc/msg.h    |    3 +--
- net/tipc/port.c   |   66 ++++++++++++++++++++++-------------------------------
- net/tipc/port.h   |   16 +++++--------
- net/tipc/socket.c |    6 +----
- 7 files changed, 49 insertions(+), 78 deletions(-)
+ net/tipc/bearer.c    |    4 ++--
+ net/tipc/bearer.h    |    8 ++++----
+ net/tipc/eth_media.c |   56 +++++++++++++++++++++++++-------------------------
+ net/tipc/ib_media.c  |   46 ++++++++++++++++++++---------------------
+ 4 files changed, 57 insertions(+), 57 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 0cc3d90..b02a6dc 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -97,8 +97,7 @@ static int  link_recv_changeover_msg(struct tipc_link **l_ptr,
- static void link_set_supervision_props(struct tipc_link *l_ptr, u32 tolerance);
- static int  link_send_sections_long(struct tipc_port *sender,
- 				    struct iovec const *msg_sect,
--				    u32 num_sect, unsigned int total_len,
--				    u32 destnode);
-+				    unsigned int len, u32 destnode);
- static void link_state_event(struct tipc_link *l_ptr, u32 event);
- static void link_reset_statistics(struct tipc_link *l_ptr);
- static void link_print(struct tipc_link *l_ptr, const char *str);
-@@ -1065,8 +1064,7 @@ static int link_send_buf_fast(struct tipc_link *l_ptr, struct sk_buff *buf,
-  */
- int tipc_link_send_sections_fast(struct tipc_port *sender,
- 				 struct iovec const *msg_sect,
--				 const u32 num_sect, unsigned int total_len,
--				 u32 destaddr)
-+				 unsigned int len, u32 destaddr)
- {
- 	struct tipc_msg *hdr = &sender->phdr;
- 	struct tipc_link *l_ptr;
-@@ -1080,8 +1078,7 @@ again:
- 	 * Try building message using port's max_pkt hint.
- 	 * (Must not hold any locks while building message.)
- 	 */
--	res = tipc_msg_build(hdr, msg_sect, num_sect, total_len,
--			     sender->max_pkt, &buf);
-+	res = tipc_msg_build(hdr, msg_sect, len, sender->max_pkt, &buf);
- 	/* Exit if build request was invalid */
- 	if (unlikely(res < 0))
- 		return res;
-@@ -1121,8 +1118,7 @@ exit:
- 			if ((msg_hdr_sz(hdr) + res) <= sender->max_pkt)
- 				goto again;
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 609c30c..09faa55 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -387,7 +387,7 @@ restart:
  
--			return link_send_sections_long(sender, msg_sect,
--						       num_sect, total_len,
-+			return link_send_sections_long(sender, msg_sect, len,
- 						       destaddr);
- 		}
- 		tipc_node_unlock(node);
-@@ -1133,8 +1129,8 @@ exit:
- 	if (buf)
- 		return tipc_reject_msg(buf, TIPC_ERR_NO_NODE);
- 	if (res >= 0)
--		return tipc_port_reject_sections(sender, hdr, msg_sect, num_sect,
--						 total_len, TIPC_ERR_NO_NODE);
-+		return tipc_port_reject_sections(sender, hdr, msg_sect,
-+						 len, TIPC_ERR_NO_NODE);
- 	return res;
- }
- 
-@@ -1154,13 +1150,12 @@ exit:
-  */
- static int link_send_sections_long(struct tipc_port *sender,
- 				   struct iovec const *msg_sect,
--				   u32 num_sect, unsigned int total_len,
--				   u32 destaddr)
-+				   unsigned int len, u32 destaddr)
- {
- 	struct tipc_link *l_ptr;
- 	struct tipc_node *node;
- 	struct tipc_msg *hdr = &sender->phdr;
--	u32 dsz = total_len;
-+	u32 dsz = len;
- 	u32 max_pkt, fragm_sz, rest;
- 	struct tipc_msg fragm_hdr;
- 	struct sk_buff *buf, *buf_chain, *prev;
-@@ -1283,8 +1278,8 @@ reject:
- 			buf = buf_chain->next;
- 			kfree_skb(buf_chain);
- 		}
--		return tipc_port_reject_sections(sender, hdr, msg_sect, num_sect,
--						 total_len, TIPC_ERR_NO_NODE);
-+		return tipc_port_reject_sections(sender, hdr, msg_sect,
-+						 len, TIPC_ERR_NO_NODE);
+ 	b_ptr = &tipc_bearers[bearer_id];
+ 	strcpy(b_ptr->name, name);
+-	res = m_ptr->enable_bearer(b_ptr);
++	res = m_ptr->enable_media(b_ptr);
+ 	if (res) {
+ 		pr_warn("Bearer <%s> rejected, enable failure (%d)\n",
+ 			name, -res);
+@@ -465,7 +465,7 @@ static void bearer_disable(struct tipc_bearer *b_ptr)
+ 	pr_info("Disabling bearer <%s>\n", b_ptr->name);
+ 	spin_lock_bh(&b_ptr->lock);
+ 	b_ptr->blocked = 1;
+-	b_ptr->media->disable_bearer(b_ptr);
++	b_ptr->media->disable_media(b_ptr);
+ 	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
+ 		tipc_link_delete(l_ptr);
  	}
- 
- 	/* Append chain of fragments to send queue & send them */
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index c048ed1..55cf855 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -227,9 +227,7 @@ int tipc_link_send_buf(struct tipc_link *l_ptr, struct sk_buff *buf);
- u32 tipc_link_get_max_pkt(u32 dest, u32 selector);
- int tipc_link_send_sections_fast(struct tipc_port *sender,
- 				 struct iovec const *msg_sect,
--				 const u32 num_sect,
--				 unsigned int total_len,
--				 u32 destnode);
-+				 unsigned int len, u32 destnode);
- void tipc_link_recv_bundle(struct sk_buff *buf);
- int  tipc_link_recv_fragment(struct sk_buff **pending,
- 			     struct sk_buff **fb,
-diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-index 1e76d91..e525f8c 100644
---- a/net/tipc/msg.c
-+++ b/net/tipc/msg.c
-@@ -73,13 +73,12 @@ void tipc_msg_init(struct tipc_msg *m, u32 user, u32 type, u32 hsize,
-  * Returns message data size or errno
-  */
- int tipc_msg_build(struct tipc_msg *hdr, struct iovec const *msg_sect,
--		   u32 num_sect, unsigned int total_len, int max_size,
--		   struct sk_buff **buf)
-+		   unsigned int len, int max_size, struct sk_buff **buf)
- {
- 	int dsz, sz, hsz;
- 	unsigned char *to;
- 
--	dsz = total_len;
-+	dsz = len;
- 	hsz = msg_hdr_sz(hdr);
- 	sz = hsz + dsz;
- 	msg_set_size(hdr, sz);
-@@ -93,7 +92,7 @@ int tipc_msg_build(struct tipc_msg *hdr, struct iovec const *msg_sect,
- 		return -ENOMEM;
- 	skb_copy_to_linear_data(*buf, hdr, hsz);
- 	to = (*buf)->data + hsz;
--	if (total_len && memcpy_fromiovecend(to, msg_sect, 0, dsz)) {
-+	if (len && memcpy_fromiovecend(to, msg_sect, 0, dsz)) {
- 		kfree_skb(*buf);
- 		*buf = NULL;
- 		return -EFAULT;
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 5e4ccf5..559b73a 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -722,6 +722,5 @@ u32 tipc_msg_tot_importance(struct tipc_msg *m);
- void tipc_msg_init(struct tipc_msg *m, u32 user, u32 type, u32 hsize,
- 		   u32 destnode);
- int tipc_msg_build(struct tipc_msg *hdr, struct iovec const *msg_sect,
--		   u32 num_sect, unsigned int total_len, int max_size,
--		   struct sk_buff **buf);
-+		   unsigned int len, int max_size, struct sk_buff **buf);
- #endif
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index b3ed2fc..c081a76 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -90,8 +90,7 @@ int tipc_port_peer_msg(struct tipc_port *p_ptr, struct tipc_msg *msg)
-  * tipc_multicast - send a multicast message to local and remote destinations
-  */
- int tipc_multicast(u32 ref, struct tipc_name_seq const *seq,
--		   u32 num_sect, struct iovec const *msg_sect,
--		   unsigned int total_len)
-+		   struct iovec const *msg_sect, unsigned int len)
- {
- 	struct tipc_msg *hdr;
- 	struct sk_buff *buf;
-@@ -114,8 +113,7 @@ int tipc_multicast(u32 ref, struct tipc_name_seq const *seq,
- 	msg_set_namelower(hdr, seq->lower);
- 	msg_set_nameupper(hdr, seq->upper);
- 	msg_set_hdr_sz(hdr, MCAST_H_SIZE);
--	res = tipc_msg_build(hdr, msg_sect, num_sect, total_len, MAX_MSG_SIZE,
--			     &buf);
-+	res = tipc_msg_build(hdr, msg_sect, len, MAX_MSG_SIZE, &buf);
- 	if (unlikely(!buf))
- 		return res;
- 
-@@ -436,14 +434,13 @@ exit:
- }
- 
- int tipc_port_reject_sections(struct tipc_port *p_ptr, struct tipc_msg *hdr,
--			      struct iovec const *msg_sect, u32 num_sect,
--			      unsigned int total_len, int err)
-+			      struct iovec const *msg_sect, unsigned int len,
-+			      int err)
- {
- 	struct sk_buff *buf;
- 	int res;
- 
--	res = tipc_msg_build(hdr, msg_sect, num_sect, total_len, MAX_MSG_SIZE,
--			     &buf);
-+	res = tipc_msg_build(hdr, msg_sect, len, MAX_MSG_SIZE, &buf);
- 	if (!buf)
- 		return res;
- 
-@@ -918,15 +915,14 @@ int tipc_port_recv_msg(struct sk_buff *buf)
-  *  tipc_port_recv_sections(): Concatenate and deliver sectioned
-  *                        message for this node.
-  */
--static int tipc_port_recv_sections(struct tipc_port *sender, unsigned int num_sect,
-+static int tipc_port_recv_sections(struct tipc_port *sender,
- 				   struct iovec const *msg_sect,
--				   unsigned int total_len)
-+				   unsigned int len)
- {
- 	struct sk_buff *buf;
- 	int res;
- 
--	res = tipc_msg_build(&sender->phdr, msg_sect, num_sect, total_len,
--			     MAX_MSG_SIZE, &buf);
-+	res = tipc_msg_build(&sender->phdr, msg_sect, len, MAX_MSG_SIZE, &buf);
- 	if (likely(buf))
- 		tipc_port_recv_msg(buf);
- 	return res;
-@@ -935,8 +931,7 @@ static int tipc_port_recv_sections(struct tipc_port *sender, unsigned int num_se
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 09c869a..f800e63 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -75,8 +75,8 @@ struct tipc_bearer;
  /**
-  * tipc_send - send message sections on connection
-  */
--int tipc_send(u32 ref, unsigned int num_sect, struct iovec const *msg_sect,
--	      unsigned int total_len)
-+int tipc_send(u32 ref, struct iovec const *msg_sect, unsigned int len)
- {
- 	struct tipc_port *p_ptr;
- 	u32 destnode;
-@@ -950,11 +945,10 @@ int tipc_send(u32 ref, unsigned int num_sect, struct iovec const *msg_sect,
- 	if (!tipc_port_congested(p_ptr)) {
- 		destnode = port_peernode(p_ptr);
- 		if (likely(!in_own_node(destnode)))
--			res = tipc_link_send_sections_fast(p_ptr, msg_sect, num_sect,
--							   total_len, destnode);
-+			res = tipc_link_send_sections_fast(p_ptr, msg_sect,
-+							   len, destnode);
- 		else
--			res = tipc_port_recv_sections(p_ptr, num_sect, msg_sect,
--						      total_len);
-+			res = tipc_port_recv_sections(p_ptr, msg_sect, len);
+  * struct tipc_media - TIPC media information available to internal users
+  * @send_msg: routine which handles buffer transmission
+- * @enable_bearer: routine which enables a bearer
+- * @disable_bearer: routine which disables a bearer
++ * @enable_media: routine which enables a media
++ * @disable_media: routine which disables a media
+  * @addr2str: routine which converts media address to string
+  * @addr2msg: routine which converts media address to protocol message area
+  * @msg2addr: routine which converts media address from protocol message area
+@@ -91,8 +91,8 @@ struct tipc_media {
+ 	int (*send_msg)(struct sk_buff *buf,
+ 			struct tipc_bearer *b_ptr,
+ 			struct tipc_media_addr *dest);
+-	int (*enable_bearer)(struct tipc_bearer *b_ptr);
+-	void (*disable_bearer)(struct tipc_bearer *b_ptr);
++	int (*enable_media)(struct tipc_bearer *b_ptr);
++	void (*disable_media)(struct tipc_bearer *b_ptr);
+ 	int (*addr2str)(struct tipc_media_addr *a, char *str_buf, int str_size);
+ 	int (*addr2msg)(struct tipc_media_addr *a, char *msg_area);
+ 	int (*msg2addr)(const struct tipc_bearer *b_ptr,
+diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
+index 40ea40c..e048d49 100644
+--- a/net/tipc/eth_media.c
++++ b/net/tipc/eth_media.c
+@@ -2,7 +2,7 @@
+  * net/tipc/eth_media.c: Ethernet bearer support for TIPC
+  *
+  * Copyright (c) 2001-2007, Ericsson AB
+- * Copyright (c) 2005-2008, 2011, Wind River Systems
++ * Copyright (c) 2005-2008, 2011-2013, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -37,19 +37,19 @@
+ #include "core.h"
+ #include "bearer.h"
  
- 		if (likely(res != -ELINKCONG)) {
- 			p_ptr->congested = 0;
-@@ -965,7 +959,7 @@ int tipc_send(u32 ref, unsigned int num_sect, struct iovec const *msg_sect,
- 	}
- 	if (port_unreliable(p_ptr)) {
- 		p_ptr->congested = 0;
--		return total_len;
-+		return len;
- 	}
- 	return -ELINKCONG;
- }
-@@ -974,8 +968,7 @@ int tipc_send(u32 ref, unsigned int num_sect, struct iovec const *msg_sect,
-  * tipc_send2name - send message sections to port name
-  */
- int tipc_send2name(u32 ref, struct tipc_name const *name, unsigned int domain,
--		   unsigned int num_sect, struct iovec const *msg_sect,
--		   unsigned int total_len)
-+		   struct iovec const *msg_sect, unsigned int len)
- {
- 	struct tipc_port *p_ptr;
- 	struct tipc_msg *msg;
-@@ -999,36 +992,32 @@ int tipc_send2name(u32 ref, struct tipc_name const *name, unsigned int domain,
+-#define MAX_ETH_BEARERS		MAX_BEARERS
++#define MAX_ETH_MEDIA		MAX_BEARERS
  
- 	if (likely(destport || destnode)) {
- 		if (likely(in_own_node(destnode)))
--			res = tipc_port_recv_sections(p_ptr, num_sect,
--						      msg_sect, total_len);
-+			res = tipc_port_recv_sections(p_ptr, msg_sect, len);
- 		else if (tipc_own_addr)
- 			res = tipc_link_send_sections_fast(p_ptr, msg_sect,
--							   num_sect, total_len,
--							   destnode);
-+							   len, destnode);
- 		else
- 			res = tipc_port_reject_sections(p_ptr, msg, msg_sect,
--							num_sect, total_len,
--							TIPC_ERR_NO_NODE);
-+							len, TIPC_ERR_NO_NODE);
- 		if (likely(res != -ELINKCONG)) {
- 			if (res > 0)
- 				p_ptr->sent++;
- 			return res;
- 		}
- 		if (port_unreliable(p_ptr)) {
--			return total_len;
-+			return len;
- 		}
- 		return -ELINKCONG;
- 	}
--	return tipc_port_reject_sections(p_ptr, msg, msg_sect, num_sect,
--					 total_len, TIPC_ERR_NO_NAME);
-+	return tipc_port_reject_sections(p_ptr, msg, msg_sect, len,
-+					 TIPC_ERR_NO_NAME);
+ #define ETH_ADDR_OFFSET	4	/* message header offset of MAC address */
+ 
+ /**
+- * struct eth_bearer - Ethernet bearer data structure
++ * struct eth_media - Ethernet bearer data structure
+  * @bearer: ptr to associated "generic" bearer structure
+  * @dev: ptr to associated Ethernet network device
+  * @tipc_packet_type: used in binding TIPC to Ethernet driver
+  * @setup: work item used when enabling bearer
+  * @cleanup: work item used when disabling bearer
+  */
+-struct eth_bearer {
++struct eth_media {
+ 	struct tipc_bearer *bearer;
+ 	struct net_device *dev;
+ 	struct packet_type tipc_packet_type;
+@@ -58,7 +58,7 @@ struct eth_bearer {
+ };
+ 
+ static struct tipc_media eth_media_info;
+-static struct eth_bearer eth_bearers[MAX_ETH_BEARERS];
++static struct eth_media eth_media_array[MAX_ETH_MEDIA];
+ static int eth_started;
+ 
+ static int recv_notification(struct notifier_block *nb, unsigned long evt,
+@@ -100,7 +100,7 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
+ 	if (!clone)
+ 		return 0;
+ 
+-	dev = ((struct eth_bearer *)(tb_ptr->usr_handle))->dev;
++	dev = ((struct eth_media *)(tb_ptr->usr_handle))->dev;
+ 	delta = dev->hard_header_len - skb_headroom(buf);
+ 
+ 	if ((delta > 0) &&
+@@ -128,7 +128,7 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
+ static int recv_msg(struct sk_buff *buf, struct net_device *dev,
+ 		    struct packet_type *pt, struct net_device *orig_dev)
+ {
+-	struct eth_bearer *eb_ptr = (struct eth_bearer *)pt->af_packet_priv;
++	struct eth_media *eb_ptr = (struct eth_media *)pt->af_packet_priv;
+ 
+ 	if (!net_eq(dev_net(dev), &init_net)) {
+ 		kfree_skb(buf);
+@@ -147,24 +147,24 @@ static int recv_msg(struct sk_buff *buf, struct net_device *dev,
  }
  
  /**
-  * tipc_send2port - send message sections to port identity
+- * setup_bearer - setup association between Ethernet bearer and interface
++ * setup_media - setup association between Ethernet bearer and interface
   */
- int tipc_send2port(u32 ref, struct tipc_portid const *dest,
--		   unsigned int num_sect, struct iovec const *msg_sect,
--		   unsigned int total_len)
-+		   struct iovec const *msg_sect, unsigned int len)
+-static void setup_bearer(struct work_struct *work)
++static void setup_media(struct work_struct *work)
  {
- 	struct tipc_port *p_ptr;
- 	struct tipc_msg *msg;
-@@ -1046,21 +1035,20 @@ int tipc_send2port(u32 ref, struct tipc_portid const *dest,
- 	msg_set_hdr_sz(msg, BASIC_H_SIZE);
+-	struct eth_bearer *eb_ptr =
+-		container_of(work, struct eth_bearer, setup);
++	struct eth_media *eb_ptr =
++		container_of(work, struct eth_media, setup);
  
- 	if (in_own_node(dest->node))
--		res =  tipc_port_recv_sections(p_ptr, num_sect, msg_sect,
--					       total_len);
-+		res =  tipc_port_recv_sections(p_ptr, msg_sect, len);
- 	else if (tipc_own_addr)
--		res = tipc_link_send_sections_fast(p_ptr, msg_sect, num_sect,
--						   total_len, dest->node);
-+		res = tipc_link_send_sections_fast(p_ptr, msg_sect, len,
-+						   dest->node);
- 	else
--		res = tipc_port_reject_sections(p_ptr, msg, msg_sect, num_sect,
--						total_len, TIPC_ERR_NO_NODE);
-+		res = tipc_port_reject_sections(p_ptr, msg, msg_sect, len,
-+						TIPC_ERR_NO_NODE);
- 	if (likely(res != -ELINKCONG)) {
- 		if (res > 0)
- 			p_ptr->sent++;
- 		return res;
- 	}
- 	if (port_unreliable(p_ptr)) {
--		return total_len;
-+		return len;
- 	}
- 	return -ELINKCONG;
+ 	dev_add_pack(&eb_ptr->tipc_packet_type);
  }
-diff --git a/net/tipc/port.h b/net/tipc/port.h
-index 5a7026b..9122535 100644
---- a/net/tipc/port.h
-+++ b/net/tipc/port.h
-@@ -151,24 +151,20 @@ int tipc_port_peer_msg(struct tipc_port *p_ptr, struct tipc_msg *msg);
-  * TIPC messaging routines
+ 
+ /**
+- * enable_bearer - attach TIPC bearer to an Ethernet interface
++ * enable_media - attach TIPC bearer to an Ethernet interface
   */
- int tipc_port_recv_msg(struct sk_buff *buf);
--int tipc_send(u32 portref, unsigned int num_sect, struct iovec const *msg_sect,
--	      unsigned int total_len);
-+int tipc_send(u32 portref, struct iovec const *msg_sect, unsigned int len);
+-static int enable_bearer(struct tipc_bearer *tb_ptr)
++static int enable_media(struct tipc_bearer *tb_ptr)
+ {
+ 	struct net_device *dev;
+-	struct eth_bearer *eb_ptr = &eth_bearers[0];
+-	struct eth_bearer *stop = &eth_bearers[MAX_ETH_BEARERS];
++	struct eth_media *eb_ptr = &eth_media_array[0];
++	struct eth_media *stop = &eth_media_array[MAX_ETH_MEDIA];
+ 	char *driver_name = strchr((const char *)tb_ptr->name, ':') + 1;
+ 	int pending_dev = 0;
  
- int tipc_send2name(u32 portref, struct tipc_name const *name, u32 domain,
--		   unsigned int num_sect, struct iovec const *msg_sect,
--		   unsigned int total_len);
-+		   struct iovec const *msg_sect, unsigned int len);
+@@ -188,7 +188,7 @@ static int enable_bearer(struct tipc_bearer *tb_ptr)
+ 	eb_ptr->tipc_packet_type.func = recv_msg;
+ 	eb_ptr->tipc_packet_type.af_packet_priv = eb_ptr;
+ 	INIT_LIST_HEAD(&(eb_ptr->tipc_packet_type.list));
+-	INIT_WORK(&eb_ptr->setup, setup_bearer);
++	INIT_WORK(&eb_ptr->setup, setup_media);
+ 	schedule_work(&eb_ptr->setup);
  
- int tipc_send2port(u32 portref, struct tipc_portid const *dest,
--		   unsigned int num_sect, struct iovec const *msg_sect,
--		   unsigned int total_len);
-+		   struct iovec const *msg_sect, unsigned int len);
+ 	/* Associate TIPC bearer with Ethernet bearer */
+@@ -205,14 +205,14 @@ static int enable_bearer(struct tipc_bearer *tb_ptr)
+ }
  
- int tipc_multicast(u32 portref, struct tipc_name_seq const *seq,
--		   unsigned int section_count, struct iovec const *msg,
--		   unsigned int total_len);
-+		   struct iovec const *msg, unsigned int len);
+ /**
+- * cleanup_bearer - break association between Ethernet bearer and interface
++ * cleanup_media - break association between Ethernet bearer and interface
+  *
+  * This routine must be invoked from a work queue because it can sleep.
+  */
+-static void cleanup_bearer(struct work_struct *work)
++static void cleanup_media(struct work_struct *work)
+ {
+-	struct eth_bearer *eb_ptr =
+-		container_of(work, struct eth_bearer, cleanup);
++	struct eth_media *eb_ptr =
++		container_of(work, struct eth_media, cleanup);
  
- int tipc_port_reject_sections(struct tipc_port *p_ptr, struct tipc_msg *hdr,
--			      struct iovec const *msg_sect, u32 num_sect,
--			      unsigned int total_len, int err);
-+			      struct iovec const *msg_sect, unsigned int len,
-+			      int err);
- struct sk_buff *tipc_port_get_ports(void);
- void tipc_port_recv_proto_msg(struct sk_buff *buf);
- void tipc_port_recv_mcast(struct sk_buff *buf, struct tipc_port_list *dp);
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 6cc7ddd..d224382 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -622,13 +622,11 @@ static int send_msg(struct kiocb *iocb, struct socket *sock,
- 			res = tipc_send2name(tport->ref,
- 					     &dest->addr.name.name,
- 					     dest->addr.name.domain,
--					     m->msg_iovlen,
- 					     m->msg_iov,
- 					     total_len);
- 		} else if (dest->addrtype == TIPC_ADDR_ID) {
- 			res = tipc_send2port(tport->ref,
- 					     &dest->addr.id,
--					     m->msg_iovlen,
- 					     m->msg_iov,
- 					     total_len);
- 		} else if (dest->addrtype == TIPC_ADDR_MCAST) {
-@@ -641,7 +639,6 @@ static int send_msg(struct kiocb *iocb, struct socket *sock,
- 				break;
- 			res = tipc_multicast(tport->ref,
- 					     &dest->addr.nameseq,
--					     m->msg_iovlen,
- 					     m->msg_iov,
- 					     total_len);
- 		}
-@@ -707,8 +704,7 @@ static int send_packet(struct kiocb *iocb, struct socket *sock,
- 			break;
- 		}
+ 	dev_remove_pack(&eb_ptr->tipc_packet_type);
+ 	dev_put(eb_ptr->dev);
+@@ -220,18 +220,18 @@ static void cleanup_bearer(struct work_struct *work)
+ }
  
--		res = tipc_send(tport->ref, m->msg_iovlen, m->msg_iov,
--				total_len);
-+		res = tipc_send(tport->ref, m->msg_iov, total_len);
- 		if (likely(res != -ELINKCONG))
- 			break;
- 		if (timeout_val <= 0L) {
+ /**
+- * disable_bearer - detach TIPC bearer from an Ethernet interface
++ * disable_media - detach TIPC bearer from an Ethernet interface
+  *
+  * Mark Ethernet bearer as inactive so that incoming buffers are thrown away,
+  * then get worker thread to complete bearer cleanup.  (Can't do cleanup
+  * here because cleanup code needs to sleep and caller holds spinlocks.)
+  */
+-static void disable_bearer(struct tipc_bearer *tb_ptr)
++static void disable_media(struct tipc_bearer *tb_ptr)
+ {
+-	struct eth_bearer *eb_ptr = (struct eth_bearer *)tb_ptr->usr_handle;
++	struct eth_media *eb_ptr = (struct eth_media *)tb_ptr->usr_handle;
+ 
+ 	eb_ptr->bearer = NULL;
+-	INIT_WORK(&eb_ptr->cleanup, cleanup_bearer);
++	INIT_WORK(&eb_ptr->cleanup, cleanup_media);
+ 	schedule_work(&eb_ptr->cleanup);
+ }
+ 
+@@ -245,8 +245,8 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
+ 			     void *ptr)
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+-	struct eth_bearer *eb_ptr = &eth_bearers[0];
+-	struct eth_bearer *stop = &eth_bearers[MAX_ETH_BEARERS];
++	struct eth_media *eb_ptr = &eth_media_array[0];
++	struct eth_media *stop = &eth_media_array[MAX_ETH_MEDIA];
+ 
+ 	if (!net_eq(dev_net(dev), &init_net))
+ 		return NOTIFY_DONE;
+@@ -327,8 +327,8 @@ static int eth_msg2addr(const struct tipc_bearer *tb_ptr,
+  */
+ static struct tipc_media eth_media_info = {
+ 	.send_msg	= send_msg,
+-	.enable_bearer	= enable_bearer,
+-	.disable_bearer	= disable_bearer,
++	.enable_media	= enable_media,
++	.disable_media	= disable_media,
+ 	.addr2str	= eth_addr2str,
+ 	.addr2msg	= eth_addr2msg,
+ 	.msg2addr	= eth_msg2addr,
+diff --git a/net/tipc/ib_media.c b/net/tipc/ib_media.c
+index 9934a32..5545145 100644
+--- a/net/tipc/ib_media.c
++++ b/net/tipc/ib_media.c
+@@ -42,17 +42,17 @@
+ #include "core.h"
+ #include "bearer.h"
+ 
+-#define MAX_IB_BEARERS		MAX_BEARERS
++#define MAX_IB_MEDIA		MAX_BEARERS
+ 
+ /**
+- * struct ib_bearer - Infiniband bearer data structure
++ * struct ib_media - Infiniband media data structure
+  * @bearer: ptr to associated "generic" bearer structure
+  * @dev: ptr to associated Infiniband network device
+  * @tipc_packet_type: used in binding TIPC to Infiniband driver
+  * @cleanup: work item used when disabling bearer
+  */
+ 
+-struct ib_bearer {
++struct ib_media {
+ 	struct tipc_bearer *bearer;
+ 	struct net_device *dev;
+ 	struct packet_type tipc_packet_type;
+@@ -61,7 +61,7 @@ struct ib_bearer {
+ };
+ 
+ static struct tipc_media ib_media_info;
+-static struct ib_bearer ib_bearers[MAX_IB_BEARERS];
++static struct ib_media ib_media_array[MAX_IB_MEDIA];
+ static int ib_started;
+ 
+ /**
+@@ -93,7 +93,7 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
+ 	if (!clone)
+ 		return 0;
+ 
+-	dev = ((struct ib_bearer *)(tb_ptr->usr_handle))->dev;
++	dev = ((struct ib_media *)(tb_ptr->usr_handle))->dev;
+ 	delta = dev->hard_header_len - skb_headroom(buf);
+ 
+ 	if ((delta > 0) &&
+@@ -121,7 +121,7 @@ static int send_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr,
+ static int recv_msg(struct sk_buff *buf, struct net_device *dev,
+ 		    struct packet_type *pt, struct net_device *orig_dev)
+ {
+-	struct ib_bearer *ib_ptr = (struct ib_bearer *)pt->af_packet_priv;
++	struct ib_media *ib_ptr = (struct ib_media *)pt->af_packet_priv;
+ 
+ 	if (!net_eq(dev_net(dev), &init_net)) {
+ 		kfree_skb(buf);
+@@ -142,22 +142,22 @@ static int recv_msg(struct sk_buff *buf, struct net_device *dev,
+ /**
+  * setup_bearer - setup association between InfiniBand bearer and interface
+  */
+-static void setup_bearer(struct work_struct *work)
++static void setup_media(struct work_struct *work)
+ {
+-	struct ib_bearer *ib_ptr =
+-		container_of(work, struct ib_bearer, setup);
++	struct ib_media *ib_ptr =
++		container_of(work, struct ib_media, setup);
+ 
+ 	dev_add_pack(&ib_ptr->tipc_packet_type);
+ }
+ 
+ /**
+- * enable_bearer - attach TIPC bearer to an InfiniBand interface
++ * enable_media - attach TIPC bearer to an InfiniBand interface
+  */
+-static int enable_bearer(struct tipc_bearer *tb_ptr)
++static int enable_media(struct tipc_bearer *tb_ptr)
+ {
+ 	struct net_device *dev;
+-	struct ib_bearer *ib_ptr = &ib_bearers[0];
+-	struct ib_bearer *stop = &ib_bearers[MAX_IB_BEARERS];
++	struct ib_media *ib_ptr = &ib_media_array[0];
++	struct ib_media *stop = &ib_media_array[MAX_IB_MEDIA];
+ 	char *driver_name = strchr((const char *)tb_ptr->name, ':') + 1;
+ 	int pending_dev = 0;
+ 
+@@ -181,7 +181,7 @@ static int enable_bearer(struct tipc_bearer *tb_ptr)
+ 	ib_ptr->tipc_packet_type.func = recv_msg;
+ 	ib_ptr->tipc_packet_type.af_packet_priv = ib_ptr;
+ 	INIT_LIST_HEAD(&(ib_ptr->tipc_packet_type.list));
+-	INIT_WORK(&ib_ptr->setup, setup_bearer);
++	INIT_WORK(&ib_ptr->setup, setup_media);
+ 	schedule_work(&ib_ptr->setup);
+ 
+ 	/* Associate TIPC bearer with InfiniBand bearer */
+@@ -204,8 +204,8 @@ static int enable_bearer(struct tipc_bearer *tb_ptr)
+  */
+ static void cleanup_bearer(struct work_struct *work)
+ {
+-	struct ib_bearer *ib_ptr =
+-		container_of(work, struct ib_bearer, cleanup);
++	struct ib_media *ib_ptr =
++		container_of(work, struct ib_media, cleanup);
+ 
+ 	dev_remove_pack(&ib_ptr->tipc_packet_type);
+ 	dev_put(ib_ptr->dev);
+@@ -213,15 +213,15 @@ static void cleanup_bearer(struct work_struct *work)
+ }
+ 
+ /**
+- * disable_bearer - detach TIPC bearer from an InfiniBand interface
++ * disable_media - detach TIPC bearer from an InfiniBand interface
+  *
+  * Mark InfiniBand bearer as inactive so that incoming buffers are thrown away,
+  * then get worker thread to complete bearer cleanup.  (Can't do cleanup
+  * here because cleanup code needs to sleep and caller holds spinlocks.)
+  */
+-static void disable_bearer(struct tipc_bearer *tb_ptr)
++static void disable_media(struct tipc_bearer *tb_ptr)
+ {
+-	struct ib_bearer *ib_ptr = (struct ib_bearer *)tb_ptr->usr_handle;
++	struct ib_media *ib_ptr = (struct ib_media *)tb_ptr->usr_handle;
+ 
+ 	ib_ptr->bearer = NULL;
+ 	INIT_WORK(&ib_ptr->cleanup, cleanup_bearer);
+@@ -238,8 +238,8 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
+ 			     void *ptr)
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+-	struct ib_bearer *ib_ptr = &ib_bearers[0];
+-	struct ib_bearer *stop = &ib_bearers[MAX_IB_BEARERS];
++	struct ib_media *ib_ptr = &ib_media_array[0];
++	struct ib_media *stop = &ib_media_array[MAX_IB_MEDIA];
+ 
+ 	if (!net_eq(dev_net(dev), &init_net))
+ 		return NOTIFY_DONE;
+@@ -323,8 +323,8 @@ static int ib_msg2addr(const struct tipc_bearer *tb_ptr,
+  */
+ static struct tipc_media ib_media_info = {
+ 	.send_msg	= send_msg,
+-	.enable_bearer	= enable_bearer,
+-	.disable_bearer	= disable_bearer,
++	.enable_media	= enable_media,
++	.disable_media	= disable_media,
+ 	.addr2str	= ib_addr2str,
+ 	.addr2msg	= ib_addr2msg,
+ 	.msg2addr	= ib_msg2addr,
 -- 
 1.7.9.5
