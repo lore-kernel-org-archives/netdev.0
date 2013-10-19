@@ -1,52 +1,42 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC net-next] ipv6: Use destination address determined by
- IPVS
-Date: Sat, 19 Oct 2013 19:37:10 +0300 (EEST)
-Message-ID: <alpine.LFD.2.03.1310191919290.1469@ssi.bg>
-References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310180153250.4554@ssi.bg> <20131018021008.GH18135@order.stressinduktion.org>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [PATCH net-next] Documentation: add networking/netdev-FAQ.txt
+Date: Sat, 19 Oct 2013 10:13:48 -0700
+Message-ID: <5262BDCC.7090508@infradead.org>
+References: <1375298180-17628-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>,
-	=?UTF-8?Q?YOSHIFUJI_Hideaki_=2F_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
-	Phil Oester <kernel@linuxace.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20131018021008.GH18135@order.stressinduktion.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-doc@vger.kernel.org, netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:40707 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751921Ab3JSRNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 13:13:52 -0400
+In-Reply-To: <1375298180-17628-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-	Hello,
-
-On Fri, 18 Oct 2013, Hannes Frederic Sowa wrote:
-
-> I played around with your patch and tested xt_TEE. I added a TEE rule to
-> mangle/OUTPUT and pinged. This happend, I have not yet analyzed it:
+On 07/31/13 12:16, Paul Gortmaker wrote:
+> A collection of expectations and operational details about how
+> networking development takes place in the context of the netdev
+> mailing list.
 > 
-> [  101.126649] ------------[ cut here ]------------
-> [  101.128436] BUG: unable to handle kernel paging request at fffffffb8a2fda88
-> [  101.129421] IP: [<ffffffff810c9737>] cpuacct_charge+0x97/0x200
-> [  101.129421] PGD 1c0f067 PUD 0
-> [  101.129421] Thread overran stack, or stack corrupted
+> The content is meant to capture specific items that are unique
+> to netdev workflow, and not re-document generic linux expectations
+> that are already captured elsewhere.
 
-	Problem with process stack? May be some packet loop
-happens? Because I can not reproduce such problem in my
-virtual setup, I tested TEE too, with careful packet
-matching and 1 CPU. Should I assume that you don't have such
-oops when the patch is not applied, with the same TEE rule?
+Could this FAQ also contain links to the netdev wiki and info on the
+netdev IRC channel?  (I don't know what they are, otherwise I could provide
+a patch.)
 
-> [  101.129421] Oops: 0000 [#1] SMP
+> This was originally proposed[1] as a regular posting mailing list
+> FAQ, but it probably is more universally accessible here in tree.
+> 
+> [1] https://lwn.net/Articles/559211/
 
-	You don't appear to have PREEMPT in above line.
-I'm not sure when preemption is enabled if tee_tg6() does
-not have a problem with its anti-loop measures (tee_active).
-Is preemption possible in OUTPUT hook, i.e. can we change
-the CPU while playing with tee_active and as result change
-different flag?
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+thanks,
+-- 
+~Randy
