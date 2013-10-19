@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net v2 3/3] ip_output: do skb ufo init for peeked non ufo skb as well
-Date: Sat, 19 Oct 2013 12:29:17 +0200
-Message-ID: <1382178557-14737-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net v2 1/3] udp6: respect IPV6_DONTFRAG sockopt in case there are pending frames
+Date: Sat, 19 Oct 2013 12:29:15 +0200
+Message-ID: <1382178557-14737-2-git-send-email-jiri@resnulli.us>
 References: <1382178557-14737-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	hannes@stressinduktion.org, jdmason@kudzu.us,
@@ -9,58 +9,54 @@ Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	kaber@trash.net, herbert@gondor.apana.org.au
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f176.google.com ([209.85.215.176]:42643 "EHLO
-	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751209Ab3JSK3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 06:29:25 -0400
-Received: by mail-ea0-f176.google.com with SMTP id q16so2543691ead.35
-        for <netdev@vger.kernel.org>; Sat, 19 Oct 2013 03:29:24 -0700 (PDT)
+Received: from mail-ea0-f170.google.com ([209.85.215.170]:56891 "EHLO
+	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750960Ab3JSK3Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 06:29:24 -0400
+Received: by mail-ea0-f170.google.com with SMTP id q10so2070186eaj.1
+        for <netdev@vger.kernel.org>; Sat, 19 Oct 2013 03:29:21 -0700 (PDT)
 In-Reply-To: <1382178557-14737-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now, if user application does:
-sendto len<mtu flag MSG_MORE
+if up->pending != 0 dontfrag is left with default value -1. That
+causes that application that do:
+sendto len>mtu flag MSG_MORE
 sendto len>mtu flag 0
-The skb is not treated as fragmented one because it is not initialized
-that way. So move the initialization to fix this.
+will receive EMSGSIZE errno as the result of the second sendto.
+
+This patch fixes it by respecting IPV6_DONTFRAG socket option.
 
 introduced by:
-commit e89e9cf539a28df7d0eb1d0a545368e9920b34ac "[IPv4/IPv6]: UFO Scatter-gather approach"
+commit 4b340ae20d0e2366792abe70f46629e576adaf5e "IPv6: Complete IPV6_DONTFRAG support"
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/ipv4/ip_output.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
+ net/ipv6/udp.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index a04d872..3982eab 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -772,15 +772,20 @@ static inline int ip_ufo_append_data(struct sock *sk,
- 		/* initialize protocol header pointer */
- 		skb->transport_header = skb->network_header + fragheaderlen;
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 72b7eaa..1878609 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1225,9 +1225,6 @@ do_udp_sendmsg:
+ 	if (tclass < 0)
+ 		tclass = np->tclass;
  
--		skb->ip_summed = CHECKSUM_PARTIAL;
- 		skb->csum = 0;
+-	if (dontfrag < 0)
+-		dontfrag = np->dontfrag;
+-
+ 	if (msg->msg_flags&MSG_CONFIRM)
+ 		goto do_confirm;
+ back_from_confirm:
+@@ -1246,6 +1243,8 @@ back_from_confirm:
+ 	up->pending = AF_INET6;
  
--		/* specify the length of each IP datagram fragment */
--		skb_shinfo(skb)->gso_size = maxfraglen - fragheaderlen;
--		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
-+
- 		__skb_queue_tail(queue, skb);
-+	} else if (skb_is_gso(skb)) {
-+		goto append;
- 	}
- 
-+	skb->ip_summed = CHECKSUM_PARTIAL;
-+	/* specify the length of each IP datagram fragment */
-+	skb_shinfo(skb)->gso_size = maxfraglen - fragheaderlen;
-+	skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
-+
-+append:
- 	return skb_append_datato_frags(sk, skb, getfrag, from,
- 				       (length - transhdrlen));
- }
+ do_append_data:
++	if (dontfrag < 0)
++		dontfrag = np->dontfrag;
+ 	up->len += ulen;
+ 	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
+ 	err = ip6_append_data(sk, getfrag, msg->msg_iov, ulen,
 -- 
 1.8.3.1
