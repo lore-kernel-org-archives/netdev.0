@@ -1,114 +1,89 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v4 6/9] inet: split syncookie keys for ipv4 and ipv6 and initialize with net_get_random_once
-Date: Sat, 19 Oct 2013 21:48:56 +0200
-Message-ID: <1382212139-20301-7-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v4 4/9] x86/jump_label: expect default_nop if static_key gets enabled on boot-up
+Date: Sat, 19 Oct 2013 21:48:54 +0200
+Message-ID: <1382212139-20301-5-git-send-email-hannes@stressinduktion.org>
 References: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org>
 Cc: linux-kernel@vger.kernel.org,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Jason Baron <jbaron@redhat.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
+	"David S. Miller" <davem@davemloft.net>, x86@kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch splits the secret key for syncookies for ipv4 and ipv6 and
-initializes them with net_get_random_once. This change was the reason I
-did this series. I think the initialization of the syncookie_secret is
-way to early.
+net_get_random_once(intrduced in the next patch) uses static_keys in
+a way that they get enabled on boot-up instead of replaced with an
+ideal_nop. So check for default_nop on initial enabling.
 
-Cc: Florian Westphal <fw@strlen.de>
+Other architectures don't check for this.
+
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: Jason Baron <jbaron@redhat.com>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Cc: Eric Dumazet <edumazet@google.com>
 Cc: "David S. Miller" <davem@davemloft.net>
+Cc: x86@kernel.org
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/net/tcp.h     |  1 -
- net/ipv4/syncookies.c | 15 +++++----------
- net/ipv6/syncookies.c | 12 +++++++++---
- 3 files changed, 14 insertions(+), 14 deletions(-)
+ arch/x86/kernel/jump_label.c | 25 ++++++++++++++++++-------
+ 1 file changed, 18 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 372dccc..f30326f 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -475,7 +475,6 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size);
- void inet_sk_rx_dst_set(struct sock *sk, const struct sk_buff *skb);
- 
- /* From syncookies.c */
--extern __u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
- int __cookie_v4_check(const struct iphdr *iph, const struct tcphdr *th,
- 		      u32 cookie);
- struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 3b64c59..b95331e 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -25,15 +25,7 @@
- 
- extern int sysctl_tcp_syncookies;
- 
--__u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
--EXPORT_SYMBOL(syncookie_secret);
--
--static __init int init_syncookies(void)
--{
--	get_random_bytes(syncookie_secret, sizeof(syncookie_secret));
--	return 0;
--}
--__initcall(init_syncookies);
-+static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS];
- 
- #define COOKIEBITS 24	/* Upper bits store count */
- #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
-@@ -44,8 +36,11 @@ static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS],
- static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
- 		       u32 count, int c)
+diff --git a/arch/x86/kernel/jump_label.c b/arch/x86/kernel/jump_label.c
+index ee11b7d..26d5a55 100644
+--- a/arch/x86/kernel/jump_label.c
++++ b/arch/x86/kernel/jump_label.c
+@@ -42,15 +42,27 @@ static void __jump_label_transform(struct jump_entry *entry,
+ 				   int init)
  {
--	__u32 *tmp = __get_cpu_var(ipv4_cookie_scratch);
-+	__u32 *tmp;
-+
-+	net_get_random_once(syncookie_secret, sizeof(syncookie_secret));
+ 	union jump_code_union code;
++	const unsigned char default_nop[] = { STATIC_KEY_INIT_NOP };
+ 	const unsigned char *ideal_nop = ideal_nops[NOP_ATOMIC5];
  
-+	tmp  = __get_cpu_var(ipv4_cookie_scratch);
- 	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
- 	tmp[0] = (__force u32)saddr;
- 	tmp[1] = (__force u32)daddr;
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index d04d3f1..535a3ad 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -24,6 +24,8 @@
- #define COOKIEBITS 24	/* Upper bits store count */
- #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+ 	if (type == JUMP_LABEL_ENABLE) {
+-		/*
+-		 * We are enabling this jump label. If it is not a nop
+-		 * then something must have gone wrong.
+-		 */
+-		if (unlikely(memcmp((void *)entry->code, ideal_nop, 5) != 0))
+-			bug_at((void *)entry->code, __LINE__);
++		if (init) {
++			/*
++			 * Jump label is enabled for the first time.
++			 * So we expect a default_nop...
++			 */
++			if (unlikely(memcmp((void *)entry->code, default_nop, 5)
++				     != 0))
++				bug_at((void *)entry->code, __LINE__);
++		} else {
++			/*
++			 * ...otherwise expect an ideal_nop. Otherwise
++			 * something went horribly wrong.
++			 */
++			if (unlikely(memcmp((void *)entry->code, ideal_nop, 5)
++				     != 0))
++				bug_at((void *)entry->code, __LINE__);
++		}
  
-+static u32 syncookie6_secret[2][16-4+SHA_DIGEST_WORDS];
-+
- /* RFC 2460, Section 8.3:
-  * [ipv6 tcp] MSS must be computed as the maximum packet size minus 60 [..]
-  *
-@@ -61,14 +63,18 @@ static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS],
- static u32 cookie_hash(const struct in6_addr *saddr, const struct in6_addr *daddr,
- 		       __be16 sport, __be16 dport, u32 count, int c)
- {
--	__u32 *tmp = __get_cpu_var(ipv6_cookie_scratch);
-+	__u32 *tmp;
-+
-+	net_get_random_once(syncookie6_secret, sizeof(syncookie6_secret));
-+
-+	tmp  = __get_cpu_var(ipv6_cookie_scratch);
- 
- 	/*
- 	 * we have 320 bits of information to hash, copy in the remaining
--	 * 192 bits required for sha_transform, from the syncookie_secret
-+	 * 192 bits required for sha_transform, from the syncookie6_secret
- 	 * and overwrite the digest with the secret
- 	 */
--	memcpy(tmp + 10, syncookie_secret[c], 44);
-+	memcpy(tmp + 10, syncookie6_secret[c], 44);
- 	memcpy(tmp, saddr, 16);
- 	memcpy(tmp + 4, daddr, 16);
- 	tmp[8] = ((__force u32)sport << 16) + (__force u32)dport;
+ 		code.jump = 0xe9;
+ 		code.offset = entry->target -
+@@ -63,7 +75,6 @@ static void __jump_label_transform(struct jump_entry *entry,
+ 		 * are converting the default nop to the ideal nop.
+ 		 */
+ 		if (init) {
+-			const unsigned char default_nop[] = { STATIC_KEY_INIT_NOP };
+ 			if (unlikely(memcmp((void *)entry->code, default_nop, 5) != 0))
+ 				bug_at((void *)entry->code, __LINE__);
+ 		} else {
 -- 
 1.8.3.1
