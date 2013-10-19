@@ -1,89 +1,176 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v4 4/9] x86/jump_label: expect default_nop if static_key gets enabled on boot-up
-Date: Sat, 19 Oct 2013 21:48:54 +0200
-Message-ID: <1382212139-20301-5-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next v4 3/9] static_key: WARN on usage before jump_label_init was called
+Date: Sat, 19 Oct 2013 21:48:53 +0200
+Message-ID: <1382212139-20301-4-git-send-email-hannes@stressinduktion.org>
 References: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org>
 Cc: linux-kernel@vger.kernel.org,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
 	Steven Rostedt <rostedt@goodmis.org>,
-	Jason Baron <jbaron@redhat.com>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>, x86@kernel.org
+	Andi Kleen <andi@firstfloor.org>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-net_get_random_once(intrduced in the next patch) uses static_keys in
-a way that they get enabled on boot-up instead of replaced with an
-ideal_nop. So check for default_nop on initial enabling.
+Usage of the static key primitives to toggle a branch must not be used
+before jump_label_init() is called from init/main.c. jump_label_init
+reorganizes and wires up the jump_entries so usage before that could
+have unforeseen consequences.
 
-Other architectures don't check for this.
+Following primitives are now checked for correct use:
+* static_key_slow_inc
+* static_key_slow_dec
+* static_key_slow_dec_deferred
+* jump_label_rate_limit
 
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
+The x86 architecture already checks this by testing if the default_nop
+was already replaced with an optimal nop or with a branch instruction. It
+will panic then. Other architectures don't check for this.
+
+Because we need to relax this check for the x86 arch to allow code to
+transition from default_nop to the enabled state and other architectures
+did not check for this at all this patch introduces checking on the
+static_key primitives in a non-arch dependent manner.
+
+All checked functions are considered slow-path so the additional check
+does no harm to performance.
+
+The warnings are best observed with earlyprintk.
+
+Based on a patch from Andi Kleen.
+
 Cc: Steven Rostedt <rostedt@goodmis.org>
-Cc: Jason Baron <jbaron@redhat.com>
 Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: x86@kernel.org
+Cc: Andi Kleen <andi@firstfloor.org>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- arch/x86/kernel/jump_label.c | 25 ++++++++++++++++++-------
- 1 file changed, 18 insertions(+), 7 deletions(-)
+ include/linux/jump_label.h           | 10 ++++++++++
+ include/linux/jump_label_ratelimit.h |  2 ++
+ init/main.c                          |  7 +++++++
+ kernel/jump_label.c                  |  5 +++++
+ 4 files changed, 24 insertions(+)
 
-diff --git a/arch/x86/kernel/jump_label.c b/arch/x86/kernel/jump_label.c
-index ee11b7d..26d5a55 100644
---- a/arch/x86/kernel/jump_label.c
-+++ b/arch/x86/kernel/jump_label.c
-@@ -42,15 +42,27 @@ static void __jump_label_transform(struct jump_entry *entry,
- 				   int init)
+diff --git a/include/linux/jump_label.h b/include/linux/jump_label.h
+index a507907..e96be72 100644
+--- a/include/linux/jump_label.h
++++ b/include/linux/jump_label.h
+@@ -48,6 +48,13 @@
+ 
+ #include <linux/types.h>
+ #include <linux/compiler.h>
++#include <linux/bug.h>
++
++extern bool static_key_initialized;
++
++#define STATIC_KEY_CHECK_USE() WARN(!static_key_initialized,		      \
++				    "%s used before call to jump_label_init", \
++				    __func__)
+ 
+ #if defined(CC_HAVE_ASM_GOTO) && defined(CONFIG_JUMP_LABEL)
+ 
+@@ -128,6 +135,7 @@ struct static_key {
+ 
+ static __always_inline void jump_label_init(void)
  {
- 	union jump_code_union code;
-+	const unsigned char default_nop[] = { STATIC_KEY_INIT_NOP };
- 	const unsigned char *ideal_nop = ideal_nops[NOP_ATOMIC5];
++	static_key_initialized = true;
+ }
  
- 	if (type == JUMP_LABEL_ENABLE) {
--		/*
--		 * We are enabling this jump label. If it is not a nop
--		 * then something must have gone wrong.
--		 */
--		if (unlikely(memcmp((void *)entry->code, ideal_nop, 5) != 0))
--			bug_at((void *)entry->code, __LINE__);
-+		if (init) {
-+			/*
-+			 * Jump label is enabled for the first time.
-+			 * So we expect a default_nop...
-+			 */
-+			if (unlikely(memcmp((void *)entry->code, default_nop, 5)
-+				     != 0))
-+				bug_at((void *)entry->code, __LINE__);
-+		} else {
-+			/*
-+			 * ...otherwise expect an ideal_nop. Otherwise
-+			 * something went horribly wrong.
-+			 */
-+			if (unlikely(memcmp((void *)entry->code, ideal_nop, 5)
-+				     != 0))
-+				bug_at((void *)entry->code, __LINE__);
-+		}
+ static __always_inline bool static_key_false(struct static_key *key)
+@@ -146,11 +154,13 @@ static __always_inline bool static_key_true(struct static_key *key)
  
- 		code.jump = 0xe9;
- 		code.offset = entry->target -
-@@ -63,7 +75,6 @@ static void __jump_label_transform(struct jump_entry *entry,
- 		 * are converting the default nop to the ideal nop.
- 		 */
- 		if (init) {
--			const unsigned char default_nop[] = { STATIC_KEY_INIT_NOP };
- 			if (unlikely(memcmp((void *)entry->code, default_nop, 5) != 0))
- 				bug_at((void *)entry->code, __LINE__);
- 		} else {
+ static inline void static_key_slow_inc(struct static_key *key)
+ {
++	STATIC_KEY_CHECK_USE();
+ 	atomic_inc(&key->enabled);
+ }
+ 
+ static inline void static_key_slow_dec(struct static_key *key)
+ {
++	STATIC_KEY_CHECK_USE();
+ 	atomic_dec(&key->enabled);
+ }
+ 
+diff --git a/include/linux/jump_label_ratelimit.h b/include/linux/jump_label_ratelimit.h
+index 1137883..089f70f 100644
+--- a/include/linux/jump_label_ratelimit.h
++++ b/include/linux/jump_label_ratelimit.h
+@@ -23,12 +23,14 @@ struct static_key_deferred {
+ };
+ static inline void static_key_slow_dec_deferred(struct static_key_deferred *key)
+ {
++	STATIC_KEY_CHECK_USE();
+ 	static_key_slow_dec(&key->key);
+ }
+ static inline void
+ jump_label_rate_limit(struct static_key_deferred *key,
+ 		unsigned long rl)
+ {
++	STATIC_KEY_CHECK_USE();
+ }
+ #endif	/* HAVE_JUMP_LABEL */
+ #endif	/* _LINUX_JUMP_LABEL_RATELIMIT_H */
+diff --git a/init/main.c b/init/main.c
+index af310af..27bbec1a 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -136,6 +136,13 @@ static char *execute_command;
+ static char *ramdisk_execute_command;
+ 
+ /*
++ * Used to generate warnings if static_key manipulation functions are used
++ * before jump_label_init is called.
++ */
++bool static_key_initialized __read_mostly = false;
++EXPORT_SYMBOL_GPL(static_key_initialized);
++
++/*
+  * If set, this is an indication to the drivers that reset the underlying
+  * device before going ahead with the initialization otherwise driver might
+  * rely on the BIOS and skip the reset operation.
+diff --git a/kernel/jump_label.c b/kernel/jump_label.c
+index 297a924..9019f15 100644
+--- a/kernel/jump_label.c
++++ b/kernel/jump_label.c
+@@ -58,6 +58,7 @@ static void jump_label_update(struct static_key *key, int enable);
+ 
+ void static_key_slow_inc(struct static_key *key)
+ {
++	STATIC_KEY_CHECK_USE();
+ 	if (atomic_inc_not_zero(&key->enabled))
+ 		return;
+ 
+@@ -103,12 +104,14 @@ static void jump_label_update_timeout(struct work_struct *work)
+ 
+ void static_key_slow_dec(struct static_key *key)
+ {
++	STATIC_KEY_CHECK_USE();
+ 	__static_key_slow_dec(key, 0, NULL);
+ }
+ EXPORT_SYMBOL_GPL(static_key_slow_dec);
+ 
+ void static_key_slow_dec_deferred(struct static_key_deferred *key)
+ {
++	STATIC_KEY_CHECK_USE();
+ 	__static_key_slow_dec(&key->key, key->timeout, &key->work);
+ }
+ EXPORT_SYMBOL_GPL(static_key_slow_dec_deferred);
+@@ -116,6 +119,7 @@ EXPORT_SYMBOL_GPL(static_key_slow_dec_deferred);
+ void jump_label_rate_limit(struct static_key_deferred *key,
+ 		unsigned long rl)
+ {
++	STATIC_KEY_CHECK_USE();
+ 	key->timeout = rl;
+ 	INIT_DELAYED_WORK(&key->work, jump_label_update_timeout);
+ }
+@@ -212,6 +216,7 @@ void __init jump_label_init(void)
+ 		key->next = NULL;
+ #endif
+ 	}
++	static_key_initialized = true;
+ 	jump_label_unlock();
+ }
+ 
 -- 
 1.8.3.1
