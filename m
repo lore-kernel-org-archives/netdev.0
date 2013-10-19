@@ -1,78 +1,104 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 0/6] net: Implement GSO/TSO support for IPIP
-Date: Sat, 19 Oct 2013 11:42:52 -0700
-Message-ID: <1382208178-22347-1-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 1/6] ipv4: gso: send_check() & segment() cleanups
+Date: Sat, 19 Oct 2013 11:42:53 -0700
+Message-ID: <1382208178-22347-2-git-send-email-edumazet@google.com>
+References: <1382208178-22347-1-git-send-email-edumazet@google.com>
 Cc: netdev@vger.kernel.org, Jerry Chu <hkchu@google.com>,
 	Tom Herbert <therbert@google.com>,
 	Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:45260 "EHLO
-	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933Ab3JSSsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 14:48:36 -0400
-Received: by mail-ob0-f202.google.com with SMTP id va2so312189obc.1
-        for <netdev@vger.kernel.org>; Sat, 19 Oct 2013 11:48:36 -0700 (PDT)
+Received: from mail-ie0-f201.google.com ([209.85.223.201]:44822 "EHLO
+	mail-ie0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342Ab3JSSt4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 14:49:56 -0400
+Received: by mail-ie0-f201.google.com with SMTP id u16so970546iet.0
+        for <netdev@vger.kernel.org>; Sat, 19 Oct 2013 11:49:56 -0700 (PDT)
+In-Reply-To: <1382208178-22347-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch serie implements GSO/TSO support for IPIP
+inet_gso_segment() and inet_gso_send_check() are called by
+skb_mac_gso_segment() under rcu lock, no need to use
+rcu_read_lock() / rcu_read_unlock()
 
-David, please note it applies after "ipv4: gso: send_check() & segment() cleanups"
-( http://patchwork.ozlabs.org/patch/284714/ )
+Avoid calling ip_hdr() twice per function.
 
-Broadcom bnx2x driver is now enabled for TSO support of IPIP traffic
+We can use ip_send_check() helper.
 
-Before patch :
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/af_inet.c | 24 +++++++++++-------------
+ 1 file changed, 11 insertions(+), 13 deletions(-)
 
-lpq83:~# ./netperf -H 7.7.9.84 -Cc
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.9.84 () port 0 AF_INET
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-
- 87380  16384  16384    10.00      3357.88   5.09     3.70     2.983   2.167
-
-After patch :
-
-lpq83:~# ./netperf -H 7.7.9.84 -Cc
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 7.7.9.84 () port 0 AF_INET
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-
- 87380  16384  16384    10.00      8532.40   2.55     7.73     0.588   1.781
-    
-
-Eric Dumazet (6):
-  ipv4: gso: send_check() & segment() cleanups
-  net: generalize skb_segment()
-  ipv4: generalize gre_handle_offloads
-  ipv4: gso: make inet_gso_segment() stackable
-  ipip: add GSO/TSO support
-  bnx2x: add TSO support for IPIP
-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  4 +-
- include/linux/netdev_features.h                  |  2 +
- include/linux/skbuff.h                           | 13 ++++--
- include/net/gre.h                                |  8 +++-
- include/net/ip_tunnels.h                         |  3 ++
- net/core/dev.c                                   |  2 +
- net/core/ethtool.c                               |  1 +
- net/core/skbuff.c                                | 22 ++-------
- net/ipv4/af_inet.c                               | 58 ++++++++++++++++--------
- net/ipv4/gre_demux.c                             | 29 ------------
- net/ipv4/gre_offload.c                           |  3 +-
- net/ipv4/ip_tunnel_core.c                        | 33 ++++++++++++++
- net/ipv4/ipip.c                                  | 11 +++--
- net/ipv4/tcp_offload.c                           |  1 +
- net/ipv4/udp_offload.c                           |  1 +
- net/ipv6/ip6_offload.c                           |  1 +
- net/ipv6/udp_offload.c                           |  1 +
- net/mpls/mpls_gso.c                              |  1 +
- 18 files changed, 116 insertions(+), 78 deletions(-)
-
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 35913fb..4f8cd4f 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1254,20 +1254,19 @@ static int inet_gso_send_check(struct sk_buff *skb)
+ 	if (ihl < sizeof(*iph))
+ 		goto out;
+ 
++	proto = iph->protocol;
++
++	/* Warning: after this point, iph might be no longer valid */
+ 	if (unlikely(!pskb_may_pull(skb, ihl)))
+ 		goto out;
+-
+ 	__skb_pull(skb, ihl);
++
+ 	skb_reset_transport_header(skb);
+-	iph = ip_hdr(skb);
+-	proto = iph->protocol;
+ 	err = -EPROTONOSUPPORT;
+ 
+-	rcu_read_lock();
+ 	ops = rcu_dereference(inet_offloads[proto]);
+ 	if (likely(ops && ops->callbacks.gso_send_check))
+ 		err = ops->callbacks.gso_send_check(skb);
+-	rcu_read_unlock();
+ 
+ out:
+ 	return err;
+@@ -1305,23 +1304,23 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 	if (ihl < sizeof(*iph))
+ 		goto out;
+ 
++	id = ntohs(iph->id);
++	proto = iph->protocol;
++
++	/* Warning: after this point, iph might be no longer valid */
+ 	if (unlikely(!pskb_may_pull(skb, ihl)))
+ 		goto out;
++	__skb_pull(skb, ihl);
+ 
+ 	tunnel = !!skb->encapsulation;
+ 
+-	__skb_pull(skb, ihl);
+ 	skb_reset_transport_header(skb);
+-	iph = ip_hdr(skb);
+-	id = ntohs(iph->id);
+-	proto = iph->protocol;
++
+ 	segs = ERR_PTR(-EPROTONOSUPPORT);
+ 
+-	rcu_read_lock();
+ 	ops = rcu_dereference(inet_offloads[proto]);
+ 	if (likely(ops && ops->callbacks.gso_segment))
+ 		segs = ops->callbacks.gso_segment(skb, features);
+-	rcu_read_unlock();
+ 
+ 	if (IS_ERR_OR_NULL(segs))
+ 		goto out;
+@@ -1339,8 +1338,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 			iph->id = htons(id++);
+ 		}
+ 		iph->tot_len = htons(skb->len - skb->mac_len);
+-		iph->check = 0;
+-		iph->check = ip_fast_csum(skb_network_header(skb), iph->ihl);
++		ip_send_check(iph);
+ 	} while ((skb = skb->next));
+ 
+ out:
 -- 
 1.8.4
