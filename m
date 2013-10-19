@@ -1,8 +1,7 @@
 From: Leigh Brown <leigh@solinno.co.uk>
-Subject: [PATCH RFC 4/4] net: mvmdio: doc: mvmdio now used by mv643xx_eth
-Date: Sat, 19 Oct 2013 17:23:54 +0100
-Message-ID: <68de0618e58ac3e5b4314130c3abbe331d298351.1382199042.git.leigh@solinno.co.uk>
-References: <cover.1382199042.git.leigh@solinno.co.uk>
+Subject: [PATCH RFC 0/4] MDIO bus timeout issues on Dreamplug
+Date: Sat, 19 Oct 2013 17:23:50 +0100
+Message-ID: <cover.1382199042.git.leigh@solinno.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,9 +9,6 @@ Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
  netdev@vger.kernel.org, Leigh Brown <leigh@solinno.co.uk>
 To: linux-arm-kernel@lists.infradead.org
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <cover.1382199042.git.leigh@solinno.co.uk>
-In-Reply-To: <cover.1382199042.git.leigh@solinno.co.uk>
-References: <cover.1382199042.git.leigh@solinno.co.uk>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -24,32 +20,49 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Amend the documentation in the mvmdio driver to note the fact
-that it is now used by both the mvneta and mv643xx_eth drivers.
+Hello,
 
-Signed-off-by: Leigh Brown <leigh@solinno.co.uk>
----
- drivers/net/ethernet/marvell/mvmdio.c |    8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+I just upgraded my Dreamplug to kernel 3.12-rc4 and began encountering
+timeout errors in the log, like the following :-
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 3992e2b..51af2e1 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -4,11 +4,9 @@
-  * Since the MDIO interface of Marvell network interfaces is shared
-  * between all network interfaces, having a single driver allows to
-  * handle concurrent accesses properly (you may have four Ethernet
-- * ports, but they in fact share the same SMI interface to access the
-- * MDIO bus). Moreover, this MDIO interface code is similar between
-- * the mv643xx_eth driver and the mvneta driver. For now, it is only
-- * used by the mvneta driver, but it could later be used by the
-- * mv643xx_eth driver as well.
-+ * ports, but they in fact share the same SMI interface to access
-+ * the MDIO bus). This driver is currently used by the mvneta and 
-+ * mv643xx_eth drivers.
-  *
-  * Copyright (C) 2012 Marvell
-  *
+orion-mdio f1072004.mdio-bus: Timeout when reading PHY
+
+I discovered that the mv643xx_eth driver had been converted to use the
+mvmdio driver to talk to the PHY rather than the old code that was
+embedded in the driver.  The new code had some inconsistent timeouts
+and always polled for a response rather than using the interrupt, where
+available.  The timeout was 1ms when polling but the Dreamplug can
+take up to 4.9ms to respond.
+
+So, making reference to the old 3.9 driver I changed the mvmdio driver
+to have more consistent timeouts and use interrupts to poll, where
+available. I set the timeout to 10ms.  Patches 1 and 2 do this.
+
+I got carried away checking the size of the code and patch 3 is a 
+simple optimisation to reduce the code size. The final patch updates
+the documentation in mvmdio to make it reflect the current situation.
+
+I have tested the patches on my Dreamplug and Mirabox and have not 
+encountered any issues.
+
+One final thing I noticed when testing: you can unload the mvmdio 
+driver and the machine will crash shortly after.  I tried to understand
+how the module reference counting would apply to these kinds of drivers
+and got a bit stuck.  I think these modules should not be unloadable
+while there is an ethernet driver that uses them.
+
+Regards,
+
+Leigh.
+
+Leigh Brown (4):
+  net: mvmdio: make orion_mdio_wait_ready consistent
+  net: mvmdio: orion_mdio_ready: remove manual poll
+  net: mvmdio: slight optimisation of orion_mdio_write
+  net: mvmdio: doc: mvmdio now used by mv643xx_eth
+
+ drivers/net/ethernet/marvell/mvmdio.c |   93 +++++++++++++++------------------
+ 1 file changed, 42 insertions(+), 51 deletions(-)
+
 -- 
 1.7.10.4
