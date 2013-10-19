@@ -1,77 +1,73 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: net: sctp: possible dereference after freeing
-Date: Sat, 19 Oct 2013 13:36:35 -0400
-Message-ID: <DA7AE80C-302D-4B9D-9C0E-BA980E25DFCE@gmail.com>
-References: <CAGG-pUTXC+6O-wyYp0FZxKH-XWqP++jLEn-Km5kixQFcKsWRZA@mail.gmail.com> <CAGG-pUT=qrYxOQ5jeU=9KipYO+MAA9oJj=241YMqo54S7K+xsA@mail.gmail.com>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: =?utf-8?Q?Geyslan_Greg=C3=B3rio_Bem?= <geyslan@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGG-pUT=qrYxOQ5jeU=9KipYO+MAA9oJj=241YMqo54S7K+xsA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH iproute2] ss: make socket statistic parseable
+Date: Sat, 19 Oct 2013 19:54:12 +0200
+Message-ID: <1382205252-14988-1-git-send-email-hagen@jauu.net>
+Cc: shemminger@vyatta.com, Hagen Paul Pfeifer <hagen@jauu.net>,
+	Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56811 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752456Ab3JSRyV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 13:54:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Currently "ss -emoi" output is nearly perfect: key value(s) tuples are
+delimited by colon. Except three groups: socket options, congestion
+control algorithm and send data. Especially the first two groups prevent
+automated parsing: what if a future congestion control algorithm is
+named "faster" - is this a TCP flag or a congestion control algorithm?
+The current syntax allow no parsing.
 
+This patch harmonize the syntax for the last three remaining groups.
 
-On Oct 19, 2013, at 7:49 AM, Geyslan Greg=C3=B3rio Bem <geyslan@gmail.c=
-om> wrote:
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+---
+ misc/ss.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-> 2013/10/19 Geyslan Greg=C3=B3rio Bem <geyslan@gmail.com>:
->> Hi maintainers,
->>=20
->> I would like to know if these are catches:
->>=20
->> /net/sctp/endpointola.c (281)
->> static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
->> {
->>    struct sock *sk;
->> ...
->>    kfree(ep);
->>    SCTP_DBG_OBJCNT_DEC(ep);
->> }
->>=20
->> The 'ep' object counter is being decremented?! Is the kfree to be th=
-ere indeed?
->> Let me know what was intended here.
->>=20
->> Same here:
->> /net/sctp/endpointola.c (165)
->> static void sctp_transport_destroy_rcu(struct rcu_head *head)
->> {
->>    struct sctp_transport *transport;
->> ...
->>    kfree(transport);
->>    SCTP_DBG_OBJCNT_DEC(transport);
->> }
->>=20
->> Regards,
->>=20
->> Geyslan Greg=C3=B3rio Bem
->> hackingbits.com
->=20
-> Oops. I got it. ;)
->=20
-> extern atomic_t sctp_dbg_objcnt_ep;
-> http://lxr.free-electrons.com/source/include/net/sctp/sctp.h#L269
-> extern atomic_t sctp_dbg_objcnt_transport;
-> http://lxr.free-electrons.com/source/arch/x86/include/asm/atomic.h#L1=
-05
->=20
-> Cheers.
-
-There is no reference here since the macro turns variable name to strin=
-g using ## name.
-So the order doesn't matter really.
-
--vlad --
-To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
- in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+diff --git a/misc/ss.c b/misc/ss.c
+index c0369f1..beca2eb 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1386,20 +1386,22 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+ 			info = RTA_DATA(tb[INET_DIAG_INFO]);
+ 
+ 		if (show_options) {
++			int is_not_first_element = 0;
++			printf(" options:");
+ 			if (info->tcpi_options & TCPI_OPT_TIMESTAMPS)
+-				printf(" ts");
++				printf("%cts", is_not_first_element++ ? ',' : '\0');
+ 			if (info->tcpi_options & TCPI_OPT_SACK)
+-				printf(" sack");
++				printf("%csack", is_not_first_element++ ? ',' : '\0');
+ 			if (info->tcpi_options & TCPI_OPT_ECN)
+-				printf(" ecn");
++				printf("%cecn", is_not_first_element++ ? ',' : '\0');
+ 			if (info->tcpi_options & TCPI_OPT_ECN_SEEN)
+-				printf(" ecnseen");
++				printf("%cecnseen", is_not_first_element++ ? ',' : '\0');
+ 			if (info->tcpi_options & TCPI_OPT_SYN_DATA)
+-				printf(" fastopen");
++				printf("%cfastopen", is_not_first_element++ ? ',' : '\0');
+ 		}
+ 
+ 		if (tb[INET_DIAG_CONG])
+-			printf(" %s", rta_getattr_str(tb[INET_DIAG_CONG]));
++			printf(" cc:%s", rta_getattr_str(tb[INET_DIAG_CONG]));
+ 
+ 		if (info->tcpi_options & TCPI_OPT_WSCALE)
+ 			printf(" wscale:%d,%d", info->tcpi_snd_wscale,
+@@ -1429,7 +1431,7 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+ 		}
+ 
+ 		if (rtt > 0 && info->tcpi_snd_mss && info->tcpi_snd_cwnd) {
+-			printf(" send %sbps",
++			printf(" send:%sbps",
+ 			       sprint_bw(b1, (double) info->tcpi_snd_cwnd *
+ 					 (double) info->tcpi_snd_mss * 8000000.
+ 					 / rtt));
+-- 
+1.8.4.rc3
