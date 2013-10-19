@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: gso: remove redundant locking
-Date: Sat, 19 Oct 2013 19:14:27 -0400 (EDT)
-Message-ID: <20131019.191427.1916999419022666981.davem@davemloft.net>
-References: <1382132635.3284.45.camel@edumazet-glaptop.roam.corp.google.com>
+Subject: Re: [patch net v2 0/3] UFO fixes
+Date: Sat, 19 Oct 2013 19:21:47 -0400 (EDT)
+Message-ID: <20131019.192147.1905247570882389108.davem@davemloft.net>
+References: <1382178557-14737-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	hannes@stressinduktion.org, jdmason@kudzu.us,
+	yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	kaber@trash.net, herbert@gondor.apana.org.au
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40452 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40488 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750950Ab3JSXO3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 19:14:29 -0400
-In-Reply-To: <1382132635.3284.45.camel@edumazet-glaptop.roam.corp.google.com>
+	with ESMTP id S1750961Ab3JSXVt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 19:21:49 -0400
+In-Reply-To: <1382178557-14737-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 18 Oct 2013 14:43:55 -0700
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Sat, 19 Oct 2013 12:29:14 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> Couple of patches fixing UFO functionality in different situations.
 > 
-> ipv6_gso_send_check() and ipv6_gso_segment() are called by
-> skb_mac_gso_segment() under rcu lock, no need to use
-> rcu_read_lock() / rcu_read_unlock()
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> v1->v2:
+> - minor if{}else{} coding style adjustment suggested by Sergei Shtylyov
 
-Applied, thanks.
+Series applied, thanks Jiri.
