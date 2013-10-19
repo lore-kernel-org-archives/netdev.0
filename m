@@ -1,59 +1,39 @@
-From: =?UTF-8?Q?Geyslan_Greg=C3=B3rio_Bem?= <geyslan@gmail.com>
-Subject: Re: net: sctp: possible dereference after freeing
-Date: Sat, 19 Oct 2013 08:49:10 -0300
-Message-ID: <CAGG-pUT=qrYxOQ5jeU=9KipYO+MAA9oJj=241YMqo54S7K+xsA@mail.gmail.com>
-References: <CAGG-pUTXC+6O-wyYp0FZxKH-XWqP++jLEn-Km5kixQFcKsWRZA@mail.gmail.com>
+From: Valentijn Sessink <valentyn@blub.net>
+Subject: Re: IPv6 path discovery oddities - flushing the routing cache resolves
+Date: Sat, 19 Oct 2013 16:24:59 +0200
+Message-ID: <5262963B.8040001@blub.net>
+References: <525E6B03.1040409@blub.net> <20131016154841.GC18135@order.stressinduktion.org> <525FC1C4.3070605@blub.net> <20131018030440.GI18135@order.stressinduktion.org> <5260D8DE.30303@blub.net> <20131019084225.GA31333@order.stressinduktion.org> <20131019101246.GA27576@sesse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGG-pUTXC+6O-wyYp0FZxKH-XWqP++jLEn-Km5kixQFcKsWRZA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from filter.openoffice.nl ([178.63.187.165]:53734 "EHLO
+	filter.openoffice.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752217Ab3JSOZI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 10:25:08 -0400
+In-Reply-To: <20131019101246.GA27576@sesse.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2013/10/19 Geyslan Greg=C3=B3rio Bem <geyslan@gmail.com>:
-> Hi maintainers,
->
-> I would like to know if these are catches:
->
-> /net/sctp/endpointola.c (281)
-> static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
-> {
->     struct sock *sk;
-> ...
->     kfree(ep);
->     SCTP_DBG_OBJCNT_DEC(ep);
-> }
->
-> The 'ep' object counter is being decremented?! Is the kfree to be the=
-re indeed?
-> Let me know what was intended here.
->
-> Same here:
-> /net/sctp/endpointola.c (165)
-> static void sctp_transport_destroy_rcu(struct rcu_head *head)
-> {
->     struct sctp_transport *transport;
-> ...
->     kfree(transport);
->     SCTP_DBG_OBJCNT_DEC(transport);
-> }
->
-> Regards,
->
-> Geyslan Greg=C3=B3rio Bem
-> hackingbits.com
+op 19-10-13 12:12, Steinar H. Gunderson schreef:
+> Thanks so much for looking into this! It's great that to hear that it's not
+> just me being weird =)
 
-Oops. I got it. ;)
+I'm not sure the patch addresses weirdness ;-P
 
-extern atomic_t sctp_dbg_objcnt_ep;
-http://lxr.free-electrons.com/source/include/net/sctp/sctp.h#L269
-extern atomic_t sctp_dbg_objcnt_transport;
-http://lxr.free-electrons.com/source/arch/x86/include/asm/atomic.h#L105
+On the more serious side: I have this problem with a 3.8.0 kernel 
+(Ubuntu 12.04 with updated kernel). I saw that you (Steinar) experience 
+this with 3.10 and 3.11, iirc. I'm a little bit worried by the fact that 
+this has not been seen for at least six months - and now suddenly pops up.
 
-Cheers.
+Does anyone have an idea when this race condition was introduced?
+
+(It could be, that certain patches have been included in Ubuntu 
+3.8.0-something but not in an official 3.8).
+
+Best regards,
+
+Valentijn
+p.s. I won't be able to test any patches until tuesday - sorry.
