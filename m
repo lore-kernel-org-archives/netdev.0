@@ -1,176 +1,50 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v4 3/9] static_key: WARN on usage before jump_label_init was called
-Date: Sat, 19 Oct 2013 21:48:53 +0200
-Message-ID: <1382212139-20301-4-git-send-email-hannes@stressinduktion.org>
-References: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org>
-Cc: linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Andi Kleen <andi@firstfloor.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: Re: IPv6 path discovery oddities - flushing the routing cache resolves
+Date: Sat, 19 Oct 2013 22:24:14 +0200
+Message-ID: <20131019202414.GD31333@order.stressinduktion.org>
+References: <525E6B03.1040409@blub.net> <20131016154841.GC18135@order.stressinduktion.org> <525FC1C4.3070605@blub.net> <20131018030440.GI18135@order.stressinduktion.org> <5260D8DE.30303@blub.net> <20131019084225.GA31333@order.stressinduktion.org> <20131019101246.GA27576@sesse.net> <5262963B.8040001@blub.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org,
+	"Steinar H. Gunderson" <sgunderson@bigfoot.com>
+To: Valentijn Sessink <valentyn@blub.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:45373 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751103Ab3JSUYQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 16:24:16 -0400
+Content-Disposition: inline
+In-Reply-To: <5262963B.8040001@blub.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Usage of the static key primitives to toggle a branch must not be used
-before jump_label_init() is called from init/main.c. jump_label_init
-reorganizes and wires up the jump_entries so usage before that could
-have unforeseen consequences.
+On Sat, Oct 19, 2013 at 04:24:59PM +0200, Valentijn Sessink wrote:
+> op 19-10-13 12:12, Steinar H. Gunderson schreef:
+> >Thanks so much for looking into this! It's great that to hear that it's not
+> >just me being weird =)
+> 
+> I'm not sure the patch addresses weirdness ;-P
+> 
+> On the more serious side: I have this problem with a 3.8.0 kernel 
+> (Ubuntu 12.04 with updated kernel). I saw that you (Steinar) experience 
+> this with 3.10 and 3.11, iirc. I'm a little bit worried by the fact that 
+> this has not been seen for at least six months - and now suddenly pops up.
+> 
+> Does anyone have an idea when this race condition was introduced?
 
-Following primitives are now checked for correct use:
-* static_key_slow_inc
-* static_key_slow_dec
-* static_key_slow_dec_deferred
-* jump_label_rate_limit
+Do a bisect. ;)
 
-The x86 architecture already checks this by testing if the default_nop
-was already replaced with an optimal nop or with a branch instruction. It
-will panic then. Other architectures don't check for this.
+I had a look at the history but could not find a single commit
+to blame. Even reference counting changes (e.g. removal of neighbour
+caching in routes) or something in the way the socket release callbacks
+are processed by tcp could introduce a way where these problems are more
+likely to happen. I wondered, too.
 
-Because we need to relax this check for the x86 arch to allow code to
-transition from default_nop to the enabled state and other architectures
-did not check for this at all this patch introduces checking on the
-static_key primitives in a non-arch dependent manner.
+A lot of people of the IPv6 community often state that mtu discovery is broken
+because of filtering packet_too_bigs. Maybe most people assumed broken
+firewalls and did not actual check if it is the kernels problem. So, thanks
+again for reporting this issue.
 
-All checked functions are considered slow-path so the additional check
-does no harm to performance.
+Greetings,
 
-The warnings are best observed with earlyprintk.
-
-Based on a patch from Andi Kleen.
-
-Cc: Steven Rostedt <rostedt@goodmis.org>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Andi Kleen <andi@firstfloor.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/linux/jump_label.h           | 10 ++++++++++
- include/linux/jump_label_ratelimit.h |  2 ++
- init/main.c                          |  7 +++++++
- kernel/jump_label.c                  |  5 +++++
- 4 files changed, 24 insertions(+)
-
-diff --git a/include/linux/jump_label.h b/include/linux/jump_label.h
-index a507907..e96be72 100644
---- a/include/linux/jump_label.h
-+++ b/include/linux/jump_label.h
-@@ -48,6 +48,13 @@
- 
- #include <linux/types.h>
- #include <linux/compiler.h>
-+#include <linux/bug.h>
-+
-+extern bool static_key_initialized;
-+
-+#define STATIC_KEY_CHECK_USE() WARN(!static_key_initialized,		      \
-+				    "%s used before call to jump_label_init", \
-+				    __func__)
- 
- #if defined(CC_HAVE_ASM_GOTO) && defined(CONFIG_JUMP_LABEL)
- 
-@@ -128,6 +135,7 @@ struct static_key {
- 
- static __always_inline void jump_label_init(void)
- {
-+	static_key_initialized = true;
- }
- 
- static __always_inline bool static_key_false(struct static_key *key)
-@@ -146,11 +154,13 @@ static __always_inline bool static_key_true(struct static_key *key)
- 
- static inline void static_key_slow_inc(struct static_key *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	atomic_inc(&key->enabled);
- }
- 
- static inline void static_key_slow_dec(struct static_key *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	atomic_dec(&key->enabled);
- }
- 
-diff --git a/include/linux/jump_label_ratelimit.h b/include/linux/jump_label_ratelimit.h
-index 1137883..089f70f 100644
---- a/include/linux/jump_label_ratelimit.h
-+++ b/include/linux/jump_label_ratelimit.h
-@@ -23,12 +23,14 @@ struct static_key_deferred {
- };
- static inline void static_key_slow_dec_deferred(struct static_key_deferred *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	static_key_slow_dec(&key->key);
- }
- static inline void
- jump_label_rate_limit(struct static_key_deferred *key,
- 		unsigned long rl)
- {
-+	STATIC_KEY_CHECK_USE();
- }
- #endif	/* HAVE_JUMP_LABEL */
- #endif	/* _LINUX_JUMP_LABEL_RATELIMIT_H */
-diff --git a/init/main.c b/init/main.c
-index af310af..27bbec1a 100644
---- a/init/main.c
-+++ b/init/main.c
-@@ -136,6 +136,13 @@ static char *execute_command;
- static char *ramdisk_execute_command;
- 
- /*
-+ * Used to generate warnings if static_key manipulation functions are used
-+ * before jump_label_init is called.
-+ */
-+bool static_key_initialized __read_mostly = false;
-+EXPORT_SYMBOL_GPL(static_key_initialized);
-+
-+/*
-  * If set, this is an indication to the drivers that reset the underlying
-  * device before going ahead with the initialization otherwise driver might
-  * rely on the BIOS and skip the reset operation.
-diff --git a/kernel/jump_label.c b/kernel/jump_label.c
-index 297a924..9019f15 100644
---- a/kernel/jump_label.c
-+++ b/kernel/jump_label.c
-@@ -58,6 +58,7 @@ static void jump_label_update(struct static_key *key, int enable);
- 
- void static_key_slow_inc(struct static_key *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	if (atomic_inc_not_zero(&key->enabled))
- 		return;
- 
-@@ -103,12 +104,14 @@ static void jump_label_update_timeout(struct work_struct *work)
- 
- void static_key_slow_dec(struct static_key *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	__static_key_slow_dec(key, 0, NULL);
- }
- EXPORT_SYMBOL_GPL(static_key_slow_dec);
- 
- void static_key_slow_dec_deferred(struct static_key_deferred *key)
- {
-+	STATIC_KEY_CHECK_USE();
- 	__static_key_slow_dec(&key->key, key->timeout, &key->work);
- }
- EXPORT_SYMBOL_GPL(static_key_slow_dec_deferred);
-@@ -116,6 +119,7 @@ EXPORT_SYMBOL_GPL(static_key_slow_dec_deferred);
- void jump_label_rate_limit(struct static_key_deferred *key,
- 		unsigned long rl)
- {
-+	STATIC_KEY_CHECK_USE();
- 	key->timeout = rl;
- 	INIT_DELAYED_WORK(&key->work, jump_label_update_timeout);
- }
-@@ -212,6 +216,7 @@ void __init jump_label_init(void)
- 		key->next = NULL;
- #endif
- 	}
-+	static_key_initialized = true;
- 	jump_label_unlock();
- }
- 
--- 
-1.8.3.1
+  Hannes
