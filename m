@@ -1,32 +1,35 @@
-From: "Gillian and Adrian Bayford" <gillianwise@gmail.com>
-Subject: Charity Donation
-Date: Sat, 19 Oct 2013 12:36:59 +0200
-Message-ID: <20131019103740.684BA606591__1113.65154521099$1382180001$gmane$org@mail.ufac.br>
-Reply-To: gillian.adrianbayford01@rogers.com
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH RESENT] staging: r8188eu: Move writeN buffer off stack
+Date: Sat, 19 Oct 2013 14:12:03 +0300
+Message-ID: <20131019111203.GN11731@mwanda>
+References: <5261AA78.6090205@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <gillianwise@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ufac.br ([200.129.173.14]:51010 "EHLO mail.ufac.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751319Ab3JSKwz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 06:52:55 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
+ netdev <netdev@vger.kernel.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <5261AA78.6090205@lwfinger.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-My wife and i won =A3148.6 Million Pounds last year, and we have done l=
-ot of charity donation, so we decide to give 1.5 Million Pounds each to=
- 5 lucky people, lucky for you, your email, was given to us by Google m=
-anagement as one of our lucky precipitants.
+On Fri, Oct 18, 2013 at 04:39:04PM -0500, Larry Finger wrote:
+> The driver places a 254-byte buffer on the stack when writing long output.
+> To reduce stack usage, a buffer of the required length is acquired using
+> kmemdup().
+> 
 
-=46or verification process see below Please read the article - http://w=
-ww.bbc.co.uk/news/uk-england-19254228
+The patch is badly whitespace dammaged.
 
-Send Name, Country, Age, Occupation and Phone Number for details
-
-Congratulations & Happy Celebrations in Advance,
-
-Gillian and Adrian Bayford
-Email: gillian.adrianbayford01@rogers.com
+regards,
+dan carpenter
