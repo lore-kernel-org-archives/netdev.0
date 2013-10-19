@@ -1,7 +1,7 @@
 From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: [PATCH 1/6] tcp_memcontrol: Remove tcp_max_memory
-Date: Sat, 19 Oct 2013 16:24:02 -0700
-Message-ID: <87li1ohmjx.fsf@xmission.com>
+Subject: [PATCH 2/6] tcp_memcontrol: Remove setting cgroup settings via sysctl
+Date: Sat, 19 Oct 2013 16:24:52 -0700
+Message-ID: <87eh7ghmij.fsf@xmission.com>
 References: <87r4bghml4.fsf@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,48 +25,107 @@ Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public
 List-Id: netdev.vger.kernel.org
 
 
-This function is never called. Remove it.
+The code is broken and does not constrain sysctl_tcp_mem as
+tcp_update_limit does.  With the result that it allows the cgroup tcp
+memory limits to be bypassed.
+
+The semantics are broken as the settings are not per netns and are in a
+per netns table, and instead looks at current.
+
+Since the code is broken in both design and implementation and does not
+implement the functionality for which it was written remove it.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
  include/net/tcp_memcontrol.h |    1 -
- net/ipv4/tcp_memcontrol.c    |   13 -------------
- 2 files changed, 0 insertions(+), 14 deletions(-)
+ net/ipv4/sysctl_net_ipv4.c   |   39 ++-------------------------------------
+ net/ipv4/tcp_memcontrol.c    |   14 --------------
+ 3 files changed, 2 insertions(+), 52 deletions(-)
 
 diff --git a/include/net/tcp_memcontrol.h b/include/net/tcp_memcontrol.h
-index 7df18bc43a97..88cdd1cb992e 100644
+index 88cdd1cb992e..af0c0680a873 100644
 --- a/include/net/tcp_memcontrol.h
 +++ b/include/net/tcp_memcontrol.h
-@@ -14,6 +14,5 @@ struct tcp_memcontrol {
+@@ -14,5 +14,4 @@ struct tcp_memcontrol {
  struct cg_proto *tcp_proto_cgroup(struct mem_cgroup *memcg);
  int tcp_init_cgroup(struct mem_cgroup *memcg, struct cgroup_subsys *ss);
  void tcp_destroy_cgroup(struct mem_cgroup *memcg);
--unsigned long long tcp_max_memory(const struct mem_cgroup *memcg);
- void tcp_prot_mem(struct mem_cgroup *memcg, long val, int idx);
+-void tcp_prot_mem(struct mem_cgroup *memcg, long val, int idx);
  #endif /* _TCP_MEMCG_H */
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index c08f096d46b5..5f0bb8786929 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -204,43 +204,8 @@ static int ipv4_tcp_mem(struct ctl_table *ctl, int write,
+ 			   void __user *buffer, size_t *lenp,
+ 			   loff_t *ppos)
+ {
+-	int ret;
+-	unsigned long vec[3];
+-	struct net *net = current->nsproxy->net_ns;
+-#ifdef CONFIG_MEMCG_KMEM
+-	struct mem_cgroup *memcg;
+-#endif
+-
+-	struct ctl_table tmp = {
+-		.data = &vec,
+-		.maxlen = sizeof(vec),
+-		.mode = ctl->mode,
+-	};
+-
+-	if (!write) {
+-		ctl->data = &net->ipv4.sysctl_tcp_mem;
+-		return proc_doulongvec_minmax(ctl, write, buffer, lenp, ppos);
+-	}
+-
+-	ret = proc_doulongvec_minmax(&tmp, write, buffer, lenp, ppos);
+-	if (ret)
+-		return ret;
+-
+-#ifdef CONFIG_MEMCG_KMEM
+-	rcu_read_lock();
+-	memcg = mem_cgroup_from_task(current);
+-
+-	tcp_prot_mem(memcg, vec[0], 0);
+-	tcp_prot_mem(memcg, vec[1], 1);
+-	tcp_prot_mem(memcg, vec[2], 2);
+-	rcu_read_unlock();
+-#endif
+-
+-	net->ipv4.sysctl_tcp_mem[0] = vec[0];
+-	net->ipv4.sysctl_tcp_mem[1] = vec[1];
+-	net->ipv4.sysctl_tcp_mem[2] = vec[2];
+-
+-	return 0;
++	ctl->data = &current->nsproxy->net_ns->ipv4.sysctl_tcp_mem;
++	return proc_doulongvec_minmax(ctl, write, buffer, lenp, ppos);
+ }
+ 
+ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
 diff --git a/net/ipv4/tcp_memcontrol.c b/net/ipv4/tcp_memcontrol.c
-index 559d4ae6ebf4..82985d1dc9af 100644
+index 82985d1dc9af..e7c01fcf5716 100644
 --- a/net/ipv4/tcp_memcontrol.c
 +++ b/net/ipv4/tcp_memcontrol.c
-@@ -226,19 +226,6 @@ static int tcp_cgroup_reset(struct cgroup_subsys_state *css, unsigned int event)
+@@ -226,20 +226,6 @@ static int tcp_cgroup_reset(struct cgroup_subsys_state *css, unsigned int event)
  	return 0;
  }
  
--unsigned long long tcp_max_memory(const struct mem_cgroup *memcg)
+-void tcp_prot_mem(struct mem_cgroup *memcg, long val, int idx)
 -{
 -	struct tcp_memcontrol *tcp;
 -	struct cg_proto *cg_proto;
 -
--	cg_proto = tcp_prot.proto_cgroup((struct mem_cgroup *)memcg);
+-	cg_proto = tcp_prot.proto_cgroup(memcg);
 -	if (!cg_proto)
--		return 0;
+-		return;
 -
 -	tcp = tcp_from_cgproto(cg_proto);
--	return res_counter_read_u64(&tcp->tcp_memory_allocated, RES_LIMIT);
+-
+-	tcp->tcp_prot_mem[idx] = val;
 -}
 -
- void tcp_prot_mem(struct mem_cgroup *memcg, long val, int idx)
- {
- 	struct tcp_memcontrol *tcp;
+ static struct cftype tcp_files[] = {
+ 	{
+ 		.name = "kmem.tcp.limit_in_bytes",
 -- 
 1.7.5.4
