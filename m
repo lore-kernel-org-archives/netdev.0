@@ -1,37 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2] ss: make socket statistic parseable
-Date: Sat, 19 Oct 2013 14:56:16 -0700
-Message-ID: <1382219776.3284.49.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1382205252-14988-1-git-send-email-hagen@jauu.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	Eric Dumazet <edumazet@google.com>
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: [PATCH 01/18] batman-adv: check skb preparation return value
+Date: Sun, 20 Oct 2013 00:21:53 +0200
+Message-ID: <1382221330-3769-2-git-send-email-antonio@meshcoding.com>
+References: <1382221330-3769-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Antonio Quartulli <antonio@meshcoding.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:49009 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752930Ab3JSV4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 17:56:18 -0400
-Received: by mail-pa0-f49.google.com with SMTP id lj1so4989044pab.36
-        for <netdev@vger.kernel.org>; Sat, 19 Oct 2013 14:56:18 -0700 (PDT)
-In-Reply-To: <1382205252-14988-1-git-send-email-hagen@jauu.net>
+Received: from s3.neomailbox.net ([178.209.62.157]:45037 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753563Ab3JSWW5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 18:22:57 -0400
+In-Reply-To: <1382221330-3769-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-10-19 at 19:54 +0200, Hagen Paul Pfeifer wrote:
-> Currently "ss -emoi" output is nearly perfect: key value(s) tuples are
-> delimited by colon. Except three groups: socket options, congestion
-> control algorithm and send data. Especially the first two groups prevent
-> automated parsing: what if a future congestion control algorithm is
-> named "faster" - is this a TCP flag or a congestion control algorithm?
-> The current syntax allow no parsing.
-> 
-> This patch harmonize the syntax for the last three remaining groups.
-> 
-> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
-> ---
+Fix bogus merge conflict resolution by checking the return
+values of the skb preparation routines.
 
-Seems fine to me, maybe we want to support json for better parsing
-capabilities ?
+Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+---
+ net/batman-adv/send.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index 82588e4..d765d53 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -267,11 +267,14 @@ int batadv_send_skb_generic_unicast(struct batadv_priv *bat_priv,
+ 
+ 	switch (packet_type) {
+ 	case BATADV_UNICAST:
+-		batadv_send_skb_prepare_unicast(skb, orig_node);
++		if (!batadv_send_skb_prepare_unicast(skb, orig_node))
++			goto out;
+ 		break;
+ 	case BATADV_UNICAST_4ADDR:
+-		batadv_send_skb_prepare_unicast_4addr(bat_priv, skb, orig_node,
+-						      packet_subtype);
++		if (!batadv_send_skb_prepare_unicast_4addr(bat_priv, skb,
++							   orig_node,
++							   packet_subtype))
++			goto out;
+ 		break;
+ 	default:
+ 		/* this function supports UNICAST and UNICAST_4ADDR only. It
+-- 
+1.8.4
