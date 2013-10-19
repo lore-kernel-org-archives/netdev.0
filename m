@@ -1,37 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] net: Implement GSO/TSO support for IPIP
-Date: Sat, 19 Oct 2013 19:37:41 -0400 (EDT)
-Message-ID: <20131019.193741.1765666924789441714.davem@davemloft.net>
-References: <1382208178-22347-1-git-send-email-edumazet@google.com>
-	<1382209158.3284.47.camel@edumazet-glaptop.roam.corp.google.com>
+Subject: Re: [PATCH net-next v4 0/9] Introduce support to lazy initialize
+ mostly static keys
+Date: Sat, 19 Oct 2013 19:46:35 -0400 (EDT)
+Message-ID: <20131019.194635.2189923305870380269.davem@davemloft.net>
+References: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org, hkchu@google.com,
-	therbert@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40569 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780Ab3JSXhn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 19:37:43 -0400
-In-Reply-To: <1382209158.3284.47.camel@edumazet-glaptop.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: hannes@stressinduktion.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 19 Oct 2013 11:59:18 -0700
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Sat, 19 Oct 2013 21:48:50 +0200
 
-> On Sat, 2013-10-19 at 11:42 -0700, Eric Dumazet wrote:
->> This patch serie implements GSO/TSO support for IPIP
->> 
->> David, please note it applies after "ipv4: gso: send_check() & segment() cleanups"
->> ( http://patchwork.ozlabs.org/patch/284714/ )
+> This series implements support for delaying the initialization of secret
+> keys, e.g. used for hashing, for as long as possible. This functionality
+> is implemented by a new macro, net_get_random_bytes.
 > 
-> Oh well, I meant to say the above patch was _included_ in this patch
-> set.
+> I already used it to protect the socket hashes, the syncookie secret
+> (most important) and the tcp_fastopen secrets.
+> 
+> Changelog:
+> v2) Use static_keys in net_get_random_once to have as minimal impact to
+>     the fast-path as possible.
+> v3) added patch "static_key: WARN on usage before jump_label_init was called":
+>     Patch "x86/jump_label: expect default_nop if static_key gets enabled
+>     on boot-up" relaxes the checks for using static_key primitives before
+>     jump_label_init. So tighten them first.
+> v4) Update changelog on the patch "static_key: WARN on usage before
+>     jump_label_init was called"
 
-I understood what you meant, especially because I just applied the patch
-in question :-)
+Although I was very skeptical about these changes when you first posted
+them, I am quite happy with this series now.
 
-This looks fantastic, all applied, thanks!
+Thanks for working on this and not giving up :-)
+
+Series applied, thanks a lot!
