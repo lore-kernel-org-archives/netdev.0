@@ -1,30 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/7] bonding: introduce bonding options
- Netlink support
-Date: Sat, 19 Oct 2013 18:59:47 -0400 (EDT)
-Message-ID: <20131019.185947.507215908086684979.davem@davemloft.net>
-References: <1382111019-1102-1-git-send-email-jiri@resnulli.us>
+Subject: [PATCH] bonding: Remove __exit tag from bond_netlink_fini().
+Date: Sat, 19 Oct 2013 19:10:11 -0400 (EDT)
+Message-ID: <20131019.191011.539854819275656137.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, vfalico@redhat.com,
-	andy@greyhouse.net, stephen@networkplumber.org, vyasevic@redhat.com
-To: jiri@resnulli.us
+Cc: jiri@resnulli.us
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40366 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40402 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751118Ab3JSW7y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 18:59:54 -0400
-In-Reply-To: <1382111019-1102-1-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1750896Ab3JSXKT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 19:10:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri, 18 Oct 2013 17:43:32 +0200
 
-> This patchset basically allows "mode" and "active_slave" bonding options
-> to be propagated and set up via standart RT Netlink interface.
-> 
-> In future other options can be easily added as well.
+It can be called from the module init function, so it cannot
+be in the exit section.
 
-Nice work Jiri, series applied, thanks.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/bonding/bond_netlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+index fe3500b..7661261 100644
+--- a/drivers/net/bonding/bond_netlink.c
++++ b/drivers/net/bonding/bond_netlink.c
+@@ -123,7 +123,7 @@ int __init bond_netlink_init(void)
+ 	return rtnl_link_register(&bond_link_ops);
+ }
+ 
+-void __exit bond_netlink_fini(void)
++void bond_netlink_fini(void)
+ {
+ 	rtnl_link_unregister(&bond_link_ops);
+ }
+-- 
+1.7.11.7
