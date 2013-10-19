@@ -1,73 +1,66 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH iproute2] ss: make socket statistic parseable
-Date: Sat, 19 Oct 2013 19:54:12 +0200
-Message-ID: <1382205252-14988-1-git-send-email-hagen@jauu.net>
-Cc: shemminger@vyatta.com, Hagen Paul Pfeifer <hagen@jauu.net>,
-	Eric Dumazet <edumazet@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56811 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752456Ab3JSRyV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 13:54:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by IPVS
+Date: Sat, 19 Oct 2013 20:34:33 +0200
+Message-ID: <20131019183433.GC31333@order.stressinduktion.org>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310180153250.4554@ssi.bg> <20131018021008.GH18135@order.stressinduktion.org> <alpine.LFD.2.03.1310191919290.1469@ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Simon Horman <horms@verge.net.au>,
+	YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
+	Phil Oester <kernel@linuxace.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.03.1310191919290.1469@ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently "ss -emoi" output is nearly perfect: key value(s) tuples are
-delimited by colon. Except three groups: socket options, congestion
-control algorithm and send data. Especially the first two groups prevent
-automated parsing: what if a future congestion control algorithm is
-named "faster" - is this a TCP flag or a congestion control algorithm?
-The current syntax allow no parsing.
+On Sat, Oct 19, 2013 at 07:37:10PM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Fri, 18 Oct 2013, Hannes Frederic Sowa wrote:
+> 
+> > I played around with your patch and tested xt_TEE. I added a TEE rule to
+> > mangle/OUTPUT and pinged. This happend, I have not yet analyzed it:
+> > 
+> > [  101.126649] ------------[ cut here ]------------
+> > [  101.128436] BUG: unable to handle kernel paging request at fffffffb8a2fda88
+> > [  101.129421] IP: [<ffffffff810c9737>] cpuacct_charge+0x97/0x200
+> > [  101.129421] PGD 1c0f067 PUD 0
+> > [  101.129421] Thread overran stack, or stack corrupted
+> 
+> 	Problem with process stack? May be some packet loop
+> happens? Because I can not reproduce such problem in my
+> virtual setup, I tested TEE too, with careful packet
+> matching and 1 CPU. Should I assume that you don't have such
+> oops when the patch is not applied, with the same TEE rule?
 
-This patch harmonize the syntax for the last three remaining groups.
+Oh, sorry, you are right. It happens with an unpatched net-next  kernel, too.
 
-Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
- misc/ss.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+I inserted the TEE rule in mangel/OUTGOING and had only one route, ip -6 r a
+default via fe80::1 dev eth0 which at the time of the panic was actually not
+reachable.
 
-diff --git a/misc/ss.c b/misc/ss.c
-index c0369f1..beca2eb 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1386,20 +1386,22 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
- 			info = RTA_DATA(tb[INET_DIAG_INFO]);
- 
- 		if (show_options) {
-+			int is_not_first_element = 0;
-+			printf(" options:");
- 			if (info->tcpi_options & TCPI_OPT_TIMESTAMPS)
--				printf(" ts");
-+				printf("%cts", is_not_first_element++ ? ',' : '\0');
- 			if (info->tcpi_options & TCPI_OPT_SACK)
--				printf(" sack");
-+				printf("%csack", is_not_first_element++ ? ',' : '\0');
- 			if (info->tcpi_options & TCPI_OPT_ECN)
--				printf(" ecn");
-+				printf("%cecn", is_not_first_element++ ? ',' : '\0');
- 			if (info->tcpi_options & TCPI_OPT_ECN_SEEN)
--				printf(" ecnseen");
-+				printf("%cecnseen", is_not_first_element++ ? ',' : '\0');
- 			if (info->tcpi_options & TCPI_OPT_SYN_DATA)
--				printf(" fastopen");
-+				printf("%cfastopen", is_not_first_element++ ? ',' : '\0');
- 		}
- 
- 		if (tb[INET_DIAG_CONG])
--			printf(" %s", rta_getattr_str(tb[INET_DIAG_CONG]));
-+			printf(" cc:%s", rta_getattr_str(tb[INET_DIAG_CONG]));
- 
- 		if (info->tcpi_options & TCPI_OPT_WSCALE)
- 			printf(" wscale:%d,%d", info->tcpi_snd_wscale,
-@@ -1429,7 +1431,7 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
- 		}
- 
- 		if (rtt > 0 && info->tcpi_snd_mss && info->tcpi_snd_cwnd) {
--			printf(" send %sbps",
-+			printf(" send:%sbps",
- 			       sprint_bw(b1, (double) info->tcpi_snd_cwnd *
- 					 (double) info->tcpi_snd_mss * 8000000.
- 					 / rtt));
--- 
-1.8.4.rc3
+> > [  101.129421] Oops: 0000 [#1] SMP
+> 
+> 	You don't appear to have PREEMPT in above line.
+> I'm not sure when preemption is enabled if tee_tg6() does
+> not have a problem with its anti-loop measures (tee_active).
+> Is preemption possible in OUTPUT hook, i.e. can we change
+> the CPU while playing with tee_active and as result change
+> different flag?
+
+Hm, maybe. I don't have too much insight into netfilter stack and
+what are the differences between OUTPUT and FORWARD path but plan to
+investigate. ;)
+
+Anyways just wanted to let you know that unpatched kernels are affected, too.
+Will have a closer look later.
+
+Greetings,
+
+  Hannes
+
