@@ -1,35 +1,51 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH RESENT] staging: r8188eu: Move writeN buffer off stack
-Date: Sat, 19 Oct 2013 14:12:03 +0300
-Message-ID: <20131019111203.GN11731@mwanda>
-References: <5261AA78.6090205@lwfinger.net>
+From: =?UTF-8?Q?Geyslan_Greg=C3=B3rio_Bem?= <geyslan@gmail.com>
+Subject: net: sctp: possible dereference after freeing
+Date: Sat, 19 Oct 2013 08:38:43 -0300
+Message-ID: <CAGG-pUTXC+6O-wyYp0FZxKH-XWqP++jLEn-Km5kixQFcKsWRZA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
- netdev <netdev@vger.kernel.org>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <5261AA78.6090205@lwfinger.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:62544 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751281Ab3JSLio convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 07:38:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 18, 2013 at 04:39:04PM -0500, Larry Finger wrote:
-> The driver places a 254-byte buffer on the stack when writing long output.
-> To reduce stack usage, a buffer of the required length is acquired using
-> kmemdup().
-> 
+Hi maintainers,
 
-The patch is badly whitespace dammaged.
+I would like to know if these are catches:
 
-regards,
-dan carpenter
+/net/sctp/endpointola.c (281)
+static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
+{
+    struct sock *sk;
+=2E..
+    kfree(ep);
+    SCTP_DBG_OBJCNT_DEC(ep);
+}
+
+The 'ep' object counter is being decremented?! Is the kfree to be there=
+ indeed?
+Let me know what was intended here.
+
+Same here:
+/net/sctp/endpointola.c (165)
+static void sctp_transport_destroy_rcu(struct rcu_head *head)
+{
+    struct sctp_transport *transport;
+=2E..
+    kfree(transport);
+    SCTP_DBG_OBJCNT_DEC(transport);
+}
+
+Regards,
+
+Geyslan Greg=C3=B3rio Bem
+hackingbits.com
