@@ -1,333 +1,356 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 13/18] batman-adv: refine API calls for unicast transmissions of SKBs
-Date: Sun, 20 Oct 2013 00:22:05 +0200
-Message-ID: <1382221330-3769-14-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 10/18] batman-adv: add per VLAN interface attribute framework
+Date: Sun, 20 Oct 2013 00:22:02 +0200
+Message-ID: <1382221330-3769-11-git-send-email-antonio@meshcoding.com>
 References: <1382221330-3769-1-git-send-email-antonio@meshcoding.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <antonio@meshcoding.com>
+	Antonio Quartulli <antonio@open-mesh.com>,
+	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:22362 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:38252 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753737Ab3JSWlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 18:41:35 -0400
+	with ESMTP id S1753737Ab3JSWli (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 18:41:38 -0400
 In-Reply-To: <1382221330-3769-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus L=C3=BCssing <linus.luessing@web.de>
+From: Antonio Quartulli <antonio@open-mesh.com>
 
-With this patch the functions batadv_send_skb_unicast() and
-batadv_send_skb_unicast_4addr() are further refined into
-batadv_send_skb_via_tt(), batadv_send_skb_via_tt_4addr() and
-batadv_send_skb_via_gw(). This way we avoid any "guessing" about where =
-to send
-a packet in the unicast forwarding methods and let the callers decide.
+Since batman-adv is now fully VLAN-aware, a proper framework
+able to handle per-vlan-interface attributes is needed.
 
-This is going to be useful for the upcoming multicast related patches i=
-n
-particular.
+Those attributes will affect the associated VLAN interface
+only, rather than the real soft_iface (which would result
+in every vlan interface having the same attribute
+configuration).
 
-=46urther, the return values were polished a little to use the more
-appropriate NET_XMIT_* defines.
+To make the code simpler and easier to extend, attributes
+associated to the standalone soft_iface are now treated
+like belonging to yet another vlan having a special vid.
+This vid is different from the others because it is made up
+by all zeros and the VLAN_HAS_TAG bit is not set.
 
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
-Acked-by: Antonio Quartulli <antonio@meshcoding.com>
+Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 ---
- net/batman-adv/distributed-arp-table.c | 10 ++--
- net/batman-adv/send.c                  | 87 ++++++++++++++++++++++++++=
---------
- net/batman-adv/send.h                  | 51 ++++++++++++--------
- net/batman-adv/soft-interface.c        |  8 +++-
- 4 files changed, 108 insertions(+), 48 deletions(-)
+ net/batman-adv/hard-interface.c |   2 +
+ net/batman-adv/main.c           |   5 +-
+ net/batman-adv/soft-interface.c | 171 ++++++++++++++++++++++++++++++++++++++++
+ net/batman-adv/soft-interface.h |   1 +
+ net/batman-adv/types.h          |  21 +++++
+ 5 files changed, 197 insertions(+), 3 deletions(-)
 
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/di=
-stributed-arp-table.c
-index 47dbe9a..6c8c393 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -1037,13 +1037,13 @@ bool batadv_dat_snoop_incoming_arp_request(stru=
-ct batadv_priv *bat_priv,
- 	 * that a node not using the 4addr packet format doesn't support it.
- 	 */
- 	if (hdr_size =3D=3D sizeof(struct batadv_unicast_4addr_packet))
--		err =3D batadv_send_skb_unicast_4addr(bat_priv, skb_new,
--						    BATADV_P_DAT_CACHE_REPLY,
--						    vid);
-+		err =3D batadv_send_skb_via_tt_4addr(bat_priv, skb_new,
-+						   BATADV_P_DAT_CACHE_REPLY,
-+						   vid);
- 	else
--		err =3D batadv_send_skb_unicast(bat_priv, skb_new, vid);
-+		err =3D batadv_send_skb_via_tt(bat_priv, skb_new, vid);
-=20
--	if (!err) {
-+	if (err !=3D NET_XMIT_DROP) {
- 		batadv_inc_counter(bat_priv, BATADV_CNT_DAT_CACHED_REPLY_TX);
- 		ret =3D true;
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index d564af2..c5f871f 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -643,6 +643,8 @@ static int batadv_hard_if_event(struct notifier_block *this,
+ 
+ 	if (batadv_softif_is_valid(net_dev) && event == NETDEV_REGISTER) {
+ 		batadv_sysfs_add_meshif(net_dev);
++		bat_priv = netdev_priv(net_dev);
++		batadv_softif_create_vlan(bat_priv, BATADV_NO_FLAGS);
+ 		return NOTIFY_DONE;
  	}
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index acaa7ff..c83be5e 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -234,35 +234,31 @@ out:
- }
-=20
- /**
-- * batadv_send_generic_unicast_skb - send an skb as unicast
-+ * batadv_send_skb_unicast - encapsulate and send an skb via unicast
-  * @bat_priv: the bat priv with all the soft interface information
-  * @skb: payload to send
-  * @packet_type: the batman unicast packet type to use
-  * @packet_subtype: the unicast 4addr packet subtype (only relevant fo=
-r unicast
-  *  4addr packets)
-+ * @orig_node: the originator to send the packet to
-  * @vid: the vid to be used to search the translation table
-  *
-- * Returns 1 in case of error or 0 otherwise.
-+ * Wrap the given skb into a batman-adv unicast or unicast-4addr heade=
-r
-+ * depending on whether BATADV_UNICAST or BATADV_UNICAST_4ADDR was sup=
-plied
-+ * as packet_type. Then send this frame to the given orig_node and rel=
-ease a
-+ * reference to this orig_node.
-+ *
-+ * Returns NET_XMIT_DROP in case of error or NET_XMIT_SUCCESS otherwis=
-e.
-  */
--int batadv_send_skb_generic_unicast(struct batadv_priv *bat_priv,
--				    struct sk_buff *skb, int packet_type,
--				    int packet_subtype,
--				    unsigned short vid)
-+static int batadv_send_skb_unicast(struct batadv_priv *bat_priv,
-+				   struct sk_buff *skb, int packet_type,
-+				   int packet_subtype,
-+				   struct batadv_orig_node *orig_node,
-+				   unsigned short vid)
- {
- 	struct ethhdr *ethhdr =3D (struct ethhdr *)skb->data;
- 	struct batadv_unicast_packet *unicast_packet;
--	struct batadv_orig_node *orig_node;
--	int ret =3D NET_RX_DROP;
+ 
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index 80f60d1..2207551 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -113,6 +113,7 @@ int batadv_mesh_init(struct net_device *soft_iface)
+ 	spin_lock_init(&bat_priv->gw.list_lock);
+ 	spin_lock_init(&bat_priv->tvlv.container_list_lock);
+ 	spin_lock_init(&bat_priv->tvlv.handler_list_lock);
++	spin_lock_init(&bat_priv->softif_vlan_list_lock);
+ 
+ 	INIT_HLIST_HEAD(&bat_priv->forw_bat_list);
+ 	INIT_HLIST_HEAD(&bat_priv->forw_bcast_list);
+@@ -122,6 +123,7 @@ int batadv_mesh_init(struct net_device *soft_iface)
+ 	INIT_LIST_HEAD(&bat_priv->tt.roam_list);
+ 	INIT_HLIST_HEAD(&bat_priv->tvlv.container_list);
+ 	INIT_HLIST_HEAD(&bat_priv->tvlv.handler_list);
++	INIT_HLIST_HEAD(&bat_priv->softif_vlan_list);
+ 
+ 	ret = batadv_originator_init(bat_priv);
+ 	if (ret < 0)
+@@ -131,9 +133,6 @@ int batadv_mesh_init(struct net_device *soft_iface)
+ 	if (ret < 0)
+ 		goto err;
+ 
+-	batadv_tt_local_add(soft_iface, soft_iface->dev_addr,
+-			    BATADV_NO_FLAGS, BATADV_NULL_IFINDEX);
 -
--	/* get routing information */
--	if (is_multicast_ether_addr(ethhdr->h_dest))
--		orig_node =3D batadv_gw_get_selected_orig(bat_priv);
--	else
--		/* check for tt host - increases orig_node refcount.
--		 * returns NULL in case of AP isolation
--		 */
--		orig_node =3D batadv_transtable_search(bat_priv, ethhdr->h_source,
--						     ethhdr->h_dest, vid);
-+	int ret =3D NET_XMIT_DROP;
-=20
- 	if (!orig_node)
- 		goto out;
-@@ -296,16 +292,67 @@ int batadv_send_skb_generic_unicast(struct batadv=
-_priv *bat_priv,
- 		unicast_packet->ttvn =3D unicast_packet->ttvn - 1;
-=20
- 	if (batadv_send_skb_to_orig(skb, orig_node, NULL) !=3D NET_XMIT_DROP)
--		ret =3D 0;
-+		ret =3D NET_XMIT_SUCCESS;
-=20
- out:
- 	if (orig_node)
- 		batadv_orig_node_free_ref(orig_node);
--	if (ret =3D=3D NET_RX_DROP)
-+	if (ret =3D=3D NET_XMIT_DROP)
- 		kfree_skb(skb);
- 	return ret;
- }
-=20
-+/**
-+ * batadv_send_skb_via_tt_generic - send an skb via TT lookup
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @skb: payload to send
-+ * @packet_type: the batman unicast packet type to use
-+ * @packet_subtype: the unicast 4addr packet subtype (only relevant fo=
-r unicast
-+ *  4addr packets)
-+ * @vid: the vid to be used to search the translation table
-+ *
-+ * Look up the recipient node for the destination address in the ether=
-net
-+ * header via the translation table. Wrap the given skb into a batman-=
-adv
-+ * unicast or unicast-4addr header depending on whether BATADV_UNICAST=
- or
-+ * BATADV_UNICAST_4ADDR was supplied as packet_type. Then send this fr=
-ame
-+ * to the according destination node.
-+ *
-+ * Returns NET_XMIT_DROP in case of error or NET_XMIT_SUCCESS otherwis=
-e.
-+ */
-+int batadv_send_skb_via_tt_generic(struct batadv_priv *bat_priv,
-+				   struct sk_buff *skb, int packet_type,
-+				   int packet_subtype, unsigned short vid)
-+{
-+	struct ethhdr *ethhdr =3D (struct ethhdr *)skb->data;
-+	struct batadv_orig_node *orig_node;
-+
-+	orig_node =3D batadv_transtable_search(bat_priv, ethhdr->h_source,
-+					     ethhdr->h_dest, vid);
-+	return batadv_send_skb_unicast(bat_priv, skb, packet_type,
-+				       packet_subtype, orig_node, vid);
-+}
-+
-+/**
-+ * batadv_send_skb_via_gw - send an skb via gateway lookup
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @skb: payload to send
-+ * @vid: the vid to be used to search the translation table
-+ *
-+ * Look up the currently selected gateway. Wrap the given skb into a b=
-atman-adv
-+ * unicast header and send this frame to this gateway node.
-+ *
-+ * Returns NET_XMIT_DROP in case of error or NET_XMIT_SUCCESS otherwis=
-e.
-+ */
-+int batadv_send_skb_via_gw(struct batadv_priv *bat_priv, struct sk_buf=
-f *skb,
-+			   unsigned short vid)
-+{
-+	struct batadv_orig_node *orig_node;
-+
-+	orig_node =3D batadv_gw_get_selected_orig(bat_priv);
-+	return batadv_send_skb_unicast(bat_priv, skb, BATADV_UNICAST, 0,
-+				       orig_node, vid);
-+}
-+
- void batadv_schedule_bat_ogm(struct batadv_hard_iface *hard_iface)
- {
- 	struct batadv_priv *bat_priv =3D netdev_priv(hard_iface->soft_iface);
-diff --git a/net/batman-adv/send.h b/net/batman-adv/send.h
-index c030cb7..aa2e253 100644
---- a/net/batman-adv/send.h
-+++ b/net/batman-adv/send.h
-@@ -38,45 +38,54 @@ bool batadv_send_skb_prepare_unicast_4addr(struct b=
-atadv_priv *bat_priv,
- 					   struct sk_buff *skb,
- 					   struct batadv_orig_node *orig_node,
- 					   int packet_subtype);
--int batadv_send_skb_generic_unicast(struct batadv_priv *bat_priv,
--				    struct sk_buff *skb, int packet_type,
--				    int packet_subtype,
--				    unsigned short vid);
-+int batadv_send_skb_via_tt_generic(struct batadv_priv *bat_priv,
-+				   struct sk_buff *skb, int packet_type,
-+				   int packet_subtype, unsigned short vid);
-+int batadv_send_skb_via_gw(struct batadv_priv *bat_priv, struct sk_buf=
-f *skb,
-+			   unsigned short vid);
-=20
- /**
-- * batadv_send_unicast_skb - send the skb encapsulated in a unicast pa=
-cket
-+ * batadv_send_skb_via_tt - send an skb via TT lookup
-  * @bat_priv: the bat priv with all the soft interface information
-  * @skb: the payload to send
-  * @vid: the vid to be used to search the translation table
-  *
-- * Returns 1 in case of error or 0 otherwise.
-+ * Look up the recipient node for the destination address in the ether=
-net
-+ * header via the translation table. Wrap the given skb into a batman-=
-adv
-+ * unicast header. Then send this frame to the according destination n=
-ode.
-+ *
-+ * Returns NET_XMIT_DROP in case of error or NET_XMIT_SUCCESS otherwis=
-e.
-  */
--static inline int batadv_send_skb_unicast(struct batadv_priv *bat_priv=
-,
--					  struct sk_buff *skb,
--					  unsigned short vid)
-+static inline int batadv_send_skb_via_tt(struct batadv_priv *bat_priv,
-+					 struct sk_buff *skb,
-+					 unsigned short vid)
- {
--	return batadv_send_skb_generic_unicast(bat_priv, skb, BATADV_UNICAST,
--					       0, vid);
-+	return batadv_send_skb_via_tt_generic(bat_priv, skb, BATADV_UNICAST, =
-0,
-+					      vid);
- }
-=20
- /**
-- * batadv_send_4addr_unicast_skb - send the skb encapsulated in a unic=
-ast 4addr
-- *  packet
-+ * batadv_send_skb_via_tt_4addr - send an skb via TT lookup
-  * @bat_priv: the bat priv with all the soft interface information
-  * @skb: the payload to send
-  * @packet_subtype: the unicast 4addr packet subtype to use
-  * @vid: the vid to be used to search the translation table
-  *
-- * Returns 1 in case of error or 0 otherwise.
-+ * Look up the recipient node for the destination address in the ether=
-net
-+ * header via the translation table. Wrap the given skb into a batman-=
-adv
-+ * unicast-4addr header. Then send this frame to the according destina=
-tion
-+ * node.
-+ *
-+ * Returns NET_XMIT_DROP in case of error or NET_XMIT_SUCCESS otherwis=
-e.
-  */
--static inline int batadv_send_skb_unicast_4addr(struct batadv_priv *ba=
-t_priv,
--						struct sk_buff *skb,
--						int packet_subtype,
--						unsigned short vid)
-+static inline int batadv_send_skb_via_tt_4addr(struct batadv_priv *bat=
-_priv,
-+					       struct sk_buff *skb,
-+					       int packet_subtype,
-+					       unsigned short vid)
- {
--	return batadv_send_skb_generic_unicast(bat_priv, skb,
--					       BATADV_UNICAST_4ADDR,
--					       packet_subtype, vid);
-+	return batadv_send_skb_via_tt_generic(bat_priv, skb,
-+					      BATADV_UNICAST_4ADDR,
-+					      packet_subtype, vid);
- }
-=20
- #endif /* _NET_BATMAN_ADV_SEND_H_ */
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-inte=
-rface.c
-index baa74b9..e70f530 100644
+ 	ret = batadv_bla_init(bat_priv);
+ 	if (ret < 0)
+ 		goto err;
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 279e91d..936b83b 100644
 --- a/net/batman-adv/soft-interface.c
 +++ b/net/batman-adv/soft-interface.c
-@@ -298,8 +298,12 @@ static int batadv_interface_tx(struct sk_buff *skb=
-,
-=20
- 		batadv_dat_snoop_outgoing_arp_reply(bat_priv, skb);
-=20
--		ret =3D batadv_send_skb_unicast(bat_priv, skb, vid);
--		if (ret !=3D 0)
-+		if (is_multicast_ether_addr(ethhdr->h_dest))
-+			ret =3D batadv_send_skb_via_gw(bat_priv, skb, vid);
-+		else
-+			ret =3D batadv_send_skb_via_tt(bat_priv, skb, vid);
+@@ -393,6 +393,166 @@ out:
+ 	return;
+ }
+ 
++/**
++ * batadv_softif_vlan_free_ref - decrease the vlan object refcounter and
++ *  possibly free it
++ * @softif_vlan: the vlan object to release
++ */
++static void batadv_softif_vlan_free_ref(struct batadv_softif_vlan *softif_vlan)
++{
++	if (atomic_dec_and_test(&softif_vlan->refcount))
++		kfree_rcu(softif_vlan, rcu);
++}
 +
-+		if (ret =3D=3D NET_XMIT_DROP)
- 			goto dropped_freed;
- 	}
-=20
---=20
++/**
++ * batadv_softif_vlan_get - get the vlan object for a specific vid
++ * @bat_priv: the bat priv with all the soft interface information
++ * @vid: the identifier of the vlan object to retrieve
++ *
++ * Returns the private data of the vlan matching the vid passed as argument or
++ * NULL otherwise. The refcounter of the returned object is incremented by 1.
++ */
++static struct batadv_softif_vlan *
++batadv_softif_vlan_get(struct batadv_priv *bat_priv, unsigned short vid)
++{
++	struct batadv_softif_vlan *vlan_tmp, *vlan = NULL;
++
++	rcu_read_lock();
++	hlist_for_each_entry_rcu(vlan_tmp, &bat_priv->softif_vlan_list, list) {
++		if (vlan_tmp->vid != vid)
++			continue;
++
++		if (!atomic_inc_not_zero(&vlan_tmp->refcount))
++			continue;
++
++		vlan = vlan_tmp;
++		break;
++	}
++	rcu_read_unlock();
++
++	return vlan;
++}
++
++/**
++ * batadv_create_vlan - allocate the needed resources for a new vlan
++ * @bat_priv: the bat priv with all the soft interface information
++ * @vid: the VLAN identifier
++ *
++ * Returns 0 on success, a negative error otherwise.
++ */
++int batadv_softif_create_vlan(struct batadv_priv *bat_priv, unsigned short vid)
++{
++	struct batadv_softif_vlan *vlan;
++
++	vlan = batadv_softif_vlan_get(bat_priv, vid);
++	if (vlan) {
++		batadv_softif_vlan_free_ref(vlan);
++		return -EEXIST;
++	}
++
++	vlan = kzalloc(sizeof(*vlan), GFP_ATOMIC);
++	if (!vlan)
++		return -ENOMEM;
++
++	vlan->vid = vid;
++	atomic_set(&vlan->refcount, 1);
++
++	/* add a new TT local entry. This one will be marked with the NOPURGE
++	 * flag
++	 */
++	batadv_tt_local_add(bat_priv->soft_iface,
++			    bat_priv->soft_iface->dev_addr, vid,
++			    BATADV_NULL_IFINDEX);
++
++	spin_lock_bh(&bat_priv->softif_vlan_list_lock);
++	hlist_add_head_rcu(&vlan->list, &bat_priv->softif_vlan_list);
++	spin_unlock_bh(&bat_priv->softif_vlan_list_lock);
++
++	return 0;
++}
++
++/**
++ * batadv_softif_destroy_vlan - remove and destroy a softif_vlan object
++ * @bat_priv: the bat priv with all the soft interface information
++ * @vlan: the object to remove
++ */
++static void batadv_softif_destroy_vlan(struct batadv_priv *bat_priv,
++				       struct batadv_softif_vlan *vlan)
++{
++	spin_lock_bh(&bat_priv->softif_vlan_list_lock);
++	hlist_del_rcu(&vlan->list);
++	spin_unlock_bh(&bat_priv->softif_vlan_list_lock);
++
++	/* explicitly remove the associated TT local entry because it is marked
++	 * with the NOPURGE flag
++	 */
++	batadv_tt_local_remove(bat_priv, bat_priv->soft_iface->dev_addr,
++			       vlan->vid, "vlan interface destroyed", false);
++
++	batadv_softif_vlan_free_ref(vlan);
++}
++
++/**
++ * batadv_interface_add_vid - ndo_add_vid API implementation
++ * @dev: the netdev of the mesh interface
++ * @vid: identifier of the new vlan
++ *
++ * Set up all the internal structures for handling the new vlan on top of the
++ * mesh interface
++ *
++ * Returns 0 on success or a negative error code in case of failure.
++ */
++static int batadv_interface_add_vid(struct net_device *dev, __be16 proto,
++				    unsigned short vid)
++{
++	struct batadv_priv *bat_priv = netdev_priv(dev);
++
++	/* only 802.1Q vlans are supported.
++	 * batman-adv does not know how to handle other types
++	 */
++	if (proto != htons(ETH_P_8021Q))
++		return -EINVAL;
++
++	vid |= BATADV_VLAN_HAS_TAG;
++
++	return batadv_softif_create_vlan(bat_priv, vid);
++}
++
++/**
++ * batadv_interface_kill_vid - ndo_kill_vid API implementation
++ * @dev: the netdev of the mesh interface
++ * @vid: identifier of the deleted vlan
++ *
++ * Destroy all the internal structures used to handle the vlan identified by vid
++ * on top of the mesh interface
++ *
++ * Returns 0 on success, -EINVAL if the specified prototype is not ETH_P_8021Q
++ * or -ENOENT if the specified vlan id wasn't registered.
++ */
++static int batadv_interface_kill_vid(struct net_device *dev, __be16 proto,
++				     unsigned short vid)
++{
++	struct batadv_priv *bat_priv = netdev_priv(dev);
++	struct batadv_softif_vlan *vlan;
++
++	/* only 802.1Q vlans are supported. batman-adv does not know how to
++	 * handle other types
++	 */
++	if (proto != htons(ETH_P_8021Q))
++		return -EINVAL;
++
++	vlan = batadv_softif_vlan_get(bat_priv, vid | BATADV_VLAN_HAS_TAG);
++	if (!vlan)
++		return -ENOENT;
++
++	batadv_softif_destroy_vlan(bat_priv, vlan);
++
++	/* finally free the vlan object */
++	batadv_softif_vlan_free_ref(vlan);
++
++	return 0;
++}
++
+ /* batman-adv network devices have devices nesting below it and are a special
+  * "super class" of normal network devices; split their locks off into a
+  * separate class since they always nest.
+@@ -432,6 +592,7 @@ static void batadv_set_lockdep_class(struct net_device *dev)
+  */
+ static void batadv_softif_destroy_finish(struct work_struct *work)
+ {
++	struct batadv_softif_vlan *vlan;
+ 	struct batadv_priv *bat_priv;
+ 	struct net_device *soft_iface;
+ 
+@@ -439,6 +600,13 @@ static void batadv_softif_destroy_finish(struct work_struct *work)
+ 				cleanup_work);
+ 	soft_iface = bat_priv->soft_iface;
+ 
++	/* destroy the "untagged" VLAN */
++	vlan = batadv_softif_vlan_get(bat_priv, BATADV_NO_FLAGS);
++	if (vlan) {
++		batadv_softif_destroy_vlan(bat_priv, vlan);
++		batadv_softif_vlan_free_ref(vlan);
++	}
++
+ 	batadv_sysfs_del_meshif(soft_iface);
+ 
+ 	rtnl_lock();
+@@ -594,6 +762,8 @@ static const struct net_device_ops batadv_netdev_ops = {
+ 	.ndo_open = batadv_interface_open,
+ 	.ndo_stop = batadv_interface_release,
+ 	.ndo_get_stats = batadv_interface_stats,
++	.ndo_vlan_rx_add_vid = batadv_interface_add_vid,
++	.ndo_vlan_rx_kill_vid = batadv_interface_kill_vid,
+ 	.ndo_set_mac_address = batadv_interface_set_mac_addr,
+ 	.ndo_change_mtu = batadv_interface_change_mtu,
+ 	.ndo_set_rx_mode = batadv_interface_set_rx_mode,
+@@ -633,6 +803,7 @@ static void batadv_softif_init_early(struct net_device *dev)
+ 
+ 	dev->netdev_ops = &batadv_netdev_ops;
+ 	dev->destructor = batadv_softif_free;
++	dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+ 	dev->tx_queue_len = 0;
+ 
+ 	/* can't call min_mtu, because the needed variables
+diff --git a/net/batman-adv/soft-interface.h b/net/batman-adv/soft-interface.h
+index 2f2472c..16d9be6 100644
+--- a/net/batman-adv/soft-interface.h
++++ b/net/batman-adv/soft-interface.h
+@@ -28,5 +28,6 @@ struct net_device *batadv_softif_create(const char *name);
+ void batadv_softif_destroy_sysfs(struct net_device *soft_iface);
+ int batadv_softif_is_valid(const struct net_device *net_dev);
+ extern struct rtnl_link_ops batadv_link_ops;
++int batadv_softif_create_vlan(struct batadv_priv *bat_priv, unsigned short vid);
+ 
+ #endif /* _NET_BATMAN_ADV_SOFT_INTERFACE_H_ */
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 6954a5d..e5fecd4 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -531,6 +531,22 @@ struct batadv_priv_nc {
+ };
+ 
+ /**
++ * struct batadv_softif_vlan - per VLAN attributes set
++ * @vid: VLAN identifier
++ * @kobj: kobject for sysfs vlan subdirectory
++ * @list: list node for bat_priv::softif_vlan_list
++ * @refcount: number of context where this object is currently in use
++ * @rcu: struct used for freeing in a RCU-safe manner
++ */
++struct batadv_softif_vlan {
++	unsigned short vid;
++	struct kobject *kobj;
++	struct hlist_node list;
++	atomic_t refcount;
++	struct rcu_head rcu;
++};
++
++/**
+  * struct batadv_priv - per mesh interface data
+  * @mesh_state: current status of the mesh (inactive/active/deactivating)
+  * @soft_iface: net device which holds this struct as private data
+@@ -566,6 +582,9 @@ struct batadv_priv_nc {
+  * @primary_if: one of the hard interfaces assigned to this mesh interface
+  *  becomes the primary interface
+  * @bat_algo_ops: routing algorithm used by this mesh interface
++ * @softif_vlan_list: a list of softif_vlan structs, one per VLAN created on top
++ *  of the mesh interface represented by this object
++ * @softif_vlan_list_lock: lock protecting softif_vlan_list
+  * @bla: bridge loope avoidance data
+  * @debug_log: holding debug logging relevant data
+  * @gw: gateway data
+@@ -613,6 +632,8 @@ struct batadv_priv {
+ 	struct work_struct cleanup_work;
+ 	struct batadv_hard_iface __rcu *primary_if;  /* rcu protected pointer */
+ 	struct batadv_algo_ops *bat_algo_ops;
++	struct hlist_head softif_vlan_list;
++	spinlock_t softif_vlan_list_lock; /* protects softif_vlan_list */
+ #ifdef CONFIG_BATMAN_ADV_BLA
+ 	struct batadv_priv_bla bla;
+ #endif
+-- 
 1.8.4
