@@ -1,7 +1,7 @@
 From: Leigh Brown <leigh@solinno.co.uk>
-Subject: [PATCH RFC 3/4] net: mvmdio: slight optimisation of orion_mdio_write
-Date: Sat, 19 Oct 2013 17:23:53 +0100
-Message-ID: <22cebaeee77c5f2ef66811ca1012d3f0e6c61cbe.1382199042.git.leigh@solinno.co.uk>
+Subject: [PATCH RFC 1/4] net: mvmdio: make orion_mdio_wait_ready consistent
+Date: Sat, 19 Oct 2013 17:23:51 +0100
+Message-ID: <3acbec7a5077d1375777e26cd808b787eb677fb3.1382199042.git.leigh@solinno.co.uk>
 References: <cover.1382199042.git.leigh@solinno.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,41 +24,82 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Make only a single call to mutex_unlock in orion_mdio_write.
+Amend orion_mdio_wait_ready so that the same timeout is used when
+polling or using wait_event_timeout.  Set the timeout to 10ms.
+
+Generate the same log message at timeout when polling or using
+wait_event_timeout.
 
 Signed-off-by: Leigh Brown <leigh@solinno.co.uk>
 ---
- drivers/net/ethernet/marvell/mvmdio.c |   10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/marvell/mvmdio.c |   41 ++++++++++++++++++---------------
+ 1 file changed, 22 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 56185fb..3992e2b 100644
+index e2f6626..11e6415 100644
 --- a/drivers/net/ethernet/marvell/mvmdio.c
 +++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -145,10 +145,8 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
- 	mutex_lock(&dev->lock);
+@@ -44,6 +44,13 @@
+ #define  MVMDIO_ERR_INT_SMI_DONE	   0x00000010
+ #define MVMDIO_ERR_INT_MASK		   0x0080
  
- 	ret = orion_mdio_wait_ready(bus);
--	if (ret < 0) {
--		mutex_unlock(&dev->lock);
--		return ret;
--	}
-+	if (ret != 0)
-+		goto out;
++/* 
++ * Testing on a Dreamplug showed that the SMI interface took an average of 
++ * 3.2ms to respond, with a maximum time of 4.9ms.
++ */
++#define MVMDIO_SMI_TIMEOUT		   10000 /* 10000us = 10ms */
++#define MVMDIO_SMI_POLL_INTERVAL	   10
++
+ struct orion_mdio_dev {
+ 	struct mutex lock;
+ 	void __iomem *regs;
+@@ -70,32 +77,28 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
+ 	struct orion_mdio_dev *dev = bus->priv;
+ 	int count;
  
- 	writel(((mii_id << MVMDIO_SMI_PHY_ADDR_SHIFT) |
- 		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
-@@ -156,9 +154,9 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
- 		(value << MVMDIO_SMI_DATA_SHIFT)),
- 	       dev->regs);
- 
-+out:
- 	mutex_unlock(&dev->lock);
+-	if (dev->err_interrupt <= 0) {
+-		count = 0;
+-		while (1) {
++	if (dev->err_interrupt <= 0)
++		for (count = MVMDIO_SMI_TIMEOUT / MVMDIO_SMI_POLL_INTERVAL;
++		     count > 0;
++		     --count) {
+ 			if (orion_mdio_smi_is_done(dev))
+-				break;
 -
+-			if (count > 100) {
+-				dev_err(bus->parent,
+-					"Timeout: SMI busy for too long\n");
+-				return -ETIMEDOUT;
+-			}
++				return 0;
+ 
+-			udelay(10);
+-			count++;
++			udelay(MVMDIO_SMI_POLL_INTERVAL);
+ 		}
+-	} else {
+-		if (!orion_mdio_smi_is_done(dev)) {
++	else {
++		if (!orion_mdio_smi_is_done(dev))
+ 			wait_event_timeout(dev->smi_busy_wait,
+ 				orion_mdio_smi_is_done(dev),
+-				msecs_to_jiffies(100));
+-			if (!orion_mdio_smi_is_done(dev))
+-				return -ETIMEDOUT;
+-		}
++				usecs_to_jiffies(MVMDIO_SMI_TIMEOUT));
++
++		if (orion_mdio_smi_is_done(dev))
++			return 0;
+ 	}
+ 
 -	return 0;
-+	return ret;
++	dev_err(bus->parent,
++		"Timeout: SMI busy for too long\n");
++	return -ETIMEDOUT;
  }
  
- static int orion_mdio_reset(struct mii_bus *bus)
+ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
 -- 
 1.7.10.4
