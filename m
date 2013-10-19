@@ -1,51 +1,46 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi: rtl8192se: Fix wrong assignment
-Date: Fri, 18 Oct 2013 20:35:58 -0500
-Message-ID: <5261E1FE.2030304@lwfinger.net>
-References: <1382143960-4594-1-git-send-email-felipensp@gmail.com>
+Subject: Re: [PATCH 3/9 RESENT] staging: r8188eu: Fix sparse warnings in ioctl_linux.c
+Date: Fri, 18 Oct 2013 20:45:28 -0500
+Message-ID: <5261E438.2030508@lwfinger.net>
+References: <1382129563-8496-1-git-send-email-Larry.Finger@lwfinger.net>	 <5261A967.9000909@lwfinger.net> <1382134111.3381.25.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Felipe Pena <felipensp@gmail.com>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1382143960-4594-1-git-send-email-felipensp@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	devel@driverdev.osuosl.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f48.google.com ([209.85.219.48]:57222 "EHLO
+	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755078Ab3JSBpa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Oct 2013 21:45:30 -0400
+Received: by mail-oa0-f48.google.com with SMTP id m17so3245579oag.7
+        for <netdev@vger.kernel.org>; Fri, 18 Oct 2013 18:45:29 -0700 (PDT)
+In-Reply-To: <1382134111.3381.25.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/18/2013 07:52 PM, Felipe Pena wrote:
-> There is a typo in the struct member name on assignment when checking
-> rtlphy->current_chan_bw == HT_CHANNEL_WIDTH_20_40, the check uses pwrgroup_ht40
-> for bound limit and uses pwrgroup_ht20 when assigning instead.
+On 10/18/2013 05:08 PM, Ben Hutchings wrote:
+> On Fri, 2013-10-18 at 16:34 -0500, Larry Finger wrote:
+>> Sparse checking results in the following warnings:
+>>
+>>     CHECK   drivers/staging/rtl8188eu/os_dep/ioctl_linux.c
+>> drivers/staging/rtl8188eu/os_dep/ioctl_linux.c:3932:17: warning: cast removes
+>> address space of expression
+>> drivers/staging/rtl8188eu/os_dep/ioctl_linux.c:3933:31: warning: incorrect type
+>> in argument 1 (different address spaces)
+> [...]
+>> -		DBG_88E("[%s] extra = %s\n", __func__, (char *)wrqu->data.pointer);
+>> -	if (!memcmp(wrqu->data.pointer, "status", 6)) {
+>> +		DBG_88E("[%s] extra = %s\n", __func__, (__force char *)wrqu->data.pointer);
+>> +	if (!memcmp((__force const char *)wrqu->data.pointer, "status", 6)) {
+> [...]
 >
-> Signed-off-by: Felipe Pena <felipensp@gmail.com>
-> ---
->   drivers/net/wireless/rtlwifi/rtl8192se/rf.c |    2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
+> This is hiding the problem, not fixing it.
 >
-> diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/rf.c b/drivers/net/wireless/rtlwifi/rtl8192se/rf.c
-> index 5061f1d..92d38ab 100644
-> --- a/drivers/net/wireless/rtlwifi/rtl8192se/rf.c
-> +++ b/drivers/net/wireless/rtlwifi/rtl8192se/rf.c
-> @@ -265,7 +265,7 @@ static void _rtl92s_get_txpower_writeval_byregulatory(struct ieee80211_hw *hw,
->   				    rtlefuse->pwrgroup_ht40
->   				    [RF90_PATH_A][chnl - 1]) {
->   					pwrdiff_limit[i] =
-> -					  rtlefuse->pwrgroup_ht20
-> +					  rtlefuse->pwrgroup_ht40
->   					  [RF90_PATH_A][chnl - 1];
->   				}
->   			} else {
-> --
+> This private interface needs to be removed anyway.
 
-Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
-
-John: I forgot to mention this earlier, but when you add your s-o-b, please add 
-a Cc for Stable [3.0 +].
-
-Thanks,
+I agree, but that is not likely to happen soon. I will just leave this set of 
+Sparse warnings alone.
 
 Larry
