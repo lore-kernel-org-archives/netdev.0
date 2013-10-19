@@ -1,356 +1,234 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 10/18] batman-adv: add per VLAN interface attribute framework
-Date: Sun, 20 Oct 2013 00:22:02 +0200
-Message-ID: <1382221330-3769-11-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 18/18] batman-adv: make the backbone gw check VLAN specific
+Date: Sun, 20 Oct 2013 00:22:10 +0200
+Message-ID: <1382221330-3769-19-git-send-email-antonio@meshcoding.com>
 References: <1382221330-3769-1-git-send-email-antonio@meshcoding.com>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <antonio@open-mesh.com>,
+	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
 	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:38252 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:36342 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753737Ab3JSWli (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 18:41:38 -0400
+	with ESMTP id S1753737Ab3JSWlm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 18:41:42 -0400
 In-Reply-To: <1382221330-3769-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Antonio Quartulli <antonio@open-mesh.com>
 
-Since batman-adv is now fully VLAN-aware, a proper framework
-able to handle per-vlan-interface attributes is needed.
+The backbone gw check has to be VLAN specific so that code
+using it can specify VID where the check has to be done.
 
-Those attributes will affect the associated VLAN interface
-only, rather than the real soft_iface (which would result
-in every vlan interface having the same attribute
-configuration).
+In the TT code, the check has been moved into the
+tt_global_add() function so that it can be performed on a
+per-entry basis instead of ignoring all the TT data received
+from another backbone node. Only TT global entries belonging
+to the VLAN where the backbone node is connected to are
+skipped.
+All the other spots where the TT code was checking whether a
+node is a backbone have been removed.
 
-To make the code simpler and easier to extend, attributes
-associated to the standalone soft_iface are now treated
-like belonging to yet another vlan having a special vid.
-This vid is different from the others because it is made up
-by all zeros and the VLAN_HAS_TAG bit is not set.
+Moreover, batadv_bla_is_backbone_gw_orig() now returns bool
+since it used to return only 1 or 0.
 
+Cc: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
 Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 ---
- net/batman-adv/hard-interface.c |   2 +
- net/batman-adv/main.c           |   5 +-
- net/batman-adv/soft-interface.c | 171 ++++++++++++++++++++++++++++++++++++++++
- net/batman-adv/soft-interface.h |   1 +
- net/batman-adv/types.h          |  21 +++++
- 5 files changed, 197 insertions(+), 3 deletions(-)
+ net/batman-adv/bridge_loop_avoidance.c | 19 +++++++++-------
+ net/batman-adv/bridge_loop_avoidance.h | 10 +++++----
+ net/batman-adv/translation-table.c     | 41 +++++++++-------------------------
+ 3 files changed, 27 insertions(+), 43 deletions(-)
 
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index d564af2..c5f871f 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -643,6 +643,8 @@ static int batadv_hard_if_event(struct notifier_block *this,
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index 3b3867db..28eb5e6 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -1315,12 +1315,14 @@ out:
  
- 	if (batadv_softif_is_valid(net_dev) && event == NETDEV_REGISTER) {
- 		batadv_sysfs_add_meshif(net_dev);
-+		bat_priv = netdev_priv(net_dev);
-+		batadv_softif_create_vlan(bat_priv, BATADV_NO_FLAGS);
- 		return NOTIFY_DONE;
+ /* @bat_priv: the bat priv with all the soft interface information
+  * @orig: originator mac address
++ * @vid: VLAN identifier
+  *
+- * check if the originator is a gateway for any VLAN ID.
++ * Check if the originator is a gateway for the VLAN identified by vid.
+  *
+- * returns 1 if it is found, 0 otherwise
++ * Returns true if orig is a backbone for this vid, false otherwise.
+  */
+-int batadv_bla_is_backbone_gw_orig(struct batadv_priv *bat_priv, uint8_t *orig)
++bool batadv_bla_is_backbone_gw_orig(struct batadv_priv *bat_priv, uint8_t *orig,
++				    unsigned short vid)
+ {
+ 	struct batadv_hashtable *hash = bat_priv->bla.backbone_hash;
+ 	struct hlist_head *head;
+@@ -1328,25 +1330,26 @@ int batadv_bla_is_backbone_gw_orig(struct batadv_priv *bat_priv, uint8_t *orig)
+ 	int i;
+ 
+ 	if (!atomic_read(&bat_priv->bridge_loop_avoidance))
+-		return 0;
++		return false;
+ 
+ 	if (!hash)
+-		return 0;
++		return false;
+ 
+ 	for (i = 0; i < hash->size; i++) {
+ 		head = &hash->table[i];
+ 
+ 		rcu_read_lock();
+ 		hlist_for_each_entry_rcu(backbone_gw, head, hash_entry) {
+-			if (batadv_compare_eth(backbone_gw->orig, orig)) {
++			if (batadv_compare_eth(backbone_gw->orig, orig) &&
++			    backbone_gw->vid == vid) {
+ 				rcu_read_unlock();
+-				return 1;
++				return true;
+ 			}
+ 		}
+ 		rcu_read_unlock();
  	}
  
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 80f60d1..2207551 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -113,6 +113,7 @@ int batadv_mesh_init(struct net_device *soft_iface)
- 	spin_lock_init(&bat_priv->gw.list_lock);
- 	spin_lock_init(&bat_priv->tvlv.container_list_lock);
- 	spin_lock_init(&bat_priv->tvlv.handler_list_lock);
-+	spin_lock_init(&bat_priv->softif_vlan_list_lock);
- 
- 	INIT_HLIST_HEAD(&bat_priv->forw_bat_list);
- 	INIT_HLIST_HEAD(&bat_priv->forw_bcast_list);
-@@ -122,6 +123,7 @@ int batadv_mesh_init(struct net_device *soft_iface)
- 	INIT_LIST_HEAD(&bat_priv->tt.roam_list);
- 	INIT_HLIST_HEAD(&bat_priv->tvlv.container_list);
- 	INIT_HLIST_HEAD(&bat_priv->tvlv.handler_list);
-+	INIT_HLIST_HEAD(&bat_priv->softif_vlan_list);
- 
- 	ret = batadv_originator_init(bat_priv);
- 	if (ret < 0)
-@@ -131,9 +133,6 @@ int batadv_mesh_init(struct net_device *soft_iface)
- 	if (ret < 0)
- 		goto err;
- 
--	batadv_tt_local_add(soft_iface, soft_iface->dev_addr,
--			    BATADV_NO_FLAGS, BATADV_NULL_IFINDEX);
--
- 	ret = batadv_bla_init(bat_priv);
- 	if (ret < 0)
- 		goto err;
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 279e91d..936b83b 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -393,6 +393,166 @@ out:
- 	return;
+-	return 0;
++	return false;
  }
  
-+/**
-+ * batadv_softif_vlan_free_ref - decrease the vlan object refcounter and
-+ *  possibly free it
-+ * @softif_vlan: the vlan object to release
-+ */
-+static void batadv_softif_vlan_free_ref(struct batadv_softif_vlan *softif_vlan)
-+{
-+	if (atomic_dec_and_test(&softif_vlan->refcount))
-+		kfree_rcu(softif_vlan, rcu);
-+}
-+
-+/**
-+ * batadv_softif_vlan_get - get the vlan object for a specific vid
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @vid: the identifier of the vlan object to retrieve
-+ *
-+ * Returns the private data of the vlan matching the vid passed as argument or
-+ * NULL otherwise. The refcounter of the returned object is incremented by 1.
-+ */
-+static struct batadv_softif_vlan *
-+batadv_softif_vlan_get(struct batadv_priv *bat_priv, unsigned short vid)
-+{
-+	struct batadv_softif_vlan *vlan_tmp, *vlan = NULL;
-+
-+	rcu_read_lock();
-+	hlist_for_each_entry_rcu(vlan_tmp, &bat_priv->softif_vlan_list, list) {
-+		if (vlan_tmp->vid != vid)
-+			continue;
-+
-+		if (!atomic_inc_not_zero(&vlan_tmp->refcount))
-+			continue;
-+
-+		vlan = vlan_tmp;
-+		break;
-+	}
-+	rcu_read_unlock();
-+
-+	return vlan;
-+}
-+
-+/**
-+ * batadv_create_vlan - allocate the needed resources for a new vlan
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @vid: the VLAN identifier
-+ *
-+ * Returns 0 on success, a negative error otherwise.
-+ */
-+int batadv_softif_create_vlan(struct batadv_priv *bat_priv, unsigned short vid)
-+{
-+	struct batadv_softif_vlan *vlan;
-+
-+	vlan = batadv_softif_vlan_get(bat_priv, vid);
-+	if (vlan) {
-+		batadv_softif_vlan_free_ref(vlan);
-+		return -EEXIST;
-+	}
-+
-+	vlan = kzalloc(sizeof(*vlan), GFP_ATOMIC);
-+	if (!vlan)
-+		return -ENOMEM;
-+
-+	vlan->vid = vid;
-+	atomic_set(&vlan->refcount, 1);
-+
-+	/* add a new TT local entry. This one will be marked with the NOPURGE
-+	 * flag
-+	 */
-+	batadv_tt_local_add(bat_priv->soft_iface,
-+			    bat_priv->soft_iface->dev_addr, vid,
-+			    BATADV_NULL_IFINDEX);
-+
-+	spin_lock_bh(&bat_priv->softif_vlan_list_lock);
-+	hlist_add_head_rcu(&vlan->list, &bat_priv->softif_vlan_list);
-+	spin_unlock_bh(&bat_priv->softif_vlan_list_lock);
-+
-+	return 0;
-+}
-+
-+/**
-+ * batadv_softif_destroy_vlan - remove and destroy a softif_vlan object
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @vlan: the object to remove
-+ */
-+static void batadv_softif_destroy_vlan(struct batadv_priv *bat_priv,
-+				       struct batadv_softif_vlan *vlan)
-+{
-+	spin_lock_bh(&bat_priv->softif_vlan_list_lock);
-+	hlist_del_rcu(&vlan->list);
-+	spin_unlock_bh(&bat_priv->softif_vlan_list_lock);
-+
-+	/* explicitly remove the associated TT local entry because it is marked
-+	 * with the NOPURGE flag
-+	 */
-+	batadv_tt_local_remove(bat_priv, bat_priv->soft_iface->dev_addr,
-+			       vlan->vid, "vlan interface destroyed", false);
-+
-+	batadv_softif_vlan_free_ref(vlan);
-+}
-+
-+/**
-+ * batadv_interface_add_vid - ndo_add_vid API implementation
-+ * @dev: the netdev of the mesh interface
-+ * @vid: identifier of the new vlan
-+ *
-+ * Set up all the internal structures for handling the new vlan on top of the
-+ * mesh interface
-+ *
-+ * Returns 0 on success or a negative error code in case of failure.
-+ */
-+static int batadv_interface_add_vid(struct net_device *dev, __be16 proto,
-+				    unsigned short vid)
-+{
-+	struct batadv_priv *bat_priv = netdev_priv(dev);
-+
-+	/* only 802.1Q vlans are supported.
-+	 * batman-adv does not know how to handle other types
-+	 */
-+	if (proto != htons(ETH_P_8021Q))
-+		return -EINVAL;
-+
-+	vid |= BATADV_VLAN_HAS_TAG;
-+
-+	return batadv_softif_create_vlan(bat_priv, vid);
-+}
-+
-+/**
-+ * batadv_interface_kill_vid - ndo_kill_vid API implementation
-+ * @dev: the netdev of the mesh interface
-+ * @vid: identifier of the deleted vlan
-+ *
-+ * Destroy all the internal structures used to handle the vlan identified by vid
-+ * on top of the mesh interface
-+ *
-+ * Returns 0 on success, -EINVAL if the specified prototype is not ETH_P_8021Q
-+ * or -ENOENT if the specified vlan id wasn't registered.
-+ */
-+static int batadv_interface_kill_vid(struct net_device *dev, __be16 proto,
-+				     unsigned short vid)
-+{
-+	struct batadv_priv *bat_priv = netdev_priv(dev);
-+	struct batadv_softif_vlan *vlan;
-+
-+	/* only 802.1Q vlans are supported. batman-adv does not know how to
-+	 * handle other types
-+	 */
-+	if (proto != htons(ETH_P_8021Q))
-+		return -EINVAL;
-+
-+	vlan = batadv_softif_vlan_get(bat_priv, vid | BATADV_VLAN_HAS_TAG);
-+	if (!vlan)
-+		return -ENOENT;
-+
-+	batadv_softif_destroy_vlan(bat_priv, vlan);
-+
-+	/* finally free the vlan object */
-+	batadv_softif_vlan_free_ref(vlan);
-+
-+	return 0;
-+}
-+
- /* batman-adv network devices have devices nesting below it and are a special
-  * "super class" of normal network devices; split their locks off into a
-  * separate class since they always nest.
-@@ -432,6 +592,7 @@ static void batadv_set_lockdep_class(struct net_device *dev)
-  */
- static void batadv_softif_destroy_finish(struct work_struct *work)
+ 
+diff --git a/net/batman-adv/bridge_loop_avoidance.h b/net/batman-adv/bridge_loop_avoidance.h
+index 4b102e7..da173e7 100644
+--- a/net/batman-adv/bridge_loop_avoidance.h
++++ b/net/batman-adv/bridge_loop_avoidance.h
+@@ -30,7 +30,8 @@ int batadv_bla_is_backbone_gw(struct sk_buff *skb,
+ int batadv_bla_claim_table_seq_print_text(struct seq_file *seq, void *offset);
+ int batadv_bla_backbone_table_seq_print_text(struct seq_file *seq,
+ 					     void *offset);
+-int batadv_bla_is_backbone_gw_orig(struct batadv_priv *bat_priv, uint8_t *orig);
++bool batadv_bla_is_backbone_gw_orig(struct batadv_priv *bat_priv, uint8_t *orig,
++				    unsigned short vid);
+ int batadv_bla_check_bcast_duplist(struct batadv_priv *bat_priv,
+ 				   struct sk_buff *skb);
+ void batadv_bla_update_orig_address(struct batadv_priv *bat_priv,
+@@ -74,10 +75,11 @@ static inline int batadv_bla_backbone_table_seq_print_text(struct seq_file *seq,
+ 	return 0;
+ }
+ 
+-static inline int batadv_bla_is_backbone_gw_orig(struct batadv_priv *bat_priv,
+-						 uint8_t *orig)
++static inline bool batadv_bla_is_backbone_gw_orig(struct batadv_priv *bat_priv,
++						  uint8_t *orig,
++						  unsigned short vid)
  {
-+	struct batadv_softif_vlan *vlan;
- 	struct batadv_priv *bat_priv;
- 	struct net_device *soft_iface;
+-	return 0;
++	return false;
+ }
  
-@@ -439,6 +600,13 @@ static void batadv_softif_destroy_finish(struct work_struct *work)
- 				cleanup_work);
- 	soft_iface = bat_priv->soft_iface;
+ static inline int
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 4c313ff..7731eae 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -1153,6 +1153,10 @@ static bool batadv_tt_global_add(struct batadv_priv *bat_priv,
+ 	struct batadv_tt_common_entry *common;
+ 	uint16_t local_flags;
  
-+	/* destroy the "untagged" VLAN */
-+	vlan = batadv_softif_vlan_get(bat_priv, BATADV_NO_FLAGS);
-+	if (vlan) {
-+		batadv_softif_destroy_vlan(bat_priv, vlan);
-+		batadv_softif_vlan_free_ref(vlan);
-+	}
++	/* ignore global entries from backbone nodes */
++	if (batadv_bla_is_backbone_gw_orig(bat_priv, orig_node->orig, vid))
++		return true;
 +
- 	batadv_sysfs_del_meshif(soft_iface);
+ 	tt_global_entry = batadv_tt_global_hash_find(bat_priv, tt_addr, vid);
+ 	tt_local_entry = batadv_tt_local_hash_find(bat_priv, tt_addr, vid);
  
- 	rtnl_lock();
-@@ -594,6 +762,8 @@ static const struct net_device_ops batadv_netdev_ops = {
- 	.ndo_open = batadv_interface_open,
- 	.ndo_stop = batadv_interface_release,
- 	.ndo_get_stats = batadv_interface_stats,
-+	.ndo_vlan_rx_add_vid = batadv_interface_add_vid,
-+	.ndo_vlan_rx_kill_vid = batadv_interface_kill_vid,
- 	.ndo_set_mac_address = batadv_interface_set_mac_addr,
- 	.ndo_change_mtu = batadv_interface_change_mtu,
- 	.ndo_set_rx_mode = batadv_interface_set_rx_mode,
-@@ -633,6 +803,7 @@ static void batadv_softif_init_early(struct net_device *dev)
+@@ -2135,7 +2139,8 @@ static bool batadv_tt_global_check_crc(struct batadv_orig_node *orig_node,
+ 		 * the CRC as we ignore all the global entries over it
+ 		 */
+ 		if (batadv_bla_is_backbone_gw_orig(orig_node->bat_priv,
+-						   orig_node->orig))
++						   orig_node->orig,
++						   ntohs(tt_vlan_tmp->vid)))
+ 			continue;
  
- 	dev->netdev_ops = &batadv_netdev_ops;
- 	dev->destructor = batadv_softif_free;
-+	dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 	dev->tx_queue_len = 0;
+ 		vlan = batadv_orig_node_vlan_get(orig_node,
+@@ -2183,7 +2188,8 @@ static void batadv_tt_global_update_crc(struct batadv_priv *bat_priv,
+ 		/* if orig_node is a backbone node for this VLAN, don't compute
+ 		 * the CRC as we ignore all the global entries over it
+ 		 */
+-		if (batadv_bla_is_backbone_gw_orig(bat_priv, orig_node->orig))
++		if (batadv_bla_is_backbone_gw_orig(bat_priv, orig_node->orig,
++						   vlan->vid))
+ 			continue;
  
- 	/* can't call min_mtu, because the needed variables
-diff --git a/net/batman-adv/soft-interface.h b/net/batman-adv/soft-interface.h
-index 2f2472c..16d9be6 100644
---- a/net/batman-adv/soft-interface.h
-+++ b/net/batman-adv/soft-interface.h
-@@ -28,5 +28,6 @@ struct net_device *batadv_softif_create(const char *name);
- void batadv_softif_destroy_sysfs(struct net_device *soft_iface);
- int batadv_softif_is_valid(const struct net_device *net_dev);
- extern struct rtnl_link_ops batadv_link_ops;
-+int batadv_softif_create_vlan(struct batadv_priv *bat_priv, unsigned short vid);
+ 		crc = batadv_tt_global_crc(bat_priv, orig_node, vlan->vid);
+@@ -2527,16 +2533,11 @@ static bool batadv_send_tt_response(struct batadv_priv *bat_priv,
+ 				    struct batadv_tvlv_tt_data *tt_data,
+ 				    uint8_t *req_src, uint8_t *req_dst)
+ {
+-	if (batadv_is_my_mac(bat_priv, req_dst)) {
+-		/* don't answer backbone gws! */
+-		if (batadv_bla_is_backbone_gw_orig(bat_priv, req_src))
+-			return true;
+-
++	if (batadv_is_my_mac(bat_priv, req_dst))
+ 		return batadv_send_my_tt_response(bat_priv, tt_data, req_src);
+-	} else {
++	else
+ 		return batadv_send_other_tt_response(bat_priv, tt_data,
+ 						     req_src, req_dst);
+-	}
+ }
  
- #endif /* _NET_BATMAN_ADV_SOFT_INTERFACE_H_ */
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 6954a5d..e5fecd4 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -531,6 +531,22 @@ struct batadv_priv_nc {
- };
+ static void _batadv_tt_update_changes(struct batadv_priv *bat_priv,
+@@ -2668,10 +2669,6 @@ static void batadv_handle_tt_response(struct batadv_priv *bat_priv,
+ 		   resp_src, tt_data->ttvn, num_entries,
+ 		   (tt_data->flags & BATADV_TT_FULL_TABLE ? 'F' : '.'));
  
- /**
-+ * struct batadv_softif_vlan - per VLAN attributes set
-+ * @vid: VLAN identifier
-+ * @kobj: kobject for sysfs vlan subdirectory
-+ * @list: list node for bat_priv::softif_vlan_list
-+ * @refcount: number of context where this object is currently in use
-+ * @rcu: struct used for freeing in a RCU-safe manner
-+ */
-+struct batadv_softif_vlan {
-+	unsigned short vid;
-+	struct kobject *kobj;
-+	struct hlist_node list;
-+	atomic_t refcount;
-+	struct rcu_head rcu;
-+};
-+
-+/**
-  * struct batadv_priv - per mesh interface data
-  * @mesh_state: current status of the mesh (inactive/active/deactivating)
-  * @soft_iface: net device which holds this struct as private data
-@@ -566,6 +582,9 @@ struct batadv_priv_nc {
-  * @primary_if: one of the hard interfaces assigned to this mesh interface
-  *  becomes the primary interface
-  * @bat_algo_ops: routing algorithm used by this mesh interface
-+ * @softif_vlan_list: a list of softif_vlan structs, one per VLAN created on top
-+ *  of the mesh interface represented by this object
-+ * @softif_vlan_list_lock: lock protecting softif_vlan_list
-  * @bla: bridge loope avoidance data
-  * @debug_log: holding debug logging relevant data
-  * @gw: gateway data
-@@ -613,6 +632,8 @@ struct batadv_priv {
- 	struct work_struct cleanup_work;
- 	struct batadv_hard_iface __rcu *primary_if;  /* rcu protected pointer */
- 	struct batadv_algo_ops *bat_algo_ops;
-+	struct hlist_head softif_vlan_list;
-+	spinlock_t softif_vlan_list_lock; /* protects softif_vlan_list */
- #ifdef CONFIG_BATMAN_ADV_BLA
- 	struct batadv_priv_bla bla;
- #endif
+-	/* we should have never asked a backbone gw */
+-	if (batadv_bla_is_backbone_gw_orig(bat_priv, resp_src))
+-		goto out;
+-
+ 	orig_node = batadv_orig_hash_find(bat_priv, resp_src);
+ 	if (!orig_node)
+ 		goto out;
+@@ -3052,10 +3049,6 @@ static void batadv_tt_update_orig(struct batadv_priv *bat_priv,
+ 	struct batadv_tvlv_tt_vlan_data *tt_vlan;
+ 	bool full_table = true;
+ 
+-	/* don't care about a backbone gateways updates. */
+-	if (batadv_bla_is_backbone_gw_orig(bat_priv, orig_node->orig))
+-		return;
+-
+ 	tt_vlan = (struct batadv_tvlv_tt_vlan_data *)tt_buff;
+ 	/* orig table not initialised AND first diff is in the OGM OR the ttvn
+ 	 * increased by one -> we can apply the attached changes
+@@ -3177,13 +3170,6 @@ bool batadv_tt_add_temporary_global_entry(struct batadv_priv *bat_priv,
+ {
+ 	bool ret = false;
+ 
+-	/* if the originator is a backbone node (meaning it belongs to the same
+-	 * LAN of this node) the temporary client must not be added because to
+-	 * reach such destination the node must use the LAN instead of the mesh
+-	 */
+-	if (batadv_bla_is_backbone_gw_orig(bat_priv, orig_node->orig))
+-		goto out;
+-
+ 	if (!batadv_tt_global_add(bat_priv, orig_node, addr, vid,
+ 				  BATADV_TT_CLIENT_TEMP,
+ 				  atomic_read(&orig_node->last_ttvn)))
+@@ -3344,13 +3330,6 @@ static int batadv_roam_tvlv_unicast_handler_v1(struct batadv_priv *bat_priv,
+ 	if (!batadv_is_my_mac(bat_priv, dst))
+ 		return NET_RX_DROP;
+ 
+-	/* check if it is a backbone gateway. we don't accept
+-	 * roaming advertisement from it, as it has the same
+-	 * entries as we have.
+-	 */
+-	if (batadv_bla_is_backbone_gw_orig(bat_priv, src))
+-		goto out;
+-
+ 	if (tvlv_value_len < sizeof(*roaming_adv))
+ 		goto out;
+ 
 -- 
 1.8.4
