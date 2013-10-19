@@ -1,37 +1,35 @@
-From: Dmitry Kravkov <dkravkov@gmail.com>
-Subject: Re: [PATCH net-next 5/6] ipip: add GSO/TSO support
-Date: Sat, 19 Oct 2013 23:00:50 +0200
-Message-ID: <CAM8tLiN4M5RhFzp0VMU7mwqOTUiL+BGJ3vZ4X-zRjBAugbRzXA@mail.gmail.com>
-References: <1382208178-22347-1-git-send-email-edumazet@google.com>
-	<1382208178-22347-6-git-send-email-edumazet@google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net v2 2/3] ip6_output: do skb ufo init for peeked non ufo skb as well
+Date: Sat, 19 Oct 2013 23:06:25 +0200
+Message-ID: <20131019210625.GF31333@order.stressinduktion.org>
+References: <1382178557-14737-1-git-send-email-jiri@resnulli.us> <1382178557-14737-3-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jerry Chu <hkchu@google.com>, Tom Herbert <therbert@google.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	eric.dumazet@gmail.com, jdmason@kudzu.us, yoshfuji@linux-ipv6.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+	herbert@gondor.apana.org.au
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f44.google.com ([209.85.214.44]:42712 "EHLO
-	mail-bk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751432Ab3JSVAx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 17:00:53 -0400
-Received: by mail-bk0-f44.google.com with SMTP id mz10so228850bkb.31
-        for <netdev@vger.kernel.org>; Sat, 19 Oct 2013 14:00:51 -0700 (PDT)
-In-Reply-To: <1382208178-22347-6-git-send-email-edumazet@google.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:45432 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752686Ab3JSVG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 17:06:26 -0400
+Content-Disposition: inline
+In-Reply-To: <1382178557-14737-3-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-> index 55e6bfb..e5d4361 100644
-> --- a/net/ipv4/gre_offload.c
-> +++ b/net/ipv4/gre_offload.c
-> @@ -39,7 +39,8 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
->                                   SKB_GSO_UDP |
->                                   SKB_GSO_DODGY |
->                                   SKB_GSO_TCP_ECN |
-> -                                 SKB_GSO_GRE)))
-> +                                 SKB_GSO_GRE |
-> +                                 SKB_GSO_IPIP)))
->                 goto out;
+On Sat, Oct 19, 2013 at 12:29:16PM +0200, Jiri Pirko wrote:
+> Now, if user application does:
+> sendto len<mtu flag MSG_MORE
+> sendto len>mtu flag 0
+> The skb is not treated as fragmented one because it is not initialized
+> that way. So move the initialization to fix this.
+> 
+> introduced by:
+> commit e89e9cf539a28df7d0eb1d0a545368e9920b34ac "[IPv4/IPv6]: UFO Scatter-gather approach"
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Why GRE needs this bit?
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
