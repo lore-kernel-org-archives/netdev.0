@@ -1,66 +1,100 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC net-next] ipv6: Use destination address determined by IPVS
-Date: Sat, 19 Oct 2013 20:34:33 +0200
-Message-ID: <20131019183433.GC31333@order.stressinduktion.org>
-References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310180153250.4554@ssi.bg> <20131018021008.GH18135@order.stressinduktion.org> <alpine.LFD.2.03.1310191919290.1469@ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Simon Horman <horms@verge.net.au>,
-	YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
-	Phil Oester <kernel@linuxace.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.03.1310191919290.1469@ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 2/6] net: generalize skb_segment()
+Date: Sat, 19 Oct 2013 11:42:54 -0700
+Message-ID: <1382208178-22347-3-git-send-email-edumazet@google.com>
+References: <1382208178-22347-1-git-send-email-edumazet@google.com>
+Cc: netdev@vger.kernel.org, Jerry Chu <hkchu@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f74.google.com ([209.85.216.74]:56145 "EHLO
+	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750909Ab3JSSnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 14:43:10 -0400
+Received: by mail-qa0-f74.google.com with SMTP id ii20so199883qab.3
+        for <netdev@vger.kernel.org>; Sat, 19 Oct 2013 11:43:09 -0700 (PDT)
+In-Reply-To: <1382208178-22347-1-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 19, 2013 at 07:37:10PM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Fri, 18 Oct 2013, Hannes Frederic Sowa wrote:
-> 
-> > I played around with your patch and tested xt_TEE. I added a TEE rule to
-> > mangle/OUTPUT and pinged. This happend, I have not yet analyzed it:
-> > 
-> > [  101.126649] ------------[ cut here ]------------
-> > [  101.128436] BUG: unable to handle kernel paging request at fffffffb8a2fda88
-> > [  101.129421] IP: [<ffffffff810c9737>] cpuacct_charge+0x97/0x200
-> > [  101.129421] PGD 1c0f067 PUD 0
-> > [  101.129421] Thread overran stack, or stack corrupted
-> 
-> 	Problem with process stack? May be some packet loop
-> happens? Because I can not reproduce such problem in my
-> virtual setup, I tested TEE too, with careful packet
-> matching and 1 CPU. Should I assume that you don't have such
-> oops when the patch is not applied, with the same TEE rule?
+While implementing GSO/TSO support for IPIP, I found skb_segment()
+was assuming network header was immediately following mac header.
 
-Oh, sorry, you are right. It happens with an unpatched net-next  kernel, too.
+Its not really true in the case inet_gso_segment() is stacked :
+By the time tcp_gso_segment() is called, network header points
+to the inner IP header.
 
-I inserted the TEE rule in mangel/OUTGOING and had only one route, ip -6 r a
-default via fe80::1 dev eth0 which at the time of the panic was actually not
-reachable.
+Let's instead assume nothing and pick the current offsets found in
+original skb, we have skb_headers_offset_update() helper for that.
 
-> > [  101.129421] Oops: 0000 [#1] SMP
-> 
-> 	You don't appear to have PREEMPT in above line.
-> I'm not sure when preemption is enabled if tee_tg6() does
-> not have a problem with its anti-loop measures (tee_active).
-> Is preemption possible in OUTPUT hook, i.e. can we change
-> the CPU while playing with tee_active and as result change
-> different flag?
+Also move the csum_start update inside skb_headers_offset_update()
 
-Hm, maybe. I don't have too much insight into netfilter stack and
-what are the differences between OUTPUT and FORWARD path but plan to
-investigate. ;)
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/skbuff.c | 22 +++++-----------------
+ 1 file changed, 5 insertions(+), 17 deletions(-)
 
-Anyways just wanted to let you know that unpatched kernels are affected, too.
-Will have a closer look later.
-
-Greetings,
-
-  Hannes
-
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 8ead744..0ab32fa 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -903,6 +903,9 @@ EXPORT_SYMBOL(skb_clone);
+ 
+ static void skb_headers_offset_update(struct sk_buff *skb, int off)
+ {
++	/* Only adjust this if it actually is csum_start rather than csum */
++	if (skb->ip_summed == CHECKSUM_PARTIAL)
++		skb->csum_start += off;
+ 	/* {transport,network,mac}_header and tail are relative to skb->head */
+ 	skb->transport_header += off;
+ 	skb->network_header   += off;
+@@ -1109,9 +1112,6 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ #endif
+ 	skb->tail	      += off;
+ 	skb_headers_offset_update(skb, nhead);
+-	/* Only adjust this if it actually is csum_start rather than csum */
+-	if (skb->ip_summed == CHECKSUM_PARTIAL)
+-		skb->csum_start += nhead;
+ 	skb->cloned   = 0;
+ 	skb->hdr_len  = 0;
+ 	skb->nohdr    = 0;
+@@ -1176,7 +1176,6 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
+ 					NUMA_NO_NODE);
+ 	int oldheadroom = skb_headroom(skb);
+ 	int head_copy_len, head_copy_off;
+-	int off;
+ 
+ 	if (!n)
+ 		return NULL;
+@@ -1200,11 +1199,7 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
+ 
+ 	copy_skb_header(n, skb);
+ 
+-	off                  = newheadroom - oldheadroom;
+-	if (n->ip_summed == CHECKSUM_PARTIAL)
+-		n->csum_start += off;
+-
+-	skb_headers_offset_update(n, off);
++	skb_headers_offset_update(n, newheadroom - oldheadroom);
+ 
+ 	return n;
+ }
+@@ -2837,14 +2832,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 		__copy_skb_header(nskb, skb);
+ 		nskb->mac_len = skb->mac_len;
+ 
+-		/* nskb and skb might have different headroom */
+-		if (nskb->ip_summed == CHECKSUM_PARTIAL)
+-			nskb->csum_start += skb_headroom(nskb) - headroom;
+-
+-		skb_reset_mac_header(nskb);
+-		skb_set_network_header(nskb, skb->mac_len);
+-		nskb->transport_header = (nskb->network_header +
+-					  skb_network_header_len(skb));
++		skb_headers_offset_update(nskb, skb_headroom(nskb) - headroom);
+ 
+ 		skb_copy_from_linear_data_offset(skb, -tnl_hlen,
+ 						 nskb->data - tnl_hlen,
+-- 
+1.8.4
