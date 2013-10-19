@@ -1,37 +1,36 @@
-From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
-Subject: Re: IPv6 path discovery oddities - flushing the routing cache
- resolves
-Date: Sat, 19 Oct 2013 12:12:46 +0200
-Message-ID: <20131019101246.GA27576@sesse.net>
-References: <525E6B03.1040409@blub.net>
- <20131016154841.GC18135@order.stressinduktion.org>
- <525FC1C4.3070605@blub.net>
- <20131018030440.GI18135@order.stressinduktion.org>
- <5260D8DE.30303@blub.net>
- <20131019084225.GA31333@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Valentijn Sessink <valentyn@blub.net>, netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net v2 0/3] UFO fixes
+Date: Sat, 19 Oct 2013 12:29:14 +0200
+Message-ID: <1382178557-14737-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	hannes@stressinduktion.org, jdmason@kudzu.us,
+	yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	kaber@trash.net, herbert@gondor.apana.org.au
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cassarossa.samfundet.no ([193.35.52.29]:50780 "EHLO
-	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750843Ab3JSKMu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 06:12:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20131019084225.GA31333@order.stressinduktion.org>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:39477 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750843Ab3JSK3V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 06:29:21 -0400
+Received: by mail-ee0-f43.google.com with SMTP id e52so2626008eek.30
+        for <netdev@vger.kernel.org>; Sat, 19 Oct 2013 03:29:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 19, 2013 at 10:42:25AM +0200, Hannes Frederic Sowa wrote:
-> I got access to a nice test box yesterday where I could brute force the
-> problem in parallel (it was a PITA). This is what I found:
+Couple of patches fixing UFO functionality in different situations.
 
-Thanks so much for looking into this! It's great that to hear that it's not
-just me being weird =) I'll try rebooting the machine in question into a
-kernel with these patches later today; given how intermittent it is, it can
-of course only show if the patches are not fully working (or, over time,
-make it likely that they are).
+v1->v2:
+- minor if{}else{} coding style adjustment suggested by Sergei Shtylyov
 
-/* Steinar */
+Jiri Pirko (3):
+  udp6: respect IPV6_DONTFRAG sockopt in case there are pending frames
+  ip6_output: do skb ufo init for peeked non ufo skb as well
+  ip_output: do skb ufo init for peeked non ufo skb as well
+
+ net/ipv4/ip_output.c  | 13 +++++++++----
+ net/ipv6/ip6_output.c | 25 ++++++++++++++-----------
+ net/ipv6/udp.c        |  5 ++---
+ 3 files changed, 25 insertions(+), 18 deletions(-)
+
 -- 
-Homepage: http://www.sesse.net/
+1.8.3.1
