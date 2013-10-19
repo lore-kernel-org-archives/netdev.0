@@ -1,98 +1,52 @@
-From: Leigh Brown <leigh@solinno.co.uk>
-Subject: [PATCH RFC 2/4] net: mvmdio: orion_mdio_ready: remove manual poll
-Date: Sat, 19 Oct 2013 17:23:52 +0100
-Message-ID: <900994d49c3f351aa52aadee096ef646d88a2d0e.1382199042.git.leigh@solinno.co.uk>
-References: <cover.1382199042.git.leigh@solinno.co.uk>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by
+ IPVS
+Date: Sat, 19 Oct 2013 19:37:10 +0300 (EEST)
+Message-ID: <alpine.LFD.2.03.1310191919290.1469@ssi.bg>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310180153250.4554@ssi.bg> <20131018021008.GH18135@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- netdev@vger.kernel.org, Leigh Brown <leigh@solinno.co.uk>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <cover.1382199042.git.leigh@solinno.co.uk>
-In-Reply-To: <cover.1382199042.git.leigh@solinno.co.uk>
-References: <cover.1382199042.git.leigh@solinno.co.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	=?UTF-8?Q?YOSHIFUJI_Hideaki_=2F_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
+	Phil Oester <kernel@linuxace.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20131018021008.GH18135@order.stressinduktion.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replace manual poll of MVMDIO_SMI_READ_VALID with a call to
-orion_mdio_wait_ready.  This ensures a consistent timeout
-and avoids a busy loop where the hardware supports it.
 
-Signed-off-by: Leigh Brown <leigh@solinno.co.uk>
----
- drivers/net/ethernet/marvell/mvmdio.c |   34 +++++++++++++--------------------
- 1 file changed, 13 insertions(+), 21 deletions(-)
+	Hello,
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 11e6415..56185fb 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -105,43 +105,35 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
- 			   int regnum)
- {
- 	struct orion_mdio_dev *dev = bus->priv;
--	int count;
- 	u32 val;
- 	int ret;
- 
- 	mutex_lock(&dev->lock);
- 
- 	ret = orion_mdio_wait_ready(bus);
--	if (ret < 0) {
--		mutex_unlock(&dev->lock);
--		return ret;
--	}
-+	if (ret < 0)
-+		goto out;
- 
- 	writel(((mii_id << MVMDIO_SMI_PHY_ADDR_SHIFT) |
- 		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
- 		MVMDIO_SMI_READ_OPERATION),
- 	       dev->regs);
- 
--	/* Wait for the value to become available */
--	count = 0;
--	while (1) {
--		val = readl(dev->regs);
--		if (val & MVMDIO_SMI_READ_VALID)
--			break;
--
--		if (count > 100) {
--			dev_err(bus->parent, "Timeout when reading PHY\n");
--			mutex_unlock(&dev->lock);
--			return -ETIMEDOUT;
--		}
-+	ret = orion_mdio_wait_ready(bus);
-+	if (ret < 0)
-+		goto out;
- 
--		udelay(10);
--		count++;
-+	val = readl(dev->regs);
-+	if (!(val & MVMDIO_SMI_READ_VALID)) {
-+		dev_err(bus->parent, "SMI bus read not valid\n");
-+		ret = -ENODEV;
-+		goto out;
- 	}
- 
-+	ret = val & 0xFFFF;
-+out:
- 	mutex_unlock(&dev->lock);
--
--	return val & 0xFFFF;
-+	return ret;
- }
- 
- static int orion_mdio_write(struct mii_bus *bus, int mii_id,
--- 
-1.7.10.4
+On Fri, 18 Oct 2013, Hannes Frederic Sowa wrote:
+
+> I played around with your patch and tested xt_TEE. I added a TEE rule to
+> mangle/OUTPUT and pinged. This happend, I have not yet analyzed it:
+> 
+> [  101.126649] ------------[ cut here ]------------
+> [  101.128436] BUG: unable to handle kernel paging request at fffffffb8a2fda88
+> [  101.129421] IP: [<ffffffff810c9737>] cpuacct_charge+0x97/0x200
+> [  101.129421] PGD 1c0f067 PUD 0
+> [  101.129421] Thread overran stack, or stack corrupted
+
+	Problem with process stack? May be some packet loop
+happens? Because I can not reproduce such problem in my
+virtual setup, I tested TEE too, with careful packet
+matching and 1 CPU. Should I assume that you don't have such
+oops when the patch is not applied, with the same TEE rule?
+
+> [  101.129421] Oops: 0000 [#1] SMP
+
+	You don't appear to have PREEMPT in above line.
+I'm not sure when preemption is enabled if tee_tg6() does
+not have a problem with its anti-loop measures (tee_active).
+Is preemption possible in OUTPUT hook, i.e. can we change
+the CPU while playing with tee_active and as result change
+different flag?
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
