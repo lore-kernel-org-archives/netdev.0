@@ -1,39 +1,64 @@
-From: Valentijn Sessink <valentyn@blub.net>
-Subject: Re: IPv6 path discovery oddities - flushing the routing cache resolves
-Date: Sat, 19 Oct 2013 16:24:59 +0200
-Message-ID: <5262963B.8040001@blub.net>
-References: <525E6B03.1040409@blub.net> <20131016154841.GC18135@order.stressinduktion.org> <525FC1C4.3070605@blub.net> <20131018030440.GI18135@order.stressinduktion.org> <5260D8DE.30303@blub.net> <20131019084225.GA31333@order.stressinduktion.org> <20131019101246.GA27576@sesse.net>
+From: Leigh Brown <leigh@solinno.co.uk>
+Subject: [PATCH RFC 3/4] net: mvmdio: slight optimisation of orion_mdio_write
+Date: Sat, 19 Oct 2013 17:23:53 +0100
+Message-ID: <22cebaeee77c5f2ef66811ca1012d3f0e6c61cbe.1382199042.git.leigh@solinno.co.uk>
+References: <cover.1382199042.git.leigh@solinno.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from filter.openoffice.nl ([178.63.187.165]:53734 "EHLO
-	filter.openoffice.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752217Ab3JSOZI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 10:25:08 -0400
-In-Reply-To: <20131019101246.GA27576@sesse.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ netdev@vger.kernel.org, Leigh Brown <leigh@solinno.co.uk>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <cover.1382199042.git.leigh@solinno.co.uk>
+In-Reply-To: <cover.1382199042.git.leigh@solinno.co.uk>
+References: <cover.1382199042.git.leigh@solinno.co.uk>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-op 19-10-13 12:12, Steinar H. Gunderson schreef:
-> Thanks so much for looking into this! It's great that to hear that it's not
-> just me being weird =)
+Make only a single call to mutex_unlock in orion_mdio_write.
 
-I'm not sure the patch addresses weirdness ;-P
+Signed-off-by: Leigh Brown <leigh@solinno.co.uk>
+---
+ drivers/net/ethernet/marvell/mvmdio.c |   10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-On the more serious side: I have this problem with a 3.8.0 kernel 
-(Ubuntu 12.04 with updated kernel). I saw that you (Steinar) experience 
-this with 3.10 and 3.11, iirc. I'm a little bit worried by the fact that 
-this has not been seen for at least six months - and now suddenly pops up.
-
-Does anyone have an idea when this race condition was introduced?
-
-(It could be, that certain patches have been included in Ubuntu 
-3.8.0-something but not in an official 3.8).
-
-Best regards,
-
-Valentijn
-p.s. I won't be able to test any patches until tuesday - sorry.
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index 56185fb..3992e2b 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -145,10 +145,8 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
+ 	mutex_lock(&dev->lock);
+ 
+ 	ret = orion_mdio_wait_ready(bus);
+-	if (ret < 0) {
+-		mutex_unlock(&dev->lock);
+-		return ret;
+-	}
++	if (ret != 0)
++		goto out;
+ 
+ 	writel(((mii_id << MVMDIO_SMI_PHY_ADDR_SHIFT) |
+ 		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
+@@ -156,9 +154,9 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
+ 		(value << MVMDIO_SMI_DATA_SHIFT)),
+ 	       dev->regs);
+ 
++out:
+ 	mutex_unlock(&dev->lock);
+-
+-	return 0;
++	return ret;
+ }
+ 
+ static int orion_mdio_reset(struct mii_bus *bus)
+-- 
+1.7.10.4
