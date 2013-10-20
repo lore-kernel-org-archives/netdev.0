@@ -1,47 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: kernel BUG at net/core/skbuff.c:1048!
-Date: Sun, 20 Oct 2013 19:33:12 +0100
-Message-ID: <20131020183312.GB16002@macbook.localnet>
-References: <524E8BFB.9080708@icts.kuleuven.be>
- <20131005100105.GA2457@macbook.localnet>
- <20131020182523.GF27787@order.stressinduktion.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v2 01/07] 8139too: Support for byte queue limits
+Date: Sun, 20 Oct 2013 11:51:29 -0700
+Message-ID: <1382295089.2041.42.camel@joe-AO722>
+References: <1382292803-18875-1-git-send-email-milky-kernel@mcmilk.de>
+	 <1382292803-18875-2-git-send-email-milky-kernel@mcmilk.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Wim Vandersmissen <Wim.Vandersmissen@icts.kuleuven.be>,
-	netdev@vger.kernel.org, kernelspam@bofh.be
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Tino Reichardt <milky-kernel@mcmilk.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64280 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751454Ab3JTSdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Oct 2013 14:33:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20131020182523.GF27787@order.stressinduktion.org>
+Received: from smtprelay0196.hostedemail.com ([216.40.44.196]:57785 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751490Ab3JTSve (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Oct 2013 14:51:34 -0400
+In-Reply-To: <1382292803-18875-2-git-send-email-milky-kernel@mcmilk.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 20, 2013 at 08:25:23PM +0200, Hannes Frederic Sowa wrote:
-> Hi Patrick!
-> 
-> On Sat, Oct 05, 2013 at 11:01:05AM +0100, Patrick McHardy wrote:
-> > On Fri, Oct 04, 2013 at 11:35:55AM +0200, Wim Vandersmissen wrote:
-> > > Hi,
-> > > 
-> > > Got the following BUG when using ipv6 netfilter/conntrack/ipv6
-> > > forwarding and traffic flowing.
-> > > 
-> > > No issues in 3.4.x, but triggered in 3.10.x (introduced in 3.7)
-> > 
-> > Please also send me your 3.10.x config and the ip6tables rules you're
-> > using.
-> > 
-> > Are you actually using IPv6 NAT? 
-> 
-> Maybe the same bug was hit by someone else and was reported in kernel
-> bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=63331
-> 
-> I added him in Cc.
+On Sun, 2013-10-20 at 20:13 +0200, Tino Reichardt wrote:
+> Changes to 8139too driver to use byte queue limits.
+[]
+> diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+[]
+> @@ -1409,6 +1413,8 @@ static void rtl8139_hw_start (struct net_device *dev)
+[]
+>  	netdev_dbg(dev, "init buffer addresses\n");
+> +	if (likely(bql_disable == false))
+> +		netdev_reset_queue(dev);
 
-Thanks, didn't really get to it yet. The problem is obviously that we're
-rerouting the individual fragments, during which their headroom gets
-expanded while a reference to them is held by the reassembled skb. Just
-not sure yet how to fix it.
+Much prefer:
+
+	if (unlikely(bql_disable))
+
+> @@ -1639,6 +1645,9 @@ static inline void rtl8139_tx_clear (struct rtl8139_private *tp)
+[]
+> +	if (likely(bql_disable == false))
+> +		netdev_reset_queue(tp->dev);
+
+etc...
