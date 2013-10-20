@@ -1,38 +1,55 @@
-From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-Subject: [PATCH] mac80211: document IEEE80211_HW_SUPPORTS_HT_CCK_RATES
-Date: Sun, 20 Oct 2013 08:45:29 +0200
-Message-ID: <1382251529-22540-1-git-send-email-michael.opdenacker@free-electrons.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Michael Opdenacker <michael.opdenacker@free-electrons.com>
-To: johannes@sipsolutions.net, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by IPVS
+Date: Sun, 20 Oct 2013 08:47:33 +0200
+Message-ID: <20131020064733.GD27787@order.stressinduktion.org>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310180153250.4554@ssi.bg> <20131018021008.GH18135@order.stressinduktion.org> <alpine.LFD.2.03.1310191919290.1469@ssi.bg> <20131019183433.GC31333@order.stressinduktion.org> <alpine.LFD.2.03.1310200936590.1538@ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Simon Horman <horms@verge.net.au>,
+	YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
+	Phil Oester <kernel@linuxace.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.03.1310200936590.1538@ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch documents the IEEE80211_HW_SUPPORTS_HT_CCK_RATES flag
-in ieee80211_hw_flags.
+On Sun, Oct 20, 2013 at 09:39:26AM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Sat, 19 Oct 2013, Hannes Frederic Sowa wrote:
+> 
+> > On Sat, Oct 19, 2013 at 07:37:10PM +0300, Julian Anastasov wrote:
+> > > 
+> > > 	Problem with process stack? May be some packet loop
+> > > happens? Because I can not reproduce such problem in my
+> > > virtual setup, I tested TEE too, with careful packet
+> > > matching and 1 CPU. Should I assume that you don't have such
+> > > oops when the patch is not applied, with the same TEE rule?
+> > 
+> > Oh, sorry, you are right. It happens with an unpatched net-next  kernel, too.
+> > 
+> > I inserted the TEE rule in mangel/OUTGOING and had only one route, ip -6 r a
+> > default via fe80::1 dev eth0 which at the time of the panic was actually not
+> > reachable.
+> 
+> 	Thanks for the confirmation! I'll try later
+> to reproduce such problem with TEE, it is interesting
+> to know the real reason for this loop.
 
-Without this, you get countless warnings in "make htmldocs".
+Yup, I have a patch in works wich defers the ndisc_send_ns call in
+rt6_probe into a workqueue out of the call stack. This should solve
+the problem.
 
-Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
----
- include/net/mac80211.h | 3 +++
- 1 file changed, 3 insertions(+)
+Still wonder if there is a nicer api as to create a new structure and pass the
+arguments via container_of dereferencing to the deferred function (and I
+don't think async calls are useable there).
 
-diff --git a/include/net/mac80211.h b/include/net/mac80211.h
-index cc6035f..0a26a6e 100644
---- a/include/net/mac80211.h
-+++ b/include/net/mac80211.h
-@@ -1492,6 +1492,9 @@ struct ieee80211_tx_control {
-  *
-  * @IEEE80211_HW_TIMING_BEACON_ONLY: Use sync timing from beacon frames
-  *	only, to allow getting TBTT of a DTIM beacon.
-+ *
-+ * @IEEE80211_HW_SUPPORTS_HT_CCK_RATES:
-+ *	Hardware has CCK support for HT clients.
-  */
- enum ieee80211_hw_flags {
- 	IEEE80211_HW_HAS_RATE_CONTROL			= 1<<0,
--- 
-1.8.1.2
+Greetings,
+
+  Hannes
+
