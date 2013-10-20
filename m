@@ -1,87 +1,67 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net PATCH 1/1] drivers: net: cpsw: fix kernel warn during iperf test with interrupt pacing
-Date: Sun, 20 Oct 2013 12:32:26 +0530
-Message-ID: <1382252546-16382-1-git-send-email-mugunthanvnm@ti.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by
+ IPVS
+Date: Sun, 20 Oct 2013 10:11:16 +0300 (EEST)
+Message-ID: <alpine.LFD.2.03.1310200939330.1538@ssi.bg>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310180153250.4554@ssi.bg> <20131018021008.GH18135@order.stressinduktion.org> <alpine.LFD.2.03.1310191919290.1469@ssi.bg> <20131019183433.GC31333@order.stressinduktion.org>
+ <20131019223657.GH31333@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Sebastian Siewior <bigeasy@linutronix.de>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Sender: linux-omap-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	=?UTF-8?Q?YOSHIFUJI_Hideaki_=2F_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
+	Phil Oester <kernel@linuxace.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20131019223657.GH31333@order.stressinduktion.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When interrupt pacing is enabled, receive/transmit statistics are not
-updated properly by hardware which leads to ISR return with IRQ_NONE
-and inturn kernel disables the interrupt. This patch removed the checking
-of receive/transmit statistics from ISR.
 
-This patch is verified with AM335x Beagle Bone Black and below is the
-kernel warn when interrupt pacing is enabled.
+	Hello,
 
-[  104.298254] irq 58: nobody cared (try booting with the "irqpoll" option)
-[  104.305356] CPU: 0 PID: 1073 Comm: iperf Not tainted 3.12.0-rc3-00342-g77d4015 #3
-[  104.313284] [<c001bb84>] (unwind_backtrace+0x0/0xf0) from [<c0017db0>] (show_stack+0x10/0x14)
-[  104.322282] [<c0017db0>] (show_stack+0x10/0x14) from [<c0507920>] (dump_stack+0x78/0x94)
-[  104.330816] [<c0507920>] (dump_stack+0x78/0x94) from [<c0088c1c>] (__report_bad_irq+0x20/0xc0)
-[  104.339889] [<c0088c1c>] (__report_bad_irq+0x20/0xc0) from [<c008912c>] (note_interrupt+0x1dc/0x23c)
-[  104.349505] [<c008912c>] (note_interrupt+0x1dc/0x23c) from [<c0086d74>] (handle_irq_event_percpu+0xc4/0x238)
-[  104.359851] [<c0086d74>] (handle_irq_event_percpu+0xc4/0x238) from [<c0086f24>] (handle_irq_event+0x3c/0x5c)
-[  104.370198] [<c0086f24>] (handle_irq_event+0x3c/0x5c) from [<c008991c>] (handle_level_irq+0xac/0x10c)
-[  104.379907] [<c008991c>] (handle_level_irq+0xac/0x10c) from [<c00866d8>] (generic_handle_irq+0x20/0x30)
-[  104.389812] [<c00866d8>] (generic_handle_irq+0x20/0x30) from [<c0014ce8>] (handle_IRQ+0x4c/0xb0)
-[  104.399066] [<c0014ce8>] (handle_IRQ+0x4c/0xb0) from [<c000856c>] (omap3_intc_handle_irq+0x60/0x74)
-[  104.408598] [<c000856c>] (omap3_intc_handle_irq+0x60/0x74) from [<c050d8e4>] (__irq_svc+0x44/0x5c)
-[  104.418021] Exception stack(0xde4f7c00 to 0xde4f7c48)
-[  104.423345] 7c00: 00000001 00000000 00000000 dd002140 60000013 de006e54 00000002 00000000
-[  104.431952] 7c20: de345748 00000040 c11c8588 00018ee0 00000000 de4f7c48 c009dfc8 c050d300
-[  104.440553] 7c40: 60000013 ffffffff
-[  104.444237] [<c050d8e4>] (__irq_svc+0x44/0x5c) from [<c050d300>] (_raw_spin_unlock_irqrestore+0x34/0x44)
-[  104.454220] [<c050d300>] (_raw_spin_unlock_irqrestore+0x34/0x44) from [<c00868c0>] (__irq_put_desc_unlock+0x14/0x38)
-[  104.465295] [<c00868c0>] (__irq_put_desc_unlock+0x14/0x38) from [<c0088068>] (enable_irq+0x4c/0x74)
-[  104.474829] [<c0088068>] (enable_irq+0x4c/0x74) from [<c03abd24>] (cpsw_poll+0xb8/0xdc)
-[  104.483276] [<c03abd24>] (cpsw_poll+0xb8/0xdc) from [<c044ef68>] (net_rx_action+0xc0/0x1e8)
-[  104.492085] [<c044ef68>] (net_rx_action+0xc0/0x1e8) from [<c0048a90>] (__do_softirq+0x100/0x27c)
-[  104.501338] [<c0048a90>] (__do_softirq+0x100/0x27c) from [<c0048cd0>] (do_softirq+0x68/0x70)
-[  104.510224] [<c0048cd0>] (do_softirq+0x68/0x70) from [<c0048e8c>] (local_bh_enable+0xd0/0xe4)
-[  104.519211] [<c0048e8c>] (local_bh_enable+0xd0/0xe4) from [<c048c774>] (tcp_rcv_established+0x450/0x648)
-[  104.529201] [<c048c774>] (tcp_rcv_established+0x450/0x648) from [<c0494904>] (tcp_v4_do_rcv+0x154/0x474)
-[  104.539195] [<c0494904>] (tcp_v4_do_rcv+0x154/0x474) from [<c043d750>] (release_sock+0xac/0x1ac)
-[  104.548448] [<c043d750>] (release_sock+0xac/0x1ac) from [<c04844e8>] (tcp_recvmsg+0x4d0/0xa8c)
-[  104.557528] [<c04844e8>] (tcp_recvmsg+0x4d0/0xa8c) from [<c04a8720>] (inet_recvmsg+0xcc/0xf0)
-[  104.566507] [<c04a8720>] (inet_recvmsg+0xcc/0xf0) from [<c0439744>] (sock_recvmsg+0x90/0xb0)
-[  104.575394] [<c0439744>] (sock_recvmsg+0x90/0xb0) from [<c043b778>] (SyS_recvfrom+0x88/0xd8)
-[  104.584280] [<c043b778>] (SyS_recvfrom+0x88/0xd8) from [<c043b7e0>] (sys_recv+0x18/0x20)
-[  104.592805] [<c043b7e0>] (sys_recv+0x18/0x20) from [<c0013da0>] (ret_fast_syscall+0x0/0x48)
-[  104.601587] handlers:
-[  104.603992] [<c03acd94>] cpsw_interrupt
-[  104.608040] Disabling IRQ #58
+On Sun, 20 Oct 2013, Hannes Frederic Sowa wrote:
 
-Cc: Sebastian Siewior <bigeasy@linutronix.de>
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c | 7 -------
- 1 file changed, 7 deletions(-)
+> > Hm, maybe. I don't have too much insight into netfilter stack and
+> > what are the differences between OUTPUT and FORWARD path but plan to
+> > investigate. ;)
+> 
+> It seems tables are processed with bh disabled, so no preemption while
+> recursing. So I guess the use of tee_active is safe for breaking the
+> tie here.
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index fccd9d4..cc3ce55 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -639,13 +639,6 @@ void cpsw_rx_handler(void *token, int len, int status)
- static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
- {
- 	struct cpsw_priv *priv = dev_id;
--	u32 rx, tx, rx_thresh;
--
--	rx_thresh = __raw_readl(&priv->wr_regs->rx_thresh_stat);
--	rx = __raw_readl(&priv->wr_regs->rx_stat);
--	tx = __raw_readl(&priv->wr_regs->tx_stat);
--	if (!rx_thresh && !rx && !tx)
--		return IRQ_NONE;
- 
- 	cpsw_intr_disable(priv);
- 	if (priv->irq_enabled == true) {
--- 
-1.8.4.1.516.g1d25dd4
+	May be, I'll check it again, for now I see only
+rcu_read_lock() in nf_hook_slow() which is preemptable.
+Looking at rcu_preempt_note_context_switch, many levels of
+RCU locks are preemptable too.
 
+> The reason I exhaust stack space is that we can actually send out packets
+> while looking up routes (rt6_probe). The nonreachability of the default
+> gateway and the to-teed-to box does the rest.
+
+	In my test I used link route to local subnet,
+--gateway to IP that is not present. I'll try other
+variants.
+
+> We need to change the route lookup of the duplicated packet in xt_tee to not
+> cause ndisc probes to be generated.
+> 
+> The more I review the patch the more I think it is ok. But we could actually
+> try to just always return rt6i_gateway, as we should always be handed a cloned
+> rt6_info where the gateway is already filled in, no?
+
+	Yes, this patch is ok and after spending the whole
+saturday I'm preparing a new patch that will convert
+rt6_nexthop() to return just rt6i_gateway, without daddr.
+This can happen after filling rt6i_gateway in all places.
+
+	For your concern for loopback, I don't see problem,
+local/anycast route will have rt6i_gateway=IP, they are
+simple DST_HOST routes. I'm preparing now the patches and
+will post them in following hours.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
