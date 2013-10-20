@@ -1,115 +1,134 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH net 2/3] ipv6: fill rt6i_gateway with nexthop address
-Date: Sun, 20 Oct 2013 15:43:04 +0300
-Message-ID: <1382272985-1528-3-git-send-email-ja@ssi.bg>
-References: <1382272985-1528-1-git-send-email-ja@ssi.bg>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	lvs-devel@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: David Miller <davem@davemloft.net>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next] bonding: move bond-specific init after enslave happens
+Date: Sun, 20 Oct 2013 14:47:53 +0200
+Message-ID: <1382273273-27344-1-git-send-email-vfalico@redhat.com>
+Cc: jiri@resnulli.us, Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:52229 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751227Ab3JTMoX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Oct 2013 08:44:23 -0400
-In-Reply-To: <1382272985-1528-1-git-send-email-ja@ssi.bg>
+Received: from mx1.redhat.com ([209.132.183.28]:13545 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750958Ab3JTMsT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Oct 2013 08:48:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make sure rt6i_gateway contains nexthop information in
-all routes returned from lookup or when routes are directly
-attached to skb for generated ICMP packets.
+As Jiri noted, currently we first do all bonding-specific initialization
+(specifically - bond_select_active_slave(bond)) before we actually attach
+the slave (so that it becomes visible through bond_for_each_slave() and
+friends). This might result in bond_select_active_slave() not seeing the
+first/new slave and, thus, not actually selecting an active slave.
 
-The effect of this patch should be a faster version of
-rt6_nexthop() and the consideration of local addresses as
-nexthop.
+Fix this by moving all the bond-related init part after we've actually
+completely initialized and linked (via bond_master_upper_dev_link()) the
+new slave.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
+After this we have all the initialization of the new slave *before*
+linking, and all the stuff that needs to be done on bonding *after* it. It
+has also a bonus effect - we can remove the locking on the new slave init
+completely, and only use it for bond_select_active_slave().
+
+Reported-by: Jiri Pirko <jiri@resnulli.us>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- include/net/ip6_route.h | 6 ++----
- net/ipv6/ip6_output.c   | 4 ++--
- net/ipv6/route.c        | 8 ++++++--
- 3 files changed, 10 insertions(+), 8 deletions(-)
+ drivers/net/bonding/bond_main.c | 29 ++++++++++-------------------
+ 1 file changed, 10 insertions(+), 19 deletions(-)
 
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 481404a..2b786b7 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -194,11 +194,9 @@ static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
- 	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
- }
- 
--static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt, struct in6_addr *dest)
-+static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt)
- {
--	if (rt->rt6i_flags & RTF_GATEWAY || !ipv6_addr_any(&rt->rt6i_gateway))
--		return &rt->rt6i_gateway;
--	return dest;
-+	return &rt->rt6i_gateway;
- }
- 
- #endif
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index a54c45c..2b404df 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -105,7 +105,7 @@ static int ip6_finish_output2(struct sk_buff *skb)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index d90734f..047c0fb 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1471,22 +1471,14 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		goto err_close;
  	}
  
- 	rcu_read_lock_bh();
--	nexthop = rt6_nexthop((struct rt6_info *)dst, &ipv6_hdr(skb)->daddr);
-+	nexthop = rt6_nexthop((struct rt6_info *)dst);
- 	neigh = __ipv6_neigh_lookup_noref(dst->dev, nexthop);
- 	if (unlikely(!neigh))
- 		neigh = __neigh_create(&nd_tbl, nexthop, dst->dev, false);
-@@ -874,7 +874,7 @@ static int ip6_dst_lookup_tail(struct sock *sk,
- 	 */
- 	rt = (struct rt6_info *) *dst;
- 	rcu_read_lock_bh();
--	n = __ipv6_neigh_lookup_noref(rt->dst.dev, rt6_nexthop(rt, &fl6->daddr));
-+	n = __ipv6_neigh_lookup_noref(rt->dst.dev, rt6_nexthop(rt));
- 	err = n && !(n->nud_state & NUD_VALID) ? -EINVAL : 0;
- 	rcu_read_unlock_bh();
+-	write_lock_bh(&bond->lock);
+-
+ 	prev_slave = bond_last_slave(bond);
+ 	bond_attach_slave(bond, new_slave);
  
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c979dd9..c1ee381 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -851,7 +851,6 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort,
- 			if (ort->rt6i_dst.plen != 128 &&
- 			    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
- 				rt->rt6i_flags |= RTF_ANYCAST;
--			rt->rt6i_gateway = *daddr;
+ 	new_slave->delay = 0;
+ 	new_slave->link_failure_count = 0;
+ 
+-	write_unlock_bh(&bond->lock);
+-
+-	bond_compute_features(bond);
+-
+ 	bond_update_speed_duplex(new_slave);
+ 
+-	read_lock(&bond->lock);
+-
+ 	new_slave->last_arp_rx = jiffies -
+ 		(msecs_to_jiffies(bond->params.arp_interval) + 1);
+ 	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
+@@ -1547,12 +1539,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
  		}
+ 	}
  
- 		rt->rt6i_flags |= RTF_CACHE;
-@@ -1338,6 +1337,7 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
- 	rt->dst.flags |= DST_HOST;
- 	rt->dst.output  = ip6_output;
- 	atomic_set(&rt->dst.__refcnt, 1);
-+	rt->rt6i_gateway  = fl6->daddr;
- 	rt->rt6i_dst.addr = fl6->daddr;
- 	rt->rt6i_dst.plen = 128;
- 	rt->rt6i_idev     = idev;
-@@ -1873,7 +1873,10 @@ static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
- 			in6_dev_hold(rt->rt6i_idev);
- 		rt->dst.lastuse = jiffies;
+-	write_lock_bh(&bond->curr_slave_lock);
+-
+ 	switch (bond->params.mode) {
+ 	case BOND_MODE_ACTIVEBACKUP:
+ 		bond_set_slave_inactive_flags(new_slave);
+-		bond_select_active_slave(bond);
+ 		break;
+ 	case BOND_MODE_8023AD:
+ 		/* in 802.3ad mode, the internal mechanism
+@@ -1578,7 +1567,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	case BOND_MODE_ALB:
+ 		bond_set_active_slave(new_slave);
+ 		bond_set_slave_inactive_flags(new_slave);
+-		bond_select_active_slave(bond);
+ 		break;
+ 	default:
+ 		pr_debug("This slave is always active in trunk mode\n");
+@@ -1596,10 +1584,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		break;
+ 	} /* switch(bond_mode) */
  
--		rt->rt6i_gateway = ort->rt6i_gateway;
-+		if (ort->rt6i_flags & RTF_GATEWAY)
-+			rt->rt6i_gateway = ort->rt6i_gateway;
-+		else
-+			rt->rt6i_gateway = *dest;
- 		rt->rt6i_flags = ort->rt6i_flags;
- 		if ((ort->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF)) ==
- 		    (RTF_DEFAULT | RTF_ADDRCONF))
-@@ -2160,6 +2163,7 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
- 	else
- 		rt->rt6i_flags |= RTF_LOCAL;
+-	write_unlock_bh(&bond->curr_slave_lock);
+-
+-	bond_set_carrier(bond);
+-
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	slave_dev->npinfo = bond->dev->npinfo;
+ 	if (slave_dev->npinfo) {
+@@ -1614,8 +1598,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	}
+ #endif
  
-+	rt->rt6i_gateway  = *addr;
- 	rt->rt6i_dst.addr = *addr;
- 	rt->rt6i_dst.plen = 128;
- 	rt->rt6i_table = fib6_get_table(net, RT6_TABLE_LOCAL);
+-	read_unlock(&bond->lock);
+-
+ 	res = netdev_rx_handler_register(slave_dev, bond_handle_frame,
+ 					 new_slave);
+ 	if (res) {
+@@ -1629,6 +1611,16 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		goto err_unregister;
+ 	}
+ 
++	bond_compute_features(bond);
++	bond_set_carrier(bond);
++
++	if (USES_PRIMARY(bond->params.mode)) {
++		read_lock(&bond->lock);
++		write_lock_bh(&bond->curr_slave_lock);
++		bond_select_active_slave(bond);
++		write_unlock_bh(&bond->curr_slave_lock);
++		read_unlock(&bond->lock);
++	}
+ 
+ 	pr_info("%s: enslaving %s as a%s interface with a%s link.\n",
+ 		bond_dev->name, slave_dev->name,
+@@ -1686,7 +1678,6 @@ err_free:
+ 	kfree(new_slave);
+ 
+ err_undo_flags:
+-	bond_compute_features(bond);
+ 	/* Enslave of first slave has failed and we need to fix master's mac */
+ 	if (!bond_has_slaves(bond) &&
+ 	    ether_addr_equal(bond_dev->dev_addr, slave_dev->dev_addr))
 -- 
-1.8.3.1
+1.8.1.4
