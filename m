@@ -1,61 +1,48 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH net-next] e1000: fix wrong queue idx
-	calculation
-Date: Sun, 20 Oct 2013 16:15:24 +0800
-Message-ID: <1382256924-12598-1-git-send-email-zhiguohong@tencent.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by
+ IPVS
+Date: Sun, 20 Oct 2013 11:33:54 +0300 (EEST)
+Message-ID: <alpine.LFD.2.03.1310201118331.1538@ssi.bg>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310180153250.4554@ssi.bg> <20131018021008.GH18135@order.stressinduktion.org> <alpine.LFD.2.03.1310191919290.1469@ssi.bg> <20131019183433.GC31333@order.stressinduktion.org>
+ <20131019223657.GH31333@order.stressinduktion.org> <alpine.LFD.2.03.1310200939330.1538@ssi.bg> <20131020073308.GE27787@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Hong Zhiguo <zhiguohong@tencent.com>
-To: davem@davemloft.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	=?UTF-8?Q?YOSHIFUJI_Hideaki_=2F_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
+	Phil Oester <kernel@linuxace.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20131020073308.GE27787@order.stressinduktion.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hong Zhiguo <zhiguohong@tencent.com>
 
-tx_ring and adapter->tx_ring are already of type "struct
-e1000_tx_ring *"
+	Hello,
 
-Signed-off-by: Hong Zhiguo <zhiguohong@tencent.com>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+On Sun, 20 Oct 2013, Hannes Frederic Sowa wrote:
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 59ad007..ad6800a 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -3917,8 +3917,7 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
- 			      "  next_to_watch        <%x>\n"
- 			      "  jiffies              <%lx>\n"
- 			      "  next_to_watch.status <%x>\n",
--				(unsigned long)((tx_ring - adapter->tx_ring) /
--					sizeof(struct e1000_tx_ring)),
-+				(unsigned long)(tx_ring - adapter->tx_ring),
- 				readl(hw->hw_addr + tx_ring->tdh),
- 				readl(hw->hw_addr + tx_ring->tdt),
- 				tx_ring->next_to_use,
--- 
-1.8.1.2
+> The caller I found was ip6t_do_table which does deactivate bottom halves.
+> Maybe there are others I did not see, so double checking is better.
 
+	Aha, I see.
 
-------------------------------------------------------------------------------
-October Webinars: Code for Performance
-Free Intel webinars can help you accelerate application performance.
-Explore tips for MPI, OpenMP, advanced profiling, and more. Get the most from 
-the latest Intel processors and coprocessors. See abstracts and register >
-http://pubads.g.doubleclick.net/gampad/clk?id=60135031&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> > 	In my test I used link route to local subnet, --gateway to IP
+> > that is not present. I'll try other variants.
+> 
+> Is your kernel compiled with CONFIG_IPV6_ROUTER_PREF?
+
+	Hm, no. I'll enable it. But it works for
+RTF_GATEWAY, something I didn't tested before now.
+
+> I cannot test my patch today any more, so I just leave it here. It is only
+> compile tested. Maybe you can make use of it:
+
+	I'll try it. But note that my test setup has
+no any routers around.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
