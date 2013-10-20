@@ -1,49 +1,53 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] net: fix build warnings because of net_get_random_once merge
-Date: Sun, 20 Oct 2013 06:26:02 +0200
-Message-ID: <20131020042602.GC27787@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Subject: [PATCH] iwlwifi: remove duplicate includes
+Date: Sun, 20 Oct 2013 07:01:00 +0200
+Message-ID: <1382245260-19065-1-git-send-email-michael.opdenacker@free-electrons.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Michael Opdenacker <michael.opdenacker@free-electrons.com>
+To: johannes.berg@intel.com, emmanuel.grumbach@intel.com,
+	ilw@linux.intel.com, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:45891 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750725Ab3JTE0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Oct 2013 00:26:04 -0400
-Content-Disposition: inline
+Received: from top.free-electrons.com ([176.31.233.9]:33467 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750824Ab3JTFBf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Oct 2013 01:01:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the following warning:
+Reported by "make includecheck"
 
-   In file included from include/linux/skbuff.h:27:0,
-                    from include/linux/netfilter.h:5,
-                    from include/net/netns/netfilter.h:5,
-                    from include/net/net_namespace.h:20,
-                    from include/linux/init_task.h:14,
-                    from init/init_task.c:1:
-include/linux/net.h:243:14: warning: 'struct static_key' declared inside parameter list [enabled by default]
-          struct static_key *done_key);
+Tested that the corresponding sources still compile well on x86
 
-on x86_64 allnoconfig, um defconfig and ia64 allmodconfig and maybe others as well.
-
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
 ---
- include/linux/net.h | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/wireless/iwlwifi/iwl-io.c  | 1 -
+ drivers/net/wireless/iwlwifi/mvm/mvm.h | 1 -
+ 2 files changed, 2 deletions(-)
 
-diff --git a/include/linux/net.h b/include/linux/net.h
-index a489705..aca446b 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -24,6 +24,7 @@
- #include <linux/fcntl.h>	/* For O_CLOEXEC and O_NONBLOCK */
- #include <linux/kmemcheck.h>
- #include <linux/rcupdate.h>
-+#include <linux/jump_label.h>
- #include <uapi/linux/net.h>
+diff --git a/drivers/net/wireless/iwlwifi/iwl-io.c b/drivers/net/wireless/iwlwifi/iwl-io.c
+index dfa4d2e..ad8e19a 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-io.c
++++ b/drivers/net/wireless/iwlwifi/iwl-io.c
+@@ -34,7 +34,6 @@
+ #include "iwl-csr.h"
+ #include "iwl-debug.h"
+ #include "iwl-fh.h"
+-#include "iwl-csr.h"
  
- struct poll_table_struct;
+ #define IWL_POLL_INTERVAL 10	/* microseconds */
+ 
+diff --git a/drivers/net/wireless/iwlwifi/mvm/mvm.h b/drivers/net/wireless/iwlwifi/mvm/mvm.h
+index b038927..bd80865 100644
+--- a/drivers/net/wireless/iwlwifi/mvm/mvm.h
++++ b/drivers/net/wireless/iwlwifi/mvm/mvm.h
+@@ -73,7 +73,6 @@
+ #include "iwl-trans.h"
+ #include "iwl-notif-wait.h"
+ #include "iwl-eeprom-parse.h"
+-#include "iwl-trans.h"
+ #include "sta.h"
+ #include "fw-api.h"
+ #include "constants.h"
 -- 
-1.8.3.1
+1.8.1.2
