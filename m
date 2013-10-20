@@ -1,49 +1,49 @@
-From: Tino Reichardt <list-linux-netdev@mcmilk.de>
-Subject: Re: [PATCH net-next v2 01/07] 8139too: Support for byte queue limits
-Date: Sun, 20 Oct 2013 21:14:11 +0200
-Message-ID: <20131020191411.GA24935@mcmilk.de>
-References: <1382292803-18875-1-git-send-email-milky-kernel@mcmilk.de>
- <1382292803-18875-2-git-send-email-milky-kernel@mcmilk.de>
- <1382295089.2041.42.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Tino Reichardt <milky-kernel@mcmilk.de>
+Subject: [PATCHSET net-next v3 00/07] Support for byte queue limits on various drivers
+Date: Sun, 20 Oct 2013 21:23:04 +0200
+Message-ID: <1382296991-20289-1-git-send-email-milky-kernel@mcmilk.de>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lotte.svc-box.de ([80.252.109.10]:49155 "EHLO lotte.svc-box.de"
+Received: from lotte.svc-box.de ([80.252.109.10]:49816 "EHLO lotte.svc-box.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751290Ab3JTTOQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Oct 2013 15:14:16 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by lotte.svc-box.de (Postfix) with ESMTP id 74BC41480B81
-	for <netdev@vger.kernel.org>; Sun, 20 Oct 2013 21:14:12 +0200 (CEST)
-Received: from lotte.svc-box.de ([127.0.0.1])
-	by localhost (lotte.svc-box.de [127.0.0.1]) (amavisd-new, port 10026)
-	with ESMTP id SulJLvSba4BN for <netdev@vger.kernel.org>;
-	Sun, 20 Oct 2013 21:14:11 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <1382295089.2041.42.camel@joe-AO722>
+	id S1751290Ab3JTTXP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Oct 2013 15:23:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Joe Perches <joe@perches.com> wrote:
-> On Sun, 2013-10-20 at 20:13 +0200, Tino Reichardt wrote:
-> > Changes to 8139too driver to use byte queue limits.
-> []
-> > diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
-> []
-> > @@ -1409,6 +1413,8 @@ static void rtl8139_hw_start (struct net_device *dev)
-> []
-> >  	netdev_dbg(dev, "init buffer addresses\n");
-> > +	if (likely(bql_disable == false))
-> > +		netdev_reset_queue(dev);
-> 
-> Much prefer:
-> 
-> 	if (unlikely(bql_disable))
+Hello again,
 
-Okay, i will resend an updated v3 patchset.
+this patchset is intended for net-next/linux-3.13.
+
+It adds support for byte queue limits on various network drivers.
+
+Since not all of them are fully tested by now, I added an bql_disable
+module parameter, which can be used to disable the BQL code.
+
+"if (likely(bql_disable == false))" was replaced by
+"if (unlikely(bql_disable))" ...
 
 
+Any comments are welcome, thanks.
+Tino Reichardt
 
--- 
-Best regards, TR
+This BQL patchset contains the following patches by now:
+0001-8139too-Support-for-byte-queue-limits.patch
+0002-r8169-Support-for-byte-queue-limits.patch
+0003-tulip-Support-for-byte-queue-limits.patch
+0004-via-rhine-Support-for-byte-queue-limits.patch
+0005-via-velocity-Support-for-byte-queue-limits.patch
+0006-3c59x-Support-for-byte-queue-limits.patch
+0007-natsemi-Support-for-byte-queue-limits.patch
+
+---
+ drivers/net/ethernet/3com/3c59x.c           | 47 +++++++++++++++++++++++++----
+ drivers/net/ethernet/dec/tulip/interrupt.c  |  4 +++
+ drivers/net/ethernet/dec/tulip/tulip.h      |  1 +
+ drivers/net/ethernet/dec/tulip/tulip_core.c |  9 +++++-
+ drivers/net/ethernet/natsemi/natsemi.c      | 21 +++++++++++++
+ drivers/net/ethernet/realtek/8139too.c      | 28 ++++++++++++++---
+ drivers/net/ethernet/realtek/r8169.c        | 14 +++++++++
+ drivers/net/ethernet/via/via-rhine.c        | 17 +++++++++++
+ drivers/net/ethernet/via/via-velocity.c     | 18 +++++++++++
+ 9 files changed, 147 insertions(+), 12 deletions(-)
