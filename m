@@ -1,96 +1,96 @@
 From: Tino Reichardt <milky-kernel@mcmilk.de>
-Subject: [PATCH net-next v3 04/07] via-rhine: Support for byte queue limits
-Date: Sun, 20 Oct 2013 21:23:08 +0200
-Message-ID: <1382296991-20289-5-git-send-email-milky-kernel@mcmilk.de>
+Subject: [PATCH net-next v3 02/07] r8169: Support for byte queue limits
+Date: Sun, 20 Oct 2013 21:23:06 +0200
+Message-ID: <1382296991-20289-3-git-send-email-milky-kernel@mcmilk.de>
 References: <1382296991-20289-1-git-send-email-milky-kernel@mcmilk.de>
-To: netdev@vger.kernel.org, Roger Luethi <rl@hellgate.ch>
+To: netdev@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Igor Maravic <igorm@etf.rs>,
+	Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lotte.svc-box.de ([80.252.109.10]:49850 "EHLO lotte.svc-box.de"
+Received: from lotte.svc-box.de ([80.252.109.10]:49835 "EHLO lotte.svc-box.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751496Ab3JTTXX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Oct 2013 15:23:23 -0400
+	id S1751450Ab3JTTXT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Oct 2013 15:23:19 -0400
 In-Reply-To: <1382296991-20289-1-git-send-email-milky-kernel@mcmilk.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes to via-rhine driver to use byte queue limits.
+Changes to r8169 driver to use byte queue limits.
 
 
 Signed-off-by: Tino Reichardt <milky-kernel@mcmilk.de>
 
 ---
- drivers/net/ethernet/via/via-rhine.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+ drivers/net/ethernet/realtek/r8169.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index bdf697b..067b4ab 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -53,6 +53,8 @@ static int rx_copybreak = 1518;
- static int rx_copybreak;
- #endif
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 3397cee..8f12145 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -313,6 +313,7 @@ MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
  
+ static int rx_buf_sz = 16383;
+ static int use_dac;
 +static bool bql_disable;
-+
- /* Work-around for broken BIOSes: they are unable to get the chip back out of
-    power state D3 so PXE booting fails. bootparam(7): via-rhine.avoid_D3=1 */
- static bool avoid_D3;
-@@ -128,9 +130,11 @@ MODULE_DESCRIPTION("VIA Rhine PCI Fast Ethernet driver");
- MODULE_LICENSE("GPL");
- 
- module_param(debug, int, 0);
+ static struct {
+ 	u32 msg_enable;
+ } debug = { -1 };
+@@ -818,6 +819,9 @@ MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
+ MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
+ module_param(use_dac, int, 0);
+ MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
 +module_param(bql_disable, bool, 0);
- module_param(rx_copybreak, int, 0);
- module_param(avoid_D3, bool, 0);
- MODULE_PARM_DESC(debug, "VIA Rhine debug message flags");
-+MODULE_PARM_DESC(bql_disable, "Disable Byte Queue Limits functionality (default: false)");
- MODULE_PARM_DESC(rx_copybreak, "VIA Rhine copy breakpoint for copy-only-tiny-frames");
- MODULE_PARM_DESC(avoid_D3, "Avoid power state D3 (work-around for broken BIOSes)");
- 
-@@ -1220,6 +1224,8 @@ static void alloc_tbufs(struct net_device* dev)
- 	}
- 	rp->tx_ring[i-1].next_desc = cpu_to_le32(rp->tx_ring_dma);
- 
++MODULE_PARM_DESC(bql_disable,
++	"Disable Byte Queue Limits functionality (default: false)");
+ module_param_named(debug, debug.msg_enable, int, 0);
+ MODULE_PARM_DESC(debug, "Debug verbosity level (0=none, ..., 16=all)");
+ MODULE_LICENSE("GPL");
+@@ -5841,6 +5845,8 @@ static void rtl8169_tx_clear(struct rtl8169_private *tp)
+ {
+ 	rtl8169_tx_clear_range(tp, tp->dirty_tx, NUM_TX_DESC);
+ 	tp->cur_tx = tp->dirty_tx = 0;
 +	if (unlikely(bql_disable))
-+		netdev_reset_queue(dev);
++		netdev_reset_queue(tp->dev);
  }
  
- static void free_tbufs(struct net_device* dev)
-@@ -1719,6 +1725,8 @@ static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
- 	/* lock eth irq */
- 	wmb();
- 	rp->tx_ring[entry].tx_status |= cpu_to_le32(DescOwn);
+ static void rtl_reset_work(struct rtl8169_private *tp)
+@@ -6017,6 +6023,8 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 	txd->opts2 = cpu_to_le32(opts[1]);
+ 
+ 	skb_tx_timestamp(skb);
 +	if (unlikely(bql_disable))
 +		netdev_sent_queue(dev, skb->len);
+ 
  	wmb();
  
- 	rp->cur_tx++;
-@@ -1783,6 +1791,7 @@ static void rhine_tx(struct net_device *dev)
+@@ -6116,6 +6124,7 @@ static void rtl8169_pcierr_interrupt(struct net_device *dev)
+ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
  {
- 	struct rhine_private *rp = netdev_priv(dev);
- 	int txstatus = 0, entry = rp->dirty_tx % TX_RING_SIZE;
+ 	unsigned int dirty_tx, tx_left;
 +	unsigned int pkts_compl = 0, bytes_compl = 0;
  
- 	/* find and cleanup dirty tx descriptors */
- 	while (rp->dirty_tx != rp->cur_tx) {
-@@ -1830,10 +1839,18 @@ static void rhine_tx(struct net_device *dev)
- 					 rp->tx_skbuff[entry]->len,
- 					 PCI_DMA_TODEVICE);
+ 	dirty_tx = tp->dirty_tx;
+ 	smp_rmb();
+@@ -6138,6 +6147,9 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+ 			tp->tx_stats.packets++;
+ 			tp->tx_stats.bytes += tx_skb->skb->len;
+ 			u64_stats_update_end(&tp->tx_stats.syncp);
++
++			bytes_compl += tx_skb->skb->len;
++			pkts_compl++;
+ 			dev_kfree_skb(tx_skb->skb);
+ 			tx_skb->skb = NULL;
  		}
-+
-+		bytes_compl += rp->tx_skbuff[entry]->len;
-+		pkts_compl++;
- 		dev_kfree_skb(rp->tx_skbuff[entry]);
-+
- 		rp->tx_skbuff[entry] = NULL;
- 		entry = (++rp->dirty_tx) % TX_RING_SIZE;
- 	}
-+
-+	if (unlikely(bql_disable))
-+		netdev_completed_queue(dev, pkts_compl, bytes_compl);
-+
- 	if ((rp->cur_tx - rp->dirty_tx) < TX_QUEUE_LEN - 4)
- 		netif_wake_queue(dev);
- }
+@@ -6155,6 +6167,8 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+ 		 * ring status.
+ 		 */
+ 		smp_mb();
++		if (unlikely(bql_disable))
++			netdev_completed_queue(dev, pkts_compl, bytes_compl);
+ 		if (netif_queue_stopped(dev) &&
+ 		    TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS)) {
+ 			netif_wake_queue(dev);
 -- 
 1.8.4.1
