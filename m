@@ -1,39 +1,50 @@
-From: Joe Perches <joe@perches.com>
+From: Tino Reichardt <list-linux-netdev@mcmilk.de>
 Subject: Re: [PATCHSET net-next v3 00/07] Support for byte queue limits on
  various drivers
-Date: Sun, 20 Oct 2013 12:38:04 -0700
-Message-ID: <1382297884.2041.48.camel@joe-AO722>
+Date: Sun, 20 Oct 2013 22:19:08 +0200
+Message-ID: <20131020201908.GC24935@mcmilk.de>
 References: <1382296991-20289-1-git-send-email-milky-kernel@mcmilk.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Tino Reichardt <milky-kernel@mcmilk.de>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0083.hostedemail.com ([216.40.44.83]:37493 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751360Ab3JTTiI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Oct 2013 15:38:08 -0400
+Received: from lotte.svc-box.de ([80.252.109.10]:53467 "EHLO lotte.svc-box.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751783Ab3JTUTL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Oct 2013 16:19:11 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by lotte.svc-box.de (Postfix) with ESMTP id D233F1480BA5
+	for <netdev@vger.kernel.org>; Sun, 20 Oct 2013 22:19:09 +0200 (CEST)
+Received: from lotte.svc-box.de ([127.0.0.1])
+	by localhost (lotte.svc-box.de [127.0.0.1]) (amavisd-new, port 10026)
+	with ESMTP id o7-FsnVhDBUa for <netdev@vger.kernel.org>;
+	Sun, 20 Oct 2013 22:19:08 +0200 (CEST)
+Content-Disposition: inline
 In-Reply-To: <1382296991-20289-1-git-send-email-milky-kernel@mcmilk.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-10-20 at 21:23 +0200, Tino Reichardt wrote:
+* Tino Reichardt <milky-kernel@mcmilk.de> wrote:
 > Hello again,
-
-Hi again Tino.
-
+> 
+> this patchset is intended for net-next/linux-3.13.
+> 
+> It adds support for byte queue limits on various network drivers.
+> 
+> Since not all of them are fully tested by now, I added an bql_disable
+> module parameter, which can be used to disable the BQL code.
+> 
 > "if (likely(bql_disable == false))" was replaced by
 > "if (unlikely(bql_disable))" ...
 
-Sorry for suggesting this, but it's not an
-equivalent transform unless the then & else
-paths are also inverted.
 
-Here there are no else branches.
-Doesn't this need to be?
+Please ignore Patchset v3... "unlikely(bql_disable)" is of cause not
+correct :(
 
-from:
-	if (likely(bql_disable == false))
-to:
-	if (likely(!bql_disable))
+
+Please use "[PATCHSET net-next v3 00/07]" instead.
+
+Sorry for all the noise here ;)
+
+-- 
+Best regards, TR
