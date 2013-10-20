@@ -1,62 +1,47 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net 2/3] ipv6: fill rt6i_gateway with nexthop address
-Date: Sun, 20 Oct 2013 20:33:04 +0200
-Message-ID: <20131020183304.GG27787@order.stressinduktion.org>
-References: <1382272985-1528-1-git-send-email-ja@ssi.bg> <1382272985-1528-3-git-send-email-ja@ssi.bg>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: kernel BUG at net/core/skbuff.c:1048!
+Date: Sun, 20 Oct 2013 19:33:12 +0100
+Message-ID: <20131020183312.GB16002@macbook.localnet>
+References: <524E8BFB.9080708@icts.kuleuven.be>
+ <20131005100105.GA2457@macbook.localnet>
+ <20131020182523.GF27787@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: Wim Vandersmissen <Wim.Vandersmissen@icts.kuleuven.be>,
+	netdev@vger.kernel.org, kernelspam@bofh.be
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:64280 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751454Ab3JTSdT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Oct 2013 14:33:19 -0400
 Content-Disposition: inline
-In-Reply-To: <1382272985-1528-3-git-send-email-ja@ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20131020182523.GF27787@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 20, 2013 at 03:43:04PM +0300, Julian Anastasov wrote:
-> Make sure rt6i_gateway contains nexthop information in
-> all routes returned from lookup or when routes are directly
-> attached to skb for generated ICMP packets.
+On Sun, Oct 20, 2013 at 08:25:23PM +0200, Hannes Frederic Sowa wrote:
+> Hi Patrick!
 > 
-> The effect of this patch should be a faster version of
-> rt6_nexthop() and the consideration of local addresses as
-> nexthop.
+> On Sat, Oct 05, 2013 at 11:01:05AM +0100, Patrick McHardy wrote:
+> > On Fri, Oct 04, 2013 at 11:35:55AM +0200, Wim Vandersmissen wrote:
+> > > Hi,
+> > > 
+> > > Got the following BUG when using ipv6 netfilter/conntrack/ipv6
+> > > forwarding and traffic flowing.
+> > > 
+> > > No issues in 3.4.x, but triggered in 3.10.x (introduced in 3.7)
+> > 
+> > Please also send me your 3.10.x config and the ip6tables rules you're
+> > using.
+> > 
+> > Are you actually using IPv6 NAT? 
 > 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> ---
->  include/net/ip6_route.h | 6 ++----
->  net/ipv6/ip6_output.c   | 4 ++--
->  net/ipv6/route.c        | 8 ++++++--
->  3 files changed, 10 insertions(+), 8 deletions(-)
+> Maybe the same bug was hit by someone else and was reported in kernel
+> bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=63331
 > 
-> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-> index 481404a..2b786b7 100644
-> --- a/include/net/ip6_route.h
-> +++ b/include/net/ip6_route.h
-> @@ -194,11 +194,9 @@ static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
->  	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
->  }
->  
-> -static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt, struct in6_addr *dest)
-> +static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt)
->  {
-> -	if (rt->rt6i_flags & RTF_GATEWAY || !ipv6_addr_any(&rt->rt6i_gateway))
-> -		return &rt->rt6i_gateway;
-> -	return dest;
-> +	return &rt->rt6i_gateway;
->  }
->  
+> I added him in Cc.
 
-Hm, looks good. Will test is soon.
-
-One small remark:
-
-Maybe we can kill rt6_nexthop completly and use rt6i_gateway directly so a
-reader does not have to lookup this function.
-
-Thanks,
-
-  Hannes
-
+Thanks, didn't really get to it yet. The problem is obviously that we're
+rerouting the individual fragments, during which their headroom gets
+expanded while a reference to them is held by the reassembled skb. Just
+not sure yet how to fix it.
