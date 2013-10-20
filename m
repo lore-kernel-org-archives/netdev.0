@@ -1,48 +1,46 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC net-next] ipv6: Use destination address determined by
- IPVS
-Date: Sun, 20 Oct 2013 11:33:54 +0300 (EEST)
-Message-ID: <alpine.LFD.2.03.1310201118331.1538@ssi.bg>
-References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310180153250.4554@ssi.bg> <20131018021008.GH18135@order.stressinduktion.org> <alpine.LFD.2.03.1310191919290.1469@ssi.bg> <20131019183433.GC31333@order.stressinduktion.org>
- <20131019223657.GH31333@order.stressinduktion.org> <alpine.LFD.2.03.1310200939330.1538@ssi.bg> <20131020073308.GE27787@order.stressinduktion.org>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [PATCH 03/17] netfilter: add nftables
+Date: Sun, 20 Oct 2013 13:46:03 +0200 (CEST)
+Message-ID: <alpine.LSU.2.11.1310201338320.13725@nerf07.vanv.qr>
+References: <1381768738-17739-1-git-send-email-pablo@netfilter.org> <1381768738-17739-4-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>,
-	=?UTF-8?Q?YOSHIFUJI_Hideaki_=2F_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
-	Phil Oester <kernel@linuxace.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20131020073308.GE27787@order.stressinduktion.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	kaber@trash.net, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ares07.inai.de ([5.9.24.206]:37707 "EHLO ares07.inai.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751305Ab3JTLqG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Oct 2013 07:46:06 -0400
+In-Reply-To: <1381768738-17739-4-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-	Hello,
+On Monday 2013-10-14 18:38, Pablo Neira Ayuso wrote:
+>
+>+static int __init nf_table_nat_init(void)
+>+{
+>+	int err;
+>+
+>+	list_add_tail(&nf_chain_nat_prerouting.chain.list,
+>+		      &nf_table_nat_ipv4.chains);
+>+	list_add_tail(&nf_chain_nat_postrouting.chain.list,
+>+		      &nf_table_nat_ipv4.chains);
+>+	list_add_tail(&nf_chain_nat_output.chain.list,
+>+		      &nf_table_nat_ipv4.chains);
+>+	list_add_tail(&nf_chain_nat_input.chain.list,
+>+		      &nf_table_nat_ipv4.chains);
+>+
+>+	err = nft_register_table(&nf_table_nat_ipv4, NFPROTO_IPV4);
+>+	if (err < 0)
+>+		goto err1;
 
-On Sun, 20 Oct 2013, Hannes Frederic Sowa wrote:
+Why do we still have this redundant table separation?
 
-> The caller I found was ip6t_do_table which does deactivate bottom halves.
-> Maybe there are others I did not see, so double checking is better.
-
-	Aha, I see.
-
-> > 	In my test I used link route to local subnet, --gateway to IP
-> > that is not present. I'll try other variants.
-> 
-> Is your kernel compiled with CONFIG_IPV6_ROUTER_PREF?
-
-	Hm, no. I'll enable it. But it works for
-RTF_GATEWAY, something I didn't tested before now.
-
-> I cannot test my patch today any more, so I just leave it here. It is only
-> compile tested. Maybe you can make use of it:
-
-	I'll try it. But note that my test setup has
-no any routers around.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+This ugly 90s era relict was a result of the module split,
+but given that arbitrary base chain creation is now exposed,
+it is no longer necessary. (It was not really necessary
+before either, but that is how things grew in the past.)
+Don't carry over 90s mistakes.
