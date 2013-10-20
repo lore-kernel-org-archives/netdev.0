@@ -1,96 +1,114 @@
 From: Tino Reichardt <milky-kernel@mcmilk.de>
-Subject: [PATCH net-next v2 02/07] r8169: Support for byte queue limits
-Date: Sun, 20 Oct 2013 20:13:18 +0200
-Message-ID: <1382292803-18875-3-git-send-email-milky-kernel@mcmilk.de>
+Subject: [PATCH net-next v2 03/07] tulip: Support for byte queue limits
+Date: Sun, 20 Oct 2013 20:13:19 +0200
+Message-ID: <1382292803-18875-4-git-send-email-milky-kernel@mcmilk.de>
 References: <1382292803-18875-1-git-send-email-milky-kernel@mcmilk.de>
-To: netdev@vger.kernel.org,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Igor Maravic <igorm@etf.rs>,
-	Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org, Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lotte.svc-box.de ([80.252.109.10]:45373 "EHLO lotte.svc-box.de"
+Received: from lotte.svc-box.de ([80.252.109.10]:45384 "EHLO lotte.svc-box.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750949Ab3JTSNc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Oct 2013 14:13:32 -0400
+	id S1751350Ab3JTSNe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Oct 2013 14:13:34 -0400
 In-Reply-To: <1382292803-18875-1-git-send-email-milky-kernel@mcmilk.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes to r8169 driver to use byte queue limits.
+Changes to tulip driver to use byte queue limits.
 
 
 Signed-off-by: Tino Reichardt <milky-kernel@mcmilk.de>
 
 ---
- drivers/net/ethernet/realtek/r8169.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ drivers/net/ethernet/dec/tulip/interrupt.c  | 4 ++++
+ drivers/net/ethernet/dec/tulip/tulip.h      | 1 +
+ drivers/net/ethernet/dec/tulip/tulip_core.c | 9 ++++++++-
+ 3 files changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 3397cee..8f12145 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -313,6 +313,7 @@ MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
+diff --git a/drivers/net/ethernet/dec/tulip/interrupt.c b/drivers/net/ethernet/dec/tulip/interrupt.c
+index 92306b3..7084267 100644
+--- a/drivers/net/ethernet/dec/tulip/interrupt.c
++++ b/drivers/net/ethernet/dec/tulip/interrupt.c
+@@ -532,6 +532,7 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
+ #endif
+ 	unsigned int work_count = tulip_max_interrupt_work;
+ 	unsigned int handled = 0;
++	unsigned int bytes_compl = 0;
  
- static int rx_buf_sz = 16383;
- static int use_dac;
-+static bool bql_disable;
- static struct {
- 	u32 msg_enable;
- } debug = { -1 };
-@@ -818,6 +819,9 @@ MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
- MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
- module_param(use_dac, int, 0);
- MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
-+module_param(bql_disable, bool, 0);
-+MODULE_PARM_DESC(bql_disable,
-+	"Disable Byte Queue Limits functionality (default: false)");
- module_param_named(debug, debug.msg_enable, int, 0);
- MODULE_PARM_DESC(debug, "Debug verbosity level (0=none, ..., 16=all)");
+ 	/* Let's see whether the interrupt really is for us */
+ 	csr5 = ioread32(ioaddr + CSR5);
+@@ -634,6 +635,7 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
+ 						 PCI_DMA_TODEVICE);
+ 
+ 				/* Free the original skb. */
++				bytes_compl += tp->tx_buffers[entry].skb->len;
+ 				dev_kfree_skb_irq(tp->tx_buffers[entry].skb);
+ 				tp->tx_buffers[entry].skb = NULL;
+ 				tp->tx_buffers[entry].mapping = 0;
+@@ -802,6 +804,8 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
+ 	}
+ #endif /* CONFIG_TULIP_NAPI */
+ 
++	if (likely(tulip_bql_disable == false))
++		netdev_completed_queue(dev, tx, bytes_compl);
+ 	if ((missed = ioread32(ioaddr + CSR8) & 0x1ffff)) {
+ 		dev->stats.rx_dropped += missed & 0x10000 ? 0x10000 : missed;
+ 	}
+diff --git a/drivers/net/ethernet/dec/tulip/tulip.h b/drivers/net/ethernet/dec/tulip/tulip.h
+index 38431a1..3c62870 100644
+--- a/drivers/net/ethernet/dec/tulip/tulip.h
++++ b/drivers/net/ethernet/dec/tulip/tulip.h
+@@ -513,6 +513,7 @@ void comet_timer(unsigned long data);
+ 
+ /* tulip_core.c */
+ extern int tulip_debug;
++extern bool tulip_bql_disable;
+ extern const char * const medianame[];
+ extern const char tulip_media_cap[];
+ extern struct tulip_chip_table tulip_tbl[];
+diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
+index 4e8cfa2..d02eaa1 100644
+--- a/drivers/net/ethernet/dec/tulip/tulip_core.c
++++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
+@@ -106,11 +106,13 @@ static int csr0 = 0x00A00000 | 0x4800;
+ /* Time in jiffies before concluding the transmitter is hung. */
+ #define TX_TIMEOUT  (4*HZ)
+ 
+-
+ MODULE_AUTHOR("The Linux Kernel Team");
+ MODULE_DESCRIPTION("Digital 21*4* Tulip ethernet driver");
  MODULE_LICENSE("GPL");
-@@ -5841,6 +5845,8 @@ static void rtl8169_tx_clear(struct rtl8169_private *tp)
+ MODULE_VERSION(DRV_VERSION);
++module_param(tulip_bql_disable, bool, 0);
++MODULE_PARM_DESC(tulip_bql_disable,
++	"Disable Byte Queue Limits functionality (default: false)");
+ module_param(tulip_debug, int, 0);
+ module_param(max_interrupt_work, int, 0);
+ module_param(rx_copybreak, int, 0);
+@@ -123,6 +125,7 @@ int tulip_debug = TULIP_DEBUG;
+ #else
+ int tulip_debug = 1;
+ #endif
++bool tulip_bql_disable;
+ 
+ static void tulip_timer(unsigned long data)
  {
- 	rtl8169_tx_clear_range(tp, tp->dirty_tx, NUM_TX_DESC);
- 	tp->cur_tx = tp->dirty_tx = 0;
-+	if (likely(bql_disable == false))
+@@ -703,6 +706,8 @@ tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	wmb();
+ 
+ 	tp->cur_tx++;
++	if (likely(tulip_bql_disable == false))
++		netdev_sent_queue(dev, skb->len);
+ 
+ 	/* Trigger an immediate transmit demand. */
+ 	iowrite32(0, tp->base_addr + CSR1);
+@@ -746,6 +751,8 @@ static void tulip_clean_tx_ring(struct tulip_private *tp)
+ 		tp->tx_buffers[entry].skb = NULL;
+ 		tp->tx_buffers[entry].mapping = 0;
+ 	}
++	if (likely(tulip_bql_disable == false))
 +		netdev_reset_queue(tp->dev);
  }
  
- static void rtl_reset_work(struct rtl8169_private *tp)
-@@ -6017,6 +6023,8 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 	txd->opts2 = cpu_to_le32(opts[1]);
- 
- 	skb_tx_timestamp(skb);
-+	if (likely(bql_disable == false))
-+		netdev_sent_queue(dev, skb->len);
- 
- 	wmb();
- 
-@@ -6116,6 +6124,7 @@ static void rtl8169_pcierr_interrupt(struct net_device *dev)
- static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
- {
- 	unsigned int dirty_tx, tx_left;
-+	unsigned int pkts_compl = 0, bytes_compl = 0;
- 
- 	dirty_tx = tp->dirty_tx;
- 	smp_rmb();
-@@ -6138,6 +6147,9 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
- 			tp->tx_stats.packets++;
- 			tp->tx_stats.bytes += tx_skb->skb->len;
- 			u64_stats_update_end(&tp->tx_stats.syncp);
-+
-+			bytes_compl += tx_skb->skb->len;
-+			pkts_compl++;
- 			dev_kfree_skb(tx_skb->skb);
- 			tx_skb->skb = NULL;
- 		}
-@@ -6155,6 +6167,8 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
- 		 * ring status.
- 		 */
- 		smp_mb();
-+		if (likely(bql_disable == false))
-+			netdev_completed_queue(dev, pkts_compl, bytes_compl);
- 		if (netif_queue_stopped(dev) &&
- 		    TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS)) {
- 			netif_wake_queue(dev);
+ static void tulip_down (struct net_device *dev)
 -- 
 1.8.4.1
