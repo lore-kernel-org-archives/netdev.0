@@ -1,22 +1,38 @@
-From: China@srvmail-zcom.mintra.gob.pe,
-	Shenhua@srvmail-zcom.mintra.gob.pe
-Subject: E-mail Has Won 1.5M
-Date: Sun, 20 Oct 2013 17:32:07 +0530
-Message-ID: <20131020120206.D0B09586BE8@srvmail-zcom.mintra.gob.pe>
-Reply-To: companylimited_c1@yahoo.com.hk
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC net-next] ipv6: Use destination address determined by
+ IPVS
+Date: Sun, 20 Oct 2013 15:27:40 +0300 (EEST)
+Message-ID: <alpine.LFD.2.03.1310201521580.1388@ssi.bg>
+References: <1381881751-6719-1-git-send-email-horms@verge.net.au> <alpine.LFD.2.03.1310180153250.4554@ssi.bg> <20131018021008.GH18135@order.stressinduktion.org> <alpine.LFD.2.03.1310191919290.1469@ssi.bg> <20131019183433.GC31333@order.stressinduktion.org>
+ <20131019223657.GH31333@order.stressinduktion.org> <alpine.LFD.2.03.1310200939330.1538@ssi.bg> <20131020073308.GE27787@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <China@srvmail-zcom.mintra.gob.pe>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [200.37.35.8] ([200.37.35.8]:8339 "EHLO mintra.gob.pe"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751264Ab3JTMCc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Oct 2013 08:02:32 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	=?UTF-8?Q?YOSHIFUJI_Hideaki_=2F_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<yoshfuji@linux-ipv6.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Mark Brooks <mark@loadbalancer.org>,
+	Phil Oester <kernel@linuxace.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20131020073308.GE27787@order.stressinduktion.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Your E-mail Has Won 1.5M USD and A Brand New Gallery 2013 BMW X6 in the
-China Coal Energy Company Grant 2013.To Receive Award send your
-Name,Add,and Number on Email:companylimited_c1@yahoo.com.hk
+
+	Hello,
+
+On Sun, 20 Oct 2013, Hannes Frederic Sowa wrote:
+
+> Is your kernel compiled with CONFIG_IPV6_ROUTER_PREF?
+
+	I tested with this flag, even with your patch,
+added printk in rt6_probe_deferred() to be sure. But
+in my setup without router I can not test it fully.
+
+	I'm on 32-bit platform, so may be the shorter structs
+fit in stack and I don't see oops.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
