@@ -1,49 +1,52 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net v2 0/3] UFO fixes
-Date: Sun, 20 Oct 2013 05:26:17 +0200
-Message-ID: <20131020032617.GA27787@order.stressinduktion.org>
-References: <1382178557-14737-1-git-send-email-jiri@resnulli.us> <20131019.192147.1905247570882389108.davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 0/9] Introduce support to lazy initialize mostly static keys
+Date: Sun, 20 Oct 2013 05:33:13 +0200
+Message-ID: <20131020033313.GB27787@order.stressinduktion.org>
+References: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org> <20131019.194635.2189923305870380269.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	jdmason@kudzu.us, yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, kaber@trash.net, herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:45840 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750725Ab3JTD0T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Oct 2013 23:26:19 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20131019.192147.1905247570882389108.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20131019.194635.2189923305870380269.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David!
-
-On Sat, Oct 19, 2013 at 07:21:47PM -0400, David Miller wrote:
-> From: Jiri Pirko <jiri@resnulli.us>
-> Date: Sat, 19 Oct 2013 12:29:14 +0200
+On Sat, Oct 19, 2013 at 07:46:35PM -0400, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Sat, 19 Oct 2013 21:48:50 +0200
 > 
-> > Couple of patches fixing UFO functionality in different situations.
+> > This series implements support for delaying the initialization of secret
+> > keys, e.g. used for hashing, for as long as possible. This functionality
+> > is implemented by a new macro, net_get_random_bytes.
 > > 
-> > v1->v2:
-> > - minor if{}else{} coding style adjustment suggested by Sergei Shtylyov
+> > I already used it to protect the socket hashes, the syncookie secret
+> > (most important) and the tcp_fastopen secrets.
+> > 
+> > Changelog:
+> > v2) Use static_keys in net_get_random_once to have as minimal impact to
+> >     the fast-path as possible.
+> > v3) added patch "static_key: WARN on usage before jump_label_init was called":
+> >     Patch "x86/jump_label: expect default_nop if static_key gets enabled
+> >     on boot-up" relaxes the checks for using static_key primitives before
+> >     jump_label_init. So tighten them first.
+> > v4) Update changelog on the patch "static_key: WARN on usage before
+> >     jump_label_init was called"
 > 
-> Series applied, thanks Jiri.
+> Although I was very skeptical about these changes when you first posted
+> them, I am quite happy with this series now.
 
-I would propose that the patches
+Thank you, too! I was afraid that without the necessary acks from x86
+and jump-label maintainers it would have been impossible to merge.
 
-"ip6_output: do skb ufo init for peeked non ufo skb as well"
-(c547dbf55d5f8cf615ccc0e7265e98db27d3fb8b)
+> 
+> Thanks for working on this and not giving up :-)
+> 
+> Series applied, thanks a lot!
 
-and
-
-"ip_output: do skb ufo init for peeked non ufo skb as well"
-(e93b7d748be887cd7639b113ba7d7ef792a7efb9)
-
-should go to stable because they solve a possible memory corruption
-from userspace.
+I received build warnings from kbuild just after merging and will fix
+them up. Mostly ia64 and allnoconfig. Will send patches soon.
 
 Thanks,
 
