@@ -1,34 +1,35 @@
 From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-Subject: [PATCH] cgxb4: remove duplicate include in cxgb4.h
-Date: Sun, 20 Oct 2013 07:10:01 +0200
-Message-ID: <1382245801-19192-1-git-send-email-michael.opdenacker@free-electrons.com>
+Subject: [PATCH] ethernet: moxa: remove duplicate includes
+Date: Sun, 20 Oct 2013 07:13:56 +0200
+Message-ID: <1382246036-19253-1-git-send-email-michael.opdenacker@free-electrons.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Michael Opdenacker <michael.opdenacker@free-electrons.com>
-To: dm@chelsio.com
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Reported by "make includecheck"
 
-Tested that C sources including this file still compile well on x86
+Tested that drivers/net/ethernet/moxa/moxart_ether.c still compiles
+well on ARM
 
 Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h | 1 -
+ drivers/net/ethernet/moxa/moxart_ether.c | 1 -
  1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index dfd1e36..ecd2fb3 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -48,7 +48,6 @@
- #include <linux/vmalloc.h>
- #include <asm/io.h>
- #include "cxgb4_uld.h"
--#include "t4_hw.h"
+diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
+index bd1a2d2..7d4c8cc 100644
+--- a/drivers/net/ethernet/moxa/moxart_ether.c
++++ b/drivers/net/ethernet/moxa/moxart_ether.c
+@@ -26,7 +26,6 @@
+ #include <linux/of_irq.h>
+ #include <linux/crc32.h>
+ #include <linux/crc32c.h>
+-#include <linux/dma-mapping.h>
  
- #define FW_VERSION_MAJOR 1
- #define FW_VERSION_MINOR 4
+ #include "moxart_ether.h"
+ 
 -- 
 1.8.1.2
