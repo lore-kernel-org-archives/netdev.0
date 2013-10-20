@@ -1,7 +1,7 @@
 From: ZHAO Gang <gamerh2o@gmail.com>
-Subject: [PATCH] net: remove function sk_reset_txq()
-Date: Sun, 20 Oct 2013 09:14:47 +0800
-Message-ID: <20131020011447.GA22399@will>
+Subject: [PATCH v2] net: remove function sk_reset_txq()
+Date: Sun, 20 Oct 2013 09:37:57 +0800
+Message-ID: <20131020013757.GA25265@will>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
@@ -12,11 +12,12 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 What sk_reset_txq() does is just calls function sk_tx_queue_reset(),
-and sk_reset_txq() is used only in sock.c, by dst_negative_advice().
+and sk_reset_txq() is used only in sock.h, by dst_negative_advice().
 Let dst_negative_advice() calls sk_tx_queue_reset() directly so we
 can remove unneeded sk_reset_txq().
 
 Signed-off-by: ZHAO Gang <gamerh2o@gmail.com>
+change a typo in patch description: sock.c -> sock.h
 ---
  include/net/sock.h | 4 +---
  net/core/sock.c    | 6 ------
