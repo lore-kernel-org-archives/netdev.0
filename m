@@ -1,73 +1,61 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: Re: your mail
-Date: Sun, 20 Oct 2013 09:57:52 +0200
-Message-ID: <20131020075752.GN2596@neomailbox.net>
-References: <1382221330-3769-1-git-send-email-antonio@meshcoding.com>
- <20131019.201511.2049734211571225673.davem@davemloft.net>
+From: Hong Zhiguo <honkiko@gmail.com>
+Subject: [PATCH net-next] e1000: fix wrong queue idx
+	calculation
+Date: Sun, 20 Oct 2013 16:15:24 +0800
+Message-ID: <1382256924-12598-1-git-send-email-zhiguohong@tencent.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="t5NgoZwlhlUmGr82"
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:9658 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751138Ab3JTH63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Oct 2013 03:58:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20131019.201511.2049734211571225673.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Hong Zhiguo <zhiguohong@tencent.com>
+To: davem@davemloft.net
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+From: Hong Zhiguo <zhiguohong@tencent.com>
+
+tx_ring and adapter->tx_ring are already of type "struct
+e1000_tx_ring *"
+
+Signed-off-by: Hong Zhiguo <zhiguohong@tencent.com>
+---
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 59ad007..ad6800a 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -3917,8 +3917,7 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter,
+ 			      "  next_to_watch        <%x>\n"
+ 			      "  jiffies              <%lx>\n"
+ 			      "  next_to_watch.status <%x>\n",
+-				(unsigned long)((tx_ring - adapter->tx_ring) /
+-					sizeof(struct e1000_tx_ring)),
++				(unsigned long)(tx_ring - adapter->tx_ring),
+ 				readl(hw->hw_addr + tx_ring->tdh),
+ 				readl(hw->hw_addr + tx_ring->tdt),
+ 				tx_ring->next_to_use,
+-- 
+1.8.1.2
 
 
---t5NgoZwlhlUmGr82
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Sat, Oct 19, 2013 at 08:15:11PM -0400, David Miller wrote:
-> From: Antonio Quartulli <antonio@meshcoding.com>
-> Date: Sun, 20 Oct 2013 00:21:52 +0200
->=20
-> > this is another batch intended for net-next/linux-3.13.
->=20
-> Looks good, pulled, thanks a lot Antonio.
->=20
-> Please don't use empty subject lines in the future, lots of
-> sites block such emails and I see all of those bounces as
-> vger postmaster :-/
->=20
-
-Ops, my bad. I won't do it again in the future!
-Thanks a lot David.
-
-
-Regards,
-
-
---=20
-Antonio Quartulli
-
---t5NgoZwlhlUmGr82
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJSY40AAAoJEADl0hg6qKeO6jcP/0HDxIlKqflj7txBQKM4IHP2
-eKQwPl+V9LRez3l52f1EoLLSPbdWOf53DcgKTarKMiLZVj3RP2wXEP9jKrcU1nCn
-ybChkVPAiP//AltK0daYQv2YNfLDeDoCcN90v/4ZKlQb5KpgvXW+Mcw4XFxv5Lv/
-NmIOd1VVvjqOc8X+zR9GYaG8zuAn/P1uvPOFDhSXL1lPJ2BOcwcGSzrGxp6Ihw20
-/c5EGPpB63lDpUeTukZ5J4p14eJrgxMt/EJ/3ZN3arHzONWvDs2v4XIkiOnNEL75
-/8S79aPIHa9k/wbj0MxccxGRLs/Cwr4fIrEIKQouJFnDMuIqzvBr9aHUI9w68JuY
-hfaqBejWwn+ivDof2k9KE6z48iPA2LKKcCefCo2gMbjtJ5hq3mvdeCCSsfw39VOU
-Cbn3RkHZSW3s7CDPKMSfyaQ4Zphhf7yiGs10UTFqdQHNh1F/W60VbP00vll6AF26
-O7aePgfYIF4Og79YYkg0zWegG5dfXQFkc471E/ihpdaWIg3V8A1DXPVIf3qVSHJm
-PKaFrVqUSill75AburLEVGkjF5WHZh7vC/bmRcQBRfPAoiJgGLof6VpVQhfI/XdB
-zjGDspkdhyhoSMON8SjcEIc9hhjdcFTnsO8s6QwZMfUQ/tfgJzf4qRQJ3vS/1+x4
-3PB5FZsNhFfXd5MG1sPV
-=Bm/N
------END PGP SIGNATURE-----
-
---t5NgoZwlhlUmGr82--
+------------------------------------------------------------------------------
+October Webinars: Code for Performance
+Free Intel webinars can help you accelerate application performance.
+Explore tips for MPI, OpenMP, advanced profiling, and more. Get the most from 
+the latest Intel processors and coprocessors. See abstracts and register >
+http://pubads.g.doubleclick.net/gampad/clk?id=60135031&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
