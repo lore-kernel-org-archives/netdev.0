@@ -1,114 +1,94 @@
 From: Tino Reichardt <milky-kernel@mcmilk.de>
-Subject: [PATCH net-next v2 03/07] tulip: Support for byte queue limits
-Date: Sun, 20 Oct 2013 20:13:19 +0200
-Message-ID: <1382292803-18875-4-git-send-email-milky-kernel@mcmilk.de>
+Subject: [PATCH net-next v2 05/07] via-velocity: Support for byte queue limits
+Date: Sun, 20 Oct 2013 20:13:21 +0200
+Message-ID: <1382292803-18875-6-git-send-email-milky-kernel@mcmilk.de>
 References: <1382292803-18875-1-git-send-email-milky-kernel@mcmilk.de>
-To: netdev@vger.kernel.org, Grant Grundler <grundler@parisc-linux.org>
+To: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lotte.svc-box.de ([80.252.109.10]:45384 "EHLO lotte.svc-box.de"
+Received: from lotte.svc-box.de ([80.252.109.10]:45394 "EHLO lotte.svc-box.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751350Ab3JTSNe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Oct 2013 14:13:34 -0400
+	id S1751350Ab3JTSNi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Oct 2013 14:13:38 -0400
 In-Reply-To: <1382292803-18875-1-git-send-email-milky-kernel@mcmilk.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes to tulip driver to use byte queue limits.
+Changes to via-velocity driver to use byte queue limits.
 
 
 Signed-off-by: Tino Reichardt <milky-kernel@mcmilk.de>
 
 ---
- drivers/net/ethernet/dec/tulip/interrupt.c  | 4 ++++
- drivers/net/ethernet/dec/tulip/tulip.h      | 1 +
- drivers/net/ethernet/dec/tulip/tulip_core.c | 9 ++++++++-
- 3 files changed, 13 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/via/via-velocity.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
-diff --git a/drivers/net/ethernet/dec/tulip/interrupt.c b/drivers/net/ethernet/dec/tulip/interrupt.c
-index 92306b3..7084267 100644
---- a/drivers/net/ethernet/dec/tulip/interrupt.c
-+++ b/drivers/net/ethernet/dec/tulip/interrupt.c
-@@ -532,6 +532,7 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
- #endif
- 	unsigned int work_count = tulip_max_interrupt_work;
- 	unsigned int handled = 0;
-+	unsigned int bytes_compl = 0;
+diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
+index d022bf9..b084404 100644
+--- a/drivers/net/ethernet/via/via-velocity.c
++++ b/drivers/net/ethernet/via/via-velocity.c
+@@ -1,3 +1,4 @@
++
+ /*
+  * This code is derived from the VIA reference driver (copyright message
+  * below) provided to Red Hat by VIA Networking Technologies, Inc. for
+@@ -368,6 +369,11 @@ static int rx_copybreak = 200;
+ module_param(rx_copybreak, int, 0644);
+ MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
  
- 	/* Let's see whether the interrupt really is for us */
- 	csr5 = ioread32(ioaddr + CSR5);
-@@ -634,6 +635,7 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
- 						 PCI_DMA_TODEVICE);
- 
- 				/* Free the original skb. */
-+				bytes_compl += tp->tx_buffers[entry].skb->len;
- 				dev_kfree_skb_irq(tp->tx_buffers[entry].skb);
- 				tp->tx_buffers[entry].skb = NULL;
- 				tp->tx_buffers[entry].mapping = 0;
-@@ -802,6 +804,8 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
- 	}
- #endif /* CONFIG_TULIP_NAPI */
- 
-+	if (likely(tulip_bql_disable == false))
-+		netdev_completed_queue(dev, tx, bytes_compl);
- 	if ((missed = ioread32(ioaddr + CSR8) & 0x1ffff)) {
- 		dev->stats.rx_dropped += missed & 0x10000 ? 0x10000 : missed;
- 	}
-diff --git a/drivers/net/ethernet/dec/tulip/tulip.h b/drivers/net/ethernet/dec/tulip/tulip.h
-index 38431a1..3c62870 100644
---- a/drivers/net/ethernet/dec/tulip/tulip.h
-+++ b/drivers/net/ethernet/dec/tulip/tulip.h
-@@ -513,6 +513,7 @@ void comet_timer(unsigned long data);
- 
- /* tulip_core.c */
- extern int tulip_debug;
-+extern bool tulip_bql_disable;
- extern const char * const medianame[];
- extern const char tulip_media_cap[];
- extern struct tulip_chip_table tulip_tbl[];
-diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
-index 4e8cfa2..d02eaa1 100644
---- a/drivers/net/ethernet/dec/tulip/tulip_core.c
-+++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
-@@ -106,11 +106,13 @@ static int csr0 = 0x00A00000 | 0x4800;
- /* Time in jiffies before concluding the transmitter is hung. */
- #define TX_TIMEOUT  (4*HZ)
- 
--
- MODULE_AUTHOR("The Linux Kernel Team");
- MODULE_DESCRIPTION("Digital 21*4* Tulip ethernet driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
-+module_param(tulip_bql_disable, bool, 0);
-+MODULE_PARM_DESC(tulip_bql_disable,
++static bool bql_disable;
++module_param(bql_disable, bool, 0);
++MODULE_PARM_DESC(bql_disable,
 +	"Disable Byte Queue Limits functionality (default: false)");
- module_param(tulip_debug, int, 0);
- module_param(max_interrupt_work, int, 0);
- module_param(rx_copybreak, int, 0);
-@@ -123,6 +125,7 @@ int tulip_debug = TULIP_DEBUG;
- #else
- int tulip_debug = 1;
- #endif
-+bool tulip_bql_disable;
- 
- static void tulip_timer(unsigned long data)
- {
-@@ -703,6 +706,8 @@ tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	wmb();
- 
- 	tp->cur_tx++;
-+	if (likely(tulip_bql_disable == false))
-+		netdev_sent_queue(dev, skb->len);
- 
- 	/* Trigger an immediate transmit demand. */
- 	iowrite32(0, tp->base_addr + CSR1);
-@@ -746,6 +751,8 @@ static void tulip_clean_tx_ring(struct tulip_private *tp)
- 		tp->tx_buffers[entry].skb = NULL;
- 		tp->tx_buffers[entry].mapping = 0;
++
+ /*
+  *	Internal board variants. At the moment we have only one
+  */
+@@ -1751,6 +1757,9 @@ static void velocity_free_tx_buf(struct velocity_info *vptr,
+ 					le16_to_cpu(pktlen), DMA_TO_DEVICE);
+ 		}
  	}
-+	if (likely(tulip_bql_disable == false))
-+		netdev_reset_queue(tp->dev);
++
++	if (likely(bql_disable == false))
++		netdev_reset_queue(vptr->netdev);
+ 	dev_kfree_skb_irq(skb);
+ 	tdinfo->skb = NULL;
  }
+@@ -1915,6 +1924,7 @@ static int velocity_tx_srv(struct velocity_info *vptr)
+ 	int works = 0;
+ 	struct velocity_td_info *tdinfo;
+ 	struct net_device_stats *stats = &vptr->netdev->stats;
++	unsigned int pkts_compl = 0, bytes_compl = 0;
  
- static void tulip_down (struct net_device *dev)
+ 	for (qnum = 0; qnum < vptr->tx.numq; qnum++) {
+ 		for (idx = vptr->tx.tail[qnum]; vptr->tx.used[qnum] > 0;
+@@ -1946,6 +1956,8 @@ static int velocity_tx_srv(struct velocity_info *vptr)
+ 			} else {
+ 				stats->tx_packets++;
+ 				stats->tx_bytes += tdinfo->skb->len;
++				pkts_compl++;
++				bytes_compl += tdinfo->skb->len;
+ 			}
+ 			velocity_free_tx_buf(vptr, tdinfo, td);
+ 			vptr->tx.used[qnum]--;
+@@ -1955,6 +1967,10 @@ static int velocity_tx_srv(struct velocity_info *vptr)
+ 		if (AVAIL_TD(vptr, qnum) < 1)
+ 			full = 1;
+ 	}
++
++	if (likely(bql_disable == false))
++		netdev_completed_queue(vptr->netdev, pkts_compl, bytes_compl);
++
+ 	/*
+ 	 *	Look to see if we should kick the transmit network
+ 	 *	layer for more work.
+@@ -2641,6 +2657,8 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
+ 	td_ptr->td_buf[0].size |= TD_QUEUE;
+ 	mac_tx_queue_wake(vptr->mac_regs, qnum);
+ 
++	if (likely(bql_disable == false))
++		netdev_sent_queue(vptr->netdev, skb->len);
+ 	spin_unlock_irqrestore(&vptr->lock, flags);
+ out:
+ 	return NETDEV_TX_OK;
 -- 
 1.8.4.1
