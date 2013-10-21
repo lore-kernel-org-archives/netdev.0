@@ -1,41 +1,134 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next v3 02/07] r8169: Support for byte queue limits
-Date: Mon, 21 Oct 2013 10:55:31 +0100
-Message-ID: <1382349331.25689.15.camel@deadeye.wl.decadent.org.uk>
-References: <1382296991-20289-1-git-send-email-milky-kernel@mcmilk.de>
-	 <1382296991-20289-3-git-send-email-milky-kernel@mcmilk.de>
+From: Rayagond K <rayagond@vayavyalabs.com>
+Subject: Re: [PATCH RFC 1/5] net:stmmac: set threshold/store and forward mode
+ according to mtu size.
+Date: Mon, 21 Oct 2013 15:28:50 +0530
+Message-ID: <CAJ3bTp62KZVK22b3M5n03Bj20auaUFYDJk-_-U=cDxb2x9dFVQ@mail.gmail.com>
+References: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com>
+	<1381937052-8999-2-git-send-email-jimmy.perchet@parrot.com>
+	<5264EA04.1040002@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Igor Maravic <igorm@etf.rs>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Tino Reichardt <milky-kernel@mcmilk.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jimmy Perchet <jimmy.perchet@parrot.com>,
+	netdev <netdev@vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:64890 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753059Ab3JUJzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 05:55:36 -0400
-In-Reply-To: <1382296991-20289-3-git-send-email-milky-kernel@mcmilk.de>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:39846 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753082Ab3JUJ6v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 05:58:51 -0400
+Received: by mail-wi0-f175.google.com with SMTP id hm4so3630673wib.2
+        for <netdev@vger.kernel.org>; Mon, 21 Oct 2013 02:58:50 -0700 (PDT)
+In-Reply-To: <5264EA04.1040002@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-10-20 at 21:23 +0200, Tino Reichardt wrote:
-> Changes to r8169 driver to use byte queue limits.
-[...]
-> +		if (unlikely(bql_disable))
-> +			netdev_completed_queue(dev, pkts_compl, bytes_compl);
->  		if (netif_queue_stopped(dev) &&
->  		    TX_FRAGS_READY_FOR(tp, MAX_SKB_FRAGS)) {
->  			netif_wake_queue(dev);
+On Mon, Oct 21, 2013 at 2:17 PM, Giuseppe CAVALLARO
+<peppe.cavallaro@st.com> wrote:
+> On 10/16/2013 5:24 PM, Jimmy Perchet wrote:
+>>
+>> Threshold mode dma is needed on rx path if jumbo frames are expected.
+>
+>
+> I think we should not force the threshold mode depending on the mtu.
 
-This is obviously wrong.  Please limit your changes to drivers you can
-actually test.
+I remember SNPS HW team suggesting me to program the rx path in
+Threshold mode for jumbo frames, as it takes care of low RX FIFO size.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>
+> For example, I worked on hw with rx buffers ~16KiB so able to SF
+> an oversized frame.
+>
+> Maybe we could solve this configuration problem at platform time.
+> We added the fields: force_thresh_dma_mode, force_sf_dma_mode
+> to cover this scenarios. If these need to be enforced so we can
+> prepare a patch.
+>
+> let me know
+> peppe
+>
+>
+>>
+>>
+>> Signed-off-by: Jimmy Perchet <jimmy.perchet@parrot.com>
+>> ---
+>>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 48
+>> ++++++++++++++++-------
+>>   1 file changed, 33 insertions(+), 15 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> index 8d4ccd3..170f043 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> @@ -1222,22 +1222,40 @@ static void free_dma_desc_resources(struct
+>> stmmac_priv *priv)
+>>    *  Description: it sets the DMA operation mode: tx/rx DMA thresholds
+>>    *  or Store-And-Forward capability.
+>>    */
+>> -static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+>> -{
+>> -       if (priv->plat->force_thresh_dma_mode)
+>> -               priv->hw->dma->dma_mode(priv->ioaddr, tc, tc);
+>> -       else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
+>> -               /*
+>> -                * In case of GMAC, SF mode can be enabled
+>> -                * to perform the TX COE in HW. This depends on:
+>> -                * 1) TX COE if actually supported
+>> -                * 2) There is no bugged Jumbo frame support
+>> -                *    that needs to not insert csum in the TDES.
+>> -                */
+>> -               priv->hw->dma->dma_mode(priv->ioaddr, SF_DMA_MODE,
+>> SF_DMA_MODE);
+>> +static void stmmac_dma_operation_mode(int mtu, struct stmmac_priv *priv)
+>> +{
+>> +       int rx_tc, tx_tc;
+>> +
+>> +       /*
+>> +        * In case of GMAC, SF mode can be enabled
+>> +        * to perform the TX COE in HW. This depends on:
+>> +        * 1) TX COE if actually supported
+>> +        * 2) There is no bugged Jumbo frame support
+>> +        *    that needs to not insert csum in the TDES.
+>> +        */
+>> +       if (priv->plat->tx_coe &&
+>> +           !(priv->plat->bugged_jumbo && (mtu > ETH_DATA_LEN))) {
+>>                 tc = SF_DMA_MODE;
+>> +               tx_tc = SF_DMA_MODE;
+>>         } else
+>> -               priv->hw->dma->dma_mode(priv->ioaddr, tc, SF_DMA_MODE);
+>> +               tx_tc = tc;
+>> +
+>> +       if (mtu > ETH_DATA_LEN && priv->hw_cap_support
+>> +           && !priv->dma_cap.rxfifo_over_2048)
+>> +               rx_tc = tc;
+>> +       else
+>> +               rx_tc = SF_DMA_MODE;
+>> +
+>> +       if (priv->plat->force_sf_dma_mode) {
+>> +               tc = SF_DMA_MODE;
+>> +               tx_tc = SF_DMA_MODE;
+>> +               rx_tc = SF_DMA_MODE;
+>> +       } else if (priv->plat->force_thresh_dma_mode) {
+>> +               tx_tc = tc;
+>> +               rx_tc = tc;
+>> +       }
+>> +
+>> +       priv->hw->dma->dma_mode(priv->ioaddr, tx_tc, rx_tc);
+>>   }
+>>
+>>   /**
+>> @@ -1687,7 +1705,7 @@ static int stmmac_open(struct net_device *dev)
+>>         stmmac_set_mac(priv->ioaddr, true);
+>>
+>>         /* Set the HW DMA mode and the COE */
+>> -       stmmac_dma_operation_mode(priv);
+>> +       stmmac_dma_operation_mode(dev->mtu, priv);
+>>
+>>         /* Extra statistics */
+>>         memset(&priv->xstats, 0, sizeof(struct stmmac_extra_stats));
+>>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
