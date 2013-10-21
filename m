@@ -1,54 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net v2 0/3] UFO fixes
-Date: Mon, 21 Oct 2013 16:26:12 -0400 (EDT)
-Message-ID: <20131021.162612.1795347771078720888.davem@davemloft.net>
-References: <1382178557-14737-1-git-send-email-jiri@resnulli.us>
-	<20131019.192147.1905247570882389108.davem@davemloft.net>
-	<20131020032617.GA27787@order.stressinduktion.org>
+Subject: Re: [PATCH net-next] net: fix build warnings because of
+ net_get_random_once merge
+Date: Mon, 21 Oct 2013 16:27:29 -0400 (EDT)
+Message-ID: <20131021.162729.2297054111992380683.davem@davemloft.net>
+References: <20131020042602.GC27787@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	jdmason@kudzu.us, yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, kaber@trash.net, herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42543 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750937Ab3JUU0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 16:26:14 -0400
-In-Reply-To: <20131020032617.GA27787@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131020042602.GC27787@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Sun, 20 Oct 2013 05:26:17 +0200
+Date: Sun, 20 Oct 2013 06:26:02 +0200
 
-> Hi David!
+> This patch fixes the following warning:
 > 
-> On Sat, Oct 19, 2013 at 07:21:47PM -0400, David Miller wrote:
->> From: Jiri Pirko <jiri@resnulli.us>
->> Date: Sat, 19 Oct 2013 12:29:14 +0200
->> 
->> > Couple of patches fixing UFO functionality in different situations.
->> > 
->> > v1->v2:
->> > - minor if{}else{} coding style adjustment suggested by Sergei Shtylyov
->> 
->> Series applied, thanks Jiri.
+>    In file included from include/linux/skbuff.h:27:0,
+>                     from include/linux/netfilter.h:5,
+>                     from include/net/netns/netfilter.h:5,
+>                     from include/net/net_namespace.h:20,
+>                     from include/linux/init_task.h:14,
+>                     from init/init_task.c:1:
+> include/linux/net.h:243:14: warning: 'struct static_key' declared inside parameter list [enabled by default]
+>           struct static_key *done_key);
 > 
-> I would propose that the patches
+> on x86_64 allnoconfig, um defconfig and ia64 allmodconfig and maybe others as well.
 > 
-> "ip6_output: do skb ufo init for peeked non ufo skb as well"
-> (c547dbf55d5f8cf615ccc0e7265e98db27d3fb8b)
-> 
-> and
-> 
-> "ip_output: do skb ufo init for peeked non ufo skb as well"
-> (e93b7d748be887cd7639b113ba7d7ef792a7efb9)
-> 
-> should go to stable because they solve a possible memory corruption
-> from userspace.
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-I suppose... the reason I didn't automatically queue these up for -stable
-is that they are rather non-trivial.
+Applied, thanks Hannes.
