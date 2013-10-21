@@ -1,32 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/3] ipv6: fill rt6i_gateway with nexthop address
-Date: Mon, 21 Oct 2013 18:42:05 -0400 (EDT)
-Message-ID: <20131021.184205.2063781996744790668.davem@davemloft.net>
-References: <1382272985-1528-3-git-send-email-ja@ssi.bg>
-	<20131021050159.GE28333@order.stressinduktion.org>
-	<alpine.LFD.2.03.1310211009270.1522@ssi.bg>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/6] ipv4: tcp_memcontrol and userns sysctls
+Date: Mon, 21 Oct 2013 18:44:23 -0400 (EDT)
+Message-ID: <20131021.184423.332048469613815248.davem@davemloft.net>
+References: <87r4bghml4.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: ja@ssi.bg
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.03.1310211009270.1522@ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <87r4bghml4.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Mon, 21 Oct 2013 10:31:06 +0300 (EEST)
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Date: Sat, 19 Oct 2013 16:23:19 -0700
 
-> 	Thanks for the review! I don't mind too about
-> removing rt6_nexthop. For me it is 51% against 49% to keep it
-> as it denotes the places that use nexthop and not gateway.
-> May be more opinions will help to decide because I don't know
-> if there are any plans to use similar techniques as done for IPv4.
+> While looking into allowing the ipv4 sysctls to be used in a network
+> namespace I stumbled upon the mess that is tcp_memcontrol.
+> 
+> I remove the dead code, broken code, and excessive abstraction in the
+> tcp_memcontrols then I clean up up and allow in the user namespace the
+> per net ipv4 sysctls.
 
-I have no strong opinion about removing rt6_nexthop.
+I wish we hadn't installed this stuff in the first place, but better
+to take care of it now than later.
 
-If it is of low cost today and makes the code easier to
-undersand and grep, just leave it alone.
+Series applied, thanks Eric.
