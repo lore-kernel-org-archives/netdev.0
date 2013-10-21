@@ -1,63 +1,95 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH net] netpoll: linearize skb before accessing its data
-Date: Mon, 21 Oct 2013 23:31:20 +0200
-Message-ID: <1382391080-1607-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, Antonio Quartulli <antonio@meshcoding.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [net-next PATCH] macvlan: resolve ENOENT errors on creation
+Date: Mon, 21 Oct 2013 23:34:41 +0200
+Message-ID: <20131021213441.GB18170@redhat.com>
+References: <20131021212801.19330.69659.stgit@nitbit.x32>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:24992 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751287Ab3JUVcW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 17:32:22 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:22394 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751287Ab3JUVhM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Oct 2013 17:37:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20131021212801.19330.69659.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-__netpoll_rx() assumes that the data buffer of the received
-skb is linear and then passes it to rx_hook().
-However this is not true because the skb has not been
-linearized yet.
+On Mon, Oct 21, 2013 at 02:28:02PM -0700, John Fastabend wrote:
+>After the commit below attempting to create macvlan devices was
+>resulting in ENOENT errors,
+>
+># ip link add link p3p2 type macvlan
+>RTNETLINK answers: Invalid argument
+>
+>This happens because netdev_upper_dev_link() is called before
+>register_netdevice() in the macvlan code. Through a call chain
+>this results in a call to __netdev_adjacent_dev_insert() and
+>finally a sysfs_create_link(). This requires the kobject of
+>the macvlan to be registered which is done in register_netdevice().
+>If there is no kobject which is the case here the ENOENT error
+>is seen on the command line.
+>
+>To resolve this move the netdev_upper_dev_link() call below
+>the register_netdevice() call. This aligns with vlan driver
+>flow.
 
-This can cause rx_hook() to access non allocated memory
-while parsing the received data.
+Yep, changed the vlan code, but didn't see the macvlan. My cscope didn't
+catch it for some reason :-/.
 
-Fix __netpoll_rx() by explicitly linearising the skb.
+I've also checked - there are no users except bonding, vlan (both are ok),
+and macvlan.
 
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
----
+Acked-by: Veaceslav Falico <vfalico@redhat.com>
 
-I checked linux-3.0 and this bug seems to be already there. Please consider
-queueing it for stable.
-
-
-Regards,
-
-
-
- net/core/netpoll.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index fc75c9e..97cff18 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -814,6 +814,9 @@ int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
- 		if (pskb_trim_rcsum(skb, len))
- 			goto out;
- 
-+		if (skb_linearize(skb))
-+			goto out;
-+
- 		iph = (struct iphdr *)skb->data;
- 		if (iph->protocol != IPPROTO_UDP)
- 			goto out;
-@@ -855,6 +858,8 @@ int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
- 			goto out;
- 		if (pskb_trim_rcsum(skb, len + sizeof(struct ipv6hdr)))
- 			goto out;
-+		if (skb_linearize(skb))
-+			goto out;
- 		ip6h = ipv6_hdr(skb);
- 		if (!pskb_may_pull(skb, sizeof(struct udphdr)))
- 			goto out;
--- 
-1.8.4
+>
+>Regression introduced here,
+>
+>commit 5831d66e8097aedfa3bc35941cf265ada2352317
+>Author: Veaceslav Falico <vfalico@redhat.com>
+>Date:   Wed Sep 25 09:20:32 2013 +0200
+>
+>    net: create sysfs symlinks for neighbour devices
+>
+>CC: Veaceslav Falico <vfalico@redhat.com>
+>CC: Neil Horman <nhorman@tuxdriver.com>
+>Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>---
+> drivers/net/macvlan.c |   11 +++++------
+> 1 file changed, 5 insertions(+), 6 deletions(-)
+>
+>diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+>index 9bf46bd..cc9845e 100644
+>--- a/drivers/net/macvlan.c
+>+++ b/drivers/net/macvlan.c
+>@@ -828,22 +828,21 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+> 		eth_hw_addr_inherit(dev, lowerdev);
+> 	}
+>
+>+	port->count += 1;
+>+	err = register_netdevice(dev);
+>+	if (err < 0)
+>+		goto destroy_port;
+>+
+> 	err = netdev_upper_dev_link(lowerdev, dev);
+> 	if (err)
+> 		goto destroy_port;
+>
+>-	port->count += 1;
+>-	err = register_netdevice(dev);
+>-	if (err < 0)
+>-		goto upper_dev_unlink;
+>
+> 	list_add_tail_rcu(&vlan->list, &port->vlans);
+> 	netif_stacked_transfer_operstate(lowerdev, dev);
+>
+> 	return 0;
+>
+>-upper_dev_unlink:
+>-	netdev_upper_dev_unlink(lowerdev, dev);
+> destroy_port:
+> 	port->count -= 1;
+> 	if (!port->count)
+>
