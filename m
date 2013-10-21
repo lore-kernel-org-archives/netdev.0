@@ -1,91 +1,54 @@
-From: Pierre Desvaux <pierre@desvaux.eu>
-Subject: Re: unmanaged L2TPv3 ethernet pseudowire Cisco <=> Linux
-Date: Mon, 21 Oct 2013 15:08:33 +0000 (UTC)
-Message-ID: <loom.20131021T165114-650@post.gmane.org>
-References: <Pine.LNX.4.61.1303241153000.20041@envy.nxs.se> <CAEwTi7Rbo3dBqhyDJXYvrkMWfrX9xwUr5VovFoW7BfPAZp4XFw@mail.gmail.com> <Pine.LNX.4.61.1303272104470.20041@envy.nxs.se> <51535D16.4080207@katalix.com>
+From: Daniel Wagner <wagi@monom.org>
+Subject: Re: [PATCH nf-next] netfilter: xtables: lightweight process control
+ group matching
+Date: Mon, 21 Oct 2013 16:09:22 +0100
+Message-ID: <526543A2.2040901@monom.org>
+References: <1380910855-12325-1-git-send-email-dborkman@redhat.com> <87li1qp3l8.fsf@xmission.com> <526231E0.6060903@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+	cgroups@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:38721 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752996Ab3JUPPG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Oct 2013 11:15:06 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1VYHCB-0005Yo-Ls
-	for netdev@vger.kernel.org; Mon, 21 Oct 2013 17:15:04 +0200
-Received: from gwinternet.thalesgroup.com ([192.54.144.229])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 21 Oct 2013 17:15:03 +0200
-Received: from pierre by gwinternet.thalesgroup.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 21 Oct 2013 17:15:03 +0200
+Received: from hotel311.server4you.de ([85.25.146.15]:57296 "EHLO
+	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753166Ab3JUPPs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 11:15:48 -0400
+In-Reply-To: <526231E0.6060903@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-James Chapman <jchapman <at> katalix.com> writes:
+Hi Daniel
 
-> 
-> On 27/03/13 20:08, Tomas Agartz wrote:
-> > On Tue, 26 Mar 2013, James Chapman wrote:
-> > 
-> >> The issue is that Linux and Cisco use a different default for the
-> >> L2SpecificSublayer header setting and neither implementation provides
-> >> a config option to change its setting.  The Linux default is to use
-> >> the Default L2SpecificSublayer as defined in the RFC. Unfortunately
-> >> the Cisco default is to use no L2SpecificSublayer.
-> >>
-> >> The kernel already has an API to allow the L2SpecificSublayer setting
-> >> to be configured. The missing piece is an iproute2 l2tp config option
-> >> to configure it. I'll work on an iproute2 patch now to allow this
-> >> setting to be configured.
-> > 
-> > I patched my iproute2 with your patch and now my tunnel is working.
-> > Thank you! :)
-> 
-> Great. Thanks for reporting back.
-> 
-> >> For unmanaged tunnels, these parameters must be manually configured
-> >> consistently at each side. Both Cisco and Linux default to use no
-> >> cookies and both already have config parameters to set cookie
-> >> parameters, if needed. However, for L2SpecificSublayer this isn't the
-> >> case. We need to add a config option on the Linux side to force the
-> >> same setting as Cisco is using.
-> > 
-> > Does the API in the kernel allow you to set the cookie? In that case it
-> > seems like a good idea to add that to iproute2 as well?
-> 
-> It is already supported. See the cookie and peer_cookie parameters of ip
-> l2tp add session.
-> 
-> ip l2tp help
-> or
-> man ip-l2tp
-> 
-> James
-> 
-> 
+On 10/19/2013 08:16 AM, Daniel Borkmann wrote:
+> On 10/19/2013 01:21 AM, Eric W. Biederman wrote:
+>
+>> I am coming to this late.  But two concrete suggestions.
+>>
+>> 1) process groups and sessions don't change as frequently as pids.
+>>
+>> 2) It is possible to put a set of processes in their own network
+>>     namespace and pipe just the packets you want those processes to
+>>     use into that network namespace.  Using an ingress queueing filter
+>>     makes that process very efficient even if you have to filter by port.
+>
+> Actually in our case we're filtering outgoing traffic, based on which
+> local socket that originated from; so you wouldn't need all of that
+> construct. Also, you wouldn't even need to have an a-prio knowledge of
+> the application internals regarding their use of particular use of ports
+> or protocols. I don't think that such a setup will have the same
+> efficiency, ease of use, and power to distinguish the application the
+> traffic came from in such a lightweight, protocol independent and easy way.
 
-Hi,
+Sorry for beeing late as well (and also stupid question)
 
-I have tried an other solution to bypass this issue.
-I put a 4 bytes cookie in the paquets sent by the Cisco. It looks like this:
-[IPv4][L2TPv3][Cookie][payload]
+Couldn't you use something from the LSM? I mean you allow the
+application to create the socket etc and then block later
+the traffic originated from that socket. Wouldn't it make
+more sense to block early?
 
-With value 0, the cookie is seen by the Linux as a L2SpecificSublayer with
-Sbit at 0. Wich means ignore the value of the sequence number in
-L2SpecificSublayer so Linux accepts it. Linux replies automaticaly with Sbit
-0 to Cisco.
-Cisco is as well configured to accept a 4 bytes cookie, the
-L2SpecificSublayer is now accepted as a cookie.
-
-To configure Cisco:
-xconnect 192.168.0.1 200 encapsulation l2tpv3 manual pw-class tlund
-   l2tp id 200 200
-   l2tp cookie local 4 0
-   l2tp cookie remote 4 0
-
-Pierre
+cheers,
+daniel
