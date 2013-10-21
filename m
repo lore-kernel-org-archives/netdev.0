@@ -1,91 +1,71 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH stable] inet: fix possible memory corruption with UDP_CORK and UFO
-Date: Tue, 22 Oct 2013 00:07:47 +0200
-Message-ID: <20131021220747.GC24158@order.stressinduktion.org>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [net-next PATCH] macvlan: resolve ENOENT errors on creation
+Date: Tue, 22 Oct 2013 00:05:42 +0200
+Message-ID: <20131021220542.GC18170@redhat.com>
+References: <20131021212801.19330.69659.stgit@nitbit.x32>
+ <20131021213441.GB18170@redhat.com>
+ <5265A147.4010501@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: jiri@resnulli.us, eric.dumazet@gmail.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:49264 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751463Ab3JUWHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 18:07:49 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:50754 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751463Ab3JUWIE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Oct 2013 18:08:04 -0400
 Content-Disposition: inline
+In-Reply-To: <5265A147.4010501@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a replacement patch only for stable which does fix the problems
-handled by the following two commits in -net:
+On Mon, Oct 21, 2013 at 02:48:55PM -0700, John Fastabend wrote:
+>On 10/21/2013 02:34 PM, Veaceslav Falico wrote:
+>>On Mon, Oct 21, 2013 at 02:28:02PM -0700, John Fastabend wrote:
+>>>After the commit below attempting to create macvlan devices was
+>>>resulting in ENOENT errors,
+>>>
+>>># ip link add link p3p2 type macvlan
+>>>RTNETLINK answers: Invalid argument
+>>>
+>>>This happens because netdev_upper_dev_link() is called before
+>>>register_netdevice() in the macvlan code. Through a call chain
+>>>this results in a call to __netdev_adjacent_dev_insert() and
+>>>finally a sysfs_create_link(). This requires the kobject of
+>>>the macvlan to be registered which is done in register_netdevice().
+>>>If there is no kobject which is the case here the ENOENT error
+>>>is seen on the command line.
+>>>
+>>>To resolve this move the netdev_upper_dev_link() call below
+>>>the register_netdevice() call. This aligns with vlan driver
+>>>flow.
+>>
+>>Yep, changed the vlan code, but didn't see the macvlan. My cscope didn't
+>>catch it for some reason :-/.
+>>
+>>I've also checked - there are no users except bonding, vlan (both are ok),
+>>and macvlan.
+>>
+>
+>The openvswitch code uses netdev_master_upper_dev_link() which
+>eventually calls __netdev_adjacent_dev_insert() as well. But from
+>a quick code inspection I think it should work. Anyways that is one
+>other user.
 
-"ip_output: do skb ufo init for peeked non ufo skb as well" (e93b7d748be887cd7639b113ba7d7ef792a7efb9)
-"ip6_output: do skb ufo init for peeked non ufo skb as well" (c547dbf55d5f8cf615ccc0e7265e98db27d3fb8b)
+Yep, checked them also now:
 
-Three frames are written on a corked udp socket for which the output
-netdevice has UFO enabled.  If the first and third frame are smaller than
-the mtu and the second one is bigger, we enqueue the second frame with
-skb_append_datato_frags without initializing the gso fields. This leads
-to the third frame appended regulary and thus constructing an invalid skb.
+team - links two already existing devices (team->dev and port_dev)
+batadv - links existing device to another existing device, or creates of if
+	 the latter doesn't exist (and calls register_netdev on creation)
+bridge - links two already existing devices (bridge->dev and dev)
+openvswitch - links two already existing devices (get_dpdev(vport->dp) and
+	      the device found by dev_get_by_name()).
+bonding - uses netdev_master_upper_dev_link_private(), and is also ok.
 
-This fixes the problem by always using skb_append_datato_frags as soon
-as the first frag got enqueued to the skb without marking the packet
-as SKB_GSO_UDP.
+Hopefully we're safe.
 
-The problem with only two frames for ipv6 was fixed by "ipv6: udp
-packets following an UFO enqueued packet need also be handled by UFO"
-(2811ebac2521ceac84f2bdae402455baa6a7fb47).
-
-Cc: Jiri Pirko <jiri@resnulli.us>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/linux/skbuff.h | 5 +++++
- net/ipv4/ip_output.c   | 2 +-
- net/ipv6/ip6_output.c  | 2 +-
- 3 files changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index c2d8933..eee3d92 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1316,6 +1316,11 @@ static inline int skb_pagelen(const struct sk_buff *skb)
- 	return len + skb_headlen(skb);
- }
- 
-+static inline bool skb_has_frags(const struct sk_buff *skb)
-+{
-+	return skb_shinfo(skb)->nr_frags;
-+}
-+
- /**
-  * __skb_fill_page_desc - initialise a paged fragment in an skb
-  * @skb: buffer containing fragment to be initialised
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 3982eab..13e617f 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -841,7 +841,7 @@ static int __ip_append_data(struct sock *sk,
- 		csummode = CHECKSUM_PARTIAL;
- 
- 	cork->length += length;
--	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
-+	if (((length > mtu) || (skb && skb_has_frags(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO) && !rt->dst.header_len) {
- 		err = ip_ufo_append_data(sk, queue, getfrag, from, length,
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 975624b..65f28be 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1230,7 +1230,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 	skb = skb_peek_tail(&sk->sk_write_queue);
- 	cork->length += length;
- 	if (((length > mtu) ||
--	     (skb && skb_is_gso(skb))) &&
-+	     (skb && skb_has_frags(skb))) &&
- 	    (sk->sk_protocol == IPPROTO_UDP) &&
- 	    (rt->dst.dev->features & NETIF_F_UFO)) {
- 		err = ip6_ufo_append_data(sk, getfrag, from, length,
--- 
-1.8.3.1
+>
+>.John
+>
+>-- 
+>John Fastabend         Intel Corporation
