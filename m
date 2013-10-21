@@ -1,53 +1,46 @@
-From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH nf-next] netfilter: xtables: lightweight process control
- group matching
-Date: Mon, 21 Oct 2013 17:48:54 +0200
-Message-ID: <52654CE6.7030706@redhat.com>
-References: <1380910855-12325-1-git-send-email-dborkman@redhat.com> <87li1qp3l8.fsf@xmission.com> <526231E0.6060903@redhat.com> <526543A2.2040901@monom.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [BUG] 3.12.0-rcX IPv6 panic
+Date: Mon, 21 Oct 2013 17:52:52 +0200
+Message-ID: <20131021155252.GA24158@order.stressinduktion.org>
+References: <20131021131846.GA5769@gherkin.frus.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <526543A2.2040901-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Bob Tracy <rct@gherkin.frus.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131021131846.GA5769@gherkin.frus.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/21/2013 05:09 PM, Daniel Wagner wrote:
-> On 10/19/2013 08:16 AM, Daniel Borkmann wrote:
->> On 10/19/2013 01:21 AM, Eric W. Biederman wrote:
->>
->>> I am coming to this late.  But two concrete suggestions.
->>>
->>> 1) process groups and sessions don't change as frequently as pids.
->>>
->>> 2) It is possible to put a set of processes in their own network
->>>     namespace and pipe just the packets you want those processes to
->>>     use into that network namespace.  Using an ingress queueing filter
->>>     makes that process very efficient even if you have to filter by port.
->>
->> Actually in our case we're filtering outgoing traffic, based on which
->> local socket that originated from; so you wouldn't need all of that
->> construct. Also, you wouldn't even need to have an a-prio knowledge of
->> the application internals regarding their use of particular use of ports
->> or protocols. I don't think that such a setup will have the same
->> efficiency, ease of use, and power to distinguish the application the
->> traffic came from in such a lightweight, protocol independent and easy way.
->
-> Sorry for beeing late as well (and also stupid question)
->
-> Couldn't you use something from the LSM? I mean you allow the
-> application to create the socket etc and then block later
-> the traffic originated from that socket. Wouldn't it make
-> more sense to block early?
+Hi!
 
-I gave one simple example for blocking in the commit message,
-that's true, but it is not limited to that, meaning we can have
-much different scenarios/policies that netfilter allows us than
-just blocking, e.g. fine grained settings where applications are
-allowed to connect/send traffic to, application traffic marking/
-conntracking, application-specific packet mangling, and so on,
-just think of the whole netfilter universe.
+On Mon, Oct 21, 2013 at 08:18:46AM -0500, Bob Tracy wrote:
+> Actually, a regression: the 3.11 kernel is rock-solid stable on my
+> Alpha.
+> 
+> Beginning with 3.12.0-rc1, I can reliably trigger a kernel panic by
+> executing the gogo6.net "gw6c" IPv6 client program.  If the networking
+> layer is active, an "Oops" will eventually (within a day) occur regardless
+> of whether I attempt to run "gw6c".  3.12.0-rcX is stable as long as I
+> leave networking completely disabled.  The error has persisted up through
+> -rc6.  Apologies for not mentioning this earlier, but the state of my
+> PWS-433au has been questionable, and I wanted to make sure I had a
+> legitimate bug sighting.
+> 
+> I'll have to transcribe the panic backtrace by hand: nothing makes it
+> into any of the system logs :-(.  I *can* recall that every backtrace
+> I've seen thus far has included one of the skb_copy() variants near the
+> top of the list (first or second function).
+
+Try to capture the panic via serial console. Otherwise a picture
+would give us a first hint. Please watch out for lines like
+skb_(over|under)_panic.
+
+gw6c is a tunnel client? Can you post ip -6 tunnel ls?
+
+(Also please send networking bugs to netdev@).
+
+Greetings,
+
+  Hannes
