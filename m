@@ -1,66 +1,32 @@
-From: "Sujith Sankar (ssujith)" <ssujith@cisco.com>
-Subject: Re: [PATCH 15/15] net: enic: remove unnecessary pci_set_drvdata()
-Date: Mon, 21 Oct 2013 14:02:38 +0000
-Message-ID: <9C4CB4066E545D4D9D728B3238E19CA5014B62CE@xmb-aln-x07.cisco.com>
-References: <00be01cecb98$8cabcd20$a6036760$%han@samsung.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH ipsec-next] xfrm: use vmalloc_node() for percpu scratches
+Date: Mon, 21 Oct 2013 16:48:25 +0200
+Message-ID: <20131021144825.GA1509@secunet.com>
+References: <20131017095502.GD7660@secunet.com>
+ <20131017130740.D8741E8A5E@unicorn.suse.cz>
+ <20131018092512.GA31491@secunet.com>
+ <1382093656.3284.14.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Christian Benvenuti (benve)" <benve@cisco.com>,
-	"'Govindarajulu Varadarajan'" <govindarajulu90@gmail.com>,
-	"Neel Patel (neepatel)" <neepatel@cisco.com>
-To: Jingoo Han <jg1.han@samsung.com>,
-	"'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcdn-iport-2.cisco.com ([173.37.86.73]:36322 "EHLO
-	rcdn-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753785Ab3JUOCk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 10:02:40 -0400
-In-Reply-To: <00be01cecb98$8cabcd20$a6036760$%han@samsung.com>
-Content-Language: en-US
-Content-ID: <BEA60837B5BB79449B73F0272C517B45@emea.cisco.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:38456 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752642Ab3JUOs2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Oct 2013 10:48:28 -0400
+Content-Disposition: inline
+In-Reply-To: <1382093656.3284.14.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This looks good to me.
-
-Regards,
--Sujith
-
-On 18/10/13 5:55 AM, "Jingoo Han" <jg1.han@samsung.com> wrote:
-
->The driver core clears the driver data to NULL after device_release
->or on probe failure. Thus, it is not needed to manually clear the
->device driver data to NULL.
->
->Signed-off-by: Jingoo Han <jg1.han@samsung.com>
->---
-> drivers/net/ethernet/cisco/enic/enic_main.c |    2 --
-> 1 file changed, 2 deletions(-)
->
->diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c
->b/drivers/net/ethernet/cisco/enic/enic_main.c
->index 7b756cf9..ff78dfa 100644
->--- a/drivers/net/ethernet/cisco/enic/enic_main.c
->+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
->@@ -2309,7 +2309,6 @@ err_out_release_regions:
-> err_out_disable_device:
-> 	pci_disable_device(pdev);
-> err_out_free_netdev:
->-	pci_set_drvdata(pdev, NULL);
-> 	free_netdev(netdev);
+On Fri, Oct 18, 2013 at 03:54:16AM -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> 	return err;
->@@ -2338,7 +2337,6 @@ static void enic_remove(struct pci_dev *pdev)
-> 		enic_iounmap(enic);
-> 		pci_release_regions(pdev);
-> 		pci_disable_device(pdev);
->-		pci_set_drvdata(pdev, NULL);
-> 		free_netdev(netdev);
-> 	}
-> }
->-- 
->1.7.10.4
->
->
+> scratches are per cpu, we can use vmalloc_node() for proper
+> NUMA affinity.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Applied to ipsec-next, thanks a lot Eric!
