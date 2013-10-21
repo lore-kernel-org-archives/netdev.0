@@ -1,38 +1,68 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 0/6] ipv4: tcp_memcontrol and userns sysctls
-Date: Mon, 21 Oct 2013 18:44:23 -0400 (EDT)
-Message-ID: <20131021.184423.332048469613815248.davem@davemloft.net>
-References: <87r4bghml4.fsf@xmission.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Revert "bridge: only expire the mdb entry when
+ query is received"
+Date: Mon, 21 Oct 2013 18:45:09 -0400 (EDT)
+Message-ID: <20131021.184509.1933008514161772000.davem@davemloft.net>
+References: <1382223537-10844-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <87r4bghml4.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	amwang@redhat.com
+To: linus.luessing@web.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1382223537-10844-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Date: Sat, 19 Oct 2013 16:23:19 -0700
+From: Linus L=FCssing <linus.luessing@web.de>
+Date: Sun, 20 Oct 2013 00:58:57 +0200
 
-> While looking into allowing the ipv4 sysctls to be used in a network
-> namespace I stumbled upon the mess that is tcp_memcontrol.
-> 
-> I remove the dead code, broken code, and excessive abstraction in the
-> tcp_memcontrols then I clean up up and allow in the user namespace the
-> per net ipv4 sysctls.
+> While this commit was a good attempt to fix issues occuring when no
+> multicast querier is present, this commit still has two more issues:
+> =
 
-I wish we hadn't installed this stuff in the first place, but better
-to take care of it now than later.
+> 1) There are cases where mdb entries do not expire even if there is a=
 
-Series applied, thanks Eric.
+> querier present. The bridge will unnecessarily continue flooding
+> multicast packets on the according ports.
+> =
+
+> 2) Never removing an mdb entry could be exploited for a Denial of
+> Service by an attacker on the local link, slowly, but steadily eating=
+ up
+> all memory.
+> =
+
+> Actually, this commit became obsolete with
+> "bridge: disable snooping if there is no querier" (b00589af3b)
+> which included fixes for a few more cases.
+> =
+
+> Therefore reverting the following commits (the commit stated in the
+> commit message plus three of its follow up fixes):
+> =
+
+> ---
+> Revert "bridge: update mdb expiration timer upon reports."
+> This reverts commit f144febd93d5ee534fdf23505ab091b2b9088edc.
+> Revert "bridge: do not call setup_timer() multiple times"
+> This reverts commit 1faabf2aab1fdaa1ace4e8c829d1b9cf7bfec2f1.
+> Revert "bridge: fix some kernel warning in multicast timer"
+> This reverts commit c7e8e8a8f7a70b343ca1e0f90a31e35ab2d16de1.
+> Revert "bridge: only expire the mdb entry when query is received"
+> This reverts commit 9f00b2e7cf241fa389733d41b615efdaa2cb0f5b.
+> ---
+
+Cong, and other bridge folks, please review this revert.
+
+Thanks.
