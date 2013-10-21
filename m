@@ -1,101 +1,65 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 4/5] bonding: remove bond read lock for bond_activebackup_arp_mon()
-Date: Mon, 21 Oct 2013 16:59:09 +0800
-Message-ID: <5264ECDD.1030600@huawei.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH RFC 3/5] net:stmmac: ensure we reclaim all dirty descriptors.
+Date: Mon, 21 Oct 2013 11:07:53 +0200
+Message-ID: <5264EEE9.8070607@st.com>
+References: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com> <1381937052-8999-4-git-send-email-jimmy.perchet@parrot.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>
+To: Jimmy Perchet <jimmy.perchet@parrot.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:41603 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754661Ab3JUJG3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 05:06:29 -0400
+Received: from eu1sys200aog125.obsmtp.com ([207.126.144.159]:45339 "EHLO
+	eu1sys200aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754875Ab3JUJH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 05:07:57 -0400
+In-Reply-To: <1381937052-8999-4-git-send-email-jimmy.perchet@parrot.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond now only attach and detach slave in rtnl lock,
-so read_lock for bond could not protect slave list,
-replace bond read lock with rtnl lock for bond_activebackup_arp_mon().
+Hello Jimmy
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/bonding/bond_main.c | 46 ++++++++++++-----------------------------
- 1 file changed, 13 insertions(+), 33 deletions(-)
+On 10/16/2013 5:24 PM, Jimmy Perchet wrote:
+> On low speed link (10MBit/s), some TX descriptors can remain dirty
+> if the tx coalescence timer expires before they were treated. Re-arm timer
+> in this case.
+>
+> Signed-off-by: Jimmy Perchet <jimmy.perchet@parrot.com>
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 +++++-
+>   1 file changed, 5 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 0015175..af04b5d 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1284,8 +1284,12 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
+>   			p = priv->dma_tx + entry;
+>
+>   		/* Check if the descriptor is owned by the DMA. */
+> -		if (priv->hw->desc->get_tx_owner(p))
+> +		if (priv->hw->desc->get_tx_owner(p)) {
+> +			/* Be sure to harvest remaining descriptor. */
+> +			mod_timer(&priv->txtimer,
+> +			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
+>   			break;
+> +		}
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 149f4b9..f3df532 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2763,51 +2763,31 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 	struct bonding *bond = container_of(work, struct bonding,
- 					    arp_work.work);
- 	bool should_notify_peers = false;
--	int delta_in_ticks;
- 
--	read_lock(&bond->lock);
--
--	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
-+	if (!rtnl_trylock())
-+		goto re_arm;
- 
--	if (!bond_has_slaves(bond))
-+	if (!bond_has_slaves(bond)) {
-+		rtnl_unlock();
- 		goto re_arm;
-+	}
- 
- 	should_notify_peers = bond_should_notify_peers(bond);
- 
--	if (bond_ab_arp_inspect(bond)) {
--		read_unlock(&bond->lock);
--
--		/* Race avoidance with bond_close flush of workqueue */
--		if (!rtnl_trylock()) {
--			read_lock(&bond->lock);
--			delta_in_ticks = 1;
--			should_notify_peers = false;
--			goto re_arm;
--		}
--
--		read_lock(&bond->lock);
--
-+	if (bond_ab_arp_inspect(bond))
- 		bond_ab_arp_commit(bond);
- 
--		read_unlock(&bond->lock);
--		rtnl_unlock();
--		read_lock(&bond->lock);
--	}
--
- 	bond_ab_arp_probe(bond);
- 
--re_arm:
--	if (bond->params.arp_interval)
--		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
-+	if (should_notify_peers)
-+		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
- 
--	read_unlock(&bond->lock);
-+	rtnl_unlock();
- 
--	if (should_notify_peers) {
--		if (!rtnl_trylock())
--			return;
--		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
--		rtnl_unlock();
--	}
-+re_arm:
-+	if (bond->params.arp_interval)
-+		queue_delayed_work(bond->wq, &bond->arp_work,
-+				msecs_to_jiffies(bond->params.arp_interval));
- }
- 
- /*-------------------------- netdev event handling --------------------------*/
--- 
-1.8.2.1
+
+why should we reload the timer when clean the tx resource?
+This is done in the xmit where as soon as a frame has to be
+transmitted it makes sense to reload the timer.
+
+Also I have not clear why the problem happens on 10MBit/s speed
+  Maybe there is an hidden problem (lock protection)
+that should be fixed.
+
+How did you get this problem? Just on low speed and stress the net?
+I have never seen it.
+
+peppe
+
+>
+>   		/* Verify tx error by looking at the last segment. */
+>   		last = priv->hw->desc->get_tx_ls(p);
+>
