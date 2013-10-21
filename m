@@ -1,51 +1,33 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net 2/3] ipv6: fill rt6i_gateway with nexthop address
-Date: Mon, 21 Oct 2013 10:31:06 +0300 (EEST)
-Message-ID: <alpine.LFD.2.03.1310211009270.1522@ssi.bg>
-References: <1382272985-1528-1-git-send-email-ja@ssi.bg> <1382272985-1528-3-git-send-email-ja@ssi.bg> <20131021050159.GE28333@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:48777 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752362Ab3JUHgK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Oct 2013 03:36:10 -0400
-In-Reply-To: <20131021050159.GE28333@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Subject: [PATCH] atm: firestream: remove duplicate define
+Date: Mon, 21 Oct 2013 10:12:41 +0200
+Message-ID: <1382343161-3243-1-git-send-email-michael.opdenacker@free-electrons.com>
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Michael Opdenacker <michael.opdenacker@free-electrons.com>
+To: chas@cmf.nrl.navy.mil
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This patch removes a duplicate define in drivers/atm/firestream.h
 
-	Hello,
+Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+---
+ drivers/atm/firestream.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-On Mon, 21 Oct 2013, Hannes Frederic Sowa wrote:
-
-> On Sun, Oct 20, 2013 at 03:43:04PM +0300, Julian Anastasov wrote:
-> > Make sure rt6i_gateway contains nexthop information in
-> > all routes returned from lookup or when routes are directly
-> > attached to skb for generated ICMP packets.
-> > 
-> > The effect of this patch should be a faster version of
-> > rt6_nexthop() and the consideration of local addresses as
-> > nexthop.
-> > 
-> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> 
-> The patch is fine. I don't mind if we leave it as is or remove rt6_nexthop,
-> so:
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-	Thanks for the review! I don't mind too about
-removing rt6_nexthop. For me it is 51% against 49% to keep it
-as it denotes the places that use nexthop and not gateway.
-May be more opinions will help to decide because I don't know
-if there are any plans to use similar techniques as done for IPv4.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/drivers/atm/firestream.h b/drivers/atm/firestream.h
+index 49e783e..364eded 100644
+--- a/drivers/atm/firestream.h
++++ b/drivers/atm/firestream.h
+@@ -420,7 +420,6 @@ struct fs_transmit_config {
+ #define RC_FLAGS_BFPS_BFP27 (0xd << 17)
+ #define RC_FLAGS_BFPS_BFP47 (0xe << 17)
+ 
+-#define RC_FLAGS_BFPS       (0x1 << 17)
+ #define RC_FLAGS_BFPP       (0x1 << 21)
+ #define RC_FLAGS_TEVC       (0x1 << 22)
+ #define RC_FLAGS_TEP        (0x1 << 23)
+-- 
+1.8.1.2
