@@ -1,26 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethernet: moxa: remove duplicate includes
-Date: Mon, 21 Oct 2013 18:47:19 -0400 (EDT)
-Message-ID: <20131021.184719.447059170292983994.davem@davemloft.net>
-References: <1382246036-19253-1-git-send-email-michael.opdenacker@free-electrons.com>
+Subject: Re: [PATCH] atm: firestream: remove duplicate define
+Date: Mon, 21 Oct 2013 18:47:24 -0400 (EDT)
+Message-ID: <20131021.184724.1305218665434733685.davem@davemloft.net>
+References: <1382343161-3243-1-git-send-email-michael.opdenacker@free-electrons.com>
+	<20131021075335.5c9e4490@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: michael.opdenacker@free-electrons.com
+Cc: michael.opdenacker@free-electrons.com,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: chas@cmf.nrl.navy.mil
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1382246036-19253-1-git-send-email-michael.opdenacker@free-electrons.com>
+In-Reply-To: <20131021075335.5c9e4490@thirdoffive.cmf.nrl.navy.mil>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-Date: Sun, 20 Oct 2013 07:13:56 +0200
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Date: Mon, 21 Oct 2013 07:53:35 -0400
 
-> Reported by "make includecheck"
+> Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
 > 
-> Tested that drivers/net/ethernet/moxa/moxart_ether.c still compiles
-> well on ARM
+> On Mon, 21 Oct 2013 10:12:41 +0200
+> Michael Opdenacker <michael.opdenacker@free-electrons.com> wrote:
 > 
-> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+>> This patch removes a duplicate define in drivers/atm/firestream.h
+>> 
+>> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
 
 Applied.
