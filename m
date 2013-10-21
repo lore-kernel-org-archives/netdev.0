@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] [PATCH] ax88179_178a: Correct the RX error
- definition in RX header
-Date: Mon, 21 Oct 2013 18:55:07 -0400 (EDT)
-Message-ID: <20131021.185507.288415528648852269.davem@davemloft.net>
-References: <1382337460-2036-1-git-send-email-freddy@asix.com.tw>
+Subject: Re: [PATCH net] ipv6: probe routes asynchronous in rt6_probe
+Date: Mon, 21 Oct 2013 18:57:30 -0400 (EDT)
+Message-ID: <20131021.185730.1660389371253610827.davem@davemloft.net>
+References: <20131021041715.GH27787@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, louis@asix.com.tw, allan@asix.com.tw
-To: freddy@asix.com.tw
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1382337460-2036-1-git-send-email-freddy@asix.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ja@ssi.bg
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44486 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751934Ab3JUW5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 18:57:32 -0400
+In-Reply-To: <20131021041715.GH27787@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: freddy@asix.com.tw
-Date: Mon, 21 Oct 2013 14:37:40 +0800
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 21 Oct 2013 06:17:15 +0200
 
-> From: Freddy Xin <freddy@asix.com.tw>
+> Routes need to be probed asynchronous otherwise the call stack gets
+> exhausted when the kernel attemps to deliver another skb inline, like
+> e.g. xt_TEE does, and we probe at the same time.
 > 
-> Correct the definition of AX_RXHDR_CRC_ERR and
-> AX_RXHDR_DROP_ERR. They are BIT29 and BIT31 in pkt_hdr
-> seperately.
-> Add VID:DID for Samsung USB Ethernet Adapter.
+> We update neigh->updated still at once, otherwise we would send to
+> many probes.
 > 
-> Signed-off-by: Freddy Xin <freddy@asix.com.tw>
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Do not do two logically different things in one patch.
-
-Fix the register bit definitions in one patch, then add the
-new device IDs in another.
+Looks good, applied and queued up for -stable, thanks Hannes.
