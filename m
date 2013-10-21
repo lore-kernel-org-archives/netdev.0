@@ -1,51 +1,69 @@
-From: Mariusz Ceier <mceier+kernel@gmail.com>
-Subject: Re: [PATCH] davinci_emac.c: Fix IFF_ALLMULTI setup
-Date: Mon, 21 Oct 2013 19:59:54 +0200
-Message-ID: <CAJTyqKOAB8yy96sK=jQJv2TbCHn6JVqNSba-16z6RpWbhpM4dg@mail.gmail.com>
-References: <5265640C.4070201@cogentembedded.com>
-	<1382377504-24688-1-git-send-email-mceier+kernel@gmail.com>
-	<52656971.3020509@ti.com>
-Reply-To: mceier+kernel@gmail.com
+From: Jimmy PERCHET <jimmy.perchet@parrot.com>
+Subject: Re: [PATCH RFC 5/5] net:stmmac: asynchronous tx_clean
+Date: Mon, 21 Oct 2013 20:05:21 +0200
+Message-ID: <52656CE1.1060703@parrot.com>
+References: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com>  <1381937052-8999-6-git-send-email-jimmy.perchet@parrot.com>  <5265318C.5050307@st.com> <1382373005.3284.61.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Lad Prabhakar <prabhakar.csengg@gmail.com>,
-	Jingoo Han <jg1.han@samsung.com>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52656971.3020509@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+	<netdev@vger.kernel.org>, Jimmy Perchet <jimmy.perchet@parrot.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from co202.xi-lite.net ([149.6.83.202]:39376 "EHLO co202.xi-lite.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751802Ab3JUSFP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Oct 2013 14:05:15 -0400
+In-Reply-To: <1382373005.3284.61.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Yes of course ;) This was my first patch for the kernel. I will
-remember about v2 tag next time.
+On 21/10/2013 18:30, Eric Dumazet wrote:
+> On Mon, 2013-10-21 at 15:52 +0200, Giuseppe CAVALLARO wrote:
+>> Hello Jimmy
+>>
+>> On 10/16/2013 5:24 PM, Jimmy Perchet wrote:
+>>> Tx descriptor's cleanup and preparation are serialized, which is not necessary
+>>> and decrease performance.
+>>> In addition TX descriptor's cleanup is performed on NET_RX softirq, this is
+>>> confusing.
+>>
+>> hmm, here you are changing the logic behind the tx/rx processes.
+>>
+>> As done in many drivers, the stmmac cleans the tx resources in
+>> NAPI context and this is not a confuse approach ;-).
+>>
+>> It gave me some performance improvements especially on TCP benchmarks.
+>>
+>>> This patch unserialize tx descriptor's cleanup and preparation
+>>> and defer cleanup in workqueue.
+>>
+>> So you decide to use workqueue and I kindly ask you to give me more
+>> details about the performance improvements (UDP/TCP) and cpu usage.
+>>
+>> I can try to do some tests on my side too. This could take a while
+>> unfortunately.
+> 
+> Anyway this patch is buggy.
+> 
+> 1) Removing tx_lock spinlock in TX completion adds a race in
+> stmmac_xmit()
+> 
+> 2) Generally speaking, we should not rely on a work queue to perform TX
+> completions.
+> 
+> Think about being flooded by incoming frames.
+> 
+> Work queue could never be scheduled.
+> 
+> 
+I understand your point. Nevertheless I think it is still possible
+to avoid serialization, and therefore increase performance, even if
+completions must remain in softirq. What do you think ?
 
-Thanks,
-Mariusz Ceier
+In my patch I tried to avoid any race condition. (by updating both
+descriptor's cursors only once, for instance)
+Could you explain the possible race you see ?
 
-On 21 October 2013 19:50, Mugunthan V N <mugunthanvnm@ti.com> wrote:
-> On Monday 21 October 2013 11:15 PM, Mariusz Ceier wrote:
->> When IFF_ALLMULTI flag is set on interface and IFF_PROMISC isn't,
->> emac_dev_mcast_set should only enable RX of multicasts and reset
->> MACHASH registers.
->>
->> It does this, but afterwards it either sets up multicast MACs
->> filtering or disables RX of multicasts and resets MACHASH registers
->> again, rendering IFF_ALLMULTI flag useless.
->>
->> This patch fixes emac_dev_mcast_set, so that multicast MACs filtering and
->> disabling of RX of multicasts are skipped when IFF_ALLMULTI flag is set.
->>
->> Tested with kernel 2.6.37.
->>
->> Signed-off-by: Mariusz Ceier <mceier+kernel@gmail.com>
->> ---
-> Can you add [PATCH v2] in your subject in future so that it will be
-> easier to the maintainer to pick the latest version of the patch.
->
-> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
->
-> Regards
-> Mugunthan V N
+Best Regards,
+Jimmy
