@@ -1,65 +1,60 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH RFC 3/5] net:stmmac: ensure we reclaim all dirty descriptors.
-Date: Mon, 21 Oct 2013 11:07:53 +0200
-Message-ID: <5264EEE9.8070607@st.com>
-References: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com> <1381937052-8999-4-git-send-email-jimmy.perchet@parrot.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next 5/5] bonding: remove bond read lock for bond_3ad_state_machine_handler()
+Date: Mon, 21 Oct 2013 16:59:18 +0800
+Message-ID: <5264ECE6.4040707@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Jimmy Perchet <jimmy.perchet@parrot.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog125.obsmtp.com ([207.126.144.159]:45339 "EHLO
-	eu1sys200aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754875Ab3JUJH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 05:07:57 -0400
-In-Reply-To: <1381937052-8999-4-git-send-email-jimmy.perchet@parrot.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:42271 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754875Ab3JUJIB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 05:08:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Jimmy
+The bond now only attach and detach slave in rtnl lock,
+so read_lock for bond could not protect slave list,
+replace bond read lock with rtnl lock for bond_3ad_state_machine_handler().
 
-On 10/16/2013 5:24 PM, Jimmy Perchet wrote:
-> On low speed link (10MBit/s), some TX descriptors can remain dirty
-> if the tx coalescence timer expires before they were treated. Re-arm timer
-> in this case.
->
-> Signed-off-by: Jimmy Perchet <jimmy.perchet@parrot.com>
-> ---
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 +++++-
->   1 file changed, 5 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 0015175..af04b5d 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1284,8 +1284,12 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
->   			p = priv->dma_tx + entry;
->
->   		/* Check if the descriptor is owned by the DMA. */
-> -		if (priv->hw->desc->get_tx_owner(p))
-> +		if (priv->hw->desc->get_tx_owner(p)) {
-> +			/* Be sure to harvest remaining descriptor. */
-> +			mod_timer(&priv->txtimer,
-> +			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
->   			break;
-> +		}
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bond_3ad.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-
-why should we reload the timer when clean the tx resource?
-This is done in the xmit where as soon as a frame has to be
-transmitted it makes sense to reload the timer.
-
-Also I have not clear why the problem happens on 10MBit/s speed
-  Maybe there is an hidden problem (lock protection)
-that should be fixed.
-
-How did you get this problem? Just on low speed and stress the net?
-I have never seen it.
-
-peppe
-
->
->   		/* Verify tx error by looking at the last segment. */
->   		last = priv->hw->desc->get_tx_ls(p);
->
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 187b1b7..d6fe00b 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -2068,8 +2068,10 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 	struct slave *slave;
+ 	struct port *port;
+ 
+-	read_lock(&bond->lock);
+-
++	if (!rtnl_trylock()) {
++		queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
++		return;
++	}
+ 	//check if there are any slaves
+ 	if (!bond_has_slaves(bond))
+ 		goto re_arm;
+@@ -2122,9 +2124,8 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 	}
+ 
+ re_arm:
++	rtnl_unlock();
+ 	queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
+-
+-	read_unlock(&bond->lock);
+ }
+ 
+ /**
+-- 
+1.8.2.1
