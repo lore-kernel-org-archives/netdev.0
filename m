@@ -1,168 +1,60 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH] can: add Renesas R-Car CAN driver
-Date: Mon, 21 Oct 2013 21:12:33 +0200
-Message-ID: <52657CA1.2040708@grandegger.com>
-References: <201309280211.39068.sergei.shtylyov@cogentembedded.com> <524BB883.2040400@grandegger.com> <526061BE.7060204@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org, vksavl@gmail.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org, mkl@pengutronix.de,
-	linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <526061BE.7060204@cogentembedded.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net] tcp: initialize passive-side sk_pacing_rate after 3WHS
+Date: Mon, 21 Oct 2013 15:40:19 -0400
+Message-ID: <1382384419-6081-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f202.google.com ([209.85.223.202]:43179 "EHLO
+	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751669Ab3JUTr4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 15:47:56 -0400
+Received: by mail-ie0-f202.google.com with SMTP id qd12so1344833ieb.3
+        for <netdev@vger.kernel.org>; Mon, 21 Oct 2013 12:47:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
+For passive TCP connections, upon receiving the ACK that completes the
+3WHS, make sure we set our pacing rate after we get our first RTT
+sample.
 
-On 10/18/2013 12:16 AM, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 10/02/2013 10:09 AM, Wolfgang Grandegger wrote:
-> 
->    Sorry for the belated reply -- was on vacations.
-> 
->> thanks for your contribution. The patch looks already quite good. Before
->> I find time for a detailed review could you please check error handling
->> and bus-off recovery by reporting the output of "$ candump -td -e
->> any,0:0,#FFFFFFFF" while sending messages to the device ...
-> 
->> 1. ... without cable connected
-> 
-> Terminal 1:
-> 
-> root@10.0.0.101:/opt/can-utils# ./cangen -n 1 -g 1 can0
-> root@10.0.0.101:/opt/can-utils#
-> 
-> Terminal 2:
-> 
-> root@10.0.0.101:/opt/can-utils# ./candump -td -e any,0:0,#FFFFFFFF
-> (000.000000) can0 200000AC [8] 00 08 00 19 00 00 00 00 ERRORFRAME
-> controller-problem{tx-error-warning}
-> protocol-violation{{}{acknowledge-slot}}
-> no-acknowledgement-on-tx
-> bus-error
-> (000.004496) can0 20000004 [8] 00 20 00 00 00 00 00 00 ERRORFRAME
-> controller-problem{tx-error-passive}
-> 
-> So we get and stay in error- passive state:
+On passive TCP connections, when we receive the ACK completing the
+3WHS we do not take an RTT sample in tcp_ack(), but rather in
+tcp_synack_rtt_meas(). So upon receiving the ACK that completes the
+3WHS, tcp_ack() leaves sk_pacing_rate at its initial value.
 
-Looks good.
+Originally the initial sk_pacing_rate value was 0, so passive-side
+connections defaulted to sysctl_tcp_min_tso_segs (2 segs) in skbuffs
+made in the first RTT. With a default initial cwnd of 10 packets, this
+happened to be correct for RTTs 5ms or bigger, so it was hard to
+see problems in WAN or emulated WAN testing.
 
-> 
-> root@10.0.0.101:/opt/can-utils# ip -details link show can0
-> 2: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN
-> qlen 10 link/can
-> can state ERROR-PASSIVE (berr-counter tx 128 rx 0) restart-ms 0
-> bitrate 297619 sample-point 0.714
+Since 7eec4174ff ("pkt_sched: fq: fix non TCP flows pacing"), the
+initial sk_pacing_rate is 0xffffffff. So after that change, passive
+TCP connections were keeping this value (and using large numbers of
+segments per skbuff) until receiving an ACK for data.
 
-Strange, what bitrate did you configure?
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_input.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-> tq 480 prop-seg 2 phase-seg1 2 phase-seg2 2 sjw 1
-> rcar_can: tseg1 4..16 tseg2 2..8 sjw 1..4 brp 1..1024 brp-inc 1
-> clock 49999999
-
-Could you please try if the algorithm works better with 50000000.
-
-> root@10.0.0.101:/opt/can-utils#
-> 
-> dmesg:
-> rcar_can rcar_can.0 can0: bitrate error 0.7%
-> rcar_can rcar_can.0 can0: Error warning interrupt
-> rcar_can rcar_can.0 can0: Bus error interrupt:
-> rcar_can rcar_can.0 can0: ACK Error
-> rcar_can rcar_can.0 can0: Error passive interrupt
-> 
->> 2. ... with short-circuited CAN high and low and doing some time later
->>         a manual recovery with "ip link set can0 type can restart"
-> 
->    Now we have auto recovery only. Manual recovery was tested with the
-> first driver version and worked.
-
-What do you mean with "auto recovery"? Auto recovery by the hardware or
-via "restart-ms <ms>"? How do you choose between "manual" and "auto"
-recovery?
-
-> Terminal 1:
-> 
-> root@10.0.0.104:/opt/can-utils# ./cangen -n 1 -g 1 can0
-> root@10.0.0.104:/opt/can-utils# ./cangen -n 1 -g 1 can0
-> root@10.0.0.104:/opt/can-utils# ./cangen -n 1 -g 1 can0
-> root@10.0.0.104:/opt/can-utils#
-> 
-> Terminal 2:
-> 
-> root@10.0.0.104:/opt/can-utils# ./candump -td -e any,0:0,#FFFFFFFF
-> (000.000000) can0 2000008C [8] 00 00 08 00 00 00 00 00 ERRORFRAME
-> controller-problem{}
-> protocol-violation{{tx-dominant-bit-error}{}}
-> bus-error
-> (000.021147) can0 20000144 [8] 00 00 00 00 00 00 00 00 ERRORFRAME
-> controller-problem{}
-> bus-off
-> restarted-after-bus-off
-
-Why does it get "restarted" directly after the bus-off?
-
-> (011.738522) can0 2000008C [8] 00 00 08 00 00 00 00 00 ERRORFRAME
-> controller-problem{}
-
-What controller problem? data[1] is not set for some reasom.
-
-> protocol-violation{{tx-dominant-bit-error}{}}
-> bus-error
-> (000.021163) can0 20000144 [8] 00 00 00 00 00 00 00 00 ERRORFRAME
-> controller-problem{}
-> bus-off
-> restarted-after-bus-off
-> (001.666625) can0 2000008C [8] 00 00 08 00 00 00 00 00 ERRORFRAME
-> controller-problem{}
-> protocol-violation{{tx-dominant-bit-error}{}}
-> bus-error
-> (000.021157) can0 20000144 [8] 00 00 00 00 00 00 00 00 ERRORFRAME
-> controller-problem{}
-> bus-off
-> restarted-after-bus-off
-> 
-> dmesg:
-> rcar_can rcar_can.0 can0: Error warning interrupt
-> rcar_can rcar_can.0 can0: Error passive interrupt
-> rcar_can rcar_can.0 can0: Bus error interrupt:
-> rcar_can rcar_can.0 can0: Bit Error (dominant)
-> rcar_can rcar_can.0 can0: Error warning interrupt
-> rcar_can rcar_can.0 can0: Error passive interrupt
-
-Why are they reported again. You are already in error passive.
-
-> rcar_can rcar_can.0 can0: Bus-off entry interrupt
-> rcar_can rcar_can.0 can0: bus-off
-> rcar_can rcar_can.0 can0: Bus-off recovery interrupt
-> rcar_can rcar_can.0 can0: Error warning interrupt
-> rcar_can rcar_can.0 can0: Error passive interrupt
-> rcar_can rcar_can.0 can0: Bus error interrupt:
-> rcar_can rcar_can.0 can0: Bit Error (dominant)
-> rcar_can rcar_can.0 can0: Error warning interrupt
-> rcar_can rcar_can.0 can0: Error passive interrupt
-> rcar_can rcar_can.0 can0: Bus-off entry interrupt
-> rcar_can rcar_can.0 can0: bus-off
-> rcar_can rcar_can.0 can0: Bus-off recovery interrupt
-> rcar_can rcar_can.0 can0: Error warning interrupt
-> rcar_can rcar_can.0 can0: Error passive interrupt
-> rcar_can rcar_can.0 can0: Bus error interrupt:
-> rcar_can rcar_can.0 can0: Bit Error (dominant)
-> rcar_can rcar_can.0 can0: Error warning interrupt
-> rcar_can rcar_can.0 can0: Error passive interrupt
-> rcar_can rcar_can.0 can0: Bus-off entry interrupt
-> rcar_can rcar_can.0 can0: bus-off
-> rcar_can rcar_can.0 can0: Bus-off recovery interrupt
-
->> I also wonder if the messages are always sent in order. You could use
->> the program "canfdtest" [1] from the can-utils for validation.
-> 
->    This program is PITA. With the driver workaroung it works:
-
-What workaround?
-
-Wolfgang.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 53974c7..a16b01b 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5712,6 +5712,8 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 		} else
+ 			tcp_init_metrics(sk);
+ 
++		tcp_update_pacing_rate(sk);
++
+ 		/* Prevent spurious tcp_cwnd_restart() on first data packet */
+ 		tp->lsndtime = tcp_time_stamp;
+ 
+-- 
+1.8.4
