@@ -1,74 +1,51 @@
-From: freddy@asix.com.tw
-Subject: [PATCH 1/1] [PATCH] ax88179_178a: Correct the RX error definition in RX header
-Date: Mon, 21 Oct 2013 14:37:40 +0800
-Message-ID: <1382337460-2036-1-git-send-email-freddy@asix.com.tw>
-Cc: Freddy Xin <freddy@asix.com.tw>
-To: davem@davemloft.net, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	louis@asix.com.tw, allan@asix.com.tw
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net 2/3] ipv6: fill rt6i_gateway with nexthop address
+Date: Mon, 21 Oct 2013 10:31:06 +0300 (EEST)
+Message-ID: <alpine.LFD.2.03.1310211009270.1522@ssi.bg>
+References: <1382272985-1528-1-git-send-email-ja@ssi.bg> <1382272985-1528-3-git-send-email-ja@ssi.bg> <20131021050159.GE28333@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:48777 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752362Ab3JUHgK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Oct 2013 03:36:10 -0400
+In-Reply-To: <20131021050159.GE28333@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Freddy Xin <freddy@asix.com.tw>
 
-Correct the definition of AX_RXHDR_CRC_ERR and
-AX_RXHDR_DROP_ERR. They are BIT29 and BIT31 in pkt_hdr
-seperately.
-Add VID:DID for Samsung USB Ethernet Adapter.
+	Hello,
 
-Signed-off-by: Freddy Xin <freddy@asix.com.tw>
----
- drivers/net/usb/ax88179_178a.c |   23 ++++++++++++++++++++---
- 1 file changed, 20 insertions(+), 3 deletions(-)
+On Mon, 21 Oct 2013, Hannes Frederic Sowa wrote:
 
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index 3569293..846cc19 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -36,8 +36,8 @@
- #define AX_RXHDR_L4_TYPE_TCP			16
- #define AX_RXHDR_L3CSUM_ERR			2
- #define AX_RXHDR_L4CSUM_ERR			1
--#define AX_RXHDR_CRC_ERR			((u32)BIT(31))
--#define AX_RXHDR_DROP_ERR			((u32)BIT(30))
-+#define AX_RXHDR_CRC_ERR			((u32)BIT(29))
-+#define AX_RXHDR_DROP_ERR			((u32)BIT(31))
- #define AX_ACCESS_MAC				0x01
- #define AX_ACCESS_PHY				0x02
- #define AX_ACCESS_EEPROM			0x04
-@@ -1406,6 +1406,19 @@ static const struct driver_info sitecom_info = {
- 	.tx_fixup = ax88179_tx_fixup,
- };
- 
-+static const struct driver_info samsung_info = {
-+	.description = "Samsung USB Ethernet Adapter",
-+	.bind = ax88179_bind,
-+	.unbind = ax88179_unbind,
-+	.status = ax88179_status,
-+	.link_reset = ax88179_link_reset,
-+	.reset = ax88179_reset,
-+	.stop = ax88179_stop,
-+	.flags = FLAG_ETHER | FLAG_FRAMING_AX,
-+	.rx_fixup = ax88179_rx_fixup,
-+	.tx_fixup = ax88179_tx_fixup,
-+};
-+
- static const struct usb_device_id products[] = {
- {
- 	/* ASIX AX88179 10/100/1000 */
-@@ -1418,7 +1431,11 @@ static const struct usb_device_id products[] = {
- }, {
- 	/* Sitecom USB 3.0 to Gigabit Adapter */
- 	USB_DEVICE(0x0df6, 0x0072),
--	.driver_info = (unsigned long) &sitecom_info,
-+	.driver_info = (unsigned long)&sitecom_info,
-+}, {
-+	/* Samsung USB Ethernet Adapter */
-+	USB_DEVICE(0x04e8, 0xa100),
-+	.driver_info = (unsigned long)&samsung_info,
- },
- 	{ },
- };
--- 
-1.7.10.4
+> On Sun, Oct 20, 2013 at 03:43:04PM +0300, Julian Anastasov wrote:
+> > Make sure rt6i_gateway contains nexthop information in
+> > all routes returned from lookup or when routes are directly
+> > attached to skb for generated ICMP packets.
+> > 
+> > The effect of this patch should be a faster version of
+> > rt6_nexthop() and the consideration of local addresses as
+> > nexthop.
+> > 
+> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> 
+> The patch is fine. I don't mind if we leave it as is or remove rt6_nexthop,
+> so:
+> 
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+	Thanks for the review! I don't mind too about
+removing rt6_nexthop. For me it is 51% against 49% to keep it
+as it denotes the places that use nexthop and not gateway.
+May be more opinions will help to decide because I don't know
+if there are any plans to use similar techniques as done for IPv4.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
