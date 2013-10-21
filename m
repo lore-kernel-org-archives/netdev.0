@@ -1,40 +1,47 @@
-From: "Berg, Johannes" <johannes.berg@intel.com>
-Subject: RE: [WARNING] v3.12-rc6-3-g0df651a WARNING: CPU: 2 PID: 6800 at
- net/wireless/chan.c:373 cfg80211_chandef_usable+0x31/0x161 [cfg80211]()
-Date: Mon, 21 Oct 2013 10:24:10 +0000
-Message-ID: <1DC40B07CD6EC041A66726C271A73AE61AAE0910@IRSMSX102.ger.corp.intel.com>
-References: <20131021102131.GA11265@glanzmann.de>
+From: Kefeng Wang <wangkefeng.wang@huawei.com>
+Subject: Re: [PATCH 00/23 v2] cleanup: introduce br/netdev/netif/wiphy_<foo>_ratelimited()
+ and use them to simplify code
+Date: Mon, 21 Oct 2013 19:26:24 +0800
+Message-ID: <52650F60.5080402@huawei.com>
+References: <1382068363-10088-1-git-send-email-wangkefeng.wang@huawei.com> <1382069482.22110.164.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Thomas Glanzmann <thomas@glanzmann.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:42594 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753111Ab3JUKYW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 06:24:22 -0400
-In-Reply-To: <20131021102131.GA11265@glanzmann.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <netfilter@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-wireless@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1382069482.22110.164.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Subject: [WARNING] v3.12-rc6-3-g0df651a WARNING: CPU: 2 PID: 6800 at
-> net/wireless/chan.c:373 cfg80211_chandef_usable+0x31/0x161 [cfg80211]()
+On 10/18 12:11, Joe Perches wrote:
+> (resending to lists only because of multiple X's in the subject line)
 > 
-> Hello,
-> I'm referring to commit 9f5e8f6efc7c2601136b27d9c7325c245f8fd19a. I just
+> On Fri, 2013-10-18 at 11:52 +0800, Kefeng Wang wrote:
+>> v1-v2:
+>>
+>>   Introduce macro br/netdev/netif/wiphy_XXX_ratelimited() according
+>>   to Joe Perches's advice. The macros are similar to net_XXX_ratelimited()
+>>   which is more clarifying than net_ratelimited_function(), then use them
+>>   to simplify code.
+> 
+> There are some conceptual differences between these
+> implementations and other <foo>_ratelimited uses.
+> 
+> For every other subsystem but net, there is a per-location
+> struct ratelimit_state.
 
-We have a fix in commit f478f33a93f9353dcd1fe55445343d76b1c3f84a I believe.
+yes, but I think I just changed net subsystem. Macro DEFINE_RATELIMIT_STATE used
+DEFAULT_RATELIMIT_INTERVAL and DEFAULT_RATELIMIT_BURST, so what do you think?
+Could anyone give me some advises ?
 
-Johannes
--- 
-
-Intel GmbH
-Dornacher Strasse 1
-85622 Feldkirchen/Muenchen, Deutschland
-Sitz der Gesellschaft: Feldkirchen bei Muenchen
-Geschaeftsfuehrer: Christian Lamprechter, Hannes Schwaderer, Douglas Lusk
-Registergericht: Muenchen HRB 47456
-Ust.-IdNr./VAT Registration No.: DE129385895
-Citibank Frankfurt a.M. (BLZ 502 109 00) 600119052
+> Here you've made the global net_ratelimit_state replace all
+> of these individual structs so there is some new interaction.
+> 
+> Dunno if that's good or bad.
+> 
+> 
+> 
+> 
+> 
