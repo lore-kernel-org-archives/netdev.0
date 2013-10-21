@@ -1,58 +1,53 @@
-From: MRS MUSA SAMORA <musasamora111@outlook.com>
-Subject: DEVELLOP YOUR INTEREST PLEASE
-Date: Mon, 21 Oct 2013 08:18:22 -0700 (PDT)
-Message-ID: <1382368702.37343.YahooMailBasic@web160603.mail.bf1.yahoo.com>
-Reply-To: musasamora111@gmail.com
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH nf-next] netfilter: xtables: lightweight process control
+ group matching
+Date: Mon, 21 Oct 2013 17:48:54 +0200
+Message-ID: <52654CE6.7030706@redhat.com>
+References: <1380910855-12325-1-git-send-email-dborkman@redhat.com> <87li1qp3l8.fsf@xmission.com> <526231E0.6060903@redhat.com> <526543A2.2040901@monom.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm44.bullet.mail.ne1.yahoo.com ([98.138.120.51]:46612 "EHLO
-	nm44.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753369Ab3JUPSm convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Oct 2013 11:18:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <526543A2.2040901-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On 10/21/2013 05:09 PM, Daniel Wagner wrote:
+> On 10/19/2013 08:16 AM, Daniel Borkmann wrote:
+>> On 10/19/2013 01:21 AM, Eric W. Biederman wrote:
+>>
+>>> I am coming to this late.  But two concrete suggestions.
+>>>
+>>> 1) process groups and sessions don't change as frequently as pids.
+>>>
+>>> 2) It is possible to put a set of processes in their own network
+>>>     namespace and pipe just the packets you want those processes to
+>>>     use into that network namespace.  Using an ingress queueing filter
+>>>     makes that process very efficient even if you have to filter by port.
+>>
+>> Actually in our case we're filtering outgoing traffic, based on which
+>> local socket that originated from; so you wouldn't need all of that
+>> construct. Also, you wouldn't even need to have an a-prio knowledge of
+>> the application internals regarding their use of particular use of ports
+>> or protocols. I don't think that such a setup will have the same
+>> efficiency, ease of use, and power to distinguish the application the
+>> traffic came from in such a lightweight, protocol independent and easy way.
+>
+> Sorry for beeing late as well (and also stupid question)
+>
+> Couldn't you use something from the LSM? I mean you allow the
+> application to create the socket etc and then block later
+> the traffic originated from that socket. Wouldn't it make
+> more sense to block early?
 
-
-
-
-
-
-
-=46ROM MRS MUSA SAMORA
-
-
-
-
-Hello
-
-
-
-
-My name is Mrs Samora Musa,I have been suffering from Ovarian cancer di=
-sease and the doctor says that i have just few days to leave.I am from =
-Libya, but based in Burkina Faso,Africa since ten years ago as a busine=
-ss woman dealing with cocoa exportation,now that i am about to end the =
-race like this,without any family members and no child.I have $1.1 Mill=
-ion US DOLLARS in Bank of Africa(BOA)Burkina Faso which i instructed th=
-e bank to give African union leaders to help sick people around Africa.=
-But my mind is not at rest because i am writing this letter now through=
- the help of my nurse beside me here in my hospital room.
-=A0
-I also have $2.1 Million US Dollars in another bank in Burkina Faso whi=
-ch i want you to claim from the bank and use help less privileged peopl=
-e in your country,but you must assure me that you will =A0take only 40%=
- of the total money and give the rest 60% to the orphanage home in your=
- country for my heart to rest.
-=A0
-Upon the receipt of your email that you are willing and capable to exec=
-ute my plan, i will instruct the bank management to make the immediate =
-transfer into your account.
-=A0
-Sincerely,
-=A0
-Mrs Samora Musa.
+I gave one simple example for blocking in the commit message,
+that's true, but it is not limited to that, meaning we can have
+much different scenarios/policies that netfilter allows us than
+just blocking, e.g. fine grained settings where applications are
+allowed to connect/send traffic to, application traffic marking/
+conntracking, application-specific packet mangling, and so on,
+just think of the whole netfilter universe.
