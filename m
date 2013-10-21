@@ -1,46 +1,94 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: Stale IPv6 address accumulation on linux 3.2.17
-Date: Mon, 21 Oct 2013 15:50:24 +0000
-Message-ID: <2134F8430051B64F815C691A62D9831813520C@XCH-BLV-504.nw.nos.boeing.com>
-References: <Pine.LNX.4.61.1303241153000.20041@envy.nxs.se>
- <CAEwTi7Rbo3dBqhyDJXYvrkMWfrX9xwUr5VovFoW7BfPAZp4XFw@mail.gmail.com>
- <Pine.LNX.4.61.1303272104470.20041@envy.nxs.se>
- <51535D16.4080207@katalix.com> <loom.20131021T165114-650@post.gmane.org>
+From: Jimmy PERCHET <jimmy.perchet@parrot.com>
+Subject: Re: [PATCH RFC 4/5] net:stmmac: fix jumbo frame handling.
+Date: Mon, 21 Oct 2013 18:28:48 +0200
+Message-ID: <52655640.4060405@parrot.com>
+References: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com> <1381937052-8999-5-git-send-email-jimmy.perchet@parrot.com> <52652EE7.2060500@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <jimmy.perchet@gmail.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from blv-mbsout-01.boeing.com ([130.76.32.231]:54923 "EHLO
-	blv-mbsout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752729Ab3JUP6Z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 11:58:25 -0400
-Received: from blv-mbsout-01.boeing.com (localhost.localdomain [127.0.0.1])
-	by blv-mbsout-01.boeing.com (8.14.4/8.14.4/DOWNSTREAM_MBSOUT) with ESMTP id r9LFoPwU009811
-	for <netdev@vger.kernel.org>; Mon, 21 Oct 2013 08:50:25 -0700
-Received: from XCH-NWHT-11.nw.nos.boeing.com (xch-nwht-11.nw.nos.boeing.com [130.247.25.114])
-	by blv-mbsout-01.boeing.com (8.14.4/8.14.4/UPSTREAM_MBSOUT) with ESMTP id r9LFoPeu009800
-	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Mon, 21 Oct 2013 08:50:25 -0700
-In-Reply-To: <loom.20131021T165114-650@post.gmane.org>
-Content-Language: en-US
+Received: from co202.xi-lite.net ([149.6.83.202]:38324 "EHLO co202.xi-lite.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751305Ab3JUQ2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Oct 2013 12:28:43 -0400
+In-Reply-To: <52652EE7.2060500@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 21/10/2013 15:40, Giuseppe CAVALLARO wrote:
+> On 10/16/2013 5:24 PM, Jimmy Perchet wrote:
+>> This patch addresses several issues which prevent jumbo frames from working properly :
+>> .jumbo frames' last descriptor was not closed
+>> .several confusion regarding descriptor's max buffer size
+>> .frags could not be jumbo
+>>
+>> Signed-off-by: Jimmy Perchet <jimmy.perchet@parrot.com>
+> 
+> 
+> Jimmy, thx for thi patch. BElow some my first notes.
 
-On linux 3.2.17, I have a host that configures IPv6 addresses on
-an eth0 interface based on Router Advertisements received from an
-on-link linux box configured as an IPv6 router and running radvd.
-When the host gets an RA, it configures both an EUI-64-based IPv6
-address and an IPv6 privacy address, so it has two IPv6 addresses.
-But, if I leave the host up for long periods of time, it seems to
-accumulate additional IPv6 addresses - perhaps these are stale
-IPv6 privacy addresses?
+Thanks a lot for this first review.
 
-Is this known behavior, and if so is there a way to turn it off?
-Or, perhaps this was a known bug that has been corrected in more
-recent linux kernel versions?
+> I'll continue to look at the patch to verify if I missed
+> soemthing. I kindly ask you, for the next version, to add
+> more comments especially in the function to prepare the
+> tx desc in order to help me on reviewing.
 
-Thanks - Fred
-fred.l.templin@boeing.com
+Sure ;)
+
+I hope do v2 by next week.
+
+I'm OK with most of your comments. Some additional
+notes below:
+
+>>   }
+>> @@ -81,7 +81,7 @@ static inline void ndesc_end_tx_desc_on_ring(struct dma_desc *p, int ter)
+>>
+>>   static inline void norm_set_tx_desc_len_on_ring(struct dma_desc *p, int len)
+>>   {
+>> -    if (unlikely(len > BUF_SIZE_2KiB)) {
+>> +    if (unlikely(len >= BUF_SIZE_2KiB)) {
+> 
+> we cannot manage a size of 2048 on normal desc
+> 
+> Pls you should verify to not break the back-compatibility.
+
+IMHO, this actually fix the problem you think I create.
+In current code, if len is equal to 2048, buffer1_size is set to 2048,
+this is wrong because the max size is actually 2047...
+
+> 
+>>           p->des01.etx.buffer1_size = BUF_SIZE_2KiB - 1;
+>>           p->des01.etx.buffer2_size = len - p->des01.etx.buffer1_size;
+>>       } else
+
+
+
+>>
+>>   static void stmmac_refill_desc3(void *priv_ptr, struct dma_desc *p)
+>>   {
+>> @@ -103,13 +90,13 @@ static void stmmac_refill_desc3(void *priv_ptr, struct dma_desc *p)
+>>       if (unlikely(priv->plat->has_gmac))
+>>           /* Fill DES3 in case of RING mode */
+>>           if (priv->dma_buf_sz >= BUF_SIZE_8KiB)
+>> -            p->des3 = p->des2 + BUF_SIZE_8KiB;
+>> +            p->des3 = p->des2 + BUF_SIZE_8KiB - 1;
+> 
+> is it correct? can you check?
+
+The actual buffer's max size is 8191, so, in ring mode,
+the second buffer must start at p->des2 + 8191.
+
+>> -    priv->cur_tx++;
+>> +    priv->cur_tx += nb_desc;
+> 
+> can we avoid to use the nb_desc?
+Actually, it is a preparation for my 5th patch : I want to write cur_tx only once.
+I can split this.
+
+
+
+Best Regards,
+Jimmy
