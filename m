@@ -1,50 +1,42 @@
-From: Mariusz Ceier <mceier+kernel@gmail.com>
-Subject: [PATCH] davinci_emac.c: Fix IFF_ALLMULTI setup
-Date: Mon, 21 Oct 2013 19:45:04 +0200
-Message-ID: <1382377504-24688-1-git-send-email-mceier+kernel@gmail.com>
-References: <5265640C.4070201@cogentembedded.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mariusz Ceier <mceier+kernel@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	"Lad Prabhakar" <prabhakar.csengg@gmail.com>,
-	Jingoo Han <jg1.han@samsung.com>, Jiri Pirko <jiri@resnulli.us>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH] davinci_emac.c: Fix IFF_ALLMULTI setup
+Date: Mon, 21 Oct 2013 23:20:41 +0530
+Message-ID: <52656971.3020509@ti.com>
+References: <5265640C.4070201@cogentembedded.com> <1382377504-24688-1-git-send-email-mceier+kernel@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Lad Prabhakar <prabhakar.csengg@gmail.com>,
+	Jingoo Han <jg1.han@samsung.com>,
+	Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Mariusz Ceier <mceier+kernel@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5265640C.4070201@cogentembedded.com>
+In-Reply-To: <1382377504-24688-1-git-send-email-mceier+kernel@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When IFF_ALLMULTI flag is set on interface and IFF_PROMISC isn't,
-emac_dev_mcast_set should only enable RX of multicasts and reset
-MACHASH registers.
+On Monday 21 October 2013 11:15 PM, Mariusz Ceier wrote:
+> When IFF_ALLMULTI flag is set on interface and IFF_PROMISC isn't,
+> emac_dev_mcast_set should only enable RX of multicasts and reset
+> MACHASH registers.
+>
+> It does this, but afterwards it either sets up multicast MACs
+> filtering or disables RX of multicasts and resets MACHASH registers
+> again, rendering IFF_ALLMULTI flag useless.
+>
+> This patch fixes emac_dev_mcast_set, so that multicast MACs filtering and
+> disabling of RX of multicasts are skipped when IFF_ALLMULTI flag is set.
+>
+> Tested with kernel 2.6.37.
+>
+> Signed-off-by: Mariusz Ceier <mceier+kernel@gmail.com>
+> ---
+Can you add [PATCH v2] in your subject in future so that it will be
+easier to the maintainer to pick the latest version of the patch.
 
-It does this, but afterwards it either sets up multicast MACs
-filtering or disables RX of multicasts and resets MACHASH registers
-again, rendering IFF_ALLMULTI flag useless.
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-This patch fixes emac_dev_mcast_set, so that multicast MACs filtering and
-disabling of RX of multicasts are skipped when IFF_ALLMULTI flag is set.
-
-Tested with kernel 2.6.37.
-
-Signed-off-by: Mariusz Ceier <mceier+kernel@gmail.com>
----
- drivers/net/ethernet/ti/davinci_emac.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 67df09e..6a32ef9 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -876,8 +876,7 @@ static void emac_dev_mcast_set(struct net_device *ndev)
- 		    netdev_mc_count(ndev) > EMAC_DEF_MAX_MULTICAST_ADDRESSES) {
- 			mbp_enable = (mbp_enable | EMAC_MBP_RXMCAST);
- 			emac_add_mcast(priv, EMAC_ALL_MULTI_SET, NULL);
--		}
--		if (!netdev_mc_empty(ndev)) {
-+		} else if (!netdev_mc_empty(ndev)) {
- 			struct netdev_hw_addr *ha;
- 
- 			mbp_enable = (mbp_enable | EMAC_MBP_RXMCAST);
--- 
-1.8.4
+Regards
+Mugunthan V N
