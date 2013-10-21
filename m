@@ -1,70 +1,133 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 15/15] net: packetengines: remove unnecessary pci_set_drvdata()
-Date: Mon, 21 Oct 2013 11:17:07 +0900
-Message-ID: <004701cece03$a3fbe060$ebf3a120$%han@samsung.com>
-References: <003801cece02$6abb0160$40310420$%han@samsung.com>
+From: Grant Grundler <grantgrundler@gmail.com>
+Subject: Re: [PATCH net-next v3 03/07] tulip: Support for byte queue limits
+Date: Sun, 20 Oct 2013 20:00:25 -0700
+Message-ID: <CAP6odjioXfhLiRDSLr8b74+Tv3BxYB_88+YsEbTSFphbNU+w0w@mail.gmail.com>
+References: <1382296991-20289-1-git-send-email-milky-kernel@mcmilk.de>
+	<1382296991-20289-4-git-send-email-milky-kernel@mcmilk.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>,
+	Grant Grundler <grundler@parisc-linux.org>
+To: Tino Reichardt <milky-kernel@mcmilk.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:37265 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752101Ab3JUCRI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Oct 2013 22:17:08 -0400
-Received: from epcpsbgr5.samsung.com
- (u145.gpu120.samsung.co.kr [203.254.230.145])
- by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MUZ00BPQYC71VF0@mailout3.samsung.com> for
- netdev@vger.kernel.org; Mon, 21 Oct 2013 11:17:07 +0900 (KST)
-In-reply-to: <003801cece02$6abb0160$40310420$%han@samsung.com>
-Content-language: ko
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:64142 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752275Ab3JUDAZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Oct 2013 23:00:25 -0400
+Received: by mail-ob0-f179.google.com with SMTP id uy5so3023938obc.38
+        for <netdev@vger.kernel.org>; Sun, 20 Oct 2013 20:00:25 -0700 (PDT)
+In-Reply-To: <1382296991-20289-4-git-send-email-milky-kernel@mcmilk.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver core clears the driver data to NULL after device_release
-or on probe failure. Thus, it is not needed to manually clear the
-device driver data to NULL.
+On Sun, Oct 20, 2013 at 12:23 PM, Tino Reichardt <milky-kernel@mcmilk.de> wrote:
+> Changes to tulip driver to use byte queue limits.
+>
+>
+> Signed-off-by: Tino Reichardt <milky-kernel@mcmilk.de>
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/ethernet/packetengines/hamachi.c   |    1 -
- drivers/net/ethernet/packetengines/yellowfin.c |    2 --
- 2 files changed, 3 deletions(-)
+LGTM - I no longer have HW setup to test this. Only code reviewed. I'd
+be happy to re-assign to anyone who is still using this HW and help
+them review patches.
 
-diff --git a/drivers/net/ethernet/packetengines/hamachi.c b/drivers/net/ethernet/packetengines/hamachi.c
-index cac33e5..b6bdeb3 100644
---- a/drivers/net/ethernet/packetengines/hamachi.c
-+++ b/drivers/net/ethernet/packetengines/hamachi.c
-@@ -1910,7 +1910,6 @@ static void hamachi_remove_one(struct pci_dev *pdev)
- 		iounmap(hmp->base);
- 		free_netdev(dev);
- 		pci_release_regions(pdev);
--		pci_set_drvdata(pdev, NULL);
- 	}
- }
- 
-diff --git a/drivers/net/ethernet/packetengines/yellowfin.c b/drivers/net/ethernet/packetengines/yellowfin.c
-index d28593b..07a890e 100644
---- a/drivers/net/ethernet/packetengines/yellowfin.c
-+++ b/drivers/net/ethernet/packetengines/yellowfin.c
-@@ -513,7 +513,6 @@ err_out_unmap_rx:
- err_out_unmap_tx:
-         pci_free_consistent(pdev, TX_TOTAL_SIZE, np->tx_ring, np->tx_ring_dma);
- err_out_cleardev:
--	pci_set_drvdata(pdev, NULL);
- 	pci_iounmap(pdev, ioaddr);
- err_out_free_res:
- 	pci_release_regions(pdev);
-@@ -1392,7 +1391,6 @@ static void yellowfin_remove_one(struct pci_dev *pdev)
- 	pci_release_regions (pdev);
- 
- 	free_netdev (dev);
--	pci_set_drvdata(pdev, NULL);
- }
- 
- 
--- 
-1.7.10.4
+Acked-by: Grant Grundler <grundler@parisc-linux.org>
+
+cheers,
+grant
+
+>
+> ---
+>  drivers/net/ethernet/dec/tulip/interrupt.c  | 4 ++++
+>  drivers/net/ethernet/dec/tulip/tulip.h      | 1 +
+>  drivers/net/ethernet/dec/tulip/tulip_core.c | 9 ++++++++-
+>  3 files changed, 13 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/dec/tulip/interrupt.c b/drivers/net/ethernet/dec/tulip/interrupt.c
+> index 92306b3..7084267 100644
+> --- a/drivers/net/ethernet/dec/tulip/interrupt.c
+> +++ b/drivers/net/ethernet/dec/tulip/interrupt.c
+> @@ -532,6 +532,7 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
+>  #endif
+>         unsigned int work_count = tulip_max_interrupt_work;
+>         unsigned int handled = 0;
+> +       unsigned int bytes_compl = 0;
+>
+>         /* Let's see whether the interrupt really is for us */
+>         csr5 = ioread32(ioaddr + CSR5);
+> @@ -634,6 +635,7 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
+>                                                  PCI_DMA_TODEVICE);
+>
+>                                 /* Free the original skb. */
+> +                               bytes_compl += tp->tx_buffers[entry].skb->len;
+>                                 dev_kfree_skb_irq(tp->tx_buffers[entry].skb);
+>                                 tp->tx_buffers[entry].skb = NULL;
+>                                 tp->tx_buffers[entry].mapping = 0;
+> @@ -802,6 +804,8 @@ irqreturn_t tulip_interrupt(int irq, void *dev_instance)
+>         }
+>  #endif /* CONFIG_TULIP_NAPI */
+>
+> +       if (likely(tulip_bql_disable == false))
+> +               netdev_completed_queue(dev, tx, bytes_compl);
+>         if ((missed = ioread32(ioaddr + CSR8) & 0x1ffff)) {
+>                 dev->stats.rx_dropped += missed & 0x10000 ? 0x10000 : missed;
+>         }
+> diff --git a/drivers/net/ethernet/dec/tulip/tulip.h b/drivers/net/ethernet/dec/tulip/tulip.h
+> index 38431a1..3c62870 100644
+> --- a/drivers/net/ethernet/dec/tulip/tulip.h
+> +++ b/drivers/net/ethernet/dec/tulip/tulip.h
+> @@ -513,6 +513,7 @@ void comet_timer(unsigned long data);
+>
+>  /* tulip_core.c */
+>  extern int tulip_debug;
+> +extern bool tulip_bql_disable;
+>  extern const char * const medianame[];
+>  extern const char tulip_media_cap[];
+>  extern struct tulip_chip_table tulip_tbl[];
+> diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
+> index 4e8cfa2..d02eaa1 100644
+> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
+> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
+> @@ -106,11 +106,13 @@ static int csr0 = 0x00A00000 | 0x4800;
+>  /* Time in jiffies before concluding the transmitter is hung. */
+>  #define TX_TIMEOUT  (4*HZ)
+>
+> -
+>  MODULE_AUTHOR("The Linux Kernel Team");
+>  MODULE_DESCRIPTION("Digital 21*4* Tulip ethernet driver");
+>  MODULE_LICENSE("GPL");
+>  MODULE_VERSION(DRV_VERSION);
+> +module_param(tulip_bql_disable, bool, 0);
+> +MODULE_PARM_DESC(tulip_bql_disable,
+> +       "Disable Byte Queue Limits functionality (default: false)");
+>  module_param(tulip_debug, int, 0);
+>  module_param(max_interrupt_work, int, 0);
+>  module_param(rx_copybreak, int, 0);
+> @@ -123,6 +125,7 @@ int tulip_debug = TULIP_DEBUG;
+>  #else
+>  int tulip_debug = 1;
+>  #endif
+> +bool tulip_bql_disable;
+>
+>  static void tulip_timer(unsigned long data)
+>  {
+> @@ -703,6 +706,8 @@ tulip_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>         wmb();
+>
+>         tp->cur_tx++;
+> +       if (likely(tulip_bql_disable == false))
+> +               netdev_sent_queue(dev, skb->len);
+>
+>         /* Trigger an immediate transmit demand. */
+>         iowrite32(0, tp->base_addr + CSR1);
+> @@ -746,6 +751,8 @@ static void tulip_clean_tx_ring(struct tulip_private *tp)
+>                 tp->tx_buffers[entry].skb = NULL;
+>                 tp->tx_buffers[entry].mapping = 0;
+>         }
+> +       if (likely(tulip_bql_disable == false))
+> +               netdev_reset_queue(tp->dev);
+>  }
+>
+>  static void tulip_down (struct net_device *dev)
+> --
+> 1.8.4.1
+>
