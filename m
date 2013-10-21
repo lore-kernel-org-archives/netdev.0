@@ -1,33 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net 3/3] netfilter: nf_conntrack: fix rt6i_gateway checks for H.323 helper
-Date: Mon, 21 Oct 2013 07:04:11 +0200
-Message-ID: <20131021050411.GF28333@order.stressinduktion.org>
-References: <1382272985-1528-1-git-send-email-ja@ssi.bg> <1382272985-1528-4-git-send-email-ja@ssi.bg>
+From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Subject: Re: [PATCH] chelsio: remove duplicate defines
+Date: Mon, 21 Oct 2013 07:08:23 +0200
+Message-ID: <5264B6C7.9000206@free-electrons.com>
+References: <1382331307-4962-1-git-send-email-michael.opdenacker@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1382272985-1528-4-git-send-email-ja@ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Michael Opdenacker <michael.opdenacker@free-electrons.com>
+To: divy@chelsio.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1382331307-4962-1-git-send-email-michael.opdenacker@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 20, 2013 at 03:43:05PM +0300, Julian Anastasov wrote:
-> Now when rt6_nexthop() can return nexthop address we can use it
-> for proper nexthop comparison of directly connected destinations.
-> For more information refer to commit bbb5823cf742a7
-> ("netfilter: nf_conntrack: fix rt_gateway checks for H.323 helper").
-> 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+On 10/21/2013 06:55 AM, Michael Opdenacker wrote:
+> This removes duplicate definitions of S_BUSY, V_BUSY() and F_BUSY
+> in drivers/net/ethernet/chelsio/cxgb3/regs.h
+Forget this version. There are other duplicates in this file. I'll
+submit a new version of this patch.
+>
+> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+> ---
+>  drivers/net/ethernet/chelsio/cxgb3/regs.h | 12 ------------
+>  1 file changed, 12 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/chelsio/cxgb3/regs.h b/drivers/net/ethernet/chelsio/cxgb3/regs.h
+> index 6990f6c..b8367ec 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb3/regs.h
+> +++ b/drivers/net/ethernet/chelsio/cxgb3/regs.h
+> @@ -685,10 +685,6 @@
+>  #define V_BUSY(x) ((x) << S_BUSY)
+>  #define F_BUSY    V_BUSY(1U)
+>  
+> -#define S_BUSY    31
+> -#define V_BUSY(x) ((x) << S_BUSY)
+> -#define F_BUSY    V_BUSY(1U)
+> -
+>  #define A_MC7_EXT_MODE1 0x108
+>  
+>  #define A_MC7_EXT_MODE2 0x10c
+> @@ -749,14 +745,6 @@
+>  
+>  #define A_MC7_CAL 0x128
+>  
+> -#define S_BUSY    31
+> -#define V_BUSY(x) ((x) << S_BUSY)
+> -#define F_BUSY    V_BUSY(1U)
+> -
+> -#define S_BUSY    31
+> -#define V_BUSY(x) ((x) << S_BUSY)
+> -#define F_BUSY    V_BUSY(1U)
+> -
+>  #define S_CAL_FAULT    30
+>  #define V_CAL_FAULT(x) ((x) << S_CAL_FAULT)
+>  #define F_CAL_FAULT    V_CAL_FAULT(1U)
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Cool, that the bug is fixed and the code is a bit more simple. :)
-
-Thanks,
-
-  Hannes
-
+-- 
+Michael Opdenacker, CEO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
++33 484 258 098
