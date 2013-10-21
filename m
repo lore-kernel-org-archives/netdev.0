@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net v2 0/3] UFO fixes
-Date: Mon, 21 Oct 2013 17:15:45 -0400 (EDT)
-Message-ID: <20131021.171545.1561614742401076128.davem@davemloft.net>
-References: <20131020032617.GA27787@order.stressinduktion.org>
-	<20131021.162612.1795347771078720888.davem@davemloft.net>
-	<20131021211426.GB24158@order.stressinduktion.org>
+Subject: Re: [PATCH v2] net: remove function sk_reset_txq()
+Date: Mon, 21 Oct 2013 17:18:29 -0400 (EDT)
+Message-ID: <20131021.171829.2297768337604122109.davem@davemloft.net>
+References: <20131020013757.GA25265@will>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	jdmason@kudzu.us, yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, kaber@trash.net, herbert@gondor.apana.org.au
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43168 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751443Ab3JUVPu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 17:15:50 -0400
-In-Reply-To: <20131021211426.GB24158@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: gamerh2o@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131020013757.GA25265@will>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Mon, 21 Oct 2013 23:14:26 +0200
+From: ZHAO Gang <gamerh2o@gmail.com>
+Date: Sun, 20 Oct 2013 09:37:57 +0800
 
-> This patch I proposed before is IMHO more simple. Would you consider
-> this a candidate for stable only? I would send a proper patch then.
+> What sk_reset_txq() does is just calls function sk_tx_queue_reset(),
+> and sk_reset_txq() is used only in sock.h, by dst_negative_advice().
+> Let dst_negative_advice() calls sk_tx_queue_reset() directly so we
+> can remove unneeded sk_reset_txq().
+> 
+> Signed-off-by: ZHAO Gang <gamerh2o@gmail.com>
+> change a typo in patch description: sock.c -> sock.h
 
-Yes, I would.
+This patch does not apply cleanly to net-next, please fix this up
+and resubmit.
 
 Thanks.
