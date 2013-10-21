@@ -1,55 +1,72 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net 0/3] ipv6: use rt6i_gateway as nexthop
-Date: Mon, 21 Oct 2013 11:35:41 +0200
-Message-ID: <20131021093541.GG28333@order.stressinduktion.org>
-References: <1382272985-1528-1-git-send-email-ja@ssi.bg>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next 0/5] bonding: patchset for rcu use in bonding
+Date: Mon, 21 Oct 2013 11:35:49 +0200
+Message-ID: <20131021093549.GC692@redhat.com>
+References: <5264ECBC.2090208@huawei.com>
+ <20131021091336.GB692@redhat.com>
+ <5264F397.50608@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:24864 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753034Ab3JUJkG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Oct 2013 05:40:06 -0400
 Content-Disposition: inline
-In-Reply-To: <1382272985-1528-1-git-send-email-ja@ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5264F397.50608@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 20, 2013 at 03:43:02PM +0300, Julian Anastasov wrote:
-> 	The second patch is an optimization that makes sure
-> all resulting routes have rt6i_gateway filled, so that we
-> can avoid the complex ipv6_addr_any() call added to rt6_nexthop()
-> by patch 1. And it sets rt6i_gateway for local routes, a case
-> not handled by patch 1.
+On Mon, Oct 21, 2013 at 05:27:51PM +0800, Ding Tianhong wrote:
+>On 2013/10/21 17:13, Veaceslav Falico wrote:
+>> On Mon, Oct 21, 2013 at 04:58:36PM +0800, Ding Tianhong wrote:
+>>> Hi:
+>>>
+>>> The Patch Set will remove the invalid lock for bond work queue and replace it
+>>> with rtnl lock, as read lock for bond could not protect slave list any more.
+>>
+>> rtnl lock is a lot more expensive than bond lock, and not only for bond,
+>> but for all the networking stack.
+>>
+>> Why is the bond->lock invalid? It correctly protects slaves from being
+>> modified concurrently.
+>>
+>> I don't see the point in this patchset.
+>>
+>
+>yes, rtnl lock is a big lock, but I think bond->lock could not protect
+>bond_for_each_slave any more, am I miss something?
 
-Not related to the patch:
+Why can't it protect bond_for_each_slave()?
 
-That reminds me that Yoshifuji had the idea to cache the results for
-ipv6_addr_type in IP6CB to avoid calling this function over and over again.
-Maybe we can do the same for rt6_infos to save some cycles here and there.
-
-
-Also, what do you think about this site:
-
-net/ipv6/ip6_output.c:
-    411 
-    412                 rt = (struct rt6_info *) dst;
-    413                 if (rt->rt6i_flags & RTF_GATEWAY)
-    414                         target = &rt->rt6i_gateway;
-    415                 else
-    416                         target = &hdr->daddr;
-    417 
-
-Our provided skb_dst should come from ip6_route_input, thus ip6_pol_route. So
-I assume we have rt6i_gateway == hdr->daddr there, too. It is a bit more
-complicated because of possible routing extension headers. Maybe you already
-looked at this already?
-
-I just found it while searching which other code paths do emit packets
-while xt_TEE is processing (generation of redirects) and could also lead
-to stack exhaustion. But the path in ip6_forward seems fine.
-
-Greetings,
-
-  Hannes
-
+>
+>Ding
+>
+>>>
+>>> Ding Tianhong (5):
+>>>  bonding: remove bond read lock for bond_mii_monitor()
+>>>  bonding: remove bond read lock for bond_alb_monitor()
+>>>  bonding: remove bond read lock for bond_loadbalance_arp_mon()
+>>>  bonding: remove bond read lock for bond_activebackup_arp_mon()
+>>>  bonding: remove bond read lock for bond_3ad_state_machine_handler()
+>>>
+>>> drivers/net/bonding/bond_3ad.c  |   9 ++--
+>>> drivers/net/bonding/bond_alb.c  |  20 ++------
+>>> drivers/net/bonding/bond_main.c | 100 +++++++++++++---------------------------
+>>> 3 files changed, 40 insertions(+), 89 deletions(-)
+>>>
+>>> --
+>>> 1.8.2.1
+>>>
+>>>
+>>>
+>>
+>>
+>
+>
