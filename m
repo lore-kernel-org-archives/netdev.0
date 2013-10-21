@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/9] bnx2x: Bug fixes patch series
-Date: Mon, 21 Oct 2013 18:32:53 -0400 (EDT)
-Message-ID: <20131021.183253.1661772228691572834.davem@davemloft.net>
-References: <1382280694-8428-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH net] netpoll: linearize skb before accessing its data
+Date: Mon, 21 Oct 2013 18:33:51 -0400 (EDT)
+Message-ID: <20131021.183351.1700002768190145909.davem@davemloft.net>
+References: <1382391080-1607-1-git-send-email-antonio@meshcoding.com>
+	<1382394336.3284.92.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
-To: yuvalmin@broadcom.com
+Cc: antonio@meshcoding.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44177 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44183 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751539Ab3JUWcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 18:32:54 -0400
-In-Reply-To: <1382280694-8428-1-git-send-email-yuvalmin@broadcom.com>
+	with ESMTP id S1751788Ab3JUWdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 18:33:53 -0400
+In-Reply-To: <1382394336.3284.92.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Sun, 20 Oct 2013 16:51:25 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 21 Oct 2013 15:25:36 -0700
 
-> This patch series contains fixes for various flows - several SR-IOV issues
-> are fixed, ethtool callbacks (coalescing and register dump) are corrected,
-> null pointer dereference on error flows is prevented, etc.
-> 
-> Changes from V1
-> ---------------
->  - Patch 2  "bnx2x: Prevent an illegal pointer dereference during panic"
->    is revised, with improved handling of edge cases.
+> Anyway, how I see nothing sets rx_hook, what am I missing ?
 
-Series applied, thanks for strengthening the address validation in
-patch #2.
+Only out of tree code makes use of this facility, and it's been
+this way since the facility was introduced.
+
+Yes, I'm disappointed and unhappy about this too.
