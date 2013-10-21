@@ -1,29 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netpoll: linearize skb before accessing its data
-Date: Mon, 21 Oct 2013 18:33:51 -0400 (EDT)
-Message-ID: <20131021.183351.1700002768190145909.davem@davemloft.net>
-References: <1382391080-1607-1-git-send-email-antonio@meshcoding.com>
-	<1382394336.3284.92.camel@edumazet-glaptop.roam.corp.google.com>
+Subject: Re: [PATCH net 0/3] ipv6: use rt6i_gateway as nexthop
+Date: Mon, 21 Oct 2013 18:40:57 -0400 (EDT)
+Message-ID: <20131021.184057.328665907625927061.davem@davemloft.net>
+References: <1382272985-1528-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: antonio@meshcoding.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	lvs-devel@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44183 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44244 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751788Ab3JUWdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 18:33:53 -0400
-In-Reply-To: <1382394336.3284.92.camel@edumazet-glaptop.roam.corp.google.com>
+	with ESMTP id S1752290Ab3JUWk7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 18:40:59 -0400
+In-Reply-To: <1382272985-1528-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 21 Oct 2013 15:25:36 -0700
+From: Julian Anastasov <ja@ssi.bg>
+Date: Sun, 20 Oct 2013 15:43:02 +0300
 
-> Anyway, how I see nothing sets rx_hook, what am I missing ?
+> 	I see the following two alternatives for applying these
+> patches:
+> 
+> 1. Linger patch 2 in net-next to avoid surprises in the upcoming
+> release. In this case patch 3 can be reworked not to depend on
+> the new rt6_nexthop() definition in patch 2. I guess this is a
+> better option, so that patch 2 can be reviewed and tested for
+> longer time.
+> 
+> 2. Include all 3 patches in net tree - more risky because this
+> is my first attempt to change IPv6.
 
-Only out of tree code makes use of this facility, and it's been
-this way since the facility was introduced.
+I have decided to merge all three patches into -net right now.
+I've reviewed these patches several times and they look good
+to me.
 
-Yes, I'm disappointed and unhappy about this too.
+I'll let them cook upstream for at least a week before submitting them
+to -stable to let any last minute errors show themselves and
+subsequently get resolved.
+
+Thanks!
