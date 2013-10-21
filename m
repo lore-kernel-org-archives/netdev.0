@@ -1,60 +1,61 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net] tcp: initialize passive-side sk_pacing_rate after 3WHS
-Date: Mon, 21 Oct 2013 15:40:19 -0400
-Message-ID: <1382384419-6081-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f202.google.com ([209.85.223.202]:43179 "EHLO
-	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751669Ab3JUTr4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 15:47:56 -0400
-Received: by mail-ie0-f202.google.com with SMTP id qd12so1344833ieb.3
-        for <netdev@vger.kernel.org>; Mon, 21 Oct 2013 12:47:54 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net 0/3] ipv6: use rt6i_gateway as nexthop
+Date: Mon, 21 Oct 2013 23:02:57 +0300 (EEST)
+Message-ID: <alpine.LFD.2.03.1310212237001.1785@ssi.bg>
+References: <1382272985-1528-1-git-send-email-ja@ssi.bg> <20131021093541.GG28333@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20131021093541.GG28333@order.stressinduktion.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-For passive TCP connections, upon receiving the ACK that completes the
-3WHS, make sure we set our pacing rate after we get our first RTT
-sample.
 
-On passive TCP connections, when we receive the ACK completing the
-3WHS we do not take an RTT sample in tcp_ack(), but rather in
-tcp_synack_rtt_meas(). So upon receiving the ACK that completes the
-3WHS, tcp_ack() leaves sk_pacing_rate at its initial value.
+	Hello,
 
-Originally the initial sk_pacing_rate value was 0, so passive-side
-connections defaulted to sysctl_tcp_min_tso_segs (2 segs) in skbuffs
-made in the first RTT. With a default initial cwnd of 10 packets, this
-happened to be correct for RTTs 5ms or bigger, so it was hard to
-see problems in WAN or emulated WAN testing.
+On Mon, 21 Oct 2013, Hannes Frederic Sowa wrote:
 
-Since 7eec4174ff ("pkt_sched: fq: fix non TCP flows pacing"), the
-initial sk_pacing_rate is 0xffffffff. So after that change, passive
-TCP connections were keeping this value (and using large numbers of
-segments per skbuff) until receiving an ACK for data.
+> Not related to the patch:
+> 
+> That reminds me that Yoshifuji had the idea to cache the results for
+> ipv6_addr_type in IP6CB to avoid calling this function over and over again.
+> Maybe we can do the same for rt6_infos to save some cycles here and there.
 
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_input.c | 2 ++
- 1 file changed, 2 insertions(+)
+	Yes, ipv6_addr_type has little price. May be only
+DNAT and IPSec can complicate such caching.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 53974c7..a16b01b 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5712,6 +5712,8 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 		} else
- 			tcp_init_metrics(sk);
- 
-+		tcp_update_pacing_rate(sk);
-+
- 		/* Prevent spurious tcp_cwnd_restart() on first data packet */
- 		tp->lsndtime = tcp_time_stamp;
- 
--- 
-1.8.4
+> Also, what do you think about this site:
+> 
+> net/ipv6/ip6_output.c:
+>     411 
+>     412                 rt = (struct rt6_info *) dst;
+>     413                 if (rt->rt6i_flags & RTF_GATEWAY)
+>     414                         target = &rt->rt6i_gateway;
+>     415                 else
+>     416                         target = &hdr->daddr;
+>     417 
+> 
+> Our provided skb_dst should come from ip6_route_input, thus ip6_pol_route. So
+> I assume we have rt6i_gateway == hdr->daddr there, too. It is a bit more
+> complicated because of possible routing extension headers. Maybe you already
+> looked at this already?
+
+	Yes, I checked every site that uses rt6i_gateway but
+not with the perspective to use rt6_nexthop(). It seems
+this is a rt6_nexthop() candidate.
+
+> I just found it while searching which other code paths do emit packets
+> while xt_TEE is processing (generation of redirects) and could also lead
+> to stack exhaustion. But the path in ip6_forward seems fine.
+
+	Yes. I found only one place more dangerous:
+fib6_add_rt2node(). But I think its checks are still valid.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
