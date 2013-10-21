@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: remove function sk_reset_txq()
-Date: Mon, 21 Oct 2013 17:18:29 -0400 (EDT)
-Message-ID: <20131021.171829.2297768337604122109.davem@davemloft.net>
-References: <20131020013757.GA25265@will>
+Subject: Re: nf_tables*.h: Remove extern from function prototypes
+Date: Mon, 21 Oct 2013 17:19:21 -0400 (EDT)
+Message-ID: <20131021.171921.650196864241149083.davem@davemloft.net>
+References: <cover.1382129045.git.joe@perches.com>
+	<1382245531.2041.37.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: gamerh2o@gmail.com
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131020013757.GA25265@will>
+In-Reply-To: <1382245531.2041.37.camel@joe-AO722>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ZHAO Gang <gamerh2o@gmail.com>
-Date: Sun, 20 Oct 2013 09:37:57 +0800
+From: Joe Perches <joe@perches.com>
+Date: Sat, 19 Oct 2013 22:05:31 -0700
 
-> What sk_reset_txq() does is just calls function sk_tx_queue_reset(),
-> and sk_reset_txq() is used only in sock.h, by dst_negative_advice().
-> Let dst_negative_advice() calls sk_tx_queue_reset() directly so we
-> can remove unneeded sk_reset_txq().
+> There are a mix of function prototypes with and without extern
+> in the kernel sources.  Standardize on not using extern for
+> function prototypes.
 > 
-> Signed-off-by: ZHAO Gang <gamerh2o@gmail.com>
-> change a typo in patch description: sock.c -> sock.h
+> Function prototypes don't need to be written with extern.
+> extern is assumed by the compiler.  Its use is as unnecessary as
+> using auto to declare automatic/local variables in a block.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-This patch does not apply cleanly to net-next, please fix this up
-and resubmit.
-
-Thanks.
+I'll apply this directly, thanks Joe.
