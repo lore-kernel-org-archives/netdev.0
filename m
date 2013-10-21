@@ -1,31 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atm: firestream: remove duplicate define
-Date: Mon, 21 Oct 2013 18:47:24 -0400 (EDT)
-Message-ID: <20131021.184724.1305218665434733685.davem@davemloft.net>
-References: <1382343161-3243-1-git-send-email-michael.opdenacker@free-electrons.com>
-	<20131021075335.5c9e4490@thirdoffive.cmf.nrl.navy.mil>
+Subject: Re: [PATCH v2] chelsio: remove duplicate defines
+Date: Mon, 21 Oct 2013 18:47:43 -0400 (EDT)
+Message-ID: <20131021.184743.431974482232204403.davem@davemloft.net>
+References: <1382332189-5596-1-git-send-email-michael.opdenacker@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: michael.opdenacker@free-electrons.com,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+Cc: divy@chelsio.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: chas@cmf.nrl.navy.mil
+To: michael.opdenacker@free-electrons.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131021075335.5c9e4490@thirdoffive.cmf.nrl.navy.mil>
+In-Reply-To: <1382332189-5596-1-git-send-email-michael.opdenacker@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Date: Mon, 21 Oct 2013 07:53:35 -0400
+From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Date: Mon, 21 Oct 2013 07:09:49 +0200
 
-> Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
+> This removes multiple duplicate definitions
+> in drivers/net/ethernet/chelsio/cxgb3/regs.h
 > 
-> On Mon, 21 Oct 2013 10:12:41 +0200
-> Michael Opdenacker <michael.opdenacker@free-electrons.com> wrote:
-> 
->> This patch removes a duplicate define in drivers/atm/firestream.h
->> 
->> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
 
 Applied.
