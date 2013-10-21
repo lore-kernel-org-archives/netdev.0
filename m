@@ -1,44 +1,83 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH] atm: firestream: remove duplicate define
-Date: Mon, 21 Oct 2013 07:53:35 -0400
-Message-ID: <20131021075335.5c9e4490@thirdoffive.cmf.nrl.navy.mil>
-References: <1382343161-3243-1-git-send-email-michael.opdenacker@free-electrons.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 0/5] bonding: patchset for rcu use in bonding
+Date: Mon, 21 Oct 2013 20:32:11 +0800
+Message-ID: <52651ECB.1080901@huawei.com>
+References: <5264ECBC.2090208@huawei.com> <20131021091336.GB692@redhat.com> <5264F397.50608@huawei.com> <20131021093549.GC692@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:58665 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753085Ab3JUMIx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 08:08:53 -0400
-In-Reply-To: <1382343161-3243-1-git-send-email-michael.opdenacker@free-electrons.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:49960 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753213Ab3JUMcf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 08:32:35 -0400
+In-Reply-To: <20131021093549.GC692@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
-
-On Mon, 21 Oct 2013 10:12:41 +0200
-Michael Opdenacker <michael.opdenacker@free-electrons.com> wrote:
-
-> This patch removes a duplicate define in drivers/atm/firestream.h
+On 2013/10/21 17:35, Veaceslav Falico wrote:
+> On Mon, Oct 21, 2013 at 05:27:51PM +0800, Ding Tianhong wrote:
+>> On 2013/10/21 17:13, Veaceslav Falico wrote:
+>>> On Mon, Oct 21, 2013 at 04:58:36PM +0800, Ding Tianhong wrote:
+>>>> Hi:
+>>>>
+>>>> The Patch Set will remove the invalid lock for bond work queue and replace it
+>>>> with rtnl lock, as read lock for bond could not protect slave list any more.
+>>>
+>>> rtnl lock is a lot more expensive than bond lock, and not only for bond,
+>>> but for all the networking stack.
+>>>
+>>> Why is the bond->lock invalid? It correctly protects slaves from being
+>>> modified concurrently.
+>>>
+>>> I don't see the point in this patchset.
+>>>
+>>
+>> yes, rtnl lock is a big lock, but I think bond->lock could not protect
+>> bond_for_each_slave any more, am I miss something?
 > 
-> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-> ---
->  drivers/atm/firestream.h | 1 -
->  1 file changed, 1 deletion(-)
+> Why can't it protect bond_for_each_slave()?
 > 
-> diff --git a/drivers/atm/firestream.h b/drivers/atm/firestream.h
-> index 49e783e..364eded 100644
-> --- a/drivers/atm/firestream.h
-> +++ b/drivers/atm/firestream.h
-> @@ -420,7 +420,6 @@ struct fs_transmit_config {
->  #define RC_FLAGS_BFPS_BFP27 (0xd << 17)
->  #define RC_FLAGS_BFPS_BFP47 (0xe << 17)
->  
-> -#define RC_FLAGS_BFPS       (0x1 << 17)
->  #define RC_FLAGS_BFPP       (0x1 << 21)
->  #define RC_FLAGS_TEVC       (0x1 << 22)
->  #define RC_FLAGS_TEP        (0x1 << 23)
+
+bond_master_upper_dev_link() and bond_upper_dev_unlink() was only in rtnl lock,
+bond_for_each_slave may changed while loop in bond read lock, but it sees that
+nothing serious will happen yet.
+Maybe I miss something.
+
+Ding
+
+
+>>
+>> Ding
+>>
+>>>>
+>>>> Ding Tianhong (5):
+>>>>  bonding: remove bond read lock for bond_mii_monitor()
+>>>>  bonding: remove bond read lock for bond_alb_monitor()
+>>>>  bonding: remove bond read lock for bond_loadbalance_arp_mon()
+>>>>  bonding: remove bond read lock for bond_activebackup_arp_mon()
+>>>>  bonding: remove bond read lock for bond_3ad_state_machine_handler()
+>>>>
+>>>> drivers/net/bonding/bond_3ad.c  |   9 ++--
+>>>> drivers/net/bonding/bond_alb.c  |  20 ++------
+>>>> drivers/net/bonding/bond_main.c | 100 +++++++++++++---------------------------
+>>>> 3 files changed, 40 insertions(+), 89 deletions(-)
+>>>>
+>>>> -- 
+>>>> 1.8.2.1
+>>>>
+>>>>
+>>>>
+>>>
+>>>
+>>
+>>
+> 
+> .
+> 
