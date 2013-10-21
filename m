@@ -1,92 +1,151 @@
-From: Jimmy PERCHET <jimmy.perchet@parrot.com>
-Subject: Re: [PATCH RFC 3/5] net:stmmac: ensure we reclaim all dirty descriptors.
-Date: Mon, 21 Oct 2013 15:10:54 +0200
-Message-ID: <526527DE.5060906@parrot.com>
-References: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com> <1381937052-8999-4-git-send-email-jimmy.perchet@parrot.com> <5264EEE9.8070607@st.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next 0/5] bonding: patchset for rcu use in bonding
+Date: Mon, 21 Oct 2013 15:21:36 +0200
+Message-ID: <20131021132136.GE692@redhat.com>
+References: <5264ECBC.2090208@huawei.com>
+ <20131021091336.GB692@redhat.com>
+ <5264F397.50608@huawei.com>
+ <20131021093549.GC692@redhat.com>
+ <52651ECB.1080901@huawei.com>
+ <20131021124144.GD692@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co202.xi-lite.net ([149.6.83.202]:58849 "EHLO co202.xi-lite.net"
+Received: from mx1.redhat.com ([209.132.183.28]:39136 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751015Ab3JUNKx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Oct 2013 09:10:53 -0400
-In-Reply-To: <5264EEE9.8070607@st.com>
+	id S1752626Ab3JUNZw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Oct 2013 09:25:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20131021124144.GD692@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Peppe,
-
-On 21/10/2013 11:07, Giuseppe CAVALLARO wrote:
-> Hello Jimmy
-> 
-> On 10/16/2013 5:24 PM, Jimmy Perchet wrote:
->> On low speed link (10MBit/s), some TX descriptors can remain dirty
->> if the tx coalescence timer expires before they were treated. Re-arm timer
->> in this case.
+On Mon, Oct 21, 2013 at 02:41:44PM +0200, Veaceslav Falico wrote:
+>On Mon, Oct 21, 2013 at 08:32:11PM +0800, Ding Tianhong wrote:
+>>On 2013/10/21 17:35, Veaceslav Falico wrote:
+>>>On Mon, Oct 21, 2013 at 05:27:51PM +0800, Ding Tianhong wrote:
+>>>>On 2013/10/21 17:13, Veaceslav Falico wrote:
+>>>>>On Mon, Oct 21, 2013 at 04:58:36PM +0800, Ding Tianhong wrote:
+>>>>>>Hi:
+>>>>>>
+>>>>>>The Patch Set will remove the invalid lock for bond work queue and replace it
+>>>>>>with rtnl lock, as read lock for bond could not protect slave list any more.
+>>>>>
+>>>>>rtnl lock is a lot more expensive than bond lock, and not only for bond,
+>>>>>but for all the networking stack.
+>>>>>
+>>>>>Why is the bond->lock invalid? It correctly protects slaves from being
+>>>>>modified concurrently.
+>>>>>
+>>>>>I don't see the point in this patchset.
+>>>>>
+>>>>
+>>>>yes, rtnl lock is a big lock, but I think bond->lock could not protect
+>>>>bond_for_each_slave any more, am I miss something?
+>>>
+>>>Why can't it protect bond_for_each_slave()?
+>>>
 >>
->> Signed-off-by: Jimmy Perchet <jimmy.perchet@parrot.com>
->> ---
->>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 +++++-
->>   1 file changed, 5 insertions(+), 1 deletion(-)
+>>bond_master_upper_dev_link() and bond_upper_dev_unlink() was only in rtnl lock,
+>>bond_for_each_slave may changed while loop in bond read lock, but it sees that
+>>nothing serious will happen yet.
+>>Maybe I miss something.
+>
+>Even if it is unsafe to use bond_for_each_slave() while holding bond->lock
+>- it means that we must protect the list by locking the
+>bond_upper_dev_(un)link() via bond->lock, but not by removing bond->lock
+>from everywhere where it is now. And I'm not that sure if it's safe or not.
+
+I've quickly looked over the code - yes, theoretically we could race
+between bond_for_each_slave() that is not rtnl-protected and
+bond_upper_dev_(un)link().
+
+Your patchset, also, doesn't 'replace' bond->lock with rtnl_lock(), cause
+everywhere the rtnl_lock() is already present, it just moves it around,
+while removing the bond->lock.
+
+The commit message is wrong and says actually nothing why is it done, how
+is it done, why it's safe to do so and what do we get in the end. For every
+patch, and the cover letter is also not an exception.
+
+I'd suggest you either:
+
+1) add bond->lock around bond_upper_dev_(un)link() (GFP_ATOMIC might be needed).
+
+or
+
+2) add ASSERT_RTNL() to bond_for_each_slave() macro, catch all the offenders
+and remove the bond->lock from them. Also, I'm not that sure that it's safe
+to do so - cause one of the slaves (not the slave list) might change, and
+we might have race conditions there.
+
+or
+
+3) move bond_for_each_slave() to bond_for_each_slave_rcu() where appropriate.
+
+And in any case write specific commit messages - bonding's code is really
+old and full of locks that were placed for some reason (and the reason
+might have gone away long ago, too), so it's really hard to say if the
+change is safe or not.
+
+I'd personally go for either 3) (preferred), or 1).
+
+Sorry, I'm a bit tired of going in-depth on your patches. Start either
+doing patches with commit messages that *prove* me that you're right (I'll,
+obviously, verify it - but at least I'll know what you're doing, and won't
+have to figure it out from code), or I'll start explicitly NAKing them.
+
+Sorry again, but I don't really have time for that. I didn't have time to
+review your last patchset (RCUifying the remaining transmit path), and now
+I can understand nothing from their commit description, except that you've
+changed bond_for_each_slave() to bond_for_each_slave_rcu() and bond->lock
+to rcu_read_lock(). I'm not saying that they're wrong, just that they're
+really hard to understand.
+
+So, please, start writing commit messages.
+
+>
 >>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> index 0015175..af04b5d 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> @@ -1284,8 +1284,12 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
->>               p = priv->dma_tx + entry;
+>>Ding
 >>
->>           /* Check if the descriptor is owned by the DMA. */
->> -        if (priv->hw->desc->get_tx_owner(p))
->> +        if (priv->hw->desc->get_tx_owner(p)) {
->> +            /* Be sure to harvest remaining descriptor. */
->> +            mod_timer(&priv->txtimer,
->> +              STMMAC_COAL_TIMER(priv->tx_coal_timer));
->>               break;
->> +        }
-> 
-> 
-> why should we reload the timer when clean the tx resource?
-> This is done in the xmit where as soon as a frame has to be
-> transmitted it makes sense to reload the timer.
-> 
-> Also I have not clear why the problem happens on 10MBit/s speed
->  Maybe there is an hidden problem (lock protection)
-> that should be fixed.
-> 
-> How did you get this problem? Just on low speed and stress the net?
-> I have never seen it.
-
-I can reproduce this problem by issuing 9KiB jumbo frames on 10MBit/s link.
-If socket's wmemory size is about 500kiB (or less), the transfer stall.
-(I guess it is reproducible with 1500o frames by decreasing
-socket's wmemory to 90KB)
-Re-arming the timer fix this behaviour.
-
-Here my understanding of this issue : 
-With 9KiB frames and 500kiB of wmemory, only 60 frames can be
-prepared in a row. It is below the tx coalescence threshold,
-so there will be no interrupt. When the tx coalescence timer 
-expires (40ms after), only five descriptors have to be
-freed (9000*5 @ 10Mbit/s = 34ms), it is not enough to reach
-the socket's wake-up threshold. We get into a deadlock :
-*Socket is waiting for free buffers before performing new transfer.
-*Driver is waiting for new transfer before performing cleanup.
-
-Maybe, it is not a real life use-case, and is not worth
-a patch. What do you think ?
-
-Best Regards,
-Jimmy
-
-> 
-> peppe
-> 
 >>
->>           /* Verify tx error by looking at the last segment. */
->>           last = priv->hw->desc->get_tx_ls(p);
+>>>>
+>>>>Ding
+>>>>
+>>>>>>
+>>>>>>Ding Tianhong (5):
+>>>>>> bonding: remove bond read lock for bond_mii_monitor()
+>>>>>> bonding: remove bond read lock for bond_alb_monitor()
+>>>>>> bonding: remove bond read lock for bond_loadbalance_arp_mon()
+>>>>>> bonding: remove bond read lock for bond_activebackup_arp_mon()
+>>>>>> bonding: remove bond read lock for bond_3ad_state_machine_handler()
+>>>>>>
+>>>>>>drivers/net/bonding/bond_3ad.c  |   9 ++--
+>>>>>>drivers/net/bonding/bond_alb.c  |  20 ++------
+>>>>>>drivers/net/bonding/bond_main.c | 100 +++++++++++++---------------------------
+>>>>>>3 files changed, 40 insertions(+), 89 deletions(-)
+>>>>>>
+>>>>>>--
+>>>>>>1.8.2.1
+>>>>>>
+>>>>>>
+>>>>>>
+>>>>>
+>>>>>
+>>>>
+>>>>
+>>>
+>>>.
+>>>
 >>
-> 
+>>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
