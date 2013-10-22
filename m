@@ -1,26 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] [PATCH resubmit] ax88179_178a: Correct the RX
- error definition in RX header
-Date: Tue, 22 Oct 2013 02:15:46 -0400 (EDT)
-Message-ID: <20131022.021546.1648298758048784147.davem@davemloft.net>
-References: <1382406449-2041-1-git-send-email-freddy@asix.com.tw>
+Subject: Re: [PATCH net-next] net: remove function sk_reset_txq()
+Date: Tue, 22 Oct 2013 02:18:05 -0400 (EDT)
+Message-ID: <20131022.021805.1325709347250113490.davem@davemloft.net>
+References: <20131022041124.GA14122@will>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, allan@asix.com.tw, louis@asix.com.tw
-To: freddy@asix.com.tw
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: gamerh2o@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1382406449-2041-1-git-send-email-freddy@asix.com.tw>
+In-Reply-To: <20131022041124.GA14122@will>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: ZHAO Gang <gamerh2o@gmail.com>
+Date: Tue, 22 Oct 2013 12:11:24 +0800
 
-Submit these, not individually as single patches, but as a patch set,
-the first one with subject "[PATCH 1/2]" and the second with
-subject "[PATCH 2/2]"
+> What sk_reset_txq() does is just calls function sk_tx_queue_reset(),
+> and sk_reset_txq() is used only in sock.h, by dst_negative_advice().
+> Let dst_negative_advice() calls sk_tx_queue_reset() directly so we
+> can remove unneeded sk_reset_txq().
+> 
+> Signed-off-by: ZHAO Gang <gamerh2o@gmail.com>
 
-You have to do this, because it is absolutely essentially to let
-me know which patch gets applies first and which one gets applied
-second.  The two patches are to the same file, so if you don't
-tell me the order, they won't apply cleanly at all.
+Still doesn't apply.
+
+Email this patch to yourself, I bet the patch you receive won't
+apply cleanly.  Likely your email client is corrupting the patch.
+
+You've already eaten enough of my time as a maintainer submitting
+a patch that won't even apply.  Absolutely do not resubmit this
+patch until you can email the patch successfully to yourself
+and successfuly apply the patch you receive in that email to
+the current net-next tree.
