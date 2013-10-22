@@ -1,15 +1,18 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Dave Taht <dave.taht@bufferbloat.net>
 Subject: Re: [PATCH 1/2] fq_codel: keep dropped statistic around
-Date: Mon, 21 Oct 2013 18:27:11 -0700
-Message-ID: <CAL4Wiio0YThCbT8j92HVn1CmmdvKD=GT30ZtMf=ZvmAj+ZM7Yg@mail.gmail.com>
+Date: Mon, 21 Oct 2013 18:43:10 -0700
+Message-ID: <20131022014310.GA5076@lists.bufferbloat.net>
 References: <1382404797-17239-1-git-send-email-dave.taht@bufferbloat.net>
 	<1382404797-17239-2-git-send-email-dave.taht@bufferbloat.net>
+	<CAL4Wiio0YThCbT8j92HVn1CmmdvKD=GT30ZtMf=ZvmAj+ZM7Yg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============2044618405739436794=="
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>, codel@lists.bufferbloat.net
-To: Dave Taht <dave.taht@bufferbloat.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <codel-bounces@lists.bufferbloat.net>
-In-Reply-To: <1382404797-17239-2-git-send-email-dave.taht@bufferbloat.net>
+Content-Disposition: inline
+In-Reply-To: <CAL4Wiio0YThCbT8j92HVn1CmmdvKD=GT30ZtMf=ZvmAj+ZM7Yg@mail.gmail.com>
 List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
 	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
 List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
@@ -21,91 +24,52 @@ Sender: codel-bounces@lists.bufferbloat.net
 Errors-To: codel-bounces@lists.bufferbloat.net
 List-Id: netdev.vger.kernel.org
 
---===============2044618405739436794==
-Content-Type: multipart/alternative; boundary=047d7b86e864beec0f04e94a4c04
+On Mon, Oct 21, 2013 at 06:27:11PM -0700, Eric Dumazet wrote:
+> On Oct 21, 2013 6:20 PM, "Dave Taht" <dave.taht@bufferbloat.net> wrote:
+> >
+> > Having more accurate dropped information in this qdisc is useful.
+> >
+> > Signed-off-by: Dave Taht <dave.taht@bufferbloat.net>
+> > ---
+> >  net/sched/sch_fq_codel.c |    1 -
+> >  1 file changed, 1 deletion(-)
+> >
+> > diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+> > index 5578628..437bc95 100644
+> > --- a/net/sched/sch_fq_codel.c
+> > +++ b/net/sched/sch_fq_codel.c
+> > @@ -193,7 +193,6 @@ static int fq_codel_enqueue(struct sk_buff *skb,
+> struct Qdisc *sch)
+> >                 list_add_tail(&flow->flowchain, &q->new_flows);
+> >                 q->new_flow_count++;
+> >                 flow->deficit = q->quantum;
+> > -               flow->dropped = 0;
+> >         }
+> >         if (++sch->q.qlen <= sch->limit)
+> >                 return NET_XMIT_SUCCESS;
+> > --
+> > 1.7.9.5
+> I am travelling to Edinburgh, so will be short.
 
---047d7b86e864beec0f04e94a4c04
-Content-Type: text/plain; charset=ISO-8859-1
+Wish I could have made it.
 
-On Oct 21, 2013 6:20 PM, "Dave Taht" <dave.taht@bufferbloat.net> wrote:
->
-> Having more accurate dropped information in this qdisc is useful.
->
-> Signed-off-by: Dave Taht <dave.taht@bufferbloat.net>
-> ---
->  net/sched/sch_fq_codel.c |    1 -
->  1 file changed, 1 deletion(-)
->
-> diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-> index 5578628..437bc95 100644
-> --- a/net/sched/sch_fq_codel.c
-> +++ b/net/sched/sch_fq_codel.c
-> @@ -193,7 +193,6 @@ static int fq_codel_enqueue(struct sk_buff *skb,
-struct Qdisc *sch)
->                 list_add_tail(&flow->flowchain, &q->new_flows);
->                 q->new_flow_count++;
->                 flow->deficit = q->quantum;
-> -               flow->dropped = 0;
->         }
->         if (++sch->q.qlen <= sch->limit)
->                 return NET_XMIT_SUCCESS;
-> --
-> 1.7.9.5
-I am travelling to Edinburgh, so will be short.
+> Since fqcodel recycles a slot, we need to clear this counter. 
 
-Since fqcodel recycles a slot, we need to clear this counter. We do no know
-if slot is reused by previous flow or a new flow hashing to same bucket.
+I prefer to think of it as a per "slot dropped counter" and to
+have it retain the total number of drops in that slot since
+qdisc initialization.
 
---047d7b86e864beec0f04e94a4c04
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+> We do no know
+> if slot is reused by previous flow or a new flow hashing to same bucket.
 
-<p dir=3D"ltr"><br>
-On Oct 21, 2013 6:20 PM, &quot;Dave Taht&quot; &lt;<a href=3D"mailto:dave.t=
-aht@bufferbloat.net">dave.taht@bufferbloat.net</a>&gt; wrote:<br>
-&gt;<br>
-&gt; Having more accurate dropped information in this qdisc is useful.<br>
-&gt;<br>
-&gt; Signed-off-by: Dave Taht &lt;<a href=3D"mailto:dave.taht@bufferbloat.n=
-et">dave.taht@bufferbloat.net</a>&gt;<br>
-&gt; ---<br>
-&gt; =A0net/sched/sch_fq_codel.c | =A0 =A01 -<br>
-&gt; =A01 file changed, 1 deletion(-)<br>
-&gt;<br>
-&gt; diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c<br>
-&gt; index 5578628..437bc95 100644<br>
-&gt; --- a/net/sched/sch_fq_codel.c<br>
-&gt; +++ b/net/sched/sch_fq_codel.c<br>
-&gt; @@ -193,7 +193,6 @@ static int fq_codel_enqueue(struct sk_buff *skb, s=
-truct Qdisc *sch)<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 list_add_tail(&amp;flow-&gt;flowchain,=
- &amp;q-&gt;new_flows);<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 q-&gt;new_flow_count++;<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 flow-&gt;deficit =3D q-&gt;quantum;<br=
->
-&gt; - =A0 =A0 =A0 =A0 =A0 =A0 =A0 flow-&gt;dropped =3D 0;<br>
-&gt; =A0 =A0 =A0 =A0 }<br>
-&gt; =A0 =A0 =A0 =A0 if (++sch-&gt;q.qlen &lt;=3D sch-&gt;limit)<br>
-&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NET_XMIT_SUCCESS;<br>
-&gt; --<br>
-&gt; 1.7.9.5<br>
- I am travelling to Edinburgh, so will be short.</p>
-<p dir=3D"ltr">Since fqcodel recycles a slot, we need to clear this counter=
-. We do no know if slot is reused by previous flow or a new flow hashing to=
- same bucket.<br>
-</p>
+There could also in this case be several flows hashing to the same bucket
+and dropping packets. 
 
---047d7b86e864beec0f04e94a4c04--
+In most cases with the current zero-ing of "drop", polling "tc -s class" 
+yields an unrevealing drop statistic of "0" for many workloads against
+multiple streams at lower bandwidths.
 
---===============2044618405739436794==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+with it not getting zeroed, as per this patch, clear patterns show over 
+many seconds as queues empty, get filled by bursts, and get drops. 
 
-_______________________________________________
-Codel mailing list
-Codel@lists.bufferbloat.net
-https://lists.bufferbloat.net/listinfo/codel
-
---===============2044618405739436794==--
+This patch has been in openwrt and cerowrt since feburary.
