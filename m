@@ -1,91 +1,63 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net 1/2] sit: allow to use rtnl ops on fb tunnel
-Date: Tue, 22 Oct 2013 09:34:44 +0200
-Message-ID: <52662A94.9000501@6wind.com>
-References: <524AB26B.1070700@6wind.com> <1380643500-5018-1-git-send-email-nicolas.dichtel@6wind.com> <20131001.125923.700243113980583930.davem@davemloft.net> <524BC816.1000702@6wind.com> <CA+FuTScA26dW8bO5YdKTKp9tjSM-xVqkdkq8xzu-wH0cT=Wh8Q@mail.gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: [PATCH nf-next] netfilter: xtables: lightweight process control
+ group matching
+Date: Tue, 22 Oct 2013 08:36:39 +0100
+Message-ID: <52662B07.6000702@monom.org>
+References: <1380910855-12325-1-git-send-email-dborkman@redhat.com> <87li1qp3l8.fsf@xmission.com> <526231E0.6060903@redhat.com> <526543A2.2040901@monom.org> <52654CE6.7030706@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	steffen.klassert@secunet.com, pshelar@nicira.com,
-	gregkh@linuxfoundation.org, stable@vger.kernel.org
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CA+FuTScA26dW8bO5YdKTKp9tjSM-xVqkdkq8xzu-wH0cT=Wh8Q@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52654CE6.7030706-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le 22/10/2013 01:30, Willem de Bruijn a =E9crit :
-> On Wed, Oct 2, 2013 at 3:15 AM, Nicolas Dichtel
-> <nicolas.dichtel@6wind.com> wrote:
->> Le 01/10/2013 18:59, David Miller a =E9crit :
->>
->>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>> Date: Tue,  1 Oct 2013 18:04:59 +0200
+On 10/21/2013 04:48 PM, Daniel Borkmann wrote:
+> On 10/21/2013 05:09 PM, Daniel Wagner wrote:
+>> On 10/19/2013 08:16 AM, Daniel Borkmann wrote:
+>>> On 10/19/2013 01:21 AM, Eric W. Biederman wrote:
 >>>
->>>> rtnl ops where introduced by ba3e3f50a0e5 ("sit: advertise tunnel =
-param
->>>> via
->>>> rtnl"), but I forget to assign rtnl ops to fb tunnels.
+>>>> I am coming to this late.  But two concrete suggestions.
 >>>>
->>>> Now that it is done, we must remove the explicit call to
->>>> unregister_netdevice_queue(), because  the fallback tunnel is adde=
-d to
->>>> the queue
->>>> in sit_destroy_tunnels() when checking rtnl_link_ops of all netdev=
-ices
->>>> (this
->>>> is valid since commit 5e6700b3bf98 ("sit: add support of x-netns")=
-).
+>>>> 1) process groups and sessions don't change as frequently as pids.
 >>>>
->>>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>>> 2) It is possible to put a set of processes in their own network
+>>>>     namespace and pipe just the packets you want those processes to
+>>>>     use into that network namespace.  Using an ingress queueing filter
+>>>>     makes that process very efficient even if you have to filter by
+>>>> port.
 >>>
->>>
->>> Applied and queued up for -stable.
->>>
->>> But I imagine since the x-netns changes aren't in various -stable
->>> branches this will need to be adjusted a bit?
+>>> Actually in our case we're filtering outgoing traffic, based on which
+>>> local socket that originated from; so you wouldn't need all of that
+>>> construct. Also, you wouldn't even need to have an a-prio knowledge of
+>>> the application internals regarding their use of particular use of ports
+>>> or protocols. I don't think that such a setup will have the same
+>>> efficiency, ease of use, and power to distinguish the application the
+>>> traffic came from in such a lightweight, protocol independent and
+>>> easy way.
 >>
->> Yes, it's what I've tried to say in the commit log ;-)
+>> Sorry for beeing late as well (and also stupid question)
 >>
->> In fact, before the x-netns changes, we must keep the
->> unregister_netdevice_queue() line.
+>> Couldn't you use something from the LSM? I mean you allow the
+>> application to create the socket etc and then block later
+>> the traffic originated from that socket. Wouldn't it make
+>> more sense to block early?
 >
-> In 3.11 linux-stable, this patch was merged between 3.11.4 and 3.11.5
-> in commit 3783100, after the x-netns changes in commit 5e6700b3bf, bu=
-t
-> the unregister_netdevice_queue was kept.
->
-> I think that caused the following bug. In 3.11.6, a simple `modprobe
-> sit && rmmod sit` hits the BUG at net/core/dev.c:5039:
->
->    BUG_ON(dev->reg_state !=3D NETREG_REGISTERED);
->
-> The device is actually NETREG_RELEASED at one point because the devic=
-e
-> is now unregistered twice. The issue goes away by porting the
-> remainder of the original commit: the one liner that removes the call
-> to unregister_netdevice_queue.
->
-> +++ b/net/ipv6/sit.c
-> @@ -1708,7 +1708,6 @@ static void __net_exit sit_exit_net(struct net =
-*net)
->
->          sit_destroy_tunnels(sitn, &list);
-> -       unregister_netdevice_queue(sitn->fb_tunnel_dev, &list);
->          unregister_netdevice_many(&list);
->
-> If correct, let me know if I should send a proper one-line patch
-> against 3.11.y. Since I haven't looked at this code before, I found i=
-t
-> safer to report the issue first.
-Yes, this line should be removed, like it was done in the original patc=
-h
-(x-netns for sit is part of 3.11).
+> I gave one simple example for blocking in the commit message,
+> that's true, but it is not limited to that, meaning we can have
+> much different scenarios/policies that netfilter allows us than
+> just blocking, e.g. fine grained settings where applications are
+> allowed to connect/send traffic to, application traffic marking/
+> conntracking, application-specific packet mangling, and so on,
+> just think of the whole netfilter universe.
 
->
-> 5e6700b3bf was not applied to 3.10 stable, so that branch is not affe=
-cted.
-Right.
+Oh, I didn't pay enough attention to the commit message. Sorry
+about that. Obviously, if fine grained settings is a must
+then blocking the write is not good enough.
+
+cheers,
+daniel
