@@ -1,98 +1,57 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: BUG: scheduling while atomic dev_set_promiscuity->__dev_notify_flags
-Date: Tue, 22 Oct 2013 13:52:05 +0200
-Message-ID: <526666E5.3030202@6wind.com>
-References: <CAMEtUuy91zYJ=bj1dzfdqE8kqZ3rE1RgdR-PZYekSUg8_xoTBw@mail.gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] netpoll: fix rx_hook() interface by passing the skb
+Date: Tue, 22 Oct 2013 13:46:22 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B739F@saturn3.aculab.com>
+References: <20131022.025038.1046903740187748879.davem@davemloft.net> <1382431715-3128-1-git-send-email-antonio@meshcoding.com> <AE90C24D6B3A694183C094C60CF0A2F6026B739B@saturn3.aculab.com> <20131022101127.GJ1544@neomailbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Antonio Quartulli" <antonio@meshcoding.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:37924 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751950Ab3JVLwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 07:52:10 -0400
-Received: by mail-wi0-f176.google.com with SMTP id l12so5443164wiv.9
-        for <netdev@vger.kernel.org>; Tue, 22 Oct 2013 04:52:09 -0700 (PDT)
-In-Reply-To: <CAMEtUuy91zYJ=bj1dzfdqE8kqZ3rE1RgdR-PZYekSUg8_xoTBw@mail.gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:47055 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751446Ab3JVMsT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Oct 2013 08:48:19 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 17274-01 for <netdev@vger.kernel.org>;
+ Tue, 22 Oct 2013 13:48:16 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20131022101127.GJ1544@neomailbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 22/10/2013 03:04, Alexei Starovoitov a =E9crit :
-> Hi Nicolas,
->
-> after commit 991fb3f74c "dev: always advertise rx_flags changes via n=
-etlink"
-> I'm seeing 'sleeping in atomic' bug.
->
-> Steps to reproduce:
-> ip tuntap add dev tap1 mode tap
-> ifconfig tap1 up
-> tcpdump -nei tap1
-> and in different terminal:
-> ip tuntap del dev tap1 mode tap
->
-> [  271.627994] device tap1 left promiscuous mode
-> [  271.639897] BUG: sleeping function called from invalid context at
-> mm/slub.c:940
-> [  271.664491] in_atomic(): 1, irqs_disabled(): 0, pid: 3394, name: i=
-p
-> [  271.677525] INFO: lockdep is turned off.
-> [  271.690503] CPU: 0 PID: 3394 Comm: ip Tainted: G        W    3.12.=
-0-rc3+ #73
-> [  271.703996] Hardware name: System manufacturer System Product
-> Name/P8Z77 WS, BIOS 3007 07/26/2012
-> [  271.731254]  ffffffff81a58506 ffff8807f0d57a58 ffffffff817544e5
-> ffff88082fa0f428
-> [  271.760261]  ffff8808071f5f40 ffff8807f0d57a88 ffffffff8108bad1
-> ffffffff81110ff8
-> [  271.790683]  0000000000000010 00000000000000d0 00000000000000d0
-> ffff8807f0d57af8
-> [  271.822332] Call Trace:
-> [  271.838234]  [<ffffffff817544e5>] dump_stack+0x55/0x76
-> [  271.854446]  [<ffffffff8108bad1>] __might_sleep+0x181/0x240
-> [  271.870836]  [<ffffffff81110ff8>] ? rcu_irq_exit+0x68/0xb0
-> [  271.887076]  [<ffffffff811a80be>] kmem_cache_alloc_node+0x4e/0x2a0
-> [  271.903368]  [<ffffffff810b4ddc>] ? vprintk_emit+0x1dc/0x5a0
-> [  271.919716]  [<ffffffff81614d67>] ? __alloc_skb+0x57/0x2a0
-> [  271.936088]  [<ffffffff810b4de0>] ? vprintk_emit+0x1e0/0x5a0
-> [  271.952504]  [<ffffffff81614d67>] __alloc_skb+0x57/0x2a0
-> [  271.968902]  [<ffffffff8163a0b2>] rtmsg_ifinfo+0x52/0x100
-> [  271.985302]  [<ffffffff8162ac6d>] __dev_notify_flags+0xad/0xc0
-> [  272.001642]  [<ffffffff8162ad0c>] __dev_set_promiscuity+0x8c/0x1c0
-> [  272.017917]  [<ffffffff81731ea5>] ? packet_notifier+0x5/0x380
-> [  272.033961]  [<ffffffff8162b109>] dev_set_promiscuity+0x29/0x50
-> [  272.049855]  [<ffffffff8172e937>] packet_dev_mc+0x87/0xc0
-> [  272.065494]  [<ffffffff81732052>] packet_notifier+0x1b2/0x380
-> [  272.080915]  [<ffffffff81731ea5>] ? packet_notifier+0x5/0x380
-> [  272.096009]  [<ffffffff81761c66>] notifier_call_chain+0x66/0x150
-> [  272.110803]  [<ffffffff8108503e>] __raw_notifier_call_chain+0xe/0x=
-10
-> [  272.125468]  [<ffffffff81085056>] raw_notifier_call_chain+0x16/0x2=
-0
-> [  272.139984]  [<ffffffff81620190>] call_netdevice_notifiers_info+0x=
-40/0x70
-> [  272.154523]  [<ffffffff816201d6>] call_netdevice_notifiers+0x16/0x=
-20
-> [  272.168552]  [<ffffffff816224c5>] rollback_registered_many+0x145/0=
-x240
-> [  272.182263]  [<ffffffff81622641>] rollback_registered+0x31/0x40
-> [  272.195369]  [<ffffffff816229c8>] unregister_netdevice_queue+0x58/=
-0x90
-> [  272.208230]  [<ffffffff81547ca0>] __tun_detach+0x140/0x340
-> [  272.220686]  [<ffffffff81547ed6>] tun_chr_close+0x36/0x60
->
-> packet_notifier() does rcu_read_lock() before calling into packet_dev=
-_mc() .
->
-> Not sure how to fix it cleanly, other than disabling a notify here.
-> Any suggestion?
-I don't reproduce it. Can you send me your .config?
-I will look more deeply at the code.
-
-
-Regards,
-Nicolas
+PiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldF0gbmV0cG9sbDogZml4IHJ4X2hvb2soKSBpbnRlcmZh
+Y2UgYnkgcGFzc2luZyB0aGUgc2tiDQo+IA0KPiBPbiBUdWUsIE9jdCAyMiwgMjAxMyBhdCAxMDow
+OTowMEFNICswMTAwLCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+ID4gPiBTdWJqZWN0OiBbUEFUQ0gg
+bmV0XSBuZXRwb2xsOiBmaXggcnhfaG9vaygpIGludGVyZmFjZSBieSBwYXNzaW5nIHRoZSBza2IN
+Cj4gPiA+DQo+ID4gPiBSaWdodCBub3cgc2tiLT5kYXRhIGlzIHBhc3NlZCB0byByeF9ob29rKCkg
+ZXZlbiBpZiB0aGUgc2tiDQo+ID4gPiBoYXMgbm90IGJlZW4gbGluZWFyaXNlZCBhbmQgd2l0aG91
+dCBnaXZpbmcgcnhfaG9vaygpIGEgd2F5DQo+ID4gPiB0byBsaW5lYXJpc2UgaXQuDQo+ID4gPg0K
+PiA+ID4gQ2hhbmdlIHRoZSByeF9ob29rKCkgaW50ZXJmYWNlIGFuZCBtYWtlIGl0IGFjY2VwdCB0
+aGUgc2tiDQo+ID4gPiBhcyBhcmd1bWVudC4gSW4gdGhpcyB3YXkgdXNlcnMgaW1wbGVtZW50aW5n
+IHJ4X2hvb2soKSBjYW4NCj4gPiA+IHBlcmZvcm0gYWxsIHRoZSBuZWVkZWQgb3BlcmF0aW9ucyB0
+byBwcm9wZXJseSAoYW5kIHNhZmVseSkNCj4gPiA+IGFjY2VzcyB0aGUgc2tiIGRhdGEuDQo+ID4g
+Li4uDQo+ID4gPiAtCXZvaWQgKCpyeF9ob29rKShzdHJ1Y3QgbmV0cG9sbCAqLCBpbnQsIGNoYXIg
+KiwgaW50KTsNCj4gPiA+ICsJdm9pZCAoKnJ4X2hvb2spKHN0cnVjdCBuZXRwb2xsICpucCwgc3Ry
+dWN0IHNrX2J1ZmYgKnNrYiwgaW50IG9mZnNldCk7DQo+ID4NCj4gPiBZb3UgY2FuJ3QgZG8gdGhh
+dCBjaGFuZ2Ugd2l0aG91dCBjaGFuZ2luZyB0aGUgd2F5IHRoYXQgaG9va3MgYXJlIHJlZ2lzdGVy
+ZWQNCj4gPiBzbyB0aGF0IGFueSBleGlzdGluZyBtb2R1bGVzIHdpbGwgZmFpbCB0byByZWdpc3Rl
+ciB0aGVpciBob29rcy4NCj4gDQo+IFRoZXJlIGlzIG5vIGhvb2sgcmVnaXN0cmF0aW9uIGluIHRo
+ZSBrZXJuZWwgdHJlZS4gQWxsIHRoZSB1c2VycyBhcmUgb3V0c2lkZS4NCg0KTG9va2luZyBhdCBf
+X25ldHBvbGxfcngoKSBJIG5vdGljZSB0aGF0IHRoZXJlIGlzbid0IGFuIHNrYl9wdWxsIGZvciB0
+aGUNCnVkcCBoZWFkZXIuDQoNCkFjdHVhbGx5LCBJIHRoaW5rIHRoZSBhbGlnbm1lbnQgcnVsZXMg
+ZWZmZWN0aXZlbHkgaW1wbHkgdGhhdCBpcGgtPmlobA0KKHRoZSBzZWNvbmQgYnl0ZSkgd2lsbCBh
+bHdheXMgYmUgaW4gdGhlIGZpcnN0IHNrYiBmcmFnbWVudCBzbyB0aGUNCmNvZGUgY291bGQgc2Vu
+c2libGUgZG8gYSBzaW5nbGUgc2tiX3B1bGwoKSB0aGF0IGluY2x1ZGVzIHRoZSB1ZHAgaGVhZGVy
+Lg0KDQpJIGNhbid0IHJlbWVtYmVyIHdoaWNoIHZhbHVlIHlvdSBwYXNzZWQgYXMgJ29mZnNldCcg
+KGFuZCBteSBtYWlsZXIgbWFrZXMNCml0IGhhcmQgdG8gZmluZCksIGJ1dCB0byBlYXNlIHRoZSBj
+b2RlIGNoYW5nZXMgdGhlIG9mZnNldCBvZiB0aGUgdWRwIGRhdGENCndvdWxkIG1ha2Ugc2Vuc2Uu
+DQpJbiB0aGF0IGNhc2UgeW91IHN0aWxsIG5lZWQgdG8gcGFzcyB0aGUgc291cmNlIHBvcnQuDQpJ
+ZiB5b3UgZG8gcnhfaG9vayhucCwgc291cmNlX3BvcnQsIHNrYiwgb2Zmc2V0KSB0aGVuIGlmIGFu
+eW9uZSBtYW5hZ2VzIHRvDQpsb2FkIGFuIG9sZCBtb2R1bGUgKG9yIGNvZGUgdGhhdCBjYXN0cyB0
+aGUgYXNzaWduZW1lbnQgdG8gcnhfcG9sbCkNCmF0IGxlYXN0IGl0IHdvbid0IGdvICdiYW5nJy4N
+ClJlbmFtaW5nIHRoZSBzdHJ1Y3R1cmUgbWVtYmVyIHdpbGwgZ3VhcmFudGVlIHRvIGdlbmVyYXRl
+IGNvbXBpbGUgZXJyb3JzLg0KDQoJRGF2aWQNCg0KDQoNCg==
