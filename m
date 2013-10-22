@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netpoll: linearize skb before accessing its data
-Date: Tue, 22 Oct 2013 02:50:38 -0400 (EDT)
-Message-ID: <20131022.025038.1046903740187748879.davem@davemloft.net>
-References: <20131022060635.GF1544@neomailbox.net>
-	<20131022.022525.2068838304168924147.davem@davemloft.net>
-	<20131022063714.GI1544@neomailbox.net>
+Subject: Re: [PATCH] 3c59x: fix incorrect use of spin_lock_bh in interrupts
+Date: Tue, 22 Oct 2013 02:55:14 -0400 (EDT)
+Message-ID: <20131022.025514.1611245390510932009.davem@davemloft.net>
+References: <alpine.LRH.2.02.1310211950360.5325@file01.intranet.prod.int.rdu2.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: antonio@meshcoding.com
+Cc: klassert@mathematik.tu-chemnitz.de, netdev@vger.kernel.org
+To: mpatocka@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49340 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49382 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750868Ab3JVGuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 02:50:40 -0400
-In-Reply-To: <20131022063714.GI1544@neomailbox.net>
+	with ESMTP id S1750951Ab3JVGzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 02:55:15 -0400
+In-Reply-To: <alpine.LRH.2.02.1310211950360.5325@file01.intranet.prod.int.rdu2.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Tue, 22 Oct 2013 08:37:14 +0200
+From: Mikulas Patocka <mpatocka@redhat.com>
+Date: Mon, 21 Oct 2013 19:53:22 -0400 (EDT)
 
-> Ok I will do that. But I think this API change must go into
-> net-next, right?  Otherwise we would break every existing user.
+> The functions mdio_read and mdio_write may be called from interrupt
+> context. Consequently, we must use spin_lock_irqsave instead of
+> spin_lock_bh.
+> 
+> This patch should be backported to stable kernels.
 
-Too bad, it's a necessary API change to fix the bug, the users
-will need to change too.
+vortex_down() does a lot of other things which are really dangerous
+from an interrupt handler, such as del_timer_sync().
 
-It's not our problem if they are out-of-tree and can't be fixed
-in-situ.
+The real fix for this bug is to defer the vortex_error() work into
+a workqueue, and thus process context, like every other driver does.
