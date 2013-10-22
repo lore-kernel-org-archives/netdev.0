@@ -1,67 +1,73 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/14] i40e: do not flush after re-enabling interrupts
-Date: Tue, 22 Oct 2013 07:22:24 -0700
-Message-ID: <1382451757-9817-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1382451757-9817-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH stable 3.11] sit: amend "allow to use rtnl ops on fb tunnel"
+Date: Tue, 22 Oct 2013 10:59:18 -0400
+Message-ID: <1382453958-32376-1-git-send-email-willemb@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:48026 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751688Ab3JVOWu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Oct 2013 10:22:50 -0400
-In-Reply-To: <1382451757-9817-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ye0-f201.google.com ([209.85.213.201]:55254 "EHLO
+	mail-ye0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751950Ab3JVO7W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 10:59:22 -0400
+Received: by mail-ye0-f201.google.com with SMTP id l5so363211yen.0
+        for <netdev@vger.kernel.org>; Tue, 22 Oct 2013 07:59:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Amend backport to 3.11.y of
 
-Hot path doesn't need read-flush after interrupt enable, and this
-flush really causes a lot of extra cpu utilization.
+ [ Upstream commit 205983c43700ac3a81e7625273a3fa83cd2759b5 ]
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+The discussion thread in the upstream commit mentions that in
+backports to stable-* branches, the line
+
+  - unregister_netdevice_queue(sitn->fb_tunnel_dev, &list);
+
+must be omitted if that branch does not have commit 5e6700b3bf98
+("sit: add support of x-netns"). This line has correctly been omitted
+in the backport to 3.10, which indeed does not have that commit.
+
+It was also removed in the backport to 3.11.y, which does have that
+commit.
+
+This causes the following steps to hit a BUG at net/core/dev.c:5039:
+
+  `modprobe sit; rmmod sit`
+
+The bug demonstrates that it causes a device to be unregistered twice.
+The simple fix is to apply the one line in the upstream commit that
+was dropped in the backport to 3.11 (3783100374653e2e7fbdf68c710f5).
+This brings the logic in line with upstream linux, net and net-next
+branches.
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 3 ++-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 2 --
- 2 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index fbe7fe2..69ed801 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2560,7 +2560,7 @@ void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector)
- 	      I40E_PFINT_DYN_CTLN_CLEARPBA_MASK |
- 	      (I40E_ITR_NONE << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT);
- 	wr32(hw, I40E_PFINT_DYN_CTLN(vector - 1), val);
--	i40e_flush(hw);
-+	/* skip the flush */
+The policy for networking patches is to queue stable patches up for
+the davem/stable queue.
+
+Since this patch only applies to one specific branch, I assumed
+that creating it directly against 3.11.y is the right process. I
+did *not* directly cc: the stable list. David, please let me know
+if this should not go through your queue at all and I should
+resubmit to stable.
+---
+ net/ipv6/sit.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 86f639b..a51ad07 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -1708,7 +1708,6 @@ static void __net_exit sit_exit_net(struct net *net)
+ 
+ 	rtnl_lock();
+ 	sit_destroy_tunnels(sitn, &list);
+-	unregister_netdevice_queue(sitn->fb_tunnel_dev, &list);
+ 	unregister_netdevice_many(&list);
+ 	rtnl_unlock();
  }
- 
- /**
-@@ -2709,6 +2709,7 @@ static int i40e_vsi_enable_irq(struct i40e_vsi *vsi)
- 		i40e_irq_dynamic_enable_icr0(pf);
- 	}
- 
-+	i40e_flush(&pf->hw);
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index dc89e72..fbc40cd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -559,8 +559,6 @@ static void i40e_update_dynamic_itr(struct i40e_q_vector *q_vector)
- 	i40e_set_new_dynamic_itr(&q_vector->tx);
- 	if (old_itr != q_vector->tx.itr)
- 		wr32(hw, reg_addr, q_vector->tx.itr);
--
--	i40e_flush(hw);
- }
- 
- /**
 -- 
-1.8.3.1
+1.8.4
