@@ -1,75 +1,40 @@
-From: Dave Taht <dave.taht@bufferbloat.net>
-Subject: Re: [PATCH 1/2] fq_codel: keep dropped statistic around
-Date: Mon, 21 Oct 2013 18:43:10 -0700
-Message-ID: <20131022014310.GA5076@lists.bufferbloat.net>
-References: <1382404797-17239-1-git-send-email-dave.taht@bufferbloat.net>
-	<1382404797-17239-2-git-send-email-dave.taht@bufferbloat.net>
-	<CAL4Wiio0YThCbT8j92HVn1CmmdvKD=GT30ZtMf=ZvmAj+ZM7Yg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, codel@lists.bufferbloat.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <codel-bounces@lists.bufferbloat.net>
-Content-Disposition: inline
-In-Reply-To: <CAL4Wiio0YThCbT8j92HVn1CmmdvKD=GT30ZtMf=ZvmAj+ZM7Yg@mail.gmail.com>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
-List-Post: <mailto:codel@lists.bufferbloat.net>
-List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
-	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
-Sender: codel-bounces@lists.bufferbloat.net
-Errors-To: codel-bounces@lists.bufferbloat.net
+From: freddy@asix.com.tw
+Subject: [PATCH 1/1] [PATCH resubmit] ax88179_178a: Correct the RX error definition in RX header
+Date: Tue, 22 Oct 2013 09:47:29 +0800
+Message-ID: <1382406449-2041-1-git-send-email-freddy@asix.com.tw>
+Cc: Freddy Xin <freddy@asix.com.tw>
+To: davem@davemloft.net, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	allan@asix.com.tw, louis@asix.com.tw
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 21, 2013 at 06:27:11PM -0700, Eric Dumazet wrote:
-> On Oct 21, 2013 6:20 PM, "Dave Taht" <dave.taht@bufferbloat.net> wrote:
-> >
-> > Having more accurate dropped information in this qdisc is useful.
-> >
-> > Signed-off-by: Dave Taht <dave.taht@bufferbloat.net>
-> > ---
-> >  net/sched/sch_fq_codel.c |    1 -
-> >  1 file changed, 1 deletion(-)
-> >
-> > diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-> > index 5578628..437bc95 100644
-> > --- a/net/sched/sch_fq_codel.c
-> > +++ b/net/sched/sch_fq_codel.c
-> > @@ -193,7 +193,6 @@ static int fq_codel_enqueue(struct sk_buff *skb,
-> struct Qdisc *sch)
-> >                 list_add_tail(&flow->flowchain, &q->new_flows);
-> >                 q->new_flow_count++;
-> >                 flow->deficit = q->quantum;
-> > -               flow->dropped = 0;
-> >         }
-> >         if (++sch->q.qlen <= sch->limit)
-> >                 return NET_XMIT_SUCCESS;
-> > --
-> > 1.7.9.5
-> I am travelling to Edinburgh, so will be short.
+From: Freddy Xin <freddy@asix.com.tw>
 
-Wish I could have made it.
+Correct the definition of AX_RXHDR_CRC_ERR and
+AX_RXHDR_DROP_ERR. They are BIT29 and BIT31 in pkt_hdr
+seperately.
 
-> Since fqcodel recycles a slot, we need to clear this counter. 
+Signed-off-by: Freddy Xin <freddy@asix.com.tw>
+---
+ drivers/net/usb/ax88179_178a.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-I prefer to think of it as a per "slot dropped counter" and to
-have it retain the total number of drops in that slot since
-qdisc initialization.
-
-> We do no know
-> if slot is reused by previous flow or a new flow hashing to same bucket.
-
-There could also in this case be several flows hashing to the same bucket
-and dropping packets. 
-
-In most cases with the current zero-ing of "drop", polling "tc -s class" 
-yields an unrevealing drop statistic of "0" for many workloads against
-multiple streams at lower bandwidths.
-
-with it not getting zeroed, as per this patch, clear patterns show over 
-many seconds as queues empty, get filled by bursts, and get drops. 
-
-This patch has been in openwrt and cerowrt since feburary.
+diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+index 3569293..3bcd0d9 100644
+--- a/drivers/net/usb/ax88179_178a.c
++++ b/drivers/net/usb/ax88179_178a.c
+@@ -36,8 +36,8 @@
+ #define AX_RXHDR_L4_TYPE_TCP			16
+ #define AX_RXHDR_L3CSUM_ERR			2
+ #define AX_RXHDR_L4CSUM_ERR			1
+-#define AX_RXHDR_CRC_ERR			((u32)BIT(31))
+-#define AX_RXHDR_DROP_ERR			((u32)BIT(30))
++#define AX_RXHDR_CRC_ERR			((u32)BIT(29))
++#define AX_RXHDR_DROP_ERR			((u32)BIT(31))
+ #define AX_ACCESS_MAC				0x01
+ #define AX_ACCESS_PHY				0x02
+ #define AX_ACCESS_EEPROM			0x04
+-- 
+1.7.10.4
