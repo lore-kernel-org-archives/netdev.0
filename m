@@ -1,110 +1,124 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 11/14] i40e: reorder block declarations in debugfs
-Date: Tue, 22 Oct 2013 07:22:34 -0700
-Message-ID: <1382451757-9817-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 07/14] i40e: fix use of untrusted scalar value warning
+Date: Tue, 22 Oct 2013 07:22:30 -0700
+Message-ID: <1382451757-9817-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1382451757-9817-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	sergei.shtylyov@cogentembedded.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:37103 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753582Ab3JVOWz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Oct 2013 10:22:55 -0400
+	id S1753393Ab3JVOWx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Oct 2013 10:22:53 -0400
 In-Reply-To: <1382451757-9817-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-This is a cleanup of the local variables declared at the beginning
-of each function.
+This is a fix for an issue reported by coverity, reported by
+Hannes Frederic Sowa.
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+I'm unable to test if this patch actually fixes the coverity
+reported issue, feedback is welcome.
+
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-v2:
- - Fixed patch description based on feedback from Sergei Shtylyov
----
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 34 ++++++++++++++------------
+ 1 file changed, 18 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 387bf94..246b177 100644
+index c80fcb4..387bf94 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -1147,9 +1147,9 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 		i40e_veb_release(pf->veb[i]);
+@@ -151,9 +151,7 @@ static ssize_t i40e_dbg_dump_write(struct file *filp,
+ 				   size_t count, loff_t *ppos)
+ {
+ 	struct i40e_pf *pf = filp->private_data;
+-	char dump_request_buf[16];
+ 	bool seid_found = false;
+-	int bytes_not_copied;
+ 	long seid = -1;
+ 	int buflen = 0;
+ 	int i, ret;
+@@ -163,21 +161,12 @@ static ssize_t i40e_dbg_dump_write(struct file *filp,
+ 	/* don't allow partial writes */
+ 	if (*ppos != 0)
+ 		return 0;
+-	if (count >= sizeof(dump_request_buf))
+-		return -ENOSPC;
+-
+-	bytes_not_copied = copy_from_user(dump_request_buf, buffer, count);
+-	if (bytes_not_copied < 0)
+-		return bytes_not_copied;
+-	if (bytes_not_copied > 0)
+-		count -= bytes_not_copied;
+-	dump_request_buf[count] = '\0';
  
- 	} else if (strncmp(cmd_buf, "add macaddr", 11) == 0) {
--		u8 ma[6];
--		int vlan = 0;
- 		struct i40e_mac_filter *f;
-+		int vlan = 0;
-+		u8 ma[6];
- 		int ret;
+ 	/* decode the SEID given to be dumped */
+-	ret = kstrtol(dump_request_buf, 0, &seid);
+-	if (ret < 0) {
+-		dev_info(&pf->pdev->dev, "bad seid value '%s'\n",
+-			 dump_request_buf);
++	ret = kstrtol_from_user(buffer, count, 0, &seid);
++
++	if (ret) {
++		dev_info(&pf->pdev->dev, "bad seid value\n");
+ 	} else if (seid == 0) {
+ 		seid_found = true;
  
- 		cnt = sscanf(&cmd_buf[11],
-@@ -1185,8 +1185,8 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 				 ma, vlan, vsi_seid, f, ret);
+@@ -1023,11 +1012,11 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 				      size_t count, loff_t *ppos)
+ {
+ 	struct i40e_pf *pf = filp->private_data;
++	char *cmd_buf, *cmd_buf_tmp;
+ 	int bytes_not_copied;
+ 	struct i40e_vsi *vsi;
+ 	u8 *print_buf_start;
+ 	u8 *print_buf;
+-	char *cmd_buf;
+ 	int vsi_seid;
+ 	int veb_seid;
+ 	int cnt;
+@@ -1046,6 +1035,12 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		count -= bytes_not_copied;
+ 	cmd_buf[count] = '\0';
  
- 	} else if (strncmp(cmd_buf, "del macaddr", 11) == 0) {
--		u8 ma[6];
- 		int vlan = 0;
-+		u8 ma[6];
- 		int ret;
++	cmd_buf_tmp = strchr(cmd_buf, '\n');
++	if (cmd_buf_tmp) {
++		*cmd_buf_tmp = '\0';
++		count = cmd_buf_tmp - cmd_buf + 1;
++	}
++
+ 	print_buf_start = kzalloc(I40E_MAX_DEBUG_OUT_BUFFER, GFP_KERNEL);
+ 	if (!print_buf_start)
+ 		goto command_write_done;
+@@ -1900,6 +1895,7 @@ static ssize_t i40e_dbg_netdev_ops_write(struct file *filp,
+ 	struct i40e_pf *pf = filp->private_data;
+ 	int bytes_not_copied;
+ 	struct i40e_vsi *vsi;
++	char *buf_tmp;
+ 	int vsi_seid;
+ 	int i, cnt;
  
- 		cnt = sscanf(&cmd_buf[11],
-@@ -1222,9 +1222,9 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 				 ma, vlan, vsi_seid, ret);
+@@ -1918,6 +1914,12 @@ static ssize_t i40e_dbg_netdev_ops_write(struct file *filp,
+ 		count -= bytes_not_copied;
+ 	i40e_dbg_netdev_ops_buf[count] = '\0';
  
- 	} else if (strncmp(cmd_buf, "add pvid", 8) == 0) {
--		int v;
--		u16 vid;
- 		i40e_status ret;
-+		u16 vid;
-+		int v;
- 
- 		cnt = sscanf(&cmd_buf[8], "%i %u", &vsi_seid, &v);
- 		if (cnt != 2) {
-@@ -1535,10 +1535,10 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 	} else if ((strncmp(cmd_buf, "add fd_filter", 13) == 0) ||
- 		   (strncmp(cmd_buf, "rem fd_filter", 13) == 0)) {
- 		struct i40e_fdir_data fd_data;
--		int ret;
- 		u16 packet_len, i, j = 0;
- 		char *asc_packet;
- 		bool add = false;
-+		int ret;
- 
- 		asc_packet = kzalloc(I40E_FDIR_MAX_RAW_PACKET_LOOKUP,
- 				     GFP_KERNEL);
-@@ -1626,9 +1626,9 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 			}
- 		} else if (strncmp(&cmd_buf[5],
- 			   "get local", 9) == 0) {
-+			u16 llen, rlen;
- 			int ret, i;
- 			u8 *buff;
--			u16 llen, rlen;
- 			buff = kzalloc(I40E_LLDPDU_SIZE, GFP_KERNEL);
- 			if (!buff)
- 				goto command_write_done;
-@@ -1659,9 +1659,9 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 			kfree(buff);
- 			buff = NULL;
- 		} else if (strncmp(&cmd_buf[5], "get remote", 10) == 0) {
-+			u16 llen, rlen;
- 			int ret, i;
- 			u8 *buff;
--			u16 llen, rlen;
- 			buff = kzalloc(I40E_LLDPDU_SIZE, GFP_KERNEL);
- 			if (!buff)
- 				goto command_write_done;
++	buf_tmp = strchr(i40e_dbg_netdev_ops_buf, '\n');
++	if (buf_tmp) {
++		*buf_tmp = '\0';
++		count = buf_tmp - i40e_dbg_netdev_ops_buf + 1;
++	}
++
+ 	if (strncmp(i40e_dbg_netdev_ops_buf, "tx_timeout", 10) == 0) {
+ 		cnt = sscanf(&i40e_dbg_netdev_ops_buf[11], "%i", &vsi_seid);
+ 		if (cnt != 1) {
 -- 
 1.8.3.1
