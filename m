@@ -1,51 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4 net-next] net: phy: add Generic Netlink Ethernet
- switch configuration API
-Date: Tue, 22 Oct 2013 17:22:04 -0400 (EDT)
-Message-ID: <20131022.172204.485588329844430729.davem@davemloft.net>
-References: <CAGVrzcYCK3QBMgHnZ2T=wzeckX-enwJOu7DEcKHg3s=ABivLDQ@mail.gmail.com>
-	<20131022.154722.1236352694540893148.davem@davemloft.net>
-	<1382477150.19269.69.camel@dcbw.foobar.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	s.hauer@pengutronix.de, nbd@openwrt.org, blogic@openwrt.org,
-	jogo@openwrt.org, gary@mlbassoc.com
-To: dcbw@redhat.com
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH net-next] netem: markov loss model transition fix
+Date: Tue, 22 Oct 2013 23:27:06 +0200
+Message-ID: <1382477226-1869-1-git-send-email-hagen@jauu.net>
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Stefano Salsano <stefano.salsano@uniroma2.it>,
+	Fabio Ludovici <fabio.ludovici@yahoo.it>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59839 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753748Ab3JVVWI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 17:22:08 -0400
-In-Reply-To: <1382477150.19269.69.camel@dcbw.foobar.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:36537 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753370Ab3JVV1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 17:27:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Williams <dcbw@redhat.com>
-Date: Tue, 22 Oct 2013 16:25:50 -0500
+The transition from markov state "3 => lost packets within a burst
+period" to "1 => successfully transmitted packets within a gap period"
+has no *additional* loss event. The loss already happen for transition
+from 1 -> 3, this additional loss will make things go wild.
 
-> On Tue, 2013-10-22 at 15:47 -0400, David Miller wrote:
->> From: Florian Fainelli <f.fainelli@gmail.com>
->> Date: Tue, 22 Oct 2013 12:32:29 -0700
->> 
->> > 2013/10/22 Dan Williams <dcbw@redhat.com>:
->> >> On Tue, 2013-10-22 at 11:23 -0700, Florian Fainelli wrote:
->> >>> This patch adds an Ethernet Switch generic netlink configuration API
->> >>> which allows for doing the required configuration of managed Ethernet
->> >>> switches commonly found in Wireless/Cable/DSL routers in the market.
->> >>
->> >> "swconfig" probably means "switch config", but is there any way to
->> >> rename this away from the "sw" prefix, since "sw" typically means
->> >> "software" and not "switch"?
->> > 
->> > Sure, how about something like "enetsw"? I would like to avoid using
->> > "switch" too much since this is a C reserved keyword.
->> 
->> "swtch"? :-)
-> 
-> haha...  seriously though, "enetsw" or even "esw" or "ensw" would be
-> better than plain "sw".  Your choice, I have no horse in the race other
-> than the "not sw" horse :)
+E.g. transition probabilities:
 
-"enetsw" is fine by me :-)
+p13:   10%
+p31:  100%
+
+Expected:
+
+Ploss = p13 / (p13 + p31)
+Ploss = ~9.09%
+
+... but it isn't. Even worse: we get a double loss - each time.
+So simple don't return true to indicate loss, rather break and return
+false.
+
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Stefano Salsano <stefano.salsano@uniroma2.it>
+Cc: Fabio Ludovici <fabio.ludovici@yahoo.it>
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+---
+ net/sched/sch_netem.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index a6d788d..6bf9088 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -235,7 +235,6 @@ static bool loss_4state(struct netem_sched_data *q)
+ 			clg->state = 2;
+ 		else if (clg->a3 < rnd && rnd < clg->a2 + clg->a3) {
+ 			clg->state = 1;
+-			return true;
+ 		} else if (clg->a2 + clg->a3 < rnd) {
+ 			clg->state = 3;
+ 			return true;
+-- 
+1.8.4.rc3
