@@ -1,86 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/14] i40e: debugfs fixups
-Date: Tue, 22 Oct 2013 07:22:28 -0700
-Message-ID: <1382451757-9817-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/14] i40e: do not flush after re-enabling interrupts
+Date: Tue, 22 Oct 2013 07:22:24 -0700
+Message-ID: <1382451757-9817-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1382451757-9817-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:37103 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:48026 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753411Ab3JVOWw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Oct 2013 10:22:52 -0400
+	id S1751688Ab3JVOWu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Oct 2013 10:22:50 -0400
 In-Reply-To: <1382451757-9817-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-debugfs fixes for issues found by coverity.
-
-This issue was identified by the coverity checker, reported by Hannes Frederic
-Sowa.
+Hot path doesn't need read-flush after interrupt enable, and this
+flush really causes a lot of extra cpu utilization.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 38 ++++++++++++++++++--------
- 1 file changed, 26 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 3 ++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 2 --
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 19e248f..304f39d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -2019,21 +2019,35 @@ static const struct file_operations i40e_dbg_netdev_ops_fops = {
-  **/
- void i40e_dbg_pf_init(struct i40e_pf *pf)
- {
--	struct dentry *pfile __attribute__((unused));
-+	struct dentry *pfile;
- 	const char *name = pci_name(pf->pdev);
-+	const struct device *dev = &pf->pdev->dev;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index fbe7fe2..69ed801 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2560,7 +2560,7 @@ void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector)
+ 	      I40E_PFINT_DYN_CTLN_CLEARPBA_MASK |
+ 	      (I40E_ITR_NONE << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT);
+ 	wr32(hw, I40E_PFINT_DYN_CTLN(vector - 1), val);
+-	i40e_flush(hw);
++	/* skip the flush */
+ }
  
- 	pf->i40e_dbg_pf = debugfs_create_dir(name, i40e_dbg_root);
--	if (pf->i40e_dbg_pf) {
--		pfile = debugfs_create_file("command", 0600, pf->i40e_dbg_pf,
--					    pf, &i40e_dbg_command_fops);
--		pfile = debugfs_create_file("dump", 0600, pf->i40e_dbg_pf, pf,
--					    &i40e_dbg_dump_fops);
--		pfile = debugfs_create_file("netdev_ops", 0600, pf->i40e_dbg_pf,
--					    pf, &i40e_dbg_netdev_ops_fops);
--	} else {
--		dev_info(&pf->pdev->dev,
--			 "debugfs entry for %s failed\n", name);
--	}
-+	if (!pf->i40e_dbg_pf)
-+		return;
-+
-+	pfile = debugfs_create_file("command", 0600, pf->i40e_dbg_pf, pf,
-+				    &i40e_dbg_command_fops);
-+	if (!pfile)
-+		goto create_failed;
-+
-+	pfile = debugfs_create_file("dump", 0600, pf->i40e_dbg_pf, pf,
-+				    &i40e_dbg_dump_fops);
-+	if (!pfile)
-+		goto create_failed;
-+
-+	pfile = debugfs_create_file("netdev_ops", 0600, pf->i40e_dbg_pf, pf,
-+				    &i40e_dbg_netdev_ops_fops);
-+	if (!pfile)
-+		goto create_failed;
-+
-+	return;
-+
-+create_failed:
-+	dev_info(dev, "debugfs dir/file for %s failed\n", name);
-+	debugfs_remove_recursive(pf->i40e_dbg_pf);
-+	return;
+ /**
+@@ -2709,6 +2709,7 @@ static int i40e_vsi_enable_irq(struct i40e_vsi *vsi)
+ 		i40e_irq_dynamic_enable_icr0(pf);
+ 	}
+ 
++	i40e_flush(&pf->hw);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index dc89e72..fbc40cd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -559,8 +559,6 @@ static void i40e_update_dynamic_itr(struct i40e_q_vector *q_vector)
+ 	i40e_set_new_dynamic_itr(&q_vector->tx);
+ 	if (old_itr != q_vector->tx.itr)
+ 		wr32(hw, reg_addr, q_vector->tx.itr);
+-
+-	i40e_flush(hw);
  }
  
  /**
