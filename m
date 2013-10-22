@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 11/11] asmlinkage, wan/sbni: Make inline assembler
- symbols visible and assembler global
-Date: Tue, 22 Oct 2013 13:59:28 -0400 (EDT)
-Message-ID: <20131022.135928.2040131908206663695.davem@davemloft.net>
-References: <1382458346-24811-1-git-send-email-andi@firstfloor.org>
-	<1382458346-24811-12-git-send-email-andi@firstfloor.org>
+Subject: Re: [PATCH RESENT net-next] net: remove function sk_reset_txq()
+Date: Tue, 22 Oct 2013 14:00:33 -0400 (EDT)
+Message-ID: <20131022.140033.505525780006392986.davem@davemloft.net>
+References: <20131022082338.GA19349@will>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	ak@linux.intel.com, netdev@vger.kernel.org
-To: andi@firstfloor.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1382458346-24811-12-git-send-email-andi@firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: gamerh2o@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58465 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753584Ab3JVSAe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 14:00:34 -0400
+In-Reply-To: <20131022082338.GA19349@will>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Tue, 22 Oct 2013 09:12:26 -0700
+From: ZHAO Gang <gamerh2o@gmail.com>
+Date: Tue, 22 Oct 2013 16:23:38 +0800
 
-> From: Andi Kleen <ak@linux.intel.com>
+> What sk_reset_txq() does is just calls function sk_tx_queue_reset(),
+> and sk_reset_txq() is used only in sock.h, by dst_negative_advice().
+> Let dst_negative_advice() calls sk_tx_queue_reset() directly so we
+> can remove unneeded sk_reset_txq().
 > 
-> - Inline assembler defining C callable code has to be global
-> - The function has to be visible
-> 
-> Do this in wan/sbni
-> 
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> Signed-off-by: ZHAO Gang <gamerh2o@gmail.com>
 
-Is it really impossible to use the generic crc32 support instead of this
-unsightly custom inline assembler?
+Applied, thanks.
