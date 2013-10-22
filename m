@@ -1,68 +1,73 @@
-From: Mikulas Patocka <mpatocka@redhat.com>
-Subject: Re: [PATCH] 3c59x: fix incorrect use of spin_lock_bh in interrupts
-Date: Tue, 22 Oct 2013 12:07:01 -0400 (EDT)
-Message-ID: <alpine.LRH.2.02.1310221148010.29454@file01.intranet.prod.int.rdu2.redhat.com>
-References: <alpine.LRH.2.02.1310211950360.5325@file01.intranet.prod.int.rdu2.redhat.com> <20131022.025514.1611245390510932009.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: klassert@mathematik.tu-chemnitz.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33154 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753234Ab3JVQHI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Oct 2013 12:07:08 -0400
-In-Reply-To: <20131022.025514.1611245390510932009.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH 11/11] asmlinkage, wan/sbni: Make inline assembler symbols visible and assembler global
+Date: Tue, 22 Oct 2013 09:12:26 -0700
+Message-ID: <1382458346-24811-12-git-send-email-andi@firstfloor.org>
+References: <1382458346-24811-1-git-send-email-andi@firstfloor.org>
+Cc: linux-kernel@vger.kernel.org, Andi Kleen <ak@linux.intel.com>,
+	netdev@vger.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1382458346-24811-1-git-send-email-andi@firstfloor.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Andi Kleen <ak@linux.intel.com>
 
+- Inline assembler defining C callable code has to be global
+- The function has to be visible
 
-On Tue, 22 Oct 2013, David Miller wrote:
+Do this in wan/sbni
 
-> From: Mikulas Patocka <mpatocka@redhat.com>
-> Date: Mon, 21 Oct 2013 19:53:22 -0400 (EDT)
-> 
-> > The functions mdio_read and mdio_write may be called from interrupt
-> > context. Consequently, we must use spin_lock_irqsave instead of
-> > spin_lock_bh.
-> > 
-> > This patch should be backported to stable kernels.
-> 
-> vortex_down() does a lot of other things which are really dangerous
-> from an interrupt handler, such as del_timer_sync().
-> 
-> The real fix for this bug is to defer the vortex_error() work into
-> a workqueue, and thus process context, like every other driver does.
+Cc: netdev@vger.kernel.org
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
+---
+ drivers/net/wan/sbni.c | 6 +++---
+ drivers/net/wan/sbni.h | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-That del_timer_sync() could be skipped - if we reset the card, we don't 
-need to reinitialize the times. Do you see anything else there that 
-prevents the functions vortex_down and vortex_up from being called from an 
-interrupt?
-
-There is another bug in the driver - vortex_up(dev);  /* AKPM: bug.  
-vortex_up() assumes that the rx ring is full. It may not be. */ --- so it 
-likely needs more rework of the receive path.
-
-
-
-Another thing - I'd like to ask about this part of the driver:
-                        vp->rx_ring[entry].addr = 
-cpu_to_le32(pci_map_single(VORTEX_PCI(vp), skb->data, PKT_BUF_SZ, 
-PCI_DMA_FROMDEVICE));
-                        vp->rx_skbuff[entry] = skb;
-                }
-                vp->rx_ring[entry].status = 0;  /* Clear complete bit. */
-                iowrite16(UpUnstall, ioaddr + EL3_CMD);
-
-We set vp->rx_ring[entry].addr as an address of the new buffer and then 
-vp->rx_ring[entry].status, that enables the card to write to the 
-descriptor.
-
-The ring is allocated with dma_alloc_coherent. Does dma_alloc_coherent 
-guarantee that the writes to "addr" and "status" field won't be reordered 
-by the processor? (on x86 it is guaranteed, but what about others). Should 
-there be wmb() between write to "addr" and "status" and between write to 
-"status" and "EL3_CMD"? Some other drivers have wmb() in these sections.
-
-Mikulas
+diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
+index 5bbcb5e..571db25 100644
+--- a/drivers/net/wan/sbni.c
++++ b/drivers/net/wan/sbni.c
+@@ -160,7 +160,7 @@ static int  scandone	__initdata = 0;
+ static int  num		__initdata = 0;
+ 
+ static unsigned char  rxl_tab[];
+-static u32  crc32tab[];
++__visible u32  sbni_crc32tab[];
+ 
+ /* A list of all installed devices, for removing the driver module. */
+ static struct net_device  *sbni_cards[ SBNI_MAX_NUM_CARDS ];
+@@ -1563,7 +1563,7 @@ calc_crc32( u32  crc,  u8  *p,  u32  len )
+ 		"xorl	%%ebx, %%ebx\n"
+ 		"movl	%2, %%esi\n" 
+ 		"movl	%3, %%ecx\n" 
+-		"movl	$crc32tab, %%edi\n"
++		"movl	$sbni_crc32tab, %%edi\n"
+ 		"shrl	$2, %%ecx\n"
+ 		"jz	1f\n"
+ 
+@@ -1645,7 +1645,7 @@ calc_crc32( u32  crc,  u8  *p,  u32  len )
+ #endif	/* ASM_CRC */
+ 
+ 
+-static u32  crc32tab[] __attribute__ ((aligned(8))) = {
++__visible u32  sbni_crc32tab[] __attribute__ ((aligned(8))) = {
+ 	0xD202EF8D,  0xA505DF1B,  0x3C0C8EA1,  0x4B0BBE37,
+ 	0xD56F2B94,  0xA2681B02,  0x3B614AB8,  0x4C667A2E,
+ 	0xDCD967BF,  0xABDE5729,  0x32D70693,  0x45D03605,
+diff --git a/drivers/net/wan/sbni.h b/drivers/net/wan/sbni.h
+index 8426451..7e6d980 100644
+--- a/drivers/net/wan/sbni.h
++++ b/drivers/net/wan/sbni.h
+@@ -132,7 +132,7 @@ struct sbni_flags {
+ /*
+  * CRC-32 stuff
+  */
+-#define CRC32(c,crc) (crc32tab[((size_t)(crc) ^ (c)) & 0xff] ^ (((crc) >> 8) & 0x00FFFFFF))
++#define CRC32(c,crc) (sbni_crc32tab[((size_t)(crc) ^ (c)) & 0xff] ^ (((crc) >> 8) & 0x00FFFFFF))
+       /* CRC generator 0xEDB88320 */
+       /* CRC remainder 0x2144DF1C */
+       /* CRC initial value 0x00000000 */
+-- 
+1.8.3.1
