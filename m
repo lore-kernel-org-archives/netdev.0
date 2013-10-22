@@ -1,57 +1,40 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net] netpoll: fix rx_hook() interface by passing the skb
-Date: Tue, 22 Oct 2013 13:46:22 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B739F@saturn3.aculab.com>
-References: <20131022.025038.1046903740187748879.davem@davemloft.net> <1382431715-3128-1-git-send-email-antonio@meshcoding.com> <AE90C24D6B3A694183C094C60CF0A2F6026B739B@saturn3.aculab.com> <20131022101127.GJ1544@neomailbox.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next 0/2] Removal of struct esp_data
+Date: Tue, 22 Oct 2013 15:08:22 +0200
+Message-ID: <20131022130822.GA26207@secunet.com>
+References: <1382090945-20860-1-git-send-email-mathias.krause@secunet.com>
+ <20131018.135536.686066381481925652.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Antonio Quartulli" <antonio@meshcoding.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: mathias.krause@secunet.com, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:47055 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751446Ab3JVMsT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Oct 2013 08:48:19 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 17274-01 for <netdev@vger.kernel.org>;
- Tue, 22 Oct 2013 13:48:16 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20131022101127.GJ1544@neomailbox.net>
+Received: from a.mx.secunet.com ([195.81.216.161]:37467 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752507Ab3JVNIZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Oct 2013 09:08:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20131018.135536.686066381481925652.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldF0gbmV0cG9sbDogZml4IHJ4X2hvb2soKSBpbnRlcmZh
-Y2UgYnkgcGFzc2luZyB0aGUgc2tiDQo+IA0KPiBPbiBUdWUsIE9jdCAyMiwgMjAxMyBhdCAxMDow
-OTowMEFNICswMTAwLCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+ID4gPiBTdWJqZWN0OiBbUEFUQ0gg
-bmV0XSBuZXRwb2xsOiBmaXggcnhfaG9vaygpIGludGVyZmFjZSBieSBwYXNzaW5nIHRoZSBza2IN
-Cj4gPiA+DQo+ID4gPiBSaWdodCBub3cgc2tiLT5kYXRhIGlzIHBhc3NlZCB0byByeF9ob29rKCkg
-ZXZlbiBpZiB0aGUgc2tiDQo+ID4gPiBoYXMgbm90IGJlZW4gbGluZWFyaXNlZCBhbmQgd2l0aG91
-dCBnaXZpbmcgcnhfaG9vaygpIGEgd2F5DQo+ID4gPiB0byBsaW5lYXJpc2UgaXQuDQo+ID4gPg0K
-PiA+ID4gQ2hhbmdlIHRoZSByeF9ob29rKCkgaW50ZXJmYWNlIGFuZCBtYWtlIGl0IGFjY2VwdCB0
-aGUgc2tiDQo+ID4gPiBhcyBhcmd1bWVudC4gSW4gdGhpcyB3YXkgdXNlcnMgaW1wbGVtZW50aW5n
-IHJ4X2hvb2soKSBjYW4NCj4gPiA+IHBlcmZvcm0gYWxsIHRoZSBuZWVkZWQgb3BlcmF0aW9ucyB0
-byBwcm9wZXJseSAoYW5kIHNhZmVseSkNCj4gPiA+IGFjY2VzcyB0aGUgc2tiIGRhdGEuDQo+ID4g
-Li4uDQo+ID4gPiAtCXZvaWQgKCpyeF9ob29rKShzdHJ1Y3QgbmV0cG9sbCAqLCBpbnQsIGNoYXIg
-KiwgaW50KTsNCj4gPiA+ICsJdm9pZCAoKnJ4X2hvb2spKHN0cnVjdCBuZXRwb2xsICpucCwgc3Ry
-dWN0IHNrX2J1ZmYgKnNrYiwgaW50IG9mZnNldCk7DQo+ID4NCj4gPiBZb3UgY2FuJ3QgZG8gdGhh
-dCBjaGFuZ2Ugd2l0aG91dCBjaGFuZ2luZyB0aGUgd2F5IHRoYXQgaG9va3MgYXJlIHJlZ2lzdGVy
-ZWQNCj4gPiBzbyB0aGF0IGFueSBleGlzdGluZyBtb2R1bGVzIHdpbGwgZmFpbCB0byByZWdpc3Rl
-ciB0aGVpciBob29rcy4NCj4gDQo+IFRoZXJlIGlzIG5vIGhvb2sgcmVnaXN0cmF0aW9uIGluIHRo
-ZSBrZXJuZWwgdHJlZS4gQWxsIHRoZSB1c2VycyBhcmUgb3V0c2lkZS4NCg0KTG9va2luZyBhdCBf
-X25ldHBvbGxfcngoKSBJIG5vdGljZSB0aGF0IHRoZXJlIGlzbid0IGFuIHNrYl9wdWxsIGZvciB0
-aGUNCnVkcCBoZWFkZXIuDQoNCkFjdHVhbGx5LCBJIHRoaW5rIHRoZSBhbGlnbm1lbnQgcnVsZXMg
-ZWZmZWN0aXZlbHkgaW1wbHkgdGhhdCBpcGgtPmlobA0KKHRoZSBzZWNvbmQgYnl0ZSkgd2lsbCBh
-bHdheXMgYmUgaW4gdGhlIGZpcnN0IHNrYiBmcmFnbWVudCBzbyB0aGUNCmNvZGUgY291bGQgc2Vu
-c2libGUgZG8gYSBzaW5nbGUgc2tiX3B1bGwoKSB0aGF0IGluY2x1ZGVzIHRoZSB1ZHAgaGVhZGVy
-Lg0KDQpJIGNhbid0IHJlbWVtYmVyIHdoaWNoIHZhbHVlIHlvdSBwYXNzZWQgYXMgJ29mZnNldCcg
-KGFuZCBteSBtYWlsZXIgbWFrZXMNCml0IGhhcmQgdG8gZmluZCksIGJ1dCB0byBlYXNlIHRoZSBj
-b2RlIGNoYW5nZXMgdGhlIG9mZnNldCBvZiB0aGUgdWRwIGRhdGENCndvdWxkIG1ha2Ugc2Vuc2Uu
-DQpJbiB0aGF0IGNhc2UgeW91IHN0aWxsIG5lZWQgdG8gcGFzcyB0aGUgc291cmNlIHBvcnQuDQpJ
-ZiB5b3UgZG8gcnhfaG9vayhucCwgc291cmNlX3BvcnQsIHNrYiwgb2Zmc2V0KSB0aGVuIGlmIGFu
-eW9uZSBtYW5hZ2VzIHRvDQpsb2FkIGFuIG9sZCBtb2R1bGUgKG9yIGNvZGUgdGhhdCBjYXN0cyB0
-aGUgYXNzaWduZW1lbnQgdG8gcnhfcG9sbCkNCmF0IGxlYXN0IGl0IHdvbid0IGdvICdiYW5nJy4N
-ClJlbmFtaW5nIHRoZSBzdHJ1Y3R1cmUgbWVtYmVyIHdpbGwgZ3VhcmFudGVlIHRvIGdlbmVyYXRl
-IGNvbXBpbGUgZXJyb3JzLg0KDQoJRGF2aWQNCg0KDQoNCg==
+On Fri, Oct 18, 2013 at 01:55:36PM -0400, David Miller wrote:
+> From: Mathias Krause <mathias.krause@secunet.com>
+> Date: Fri, 18 Oct 2013 12:09:03 +0200
+> 
+> > This series removes one level of indirection when accessing the aead
+> > crypto algorithm in ESP transforms by simply removing struct esp_data.
+> > This results in smaller code and less memory usage per xfrm state.
+> > 
+> > Please apply!
+> 
+> No objections from me, I'll let Steffen pick this up.
+
+I'm a bit hesitating with removing the padlen field. We resisted
+several attempts to remove it in the past. It is currenly unused,
+but it provides the infrastructure for ESP padding as defined
+in RFC 4303. However, RFC 4303 recommends the use of TFC padding
+instead to conceal the actual length of the packet. So I'm not
+sure what's the actual usecase for ESP padding. I'll reconsider
+this next week when I'm back at office.
