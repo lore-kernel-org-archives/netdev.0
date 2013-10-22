@@ -1,109 +1,152 @@
-From: Joe Stringer <joestringernz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2.44 1/5] odp: Allow VLAN actions after MPLS
-	actions
-Date: Tue, 22 Oct 2013 11:30:26 -0700
-Message-ID: <CAOftzPgSG7NO+hFEeHU0xGH5TjJRe-THGDVz7THrm26j5ua-bA@mail.gmail.com>
-References: <1381972511-27221-1-git-send-email-horms@verge.net.au>
-	<1381972511-27221-2-git-send-email-horms@verge.net.au>
-	<20131021204102.GD15986@nicira.com>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: [PATCH] net: wan: sbni: remove assembly crc32 code
+Date: Tue, 22 Oct 2013 20:36:25 +0200
+Message-ID: <20131022183625.GA4382@breakpoint.cc>
+References: <1382458346-24811-1-git-send-email-andi@firstfloor.org>
+ <1382458346-24811-12-git-send-email-andi@firstfloor.org>
+ <20131022.135928.2040131908206663695.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0485099311=="
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
-To: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20131021204102.GD15986-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: andi@firstfloor.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, ak@linux.intel.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131022.135928.2040131908206663695.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============0485099311==
-Content-Type: multipart/alternative; boundary=047d7b874c922e778504e95898d4
 
---047d7b874c922e778504e95898d4
-Content-Type: text/plain; charset=ISO-8859-1
+There is also a C function doing the same thing. Unless the asm code is
+110% faster we could stick to the C function.
 
-You're quite right. I think for OF1.2, this is similar to existing
-behaviour, but for OF1.3 it's just incorrect. There is an additional issue
-with the LOAD action.
+Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+---
 
-OF1.2:
-"push_vlan(A),push_mpls,push_vlan(B)"
-In OF1.2, this has the same result as:-
-"push_mpls,push_vlan(A),push_vlan(B)"
+On Tue, Oct 22, 2013 at 01:59:28PM -0400, David Miller wrote:
+> 
+> Is it really impossible to use the generic crc32 support instead of this
+> unsightly custom inline assembler?
 
-When translated, this boils down to "(pop_vlan,)push_mpls,push_vlan(B)".
-Correct me if I am wrong, but I think this is similar to the existing
-behaviour, as we currently only support one layer of VLAN. It doesn't
-matter if A == B.
+Since you asked for this here step 1.
 
-OF1.3:
-"mod_vlan_vid:A,push_mpls:0x8847,mod_vlan_vid:A" should work, but the
-second mod_vlan is being dropped as it has the same VID as the first. This
-is incorrect, as you point out.
+ drivers/net/wan/sbni.c | 89 --------------------------------------------------
+ 1 file changed, 89 deletions(-)
 
-LOAD:
-"load:A->OXM_OF_VLAN_VID,push_mpls:0x8847,load:A->OXM_OF_VLAN_VID" doesn't
-result in the correct vlan_vid from the first load action. I'm not sure
-that vlan_tci_restore() is clear or correct---I believe its original
-purpose was to properly handle the case where MPLS changes are made from
-REG_LOAD and friends, in the way that the PUSH_MPLS case works. Instead, it
-is handling all cases where MPLS actions have been applied in the past,
-whether the current action modifies MPLS or not.
-
-It's probably also worthwhile to make use of the ovs-ofctl monitor "-m"
-option in the tests to actually verify these, rather than the current tests
-where we just check the size of the resulting packet.
-
---047d7b874c922e778504e95898d4
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-<p dir=3D"ltr">You&#39;re quite right. I think for OF1.2, this is similar t=
-o existing behaviour, but for OF1.3 it&#39;s just incorrect. There is an ad=
-ditional issue with the LOAD action.</p>
-<p dir=3D"ltr">OF1.2:<br>
-&quot;push_vlan(A),push_mpls,push_vlan(B)&quot;<br>
-In OF1.2, this has the same result as:-<br>
-&quot;push_mpls,push_vlan(A),push_vlan(B)&quot;</p>
-<p dir=3D"ltr">When translated, this boils down to &quot;(pop_vlan,)push_mp=
-ls,push_vlan(B)&quot;. Correct me if I am wrong, but I think this is simila=
-r to the existing behaviour, as we currently only support one layer of VLAN=
-. It doesn&#39;t matter if A =3D=3D B.</p>
-
-<p dir=3D"ltr">OF1.3:<br>
-&quot;mod_vlan_vid:A,push_mpls:0x8847,mod_vlan_vid:A&quot; should work, but=
- the second mod_vlan is being dropped as it has the same VID as the first. =
-This is incorrect, as you point out.</p>
-<p dir=3D"ltr">LOAD:<br>
-&quot;load:A-&gt;OXM_OF_VLAN_VID,push_mpls:0x8847,load:A-&gt;OXM_OF_VLAN_VI=
-D&quot; doesn&#39;t result in the correct vlan_vid from the first load acti=
-on. I&#39;m not sure that=A0vlan_tci_restore() is clear or correct---I beli=
-eve its original purpose was to properly handle the case where MPLS changes=
- are made from REG_LOAD and friends, in the way that the PUSH_MPLS case wor=
-ks. Instead, it is handling all cases where MPLS actions have been applied =
-in the past, whether the current action modifies MPLS or not.</p>
-
-<p dir=3D"ltr">It&#39;s probably also worthwhile to make use of the ovs-ofc=
-tl monitor &quot;-m&quot; option in the tests to actually verify these, rat=
-her than the current tests where we just check the size of the resulting pa=
-cket. </p>
-
-
---047d7b874c922e778504e95898d4--
-
---===============0485099311==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
---===============0485099311==--
+diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
+index 5bbcb5e..388ddf6 100644
+--- a/drivers/net/wan/sbni.c
++++ b/drivers/net/wan/sbni.c
+@@ -148,10 +148,6 @@ static int  enslave( struct net_device *, struct net_device * );
+ static int  emancipate( struct net_device * );
+ #endif
+ 
+-#ifdef __i386__
+-#define ASM_CRC 1
+-#endif
+-
+ static const char  version[] =
+ 	"Granch SBNI12 driver ver 5.0.1  Jun 22 2001  Denis I.Timofeev.\n";
+ 
+@@ -1551,88 +1547,6 @@ __setup( "sbni=", sbni_setup );
+ 
+ /* -------------------------------------------------------------------------- */
+ 
+-#ifdef ASM_CRC
+-
+-static u32
+-calc_crc32( u32  crc,  u8  *p,  u32  len )
+-{
+-	register u32  _crc;
+-	_crc = crc;
+-	
+-	__asm__ __volatile__ (
+-		"xorl	%%ebx, %%ebx\n"
+-		"movl	%2, %%esi\n" 
+-		"movl	%3, %%ecx\n" 
+-		"movl	$crc32tab, %%edi\n"
+-		"shrl	$2, %%ecx\n"
+-		"jz	1f\n"
+-
+-		".align 4\n"
+-	"0:\n"
+-		"movb	%%al, %%bl\n"
+-		"movl	(%%esi), %%edx\n"
+-		"shrl	$8, %%eax\n"
+-		"xorb	%%dl, %%bl\n"
+-		"shrl	$8, %%edx\n"
+-		"xorl	(%%edi,%%ebx,4), %%eax\n"
+-
+-		"movb	%%al, %%bl\n"
+-		"shrl	$8, %%eax\n"
+-		"xorb	%%dl, %%bl\n"
+-		"shrl	$8, %%edx\n"
+-		"xorl	(%%edi,%%ebx,4), %%eax\n"
+-
+-		"movb	%%al, %%bl\n"
+-		"shrl	$8, %%eax\n"
+-		"xorb	%%dl, %%bl\n"
+-		"movb	%%dh, %%dl\n" 
+-		"xorl	(%%edi,%%ebx,4), %%eax\n"
+-
+-		"movb	%%al, %%bl\n"
+-		"shrl	$8, %%eax\n"
+-		"xorb	%%dl, %%bl\n"
+-		"addl	$4, %%esi\n"
+-		"xorl	(%%edi,%%ebx,4), %%eax\n"
+-
+-		"decl	%%ecx\n"
+-		"jnz	0b\n"
+-
+-	"1:\n"
+-		"movl	%3, %%ecx\n"
+-		"andl	$3, %%ecx\n"
+-		"jz	2f\n"
+-
+-		"movb	%%al, %%bl\n"
+-		"shrl	$8, %%eax\n"
+-		"xorb	(%%esi), %%bl\n"
+-		"xorl	(%%edi,%%ebx,4), %%eax\n"
+-
+-		"decl	%%ecx\n"
+-		"jz	2f\n"
+-
+-		"movb	%%al, %%bl\n"
+-		"shrl	$8, %%eax\n"
+-		"xorb	1(%%esi), %%bl\n"
+-		"xorl	(%%edi,%%ebx,4), %%eax\n"
+-
+-		"decl	%%ecx\n"
+-		"jz	2f\n"
+-
+-		"movb	%%al, %%bl\n"
+-		"shrl	$8, %%eax\n"
+-		"xorb	2(%%esi), %%bl\n"
+-		"xorl	(%%edi,%%ebx,4), %%eax\n"
+-	"2:\n"
+-		: "=a" (_crc)
+-		: "0" (_crc), "g" (p), "g" (len)
+-		: "bx", "cx", "dx", "si", "di"
+-	);
+-
+-	return  _crc;
+-}
+-
+-#else	/* ASM_CRC */
+-
+ static u32
+ calc_crc32( u32  crc,  u8  *p,  u32  len )
+ {
+@@ -1642,9 +1556,6 @@ calc_crc32( u32  crc,  u8  *p,  u32  len )
+ 	return  crc;
+ }
+ 
+-#endif	/* ASM_CRC */
+-
+-
+ static u32  crc32tab[] __attribute__ ((aligned(8))) = {
+ 	0xD202EF8D,  0xA505DF1B,  0x3C0C8EA1,  0x4B0BBE37,
+ 	0xD56F2B94,  0xA2681B02,  0x3B614AB8,  0x4C667A2E,
+-- 
+1.8.4.rc3
