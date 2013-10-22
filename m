@@ -1,65 +1,48 @@
-From: ZHAO Gang <gamerh2o@gmail.com>
-Subject: [PATCH net-next] net: remove function sk_reset_txq()
-Date: Tue, 22 Oct 2013 12:11:24 +0800
-Message-ID: <20131022041124.GA14122@will>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 00/15] net: ethernet: remove unnecessary pci_set_drvdata() part
+ 3
+Date: Tue, 22 Oct 2013 13:13:44 +0900
+Message-ID: <000601cecedd$1981e300$4c85a900$%han@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout4.samsung.com ([203.254.224.34]:26366 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750786Ab3JVENq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 00:13:46 -0400
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MV100BOKYDWWBK0@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Tue, 22 Oct 2013 13:13:45 +0900 (KST)
+Content-language: ko
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-What sk_reset_txq() does is just calls function sk_tx_queue_reset(),
-and sk_reset_txq() is used only in sock.h, by dst_negative_advice().
-Let dst_negative_advice() calls sk_tx_queue_reset() directly so we
-can remove unneeded sk_reset_txq().
+Since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
+(device-core: Ensure drvdata = NULL when no driver is bound),
+the driver core clears the driver data to NULL after device_release
+or on probe failure. Thus, it is not needed to manually clear the
+device driver data to NULL.
 
-Signed-off-by: ZHAO Gang <gamerh2o@gmail.com>
 ---
- include/net/sock.h | 4 +---
- net/core/sock.c    | 6 ------
- 2 files changed, 1 insertion(+), 9 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 1d37a80..db66682 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1752,8 +1752,6 @@ sk_dst_get(struct sock *sk)
- 	return dst;
- }
- 
--extern void sk_reset_txq(struct sock *sk);
--
- static inline void dst_negative_advice(struct sock *sk)
- {
- 	struct dst_entry *ndst, *dst = __sk_dst_get(sk);
-@@ -1763,7 +1761,7 @@ static inline void dst_negative_advice(struct sock *sk)
- 
- 		if (ndst != dst) {
- 			rcu_assign_pointer(sk->sk_dst_cache, ndst);
--			sk_reset_txq(sk);
-+			sk_tx_queue_clear(sk);
- 		}
- 	}
- }
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 5b6beba..3f1545f 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -475,12 +475,6 @@ discard_and_relse:
- }
- EXPORT_SYMBOL(sk_receive_skb);
- 
--void sk_reset_txq(struct sock *sk)
--{
--	sk_tx_queue_clear(sk);
--}
--EXPORT_SYMBOL(sk_reset_txq);
--
- struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
- {
- 	struct dst_entry *dst = __sk_dst_get(sk);
--- 
-1.8.3.1
+ drivers/net/ethernet/pasemi/pasemi_mac.c             |    1 -
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c |    2 --
+ drivers/net/ethernet/qlogic/qla3xxx.c                |    2 --
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c     |    2 --
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c         |    1 -
+ drivers/net/ethernet/rdc/r6040.c                     |    2 --
+ drivers/net/ethernet/realtek/8139cp.c                |    1 -
+ drivers/net/ethernet/realtek/8139too.c               |    1 -
+ drivers/net/ethernet/realtek/r8169.c                 |    1 -
+ drivers/net/ethernet/sis/sis190.c                    |    1 -
+ drivers/net/ethernet/smsc/epic100.c                  |    1 -
+ drivers/net/ethernet/smsc/smsc9420.c                 |    2 --
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c     |    1 -
+ drivers/net/ethernet/sun/cassini.c                   |    2 --
+ drivers/net/ethernet/sun/sunhme.c                    |    2 --
+ 15 files changed, 22 deletions(-)
