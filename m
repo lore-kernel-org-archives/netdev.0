@@ -1,43 +1,53 @@
-From: Thierry Reding <thierry.reding@gmail.com>
-Subject: linux-next: manual merge of the net-next tree
-Date: Tue, 22 Oct 2013 17:10:45 +0200
-Message-ID: <1382454649-16442-1-git-send-email-treding@nvidia.com>
-References: <1382369814-7582-1-git-send-email-treding@nvidia.com>
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <edumazet@google.com>, Helge Deller <deller@gmx.de>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Parisc List <linux-parisc@vger.kernel.org>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <1382369814-7582-1-git-send-email-treding@nvidia.com>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH stable 3.11] sit: amend "allow to use rtnl ops on fb tunnel"
+Date: Tue, 22 Oct 2013 17:43:49 +0200
+Message-ID: <52669D35.4040103@6wind.com>
+References: <1382453958-32376-1-git-send-email-willemb@google.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:63017 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752860Ab3JVPny (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 11:43:54 -0400
+Received: by mail-wi0-f171.google.com with SMTP id h11so5914514wiv.4
+        for <netdev@vger.kernel.org>; Tue, 22 Oct 2013 08:43:52 -0700 (PDT)
+In-Reply-To: <1382453958-32376-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Today's linux-next merge of the net-next tree got a conflict in
-
-	arch/parisc/include/uapi/asm/socket.h
-
-caused by commits 62748f3 (net: introduce SO_MAX_PACING_RATE) and 1a0e62d
-(parisc: break out SOCK_NONBLOCK define to own asm header file).
-
-I fixed it up (see below). Please verify that the resolution looks good.
-
-Thanks,
-Thierry
----
-diff --cc arch/parisc/include/uapi/asm/socket.h
-index 9f2174f,7c614d0..f33113a
---- a/arch/parisc/include/uapi/asm/socket.h
-+++ b/arch/parisc/include/uapi/asm/socket.h
-@@@ -75,4 -75,11 +75,6 @@@
-  
-  #define SO_BUSY_POLL		0x4027
-  
-+ #define SO_MAX_PACING_RATE	0x4048
-+ 
- -/* O_NONBLOCK clashes with the bits used for socket types.  Therefore we
- - * have to define SOCK_NONBLOCK to a different value here.
- - */
- -#define SOCK_NONBLOCK   0x40000000
- -
- -#endif /* _ASM_SOCKET_H */
- +#endif /* _UAPI_ASM_SOCKET_H */
+Le 22/10/2013 16:59, Willem de Bruijn a =C3=A9crit :
+> Amend backport to 3.11.y of
+>
+>   [ Upstream commit 205983c43700ac3a81e7625273a3fa83cd2759b5 ]
+>
+> The discussion thread in the upstream commit mentions that in
+> backports to stable-* branches, the line
+>
+>    - unregister_netdevice_queue(sitn->fb_tunnel_dev, &list);
+>
+> must be omitted if that branch does not have commit 5e6700b3bf98
+> ("sit: add support of x-netns"). This line has correctly been omitted
+> in the backport to 3.10, which indeed does not have that commit.
+>
+> It was also removed in the backport to 3.11.y, which does have that
+> commit.
+>
+> This causes the following steps to hit a BUG at net/core/dev.c:5039:
+>
+>    `modprobe sit; rmmod sit`
+>
+> The bug demonstrates that it causes a device to be unregistered twice=
+=2E
+> The simple fix is to apply the one line in the upstream commit that
+> was dropped in the backport to 3.11 (3783100374653e2e7fbdf68c710f5).
+> This brings the logic in line with upstream linux, net and net-next
+> branches.
+>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
