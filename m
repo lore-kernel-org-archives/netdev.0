@@ -1,49 +1,43 @@
 From: Thierry Reding <thierry.reding@gmail.com>
-Subject: linux-next: manual merge of the arm tree
-Date: Tue, 22 Oct 2013 17:08:35 +0200
-Message-ID: <1382454517-4074-2-git-send-email-treding@nvidia.com>
-References: <1382454517-4074-1-git-send-email-treding@nvidia.com>
+Subject: linux-next: manual merge of the net-next tree
+Date: Tue, 22 Oct 2013 17:10:45 +0200
+Message-ID: <1382454649-16442-1-git-send-email-treding@nvidia.com>
+References: <1382369814-7582-1-git-send-email-treding@nvidia.com>
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Russell King <rmk@arm.linux.org.uk>,
-	Merav Sicron <meravs@broadcom.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1382454517-4074-1-git-send-email-treding@nvidia.com>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Eric Dumazet <edumazet@google.com>, Helge Deller <deller@gmx.de>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Parisc List <linux-parisc@vger.kernel.org>
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <1382369814-7582-1-git-send-email-treding@nvidia.com>
+Sender: linux-parisc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Today's linux-next merge of the arm tree got a conflict in
+Today's linux-next merge of the net-next tree got a conflict in
 
-	drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+	arch/parisc/include/uapi/asm/socket.h
 
-caused by commits 1bfa2c4 (DMA-API: net: broadcom/bnx2x: replace
-dma_set_mask()+dma_set_coherent_mask() with new helper) and edd3147
-(bnx2x: Set NETIF_F_HIGHDMA unconditionally).
+caused by commits 62748f3 (net: introduce SO_MAX_PACING_RATE) and 1a0e62d
+(parisc: break out SOCK_NONBLOCK define to own asm header file).
 
 I fixed it up (see below). Please verify that the resolution looks good.
 
 Thanks,
 Thierry
 ---
-diff --cc drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index b42f89c,38bf998..767aafb
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@@ -12117,12 -12079,9 +12117,8 @@@ static int bnx2x_set_coherency_mask(str
-  {
-  	struct device *dev = &bp->pdev->dev;
+diff --cc arch/parisc/include/uapi/asm/socket.h
+index 9f2174f,7c614d0..f33113a
+--- a/arch/parisc/include/uapi/asm/socket.h
++++ b/arch/parisc/include/uapi/asm/socket.h
+@@@ -75,4 -75,11 +75,6 @@@
   
-- 	if (dma_set_mask(dev, DMA_BIT_MASK(64)) == 0) {
-- 		if (dma_set_coherent_mask(dev, DMA_BIT_MASK(64)) != 0) {
-- 			dev_err(dev, "dma_set_coherent_mask failed, aborting\n");
-- 			return -EIO;
-- 		}
-- 	} else if (dma_set_mask(dev, DMA_BIT_MASK(32)) != 0) {
- -	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64)) == 0) {
- -		bp->flags |= USING_DAC_FLAG;
- -	} else if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32)) != 0) {
-++	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64)) != 0 &&
-++	    dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32)) != 0) {
-  		dev_err(dev, "System does not support DMA, aborting\n");
-  		return -EIO;
-  	}
+  #define SO_BUSY_POLL		0x4027
+  
++ #define SO_MAX_PACING_RATE	0x4048
++ 
+ -/* O_NONBLOCK clashes with the bits used for socket types.  Therefore we
+ - * have to define SOCK_NONBLOCK to a different value here.
+ - */
+ -#define SOCK_NONBLOCK   0x40000000
+ -
+ -#endif /* _ASM_SOCKET_H */
+ +#endif /* _UAPI_ASM_SOCKET_H */
