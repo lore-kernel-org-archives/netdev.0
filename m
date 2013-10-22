@@ -1,40 +1,70 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: wan: sbni: remove assembly crc32 code
-Date: Tue, 22 Oct 2013 14:38:39 -0400 (EDT)
-Message-ID: <20131022.143839.2085832416728125724.davem@davemloft.net>
-References: <1382458346-24811-12-git-send-email-andi@firstfloor.org>
-	<20131022.135928.2040131908206663695.davem@davemloft.net>
-	<20131022183625.GA4382@breakpoint.cc>
+Subject: Re: [PATCH] Revert "bridge: only expire the mdb entry when
+ query is received"
+Date: Tue, 22 Oct 2013 14:41:33 -0400 (EDT)
+Message-ID: <20131022.144133.745472492011974869.davem@davemloft.net>
+References: <1382223537-10844-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, ak@linux.intel.com,
-	netdev@vger.kernel.org
-To: sebastian@breakpoint.cc
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131022183625.GA4382@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	amwang@redhat.com
+To: linus.luessing@web.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1382223537-10844-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Date: Tue, 22 Oct 2013 20:36:25 +0200
+From: Linus L=FCssing <linus.luessing@web.de>
+Date: Sun, 20 Oct 2013 00:58:57 +0200
 
-> 
-> There is also a C function doing the same thing. Unless the asm code is
-> 110% faster we could stick to the C function.
-> 
-> Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+> While this commit was a good attempt to fix issues occuring when no
+> multicast querier is present, this commit still has two more issues:
+> =
+
+> 1) There are cases where mdb entries do not expire even if there is a=
+
+> querier present. The bridge will unnecessarily continue flooding
+> multicast packets on the according ports.
+> =
+
+> 2) Never removing an mdb entry could be exploited for a Denial of
+> Service by an attacker on the local link, slowly, but steadily eating=
+ up
+> all memory.
+> =
+
+> Actually, this commit became obsolete with
+> "bridge: disable snooping if there is no querier" (b00589af3b)
+> which included fixes for a few more cases.
+> =
+
+> Therefore reverting the following commits (the commit stated in the
+> commit message plus three of its follow up fixes):
+> =
+
 > ---
-> 
-> On Tue, Oct 22, 2013 at 01:59:28PM -0400, David Miller wrote:
->> 
->> Is it really impossible to use the generic crc32 support instead of this
->> unsightly custom inline assembler?
-> 
-> Since you asked for this here step 1.
+> Revert "bridge: update mdb expiration timer upon reports."
+> This reverts commit f144febd93d5ee534fdf23505ab091b2b9088edc.
+> Revert "bridge: do not call setup_timer() multiple times"
+> This reverts commit 1faabf2aab1fdaa1ace4e8c829d1b9cf7bfec2f1.
+> Revert "bridge: fix some kernel warning in multicast timer"
+> This reverts commit c7e8e8a8f7a70b343ca1e0f90a31e35ab2d16de1.
+> Revert "bridge: only expire the mdb entry when query is received"
+> This reverts commit 9f00b2e7cf241fa389733d41b615efdaa2cb0f5b.
+> ---
+> =
 
-If it's that simple, this is definitely what we should do.
+> CC: Cong Wang <amwang@redhat.com>
+> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
 
-On the off chance, is there anyone actually able to test this
-change? :-)))
+Applied, thanks a lot.
