@@ -1,48 +1,49 @@
-From: Daniel Wagner <wagi@monom.org>
-Subject: Re: [PATCH nf-next] netfilter: xtables: lightweight process control
- group matching
-Date: Tue, 22 Oct 2013 08:45:32 +0100
-Message-ID: <52662D1C.2020104@monom.org>
-References: <1380910855-12325-1-git-send-email-dborkman@redhat.com> <87li1qp3l8.fsf@xmission.com> <526231E0.6060903@redhat.com> <526543A2.2040901@monom.org> <52654CE6.7030706@redhat.com> <91E2D863603AD4478F101CE81E76E45D01828D59@SHSMSX103.ccr.corp.intel.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v2] bonding: move bond-specific init after
+ enslave happens
+Date: Tue, 22 Oct 2013 09:50:20 +0200
+Message-ID: <20131022075020.GA1401@minipsycho.orion>
+References: <1382348910-32724-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	"pablo@netfilter.org" <pablo@netfilter.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tejun Heo <tj@kernel.org>,
-	"cgroups@vger.kernel.org" <cgroups@vger.kernel.org>
-To: "Ni, Xun" <xun.ni@intel.com>, Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dingtianhong@huawei.com,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hotel311.server4you.de ([85.25.146.15]:33135 "EHLO
-	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751178Ab3JVHpp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 03:45:45 -0400
-In-Reply-To: <91E2D863603AD4478F101CE81E76E45D01828D59@SHSMSX103.ccr.corp.intel.com>
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:56353 "EHLO
+	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751181Ab3JVHuX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 03:50:23 -0400
+Received: by mail-ee0-f44.google.com with SMTP id b47so4195649eek.17
+        for <netdev@vger.kernel.org>; Tue, 22 Oct 2013 00:50:21 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1382348910-32724-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Xun,
+Mon, Oct 21, 2013 at 11:48:30AM CEST, vfalico@redhat.com wrote:
+>As Jiri noted, currently we first do all bonding-specific initialization
+>(specifically - bond_select_active_slave(bond)) before we actually attach
+>the slave (so that it becomes visible through bond_for_each_slave() and
+>friends). This might result in bond_select_active_slave() not seeing the
+>first/new slave and, thus, not actually selecting an active slave.
+>
+>Fix this by moving all the bond-related init part after we've actually
+>completely initialized and linked (via bond_master_upper_dev_link()) the
+>new slave.
+>
+>Also, remove the bond_(de/a)ttach_slave(), it's useless to have functions
+>to ++/-- one int.
+>
+>After this we have all the initialization of the new slave *before*
+>linking, and all the stuff that needs to be done on bonding *after* it. It
+>has also a bonus effect - we can remove the locking on the new slave init
+>completely, and only use it for bond_select_active_slave().
+>
+>Reported-by: Jiri Pirko <jiri@resnulli.us>
+>CC: Jay Vosburgh <fubar@us.ibm.com>
+>CC: Andy Gospodarek <andy@greyhouse.net>
+>Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
-On 10/22/2013 08:15 AM, Ni, Xun wrote:
-> Hello, Daniel:
-> can all your examples block early before doing network operations?
-
-I was referring to Linux Security Module which allows
-to define access policies for an application e.g. which ports are
-allowed to be used.
-
-If the goal is just to block those ports you don't have to go through
-half of the networking stack to figure out via an iptable rules that
-this access is not allowed.
-
-> What's the whole netfilter universe? Can you give us more clear
-> examples?
-
-I am not sure if I understood your question correctly. In case you
-are asking what netfilter is I would like pointing you to the
-http://www.netfilter.org/ project page.
-
-cheers,
-daniel
+Reviewed-by: Jiri Pirko <jiri@resnulli.us>
