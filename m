@@ -1,53 +1,65 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH 2/3] net: tulip: use DEFINE_PCI_DEVICE_TABLE
-Date: Mon, 21 Oct 2013 20:37:40 -0700
-Message-ID: <CAP6odjg8cpyf-sntLPoVBsNX_J4n2cmPSaOA=e_daTFqrC5VbQ@mail.gmail.com>
-References: <000e01ceced2$a9e5d970$fdb18c50$%han@samsung.com>
-	<000f01ceced2$dde772b0$99b65810$%han@samsung.com>
+From: ZHAO Gang <gamerh2o@gmail.com>
+Subject: [PATCH net-next] net: remove function sk_reset_txq()
+Date: Tue, 22 Oct 2013 12:11:24 +0800
+Message-ID: <20131022041124.GA14122@will>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>,
-	Grant Grundler <grundler@parisc-linux.org>
-To: Jingoo Han <jg1.han@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:59502 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752963Ab3JVDhl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 23:37:41 -0400
-Received: by mail-ob0-f170.google.com with SMTP id wp18so3312263obc.29
-        for <netdev@vger.kernel.org>; Mon, 21 Oct 2013 20:37:40 -0700 (PDT)
-In-Reply-To: <000f01ceced2$dde772b0$99b65810$%han@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 21, 2013 at 8:00 PM, Jingoo Han <jg1.han@samsung.com> wrote:
-> This macro is used to create a struct pci_device_id array.
->
-> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+What sk_reset_txq() does is just calls function sk_tx_queue_reset(),
+and sk_reset_txq() is used only in sock.h, by dst_negative_advice().
+Let dst_negative_advice() calls sk_tx_queue_reset() directly so we
+can remove unneeded sk_reset_txq().
 
-LGTM.
+Signed-off-by: ZHAO Gang <gamerh2o@gmail.com>
+---
+ include/net/sock.h | 4 +---
+ net/core/sock.c    | 6 ------
+ 2 files changed, 1 insertion(+), 9 deletions(-)
 
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
-
-> ---
->  drivers/net/ethernet/dec/tulip/de4x5.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/dec/tulip/de4x5.c b/drivers/net/ethernet/dec/tulip/de4x5.c
-> index 263b92c..c05b66d 100644
-> --- a/drivers/net/ethernet/dec/tulip/de4x5.c
-> +++ b/drivers/net/ethernet/dec/tulip/de4x5.c
-> @@ -2328,7 +2328,7 @@ static void de4x5_pci_remove(struct pci_dev *pdev)
->         pci_disable_device (pdev);
->  }
->
-> -static struct pci_device_id de4x5_pci_tbl[] = {
-> +static DEFINE_PCI_DEVICE_TABLE(de4x5_pci_tbl) = {
->          { PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_TULIP,
->            PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
->          { PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_TULIP_PLUS,
-> --
-> 1.7.10.4
->
->
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 1d37a80..db66682 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1752,8 +1752,6 @@ sk_dst_get(struct sock *sk)
+ 	return dst;
+ }
+ 
+-extern void sk_reset_txq(struct sock *sk);
+-
+ static inline void dst_negative_advice(struct sock *sk)
+ {
+ 	struct dst_entry *ndst, *dst = __sk_dst_get(sk);
+@@ -1763,7 +1761,7 @@ static inline void dst_negative_advice(struct sock *sk)
+ 
+ 		if (ndst != dst) {
+ 			rcu_assign_pointer(sk->sk_dst_cache, ndst);
+-			sk_reset_txq(sk);
++			sk_tx_queue_clear(sk);
+ 		}
+ 	}
+ }
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 5b6beba..3f1545f 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -475,12 +475,6 @@ discard_and_relse:
+ }
+ EXPORT_SYMBOL(sk_receive_skb);
+ 
+-void sk_reset_txq(struct sock *sk)
+-{
+-	sk_tx_queue_clear(sk);
+-}
+-EXPORT_SYMBOL(sk_reset_txq);
+-
+ struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
+ {
+ 	struct dst_entry *dst = __sk_dst_get(sk);
+-- 
+1.8.3.1
