@@ -1,48 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] bonding: move bond-specific init after
- enslave happens
-Date: Tue, 22 Oct 2013 19:22:45 -0400 (EDT)
-Message-ID: <20131022.192245.1464483820935228355.davem@davemloft.net>
-References: <1382348910-32724-1-git-send-email-vfalico@redhat.com>
+Subject: Re: [net-next PATCH] macvlan: resolve ENOENT errors on creation
+Date: Tue, 22 Oct 2013 19:23:00 -0400 (EDT)
+Message-ID: <20131022.192300.482037851874738661.davem@davemloft.net>
+References: <20131021212801.19330.69659.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, dingtianhong@huawei.com,
-	fubar@us.ibm.com, andy@greyhouse.net
-To: vfalico@redhat.com
+Cc: vfalico@redhat.com, nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: john.fastabend@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60404 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60412 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750861Ab3JVXWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 19:22:47 -0400
-In-Reply-To: <1382348910-32724-1-git-send-email-vfalico@redhat.com>
+	with ESMTP id S1753439Ab3JVXXB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 19:23:01 -0400
+In-Reply-To: <20131021212801.19330.69659.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Mon, 21 Oct 2013 11:48:30 +0200
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Mon, 21 Oct 2013 14:28:02 -0700
 
-> As Jiri noted, currently we first do all bonding-specific initialization
-> (specifically - bond_select_active_slave(bond)) before we actually attach
-> the slave (so that it becomes visible through bond_for_each_slave() and
-> friends). This might result in bond_select_active_slave() not seeing the
-> first/new slave and, thus, not actually selecting an active slave.
+> After the commit below attempting to create macvlan devices was
+> resulting in ENOENT errors,
 > 
-> Fix this by moving all the bond-related init part after we've actually
-> completely initialized and linked (via bond_master_upper_dev_link()) the
-> new slave.
+> # ip link add link p3p2 type macvlan
+> RTNETLINK answers: Invalid argument
 > 
-> Also, remove the bond_(de/a)ttach_slave(), it's useless to have functions
-> to ++/-- one int.
+> This happens because netdev_upper_dev_link() is called before
+> register_netdevice() in the macvlan code. Through a call chain
+> this results in a call to __netdev_adjacent_dev_insert() and
+> finally a sysfs_create_link(). This requires the kobject of
+> the macvlan to be registered which is done in register_netdevice().
+> If there is no kobject which is the case here the ENOENT error
+> is seen on the command line.
 > 
-> After this we have all the initialization of the new slave *before*
-> linking, and all the stuff that needs to be done on bonding *after* it. It
-> has also a bonus effect - we can remove the locking on the new slave init
-> completely, and only use it for bond_select_active_slave().
+> To resolve this move the netdev_upper_dev_link() call below
+> the register_netdevice() call. This aligns with vlan driver
+> flow.
 > 
-> Reported-by: Jiri Pirko <jiri@resnulli.us>
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> Regression introduced here,
+> 
+> commit 5831d66e8097aedfa3bc35941cf265ada2352317
+> Author: Veaceslav Falico <vfalico@redhat.com>
+> Date:   Wed Sep 25 09:20:32 2013 +0200
+> 
+>     net: create sysfs symlinks for neighbour devices
+> 
+> CC: Veaceslav Falico <vfalico@redhat.com>
+> CC: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-Applied.
+Applied, thanks.
