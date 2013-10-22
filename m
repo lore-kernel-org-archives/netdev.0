@@ -1,58 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 06/14] i40e: clamp debugfs nvm read command
-Date: Tue, 22 Oct 2013 07:22:29 -0700
-Message-ID: <1382451757-9817-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 14/14] i40e: Bump version
+Date: Tue, 22 Oct 2013 07:22:37 -0700
+Message-ID: <1382451757-9817-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1382451757-9817-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:37103 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:56407 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753457Ab3JVOWx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Oct 2013 10:22:53 -0400
+	id S1753580Ab3JVOW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Oct 2013 10:22:56 -0400
 In-Reply-To: <1382451757-9817-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-This issue was identified by the coverity checker where we were
-not checking the upper limit on reads, reported by Hannes
-Frederic Sowa.
+Update the driver version.
 
-Implement more specific limits on reads (min 1k, max 4k)
-
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 304f39d..c80fcb4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -1742,11 +1742,13 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
- 			goto command_write_done;
- 		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index d889342..41a79df 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -36,7 +36,7 @@ static const char i40e_driver_string[] =
  
--		/* Read at least 512 words */
--		if (buffer_len == 0)
--			buffer_len = 512;
-+		/* set the max length */
-+		buffer_len = min_t(u16, buffer_len, I40E_MAX_AQ_BUF_SIZE/2);
- 
- 		bytes = 2 * buffer_len;
-+
-+		/* read at least 1k bytes, no more than 4kB */
-+		bytes = clamp(bytes, (u16)1024, (u16)I40E_MAX_AQ_BUF_SIZE);
- 		buff = kzalloc(bytes, GFP_KERNEL);
- 		if (!buff)
- 			goto command_write_done;
+ #define DRV_VERSION_MAJOR 0
+ #define DRV_VERSION_MINOR 3
+-#define DRV_VERSION_BUILD 10
++#define DRV_VERSION_BUILD 11
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
 -- 
 1.8.3.1
