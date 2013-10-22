@@ -1,63 +1,136 @@
-From: Ben Pfaff <blp@nicira.com>
-Subject: Re: [PATCH v2.44 1/5] odp: Allow VLAN actions after MPLS actions
-Date: Tue, 22 Oct 2013 13:55:41 -0700
-Message-ID: <20131022205541.GA29754@nicira.com>
-References: <1381972511-27221-1-git-send-email-horms@verge.net.au>
- <1381972511-27221-2-git-send-email-horms@verge.net.au>
- <20131021204102.GD15986@nicira.com>
- <CAOftzPgSG7NO+hFEeHU0xGH5TjJRe-THGDVz7THrm26j5ua-bA@mail.gmail.com>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] Revert "bridge: only expire the mdb entry when
+	query is received"
+Date: Tue, 22 Oct 2013 09:10:14 -0400
+Message-ID: <CAGCdqXG0V+2vHVg6NPXocN6ZLVGOT8e16fEt-TXx5=Rh0tFmiw@mail.gmail.com>
+References: <1382223537-10844-1-git-send-email-linus.luessing@web.de>
+	<20131021.184509.1933008514161772000.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>, dev@openvswitch.org,
-	netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Joe Stringer <joe@wand.net.nz>
-To: Joe Stringer <joestringernz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:57239 "HELO
-	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753379Ab3JVUzu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 16:55:50 -0400
-Received: by mail-qa0-f49.google.com with SMTP id i13so19487qae.8
-        for <netdev@vger.kernel.org>; Tue, 22 Oct 2013 13:55:47 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAOftzPgSG7NO+hFEeHU0xGH5TjJRe-THGDVz7THrm26j5ua-bA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/alternative; boundary=001a11c347700bd2a504e9541f13
+Cc: amwang@redhat.com, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org, LKML <linux-kernel@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>, linus.luessing@web.de
+To: David Miller <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20131021.184509.1933008514161772000.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 22, 2013 at 11:30:26AM -0700, Joe Stringer wrote:
-> You're quite right. I think for OF1.2, this is similar to existing
-> behaviour, but for OF1.3 it's just incorrect. There is an additional issue
-> with the LOAD action.
-> 
-> OF1.2:
-> "push_vlan(A),push_mpls,push_vlan(B)"
-> In OF1.2, this has the same result as:-
-> "push_mpls,push_vlan(A),push_vlan(B)"
-> 
-> When translated, this boils down to "(pop_vlan,)push_mpls,push_vlan(B)".
-> Correct me if I am wrong, but I think this is similar to the existing
-> behaviour, as we currently only support one layer of VLAN. It doesn't
-> matter if A == B.
-> 
-> OF1.3:
-> "mod_vlan_vid:A,push_mpls:0x8847,mod_vlan_vid:A" should work, but the
-> second mod_vlan is being dropped as it has the same VID as the first. This
-> is incorrect, as you point out.
-> 
-> LOAD:
-> "load:A->OXM_OF_VLAN_VID,push_mpls:0x8847,load:A->OXM_OF_VLAN_VID" doesn't
-> result in the correct vlan_vid from the first load action. I'm not sure
-> that vlan_tci_restore() is clear or correct---I believe its original
-> purpose was to properly handle the case where MPLS changes are made from
-> REG_LOAD and friends, in the way that the PUSH_MPLS case works. Instead, it
-> is handling all cases where MPLS actions have been applied in the past,
-> whether the current action modifies MPLS or not.
-> 
-> It's probably also worthwhile to make use of the ovs-ofctl monitor "-m"
-> option in the tests to actually verify these, rather than the current tests
-> where we just check the size of the resulting packet.
+--001a11c347700bd2a504e9541f13
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Thanks for the careful analysis.
+On Mon, Oct 21, 2013 at 6:45 PM, David Miller <davem@davemloft.net> wrote:
+
+> From: Linus L=FCssing <linus.luessing@web.de>
+> Date: Sun, 20 Oct 2013 00:58:57 +0200
+>
+> > While this commit was a good attempt to fix issues occuring when no
+> > multicast querier is present, this commit still has two more issues:
+> >
+> > 1) There are cases where mdb entries do not expire even if there is a
+> > querier present. The bridge will unnecessarily continue flooding
+> > multicast packets on the according ports.
+> >
+> > 2) Never removing an mdb entry could be exploited for a Denial of
+> > Service by an attacker on the local link, slowly, but steadily eating u=
+p
+> > all memory.
+> >
+> > Actually, this commit became obsolete with
+> > "bridge: disable snooping if there is no querier" (b00589af3b)
+> > which included fixes for a few more cases.
+> >
+> > Therefore reverting the following commits (the commit stated in the
+> > commit message plus three of its follow up fixes):
+> >
+> > ---
+> > Revert "bridge: update mdb expiration timer upon reports."
+> > This reverts commit f144febd93d5ee534fdf23505ab091b2b9088edc.
+> > Revert "bridge: do not call setup_timer() multiple times"
+> > This reverts commit 1faabf2aab1fdaa1ace4e8c829d1b9cf7bfec2f1.
+> > Revert "bridge: fix some kernel warning in multicast timer"
+> > This reverts commit c7e8e8a8f7a70b343ca1e0f90a31e35ab2d16de1.
+> > Revert "bridge: only expire the mdb entry when query is received"
+> > This reverts commit 9f00b2e7cf241fa389733d41b615efdaa2cb0f5b.
+> > ---
+>
+> Cong, and other bridge folks, please review this revert.
+>
+
+Makes sense and make the implementation better follow the spec.
+Looks like the issues seen before are resolved by the revert.
+
+Reviewed-by: Vlad Yasevich <vyasevich@gmail.com>
+
+--001a11c347700bd2a504e9541f13
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr"><div class=3D"gmail_extra">On Mon, Oct 21, 2013 at 6:45 PM=
+, David Miller <span dir=3D"ltr">&lt;<a href=3D"mailto:davem@davemloft.net"=
+ target=3D"_blank">davem@davemloft.net</a>&gt;</span> wrote:<br><div class=
+=3D"gmail_quote">
+<blockquote class=3D"gmail_quote" style=3D"margin:0px 0px 0px 0.8ex;border-=
+left-width:1px;border-left-color:rgb(204,204,204);border-left-style:solid;p=
+adding-left:1ex">From: Linus L=FCssing &lt;<a href=3D"mailto:linus.luessing=
+@web.de">linus.luessing@web.de</a>&gt;<br>
+
+Date: Sun, 20 Oct 2013 00:58:57 +0200<br>
+<br>
+&gt; While this commit was a good attempt to fix issues occuring when no<br=
+>
+&gt; multicast querier is present, this commit still has two more issues:<b=
+r>
+&gt;<br>
+&gt; 1) There are cases where mdb entries do not expire even if there is a<=
+br>
+&gt; querier present. The bridge will unnecessarily continue flooding<br>
+&gt; multicast packets on the according ports.<br>
+&gt;<br>
+&gt; 2) Never removing an mdb entry could be exploited for a Denial of<br>
+&gt; Service by an attacker on the local link, slowly, but steadily eating =
+up<br>
+&gt; all memory.<br>
+&gt;<br>
+&gt; Actually, this commit became obsolete with<br>
+&gt; &quot;bridge: disable snooping if there is no querier&quot; (b00589af3=
+b)<br>
+&gt; which included fixes for a few more cases.<br>
+&gt;<br>
+&gt; Therefore reverting the following commits (the commit stated in the<br=
+>
+&gt; commit message plus three of its follow up fixes):<br>
+&gt;<br>
+&gt; ---<br>
+&gt; Revert &quot;bridge: update mdb expiration timer upon reports.&quot;<b=
+r>
+&gt; This reverts commit f144febd93d5ee534fdf23505ab091b2b9088edc.<br>
+&gt; Revert &quot;bridge: do not call setup_timer() multiple times&quot;<br=
+>
+&gt; This reverts commit 1faabf2aab1fdaa1ace4e8c829d1b9cf7bfec2f1.<br>
+&gt; Revert &quot;bridge: fix some kernel warning in multicast timer&quot;<=
+br>
+&gt; This reverts commit c7e8e8a8f7a70b343ca1e0f90a31e35ab2d16de1.<br>
+&gt; Revert &quot;bridge: only expire the mdb entry when query is received&=
+quot;<br>
+&gt; This reverts commit 9f00b2e7cf241fa389733d41b615efdaa2cb0f5b.<br>
+&gt; ---<br>
+<br>
+Cong, and other bridge folks, please review this revert.<br></blockquote><d=
+iv><br></div><div>Makes sense and make the implementation better follow the=
+ spec.</div><div>Looks like the issues seen before are resolved by the reve=
+rt.</div>
+<div><br></div>Reviewed-by: Vlad Yasevich &lt;<a href=3D"mailto:vyasevich@g=
+mail.com">vyasevich@gmail.com</a>&gt;<div class=3D"gmail_extra"><br></div><=
+div>=A0</div></div></div></div>
+
+--001a11c347700bd2a504e9541f13--
