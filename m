@@ -1,40 +1,73 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Stale IPv6 address accumulation on linux 3.2.17
-Date: Tue, 22 Oct 2013 12:18:11 +0200
-Message-ID: <20131022101811.GA3200@order.stressinduktion.org>
-References: <Pine.LNX.4.61.1303241153000.20041@envy.nxs.se> <CAEwTi7Rbo3dBqhyDJXYvrkMWfrX9xwUr5VovFoW7BfPAZp4XFw@mail.gmail.com> <Pine.LNX.4.61.1303272104470.20041@envy.nxs.se> <51535D16.4080207@katalix.com> <loom.20131021T165114-650@post.gmane.org> <2134F8430051B64F815C691A62D9831813520C@XCH-BLV-504.nw.nos.boeing.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] ixgbe: Reduce memory consumption with larger page sizes
+Date: Tue, 22 Oct 2013 03:23:33 -0700
+Message-ID: <1382437413.6455.7.camel@jtkirshe-mobl>
+References: <20131022103757.162f1a79@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-qk3fPlLRJ4ai9vy6rDWG"
+Cc: netdev@vger.kernel.org, benh@kernel.crashing.org
+To: Anton Blanchard <anton@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:50094 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751544Ab3JVKSM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 06:18:12 -0400
-Content-Disposition: inline
-In-Reply-To: <2134F8430051B64F815C691A62D9831813520C@XCH-BLV-504.nw.nos.boeing.com>
+Received: from mga11.intel.com ([192.55.52.93]:22498 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751372Ab3JVKXe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Oct 2013 06:23:34 -0400
+In-Reply-To: <20131022103757.162f1a79@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Fred!
 
-On Mon, Oct 21, 2013 at 03:50:24PM +0000, Templin, Fred L wrote:
-> On linux 3.2.17, I have a host that configures IPv6 addresses on
-> an eth0 interface based on Router Advertisements received from an
-> on-link linux box configured as an IPv6 router and running radvd.
-> When the host gets an RA, it configures both an EUI-64-based IPv6
-> address and an IPv6 privacy address, so it has two IPv6 addresses.
-> But, if I leave the host up for long periods of time, it seems to
-> accumulate additional IPv6 addresses - perhaps these are stale
-> IPv6 privacy addresses?
-> 
-> Is this known behavior, and if so is there a way to turn it off?
-> Or, perhaps this was a known bug that has been corrected in more
-> recent linux kernel versions?
+--=-qk3fPlLRJ4ai9vy6rDWG
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Could you send me the output of ip -6 a l?
+On Tue, 2013-10-22 at 10:37 +1100, Anton Blanchard wrote:
+> The ixgbe driver allocates pages for its receive rings. It currently
+> uses 512 pages, regardless of page size. During receive handling it
+> adds the unused part of the page back into the rx ring, avoiding the
+> need for a new allocation.
+>=20
+> On a ppc64 box with 64 threads and 64kB pages, we end up with
+> 512 entries * 64 rx queues * 64kB =3D 2GB memory used. Even more of a
+> concern is that we use up 2GB of IOMMU space in order to map all this
+> memory.
+>=20
+> The driver makes a number of decisions based on if PAGE_SIZE is less
+> than 8kB, so use this as the breakpoint and only allocate 128 entries
+> on 8kB or larger page sizes.
+>=20
+> Signed-off-by: Anton Blanchard <anton@samba.org>
+> ---
+>=20
+> Jeff: The breakpoint and the ring size I chose was pretty arbitrary,
+> feel free to adjust as you see fit. Our main concern is we get that
+> 2GB
+> consumption down to something more reasonable :)
 
-Greetings,
+Thanks Anton, I will add your patch to my queue.
 
-  Hannes
+--=-qk3fPlLRJ4ai9vy6rDWG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+
+iQIcBAABCgAGBQJSZlIlAAoJEOVv75VaS+3O1RYP/26RuPRtSNp0kRMzu05oDk+O
+NJ2GujAucz6XJsSkfnkLftbIeZEV3Kmkufmlyo/d92T6Xk4d7OqwUMYkn07LrYwq
+HWsUFWKVkDaYo9tr7nNNGG+QM6H/ZB+vhvpXApbCy49GAZoIyCSjUH3OOfInbiiO
+lSuq9GgxCvls9lE+J4Or1BaojVHv0p2CRXsAU7N/CYnZIWVFzmAgfnz8Omg/G0CS
+itrXJkgzO8O6nkXjlpcoDXdSnO9bkbT7y4japs1zg6FgVy/mPoeiXYes8TbK/NTj
+PoJaxpffhkGVrNthgukFJbFa45WPw6mEPvoEy8DKT7axufxDf/vut6ZrWTPXol10
+0+zf3qeLX1zD7IvuW/3QCUJ19jujP4jOYhT8sqH5Dl9uDlfEuz7PWwGwZj/MCQ4M
+i9bJyGa2smIoBl5KhfRMpmMXQtumUYJRDvGCl8hMH4dFMhkHVqbPX+HRKSDXMnb/
+Pwr5yDnlThLzk1IbBfpK5Xa6EMeH5t9gWAQ9wpBurfipwuNkJU6TyMlPb2c9HIJS
+XlZLVdg/Er+JhcLvPGlIAWD29HSUTZ0n7ZssbFQKsJt4oJe3hXjo0b1dtkTKE+rR
+leZbmN7ujcvMwoNMPQWGky11r88EL461pSMZXRlNgxLf7B0eg/fFXERSqubpzvbc
+MRRqI5TyaxPCim3KhNpI
+=N2yM
+-----END PGP SIGNATURE-----
+
+--=-qk3fPlLRJ4ai9vy6rDWG--
