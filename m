@@ -1,110 +1,63 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH RFC 4/5] net:stmmac: fix jumbo frame handling.
-Date: Tue, 22 Oct 2013 15:24:06 +0200
-Message-ID: <52667C76.4080305@st.com>
-References: <1381937052-8999-1-git-send-email-jimmy.perchet@parrot.com> <1381937052-8999-5-git-send-email-jimmy.perchet@parrot.com> <52652EE7.2060500@st.com> <52655640.4060405@parrot.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: RE: [PATCH] net-bnx2x: Fix byte order problem on NVRAM writes
+Date: Tue, 22 Oct 2013 13:30:41 +0000
+Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52AEABE99@SJEXCHMB10.corp.ad.broadcom.com>
+References: <1382392621-8998-1-git-send-email-nxk@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <jimmy.perchet@gmail.com>
-To: Jimmy PERCHET <jimmy.perchet@parrot.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:42764 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752289Ab3JVNYM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 09:24:12 -0400
-In-Reply-To: <52655640.4060405@parrot.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Eilon Greenstein" <eilong@broadcom.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Nate Klein" <nxk@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1382392621-8998-1-git-send-email-nxk@google.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/21/2013 6:28 PM, Jimmy PERCHET wrote:
-> On 21/10/2013 15:40, Giuseppe CAVALLARO wrote:
->> On 10/16/2013 5:24 PM, Jimmy Perchet wrote:
->>> This patch addresses several issues which prevent jumbo frames from working properly :
->>> .jumbo frames' last descriptor was not closed
->>> .several confusion regarding descriptor's max buffer size
->>> .frags could not be jumbo
->>>
->>> Signed-off-by: Jimmy Perchet <jimmy.perchet@parrot.com>
->>
->>
->> Jimmy, thx for thi patch. BElow some my first notes.
->
-> Thanks a lot for this first review.
+> Tested:
+>     ethtool -e eth0 raw on >first.nvram
+>     ethtool -E eth0 <first.nvram
+>     ethtool -e eth0 raw on >second.nvram
+>     cmp first.nvram second.nvram || ethtool -E eth0 <second.nvram
+>     (No output means pass.)
 
-welcome
+Hi Nate,
 
->
->> I'll continue to look at the patch to verify if I missed
->> soemthing. I kindly ask you, for the next version, to add
->> more comments especially in the function to prepare the
->> tx desc in order to help me on reviewing.
->
-> Sure ;)
->
-> I hope do v2 by next week.
+We're aware of this `bug' for some time - we've encountered it when
+trying to fix the endian sparse warnings in the driver.
 
-ok thx, I'll try to help on reviewing for the v2 again.
+Sadly, there are already existing user applications that assume that this is 
+the driver's behaviour - i.e., those applications prepare their buffers in a 
+manner which assumes the endian of the writes; changing this write will 
+cause those tools to break.
+That's why we haven't fixed the issue before, and cannot support such a
+fix. We're more than willing to document it somewhere, if that seems 
+useful to anyone.
 
->
-> I'm OK with most of your comments. Some additional
-> notes below:
->
->>>    }
->>> @@ -81,7 +81,7 @@ static inline void ndesc_end_tx_desc_on_ring(struct dma_desc *p, int ter)
->>>
->>>    static inline void norm_set_tx_desc_len_on_ring(struct dma_desc *p, int len)
->>>    {
->>> -    if (unlikely(len > BUF_SIZE_2KiB)) {
->>> +    if (unlikely(len >= BUF_SIZE_2KiB)) {
->>
->> we cannot manage a size of 2048 on normal desc
->>
->> Pls you should verify to not break the back-compatibility.
->
-> IMHO, this actually fix the problem you think I create.
-> In current code, if len is equal to 2048, buffer1_size is set to 2048,
-> this is wrong because the max size is actually 2047...
+Thanks,
+Yuval
 
-IIRC, for normal descriptors, the TBS2/1 are just 11 bits
-so the max programmable size is 2047 (0x7ff).
-
->
->>
->>>            p->des01.etx.buffer1_size = BUF_SIZE_2KiB - 1;
->>>            p->des01.etx.buffer2_size = len - p->des01.etx.buffer1_size;
->>>        } else
->
->
->
->>>
->>>    static void stmmac_refill_desc3(void *priv_ptr, struct dma_desc *p)
->>>    {
->>> @@ -103,13 +90,13 @@ static void stmmac_refill_desc3(void *priv_ptr, struct dma_desc *p)
->>>        if (unlikely(priv->plat->has_gmac))
->>>            /* Fill DES3 in case of RING mode */
->>>            if (priv->dma_buf_sz >= BUF_SIZE_8KiB)
->>> -            p->des3 = p->des2 + BUF_SIZE_8KiB;
->>> +            p->des3 = p->des2 + BUF_SIZE_8KiB - 1;
->>
->> is it correct? can you check?
->
-> The actual buffer's max size is 8191, so, in ring mode,
-> the second buffer must start at p->des2 + 8191.
->
->>> -    priv->cur_tx++;
->>> +    priv->cur_tx += nb_desc;
->>
->> can we avoid to use the nb_desc?
-> Actually, it is a preparation for my 5th patch : I want to write cur_tx only once.
-> I can split this.
-
-ok
-
->
->
->
-> Best Regards,
-> Jimmy
->
->
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+> index 8213cc8..35671fb 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+> @@ -1549,7 +1549,7 @@ static int bnx2x_nvram_write_dword(struct bnx2x
+> *bp, u32 offset, u32 val,
+>  	REG_WR(bp, MCP_REG_MCPR_NVM_COMMAND,
+> MCPR_NVM_COMMAND_DONE);
+> 
+>  	/* write the data */
+> -	REG_WR(bp, MCP_REG_MCPR_NVM_WRITE, val);
+> +	REG_WR(bp, MCP_REG_MCPR_NVM_WRITE, cpu_to_be32(val));
+> 
+>  	/* address of the NVRAM to write to */
+>  	REG_WR(bp, MCP_REG_MCPR_NVM_ADDR,
+> --
