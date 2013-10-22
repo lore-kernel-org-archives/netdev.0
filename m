@@ -1,130 +1,98 @@
-From: andran <asd611@dsl.pipex.com>
-Subject: (unknown)
-Date: Mon, 21 Oct 2013 21:51:13 +0100
-Message-ID: <1382388673.526593c1bef66@netmail.pipex.net>
-Reply-To: chand01@qq.com
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: BUG: scheduling while atomic dev_set_promiscuity->__dev_notify_flags
+Date: Tue, 22 Oct 2013 13:52:05 +0200
+Message-ID: <526666E5.3030202@6wind.com>
+References: <CAMEtUuy91zYJ=bj1dzfdqE8kqZ3rE1RgdR-PZYekSUg8_xoTBw@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="-MOQ1382388673f1cd0e2882e26c73ee9362aaa0362e29"
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mk-outboundfilter-5-a-3.mail.uk.tiscali.com ([212.74.114.9]:23186
-	"EHLO mk-outboundfilter-5-a-3.mail.uk.tiscali.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752340Ab3JVLSB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Oct 2013 07:18:01 -0400
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:37924 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751950Ab3JVLwK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 07:52:10 -0400
+Received: by mail-wi0-f176.google.com with SMTP id l12so5443164wiv.9
+        for <netdev@vger.kernel.org>; Tue, 22 Oct 2013 04:52:09 -0700 (PDT)
+In-Reply-To: <CAMEtUuy91zYJ=bj1dzfdqE8kqZ3rE1RgdR-PZYekSUg8_xoTBw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This message is in MIME format.
+Le 22/10/2013 03:04, Alexei Starovoitov a =E9crit :
+> Hi Nicolas,
+>
+> after commit 991fb3f74c "dev: always advertise rx_flags changes via n=
+etlink"
+> I'm seeing 'sleeping in atomic' bug.
+>
+> Steps to reproduce:
+> ip tuntap add dev tap1 mode tap
+> ifconfig tap1 up
+> tcpdump -nei tap1
+> and in different terminal:
+> ip tuntap del dev tap1 mode tap
+>
+> [  271.627994] device tap1 left promiscuous mode
+> [  271.639897] BUG: sleeping function called from invalid context at
+> mm/slub.c:940
+> [  271.664491] in_atomic(): 1, irqs_disabled(): 0, pid: 3394, name: i=
+p
+> [  271.677525] INFO: lockdep is turned off.
+> [  271.690503] CPU: 0 PID: 3394 Comm: ip Tainted: G        W    3.12.=
+0-rc3+ #73
+> [  271.703996] Hardware name: System manufacturer System Product
+> Name/P8Z77 WS, BIOS 3007 07/26/2012
+> [  271.731254]  ffffffff81a58506 ffff8807f0d57a58 ffffffff817544e5
+> ffff88082fa0f428
+> [  271.760261]  ffff8808071f5f40 ffff8807f0d57a88 ffffffff8108bad1
+> ffffffff81110ff8
+> [  271.790683]  0000000000000010 00000000000000d0 00000000000000d0
+> ffff8807f0d57af8
+> [  271.822332] Call Trace:
+> [  271.838234]  [<ffffffff817544e5>] dump_stack+0x55/0x76
+> [  271.854446]  [<ffffffff8108bad1>] __might_sleep+0x181/0x240
+> [  271.870836]  [<ffffffff81110ff8>] ? rcu_irq_exit+0x68/0xb0
+> [  271.887076]  [<ffffffff811a80be>] kmem_cache_alloc_node+0x4e/0x2a0
+> [  271.903368]  [<ffffffff810b4ddc>] ? vprintk_emit+0x1dc/0x5a0
+> [  271.919716]  [<ffffffff81614d67>] ? __alloc_skb+0x57/0x2a0
+> [  271.936088]  [<ffffffff810b4de0>] ? vprintk_emit+0x1e0/0x5a0
+> [  271.952504]  [<ffffffff81614d67>] __alloc_skb+0x57/0x2a0
+> [  271.968902]  [<ffffffff8163a0b2>] rtmsg_ifinfo+0x52/0x100
+> [  271.985302]  [<ffffffff8162ac6d>] __dev_notify_flags+0xad/0xc0
+> [  272.001642]  [<ffffffff8162ad0c>] __dev_set_promiscuity+0x8c/0x1c0
+> [  272.017917]  [<ffffffff81731ea5>] ? packet_notifier+0x5/0x380
+> [  272.033961]  [<ffffffff8162b109>] dev_set_promiscuity+0x29/0x50
+> [  272.049855]  [<ffffffff8172e937>] packet_dev_mc+0x87/0xc0
+> [  272.065494]  [<ffffffff81732052>] packet_notifier+0x1b2/0x380
+> [  272.080915]  [<ffffffff81731ea5>] ? packet_notifier+0x5/0x380
+> [  272.096009]  [<ffffffff81761c66>] notifier_call_chain+0x66/0x150
+> [  272.110803]  [<ffffffff8108503e>] __raw_notifier_call_chain+0xe/0x=
+10
+> [  272.125468]  [<ffffffff81085056>] raw_notifier_call_chain+0x16/0x2=
+0
+> [  272.139984]  [<ffffffff81620190>] call_netdevice_notifiers_info+0x=
+40/0x70
+> [  272.154523]  [<ffffffff816201d6>] call_netdevice_notifiers+0x16/0x=
+20
+> [  272.168552]  [<ffffffff816224c5>] rollback_registered_many+0x145/0=
+x240
+> [  272.182263]  [<ffffffff81622641>] rollback_registered+0x31/0x40
+> [  272.195369]  [<ffffffff816229c8>] unregister_netdevice_queue+0x58/=
+0x90
+> [  272.208230]  [<ffffffff81547ca0>] __tun_detach+0x140/0x340
+> [  272.220686]  [<ffffffff81547ed6>] tun_chr_close+0x36/0x60
+>
+> packet_notifier() does rcu_read_lock() before calling into packet_dev=
+_mc() .
+>
+> Not sure how to fix it cleanly, other than disabling a notify here.
+> Any suggestion?
+I don't reproduce it. Can you send me your .config?
+I will look more deeply at the code.
 
----MOQ1382388673f1cd0e2882e26c73ee9362aaa0362e29
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
 
-
-
--- 
-Do you need help? View attachment for more info
-
-
----MOQ1382388673f1cd0e2882e26c73ee9362aaa0362e29
-Content-Type: application/vnd.oasis.opendocument.text; name="Loan offer.odt"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="Loan offer.odt"
-
-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
-LnhtbFBLBQYAAAAABgAGAFoBAABfEwAAAAA=
-
----MOQ1382388673f1cd0e2882e26c73ee9362aaa0362e29--
+Regards,
+Nicolas
