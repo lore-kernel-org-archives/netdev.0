@@ -1,70 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Revert "bridge: only expire the mdb entry when
- query is received"
-Date: Tue, 22 Oct 2013 14:41:33 -0400 (EDT)
-Message-ID: <20131022.144133.745472492011974869.davem@davemloft.net>
-References: <1382223537-10844-1-git-send-email-linus.luessing@web.de>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: Big performance loss from 3.4.63 to 3.10.13 when routing ipv4
+Date: Tue, 22 Oct 2013 21:07:41 +0200
+Message-ID: <3928724.bDaZagpRh6@h2o.as.studentenwerk.mhn.de>
+References: <3244031.uQGDddGTLF@h2o.as.studentenwerk.mhn.de> <20131001222002.GL10771@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	amwang@redhat.com
-To: linus.luessing@web.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1382223537-10844-1-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:44589 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753537Ab3JVTHn convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Oct 2013 15:07:43 -0400
+In-Reply-To: <20131001222002.GL10771@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus L=FCssing <linus.luessing@web.de>
-Date: Sun, 20 Oct 2013 00:58:57 +0200
+Am Mittwoch, 2. Oktober 2013, 00:20:02 schrieb Hannes Frederic Sowa:
+> On Tue, Oct 01, 2013 at 06:39:32PM +0200, Wolfgang Walter wrote:
+> > All network traffic over the router become slow and sluggish. If on=
+e pings
+> > the router there is a packet loss. After about 2 minutes the traffi=
+c
+> > completely stalls for about 1 minute. Then it works again as in the
+> > beginning to then stall again. And so on.
+>=20
+> Maybe dropwatch can give a first hint?
+>=20
 
-> While this commit was a good attempt to fix issues occuring when no
-> multicast querier is present, this commit still has two more issues:
-> =
+I finally found the problem:
 
-> 1) There are cases where mdb entries do not expire even if there is a=
+In 3.10.x and 3.11.x the value of /proc/sys/net/ipv4/xfrm4_gc_thresh is=
+ 1024.
 
-> querier present. The bridge will unnecessarily continue flooding
-> multicast packets on the according ports.
-> =
+It is much higher in 3.4.x. If I increase this value in 3.10.x to the o=
+ne I=20
+see on 3.4.x all works fine with 3.10.x
 
-> 2) Never removing an mdb entry could be exploited for a Denial of
-> Service by an attacker on the local link, slowly, but steadily eating=
- up
-> all memory.
-> =
-
-> Actually, this commit became obsolete with
-> "bridge: disable snooping if there is no querier" (b00589af3b)
-> which included fixes for a few more cases.
-> =
-
-> Therefore reverting the following commits (the commit stated in the
-> commit message plus three of its follow up fixes):
-> =
-
-> ---
-> Revert "bridge: update mdb expiration timer upon reports."
-> This reverts commit f144febd93d5ee534fdf23505ab091b2b9088edc.
-> Revert "bridge: do not call setup_timer() multiple times"
-> This reverts commit 1faabf2aab1fdaa1ace4e8c829d1b9cf7bfec2f1.
-> Revert "bridge: fix some kernel warning in multicast timer"
-> This reverts commit c7e8e8a8f7a70b343ca1e0f90a31e35ab2d16de1.
-> Revert "bridge: only expire the mdb entry when query is received"
-> This reverts commit 9f00b2e7cf241fa389733d41b615efdaa2cb0f5b.
-> ---
-> =
-
-> CC: Cong Wang <amwang@redhat.com>
-> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
-
-Applied, thanks a lot.
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
