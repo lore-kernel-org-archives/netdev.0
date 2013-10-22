@@ -1,50 +1,47 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 3/3] net: ksz884x: use DEFINE_PCI_DEVICE_TABLE
-Date: Tue, 22 Oct 2013 12:01:47 +0900
-Message-ID: <001001ceced3$0bbdea20$2339be60$%han@samsung.com>
-References: <000e01ceced2$a9e5d970$fdb18c50$%han@samsung.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] Revert "bridge: only expire the mdb entry when
+	query is received"
+Date: Mon, 21 Oct 2013 20:02:23 -0700
+Message-ID: <CAM_iQpUq3EUu8GWsqbm_j9NonMGuWy0Qfimq1But9WrPsK8rbA@mail.gmail.com>
+References: <1382223537-10844-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	'Lennert Buytenhek' <buytenh@wantstofly.org>,
-	'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:27843 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753041Ab3JVDBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Oct 2013 23:01:48 -0400
-Received: from epcpsbgr5.samsung.com
- (u145.gpu120.samsung.co.kr [203.254.230.145])
- by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MV1002TGV2XNKH0@mailout3.samsung.com> for
- netdev@vger.kernel.org; Tue, 22 Oct 2013 12:01:47 +0900 (KST)
-In-reply-to: <000e01ceced2$a9e5d970$fdb18c50$%han@samsung.com>
-Content-language: ko
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>
+To: =?UTF-8?Q?Linus_L=C3=BCssing?= <linus.luessing@web.de>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1382223537-10844-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This macro is used to create a struct pci_device_id array.
+On Sat, Oct 19, 2013 at 3:58 PM, Linus L=C3=BCssing <linus.luessing@web.de>=
+ wrote:
+> While this commit was a good attempt to fix issues occuring when no
+> multicast querier is present, this commit still has two more issues:
+>
+> 1) There are cases where mdb entries do not expire even if there is a
+> querier present. The bridge will unnecessarily continue flooding
+> multicast packets on the according ports.
+>
+> 2) Never removing an mdb entry could be exploited for a Denial of
+> Service by an attacker on the local link, slowly, but steadily eating up
+> all memory.
+>
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/ethernet/micrel/ksz884x.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I raised the first issue too when I sent the patch, but Herbert said
+it is not a problem. So, I will leave this to Herbert to decide.
 
-diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-index 6462dc5..ddd252a 100644
---- a/drivers/net/ethernet/micrel/ksz884x.c
-+++ b/drivers/net/ethernet/micrel/ksz884x.c
-@@ -7225,7 +7225,7 @@ static int pcidev_suspend(struct pci_dev *pdev, pm_message_t state)
- 
- static char pcidev_name[] = "ksz884xp";
- 
--static struct pci_device_id pcidev_table[] = {
-+static DEFINE_PCI_DEVICE_TABLE(pcidev_table) = {
- 	{ PCI_VENDOR_ID_MICREL_KS, 0x8841,
- 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
- 	{ PCI_VENDOR_ID_MICREL_KS, 0x8842,
--- 
-1.7.10.4
+For me, your patch makes sense.
+
+Thanks.
