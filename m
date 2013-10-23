@@ -1,54 +1,54 @@
-From: jianhai luan <jianhai.luan@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net] xen-netback: add the scenario which now
- beyond the range time_after_eq().
-Date: Wed, 23 Oct 2013 16:02:14 +0800
-Message-ID: <52678286.6000802@oracle.com>
-References: <1381944167-24918-1-git-send-email-jianhai.luan@oracle.com> <525FBB4F02000078000FBB30@nat28.tlf.novell.com> <525FA79F.8060601@oracle.com> <525FC98002000078000FBBB5@nat28.tlf.novell.com> <52601274.5010008@oracle.com> <526102DE02000078000FBFBB@nat28.tlf.novell.com> <5260EDD8.4020608@oracle.com> <52610CD202000078000FC00B@nat28.tlf.novell.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7396@saturn3.aculab.com> <20131018112417.GA20185@zion.uk.xensource.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next 0/2] Removal of struct esp_data
+Date: Wed, 23 Oct 2013 10:07:16 +0200
+Message-ID: <20131023080716.GA10148@secunet.com>
+References: <1382090945-20860-1-git-send-email-mathias.krause@secunet.com>
+ <20131018.135536.686066381481925652.davem@davemloft.net>
+ <20131022130822.GA26207@secunet.com>
+ <20131022.140510.1879404122981800534.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jan Beulich <JBeulich@suse.com>, annie li <annie.li@oracle.com>,
-	david.vrabel@citrix.com, ian.campbell@citrix.com,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org
-To: Wei Liu <wei.liu2@citrix.com>,
-	David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=us-ascii
+Cc: mathias.krause@secunet.com, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:48275 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752126Ab3JWICj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 04:02:39 -0400
-In-Reply-To: <20131018112417.GA20185@zion.uk.xensource.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:60129 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751271Ab3JWIHT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Oct 2013 04:07:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20131022.140510.1879404122981800534.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Oct 22, 2013 at 02:05:10PM -0400, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Tue, 22 Oct 2013 15:08:22 +0200
+> 
+> > On Fri, Oct 18, 2013 at 01:55:36PM -0400, David Miller wrote:
+> >> From: Mathias Krause <mathias.krause@secunet.com>
+> >> Date: Fri, 18 Oct 2013 12:09:03 +0200
+> >> 
+> >> > This series removes one level of indirection when accessing the aead
+> >> > crypto algorithm in ESP transforms by simply removing struct esp_data.
+> >> > This results in smaller code and less memory usage per xfrm state.
+> >> > 
+> >> > Please apply!
+> >> 
+> >> No objections from me, I'll let Steffen pick this up.
+> > 
+> > I'm a bit hesitating with removing the padlen field. We resisted
+> > several attempts to remove it in the past. It is currenly unused,
+> > but it provides the infrastructure for ESP padding as defined
+> > in RFC 4303. However, RFC 4303 recommends the use of TFC padding
+> > instead to conceal the actual length of the packet. So I'm not
+> > sure what's the actual usecase for ESP padding. I'll reconsider
+> > this next week when I'm back at office.
+> 
+> Steffen, is it really the case that we cannot add it back later if we
+> really need to?
+> 
 
-On 2013-10-18 19:24, Wei Liu wrote:
-> On Fri, Oct 18, 2013 at 09:40:33AM +0100, David Laight wrote:
->>>> My understanding is this patch does not simply double the span, it is
->>>> just stricter than the original one. Please check my previous comments,
->>>> I paste it here.
->>> No, the code (on a 32-bit arch) just _can't_ handle jiffies differences
->>> beyond 2^32, no matter how cleverly you use the respective macros.
->>> All arithmetic there is done modulo 2^32.
->> I haven't followed this discussion very closely but it might be possible
->> to arrange that the 'incorrect lack of credit' only occurs for a few
->> seconds every time 'jiffies' wraps - instead of half of the time.
->> Then you'd have to be extremely unlucky to hit the timing window.
->>
-> As I understand it, this is the idea of this patch -- to narrow down the
-> timing window.
-Jan,  do you agree the idea or have better suggestion to me.
-
-Thanks,
-Jason
->
-> Wei.
->
->> 	David
->>
->>
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Well, I thought to either take this as a reminder to implement the
+missing stuff or to take the removing patches if this is really obsolete.
+I'll do one of both once I'm back from conference week in Edinburgh.
