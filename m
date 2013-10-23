@@ -1,142 +1,61 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: Re: [PATCH 1/4 net-next] net: phy: add Generic Netlink Ethernet switch
- configuration API
-Date: Wed, 23 Oct 2013 16:32:06 +0200
-Message-ID: <5267DDE6.70600@openwrt.org>
-References: <1382466229-15123-1-git-send-email-f.fainelli@gmail.com> <1382466229-15123-2-git-send-email-f.fainelli@gmail.com> <5266D7D6.9000309@intel.com> <CAGVrzcZS4SGiUFoCnhau1Fvv9F4ffS7tA+PT4r-qLCj8HV8BqQ@mail.gmail.com> <20131022202537.GA16336@hmsreliant.think-freely.org> <CAGVrzcaXFboRDn40+VciTes09w-jqTASNZz2GZNpTxbaV6D0Lw@mail.gmail.com> <5267B764.305@mojatatu.com> <5267BB53.8030703@openwrt.org> <5267C6B9.4000704@mojatatu.com> <5267CFAB.9090100@openwrt.org> <5267D8AE.7080009@mojatatu.com>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: Big performance loss from 3.4.63 to 3.10.13 when routing ipv4
+Date: Wed, 23 Oct 2013 17:57:18 +0200
+Message-ID: <4147596.bk6j0PMJyl@h2o.as.studentenwerk.mhn.de>
+References: <3244031.uQGDddGTLF@h2o.as.studentenwerk.mhn.de> <1748378.n7GIUzQXTX@h2o.as.studentenwerk.mhn.de> <1382529601.7572.2.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	John Crispin <blogic@openwrt.org>,
-	Jonas Gorski <jogo@openwrt.org>,
-	Gary Thomas <gary@mlbassoc.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>, hannes@stressinduktion.org,
+	netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:40040 "EHLO nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750977Ab3JWOca (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Oct 2013 10:32:30 -0400
-In-Reply-To: <5267D8AE.7080009@mojatatu.com>
+Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:49346 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751208Ab3JWP5V convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Oct 2013 11:57:21 -0400
+In-Reply-To: <1382529601.7572.2.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013-10-23 4:09 PM, Jamal Hadi Salim wrote:
-> On 10/23/13 09:31, Felix Fietkau wrote:
->> On 2013-10-23 2:53 PM, Jamal Hadi Salim wrote:
-> 
->> So you would like to have 'dummy' netdevs that don't actually work like
->> real ones, just to get stats?
-> 
-> Not just stats, but other utilities, example:
-> *operational status read and admin status control,
+Am Mittwoch, 23. Oktober 2013, 05:00:01 schrieb Eric Dumazet:
+> On Wed, 2013-10-23 at 13:33 +0200, Wolfgang Walter wrote:
+> > I don't know what this value actually means. But on 3.4.x it is muc=
+h
+> > higher. On a machine with 512MB ram it is 32768, on a machine with =
+1GB
+> > ram it is 262144 and with 16GB ram it is 4194304.
+>=20
+> Such huge values should not be needed. We should have at most one dst
+> per packet in flight.
+>=20
+> On a loaded router, a NIC not using BQL could queue around 16,000
+> packets.
+>=20
+> Of course, Qdisc layers could also store a lot of packets, but using =
+the
+> default pfifo_fast is only adding 1000 packets per interface.
+>=20
+> I guess using 65536 as the default value should be safe and reasonabl=
+e
+>=20
+> Have you tried using 32768 or 65536 ?
 
-> *MAC address setting?
-Typically ignored by switches.
+I use 32768 on routers with 512MB. They usually have around 50 ipsec-tu=
+nnels=20
+and only about 10 interfaces including vlan-interfaces.
 
-> *MTU setting
-Can usually not be controlled per-port. Where supported, it is usually a
-global configuration parameter for the switch.
+On larger ones I set the bigger values from 3.4.x. That one with 16GB h=
+as=20
+about 2000 ipsec-tunnels. It has about 80 interfaces (inlcuding vlan-
+interfaces). Physically it has 8 interfaces with together about 30 hard=
+ware-=20
+queues.
 
-> * If something shows up on the cpu port and comes up, we can make it 
-> appear to be from such a netdev (for the case where this applies)
-I think that's actually more confusing for users if they find the same
-kind of devices on multiple different switches, and on some they can be
-used directly, on others they cannot.
-
-> * etc
-> 
->> Many of these switches are designed to work completely standalone, i.e.
->> they receive their configuration once and then do their thing, often
->> they don't even have special treatment for the CPU port.
->>
-> 
-> So if i understood the worst case scenario:
-> - no packets will ever come to the CPU
-> - minimal config only such as configuring ports and what vlans they
-> accept
-> - you cant query the device for anything else not even stats
-Correct.
-
->>> Can you at least retrieve the fdb? example how to figure out which
->>> port a specific MAC address resides?
->> On some of them, but not all.
-> I think this would be a fit for netdev->features to set capabilities at
-> initialization.
-> So canSetfdb, canGetfdb, canDelfdb etc
-
->>> can support more than one vlan without having multiple bridges. example:
->>> bridgeA: link ports {swp0:vlan1, swp1:vlan2, swp0:vlan4}
->>> bridgeB: link ports {swp0:vlan3, swp1:vlan4, swp1:vlan2}
->> So even more dummy interfaces that serve no real purpose other than
->> configuration?
-> 
-> Yes. It may sound rediculous(trademark for that owned by DaveM), but
-> given the returns that all other classical linux tools work, I think it
-> is worth it.
-The classical Linux tools here only cover the most basic configuration
-parts. In many cases, separate configuration options are needed. For
-example, on some switches, forwarding table IDs can be assigned to VLANs.
-Also, the switch driver is completely independent of the network device
-driver that drives the port connected to the CPU port of the switch. The
-only ways I can imagine implementing this in the Linux network stack
-involve an unhealthy amount of layering violations or other forms of
-ugly hackery.
-
-> Disclaimer: I still think this part is acrobatic in nature i.e no good
-> one-to-one mapping
-> 
->> Correct.
-> 
-> How do you deal with those situations today example when a packet
-> shows up in the cpu port and they require routing?
-> Do you have one monolithic switch netdev ?
-The switch driver usually attaches itself as a PHY driver, there is no
-monolithic switch netdev.
-
->>I still get the impression that the model you're describing is
->> mostly incompatible with what we're trying to do, and comes at the cost
->> of quite a bit of extra complexity and bloat, not just on the
->> implementation side, but on the configuration side as well.
-> 
-> /Sigh
-> I understand it is a dilema especially when you have your model proven
-> already with users.
-> The danger is one-offs where certain tools only work with certain
-> instantiations of common features. From a usability perspective,
-> it would be nice to use iproute2, ifconfig etc on the switch/ports and
-> not learn another tool (or program the switch to a different API).
-I fully agree that this would be nice to have. I've given quite a bit of
-thought to trying to figure out if there's a simple clean way to
-implement this, but in all of the proposals I've seen so far, the costs
-(complexity, bloat, quirky interfaces) seem to massively outweigh the
-benefits.
-
->> It also seems to make it more difficult to support vendor specific
->> features. I strongly doubt that the slight increase in consistency
->> between different kinds of switches/bridges is worth all of these extra
->> costs.
-> 
-> I am not privy to what specific vendor features exist that are out of
-> whack. But note:
-> We have ability to set capabilities (netdev->features is one, but you 
-> can add another netdev->field). Would it not make sense for the driver
->   to set such capabilities and the generic code to turn on/off certain
-> things? Example turn on netdev->ops->fdb_add if the switch is capable
-> etc.
-I don't think bloating up the netdev feature flags for lots of
-single-vendor fields is a good idea. swconfig simply allows the driver
-to register its own global, per-port and per-vlan attributes and user
-space can discover them.
-
-That also avoids the nasty issue of userspace code having to know about
-all possible vendor specific features and bits of status information.
-
-- Felix
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
