@@ -1,53 +1,63 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net] netpoll: fix rx_hook() interface by passing the skb
-Date: Wed, 23 Oct 2013 09:33:49 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73A1@saturn3.aculab.com>
-References: <20131022.025038.1046903740187748879.davem@davemloft.net> <1382431715-3128-1-git-send-email-antonio@meshcoding.com> <AE90C24D6B3A694183C094C60CF0A2F6026B739B@saturn3.aculab.com> <20131022101127.GJ1544@neomailbox.net> <AE90C24D6B3A694183C094C60CF0A2F6026B739F@saturn3.aculab.com> <20131022171314.GL1544@neomailbox.net>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net] net: sctp: fix ASCONF to allow non SCTP_ADDR_SRC
+ addresses in ipv6
+Date: Wed, 23 Oct 2013 04:54:22 -0400
+Message-ID: <CAGCdqXHLFiGwxATpoYfCDEGJLQH2Rej4xqeyqsndwb2B1tBjCg@mail.gmail.com>
+References: <1382459696-1732-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Antonio Quartulli" <antonio@meshcoding.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	Michio Honda <micchie@sfc.wide.ad.jp>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33276 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751621Ab3JWIf0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Oct 2013 04:35:26 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 11832-06 for <netdev@vger.kernel.org>;
- Wed, 23 Oct 2013 09:35:24 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20131022171314.GL1544@neomailbox.net>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:45353 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751052Ab3JWIyX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 04:54:23 -0400
+In-Reply-To: <1382459696-1732-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Li4uDQo+ID4gSSBjYW4ndCByZW1lbWJlciB3aGljaCB2YWx1ZSB5b3UgcGFzc2VkIGFzICdvZmZz
-ZXQnIChhbmQgbXkgbWFpbGVyIG1ha2VzDQo+ID4gaXQgaGFyZCB0byBmaW5kKSwgYnV0IHRvIGVh
-c2UgdGhlIGNvZGUgY2hhbmdlcyB0aGUgb2Zmc2V0IG9mIHRoZSB1ZHAgZGF0YQ0KPiA+IHdvdWxk
-IG1ha2Ugc2Vuc2UuDQo+ID4gSW4gdGhhdCBjYXNlIHlvdSBzdGlsbCBuZWVkIHRvIHBhc3MgdGhl
-IHNvdXJjZSBwb3J0Lg0KPiANCj4gSSBkZWNpZGVkIG5vdCB0byBwYXNzIHRoZSBzb3VyY2UgcG9y
-dCBiZWNhdXNlIGlmIHRoZSB1c2VyIGlzIHJlYWxseSBpbnRlcmVzdGVkDQo+IGluIGl0LCBpdCBp
-cyBzdGlsbCBwb3NzaWJsZSB0byBnZXQgdGhlIHVkcF9oZHIgZnJvbSB0aGUgc2tiIGFuZCByZWFk
-IGl0cyB2YWx1ZS4NCg0KSXQganVzdCBzZWVtZWQgdGhhdCB0aGVyZSB3YXMgbm8gbmVlZCB0byBy
-ZXF1aXJlIHRoYXQgdGhlIGhvb2sgcmUtcGFyc2UNCnRoZSBpcCBoZWFkZXIganVzdCB0byBmaW5k
-IHRoZSBzb3VyY2UgcG9ydC4NCihvayBpdCBjb3VsZCBhc3N1bWUgdGhhdCB0aGUgdWRwIGhlYWRl
-ciBpcyBqdXN0IGJlZm9yZSB0aGUgZGF0YSkNCiANCj4gPiBJZiB5b3UgZG8gcnhfaG9vayhucCwg
-c291cmNlX3BvcnQsIHNrYiwgb2Zmc2V0KSB0aGVuIGlmIGFueW9uZSBtYW5hZ2VzIHRvDQo+ID4g
-bG9hZCBhbiBvbGQgbW9kdWxlIChvciBjb2RlIHRoYXQgY2FzdHMgdGhlIGFzc2lnbmVtZW50IHRv
-IHJ4X3BvbGwpDQo+ID4gYXQgbGVhc3QgaXQgd29uJ3QgZ28gJ2JhbmcnLg0KPiA+IFJlbmFtaW5n
-IHRoZSBzdHJ1Y3R1cmUgbWVtYmVyIHdpbGwgZ3VhcmFudGVlIHRvIGdlbmVyYXRlIGNvbXBpbGUg
-ZXJyb3JzLg0KPiANCj4gc28geW91IHN1Z2dlc3QgdG8gcmVuYW1lIHJ4X2hvb2sgdG8gc29tZXRo
-aW5nIGVsc2UgdG8gd2FybiBwZW9wbGUgYWJvdXQgdGhlDQo+IGNoYW5nZT8NCg0KWWVzLg0KDQo+
-IElmIHdlIGdvIGZvciB0aGUgIm5vIHVkcCBwb3J0IiBhcHByb2FjaCB0aGV5IHdpbGwgZ2V0IGFu
-IGVycm9yIGFueSB3YXkgYmVjYXVzZQ0KPiBvZiB0aGUgbWlzbWF0Y2hpbmcgYXJndW1lbnRzLg0K
-DQpObyAtIHlvdSBvbmx5IGdldCBhIHdhcm5pbmcgd2hlbiB5b3UgYXNzaWduIGEgZnVuY3Rpb24g
-cG9pbnRlciBvZiB0aGUgd3JvbmcgdHlwZS4NCkFuZCB0aGF0IGlzIHRydWUgZXZlbiBpZiB5b3Ug
-anVzdCBjaGFuZ2UgdGhlIHR5cGUgb2YgdGhlIHBvaW50ZXIuDQpIb3dldmVyIGNvZGUgbWlnaHQg
-YWxyZWFkeSBoYXZlIGEgY2FzdCBvbiB0aGUgZnVuY3Rpb24gcG9pbnRlciAoZWcgYmVjYXVzZSB0
-aGUNCmhvb2sgaGFzICd1bnNpZ25lZCBjaGFyIConKSAtIHNvIHlvdSB3b24ndCBldmVuIGdldCBh
-IHdhcm5pbmcuDQpZb3UgdGhlbiBnZXQgYW4gT09QUyB3aGVuIHRoZSBob29rIHRyaWVzIHRvIHJl
-YWQgdGhlIGJ1ZmZlci4NCg0KSXQgaXMgYSByZWFsbHkgYmFkIGludGVyZmFjZS4uLg0KVGhlcmUg
-aXNuJ3QgZXZlbiBhIGZsYWdzL29wdGlvbnMgKGV0Yykgd29yZCB0aGF0IGNhbiBiZSB1c2VkDQp0
-byBkZXRlY3QgZW5oYW5jZW1lbnRzLg0KDQoJRGF2aWQNCg0K
+On Tue, Oct 22, 2013 at 12:34 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>
+> Commit 8a07eb0a50 ("sctp: Add ASCONF operation on the single-homed host")
+> implemented possible use of IPv4 addresses with non SCTP_ADDR_SRC state
+> as source address when sending ASCONF (ADD) packets, but IPv6 part for
+> that was not implemented in 8a07eb0a50. Therefore, as this is not restricted
+> to IPv4-only, fix this up to allow the same for IPv6 addresses in SCTP.
+>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Michio Honda <micchie@sfc.wide.ad.jp>
+
+[stupid gmail]
+
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+
+> ---
+>  net/sctp/ipv6.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index e7b2d4f..96a5591 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -279,7 +279,9 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+>                 sctp_v6_to_addr(&dst_saddr, &fl6->saddr, htons(bp->port));
+>                 rcu_read_lock();
+>                 list_for_each_entry_rcu(laddr, &bp->address_list, list) {
+> -                       if (!laddr->valid || (laddr->state != SCTP_ADDR_SRC))
+> +                       if (!laddr->valid || laddr->state == SCTP_ADDR_DEL ||
+> +                           (laddr->state != SCTP_ADDR_SRC &&
+> +                            !asoc->src_out_of_asoc_ok))
+>                                 continue;
+>
+>                         /* Do not compare against v4 addrs */
+> --
+> 1.8.3.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
