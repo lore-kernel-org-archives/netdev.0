@@ -1,50 +1,147 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 7/7] net: via-rhine: remove unnecessary pci_set_drvdata()
-Date: Wed, 23 Oct 2013 16:09:56 +0900
-Message-ID: <000801cecfbe$e12669d0$a3733d70$%han@samsung.com>
-References: <000001cecfbe$44ce9c10$ce6bd430$%han@samsung.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: BUG: scheduling while atomic dev_set_promiscuity->__dev_notify_flags
+Date: Wed, 23 Oct 2013 09:48:00 +0200
+Message-ID: <52677F30.1070800@6wind.com>
+References: <CAMEtUuy91zYJ=bj1dzfdqE8kqZ3rE1RgdR-PZYekSUg8_xoTBw@mail.gmail.com>	<slrnl6ei2u.vgu.xiyou.wangcong@linux-6brj.site> <CAADnVQLY7-crQLO1Tc4MBLX8R66wAZztw-arnfO3NWO9sLW++Q@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>,
-	'Roger Luethi' <rl@hellgate.ch>
-To: "'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:45754 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622Ab3JWHJ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 03:09:58 -0400
-Received: from epcpsbgr5.samsung.com
- (u145.gpu120.samsung.co.kr [203.254.230.145])
- by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MV40063S186EY00@mailout4.samsung.com> for
- netdev@vger.kernel.org; Wed, 23 Oct 2013 16:09:57 +0900 (KST)
-In-reply-to: <000001cecfbe$44ce9c10$ce6bd430$%han@samsung.com>
-Content-language: ko
+Received: from mail-we0-f177.google.com ([74.125.82.177]:55494 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751199Ab3JWHsF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 03:48:05 -0400
+Received: by mail-we0-f177.google.com with SMTP id x55so382693wes.22
+        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 00:48:03 -0700 (PDT)
+In-Reply-To: <CAADnVQLY7-crQLO1Tc4MBLX8R66wAZztw-arnfO3NWO9sLW++Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver core clears the driver data to NULL after device_release
-or on probe failure. Thus, it is not needed to manually clear the
-device driver data to NULL.
+Le 23/10/2013 07:34, Alexei Starovoitov a =E9crit :
+> On Tue, Oct 22, 2013 at 8:53 PM, Cong Wang <xiyou.wangcong@gmail.com>=
+ wrote:
+>> On Tue, 22 Oct 2013 at 01:04 GMT, Alexei Starovoitov <ast@plumgrid.c=
+om> wrote:
+>>>
+>>> packet_notifier() does rcu_read_lock() before calling into packet_d=
+ev_mc() .
+>>>
+>>> Not sure how to fix it cleanly, other than disabling a notify here.
+>>> Any suggestion?
+>>>
+>>
+>> Passing a gfp flag to rtmsg_ifinfo() seems a right fix for me, but I=
+ don't
+>> know if there is other better way to fix it.
+>
+> Indeed. rtnl_notify() already accepts gfp_t.
+>
+> The following diff fixes it for me:
+> ---
+>   include/linux/rtnetlink.h |    3 ++-
+>   net/core/dev.c            |    2 +-
+>   net/core/rtnetlink.c      |   12 +++++++++---
+>   3 files changed, 12 insertions(+), 5 deletions(-)
+>
+> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+> index f28544b..0180523 100644
+> --- a/include/linux/rtnetlink.h
+> +++ b/include/linux/rtnetlink.h
+> @@ -15,7 +15,8 @@ extern int rtnetlink_put_metrics(struct sk_buff
+> *skb, u32 *metrics);
+>   extern int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry=
+ *dst,
+>                     u32 id, long expires, u32 error);
+>
+> -extern void rtmsg_ifinfo(int type, struct net_device *dev, unsigned =
+change);
+> +void __rtmsg_ifinfo(int type, struct net_device *dev, unsigned
+> change, gfp_t flags);
+Just nitpiking: putting the type and the name on the same line is bette=
+r=20
+'unsigned change'.
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/ethernet/via/via-rhine.c |    1 -
- 1 file changed, 1 deletion(-)
+> +void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change)=
+;
+>
+>   /* RTNL is used as a global lock for all changes to network configu=
+ration  */
+>   extern void rtnl_lock(void);
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 0918aad..59b90fe 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5257,7 +5257,7 @@ void __dev_notify_flags(struct net_device *dev,
+> unsigned int old_flags,
+>       unsigned int changes =3D dev->flags ^ old_flags;
+>
+>       if (gchanges)
+> -        rtmsg_ifinfo(RTM_NEWLINK, dev, gchanges);
+> +        __rtmsg_ifinfo(RTM_NEWLINK, dev, gchanges, GFP_ATOMIC);
+>
+>       if (changes & IFF_UP) {
+>           if (dev->flags & IFF_UP)
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 4aedf03..5931af9 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1984,14 +1984,15 @@ static int rtnl_dump_all(struct sk_buff *skb,
+> struct netlink_callback *cb)
+>       return skb->len;
+>   }
+>
+> -void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int cha=
+nge)
+> +void __rtmsg_ifinfo(int type, struct net_device *dev, unsigned int c=
+hange,
+> +            gfp_t flags)
+'gfp_t flags' should be aligned with 'int type'
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index bdf697b..4a7293e 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -2292,7 +2292,6 @@ static void rhine_remove_one(struct pci_dev *pdev)
- 
- 	free_netdev(dev);
- 	pci_disable_device(pdev);
--	pci_set_drvdata(pdev, NULL);
- }
- 
- static void rhine_shutdown (struct pci_dev *pdev)
--- 
-1.7.10.4
+>   {
+>       struct net *net =3D dev_net(dev);
+>       struct sk_buff *skb;
+>       int err =3D -ENOBUFS;
+>       size_t if_info_size;
+>
+> -    skb =3D nlmsg_new((if_info_size =3D if_nlmsg_size(dev, 0)), GFP_=
+KERNEL);
+> +    skb =3D nlmsg_new((if_info_size =3D if_nlmsg_size(dev, 0)), flag=
+s);
+>       if (skb =3D=3D NULL)
+>           goto errout;
+>
+> @@ -2002,12 +2003,17 @@ void rtmsg_ifinfo(int type, struct net_device
+> *dev, unsigned int change)
+>           kfree_skb(skb);
+>           goto errout;
+>       }
+> -    rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, GFP_KERNEL);
+> +    rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, flags);
+>       return;
+>   errout:
+>       if (err < 0)
+>           rtnl_set_sk_err(net, RTNLGRP_LINK, err);
+>   }
+> +
+> +void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int cha=
+nge)
+> +{
+> +    __rtmsg_ifinfo(type, dev, change, GFP_KERNEL);
+> +}
+>   EXPORT_SYMBOL(rtmsg_ifinfo);
+>
+>   static int nlmsg_populate_fdb_fill(struct sk_buff *skb,
+> --
+>
+> Nicolas, I've sent you my .config.
+I got some pb with my testbed, hence I still didn't reproduce the bug.
+I will make more test today, but I think this is the right patch.
+
+> Any better ideas?
+No and the patch is right for me (__dev_set_promiscuity() call
+audit_log(..., GFP_ATOMIC) already).
