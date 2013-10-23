@@ -1,51 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: batman-adv 2013-10-23
-Date: Wed, 23 Oct 2013 17:13:03 -0400 (EDT)
-Message-ID: <20131023.171303.896342188641327344.davem@davemloft.net>
-References: <1382544303-2694-1-git-send-email-antonio@meshcoding.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] fix rtnl notification in atomic context
+Date: Wed, 23 Oct 2013 14:25:17 -0700
+Message-ID: <CAMEtUuw+TtVcShem=rxSGu3JhEx60jeGFBrhWSXT6XuyYODGeA@mail.gmail.com>
+References: <1382553161-3498-1-git-send-email-ast@plumgrid.com>
+	<20131023140343.4604d80d@nehalam.linuxnetplumber.net>
+	<20131023.170919.2254167416151180538.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: antonio@meshcoding.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: stephen@networkplumber.org, nicolas.dichtel@6wind.com,
+	amwang@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41111 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751531Ab3JWVNF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 17:13:05 -0400
-In-Reply-To: <1382544303-2694-1-git-send-email-antonio@meshcoding.com>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:40075 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751830Ab3JWVZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 17:25:19 -0400
+Received: by mail-wi0-f180.google.com with SMTP id ey11so1596467wid.13
+        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 14:25:18 -0700 (PDT)
+In-Reply-To: <20131023.170919.2254167416151180538.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Wed, 23 Oct 2013 18:04:47 +0200
+On Wed, Oct 23, 2013 at 2:09 PM, David Miller <davem@davemloft.net> wrote:
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Wed, 23 Oct 2013 14:03:43 -0700
+>
+>> On Wed, 23 Oct 2013 11:32:41 -0700
+>> Alexei Starovoitov <ast@plumgrid.com> wrote:
+>>
+>>> +
+>>> +void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change)
+>>> +{
+>>> +    __rtmsg_ifinfo(type, dev, change, GFP_KERNEL);
+>>> +}
+>>>  EXPORT_SYMBOL(rtmsg_ifinfo);
+>>>
+>>>  static int nlmsg_populate_fdb_fill(struct sk_buff *skb,
+>>> --
+>>
+>> Why add another wrapper function? I think it cleaner to just change all the
+>> callers to use the correct gfp flags.
+>
+> Indeed, if this were targetted to "net" we'd have the argument of trying
+> to simplify the patch for -stable inclusion.
+>
+> But since this is going into net-next, let's just put explicit GFP_* args
+> at the call site.
 
-> this is another set of changes intended for net-next/linux-3.13.
-> (probably our last pull request for this cycle)
-> 
-> Patches 1 and 2 reshape two of our main data structures in a way that they can
-> easily be extended in the future to accommodate new routing protocols.
-> 
-> Patches from 3 to 9 improve our routing protocol API and its users so that all
-> the protocol-related code is not mixed up with the other components anymore.
-> 
-> Patch 10 limits the local Translation Table maximum size to a value such that it
-> can be fully transfered over the air if needed. This value depends on
-> fragmentation being enabled or not and on the mtu values.
-> 
-> Patch 11 makes batman-adv send a uevent in case of soft-interface destruction
-> while a "bat-Gateway" was configured (this informs userspace about the GW not
-> being available anymore).
-> 
-> Patches 13 and 14 enable the TT component to detect non-mesh client flag
-> changes at runtime (till now those flags where set upon client detection and
-> were not changed anymore).
-> 
-> Patch 16 is a generalisation of our user-to-kernel space communication (and
-> viceversa) used to exchange ICMP packets to send/received to/from the mesh
-> network. Now it can easily accommodate new ICMP packet types without breaking
-> the existing userspace API anymore.
-> 
-> Remaining patches are minor changes and cleanups.
-
-Pulled, thanks Antonio.
+sure. Will respin.
