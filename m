@@ -1,59 +1,72 @@
-From: Krishna Chaitanya <chaitanya.mgit@gmail.com>
-Subject: Re: [PATCH 1/1] mac80211:Resetting connection monitor timers in
- transmit path
-Date: Wed, 23 Oct 2013 16:24:23 +0530
-Message-ID: <CABPxzYLdtA_gU87RY5pLqTxaq+NZbDyZVGwQ=vxj5HLdTz3C_w@mail.gmail.com>
-References: <1382523145-2302-1-git-send-email-dhahira.thesneem@mistralsolutions.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next 1/2] net: make net_get_random_once irqsave
+Date: Wed, 23 Oct 2013 13:12:00 +0200
+Message-ID: <20131023111200.GB26236@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Dhahira Thesneem <dhahira.thesneem@mistralsolutions.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1382523145-2302-1-git-send-email-dhahira.thesneem@mistralsolutions.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, edumazet@google.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:52523 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753188Ab3JWLMC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 07:12:02 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 23, 2013 at 3:42 PM, Dhahira Thesneem
-<dhahira.thesneem@mistralsolutions.com> wrote:
->
-> Reset connection monitor timers when we are able to successfully transmit data to an AP.
->
-> Signed-off-by: Dhahira Thesneem <dhahira.thesneem@mistralsolutions.com>
-> ---
->  net/mac80211/tx.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-> index 3456c04..e7725cf 100644
-> --- a/net/mac80211/tx.c
-> +++ b/net/mac80211/tx.c
-> @@ -1700,7 +1700,8 @@ netdev_tx_t ieee80211_monitor_start_xmit(struct sk_buff *skb,
->
->         ieee80211_xmit(sdata, skb, chan->band);
->         rcu_read_unlock();
-> -
-> +       /*To reset connection monitor timers, after successful transmission*/
-> +       ieee80211_sta_reset_conn_monitor(sdata);
->         return NETDEV_TX_OK;
->
->  fail_rcu:
-> @@ -2139,7 +2140,8 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
->
->         ieee80211_xmit(sdata, skb, band);
->         rcu_read_unlock();
-> -
-> +       /*To reset connection monitor timers, after successful transmission*/
-> +       ieee80211_sta_reset_conn_monitor(sdata);
->         return NETDEV_TX_OK;
->
->   fail_rcu:
-> --
-Successful data transmission should be checked in the tx_status not
-after we transmit.
-In fact its already taken care in status.c: through ieee80211_sta_tx_notify.
+I initial build a non-irqsave version of net_get_random_once because I
+would liked to have the freedom to defer even the extraction process of
+get_random_bytes until the nonblocking pool is fully seeded.
 
-NACK.
+I don't think this is a good idea anymore and thus this patch makes
+net_get_random_once irqsave. Now someone using net_get_random_once does
+not need to care from where it is called.
+
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/linux/net.h | 1 -
+ net/core/utils.c    | 7 ++++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/net.h b/include/linux/net.h
+index aca446b..b292a04 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -250,7 +250,6 @@ bool __net_get_random_once(void *buf, int nbytes, bool *done,
+ #define ___NET_RANDOM_STATIC_KEY_INIT STATIC_KEY_INIT_FALSE
+ #endif /* HAVE_JUMP_LABEL */
+ 
+-/* BE CAREFUL: this function is not interrupt safe */
+ #define net_get_random_once(buf, nbytes)				\
+ 	({								\
+ 		bool ___ret = false;					\
+diff --git a/net/core/utils.c b/net/core/utils.c
+index bf09371..2f737bf 100644
+--- a/net/core/utils.c
++++ b/net/core/utils.c
+@@ -370,16 +370,17 @@ bool __net_get_random_once(void *buf, int nbytes, bool *done,
+ 			   struct static_key *done_key)
+ {
+ 	static DEFINE_SPINLOCK(lock);
++	unsigned long flags;
+ 
+-	spin_lock_bh(&lock);
++	spin_lock_irqsave(&lock, flags);
+ 	if (*done) {
+-		spin_unlock_bh(&lock);
++		spin_unlock_irqrestore(&lock, flags);
+ 		return false;
+ 	}
+ 
+ 	get_random_bytes(buf, nbytes);
+ 	*done = true;
+-	spin_unlock_bh(&lock);
++	spin_unlock_irqrestore(&lock, flags);
+ 
+ 	__net_random_once_disable_jump(done_key);
+ 
+-- 
+1.8.3.1
