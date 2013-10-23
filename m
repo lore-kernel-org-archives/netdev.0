@@ -1,42 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netpoll: fix rx_hook() interface by passing the skb
-Date: Wed, 23 Oct 2013 16:16:03 -0400 (EDT)
-Message-ID: <20131023.161603.1190144528425577653.davem@davemloft.net>
-References: <20131023102848.GB1535@neomailbox.net>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B73A4@saturn3.aculab.com>
-	<20131023124401.GC1535@neomailbox.net>
+Subject: Re: [PATCH net-next] net: always inline net_secret_init
+Date: Wed, 23 Oct 2013 16:27:07 -0400 (EDT)
+Message-ID: <20131023.162707.1471269899020780213.davem@davemloft.net>
+References: <20131023064450.GA26236@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, netdev@vger.kernel.org
-To: antonio@meshcoding.com
+Cc: netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40807 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40865 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753045Ab3JWUQE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 16:16:04 -0400
-In-Reply-To: <20131023124401.GC1535@neomailbox.net>
+	with ESMTP id S1751972Ab3JWU1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 16:27:09 -0400
+In-Reply-To: <20131023064450.GA26236@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Wed, 23 Oct 2013 14:44:01 +0200
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 23 Oct 2013 08:44:50 +0200
 
-> On Wed, Oct 23, 2013 at 12:18:32PM +0100, David Laight wrote:
->> > My idea is to use the following API:
->> > 
->> > rx_skb_hook(struct netpoll *np, int source, struct sk_buff *skb, int len);
->> > 
->> > Any suggestion or objection?
->> 
->> Don't you need to pass the offset of the udp data?
+> Currently net_secret_init does not get inlined, so we always have a call
+> to net_secret_init even in the fast path.
 > 
-> Yes, you are right. I just forgot it. Therefore we have:
+> Let's specify net_secret_init as __always_inline so we have the nop in
+> the fast-path without the call to net_secret_init and the unlikely path
+> at the epilogue of the function.
 > 
-> rx_skb_hook(struct netpoll *np, int source, struct sk_buff *skb, int offset,
-> 	    int len);
+> jump_labels handle the inlining correctly.
 > 
-> where offset is going to be = (udp_hdr + 1) - skb->data
-> and len = skb->len - offset
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-This looks good to me.
+Applied, thanks Hannes.
