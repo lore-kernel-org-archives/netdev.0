@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: sctp: fix ASCONF to allow non SCTP_ADDR_SRC
- addresses in ipv6
-Date: Wed, 23 Oct 2013 16:57:36 -0400 (EDT)
-Message-ID: <20131023.165736.804778459722407050.davem@davemloft.net>
-References: <1382459696-1732-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net-next 0/3] initialize fragment hash secrets with
+ net_get_random_once
+Date: Wed, 23 Oct 2013 17:02:44 -0400 (EDT)
+Message-ID: <20131023.170244.1860098541779927169.davem@davemloft.net>
+References: <1382519217-750-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	micchie@sfc.wide.ad.jp
-To: dborkman@redhat.com
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41021 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41059 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751316Ab3JWU5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 16:57:38 -0400
-In-Reply-To: <1382459696-1732-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1754034Ab3JWVCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 17:02:46 -0400
+In-Reply-To: <1382519217-750-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue, 22 Oct 2013 18:34:56 +0200
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 23 Oct 2013 11:06:54 +0200
 
-> Commit 8a07eb0a50 ("sctp: Add ASCONF operation on the single-homed host")
-> implemented possible use of IPv4 addresses with non SCTP_ADDR_SRC state
-> as source address when sending ASCONF (ADD) packets, but IPv6 part for
-> that was not implemented in 8a07eb0a50. Therefore, as this is not restricted
-> to IPv4-only, fix this up to allow the same for IPv6 addresses in SCTP.
+> This series switches the inet_frag.rnd hash initialization to
+> net_get_random_once.
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Michio Honda <micchie@sfc.wide.ad.jp>
+> Included patches:
+>  ipv4: initialize ip4_frags hash secret as late
+>  ipv6: split inet6_hash_frag for netfilter and
+>  inet: remove old fragmentation hash initializing
 
-Applied, thanks.
+Looks good, series applied, thanks Hannes.
