@@ -1,38 +1,40 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: BUG: scheduling while atomic dev_set_promiscuity->__dev_notify_flags
-Date: Wed, 23 Oct 2013 14:18:34 +0200
-Message-ID: <5267BE9A.90504@6wind.com>
-References: <CAMEtUuy91zYJ=bj1dzfdqE8kqZ3rE1RgdR-PZYekSUg8_xoTBw@mail.gmail.com>	<slrnl6ei2u.vgu.xiyou.wangcong@linux-6brj.site> <CAADnVQLY7-crQLO1Tc4MBLX8R66wAZztw-arnfO3NWO9sLW++Q@mail.gmail.com> <52677F30.1070800@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Big performance loss from 3.4.63 to 3.10.13 when routing ipv4
+Date: Wed, 23 Oct 2013 14:26:00 +0200
+Message-ID: <20131023122600.GB22316@secunet.com>
+References: <3244031.uQGDddGTLF@h2o.as.studentenwerk.mhn.de>
+ <20131022.154638.1989281525248160764.davem@davemloft.net>
+ <20131023081255.GB10148@secunet.com>
+ <1748378.n7GIUzQXTX@h2o.as.studentenwerk.mhn.de>
+ <1382529601.7572.2.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wolfgang Walter <linux@stwm.de>,
+	David Miller <davem@davemloft.net>, hannes@stressinduktion.org,
+	netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:43395 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753261Ab3JWMSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 08:18:37 -0400
-Received: by mail-wi0-f178.google.com with SMTP id hn9so753938wib.17
-        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 05:18:36 -0700 (PDT)
-In-Reply-To: <52677F30.1070800@6wind.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:53214 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753376Ab3JWM0E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Oct 2013 08:26:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1382529601.7572.2.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 23/10/2013 09:48, Nicolas Dichtel a =E9crit :
-> Le 23/10/2013 07:34, Alexei Starovoitov a =E9crit :
->> On Tue, Oct 22, 2013 at 8:53 PM, Cong Wang <xiyou.wangcong@gmail.com=
-> wrote:
->>> On Tue, 22 Oct 2013 at 01:04 GMT, Alexei Starovoitov <ast@plumgrid.=
-com> wrote:
->>>>
-[snip]
->> Nicolas, I've sent you my .config.
-> I got some pb with my testbed, hence I still didn't reproduce the bug=
-=2E
-> I will make more test today, but I think this is the right patch.
-Still not reproduced with your config.
-But as I said, I think your patch is the right thing to do.
+On Wed, Oct 23, 2013 at 05:00:01AM -0700, Eric Dumazet wrote:
+> On Wed, 2013-10-23 at 13:33 +0200, Wolfgang Walter wrote:
+> 
+> > I don't know what this value actually means. But on 3.4.x it is much higher. 
+> > On a machine with 512MB ram it is 32768, on a machine with 1GB ram it is 
+> > 262144 and with 16GB ram it is 4194304.
+> > 
+> 
+> Such huge values should not be needed. We should have at most one dst
+> per packet in flight.
+
+We have one cache entry for each packet flow we have already seen.
+So a static value should be not too high, because remote entities
+can control how many cache entries we have, similar to the routing
+cache.
