@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sh_eth: add/use RMCR.RNC bit
-Date: Wed, 23 Oct 2013 16:50:34 -0400 (EDT)
-Message-ID: <20131023.165034.537485764263918532.davem@davemloft.net>
-References: <201310160229.58735.sergei.shtylyov@cogentembedded.com>
-	<5266F94E.9030406@cogentembedded.com>
+Subject: Re: [PATCH 0/3] netfilter fixes for net
+Date: Wed, 23 Oct 2013 16:56:32 -0400 (EDT)
+Message-ID: <20131023.165632.1355159920749130897.davem@davemloft.net>
+References: <1382519724-3953-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org, horms@verge.net.au
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40965 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752058Ab3JWUug (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 16:50:36 -0400
-In-Reply-To: <5266F94E.9030406@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1382519724-3953-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Wed, 23 Oct 2013 02:16:46 +0400
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Wed, 23 Oct 2013 11:15:21 +0200
 
-> Hello.
+> The following patchset contains three netfilter fixes for your net
+> tree, they are:
 > 
-> On 10/16/2013 02:29 AM, Sergei Shtylyov wrote:
+> * A couple of fixes to resolve info leak to userspace due to uninitialized
+>   memory area in ulogd, from Mathias Krause.
 > 
->> Declare 'enum EMCR_BIT' containing the single member for the RMCR.RNC
->> bit and
+> * Fix instruction ordering issues that may lead to the access of
+>   uninitialized data in x_tables. The problem involves the table update
+>  (producer) and the main packet matching (consumer) routines. Detected in
+>   SMP ARMv7, from Will Deacon.
 > 
->    Hm, looks like I typoed here, should have been RMCR_BIT. David, should
->    I resubmit or you can fix it while applying? Or simply not worth the
->    trouble?
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
 
-Applied, with the typo fixed, thanks.
+Pulled, thanks Pablo.
