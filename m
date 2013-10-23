@@ -1,104 +1,55 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next v2 2/2] net: initialize hashrnd in flow_dissector with net_get_random_once
-Date: Wed, 23 Oct 2013 20:06:00 +0200
-Message-ID: <20131023180600.GD2403@order.stressinduktion.org>
-References: <20131023111219.GA31531@order.stressinduktion.org>
+Subject: Re: Neterion and UFO handling [was: Re: [PATCH] ipv6: udp packets following an UFO enqueued packet need also be handled by UFO]
+Date: Wed, 23 Oct 2013 20:15:56 +0200
+Message-ID: <20131023181556.GE2403@order.stressinduktion.org>
+References: <20131002085842.GA1528@minipsycho.brq.redhat.com> <1380710488.19002.67.camel@edumazet-glaptop.roam.corp.google.com> <20131002121207.GO10771@order.stressinduktion.org> <20131002130329.GP10771@order.stressinduktion.org> <1380726867.19002.104.camel@edumazet-glaptop.roam.corp.google.com> <20131002162730.GA3991@order.stressinduktion.org> <CAPoiz9wxxvHfmmMOCvPstzT51BafGfU1u5umxBQ8kqqCE=OzbQ@mail.gmail.com> <20131008145331.GA4767@order.stressinduktion.org> <20131017044551.GE18135@order.stressinduktion.org> <CAPoiz9xnvmQ18D0iGdFVKL8bD-1nC=8zQVD9o1oxfT4Qc942xw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
+	yoshfuji@linux-ipv6.org, David Miller <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	Patrick McHardy <kaber@trash.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Jon Mason <jdmason@kudzu.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:53334 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:53355 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751208Ab3JWSGB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 14:06:01 -0400
+	with ESMTP id S1752609Ab3JWSP7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 14:15:59 -0400
 Content-Disposition: inline
-In-Reply-To: <20131023111219.GA31531@order.stressinduktion.org>
+In-Reply-To: <CAPoiz9xnvmQ18D0iGdFVKL8bD-1nC=8zQVD9o1oxfT4Qc942xw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We also can defer the initialization of hashrnd in flow_dissector
-to its first use. Since net_get_random_once is irq safe now we don't
-have to audit the call paths if one of this functions get called by an
-interrupt handler.
+On Wed, Oct 23, 2013 at 09:35:43AM -0700, Jon Mason wrote:
+> On Wed, Oct 16, 2013 at 9:45 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > Hi Jon and Jiri!
+> >
+> > Just wanted to remind you if you could have a look at this?
+> >
+> > If you don't have time to test this may I know your assessment of the
+> > situation? I could send a compile-time tested patch to disable UFO or if you
+> > say so we could leave this as is.
+> 
+> So, bad news.  My Xframe 2 adapter (the only variety that does UFO
+> offload) won't fit in a standard PCI(32) slot.  Since my PCI-X system
+> at home is faulty (I'm trying to fix it , but it won't be in the time
+> frame you want), there is no way for me to test it on the hardware.
+> Terribly sorry.
+> 
+> I am fine with this patch going out, since UFO is off by default.
+> I'll handle any issues once they are discovered.  Alternatively, we
+> could just kill UFO and make everyone's lives easier.
 
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
-v2: Reword the commit message only. It looked horribly.
+Oh, I missed that UFO is off by default.
 
- net/core/flow_dissector.c | 34 +++++++++++++++++++++-------------
- 1 file changed, 21 insertions(+), 13 deletions(-)
+If it turns out that UFO is causing broken frames it should be either
+killed or (if you have the time for that) fixed. Because there shouldn't
+be regressions in stable kernels I am fine with this resolution. Maybe
+you can have a look at this problem once your hardware is fixed.
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index f8e25ac..5cac36e 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -184,6 +184,22 @@ ipv6:
- EXPORT_SYMBOL(skb_flow_dissect);
- 
- static u32 hashrnd __read_mostly;
-+static __always_inline void __flow_hash_secret_init(void)
-+{
-+	net_get_random_once(&hashrnd, sizeof(hashrnd));
-+}
-+
-+static __always_inline u32 __flow_hash_3words(u32 a, u32 b, u32 c)
-+{
-+	__flow_hash_secret_init();
-+	return jhash_3words(a, b, c, hashrnd);
-+}
-+
-+static __always_inline u32 __flow_hash_1word(u32 a)
-+{
-+	__flow_hash_secret_init();
-+	return jhash_1word(a, hashrnd);
-+}
- 
- /*
-  * __skb_get_rxhash: calculate a flow hash based on src/dst addresses
-@@ -210,9 +226,9 @@ void __skb_get_rxhash(struct sk_buff *skb)
- 		swap(keys.port16[0], keys.port16[1]);
- 	}
- 
--	hash = jhash_3words((__force u32)keys.dst,
--			    (__force u32)keys.src,
--			    (__force u32)keys.ports, hashrnd);
-+	hash = __flow_hash_3words((__force u32)keys.dst,
-+				  (__force u32)keys.src,
-+				  (__force u32)keys.ports);
- 	if (!hash)
- 		hash = 1;
- 
-@@ -248,7 +264,7 @@ u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
- 		hash = skb->sk->sk_hash;
- 	else
- 		hash = (__force u16) skb->protocol;
--	hash = jhash_1word(hash, hashrnd);
-+	hash = __flow_hash_1word(hash);
- 
- 	return (u16) (((u64) hash * qcount) >> 32) + qoffset;
- }
-@@ -340,7 +356,7 @@ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
- 				else
- 					hash = (__force u16) skb->protocol ^
- 					    skb->rxhash;
--				hash = jhash_1word(hash, hashrnd);
-+				hash = __flow_hash_1word(hash);
- 				queue_index = map->queues[
- 				    ((u64)hash * map->len) >> 32];
- 			}
-@@ -395,11 +411,3 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
- 	skb_set_queue_mapping(skb, queue_index);
- 	return netdev_get_tx_queue(dev, queue_index);
- }
--
--static int __init initialize_hashrnd(void)
--{
--	get_random_bytes(&hashrnd, sizeof(hashrnd));
--	return 0;
--}
--
--late_initcall_sync(initialize_hashrnd);
--- 
-1.8.3.1
+Thank you,
+
+  Hannes
