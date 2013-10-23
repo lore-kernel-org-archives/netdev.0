@@ -1,88 +1,67 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: -27% netperf TCP_STREAM regression by "tcp_memcontrol: Kill struct tcp_memcontrol"
-Date: Wed, 23 Oct 2013 02:43:14 -0700
-Message-ID: <87a9i0l3v1.fsf@xmission.com>
-References: <20131022214129.GB2715@localhost>
-	<20131022.180023.1141845387743361648.davem@davemloft.net>
-	<87k3h461ql.fsf@tw-ebiederman.twitter.com>
-	<20131023061019.GA15698@localhost>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 3/3] netfilter: x_tables: fix ordering of jumpstack allocation and table update
+Date: Wed, 23 Oct 2013 10:45:04 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73A2@saturn3.aculab.com>
+References: <1382519724-3953-1-git-send-email-pablo@netfilter.org> <1382519724-3953-4-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Fengguang Wu <fengguang.wu@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131023061019.GA15698@localhost> (Fengguang Wu's message of
-	"Wed, 23 Oct 2013 07:10:19 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Pablo Neira Ayuso" <pablo@netfilter.org>,
+	<netfilter-devel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:34727 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753034Ab3JWJrY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 05:47:24 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 25688-09 for <netdev@vger.kernel.org>;
+ Wed, 23 Oct 2013 10:47:22 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1382519724-3953-4-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fengguang Wu <fengguang.wu@intel.com> writes:
+> Subject: [PATCH 3/3] netfilter: x_tables: fix ordering of jumpstack allocation and table update
+...
+> Meanwhile, CPU0 is handling the network receive path and ends up in
+> ipt_do_table, resulting in:
+> 
+> 	private = table->private;
+> 
+> 	[...]
+> 
+> 	jumpstack  = (struct ipt_entry **)private->jumpstack[cpu];
+> 
+> On weakly ordered memory architectures, the writes to table->private
+> and newinfo->jumpstack from CPU1 can be observed out of order by CPU0.
+> Furthermore, on architectures which don't respect ordering of address
+> dependencies (i.e. Alpha), the reads from CPU0 can also be re-ordered.
 
-> On Tue, Oct 22, 2013 at 09:38:10PM -0700, Eric W. Biederman wrote:
->> David Miller <davem@davemloft.net> writes:
->> 
->> > From: fengguang.wu@intel.com
->> > Date: Tue, 22 Oct 2013 22:41:29 +0100
->> >
->> >> We noticed big netperf throughput regressions
->> >> 
->> >>     a4fe34bf902b8f709c63      2e685cad57906e19add7  
->> >> ------------------------  ------------------------  
->> >>                   707.40       -40.7%       419.60  lkp-nex04/micro/netperf/120s-200%-TCP_STREAM
->> >>                  2775.60       -23.7%      2116.40  lkp-sb03/micro/netperf/120s-200%-TCP_STREAM
->> >>                  3483.00       -27.2%      2536.00  TOTAL netperf.Throughput_Mbps
->> >> 
->> >> and bisected it to
->> >> 
->> >> commit 2e685cad57906e19add7189b5ff49dfb6aaa21d3
->> >> Author: Eric W. Biederman <ebiederm@xmission.com>
->> >> Date:   Sat Oct 19 16:26:19 2013 -0700
->> >> 
->> >>     tcp_memcontrol: Kill struct tcp_memcontrol
->> >
->> > Eric please look into this, I'd rather have a fix to apply than revert your
->> > work.
->> 
->> Will do I expect some ordering changed, and that changed the cache line
->> behavior.
->> 
->> If I can't find anything we can revert this one particular patch without
->> affecting anything else, but it would be nice to keep the data structure
->> smaller.
->> 
->> Fengguag what would I need to do to reproduce this?
->
-> Eric, attached is the kernel config.
->
-> We used these commands in the test:
->
->         netserver
->         netperf -t TCP_STREAM -c -C -l 120      # repeat 64 times and get average
->
-> btw, we've got more complete change set (attached) and also noticed
-> performance increase in the TCP_SENDFILE case:
->
->     a4fe34bf902b8f709c63      2e685cad57906e19add7
-> ------------------------  ------------------------
->                   707.40       -40.7%       419.60  lkp-nex04/micro/netperf/120s-200%-TCP_STREAM
->                  2572.20       -17.7%      2116.20  lkp-sb03/micro/netperf/120s-200%-TCP_MAERTS
->                  2775.60       -23.7%      2116.40  lkp-sb03/micro/netperf/120s-200%-TCP_STREAM
->                  1006.60       -54.4%       459.40  lkp-sbx04/micro/netperf/120s-200%-TCP_STREAM
->                  3278.60       -25.2%      2453.80  lkp-t410/micro/netperf/120s-200%-TCP_MAERTS
->                  1902.80       +21.7%      2315.00  lkp-t410/micro/netperf/120s-200%-TCP_SENDFILE
->                  3345.40       -26.7%      2451.00  lkp-t410/micro/netperf/120s-200%-TCP_STREAM
->                 15588.60       -20.9%     12331.40  TOTAL netperf.Throughput_Mbps
+Which reads might be out of order?
+AFAICT they are strongly sequenced because they second depends on the
+value read by the first.
+So I don't see why the read barrier is needed.
 
-I have a second question.  Do you mount the cgroup filesystem?  Do you
-set memory.kmem.tcp.limit_in_bytes?
+I presume the above code is tied to a single cpu.
 
-If you aren't setting any memory cgroup limits or creating any groups
-this change should not have had any effect whatsoever.  And you haven't
-mentioned it so I don't expect you are enabling the memory cgroup limits
-explicitly.
+...
+> 
+> -	table->private = newinfo;
+>  	newinfo->initial_entries = private->initial_entries;
+> +	/*
+> +	 * Ensure contents of newinfo are visible before assigning to
+> +	 * private.
+> +	 */
+> +	smp_wmb();
+> +	table->private = newinfo;
 
-If you have enabled the memory cgroups can you please describe your
-configuration as that may play a significant role.
+Those writes were in the wrong order on all systems.
+Also gcc needs to be told not to reorder the writes even on non-smp
+systems (if the code might be pre-empted).
+So an asm volatile (:::"memory") is needed there even if no specific
+synchronisation instruction is needed.
 
-Eric
+	David
