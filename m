@@ -1,53 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] macvlan: resolve ENOENT errors on creation
-Date: Tue, 22 Oct 2013 19:23:00 -0400 (EDT)
-Message-ID: <20131022.192300.482037851874738661.davem@davemloft.net>
-References: <20131021212801.19330.69659.stgit@nitbit.x32>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 11/11] asmlinkage, wan/sbni: Make inline assembler
+ symbols visible and assembler global
+Date: Wed, 23 Oct 2013 04:09:55 +0200
+Message-ID: <20131023020955.GF29695@two.firstfloor.org>
+References: <1382458346-24811-1-git-send-email-andi@firstfloor.org>
+ <1382458346-24811-12-git-send-email-andi@firstfloor.org>
+ <20131022.135928.2040131908206663695.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vfalico@redhat.com, nhorman@tuxdriver.com, netdev@vger.kernel.org
-To: john.fastabend@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60412 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753439Ab3JVXXB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Oct 2013 19:23:01 -0400
-In-Reply-To: <20131021212801.19330.69659.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: andi@firstfloor.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, ak@linux.intel.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131022.135928.2040131908206663695.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Mon, 21 Oct 2013 14:28:02 -0700
+On Tue, Oct 22, 2013 at 01:59:28PM -0400, David Miller wrote:
+> From: Andi Kleen <andi@firstfloor.org>
+> Date: Tue, 22 Oct 2013 09:12:26 -0700
+> 
+> > From: Andi Kleen <ak@linux.intel.com>
+> > 
+> > - Inline assembler defining C callable code has to be global
+> > - The function has to be visible
+> > 
+> > Do this in wan/sbni
+> > 
+> > Cc: netdev@vger.kernel.org
+> > Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> 
+> Is it really impossible to use the generic crc32 support instead of this
+> unsightly custom inline assembler?
 
-> After the commit below attempting to create macvlan devices was
-> resulting in ENOENT errors,
-> 
-> # ip link add link p3p2 type macvlan
-> RTNETLINK answers: Invalid argument
-> 
-> This happens because netdev_upper_dev_link() is called before
-> register_netdevice() in the macvlan code. Through a call chain
-> this results in a call to __netdev_adjacent_dev_insert() and
-> finally a sysfs_create_link(). This requires the kobject of
-> the macvlan to be registered which is done in register_netdevice().
-> If there is no kobject which is the case here the ENOENT error
-> is seen on the command line.
-> 
-> To resolve this move the netdev_upper_dev_link() call below
-> the register_netdevice() call. This aligns with vlan driver
-> flow.
-> 
-> Regression introduced here,
-> 
-> commit 5831d66e8097aedfa3bc35941cf265ada2352317
-> Author: Veaceslav Falico <vfalico@redhat.com>
-> Date:   Wed Sep 25 09:20:32 2013 +0200
-> 
->     net: create sysfs symlinks for neighbour devices
-> 
-> CC: Veaceslav Falico <vfalico@redhat.com>
-> CC: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Yes it's impossible.
 
-Applied, thanks.
+There's no way for me to test it, and this would be a far too big change
+to submit untested.
+
+Also my only interest here is this thing not breaking my LTO
+allyesconfig build. I'm not even sure what it does.
+
+Just because some legacy driver breaks my build you cannot make me
+accountable for maintaining it now. 
+
+If it's not possible to get this trivial change in I would need
+to mark it "depends on !LTO" in Kconfig.
+
+-Andi
