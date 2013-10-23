@@ -1,38 +1,126 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: -27% netperf TCP_STREAM regression by "tcp_memcontrol: Kill
- struct tcp_memcontrol"
-Date: Wed, 23 Oct 2013 23:07:43 +0100
-Message-ID: <20131023220743.GA5226@localhost>
-References: <20131022214129.GB2715@localhost>
- <20131022.180023.1141845387743361648.davem@davemloft.net>
- <87k3h461ql.fsf@tw-ebiederman.twitter.com>
- <20131023122543.GH5132@cpaasch-mac>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: Big performance loss from 3.4.63 to 3.10.13 when routing ipv4
+Date: Thu, 24 Oct 2013 00:52:58 +0200
+Message-ID: <5743349.5WGxWa1M1u@ei.h3.stusta.mhn.de>
+References: <3244031.uQGDddGTLF@h2o.as.studentenwerk.mhn.de> <3169911.kTmZ0BZVVr@h2o.as.studentenwerk.mhn.de> <1382547992.7572.31.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131023122543.GH5132@cpaasch-mac>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, hannes@stressinduktion.org,
+	netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.stusta.mhn.de ([141.84.69.5]:37839 "EHLO
+	mail.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752633Ab3JWW7r convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 18:59:47 -0400
+In-Reply-To: <1382547992.7572.31.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -       return !!sk->sk_prot->memory_pressure;
-> +       return !!*sk->sk_prot->memory_pressure;
+On Wednesday 23 October 2013 10:06:32 Eric Dumazet wrote:
+> On Wed, 2013-10-23 at 18:59 +0200, Wolfgang Walter wrote:
+> > Ah, ok. I use SLUB, but SLABINFO=3Dy.
+> >=20
+> > Without much traffic it is:
+> >=20
+> > # grep dst /proc/slabinfo
+> > xfrm_dst_cache      4435   4608    448   36    4 : tunables    0   =
+ 0    0
+> > : slabdata    128    128      0
+> >=20
+> > on the big one.
+> >=20
+> > I can recompile the kernels with SLAB instead of SLUB if SLAB gives=
+ more
+> > usefull infos.
+> Not needed, because it seems we do not merge this SLUB cache with
+> another one.
 
-Good catch, Christoph! With no surprise, it restores the performance:
+Ok. I can't see xfrm_dst_cache on 32bit-systems, though.
 
-    a4fe34bf902b8f709c63      2e685cad57906e19add7      a235435d612680e595ea  
-------------------------  ------------------------  ------------------------  
-                  707.40       -41.0%       417.50        -8.8%       645.00  lkp-nex04/micro/netperf/120s-200%-TCP_STREAM
-                 2775.60       -23.7%      2116.50        +2.1%      2834.00  lkp-sb03/micro/netperf/120s-200%-TCP_STREAM
-                 3483.00       -27.2%      2534.00        -0.1%      3479.00  TOTAL netperf.Throughput_Mbps
+>=20
+> So please post this information, because I believe the default should=
+ be
+> 65536, not 1024 or 4096
+>=20
 
-It's a bit late, but
+Indeed I already saw higher values, at the moment I see:
 
-Tested-by: Fengguang Wu <fengguang.wu@intel.com>
+# while true; do grep dst /proc/slabinfo ; sleep 1; done
+xfrm_dst_cache     12636  12636    448   36    4 : tunables    0    0  =
+  0 : slabdata    351    351      0
+xfrm_dst_cache     12636  12636    448   36    4 : tunables    0    0  =
+  0 : slabdata    351    351      0
+xfrm_dst_cache     12636  12636    448   36    4 : tunables    0    0  =
+  0 : slabdata    351    351      0
+xfrm_dst_cache     12636  12636    448   36    4 : tunables    0    0  =
+  0 : slabdata    351    351      0
+xfrm_dst_cache     12636  12636    448   36    4 : tunables    0    0  =
+  0 : slabdata    351    351      0
+xfrm_dst_cache     12636  12636    448   36    4 : tunables    0    0  =
+  0 : slabdata    351    351      0
+xfrm_dst_cache     12636  12636    448   36    4 : tunables    0    0  =
+  0 : slabdata    351    351      0
+xfrm_dst_cache     12636  12636    448   36    4 : tunables    0    0  =
+  0 : slabdata    351    351      0
+xfrm_dst_cache     12636  12636    448   36    4 : tunables    0    0  =
+  0 : slabdata    351    351      0
+xfrm_dst_cache     12636  12636    448   36    4 : tunables    0    0  =
+  0 : slabdata    351    351      0
+xfrm_dst_cache     12636  12636    448   36    4 : tunables    0    0  =
+  0 : slabdata    351    351      0
+xfrm_dst_cache     12708  12708    448   36    4 : tunables    0    0  =
+  0 : slabdata    353    353      0
+xfrm_dst_cache     11529  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11599  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11599  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11599  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11599  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11599  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11599  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11599  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11599  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11599  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11599  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11633  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11633  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11633  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11700  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11763  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11798  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     11964  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     12139  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     12244  12276    448   36    4 : tunables    0    0  =
+  0 : slabdata    341    341      0
+xfrm_dst_cache     12312  12312    448   36    4 : tunables    0    0  =
+  0 : slabdata    342    342      0
+xfrm_dst_cache     12492  12492    448   36    4 : tunables    0    0  =
+  0 : slabdata    347    347      0
 
-Thanks,
-Fengguang
+
+
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
