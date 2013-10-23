@@ -1,50 +1,70 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next] net: add missing dev_put() in
- __netdev_adjacent_dev_insert
-Date: Wed, 23 Oct 2013 15:36:52 +0200
-Message-ID: <20131023133652.GF25073@redhat.com>
-References: <1382534936-23080-1-git-send-email-nikolay@redhat.com>
+From: "MARK WILLIAMS" <mrkin_fo@hotmail.com>
+Subject: I am sourcing for services of an Oversea Investment Manager (OIM) to manage the sum of US$32Million,
+Date: Wed, 23 Oct 2013 14:51:02 +0100
+Message-ID: <641067.95257.bm@smtp114.mail.ne1.yahoo.com>
+Reply-To: <markwilliams1@globomail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0092_01C2A9A6.64AAC774"
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14399 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750936Ab3JWNjE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Oct 2013 09:39:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1382534936-23080-1-git-send-email-nikolay@redhat.com>
+Received: from nm10-vm0.bullet.mail.ne1.yahoo.com ([98.138.91.72]:47407 "EHLO
+	nm10-vm0.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751054Ab3JWN5M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 09:57:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 23, 2013 at 03:28:56PM +0200, Nikolay Aleksandrov wrote:
->I think that a dev_put() is needed in the error path to preserve the
->proper dev refcount.
+This is a multi-part message in MIME format.
 
-True, forgot about it. Thanks for spotting this!
+------=_NextPart_000_0092_01C2A9A6.64AAC774
+Content-Type: text/plain;
+	charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
 
-Acked-by: Veaceslav Falico <vfalico@redhat.com>
+READ THE ATTACH MAIL PLS.
 
->
->CC: Veaceslav Falico <vfalico@redhat.com>
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->---
-> net/core/dev.c | 1 +
-> 1 file changed, 1 insertion(+)
->
->diff --git a/net/core/dev.c b/net/core/dev.c
->index 0918aad..bdffd65 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -4648,6 +4648,7 @@ remove_symlinks:
->
-> free_adj:
-> 	kfree(adj);
->+	dev_put(adj_dev);
->
-> 	return ret;
-> }
->-- 
->1.8.1.4
->
+------=_NextPart_000_0092_01C2A9A6.64AAC774
+Content-Type: application/octet-stream;
+	name="Investment Manager.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="Investment Manager.txt"
+
+T1ZFUlNFQSBJTlZFU1RNRU5UIE1BTkFHRVINCg0KDQpEZWFyIFNpciwNCg0K
+DQpJIGFtIHNvdXJjaW5nIGZvciBzZXJ2aWNlcyBvZiBhbiBPdmVyc2VhIElu
+dmVzdG1lbnQgTWFuYWdlciAoT0lNKSB0byBtYW5hZ2UgdGhlIHN1bSBvZiBV
+UyQzMk1pbGxpb24sIHRoaXMgYW1vdW50IHJlcHJlc2VudCBhbiBvdmVyIGlu
+dm9pY2VkIGFtb3VudCBvZiBtb25leSBmcm9tIGEgY29udHJhY3QgdGhhdCB3
+YXMgYXdhcmRlZCB0byBhbiBBbWVyaWNhbiBPaWwgZXhwbG9yYXRpb24gY29t
+cGFueSBpbiAyMDA3LCBvbmUgeWVhciBsYXRlciBpbiAyMDA4LCB0aGUgQW1l
+cmljYW4gY29tcGFueSBjb21wbGV0ZWQgdGhlIGNvbnRyYWN0IGFuZCB3YXMg
+ZnVsbHkgcGFpZCBieSBkaXJlY3QgV2lyZSB0cmFuc2ZlciBmb3IgdGhlIGV4
+ZWN1dGlvbiBvZiB0aGUgY29udHJhY3QsIGxlYXZpbmcgdGhlIG92ZXIgaW52
+b2ljZWQgc3VtIHNhZmVseSBkZXBvc2l0ZWQgaW4gYSBzcGVjaWFsIHNlY3Vy
+aXR5IGFjY291bnQgbWFuYWdlZCBhbmQgbW9uaXRvcmVkIGJ5IHRoZSB0b3Ag
+b2ZmaWNlcnMgb2YgdGhlIGNvcnBvcmF0aW9uIHRoYXQgSSByZXByZXNlbnQs
+IHRoaXMgdG9wIG9mZmljZXIgYXJlIGluIGNoYXJnZSBvZiB0aGUgZGF5IHRv
+IGRheSBydW5uaW5nIG9mIGFjY291bnRzIGFuZCBmaW5hbmNlIHNlY3Rpb24g
+aW5jbHVkaW5nIHRoZSBhdWRpdGluZyBkZXBhcnRtZW50IG9mIHRoZSBjb3Jw
+b3JhdGlvbiBhbmQgaGF2ZSBwZXJmZWN0ZWQgYWxsIGRvY3VtZW50cyB0byBi
+YWNrIHVwIHRoZSBwYXltZW50IGFzIHRvIGF2b2lkIGFueSB0cmFjZSB3aGF0
+c29ldmVyLCB3aGljaCBtYWtlcyB0aGUgdHJhbnNhY3Rpb24gMTAwJSByaXNr
+IGZyZWUuDQoNCg0KTXkgcmVxdWVzdCBpcyB5b3VyIGFzc2lzdGFuY2UgaW4g
+cmVjZWl2aW5nIHRoaXMgbW9uZXkgdXNpbmcgYSBzZWN1cmVkIGFjY291bnQg
+dGhhdCBpcyBhYmxlIHRvIHRha2UgdGhpcyBtb25leSBhbmQgdGhlcmVhZnRl
+ciB5b3UgaW52ZXN0IGl0IGZvciBhIHBlcmlvZCBvZiAyIHllYXJzIG9uIHRo
+ZWlyIGJlaGFsZi4gWW91IHdvdWxkIGJlIGVudGl0bGVkIHRvIDI1JSBvZiB0
+aGUgdG90YWwgZnVuZCBpbiBxdWVzdGlvbiwgd2hpbGUgNSUgd2lsbCBiZSBz
+ZXQgYXNpZGUgZm9yIGFueSBzdW5kcnkgZXhwZW5zZXMgaW5jdXJyZWQgYnkg
+Ym90aCBwYXJ0aWVzIGluIHRoZSBjb3Vyc2Ugb2YgdGhpcyB0cmFuc2FjdGlv
+bi4gDQoNCg0KQXMgYW4gYWRtaW5pc3RyYXRpdmUgb2ZmaWNlciBJIHdhcyBt
+YW5kYXRlZCB0byBzZWVrIHlvdXIgaW5kdWxnZW5jZSBvbiB0aGlzIG1hdHRl
+ciwgaWYgdGhpcyBpcyBhY2NlcHRhYmxlIHRvIHlvdSwgY29udGFjdCBtZSBz
+dHJpY3RseSBieSBtYXJrd2lsbGlhbXMxQGdsb2JvbWFpbC5jb20gc3RhdGlu
+ZyB5b3VyIGZ1bGwgbmFtZSwgYWRkcmVzcyBhbmQgcHJpdmF0ZSBwaG9uZSBu
+dW1iZXIgUGxlYXNlIERPIE5PVCBib3RoZXJzIHRvIHJlc3BvbmQgaWYgeW91
+IGFyZSBub3QgaW50ZXJlc3RlZC4NCg0KDQpZb3VycyBTaW5jZXJlbHksDQoN
+Cg0KTXIuIE1hcmsgV2lsbGlhbXM=
+
+------=_NextPart_000_0092_01C2A9A6.64AAC774--
