@@ -1,55 +1,70 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Neterion and UFO handling [was: Re: [PATCH] ipv6: udp packets following an UFO enqueued packet need also be handled by UFO]
-Date: Wed, 23 Oct 2013 20:15:56 +0200
-Message-ID: <20131023181556.GE2403@order.stressinduktion.org>
-References: <20131002085842.GA1528@minipsycho.brq.redhat.com> <1380710488.19002.67.camel@edumazet-glaptop.roam.corp.google.com> <20131002121207.GO10771@order.stressinduktion.org> <20131002130329.GP10771@order.stressinduktion.org> <1380726867.19002.104.camel@edumazet-glaptop.roam.corp.google.com> <20131002162730.GA3991@order.stressinduktion.org> <CAPoiz9wxxvHfmmMOCvPstzT51BafGfU1u5umxBQ8kqqCE=OzbQ@mail.gmail.com> <20131008145331.GA4767@order.stressinduktion.org> <20131017044551.GE18135@order.stressinduktion.org> <CAPoiz9xnvmQ18D0iGdFVKL8bD-1nC=8zQVD9o1oxfT4Qc942xw@mail.gmail.com>
+From: John Stultz <john.stultz@linaro.org>
+Subject: Re: [PATCH 1/4] [RFC] net: Explicitly initialize u64_stats_sync structures
+ for lockdep
+Date: Wed, 23 Oct 2013 11:23:03 -0700
+Message-ID: <52681407.8060804@linaro.org>
+References: <1381186321-4906-1-git-send-email-john.stultz@linaro.org> <1381186321-4906-2-git-send-email-john.stultz@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>,
-	yoshfuji@linux-ipv6.org, David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Mirko Lindner <mlindner@marvell.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Roger Luethi <rl@hellgate.ch>,
 	Patrick McHardy <kaber@trash.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Jon Mason <jdmason@kudzu.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:53355 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752609Ab3JWSP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 14:15:59 -0400
-Content-Disposition: inline
-In-Reply-To: <CAPoiz9xnvmQ18D0iGdFVKL8bD-1nC=8zQVD9o1oxfT4Qc942xw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>, Jesse Gross <jesse@nicira.com>,
+	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: John Stultz <john.stultz@linaro.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1381186321-4906-2-git-send-email-john.stultz@linaro.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 23, 2013 at 09:35:43AM -0700, Jon Mason wrote:
-> On Wed, Oct 16, 2013 at 9:45 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > Hi Jon and Jiri!
-> >
-> > Just wanted to remind you if you could have a look at this?
-> >
-> > If you don't have time to test this may I know your assessment of the
-> > situation? I could send a compile-time tested patch to disable UFO or if you
-> > say so we could leave this as is.
-> 
-> So, bad news.  My Xframe 2 adapter (the only variety that does UFO
-> offload) won't fit in a standard PCI(32) slot.  Since my PCI-X system
-> at home is faulty (I'm trying to fix it , but it won't be in the time
-> frame you want), there is no way for me to test it on the hardware.
-> Terribly sorry.
-> 
-> I am fine with this patch going out, since UFO is off by default.
-> I'll handle any issues once they are discovered.  Alternatively, we
-> could just kill UFO and make everyone's lives easier.
+On 10/07/2013 03:51 PM, John Stultz wrote:
+> In order to enable lockdep on seqcount/seqlock structures, we
+> must explicitly initialize any locks.
+>
+> The u64_stats_sync structure, uses a seqcount, and thus we need
+> to introduce a u64_stats_init() function and use it to initialize
+> the structure.
+>
+> This unfortunately adds a lot of fairly trivial initialization code
+> to a number of drivers. But the benefit of ensuring correctness makes
+> this worth while.
+>
+> Because these changes are required for lockdep to be enabled, and the
+> changes are quite trivial, I've not yet split this patch out into 30-some
+> separate patches, as I figured it would be better to get the various
+> maintainers thoughts on how to best merge this change along with
+> the seqcount lockdep enablement.
 
-Oh, I missed that UFO is off by default.
+Just wanted to ping folks on this patch, as I haven't gotten any feedback.
 
-If it turns out that UFO is causing broken frames it should be either
-killed or (if you have the time for that) fixed. Because there shouldn't
-be regressions in stable kernels I am fine with this resolution. Maybe
-you can have a look at this problem once your hardware is fixed.
+As its a prereq for the seqcount lockdep support, I'd like to get it
+queued/merged, but I'm not sure what the right maintainer path or
+approach should be.
 
-Thank you,
+1) Do folks prefer to see this patch split up into 30-some separate
+trivial clenaup patches, or have it go in all as one logical change?
 
-  Hannes
+2) Would folks want this patch (in whichever form) to be merged
+separately via the networking maintainers, or can it be merged via -tip
+as part of the seqcount lockdep series?
+
+thanks
+-john
