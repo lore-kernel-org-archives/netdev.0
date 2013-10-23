@@ -1,51 +1,122 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: -27% netperf TCP_STREAM regression by "tcp_memcontrol: Kill struct tcp_memcontrol"
-Date: Tue, 22 Oct 2013 21:38:10 -0700
-Message-ID: <87k3h461ql.fsf@tw-ebiederman.twitter.com>
-References: <20131022214129.GB2715@localhost>
-	<20131022.180023.1141845387743361648.davem@davemloft.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: BUG: scheduling while atomic dev_set_promiscuity->__dev_notify_flags
+Date: Tue, 22 Oct 2013 22:34:35 -0700
+Message-ID: <CAADnVQLY7-crQLO1Tc4MBLX8R66wAZztw-arnfO3NWO9sLW++Q@mail.gmail.com>
+References: <CAMEtUuy91zYJ=bj1dzfdqE8kqZ3rE1RgdR-PZYekSUg8_xoTBw@mail.gmail.com>
+	<slrnl6ei2u.vgu.xiyou.wangcong@linux-6brj.site>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: fengguang.wu@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131022.180023.1141845387743361648.davem@davemloft.net> (David
-	Miller's message of "Tue, 22 Oct 2013 18:00:23 -0400 (EDT)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:55317 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750846Ab3JWFeg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 01:34:36 -0400
+Received: by mail-qc0-f173.google.com with SMTP id l13so185383qcy.4
+        for <netdev@vger.kernel.org>; Tue, 22 Oct 2013 22:34:35 -0700 (PDT)
+In-Reply-To: <slrnl6ei2u.vgu.xiyou.wangcong@linux-6brj.site>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
-
-> From: fengguang.wu@intel.com
-> Date: Tue, 22 Oct 2013 22:41:29 +0100
+On Tue, Oct 22, 2013 at 8:53 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Tue, 22 Oct 2013 at 01:04 GMT, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>>
+>> packet_notifier() does rcu_read_lock() before calling into packet_dev_mc() .
+>>
+>> Not sure how to fix it cleanly, other than disabling a notify here.
+>> Any suggestion?
+>>
 >
->> We noticed big netperf throughput regressions
->> 
->>     a4fe34bf902b8f709c63      2e685cad57906e19add7  
->> ------------------------  ------------------------  
->>                   707.40       -40.7%       419.60  lkp-nex04/micro/netperf/120s-200%-TCP_STREAM
->>                  2775.60       -23.7%      2116.40  lkp-sb03/micro/netperf/120s-200%-TCP_STREAM
->>                  3483.00       -27.2%      2536.00  TOTAL netperf.Throughput_Mbps
->> 
->> and bisected it to
->> 
->> commit 2e685cad57906e19add7189b5ff49dfb6aaa21d3
->> Author: Eric W. Biederman <ebiederm@xmission.com>
->> Date:   Sat Oct 19 16:26:19 2013 -0700
->> 
->>     tcp_memcontrol: Kill struct tcp_memcontrol
->
-> Eric please look into this, I'd rather have a fix to apply than revert your
-> work.
+> Passing a gfp flag to rtmsg_ifinfo() seems a right fix for me, but I don't
+> know if there is other better way to fix it.
 
-Will do I expect some ordering changed, and that changed the cache line
-behavior.
+Indeed. rtnl_notify() already accepts gfp_t.
 
-If I can't find anything we can revert this one particular patch without
-affecting anything else, but it would be nice to keep the data structure
-smaller.
+The following diff fixes it for me:
+---
+ include/linux/rtnetlink.h |    3 ++-
+ net/core/dev.c            |    2 +-
+ net/core/rtnetlink.c      |   12 +++++++++---
+ 3 files changed, 12 insertions(+), 5 deletions(-)
 
-Fengguag what would I need to do to reproduce this?
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index f28544b..0180523 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -15,7 +15,8 @@ extern int rtnetlink_put_metrics(struct sk_buff
+*skb, u32 *metrics);
+ extern int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst,
+                   u32 id, long expires, u32 error);
 
-Eric
+-extern void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change);
++void __rtmsg_ifinfo(int type, struct net_device *dev, unsigned
+change, gfp_t flags);
++void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change);
+
+ /* RTNL is used as a global lock for all changes to network configuration  */
+ extern void rtnl_lock(void);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0918aad..59b90fe 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5257,7 +5257,7 @@ void __dev_notify_flags(struct net_device *dev,
+unsigned int old_flags,
+     unsigned int changes = dev->flags ^ old_flags;
+
+     if (gchanges)
+-        rtmsg_ifinfo(RTM_NEWLINK, dev, gchanges);
++        __rtmsg_ifinfo(RTM_NEWLINK, dev, gchanges, GFP_ATOMIC);
+
+     if (changes & IFF_UP) {
+         if (dev->flags & IFF_UP)
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 4aedf03..5931af9 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1984,14 +1984,15 @@ static int rtnl_dump_all(struct sk_buff *skb,
+struct netlink_callback *cb)
+     return skb->len;
+ }
+
+-void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change)
++void __rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
++            gfp_t flags)
+ {
+     struct net *net = dev_net(dev);
+     struct sk_buff *skb;
+     int err = -ENOBUFS;
+     size_t if_info_size;
+
+-    skb = nlmsg_new((if_info_size = if_nlmsg_size(dev, 0)), GFP_KERNEL);
++    skb = nlmsg_new((if_info_size = if_nlmsg_size(dev, 0)), flags);
+     if (skb == NULL)
+         goto errout;
+
+@@ -2002,12 +2003,17 @@ void rtmsg_ifinfo(int type, struct net_device
+*dev, unsigned int change)
+         kfree_skb(skb);
+         goto errout;
+     }
+-    rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, GFP_KERNEL);
++    rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, flags);
+     return;
+ errout:
+     if (err < 0)
+         rtnl_set_sk_err(net, RTNLGRP_LINK, err);
+ }
++
++void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change)
++{
++    __rtmsg_ifinfo(type, dev, change, GFP_KERNEL);
++}
+ EXPORT_SYMBOL(rtmsg_ifinfo);
+
+ static int nlmsg_populate_fdb_fill(struct sk_buff *skb,
+--
+
+Nicolas, I've sent you my .config.
+Any better ideas?
+
+Thanks
+Alex
