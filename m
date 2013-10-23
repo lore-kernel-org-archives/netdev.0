@@ -1,80 +1,82 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: Re: [PATCH net] netpoll: fix rx_hook() interface by passing the skb
-Date: Wed, 23 Oct 2013 14:44:01 +0200
-Message-ID: <20131023124401.GC1535@neomailbox.net>
-References: <20131022.025038.1046903740187748879.davem@davemloft.net>
- <1382431715-3128-1-git-send-email-antonio@meshcoding.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B739B@saturn3.aculab.com>
- <20131022101127.GJ1544@neomailbox.net>
- <AE90C24D6B3A694183C094C60CF0A2F6026B739F@saturn3.aculab.com>
- <20131022171314.GL1544@neomailbox.net>
- <AE90C24D6B3A694183C094C60CF0A2F6026B73A1@saturn3.aculab.com>
- <20131023102848.GB1535@neomailbox.net>
- <AE90C24D6B3A694183C094C60CF0A2F6026B73A4@saturn3.aculab.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH 1/4 net-next] net: phy: add Generic Netlink Ethernet switch
+ configuration API
+Date: Wed, 23 Oct 2013 08:53:13 -0400
+Message-ID: <5267C6B9.4000704@mojatatu.com>
+References: <1382466229-15123-1-git-send-email-f.fainelli@gmail.com> <1382466229-15123-2-git-send-email-f.fainelli@gmail.com> <5266D7D6.9000309@intel.com> <CAGVrzcZS4SGiUFoCnhau1Fvv9F4ffS7tA+PT4r-qLCj8HV8BqQ@mail.gmail.com> <20131022202537.GA16336@hmsreliant.think-freely.org> <CAGVrzcaXFboRDn40+VciTes09w-jqTASNZz2GZNpTxbaV6D0Lw@mail.gmail.com> <5267B764.305@mojatatu.com> <5267BB53.8030703@openwrt.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="Y5rl02BVI9TCfPar"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	John Crispin <blogic@openwrt.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Gary Thomas <gary@mlbassoc.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Felix Fietkau <nbd@openwrt.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:9298 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753731Ab3JWMon (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 08:44:43 -0400
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B73A4@saturn3.aculab.com>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:52410 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753200Ab3JWMxW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 08:53:22 -0400
+Received: by mail-ie0-f181.google.com with SMTP id ar20so1159978iec.26
+        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 05:53:22 -0700 (PDT)
+In-Reply-To: <5267BB53.8030703@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 10/23/13 08:04, Felix Fietkau wrote:
 
---Y5rl02BVI9TCfPar
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Wed, Oct 23, 2013 at 12:18:32PM +0100, David Laight wrote:
-> > My idea is to use the following API:
-> >=20
-> > rx_skb_hook(struct netpoll *np, int source, struct sk_buff *skb, int le=
-n);
-> >=20
-> > Any suggestion or objection?
->=20
-> Don't you need to pass the offset of the udp data?
+> A typical switch has something like 5-8 ports (+ one port that goes to
+> the CPU),
 
-Yes, you are right. I just forgot it. Therefore we have:
+My opinion:
+So exposing the 5-8 ports as netdevs would be useful. Giving access to
+their stats through per-port netdevs etc. i.e a switch/bridge will show
+up on bootup and the 5-8 ports as well. The 5-8 ports will show up
+as bridge ports to the switch.
+If something requires other "services" like l3 - I am assuming that
+would show up in the cpu port, but its role is really to demux
+and send it to ingress of the originating port on ASIC (i.e dont
+think it should be exposed).
 
-rx_skb_hook(struct netpoll *np, int source, struct sk_buff *skb, int offset,
-	    int len);
+>and handles the entire forwarding path on its own.
 
-where offset is going to be =3D (udp_hdr + 1) - skb->data
-and len =3D skb->len - offset
+This is default behavior. i.e learning and flooding.
+Can you at least retrieve the fdb? example how to figure out which
+port a specific MAC address resides?
 
-Regards,
+>It usually
+> allows creating VLANs and assigning ports to them (tagged, untagged),
 
---=20
-Antonio Quartulli
+I wasnt sure about the vlans<->port mapping as i stated in the earlier
+email. So on this issue, I can see the challenge.
+You could of course put vlan netdevs on top of switch ports and then
+attach those to the bridge, but i cant see an approach if a switch port
+can support more than one vlan without having multiple bridges. example:
+bridgeA: link ports {swp0:vlan1, swp1:vlan2, swp0:vlan4}
+bridgeB: link ports {swp0:vlan3, swp1:vlan4, swp1:vlan2}
 
---Y5rl02BVI9TCfPar
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+ > but many (probably most) switches do not support controlling the
+> forwarding path via a MAC address based FDB.
+>
 
-iQIcBAEBCAAGBQJSZ8SRAAoJEADl0hg6qKeOWJoQAIvSMZakLyazB3IrY1sMh9SK
-oBcaxkajRm1HTfggUi97lR7Pfha31trj1YlthhSabLdWKpgusdjqqChr7GLSz/mD
-j+WYaMj1Vv1n3zkhJa1quBgEfkiz/oSQ5lpbCEJF4S2OW2q8PnQd6GG7pVAFZDY/
-3FFc1ZcZuughNogXu8H1BV79rnCAWzBFB5ksLqIEvrDa1CPEteRbZWg17apBC1Nf
-8FWjeTqxTfLSQPi8NrBB6MMaj66zR77WixVgme5PngqZjl/axgU98oDjB+jxUOFo
-OQZhx7z1/el7vladVUsEOrE1P7IbdRx2sXQgQSPlyYdU7KhziFQpqU/SJ9G9Mg+W
-saZgY4cxiIC7zkP5LgI3feUUzsOLHdQpD1mSQKs0oY6K5bOQvR60CCconyku0HVp
-r3iohIjI/IPFoXqLjE9yv+WKp9V0N22HeNgOvxHB1DgcQV6O+uBkc5gUADkh8gN2
-P9CmGtIw/tiLKw75onvQiwf01VjxgmOnXAZehCbdaoW4HLFvGNGi4ugRj9WioaRF
-QzJi2cBJaC2bpIvO3JjMMwLjdFKbfRARbk8ypBzx7K5q4fBDc6ifA3pOGmBpQOEf
-ZtmCBA04F6Q3sPSmCkZUiBMF+RMXcRI5FXdXAaR/uIhcKge3dQQYJVv1IeFrHppH
-+uP2UlOyfSdlc/qqDBDe
-=Sanm
------END PGP SIGNATURE-----
+Ok, so operations like fdb_add/del will be disallowed. This is really
+up to the driver to not expose such ops.
 
---Y5rl02BVI9TCfPar--
+> Many also do not have support for a packet header to indicate the
+> incoming/outgoing switch port, so creating one netdev per port will work
+> only for link status, not for the data path.
+
+You mean when such a packet arrives on the "cpu" port, you wont know the
+originating port?
+
+cheers,
+jamal
