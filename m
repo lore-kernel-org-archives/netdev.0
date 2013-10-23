@@ -1,203 +1,81 @@
-From: Jon Mason <jdmason@kudzu.us>
-Subject: Re: Neterion and UFO handling [was: Re: [PATCH] ipv6: udp packets
- following an UFO enqueued packet need also be handled by UFO]
-Date: Wed, 23 Oct 2013 09:35:43 -0700
-Message-ID: <CAPoiz9xnvmQ18D0iGdFVKL8bD-1nC=8zQVD9o1oxfT4Qc942xw@mail.gmail.com>
-References: <20131001214721.GJ10771@order.stressinduktion.org>
-	<20131001232534.GM10771@order.stressinduktion.org>
-	<20131002085842.GA1528@minipsycho.brq.redhat.com>
-	<1380710488.19002.67.camel@edumazet-glaptop.roam.corp.google.com>
-	<20131002121207.GO10771@order.stressinduktion.org>
-	<20131002130329.GP10771@order.stressinduktion.org>
-	<1380726867.19002.104.camel@edumazet-glaptop.roam.corp.google.com>
-	<20131002162730.GA3991@order.stressinduktion.org>
-	<CAPoiz9wxxvHfmmMOCvPstzT51BafGfU1u5umxBQ8kqqCE=OzbQ@mail.gmail.com>
-	<20131008145331.GA4767@order.stressinduktion.org>
-	<20131017044551.GE18135@order.stressinduktion.org>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH 3/3] netfilter: x_tables: fix ordering of jumpstack
+ allocation and table update
+Date: Wed, 23 Oct 2013 17:37:07 +0100
+Message-ID: <20131023163706.GA5117@mudshark.cambridge.arm.com>
+References: <1382519724-3953-1-git-send-email-pablo@netfilter.org>
+ <1382519724-3953-4-git-send-email-pablo@netfilter.org>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B73A2@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Jon Mason <jdmason@kudzu.us>, Jiri Pirko <jiri@resnulli.us>,
-	netdev <netdev@vger.kernel.org>, yoshfuji@linux-ipv6.org,
-	David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
-	Patrick McHardy <kaber@trash.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:62043 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977Ab3JWQfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 12:35:45 -0400
-Received: by mail-wg0-f51.google.com with SMTP id l18so1071443wgh.18
-        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 09:35:44 -0700 (PDT)
-In-Reply-To: <20131017044551.GE18135@order.stressinduktion.org>
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:64052 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751622Ab3JWQhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 12:37:19 -0400
+Content-Disposition: inline
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B73A2@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 16, 2013 at 9:45 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Hi Jon and Jiri!
->
-> Just wanted to remind you if you could have a look at this?
->
-> If you don't have time to test this may I know your assessment of the
-> situation? I could send a compile-time tested patch to disable UFO or if you
-> say so we could leave this as is.
+Hi David,
 
-So, bad news.  My Xframe 2 adapter (the only variety that does UFO
-offload) won't fit in a standard PCI(32) slot.  Since my PCI-X system
-at home is faulty (I'm trying to fix it , but it won't be in the time
-frame you want), there is no way for me to test it on the hardware.
-Terribly sorry.
+On Wed, Oct 23, 2013 at 10:45:04AM +0100, David Laight wrote:
+> > Subject: [PATCH 3/3] netfilter: x_tables: fix ordering of jumpstack allocation and table update
+> ...
+> > Meanwhile, CPU0 is handling the network receive path and ends up in
+> > ipt_do_table, resulting in:
+> > 
+> > 	private = table->private;
+> > 
+> > 	[...]
+> > 
+> > 	jumpstack  = (struct ipt_entry **)private->jumpstack[cpu];
+> > 
+> > On weakly ordered memory architectures, the writes to table->private
+> > and newinfo->jumpstack from CPU1 can be observed out of order by CPU0.
+> > Furthermore, on architectures which don't respect ordering of address
+> > dependencies (i.e. Alpha), the reads from CPU0 can also be re-ordered.
+> 
+> Which reads might be out of order?
+> AFAICT they are strongly sequenced because they second depends on the
+> value read by the first.
+> So I don't see why the read barrier is needed.
 
-I am fine with this patch going out, since UFO is off by default.
-I'll handle any issues once they are discovered.  Alternatively, we
-could just kill UFO and make everyone's lives easier.
+That is why this is a dependent read barrier. Some architectures (e.g.
+Alpha) *do* allow dependent reads to be observed out of order, so you can
+effectively load the data pointed to by a pointer before you load the
+pointer itself!
 
-Thanks,
-Jon
+Take a look at Paul's paper about memory ordering if you're curious:
 
-> Jiri, I would suggest you resend your patches then.
->
-> Thanks,
->
->   Hannes
->
-> [top-posted by intention]
->
-> On Tue, Oct 08, 2013 at 04:53:31PM +0200, Hannes Frederic Sowa wrote:
->> On Tue, Oct 08, 2013 at 01:07:29AM -0700, Jon Mason wrote:
->> > On Wed, Oct 2, 2013 at 9:27 AM, Hannes Frederic Sowa
->> > <hannes@stressinduktion.org> wrote:
->> > > Hi!
->> > >
->> > > I have a question regarding UFO and the neterion driver, which as the only one
->> > > advertises hardware UFO support:
->> > >
->> > > The patch discusses in this thread
->> > > http://thread.gmane.org/gmane.linux.network/284348/focus=285405 could change
->> > > some semantics how packets are constructed before submitted to the driver.
->> > >
->> > > We currently guarantee that we have the MAC/IP/UDP header in skb->data and the
->> > > payload is attached in the skb's frags. With the changes discussed in this
->> > > thread it is possible that we also append to skb->data some amount of data
->> > > which is not targeted for the header. From reading the driver sources it seems
->> > > the hardware interprets the skb->data to skb_headlen as the header, so we
->> > > could include some data in the fragments more than once.
->> >
->> > From my reading of the HW Spec and a quick look at the driver, it
->> > appears that the driver is using one entry in the TX ring for the
->> > header and another for the body of the packet to be fragmented (which
->> > is what the hardware wants).  I don't understand what you are saying,
->> > but if you are asking if simply appending a new header & data to the
->> > end of skb->data will get it out on the wire correct, I don't believe
->> > it will.
->>
->> No this is not what I tried to say. I'll try to be more clear this
->> time. ;)
->>
->> We start with an UDP socket which is corked. As soon as we write the
->> first few bytes (smaller than the mtu) onto this socket we put the
->> header in place and the rest of the data is just appended behind the
->> header directly in skb->data via plain ip_append_data.
->>
->> Now a second write with a length > mtu happens: The ip(6)_append_data
->> will branch to ufo_append. This will fetch the first skb and append
->> to skb->frags.  gso_type and gso_size will be updated on this skb (this
->> currently does not happen but will with the patches discussed in this
->> thread).
->>
->> If this packet is transmitted down to the device driver we have the udp
->> header in skb->data *and* also the payload from the first write. The
->> payload from the second write is appended as a frag and gso_type and
->> gso_size are set. This header+payload seem to be mapped just after the
->> ufo_in_band_v descriptor as the header in the first tx descriptor:
->>
->>    4174         txdp->Buffer_Pointer = pci_map_single(sp->pdev, skb->data,
->>    4175                                               frg_len, PCI_DMA_TODEVICE);
->>
->> frg_len is set to skb_headlen(skb). This happens right after setting up
->> the descriptor for the in-band ufo data.
->>
->> My guess is that this data isn't split currently by the neterion driver
->> (at least I could not find it in the driver as Eric showed it for bnx2x)
->> so it might reappear in the packets when the hardware fragments the
->> packet and places the first tx ring in front of every packet.
->>
->> Before these changes we never updated the gso_type and gso_size even when
->> we did append via UFO. So we never had payload in an UFO marked skb->data,
->> only the headers. Now we could also end up with a some payload in the
->> first TX ring, which you said is only for the header.
->>
->> > I do have hardware that I can try the patch on, if you can walk me
->> > through the use case (unless it is as easy as setup an IPv6 connection
->> > and ping).
->>
->> Ok, testing this should not be that complicated:
->>
->> We can test this with plain IPv4/UDP sockets. I would suggest a net-next kernel
->> with this patch from Jiri applied: http://patchwork.ozlabs.org/patch/279691/
->>
->> --- >8 ---
->> #include <sys/types.h>
->> #include <sys/socket.h>
->> #include <netinet/in.h>
->> #include <arpa/inet.h>
->> #include <linux/udp.h>
->> #include <stdio.h>
->>
->> int test(int mtu)
->> {
->>         int fd;
->>         const int one = 1;
->>         const int off = 0;
->>         struct sockaddr_in addr = {.sin_family = AF_INET, .sin_port = htons(53) };
->>         unsigned char buffer[3701];
->>
->>         inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
->>
->>         fd = socket(AF_INET, SOCK_DGRAM, 0);
->>         connect(fd, (struct sockaddr *) &addr, sizeof(addr));
->>
->>         setsockopt(fd, IPPROTO_UDP, UDP_CORK, &one, sizeof(one));
->>
->>         write(fd, "    ", 4);
->>         write(fd, buffer, sizeof(buffer));
->>         write(fd, " ", 1);
->>
->>         setsockopt(fd, IPPROTO_UDP, UDP_CORK, &off, sizeof(off));
->>
->>         close(fd);
->> }
->>
->> int main() {
->>         test(1280);
->> }
->> --- >8 ---
->>
->> I left out error handling so it is better observed with strace if
->> something went wrong.
->>
->> You should change the port number and ip address to something reasonable
->> for your network. My guess would be that the spaces (0x20) of the first
->> write is now placed between UDP header and payload of every packet
->> fragmented by the hardware. Would be nice to hear that I am wrong. ;)
->>
->> Be aware that the above program can cause memory corruption in the kernel
->> if you did not apply Jiri's patch.
->>
->> Thanks for helping!
->>
->>   Hannes
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->
-> --
-> gruss,
->
->   Hannes
->
+  http://www.rdrop.com/users/paulmck/scalability/paper/whymb.2009.04.05a.pdf
+
+> > -	table->private = newinfo;
+> >  	newinfo->initial_entries = private->initial_entries;
+> > +	/*
+> > +	 * Ensure contents of newinfo are visible before assigning to
+> > +	 * private.
+> > +	 */
+> > +	smp_wmb();
+> > +	table->private = newinfo;
+> 
+> Those writes were in the wrong order on all systems.
+> Also gcc needs to be told not to reorder the writes even on non-smp
+> systems (if the code might be pre-empted).
+> So an asm volatile (:::"memory") is needed there even if no specific
+> synchronisation instruction is needed.
+
+The smp_* barriers expand to barrier() when !CONFIG_SMP, which gives you the
+memory clobber you want.
+
+What I'm *not* 100% sure about is the table freeing path. There is a mutex
+there for removing the table from a list, but I'm not sure how we ensure
+that there are no parallel readers at that point.
+
+Will
