@@ -1,229 +1,118 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 03/16] batman-adv: add bat_orig_print API function
-Date: Wed, 23 Oct 2013 18:04:50 +0200
-Message-ID: <1382544303-2694-4-git-send-email-antonio@meshcoding.com>
-References: <1382544303-2694-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@open-mesh.com>,
-	Marek Lindner <lindner_marek@yahoo.de>
+Subject: pull request: batman-adv 2013-10-23
+Date: Wed, 23 Oct 2013 18:04:47 +0200
+Message-ID: <1382544303-2694-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:16616 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:34155 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752319Ab3JWQFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 12:05:50 -0400
-In-Reply-To: <1382544303-2694-1-git-send-email-antonio@meshcoding.com>
+	with ESMTP id S1751416Ab3JWQFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 12:05:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@open-mesh.com>
+Hello David,
 
-Each routing protocol has its own metric and private
-variables, therefore it is useful to introduce a new API
-for originator information printing.
+this is another set of changes intended for net-next/linux-3.13.
+(probably our last pull request for this cycle)
 
-This API needs to be implemented by each protocol in order
-to provide its specific originator table output.
+Patches 1 and 2 reshape two of our main data structures in a way that they can
+easily be extended in the future to accommodate new routing protocols.
 
-Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
----
- net/batman-adv/bat_iv_ogm.c | 65 ++++++++++++++++++++++++++++++++++++++++++++
- net/batman-adv/originator.c | 66 +++++++--------------------------------------
- net/batman-adv/types.h      |  3 +++
- 3 files changed, 78 insertions(+), 56 deletions(-)
+Patches from 3 to 9 improve our routing protocol API and its users so that all
+the protocol-related code is not mixed up with the other components anymore.
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 0b1343d..4aabd55 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -1411,6 +1411,70 @@ static int batadv_iv_ogm_receive(struct sk_buff *skb,
- 	return NET_RX_SUCCESS;
- }
- 
-+/**
-+ * batadv_iv_ogm_orig_print - print the originator table
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @seq: debugfs table seq_file struct
-+ */
-+static void batadv_iv_ogm_orig_print(struct batadv_priv *bat_priv,
-+				     struct seq_file *seq)
-+{
-+	struct batadv_neigh_node *neigh_node, *neigh_node_tmp;
-+	struct batadv_hashtable *hash = bat_priv->orig_hash;
-+	int last_seen_msecs, last_seen_secs;
-+	struct batadv_orig_node *orig_node;
-+	unsigned long last_seen_jiffies;
-+	struct hlist_head *head;
-+	int batman_count = 0;
-+	uint32_t i;
-+
-+	seq_printf(seq, "  %-15s %s (%s/%i) %17s [%10s]: %20s ...\n",
-+		   "Originator", "last-seen", "#", BATADV_TQ_MAX_VALUE,
-+		   "Nexthop", "outgoingIF", "Potential nexthops");
-+
-+	for (i = 0; i < hash->size; i++) {
-+		head = &hash->table[i];
-+
-+		rcu_read_lock();
-+		hlist_for_each_entry_rcu(orig_node, head, hash_entry) {
-+			neigh_node = batadv_orig_node_get_router(orig_node);
-+			if (!neigh_node)
-+				continue;
-+
-+			if (neigh_node->bat_iv.tq_avg == 0)
-+				goto next;
-+
-+			last_seen_jiffies = jiffies - orig_node->last_seen;
-+			last_seen_msecs = jiffies_to_msecs(last_seen_jiffies);
-+			last_seen_secs = last_seen_msecs / 1000;
-+			last_seen_msecs = last_seen_msecs % 1000;
-+
-+			seq_printf(seq, "%pM %4i.%03is   (%3i) %pM [%10s]:",
-+				   orig_node->orig, last_seen_secs,
-+				   last_seen_msecs, neigh_node->bat_iv.tq_avg,
-+				   neigh_node->addr,
-+				   neigh_node->if_incoming->net_dev->name);
-+
-+			hlist_for_each_entry_rcu(neigh_node_tmp,
-+						 &orig_node->neigh_list, list) {
-+				seq_printf(seq, " %pM (%3i)",
-+					   neigh_node_tmp->addr,
-+					   neigh_node_tmp->bat_iv.tq_avg);
-+			}
-+
-+			seq_puts(seq, "\n");
-+			batman_count++;
-+
-+next:
-+			batadv_neigh_node_free_ref(neigh_node);
-+		}
-+		rcu_read_unlock();
-+	}
-+
-+	if (batman_count == 0)
-+		seq_puts(seq, "No batman nodes in range ...\n");
-+}
-+
- static struct batadv_algo_ops batadv_batman_iv __read_mostly = {
- 	.name = "BATMAN_IV",
- 	.bat_iface_enable = batadv_iv_ogm_iface_enable,
-@@ -1419,6 +1483,7 @@ static struct batadv_algo_ops batadv_batman_iv __read_mostly = {
- 	.bat_primary_iface_set = batadv_iv_ogm_primary_iface_set,
- 	.bat_ogm_schedule = batadv_iv_ogm_schedule,
- 	.bat_ogm_emit = batadv_iv_ogm_emit,
-+	.bat_orig_print = batadv_iv_ogm_orig_print,
- };
- 
- int __init batadv_iv_init(void)
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index aa14094..8d1b16e 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -513,73 +513,27 @@ int batadv_orig_seq_print_text(struct seq_file *seq, void *offset)
- {
- 	struct net_device *net_dev = (struct net_device *)seq->private;
- 	struct batadv_priv *bat_priv = netdev_priv(net_dev);
--	struct batadv_hashtable *hash = bat_priv->orig_hash;
--	struct hlist_head *head;
- 	struct batadv_hard_iface *primary_if;
--	struct batadv_orig_node *orig_node;
--	struct batadv_neigh_node *neigh_node, *neigh_node_tmp;
--	int batman_count = 0;
--	int last_seen_secs;
--	int last_seen_msecs;
--	unsigned long last_seen_jiffies;
--	uint32_t i;
- 
- 	primary_if = batadv_seq_print_text_primary_if_get(seq);
- 	if (!primary_if)
--		goto out;
-+		return 0;
- 
--	seq_printf(seq, "[B.A.T.M.A.N. adv %s, MainIF/MAC: %s/%pM (%s)]\n",
-+	seq_printf(seq, "[B.A.T.M.A.N. adv %s, MainIF/MAC: %s/%pM (%s %s)]\n",
- 		   BATADV_SOURCE_VERSION, primary_if->net_dev->name,
--		   primary_if->net_dev->dev_addr, net_dev->name);
--	seq_printf(seq, "  %-15s %s (%s/%i) %17s [%10s]: %20s ...\n",
--		   "Originator", "last-seen", "#", BATADV_TQ_MAX_VALUE,
--		   "Nexthop", "outgoingIF", "Potential nexthops");
--
--	for (i = 0; i < hash->size; i++) {
--		head = &hash->table[i];
--
--		rcu_read_lock();
--		hlist_for_each_entry_rcu(orig_node, head, hash_entry) {
--			neigh_node = batadv_orig_node_get_router(orig_node);
--			if (!neigh_node)
--				continue;
--
--			if (neigh_node->bat_iv.tq_avg == 0)
--				goto next;
--
--			last_seen_jiffies = jiffies - orig_node->last_seen;
--			last_seen_msecs = jiffies_to_msecs(last_seen_jiffies);
--			last_seen_secs = last_seen_msecs / 1000;
--			last_seen_msecs = last_seen_msecs % 1000;
--
--			seq_printf(seq, "%pM %4i.%03is   (%3i) %pM [%10s]:",
--				   orig_node->orig, last_seen_secs,
--				   last_seen_msecs, neigh_node->bat_iv.tq_avg,
--				   neigh_node->addr,
--				   neigh_node->if_incoming->net_dev->name);
--
--			hlist_for_each_entry_rcu(neigh_node_tmp,
--						 &orig_node->neigh_list, list) {
--				seq_printf(seq, " %pM (%3i)",
--					   neigh_node_tmp->addr,
--					   neigh_node_tmp->bat_iv.tq_avg);
--			}
-+		   primary_if->net_dev->dev_addr, net_dev->name,
-+		   bat_priv->bat_algo_ops->name);
- 
--			seq_puts(seq, "\n");
--			batman_count++;
-+	batadv_hardif_free_ref(primary_if);
- 
--next:
--			batadv_neigh_node_free_ref(neigh_node);
--		}
--		rcu_read_unlock();
-+	if (!bat_priv->bat_algo_ops->bat_orig_print) {
-+		seq_puts(seq,
-+			 "No printing function for this routing protocol\n");
-+		return 0;
- 	}
- 
--	if (batman_count == 0)
--		seq_puts(seq, "No batman nodes in range ...\n");
-+	bat_priv->bat_algo_ops->bat_orig_print(bat_priv, seq);
- 
--out:
--	if (primary_if)
--		batadv_hardif_free_ref(primary_if);
- 	return 0;
- }
- 
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 97bde51..72fd617 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -992,6 +992,7 @@ struct batadv_forw_packet {
-  * @bat_primary_iface_set: called when primary interface is selected / changed
-  * @bat_ogm_schedule: prepare a new outgoing OGM for the send queue
-  * @bat_ogm_emit: send scheduled OGM
-+ * @bat_orig_print: print the originator table (optional)
-  */
- struct batadv_algo_ops {
- 	struct hlist_node list;
-@@ -1002,6 +1003,8 @@ struct batadv_algo_ops {
- 	void (*bat_primary_iface_set)(struct batadv_hard_iface *hard_iface);
- 	void (*bat_ogm_schedule)(struct batadv_hard_iface *hard_iface);
- 	void (*bat_ogm_emit)(struct batadv_forw_packet *forw_packet);
-+	/* orig_node handling API */
-+	void (*bat_orig_print)(struct batadv_priv *priv, struct seq_file *seq);
- };
- 
- /**
--- 
-1.8.4
+Patch 10 limits the local Translation Table maximum size to a value such that it
+can be fully transfered over the air if needed. This value depends on
+fragmentation being enabled or not and on the mtu values.
+
+Patch 11 makes batman-adv send a uevent in case of soft-interface destruction
+while a "bat-Gateway" was configured (this informs userspace about the GW not
+being available anymore).
+
+Patches 13 and 14 enable the TT component to detect non-mesh client flag
+changes at runtime (till now those flags where set upon client detection and
+were not changed anymore).
+
+Patch 16 is a generalisation of our user-to-kernel space communication (and
+viceversa) used to exchange ICMP packets to send/received to/from the mesh
+network. Now it can easily accommodate new ICMP packet types without breaking
+the existing userspace API anymore.
+
+
+Remaining patches are minor changes and cleanups.
+
+
+Please pull or let me know of any problem.
+
+Thanks a lot,
+	Antonio
+
+
+
+The following changes since commit 47d4ab91e4472723f181075c81627374ca86816c:
+
+  macvlan: resolve ENOENT errors on creation (2013-10-22 19:22:09 -0400)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to da6b8c20a5b8c7edce95c95fa2356300691094f5:
+
+  batman-adv: generalize batman-adv icmp packet handling (2013-10-23 17:03:47 +0200)
+
+----------------------------------------------------------------
+Included changes:
+- data structure reshaping to accommodate multiple routing protocol
+  implementations
+- routing protocol API enhancement
+- send to userspace the event "batman-adv Gateway loss" in case of soft-iface
+  destruction and a "batman-adv Gateway" was configured
+- improve the TT component to support and advertise runtime flag changes
+- minor code refactoring
+- make the ICMP kernel-to-userspace communication more generic
+
+----------------------------------------------------------------
+Antonio Quartulli (13):
+      batman-adv: make struct batadv_neigh_node algorithm agnostic
+      batman-adv: make struct batadv_orig_node algorithm agnostic
+      batman-adv: add bat_orig_print API function
+      batman-adv: add bat_neigh_cmp API function
+      batman-adv: add bat_neigh_is_equiv_or_better API function
+      batman-adv: adapt bonding to use the new API functions
+      batman-adv: adapt the neighbor purging routine to use the new API functions
+      batman-adv: provide orig_node routing API
+      batman-adv: adapt the TT component to use the new API functions
+      batman-adv: send GW_DEL event in case of soft-iface destruction
+      batman-adv: invoke dev_get_by_index() outside of is_wifi_iface()
+      batman-adv: improve the TT component to support runtime flag changes
+      batman-adv: include the sync-flags when compute the global/local table CRC
+
+Marek Lindner (1):
+      batman-adv: limit local translation table max size
+
+Simon Wunderlich (2):
+      batman-adv: Start new development cycle
+      batman-adv: generalize batman-adv icmp packet handling
+
+ net/batman-adv/bat_iv_ogm.c        | 399 ++++++++++++++++++++++++++++++++-----
+ net/batman-adv/gateway_client.c    |  16 +-
+ net/batman-adv/hard-interface.c    |  83 ++++----
+ net/batman-adv/hard-interface.h    |   2 +-
+ net/batman-adv/icmp_socket.c       | 128 +++++++-----
+ net/batman-adv/icmp_socket.h       |   2 +-
+ net/batman-adv/main.c              |   4 +-
+ net/batman-adv/main.h              |   8 +-
+ net/batman-adv/network-coding.c    |   8 +-
+ net/batman-adv/originator.c        | 249 ++++++-----------------
+ net/batman-adv/originator.h        |   6 +-
+ net/batman-adv/packet.h            |   7 +-
+ net/batman-adv/routing.c           | 159 +++++++++------
+ net/batman-adv/routing.h           |   3 +-
+ net/batman-adv/soft-interface.c    |  12 +-
+ net/batman-adv/translation-table.c | 235 +++++++++++++++++++---
+ net/batman-adv/translation-table.h |   3 +-
+ net/batman-adv/types.h             | 109 +++++++---
+ 18 files changed, 956 insertions(+), 477 deletions(-)
