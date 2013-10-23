@@ -1,70 +1,36 @@
-From: "MARK WILLIAMS" <mrkin_fo@hotmail.com>
-Subject: I am sourcing for services of an Oversea Investment Manager (OIM) to manage the sum of US$32Million,
-Date: Wed, 23 Oct 2013 14:51:02 +0100
-Message-ID: <641067.95257.bm@smtp114.mail.ne1.yahoo.com>
-Reply-To: <markwilliams1@globomail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net: initialize hashrnd in flow_dissector
+ with net_get_random_once
+Date: Wed, 23 Oct 2013 06:58:34 -0700
+Message-ID: <1382536714.7572.18.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131023111219.GA31531@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_NextPart_000_0092_01C2A9A6.64AAC774"
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm10-vm0.bullet.mail.ne1.yahoo.com ([98.138.91.72]:47407 "EHLO
-	nm10-vm0.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751054Ab3JWN5M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 09:57:12 -0400
+Received: from mail-ee0-f45.google.com ([74.125.83.45]:48877 "EHLO
+	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751054Ab3JWN6i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 09:58:38 -0400
+Received: by mail-ee0-f45.google.com with SMTP id c50so523189eek.32
+        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 06:58:37 -0700 (PDT)
+In-Reply-To: <20131023111219.GA31531@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
+On Wed, 2013-10-23 at 13:12 +0200, Hannes Frederic Sowa wrote:
+> We also can defer the initialization of hashrnd in flow_dissector
+> to its first use. Since net_get_random_once is irqsave now we don't
+> have to audit the call paths if one of this functions get called by an
+> interrupt handler.
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
 
-------=_NextPart_000_0092_01C2A9A6.64AAC774
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
+This really works well if CONFIG_JUMP_LABEL=y
 
-READ THE ATTACH MAIL PLS.
-
-------=_NextPart_000_0092_01C2A9A6.64AAC774
-Content-Type: application/octet-stream;
-	name="Investment Manager.txt"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="Investment Manager.txt"
-
-T1ZFUlNFQSBJTlZFU1RNRU5UIE1BTkFHRVINCg0KDQpEZWFyIFNpciwNCg0K
-DQpJIGFtIHNvdXJjaW5nIGZvciBzZXJ2aWNlcyBvZiBhbiBPdmVyc2VhIElu
-dmVzdG1lbnQgTWFuYWdlciAoT0lNKSB0byBtYW5hZ2UgdGhlIHN1bSBvZiBV
-UyQzMk1pbGxpb24sIHRoaXMgYW1vdW50IHJlcHJlc2VudCBhbiBvdmVyIGlu
-dm9pY2VkIGFtb3VudCBvZiBtb25leSBmcm9tIGEgY29udHJhY3QgdGhhdCB3
-YXMgYXdhcmRlZCB0byBhbiBBbWVyaWNhbiBPaWwgZXhwbG9yYXRpb24gY29t
-cGFueSBpbiAyMDA3LCBvbmUgeWVhciBsYXRlciBpbiAyMDA4LCB0aGUgQW1l
-cmljYW4gY29tcGFueSBjb21wbGV0ZWQgdGhlIGNvbnRyYWN0IGFuZCB3YXMg
-ZnVsbHkgcGFpZCBieSBkaXJlY3QgV2lyZSB0cmFuc2ZlciBmb3IgdGhlIGV4
-ZWN1dGlvbiBvZiB0aGUgY29udHJhY3QsIGxlYXZpbmcgdGhlIG92ZXIgaW52
-b2ljZWQgc3VtIHNhZmVseSBkZXBvc2l0ZWQgaW4gYSBzcGVjaWFsIHNlY3Vy
-aXR5IGFjY291bnQgbWFuYWdlZCBhbmQgbW9uaXRvcmVkIGJ5IHRoZSB0b3Ag
-b2ZmaWNlcnMgb2YgdGhlIGNvcnBvcmF0aW9uIHRoYXQgSSByZXByZXNlbnQs
-IHRoaXMgdG9wIG9mZmljZXIgYXJlIGluIGNoYXJnZSBvZiB0aGUgZGF5IHRv
-IGRheSBydW5uaW5nIG9mIGFjY291bnRzIGFuZCBmaW5hbmNlIHNlY3Rpb24g
-aW5jbHVkaW5nIHRoZSBhdWRpdGluZyBkZXBhcnRtZW50IG9mIHRoZSBjb3Jw
-b3JhdGlvbiBhbmQgaGF2ZSBwZXJmZWN0ZWQgYWxsIGRvY3VtZW50cyB0byBi
-YWNrIHVwIHRoZSBwYXltZW50IGFzIHRvIGF2b2lkIGFueSB0cmFjZSB3aGF0
-c29ldmVyLCB3aGljaCBtYWtlcyB0aGUgdHJhbnNhY3Rpb24gMTAwJSByaXNr
-IGZyZWUuDQoNCg0KTXkgcmVxdWVzdCBpcyB5b3VyIGFzc2lzdGFuY2UgaW4g
-cmVjZWl2aW5nIHRoaXMgbW9uZXkgdXNpbmcgYSBzZWN1cmVkIGFjY291bnQg
-dGhhdCBpcyBhYmxlIHRvIHRha2UgdGhpcyBtb25leSBhbmQgdGhlcmVhZnRl
-ciB5b3UgaW52ZXN0IGl0IGZvciBhIHBlcmlvZCBvZiAyIHllYXJzIG9uIHRo
-ZWlyIGJlaGFsZi4gWW91IHdvdWxkIGJlIGVudGl0bGVkIHRvIDI1JSBvZiB0
-aGUgdG90YWwgZnVuZCBpbiBxdWVzdGlvbiwgd2hpbGUgNSUgd2lsbCBiZSBz
-ZXQgYXNpZGUgZm9yIGFueSBzdW5kcnkgZXhwZW5zZXMgaW5jdXJyZWQgYnkg
-Ym90aCBwYXJ0aWVzIGluIHRoZSBjb3Vyc2Ugb2YgdGhpcyB0cmFuc2FjdGlv
-bi4gDQoNCg0KQXMgYW4gYWRtaW5pc3RyYXRpdmUgb2ZmaWNlciBJIHdhcyBt
-YW5kYXRlZCB0byBzZWVrIHlvdXIgaW5kdWxnZW5jZSBvbiB0aGlzIG1hdHRl
-ciwgaWYgdGhpcyBpcyBhY2NlcHRhYmxlIHRvIHlvdSwgY29udGFjdCBtZSBz
-dHJpY3RseSBieSBtYXJrd2lsbGlhbXMxQGdsb2JvbWFpbC5jb20gc3RhdGlu
-ZyB5b3VyIGZ1bGwgbmFtZSwgYWRkcmVzcyBhbmQgcHJpdmF0ZSBwaG9uZSBu
-dW1iZXIgUGxlYXNlIERPIE5PVCBib3RoZXJzIHRvIHJlc3BvbmQgaWYgeW91
-IGFyZSBub3QgaW50ZXJlc3RlZC4NCg0KDQpZb3VycyBTaW5jZXJlbHksDQoN
-Cg0KTXIuIE1hcmsgV2lsbGlhbXM=
-
-------=_NextPart_000_0092_01C2A9A6.64AAC774--
+I am afraid some arches do not really have this.
