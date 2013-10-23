@@ -1,63 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: -27% netperf TCP_STREAM regression by "tcp_memcontrol: Kill
- struct tcp_memcontrol"
-Date: Wed, 23 Oct 2013 06:02:44 -0700
-Message-ID: <1382533364.7572.15.camel@edumazet-glaptop.roam.corp.google.com>
-References: <20131022214129.GB2715@localhost>
-	 <20131022.180023.1141845387743361648.davem@davemloft.net>
-	 <87k3h461ql.fsf@tw-ebiederman.twitter.com>
-	 <20131023122543.GH5132@cpaasch-mac>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, fengguang.wu@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131023122543.GH5132@cpaasch-mac>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net] netconsole: fix NULL pointer dereference
+Date: Wed, 23 Oct 2013 15:04:49 +0200
+Message-ID: <1382533489-19248-1-git-send-email-nikolay@redhat.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:5032 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753975Ab3JWNIU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Oct 2013 09:08:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-10-23 at 14:25 +0200, Christoph Paasch wrote:
+We need to disable the netconsole (enabled = 0) before setting nt->np.dev
+to NULL because otherwise we might still have users after the
+netpoll_cleanup() since nt->enabled is set afterwards and we can
+have a message which will result in a NULL pointer dereference.
+It is very easy to hit dereferences all over the netpoll_send_udp function
+by running the following two loops in parallel:
+while [ 1 ]; do echo 1 > enabled; echo 0 > enabled; done;
+while [ 1 ]; do echo 00:11:22:33:44:55 > remote_mac; done;
+(the second loop is to generate messages, it can be done by anything)
 
-> may it be the below?
-> 
-> 
-> Cheers,
-> Christoph
-> 
-> ----
-> From: Christoph Paasch <christoph.paasch@uclouvain.be>
-> Subject: [PATCH] Fix: Dereference pointer-value of sk_prot->memory_pressure
-> 
-> 2e685cad57 (tcp_memcontrol: Kill struct tcp_memcontrol) falsly modified
-> the access to memory_pressure of sk->sk_prot->memory_pressure. The patch
-> did modify the memory_pressure-field of struct cg_proto, but not the one
-> of struct proto.
-> 
-> So, the access to sk_prot->memory_pressure should not be changed.
-> 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> ---
->  include/net/sock.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index c93542f..e3a18ff 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -1137,7 +1137,7 @@ static inline bool sk_under_memory_pressure(const struct sock *sk)
->         if (mem_cgroup_sockets_enabled && sk->sk_cgrp)
->                 return !!sk->sk_cgrp->memory_pressure;
-> 
-> -       return !!sk->sk_prot->memory_pressure;
-> +       return !!*sk->sk_prot->memory_pressure;
->  }
-> 
->  static inline void sk_leave_memory_pressure(struct sock *sk)
+We're safe to set nt->np.dev = NULL and nt->enabled = 0 with the spinlock
+since it's required in the write_msg() function.
 
-Nice catch, thanks !
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+Taking the spinlock seems like the cleanest way to insure there's noone
+running in parallel, but I'm open to suggestions as I'm not satisfied with
+the looks of this. I'll prepare a net-next patchset for netconsole soon to
+clean it up properly, all of these can be easily simplified.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+ drivers/net/netconsole.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index adeee61..1505dcb 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -310,6 +310,7 @@ static ssize_t store_enabled(struct netconsole_target *nt,
+ 			     const char *buf,
+ 			     size_t count)
+ {
++	unsigned long flags;
+ 	int enabled;
+ 	int err;
+ 
+@@ -342,6 +343,13 @@ static ssize_t store_enabled(struct netconsole_target *nt,
+ 		printk(KERN_INFO "netconsole: network logging started\n");
+ 
+ 	} else {	/* 0 */
++		/* We need to disable the netconsole before cleaning it up
++		 * otherwise we might end up in write_msg() with
++		 * nt->np.dev == NULL and nt->enabled == 1
++		 */
++		spin_lock_irqsave(&target_list_lock, flags);
++		nt->enabled = 0;
++		spin_unlock_irqrestore(&target_list_lock, flags);
+ 		netpoll_cleanup(&nt->np);
+ 	}
+ 
+-- 
+1.8.1.4
