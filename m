@@ -1,52 +1,134 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 1/3] ipv4: initialize ip4_frags hash secret as late as possible
-Date: Wed, 23 Oct 2013 11:06:55 +0200
-Message-ID: <1382519217-750-2-git-send-email-hannes@stressinduktion.org>
+Subject: [PATCH net-next 2/3] ipv6: split inet6_hash_frag for netfilter and initialize secrets with net_get_random_once
+Date: Wed, 23 Oct 2013 11:06:56 +0200
+Message-ID: <1382519217-750-3-git-send-email-hannes@stressinduktion.org>
 References: <1382519217-750-1-git-send-email-hannes@stressinduktion.org>
 Cc: netfilter-devel@vger.kernel.org,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
+	Pablo Neira Ayuso <pablo@netfilter.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:52241 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:52245 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751568Ab3JWJHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 05:07:14 -0400
+	with ESMTP id S1751623Ab3JWJHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 05:07:15 -0400
 In-Reply-To: <1382519217-750-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Defer the generation of the first hash secret for the ipv4 fragmentation
-cache as late as possible.
+Defer the fragmentation hash secret initialization for IPv6 like the
+previous patch did for IPv4.
 
-ip4_frags.rnd gets initial seeded by inet_frags_init and regulary
-reseeded by inet_frag_secret_rebuild. Either we call ipqhashfn directly
-from ip_fragment.c in which case we initialize the secret directly.
+Because the netfilter logic reuses the hash secret we have to split it
+first. Thus introduce a new nf_hash_frag function which takes care to
+seed the hash secret.
 
-If we first get called by inet_frag_secret_rebuild we install a new secret
-by a manual call to get_random_bytes. This secret will be overwritten
-as soon as the first call to ipqhashfn happens. This is safe because we
-won't race while publishing the new secrets with anyone else.
-
+Cc: David S. Miller <davem@davemloft.net>
 Cc: Eric Dumazet <edumazet@google.com>
-Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/ipv4/ip_fragment.c | 1 +
- 1 file changed, 1 insertion(+)
+ include/net/ipv6.h                      |  2 --
+ net/ipv6/netfilter/nf_conntrack_reasm.c | 16 ++++++++++++++--
+ net/ipv6/reassembly.c                   | 12 ++++++------
+ 3 files changed, 20 insertions(+), 10 deletions(-)
 
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index b66910a..2481993 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -106,6 +106,7 @@ struct ip4_create_arg {
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index a35055f..dd96638 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -805,8 +805,6 @@ int ip6_mc_source(int add, int omode, struct sock *sk,
+ int ip6_mc_msfilter(struct sock *sk, struct group_filter *gsf);
+ int ip6_mc_msfget(struct sock *sk, struct group_filter *gsf,
+ 		  struct group_filter __user *optval, int __user *optlen);
+-unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
+-			     const struct in6_addr *daddr, u32 rnd);
  
- static unsigned int ipqhashfn(__be16 id, __be32 saddr, __be32 daddr, u8 prot)
+ #ifdef CONFIG_PROC_FS
+ int ac6_proc_init(struct net *net);
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index dffdc1a..4a25826 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -144,12 +144,24 @@ static inline u8 ip6_frag_ecn(const struct ipv6hdr *ipv6h)
+ 	return 1 << (ipv6_get_dsfield(ipv6h) & INET_ECN_MASK);
+ }
+ 
++static unsigned int nf_hash_frag(__be32 id, const struct in6_addr *saddr,
++				 const struct in6_addr *daddr)
++{
++	u32 c;
++
++	net_get_random_once(&nf_frags.rnd, sizeof(nf_frags.rnd));
++	c = jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
++			 (__force u32)id, nf_frags.rnd);
++	return c & (INETFRAGS_HASHSZ - 1);
++}
++
++
+ static unsigned int nf_hashfn(struct inet_frag_queue *q)
  {
-+	net_get_random_once(&ip4_frags.rnd, sizeof(ip4_frags.rnd));
- 	return jhash_3words((__force u32)id << 16 | prot,
- 			    (__force u32)saddr, (__force u32)daddr,
- 			    ip4_frags.rnd) & (INETFRAGS_HASHSZ - 1);
+ 	const struct frag_queue *nq;
+ 
+ 	nq = container_of(q, struct frag_queue, q);
+-	return inet6_hash_frag(nq->id, &nq->saddr, &nq->daddr, nf_frags.rnd);
++	return nf_hash_frag(nq->id, &nq->saddr, &nq->daddr);
+ }
+ 
+ static void nf_skb_free(struct sk_buff *skb)
+@@ -185,7 +197,7 @@ static inline struct frag_queue *fq_find(struct net *net, __be32 id,
+ 	arg.ecn = ecn;
+ 
+ 	read_lock_bh(&nf_frags.lock);
+-	hash = inet6_hash_frag(id, src, dst, nf_frags.rnd);
++	hash = nf_hash_frag(id, src, dst);
+ 
+ 	q = inet_frag_find(&net->nf_frag.frags, &nf_frags, &arg, hash);
+ 	local_bh_enable();
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 1aeb473..cc85a9b 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -82,24 +82,24 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
+  * callers should be careful not to use the hash value outside the ipfrag_lock
+  * as doing so could race with ipfrag_hash_rnd being recalculated.
+  */
+-unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
+-			     const struct in6_addr *daddr, u32 rnd)
++static unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
++				    const struct in6_addr *daddr)
+ {
+ 	u32 c;
+ 
++	net_get_random_once(&ip6_frags.rnd, sizeof(ip6_frags.rnd));
+ 	c = jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
+-			 (__force u32)id, rnd);
++			 (__force u32)id, ip6_frags.rnd);
+ 
+ 	return c & (INETFRAGS_HASHSZ - 1);
+ }
+-EXPORT_SYMBOL_GPL(inet6_hash_frag);
+ 
+ static unsigned int ip6_hashfn(struct inet_frag_queue *q)
+ {
+ 	struct frag_queue *fq;
+ 
+ 	fq = container_of(q, struct frag_queue, q);
+-	return inet6_hash_frag(fq->id, &fq->saddr, &fq->daddr, ip6_frags.rnd);
++	return inet6_hash_frag(fq->id, &fq->saddr, &fq->daddr);
+ }
+ 
+ bool ip6_frag_match(struct inet_frag_queue *q, void *a)
+@@ -193,7 +193,7 @@ fq_find(struct net *net, __be32 id, const struct in6_addr *src,
+ 	arg.ecn = ecn;
+ 
+ 	read_lock(&ip6_frags.lock);
+-	hash = inet6_hash_frag(id, src, dst, ip6_frags.rnd);
++	hash = inet6_hash_frag(id, src, dst);
+ 
+ 	q = inet_frag_find(&net->ipv6.frags, &ip6_frags, &arg, hash);
+ 	if (IS_ERR_OR_NULL(q)) {
 -- 
 1.8.3.1
