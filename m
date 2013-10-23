@@ -1,142 +1,45 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next] fix rtnl notification in atomic context
-Date: Wed, 23 Oct 2013 11:32:41 -0700
-Message-ID: <1382553161-3498-1-git-send-email-ast@plumgrid.com>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Suleman Abubaker <mrsulemanabubaker@gmail.com>
+Subject: URGENT REPLY NEEDED
+Date: Wed, 23 Oct 2013 11:57:39 -0700 (PDT)
+Message-ID: <1382554659.34144.YahooMailBasic@web161502.mail.bf1.yahoo.com>
+Reply-To: mrsulemanabubaker@outlook.fr
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:46040 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751719Ab3JWScq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 14:32:46 -0400
-Received: by mail-pa0-f43.google.com with SMTP id hz1so1333807pad.2
-        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 11:32:45 -0700 (PDT)
+Received: from nm43.bullet.mail.ne1.yahoo.com ([98.138.120.50]:47757 "EHLO
+	nm43.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751711Ab3JWS6B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 14:58:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 991fb3f74c "dev: always advertise rx_flags changes via netlink"
-introduced rtnl notification from __dev_set_promiscuity(),
-which can be called in atomic context.
 
-Steps to reproduce:
-ip tuntap add dev tap1 mode tap
-ifconfig tap1 up
-tcpdump -nei tap1 &
-ip tuntap del dev tap1 mode tap
+Greetings Dear Friend.
 
-[  271.627994] device tap1 left promiscuous mode
-[  271.639897] BUG: sleeping function called from invalid context at mm/slub.c:940
-[  271.664491] in_atomic(): 1, irqs_disabled(): 0, pid: 3394, name: ip
-[  271.677525] INFO: lockdep is turned off.
-[  271.690503] CPU: 0 PID: 3394 Comm: ip Tainted: G        W    3.12.0-rc3+ #73
-[  271.703996] Hardware name: System manufacturer System Product Name/P8Z77 WS, BIOS 3007 07/26/2012
-[  271.731254]  ffffffff81a58506 ffff8807f0d57a58 ffffffff817544e5 ffff88082fa0f428
-[  271.760261]  ffff8808071f5f40 ffff8807f0d57a88 ffffffff8108bad1 ffffffff81110ff8
-[  271.790683]  0000000000000010 00000000000000d0 00000000000000d0 ffff8807f0d57af8
-[  271.822332] Call Trace:
-[  271.838234]  [<ffffffff817544e5>] dump_stack+0x55/0x76
-[  271.854446]  [<ffffffff8108bad1>] __might_sleep+0x181/0x240
-[  271.870836]  [<ffffffff81110ff8>] ? rcu_irq_exit+0x68/0xb0
-[  271.887076]  [<ffffffff811a80be>] kmem_cache_alloc_node+0x4e/0x2a0
-[  271.903368]  [<ffffffff810b4ddc>] ? vprintk_emit+0x1dc/0x5a0
-[  271.919716]  [<ffffffff81614d67>] ? __alloc_skb+0x57/0x2a0
-[  271.936088]  [<ffffffff810b4de0>] ? vprintk_emit+0x1e0/0x5a0
-[  271.952504]  [<ffffffff81614d67>] __alloc_skb+0x57/0x2a0
-[  271.968902]  [<ffffffff8163a0b2>] rtmsg_ifinfo+0x52/0x100
-[  271.985302]  [<ffffffff8162ac6d>] __dev_notify_flags+0xad/0xc0
-[  272.001642]  [<ffffffff8162ad0c>] __dev_set_promiscuity+0x8c/0x1c0
-[  272.017917]  [<ffffffff81731ea5>] ? packet_notifier+0x5/0x380
-[  272.033961]  [<ffffffff8162b109>] dev_set_promiscuity+0x29/0x50
-[  272.049855]  [<ffffffff8172e937>] packet_dev_mc+0x87/0xc0
-[  272.065494]  [<ffffffff81732052>] packet_notifier+0x1b2/0x380
-[  272.080915]  [<ffffffff81731ea5>] ? packet_notifier+0x5/0x380
-[  272.096009]  [<ffffffff81761c66>] notifier_call_chain+0x66/0x150
-[  272.110803]  [<ffffffff8108503e>] __raw_notifier_call_chain+0xe/0x10
-[  272.125468]  [<ffffffff81085056>] raw_notifier_call_chain+0x16/0x20
-[  272.139984]  [<ffffffff81620190>] call_netdevice_notifiers_info+0x40/0x70
-[  272.154523]  [<ffffffff816201d6>] call_netdevice_notifiers+0x16/0x20
-[  272.168552]  [<ffffffff816224c5>] rollback_registered_many+0x145/0x240
-[  272.182263]  [<ffffffff81622641>] rollback_registered+0x31/0x40
-[  272.195369]  [<ffffffff816229c8>] unregister_netdevice_queue+0x58/0x90
-[  272.208230]  [<ffffffff81547ca0>] __tun_detach+0x140/0x340
-[  272.220686]  [<ffffffff81547ed6>] tun_chr_close+0x36/0x60
+I am Mr Suleman Abubaker, Staff of Bank Of Africa in Burkina Faso. I would like you to indicate your interest to 
+receive the transfer of ($20.5 Million Dollars) I will like you to stand as the next of kin to my late client whose account is presently dormant for claims. if you are interested,indicate and i will intimate you with the method of application and how you can apply to the bank .
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
- include/linux/rtnetlink.h |    4 +++-
- net/core/dev.c            |    2 +-
- net/core/rtnetlink.c      |   12 +++++++++---
- 3 files changed, 13 insertions(+), 5 deletions(-)
+But before i send to you the text of application form,I will like you to send me the following informations
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index f28544b..26f5edc 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -15,7 +15,9 @@ extern int rtnetlink_put_metrics(struct sk_buff *skb, u32 *metrics);
- extern int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst,
- 			      u32 id, long expires, u32 error);
- 
--extern void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change);
-+void __rtmsg_ifinfo(int type, struct net_device *dev, unsigned change,
-+		    gfp_t flags);
-+void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change);
- 
- /* RTNL is used as a global lock for all changes to network configuration  */
- extern void rtnl_lock(void);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0918aad..59b90fe 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5257,7 +5257,7 @@ void __dev_notify_flags(struct net_device *dev, unsigned int old_flags,
- 	unsigned int changes = dev->flags ^ old_flags;
- 
- 	if (gchanges)
--		rtmsg_ifinfo(RTM_NEWLINK, dev, gchanges);
-+		__rtmsg_ifinfo(RTM_NEWLINK, dev, gchanges, GFP_ATOMIC);
- 
- 	if (changes & IFF_UP) {
- 		if (dev->flags & IFF_UP)
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 4aedf03..5931af9 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1984,14 +1984,15 @@ static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
--void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change)
-+void __rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
-+		    gfp_t flags)
- {
- 	struct net *net = dev_net(dev);
- 	struct sk_buff *skb;
- 	int err = -ENOBUFS;
- 	size_t if_info_size;
- 
--	skb = nlmsg_new((if_info_size = if_nlmsg_size(dev, 0)), GFP_KERNEL);
-+	skb = nlmsg_new((if_info_size = if_nlmsg_size(dev, 0)), flags);
- 	if (skb == NULL)
- 		goto errout;
- 
-@@ -2002,12 +2003,17 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change)
- 		kfree_skb(skb);
- 		goto errout;
- 	}
--	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, GFP_KERNEL);
-+	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, flags);
- 	return;
- errout:
- 	if (err < 0)
- 		rtnl_set_sk_err(net, RTNLGRP_LINK, err);
- }
-+
-+void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change)
-+{
-+	__rtmsg_ifinfo(type, dev, change, GFP_KERNEL);
-+}
- EXPORT_SYMBOL(rtmsg_ifinfo);
- 
- static int nlmsg_populate_fdb_fill(struct sk_buff *skb,
--- 
-1.7.9.5
+1.NAME IN FULL:................................
+2.ADDRESS:.......................................
+3.NATIONALITY:.................................. .
+4.AGE:.............................................
+5.SEX..............................................
+6.OCCUPATION:......................................
+7.MARITAL STATUS:..................................
+8.PRIAVTE PHONE NO............................................
+9.PRIVATE FAX NO:.............................................
+10.ATTACH COPY OF YOUR IDENTIFICATION...........................
+
+Now my questions are:
+1) Can you handle this project?
+2) Can I give you this trust?
+
+so i will like you to send to me those informations for easy and effective communication.Upon receipt of your reply, I will send to you by fax or 
+email the text of the application form.I will not fail to bring to your notice that this transaction is hitch-free and that you should not entertain any atom of fear as all required arrangements have been made for the transfer. You should contact me immediately as soon as you receive this letter,if only you are intrested and ready to help. Trusting to hear from you immediately.
+Do keep this a top secret for security reasons.
+
+Best Regards
+Mr Suleman Abubaker.
