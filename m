@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] netfilter fixes for net
-Date: Wed, 23 Oct 2013 16:56:32 -0400 (EDT)
-Message-ID: <20131023.165632.1355159920749130897.davem@davemloft.net>
-References: <1382519724-3953-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net] net: sctp: fix ASCONF to allow non SCTP_ADDR_SRC
+ addresses in ipv6
+Date: Wed, 23 Oct 2013 16:57:36 -0400 (EDT)
+Message-ID: <20131023.165736.804778459722407050.davem@davemloft.net>
+References: <1382459696-1732-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1382519724-3953-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	micchie@sfc.wide.ad.jp
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41021 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751316Ab3JWU5i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 16:57:38 -0400
+In-Reply-To: <1382459696-1732-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Wed, 23 Oct 2013 11:15:21 +0200
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue, 22 Oct 2013 18:34:56 +0200
 
-> The following patchset contains three netfilter fixes for your net
-> tree, they are:
+> Commit 8a07eb0a50 ("sctp: Add ASCONF operation on the single-homed host")
+> implemented possible use of IPv4 addresses with non SCTP_ADDR_SRC state
+> as source address when sending ASCONF (ADD) packets, but IPv6 part for
+> that was not implemented in 8a07eb0a50. Therefore, as this is not restricted
+> to IPv4-only, fix this up to allow the same for IPv6 addresses in SCTP.
 > 
-> * A couple of fixes to resolve info leak to userspace due to uninitialized
->   memory area in ulogd, from Mathias Krause.
-> 
-> * Fix instruction ordering issues that may lead to the access of
->   uninitialized data in x_tables. The problem involves the table update
->  (producer) and the main packet matching (consumer) routines. Detected in
->   SMP ARMv7, from Will Deacon.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Michio Honda <micchie@sfc.wide.ad.jp>
 
-Pulled, thanks Pablo.
+Applied, thanks.
