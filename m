@@ -1,36 +1,51 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: BUG: scheduling while atomic
- dev_set_promiscuity->__dev_notify_flags
-Date: Wed, 23 Oct 2013 03:53:56 +0000 (UTC)
-Message-ID: <slrnl6ei2u.vgu.xiyou.wangcong@linux-6brj.site>
-References: <CAMEtUuy91zYJ=bj1dzfdqE8kqZ3rE1RgdR-PZYekSUg8_xoTBw@mail.gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:54175 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754353Ab3JWDyS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Oct 2013 23:54:18 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1VYpWS-0003yD-Uc
-	for netdev@vger.kernel.org; Wed, 23 Oct 2013 05:54:16 +0200
-Received: from c-67-169-68-218.hsd1.ca.comcast.net ([67.169.68.218])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 05:54:16 +0200
-Received: from xiyou.wangcong by c-67-169-68-218.hsd1.ca.comcast.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 05:54:16 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: -27% netperf TCP_STREAM regression by "tcp_memcontrol: Kill struct tcp_memcontrol"
+Date: Tue, 22 Oct 2013 21:38:10 -0700
+Message-ID: <87k3h461ql.fsf@tw-ebiederman.twitter.com>
+References: <20131022214129.GB2715@localhost>
+	<20131022.180023.1141845387743361648.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: fengguang.wu@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131022.180023.1141845387743361648.davem@davemloft.net> (David
+	Miller's message of "Tue, 22 Oct 2013 18:00:23 -0400 (EDT)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Oct 2013 at 01:04 GMT, Alexei Starovoitov <ast@plumgrid.com> wrote:
->
-> packet_notifier() does rcu_read_lock() before calling into packet_dev_mc() .
->
-> Not sure how to fix it cleanly, other than disabling a notify here.
-> Any suggestion?
->
+David Miller <davem@davemloft.net> writes:
 
-Passing a gfp flag to rtmsg_ifinfo() seems a right fix for me, but I don't
-know if there is other better way to fix it.
+> From: fengguang.wu@intel.com
+> Date: Tue, 22 Oct 2013 22:41:29 +0100
+>
+>> We noticed big netperf throughput regressions
+>> 
+>>     a4fe34bf902b8f709c63      2e685cad57906e19add7  
+>> ------------------------  ------------------------  
+>>                   707.40       -40.7%       419.60  lkp-nex04/micro/netperf/120s-200%-TCP_STREAM
+>>                  2775.60       -23.7%      2116.40  lkp-sb03/micro/netperf/120s-200%-TCP_STREAM
+>>                  3483.00       -27.2%      2536.00  TOTAL netperf.Throughput_Mbps
+>> 
+>> and bisected it to
+>> 
+>> commit 2e685cad57906e19add7189b5ff49dfb6aaa21d3
+>> Author: Eric W. Biederman <ebiederm@xmission.com>
+>> Date:   Sat Oct 19 16:26:19 2013 -0700
+>> 
+>>     tcp_memcontrol: Kill struct tcp_memcontrol
+>
+> Eric please look into this, I'd rather have a fix to apply than revert your
+> work.
+
+Will do I expect some ordering changed, and that changed the cache line
+behavior.
+
+If I can't find anything we can revert this one particular patch without
+affecting anything else, but it would be nice to keep the data structure
+smaller.
+
+Fengguag what would I need to do to reproduce this?
+
+Eric
