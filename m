@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: [PATCH] Fix: Dereference pointer-value of sk_prot->memory_pressure
-Date: Wed, 23 Oct 2013 12:55:18 -0700
-Message-ID: <87r4bbiwyh.fsf_-_@xmission.com>
+Date: Wed, 23 Oct 2013 12:58:52 -0700
+Message-ID: <87ppqviwsj.fsf_-_@xmission.com>
 References: <20131022214129.GB2715@localhost>
 	<20131022.180023.1141845387743361648.davem@davemloft.net>
 	<87k3h461ql.fsf@tw-ebiederman.twitter.com>
@@ -12,7 +12,7 @@ Content-Type: text/plain
 Cc: Christoph Paasch <christoph.paasch@uclouvain.be>,
 	fengguang.wu@intel.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1382533364.7572.15.camel@edumazet-glaptop.roam.corp.google.com>
 	(Eric Dumazet's message of "Wed, 23 Oct 2013 06:02:44 -0700")
@@ -34,6 +34,9 @@ Reported-by: Fengguang Wu <fengguang.wu@intel.com>
 Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
+
+Resent because I fat fingered and deleted Dave by accident.
+
  include/net/sock.h |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
