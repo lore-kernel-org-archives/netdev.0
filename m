@@ -1,39 +1,50 @@
 From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 0/7] net: ethernet: remove unnecessary pci_set_drvdata() part 4
-Date: Wed, 23 Oct 2013 16:05:34 +0900
-Message-ID: <000001cecfbe$44ce9c10$ce6bd430$%han@samsung.com>
+Subject: [PATCH 1/7] net: sungem: remove unnecessary pci_set_drvdata()
+Date: Wed, 23 Oct 2013 16:06:54 +0900
+Message-ID: <000201cecfbe$748f7e60$5dae7b20$%han@samsung.com>
+References: <000001cecfbe$44ce9c10$ce6bd430$%han@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
 To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:14876 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949Ab3JWHFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 03:05:39 -0400
-Received: from epcpsbgr5.samsung.com
- (u145.gpu120.samsung.co.kr [203.254.230.145])
- by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+Received: from mailout3.samsung.com ([203.254.224.33]:61563 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751480Ab3JWHG4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 03:06:56 -0400
+Received: from epcpsbgr3.samsung.com
+ (u143.gpu120.samsung.co.kr [203.254.230.143])
+ by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
  (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MV400EU810XD7O0@mailout2.samsung.com> for
- netdev@vger.kernel.org; Wed, 23 Oct 2013 16:05:35 +0900 (KST)
+ with ESMTP id <0MV4002TY13FGNR0@mailout3.samsung.com> for
+ netdev@vger.kernel.org; Wed, 23 Oct 2013 16:06:54 +0900 (KST)
+In-reply-to: <000001cecfbe$44ce9c10$ce6bd430$%han@samsung.com>
 Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
-(device-core: Ensure drvdata = NULL when no driver is bound),
-the driver core clears the driver data to NULL after device_release
+The driver core clears the driver data to NULL after device_release
 or on probe failure. Thus, it is not needed to manually clear the
 device driver data to NULL.
 
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/net/ethernet/sun/niu.c            |    2 --
- drivers/net/ethernet/sun/sungem.c         |    2 --
- drivers/net/ethernet/tehuti/tehuti.c      |    1 -
- drivers/net/ethernet/ti/tlan.c            |    1 -
- drivers/net/ethernet/toshiba/spider_net.c |    1 -
- drivers/net/ethernet/toshiba/tc35815.c    |    1 -
- drivers/net/ethernet/via/via-rhine.c      |    1 -
- 7 files changed, 9 deletions(-)
+ drivers/net/ethernet/sun/sungem.c |    2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/sun/sungem.c b/drivers/net/ethernet/sun/sungem.c
+index a235bd9..b5655b7 100644
+--- a/drivers/net/ethernet/sun/sungem.c
++++ b/drivers/net/ethernet/sun/sungem.c
+@@ -2806,8 +2806,6 @@ static void gem_remove_one(struct pci_dev *pdev)
+ 		iounmap(gp->regs);
+ 		pci_release_regions(pdev);
+ 		free_netdev(dev);
+-
+-		pci_set_drvdata(pdev, NULL);
+ 	}
+ }
+ 
+-- 
+1.7.10.4
