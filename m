@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 4/5] 6lowpan: remove skb->dev
-	assignment
-Date: Thu, 24 Oct 2013 22:51:43 +0200
-Message-ID: <1382647904-11311-5-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next 5/5] 6lowpan: remove
+	unecessary break
+Date: Thu, 24 Oct 2013 22:51:44 +0200
+Message-ID: <1382647904-11311-6-git-send-email-alex.aring@gmail.com>
 References: <1382647904-11311-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,10 +21,6 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch removes the assignment of skb->dev. We don't need it here because
-we use the netdev_alloc_skb_ip_align function which already sets the
-skb->dev.
-
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
 ---
@@ -32,17 +28,17 @@ Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
  1 file changed, 1 deletion(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 7510278..e15b101 100644
+index e15b101..09350f1 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -785,7 +785,6 @@ lowpan_alloc_new_frame(struct sk_buff *skb, u16 len, u16 tag)
- 		goto skb_err;
+@@ -440,7 +440,6 @@ lowpan_uncompress_udp_header(struct sk_buff *skb, struct udphdr *uh)
+ 		default:
+ 			pr_debug("ERROR: unknown UDP format\n");
+ 			goto err;
+-			break;
+ 		}
  
- 	frame->skb->priority = skb->priority;
--	frame->skb->dev = skb->dev;
- 
- 	/* reserve headroom for uncompressed ipv6 header */
- 	skb_reserve(frame->skb, sizeof(struct ipv6hdr));
+ 		pr_debug("uncompressed UDP ports: src = %d, dst = %d\n",
 -- 
 1.8.4.1
 
