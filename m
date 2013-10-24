@@ -1,69 +1,54 @@
-From: Alistair Popple <alistair@popple.id.au>
-Subject: [PATCH] ibm emac: Don't call napi_complete if napi_reschedule failed
-Date: Thu, 24 Oct 2013 14:36:20 +1100
-Message-ID: <1382585780-13244-1-git-send-email-alistair@popple.id.au>
-Cc: benh@kernel.crashing.org, Alistair Popple <alistair@popple.id.au>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: 16% regression on 10G caused by TCP small queues
+Date: Wed, 23 Oct 2013 21:45:57 -0700
+Message-ID: <20131023214557.386aad1a@nehalam.linuxnetplumber.net>
+References: <20131023192954.3dd9c784@nehalam.linuxnetplumber.net>
+ <CADVnQymDr2K7z3yfKpW-H3R3W3NP+iuPQF2eMfeyS6dn-szdgA@mail.gmail.com>
+ <CAOaVG15indAxBz7E-T+9MK03indiXBa0UhQZ5j6K5DxYP44Mxg@mail.gmail.com>
+ <20131023.233816.1396918839771657154.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ncardwell@google.com, eric.dumazet@gmail.com,
+	dave.taht@bufferbloat.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipmail06.adl6.internode.on.net ([150.101.137.145]:52891 "EHLO
-	ipmail06.adl6.internode.on.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753672Ab3JXDia (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 23:38:30 -0400
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:56084 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751136Ab3JXEqC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 00:46:02 -0400
+Received: by mail-pb0-f44.google.com with SMTP id xa7so1999353pbc.17
+        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 21:46:01 -0700 (PDT)
+In-Reply-To: <20131023.233816.1396918839771657154.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a bug which would trigger the BUG_ON() at
-net/core/dev.c:4156. It was found that this was due to napi_complete
-being called even when the corresponding call to napi_reschedule had
-failed.
+On Wed, 23 Oct 2013 23:38:16 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-This patch ensures that we only contine processing rotting packets in
-the current mal_poll call if we are not already on the polling list.
-It also adds locking calls to protect the read-write-modify of the
-MAL_CFG DCR.
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Wed, 23 Oct 2013 20:09:49 -0700
+> 
+> > I will check 3.12, but what about users on 3.10 which is the LTS
+> > kernel used by most distros?
 
-Signed-off-by: Alistair Popple <alistair@popple.id.au>
----
- drivers/net/ethernet/ibm/emac/mal.c |   17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+3.12-rc6 gets line rate again (9.41 Gbit/sec)
 
-diff --git a/drivers/net/ethernet/ibm/emac/mal.c b/drivers/net/ethernet/ibm/emac/mal.c
-index 856ea66..b10ad5d 100644
---- a/drivers/net/ethernet/ibm/emac/mal.c
-+++ b/drivers/net/ethernet/ibm/emac/mal.c
-@@ -263,7 +263,9 @@ static inline void mal_schedule_poll(struct mal_instance *mal)
- {
- 	if (likely(napi_schedule_prep(&mal->napi))) {
- 		MAL_DBG2(mal, "schedule_poll" NL);
-+		spin_lock(&mal->lock);
- 		mal_disable_eob_irq(mal);
-+		spin_unlock(&mal->lock);
- 		__napi_schedule(&mal->napi);
- 	} else
- 		MAL_DBG2(mal, "already in poll" NL);
-@@ -442,17 +444,14 @@ static int mal_poll(struct napi_struct *napi, int budget)
- 		if (unlikely(mc->ops->peek_rx(mc->dev) ||
- 			     test_bit(MAL_COMMAC_RX_STOPPED, &mc->flags))) {
- 			MAL_DBG2(mal, "rotting packet" NL);
--			if (napi_reschedule(napi))
--				mal_disable_eob_irq(mal);
--			else
--				MAL_DBG2(mal, "already in poll list" NL);
--
--			if (budget > 0)
--				goto again;
--			else
-+			if (!napi_reschedule(napi))
- 				goto more_work;
-+
-+			spin_lock_irqsave(&mal->lock, flags);
-+			mal_disable_eob_irq(mal);
-+			spin_unlock_irqrestore(&mal->lock, flags);
-+			goto again;
- 		}
--		mc->ops->poll_tx(mc->dev);
- 	}
- 
-  more_work:
--- 
-1.7.10.4
+> The fix will be backported to -stable, relax Stephen.
+
+Sorry, thought sk_pacing_rate depended on FQ qdisc but it is other way around.
+In which case doing merge of these two was sufficient to fix the problem.
+With a minor manual fix up to tcp.h.
+
+
+commit 95bd09eb27507691520d39ee1044d6ad831c1168
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Tue Aug 27 05:46:32 2013 -0700
+
+    tcp: TSO packets automatic sizing
+
+commit c9eeec26e32e087359160406f96e0949b3cc6f10
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Fri Sep 27 03:28:54 2013 -0700
+
+    tcp: TSQ can use a dynamic limit
