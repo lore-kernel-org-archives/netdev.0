@@ -1,37 +1,32 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH next] be2net: add support for ndo_busy_poll
-Date: Wed, 23 Oct 2013 23:13:58 -0700
-Message-ID: <1382595238.7572.38.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1382593638-8079-1-git-send-email-sathya.perla@emulex.com>
+Subject: Re: 16% regression on 10G caused by TCP small queues
+Date: Wed, 23 Oct 2013 23:19:08 -0700
+Message-ID: <1382595548.7572.39.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131023192954.3dd9c784@nehalam.linuxnetplumber.net>
+	 <CADVnQymDr2K7z3yfKpW-H3R3W3NP+iuPQF2eMfeyS6dn-szdgA@mail.gmail.com>
+	 <CAOaVG15indAxBz7E-T+9MK03indiXBa0UhQZ5j6K5DxYP44Mxg@mail.gmail.com>
+	 <20131023.233816.1396918839771657154.davem@davemloft.net>
+	 <20131023214557.386aad1a@nehalam.linuxnetplumber.net>
+	 <1382595011.7572.36.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sathya Perla <sathya.perla@emulex.com>
+Cc: David Miller <davem@davemloft.net>, ncardwell@google.com,
+	dave.taht@bufferbloat.net, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:56103 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752115Ab3JXGOD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 02:14:03 -0400
-Received: by mail-ee0-f54.google.com with SMTP id t10so620976eei.41
-        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 23:14:01 -0700 (PDT)
-In-Reply-To: <1382593638-8079-1-git-send-email-sathya.perla@emulex.com>
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:58394 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752036Ab3JXGTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 02:19:13 -0400
+Received: by mail-ee0-f48.google.com with SMTP id e50so847620eek.21
+        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 23:19:11 -0700 (PDT)
+In-Reply-To: <1382595011.7572.36.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-10-24 at 11:17 +0530, Sathya Perla wrote:
-> Includes:
-> - ndo_busy_poll implementation
-> - Locking between napi and busy_poll
-> - Fix rx_post_starvation (replenish rx-queues in out-of-mememory scenario)
->   logic to accomodate busy_poll.
+On Wed, 2013-10-23 at 23:10 -0700, Eric Dumazet wrote:
 
->  	if (work_done) {
-> +		gfp_t gfp = (polling == BUSY_POLLING) ? GFP_KERNEL : GFP_ATOMIC;
-> +
->  		be_cq_notify(adapter, rx_cq->id, true, work_done);
->  
+> Btw what is the NIC you are using ?
 
-I do not think its right.
-
-ndo_busy_poll() is not allowed to sleep.
+Oh well I read you mail and saw ixgbe was mentioned ;)
