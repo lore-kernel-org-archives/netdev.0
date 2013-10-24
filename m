@@ -1,63 +1,48 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 1/5] 6lowpan: remove
-	unnecessary ret variable
-Date: Thu, 24 Oct 2013 22:51:40 +0200
-Message-ID: <1382647904-11311-2-git-send-email-alex.aring@gmail.com>
-References: <1382647904-11311-1-git-send-email-alex.aring@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net] netconsole: fix NULL pointer dereference
+Date: Thu, 24 Oct 2013 22:59:34 +0200
+Message-ID: <20131024205934.GA26855@electric-eye.fr.zoreil.com>
+References: <1382533489-19248-1-git-send-email-nikolay@redhat.com>
+ <20131024102147.GD16787@redhat.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B73A9@saturn3.aculab.com>
+ <20131024.135614.1725589105857635534.davem@davemloft.net>
+ <52696563.1060507@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1382647904-11311-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, David.Laight@ACULAB.COM,
+	vfalico@redhat.com, netdev@vger.kernel.org
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:54593 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755240Ab3JXU7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 16:59:50 -0400
+Content-Disposition: inline
+In-Reply-To: <52696563.1060507@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
----
- net/ieee802154/6lowpan.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Nikolay Aleksandrov <nikolay@redhat.com> :
+> On 10/24/2013 07:56 PM, David Miller wrote:
+> > From: "David Laight" <David.Laight@ACULAB.COM>
+[...]
+> >> Ditto - might be worth saying:
+> >>     /* Acquire lock to wait for any write_msg() to complete. */
+> > 
+> > Something this subtle definitely requires a comment.
+> > 
+> Okay, thank you all for the reviews. I will re-submit a v2 with
+> the comment edited.
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index ff41b4d..d288035 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -1120,7 +1120,7 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
- 			int mlen, int plen, int offset, int type)
- {
- 	struct sk_buff *frag;
--	int hlen, ret;
-+	int hlen;
- 
- 	hlen = (type == LOWPAN_DISPATCH_FRAG1) ?
- 			LOWPAN_FRAG1_HEAD_SIZE : LOWPAN_FRAGN_HEAD_SIZE;
-@@ -1145,9 +1145,7 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
- 	lowpan_raw_dump_table(__func__, " raw fragment dump", frag->data,
- 								frag->len);
- 
--	ret = dev_queue_xmit(frag);
--
--	return ret;
-+	return dev_queue_xmit(frag);
- }
- 
- static int
+"edited" as in "removed" because:
+1. an irq disabling spinlock loudly states what the intent is ("hey, this
+   netconsole stuff could be concurrently used in irq or softirq context").
+2. the target_list_lock spinlock itself tells where to look for:
+
+drivers/net/netconsole.c
+[...]
+/* This needs to be a spinlock because write_msg() cannot sleep */
+static DEFINE_SPINLOCK(target_list_lock);
+
 -- 
-1.8.4.1
-
-
-------------------------------------------------------------------------------
-October Webinars: Code for Performance
-Free Intel webinars can help you accelerate application performance.
-Explore tips for MPI, OpenMP, advanced profiling, and more. Get the most from 
-the latest Intel processors and coprocessors. See abstracts and register >
-http://pubads.g.doubleclick.net/gampad/clk?id=60135991&iu=/4140/ostg.clktrk
+Ueimor
