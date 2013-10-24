@@ -1,94 +1,70 @@
-From: Valentijn Sessink <valentyn@blub.net>
-Subject: Re: [PATCH net 2/2] ipv6: ip6_dst_check needs to check for expired
- dst_entries
-Date: Thu, 24 Oct 2013 09:49:07 +0200
-Message-ID: <5268D0F3.3080904@blub.net>
-References: <20131024054824.GA15744@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net v2 1/2] ipv6: reset dst.expires value when clearing expire flag
+Date: Thu, 24 Oct 2013 10:14:27 +0200
+Message-ID: <20131024081427.GC15744@order.stressinduktion.org>
+References: <20131024054816.GB5973@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org, sgunderson@bigfoot.com, valentyn@blub.net,
+	yoshfuji@linux-ipv6.org, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from filter.openoffice.nl ([144.76.204.185]:37675 "EHLO
-	filter.openoffice.nl" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754035Ab3JXH6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 03:58:42 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by filter.openoffice.nl (Postfix) with ESMTP id 411D9800D9
-	for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 09:48:57 +0200 (CEST)
-Received: from filter.openoffice.nl ([127.0.0.1])
-	by localhost (filter.openoffice.nl [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id niEcfjsH1DRC for <netdev@vger.kernel.org>;
-	Thu, 24 Oct 2013 09:48:55 +0200 (CEST)
-Received: from blub.net (unknown [IPv6:2001:7b8:1529:0:5054:ff:fe70:c2c4])
-	by filter.openoffice.nl (Postfix) with ESMTP id 3E087800D8
-	for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 09:48:55 +0200 (CEST)
-Received: from [IPv6:2001:1af8:ff03:3:219:66ff:fe26:6dd] (unknown [IPv6:2001:1af8:ff03:3:219:66ff:fe26:6dd])
-	by blub.net (Postfix) with ESMTPSA id EA42A30013B
-	for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 09:48:54 +0200 (CEST)
-In-Reply-To: <20131024054824.GA15744@order.stressinduktion.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:54335 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751610Ab3JXIO3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 04:14:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20131024054816.GB5973@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24-10-13 07:48, Hannes Frederic Sowa wrote:
-> On receiving a packet too big icmp error we check if our current cached
-> dst_entry in the socket is still valid. This validation check did not
-> care about the expiration of the (cached) route.
-> 
-> The error path I traced down:
-> The socket receives a packet too big mtu notification. It still has a
-> valid dst_entry and thus issues the ip6_rt_pmtu_update on this dst_entry,
-> setting RTF_EXPIRE and updates the dst.expiration value (which could
-> fail because of not up-to-date expiration values, see previous patch).
-> 
-> In some seldom cases we race with a) the ip6_fib gc or b) another routing
-> lookup which would result in a recreation of the cached rt6_info from its
-> parent non-cached rt6_info. While copying the rt6_info we reinitialize the
-> metrics store by copying it over from the parent thus invalidating the
-> just installed pmtu update (both dsts use the same key to the inetpeer
-> storage). The dst_entry with the just invalidated metrics data would
-> just get its RTF_EXPIRES flag cleared and would continue to stay valid
-> for the socket.
-> 
-> We should have not issued the pmtu update on the already expired dst_entry
-> in the first placed. By checking the expiration on the dst entry and
-> doing a relookup in case it is out of date we close the race because
-> we would install a new rt6_info into the fib before we issue the pmtu
-> update, thus closing this race.
-> 
-> Not reliably updating the dst.expire value was fixed by the patch "ipv6:
-> reset dst.expires value when clearing expire flag".
-> 
-> Reported-by: Steinar H. Gunderson <sgunderson@bigfoot.com>
-> Reported-by: Valentijn Sessink <valentyn@blub.net>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
-> I would propose this patch for -stable.
-> 
->  net/ipv6/route.c | 9 ++++++---
->  1 file changed, 6 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index f54e3a1..04e17b3 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1087,10 +1087,13 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
->  	if (rt->rt6i_genid != rt_genid_ipv6(dev_net(rt->dst.dev)))
->  		return NULL;
->  
-> -	if (rt->rt6i_node && (rt->rt6i_node->fn_sernum == cookie))
-> -		return dst;
-> +	if (!rt->rt6i_node || (rt->rt6i_node->fn_sernum != cookie))
-> +		return NULL;
->  
-> -	return NULL;
-> +	if (rt6_check_expired(rt))
-> +		return NULL;
-> +
-> +	return dst;
->  }
->  
->  static struct dst_entry *ip6_negative_advice(struct dst_entry *dst)
+On receiving a packet too big icmp error we update the expire value by
+calling rt6_update_expires. This function uses dst_set_expires which is
+implemented that it can only reduce the expiration value of the dst entry.
 
+If we insert new routing non-expiry information into the ipv6 fib where
+we already have a matching rt6_info we only clear the RTF_EXPIRES flag
+in rt6i_flags and leave the dst.expires value as is.
+
+When new mtu information arrives for that cached dst_entry we again
+call dst_set_expires. This time it won't update the dst.expire value
+because we left the dst.expire value intact from the last update. So
+dst_set_expires won't touch dst.expires.
+
+Fix this by resetting dst.expires when clearing the RTF_EXPIRE flag.
+dst_set_expires checks for a zero expiration and updates the
+dst.expires.
+
+In the past this (not updating dst.expires) was necessary because
+dst.expire was placed in a union with the dst_entry *from reference
+and rt6_clean_expires did assign NULL to it. This split happend in
+ecd9883724b78cc72ed92c98bcb1a46c764fff21 ("ipv6: fix race condition
+regarding dst->expires and dst->from").
+
+Reported-by: Steinar H. Gunderson <sgunderson@bigfoot.com>
+Reported-by: Valentijn Sessink <valentyn@blub.net>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Acked-by: Eric Dumazet <edumazet@google.com>
 Tested-by: Valentijn Sessink <valentyn@blub.net>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+v2: I wrote the commit message this morning and forgot about the fact that
+that the mentioned commit did actually reset the expire value before. So
+just improve the commit message to clear things up. Thanks, Eric!
+
+ include/net/ip6_fib.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 48ec25a..5e661a9 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -165,6 +165,7 @@ static inline struct inet6_dev *ip6_dst_idev(struct dst_entry *dst)
+ static inline void rt6_clean_expires(struct rt6_info *rt)
+ {
+ 	rt->rt6i_flags &= ~RTF_EXPIRES;
++	rt->dst.expires = 0;
+ }
+ 
+ static inline void rt6_set_expires(struct rt6_info *rt, unsigned long expires)
+-- 
+1.8.3.1
