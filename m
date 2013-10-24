@@ -1,61 +1,43 @@
-From: "Luke C. Jones" <luke.christopher.jones@gmail.com>
-Subject: [PATCH net-next] ns83820: printk() cleanup
-Date: Thu, 24 Oct 2013 21:45:06 +0000
-Message-ID: <1382651106-24550-1-git-send-email-Luke.Christopher.Jones@gmail.com>
-Cc: "Luke C. Jones" <jonesl4@rpi.edu>
+From: Matt Zanchelli <zanchm@rpi.edu>
+Subject: [PATCH net-next] macsonic: Updated printk() statement to KERN style leading argument.
+Date: Thu, 24 Oct 2013 21:37:25 +0000
+Message-ID: <1382650645-23973-1-git-send-email-zanchm@rpi.edu>
+Cc: Matt Zanchelli <zanchm@rpi.edu>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f54.google.com ([209.85.128.54]:37393 "EHLO
-	mail-qe0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753359Ab3JXVpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 17:45:14 -0400
-Received: by mail-qe0-f54.google.com with SMTP id 1so1874718qec.27
-        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 14:45:14 -0700 (PDT)
+Received: from gateway.canit.rpi.edu ([128.113.2.229]:51825 "EHLO
+	smtp9.server.rpi.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752037Ab3JXVrP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 17:47:15 -0400
+Received: from smtp-auth1.server.rpi.edu (smtp-auth1.server.rpi.edu [128.113.2.231])
+	by smtp9.server.rpi.edu (8.14.3/8.14.3/Debian-9.4) with ESMTP id r9OLbUcD028731
+	for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 17:37:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Luke C. Jones" <jonesl4@rpi.edu>
+Updated prinkt() statement in mac_sonic_probe() function to match current
+convention of using KERN style leading argument.
 
-In an effort to bring all printk calls up to style standards,
-added log levels to printk calls.
-
-Reviewed-by: Mike Mathis <mathim2@rpi.edu>
-Reviewed-by: Jonathan Beekman <beekmj@rpi.edu>
-Signed-off-by: Luke C. Jones <jonesl4@rpi.edu>
+Reviewed-by: Daniel Felizardo <danfelizardo@gmail.com>
+Reviewed-by: Nicole Negedly <nnegedly@gmail.com>
+Reviewed-by: Maxwell Ensley-Field <mensleyfield@gmail.com>
+Signed-off-by: Matt Zanchelli <zanchm@rpi.edu>
 ---
- drivers/net/ethernet/natsemi/ns83820.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/natsemi/macsonic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/natsemi/ns83820.c b/drivers/net/ethernet/natsemi/ns83820.c
-index d3b4700..d7f849d 100644
---- a/drivers/net/ethernet/natsemi/ns83820.c
-+++ b/drivers/net/ethernet/natsemi/ns83820.c
-@@ -1580,7 +1580,7 @@ static void ns83820_tx_timeout(struct net_device *ndev)
- 	{
- 		u32 isr;
- 		isr = readl(dev->base + ISR);
--		printk("irq: %08x imr: %08x\n", isr, dev->IMR_cache);
-+		printk(KERN_DEBUG "irq: %08x imr: %08x\n", isr, dev->IMR_cache);
- 		ns83820_do_isr(ndev, isr);
- 	}
- #endif
-@@ -1603,7 +1603,7 @@ static void ns83820_tx_watch(unsigned long data)
- 	struct ns83820 *dev = PRIV(ndev);
+diff --git a/drivers/net/ethernet/natsemi/macsonic.c b/drivers/net/ethernet/natsemi/macsonic.c
+index 346a4e0..3eca756 100644
+--- a/drivers/net/ethernet/natsemi/macsonic.c
++++ b/drivers/net/ethernet/natsemi/macsonic.c
+@@ -601,7 +601,7 @@ found:
+ 	if (err)
+ 		goto out;
  
- #if defined(DEBUG)
--	printk("ns83820_tx_watch: %u %u %d\n",
-+	printk(KERN_DEBUG "ns83820_tx_watch: %u %u %d\n",
- 		dev->tx_done_idx, dev->tx_free_idx, atomic_read(&dev->nr_tx_skbs)
- 		);
- #endif
-@@ -2026,7 +2026,7 @@ static int ns83820_init_one(struct pci_dev *pci_dev,
- 		goto out_free_irq;
- 	}
+-	printk("%s: MAC %pM IRQ %d\n", dev->name, dev->dev_addr, dev->irq);
++	printk(KERN_INFO "%s: MAC %pM IRQ %d\n", dev->name, dev->dev_addr, dev->irq);
  
--	printk("%s: ns83820.c: 0x22c: %08x, subsystem: %04x:%04x\n",
-+	printk(KERN_INFO "%s: ns83820.c: 0x22c: %08x, subsystem: %04x:%04x\n",
- 		ndev->name, le32_to_cpu(readl(dev->base + 0x22c)),
- 		pci_dev->subsystem_vendor, pci_dev->subsystem_device);
+ 	return 0;
  
 -- 
 1.8.1.2
