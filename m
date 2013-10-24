@@ -1,91 +1,72 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: crypto: skcipher - Use eseqiv even on UP machines
-Date: Thu, 24 Oct 2013 20:41:49 +0800
-Message-ID: <20131024124149.GA10587@gondor.apana.org.au>
+From: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+Subject: Re: Bluetooth 6LoWPAN and routing
+Date: Thu, 24 Oct 2013 15:48:17 +0300
+Message-ID: <52691711.3010909@linux.intel.com>
+References: <5268C214.2040307@linux.intel.com> <20131024122452.GA5491@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:38197 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754106Ab3JXMl5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 08:41:57 -0400
-Content-Disposition: inline
+Received: from mga14.intel.com ([143.182.124.37]:3287 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755123Ab3JXMsU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Oct 2013 08:48:20 -0400
+In-Reply-To: <20131024122452.GA5491@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
-    
-Previously we would use eseqiv on all async ciphers in all cases,
-and sync ciphers if we have more than one CPU.  This meant that
-chainiv is only used in the case of sync ciphers on a UP machine.
+Hi Alexander,
 
-As chainiv may aid attackers by making the IV predictable, even
-though this risk itself is small, the above usage pattern causes
-it to further leak information about the host.
+On 24.10.2013 15:25, Alexander Aring wrote:
+> Hi Jukka,
+>
+> On Thu, Oct 24, 2013 at 09:45:40AM +0300, Jukka Rissanen wrote:
+>> Hi,
+>>
+>> I have been prototyping with BT 6LoWPAN support (using this draft
+>> http://tools.ietf.org/html/draft-ietf-6lowpan-btle-12 as a
+>> reference). I sent first version yesterday to linux-bluetooth ml
+>> http://thread.gmane.org/gmane.linux.bluez.kernel/39394
+>>
+> I see you take many code from the 6lowpan ieee802154 implementation.
+> (Just notice you drop the original authors from there)
 
-This patch addresses these issues by using eseqiv even if we're
-on a UP machine.
+Hmm, those got dropped, I am sorry about that. I will add the original 
+authors information of course.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>
+> I have a couple of patches to fix a lot of bugs in the current 6LoWPAN
+> ieee802154 implementation.
+>
+> Some bugs which I found:
+>
+>    - Fix race conditions in fragmentation handling
+>    - Fix UDP compression/uncompressionm, which is completly broken
+>    - Fragmentation handling isn't rfc4944 compatible
+>
+> And some other improvements. I see your rfc has the same issues (e.g.
+> fragmentation race conditions).
+>
+> Currently I preparing these patches for mainlining.
 
---git a/crypto/ablkcipher.c b/crypto/ablkcipher.c
-index 7d4a8d2..40886c4 100644
---- a/crypto/ablkcipher.c
-+++ b/crypto/ablkcipher.c
-@@ -16,9 +16,7 @@
- #include <crypto/internal/skcipher.h>
- #include <linux/cpumask.h>
- #include <linux/err.h>
--#include <linux/init.h>
- #include <linux/kernel.h>
--#include <linux/module.h>
- #include <linux/rtnetlink.h>
- #include <linux/sched.h>
- #include <linux/slab.h>
-@@ -30,8 +28,6 @@
- 
- #include "internal.h"
- 
--static const char *skcipher_default_geniv __read_mostly;
--
- struct ablkcipher_buffer {
- 	struct list_head	entry;
- 	struct scatter_walk	dst;
-@@ -527,8 +523,7 @@ const char *crypto_default_geniv(const struct crypto_alg *alg)
- 	    alg->cra_blocksize)
- 		return "chainiv";
- 
--	return alg->cra_flags & CRYPTO_ALG_ASYNC ?
--	       "eseqiv" : skcipher_default_geniv;
-+	return "eseqiv";
- }
- 
- static int crypto_givcipher_default(struct crypto_alg *alg, u32 type, u32 mask)
-@@ -709,17 +704,3 @@ err:
- 	return ERR_PTR(err);
- }
- EXPORT_SYMBOL_GPL(crypto_alloc_ablkcipher);
--
--static int __init skcipher_module_init(void)
--{
--	skcipher_default_geniv = num_possible_cpus() > 1 ?
--				 "eseqiv" : "chainiv";
--	return 0;
--}
--
--static void skcipher_module_exit(void)
--{
--}
--
--module_init(skcipher_module_init);
--module_exit(skcipher_module_exit);
+Excellent news!
 
-Cheers,
+>
+> But my question is:
+>
+> What we do now, make a generic 6LoWPAN implementation. Or bluetooth,
+> ieee802154 makes his own implementation?
+
+At least the compression/uncompression code and fragmentation could be 
+shared. Could it possible to isolate relevant functions to separate file 
+that would be usable by both BT and ieee802154?
+
+>
+> - Alex
+>
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Cheers,
+Jukka
