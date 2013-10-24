@@ -1,36 +1,71 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/1] net:sched  fix a bug about memery leak
-Date: Thu, 24 Oct 2013 18:10:00 +0400
-Message-ID: <52692A38.8040705@cogentembedded.com>
-References: <1382605964-2693-1-git-send-email-windsdaemon@gmail.com>
+Subject: Re: [RFC PATCH net-next] ppp: Allow ppp device connected to an l2tp
+ session to change of namespace
+Date: Thu, 24 Oct 2013 18:23:14 +0400
+Message-ID: <52692D52.8090503@cogentembedded.com>
+References: <5268F6CD.9070600@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Jing Wang <windsdaemon@gmail.com>, davem@davemloft.net,
-	jhs@mojatatu.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f179.google.com ([209.85.217.179]:43391 "EHLO
-	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754890Ab3JXOKC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 10:10:02 -0400
-Received: by mail-lb0-f179.google.com with SMTP id w6so325279lbh.38
-        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 07:10:00 -0700 (PDT)
-In-Reply-To: <1382605964-2693-1-git-send-email-windsdaemon@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
+To: =?UTF-8?B?RnJhbsOnb2lzIENhY2hlcmV1bA==?= <f.cachereul@alphalink.fr>,
+	Paul Mackerras <paulus@samba.org>,
+	James Chapman <jchapman@katalix.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <5268F6CD.9070600@alphalink.fr>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 10/24/2013 01:12 PM, Jing Wang wrote:
+On 10/24/2013 02:30 PM, Fran=C3=A7ois Cachereul wrote:
 
-    s/mememry/memory/ in the subject.
+> Remove NETIF_F_NETNS_LOCAL flag from ppp device in ppp_connect_channe=
+l()
+> if the device is connected to a l2tp session socket.
+> Restore the flag in ppp_disconnect_channel().
 
-> From: Jing Wang <windsdaemon@gmail.com>
+> Signed-off-by: Fran=C3=A7ois CACHEREUL <f.cachereul@alphalink.fr>
+> ---
+> I'm trying to get rid of this flag for ppp device connected to l2tp
+> session, it's seem to be safe to do it for as l2tp_ppp module hasn't =
+any
+> reference to the ppp device except to the device name. We can probabl=
+y
+> do it for others modules but pppoe and pptp will require more work.
 
-> the code isn't properly release memory
+> I remove the flag for l2tp in ppp_generic.c because I couldn't find a
+> place like a callback to do it in l2tp_ppp.c. The best will be to
+> remove the flag for all ppp devices.
 
-    s/release/releasing/.
+> Fran=C3=A7ois
 
-> Signed-off-by: Jing Wang <windsdaemon@gmail.com>
+>   drivers/net/ppp/ppp_generic.c |   11 +++++++++++
+>   1 file changed, 11 insertions(+)
+
+> diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_gene=
+ric.c
+> index 72ff14b..7ccf2ae 100644
+> --- a/drivers/net/ppp/ppp_generic.c
+> +++ b/drivers/net/ppp/ppp_generic.c
+[...]
+> @@ -2883,6 +2886,13 @@ ppp_connect_channel(struct channel *pch, int u=
+nit)
+>   	++ppp->n_channels;
+>   	pch->ppp =3D ppp;
+>   	atomic_inc(&ppp->file.refcnt);
+> +
+> +	/* allow ppp net device to be moved in another network namespace
+> +	 * if it's connected to an l2tp session */
+
+    Acording to Documentation/CodingStyle, the preferred comment style =
+in the=20
+networking code is:
+
+/* bla
+  * bla
+  */
 
 WBR, Sergei
+
