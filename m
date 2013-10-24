@@ -1,76 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] net:sched  fix a bug about memery leak
-Date: Thu, 24 Oct 2013 02:33:38 -0700
-Message-ID: <1382607218.7572.45.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1382605964-2693-1-git-send-email-windsdaemon@gmail.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v2 0/5] bonding: patchset for rcu use in bonding
+Date: Thu, 24 Oct 2013 11:35:07 +0200
+Message-ID: <20131024093507.GA16787@redhat.com>
+References: <52688F33.30904@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jhs@mojatatu.com, netdev@vger.kernel.org
-To: Jing Wang <windsdaemon@gmail.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:56403 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754516Ab3JXJdm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 05:33:42 -0400
-Received: by mail-ee0-f43.google.com with SMTP id e52so1232286eek.30
-        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 02:33:41 -0700 (PDT)
-In-Reply-To: <1382605964-2693-1-git-send-email-windsdaemon@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:65040 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753090Ab3JXJh0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Oct 2013 05:37:26 -0400
+Content-Disposition: inline
+In-Reply-To: <52688F33.30904@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-10-24 at 17:12 +0800, Jing Wang wrote:
-> From: Jing Wang <windsdaemon@gmail.com>
-> 
-> the code isn't properly release memory
-> 
-> Signed-off-by: Jing Wang <windsdaemon@gmail.com>
-> ---
->  net/sched/cls_route.c |    9 ++++++---
->  1 files changed, 6 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-> index 37da567..118f8d5 100644
-> --- a/net/sched/cls_route.c
-> +++ b/net/sched/cls_route.c
-> @@ -466,11 +466,11 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
->  		goto reinsert;
->  	}
->  
-> -	err = -ENOBUFS;
-> +	err = -ENOMEM;
->  	if (head == NULL) {
->  		head = kzalloc(sizeof(struct route4_head), GFP_KERNEL);
->  		if (head == NULL)
-> -			goto errout;
-> +			goto errhead;
->  
->  		tcf_tree_lock(tp);
->  		tp->root = head;
-> @@ -479,7 +479,7 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
->  
->  	f = kzalloc(sizeof(struct route4_filter), GFP_KERNEL);
->  	if (f == NULL)
-> -		goto errout;
-> +		goto errflt;
->  
->  	err = route4_set_parms(net, tp, base, f, handle, head, tb,
->  		tca[TCA_RATE], 1);
-> @@ -517,6 +517,9 @@ reinsert:
->  
->  errout:
->  	kfree(f);
-> +errflt:
-> +    kfree(head);
-> +errhead:
->  	return err;
->  }
->  
+On Thu, Oct 24, 2013 at 11:08:35AM +0800, Ding Tianhong wrote:
+>Hi:
+>
+>The slave list will add and del by bond_master_upper_dev_link() and bond_upper_dev_unlink(),
+>which will call call_netdevice_notifiers(), even it is safe to call it in write bond lock now,
+>but we can't sure that whether it is safe later, because other drivers may deal NETDEV_CHANGEUPPER
+>in sleep way, so I didn't admit move the bond_upper_dev_unlink() in write bond lock.
+>
+>now the bond_for_each_slave only protect by rtnl_lock(), maybe use bond_for_each_slave_rcu is a good
+>way to protect slave list for bond, but as a system slow path, it is no need to transform bond_for_each_slave()
+>to bond_for_each_slave_rcu() in slow path, so in the patchset, I will remove the unused read bond lock
+>for monitor function, maybe it is a better way, I will wait to accept any relay for it.
+>
+>Thanks for the Veaceslav Falico opinion.
 
-I don't think this patch is needed or correct.
+No problem.
 
-tp->root is the head, you cannot free it like that.
+Nacked-by: Veaceslav Falico <vfalico@redhat.com>
 
-It will be freed properly in route4_destroy()
+Now, please, make some normal changelogs, or convince David that I'm an
+idiot.
 
-Please elaborate, thanks.
+>
+>v2: add and modify commit for patchset and patch, it will be the first step for the whole patchset.
+>
+>Ding Tianhong (5):
+>  bonding: remove bond read lock for bond_mii_monitor()
+>  bonding: remove bond read lock for bond_alb_monitor()
+>  bonding: remove bond read lock for bond_loadbalance_arp_mon()
+>  bonding: remove bond read lock for bond_activebackup_arp_mon()
+>  bonding: remove bond read lock for bond_3ad_state_machine_handler()
+>
+> drivers/net/bonding/bond_3ad.c  |   9 ++--
+> drivers/net/bonding/bond_alb.c  |  20 ++------
+> drivers/net/bonding/bond_main.c | 100 +++++++++++++---------------------------
+> 3 files changed, 40 insertions(+), 89 deletions(-)
+>
+>-- 
+>1.8.2.1
+>
+>
+>
