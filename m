@@ -1,57 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] ns83820: printk() cleanup
-Date: Thu, 24 Oct 2013 15:38:39 -0700
-Message-ID: <1382654319.22433.88.camel@joe-AO722>
-References: <1382651106-24550-1-git-send-email-Luke.Christopher.Jones@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] 3c59x: fix incorrect use of spin_lock_bh in interrupts
+Date: Fri, 25 Oct 2013 00:44:47 +0200
+Message-ID: <20131024224447.GA27710@electric-eye.fr.zoreil.com>
+References: <alpine.LRH.2.02.1310211950360.5325@file01.intranet.prod.int.rdu2.redhat.com>
+ <20131022.025514.1611245390510932009.davem@davemloft.net>
+ <alpine.LRH.2.02.1310221148010.29454@file01.intranet.prod.int.rdu2.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Luke C. Jones" <jonesl4@rpi.edu>
-To: "Luke C. Jones" <luke.christopher.jones@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	klassert@mathematik.tu-chemnitz.de, netdev@vger.kernel.org
+To: Mikulas Patocka <mpatocka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0005.hostedemail.com ([216.40.44.5]:33558 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754267Ab3JXWio (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 18:38:44 -0400
-In-Reply-To: <1382651106-24550-1-git-send-email-Luke.Christopher.Jones@gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:54726 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753902Ab3JXWo6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 18:44:58 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LRH.2.02.1310221148010.29454@file01.intranet.prod.int.rdu2.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-10-24 at 21:45 +0000, Luke C. Jones wrote:
-> In an effort to bring all printk calls up to style standards,
-> added log levels to printk calls.
-[]
-> diff --git a/drivers/net/ethernet/natsemi/ns83820.c b/drivers/net/ethernet/natsemi/ns83820.c
-[]
-> @@ -1580,7 +1580,7 @@ static void ns83820_tx_timeout(struct net_device *ndev)
->  	{
->  		u32 isr;
->  		isr = readl(dev->base + ISR);
-> -		printk("irq: %08x imr: %08x\n", isr, dev->IMR_cache);
-> +		printk(KERN_DEBUG "irq: %08x imr: %08x\n", isr, dev->IMR_cache);
+Mikulas Patocka <mpatocka@redhat.com> :
+> On Tue, 22 Oct 2013, David Miller wrote:
+[...]
+> > vortex_down() does a lot of other things which are really dangerous
+> > from an interrupt handler, such as del_timer_sync().
+> > 
+> > The real fix for this bug is to defer the vortex_error() work into
+> > a workqueue, and thus process context, like every other driver does.
+> 
+> That del_timer_sync() could be skipped - if we reset the card, we don't 
+> need to reinitialize the times. Do you see anything else there that 
+> prevents the functions vortex_down and vortex_up from being called from an 
+> interrupt?
 
-netdev_dbg(ndev, etc...)
+Up to 1s busy wait loop in issue_and_wait.
 
-> @@ -1603,7 +1603,7 @@ static void ns83820_tx_watch(unsigned long data)
->  	struct ns83820 *dev = PRIV(ndev);
->  
->  #if defined(DEBUG)
-> -	printk("ns83820_tx_watch: %u %u %d\n",
-> +	printk(KERN_DEBUG "ns83820_tx_watch: %u %u %d\n",
->  		dev->tx_done_idx, dev->tx_free_idx, atomic_read(&dev->nr_tx_skbs)
->  		);
+window_{read / write} deadlock with vortex_tx_timeout.
 
-netdev_dbg()
+Error recovery needs to be robust and you'd rather recover in a context
+where you can be a real pig (MDIO usually is).
 
->  #endif
-> @@ -2026,7 +2026,7 @@ static int ns83820_init_one(struct pci_dev *pci_dev,
->  		goto out_free_irq;
->  	}
->  
-> -	printk("%s: ns83820.c: 0x22c: %08x, subsystem: %04x:%04x\n",
-> +	printk(KERN_INFO "%s: ns83820.c: 0x22c: %08x, subsystem: %04x:%04x\n",
->  		ndev->name, le32_to_cpu(readl(dev->base + 0x22c)),
->  		pci_dev->subsystem_vendor, pci_dev->subsystem_device);
->  
+It is a common pattern in linux kernel ethernet drivers to reduce the irq
+handler to a bare minimum and move real work to softirq (NAPI) context,
+especially for rx and tx traffic, then to workqueues for rare or error
+related stuff. Window locking may limit the opportunity for fast path
+locks removal but the driver would -imho- still end simpler.
 
-netdev_info()
+-- 
+Ueimor
