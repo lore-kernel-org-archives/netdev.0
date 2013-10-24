@@ -1,84 +1,89 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net] netconsole: fix NULL pointer dereference
-Date: Thu, 24 Oct 2013 12:21:47 +0200
-Message-ID: <20131024102147.GD16787@redhat.com>
-References: <1382533489-19248-1-git-send-email-nikolay@redhat.com>
+From: =?UTF-8?B?RnJhbsOnb2lzIENhY2hlcmV1bA==?= <f.cachereul@alphalink.fr>
+Subject: [RFC PATCH net-next] ppp: Allow ppp device connected to an l2tp session
+ to change of namespace
+Date: Thu, 24 Oct 2013 12:30:37 +0200
+Message-ID: <5268F6CD.9070600@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
+To: Paul Mackerras <paulus@samba.org>,
+	James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8587 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754516Ab3JXKX7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Oct 2013 06:23:59 -0400
-Content-Disposition: inline
-In-Reply-To: <1382533489-19248-1-git-send-email-nikolay@redhat.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:44611 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754629Ab3JXKaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 06:30:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 23, 2013 at 03:04:49PM +0200, Nikolay Aleksandrov wrote:
->We need to disable the netconsole (enabled = 0) before setting nt->np.dev
->to NULL because otherwise we might still have users after the
->netpoll_cleanup() since nt->enabled is set afterwards and we can
->have a message which will result in a NULL pointer dereference.
->It is very easy to hit dereferences all over the netpoll_send_udp function
->by running the following two loops in parallel:
->while [ 1 ]; do echo 1 > enabled; echo 0 > enabled; done;
->while [ 1 ]; do echo 00:11:22:33:44:55 > remote_mac; done;
->(the second loop is to generate messages, it can be done by anything)
->
->We're safe to set nt->np.dev = NULL and nt->enabled = 0 with the spinlock
->since it's required in the write_msg() function.
->
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->---
->Taking the spinlock seems like the cleanest way to insure there's noone
->running in parallel, but I'm open to suggestions as I'm not satisfied with
->the looks of this. I'll prepare a net-next patchset for netconsole soon to
->clean it up properly, all of these can be easily simplified.
+Remove NETIF_F_NETNS_LOCAL flag from ppp device in ppp_connect_channel(=
+)
+if the device is connected to a l2tp session socket.
+Restore the flag in ppp_disconnect_channel().
 
-First when I've seen 'spin_lock(); a = 1; spin_unlock()' I've thought
-"WTF?", however indeed it will stop us racing with write_msg().
+Signed-off-by: Fran=C3=A7ois CACHEREUL <f.cachereul@alphalink.fr>
+---
+I'm trying to get rid of this flag for ppp device connected to l2tp
+session, it's seem to be safe to do it for as l2tp_ppp module hasn't an=
+y
+reference to the ppp device except to the device name. We can probably
+do it for others modules but pppoe and pptp will require more work.
 
-FWIW...
+I remove the flag for l2tp in ppp_generic.c because I couldn't find a
+place like a callback to do it in l2tp_ppp.c. The best will be to=20
+remove the flag for all ppp devices.
 
-Reviewed-by: Veacelsav Falico <vfalico@redhat.com>
+=46ran=C3=A7ois
 
->
-> drivers/net/netconsole.c | 8 ++++++++
-> 1 file changed, 8 insertions(+)
->
->diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
->index adeee61..1505dcb 100644
->--- a/drivers/net/netconsole.c
->+++ b/drivers/net/netconsole.c
->@@ -310,6 +310,7 @@ static ssize_t store_enabled(struct netconsole_target *nt,
-> 			     const char *buf,
-> 			     size_t count)
-> {
->+	unsigned long flags;
-> 	int enabled;
-> 	int err;
->
->@@ -342,6 +343,13 @@ static ssize_t store_enabled(struct netconsole_target *nt,
-> 		printk(KERN_INFO "netconsole: network logging started\n");
->
-> 	} else {	/* 0 */
->+		/* We need to disable the netconsole before cleaning it up
->+		 * otherwise we might end up in write_msg() with
->+		 * nt->np.dev == NULL and nt->enabled == 1
->+		 */
->+		spin_lock_irqsave(&target_list_lock, flags);
->+		nt->enabled = 0;
->+		spin_unlock_irqrestore(&target_list_lock, flags);
-> 		netpoll_cleanup(&nt->np);
-> 	}
->
->-- 
->1.8.1.4
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/ppp/ppp_generic.c |   11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generi=
+c.c
+index 72ff14b..7ccf2ae 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -54,6 +54,8 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+=20
++#include <linux/if_pppox.h>
++
+ #define PPP_VERSION	"2.4.2"
+=20
+ /*
+@@ -2861,6 +2863,7 @@ ppp_connect_channel(struct channel *pch, int unit=
+)
+ 	struct ppp_net *pn;
+ 	int ret =3D -ENXIO;
+ 	int hdrlen;
++	struct sock *sk;
+=20
+ 	pn =3D ppp_pernet(pch->chan_net);
+=20
+@@ -2883,6 +2886,13 @@ ppp_connect_channel(struct channel *pch, int uni=
+t)
+ 	++ppp->n_channels;
+ 	pch->ppp =3D ppp;
+ 	atomic_inc(&ppp->file.refcnt);
++
++	/* allow ppp net device to be moved in another network namespace
++	 * if it's connected to an l2tp session */
++	sk =3D (struct sock *)pch->chan->private;
++	if (sk && sk->sk_protocol =3D=3D PX_PROTO_OL2TP)
++		ppp->dev->features &=3D ~NETIF_F_NETNS_LOCAL;
++
+ 	ppp_unlock(ppp);
+ 	ret =3D 0;
+=20
+@@ -2912,6 +2922,7 @@ ppp_disconnect_channel(struct channel *pch)
+ 		list_del(&pch->clist);
+ 		if (--ppp->n_channels =3D=3D 0)
+ 			wake_up_interruptible(&ppp->file.rwait);
++		ppp->dev->features |=3D NETIF_F_NETNS_LOCAL;
+ 		ppp_unlock(ppp);
+ 		if (atomic_dec_and_test(&ppp->file.refcnt))
+ 			ppp_destroy_interface(ppp);
+--=20
+1.7.10.4
