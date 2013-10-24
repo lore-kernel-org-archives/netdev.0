@@ -1,27 +1,50 @@
-From: "Web Security " <infoweb@live.com>
-Subject: Account Upgrade
-Date: Thu, 24 Oct 2013 20:47:00 +0200
-Message-ID: <20131024184723.85D093EECA5__28976.6343696558$1382643228$gmane$org@srv-zimbra.quito.gob.ec>
-Reply-To: wedbest7@gmail.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] tcp: only take RTT from timestamps if new data is
+ acked
+Date: Thu, 24 Oct 2013 12:55:37 -0700
+Message-ID: <1382644537.7572.60.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1382630125-21416-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <infoweb@live.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
+	netdev@vger.kernel.org
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.quitoambiente.gob.ec ([190.11.24.210]:43152 "EHLO
-	srv-zimbra.quito.gob.ec" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753800Ab3JXTdc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 15:33:32 -0400
-Content-Description: Mail message body
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:47468 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753940Ab3JXTzl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 15:55:41 -0400
+Received: by mail-wi0-f176.google.com with SMTP id l12so78472wiv.9
+        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 12:55:40 -0700 (PDT)
+In-Reply-To: <1382630125-21416-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Email User,
+On Thu, 2013-10-24 at 08:55 -0700, Yuchung Cheng wrote:
+> Patch ed08495c3 "tcp: use RTT from SACK for RTO" has a bug that
+> it does not check if the ACK acknowledge new data before taking
+> the RTT sample from TCP timestamps. This patch adds the check
+> back as required by the RFC.
+> 
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> ---
+>  net/ipv4/tcp_input.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 305cd05..6ffe41a 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -2856,7 +2856,8 @@ static inline bool tcp_ack_update_rtt(struct sock *sk, const int flag,
+>  	 * left edge of the send window.
+>  	 * See draft-ietf-tcplw-high-performance-00, section 3.3.
+>  	 */
+> -	if (seq_rtt < 0 && tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
+> +	if (seq_rtt < 0 && tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
+> +	    flag & FLAG_ACKED)
+>  		seq_rtt = tcp_time_stamp - tp->rx_opt.rcv_tsecr;
+>  
+>  	if (seq_rtt < 0)
 
-Your mailbox has exceeded the storage limit which is 20.00 GB as set by your administrator, you are currently running on 19.99 GB, you may not be able to send or receive new mail until you re-validate your email box. Kindly click the link below to re-validate your email account, If the page does not appear on your browser, you can copy and paste the link into your browser and fill in your account details, Click on "VERIFY" for account update.
-
-http://tiny.cc/wjqe5w
-
-Thanks!
-WebMail Administrator!
-Case Number: 894162/2013
+Acked-by: Eric Dumazet <edumazet@google.com>
