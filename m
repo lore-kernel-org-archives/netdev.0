@@ -1,60 +1,58 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [RFC PATCH net-next] ppp: Allow ppp device connected to an l2tp
- session to change of namespace
-Date: Thu, 24 Oct 2013 16:43:42 +0100
-Message-ID: <5269402E.2070203@katalix.com>
-References: <5268F6CD.9070600@alphalink.fr> <5268FCB1.7020903@katalix.com> <526923A7.8090108@alphalink.fr>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net] tcp: delete unused req in tcp_synack_rtt_meas()
+Date: Thu, 24 Oct 2013 08:46:22 -0700
+Message-ID: <CAK6E8=fqxKrPyw=T08apDTmA47Hn1RUhztLSXHaAkw9wAOgwOw@mail.gmail.com>
+References: <4fcb645d8f8f5d6dda0ebd1ce2bd0cc3bfb14311.1382607044.git.panweiping3@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
-	linux-ppp@vger.kernel.org
-To: =?ISO-8859-1?Q?Fran=E7ois_Cachereul?= <f.cachereul@alphalink.fr>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <526923A7.8090108@alphalink.fr>
-Sender: linux-ppp-owner@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Weiping Pan <panweiping3@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4fcb645d8f8f5d6dda0ebd1ce2bd0cc3bfb14311.1382607044.git.panweiping3@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 24/10/13 14:41, Fran=E7ois Cachereul wrote:
-> On 10/24/2013 12:55 PM, James Chapman wrote:
->> On 24/10/13 11:30, Fran=E7ois Cachereul wrote:
->>> Remove NETIF_F_NETNS_LOCAL flag from ppp device in ppp_connect_chan=
-nel()
->>> if the device is connected to a l2tp session socket.
->>> Restore the flag in ppp_disconnect_channel().
->>
->> What about pppd's network namespace? Also, L2TP's tunnel socket (UDP=
- or
->> L2TP/IP) will be in a different namespace if the ppp interface is mo=
-ved.
->=20
-> That's what I'm trying to achieve. I'm not using pppd and my problem =
-is
-> as follow:  I need to isolate ppp devices from each other, even when
-> they are connected to sessions carried by the same L2TP tunnel.
+On Thu, Oct 24, 2013 at 2:31 AM, Weiping Pan <panweiping3@gmail.com> wrote:
+> The parameter req is not used since
+> 375fe02c9179(tcp: consolidate SYNACK RTT sampling)
+Hi Weiping:
 
-I'm thinking about the implications of a skb in the net namespace of th=
-e
-ppp interface passing through a tunnel socket which is in another
-namespace. I think net namespaces are completely isolated.
-
-To keep your ppp interfaces isolated from each other, have you
-considered using netfilter to prevent data being passed between ppp
-interfaces?
-
-> Also, I
-> need the authentication to be terminated to know the namespace in whi=
-ch
-> the ppp will be moved. For that, the process runs in a namespace with
-> its l2tp sockets (tunnel and session) in that same namespace and each
-> ppp device is moved in a specific namespace after authentication.
-> =20
-> Regards
-> Fran=E7ois
->=20
-
---=20
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+I just sent a bug-fix "tcp: fix SYNACK RTT estimation in Fast Open"
+that will also take care of this redundant parameter. Thanks.
+.
+>
+> Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+> ---
+>  net/ipv4/tcp_input.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index a16b01b..ac8781a 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -2871,7 +2871,7 @@ static inline bool tcp_ack_update_rtt(struct sock *sk, const int flag,
+>  }
+>
+>  /* Compute time elapsed between (last) SYNACK and the ACK completing 3WHS. */
+> -static void tcp_synack_rtt_meas(struct sock *sk, struct request_sock *req)
+> +static void tcp_synack_rtt_meas(struct sock *sk)
+>  {
+>         struct tcp_sock *tp = tcp_sk(sk);
+>         s32 seq_rtt = -1;
+> @@ -5694,7 +5694,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+>                 tp->snd_una = TCP_SKB_CB(skb)->ack_seq;
+>                 tp->snd_wnd = ntohs(th->window) << tp->rx_opt.snd_wscale;
+>                 tcp_init_wl(tp, TCP_SKB_CB(skb)->seq);
+> -               tcp_synack_rtt_meas(sk, req);
+> +               tcp_synack_rtt_meas(sk);
+>
+>                 if (tp->rx_opt.tstamp_ok)
+>                         tp->advmss -= TCPOLEN_TSTAMP_ALIGNED;
+> --
+> 1.7.4
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
