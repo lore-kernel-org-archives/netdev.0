@@ -1,103 +1,47 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 1/5] bonding: remove bond read lock for bond_mii_monitor()
-Date: Thu, 24 Oct 2013 11:09:03 +0800
-Message-ID: <52688F4F.2080204@huawei.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: 16% regression on 10G caused by TCP small queues
+Date: Wed, 23 Oct 2013 20:09:49 -0700
+Message-ID: <CAOaVG15indAxBz7E-T+9MK03indiXBa0UhQZ5j6K5DxYP44Mxg@mail.gmail.com>
+References: <20131023192954.3dd9c784@nehalam.linuxnetplumber.net>
+	<CADVnQymDr2K7z3yfKpW-H3R3W3NP+iuPQF2eMfeyS6dn-szdgA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	=?ISO-8859-1?Q?Dave_T=E4ht?= <dave.taht@bufferbloat.net>,
 	Netdev <netdev@vger.kernel.org>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:6024 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753041Ab3JXDJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 23:09:31 -0400
+Received: from mail-ve0-f180.google.com ([209.85.128.180]:45154 "EHLO
+	mail-ve0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753041Ab3JXDJu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 23:09:50 -0400
+Received: by mail-ve0-f180.google.com with SMTP id db12so1138687veb.39
+        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 20:09:49 -0700 (PDT)
+In-Reply-To: <CADVnQymDr2K7z3yfKpW-H3R3W3NP+iuPQF2eMfeyS6dn-szdgA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond slave list may change when the monitor is running, the slave list is no longer
-protected by bond->lock, only protected by rtnl lock(), so we has 3 way to modify it:
-1.add bond_master_upper_dev_link() and bond_upper_dev_unlink() in bond->lock, but it is unsafe
-to call call_netdevice_notifiers() in write lock.
-2.remove unused bond->lock for monitor function, only use the exist rtnl lock().
-3.use rcu_read_lock() to protect it, of course, it will transform bond_for_each_slave to
-bond_for_each_slave_rcu() and performance is better, but in slow path, it is ignored.
-so I remove the bond->lock and move the rtnl lock to protect the whole monitor function.
+On Wed, Oct 23, 2013 at 7:37 PM, Neal Cardwell <ncardwell@google.com> wrote:
+> On Wed, Oct 23, 2013 at 10:29 PM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+>> In the course of testing routing functionality, I discovered a that the single flow TCP
+>> throughput was much worse than expected. At first, it looked like a router problem,
+>> or maybe because one end was a FreeBSD system (which has noticeably slower TCP performance).
+>> But reducing it down to two systems directly connected over 10G (ixgbe) found the problem.
+> ...
+>>   4. Do something smarter like a dynamic TCP small queue that adapts.
+>
+> Yep, Eric made TSQ dynamic a few weeks ago, and mentioned that his
+> commit helps a single flow on 10Gbps link:
+>
+> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=c9eeec26e32e087359160406f96e0949b3cc6f10
+>
+> Can you please check the performance in your setup on 3.12-rc4 or newer? :-)
+>
+> Thanks!
+>
+> neal
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/bonding/bond_main.c | 44 +++++++++++------------------------------
- 1 file changed, 12 insertions(+), 32 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index d90734f..ba90f45 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2155,49 +2155,29 @@ void bond_mii_monitor(struct work_struct *work)
- 	struct bonding *bond = container_of(work, struct bonding,
- 					    mii_work.work);
- 	bool should_notify_peers = false;
--	unsigned long delay;
- 
--	read_lock(&bond->lock);
--
--	delay = msecs_to_jiffies(bond->params.miimon);
-+	if (!rtnl_trylock())
-+		goto re_arm;
- 
--	if (!bond_has_slaves(bond))
-+	if (!bond_has_slaves(bond)) {
-+		rtnl_unlock();
- 		goto re_arm;
-+	}
- 
- 	should_notify_peers = bond_should_notify_peers(bond);
- 
--	if (bond_miimon_inspect(bond)) {
--		read_unlock(&bond->lock);
--
--		/* Race avoidance with bond_close cancel of workqueue */
--		if (!rtnl_trylock()) {
--			read_lock(&bond->lock);
--			delay = 1;
--			should_notify_peers = false;
--			goto re_arm;
--		}
--
--		read_lock(&bond->lock);
--
-+	if (bond_miimon_inspect(bond))
- 		bond_miimon_commit(bond);
- 
--		read_unlock(&bond->lock);
--		rtnl_unlock();	/* might sleep, hold no other locks */
--		read_lock(&bond->lock);
--	}
-+	if (should_notify_peers)
-+		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
-+
-+	rtnl_unlock();
- 
- re_arm:
- 	if (bond->params.miimon)
--		queue_delayed_work(bond->wq, &bond->mii_work, delay);
--
--	read_unlock(&bond->lock);
--
--	if (should_notify_peers) {
--		if (!rtnl_trylock())
--			return;
--		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
--		rtnl_unlock();
--	}
-+		queue_delayed_work(bond->wq, &bond->mii_work,
-+				msecs_to_jiffies(bond->params.miimon));
- }
- 
- static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
--- 
-1.8.2.1
+I will check 3.12, but what about users on 3.10 which is the LTS
+kernel used by most distros?
