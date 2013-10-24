@@ -1,184 +1,101 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [virtio-net] BUG: sleeping function called from invalid context
-	at kernel/mutex.c:616
-Date: Thu, 24 Oct 2013 00:20:33 +0100
-Message-ID: <20131023232033.GA7404@localhost>
-References: <20131020023418.GA6737@localhost>
- <526638D4.1030403@redhat.com>
+From: "Darrick J. Wong" <darrick.wong@oracle.com>
+Subject: Deadlock in BPF JIT functions when running upowerd?
+Date: Wed, 23 Oct 2013 18:17:34 -0700
+Message-ID: <20131024011734.GA14083@birch.djwong.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>, darrick.wong@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <526638D4.1030403@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jason,
+Hi,
 
-On Tue, Oct 22, 2013 at 04:35:32PM +0800, Jason Wang wrote:
-> On 10/20/2013 10:34 AM, Fengguang Wu wrote:
-> > Greetings,
-> >
-> > I got the below dmesg and the first bad commit is
-> >
-> > commit 3ab098df35f8b98b6553edc2e40234af512ba877
-> > Author: Jason Wang <jasowang@redhat.com>
-> > Date:   Tue Oct 15 11:18:58 2013 +0800
-> >
-> >     virtio-net: don't respond to cpu hotplug notifier if we're not ready
-> >     
-> >     We're trying to re-configure the affinity unconditionally in cpu hotplug
-> >     callback. This may lead the issue during resuming from s3/s4 since
-> >     
-> >     - virt queues haven't been allocated at that time.
-> >     - it's unnecessary since thaw method will re-configure the affinity.
-> >     
-> >     Fix this issue by checking the config_enable and do nothing is we're not ready.
-> >     
-> >     The bug were introduced by commit 8de4b2f3ae90c8fc0f17eeaab87d5a951b66ee17
-> >     (virtio-net: reset virtqueue affinity when doing cpu hotplug).
-> >     
-> >     Cc: Rusty Russell <rusty@rustcorp.com.au>
-> >     Cc: Michael S. Tsirkin <mst@redhat.com>
-> >     Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-> >     Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> >     Reviewed-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-> >     Signed-off-by: Jason Wang <jasowang@redhat.com>
-> >     Signed-off-by: David S. Miller <davem@davemloft.net>
-> >
-> > [  622.944441] CPU0 attaching NULL sched-domain.
-> > [  622.944446] CPU1 attaching NULL sched-domain.
-> > [  622.944485] CPU0 attaching NULL sched-domain.
-> > [  622.950795] BUG: sleeping function called from invalid context at kernel/mutex.c:616
-> > [  622.950796] in_atomic(): 1, irqs_disabled(): 1, pid: 10, name: migration/1
-> > [  622.950796] no locks held by migration/1/10.
-> > [  622.950798] CPU: 1 PID: 10 Comm: migration/1 Not tainted 3.12.0-rc5-wl-01249-gb91e82d #317
-> > [  622.950799] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> > [  622.950802]  0000000000000000 ffff88001d42dba0 ffffffff81a32f22 ffff88001bfb9c70
-> > [  622.950803]  ffff88001d42dbb0 ffffffff810edb02 ffff88001d42dc38 ffffffff81a396ed
-> > [  622.950805]  0000000000000046 ffff88001d42dbe8 ffffffff810e861d 0000000000000000
-> > [  622.950805] Call Trace:
-> > [  622.950810]  [<ffffffff81a32f22>] dump_stack+0x54/0x74
-> > [  622.950815]  [<ffffffff810edb02>] __might_sleep+0x112/0x114
-> > [  622.950817]  [<ffffffff81a396ed>] mutex_lock_nested+0x3c/0x3c6
-> > [  622.950818]  [<ffffffff810e861d>] ? up+0x39/0x3e
-> > [  622.950821]  [<ffffffff8153ea7c>] ? acpi_os_signal_semaphore+0x21/0x2d
-> > [  622.950824]  [<ffffffff81565ed1>] ? acpi_ut_release_mutex+0x5e/0x62
-> > [  622.950828]  [<ffffffff816d04ec>] virtnet_cpu_callback+0x33/0x87
-> > [  622.950830]  [<ffffffff81a42576>] notifier_call_chain+0x3c/0x5e
-> > [  622.950832]  [<ffffffff810e86a8>] __raw_notifier_call_chain+0xe/0x10
-> > [  622.950835]  [<ffffffff810c5556>] __cpu_notify+0x20/0x37
-> > [  622.950836]  [<ffffffff810c5580>] cpu_notify+0x13/0x15
-> > [  622.950838]  [<ffffffff81a237cd>] take_cpu_down+0x27/0x3a
-> > [  622.950841]  [<ffffffff81136289>] stop_machine_cpu_stop+0x93/0xf1
-> > [  622.950842]  [<ffffffff81136167>] cpu_stopper_thread+0xa0/0x12f
-> > [  622.950844]  [<ffffffff811361f6>] ? cpu_stopper_thread+0x12f/0x12f
-> > [  622.950847]  [<ffffffff81119710>] ? lock_release_holdtime.part.7+0xa3/0xa8
-> > [  622.950848]  [<ffffffff81135e4b>] ? cpu_stop_should_run+0x3f/0x47
-> > [  622.950850]  [<ffffffff810ea9b0>] smpboot_thread_fn+0x1c5/0x1e3
-> > [  622.950852]  [<ffffffff810ea7eb>] ? lg_global_unlock+0x67/0x67
-> > [  622.950854]  [<ffffffff810e36b7>] kthread+0xd8/0xe0
-> > [  622.950857]  [<ffffffff81a3bfad>] ? wait_for_common+0x12f/0x164
-> > [  622.950859]  [<ffffffff810e35df>] ? kthread_create_on_node+0x124/0x124
-> > [  622.950861]  [<ffffffff81a45ffc>] ret_from_fork+0x7c/0xb0
-> > [  622.950862]  [<ffffffff810e35df>] ? kthread_create_on_node+0x124/0x124
-> > [  622.950876] smpboot: CPU 1 is now offline
-> > [  623.194556] SMP alternatives: lockdep: fixing up alternatives
-> > [  623.194559] smpboot: Booting Node 0 Processor 1 APIC 0x1
->  
-> Thanks for the testing Fengguang, could you please try the attached
-> patch to see if it works?
+I've been observing a softlockup with 3.11.6 and 3.12-rc6.  It looks like
+there's a deadlock occurring on purge_lock in __purge_vmap_area_lazy().  In
+short, the BPF JIT code has been changed[1] to call set_memory_r[ow]() when
+compiling and freeing JIT bytecode memory.  It seems that it's possible for
+upowerd to be compiling some BPF program and call __purge_vmap_area_lazy, then
+the timer interrupt comes in (due to the IPI?) and a softirq calls
+bpf_jit_free, which also calls __purge_vmap_area_lazy.
 
-Yes it reduces the sleeping function bug:
+I'm not really sure who's at fault here--is this a BPF bug?
 
-/kernel/x86_64-lkp-CONFIG_SCSI_DEBUG/7c4ed2767afb813493b0a8fb18d666cd44550963
+[1] 314beb9bcabfd6b4542ccbced2402af2c6f6142a
+    "x86: bpf_jit_comp: secure bpf jit against spraying attacks"
 
-+------------------------------------------------------------------------------------+-----------+--------------+--------------+
-|                                                                                    | v3.12-rc3 | 3ab098df35f8 | 7c4ed2767afb |
-+------------------------------------------------------------------------------------+-----------+--------------+--------------+
-| good_boots                                                                         | 30        | 0            | 93           |
-| has_kernel_error_warning                                                           | 0         | 20           | 7            |
-| BUG:sleeping_function_called_from_invalid_context_at_kernel/mutex.c                | 0         | 20           |              |
-| INFO:rcu_sched_self-detected_stall_on_CPU(t=jiffies_g=c=q=)                        | 0         | 0            | 1            |
-| INFO:task_blocked_for_more_than_seconds                                            | 0         | 0            | 2            |
-| INFO:NMI_handler(arch_trigger_all_cpu_backtrace_handler)took_too_long_to_run:msecs | 0         | 0            | 1            |
-| Kernel_panic-not_syncing:hung_task:blocked_tasks                                   | 0         | 0            | 1            |
-| BUG:kernel_test_crashed                                                            | 0         | 0            | 3            |
-| BUG:kernel_test_hang                                                               | 0         | 0            | 1            |
-+------------------------------------------------------------------------------------+-----------+--------------+--------------+
+--D
 
-However I'll need to increase tests on v3.12-rc3 to make sure it's not
-the patch that added the other error messages.
+Here's what 3.11.6 spits out; the 3.12-rc6 message has the same traceback.
 
-Thanks,
-Fengguang
-
-> >From 01e6c3f71c202aa02e4feda169e7cc9fb24193f5 Mon Sep 17 00:00:00 2001
-> From: Jason Wang <jasowang@redhat.com>
-> Date: Mon, 21 Oct 2013 20:39:09 +0800
-> Subject: [PATCH] virtio-net: fix
-> 
-> ---
->  drivers/net/virtio_net.c | 13 ++++++-------
->  1 file changed, 6 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 9fbdfcd..bbc9cb8 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1118,11 +1118,6 @@ static int virtnet_cpu_callback(struct notifier_block *nfb,
->  {
->  	struct virtnet_info *vi = container_of(nfb, struct virtnet_info, nb);
->  
-> -	mutex_lock(&vi->config_lock);
-> -
-> -	if (!vi->config_enable)
-> -		goto done;
-> -
->  	switch(action & ~CPU_TASKS_FROZEN) {
->  	case CPU_ONLINE:
->  	case CPU_DOWN_FAILED:
-> @@ -1136,8 +1131,6 @@ static int virtnet_cpu_callback(struct notifier_block *nfb,
->  		break;
->  	}
->  
-> -done:
-> -	mutex_unlock(&vi->config_lock);
->  	return NOTIFY_OK;
->  }
->  
-> @@ -1699,6 +1692,8 @@ static int virtnet_freeze(struct virtio_device *vdev)
->  	struct virtnet_info *vi = vdev->priv;
->  	int i;
->  
-> +	unregister_hotcpu_notifier(&vi->nb);
-> +
->  	/* Prevent config work handler from accessing the device */
->  	mutex_lock(&vi->config_lock);
->  	vi->config_enable = false;
-> @@ -1747,6 +1742,10 @@ static int virtnet_restore(struct virtio_device *vdev)
->  	virtnet_set_queues(vi, vi->curr_queue_pairs);
->  	rtnl_unlock();
->  
-> +	err = register_hotcpu_notifier(&vi->nb);
-> +	if (err)
-> +		return err;
-> +
->  	return 0;
->  }
->  #endif
-> -- 
-> 1.8.1.2
-> 
+[   52.370437] BUG: soft lockup - CPU#3 stuck for 22s! [upowerd:8359]
+[   52.370440] Modules linked in: ipt_MASQUERADE iptable_nat nf_nat_ipv4 xt_conntrack xt_CHECKSUM iptable_mangle fuse tun microcode nfsd nfs_acl exportfs auth_rpcgss nfs lockd sunrpc af_packet xt_physdev xt_hl ip6t_rt nf_conntrack_ipv6 nf_defrag_ipv6 ipt_REJECT xt_sctp xt_limit xt_tcpudp xt_addrtype nf_conntrack_ipv4 nf_defrag_ipv4 xt_state ip6table_filter ip6_tables nf_conntrack_netbios_ns nf_conntrack_broadcast nf_nat_ftp nf_nat nf_conntrack_ftp nf_conntrack iptable_filter ip_tables x_tables sch_fq_codel bridge stp llc lpc_ich mfd_core loop bcache dm_crypt zlib_deflate libcrc32c firewire_ohci firewire_core usb_storage mpt2sas scsi_transport_sas raid_class
+[   52.370471] CPU: 3 PID: 8359 Comm: upowerd Not tainted 3.11.6-60-flax #1
+[   52.370472] Hardware name: OEM OEM/131-GT-E767, BIOS 6.00 PG 08/25/2011
+[   52.370474] task: ffff8806621f9700 ti: ffff88064b6a0000 task.ti: ffff88064b6a0000
+[   52.370475] RIP: 0010:[<ffffffff816b5a22>]  [<ffffffff816b5a22>] _raw_spin_lock+0x32/0x40
+[   52.370480] RSP: 0018:ffff88067fc63c10  EFLAGS: 00000297
+[   52.370481] RAX: 0000000000000061 RBX: ffff88065a318600 RCX: 0000000000000000
+[   52.370483] RDX: 0000000000000062 RSI: ffff88067fc63ce0 RDI: ffffffff81ea42bc
+[   52.370484] RBP: ffff88067fc63c10 R08: ffffffff81cdd608 R09: 0000000000000000
+[   52.370485] R10: ffff88067fc6d8e0 R11: 0000000000000000 R12: ffff88067fc63b88
+[   52.370486] R13: ffffffff816b7a47 R14: ffff88067fc63c10 R15: ffff88067fc63cd8
+[   52.370487] FS:  00007f55fff297c0(0000) GS:ffff88067fc60000(0000) knlGS:0000000000000000
+[   52.370488] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   52.370489] CR2: 00007f55fff47000 CR3: 000000065dd10000 CR4: 00000000000007e0
+[   52.370490] Stack:
+[   52.370491]  ffff88067fc63cb0 ffffffff811955fd 0000000000000096 0000000000000347
+[   52.370494]  00000000000003c1 0000000000000001 0000000000000000 0000000000000000
+[   52.370496]  0000000000000033 ffff88067fc63c58 ffff88067fc63c58 0000000000000001
+[   52.370499] Call Trace:
+[   52.370500]  <IRQ> 
+[   52.370501]  [<ffffffff811955fd>] __purge_vmap_area_lazy+0x12d/0x4c0
+[   52.370507]  [<ffffffff8119612c>] vm_unmap_aliases+0x17c/0x190
+[   52.370512]  [<ffffffff81079814>] change_page_attr_set_clr+0xb4/0x4a0
+[   52.370516]  [<ffffffff810a927e>] ? irq_exit+0x7e/0xb0
+[   52.370519]  [<ffffffff81048e44>] ? smp_irq_work_interrupt+0x34/0x40
+[   52.370522]  [<ffffffff81079d8f>] set_memory_rw+0x2f/0x40
+[   52.370525]  [<ffffffff810a0a7c>] bpf_jit_free+0x2c/0x40
+[   52.370528]  [<ffffffff815f48aa>] sk_filter_release_rcu+0x1a/0x30
+[   52.370532]  [<ffffffff811262d2>] rcu_process_callbacks+0x1e2/0x5b0
+[   52.370535]  [<ffffffff810c9999>] ? enqueue_hrtimer+0x39/0xf0
+[   52.370537]  [<ffffffff810a8f20>] __do_softirq+0xe0/0x2f0
+[   52.370541]  [<ffffffff816b851c>] call_softirq+0x1c/0x30
+[   52.370543]  [<ffffffff81046155>] do_softirq+0x55/0x90
+[   52.370545]  [<ffffffff810a928e>] irq_exit+0x8e/0xb0
+[   52.370547]  [<ffffffff816b8b0a>] smp_apic_timer_interrupt+0x4a/0x60
+[   52.370549]  [<ffffffff816b7a47>] apic_timer_interrupt+0x67/0x70
+[   52.370550]  <EOI> 
+[   52.370552]  [<ffffffff8106eeb4>] ? default_send_IPI_mask_allbutself_phys+0xb4/0xe0
+[   52.370559]  [<ffffffff81188af7>] ? handle_pte_fault+0x567/0x920
+[   52.370561]  [<ffffffff8107cf30>] ? rbt_memtype_copy_nth_element+0xc0/0xc0
+[   52.370563]  [<ffffffff81072057>] physflat_send_IPI_allbutself+0x17/0x20
+[   52.370566]  [<ffffffff8106a992>] native_send_call_func_ipi+0x72/0x80
+[   52.370568]  [<ffffffff8107cf30>] ? rbt_memtype_copy_nth_element+0xc0/0xc0
+[   52.370570]  [<ffffffff81105834>] smp_call_function_many+0x1f4/0x290
+[   52.370572]  [<ffffffff81105a8a>] smp_call_function+0x3a/0x60
+[   52.370574]  [<ffffffff8107cf30>] ? rbt_memtype_copy_nth_element+0xc0/0xc0
+[   52.370576]  [<ffffffff81105b18>] on_each_cpu+0x38/0x80
+[   52.370578]  [<ffffffff8107d59d>] flush_tlb_kernel_range+0x6d/0x70
+[   52.370581]  [<ffffffff81195916>] __purge_vmap_area_lazy+0x446/0x4c0
+[   52.370584]  [<ffffffff81228e85>] ? ext4_file_open+0x75/0x1b0
+[   52.370586]  [<ffffffff8119612c>] vm_unmap_aliases+0x17c/0x190
+[   52.370590]  [<ffffffff81079814>] change_page_attr_set_clr+0xb4/0x4a0
+[   52.370592]  [<ffffffff81196ac2>] ? map_vm_area+0x32/0x50
+[   52.370595]  [<ffffffff81197761>] ? __vmalloc_node_range+0x121/0x1f0
+[   52.370597]  [<ffffffff810a08ab>] ? bpf_jit_compile+0x105b/0x1200
+[   52.370600]  [<ffffffff81079d4f>] set_memory_ro+0x2f/0x40
+[   52.370602]  [<ffffffff810744ca>] ? module_alloc+0x5a/0x60
+[   52.370604]  [<ffffffff810a081c>] bpf_jit_compile+0xfcc/0x1200
+[   52.370607]  [<ffffffff811aa75b>] ? __kmalloc+0x18b/0x1f0
+[   52.370610]  [<ffffffff811aa606>] ? __kmalloc+0x36/0x1f0
+[   52.370612]  [<ffffffff815f4b43>] ? sk_chk_filter+0x283/0x390
+[   52.370614]  [<ffffffff815f4d4b>] sk_attach_filter+0xfb/0x1b0
+[   52.370617]  [<ffffffff815d071d>] sock_setsockopt+0x4fd/0x900
+[   52.370620]  [<ffffffff811d2342>] ? fget_light+0x92/0x100
+[   52.370623]  [<ffffffff815cbdd6>] SyS_setsockopt+0xc6/0xd0
+[   52.370625]  [<ffffffff816b6dc6>] system_call_fastpath+0x1a/0x1f
+[   52.370626] Code: 89 e5 65 48 8b 04 25 f0 b8 00 00 83 80 44 e0 ff ff 01 b8 00 01 00 00 f0 66 0f c1 07 0f b6 d4 38 c2 74 0f 66 0f 1f 44 00 00 f3 90 <0f> b6 07 38 d0 75 f7 5d c3 0f 1f 44 00 00 66 66 66 66 90 55 48 
