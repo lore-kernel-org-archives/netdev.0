@@ -1,38 +1,51 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH NEXT 1/5] staging: r8188eu: Fix sparse warnings in
- ioctl_linux.c
-Date: Thu, 24 Oct 2013 15:51:53 +0100
-Message-ID: <20131024145153.GA23431@kroah.com>
-References: <1382585497-6787-1-git-send-email-Larry.Finger@lwfinger.net>
- <1382585497-6787-2-git-send-email-Larry.Finger@lwfinger.net>
- <20131024101001.GD5871@mwanda>
- <526932DD.2080602@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	devel@driverdev.osuosl.org, netdev@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
+From: Christoph Paasch <christoph.paasch@gmail.com>
+Subject: [PATCH net] net: sched: Don't free f before it is allocated in route4_change
+Date: Thu, 24 Oct 2013 16:50:50 +0200
+Message-ID: <1382626250-15676-1-git-send-email-christoph.paasch@uclouvain.be>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Jing Wang <windsdaemon@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:38090 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755644Ab3JXOuS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 10:50:18 -0400
-Content-Disposition: inline
-In-Reply-To: <526932DD.2080602@lwfinger.net>
+Received: from mail-we0-f181.google.com ([74.125.82.181]:46526 "EHLO
+	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754998Ab3JXOu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 10:50:56 -0400
+Received: by mail-we0-f181.google.com with SMTP id t60so2420841wes.40
+        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 07:50:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 24, 2013 at 09:46:53AM -0500, Larry Finger wrote:
-> On 10/24/2013 05:10 AM, Dan Carpenter wrote:
-> > I have looked at how this is called from ioctl_private_call() and it
-> > seems like these are actual user pointers and the code is buggy.  The
-> > patch silences the warnings instead of fixing the bugs.
-> 
-> Thanks for the review.
-> 
-> Greg - please drop this one and take only 2-5. Do you want a resubmission?
+f is set to *arg in route4_change at the beginning, which points to a
+route4_filter in the hash-table (gotten through route4_get, called by
+tc_ctl_filter). If the alloc of head fails, we should not goto errout,
+because this will free f and thus freed memory will be referenced by
+the hash-table.
+Only later the pointer f will change to an allocated route4_filter.
 
-I can just drop it.  I'm way behind on patches due to the kernel summit
-and LinuxCon, so it will be a week or so before I can catch up, sorry.
+This patch returns err if the allocation of head fails as f has not yet
+been allocated inside route4_change.
 
-greg k-h
+Seems the code has been like this since Linus's original git-commit.
+
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+---
+ net/sched/cls_route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index 37da567..f17c67f 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -470,7 +470,7 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
+ 	if (head == NULL) {
+ 		head = kzalloc(sizeof(struct route4_head), GFP_KERNEL);
+ 		if (head == NULL)
+-			goto errout;
++			return err;
+ 
+ 		tcf_tree_lock(tp);
+ 		tp->root = head;
+-- 
+1.8.3.2
