@@ -1,47 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: 16% regression on 10G caused by TCP small queues
-Date: Wed, 23 Oct 2013 20:09:49 -0700
-Message-ID: <CAOaVG15indAxBz7E-T+9MK03indiXBa0UhQZ5j6K5DxYP44Mxg@mail.gmail.com>
-References: <20131023192954.3dd9c784@nehalam.linuxnetplumber.net>
-	<CADVnQymDr2K7z3yfKpW-H3R3W3NP+iuPQF2eMfeyS6dn-szdgA@mail.gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 0/5] bonding: patchset for rcu use in bonding
+Date: Thu, 24 Oct 2013 11:08:35 +0800
+Message-ID: <52688F33.30904@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	=?ISO-8859-1?Q?Dave_T=E4ht?= <dave.taht@bufferbloat.net>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
-To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f180.google.com ([209.85.128.180]:45154 "EHLO
-	mail-ve0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753041Ab3JXDJu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 23:09:50 -0400
-Received: by mail-ve0-f180.google.com with SMTP id db12so1138687veb.39
-        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 20:09:49 -0700 (PDT)
-In-Reply-To: <CADVnQymDr2K7z3yfKpW-H3R3W3NP+iuPQF2eMfeyS6dn-szdgA@mail.gmail.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:37770 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753041Ab3JXDJx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Oct 2013 23:09:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 23, 2013 at 7:37 PM, Neal Cardwell <ncardwell@google.com> wrote:
-> On Wed, Oct 23, 2013 at 10:29 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
->> In the course of testing routing functionality, I discovered a that the single flow TCP
->> throughput was much worse than expected. At first, it looked like a router problem,
->> or maybe because one end was a FreeBSD system (which has noticeably slower TCP performance).
->> But reducing it down to two systems directly connected over 10G (ixgbe) found the problem.
-> ...
->>   4. Do something smarter like a dynamic TCP small queue that adapts.
->
-> Yep, Eric made TSQ dynamic a few weeks ago, and mentioned that his
-> commit helps a single flow on 10Gbps link:
->
-> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=c9eeec26e32e087359160406f96e0949b3cc6f10
->
-> Can you please check the performance in your setup on 3.12-rc4 or newer? :-)
->
-> Thanks!
->
-> neal
+Hi:
 
-I will check 3.12, but what about users on 3.10 which is the LTS
-kernel used by most distros?
+The slave list will add and del by bond_master_upper_dev_link() and bond_upper_dev_unlink(),
+which will call call_netdevice_notifiers(), even it is safe to call it in write bond lock now,
+but we can't sure that whether it is safe later, because other drivers may deal NETDEV_CHANGEUPPER
+in sleep way, so I didn't admit move the bond_upper_dev_unlink() in write bond lock.
+
+now the bond_for_each_slave only protect by rtnl_lock(), maybe use bond_for_each_slave_rcu is a good
+way to protect slave list for bond, but as a system slow path, it is no need to transform bond_for_each_slave()
+to bond_for_each_slave_rcu() in slow path, so in the patchset, I will remove the unused read bond lock
+for monitor function, maybe it is a better way, I will wait to accept any relay for it.
+
+Thanks for the Veaceslav Falico opinion.
+
+v2: add and modify commit for patchset and patch, it will be the first step for the whole patchset.
+
+Ding Tianhong (5):
+  bonding: remove bond read lock for bond_mii_monitor()
+  bonding: remove bond read lock for bond_alb_monitor()
+  bonding: remove bond read lock for bond_loadbalance_arp_mon()
+  bonding: remove bond read lock for bond_activebackup_arp_mon()
+  bonding: remove bond read lock for bond_3ad_state_machine_handler()
+
+ drivers/net/bonding/bond_3ad.c  |   9 ++--
+ drivers/net/bonding/bond_alb.c  |  20 ++------
+ drivers/net/bonding/bond_main.c | 100 +++++++++++++---------------------------
+ 3 files changed, 40 insertions(+), 89 deletions(-)
+
+-- 
+1.8.2.1
