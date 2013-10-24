@@ -1,36 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netconsole: fix NULL pointer dereference
-Date: Thu, 24 Oct 2013 13:56:14 -0400 (EDT)
-Message-ID: <20131024.135614.1725589105857635534.davem@davemloft.net>
-References: <1382533489-19248-1-git-send-email-nikolay@redhat.com>
-	<20131024102147.GD16787@redhat.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B73A9@saturn3.aculab.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vfalico@redhat.com, nikolay@redhat.com, netdev@vger.kernel.org
-To: David.Laight@ACULAB.COM
+From: Leigh Brown <leigh@solinno.co.uk>
+Subject: [PATCH RFC v2 3/4] net: mvmdio: slight optimisation of orion_mdio_write
+Date: Thu, 24 Oct 2013 19:09:33 +0100
+Message-ID: <6d044f3760cd506a325d5aab1199131ade96d632.1382637156.git.leigh@solinno.co.uk>
+References: <cover.1382637156.git.leigh@solinno.co.uk>
+Cc: Leigh Brown <leigh@solinno.co.uk>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	netdev@vger.kernel.org, sebastian.hesselbarth@gmail.com
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49539 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755053Ab3JXR4P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 13:56:15 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B73A9@saturn3.aculab.com>
+Received: from doppler.thel33t.co.uk ([193.110.88.198]:51342 "EHLO
+	doppler.thel33t.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755918Ab3JXSKK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 14:10:10 -0400
+In-Reply-To: <cover.1382637156.git.leigh@solinno.co.uk>
+In-Reply-To: <cover.1382637156.git.leigh@solinno.co.uk>
+References: <cover.1382199042.git.leigh@solinno.co.uk> <cover.1382637156.git.leigh@solinno.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "David Laight" <David.Laight@ACULAB.COM>
-Date: Thu, 24 Oct 2013 11:39:02 +0100
+Make only a single call to mutex_unlock in orion_mdio_write.
 
->> >Taking the spinlock seems like the cleanest way to insure there's noone
->> >running in parallel, but I'm open to suggestions as I'm not satisfied with
->> >the looks of this. I'll prepare a net-next patchset for netconsole soon to
->> >clean it up properly, all of these can be easily simplified.
->> 
->> First when I've seen 'spin_lock(); a = 1; spin_unlock()' I've thought
->> "WTF?", however indeed it will stop us racing with write_msg().
-> 
-> Ditto - might be worth saying:
->     /* Acquire lock to wait for any write_msg() to complete. */
+Signed-off-by: Leigh Brown <leigh@solinno.co.uk>
+---
+ drivers/net/ethernet/marvell/mvmdio.c |   10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-Something this subtle definitely requires a comment.
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index f053475..13f4614 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -151,10 +151,8 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
+ 	mutex_lock(&dev->lock);
+ 
+ 	ret = orion_mdio_wait_ready(bus);
+-	if (ret < 0) {
+-		mutex_unlock(&dev->lock);
+-		return ret;
+-	}
++	if (ret != 0)
++		goto out;
+ 
+ 	writel(((mii_id << MVMDIO_SMI_PHY_ADDR_SHIFT) |
+ 		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
+@@ -162,9 +160,9 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
+ 		(value << MVMDIO_SMI_DATA_SHIFT)),
+ 	       dev->regs);
+ 
++out:
+ 	mutex_unlock(&dev->lock);
+-
+-	return 0;
++	return ret;
+ }
+ 
+ static int orion_mdio_reset(struct mii_bus *bus)
+-- 
+1.7.10.4
