@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 5/5] 6lowpan: remove
-	unecessary break
-Date: Thu, 24 Oct 2013 22:51:44 +0200
-Message-ID: <1382647904-11311-6-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next 1/5] 6lowpan: remove
+	unnecessary ret variable
+Date: Thu, 24 Oct 2013 22:51:40 +0200
+Message-ID: <1382647904-11311-2-git-send-email-alex.aring@gmail.com>
 References: <1382647904-11311-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,21 +24,33 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c | 1 -
- 1 file changed, 1 deletion(-)
+ net/ieee802154/6lowpan.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index e15b101..09350f1 100644
+index ff41b4d..d288035 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -440,7 +440,6 @@ lowpan_uncompress_udp_header(struct sk_buff *skb, struct udphdr *uh)
- 		default:
- 			pr_debug("ERROR: unknown UDP format\n");
- 			goto err;
--			break;
- 		}
+@@ -1120,7 +1120,7 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
+ 			int mlen, int plen, int offset, int type)
+ {
+ 	struct sk_buff *frag;
+-	int hlen, ret;
++	int hlen;
  
- 		pr_debug("uncompressed UDP ports: src = %d, dst = %d\n",
+ 	hlen = (type == LOWPAN_DISPATCH_FRAG1) ?
+ 			LOWPAN_FRAG1_HEAD_SIZE : LOWPAN_FRAGN_HEAD_SIZE;
+@@ -1145,9 +1145,7 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
+ 	lowpan_raw_dump_table(__func__, " raw fragment dump", frag->data,
+ 								frag->len);
+ 
+-	ret = dev_queue_xmit(frag);
+-
+-	return ret;
++	return dev_queue_xmit(frag);
+ }
+ 
+ static int
 -- 
 1.8.4.1
 
