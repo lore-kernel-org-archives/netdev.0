@@ -1,71 +1,41 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH net-next] jazzsonic: printk() style fixes
-Date: Thu, 24 Oct 2013 19:54:41 -0200
-Message-ID: <CAOMZO5B_Q7zHHkCunEe57Xtx7HuMxxAUSFFGYeoTO-DV-iu+jA@mail.gmail.com>
-References: <1382650780-24114-1-git-send-email-tomster595@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] macsonic: Updated printk() statement to KERN
+ style leading argument.
+Date: Thu, 24 Oct 2013 15:30:52 -0700
+Message-ID: <1382653852.22433.82.camel@joe-AO722>
+References: <1382650645-23973-1-git-send-email-zanchm@rpi.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Tom D'Alba" <dalbat@rpi.edu>
-To: "Tom D'Alba" <tomster595@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Matt Zanchelli <zanchm@rpi.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f43.google.com ([209.85.212.43]:50901 "EHLO
-	mail-vb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752037Ab3JXVyl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 17:54:41 -0400
-Received: by mail-vb0-f43.google.com with SMTP id g10so1728816vbg.16
-        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 14:54:41 -0700 (PDT)
-In-Reply-To: <1382650780-24114-1-git-send-email-tomster595@gmail.com>
+Received: from smtprelay0107.hostedemail.com ([216.40.44.107]:32950 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754267Ab3JXWaz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 18:30:55 -0400
+In-Reply-To: <1382650645-23973-1-git-send-email-zanchm@rpi.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Tom,
+On Thu, 2013-10-24 at 21:37 +0000, Matt Zanchelli wrote:
+> Updated prinkt() statement in mac_sonic_probe() function to match current
+> convention of using KERN style leading argument.
 
-On Thu, Oct 24, 2013 at 7:39 PM, Tom D'Alba <tomster595@gmail.com> wrote:
-> From: Tom D'Alba <dalbat@rpi.edu>
->
-> Fixed printk() format by adding correct KERN_ statuses.
->
-> Reviewed-by: Nicholas Guthrie <nickg4317@gmail.com>
-> Reviewed-by: Sarah Williams <swilliams704@gmail.com>
-> Reviewed-by: Jason Lee <calccrypto@gmail.com>
-> Signed-off-by: Tom D'Alba <dalbat@rpi.edu>
-> ---
->  drivers/net/ethernet/natsemi/jazzsonic.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/natsemi/jazzsonic.c b/drivers/net/ethernet/natsemi/jazzsonic.c
-> index 79257f7..3a04d32 100644
-> --- a/drivers/net/ethernet/natsemi/jazzsonic.c
-> +++ b/drivers/net/ethernet/natsemi/jazzsonic.c
-> @@ -135,7 +135,7 @@ static int sonic_probe1(struct net_device *dev)
->          */
->         silicon_revision = SONIC_READ(SONIC_SR);
->         if (sonic_debug > 1)
-> -               printk("SONIC Silicon Revision = 0x%04x\n",silicon_revision);
-> +         printk(KERN_INFO "SONIC Silicon Revision = 0x%04x\n",silicon_revision);
+s/prinkt/printk/
 
-You could use netdev_info here instead.
+> diff --git a/drivers/net/ethernet/natsemi/macsonic.c b/drivers/net/ethernet/natsemi/macsonic.c
+[]
+> @@ -601,7 +601,7 @@ found:
+>  	if (err)
+>  		goto out;
+>  
+> -	printk("%s: MAC %pM IRQ %d\n", dev->name, dev->dev_addr, dev->irq);
+> +	printk(KERN_INFO "%s: MAC %pM IRQ %d\n", dev->name, dev->dev_addr, dev->irq);
 
->
->         i = 0;
->         while (known_revisions[i] != 0xffff &&
-> @@ -143,13 +143,13 @@ static int sonic_probe1(struct net_device *dev)
->                 i++;
->
->         if (known_revisions[i] == 0xffff) {
-> -               printk("SONIC ethernet controller not found (0x%4x)\n",
-> +               printk(KERN_ERR "SONIC ethernet controller not found (0x%4x)\n",
+It'd be nicer to use:
 
-You could use netdev_err here instead.
+	netdev_info(dev, "MAC %pM IRQ %d\n", dev->dev_addr, dev->irq);
 
->                        silicon_revision);
->                 goto out;
->         }
->
->         if (sonic_debug  &&  version_printed++ == 0)
-> -               printk(version);
-> +             printk(KERN_INFO version);
-
-
-You could use netdev_info here instead.
+Nicer still to convert all the printks in this
+file to netdev_<level> where possible.
