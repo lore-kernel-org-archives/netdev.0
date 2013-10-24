@@ -1,59 +1,61 @@
-From: Tom D'Alba <tomster595@gmail.com>
-Subject: [PATCH net-next] jazzsonic: printk() style fixes
-Date: Thu, 24 Oct 2013 21:39:40 +0000
-Message-ID: <1382650780-24114-1-git-send-email-tomster595@gmail.com>
-Cc: Tom D'Alba <dalbat@rpi.edu>
+From: "Luke C. Jones" <luke.christopher.jones@gmail.com>
+Subject: [PATCH net-next] ns83820: printk() cleanup
+Date: Thu, 24 Oct 2013 21:45:06 +0000
+Message-ID: <1382651106-24550-1-git-send-email-Luke.Christopher.Jones@gmail.com>
+Cc: "Luke C. Jones" <jonesl4@rpi.edu>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f42.google.com ([209.85.216.42]:63200 "EHLO
-	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753090Ab3JXVjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 17:39:46 -0400
-Received: by mail-qa0-f42.google.com with SMTP id w8so115845qac.8
-        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 14:39:46 -0700 (PDT)
+Received: from mail-qe0-f54.google.com ([209.85.128.54]:37393 "EHLO
+	mail-qe0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753359Ab3JXVpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 17:45:14 -0400
+Received: by mail-qe0-f54.google.com with SMTP id 1so1874718qec.27
+        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 14:45:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom D'Alba <dalbat@rpi.edu>
+From: "Luke C. Jones" <jonesl4@rpi.edu>
 
-Fixed printk() format by adding correct KERN_ statuses.
+In an effort to bring all printk calls up to style standards,
+added log levels to printk calls.
 
-Reviewed-by: Nicholas Guthrie <nickg4317@gmail.com>
-Reviewed-by: Sarah Williams <swilliams704@gmail.com>
-Reviewed-by: Jason Lee <calccrypto@gmail.com>
-Signed-off-by: Tom D'Alba <dalbat@rpi.edu>
+Reviewed-by: Mike Mathis <mathim2@rpi.edu>
+Reviewed-by: Jonathan Beekman <beekmj@rpi.edu>
+Signed-off-by: Luke C. Jones <jonesl4@rpi.edu>
 ---
- drivers/net/ethernet/natsemi/jazzsonic.c | 6 +++---
+ drivers/net/ethernet/natsemi/ns83820.c | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/natsemi/jazzsonic.c b/drivers/net/ethernet/natsemi/jazzsonic.c
-index 79257f7..3a04d32 100644
---- a/drivers/net/ethernet/natsemi/jazzsonic.c
-+++ b/drivers/net/ethernet/natsemi/jazzsonic.c
-@@ -135,7 +135,7 @@ static int sonic_probe1(struct net_device *dev)
- 	 */
- 	silicon_revision = SONIC_READ(SONIC_SR);
- 	if (sonic_debug > 1)
--		printk("SONIC Silicon Revision = 0x%04x\n",silicon_revision);
-+	  printk(KERN_INFO "SONIC Silicon Revision = 0x%04x\n",silicon_revision);
+diff --git a/drivers/net/ethernet/natsemi/ns83820.c b/drivers/net/ethernet/natsemi/ns83820.c
+index d3b4700..d7f849d 100644
+--- a/drivers/net/ethernet/natsemi/ns83820.c
++++ b/drivers/net/ethernet/natsemi/ns83820.c
+@@ -1580,7 +1580,7 @@ static void ns83820_tx_timeout(struct net_device *ndev)
+ 	{
+ 		u32 isr;
+ 		isr = readl(dev->base + ISR);
+-		printk("irq: %08x imr: %08x\n", isr, dev->IMR_cache);
++		printk(KERN_DEBUG "irq: %08x imr: %08x\n", isr, dev->IMR_cache);
+ 		ns83820_do_isr(ndev, isr);
+ 	}
+ #endif
+@@ -1603,7 +1603,7 @@ static void ns83820_tx_watch(unsigned long data)
+ 	struct ns83820 *dev = PRIV(ndev);
  
- 	i = 0;
- 	while (known_revisions[i] != 0xffff &&
-@@ -143,13 +143,13 @@ static int sonic_probe1(struct net_device *dev)
- 		i++;
- 
- 	if (known_revisions[i] == 0xffff) {
--		printk("SONIC ethernet controller not found (0x%4x)\n",
-+		printk(KERN_ERR "SONIC ethernet controller not found (0x%4x)\n",
- 		       silicon_revision);
- 		goto out;
+ #if defined(DEBUG)
+-	printk("ns83820_tx_watch: %u %u %d\n",
++	printk(KERN_DEBUG "ns83820_tx_watch: %u %u %d\n",
+ 		dev->tx_done_idx, dev->tx_free_idx, atomic_read(&dev->nr_tx_skbs)
+ 		);
+ #endif
+@@ -2026,7 +2026,7 @@ static int ns83820_init_one(struct pci_dev *pci_dev,
+ 		goto out_free_irq;
  	}
  
- 	if (sonic_debug  &&  version_printed++ == 0)
--		printk(version);
-+	      printk(KERN_INFO version);
+-	printk("%s: ns83820.c: 0x22c: %08x, subsystem: %04x:%04x\n",
++	printk(KERN_INFO "%s: ns83820.c: 0x22c: %08x, subsystem: %04x:%04x\n",
+ 		ndev->name, le32_to_cpu(readl(dev->base + 0x22c)),
+ 		pci_dev->subsystem_vendor, pci_dev->subsystem_device);
  
- 	printk(KERN_INFO "%s: Sonic ethernet found at 0x%08lx, ",
- 	       dev_name(lp->device), dev->base_addr);
 -- 
 1.8.1.2
