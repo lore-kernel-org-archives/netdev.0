@@ -1,16 +1,16 @@
 From: Jing Wang <windsdaemon@gmail.com>
 Subject: [PATCH 1/1] net:sched  fix a bug about memery leak
-Date: Thu, 24 Oct 2013 17:06:20 +0800
-Message-ID: <1382605580-2629-1-git-send-email-windsdaemon@gmail.com>
+Date: Thu, 24 Oct 2013 17:12:44 +0800
+Message-ID: <1382605964-2693-1-git-send-email-windsdaemon@gmail.com>
 Cc: Jing Wang <windsdaemon@gmail.com>
-To: netdev@vger.kernel.org
+To: davem@davemloft.net, jhs@mojatatu.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:32859 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754449Ab3JXJLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 05:11:33 -0400
-Received: by mail-pa0-f50.google.com with SMTP id fb1so1866998pad.37
-        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 02:11:32 -0700 (PDT)
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:36559 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754245Ab3JXJR4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 05:17:56 -0400
+Received: by mail-pa0-f47.google.com with SMTP id lf10so2193957pab.20
+        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 02:17:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
