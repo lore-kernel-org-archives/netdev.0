@@ -1,64 +1,42 @@
-From: Jing Wang <windsdaemon@gmail.com>
-Subject: [PATCH 1/1] net:sched  fix a bug about memery leak
-Date: Thu, 24 Oct 2013 17:12:44 +0800
-Message-ID: <1382605964-2693-1-git-send-email-windsdaemon@gmail.com>
-Cc: Jing Wang <windsdaemon@gmail.com>
-To: davem@davemloft.net, jhs@mojatatu.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:36559 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754245Ab3JXJR4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 05:17:56 -0400
-Received: by mail-pa0-f47.google.com with SMTP id lf10so2193957pab.20
-        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 02:17:56 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Weiping Pan <panweiping3@gmail.com>
+Subject: [PATCH net] tcp: delete unused req in tcp_synack_rtt_meas()
+Date: Thu, 24 Oct 2013 17:31:36 +0800
+Message-ID: <4fcb645d8f8f5d6dda0ebd1ce2bd0cc3bfb14311.1382607044.git.panweiping3@gmail.com>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jing Wang <windsdaemon@gmail.com>
+The parameter req is not used since
+375fe02c9179(tcp: consolidate SYNACK RTT sampling).
 
-the code isn't properly release memory
-
-Signed-off-by: Jing Wang <windsdaemon@gmail.com>
+Signed-off-by: Weiping Pan <panweiping3@gmail.com>
 ---
- net/sched/cls_route.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+ net/ipv4/tcp_input.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
-index 37da567..118f8d5 100644
---- a/net/sched/cls_route.c
-+++ b/net/sched/cls_route.c
-@@ -466,11 +466,11 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
- 		goto reinsert;
- 	}
- 
--	err = -ENOBUFS;
-+	err = -ENOMEM;
- 	if (head == NULL) {
- 		head = kzalloc(sizeof(struct route4_head), GFP_KERNEL);
- 		if (head == NULL)
--			goto errout;
-+			goto errhead;
- 
- 		tcf_tree_lock(tp);
- 		tp->root = head;
-@@ -479,7 +479,7 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
- 
- 	f = kzalloc(sizeof(struct route4_filter), GFP_KERNEL);
- 	if (f == NULL)
--		goto errout;
-+		goto errflt;
- 
- 	err = route4_set_parms(net, tp, base, f, handle, head, tb,
- 		tca[TCA_RATE], 1);
-@@ -517,6 +517,9 @@ reinsert:
- 
- errout:
- 	kfree(f);
-+errflt:
-+    kfree(head);
-+errhead:
- 	return err;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index a16b01b..ac8781a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2871,7 +2871,7 @@ static inline bool tcp_ack_update_rtt(struct sock *sk, const int flag,
  }
  
+ /* Compute time elapsed between (last) SYNACK and the ACK completing 3WHS. */
+-static void tcp_synack_rtt_meas(struct sock *sk, struct request_sock *req)
++static void tcp_synack_rtt_meas(struct sock *sk)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	s32 seq_rtt = -1;
+@@ -5694,7 +5694,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 		tp->snd_una = TCP_SKB_CB(skb)->ack_seq;
+ 		tp->snd_wnd = ntohs(th->window) << tp->rx_opt.snd_wscale;
+ 		tcp_init_wl(tp, TCP_SKB_CB(skb)->seq);
+-		tcp_synack_rtt_meas(sk, req);
++		tcp_synack_rtt_meas(sk);
+ 
+ 		if (tp->rx_opt.tstamp_ok)
+ 			tp->advmss -= TCPOLEN_TSTAMP_ALIGNED;
 -- 
-1.7.1
+1.7.4
