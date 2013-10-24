@@ -1,70 +1,64 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net v4] be2net: Warn users of possible broken functionality on BE2 cards with very old FW versions with latest driver
-Date: Thu, 24 Oct 2013 14:37:53 +0530
-Message-ID: <62f97dab-6b78-43bd-9b77-36c7f0dcdbf8@CMEXHTCAS1.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>
-To: <netdev@vger.kernel.org>
+From: Jing Wang <windsdaemon@gmail.com>
+Subject: [PATCH 1/1] net:sched  fix a bug about memery leak
+Date: Thu, 24 Oct 2013 17:06:20 +0800
+Message-ID: <1382605580-2629-1-git-send-email-windsdaemon@gmail.com>
+Cc: Jing Wang <windsdaemon@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:25725 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754025Ab3JXJJQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 05:09:16 -0400
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:32859 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754449Ab3JXJLd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 05:11:33 -0400
+Received: by mail-pa0-f50.google.com with SMTP id fb1so1866998pad.37
+        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 02:11:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On very old FW versions < 4.0, the mailbox command to set interrupts
-on the card succeeds even though it is not supported and should have
-failed, leading to a scenario where interrupts do not work.
-Hence warn users to upgrade to a suitable FW version to avoid seeing
-broken functionality.
+From: Jing Wang <windsdaemon@gmail.com>
 
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+the code isn't properly release memory
+
+Signed-off-by: Jing Wang <windsdaemon@gmail.com>
 ---
-v3: Incorporated comments from Ben Hutchings, Joe Perches and Ivan Vercera
-v4: Incorporated comments from Ivan Vercera
+ net/sched/cls_route.c |    9 ++++++---
+ 1 files changed, 6 insertions(+), 3 deletions(-)
 
- drivers/net/ethernet/emulex/benet/be.h      |    9 +++++++++
- drivers/net/ethernet/emulex/benet/be_main.c |    6 ++++++
- 2 files changed, 15 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index db02023..da9c04b 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -696,6 +696,15 @@ static inline int qnq_async_evt_rcvd(struct be_adapter *adapter)
- 	return adapter->flags & BE_FLAGS_QNQ_ASYNC_EVT_RCVD;
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index 37da567..118f8d5 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -466,11 +466,11 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
+ 		goto reinsert;
+ 	}
+ 
+-	err = -ENOBUFS;
++	err = -ENOMEM;
+ 	if (head == NULL) {
+ 		head = kzalloc(sizeof(struct route4_head), GFP_KERNEL);
+ 		if (head == NULL)
+-			goto errout;
++			goto errhead;
+ 
+ 		tcf_tree_lock(tp);
+ 		tp->root = head;
+@@ -479,7 +479,7 @@ static int route4_change(struct net *net, struct sk_buff *in_skb,
+ 
+ 	f = kzalloc(sizeof(struct route4_filter), GFP_KERNEL);
+ 	if (f == NULL)
+-		goto errout;
++		goto errflt;
+ 
+ 	err = route4_set_parms(net, tp, base, f, handle, head, tb,
+ 		tca[TCA_RATE], 1);
+@@ -517,6 +517,9 @@ reinsert:
+ 
+ errout:
+ 	kfree(f);
++errflt:
++    kfree(head);
++errhead:
+ 	return err;
  }
  
-+static inline int fw_major_num(const char *fw_ver)
-+{
-+	int fw_major = 0;
-+
-+	sscanf(fw_ver, "%d.", &fw_major);
-+
-+	return fw_major;
-+}
-+
- extern void be_cq_notify(struct be_adapter *adapter, u16 qid, bool arm,
- 		u16 num_popped);
- extern void be_link_status_update(struct be_adapter *adapter, u8 link_status);
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 2c38cc4..53ed58b 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3247,6 +3247,12 @@ static int be_setup(struct be_adapter *adapter)
- 
- 	be_cmd_get_fw_ver(adapter, adapter->fw_ver, adapter->fw_on_flash);
- 
-+	if (BE2_chip(adapter) && fw_major_num(adapter->fw_ver) < 4) {
-+		dev_err(dev, "Firmware on card is old(%s), IRQs may not work.",
-+			adapter->fw_ver);
-+		dev_err(dev, "Please upgrade firmware to version >= 4.0\n");
-+	}
-+
- 	if (adapter->vlans_added)
- 		be_vid_config(adapter);
- 
 -- 
-1.6.0.2
+1.7.1
