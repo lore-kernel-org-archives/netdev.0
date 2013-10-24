@@ -1,78 +1,58 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net 2/2] ipv6: ip6_dst_check needs to check for expired dst_entries
-Date: Thu, 24 Oct 2013 07:48:24 +0200
-Message-ID: <20131024054824.GA15744@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 16% regression on 10G caused by TCP small queues
+Date: Wed, 23 Oct 2013 23:05:33 -0700
+Message-ID: <1382594733.7572.32.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131023192954.3dd9c784@nehalam.linuxnetplumber.net>
+	 <CADVnQymDr2K7z3yfKpW-H3R3W3NP+iuPQF2eMfeyS6dn-szdgA@mail.gmail.com>
+	 <CAOaVG15indAxBz7E-T+9MK03indiXBa0UhQZ5j6K5DxYP44Mxg@mail.gmail.com>
+	 <20131023.233816.1396918839771657154.davem@davemloft.net>
+	 <20131023214557.386aad1a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: sgunderson@bigfoot.com, valentyn@blub.net, yoshfuji@linux-ipv6.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, ncardwell@google.com,
+	dave.taht@bufferbloat.net, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54081 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751267Ab3JXFsZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 01:48:25 -0400
-Content-Disposition: inline
+Received: from mail-ea0-f176.google.com ([209.85.215.176]:38368 "EHLO
+	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751506Ab3JXGFi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 02:05:38 -0400
+Received: by mail-ea0-f176.google.com with SMTP id q16so922028ead.35
+        for <netdev@vger.kernel.org>; Wed, 23 Oct 2013 23:05:37 -0700 (PDT)
+In-Reply-To: <20131023214557.386aad1a@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On receiving a packet too big icmp error we check if our current cached
-dst_entry in the socket is still valid. This validation check did not
-care about the expiration of the (cached) route.
+On Wed, 2013-10-23 at 21:45 -0700, Stephen Hemminger wrote:
+> On Wed, 23 Oct 2013 23:38:16 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Stephen Hemminger <stephen@networkplumber.org>
+> > Date: Wed, 23 Oct 2013 20:09:49 -0700
+> > 
+> > > I will check 3.12, but what about users on 3.10 which is the LTS
+> > > kernel used by most distros?
+> 
+> 3.12-rc6 gets line rate again (9.41 Gbit/sec)
+> 
+> > The fix will be backported to -stable, relax Stephen.
+> 
+> Sorry, thought sk_pacing_rate depended on FQ qdisc but it is other way around.
+> In which case doing merge of these two was sufficient to fix the problem.
+> With a minor manual fix up to tcp.h.
+> 
+> 
+> commit 95bd09eb27507691520d39ee1044d6ad831c1168
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Tue Aug 27 05:46:32 2013 -0700
+> 
+>     tcp: TSO packets automatic sizing
+> 
+> commit c9eeec26e32e087359160406f96e0949b3cc6f10
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Fri Sep 27 03:28:54 2013 -0700
+> 
+>     tcp: TSQ can use a dynamic limit
 
-The error path I traced down:
-The socket receives a packet too big mtu notification. It still has a
-valid dst_entry and thus issues the ip6_rt_pmtu_update on this dst_entry,
-setting RTF_EXPIRE and updates the dst.expiration value (which could
-fail because of not up-to-date expiration values, see previous patch).
-
-In some seldom cases we race with a) the ip6_fib gc or b) another routing
-lookup which would result in a recreation of the cached rt6_info from its
-parent non-cached rt6_info. While copying the rt6_info we reinitialize the
-metrics store by copying it over from the parent thus invalidating the
-just installed pmtu update (both dsts use the same key to the inetpeer
-storage). The dst_entry with the just invalidated metrics data would
-just get its RTF_EXPIRES flag cleared and would continue to stay valid
-for the socket.
-
-We should have not issued the pmtu update on the already expired dst_entry
-in the first placed. By checking the expiration on the dst entry and
-doing a relookup in case it is out of date we close the race because
-we would install a new rt6_info into the fib before we issue the pmtu
-update, thus closing this race.
-
-Not reliably updating the dst.expire value was fixed by the patch "ipv6:
-reset dst.expires value when clearing expire flag".
-
-Reported-by: Steinar H. Gunderson <sgunderson@bigfoot.com>
-Reported-by: Valentijn Sessink <valentyn@blub.net>
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
-I would propose this patch for -stable.
-
- net/ipv6/route.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f54e3a1..04e17b3 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1087,10 +1087,13 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
- 	if (rt->rt6i_genid != rt_genid_ipv6(dev_net(rt->dst.dev)))
- 		return NULL;
- 
--	if (rt->rt6i_node && (rt->rt6i_node->fn_sernum == cookie))
--		return dst;
-+	if (!rt->rt6i_node || (rt->rt6i_node->fn_sernum != cookie))
-+		return NULL;
- 
--	return NULL;
-+	if (rt6_check_expired(rt))
-+		return NULL;
-+
-+	return dst;
- }
- 
- static struct dst_entry *ip6_negative_advice(struct dst_entry *dst)
--- 
-1.8.3.1
+Perfect, thanks for testing Stephen !
