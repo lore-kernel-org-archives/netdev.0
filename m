@@ -1,40 +1,42 @@
-From: =?ISO-8859-1?Q?Fran=E7ois_Cachereul?= <f.cachereul@alphalink.fr>
-Subject: Re: [RFC PATCH net-next] ppp: Allow ppp device connected to an l2tp
- session to change of namespace
-Date: Thu, 24 Oct 2013 15:41:59 +0200
-Message-ID: <526923A7.8090108@alphalink.fr>
-References: <5268F6CD.9070600@alphalink.fr> <5268FCB1.7020903@katalix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
-	linux-ppp@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <5268FCB1.7020903@katalix.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] ipv6: allow userspace to create address with IFLA_F_TEMPORARY flag
+Date: Thu, 24 Oct 2013 15:45:55 +0200
+Message-ID: <1382622355-6500-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
+	stephen@networkplumber.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:56910 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754709Ab3JXNsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 09:48:07 -0400
+Received: by mail-ee0-f54.google.com with SMTP id t10so930967eei.27
+        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 06:48:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/24/2013 12:55 PM, James Chapman wrote:
-> On 24/10/13 11:30, Fran=E7ois Cachereul wrote:
->> Remove NETIF_F_NETNS_LOCAL flag from ppp device in ppp_connect_chann=
-el()
->> if the device is connected to a l2tp session socket.
->> Restore the flag in ppp_disconnect_channel().
->=20
-> What about pppd's network namespace? Also, L2TP's tunnel socket (UDP =
-or
-> L2TP/IP) will be in a different namespace if the ppp interface is mov=
-ed.
+This is needed in order to implement userspace address configuration,
+namely ip6-privacy (rfc4941) in NetworkManager.
 
-That's what I'm trying to achieve. I'm not using pppd and my problem is
-as follow:  I need to isolate ppp devices from each other, even when
-they are connected to sessions carried by the same L2TP tunnel. Also, I
-need the authentication to be terminated to know the namespace in which
-the ppp will be moved. For that, the process runs in a namespace with
-its l2tp sockets (tunnel and session) in that same namespace and each
-ppp device is moved in a specific namespace after authentication.
-=20
-Regards
-=46ran=E7ois
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/ipv6/addrconf.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index cd3fb30..962c7c9 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3715,7 +3715,8 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		return -ENODEV;
+ 
+ 	/* We ignore other flags so far. */
+-	ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS);
++	ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS |
++				      IFA_F_TEMPORARY);
+ 
+ 	ifa = ipv6_get_ifaddr(net, pfx, dev, 1);
+ 	if (ifa == NULL) {
+-- 
+1.8.3.1
