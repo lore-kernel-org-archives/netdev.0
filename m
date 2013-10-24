@@ -1,38 +1,42 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [RFC PATCH net-next] ppp: Allow ppp device connected to an l2tp session to change of namespace
-Date: Thu, 24 Oct 2013 11:53:54 -0400
-Message-ID: <20131024155354.GQ2704@kvack.org>
-References: <5268F6CD.9070600@alphalink.fr> <5268FCB1.7020903@katalix.com> <526923A7.8090108@alphalink.fr> <5269402E.2070203@katalix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-1?Q?Fran=E7ois?= Cachereul <f.cachereul@alphalink.fr>,
-	Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
-	linux-ppp@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net] tcp: only take RTT from timestamps if new data is acked
+Date: Thu, 24 Oct 2013 08:55:25 -0700
+Message-ID: <1382630125-21416-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:38091 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755899Ab3JXPx5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Oct 2013 11:53:57 -0400
-Content-Disposition: inline
-In-Reply-To: <5269402E.2070203@katalix.com>
+Received: from mail-vc0-f202.google.com ([209.85.220.202]:39035 "EHLO
+	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755432Ab3JXPzj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 11:55:39 -0400
+Received: by mail-vc0-f202.google.com with SMTP id ld13so178081vcb.5
+        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 08:55:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 24, 2013 at 04:43:42PM +0100, James Chapman wrote:
-> I'm thinking about the implications of a skb in the net namespace of the
-> ppp interface passing through a tunnel socket which is in another
-> namespace. I think net namespaces are completely isolated.
-> 
-> To keep your ppp interfaces isolated from each other, have you
-> considered using netfilter to prevent data being passed between ppp
-> interfaces?
+Patch ed08495c3 "tcp: use RTT from SACK for RTO" has a bug that
+it does not check if the ACK acknowledge new data before taking
+the RTT sample from TCP timestamps. This patch adds the check
+back as required by the RFC.
 
-Using network namespaces for this is far more efficient.  We've already 
-added support for doing this to other tunneling interfaces.  This approach 
-also makes creating VPNs where there is re-use of the private address space 
-between different customers far easier to implement.
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_input.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-		-ben
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 305cd05..6ffe41a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2856,7 +2856,8 @@ static inline bool tcp_ack_update_rtt(struct sock *sk, const int flag,
+ 	 * left edge of the send window.
+ 	 * See draft-ietf-tcplw-high-performance-00, section 3.3.
+ 	 */
+-	if (seq_rtt < 0 && tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr)
++	if (seq_rtt < 0 && tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
++	    flag & FLAG_ACKED)
+ 		seq_rtt = tcp_time_stamp - tp->rx_opt.rcv_tsecr;
+ 
+ 	if (seq_rtt < 0)
 -- 
-"Thought is the essence of where you are now."
+1.8.4.1
