@@ -1,60 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] ipv6: ip6_dst_check needs to check for expired
- dst_entries
-Date: Fri, 25 Oct 2013 19:27:54 -0400 (EDT)
-Message-ID: <20131025.192754.2262366143114667976.davem@davemloft.net>
-References: <20131024054824.GA15744@order.stressinduktion.org>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH 1/4] sctp: merge two if statements to one
+Date: Fri, 25 Oct 2013 19:40:29 -0400
+Message-ID: <526B016D.6030301@gmail.com>
+References: <1382665805-13952-1-git-send-email-wangweidong1@huawei.com> <1382665805-13952-2-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sgunderson@bigfoot.com, valentyn@blub.net,
-	yoshfuji@linux-ipv6.org
-To: hannes@stressinduktion.org
+Cc: dingtianhong@huawei.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Wang Weidong <wangweidong1@huawei.com>, davem@davemloft.net,
+	nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36210 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753558Ab3JYX1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 19:27:55 -0400
-In-Reply-To: <20131024054824.GA15744@order.stressinduktion.org>
+Received: from mail-we0-f177.google.com ([74.125.82.177]:61197 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753603Ab3JYXku (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 19:40:50 -0400
+In-Reply-To: <1382665805-13952-2-git-send-email-wangweidong1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 24 Oct 2013 07:48:24 +0200
-
-> On receiving a packet too big icmp error we check if our current cached
-> dst_entry in the socket is still valid. This validation check did not
-> care about the expiration of the (cached) route.
-> 
-> The error path I traced down:
-> The socket receives a packet too big mtu notification. It still has a
-> valid dst_entry and thus issues the ip6_rt_pmtu_update on this dst_entry,
-> setting RTF_EXPIRE and updates the dst.expiration value (which could
-> fail because of not up-to-date expiration values, see previous patch).
-> 
-> In some seldom cases we race with a) the ip6_fib gc or b) another routing
-> lookup which would result in a recreation of the cached rt6_info from its
-> parent non-cached rt6_info. While copying the rt6_info we reinitialize the
-> metrics store by copying it over from the parent thus invalidating the
-> just installed pmtu update (both dsts use the same key to the inetpeer
-> storage). The dst_entry with the just invalidated metrics data would
-> just get its RTF_EXPIRES flag cleared and would continue to stay valid
-> for the socket.
-> 
-> We should have not issued the pmtu update on the already expired dst_entry
-> in the first placed. By checking the expiration on the dst entry and
-> doing a relookup in case it is out of date we close the race because
-> we would install a new rt6_info into the fib before we issue the pmtu
-> update, thus closing this race.
-> 
-> Not reliably updating the dst.expire value was fixed by the patch "ipv6:
-> reset dst.expires value when clearing expire flag".
-> 
-> Reported-by: Steinar H. Gunderson <sgunderson@bigfoot.com>
-> Reported-by: Valentijn Sessink <valentyn@blub.net>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+On 10/24/2013 09:50 PM, Wang Weidong wrote:
+> Two if statements do the same work, maybe we can merge them to
+> one. There is just code simplification, no functional changes.
+>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 > ---
-> I would propose this patch for -stable.
+>   net/sctp/auth.c | 12 ++++--------
+>   1 file changed, 4 insertions(+), 8 deletions(-)
+>
+> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+> index 8c4fa5d..19fb0ae 100644
+> --- a/net/sctp/auth.c
+> +++ b/net/sctp/auth.c
+> @@ -539,18 +539,14 @@ struct sctp_hmac *sctp_auth_asoc_get_hmac(const struct sctp_association *asoc)
+>   	for (i = 0; i < n_elt; i++) {
+>   		id = ntohs(hmacs->hmac_ids[i]);
+>
+> -		/* Check the id is in the supported range */
+> -		if (id > SCTP_AUTH_HMAC_ID_MAX) {
+> -			id = 0;
+> -			continue;
+> -		}
+> -
+> -		/* See is we support the id.  Supported IDs have name and
+> +		/* Check the id is in the supported range. And
+> +		 * see is we support the id.  Supported IDs have name and
+>   		 * length fields set, so that we can allocated and use
+>   		 * them.  We can safely just check for name, for without the
+>   		 * name, we can't allocate the TFM.
+>   		 	*/
+> -		if (!sctp_hmac_list[id].hmac_name) {
+> +		if (id > SCTP_AUTH_HMAC_ID_MAX ||
+> +			!sctp_hmac_list[id].hmac_name) {
 
-Applied and queued up for -stable.
+Can you please make the 2 parts of the 'if' statement above line up
+with each other instead of the code below.  I makes it easy to see what
+the whole 'if conditional' is.
+
+Thanks
+-vlad
+
+>   			id = 0;
+>   			continue;
+>   		}
+>
