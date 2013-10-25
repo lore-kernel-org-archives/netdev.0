@@ -1,31 +1,44 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: Kernel 3.12: netconsole no longer working with bridged network interfaces
- ?
-Date: Fri, 25 Oct 2013 09:26:10 +0200
-Message-ID: <526A1D12.9010700@acm.org>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: [PATCH 1/3] vxlan: silence one build warning
+Date: Fri, 25 Oct 2013 15:49:18 +0800
+Message-ID: <1382687360-27794-1-git-send-email-zwu.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yahoo.smtp.stone-is.be ([5.134.1.31]:51981 "EHLO
-	yahoo.smtp.stone-is.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751434Ab3JYHgz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 03:36:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+=46rom: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
 
-If I try to enable netconsole with kernel 3.12-rc5 on a non-bridged 
-network interface (e.g. controlled by the virtio_net driver) that works 
-fine. However, if I try to enable netconsole with kernel 3.12-rc5 on a 
-bridged network interface the remote system does not receive any kernel 
-messages over the network. Enabling netconsole over a bridged network 
-interface works fine with every older kernel I have tried so far (e.g. 
-3.11.6). Did I perhaps run into a regression ?
+drivers/net/vxlan.c: In function =E2=80=98vxlan_sock_add=E2=80=99:
+drivers/net/vxlan.c:2298:11: warning: =E2=80=98sock=E2=80=99 may be use=
+d uninitialized in this function [-Wmaybe-uninitialized]
+drivers/net/vxlan.c:2275:17: note: =E2=80=98sock=E2=80=99 was declared =
+here
+  LD      drivers/net/built-in.o
 
-Thanks,
+Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+---
+ drivers/net/vxlan.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Bart.
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 2ef5b62..e15f1af 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2272,7 +2272,7 @@ static struct vxlan_sock *vxlan_socket_create(str=
+uct net *net, __be16 port,
+ {
+ 	struct vxlan_net *vn =3D net_generic(net, vxlan_net_id);
+ 	struct vxlan_sock *vs;
+-	struct socket *sock;
++	struct socket *sock =3D NULL;
+ 	struct sock *sk;
+ 	int rc =3D 0;
+ 	unsigned int h;
+--=20
+1.7.11.7
