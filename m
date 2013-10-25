@@ -1,36 +1,31 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: crypto: skcipher - Use eseqiv even on UP machines
-Date: Fri, 25 Oct 2013 08:50:49 +0200
-Message-ID: <20131025065049.GB31491@secunet.com>
-References: <20131024124149.GA10587@gondor.apana.org.au>
+From: Bart Van Assche <bvanassche@acm.org>
+Subject: Kernel 3.12: netconsole no longer working with bridged network interfaces
+ ?
+Date: Fri, 25 Oct 2013 09:26:10 +0200
+Message-ID: <526A1D12.9010700@acm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131024124149.GA10587@gondor.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from yahoo.smtp.stone-is.be ([5.134.1.31]:51981 "EHLO
+	yahoo.smtp.stone-is.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751434Ab3JYHgz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 03:36:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 24, 2013 at 08:41:49PM +0800, Herbert Xu wrote:
-> Hi:
->     
-> Previously we would use eseqiv on all async ciphers in all cases,
-> and sync ciphers if we have more than one CPU.  This meant that
-> chainiv is only used in the case of sync ciphers on a UP machine.
-> 
-> As chainiv may aid attackers by making the IV predictable, even
-> though this risk itself is small, the above usage pattern causes
-> it to further leak information about the host.
-> 
-> This patch addresses these issues by using eseqiv even if we're
-> on a UP machine.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
+Hello,
 
-That's fine by me.
+If I try to enable netconsole with kernel 3.12-rc5 on a non-bridged 
+network interface (e.g. controlled by the virtio_net driver) that works 
+fine. However, if I try to enable netconsole with kernel 3.12-rc5 on a 
+bridged network interface the remote system does not receive any kernel 
+messages over the network. Enabling netconsole over a bridged network 
+interface works fine with every older kernel I have tried so far (e.g. 
+3.11.6). Did I perhaps run into a regression ?
 
-Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
+Thanks,
+
+Bart.
