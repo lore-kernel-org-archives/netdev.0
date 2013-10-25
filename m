@@ -1,86 +1,85 @@
-From: Wolfgang Walter <linux@stwm.de>
-Subject: Re: Big performance loss from 3.4.63 to 3.10.13 when routing ipv4
-Date: Fri, 25 Oct 2013 11:33:38 +0200
-Message-ID: <1940187.0cLVhJSJb8@h2o.as.studentenwerk.mhn.de>
-References: <3244031.uQGDddGTLF@h2o.as.studentenwerk.mhn.de> <5743349.5WGxWa1M1u@ei.h3.stusta.mhn.de> <20131025080158.GC31491@secunet.com>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: Re: [patch net-next] ipv6: allow userspace to create address with
+ IFLA_F_TEMPORARY flag
+Date: Fri, 25 Oct 2013 06:05:40 -0400
+Message-ID: <CAGCdqXG6pOdaHNDsKnMGWKRs8Me7F8oyWVcgmtGP8ng2XRGfcQ@mail.gmail.com>
+References: <1382622355-6500-1-git-send-email-jiri@resnulli.us>
+	<20131024140253.GF15744@order.stressinduktion.org>
+	<20131024165931.GA1475@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, hannes@stressinduktion.org,
-	netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	thaller@redhat.com, Stephen Hemminger <stephen@networkplumber.org>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:34256 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751610Ab3JYJdk convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Oct 2013 05:33:40 -0400
-In-Reply-To: <20131025080158.GC31491@secunet.com>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:37448 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752085Ab3JYKFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 06:05:41 -0400
+Received: by mail-wg0-f49.google.com with SMTP id x12so3642891wgg.16
+        for <netdev@vger.kernel.org>; Fri, 25 Oct 2013 03:05:40 -0700 (PDT)
+In-Reply-To: <20131024165931.GA1475@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Freitag, 25. Oktober 2013, 10:01:58 schrieb Steffen Klassert:
-> On Thu, Oct 24, 2013 at 12:52:58AM +0200, Wolfgang Walter wrote:
-> > On Wednesday 23 October 2013 10:06:32 Eric Dumazet wrote:
-> > > On Wed, 2013-10-23 at 18:59 +0200, Wolfgang Walter wrote:
-> > > > Ah, ok. I use SLUB, but SLABINFO=3Dy.
-> > > >=20
-> > > > Without much traffic it is:
-> > > >=20
-> > > > # grep dst /proc/slabinfo
-> > > > xfrm_dst_cache      4435   4608    448   36    4 : tunables    =
-0    0=20
-> > > >   0
-> > > >=20
-> > > > : slabdata    128    128      0
-> > > >=20
-> > > > on the big one.
-> > > >=20
-> > > > I can recompile the kernels with SLAB instead of SLUB if SLAB g=
-ives
-> > > > more
-> > > > usefull infos.
-> > >=20
-> > > Not needed, because it seems we do not merge this SLUB cache with
-> > > another one.
-> >=20
-> > Ok. I can't see xfrm_dst_cache on 32bit-systems, though.
-> >=20
-> > > So please post this information, because I believe the default sh=
-ould be
-> > > 65536, not 1024 or 4096
-> >=20
-> > Indeed I already saw higher values, at the moment I see:
-> >=20
-> > # while true; do grep dst /proc/slabinfo ; sleep 1; done
-> > xfrm_dst_cache     12636  12636    448   36    4 : tunables    0   =
- 0    0
-> > : slabdata    351    351      0
-> We currently start the garbage collector if we have more than gc_thre=
-sh
-> (1024) dst entries allocated and refuse new allocations at 2 * gc_thr=
-esh.
->=20
-> So maybe we should set gc_thresh to 32768. Than we can have 65536 dst
-> entries in the system (cache + packets in flight) before we refuse
-> new allocations. In paticular we can still cache another 32768 dst
-> entries after the garbage collector was started. It looks like you
-> had never more than 15000 dst entries cached, so a default of 32768
-> looks reasonable and should also keep smaller embedded routers happy.
+On Thu, Oct 24, 2013 at 12:59 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Thu, Oct 24, 2013 at 04:02:53PM CEST, hannes@stressinduktion.org wrote:
+>>On Thu, Oct 24, 2013 at 03:45:55PM +0200, Jiri Pirko wrote:
+>>> This is needed in order to implement userspace address configuration,
+>>> namely ip6-privacy (rfc4941) in NetworkManager.
+>>>
+>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>>> ---
+>>>  net/ipv6/addrconf.c | 3 ++-
+>>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>>> index cd3fb30..962c7c9 100644
+>>> --- a/net/ipv6/addrconf.c
+>>> +++ b/net/ipv6/addrconf.c
+>>> @@ -3715,7 +3715,8 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+>>>              return -ENODEV;
+>>>
+>>>      /* We ignore other flags so far. */
+>>> -    ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS);
+>>> +    ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS |
+>>> +                                  IFA_F_TEMPORARY);
+>>>
+>>>      ifa = ipv6_get_ifaddr(net, pfx, dev, 1);
+>>>      if (ifa == NULL) {
+>>
+>>Hm, the kernel will pick up IFA_F_TEMPORARY marked addresses and do ipv6 address
+>>regeneration (depending on lifetimes). Is this intended?
+>
+> I think that that behaviour is valid. It is in compliance with valid lft and
+> preferred lft behaviour.
+>
 
-The maximum I saw was 18000. I think 32768 is a good value especially a=
-s this=20
-seems to be the minimum on 3.4.x if you have 512MB ram.
+Actually, I don't think it would do the regeneration since ifpub
+pointer is not set.
 
-Is it possible to log a warning the first time one hits the limit? Some=
-thing=20
-like "xfrm_dst_cache full, consider increasing net.ipv4.xfrm4_gc_thresh=
- and/or=20
-net.ipv6.xfrm6_gc_thresh"?
+I appears that the temp address management would have to be done in
+userspace.
 
-Regards,
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
+-vlad
+
+
+>>
+>>Btw. I am very interested in this topic as there is currently work in the IETF
+>>to move away from eui-48 generation of addresses:
+>>
+>>https://datatracker.ietf.org/doc/draft-ietf-6man-stable-privacy-addresses/
+>>
+>>This needs to be done in userspace as we depend on a secret generated at
+>>system install time.
+>>
+>>Greetings,
+>>
+>>  Hannes
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
