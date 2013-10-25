@@ -1,53 +1,43 @@
-From: David Cohen <david.a.cohen@linux.intel.com>
-Subject: Re: [gpio:for-next 67/67] pch_gbe_main.c:undefined reference to `devm_gpio_request_one'
-Date: Fri, 25 Oct 2013 14:25:54 -0700
-Message-ID: <526AE1E2.9080909@linux.intel.com>
-References: <52691c0b.BIIOKlR6F81qU+tE%fengguang.wu@intel.com> <20131025044027.GA27083@localhost> <CACRpkdaJVE44UGRAZ0tnQSArrs+DuVFhVssW6riWmdp8-6E6BQ@mail.gmail.com> <1382696677.4970.40.camel@dvhart-mobl4.amr.corp.intel.com> <CACRpkdYvOMiBOXRi61LjemMSoafR6kv3XoY=A5E90hwMumdw9A@mail.gmail.com> <CACRpkdYDUKK-jAeeHECfRcKM+-MDuyarDMGDP0p39U_-WLgd8w@mail.gmail.com> <526AE0EB.4020602@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Darren Hart <dvhart@linux.intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Fengguang Wu <fengguang.wu@intel.com>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
-To: Linus Walleij <linus.walleij@linaro.org>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <526AE0EB.4020602@linux.intel.com>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Matt Zanchelli <zanchm@rpi.edu>
+Subject: [PATCH net-next] macsonic: Updated printk() statement to netdev_info function
+Date: Fri, 25 Oct 2013 21:53:20 +0000
+Message-ID: <1382738000-24202-1-git-send-email-zanchm@rpi.edu>
+Cc: Matt Zanchelli <zanchm@rpi.edu>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp9.server.rpi.edu ([128.113.2.229]:53280 "EHLO
+	smtp9.server.rpi.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751868Ab3JYVx1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 17:53:27 -0400
+Received: from smtp-auth1.server.rpi.edu (route.canit.rpi.edu [128.113.2.231])
+	by smtp9.server.rpi.edu (8.14.3/8.14.3/Debian-9.4) with ESMTP id r9PLrQIu032493
+	for <netdev@vger.kernel.org>; Fri, 25 Oct 2013 17:53:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/25/2013 02:21 PM, David Cohen wrote:
-> Hi Linus,
->
-> On 10/25/2013 03:49 AM, Linus Walleij wrote:
->> On Fri, Oct 25, 2013 at 12:41 PM, Linus Walleij
->> <linus.walleij@linaro.org> wrote:
->>
->>>> I wouldn't object to adding a dependency to GPIO_PCH and GPIOLIB
->>>> unconditionally for PCH_GBE as GPIO_PCH is the same chip... but I don't
->>>> know if David Miller would be amenable to that.
->>>
->>> Well we should probably just stick a dependency to GPIOLIB in there.
->>>
->>> - It #includes <linux/gpio.h>
->>> - It uses gpiolib functions to do something vital
->>>
->>> It was just happy that dummy versions were slotted in until now.
->>
->> ...or maybe I'm just confused now?
->>
->> Should we just add a static inline stub of devm_gpio_request_one()?
->
-> I am not familiar with the HW. But checking the code, platform
-> initialization should fail with a dummy devm_gpio_request_one()
-> implementation. IMO it makes more sense to depend on GPIOLIB.
+Updated the printk() statement in mac_sonic_probe() to recommended netdev_info.
 
-Actually, forget about it. Despite driver_data->platform_init() may
-return error, probe() never checks for it. I think the driver must be
-fixed, but in meanwhile a static inline stub seems reasonable.
+Reviewed-by: Mukkai Krishnamoorthy <mskmoorthy@gmail.com>
+Reviewed-by: Maxwell Ensley-Field <mensleyfield@gmail.com>
+Reviewed-by: Nicole Negedly <nnegedly@gmail.com>
+Reviewed-by: Daniel Felizardo <danfelizardo@gmail.com>
+Signed-off-by: Matt Zanchelli <zanchm@rpi.edu>
+---
+ drivers/net/ethernet/natsemi/macsonic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->
-> Br, David Cohen
-
+diff --git a/drivers/net/ethernet/natsemi/macsonic.c b/drivers/net/ethernet/natsemi/macsonic.c
+index 346a4e0..9e9b3b0 100644
+--- a/drivers/net/ethernet/natsemi/macsonic.c
++++ b/drivers/net/ethernet/natsemi/macsonic.c
+@@ -601,7 +601,7 @@ found:
+ 	if (err)
+ 		goto out;
+ 
+-	printk("%s: MAC %pM IRQ %d\n", dev->name, dev->dev_addr, dev->irq);
++	netdev_info(dev, "MAC %pM IRQ %d\n", dev->dev_addr, dev->irq);
+ 
+ 	return 0;
+ 
+-- 
+1.8.1.2
