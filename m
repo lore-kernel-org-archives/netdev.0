@@ -1,37 +1,28 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net] netconsole: fix NULL pointer dereference
-Date: Sat, 26 Oct 2013 01:06:51 +0200
-Message-ID: <20131025230651.GA14658@electric-eye.fr.zoreil.com>
-References: <1382533489-19248-1-git-send-email-nikolay@redhat.com>
- <20131024102147.GD16787@redhat.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B73A9@saturn3.aculab.com>
- <20131024.135614.1725589105857635534.davem@davemloft.net>
- <52696563.1060507@redhat.com>
- <20131024205934.GA26855@electric-eye.fr.zoreil.com>
- <526A7CE5.8040205@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: vxlan gso is broken by stackable gso_segment()
+Date: Fri, 25 Oct 2013 19:10:59 -0400 (EDT)
+Message-ID: <20131025.191059.1462456656717647875.davem@davemloft.net>
+References: <1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
+	<20131025.181809.348808013109842304.davem@davemloft.net>
+	<CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, David.Laight@ACULAB.COM,
-	vfalico@redhat.com, netdev@vger.kernel.org
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, edumazet@google.com,
+	stephen@networkplumber.org, netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57019 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751935Ab3JYXHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 19:07:03 -0400
-Content-Disposition: inline
-In-Reply-To: <526A7CE5.8040205@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36048 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752366Ab3JYXLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 19:11:01 -0400
+In-Reply-To: <CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nikolay Aleksandrov <nikolay@redhat.com> :
-[...]
-> I thought this implies that the spinlock protects us against running with
-> write_msg().
-> It's fine by me either way (with or w/o the addition to the comment). It's
-> up to you Dave, do you still want it explicitly there ?
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Fri, 25 Oct 2013 15:41:47 -0700
 
-There was some facetiousness in David's comment.
+> 'bool tunnel' actually still used to indicate encap_level > 0
 
--- 
-Ueimor
+Good catch, I misread the code.
