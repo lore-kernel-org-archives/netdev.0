@@ -1,51 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netem: markov loss model transition fix
-Date: Fri, 25 Oct 2013 19:04:09 -0400 (EDT)
-Message-ID: <20131025.190409.1394476393722866643.davem@davemloft.net>
-References: <1382477226-1869-1-git-send-email-hagen@jauu.net>
+Subject: Re: [PATCH net-next 1/2] net: make net_get_random_once irqsave
+Date: Fri, 25 Oct 2013 19:04:24 -0400 (EDT)
+Message-ID: <20131025.190424.652347121699462995.davem@davemloft.net>
+References: <20131023111200.GB26236@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	edumazet@google.com, stefano.salsano@uniroma2.it,
-	fabio.ludovici@yahoo.it
-To: hagen@jauu.net
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35962 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35968 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751514Ab3JYXEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 19:04:11 -0400
-In-Reply-To: <1382477226-1869-1-git-send-email-hagen@jauu.net>
+	with ESMTP id S1752496Ab3JYXE0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 19:04:26 -0400
+In-Reply-To: <20131023111200.GB26236@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Date: Tue, 22 Oct 2013 23:27:06 +0200
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 23 Oct 2013 13:12:00 +0200
 
-> The transition from markov state "3 => lost packets within a burst
-> period" to "1 => successfully transmitted packets within a gap period"
-> has no *additional* loss event. The loss already happen for transition
-> from 1 -> 3, this additional loss will make things go wild.
+> I initial build a non-irqsave version of net_get_random_once because I
+> would liked to have the freedom to defer even the extraction process of
+> get_random_bytes until the nonblocking pool is fully seeded.
 > 
-> E.g. transition probabilities:
+> I don't think this is a good idea anymore and thus this patch makes
+> net_get_random_once irqsave. Now someone using net_get_random_once does
+> not need to care from where it is called.
 > 
-> p13:   10%
-> p31:  100%
-> 
-> Expected:
-> 
-> Ploss = p13 / (p13 + p31)
-> Ploss = ~9.09%
-> 
-> ... but it isn't. Even worse: we get a double loss - each time.
-> So simple don't return true to indicate loss, rather break and return
-> false.
-> 
-> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: David S. Miller <davem@davemloft.net>
 > Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Stefano Salsano <stefano.salsano@uniroma2.it>
-> Cc: Fabio Ludovici <fabio.ludovici@yahoo.it>
-> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
 Applied.
