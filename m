@@ -1,69 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next] ipv6: allow userspace to create address with IFLA_F_TEMPORARY flag
-Date: Fri, 25 Oct 2013 22:12:53 +0200
-Message-ID: <20131025201253.GH15744@order.stressinduktion.org>
-References: <1382622355-6500-1-git-send-email-jiri@resnulli.us> <20131024140253.GF15744@order.stressinduktion.org> <20131024165931.GA1475@minipsycho.orion> <CAGCdqXG6pOdaHNDsKnMGWKRs8Me7F8oyWVcgmtGP8ng2XRGfcQ@mail.gmail.com>
+From: David Cohen <david.a.cohen@linux.intel.com>
+Subject: Re: [gpio:for-next 67/67] pch_gbe_main.c:undefined reference to `devm_gpio_request_one'
+Date: Fri, 25 Oct 2013 14:21:47 -0700
+Message-ID: <526AE0EB.4020602@linux.intel.com>
+References: <52691c0b.BIIOKlR6F81qU+tE%fengguang.wu@intel.com> <20131025044027.GA27083@localhost> <CACRpkdaJVE44UGRAZ0tnQSArrs+DuVFhVssW6riWmdp8-6E6BQ@mail.gmail.com> <1382696677.4970.40.camel@dvhart-mobl4.amr.corp.intel.com> <CACRpkdYvOMiBOXRi61LjemMSoafR6kv3XoY=A5E90hwMumdw9A@mail.gmail.com> <CACRpkdYDUKK-jAeeHECfRcKM+-MDuyarDMGDP0p39U_-WLgd8w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jiri Pirko <jiri@resnulli.us>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Darren Hart <dvhart@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	thaller@redhat.com, Stephen Hemminger <stephen@networkplumber.org>
-To: Vladislav Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57690 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754464Ab3JYUMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 16:12:55 -0400
-Content-Disposition: inline
-In-Reply-To: <CAGCdqXG6pOdaHNDsKnMGWKRs8Me7F8oyWVcgmtGP8ng2XRGfcQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Fengguang Wu <fengguang.wu@intel.com>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
+To: Linus Walleij <linus.walleij@linaro.org>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <CACRpkdYDUKK-jAeeHECfRcKM+-MDuyarDMGDP0p39U_-WLgd8w@mail.gmail.com>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 25, 2013 at 06:05:40AM -0400, Vladislav Yasevich wrote:
-> On Thu, Oct 24, 2013 at 12:59 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> > Thu, Oct 24, 2013 at 04:02:53PM CEST, hannes@stressinduktion.org wrote:
-> >>On Thu, Oct 24, 2013 at 03:45:55PM +0200, Jiri Pirko wrote:
-> >>> This is needed in order to implement userspace address configuration,
-> >>> namely ip6-privacy (rfc4941) in NetworkManager.
-> >>>
-> >>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> >>> ---
-> >>>  net/ipv6/addrconf.c | 3 ++-
-> >>>  1 file changed, 2 insertions(+), 1 deletion(-)
-> >>>
-> >>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> >>> index cd3fb30..962c7c9 100644
-> >>> --- a/net/ipv6/addrconf.c
-> >>> +++ b/net/ipv6/addrconf.c
-> >>> @@ -3715,7 +3715,8 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
-> >>>              return -ENODEV;
-> >>>
-> >>>      /* We ignore other flags so far. */
-> >>> -    ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS);
-> >>> +    ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS |
-> >>> +                                  IFA_F_TEMPORARY);
-> >>>
-> >>>      ifa = ipv6_get_ifaddr(net, pfx, dev, 1);
-> >>>      if (ifa == NULL) {
-> >>
-> >>Hm, the kernel will pick up IFA_F_TEMPORARY marked addresses and do ipv6 address
-> >>regeneration (depending on lifetimes). Is this intended?
-> >
-> > I think that that behaviour is valid. It is in compliance with valid lft and
-> > preferred lft behaviour.
-> >
-> 
-> Actually, I don't think it would do the regeneration since ifpub
-> pointer is not set.
-> 
-> I appears that the temp address management would have to be done in
-> userspace.
+Hi Linus,
 
-Sorry, yes this is correct. I should have looked at the source and not answer
-just from memory.
+On 10/25/2013 03:49 AM, Linus Walleij wrote:
+> On Fri, Oct 25, 2013 at 12:41 PM, Linus Walleij
+> <linus.walleij@linaro.org> wrote:
+>
+>>> I wouldn't object to adding a dependency to GPIO_PCH and GPIOLIB
+>>> unconditionally for PCH_GBE as GPIO_PCH is the same chip... but I don't
+>>> know if David Miller would be amenable to that.
+>>
+>> Well we should probably just stick a dependency to GPIOLIB in there.
+>>
+>> - It #includes <linux/gpio.h>
+>> - It uses gpiolib functions to do something vital
+>>
+>> It was just happy that dummy versions were slotted in until now.
+>
+> ...or maybe I'm just confused now?
+>
+> Should we just add a static inline stub of devm_gpio_request_one()?
 
-Thanks,
+I am not familiar with the HW. But checking the code, platform 
+initialization should fail with a dummy devm_gpio_request_one()
+implementation. IMO it makes more sense to depend on GPIOLIB.
 
-  Hannes
+Br, David Cohen
