@@ -1,28 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: wan: sbni: remove assembly crc32 code
-Date: Fri, 25 Oct 2013 19:27:10 -0400 (EDT)
-Message-ID: <20131025.192710.1258412532222424226.davem@davemloft.net>
-References: <1382458346-24811-12-git-send-email-andi@firstfloor.org>
-	<20131022.135928.2040131908206663695.davem@davemloft.net>
-	<20131022183625.GA4382@breakpoint.cc>
+Subject: Re: [PATCHv2 net] netpoll: fix rx_hook() interface by passing the
+ skb
+Date: Fri, 25 Oct 2013 19:27:22 -0400 (EDT)
+Message-ID: <20131025.192722.2209080132367514630.davem@davemloft.net>
+References: <20131023.161603.1190144528425577653.davem@davemloft.net>
+	<1382564190-334-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, ak@linux.intel.com,
-	netdev@vger.kernel.org
-To: sebastian@breakpoint.cc
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131022183625.GA4382@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David.Laight@ACULAB.COM
+To: antonio@meshcoding.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36192 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753075Ab3JYX1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 19:27:23 -0400
+In-Reply-To: <1382564190-334-1-git-send-email-antonio@meshcoding.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Date: Tue, 22 Oct 2013 20:36:25 +0200
+From: Antonio Quartulli <antonio@meshcoding.com>
+Date: Wed, 23 Oct 2013 23:36:30 +0200
 
-> There is also a C function doing the same thing. Unless the asm code is
-> 110% faster we could stick to the C function.
+> Right now skb->data is passed to rx_hook() even if the skb
+> has not been linearised and without giving rx_hook() a way
+> to linearise it.
 > 
-> Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+> Change the rx_hook() interface and make it accept the skb
+> and the offset to the UDP payload as arguments. rx_hook() is
+> also renamed to rx_skb_hook() to ensure that out of the tree
+> users notice the API change.
+> 
+> In this way any rx_skb_hook() implementation can perform all
+> the needed operations to properly (and safely) access the
+> skb data.
+> 
+> Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
 
 Applied.
