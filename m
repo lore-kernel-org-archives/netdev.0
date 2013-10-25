@@ -1,51 +1,105 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH 3/4] sctp: fix some comments in associola.c
-Date: Fri, 25 Oct 2013 09:50:04 +0800
-Message-ID: <1382665805-13952-4-git-send-email-wangweidong1@huawei.com>
-References: <1382665805-13952-1-git-send-email-wangweidong1@huawei.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: [PATCH] Documentation/networking: netdev-FAQ typo corrections
+Date: Thu, 24 Oct 2013 18:56:57 -0700
+Message-ID: <5269CFE9.3020703@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dingtianhong@huawei.com>, <linux-sctp@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: <davem@davemloft.net>, <nhorman@tuxdriver.com>,
-	<vyasevich@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:9617 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755706Ab3JYBu6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 21:50:58 -0400
-In-Reply-To: <1382665805-13952-1-git-send-email-wangweidong1@huawei.com>
+Received: from merlin.infradead.org ([205.233.59.134]:54037 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753844Ab3JYB5V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 21:57:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fix some spellings
+From: Randy Dunlap <rdunlap@infradead.org>
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+Various typo fixes to netdev-FAQ.txt:
+- capitalize Linux
+- hyphenate dual-word adjectives
+- minor punctuation fixes
+
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/sctp/associola.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ Documentation/networking/netdev-FAQ.txt |   22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index cef5099..c9b91cb 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -602,7 +602,7 @@ void sctp_assoc_rm_peer(struct sctp_association *asoc,
+--- lnx-312-rc6.orig/Documentation/networking/netdev-FAQ.txt
++++ lnx-312-rc6/Documentation/networking/netdev-FAQ.txt
+@@ -4,23 +4,23 @@ Information you need to know about netde
  
- 		/* Start a T3 timer here in case it wasn't running so
- 		 * that these migrated packets have a chance to get
--		 * retrnasmitted.
-+		 * retransmitted.
- 		 */
- 		if (!timer_pending(&active->T3_rtx_timer))
- 			if (!mod_timer(&active->T3_rtx_timer,
-@@ -665,7 +665,7 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
- 	/* Set the path max_retrans.  */
- 	peer->pathmaxrxt = asoc->pathmaxrxt;
+ Q: What is netdev?
  
--	/* And the partial failure retrnas threshold */
-+	/* And the partial failure retrans threshold */
- 	peer->pf_retrans = asoc->pf_retrans;
+-A: It is a mailing list for all network related linux stuff.  This includes
++A: It is a mailing list for all network-related Linux stuff.  This includes
+    anything found under net/  (i.e. core code like IPv6) and drivers/net
+-   (i.e. hardware specific drivers) in the linux source tree.
++   (i.e. hardware specific drivers) in the Linux source tree.
  
- 	/* Initialize the peer's SACK delay timeout based on the
--- 
-1.7.12
+    Note that some subsystems (e.g. wireless drivers) which have a high volume
+    of traffic have their own specific mailing lists.
+ 
+-   The netdev list is managed (like many other linux mailing lists) through
++   The netdev list is managed (like many other Linux mailing lists) through
+    VGER ( http://vger.kernel.org/ ) and archives can be found below:
+ 
+ 	http://marc.info/?l=linux-netdev
+ 	http://www.spinics.net/lists/netdev/
+ 
+-   Aside from subsystems like that mentioned above, all network related linux
+-   development (i.e. RFC, review, comments, etc) takes place on netdev.
++   Aside from subsystems like that mentioned above, all network-related Linux
++   development (i.e. RFC, review, comments, etc.) takes place on netdev.
+ 
+-Q: How do the changes posted to netdev make their way into linux?
++Q: How do the changes posted to netdev make their way into Linux?
+ 
+ A: There are always two trees (git repositories) in play.  Both are driven
+    by David Miller, the main network maintainer.  There is the "net" tree,
+@@ -35,7 +35,7 @@ A: There are always two trees (git repos
+ Q: How often do changes from these trees make it to the mainline Linus tree?
+ 
+ A: To understand this, you need to know a bit of background information
+-   on the cadence of linux development.  Each new release starts off with
++   on the cadence of Linux development.  Each new release starts off with
+    a two week "merge window" where the main maintainers feed their new
+    stuff to Linus for merging into the mainline tree.  After the two weeks,
+    the merge window is closed, and it is called/tagged "-rc1".  No new
+@@ -46,7 +46,7 @@ A: To understand this, you need to know
+    things are in a state of churn), and a week after the last vX.Y-rcN
+    was done, the official "vX.Y" is released.
+ 
+-   Relating that to netdev:  At the beginning of the 2 week merge window,
++   Relating that to netdev:  At the beginning of the 2-week merge window,
+    the net-next tree will be closed - no new changes/features.  The
+    accumulated new content of the past ~10 weeks will be passed onto
+    mainline/Linus via a pull request for vX.Y -- at the same time,
+@@ -59,12 +59,12 @@ A: To understand this, you need to know
+    IMPORTANT:  Do not send new net-next content to netdev during the
+    period during which net-next tree is closed.
+ 
+-   Shortly after the two weeks have passed, (and vX.Y-rc1 is released) the
++   Shortly after the two weeks have passed (and vX.Y-rc1 is released), the
+    tree for net-next reopens to collect content for the next (vX.Y+1) release.
+ 
+    If you aren't subscribed to netdev and/or are simply unsure if net-next
+    has re-opened yet, simply check the net-next git repository link above for
+-   any new networking related commits.
++   any new networking-related commits.
+ 
+    The "net" tree continues to collect fixes for the vX.Y content, and
+    is fed back to Linus at regular (~weekly) intervals.  Meaning that the
+@@ -217,7 +217,7 @@ A: Attention to detail.  Re-read your ow
+    to why it happens, and then if necessary, explain why the fix proposed
+    is the best way to get things done.   Don't mangle whitespace, and as
+    is common, don't mis-indent function arguments that span multiple lines.
+-   If it is your 1st patch, mail it to yourself so you can test apply
++   If it is your first patch, mail it to yourself so you can test apply
+    it to an unpatched tree to confirm infrastructure didn't mangle it.
+ 
+    Finally, go back and read Documentation/SubmittingPatches to be
