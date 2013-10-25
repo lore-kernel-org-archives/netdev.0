@@ -1,60 +1,44 @@
-From: =?ISO-8859-1?Q?Fran=E7ois_Cachereul?= <f.cachereul@alphalink.fr>
-Subject: Re: [RFC PATCH net-next] ppp: Allow ppp device connected to an l2tp
- session to change of namespace
-Date: Fri, 25 Oct 2013 10:27:59 +0200
-Message-ID: <526A2B8F.4030700@alphalink.fr>
-References: <5268F6CD.9070600@alphalink.fr> <5268FCB1.7020903@katalix.com> <526923A7.8090108@alphalink.fr> <5269402E.2070203@katalix.com> <20131024155354.GQ2704@kvack.org> <52695012.6090700@katalix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Big performance loss from 3.4.63 to 3.10.13 when routing ipv4
+Date: Fri, 25 Oct 2013 01:50:28 -0700
+Message-ID: <1382691028.7572.78.camel@edumazet-glaptop.roam.corp.google.com>
+References: <3244031.uQGDddGTLF@h2o.as.studentenwerk.mhn.de>
+	 <3169911.kTmZ0BZVVr@h2o.as.studentenwerk.mhn.de>
+	 <1382547992.7572.31.camel@edumazet-glaptop.roam.corp.google.com>
+	 <5743349.5WGxWa1M1u@ei.h3.stusta.mhn.de>
+	 <20131025080158.GC31491@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Benjamin LaHaise <bcrl@kvack.org>,
-	Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
-	linux-ppp@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <52695012.6090700@katalix.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wolfgang Walter <linux@stwm.de>,
+	David Miller <davem@davemloft.net>, hannes@stressinduktion.org,
+	netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:55955 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751855Ab3JYIud (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 04:50:33 -0400
+Received: by mail-ee0-f50.google.com with SMTP id l10so1750499eei.9
+        for <netdev@vger.kernel.org>; Fri, 25 Oct 2013 01:50:32 -0700 (PDT)
+In-Reply-To: <20131025080158.GC31491@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/24/2013 06:51 PM, James Chapman wrote:
-> On 24/10/13 16:53, Benjamin LaHaise wrote:
->> On Thu, Oct 24, 2013 at 04:43:42PM +0100, James Chapman wrote:
->>> I'm thinking about the implications of a skb in the net namespace o=
-f the
->>> ppp interface passing through a tunnel socket which is in another
->>> namespace. I think net namespaces are completely isolated.
->>>
->>> To keep your ppp interfaces isolated from each other, have you
->>> considered using netfilter to prevent data being passed between ppp
->>> interfaces?
->>
->> Using network namespaces for this is far more efficient.  We've alre=
-ady=20
->> added support for doing this to other tunneling interfaces.  This ap=
-proach=20
->> also makes creating VPNs where there is re-use of the private addres=
-s space=20
->> between different customers far easier to implement.
->>
->> 		-ben
->=20
-> Yes, it's definitely more efficient and potentially useful, I agree.
->=20
-> But unlike the other tunneling interfaces for which this has already
-> been done, L2TP uses a socket for its tunnel and a skb will cross net
-> namespace boundaries while passing through the socket. I remember a
-> similar discussion came up several months ago with vxlan which also u=
-ses
-> UDP sockets. See http://www.spinics.net/lists/netdev/msg221498.html.
->=20
-> Changing the behaviour of ppp interfaces only when they are created b=
-y
-> l2tp feels wrong to me, unless it is the first step in doing the same
-> for all ppp interfaces.
+On Fri, 2013-10-25 at 10:01 +0200, Steffen Klassert wrote:
+
+> We currently start the garbage collector if we have more than gc_thresh
+> (1024) dst entries allocated and refuse new allocations at 2 * gc_thresh.
+> 
+> So maybe we should set gc_thresh to 32768. Than we can have 65536 dst
+> entries in the system (cache + packets in flight) before we refuse
+> new allocations. In paticular we can still cache another 32768 dst
+> entries after the garbage collector was started. It looks like you
+> had never more than 15000 dst entries cached, so a default of 32768
+> looks reasonable and should also keep smaller embedded routers happy.
 
 
-I agree, I only took care of l2TP first because it seemed safe and that=
-'s
-why I posted the patch as RFC in the first place.
+32768 as the default seems fine to me
 
-=46ran=E7ois
+448 bytes per dst -> thats less than 30 Mbytes of memory if we hit 65536
+dst.
