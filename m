@@ -1,37 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ibm emac: Don't call napi_complete if napi_reschedule
- failed
-Date: Fri, 25 Oct 2013 19:13:01 -0400 (EDT)
-Message-ID: <20131025.191301.1496864269923138314.davem@davemloft.net>
-References: <1382585780-13244-1-git-send-email-alistair@popple.id.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: vxlan gso is broken by stackable gso_segment()
+Date: Fri, 25 Oct 2013 16:25:02 -0700
+Message-ID: <1382743502.4032.6.camel@edumazet-glaptop.roam.corp.google.com>
+References: <CAMEtUuzswOVA6UkPRjS-O=gOe9BLLJ5qaAG_eAd_fTqDJo8ofA@mail.gmail.com>
+	 <1382674000.7572.75.camel@edumazet-glaptop.roam.corp.google.com>
+	 <1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131025.181809.348808013109842304.davem@davemloft.net>
+	 <CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benh@kernel.crashing.org
-To: alistair@popple.id.au
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, stephen@networkplumber.org,
+	netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36060 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751962Ab3JYXND (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 19:13:03 -0400
-In-Reply-To: <1382585780-13244-1-git-send-email-alistair@popple.id.au>
+Received: from mail-ea0-f180.google.com ([209.85.215.180]:51086 "EHLO
+	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751541Ab3JYXZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 19:25:07 -0400
+Received: by mail-ea0-f180.google.com with SMTP id l9so816784eaj.25
+        for <netdev@vger.kernel.org>; Fri, 25 Oct 2013 16:25:05 -0700 (PDT)
+In-Reply-To: <CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alistair Popple <alistair@popple.id.au>
-Date: Thu, 24 Oct 2013 14:36:20 +1100
+On Fri, 2013-10-25 at 15:41 -0700, Alexei Starovoitov wrote:
 
-> This patch fixes a bug which would trigger the BUG_ON() at
-> net/core/dev.c:4156. It was found that this was due to napi_complete
-> being called even when the corresponding call to napi_reschedule had
-> failed.
+> 'bool tunnel' actually still used to indicate encap_level > 0
 > 
-> This patch ensures that we only contine processing rotting packets in
-> the current mal_poll call if we are not already on the polling list.
-> It also adds locking calls to protect the read-write-modify of the
-> MAL_CFG DCR.
-> 
-> Signed-off-by: Alistair Popple <alistair@popple.id.au>
 
-The mistaken napi_complete() call and the locking change are two different
-bugs, fix them in two different patches.
+Yes, I am studying if the setting of skb->encapsulation = 1 was really
+needed in the :
+
+if (tunnel) {
+     skb_reset_inner_headers(skb);
+     skb->encapsulation = 1;
+}
+
+And was planning to rename 'bool tunnel' by 'bool stacked' or
+something... 
+
+> Eric's fix brings back performance for vxlan and gre keeps working. Thx!
+
+Please note the original performance is not that good, you mentioned 230
+Mbps on lxc, while I get more than 5Gb/s on a 10G link.
+
+This should be investigated ...
+
+> 
+> net/core/skbuff.c:3474 skb_try_coalesce() warning, I mentioned before,
+> is unrelated.
+> I still see it with this patch. Running either gre or vxlan tunnels.
+
+I think this might be related to commit 6ff50cd55545 ("tcp: gso: do not
+generate out of order packets")
+
+I'll investigate this as well, thanks.
