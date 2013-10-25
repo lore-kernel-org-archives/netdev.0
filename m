@@ -1,59 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: vxlan gso is broken by stackable gso_segment()
-Date: Fri, 25 Oct 2013 16:25:02 -0700
-Message-ID: <1382743502.4032.6.camel@edumazet-glaptop.roam.corp.google.com>
-References: <CAMEtUuzswOVA6UkPRjS-O=gOe9BLLJ5qaAG_eAd_fTqDJo8ofA@mail.gmail.com>
-	 <1382674000.7572.75.camel@edumazet-glaptop.roam.corp.google.com>
-	 <1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
-	 <20131025.181809.348808013109842304.davem@davemloft.net>
-	 <CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: wan: sbni: remove assembly crc32 code
+Date: Fri, 25 Oct 2013 19:27:10 -0400 (EDT)
+Message-ID: <20131025.192710.1258412532222424226.davem@davemloft.net>
+References: <1382458346-24811-12-git-send-email-andi@firstfloor.org>
+	<20131022.135928.2040131908206663695.davem@davemloft.net>
+	<20131022183625.GA4382@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, stephen@networkplumber.org,
+Cc: andi@firstfloor.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, ak@linux.intel.com,
 	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f180.google.com ([209.85.215.180]:51086 "EHLO
-	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751541Ab3JYXZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 19:25:07 -0400
-Received: by mail-ea0-f180.google.com with SMTP id l9so816784eaj.25
-        for <netdev@vger.kernel.org>; Fri, 25 Oct 2013 16:25:05 -0700 (PDT)
-In-Reply-To: <CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: sebastian@breakpoint.cc
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131022183625.GA4382@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-10-25 at 15:41 -0700, Alexei Starovoitov wrote:
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Date: Tue, 22 Oct 2013 20:36:25 +0200
 
-> 'bool tunnel' actually still used to indicate encap_level > 0
+> There is also a C function doing the same thing. Unless the asm code is
+> 110% faster we could stick to the C function.
 > 
+> Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
 
-Yes, I am studying if the setting of skb->encapsulation = 1 was really
-needed in the :
-
-if (tunnel) {
-     skb_reset_inner_headers(skb);
-     skb->encapsulation = 1;
-}
-
-And was planning to rename 'bool tunnel' by 'bool stacked' or
-something... 
-
-> Eric's fix brings back performance for vxlan and gre keeps working. Thx!
-
-Please note the original performance is not that good, you mentioned 230
-Mbps on lxc, while I get more than 5Gb/s on a 10G link.
-
-This should be investigated ...
-
-> 
-> net/core/skbuff.c:3474 skb_try_coalesce() warning, I mentioned before,
-> is unrelated.
-> I still see it with this patch. Running either gre or vxlan tunnels.
-
-I think this might be related to commit 6ff50cd55545 ("tcp: gso: do not
-generate out of order packets")
-
-I'll investigate this as well, thanks.
+Applied.
