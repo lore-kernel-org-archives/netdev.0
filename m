@@ -1,30 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: add missing dev_put() in
- __netdev_adjacent_dev_insert
-Date: Fri, 25 Oct 2013 19:04:44 -0400 (EDT)
-Message-ID: <20131025.190444.1094472725050309053.davem@davemloft.net>
-References: <1382534936-23080-1-git-send-email-nikolay@redhat.com>
+Subject: Re: [PATCH v2 net-next] fix rtnl notification in atomic context
+Date: Fri, 25 Oct 2013 19:05:20 -0400 (EDT)
+Message-ID: <20131025.190520.232793611249518968.davem@davemloft.net>
+References: <1382569362-4820-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vfalico@redhat.com
-To: nikolay@redhat.com
+Cc: nicolas.dichtel@6wind.com, amwang@redhat.com, vfalico@redhat.com,
+	netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35978 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36000 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752752Ab3JYXEp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 19:04:45 -0400
-In-Reply-To: <1382534936-23080-1-git-send-email-nikolay@redhat.com>
+	with ESMTP id S1752522Ab3JYXFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 19:05:22 -0400
+In-Reply-To: <1382569362-4820-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Wed, 23 Oct 2013 15:28:56 +0200
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Wed, 23 Oct 2013 16:02:42 -0700
 
-> I think that a dev_put() is needed in the error path to preserve the
-> proper dev refcount.
+> commit 991fb3f74c "dev: always advertise rx_flags changes via netlink"
+> introduced rtnl notification from __dev_set_promiscuity(),
+> which can be called in atomic context.
 > 
-> CC: Veaceslav Falico <vfalico@redhat.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> Steps to reproduce:
+> ip tuntap add dev tap1 mode tap
+> ifconfig tap1 up
+> tcpdump -nei tap1 &
+> ip tuntap del dev tap1 mode tap
+ ...
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
 Applied.
