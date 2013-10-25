@@ -1,47 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: vxlan gso is broken by stackable gso_segment()
-Date: Thu, 24 Oct 2013 17:41:47 -0700
-Message-ID: <1382661707.7572.73.camel@edumazet-glaptop.roam.corp.google.com>
-References: <CAMEtUuxRhENE+OCFgdVASyVAaLo8AOdazUZdT+YHrcEzWA8Dow@mail.gmail.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH 0/4] sctp: do some clean up and fix comments
+Date: Fri, 25 Oct 2013 09:50:01 +0800
+Message-ID: <1382665805-13952-1-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain
+Cc: <dingtianhong@huawei.com>, <linux-sctp@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: <davem@davemloft.net>, <nhorman@tuxdriver.com>,
+	<vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f44.google.com ([74.125.83.44]:54038 "EHLO
-	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754415Ab3JYAlw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 20:41:52 -0400
-Received: by mail-ee0-f44.google.com with SMTP id c4so1023505eek.31
-        for <netdev@vger.kernel.org>; Thu, 24 Oct 2013 17:41:50 -0700 (PDT)
-In-Reply-To: <CAMEtUuxRhENE+OCFgdVASyVAaLo8AOdazUZdT+YHrcEzWA8Dow@mail.gmail.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:65497 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753807Ab3JYBuj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Oct 2013 21:50:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-10-24 at 16:37 -0700, Alexei Starovoitov wrote:
-> Hi Eric, Stephen,
-> 
-> it seems commit 3347c960 "ipv4: gso: make inet_gso_segment() stackable"
-> broke vxlan gso
-> 
-> the way to reproduce:
-> start two lxc with veth and bridge between them
-> create vxlan dev in both containers
-> do iperf
-> 
-> this setup on net-next does ~80 Mbps and a lot of tcp retransmits.
-> reverting 3347c960 and d3e5e006 gets performance back to ~230 Mbps
-> 
-> I guess vxlan driver suppose to set encap_level ? Some other way?
+I found: two if statements do the same work, we can merge to one;
+kmem_cache_zalloc will reset the memory, no need do the work
+which initialize with 0; some spelling errors, then fix them.
 
-Hi Alexei
+Wang Weidong (4):
+  sctp: merge two if statements to one
+  sctp: remove the repeat initialize with 0
+  sctp: fix some comments in associola.c
+  sctp: fix comment in chunk.c
 
-Are the GRE tunnels broken as well for you ?
+ net/sctp/associola.c     |  4 ++--
+ net/sctp/auth.c          | 12 ++++--------
+ net/sctp/chunk.c         |  2 +-
+ net/sctp/sm_make_chunk.c | 29 ++++++++---------------------
+ 4 files changed, 15 insertions(+), 32 deletions(-)
 
-In my testings, GRE was working, and it looks GRE and vxlan has quite
-similar gso implementation.
-
-Maybe you can capture some of the broken frames with tcpdump ?
+-- 
+1.7.12
