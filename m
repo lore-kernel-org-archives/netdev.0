@@ -1,90 +1,69 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] ipv4: fix DO and PROBE pmtu mode regarding local fragmentation with UFO/CORK
-Date: Fri, 25 Oct 2013 21:40:03 +0200
-Message-ID: <20131025194003.GG15744@order.stressinduktion.org>
+Subject: Re: [patch net-next] ipv6: allow userspace to create address with IFLA_F_TEMPORARY flag
+Date: Fri, 25 Oct 2013 22:12:53 +0200
+Message-ID: <20131025201253.GH15744@order.stressinduktion.org>
+References: <1382622355-6500-1-git-send-email-jiri@resnulli.us> <20131024140253.GF15744@order.stressinduktion.org> <20131024165931.GA1475@minipsycho.orion> <CAGCdqXG6pOdaHNDsKnMGWKRs8Me7F8oyWVcgmtGP8ng2XRGfcQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	thaller@redhat.com, Stephen Hemminger <stephen@networkplumber.org>
+To: Vladislav Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57634 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:57690 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753020Ab3JYTkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 15:40:05 -0400
+	with ESMTP id S1754464Ab3JYUMz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 16:12:55 -0400
 Content-Disposition: inline
+In-Reply-To: <CAGCdqXG6pOdaHNDsKnMGWKRs8Me7F8oyWVcgmtGP8ng2XRGfcQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UFO as well as UDP_CORK do not respect IP_PMTUDISC_DO and
-IP_PMTUDISC_PROBE well enough.
+On Fri, Oct 25, 2013 at 06:05:40AM -0400, Vladislav Yasevich wrote:
+> On Thu, Oct 24, 2013 at 12:59 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> > Thu, Oct 24, 2013 at 04:02:53PM CEST, hannes@stressinduktion.org wrote:
+> >>On Thu, Oct 24, 2013 at 03:45:55PM +0200, Jiri Pirko wrote:
+> >>> This is needed in order to implement userspace address configuration,
+> >>> namely ip6-privacy (rfc4941) in NetworkManager.
+> >>>
+> >>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> >>> ---
+> >>>  net/ipv6/addrconf.c | 3 ++-
+> >>>  1 file changed, 2 insertions(+), 1 deletion(-)
+> >>>
+> >>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> >>> index cd3fb30..962c7c9 100644
+> >>> --- a/net/ipv6/addrconf.c
+> >>> +++ b/net/ipv6/addrconf.c
+> >>> @@ -3715,7 +3715,8 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
+> >>>              return -ENODEV;
+> >>>
+> >>>      /* We ignore other flags so far. */
+> >>> -    ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS);
+> >>> +    ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS |
+> >>> +                                  IFA_F_TEMPORARY);
+> >>>
+> >>>      ifa = ipv6_get_ifaddr(net, pfx, dev, 1);
+> >>>      if (ifa == NULL) {
+> >>
+> >>Hm, the kernel will pick up IFA_F_TEMPORARY marked addresses and do ipv6 address
+> >>regeneration (depending on lifetimes). Is this intended?
+> >
+> > I think that that behaviour is valid. It is in compliance with valid lft and
+> > preferred lft behaviour.
+> >
+> 
+> Actually, I don't think it would do the regeneration since ifpub
+> pointer is not set.
+> 
+> I appears that the temp address management would have to be done in
+> userspace.
 
-UFO enabled packet delivery just appends all frags to the cork and hands
-it over to the network card. So we just deliver non-DF udp fragments
-(DF-flag may get overwritten by hardware or virtual UFO enabled
-interface).
+Sorry, yes this is correct. I should have looked at the source and not answer
+just from memory.
 
-UDP_CORK does enqueue the data until the cork is disengaged. At this
-point it sets the correct IP_DF and local_df flags and hands it over to
-ip_fragment which in this case will generate an icmp error which gets
-appended to the error socket queue. This is not reflected in the syscall
-error (of course, if UFO is enabled this also won't happen).
+Thanks,
 
-Improve this by checking the pmtudisc flags before appending data to the
-socket and if we still can fit all data in one packet when IP_PMTUDISC_DO
-or IP_PMTUDISC_PROBE is set, only then proceed.
-
-Maybe, we can relax some other checks around ip_fragment. This needs
-more research.
-
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv4/ip_output.c | 12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 8fbac7d..27dc1b3 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -810,7 +810,7 @@ static int __ip_append_data(struct sock *sk,
- 	int copy;
- 	int err;
- 	int offset = 0;
--	unsigned int maxfraglen, fragheaderlen;
-+	unsigned int maxfraglen, fragheaderlen, maxmsgsize;
- 	int csummode = CHECKSUM_NONE;
- 	struct rtable *rt = (struct rtable *)cork->dst;
- 
-@@ -823,8 +823,10 @@ static int __ip_append_data(struct sock *sk,
- 
- 	fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
- 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen;
-+	maxmsgsize = (inet->pmtudisc >= IP_PMTUDISC_DO) ?
-+		     maxfraglen : 0xFFFF;
- 
--	if (cork->length + length > 0xFFFF - fragheaderlen) {
-+	if (cork->length + length > maxmsgsize - fragheaderlen) {
- 		ip_local_error(sk, EMSGSIZE, fl4->daddr, inet->inet_dport,
- 			       mtu-exthdrlen);
- 		return -EMSGSIZE;
-@@ -1122,7 +1124,7 @@ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
- 	int mtu;
- 	int len;
- 	int err;
--	unsigned int maxfraglen, fragheaderlen, fraggap;
-+	unsigned int maxfraglen, fragheaderlen, fraggap, maxmsgsize;
- 
- 	if (inet->hdrincl)
- 		return -EPERM;
-@@ -1146,8 +1148,10 @@ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
- 
- 	fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
- 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen;
-+	maxmsgsize = (inet->pmtudisc >= IP_PMTUDISC_DO) ?
-+		     maxfraglen : 0xFFFF;
- 
--	if (cork->length + size > 0xFFFF - fragheaderlen) {
-+	if (cork->length + size > maxmsgsize - fragheaderlen) {
- 		ip_local_error(sk, EMSGSIZE, fl4->daddr, inet->inet_dport, mtu);
- 		return -EMSGSIZE;
- 	}
--- 
-1.8.3.1
+  Hannes
