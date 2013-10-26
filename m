@@ -1,39 +1,61 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH net-next v2 0/5] 6lowpan: trivial changes
-Date: Sat, 26 Oct 2013 15:53:57 +0200
-Message-ID: <1382795642-12501-1-git-send-email-alex.aring@gmail.com>
-Cc: linux-zigbee-devel@lists.sourceforge.net, werner@almesberger.net,
-	dbaryshkov@gmail.com, netdev@vger.kernel.org,
-	Alexander Aring <alex.aring@gmail.com>
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f180.google.com ([209.85.215.180]:49941 "EHLO
-	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751849Ab3JZNyT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 09:54:19 -0400
-Received: by mail-ea0-f180.google.com with SMTP id l9so1015446eaj.39
-        for <netdev@vger.kernel.org>; Sat, 26 Oct 2013 06:54:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next v2 3/5] 6lowpan: use
+	netdev_alloc_skb instead dev_alloc_skb
+Date: Sat, 26 Oct 2013 15:54:00 +0200
+Message-ID: <1382795642-12501-4-git-send-email-alex.aring@gmail.com>
+References: <1382795642-12501-1-git-send-email-alex.aring@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1382795642-12501-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch series includes some trivial changes to prepare the 6lowpan stack
-for upcomming patch-series which mainly fix fragmentation according to rfc4944
-and udp handling(which is currently broken).
+This patch uses the netdev_alloc_skb instead dev_alloc_skb function and
+drops the seperate assignment to skb->dev.
 
-Changes since v2:
-  - change intendation in patch 3/5
-  - fix typo in 5/5 unecessary -> unnecessary
-  - add missing 6lowpan tag in cover-letter
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
+---
+ net/ieee802154/6lowpan.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Alexander Aring (5):
-  6lowpan: remove unnecessary ret variable
-  6lowpan: remove unnecessary check on err >= 0
-  6lowpan: use netdev_alloc_skb instead dev_alloc_skb
-  6lowpan: remove skb->dev assignment
-  6lowpan: remove unnecessary break
-
- net/ieee802154/6lowpan.c | 14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
-
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 9057f83..1884a84 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -1127,12 +1127,12 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
+ 
+ 	lowpan_raw_dump_inline(__func__, "6lowpan fragment header", head, hlen);
+ 
+-	frag = dev_alloc_skb(hlen + mlen + plen + IEEE802154_MFR_SIZE);
++	frag = netdev_alloc_skb(skb->dev, hlen + mlen +
++				plen + IEEE802154_MFR_SIZE);
+ 	if (!frag)
+ 		return -ENOMEM;
+ 
+ 	frag->priority = skb->priority;
+-	frag->dev = skb->dev;
+ 
+ 	/* copy header, MFR and payload */
+ 	memcpy(skb_put(frag, mlen), skb->data, mlen);
 -- 
 1.8.4.1
+
+
+------------------------------------------------------------------------------
+October Webinars: Code for Performance
+Free Intel webinars can help you accelerate application performance.
+Explore tips for MPI, OpenMP, advanced profiling, and more. Get the most from 
+the latest Intel processors and coprocessors. See abstracts and register >
+http://pubads.g.doubleclick.net/gampad/clk?id=60135991&iu=/4140/ostg.clktrk
