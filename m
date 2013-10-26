@@ -1,69 +1,79 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: Re: [PATCH 1/3] vxlan: silence one build warning
-Date: Sat, 26 Oct 2013 15:06:04 +0800
-Message-ID: <CAEH94Lia4VVU6Vnn_7DhOHo4yhR-tsMPu7biMCeSMgQPvkQrug@mail.gmail.com>
-References: <1382687360-27794-1-git-send-email-zwu.kernel@gmail.com>
-	<20131025084134.6cfa153a@samsung-9>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH v2 2/3] sctp: remove the repeat initialize with 0
+Date: Sat, 26 Oct 2013 16:06:31 +0800
+Message-ID: <1382774792-13440-3-git-send-email-wangweidong1@huawei.com>
+References: <1382774792-13440-1-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	linux-kernel mlist <linux-kernel@vger.kernel.org>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131025084134.6cfa153a@samsung-9>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <dingtianhong@huawei.com>,
+	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <nhorman@tuxdriver.com>, <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:39980 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751817Ab3JZIHB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 04:07:01 -0400
+In-Reply-To: <1382774792-13440-1-git-send-email-wangweidong1@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 25, 2013 at 11:41 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Fri, 25 Oct 2013 15:49:18 +0800
-> Zhi Yong Wu <zwu.kernel@gmail.com> wrote:
->
->> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
->>
->> drivers/net/vxlan.c: In function =91vxlan_sock_add=92:
->> drivers/net/vxlan.c:2298:11: warning: =91sock=92 may be used uniniti=
-alized in this function [-Wmaybe-uninitialized]
->> drivers/net/vxlan.c:2275:17: note: =91sock=92 was declared here
->>   LD      drivers/net/built-in.o
->>
->> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
->> ---
->>  drivers/net/vxlan.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
->> index 2ef5b62..e15f1af 100644
->> --- a/drivers/net/vxlan.c
->> +++ b/drivers/net/vxlan.c
->> @@ -2272,7 +2272,7 @@ static struct vxlan_sock *vxlan_socket_create(=
-struct net *net, __be16 port,
->>  {
->>       struct vxlan_net *vn =3D net_generic(net, vxlan_net_id);
->>       struct vxlan_sock *vs;
->> -     struct socket *sock;
->> +     struct socket *sock =3D NULL;
->>       struct sock *sk;
->>       int rc =3D 0;
->>       unsigned int h;
->
-> This only happens with certain versions of Gcc which have buggy depen=
-dency
-> analysis. It doesn't happen with Gcc 4.7, think it only shows up in 4=
-=2E4.
-> I would rather not fix the warning this way since it risks masking la=
-ter bugs if this code ever changes.
-Gcc version is 4.7.2 on my box, this warning took palce.
-# gcc -v
-Using built-in specs.
-COLLECT_GCC=3Dgcc
-=2E..
-gcc version 4.7.2 20120921 (Red Hat 4.7.2-2) (GCC)
+kmem_cache_zalloc had set the allocated memory to zero. I think no need
+to initialize with 0. And move the comments to the function begin.
 
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+---
+ net/sctp/sm_make_chunk.c | 29 ++++++++---------------------
+ 1 file changed, 8 insertions(+), 21 deletions(-)
 
---=20
-Regards,
-
-Zhi Yong Wu
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index d244a23..fe69032 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1297,6 +1297,13 @@ struct sctp_chunk *sctp_make_auth(const struct sctp_association *asoc)
+ 
+ /* Turn an skb into a chunk.
+  * FIXME: Eventually move the structure directly inside the skb->cb[].
++ *
++ * sctpimpguide-05.txt Section 2.8.2
++ * M1) Each time a new DATA chunk is transmitted
++ * set the 'TSN.Missing.Report' count for that TSN to 0. The
++ * 'TSN.Missing.Report' count will be used to determine missing chunks
++ * and when to fast retransmit.
++ *
+  */
+ struct sctp_chunk *sctp_chunkify(struct sk_buff *skb,
+ 			    const struct sctp_association *asoc,
+@@ -1314,29 +1321,9 @@ struct sctp_chunk *sctp_chunkify(struct sk_buff *skb,
+ 	INIT_LIST_HEAD(&retval->list);
+ 	retval->skb		= skb;
+ 	retval->asoc		= (struct sctp_association *)asoc;
+-	retval->has_tsn		= 0;
+-	retval->has_ssn         = 0;
+-	retval->rtt_in_progress	= 0;
+-	retval->sent_at		= 0;
+ 	retval->singleton	= 1;
+-	retval->end_of_packet	= 0;
+-	retval->ecn_ce_done	= 0;
+-	retval->pdiscard	= 0;
+-
+-	/* sctpimpguide-05.txt Section 2.8.2
+-	 * M1) Each time a new DATA chunk is transmitted
+-	 * set the 'TSN.Missing.Report' count for that TSN to 0. The
+-	 * 'TSN.Missing.Report' count will be used to determine missing chunks
+-	 * and when to fast retransmit.
+-	 */
+-	retval->tsn_missing_report = 0;
+-	retval->tsn_gap_acked = 0;
+-	retval->fast_retransmit = SCTP_CAN_FRTX;
+ 
+-	/* If this is a fragmented message, track all fragments
+-	 * of the message (for SEND_FAILED).
+-	 */
+-	retval->msg = NULL;
++	retval->fast_retransmit = SCTP_CAN_FRTX;
+ 
+ 	/* Polish the bead hole.  */
+ 	INIT_LIST_HEAD(&retval->transmitted_list);
+-- 
+1.7.12
