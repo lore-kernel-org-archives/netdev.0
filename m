@@ -1,40 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/5] 6lowpan: use netdev_alloc_skb instead
- dev_alloc_skb
-Date: Sat, 26 Oct 2013 01:42:14 -0400 (EDT)
-Message-ID: <20131026.014214.1636999222808937267.davem@davemloft.net>
-References: <1382647904-11311-1-git-send-email-alex.aring@gmail.com>
-	<1382647904-11311-4-git-send-email-alex.aring@gmail.com>
+Subject: Re: [PATCH RFC v2 1/4] net: mvmdio: make orion_mdio_wait_ready
+ consistent
+Date: Sat, 26 Oct 2013 01:44:01 -0400 (EDT)
+Message-ID: <20131026.014401.2297094945752640834.davem@davemloft.net>
+References: <cover.1382199042.git.leigh@solinno.co.uk>
+	<cover.1382637156.git.leigh@solinno.co.uk>
+	<4955b6b331459b7b9c54350b8f0b254065d013c3.1382637156.git.leigh@solinno.co.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, werner@almesberger.net,
-	dbaryshkov@gmail.com, netdev@vger.kernel.org
-To: alex.aring@gmail.com
+Cc: linux-arm-kernel@lists.infradead.org,
+	thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
+	sebastian.hesselbarth@gmail.com
+To: leigh@solinno.co.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38340 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38372 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751475Ab3JZFmS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 01:42:18 -0400
-In-Reply-To: <1382647904-11311-4-git-send-email-alex.aring@gmail.com>
+	with ESMTP id S1751620Ab3JZFoD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 01:44:03 -0400
+In-Reply-To: <4955b6b331459b7b9c54350b8f0b254065d013c3.1382637156.git.leigh@solinno.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Aring <alex.aring@gmail.com>
-Date: Thu, 24 Oct 2013 22:51:42 +0200
+From: Leigh Brown <leigh@solinno.co.uk>
+Date: Thu, 24 Oct 2013 19:09:31 +0100
 
-> @@ -1127,12 +1127,12 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
+> +	        else
+> +			if (timedout)
+>  				break;
 >  
->  	lowpan_raw_dump_inline(__func__, "6lowpan fragment header", head, hlen);
->  
-> -	frag = dev_alloc_skb(hlen + mlen + plen + IEEE802154_MFR_SIZE);
-> +	frag = netdev_alloc_skb(skb->dev, hlen + mlen +
-> +			plen + IEEE802154_MFR_SIZE);
 
-Please indent this properly.
+Please make this:
 
-It should be something like:
-
-	frag = netdev_alloc_skb(skb->dev, hlen + mlen +
-					  plen + IEEE802154_MFR_SIZE);
+		else if (timedout)
+			break;
