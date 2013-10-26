@@ -1,90 +1,56 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/3] vxlan: silence one build warning
-Date: Sat, 26 Oct 2013 07:48:19 -0700
-Message-ID: <20131026074819.6a5f4e24@samsung-9>
-References: <1382687360-27794-1-git-send-email-zwu.kernel@gmail.com>
-	<20131025084134.6cfa153a@samsung-9>
-	<CAEH94Lia4VVU6Vnn_7DhOHo4yhR-tsMPu7biMCeSMgQPvkQrug@mail.gmail.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v2 3/5] 6lowpan: use
+ netdev_alloc_skb instead dev_alloc_skb
+Date: Sat, 26 Oct 2013 17:09:53 +0200
+Message-ID: <20131026150952.GA12817@omega>
+References: <1382795642-12501-1-git-send-email-alex.aring@gmail.com>
+	<1382795642-12501-4-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	linux-kernel mlist <linux-kernel@vger.kernel.org>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Zhi Yong Wu <zwu.kernel@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEH94Lia4VVU6Vnn_7DhOHo4yhR-tsMPu7biMCeSMgQPvkQrug@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1382795642-12501-4-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 26 Oct 2013 15:06:04 +0800
-Zhi Yong Wu <zwu.kernel@gmail.com> wrote:
+On Sat, Oct 26, 2013 at 03:54:00PM +0200, Alexander Aring wrote:
+> This patch uses the netdev_alloc_skb instead dev_alloc_skb function and
+> drops the seperate assignment to skb->dev.
+> 
+> Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
+> ---
+>  net/ieee802154/6lowpan.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+> index 9057f83..1884a84 100644
+> --- a/net/ieee802154/6lowpan.c
+> +++ b/net/ieee802154/6lowpan.c
+> @@ -1127,12 +1127,12 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
+>  
+>  	lowpan_raw_dump_inline(__func__, "6lowpan fragment header", head, hlen);
+>  
+> -	frag = dev_alloc_skb(hlen + mlen + plen + IEEE802154_MFR_SIZE);
+> +	frag = netdev_alloc_skb(skb->dev, hlen + mlen +
+> +				plen + IEEE802154_MFR_SIZE);
+mhh, I do the same mistake again. I will resend them.
 
-> On Fri, Oct 25, 2013 at 11:41 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
-> > On Fri, 25 Oct 2013 15:49:18 +0800
-> > Zhi Yong Wu <zwu.kernel@gmail.com> wrote:
-> >
-> >> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> >>
-> >> drivers/net/vxlan.c: In function =E2=80=98vxlan_sock_add=E2=80=99:
-> >> drivers/net/vxlan.c:2298:11: warning: =E2=80=98sock=E2=80=99 may b=
-e used uninitialized in this function [-Wmaybe-uninitialized]
-> >> drivers/net/vxlan.c:2275:17: note: =E2=80=98sock=E2=80=99 was decl=
-ared here
-> >>   LD      drivers/net/built-in.o
-> >>
-> >> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> >> ---
-> >>  drivers/net/vxlan.c | 2 +-
-> >>  1 file changed, 1 insertion(+), 1 deletion(-)
-> >>
-> >> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> >> index 2ef5b62..e15f1af 100644
-> >> --- a/drivers/net/vxlan.c
-> >> +++ b/drivers/net/vxlan.c
-> >> @@ -2272,7 +2272,7 @@ static struct vxlan_sock *vxlan_socket_creat=
-e(struct net *net, __be16 port,
-> >>  {
-> >>       struct vxlan_net *vn =3D net_generic(net, vxlan_net_id);
-> >>       struct vxlan_sock *vs;
-> >> -     struct socket *sock;
-> >> +     struct socket *sock =3D NULL;
-> >>       struct sock *sk;
-> >>       int rc =3D 0;
-> >>       unsigned int h;
-> >
-> > This only happens with certain versions of Gcc which have buggy dep=
-endency
-> > analysis. It doesn't happen with Gcc 4.7, think it only shows up in=
- 4.4.
-> > I would rather not fix the warning this way since it risks masking =
-later bugs if this code ever changes.
-> Gcc version is 4.7.2 on my box, this warning took palce.
-> # gcc -v
-> Using built-in specs.
-> COLLECT_GCC=3Dgcc
-> ...
-> gcc version 4.7.2 20120921 (Red Hat 4.7.2-2) (GCC)
->=20
->=20
+Sorry for the noise.
 
-I dont see it on Debian 7.
-$ gcc -v
-Using built-in specs.
-COLLECT_GCC=3D/usr/bin/gcc-4.7.real
-COLLECT_LTO_WRAPPER=3D/usr/lib/gcc/x86_64-linux-gnu/4.7/lto-wrapper
-Target: x86_64-linux-gnu
-Configured with: ../src/configure -v --with-pkgversion=3D'Debian 4.7.2-=
-5' --with-bugurl=3Dfile:///usr/share/doc/gcc-4.7/README.Bugs --enable-l=
-anguages=3Dc,c++,go,fortran,objc,obj-c++ --prefix=3D/usr --program-suff=
-ix=3D-4.7 --enable-shared --enable-linker-build-id --with-system-zlib -=
--libexecdir=3D/usr/lib --without-included-gettext --enable-threads=3Dpo=
-six --with-gxx-include-dir=3D/usr/include/c++/4.7 --libdir=3D/usr/lib -=
--enable-nls --with-sysroot=3D/ --enable-clocale=3Dgnu --enable-libstdcx=
-x-debug --enable-libstdcxx-time=3Dyes --enable-gnu-unique-object --enab=
-le-plugin --enable-objc-gc --with-arch-32=3Di586 --with-tune=3Dgeneric =
---enable-checking=3Drelease --build=3Dx86_64-linux-gnu --host=3Dx86_64-=
-linux-gnu --target=3Dx86_64-linux-gnu
-Thread model: posix
-gcc version 4.7.2 (Debian 4.7.2-5)
+------------------------------------------------------------------------------
+October Webinars: Code for Performance
+Free Intel webinars can help you accelerate application performance.
+Explore tips for MPI, OpenMP, advanced profiling, and more. Get the most from 
+the latest Intel processors and coprocessors. See abstracts and register >
+http://pubads.g.doubleclick.net/gampad/clk?id=60135991&iu=/4140/ostg.clktrk
