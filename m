@@ -1,50 +1,69 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] veth: extend features to support tunneling
-Date: Fri, 25 Oct 2013 19:22:23 -0700
-Message-ID: <CAMEtUuwgDpLFMj0DNx+c4QZz573rgmLiNcZOmHgou2A3684Shw@mail.gmail.com>
-References: <CAMEtUuzswOVA6UkPRjS-O=gOe9BLLJ5qaAG_eAd_fTqDJo8ofA@mail.gmail.com>
-	<1382674000.7572.75.camel@edumazet-glaptop.roam.corp.google.com>
-	<1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
-	<20131025.181809.348808013109842304.davem@davemloft.net>
-	<CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
-	<1382743502.4032.6.camel@edumazet-glaptop.roam.corp.google.com>
-	<1382748742.4032.24.camel@edumazet-glaptop.roam.corp.google.com>
-	<1382750703.4032.32.camel@edumazet-glaptop.roam.corp.google.com>
+From: wangweidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH 1/4] sctp: merge two if statements to one
+Date: Sat, 26 Oct 2013 10:55:39 +0800
+Message-ID: <526B2F2B.1050403@huawei.com>
+References: <1382665805-13952-1-git-send-email-wangweidong1@huawei.com> <1382665805-13952-2-git-send-email-wangweidong1@huawei.com> <526A6C45.3080200@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, stephen@networkplumber.org,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <dingtianhong@huawei.com>, <linux-sctp@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	<davem@davemloft.net>, <nhorman@tuxdriver.com>,
+	<vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:49862 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753254Ab3JZCWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 22:22:24 -0400
-Received: by mail-we0-f175.google.com with SMTP id t61so4483424wes.6
-        for <netdev@vger.kernel.org>; Fri, 25 Oct 2013 19:22:23 -0700 (PDT)
-In-Reply-To: <1382750703.4032.32.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:4323 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753322Ab3JZC40 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 22:56:26 -0400
+In-Reply-To: <526A6C45.3080200@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 25, 2013 at 6:25 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> While investigating on a recent vxlan regression, I found veth
-> was using a zero features set for vxlan tunnels.
+On 2013/10/25 21:04, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 25-10-2013 5:50, Wang Weidong wrote:
+> 
+>> Two if statements do the same work, maybe we can merge them to
+>> one. There is just code simplification, no functional changes.
+> 
+>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>> ---
+>>   net/sctp/auth.c | 12 ++++--------
+>>   1 file changed, 4 insertions(+), 8 deletions(-)
+> 
+>    I understand what I noticed below is not your typos but maybe it's time to fix them?
 
-oneliner can be better :)
+Yeah, I will fix them.
+Thanks.
 
-> We have to segment GSO frames, copy the payload, and do the checksum.
->
-> This patch brings a ~200% performance increase
->
-> We probably have to add hw_enc_features support
-> on other virtual devices.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> ---
-
-iperf over veth with gre/vxlan tunneling is now ~4Gbps. 20x gain as advertised.
-Thanks!
+> 
+>> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+>> index 8c4fa5d..19fb0ae 100644
+>> --- a/net/sctp/auth.c
+>> +++ b/net/sctp/auth.c
+>> @@ -539,18 +539,14 @@ struct sctp_hmac *sctp_auth_asoc_get_hmac(const struct sctp_association *asoc)
+>>       for (i = 0; i < n_elt; i++) {
+>>           id = ntohs(hmacs->hmac_ids[i]);
+>>
+>> -        /* Check the id is in the supported range */
+>> -        if (id > SCTP_AUTH_HMAC_ID_MAX) {
+>> -            id = 0;
+>> -            continue;
+>> -        }
+>> -
+>> -        /* See is we support the id.  Supported IDs have name and
+>> +        /* Check the id is in the supported range. And
+>> +         * see is we support the id.  Supported IDs have name and
+> 
+>    s/is/if/.
+> 
+>>            * length fields set, so that we can allocated and use
+> 
+>    s/allocated/allocate/.
+> 
+> WBR, Sergei
+> 
+> 
+> 
