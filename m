@@ -1,72 +1,121 @@
-From: =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 13/16] wl1251: enforce changed hw encryption support on monitor state change
-Date: Sat, 26 Oct 2013 22:34:12 +0200
-Message-ID: <1382819655-30430-14-git-send-email-pali.rohar@gmail.com>
+From: =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar@gmail.com>
+Subject: [PATCH 16/16] wl1251: Add sysfs file address for setting permanent mac address
+Date: Sat, 26 Oct 2013 22:34:15 +0200
+Message-ID: <1382819655-30430-17-git-send-email-pali.rohar@gmail.com>
 References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, freemangordon-uiMcrn6V0Vs@public.gmane.org,
-	aaro.koskinen-X3B1VOXEql0@public.gmane.org, pavel-+ZI9xUNit7I@public.gmane.org, sre-GFxCN5SEZAc@public.gmane.org,
-	joni.lapilainen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>
-To: Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1382819655-30430-1-git-send-email-pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
+	aaro.koskinen@iki.fi, pavel@ucw.cz, sre@ring0.de,
+	joni.lapilainen@gmail.com, pali.rohar@gmail.com
+To: Luciano Coelho <luca@coelho.fi>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f171.google.com ([209.85.215.171]:62880 "EHLO
+	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753983Ab3JZUkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 16:40:41 -0400
+In-Reply-To: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>
+Driver wl1251 generating mac address randomly at startup and there is n=
+o way to
+set permanent mac address via SET_IEEE80211_PERM_ADDR. This patch expor=
+t sysfs
+file which can set permanent mac address by userspace helper program. P=
+atch is
+needed for devices which do not store mac address in internal wl1251 ee=
+prom.
 
-The firmware doesn't support per packet encryption selection, so disable hw
-encryption support completly while a monitor interface is present to support
-injection of packets (which shouldn't get encrypted by hw).
-To enforce the changed hw encryption support force a disassociation on
-non-monitor interfaces.
-For disassociation a workaround using hw connection monitor is employed,
-which temporary enables hw connection manager flag.
-
-Signed-off-by: David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>
+Signed-off-by: Pali Roh=C3=A1r <pali.rohar@gmail.com>
 ---
- drivers/net/wireless/ti/wl1251/main.c |   13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ drivers/net/wireless/ti/wl1251/main.c |   52 +++++++++++++++++++++++++=
+++++++++
+ 1 file changed, 52 insertions(+)
 
-diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
-index 174f403..f054741 100644
+diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wirele=
+ss/ti/wl1251/main.c
+index 29625c2..91a009c 100644
 --- a/drivers/net/wireless/ti/wl1251/main.c
 +++ b/drivers/net/wireless/ti/wl1251/main.c
-@@ -685,6 +685,16 @@ static int wl1251_op_config(struct ieee80211_hw *hw, u32 changed)
- 		wl->power_level = conf->power_level;
+@@ -1375,6 +1375,46 @@ static const struct ieee80211_ops wl1251_ops =3D=
+ {
+ 	.get_survey =3D wl1251_op_get_survey,
+ };
+=20
++static ssize_t wl1251_sysfs_show_address(struct device *dev,
++					 struct device_attribute *attr,
++					 char *buf)
++{
++	struct wl1251 *wl =3D dev_get_drvdata(dev);
++	ssize_t len;
++
++	/* FIXME: what's the maximum length of buf? page size?*/
++	len =3D 500;
++
++	len =3D snprintf(buf, len, "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
++		       wl->mac_addr[0], wl->mac_addr[1], wl->mac_addr[2],
++		       wl->mac_addr[3], wl->mac_addr[4], wl->mac_addr[5]);
++
++	return len;
++}
++
++static ssize_t wl1251_sysfs_store_address(struct device *dev,
++					  struct device_attribute *attr,
++					  const char *buf, size_t count)
++{
++	struct wl1251 *wl =3D dev_get_drvdata(dev);
++	unsigned int addr[6];
++	int ret, i;
++
++	ret =3D sscanf(buf, "%2x:%2x:%2x:%2x:%2x:%2x\n",
++			&addr[0], &addr[1], &addr[2],
++			&addr[3], &addr[4], &addr[5]);
++
++	if (ret !=3D 6)
++		return -EINVAL;
++
++	for (i =3D 0; i < 6; i++)
++		wl->mac_addr[i] =3D addr[i] & 0xff;
++
++	SET_IEEE80211_PERM_ADDR(wl->hw, wl->mac_addr);
++
++	return count;
++}
++
+ static ssize_t wl1251_sysfs_show_tx_mgmt_frm_rate(struct device *dev,
+ 						  struct device_attribute *attr,
+ 						  char *buf)
+@@ -1584,6 +1624,10 @@ out:
+ 	return count;
+ }
+=20
++static DEVICE_ATTR(address, S_IRUGO | S_IWUSR,
++		   wl1251_sysfs_show_address,
++		   wl1251_sysfs_store_address);
++
+ static DEVICE_ATTR(tx_mgmt_frm_rate, S_IRUGO | S_IWUSR,
+ 		   wl1251_sysfs_show_tx_mgmt_frm_rate,
+ 		   wl1251_sysfs_store_tx_mgmt_frm_rate);
+@@ -1728,6 +1772,14 @@ int wl1251_init_ieee80211(struct wl1251 *wl)
  	}
- 
-+	/*
-+	 * Tell stack that connection is lost because hw encryption isn't
-+	 * supported in monitor mode.
-+	 * XXX This requires temporary enabling the hw connection monitor flag
-+	 */
-+	if ((changed & IEEE80211_CONF_CHANGE_MONITOR) && wl->vif) {
-+		wl->hw->flags |= IEEE80211_HW_CONNECTION_MONITOR;
-+		ieee80211_connection_loss(wl->vif);
+ 	dev_set_drvdata(&wl1251_device.dev, wl);
+=20
++	/* Create sysfs file address */
++	ret =3D device_create_file(&wl1251_device.dev,
++				 &dev_attr_address);
++	if (ret < 0) {
++		wl1251_error("failed to create sysfs file address");
++		goto out;
 +	}
 +
- out_sleep:
- 	wl1251_ps_elp_sleep(wl);
- 
-@@ -1116,6 +1126,9 @@ static void wl1251_op_bss_info_changed(struct ieee80211_hw *hw,
- 	}
- 
- 	if (changed & BSS_CHANGED_ASSOC) {
-+		/* XXX Disable temporary enabled hw connection monitor flag */
-+		wl->hw->flags &= ~IEEE80211_HW_CONNECTION_MONITOR;
-+
- 		if (bss_conf->assoc) {
- 			wl->beacon_int = bss_conf->beacon_int;
- 
--- 
+ 	/* Create sysfs file tx_mgmt_frm_rate */
+ 	ret =3D device_create_file(&wl1251_device.dev,
+ 				 &dev_attr_tx_mgmt_frm_rate);
+--=20
 1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
