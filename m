@@ -1,68 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] veth: extend features to support tunneling
-Date: Fri, 25 Oct 2013 18:25:03 -0700
-Message-ID: <1382750703.4032.32.camel@edumazet-glaptop.roam.corp.google.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] tcp: gso: fix truesize tracking
+Date: Fri, 25 Oct 2013 18:46:26 -0700
+Message-ID: <CAMEtUuyj_ax49nz+LtkO-0=8=BH4v3tY34X=gkgiUZ_EiZXb-Q@mail.gmail.com>
 References: <CAMEtUuzswOVA6UkPRjS-O=gOe9BLLJ5qaAG_eAd_fTqDJo8ofA@mail.gmail.com>
-	 <1382674000.7572.75.camel@edumazet-glaptop.roam.corp.google.com>
-	 <1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
-	 <20131025.181809.348808013109842304.davem@davemloft.net>
-	 <CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
-	 <1382743502.4032.6.camel@edumazet-glaptop.roam.corp.google.com>
-	 <1382748742.4032.24.camel@edumazet-glaptop.roam.corp.google.com>
+	<1382674000.7572.75.camel@edumazet-glaptop.roam.corp.google.com>
+	<1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
+	<20131025.181809.348808013109842304.davem@davemloft.net>
+	<CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
+	<1382743502.4032.6.camel@edumazet-glaptop.roam.corp.google.com>
+	<1382747177.4032.21.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: David Miller <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>, stephen@networkplumber.org,
 	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f41.google.com ([74.125.83.41]:45852 "EHLO
-	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752416Ab3JZBZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 21:25:07 -0400
-Received: by mail-ee0-f41.google.com with SMTP id d49so2395376eek.14
-        for <netdev@vger.kernel.org>; Fri, 25 Oct 2013 18:25:06 -0700 (PDT)
-In-Reply-To: <1382748742.4032.24.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:41866 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752416Ab3JZBq1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 21:46:27 -0400
+Received: by mail-wg0-f44.google.com with SMTP id n12so4558414wgh.23
+        for <netdev@vger.kernel.org>; Fri, 25 Oct 2013 18:46:26 -0700 (PDT)
+In-Reply-To: <1382747177.4032.21.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, Oct 25, 2013 at 5:26 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> commit 6ff50cd55545 ("tcp: gso: do not generate out of order packets")
+> had an heuristic that can trigger a warning in skb_try_coalesce(),
+> because skb->truesize of the gso segments were exactly set to mss.
+>
+> This breaks the requirement that
+>
+> skb->truesize >= skb->len + truesizeof(struct sk_buff);
+>
+> It can trivially be reproduced by :
+>
+> ifconfig lo mtu 1500
+> ethtool -K lo tso off
+> netperf
+>
+> As the skbs are looped into the TCP networking stack, skb_try_coalesce()
+> warns us of these skb under-estimating their truesize.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
 
-While investigating on a recent vxlan regression, I found veth
-was using a zero features set for vxlan tunnels.
-
-We have to segment GSO frames, copy the payload, and do the checksum.
-
-This patch brings a ~200% performance increase
-
-We probably have to add hw_enc_features support
-on other virtual devices.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Alexei Starovoitov <ast@plumgrid.com>
----
- drivers/net/veth.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index b2d0347..b24db7a 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -261,6 +261,8 @@ static const struct net_device_ops veth_netdev_ops = {
- 
- #define VETH_FEATURES (NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_ALL_TSO |    \
- 		       NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_HIGHDMA | \
-+		       NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL |	    \
-+		       NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT | NETIF_F_UFO	|   \
- 		       NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX | \
- 		       NETIF_F_HW_VLAN_STAG_TX | NETIF_F_HW_VLAN_STAG_RX )
- 
-@@ -279,6 +281,7 @@ static void veth_setup(struct net_device *dev)
- 	dev->destructor = veth_dev_free;
- 
- 	dev->hw_features = VETH_FEATURES;
-+	dev->hw_enc_features = VETH_FEATURES;
- }
- 
- /*
+it fixed it in my setup. Thanks!
