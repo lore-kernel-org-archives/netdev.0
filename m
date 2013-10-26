@@ -1,52 +1,86 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v2 3/5] 6lowpan: use
- netdev_alloc_skb instead dev_alloc_skb
-Date: Sat, 26 Oct 2013 17:09:53 +0200
-Message-ID: <20131026150952.GA12817@omega>
-References: <1382795642-12501-1-git-send-email-alex.aring@gmail.com>
-	<1382795642-12501-4-git-send-email-alex.aring@gmail.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/3] tipc: don't reroute message
+	fragments
+Date: Sat, 26 Oct 2013 14:41:01 -0400
+Message-ID: <1382812863-23571-2-git-send-email-jon.maloy@ericsson.com>
+References: <1382812863-23571-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1382795642-12501-4-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1382812863-23571-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 26, 2013 at 03:54:00PM +0200, Alexander Aring wrote:
-> This patch uses the netdev_alloc_skb instead dev_alloc_skb function and
-> drops the seperate assignment to skb->dev.
-> 
-> Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
-> ---
->  net/ieee802154/6lowpan.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-> index 9057f83..1884a84 100644
-> --- a/net/ieee802154/6lowpan.c
-> +++ b/net/ieee802154/6lowpan.c
-> @@ -1127,12 +1127,12 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
->  
->  	lowpan_raw_dump_inline(__func__, "6lowpan fragment header", head, hlen);
->  
-> -	frag = dev_alloc_skb(hlen + mlen + plen + IEEE802154_MFR_SIZE);
-> +	frag = netdev_alloc_skb(skb->dev, hlen + mlen +
-> +				plen + IEEE802154_MFR_SIZE);
-mhh, I do the same mistake again. I will resend them.
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-Sorry for the noise.
+When a message fragment is received in a broadcast or unicast link,
+the reception code will append the fragment payload to a big reassembly
+buffer through a call to the function tipc_recv_fragm(). However, after
+the return of that call, the logics goes on and passes the fragment
+buffer to the function tipc_net_route_msg(), which will simply drop it.
+This behavior is a remnant from the now obsolete multi-cluster
+functionality, and has no relevance in the current code base.
+
+Although currently harmless, this unnecessary call would be fatal
+after applying the next patch in this series, which introduces
+a completely new defragmentation algorithm. So we change the code
+to eliminate the redundant call.
+
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/bcast.c |    6 ++++--
+ net/tipc/link.c  |    2 +-
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 716de1a..766a6eb 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -487,11 +487,13 @@ receive:
+ 			spin_lock_bh(&bc_lock);
+ 			bclink_accept_pkt(node, seqno);
+ 			bcl->stats.recv_fragments++;
+-			if (ret > 0)
++			if (ret > 0) {
+ 				bcl->stats.recv_fragmented++;
++				spin_unlock_bh(&bc_lock);
++				goto receive;
++			}
+ 			spin_unlock_bh(&bc_lock);
+ 			tipc_node_unlock(node);
+-			tipc_net_route_msg(buf);
+ 		} else if (msg_user(msg) == NAME_DISTRIBUTOR) {
+ 			spin_lock_bh(&bc_lock);
+ 			bclink_accept_pkt(node, seqno);
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index e8153f6..dfa29c8 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1638,7 +1638,7 @@ deliver:
+ 					}
+ 					if (ret == -1)
+ 						l_ptr->next_in_no--;
+-					break;
++					continue;
+ 				case CHANGEOVER_PROTOCOL:
+ 					type = msg_type(msg);
+ 					if (link_recv_changeover_msg(&l_ptr,
+-- 
+1.7.9.5
+
 
 ------------------------------------------------------------------------------
 October Webinars: Code for Performance
