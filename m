@@ -1,50 +1,40 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Hi,
-Date: Fri, 25 Oct 2013 22:04:08 -0700
-Message-ID: <526B4D48.4070608@candelatech.com>
-References: <526B4FEC020000B100033DCD@mailhost1.datacore.uk.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/5] 6lowpan: use netdev_alloc_skb instead
+ dev_alloc_skb
+Date: Sat, 26 Oct 2013 01:42:14 -0400 (EDT)
+Message-ID: <20131026.014214.1636999222808937267.davem@davemloft.net>
+References: <1382647904-11311-1-git-send-email-alex.aring@gmail.com>
+	<1382647904-11311-4-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: John Reynolds <JReynolds@datacore.uk.com>
+Cc: alex.bluesman.smirnov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, werner@almesberger.net,
+	dbaryshkov@gmail.com, netdev@vger.kernel.org
+To: alex.aring@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:41316 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751494Ab3JZFEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 01:04:15 -0400
-In-Reply-To: <526B4FEC020000B100033DCD@mailhost1.datacore.uk.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38340 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751475Ab3JZFmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 01:42:18 -0400
+In-Reply-To: <1382647904-11311-4-git-send-email-alex.aring@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/25/2013 09:15 PM, John Reynolds wrote:
-> Hi,
-> Is there a userspace API that can be used to determine if a network interface is a 802.1Q interface, and what its vlan id and parent interface is. it appears that SOICGIFPFLAGS is not supported and netdev_priv() is only available to drivers, or do I have to resort to parsing the /proc/net/* files ?
->
-> regards
+From: Alexander Aring <alex.aring@gmail.com>
+Date: Thu, 24 Oct 2013 22:51:42 +0200
 
-The netlink API has it.  You can use the 'ip' tool and parse it's text output,
-though of course that is not an overly stable API.
+> @@ -1127,12 +1127,12 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
+>  
+>  	lowpan_raw_dump_inline(__func__, "6lowpan fragment header", head, hlen);
+>  
+> -	frag = dev_alloc_skb(hlen + mlen + plen + IEEE802154_MFR_SIZE);
+> +	frag = netdev_alloc_skb(skb->dev, hlen + mlen +
+> +			plen + IEEE802154_MFR_SIZE);
 
-I think the old VLAN ioctls are still in the kernel as well, so you can
-use those like the 'vconfig' tool does.
+Please indent this properly.
 
-http://www.candelatech.com/~greear/vlan.html
+It should be something like:
 
-Please note that 'ip' is the way of the future and I have little interest
-in actually supporting vconfig.
-
-Thanks,
-Ben
-
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+	frag = netdev_alloc_skb(skb->dev, hlen + mlen +
+					  plen + IEEE802154_MFR_SIZE);
