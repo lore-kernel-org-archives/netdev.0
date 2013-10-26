@@ -1,15 +1,13 @@
 From: =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: [PATCH 15/16] wl1251: Add sysfs file tx_mgmt_frm_rate for setting rate
-Date: Sat, 26 Oct 2013 22:34:14 +0200
-Message-ID: <1382819655-30430-16-git-send-email-pali.rohar@gmail.com>
+Subject: [PATCH 12/16] wl1251: disable retry and ACK policy for injected packets
+Date: Sat, 26 Oct 2013 22:34:11 +0200
+Message-ID: <1382819655-30430-13-git-send-email-pali.rohar@gmail.com>
 References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
 	aaro.koskinen@iki.fi, pavel@ucw.cz, sre@ring0.de,
-	joni.lapilainen@gmail.com, pali.rohar@gmail.com
+	joni.lapilainen@gmail.com, pali.rohar@gmail.com,
+	David Gnedt <david.gnedt@davizone.at>
 To: Luciano Coelho <luca@coelho.fi>,
 	"John W. Linville" <linville@tuxdriver.com>,
 	Johannes Berg <johannes@sipsolutions.net>,
@@ -19,193 +17,65 @@ In-Reply-To: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch was extracted from Maemo 2.6.28 kernel
+From: David Gnedt <david.gnedt@davizone.at>
 
-Signed-off-by: Pali Roh=C3=A1r <pali.rohar@gmail.com>
+Set the retry limit to 0 and disable the ACK policy for injected packets.
+
+Signed-off-by: David Gnedt <david.gnedt@davizone.at>
 ---
- drivers/net/wireless/ti/wl1251/main.c |  152 +++++++++++++++++++++++++=
-++++++++
- 1 file changed, 152 insertions(+)
+ drivers/net/wireless/ti/wl1251/acx.c |    8 +++++++-
+ drivers/net/wireless/ti/wl1251/tx.c  |    7 ++++++-
+ 2 files changed, 13 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wirele=
-ss/ti/wl1251/main.c
-index 7b9efc8..29625c2 100644
---- a/drivers/net/wireless/ti/wl1251/main.c
-+++ b/drivers/net/wireless/ti/wl1251/main.c
-@@ -1375,6 +1375,147 @@ static const struct ieee80211_ops wl1251_ops =3D=
- {
- 	.get_survey =3D wl1251_op_get_survey,
- };
-=20
-+static ssize_t wl1251_sysfs_show_tx_mgmt_frm_rate(struct device *dev,
-+						  struct device_attribute *attr,
-+						  char *buf)
-+{
-+	struct wl1251 *wl =3D dev_get_drvdata(dev);
-+	ssize_t len;
-+	int val;
-+
-+	/* FIXME: what's the maximum length of buf? page size?*/
-+	len =3D 500;
-+
-+	switch (wl->tx_mgmt_frm_rate) {
-+		/* skip 1 and 12 Mbps because they have same value 0x0a */
-+	case RATE_2MBPS:
-+		val =3D 20;
-+		break;
-+	case RATE_5_5MBPS:
-+		val =3D 55;
-+		break;
-+	case RATE_11MBPS:
-+		val =3D 110;
-+		break;
-+	case RATE_6MBPS:
-+		val =3D 60;
-+		break;
-+	case RATE_9MBPS:
-+		val =3D 90;
-+		break;
-+	case RATE_12MBPS:
-+		val =3D 120;
-+		break;
-+	case RATE_18MBPS:
-+		val =3D 180;
-+		break;
-+	case RATE_24MBPS:
-+		val =3D 240;
-+		break;
-+	case RATE_36MBPS:
-+		val =3D 360;
-+		break;
-+	case RATE_48MBPS:
-+		val =3D 480;
-+		break;
-+	case RATE_54MBPS:
-+		val =3D 540;
-+		break;
-+	default:
-+		val =3D 10;
-+	}
-+
-+	/* for 1 and 12 Mbps we have to check the modulation */
-+	if (wl->tx_mgmt_frm_rate =3D=3D RATE_1MBPS) {
-+		switch (wl->tx_mgmt_frm_rate) {
-+		case CCK_LONG:
-+			val =3D 10;
-+			break;
-+		case OFDM:
-+			val =3D 120;
-+			break;
-+		default:
-+			val =3D 10;
-+			break;
-+		}
-+	}
-+	len =3D snprintf(buf, len, "%d", val);
-+
-+	return len;
-+}
-+
-+static ssize_t wl1251_sysfs_store_tx_mgmt_frm_rate(struct device *dev,
-+					struct device_attribute *attr,
-+					const char *buf, size_t count)
-+{
-+	struct wl1251 *wl =3D dev_get_drvdata(dev);
-+	unsigned long res;
-+	int ret;
-+
-+	ret =3D strict_strtoul(buf, 10, &res);
-+
-+	if (ret < 0) {
-+		wl1251_warning("incorrect value written to tx_mgmt_frm_rate");
-+		return 0;
-+	}
-+
-+	switch (res) {
-+	case 10:
-+		wl->tx_mgmt_frm_rate =3D RATE_1MBPS;
-+		wl->tx_mgmt_frm_mod =3D CCK_LONG;
-+		break;
-+	case 20:
-+		wl->tx_mgmt_frm_rate =3D RATE_2MBPS;
-+		wl->tx_mgmt_frm_mod =3D CCK_LONG;
-+		break;
-+	case 55:
-+		wl->tx_mgmt_frm_rate =3D RATE_5_5MBPS;
-+		wl->tx_mgmt_frm_mod =3D CCK_LONG;
-+		break;
-+	case 110:
-+		wl->tx_mgmt_frm_rate =3D RATE_11MBPS;
-+		wl->tx_mgmt_frm_mod =3D CCK_LONG;
-+		break;
-+	case 60:
-+		wl->tx_mgmt_frm_rate =3D RATE_6MBPS;
-+		wl->tx_mgmt_frm_mod =3D OFDM;
-+		break;
-+	case 90:
-+		wl->tx_mgmt_frm_rate =3D RATE_9MBPS;
-+		wl->tx_mgmt_frm_mod =3D OFDM;
-+		break;
-+	case 120:
-+		wl->tx_mgmt_frm_rate =3D RATE_12MBPS;
-+		wl->tx_mgmt_frm_mod =3D OFDM;
-+		break;
-+	case 180:
-+		wl->tx_mgmt_frm_rate =3D RATE_18MBPS;
-+		wl->tx_mgmt_frm_mod =3D OFDM;
-+		break;
-+	case 240:
-+		wl->tx_mgmt_frm_rate =3D RATE_24MBPS;
-+		wl->tx_mgmt_frm_mod =3D OFDM;
-+		break;
-+	case 360:
-+		wl->tx_mgmt_frm_rate =3D RATE_36MBPS;
-+		wl->tx_mgmt_frm_mod =3D OFDM;
-+		break;
-+	case 480:
-+		wl->tx_mgmt_frm_rate =3D RATE_48MBPS;
-+		wl->tx_mgmt_frm_mod =3D OFDM;
-+		break;
-+	case 540:
-+		wl->tx_mgmt_frm_rate =3D RATE_54MBPS;
-+		wl->tx_mgmt_frm_mod =3D OFDM;
-+		break;
-+	default:
-+		wl1251_warning("incorrect value written to tx_mgmt_frm_rate");
-+		return 0;
-+	}
-+
-+	return count;
-+}
-+
- static ssize_t wl1251_sysfs_show_bt_coex_mode(struct device *dev,
- 					      struct device_attribute *attr,
- 					      char *buf)
-@@ -1443,6 +1584,10 @@ out:
- 	return count;
- }
-=20
-+static DEVICE_ATTR(tx_mgmt_frm_rate, S_IRUGO | S_IWUSR,
-+		   wl1251_sysfs_show_tx_mgmt_frm_rate,
-+		   wl1251_sysfs_store_tx_mgmt_frm_rate);
-+
- static DEVICE_ATTR(bt_coex_mode, S_IRUGO | S_IWUSR,
- 		   wl1251_sysfs_show_bt_coex_mode,
- 		   wl1251_sysfs_store_bt_coex_mode);
-@@ -1583,6 +1728,13 @@ int wl1251_init_ieee80211(struct wl1251 *wl)
+diff --git a/drivers/net/wireless/ti/wl1251/acx.c b/drivers/net/wireless/ti/wl1251/acx.c
+index 14da6de..f98d46f 100644
+--- a/drivers/net/wireless/ti/wl1251/acx.c
++++ b/drivers/net/wireless/ti/wl1251/acx.c
+@@ -943,12 +943,18 @@ int wl1251_acx_rate_policies(struct wl1251 *wl)
  	}
- 	dev_set_drvdata(&wl1251_device.dev, wl);
-=20
-+	/* Create sysfs file tx_mgmt_frm_rate */
-+	ret =3D device_create_file(&wl1251_device.dev,
-+				 &dev_attr_tx_mgmt_frm_rate);
-+	if (ret < 0) {
-+		wl1251_error("failed to create sysfs file tx_mgmt_frm_rate");
-+		goto out;
+ 
+ 	/* configure one default (one-size-fits-all) rate class */
+-	acx->rate_class_cnt = 1;
++	acx->rate_class_cnt = 2;
+ 	acx->rate_class[0].enabled_rates = ACX_RATE_MASK_UNSPECIFIED;
+ 	acx->rate_class[0].short_retry_limit = ACX_RATE_RETRY_LIMIT;
+ 	acx->rate_class[0].long_retry_limit = ACX_RATE_RETRY_LIMIT;
+ 	acx->rate_class[0].aflags = 0;
+ 
++	/* no-retry rate class */
++	acx->rate_class[1].enabled_rates = ACX_RATE_MASK_UNSPECIFIED;
++	acx->rate_class[1].short_retry_limit = 0;
++	acx->rate_class[1].long_retry_limit = 0;
++	acx->rate_class[1].aflags = 0;
++
+ 	ret = wl1251_cmd_configure(wl, ACX_RATE_POLICY, acx, sizeof(*acx));
+ 	if (ret < 0) {
+ 		wl1251_warning("Setting of rate policies failed: %d", ret);
+diff --git a/drivers/net/wireless/ti/wl1251/tx.c b/drivers/net/wireless/ti/wl1251/tx.c
+index 1de4ccb..e559bc4 100644
+--- a/drivers/net/wireless/ti/wl1251/tx.c
++++ b/drivers/net/wireless/ti/wl1251/tx.c
+@@ -90,8 +90,12 @@ static void wl1251_tx_control(struct tx_double_buffer_desc *tx_hdr,
+ 	/* 802.11 packets */
+ 	tx_hdr->control.packet_type = 0;
+ 
+-	if (control->flags & IEEE80211_TX_CTL_NO_ACK)
++	/* Also disable retry and ACK policy for injected packets */
++	if ((control->flags & IEEE80211_TX_CTL_NO_ACK) ||
++	    (control->flags & IEEE80211_TX_CTL_INJECTED)) {
++		tx_hdr->control.rate_policy = 1;
+ 		tx_hdr->control.ack_policy = 1;
 +	}
-=20
- 	/* Create sysfs file to control bt coex state */
- 	ret =3D device_create_file(&wl1251_device.dev, &dev_attr_bt_coex_mode=
-);
---=20
+ 
+ 	tx_hdr->control.tx_complete = 1;
+ 
+@@ -414,6 +418,7 @@ static void wl1251_tx_packet_cb(struct wl1251 *wl,
+ 	info = IEEE80211_SKB_CB(skb);
+ 
+ 	if (!(info->flags & IEEE80211_TX_CTL_NO_ACK) &&
++	    !(info->flags & IEEE80211_TX_CTL_INJECTED) &&
+ 	    (result->status == TX_SUCCESS))
+ 		info->flags |= IEEE80211_TX_STAT_ACK;
+ 
+-- 
 1.7.10.4
