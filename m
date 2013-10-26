@@ -1,61 +1,40 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2 3/5] 6lowpan: use
-	netdev_alloc_skb instead dev_alloc_skb
-Date: Sat, 26 Oct 2013 15:54:00 +0200
-Message-ID: <1382795642-12501-4-git-send-email-alex.aring@gmail.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH net-next v2 5/5] 6lowpan: remove unnecessary break
+Date: Sat, 26 Oct 2013 15:54:02 +0200
+Message-ID: <1382795642-12501-6-git-send-email-alex.aring@gmail.com>
 References: <1382795642-12501-1-git-send-email-alex.aring@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1382795642-12501-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-zigbee-devel@lists.sourceforge.net, werner@almesberger.net,
+	dbaryshkov@gmail.com, netdev@vger.kernel.org,
+	Alexander Aring <alex.aring@gmail.com>
+To: alex.bluesman.smirnov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f49.google.com ([74.125.83.49]:49657 "EHLO
+	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753422Ab3JZNyW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 09:54:22 -0400
+Received: by mail-ee0-f49.google.com with SMTP id e52so799864eek.22
+        for <netdev@vger.kernel.org>; Sat, 26 Oct 2013 06:54:21 -0700 (PDT)
+In-Reply-To: <1382795642-12501-1-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch uses the netdev_alloc_skb instead dev_alloc_skb function and
-drops the seperate assignment to skb->dev.
-
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
+Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+Reviewed-by: Werner Almesberger <werner@almesberger.net>
 ---
- net/ieee802154/6lowpan.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ieee802154/6lowpan.c | 1 -
+ 1 file changed, 1 deletion(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 9057f83..1884a84 100644
+index 665b118..6d75038 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -1127,12 +1127,12 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
+@@ -440,7 +440,6 @@ lowpan_uncompress_udp_header(struct sk_buff *skb, struct udphdr *uh)
+ 		default:
+ 			pr_debug("ERROR: unknown UDP format\n");
+ 			goto err;
+-			break;
+ 		}
  
- 	lowpan_raw_dump_inline(__func__, "6lowpan fragment header", head, hlen);
- 
--	frag = dev_alloc_skb(hlen + mlen + plen + IEEE802154_MFR_SIZE);
-+	frag = netdev_alloc_skb(skb->dev, hlen + mlen +
-+				plen + IEEE802154_MFR_SIZE);
- 	if (!frag)
- 		return -ENOMEM;
- 
- 	frag->priority = skb->priority;
--	frag->dev = skb->dev;
- 
- 	/* copy header, MFR and payload */
- 	memcpy(skb_put(frag, mlen), skb->data, mlen);
+ 		pr_debug("uncompressed UDP ports: src = %d, dst = %d\n",
 -- 
 1.8.4.1
-
-
-------------------------------------------------------------------------------
-October Webinars: Code for Performance
-Free Intel webinars can help you accelerate application performance.
-Explore tips for MPI, OpenMP, advanced profiling, and more. Get the most from 
-the latest Intel processors and coprocessors. See abstracts and register >
-http://pubads.g.doubleclick.net/gampad/clk?id=60135991&iu=/4140/ostg.clktrk
