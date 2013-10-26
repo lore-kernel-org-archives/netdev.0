@@ -1,20 +1,21 @@
-From: "David Desmond." <acuario@m7.gyao.ne.jp>
-Subject: David Desmond.Business Manager Societe Generale Bank
-	 United Kingdom.I have a proposal worth =?ISO-8859-1?B?ozE4LDUwMCw=?=
-	=?ISO-8859-1?B?MDAwLkdldA==?= back to us for more details via
-	 david_desmond10@yahoo.com
-Date: Sat, 26 Oct 2013 17:04:06 +0900
-Message-ID: <20131026080406.0000588D.0771__31555.487009655$1382775078$gmane$org@m7.gyao.ne.jp>
-Reply-To: <david_desmond10@yahoo.com>
+From: "Mr. X" <jul217@juy793.onmicrosoft.com>
+Subject: my subject
+Date: Sat, 26 Oct 2013 14:06:48 +0530
+Message-ID: <fe5802d1-7768-4595-9307-9c79fbd43d87__15406.9565156989$1382776666$gmane$org@HKNPR06MB067.apcprd06.prod.outlook.com>
+Reply-To: <guaranteeloancompany1@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: <info@david.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <jul217@juy793.onmicrosoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms-gwomx02.so-net.ne.jp ([202.238.84.149]:59834 "EHLO
-	ms-gwomx02.so-net.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752354Ab3JZIKz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 04:10:55 -0400
+Received: from emea01-am1-ndr.ptr.protection.outlook.com ([157.56.116.103]:9260
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751817Ab3JZIhc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 04:37:32 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+
+Need a Loan, Loans from $5000 - $10,000,000 00. Get your no obligation FREE quote now! Repayments up to 54 Months. No Collateral, Money paid into your account within 24 hours after approval. For more Info contact us today  guaranteeloancompany1@gmail.com
