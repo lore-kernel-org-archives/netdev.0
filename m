@@ -1,21 +1,25 @@
-From: "Mr. X" <jul217@juy793.onmicrosoft.com>
-Subject: my subject
-Date: Sat, 26 Oct 2013 14:06:48 +0530
-Message-ID: <fe5802d1-7768-4595-9307-9c79fbd43d87__15406.9565156989$1382776666$gmane$org@HKNPR06MB067.apcprd06.prod.outlook.com>
-Reply-To: <guaranteeloancompany1@gmail.com>
+From: HK China <info@customercare.com>
+Subject: I have a better plans
+Date: Sat, 26 Oct 2013 11:16:19 +0300
+Message-ID: <20131026111619.164330gcqi9lcaqb@webmail.mailkurdu.net>
+Reply-To: 2630920215@qq.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <jul217@juy793.onmicrosoft.com>
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emea01-am1-ndr.ptr.protection.outlook.com ([157.56.116.103]:9260
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751817Ab3JZIhc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 04:37:32 -0400
-Content-Description: Mail message body
+Received: from static-130-137-92-77.internetsahibi.net ([77.92.137.130]:45391
+	"EHLO burclinux.ints.net.tr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751551Ab3JZMto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 08:49:44 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Need a Loan, Loans from $5000 - $10,000,000 00. Get your no obligation FREE quote now! Repayments up to 54 Months. No Collateral, Money paid into your account within 24 hours after approval. For more Info contact us today  guaranteeloancompany1@gmail.com
+I have a better plans for us reply me ASAP.   2630920215@qq.com
+
+Thanks.
