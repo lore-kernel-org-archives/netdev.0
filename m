@@ -1,74 +1,33 @@
-From: wangweidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH 1/4] sctp: merge two if statements to one
-Date: Sat, 26 Oct 2013 10:59:52 +0800
-Message-ID: <526B3028.4060303@huawei.com>
-References: <1382665805-13952-1-git-send-email-wangweidong1@huawei.com> <1382665805-13952-2-git-send-email-wangweidong1@huawei.com> <526B016D.6030301@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/2] qlcnic: Bug fixes
+Date: Sat, 26 Oct 2013 00:05:49 -0400 (EDT)
+Message-ID: <20131026.000549.2135341232449385506.davem@davemloft.net>
+References: <1382711917-28501-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <dingtianhong@huawei.com>, <linux-sctp@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>, <davem@davemloft.net>,
-	<nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: shahed.shaikh@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:55178 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753254Ab3JZDAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Oct 2013 23:00:22 -0400
-In-Reply-To: <526B016D.6030301@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37799 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750893Ab3JZEFx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Oct 2013 00:05:53 -0400
+In-Reply-To: <1382711917-28501-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/10/26 7:40, Vlad Yasevich wrote:
-> On 10/24/2013 09:50 PM, Wang Weidong wrote:
->> Two if statements do the same work, maybe we can merge them to
->> one. There is just code simplification, no functional changes.
->>
->> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->> ---
->>   net/sctp/auth.c | 12 ++++--------
->>   1 file changed, 4 insertions(+), 8 deletions(-)
->>
->> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
->> index 8c4fa5d..19fb0ae 100644
->> --- a/net/sctp/auth.c
->> +++ b/net/sctp/auth.c
->> @@ -539,18 +539,14 @@ struct sctp_hmac *sctp_auth_asoc_get_hmac(const struct sctp_association *asoc)
->>       for (i = 0; i < n_elt; i++) {
->>           id = ntohs(hmacs->hmac_ids[i]);
->>
->> -        /* Check the id is in the supported range */
->> -        if (id > SCTP_AUTH_HMAC_ID_MAX) {
->> -            id = 0;
->> -            continue;
->> -        }
->> -
->> -        /* See is we support the id.  Supported IDs have name and
->> +        /* Check the id is in the supported range. And
->> +         * see is we support the id.  Supported IDs have name and
->>            * length fields set, so that we can allocated and use
->>            * them.  We can safely just check for name, for without the
->>            * name, we can't allocate the TFM.
->>                */
->> -        if (!sctp_hmac_list[id].hmac_name) {
->> +        if (id > SCTP_AUTH_HMAC_ID_MAX ||
->> +            !sctp_hmac_list[id].hmac_name) {
-> 
-> Can you please make the 2 parts of the 'if' statement above line up
-> with each other instead of the code below.  I makes it easy to see what
-> the whole 'if conditional' is.
-> 
-> Thanks
-> -vlad
-> 
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Date: Fri, 25 Oct 2013 10:38:35 -0400
 
-Ok, I will resend a new version.
-Thanks. 
+> From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> 
+> This patch series contains following fixes-
+> * Performace drop because driver was forcing adapter not to check
+>   destination IP for LRO.
+> * driver was not issuing qlcnic_fw_cmd_set_drv_version() to 83xx adapter
+>   becasue of improper handling of QLCNIC_FW_CAPABILITY_MORE_CAPS bit.
+> 
+> Please apply to net.
 
->>               id = 0;
->>               continue;
->>           }
->>
-> 
-> 
-> 
+Applied, what exactly does that destination IP check do?
