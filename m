@@ -1,80 +1,126 @@
-From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Subject: [PATCH 0/8] Fix minor address type errors
-Date: Sun, 27 Oct 2013 21:47:17 +0000
-Message-ID: <1382910437.2994.43.camel@deadeye.wl.decadent.org.uk>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH 2/8] farsync: Fix confusion about DMA address and buffer
+ offset types
+Date: Sun, 27 Oct 2013 21:51:44 +0000
+Message-ID: <1382910704.2994.46.camel@deadeye.wl.decadent.org.uk>
+References: <1382910437.2994.43.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-aenbMtIN47UiBrAVHmxj"
-Cc: linux-scsi <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
-To: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+	protocol="application/pgp-signature"; boundary="=-fhJyZh9yBQReUAhbE0rs"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Kevin Curtis <kevin.curtis@farsite.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1382910437.2994.43.camel@deadeye.wl.decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-aenbMtIN47UiBrAVHmxj
+--=-fhJyZh9yBQReUAhbE0rs
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-Various bits of code are mixing making assumptions about the size of
-dma_addr_t or resource_size_t, or mixing up pointer and integer types.
+Use dma_addr_t for DMA address parameters and u32 for shared memory
+offset parameters.
 
-All these fixes are based on compiler warnings and so far as I can see
-the bugs are practically harmless.
+Do not assume that dma_addr_t is the same as unsigned long; it will
+not be in PAE configurations.  Truncate DMA addresses to 32 bits when
+printing them.  This is OK because the DMA mask for this device is
+32-bit (per default).
 
-Ben.
+Compile-tested only.
 
-Ben Hutchings (8):
-  IB/cxgb4: Fix formatting of physical address
-  farsync: Fix confusion about DMA address and buffer offset types
-  drm: Do not include page offset in argument to virt_to_page()
-  drm: Pass pointers to virt_to_page()
-  [SCSI] tgt: Pass pointers to virt_to_page(), not integers
-  uio: Pass pointers to virt_to_page(), not integers
-  rds: Pass pointers to virt_to_page(), not integers
-  [SCSI] pmcraid: Pass pointers to access_ok(), not integers
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ drivers/net/wan/farsync.c | 19 +++++++------------
+ 1 file changed, 7 insertions(+), 12 deletions(-)
 
- drivers/gpu/drm/drm_pci.c            |  4 ++--
- drivers/gpu/drm/drm_vm.c             |  2 +-
- drivers/infiniband/hw/cxgb4/device.c |  4 ++--
- drivers/net/wan/farsync.c            | 19 +++++++------------
- drivers/scsi/pmcraid.c               |  3 ++-
- drivers/scsi/scsi_tgt_if.c           |  2 +-
- drivers/uio/uio.c                    |  6 ++++--
- net/rds/message.c                    |  2 +-
- 8 files changed, 20 insertions(+), 22 deletions(-)
-
+diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
+index 3f0c4f2..4b36676 100644
+--- a/drivers/net/wan/farsync.c
++++ b/drivers/net/wan/farsync.c
+@@ -886,15 +886,13 @@ fst_rx_dma_complete(struct fst_card_info *card, struc=
+t fst_port_info *port,
+  *      Receive a frame through the DMA
+  */
+ static inline void
+-fst_rx_dma(struct fst_card_info *card, dma_addr_t skb,
+-	   dma_addr_t mem, int len)
++fst_rx_dma(struct fst_card_info *card, dma_addr_t skb, u32 mem, int len)
+ {
+ 	/*
+ 	 * This routine will setup the DMA and start it
+ 	 */
+=20
+-	dbg(DBG_RX, "In fst_rx_dma %lx %lx %d\n",
+-	    (unsigned long) skb, (unsigned long) mem, len);
++	dbg(DBG_RX, "In fst_rx_dma %x %x %d\n", (u32)skb, mem, len);
+ 	if (card->dmarx_in_progress) {
+ 		dbg(DBG_ASS, "In fst_rx_dma while dma in progress\n");
+ 	}
+@@ -915,20 +913,19 @@ fst_rx_dma(struct fst_card_info *card, dma_addr_t skb=
+,
+  *      Send a frame through the DMA
+  */
+ static inline void
+-fst_tx_dma(struct fst_card_info *card, unsigned char *skb,
+-	   unsigned char *mem, int len)
++fst_tx_dma(struct fst_card_info *card, dma_addr_t skb, u32 mem, int len)
+ {
+ 	/*
+ 	 * This routine will setup the DMA and start it.
+ 	 */
+=20
+-	dbg(DBG_TX, "In fst_tx_dma %p %p %d\n", skb, mem, len);
++	dbg(DBG_TX, "In fst_tx_dma %x %x %d\n", (u32)skb, mem, len);
+ 	if (card->dmatx_in_progress) {
+ 		dbg(DBG_ASS, "In fst_tx_dma while dma in progress\n");
+ 	}
+=20
+-	outl((unsigned long) skb, card->pci_conf + DMAPADR1);	/* Copy from here *=
+/
+-	outl((unsigned long) mem, card->pci_conf + DMALADR1);	/* to here */
++	outl(skb, card->pci_conf + DMAPADR1);	/* Copy from here */
++	outl(mem, card->pci_conf + DMALADR1);	/* to here */
+ 	outl(len, card->pci_conf + DMASIZ1);	/* for this length */
+ 	outl(0x000000004, card->pci_conf + DMADPR1);	/* In this direction */
+=20
+@@ -1405,9 +1402,7 @@ do_bottom_half_tx(struct fst_card_info *card)
+ 					card->dma_len_tx =3D skb->len;
+ 					card->dma_txpos =3D port->txpos;
+ 					fst_tx_dma(card,
+-						   (char *) card->
+-						   tx_dma_handle_card,
+-						   (char *)
++						   card->tx_dma_handle_card,
+ 						   BUF_OFFSET(txBuffer[pi]
+ 							      [port->txpos][0]),
+ 						   skb->len);
 
 --=20
 Ben Hutchings
 If at first you don't succeed, you're doing about average.
 
---=-aenbMtIN47UiBrAVHmxj
+--=-fhJyZh9yBQReUAhbE0rs
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.15 (GNU/Linux)
 
-iQIVAwUAUm2J5ee/yOyVhhEJAQqGvA/9GzMeGBFRDv9lMX/TsSlwFqMeODg9ZXbI
-MMWTYKi+h5aiKrniDjtSKb7ilx0nVNnR8BEFCQcZBr4DOd+97kMEbxrZZTBKE1F6
-Nhy419nEivQcWzmVAw4q6uqQ+ozfVz5XX/bqOUvdYZtSBLkw3py6DyCnWnLHsr8Y
-QQqF9bDaa8cJWeN59moFUduSKDUHSHSgJFMNF6j1oB0n3BdaVzuqVmwNCwLG/AXk
-Zly1V6lvKj1QPzgDO3P3RDEVrOaOx6GKfuoVqj5gbqNAw1nXlnqg5myRYC7FqNnN
-EKta5bUHgkwpS867jaIMalnjVXIDgf0p2TgfgsxCgTdF6F4hirL6DZaLjIHxK7OO
-Hr22hkX64W/CppwP5653sjO2xuPwcqiVlHZdVRhhYckRldRaEaB63mwkIdRsRolW
-i8OrbYGZvUTXJ2gcCgxoYNMXYAO+EFAK4YVEM4vc7CSzi018Zz0TEapi+4abNdWp
-ckUzC8+P5uk1fBTGziOdH+derBwDo6GS9qscdIrXCbkA4zKMn+JaKynTmncFNtGn
-0uKVD/TW3ds2+tUlbuwlikWrLk7rTU+8186+K0q3xcaArPt3uLnlqSsrq6Th1r9D
-zsbWvsZAvs7yWsa+sUOla25T++Z2/o+k6IQYKNmhAWVqWVJuAF0OZ1YK5yu0NWq0
-9/1fnbEoDMw=
-=ZTmh
+iQIVAwUAUm2K8Oe/yOyVhhEJAQrYrQ//Y2A/R3z6G3v2Ax8Z7beBdLSCahlP4MGZ
+O/coBIneIqLHVnXniScHNxEon7g3gxUocfq9Iucmg6/LWW1Xmxbc0FqBmSiduT+m
+dnUtEvWB+K/qZC00zLEylNTplyMBFIFbs6mXqwnbvf6ObJZYsB8+h/CAM83yZSGX
+ZSl6xRbp/ZJM+q2a2b+sVfmppGkEXYpsGgd8uS1T5hj6B6SH+2mJ/DVo6C1zjMr9
+C1IcMdzi3HimfdseevayC0dJEJl2P+0IhzKvBcyzHrq8WoSh83PXNRODzwA2xsAL
+ixxpes7q2AiFPHm2rwu+eDn67rtnRMJJPldNBZP3kbePTEfrcNV+8bMsvtF9tptQ
+uu5Vget3AqjEbVCVbHTb+oDC98BxMJvmc1BPDIsYS1MF5XJDfmTlmOUiKbcYmbjz
+zTJGX+m9o321Ik4CAL1h8dtEIsvAGC6qVXrR2pTacHu3ODXtDs5Qm+a31JCFyMbQ
+RSokxaDxO6btJOzdrw8XkluYrxoAgQOhOjwkKHRgYgivpCLU4iJK9MWyMxSPXA4b
+r1DicdI5oeDpD1Vo5NWVV0Q+1lKYin9e1HkyoxrjvMrwPKzSBQvIdI0QWPLQc01N
+y8b5GRjzLQAeffYJ6W+xobWNHJ+u9QulW0lhqkjkZk2TWo35Shjjgz5RIpw60Amf
+y9f23m1sRRg=
+=0VO4
 -----END PGP SIGNATURE-----
 
---=-aenbMtIN47UiBrAVHmxj--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=-fhJyZh9yBQReUAhbE0rs--
