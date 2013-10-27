@@ -1,58 +1,39 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: extending ndo_add_rx_vxlan_port
-Date: Sun, 27 Oct 2013 22:34:50 +0200
-Message-ID: <CAJZOPZ+S6ngqMjV-2ZMcpzkuWzzLWwCQMtd_1_SjDkqWh_tbYg@mail.gmail.com>
-References: <526D2F8F.1070204@mellanox.com>
-	<alpine.LFD.2.03.1310271017120.19783@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/5] bonding: patchset for rcu use in
+ bonding
+Date: Sun, 27 Oct 2013 16:37:12 -0400 (EDT)
+Message-ID: <20131027.163712.1324471504006808112.davem@davemloft.net>
+References: <52688F33.30904@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Yan Burman <yanb@mellanox.com>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fubar@us.ibm.com, andy@greyhouse.net, nikolay@redhat.com,
+	vfalico@redhat.com, netdev@vger.kernel.org
+To: dingtianhong@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:36545 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754605Ab3J0Uev (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 16:34:51 -0400
-Received: by mail-pd0-f169.google.com with SMTP id q10so6177816pdj.0
-        for <netdev@vger.kernel.org>; Sun, 27 Oct 2013 13:34:50 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.03.1310271017120.19783@intel.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53806 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753521Ab3J0UhR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 16:37:17 -0400
+In-Reply-To: <52688F33.30904@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 27, 2013 at 7:25 PM, Joseph Gasparakis
-<joseph.gasparakis@intel.com> wrote:
->
->
-> On Sun, 27 Oct 2013, Or Gerlitz wrote:
->
->> Hi,
->>
->> So with commit 53cf527513eed6e7170e9dceacd198f9267171b0 "vxlan: Notify drivers
->> for listening UDP port changes" drivers that have HW offloads for vxlan can be
->> notified on which UDP port to listen. Taking this further, some HW may need to
->> know the multicast address and/or the VNID used by the vxlan instance/s set
->> above them. In that respect, do we prefer to extend ndo_add_rx_vxlan_port() or
->> introduce new ndo?
->>
->> Or.
->>
->
-> The way this patch works is to notify the drivers when a VXLAN UDP port
-> comes up or down. This way drivers do not need to do any sort of accounting. As
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Thu, 24 Oct 2013 11:08:35 +0800
 
-Could you elaborate why do we want to notify all the netdev instances
-in the system (on a certain name-space)
-that vxlan instance/s are set to listen on certain UDP port and not
-only the device over which the
-vxlan device is being set? say the HW can listen limited amount of UDP
-ports and few vxlan instances are created
-one of top of each "real" netdev in the system and each on different
-port. Each netdevice will get all callbacks on port addition
-and at some point will start to fail adding them into the HW  when the
-HW limit is met.
+> The slave list will add and del by bond_master_upper_dev_link() and bond_upper_dev_unlink(),
+> which will call call_netdevice_notifiers(), even it is safe to call it in write bond lock now,
+> but we can't sure that whether it is safe later, because other drivers may deal NETDEV_CHANGEUPPER
+> in sleep way, so I didn't admit move the bond_upper_dev_unlink() in write bond lock.
+> 
+> now the bond_for_each_slave only protect by rtnl_lock(), maybe use bond_for_each_slave_rcu is a good
+> way to protect slave list for bond, but as a system slow path, it is no need to transform bond_for_each_slave()
+> to bond_for_each_slave_rcu() in slow path, so in the patchset, I will remove the unused read bond lock
+> for monitor function, maybe it is a better way, I will wait to accept any relay for it.
+> 
+> Thanks for the Veaceslav Falico opinion.
+> 
+> v2: add and modify commit for patchset and patch, it will be the first step for the whole patchset.
 
-Or.
+Series applied, thanks.
