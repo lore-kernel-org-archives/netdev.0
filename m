@@ -1,51 +1,58 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next] ipv6: allow userspace to create address with IFLA_F_TEMPORARY flag
-Date: Sun, 27 Oct 2013 17:48:35 +0100
-Message-ID: <20131027164835.GB4714@order.stressinduktion.org>
-References: <1382622355-6500-1-git-send-email-jiri@resnulli.us> <CAGCdqXHUW=RJf67qPXVRhPY__GAs02+G9mJV7agN5pDdfELXXA@mail.gmail.com> <20131027132941.GA1443@minipsycho.orion>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH 0/2] net_sched: Remove broken tc actions
+Date: Sun, 27 Oct 2013 12:58:38 -0400
+Message-ID: <526D463E.6040000@mojatatu.com>
+References: <87fvrmu909.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Vladislav Yasevich <vyasevich@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	thaller@redhat.com, Stephen Hemminger <stephen@networkplumber.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alexander.h.duyck@intel.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60302 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754030Ab3J0Qsh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 12:48:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20131027132941.GA1443@minipsycho.orion>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:37041 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753482Ab3J0Q6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 12:58:49 -0400
+Received: by mail-ie0-f176.google.com with SMTP id u16so9357386iet.7
+        for <netdev@vger.kernel.org>; Sun, 27 Oct 2013 09:58:48 -0700 (PDT)
+In-Reply-To: <87fvrmu909.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jiri!
+On 10/27/13 09:40, Eric W. Biederman wrote:
+>
+> While auditing the code to make certain it would be safe to enable the
+> user namespace root to use tc actions I stumbled on the strange fact
+> that two of the tc modules in the kernel have been broken for more
+> years than I care to think about.
+>
+> In particular neither of these two modules implements the tc_action_ops
+> lookup method.  Which means that in practice neither RTM_GETACTION nor
+> RTM_DELACTION work.  And with RTM_DELACTION broken that looks like a
+> permanent leak of kernel memory to me.
+>
+ >
+> A leak I am not happy at root having and certainly not something I want
+> to allow unprivileged users access to.
+>
+> On the premise that 5+ years is too long to wait for someone to notice,
+> complain and get this code fixed let's just remove these broken tc
+> modules.
+>
 
-On Sun, Oct 27, 2013 at 02:29:41PM +0100, Jiri Pirko wrote:
-> The idea is to provide possibility to do address configuration not in
-> kernel but rather in userspace (as it is done for example in NetworkManager)
-> 
-> Maybe I'm missing something, but why is it problem to have the
-> possibility to set lifetime even for temporary prefix?
 
-There is no problem setting the lifetime for a temporary prefix (in
-contrary, it needs one) but the code paths designed for IFA_F_TEMPORARY
-may not fiddle with it. This needs to be checked.
+Nah, dude.
+You dont have to implement the get/del. Actions are typically bound
+to filters; when the filters disappears the action is destroyed.
+You Get the filter, you Get the bound actions.
+you can add actions without filters - but in such a case, for both
+of these ones you picked, you can dump or flush them unless they are
+bound to a filter. Thats the minimal requirement (which is met).
 
-In this constellation addrconf_verify does not refresh the privacy
-address when its preferred lifetime is expired, if you create the
-address by only passing IFA_F_TEMPORARY to rtm_newaddr (as Vlad pointed
-out). E.g. NetworkManager has to take care about that, then.
+What is your use case to need explicit get/del?
+Given act_simple is pedagogical in nature, I think
+that will be useful for illustration purposes.
 
-A temporary address is also bound to a non-privacy public address so
-it's lifetime is determined by its lifetime (e.g. if you switch the
-network and don't receive on-link information for that prefix any
-more). NetworkManager would have to take care about that, too. It is
-just a question of what NetworkManager wants to handle itself or lets
-the kernel handle for it.
-
-Greetings,
-
-  Hannes
+cheers,
+jamal
