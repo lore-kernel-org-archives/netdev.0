@@ -1,58 +1,46 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 0/2] net_sched: Remove broken tc actions
-Date: Sun, 27 Oct 2013 12:58:38 -0400
-Message-ID: <526D463E.6040000@mojatatu.com>
-References: <87fvrmu909.fsf@xmission.com>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: extending  ndo_add_rx_vxlan_port
+Date: Sun, 27 Oct 2013 10:25:13 -0700 (PDT)
+Message-ID: <alpine.LFD.2.03.1310271017120.19783@intel.com>
+References: <526D2F8F.1070204@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.h.duyck@intel.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Yan Burman <yanb@mellanox.com>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:37041 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753482Ab3J0Q6t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 12:58:49 -0400
-Received: by mail-ie0-f176.google.com with SMTP id u16so9357386iet.7
-        for <netdev@vger.kernel.org>; Sun, 27 Oct 2013 09:58:48 -0700 (PDT)
-In-Reply-To: <87fvrmu909.fsf@xmission.com>
+Received: from mga09.intel.com ([134.134.136.24]:60060 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753983Ab3J0RIr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Oct 2013 13:08:47 -0400
+In-Reply-To: <526D2F8F.1070204@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/27/13 09:40, Eric W. Biederman wrote:
->
-> While auditing the code to make certain it would be safe to enable the
-> user namespace root to use tc actions I stumbled on the strange fact
-> that two of the tc modules in the kernel have been broken for more
-> years than I care to think about.
->
-> In particular neither of these two modules implements the tc_action_ops
-> lookup method.  Which means that in practice neither RTM_GETACTION nor
-> RTM_DELACTION work.  And with RTM_DELACTION broken that looks like a
-> permanent leak of kernel memory to me.
->
- >
-> A leak I am not happy at root having and certainly not something I want
-> to allow unprivileged users access to.
->
-> On the premise that 5+ years is too long to wait for someone to notice,
-> complain and get this code fixed let's just remove these broken tc
-> modules.
->
 
 
-Nah, dude.
-You dont have to implement the get/del. Actions are typically bound
-to filters; when the filters disappears the action is destroyed.
-You Get the filter, you Get the bound actions.
-you can add actions without filters - but in such a case, for both
-of these ones you picked, you can dump or flush them unless they are
-bound to a filter. Thats the minimal requirement (which is met).
+On Sun, 27 Oct 2013, Or Gerlitz wrote:
 
-What is your use case to need explicit get/del?
-Given act_simple is pedagogical in nature, I think
-that will be useful for illustration purposes.
+> Hi,
+> 
+> So with commit 53cf527513eed6e7170e9dceacd198f9267171b0 "vxlan: Notify drivers
+> for listening UDP port changes" drivers that have HW offloads for vxlan can be
+> notified on which UDP port to listen. Taking this further, some HW may need to
+> know the multicast address and/or the VNID used by the vxlan instance/s set
+> above them. In that respect, do we prefer to extend ndo_add_rx_vxlan_port() or
+> introduce new ndo?
+> 
+> Or.
+> 
 
-cheers,
-jamal
+The way this patch works is to notify the drivers when a VXLAN UDP port 
+comes up or down. This way drivers do not need to do any sort of accounting. As 
+long as this remains, it sounds fine to me to extend the existing ndo. If 
+by extedning it, drivers now have to keep track of the udp ports so they 
+can determine if a notification is for a new port or not, I would much 
+rather go for introducing a new ndo.
+
+Joseph
