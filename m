@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net] tcp: fix SYNACK RTT estimation in Fast Open
-Date: Sun, 27 Oct 2013 16:51:11 -0400 (EDT)
-Message-ID: <20131027.165111.1185105972050420833.davem@davemloft.net>
+Date: Sun, 27 Oct 2013 16:51:27 -0400 (EDT)
+Message-ID: <20131027.165127.1930968854676042241.davem@davemloft.net>
 References: <1382629465-20310-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -10,10 +10,10 @@ Cc: ncardwell@google.com, edumazet@google.com, panweiping3@gmail.com,
 	netdev@vger.kernel.org
 To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53869 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53873 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752672Ab3J0UvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 16:51:13 -0400
+	with ESMTP id S1754164Ab3J0Uv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 16:51:28 -0400
 In-Reply-To: <1382629465-20310-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
