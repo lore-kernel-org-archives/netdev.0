@@ -1,34 +1,29 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv4: fix DO and PROBE pmtu mode regarding local fragmentation with UFO/CORK
-Date: Sun, 27 Oct 2013 15:37:11 +0100
-Message-ID: <20131027143710.GA7442@order.stressinduktion.org>
-References: <20131025194003.GG15744@order.stressinduktion.org>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: extending  ndo_add_rx_vxlan_port
+Date: Sun, 27 Oct 2013 17:21:51 +0200
+Message-ID: <526D2F8F.1070204@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yan Burman <yanb@mellanox.com>, netdev <netdev@vger.kernel.org>,
+	"Stephen Hemminger" <stephen@networkplumber.org>
+To: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60137 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754241Ab3J0OhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 10:37:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20131025194003.GG15744@order.stressinduktion.org>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:39777 "EHLO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753368Ab3J0PXF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 11:23:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 25, 2013 at 09:40:03PM +0200, Hannes Frederic Sowa wrote:
->  	fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
->  	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen;
-> +	maxmsgsize = (inet->pmtudisc >= IP_PMTUDISC_DO) ?
-> +		     maxfraglen : 0xFFFF;
+Hi,
 
-Oops, sorry. I just realized that the check is too strict. The 64
-bit boundary restricton is solely used if we are actually generating
-fragments. So I should have used mtu directly instead of maxfraglen.
+So with commit 53cf527513eed6e7170e9dceacd198f9267171b0 "vxlan: Notify 
+drivers for listening UDP port changes" drivers that have HW offloads 
+for vxlan can be notified on which UDP port to listen. Taking this 
+further, some HW may need to know the multicast address and/or the VNID 
+used by the vxlan instance/s set above them. In that respect, do we 
+prefer to extend ndo_add_rx_vxlan_port() or introduce new ndo?
 
-This should only matter in case of some unusual MTUs but I will send a
-corrected patch as soon as I am at home.
-
-Greetings,
-
-  Hannes
+Or.
