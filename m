@@ -1,71 +1,49 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] ipv6: allow userspace to create address with
- IFLA_F_TEMPORARY flag
-Date: Sun, 27 Oct 2013 14:29:41 +0100
-Message-ID: <20131027132941.GA1443@minipsycho.orion>
-References: <1382622355-6500-1-git-send-email-jiri@resnulli.us>
- <CAGCdqXHUW=RJf67qPXVRhPY__GAs02+G9mJV7agN5pDdfELXXA@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 0/2] net_sched: Remove broken tc actions
+Date: Sun, 27 Oct 2013 06:40:54 -0700
+Message-ID: <87fvrmu909.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	thaller@redhat.com, Stephen Hemminger <stephen@networkplumber.org>
-To: Vladislav Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, alexander.h.duyck@intel.com,
+	jhs@mojatatu.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f180.google.com ([209.85.215.180]:62251 "EHLO
-	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753995Ab3J0N3o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 09:29:44 -0400
-Received: by mail-ea0-f180.google.com with SMTP id l9so1303660eaj.39
-        for <netdev@vger.kernel.org>; Sun, 27 Oct 2013 06:29:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAGCdqXHUW=RJf67qPXVRhPY__GAs02+G9mJV7agN5pDdfELXXA@mail.gmail.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:34788 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754074Ab3J0NlC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 09:41:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Oct 26, 2013 at 01:05:34AM CEST, vyasevich@gmail.com wrote:
->On Thu, Oct 24, 2013 at 9:45 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> This is needed in order to implement userspace address configuration,
->> namely ip6-privacy (rfc4941) in NetworkManager.
->>
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->>  net/ipv6/addrconf.c | 3 ++-
->>  1 file changed, 2 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->> index cd3fb30..962c7c9 100644
->> --- a/net/ipv6/addrconf.c
->> +++ b/net/ipv6/addrconf.c
->> @@ -3715,7 +3715,8 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
->>                 return -ENODEV;
->>
->>         /* We ignore other flags so far. */
->> -       ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS);
->> +       ifa_flags = ifm->ifa_flags & (IFA_F_NODAD | IFA_F_HOMEADDRESS |
->> +                                     IFA_F_TEMPORARY);
->>
->>         ifa = ipv6_get_ifaddr(net, pfx, dev, 1);
->>         if (ifa == NULL) {
->> --
->> 1.8.3.1
->>
->
->Jiri
->
->So, is the idea behind this is that all of temp address management
->would be done in user space?  If so, then you
->may have to verify that no-one sets the lifetime values on the prefix
->in your other patch.   I am still trying to figure out
->why this would be needed.
 
-The idea is to provide possibility to do address configuration not in
-kernel but rather in userspace (as it is done for example in NetworkManager)
+While auditing the code to make certain it would be safe to enable the
+user namespace root to use tc actions I stumbled on the strange fact
+that two of the tc modules in the kernel have been broken for more
+years than I care to think about.
 
-Maybe I'm missing something, but why is it problem to have the
-possibility to set lifetime even for temporary prefix?
+In particular neither of these two modules implements the tc_action_ops
+lookup method.  Which means that in practice neither RTM_GETACTION nor
+RTM_DELACTION work.  And with RTM_DELACTION broken that looks like a
+permanent leak of kernel memory to me.
 
->
->Thanks
->-vlad
+A leak I am not happy at root having and certainly not something I want
+to allow unprivileged users access to.
+
+On the premise that 5+ years is too long to wait for someone to notice,
+complain and get this code fixed let's just remove these broken tc
+modules.
+
+Eric W. Biederman (2):
+      net_sched: Remove broken act_skbedit
+      net_sched: Remove broken act_simple
+
+ include/net/tc_act/tc_defact.h         |   14 --
+ include/net/tc_act/tc_skbedit.h        |   36 -----
+ include/uapi/linux/tc_act/Kbuild       |    2 -
+ include/uapi/linux/tc_act/tc_defact.h  |   19 ---
+ include/uapi/linux/tc_act/tc_skbedit.h |   46 -------
+ net/sched/Kconfig                      |   25 ----
+ net/sched/Makefile                     |    2 -
+ net/sched/act_simple.c                 |  225 --------------------------------
+ net/sched/act_skbedit.c                |  224 -------------------------------
+ 9 files changed, 0 insertions(+), 593 deletions(-)
