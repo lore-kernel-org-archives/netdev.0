@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 1/2] net_sched: Remove broken act_skbedit
-Date: Sun, 27 Oct 2013 06:42:44 -0700
-Message-ID: <87a9huu8x7.fsf@xmission.com>
+Subject: [PATCH 2/2] net_sched: Remove broken act_simple
+Date: Sun, 27 Oct 2013 06:43:32 -0700
+Message-ID: <874n82u8vv.fsf@xmission.com>
 References: <87fvrmu909.fsf@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,204 +9,154 @@ Cc: <netdev@vger.kernel.org>, alexander.h.duyck@intel.com,
 	jhs@mojatatu.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:48390 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754049Ab3J0Nmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 09:42:51 -0400
+Received: from out03.mta.xmission.com ([166.70.13.233]:50236 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754157Ab3J0Nnj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 09:43:39 -0400
 In-Reply-To: <87fvrmu909.fsf@xmission.com> (Eric W. Biederman's message of
 	"Sun, 27 Oct 2013 06:40:54 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-While reading through the code I noticed that act_skbedit does not
-implement a .lookup function in act_skbedit_ops.
+While reading through the code I noticed that act_simple does not
+implement a .lookup function in act_simp_ops.
 
 In practice this means that RTM_GETACTION and RTM_DELACTION will
-always fail for skbedit actions.  This has been the case since at
-least 2.6.12-rc1 well before this code was added.  Which means in
-practice this code does not work and has never worked.
+always fail for "simple" actions.  This has been the case since at
+least 2.6.12-rc1.  Which means this code has been broken for more
+years than I care to think about.
 
-Since the code has been in the tree and broken for 5 years and no
-one has noticed it seems reasonable to delete the code.
+On the principle that a broken example is worse than no example delete
+this code.
 
-Cc: alexander.h.duyck@intel.com
+Cc: jhs@mojatatu.com
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/net/tc_act/tc_skbedit.h        |   36 -----
- include/uapi/linux/tc_act/Kbuild       |    1 -
- include/uapi/linux/tc_act/tc_skbedit.h |   46 -------
- net/sched/Kconfig                      |   11 --
- net/sched/Makefile                     |    1 -
- net/sched/act_skbedit.c                |  224 --------------------------------
- 6 files changed, 0 insertions(+), 319 deletions(-)
- delete mode 100644 include/net/tc_act/tc_skbedit.h
- delete mode 100644 include/uapi/linux/tc_act/tc_skbedit.h
- delete mode 100644 net/sched/act_skbedit.c
+ include/net/tc_act/tc_defact.h        |   14 --
+ include/uapi/linux/tc_act/Kbuild      |    1 -
+ include/uapi/linux/tc_act/tc_defact.h |   19 ---
+ net/sched/Kconfig                     |   14 --
+ net/sched/Makefile                    |    1 -
+ net/sched/act_simple.c                |  225 ---------------------------------
+ 6 files changed, 0 insertions(+), 274 deletions(-)
+ delete mode 100644 include/net/tc_act/tc_defact.h
+ delete mode 100644 include/uapi/linux/tc_act/tc_defact.h
+ delete mode 100644 net/sched/act_simple.c
 
-diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
+diff --git a/include/net/tc_act/tc_defact.h b/include/net/tc_act/tc_defact.h
 deleted file mode 100644
-index e103fe02f375..000000000000
---- a/include/net/tc_act/tc_skbedit.h
+index 65f024b80958..000000000000
+--- a/include/net/tc_act/tc_defact.h
 +++ /dev/null
-@@ -1,36 +0,0 @@
--/*
-- * Copyright (c) 2008, Intel Corporation.
-- *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms and conditions of the GNU General Public License,
-- * version 2, as published by the Free Software Foundation.
-- *
-- * This program is distributed in the hope it will be useful, but WITHOUT
-- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-- * more details.
-- *
-- * You should have received a copy of the GNU General Public License along with
-- * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-- * Place - Suite 330, Boston, MA 02111-1307 USA.
-- *
-- * Author: Alexander Duyck <alexander.h.duyck@intel.com>
-- */
--
--#ifndef __NET_TC_SKBEDIT_H
--#define __NET_TC_SKBEDIT_H
+@@ -1,14 +0,0 @@
+-#ifndef __NET_TC_DEF_H
+-#define __NET_TC_DEF_H
 -
 -#include <net/act_api.h>
 -
--struct tcf_skbedit {
+-struct tcf_defact {
 -	struct tcf_common	common;
--	u32			flags;
--	u32     		priority;
--	u32     		mark;
--	u16			queue_mapping;
--	/* XXX: 16-bit pad here? */
+-	u32     		tcfd_datalen;
+-	void    		*tcfd_defdata;
 -};
--#define to_skbedit(pc) \
--	container_of(pc, struct tcf_skbedit, common)
+-#define to_defact(pc) \
+-	container_of(pc, struct tcf_defact, common)
 -
--#endif /* __NET_TC_SKBEDIT_H */
+-#endif /* __NET_TC_DEF_H */
 diff --git a/include/uapi/linux/tc_act/Kbuild b/include/uapi/linux/tc_act/Kbuild
-index 56f121605c99..713b331d9df3 100644
+index 713b331d9df3..5e4ef55bb43e 100644
 --- a/include/uapi/linux/tc_act/Kbuild
 +++ b/include/uapi/linux/tc_act/Kbuild
-@@ -6,4 +6,3 @@ header-y += tc_ipt.h
+@@ -1,6 +1,5 @@
+ # UAPI Header export list
+ header-y += tc_csum.h
+-header-y += tc_defact.h
+ header-y += tc_gact.h
+ header-y += tc_ipt.h
  header-y += tc_mirred.h
- header-y += tc_nat.h
- header-y += tc_pedit.h
--header-y += tc_skbedit.h
-diff --git a/include/uapi/linux/tc_act/tc_skbedit.h b/include/uapi/linux/tc_act/tc_skbedit.h
+diff --git a/include/uapi/linux/tc_act/tc_defact.h b/include/uapi/linux/tc_act/tc_defact.h
 deleted file mode 100644
-index 7a2e910a5f08..000000000000
---- a/include/uapi/linux/tc_act/tc_skbedit.h
+index 17dddb40f740..000000000000
+--- a/include/uapi/linux/tc_act/tc_defact.h
 +++ /dev/null
-@@ -1,46 +0,0 @@
--/*
-- * Copyright (c) 2008, Intel Corporation.
-- *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms and conditions of the GNU General Public License,
-- * version 2, as published by the Free Software Foundation.
-- *
-- * This program is distributed in the hope it will be useful, but WITHOUT
-- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-- * more details.
-- *
-- * You should have received a copy of the GNU General Public License along with
-- * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-- * Place - Suite 330, Boston, MA 02111-1307 USA.
-- *
-- * Author: Alexander Duyck <alexander.h.duyck@intel.com>
-- */
--
--#ifndef __LINUX_TC_SKBEDIT_H
--#define __LINUX_TC_SKBEDIT_H
+@@ -1,19 +0,0 @@
+-#ifndef __LINUX_TC_DEF_H
+-#define __LINUX_TC_DEF_H
 -
 -#include <linux/pkt_cls.h>
 -
--#define TCA_ACT_SKBEDIT 11
--
--#define SKBEDIT_F_PRIORITY		0x1
--#define SKBEDIT_F_QUEUE_MAPPING		0x2
--#define SKBEDIT_F_MARK			0x4
--
--struct tc_skbedit {
+-struct tc_defact {
 -	tc_gen;
 -};
 -
 -enum {
--	TCA_SKBEDIT_UNSPEC,
--	TCA_SKBEDIT_TM,
--	TCA_SKBEDIT_PARMS,
--	TCA_SKBEDIT_PRIORITY,
--	TCA_SKBEDIT_QUEUE_MAPPING,
--	TCA_SKBEDIT_MARK,
--	__TCA_SKBEDIT_MAX
+-	TCA_DEF_UNSPEC,
+-	TCA_DEF_TM,
+-	TCA_DEF_PARMS,
+-	TCA_DEF_DATA,
+-	__TCA_DEF_MAX
 -};
--#define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
+-#define TCA_DEF_MAX (__TCA_DEF_MAX - 1)
 -
 -#endif
 diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index c03a32a0418e..37af03bba732 100644
+index 37af03bba732..05c7dba68af7 100644
 --- a/net/sched/Kconfig
 +++ b/net/sched/Kconfig
-@@ -632,17 +632,6 @@ config NET_ACT_SIMP
+@@ -618,20 +618,6 @@ config NET_ACT_PEDIT
  	  To compile this code as a module, choose M here: the
- 	  module will be called act_simple.
+ 	  module will be called act_pedit.
  
--config NET_ACT_SKBEDIT
--        tristate "SKB Editing"
+-config NET_ACT_SIMP
+-        tristate "Simple Example (Debug)"
 -        depends on NET_CLS_ACT
 -        ---help---
--	  Say Y here to change skb priority or queue_mapping settings.
+-	  Say Y here to add a simple action for demonstration purposes.
+-	  It is meant as an example and for debugging purposes. It will
+-	  print a configured policy string followed by the packet count
+-	  to the console for every packet that passes by.
 -
 -	  If unsure, say N.
 -
 -	  To compile this code as a module, choose M here: the
--	  module will be called act_skbedit.
+-	  module will be called act_simple.
 -
  config NET_ACT_CSUM
          tristate "Checksum Updating"
          depends on NET_CLS_ACT && INET
 diff --git a/net/sched/Makefile b/net/sched/Makefile
-index e5f9abe9a5db..91e2acf15832 100644
+index 91e2acf15832..7c31261f32e9 100644
 --- a/net/sched/Makefile
 +++ b/net/sched/Makefile
-@@ -14,7 +14,6 @@ obj-$(CONFIG_NET_ACT_IPT)	+= act_ipt.o
+@@ -13,7 +13,6 @@ obj-$(CONFIG_NET_ACT_MIRRED)	+= act_mirred.o
+ obj-$(CONFIG_NET_ACT_IPT)	+= act_ipt.o
  obj-$(CONFIG_NET_ACT_NAT)	+= act_nat.o
  obj-$(CONFIG_NET_ACT_PEDIT)	+= act_pedit.o
- obj-$(CONFIG_NET_ACT_SIMP)	+= act_simple.o
--obj-$(CONFIG_NET_ACT_SKBEDIT)	+= act_skbedit.o
+-obj-$(CONFIG_NET_ACT_SIMP)	+= act_simple.o
  obj-$(CONFIG_NET_ACT_CSUM)	+= act_csum.o
  obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
  obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
+diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
 deleted file mode 100644
-index cb4221171f93..000000000000
---- a/net/sched/act_skbedit.c
+index 7725eb4ab756..000000000000
+--- a/net/sched/act_simple.c
 +++ /dev/null
-@@ -1,224 +0,0 @@
+@@ -1,225 +0,0 @@
 -/*
-- * Copyright (c) 2008, Intel Corporation.
+- * net/sched/simp.c	Simple example of an action
 - *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms and conditions of the GNU General Public License,
-- * version 2, as published by the Free Software Foundation.
+- *		This program is free software; you can redistribute it and/or
+- *		modify it under the terms of the GNU General Public License
+- *		as published by the Free Software Foundation; either version
+- *		2 of the License, or (at your option) any later version.
 - *
-- * This program is distributed in the hope it will be useful, but WITHOUT
-- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-- * more details.
+- * Authors:	Jamal Hadi Salim (2005-8)
 - *
-- * You should have received a copy of the GNU General Public License along with
-- * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-- * Place - Suite 330, Boston, MA 02111-1307 USA.
-- *
-- * Author: Alexander Duyck <alexander.h.duyck@intel.com>
 - */
 -
 -#include <linux/module.h>
+-#include <linux/slab.h>
 -#include <linux/init.h>
 -#include <linux/kernel.h>
 -#include <linux/skbuff.h>
@@ -214,141 +164,156 @@ index cb4221171f93..000000000000
 -#include <net/netlink.h>
 -#include <net/pkt_sched.h>
 -
--#include <linux/tc_act/tc_skbedit.h>
--#include <net/tc_act/tc_skbedit.h>
+-#define TCA_ACT_SIMP 22
 -
--#define SKBEDIT_TAB_MASK     15
--static struct tcf_common *tcf_skbedit_ht[SKBEDIT_TAB_MASK + 1];
--static u32 skbedit_idx_gen;
--static DEFINE_RWLOCK(skbedit_lock);
+-#include <linux/tc_act/tc_defact.h>
+-#include <net/tc_act/tc_defact.h>
 -
--static struct tcf_hashinfo skbedit_hash_info = {
--	.htab	=	tcf_skbedit_ht,
--	.hmask	=	SKBEDIT_TAB_MASK,
--	.lock	=	&skbedit_lock,
+-#define SIMP_TAB_MASK     7
+-static struct tcf_common *tcf_simp_ht[SIMP_TAB_MASK + 1];
+-static u32 simp_idx_gen;
+-static DEFINE_RWLOCK(simp_lock);
+-
+-static struct tcf_hashinfo simp_hash_info = {
+-	.htab	=	tcf_simp_ht,
+-	.hmask	=	SIMP_TAB_MASK,
+-	.lock	=	&simp_lock,
 -};
 -
--static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
--		       struct tcf_result *res)
+-#define SIMP_MAX_DATA	32
+-static int tcf_simp(struct sk_buff *skb, const struct tc_action *a,
+-		    struct tcf_result *res)
 -{
--	struct tcf_skbedit *d = a->priv;
+-	struct tcf_defact *d = a->priv;
 -
 -	spin_lock(&d->tcf_lock);
 -	d->tcf_tm.lastuse = jiffies;
 -	bstats_update(&d->tcf_bstats, skb);
 -
--	if (d->flags & SKBEDIT_F_PRIORITY)
--		skb->priority = d->priority;
--	if (d->flags & SKBEDIT_F_QUEUE_MAPPING &&
--	    skb->dev->real_num_tx_queues > d->queue_mapping)
--		skb_set_queue_mapping(skb, d->queue_mapping);
--	if (d->flags & SKBEDIT_F_MARK)
--		skb->mark = d->mark;
--
+-	/* print policy string followed by _ then packet count
+-	 * Example if this was the 3rd packet and the string was "hello"
+-	 * then it would look like "hello_3" (without quotes)
+-	 */
+-	pr_info("simple: %s_%d\n",
+-	       (char *)d->tcfd_defdata, d->tcf_bstats.packets);
 -	spin_unlock(&d->tcf_lock);
 -	return d->tcf_action;
 -}
 -
--static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
--	[TCA_SKBEDIT_PARMS]		= { .len = sizeof(struct tc_skbedit) },
--	[TCA_SKBEDIT_PRIORITY]		= { .len = sizeof(u32) },
--	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
--	[TCA_SKBEDIT_MARK]		= { .len = sizeof(u32) },
+-static int tcf_simp_release(struct tcf_defact *d, int bind)
+-{
+-	int ret = 0;
+-	if (d) {
+-		if (bind)
+-			d->tcf_bindcnt--;
+-		d->tcf_refcnt--;
+-		if (d->tcf_bindcnt <= 0 && d->tcf_refcnt <= 0) {
+-			kfree(d->tcfd_defdata);
+-			tcf_hash_destroy(&d->common, &simp_hash_info);
+-			ret = 1;
+-		}
+-	}
+-	return ret;
+-}
+-
+-static int alloc_defdata(struct tcf_defact *d, char *defdata)
+-{
+-	d->tcfd_defdata = kzalloc(SIMP_MAX_DATA, GFP_KERNEL);
+-	if (unlikely(!d->tcfd_defdata))
+-		return -ENOMEM;
+-	strlcpy(d->tcfd_defdata, defdata, SIMP_MAX_DATA);
+-	return 0;
+-}
+-
+-static void reset_policy(struct tcf_defact *d, char *defdata,
+-			 struct tc_defact *p)
+-{
+-	spin_lock_bh(&d->tcf_lock);
+-	d->tcf_action = p->action;
+-	memset(d->tcfd_defdata, 0, SIMP_MAX_DATA);
+-	strlcpy(d->tcfd_defdata, defdata, SIMP_MAX_DATA);
+-	spin_unlock_bh(&d->tcf_lock);
+-}
+-
+-static const struct nla_policy simple_policy[TCA_DEF_MAX + 1] = {
+-	[TCA_DEF_PARMS]	= { .len = sizeof(struct tc_defact) },
+-	[TCA_DEF_DATA]	= { .type = NLA_STRING, .len = SIMP_MAX_DATA },
 -};
 -
--static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
--			    struct nlattr *est, struct tc_action *a,
--			    int ovr, int bind)
+-static int tcf_simp_init(struct net *net, struct nlattr *nla,
+-			 struct nlattr *est, struct tc_action *a,
+-			 int ovr, int bind)
 -{
--	struct nlattr *tb[TCA_SKBEDIT_MAX + 1];
--	struct tc_skbedit *parm;
--	struct tcf_skbedit *d;
+-	struct nlattr *tb[TCA_DEF_MAX + 1];
+-	struct tc_defact *parm;
+-	struct tcf_defact *d;
 -	struct tcf_common *pc;
--	u32 flags = 0, *priority = NULL, *mark = NULL;
--	u16 *queue_mapping = NULL;
+-	char *defdata;
 -	int ret = 0, err;
 -
 -	if (nla == NULL)
 -		return -EINVAL;
 -
--	err = nla_parse_nested(tb, TCA_SKBEDIT_MAX, nla, skbedit_policy);
+-	err = nla_parse_nested(tb, TCA_DEF_MAX, nla, simple_policy);
 -	if (err < 0)
 -		return err;
 -
--	if (tb[TCA_SKBEDIT_PARMS] == NULL)
+-	if (tb[TCA_DEF_PARMS] == NULL)
 -		return -EINVAL;
 -
--	if (tb[TCA_SKBEDIT_PRIORITY] != NULL) {
--		flags |= SKBEDIT_F_PRIORITY;
--		priority = nla_data(tb[TCA_SKBEDIT_PRIORITY]);
--	}
--
--	if (tb[TCA_SKBEDIT_QUEUE_MAPPING] != NULL) {
--		flags |= SKBEDIT_F_QUEUE_MAPPING;
--		queue_mapping = nla_data(tb[TCA_SKBEDIT_QUEUE_MAPPING]);
--	}
--
--	if (tb[TCA_SKBEDIT_MARK] != NULL) {
--		flags |= SKBEDIT_F_MARK;
--		mark = nla_data(tb[TCA_SKBEDIT_MARK]);
--	}
--
--	if (!flags)
+-	if (tb[TCA_DEF_DATA] == NULL)
 -		return -EINVAL;
 -
--	parm = nla_data(tb[TCA_SKBEDIT_PARMS]);
+-	parm = nla_data(tb[TCA_DEF_PARMS]);
+-	defdata = nla_data(tb[TCA_DEF_DATA]);
 -
--	pc = tcf_hash_check(parm->index, a, bind, &skbedit_hash_info);
+-	pc = tcf_hash_check(parm->index, a, bind, &simp_hash_info);
 -	if (!pc) {
 -		pc = tcf_hash_create(parm->index, est, a, sizeof(*d), bind,
--				     &skbedit_idx_gen, &skbedit_hash_info);
+-				     &simp_idx_gen, &simp_hash_info);
 -		if (IS_ERR(pc))
 -			return PTR_ERR(pc);
 -
--		d = to_skbedit(pc);
+-		d = to_defact(pc);
+-		ret = alloc_defdata(d, defdata);
+-		if (ret < 0) {
+-			if (est)
+-				gen_kill_estimator(&pc->tcfc_bstats,
+-						   &pc->tcfc_rate_est);
+-			kfree_rcu(pc, tcfc_rcu);
+-			return ret;
+-		}
+-		d->tcf_action = parm->action;
 -		ret = ACT_P_CREATED;
 -	} else {
--		d = to_skbedit(pc);
+-		d = to_defact(pc);
 -		if (!ovr) {
--			tcf_hash_release(pc, bind, &skbedit_hash_info);
+-			tcf_simp_release(d, bind);
 -			return -EEXIST;
 -		}
+-		reset_policy(d, defdata, parm);
 -	}
 -
--	spin_lock_bh(&d->tcf_lock);
--
--	d->flags = flags;
--	if (flags & SKBEDIT_F_PRIORITY)
--		d->priority = *priority;
--	if (flags & SKBEDIT_F_QUEUE_MAPPING)
--		d->queue_mapping = *queue_mapping;
--	if (flags & SKBEDIT_F_MARK)
--		d->mark = *mark;
--
--	d->tcf_action = parm->action;
--
--	spin_unlock_bh(&d->tcf_lock);
--
 -	if (ret == ACT_P_CREATED)
--		tcf_hash_insert(pc, &skbedit_hash_info);
+-		tcf_hash_insert(pc, &simp_hash_info);
 -	return ret;
 -}
 -
--static int tcf_skbedit_cleanup(struct tc_action *a, int bind)
+-static int tcf_simp_cleanup(struct tc_action *a, int bind)
 -{
--	struct tcf_skbedit *d = a->priv;
+-	struct tcf_defact *d = a->priv;
 -
 -	if (d)
--		return tcf_hash_release(&d->common, bind, &skbedit_hash_info);
+-		return tcf_simp_release(d, bind);
 -	return 0;
 -}
 -
--static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
--			    int bind, int ref)
+-static int tcf_simp_dump(struct sk_buff *skb, struct tc_action *a,
+-			 int bind, int ref)
 -{
 -	unsigned char *b = skb_tail_pointer(skb);
--	struct tcf_skbedit *d = a->priv;
--	struct tc_skbedit opt = {
+-	struct tcf_defact *d = a->priv;
+-	struct tc_defact opt = {
 -		.index   = d->tcf_index,
 -		.refcnt  = d->tcf_refcnt - ref,
 -		.bindcnt = d->tcf_bindcnt - bind,
@@ -356,24 +321,13 @@ index cb4221171f93..000000000000
 -	};
 -	struct tcf_t t;
 -
--	if (nla_put(skb, TCA_SKBEDIT_PARMS, sizeof(opt), &opt))
--		goto nla_put_failure;
--	if ((d->flags & SKBEDIT_F_PRIORITY) &&
--	    nla_put(skb, TCA_SKBEDIT_PRIORITY, sizeof(d->priority),
--		    &d->priority))
--		goto nla_put_failure;
--	if ((d->flags & SKBEDIT_F_QUEUE_MAPPING) &&
--	    nla_put(skb, TCA_SKBEDIT_QUEUE_MAPPING,
--		    sizeof(d->queue_mapping), &d->queue_mapping))
--		goto nla_put_failure;
--	if ((d->flags & SKBEDIT_F_MARK) &&
--	    nla_put(skb, TCA_SKBEDIT_MARK, sizeof(d->mark),
--		    &d->mark))
+-	if (nla_put(skb, TCA_DEF_PARMS, sizeof(opt), &opt) ||
+-	    nla_put_string(skb, TCA_DEF_DATA, d->tcfd_defdata))
 -		goto nla_put_failure;
 -	t.install = jiffies_to_clock_t(jiffies - d->tcf_tm.install);
 -	t.lastuse = jiffies_to_clock_t(jiffies - d->tcf_tm.lastuse);
 -	t.expires = jiffies_to_clock_t(d->tcf_tm.expires);
--	if (nla_put(skb, TCA_SKBEDIT_TM, sizeof(t), &t))
+-	if (nla_put(skb, TCA_DEF_TM, sizeof(t), &t))
 -		goto nla_put_failure;
 -	return skb->len;
 -
@@ -382,34 +336,37 @@ index cb4221171f93..000000000000
 -	return -1;
 -}
 -
--static struct tc_action_ops act_skbedit_ops = {
--	.kind		=	"skbedit",
--	.hinfo		=	&skbedit_hash_info,
--	.type		=	TCA_ACT_SKBEDIT,
+-static struct tc_action_ops act_simp_ops = {
+-	.kind		=	"simple",
+-	.hinfo		=	&simp_hash_info,
+-	.type		=	TCA_ACT_SIMP,
 -	.capab		=	TCA_CAP_NONE,
 -	.owner		=	THIS_MODULE,
--	.act		=	tcf_skbedit,
--	.dump		=	tcf_skbedit_dump,
--	.cleanup	=	tcf_skbedit_cleanup,
--	.init		=	tcf_skbedit_init,
+-	.act		=	tcf_simp,
+-	.dump		=	tcf_simp_dump,
+-	.cleanup	=	tcf_simp_cleanup,
+-	.init		=	tcf_simp_init,
 -	.walk		=	tcf_generic_walker,
 -};
 -
--MODULE_AUTHOR("Alexander Duyck, <alexander.h.duyck@intel.com>");
--MODULE_DESCRIPTION("SKB Editing");
+-MODULE_AUTHOR("Jamal Hadi Salim(2005)");
+-MODULE_DESCRIPTION("Simple example action");
 -MODULE_LICENSE("GPL");
 -
--static int __init skbedit_init_module(void)
+-static int __init simp_init_module(void)
 -{
--	return tcf_register_action(&act_skbedit_ops);
+-	int ret = tcf_register_action(&act_simp_ops);
+-	if (!ret)
+-		pr_info("Simple TC action Loaded\n");
+-	return ret;
 -}
 -
--static void __exit skbedit_cleanup_module(void)
+-static void __exit simp_cleanup_module(void)
 -{
--	tcf_unregister_action(&act_skbedit_ops);
+-	tcf_unregister_action(&act_simp_ops);
 -}
 -
--module_init(skbedit_init_module);
--module_exit(skbedit_cleanup_module);
+-module_init(simp_init_module);
+-module_exit(simp_cleanup_module);
 -- 
 1.7.5.4
