@@ -1,87 +1,106 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net 2/2] bnx2x: Disable VF access on PF removal
-Date: Sun, 27 Oct 2013 13:07:01 +0200
-Message-ID: <1382872021-1116-3-git-send-email-yuvalmin@broadcom.com>
-References: <1382872021-1116-1-git-send-email-yuvalmin@broadcom.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net] xen-netback: use jiffies_64 value to calculate credit timeout
+Date: Sun, 27 Oct 2013 11:11:53 +0000
+Message-ID: <1382872313-11675-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: dmitry@broadcom.com, ariele@broadcom.com, eilong@broadcom.com,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: <david.vrabel@citrix.com>, <jbeulich@suse.com>,
+	<annie.li@oracle.com>, Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Jason Luan <jianhai.luan@oracle.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1543 "EHLO mms1.broadcom.com"
+Received: from smtp.citrix.com ([66.165.176.89]:50956 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753368Ab3J0LHU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Oct 2013 07:07:20 -0400
-In-Reply-To: <1382872021-1116-1-git-send-email-yuvalmin@broadcom.com>
+	id S1751969Ab3J0LLy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Oct 2013 07:11:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <ariele@broadcom.com>
+time_after_eq() only works if the delta is < MAX_ULONG/2.
 
-When the bnx2x driver is rmmoded, if VFs of a given PF will be assigned
-to a VM then that PF will be unable to call `pci_disable_sriov()'.
+For a 32bit Dom0, if netfront sends packets at a very low rate, the time
+between subsequent calls to tx_credit_exceeded() may exceed MAX_ULONG/2
+and the test for timer_after_eq() will be incorrect. Credit will not be
+replenished and the guest may become unable to send packets (e.g., if
+prior to the long gap, all credit was exhausted).
 
-If for that same PF there would also exist unassigned VFs in the hypervisor,
-the result will be that after the removal there will still be virtual PCI
-functions on the hypervisor.
-If the bnx2x module were to be re-inserted, the result will be that the VFs
-on the hypervisor will be re-probed directly following the PF's probe, even
-though that in regular loading flow sriov is only enabled once PF is loaded.
-The probed VF will then try to access its bar, causing a PCI error as the HW
-is not in a state enabling such a request.
+Use jiffies_64 variant to mitigate this problem for 32bit Dom0.
 
-This patch adds a missing disablement procedure to the PF's removal, one that
-sets registers viewable to the VF to indicate that the VFs have no permission
-to access the bar, thus resulting in probe errors instead of PCI errors.
-
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Suggested-by: Jan Beulich <jbeulich@suse.com>
+Suggested-by: David Vrabel <david.vrabel@citrix.com>
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Jason Luan <jianhai.luan@oracle.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
+ drivers/net/xen-netback/common.h    |    1 +
+ drivers/net/xen-netback/interface.c |    4 ++--
+ drivers/net/xen-netback/netback.c   |   13 ++++++-------
+ 3 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index bf08ad6..5e07efb 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -2018,6 +2018,8 @@ failed:
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 5715318..400fea1 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -163,6 +163,7 @@ struct xenvif {
+ 	unsigned long   credit_usec;
+ 	unsigned long   remaining_credit;
+ 	struct timer_list credit_timeout;
++	u64 credit_window_start;
  
- void bnx2x_iov_remove_one(struct bnx2x *bp)
+ 	/* Statistics */
+ 	unsigned long rx_gso_checksum_fixup;
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 01bb854..8c45b63 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -312,8 +312,8 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 	vif->credit_bytes = vif->remaining_credit = ~0UL;
+ 	vif->credit_usec  = 0UL;
+ 	init_timer(&vif->credit_timeout);
+-	/* Initialize 'expires' now: it's used to track the credit window. */
+-	vif->credit_timeout.expires = jiffies;
++	/* credit window is tracked in credit_window_start */
++	vif->credit_window_start = get_jiffies_64();
+ 
+ 	dev->netdev_ops	= &xenvif_netdev_ops;
+ 	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index f3e591c..1bc0688 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1185,18 +1185,17 @@ out:
+ 
+ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
  {
-+	int vf_idx;
-+
- 	/* if SRIOV is not enabled there's nothing to do */
- 	if (!IS_SRIOV(bp))
- 		return;
-@@ -2026,6 +2028,18 @@ void bnx2x_iov_remove_one(struct bnx2x *bp)
- 	pci_disable_sriov(bp->pdev);
- 	DP(BNX2X_MSG_IOV, "sriov disabled\n");
+-	unsigned long now = jiffies;
+-	unsigned long next_credit =
+-		vif->credit_timeout.expires +
+-		msecs_to_jiffies(vif->credit_usec / 1000);
++	u64 now = get_jiffies_64();
++	u64 next_credit = vif->credit_window_start +
++		(u64)msecs_to_jiffies(vif->credit_usec / 1000);
  
-+	/* disable access to all VFs */
-+	for (vf_idx = 0; vf_idx < bp->vfdb->sriov.total; vf_idx++) {
-+		bnx2x_pretend_func(bp,
-+				   HW_VF_HANDLE(bp,
-+						bp->vfdb->sriov.first_vf_in_pf +
-+						vf_idx));
-+		DP(BNX2X_MSG_IOV, "disabling internal access for vf %d\n",
-+		   bp->vfdb->sriov.first_vf_in_pf + vf_idx);
-+		bnx2x_vf_enable_internal(bp, 0);
-+		bnx2x_pretend_func(bp, BP_ABS_FUNC(bp));
-+	}
-+
- 	/* free vf database */
- 	__bnx2x_iov_free_vfdb(bp);
- }
-@@ -3197,7 +3211,7 @@ int bnx2x_enable_sriov(struct bnx2x *bp)
- 	 * the "acquire" messages to appear on the VF PF channel.
- 	 */
- 	DP(BNX2X_MSG_IOV, "about to call enable sriov\n");
--	pci_disable_sriov(bp->pdev);
-+	bnx2x_disable_sriov(bp);
- 	rc = pci_enable_sriov(bp->pdev, req_vfs);
- 	if (rc) {
- 		BNX2X_ERR("pci_enable_sriov failed with %d\n", rc);
+ 	/* Timer could already be pending in rare cases. */
+ 	if (timer_pending(&vif->credit_timeout))
+ 		return true;
+ 
+ 	/* Passed the point where we can replenish credit? */
+-	if (time_after_eq(now, next_credit)) {
+-		vif->credit_timeout.expires = now;
++	if (time_after_eq64(now, next_credit)) {
++		vif->credit_timeout.expires = (unsigned long)now;
+ 		tx_add_credit(vif);
+ 	}
+ 
+@@ -1207,7 +1206,7 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
+ 		vif->credit_timeout.function =
+ 			tx_credit_callback;
+ 		mod_timer(&vif->credit_timeout,
+-			  next_credit);
++			  (unsigned long)next_credit);
+ 
+ 		return true;
+ 	}
 -- 
-1.8.1.227.g44fe835
+1.7.10.4
