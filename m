@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] veth: extend features to support tunneling
-Date: Mon, 28 Oct 2013 00:58:11 -0400 (EDT)
-Message-ID: <20131028.005811.1019765125573743315.davem@davemloft.net>
-References: <1382743502.4032.6.camel@edumazet-glaptop.roam.corp.google.com>
-	<1382748742.4032.24.camel@edumazet-glaptop.roam.corp.google.com>
-	<1382750703.4032.32.camel@edumazet-glaptop.roam.corp.google.com>
+Subject: Re: [PATCH net-next] tcp: gso: fix truesize tracking
+Date: Mon, 28 Oct 2013 00:58:35 -0400 (EDT)
+Message-ID: <20131028.005835.2085407982365928314.davem@davemloft.net>
+References: <CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
+	<1382743502.4032.6.camel@edumazet-glaptop.roam.corp.google.com>
+	<1382747177.4032.21.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,29 +12,42 @@ Cc: ast@plumgrid.com, edumazet@google.com, stephen@networkplumber.org,
 	netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56450 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56455 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751337Ab3J1E6N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 00:58:13 -0400
-In-Reply-To: <1382750703.4032.32.camel@edumazet-glaptop.roam.corp.google.com>
+	with ESMTP id S1751381Ab3J1E6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 00:58:36 -0400
+In-Reply-To: <1382747177.4032.21.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 25 Oct 2013 18:25:03 -0700
+Date: Fri, 25 Oct 2013 17:26:17 -0700
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> While investigating on a recent vxlan regression, I found veth
-> was using a zero features set for vxlan tunnels.
+> commit 6ff50cd55545 ("tcp: gso: do not generate out of order packets")
+> had an heuristic that can trigger a warning in skb_try_coalesce(),
+> because skb->truesize of the gso segments were exactly set to mss.
 > 
-> We have to segment GSO frames, copy the payload, and do the checksum.
+> This breaks the requirement that
 > 
-> This patch brings a ~200% performance increase
+> skb->truesize >= skb->len + truesizeof(struct sk_buff);
 > 
-> We probably have to add hw_enc_features support
-> on other virtual devices.
+> It can trivially be reproduced by :
+> 
+> ifconfig lo mtu 1500
+> ethtool -K lo tso off
+> netperf
+> 
+> As the skbs are looped into the TCP networking stack, skb_try_coalesce()
+> warns us of these skb under-estimating their truesize.
 > 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+> Based on net-next but applies as well on net tree with some fuzz.
+> 
+> David, we might backport this one to 3.12 and stable later, I let you
+> decide.
 
-Applied, thanks Eric.
+I'm still thinking about what to do with this one.
