@@ -1,95 +1,36 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: sched: cls_bpf: add BPF-based classifier
-Date: Mon, 28 Oct 2013 12:35:20 +0100
-Message-ID: <1382960120-2198-1-git-send-email-dborkman@redhat.com>
+Subject: [PATCH iproute2] tc: add cls_bpf frontend
+Date: Mon, 28 Oct 2013 12:35:33 +0100
+Message-ID: <1382960133-2240-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41262 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:8398 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755773Ab3J1Lft (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Oct 2013 07:35:49 -0400
+	id S1756255Ab3J1Lf4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Oct 2013 07:35:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This work contains a lightweight BPF-based traffic classifier that can
-serve as a flexible alternative to ematch-based tree classification, i.e.
-now that BPF filter engine can also be JITed in the kernel. Naturally, tc
-actions and policies are supported as well with cls_bpf. Multiple BPF
-programs/filter can be attached for a class, or they can just as well be
-written within a single BPF program, that's really up to the user how he
-wishes to run/optimize the code, e.g. also for inversion of verdicts etc.
-The notion of a BPF program's return/exit codes is being kept as follows:
-non-zero for match, zero for mismatch.
+This is the iproute2 part of the kernel patch "net: sched:
+add BPF-based traffic classifier".
 
-As a minimal usage example with iproute2, we use a 3 band prio root qdisc
-on a router with sfq each as leave, and assign ssh and icmp bpf-based
-filters to band 1, http traffic to band 2 and the rest to band 3. For the
-first two bands we load the bytecode from a file, in the 2nd we load it
-inline as an example:
-
-echo 1 > /proc/sys/net/core/bpf_jit_enable
-
-tc qdisc del dev em1 root
-tc qdisc add dev em1 root handle 1: prio bands 3 priomap 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
-
-tc qdisc add dev em1 parent 1:1 sfq perturb 16
-tc qdisc add dev em1 parent 1:2 sfq perturb 16
-tc qdisc add dev em1 parent 1:3 sfq perturb 16
-
-tc filter add dev em1 parent 1: bpf run bytecode-file /etc/tc/ssh.bpf flowid 1:1
-tc filter add dev em1 parent 1: bpf run bytecode-file /etc/tc/icmp.bpf flowid 1:1
-tc filter add dev em1 parent 1: bpf run bytecode-file /etc/tc/http.bpf flowid 1:2
-tc filter add dev em1 parent 1: bpf run bytecode "`bpfc -f tc -i misc.ops`" flowid 1:3
-
-BPF programs can be easily created and passed to tc, either as inline
-'bytecode' or 'bytecode-file'. There are a couple of front-ends that can
-compile opcodes, for example:
-
-1) People familiar with tcpdump-like filters:
-
-   tcpdump -iem1 -ddd port 22 | tr '\n' ',' > /etc/tc/ssh.bpf
-
-2) People that want to low-level program their filters or use BPF
-   extensions that lack support by libpcap's compiler:
-
-   bpfc -f tc -i ssh.ops > /etc/tc/ssh.bpf
-
-   ssh.ops example code:
-   ldh [12]
-   jne #0x800, drop
-   ldb [23]
-   jneq #6, drop
-   ldh [20]
-   jset #0x1fff, drop
-   ldxb 4 * ([14] & 0xf)
-   ldh [%x + 14]
-   jeq #0x16, pass
-   ldh [%x + 16]
-   jne #0x16, drop
-   pass: ret #-1
-   drop: ret #0
-
-It was chosen to load bytecode into tc, since the reverse operation,
-tc filter list dev em1, is then able to show the exact commands again.
-Possible follow-up work could also include a small expression compiler
-for iproute2. Tested with the help of bmon. This idea came up during
-the Netfilter Workshop 2013 in Copenhagen.
+[Will re-submit later again for iproute2 when window for
+ -next submissions opens.]
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Cc: Thomas Graf <tgraf@suug.ch>
 ---
- include/uapi/linux/pkt_cls.h |  14 ++
- net/sched/Kconfig            |  10 ++
- net/sched/Makefile           |   1 +
- net/sched/cls_bpf.c          | 380 +++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 405 insertions(+)
- create mode 100644 net/sched/cls_bpf.c
+ include/linux/pkt_cls.h |  14 +++
+ tc/Makefile             |   1 +
+ tc/f_bpf.c              | 288 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 303 insertions(+)
+ create mode 100644 tc/f_bpf.c
 
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
 index 082eafa..25731df 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
+--- a/include/linux/pkt_cls.h
++++ b/include/linux/pkt_cls.h
 @@ -388,6 +388,20 @@ enum {
  
  #define TCA_CGROUP_MAX (__TCA_CGROUP_MAX - 1)
@@ -111,424 +52,311 @@ index 082eafa..25731df 100644
  /* Extended Matches */
  
  struct tcf_ematch_tree_hdr {
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index c03a32a..989464c 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -443,6 +443,16 @@ config NET_CLS_CGROUP
- 	  To compile this code as a module, choose M here: the
- 	  module will be called cls_cgroup.
- 
-+config NET_CLS_BPF
-+	tristate "BPF-based classifier"
-+	select NET_CLS
-+	---help---
-+	  If you say Y here, you will be able to classify packets based on
-+	  programmable BPF (JIT'ed) filters as an alternative to ematches.
-+
-+	  To compile this code as a module, choose M here: the module will
-+	  be called cls_bpf.
-+
- config NET_EMATCH
- 	bool "Extended Matches"
- 	select NET_CLS
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index e5f9abe..35fa47a 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -50,6 +50,7 @@ obj-$(CONFIG_NET_CLS_RSVP6)	+= cls_rsvp6.o
- obj-$(CONFIG_NET_CLS_BASIC)	+= cls_basic.o
- obj-$(CONFIG_NET_CLS_FLOW)	+= cls_flow.o
- obj-$(CONFIG_NET_CLS_CGROUP)	+= cls_cgroup.o
-+obj-$(CONFIG_NET_CLS_BPF)	+= cls_bpf.o
- obj-$(CONFIG_NET_EMATCH)	+= ematch.o
- obj-$(CONFIG_NET_EMATCH_CMP)	+= em_cmp.o
- obj-$(CONFIG_NET_EMATCH_NBYTE)	+= em_nbyte.o
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+diff --git a/tc/Makefile b/tc/Makefile
+index f54a955..84215c0 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -22,6 +22,7 @@ TCMODULES += f_u32.o
+ TCMODULES += f_route.o
+ TCMODULES += f_fw.o
+ TCMODULES += f_basic.o
++TCMODULES += f_bpf.o
+ TCMODULES += f_flow.o
+ TCMODULES += f_cgroup.o
+ TCMODULES += q_dsmark.o
+diff --git a/tc/f_bpf.c b/tc/f_bpf.c
 new file mode 100644
-index 0000000..778ca86
+index 0000000..d52d7d8
 --- /dev/null
-+++ b/net/sched/cls_bpf.c
-@@ -0,0 +1,380 @@
++++ b/tc/f_bpf.c
+@@ -0,0 +1,288 @@
 +/*
-+ * Berkeley Packet Filter based traffic classifier
++ * f_bpf.c	BPF-based Classifier
 + *
-+ * Might be used to classify traffic through flexible, user-defined and
-+ * possibly JIT-ed BPF filters for traffic control as an alternative to
-+ * ematches.
++ *		This program is free software; you can distribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
 + *
-+ * (C) 2013 Daniel Borkmann <dborkman@redhat.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
++ * Authors:	Daniel Borkmann <dborkman@redhat.com>
 + */
 +
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/skbuff.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <syslog.h>
++#include <fcntl.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <string.h>
++#include <stdbool.h>
++#include <errno.h>
 +#include <linux/filter.h>
-+#include <net/rtnetlink.h>
-+#include <net/pkt_cls.h>
-+#include <net/sock.h>
++#include <linux/if.h>
 +
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Daniel Borkmann <dborkman@redhat.com>");
-+MODULE_DESCRIPTION("TC BPF based classifier");
++#include "utils.h"
++#include "tc_util.h"
 +
-+struct cls_bpf_head {
-+	struct list_head plist;
-+	u32 hgen;
-+};
-+
-+struct cls_bpf_prog {
-+	struct sk_filter *filter;
-+	struct sock_filter *bpf_ops;
-+	struct tcf_exts exts;
-+	struct tcf_result res;
-+	struct list_head link;
-+	u32 handle;
-+	u16 bpf_len;
-+};
-+
-+static const struct nla_policy bpf_policy[TCA_BPF_MAX + 1] = {
-+	[TCA_BPF_CLASSID]	= { .type = NLA_U32 },
-+	[TCA_BPF_OPS_LEN]	= { .type = NLA_U16 },
-+	[TCA_BPF_OPS]		= { .type = NLA_BINARY,
-+				    .len = sizeof(struct sock_filter) * BPF_MAXINSNS },
-+};
-+
-+static const struct tcf_ext_map bpf_ext_map = {
-+	.action = TCA_BPF_ACT,
-+	.police = TCA_BPF_POLICE,
-+};
-+
-+static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
-+			    struct tcf_result *res)
++static void explain(void)
 +{
-+	struct cls_bpf_head *head = tp->root;
-+	struct cls_bpf_prog *prog;
-+	int ret;
-+
-+	list_for_each_entry(prog, &head->plist, link) {
-+		if (SK_RUN_FILTER(prog->filter, skb) == 0)
-+			continue;
-+
-+		*res = prog->res;
-+		ret = tcf_exts_exec(skb, &prog->exts, res);
-+		if (ret < 0)
-+			continue;
-+
-+		return ret;
-+	}
-+
-+	return -1;
++	fprintf(stderr, "Usage: ... bpf ...\n");
++	fprintf(stderr, "\n");
++	fprintf(stderr, " [inline]:     run bytecode BPF_BYTECODE\n");
++	fprintf(stderr, " [from file]:  run bytecode-file FILE\n");
++	fprintf(stderr, "\n");
++	fprintf(stderr, "               [ police POLICE_SPEC ] [ action ACTION_SPEC ]\n");
++	fprintf(stderr, "               [ classid CLASSID ]\n");
++	fprintf(stderr, "\n");
++	fprintf(stderr, "Where BPF_BYTECODE := \'s,c t f k,c t f k,c t f k,...\'\n");
++	fprintf(stderr, "      c,t,f,k and s are decimals; s denotes number of 4-tuples\n");
++	fprintf(stderr, "Where FILE points to a file containing the BPF_BYTECODE string\n");
++	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
 +}
 +
-+static int cls_bpf_init(struct tcf_proto *tp)
++static int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
++			    char **bpf_string, bool *need_release,
++			    const char separator)
 +{
-+	struct cls_bpf_head *head;
++	char sp;
 +
-+	head = kzalloc(sizeof(*head), GFP_KERNEL);
-+	if (head == NULL)
-+		return -ENOBUFS;
++	if (from_file) {
++		size_t tmp_len, op_len = sizeof("65535 255 255 4294967295,");
++		char *tmp_string;
++		FILE *fp;
 +
-+	INIT_LIST_HEAD(&head->plist);
-+	tp->root = head;
++		tmp_len = sizeof("4096,") + BPF_MAXINSNS * op_len;
++		tmp_string = malloc(tmp_len);
++		if (tmp_string == NULL)
++			return -ENOMEM;
 +
-+	return 0;
-+}
++		memset(tmp_string, 0, tmp_len);
 +
-+static void cls_bpf_delete_prog(struct tcf_proto *tp, struct cls_bpf_prog *prog)
-+{
-+	tcf_unbind_filter(tp, &prog->res);
-+	tcf_exts_destroy(tp, &prog->exts);
-+
-+	sk_unattached_filter_destroy(prog->filter);
-+
-+	kfree(prog->bpf_ops);
-+	kfree(prog);
-+}
-+
-+static int cls_bpf_delete(struct tcf_proto *tp, unsigned long arg)
-+{
-+	struct cls_bpf_head *head = tp->root;
-+	struct cls_bpf_prog *prog, *todel = (struct cls_bpf_prog *) arg;
-+
-+	list_for_each_entry(prog, &head->plist, link) {
-+		if (prog == todel) {
-+			tcf_tree_lock(tp);
-+			list_del(&prog->link);
-+			tcf_tree_unlock(tp);
-+
-+			cls_bpf_delete_prog(tp, prog);
-+			return 0;
++		fp = fopen(arg, "r");
++		if (fp == NULL) {
++			perror("Cannot fopen");
++			free(tmp_string);
++			return -ENOENT;
 +		}
-+	}
 +
-+	return -ENOENT;
-+}
-+
-+static void cls_bpf_destroy(struct tcf_proto *tp)
-+{
-+	struct cls_bpf_head *head = tp->root;
-+	struct cls_bpf_prog *prog, *tmp;
-+
-+	list_for_each_entry_safe(prog, tmp, &head->plist, link) {
-+		list_del(&prog->link);
-+		cls_bpf_delete_prog(tp, prog);
-+	}
-+
-+	kfree(head);
-+}
-+
-+static unsigned long cls_bpf_get(struct tcf_proto *tp, u32 handle)
-+{
-+	struct cls_bpf_head *head = tp->root;
-+	struct cls_bpf_prog *prog;
-+	unsigned long ret = 0UL;
-+
-+	if (head == NULL)
-+		return 0UL;
-+
-+	list_for_each_entry(prog, &head->plist, link) {
-+		if (prog->handle == handle) {
-+			ret = (unsigned long) prog;
-+			break;
++		if (!fgets(tmp_string, tmp_len, fp)) {
++			free(tmp_string);
++			fclose(fp);
++			return -EIO;
 +		}
++
++		fclose(fp);
++
++		*need_release = true;
++		*bpf_string = tmp_string;
++	} else {
++		*need_release = false;
++		*bpf_string = arg;
 +	}
 +
-+	return ret;
-+}
-+
-+static void cls_bpf_put(struct tcf_proto *tp, unsigned long f)
-+{
-+}
-+
-+static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
-+				   struct cls_bpf_prog *prog,
-+				   unsigned long base, struct nlattr **tb,
-+				   struct nlattr *est)
-+{
-+	struct sock_filter *bpf_ops, *bpf_old;
-+	struct tcf_exts exts;
-+	struct sock_fprog tmp;
-+	struct sk_filter *fp, *fp_old;
-+	u16 bpf_size, bpf_len;
-+	u32 classid;
-+	int ret;
-+
-+	if (!tb[TCA_BPF_OPS_LEN] || !tb[TCA_BPF_OPS] || !tb[TCA_BPF_CLASSID])
++	if (sscanf(*bpf_string, "%hu%c", bpf_len, &sp) != 2 ||
++	    sp != separator) {
++		if (*need_release)
++			free(*bpf_string);
 +		return -EINVAL;
-+
-+	ret = tcf_exts_validate(net, tp, tb, est, &exts, &bpf_ext_map);
-+	if (ret < 0)
-+		return ret;
-+
-+	classid = nla_get_u32(tb[TCA_BPF_CLASSID]);
-+	bpf_len = nla_get_u16(tb[TCA_BPF_OPS_LEN]);
-+	if (bpf_len > BPF_MAXINSNS || bpf_len == 0) {
-+		ret = -EINVAL;
-+		goto errout;
 +	}
-+
-+	bpf_size = bpf_len * sizeof(*bpf_ops);
-+	bpf_ops = kzalloc(bpf_size, GFP_KERNEL);
-+	if (bpf_ops == NULL) {
-+		ret = -ENOMEM;
-+		goto errout;
-+	}
-+
-+	memcpy(bpf_ops, nla_data(tb[TCA_BPF_OPS]), bpf_size);
-+
-+	tmp.len = bpf_len;
-+	tmp.filter = (struct sock_filter __user *) bpf_ops;
-+
-+	ret = sk_unattached_filter_create(&fp, &tmp);
-+	if (ret)
-+		goto errout_free;
-+
-+	tcf_tree_lock(tp);
-+	fp_old = prog->filter;
-+	bpf_old = prog->bpf_ops;
-+
-+	prog->bpf_len = bpf_len;
-+	prog->bpf_ops = bpf_ops;
-+	prog->filter = fp;
-+	prog->res.classid = classid;
-+	tcf_tree_unlock(tp);
-+
-+	tcf_bind_filter(tp, &prog->res, base);
-+	tcf_exts_change(tp, &prog->exts, &exts);
-+
-+	if (fp_old)
-+		sk_unattached_filter_destroy(fp_old);
-+	if (bpf_old)
-+		kfree(bpf_old);
 +
 +	return 0;
-+
-+errout_free:
-+	kfree(bpf_ops);
-+errout:
-+	tcf_exts_destroy(tp, &exts);
-+	return ret;
 +}
 +
-+static u32 cls_bpf_grab_new_handle(struct tcf_proto *tp,
-+				   struct cls_bpf_head *head)
++static int bpf_parse_ops(int argc, char **argv, struct nlmsghdr *n,
++			 bool from_file)
 +{
-+	unsigned int i = 0x80000000;
++	char *bpf_string, *token, separator = ',';
++	struct sock_filter bpf_ops[BPF_MAXINSNS];
++	int ret = 0, i = 0;
++	bool need_release;
++	__u16 bpf_len = 0;
 +
-+	do {
-+		if (++head->hgen == 0x7FFFFFFF)
-+			head->hgen = 1;
-+	} while (--i > 0 && cls_bpf_get(tp, head->hgen));
-+	if (i == 0)
-+		pr_err("Insufficient number of handles\n");
-+
-+	return i;
-+}
-+
-+static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
-+			  struct tcf_proto *tp, unsigned long base,
-+			  u32 handle, struct nlattr **tca,
-+			  unsigned long *arg)
-+{
-+	struct cls_bpf_head *head = tp->root;
-+	struct cls_bpf_prog *prog = (struct cls_bpf_prog *) *arg;
-+	struct nlattr *tb[TCA_BPF_MAX + 1];
-+	int ret;
-+
-+	if (tca[TCA_OPTIONS] == NULL)
++	if (argc < 1)
 +		return -EINVAL;
-+
-+	ret = nla_parse_nested(tb, TCA_BPF_MAX, tca[TCA_OPTIONS], bpf_policy);
-+	if (ret < 0)
-+		return ret;
-+
-+	if (prog != NULL) {
-+		if (handle && prog->handle != handle)
-+			return -EINVAL;
-+		return cls_bpf_modify_existing(net, tp, prog, base, tb,
-+					       tca[TCA_RATE]);
-+	}
-+
-+	prog = kzalloc(sizeof(*prog), GFP_KERNEL);
-+	if (prog == NULL)
-+		return -ENOBUFS;
-+
-+	if (handle == 0)
-+		prog->handle = cls_bpf_grab_new_handle(tp, head);
-+	else
-+		prog->handle = handle;
-+	if (prog->handle == 0) {
++	if (bpf_parse_string(argv[0], from_file, &bpf_len, &bpf_string,
++			     &need_release, separator))
++		return -EINVAL;
++	if (bpf_len == 0 || bpf_len > BPF_MAXINSNS) {
 +		ret = -EINVAL;
-+		goto errout;
++		goto out;
 +	}
 +
-+	ret = cls_bpf_modify_existing(net, tp, prog, base, tb, tca[TCA_RATE]);
-+	if (ret < 0)
-+		goto errout;
++	token = bpf_string;
++	while ((token = strchr(token, separator)) && (++token)[0]) {
++		if (i >= bpf_len) {
++			fprintf(stderr, "Real program length exceeds encoded "
++				"length parameter!\n");
++			ret = -EINVAL;
++			goto out;
++		}
 +
-+	tcf_tree_lock(tp);
-+	list_add(&prog->link, &head->plist);
-+	tcf_tree_unlock(tp);
++		if (sscanf(token, "%hu %hhu %hhu %u,",
++			   &bpf_ops[i].code, &bpf_ops[i].jt,
++			   &bpf_ops[i].jf, &bpf_ops[i].k) != 4) {
++			fprintf(stderr, "Error at instruction %d!\n", i);
++			ret = -EINVAL;
++			goto out;
++		}
 +
-+	*arg = (unsigned long) prog;
++		i++;
++	}
 +
-+	return 0;
-+errout:
-+	if (*arg == 0UL && prog)
-+		kfree(prog);
++	if (i != bpf_len) {
++		fprintf(stderr, "Parsed program length is less than encoded"
++			"length parameter!\n");
++		ret = -EINVAL;
++		goto out;
++	}
++
++	addattr_l(n, MAX_MSG, TCA_BPF_OPS_LEN, &bpf_len, sizeof(bpf_len));
++	addattr_l(n, MAX_MSG, TCA_BPF_OPS, &bpf_ops,
++		  bpf_len * sizeof(struct sock_filter));
++out:
++	if (need_release)
++		free(bpf_string);
 +
 +	return ret;
 +}
 +
-+static int cls_bpf_dump(struct tcf_proto *tp, unsigned long fh,
-+			struct sk_buff *skb, struct tcmsg *tm)
++static void bpf_print_ops(FILE *f, struct rtattr *bpf_ops, __u16 len)
 +{
-+	struct cls_bpf_prog *prog = (struct cls_bpf_prog *) fh;
-+	struct nlattr *nest, *nla;
++	struct sock_filter *ops = (struct sock_filter *) RTA_DATA(bpf_ops);
++	int i;
 +
-+	if (prog == NULL)
-+		return skb->len;
++	if (len == 0)
++		return;
 +
-+	tm->tcm_handle = prog->handle;
++	fprintf(f, "bytecode \'%u,", len);
 +
-+	nest = nla_nest_start(skb, TCA_OPTIONS);
-+	if (nest == NULL)
-+		goto nla_put_failure;
++	for (i = 0; i < len - 1; i++)
++		fprintf(f, "%hu %hhu %hhu %u,", ops[i].code, ops[i].jt,
++			ops[i].jf, ops[i].k);
 +
-+	if (nla_put_u32(skb, TCA_BPF_CLASSID, prog->res.classid))
-+		goto nla_put_failure;
-+	if (nla_put_u16(skb, TCA_BPF_OPS_LEN, prog->bpf_len))
-+		goto nla_put_failure;
-+
-+	nla = nla_reserve(skb, TCA_BPF_OPS, prog->bpf_len *
-+			  sizeof(struct sock_filter));
-+	if (nla == NULL)
-+		goto nla_put_failure;
-+
-+        memcpy(nla_data(nla), prog->bpf_ops, nla_len(nla));
-+
-+	if (tcf_exts_dump(skb, &prog->exts, &bpf_ext_map) < 0)
-+		goto nla_put_failure;
-+
-+	nla_nest_end(skb, nest);
-+
-+	if (tcf_exts_dump_stats(skb, &prog->exts, &bpf_ext_map) < 0)
-+		goto nla_put_failure;
-+
-+	return skb->len;
-+
-+nla_put_failure:
-+	nla_nest_cancel(skb, nest);
-+	return -1;
++	fprintf(f, "%hu %hhu %hhu %u\'\n", ops[i].code, ops[i].jt,
++		ops[i].jf, ops[i].k);
 +}
 +
-+static void cls_bpf_walk(struct tcf_proto *tp, struct tcf_walker *arg)
++static int bpf_parse_opt(struct filter_util *qu, char *handle,
++			 int argc, char **argv, struct nlmsghdr *n)
 +{
-+	struct cls_bpf_head *head = tp->root;
-+	struct cls_bpf_prog *prog;
++	struct tcmsg *t = NLMSG_DATA(n);
++	struct rtattr *tail;
++	long h = 0;
 +
-+	list_for_each_entry(prog, &head->plist, link) {
-+		if (arg->count < arg->skip)
-+			goto skip;
-+		if (arg->fn(tp, (unsigned long) prog, arg) < 0) {
-+			arg->stop = 1;
-+			break;
++	if (argc == 0)
++		return 0;
++
++	if (handle) {
++		h = strtol(handle, NULL, 0);
++		if (h == LONG_MIN || h == LONG_MAX) {
++			fprintf(stderr, "Illegal handle \"%s\", must be "
++				"numeric.\n", handle);
++			return -1;
 +		}
-+skip:
-+		arg->count++;
 +	}
++
++	t->tcm_handle = h;
++
++	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
++	addattr_l(n, MAX_MSG, TCA_OPTIONS, NULL, 0);
++
++	while (argc > 0) {
++		if (matches(*argv, "run") == 0) {
++			bool from_file;
++			NEXT_ARG();
++			if (strcmp(*argv, "bytecode-file") == 0) {
++				from_file = true;
++			} else if (strcmp(*argv, "bytecode") == 0) {
++				from_file = false;
++			} else {
++				fprintf(stderr, "What is \"%s\"?\n", *argv);
++				explain();
++				return -1;
++			}
++			NEXT_ARG();
++			if (bpf_parse_ops(argc, argv, n, from_file)) {
++				fprintf(stderr, "Illegal \"bytecode\"\n");
++				return -1;
++			}
++		} else if (matches(*argv, "classid") == 0 ||
++			   strcmp(*argv, "flowid") == 0) {
++			unsigned handle;
++			NEXT_ARG();
++			if (get_tc_classid(&handle, *argv)) {
++				fprintf(stderr, "Illegal \"classid\"\n");
++				return -1;
++			}
++			addattr_l(n, MAX_MSG, TCA_BPF_CLASSID, &handle, 4);
++		} else if (matches(*argv, "action") == 0) {
++			NEXT_ARG();
++			if (parse_action(&argc, &argv, TCA_BPF_ACT, n)) {
++				fprintf(stderr, "Illegal \"action\"\n");
++				return -1;
++			}
++			continue;
++		} else if (matches(*argv, "police") == 0) {
++			NEXT_ARG();
++			if (parse_police(&argc, &argv, TCA_BPF_POLICE, n)) {
++				fprintf(stderr, "Illegal \"police\"\n");
++				return -1;
++			}
++			continue;
++		} else if (strcmp(*argv, "help") == 0) {
++			explain();
++			return -1;
++		} else {
++			fprintf(stderr, "What is \"%s\"?\n", *argv);
++			explain();
++			return -1;
++		}
++		argc--; argv++;
++	}
++
++	tail->rta_len = (((void*)n)+n->nlmsg_len) - (void*)tail;
++	return 0;
 +}
 +
-+static struct tcf_proto_ops cls_bpf_ops __read_mostly = {
-+	.kind		=	"bpf",
-+	.owner		=	THIS_MODULE,
-+	.classify	=	cls_bpf_classify,
-+	.init		=	cls_bpf_init,
-+	.destroy	=	cls_bpf_destroy,
-+	.get		=	cls_bpf_get,
-+	.put		=	cls_bpf_put,
-+	.change		=	cls_bpf_change,
-+	.delete		=	cls_bpf_delete,
-+	.walk		=	cls_bpf_walk,
-+	.dump		=	cls_bpf_dump,
++static int bpf_print_opt(struct filter_util *qu, FILE *f,
++			 struct rtattr *opt, __u32 handle)
++{
++	struct rtattr *tb[TCA_BPF_MAX + 1];
++
++	if (opt == NULL)
++		return 0;
++
++	parse_rtattr_nested(tb, TCA_BPF_MAX, opt);
++
++	if (handle)
++		fprintf(f, "handle 0x%x ", handle);
++
++	if (tb[TCA_BPF_CLASSID]) {
++		SPRINT_BUF(b1);
++		fprintf(f, "flowid %s ",
++			sprint_tc_classid(rta_getattr_u32(tb[TCA_BPF_CLASSID]), b1));
++	}
++
++	if (tb[TCA_BPF_OPS] && tb[TCA_BPF_OPS_LEN])
++		bpf_print_ops(f, tb[TCA_BPF_OPS],
++			      rta_getattr_u16(tb[TCA_BPF_OPS_LEN]));
++
++	if (tb[TCA_BPF_POLICE]) {
++		fprintf(f, "\n");
++		tc_print_police(f, tb[TCA_BPF_POLICE]);
++	}
++
++	if (tb[TCA_BPF_ACT]) {
++		tc_print_action(f, tb[TCA_BPF_ACT]);
++	}
++
++	return 0;
++}
++
++struct filter_util bpf_filter_util = {
++	.id = "bpf",
++	.parse_fopt = bpf_parse_opt,
++	.print_fopt = bpf_print_opt,
 +};
-+
-+static int __init cls_bpf_init_mod(void)
-+{
-+	return register_tcf_proto_ops(&cls_bpf_ops);
-+}
-+
-+static void __exit cls_bpf_exit_mod(void)
-+{
-+	unregister_tcf_proto_ops(&cls_bpf_ops);
-+}
-+
-+module_init(cls_bpf_init_mod);
-+module_exit(cls_bpf_exit_mod);
 -- 
 1.8.3.1
