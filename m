@@ -1,47 +1,71 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 16/16] wl1251: Add sysfs file address for setting
- permanent mac address
-Date: Mon, 28 Oct 2013 14:55:22 +0100
-Message-ID: <1382968522.17956.11.camel@jlt4.sipsolutions.net>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
-	 <1382819655-30430-17-git-send-email-pali.rohar@gmail.com>
-	 <1382967905.17956.8.camel@jlt4.sipsolutions.net> <201310281449.58170@pali>
-	 (sfid-20131028_145001_437329_9A106CBF)
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: Re: [patch net-next] ipv6: allow userspace to create address with
+ IFLA_F_TEMPORARY flag
+Date: Mon, 28 Oct 2013 09:56:18 -0400
+Message-ID: <CAGCdqXHpQfkXHFjX8K-ptv=CxrpS2htJgWKzJTn=n+CDV6GpqA@mail.gmail.com>
+References: <1382622355-6500-1-git-send-email-jiri@resnulli.us>
+	<CAGCdqXHUW=RJf67qPXVRhPY__GAs02+G9mJV7agN5pDdfELXXA@mail.gmail.com>
+	<20131027132941.GA1443@minipsycho.orion>
+	<20131027164835.GB4714@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Luciano Coelho <luca@coelho.fi>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
-	aaro.koskinen@iki.fi, pavel@ucw.cz, sre@ring0.de,
-	joni.lapilainen@gmail.com
-To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201310281449.58170@pali> (sfid-20131028_145001_437329_9A106CBF)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: Jiri Pirko <jiri@resnulli.us>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, Patrick McHardy <kaber@trash.net>,
+	thaller@redhat.com, Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:64942 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756004Ab3J1N4U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 09:56:20 -0400
+Received: by mail-wi0-f174.google.com with SMTP id cb5so3889967wib.1
+        for <netdev@vger.kernel.org>; Mon, 28 Oct 2013 06:56:19 -0700 (PDT)
+In-Reply-To: <20131027164835.GB4714@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-10-28 at 14:49 +0100, Pali Roh=C3=A1r wrote:
-> On Monday 28 October 2013 14:45:05 Johannes Berg wrote:
-> > On Sat, 2013-10-26 at 22:34 +0200, Pali Roh=C3=A1r wrote:
-> > > Driver wl1251 generating mac address randomly at startup and
-> > > there is no way to set permanent mac address via
-> > > SET_IEEE80211_PERM_ADDR. This patch export sysfs file which
-> > > can set permanent mac address by userspace helper program.
-> > > Patch is needed for devices which do not store mac address
-> > > in internal wl1251 eeprom.
-> >=20
-> > This doesn't really seem like a good idea since you can also
-> > just use 'ip' or whatever to set the MAC address.
-> >=20
-> > johannes
->=20
-> AFAIK you cannot set permanent address (show by ethtool -P wlan0)=20
-> via ip/ifconfig.
+On Sun, Oct 27, 2013 at 12:48 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hi Jiri!
+>
+> On Sun, Oct 27, 2013 at 02:29:41PM +0100, Jiri Pirko wrote:
+>> The idea is to provide possibility to do address configuration not in
+>> kernel but rather in userspace (as it is done for example in NetworkManager)
+>>
+>> Maybe I'm missing something, but why is it problem to have the
+>> possibility to set lifetime even for temporary prefix?
+>
+> There is no problem setting the lifetime for a temporary prefix (in
+> contrary, it needs one) but the code paths designed for IFA_F_TEMPORARY
+> may not fiddle with it. This needs to be checked.
+>
+> In this constellation addrconf_verify does not refresh the privacy
+> address when its preferred lifetime is expired, if you create the
+> address by only passing IFA_F_TEMPORARY to rtm_newaddr (as Vlad pointed
+> out). E.g. NetworkManager has to take care about that, then.
+>
+> A temporary address is also bound to a non-privacy public address so
+> it's lifetime is determined by its lifetime (e.g. if you switch the
+> network and don't receive on-link information for that prefix any
+> more). NetworkManager would have to take care about that, too. It is
+> just a question of what NetworkManager wants to handle itself or lets
+> the kernel handle for it.
+>
 
-You probably can't, but that address also doesn't matter at all and
-isn't really used anywhere.
 
-johannes
+Exactly.  If we want to re-use the as much of the kernel implementation as
+possible, it might be nice to also add a regen notification in case there
+is no public address.  This way, Network Manger (or another application)
+can do the re-generation if need be for these user configured temporary
+addresses.
+
+-vlad
+
+
+> Greetings,
+>
+>   Hannes
+>
