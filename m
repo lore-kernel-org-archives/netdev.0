@@ -1,37 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/5] 6lowpan: trivial changes
-Date: Mon, 28 Oct 2013 19:48:48 -0400 (EDT)
-Message-ID: <20131028.194848.220582521993210661.davem@davemloft.net>
-References: <1382952260-23174-1-git-send-email-alex.aring@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 16/16] wl1251: Add sysfs file address for setting
+ permanent mac address
+Date: Mon, 28 Oct 2013 23:50:09 +0000
+Message-ID: <1383004209.3779.54.camel@bwh-desktop.uk.level5networks.com>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+	 <1382819655-30430-17-git-send-email-pali.rohar@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, werner@almesberger.net,
-	dbaryshkov@gmail.com, netdev@vger.kernel.org
-To: alex.aring@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38782 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757709Ab3J1Xsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 19:48:52 -0400
-In-Reply-To: <1382952260-23174-1-git-send-email-alex.aring@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Luciano Coelho <luca@coelho.fi>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <freemangordon@abv.bg>,
+	<aaro.koskinen@iki.fi>, <pavel@ucw.cz>, <sre@ring0.de>,
+	<joni.lapilainen@gmail.com>
+To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1382819655-30430-17-git-send-email-pali.rohar@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Aring <alex.aring@gmail.com>
-Date: Mon, 28 Oct 2013 10:24:15 +0100
+On Sat, 2013-10-26 at 22:34 +0200, Pali Roh=C3=A1r wrote:
+> Driver wl1251 generating mac address randomly at startup and there is=
+ no way to
+> set permanent mac address via SET_IEEE80211_PERM_ADDR. This patch exp=
+ort sysfs
+> file which can set permanent mac address by userspace helper program.=
+ Patch is
+> needed for devices which do not store mac address in internal wl1251 =
+eeprom.
+[...]
 
-> This patch series includes some trivial changes to prepare the 6lowpan stack
-> for upcomming patch-series which mainly fix fragmentation according to rfc4944
-> and udp handling(which is currently broken).
-> 
-> Changes since v3:
->   - really fix intendation in patch 3/5
-> 
-> Changes since v2:
->   - change intendation in patch 3/5
->   - fix typo in 5/5 unecessary -> unnecessary
->   - add missing 6lowpan tag in cover-letter
+This belongs in struct wl12xx_platform_data or (better) Device Tree
+properties.  It definitely should not be settable once the device is
+registered.
 
-Series applied, thanks.
+Ben.
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
