@@ -1,133 +1,128 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net] xen-netback: use jiffies_64 value to
- calculate credit timeout
-Date: Mon, 28 Oct 2013 10:58:32 +0800
-Message-ID: <526DD2D8.5030405@oracle.com>
-References: <1382872313-11675-1-git-send-email-wei.liu2@citrix.com> <526DCDB8.1080908@oracle.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v2 0/5] bonding: patchset for rcu use in bonding
+Date: Mon, 28 Oct 2013 11:02:03 +0800
+Message-ID: <526DD3AB.4040007@huawei.com>
+References: <52688F33.30904@huawei.com> <20131027225317.GB11209@redhat.com> <526DBAC8.5000009@huawei.com> <20131028013428.GC11209@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org, david.vrabel@citrix.com,
-	jbeulich@suse.com, Jason Luan <jianhai.luan@oracle.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:47475 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753066Ab3J1C6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 22:58:48 -0400
-In-Reply-To: <526DCDB8.1080908@oracle.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:13114 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753066Ab3J1DEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 23:04:10 -0400
+In-Reply-To: <20131028013428.GC11209@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 2013-10-28 10:36, annie li wrote:
->
-> On 2013-10-27 19:11, Wei Liu wrote:
->> time_after_eq() only works if the delta is < MAX_ULONG/2.
+On 2013/10/28 9:34, Veaceslav Falico wrote:
+> On Mon, Oct 28, 2013 at 09:15:52AM +0800, Ding Tianhong wrote:
+>> On 2013/10/28 6:53, Veaceslav Falico wrote:
+>>> On Thu, Oct 24, 2013 at 11:08:35AM +0800, Ding Tianhong wrote:
+>>>> Hi:
+>>>>
+>>>> The slave list will add and del by bond_master_upper_dev_link() and bond_upper_dev_unlink(),
+>>>> which will call call_netdevice_notifiers(), even it is safe to call it in write bond lock now,
+>>>> but we can't sure that whether it is safe later, because other drivers may deal NETDEV_CHANGEUPPER
+>>>> in sleep way, so I didn't admit move the bond_upper_dev_unlink() in write bond lock.
+>>>>
+>>>> now the bond_for_each_slave only protect by rtnl_lock(), maybe use bond_for_each_slave_rcu is a good
+>>>> way to protect slave list for bond, but as a system slow path, it is no need to transform bond_for_each_slave()
+>>>> to bond_for_each_slave_rcu() in slow path, so in the patchset, I will remove the unused read bond lock
+>>>> for monitor function, maybe it is a better way, I will wait to accept any relay for it.
+>>>>
+>>>> Thanks for the Veaceslav Falico opinion.
+>>>>
+>>>> v2: add and modify commit for patchset and patch, it will be the first step for the whole patchset.
+>>>>
+>>>> Ding Tianhong (5):
+>>>>  bonding: remove bond read lock for bond_mii_monitor()
+>>>>  bonding: remove bond read lock for bond_alb_monitor()
+>>>>  bonding: remove bond read lock for bond_loadbalance_arp_mon()
+>>>>  bonding: remove bond read lock for bond_activebackup_arp_mon()
+>>>
+>>> This patch introduces a regression by boot-test with active backup mode:
+>>>
+>>> bond_activebackup_arp_mon() is already not holding the bond->lock, however
+>>> it might call bond_change_active_slave(), which does (in case of new_active):
+>>>
+>>>  912                         write_unlock_bh(&bond->curr_slave_lock);
+>>>  913                         read_unlock(&bond->lock);
+>>>  914  915                         call_netdevice_notifiers(NETDEV_BONDING_FAILOVER, bond->dev);
+>>>  916                         if (should_notify_peers)
+>>>  917                                 call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
+>>>  918                                                          bond->dev);
+>>>  919  920                         read_lock(&bond->lock);
+>>>  921                         write_lock_bh(&bond->curr_slave_lock);
+>>>
+>>> so it drops the bond->lock (which wasn't taken previously), and then takes
+>>> it (without anyone dropping it afterwards).
+>>>
+>>> I don't know how to fix it - cause a lot of other callers already take it,
+>>> and we can't just drop them (we'd race), and we can't remove it here (cause
+>>> we can't call notifiers while atomic).
+>>>
+>>> Which begs the question - was this patchset tested at all?
+>>>
+>>> [   21.796823] =====================================
+>>> [   21.796823] [ BUG: bad unlock balance detected! ]
+> ... snip ...
 >>
->> For a 32bit Dom0, if netfront sends packets at a very low rate, the time
->> between subsequent calls to tx_credit_exceeded() may exceed MAX_ULONG/2
->> and the test for timer_after_eq() will be incorrect. Credit will not be
->> replenished and the guest may become unable to send packets (e.g., if
->> prior to the long gap, all credit was exhausted).
+>> Hi David:
+>> yes, exactly I miss it and make a mistake, the bond_select_active_slave is still have the protect problem and
+>> need to be processed, I miss it, sorry, I will send a patch to fix the bug soon.
 >>
->> Use jiffies_64 variant to mitigate this problem for 32bit Dom0.
+>> Hi Veaceslav:
+>> sorry about the commit, I will pay more attention to the commit and test, thanks for your advise and report the bug,
+>> I have to admin that I was too careless.
+> 
+> I'll ask you once again, even though it seems that my NACK doesn't block
+> the patchset - try writing commit messages that actually describe why and
+> how you do it.
+> 
+> It's, actually, not only for the reviewers - it's also really good for you
+> - cause while writing the commit log you also understand a lot more what
+> are you doing, and might spot some corner cases (like this one).
+> 
+> Sorry for being negative, however it costs me *much* more time to review
+> patches without proper commit messages. I've done it once, twice, several
+> times more - but that's it, I refuse to spend my time on your skipped
+> homework.
+> 
+> It might also help to split patches into really small steps - as in - do
+> only one thing at a time, and describe it. This will help evade bugs *a
+> lot*. It also helps people who'll bisect it, bugfix it and review it -
+> because every patch will be a small, well-documented change, instead of a
+> chunk of code with a description 'lets remove bond->lock'.
+> 
+> Thank you and hope that helps.
+> 
+
+sincere receiving all opinions.
+thanks.
+
+Regards.
+Ding
 >>
->> Suggested-by: Jan Beulich <jbeulich@suse.com>
->> Suggested-by: David Vrabel <david.vrabel@citrix.com>
->> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
->> Cc: Ian Campbell <ian.campbell@citrix.com>
->> Cc: Jason Luan <jianhai.luan@oracle.com>
->> ---
->>   drivers/net/xen-netback/common.h    |    1 +
->>   drivers/net/xen-netback/interface.c |    4 ++--
->>   drivers/net/xen-netback/netback.c   |   13 ++++++-------
->>   3 files changed, 9 insertions(+), 9 deletions(-)
 >>
->> diff --git a/drivers/net/xen-netback/common.h 
->> b/drivers/net/xen-netback/common.h
->> index 5715318..400fea1 100644
->> --- a/drivers/net/xen-netback/common.h
->> +++ b/drivers/net/xen-netback/common.h
->> @@ -163,6 +163,7 @@ struct xenvif {
->>       unsigned long   credit_usec;
->>       unsigned long   remaining_credit;
->>       struct timer_list credit_timeout;
->> +    u64 credit_window_start;
->>         /* Statistics */
->>       unsigned long rx_gso_checksum_fixup;
->> diff --git a/drivers/net/xen-netback/interface.c 
->> b/drivers/net/xen-netback/interface.c
->> index 01bb854..8c45b63 100644
->> --- a/drivers/net/xen-netback/interface.c
->> +++ b/drivers/net/xen-netback/interface.c
->> @@ -312,8 +312,8 @@ struct xenvif *xenvif_alloc(struct device 
->> *parent, domid_t domid,
->>       vif->credit_bytes = vif->remaining_credit = ~0UL;
->>       vif->credit_usec  = 0UL;
->>       init_timer(&vif->credit_timeout);
->> -    /* Initialize 'expires' now: it's used to track the credit 
->> window. */
->> -    vif->credit_timeout.expires = jiffies;
->> +    /* credit window is tracked in credit_window_start */
->> +    vif->credit_window_start = get_jiffies_64();
->>         dev->netdev_ops    = &xenvif_netdev_ops;
->>       dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
->> diff --git a/drivers/net/xen-netback/netback.c 
->> b/drivers/net/xen-netback/netback.c
->> index f3e591c..1bc0688 100644
->> --- a/drivers/net/xen-netback/netback.c
->> +++ b/drivers/net/xen-netback/netback.c
->> @@ -1185,18 +1185,17 @@ out:
->>     static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
->>   {
->> -    unsigned long now = jiffies;
->> -    unsigned long next_credit =
->> -        vif->credit_timeout.expires +
->> -        msecs_to_jiffies(vif->credit_usec / 1000);
->> +    u64 now = get_jiffies_64();
->> +    u64 next_credit = vif->credit_window_start +
->> +        (u64)msecs_to_jiffies(vif->credit_usec / 1000);
->
-> You simply replace "credit_timeout.expires" with 
-> "vif->credit_window_start" here, and never update 
-> "vif->credit_window_start" in following code.
->
->>         /* Timer could already be pending in rare cases. */
->>       if (timer_pending(&vif->credit_timeout))
->>           return true;
->>         /* Passed the point where we can replenish credit? */
->> -    if (time_after_eq(now, next_credit)) {
->> -        vif->credit_timeout.expires = now;
->> +    if (time_after_eq64(now, next_credit)) {
->> +        vif->credit_timeout.expires = (unsigned long)now;
->
-> updates credit_window_start as following,
-> vif->credit_window_start = (unsigned long)now;
-
-both credit_window_start and credit_timeout.expires need to be updated 
-here,
-
-vif->credit_window_start = (unsigned long)now;
-vif->credit_timeout.expires = (unsigned long)now;
-
->
->>           tx_add_credit(vif);
->>       }
->>   @@ -1207,7 +1206,7 @@ static bool tx_credit_exceeded(struct xenvif 
->> *vif, unsigned size)
->>           vif->credit_timeout.function =
->>               tx_credit_callback;
->>           mod_timer(&vif->credit_timeout,
->> -              next_credit);
->> +              (unsigned long)next_credit);
->
-> vif->credit_timeout.expires is unsigned long, and this still causes 
-> original issue on 32bit system, which works well on 64bit. Or 
-> rewriting code to avoid uses of vif->credit_timeout.expires, but it is 
-> complex.
-My understanding here is wrong, please ignore this.
-
-Thanks
-Annie
+>>
+>>
+>>>>
+>>>> -- 
+>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>>> the body of a message to majordomo@vger.kernel.org
+>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>
+>>> .
+>>>
+>>
+>>
+> 
+> .
+> 
