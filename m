@@ -1,193 +1,55 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] netconsole: Convert to pr_<level>
-Date: Mon, 28 Oct 2013 12:53:21 -0700
-Message-ID: <1382990001.8718.4.camel@joe-AO722>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: extending ndo_add_rx_vxlan_port
+Date: Mon, 28 Oct 2013 13:24:13 -0700 (PDT)
+Message-ID: <alpine.LFD.2.03.1310281322500.10719@intel.com>
+References: <526D2F8F.1070204@mellanox.com> <alpine.LFD.2.03.1310271017120.19783@intel.com> <CAJZOPZ+S6ngqMjV-2ZMcpzkuWzzLWwCQMtd_1_SjDkqWh_tbYg@mail.gmail.com> <alpine.LFD.2.03.1310271635540.15400@intel.com> <CAJZOPZLAg+5dYS=bUCkDMyYq8EmA_uvEv1Zi+drq6Qqe5onrzQ@mail.gmail.com>
+ <alpine.LFD.2.03.1310281049210.31450@intel.com> <CAJZOPZJ3J7T=i2QXQPr80Qb-V8RT3uPJaNFDnrOpYxJ1Mt_LNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Yan Burman <yanb@mellanox.com>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:23905 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755988Ab3J1UHi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Oct 2013 16:07:38 -0400
+In-Reply-To: <CAJZOPZJ3J7T=i2QXQPr80Qb-V8RT3uPJaNFDnrOpYxJ1Mt_LNQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use a more current logging style.
 
-Convert printks to pr_<level>.
 
-Consolidate multiple printks into a single printk to avoid
-any possible dmesg interleaving.  Add a default "event" msg
-in case the listed types are ever expanded.
+On Mon, 28 Oct 2013, Or Gerlitz wrote:
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/netconsole.c | 57 +++++++++++++++++++++++-------------------------
- 1 file changed, 27 insertions(+), 30 deletions(-)
+> On Mon, Oct 28, 2013 at 7:59 PM, Joseph Gasparakis
+> > On Mon, 28 Oct 2013, Or Gerlitz wrote:
+> >> On Mon, Oct 28, 2013 at 1:44 AM, Joseph Gasparakis wrote:
+> 
+> >> > VXLAN implementation is not done like VLAN. VLANs are stacked on top of
+> >> > real interfaces and what you are saying makes sense. VXLAN however is
+> >> > using ip[6]_tunnel_xmit, and this is why we need to notify all the
+> >>
+> >> As the name of the ndo you added ndo_add_rx_vxlan_port suggests -- HW
+> >> needs that for RX offloads. So basically, what I am saying is: in a
+> >> similar manner that we already program the NIC "over which" the vxlan
+> >> instance is set to listen on the multicast address which is associated
+> >> with that vxlan segement, lets give them a hint that packets arriving
+> >> on this group are vxlan ones, so they can use it for programming
+> >> steering rules.
+> >
+> > Why don't you write up some code so everyone has something to look at?
+> > Then we can see what makes sense to do in terms of the existing or new ndos.
+> 
+> sure, code talks, indeed, still, looking on net-next, for the current
+> ndo there's no in tree consumer unless I miss anything, did I?
+> 
+> Or.
+> 
 
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index adeee61..a8ef4c4 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -34,6 +34,8 @@
-  *
-  ****************************************************************/
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/mm.h>
- #include <linux/init.h>
- #include <linux/module.h>
-@@ -319,8 +321,8 @@ static ssize_t store_enabled(struct netconsole_target *nt,
- 	if (enabled < 0 || enabled > 1)
- 		return -EINVAL;
- 	if (enabled == nt->enabled) {
--		printk(KERN_INFO "netconsole: network logging has already %s\n",
--				nt->enabled ? "started" : "stopped");
-+		pr_info("network logging has already %s\n",
-+			nt->enabled ? "started" : "stopped");
- 		return -EINVAL;
- 	}
- 
-@@ -339,7 +341,7 @@ static ssize_t store_enabled(struct netconsole_target *nt,
- 			return err;
- 		}
- 
--		printk(KERN_INFO "netconsole: network logging started\n");
-+		pr_info("network logging started\n");
- 
- 	} else {	/* 0 */
- 		netpoll_cleanup(&nt->np);
-@@ -358,9 +360,8 @@ static ssize_t store_dev_name(struct netconsole_target *nt,
- 	size_t len;
- 
- 	if (nt->enabled) {
--		printk(KERN_ERR "netconsole: target (%s) is enabled, "
--				"disable to update parameters\n",
--				config_item_name(&nt->item));
-+		pr_err("target (%s) is enabled, disable to update parameters\n",
-+		       config_item_name(&nt->item));
- 		return -EINVAL;
- 	}
- 
-@@ -381,9 +382,8 @@ static ssize_t store_local_port(struct netconsole_target *nt,
- 	int rv;
- 
- 	if (nt->enabled) {
--		printk(KERN_ERR "netconsole: target (%s) is enabled, "
--				"disable to update parameters\n",
--				config_item_name(&nt->item));
-+		pr_err("target (%s) is enabled, disable to update parameters\n",
-+		       config_item_name(&nt->item));
- 		return -EINVAL;
- 	}
- 
-@@ -400,9 +400,8 @@ static ssize_t store_remote_port(struct netconsole_target *nt,
- 	int rv;
- 
- 	if (nt->enabled) {
--		printk(KERN_ERR "netconsole: target (%s) is enabled, "
--				"disable to update parameters\n",
--				config_item_name(&nt->item));
-+		pr_err("target (%s) is enabled, disable to update parameters\n",
-+		       config_item_name(&nt->item));
- 		return -EINVAL;
- 	}
- 
-@@ -417,9 +416,8 @@ static ssize_t store_local_ip(struct netconsole_target *nt,
- 			      size_t count)
- {
- 	if (nt->enabled) {
--		printk(KERN_ERR "netconsole: target (%s) is enabled, "
--				"disable to update parameters\n",
--				config_item_name(&nt->item));
-+		pr_err("target (%s) is enabled, disable to update parameters\n",
-+		       config_item_name(&nt->item));
- 		return -EINVAL;
- 	}
- 
-@@ -427,7 +425,7 @@ static ssize_t store_local_ip(struct netconsole_target *nt,
- 		const char *end;
- 		if (in6_pton(buf, count, nt->np.local_ip.in6.s6_addr, -1, &end) > 0) {
- 			if (*end && *end != '\n') {
--				printk(KERN_ERR "netconsole: invalid IPv6 address at: <%c>\n", *end);
-+				pr_err("invalid IPv6 address at: <%c>\n", *end);
- 				return -EINVAL;
- 			}
- 			nt->np.ipv6 = true;
-@@ -448,9 +446,8 @@ static ssize_t store_remote_ip(struct netconsole_target *nt,
- 			       size_t count)
- {
- 	if (nt->enabled) {
--		printk(KERN_ERR "netconsole: target (%s) is enabled, "
--				"disable to update parameters\n",
--				config_item_name(&nt->item));
-+		pr_err("target (%s) is enabled, disable to update parameters\n",
-+		       config_item_name(&nt->item));
- 		return -EINVAL;
- 	}
- 
-@@ -458,7 +455,7 @@ static ssize_t store_remote_ip(struct netconsole_target *nt,
- 		const char *end;
- 		if (in6_pton(buf, count, nt->np.remote_ip.in6.s6_addr, -1, &end) > 0) {
- 			if (*end && *end != '\n') {
--				printk(KERN_ERR "netconsole: invalid IPv6 address at: <%c>\n", *end);
-+				pr_err("invalid IPv6 address at: <%c>\n", *end);
- 				return -EINVAL;
- 			}
- 			nt->np.ipv6 = true;
-@@ -481,9 +478,8 @@ static ssize_t store_remote_mac(struct netconsole_target *nt,
- 	u8 remote_mac[ETH_ALEN];
- 
- 	if (nt->enabled) {
--		printk(KERN_ERR "netconsole: target (%s) is enabled, "
--				"disable to update parameters\n",
--				config_item_name(&nt->item));
-+		pr_err("target (%s) is enabled, disable to update parameters\n",
-+		       config_item_name(&nt->item));
- 		return -EINVAL;
- 	}
- 
-@@ -704,19 +700,20 @@ restart:
- 	}
- 	spin_unlock_irqrestore(&target_list_lock, flags);
- 	if (stopped) {
--		printk(KERN_INFO "netconsole: network logging stopped on "
--		       "interface %s as it ", dev->name);
-+		const char *msg = "had an event";
- 		switch (event) {
- 		case NETDEV_UNREGISTER:
--			printk(KERN_CONT "unregistered\n");
-+			msg = "unregistered";
- 			break;
- 		case NETDEV_RELEASE:
--			printk(KERN_CONT "released slaves\n");
-+			msg = "released slaves";
- 			break;
- 		case NETDEV_JOIN:
--			printk(KERN_CONT "is joining a master device\n");
-+			msg = "is joining a master device";
- 			break;
- 		}
-+		pr_info("network logging stopped on interface %s as it %s\n",
-+			dev->name, msg);
- 	}
- 
- done:
-@@ -802,7 +799,7 @@ static int __init init_netconsole(void)
- 		goto undonotifier;
- 
- 	register_console(&netconsole);
--	printk(KERN_INFO "netconsole: network logging started\n");
-+	pr_info("network logging started\n");
- 
- 	return err;
- 
-@@ -810,7 +807,7 @@ undonotifier:
- 	unregister_netdevice_notifier(&netconsole_netdev_notifier);
- 
- fail:
--	printk(KERN_ERR "netconsole: cleaning up\n");
-+	pr_err("cleaning up\n");
- 
- 	/*
- 	 * Remove all targets and destroy them (only targets created
+I don't think you missed anything. My patches for the i40e are currently 
+in our trees and making their way to netdev. It will be very soon.
