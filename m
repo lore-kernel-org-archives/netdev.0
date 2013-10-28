@@ -1,54 +1,90 @@
-From: Markus Pargmann <mpa@pengutronix.de>
-Subject: [PATCH] can: c_can: Handle lost message before EOB
-Date: Mon, 28 Oct 2013 09:54:40 +0100
-Message-ID: <1382950480-12515-1-git-send-email-mpa@pengutronix.de>
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel@pengutronix.de,
-	Markus Pargmann <mpa@pengutronix.de>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH v2.46 3/4] datapath: Break out deacceleration portion of vlan_push
+Date: Mon, 28 Oct 2013 17:56:11 +0900
+Message-ID: <1382950572-12466-4-git-send-email-horms@verge.net.au>
+References: <1382950572-12466-1-git-send-email-horms@verge.net.au>
+Cc: Pravin B Shelar <pshelar@nicira.com>, Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Joe Stringer <joe@wand.net.nz>
+To: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>, Ben Pfaff <blp@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:40705 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755889Ab3J1I4V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 04:56:21 -0400
+In-Reply-To: <1382950572-12466-1-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If we handle end of block messages with higher priority than a lost
-message, we can run into an endless interrupt loop.
+Break out deacceleration portion of vlan_push into vlan_put
+so that it may be re-used by mpls_push.
 
-This is reproducable with a am335x processor and "cansequence -r" at
-1Mbit. As soon as we loose a packet we can't escape from a interrupt
-loop.
+For both vlan_push and mpls_push if there is an accelerated VLAN tag
+present then it should be deaccelerated, adding it to the data of
+the skb, before the new tag is added.
 
-This patch handles lost packets before EOB packets.
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Signed-off-by: Markus Pargmann <mpa@pengutronix.de>
 ---
- drivers/net/can/c_can/c_can.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index a668cd4..e3fc07c 100644
---- a/drivers/net/can/c_can/c_can.c
-+++ b/drivers/net/can/c_can/c_can.c
-@@ -814,9 +814,6 @@ static int c_can_do_rx_poll(struct net_device *dev, int quota)
- 			msg_ctrl_save = priv->read_reg(priv,
- 					C_CAN_IFACE(MSGCTRL_REG, 0));
+v2.41 - v2.46
+* No change
+
+v2.40
+* As suggested by Jesse Gross
+  + Simplify vlan_push by returning an error code
+    rather than an error code encoded as a struct xkb_buff *
+
+v2.39
+* First post
+---
+ datapath/actions.c | 28 ++++++++++++++++++----------
+ 1 file changed, 18 insertions(+), 10 deletions(-)
+
+diff --git a/datapath/actions.c b/datapath/actions.c
+index 30ea1d2..ee2456b 100644
+--- a/datapath/actions.c
++++ b/datapath/actions.c
+@@ -105,21 +105,29 @@ static int pop_vlan(struct sk_buff *skb)
+ 	return 0;
+ }
  
--			if (msg_ctrl_save & IF_MCONT_EOB)
--				return num_rx_pkts;
--
- 			if (msg_ctrl_save & IF_MCONT_MSGLST) {
- 				c_can_handle_lost_msg_obj(dev, 0, msg_obj);
- 				num_rx_pkts++;
-@@ -824,6 +821,9 @@ static int c_can_do_rx_poll(struct net_device *dev, int quota)
- 				continue;
- 			}
+-static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
++/* push down current VLAN tag */
++static int put_vlan(struct sk_buff *skb)
+ {
+-	if (unlikely(vlan_tx_tag_present(skb))) {
+-		u16 current_tag;
++	u16 current_tag = vlan_tx_tag_get(skb);
  
-+			if (msg_ctrl_save & IF_MCONT_EOB)
-+				return num_rx_pkts;
+-		/* push down current VLAN tag */
+-		current_tag = vlan_tx_tag_get(skb);
++	if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
++		return -ENOMEM;
+ 
+-		if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
+-			return -ENOMEM;
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		skb->csum = csum_add(skb->csum, csum_partial(skb->data
++				+ (2 * ETH_ALEN), VLAN_HLEN, 0));
+ 
+-		if (skb->ip_summed == CHECKSUM_COMPLETE)
+-			skb->csum = csum_add(skb->csum, csum_partial(skb->data
+-					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
++	return 0;
++}
 +
- 			if (!(msg_ctrl_save & IF_MCONT_NEWDAT))
- 				continue;
++static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
++{
++	if (unlikely(vlan_tx_tag_present(skb))) {
++		int err;
  
++		err = put_vlan(skb);
++		if (unlikely(err))
++			return err;
+ 	}
+ 	__vlan_hwaccel_put_tag(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
+ 	return 0;
 -- 
-1.8.4.rc3
-
+1.8.4
