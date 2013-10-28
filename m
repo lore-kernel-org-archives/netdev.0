@@ -1,39 +1,85 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/3] vxlan: silence one build warning
-Date: Mon, 28 Oct 2013 08:25:11 -0700
-Message-ID: <20131028082511.2433d645@nehalam.linuxnetplumber.net>
-References: <1382687360-27794-1-git-send-email-zwu.kernel@gmail.com>
-	<20131025084134.6cfa153a@samsung-9>
-	<20131028.003807.1591686723281776238.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: sched: cls_bpf: add BPF-based classifier
+Date: Mon, 28 Oct 2013 08:27:14 -0700
+Message-ID: <1382974034.4344.5.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1382960120-2198-1-git-send-email-dborkman@redhat.com>
+	 <1382967292.13037.22.camel@edumazet-glaptop.roam.corp.google.com>
+	 <526E7556.1060902@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: zwu.kernel@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, wuzhy@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131028.003807.1591686723281776238.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:33200 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756004Ab3J1P1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 11:27:17 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rq2so6544172pbb.6
+        for <netdev@vger.kernel.org>; Mon, 28 Oct 2013 08:27:17 -0700 (PDT)
+In-Reply-To: <526E7556.1060902@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Oct 2013 00:38:07 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+On Mon, 2013-10-28 at 15:31 +0100, Daniel Borkmann wrote:
 
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Fri, 25 Oct 2013 08:41:34 -0700
-> 
-> > I would rather not fix the warning this way since it risks masking
-> > later bugs if this code ever changes.
-> 
-> But this is suboptimally coded, and is asking for the warning.
-> 
-> Anything returning a pointer by reference is asking for trouble
-> in my opinion.
-> 
-> The correct thing to do is to make create_v{4,6}_sock() return
-> the "struct socket *" as an error pointer.
-> 
-> No more ambiguous initializations, no more warnings.
+> I thought about this, I think this can partially be resolved by the
+> user implementing one BPF program to match all possible flows for a
+> class instead of implementing multiple BPF programs as mentioned in
+> the commit, iow that's up to the user space. And the case you suggest,
+> would be another option to further improve this, but would come with
+> some difficulties in contrast to the notion 0: mismatch, !0: match.
+> I think, this would need additional walk-through through all 'ret'
+> opcodes to see if those classes actually exist. Then, we would need
+> refcounting and call tcf_{un,}bind_filter() for each class that is
+> related to this filter, and tcf_exts_exec() would either need to be
+> i) understood in a "per-filter" notion, so as long as something
+> matches (!0) exec the very same action/policy (which might not be
+> what we want) or ii) could just not be implemented as multiple
+> user-defined filters could be defined in iproute2 with different
+> actions each, but in some paths return the same flowid. So I think
+> this here seems the better trade-off.
 
-Agreed, original code used ERR_PTR (see vxlan_socket_create),
-the side effect stuff only came with the addition of IPv6.
+I have no idea why you want to do all this.
+
+classid are not checked at filter installation time, but at run time.
+
+All you need to do is change :
+
++       list_for_each_entry(prog, &head->plist, link) {
++               if (SK_RUN_FILTER(prog->filter, skb) == 0)
++                       continue;
++
++               *res = prog->res;
++               ret = tcf_exts_exec(skb, &prog->exts, res);
++               if (ret < 0)
++                       continue;
++
++               return ret;
++       }
+
+to
+
+	list_for_each_entry(prog, &head->plist, link) {
+		int filter_res = SK_RUN_FILTER(prog->filter, skb);
+
+		if (!filter_res)
+			continue;
+
+
+               *res = prog->res;
+		if (filter_res != -1)
+			res->classid = filter_res;
+
+               ret = tcf_exts_exec(skb, &prog->exts, res);
+               if (ret < 0)
+                       continue;
+
+               return ret;
+       }
+
+(Reserving filter returns codes :
+ 0 : No match
+ -1: select classid given in the "tc filter ...." command)
+other values : flowid, overiding the default one.
