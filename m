@@ -1,120 +1,871 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next v2 0/5] bonding: patchset for rcu use in bonding
-Date: Mon, 28 Oct 2013 02:34:28 +0100
-Message-ID: <20131028013428.GC11209@redhat.com>
-References: <52688F33.30904@huawei.com>
- <20131027225317.GB11209@redhat.com>
- <526DBAC8.5000009@huawei.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [ovs-dev] [PATCH v2.45 1/4] odp: Allow VLAN actions after MPLS
+ actions
+Date: Mon, 28 Oct 2013 10:41:27 +0900
+Message-ID: <20131028014125.GP849@verge.net.au>
+References: <1382711684-17080-1-git-send-email-horms@verge.net.au>
+ <1382711684-17080-2-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Isaku Yamahata <yamahata@valinux.co.jp>, Ravi K <rkerur@gmail.com>
+To: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>, Ben Pfaff <blp@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8619 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755323Ab3J1Biu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Oct 2013 21:38:50 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:34670 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754546Ab3J1Bla (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 21:41:30 -0400
 Content-Disposition: inline
-In-Reply-To: <526DBAC8.5000009@huawei.com>
+In-Reply-To: <1382711684-17080-2-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 28, 2013 at 09:15:52AM +0800, Ding Tianhong wrote:
->On 2013/10/28 6:53, Veaceslav Falico wrote:
->> On Thu, Oct 24, 2013 at 11:08:35AM +0800, Ding Tianhong wrote:
->>> Hi:
->>>
->>> The slave list will add and del by bond_master_upper_dev_link() and bond_upper_dev_unlink(),
->>> which will call call_netdevice_notifiers(), even it is safe to call it in write bond lock now,
->>> but we can't sure that whether it is safe later, because other drivers may deal NETDEV_CHANGEUPPER
->>> in sleep way, so I didn't admit move the bond_upper_dev_unlink() in write bond lock.
->>>
->>> now the bond_for_each_slave only protect by rtnl_lock(), maybe use bond_for_each_slave_rcu is a good
->>> way to protect slave list for bond, but as a system slow path, it is no need to transform bond_for_each_slave()
->>> to bond_for_each_slave_rcu() in slow path, so in the patchset, I will remove the unused read bond lock
->>> for monitor function, maybe it is a better way, I will wait to accept any relay for it.
->>>
->>> Thanks for the Veaceslav Falico opinion.
->>>
->>> v2: add and modify commit for patchset and patch, it will be the first step for the whole patchset.
->>>
->>> Ding Tianhong (5):
->>>  bonding: remove bond read lock for bond_mii_monitor()
->>>  bonding: remove bond read lock for bond_alb_monitor()
->>>  bonding: remove bond read lock for bond_loadbalance_arp_mon()
->>>  bonding: remove bond read lock for bond_activebackup_arp_mon()
->>
->> This patch introduces a regression by boot-test with active backup mode:
->>
->> bond_activebackup_arp_mon() is already not holding the bond->lock, however
->> it might call bond_change_active_slave(), which does (in case of new_active):
->>
->>  912                         write_unlock_bh(&bond->curr_slave_lock);
->>  913                         read_unlock(&bond->lock);
->>  914  915                         call_netdevice_notifiers(NETDEV_BONDING_FAILOVER, bond->dev);
->>  916                         if (should_notify_peers)
->>  917                                 call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
->>  918                                                          bond->dev);
->>  919  920                         read_lock(&bond->lock);
->>  921                         write_lock_bh(&bond->curr_slave_lock);
->>
->> so it drops the bond->lock (which wasn't taken previously), and then takes
->> it (without anyone dropping it afterwards).
->>
->> I don't know how to fix it - cause a lot of other callers already take it,
->> and we can't just drop them (we'd race), and we can't remove it here (cause
->> we can't call notifiers while atomic).
->>
->> Which begs the question - was this patchset tested at all?
->>
->> [   21.796823] =====================================
->> [   21.796823] [ BUG: bad unlock balance detected! ]
-... snip ...
->
->Hi David:
->yes, exactly I miss it and make a mistake, the bond_select_active_slave is still have the protect problem and
->need to be processed, I miss it, sorry, I will send a patch to fix the bug soon.
->
->Hi Veaceslav:
->sorry about the commit, I will pay more attention to the commit and test, thanks for your advise and report the bug,
->I have to admin that I was too careless.
+On Fri, Oct 25, 2013 at 03:34:41PM +0100, Simon Horman wrote:
+> From: Joe Stringer <joe@wand.net.nz>
+> 
+> OpenFlow 1.1 and 1.2, and 1.3 differ in their handling of MPLS actions in the
+> presence of VLAN tags. To allow correct behaviour to be committed in
+> each situation, this patch adds a second round of VLAN tag action
+> handling to commit_odp_actions(), which occurs after MPLS actions. This
+> is implemented with a new field in 'struct xlate_in' called 'vlan_tci'.
+> 
+> When an push_mpls action is composed, the flow's current VLAN state is
+> stored into xin->vlan_tci, and flow->vlan_tci is set to 0 (pop_vlan). If
+> a VLAN tag is present, it is stripped; if not, then there is no change.
+> Any later modifications to the VLAN state is written to xin->vlan_tci.
+> When committing the actions, flow->vlan_tci is used before MPLS actions,
+> and xin->vlan_tci is used afterwards. This retains the current datapath
+> behaviour, but allows VLAN actions to be applied in a more flexible
+> manner.
+> 
+> Both before and after this patch MPLS LSEs are pushed onto a packet after
+> any VLAN tags that may be present. This is the behaviour described in
+> OpenFlow 1.1 and 1.2. OpenFlow 1.3 specifies that MPLS LSEs should be
+> pushed onto a packet before any VLAN tags that are present. Support
+> for this will be added by a subsequent patch that makes use of
+> the infrastructure added by this patch.
 
-I'll ask you once again, even though it seems that my NACK doesn't block
-the patchset - try writing commit messages that actually describe why and
-how you do it.
+Whole changelog message still reflects the intent of the code the
+implementation details it describes are no longer correct. I will
+fix this and re-post.
 
-It's, actually, not only for the reviewers - it's also really good for you
-- cause while writing the commit log you also understand a lot more what
-are you doing, and might spot some corner cases (like this one).
-
-Sorry for being negative, however it costs me *much* more time to review
-patches without proper commit messages. I've done it once, twice, several
-times more - but that's it, I refuse to spend my time on your skipped
-homework.
-
-It might also help to split patches into really small steps - as in - do
-only one thing at a time, and describe it. This will help evade bugs *a
-lot*. It also helps people who'll bisect it, bugfix it and review it -
-because every patch will be a small, well-documented change, instead of a
-chunk of code with a description 'lets remove bond->lock'.
-
-Thank you and hope that helps.
-
->
->
->
->
->>>
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->> .
->>
->
->
+> 
+> Signed-off-by: Joe Stringer <joe@wand.net.nz>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> 
+> ---
+> 
+> v2.45 [Simon Horman]
+> * As pointed out by Ben Pfaff and Joe Stringer
+>   + Update VLAN handling in the presence of MPLS push
+> 
+>     Previously the test for committing ODP VLAN actions after MPLS actions
+>     was that the VLAN TCI differed before and after the MPLS push action.
+>     This results in a false negative in some cases including if a VLAN tag
+>     is pushed after the MPLS push action in such a way that it duplicates
+>     the VLAN tag present before the MPLS push action.
+> 
+>     This is resolved by ensuring the VLAN_CFI bit of the value used to
+>     track the desired VLAN TCI after an MPLS push action is zero unless
+>     VLAN actions should be committed after MPLS actions.
+> 
+>   + Update tests to use ovs-ofctl monitor "-m" to allow full inspection of
+>     MPLS LSE and VLAN tags present in packets.
+> 
+> v2.44 [Simon Horman]
+> * Rebase for the following changes:
+>   f47ea02 ("Set datapath mask bits when setting a flow field.")
+>   7fdb60a ("Add support for write-actions")
+>   7358063 ("odp-util: Elaborate the comment for odp_flow_format() function.")
+> * Correct final_vlan_tci and next_vlan_tci initialisation in xlate_actions__()
+> 
+> v2.43 [Simon Horman]
+> * As suggested by Ben Pfaff
+>   Move vlan state into struct xlate_ctx
+> 
+>   1. Add final_vlan_tci member to struct xlate_ctx instead of vlan_tci member
+>      struct xlate_xin.  This seems to be a better palace for it as it does
+>      not need to be accessible from the caller.
+> 
+>   2. Move local vlan_tci variable of do_xlate_actions() to be the
+>      next_vlan_tci member of strict xlate_ctx.  This allows for it to work
+>      across resubmit actions and goto table instructions.
+> 
+> v2.42
+> * No change
+> 
+> v2.41 [Joe Stringer via Simon Horman]
+> * Rework comments to make things a little clearer
+> 
+> v2.40 [Simon Horman]
+> * Rebase for removal of mpls_depth from struct flow
+> 
+> v2.38 - v2.39
+> * No change
+> 
+> v2.37
+> * Rebase
+> 
+> v2.36
+> * No change
+> 
+> v2.5 [Joe Stringer]
+> * First post
+> ---
+>  lib/odp-util.c               |  12 +-
+>  lib/odp-util.h               |   3 +-
+>  ofproto/ofproto-dpif-xlate.c | 136 ++++++++++++---
+>  tests/ofproto-dpif.at        | 389 +++++++++++++++++++++++++++++++++++++++++++
+>  4 files changed, 514 insertions(+), 26 deletions(-)
+> 
+> diff --git a/lib/odp-util.c b/lib/odp-util.c
+> index 6875e01..21b33ac 100644
+> --- a/lib/odp-util.c
+> +++ b/lib/odp-util.c
+> @@ -3639,11 +3639,15 @@ commit_set_pkt_mark_action(const struct flow *flow, struct flow *base,
+>   * used as part of the action.
+>   *
+>   * Returns a reason to force processing the flow's packets into the userspace
+> - * slow path, if there is one, otherwise 0. */
+> + * slow path, if there is one, otherwise 0.
+> + *
+> + * VLAN actions may be committed twice; If vlan_tci in 'flow' differs from the
+> + * one in 'base', then it is committed before MPLS actions. If the VLAN_CFI
+> + * bit of 'post_mpls_vlan_tci' is set then it is committed afterwards. */
+>  enum slow_path_reason
+>  commit_odp_actions(const struct flow *flow, struct flow *base,
+>                     struct ofpbuf *odp_actions, struct flow_wildcards *wc,
+> -                   int *mpls_depth_delta)
+> +                   int *mpls_depth_delta, ovs_be16 post_mpls_vlan_tci)
+>  {
+>      enum slow_path_reason slow;
+>  
+> @@ -3656,6 +3660,10 @@ commit_odp_actions(const struct flow *flow, struct flow *base,
+>       * that it is no longer IP and thus nw and port actions are no longer valid.
+>       */
+>      commit_mpls_action(flow, base, odp_actions, wc, mpls_depth_delta);
+> +    if (post_mpls_vlan_tci & htons(VLAN_CFI)) {
+> +        base->vlan_tci = htons(0);
+> +        commit_vlan_action(post_mpls_vlan_tci, base, odp_actions, wc);
+> +    }
+>      commit_set_priority_action(flow, base, odp_actions, wc);
+>      commit_set_pkt_mark_action(flow, base, odp_actions, wc);
+>  
+> diff --git a/lib/odp-util.h b/lib/odp-util.h
+> index 821b2c4..636a3ec 100644
+> --- a/lib/odp-util.h
+> +++ b/lib/odp-util.h
+> @@ -175,7 +175,8 @@ enum slow_path_reason commit_odp_actions(const struct flow *,
+>                                           struct flow *base,
+>                                           struct ofpbuf *odp_actions,
+>                                           struct flow_wildcards *wc,
+> -                                         int *mpls_depth_delta);
+> +                                         int *mpls_depth_delta,
+> +                                         ovs_be16 post_mpls_vlan_tci);
+>  
+>  /* ofproto-dpif interface.
+>   *
+> diff --git a/ofproto/ofproto-dpif-xlate.c b/ofproto/ofproto-dpif-xlate.c
+> index 7be691c..d79356f 100644
+> --- a/ofproto/ofproto-dpif-xlate.c
+> +++ b/ofproto/ofproto-dpif-xlate.c
+> @@ -180,6 +180,37 @@ struct xlate_ctx {
+>      uint16_t user_cookie_offset;/* Used for user_action_cookie fixup. */
+>      bool exit;                  /* No further actions should be processed. */
+>  
+> +    /* The post MPLS vlan_tci.
+> +     *
+> +     * The value of the vlan TCI prior to the translation of an MPLS push
+> +     * actions should be stored in 'xin->flow->vlan_tci'.
+> +     *
+> +     * If an VLAN or set field action is subsequently translated then
+> +     * 'post_mpls_vlan_tci' is updated as according to the action.
+> +     *
+> +     * If the VLAN_CFI bit of 'post_mpls_vlan_tci' is set then VLAN ODP actions
+> +     * will be committed after any MPLS actions regardless of whether VLAN
+> +     * actions were also committed before the MPLS actions or not.
+> +     *
+> +     * This mechanism allows a VLAN tag to be popped before pushing
+> +     * an MPLS LSE and then the same VLAN tag pushed after pushing
+> +     * the MPLS LSE. In this way it is possible to push an MPLS LSE
+> +     * after an existing VLAN tag. Moreover this mechanism allows
+> +     * the order in which VLAN tags and MPLS LSEs are pushed. */
+> +    ovs_be16 post_mpls_vlan_tci;
+> +
+> +    /* The next vlan_tci state.
+> +     *
+> +     * This field pints to the variable update each time an
+> +     * action updates the VLAN tci.
+> +     *
+> +     * This variable initially points to 'xin->flow->vlan_tci' so that ODP
+> +     * VLAN actions are committed before any MPLS actions. When an MPLS
+> +     * action is composed 'next_vlan_tci' is updated to point to
+> +     * 'post_mpls_vlan_tci'. This causes subsequent VLAN actions to be
+> +     * committed after MPLS actions. */
+> +    ovs_be16 *next_vlan_tci;
+> +
+>      /* OpenFlow 1.1+ action set.
+>       *
+>       * 'action_set' accumulates "struct ofpact"s added by OFPACT_WRITE_ACTIONS.
+> @@ -996,11 +1027,38 @@ output_vlan_to_vid(const struct xbundle *out_xbundle, uint16_t vlan)
+>      }
+>  }
+>  
+> +static bool mpls_actions_xlated(struct xlate_ctx *ctx)
+> +{
+> +    return ctx->next_vlan_tci == &ctx->post_mpls_vlan_tci;
+> +}
+> +
+> +static ovs_be16
+> +vlan_tci_save(struct xlate_ctx *ctx)
+> +{
+> +    ovs_be16 orig_tci = ctx->xin->flow.vlan_tci;
+> +    /* If MPLS actions were executed after vlan actions then
+> +     * copy the final vlan_tci out and restore the intermediate VLAN state. */
+> +    if (mpls_actions_xlated(ctx)) {
+> +        ctx->xin->flow.vlan_tci = *ctx->next_vlan_tci;
+> +    }
+> +    return orig_tci;
+> +}
+> +
+> +static void
+> +vlan_tci_restore(struct xlate_ctx *ctx, ovs_be16 orig_tci)
+> +{
+> +    /* If MPLS actions were executed after vlan actions then
+> +     * copy the final vlan_tci out and restore the intermediate VLAN state. */
+> +    if (mpls_actions_xlated(ctx)) {
+> +        ctx->post_mpls_vlan_tci = ctx->xin->flow.vlan_tci;
+> +        ctx->xin->flow.vlan_tci = orig_tci;
+> +    }
+> +}
+> +
+>  static void
+>  output_normal(struct xlate_ctx *ctx, const struct xbundle *out_xbundle,
+>                uint16_t vlan)
+>  {
+> -    ovs_be16 *flow_tci = &ctx->xin->flow.vlan_tci;
+>      uint16_t vid;
+>      ovs_be16 tci, old_tci;
+>      struct xport *xport;
+> @@ -1025,18 +1083,18 @@ output_normal(struct xlate_ctx *ctx, const struct xbundle *out_xbundle,
+>          }
+>      }
+>  
+> -    old_tci = *flow_tci;
+> +    old_tci = *ctx->next_vlan_tci;
+>      tci = htons(vid);
+>      if (tci || out_xbundle->use_priority_tags) {
+> -        tci |= *flow_tci & htons(VLAN_PCP_MASK);
+> +        tci |= *ctx->next_vlan_tci & htons(VLAN_PCP_MASK);
+>          if (tci) {
+>              tci |= htons(VLAN_CFI);
+>          }
+>      }
+> -    *flow_tci = tci;
+> +    ctx->xin->flow.vlan_tci = *ctx->next_vlan_tci = tci;
+>  
+>      compose_output_action(ctx, xport->ofp_port);
+> -    *flow_tci = old_tci;
+> +    ctx->xin->flow.vlan_tci = *ctx->next_vlan_tci = old_tci;
+>  }
+>  
+>  /* A VM broadcasts a gratuitous ARP to indicate that it has resumed after
+> @@ -1269,7 +1327,7 @@ xlate_normal(struct xlate_ctx *ctx)
+>  
+>      /* Drop malformed frames. */
+>      if (flow->dl_type == htons(ETH_TYPE_VLAN) &&
+> -        !(flow->vlan_tci & htons(VLAN_CFI))) {
+> +        !(*ctx->next_vlan_tci & htons(VLAN_CFI))) {
+>          if (ctx->xin->packet != NULL) {
+>              static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(1, 5);
+>              VLOG_WARN_RL(&rl, "bridge %s: dropping packet with partial "
+> @@ -1293,7 +1351,7 @@ xlate_normal(struct xlate_ctx *ctx)
+>      }
+>  
+>      /* Check VLAN. */
+> -    vid = vlan_tci_to_vid(flow->vlan_tci);
+> +    vid = vlan_tci_to_vid(*ctx->next_vlan_tci);
+>      if (!input_vid_is_valid(vid, in_xbundle, ctx->xin->packet != NULL)) {
+>          xlate_report(ctx, "disallowed VLAN VID for this input port, dropping");
+>          return;
+> @@ -1551,7 +1609,7 @@ compose_output_action__(struct xlate_ctx *ctx, ofp_port_t ofp_port,
+>      const struct xport *xport = get_ofp_port(ctx->xbridge, ofp_port);
+>      struct flow_wildcards *wc = &ctx->xout->wc;
+>      struct flow *flow = &ctx->xin->flow;
+> -    ovs_be16 flow_vlan_tci;
+> +    ovs_be16 flow_vlan_tci, vlan_tci;
+>      uint32_t flow_pkt_mark;
+>      uint8_t flow_nw_tos;
+>      odp_port_t out_port, odp_port;
+> @@ -1620,6 +1678,7 @@ compose_output_action__(struct xlate_ctx *ctx, ofp_port_t ofp_port,
+>      }
+>  
+>      flow_vlan_tci = flow->vlan_tci;
+> +    vlan_tci = *ctx->next_vlan_tci;
+>      flow_pkt_mark = flow->pkt_mark;
+>      flow_nw_tos = flow->nw_tos;
+>  
+> @@ -1659,12 +1718,13 @@ compose_output_action__(struct xlate_ctx *ctx, ofp_port_t ofp_port,
+>              wc->masks.vlan_tci |= htons(VLAN_VID_MASK | VLAN_CFI);
+>          }
+>          vlandev_port = vsp_realdev_to_vlandev(ctx->xbridge->ofproto, ofp_port,
+> -                                              flow->vlan_tci);
+> +                                              *ctx->next_vlan_tci);
+>          if (vlandev_port == ofp_port) {
+>              out_port = odp_port;
+>          } else {
+>              out_port = ofp_port_to_odp_port(ctx->xbridge, vlandev_port);
+>              flow->vlan_tci = htons(0);
+> +            ctx->post_mpls_vlan_tci = htons(0);
+>          }
+>      }
+>  
+> @@ -1672,7 +1732,8 @@ compose_output_action__(struct xlate_ctx *ctx, ofp_port_t ofp_port,
+>          ctx->xout->slow |= commit_odp_actions(flow, &ctx->base_flow,
+>                                                &ctx->xout->odp_actions,
+>                                                &ctx->xout->wc,
+> -                                              &ctx->mpls_depth_delta);
+> +                                              &ctx->mpls_depth_delta,
+> +                                              ctx->post_mpls_vlan_tci);
+>          nl_msg_put_odp_port(&ctx->xout->odp_actions, OVS_ACTION_ATTR_OUTPUT,
+>                              out_port);
+>  
+> @@ -1684,6 +1745,7 @@ compose_output_action__(struct xlate_ctx *ctx, ofp_port_t ofp_port,
+>   out:
+>      /* Restore flow */
+>      flow->vlan_tci = flow_vlan_tci;
+> +    *ctx->next_vlan_tci = vlan_tci;
+>      flow->pkt_mark = flow_pkt_mark;
+>      flow->nw_tos = flow_nw_tos;
+>  }
+> @@ -1838,7 +1900,8 @@ execute_controller_action(struct xlate_ctx *ctx, int len,
+>      ctx->xout->slow |= commit_odp_actions(&ctx->xin->flow, &ctx->base_flow,
+>                                            &ctx->xout->odp_actions,
+>                                            &ctx->xout->wc,
+> -                                          &ctx->mpls_depth_delta);
+> +                                          &ctx->mpls_depth_delta,
+> +                                          ctx->post_mpls_vlan_tci);
+>  
+>      odp_execute_actions(NULL, packet, &key, ctx->xout->odp_actions.data,
+>                          ctx->xout->odp_actions.size, NULL, NULL);
+> @@ -2231,7 +2294,8 @@ xlate_sample_action(struct xlate_ctx *ctx,
+>    ctx->xout->slow |= commit_odp_actions(&ctx->xin->flow, &ctx->base_flow,
+>                                          &ctx->xout->odp_actions,
+>                                          &ctx->xout->wc,
+> -                                        &ctx->mpls_depth_delta);
+> +                                        &ctx->mpls_depth_delta,
+> +                                        ctx->post_mpls_vlan_tci);
+>  
+>    compose_flow_sample_cookie(os->probability, os->collector_set_id,
+>                               os->obs_domain_id, os->obs_point_id, &cookie);
+> @@ -2320,28 +2384,28 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
+>  
+>          case OFPACT_SET_VLAN_VID:
+>              wc->masks.vlan_tci |= htons(VLAN_VID_MASK | VLAN_CFI);
+> -            flow->vlan_tci &= ~htons(VLAN_VID_MASK);
+> -            flow->vlan_tci |= (htons(ofpact_get_SET_VLAN_VID(a)->vlan_vid)
+> -                               | htons(VLAN_CFI));
+> +            *ctx->next_vlan_tci &= ~htons(VLAN_VID_MASK);
+> +            *ctx->next_vlan_tci |= (htons(ofpact_get_SET_VLAN_VID(a)->vlan_vid)
+> +                          | htons(VLAN_CFI));
+>              break;
+>  
+>          case OFPACT_SET_VLAN_PCP:
+>              wc->masks.vlan_tci |= htons(VLAN_PCP_MASK | VLAN_CFI);
+> -            flow->vlan_tci &= ~htons(VLAN_PCP_MASK);
+> -            flow->vlan_tci |=
+> +            *ctx->next_vlan_tci &= ~htons(VLAN_PCP_MASK);
+> +            *ctx->next_vlan_tci |=
+>                  htons((ofpact_get_SET_VLAN_PCP(a)->vlan_pcp << VLAN_PCP_SHIFT)
+>                        | VLAN_CFI);
+>              break;
+>  
+>          case OFPACT_STRIP_VLAN:
+>              memset(&wc->masks.vlan_tci, 0xff, sizeof wc->masks.vlan_tci);
+> -            flow->vlan_tci = htons(0);
+> +            *ctx->next_vlan_tci = htons(0);
+>              break;
+>  
+>          case OFPACT_PUSH_VLAN:
+>              /* XXX 802.1AD(QinQ) */
+>              memset(&wc->masks.vlan_tci, 0xff, sizeof wc->masks.vlan_tci);
+> -            flow->vlan_tci = htons(VLAN_CFI);
+> +            *ctx->next_vlan_tci = htons(VLAN_CFI);
+>              break;
+>  
+>          case OFPACT_SET_ETH_SRC:
+> @@ -2423,29 +2487,53 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
+>              flow->skb_priority = ctx->orig_skb_priority;
+>              break;
+>  
+> -        case OFPACT_REG_MOVE:
+> +        case OFPACT_REG_MOVE: {
+> +            ovs_be16 orig_tci = flow->vlan_tci;
+>              nxm_execute_reg_move(ofpact_get_REG_MOVE(a), flow, wc);
+> +            vlan_tci_restore(ctx, orig_tci);
+>              break;
+> +        }
+>  
+> -        case OFPACT_REG_LOAD:
+> +        case OFPACT_REG_LOAD: {
+> +            ovs_be16 orig_tci = vlan_tci_save(ctx);
+>              nxm_execute_reg_load(ofpact_get_REG_LOAD(a), flow, wc);
+> +            vlan_tci_restore(ctx, orig_tci);
+>              break;
+> +        }
+>  
+> -        case OFPACT_STACK_PUSH:
+> +        case OFPACT_STACK_PUSH: {
+> +            ovs_be16 orig_tci = vlan_tci_save(ctx);
+>              nxm_execute_stack_push(ofpact_get_STACK_PUSH(a), flow, wc,
+>                                     &ctx->stack);
+> +            vlan_tci_restore(ctx, orig_tci);
+>              break;
+> +        }
+>  
+> -        case OFPACT_STACK_POP:
+> +        case OFPACT_STACK_POP: {
+> +            ovs_be16 orig_tci = vlan_tci_save(ctx);
+>              nxm_execute_stack_pop(ofpact_get_STACK_POP(a), flow, wc,
+>                                    &ctx->stack);
+> +            vlan_tci_restore(ctx, orig_tci);
+>              break;
+> +        }
+>  
+>          case OFPACT_PUSH_MPLS:
+>              if (compose_mpls_push_action(ctx,
+>                                           ofpact_get_PUSH_MPLS(a)->ethertype)) {
+>                  return;
+>              }
+> +
+> +            /* Save and pop any existing VLAN tags. They will be pushed
+> +             * back onto the packet after pushing the MPLS LSE. The overall
+> +             * effect is to push the MPLS LSE after any VLAN tags that may
+> +             * be present. This is the behaviour described for OpenFlow 1.1
+> +             * and 1.2. This code needs to be enhanced to make this
+> +             * conditional to also and support pushing the MPLS LSE before
+> +             * any VLAN tags that may be present, the behaviour described
+> +             * for OpenFlow 1.3. */
+> +            ctx->post_mpls_vlan_tci = *ctx->next_vlan_tci;
+> +            flow->vlan_tci = htons(0);
+> +            ctx->next_vlan_tci = &ctx->post_mpls_vlan_tci;
+>              break;
+>  
+>          case OFPACT_POP_MPLS:
+> @@ -2786,6 +2874,8 @@ xlate_actions__(struct xlate_in *xin, struct xlate_out *xout)
+>      ctx.table_id = 0;
+>      ctx.exit = false;
+>      ctx.mpls_depth_delta = 0;
+> +    ctx.post_mpls_vlan_tci = htons(0);
+> +    ctx.next_vlan_tci = &ctx.xin->flow.vlan_tci;
+>  
+>      if (!xin->ofpacts && !ctx.rule) {
+>          rule_dpif_lookup(ctx.xbridge->ofproto, flow, wc, &rule);
+> diff --git a/tests/ofproto-dpif.at b/tests/ofproto-dpif.at
+> index c569463..372bce7 100644
+> --- a/tests/ofproto-dpif.at
+> +++ b/tests/ofproto-dpif.at
+> @@ -965,6 +965,395 @@ done
+>  OVS_VSWITCHD_STOP
+>  AT_CLEANUP
+>  
+> +AT_SETUP([ofproto-dpif - OF1.2 VLAN+MPLS handling])
+> +OVS_VSWITCHD_START([dnl
+> +   add-port br0 p1 -- set Interface p1 type=dummy
+> +])
+> +ON_EXIT([kill `cat ovs-ofctl.pid`])
+> +
+> +AT_CAPTURE_FILE([ofctl_monitor.log])
+> +AT_DATA([flows.txt], [dnl
+> +cookie=0xa dl_src=40:44:44:44:54:50 actions=push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],push_vlan:0x8100,mod_vlan_vid:99,mod_vlan_pcp:1,controller
+> +cookie=0xa dl_src=40:44:44:44:54:51 actions=push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],push_vlan:0x8100,mod_vlan_vid:99,mod_vlan_pcp:1,controller
+> +cookie=0xa dl_src=40:44:44:44:54:52 actions=push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],push_vlan:0x8100,load:99->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,controller
+> +cookie=0xa dl_src=40:44:44:44:54:53 actions=push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],push_vlan:0x8100,load:99->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,controller
+> +cookie=0xa dl_src=40:44:44:44:54:54 actions=push_vlan:0x8100,mod_vlan_vid:99,mod_vlan_pcp:1,push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],controller
+> +cookie=0xa dl_src=40:44:44:44:54:55 actions=push_vlan:0x8100,mod_vlan_vid:99,mod_vlan_pcp:1,push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],controller
+> +cookie=0xa dl_src=40:44:44:44:54:56 actions=push_vlan:0x8100,load:99->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],controller
+> +cookie=0xa dl_src=40:44:44:44:54:57 actions=push_vlan:0x8100,load:99->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],controller
+> +cookie=0xa dl_src=40:44:44:44:54:58 actions=load:99->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],controller
+> +cookie=0xa dl_src=40:44:44:44:54:59 actions=push_mpls:0x8847,load:10->OXM_OF_MPLS_LABEL[[]],mod_vlan_pcp:1,load:99->OXM_OF_VLAN_VID[[]],controller
+> +])
+> +AT_CHECK([ovs-ofctl --protocols=OpenFlow12 add-flows br0 flows.txt])
+> +
+> +dnl Modified MPLS controller action.
+> +dnl In this test, we push the MPLS tag before pushing a VLAN tag, so we see
+> +dnl both of these in the final flow
+> +AT_CHECK([ovs-ofctl monitor br0 65534 -m -P nxm --detach --pidfile 2> ofctl_monitor.log])
+> +
+> +for i in 1 2 3; do
+> +    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:54:50,dst=50:54:00:00:00:07),eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no)'
+> +done
+> +OVS_WAIT_UNTIL([ovs-appctl -t ovs-ofctl exit])
+> +
+> +AT_CHECK([cat ofctl_monitor.log], [0], [dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:50,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 50 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +00000040  00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:50,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 50 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +00000040  00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:50,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 50 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +00000040  00 00 00 00
+> +])
+> +
+> +dnl Modified MPLS controller action.
+> +dnl In this test, the input packet in vlan-tagged, which should be stripped
+> +dnl before we push the MPLS and VLAN tags.
+> +AT_CHECK([ovs-ofctl monitor br0 65534 -m -P nxm --detach --pidfile 2> ofctl_monitor.log])
+> +
+> +for i in 1 2 3; do
+> +    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:54:51,dst=50:54:00:00:00:07),eth_type(0x8100),vlan(vid=88,pcp=7),encap(eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no))'
+> +done
+> +OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
+> +ovs-appctl -t ovs-ofctl exit
+> +
+> +AT_CHECK([cat ofctl_monitor.log], [0], [dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:51,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 51 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:51,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 51 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:51,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 51 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +])
+> +
+> +dnl Modified MPLS controller action.
+> +dnl In this test, we push the MPLS tag before pushing a VLAN tag, so we see
+> +dnl both of these in the final flow
+> +AT_CHECK([ovs-ofctl monitor br0 65534 -m -P nxm --detach --pidfile 2> ofctl_monitor.log])
+> +
+> +for i in 1 2 3; do
+> +    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:54:52,dst=52:54:00:00:00:07),eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no)'
+> +done
+> +OVS_WAIT_UNTIL([ovs-appctl -t ovs-ofctl exit])
+> +
+> +AT_CHECK([cat ofctl_monitor.log], [0], [dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:52,dl_dst=52:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  52 54 00 00 00 07 40 44-44 44 54 52 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +00000040  00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:52,dl_dst=52:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  52 54 00 00 00 07 40 44-44 44 54 52 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +00000040  00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:52,dl_dst=52:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  52 54 00 00 00 07 40 44-44 44 54 52 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +00000040  00 00 00 00
+> +])
+> +
+> +dnl Modified MPLS controller action.
+> +dnl In this test, the input packet in vlan-tagged, which should be stripped
+> +dnl before we push the MPLS and VLAN tags.
+> +AT_CHECK([ovs-ofctl monitor br0 65534 -m -P nxm --detach --pidfile 2> ofctl_monitor.log])
+> +
+> +for i in 1 2 3; do
+> +    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:54:53,dst=50:54:00:00:00:07),eth_type(0x8100),vlan(vid=88,pcp=7),encap(eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no))'
+> +done
+> +OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
+> +ovs-appctl -t ovs-ofctl exit
+> +
+> +AT_CHECK([cat ofctl_monitor.log], [0], [dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:53,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 53 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:53,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 53 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:53,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 53 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +])
+> +
+> +dnl Modified MPLS controller action.
+> +dnl In this test, we push the VLAN tag before pushing a MPLS tag, but these
+> +dnl actions are reordered, so we see both of these in the final flow.
+> +AT_CHECK([ovs-ofctl monitor br0 65534 -m -P nxm --detach --pidfile 2> ofctl_monitor.log])
+> +
+> +for i in 1 2 3; do
+> +    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:54:54,dst=50:54:00:00:00:07),eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no)'
+> +done
+> +OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
+> +ovs-appctl -t ovs-ofctl exit
+> +
+> +AT_CHECK([cat ofctl_monitor.log], [0], [dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:54,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 54 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +00000040  00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:54,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 54 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +00000040  00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:54,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 54 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +00000040  00 00 00 00
+> +])
+> +
+> +dnl Modified MPLS controller action.
+> +dnl In this test, the input packet in vlan-tagged, which should be stripped
+> +dnl before we push the MPLS and VLAN tags.
+> +AT_CHECK([ovs-ofctl monitor br0 65534 -m -P nxm --detach --pidfile 2> ofctl_monitor.log])
+> +
+> +for i in 1 2 3; do
+> +    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:54:55,dst=50:54:00:00:00:07),eth_type(0x8100),vlan(vid=88,pcp=7),encap(eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no))'
+> +done
+> +OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
+> +ovs-appctl -t ovs-ofctl exit
+> +
+> +AT_CHECK([cat ofctl_monitor.log], [0], [dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:55,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 55 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:55,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 55 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:55,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 55 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +])
+> +
+> +dnl Modified MPLS controller action.
+> +dnl In this test, we push the VLAN tag before pushing a MPLS tag, but these
+> +dnl actions are reordered, so we see both of these in the final flow.
+> +AT_CHECK([ovs-ofctl monitor br0 65534 -m -P nxm --detach --pidfile 2> ofctl_monitor.log])
+> +
+> +for i in 1 2 3; do
+> +    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:54:56,dst=50:54:00:00:00:07),eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no)'
+> +done
+> +OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
+> +ovs-appctl -t ovs-ofctl exit
+> +
+> +AT_CHECK([cat ofctl_monitor.log], [0], [dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:56,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 56 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +00000040  00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:56,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 56 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +00000040  00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=68 in_port=1 (via action) data_len=68 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:56,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 56 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +00000040  00 00 00 00
+> +])
+> +
+> +dnl Modified MPLS controller action.
+> +dnl In this test, the input packet in vlan-tagged, which should be stripped
+> +dnl before we push the MPLS and VLAN tags.
+> +AT_CHECK([ovs-ofctl monitor br0 -m 65534 -P nxm --detach --pidfile 2> ofctl_monitor.log])
+> +
+> +for i in 1 2 3; do
+> +    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:54:57,dst=50:54:00:00:00:07),eth_type(0x8100),vlan(vid=88,pcp=7),encap(eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no))'
+> +done
+> +OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
+> +ovs-appctl -t ovs-ofctl exit
+> +
+> +AT_CHECK([cat ofctl_monitor.log], [0], [dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:57,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 57 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:57,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 57 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:57,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 57 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +])
+> +
+> +dnl Modified MPLS controller action.
+> +dnl In this test, the input packet in vlan-tagged, which should be stripped
+> +dnl before we push the MPLS and VLAN tags.
+> +AT_CHECK([ovs-ofctl monitor br0 65534 -m -P nxm --detach --pidfile 2> ofctl_monitor.log])
+> +
+> +for i in 1 2 3; do
+> +    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:54:58,dst=50:54:00:00:00:07),eth_type(0x8100),vlan(vid=88,pcp=7),encap(eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no))'
+> +done
+> +OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
+> +ovs-appctl -t ovs-ofctl exit
+> +
+> +AT_CHECK([cat ofctl_monitor.log], [0], [dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:58,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 58 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:58,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 58 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:58,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 58 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +])
+> +
+> +dnl Modified MPLS controller action.
+> +dnl In this test, the input packet in vlan-tagged, which should be modified
+> +dnl before we push MPLS and VLAN tags.
+> +AT_CHECK([ovs-ofctl monitor br0 65534 -m -P nxm --detach --pidfile 2> ofctl_monitor.log])
+> +
+> +for i in 1 2 3; do
+> +    ovs-appctl netdev-dummy/receive p1 'in_port(1),eth(src=40:44:44:44:54:59,dst=50:54:00:00:00:07),eth_type(0x8100),vlan(vid=88,pcp=7),encap(eth_type(0x0800),ipv4(src=192.168.0.1,dst=192.168.0.2,proto=6,tos=0,ttl=64,frag=no))'
+> +done
+> +OVS_WAIT_UNTIL([test `wc -l < ofctl_monitor.log` -ge 6])
+> +ovs-appctl -t ovs-ofctl exit
+> +
+> +AT_CHECK([cat ofctl_monitor.log], [0], [dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:59,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 59 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:59,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 59 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +dnl
+> +NXT_PACKET_IN (xid=0x0): cookie=0xa total_len=64 in_port=1 (via action) data_len=64 (unbuffered)
+> +mpls,metadata=0,in_port=0,dl_vlan=99,dl_vlan_pcp=1,dl_src=40:44:44:44:54:59,dl_dst=50:54:00:00:00:07,mpls_label=10,mpls_tc=0,mpls_ttl=64,mpls_bos=1
+> +00000000  50 54 00 00 00 07 40 44-44 44 54 59 81 00 20 63
+> +00000010  88 47 00 00 a1 40 45 00-00 28 00 00 00 00 40 06
+> +00000020  f9 7c c0 a8 00 01 c0 a8-00 02 00 00 00 00 00 00
+> +00000030  00 00 00 00 00 00 50 00-00 00 00 00 00 00 00 00
+> +])
+> +
+> +AT_CHECK([ovs-appctl time/warp 5000], [0], [ignore])
+> +AT_CHECK([ovs-ofctl dump-flows br0 | ofctl_strip | sort], [0], [dnl
+> + cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:54:50 actions=push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],mod_vlan_vid:99,mod_vlan_pcp:1,CONTROLLER:65535
+> + cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:54:51 actions=push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],mod_vlan_vid:99,mod_vlan_pcp:1,CONTROLLER:65535
+> + cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:54:52 actions=push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],load:0x63->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,CONTROLLER:65535
+> + cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:54:53 actions=push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],load:0x63->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,CONTROLLER:65535
+> + cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:54:54 actions=mod_vlan_vid:99,mod_vlan_pcp:1,push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],CONTROLLER:65535
+> + cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:54:55 actions=mod_vlan_vid:99,mod_vlan_pcp:1,push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],CONTROLLER:65535
+> + cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:54:56 actions=load:0x63->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],CONTROLLER:65535
+> + cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:54:57 actions=load:0x63->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],CONTROLLER:65535
+> + cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:54:58 actions=load:0x63->OXM_OF_VLAN_VID[[]],mod_vlan_pcp:1,push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],CONTROLLER:65535
+> + cookie=0xa, n_packets=3, n_bytes=180, dl_src=40:44:44:44:54:59 actions=push_mpls:0x8847,load:0xa->OXM_OF_MPLS_LABEL[[]],mod_vlan_pcp:1,load:0x63->OXM_OF_VLAN_VID[[]],CONTROLLER:65535
+> +NXST_FLOW reply:
+> +])
+> +
+> +OVS_VSWITCHD_STOP
+> +AT_CLEANUP
+> +
+>  AT_SETUP([ofproto-dpif - fragment handling])
+>  OVS_VSWITCHD_START
+>  ADD_OF_PORTS([br0], [1], [2], [3], [4], [5], [6], [90])
+> -- 
+> 1.8.4
+> 
+> _______________________________________________
+> dev mailing list
+> dev@openvswitch.org
+> http://openvswitch.org/mailman/listinfo/dev
+> 
