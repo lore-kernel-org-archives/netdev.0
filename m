@@ -1,90 +1,128 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: extending ndo_add_rx_vxlan_port
-Date: Sun, 27 Oct 2013 16:41:46 -0700
-Message-ID: <526DA4BA.8050806@gmail.com>
-References: <526D2F8F.1070204@mellanox.com> <alpine.LFD.2.03.1310271017120.19783@intel.com> <CAJZOPZ+S6ngqMjV-2ZMcpzkuWzzLWwCQMtd_1_SjDkqWh_tbYg@mail.gmail.com>
+From: Darren Hart <dvhart@linux.intel.com>
+Subject: Re: [gpio:for-next 67/67] pch_gbe_main.c:undefined reference to
+ `devm_gpio_request_one'
+Date: Mon, 28 Oct 2013 00:04:37 +0000
+Message-ID: <1382918677.23829.92.camel@dvhart-mobl4.amr.corp.intel.com>
+References: <52691c0b.BIIOKlR6F81qU+tE%fengguang.wu@intel.com>
+	  <20131025044027.GA27083@localhost>
+	  <CACRpkdaJVE44UGRAZ0tnQSArrs+DuVFhVssW6riWmdp8-6E6BQ@mail.gmail.com>
+	  <1382696677.4970.40.camel@dvhart-mobl4.amr.corp.intel.com>
+	  <CACRpkdYvOMiBOXRi61LjemMSoafR6kv3XoY=A5E90hwMumdw9A@mail.gmail.com>
+	  <CACRpkdYDUKK-jAeeHECfRcKM+-MDuyarDMGDP0p39U_-WLgd8w@mail.gmail.com>
+	  <526AE0EB.4020602@linux.intel.com> <526AE1E2.9080909@linux.intel.com>
+	  <1382819615.23829.16.camel@dvhart-mobl4.amr.corp.intel.com>
+	 <1382822142.23829.46.camel@dvhart-mobl4.amr.corp.intel.com>
+	 <526CA546.7040406@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Yan Burman <yanb@mellanox.com>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:36185 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751371Ab3J0XmM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 19:42:12 -0400
-Received: by mail-oa0-f46.google.com with SMTP id g12so2902586oah.19
-        for <netdev@vger.kernel.org>; Sun, 27 Oct 2013 16:42:10 -0700 (PDT)
-In-Reply-To: <CAJZOPZ+S6ngqMjV-2ZMcpzkuWzzLWwCQMtd_1_SjDkqWh_tbYg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus Walleij <linus.walleij@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Fengguang Wu <fengguang.wu@intel.com>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
+To: David Cohen <david.a.cohen@linux.intel.com>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <526CA546.7040406@linux.intel.com>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/27/2013 01:34 PM, Or Gerlitz wrote:
-> On Sun, Oct 27, 2013 at 7:25 PM, Joseph Gasparakis
-> <joseph.gasparakis@intel.com> wrote:
->>
->>
->> On Sun, 27 Oct 2013, Or Gerlitz wrote:
->>
->>> Hi,
->>>
->>> So with commit 53cf527513eed6e7170e9dceacd198f9267171b0 "vxlan: Notify drivers
->>> for listening UDP port changes" drivers that have HW offloads for vxlan can be
->>> notified on which UDP port to listen. Taking this further, some HW may need to
->>> know the multicast address and/or the VNID used by the vxlan instance/s set
->>> above them. In that respect, do we prefer to extend ndo_add_rx_vxlan_port() or
->>> introduce new ndo?
->>>
->>> Or.
->>>
->>
->> The way this patch works is to notify the drivers when a VXLAN UDP port
->> comes up or down. This way drivers do not need to do any sort of accounting. As
->
-> Could you elaborate why do we want to notify all the netdev instances
-> in the system (on a certain name-space)
-> that vxlan instance/s are set to listen on certain UDP port and not
-> only the device over which the
-> vxlan device is being set? say the HW can listen limited amount of UDP
-> ports and few vxlan instances are created
-> one of top of each "real" netdev in the system and each on different
-> port. Each netdevice will get all callbacks on port addition
-> and at some point will start to fail adding them into the HW  when the
-> HW limit is met.
->
-> Or.
-> --
+On Sat, 2013-10-26 at 22:31 -0700, David Cohen wrote:
+> On 10/26/2013 02:15 PM, Darren Hart wrote:
+> > On Sat, 2013-10-26 at 21:33 +0100, Darren Hart wrote:
+> >> On Fri, 2013-10-25 at 14:25 -0700, David Cohen wrote:
+> >>> On 10/25/2013 02:21 PM, David Cohen wrote:
+> >>>> Hi Linus,
+> >>>>
+> >>>> On 10/25/2013 03:49 AM, Linus Walleij wrote:
+> >>>>> On Fri, Oct 25, 2013 at 12:41 PM, Linus Walleij
+> >>>>> <linus.walleij@linaro.org> wrote:
+> >>>>>
+> >>>>>>> I wouldn't object to adding a dependency to GPIO_PCH and GPIOLIB
+> >>>>>>> unconditionally for PCH_GBE as GPIO_PCH is the same chip... but I don't
+> >>>>>>> know if David Miller would be amenable to that.
+> >>>>>>
+> >>>>>> Well we should probably just stick a dependency to GPIOLIB in there.
+> >>>>>>
+> >>>>>> - It #includes <linux/gpio.h>
+> >>>>>> - It uses gpiolib functions to do something vital
+> >>>>>>
+> >>>>>> It was just happy that dummy versions were slotted in until now.
+> >>>>>
+> >>>>> ...or maybe I'm just confused now?
+> >>>>>
+> >>>>> Should we just add a static inline stub of devm_gpio_request_one()?
+> >>>>
+> >>>> I am not familiar with the HW. But checking the code, platform
+> >>>> initialization should fail with a dummy devm_gpio_request_one()
+> >>>> implementation. IMO it makes more sense to depend on GPIOLIB.
+> >>>
+> >>> Actually, forget about it. Despite driver_data->platform_init() may
+> >>> return error, probe() never checks for it. I think the driver must be
+> >>> fixed, but in meanwhile a static inline stub seems reasonable.
+> >>>
+> >>
+> >> Ah, that's a problem, and one I created :/ I'm traveling a bit through
+> >> Europe atm for the conferences. I will try and have a look on the planes
+> >> and add a check.
+> > 
+> > Ah, now I remember. The situation is this. If there is a cable plugged
+> > into the jack, the PHY will not go to sleep. If there isn't, there is a
+> > good chance it will go to sleep before the driver initializes. If it is
+> > asleep, the scan for the PHY will fail. If it isn't, the scan will work
+> > correctly and the device will be properly setup. The code currently
+> > displays a dev error:
+> > 
+> > 	ret = devm_gpio_request_one(&pdev->dev, gpio, flags,
+> > 				    "minnow_phy_reset");
+> > 	if (ret) {
+> > 		dev_err(&pdev->dev,
+> > 			"ERR: Can't request PHY reset GPIO line '%d'\n", gpio);
+> > 
+> > But deliberately does not about the probe because there is a chance
+> > things will work just fine. If they do not, the PHY detection code will
+> > print display errors about a failure to communicate over RGMII, and the
+> > device probe will fail from there.
+> > 
+> > This still seems like the correct approach to me. Does anyone disagree?
+> 
+> Considering this scenario it seems to be correct. But if
+> devm_gpio_request_one() may fail for "unfriendly" reasons too, then
+> it's incomplete.
+> 
+> > 
+> > (we still need to sort out the GPIOLIB and GPIO_SCH dependency though of
+> > course)
+> 
+> Maybe if GPIOLIB has the static inline stubs returning -ENODEV we could
+> use a patch similar to the one attached here.
+> 
 
-The issue is how to determine "the device over which the vlan device is
-being set". Because the vxlan device is a layer three device we do not
-have a 1:1 binding between vxlan port and l2 net_device. In the
-mentioned patches the work around for this was to add the UDP port to
-every l2 net_device. I agree it is a bit of a big hammer.
+I think you may have inverted your logic on the return?
 
-It might be better to only add the UDP port to the default route if it
-is specified then add the ndo call to the snooping logic (vxlan_snoop)
-and the explicit added netlink fdb entries. This would be a bit more
-precise than what we have today.
++		dev_warn(&pdev->dev,
++			 "ERR: Can't request PHY reset GPIO line '%d'\n", gpio);
++		return ret == -ENODEV ? ret : 0;
 
-On the other hand the HW table will eventually be full and even with
-this optimization may fail. At this point the user has no way to set
-which ports are added and which are failed. Joseph, wanted this to
-be automatic so users did not have to configure it so we end up with
-this case. The other alternative is to provide a hook into the driver
-via rtnetlink I'm not sure its worth the effort though. With this
-and a feature flag you could let users manage the device manually.
+Did you mean:
 
-But is this a problem in practice? My feeling is typically the
-number of UDP ports in use is smaller than the number the HW supports.
++		/* 
+		 * Things may still work if the GPIO driver wasn't
+		 * compiled in
+		 */
++		return ret == -ENODEV ? 0 : ret;
 
-Thanks,
-.John
+The concern here of course would be someone added another GPIO
+controller over i2c over the expansion connector or something similar
+and did not enable the GPIO_SCH driver, then it could conceivably grab
+the wrong GPIO pin.... or would those never map to GPIO 13?
+
 
 
 -- 
-John Fastabend         Intel Corporation
+Darren Hart
+Intel Open Source Technology Center
+Yocto Project - Linux Kernel
+
+
