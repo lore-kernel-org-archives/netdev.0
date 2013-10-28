@@ -1,33 +1,39 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 1/3] vxlan: silence one build warning
-Date: Mon, 28 Oct 2013 08:24:07 -0700
-Message-ID: <20131028082407.03633f6b@nehalam.linuxnetplumber.net>
-References: <1382940110-10737-1-git-send-email-zwu.kernel@gmail.com>
+Subject: Re: [PATCH 1/3] vxlan: silence one build warning
+Date: Mon, 28 Oct 2013 08:25:11 -0700
+Message-ID: <20131028082511.2433d645@nehalam.linuxnetplumber.net>
+References: <1382687360-27794-1-git-send-email-zwu.kernel@gmail.com>
+	<20131025084134.6cfa153a@samsung-9>
+	<20131028.003807.1591686723281776238.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Zhi Yong Wu <zwu.kernel@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: zwu.kernel@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, wuzhy@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1382940110-10737-1-git-send-email-zwu.kernel@gmail.com>
+In-Reply-To: <20131028.003807.1591686723281776238.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 28 Oct 2013 14:01:48 +0800
-Zhi Yong Wu <zwu.kernel@gmail.com> wrote:
+On Mon, 28 Oct 2013 00:38:07 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
->=20
-> drivers/net/vxlan.c: In function =E2=80=98vxlan_sock_add=E2=80=99:
-> drivers/net/vxlan.c:2298:11: warning: =E2=80=98sock=E2=80=99 may be u=
-sed uninitialized in this function [-Wmaybe-uninitialized]
-> drivers/net/vxlan.c:2275:17: note: =E2=80=98sock=E2=80=99 was declare=
-d here
->   LD      drivers/net/built-in.o
->=20
-> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Fri, 25 Oct 2013 08:41:34 -0700
+> 
+> > I would rather not fix the warning this way since it risks masking
+> > later bugs if this code ever changes.
+> 
+> But this is suboptimally coded, and is asking for the warning.
+> 
+> Anything returning a pointer by reference is asking for trouble
+> in my opinion.
+> 
+> The correct thing to do is to make create_v{4,6}_sock() return
+> the "struct socket *" as an error pointer.
+> 
+> No more ambiguous initializations, no more warnings.
 
-This is much better.
-
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Agreed, original code used ERR_PTR (see vxlan_socket_create),
+the side effect stuff only came with the addition of IPv6.
