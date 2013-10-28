@@ -1,142 +1,69 @@
-From: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
-Subject: [PATCH 00/19] Enable various Renesas drivers on all ARM platforms
-Date: Tue, 29 Oct 2013 00:46:48 +0100
-Message-ID: <1383004027-25036-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next] ipv6: allow userspace to create address with IFLA_F_TEMPORARY flag
+Date: Tue, 29 Oct 2013 00:48:42 +0100
+Message-ID: <20131028234842.GB26185@order.stressinduktion.org>
+References: <CAGCdqXHUW=RJf67qPXVRhPY__GAs02+G9mJV7agN5pDdfELXXA@mail.gmail.com> <20131027132941.GA1443@minipsycho.orion> <20131027164835.GB4714@order.stressinduktion.org> <20131028.171725.1076499130782328273.davem@davemloft.net> <1383002179.28991.14.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-fbdev@vger.kernel.org, Wolfram Sang <wsa@the-dreams.de>,
- Linus Walleij <linus.walleij@linaro.org>,
- Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>,
- Thierry Reding <thierry.reding@gmail.com>, linux-mtd@lists.infradead.org,
- linux-i2c@vger.kernel.org, Vinod Koul <vinod.koul@intel.com>,
- Joerg Roedel <joro@8bytes.org>, Magnus Damm <magnus.damm@gmail.com>,
- Eduardo Valentin <eduardo.valentin@ti.com>,
- Tomi Valkeinen <tomi.valkeinen@ti.com>, linux-serial@vger.kernel.org,
- linux-input@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>,
- Chris Ball <cjb@laptop.org>,
- Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
- linux-media@vger.kernel.org, linux-pwm@vger.kernel.org,
- Samuel Ortiz <samuel@sortiz.org>, linux-pm@vger.kernel.org,
- Ian Molton <ian@mnementh.co.uk>, Mark Brown <broonie@kernel.org>,
- linux-arm-kernel@lists.infradead.org,
- Sergei Shtylyov <sergei.shtyly
-To: linux-sh@vger.kernel.org
-Return-path: <linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mtd>,
- <mailto:linux-mtd-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mtd/>
-List-Post: <mailto:linux-mtd@lists.infradead.org>
-List-Help: <mailto:linux-mtd-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mtd>,
- <mailto:linux-mtd-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-mtd" <linux-mtd-bounces@lists.infradead.org>
-Errors-To: linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
+	vyasevich@gmail.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	thaller@redhat.com, stephen@networkplumber.org
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:34881 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757788Ab3J1Xso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 19:48:44 -0400
+Content-Disposition: inline
+In-Reply-To: <1383002179.28991.14.camel@dcbw.foobar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Mon, Oct 28, 2013 at 06:16:19PM -0500, Dan Williams wrote:
+> On Mon, 2013-10-28 at 17:17 -0400, David Miller wrote:
+> > From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > Date: Sun, 27 Oct 2013 17:48:35 +0100
+> > 
+> > > A temporary address is also bound to a non-privacy public address so
+> > > it's lifetime is determined by its lifetime (e.g. if you switch the
+> > > network and don't receive on-link information for that prefix any
+> > > more). NetworkManager would have to take care about that, too. It is
+> > > just a question of what NetworkManager wants to handle itself or lets
+> > > the kernel handle for it.
+> > 
+> > How much really needs to be in userspace to implement RFC4941?
+> > 
+> > I don't like the idea that even for a fully up and properly
+> > functioning link, if NetworkManager wedges then critical things like
+> > temporary address (re-)generation, will cease.
+> 
+> Honestly, I'd be completely happy to leave temporary address handling up
+> to the kernel and *not* do it in userspace; the kernel already has all
+> the code.  There are two problems with that though, (a) it's tied to
+> in-kernel RA handling, and (b) it's controlled by a CONFIG option.  Both
+> these are solvable.
 
-This patch series, based on v3.12-rc7, prepares various Renesas drivers
-for migration to multiplatform kernels by enabling their compilation or
-otherwise fixing them on all ARM platforms. The patches are pretty
-straightforward and are described in their commit message.
+Ah, (a) does complicate things, I agree. But the tieing is essential
+currently. So it seems a netlink interface would be needed to tie a new
+address to an already installed one, if the kernel should still deal
+with the regeneration?
 
-I'd like to get all these patches merged in v3.14. As they will need to go
-through their respective subsystems' trees, I would appreciate if all
-maintainers involved could notify me when they merge patches from this series
-in their tree to help me tracking the merge status. I don't plan to send pull
-requests individually for these patches, and I will repost patches
-individually if changes are requested during review.
+> First off, what's the reasoning behind having IPv6 privacy as a config
+> option?  It's off-by-default and must be explicitly turned on, so is
+> there any harm in removing the config?  Or is it just for
+> smallest-kernel-ever folks?
 
-If you believe the issue should be solved in a different way (for instance by
-removing the architecture dependency completely) please reply to the cover
-letter to let other maintainers chime in.
+I don't know about the policy. Does it really matter as distributions
+normally switch it on? But I would not like to see the option removed
+entirly, maybe the default could be changed.
 
-Cc: Chris Ball <cjb@laptop.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: David Woodhouse <dwmw2@infradead.org>
-Cc: dmaengine@vger.kernel.org
-Cc: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Cc: Eduardo Valentin <eduardo.valentin@ti.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>
-Cc: Ian Molton <ian@mnementh.co.uk>
-Cc: iommu@lists.linux-foundation.org
-Cc: Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
-Cc: Joerg Roedel <joro@8bytes.org>
-Cc: Linus Walleij <linus.walleij@linaro.org>
-Cc: linux-fbdev@vger.kernel.org
-Cc: linux-i2c@vger.kernel.org
-Cc: linux-input@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: linux-media@vger.kernel.org
-Cc: linux-mmc@vger.kernel.org
-Cc: linux-mtd@lists.infradead.org
-Cc: linux-pm@vger.kernel.org
-Cc: linux-pwm@vger.kernel.org
-Cc: linux-serial@vger.kernel.org
-Cc: linux-spi@vger.kernel.org
-Cc: Magnus Damm <magnus.damm@gmail.com>
-Cc: Mark Brown <broonie@kernel.org>
-Cc: Mauro Carvalho Chehab <m.chehab@samsung.com>
-Cc: netdev@vger.kernel.org
-Cc: Samuel Ortiz <samuel@sortiz.org>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Cc: Thierry Reding <thierry.reding@gmail.com>
-Cc: Tomi Valkeinen <tomi.valkeinen@ti.com>
-Cc: Vinod Koul <vinod.koul@intel.com>
-Cc: Wolfram Sang <wsa@the-dreams.de>
-Cc: Zhang Rui <rui.zhang@intel.com>
+> Would a new IFA_F_MANAGE_TEMP (or better name) work here, indicating
+> that for some new static address, that the kernel should create and
+> manage the temporary privacy addresses associated with its prefix?
 
-Laurent Pinchart (19):
-  serial: sh-sci: Enable the driver on all ARM platforms
-  DMA: shdma: Enable the driver on all ARM platforms
-  i2c: sh_mobile: Enable the driver on all ARM platforms
-  input: sh_keysc: Enable the driver on all ARM platforms
-  iommu: shmobile: Enable the driver on all ARM platforms
-  i2c: rcar: Enable the driver on all ARM platforms
-  v4l: sh_vou: Enable the driver on all ARM platforms
-  mmc: sdhi: Enable the driver on all ARM platforms
-  mmc: sh_mmcif: Enable the driver on all ARM platforms
-  mtd: sh_flctl: Enable the driver on all ARM platforms
-  net: sh_eth: Set receive alignment correctly on all ARM platforms
-  irda: sh_irda: Enable the driver on all ARM platforms
-  pinctrl: sh-pfc: Enable the driver on all ARM platforms
-  pwm: pwm-renesas-tpu: Enable the driver on all ARM platforms
-  sh: intc: Enable the driver on all ARM platforms
-  spi: sh_msiof: Enable the driver on all ARM platforms
-  spi: sh_hspi: Enable the driver on all ARM platforms
-  thermal: rcar-thermal: Enable the driver on all ARM platforms
-  fbdev: sh-mobile-lcdcfb: Enable the driver on all ARM platforms
+But this would only be needed if they were managed in user-space, no?
 
- drivers/dma/sh/Kconfig                | 2 +-
- drivers/dma/sh/shdmac.c               | 6 +++---
- drivers/i2c/busses/Kconfig            | 4 ++--
- drivers/input/keyboard/Kconfig        | 2 +-
- drivers/iommu/Kconfig                 | 2 +-
- drivers/media/platform/Kconfig        | 2 +-
- drivers/mmc/host/Kconfig              | 4 ++--
- drivers/mmc/host/tmio_mmc_dma.c       | 2 +-
- drivers/mtd/nand/Kconfig              | 2 +-
- drivers/net/ethernet/renesas/sh_eth.c | 2 +-
- drivers/net/ethernet/renesas/sh_eth.h | 2 +-
- drivers/net/irda/Kconfig              | 2 +-
- drivers/pinctrl/Makefile              | 2 +-
- drivers/pinctrl/sh-pfc/Kconfig        | 2 +-
- drivers/pwm/Kconfig                   | 2 +-
- drivers/sh/intc/Kconfig               | 2 +-
- drivers/spi/Kconfig                   | 4 ++--
- drivers/thermal/Kconfig               | 2 +-
- drivers/tty/serial/Kconfig            | 2 +-
- drivers/video/Kconfig                 | 6 +++---
- 20 files changed, 27 insertions(+), 27 deletions(-)
+Greetings,
 
--- 
-Regards,
-
-Laurent Pinchart
-
-
-______________________________________________________
-Linux MTD discussion mailing list
-http://lists.infradead.org/mailman/listinfo/linux-mtd/
+  Hannes
