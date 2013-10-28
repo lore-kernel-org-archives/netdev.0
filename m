@@ -1,66 +1,105 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Big performance loss from 3.4.63 to 3.10.13 when routing ipv4
-Date: Mon, 28 Oct 2013 12:30:39 +0100
-Message-ID: <20131028113039.GE31491@secunet.com>
-References: <3244031.uQGDddGTLF@h2o.as.studentenwerk.mhn.de>
- <3169911.kTmZ0BZVVr@h2o.as.studentenwerk.mhn.de>
- <1382547992.7572.31.camel@edumazet-glaptop.roam.corp.google.com>
- <5743349.5WGxWa1M1u@ei.h3.stusta.mhn.de>
- <20131025080158.GC31491@secunet.com>
- <1382691028.7572.78.camel@edumazet-glaptop.roam.corp.google.com>
- <20131025092043.GD31491@secunet.com>
- <1382941051.13037.13.camel@edumazet-glaptop.roam.corp.google.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net V2] xen-netback: use jiffies_64 value to calculate credit timeout
+Date: Mon, 28 Oct 2013 11:35:17 +0000
+Message-ID: <1382960117-13053-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wolfgang Walter <linux@stwm.de>,
-	David Miller <davem@davemloft.net>, hannes@stressinduktion.org,
-	netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <david.vrabel@citrix.com>, <jbeulich@suse.com>,
+	<annie.li@oracle.com>, "Wei Liu" <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Jason Luan <jianhai.luan@oracle.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:59284 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755818Ab3J1Lao (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Oct 2013 07:30:44 -0400
-Content-Disposition: inline
-In-Reply-To: <1382941051.13037.13.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:11495 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753542Ab3J1LfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 07:35:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 27, 2013 at 11:17:31PM -0700, Eric Dumazet wrote:
-> On Fri, 2013-10-25 at 11:20 +0200, Steffen Klassert wrote:
-> > On Fri, Oct 25, 2013 at 01:50:28AM -0700, Eric Dumazet wrote:
-> > > 
-> > > 32768 as the default seems fine to me
-> > > 
-> > > 448 bytes per dst -> thats less than 30 Mbytes of memory if we hit 65536
-> > > dst.
-> > > 
-> > 
-> > Ok, I'll add the patch below to to the ipsec tree if everyone is fine
-> > with that threshold.
-> > 
-> > Subject: [PATCH RFC] xfrm: Increase the garbage collector threshold
-> > 
-> > With the removal of the routing cache, we lost the
-> > option to tweak the garbage collector threshold
-> > along with the maximum routing cache size. So git
-> > commit 703fb94ec ("xfrm: Fix the gc threshold value
-> > for ipv4") moved back to a static threshold.
-> > 
-> > It turned out that the current threshold before we
-> > start garbage collecting is much to small for some
-> > workloads, so increase it from 1024 to 32768. This
-> > means that we start the garbage collector if we have
-> > more than 32768 dst entries in the system and refuse
-> > new allocations if we are above 65536.
-> > 
-> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> > ---
-> 
-> Sure please add :
-> 
-> Reported-by: Wolfgang Walter <linux@stwm.de>
+time_after_eq() only works if the delta is < MAX_ULONG/2.
 
-Done.
+For a 32bit Dom0, if netfront sends packets at a very low rate, the time
+between subsequent calls to tx_credit_exceeded() may exceed MAX_ULONG/2
+and the test for timer_after_eq() will be incorrect. Credit will not be
+replenished and the guest may become unable to send packets (e.g., if
+prior to the long gap, all credit was exhausted).
 
-Now applied to the ipsec tree, thanks everyone!
+Use jiffies_64 variant to mitigate this problem for 32bit Dom0.
+
+Suggested-by: Jan Beulich <jbeulich@suse.com>
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Jason Luan <jianhai.luan@oracle.com>
+---
+ drivers/net/xen-netback/common.h    |    1 +
+ drivers/net/xen-netback/interface.c |    3 +--
+ drivers/net/xen-netback/netback.c   |   14 +++++++-------
+ 3 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 5715318..400fea1 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -163,6 +163,7 @@ struct xenvif {
+ 	unsigned long   credit_usec;
+ 	unsigned long   remaining_credit;
+ 	struct timer_list credit_timeout;
++	u64 credit_window_start;
+ 
+ 	/* Statistics */
+ 	unsigned long rx_gso_checksum_fixup;
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 01bb854..459935a 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -312,8 +312,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 	vif->credit_bytes = vif->remaining_credit = ~0UL;
+ 	vif->credit_usec  = 0UL;
+ 	init_timer(&vif->credit_timeout);
+-	/* Initialize 'expires' now: it's used to track the credit window. */
+-	vif->credit_timeout.expires = jiffies;
++	vif->credit_window_start = get_jiffies_64();
+ 
+ 	dev->netdev_ops	= &xenvif_netdev_ops;
+ 	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index f3e591c..8644aca 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1185,18 +1185,17 @@ out:
+ 
+ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
+ {
+-	unsigned long now = jiffies;
+-	unsigned long next_credit =
+-		vif->credit_timeout.expires +
+-		msecs_to_jiffies(vif->credit_usec / 1000);
++	u64 now = get_jiffies_64();
++	u64 next_credit = vif->credit_window_start +
++		(u64)msecs_to_jiffies(vif->credit_usec / 1000);
+ 
+ 	/* Timer could already be pending in rare cases. */
+ 	if (timer_pending(&vif->credit_timeout))
+ 		return true;
+ 
+ 	/* Passed the point where we can replenish credit? */
+-	if (time_after_eq(now, next_credit)) {
+-		vif->credit_timeout.expires = now;
++	if (time_after_eq64(now, next_credit)) {
++		vif->credit_window_start = now;
+ 		tx_add_credit(vif);
+ 	}
+ 
+@@ -1207,7 +1206,8 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
+ 		vif->credit_timeout.function =
+ 			tx_credit_callback;
+ 		mod_timer(&vif->credit_timeout,
+-			  next_credit);
++			  (unsigned long)next_credit);
++		vif->credit_window_start = next_credit;
+ 
+ 		return true;
+ 	}
+-- 
+1.7.10.4
