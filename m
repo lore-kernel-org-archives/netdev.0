@@ -1,76 +1,80 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
-Date: Mon, 28 Oct 2013 13:49:27 -0400
-Message-ID: <20131028174927.GC31048@hmsreliant.think-freely.org>
-References: <1381510298-20572-1-git-send-email-nhorman@tuxdriver.com>
- <20131012172124.GA18241@gmail.com>
- <20131014202854.GH26880@hmsreliant.think-freely.org>
- <1381785560.2045.11.camel@edumazet-glaptop.roam.corp.google.com>
- <1381789127.2045.22.camel@edumazet-glaptop.roam.corp.google.com>
- <20131017003421.GA31470@hmsreliant.think-freely.org>
- <20131017084121.GC22705@gmail.com>
- <20131028160131.GA31048@hmsreliant.think-freely.org>
- <20131028162044.GA14350@gmail.com>
+From: David Cohen <david.a.cohen@linux.intel.com>
+Subject: Re: [gpio:for-next 67/67] pch_gbe_main.c:undefined reference to `devm_gpio_request_one'
+Date: Mon, 28 Oct 2013 11:01:41 -0700
+Message-ID: <526EA685.1030803@linux.intel.com>
+References: <52691c0b.BIIOKlR6F81qU+tE%fengguang.wu@intel.com>   <20131025044027.GA27083@localhost>   <CACRpkdaJVE44UGRAZ0tnQSArrs+DuVFhVssW6riWmdp8-6E6BQ@mail.gmail.com>   <1382696677.4970.40.camel@dvhart-mobl4.amr.corp.intel.com>   <CACRpkdYvOMiBOXRi61LjemMSoafR6kv3XoY=A5E90hwMumdw9A@mail.gmail.com>   <CACRpkdYDUKK-jAeeHECfRcKM+-MDuyarDMGDP0p39U_-WLgd8w@mail.gmail.com>   <526AE0EB.4020602@linux.intel.com> <526AE1E2.9080909@linux.intel.com>   <1382819615.23829.16.camel@dvhart-mobl4.amr.corp.intel.com>  <1382822142.23829.46.camel@dvhart-mobl4.amr.corp.intel.com>  <526CA546.7040406@linux.intel.com> <1382918677.23829.92.camel@dvhart-mobl4.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	netdev@vger.kernel.org
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131028162044.GA14350@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Walleij <linus.walleij@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Fengguang Wu <fengguang.wu@intel.com>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
+To: Darren Hart <dvhart@linux.intel.com>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <1382918677.23829.92.camel@dvhart-mobl4.amr.corp.intel.com>
+Sender: linux-gpio-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 28, 2013 at 05:20:45PM +0100, Ingo Molnar wrote:
-> 
-> * Neil Horman <nhorman@tuxdriver.com> wrote:
-> 
-> > Base:
-> >        0.093269042 seconds time elapsed                                          ( +-  2.24% )
-> > Prefetch (5x64):
-> >        0.079440009 seconds time elapsed                                          ( +-  2.29% )
-> > Parallel ALU:
-> >        0.087666677 seconds time elapsed                                          ( +-  4.01% )
-> > Prefetch + Parallel ALU:
-> >        0.080758702 seconds time elapsed                                          ( +-  2.34% )
-> > 
-> > So we can see here that we get about a 1% speedup between the base 
-> > and the both (Prefetch + Parallel ALU) case, with prefetch 
-> > accounting for most of that speedup.
-> 
-> Hm, there's still something strange about these results. So the 
-> range of the results is 790-930 nsecs. The noise of the measurements 
-> is 2%-4%, i.e. 20-40 nsecs.
-> 
-> The prefetch-only result itself is the fastest of all - 
-> statistically equivalent to the prefetch+parallel-ALU result, within 
-> the noise range.
-> 
-> So if prefetch is enabled, turning on parallel-ALU has no measurable 
-> effect - which is counter-intuitive. Do you have an 
-> theory/explanation for that?
-> 
-> Thanks,
- I mentioned it farther down, loosely theorizing that running with parallel
-alu's in conjunction with a prefetch, puts more pressure on the load/store unit
-causing stalls while both alu's wait for the L1 cache to fill.  Not sure if that
-makes sense, but I did note that in the both (prefetch+alu case) our data cache
-hit rate was somewhat degraded, so I was going to play with the prefetch stride
-to see if that fixed the situation.  Regardless I agree, the lack of improvement
-in the both case is definately counter-intuitive.
+>>> 	ret = devm_gpio_request_one(&pdev->dev, gpio, flags,
+>>> 				    "minnow_phy_reset");
+>>> 	if (ret) {
+>>> 		dev_err(&pdev->dev,
+>>> 			"ERR: Can't request PHY reset GPIO line '%d'\n", gpio);
+>>>
+>>> But deliberately does not about the probe because there is a chance
+>>> things will work just fine. If they do not, the PHY detection code will
+>>> print display errors about a failure to communicate over RGMII, and the
+>>> device probe will fail from there.
+>>>
+>>> This still seems like the correct approach to me. Does anyone disagree?
+>>
+>> Considering this scenario it seems to be correct. But if
+>> devm_gpio_request_one() may fail for "unfriendly" reasons too, then
+>> it's incomplete.
+>>
+>>>
+>>> (we still need to sort out the GPIOLIB and GPIO_SCH dependency though of
+>>> course)
+>>
+>> Maybe if GPIOLIB has the static inline stubs returning -ENODEV we could
+>> use a patch similar to the one attached here.
+>>
+>
+> I think you may have inverted your logic on the return?
+>
+> +		dev_warn(&pdev->dev,
+> +			 "ERR: Can't request PHY reset GPIO line '%d'\n", gpio);
+> +		return ret == -ENODEV ? ret : 0;
+>
+> Did you mean:
+>
+> +		/*
+> 		 * Things may still work if the GPIO driver wasn't
+> 		 * compiled in
+> 		 */
 
-Neil
+Actually I did mean what I sent, but I misunderstood the above case
+where it may work without GPIO driver.
+But anyway, "things *may* still work" IMO may create instability issue
+by allowing an uncertain situation to go through. If PCH_GBE depends on
+GPIOLIB in MinnowBoard case it should fail right away with a clear
+message why.
 
-> 
-> 	Ingo
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+If pch_gbe driver can detect what devm_gpio_request_one() returns from
+the static inline stub then it can create a condition to gracefully
+fail. So whoever is interested in MinnowBoard will spend less time
+trying to identify this problem.
+
+Br, David Cohen
+
+> +		return ret == -ENODEV ? 0 : ret;
+>
+> The concern here of course would be someone added another GPIO
+> controller over i2c over the expansion connector or something similar
+> and did not enable the GPIO_SCH driver, then it could conceivably grab
+> the wrong GPIO pin.... or would those never map to GPIO 13?
+>
+
