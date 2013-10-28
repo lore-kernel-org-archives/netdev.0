@@ -1,42 +1,124 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: [PATCH] net, mc: fix the incorrect comments in two mc-related functions
-Date: Mon, 28 Oct 2013 16:15:50 +0800
-Message-ID: <1382948150-14349-1-git-send-email-zwu.kernel@gmail.com>
-Cc: linux-kernel@vger.kernel.org,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Vrabel <dvrabel@cantab.net>
+Subject: Re: [PATCH net] xen-netback: use jiffies_64 value to
+ calculate credit timeout
+Date: Mon, 28 Oct 2013 08:21:43 +0000
+Message-ID: <526E1E97.7090804@cantab.net>
+References: <1382872313-11675-1-git-send-email-wei.liu2@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jason Luan <jianhai.luan@oracle.com>, annie.li@oracle.com,
+	Ian Campbell <ian.campbell@citrix.com>, jbeulich@suse.com,
+	david.vrabel@citrix.com
+To: Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xen.org,
+	netdev@vger.kernel.org
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1382872313-11675-1-git-send-email-wei.liu2@citrix.com>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+On 27/10/2013 11:11, Wei Liu wrote:
+> time_after_eq() only works if the delta is < MAX_ULONG/2.
+> 
+> For a 32bit Dom0, if netfront sends packets at a very low rate, the time
+> between subsequent calls to tx_credit_exceeded() may exceed MAX_ULONG/2
+> and the test for timer_after_eq() will be incorrect. Credit will not be
+> replenished and the guest may become unable to send packets (e.g., if
+> prior to the long gap, all credit was exhausted).
+> 
+> Use jiffies_64 variant to mitigate this problem for 32bit Dom0.
 
-Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
----
- net/core/dev_addr_lists.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Thanks.
 
-diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
-index 6cda4e2..ec40a84 100644
---- a/net/core/dev_addr_lists.c
-+++ b/net/core/dev_addr_lists.c
-@@ -752,7 +752,7 @@ int dev_mc_del_global(struct net_device *dev, const unsigned char *addr)
- EXPORT_SYMBOL(dev_mc_del_global);
- 
- /**
-- *	dev_mc_sync - Synchronize device's unicast list to another device
-+ *	dev_mc_sync - Synchronize device's multicast list to another device
-  *	@to: destination device
-  *	@from: source device
-  *
-@@ -780,7 +780,7 @@ int dev_mc_sync(struct net_device *to, struct net_device *from)
- EXPORT_SYMBOL(dev_mc_sync);
- 
- /**
-- *	dev_mc_sync_multiple - Synchronize device's unicast list to another
-+ *	dev_mc_sync_multiple - Synchronize device's multicast list to another
-  *	device, but allow for multiple calls to sync to multiple devices.
-  *	@to: destination device
-  *	@from: source device
--- 
-1.7.11.7
+> Suggested-by: Jan Beulich <jbeulich@suse.com>
+> Suggested-by: David Vrabel <david.vrabel@citrix.com>
+
+Jan's suggestion; I just agreed with him.
+
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Jason Luan <jianhai.luan@oracle.com>
+> ---
+>  drivers/net/xen-netback/common.h    |    1 +
+>  drivers/net/xen-netback/interface.c |    4 ++--
+>  drivers/net/xen-netback/netback.c   |   13 ++++++-------
+>  3 files changed, 9 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+> index 5715318..400fea1 100644
+> --- a/drivers/net/xen-netback/common.h
+> +++ b/drivers/net/xen-netback/common.h
+> @@ -163,6 +163,7 @@ struct xenvif {
+>  	unsigned long   credit_usec;
+>  	unsigned long   remaining_credit;
+>  	struct timer_list credit_timeout;
+> +	u64 credit_window_start;
+>  
+>  	/* Statistics */
+>  	unsigned long rx_gso_checksum_fixup;
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index 01bb854..8c45b63 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -312,8 +312,8 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+>  	vif->credit_bytes = vif->remaining_credit = ~0UL;
+>  	vif->credit_usec  = 0UL;
+>  	init_timer(&vif->credit_timeout);
+> -	/* Initialize 'expires' now: it's used to track the credit window. */
+> -	vif->credit_timeout.expires = jiffies;
+> +	/* credit window is tracked in credit_window_start */
+
+You could drop this comment as the field name makes this obvious.
+
+> +	vif->credit_window_start = get_jiffies_64();
+>  
+>  	dev->netdev_ops	= &xenvif_netdev_ops;
+>  	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index f3e591c..1bc0688 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1185,18 +1185,17 @@ out:
+>  
+>  static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
+>  {
+> -	unsigned long now = jiffies;
+> -	unsigned long next_credit =
+> -		vif->credit_timeout.expires +
+> -		msecs_to_jiffies(vif->credit_usec / 1000);
+> +	u64 now = get_jiffies_64();
+> +	u64 next_credit = vif->credit_window_start +
+> +		(u64)msecs_to_jiffies(vif->credit_usec / 1000);
+>  
+>  	/* Timer could already be pending in rare cases. */
+>  	if (timer_pending(&vif->credit_timeout))
+>  		return true;
+>  
+>  	/* Passed the point where we can replenish credit? */
+> -	if (time_after_eq(now, next_credit)) {
+> -		vif->credit_timeout.expires = now;
+> +	if (time_after_eq64(now, next_credit)) {
+> +		vif->credit_timeout.expires = (unsigned long)now;
+
+Need to set vif->credit_window_start = now here instead of .expires.
+
+>  		tx_add_credit(vif);
+>  	}
+>  
+> @@ -1207,7 +1206,7 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
+>  		vif->credit_timeout.function =
+>  			tx_credit_callback;
+>  		mod_timer(&vif->credit_timeout,
+> -			  next_credit);
+> +			  (unsigned long)next_credit);
+
+Need to set vif->credit_window_start = next_credit here as well.
+
+David
