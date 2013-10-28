@@ -1,80 +1,52 @@
-From: David Cohen <david.a.cohen@linux.intel.com>
-Subject: Re: [gpio:for-next 67/67] pch_gbe_main.c:undefined reference to `devm_gpio_request_one'
-Date: Mon, 28 Oct 2013 11:01:41 -0700
-Message-ID: <526EA685.1030803@linux.intel.com>
-References: <52691c0b.BIIOKlR6F81qU+tE%fengguang.wu@intel.com>   <20131025044027.GA27083@localhost>   <CACRpkdaJVE44UGRAZ0tnQSArrs+DuVFhVssW6riWmdp8-6E6BQ@mail.gmail.com>   <1382696677.4970.40.camel@dvhart-mobl4.amr.corp.intel.com>   <CACRpkdYvOMiBOXRi61LjemMSoafR6kv3XoY=A5E90hwMumdw9A@mail.gmail.com>   <CACRpkdYDUKK-jAeeHECfRcKM+-MDuyarDMGDP0p39U_-WLgd8w@mail.gmail.com>   <526AE0EB.4020602@linux.intel.com> <526AE1E2.9080909@linux.intel.com>   <1382819615.23829.16.camel@dvhart-mobl4.amr.corp.intel.com>  <1382822142.23829.46.camel@dvhart-mobl4.amr.corp.intel.com>  <526CA546.7040406@linux.intel.com> <1382918677.23829.92.camel@dvhart-mobl4.amr.corp.intel.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: extending ndo_add_rx_vxlan_port
+Date: Mon, 28 Oct 2013 20:19:20 +0200
+Message-ID: <CAJZOPZJ3J7T=i2QXQPr80Qb-V8RT3uPJaNFDnrOpYxJ1Mt_LNQ@mail.gmail.com>
+References: <526D2F8F.1070204@mellanox.com>
+	<alpine.LFD.2.03.1310271017120.19783@intel.com>
+	<CAJZOPZ+S6ngqMjV-2ZMcpzkuWzzLWwCQMtd_1_SjDkqWh_tbYg@mail.gmail.com>
+	<alpine.LFD.2.03.1310271635540.15400@intel.com>
+	<CAJZOPZLAg+5dYS=bUCkDMyYq8EmA_uvEv1Zi+drq6Qqe5onrzQ@mail.gmail.com>
+	<alpine.LFD.2.03.1310281049210.31450@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linus Walleij <linus.walleij@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Fengguang Wu <fengguang.wu@intel.com>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
-To: Darren Hart <dvhart@linux.intel.com>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <1382918677.23829.92.camel@dvhart-mobl4.amr.corp.intel.com>
-Sender: linux-gpio-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Yan Burman <yanb@mellanox.com>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:53718 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756032Ab3J1STV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 14:19:21 -0400
+Received: by mail-pb0-f41.google.com with SMTP id um1so2601949pbc.28
+        for <netdev@vger.kernel.org>; Mon, 28 Oct 2013 11:19:20 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.03.1310281049210.31450@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>> 	ret = devm_gpio_request_one(&pdev->dev, gpio, flags,
->>> 				    "minnow_phy_reset");
->>> 	if (ret) {
->>> 		dev_err(&pdev->dev,
->>> 			"ERR: Can't request PHY reset GPIO line '%d'\n", gpio);
->>>
->>> But deliberately does not about the probe because there is a chance
->>> things will work just fine. If they do not, the PHY detection code will
->>> print display errors about a failure to communicate over RGMII, and the
->>> device probe will fail from there.
->>>
->>> This still seems like the correct approach to me. Does anyone disagree?
+On Mon, Oct 28, 2013 at 7:59 PM, Joseph Gasparakis
+> On Mon, 28 Oct 2013, Or Gerlitz wrote:
+>> On Mon, Oct 28, 2013 at 1:44 AM, Joseph Gasparakis wrote:
+
+>> > VXLAN implementation is not done like VLAN. VLANs are stacked on top of
+>> > real interfaces and what you are saying makes sense. VXLAN however is
+>> > using ip[6]_tunnel_xmit, and this is why we need to notify all the
 >>
->> Considering this scenario it seems to be correct. But if
->> devm_gpio_request_one() may fail for "unfriendly" reasons too, then
->> it's incomplete.
->>
->>>
->>> (we still need to sort out the GPIOLIB and GPIO_SCH dependency though of
->>> course)
->>
->> Maybe if GPIOLIB has the static inline stubs returning -ENODEV we could
->> use a patch similar to the one attached here.
->>
+>> As the name of the ndo you added ndo_add_rx_vxlan_port suggests -- HW
+>> needs that for RX offloads. So basically, what I am saying is: in a
+>> similar manner that we already program the NIC "over which" the vxlan
+>> instance is set to listen on the multicast address which is associated
+>> with that vxlan segement, lets give them a hint that packets arriving
+>> on this group are vxlan ones, so they can use it for programming
+>> steering rules.
 >
-> I think you may have inverted your logic on the return?
->
-> +		dev_warn(&pdev->dev,
-> +			 "ERR: Can't request PHY reset GPIO line '%d'\n", gpio);
-> +		return ret == -ENODEV ? ret : 0;
->
-> Did you mean:
->
-> +		/*
-> 		 * Things may still work if the GPIO driver wasn't
-> 		 * compiled in
-> 		 */
+> Why don't you write up some code so everyone has something to look at?
+> Then we can see what makes sense to do in terms of the existing or new ndos.
 
-Actually I did mean what I sent, but I misunderstood the above case
-where it may work without GPIO driver.
-But anyway, "things *may* still work" IMO may create instability issue
-by allowing an uncertain situation to go through. If PCH_GBE depends on
-GPIOLIB in MinnowBoard case it should fail right away with a clear
-message why.
+sure, code talks, indeed, still, looking on net-next, for the current
+ndo there's no in tree consumer unless I miss anything, did I?
 
-If pch_gbe driver can detect what devm_gpio_request_one() returns from
-the static inline stub then it can create a condition to gracefully
-fail. So whoever is interested in MinnowBoard will spend less time
-trying to identify this problem.
-
-Br, David Cohen
-
-> +		return ret == -ENODEV ? 0 : ret;
->
-> The concern here of course would be someone added another GPIO
-> controller over i2c over the expansion connector or something similar
-> and did not enable the GPIO_SCH driver, then it could conceivably grab
-> the wrong GPIO pin.... or would those never map to GPIO 13?
->
-
+Or.
