@@ -1,146 +1,102 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v2 0/5] bonding: patchset for rcu use in bonding
-Date: Mon, 28 Oct 2013 09:15:52 +0800
-Message-ID: <526DBAC8.5000009@huawei.com>
-References: <52688F33.30904@huawei.com> <20131027225317.GB11209@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] inet: restore gso for vxlan
+Date: Sun, 27 Oct 2013 18:18:16 -0700
+Message-ID: <1382923096.13037.10.camel@edumazet-glaptop.roam.corp.google.com>
+References: <CAMEtUuzswOVA6UkPRjS-O=gOe9BLLJ5qaAG_eAd_fTqDJo8ofA@mail.gmail.com>
+	 <1382674000.7572.75.camel@edumazet-glaptop.roam.corp.google.com>
+	 <1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131025.181809.348808013109842304.davem@davemloft.net>
+	 <CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Veaceslav Falico <vfalico@redhat.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:42558 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754139Ab3J1BQX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 21:16:23 -0400
-In-Reply-To: <20131027225317.GB11209@redhat.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:59088 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754833Ab3J1BSR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Oct 2013 21:18:17 -0400
+Received: by mail-pa0-f49.google.com with SMTP id lj1so6427632pab.22
+        for <netdev@vger.kernel.org>; Sun, 27 Oct 2013 18:18:16 -0700 (PDT)
+In-Reply-To: <CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/10/28 6:53, Veaceslav Falico wrote:
-> On Thu, Oct 24, 2013 at 11:08:35AM +0800, Ding Tianhong wrote:
->> Hi:
->>
->> The slave list will add and del by bond_master_upper_dev_link() and bond_upper_dev_unlink(),
->> which will call call_netdevice_notifiers(), even it is safe to call it in write bond lock now,
->> but we can't sure that whether it is safe later, because other drivers may deal NETDEV_CHANGEUPPER
->> in sleep way, so I didn't admit move the bond_upper_dev_unlink() in write bond lock.
->>
->> now the bond_for_each_slave only protect by rtnl_lock(), maybe use bond_for_each_slave_rcu is a good
->> way to protect slave list for bond, but as a system slow path, it is no need to transform bond_for_each_slave()
->> to bond_for_each_slave_rcu() in slow path, so in the patchset, I will remove the unused read bond lock
->> for monitor function, maybe it is a better way, I will wait to accept any relay for it.
->>
->> Thanks for the Veaceslav Falico opinion.
->>
->> v2: add and modify commit for patchset and patch, it will be the first step for the whole patchset.
->>
->> Ding Tianhong (5):
->>  bonding: remove bond read lock for bond_mii_monitor()
->>  bonding: remove bond read lock for bond_alb_monitor()
->>  bonding: remove bond read lock for bond_loadbalance_arp_mon()
->>  bonding: remove bond read lock for bond_activebackup_arp_mon()
-> 
-> This patch introduces a regression by boot-test with active backup mode:
-> 
-> bond_activebackup_arp_mon() is already not holding the bond->lock, however
-> it might call bond_change_active_slave(), which does (in case of new_active):
-> 
->  912                         write_unlock_bh(&bond->curr_slave_lock);
->  913                         read_unlock(&bond->lock);
->  914  915                         call_netdevice_notifiers(NETDEV_BONDING_FAILOVER, bond->dev);
->  916                         if (should_notify_peers)
->  917                                 call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
->  918                                                          bond->dev);
->  919  920                         read_lock(&bond->lock);
->  921                         write_lock_bh(&bond->curr_slave_lock);
-> 
-> so it drops the bond->lock (which wasn't taken previously), and then takes
-> it (without anyone dropping it afterwards).
-> 
-> I don't know how to fix it - cause a lot of other callers already take it,
-> and we can't just drop them (we'd race), and we can't remove it here (cause
-> we can't call notifiers while atomic).
-> 
-> Which begs the question - was this patchset tested at all?
-> 
-> [   21.796823] =====================================
-> [   21.796823] [ BUG: bad unlock balance detected! ]
-> [   21.796823] 3.12.0-rc6+ #305 Tainted: G          I [   21.796823] -------------------------------------
-> [   21.796823] kworker/u8:5/59 is trying to release lock (&bond->lock) at:
-> [   21.796823] [<ffffffffa00b6c38>] bond_change_active_slave+0x2c8/0x390 [bonding]
-> [   21.796823] but there are no more locks to release!
-> [   21.796823] [   21.796823] other info that might help us debug this:
-> [   21.796823] 3 locks held by kworker/u8:5/59:
-> [   21.796823]  #0:  (%s#4){.+.+..}, at: [<ffffffff810cfeb9>] process_one_work+0x189/0x580
-> [   21.796823]  #1:  ((&(&bond->arp_work)->work)){+.+...}, at: [<ffffffff810cfeb9>] process_one_work+0x189/0x580
-> [   21.796823]  #2:  (rtnl_mutex){+.+.+.}, at: [<ffffffff8169ea05>] rtnl_trylock+0x15/0x20
-> [   21.796823] [   21.796823] stack backtrace:
-> [   21.796823] CPU: 0 PID: 59 Comm: kworker/u8:5 Tainted: G          I  3.12.0-rc6+ #305
-> [   21.796823] Hardware name: Hewlett-Packard HP xw4600 Workstation/0AA0h, BIOS 786F3 v01.15 08/28/2008
-> [   21.796823] Workqueue: bond0 bond_activebackup_arp_mon [bonding]
-> [   21.796823]  ffffffffa00b6c38 ffff880079ecdae8 ffffffff817aa048 0000000000000002
-> [   21.796823]  ffff880079ec4b40 ffff880079ecdb18 ffffffff81129af9 00000000001d5400
-> [   21.796823]  ffff880079ec4b40 ffff880078a36c88 ffff880079ec5440 ffff880079ecdba8
-> [   21.796823] Call Trace:
-> [   21.796823]  [<ffffffffa00b6c38>] ? bond_change_active_slave+0x2c8/0x390 [bonding]
-> [   21.796823]  [<ffffffff817aa048>] dump_stack+0x59/0x81
-> [   21.796823]  [<ffffffff81129af9>] print_unlock_imbalance_bug+0xf9/0x100
-> [   21.796823]  [<ffffffff8112d67f>] lock_release_non_nested+0x26f/0x3f0
-> [   21.796823]  [<ffffffff810f3aa8>] ? sched_clock_cpu+0xb8/0x120
-> [   21.796823]  [<ffffffffa00b6c38>] ? bond_change_active_slave+0x2c8/0x390 [bonding]
-> [   21.796823]  [<ffffffffa00b6c38>] ? bond_change_active_slave+0x2c8/0x390 [bonding]
-> [   21.796823]  [<ffffffff8112d892>] __lock_release+0x92/0x1b0
-> [   21.796823]  [<ffffffffa00b6c38>] ? bond_change_active_slave+0x2c8/0x390 [bonding]
-> [   21.796823]  [<ffffffff8112da0b>] lock_release+0x5b/0x130
-> [   21.796823]  [<ffffffff817b0553>] _raw_read_unlock+0x23/0x50
-> [   21.796823]  [<ffffffffa00b6c38>] bond_change_active_slave+0x2c8/0x390 [bonding]
-> [   21.796823]  [<ffffffffa00b6df7>] bond_select_active_slave+0xf7/0x1d0 [bonding]
-> [   21.796823]  [<ffffffffa00b7006>] bond_ab_arp_commit+0x136/0x200 [bonding]
-> [   21.796823]  [<ffffffffa00b9dd8>] bond_activebackup_arp_mon+0xc8/0xd0 [bonding]
-> [   21.796823]  [<ffffffff810cff2a>] process_one_work+0x1fa/0x580
-> [   21.796823]  [<ffffffff810cfeb9>] ? process_one_work+0x189/0x580
-> [   21.796823]  [<ffffffff810d231f>] worker_thread+0x11f/0x3a0
-> [   21.796823]  [<ffffffff810d2200>] ? manage_workers+0x170/0x170
-> [   21.796823]  [<ffffffff810dbdfe>] kthread+0xee/0x100
-> [   21.796823]  [<ffffffff8112d93b>] ? __lock_release+0x13b/0x1b0
-> [   21.796823]  [<ffffffff810dbd10>] ? __init_kthread_worker+0x70/0x70
-> [   21.796823]  [<ffffffff817ba3ec>] ret_from_fork+0x7c/0xb0
-> [   21.796823]  [<ffffffff810dbd10>] ? __init_kthread_worker+0x70/0x70
-> 
-> 
->>  bonding: remove bond read lock for bond_3ad_state_machine_handler()
->>
->> drivers/net/bonding/bond_3ad.c  |   9 ++--
->> drivers/net/bonding/bond_alb.c  |  20 ++------
->> drivers/net/bonding/bond_main.c | 100 +++++++++++++---------------------------
->> 3 files changed, 40 insertions(+), 89 deletions(-)
->>
->> -- 
->> 1.8.2.1
->>
->>
+From: Eric Dumazet <edumazet@google.com>
 
-Hi David:
-yes, exactly I miss it and make a mistake, the bond_select_active_slave is still have the protect problem and 
-need to be processed, I miss it, sorry, I will send a patch to fix the bug soon.
+Alexei reported a performance regression on vxlan, caused
+by commit 3347c9602955 "ipv4: gso: make inet_gso_segment() stackable"
 
-Hi Veaceslav:
-sorry about the commit, I will pay more attention to the commit and test, thanks for your advise and report the bug,
-I have to admin that I was too careless.
+GSO vxlan packets were not properly segmented, adding IP fragments
+while they were not expected.
 
+Rename 'bool tunnel' to 'bool encap', and add a new boolean
+to express the fact that UDP should be fragmented.
+This fragmentation is triggered by skb->encapsulation being set.
 
+Remove a "skb->encapsulation = 1" added in above commit,
+as its not needed, as frags inherit skb->frag from original
+GSO skb.
+ 
+Reported-by: Alexei Starovoitov <ast@plumgrid.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+ net/ipv4/af_inet.c |   15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
-
->>
->> -- 
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> .
-> 
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index f4a159e705c0..09d78d4a3cff 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1251,8 +1251,8 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
+ 	const struct net_offload *ops;
+ 	unsigned int offset = 0;
++	bool udpfrag, encap;
+ 	struct iphdr *iph;
+-	bool tunnel;
+ 	int proto;
+ 	int nhoff;
+ 	int ihl;
+@@ -1290,8 +1290,8 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 		goto out;
+ 	__skb_pull(skb, ihl);
+ 
+-	tunnel = SKB_GSO_CB(skb)->encap_level > 0;
+-	if (tunnel)
++	encap = SKB_GSO_CB(skb)->encap_level > 0;
++	if (encap)
+ 		features = skb->dev->hw_enc_features & netif_skb_features(skb);
+ 	SKB_GSO_CB(skb)->encap_level += ihl;
+ 
+@@ -1306,24 +1306,23 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 	if (IS_ERR_OR_NULL(segs))
+ 		goto out;
+ 
++	udpfrag = !!skb->encapsulation && proto == IPPROTO_UDP;
+ 	skb = segs;
+ 	do {
+ 		iph = (struct iphdr *)(skb_mac_header(skb) + nhoff);
+-		if (!tunnel && proto == IPPROTO_UDP) {
++		if (udpfrag) {
+ 			iph->id = htons(id);
+ 			iph->frag_off = htons(offset >> 3);
+ 			if (skb->next != NULL)
+ 				iph->frag_off |= htons(IP_MF);
+ 			offset += skb->len - nhoff - ihl;
+-		} else  {
++		} else {
+ 			iph->id = htons(id++);
+ 		}
+ 		iph->tot_len = htons(skb->len - nhoff);
+ 		ip_send_check(iph);
+-		if (tunnel) {
++		if (encap)
+ 			skb_reset_inner_headers(skb);
+-			skb->encapsulation = 1;
+-		}
+ 		skb->network_header = (u8 *)iph - skb->head;
+ 	} while ((skb = skb->next));
+ 
