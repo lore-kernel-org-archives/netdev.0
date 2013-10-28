@@ -1,51 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/3] tipc: message reassembly
- using fragment chain
-Date: Mon, 28 Oct 2013 01:07:37 -0400 (EDT)
-Message-ID: <20131028.010737.400887499395331496.davem@davemloft.net>
-References: <1382812863-23571-1-git-send-email-jon.maloy@ericsson.com>
-	<1382812863-23571-3-git-send-email-jon.maloy@ericsson.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [virtio-net] BUG: sleeping function called from invalid context
+	at kernel/mutex.c:616
+Date: Mon, 28 Oct 2013 13:44:04 +0800
+Message-ID: <526DF9A4.70709@redhat.com>
+References: <20131020023418.GA6737@localhost> <526638D4.1030403@redhat.com>
+	<20131023232033.GA7404@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1382812863-23571-3-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Fengguang Wu <fengguang.wu@intel.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20131023232033.GA7404@localhost>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Sat, 26 Oct 2013 14:41:02 -0400
+On 10/24/2013 07:20 AM, Fengguang Wu wrote:
+> Yes it reduces the sleeping function bug:
+>
+> /kernel/x86_64-lkp-CONFIG_SCSI_DEBUG/7c4ed2767afb813493b0a8fb18d666cd44550963
+>
+> +------------------------------------------------------------------------------------+-----------+--------------+--------------+
+> |                                                                                    | v3.12-rc3 | 3ab098df35f8 | 7c4ed2767afb |
+> +------------------------------------------------------------------------------------+-----------+--------------+--------------+
+> | good_boots                                                                         | 30        | 0            | 93           |
+> | has_kernel_error_warning                                                           | 0         | 20           | 7            |
+> | BUG:sleeping_function_called_from_invalid_context_at_kernel/mutex.c                | 0         | 20           |              |
+> | INFO:rcu_sched_self-detected_stall_on_CPU(t=jiffies_g=c=q=)                        | 0         | 0            | 1            |
+> | INFO:task_blocked_for_more_than_seconds                                            | 0         | 0            | 2            |
+> | INFO:NMI_handler(arch_trigger_all_cpu_backtrace_handler)took_too_long_to_run:msecs | 0         | 0            | 1            |
+> | Kernel_panic-not_syncing:hung_task:blocked_tasks                                   | 0         | 0            | 1            |
+> | BUG:kernel_test_crashed                                                            | 0         | 0            | 3            |
+> | BUG:kernel_test_hang                                                               | 0         | 0            | 1            |
+> +------------------------------------------------------------------------------------+-----------+--------------+--------------+
+>
+> However I'll need to increase tests on v3.12-rc3 to make sure it's not
+> the patch that added the other error messages.
+>
+> Thanks,
+> Fengguang
 
-> +			int ret = tipc_link_recv_fragment(
-> +					&node->bclink.reasm_head,
-> +					&node->bclink.reasm_tail,
-> +					&buf);
-
-This is not the correct way to indent a function call that spans
-multiple lines.  In such a situation the arguments that appear
-on the second and subsequent lines must start at the first column
-after the openning parenthesis of the function call.
-
-Like this:
-
-	func(a, b, c,
-	     d, e, f);
-
-Please audit this in your entire set of patches and resubmit,
-thanks.
-
-------------------------------------------------------------------------------
-October Webinars: Code for Performance
-Free Intel webinars can help you accelerate application performance.
-Explore tips for MPI, OpenMP, advanced profiling, and more. Get the most from 
-the latest Intel processors and coprocessors. See abstracts and register >
-http://pubads.g.doubleclick.net/gampad/clk?id=60135991&iu=/4140/ostg.clktrk
+Thanks, any more update on the result of v3.12-rc3 for this?
