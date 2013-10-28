@@ -1,327 +1,229 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: [PATCH net-next] virtio_net: migrate mergeable rx buffers to page frag allocators
-Date: Mon, 28 Oct 2013 15:44:18 -0700
-Message-ID: <1383000258-1458-1-git-send-email-mwdalton@google.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	Michael Dalton <mwdalton@google.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH 1/4 net-next] net: phy: add Generic Netlink Ethernet switch
+ configuration API
+Date: Mon, 28 Oct 2013 18:53:29 -0400
+Message-ID: <526EEAE9.6090508@mojatatu.com>
+References: <1382466229-15123-1-git-send-email-f.fainelli@gmail.com> <1382466229-15123-2-git-send-email-f.fainelli@gmail.com> <5266D7D6.9000309@intel.com> <CAGVrzcZS4SGiUFoCnhau1Fvv9F4ffS7tA+PT4r-qLCj8HV8BqQ@mail.gmail.com> <20131022202537.GA16336@hmsreliant.think-freely.org> <CAGVrzcaXFboRDn40+VciTes09w-jqTASNZz2GZNpTxbaV6D0Lw@mail.gmail.com> <5267B764.305@mojatatu.com> <5267BB53.8030703@openwrt.org> <5267C6B9.4000704@mojatatu.com> <5267CFAB.9090100@openwrt.org> <5267D8AE.7080009@mojatatu.com> <5267DDE6.70600@openwrt.org> <526A5949.6040404@mojatatu.com> <526A6BB3.7050507@openwrt.org> <526D4B06.8040505@mojatatu.com> <526D6EBA.3020903@openwrt.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	John Crispin <blogic@openwrt.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Gary Thomas <gary@mlbassoc.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Felix Fietkau <nbd@openwrt.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f73.google.com ([209.85.219.73]:62622 "EHLO
-	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757842Ab3J1WuA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 18:50:00 -0400
-Received: by mail-oa0-f73.google.com with SMTP id n12so901637oag.4
-        for <netdev@vger.kernel.org>; Mon, 28 Oct 2013 15:49:59 -0700 (PDT)
+Received: from mail-qe0-f46.google.com ([209.85.128.46]:41462 "EHLO
+	mail-qe0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755412Ab3J1Wxb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 18:53:31 -0400
+Received: by mail-qe0-f46.google.com with SMTP id s14so4504322qeb.33
+        for <netdev@vger.kernel.org>; Mon, 28 Oct 2013 15:53:31 -0700 (PDT)
+In-Reply-To: <526D6EBA.3020903@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The virtio_net driver's mergeable receive buffer allocator
-uses 4KB packet buffers. For MTU-sized traffic, SKB truesize
-is > 4KB but only ~1500 bytes of the buffer is used to store
-packet data, reducing the effective TCP window size
-substantially. This patch addresses the performance concerns
-with mergeable receive buffers by allocating MTU-sized packet
-buffers using page frag allocators. If more than MAX_SKB_FRAGS
-buffers are needed, the SKB frag_list is used.
+On 10/27/13 15:51, Felix Fietkau wrote:
+> On 2013-10-27 6:19 PM, Jamal Hadi Salim wrote:
 
-Signed-off-by: Michael Dalton <mwdalton@google.com>
----
- drivers/net/virtio_net.c | 164 ++++++++++++++++++++++++++++++-----------------
- 1 file changed, 106 insertions(+), 58 deletions(-)
+> That question does not make any sense to me. Aside from low level
+> control frames like pause frames for flow control, the switch has no
+> need to send packets to the CPU port on its own.
+> Remember what I told you about the switch being a *separate* entity from
+> the NIC that connects it to the CPU.
+>
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 9fbdfcd..113ee93 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -124,6 +124,11 @@ struct virtnet_info {
- 	/* Lock for config space updates */
- 	struct mutex config_lock;
- 
-+	/* Page_frag for GFP_KERNEL packet buffer allocation when we run
-+	 * low on memory.
-+	 */
-+	struct page_frag alloc_frag;
-+
- 	/* Does the affinity hint is set for virtqueues? */
- 	bool affinity_hint_set;
- 
-@@ -217,33 +222,18 @@ static void skb_xmit_done(struct virtqueue *vq)
- 	netif_wake_subqueue(vi->dev, vq2txq(vq));
- }
- 
--static void set_skb_frag(struct sk_buff *skb, struct page *page,
--			 unsigned int offset, unsigned int *len)
--{
--	int size = min((unsigned)PAGE_SIZE - offset, *len);
--	int i = skb_shinfo(skb)->nr_frags;
--
--	__skb_fill_page_desc(skb, i, page, offset, size);
--
--	skb->data_len += size;
--	skb->len += size;
--	skb->truesize += PAGE_SIZE;
--	skb_shinfo(skb)->nr_frags++;
--	skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
--	*len -= size;
--}
--
- /* Called from bottom half context */
- static struct sk_buff *page_to_skb(struct receive_queue *rq,
--				   struct page *page, unsigned int len)
-+				   struct page *page, unsigned int offset,
-+				   unsigned int len, unsigned int truesize)
- {
- 	struct virtnet_info *vi = rq->vq->vdev->priv;
- 	struct sk_buff *skb;
- 	struct skb_vnet_hdr *hdr;
--	unsigned int copy, hdr_len, offset;
-+	unsigned int copy, hdr_len, hdr_padded_len;
- 	char *p;
- 
--	p = page_address(page);
-+	p = page_address(page) + offset;
- 
- 	/* copy small packet so we can reuse these pages for small data */
- 	skb = netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
-@@ -254,16 +244,17 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
- 
- 	if (vi->mergeable_rx_bufs) {
- 		hdr_len = sizeof hdr->mhdr;
--		offset = hdr_len;
-+		hdr_padded_len = sizeof hdr->mhdr;
- 	} else {
- 		hdr_len = sizeof hdr->hdr;
--		offset = sizeof(struct padded_vnet_hdr);
-+		hdr_padded_len = sizeof(struct padded_vnet_hdr);
- 	}
- 
- 	memcpy(hdr, p, hdr_len);
- 
- 	len -= hdr_len;
--	p += offset;
-+	offset += hdr_padded_len;
-+	p += hdr_padded_len;
- 
- 	copy = len;
- 	if (copy > skb_tailroom(skb))
-@@ -273,6 +264,14 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
- 	len -= copy;
- 	offset += copy;
- 
-+	if (vi->mergeable_rx_bufs) {
-+		if (len)
-+			skb_add_rx_frag(skb, 0, page, offset, len, truesize);
-+		else
-+			put_page(page);
-+		return skb;
-+	}
-+
- 	/*
- 	 * Verify that we can indeed put this data into a skb.
- 	 * This is here to handle cases when the device erroneously
-@@ -284,9 +283,12 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
- 		dev_kfree_skb(skb);
- 		return NULL;
- 	}
--
-+	BUG_ON(offset >= PAGE_SIZE);
- 	while (len) {
--		set_skb_frag(skb, page, offset, &len);
-+		unsigned int frag_size = min((unsigned)PAGE_SIZE - offset, len);
-+		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page, offset,
-+				frag_size, truesize);
-+		len -= frag_size;
- 		page = (struct page *)page->private;
- 		offset = 0;
- 	}
-@@ -297,33 +299,52 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
- 	return skb;
- }
- 
--static int receive_mergeable(struct receive_queue *rq, struct sk_buff *skb)
-+static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
- {
--	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
-+	struct skb_vnet_hdr *hdr = skb_vnet_hdr(head_skb);
-+	struct sk_buff *curr_skb = head_skb;
-+	char *buf;
- 	struct page *page;
--	int num_buf, i, len;
-+	int num_buf, len;
- 
- 	num_buf = hdr->mhdr.num_buffers;
- 	while (--num_buf) {
--		i = skb_shinfo(skb)->nr_frags;
--		if (i >= MAX_SKB_FRAGS) {
--			pr_debug("%s: packet too long\n", skb->dev->name);
--			skb->dev->stats.rx_length_errors++;
--			return -EINVAL;
--		}
--		page = virtqueue_get_buf(rq->vq, &len);
--		if (!page) {
-+		int num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
-+		buf = virtqueue_get_buf(rq->vq, &len);
-+		if (unlikely(!buf)) {
- 			pr_debug("%s: rx error: %d buffers missing\n",
--				 skb->dev->name, hdr->mhdr.num_buffers);
--			skb->dev->stats.rx_length_errors++;
-+				 head_skb->dev->name, hdr->mhdr.num_buffers);
-+			head_skb->dev->stats.rx_length_errors++;
- 			return -EINVAL;
- 		}
--
--		if (len > PAGE_SIZE)
--			len = PAGE_SIZE;
--
--		set_skb_frag(skb, page, 0, &len);
--
-+		if (unlikely(len > MAX_PACKET_LEN)) {
-+			pr_debug("%s: rx error: merge buffer too long\n",
-+				 head_skb->dev->name);
-+			len = MAX_PACKET_LEN;
-+		}
-+		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
-+			struct sk_buff *nskb = alloc_skb(0, GFP_ATOMIC);
-+			if (unlikely(!nskb)) {
-+				head_skb->dev->stats.rx_dropped++;
-+				return -ENOMEM;
-+			}
-+			if (curr_skb == head_skb)
-+				skb_shinfo(curr_skb)->frag_list = nskb;
-+			else
-+				curr_skb->next = nskb;
-+			curr_skb = nskb;
-+			head_skb->truesize += nskb->truesize;
-+			num_skb_frags = 0;
-+		}
-+		if (curr_skb != head_skb) {
-+			head_skb->data_len += len;
-+			head_skb->len += len;
-+			head_skb->truesize += MAX_PACKET_LEN;
-+		}
-+		page = virt_to_head_page(buf);
-+		skb_add_rx_frag(curr_skb, num_skb_frags, page,
-+				buf - (char *)page_address(page), len,
-+				MAX_PACKET_LEN);
- 		--rq->num;
- 	}
- 	return 0;
-@@ -341,8 +362,10 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
- 		pr_debug("%s: short packet %i\n", dev->name, len);
- 		dev->stats.rx_length_errors++;
--		if (vi->mergeable_rx_bufs || vi->big_packets)
-+		if (vi->big_packets)
- 			give_pages(rq, buf);
-+		else if (vi->mergeable_rx_bufs)
-+			put_page(virt_to_head_page(buf));
- 		else
- 			dev_kfree_skb(buf);
- 		return;
-@@ -352,19 +375,28 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 		skb = buf;
- 		len -= sizeof(struct virtio_net_hdr);
- 		skb_trim(skb, len);
-+	} else if (vi->mergeable_rx_bufs) {
-+		struct page *page = virt_to_head_page(buf);
-+		skb = page_to_skb(rq, page,
-+				  (char *)buf - (char *)page_address(page),
-+				  len, MAX_PACKET_LEN);
-+		if (unlikely(!skb)) {
-+			dev->stats.rx_dropped++;
-+			put_page(page);
-+			return;
-+		}
-+		if (receive_mergeable(rq, skb)) {
-+			dev_kfree_skb(skb);
-+			return;
-+		}
- 	} else {
- 		page = buf;
--		skb = page_to_skb(rq, page, len);
-+		skb = page_to_skb(rq, page, 0, len, PAGE_SIZE);
- 		if (unlikely(!skb)) {
- 			dev->stats.rx_dropped++;
- 			give_pages(rq, page);
- 			return;
- 		}
--		if (vi->mergeable_rx_bufs)
--			if (receive_mergeable(rq, skb)) {
--				dev_kfree_skb(skb);
--				return;
--			}
- 	}
- 
- 	hdr = skb_vnet_hdr(skb);
-@@ -501,18 +533,28 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
- 
- static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
- {
--	struct page *page;
-+	struct virtnet_info *vi = rq->vq->vdev->priv;
-+	char *buf = NULL;
- 	int err;
- 
--	page = get_a_page(rq, gfp);
--	if (!page)
-+	if (gfp & __GFP_WAIT) {
-+		if (skb_page_frag_refill(MAX_PACKET_LEN, &vi->alloc_frag,
-+					 gfp)) {
-+			buf = (char *)page_address(vi->alloc_frag.page) +
-+			      vi->alloc_frag.offset;
-+			get_page(vi->alloc_frag.page);
-+			vi->alloc_frag.offset += MAX_PACKET_LEN;
-+		}
-+	} else {
-+		buf = netdev_alloc_frag(MAX_PACKET_LEN);
-+	}
-+	if (!buf)
- 		return -ENOMEM;
- 
--	sg_init_one(rq->sg, page_address(page), PAGE_SIZE);
--
--	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, page, gfp);
-+	sg_init_one(rq->sg, buf, MAX_PACKET_LEN);
-+	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
- 	if (err < 0)
--		give_pages(rq, page);
-+		put_page(virt_to_head_page(buf));
- 
- 	return err;
- }
-@@ -1343,8 +1385,10 @@ static void free_unused_bufs(struct virtnet_info *vi)
- 		struct virtqueue *vq = vi->rq[i].vq;
- 
- 		while ((buf = virtqueue_detach_unused_buf(vq)) != NULL) {
--			if (vi->mergeable_rx_bufs || vi->big_packets)
-+			if (vi->big_packets)
- 				give_pages(&vi->rq[i], buf);
-+			else if (vi->mergeable_rx_bufs)
-+				put_page(virt_to_head_page(buf));
- 			else
- 				dev_kfree_skb(buf);
- 			--vi->rq[i].num;
-@@ -1650,6 +1694,8 @@ free_recv_bufs:
- free_vqs:
- 	cancel_delayed_work_sync(&vi->refill);
- 	virtnet_del_vqs(vi);
-+	if (vi->alloc_frag.page)
-+		put_page(vi->alloc_frag.page);
- free_index:
- 	free_percpu(vi->vq_index);
- free_stats:
-@@ -1685,6 +1731,8 @@ static void virtnet_remove(struct virtio_device *vdev)
- 	unregister_netdev(vi->dev);
- 
- 	remove_vq_common(vi);
-+	if (vi->alloc_frag.page)
-+		put_page(vi->alloc_frag.page);
- 
- 	flush_work(&vi->config_work);
- 
--- 
-1.8.4.1
+I am assuming there is a MAC address which is identified to be that of a
+switch. Something responds to ARP for example for that MAC. I think
+you are  saying that for a certain class of switch chips, there is no
+concept of "cpu port" - therefore there cannot be unicast from the
+chip to the cpu.
+
+> DSA does this, and last time I looked, it pushes *all* bridge traffic
+> through the CPU, making it completely unusable for slower embedded CPUs.
+>
+
+I wasnt thinking DSA (rather some MIPS based embedded boards)- but now
+that you bring it up, lets Cc Lennert.
+
+> If I remember correctly, adding support 'bridge acceleration' was left
+> as an exercise for the reader and never actually implemented.
+>
+
+ From talking to you, I realize there are things that are dumb and
+cant be "accelerated". The scenarios so far have been for accelaration
+(or to be correct: offloading).
+And my contention is - this is a matter of capability discovery as
+advertised by the driver and as used by the user tools.
+
+> Sure, this could be fixed somehow, but even then the model and
+> assumptions that DSA is built on simply don't work for some of the
+> dumber switches that we support.
+>
+
+Agreed.
+
+[.. content removed for brevity, dont think we have disagreements ..]
+
+
+> One of the currently very common switches in many embedded devices is
+> the RTL8366/RTL8367. It has some flexibility when it comes to
+> configuring VLANs, and it's one of the few ones where you can configure
+> a forwarding table for a VLAN (which spans multiple ports), which allows
+> software bridging between multiple VLANs.
+> However, what this switch does *not* support is adding a header/trailer
+> to packets to indicate the originating port.
+> This means that all per-port netdevs will be dummy ports which don't
+> include the data path.
+>
+
+My view is that netdevs are still valuable even if only they get used 
+for control path. Like you said earlier - you can still pull stats, flow 
+control messages still make it through etc. They provide you
+the consistent api to configure the switch above, ex:
+If i was to use the FDB api for this switch as long as i can
+abstract it in software as a bridge, I could send it a switch config
+via its ops which says:
+"I am giving you this entry with vland 400 for port 2, but i want you to
+send it to the hardware not to your local entry"
+
+> So let's say you have a configuration where you're using VLAN ID 4 on
+> port 1, and you want to bridge it to VLAN ID 400 on port 2.
+>
+> Sounds easy enough, you can easily create a bridge that spans port1.4
+> and port2.400. Except, this particular switch (like pretty much any
+> other switch supported by swconfig) isn't actually able to handle such a
+> configuration on its own.
+
+Makes sense.
+Let me point that even the Linux bridge cant handle this on its own
+either.
+You would need two bridges instantiated. The "cpu port" (we should call
+it the "L3 port" really) is implicit in the case of the bridge i.e it
+is the Linux network stack.
+You would need to set the vlan filters on the bridge to strip the vlan
+on egress of the first bridge etc ..
+
+> It needs two VLAN configurations, with different forwarding table IDs,
+> and then the software bridge on the CPU port needs to forward between
+> the two different VLANs.
+> To be able to handle such a configuration, the code would have to detect
+> this kind of special case scenario, somehow hook itself via rx handler
+> into the NIC connected to the CPU port and emulate that VLAN ID
+> replacement behavior.
+>
+
+
+IMO: You dont need to muck with rx handler if you used bridge
+abstraction. It becomes a config issue.
+
+> With swconfig, you create two VLANs: VLAN 4, containing CPU and port1;
+> VLAN 400, containing CPU and port2. You then create a software bridge
+> between eth0.4 and eth0.400 (assuming eth0 is the NIC connected to the
+> switch).
+>
+
+Can we call that "L3" instead of software bridge?
+It can be done if you create a Linux bridge in software per L2 table id
+in your chip. Then you attach the bridge ports.
+A linux bridge of the sort, assuming there's a subnet per bridge is
+configured thus:
+bridge-tab1: link ports {eth0:vlan4, eth1:vlan4}, subnet 1
+bridge-tab2: link ports {eth0:vlan400, eth1:vlan400}, subnet 2
+
+
+> In a different scenario, the code would also have to detect
+> configurations that the switch isn't able to handle, e.g.: bridging
+> port1.4 to eth1 and port2.4 to eth2.
+> Such a configuration wouldn't work at all with such a switch, because
+> the CPU isn't able to tell apart traffic from port1 and port2, and
+> there's no way to tell the switch that port1.4 and port2.4 should not be
+> connected to each other, but both should go to the CPU.
+>
+
+Understood.
+I think that discovery is a must - so you can apply different behavior
+to different switches.
+But you seem to have solved this already. Linux as is does not.
+You can either have the driver tell you what it can/cant do or you
+can attempt to fire and miss and get a return code that will tell
+you that it cant achieve what you are asking it to do. I prefer the
+former.
+
+ >
+> Those are just two simple scenarios from the top of my head - I'm pretty
+> sure I could come up with a long list of further corner cases and
+> quirks, which are simply either difficult to deal with, or completely
+> unnatural in the model that you're describing.
+>
+
+I think these are the kind of things that need to be enumerated to come
+to some conclusion.
+
+> Trying to make all of these cases work in the code will make the whole
+> thing a lot more difficult to deal with and maintain. It will also make
+> it much harder for the user to figure out, what configurations work, and
+> what configurations don't.
+>
+>
+> Especially the case with reusing VLANs on different ports (but not
+> connecting them to each other) is something that can easily work with
+> software devices, but cannot be emulated on most embedded device
+> switches. The software bridge configuration model raises a lot of
+> expectations that these switches simply cannot meet.
+>
+
+I wouldnt expect every thing a software bridge does would be met by
+a random switch.S/w bridge would be the super-set. But this is
+not a new concept, example: Netdev itself is an abstraction - we have
+USB, ethernet, wireless, variety of virtual interfaces etc.
+Sometimes we dont even have the concept of a "link" in some of these
+devices; infiniband would have a huge MAC address but i can still
+use ifconfig on it etc.
+
+> If you look at the swconfig model, you will see that the abstraction
+> clearly communicates the limitations of these typical switches.
+>
+
+I will have to go back and look - but like i said earlier seems to me
+you have solved this problem. Of the switch hardware i am familiar with
+(high end pricey stuff), the capabilities tend to fall into the
+following components:
+-flooding control (i.e what should happen on destination failure)
+-learning control (i.e what should happen on the source lookup failure)
+(Ive seen knobs for "drop", "send to portX" where "X" could be cpu etc)
+-fdb capacity
+-whether it can do vlans, filtering pvids etc
+-multicast snooping capability
+
+To add to the above a few more based on talking to you:
+- cpu port (in what ive come across this is always present, but
+as you point out this cannot be assumed)
+- ingress port tag (you point out that some cases this may never be
+present even when the cpu port is present)
+- ive never seen table id, but i think this is another one; in which
+case the number of table ids becomes something one needs to discover..
+
+cheers,
+jamal
+
+> The configuration model simply doesn't even let you express these kinds
+> of unsuppported configurations that seem normal in the tools used to set
+> up software bridges/vlans.
+> At the same time, it's fairly consistent across the range of different
+> chips that we have drivers for. That certainly leaves a much smaller
+> amount of traps and surprises for users, compared to trying to emulate
+> the software bridge model by hacking through the layers.
+>
+> Hopefully this will clear a few things up for you.
+>
+> - Felix
+>
