@@ -1,114 +1,201 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Bug in skb_segment: fskb->len != len
-Date: Mon, 28 Oct 2013 12:55:52 +0100
-Message-ID: <20131028115552.GC4408@cpaasch-mac>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH 5/5] net/usb/r8152: code adjust
+Date: Mon, 28 Oct 2013 19:58:14 +0800
+Message-ID: <1382961494-2272-6-git-send-email-hayeswang@realtek.com>
+References: <1382961494-2272-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:56021 "EHLO
-	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755683Ab3J1L4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 07:56:00 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1382961494-2272-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+ -Remove rtl8152_get_stats()
+ -Fix the wrong name
+ -Something else
 
-I have been seeing the below BUG in skb_segment with the latest net-next
-head on my router.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 46 +++++++++++++++++++++-------------------------
+ 1 file changed, 21 insertions(+), 25 deletions(-)
 
-I am forwarding Multipath TCP-traffic on this router. The MPTCP-sender is simply
-doing an iperf-session. Strangely, I cannot reproduce the bug when sending
-regular TCP-traffic across the router.
-Note: The crash happens on a vanilla net-next kernel. It does not has any
-MPTCP-code in it.
-
-I bisected it down to 8a29111c7c (net: gro: allow to build full sized skb),
-but I guess 8a29111c7c is just revealing a more fundamental bug in skb_segment.
-
-Some info I found:
-In skb_segment, when the bug happens, fskb->len is 4284 but the mss and len is 1428.
-Shortly before the bug happens, skb_gro_receive is building a packet where
-lp->len is equal to 4284 inside the frag_list.
-
-
-Seems like skb_segment cannot handle those bigger skb's in the frag_list.
-
-
-Cheers,
-Christoph
-
-
-Here the crash-dump:
-
-[  399.832854] ------------[ cut here ]------------
-[  399.888048] kernel BUG at /home/cpaasch/builder/net-next/net/core/skbuff.c:2796!
-[  399.976504] invalid opcode: 0000 [#1] SMP 
-[  400.025675] Modules linked in:
-[  400.062270] CPU: 4 PID: 0 Comm: swapper/4 Not tainted 3.12.0-rc6-mptcp #231
-[  400.145531] Hardware name: HP ProLiant DL120 G6/ProLiant DL120 G6, BIOS O26    09/06/2010
-[  400.243342] task: ffff88042d8a4680 ti: ffff88042d8ce000 task.ti: ffff88042d8ce000
-[  400.332841] RIP: 0010:[<ffffffff81447d21>]  [<ffffffff81447d21>] skb_segment+0x1aa/0x5fa
-[  400.429722] RSP: 0018:ffff88043fd03770  EFLAGS: 00010212
-[  400.493231] RAX: 0000000000000594 RBX: ffff8800ba89ac00 RCX: 00000000000064be
-[  400.578574] RDX: 0000000000000000 RSI: 0000000000000011 RDI: ffff8804273a7080
-[  400.663918] RBP: ffff88043fd03820 R08: 0000000000000000 R09: ffff88042c4d4600
-[  400.749259] R10: 0000000000010000 R11: ffff88042d801900 R12: ffff88042c7ca000
-[  400.834596] R13: ffff88042c5d5400 R14: 0000000000001650 R15: 0000000000000056
-[  400.919934] FS:  0000000000000000(0000) GS:ffff88043fd00000(0000) knlGS:0000000000000000
-[  401.016711] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[  401.085422] CR2: ffffffffff600400 CR3: 000000042c86b000 CR4: 00000000000007e0
-[  401.170765] Stack:
-[  401.194780]  ffff88042d94e900 ffff88042c4d46f0 0000000000000000 0000000000000042
-[  401.283663]  0100000000000000 0000000000000001 0000001100000594 0000000000000056
-[  401.372555]  0000000000000000 0000004200000098 ffffffffffffffaa 0000001100000001
-[  401.461445] Call Trace:
-[  401.490658]  <IRQ> 
-[  401.513631]  [<ffffffff8149b077>] tcp_gso_segment+0x168/0x395
-[  401.584644]  [<ffffffff814a5ba1>] inet_gso_segment+0x175/0x2a9
-[  401.654396]  [<ffffffff8144fb40>] skb_mac_gso_segment+0x10a/0x16a
-[  401.727264]  [<ffffffff81451062>] __skb_gso_segment+0xaf/0xb4
-[  401.795977]  [<ffffffff814515ae>] dev_hard_start_xmit+0x215/0x40a
-[  401.868846]  [<ffffffff814689ed>] sch_direct_xmit+0x6b/0x195
-[  401.936519]  [<ffffffff81451988>] dev_queue_xmit+0x1e5/0x3ac
-[  402.004193]  [<ffffffff814b6461>] ? iptable_filter_hook+0x41/0x4c
-[  402.077061]  [<ffffffff8148039d>] ip_finish_output+0x2f6/0x351
-[  402.146812]  [<ffffffff8147c6dc>] ? ip_frag_mem+0x34/0x34
-[  402.211366]  [<ffffffff81480470>] ip_output+0x78/0x7f
-[  402.271765]  [<ffffffff8147c71c>] ip_forward_finish+0x40/0x44
-[  402.340475]  [<ffffffff8147c9c5>] ip_forward+0x2a5/0x300
-[  402.403993]  [<ffffffff8147b104>] ip_rcv_finish+0x214/0x22c
-[  402.470625]  [<ffffffff8147b3cd>] ip_rcv+0x2b1/0x2e9
-[  402.529983]  [<ffffffff81446a19>] ? skb_gro_receive+0x562/0x582
-[  402.600773]  [<ffffffff8144dcd8>] __netif_receive_skb_core+0x49a/0x4cd
-[  402.678840]  [<ffffffff8144dd60>] __netif_receive_skb+0x55/0x5a
-[  402.749631]  [<ffffffff81450190>] netif_receive_skb+0x71/0x78
-[  402.818344]  [<ffffffff8149af07>] ? tcp4_gro_receive+0xf4/0xfc
-[  402.888095]  [<ffffffff81450249>] napi_gro_complete+0xb2/0xba
-[  402.956808]  [<ffffffff8145045f>] dev_gro_receive+0x20e/0x34d
-[  403.025519]  [<ffffffff81450ae5>] napi_gro_receive+0x92/0xf1
-[  403.093195]  [<ffffffff813acfe2>] netxen_process_rcv_ring+0x1b0/0x767
-[  403.170222]  [<ffffffff810b3ae8>] ? kmem_cache_free+0xef/0xf3
-[  403.238931]  [<ffffffff81450fb1>] ? dev_kfree_skb_any+0x2e/0x30
-[  403.309723]  [<ffffffff813acc42>] ? netxen_process_cmd_ring+0x33/0x223
-[  403.387790]  [<ffffffff813a8f70>] netxen_nic_poll+0x35/0x9a
-[  403.454423]  [<ffffffff814506dc>] net_rx_action+0xa7/0x1d2
-[  403.520017]  [<ffffffff8103605d>] __do_softirq+0xbd/0x17e
-[  403.584572]  [<ffffffff815289bc>] call_softirq+0x1c/0x26
-[  403.648085]  [<ffffffff81003bbb>] do_softirq+0x33/0x68
-[  403.709523]  [<ffffffff81035efb>] irq_exit+0x40/0x4e
-[  403.768880]  [<ffffffff81003423>] do_IRQ+0x98/0xaf
-[  403.826158]  [<ffffffff8152716a>] common_interrupt+0x6a/0x6a
-[  403.893829]  <EOI> 
-[  403.916800]  [<ffffffff8100933d>] ? default_idle+0x6/0x8
-[  403.982604]  [<ffffffff81009542>] arch_cpu_idle+0x13/0x18
-[  404.047159]  [<ffffffff8105ea2b>] cpu_startup_entry+0xa4/0xf1
-[  404.115873]  [<ffffffff8102320b>] start_secondary+0x1b2/0x1b7
-[  404.184582] Code: bd 7f ff ff ff 00 74 04 44 8b 75 c0 45 85 f6 0f 85 e5 00 00 00 8b 75 84 39 75 ac 0f 8c d9 00 00 00 45 8b 75 68 44 3b 75 c0 74 04 <0f> 0b eb fe 4c 89 ef be 20 00 00 00 e8 08 f1 ff ff 48 85 c0 48 
-[  404.417106] RIP  [<ffffffff81447d21>] skb_segment+0x1aa/0x5fa
-[  404.485928]  RSP <ffff88043fd03770>
-[  404.527614] ---[ end trace 32152a68c7bdc3ac ]---
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 90bc105..d252ff6 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -218,7 +218,7 @@
+ #define POWER_CUT		0x0100
+ 
+ /* USB_PM_CTRL_STATUS */
+-#define RWSUME_INDICATE		0x0001
++#define RESUME_INDICATE		0x0001
+ 
+ /* USB_USB_CTRL */
+ #define RX_AGG_DISABLE		0x0010
+@@ -376,7 +376,8 @@ struct r8152 {
+ enum rtl_version {
+ 	RTL_VER_UNKNOWN = 0,
+ 	RTL_VER_01,
+-	RTL_VER_02
++	RTL_VER_02,
++	RTL_VER_INVALLID = -1
+ };
+ 
+ /* Maximum number of multicast addresses to filter (vs. Rx-all-multicast).
+@@ -422,14 +423,15 @@ int set_registers(struct r8152 *tp, u16 value, u16 index, u16 size, void *data)
+ 			       value, index, tmp, size, 500);
+ 
+ 	kfree(tmp);
++
+ 	return ret;
+ }
+ 
+ static int generic_ocp_read(struct r8152 *tp, u16 index, u16 size,
+ 				void *data, u16 type)
+ {
+-	u16	limit = 64;
+-	int	ret = 0;
++	u16 limit = 64;
++	int ret = 0;
+ 
+ 	if (test_bit(RTL8152_UNPLUG, &tp->flags))
+ 		return -ENODEV;
+@@ -468,9 +470,9 @@ static int generic_ocp_read(struct r8152 *tp, u16 index, u16 size,
+ static int generic_ocp_write(struct r8152 *tp, u16 index, u16 byteen,
+ 				u16 size, void *data, u16 type)
+ {
+-	int	ret;
+-	u16	byteen_start, byteen_end, byen;
+-	u16	limit = 512;
++	int ret;
++	u16 byteen_start, byteen_end, byen;
++	u16 limit = 512;
+ 
+ 	if (test_bit(RTL8152_UNPLUG, &tp->flags))
+ 		return -ENODEV;
+@@ -763,11 +765,6 @@ static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
+ 	return 0;
+ }
+ 
+-static struct net_device_stats *rtl8152_get_stats(struct net_device *dev)
+-{
+-	return &dev->stats;
+-}
+-
+ static void read_bulk_callback(struct urb *urb)
+ {
+ 	struct net_device *netdev;
+@@ -836,6 +833,7 @@ static void read_bulk_callback(struct urb *urb)
+ static void write_bulk_callback(struct urb *urb)
+ {
+ 	struct net_device_stats *stats;
++	struct net_device *netdev;
+ 	unsigned long flags;
+ 	struct tx_agg *agg;
+ 	struct r8152 *tp;
+@@ -849,7 +847,8 @@ static void write_bulk_callback(struct urb *urb)
+ 	if (!tp)
+ 		return;
+ 
+-	stats = rtl8152_get_stats(tp->netdev);
++	netdev = tp->netdev;
++	stats = &netdev->stats;
+ 	if (status) {
+ 		pr_warn_ratelimited("Tx status %d\n", status);
+ 		stats->tx_errors += agg->skb_num;
+@@ -862,7 +861,7 @@ static void write_bulk_callback(struct urb *urb)
+ 	list_add_tail(&agg->list, &tp->tx_free);
+ 	spin_unlock_irqrestore(&tp->tx_lock, flags);
+ 
+-	if (!netif_carrier_ok(tp->netdev))
++	if (!netif_carrier_ok(netdev))
+ 		return;
+ 
+ 	if (!test_bit(WORK_ENABLE, &tp->flags))
+@@ -1214,7 +1213,7 @@ static void rx_bottom(struct r8152 *tp)
+ 
+ 		while (urb->actual_length > len_used) {
+ 			struct net_device *netdev = tp->netdev;
+-			struct net_device_stats *stats;
++			struct net_device_stats *stats = &netdev->stats;
+ 			unsigned pkt_len;
+ 			struct sk_buff *skb;
+ 
+@@ -1226,8 +1225,6 @@ static void rx_bottom(struct r8152 *tp)
+ 			if (urb->actual_length < len_used)
+ 				break;
+ 
+-			stats = rtl8152_get_stats(netdev);
+-
+ 			pkt_len -= 4; /* CRC */
+ 			rx_data += sizeof(struct rx_desc);
+ 
+@@ -1281,7 +1278,7 @@ static void tx_bottom(struct r8152 *tp)
+ 			unsigned long flags;
+ 
+ 			netdev = tp->netdev;
+-			stats = rtl8152_get_stats(netdev);
++			stats = &netdev->stats;
+ 
+ 			if (res == -ENODEV) {
+ 				netif_device_detach(netdev);
+@@ -1476,7 +1473,7 @@ static int rtl8152_enable(struct r8152 *tp)
+ 
+ static void rtl8152_disable(struct r8152 *tp)
+ {
+-	struct net_device_stats *stats = rtl8152_get_stats(tp->netdev);
++	struct net_device_stats *stats = &tp->netdev->stats;
+ 	struct sk_buff *skb;
+ 	u32 ocp_data;
+ 	int i;
+@@ -1600,8 +1597,8 @@ static void r8152b_exit_oob(struct r8152 *tp)
+ 
+ static void r8152b_enter_oob(struct r8152 *tp)
+ {
+-	u32	ocp_data;
+-	int	i;
++	u32 ocp_data;
++	int i;
+ 
+ 	ocp_data = ocp_read_byte(tp, MCU_TYPE_PLA, PLA_OOB_CTRL);
+ 	ocp_data &= ~NOW_IS_OOB;
+@@ -1722,7 +1719,6 @@ static int rtl8152_set_speed(struct r8152 *tp, u8 autoneg, u16 speed, u8 duplex)
+ 	r8152_mdio_write(tp, MII_BMCR, bmcr);
+ 
+ out:
+-
+ 	return ret;
+ }
+ 
+@@ -1840,7 +1836,7 @@ static void rtl_clear_bp(struct r8152 *tp)
+ 
+ static void r8152b_enable_eee(struct r8152 *tp)
+ {
+-	u32	ocp_data;
++	u32 ocp_data;
+ 
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_EEE_CR);
+ 	ocp_data |= EEE_RX_EN | EEE_TX_EN;
+@@ -1896,7 +1892,7 @@ static void r8152b_init(struct r8152 *tp)
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_UPS_CTRL, ocp_data);
+ 
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS);
+-	ocp_data &= ~RWSUME_INDICATE;
++	ocp_data &= ~RESUME_INDICATE;
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
+ 
+ 	r8152b_exit_oob(tp);
+@@ -2148,7 +2144,7 @@ static void rtl8152_unload(struct r8152 *tp)
+ 	}
+ 
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS);
+-	ocp_data &= ~RWSUME_INDICATE;
++	ocp_data &= ~RESUME_INDICATE;
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_PM_CTRL_STATUS, ocp_data);
+ }
+ 
+-- 
+1.8.3.1
