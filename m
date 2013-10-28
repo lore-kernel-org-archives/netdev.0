@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/8] rds: Pass pointers to virt_to_page(), not integers
-Date: Mon, 28 Oct 2013 00:26:54 -0400 (EDT)
-Message-ID: <20131028.002654.404759341390215962.davem@davemloft.net>
-References: <1382910437.2994.43.camel@deadeye.wl.decadent.org.uk>
-	<1382910856.2994.51.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [PATCH 1/3] vxlan: silence one build warning
+Date: Mon, 28 Oct 2013 00:38:07 -0400 (EDT)
+Message-ID: <20131028.003807.1591686723281776238.davem@davemloft.net>
+References: <1382687360-27794-1-git-send-email-zwu.kernel@gmail.com>
+	<20131025084134.6cfa153a@samsung-9>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: venkat.x.venkatsubra@oracle.com, linux-kernel@vger.kernel.org,
-	rds-devel@oss.oracle.com, netdev@vger.kernel.org
-To: ben@decadent.org.uk
+Cc: zwu.kernel@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, wuzhy@linux.vnet.ibm.com
+To: stephen@networkplumber.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1382910856.2994.51.camel@deadeye.wl.decadent.org.uk>
+In-Reply-To: <20131025084134.6cfa153a@samsung-9>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sun, 27 Oct 2013 21:54:16 +0000
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 25 Oct 2013 08:41:34 -0700
 
-> Most architectures define virt_to_page() as a macro that casts its
-> argument such that an argument of type unsigned long will be accepted
-> without complaint.  However, the proper type is void *, and passing
-> unsigned long results in a warning on MIPS.
-> 
-> Compile-tested only.
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> I would rather not fix the warning this way since it risks masking
+> later bugs if this code ever changes.
 
-This looks fine:
+But this is suboptimally coded, and is asking for the warning.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Anything returning a pointer by reference is asking for trouble
+in my opinion.
+
+The correct thing to do is to make create_v{4,6}_sock() return
+the "struct socket *" as an error pointer.
+
+No more ambiguous initializations, no more warnings.
