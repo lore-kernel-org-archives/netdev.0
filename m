@@ -1,106 +1,135 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: PROBLEM: GRE forwarding not working with 3.10.x, WCCPv2 and Cisco
- 7200 Router showing IP0 bad-hlen 4 in tcpdump
-Date: Mon, 28 Oct 2013 10:42:09 -0700
-Message-ID: <CALnjE+q=a_ats+fmwOhs=YpetHdTMBFuOnhR2rjR0gqekn0tSA@mail.gmail.com>
-References: <1381912513.57737.YahooMailNeo@web172002.mail.ir2.yahoo.com>
-	<1381942996.2045.135.camel@edumazet-glaptop.roam.corp.google.com>
-	<1382007190.35868.YahooMailNeo@web172006.mail.ir2.yahoo.com>
-	<1382017464.2045.149.camel@edumazet-glaptop.roam.corp.google.com>
-	<1382096356.63655.YahooMailNeo@web172002.mail.ir2.yahoo.com>
-	<CALnjE+pdvpfCTo=bTtSrY29mxc0yZKMj0XSc2gQVhGjbpByhcA@mail.gmail.com>
-	<1382955011.46218.YahooMailNeo@web172005.mail.ir2.yahoo.com>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [RFC TRY#2][PATCH] bgmac: pass received packet to the netif instead of copying it
+Date: Mon, 28 Oct 2013 18:42:22 +0100
+Message-ID: <1382982142-16876-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Peter Schmitt <peter.schmitt82@yahoo.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: openwrt-devel@lists.openwrt.org,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog135.obsmtp.com ([74.125.149.84]:33592 "HELO
-	na3sys009aog135.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756796Ab3J1RmM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 13:42:12 -0400
-Received: by mail-vc0-f169.google.com with SMTP id hu8so2311108vcb.14
-        for <netdev@vger.kernel.org>; Mon, 28 Oct 2013 10:42:09 -0700 (PDT)
-In-Reply-To: <1382955011.46218.YahooMailNeo@web172005.mail.ir2.yahoo.com>
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:53413 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757225Ab3J1Rm2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 13:42:28 -0400
+Received: by mail-ee0-f42.google.com with SMTP id b45so4740145eek.1
+        for <netdev@vger.kernel.org>; Mon, 28 Oct 2013 10:42:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for testing it. I sent patch for stable kernel.
+Copying whole packets with skb_copy_from_linear_data_offset is a pretty
+bad idea. CPU was spending time in __copy_user_common and network
+performance was lower. With the new solution iperf-measured speed
+increased from 116Mb/s to 134Mb/s.
 
-On Mon, Oct 28, 2013 at 3:10 AM, Peter Schmitt <peter.schmitt82@yahoo.de> wrote:
-> Hi Pravin,
->
-> I tested this patch and it works fine with 3.10.17! Now I get correct packets from the GRE-device and can surf again using WCCP.
->
-> Thank you very much!
->
-> Best regards,
-> Peter
->
->
->
->
->
->> On Friday, October 25, 2013 5:25 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->> > Hi Peter,
->> I think its easy to fix this case, Can you try attached patch?
->> If it works I will send formal patch for stable.
->>
->> Thanks,
->> Pravin.
->>
->>
->> On Fri, Oct 18, 2013 at 4:39 AM, Peter Schmitt <peter.schmitt82@yahoo.de>
->> wrote:
->>>  Hi,
->>>
->>>
->>>
->>>>  On Thursday, October 17, 2013 3:44 PM, Eric Dumazet
->> <eric.dumazet@gmail.com> wrote:
->>>>  > On Thu, 2013-10-17 at 11:53 +0100, Peter Schmitt wrote:
->>>>>   Hi,
->>>>>
->>>>>
->>>>>   >
->>>>>   > 3.10 is buggy (for ETH_P_WCCP support I mean), 3.11 has the
->> probable
->>>>>   > fix :
->>>>>   >
->>>>>   > commit 3d7b46cd20e300bd6989fb1f43d46f1b9645816e
->>>>>   > ("ip_tunnel: push generic protocol handling to ip_tunnel
->>>>  module.")
->>>>>   >
->>>>>   > The problem is 3.10 do not pull the extra 4 bytes of WCCP
->>>>>   >
->>>>>   > This is now properly done in iptunnel_pull_header()
->>>>>   >
->>>>>
->>>>>   First of all, many thanks for your help on this.
->>>>>
->>>>>   I tried to apply the fix to the 3.10.16 sources, as I would like
->> to
->>>>>   stay with the long-term line. Unfortunately it does not apply, as
->>>>>   there are a lot of dependencies on other patches.
->>>>>
->>>>>   Do you think there will be a fix for the long-time 3.10 kernel
->> line?
->>>>>   Or can you guide me on how to apply this fix to the long-term
->> kernel?
->>>>
->>>>  3.10 is right in the middle of GRE refactoring, and many bugs are in
->> it.
->>>>
->>>>  It might be very painful to get a complete list of patches to backport.
->>>
->>>  thanks again. Yes I saw that there were lots of changes.
->>>
->>>  Do you think there will be a fix for all the 3.10.x stable long term kernel
->> users? Many of them might not be able to use some newer kernel easily or will
->> this be a "won't fix"?
->>>
->>>  Best regards,
->>>  Peter
->>>
->>
+Another way to improve performance could be switching to build_skb. It
+is cache-specific, so will require testing of various devices.
+
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bgmac.c |   71 ++++++++++++++++++++-----=
+--------
+ 1 file changed, 44 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index 6b7541f..fde9a11 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -307,7 +307,6 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, s=
+truct bgmac_dma_ring *ring,
+ 		struct device *dma_dev =3D bgmac->core->dma_dev;
+ 		struct bgmac_slot_info *slot =3D &ring->slots[ring->start];
+ 		struct sk_buff *skb =3D slot->skb;
+-		struct sk_buff *new_skb;
+ 		struct bgmac_rx_header *rx;
+ 		u16 len, flags;
+=20
+@@ -320,38 +319,56 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac,=
+ struct bgmac_dma_ring *ring,
+ 		len =3D le16_to_cpu(rx->len);
+ 		flags =3D le16_to_cpu(rx->flags);
+=20
+-		/* Check for poison and drop or pass the packet */
+-		if (len =3D=3D 0xdead && flags =3D=3D 0xbeef) {
+-			bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
+-				  ring->start);
+-		} else {
++		do {
++			struct sk_buff *old_skb =3D slot->skb;
++			dma_addr_t old_dma_addr =3D slot->dma_addr;
++			int err;
++
++			/* Check for poison and drop or pass the packet */
++			if (len =3D=3D 0xdead && flags =3D=3D 0xbeef) {
++				bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
++					  ring->start);
++				dma_sync_single_for_device(dma_dev,
++							   slot->dma_addr,
++							   BGMAC_RX_BUF_SIZE,
++							   DMA_FROM_DEVICE);
++				break;
++			}
++
+ 			/* Omit CRC. */
+ 			len -=3D ETH_FCS_LEN;
+=20
+-			new_skb =3D netdev_alloc_skb_ip_align(bgmac->net_dev, len);
+-			if (new_skb) {
+-				skb_put(new_skb, len);
+-				skb_copy_from_linear_data_offset(skb, BGMAC_RX_FRAME_OFFSET,
+-								 new_skb->data,
+-								 len);
+-				skb_checksum_none_assert(skb);
+-				new_skb->protocol =3D
+-					eth_type_trans(new_skb, bgmac->net_dev);
+-				netif_receive_skb(new_skb);
+-				handled++;
+-			} else {
+-				bgmac->net_dev->stats.rx_dropped++;
+-				bgmac_err(bgmac, "Allocation of skb for copying packet failed!\n")=
+;
++			/* Prepare new skb as replacement */
++			err =3D bgmac_dma_rx_skb_for_slot(bgmac, slot);
++			if (err) {
++				slot->skb =3D old_skb;
++				slot->dma_addr =3D old_dma_addr;
++
++				/* Poison the old skb */
++				rx->len =3D cpu_to_le16(0xdead);
++				rx->flags =3D cpu_to_le16(0xbeef);
++
++				dma_sync_single_for_device(dma_dev,
++							   slot->dma_addr,
++							   BGMAC_RX_BUF_SIZE,
++							   DMA_FROM_DEVICE);
++				break;
+ 			}
++			bgmac_dma_rx_setup_desc(bgmac, ring, ring->start);
+=20
+-			/* Poison the old skb */
+-			rx->len =3D cpu_to_le16(0xdead);
+-			rx->flags =3D cpu_to_le16(0xbeef);
+-		}
++			/* Unmap old skb, we'll pass it to the netfif */
++			dma_unmap_single(dma_dev, old_dma_addr,
++						BGMAC_RX_BUF_SIZE,
++						DMA_FROM_DEVICE);
++
++			skb_put(skb, BGMAC_RX_FRAME_OFFSET + len);
++			skb_pull(skb, BGMAC_RX_FRAME_OFFSET);
+=20
+-		/* Make it back accessible to the hardware */
+-		dma_sync_single_for_device(dma_dev, slot->dma_addr,
+-					   BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
++			skb_checksum_none_assert(skb);
++			skb->protocol =3D eth_type_trans(skb, bgmac->net_dev);
++			netif_receive_skb(skb);
++			handled++;
++		} while (0);
+=20
+ 		if (++ring->start >=3D BGMAC_RX_RING_SLOTS)
+ 			ring->start =3D 0;
+--=20
+1.7.10.4
