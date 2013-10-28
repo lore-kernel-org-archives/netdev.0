@@ -1,105 +1,534 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net V2] xen-netback: use jiffies_64 value to calculate credit timeout
-Date: Mon, 28 Oct 2013 11:35:17 +0000
-Message-ID: <1382960117-13053-1-git-send-email-wei.liu2@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <david.vrabel@citrix.com>, <jbeulich@suse.com>,
-	<annie.li@oracle.com>, "Wei Liu" <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Jason Luan <jianhai.luan@oracle.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: sched: cls_bpf: add BPF-based classifier
+Date: Mon, 28 Oct 2013 12:35:20 +0100
+Message-ID: <1382960120-2198-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:11495 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753542Ab3J1LfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 07:35:18 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:41262 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755773Ab3J1Lft (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Oct 2013 07:35:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-time_after_eq() only works if the delta is < MAX_ULONG/2.
+This work contains a lightweight BPF-based traffic classifier that can
+serve as a flexible alternative to ematch-based tree classification, i.e.
+now that BPF filter engine can also be JITed in the kernel. Naturally, tc
+actions and policies are supported as well with cls_bpf. Multiple BPF
+programs/filter can be attached for a class, or they can just as well be
+written within a single BPF program, that's really up to the user how he
+wishes to run/optimize the code, e.g. also for inversion of verdicts etc.
+The notion of a BPF program's return/exit codes is being kept as follows:
+non-zero for match, zero for mismatch.
 
-For a 32bit Dom0, if netfront sends packets at a very low rate, the time
-between subsequent calls to tx_credit_exceeded() may exceed MAX_ULONG/2
-and the test for timer_after_eq() will be incorrect. Credit will not be
-replenished and the guest may become unable to send packets (e.g., if
-prior to the long gap, all credit was exhausted).
+As a minimal usage example with iproute2, we use a 3 band prio root qdisc
+on a router with sfq each as leave, and assign ssh and icmp bpf-based
+filters to band 1, http traffic to band 2 and the rest to band 3. For the
+first two bands we load the bytecode from a file, in the 2nd we load it
+inline as an example:
 
-Use jiffies_64 variant to mitigate this problem for 32bit Dom0.
+echo 1 > /proc/sys/net/core/bpf_jit_enable
 
-Suggested-by: Jan Beulich <jbeulich@suse.com>
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Jason Luan <jianhai.luan@oracle.com>
+tc qdisc del dev em1 root
+tc qdisc add dev em1 root handle 1: prio bands 3 priomap 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+
+tc qdisc add dev em1 parent 1:1 sfq perturb 16
+tc qdisc add dev em1 parent 1:2 sfq perturb 16
+tc qdisc add dev em1 parent 1:3 sfq perturb 16
+
+tc filter add dev em1 parent 1: bpf run bytecode-file /etc/tc/ssh.bpf flowid 1:1
+tc filter add dev em1 parent 1: bpf run bytecode-file /etc/tc/icmp.bpf flowid 1:1
+tc filter add dev em1 parent 1: bpf run bytecode-file /etc/tc/http.bpf flowid 1:2
+tc filter add dev em1 parent 1: bpf run bytecode "`bpfc -f tc -i misc.ops`" flowid 1:3
+
+BPF programs can be easily created and passed to tc, either as inline
+'bytecode' or 'bytecode-file'. There are a couple of front-ends that can
+compile opcodes, for example:
+
+1) People familiar with tcpdump-like filters:
+
+   tcpdump -iem1 -ddd port 22 | tr '\n' ',' > /etc/tc/ssh.bpf
+
+2) People that want to low-level program their filters or use BPF
+   extensions that lack support by libpcap's compiler:
+
+   bpfc -f tc -i ssh.ops > /etc/tc/ssh.bpf
+
+   ssh.ops example code:
+   ldh [12]
+   jne #0x800, drop
+   ldb [23]
+   jneq #6, drop
+   ldh [20]
+   jset #0x1fff, drop
+   ldxb 4 * ([14] & 0xf)
+   ldh [%x + 14]
+   jeq #0x16, pass
+   ldh [%x + 16]
+   jne #0x16, drop
+   pass: ret #-1
+   drop: ret #0
+
+It was chosen to load bytecode into tc, since the reverse operation,
+tc filter list dev em1, is then able to show the exact commands again.
+Possible follow-up work could also include a small expression compiler
+for iproute2. Tested with the help of bmon. This idea came up during
+the Netfilter Workshop 2013 in Copenhagen.
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Thomas Graf <tgraf@suug.ch>
 ---
- drivers/net/xen-netback/common.h    |    1 +
- drivers/net/xen-netback/interface.c |    3 +--
- drivers/net/xen-netback/netback.c   |   14 +++++++-------
- 3 files changed, 9 insertions(+), 9 deletions(-)
+ include/uapi/linux/pkt_cls.h |  14 ++
+ net/sched/Kconfig            |  10 ++
+ net/sched/Makefile           |   1 +
+ net/sched/cls_bpf.c          | 380 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 405 insertions(+)
+ create mode 100644 net/sched/cls_bpf.c
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 5715318..400fea1 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -163,6 +163,7 @@ struct xenvif {
- 	unsigned long   credit_usec;
- 	unsigned long   remaining_credit;
- 	struct timer_list credit_timeout;
-+	u64 credit_window_start;
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 082eafa..25731df 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -388,6 +388,20 @@ enum {
  
- 	/* Statistics */
- 	unsigned long rx_gso_checksum_fixup;
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 01bb854..459935a 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -312,8 +312,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 	vif->credit_bytes = vif->remaining_credit = ~0UL;
- 	vif->credit_usec  = 0UL;
- 	init_timer(&vif->credit_timeout);
--	/* Initialize 'expires' now: it's used to track the credit window. */
--	vif->credit_timeout.expires = jiffies;
-+	vif->credit_window_start = get_jiffies_64();
+ #define TCA_CGROUP_MAX (__TCA_CGROUP_MAX - 1)
  
- 	dev->netdev_ops	= &xenvif_netdev_ops;
- 	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index f3e591c..8644aca 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1185,18 +1185,17 @@ out:
++/* BPF classifier */
++
++enum {
++	TCA_BPF_UNSPEC,
++	TCA_BPF_ACT,
++	TCA_BPF_POLICE,
++	TCA_BPF_CLASSID,
++	TCA_BPF_OPS_LEN,
++	TCA_BPF_OPS,
++	__TCA_BPF_MAX,
++};
++
++#define TCA_BPF_MAX (__TCA_BPF_MAX - 1)
++
+ /* Extended Matches */
  
- static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
- {
--	unsigned long now = jiffies;
--	unsigned long next_credit =
--		vif->credit_timeout.expires +
--		msecs_to_jiffies(vif->credit_usec / 1000);
-+	u64 now = get_jiffies_64();
-+	u64 next_credit = vif->credit_window_start +
-+		(u64)msecs_to_jiffies(vif->credit_usec / 1000);
+ struct tcf_ematch_tree_hdr {
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index c03a32a..989464c 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -443,6 +443,16 @@ config NET_CLS_CGROUP
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called cls_cgroup.
  
- 	/* Timer could already be pending in rare cases. */
- 	if (timer_pending(&vif->credit_timeout))
- 		return true;
- 
- 	/* Passed the point where we can replenish credit? */
--	if (time_after_eq(now, next_credit)) {
--		vif->credit_timeout.expires = now;
-+	if (time_after_eq64(now, next_credit)) {
-+		vif->credit_window_start = now;
- 		tx_add_credit(vif);
- 	}
- 
-@@ -1207,7 +1206,8 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
- 		vif->credit_timeout.function =
- 			tx_credit_callback;
- 		mod_timer(&vif->credit_timeout,
--			  next_credit);
-+			  (unsigned long)next_credit);
-+		vif->credit_window_start = next_credit;
- 
- 		return true;
- 	}
++config NET_CLS_BPF
++	tristate "BPF-based classifier"
++	select NET_CLS
++	---help---
++	  If you say Y here, you will be able to classify packets based on
++	  programmable BPF (JIT'ed) filters as an alternative to ematches.
++
++	  To compile this code as a module, choose M here: the module will
++	  be called cls_bpf.
++
+ config NET_EMATCH
+ 	bool "Extended Matches"
+ 	select NET_CLS
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index e5f9abe..35fa47a 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -50,6 +50,7 @@ obj-$(CONFIG_NET_CLS_RSVP6)	+= cls_rsvp6.o
+ obj-$(CONFIG_NET_CLS_BASIC)	+= cls_basic.o
+ obj-$(CONFIG_NET_CLS_FLOW)	+= cls_flow.o
+ obj-$(CONFIG_NET_CLS_CGROUP)	+= cls_cgroup.o
++obj-$(CONFIG_NET_CLS_BPF)	+= cls_bpf.o
+ obj-$(CONFIG_NET_EMATCH)	+= ematch.o
+ obj-$(CONFIG_NET_EMATCH_CMP)	+= em_cmp.o
+ obj-$(CONFIG_NET_EMATCH_NBYTE)	+= em_nbyte.o
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+new file mode 100644
+index 0000000..778ca86
+--- /dev/null
++++ b/net/sched/cls_bpf.c
+@@ -0,0 +1,380 @@
++/*
++ * Berkeley Packet Filter based traffic classifier
++ *
++ * Might be used to classify traffic through flexible, user-defined and
++ * possibly JIT-ed BPF filters for traffic control as an alternative to
++ * ematches.
++ *
++ * (C) 2013 Daniel Borkmann <dborkman@redhat.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/skbuff.h>
++#include <linux/filter.h>
++#include <net/rtnetlink.h>
++#include <net/pkt_cls.h>
++#include <net/sock.h>
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Daniel Borkmann <dborkman@redhat.com>");
++MODULE_DESCRIPTION("TC BPF based classifier");
++
++struct cls_bpf_head {
++	struct list_head plist;
++	u32 hgen;
++};
++
++struct cls_bpf_prog {
++	struct sk_filter *filter;
++	struct sock_filter *bpf_ops;
++	struct tcf_exts exts;
++	struct tcf_result res;
++	struct list_head link;
++	u32 handle;
++	u16 bpf_len;
++};
++
++static const struct nla_policy bpf_policy[TCA_BPF_MAX + 1] = {
++	[TCA_BPF_CLASSID]	= { .type = NLA_U32 },
++	[TCA_BPF_OPS_LEN]	= { .type = NLA_U16 },
++	[TCA_BPF_OPS]		= { .type = NLA_BINARY,
++				    .len = sizeof(struct sock_filter) * BPF_MAXINSNS },
++};
++
++static const struct tcf_ext_map bpf_ext_map = {
++	.action = TCA_BPF_ACT,
++	.police = TCA_BPF_POLICE,
++};
++
++static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
++			    struct tcf_result *res)
++{
++	struct cls_bpf_head *head = tp->root;
++	struct cls_bpf_prog *prog;
++	int ret;
++
++	list_for_each_entry(prog, &head->plist, link) {
++		if (SK_RUN_FILTER(prog->filter, skb) == 0)
++			continue;
++
++		*res = prog->res;
++		ret = tcf_exts_exec(skb, &prog->exts, res);
++		if (ret < 0)
++			continue;
++
++		return ret;
++	}
++
++	return -1;
++}
++
++static int cls_bpf_init(struct tcf_proto *tp)
++{
++	struct cls_bpf_head *head;
++
++	head = kzalloc(sizeof(*head), GFP_KERNEL);
++	if (head == NULL)
++		return -ENOBUFS;
++
++	INIT_LIST_HEAD(&head->plist);
++	tp->root = head;
++
++	return 0;
++}
++
++static void cls_bpf_delete_prog(struct tcf_proto *tp, struct cls_bpf_prog *prog)
++{
++	tcf_unbind_filter(tp, &prog->res);
++	tcf_exts_destroy(tp, &prog->exts);
++
++	sk_unattached_filter_destroy(prog->filter);
++
++	kfree(prog->bpf_ops);
++	kfree(prog);
++}
++
++static int cls_bpf_delete(struct tcf_proto *tp, unsigned long arg)
++{
++	struct cls_bpf_head *head = tp->root;
++	struct cls_bpf_prog *prog, *todel = (struct cls_bpf_prog *) arg;
++
++	list_for_each_entry(prog, &head->plist, link) {
++		if (prog == todel) {
++			tcf_tree_lock(tp);
++			list_del(&prog->link);
++			tcf_tree_unlock(tp);
++
++			cls_bpf_delete_prog(tp, prog);
++			return 0;
++		}
++	}
++
++	return -ENOENT;
++}
++
++static void cls_bpf_destroy(struct tcf_proto *tp)
++{
++	struct cls_bpf_head *head = tp->root;
++	struct cls_bpf_prog *prog, *tmp;
++
++	list_for_each_entry_safe(prog, tmp, &head->plist, link) {
++		list_del(&prog->link);
++		cls_bpf_delete_prog(tp, prog);
++	}
++
++	kfree(head);
++}
++
++static unsigned long cls_bpf_get(struct tcf_proto *tp, u32 handle)
++{
++	struct cls_bpf_head *head = tp->root;
++	struct cls_bpf_prog *prog;
++	unsigned long ret = 0UL;
++
++	if (head == NULL)
++		return 0UL;
++
++	list_for_each_entry(prog, &head->plist, link) {
++		if (prog->handle == handle) {
++			ret = (unsigned long) prog;
++			break;
++		}
++	}
++
++	return ret;
++}
++
++static void cls_bpf_put(struct tcf_proto *tp, unsigned long f)
++{
++}
++
++static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
++				   struct cls_bpf_prog *prog,
++				   unsigned long base, struct nlattr **tb,
++				   struct nlattr *est)
++{
++	struct sock_filter *bpf_ops, *bpf_old;
++	struct tcf_exts exts;
++	struct sock_fprog tmp;
++	struct sk_filter *fp, *fp_old;
++	u16 bpf_size, bpf_len;
++	u32 classid;
++	int ret;
++
++	if (!tb[TCA_BPF_OPS_LEN] || !tb[TCA_BPF_OPS] || !tb[TCA_BPF_CLASSID])
++		return -EINVAL;
++
++	ret = tcf_exts_validate(net, tp, tb, est, &exts, &bpf_ext_map);
++	if (ret < 0)
++		return ret;
++
++	classid = nla_get_u32(tb[TCA_BPF_CLASSID]);
++	bpf_len = nla_get_u16(tb[TCA_BPF_OPS_LEN]);
++	if (bpf_len > BPF_MAXINSNS || bpf_len == 0) {
++		ret = -EINVAL;
++		goto errout;
++	}
++
++	bpf_size = bpf_len * sizeof(*bpf_ops);
++	bpf_ops = kzalloc(bpf_size, GFP_KERNEL);
++	if (bpf_ops == NULL) {
++		ret = -ENOMEM;
++		goto errout;
++	}
++
++	memcpy(bpf_ops, nla_data(tb[TCA_BPF_OPS]), bpf_size);
++
++	tmp.len = bpf_len;
++	tmp.filter = (struct sock_filter __user *) bpf_ops;
++
++	ret = sk_unattached_filter_create(&fp, &tmp);
++	if (ret)
++		goto errout_free;
++
++	tcf_tree_lock(tp);
++	fp_old = prog->filter;
++	bpf_old = prog->bpf_ops;
++
++	prog->bpf_len = bpf_len;
++	prog->bpf_ops = bpf_ops;
++	prog->filter = fp;
++	prog->res.classid = classid;
++	tcf_tree_unlock(tp);
++
++	tcf_bind_filter(tp, &prog->res, base);
++	tcf_exts_change(tp, &prog->exts, &exts);
++
++	if (fp_old)
++		sk_unattached_filter_destroy(fp_old);
++	if (bpf_old)
++		kfree(bpf_old);
++
++	return 0;
++
++errout_free:
++	kfree(bpf_ops);
++errout:
++	tcf_exts_destroy(tp, &exts);
++	return ret;
++}
++
++static u32 cls_bpf_grab_new_handle(struct tcf_proto *tp,
++				   struct cls_bpf_head *head)
++{
++	unsigned int i = 0x80000000;
++
++	do {
++		if (++head->hgen == 0x7FFFFFFF)
++			head->hgen = 1;
++	} while (--i > 0 && cls_bpf_get(tp, head->hgen));
++	if (i == 0)
++		pr_err("Insufficient number of handles\n");
++
++	return i;
++}
++
++static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
++			  struct tcf_proto *tp, unsigned long base,
++			  u32 handle, struct nlattr **tca,
++			  unsigned long *arg)
++{
++	struct cls_bpf_head *head = tp->root;
++	struct cls_bpf_prog *prog = (struct cls_bpf_prog *) *arg;
++	struct nlattr *tb[TCA_BPF_MAX + 1];
++	int ret;
++
++	if (tca[TCA_OPTIONS] == NULL)
++		return -EINVAL;
++
++	ret = nla_parse_nested(tb, TCA_BPF_MAX, tca[TCA_OPTIONS], bpf_policy);
++	if (ret < 0)
++		return ret;
++
++	if (prog != NULL) {
++		if (handle && prog->handle != handle)
++			return -EINVAL;
++		return cls_bpf_modify_existing(net, tp, prog, base, tb,
++					       tca[TCA_RATE]);
++	}
++
++	prog = kzalloc(sizeof(*prog), GFP_KERNEL);
++	if (prog == NULL)
++		return -ENOBUFS;
++
++	if (handle == 0)
++		prog->handle = cls_bpf_grab_new_handle(tp, head);
++	else
++		prog->handle = handle;
++	if (prog->handle == 0) {
++		ret = -EINVAL;
++		goto errout;
++	}
++
++	ret = cls_bpf_modify_existing(net, tp, prog, base, tb, tca[TCA_RATE]);
++	if (ret < 0)
++		goto errout;
++
++	tcf_tree_lock(tp);
++	list_add(&prog->link, &head->plist);
++	tcf_tree_unlock(tp);
++
++	*arg = (unsigned long) prog;
++
++	return 0;
++errout:
++	if (*arg == 0UL && prog)
++		kfree(prog);
++
++	return ret;
++}
++
++static int cls_bpf_dump(struct tcf_proto *tp, unsigned long fh,
++			struct sk_buff *skb, struct tcmsg *tm)
++{
++	struct cls_bpf_prog *prog = (struct cls_bpf_prog *) fh;
++	struct nlattr *nest, *nla;
++
++	if (prog == NULL)
++		return skb->len;
++
++	tm->tcm_handle = prog->handle;
++
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (nest == NULL)
++		goto nla_put_failure;
++
++	if (nla_put_u32(skb, TCA_BPF_CLASSID, prog->res.classid))
++		goto nla_put_failure;
++	if (nla_put_u16(skb, TCA_BPF_OPS_LEN, prog->bpf_len))
++		goto nla_put_failure;
++
++	nla = nla_reserve(skb, TCA_BPF_OPS, prog->bpf_len *
++			  sizeof(struct sock_filter));
++	if (nla == NULL)
++		goto nla_put_failure;
++
++        memcpy(nla_data(nla), prog->bpf_ops, nla_len(nla));
++
++	if (tcf_exts_dump(skb, &prog->exts, &bpf_ext_map) < 0)
++		goto nla_put_failure;
++
++	nla_nest_end(skb, nest);
++
++	if (tcf_exts_dump_stats(skb, &prog->exts, &bpf_ext_map) < 0)
++		goto nla_put_failure;
++
++	return skb->len;
++
++nla_put_failure:
++	nla_nest_cancel(skb, nest);
++	return -1;
++}
++
++static void cls_bpf_walk(struct tcf_proto *tp, struct tcf_walker *arg)
++{
++	struct cls_bpf_head *head = tp->root;
++	struct cls_bpf_prog *prog;
++
++	list_for_each_entry(prog, &head->plist, link) {
++		if (arg->count < arg->skip)
++			goto skip;
++		if (arg->fn(tp, (unsigned long) prog, arg) < 0) {
++			arg->stop = 1;
++			break;
++		}
++skip:
++		arg->count++;
++	}
++}
++
++static struct tcf_proto_ops cls_bpf_ops __read_mostly = {
++	.kind		=	"bpf",
++	.owner		=	THIS_MODULE,
++	.classify	=	cls_bpf_classify,
++	.init		=	cls_bpf_init,
++	.destroy	=	cls_bpf_destroy,
++	.get		=	cls_bpf_get,
++	.put		=	cls_bpf_put,
++	.change		=	cls_bpf_change,
++	.delete		=	cls_bpf_delete,
++	.walk		=	cls_bpf_walk,
++	.dump		=	cls_bpf_dump,
++};
++
++static int __init cls_bpf_init_mod(void)
++{
++	return register_tcf_proto_ops(&cls_bpf_ops);
++}
++
++static void __exit cls_bpf_exit_mod(void)
++{
++	unregister_tcf_proto_ops(&cls_bpf_ops);
++}
++
++module_init(cls_bpf_init_mod);
++module_exit(cls_bpf_exit_mod);
 -- 
-1.7.10.4
+1.8.3.1
