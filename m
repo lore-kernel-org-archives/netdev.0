@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v3 3/5] 6lowpan: use
-	netdev_alloc_skb instead dev_alloc_skb
-Date: Mon, 28 Oct 2013 10:24:18 +0100
-Message-ID: <1382952260-23174-4-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next v3 4/5] 6lowpan: remove
+	skb->dev assignment
+Date: Mon, 28 Oct 2013 10:24:19 +0100
+Message-ID: <1382952260-23174-5-git-send-email-alex.aring@gmail.com>
 References: <1382952260-23174-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,34 +21,28 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch uses the netdev_alloc_skb instead dev_alloc_skb function and
-drops the seperate assignment to skb->dev.
+This patch removes the assignment of skb->dev. We don't need it here because
+we use the netdev_alloc_skb_ip_align function which already sets the
+skb->dev.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ieee802154/6lowpan.c | 1 -
+ 1 file changed, 1 deletion(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 9057f83..7506d83 100644
+index 7506d83..3bc32fb 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -1127,12 +1127,12 @@ lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
+@@ -785,7 +785,6 @@ lowpan_alloc_new_frame(struct sk_buff *skb, u16 len, u16 tag)
+ 		goto skb_err;
  
- 	lowpan_raw_dump_inline(__func__, "6lowpan fragment header", head, hlen);
+ 	frame->skb->priority = skb->priority;
+-	frame->skb->dev = skb->dev;
  
--	frag = dev_alloc_skb(hlen + mlen + plen + IEEE802154_MFR_SIZE);
-+	frag = netdev_alloc_skb(skb->dev,
-+				hlen + mlen + plen + IEEE802154_MFR_SIZE);
- 	if (!frag)
- 		return -ENOMEM;
- 
- 	frag->priority = skb->priority;
--	frag->dev = skb->dev;
- 
- 	/* copy header, MFR and payload */
- 	memcpy(skb_put(frag, mlen), skb->data, mlen);
+ 	/* reserve headroom for uncompressed ipv6 header */
+ 	skb_reserve(frame->skb, sizeof(struct ipv6hdr));
 -- 
 1.8.4.1
 
