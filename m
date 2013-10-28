@@ -1,47 +1,120 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net 0/3] ipv6: use rt6i_gateway as nexthop
-Date: Mon, 28 Oct 2013 10:28:15 +0900
-Message-ID: <20131028012815.GL849@verge.net.au>
-References: <1382272985-1528-1-git-send-email-ja@ssi.bg>
- <20131021.184057.328665907625927061.davem@davemloft.net>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v2 0/5] bonding: patchset for rcu use in bonding
+Date: Mon, 28 Oct 2013 02:34:28 +0100
+Message-ID: <20131028013428.GC11209@redhat.com>
+References: <52688F33.30904@huawei.com>
+ <20131027225317.GB11209@redhat.com>
+ <526DBAC8.5000009@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ja@ssi.bg, netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	lvs-devel@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:8619 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755323Ab3J1Biu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Oct 2013 21:38:50 -0400
 Content-Disposition: inline
-In-Reply-To: <20131021.184057.328665907625927061.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <526DBAC8.5000009@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 21, 2013 at 06:40:57PM -0400, David Miller wrote:
-> From: Julian Anastasov <ja@ssi.bg>
-> Date: Sun, 20 Oct 2013 15:43:02 +0300
-> 
-> > 	I see the following two alternatives for applying these
-> > patches:
-> > 
-> > 1. Linger patch 2 in net-next to avoid surprises in the upcoming
-> > release. In this case patch 3 can be reworked not to depend on
-> > the new rt6_nexthop() definition in patch 2. I guess this is a
-> > better option, so that patch 2 can be reviewed and tested for
-> > longer time.
-> > 
-> > 2. Include all 3 patches in net tree - more risky because this
-> > is my first attempt to change IPv6.
-> 
-> I have decided to merge all three patches into -net right now.
-> I've reviewed these patches several times and they look good
-> to me.
-> 
-> I'll let them cook upstream for at least a week before submitting them
-> to -stable to let any last minute errors show themselves and
-> subsequently get resolved.
+On Mon, Oct 28, 2013 at 09:15:52AM +0800, Ding Tianhong wrote:
+>On 2013/10/28 6:53, Veaceslav Falico wrote:
+>> On Thu, Oct 24, 2013 at 11:08:35AM +0800, Ding Tianhong wrote:
+>>> Hi:
+>>>
+>>> The slave list will add and del by bond_master_upper_dev_link() and bond_upper_dev_unlink(),
+>>> which will call call_netdevice_notifiers(), even it is safe to call it in write bond lock now,
+>>> but we can't sure that whether it is safe later, because other drivers may deal NETDEV_CHANGEUPPER
+>>> in sleep way, so I didn't admit move the bond_upper_dev_unlink() in write bond lock.
+>>>
+>>> now the bond_for_each_slave only protect by rtnl_lock(), maybe use bond_for_each_slave_rcu is a good
+>>> way to protect slave list for bond, but as a system slow path, it is no need to transform bond_for_each_slave()
+>>> to bond_for_each_slave_rcu() in slow path, so in the patchset, I will remove the unused read bond lock
+>>> for monitor function, maybe it is a better way, I will wait to accept any relay for it.
+>>>
+>>> Thanks for the Veaceslav Falico opinion.
+>>>
+>>> v2: add and modify commit for patchset and patch, it will be the first step for the whole patchset.
+>>>
+>>> Ding Tianhong (5):
+>>>  bonding: remove bond read lock for bond_mii_monitor()
+>>>  bonding: remove bond read lock for bond_alb_monitor()
+>>>  bonding: remove bond read lock for bond_loadbalance_arp_mon()
+>>>  bonding: remove bond read lock for bond_activebackup_arp_mon()
+>>
+>> This patch introduces a regression by boot-test with active backup mode:
+>>
+>> bond_activebackup_arp_mon() is already not holding the bond->lock, however
+>> it might call bond_change_active_slave(), which does (in case of new_active):
+>>
+>>  912                         write_unlock_bh(&bond->curr_slave_lock);
+>>  913                         read_unlock(&bond->lock);
+>>  914  915                         call_netdevice_notifiers(NETDEV_BONDING_FAILOVER, bond->dev);
+>>  916                         if (should_notify_peers)
+>>  917                                 call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
+>>  918                                                          bond->dev);
+>>  919  920                         read_lock(&bond->lock);
+>>  921                         write_lock_bh(&bond->curr_slave_lock);
+>>
+>> so it drops the bond->lock (which wasn't taken previously), and then takes
+>> it (without anyone dropping it afterwards).
+>>
+>> I don't know how to fix it - cause a lot of other callers already take it,
+>> and we can't just drop them (we'd race), and we can't remove it here (cause
+>> we can't call notifiers while atomic).
+>>
+>> Which begs the question - was this patchset tested at all?
+>>
+>> [   21.796823] =====================================
+>> [   21.796823] [ BUG: bad unlock balance detected! ]
+... snip ...
+>
+>Hi David:
+>yes, exactly I miss it and make a mistake, the bond_select_active_slave is still have the protect problem and
+>need to be processed, I miss it, sorry, I will send a patch to fix the bug soon.
+>
+>Hi Veaceslav:
+>sorry about the commit, I will pay more attention to the commit and test, thanks for your advise and report the bug,
+>I have to admin that I was too careless.
 
-Thanks Dave,
+I'll ask you once again, even though it seems that my NACK doesn't block
+the patchset - try writing commit messages that actually describe why and
+how you do it.
 
-FWIW, I have verified that these changes resolve the problem
-that I reported with IPVS that I believe prompted Julian to write
-these changes. That is IPv6 IPVS-DR once again works with these
-changes in place.
+It's, actually, not only for the reviewers - it's also really good for you
+- cause while writing the commit log you also understand a lot more what
+are you doing, and might spot some corner cases (like this one).
+
+Sorry for being negative, however it costs me *much* more time to review
+patches without proper commit messages. I've done it once, twice, several
+times more - but that's it, I refuse to spend my time on your skipped
+homework.
+
+It might also help to split patches into really small steps - as in - do
+only one thing at a time, and describe it. This will help evade bugs *a
+lot*. It also helps people who'll bisect it, bugfix it and review it -
+because every patch will be a small, well-documented change, instead of a
+chunk of code with a description 'lets remove bond->lock'.
+
+Thank you and hope that helps.
+
+>
+>
+>
+>
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>> .
+>>
+>
+>
