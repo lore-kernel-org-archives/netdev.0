@@ -1,94 +1,55 @@
-From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: Re: [PATCH 16/16] wl1251: Add sysfs file address for setting permanent mac address
-Date: Mon, 28 Oct 2013 17:21:25 +0100
-Message-ID: <201310281721.25182@pali>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com> <201310281604.48542@pali> <1382974161.1542.18.camel@dcbw.foobar.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
+Date: Mon, 28 Oct 2013 17:24:38 +0100
+Message-ID: <20131028162438.GB14350@gmail.com>
+References: <1381510298-20572-1-git-send-email-nhorman@tuxdriver.com>
+ <20131012172124.GA18241@gmail.com>
+ <20131014202854.GH26880@hmsreliant.think-freely.org>
+ <1381785560.2045.11.camel@edumazet-glaptop.roam.corp.google.com>
+ <1381789127.2045.22.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131017003421.GA31470@hmsreliant.think-freely.org>
+ <20131017084121.GC22705@gmail.com>
+ <20131028160131.GA31048@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1574068.VmWX2z1Tuz";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Luciano Coelho <luca@coelho.fi>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
-	aaro.koskinen@iki.fi, pavel@ucw.cz, sre@ring0.de,
-	joni.lapilainen@gmail.com
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1382974161.1542.18.camel@dcbw.foobar.com>
+Content-Disposition: inline
+In-Reply-To: <20131028160131.GA31048@hmsreliant.think-freely.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1574068.VmWX2z1Tuz
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
 
-On Monday 28 October 2013 16:29:21 Dan Williams wrote:
-> On Mon, 2013-10-28 at 16:04 +0100, Pali Roh=C3=A1r wrote:
-> > On Monday 28 October 2013 15:56:55 Johannes Berg wrote:
-> > > On Mon, 2013-10-28 at 09:46 -0500, Dan Williams wrote:
-> > > > If the device doesn't actually *have* a permanent MAC
-> > > > address, then it shouldn't be returning one via ethtool,
-> > > > and should return an error for ETHTOOL_GPERMADDR.
-> > >=20
-> > > There's currently no provision for that, but I agree it
-> > > would be better to do so.
-> > >=20
-> > > johannes
-> >=20
-> > So what to do with devices which has MAC address stored in
-> > some obscure place and there is userspace binary which can
-> > read it?
-> >=20
-> > I think that there should be some way to tell kernel that
-> > *this* is the permanent address and it should use it.
-> >=20
-> > This is reason why I proposed patch which adding sysfs entry
-> > for setting permanent address from userspace in wl1251
-> > driver.
->=20
-> Ok, so the N900's MAC is stored in the "cal partition", which
-> is a region of flash exposed to the OS as /dev/mtd1.  That
-> also stores the regulatory domain.  Typically userspace
-> binaries are used to pull out this and other data (see
-> https://dev.openwrt.org/browser/packages/utils/calvaria/files/
-> src/calvaria.c ) which is then used to initialize the device.
->=20
-> Any idea what kernel driver is used to expose the CAL
-> partition as /dev/mtd1?  If it's nothing special maybe a
-> small EEPROM-style driver could be written to read the
-> relevant areas (and since they don't ever change, don't need
-> to worry about something else writing at the same time).
->=20
-> Dan
+* Neil Horman <nhorman@tuxdriver.com> wrote:
 
-/dev/mtd1 is second (0 is first) OneNand partition. Nothing=20
-special. Kernel driver for OnaNand is already in mainline kernel.
+> Looking at the specific cpu counters we get this:
+> 
+> Base:
+>      Total time: 0.179 [sec]
+> 
+>  Performance counter stats for 'perf bench sched messaging -- bash -c echo 1 > /sys/module/csum_test/parameters/test_fire' (20 runs):
+> 
+>        1571.304618 task-clock                #    5.213 CPUs utilized            ( +-  0.45% )
+>             14,423 context-switches          #    0.009 M/sec                    ( +-  4.28% )
+>              2,710 cpu-migrations            #    0.002 M/sec                    ( +-  2.83% )
 
-That partition also has NVS device data for wl1251 chip.
+Hm, for these second round of measurements were you using 'perf stat 
+-a -C ...'?
 
-And you are right calvaria has GPL v2 code for parsing data in=20
-that partition.
+The most accurate method of measurement for such single-threaded 
+workloads is something like:
 
-=2D-=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
+	taskset 0x1 perf stat -a -C 1 --repeat 20 ...
 
---nextPart1574068.VmWX2z1Tuz
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+this will bind your workload to CPU#0, and will do PMU measurements 
+only there - without mixing in other CPUs or workloads.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Thanks,
 
-iEYEABECAAYFAlJujwUACgkQi/DJPQPkQ1LX5ACfcrgQRff2KxGg5oOgjLQ9+nqu
-cjQAoK/SFpSUsV5jVdqdfNCN+yBkWdi0
-=49Dn
------END PGP SIGNATURE-----
-
---nextPart1574068.VmWX2z1Tuz--
+	Ingo
