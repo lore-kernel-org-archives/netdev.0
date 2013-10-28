@@ -1,145 +1,105 @@
-From: jianhai luan <jianhai.luan@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net] xen-netback: use jiffies_64 value to
- calculate credit timeout
-Date: Mon, 28 Oct 2013 14:28:28 +0800
-Message-ID: <526E040C.6060802@oracle.com>
-References: <1382872313-11675-1-git-send-email-wei.liu2@citrix.com> <526DCDB8.1080908@oracle.com> <526DD2D8.5030405@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org, david.vrabel@citrix.com, jbeulich@suse.com
-To: annie li <annie.li@oracle.com>, Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:42599 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755548Ab3J1G2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 02:28:49 -0400
-In-Reply-To: <526DD2D8.5030405@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kumar Gala <galak@codeaurora.org>
+Subject: Re: [PATCH 4/4] wl1251: spi: add device tree support
+Date: Mon, 28 Oct 2013 01:37:34 -0500
+Message-ID: <FF34C626-4A49-43B1-B0AD-DC6146ABBB11@codeaurora.org>
+References: <1382890469-25286-1-git-send-email-sre@debian.org> <1382890469-25286-5-git-send-email-sre@debian.org>
+Mime-Version: 1.0 (Apple Message framework v1283)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Sebastian Reichel <sre@ring0.de>, Luciano Coelho <luca@coelho.fi>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Rob Landley <rob@landley.net>,
+	Tony Lindgren <tony@atomide.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Felipe Balbi <balbi@ti.com>,
+	Sachin Kamat <sachin.kamat@linaro.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	devicetree@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Sebastian Reichel <sre@debian.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1382890469-25286-5-git-send-email-sre@debian.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-On 2013-10-28 10:58, annie li wrote:
->
-> On 2013-10-28 10:36, annie li wrote:
->>
->> On 2013-10-27 19:11, Wei Liu wrote:
->>> time_after_eq() only works if the delta is < MAX_ULONG/2.
->>>
->>> For a 32bit Dom0, if netfront sends packets at a very low rate, the 
->>> time
->>> between subsequent calls to tx_credit_exceeded() may exceed MAX_ULONG/2
->>> and the test for timer_after_eq() will be incorrect. Credit will not be
->>> replenished and the guest may become unable to send packets (e.g., if
->>> prior to the long gap, all credit was exhausted).
->>>
->>> Use jiffies_64 variant to mitigate this problem for 32bit Dom0.
->>>
->>> Suggested-by: Jan Beulich <jbeulich@suse.com>
->>> Suggested-by: David Vrabel <david.vrabel@citrix.com>
->>> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
->>> Cc: Ian Campbell <ian.campbell@citrix.com>
->>> Cc: Jason Luan <jianhai.luan@oracle.com>
->>> ---
->>>   drivers/net/xen-netback/common.h    |    1 +
->>>   drivers/net/xen-netback/interface.c |    4 ++--
->>>   drivers/net/xen-netback/netback.c   |   13 ++++++-------
->>>   3 files changed, 9 insertions(+), 9 deletions(-)
->>>
->>> diff --git a/drivers/net/xen-netback/common.h 
->>> b/drivers/net/xen-netback/common.h
->>> index 5715318..400fea1 100644
->>> --- a/drivers/net/xen-netback/common.h
->>> +++ b/drivers/net/xen-netback/common.h
->>> @@ -163,6 +163,7 @@ struct xenvif {
->>>       unsigned long   credit_usec;
->>>       unsigned long   remaining_credit;
->>>       struct timer_list credit_timeout;
->>> +    u64 credit_window_start;
->>>         /* Statistics */
->>>       unsigned long rx_gso_checksum_fixup;
->>> diff --git a/drivers/net/xen-netback/interface.c 
->>> b/drivers/net/xen-netback/interface.c
->>> index 01bb854..8c45b63 100644
->>> --- a/drivers/net/xen-netback/interface.c
->>> +++ b/drivers/net/xen-netback/interface.c
->>> @@ -312,8 +312,8 @@ struct xenvif *xenvif_alloc(struct device 
->>> *parent, domid_t domid,
->>>       vif->credit_bytes = vif->remaining_credit = ~0UL;
->>>       vif->credit_usec  = 0UL;
->>>       init_timer(&vif->credit_timeout);
->>> -    /* Initialize 'expires' now: it's used to track the credit 
->>> window. */
->>> -    vif->credit_timeout.expires = jiffies;
->>> +    /* credit window is tracked in credit_window_start */
->>> +    vif->credit_window_start = get_jiffies_64();
->>>         dev->netdev_ops    = &xenvif_netdev_ops;
->>>       dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
->>> diff --git a/drivers/net/xen-netback/netback.c 
->>> b/drivers/net/xen-netback/netback.c
->>> index f3e591c..1bc0688 100644
->>> --- a/drivers/net/xen-netback/netback.c
->>> +++ b/drivers/net/xen-netback/netback.c
->>> @@ -1185,18 +1185,17 @@ out:
->>>     static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
->>>   {
->>> -    unsigned long now = jiffies;
->>> -    unsigned long next_credit =
->>> -        vif->credit_timeout.expires +
->>> -        msecs_to_jiffies(vif->credit_usec / 1000);
->>> +    u64 now = get_jiffies_64();
->>> +    u64 next_credit = vif->credit_window_start +
->>> +        (u64)msecs_to_jiffies(vif->credit_usec / 1000);
->>
->> You simply replace "credit_timeout.expires" with 
->> "vif->credit_window_start" here, and never update 
->> "vif->credit_window_start" in following code.
->>
->>>         /* Timer could already be pending in rare cases. */
->>>       if (timer_pending(&vif->credit_timeout))
->>>           return true;
->>>         /* Passed the point where we can replenish credit? */
->>> -    if (time_after_eq(now, next_credit)) {
->>> -        vif->credit_timeout.expires = now;
->>> +    if (time_after_eq64(now, next_credit)) {
->>> +        vif->credit_timeout.expires = (unsigned long)now;
->>
->> updates credit_window_start as following,
->> vif->credit_window_start = (unsigned long)now;
->
-> both credit_window_start and credit_timeout.expires need to be updated 
-> here,
->
-> vif->credit_window_start = (unsigned long)now;
-> vif->credit_timeout.expires = (unsigned long)now;
+On Oct 27, 2013, at 11:14 AM, Sebastian Reichel wrote:
 
-Annie should be correct.
-It is good to me but i afraid that get_jiffies_64() and 
-time_after_eq64() will bring some  performance's load when transmit is 
-busy in 32bit.  I will do some test about the patch.
+> Add device tree support for the spi variant of wl1251
+> and document the binding.
+> 
+> Signed-off-by: Sebastian Reichel <sre@debian.org>
+> ---
+> .../devicetree/bindings/net/wireless/ti,wl1251.txt | 36 ++++++++++++++++++++++
+> drivers/net/wireless/ti/wl1251/spi.c               | 23 ++++++++++----
+> 2 files changed, 53 insertions(+), 6 deletions(-)
+> create mode 100644 Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt b/Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
+> new file mode 100644
+> index 0000000..5f8a154
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
+> @@ -0,0 +1,36 @@
+> +* Texas Instruments wl1251 controller
+> +
+> +The wl1251 chip can be connected via SPI or via SDIO. The linux
+> +kernel currently only supports device tree for the SPI variant.
+> +
 
-No matter what, i prefer own patch.
+>From the binding I have no idea what this chip actually does, also we don't normally reference linux kernel support in bindings specs (so please remove it).
 
-Thanks,
-Jason
->
->>
->>>           tx_add_credit(vif);
->>>       }
->>>   @@ -1207,7 +1206,7 @@ static bool tx_credit_exceeded(struct xenvif 
->>> *vif, unsigned size)
->>>           vif->credit_timeout.function =
->>>               tx_credit_callback;
->>>           mod_timer(&vif->credit_timeout,
->>> -              next_credit);
->>> +              (unsigned long)next_credit);
->>
->> vif->credit_timeout.expires is unsigned long, and this still causes 
->> original issue on 32bit system, which works well on 64bit. Or 
->> rewriting code to avoid uses of vif->credit_timeout.expires, but it 
->> is complex.
-> My understanding here is wrong, please ignore this.
->
-> Thanks
-> Annie
+However, what would expect the SDIO binding to look like?  Or more specifically, how would you distinguish the SPI vs SDIO binding/connection?  I'm wondering if the compatible should be something like "ti,wl1251-spi" and than the sdio can be "ti,wl1251-sdio"
+
+> +Required properties:
+> +- compatible : Should be "ti,wl1251"
+
+reg is not listed as a required prop.
+
+> +- interrupts : Should contain interrupt line
+> +- interrupt-parent : Should be the phandle for the interrupt
+> +  controller that services interrupts for this device
+> +- vio-supply : phandle to regulator providing VIO
+> +- power-gpio : GPIO connected to chip's PMEN pin
+
+should be vendor prefixed: ti,power-gpio
+
+> +- For additional required properties on SPI, please consult
+> +  Documentation/devicetree/bindings/spi/spi-bus.txt
+> +
+> +Optional properties:
+> +- ti,use-eeprom : If found, configuration will be loaded from eeprom.
+
+can you be a bit more specific on what cfg will be loaded.  Also, is this property a boolean, if so how do I know which eeprom the cfg is loaded from (is it one that is directly connected to the wl1251?
+
+> +
+> +Examples:
+> +
+> +&spi1 {
+> +	wl1251_spi@0 {
+> +		compatible = "ti,wl1251";
+> +
+> +		reg = <0>;
+> +		spi-max-frequency = <48000000>;
+> +		spi-cpol;
+> +		spi-cpha;
+> +
+> +		interrupt-parent = <&gpio2>;
+> +		interrupts = <10 IRQ_TYPE_NONE>; /* gpio line 42 */
+> +
+> +		vio-supply = <&vio>;
+> +		power-gpio = <&gpio3 23 GPIO_ACTIVE_HIGH>; /* 87 */
+> +	};
+> +};
+
+-- 
+Employee of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, hosted by The Linux Foundation
