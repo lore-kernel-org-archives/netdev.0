@@ -1,55 +1,58 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: Re: extending ndo_add_rx_vxlan_port
-Date: Mon, 28 Oct 2013 13:24:13 -0700 (PDT)
-Message-ID: <alpine.LFD.2.03.1310281322500.10719@intel.com>
-References: <526D2F8F.1070204@mellanox.com> <alpine.LFD.2.03.1310271017120.19783@intel.com> <CAJZOPZ+S6ngqMjV-2ZMcpzkuWzzLWwCQMtd_1_SjDkqWh_tbYg@mail.gmail.com> <alpine.LFD.2.03.1310271635540.15400@intel.com> <CAJZOPZLAg+5dYS=bUCkDMyYq8EmA_uvEv1Zi+drq6Qqe5onrzQ@mail.gmail.com>
- <alpine.LFD.2.03.1310281049210.31450@intel.com> <CAJZOPZJ3J7T=i2QXQPr80Qb-V8RT3uPJaNFDnrOpYxJ1Mt_LNQ@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH RESEND] packet: Deliver VLAN TPID to userspace
+Date: Mon, 28 Oct 2013 20:11:14 +0000
+Message-ID: <1382991074.3779.22.camel@bwh-desktop.uk.level5networks.com>
+References: <87r4bdk8c3.wl%atzm@stratosphere.co.jp>
+	 <20131025.185920.1893524127229371162.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Yan Burman <yanb@mellanox.com>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <atzm@stratosphere.co.jp>, <netdev@vger.kernel.org>,
+	<stephen@networkplumber.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:23905 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755988Ab3J1UHi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Oct 2013 16:07:38 -0400
-In-Reply-To: <CAJZOPZJ3J7T=i2QXQPr80Qb-V8RT3uPJaNFDnrOpYxJ1Mt_LNQ@mail.gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:46190 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755953Ab3J1ULS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 16:11:18 -0400
+In-Reply-To: <20131025.185920.1893524127229371162.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Mon, 28 Oct 2013, Or Gerlitz wrote:
-
-> On Mon, Oct 28, 2013 at 7:59 PM, Joseph Gasparakis
-> > On Mon, 28 Oct 2013, Or Gerlitz wrote:
-> >> On Mon, Oct 28, 2013 at 1:44 AM, Joseph Gasparakis wrote:
+On Fri, 2013-10-25 at 18:59 -0400, David Miller wrote:
+> From: Atzm Watanabe <atzm@stratosphere.co.jp>
+> Date: Tue, 22 Oct 2013 17:39:40 +0900
 > 
-> >> > VXLAN implementation is not done like VLAN. VLANs are stacked on top of
-> >> > real interfaces and what you are saying makes sense. VXLAN however is
-> >> > using ip[6]_tunnel_xmit, and this is why we need to notify all the
-> >>
-> >> As the name of the ndo you added ndo_add_rx_vxlan_port suggests -- HW
-> >> needs that for RX offloads. So basically, what I am saying is: in a
-> >> similar manner that we already program the NIC "over which" the vxlan
-> >> instance is set to listen on the multicast address which is associated
-> >> with that vxlan segement, lets give them a hint that packets arriving
-> >> on this group are vxlan ones, so they can use it for programming
-> >> steering rules.
-> >
-> > Why don't you write up some code so everyone has something to look at?
-> > Then we can see what makes sense to do in terms of the existing or new ndos.
+> >  struct tpacket_hdr_variant1 {
+> >  	__u32	tp_rxhash;
+> >  	__u32	tp_vlan_tci;
+> > +	__u32	tp_vlan_tpid;
+> >  };
+> >  
 > 
-> sure, code talks, indeed, still, looking on net-next, for the current
-> ndo there's no in tree consumer unless I miss anything, did I?
-> 
-> Or.
-> 
+> You cannot do this, the header length is not variable.
 
-I don't think you missed anything. My patches for the i40e are currently 
-in our trees and making their way to netdev. It will be very soon.
+Well it is variable to an extent.  This is used as a member of the final
+anonymous union member of struct tpacket3_hdr, and the latter is
+specified to be tail-padded to a multiple of 16 bytes
+(TPACKET_ALIGNMENT).  Since its current size is 36 bytes, I think it can
+safely grow by 12 bytes, so long as userland doesn't depend on
+getsockopt(..., PACKET_HDRLEN, ...) returning only specific values.
+
+Possibly there should be a separate struct tpacket_hdr_variant2 which
+includes the extra member.  Possibly there should also be a status flag
+to indicate that this member is present.
+
+> This patch has been submitted several times, each of which you
+> have been shown ways in which your changes break userspace in
+> one way or another.
+
+I think we established that struct tpacket3_hdr can't grow arbitrarily,
+but not that it can't grow at all.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
