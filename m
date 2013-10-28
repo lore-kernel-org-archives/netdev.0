@@ -1,97 +1,119 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 1/4 net-next] net: phy: add Generic Netlink Ethernet switch
- configuration API
-Date: Mon, 28 Oct 2013 18:29:39 -0400
-Message-ID: <526EE553.5050408@mojatatu.com>
-References: <1382466229-15123-1-git-send-email-f.fainelli@gmail.com> <1382466229-15123-2-git-send-email-f.fainelli@gmail.com> <5266D7D6.9000309@intel.com> <CAGVrzcZS4SGiUFoCnhau1Fvv9F4ffS7tA+PT4r-qLCj8HV8BqQ@mail.gmail.com> <20131022202537.GA16336@hmsreliant.think-freely.org> <CAGVrzcaXFboRDn40+VciTes09w-jqTASNZz2GZNpTxbaV6D0Lw@mail.gmail.com> <5267B764.305@mojatatu.com> <5267BB53.8030703@openwrt.org> <5267C6B9.4000704@mojatatu.com> <5267CFAB.9090100@openwrt.org> <5267D8AE.7080009@mojatatu.com> <5267DDE6.70600@openwrt.org> <526A5949.6040404@mojatatu.com> <526A6BB3.7050507@openwrt.org> <526D4B06.8040505@mojatatu.com> <CAGVrzcbmsMjB78_x8MoOf4C34OMMZ-+3RBbheA0bG=r5VUi4EQ@mail.gmail.com>
+From: Tomasz Figa <tomasz.figa@gmail.com>
+Subject: Re: [PATCH 4/4] wl1251: spi: add device tree support
+Date: Mon, 28 Oct 2013 23:38:36 +0100
+Message-ID: <4893578.SBstXOAcJY@flatron>
+References: <1382890469-25286-1-git-send-email-sre@debian.org> <1382890469-25286-5-git-send-email-sre@debian.org> <FF34C626-4A49-43B1-B0AD-DC6146ABBB11@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Felix Fietkau <nbd@openwrt.org>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	John Crispin <blogic@openwrt.org>,
-	Jonas Gorski <jogo@openwrt.org>,
-	Gary Thomas <gary@mlbassoc.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:61232 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752001Ab3J1W3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 18:29:48 -0400
-Received: by mail-qc0-f181.google.com with SMTP id w4so4217921qcr.26
-        for <netdev@vger.kernel.org>; Mon, 28 Oct 2013 15:29:48 -0700 (PDT)
-In-Reply-To: <CAGVrzcbmsMjB78_x8MoOf4C34OMMZ-+3RBbheA0bG=r5VUi4EQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Kumar Gala <galak@codeaurora.org>,
+	Sebastian Reichel <sre@debian.org>,
+	Mark Rutland <mark.rutland@arm.com>, linux-doc@vger.kernel.org,
+	Tony Lindgren <tony@atomide.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Sachin Kamat <sachin.kamat@linaro.org>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Sebastian Reichel <sre@ring0.de>,
+	Luciano Coelho <luca@coelho.fi>, devicetree@vger.kernel.org,
+	Pawel Moll <pawel.moll@arm.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	linux-omap@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Felipe Balbi <balbi@ti.com>, Rob Landley <rob@landley.net>,
+	netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <FF34C626-4A49-43B1-B0AD-DC6146ABBB11@codeaurora.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/27/13 14:14, Florian Fainelli wrote:
-> 2013/10/27 Jamal Hadi Salim <jhs@mojatatu.com>:
->> On 10/25/13 09:01, Felix Fietkau wrote:
->>>
+On Monday 28 of October 2013 01:37:34 Kumar Gala wrote:
+> On Oct 27, 2013, at 11:14 AM, Sebastian Reichel wrote:
+> > Add device tree support for the spi variant of wl1251
+> > and document the binding.
+> > 
+> > Signed-off-by: Sebastian Reichel <sre@debian.org>
+> > ---
+> > .../devicetree/bindings/net/wireless/ti,wl1251.txt | 36
+> > ++++++++++++++++++++++ drivers/net/wireless/ti/wl1251/spi.c          
+> >     | 23 ++++++++++---- 2 files changed, 53 insertions(+), 6
+> > deletions(-)
+> > create mode 100644
+> > Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
+> > 
+> > diff --git
+> > a/Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
+> > b/Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt new
+> > file mode 100644
+> > index 0000000..5f8a154
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
+> > @@ -0,0 +1,36 @@
+> > +* Texas Instruments wl1251 controller
+> > +
+> > +The wl1251 chip can be connected via SPI or via SDIO. The linux
+> > +kernel currently only supports device tree for the SPI variant.
+> > +
+> 
+> From the binding I have no idea what this chip actually does, also we
+> don't normally reference linux kernel support in bindings specs (so
+> please remove it).
+> 
+> However, what would expect the SDIO binding to look like?  Or more
+> specifically, how would you distinguish the SPI vs SDIO
+> binding/connection?  I'm wondering if the compatible should be
+> something like "ti,wl1251-spi" and than the sdio can be
+> "ti,wl1251-sdio"
 
->
-> They are yes, the only "fancy" features these switches allow is
-> basically to set a given's port vlan id, which is already a huge
-> improvement compared to the vendor provided firmware.
->
+Well, you can easily distinguish an SDIO device from an SPI device by its 
+parent node, but...
 
-Nice to know that you have something better than the vendor provided
-stuff.
+The binding for SDIO might require different set of properties (other than 
+ones inherited from generic SDIO or SPI bindings) than one for SPI. So 
+probably different compatible values might be justified.
 
->
-> The switch does have an address learning process which is usually not
-> controlled by software at all, so yes, flooding is usually the way to
-> get it to the CPU.
->
+Did we already have such case before? (maybe some I2C + SPI devices?)
 
-Ok.
+> > +Required properties:
+> > +- compatible : Should be "ti,wl1251"
+> 
+> reg is not listed as a required prop.
 
-> Which exact drivers are you refering to? If we are talking about DSA
-> then yes, this is correct, but it is completely Ethernet MAC driver
-> agnostic.
->
+It is implied by SPI bindings, but it might be a good idea to have this 
+stated here as well.
 
-Sorry - cant point you to an exact one; one that i tried to convert to
-NAPI and found these issues was from Netlogic (embedded 64 bit mips),
-that i think now is in the kernel proper (and someone had converted to
-NAPI as well). Let me get back to you with some sample examples..
+> 
+> > +- interrupts : Should contain interrupt line
+> > +- interrupt-parent : Should be the phandle for the interrupt
+> > +  controller that services interrupts for this device
+> > +- vio-supply : phandle to regulator providing VIO
+> > +- power-gpio : GPIO connected to chip's PMEN pin
+> 
+> should be vendor prefixed: ti,power-gpio
 
-> Why would we expose the hardware switch physical ports as netdevs if
-> we cannot even any control over their data-path? Unlike these
-> multiport NICs, the only traffic you see and you can control is the
-> one from your CPU port.
->
+Hmm, out of curiosity, is it a rule for this kind of properties? I can see 
+both cases with and without prefixes when grepping for "-gpios" in 
+Documentation/devicetree/bindings. We should really have such things 
+written down somewhere.
 
-Not necessarily for datapath, rather for control path. If i can
-pull the stats, ifconfig up/down the port, set flow control
-etc - then that is a  good reason to expose them.
+> 
+> > +- For additional required properties on SPI, please consult
+> > +  Documentation/devicetree/bindings/spi/spi-bus.txt
+> > +
+> > +Optional properties:
+> > +- ti,use-eeprom : If found, configuration will be loaded from eeprom.
+> 
+> can you be a bit more specific on what cfg will be loaded.  Also, is
+> this property a boolean, if so how do I know which eeprom the cfg is
+> loaded from (is it one that is directly connected to the wl1251?
 
->
-> I do not really see how we could bend the existing interface (is it
-> rtnetlink we are talking about or something else btw?) to expose these
-> switches, maybe we could with iproute2, but still, the user-space
-> interface/tool is far from being the problem here.
->
+Maybe one from ti,has-eeprom or ti,config-eeprom would be better name for 
+this property?
 
-Look at the FDB API.
-The user space interface as well as reusing kernel interfaces is my main
-arguement.
+Best regards,
+Tomasz
 
-> I don't think at any point in this discussion there was a mention that
-> we do not want to change the user or kernel interface in OpenWrt
-> because we have been using this for the past 5 years, on the contrary,
-> if we are bringing this to a wide audience, this is to get some proper
-> review and eventually change it.
->
-
-Ok, sorry - I misinterpreted you and Felix. Like i said, if you gave me
-that reason I would understand.
-
-cheers,
-jamal
