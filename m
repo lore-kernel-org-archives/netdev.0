@@ -1,111 +1,72 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] net: sched: cls_bpf: add BPF-based classifier
-Date: Mon, 28 Oct 2013 15:31:50 +0100
-Message-ID: <526E7556.1060902@redhat.com>
-References: <1382960120-2198-1-git-send-email-dborkman@redhat.com> <1382967292.13037.22.camel@edumazet-glaptop.roam.corp.google.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 16/16] wl1251: Add sysfs file address for setting
+ permanent mac address
+Date: Mon, 28 Oct 2013 09:46:02 -0500
+Message-ID: <1382971562.1542.6.camel@dcbw.foobar.com>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+	 <201310281449.58170@pali> <1382968522.17956.11.camel@jlt4.sipsolutions.net>
+	 <201310281500.24159@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20724 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755037Ab3J1OcU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Oct 2013 10:32:20 -0400
-In-Reply-To: <1382967292.13037.22.camel@edumazet-glaptop.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	Luciano Coelho <luca@coelho.fi>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
+	aaro.koskinen@iki.fi, pavel@ucw.cz, sre@ring0.de,
+	joni.lapilainen@gmail.com
+To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201310281500.24159@pali>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/28/2013 02:34 PM, Eric Dumazet wrote:
-> On Mon, 2013-10-28 at 12:35 +0100, Daniel Borkmann wrote:
->> This work contains a lightweight BPF-based traffic classifier that can
->> serve as a flexible alternative to ematch-based tree classification, i.e.
->> now that BPF filter engine can also be JITed in the kernel. Naturally, tc
->> actions and policies are supported as well with cls_bpf. Multiple BPF
->> programs/filter can be attached for a class, or they can just as well be
->> written within a single BPF program, that's really up to the user how he
->> wishes to run/optimize the code, e.g. also for inversion of verdicts etc.
->> The notion of a BPF program's return/exit codes is being kept as follows:
->> non-zero for match, zero for mismatch.
->>
->> As a minimal usage example with iproute2, we use a 3 band prio root qdisc
->> on a router with sfq each as leave, and assign ssh and icmp bpf-based
->> filters to band 1, http traffic to band 2 and the rest to band 3. For the
->> first two bands we load the bytecode from a file, in the 2nd we load it
->> inline as an example:
->>
->> echo 1 > /proc/sys/net/core/bpf_jit_enable
->>
->> tc qdisc del dev em1 root
->> tc qdisc add dev em1 root handle 1: prio bands 3 priomap 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
->
->
->> tc qdisc add dev em1 parent 1:1 sfq perturb 16
->> tc qdisc add dev em1 parent 1:2 sfq perturb 16
->> tc qdisc add dev em1 parent 1:3 sfq perturb 16
->>
->> tc filter add dev em1 parent 1: bpf run bytecode-file /etc/tc/ssh.bpf flowid 1:1
->> tc filter add dev em1 parent 1: bpf run bytecode-file /etc/tc/icmp.bpf flowid 1:1
->> tc filter add dev em1 parent 1: bpf run bytecode-file /etc/tc/http.bpf flowid 1:2
->> tc filter add dev em1 parent 1: bpf run bytecode "`bpfc -f tc -i misc.ops`" flowid 1:3
->>
->> BPF programs can be easily created and passed to tc, either as inline
->> 'bytecode' or 'bytecode-file'. There are a couple of front-ends that can
->> compile opcodes, for example:
->>
->> 1) People familiar with tcpdump-like filters:
->>
->>     tcpdump -iem1 -ddd port 22 | tr '\n' ',' > /etc/tc/ssh.bpf
->>
->> 2) People that want to low-level program their filters or use BPF
->>     extensions that lack support by libpcap's compiler:
->>
->>     bpfc -f tc -i ssh.ops > /etc/tc/ssh.bpf
->>
->>     ssh.ops example code:
->>     ldh [12]
->>     jne #0x800, drop
->>     ldb [23]
->>     jneq #6, drop
->>     ldh [20]
->>     jset #0x1fff, drop
->>     ldxb 4 * ([14] & 0xf)
->>     ldh [%x + 14]
->>     jeq #0x16, pass
->>     ldh [%x + 16]
->>     jne #0x16, drop
->>     pass: ret #-1
->>     drop: ret #0
->>
->> It was chosen to load bytecode into tc, since the reverse operation,
->> tc filter list dev em1, is then able to show the exact commands again.
->> Possible follow-up work could also include a small expression compiler
->> for iproute2. Tested with the help of bmon. This idea came up during
->> the Netfilter Workshop 2013 in Copenhagen.
->>
->
-> Well, running a large amount of filters might be very expensive [1],
-> have you considered returning the flowid from the filter, instead of
-> returning 0 and !0 ?
->
-> 0 : would mean : not matched filter
-> <>0 : flowid
+On Mon, 2013-10-28 at 15:00 +0100, Pali Roh=C3=A1r wrote:
+> On Monday 28 October 2013 14:55:22 Johannes Berg wrote:
+> > On Mon, 2013-10-28 at 14:49 +0100, Pali Roh=C3=A1r wrote:
+> > > On Monday 28 October 2013 14:45:05 Johannes Berg wrote:
+> > > > On Sat, 2013-10-26 at 22:34 +0200, Pali Roh=C3=A1r wrote:
+> > > > > Driver wl1251 generating mac address randomly at startup
+> > > > > and there is no way to set permanent mac address via
+> > > > > SET_IEEE80211_PERM_ADDR. This patch export sysfs file
+> > > > > which can set permanent mac address by userspace helper
+> > > > > program. Patch is needed for devices which do not store
+> > > > > mac address in internal wl1251 eeprom.
+> > > >=20
+> > > > This doesn't really seem like a good idea since you can
+> > > > also just use 'ip' or whatever to set the MAC address.
+> > > >=20
+> > > > johannes
+> > >=20
+> > > AFAIK you cannot set permanent address (show by ethtool -P
+> > > wlan0) via ip/ifconfig.
+> >=20
+> > You probably can't, but that address also doesn't matter at
+> > all and isn't really used anywhere.
+> >=20
+> > johannes
+>=20
+> There are some (proprietary) applications which using permanent=20
+> address for something...
+>=20
+> And also more important: some network managing tools using it.=20
+> NetworkManager resetting current MAC address to permanent one=20
+> before starting configuring interface.
+>=20
+> So this will lead to never use correct MAC address (but random=20
+> permanent one) assigned for that wl1251 wireless card...
 
-I thought about this, I think this can partially be resolved by the
-user implementing one BPF program to match all possible flows for a
-class instead of implementing multiple BPF programs as mentioned in
-the commit, iow that's up to the user space. And the case you suggest,
-would be another option to further improve this, but would come with
-some difficulties in contrast to the notion 0: mismatch, !0: match.
-I think, this would need additional walk-through through all 'ret'
-opcodes to see if those classes actually exist. Then, we would need
-refcounting and call tcf_{un,}bind_filter() for each class that is
-related to this filter, and tcf_exts_exec() would either need to be
-i) understood in a "per-filter" notion, so as long as something
-matches (!0) exec the very same action/policy (which might not be
-what we want) or ii) could just not be implemented as multiple
-user-defined filters could be defined in iproute2 with different
-actions each, but in some paths return the same flowid. So I think
-this here seems the better trade-off.
+If the device doesn't actually *have* a permanent MAC address, then it
+shouldn't be returning one via ethtool, and should return an error for
+ETHTOOL_GPERMADDR.  Setting the permanent MAC address shouldn't ever be
+allowed except by the driver inspecting EEPROM, and certainly not via
+sysfs.
+
+mac80211 does have to do some special stuff due to virtual interfaces
+and such, but in general, if the MAC address is randomly generated,
+neither the driver nor mac80211 should be reporting that address as the
+permanent address, only as the current one.
+
+Dan
