@@ -1,7 +1,7 @@
 From: Neil Horman <nhorman@tuxdriver.com>
 Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
-Date: Mon, 28 Oct 2013 13:46:30 -0400
-Message-ID: <20131028174630.GB31048@hmsreliant.think-freely.org>
+Date: Mon, 28 Oct 2013 13:49:27 -0400
+Message-ID: <20131028174927.GC31048@hmsreliant.think-freely.org>
 References: <1381510298-20572-1-git-send-email-nhorman@tuxdriver.com>
  <20131012172124.GA18241@gmail.com>
  <20131014202854.GH26880@hmsreliant.think-freely.org>
@@ -10,7 +10,7 @@ References: <1381510298-20572-1-git-send-email-nhorman@tuxdriver.com>
  <20131017003421.GA31470@hmsreliant.think-freely.org>
  <20131017084121.GC22705@gmail.com>
  <20131028160131.GA31048@hmsreliant.think-freely.org>
- <20131028162438.GB14350@gmail.com>
+ <20131028162044.GA14350@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Eric Dumazet <eric.dumazet@gmail.com>,
@@ -22,42 +22,52 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 To: Ingo Molnar <mingo@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20131028162438.GB14350@gmail.com>
+In-Reply-To: <20131028162044.GA14350@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 28, 2013 at 05:24:38PM +0100, Ingo Molnar wrote:
+On Mon, Oct 28, 2013 at 05:20:45PM +0100, Ingo Molnar wrote:
 > 
 > * Neil Horman <nhorman@tuxdriver.com> wrote:
 > 
-> > Looking at the specific cpu counters we get this:
-> > 
 > > Base:
-> >      Total time: 0.179 [sec]
+> >        0.093269042 seconds time elapsed                                          ( +-  2.24% )
+> > Prefetch (5x64):
+> >        0.079440009 seconds time elapsed                                          ( +-  2.29% )
+> > Parallel ALU:
+> >        0.087666677 seconds time elapsed                                          ( +-  4.01% )
+> > Prefetch + Parallel ALU:
+> >        0.080758702 seconds time elapsed                                          ( +-  2.34% )
 > > 
-> >  Performance counter stats for 'perf bench sched messaging -- bash -c echo 1 > /sys/module/csum_test/parameters/test_fire' (20 runs):
-> > 
-> >        1571.304618 task-clock                #    5.213 CPUs utilized            ( +-  0.45% )
-> >             14,423 context-switches          #    0.009 M/sec                    ( +-  4.28% )
-> >              2,710 cpu-migrations            #    0.002 M/sec                    ( +-  2.83% )
+> > So we can see here that we get about a 1% speedup between the base 
+> > and the both (Prefetch + Parallel ALU) case, with prefetch 
+> > accounting for most of that speedup.
 > 
-> Hm, for these second round of measurements were you using 'perf stat 
-> -a -C ...'?
+> Hm, there's still something strange about these results. So the 
+> range of the results is 790-930 nsecs. The noise of the measurements 
+> is 2%-4%, i.e. 20-40 nsecs.
 > 
-> The most accurate method of measurement for such single-threaded 
-> workloads is something like:
+> The prefetch-only result itself is the fastest of all - 
+> statistically equivalent to the prefetch+parallel-ALU result, within 
+> the noise range.
 > 
-> 	taskset 0x1 perf stat -a -C 1 --repeat 20 ...
-> 
-> this will bind your workload to CPU#0, and will do PMU measurements 
-> only there - without mixing in other CPUs or workloads.
+> So if prefetch is enabled, turning on parallel-ALU has no measurable 
+> effect - which is counter-intuitive. Do you have an 
+> theory/explanation for that?
 > 
 > Thanks,
-> 
-> 	Ingo
-I wasn't, but I will...
+ I mentioned it farther down, loosely theorizing that running with parallel
+alu's in conjunction with a prefetch, puts more pressure on the load/store unit
+causing stalls while both alu's wait for the L1 cache to fill.  Not sure if that
+makes sense, but I did note that in the both (prefetch+alu case) our data cache
+hit rate was somewhat degraded, so I was going to play with the prefetch stride
+to see if that fixed the situation.  Regardless I agree, the lack of improvement
+in the both case is definately counter-intuitive.
+
 Neil
 
+> 
+> 	Ingo
 > --
 > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
 > the body of a message to majordomo@vger.kernel.org
