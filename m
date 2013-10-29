@@ -1,54 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next 11/11] i40e: fix error return code in i40e_probe()
-Date: Tue, 29 Oct 2013 16:02:31 -0700
-Message-ID: <1383087751.12439.35.camel@joe-AO722>
-References: <1383048151-15002-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1383048151-15002-12-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1383066330.2713.20.camel@joe-AO722>
-	 <20131029.185722.1940335622558600585.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: David Miller <davem@davemloft.net>
+From: Luka Perkov <luka@openwrt.org>
+Subject: [PATCH v2] octeon_mgmt: drop redundant mac address check
+Date: Wed, 30 Oct 2013 00:09:12 +0100
+Message-ID: <1383088152-24869-1-git-send-email-luka@openwrt.org>
+Cc: Luka Perkov <luka@openwrt.org>, David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0018.hostedemail.com ([216.40.44.18]:51093 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751105Ab3J2XCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 19:02:35 -0400
-In-Reply-To: <20131029.185722.1940335622558600585.davem@davemloft.net>
+Received: from arrakis.dune.hu ([78.24.191.176]:33253 "EHLO arrakis.dune.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751182Ab3J2XJY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Oct 2013 19:09:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-10-29 at 18:57 -0400, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> > On Tue, 2013-10-29 at 05:02 -0700, Jeff Kirsher wrote:
-> >> Fix to return -ENOMEM in the memory alloc error handling
-> >> case instead of 0, as done elsewhere in this function.
-> > trivial note:
-> >> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> > []
-> >> @@ -7204,8 +7204,10 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-> >>  	 */
-> >>  	len = sizeof(struct i40e_vsi *) * pf->hw.func_caps.num_vsis;
-> >>  	pf->vsi = kzalloc(len, GFP_KERNEL);
-> >> -	if (!pf->vsi)
-> >> +	if (!pf->vsi) {
-> >> +		err = -ENOMEM;
-> >>  		goto err_switch_setup;
-> >> +	}
-> > 
-> > This might be better as:
-> > 
-> > 	pf->vsi = kcalloc(pf->hw.func_caps.num_vsis, struct i40e_vsi *),
-> > 			  GFP_KERNEL);
-> > 
-> > and removing the now unused u32 len; declaration.
-> 
-> Agreed but that's a follow-on patch rather than something to block this
-> pull request.
+Checking if MAC address is valid using is_valid_ether_addr() is already done in
+of_get_mac_address().
 
-I don't think any trivial note should block anything
-and if a submitter wants to update it later that's
-just fine.
+Signed-off-by: Luka Perkov <luka@openwrt.org>
+Acked-by: David Daney <david.daney@cavium.com>
+CC: David Miller <davem@davemloft.net>
+---
+v1->v2:
+
+ * cosmetic commit message fix based on comment from David Miller
+---
+ drivers/net/ethernet/octeon/octeon_mgmt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+index 622aa75..1b326cbc 100644
+--- a/drivers/net/ethernet/octeon/octeon_mgmt.c
++++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
+@@ -1545,7 +1545,7 @@ static int octeon_mgmt_probe(struct platform_device *pdev)
+ 
+ 	mac = of_get_mac_address(pdev->dev.of_node);
+ 
+-	if (mac && is_valid_ether_addr(mac))
++	if (mac)
+ 		memcpy(netdev->dev_addr, mac, ETH_ALEN);
+ 	else
+ 		eth_hw_addr_random(netdev);
+-- 
+1.8.4.2
