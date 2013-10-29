@@ -1,34 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/3] tipc: message reassembly using fragment
- chain
-Date: Mon, 28 Oct 2013 23:49:53 -0400 (EDT)
-Message-ID: <20131028.234953.1884858499661587979.davem@davemloft.net>
-References: <20131028.010737.400887499395331496.davem@davemloft.net>
-	<526E3B49.9030506@donjonn.com>
-	<526F15E8.9020009@windriver.com>
+Subject: Re: [PATCH net-next] virtio_net: migrate mergeable rx buffers to
+	page frag allocators
+Date: Mon, 28 Oct 2013 23:57:21 -0400 (EDT)
+Message-ID: <20131028.235721.919284648105056096.davem@davemloft.net>
+References: <1383000258-1458-1-git-send-email-mwdalton@google.com>
+	<1383002389.4344.7.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: maloy@donjonn.com, jon.maloy@ericsson.com,
-	paul.gortmaker@windriver.com, erik.hugne@ericsson.com,
-	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
-To: ying.xue@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40219 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756896Ab3J2Dtz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 23:49:55 -0400
-In-Reply-To: <526F15E8.9020009@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ffusco@redhat.com, mwdalton@google.com, mst@redhat.com,
+	netdev@vger.kernel.org, dborkman@redhat.com,
+	virtualization@lists.linux-foundation.org, edumazet@google.com
+To: eric.dumazet@gmail.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1383002389.4344.7.camel@edumazet-glaptop.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Ying Xue <ying.xue@windriver.com>
-Date: Tue, 29 Oct 2013 09:56:56 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 28 Oct 2013 16:19:49 -0700
 
-> Therefore, the best method is to divide tipc_recv_msg() into several
-> smaller functions to simplify the current implementation. But it's not
-> an easy job. Actually I ever tried to do it, but I gave up lastly
-> because I did not find one perfect solution about how to divide it.
+> On Mon, 2013-10-28 at 15:44 -0700, Michael Dalton wrote:
+>> The virtio_net driver's mergeable receive buffer allocator
+>> uses 4KB packet buffers. For MTU-sized traffic, SKB truesize
+>> is > 4KB but only ~1500 bytes of the buffer is used to store
+>> packet data, reducing the effective TCP window size
+>> substantially. This patch addresses the performance concerns
+>> with mergeable receive buffers by allocating MTU-sized packet
+>> buffers using page frag allocators. If more than MAX_SKB_FRAGS
+>> buffers are needed, the SKB frag_list is used.
+>> 
+>> Signed-off-by: Michael Dalton <mwdalton@google.com>
+>> ---
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> 
+> Daniel & Francesco, this should address the performance problem you
+> tried to address with ("tcp: rcvbuf autotuning improvements") 
+> 
+> ( http://www.spinics.net/lists/netdev/msg252642.html )
 
-But you're going to have to find a way, this indent level is out of
-control.
+Applied, thanks everyone.
