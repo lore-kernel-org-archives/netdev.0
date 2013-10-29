@@ -1,59 +1,60 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH NEXT] rtlwifi: Fix endian error in extracting packet type
-Date: Tue, 29 Oct 2013 15:27:41 +0100
-Message-ID: <87y55cf8yq.fsf@nemi.mork.no>
-References: <1383002903-8746-1-git-send-email-Larry.Finger@lwfinger.net>
-	<1383005246.3779.61.camel@bwh-desktop.uk.level5networks.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: IPV6 nf defrag does not work
+Date: Tue, 29 Oct 2013 15:30:30 +0100
+Message-ID: <20131029143030.GC18526@minipsycho.orion>
+References: <20131029105208.GA18526@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Larry Finger <Larry.Finger@lwfinger.net>, <linville@tuxdriver.com>,
-	<linux-wireless@vger.kernel.org>,
-	"Mark Cave-Ayland" <mark.cave-ayland@ilande.co.uk>,
-	<netdev@vger.kernel.org>, Stable <stable@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1383005246.3779.61.camel@bwh-desktop.uk.level5networks.com> (Ben
-	Hutchings's message of "Tue, 29 Oct 2013 00:07:26 +0000")
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, kadlec@blackhole.kfki.hu, kaber@trash.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f171.google.com ([209.85.215.171]:60351 "EHLO
+	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755542Ab3J2Oad (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 10:30:33 -0400
+Received: by mail-ea0-f171.google.com with SMTP id h10so1366816eak.16
+        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 07:30:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20131029105208.GA18526@minipsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings <bhutchings@solarflare.com> writes:
-
->> @@ -1077,8 +1077,8 @@ u8 rtl_is_special_data(struct ieee80211_hw *hw=
-, struct sk_buff *skb, u8 is_tx)
->> =20
->>  	ip =3D (struct iphdr *)((u8 *) skb->data + mac_hdr_len +
->>  			      SNAP_SIZE + PROTOC_TYPE_SIZE);
->> -	ether_type =3D *(u16 *) ((u8 *) skb->data + mac_hdr_len + SNAP_SIZ=
-E);
->> -	/*	ether_type =3D ntohs(ether_type); */
->> +	ether_type =3D be16_to_cpu(*(__be16 *)((u8 *)skb->data + mac_hdr_l=
-en +
->> +					     SNAP_SIZE));
->> =20
->>  	if (ETH_P_IP =3D=3D ether_type) {
->>  		if (IPPROTO_UDP =3D=3D ip->protocol) {
+Tue, Oct 29, 2013 at 11:52:08AM CET, jiri@resnulli.us wrote:
+>Hi All.
 >
-> This crazy function also says that *all* IPv6 frames are special, whi=
-ch
-> apparently means that on TX they should get sent at the lowest possib=
-le
-> bit rate.  So I think this is going to cause a regression for IPv6
-> throughput unless you remove that case.
+>On the current net-next if you on HOSTA do:
+>ip6tables -I INPUT -p icmpv6 -j DROP
+>ip6tables -I INPUT -p icmpv6 -m icmp6 --icmpv6-type 128 -j ACCEPT
 >
-> The DHCP case is also not validating IP and UDP header lengths agains=
-t
-> the packet length, though this may be harmless in practice.
+>and on HOSTB you do:
+>ping6 HOSTA -s2000    (MTU is 1500)
+>
+>Only the first ICMP echo request will be passed through, the rest is not
+>passed on HOSTA. This issue does not occur with smaller packets than MTU (where
+>fragmentation does not happen).
+>
 
-It's not validating the upper 8 bits of the port numbers either, so it
-will hit random UDP traffic in addition to DHCP.=20
+Hmm. The reason why first packet goes through is because of:
+commit 58a317f1061c894d2344c0b6a18ab4a64b69b815
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Sun Aug 26 19:14:12 2012 +0200
 
-But it was good to see this function now. I was wondering how to suppor=
-t
-some buggy 3G modem firmware without ugly hacks. Seems there will alway=
-s
-be worse hacks in drivers/net, no matter what I do :-)
+    netfilter: ipv6: add IPv6 NAT support
 
 
-Bj=C3=B8rn
+First packet will hit "if ((help && help->helper) || !nf_ct_is_confirmed(ct))"
+(ct is uncorfirmed for it).
+
+
+For this, nf_conntrack_ipv6 has to be loaded. Continuing investigation.
+
+
+
+>I'm trying to find out where the problem is.
+>
+>Any quick ideas?
+>
+>Thanks
+>
+>Jiri
