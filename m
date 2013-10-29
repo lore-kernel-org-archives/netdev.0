@@ -1,25 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: x25: Fix dead URLs in Kconfig
-Date: Tue, 29 Oct 2013 17:35:33 -0400 (EDT)
-Message-ID: <20131029.173533.1626666892137591517.davem@davemloft.net>
-References: <1382981592-7449-1-git-send-email-michael@drueing.de>
+Subject: Re: [GIT net] Open vSwitch
+Date: Tue, 29 Oct 2013 17:37:43 -0400 (EDT)
+Message-ID: <20131029.173743.662298162305325519.davem@davemloft.net>
+References: <1382983491-24432-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: andrew.hendry@gmail.com, linux-x25@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: michael@drueing.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1382981592-7449-1-git-send-email-michael@drueing.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: jesse@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48952 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751864Ab3J2Vhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 17:37:45 -0400
+In-Reply-To: <1382983491-24432-1-git-send-email-jesse@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Michael Dr=FCing <michael@drueing.de>
-Date: Mon, 28 Oct 2013 18:33:12 +0100
+From: Jesse Gross <jesse@nicira.com>
+Date: Mon, 28 Oct 2013 11:04:50 -0700
 
-> Update the URLs in the Kconfig file to the new pages at sangoma.com a=
-nd cisco.com
->=20
-> Signed-off-by: Michael Dr=FCing <michael@drueing.de>
+> One patch for net/3.12 fixing an issue where devices could be in an
+> invalid state they are removed while still attached to OVS.
 
-Applied, thanks.
+Pulled, thanks Jesse.
