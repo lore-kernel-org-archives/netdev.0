@@ -1,60 +1,55 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] virtio_net: migrate mergeable rx buffers to
-	page frag allocators
-Date: Tue, 29 Oct 2013 21:12:50 +0200
-Message-ID: <20131029191250.GE20848@redhat.com>
-References: <1383000258-1458-1-git-send-email-mwdalton@google.com>
-	<1383002389.4344.7.camel@edumazet-glaptop.roam.corp.google.com>
-	<20131028.235721.919284648105056096.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] 3c515: Fix warning when building
+Date: Tue, 29 Oct 2013 19:31:57 +0000
+Message-ID: <1383075117.1534.23.camel@bwh-desktop.uk.level5networks.com>
+References: <1382738386-29888-1-git-send-email-ricec2@rpi.edu>
+	 <20131029.000316.767189982282205506.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ffusco@redhat.com, mwdalton@google.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, dborkman@redhat.com,
-	virtualization@lists.linux-foundation.org, edumazet@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20131028.235721.919284648105056096.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <ricec2@rpi.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:18241 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751949Ab3J2TcB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 15:32:01 -0400
+In-Reply-To: <20131029.000316.767189982282205506.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 28, 2013 at 11:57:21PM -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 28 Oct 2013 16:19:49 -0700
+On Tue, 2013-10-29 at 00:03 -0400, David Miller wrote:
+> From: Colin Rice <ricec2@rpi.edu>
+> Date: Fri, 25 Oct 2013 21:59:46 +0000
 > 
-> > On Mon, 2013-10-28 at 15:44 -0700, Michael Dalton wrote:
-> >> The virtio_net driver's mergeable receive buffer allocator
-> >> uses 4KB packet buffers. For MTU-sized traffic, SKB truesize
-> >> is > 4KB but only ~1500 bytes of the buffer is used to store
-> >> packet data, reducing the effective TCP window size
-> >> substantially. This patch addresses the performance concerns
-> >> with mergeable receive buffers by allocating MTU-sized packet
-> >> buffers using page frag allocators. If more than MAX_SKB_FRAGS
-> >> buffers are needed, the SKB frag_list is used.
-> >> 
-> >> Signed-off-by: Michael Dalton <mwdalton@google.com>
-> >> ---
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > 
-> > Daniel & Francesco, this should address the performance problem you
-> > tried to address with ("tcp: rcvbuf autotuning improvements") 
-> > 
-> > ( http://www.spinics.net/lists/netdev/msg252642.html )
+> > -		outl((int) (skb->data), ioaddr + Wn7_MasterAddr);
+> > +		outl((size_t) (skb->data), ioaddr + Wn7_MasterAddr);
 > 
-> Applied, thanks everyone.
+> outl() takes an "int" not a "size_t".   You're avoiding the warning,
+> but on 64-bit, for example, you're silently allowing the compiler
+> to accept chopping off the top 32-bits of the 64-bit pointer address
+> off.
+> 
+> The warning is valid, this code won't work in certain environments,
+> and killing the warning is just papering over the problem such that
+> it will never get addressed properly.
+> 
+> I'm not applying patches like this, sorry.
 
-Hmm that was very quick. It *should* fix a bug, great.
-But how about we wait for some Tested-by reports that it actually does?
+The driver is writing a virtual address as the DMA address.  The
+hardware is an ISA device and will presumably ignore the top 8 bits,
+thus doing the virt-to-bus conversion for us.  Very efficient - so long
+as this runs on a PC with no more than 16 MB RAM.
+
+For other chips with a DMA descriptor ring, the driver uses
+isa_virt_to_bus() which is less efficient but no more correct.
+
+Maybe the driver should just be deleted, as it doesn't look like it's
+actually usable any more.
+
+Ben.
 
 -- 
-MST
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
