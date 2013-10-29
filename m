@@ -1,50 +1,47 @@
-From: Nathan Hintz <nlhintz@hotmail.com>
-Subject: Re: [PATCH] bgmac: don't update slot on skb alloc/dma mapping error
-Date: Tue, 29 Oct 2013 01:22:55 -0700
-Message-ID: <BLU0-SMTP200803D333FF3A2F15AB82DAC090@phx.gbl>
-References: <BLU0-SMTP119F7A71B34291D1CC2486BAC090@phx.gbl>
-	<CACna6rzxt2QMtLfD84pw7EtYqg1Qva4ah83hVQOKpeKy72bd5w@mail.gmail.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
+Date: Tue, 29 Oct 2013 09:25:42 +0100
+Message-ID: <20131029082542.GA24625@gmail.com>
+References: <20131012172124.GA18241@gmail.com>
+ <20131014202854.GH26880@hmsreliant.think-freely.org>
+ <1381785560.2045.11.camel@edumazet-glaptop.roam.corp.google.com>
+ <1381789127.2045.22.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131017003421.GA31470@hmsreliant.think-freely.org>
+ <20131017084121.GC22705@gmail.com>
+ <20131028160131.GA31048@hmsreliant.think-freely.org>
+ <20131028162438.GB14350@gmail.com>
+ <20131028174630.GB31048@hmsreliant.think-freely.org>
+ <20131028182913.GD31048@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev@vger.kernel.org>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from blu0-omc1-s23.blu0.hotmail.com ([65.55.116.34]:33060 "EHLO
-	blu0-omc1-s23.blu0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753298Ab3J2IW6 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Oct 2013 04:22:58 -0400
-In-Reply-To: <CACna6rzxt2QMtLfD84pw7EtYqg1Qva4ah83hVQOKpeKy72bd5w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131028182913.GD31048@hmsreliant.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Oct 2013 07:52:58 +0100
-Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> wrote:
 
-> 2013/10/29 Nathan Hintz <nlhintz@hotmail.com>:
-> > Don't update the slot in "bgmac_dma_rx_skb_for_slot" unless both th=
-e
-> > skb alloc and dma mapping are successful; and free the newly alloca=
-ted
-> > skb if a dma mapping error occurs.  This will prevent an skb leak u=
-pon
-> > returning when an error occurs.
->=20
-> In case of bgmac_dma_rx_skb_for_slot failure we're giving up anyway
-> (and freeing everything), but with your patch code is simpler to
-> understand, so I'm OK with that.
->=20
-> Acked-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
->=20
+* Neil Horman <nhorman@tuxdriver.com> wrote:
 
-I might be misunderstanding; but it in the case of failure, it appeared=
- to me
-that the currently received packet was dropped and the old skb would co=
-ntinue
-to be assigned to the slot and would be used to receive future packets =
-(this
-would continue until bgmac_dma_rx_skb_for_slot was successful).
+> Heres my data for running the same test with taskset restricting 
+> execution to only cpu0.  I'm not quite sure whats going on here, 
+> but doing so resulted in a 10x slowdown of the runtime of each 
+> iteration which I can't explain.  As before however, both the 
+> parallel alu run and the prefetch run resulted in speedups, but 
+> the two together were not in any way addative.  I'm going to keep 
+> playing with the prefetch stride, unless you have an alternate 
+> theory.
 
---=20
-Nathan
+Could you please cite the exact command-line you used for running 
+the test?
+
+Thanks,
+
+	Ingo
