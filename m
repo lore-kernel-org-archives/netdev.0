@@ -1,147 +1,110 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] virtio_net: migrate mergeable rx buffers to
-	page frag allocators
-Date: Tue, 29 Oct 2013 14:27:11 +0800
-Message-ID: <526F553F.8060708@redhat.com>
-References: <1383000258-1458-1-git-send-email-mwdalton@google.com>
+From: Nathan Hintz <nlhintz@hotmail.com>
+Subject: Re: [RFC TRY#2][PATCH] bgmac: pass received packet
+ to the netif instead of copying it
+Date: Mon, 28 Oct 2013 23:50:19 -0700
+Message-ID: <BLU0-SMTP122B5D616AD665A29B9DDEFAC090@phx.gbl>
+References: <1382982142-16876-1-git-send-email-zajec5@gmail.com>
+Reply-To: OpenWrt Development List <openwrt-devel@lists.openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Daniel Borkmann <dborkman@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>
-To: Michael Dalton <mwdalton@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1383000258-1458-1-git-send-email-mwdalton@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: OpenWrt Development List <openwrt-devel@lists.openwrt.org>
+Return-path: <openwrt-devel-bounces@lists.openwrt.org>
+In-Reply-To: <1382982142-16876-1-git-send-email-zajec5@gmail.com>
+List-Unsubscribe: <https://lists.openwrt.org/cgi-bin/mailman/options/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=unsubscribe>
+List-Archive: <http://lists.openwrt.org/pipermail/openwrt-devel/>
+List-Post: <mailto:openwrt-devel@lists.openwrt.org>
+List-Help: <mailto:openwrt-devel-request@lists.openwrt.org?subject=help>
+List-Subscribe: <https://lists.openwrt.org/cgi-bin/mailman/listinfo/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=subscribe>
+Errors-To: openwrt-devel-bounces@lists.openwrt.org
+Sender: "openwrt-devel" <openwrt-devel-bounces@lists.openwrt.org>
 List-Id: netdev.vger.kernel.org
 
-On 10/29/2013 06:44 AM, Michael Dalton wrote:
-> The virtio_net driver's mergeable receive buffer allocator
-> uses 4KB packet buffers. For MTU-sized traffic, SKB truesize
-> is > 4KB but only ~1500 bytes of the buffer is used to store
-> packet data, reducing the effective TCP window size
-> substantially. This patch addresses the performance concerns
-> with mergeable receive buffers by allocating MTU-sized packet
-> buffers using page frag allocators. If more than MAX_SKB_FRAGS
-> buffers are needed, the SKB frag_list is used.
->
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
-
-Do you have any perf numberf of this patch? Have a glance of the patch,
-looks like it will hurt the performance of large GSO packet. Always
-allocating 1500 bytes mean a virtqueue can only hold about 4 full size
-gso packets, and frag list will introduce extra overheads on skb
-allocation. I just test it on my desktop, performance of full size gso
-packet drops about 10%.
-
-Mergeable buffer is a good balance between performance and the space it
-occupies. If you just want a ~1500 bytes packet to be received, you can
-just disable the mergeable buffer and just use small packet.
-
-Alternatively, a simpler way is just use build_skb() and head frag to
-build the skb directly on the page for medium size packets (small
-packets were still copied) like following patch (may need more work
-since vnet header is too short for NET_SKB_PAD). This can reduce the
-truesize while keep the performance for large GSO packet.
-
----
- drivers/net/virtio_net.c |   48
-++++++++++++++++++++++++++++++---------------
- 1 files changed, 32 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 3c23fdc..4c7ad89 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -239,16 +239,12 @@ static struct sk_buff *page_to_skb(struct
-receive_queue *rq,
-     struct skb_vnet_hdr *hdr;
-     unsigned int copy, hdr_len, offset;
-     char *p;
-+    int skb_size = SKB_DATA_ALIGN(len) +
-+               SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+    bool frag;
- 
-     p = page_address(page);
- 
--    /* copy small packet so we can reuse these pages for small data */
--    skb = netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
--    if (unlikely(!skb))
--        return NULL;
--
--    hdr = skb_vnet_hdr(skb);
--
-     if (vi->mergeable_rx_bufs) {
-         hdr_len = sizeof hdr->mhdr;
-         offset = hdr_len;
-@@ -257,18 +253,38 @@ static struct sk_buff *page_to_skb(struct
-receive_queue *rq,
-         offset = sizeof(struct padded_vnet_hdr);
-     }
- 
--    memcpy(hdr, p, hdr_len);
--
-     len -= hdr_len;
-     p += offset;
- 
--    copy = len;
--    if (copy > skb_tailroom(skb))
--        copy = skb_tailroom(skb);
--    memcpy(skb_put(skb, copy), p, copy);
-+    frag = (len > GOOD_COPY_LEN) && (skb_size <= PAGE_SIZE) &&
-+        vi->mergeable_rx_bufs;
-+    if (frag) {
-+        skb = build_skb(page_address(page), skb_size);
-+        if (unlikely(!skb))
-+            return NULL;
-+
-+        skb_reserve(skb, offset);
-+        skb_put(skb, len);
-+        len = 0;
-+    } else {
-+        /* copy small packet so we can reuse these pages for small data
-+         */
-+        skb = netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
-+        if (unlikely(!skb))
-+            return NULL;
-+
-+        copy = len;
-+        if (copy > skb_tailroom(skb))
-+            copy = skb_tailroom(skb);
-+        memcpy(skb_put(skb, copy), p, copy);
-+
-+        len -= copy;
-+        offset += copy;
-+    }
-+
-+    hdr = skb_vnet_hdr(skb);
- 
--    len -= copy;
--    offset += copy;
-+    memcpy(hdr, page_address(page), hdr_len);
- 
-     /*
-      * Verify that we can indeed put this data into a skb.
-@@ -288,7 +304,7 @@ static struct sk_buff *page_to_skb(struct
-receive_queue *rq,
-         offset = 0;
-     }
- 
--    if (page)
-+    if (page && !frag)
-         give_pages(rq, page);
- 
-     return skb;
--- 
-1.7.1
+T24gTW9uLCAyOCBPY3QgMjAxMyAxODo0MjoyMiArMDEwMApSYWZhxYIgTWnFgmVja2kgPHphamVj
+NUBnbWFpbC5jb20+IHdyb3RlOgoKSGk6CgpBIGZldyBxdWVzdGlvbnMvY29tbWVudHMgaW5saW5l
+Li4uCgpOYXRoYW4KCj4gQ29weWluZyB3aG9sZSBwYWNrZXRzIHdpdGggc2tiX2NvcHlfZnJvbV9s
+aW5lYXJfZGF0YV9vZmZzZXQgaXMgYSBwcmV0dHkKPiBiYWQgaWRlYS4gQ1BVIHdhcyBzcGVuZGlu
+ZyB0aW1lIGluIF9fY29weV91c2VyX2NvbW1vbiBhbmQgbmV0d29yawo+IHBlcmZvcm1hbmNlIHdh
+cyBsb3dlci4gV2l0aCB0aGUgbmV3IHNvbHV0aW9uIGlwZXJmLW1lYXN1cmVkIHNwZWVkCj4gaW5j
+cmVhc2VkIGZyb20gMTE2TWIvcyB0byAxMzRNYi9zLgo+IAo+IEFub3RoZXIgd2F5IHRvIGltcHJv
+dmUgcGVyZm9ybWFuY2UgY291bGQgYmUgc3dpdGNoaW5nIHRvIGJ1aWxkX3NrYi4gSXQKPiBpcyBj
+YWNoZS1zcGVjaWZpYywgc28gd2lsbCByZXF1aXJlIHRlc3Rpbmcgb2YgdmFyaW91cyBkZXZpY2Vz
+Lgo+IAo+IFNpZ25lZC1vZmYtYnk6IFJhZmHFgiBNacWCZWNraSA8emFqZWM1QGdtYWlsLmNvbT4K
+PiAtLS0KPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYmdtYWMuYyB8ICAgNzEgKysr
+KysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tCj4gIDEgZmlsZSBjaGFuZ2VkLCA0NCBpbnNl
+cnRpb25zKCspLCAyNyBkZWxldGlvbnMoLSkKPiAKPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvYnJvYWRjb20vYmdtYWMuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29t
+L2JnbWFjLmMKPiBpbmRleCA2Yjc1NDFmLi5mZGU5YTExIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L2Jyb2FkY29tL2JnbWFjLmMKPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9icm9hZGNvbS9iZ21hYy5jCj4gQEAgLTMwNyw3ICszMDcsNiBAQCBzdGF0aWMgaW50IGJnbWFj
+X2RtYV9yeF9yZWFkKHN0cnVjdCBiZ21hYyAqYmdtYWMsIHN0cnVjdCBiZ21hY19kbWFfcmluZyAq
+cmluZywKPiAgCQlzdHJ1Y3QgZGV2aWNlICpkbWFfZGV2ID0gYmdtYWMtPmNvcmUtPmRtYV9kZXY7
+Cj4gIAkJc3RydWN0IGJnbWFjX3Nsb3RfaW5mbyAqc2xvdCA9ICZyaW5nLT5zbG90c1tyaW5nLT5z
+dGFydF07Cj4gIAkJc3RydWN0IHNrX2J1ZmYgKnNrYiA9IHNsb3QtPnNrYjsKPiAtCQlzdHJ1Y3Qg
+c2tfYnVmZiAqbmV3X3NrYjsKPiAgCQlzdHJ1Y3QgYmdtYWNfcnhfaGVhZGVyICpyeDsKPiAgCQl1
+MTYgbGVuLCBmbGFnczsKPiAgCj4gQEAgLTMyMCwzOCArMzE5LDU2IEBAIHN0YXRpYyBpbnQgYmdt
+YWNfZG1hX3J4X3JlYWQoc3RydWN0IGJnbWFjICpiZ21hYywgc3RydWN0IGJnbWFjX2RtYV9yaW5n
+ICpyaW5nLAo+ICAJCWxlbiA9IGxlMTZfdG9fY3B1KHJ4LT5sZW4pOwo+ICAJCWZsYWdzID0gbGUx
+Nl90b19jcHUocngtPmZsYWdzKTsKPiAgCj4gLQkJLyogQ2hlY2sgZm9yIHBvaXNvbiBhbmQgZHJv
+cCBvciBwYXNzIHRoZSBwYWNrZXQgKi8KPiAtCQlpZiAobGVuID09IDB4ZGVhZCAmJiBmbGFncyA9
+PSAweGJlZWYpIHsKPiAtCQkJYmdtYWNfZXJyKGJnbWFjLCAiRm91bmQgcG9pc29uZWQgcGFja2V0
+IGF0IHNsb3QgJWQsIERNQSBpc3N1ZSFcbiIsCj4gLQkJCQkgIHJpbmctPnN0YXJ0KTsKPiAtCQl9
+IGVsc2Ugewo+ICsJCWRvIHsKCiJvbGRfc2tiIiBkdXBsaWNhdGVzICJza2IiIHN0b3JlZCBhYm92
+ZSwgY2FuIHRoYXQgb25lIGJlIHVzZWQgKHJlbmFtZWQpIGluc3RlYWQgb2YgY3JlYXRpbmcgYSBu
+ZXcgb25lIGhlcmU/Cgo+ICsJCQlzdHJ1Y3Qgc2tfYnVmZiAqb2xkX3NrYiA9IHNsb3QtPnNrYjsK
+PiArCQkJZG1hX2FkZHJfdCBvbGRfZG1hX2FkZHIgPSBzbG90LT5kbWFfYWRkcjsKPiArCQkJaW50
+IGVycjsKPiArCj4gKwkJCS8qIENoZWNrIGZvciBwb2lzb24gYW5kIGRyb3Agb3IgcGFzcyB0aGUg
+cGFja2V0ICovCj4gKwkJCWlmIChsZW4gPT0gMHhkZWFkICYmIGZsYWdzID09IDB4YmVlZikgewo+
+ICsJCQkJYmdtYWNfZXJyKGJnbWFjLCAiRm91bmQgcG9pc29uZWQgcGFja2V0IGF0IHNsb3QgJWQs
+IERNQSBpc3N1ZSFcbiIsCj4gKwkJCQkJICByaW5nLT5zdGFydCk7CgpOb3RoaW5nIGluIHRoZSBi
+dWZmZXIgaGFzIGJlZW4gY2hhbmdlZCBieSB0aGUgY3B1IHlldCwgc28gaXMgdGhpcyBzeW5jIG5l
+Y2Vzc2FyeT8KCj4gKwkJCQlkbWFfc3luY19zaW5nbGVfZm9yX2RldmljZShkbWFfZGV2LAo+ICsJ
+CQkJCQkJICAgc2xvdC0+ZG1hX2FkZHIsCj4gKwkJCQkJCQkgICBCR01BQ19SWF9CVUZfU0laRSwK
+PiArCQkJCQkJCSAgIERNQV9GUk9NX0RFVklDRSk7Cj4gKwkJCQlicmVhazsKPiArCQkJfQo+ICsK
+PiAgCQkJLyogT21pdCBDUkMuICovCj4gIAkJCWxlbiAtPSBFVEhfRkNTX0xFTjsKPiAgCj4gLQkJ
+CW5ld19za2IgPSBuZXRkZXZfYWxsb2Nfc2tiX2lwX2FsaWduKGJnbWFjLT5uZXRfZGV2LCBsZW4p
+Owo+IC0JCQlpZiAobmV3X3NrYikgewo+IC0JCQkJc2tiX3B1dChuZXdfc2tiLCBsZW4pOwo+IC0J
+CQkJc2tiX2NvcHlfZnJvbV9saW5lYXJfZGF0YV9vZmZzZXQoc2tiLCBCR01BQ19SWF9GUkFNRV9P
+RkZTRVQsCj4gLQkJCQkJCQkJIG5ld19za2ItPmRhdGEsCj4gLQkJCQkJCQkJIGxlbik7Cj4gLQkJ
+CQlza2JfY2hlY2tzdW1fbm9uZV9hc3NlcnQoc2tiKTsKPiAtCQkJCW5ld19za2ItPnByb3RvY29s
+ID0KPiAtCQkJCQlldGhfdHlwZV90cmFucyhuZXdfc2tiLCBiZ21hYy0+bmV0X2Rldik7Cj4gLQkJ
+CQluZXRpZl9yZWNlaXZlX3NrYihuZXdfc2tiKTsKPiAtCQkJCWhhbmRsZWQrKzsKPiAtCQkJfSBl
+bHNlIHsKPiAtCQkJCWJnbWFjLT5uZXRfZGV2LT5zdGF0cy5yeF9kcm9wcGVkKys7Cj4gLQkJCQli
+Z21hY19lcnIoYmdtYWMsICJBbGxvY2F0aW9uIG9mIHNrYiBmb3IgY29weWluZyBwYWNrZXQgZmFp
+bGVkIVxuIik7Cj4gKwkJCS8qIFByZXBhcmUgbmV3IHNrYiBhcyByZXBsYWNlbWVudCAqLwo+ICsJ
+CQllcnIgPSBiZ21hY19kbWFfcnhfc2tiX2Zvcl9zbG90KGJnbWFjLCBzbG90KTsKPiArCQkJaWYg
+KGVycikgewoKSSd2ZSBzZW50IGEgc2VwYXJhdGUgcGF0Y2ggYWdhaW5zdCAiYmdtYWNfZG1hX3J4
+X3NrYl9mb3Jfc2xvdCIgdG8gbm90IGNvcnJ1cHQgdGhlIHNsb3QgYXQgYWxsIGlmIGFuCmVycm9y
+IG9jY3VycyAoc2tiIGFsbG9jIG9yIGRtYSBtYXBwaW5nKSwgYW5kIGZyZWUgdGhlIHNrYiB0aGF0
+IHdhcyBhbGxvY2F0ZWQgaWYgYSBkbWEgbWFwcGluZyBlcnJvcgpvY2N1cnMuICBBc3N1bWluZyB0
+aGF0IHBhdGNoIGlzIGFjY2VwdGVkLCB0aGVuIHRoZSBmb2xsb3dpbmcgdHdvIGxpbmVzIHdvdWxk
+IG5vdCBiZSBuZWVkZWQuCldpdGggImJnbWFjX2RtYV9yeF9za2JfZm9yX3Nsb3QiIGFzIGl0IGN1
+cnJlbnRseSBleGlzdHMsIHRoaXMgd291bGQgbGVhayBhbiBza2IgZm9yIGEgZG1hIG1hcHBpbmcK
+ZXJyb3IgKHRoaXMgd2FzIHByZS1leGlzdGluZyB0byB0aGUgY2hhbmdlcyBpbiB0aGlzIHBhdGNo
+KS4KCj4gKwkJCQlzbG90LT5za2IgPSBvbGRfc2tiOwo+ICsJCQkJc2xvdC0+ZG1hX2FkZHIgPSBv
+bGRfZG1hX2FkZHI7Cj4gKwo+ICsJCQkJLyogUG9pc29uIHRoZSBvbGQgc2tiICovCj4gKwkJCQly
+eC0+bGVuID0gY3B1X3RvX2xlMTYoMHhkZWFkKTsKPiArCQkJCXJ4LT5mbGFncyA9IGNwdV90b19s
+ZTE2KDB4YmVlZik7Cj4gKwo+ICsJCQkJZG1hX3N5bmNfc2luZ2xlX2Zvcl9kZXZpY2UoZG1hX2Rl
+diwKPiArCQkJCQkJCSAgIHNsb3QtPmRtYV9hZGRyLAo+ICsJCQkJCQkJICAgQkdNQUNfUlhfQlVG
+X1NJWkUsCj4gKwkJCQkJCQkgICBETUFfRlJPTV9ERVZJQ0UpOwo+ICsJCQkJYnJlYWs7Cj4gIAkJ
+CX0KPiArCQkJYmdtYWNfZG1hX3J4X3NldHVwX2Rlc2MoYmdtYWMsIHJpbmcsIHJpbmctPnN0YXJ0
+KTsKPiAgCj4gLQkJCS8qIFBvaXNvbiB0aGUgb2xkIHNrYiAqLwo+IC0JCQlyeC0+bGVuID0gY3B1
+X3RvX2xlMTYoMHhkZWFkKTsKPiAtCQkJcngtPmZsYWdzID0gY3B1X3RvX2xlMTYoMHhiZWVmKTsK
+PiAtCQl9Cj4gKwkJCS8qIFVubWFwIG9sZCBza2IsIHdlJ2xsIHBhc3MgaXQgdG8gdGhlIG5ldGZp
+ZiAqLwo+ICsJCQlkbWFfdW5tYXBfc2luZ2xlKGRtYV9kZXYsIG9sZF9kbWFfYWRkciwKPiArCQkJ
+CQkJQkdNQUNfUlhfQlVGX1NJWkUsCj4gKwkJCQkJCURNQV9GUk9NX0RFVklDRSk7Cj4gKwo+ICsJ
+CQlza2JfcHV0KHNrYiwgQkdNQUNfUlhfRlJBTUVfT0ZGU0VUICsgbGVuKTsKPiArCQkJc2tiX3B1
+bGwoc2tiLCBCR01BQ19SWF9GUkFNRV9PRkZTRVQpOwo+ICAKPiAtCQkvKiBNYWtlIGl0IGJhY2sg
+YWNjZXNzaWJsZSB0byB0aGUgaGFyZHdhcmUgKi8KPiAtCQlkbWFfc3luY19zaW5nbGVfZm9yX2Rl
+dmljZShkbWFfZGV2LCBzbG90LT5kbWFfYWRkciwKPiAtCQkJCQkgICBCR01BQ19SWF9CVUZfU0la
+RSwgRE1BX0ZST01fREVWSUNFKTsKPiArCQkJc2tiX2NoZWNrc3VtX25vbmVfYXNzZXJ0KHNrYik7
+Cj4gKwkJCXNrYi0+cHJvdG9jb2wgPSBldGhfdHlwZV90cmFucyhza2IsIGJnbWFjLT5uZXRfZGV2
+KTsKPiArCQkJbmV0aWZfcmVjZWl2ZV9za2Ioc2tiKTsKPiArCQkJaGFuZGxlZCsrOwo+ICsJCX0g
+d2hpbGUgKDApOwo+ICAKPiAgCQlpZiAoKytyaW5nLT5zdGFydCA+PSBCR01BQ19SWF9SSU5HX1NM
+T1RTKQo+ICAJCQlyaW5nLT5zdGFydCA9IDA7CgoKCi0tIApOYXRoYW4KX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18Kb3BlbndydC1kZXZlbCBtYWlsaW5nIGxp
+c3QKb3BlbndydC1kZXZlbEBsaXN0cy5vcGVud3J0Lm9yZwpodHRwczovL2xpc3RzLm9wZW53cnQu
+b3JnL2NnaS1iaW4vbWFpbG1hbi9saXN0aW5mby9vcGVud3J0LWRldmVsCg==
