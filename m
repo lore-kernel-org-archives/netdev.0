@@ -1,33 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: pass correct vlan id to multicast code
-Date: Tue, 29 Oct 2013 17:40:25 -0400 (EDT)
-Message-ID: <20131029.174025.628235138059662194.davem@davemloft.net>
-References: <1382989507-23061-1-git-send-email-vyasevic@redhat.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek RTL8102E registers
+Date: Tue, 29 Oct 2013 22:40:59 +0100
+Message-ID: <20131029214059.GA26496@electric-eye.fr.zoreil.com>
+References: <526FCEAA.30102@speechpro.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	makita.toshiaki@lab.ntt.co.jp
-To: vyasevic@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux r8169 crew <netdev@vger.kernel.org>
+To: Ivan Frederiks <frederiks@speechpro.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48967 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751969Ab3J2Vk0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 17:40:26 -0400
-In-Reply-To: <1382989507-23061-1-git-send-email-vyasevic@redhat.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:37844 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752135Ab3J2VlB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 17:41:01 -0400
+Content-Disposition: inline
+In-Reply-To: <526FCEAA.30102@speechpro.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Mon, 28 Oct 2013 15:45:07 -0400
+Ivan Frederiks <frederiks@speechpro.com> :
+[...]
+> Maybe you have access to RTL8102E register description ?
 
-> Currently multicast code attempts to extrace the vlan id from
-> the skb even when vlan filtering is disabled.  This can lead
-> to mdb entries being created with the wrong vlan id.
-> Pass the already extracted vlan id to the multicast
-> filtering code to make the correct id is used in
-> creation as well as lookup.
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+No.
 
-Applied, thanks Vlad and others.
+Realtek's hardware documentation policy isn't exactly opened. Your hardware
+vendor may help.
+
+[...]
+> Issue description:
+[snip]
+
+kernel version and r81xx XID value as it should appear in dmesg would
+be welcome.
+
+-- 
+Ueimor
