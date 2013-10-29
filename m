@@ -1,79 +1,87 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: [PATCH 2/4] wl1251: move power GPIO handling into the driver
-Date: Mon, 28 Oct 2013 18:33:18 -0700
-Message-ID: <20131029013318.GC16686@sirena.org.uk>
-References: <1382890469-25286-1-git-send-email-sre@debian.org>
- <1382890469-25286-3-git-send-email-sre@debian.org>
- <1382891056.102746625@f315.i.mail.ru>
- <20131027201218.GA4414@earth.universe>
- <CANOLnONKcC1i19ypb4rh2Rff3WsVhhuUhNvZvYwDV2-ZNtjVxQ@mail.gmail.com>
- <20131028192354.GA18208@sirena.org.uk>
- <20131028232624.GA950@earth.universe>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH net-next] virtio_net: migrate mergeable rx buffers to page frag allocators
+Date: Tue, 29 Oct 2013 12:21:56 +1030
+Message-ID: <87ppqoetdv.fsf@rustcorp.com.au>
+References: <1383000258-1458-1-git-send-email-mwdalton@google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="WfZ7S8PLGjBY9Voh"
-To: Grazvydas Ignotas <notasas@gmail.com>,
-	Alexander Shiyan <shc_work@mail.ru>,
-	Luciano Coelho <luca@coelho.fi>,
-	Mark Rutland <mark.rutland@arm.com>,
-	devicetree@vger.kernel.org, Russell King <linux@arm.linux.org.uk>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Tony Lindgren <tony@atomide.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	linux-doc@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Sachin Kamat <sachin.kamat@linaro.org>,
-	Bill Pemberton <wfp5p@virginia.edu>,
-	Felipe Balbi <balbi@ti.com>, Rob Landley <rob@landley.net>,
-	netdev@vger.kernel.org,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131028232624.GA950@earth.universe>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---WfZ7S8PLGjBY9Voh
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	virtualization@lists.linux-foundation.org,
+	Michael Dalton <mwdalton@google.com>
+To: Michael Dalton <mwdalton@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:52116 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756651Ab3J2B5M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Oct 2013 21:57:12 -0400
+In-Reply-To: <1383000258-1458-1-git-send-email-mwdalton@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 29, 2013 at 12:26:26AM +0100, Sebastian Reichel wrote:
+Michael Dalton <mwdalton@google.com> writes:
+> The virtio_net driver's mergeable receive buffer allocator
+> uses 4KB packet buffers. For MTU-sized traffic, SKB truesize
+> is > 4KB but only ~1500 bytes of the buffer is used to store
+> packet data, reducing the effective TCP window size
+> substantially. This patch addresses the performance concerns
+> with mergeable receive buffers by allocating MTU-sized packet
+> buffers using page frag allocators. If more than MAX_SKB_FRAGS
+> buffers are needed, the SKB frag_list is used.
+>
+> Signed-off-by: Michael Dalton <mwdalton@google.com>
 
-> 1. The pin is named PMEN in the Nokia N900 schematics
-> 2. PMEN is described as "Power management enable - system shutdown"
->    in a crippled datasheet of the wl1253, which I found in the internet.
+Hi Michael,
 
-> I don't think this is supposed to be handled by the regulator API.
+        Nice work!  Just one comment.  Your patch highlights the
+anachronistic name MAX_PACKET_LEN: it was from the original
+implementation which only supported 1500 byte packets, and only used in
+one place.
 
-I agree, this sounds like a GPIO that the driver should be understanding
-directly to me.
+Please apply a first patch like this, then come up with a new constant
+name (GOOD_PACKET_LEN?) for that value.  Because it's not the maximum
+packet we can receive for mergable buffers.
 
---WfZ7S8PLGjBY9Voh
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Thanks,
+Rusty.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+Subject: virtio_net: remove anachronistic MAX_PACKET_LEN constant.
+From: Rusty Russell <rusty@rustcorp.com.au>
 
-iQIcBAEBAgAGBQJSbxBWAAoJELSic+t+oim9OnIQAILP4+u0yOy43NV8KK9USROC
-7wUy2+YEkaMlbhhXvevCaK7dhqFAmmj9RZPWKcOfZn2IAIQGqkalKfizqgEVvCi7
-CH9VrZ92LlFgp0Nlln4xI17IOzki5pILLGWx2dJZzCnXLCqyH8IYgdXM7sooHSVS
-xLhu9JF6nqx5mRU3TuGBkZddW+JBzPnOwGAuTS+tZdI2RrBLJbLeCjJKpYQnizRP
-ok+PjAQl1gduS8ycLDLhgy0a0vr6uW0ER8jUFC2uFxDn4APusi7Z1VSfg72ugpw5
-/R3Z3Bfaj2uVS8phCbASyQu2k0BsocF2G45LSGrMM/dUvtaR5AGriuqWc24diJur
-/xvzS70IFWkMzwuGTkO67kPQySkMZSwaQ56pzoqE51tV1R2yrBzPo2qWdtzXcrQX
-JEP2L4144SmjlkkDOYVME5ccFSG5kpI7qlssjG6dz52ik9sKOtIKvr19ap0PukYg
-Jm6WFoqNyco3sibEdJI9lfOXSHTemfTVNoLnRsARHoA20RDkxBxAqr+CKVi0axJF
-QkFMyQQg4jyUIFp7m4RVM3t04hrJjw2o5juPh0tqUIYtE1iU0SAxNJ6gCKpTva2N
-TDwdQUBf5rd/ln6NsJYqpCCUe9+kxB6jgCYx8PPqp+C+tfjbCvt1qnFX8pJJ+P1k
-8vCuursNrJWXmYEfx8L4
-=V5WW
------END PGP SIGNATURE-----
+The initial implementation of virtio_net only allowed ethernet-style
+MTU packets; with more recent features this isn't true.  Move the
+constant into the function where it's used.
 
---WfZ7S8PLGjBY9Voh--
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 057ea13..dcbfccd 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -35,8 +35,6 @@ static bool csum = true, gso = true;
+ module_param(csum, bool, 0444);
+ module_param(gso, bool, 0444);
+ 
+-/* FIXME: MTU in config. */
+-#define MAX_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
+ #define GOOD_COPY_LEN	128
+ 
+ #define VIRTNET_DRIVER_VERSION "1.0.0"
+@@ -434,12 +432,13 @@ static int add_recvbuf_small(struct receive_queue *rq, gfp_t gfp)
+ 	struct sk_buff *skb;
+ 	struct skb_vnet_hdr *hdr;
+ 	int err;
++	const int len = ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN;
+ 
+-	skb = __netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN, gfp);
++	skb = __netdev_alloc_skb_ip_align(vi->dev, len, gfp);
+ 	if (unlikely(!skb))
+ 		return -ENOMEM;
+ 
+-	skb_put(skb, MAX_PACKET_LEN);
++	skb_put(skb, len);
+ 
+ 	hdr = skb_vnet_hdr(skb);
+ 	sg_set_buf(rq->sg, &hdr->hdr, sizeof hdr->hdr);
