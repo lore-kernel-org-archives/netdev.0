@@ -1,42 +1,35 @@
-From: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
-Subject: [PATCH v2 12/19] irda: sh_irda: Enable the driver on all ARM platforms
-Date: Tue, 29 Oct 2013 23:37:47 +0100
-Message-ID: <1383086274-11049-13-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
-References: <1383086274-11049-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
-Cc: linux-arm-kernel@lists.infradead.org,
-	Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org
-To: linux-sh@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1383086274-11049-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/4] Fix MDIO bus timeout issues on Dreamplug
+Date: Tue, 29 Oct 2013 18:54:50 -0400 (EDT)
+Message-ID: <20131029.185450.1734537211071455991.davem@davemloft.net>
+References: <cover.1382637156.git.leigh@solinno.co.uk>
+	<cover.1383038973.git.leigh@solinno.co.uk>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni@free-electrons.com,
+	sebastian.hesselbarth@gmail.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jason@lakedaemon.net
+To: leigh@solinno.co.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49513 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750971Ab3J2Wyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 18:54:52 -0400
+In-Reply-To: <cover.1383038973.git.leigh@solinno.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Renesas ARM platforms are transitioning from single-platform to
-multi-platform kernels using the new ARCH_SHMOBILE_MULTI. Make the
-driver available on all ARM platforms to enable it on both ARCH_SHMOBILE
-and ARCH_SHMOBILE_MULTI, and increase build testing coverage with
-COMPILE_TEST.
+From: Leigh Brown <leigh@solinno.co.uk>
+Date: Tue, 29 Oct 2013 09:33:30 +0000
 
-Cc: Samuel Ortiz <samuel@sortiz.org>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
----
- drivers/net/irda/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> I think I have addressed all comments.
+> 
+> Changes since v2:
+>  - Fix coding style in ordio_mdio_wait_ready, as identified by David
+>  - Remove un-needed operator change in orion_mdio_write, as identified by David
+> 
+> This patchset fixes an issue with the Dreamplug MDIO bus timeout since the
+> mv643xx_eth driver was converted to use the mvmdio driver to access the bus.
 
-diff --git a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
-index 2a30193..e04b907 100644
---- a/drivers/net/irda/Kconfig
-+++ b/drivers/net/irda/Kconfig
-@@ -403,7 +403,7 @@ config MCS_FIR
- 
- config SH_IRDA
- 	tristate "SuperH IrDA driver"
--	depends on IRDA && ARCH_SHMOBILE
-+	depends on IRDA && (ARM || COMPILE_TEST)
- 	help
- 	  Say Y here if your want to enable SuperH IrDA devices.
- 
--- 
-1.8.1.5
-
+Series applied to net-next, thanks.
