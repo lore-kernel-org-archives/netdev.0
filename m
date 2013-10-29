@@ -1,35 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/4] Fix MDIO bus timeout issues on Dreamplug
-Date: Tue, 29 Oct 2013 18:54:50 -0400 (EDT)
-Message-ID: <20131029.185450.1734537211071455991.davem@davemloft.net>
-References: <cover.1382637156.git.leigh@solinno.co.uk>
-	<cover.1383038973.git.leigh@solinno.co.uk>
+Subject: Re: [net-next 11/11] i40e: fix error return code in i40e_probe()
+Date: Tue, 29 Oct 2013 18:57:22 -0400 (EDT)
+Message-ID: <20131029.185722.1940335622558600585.davem@davemloft.net>
+References: <1383048151-15002-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1383048151-15002-12-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1383066330.2713.20.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com,
-	sebastian.hesselbarth@gmail.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, jason@lakedaemon.net
-To: leigh@solinno.co.uk
+Cc: jeffrey.t.kirsher@intel.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49513 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49544 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750971Ab3J2Wyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 18:54:52 -0400
-In-Reply-To: <cover.1383038973.git.leigh@solinno.co.uk>
+	with ESMTP id S1750971Ab3J2W5Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 18:57:24 -0400
+In-Reply-To: <1383066330.2713.20.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Leigh Brown <leigh@solinno.co.uk>
-Date: Tue, 29 Oct 2013 09:33:30 +0000
+From: Joe Perches <joe@perches.com>
+Date: Tue, 29 Oct 2013 10:05:30 -0700
 
-> I think I have addressed all comments.
+> On Tue, 2013-10-29 at 05:02 -0700, Jeff Kirsher wrote:
+>> Fix to return -ENOMEM in the memory alloc error handling
+>> case instead of 0, as done elsewhere in this function.
 > 
-> Changes since v2:
->  - Fix coding style in ordio_mdio_wait_ready, as identified by David
->  - Remove un-needed operator change in orion_mdio_write, as identified by David
+> trivial note:
 > 
-> This patchset fixes an issue with the Dreamplug MDIO bus timeout since the
-> mv643xx_eth driver was converted to use the mvmdio driver to access the bus.
+>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> []
+>> @@ -7204,8 +7204,10 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>>  	 */
+>>  	len = sizeof(struct i40e_vsi *) * pf->hw.func_caps.num_vsis;
+>>  	pf->vsi = kzalloc(len, GFP_KERNEL);
+>> -	if (!pf->vsi)
+>> +	if (!pf->vsi) {
+>> +		err = -ENOMEM;
+>>  		goto err_switch_setup;
+>> +	}
+> 
+> This might be better as:
+> 
+> 	pf->vsi = kcalloc(pf->hw.func_caps.num_vsis, struct i40e_vsi *),
+> 			  GFP_KERNEL);
+> 
+> and removing the now unused u32 len; declaration.
 
-Series applied to net-next, thanks.
+Agreed but that's a follow-on patch rather than something to block this
+pull request.
