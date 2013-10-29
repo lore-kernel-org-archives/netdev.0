@@ -1,55 +1,132 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH] bgmac: don't update slot on skb alloc/dma mapping error
-Date: Tue, 29 Oct 2013 09:28:56 +0100
-Message-ID: <CACna6rzqwz_wp=9ayX6AUZvVSNwdAg-LniXtNwy9eRFDEoNspg@mail.gmail.com>
-References: <BLU0-SMTP119F7A71B34291D1CC2486BAC090@phx.gbl>
-	<CACna6rzxt2QMtLfD84pw7EtYqg1Qva4ah83hVQOKpeKy72bd5w@mail.gmail.com>
-	<BLU0-SMTP200803D333FF3A2F15AB82DAC090@phx.gbl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev@vger.kernel.org>
-To: Nathan Hintz <nlhintz@hotmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f48.google.com ([209.85.219.48]:57017 "EHLO
-	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752807Ab3J2I24 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 04:28:56 -0400
-Received: by mail-oa0-f48.google.com with SMTP id m17so4762904oag.7
-        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 01:28:56 -0700 (PDT)
-In-Reply-To: <BLU0-SMTP200803D333FF3A2F15AB82DAC090@phx.gbl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kumar Gala <galak@codeaurora.org>
+Subject: Re: [PATCH 4/4] wl1251: spi: add device tree support
+Date: Tue, 29 Oct 2013 03:28:39 -0500
+Message-ID: <11FD245D-02A1-4E29-A23A-66A1D64210DC@codeaurora.org>
+References: <1382890469-25286-1-git-send-email-sre@debian.org>
+ <1382890469-25286-5-git-send-email-sre@debian.org>
+ <FF34C626-4A49-43B1-B0AD-DC6146ABBB11@codeaurora.org>
+ <4893578.SBstXOAcJY@flatron>
+Mime-Version: 1.0 (Apple Message framework v1283)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, linux-doc@vger.kernel.org,
+ Tony Lindgren <tony@atomide.com>, Sebastian Reichel <sre@debian.org>,
+ Russell King <linux@arm.linux.org.uk>, Sachin Kamat <sachin.kamat@linaro.org>,
+ Stephen Warren <swarren@wwwdotorg.org>, Sebastian Reichel <sre@ring0.de>,
+ Luciano Coelho <luca@coelho.fi>, devicetree@vger.kernel.org,
+ Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ "John W. Linville" <linville@tuxdriver.com>,
+ Rob Herring <rob.herring@calxeda.com>, Bill Pemberton <wfp5p@virginia.edu>,
+ linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+ Felipe Balbi <balbi@ti.com>, Rob Landley <rob@landley.net>,
+ netdev@vger.kernel.org
+To: Tomasz Figa <tomasz.figa@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <4893578.SBstXOAcJY@flatron>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-2013/10/29 Nathan Hintz <nlhintz@hotmail.com>:
-> On Tue, 29 Oct 2013 07:52:58 +0100
-> Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> wrote:
->
->> 2013/10/29 Nathan Hintz <nlhintz@hotmail.com>:
->> > Don't update the slot in "bgmac_dma_rx_skb_for_slot" unless both t=
-he
->> > skb alloc and dma mapping are successful; and free the newly alloc=
-ated
->> > skb if a dma mapping error occurs.  This will prevent an skb leak =
-upon
->> > returning when an error occurs.
->>
->> In case of bgmac_dma_rx_skb_for_slot failure we're giving up anyway
->> (and freeing everything), but with your patch code is simpler to
->> understand, so I'm OK with that.
->>
->> Acked-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
->>
->
-> I might be misunderstanding; but it in the case of failure, it appear=
-ed to me
-> that the currently received packet was dropped and the old skb would =
-continue
-> to be assigned to the slot and would be used to receive future packet=
-s (this
-> would continue until bgmac_dma_rx_skb_for_slot was successful).
 
-I was commenting on current usage (bgmac_dma_alloc), not my WIP patch
-for bgmac_dma_rx_read :)
+On Oct 28, 2013, at 5:38 PM, Tomasz Figa wrote:
 
-Your patch will be helpful for my bgmac_dma_rx_read rework.
+> On Monday 28 of October 2013 01:37:34 Kumar Gala wrote:
+>> On Oct 27, 2013, at 11:14 AM, Sebastian Reichel wrote:
+>>> Add device tree support for the spi variant of wl1251
+>>> and document the binding.
+>>> 
+>>> Signed-off-by: Sebastian Reichel <sre@debian.org>
+>>> ---
+>>> .../devicetree/bindings/net/wireless/ti,wl1251.txt | 36
+>>> ++++++++++++++++++++++ drivers/net/wireless/ti/wl1251/spi.c          
+>>>    | 23 ++++++++++---- 2 files changed, 53 insertions(+), 6
+>>> deletions(-)
+>>> create mode 100644
+>>> Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
+>>> 
+>>> diff --git
+>>> a/Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
+>>> b/Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt new
+>>> file mode 100644
+>>> index 0000000..5f8a154
+>>> --- /dev/null
+>>> +++ b/Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
+>>> @@ -0,0 +1,36 @@
+>>> +* Texas Instruments wl1251 controller
+>>> +
+>>> +The wl1251 chip can be connected via SPI or via SDIO. The linux
+>>> +kernel currently only supports device tree for the SPI variant.
+>>> +
+>> 
+>> From the binding I have no idea what this chip actually does, also we
+>> don't normally reference linux kernel support in bindings specs (so
+>> please remove it).
+>> 
+>> However, what would expect the SDIO binding to look like?  Or more
+>> specifically, how would you distinguish the SPI vs SDIO
+>> binding/connection?  I'm wondering if the compatible should be
+>> something like "ti,wl1251-spi" and than the sdio can be
+>> "ti,wl1251-sdio"
+> 
+> Well, you can easily distinguish an SDIO device from an SPI device by its 
+> parent node, but...
+> 
+> The binding for SDIO might require different set of properties (other than 
+> ones inherited from generic SDIO or SPI bindings) than one for SPI. So 
+> probably different compatible values might be justified.
+> 
+> Did we already have such case before? (maybe some I2C + SPI devices?)
+> 
+>>> +Required properties:
+>>> +- compatible : Should be "ti,wl1251"
+>> 
+>> reg is not listed as a required prop.
+> 
+> It is implied by SPI bindings, but it might be a good idea to have this 
+> stated here as well.
+> 
+>> 
+>>> +- interrupts : Should contain interrupt line
+>>> +- interrupt-parent : Should be the phandle for the interrupt
+>>> +  controller that services interrupts for this device
+>>> +- vio-supply : phandle to regulator providing VIO
+>>> +- power-gpio : GPIO connected to chip's PMEN pin
+>> 
+>> should be vendor prefixed: ti,power-gpio
+> 
+> Hmm, out of curiosity, is it a rule for this kind of properties? I can see 
+> both cases with and without prefixes when grepping for "-gpios" in 
+> Documentation/devicetree/bindings. We should really have such things 
+> written down somewhere.
+
+Agreed, it should be part of the various docs we are suppose to produce for review and binding creation guidelines.
+
+>>> +- For additional required properties on SPI, please consult
+>>> +  Documentation/devicetree/bindings/spi/spi-bus.txt
+>>> +
+>>> +Optional properties:
+>>> +- ti,use-eeprom : If found, configuration will be loaded from eeprom.
+>> 
+>> can you be a bit more specific on what cfg will be loaded.  Also, is
+>> this property a boolean, if so how do I know which eeprom the cfg is
+>> loaded from (is it one that is directly connected to the wl1251?
+> 
+> Maybe one from ti,has-eeprom or ti,config-eeprom would be better name for 
+> this property?
+
+Probably, ti,wl1251-has-eeprom or something like that would be better.  However, I'm not going to get too caught up on names of properties.
+
+- k
+
+-- 
+Employee of Qualcomm Innovation Center, Inc.
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, hosted by The Linux Foundation
