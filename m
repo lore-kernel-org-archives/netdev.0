@@ -1,37 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Realtek RTL8102E registers
-Date: Tue, 29 Oct 2013 22:40:59 +0100
-Message-ID: <20131029214059.GA26496@electric-eye.fr.zoreil.com>
-References: <526FCEAA.30102@speechpro.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 3.12-rc7 regression - network panic from ipv6
+Date: Tue, 29 Oct 2013 17:42:58 -0400 (EDT)
+Message-ID: <20131029.174258.1677867676998240250.davem@davemloft.net>
+References: <alpine.SOC.1.00.1310292221550.19416@math.ut.ee>
+	<20131029210758.GA18323@order.stressinduktion.org>
+	<alpine.SOC.1.00.1310292338010.22172@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux r8169 crew <netdev@vger.kernel.org>
-To: Ivan Frederiks <frederiks@speechpro.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:37844 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752135Ab3J2VlB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 17:41:01 -0400
-Content-Disposition: inline
-In-Reply-To: <526FCEAA.30102@speechpro.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, steffen.klassert@secunet.com
+To: mroos@linux.ee
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.SOC.1.00.1310292338010.22172@math.ut.ee>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ivan Frederiks <frederiks@speechpro.com> :
-[...]
-> Maybe you have access to RTL8102E register description ?
+From: Meelis Roos <mroos@linux.ee>
+Date: Tue, 29 Oct 2013 23:38:28 +0200 (EET)
 
-No.
+>> > Some bad news - in a system where 3.12-rc6 and earlier worked fine, 
+>> > 3.12-rc7 panics or hangs repeatedly with network traffic (torrent being 
+>> > good test). First there is BUG from ipv6 code, followed by panic.
+>> 
+>> Could you do a bisect on this? There seems to be one commit for this
+>> particular function _decode_session6:
+>> 
+>> commit bafd4bd4dcfa13145db7f951251eef3e10f8c278
+>> Author: Steffen Klassert <steffen.klassert@secunet.com>
+>> Date:   Mon Sep 9 10:38:38 2013 +0200
+>> 
+>>     xfrm: Decode sessions with output interface.
+>>     
+>>     The output interface matching does not work on forward
+>>     policy lookups, the output interface of the flowi is
+>>     always 0. Fix this by setting the output interface when
+>>     we decode the session.
+>> 
+>> Maybe try to just revert this change locally and try again?
+> 
+> Yes, just reverting this patch on top of rc7 gets rid of the problem for 
+> me.
 
-Realtek's hardware documentation policy isn't exactly opened. Your hardware
-vendor may help.
-
-[...]
-> Issue description:
-[snip]
-
-kernel version and r81xx XID value as it should appear in dmesg would
-be welcome.
-
--- 
-Ueimor
+Steffen please fix this or I'll have to revert.
