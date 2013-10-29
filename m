@@ -1,36 +1,37 @@
-From: Laurent Navet <laurent.navet@gmail.com>
-Subject: [PATCH 1/2] octeon_mgmt: remove double validation of mac address
-Date: Tue, 29 Oct 2013 22:27:33 +0100
-Message-ID: <1383082053-12405-1-git-send-email-laurent.navet@gmail.com>
-Cc: jiri@resnulli.us, david.daney@cavium.com, wfp5p@virginia.edu,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Laurent Navet <laurent.navet@gmail.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] net: sched: cls_bpf: add BPF-based
+ classifier
+Date: Tue, 29 Oct 2013 17:34:09 -0400 (EDT)
+Message-ID: <20131029.173409.627047475551100692.davem@davemloft.net>
+References: <cover.1382974535.git.dborkman@redhat.com>
+	<8b7eb31a8976ea086ff904e42514e4ab3d937712.1382974535.git.dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, tgraf@suug.ch
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48910 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752609Ab3J2VeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 17:34:11 -0400
+In-Reply-To: <8b7eb31a8976ea086ff904e42514e4ab3d937712.1382974535.git.dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mac address validity is already checked in of_get_mac_address().
-No need to do it twice.
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Mon, 28 Oct 2013 16:43:02 +0100
 
-Signed-off-by: Laurent Navet <laurent.navet@gmail.com>
----
- drivers/net/ethernet/octeon/octeon_mgmt.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> This work contains a lightweight BPF-based traffic classifier that can
+> serve as a flexible alternative to ematch-based tree classification, i.e.
+> now that BPF filter engine can also be JITed in the kernel. Naturally, tc
+> actions and policies are supported as well with cls_bpf. Multiple BPF
+> programs/filter can be attached for a class, or they can just as well be
+> written within a single BPF program, that's really up to the user how he
+> wishes to run/optimize the code, e.g. also for inversion of verdicts etc.
+> The notion of a BPF program's return/exit codes is being kept as follows:
 
-diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
-index 622aa75..1b326cbc 100644
---- a/drivers/net/ethernet/octeon/octeon_mgmt.c
-+++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
-@@ -1545,7 +1545,7 @@ static int octeon_mgmt_probe(struct platform_device *pdev)
- 
- 	mac = of_get_mac_address(pdev->dev.of_node);
- 
--	if (mac && is_valid_ether_addr(mac))
-+	if (mac)
- 		memcpy(netdev->dev_addr, mac, ETH_ALEN);
- 	else
- 		eth_hw_addr_random(netdev);
--- 
-1.8.4.rc3
+This looks great, although a lot of things this supports could be done
+using u32 filters, but this is more flexible.
+
+Applied, thanks.
