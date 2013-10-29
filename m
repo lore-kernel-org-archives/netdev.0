@@ -1,87 +1,98 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH net-next] virtio_net: migrate mergeable rx buffers to page frag allocators
-Date: Tue, 29 Oct 2013 12:21:56 +1030
-Message-ID: <87ppqoetdv.fsf@rustcorp.com.au>
-References: <1383000258-1458-1-git-send-email-mwdalton@google.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next 2/3] tipc: message reassembly
+ using fragment chain
+Date: Tue, 29 Oct 2013 09:56:56 +0800
+Message-ID: <526F15E8.9020009@windriver.com>
+References: <1382812863-23571-1-git-send-email-jon.maloy@ericsson.com>
+	<1382812863-23571-3-git-send-email-jon.maloy@ericsson.com>
+	<20131028.010737.400887499395331496.davem@davemloft.net>
+	<526E3B49.9030506@donjonn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	Michael Dalton <mwdalton@google.com>
-To: Michael Dalton <mwdalton@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:52116 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756651Ab3J2B5M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Oct 2013 21:57:12 -0400
-In-Reply-To: <1383000258-1458-1-git-send-email-mwdalton@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, David Miller <davem@davemloft.net>
+To: Jon Maloy <maloy@donjonn.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <526E3B49.9030506@donjonn.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Michael Dalton <mwdalton@google.com> writes:
-> The virtio_net driver's mergeable receive buffer allocator
-> uses 4KB packet buffers. For MTU-sized traffic, SKB truesize
-> is > 4KB but only ~1500 bytes of the buffer is used to store
-> packet data, reducing the effective TCP window size
-> substantially. This patch addresses the performance concerns
-> with mergeable receive buffers by allocating MTU-sized packet
-> buffers using page frag allocators. If more than MAX_SKB_FRAGS
-> buffers are needed, the SKB frag_list is used.
->
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
+On 10/28/2013 06:24 PM, Jon Maloy wrote:
+> On 10/28/2013 01:07 AM, David Miller wrote:
+>> From: Jon Maloy <jon.maloy@ericsson.com>
+>> Date: Sat, 26 Oct 2013 14:41:02 -0400
+>>
+>>> +			int ret = tipc_link_recv_fragment(
+>>> +					&node->bclink.reasm_head,
+>>> +					&node->bclink.reasm_tail,
+>>> +					&buf);
+>> This is not the correct way to indent a function call that spans
+>> multiple lines.  In such a situation the arguments that appear
+>> on the second and subsequent lines must start at the first column
+>> after the openning parenthesis of the function call.
+>>
+>> Like this:
+>>
+>> 	func(a, b, c,
+>> 	     d, e, f);
+>>
+>> Please audit this in your entire set of patches and resubmit,
+>> thanks.
+> 
+> Doing as David says here means that some lines will be >80 chars.
+> This was the reason for the somewhat strange indentation.
+> I tried to rename the function to tipc_link_rcv_fragm(), but one
+> line was still too long. The problem we have goes deeper.
+> 
+> In Linus' coding style manual I read that the 80 char limit is a hard limit,
+> a limit we violate in several places. One offender is that we have too
+> many indentation levels, at least in tipc_recv_msg() and probably in
+> some other places. This is sensitive code, that I don't feel for touching
+> right now.  A more low hanging fruit is our local variable names:
+> names such as l_ptr, n_ptr, b_ptr is exactly what Linus characterizes
+> as "brain dead Hungarian style", and I never liked that naming anyway.
+> For me l, n, and b is good enough as long as the context is clear.
+> 
+> But, doing so, at least in tipc_recv_msg(), would require another, separate,
+> patch, and it would lead to style inconsistency.
+> 
+> In brief, I am at loss about to proceed here, and I am not going to submit
+> this patch again until I have some feedback from somebody who can tell me
+> what is the right thing to do. Maybe > 80 chars is fine for now?
+> 
 
-Hi Michael,
+It's hard completely resolve the issue by simply changing variable
+names. So in my opinion, this is not a simple code style problem any
+more. As tipc_recv_msg() is too complex, it includes at least three
+embedded loops so that it doesn't remain too much space for functions in
+the most inner loop. This is the key point.
 
-        Nice work!  Just one comment.  Your patch highlights the
-anachronistic name MAX_PACKET_LEN: it was from the original
-implementation which only supported 1500 byte packets, and only used in
-one place.
+Therefore, the best method is to divide tipc_recv_msg() into several
+smaller functions to simplify the current implementation. But it's not
+an easy job. Actually I ever tried to do it, but I gave up lastly
+because I did not find one perfect solution about how to divide it.
 
-Please apply a first patch like this, then come up with a new constant
-name (GOOD_PACKET_LEN?) for that value.  Because it's not the maximum
-packet we can receive for mergable buffers.
+Regards,
+Ying
 
-Thanks,
-Rusty.
+> ///jon
+> 
+> 
+> 
+> 
 
-Subject: virtio_net: remove anachronistic MAX_PACKET_LEN constant.
-From: Rusty Russell <rusty@rustcorp.com.au>
 
-The initial implementation of virtio_net only allowed ethernet-style
-MTU packets; with more recent features this isn't true.  Move the
-constant into the function where it's used.
-
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 057ea13..dcbfccd 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -35,8 +35,6 @@ static bool csum = true, gso = true;
- module_param(csum, bool, 0444);
- module_param(gso, bool, 0444);
- 
--/* FIXME: MTU in config. */
--#define MAX_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
- #define GOOD_COPY_LEN	128
- 
- #define VIRTNET_DRIVER_VERSION "1.0.0"
-@@ -434,12 +432,13 @@ static int add_recvbuf_small(struct receive_queue *rq, gfp_t gfp)
- 	struct sk_buff *skb;
- 	struct skb_vnet_hdr *hdr;
- 	int err;
-+	const int len = ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN;
- 
--	skb = __netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN, gfp);
-+	skb = __netdev_alloc_skb_ip_align(vi->dev, len, gfp);
- 	if (unlikely(!skb))
- 		return -ENOMEM;
- 
--	skb_put(skb, MAX_PACKET_LEN);
-+	skb_put(skb, len);
- 
- 	hdr = skb_vnet_hdr(skb);
- 	sg_set_buf(rq->sg, &hdr->hdr, sizeof hdr->hdr);
+------------------------------------------------------------------------------
+Android is increasing in popularity, but the open development platform that
+developers love is also attractive to malware creators. Download this white
+paper to learn more about secure code signing practices that can help keep
+Android apps secure.
+http://pubads.g.doubleclick.net/gampad/clk?id=65839951&iu=/4140/ostg.clktrk
