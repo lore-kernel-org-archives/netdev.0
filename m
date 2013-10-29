@@ -1,51 +1,34 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: 3.12-rc7 regression - network panic from ipv6
-Date: Tue, 29 Oct 2013 23:21:24 +0200 (EET)
-Message-ID: <alpine.LFD.2.03.1310292310180.2045@ssi.bg>
-References: <alpine.SOC.1.00.1310292221550.19416@math.ut.ee> <20131029210758.GA18323@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Meelis Roos <mroos@linux.ee>,
-	Linux Kernel list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, steffen.klassert@secunet.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Laurent Navet <laurent.navet@gmail.com>
+Subject: [PATCH] mvneta: remove double validation of mac address
+Date: Tue, 29 Oct 2013 22:25:06 +0100
+Message-ID: <1383081906-12342-1-git-send-email-laurent.navet@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Laurent Navet <laurent.navet@gmail.com>
+To: thomas.petazzoni@free-electrons.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131029210758.GA18323@order.stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Mac address validity is already checked in of_get_mac_address().
+No need to do it twice.
 
-	Hello,
+Signed-off-by: Laurent Navet <laurent.navet@gmail.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-On Tue, 29 Oct 2013, Hannes Frederic Sowa wrote:
-
-> On Tue, Oct 29, 2013 at 10:33:36PM +0200, Meelis Roos wrote:
-> > Some bad news - in a system where 3.12-rc6 and earlier worked fine, 
-> > 3.12-rc7 panics or hangs repeatedly with network traffic (torrent being 
-> > good test). First there is BUG from ipv6 code, followed by panic.
-> 
-> Could you do a bisect on this? There seems to be one commit for this
-> particular function _decode_session6:
-> 
-> commit bafd4bd4dcfa13145db7f951251eef3e10f8c278
-> Author: Steffen Klassert <steffen.klassert@secunet.com>
-> Date:   Mon Sep 9 10:38:38 2013 +0200
-> 
->     xfrm: Decode sessions with output interface.
->     
->     The output interface matching does not work on forward
->     policy lookups, the output interface of the flowi is
->     always 0. Fix this by setting the output interface when
->     we decode the session.
-> 
-> Maybe try to just revert this change locally and try again?
-
-	At first look this change can work only for
-forwarding, for output the skb_dst is attached later
-in icmpv6_push_pending_frames. May be a check for present
-skb_dst is needed.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index e35bac7..7d99e695 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -2811,7 +2811,7 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	dt_mac_addr = of_get_mac_address(dn);
+-	if (dt_mac_addr && is_valid_ether_addr(dt_mac_addr)) {
++	if (dt_mac_addr) {
+ 		mac_from = "device tree";
+ 		memcpy(dev->dev_addr, dt_mac_addr, ETH_ALEN);
+ 	} else {
+-- 
+1.8.4.rc3
