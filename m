@@ -1,60 +1,101 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: IPV6 nf defrag does not work
-Date: Tue, 29 Oct 2013 15:30:30 +0100
-Message-ID: <20131029143030.GC18526@minipsycho.orion>
-References: <20131029105208.GA18526@minipsycho.orion>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [patch net-next] ipv6: allow userspace to create address with
+ IFLA_F_TEMPORARY flag
+Date: Tue, 29 Oct 2013 09:31:18 -0500
+Message-ID: <1383057078.2236.12.camel@dcbw.foobar.com>
+References: <CAGCdqXHUW=RJf67qPXVRhPY__GAs02+G9mJV7agN5pDdfELXXA@mail.gmail.com>
+	 <20131027132941.GA1443@minipsycho.orion>
+	 <20131027164835.GB4714@order.stressinduktion.org>
+	 <20131028.171725.1076499130782328273.davem@davemloft.net>
+	 <1383002179.28991.14.camel@dcbw.foobar.com>
+	 <20131028234842.GB26185@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, kadlec@blackhole.kfki.hu, kaber@trash.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
+	vyasevich@gmail.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	thaller@redhat.com, stephen@networkplumber.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f171.google.com ([209.85.215.171]:60351 "EHLO
-	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755542Ab3J2Oad (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 10:30:33 -0400
-Received: by mail-ea0-f171.google.com with SMTP id h10so1366816eak.16
-        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 07:30:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20131029105208.GA18526@minipsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:27884 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753202Ab3J2OcR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Oct 2013 10:32:17 -0400
+In-Reply-To: <20131028234842.GB26185@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Oct 29, 2013 at 11:52:08AM CET, jiri@resnulli.us wrote:
->Hi All.
->
->On the current net-next if you on HOSTA do:
->ip6tables -I INPUT -p icmpv6 -j DROP
->ip6tables -I INPUT -p icmpv6 -m icmp6 --icmpv6-type 128 -j ACCEPT
->
->and on HOSTB you do:
->ping6 HOSTA -s2000    (MTU is 1500)
->
->Only the first ICMP echo request will be passed through, the rest is not
->passed on HOSTA. This issue does not occur with smaller packets than MTU (where
->fragmentation does not happen).
->
+On Tue, 2013-10-29 at 00:48 +0100, Hannes Frederic Sowa wrote:
+> On Mon, Oct 28, 2013 at 06:16:19PM -0500, Dan Williams wrote:
+> > On Mon, 2013-10-28 at 17:17 -0400, David Miller wrote:
+> > > From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > > Date: Sun, 27 Oct 2013 17:48:35 +0100
+> > > 
+> > > > A temporary address is also bound to a non-privacy public address so
+> > > > it's lifetime is determined by its lifetime (e.g. if you switch the
+> > > > network and don't receive on-link information for that prefix any
+> > > > more). NetworkManager would have to take care about that, too. It is
+> > > > just a question of what NetworkManager wants to handle itself or lets
+> > > > the kernel handle for it.
+> > > 
+> > > How much really needs to be in userspace to implement RFC4941?
+> > > 
+> > > I don't like the idea that even for a fully up and properly
+> > > functioning link, if NetworkManager wedges then critical things like
+> > > temporary address (re-)generation, will cease.
+> > 
+> > Honestly, I'd be completely happy to leave temporary address handling up
+> > to the kernel and *not* do it in userspace; the kernel already has all
+> > the code.  There are two problems with that though, (a) it's tied to
+> > in-kernel RA handling, and (b) it's controlled by a CONFIG option.  Both
+> > these are solvable.
+> 
+> Ah, (a) does complicate things, I agree. But the tieing is essential
+> currently. So it seems a netlink interface would be needed to tie a new
+> address to an already installed one, if the kernel should still deal
+> with the regeneration?
 
-Hmm. The reason why first packet goes through is because of:
-commit 58a317f1061c894d2344c0b6a18ab4a64b69b815
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Sun Aug 26 19:14:12 2012 +0200
+I think it's simpler than that.  New flag set when adding the
+non-private address that says "create and manage privacy addresses for
+this non-private address".  The kernel then adds the privacy addresses
+generated off the non-private address/prefixlen, and ties their lifetime
+to the non-private address.  If the non-private address is removed, the
+privacy addresses could get removed too.
 
-    netfilter: ipv6: add IPv6 NAT support
+I don't think we need API to tie addresses to already installed ones,
+because the kernel already has the privacy address generation code, so
+why should userspace generate the privacy address at all?  Just leave
+that to the kernel.
 
+> > First off, what's the reasoning behind having IPv6 privacy as a config
+> > option?  It's off-by-default and must be explicitly turned on, so is
+> > there any harm in removing the config?  Or is it just for
+> > smallest-kernel-ever folks?
+> 
+> I don't know about the policy. Does it really matter as distributions
+> normally switch it on? But I would not like to see the option removed
+> entirly, maybe the default could be changed.
+> 
+> > Would a new IFA_F_MANAGE_TEMP (or better name) work here, indicating
+> > that for some new static address, that the kernel should create and
+> > manage the temporary privacy addresses associated with its prefix?
+> 
+> But this would only be needed if they were managed in user-space, no?
 
-First packet will hit "if ((help && help->helper) || !nf_ct_is_confirmed(ct))"
-(ct is uncorfirmed for it).
+"if they" == what?  privacy address or static address?  What
+NetworkManager is trying to do is handle RAs in userspace with libndp
+for various flexibility and behavioral reasons, but we'd really like to
+leave all the temporary address stuff up to the kernel.
 
+So NM would handle RA/RS and when it gets a prefix, it would create the
+IPv6 non-private address and add it to the interface.  When adding, it
+would also set the "IFA_F_MANAGE_TEMP" flag (or whatever) and the kernel
+would then handle all the privacy address generation, lifetimes, and
+timers.  Basically, break some of the privacy code away from the
+in-kernel RA handling so that privacy addresses could be triggered from
+userland too.
 
-For this, nf_conntrack_ipv6 has to be loaded. Continuing investigation.
+Would that be workable?
 
-
-
->I'm trying to find out where the problem is.
->
->Any quick ideas?
->
->Thanks
->
->Jiri
+Dan 
