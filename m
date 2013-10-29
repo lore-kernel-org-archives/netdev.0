@@ -1,55 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2] can: c_can: Speed up rx_poll function
-Date: Tue, 29 Oct 2013 09:24:05 -0700
-Message-ID: <1383063845.2713.15.camel@joe-AO722>
-References: <1383035267-19604-1-git-send-email-mpa@pengutronix.de>
-	 <1383035688.2713.2.camel@joe-AO722> <20131029085853.GC20839@pengutronix.de>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH 00/19] Enable various Renesas drivers on all ARM platforms
+Date: Tue, 29 Oct 2013 09:28:48 -0700
+Message-ID: <CACRpkdbKk=n=6tU=9fD05Gu9utpQSZ1qrK7EqLf5qwaV7eHBWA@mail.gmail.com>
+References: <1383004027-25036-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel@pengutronix.de
-To: Markus Pargmann <mpa@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131029085853.GC20839@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "linux-fbdev@vger.kernel.org" <linux-fbdev@vger.kernel.org>,
+ "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+ Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>,
+ Thierry Reding <thierry.reding@gmail.com>,
+ "linux-mtd@lists.infradead.org" <linux-mtd@lists.infradead.org>,
+ "linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
+ Vinod Koul <vinod.koul@intel.com>, Joerg Roedel <joro@8bytes.org>,
+ Wolfram Sang <wsa@the-dreams.de>, Magnus Damm <magnus.damm@gmail.com>,
+ Eduardo Valentin <eduardo.valentin@ti.com>,
+ Tomi Valkeinen <tomi.valkeinen@ti.com>,
+ "linux-serial@vger.kernel.org" <linux-serial@vger.kernel.org>,
+ Linux Input <linux-input@vger.kernel.org>, Zhang Rui <rui.zhang@intel.com>,
+ Chris Ball <cjb@laptop.org>,
+ Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+ "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
+ "linux-pwm@vger.kernel.org" <linu
+To: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
+Return-path: <linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org>
+In-Reply-To: <1383004027-25036-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mtd>,
+ <mailto:linux-mtd-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mtd/>
+List-Post: <mailto:linux-mtd@lists.infradead.org>
+List-Help: <mailto:linux-mtd-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mtd>,
+ <mailto:linux-mtd-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-mtd" <linux-mtd-bounces@lists.infradead.org>
+Errors-To: linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-10-29 at 09:58 +0100, Markus Pargmann wrote:
-> On Tue, Oct 29, 2013 at 01:34:48AM -0700, Joe Perches wrote:
-> > On Tue, 2013-10-29 at 09:27 +0100, Markus Pargmann wrote:
-> > > This patch speeds up the rx_poll function by reducing the number of
-> > > register reads.
-> > []
-> > > 125kbit:
-> > >   Function                               Hit    Time            Avg             s^2
-> > >   --------                               ---    ----            ---             ---
-> > >   c_can_do_rx_poll                     63960    10168178 us     158.977 us      1493056 us
-> > > With patch:
-> > >   c_can_do_rx_poll                     63939    4268457 us     66.758 us       818790.9 us
-> > > 
-> > > 1Mbit:
-> > >   Function                               Hit    Time            Avg             s^2
-> > >   --------                               ---    ----            ---             ---
-> > >   c_can_do_rx_poll                     69489    30049498 us     432.435 us      9271851 us
-> > > With patch:
-> > >   c_can_do_rx_poll                    103034    24220362 us     235.071 us      6016656 us
-[]
-> Yes I just measured the timings again:
-[]
-> ./perf_can_test.sh 125000 30
-[]
->   c_can_do_rx_poll                     63941    3764057 us     58.867 us       776162.2 us 
+On Mon, Oct 28, 2013 at 4:46 PM, Laurent Pinchart
+<laurent.pinchart+renesas@ideasonboard.com> wrote:
 
-Good, it's slightly faster still.
+> If you believe the issue should be solved in a different way (for instance by
+> removing the architecture dependency completely) please reply to the cover
+> letter to let other maintainers chime in.
 
-> ./perf_can_test.sh 1000000 30
-[]
->   c_can_do_rx_poll                    207109    24322185 us     117.436 us      171469047 us 
-[]
-> It is interesting that the number of hits for c_can_do_rx_poll is twice as much
-> as it was with find_next_bit.
+I have no real opinions on whether this is a good itermediate step towards
+complete arch-independence or not, but I just noticed that you still
+have the <mach/*> hierarchy in mach-shmobile/include/mach/*, and
+grep:ing around this seems totally unnecessary, I think it would be
+easy to produce a patch set eliminating <mach/*> from shmobile.
 
-How is this possible?  Any idea?
+(Usually we will just move all the headers down into the
+mach-shmobile folder.)
+
+Yours,
+Linus Walleij
+
+______________________________________________________
+Linux MTD discussion mailing list
+http://lists.infradead.org/mailman/listinfo/linux-mtd/
