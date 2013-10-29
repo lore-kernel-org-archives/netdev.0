@@ -1,40 +1,27 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: 3.12-rc7 regression - network panic from ipv6
-Date: Tue, 29 Oct 2013 22:07:58 +0100
-Message-ID: <20131029210758.GA18323@order.stressinduktion.org>
-References: <alpine.SOC.1.00.1310292221550.19416@math.ut.ee>
+From: "Lee Hyuk" <leehyuk08@mail2world.com>
+Subject: Re:Answer back
+Date: Tue, 29 Oct 2013 14:34:06 -0000
+Message-ID: <c4299b6c72694a502d4b3dfcd6132c00.squirrel@168.63.124.57>
+Reply-To: hyuk.lee1@aol.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Linux Kernel list <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, steffen.klassert@secunet.com
-To: Meelis Roos <mroos@linux.ee>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.SOC.1.00.1310292221550.19416@math.ut.ee>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [168.63.124.57] ([168.63.124.57]:5633 "EHLO virtual.domain.tld"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751517Ab3J2VMu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Oct 2013 17:12:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 29, 2013 at 10:33:36PM +0200, Meelis Roos wrote:
-> Some bad news - in a system where 3.12-rc6 and earlier worked fine, 
-> 3.12-rc7 panics or hangs repeatedly with network traffic (torrent being 
-> good test). First there is BUG from ipv6 code, followed by panic.
 
-Could you do a bisect on this? There seems to be one commit for this
-particular function _decode_session6:
 
-commit bafd4bd4dcfa13145db7f951251eef3e10f8c278
-Author: Steffen Klassert <steffen.klassert@secunet.com>
-Date:   Mon Sep 9 10:38:38 2013 +0200
 
-    xfrm: Decode sessions with output interface.
-    
-    The output interface matching does not work on forward
-    policy lookups, the output interface of the flowi is
-    always 0. Fix this by setting the output interface when
-    we decode the session.
+I would like to discuss a very important crude oil project with
+you,kindlyrevert back to me if this is your valid email address for
+further information.
 
-Maybe try to just revert this change locally and try again?
+Regards,
 
-Thanks,
-
-  Hannes
+Lee
