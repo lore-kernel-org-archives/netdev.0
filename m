@@ -1,30 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bgmac: separate RX descriptor setup code into a new
- function
-Date: Tue, 29 Oct 2013 17:21:02 -0400 (EDT)
-Message-ID: <20131029.172102.1702458840834353036.davem@davemloft.net>
-References: <1382967629-3794-1-git-send-email-zajec5@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: 3.12-rc7 regression - network panic from ipv6
+Date: Tue, 29 Oct 2013 23:21:24 +0200 (EET)
+Message-ID: <alpine.LFD.2.03.1310292310180.2045@ssi.bg>
+References: <alpine.SOC.1.00.1310292221550.19416@math.ut.ee> <20131029210758.GA18323@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: zajec5@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48837 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752039Ab3J2VVD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 17:21:03 -0400
-In-Reply-To: <1382967629-3794-1-git-send-email-zajec5@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Meelis Roos <mroos@linux.ee>,
+	Linux Kernel list <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, steffen.klassert@secunet.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131029210758.GA18323@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Mon, 28 Oct 2013 14:40:29 +0100
 
-> This cleans code a bit and will be useful when allocating buffers in
-> other places (like RX path, to avoid skb_copy_from_linear_data_offset=
-).
->=20
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+	Hello,
 
-Applied to net-next, thanks.
+On Tue, 29 Oct 2013, Hannes Frederic Sowa wrote:
+
+> On Tue, Oct 29, 2013 at 10:33:36PM +0200, Meelis Roos wrote:
+> > Some bad news - in a system where 3.12-rc6 and earlier worked fine, 
+> > 3.12-rc7 panics or hangs repeatedly with network traffic (torrent being 
+> > good test). First there is BUG from ipv6 code, followed by panic.
+> 
+> Could you do a bisect on this? There seems to be one commit for this
+> particular function _decode_session6:
+> 
+> commit bafd4bd4dcfa13145db7f951251eef3e10f8c278
+> Author: Steffen Klassert <steffen.klassert@secunet.com>
+> Date:   Mon Sep 9 10:38:38 2013 +0200
+> 
+>     xfrm: Decode sessions with output interface.
+>     
+>     The output interface matching does not work on forward
+>     policy lookups, the output interface of the flowi is
+>     always 0. Fix this by setting the output interface when
+>     we decode the session.
+> 
+> Maybe try to just revert this change locally and try again?
+
+	At first look this change can work only for
+forwarding, for output the skb_dst is attached later
+in icmpv6_push_pending_frames. May be a check for present
+skb_dst is needed.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
