@@ -1,93 +1,43 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
-Date: Tue, 29 Oct 2013 13:52:33 +0100
-Message-ID: <20131029125233.GA17449@gmail.com>
-References: <20131017003421.GA31470@hmsreliant.think-freely.org>
- <20131017084121.GC22705@gmail.com>
- <20131028160131.GA31048@hmsreliant.think-freely.org>
- <20131028162438.GB14350@gmail.com>
- <20131028174630.GB31048@hmsreliant.think-freely.org>
- <20131028182913.GD31048@hmsreliant.think-freely.org>
- <20131029082542.GA24625@gmail.com>
- <20131029112022.GA24477@neilslaptop.think-freely.org>
- <20131029113031.GA16897@gmail.com>
- <20131029114907.GE24477@neilslaptop.think-freely.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bug in skb_segment: fskb->len != len
+Date: Tue, 29 Oct 2013 05:57:08 -0700
+Message-ID: <1383051428.5464.22.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131028115552.GC4408@cpaasch-mac>
+	 <1382966471.13037.18.camel@edumazet-glaptop.roam.corp.google.com>
+	 <1383009308.5464.2.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131029090849.GC5944@cpaasch-mac>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131029114907.GE24477@neilslaptop.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev <netdev@vger.kernel.org>
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:39575 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752757Ab3J2M5K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 08:57:10 -0400
+Received: by mail-pd0-f169.google.com with SMTP id q10so8554195pdj.28
+        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 05:57:09 -0700 (PDT)
+In-Reply-To: <20131029090849.GC5944@cpaasch-mac>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-* Neil Horman <nhorman@tuxdriver.com> wrote:
-
-> On Tue, Oct 29, 2013 at 12:30:31PM +0100, Ingo Molnar wrote:
-> > 
-> > * Neil Horman <nhorman@tuxdriver.com> wrote:
-> > 
-> > > Sure it was this:
-> > > for i in `seq 0 1 3`
-> > > do
-> > > echo $i > /sys/module/csum_test/parameters/module_test_mode
-> > > taskset -c 0 perf stat --repeat 20 -C 0 -ddd perf bench sched messaging -- /root/test.sh
-> > > done >> counters.txt 2>&1
-> > > 
-> > > where test.sh is:
-> > > #!/bin/sh
-> > > echo 1 > /sys/module/csum_test/parameters/test_fire
-> > 
-> > What does '-- /root/test.sh' do?
-> > 
-> > Unless I'm missing something, the line above will run:
-> > 
-> >   perf bench sched messaging -- /root/test.sh
-> > 
-> > which should be equivalent to:
-> > 
-> >   perf bench sched messaging
-> > 
-> > i.e. /root/test.sh won't be run.
+On Tue, 2013-10-29 at 10:08 +0100, Christoph Paasch wrote:
+> Ok, my router does not crash anymore with my workload.
 > 
-> According to the perf man page, I'm supposed to be able to use -- 
-> to separate perf command line parameters from the command I want 
-> to run.  And it definately executed test.sh, I added an echo to 
-> stdout in there as a test run and observed them get captured in 
-> counters.txt
+> Thanks for fixing it!
+> 
+> Tested-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 
-Well, '--' can be used to delineate the command portion for cases 
-where it's ambiguous.
+Ok fine ;)
 
-Here's it's unambiguous though. This:
+Do you mind to test the official patch, as I added a new sysctl so that
+GRO layer do not use frag_list on a router ?
 
-  perf stat --repeat 20 -C 0 -ddd perf bench sched messaging -- /root/test.sh
+You could check that /proc/sys/net/core/gro_frag_list_enable is
+automatically cleared.
 
-stops parsing a valid option after the -ddd option, so in theory it 
-should execute 'perf bench sched messaging -- /root/test.sh' where 
-'-- /root/test.sh' is simply a parameter to 'perf bench' and is thus 
-ignored.
+This way, we have optimal behavior for host or router.
 
-The message output you provided seems to suggest that to be the 
-case:
-
- Performance counter stats for 'perf bench sched messaging -- bash -c echo 1 > /sys/module/csum_test/parameters/test_fire' (20 runs):
-
-See how the command executed by perf stat was 'perf bench ...'.
-
-Did you want to run:
-
-  perf stat --repeat 20 -C 0 -ddd /root/test.sh
-
-?
-
-Thanks,
-
-	Ingo
+Thanks !
