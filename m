@@ -1,220 +1,118 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next] tipc: remove two indentation
-	levels in tipc_recv_msg routine
-Date: Tue, 29 Oct 2013 19:01:11 +0800
-Message-ID: <1383044471-12982-1-git-send-email-ying.xue@windriver.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH] bridge: pass correct vlan id to multicast code
+Date: Tue, 29 Oct 2013 20:08:35 +0900
+Message-ID: <1383044915.3518.41.camel@ubuntu-vm-makita>
+References: <1382989507-23061-1-git-send-email-vyasevic@redhat.com>
+	 <20131029023646.GA2795@amosk.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	Paul.Gortmaker@windriver.com, tipc-discussion@lists.sourceforge.net
-To: <davem@davemloft.net>, <maloy@donjonn.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: Amos Kong <akong@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:57622 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751804Ab3J2LIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 07:08:55 -0400
+In-Reply-To: <20131029023646.GA2795@amosk.info>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The message dispatching part of tipc_recv_msg() is wrapped layers of
-while/if/if/switch, causing out-of-control indentation and does not
-look very good. We reduce two indentation levels by separating the
-message dispatching from the blocks that checks link state and
-sequence numbers, allowing longer function and arg names to be
-consistently indented without wrapping. This is a cosmetic change
-that does not alter the operation of TIPC in any way.
+On Tue, 2013-10-29 at 10:36 +0800, Amos Kong wrote:
+> On Mon, Oct 28, 2013 at 03:45:07PM -0400, Vlad Yasevich wrote:
+> > Currently multicast code attempts to extrace the vlan id from
+> > the skb even when vlan filtering is disabled.  This can lead
+> > to mdb entries being created with the wrong vlan id.
+> > Pass the already extracted vlan id to the multicast
+> > filtering code to make the correct id is used in
+> > creation as well as lookup.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
----
- net/tipc/link.c |  147 +++++++++++++++++++++++++++----------------------------
- 1 file changed, 72 insertions(+), 75 deletions(-)
+Thanks!
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index e8153f6..1bfee8c 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1593,97 +1593,94 @@ void tipc_recv_msg(struct sk_buff *head, struct tipc_bearer *b_ptr)
- 
- 		/* Now (finally!) process the incoming message */
- protocol_check:
--		if (likely(link_working_working(l_ptr))) {
--			if (likely(seq_no == mod(l_ptr->next_in_no))) {
--				l_ptr->next_in_no++;
--				if (unlikely(l_ptr->oldest_deferred_in))
--					head = link_insert_deferred_queue(l_ptr,
--									  head);
--deliver:
--				if (likely(msg_isdata(msg))) {
--					tipc_node_unlock(n_ptr);
--					tipc_port_recv_msg(buf);
--					continue;
--				}
--				switch (msg_user(msg)) {
--					int ret;
--				case MSG_BUNDLER:
--					l_ptr->stats.recv_bundles++;
--					l_ptr->stats.recv_bundled +=
--						msg_msgcnt(msg);
--					tipc_node_unlock(n_ptr);
--					tipc_link_recv_bundle(buf);
--					continue;
--				case NAME_DISTRIBUTOR:
--					n_ptr->bclink.recv_permitted = true;
--					tipc_node_unlock(n_ptr);
--					tipc_named_recv(buf);
--					continue;
--				case BCAST_PROTOCOL:
--					tipc_link_recv_sync(n_ptr, buf);
--					tipc_node_unlock(n_ptr);
--					continue;
--				case CONN_MANAGER:
--					tipc_node_unlock(n_ptr);
--					tipc_port_recv_proto_msg(buf);
--					continue;
--				case MSG_FRAGMENTER:
--					l_ptr->stats.recv_fragments++;
--					ret = tipc_link_recv_fragment(
--						&l_ptr->defragm_buf,
--						&buf, &msg);
--					if (ret == 1) {
--						l_ptr->stats.recv_fragmented++;
--						goto deliver;
--					}
--					if (ret == -1)
--						l_ptr->next_in_no--;
--					break;
--				case CHANGEOVER_PROTOCOL:
--					type = msg_type(msg);
--					if (link_recv_changeover_msg(&l_ptr,
--								     &buf)) {
--						msg = buf_msg(buf);
--						seq_no = msg_seqno(msg);
--						if (type == ORIGINAL_MSG)
--							goto deliver;
--						goto protocol_check;
--					}
--					break;
--				default:
--					kfree_skb(buf);
--					buf = NULL;
--					break;
--				}
-+		if (unlikely(!link_working_working(l_ptr))) {
-+			if (msg_user(msg) == LINK_PROTOCOL) {
-+				link_recv_proto_msg(l_ptr, buf);
-+				head = link_insert_deferred_queue(l_ptr, head);
-+				tipc_node_unlock(n_ptr);
-+				continue;
-+			}
-+
-+			/* Traffic message. Conditionally activate link */
-+			link_state_event(l_ptr, TRAFFIC_MSG_EVT);
-+
-+			if (link_working_working(l_ptr)) {
-+				/* Re-insert buffer in front of queue */
-+				buf->next = head;
-+				head = buf;
- 				tipc_node_unlock(n_ptr);
--				tipc_net_route_msg(buf);
- 				continue;
- 			}
-+			tipc_node_unlock(n_ptr);
-+			goto cont;
-+		}
-+
-+		/* Link is now in state WORKING_WORKING */
-+		if (unlikely(seq_no != mod(l_ptr->next_in_no))) {
- 			link_handle_out_of_seq_msg(l_ptr, buf);
- 			head = link_insert_deferred_queue(l_ptr, head);
- 			tipc_node_unlock(n_ptr);
- 			continue;
- 		}
--
--		/* Link is not in state WORKING_WORKING */
--		if (msg_user(msg) == LINK_PROTOCOL) {
--			link_recv_proto_msg(l_ptr, buf);
-+		l_ptr->next_in_no++;
-+		if (unlikely(l_ptr->oldest_deferred_in))
- 			head = link_insert_deferred_queue(l_ptr, head);
-+deliver:
-+		if (likely(msg_isdata(msg))) {
- 			tipc_node_unlock(n_ptr);
-+			tipc_port_recv_msg(buf);
- 			continue;
- 		}
--
--		/* Traffic message. Conditionally activate link */
--		link_state_event(l_ptr, TRAFFIC_MSG_EVT);
--
--		if (link_working_working(l_ptr)) {
--			/* Re-insert buffer in front of queue */
--			buf->next = head;
--			head = buf;
-+		switch (msg_user(msg)) {
-+			int ret;
-+		case MSG_BUNDLER:
-+			l_ptr->stats.recv_bundles++;
-+			l_ptr->stats.recv_bundled += msg_msgcnt(msg);
-+			tipc_node_unlock(n_ptr);
-+			tipc_link_recv_bundle(buf);
-+			continue;
-+		case NAME_DISTRIBUTOR:
-+			n_ptr->bclink.recv_permitted = true;
-+			tipc_node_unlock(n_ptr);
-+			tipc_named_recv(buf);
-+			continue;
-+		case BCAST_PROTOCOL:
-+			tipc_link_recv_sync(n_ptr, buf);
-+			tipc_node_unlock(n_ptr);
-+			continue;
-+		case CONN_MANAGER:
- 			tipc_node_unlock(n_ptr);
-+			tipc_port_recv_proto_msg(buf);
- 			continue;
-+		case MSG_FRAGMENTER:
-+			l_ptr->stats.recv_fragments++;
-+			ret = tipc_link_recv_fragment(&l_ptr->defragm_buf,
-+						      &buf, &msg);
-+			if (ret == 1) {
-+				l_ptr->stats.recv_fragmented++;
-+				goto deliver;
-+			}
-+			if (ret == -1)
-+				l_ptr->next_in_no--;
-+			break;
-+		case CHANGEOVER_PROTOCOL:
-+			type = msg_type(msg);
-+			if (link_recv_changeover_msg(&l_ptr, &buf)) {
-+				msg = buf_msg(buf);
-+				seq_no = msg_seqno(msg);
-+				if (type == ORIGINAL_MSG)
-+					goto deliver;
-+				goto protocol_check;
-+			}
-+			break;
-+		default:
-+			kfree_skb(buf);
-+			buf = NULL;
-+			break;
- 		}
- 		tipc_node_unlock(n_ptr);
-+		tipc_net_route_msg(buf);
-+		continue;
- cont:
- 		kfree_skb(buf);
- 	}
--- 
-1.7.9.5
+Acked-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+
+>  
+> Hi Vlad,
+> 
+> Can we just update br_vlan_get_tag() to set vid to 0 if dev->vlan is
+> disabled? I guess it would effect br_handle_local_finish().
+
+br_handle_local_finish() looks also buggy.
+But adding vlan enabled checking would not fix it completely because
+vlan_bitmap and PVID are not taken into account in that function.
+
+Since we cannot pass vid as an argument from br_dev_xmit() to
+br_handle_[local/frame]_finish() because of NF_HOOK,
+br_handle_local_finish() seems to have to check vlan_enabled,
+vlan_bitmap, and pvid by itself.
+
+IMHO it can be addressed by another patch.
+
+> 
+> > Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> > ---
+> >  net/bridge/br_device.c    |  2 +-
+> >  net/bridge/br_input.c     |  2 +-
+> >  net/bridge/br_multicast.c | 44 +++++++++++++++++++-------------------------
+> >  net/bridge/br_private.h   |  6 ++++--
+> >  4 files changed, 25 insertions(+), 29 deletions(-)
+> 
+> ...
+> 
+> > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> > index 8b0b610..686284f 100644
+> > --- a/net/bridge/br_multicast.c
+> > +++ b/net/bridge/br_multicast.c
+> > @@ -947,7 +947,8 @@ void br_multicast_disable_port(struct net_bridge_port *port)
+> >  
+> >  static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
+> >  					 struct net_bridge_port *port,
+> > -					 struct sk_buff *skb)
+> > +					 struct sk_buff *skb,
+> > +					 u16 vid)
+> >  {
+> >  	struct igmpv3_report *ih;
+> >  	struct igmpv3_grec *grec;
+> > @@ -957,12 +958,10 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
+> >  	int type;
+> >  	int err = 0;
+> >  	__be32 group;
+> > -	u16 vid = 0;
+> >  
+> >  	if (!pskb_may_pull(skb, sizeof(*ih)))
+> >  		return -EINVAL;
+> >  
+> > -	br_vlan_get_tag(skb, &vid);
+> 
+> After applied the patch, we always use vid in br_dev_xmit()->br_allowed_ingress(),
+> is it possible that the vlan of bridge is re-enabled when other
+> changed functions are called?
+> 
+> We can just add a enabled checking before this kind of br_vlan_get_tag()?
+> 
+> if (!br->vlan_enabled)
+>     br_vlan_get_tag(skb2, &vid);
+
+Maybe this leads to a wrong way to update mdb in some cases like
+  Vlan_filtering is disabled (by default).
+  Add some vids we want to allow.
+  Receive a frame whose vid wouldn't be allowed with vlan_filtering enabled.
+  The frame passes br_allowed_ingress().
+  Enable vlan_filtering.
+  The frame reaches br_ip4_multicast_igmp3_report().
+  Mdb is updated with disabled vid.
 
 
-------------------------------------------------------------------------------
-Android is increasing in popularity, but the open development platform that
-developers love is also attractive to malware creators. Download this white
-paper to learn more about secure code signing practices that can help keep
-Android apps secure.
-http://pubads.g.doubleclick.net/gampad/clk?id=65839951&iu=/4140/ostg.clktrk
+Thanks,
+
+Toshiaki Makita
+
+> 
+> 
+> >  	ih = igmpv3_report_hdr(skb);
+> >  	num = ntohs(ih->ngrec);
+> >  	len = sizeof(*ih);
+> 
+> ...
+> 
