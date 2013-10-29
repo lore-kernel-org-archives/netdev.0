@@ -1,86 +1,38 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [patch iproute2] iplink: add support for bonding netlink
-Date: Tue, 29 Oct 2013 16:12:32 -0400
-Message-ID: <527016B0.5060600@redhat.com>
-References: <1382111019-1102-1-git-send-email-jiri@resnulli.us> <1382111401-1233-1-git-send-email-jiri@resnulli.us> <loom.20131029T194706-188@post.gmane.org>
-Reply-To: vyasevic@redhat.com
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH NEXT] rtlwifi: Fix endian error in extracting packet type
+Date: Tue, 29 Oct 2013 15:16:35 -0500
+Message-ID: <527017A3.9020109@lwfinger.net>
+References: <1383002903-8746-1-git-send-email-Larry.Finger@lwfinger.net>	<1383005246.3779.61.camel@bwh-desktop.uk.level5networks.com> <87y55cf8yq.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Scott Feldman <sfeldma@cumulusnetworks.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52350 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751044Ab3J2UMf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Oct 2013 16:12:35 -0400
-In-Reply-To: <loom.20131029T194706-188@post.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
+To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <87y55cf8yq.fsf@nemi.mork.no>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/29/2013 03:00 PM, Scott Feldman wrote:
-> Jiri Pirko <jiri <at> resnulli.us> writes:
+On 10/29/2013 09:27 AM, Bj=C3=B8rn Mork wrote:
 >
->> +		} else if (matches(*argv, "active_slave") == 0) {
->> +			NEXT_ARG();
->> +			ifindex = if_nametoindex(*argv);
->> +			if (!ifindex)
->> +				return -1;
->> +			addattr32(n, 1024, IFLA_BOND_ACTIVE_SLAVE, ifindex);
->> +		} else if (matches(*argv, "clear_active_slave") == 0) {
->> +			addattr32(n, 1024, IFLA_BOND_ACTIVE_SLAVE, 0);
+> It's not validating the upper 8 bits of the port numbers either, so i=
+t
+> will hit random UDP traffic in addition to DHCP.
 >
-> How do active_slave and clear_active_slave work from the ip link cmd line
-> when bond is added, but doesn't have any slaves yet?  I did:
->
->    ip link add bond1 type bond mode 1
->    ip link set dev eth1 master bond1
->    ip link set dev eth2 master bond1
->
-> Then tried:
->
->    ip link add bond1 type bond active_slave eth1
->    RTNETLINK answers: File exists
->
-> Or:
->
->    ip link set dev bond1 active_slave eth1
->    Error: either "dev" is duplicate, or "active_slave" is a garbage.
+> But it was good to see this function now. I was wondering how to supp=
+ort
+> some buggy 3G modem firmware without ugly hacks. Seems there will alw=
+ays
+> be worse hacks in drivers/net, no matter what I do :-)
 
-You need to do:
-	ip link set dev bond1 type bond active_slave eth1
+I'm happy that Realtek and I could make your day. The next version is c=
+hecking=20
+the full 16-bit port numbers.
 
-'active_slave' argument is only defined for the 'type bond' operations.
+Thanks,
 
-You can not set active slave before enslaving the device and this
-series doesn't change that.
-
--vlad
-
->
-> I must be dense but I can't figure how you can set active_slave before
-> slaves have been added to bond, or even after slaves have been added
-> to bond.
->
->> diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
->> index 8b68c78..1825dc5 100644
->> --- a/man/man8/ip-link.8.in
->> +++ b/man/man8/ip-link.8.in
->>   <at>  <at>  -51,6 +51,7  <at>  <at>  ip-link \- network device configuration
->>   .ti -8
->>   .IR TYPE " := [ "
->>   .BR bridge " | "
->> +.BR bond " ]"
->
-> That should be " | "?
->
-> With patch applied, the man page shows:
->
->         TYPE := [ bridge | bond ] can | dummy | ifb | ipoib | macvlan | ...
->
-> -scott
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Larry
