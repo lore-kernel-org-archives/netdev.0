@@ -1,132 +1,36 @@
-From: Kumar Gala <galak@codeaurora.org>
-Subject: Re: [PATCH 4/4] wl1251: spi: add device tree support
-Date: Tue, 29 Oct 2013 03:28:39 -0500
-Message-ID: <11FD245D-02A1-4E29-A23A-66A1D64210DC@codeaurora.org>
-References: <1382890469-25286-1-git-send-email-sre@debian.org>
- <1382890469-25286-5-git-send-email-sre@debian.org>
- <FF34C626-4A49-43B1-B0AD-DC6146ABBB11@codeaurora.org>
- <4893578.SBstXOAcJY@flatron>
-Mime-Version: 1.0 (Apple Message framework v1283)
-Content-Type: text/plain; charset="us-ascii"
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2] can: c_can: Speed up rx_poll function
+Date: Tue, 29 Oct 2013 01:31:01 -0700
+Message-ID: <1383035461.2713.1.camel@joe-AO722>
+References: <1383035267-19604-1-git-send-email-mpa@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, linux-doc@vger.kernel.org,
- Tony Lindgren <tony@atomide.com>, Sebastian Reichel <sre@debian.org>,
- Russell King <linux@arm.linux.org.uk>, Sachin Kamat <sachin.kamat@linaro.org>,
- Stephen Warren <swarren@wwwdotorg.org>, Sebastian Reichel <sre@ring0.de>,
- Luciano Coelho <luca@coelho.fi>, devicetree@vger.kernel.org,
- Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
- "John W. Linville" <linville@tuxdriver.com>,
- Rob Herring <rob.herring@calxeda.com>, Bill Pemberton <wfp5p@virginia.edu>,
- linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
- Felipe Balbi <balbi@ti.com>, Rob Landley <rob@landley.net>,
- netdev@vger.kernel.org
-To: Tomasz Figa <tomasz.figa@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <4893578.SBstXOAcJY@flatron>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@pengutronix.de
+To: Markus Pargmann <mpa@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1383035267-19604-1-git-send-email-mpa@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2013-10-29 at 09:27 +0100, Markus Pargmann wrote:
+> This patch speeds up the rx_poll function by reducing the number of
+> register reads.
+[]
+> The third change is to replace the for-loop by a find_next_bit loop.
 
-On Oct 28, 2013, at 5:38 PM, Tomasz Figa wrote:
+You need to update the commit message.
 
-> On Monday 28 of October 2013 01:37:34 Kumar Gala wrote:
->> On Oct 27, 2013, at 11:14 AM, Sebastian Reichel wrote:
->>> Add device tree support for the spi variant of wl1251
->>> and document the binding.
->>> 
->>> Signed-off-by: Sebastian Reichel <sre@debian.org>
->>> ---
->>> .../devicetree/bindings/net/wireless/ti,wl1251.txt | 36
->>> ++++++++++++++++++++++ drivers/net/wireless/ti/wl1251/spi.c          
->>>    | 23 ++++++++++---- 2 files changed, 53 insertions(+), 6
->>> deletions(-)
->>> create mode 100644
->>> Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
->>> 
->>> diff --git
->>> a/Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
->>> b/Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt new
->>> file mode 100644
->>> index 0000000..5f8a154
->>> --- /dev/null
->>> +++ b/Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
->>> @@ -0,0 +1,36 @@
->>> +* Texas Instruments wl1251 controller
->>> +
->>> +The wl1251 chip can be connected via SPI or via SDIO. The linux
->>> +kernel currently only supports device tree for the SPI variant.
->>> +
->> 
->> From the binding I have no idea what this chip actually does, also we
->> don't normally reference linux kernel support in bindings specs (so
->> please remove it).
->> 
->> However, what would expect the SDIO binding to look like?  Or more
->> specifically, how would you distinguish the SPI vs SDIO
->> binding/connection?  I'm wondering if the compatible should be
->> something like "ti,wl1251-spi" and than the sdio can be
->> "ti,wl1251-sdio"
-> 
-> Well, you can easily distinguish an SDIO device from an SPI device by its 
-> parent node, but...
-> 
-> The binding for SDIO might require different set of properties (other than 
-> ones inherited from generic SDIO or SPI bindings) than one for SPI. So 
-> probably different compatible values might be justified.
-> 
-> Did we already have such case before? (maybe some I2C + SPI devices?)
-> 
->>> +Required properties:
->>> +- compatible : Should be "ti,wl1251"
->> 
->> reg is not listed as a required prop.
-> 
-> It is implied by SPI bindings, but it might be a good idea to have this 
-> stated here as well.
-> 
->> 
->>> +- interrupts : Should contain interrupt line
->>> +- interrupt-parent : Should be the phandle for the interrupt
->>> +  controller that services interrupts for this device
->>> +- vio-supply : phandle to regulator providing VIO
->>> +- power-gpio : GPIO connected to chip's PMEN pin
->> 
->> should be vendor prefixed: ti,power-gpio
-> 
-> Hmm, out of curiosity, is it a rule for this kind of properties? I can see 
-> both cases with and without prefixes when grepping for "-gpios" in 
-> Documentation/devicetree/bindings. We should really have such things 
-> written down somewhere.
+> diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+[]
+> @@ -798,17 +798,19 @@ static int c_can_do_rx_poll(struct net_device *dev, int quota)
+[]
+> +	while (quota > 0 && (val = priv->read_reg(priv, C_CAN_INTPND1_REG))) {
+> +		while ((msg_obj = ffs(val)) && quota > 0) {
+> +			val &= ~BIT(msg_obj - 1);
 
-Agreed, it should be part of the various docs we are suppose to produce for review and binding creation guidelines.
 
->>> +- For additional required properties on SPI, please consult
->>> +  Documentation/devicetree/bindings/spi/spi-bus.txt
->>> +
->>> +Optional properties:
->>> +- ti,use-eeprom : If found, configuration will be loaded from eeprom.
->> 
->> can you be a bit more specific on what cfg will be loaded.  Also, is
->> this property a boolean, if so how do I know which eeprom the cfg is
->> loaded from (is it one that is directly connected to the wl1251?
-> 
-> Maybe one from ti,has-eeprom or ti,config-eeprom would be better name for 
-> this property?
 
-Probably, ti,wl1251-has-eeprom or something like that would be better.  However, I'm not going to get too caught up on names of properties.
-
-- k
-
--- 
-Employee of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, hosted by The Linux Foundation
