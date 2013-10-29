@@ -1,60 +1,50 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH 00/19] Enable various Renesas drivers on all ARM platforms
-Date: Tue, 29 Oct 2013 09:28:48 -0700
-Message-ID: <CACRpkdbKk=n=6tU=9fD05Gu9utpQSZ1qrK7EqLf5qwaV7eHBWA@mail.gmail.com>
-References: <1383004027-25036-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: Re: [PATCH] netdev: octeon_mgmt: drop redundant mac address check
+Date: Tue, 29 Oct 2013 09:33:56 -0700
+Message-ID: <526FE374.2050304@gmail.com>
+References: <1383010061-25461-1-git-send-email-luka@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "linux-fbdev@vger.kernel.org" <linux-fbdev@vger.kernel.org>,
- "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
- Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>,
- Thierry Reding <thierry.reding@gmail.com>,
- "linux-mtd@lists.infradead.org" <linux-mtd@lists.infradead.org>,
- "linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
- Vinod Koul <vinod.koul@intel.com>, Joerg Roedel <joro@8bytes.org>,
- Wolfram Sang <wsa@the-dreams.de>, Magnus Damm <magnus.damm@gmail.com>,
- Eduardo Valentin <eduardo.valentin@ti.com>,
- Tomi Valkeinen <tomi.valkeinen@ti.com>,
- "linux-serial@vger.kernel.org" <linux-serial@vger.kernel.org>,
- Linux Input <linux-input@vger.kernel.org>, Zhang Rui <rui.zhang@intel.com>,
- Chris Ball <cjb@laptop.org>,
- Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
- "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
- "linux-pwm@vger.kernel.org" <linu
-To: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
-Return-path: <linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org>
-In-Reply-To: <1383004027-25036-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mtd>,
- <mailto:linux-mtd-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mtd/>
-List-Post: <mailto:linux-mtd@lists.infradead.org>
-List-Help: <mailto:linux-mtd-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mtd>,
- <mailto:linux-mtd-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-mtd" <linux-mtd-bounces@lists.infradead.org>
-Errors-To: linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, david.daney@cavium.com
+To: Luka Perkov <luka@openwrt.org>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:60790 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751243Ab3J2Qd7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 12:33:59 -0400
+Received: by mail-ie0-f175.google.com with SMTP id aq17so180390iec.6
+        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 09:33:58 -0700 (PDT)
+In-Reply-To: <1383010061-25461-1-git-send-email-luka@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 28, 2013 at 4:46 PM, Laurent Pinchart
-<laurent.pinchart+renesas@ideasonboard.com> wrote:
+On 10/28/2013 06:27 PM, Luka Perkov wrote:
+> Checking if MAC address is valid using is_valid_ether_addr() is already done in
+> of_get_mac_address().
+>
+> Signed-off-by: Luka Perkov <luka@openwrt.org>
 
-> If you believe the issue should be solved in a different way (for instance by
-> removing the architecture dependency completely) please reply to the cover
-> letter to let other maintainers chime in.
+This looks sane, but I haven't tested it...
 
-I have no real opinions on whether this is a good itermediate step towards
-complete arch-independence or not, but I just noticed that you still
-have the <mach/*> hierarchy in mach-shmobile/include/mach/*, and
-grep:ing around this seems totally unnecessary, I think it would be
-easy to produce a patch set eliminating <mach/*> from shmobile.
+Acked-by: David Daney <david.daney@cavium.com>
 
-(Usually we will just move all the headers down into the
-mach-shmobile folder.)
 
-Yours,
-Linus Walleij
-
-______________________________________________________
-Linux MTD discussion mailing list
-http://lists.infradead.org/mailman/listinfo/linux-mtd/
+> ---
+>   drivers/net/ethernet/octeon/octeon_mgmt.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+> index 622aa75..1b326cbc 100644
+> --- a/drivers/net/ethernet/octeon/octeon_mgmt.c
+> +++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
+> @@ -1545,7 +1545,7 @@ static int octeon_mgmt_probe(struct platform_device *pdev)
+>
+>   	mac = of_get_mac_address(pdev->dev.of_node);
+>
+> -	if (mac && is_valid_ether_addr(mac))
+> +	if (mac)
+>   		memcpy(netdev->dev_addr, mac, ETH_ALEN);
+>   	else
+>   		eth_hw_addr_random(netdev);
+>
