@@ -1,52 +1,93 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] ipv6: allow userspace to create address with
- IFLA_F_TEMPORARY flag
-Date: Mon, 28 Oct 2013 20:46:58 -0400 (EDT)
-Message-ID: <20131028.204658.118867242681438729.davem@davemloft.net>
-References: <1383002179.28991.14.camel@dcbw.foobar.com>
-	<20131028.200810.66180312939474324.davem@davemloft.net>
-	<20131029001340.GC26185@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bug in skb_segment: fskb->len != len
+Date: Mon, 28 Oct 2013 18:15:08 -0700
+Message-ID: <1383009308.5464.2.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131028115552.GC4408@cpaasch-mac>
+	 <1382966471.13037.18.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: dcbw@redhat.com, jiri@resnulli.us, vyasevich@gmail.com,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
-	stephen@networkplumber.org
-To: hannes@stressinduktion.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev <netdev@vger.kernel.org>
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39111 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751825Ab3J2ArA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 20:47:00 -0400
-In-Reply-To: <20131029001340.GC26185@order.stressinduktion.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:40504 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756674Ab3J2BPL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 21:15:11 -0400
+Received: by mail-pb0-f46.google.com with SMTP id un4so1566157pbc.19
+        for <netdev@vger.kernel.org>; Mon, 28 Oct 2013 18:15:10 -0700 (PDT)
+In-Reply-To: <1382966471.13037.18.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 29 Oct 2013 01:13:40 +0100
+On Mon, 2013-10-28 at 06:21 -0700, Eric Dumazet wrote:
 
-> On Mon, Oct 28, 2013 at 08:08:10PM -0400, David Miller wrote:
->> From: Dan Williams <dcbw@redhat.com>
->> Date: Mon, 28 Oct 2013 18:16:19 -0500
->> 
->> > On Mon, 2013-10-28 at 17:17 -0400, David Miller wrote:
->> > First off, what's the reasoning behind having IPv6 privacy as a config
->> > option?  It's off-by-default and must be explicitly turned on, so is
->> > there any harm in removing the config?  Or is it just for
->> > smallest-kernel-ever folks?
->> 
->> I think it's for "smallest kernel ever" stuff.  Even every arch
->> defconfig that mentions it has it enabled :-)
->> 
->> Maybe it was optional initially because the code was new and
->> experimental'ish.  I don't know.
->> 
->> Regardless of the reason I think it only obfuscates the code with
->> ifdefs right now and I would be happy to see it disappear.
->> 
->> Any objections to this patch?
-> 
-> Yeah, I changed my mind. The ifdefs are really hideous. Fine for me.
+> But we also need to fix the skb_segment() bug anyway.
 
-Ok, pushed to net-next.
+Hi Christoph
+
+I cooked a minimal patch, could you please try it ?
+
+I'll refactor skb_segment() to be smarter for the next release
+(linux-3.14).
+
+Thanks !
+
+ net/core/skbuff.c |   15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 0ab32faa520f..771946487a8d 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2761,7 +2761,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 	unsigned int len;
+ 	__be16 proto;
+ 	bool csum;
+-	int sg = !!(features & NETIF_F_SG);
++	bool sg = !!(features & NETIF_F_SG);
+ 	int nfrags = skb_shinfo(skb)->nr_frags;
+ 	int err = -ENOMEM;
+ 	int i = 0;
+@@ -2793,7 +2793,11 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 			hsize = len;
+ 
+ 		if (!hsize && i >= nfrags) {
+-			BUG_ON(fskb->len != len);
++			if (fskb->len != len) {
++				hsize = len;
++				sg = false;
++				goto do_linear;
++			}
+ 
+ 			pos += len;
+ 			nskb = skb_clone(fskb, GFP_ATOMIC);
+@@ -2812,6 +2816,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 			skb_release_head_state(nskb);
+ 			__skb_push(nskb, doffset);
+ 		} else {
++do_linear:
+ 			nskb = __alloc_skb(hsize + doffset + headroom,
+ 					   GFP_ATOMIC, skb_alloc_rx_flag(skb),
+ 					   NUMA_NO_NODE);
+@@ -2838,9 +2843,6 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 						 nskb->data - tnl_hlen,
+ 						 doffset + tnl_hlen);
+ 
+-		if (fskb != skb_shinfo(skb)->frag_list)
+-			goto perform_csum_check;
+-
+ 		if (!sg) {
+ 			nskb->ip_summed = CHECKSUM_NONE;
+ 			nskb->csum = skb_copy_and_csum_bits(skb, offset,
+@@ -2849,6 +2851,9 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 			continue;
+ 		}
+ 
++		if (fskb != skb_shinfo(skb)->frag_list)
++			goto perform_csum_check;
++
+ 		frag = skb_shinfo(nskb)->frags;
+ 
+ 		skb_copy_from_linear_data_offset(skb, offset,
