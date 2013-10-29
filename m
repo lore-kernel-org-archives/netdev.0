@@ -1,78 +1,116 @@
-From: Kalle Valo <kvalo@adurom.com>
-Subject: Re: [PATCH 03/16] wl1251: add sysfs interface for bluetooth coexistence mode configuration
-Date: Tue, 29 Oct 2013 15:35:20 +0200
-Message-ID: <878uxctd2f.fsf@purkki.adurom.net>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
-	<1382819655-30430-4-git-send-email-pali.rohar@gmail.com>
-	<1383003587.3779.49.camel@bwh-desktop.uk.level5networks.com>
-	<1383030565.21526.92.camel@porter.coelho.fi>
+From: Amos Kong <akong@redhat.com>
+Subject: Re: [PATCH] bridge: pass correct vlan id to multicast code
+Date: Tue, 29 Oct 2013 21:39:15 +0800
+Message-ID: <20131029133915.GA799@amosk.info>
+References: <1382989507-23061-1-git-send-email-vyasevic@redhat.com>
+ <20131029023646.GA2795@amosk.info>
+ <1383044915.3518.41.camel@ubuntu-vm-makita>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Pali =?utf-8?Q?Roh=C3=A1r?= <pali.rohar@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
-	aaro.koskinen@iki.fi, pavel@ucw.cz, sre@ring0.de,
-	joni.lapilainen@gmail.com, David Gnedt <david.gnedt@davizone.at>
-To: Luca Coelho <luca@coelho.fi>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1383030565.21526.92.camel@porter.coelho.fi> (Luca Coelho's
-	message of "Tue, 29 Oct 2013 09:09:25 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:7153 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753241Ab3J2NjW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Oct 2013 09:39:22 -0400
+Content-Disposition: inline
+In-Reply-To: <1383044915.3518.41.camel@ubuntu-vm-makita>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Luca Coelho <luca@coelho.fi> writes:
-
-> On Mon, 2013-10-28 at 23:39 +0000, Ben Hutchings wrote:
->> On Sat, 2013-10-26 at 22:34 +0200, Pali Roh=C3=A1r wrote:
->> > From: David Gnedt <david.gnedt@davizone.at>
->> >=20
->> > Port the bt_coex_mode sysfs interface from wl1251 driver version i=
-ncluded
->> > in the Maemo Fremantle kernel to allow bt-coexistence mode configu=
-ration.
->> > This enables userspace applications to set one of the modes
->> > WL1251_BT_COEX_OFF, WL1251_BT_COEX_ENABLE and WL1251_BT_COEX_MONOA=
-UDIO.
->> > The default mode is WL1251_BT_COEX_OFF.
->> > It should be noted that this driver always enabled bt-coexistence =
-before
->> > and enabled bt-coexistence directly affects the receiving performa=
-nce,
->> > rendering it unusable in some low-signal situations. Especially mo=
-nitor
->> > mode is affected very badly with bt-coexistence enabled.
->> [...]
->>=20
->> This should be implemented consistently with other drivers:
->>=20
->> drivers/net/wireless/ath/ath9k/htc_drv_init.c:module_param_named(btc=
-oex_enable, ath9k_htc_btcoex_enable, int, 0444);
->> drivers/net/wireless/ath/ath9k/init.c:module_param_named(btcoex_enab=
-le, ath9k_btcoex_enable, int, 0444);
->> drivers/net/wireless/b43/main.c:module_param_named(btcoex, modparam_=
-btcoex, int, 0444);
->> drivers/net/wireless/ipw2x00/ipw2200.c:module_param(bt_coexist, int,=
- 0444);
->> drivers/net/wireless/iwlegacy/common.c:module_param(bt_coex_active, =
-bool, S_IRUGO);
->> drivers/net/wireless/iwlwifi/iwl-drv.c:module_param_named(bt_coex_ac=
-tive, iwlwifi_mod_params.bt_coex_active,
->> drivers/net/wireless/ti/wlcore/sysfs.c:static DEVICE_ATTR(bt_coex_st=
-ate, S_IRUGO | S_IWUSR,
->>=20
->> Oh, hmm, I see a problem here.
+On Tue, Oct 29, 2013 at 08:08:35PM +0900, Toshiaki Makita wrote:
+> On Tue, 2013-10-29 at 10:36 +0800, Amos Kong wrote:
+> > On Mon, Oct 28, 2013 at 03:45:07PM -0400, Vlad Yasevich wrote:
+> > > Currently multicast code attempts to extrace the vlan id from
+> > > the skb even when vlan filtering is disabled.  This can lead
+> > > to mdb entries being created with the wrong vlan id.
+> > > Pass the already extracted vlan id to the multicast
+> > > filtering code to make the correct id is used in
+> > > creation as well as lookup.
+> 
+> Thanks!
+> 
+> Acked-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> 
+> >  
+> > Hi Vlad,
+> > 
+> > Can we just update br_vlan_get_tag() to set vid to 0 if dev->vlan is
+> > disabled? I guess it would effect br_handle_local_finish().
+> 
+> br_handle_local_finish() looks also buggy.
+> But adding vlan enabled checking would not fix it completely because
+> vlan_bitmap and PVID are not taken into account in that function.
+> 
+> Since we cannot pass vid as an argument from br_dev_xmit() to
+> br_handle_[local/frame]_finish() because of NF_HOOK,
+> br_handle_local_finish() seems to have to check vlan_enabled,
+> vlan_bitmap, and pvid by itself.
+> 
+> IMHO it can be addressed by another patch.
 >
-> With so many drivers doing the same thing, isn't it about time to add
-> this to nl80211?
+> > > Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> > > ---
+> > >  net/bridge/br_device.c    |  2 +-
+> > >  net/bridge/br_input.c     |  2 +-
+> > >  net/bridge/br_multicast.c | 44 +++++++++++++++++++-------------------------
+> > >  net/bridge/br_private.h   |  6 ++++--
+> > >  4 files changed, 25 insertions(+), 29 deletions(-)
+> > 
+> > ...
+> > 
+> > > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> > > index 8b0b610..686284f 100644
+> > > --- a/net/bridge/br_multicast.c
+> > > +++ b/net/bridge/br_multicast.c
+> > > @@ -947,7 +947,8 @@ void br_multicast_disable_port(struct net_bridge_port *port)
+> > >  
+> > >  static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
+> > >  					 struct net_bridge_port *port,
+> > > -					 struct sk_buff *skb)
+> > > +					 struct sk_buff *skb,
+> > > +					 u16 vid)
+> > >  {
+> > >  	struct igmpv3_report *ih;
+> > >  	struct igmpv3_grec *grec;
+> > > @@ -957,12 +958,10 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
+> > >  	int type;
+> > >  	int err = 0;
+> > >  	__be32 group;
+> > > -	u16 vid = 0;
+> > >  
+> > >  	if (!pskb_may_pull(skb, sizeof(*ih)))
+> > >  		return -EINVAL;
+> > >  
+> > > -	br_vlan_get_tag(skb, &vid);
+> > 
+> > After applied the patch, we always use vid in br_dev_xmit()->br_allowed_ingress(),
+> > is it possible that the vlan of bridge is re-enabled when other
+> > changed functions are called?
+> > 
+> > We can just add a enabled checking before this kind of br_vlan_get_tag()?
+> > 
+> > if (!br->vlan_enabled)
+> >     br_vlan_get_tag(skb2, &vid);
+> 
+> Maybe this leads to a wrong way to update mdb in some cases like
+>   Vlan_filtering is disabled (by default).
+>   Add some vids we want to allow.
+>   Receive a frame whose vid wouldn't be allowed with vlan_filtering enabled.
+>   The frame passes br_allowed_ingress().
+>   Enable vlan_filtering.
+>   The frame reaches br_ip4_multicast_igmp3_report().
+>   Mdb is updated with disabled vid.
+> 
+> 
+> Thanks,
+> 
+> Toshiaki Makita
+ 
+Thanks all your explanation, I'm ok with the patch.
 
-Yes, this really needs to be in nl80211. I even suggested this years ag=
-o
-but was turned down at the time. Can't remember the reason anymore.
 
---=20
-Kalle Valo
+-- 
+			Amos.
