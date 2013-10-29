@@ -1,60 +1,43 @@
-From: Artem Bityutskiy <dedekind1@gmail.com>
-Subject: Re: [PATCH 00/19] Enable various Renesas drivers on all ARM platforms
-Date: Tue, 29 Oct 2013 15:54:27 +0200
-Message-ID: <1383054867.29619.34.camel@sauron.fi.intel.com>
-References: <1383004027-25036-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
- <Pine.LNX.4.64.1310291009121.8404@axis700.grange>
- <1383051980.29619.33.camel@sauron.fi.intel.com> <1844190.ApyucSZX8W@avalon>
-Reply-To: dedekind1@gmail.com
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
+Date: Tue, 29 Oct 2013 08:12:58 -0600
+Message-ID: <526FC26A.8050806@gmail.com>
+References: <20131017003421.GA31470@hmsreliant.think-freely.org> <20131017084121.GC22705@gmail.com> <20131028160131.GA31048@hmsreliant.think-freely.org> <20131028162438.GB14350@gmail.com> <20131028174630.GB31048@hmsreliant.think-freely.org> <20131028182913.GD31048@hmsreliant.think-freely.org> <20131029082542.GA24625@gmail.com> <20131029112022.GA24477@neilslaptop.think-freely.org> <20131029113031.GA16897@gmail.com> <20131029114907.GE24477@neilslaptop.think-freely.org> <20131029125233.GA17449@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-fbdev@vger.kernel.org, linux-sh@vger.kernel.org,
- Linus Walleij <linus.walleij@linaro.org>,
- Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>,
- Thierry Reding <thierry.reding@gmail.com>, linux-mtd@lists.infradead.org,
- linux-i2c@vger.kernel.org,
- Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>,
- "David S. Miller" <davem@davemloft.net>, Vinod Koul <vinod.koul@intel.com>,
- Joerg Roedel <joro@8bytes.org>, Wolfram Sang <wsa@the-dreams.de>,
- Magnus Damm <magnus.damm@gmail.com>,
- Eduardo Valentin <eduardo.valentin@ti.com>,
- Tomi Valkeinen <tomi.valkeinen@ti.com>, linux-serial@vger.kernel.org,
- linux-input@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>,
- Chris Ball <cjb@laptop.org>,
- Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
- linux-media@vger.kernel.org, linux-pwm@vger.kernel.org,
- Samuel Ortiz <samuel@sortiz.org>, linux-pm@vger.kernel.org,
- Ian
-To: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1844190.ApyucSZX8W@avalon>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	netdev@vger.kernel.org
+To: Ingo Molnar <mingo@kernel.org>, Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131029125233.GA17449@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-10-29 at 14:22 +0100, Laurent Pinchart wrote:
-> > Also, if ARM dependency is ever removed, all these should become 'n' by
-> > default in the Kconfig, in order to make sure they do not slip into
-> > defconfigs of different architectures.
-> 
-> The idea is that, if ARM is neither a compile-time nor runtime dependency, it 
-> should not be specified in Kconfig. However, if the IP core has never been 
-> used on anything but SuperH and ARM, I don't think clobbering the config 
-> process with drivers that can't be used on the target architecture would be a 
-> really good idea, especially now that we have a COMPILE_TEST Kconfig option. 
-> My preference does goes to SUPERH || ARM || COMPILE_TEST over no dependency at 
-> all.
+On 10/29/13 6:52 AM, Ingo Molnar wrote:
+>> According to the perf man page, I'm supposed to be able to use --
+>> to separate perf command line parameters from the command I want
+>> to run.  And it definately executed test.sh, I added an echo to
+>> stdout in there as a test run and observed them get captured in
+>> counters.txt
+>
+> Well, '--' can be used to delineate the command portion for cases
+> where it's ambiguous.
+>
+> Here's it's unambiguous though. This:
+>
+>    perf stat --repeat 20 -C 0 -ddd perf bench sched messaging -- /root/test.sh
+>
+> stops parsing a valid option after the -ddd option, so in theory it
+> should execute 'perf bench sched messaging -- /root/test.sh' where
+> '-- /root/test.sh' is simply a parameter to 'perf bench' and is thus
+> ignored.
 
-Ah, OK, I missed the entire COMPILE_TEST story.
+Normally with perf commands a workload can be specified to state how 
+long to collect perf data. That is not the case for perf-bench.
 
--- 
-Best Regards,
-Artem Bityutskiy
+David
