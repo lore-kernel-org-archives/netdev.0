@@ -1,134 +1,94 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next] xen-netback: allocate xenvif arrays using
- vzalloc.
-Date: Tue, 29 Oct 2013 15:50:18 +0000
-Message-ID: <20131029155018.GK5221@zion.uk.xensource.com>
-References: <20131029152628.GA3065@citrix.com>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: [PATCH 00/19] Enable various Renesas drivers on all ARM platforms
+Date: Tue, 29 Oct 2013 09:04:49 -0700
+Message-ID: <20131029160449.GD16686@sirena.org.uk>
+References: <1383004027-25036-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+ <20131029060427.GF11580@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <wei.liu2@citrix.com>,
-	<ian.campbell@citrix.com>, <xen-devel@lists.xen.org>,
-	<andrew.bennieston@citrix.com>, <david.vrabel@citrix.com>,
-	<malcolm.crossley@citrix.com>
-To: Joby Poriyath <joby.poriyath@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:51883 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753618Ab3J2PuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 11:50:21 -0400
+Content-Type: multipart/mixed; boundary="===============0643476374379051913=="
+Cc: linux-fbdev@vger.kernel.org, Wolfram Sang <wsa@the-dreams.de>,
+ Linus Walleij <linus.walleij@linaro.org>,
+ Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>,
+ Thierry Reding <thierry.reding@gmail.com>, linux-mtd@lists.infradead.org,
+ linux-i2c@vger.kernel.org,
+ Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>,
+ Vinod Koul <vinod.koul@intel.com>, Joerg Roedel <joro@8bytes.org>,
+ linux-sh@vger.kernel.org, Magnus Damm <magnus.damm@gmail.com>,
+ Eduardo Valentin <eduardo.valentin@ti.com>,
+ Tomi Valkeinen <tomi.valkeinen@ti.com>, linux-serial@vger.kernel.org,
+ linux-input@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>,
+ Chris Ball <cjb@laptop.org>,
+ Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+ linux-media@vger.kernel.org, linux-pwm@vger.kernel.org,
+ Samuel Ortiz <samuel@sortiz.org>, linux-pm@vger.kernel.org,
+ Ian Molton <ian@mnementh.co.uk>, linux-arm-ker
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20131029060427.GF11580@verge.net.au>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
+
+
+--===============0643476374379051913==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="2iBwrppp/7QCDedR"
 Content-Disposition: inline
-In-Reply-To: <20131029152628.GA3065@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 29, 2013 at 03:27:13PM +0000, Joby Poriyath wrote:
-[...]
-> +
-> +static int allocate_xenvif_arrays(struct xenvif *vif)
-> +{
-> +	vif->mmap_pages = vif->pending_tx_info = NULL;
-> +	vif->tx_copy_ops = vif->grant_copy_op = vif->meta = NULL;
-> +
-> +	vif->mmap_pages = vzalloc(MAX_PENDING_REQS * sizeof(struct page *));
-> +	if (! vif->mmap_pages)
 
-No space after "!".
+--2iBwrppp/7QCDedR
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> +		goto fail;
-> +
-> +	vif->pending_tx_info = vzalloc(MAX_PENDING_REQS * 
-> +					sizeof(struct pending_tx_info));
-> +	if (! vif->pending_tx_info)
-> +		goto fail;
-> +
-> +	vif->tx_copy_ops = vzalloc(2 * MAX_PENDING_REQS *
-> +					sizeof(struct gnttab_copy));
-> +	if (! vif->tx_copy_ops)
-> +		goto fail;
-> +
-> +	vif->grant_copy_op = vzalloc(2 * XEN_NETIF_RX_RING_SIZE *
-> +					sizeof(struct gnttab_copy));
-> +	if (! vif->grant_copy_op)
-> +		goto fail;
-> +
-> +	vif->meta = vzalloc(2 * XEN_NETIF_RX_RING_SIZE *
-> +					sizeof(struct xenvif_rx_meta));
+On Tue, Oct 29, 2013 at 03:04:27PM +0900, Simon Horman wrote:
 
-Indentation.
+> I think this is a step in a good direction.
+> However, I think it would be even better if the architecture dependency was
+> removed completely.
 
-> +	if (! vif->meta)
-> +		goto fail;
-> +
-> +	return 0;
-> +
-> +fail:
-> +	deallocate_xenvif_arrays(vif);
-> +	return 1;
+Yes, please.
 
-return -ENOMEM;
+--2iBwrppp/7QCDedR
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-> +}
-> +
->  struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
->  			    unsigned int handle)
->  {
-> @@ -313,6 +367,12 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
->  	vif->ip_csum = 1;
->  	vif->dev = dev;
->  
-> +	if (allocate_xenvif_arrays(vif)) {
-> +		netdev_warn(dev, "Could not create device: out of memory\n");
-> +		free_netdev(dev);
-> +		return ERR_PTR(-ENOMEM);
-> +	}
-> +
->  	vif->credit_bytes = vif->remaining_credit = ~0UL;
->  	vif->credit_usec  = 0UL;
->  	init_timer(&vif->credit_timeout);
-> @@ -484,6 +544,7 @@ void xenvif_free(struct xenvif *vif)
->  
->  	unregister_netdev(vif->dev);
->  
-> +	deallocate_xenvif_arrays(vif);
->  	free_netdev(vif->dev);
->  
->  	module_put(THIS_MODULE);
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 828fdab..34c0c05 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -602,12 +602,12 @@ void xenvif_rx_action(struct xenvif *vif)
->  			break;
->  	}
->  
-> -	BUG_ON(npo.meta_prod > ARRAY_SIZE(vif->meta));
-> +	BUG_ON(npo.meta_prod > 2*XEN_NETIF_RX_RING_SIZE);
->  
->  	if (!npo.copy_prod)
->  		return;
->  
-> -	BUG_ON(npo.copy_prod > ARRAY_SIZE(vif->grant_copy_op));
-> +	BUG_ON(npo.copy_prod > 2*XEN_NETIF_RX_RING_SIZE);
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
 
-It's better to
+iQIcBAEBAgAGBQJSb9yZAAoJELSic+t+oim9bYwP/iUUXI14zyW5LzIhwP6LBlEr
+FOYrZVwQxqUbnA4hDctQCmrA9VikBRNUmlDoUx+xxNNRLd7Zelm2iC8xQh4U1JJX
+9pJ/yv1FHi4EBNmWRK7gL9RXEUM7U4Jt1/nPgW64Kw7ooMwsKmMssrDmwm8xorRD
+iFvd4kY6ZiYz1m5Qvn1rQM05qskN1xGR0jdaxhH8DMCkhA0UyGhLoeFWXDy68T1A
+fsJQrF5mRjO/DNqgI/DqetC8gGy1gjyqETra6Ah730luxYN8bZxbmmbjBc4pYDtY
+7pjRnqVjPMCG+seGgAzlCkgk8t56mHfkrzSRnF0IZ4q5PW4uY1QpzuEs2vB3SI/A
+bS3SD8i71t88jsQ0G/skXAbme0Rl2J+7al3DDMJpUf8yCbFQTZoeFSbe75PgA5Dl
+C6D/7nuK8BIQw5/SV+iCVFN99nKXvJZHFc8wdB7YbXnSQCUdmCLnbkkjYS7HxkQ/
+4OB+XjOgVcGeDCjJrL38LrarJIu588qHe6Cz+8wlJvmV/B9pRWwsXNz2OzU8gSPp
+9RKDNPrpaF+aEoYONBJkHIJf8nqBKipk4xFOmOVxEoMA8oGCAAKltM/ktJdgdfir
+Kb+MgiqubYkjFUFJ08WBqs+L63H4mHQ3JcYAw9NsAiKf1XKJuwdIwddhPlrgTvrQ
+HY0P0bFfzdsgfQfvQ5gC
+=3XLW
+-----END PGP SIGNATURE-----
 
-  #define XEN_NETBK_RX_ARRAY_SIZE (2*XEN_NETIF_RX_RING_SIZE)
+--2iBwrppp/7QCDedR--
 
-And use it consistently in code (allocation / comparison). Otherwise
-it's easy to change one site and forget about others.
 
->  	gnttab_batch_copy(vif->grant_copy_op, npo.copy_prod);
->  
->  	while ((skb = __skb_dequeue(&rxq)) != NULL) {
-> @@ -1571,7 +1571,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif)
->  
->  		vif->tx.req_cons = idx;
->  
-> -		if ((gop-vif->tx_copy_ops) >= ARRAY_SIZE(vif->tx_copy_ops))
-> +		if ((gop-vif->tx_copy_ops) >= 2*MAX_PENDING_REQS)
+--===============0643476374379051913==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Same here.
+_______________________________________________
+linux-arm-kernel mailing list
+linux-arm-kernel@lists.infradead.org
+http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
 
-  #define XEN_NETBK_TX_ARRAY_SIZE
-
-Wei.
+--===============0643476374379051913==--
