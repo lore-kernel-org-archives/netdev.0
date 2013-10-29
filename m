@@ -1,92 +1,55 @@
-From: Markus Pargmann <mpa@pengutronix.de>
-Subject: [PATCH v2] can: c_can: Speed up rx_poll function
-Date: Tue, 29 Oct 2013 09:27:47 +0100
-Message-ID: <1383035267-19604-1-git-send-email-mpa@pengutronix.de>
-Cc: Joe Perches <joe@perches.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@pengutronix.de, Markus Pargmann <mpa@pengutronix.de>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH] bgmac: don't update slot on skb alloc/dma mapping error
+Date: Tue, 29 Oct 2013 09:28:56 +0100
+Message-ID: <CACna6rzqwz_wp=9ayX6AUZvVSNwdAg-LniXtNwy9eRFDEoNspg@mail.gmail.com>
+References: <BLU0-SMTP119F7A71B34291D1CC2486BAC090@phx.gbl>
+	<CACna6rzxt2QMtLfD84pw7EtYqg1Qva4ah83hVQOKpeKy72bd5w@mail.gmail.com>
+	<BLU0-SMTP200803D333FF3A2F15AB82DAC090@phx.gbl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Network Development <netdev@vger.kernel.org>
+To: Nathan Hintz <nlhintz@hotmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f48.google.com ([209.85.219.48]:57017 "EHLO
+	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752807Ab3J2I24 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 04:28:56 -0400
+Received: by mail-oa0-f48.google.com with SMTP id m17so4762904oag.7
+        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 01:28:56 -0700 (PDT)
+In-Reply-To: <BLU0-SMTP200803D333FF3A2F15AB82DAC090@phx.gbl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch speeds up the rx_poll function by reducing the number of
-register reads.
+2013/10/29 Nathan Hintz <nlhintz@hotmail.com>:
+> On Tue, 29 Oct 2013 07:52:58 +0100
+> Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> wrote:
+>
+>> 2013/10/29 Nathan Hintz <nlhintz@hotmail.com>:
+>> > Don't update the slot in "bgmac_dma_rx_skb_for_slot" unless both t=
+he
+>> > skb alloc and dma mapping are successful; and free the newly alloc=
+ated
+>> > skb if a dma mapping error occurs.  This will prevent an skb leak =
+upon
+>> > returning when an error occurs.
+>>
+>> In case of bgmac_dma_rx_skb_for_slot failure we're giving up anyway
+>> (and freeing everything), but with your patch code is simpler to
+>> understand, so I'm OK with that.
+>>
+>> Acked-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+>>
+>
+> I might be misunderstanding; but it in the case of failure, it appear=
+ed to me
+> that the currently received packet was dropped and the old skb would =
+continue
+> to be assigned to the slot and would be used to receive future packet=
+s (this
+> would continue until bgmac_dma_rx_skb_for_slot was successful).
 
-Replace the 32bit register read by a 16bit register read. Currently
-the 32bit register read is implemented by using 2 16bit reads. This is
-inefficient as we only use the lower 16bit in rx_poll.
+I was commenting on current usage (bgmac_dma_alloc), not my WIP patch
+for bgmac_dma_rx_read :)
 
-The for loop reads the pending interrupts in every iteration. This
-leads up to 16 reads of pending interrupts. The patch introduces a new
-outer loop to read the pending interrupts as long as 'quota' is above 0.
-This reduces the total number of reads.
-
-The third change is to replace the for-loop by a find_next_bit loop.
-
-Tested on AM335x. I removed all 'static' and 'inline' from c_can.c to
-see the timings for all functions. I used the function tracer with
-trace_stats.
-
-125kbit:
-  Function                               Hit    Time            Avg             s^2
-  --------                               ---    ----            ---             ---
-  c_can_do_rx_poll                     63960    10168178 us     158.977 us      1493056 us
-With patch:
-  c_can_do_rx_poll                     63939    4268457 us     66.758 us       818790.9 us
-
-1Mbit:
-  Function                               Hit    Time            Avg             s^2
-  --------                               ---    ----            ---             ---
-  c_can_do_rx_poll                     69489    30049498 us     432.435 us      9271851 us
-With patch:
-  c_can_do_rx_poll                    103034    24220362 us     235.071 us      6016656 us
-
-Signed-off-by: Markus Pargmann <mpa@pengutronix.de>
----
-
-Notes:
-    Changes in v2:
-     - Small changes, find_next_bit -> ffs and other
-
- drivers/net/can/c_can/c_can.c | 22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index a668cd4..428681e 100644
---- a/drivers/net/can/c_can/c_can.c
-+++ b/drivers/net/can/c_can/c_can.c
-@@ -798,17 +798,19 @@ static int c_can_do_rx_poll(struct net_device *dev, int quota)
- 	u32 num_rx_pkts = 0;
- 	unsigned int msg_obj, msg_ctrl_save;
- 	struct c_can_priv *priv = netdev_priv(dev);
--	u32 val = c_can_read_reg32(priv, C_CAN_INTPND1_REG);
-+	u16 val;
-+
-+	/*
-+	 * It is faster to read only one 16bit register. This is only possible
-+	 * for a maximum number of 16 objects.
-+	 */
-+	BUILD_BUG_ON_MSG(C_CAN_MSG_OBJ_RX_LAST > 16,
-+			"Implementation does not support more message objects than 16");
-+
-+	while (quota > 0 && (val = priv->read_reg(priv, C_CAN_INTPND1_REG))) {
-+		while ((msg_obj = ffs(val)) && quota > 0) {
-+			val &= ~BIT(msg_obj - 1);
- 
--	for (msg_obj = C_CAN_MSG_OBJ_RX_FIRST;
--			msg_obj <= C_CAN_MSG_OBJ_RX_LAST && quota > 0;
--			val = c_can_read_reg32(priv, C_CAN_INTPND1_REG),
--			msg_obj++) {
--		/*
--		 * as interrupt pending register's bit n-1 corresponds to
--		 * message object n, we need to handle the same properly.
--		 */
--		if (val & (1 << (msg_obj - 1))) {
- 			c_can_object_get(dev, 0, msg_obj, IF_COMM_ALL &
- 					~IF_COMM_TXRQST);
- 			msg_ctrl_save = priv->read_reg(priv,
--- 
-1.8.4.rc3
-
+Your patch will be helpful for my bgmac_dma_rx_read rework.
