@@ -1,163 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  09/11] ixgbevf: add BP_EXTENDED_STATS for CONFIG_NET_RX_BUSY_POLL
-Date: Tue, 29 Oct 2013 05:02:29 -0700
-Message-ID: <1383048151-15002-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  05/11] ixgbe: remove unnecessary duplication of PCIe bandwidth display
+Date: Tue, 29 Oct 2013 05:02:25 -0700
+Message-ID: <1383048151-15002-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1383048151-15002-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:11906 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:25560 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754849Ab3J2MCm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Oct 2013 08:02:42 -0400
+	id S1754813Ab3J2MCj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Oct 2013 08:02:39 -0400
 In-Reply-To: <1383048151-15002-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch adds the extended statistics similar to the ixgbe driver. These
-statistics keep track of how often the busy polling yields, as well as how many
-packets are cleaned or missed by the polling routine.
+This patch removes the unnecessary display of PCIe bandwidth twice. Since the
+ixgbe_check_minimum_link does a better job, and ensures accurate detection on
+even complex chains, this older check is no longer necessary.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      | 32 +++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      | 22 ++++++++++++++++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  6 +++++
- 3 files changed, 60 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 36 ++++++++++-----------------
+ 1 file changed, 13 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index 21adb1b..44f7c42 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -74,6 +74,14 @@ static const struct ixgbe_stats ixgbe_gstrings_stats[] = {
- 						zero_base)},
- 	{"tx_csum_offload_ctxt", IXGBEVF_STAT(hw_csum_tx_good, zero_base,
- 					      zero_base)},
-+#ifdef BP_EXTENDED_STATS
-+	{"rx_bp_poll_yield", IXGBEVF_STAT(bp_rx_yields, zero_base, zero_base)},
-+	{"rx_bp_cleaned", IXGBEVF_STAT(bp_rx_cleaned, zero_base, zero_base)},
-+	{"rx_bp_misses", IXGBEVF_STAT(bp_rx_missed, zero_base, zero_base)},
-+	{"tx_bp_napi_yield", IXGBEVF_STAT(bp_tx_yields, zero_base, zero_base)},
-+	{"tx_bp_cleaned", IXGBEVF_STAT(bp_tx_cleaned, zero_base, zero_base)},
-+	{"tx_bp_misses", IXGBEVF_STAT(bp_tx_missed, zero_base, zero_base)},
-+#endif
- };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 9753c8a..a7d1a1c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7752,29 +7752,6 @@ skip_sriov:
+ 	if (ixgbe_pcie_from_parent(hw))
+ 		ixgbe_get_parent_bus_info(adapter);
  
- #define IXGBE_QUEUE_STATS_LEN 0
-@@ -391,6 +399,30 @@ static void ixgbevf_get_ethtool_stats(struct net_device *netdev,
- {
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 	int i;
-+#ifdef BP_EXTENDED_STATS
-+	u64 rx_yields = 0, rx_cleaned = 0, rx_missed = 0,
-+	    tx_yields = 0, tx_cleaned = 0, tx_missed = 0;
-+
-+	for (i = 0; i < adapter->num_rx_queues; i++) {
-+		rx_yields += adapter->rx_ring[i].bp_yields;
-+		rx_cleaned += adapter->rx_ring[i].bp_cleaned;
-+		rx_yields += adapter->rx_ring[i].bp_yields;
-+	}
-+
-+	for (i = 0; i < adapter->num_tx_queues; i++) {
-+		tx_yields += adapter->tx_ring[i].bp_yields;
-+		tx_cleaned += adapter->tx_ring[i].bp_cleaned;
-+		tx_yields += adapter->tx_ring[i].bp_yields;
-+	}
-+
-+	adapter->bp_rx_yields = rx_yields;
-+	adapter->bp_rx_cleaned = rx_cleaned;
-+	adapter->bp_rx_missed = rx_missed;
-+
-+	adapter->bp_tx_yields = tx_yields;
-+	adapter->bp_tx_cleaned = tx_cleaned;
-+	adapter->bp_tx_missed = tx_missed;
-+#endif
- 
- 	ixgbevf_update_stats(adapter);
- 	for (i = 0; i < IXGBE_GLOBAL_STATS_LEN; i++) {
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index 85c7560..78e4c51 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -40,6 +40,7 @@
- 
- #ifdef CONFIG_NET_RX_BUSY_POLL
- #include <net/busy_poll.h>
-+#define BP_EXTENDED_STATS
- #endif
- 
- /* wrapper around a pointer to a socket buffer,
-@@ -80,6 +81,11 @@ struct ixgbevf_ring {
- 	struct u64_stats_sync	syncp;
- 	u64 hw_csum_rx_error;
- 	u64 hw_csum_rx_good;
-+#ifdef BP_EXTENDED_STATS
-+	u64 bp_yields;
-+	u64 bp_misses;
-+	u64 bp_cleaned;
-+#endif
- 
- 	u16 head;
- 	u16 tail;
-@@ -181,6 +187,9 @@ static inline bool ixgbevf_qv_lock_napi(struct ixgbevf_q_vector *q_vector)
- 		WARN_ON(q_vector->state & IXGBEVF_QV_STATE_NAPI);
- 		q_vector->state |= IXGBEVF_QV_STATE_NAPI_YIELD;
- 		rc = false;
-+#ifdef BP_EXTENDED_STATS
-+		q_vector->tx.ring->bp_yields++;
-+#endif
- 	} else {
- 		/* we don't care if someone yielded */
- 		q_vector->state = IXGBEVF_QV_STATE_NAPI;
-@@ -213,6 +222,9 @@ static inline bool ixgbevf_qv_lock_poll(struct ixgbevf_q_vector *q_vector)
- 	if ((q_vector->state & IXGBEVF_QV_LOCKED)) {
- 		q_vector->state |= IXGBEVF_QV_STATE_POLL_YIELD;
- 		rc = false;
-+#ifdef BP_EXTENDED_STATS
-+		q_vector->rx.ring->bp_yields++;
-+#endif
- 	} else {
- 		/* preserve yield marks */
- 		q_vector->state |= IXGBEVF_QV_STATE_POLL;
-@@ -358,6 +370,16 @@ struct ixgbevf_adapter {
- 	unsigned int tx_ring_count;
- 	unsigned int rx_ring_count;
- 
-+#ifdef BP_EXTENDED_STATS
-+	u64 bp_rx_yields;
-+	u64 bp_rx_cleaned;
-+	u64 bp_rx_missed;
-+
-+	u64 bp_tx_yields;
-+	u64 bp_tx_cleaned;
-+	u64 bp_tx_missed;
-+#endif
-+
- 	u32 link_speed;
- 	bool link_up;
- 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index bc03a2e..b16b694 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -648,6 +648,12 @@ static int ixgbevf_busy_poll_recv(struct napi_struct *napi)
- 
- 	ixgbevf_for_each_ring(ring, q_vector->rx) {
- 		found = ixgbevf_clean_rx_irq(q_vector, ring, 4);
-+#ifdef BP_EXTENDED_STATS
-+		if (found)
-+			ring->bp_cleaned += found;
-+		else
-+			ring->bp_misses++;
-+#endif
- 		if (found)
- 			break;
+-	/* print bus type/speed/width info */
+-	e_dev_info("(PCI Express:%s:%s) %pM\n",
+-		   (hw->bus.speed == ixgbe_bus_speed_8000 ? "8.0GT/s" :
+-		    hw->bus.speed == ixgbe_bus_speed_5000 ? "5.0GT/s" :
+-		    hw->bus.speed == ixgbe_bus_speed_2500 ? "2.5GT/s" :
+-		    "Unknown"),
+-		   (hw->bus.width == ixgbe_bus_width_pcie_x8 ? "Width x8" :
+-		    hw->bus.width == ixgbe_bus_width_pcie_x4 ? "Width x4" :
+-		    hw->bus.width == ixgbe_bus_width_pcie_x1 ? "Width x1" :
+-		    "Unknown"),
+-		   netdev->dev_addr);
+-
+-	err = ixgbe_read_pba_string_generic(hw, part_str, IXGBE_PBANUM_LENGTH);
+-	if (err)
+-		strncpy(part_str, "Unknown", IXGBE_PBANUM_LENGTH);
+-	if (ixgbe_is_sfp(hw) && hw->phy.sfp_type != ixgbe_sfp_type_not_present)
+-		e_dev_info("MAC: %d, PHY: %d, SFP+: %d, PBA No: %s\n",
+-			   hw->mac.type, hw->phy.type, hw->phy.sfp_type,
+-		           part_str);
+-	else
+-		e_dev_info("MAC: %d, PHY: %d, PBA No: %s\n",
+-			   hw->mac.type, hw->phy.type, part_str);
+-
+ 	/* calculate the expected PCIe bandwidth required for optimal
+ 	 * performance. Note that some older parts will never have enough
+ 	 * bandwidth due to being older generation PCIe parts. We clamp these
+@@ -7790,6 +7767,19 @@ skip_sriov:
  	}
+ 	ixgbe_check_minimum_link(adapter, expected_gts);
+ 
++	err = ixgbe_read_pba_string_generic(hw, part_str, IXGBE_PBANUM_LENGTH);
++	if (err)
++		strncpy(part_str, "Unknown", IXGBE_PBANUM_LENGTH);
++	if (ixgbe_is_sfp(hw) && hw->phy.sfp_type != ixgbe_sfp_type_not_present)
++		e_dev_info("MAC: %d, PHY: %d, SFP+: %d, PBA No: %s\n",
++			   hw->mac.type, hw->phy.type, hw->phy.sfp_type,
++		           part_str);
++	else
++		e_dev_info("MAC: %d, PHY: %d, PBA No: %s\n",
++			   hw->mac.type, hw->phy.type, part_str);
++
++	e_dev_info("%pM\n", netdev->dev_addr);
++
+ 	/* reset the hardware with the new settings */
+ 	err = hw->mac.ops.start_hw(hw);
+ 	if (err == IXGBE_ERR_EEPROM_VERSION) {
 -- 
 1.8.3.1
