@@ -1,27 +1,30 @@
-From: "Lee Hyuk" <leehyuk08@mail2world.com>
-Subject: Re:Answer back
-Date: Tue, 29 Oct 2013 14:34:06 -0000
-Message-ID: <c4299b6c72694a502d4b3dfcd6132c00.squirrel@168.63.124.57>
-Reply-To: hyuk.lee1@aol.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bgmac: separate RX descriptor setup code into a new
+ function
+Date: Tue, 29 Oct 2013 17:21:02 -0400 (EDT)
+Message-ID: <20131029.172102.1702458840834353036.davem@davemloft.net>
+References: <1382967629-3794-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: zajec5@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [168.63.124.57] ([168.63.124.57]:5633 "EHLO virtual.domain.tld"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751517Ab3J2VMu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Oct 2013 17:12:50 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:48837 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752039Ab3J2VVD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 17:21:03 -0400
+In-Reply-To: <1382967629-3794-1-git-send-email-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+Date: Mon, 28 Oct 2013 14:40:29 +0100
 
+> This cleans code a bit and will be useful when allocating buffers in
+> other places (like RX path, to avoid skb_copy_from_linear_data_offset=
+).
+>=20
+> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
 
-
-I would like to discuss a very important crude oil project with
-you,kindlyrevert back to me if this is your valid email address for
-further information.
-
-Regards,
-
-Lee
+Applied to net-next, thanks.
