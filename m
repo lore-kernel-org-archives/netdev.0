@@ -1,112 +1,89 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [PATCH net V3] xen-netback: use jiffies_64 value to calculate
- credit timeout
-Date: Tue, 29 Oct 2013 10:39:57 +0800
-Message-ID: <526F1FFD.4040101@oracle.com>
-References: <1382962077-13406-1-git-send-email-wei.liu2@citrix.com>
+From: "Du, ChangbinX" <changbinx.du@intel.com>
+Subject: [PATCH] net/cdc_ncm: fix null pointer panic at usbnet_link_change
+Date: Tue, 29 Oct 2013 03:30:42 +0000
+Message-ID: <0C18FE92A7765D4EB9EE5D38D86A563A019F450F@SHSMSX103.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	david.vrabel@citrix.com, jbeulich@suse.com,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Jason Luan <jianhai.luan@oracle.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:47940 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757559Ab3J2CkR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Oct 2013 22:40:17 -0400
-In-Reply-To: <1382962077-13406-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "oliver@neukum.org" <oliver@neukum.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: "Du, Changbin" <changbinx.du@intel.com>
 
-On 2013-10-28 20:07, Wei Liu wrote:
-> time_after_eq() only works if the delta is < MAX_ULONG/2.
->
-> For a 32bit Dom0, if netfront sends packets at a very low rate, the time
-> between subsequent calls to tx_credit_exceeded() may exceed MAX_ULONG/2
-> and the test for timer_after_eq() will be incorrect. Credit will not be
-> replenished and the guest may become unable to send packets (e.g., if
-> prior to the long gap, all credit was exhausted).
->
-> Use jiffies_64 variant to mitigate this problem for 32bit Dom0.
->
-> Suggested-by: Jan Beulich <jbeulich@suse.com>
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> Reviewed-by: David Vrabel <david.vrabel@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: Jason Luan <jianhai.luan@oracle.com>
-> ---
->   drivers/net/xen-netback/common.h    |    1 +
->   drivers/net/xen-netback/interface.c |    3 +--
->   drivers/net/xen-netback/netback.c   |   10 +++++-----
->   3 files changed, 7 insertions(+), 7 deletions(-)
->
-> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-> index 5715318..400fea1 100644
-> --- a/drivers/net/xen-netback/common.h
-> +++ b/drivers/net/xen-netback/common.h
-> @@ -163,6 +163,7 @@ struct xenvif {
->   	unsigned long   credit_usec;
->   	unsigned long   remaining_credit;
->   	struct timer_list credit_timeout;
-> +	u64 credit_window_start;
->   
->   	/* Statistics */
->   	unsigned long rx_gso_checksum_fixup;
-> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> index 01bb854..459935a 100644
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -312,8 +312,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
->   	vif->credit_bytes = vif->remaining_credit = ~0UL;
->   	vif->credit_usec  = 0UL;
->   	init_timer(&vif->credit_timeout);
-> -	/* Initialize 'expires' now: it's used to track the credit window. */
-> -	vif->credit_timeout.expires = jiffies;
-> +	vif->credit_window_start = get_jiffies_64();
->   
->   	dev->netdev_ops	= &xenvif_netdev_ops;
->   	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index f3e591c..900da4b 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1185,9 +1185,8 @@ out:
->   
->   static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
->   {
-> -	unsigned long now = jiffies;
-> -	unsigned long next_credit =
-> -		vif->credit_timeout.expires +
-> +	u64 now = get_jiffies_64();
-> +	u64 next_credit = vif->credit_window_start +
->   		msecs_to_jiffies(vif->credit_usec / 1000);
->   
->   	/* Timer could already be pending in rare cases. */
-> @@ -1195,8 +1194,8 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
->   		return true;
->   
->   	/* Passed the point where we can replenish credit? */
-> -	if (time_after_eq(now, next_credit)) {
-> -		vif->credit_timeout.expires = now;
-> +	if (time_after_eq64(now, next_credit)) {
-> +		vif->credit_window_start = now;
->   		tx_add_credit(vif);
->   	}
->   
-> @@ -1208,6 +1207,7 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
->   			tx_credit_callback;
->   		mod_timer(&vif->credit_timeout,
->   			  next_credit);
-> +		vif->credit_window_start = next_credit;
->   
->   		return true;
->   	}
+In cdc_ncm_bind() function, it call cdc_ncm_bind_common() to setup usb.
+But cdc_ncm_bind_common() may meet error and cause usbnet_disconnect()
+be called which calls free_netdev(net). Thus usbnet structure(alloced
+with net_device structure) will be freed,too.
+So we cannot call usbnet_link_change() if cdc_ncm_bind_common() return
+error.
 
-This patch looks good, thanks Wei.
+BUG: unable to handle kernel NULL pointer dereference at 00000078
+EIP is at usbnet_link_change+0x1e/0x80
+Call Trace:
+ [<c24bc69a>] cdc_ncm_bind+0x3a/0x50
+ [<c24b8d32>] usbnet_probe+0x282/0x7d0
+ [<c2167f2c>] ? sysfs_new_dirent+0x6c/0x100
+ [<c2821253>] ? mutex_lock+0x13/0x40
+ [<c24bb278>] cdc_ncm_probe+0x8/0x10
+ [<c24e0ef7>] usb_probe_interface+0x187/0x2c0
+ [<c23caa8a>] ? driver_sysfs_add+0x6a/0x90
+ [<c23cb290>] ? __driver_attach+0x90/0x90
+ [<c23caf14>] driver_probe_device+0x74/0x360
+ [<c24e07b1>] ? usb_match_id+0x41/0x60
+ [<c24e081e>] ? usb_device_match+0x4e/0x90
+ [<c23cb290>] ? __driver_attach+0x90/0x90
+ [<c23cb2c9>] __device_attach+0x39/0x50
+ [<c23c93f4>] bus_for_each_drv+0x34/0x70
+ [<c23cae2b>] device_attach+0x7b/0x90
+ [<c23cb290>] ? __driver_attach+0x90/0x90
+ [<c23ca38f>] bus_probe_device+0x6f/0x90
+ [<c23c8a08>] device_add+0x558/0x630
+ [<c24e4821>] ? usb_create_ep_devs+0x71/0xd0
+ [<c24dd0db>] ? create_intf_ep_devs+0x4b/0x70
+ [<c24df2bf>] usb_set_configuration+0x4bf/0x800
+ [<c23cb290>] ? __driver_attach+0x90/0x90
+ [<c24e809b>] generic_probe+0x2b/0x90
+ [<c24e105c>] usb_probe_device+0x2c/0x70
+ [<c23caf14>] driver_probe_device+0x74/0x360
 
-Thanks
-Annie
+Signed-off-by: Du, Changbin <changbinx.du@intel.com>
+---
+ drivers/net/usb/cdc_ncm.c | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 43afde8..af37ecf 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -603,14 +603,15 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
+ 
+ 	/* NCM data altsetting is always 1 */
+ 	ret = cdc_ncm_bind_common(dev, intf, 1);
+-
+-	/*
+-	 * We should get an event when network connection is "connected" or
+-	 * "disconnected". Set network connection in "disconnected" state
+-	 * (carrier is OFF) during attach, so the IP network stack does not
+-	 * start IPv6 negotiation and more.
+-	 */
+-	usbnet_link_change(dev, 0, 0);
++	if (!ret) {
++		/*
++		 * We should get an event when network connection is "connected"
++		 * or "disconnected". Set network connection in "disconnected"
++		 * state (carrier is OFF) during attach, so the IP network stack
++		 * does not start IPv6 negotiation and more.
++		 */
++		usbnet_link_change(dev, 0, 0);
++	}
+ 	return ret;
+ }
+ 
+-- 
+1.8.3.2
