@@ -1,32 +1,51 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH] net: mvneta: drop redundant mac address check
-Date: Tue, 29 Oct 2013 10:33:13 +0100
-Message-ID: <20131029103313.1f016fe2@skate>
-References: <1383010161-25854-1-git-send-email-luka@openwrt.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Luka Perkov <luka@openwrt.org>
+From: Leigh Brown <leigh@solinno.co.uk>
+Subject: [PATCH v3 4/4] net: mvmdio: doc: mvmdio now used by mv643xx_eth
+Date: Tue, 29 Oct 2013 09:33:34 +0000
+Message-ID: <391dec8a6a1b3c9a19f83eabb04e628da12c86ba.1383038974.git.leigh@solinno.co.uk>
+References: <cover.1383038973.git.leigh@solinno.co.uk>
+Cc: Leigh Brown <leigh@solinno.co.uk>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Jason Cooper <jason@lakedaemon.net>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:37739 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751168Ab3J2JdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 05:33:16 -0400
-In-Reply-To: <1383010161-25854-1-git-send-email-luka@openwrt.org>
+Received: from doppler.thel33t.co.uk ([193.110.88.198]:58168 "EHLO
+	doppler.thel33t.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753893Ab3J2JeC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 05:34:02 -0400
+In-Reply-To: <cover.1383038973.git.leigh@solinno.co.uk>
+In-Reply-To: <cover.1383038973.git.leigh@solinno.co.uk>
+References: <cover.1382637156.git.leigh@solinno.co.uk> <cover.1383038973.git.leigh@solinno.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Luka Perkov,
+Amend the documentation in the mvmdio driver to note the fact
+that it is now used by both the mvneta and mv643xx_eth drivers.
 
-On Tue, 29 Oct 2013 02:29:21 +0100, Luka Perkov wrote:
-> Checking if MAC address is valid using is_valid_ether_addr() is already done in
-> of_get_mac_address().
-> 
-> Signed-off-by: Luka Perkov <luka@openwrt.org>
+Signed-off-by: Leigh Brown <leigh@solinno.co.uk>
+---
+ drivers/net/ethernet/marvell/mvmdio.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index 0cfa0c8..0d0311c 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -4,11 +4,9 @@
+  * Since the MDIO interface of Marvell network interfaces is shared
+  * between all network interfaces, having a single driver allows to
+  * handle concurrent accesses properly (you may have four Ethernet
+- * ports, but they in fact share the same SMI interface to access the
+- * MDIO bus). Moreover, this MDIO interface code is similar between
+- * the mv643xx_eth driver and the mvneta driver. For now, it is only
+- * used by the mvneta driver, but it could later be used by the
+- * mv643xx_eth driver as well.
++ * ports, but they in fact share the same SMI interface to access
++ * the MDIO bus). This driver is currently used by the mvneta and 
++ * mv643xx_eth drivers.
+  *
+  * Copyright (C) 2012 Marvell
+  *
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+1.8.4.rc3
