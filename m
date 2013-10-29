@@ -1,49 +1,71 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] tipc: remove two indentation levels in tipc_recv_msg routine
-Date: Tue, 29 Oct 2013 11:13:09 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73BC@saturn3.aculab.com>
-References: <1383044471-12982-1-git-send-email-ying.xue@windriver.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
+Date: Tue, 29 Oct 2013 07:20:22 -0400
+Message-ID: <20131029112022.GA24477@neilslaptop.think-freely.org>
+References: <20131014202854.GH26880@hmsreliant.think-freely.org>
+ <1381785560.2045.11.camel@edumazet-glaptop.roam.corp.google.com>
+ <1381789127.2045.22.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131017003421.GA31470@hmsreliant.think-freely.org>
+ <20131017084121.GC22705@gmail.com>
+ <20131028160131.GA31048@hmsreliant.think-freely.org>
+ <20131028162438.GB14350@gmail.com>
+ <20131028174630.GB31048@hmsreliant.think-freely.org>
+ <20131028182913.GD31048@hmsreliant.think-freely.org>
+ <20131029082542.GA24625@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <Paul.Gortmaker@windriver.com>, <jon.maloy@ericsson.com>,
-	<erik.hugne@ericsson.com>, <tipc-discussion@lists.sourceforge.net>,
-	<netdev@vger.kernel.org>
-To: "Ying Xue" <ying.xue@windriver.com>, <davem@davemloft.net>,
-	<maloy@donjonn.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:57391 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754505Ab3J2LPg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 07:15:36 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 08947-06 for <netdev@vger.kernel.org>;
- Tue, 29 Oct 2013 11:15:30 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1383044471-12982-1-git-send-email-ying.xue@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	netdev@vger.kernel.org
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131029082542.GA24625@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> The message dispatching part of tipc_recv_msg() is wrapped layers of
-> while/if/if/switch, causing out-of-control indentation and does not
-> look very good. We reduce two indentation levels by separating the
-> message dispatching from the blocks that checks link state and
-> sequence numbers, allowing longer function and arg names to be
-> consistently indented without wrapping. This is a cosmetic change
-> that does not alter the operation of TIPC in any way.
-...
-> +			tipc_node_unlock(n_ptr);
-> +			goto cont;
-> +		}
-...
->		continue;
->  cont:
->  		kfree_skb(buf);
->  	}
+On Tue, Oct 29, 2013 at 09:25:42AM +0100, Ingo Molnar wrote:
+> 
+> * Neil Horman <nhorman@tuxdriver.com> wrote:
+> 
+> > Heres my data for running the same test with taskset restricting 
+> > execution to only cpu0.  I'm not quite sure whats going on here, 
+> > but doing so resulted in a 10x slowdown of the runtime of each 
+> > iteration which I can't explain.  As before however, both the 
+> > parallel alu run and the prefetch run resulted in speedups, but 
+> > the two together were not in any way addative.  I'm going to keep 
+> > playing with the prefetch stride, unless you have an alternate 
+> > theory.
+> 
+> Could you please cite the exact command-line you used for running 
+> the test?
+> 
+> Thanks,
+> 
+> 	Ingo
+> 
 
-I can only see one 'goto cont', an explicit kfree_skb() and
-continue would be clearer.
+Sure it was this:
+for i in `seq 0 1 3`
+do
+echo $i > /sys/module/csum_test/parameters/module_test_mode
+taskset -c 0 perf stat --repeat 20 -C 0 -ddd perf bench sched messaging -- /root/test.sh
+done >> counters.txt 2>&1
 
-	David
+where test.sh is:
+#!/bin/sh
+echo 1 > /sys/module/csum_test/parameters/test_fire
+
+
+As before, module_test_mode selects a case in a switch statement I added in
+do_csum to test one of the 4 csum variants we've been discusing (base, prefetch,
+parallel ALU or both), and test_fire is a callback trigger I use in the test
+module to run 100000 iterations of a checksum operation.  As you requested, I
+ran the above on cpu 0 (-C 0 on perf and -c 0 on taskset), and I removed all irq
+affinity to cpu 0.
+
+Regards
+Neil
