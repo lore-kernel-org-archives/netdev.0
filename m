@@ -1,116 +1,120 @@
-From: Amos Kong <akong@redhat.com>
-Subject: Re: [PATCH] bridge: pass correct vlan id to multicast code
-Date: Tue, 29 Oct 2013 21:39:15 +0800
-Message-ID: <20131029133915.GA799@amosk.info>
-References: <1382989507-23061-1-git-send-email-vyasevic@redhat.com>
- <20131029023646.GA2795@amosk.info>
- <1383044915.3518.41.camel@ubuntu-vm-makita>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH net-next] net: introduce gro_frag_list_enable sysctl
+Date: Tue, 29 Oct 2013 14:48:36 +0100
+Message-ID: <20131029134836.GD5278@cpaasch-mac>
+References: <20131028115552.GC4408@cpaasch-mac>
+ <1382966471.13037.18.camel@edumazet-glaptop.roam.corp.google.com>
+ <1383009308.5464.2.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131029090849.GC5944@cpaasch-mac>
+ <1383051962.5464.25.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	shemminger@vyatta.com
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
+	Michael Dalton <mwdalton@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7153 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753241Ab3J2NjW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Oct 2013 09:39:22 -0400
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:48420 "EHLO
+	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753871Ab3J2Nsq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 09:48:46 -0400
 Content-Disposition: inline
-In-Reply-To: <1383044915.3518.41.camel@ubuntu-vm-makita>
+In-Reply-To: <1383051962.5464.25.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 29, 2013 at 08:08:35PM +0900, Toshiaki Makita wrote:
-> On Tue, 2013-10-29 at 10:36 +0800, Amos Kong wrote:
-> > On Mon, Oct 28, 2013 at 03:45:07PM -0400, Vlad Yasevich wrote:
-> > > Currently multicast code attempts to extrace the vlan id from
-> > > the skb even when vlan filtering is disabled.  This can lead
-> > > to mdb entries being created with the wrong vlan id.
-> > > Pass the already extracted vlan id to the multicast
-> > > filtering code to make the correct id is used in
-> > > creation as well as lookup.
+On 29/10/13 - 06:06:02, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Thanks!
+> Christoph Paasch and Jerry Chu reported crashes in skb_segment() caused
+> by commit 8a29111c7ca6 ("net: gro: allow to build full sized skb")
 > 
-> Acked-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> (Jerry is working on adding native GRO support for tunnels)
 > 
-> >  
-> > Hi Vlad,
-> > 
-> > Can we just update br_vlan_get_tag() to set vid to 0 if dev->vlan is
-> > disabled? I guess it would effect br_handle_local_finish().
+> skb_segment() only deals with a frag_list chain containing MSS sized
+> fragments.
 > 
-> br_handle_local_finish() looks also buggy.
-> But adding vlan enabled checking would not fix it completely because
-> vlan_bitmap and PVID are not taken into account in that function.
+> This patch adds support any kind of frag, and adds a new sysctl,
+> as clearly the GRO layer should avoid building frag_list skbs
+> on a router, as the segmentation is adding cpu overhead.
 > 
-> Since we cannot pass vid as an argument from br_dev_xmit() to
-> br_handle_[local/frame]_finish() because of NF_HOOK,
-> br_handle_local_finish() seems to have to check vlan_enabled,
-> vlan_bitmap, and pvid by itself.
+> Note that we could try to reuse page fragments instead of doing
+> copy to linear skbs, but this requires a fair amount of work,
+> and possible truesize nightmares, as we do not track individual
+> (per page fragment) truesizes.
 > 
-> IMHO it can be addressed by another patch.
->
-> > > Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> > > ---
-> > >  net/bridge/br_device.c    |  2 +-
-> > >  net/bridge/br_input.c     |  2 +-
-> > >  net/bridge/br_multicast.c | 44 +++++++++++++++++++-------------------------
-> > >  net/bridge/br_private.h   |  6 ++++--
-> > >  4 files changed, 25 insertions(+), 29 deletions(-)
-> > 
-> > ...
-> > 
-> > > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> > > index 8b0b610..686284f 100644
-> > > --- a/net/bridge/br_multicast.c
-> > > +++ b/net/bridge/br_multicast.c
-> > > @@ -947,7 +947,8 @@ void br_multicast_disable_port(struct net_bridge_port *port)
-> > >  
-> > >  static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
-> > >  					 struct net_bridge_port *port,
-> > > -					 struct sk_buff *skb)
-> > > +					 struct sk_buff *skb,
-> > > +					 u16 vid)
-> > >  {
-> > >  	struct igmpv3_report *ih;
-> > >  	struct igmpv3_grec *grec;
-> > > @@ -957,12 +958,10 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
-> > >  	int type;
-> > >  	int err = 0;
-> > >  	__be32 group;
-> > > -	u16 vid = 0;
-> > >  
-> > >  	if (!pskb_may_pull(skb, sizeof(*ih)))
-> > >  		return -EINVAL;
-> > >  
-> > > -	br_vlan_get_tag(skb, &vid);
-> > 
-> > After applied the patch, we always use vid in br_dev_xmit()->br_allowed_ingress(),
-> > is it possible that the vlan of bridge is re-enabled when other
-> > changed functions are called?
-> > 
-> > We can just add a enabled checking before this kind of br_vlan_get_tag()?
-> > 
-> > if (!br->vlan_enabled)
-> >     br_vlan_get_tag(skb2, &vid);
+> /proc/sys/net/core/gro_frag_list_enable possible values are :
 > 
-> Maybe this leads to a wrong way to update mdb in some cases like
->   Vlan_filtering is disabled (by default).
->   Add some vids we want to allow.
->   Receive a frame whose vid wouldn't be allowed with vlan_filtering enabled.
->   The frame passes br_allowed_ingress().
->   Enable vlan_filtering.
->   The frame reaches br_ip4_multicast_igmp3_report().
->   Mdb is updated with disabled vid.
+> 0 : GRO layer is not allowed to use frag_list to extend skb capacity
+> 1 : GRO layer is allowed to use frag_list, but skb_segment()
+>     automatically sets the sysctl to 0.
+> 2 : GRO is allowed to use frag_list, and skb_segment() wont
+>     clear the sysctl.
 > 
+> Default value is 1 : automatic discovery
 > 
-> Thanks,
+> Reported-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> Reported-by: Jerry Chu <hkchu@google.com>
+> Cc: Michael Dalton <mwdalton@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  Documentation/sysctl/net.txt |   19 +++++++++++++++++++
+>  include/linux/netdevice.h    |    1 +
+>  net/core/skbuff.c            |   29 ++++++++++++++++++++---------
+>  net/core/sysctl_net_core.c   |   10 ++++++++++
+>  4 files changed, 50 insertions(+), 9 deletions(-)
 > 
-> Toshiaki Makita
- 
-Thanks all your explanation, I'm ok with the patch.
+> diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
+> index 9a0319a82470..8778568ae64e 100644
+> --- a/Documentation/sysctl/net.txt
+> +++ b/Documentation/sysctl/net.txt
+> @@ -87,6 +87,25 @@ sysctl.net.busy_read globally.
+>  Will increase power usage.
+>  Default: 0 (off)
+>  
+> +gro_frag_list_enable
+> +--------------------
+> +
+> +GRO layer can build full size GRO packets (~64K of payload) if it is allowed
+> +to extend skb using the frag_list pointer. However, this strategy is a win
+> +on hosts, where TCP flows are terminated. For a router, using frag_list
+> +skbs is not a win because we have to segment skbs before transmit,
+> +as most NIC drivers do not support frag_list.
+> +As soon as one frag_list skb has to be segmented, this sysctl is automatically
+> +changed from 1 to 0.
+> +If the value is set to 2, kernel wont change it.
+> +
+> +Choices : 0 (off),
+> +          1 (on, with automatic change to 0)
+> +          2 (on, permanent)
+> +
+> +Default: 1 (on, with automatic downgrade on a router)
+> +
+> +
+>  rmem_default
+>  ------------
+>  
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 27f62f746621..b82ff52f301e 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -2807,6 +2807,7 @@ extern int		netdev_max_backlog;
+>  extern int		netdev_tstamp_prequeue;
+>  extern int		weight_p;
+>  extern int		bpf_jit_enable;
+> +extern int		sysctl_gro_frag_list_enable;
+
+We are missing the definition of sysctl_gro_frag_list_enable :)
+
+net/built-in.o: In function `skb_gro_receive':
+(.text+0x8f04): undefined reference to `sysctl_gro_frag_list_enable'
+net/built-in.o: In function `skb_segment':
+(.text+0xa54e): undefined reference to `sysctl_gro_frag_list_enable'
+net/built-in.o: In function `skb_segment':
+(.text+0xa557): undefined reference to `sysctl_gro_frag_list_enable'
+net/built-in.o:(.data+0x1198): undefined reference to `sysctl_gro_frag_list_enable'
 
 
--- 
-			Amos.
+Cheers,
+Christoph
