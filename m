@@ -1,55 +1,71 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] 3c515: Fix warning when building
-Date: Tue, 29 Oct 2013 19:31:57 +0000
-Message-ID: <1383075117.1534.23.camel@bwh-desktop.uk.level5networks.com>
-References: <1382738386-29888-1-git-send-email-ricec2@rpi.edu>
-	 <20131029.000316.767189982282205506.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [Bug 64011] New: Link-local addresses are used to go outside instead of assigned IPv6 routable address
+Date: Tue, 29 Oct 2013 20:36:24 +0100
+Message-ID: <20131029193624.GB20147@order.stressinduktion.org>
+References: <bug-64011-16487@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <ricec2@rpi.edu>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: luzemario@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:18241 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751949Ab3J2TcB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 15:32:01 -0400
-In-Reply-To: <20131029.000316.767189982282205506.davem@davemloft.net>
+Received: from order.stressinduktion.org ([87.106.68.36]:36931 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751583Ab3J2Tg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 15:36:26 -0400
+Content-Disposition: inline
+In-Reply-To: <bug-64011-16487@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-10-29 at 00:03 -0400, David Miller wrote:
-> From: Colin Rice <ricec2@rpi.edu>
-> Date: Fri, 25 Oct 2013 21:59:46 +0000
+Hi!
+
+On Tue, Oct 29, 2013 at 01:36:37PM +0000, bugzilla-daemon@bugzilla.kernel.org wrote:
+> https://bugzilla.kernel.org/show_bug.cgi?id=64011
 > 
-> > -		outl((int) (skb->data), ioaddr + Wn7_MasterAddr);
-> > +		outl((size_t) (skb->data), ioaddr + Wn7_MasterAddr);
+>             Bug ID: 64011
+>            Summary: Link-local addresses are used to go outside instead of
+>                     assigned IPv6 routable address
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 3.11.6-200 and earlier
+>           Hardware: All
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: IPV6
+>           Assignee: yoshfuji@linux-ipv6.org
+>           Reporter: luzemario@gmail.com
+>         Regression: No
 > 
-> outl() takes an "int" not a "size_t".   You're avoiding the warning,
-> but on 64-bit, for example, you're silently allowing the compiler
-> to accept chopping off the top 32-bits of the 64-bit pointer address
-> off.
+> Created attachment 112651
+>   --> https://bugzilla.kernel.org/attachment.cgi?id=112651&action=edit
+> pfSense screenshot of blocked link-local requests to outside
 > 
-> The warning is valid, this code won't work in certain environments,
-> and killing the warning is just papering over the problem such that
-> it will never get addressed properly.
+> Sometimes kernel tries to estabilish a IPv6 connection to external global
+> routable addresses using [FE80::] link-local addresses, instead of using the
+> learned DHCPv6 global-unicast address.
 > 
-> I'm not applying patches like this, sorry.
+> In the attached screenshot, the machine got an IPv6 address in the
+> [2001:1291:200::] range, and was correctly configured.
+> 
+> Since link-local should not traverse network segments, I am getting lots of
+> events in my firewall from several kernel versions of different distros (see
+> attachment).
+> 
+> At the time when the kernel attempts to use the link-local address, there is a
+> small delay (around 1s) to open IPv6 pages. It appears kernel tries to reach a
+> remote machine using link-local address. When it fails, the kernel uses the
+> assigned global routable address.
+> 
+> This issue was seen on several major distros, as Fedora, Ubuntu, Mageia, etc.
+> yet on the distro's later updates.
 
-The driver is writing a virtual address as the DMA address.  The
-hardware is an ISA device and will presumably ignore the top 8 bits,
-thus doing the virt-to-bus conversion for us.  Very efficient - so long
-as this runs on a PC with no more than 16 MB RAM.
+Could you provide ip -6 a l, ip -6 r l, ip -6 n l and a copy of /proc/net/ipv6_route
+(please check that the lines are not broken up)? The configuration of the
+router advertisment daemon on your gateway would be interesting, too.
 
-For other chips with a DMA descriptor ring, the driver uses
-isa_virt_to_bus() which is less efficient but no more correct.
+Thanks,
 
-Maybe the driver should just be deleted, as it doesn't look like it's
-actually usable any more.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+  Hannes
