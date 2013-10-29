@@ -1,120 +1,60 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH net-next] net: introduce gro_frag_list_enable sysctl
-Date: Tue, 29 Oct 2013 14:48:36 +0100
-Message-ID: <20131029134836.GD5278@cpaasch-mac>
-References: <20131028115552.GC4408@cpaasch-mac>
- <1382966471.13037.18.camel@edumazet-glaptop.roam.corp.google.com>
- <1383009308.5464.2.camel@edumazet-glaptop.roam.corp.google.com>
- <20131029090849.GC5944@cpaasch-mac>
- <1383051962.5464.25.camel@edumazet-glaptop.roam.corp.google.com>
+From: Artem Bityutskiy <dedekind1@gmail.com>
+Subject: Re: [PATCH 00/19] Enable various Renesas drivers on all ARM platforms
+Date: Tue, 29 Oct 2013 15:54:27 +0200
+Message-ID: <1383054867.29619.34.camel@sauron.fi.intel.com>
+References: <1383004027-25036-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+ <Pine.LNX.4.64.1310291009121.8404@axis700.grange>
+ <1383051980.29619.33.camel@sauron.fi.intel.com> <1844190.ApyucSZX8W@avalon>
+Reply-To: dedekind1@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
-	Michael Dalton <mwdalton@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:48420 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753871Ab3J2Nsq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 09:48:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1383051962.5464.25.camel@edumazet-glaptop.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-fbdev@vger.kernel.org, linux-sh@vger.kernel.org,
+ Linus Walleij <linus.walleij@linaro.org>,
+ Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>,
+ Thierry Reding <thierry.reding@gmail.com>, linux-mtd@lists.infradead.org,
+ linux-i2c@vger.kernel.org,
+ Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>,
+ "David S. Miller" <davem@davemloft.net>, Vinod Koul <vinod.koul@intel.com>,
+ Joerg Roedel <joro@8bytes.org>, Wolfram Sang <wsa@the-dreams.de>,
+ Magnus Damm <magnus.damm@gmail.com>,
+ Eduardo Valentin <eduardo.valentin@ti.com>,
+ Tomi Valkeinen <tomi.valkeinen@ti.com>, linux-serial@vger.kernel.org,
+ linux-input@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>,
+ Chris Ball <cjb@laptop.org>,
+ Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+ linux-media@vger.kernel.org, linux-pwm@vger.kernel.org,
+ Samuel Ortiz <samuel@sortiz.org>, linux-pm@vger.kernel.org,
+ Ian
+To: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1844190.ApyucSZX8W@avalon>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 29/10/13 - 06:06:02, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Tue, 2013-10-29 at 14:22 +0100, Laurent Pinchart wrote:
+> > Also, if ARM dependency is ever removed, all these should become 'n' by
+> > default in the Kconfig, in order to make sure they do not slip into
+> > defconfigs of different architectures.
 > 
-> Christoph Paasch and Jerry Chu reported crashes in skb_segment() caused
-> by commit 8a29111c7ca6 ("net: gro: allow to build full sized skb")
-> 
-> (Jerry is working on adding native GRO support for tunnels)
-> 
-> skb_segment() only deals with a frag_list chain containing MSS sized
-> fragments.
-> 
-> This patch adds support any kind of frag, and adds a new sysctl,
-> as clearly the GRO layer should avoid building frag_list skbs
-> on a router, as the segmentation is adding cpu overhead.
-> 
-> Note that we could try to reuse page fragments instead of doing
-> copy to linear skbs, but this requires a fair amount of work,
-> and possible truesize nightmares, as we do not track individual
-> (per page fragment) truesizes.
-> 
-> /proc/sys/net/core/gro_frag_list_enable possible values are :
-> 
-> 0 : GRO layer is not allowed to use frag_list to extend skb capacity
-> 1 : GRO layer is allowed to use frag_list, but skb_segment()
->     automatically sets the sysctl to 0.
-> 2 : GRO is allowed to use frag_list, and skb_segment() wont
->     clear the sysctl.
-> 
-> Default value is 1 : automatic discovery
-> 
-> Reported-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> Reported-by: Jerry Chu <hkchu@google.com>
-> Cc: Michael Dalton <mwdalton@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  Documentation/sysctl/net.txt |   19 +++++++++++++++++++
->  include/linux/netdevice.h    |    1 +
->  net/core/skbuff.c            |   29 ++++++++++++++++++++---------
->  net/core/sysctl_net_core.c   |   10 ++++++++++
->  4 files changed, 50 insertions(+), 9 deletions(-)
-> 
-> diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
-> index 9a0319a82470..8778568ae64e 100644
-> --- a/Documentation/sysctl/net.txt
-> +++ b/Documentation/sysctl/net.txt
-> @@ -87,6 +87,25 @@ sysctl.net.busy_read globally.
->  Will increase power usage.
->  Default: 0 (off)
->  
-> +gro_frag_list_enable
-> +--------------------
-> +
-> +GRO layer can build full size GRO packets (~64K of payload) if it is allowed
-> +to extend skb using the frag_list pointer. However, this strategy is a win
-> +on hosts, where TCP flows are terminated. For a router, using frag_list
-> +skbs is not a win because we have to segment skbs before transmit,
-> +as most NIC drivers do not support frag_list.
-> +As soon as one frag_list skb has to be segmented, this sysctl is automatically
-> +changed from 1 to 0.
-> +If the value is set to 2, kernel wont change it.
-> +
-> +Choices : 0 (off),
-> +          1 (on, with automatic change to 0)
-> +          2 (on, permanent)
-> +
-> +Default: 1 (on, with automatic downgrade on a router)
-> +
-> +
->  rmem_default
->  ------------
->  
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 27f62f746621..b82ff52f301e 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -2807,6 +2807,7 @@ extern int		netdev_max_backlog;
->  extern int		netdev_tstamp_prequeue;
->  extern int		weight_p;
->  extern int		bpf_jit_enable;
-> +extern int		sysctl_gro_frag_list_enable;
+> The idea is that, if ARM is neither a compile-time nor runtime dependency, it 
+> should not be specified in Kconfig. However, if the IP core has never been 
+> used on anything but SuperH and ARM, I don't think clobbering the config 
+> process with drivers that can't be used on the target architecture would be a 
+> really good idea, especially now that we have a COMPILE_TEST Kconfig option. 
+> My preference does goes to SUPERH || ARM || COMPILE_TEST over no dependency at 
+> all.
 
-We are missing the definition of sysctl_gro_frag_list_enable :)
+Ah, OK, I missed the entire COMPILE_TEST story.
 
-net/built-in.o: In function `skb_gro_receive':
-(.text+0x8f04): undefined reference to `sysctl_gro_frag_list_enable'
-net/built-in.o: In function `skb_segment':
-(.text+0xa54e): undefined reference to `sysctl_gro_frag_list_enable'
-net/built-in.o: In function `skb_segment':
-(.text+0xa557): undefined reference to `sysctl_gro_frag_list_enable'
-net/built-in.o:(.data+0x1198): undefined reference to `sysctl_gro_frag_list_enable'
-
-
-Cheers,
-Christoph
+-- 
+Best Regards,
+Artem Bityutskiy
