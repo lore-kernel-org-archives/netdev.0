@@ -1,79 +1,134 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next] tcp: temporarily disable Fast Open on SYN timeout
-Date: Tue, 29 Oct 2013 10:09:05 -0700
-Message-ID: <1383066545-27348-1-git-send-email-ycheng@google.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
-To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [patch net-next] ipv6: allow userspace to create address with
+ IFLA_F_TEMPORARY flag
+Date: Tue, 29 Oct 2013 12:15:41 -0500
+Message-ID: <1383066941.2236.65.camel@dcbw.foobar.com>
+References: <CAGCdqXHUW=RJf67qPXVRhPY__GAs02+G9mJV7agN5pDdfELXXA@mail.gmail.com>
+		 <20131027132941.GA1443@minipsycho.orion>
+		 <20131027164835.GB4714@order.stressinduktion.org>
+		 <20131028.171725.1076499130782328273.davem@davemloft.net>
+		 <1383002179.28991.14.camel@dcbw.foobar.com>
+		 <20131028234842.GB26185@order.stressinduktion.org>
+	 <1383057078.2236.12.camel@dcbw.foobar.com> <526FE93E.3040300@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>, jiri@resnulli.us,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
+	stephen@networkplumber.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f73.google.com ([209.85.220.73]:35390 "EHLO
-	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757850Ab3J2RJM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 13:09:12 -0400
-Received: by mail-pa0-f73.google.com with SMTP id kp14so44890pab.0
-        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 10:09:11 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:42711 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754013Ab3J2RQf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Oct 2013 13:16:35 -0400
+In-Reply-To: <526FE93E.3040300@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fast Open currently has a fall back feature to address SYN-data
-being dropped by but it requires the middle-box to pass on regular
-SYN retry after SYN-data. This is implemented in commit aab487435
-("net-tcp: Fast Open client - detecting SYN-data drops")
+On Tue, 2013-10-29 at 12:58 -0400, Vlad Yasevich wrote:
+> On 10/29/2013 10:31 AM, Dan Williams wrote:
+> > On Tue, 2013-10-29 at 00:48 +0100, Hannes Frederic Sowa wrote:
+> >> On Mon, Oct 28, 2013 at 06:16:19PM -0500, Dan Williams wrote:
+> >>> On Mon, 2013-10-28 at 17:17 -0400, David Miller wrote:
+> >>>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> >>>> Date: Sun, 27 Oct 2013 17:48:35 +0100
+> >>>>
+> >>>>> A temporary address is also bound to a non-privacy public address so
+> >>>>> it's lifetime is determined by its lifetime (e.g. if you switch the
+> >>>>> network and don't receive on-link information for that prefix any
+> >>>>> more). NetworkManager would have to take care about that, too. It is
+> >>>>> just a question of what NetworkManager wants to handle itself or lets
+> >>>>> the kernel handle for it.
+> >>>>
+> >>>> How much really needs to be in userspace to implement RFC4941?
+> >>>>
+> >>>> I don't like the idea that even for a fully up and properly
+> >>>> functioning link, if NetworkManager wedges then critical things like
+> >>>> temporary address (re-)generation, will cease.
+> >>>
+> >>> Honestly, I'd be completely happy to leave temporary address handling up
+> >>> to the kernel and *not* do it in userspace; the kernel already has all
+> >>> the code.  There are two problems with that though, (a) it's tied to
+> >>> in-kernel RA handling, and (b) it's controlled by a CONFIG option.  Both
+> >>> these are solvable.
+> >>
+> >> Ah, (a) does complicate things, I agree. But the tieing is essential
+> >> currently. So it seems a netlink interface would be needed to tie a new
+> >> address to an already installed one, if the kernel should still deal
+> >> with the regeneration?
+> >
+> > I think it's simpler than that.  New flag set when adding the
+> > non-private address that says "create and manage privacy addresses for
+> > this non-private address".  The kernel then adds the privacy addresses
+> > generated off the non-private address/prefixlen, and ties their lifetime
+> > to the non-private address.  If the non-private address is removed, the
+> > privacy addresses could get removed too.
+> >
+> > I don't think we need API to tie addresses to already installed ones,
+> > because the kernel already has the privacy address generation code, so
+> > why should userspace generate the privacy address at all?  Just leave
+> > that to the kernel.
+> >
+> >>> First off, what's the reasoning behind having IPv6 privacy as a config
+> >>> option?  It's off-by-default and must be explicitly turned on, so is
+> >>> there any harm in removing the config?  Or is it just for
+> >>> smallest-kernel-ever folks?
+> >>
+> >> I don't know about the policy. Does it really matter as distributions
+> >> normally switch it on? But I would not like to see the option removed
+> >> entirly, maybe the default could be changed.
+> >>
+> >>> Would a new IFA_F_MANAGE_TEMP (or better name) work here, indicating
+> >>> that for some new static address, that the kernel should create and
+> >>> manage the temporary privacy addresses associated with its prefix?
+> >>
+> >> But this would only be needed if they were managed in user-space, no?
+> >
+> > "if they" == what?  privacy address or static address?  What
+> > NetworkManager is trying to do is handle RAs in userspace with libndp
+> > for various flexibility and behavioral reasons, but we'd really like to
+> > leave all the temporary address stuff up to the kernel.
+> >
+> > So NM would handle RA/RS and when it gets a prefix, it would create the
+> > IPv6 non-private address and add it to the interface.  When adding, it
+> > would also set the "IFA_F_MANAGE_TEMP" flag (or whatever) and the kernel
+> > would then handle all the privacy address generation, lifetimes, and
+> > timers.  Basically, break some of the privacy code away from the
+> > in-kernel RA handling so that privacy addresses could be triggered from
+> > userland too.
+> >
+> > Would that be workable?
+> 
+> You are still dependent on the NM/user app to do this and what happens
+> if that apps wedges?
 
-However some NAT boxes will drop all subsequent packets after first
-SYN-data and blackholes the entire connections.  An example is incommit
-356d7d8 "netfilter: nf_conntrack: fix tcp_in_window for Fast Open".
+In my proposal, the kernel would still manage the lifetimes of all the
+addresses, since user app would add the non-privacy address with the
+correct lifetime, and the kernel would generate the privacy addresses
+with a corresponding lifetime.  If the app wedges for some reason, then
+the kernel will deprecate and eventually remove the non-privacy *and*
+privacy addresses since their lifetimes have expired.
 
-The sender should note such incidents and falls back to use regular
-TCP handshake on subsequent attempt temporarily as well: after the
-second SYN timeouts the original Fast Open SYN is most likely lost.
-When such an event recurs Fast Open is disabled based on the number
-of recurrences exponentially.
+What if your dhclient wedges?  What if ovsd or teamd goes down?  Or your
+openvpn, vpnc, pptp, pppd, sshd, whatever wedges?  There's a lot of
+networking that's controlled by userland these days, and failure of
+these things also potentailly wedges your network.  We should be
+striving to make the best userland we can instead of trying to stuff
+everything into the kernel in the name of reliability.
 
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_metrics.c | 5 +++--
- net/ipv4/tcp_timer.c   | 6 +++++-
- 2 files changed, 8 insertions(+), 3 deletions(-)
+> I think we should just do privacy addresses automatically, or based on
+> some sysconfig setting per interface to give users ability to turn it
+> off.  But I agree with David, and I speak from experience.
+> You don't whant address configuration to be done by userspace daemon.
+> There are too many things that can go wrong.
 
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 4a2a841..2ab09cb 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -671,8 +671,9 @@ void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
- 		struct tcp_fastopen_metrics *tfom = &tm->tcpm_fastopen;
- 
- 		write_seqlock_bh(&fastopen_seqlock);
--		tfom->mss = mss;
--		if (cookie->len > 0)
-+		if (mss)
-+			tfom->mss = mss;
-+		if (cookie && cookie->len > 0)
- 			tfom->cookie = *cookie;
- 		if (syn_lost) {
- 			++tfom->syn_loss;
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index af07b5b..64f0354 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -156,12 +156,16 @@ static bool retransmits_timed_out(struct sock *sk,
- static int tcp_write_timeout(struct sock *sk)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
-+	struct tcp_sock *tp = tcp_sk(sk);
- 	int retry_until;
- 	bool do_reset, syn_set = false;
- 
- 	if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
--		if (icsk->icsk_retransmits)
-+		if (icsk->icsk_retransmits) {
- 			dst_negative_advice(sk);
-+			if (tp->syn_fastopen || tp->syn_data)
-+				tcp_fastopen_cache_set(sk, 0, NULL, true);
-+		}
- 		retry_until = icsk->icsk_syn_retries ? : sysctl_tcp_syn_retries;
- 		syn_set = true;
- 	} else {
--- 
-1.8.4.1
+Should IPv6 should be that different from IPv4?  DHCP is done by a
+userspace daemon in all cases (v6 and v4), and other v4 is always done
+by userland (static files, avahi-autoipd, other daemons).  You can never
+get away from userland here, and we need more flexibility in userland
+than the kernel currently provides with its addrconf implementation.
+
+Dan
