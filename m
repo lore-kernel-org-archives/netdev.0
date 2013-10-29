@@ -1,55 +1,128 @@
-From: Florian Weimer <fweimer@redhat.com>
-Subject: Re: [PATCH net-next] ipv4: introduce new IP_MTU_DISCOVER mode IP_PMTUDISC_INTERFACE
-Date: Tue, 29 Oct 2013 08:36:35 +0100
-Message-ID: <526F6583.4000506@redhat.com>
-References: <20131026201158.GI15744@order.stressinduktion.org> <20131029.000844.1092862708536984032.davem@davemloft.net>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net 1/3] r8152: fix tx/rx memory overflow
+Date: Tue, 29 Oct 2013 15:56:15 +0800
+Message-ID: <1383033377-1178-2-git-send-email-hayeswang@realtek.com>
+References: <1383033377-1178-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35478 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752151Ab3J2Hgl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Oct 2013 03:36:41 -0400
-In-Reply-To: <20131029.000844.1092862708536984032.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1383033377-1178-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/29/2013 05:08 AM, David Miller wrote:
+The tx/rx would access the memory which is out of the desired range.
+Modify the method of checking the end of the memory to avoid it.
 
-> I do not like this reasoning.  You have several more acceptable paths to take
-> to resolve this problem:
->
-> 1) "I don't trust path MTU information at all"
->
->     Just turn it off globally, end of story.  It has the same effect as your
->     new per-application mode.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 30 +++++++++++++++++-------------
+ 1 file changed, 17 insertions(+), 13 deletions(-)
 
-We can't push this as a security update.  We could tell everyone running 
-DNS servers to reconfigure their systems in this way, but I always 
-consider this a bit of a cop-out.
-
-A new knob to turn IP_PMTUDISC_DONT into something that behaves like 
-IP_PMTUDISC_INTERFACE would be more conservative and easier to deploy, I 
-think.
-
-> 2) "I don't trust path MTU information unless the full socket ID is available
->      in the ICMP packets quoted headers"
->
->     Then simply implement a policy as such and submit it to me.
-
-There are IP protocols where these bits aren't readily available and 
-where we don't want the kernel (outside the Netfilter code) to be aware 
-of the payload structure.  Netfilter isn't a solution because it 
-requires state and doesn't work well with request-response UDP protocols 
-like DNS (even before source port randomization).
-
-You could make the path MTU dependent on the protocol (which would even 
-be the correct solution from a technical point of view) and use 
-validation for TCP and UDP, but that's a fairly invasive change for such 
-relatively minor functionality.
-
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index f3fce41..5dbfe50 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -24,7 +24,7 @@
+ #include <linux/ipv6.h>
+ 
+ /* Version Information */
+-#define DRIVER_VERSION "v1.01.0 (2013/08/12)"
++#define DRIVER_VERSION "v1.02.0 (2013/10/28)"
+ #define DRIVER_AUTHOR "Realtek linux nic maintainers <nic_swsd@realtek.com>"
+ #define DRIVER_DESC "Realtek RTL8152 Based USB 2.0 Ethernet Adapters"
+ #define MODULENAME "r8152"
+@@ -1136,14 +1136,14 @@ r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc, struct sk_buff *skb)
+ 
+ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
+ {
+-	u32 remain;
++	int remain;
+ 	u8 *tx_data;
+ 
+ 	tx_data = agg->head;
+ 	agg->skb_num = agg->skb_len = 0;
+-	remain = rx_buf_sz - sizeof(struct tx_desc);
++	remain = rx_buf_sz;
+ 
+-	while (remain >= ETH_ZLEN) {
++	while (remain >= ETH_ZLEN + sizeof(struct tx_desc)) {
+ 		struct tx_desc *tx_desc;
+ 		struct sk_buff *skb;
+ 		unsigned int len;
+@@ -1152,12 +1152,14 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
+ 		if (!skb)
+ 			break;
+ 
++		remain -= sizeof(*tx_desc);
+ 		len = skb->len;
+ 		if (remain < len) {
+ 			skb_queue_head(&tp->tx_queue, skb);
+ 			break;
+ 		}
+ 
++		tx_data = tx_agg_align(tx_data);
+ 		tx_desc = (struct tx_desc *)tx_data;
+ 		tx_data += sizeof(*tx_desc);
+ 
+@@ -1167,9 +1169,8 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
+ 		agg->skb_len += len;
+ 		dev_kfree_skb_any(skb);
+ 
+-		tx_data = tx_agg_align(tx_data + len);
+-		remain = rx_buf_sz - sizeof(*tx_desc) -
+-			 (u32)((void *)tx_data - agg->head);
++		tx_data += len;
++		remain = rx_buf_sz - (int)(tx_agg_align(tx_data) - agg->head);
+ 	}
+ 
+ 	usb_fill_bulk_urb(agg->urb, tp->udev, usb_sndbulkpipe(tp->udev, 2),
+@@ -1188,7 +1189,6 @@ static void rx_bottom(struct r8152 *tp)
+ 	list_for_each_safe(cursor, next, &tp->rx_done) {
+ 		struct rx_desc *rx_desc;
+ 		struct rx_agg *agg;
+-		unsigned pkt_len;
+ 		int len_used = 0;
+ 		struct urb *urb;
+ 		u8 *rx_data;
+@@ -1204,17 +1204,22 @@ static void rx_bottom(struct r8152 *tp)
+ 
+ 		rx_desc = agg->head;
+ 		rx_data = agg->head;
+-		pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
+-		len_used += sizeof(struct rx_desc) + pkt_len;
++		len_used += sizeof(struct rx_desc);
+ 
+-		while (urb->actual_length >= len_used) {
++		while (urb->actual_length > len_used) {
+ 			struct net_device *netdev = tp->netdev;
+ 			struct net_device_stats *stats;
++			unsigned pkt_len;
+ 			struct sk_buff *skb;
+ 
++			pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
+ 			if (pkt_len < ETH_ZLEN)
+ 				break;
+ 
++			len_used += pkt_len;
++			if (urb->actual_length < len_used)
++				break;
++
+ 			stats = rtl8152_get_stats(netdev);
+ 
+ 			pkt_len -= 4; /* CRC */
+@@ -1234,9 +1239,8 @@ static void rx_bottom(struct r8152 *tp)
+ 
+ 			rx_data = rx_agg_align(rx_data + pkt_len + 4);
+ 			rx_desc = (struct rx_desc *)rx_data;
+-			pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
+ 			len_used = (int)(rx_data - (u8 *)agg->head);
+-			len_used += sizeof(struct rx_desc) + pkt_len;
++			len_used += sizeof(struct rx_desc);
+ 		}
+ 
+ submit:
 -- 
-Florian Weimer / Red Hat Product Security Team
+1.8.3.1
