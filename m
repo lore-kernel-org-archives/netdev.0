@@ -1,28 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/2] net/benet: Make lancer_wait_ready() static
-Date: Tue, 29 Oct 2013 17:50:35 -0400 (EDT)
-Message-ID: <20131029.175035.654901396599489631.davem@davemloft.net>
-References: <1383039057-28164-1-git-send-email-shangw@linux.vnet.ibm.com>
-	<1383039057-28164-2-git-send-email-shangw@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Sathya.Perla@emulex.com
-To: shangw@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49091 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753351Ab3J2Vug (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 17:50:36 -0400
-In-Reply-To: <1383039057-28164-2-git-send-email-shangw@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH NEXT] rtl8187: Increase RX queue depth
+Date: Tue, 29 Oct 2013 17:06:41 -0500
+Message-ID: <1383084401-4593-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Gavin Shan <shangw@linux.vnet.ibm.com>
-Date: Tue, 29 Oct 2013 17:30:57 +0800
+Under heavy load, the relatively small number of RX queue entries are
+completely filled. With an increase from 16 to 32 entries, this condition
+rarely happens.
 
-> The function needn't to be public, so to make it as static.
-> 
-> Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
+ drivers/net/wireless/rtl818x/rtl8187/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied.
+diff --git a/drivers/net/wireless/rtl818x/rtl8187/dev.c b/drivers/net/wireless/rtl818x/rtl8187/dev.c
+index 9a6edb0..ec9aa5b 100644
+--- a/drivers/net/wireless/rtl818x/rtl8187/dev.c
++++ b/drivers/net/wireless/rtl818x/rtl8187/dev.c
+@@ -416,7 +416,7 @@ static int rtl8187_init_urbs(struct ieee80211_hw *dev)
+ 	struct rtl8187_rx_info *info;
+ 	int ret = 0;
+ 
+-	while (skb_queue_len(&priv->rx_queue) < 16) {
++	while (skb_queue_len(&priv->rx_queue) < 32) {
+ 		skb = __dev_alloc_skb(RTL8187_MAX_RX, GFP_KERNEL);
+ 		if (!skb) {
+ 			ret = -ENOMEM;
+-- 
+1.8.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
