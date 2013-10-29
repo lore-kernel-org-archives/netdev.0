@@ -1,49 +1,32 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: Re: [PATCH 1/2] octeon_mgmt: remove double validation of mac address
-Date: Tue, 29 Oct 2013 14:45:12 -0700
-Message-ID: <52702C68.5060603@gmail.com>
-References: <1383082053-12405-1-git-send-email-laurent.navet@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 2/3] r8152: modify the tx flow
+Date: Tue, 29 Oct 2013 17:49:36 -0400 (EDT)
+Message-ID: <20131029.174936.13317032766742363.davem@davemloft.net>
+References: <1383033377-1178-1-git-send-email-hayeswang@realtek.com>
+	<1383033377-1178-3-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jiri@resnulli.us, david.daney@cavium.com,
-	wfp5p@virginia.edu, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Laurent Navet <laurent.navet@gmail.com>,
-	Luka Perkov <luka@openwrt.org>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1383082053-12405-1-git-send-email-laurent.navet@gmail.com>
+In-Reply-To: <1383033377-1178-3-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/29/2013 02:27 PM, Laurent Navet wrote:
-> Mac address validity is already checked in of_get_mac_address().
-> No need to do it twice.
->
-> Signed-off-by: Laurent Navet <laurent.navet@gmail.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Tue, 29 Oct 2013 15:56:16 +0800
 
-Luka already sent this exact patch, and I acked his.
+> Support stopping and waking tx queue. The maximum tx queue length
+> is 60.
 
-No need to do it twice.
+What is so special about the number 60?  It seems arbitrary, and if
+it isn't arbitrary you haven't described why this value was choosen.
 
-David Daney
+I've asked you politely last time around to significantly improve
+the quality of your commit messages, and you haven't done this at
+all.
 
-
-> ---
->   drivers/net/ethernet/octeon/octeon_mgmt.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
-> index 622aa75..1b326cbc 100644
-> --- a/drivers/net/ethernet/octeon/octeon_mgmt.c
-> +++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
-> @@ -1545,7 +1545,7 @@ static int octeon_mgmt_probe(struct platform_device *pdev)
->
->   	mac = of_get_mac_address(pdev->dev.of_node);
->
-> -	if (mac && is_valid_ether_addr(mac))
-> +	if (mac)
->   		memcpy(netdev->dev_addr, mac, ETH_ALEN);
->   	else
->   		eth_hw_addr_random(netdev);
->
+I'm not applying any of these patches until your commit messages
+properly describe your changes completely.
