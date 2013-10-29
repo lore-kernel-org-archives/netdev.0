@@ -1,141 +1,106 @@
-From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Subject: Re: [PATCH net] virtio-net: correctly handle cpu hotplug notifier
-	during resuming
-Date: Tue, 29 Oct 2013 16:42:27 +0800
-Message-ID: <526F74F3.8080405@cn.fujitsu.com>
-References: <1383030667-14343-1-git-send-email-jasowang@redhat.com>
-Reply-To: gaowanlong@cn.fujitsu.com
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: Bug in skb_segment: fskb->len != len
+Date: Tue, 29 Oct 2013 10:08:49 +0100
+Message-ID: <20131029090849.GC5944@cpaasch-mac>
+References: <20131028115552.GC4408@cpaasch-mac>
+ <1382966471.13037.18.camel@edumazet-glaptop.roam.corp.google.com>
+ <1383009308.5464.2.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Jason Wang <jasowang@redhat.com>, rusty@rustcorp.com.au, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1383030667-14343-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:46532 "EHLO
+	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751889Ab3J2JJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 05:09:02 -0400
+Content-Disposition: inline
+In-Reply-To: <1383009308.5464.2.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/29/2013 03:11 PM, Jason Wang wrote:
-> commit 3ab098df35f8b98b6553edc2e40234af512ba877 (virtio-net: don't respond to
-> cpu hotplug notifier if we're not ready) tries to bypass the cpu hotplug
-> notifier by checking the config_enable and does nothing is it was false. So it
-> need to try to hold the config_lock mutex which may happen in atomic
-> environment which leads the following warnings:
+On 28/10/13 - 18:15:08, Eric Dumazet wrote:
+> On Mon, 2013-10-28 at 06:21 -0700, Eric Dumazet wrote:
 > 
-> [  622.944441] CPU0 attaching NULL sched-domain.
-> [  622.944446] CPU1 attaching NULL sched-domain.
-> [  622.944485] CPU0 attaching NULL sched-domain.
-> [  622.950795] BUG: sleeping function called from invalid context at kernel/mutex.c:616
-> [  622.950796] in_atomic(): 1, irqs_disabled(): 1, pid: 10, name: migration/1
-> [  622.950796] no locks held by migration/1/10.
-> [  622.950798] CPU: 1 PID: 10 Comm: migration/1 Not tainted 3.12.0-rc5-wl-01249-gb91e82d #317
-> [  622.950799] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> [  622.950802]  0000000000000000 ffff88001d42dba0 ffffffff81a32f22 ffff88001bfb9c70
-> [  622.950803]  ffff88001d42dbb0 ffffffff810edb02 ffff88001d42dc38 ffffffff81a396ed
-> [  622.950805]  0000000000000046 ffff88001d42dbe8 ffffffff810e861d 0000000000000000
-> [  622.950805] Call Trace:
-> [  622.950810]  [<ffffffff81a32f22>] dump_stack+0x54/0x74
-> [  622.950815]  [<ffffffff810edb02>] __might_sleep+0x112/0x114
-> [  622.950817]  [<ffffffff81a396ed>] mutex_lock_nested+0x3c/0x3c6
-> [  622.950818]  [<ffffffff810e861d>] ? up+0x39/0x3e
-> [  622.950821]  [<ffffffff8153ea7c>] ? acpi_os_signal_semaphore+0x21/0x2d
-> [  622.950824]  [<ffffffff81565ed1>] ? acpi_ut_release_mutex+0x5e/0x62
-> [  622.950828]  [<ffffffff816d04ec>] virtnet_cpu_callback+0x33/0x87
-> [  622.950830]  [<ffffffff81a42576>] notifier_call_chain+0x3c/0x5e
-> [  622.950832]  [<ffffffff810e86a8>] __raw_notifier_call_chain+0xe/0x10
-> [  622.950835]  [<ffffffff810c5556>] __cpu_notify+0x20/0x37
-> [  622.950836]  [<ffffffff810c5580>] cpu_notify+0x13/0x15
-> [  622.950838]  [<ffffffff81a237cd>] take_cpu_down+0x27/0x3a
-> [  622.950841]  [<ffffffff81136289>] stop_machine_cpu_stop+0x93/0xf1
-> [  622.950842]  [<ffffffff81136167>] cpu_stopper_thread+0xa0/0x12f
-> [  622.950844]  [<ffffffff811361f6>] ? cpu_stopper_thread+0x12f/0x12f
-> [  622.950847]  [<ffffffff81119710>] ? lock_release_holdtime.part.7+0xa3/0xa8
-> [  622.950848]  [<ffffffff81135e4b>] ? cpu_stop_should_run+0x3f/0x47
-> [  622.950850]  [<ffffffff810ea9b0>] smpboot_thread_fn+0x1c5/0x1e3
-> [  622.950852]  [<ffffffff810ea7eb>] ? lg_global_unlock+0x67/0x67
-> [  622.950854]  [<ffffffff810e36b7>] kthread+0xd8/0xe0
-> [  622.950857]  [<ffffffff81a3bfad>] ? wait_for_common+0x12f/0x164
-> [  622.950859]  [<ffffffff810e35df>] ? kthread_create_on_node+0x124/0x124
-> [  622.950861]  [<ffffffff81a45ffc>] ret_from_fork+0x7c/0xb0
-> [  622.950862]  [<ffffffff810e35df>] ? kthread_create_on_node+0x124/0x124
-> [  622.950876] smpboot: CPU 1 is now offline
-> [  623.194556] SMP alternatives: lockdep: fixing up alternatives
-> [  623.194559] smpboot: Booting Node 0 Processor 1 APIC 0x1
-> ...
+> > But we also need to fix the skb_segment() bug anyway.
 > 
-> A correct fix is to unregister the hotcpu notifier during restore and register a
-> new one in resume.
+> Hi Christoph
 > 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Tested-by: Fengguang Wu <fengguang.wu@intel.com>
-> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-
-Thank you for your fix.
-
-Reviewed-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-
-
-> ---
-> This patch is needed for 3.8 and above.
-> ---
->  drivers/net/virtio_net.c | 13 ++++++-------
->  1 file changed, 6 insertions(+), 7 deletions(-)
+> I cooked a minimal patch, could you please try it ?
 > 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 9fbdfcd..bbc9cb8 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1118,11 +1118,6 @@ static int virtnet_cpu_callback(struct notifier_block *nfb,
->  {
->  	struct virtnet_info *vi = container_of(nfb, struct virtnet_info, nb);
+> I'll refactor skb_segment() to be smarter for the next release
+> (linux-3.14).
+> 
+> Thanks !
+> 
+>  net/core/skbuff.c |   15 ++++++++++-----
+>  1 file changed, 10 insertions(+), 5 deletions(-)
+
+Ok, my router does not crash anymore with my workload.
+
+Thanks for fixing it!
+
+Tested-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+
+
+Cheers,
+Christoph
+
+> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 0ab32faa520f..771946487a8d 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -2761,7 +2761,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+>  	unsigned int len;
+>  	__be16 proto;
+>  	bool csum;
+> -	int sg = !!(features & NETIF_F_SG);
+> +	bool sg = !!(features & NETIF_F_SG);
+>  	int nfrags = skb_shinfo(skb)->nr_frags;
+>  	int err = -ENOMEM;
+>  	int i = 0;
+> @@ -2793,7 +2793,11 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+>  			hsize = len;
 >  
-> -	mutex_lock(&vi->config_lock);
+>  		if (!hsize && i >= nfrags) {
+> -			BUG_ON(fskb->len != len);
+> +			if (fskb->len != len) {
+> +				hsize = len;
+> +				sg = false;
+> +				goto do_linear;
+> +			}
+>  
+>  			pos += len;
+>  			nskb = skb_clone(fskb, GFP_ATOMIC);
+> @@ -2812,6 +2816,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+>  			skb_release_head_state(nskb);
+>  			__skb_push(nskb, doffset);
+>  		} else {
+> +do_linear:
+>  			nskb = __alloc_skb(hsize + doffset + headroom,
+>  					   GFP_ATOMIC, skb_alloc_rx_flag(skb),
+>  					   NUMA_NO_NODE);
+> @@ -2838,9 +2843,6 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+>  						 nskb->data - tnl_hlen,
+>  						 doffset + tnl_hlen);
+>  
+> -		if (fskb != skb_shinfo(skb)->frag_list)
+> -			goto perform_csum_check;
 > -
-> -	if (!vi->config_enable)
-> -		goto done;
-> -
->  	switch(action & ~CPU_TASKS_FROZEN) {
->  	case CPU_ONLINE:
->  	case CPU_DOWN_FAILED:
-> @@ -1136,8 +1131,6 @@ static int virtnet_cpu_callback(struct notifier_block *nfb,
->  		break;
->  	}
+>  		if (!sg) {
+>  			nskb->ip_summed = CHECKSUM_NONE;
+>  			nskb->csum = skb_copy_and_csum_bits(skb, offset,
+> @@ -2849,6 +2851,9 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+>  			continue;
+>  		}
 >  
-> -done:
-> -	mutex_unlock(&vi->config_lock);
->  	return NOTIFY_OK;
->  }
->  
-> @@ -1699,6 +1692,8 @@ static int virtnet_freeze(struct virtio_device *vdev)
->  	struct virtnet_info *vi = vdev->priv;
->  	int i;
->  
-> +	unregister_hotcpu_notifier(&vi->nb);
+> +		if (fskb != skb_shinfo(skb)->frag_list)
+> +			goto perform_csum_check;
 > +
->  	/* Prevent config work handler from accessing the device */
->  	mutex_lock(&vi->config_lock);
->  	vi->config_enable = false;
-> @@ -1747,6 +1742,10 @@ static int virtnet_restore(struct virtio_device *vdev)
->  	virtnet_set_queues(vi, vi->curr_queue_pairs);
->  	rtnl_unlock();
+>  		frag = skb_shinfo(nskb)->frags;
 >  
-> +	err = register_hotcpu_notifier(&vi->nb);
-> +	if (err)
-> +		return err;
-> +
->  	return 0;
->  }
->  #endif
+>  		skb_copy_from_linear_data_offset(skb, offset,
+> 
 > 
