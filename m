@@ -1,98 +1,86 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next 2/3] tipc: message reassembly
- using fragment chain
-Date: Tue, 29 Oct 2013 09:56:56 +0800
-Message-ID: <526F15E8.9020009@windriver.com>
-References: <1382812863-23571-1-git-send-email-jon.maloy@ericsson.com>
-	<1382812863-23571-3-git-send-email-jon.maloy@ericsson.com>
-	<20131028.010737.400887499395331496.davem@davemloft.net>
-	<526E3B49.9030506@donjonn.com>
+From: Amos Kong <akong@redhat.com>
+Subject: Re: [PATCH] bridge: pass correct vlan id to multicast code
+Date: Tue, 29 Oct 2013 10:36:46 +0800
+Message-ID: <20131029023646.GA2795@amosk.info>
+References: <1382989507-23061-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net, David Miller <davem@davemloft.net>
-To: Jon Maloy <maloy@donjonn.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <526E3B49.9030506@donjonn.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
+	makita.toshiaki@lab.ntt.co.jp
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:1805 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757559Ab3J2ChI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Oct 2013 22:37:08 -0400
+Content-Disposition: inline
+In-Reply-To: <1382989507-23061-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/28/2013 06:24 PM, Jon Maloy wrote:
-> On 10/28/2013 01:07 AM, David Miller wrote:
->> From: Jon Maloy <jon.maloy@ericsson.com>
->> Date: Sat, 26 Oct 2013 14:41:02 -0400
->>
->>> +			int ret = tipc_link_recv_fragment(
->>> +					&node->bclink.reasm_head,
->>> +					&node->bclink.reasm_tail,
->>> +					&buf);
->> This is not the correct way to indent a function call that spans
->> multiple lines.  In such a situation the arguments that appear
->> on the second and subsequent lines must start at the first column
->> after the openning parenthesis of the function call.
->>
->> Like this:
->>
->> 	func(a, b, c,
->> 	     d, e, f);
->>
->> Please audit this in your entire set of patches and resubmit,
->> thanks.
-> 
-> Doing as David says here means that some lines will be >80 chars.
-> This was the reason for the somewhat strange indentation.
-> I tried to rename the function to tipc_link_rcv_fragm(), but one
-> line was still too long. The problem we have goes deeper.
-> 
-> In Linus' coding style manual I read that the 80 char limit is a hard limit,
-> a limit we violate in several places. One offender is that we have too
-> many indentation levels, at least in tipc_recv_msg() and probably in
-> some other places. This is sensitive code, that I don't feel for touching
-> right now.  A more low hanging fruit is our local variable names:
-> names such as l_ptr, n_ptr, b_ptr is exactly what Linus characterizes
-> as "brain dead Hungarian style", and I never liked that naming anyway.
-> For me l, n, and b is good enough as long as the context is clear.
-> 
-> But, doing so, at least in tipc_recv_msg(), would require another, separate,
-> patch, and it would lead to style inconsistency.
-> 
-> In brief, I am at loss about to proceed here, and I am not going to submit
-> this patch again until I have some feedback from somebody who can tell me
-> what is the right thing to do. Maybe > 80 chars is fine for now?
-> 
+On Mon, Oct 28, 2013 at 03:45:07PM -0400, Vlad Yasevich wrote:
+> Currently multicast code attempts to extrace the vlan id from
+> the skb even when vlan filtering is disabled.  This can lead
+> to mdb entries being created with the wrong vlan id.
+> Pass the already extracted vlan id to the multicast
+> filtering code to make the correct id is used in
+> creation as well as lookup.
+ 
+Hi Vlad,
 
-It's hard completely resolve the issue by simply changing variable
-names. So in my opinion, this is not a simple code style problem any
-more. As tipc_recv_msg() is too complex, it includes at least three
-embedded loops so that it doesn't remain too much space for functions in
-the most inner loop. This is the key point.
+Can we just update br_vlan_get_tag() to set vid to 0 if dev->vlan is
+disabled? I guess it would effect br_handle_local_finish().
 
-Therefore, the best method is to divide tipc_recv_msg() into several
-smaller functions to simplify the current implementation. But it's not
-an easy job. Actually I ever tried to do it, but I gave up lastly
-because I did not find one perfect solution about how to divide it.
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  net/bridge/br_device.c    |  2 +-
+>  net/bridge/br_input.c     |  2 +-
+>  net/bridge/br_multicast.c | 44 +++++++++++++++++++-------------------------
+>  net/bridge/br_private.h   |  6 ++++--
+>  4 files changed, 25 insertions(+), 29 deletions(-)
 
-Regards,
-Ying
+...
 
-> ///jon
-> 
-> 
-> 
-> 
+> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> index 8b0b610..686284f 100644
+> --- a/net/bridge/br_multicast.c
+> +++ b/net/bridge/br_multicast.c
+> @@ -947,7 +947,8 @@ void br_multicast_disable_port(struct net_bridge_port *port)
+>  
+>  static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
+>  					 struct net_bridge_port *port,
+> -					 struct sk_buff *skb)
+> +					 struct sk_buff *skb,
+> +					 u16 vid)
+>  {
+>  	struct igmpv3_report *ih;
+>  	struct igmpv3_grec *grec;
+> @@ -957,12 +958,10 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
+>  	int type;
+>  	int err = 0;
+>  	__be32 group;
+> -	u16 vid = 0;
+>  
+>  	if (!pskb_may_pull(skb, sizeof(*ih)))
+>  		return -EINVAL;
+>  
+> -	br_vlan_get_tag(skb, &vid);
+
+After applied the patch, we always use vid in br_dev_xmit()->br_allowed_ingress(),
+is it possible that the vlan of bridge is re-enabled when other
+changed functions are called?
+
+We can just add a enabled checking before this kind of br_vlan_get_tag()?
+
+if (!br->vlan_enabled)
+    br_vlan_get_tag(skb2, &vid);
 
 
-------------------------------------------------------------------------------
-Android is increasing in popularity, but the open development platform that
-developers love is also attractive to malware creators. Download this white
-paper to learn more about secure code signing practices that can help keep
-Android apps secure.
-http://pubads.g.doubleclick.net/gampad/clk?id=65839951&iu=/4140/ostg.clktrk
+>  	ih = igmpv3_report_hdr(skb);
+>  	num = ntohs(ih->ngrec);
+>  	len = sizeof(*ih);
+
+...
+
+-- 
+			Amos.
