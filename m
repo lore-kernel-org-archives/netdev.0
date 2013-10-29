@@ -1,37 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] WD80x3: fix printk() calls to netdev_*() calls
-Date: Tue, 29 Oct 2013 00:00:58 -0400 (EDT)
-Message-ID: <20131029.000058.328421771419196069.davem@davemloft.net>
-References: <1382738165-27852-1-git-send-email-quantumdude836@gmail.com>
+Subject: Re: [PATCH net-next] 3c515: Fix warning when building
+Date: Tue, 29 Oct 2013 00:03:16 -0400 (EDT)
+Message-ID: <20131029.000316.767189982282205506.davem@davemloft.net>
+References: <1382738386-29888-1-git-send-email-ricec2@rpi.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: quantumdude836@gmail.com
+To: ricec2@rpi.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40304 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40316 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751980Ab3J2EA7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 00:00:59 -0400
-In-Reply-To: <1382738165-27852-1-git-send-email-quantumdude836@gmail.com>
+	with ESMTP id S1751980Ab3J2EDU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 00:03:20 -0400
+In-Reply-To: <1382738386-29888-1-git-send-email-ricec2@rpi.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Drew McGowen <quantumdude836@gmail.com>
-Date: Fri, 25 Oct 2013 21:56:05 +0000
+From: Colin Rice <ricec2@rpi.edu>
+Date: Fri, 25 Oct 2013 21:59:46 +0000
 
-> -	printk("%s: WD80x3 at %#3x, %pM",
-> -	       dev->name, ioaddr, dev->dev_addr);
-> +	netdev_info(dev, "WD80x3 at %#3x, %pM",
-> +		ioaddr, dev->dev_addr);
+> -		outl((int) (skb->data), ioaddr + Wn7_MasterAddr);
+> +		outl((size_t) (skb->data), ioaddr + Wn7_MasterAddr);
 
-This is incorrect indentation.
+outl() takes an "int" not a "size_t".   You're avoiding the warning,
+but on 64-bit, for example, you're silently allowing the compiler
+to accept chopping off the top 32-bits of the 64-bit pointer address
+off.
 
-On a multi-line function call, the arguments one the second and subsequent
-lines must start at exactly the first column after the openning parenthesis
-on the first line.
+The warning is valid, this code won't work in certain environments,
+and killing the warning is just papering over the problem such that
+it will never get addressed properly.
 
-Everyone who makes this mistake is trying to be lazy and use only TAB
-characters to indent their code, don't do this.  You must use the
-appropriate number of TAB _and_ SPACE characters necessary to achieve
-the correct indentation.
+I'm not applying patches like this, sorry.
