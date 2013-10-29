@@ -1,84 +1,120 @@
-From: <gregkh@linuxfoundation.org>
-Subject: patch "mdio_bus: convert bus code to use dev_groups" added to driver-core tree
-Date: Tue, 29 Oct 2013 16:25:56 -0700
-Message-ID: <13830891561727@kroah.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] xen-netback: allocate xenvif arrays using
+ vzalloc.
+Date: Tue, 29 Oct 2013 16:32:12 -0700
+Message-ID: <1383089532.4857.1.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131029152628.GA3065@citrix.com>
+	 <1383061430.5464.41.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131029184647.GA3261@citrix.com>
+	 <1383089055.4176.1.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ASCII
-Content-Transfer-Encoding: 8bit
-To: gregkh@linuxfoundation.org, broonie@opensource.wolfsonmicro.com,
-	davem@davemloft.net, nbowler@elliptictech.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, wei.liu2@citrix.com,
+	ian.campbell@citrix.com, xen-devel@lists.xen.org,
+	andrew.bennieston@citrix.com, david.vrabel@citrix.com,
+	malcolm.crossley@citrix.com
+To: Joby Poriyath <joby.poriyath@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:39893 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751330Ab3J2XZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 19:25:57 -0400
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:37186 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751834Ab3J2XcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 19:32:14 -0400
+Received: by mail-pa0-f49.google.com with SMTP id lj1so77490pab.8
+        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 16:32:13 -0700 (PDT)
+In-Reply-To: <1383089055.4176.1.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2013-10-29 at 16:24 -0700, Eric Dumazet wrote:
+> On Tue, 2013-10-29 at 18:46 +0000, Joby Poriyath wrote:
+> > On Tue, Oct 29, 2013 at 08:43:50AM -0700, Eric Dumazet wrote:
+> > > On Tue, 2013-10-29 at 15:27 +0000, Joby Poriyath wrote:
+> > > > This will reduce memory pressure when allocating struct xenvif.
+> > > > 
+> > > > The size of xenvif struct has increased from 168 to 36632 bytes (on x86-32).
+> > > > See commit b3f980bd827e6e81a050c518d60ed7811a83061d. This resulted in
+> > > > occasional netdev allocation failure in dom0 with 752MiB RAM, due to
+> > > > fragmented memory.
+> > > 
+> > > This looks overkill. 
+> > > 
+> > > Replacing a single allocation of ~36 KB into 5 vmalloc() looks like you
+> > > did not really tried other things...
+> > > 
+> > > This should be done generically in alloc_netdev_mqs()
+> > 
+> > Sorry Eric, I didn't quite understand how this can be generically done.
+> > 
+> > The netback interfaces are tied to the Xen guests (VMs) and these are created 
+> > when guests are started and deleted when guest are halted.
+> 
+> They are created by alloc_netdev_mqs()
 
-This is a note to let you know that I've just added the patch titled
-
-    mdio_bus: convert bus code to use dev_groups
-
-to my driver-core git tree which can be found at
-    git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/driver-core.git
-in the driver-core-next branch.
-
-The patch will show up in the next release of the linux-next tree
-(usually sometime within the next 24 hours during the week.)
-
-The patch will also be merged in the next major kernel release
-during the merge window.
-
-If you have any questions about this process, please let me know.
+Something like the following should be fine.
 
 
->From 4192c74940e23da727eb02b7b4ee779dde2f670a Mon Sep 17 00:00:00 2001
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Sun, 6 Oct 2013 23:55:41 -0700
-Subject: mdio_bus: convert bus code to use dev_groups
 
-The dev_attrs field of struct bus_type is going away soon, dev_groups
-should be used instead.  This converts the MDIO bus code to use the
-correct field.
-
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Cc: Nick Bowler <nbowler@elliptictech.com>
-Cc: <netdev@vger.kernel.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- drivers/net/phy/mdio_bus.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index dc920974..56178761 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -438,17 +438,19 @@ phy_id_show(struct device *dev, struct device_attribute *attr, char *buf)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0054c8c..874a57a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6239,7 +6239,9 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 	/* ensure 32-byte alignment of whole construct */
+ 	alloc_size += NETDEV_ALIGN - 1;
  
- 	return sprintf(buf, "0x%.8lx\n", (unsigned long)phydev->phy_id);
+-	p = kzalloc(alloc_size, GFP_KERNEL);
++	p = kzalloc(alloc_size, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
++	if (!p)
++		p = vzalloc(alloc_size);
+ 	if (!p)
+ 		return NULL;
+ 
+@@ -6302,7 +6304,10 @@ free_pcpu:
+ #endif
+ 
+ free_p:
+-	kfree(p);
++	if (is_vmalloc_addr(p))
++		vfree(p);
++	else
++		kfree(p);
+ 	return NULL;
  }
-+static DEVICE_ATTR_RO(phy_id);
+ EXPORT_SYMBOL(alloc_netdev_mqs);
+@@ -6339,7 +6344,12 @@ void free_netdev(struct net_device *dev)
  
--static struct device_attribute mdio_dev_attrs[] = {
--	__ATTR_RO(phy_id),
--	__ATTR_NULL
-+static struct attribute *mdio_dev_attrs[] = {
-+	&dev_attr_phy_id.attr,
-+	NULL,
- };
-+ATTRIBUTE_GROUPS(mdio_dev);
+ 	/*  Compatibility with error handling in drivers */
+ 	if (dev->reg_state == NETREG_UNINITIALIZED) {
+-		kfree((char *)dev - dev->padded);
++		char *addr = (char *)dev - dev->padded;
++
++		if (is_vmalloc_addr(addr))
++			vfree(addr);
++		else
++			kfree(addr);
+ 		return;
+ 	}
  
- struct bus_type mdio_bus_type = {
- 	.name		= "mdio_bus",
- 	.match		= mdio_bus_match,
- 	.pm		= MDIO_BUS_PM_OPS,
--	.dev_attrs	= mdio_dev_attrs,
-+	.dev_groups	= mdio_dev_groups,
- };
- EXPORT_SYMBOL(mdio_bus_type);
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index d954b56..406c54b 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -1259,11 +1259,16 @@ exit:
+ static void netdev_release(struct device *d)
+ {
+ 	struct net_device *dev = to_net_dev(d);
++	char *addr;
  
--- 
-1.8.4.3.gca3854a
+ 	BUG_ON(dev->reg_state != NETREG_RELEASED);
+ 
+ 	kfree(dev->ifalias);
+-	kfree((char *)dev - dev->padded);
++	addr = (char *)dev - dev->padded;
++	if (is_vmalloc_addr(addr))
++		vfree(addr);
++	else
++		kfree(addr);
+ }
+ 
+ static const void *net_namespace(struct device *d)
