@@ -1,67 +1,163 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next  06/11] ixgbevf: add ixgbevf_rx_skb
-Date: Tue, 29 Oct 2013 05:02:26 -0700
-Message-ID: <1383048151-15002-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next  09/11] ixgbevf: add BP_EXTENDED_STATS for CONFIG_NET_RX_BUSY_POLL
+Date: Tue, 29 Oct 2013 05:02:29 -0700
+Message-ID: <1383048151-15002-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1383048151-15002-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:19420 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:11906 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754650Ab3J2MCk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Oct 2013 08:02:40 -0400
+	id S1754849Ab3J2MCm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Oct 2013 08:02:42 -0400
 In-Reply-To: <1383048151-15002-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch adds ixgbevf_rx_skb in line with how ixgbe handles the variations on
-how packets can be received. It will be extended in a following patch for
-CONFIG_NET_RX_BUSY_POLL support.
+This patch adds the extended statistics similar to the ixgbe driver. These
+statistics keep track of how often the busy polling yields, as well as how many
+packets are cleaned or missed by the polling routine.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c      | 32 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      | 22 ++++++++++++++++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  6 +++++
+ 3 files changed, 60 insertions(+)
 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+index 21adb1b..44f7c42 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+@@ -74,6 +74,14 @@ static const struct ixgbe_stats ixgbe_gstrings_stats[] = {
+ 						zero_base)},
+ 	{"tx_csum_offload_ctxt", IXGBEVF_STAT(hw_csum_tx_good, zero_base,
+ 					      zero_base)},
++#ifdef BP_EXTENDED_STATS
++	{"rx_bp_poll_yield", IXGBEVF_STAT(bp_rx_yields, zero_base, zero_base)},
++	{"rx_bp_cleaned", IXGBEVF_STAT(bp_rx_cleaned, zero_base, zero_base)},
++	{"rx_bp_misses", IXGBEVF_STAT(bp_rx_missed, zero_base, zero_base)},
++	{"tx_bp_napi_yield", IXGBEVF_STAT(bp_tx_yields, zero_base, zero_base)},
++	{"tx_bp_cleaned", IXGBEVF_STAT(bp_tx_cleaned, zero_base, zero_base)},
++	{"tx_bp_misses", IXGBEVF_STAT(bp_tx_missed, zero_base, zero_base)},
++#endif
+ };
+ 
+ #define IXGBE_QUEUE_STATS_LEN 0
+@@ -391,6 +399,30 @@ static void ixgbevf_get_ethtool_stats(struct net_device *netdev,
+ {
+ 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+ 	int i;
++#ifdef BP_EXTENDED_STATS
++	u64 rx_yields = 0, rx_cleaned = 0, rx_missed = 0,
++	    tx_yields = 0, tx_cleaned = 0, tx_missed = 0;
++
++	for (i = 0; i < adapter->num_rx_queues; i++) {
++		rx_yields += adapter->rx_ring[i].bp_yields;
++		rx_cleaned += adapter->rx_ring[i].bp_cleaned;
++		rx_yields += adapter->rx_ring[i].bp_yields;
++	}
++
++	for (i = 0; i < adapter->num_tx_queues; i++) {
++		tx_yields += adapter->tx_ring[i].bp_yields;
++		tx_cleaned += adapter->tx_ring[i].bp_cleaned;
++		tx_yields += adapter->tx_ring[i].bp_yields;
++	}
++
++	adapter->bp_rx_yields = rx_yields;
++	adapter->bp_rx_cleaned = rx_cleaned;
++	adapter->bp_rx_missed = rx_missed;
++
++	adapter->bp_tx_yields = tx_yields;
++	adapter->bp_tx_cleaned = tx_cleaned;
++	adapter->bp_tx_missed = tx_missed;
++#endif
+ 
+ 	ixgbevf_update_stats(adapter);
+ 	for (i = 0; i < IXGBE_GLOBAL_STATS_LEN; i++) {
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index 85c7560..78e4c51 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -40,6 +40,7 @@
+ 
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ #include <net/busy_poll.h>
++#define BP_EXTENDED_STATS
+ #endif
+ 
+ /* wrapper around a pointer to a socket buffer,
+@@ -80,6 +81,11 @@ struct ixgbevf_ring {
+ 	struct u64_stats_sync	syncp;
+ 	u64 hw_csum_rx_error;
+ 	u64 hw_csum_rx_good;
++#ifdef BP_EXTENDED_STATS
++	u64 bp_yields;
++	u64 bp_misses;
++	u64 bp_cleaned;
++#endif
+ 
+ 	u16 head;
+ 	u16 tail;
+@@ -181,6 +187,9 @@ static inline bool ixgbevf_qv_lock_napi(struct ixgbevf_q_vector *q_vector)
+ 		WARN_ON(q_vector->state & IXGBEVF_QV_STATE_NAPI);
+ 		q_vector->state |= IXGBEVF_QV_STATE_NAPI_YIELD;
+ 		rc = false;
++#ifdef BP_EXTENDED_STATS
++		q_vector->tx.ring->bp_yields++;
++#endif
+ 	} else {
+ 		/* we don't care if someone yielded */
+ 		q_vector->state = IXGBEVF_QV_STATE_NAPI;
+@@ -213,6 +222,9 @@ static inline bool ixgbevf_qv_lock_poll(struct ixgbevf_q_vector *q_vector)
+ 	if ((q_vector->state & IXGBEVF_QV_LOCKED)) {
+ 		q_vector->state |= IXGBEVF_QV_STATE_POLL_YIELD;
+ 		rc = false;
++#ifdef BP_EXTENDED_STATS
++		q_vector->rx.ring->bp_yields++;
++#endif
+ 	} else {
+ 		/* preserve yield marks */
+ 		q_vector->state |= IXGBEVF_QV_STATE_POLL;
+@@ -358,6 +370,16 @@ struct ixgbevf_adapter {
+ 	unsigned int tx_ring_count;
+ 	unsigned int rx_ring_count;
+ 
++#ifdef BP_EXTENDED_STATS
++	u64 bp_rx_yields;
++	u64 bp_rx_cleaned;
++	u64 bp_rx_missed;
++
++	u64 bp_tx_yields;
++	u64 bp_tx_cleaned;
++	u64 bp_tx_missed;
++#endif
++
+ 	u32 link_speed;
+ 	bool link_up;
+ 
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 87279c8a..a2cc6bb 100644
+index bc03a2e..b16b694 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -300,6 +300,20 @@ static void ixgbevf_receive_skb(struct ixgbevf_q_vector *q_vector,
- }
+@@ -648,6 +648,12 @@ static int ixgbevf_busy_poll_recv(struct napi_struct *napi)
  
- /**
-+ * ixgbevf_rx_skb - Helper function to determine proper Rx method
-+ * @q_vector: structure containing interrupt and ring information
-+ * @skb: packet to send up
-+ * @status: hardware indication of status of receive
-+ * @rx_desc: rx descriptor
-+ **/
-+static void ixgbevf_rx_skb(struct ixgbevf_q_vector *q_vector,
-+			   struct sk_buff *skb, u8 status,
-+			   union ixgbe_adv_rx_desc *rx_desc)
-+{
-+	ixgbevf_receive_skb(q_vector, skb, status, rx_desc);
-+}
-+
-+/**
-  * ixgbevf_rx_checksum - indicate in skb if hw indicated a good cksum
-  * @ring: pointer to Rx descriptor ring structure
-  * @status_err: hardware indication of status of receive
-@@ -494,7 +508,7 @@ static bool ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
- 			goto next_desc;
- 		}
- 
--		ixgbevf_receive_skb(q_vector, skb, staterr, rx_desc);
-+		ixgbevf_rx_skb(q_vector, skb, staterr, rx_desc);
- 
- next_desc:
- 		rx_desc->wb.upper.status_error = 0;
+ 	ixgbevf_for_each_ring(ring, q_vector->rx) {
+ 		found = ixgbevf_clean_rx_irq(q_vector, ring, 4);
++#ifdef BP_EXTENDED_STATS
++		if (found)
++			ring->bp_cleaned += found;
++		else
++			ring->bp_misses++;
++#endif
+ 		if (found)
+ 			break;
+ 	}
 -- 
 1.8.3.1
