@@ -1,47 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] virtio-net: correctly handle cpu hotplug notifier
-	during resuming
-Date: Tue, 29 Oct 2013 22:44:56 -0400 (EDT)
-Message-ID: <20131029.224456.313230245288672803.davem@davemloft.net>
-References: <1383030667-14343-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH net-next] tcp: temporarily disable Fast Open on SYN
+ timeout
+Date: Tue, 29 Oct 2013 22:51:22 -0400 (EDT)
+Message-ID: <20131029.225122.1012560091000427156.davem@davemloft.net>
+References: <1383066545-27348-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1383030667-14343-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: ncardwell@google.com, edumazet@google.com, netdev@vger.kernel.org
+To: ycheng@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52348 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751292Ab3J3CvY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 22:51:24 -0400
+In-Reply-To: <1383066545-27348-1-git-send-email-ycheng@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Tue, 29 Oct 2013 15:11:07 +0800
+From: Yuchung Cheng <ycheng@google.com>
+Date: Tue, 29 Oct 2013 10:09:05 -0700
 
-> commit 3ab098df35f8b98b6553edc2e40234af512ba877 (virtio-net: don't respond to
-> cpu hotplug notifier if we're not ready) tries to bypass the cpu hotplug
-> notifier by checking the config_enable and does nothing is it was false. So it
-> need to try to hold the config_lock mutex which may happen in atomic
-> environment which leads the following warnings:
- ...
-> A correct fix is to unregister the hotcpu notifier during restore and register a
-> new one in resume.
+> Fast Open currently has a fall back feature to address SYN-data
+> being dropped by but it requires the middle-box to pass on regular
+> SYN retry after SYN-data. This is implemented in commit aab487435
+> ("net-tcp: Fast Open client - detecting SYN-data drops")
 > 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Tested-by: Fengguang Wu <fengguang.wu@intel.com>
-> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
-> This patch is needed for 3.8 and above.
+> However some NAT boxes will drop all subsequent packets after first
+> SYN-data and blackholes the entire connections.  An example is incommit
+> 356d7d8 "netfilter: nf_conntrack: fix tcp_in_window for Fast Open".
+> 
+> The sender should note such incidents and falls back to use regular
+> TCP handshake on subsequent attempt temporarily as well: after the
+> second SYN timeouts the original Fast Open SYN is most likely lost.
+> When such an event recurs Fast Open is disabled based on the number
+> of recurrences exponentially.
+> 
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied and queued up for -stable, thanks Jason.
+Applied, thanks.
