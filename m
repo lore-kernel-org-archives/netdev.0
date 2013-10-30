@@ -1,72 +1,39 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [patch net-next RFC] netfilter: ip6_tables: use reasm skb for
- matching
-Date: Wed, 30 Oct 2013 14:41:00 +0100
-Message-ID: <20131030134100.GD16615@breakpoint.cc>
-References: <1383130201-6198-1-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] xen-netback: allocate xenvif
+ arrays using vzalloc.
+Date: Wed, 30 Oct 2013 06:54:02 -0700
+Message-ID: <1383141242.4857.36.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131029152628.GA3065@citrix.com>
+	<1383061430.5464.41.camel@edumazet-glaptop.roam.corp.google.com>
+	<20131029184647.GA3261@citrix.com>
+	<1383089055.4176.1.camel@edumazet-glaptop.roam.corp.google.com>
+	<1383089532.4857.1.camel@edumazet-glaptop.roam.corp.google.com>
+	<20131030103958.GB3261@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	kadlec@blackhole.kfki.hu, kaber@trash.net, mleitner@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:33228 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753102Ab3J3NlJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 09:41:09 -0400
-Content-Disposition: inline
-In-Reply-To: <1383130201-6198-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: wei.liu2@citrix.com, ian.campbell@citrix.com, netdev@vger.kernel.org,
+	xen-devel@lists.xen.org, david.vrabel@citrix.com,
+	malcolm.crossley@citrix.com, andrew.bennieston@citrix.com
+To: Joby Poriyath <joby.poriyath@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <20131030103958.GB3261@citrix.com>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Pirko <jiri@resnulli.us> wrote:
-> Currently, when ipv6 fragment goes through the netfilter, match
-> functions are called on them directly. This might cause match function
-> to fail. So benefit from the fact that nf_defrag_ipv6 constructs
-> reassembled skb for us and use this reassembled skb for matching.
+On Wed, 2013-10-30 at 10:39 +0000, Joby Poriyath wrote:
+
+> The net_device allocation rule {linux/Documentation/networking/netdevices.txt} states
+> that net_device struct must be allocated using kmalloc.
 > 
-> This patch fixes for example following situation:
-> On HOSTA do:
-> ip6tables -I INPUT -p icmpv6 -j DROP
-> ip6tables -I INPUT -p icmpv6 -m icmp6 --icmpv6-type 128 -j ACCEPT
-> 
-> and on HOSTB you do:
-> ping6 HOSTA -s2000    (MTU is 1500)
-> 
-> Incoming echo requests will be filtered out on HOSTA. This issue does
-> not occur with smaller packets than MTU (where fragmentation does not happen).
+> Is this safe to do?
 
-[..]
-> diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-> index 44400c2..5421beb0 100644
-> --- a/net/ipv6/netfilter/ip6_tables.c
-> +++ b/net/ipv6/netfilter/ip6_tables.c
-> @@ -328,6 +328,7 @@ ip6t_do_table(struct sk_buff *skb,
->  	const struct xt_table_info *private;
->  	struct xt_action_param acpar;
->  	unsigned int addend;
-> +	struct sk_buff *reasm = skb->nfct_reasm ? skb->nfct_reasm : skb;
->  
->  	/* Initialization */
->  	indev = in ? in->name : nulldevname;
-> @@ -363,7 +364,7 @@ ip6t_do_table(struct sk_buff *skb,
->  
->  		IP_NF_ASSERT(e);
->  		acpar.thoff = 0;
-> -		if (!ip6_packet_match(skb, indev, outdev, &e->ipv6,
-> +		if (!ip6_packet_match(reasm, indev, outdev, &e->ipv6,
->  		    &acpar.thoff, &acpar.fragoff, &acpar.hotdrop)) {
-
-[..]
-
-This is a bit backwards, I think.
-- We gather frags
-- Then we invoke ip6t_do_table for each individual fragment
-
-So basically your patch is equivalent to
-for_each_frag( )
-  ip6t_do_table(reassembled_skb)
-
-Which makes no sense to me - why traverse the ruleset n times with the same
-packet?
+As long as the freeing path is aware of the possibility the memory is
+either allocated with vmalloc() or kmalloc(), we are safe.
