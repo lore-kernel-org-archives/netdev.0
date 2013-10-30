@@ -1,29 +1,107 @@
-From: "Mr. Charles Kabore" <charles_kaboree@yahoo.fr>
-Subject: From Mr. Charles Kabore.
-Date: Tue, 29 Oct 2013 17:08:34 -0700 (PDT)
-Message-ID: <1383091714.86346.YahooMailBasic@web140304.mail.bf1.yahoo.com>
-Reply-To: ckabore94@yahoo.com.hk
+From: Dilip Daya <dilip.daya@hp.com>
+Subject: named network namespace -- setns() with Invalid argument (errno 22)
+Date: Tue, 29 Oct 2013 20:16:24 -0400
+Message-ID: <1383092184.12859.78.camel@dilip-laptop>
+Reply-To: dilip.daya@hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: undisclosed recipients:;
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm49.bullet.mail.ne1.yahoo.com ([98.138.120.56]:43800 "EHLO
-	nm49.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752116Ab3J3AI4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 20:08:56 -0400
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:26314 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751834Ab3J3AQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 20:16:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi All,
 
->From Mr. Charles Kabore.
-Ouagadougou,
-Burkina Faso.
+Is the following intended behavior for adding "nested" named network namespaces ?
 
-Dear Friend,
-Good day to you. I must say sorry for interfering into your privacy without seeking for permission. It's because of urgency of this matter. Firstly, I am Mr. Charles Kabore a lawyer and personal confidant to Abdullah Senussi who was the intelligence chief of Colonel Muammar Gaddafi. I need your urgent assistance in transferring the sum of ($39.5) million to your account within 14 banking days from a bank in Burkina Faso. This money belongs to my master Abdullah Senussi and was deposited in the bank on the name of his son. The urgent need for the transfer of this fund is to avoid confiscation by the Libyan government as they quest the seizure of every related assets belonging to Late Colonel Muammar Gaddafi and his aides. I am contacting you in a good faith so that the bank will release the
-  money to you for safe keeping/investments till the release of my master who is now in custody.
+Steps to reproduce:
 
-So if you are capable of receiving this huge amount of money,let me have a positive response from you via return mail for more personal discussions on how we are going to go about it. but if you are not convinced to handle this deal with me then do me a favor by deleting this message from your mail box and help me seal the confidentiality of this matter. thank you for your understanding and hope to hear from you soon.
+# uname -r
+3.10.1
 
-Best.Regards,
-Mr. Charles Kabore.
+
+# /sbin/ip -V
+ip utility, iproute2-ss130903
+
+
+Existing network namespaces:
+# ip netns list
+NETNS0
+NETNS1
+
+
+List of named network namespace objects with inode/permissions:
+# ls -li /var/run/netns/
+total 0
+4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
+4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
+
+Enter existing named network namespace:
+# ip netns exec NETNS0 bash
+
+List network devices for named netns:
+# ls -l /sys/class/net/
+total 0
+lrwxrwxrwx 1 root root 0 Oct 29 12:25 lo -> ../../devices/virtual/net/lo/
+
+List of named network namespace objects with inode/permissions:
+# ls -li /var/run/netns/
+total 0
+4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
+4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
+
+
+# ip netns add NETNS0a    <<< adding NETNS0a from within NETNS0
+# ls -li /var/run/netns/
+total 0
+4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
+4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
+4026532423 -r--r--r-- 1 root root 0 Oct 29 12:28 NETNS0a
+^^^^^^^^^^ ^^^^^^^^^^
+  inode    permissions
+
+
+# ip netns exec NETNS0a ls -l /sys/class/net/
+total 0
+lrwxrwxrwx 1 root root 0 Oct 29 12:28 lo -> ../../devices/virtual/net/lo
+
+# exit   <<< exiting from NETNS0
+
+Listing from host/default namespace:
+# ls -li /var/run/netns/
+total 0
+4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
+4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
+    964863 ---------- 1 root root 0 Oct 29 12:28 NETNS0a  <<< NULL permissions
+    ^^^^^^ ^^^^^^^^^^
+
+
+Re-enter NETNS0:
+# ip netns exec NETNS0 bash
+# ls -li /var/run/netns/
+total 0
+4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
+4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
+    964863 ---------- 1 root root 0 Oct 29 12:28 NETNS0a  <<< NULL permissions
+           ^^^^^^^^^^
+
+
+# ip netns exec NETNS0a ls -l /sys/class/net/
+seting the network namespace "NETNS0a" failed: Invalid argument
+
+=> It seems the bash shell that created the nested named netns is the only
+   one that can view/enter the nested named netns. All other attempts from
+   either another bash shell or host/default namespace will get a different 
+   inode with NULL permissions. Once the initial bash shell that created the
+   nested named netns exists the nested netns is rendered unusable due to
+   NULL permissions on its inode. setns() Invalid argument (errno 22) seems
+   to be due to NULL permissions on /var/run/netns/<netnsName> object.
+
+
+Thanks.
