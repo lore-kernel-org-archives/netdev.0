@@ -1,49 +1,61 @@
-From: Nigel Kukard <nkukard@lbsd.net>
-Subject: [RESEND] [PATCH] Fix tc stats when using -batch mode
-Date: Wed, 30 Oct 2013 18:44:58 +0000
-Message-ID: <sig.10159dd6fd.20131030184444.GA34797@lbsd.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/2] sh_eth: check platform data pointer
+Date: Wed, 30 Oct 2013 22:55:13 +0300
+Message-ID: <52716421.9080807@cogentembedded.com>
+References: <201308310423.30322.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from uk.eu.mailhost.iitsp.com ([217.147.85.13]:46560 "EHLO
-	uk.eu.mailhost.iitsp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751055Ab3J3Sxz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 14:53:55 -0400
-Content-Disposition: inline
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:65122 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752530Ab3J3SzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 14:55:16 -0400
+Received: by mail-lb0-f175.google.com with SMTP id z5so1553712lbh.20
+        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 11:55:14 -0700 (PDT)
+In-Reply-To: <201308310423.30322.sergei.shtylyov@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two global variables in tc/tc_class.c:
-__u32 filter_qdisc;
-__u32 filter_classid;
+Hello.
 
-These are not re-initialized for each line received in -batch mode:
-class show dev eth0 parent 1: classid 1:1
-class show dev eth0 parent 1: classid 1:1
-Error: duplicate "classid": "1:1" is the second value.
+On 08/31/2013 04:23 AM, Sergei Shtylyov wrote:
 
-This patch fixes the issue by initializing the two globals when we
-enter print_class().
+> Check the platform data pointer before dereferencing it and error out of the
+> probe() method if it's NULL.
 
-Signed-off-by: Nigel Kukard <nkukard@lbsd.net>
----
- tc/tc_class.c | 3 +++
- 1 file changed, 3 insertions(+)
+> This has additional effect of preventing kernel oops with outdated platform data
+> containing zero PHY address instead (such as on SolutionEngine7710).
 
-diff --git a/tc/tc_class.c b/tc/tc_class.c
-index 9d4eea5..8043448 100644
---- a/tc/tc_class.c
-+++ b/tc/tc_class.c
-@@ -241,6 +241,9 @@ int tc_class_list(int argc, char **argv)
- 	t.tcm_family = AF_UNSPEC;
- 	memset(d, 0, sizeof(d));
- 
-+	filter_qdisc = 0;
-+	filter_classid = 0;
-+
- 	while (argc > 0) {
- 		if (strcmp(*argv, "dev") == 0) {
- 			NEXT_ARG();
--- 
-1.8.4.rc3
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+> ---
+> This patch is against Dave's 'net-next.git' repo.
+
+>   drivers/net/ethernet/renesas/sh_eth.c |    6 ++++++
+>   1 file changed, 6 insertions(+)
+
+> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+> ===================================================================
+> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
+> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -2653,6 +2653,12 @@ static int sh_eth_drv_probe(struct platf
+>   	pm_runtime_enable(&pdev->dev);
+>   	pm_runtime_resume(&pdev->dev);
+>
+> +	if (!pd) {
+> +		dev_err(&pdev->dev, "no platform data\n");
+> +		ret = -EINVAL;
+> +		goto out_release;
+> +	}
+> +
+>   	/* get PHY ID */
+>   	mdp->phy_id = pd->phy;
+>   	mdp->phy_interface = pd->phy_interface;
+
+    David, could you please merge this patch? It has a value of its own, 
+regardless of the device tree support in patch 2 (which got bloked).
+
+WBR, Sergei
