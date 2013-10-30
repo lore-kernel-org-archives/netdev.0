@@ -1,110 +1,156 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
-Date: Wed, 30 Oct 2013 10:52:34 -0400
-Message-ID: <20131030145234.GA5426@neilslaptop.think-freely.org>
-References: <201310300525.r9U5Pdqo014902@ib.usersys.redhat.com>
- <20131030110214.GA10220@localhost.localdomain>
- <52710B09.6090302@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: extend net_device allocation to vmalloc()
+Date: Wed, 30 Oct 2013 08:01:18 -0700
+Message-ID: <1383145278.4857.46.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131029152628.GA3065@citrix.com>
+	 <1383061430.5464.41.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131029184647.GA3261@citrix.com>
+	 <1383089055.4176.1.camel@edumazet-glaptop.roam.corp.google.com>
+	 <1383089532.4857.1.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131030103958.GB3261@citrix.com>
+	 <1383141242.4857.36.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Laight <David.Laight@ACULAB.COM>
-To: Doug Ledford <dledford@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <52710B09.6090302@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, wei.liu2@citrix.com,
+	ian.campbell@citrix.com, xen-devel@lists.xen.org,
+	andrew.bennieston@citrix.com, david.vrabel@citrix.com,
+	malcolm.crossley@citrix.com
+To: Joby Poriyath <joby.poriyath@citrix.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:60443 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752517Ab3J3PBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 11:01:22 -0400
+Received: by mail-pa0-f47.google.com with SMTP id lf10so1051018pab.20
+        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 08:01:21 -0700 (PDT)
+In-Reply-To: <1383141242.4857.36.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 30, 2013 at 09:35:05AM -0400, Doug Ledford wrote:
-> On 10/30/2013 07:02 AM, Neil Horman wrote:
-> 
-> >That does makes sense, but it then begs the question, whats the advantage of
-> >having multiple alu's at all?
-> 
-> There's lots of ALU operations that don't operate on the flags or
-> other entities that can be run in parallel.
-> 
-> >If they're just going to serialize on the
-> >updating of the condition register, there doesn't seem to be much advantage in
-> >having multiple alu's at all, especially if a common use case (parallelizing an
-> >operation on a large linear dataset) resulted in lower performance.
-> >
-> >/me wonders if rearranging the instructions into this order:
-> >adcq 0*8(src), res1
-> >adcq 1*8(src), res2
-> >adcq 2*8(src), res1
-> >
-> >would prevent pipeline stalls.  That would be interesting data, and (I think)
-> >support your theory, Doug.  I'll give that a try
-> 
-> Just to avoid spending too much time on various combinations, here
-> are the methods I've tried:
-> 
-> Original code
-> 2 chains doing interleaved memory accesses
-> 2 chains doing serial memory accesses (as above)
-> 4 chains doing serial memory accesses
-> 4 chains using 32bit values in 64bit registers so you can always use
-> add instead of adc and never need the carry flag
-> 
-> And I've done all of the above with simple prefetch and smart prefetch.
-> 
-Yup, I just tried the 2 chains doing interleaved access and came up with the
-same results for both prefetch cases.
+From: Eric Dumazet <edumazet@google.com>
 
-> In all cases, the result is basically that the add method doesn't
-> matter much in the grand scheme of things, but the prefetch does,
-> and smart prefetch always beat simple prefetch.
-> 
-> My simple prefetch was to just go into the main while() loop for the
-> csum operation and always prefetch 5*64 into the future.
-> 
-> My smart prefetch looks like this:
-> 
-> static inline void prefetch_line(unsigned long *cur_line,
->                                  unsigned long *end_line,
->                                  size_t size)
-> {
->         size_t fetched = 0;
-> 
->         while (*cur_line <= *end_line && fetched < size) {
->                 prefetch((void *)*cur_line);
->                 *cur_line += cache_line_size();
->                 fetched += cache_line_size();
->         }
-> }
-> 
-I've done this too, but I've come up with results that are very close to simple
-prefetch.
+Joby Poriyath provided a xen-netback patch to reduce the size of
+xenvif structure as some netdev allocation could fail under
+memory pressure/fragmentation.
 
-> I was going to tinker today and tomorrow with this function once I
-> get a toolchain that will compile it (I reinstalled all my rhel6
-> hosts as f20 and I'm hoping that does the trick, if not I need to do
-> more work):
-> 
-> #define ADCXQ_64                                        \
->         asm("xorq %[res1],%[res1]\n\t"                  \
->             "adcxq 0*8(%[src]),%[res1]\n\t"             \
->             "adoxq 1*8(%[src]),%[res2]\n\t"             \
->             "adcxq 2*8(%[src]),%[res1]\n\t"             \
->             "adoxq 3*8(%[src]),%[res2]\n\t"             \
->             "adcxq 4*8(%[src]),%[res1]\n\t"             \
->             "adoxq 5*8(%[src]),%[res2]\n\t"             \
->             "adcxq 6*8(%[src]),%[res1]\n\t"             \
->             "adoxq 7*8(%[src]),%[res2]\n\t"             \
->             "adcxq %[zero],%[res1]\n\t"                 \
->             "adoxq %[zero],%[res2]\n\t"                 \
->             : [res1] "=r" (result1),                    \
->               [res2] "=r" (result2)                     \
->             : [src] "r" (buff), [zero] "r" (zero),      \
->               "[res1]" (result1), "[res2]" (result2))
-> 
-I've tried using this method also (HPA suggested it early in the thread, but its
-not going to be usefull for awhile.  The compiler supports it already, but
-theres not hardware available with support for these instructions yet (at least
-not that I have available).
+This patch is handling the problem at the core level, allowing
+any netdev structures to use vmalloc() if kmalloc() failed.
 
-Neil
+As vmalloc() adds overhead on a critical network path, add __GFP_REPEAT
+to kzalloc() flags to do this fallback only when really needed.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Joby Poriyath <joby.poriyath@citrix.com>
+---
+ Documentation/networking/netdevices.txt |    7 ++++---
+ include/linux/netdevice.h               |    1 +
+ net/core/dev.c                          |   22 +++++++++++++++++-----
+ net/core/net-sysfs.c                    |    2 +-
+ 4 files changed, 23 insertions(+), 9 deletions(-)
+
+diff --git a/Documentation/networking/netdevices.txt b/Documentation/networking/netdevices.txt
+index c7ecc70..df7cd19 100644
+--- a/Documentation/networking/netdevices.txt
++++ b/Documentation/networking/netdevices.txt
+@@ -10,9 +10,10 @@ network devices.
+ struct net_device allocation rules
+ ==================================
+ Network device structures need to persist even after module is unloaded and
+-must be allocated with kmalloc.  If device has registered successfully,
+-it will be freed on last use by free_netdev.  This is required to handle the
+-pathologic case cleanly (example: rmmod mydriver </sys/class/net/myeth/mtu )
++must be allocated with kmalloc() or vmalloc(). If device has registered
++successfully, it will be freed on last use by free_netdev.
++This is required to handle the pathologic case cleanly
++(example: rmmod mydriver </sys/class/net/myeth/mtu )
+ 
+ There are routines in net_init.c to handle the common cases of
+ alloc_etherdev, alloc_netdev.  These reserve extra space for driver
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index cb1d918..e6353ca 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1800,6 +1800,7 @@ static inline void unregister_netdevice(struct net_device *dev)
+ 
+ int netdev_refcnt_read(const struct net_device *dev);
+ void free_netdev(struct net_device *dev);
++void netdev_freemem(struct net_device *dev);
+ void synchronize_net(void);
+ int init_dummy_netdev(struct net_device *dev);
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0054c8c..0e61365 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6196,6 +6196,16 @@ void netdev_set_default_ethtool_ops(struct net_device *dev,
+ }
+ EXPORT_SYMBOL_GPL(netdev_set_default_ethtool_ops);
+ 
++void netdev_freemem(struct net_device *dev)
++{
++	char *addr = (char *)dev - dev->padded;
++
++	if (is_vmalloc_addr(addr))
++		vfree(addr);
++	else
++		kfree(addr);
++}
++
+ /**
+  *	alloc_netdev_mqs - allocate network device
+  *	@sizeof_priv:	size of private data to allocate space for
+@@ -6239,7 +6249,9 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 	/* ensure 32-byte alignment of whole construct */
+ 	alloc_size += NETDEV_ALIGN - 1;
+ 
+-	p = kzalloc(alloc_size, GFP_KERNEL);
++	p = kzalloc(alloc_size, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
++	if (!p)
++		p = vzalloc(alloc_size);
+ 	if (!p)
+ 		return NULL;
+ 
+@@ -6248,7 +6260,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 
+ 	dev->pcpu_refcnt = alloc_percpu(int);
+ 	if (!dev->pcpu_refcnt)
+-		goto free_p;
++		goto free_dev;
+ 
+ 	if (dev_addr_init(dev))
+ 		goto free_pcpu;
+@@ -6301,8 +6313,8 @@ free_pcpu:
+ 	kfree(dev->_rx);
+ #endif
+ 
+-free_p:
+-	kfree(p);
++free_dev:
++	netdev_freemem(dev);
+ 	return NULL;
+ }
+ EXPORT_SYMBOL(alloc_netdev_mqs);
+@@ -6339,7 +6351,7 @@ void free_netdev(struct net_device *dev)
+ 
+ 	/*  Compatibility with error handling in drivers */
+ 	if (dev->reg_state == NETREG_UNINITIALIZED) {
+-		kfree((char *)dev - dev->padded);
++		netdev_freemem(dev);
+ 		return;
+ 	}
+ 
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index d954b56..d03f2c9 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -1263,7 +1263,7 @@ static void netdev_release(struct device *d)
+ 	BUG_ON(dev->reg_state != NETREG_RELEASED);
+ 
+ 	kfree(dev->ifalias);
+-	kfree((char *)dev - dev->padded);
++	netdev_freemem(dev);
+ }
+ 
+ static const void *net_namespace(struct device *d)
