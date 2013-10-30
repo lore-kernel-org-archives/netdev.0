@@ -1,41 +1,134 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] x86: Run checksumming in parallel accross multiple alu's
-Date: Wed, 30 Oct 2013 10:27:30 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73C2@saturn3.aculab.com>
-References: 20131029202644.GB32389@localhost.localdomain <201310300525.r9U5Pdqo014902@ib.usersys.redhat.com>
+From: Joby Poriyath <joby.poriyath@citrix.com>
+Subject: Re: [PATCH net-next] xen-netback: allocate xenvif arrays using
+ vzalloc.
+Date: Wed, 30 Oct 2013 10:39:59 +0000
+Message-ID: <20131030103958.GB3261@citrix.com>
+References: <20131029152628.GA3065@citrix.com>
+ <1383061430.5464.41.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131029184647.GA3261@citrix.com>
+ <1383089055.4176.1.camel@edumazet-glaptop.roam.corp.google.com>
+ <1383089532.4857.1.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Ingo Molnar" <mingo@kernel.org>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Doug Ledford" <dledford@redhat.com>,
-	"Neil Horman" <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <201310300525.r9U5Pdqo014902@ib.usersys.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <wei.liu2@citrix.com>,
+	<ian.campbell@citrix.com>, <xen-devel@lists.xen.org>,
+	<andrew.bennieston@citrix.com>, <david.vrabel@citrix.com>,
+	<malcolm.crossley@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:8142 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751739Ab3J3KkB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Oct 2013 06:40:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1383089532.4857.1.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> The parallel ALU design of this patch seems OK at first glance, but it means
-> that two parallel operations are both trying to set/clear both the overflow
-> and carry flags of the EFLAGS register of the *CPU* (not the ALU).  So, either
-> some CPU in the past had a set of overflow/carry flags per ALU and did some
-> sort of magic to make sure that the last state of those flags across multiple
-> ALUs that might have been used in parallelizing work were always in the CPU's
-> logical EFLAGS register, or the CPU has a buggy microcode that allowed two
-> ALUs to operate on data at the same time in situations where they would
-> potentially stomp on the carry/overflow flags of the other ALUs operations.
+On Tue, Oct 29, 2013 at 04:32:12PM -0700, Eric Dumazet wrote:
+> On Tue, 2013-10-29 at 16:24 -0700, Eric Dumazet wrote:
+> > On Tue, 2013-10-29 at 18:46 +0000, Joby Poriyath wrote:
+> > > On Tue, Oct 29, 2013 at 08:43:50AM -0700, Eric Dumazet wrote:
+> > > > On Tue, 2013-10-29 at 15:27 +0000, Joby Poriyath wrote:
+> > > > > This will reduce memory pressure when allocating struct xenvif.
+> > > > > 
+> > > > > The size of xenvif struct has increased from 168 to 36632 bytes (on x86-32).
+> > > > > See commit b3f980bd827e6e81a050c518d60ed7811a83061d. This resulted in
+> > > > > occasional netdev allocation failure in dom0 with 752MiB RAM, due to
+> > > > > fragmented memory.
+> > > > 
+> > > > This looks overkill. 
+> > > > 
+> > > > Replacing a single allocation of ~36 KB into 5 vmalloc() looks like you
+> > > > did not really tried other things...
+> > > > 
+> > > > This should be done generically in alloc_netdev_mqs()
+> > > 
+> > > Sorry Eric, I didn't quite understand how this can be generically done.
+> > > 
+> > > The netback interfaces are tied to the Xen guests (VMs) and these are created 
+> > > when guests are started and deleted when guest are halted.
+> > 
+> > They are created by alloc_netdev_mqs()
+> 
+> Something like the following should be fine.
+> 
+> 
+> 
 
-IIRC x86 cpu treat the (arithmetic) flags register as a single entity.
-So an instruction that only changes some of the flags is dependant
-on any previous instruction that changes any flags.
-OTOH it the instruction writes all of the flags then it doesn't
-have to wait for the earlier instruction to complete.
+Thanks for the patch.
 
-This is problematic for the ADC chain in the IP checksum.
-I did once try to use the SSE instructions to sum 16bit
-fields into multiple 32bit registers.
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 0054c8c..874a57a 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -6239,7 +6239,9 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+>  	/* ensure 32-byte alignment of whole construct */
+>  	alloc_size += NETDEV_ALIGN - 1;
+>  
+> -	p = kzalloc(alloc_size, GFP_KERNEL);
+> +	p = kzalloc(alloc_size, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
+> +	if (!p)
+> +		p = vzalloc(alloc_size);
+>  	if (!p)
+>  		return NULL;
+>  
 
-	David
+The net_device allocation rule {linux/Documentation/networking/netdevices.txt} states
+that net_device struct must be allocated using kmalloc.
+
+Is this safe to do?
+
+> @@ -6302,7 +6304,10 @@ free_pcpu:
+>  #endif
+>  
+>  free_p:
+> -	kfree(p);
+> +	if (is_vmalloc_addr(p))
+> +		vfree(p);
+> +	else
+> +		kfree(p);
+>  	return NULL;
+>  }
+>  EXPORT_SYMBOL(alloc_netdev_mqs);
+> @@ -6339,7 +6344,12 @@ void free_netdev(struct net_device *dev)
+>  
+>  	/*  Compatibility with error handling in drivers */
+>  	if (dev->reg_state == NETREG_UNINITIALIZED) {
+> -		kfree((char *)dev - dev->padded);
+> +		char *addr = (char *)dev - dev->padded;
+> +
+> +		if (is_vmalloc_addr(addr))
+> +			vfree(addr);
+> +		else
+> +			kfree(addr);
+>  		return;
+>  	}
+>  
+> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+> index d954b56..406c54b 100644
+> --- a/net/core/net-sysfs.c
+> +++ b/net/core/net-sysfs.c
+> @@ -1259,11 +1259,16 @@ exit:
+>  static void netdev_release(struct device *d)
+>  {
+>  	struct net_device *dev = to_net_dev(d);
+> +	char *addr;
+>  
+>  	BUG_ON(dev->reg_state != NETREG_RELEASED);
+>  
+>  	kfree(dev->ifalias);
+> -	kfree((char *)dev - dev->padded);
+> +	addr = (char *)dev - dev->padded;
+> +	if (is_vmalloc_addr(addr))
+> +		vfree(addr);
+> +	else
+> +		kfree(addr);
+>  }
+>  
+>  static const void *net_namespace(struct device *d)
+> 
+> 
+
+Thanks,
+Joby
