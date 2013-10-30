@@ -1,55 +1,41 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2 net-next] net: introduce gro_frag_list_enable sysctl
-Date: Wed, 30 Oct 2013 12:42:12 +0800
-Message-ID: <20131030044212.GA3364@gondor.apana.org.au>
-References: <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
- <20131029.194446.2215574000648693370.davem@davemloft.net>
- <1383094428.4857.16.camel@edumazet-glaptop.roam.corp.google.com>
- <20131029.220253.1263087684709722001.davem@davemloft.net>
- <1383106012.4857.26.camel@edumazet-glaptop.roam.corp.google.com>
- <20131030040818.GB2755@gondor.apana.org.au>
- <1383106577.4857.30.camel@edumazet-glaptop.roam.corp.google.com>
- <20131030041959.GA3162@gondor.apana.org.au>
- <1383107681.4857.33.camel@edumazet-glaptop.roam.corp.google.com>
+Subject: Re: Bug in skb_segment: fskb->len != len
+Date: Wed, 30 Oct 2013 12:47:06 +0800
+Message-ID: <20131030044706.GB3364@gondor.apana.org.au>
+References: <20131028115552.GC4408@cpaasch-mac>
+ <1382966471.13037.18.camel@edumazet-glaptop.roam.corp.google.com>
+ <1383009308.5464.2.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131029144100.GA28046@gondor.apana.org.au>
+ <1383059293.5464.31.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131030015002.GB1347@gondor.apana.org.au>
+ <1383105785.4857.21.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131030040644.GA2755@gondor.apana.org.au>
+ <1383107858.4857.35.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, christoph.paasch@uclouvain.be,
-	netdev@vger.kernel.org, hkchu@google.com, mwdalton@google.com
+Cc: Christoph Paasch <christoph.paasch@uclouvain.be>,
+	netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:60310 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:50622 "EHLO
 	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750702Ab3J3EmS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 00:42:18 -0400
+	with ESMTP id S1750702Ab3J3ErI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 00:47:08 -0400
 Content-Disposition: inline
-In-Reply-To: <1383107681.4857.33.camel@edumazet-glaptop.roam.corp.google.com>
+In-Reply-To: <1383107858.4857.35.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 29, 2013 at 09:34:41PM -0700, Eric Dumazet wrote:
+On Tue, Oct 29, 2013 at 09:37:38PM -0700, Eric Dumazet wrote:
 >
-> What matters ?
+> Well, if you really want to be smart, we could build GSO packets of ~16
+> MSS, as most NIC support TSO.
 > 
-> GRO ?
+> So a 64K packet containing 44 MSS could be split into 3 TSO packets.
 
-What matters is that you should not treat the forwarding case
-separately from the host case.
+Yes that would be nice for sure.
 
-For virtualisation the host case looks exactly like the forwarding
-case.
-
-IOW, if having a 64KB packet matters for the host, then it matters
-for forwarding as well.
-
-> Before my patch, GRO packets were 17 MSS, and nobody complained packets
-> were too small, so what are you saying exactly ?
-
-I'm not criticsing your mega-GRO patch at all.  That one is great
-and means that we'll get aggregated packets up to 64K.  What we need
-to do is just to patch up the GSO code so that it can handle these
-mega-packets properly.
-
-Cheers,
+Thanks,
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
