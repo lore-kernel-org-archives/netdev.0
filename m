@@ -1,38 +1,57 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next RFC 3/5] xen-netback: Remove old TX grant copy
- definitons
-Date: Wed, 30 Oct 2013 11:13:18 +0000
-Message-ID: <20131030111318.GO5221@zion.uk.xensource.com>
-References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com>
- <1383094220-14775-4-git-send-email-zoltan.kiss@citrix.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH 02/16] wl1251: fix scan behaviour while not associated
+Date: Wed, 30 Oct 2013 12:24:05 +0100
+Message-ID: <20131030112405.GA8204@amd.pavel.ucw.cz>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+ <1382819655-30430-3-git-send-email-pali.rohar@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:42884 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751982Ab3J3LNU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 07:13:20 -0400
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Luciano Coelho <luca@coelho.fi>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
+	aaro.koskinen@iki.fi, sre@ring0.de, joni.lapilainen@gmail.com,
+	David Gnedt <david.gnedt@davizone.at>
+To: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1383094220-14775-4-git-send-email-zoltan.kiss@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1382819655-30430-3-git-send-email-pali.rohar@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 30, 2013 at 12:50:18AM +0000, Zoltan Kiss wrote:
-> These became obsolate with grant mapping.
-> 
+On Sat 2013-10-26 22:34:01, Pali Roh=E1r wrote:
+> From: David Gnedt <david.gnedt@davizone.at>
+>=20
+> With a dissacociated card I often encoutered very long scan delays.
+>=20
+> My guess is that it has something to do with the cards DTIM handling =
+and
+> another firmware bug mentioned in the TI WLAN driver, which is descri=
+bed as
+> the card may never end scanning if the channel is overloaded because =
+it
+> can't send probe requests. I think the firmware somehow also tries to
+> receive DTIM messages when the BSSID is not set. Therefore most of th=
+e time
+> it waits for DTIM messages and can't do scanning work.
+>=20
+> Anyway we can workaround this misbehaviour by setting the HIGH_PRIORI=
+TY
+> bit for scans in disassociated state.
+>=20
+> Signed-off-by: David Gnedt <david.gnedt@davizone.at>
 
-I'm afraid not.
+I guess you should add your Signed-off-by: here (as you are sending
+the patch forward).
 
-This TX coalescing mechanism is designed to handle the situation where
-guest's MAX_SKB_FRAGS > host's MAX_SKB_FRAGS.
+Other than that:
 
-To a further extent, I think you might need to add mechanism for backend
-to tell frontend how many frags it can handle, and frontend needs to do
-necessary coalescing. Until then you can safely use this new mapping
-scheme.
+Reviewed-by: Pavel Machek <pavel@ucw.cz>
 
-Wei.
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses=
+/blog.html
