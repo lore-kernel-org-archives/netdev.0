@@ -1,193 +1,167 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 2/5] lib: crc32: add functionality to combine two crc32{,c}s in GF(2)
-Date: Wed, 30 Oct 2013 11:50:49 +0100
-Message-ID: <1383130252-1515-3-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 5/5] net: sctp: fix and consolidate SCTP checksumming code
+Date: Wed, 30 Oct 2013 11:50:52 +0100
+Message-ID: <1383130252-1515-6-git-send-email-dborkman@redhat.com>
 References: <1383130252-1515-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53619 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753708Ab3J3KvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Oct 2013 06:51:16 -0400
 In-Reply-To: <1383130252-1515-1-git-send-email-dborkman@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds a combinator to merge two or more crc32{,c}s
-into a new one. This is useful for checksum computations of
-fragmented skbs that use crc32/crc32c as checksums.
+This fixes an outstanding bug found through IPVS, where SCTP packets
+with skb->data_len > 0 (non-linearized) and empty frag_list, but data
+accumulated in frags[] member, are forwarded with incorrect checksum
+letting SCTP initial handshake fail on some systems. Linearizing each
+SCTP skb in IPVS to prevent that would not be a good solution as
+this leads to an additional and unnecessary performance penalty on
+the load-balancer itself for no good reason (as we actually only want
+to update the checksum, and can do that in a different/better way
+presented here).
 
-The arithmetics for combining both in the GF(2) was taken and
-slightly modified from zlib. Only passing two crcs is insufficient
-as two crcs and the length of the second piece is needed for
-merging. The code is made generic, so that only polynomials
-need to be passed for crc32_le resp. crc32c_le.
+The actual problem is elsewhere, namely, that SCTP's checksumming
+in sctp_compute_cksum() does not take frags[] into account like
+skb_checksum() does. So while we are fixing this up, we better reuse
+the existing code that we have anyway in __skb_checksum() and use it
+for walking through the data doing checksumming. This will not only
+fix this issue, but also consolidates some SCTP code with core
+sk_buff code, bringing it closer together and removing respectively
+avoiding reimplementation of skb_checksum() for no good reason.
+
+As crc32c() can use hardware implementation within the crypto layer,
+we leave that intact (it wraps around / falls back to e.g. slice-by-8
+algorithm in __crc32c_le() otherwise); plus use the __crc32c_le_combine()
+combinator for crc32c blocks.
+
+Also, we remove all other SCTP checksumming code, so that we only
+have to use sctp_compute_cksum() from now on; for doing that, we need
+to transform SCTP checkumming in output path slightly, and can leave
+the rest intact.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: linux-kernel@vger.kernel.org
 ---
- include/linux/crc32.h | 40 +++++++++++++++++++++++++
- lib/crc32.c           | 81 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 121 insertions(+)
+ include/net/sctp/checksum.h | 56 +++++++++++++++------------------------------
+ net/sctp/output.c           |  9 +-------
+ 2 files changed, 20 insertions(+), 45 deletions(-)
 
-diff --git a/include/linux/crc32.h b/include/linux/crc32.h
-index 68267b6..7d275c4 100644
---- a/include/linux/crc32.h
-+++ b/include/linux/crc32.h
-@@ -11,8 +11,48 @@
- extern u32  crc32_le(u32 crc, unsigned char const *p, size_t len);
- extern u32  crc32_be(u32 crc, unsigned char const *p, size_t len);
+diff --git a/include/net/sctp/checksum.h b/include/net/sctp/checksum.h
+index 259924d..6bd44fe 100644
+--- a/include/net/sctp/checksum.h
++++ b/include/net/sctp/checksum.h
+@@ -42,56 +42,38 @@
+ #include <linux/types.h>
+ #include <net/sctp/sctp.h>
+ #include <linux/crc32c.h>
++#include <linux/crc32.h>
  
-+/**
-+ * crc32_le_combine - Combine two crc32 check values into one. For two
-+ * 		      sequences of bytes, seq1 and seq2 with lengths len1
-+ * 		      and len2, crc32_le() check values were calculated
-+ * 		      for each, crc1 and crc2.
-+ *
-+ * @crc1: crc32 of the first block
-+ * @crc2: crc32 of the second block
-+ * @len2: length of the second block
-+ *
-+ * Return: The crc32_le() check value of seq1 and seq2 concatenated,
-+ * 	   requiring only crc1, crc2, and len2. Note: If seq_full denotes
-+ * 	   the concatenated memory area of seq1 with seq2, and crc_full
-+ * 	   the crc32_le() value of seq_full, then crc_full ==
-+ * 	   crc32_le_combine(crc1, crc2, len2) when crc_full was seeded
-+ * 	   with the same initializer as crc1, and crc2 seed was 0. See
-+ * 	   also crc32_combine_test().
-+ */
-+extern u32  crc32_le_combine(u32 crc1, u32 crc2, size_t len2);
-+
- extern u32  __crc32c_le(u32 crc, unsigned char const *p, size_t len);
- 
-+/**
-+ * __crc32c_le_combine - Combine two crc32c check values into one. For two
-+ * 			 sequences of bytes, seq1 and seq2 with lengths len1
-+ * 			 and len2, __crc32c_le() check values were calculated
-+ * 			 for each, crc1 and crc2.
-+ *
-+ * @crc1: crc32c of the first block
-+ * @crc2: crc32c of the second block
-+ * @len2: length of the second block
-+ *
-+ * Return: The __crc32c_le() check value of seq1 and seq2 concatenated,
-+ * 	   requiring only crc1, crc2, and len2. Note: If seq_full denotes
-+ * 	   the concatenated memory area of seq1 with seq2, and crc_full
-+ * 	   the __crc32c_le() value of seq_full, then crc_full ==
-+ * 	   __crc32c_le_combine(crc1, crc2, len2) when crc_full was
-+ * 	   seeded with the same initializer as crc1, and crc2 seed
-+ * 	   was 0. See also crc32c_combine_test().
-+ */
-+extern u32  __crc32c_le_combine(u32 crc1, u32 crc2, size_t len2);
-+
- #define crc32(seed, data, length)  crc32_le(seed, (unsigned char const *)(data), length)
- 
- /*
-diff --git a/lib/crc32.c b/lib/crc32.c
-index 429d61c..595205c 100644
---- a/lib/crc32.c
-+++ b/lib/crc32.c
-@@ -49,6 +49,30 @@ MODULE_AUTHOR("Matt Domsch <Matt_Domsch@dell.com>");
- MODULE_DESCRIPTION("Various CRC32 calculations");
- MODULE_LICENSE("GPL");
- 
-+#define GF2_DIM		32
-+
-+static u32 gf2_matrix_times(u32 *mat, u32 vec)
-+{
-+	u32 sum = 0;
-+
-+	while (vec) {
-+		if (vec & 1)
-+			sum ^= *mat;
-+		vec >>= 1;
-+		mat++;
-+	}
-+
-+	return sum;
-+}
-+
-+static void gf2_matrix_square(u32 *square, u32 *mat)
-+{
-+	int i;
-+
-+	for (i = 0; i < GF2_DIM; i++)
-+		square[i] = gf2_matrix_times(mat, mat[i]);
-+}
-+
- #if CRC_LE_BITS > 8 || CRC_BE_BITS > 8
- 
- /* implements slicing-by-4 or slicing-by-8 algorithm */
-@@ -130,6 +154,52 @@ crc32_body(u32 crc, unsigned char const *buf, size_t len, const u32 (*tab)[256])
+-static inline __u32 sctp_crc32c(__u32 crc, u8 *buffer, u16 length)
++static inline __wsum sctp_csum_update(const void *buff, int len, __wsum sum)
+ {
+-	return crc32c(crc, buffer, length);
+-}
+-
+-static inline __u32 sctp_start_cksum(__u8 *buffer, __u16 length)
+-{
+-	__u32 crc = ~(__u32)0;
+-	__u8  zero[sizeof(__u32)] = {0};
+-
+-	/* Optimize this routine to be SCTP specific, knowing how
+-	 * to skip the checksum field of the SCTP header.
++	/* This uses the crypto implementation of crc32c, which is either
++	 * implemented w/ hardware support or resolves to __crc32c_le().
+ 	 */
+-
+-	/* Calculate CRC up to the checksum. */
+-	crc = sctp_crc32c(crc, buffer, sizeof(struct sctphdr) - sizeof(__u32));
+-
+-	/* Skip checksum field of the header. */
+-	crc = sctp_crc32c(crc, zero, sizeof(__u32));
+-
+-	/* Calculate the rest of the CRC. */
+-	crc = sctp_crc32c(crc, &buffer[sizeof(struct sctphdr)],
+-			    length - sizeof(struct sctphdr));
+-	return crc;
+-}
+-
+-static inline __u32 sctp_update_cksum(__u8 *buffer, __u16 length, __u32 crc32)
+-{
+-	return sctp_crc32c(crc32, buffer, length);
++	return crc32c(sum, buff, len);
  }
- #endif
  
-+/* For conditions of distribution and use, see copyright notice in zlib.h */
-+static u32 crc32_generic_combine(u32 crc1, u32 crc2, size_t len2,
-+				 u32 polynomial)
-+{
-+	u32 even[GF2_DIM]; /* Even-power-of-two zeros operator */
-+	u32 odd[GF2_DIM];  /* Odd-power-of-two zeros operator  */
-+	u32 row;
-+	int i;
-+
-+	if (len2 <= 0)
-+		return crc1;
-+
-+	/* Put operator for one zero bit in odd */
-+	odd[0] = polynomial;
-+	row = 1;
-+	for (i = 1; i < GF2_DIM; i++) {
-+		odd[i] = row;
-+		row <<= 1;
-+	}
-+
-+	gf2_matrix_square(even, odd); /* Put operator for two zero bits in even */
-+	gf2_matrix_square(odd, even); /* Put operator for four zero bits in odd */
-+
-+	/* Apply len2 zeros to crc1 (first square will put the operator for one
-+	 * zero byte, eight zero bits, in even).
-+	 */
-+	do {
-+		/* Apply zeros operator for this bit of len2 */
-+		gf2_matrix_square(even, odd);
-+		if (len2 & 1)
-+			crc1 = gf2_matrix_times(even, crc1);
-+		len2 >>= 1;
-+		/* If no more bits set, then done */
-+		if (len2 == 0)
-+			break;
-+		/* Another iteration of the loop with odd and even swapped */
-+		gf2_matrix_square(odd, even);
-+		if (len2 & 1)
-+			crc1 = gf2_matrix_times(odd, crc1);
-+		len2 >>= 1;
-+	} while (len2 != 0);
-+
-+	crc1 ^= crc2;
-+	return crc1;
-+}
-+
- /**
-  * crc32_le_generic() - Calculate bitwise little-endian Ethernet AUTODIN II
-  *			CRC32/CRC32C
-@@ -200,8 +270,19 @@ u32 __pure __crc32c_le(u32 crc, unsigned char const *p, size_t len)
- 			(const u32 (*)[256])crc32ctable_le, CRC32C_POLY_LE);
+-static inline __le32 sctp_end_cksum(__u32 crc32)
++static inline __wsum sctp_csum_combine(__wsum csum, __wsum csum2,
++				       int offset, int len)
+ {
+-	return cpu_to_le32(~crc32);
++	return __crc32c_le_combine(csum, csum2, len);
  }
- #endif
-+u32 __pure crc32_le_combine(u32 crc1, u32 crc2, size_t len2)
-+{
-+	return crc32_generic_combine(crc1, crc2, len2, CRCPOLY_LE);
-+}
-+
-+u32 __pure __crc32c_le_combine(u32 crc1, u32 crc2, size_t len2)
-+{
-+	return crc32_generic_combine(crc1, crc2, len2, CRC32C_POLY_LE);
-+}
- EXPORT_SYMBOL(crc32_le);
-+EXPORT_SYMBOL(crc32_le_combine);
- EXPORT_SYMBOL(__crc32c_le);
-+EXPORT_SYMBOL(__crc32c_le_combine);
  
- /**
-  * crc32_be_generic() - Calculate bitwise big-endian Ethernet AUTODIN II CRC32
+-/* Calculate the CRC32C checksum of an SCTP packet.  */
+ static inline __le32 sctp_compute_cksum(const struct sk_buff *skb,
+ 					unsigned int offset)
+ {
+-	const struct sk_buff *iter;
++	struct sctphdr *sh = sctp_hdr(skb);
++        __le32 ret, old = sh->checksum;
++	const struct skb_checksum_ops ops = {
++		.update  = sctp_csum_update,
++		.combine = sctp_csum_combine,
++	};
+ 
+-	__u32 crc32 = sctp_start_cksum(skb->data + offset,
+-				       skb_headlen(skb) - offset);
+-	skb_walk_frags(skb, iter)
+-		crc32 = sctp_update_cksum((__u8 *) iter->data,
+-					  skb_headlen(iter), crc32);
++	sh->checksum = 0;
++	ret = cpu_to_le32(~__skb_checksum(skb, offset, skb->len - offset,
++					  ~(__u32)0, &ops));
++	sh->checksum = old;
+ 
+-	return sctp_end_cksum(crc32);
++	return ret;
+ }
+ 
+ #endif /* __sctp_checksum_h__ */
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 3191373..e650978 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -390,7 +390,6 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+ 	__u8 has_data = 0;
+ 	struct dst_entry *dst = tp->dst;
+ 	unsigned char *auth = NULL;	/* pointer to auth in skb data */
+-	__u32 cksum_buf_len = sizeof(struct sctphdr);
+ 
+ 	pr_debug("%s: packet:%p\n", __func__, packet);
+ 
+@@ -493,7 +492,6 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+ 		if (chunk == packet->auth)
+ 			auth = skb_tail_pointer(nskb);
+ 
+-		cksum_buf_len += chunk->skb->len;
+ 		memcpy(skb_put(nskb, chunk->skb->len),
+ 			       chunk->skb->data, chunk->skb->len);
+ 
+@@ -538,12 +536,7 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+ 	if (!sctp_checksum_disable) {
+ 		if (!(dst->dev->features & NETIF_F_SCTP_CSUM) ||
+ 		    (dst_xfrm(dst) != NULL) || packet->ipfragok) {
+-			__u32 crc32 = sctp_start_cksum((__u8 *)sh, cksum_buf_len);
+-
+-			/* 3) Put the resultant value into the checksum field in the
+-			 *    common header, and leave the rest of the bits unchanged.
+-			 */
+-			sh->checksum = sctp_end_cksum(crc32);
++			sh->checksum = sctp_compute_cksum(nskb, 0);
+ 		} else {
+ 			/* no need to seed pseudo checksum for SCTP */
+ 			nskb->ip_summed = CHECKSUM_PARTIAL;
 -- 
 1.8.3.1
