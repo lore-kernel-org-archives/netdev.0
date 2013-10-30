@@ -1,57 +1,45 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v3] sh_eth: check platform data pointer
-Date: Wed, 30 Oct 2013 23:30:19 +0300
-Message-ID: <201310302330.19491.sergei.shtylyov@cogentembedded.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next PATCH] net: codel: Avoid undefined behavior from
+ signed overflow
+Date: Wed, 30 Oct 2013 19:35:48 +0000
+Message-ID: <1383161748.1601.24.camel@bwh-desktop.uk.level5networks.com>
+References: <20131030172341.19203.93490.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: <netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Dave Taht <dave.taht@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:47359 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754369Ab3J3TaW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 15:30:22 -0400
-Received: by mail-lb0-f180.google.com with SMTP id y6so1574493lbh.25
-        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 12:30:21 -0700 (PDT)
+Received: from webmail.solarflare.com ([12.187.104.25]:42136 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754560Ab3J3Tfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 15:35:54 -0400
+In-Reply-To: <20131030172341.19203.93490.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check the platform data pointer before dereferencing it and error out of the
-probe() method if it's NULL.
+On Wed, 2013-10-30 at 18:23 +0100, Jesper Dangaard Brouer wrote:
+> From: Jesper Dangaard Brouer <netoptimizer@brouer.com>
+> 
+> As described in commit 5a581b367 (jiffies: Avoid undefined
+> behavior from signed overflow), according to the C standard
+> 3.4.3p3, overflow of a signed integer results in undefined
+> behavior.
+[...]
 
-This has additional effect of preventing kernel oops with outdated platform data
-containing zero PHY address instead (such as on SolutionEngine7710).
+According to the real processors that Linux runs on, signed arithmetic
+uses 2's complement representation and overflow wraps accordingly.  And
+we rely on that behaviour in many places, so we use
+'-fno-strict-overflow' to tell gcc not to assume we avoid signed
+overflow.  (There is also '-fwrapv' which tells gcc to assume the
+processor behaves this way, but shouldn't it already know how the target
+machine works?)
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Ben.
 
----
-This patch is against David Miller's 'net-next.git' repo.
-
-Changes in version 3:
-- refreshed the patch.
-
-Changes in version 2:
-- refreshed the patch.
-
- drivers/net/ethernet/renesas/sh_eth.c |    6 ++++++
- 1 file changed, 6 insertions(+)
-
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2663,6 +2663,12 @@ static int sh_eth_drv_probe(struct platf
- 	pm_runtime_enable(&pdev->dev);
- 	pm_runtime_resume(&pdev->dev);
- 
-+	if (!pd) {
-+		dev_err(&pdev->dev, "no platform data\n");
-+		ret = -EINVAL;
-+		goto out_release;
-+	}
-+
- 	/* get PHY ID */
- 	mdp->phy_id = pd->phy;
- 	mdp->phy_interface = pd->phy_interface;
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
