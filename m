@@ -1,89 +1,41 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH v2 net-next] net: introduce gro_frag_list_enable sysctl
-Date: Wed, 30 Oct 2013 14:09:54 -0400
-Message-ID: <52714B72.2060200@redhat.com>
-References: <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>	<20131029.194446.2215574000648693370.davem@davemloft.net>	<1383094428.4857.16.camel@edumazet-glaptop.roam.corp.google.com>	<20131029.220253.1263087684709722001.davem@davemloft.net>	<1383106012.4857.26.camel@edumazet-glaptop.roam.corp.google.com>	<20131030040818.GB2755@gondor.apana.org.au>	<1383106577.4857.30.camel@edumazet-glaptop.roam.corp.google.com>	<20131030041959.GA3162@gondor.apana.org.au>	<1383107681.4857.33.camel@edumazet-glaptop.roam.corp.google.com>	<20131030044212.GA3364@gondor.apana.org.au> <CAPshTCg8j-y6fGfh0tRMir34-Lzy77qyzibvwjMSMpR0Rr1rsA@mail.gmail.com>
-Reply-To: vyasevic@redhat.com
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [gpio:for-next 67/67] pch_gbe_main.c:undefined reference to `devm_gpio_request_one'
+Date: Wed, 30 Oct 2013 11:21:38 -0700
+Message-ID: <CACRpkdZM8BBR6NAUTuSpEErZe2541-CvuwFSe13FDfxOBnnygA@mail.gmail.com>
+References: <52691c0b.BIIOKlR6F81qU+tE%fengguang.wu@intel.com>
+	<20131025044027.GA27083@localhost>
+	<CACRpkdaJVE44UGRAZ0tnQSArrs+DuVFhVssW6riWmdp8-6E6BQ@mail.gmail.com>
+	<1382696677.4970.40.camel@dvhart-mobl4.amr.corp.intel.com>
+	<CACRpkdYvOMiBOXRi61LjemMSoafR6kv3XoY=A5E90hwMumdw9A@mail.gmail.com>
+	<CACRpkdYDUKK-jAeeHECfRcKM+-MDuyarDMGDP0p39U_-WLgd8w@mail.gmail.com>
+	<526AE0EB.4020602@linux.intel.com>
+	<526AE1E2.9080909@linux.intel.com>
+	<1382819615.23829.16.camel@dvhart-mobl4.amr.corp.intel.com>
+	<1382822142.23829.46.camel@dvhart-mobl4.amr.corp.intel.com>
+	<526CA546.7040406@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Christoph Paasch <christoph.paasch@uclouvain.be>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Darren Hart <dvhart@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Michael Dalton <mwdalton@google.com>
-To: Jerry Chu <hkchu@google.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37234 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751685Ab3J3SKU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Oct 2013 14:10:20 -0400
-In-Reply-To: <CAPshTCg8j-y6fGfh0tRMir34-Lzy77qyzibvwjMSMpR0Rr1rsA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Fengguang Wu <fengguang.wu@intel.com>,
+	Alexandre Courbot <acourbot@nvidia.com>,
+	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
+To: David Cohen <david.a.cohen@linux.intel.com>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <526CA546.7040406@linux.intel.com>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/30/2013 01:39 PM, Jerry Chu wrote:
-> On Tue, Oct 29, 2013 at 9:42 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
->>
->> On Tue, Oct 29, 2013 at 09:34:41PM -0700, Eric Dumazet wrote:
->>>
->>> What matters ?
->>>
->>> GRO ?
->>
->> What matters is that you should not treat the forwarding case
->> separately from the host case.
->>
->> For virtualisation the host case looks exactly like the forwarding
->> case.
->
->
-> Not sure I agree - there are two different "forwarding" cases - forwarding
-> to another physical NIC (to go out to the wire hence need to do GSO),
-> and (for virtualization) forwarding to a virtual NIC and consumed internally
-> (e.g., VM).
+On Sat, Oct 26, 2013 at 10:31 PM, David Cohen
+<david.a.cohen@linux.intel.com> wrote:
 
-I don't think you can really differentiate these 2 case.  VM are
-very commonly used as routers/forwarders.  In some cases, to get
-better throughput,  VFs are assigned to the VMs as the externally
-facing ports.  So, you still end up forwarding to another physical
-NIC.
+> Maybe if GPIOLIB has the static inline stubs returning -ENODEV we could
+> use a patch similar to the one attached here.
 
--vlad
+I've added stubs returning -EINVAL just like all siblings there, if you
+like to have this changed, send a patch changing it to -ENODEV
+and this patch on top as 2/2 please.
 
-> For the latter we should strive to push GSO pkts all the way
-> to the VM stack w/o breaking them up. So for virtualization GRO is all
-> goodness but not sure about the regular forwarding path. (From the
-> perf perspective it boils down to if the cost of GSO/GRO will offset
-> the benefit of GRO. Sure if one manages to get the cost close to zero
-> than there is not reason to leave GRO always on. But it's still a big if for
-> now.)
->
-> Best,
->
-> Jerry
->
->>
->>
->> IOW, if having a 64KB packet matters for the host, then it matters
->> for forwarding as well.
->>
->>> Before my patch, GRO packets were 17 MSS, and nobody complained packets
->>> were too small, so what are you saying exactly ?
->>
->> I'm not criticsing your mega-GRO patch at all.  That one is great
->> and means that we'll get aggregated packets up to 64K.  What we need
->> to do is just to patch up the GSO code so that it can handle these
->> mega-packets properly.
->>
->> Cheers,
->> --
->> Email: Herbert Xu <herbert@gondor.apana.org.au>
->> Home Page: http://gondor.apana.org.au/~herbert/
->> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Yours,
+Linus Walleij
