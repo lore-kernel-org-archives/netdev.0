@@ -1,61 +1,72 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/2] sh_eth: check platform data pointer
-Date: Wed, 30 Oct 2013 22:55:13 +0300
-Message-ID: <52716421.9080807@cogentembedded.com>
-References: <201308310423.30322.sergei.shtylyov@cogentembedded.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 29/51] DMA-API: ata: pata_octeon_cf: convert to use
+	dma_coerce_mask_and_coherent()
+Date: Wed, 30 Oct 2013 20:08:54 +0100
+Message-ID: <CAMuHMdWqAL6MN5VJrpAPC1fq3QtRWZ3UUMG3+6W5vEKSEm5N9g@mail.gmail.com>
+References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
+	<E1VMmAk-0007iq-IU@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:65122 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752530Ab3J3SzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 14:55:16 -0400
-Received: by mail-lb0-f175.google.com with SMTP id z5so1553712lbh.20
-        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 11:55:14 -0700 (PDT)
-In-Reply-To: <201308310423.30322.sergei.shtylyov@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alsa-devel@alsa-project.org, linux-doc@vger.kernel.org,
+	Linux MMC List <linux-mmc@vger.kernel.org>,
+	Linux Fbdev development list <linux-fbdev@vger.kernel.org>,
+	linux-nvme@lists.infradead.org,
+	"linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>,
+	driverdevel <devel@driverdev.osuosl.org>,
+	linux-samsung-soc@vger.kernel.org, scsi <linux-scsi@vger.kernel.org>,
+	e1000-devel@lists.sourceforge.net, Linux-Next <linux-next@vger.kernel.org>,
+	b43-dev@lists.infradead.org,
+	Linux Media Mailing List <linux-media@vger.kernel.org>,
+	devicetree@vger.kernel.org,
+	DRI Development <dri-devel@lists.freedesktop.org>,
+	linux-tegra@vger.kernel.org,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.o
+To: Russell King <rmk+kernel@arm.linux.org.uk>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <E1VMmAk-0007iq-IU@rmk-PC.arm.linux.org.uk>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
+	<mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+	<mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Sender: dri-devel-bounces@lists.freedesktop.org
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 08/31/2013 04:23 AM, Sergei Shtylyov wrote:
-
-> Check the platform data pointer before dereferencing it and error out of the
-> probe() method if it's NULL.
-
-> This has additional effect of preventing kernel oops with outdated platform data
-> containing zero PHY address instead (such as on SolutionEngine7710).
-
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-> ---
-> This patch is against Dave's 'net-next.git' repo.
-
->   drivers/net/ethernet/renesas/sh_eth.c |    6 ++++++
->   1 file changed, 6 insertions(+)
-
-> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-> ===================================================================
-> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -2653,6 +2653,12 @@ static int sh_eth_drv_probe(struct platf
->   	pm_runtime_enable(&pdev->dev);
->   	pm_runtime_resume(&pdev->dev);
+On Thu, Sep 19, 2013 at 11:54 PM, Russell King
+<rmk+kernel@arm.linux.org.uk> wrote:
+> diff --git a/drivers/ata/pata_octeon_cf.c b/drivers/ata/pata_octeon_cf.c
+> index c51bbb9..6231d43 100644
+> --- a/drivers/ata/pata_octeon_cf.c
+> +++ b/drivers/ata/pata_octeon_cf.c
+> @@ -1014,8 +1014,9 @@ static int octeon_cf_probe(struct platform_device *pdev)
+>         }
+>         cf_port->c0 = ap->ioaddr.ctl_addr;
 >
-> +	if (!pd) {
-> +		dev_err(&pdev->dev, "no platform data\n");
-> +		ret = -EINVAL;
-> +		goto out_release;
-> +	}
-> +
->   	/* get PHY ID */
->   	mdp->phy_id = pd->phy;
->   	mdp->phy_interface = pd->phy_interface;
+> -       pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+> -       pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
+> +       rv = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+> +       if (rv)
+> +               return ret;
 
-    David, could you please merge this patch? It has a value of its own, 
-regardless of the device tree support in patch 2 (which got bloked).
+return rv;
 
-WBR, Sergei
+http://kisskb.ellerman.id.au/kisskb/buildresult/9959184/
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
