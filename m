@@ -1,33 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2: Use dev_kfree_skb_any() in bnx2_tx_int()
-Date: Tue, 29 Oct 2013 22:42:27 -0400 (EDT)
-Message-ID: <20131029.224227.1700872646112764527.davem@davemloft.net>
-References: <1383084998-22673-1-git-send-email-tdmackey@booleanhaiku.com>
+Subject: Re: [PATCH net] virtio-net: correctly handle cpu hotplug notifier
+	during resuming
+Date: Tue, 29 Oct 2013 22:44:56 -0400 (EDT)
+Message-ID: <20131029.224456.313230245288672803.davem@davemloft.net>
+References: <1383030667-14343-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tdmackey@booleanhaiku.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1383084998-22673-1-git-send-email-tdmackey@booleanhaiku.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1383030667-14343-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: David Mackey <tdmackey@booleanhaiku.com>
-Date: Tue, 29 Oct 2013 15:16:38 -0700
+From: Jason Wang <jasowang@redhat.com>
+Date: Tue, 29 Oct 2013 15:11:07 +0800
 
-> Using dev_kfree_skb_any() will resolve the below issue when a
-> netconsole message is transmitted in an irq.
+> commit 3ab098df35f8b98b6553edc2e40234af512ba877 (virtio-net: don't respond to
+> cpu hotplug notifier if we're not ready) tries to bypass the cpu hotplug
+> notifier by checking the config_enable and does nothing is it was false. So it
+> need to try to hold the config_lock mutex which may happen in atomic
+> environment which leads the following warnings:
  ...
-> Signed-off-by: David Mackey <tdmackey@booleanhaiku.com>
+> A correct fix is to unregister the hotcpu notifier during restore and register a
+> new one in resume.
+> 
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Tested-by: Fengguang Wu <fengguang.wu@intel.com>
+> Cc: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+> This patch is needed for 3.8 and above.
 
-This is absolutely not the correct fix.
-
-The netpoll facility must invoke ->poll() in an environment which
-is compatible, locking and interrupt/soft-interrupt wise, as that
-in which it is normally called.
-
-Therefore, bnx2_tx_int(), which is invoked from the driver's ->poll()
-method, should not need to use dev_kfree_skb_any().  The real problem
-is somewhere else.
+Applied and queued up for -stable, thanks Jason.
