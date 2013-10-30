@@ -1,29 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] route: Exporting ip6_route_add() so that Bluetooth
- 6LoWPAN can use it
-Date: Wed, 30 Oct 2013 13:05:30 -0400 (EDT)
-Message-ID: <20131030.130530.189456202959728966.davem@davemloft.net>
-References: <1383124637-15533-1-git-send-email-jukka.rissanen@linux.intel.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch v2] libertas: potential oops in debugfs
+Date: Wed, 30 Oct 2013 20:12:51 +0300
+Message-ID: <20131030171251.GA4130@longonot.mountain>
+References: <20131025144452.GA28451@ngolde.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jukka.rissanen@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59624 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751970Ab3J3RFg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 13:05:36 -0400
-In-Reply-To: <1383124637-15533-1-git-send-email-jukka.rissanen@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131025144452.GA28451@ngolde.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jukka Rissanen <jukka.rissanen@linux.intel.com>
-Date: Wed, 30 Oct 2013 11:17:17 +0200
+If we do a zero size allocation then it will oops.  Also we can't be
+sure the user passes us a NUL terminated string so I've added a
+terminator.
 
-> Signed-off-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+This code can only be triggered by root.
 
-Sorry, no.
+Reported-by: Nico Golde <nico@ngolde.de>
+Reported-by: Fabian Yamaguchi <fabs@goesec.de>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-There is no reason that external subsystems need to add ipv6 routes
-using direct calls to these functions.
+diff --git a/drivers/net/wireless/libertas/debugfs.c b/drivers/net/wireless/libertas/debugfs.c
+index 668dd27..1917348 100644
+--- a/drivers/net/wireless/libertas/debugfs.c
++++ b/drivers/net/wireless/libertas/debugfs.c
+@@ -913,7 +913,10 @@ static ssize_t lbs_debugfs_write(struct file *f, const char __user *buf,
+ 	char *p2;
+ 	struct debug_data *d = f->private_data;
+ 
+-	pdata = kmalloc(cnt, GFP_KERNEL);
++	if (cnt == 0)
++		return 0;
++
++	pdata = kmalloc(cnt + 1, GFP_KERNEL);
+ 	if (pdata == NULL)
+ 		return 0;
+ 
+@@ -922,6 +925,7 @@ static ssize_t lbs_debugfs_write(struct file *f, const char __user *buf,
+ 		kfree(pdata);
+ 		return 0;
+ 	}
++	pdata[cnt] = '\0';
+ 
+ 	p0 = pdata;
+ 	for (i = 0; i < num_of_items; i++) {
