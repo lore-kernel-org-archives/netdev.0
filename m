@@ -1,76 +1,47 @@
-From: Markus Pargmann <mpa@pengutronix.de>
-Subject: Re: [PATCH v2] can: c_can: Speed up rx_poll function
-Date: Wed, 30 Oct 2013 08:54:46 +0100
-Message-ID: <20131030075446.GE20839@pengutronix.de>
-References: <1383035267-19604-1-git-send-email-mpa@pengutronix.de>
- <1383035688.2713.2.camel@joe-AO722>
- <20131029085853.GC20839@pengutronix.de>
- <1383063845.2713.15.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel@pengutronix.de
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1383063845.2713.15.camel@joe-AO722>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH net-next 3/4] 6lowpan: set 6lowpan network and transport header
+Date: Wed, 30 Oct 2013 09:18:23 +0100
+Message-ID: <1383121104-2515-4-git-send-email-alex.aring@gmail.com>
+References: <1383121104-2515-1-git-send-email-alex.aring@gmail.com>
+Cc: linux-zigbee-devel@lists.sourceforge.net, werner@almesberger.net,
+	dbaryshkov@gmail.com, netdev@vger.kernel.org,
+	Alexander Aring <alex.aring@gmail.com>
+To: alex.bluesman.smirnov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:63444 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752273Ab3J3ISj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 04:18:39 -0400
+Received: by mail-ee0-f53.google.com with SMTP id e51so442372eek.12
+        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 01:18:38 -0700 (PDT)
+In-Reply-To: <1383121104-2515-1-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 29, 2013 at 09:24:05AM -0700, Joe Perches wrote:
-> On Tue, 2013-10-29 at 09:58 +0100, Markus Pargmann wrote:
-> > On Tue, Oct 29, 2013 at 01:34:48AM -0700, Joe Perches wrote:
-> > > On Tue, 2013-10-29 at 09:27 +0100, Markus Pargmann wrote:
-> > > > This patch speeds up the rx_poll function by reducing the number of
-> > > > register reads.
-> > > []
-> > > > 125kbit:
-> > > >   Function                               Hit    Time            Avg             s^2
-> > > >   --------                               ---    ----            ---             ---
-> > > >   c_can_do_rx_poll                     63960    10168178 us     158.977 us      1493056 us
-> > > > With patch:
-> > > >   c_can_do_rx_poll                     63939    4268457 us     66.758 us       818790.9 us
-> > > > 
-> > > > 1Mbit:
-> > > >   Function                               Hit    Time            Avg             s^2
-> > > >   --------                               ---    ----            ---             ---
-> > > >   c_can_do_rx_poll                     69489    30049498 us     432.435 us      9271851 us
-> > > > With patch:
-> > > >   c_can_do_rx_poll                    103034    24220362 us     235.071 us      6016656 us
-> []
-> > Yes I just measured the timings again:
-> []
-> > ./perf_can_test.sh 125000 30
-> []
-> >   c_can_do_rx_poll                     63941    3764057 us     58.867 us       776162.2 us 
-> 
-> Good, it's slightly faster still.
-> 
-> > ./perf_can_test.sh 1000000 30
-> []
-> >   c_can_do_rx_poll                    207109    24322185 us     117.436 us      171469047 us 
-> []
-> > It is interesting that the number of hits for c_can_do_rx_poll is twice as much
-> > as it was with find_next_bit.
-> 
-> How is this possible?  Any idea?
+This is necessary to access network header with the skb_network_header
+function instead of calculate the position with mac_len, etc.
+Do the same for the transport header, when we replace the IPv6 header
+with the 6LoWPAN header.
 
-Perhaps the can core received more messages in the previous patch
-version while being in the poll function. This way it can handle more
-messages without a new interrupt/poll call.
+Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+Acked-by: Werner Almesberger <werner@almesberger.net>
+---
+ net/ieee802154/6lowpan.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-The new patch is faster so it does not receive as many new messages as
-the old one, leading to more interrupts and less handled messages per
-poll call.
-
-Regards,
-
-Markus Pargmann
-
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index e6db1f5..58c07fd 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -654,7 +654,9 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 	head[1] = iphc1;
+ 
+ 	skb_pull(skb, sizeof(struct ipv6hdr));
++	skb_reset_transport_header(skb);
+ 	memcpy(skb_push(skb, hc06_ptr - head), head, hc06_ptr - head);
++	skb_reset_network_header(skb);
+ 
+ 	lowpan_raw_dump_table(__func__, "raw skb data dump", skb->data,
+ 				skb->len);
 -- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+1.8.4.2
