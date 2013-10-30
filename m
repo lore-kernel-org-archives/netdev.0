@@ -1,51 +1,64 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch v2] libertas: potential oops in debugfs
-Date: Wed, 30 Oct 2013 20:12:51 +0300
-Message-ID: <20131030171251.GA4130@longonot.mountain>
-References: <20131025144452.GA28451@ngolde.de>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH] net: codel: Avoid undefined behavior from signed
+	overflow
+Date: Wed, 30 Oct 2013 18:23:42 +0100
+Message-ID: <20131030172341.19203.93490.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131025144452.GA28451@ngolde.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Dave Taht <dave.taht@gmail.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:6869 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750865Ab3J3RSR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Oct 2013 13:18:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If we do a zero size allocation then it will oops.  Also we can't be
-sure the user passes us a NUL terminated string so I've added a
-terminator.
+From: Jesper Dangaard Brouer <netoptimizer@brouer.com>
 
-This code can only be triggered by root.
+As described in commit 5a581b367 (jiffies: Avoid undefined
+behavior from signed overflow), according to the C standard
+3.4.3p3, overflow of a signed integer results in undefined
+behavior.
 
-Reported-by: Nico Golde <nico@ngolde.de>
-Reported-by: Fabian Yamaguchi <fabs@goesec.de>
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+To fix this, do as the above commit, and do an unsigned
+subtraction, and interpreting the result as a signed
+two's-complement number.  This is based on the theory from
+RFC 1982 and is nicely described in wikipedia here:
+ https://en.wikipedia.org/wiki/Serial_number_arithmetic#General_Solution
 
-diff --git a/drivers/net/wireless/libertas/debugfs.c b/drivers/net/wireless/libertas/debugfs.c
-index 668dd27..1917348 100644
---- a/drivers/net/wireless/libertas/debugfs.c
-+++ b/drivers/net/wireless/libertas/debugfs.c
-@@ -913,7 +913,10 @@ static ssize_t lbs_debugfs_write(struct file *f, const char __user *buf,
- 	char *p2;
- 	struct debug_data *d = f->private_data;
+A side-note, I have seen practical issues with the previous logic
+when dealing with 16-bit, on a 64-bit machine (gcc version
+4.4.5). This were 32-bit, which I have not observed issues with.
+
+Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Signed-off-by: Jesper Dangaard Brouer <netoptimizer@brouer.com>
+---
+
+ include/net/codel.h |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/codel.h b/include/net/codel.h
+index 389cf62..700fcdf 100644
+--- a/include/net/codel.h
++++ b/include/net/codel.h
+@@ -72,10 +72,10 @@ static inline codel_time_t codel_get_time(void)
+ 	return ns >> CODEL_SHIFT;
+ }
  
--	pdata = kmalloc(cnt, GFP_KERNEL);
-+	if (cnt == 0)
-+		return 0;
-+
-+	pdata = kmalloc(cnt + 1, GFP_KERNEL);
- 	if (pdata == NULL)
- 		return 0;
+-#define codel_time_after(a, b)		((s32)(a) - (s32)(b) > 0)
+-#define codel_time_after_eq(a, b)	((s32)(a) - (s32)(b) >= 0)
+-#define codel_time_before(a, b)		((s32)(a) - (s32)(b) < 0)
+-#define codel_time_before_eq(a, b)	((s32)(a) - (s32)(b) <= 0)
++#define codel_time_after(a, b)		((s32)((a) - (b)) > 0)
++#define codel_time_after_eq(a, b)	((s32)((a) - (b)) >= 0)
++#define codel_time_before(a, b) 	((s32)((a) - (b)) < 0)
++#define codel_time_before_eq(a, b)	((s32)((a) - (b)) <= 0)
  
-@@ -922,6 +925,7 @@ static ssize_t lbs_debugfs_write(struct file *f, const char __user *buf,
- 		kfree(pdata);
- 		return 0;
- 	}
-+	pdata[cnt] = '\0';
- 
- 	p0 = pdata;
- 	for (i = 0; i < num_of_items; i++) {
+ /* Qdiscs using codel plugin must use codel_skb_cb in their own cb[] */
+ struct codel_skb_cb {
