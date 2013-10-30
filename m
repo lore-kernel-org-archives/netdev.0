@@ -1,29 +1,30 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch iproute2] iplink: add support for bonding netlink
-Date: Wed, 30 Oct 2013 16:46:05 -0700
-Message-ID: <20131030164605.4b181096@nehalam.linuxnetplumber.net>
-References: <1382111019-1102-1-git-send-email-jiri@resnulli.us>
-	<1382111401-1233-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH iproute2] tc: add cls_bpf frontend
+Date: Wed, 30 Oct 2013 16:46:39 -0700
+Message-ID: <20131030164639.1c4ba51d@nehalam.linuxnetplumber.net>
+References: <1382960133-2240-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fubar@us.ibm.com,
-	vfalico@redhat.com, andy@greyhouse.net, vyasevic@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:44973 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751508Ab3J3XqJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 19:46:09 -0400
-Received: by mail-pa0-f51.google.com with SMTP id ld10so1701269pab.10
-        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 16:46:09 -0700 (PDT)
-In-Reply-To: <1382111401-1233-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:64417 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751396Ab3J3Xqn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 19:46:43 -0400
+Received: by mail-pb0-f42.google.com with SMTP id jt11so2115458pbb.1
+        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 16:46:42 -0700 (PDT)
+In-Reply-To: <1382960133-2240-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 18 Oct 2013 17:50:01 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+On Mon, 28 Oct 2013 12:35:33 +0100
+Daniel Borkmann <dborkman@redhat.com> wrote:
 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> This is the iproute2 part of the kernel patch "net: sched:
+> add BPF-based traffic classifier".
+> 
 
-Applied to the net-next-3.11 branch
+Applied to net-next-3.11 branch
