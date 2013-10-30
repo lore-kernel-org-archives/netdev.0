@@ -1,134 +1,70 @@
-From: Tomi Valkeinen <tomi.valkeinen@ti.com>
-Subject: Re: [PATCH 00/19] Enable various Renesas drivers on all ARM platforms
-Date: Wed, 30 Oct 2013 12:59:08 +0200
-Message-ID: <5270E67C.1030307@ti.com>
-References: <1383004027-25036-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
- <1577821.Q7gttkPE2J@avalon> <20131029172331.GA20251@sirena.org.uk>
- <1422562.0L87CDt5Gd@avalon> <20131029175834.GD20251@sirena.org.uk>
- <20131030000501.GE21262@verge.net.au>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
+Date: Wed, 30 Oct 2013 07:02:14 -0400
+Message-ID: <20131030110214.GA10220@localhost.localdomain>
+References: <201310300525.r9U5Pdqo014902@ib.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0826496835802853326=="
-Cc: linux-fbdev@vger.kernel.org, Wolfram Sang <wsa@the-dreams.de>,
- Linus Walleij <linus.walleij@linaro.org>,
- Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>,
- Thierry Reding <thierry.reding@gmail.com>, linux-mtd@lists.infradead.org,
- linux-i2c@vger.kernel.org,
- Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>,
- Vinod Koul <vinod.koul@intel.com>, Joerg Roedel <joro@8bytes.org>,
- linux-sh@vger.kernel.org, Magnus Damm <magnus.damm@gmail.com>,
- Eduardo Valentin <eduardo.valentin@ti.com>, linux-serial@vger.kernel.org,
- linux-input@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>,
- Chris Ball <cjb@laptop.org>,
- Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
- linux-media@vger.kernel.org, linux-pwm@vger.kernel.org,
- Samuel Ortiz <samuel@sortiz.org>, linux-pm@vger.kernel.org,
- Ian Molton <ian@mnementh.co.uk>, linux-arm-kernel@lists.infradead.org,
- Sergei Shtylyov
-To: Simon Horman <horms@verge.net.au>, Mark Brown <broonie@kernel.org>,
- Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Return-path: <linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org>
-In-Reply-To: <20131030000501.GE21262@verge.net.au>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mtd>,
- <mailto:linux-mtd-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mtd/>
-List-Post: <mailto:linux-mtd@lists.infradead.org>
-List-Help: <mailto:linux-mtd-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mtd>,
- <mailto:linux-mtd-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-mtd" <linux-mtd-bounces@lists.infradead.org>
-Errors-To: linux-mtd-bounces+gldm-linux-mtd-36=gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Doug Ledford <dledford@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <201310300525.r9U5Pdqo014902@ib.usersys.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============0826496835802853326==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature";
-	boundary="TkUw5P34TmOLV1SJPPLSgLmi19DGfXjmp"
+On Wed, Oct 30, 2013 at 01:25:39AM -0400, Doug Ledford wrote:
+> * Neil Horman <nhorman@tuxdriver.com> wrote:
+> > 3) The run times are proportionally larger, but still indicate that Parallel ALU
+> > execution is hurting rather than helping, which is counter-intuitive.  I'm
+> > looking into it, but thought you might want to see these results in case
+> > something jumped out at you
+> 
+> So here's my theory about all of this.
+> 
+> I think that the original observation some years back was a fluke caused by
+> either a buggy CPU or a CPU design that is no longer used.
+> 
+> The parallel ALU design of this patch seems OK at first glance, but it means
+> that two parallel operations are both trying to set/clear both the overflow
+> and carry flags of the EFLAGS register of the *CPU* (not the ALU).  So, either
+> some CPU in the past had a set of overflow/carry flags per ALU and did some
+> sort of magic to make sure that the last state of those flags across multiple
+> ALUs that might have been used in parallelizing work were always in the CPU's
+> logical EFLAGS register, or the CPU has a buggy microcode that allowed two
+> ALUs to operate on data at the same time in situations where they would
+> potentially stomp on the carry/overflow flags of the other ALUs operations.
+> 
+> It's my theory that all modern CPUs have this behavior fixed, probably via a
+> microcode update, and so trying to do parallel ALU operations like this simply
+> has no effect because the CPU (rightly so) serializes the operations to keep
+> them from clobbering the overflow/carry flags of the other ALUs operations.
+> 
+> My additional theory then is that the reason you see a slowdown from this
+> patch is because the attempt to parallelize the ALU operation has caused
+> us to write a series of instructions that, once serialized, are non-optimal
+> and hinder smooth pipelining of the data (aka going 0*8, 2*8, 4*8, 6*8, 1*8,
+> 3*8, 5*8, and 7*8 in terms of memory accesses is worse than doing them in
+> order, and since we aren't getting the parallel operation we want, this
+> is the net result of the patch).
+> 
+> It would explain things anyway.
+> 
 
---TkUw5P34TmOLV1SJPPLSgLmi19DGfXjmp
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+That does makes sense, but it then begs the question, whats the advantage of
+having multiple alu's at all?  If they're just going to serialize on the
+updating of the condition register, there doesn't seem to be much advantage in
+having multiple alu's at all, especially if a common use case (parallelizing an
+operation on a large linear dataset) resulted in lower performance.
 
-On 2013-10-30 02:05, Simon Horman wrote:
-> On Tue, Oct 29, 2013 at 10:58:34AM -0700, Mark Brown wrote:
->> On Tue, Oct 29, 2013 at 06:29:59PM +0100, Laurent Pinchart wrote:
->>> On Tuesday 29 October 2013 10:23:31 Mark Brown wrote:
->>>> On Tue, Oct 29, 2013 at 06:05:53PM +0100, Laurent Pinchart wrote:
->>>>> The first one is that I can't compile-test all those drivers on all=
+/me wonders if rearranging the instructions into this order:
+adcq 0*8(src), res1
+adcq 1*8(src), res2
+adcq 2*8(src), res1
 
->>>>> architectures. The spi-sh-msiof driver, for instance, uses
->>>>> io(read|write)(16|
->>
->>>> Which architectures are these and is there not a symbol we can depen=
-d on
->>>> for them?
->>
->>> arch/cris for instance. We can use readl/writel instead (maybe it wou=
-ld be=20
->>> time to rationalize and document the I/O accessors across all archite=
-ctures,=20
->>> but that's another topic).
->>
->> It'd certainly be sensible, or adding a config option to depend on if
->> you rely on these functions.
->>
->>> My point is that there might be other issues that I won't be able to =
-easily=20
->>> catch. This would break compilation for everybody for no reason, as t=
-he=20
->>> drivers are useless on non-SuperH, non-ARM platforms. That's why I be=
-lieve=20
->>> COMPILE_TEST would be a better option as a first step.
->>
->> Yes, it would - please do that.  Note that it won't stop anyone runnin=
-g
->> into build issues on other architectures though, it's just about
->> stopping Kconfig noise.
->=20
-> FWIW, I am happy with using COMPILE_TEST for this series.
+would prevent pipeline stalls.  That would be interesting data, and (I think)
+support your theory, Doug.  I'll give that a try
 
-I'd also go for COMPILE_TEST. I once enabled omapdss and omapfb to be
-compilable without any extra dependencies, and Linus wasn't fond of
-getting asked if he wants to compile omapfb or not...
-
- Tomi
-
-
-
---TkUw5P34TmOLV1SJPPLSgLmi19DGfXjmp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBAgAGBQJScOZ8AAoJEPo9qoy8lh71P30P/jICwvvfCuFcXG7wV9Xlx+Yn
-MQDykQ+nRBIKOprbo38dSIC/rHYc0w80r2cb9I3xnGprkYNa9gG4Ln0RgH+nD6Hp
-AMmvAluNpOh5Xw9HWru7o7WnSVbMYeFM1D88/MCpJ0+HbunlpMOLbt+TZh7OHBlG
-BigvgPZMeDdNtVe2/loS9pSZmmRVdXqUJEa3eIWjV4DJRQFJeLcvdAXICCSFabjJ
-z7COW355T8sfHuF68cze7aUjQc+sRXF8DZlU0D/FuUqe2HuCqs2qZif/UD8OEGv6
-MGgX56QseEfhUe/czV2OJCF5lkdDmK/d2kdQEwa8TH9Ha78q56i/wY4/9xrKZIBC
-8I9LuGEJMyHfnKlDCiksVu4INjSuJxuEQ9XXBO7DwUFh3nIwXvCxIFKSKVcw0WFr
-/wiLjEOr+ks3MopLx1Q3rObI5NuK8XA01nzbmPoLVftNQYHCujdpM4GbjO5TseyA
-5PLPEaYINVZy38f4wA96haT9xzytbl2+0slcIx0HT7mGLeSXrK6SCDCQcXjFWb2G
-u8g1LOskc75YG5SNef2pfgWlNYEwcNC+SzH8XFUpS/Ik/nIsuPH4jSNfUlw806i/
-lOLwrnsy1CPLqe8W3O9pzxWoFVrqSpIWmfnDo5Kuhfi/khtNcGKEFnMWmI0ZCjQU
-Ua3jflxpaMjf4QJygi9Y
-=mBU0
------END PGP SIGNATURE-----
-
---TkUw5P34TmOLV1SJPPLSgLmi19DGfXjmp--
-
-
---===============0826496835802853326==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-______________________________________________________
-Linux MTD discussion mailing list
-http://lists.infradead.org/mailman/listinfo/linux-mtd/
-
---===============0826496835802853326==--
+Neil
