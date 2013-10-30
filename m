@@ -1,168 +1,36 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH nf-next 2/2] net: ipvs: sctp: do not recalc sctp csum when ports didn't change
-Date: Wed, 30 Oct 2013 10:11:26 +0900
-Message-ID: <1383095486-5215-3-git-send-email-horms@verge.net.au>
-References: <1383095486-5215-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 04/11] openvswitch: Restructure datapath.c and
+ flow.c
+Date: Tue, 29 Oct 2013 18:25:13 -0700
+Message-ID: <1383096313.12439.44.camel@joe-AO722>
+References: <1383092544-50599-1-git-send-email-jesse@nicira.com>
+	 <1383092544-50599-5-git-send-email-jesse@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	dev@openvswitch.org, Pravin B Shelar <pshelar@nicira.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:36254 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086Ab3J3BLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 21:11:33 -0400
-In-Reply-To: <1383095486-5215-1-git-send-email-horms@verge.net.au>
+Received: from smtprelay0059.hostedemail.com ([216.40.44.59]:41076 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751995Ab3J3BZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 21:25:18 -0400
+In-Reply-To: <1383092544-50599-5-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
+On Tue, 2013-10-29 at 17:22 -0700, Jesse Gross wrote:
+> Over the time datapath.c and flow.c has became pretty large files.
+> Following patch restructures functionality of component into three
+> different components:
+[]
+>  net/openvswitch/Makefile       |    2 +
+>  net/openvswitch/datapath.c     |  528 +------------
+>  net/openvswitch/datapath.h     |    1 +
+>  net/openvswitch/flow.c         | 1605 +---------------------------------------
+>  net/openvswitch/flow.h         |  128 +---
+>  net/openvswitch/flow_netlink.c | 1603 +++++++++++++++++++++++++++++++++++++++
 
-Unlike UDP or TCP, we do not take the pseudo-header into
-account in SCTP checksums. So in case port mapping is the
-very same, we do not need to recalculate the whole SCTP
-checksum in software, which is very expensive.
-
-Also, similarly as in TCP, take into account when a private
-helper mangled the packet. In that case, we also need to
-recalculate the checksum even if ports might be same.
-
-Thanks for feedback regarding skb->ip_summed checks from
-Julian Anastasov; here's a discussion on these checks for
-snat and dnat:
-
-* For snat_handler(), we can see CHECKSUM_PARTIAL from
-  virtual devices, and from LOCAL_OUT, otherwise it
-  should be CHECKSUM_UNNECESSARY. In general, in snat it
-  is more complex. skb contains the original route and
-  ip_vs_route_me_harder() can change the route after
-  snat_handler. So, for locally generated replies from
-  local server we can not preserve the CHECKSUM_PARTIAL
-  mode. It is an chicken or egg dilemma: snat_handler
-  needs the device after rerouting (to check for
-  NETIF_F_SCTP_CSUM), while ip_route_me_harder() wants
-  the snat_handler() to put the new saddr for proper
-  rerouting.
-
-* For dnat_handler(), we should not see CHECKSUM_COMPLETE
-  for SCTP, in fact the small set of drivers that support
-  SCTP offloading return CHECKSUM_UNNECESSARY on correctly
-  received SCTP csum. We can see CHECKSUM_PARTIAL from
-  local stack or received from virtual drivers. The idea is
-  that SCTP decides to avoid csum calculation if hardware
-  supports offloading. IPVS can change the device after
-  rerouting to real server but we can preserve the
-  CHECKSUM_PARTIAL mode if the new device supports
-  offloading too. This works because skb dst is changed
-  before dnat_handler and we see the new device. So, checks
-  in the 'if' part will decide whether it is ok to keep
-  CHECKSUM_PARTIAL for the output. If the packet was with
-  CHECKSUM_NONE, hence we deal with unknown checksum. As we
-  recalculate the sum for IP header in all cases, it should
-  be safe to use CHECKSUM_UNNECESSARY. We can forward wrong
-  checksum in this case (without cp->app). In case of
-  CHECKSUM_UNNECESSARY, the csum was valid on receive.
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_proto_sctp.c | 39 +++++++++++++++++++++++++++++------
- 1 file changed, 33 insertions(+), 6 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-index 9ca7aa0..2f7ea75 100644
---- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-@@ -81,6 +81,7 @@ sctp_snat_handler(struct sk_buff *skb, struct ip_vs_protocol *pp,
- {
- 	sctp_sctphdr_t *sctph;
- 	unsigned int sctphoff = iph->len;
-+	bool payload_csum = false;
- 
- #ifdef CONFIG_IP_VS_IPV6
- 	if (cp->af == AF_INET6 && iph->fragoffs)
-@@ -92,19 +93,31 @@ sctp_snat_handler(struct sk_buff *skb, struct ip_vs_protocol *pp,
- 		return 0;
- 
- 	if (unlikely(cp->app != NULL)) {
-+		int ret;
-+
- 		/* Some checks before mangling */
- 		if (pp->csum_check && !pp->csum_check(cp->af, skb, pp))
- 			return 0;
- 
- 		/* Call application helper if needed */
--		if (!ip_vs_app_pkt_out(cp, skb))
-+		ret = ip_vs_app_pkt_out(cp, skb);
-+		if (ret == 0)
- 			return 0;
-+		/* ret=2: csum update is needed after payload mangling */
-+		if (ret == 2)
-+			payload_csum = true;
- 	}
- 
- 	sctph = (void *) skb_network_header(skb) + sctphoff;
--	sctph->source = cp->vport;
- 
--	sctp_nat_csum(skb, sctph, sctphoff);
-+	/* Only update csum if we really have to */
-+	if (sctph->source != cp->vport || payload_csum ||
-+	    skb->ip_summed == CHECKSUM_PARTIAL) {
-+		sctph->source = cp->vport;
-+		sctp_nat_csum(skb, sctph, sctphoff);
-+	} else {
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	}
- 
- 	return 1;
- }
-@@ -115,6 +128,7 @@ sctp_dnat_handler(struct sk_buff *skb, struct ip_vs_protocol *pp,
- {
- 	sctp_sctphdr_t *sctph;
- 	unsigned int sctphoff = iph->len;
-+	bool payload_csum = false;
- 
- #ifdef CONFIG_IP_VS_IPV6
- 	if (cp->af == AF_INET6 && iph->fragoffs)
-@@ -126,19 +140,32 @@ sctp_dnat_handler(struct sk_buff *skb, struct ip_vs_protocol *pp,
- 		return 0;
- 
- 	if (unlikely(cp->app != NULL)) {
-+		int ret;
-+
- 		/* Some checks before mangling */
- 		if (pp->csum_check && !pp->csum_check(cp->af, skb, pp))
- 			return 0;
- 
- 		/* Call application helper if needed */
--		if (!ip_vs_app_pkt_in(cp, skb))
-+		ret = ip_vs_app_pkt_in(cp, skb);
-+		if (ret == 0)
- 			return 0;
-+		/* ret=2: csum update is needed after payload mangling */
-+		if (ret == 2)
-+			payload_csum = true;
- 	}
- 
- 	sctph = (void *) skb_network_header(skb) + sctphoff;
--	sctph->dest = cp->dport;
- 
--	sctp_nat_csum(skb, sctph, sctphoff);
-+	/* Only update csum if we really have to */
-+	if (sctph->dest != cp->dport || payload_csum ||
-+	    (skb->ip_summed == CHECKSUM_PARTIAL &&
-+	     !(skb_dst(skb)->dev->features & NETIF_F_SCTP_CSUM))) {
-+		sctph->dest = cp->dport;
-+		sctp_nat_csum(skb, sctph, sctphoff);
-+	} else if (skb->ip_summed != CHECKSUM_PARTIAL) {
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	}
- 
- 	return 1;
- }
--- 
-1.8.4
+Is this largish patch any different or easier to
+read/verify when generated with git format-patch -M ?
