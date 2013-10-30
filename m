@@ -1,52 +1,84 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2 net-next] net: introduce gro_frag_list_enable sysctl
-Date: Wed, 30 Oct 2013 10:19:06 +0800
-Message-ID: <20131030021905.GA2089@gondor.apana.org.au>
-References: <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
- <20131029.194446.2215574000648693370.davem@davemloft.net>
- <1383094428.4857.16.camel@edumazet-glaptop.roam.corp.google.com>
- <20131029.220253.1263087684709722001.davem@davemloft.net>
- <20131030020543.GA1925@gondor.apana.org.au>
- <CAPshTCgykFMa=4rnQ3TKa2cfgWYj4TgByO2GbzLzq71Y_=oc=Q@mail.gmail.com>
+From: Nathan Hintz <nlhintz@hotmail.com>
+Subject: [PATCH v2] bgmac: don't update slot on skb alloc/dma mapping error
+Date: Tue, 29 Oct 2013 19:32:01 -0700
+Message-ID: <BLU0-SMTP255BD097115C7E52E264D41AC0A0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Christoph Paasch <christoph.paasch@uclouvain.be>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Michael Dalton <mwdalton@google.com>
-To: Jerry Chu <hkchu@google.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: zajec5@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:38918 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751086Ab3J3CTL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 22:19:11 -0400
-Content-Disposition: inline
-In-Reply-To: <CAPshTCgykFMa=4rnQ3TKa2cfgWYj4TgByO2GbzLzq71Y_=oc=Q@mail.gmail.com>
+Received: from blu0-omc1-s35.blu0.hotmail.com ([65.55.116.46]:17457 "EHLO
+	blu0-omc1-s35.blu0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751292Ab3J3CcF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Oct 2013 22:32:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 29, 2013 at 07:13:50PM -0700, Jerry Chu wrote:
-> On Tue, Oct 29, 2013 at 7:05 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
->
-> > If we are indeed able to do that, I doubt we would even need
-> > the sysctl patch since the GRO performance should be vastly
-> > superior to the non-GRO case, even for a router/bridge.
-> 
-> Probably not the case for the simple forwarding case. See my
-> test result of some small (5-8%) CPU+throughput penalty from
-> GRO (over GRE tunnel) posted previously. But I can believe
-> the number may be very different if the forwarding path involves
-> more work (NAT, iptables filtering,...,etc) resulting in a higher per
-> pkt cost.
+Don't update the slot in "bgmac_dma_rx_skb_for_slot" unless both the
+skb alloc and dma mapping are successful; and free the newly allocated
+skb if a dma mapping error occurs.  This relieves the caller of the nee=
+d
+to deduce/execute the appropriate cleanup action required when an error
+occurs.
 
-Your numbers are with Eric's current patch that just linearises
-the packet, what I'm saying is that you don't need to linearise
-these packets since the packet boundaries are still there, just
-hidden inside each frag_list.
+Signed-off-by: Nathan Hintz <nlhintz@hotmail.com>
+Acked-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+---
+
+v2: Revised commit message
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index 7eca5a1..11e5d8d 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -252,25 +252,33 @@ static int bgmac_dma_rx_skb_for_slot(struct bgmac=
+ *bgmac,
+ 				     struct bgmac_slot_info *slot)
+ {
+ 	struct device *dma_dev =3D bgmac->core->dma_dev;
++	struct sk_buff *skb;
++	dma_addr_t dma_addr;
+ 	struct bgmac_rx_header *rx;
+=20
+ 	/* Alloc skb */
+-	slot->skb =3D netdev_alloc_skb(bgmac->net_dev, BGMAC_RX_BUF_SIZE);
+-	if (!slot->skb)
++	skb =3D netdev_alloc_skb(bgmac->net_dev, BGMAC_RX_BUF_SIZE);
++	if (!skb)
+ 		return -ENOMEM;
+=20
+ 	/* Poison - if everything goes fine, hardware will overwrite it */
+-	rx =3D (struct bgmac_rx_header *)slot->skb->data;
++	rx =3D (struct bgmac_rx_header *)skb->data;
+ 	rx->len =3D cpu_to_le16(0xdead);
+ 	rx->flags =3D cpu_to_le16(0xbeef);
+=20
+ 	/* Map skb for the DMA */
+-	slot->dma_addr =3D dma_map_single(dma_dev, slot->skb->data,
+-					BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
+-	if (dma_mapping_error(dma_dev, slot->dma_addr)) {
++	dma_addr =3D dma_map_single(dma_dev, skb->data,
++				  BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
++	if (dma_mapping_error(dma_dev, dma_addr)) {
+ 		bgmac_err(bgmac, "DMA mapping error\n");
++		dev_kfree_skb(skb);
+ 		return -ENOMEM;
+ 	}
++
++	/* Update the slot */
++	slot->skb =3D skb;
++	slot->dma_addr =3D dma_addr;
++
+ 	if (slot->dma_addr & 0xC0000000)
+ 		bgmac_warn(bgmac, "DMA address using 0xC0000000 bit(s), it may need =
+translation trick\n");
+=20
+--=20
+1.8.3.1
