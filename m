@@ -1,156 +1,193 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 4/5] net: skb_checksum: allow custom update/combine for walking skb
-Date: Wed, 30 Oct 2013 11:50:51 +0100
-Message-ID: <1383130252-1515-5-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 2/5] lib: crc32: add functionality to combine two crc32{,c}s in GF(2)
+Date: Wed, 30 Oct 2013 11:50:49 +0100
+Message-ID: <1383130252-1515-3-git-send-email-dborkman@redhat.com>
 References: <1383130252-1515-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33762 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751739Ab3J3KvO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Oct 2013 06:51:14 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1383130252-1515-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, skb_checksum walks over 1) linearized, 2) frags[], and
-3) frag_list data and calculats the one's complement, a 32 bit
-result suitable for feeding into itself or csum_tcpudp_magic(),
-but unsuitable for SCTP as we're calculating CRC32c there.
+This patch adds a combinator to merge two or more crc32{,c}s
+into a new one. This is useful for checksum computations of
+fragmented skbs that use crc32/crc32c as checksums.
 
-Hence, in order to not re-implement the very same function in
-SCTP (and maybe other protocols) over and over again, use an
-update() + combine() callback internally to allow for walking
-over the skb with different algorithms.
+The arithmetics for combining both in the GF(2) was taken and
+slightly modified from zlib. Only passing two crcs is insufficient
+as two crcs and the length of the second piece is needed for
+merging. The code is made generic, so that only polynomials
+need to be passed for crc32_le resp. crc32c_le.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: linux-kernel@vger.kernel.org
 ---
- include/linux/skbuff.h | 13 ++++++++++---
- include/net/checksum.h |  6 ++++++
- net/core/skbuff.c      | 31 +++++++++++++++++++++----------
- 3 files changed, 37 insertions(+), 13 deletions(-)
+ include/linux/crc32.h | 40 +++++++++++++++++++++++++
+ lib/crc32.c           | 81 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 121 insertions(+)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 2c15497..44727b5 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2360,8 +2360,6 @@ int skb_copy_datagram_const_iovec(const struct sk_buff *from, int offset,
- void skb_free_datagram(struct sock *sk, struct sk_buff *skb);
- void skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb);
- int skb_kill_datagram(struct sock *sk, struct sk_buff *skb, unsigned int flags);
--__wsum skb_checksum(const struct sk_buff *skb, int offset, int len,
--		    __wsum csum);
- int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, int len);
- int skb_store_bits(struct sk_buff *skb, int offset, const void *from, int len);
- __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset, u8 *to,
-@@ -2373,9 +2371,18 @@ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
- void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len);
- int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen);
- void skb_scrub_packet(struct sk_buff *skb, bool xnet);
--
- struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features);
+diff --git a/include/linux/crc32.h b/include/linux/crc32.h
+index 68267b6..7d275c4 100644
+--- a/include/linux/crc32.h
++++ b/include/linux/crc32.h
+@@ -11,8 +11,48 @@
+ extern u32  crc32_le(u32 crc, unsigned char const *p, size_t len);
+ extern u32  crc32_be(u32 crc, unsigned char const *p, size_t len);
  
-+struct skb_checksum_ops {
-+	__wsum (*update)(const void *mem, int len, __wsum wsum);
-+	__wsum (*combine)(__wsum csum, __wsum csum2, int offset, int len);
-+};
++/**
++ * crc32_le_combine - Combine two crc32 check values into one. For two
++ * 		      sequences of bytes, seq1 and seq2 with lengths len1
++ * 		      and len2, crc32_le() check values were calculated
++ * 		      for each, crc1 and crc2.
++ *
++ * @crc1: crc32 of the first block
++ * @crc2: crc32 of the second block
++ * @len2: length of the second block
++ *
++ * Return: The crc32_le() check value of seq1 and seq2 concatenated,
++ * 	   requiring only crc1, crc2, and len2. Note: If seq_full denotes
++ * 	   the concatenated memory area of seq1 with seq2, and crc_full
++ * 	   the crc32_le() value of seq_full, then crc_full ==
++ * 	   crc32_le_combine(crc1, crc2, len2) when crc_full was seeded
++ * 	   with the same initializer as crc1, and crc2 seed was 0. See
++ * 	   also crc32_combine_test().
++ */
++extern u32  crc32_le_combine(u32 crc1, u32 crc2, size_t len2);
 +
-+__wsum __skb_checksum(const struct sk_buff *skb, int offset, int len,
-+		      __wsum csum, const struct skb_checksum_ops *ops);
-+__wsum skb_checksum(const struct sk_buff *skb, int offset, int len,
-+		    __wsum csum);
-+
- static inline void *skb_header_pointer(const struct sk_buff *skb, int offset,
- 				       int len, void *buffer)
- {
-diff --git a/include/net/checksum.h b/include/net/checksum.h
-index 8f59ca5..15f33fd 100644
---- a/include/net/checksum.h
-+++ b/include/net/checksum.h
-@@ -79,6 +79,12 @@ csum_block_add(__wsum csum, __wsum csum2, int offset)
- }
+ extern u32  __crc32c_le(u32 crc, unsigned char const *p, size_t len);
  
- static inline __wsum
-+csum_block_add_ext(__wsum csum, __wsum csum2, int offset, int len)
++/**
++ * __crc32c_le_combine - Combine two crc32c check values into one. For two
++ * 			 sequences of bytes, seq1 and seq2 with lengths len1
++ * 			 and len2, __crc32c_le() check values were calculated
++ * 			 for each, crc1 and crc2.
++ *
++ * @crc1: crc32c of the first block
++ * @crc2: crc32c of the second block
++ * @len2: length of the second block
++ *
++ * Return: The __crc32c_le() check value of seq1 and seq2 concatenated,
++ * 	   requiring only crc1, crc2, and len2. Note: If seq_full denotes
++ * 	   the concatenated memory area of seq1 with seq2, and crc_full
++ * 	   the __crc32c_le() value of seq_full, then crc_full ==
++ * 	   __crc32c_le_combine(crc1, crc2, len2) when crc_full was
++ * 	   seeded with the same initializer as crc1, and crc2 seed
++ * 	   was 0. See also crc32c_combine_test().
++ */
++extern u32  __crc32c_le_combine(u32 crc1, u32 crc2, size_t len2);
++
+ #define crc32(seed, data, length)  crc32_le(seed, (unsigned char const *)(data), length)
+ 
+ /*
+diff --git a/lib/crc32.c b/lib/crc32.c
+index 429d61c..595205c 100644
+--- a/lib/crc32.c
++++ b/lib/crc32.c
+@@ -49,6 +49,30 @@ MODULE_AUTHOR("Matt Domsch <Matt_Domsch@dell.com>");
+ MODULE_DESCRIPTION("Various CRC32 calculations");
+ MODULE_LICENSE("GPL");
+ 
++#define GF2_DIM		32
++
++static u32 gf2_matrix_times(u32 *mat, u32 vec)
 +{
-+	return csum_block_add(csum, csum2, offset);
++	u32 sum = 0;
++
++	while (vec) {
++		if (vec & 1)
++			sum ^= *mat;
++		vec >>= 1;
++		mat++;
++	}
++
++	return sum;
 +}
 +
-+static inline __wsum
- csum_block_sub(__wsum csum, __wsum csum2, int offset)
- {
- 	u32 sum = (__force u32)csum2;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 0ab32fa..31aab53 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1928,9 +1928,8 @@ fault:
- EXPORT_SYMBOL(skb_store_bits);
- 
- /* Checksum skb data. */
--
--__wsum skb_checksum(const struct sk_buff *skb, int offset,
--			  int len, __wsum csum)
-+__wsum __skb_checksum(const struct sk_buff *skb, int offset, int len,
-+		      __wsum csum, const struct skb_checksum_ops *ops)
- {
- 	int start = skb_headlen(skb);
- 	int i, copy = start - offset;
-@@ -1941,7 +1940,7 @@ __wsum skb_checksum(const struct sk_buff *skb, int offset,
- 	if (copy > 0) {
- 		if (copy > len)
- 			copy = len;
--		csum = csum_partial(skb->data + offset, copy, csum);
-+		csum = ops->update(skb->data + offset, copy, csum);
- 		if ((len -= copy) == 0)
- 			return csum;
- 		offset += copy;
-@@ -1962,10 +1961,10 @@ __wsum skb_checksum(const struct sk_buff *skb, int offset,
- 			if (copy > len)
- 				copy = len;
- 			vaddr = kmap_atomic(skb_frag_page(frag));
--			csum2 = csum_partial(vaddr + frag->page_offset +
--					     offset - start, copy, 0);
-+			csum2 = ops->update(vaddr + frag->page_offset +
-+					    offset - start, copy, 0);
- 			kunmap_atomic(vaddr);
--			csum = csum_block_add(csum, csum2, pos);
-+			csum = ops->combine(csum, csum2, pos, copy);
- 			if (!(len -= copy))
- 				return csum;
- 			offset += copy;
-@@ -1984,9 +1983,9 @@ __wsum skb_checksum(const struct sk_buff *skb, int offset,
- 			__wsum csum2;
- 			if (copy > len)
- 				copy = len;
--			csum2 = skb_checksum(frag_iter, offset - start,
--					     copy, 0);
--			csum = csum_block_add(csum, csum2, pos);
-+			csum2 = __skb_checksum(frag_iter, offset - start,
-+					       copy, 0, ops);
-+			csum = ops->combine(csum, csum2, pos, copy);
- 			if ((len -= copy) == 0)
- 				return csum;
- 			offset += copy;
-@@ -1998,6 +1997,18 @@ __wsum skb_checksum(const struct sk_buff *skb, int offset,
- 
- 	return csum;
- }
-+EXPORT_SYMBOL(__skb_checksum);
-+
-+__wsum skb_checksum(const struct sk_buff *skb, int offset,
-+		    int len, __wsum csum)
++static void gf2_matrix_square(u32 *square, u32 *mat)
 +{
-+	const struct skb_checksum_ops ops = {
-+		.update  = csum_partial,
-+		.combine = csum_block_add_ext,
-+	};
++	int i;
 +
-+	return __skb_checksum(skb, offset, len, csum, &ops);
++	for (i = 0; i < GF2_DIM; i++)
++		square[i] = gf2_matrix_times(mat, mat[i]);
 +}
- EXPORT_SYMBOL(skb_checksum);
++
+ #if CRC_LE_BITS > 8 || CRC_BE_BITS > 8
  
- /* Both of above in one bottle. */
+ /* implements slicing-by-4 or slicing-by-8 algorithm */
+@@ -130,6 +154,52 @@ crc32_body(u32 crc, unsigned char const *buf, size_t len, const u32 (*tab)[256])
+ }
+ #endif
+ 
++/* For conditions of distribution and use, see copyright notice in zlib.h */
++static u32 crc32_generic_combine(u32 crc1, u32 crc2, size_t len2,
++				 u32 polynomial)
++{
++	u32 even[GF2_DIM]; /* Even-power-of-two zeros operator */
++	u32 odd[GF2_DIM];  /* Odd-power-of-two zeros operator  */
++	u32 row;
++	int i;
++
++	if (len2 <= 0)
++		return crc1;
++
++	/* Put operator for one zero bit in odd */
++	odd[0] = polynomial;
++	row = 1;
++	for (i = 1; i < GF2_DIM; i++) {
++		odd[i] = row;
++		row <<= 1;
++	}
++
++	gf2_matrix_square(even, odd); /* Put operator for two zero bits in even */
++	gf2_matrix_square(odd, even); /* Put operator for four zero bits in odd */
++
++	/* Apply len2 zeros to crc1 (first square will put the operator for one
++	 * zero byte, eight zero bits, in even).
++	 */
++	do {
++		/* Apply zeros operator for this bit of len2 */
++		gf2_matrix_square(even, odd);
++		if (len2 & 1)
++			crc1 = gf2_matrix_times(even, crc1);
++		len2 >>= 1;
++		/* If no more bits set, then done */
++		if (len2 == 0)
++			break;
++		/* Another iteration of the loop with odd and even swapped */
++		gf2_matrix_square(odd, even);
++		if (len2 & 1)
++			crc1 = gf2_matrix_times(odd, crc1);
++		len2 >>= 1;
++	} while (len2 != 0);
++
++	crc1 ^= crc2;
++	return crc1;
++}
++
+ /**
+  * crc32_le_generic() - Calculate bitwise little-endian Ethernet AUTODIN II
+  *			CRC32/CRC32C
+@@ -200,8 +270,19 @@ u32 __pure __crc32c_le(u32 crc, unsigned char const *p, size_t len)
+ 			(const u32 (*)[256])crc32ctable_le, CRC32C_POLY_LE);
+ }
+ #endif
++u32 __pure crc32_le_combine(u32 crc1, u32 crc2, size_t len2)
++{
++	return crc32_generic_combine(crc1, crc2, len2, CRCPOLY_LE);
++}
++
++u32 __pure __crc32c_le_combine(u32 crc1, u32 crc2, size_t len2)
++{
++	return crc32_generic_combine(crc1, crc2, len2, CRC32C_POLY_LE);
++}
+ EXPORT_SYMBOL(crc32_le);
++EXPORT_SYMBOL(crc32_le_combine);
+ EXPORT_SYMBOL(__crc32c_le);
++EXPORT_SYMBOL(__crc32c_le_combine);
+ 
+ /**
+  * crc32_be_generic() - Calculate bitwise big-endian Ethernet AUTODIN II CRC32
 -- 
 1.8.3.1
