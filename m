@@ -1,8 +1,8 @@
 From: John Fastabend <john.r.fastabend@intel.com>
 Subject: Re: [PATCH 1/4 net-next] net: phy: add Generic Netlink Ethernet switch
  configuration API
-Date: Wed, 30 Oct 2013 10:56:16 -0700
-Message-ID: <52714840.2030809@intel.com>
+Date: Wed, 30 Oct 2013 10:56:42 -0700
+Message-ID: <5271485A.8030303@intel.com>
 References: <5267C6B9.4000704@mojatatu.com> <5267CFAB.9090100@openwrt.org> <5267D8AE.7080009@mojatatu.com> <5267DDE6.70600@openwrt.org> <526A5949.6040404@mojatatu.com> <526A6BB3.7050507@openwrt.org> <526D4B06.8040505@mojatatu.com> <526D6EBA.3020903@openwrt.org> <526EEAE9.6090508@mojatatu.com> <20131030172756.GM8570@wantstofly.org> <20131030173416.GA32234@wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -22,10 +22,10 @@ Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
 	Chris Healy <cphealy@gmail.com>
 To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56512 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:43098 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751970Ab3J3R4h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Oct 2013 13:56:37 -0400
+	id S1753591Ab3J3R5A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Oct 2013 13:57:00 -0400
 In-Reply-To: <20131030173416.GA32234@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -67,7 +67,7 @@ On 10/30/2013 10:34 AM, Lennert Buytenhek wrote:
 >
 
 A "dummy" network interface is something I've been thinking about
-for SR-IOV as well. In the SR-IOV case we have an embedded bridge
+for SR-IOV nics as well. In the SR-IOV case we have an embedded bridge
 in the hardware but the virtual functions may be direct assigned
 to a guest and not visible to the host.
 
