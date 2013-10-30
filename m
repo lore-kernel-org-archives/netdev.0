@@ -1,69 +1,39 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next RFC 0/5] xen-netback: TX grant
- mapping instead of copy
-Date: Wed, 30 Oct 2013 15:17:21 -0400
-Message-ID: <20131030191721.GA14261@phenom.dumpdata.com>
-References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com>
- <20131030191617.GB14149@phenom.dumpdata.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] bnx2: Use dev_kfree_skb_any() in bnx2_tx_int()
+Date: Wed, 30 Oct 2013 12:23:52 -0700
+Message-ID: <CAM_iQpV6ufX5-OOrNQtsXH0_9itjU-FriOoutyKfDEWdg-irQw@mail.gmail.com>
+References: <1383084998-22673-1-git-send-email-tdmackey@booleanhaiku.com>
+	<20131029.224227.1700872646112764527.davem@davemloft.net>
+	<CAM_iQpXzJOxZ3MFNthKw5ye=WcxDWbiPaHuL=pHMz7D1R4nJ+w@mail.gmail.com>
+	<20131030.024003.1476890051483056287.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jonathan.davies@citrix.com
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: tdmackey@booleanhaiku.com, mchan@broadcom.com,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131030191617.GB14149@phenom.dumpdata.com>
+In-Reply-To: <20131030.024003.1476890051483056287.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 30, 2013 at 03:16:17PM -0400, Konrad Rzeszutek Wilk wrote:
-> On Wed, Oct 30, 2013 at 12:50:15AM +0000, Zoltan Kiss wrote:
-> > A long known problem of the upstream netback implementation that on the TX
-> > path (from guest to Dom0) it copies the whole packet from guest memory into
-> > Dom0. That simply became a bottleneck with 10Gb NICs, and generally it's a
-> > huge perfomance penalty. The classic kernel version of netback used grant
-> > mapping, and to get notified when the page can be unmapped, it used page
-> > destructors. Unfortunately that destructor is not an upstreamable solution.
-> > Ian Campbell's skb fragment destructor patch series
-> > (http://lwn.net/Articles/491522/) tried to solve this problem, however it
-> > seems to be very invasive on the network stack's code, and therefore haven't
-> > progressed very well.
-> > This patch series use SKBTX_DEV_ZEROCOPY flags to tell the stack it needs to
-> > know when the skb is freed up. That is the way KVM solved the same problem,
-> > and based on my initial tests it can do the same for us. Avoiding the extra
-> > copy boosted up TX throughput from 6.8 Gbps to 7.9 (I used a slower
-> > Interlagos box, both Dom0 and guest on upstream kernel, on the same NUMA node,
-> > running iperf 2.0.5, and the remote end was a bare metal box on the same 10Gb
-> > switch)
-> > Based on my investigations the packet get only copied if it is delivered to
-> > Dom0 stack, which is due to this patch:
-> > https://lkml.org/lkml/2012/7/20/363
-> > That's a bit unfortunate, but as far as I know for the huge majority this use
-> > case is not too important. There are a couple of things which need more
-> > polishing, see the FIXME comments. I will run some more extensive tests, but
-> > in the meantime I would like to hear comments about what I've done so far.
-> > I've tried to broke it down to smaller patches, with mixed results, so I
-> > welcome suggestions on that part as well:
-> > 1/5: Introduce TX grant map definitions
-> > 2/5: Change TX path from grant copy to mapping
-> > 3/5: Remove old TX grant copy definitons
-> > 4/5: Fix indentations
-> > 5/5: Change RX path for mapped SKB fragments
-> 
-> Odd. I don't see #5 patch patch?
+On Tue, Oct 29, 2013 at 11:40 PM, David Miller <davem@davemloft.net> wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Tue, 29 Oct 2013 20:50:08 -0700
+>
+>> Normally ->poll() is called in softirq context, while netpoll could
+>> be called in any context depending on its caller.
+>
+> It still makes amends to make the execution context still looks
+> "compatible" as far as locking et al. is concerned.
 
-Ah, you have two #4 patches:
+Adjusting netpoll code for IRQ context is much harder
+than just calling dev_kfree_skb_any()...
 
-[PATCH net-next RFC 4/5] xen-netback: Change RX path for mapped SKB fragments
-[PATCH net-next RFC 4/5] xen-netback: Fix indentations
+What's more, we have similar change before:
 
-!
-> > 
-> > Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> > 
-> > 
-> > _______________________________________________
-> > Xen-devel mailing list
-> > Xen-devel@lists.xen.org
-> > http://lists.xen.org/xen-devel
+commit ed79bab847d8e5a2986d8ff43c49c6fb8ee3265f
+Author: Eric Dumazet <eric.dumazet@gmail.com>
+Date:   Wed Oct 14 14:36:43 2009 +0000
+
+    virtio_net: use dev_kfree_skb_any() in free_old_xmit_skbs()
