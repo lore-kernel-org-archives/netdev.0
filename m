@@ -1,32 +1,34 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [Xen-devel] [PATCH net-next RFC 3/5] xen-netback: Remove
- old TX grant copy definitons
-Date: Wed, 30 Oct 2013 09:39:53 +0000
-Message-ID: <5270E1F902000078000FDFCA@nat28.tlf.novell.com>
-References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com>
- <1383094220-14775-4-git-send-email-zoltan.kiss@citrix.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: remove the unnecessary statement in find_match()
+Date: Wed, 30 Oct 2013 10:44:12 +0100
+Message-ID: <20131030094412.GA24479@order.stressinduktion.org>
+References: <5270B7AE.9020801@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <ian.campbell@citrix.com>, <jonathan.davies@citrix.com>,
-	<wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Zoltan Kiss" <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1383094220-14775-4-git-send-email-zoltan.kiss@citrix.com>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:38176 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752750Ab3J3JoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 05:44:13 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5270B7AE.9020801@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>> On 30.10.13 at 01:50, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
-> These became obsolate with grant mapping.
+On Wed, Oct 30, 2013 at 03:39:26PM +0800, Duan Jiong wrote:
+> 
+> After reading the function rt6_check_neigh(), we can
+> know that the RT6_NUD_FAIL_SOFT can be returned only
+> when the IS_ENABLE(CONFIG_IPV6_ROUTER_PREF) is false.
+> so in function find_match(), there is no need to execute
+> the statement !IS_ENABLED(CONFIG_IPV6_ROUTER_PREF).
 
-I didn't look at this in detail, but I'm surprised you can get away
-without any copying: For one, the header part needs copying
-anyway, so you'd pointlessly map and then copy it if it's small
-enough. And second you need to be prepared for the frontend
-to hand you more slots than you can fit in MAX_SKB_FRAGS
-(namely when MAX_SKB_FRAGS < XEN_NETIF_NR_SLOTS_MIN),
-which you can't handle with mapping alone afaict.
+It should be constant folded away. But I agree, we can remove this:
 
-Jan
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Thanks,
+
+  Hannes
