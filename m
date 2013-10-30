@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: introduce gro_frag_list_enable sysctl
-Date: Wed, 30 Oct 2013 15:12:25 -0400 (EDT)
-Message-ID: <20131030.151225.1564115611396752473.davem@davemloft.net>
-References: <1383107681.4857.33.camel@edumazet-glaptop.roam.corp.google.com>
-	<20131030044212.GA3364@gondor.apana.org.au>
-	<CAPshTCg8j-y6fGfh0tRMir34-Lzy77qyzibvwjMSMpR0Rr1rsA@mail.gmail.com>
+Subject: Re: [PATCH 1/2] sh_eth: check platform data pointer
+Date: Wed, 30 Oct 2013 15:16:02 -0400 (EDT)
+Message-ID: <20131030.151602.2034358719733053721.davem@davemloft.net>
+References: <201308310423.30322.sergei.shtylyov@cogentembedded.com>
+	<52716421.9080807@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, eric.dumazet@gmail.com,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	mwdalton@google.com
-To: hkchu@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32956 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754204Ab3J3TM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 15:12:29 -0400
-In-Reply-To: <CAPshTCg8j-y6fGfh0tRMir34-Lzy77qyzibvwjMSMpR0Rr1rsA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <52716421.9080807@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jerry Chu <hkchu@google.com>
-Date: Wed, 30 Oct 2013 10:39:00 -0700
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Wed, 30 Oct 2013 22:55:13 +0300
 
-> Not sure I agree - there are two different "forwarding" cases - forwarding
-> to another physical NIC (to go out to the wire hence need to do GSO),
-> and (for virtualization) forwarding to a virtual NIC and consumed internally
-> (e.g., VM). For the latter we should strive to push GSO pkts all the way
-> to the VM stack w/o breaking them up. So for virtualization GRO is all
-> goodness but not sure about the regular forwarding path. (From the
-> perf perspective it boils down to if the cost of GSO/GRO will offset
-> the benefit of GRO. Sure if one manages to get the cost close to zero
-> than there is not reason to leave GRO always on. But it's still a big if for
-> now.)
+>    David, could you please merge this patch? It has a value of its own,
+>    regardless of the device tree support in patch 2 (which got bloked).
 
-More precisely, for the regular forwarding path it only needs to be
-cheaper than N * cost routing lookup, where N is the number of real
-packets contained in the GRO SKB.
+Then it needs to be resubmitted.
+
+Any time a part of series is rejected or needs changes, it is entirely
+dropped and no longer will I refer to it in patchwork.
+
+To avoid any ambiguity, the submitted must then resubmit anythign he
+wishes to be applied.
