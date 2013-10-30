@@ -1,47 +1,39 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: named network namespace -- setns() with Invalid argument (errno 22)
-Date: Wed, 30 Oct 2013 13:54:55 -0700
-Message-ID: <87wqku7a3k.fsf@xmission.com>
-References: <1383092184.12859.78.camel@dilip-laptop>
-	<8738njfkdp.fsf@xmission.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bgmac: pass received packet to the netif instead of
+ copying it
+Date: Wed, 30 Oct 2013 16:58:45 -0400 (EDT)
+Message-ID: <20131030.165845.354006604111494289.davem@davemloft.net>
+References: <1383116400-29905-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: dilip.daya@hp.com
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, openwrt-devel@lists.openwrt.org,
+	nlhintz@hotmail.com
+To: zajec5@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:42768 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751491Ab3J3UzF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 16:55:05 -0400
-In-Reply-To: <8738njfkdp.fsf@xmission.com> (Eric W. Biederman's message of
-	"Tue, 29 Oct 2013 21:33:22 -0700")
+Received: from shards.monkeyblade.net ([149.20.54.216]:34260 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751797Ab3J3U6r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 16:58:47 -0400
+In-Reply-To: <1383116400-29905-1-git-send-email-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ebiederm@xmission.com (Eric W. Biederman) writes:
+=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+Date: Wed, 30 Oct 2013 08:00:00 +0100
 
-> Dilip Daya <dilip.daya@hp.com> writes:
->
->> Hi All,
->>
->> Is the following intended behavior for adding "nested" named network namespaces ?
->
-> Not exactly intended but this is not misbehavior either.
->
-> Mostly this is a don't do that then scenario.
+> Copying whole packets with skb_copy_from_linear_data_offset is a pret=
+ty
+> bad idea. CPU was spending time in __copy_user_common and network
+> performance was lower. With the new solution iperf-measured speed
+> increased from 116Mb/s to 134Mb/s.
+>=20
+> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+> ---
+> Changes since [RFC TRY#2]:
+> 1) Fixed arguments alignment
+> 2) Dropped code fixing old slot in case of bgmac_dma_rx_skb_for_slot
+> failure. Thanks to Nathan patch bgmac_dma_rx_skb_for_slot doesn't
+> change anything in slot in case it failed somewhere.
 
-Let me clarify a little. The primary purpose of ip netns exec is to
-allow programs that are not aware or more than one network namespace
-to work without modification.  It is not intended to be a primary
-environment for applications to run in.
-
-Which is a big part of where the don't do that then, comes from.
-
-If you can figure out what is going on and send patches I will be happy
-to accept them.
-
-Also public conversation is appreciated so that anyone else with the
-same confusions may be educated at the same time.
-
-
-Eric
+Looks good, applied to net-next, thanks.
