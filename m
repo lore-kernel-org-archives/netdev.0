@@ -1,34 +1,57 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v6] net/hsr: Add support for the High-availability
- Seamless Redundancy protocol (HSRv0)
-Date: Wed, 30 Oct 2013 13:15:22 -0700
-Message-ID: <1383164122.9435.41.camel@joe-AO722>
-References: <527167C7.4030305@xdin.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next PATCH] net: codel: Avoid undefined behavior from
+ signed overflow
+Date: Wed, 30 Oct 2013 20:19:12 +0000
+Message-ID: <1383164352.1601.38.camel@bwh-desktop.uk.level5networks.com>
+References: <20131030172341.19203.93490.stgit@dragon>
+	 <1383161748.1601.24.camel@bwh-desktop.uk.level5networks.com>
+	 <20131030201327.GO4126@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Javier Boticario <jboticario@gmail.com>,
-	"balferreira@googlemail.com" <balferreira@googlemail.com>,
-	=?ISO-8859-1?Q?El=EDas?= Molina =?ISO-8859-1?Q?Mu=F1oz?=
-	<elias.molina@ehu.es>
-To: Arvid Brodin <arvid.brodin@xdin.com>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	<netdev@vger.kernel.org>, "Eric Dumazet" <eric.dumazet@gmail.com>,
+	Dave Taht <dave.taht@gmail.com>
+To: <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0051.hostedemail.com ([216.40.44.51]:37561 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752343Ab3J3UPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 16:15:25 -0400
-In-Reply-To: <527167C7.4030305@xdin.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:59761 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752564Ab3J3UTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 16:19:17 -0400
+In-Reply-To: <20131030201327.GO4126@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-10-30 at 21:10 +0100, Arvid Brodin wrote:
-> High-availability Seamless Redundancy ("HSR") provides instant failover
-> redundancy for Ethernet networks. It requires a special network topology where
-> all nodes are connected in a ring (each node having two physical network
-> interfaces). It is suited for applications that demand high availability and
-> very short reaction time.
+On Wed, 2013-10-30 at 13:13 -0700, Paul E. McKenney wrote:
+> On Wed, Oct 30, 2013 at 07:35:48PM +0000, Ben Hutchings wrote:
+> > On Wed, 2013-10-30 at 18:23 +0100, Jesper Dangaard Brouer wrote:
+> > > From: Jesper Dangaard Brouer <netoptimizer@brouer.com>
+> > > 
+> > > As described in commit 5a581b367 (jiffies: Avoid undefined
+> > > behavior from signed overflow), according to the C standard
+> > > 3.4.3p3, overflow of a signed integer results in undefined
+> > > behavior.
+> > [...]
+> > 
+> > According to the real processors that Linux runs on, signed arithmetic
+> > uses 2's complement representation and overflow wraps accordingly.  And
+> > we rely on that behaviour in many places, so we use
+> > '-fno-strict-overflow' to tell gcc not to assume we avoid signed
+> > overflow.  (There is also '-fwrapv' which tells gcc to assume the
+> > processor behaves this way, but shouldn't it already know how the target
+> > machine works?)
+> 
+> We should still fix them as we come across them.  There are a few types
+> of loops where '-fno-strict-overflow' results in more instructions
+> being generated.
 
-Thanks Arvid.  Maybe add a MAINTAINERS entry too?
+I realise there's an opportunity for optimisation, but if these cases
+are fixed on an ad-hoc basis, how will we know we're ready to make the
+switch?
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
