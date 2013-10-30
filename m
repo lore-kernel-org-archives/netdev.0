@@ -1,49 +1,40 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
-Date: Wed, 30 Oct 2013 01:25:39 -0400
-Message-ID: <201310300525.r9U5Pdqo014902@ib.usersys.redhat.com>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Doug Ledford <dledford@redhat.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: 20131029202644.GB32389@localhost.localdomain
-Sender: linux-kernel-owner@vger.kernel.org
+From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH -next] SUNRPC: remove duplicated include from clnt.c
+Date: Wed, 30 Oct 2013 13:32:15 +0800
+Message-ID: <CAPgLHd-12jZsZCqyeo0Bu=us_ZQHps4YzcgOfNA_Z4jkSUA4rA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-* Neil Horman <nhorman@tuxdriver.com> wrote:
-> 3) The run times are proportionally larger, but still indicate that Parallel ALU
-> execution is hurting rather than helping, which is counter-intuitive.  I'm
-> looking into it, but thought you might want to see these results in case
-> something jumped out at you
+From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 
-So here's my theory about all of this.
+Remove duplicated include.
 
-I think that the original observation some years back was a fluke caused by
-either a buggy CPU or a CPU design that is no longer used.
+Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+---
+ net/sunrpc/clnt.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-The parallel ALU design of this patch seems OK at first glance, but it means
-that two parallel operations are both trying to set/clear both the overflow
-and carry flags of the EFLAGS register of the *CPU* (not the ALU).  So, either
-some CPU in the past had a set of overflow/carry flags per ALU and did some
-sort of magic to make sure that the last state of those flags across multiple
-ALUs that might have been used in parallelizing work were always in the CPU's
-logical EFLAGS register, or the CPU has a buggy microcode that allowed two
-ALUs to operate on data at the same time in situations where they would
-potentially stomp on the carry/overflow flags of the other ALUs operations.
+diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+index 759b78b..dab09da 100644
+--- a/net/sunrpc/clnt.c
++++ b/net/sunrpc/clnt.c
+@@ -31,7 +31,6 @@
+ #include <linux/in.h>
+ #include <linux/in6.h>
+ #include <linux/un.h>
+-#include <linux/rcupdate.h>
+ 
+ #include <linux/sunrpc/clnt.h>
+ #include <linux/sunrpc/addr.h>
 
-It's my theory that all modern CPUs have this behavior fixed, probably via a
-microcode update, and so trying to do parallel ALU operations like this simply
-has no effect because the CPU (rightly so) serializes the operations to keep
-them from clobbering the overflow/carry flags of the other ALUs operations.
-
-My additional theory then is that the reason you see a slowdown from this
-patch is because the attempt to parallelize the ALU operation has caused
-us to write a series of instructions that, once serialized, are non-optimal
-and hinder smooth pipelining of the data (aka going 0*8, 2*8, 4*8, 6*8, 1*8,
-3*8, 5*8, and 7*8 in terms of memory accesses is worse than doing them in
-order, and since we aren't getting the parallel operation we want, this
-is the net result of the patch).
-
-It would explain things anyway.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
