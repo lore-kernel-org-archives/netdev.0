@@ -1,45 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] tipc: remove two indentation levels in
- tipc_recv_msg routine
-Date: Wed, 30 Oct 2013 16:54:43 -0400 (EDT)
-Message-ID: <20131030.165443.2187198550218718303.davem@davemloft.net>
-References: <1383103617-28813-1-git-send-email-ying.xue@windriver.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: named network namespace -- setns() with Invalid argument (errno 22)
+Date: Wed, 30 Oct 2013 13:54:55 -0700
+Message-ID: <87wqku7a3k.fsf@xmission.com>
+References: <1383092184.12859.78.camel@dilip-laptop>
+	<8738njfkdp.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David.Laight@aculab.com, maloy@donjonn.com,
-	Paul.Gortmaker@windriver.com, jon.maloy@ericsson.com,
-	erik.hugne@ericsson.com, andreas.bofjall@ericsson.com,
-	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
-To: ying.xue@windriver.com
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org
+To: dilip.daya@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34214 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751508Ab3J3Uyu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 16:54:50 -0400
-In-Reply-To: <1383103617-28813-1-git-send-email-ying.xue@windriver.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:42768 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751491Ab3J3UzF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 16:55:05 -0400
+In-Reply-To: <8738njfkdp.fsf@xmission.com> (Eric W. Biederman's message of
+	"Tue, 29 Oct 2013 21:33:22 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ying Xue <ying.xue@windriver.com>
-Date: Wed, 30 Oct 2013 11:26:57 +0800
+ebiederm@xmission.com (Eric W. Biederman) writes:
 
-> The message dispatching part of tipc_recv_msg() is wrapped layers of
-> while/if/if/switch, causing out-of-control indentation and does not
-> look very good. We reduce two indentation levels by separating the
-> message dispatching from the blocks that checks link state and
-> sequence numbers, allowing longer function and arg names to be
-> consistently indented without wrapping. Additionally we also rename
-> "cont" label to "discard" and add one new label called "unlock_discar=
-d"
-> to make code clearer. In all, these are cosmetic changes that do not
-> alter the operation of TIPC in any way.
->=20
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
-> Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-> Cc: David Laight <david.laight@aculab.com>
-> Cc: Andreas Bofj=E4ll <andreas.bofjall@ericsson.com>
-> ---
-> v2: Incorporated comments from David Laight and Andreas Bofj=E4ll
+> Dilip Daya <dilip.daya@hp.com> writes:
+>
+>> Hi All,
+>>
+>> Is the following intended behavior for adding "nested" named network namespaces ?
+>
+> Not exactly intended but this is not misbehavior either.
+>
+> Mostly this is a don't do that then scenario.
 
-This patch looks good, applied, thanks.
+Let me clarify a little. The primary purpose of ip netns exec is to
+allow programs that are not aware or more than one network namespace
+to work without modification.  It is not intended to be a primary
+environment for applications to run in.
+
+Which is a big part of where the don't do that then, comes from.
+
+If you can figure out what is going on and send patches I will be happy
+to accept them.
+
+Also public conversation is appreciated so that anyone else with the
+same confusions may be educated at the same time.
+
+
+Eric
