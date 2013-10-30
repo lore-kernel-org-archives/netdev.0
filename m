@@ -1,117 +1,57 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: named network namespace -- setns() with Invalid argument (errno 22)
-Date: Tue, 29 Oct 2013 21:33:22 -0700
-Message-ID: <8738njfkdp.fsf@xmission.com>
-References: <1383092184.12859.78.camel@dilip-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: introduce gro_frag_list_enable sysctl
+Date: Tue, 29 Oct 2013 21:34:41 -0700
+Message-ID: <1383107681.4857.33.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131029.194446.2215574000648693370.davem@davemloft.net>
+	 <1383094428.4857.16.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131029.220253.1263087684709722001.davem@davemloft.net>
+	 <1383106012.4857.26.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131030040818.GB2755@gondor.apana.org.au>
+	 <1383106577.4857.30.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131030041959.GA3162@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: dilip.daya@hp.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, christoph.paasch@uclouvain.be,
+	netdev@vger.kernel.org, hkchu@google.com, mwdalton@google.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:58211 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702Ab3J3Eda (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 00:33:30 -0400
-In-Reply-To: <1383092184.12859.78.camel@dilip-laptop> (Dilip Daya's message of
-	"Tue, 29 Oct 2013 20:16:24 -0400")
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:41041 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751096Ab3J3Een (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 00:34:43 -0400
+Received: by mail-pd0-f178.google.com with SMTP id x10so404429pdj.37
+        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 21:34:43 -0700 (PDT)
+In-Reply-To: <20131030041959.GA3162@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dilip Daya <dilip.daya@hp.com> writes:
+On Wed, 2013-10-30 at 12:19 +0800, Herbert Xu wrote:
+> On Tue, Oct 29, 2013 at 09:16:17PM -0700, Eric Dumazet wrote:
+> >
+> > The thing is this only matters for hosts receiving at line rate on few
+> > TCP flows.
+> > 
+> > A router should not build too big GRO packets, as it adds latencies.
+> > 
+> > Really, we had to make TSO packets being auto sized, lets not add the
+> > syndrome again.
+> > 
+> > So I do not really understand David concern about emitting a warning.
+> > 
+> > If a machine is used as a router, building GRO packets of 17 MSS is
+> > absolutely fine.
+> 
+> It's not just routers you know, we use the same code on bridges
+> as part of virtualisation.  So it absolutely does matter.
+> 
 
-> Hi All,
->
-> Is the following intended behavior for adding "nested" named network namespaces ?
+What matters ?
 
-Not exactly intended but this is not misbehavior either.
+GRO ?
 
-Mostly this is a don't do that then scenario.
+Or making size of GRO packets not too big, or making them bigger ?
 
-Eric
-
-
-> Steps to reproduce:
->
-> # uname -r
-> 3.10.1
->
->
-> # /sbin/ip -V
-> ip utility, iproute2-ss130903
->
->
-> Existing network namespaces:
-> # ip netns list
-> NETNS0
-> NETNS1
->
->
-> List of named network namespace objects with inode/permissions:
-> # ls -li /var/run/netns/
-> total 0
-> 4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
-> 4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
->
-> Enter existing named network namespace:
-> # ip netns exec NETNS0 bash
->
-> List network devices for named netns:
-> # ls -l /sys/class/net/
-> total 0
-> lrwxrwxrwx 1 root root 0 Oct 29 12:25 lo -> ../../devices/virtual/net/lo/
->
-> List of named network namespace objects with inode/permissions:
-> # ls -li /var/run/netns/
-> total 0
-> 4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
-> 4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
->
->
-> # ip netns add NETNS0a    <<< adding NETNS0a from within NETNS0
-> # ls -li /var/run/netns/
-> total 0
-> 4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
-> 4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
-> 4026532423 -r--r--r-- 1 root root 0 Oct 29 12:28 NETNS0a
-> ^^^^^^^^^^ ^^^^^^^^^^
->   inode    permissions
->
->
-> # ip netns exec NETNS0a ls -l /sys/class/net/
-> total 0
-> lrwxrwxrwx 1 root root 0 Oct 29 12:28 lo -> ../../devices/virtual/net/lo
->
-> # exit   <<< exiting from NETNS0
->
-> Listing from host/default namespace:
-> # ls -li /var/run/netns/
-> total 0
-> 4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
-> 4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
->     964863 ---------- 1 root root 0 Oct 29 12:28 NETNS0a  <<< NULL permissions
->     ^^^^^^ ^^^^^^^^^^
->
->
-> Re-enter NETNS0:
-> # ip netns exec NETNS0 bash
-> # ls -li /var/run/netns/
-> total 0
-> 4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
-> 4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
->     964863 ---------- 1 root root 0 Oct 29 12:28 NETNS0a  <<< NULL permissions
->            ^^^^^^^^^^
->
->
-> # ip netns exec NETNS0a ls -l /sys/class/net/
-> seting the network namespace "NETNS0a" failed: Invalid argument
->
-> => It seems the bash shell that created the nested named netns is the only
->    one that can view/enter the nested named netns. All other attempts from
->    either another bash shell or host/default namespace will get a different 
->    inode with NULL permissions. Once the initial bash shell that created the
->    nested named netns exists the nested netns is rendered unusable due to
->    NULL permissions on its inode. setns() Invalid argument (errno 22) seems
->    to be due to NULL permissions on /var/run/netns/<netnsName> object.
->
->
-> Thanks.
+Before my patch, GRO packets were 17 MSS, and nobody complained packets
+were too small, so what are you saying exactly ?
