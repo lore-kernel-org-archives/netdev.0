@@ -1,107 +1,154 @@
-From: Dilip Daya <dilip.daya@hp.com>
-Subject: named network namespace -- setns() with Invalid argument (errno 22)
-Date: Tue, 29 Oct 2013 20:16:24 -0400
-Message-ID: <1383092184.12859.78.camel@dilip-laptop>
-Reply-To: dilip.daya@hp.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-To: netdev@vger.kernel.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH net-next 01/11] openvswitch: Move flow table rehashing to flow install.
+Date: Tue, 29 Oct 2013 17:22:14 -0700
+Message-ID: <1383092544-50599-2-git-send-email-jesse@nicira.com>
+References: <1383092544-50599-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:26314 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751834Ab3J3AQb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 20:16:31 -0400
+Received: from na3sys009aog137.obsmtp.com ([74.125.149.18]:37832 "HELO
+	na3sys009aog137.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752527Ab3J3AWc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 20:22:32 -0400
+Received: by mail-pd0-f182.google.com with SMTP id q10so169503pdj.27
+        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 17:22:32 -0700 (PDT)
+In-Reply-To: <1383092544-50599-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+From: Pravin B Shelar <pshelar@nicira.com>
 
-Is the following intended behavior for adding "nested" named network namespaces ?
+Rehashing in ovs-workqueue can cause ovs-mutex lock contentions
+in case of heavy flow setups where both needs ovs-mutex.  So by
+moving rehashing to flow-setup we can eliminate contention.
+This also simplify ovs locking and reduces dependence on
+workqueue.
 
-Steps to reproduce:
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+---
+ net/openvswitch/datapath.c | 50 ++++++++++------------------------------------
+ net/openvswitch/datapath.h |  2 ++
+ 2 files changed, 13 insertions(+), 39 deletions(-)
 
-# uname -r
-3.10.1
-
-
-# /sbin/ip -V
-ip utility, iproute2-ss130903
-
-
-Existing network namespaces:
-# ip netns list
-NETNS0
-NETNS1
-
-
-List of named network namespace objects with inode/permissions:
-# ls -li /var/run/netns/
-total 0
-4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
-4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
-
-Enter existing named network namespace:
-# ip netns exec NETNS0 bash
-
-List network devices for named netns:
-# ls -l /sys/class/net/
-total 0
-lrwxrwxrwx 1 root root 0 Oct 29 12:25 lo -> ../../devices/virtual/net/lo/
-
-List of named network namespace objects with inode/permissions:
-# ls -li /var/run/netns/
-total 0
-4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
-4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
-
-
-# ip netns add NETNS0a    <<< adding NETNS0a from within NETNS0
-# ls -li /var/run/netns/
-total 0
-4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
-4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
-4026532423 -r--r--r-- 1 root root 0 Oct 29 12:28 NETNS0a
-^^^^^^^^^^ ^^^^^^^^^^
-  inode    permissions
-
-
-# ip netns exec NETNS0a ls -l /sys/class/net/
-total 0
-lrwxrwxrwx 1 root root 0 Oct 29 12:28 lo -> ../../devices/virtual/net/lo
-
-# exit   <<< exiting from NETNS0
-
-Listing from host/default namespace:
-# ls -li /var/run/netns/
-total 0
-4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
-4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
-    964863 ---------- 1 root root 0 Oct 29 12:28 NETNS0a  <<< NULL permissions
-    ^^^^^^ ^^^^^^^^^^
-
-
-Re-enter NETNS0:
-# ip netns exec NETNS0 bash
-# ls -li /var/run/netns/
-total 0
-4026532310 -r--r--r-- 1 root root 0 Oct 29 09:11 NETNS0
-4026532366 -r--r--r-- 1 root root 0 Oct 29 09:13 NETNS1
-    964863 ---------- 1 root root 0 Oct 29 12:28 NETNS0a  <<< NULL permissions
-           ^^^^^^^^^^
-
-
-# ip netns exec NETNS0a ls -l /sys/class/net/
-seting the network namespace "NETNS0a" failed: Invalid argument
-
-=> It seems the bash shell that created the nested named netns is the only
-   one that can view/enter the nested named netns. All other attempts from
-   either another bash shell or host/default namespace will get a different 
-   inode with NULL permissions. Once the initial bash shell that created the
-   nested named netns exists the nested netns is rendered unusable due to
-   NULL permissions on its inode. setns() Invalid argument (errno 22) seems
-   to be due to NULL permissions on /var/run/netns/<netnsName> object.
-
-
-Thanks.
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 2aa13bd..2e1a9c2 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -60,8 +60,6 @@
+ 
+ 
+ #define REHASH_FLOW_INTERVAL (10 * 60 * HZ)
+-static void rehash_flow_table(struct work_struct *work);
+-static DECLARE_DELAYED_WORK(rehash_flow_wq, rehash_flow_table);
+ 
+ int ovs_net_id __read_mostly;
+ 
+@@ -1289,22 +1287,25 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 	/* Check if this is a duplicate flow */
+ 	flow = ovs_flow_lookup(table, &key);
+ 	if (!flow) {
++		struct flow_table *new_table = NULL;
+ 		struct sw_flow_mask *mask_p;
++
+ 		/* Bail out if we're not allowed to create a new flow. */
+ 		error = -ENOENT;
+ 		if (info->genlhdr->cmd == OVS_FLOW_CMD_SET)
+ 			goto err_unlock_ovs;
+ 
+ 		/* Expand table, if necessary, to make room. */
+-		if (ovs_flow_tbl_need_to_expand(table)) {
+-			struct flow_table *new_table;
+-
++		if (ovs_flow_tbl_need_to_expand(table))
+ 			new_table = ovs_flow_tbl_expand(table);
+-			if (!IS_ERR(new_table)) {
+-				rcu_assign_pointer(dp->table, new_table);
+-				ovs_flow_tbl_destroy(table, true);
+-				table = ovsl_dereference(dp->table);
+-			}
++		else if (time_after(jiffies, dp->last_rehash + REHASH_FLOW_INTERVAL))
++			new_table = ovs_flow_tbl_rehash(table);
++
++		if (new_table && !IS_ERR(new_table)) {
++			rcu_assign_pointer(dp->table, new_table);
++			ovs_flow_tbl_destroy(table, true);
++			table = ovsl_dereference(dp->table);
++			dp->last_rehash = jiffies;
+ 		}
+ 
+ 		/* Allocate flow. */
+@@ -2336,32 +2337,6 @@ error:
+ 	return err;
+ }
+ 
+-static void rehash_flow_table(struct work_struct *work)
+-{
+-	struct datapath *dp;
+-	struct net *net;
+-
+-	ovs_lock();
+-	rtnl_lock();
+-	for_each_net(net) {
+-		struct ovs_net *ovs_net = net_generic(net, ovs_net_id);
+-
+-		list_for_each_entry(dp, &ovs_net->dps, list_node) {
+-			struct flow_table *old_table = ovsl_dereference(dp->table);
+-			struct flow_table *new_table;
+-
+-			new_table = ovs_flow_tbl_rehash(old_table);
+-			if (!IS_ERR(new_table)) {
+-				rcu_assign_pointer(dp->table, new_table);
+-				ovs_flow_tbl_destroy(old_table, true);
+-			}
+-		}
+-	}
+-	rtnl_unlock();
+-	ovs_unlock();
+-	schedule_delayed_work(&rehash_flow_wq, REHASH_FLOW_INTERVAL);
+-}
+-
+ static int __net_init ovs_init_net(struct net *net)
+ {
+ 	struct ovs_net *ovs_net = net_generic(net, ovs_net_id);
+@@ -2419,8 +2394,6 @@ static int __init dp_init(void)
+ 	if (err < 0)
+ 		goto error_unreg_notifier;
+ 
+-	schedule_delayed_work(&rehash_flow_wq, REHASH_FLOW_INTERVAL);
+-
+ 	return 0;
+ 
+ error_unreg_notifier:
+@@ -2437,7 +2410,6 @@ error:
+ 
+ static void dp_cleanup(void)
+ {
+-	cancel_delayed_work_sync(&rehash_flow_wq);
+ 	dp_unregister_genl(ARRAY_SIZE(dp_genl_families));
+ 	unregister_netdevice_notifier(&ovs_dp_device_notifier);
+ 	unregister_pernet_device(&ovs_net_ops);
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 4d109c1..2c15541 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -62,6 +62,7 @@ struct dp_stats_percpu {
+  * ovs_mutex and RCU.
+  * @stats_percpu: Per-CPU datapath statistics.
+  * @net: Reference to net namespace.
++ * @last_rehash: Timestamp of last rehash.
+  *
+  * Context: See the comment on locking at the top of datapath.c for additional
+  * locking information.
+@@ -83,6 +84,7 @@ struct datapath {
+ 	/* Network namespace ref. */
+ 	struct net *net;
+ #endif
++	unsigned long last_rehash;
+ };
+ 
+ /**
+-- 
+1.8.3.2
