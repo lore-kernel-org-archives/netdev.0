@@ -1,57 +1,64 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 02/16] wl1251: fix scan behaviour while not associated
-Date: Wed, 30 Oct 2013 12:24:05 +0100
-Message-ID: <20131030112405.GA8204@amd.pavel.ucw.cz>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
- <1382819655-30430-3-git-send-email-pali.rohar@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH ] net_sched:  actions - Add default lookup
+Date: Wed, 30 Oct 2013 07:25:41 -0400
+Message-ID: <5270ECB5.2030601@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Luciano Coelho <luca@coelho.fi>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
-	aaro.koskinen@iki.fi, sre@ring0.de, joni.lapilainen@gmail.com,
-	David Gnedt <david.gnedt@davizone.at>
-To: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1382819655-30430-3-git-send-email-pali.rohar@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------060302090609030100090903"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:42007 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753875Ab3J3LZu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 07:25:50 -0400
+Received: by mail-ie0-f175.google.com with SMTP id aq17so2014710iec.34
+        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 04:25:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat 2013-10-26 22:34:01, Pali Roh=E1r wrote:
-> From: David Gnedt <david.gnedt@davizone.at>
->=20
-> With a dissacociated card I often encoutered very long scan delays.
->=20
-> My guess is that it has something to do with the cards DTIM handling =
-and
-> another firmware bug mentioned in the TI WLAN driver, which is descri=
-bed as
-> the card may never end scanning if the channel is overloaded because =
-it
-> can't send probe requests. I think the firmware somehow also tries to
-> receive DTIM messages when the BSSID is not set. Therefore most of th=
-e time
-> it waits for DTIM messages and can't do scanning work.
->=20
-> Anyway we can workaround this misbehaviour by setting the HIGH_PRIORI=
-TY
-> bit for scans in disassociated state.
->=20
-> Signed-off-by: David Gnedt <david.gnedt@davizone.at>
+This is a multi-part message in MIME format.
+--------------060302090609030100090903
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I guess you should add your Signed-off-by: here (as you are sending
-the patch forward).
 
-Other than that:
+Attached. Tested with simple action.
 
-Reviewed-by: Pavel Machek <pavel@ucw.cz>
+cheers,
+jamal
 
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses=
-/blog.html
+--------------060302090609030100090903
+Content-Type: text/plain; charset=us-ascii;
+ name="p1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="p1"
+
+commit 80f80120ba4b85daf00c53eceebe7f0ad0b58a57
+Author: Jamal Hadi Salim <jhs@mojatatu.com>
+Date:   Wed Oct 30 07:03:55 2013 -0400
+
+    Provide default lookup function for actions that dont provide one
+    
+    Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index fd70728..3c974a0 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -279,6 +279,10 @@ int tcf_register_action(struct tc_action_ops *act)
+ 	}
+ 	act->next = NULL;
+ 	*ap = act;
++
++	if (!act->lookup)
++		act->lookup = tcf_hash_search;
++
+ 	write_unlock(&act_mod_lock);
+ 	return 0;
+ }
+
+--------------060302090609030100090903--
