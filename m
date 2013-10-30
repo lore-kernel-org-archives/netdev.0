@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/cdc_ncm: fix null pointer panic at
- usbnet_link_change
-Date: Tue, 29 Oct 2013 22:38:23 -0400 (EDT)
-Message-ID: <20131029.223823.1852248673779937090.davem@davemloft.net>
-References: <0C18FE92A7765D4EB9EE5D38D86A563A019F450F@SHSMSX103.ccr.corp.intel.com>
+Subject: Re: [PATCH] bnx2: Use dev_kfree_skb_any() in bnx2_tx_int()
+Date: Tue, 29 Oct 2013 22:42:27 -0400 (EDT)
+Message-ID: <20131029.224227.1700872646112764527.davem@davemloft.net>
+References: <1383084998-22673-1-git-send-email-tdmackey@booleanhaiku.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: oliver@neukum.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: changbinx.du@intel.com
+Cc: mchan@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: tdmackey@booleanhaiku.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0C18FE92A7765D4EB9EE5D38D86A563A019F450F@SHSMSX103.ccr.corp.intel.com>
+In-Reply-To: <1383084998-22673-1-git-send-email-tdmackey@booleanhaiku.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Du, ChangbinX" <changbinx.du@intel.com>
-Date: Tue, 29 Oct 2013 03:30:42 +0000
+From: David Mackey <tdmackey@booleanhaiku.com>
+Date: Tue, 29 Oct 2013 15:16:38 -0700
 
-> In cdc_ncm_bind() function, it call cdc_ncm_bind_common() to setup usb.
-> But cdc_ncm_bind_common() may meet error and cause usbnet_disconnect()
-> be called which calls free_netdev(net). Thus usbnet structure(alloced
-> with net_device structure) will be freed,too.
-> So we cannot call usbnet_link_change() if cdc_ncm_bind_common() return
-> error.
+> Using dev_kfree_skb_any() will resolve the below issue when a
+> netconsole message is transmitted in an irq.
+ ...
+> Signed-off-by: David Mackey <tdmackey@booleanhaiku.com>
 
-This is not the bug.
+This is absolutely not the correct fix.
 
-The problem is in cdc_ncm_bind_common().
+The netpoll facility must invoke ->poll() in an environment which
+is compatible, locking and interrupt/soft-interrupt wise, as that
+in which it is normally called.
 
-It seems to leave dangling interface data pointers in some cases, and
-then branches just to "error" so that they don't get cleared back out.
-
-This bypasses the protection present in cdc_ncm_disconnect() meant to
-avoid this problem.
+Therefore, bnx2_tx_int(), which is invoked from the driver's ->poll()
+method, should not need to use dev_kfree_skb_any().  The real problem
+is somewhere else.
