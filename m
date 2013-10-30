@@ -1,66 +1,88 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH v2 net-next] net: introduce gro_frag_list_enable sysctl
-Date: Tue, 29 Oct 2013 19:13:50 -0700
-Message-ID: <CAPshTCgykFMa=4rnQ3TKa2cfgWYj4TgByO2GbzLzq71Y_=oc=Q@mail.gmail.com>
-References: <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
-	<20131029.194446.2215574000648693370.davem@davemloft.net>
-	<1383094428.4857.16.camel@edumazet-glaptop.roam.corp.google.com>
-	<20131029.220253.1263087684709722001.davem@davemloft.net>
-	<20131030020543.GA1925@gondor.apana.org.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Wed, 30 Oct 2013 13:14:13 +1100
+Message-ID: <20131030131413.51b3be1c0b0ac49b15eb6a5d@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Christoph Paasch <christoph.paasch@uclouvain.be>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Michael Dalton <mwdalton@google.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f178.google.com ([209.85.128.178]:36292 "EHLO
-	mail-ve0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751167Ab3J3CNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 22:13:51 -0400
-Received: by mail-ve0-f178.google.com with SMTP id db12so532640veb.37
-        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 19:13:51 -0700 (PDT)
-In-Reply-To: <20131030020543.GA1925@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__30_Oct_2013_13_14_13_+1100_M2eGa+aZxh.SWkwU"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Joe Perches <joe@perches.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 29, 2013 at 7:05 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> On Tue, Oct 29, 2013 at 10:02:53PM -0400, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Tue, 29 Oct 2013 17:53:48 -0700
->>
->> > So should we apply the first fix to avoid the BUG_ON() ?
->>
->> Please be more specific, are you talking about splitting up
->> this patch in some way?
->
-> I think Eric is referring to the patch that removes the BUG_ON
-> in skb_segment and deals with the new mega-GRO packets.
->
-> I think that's fine for stable, but for the long term we should
-> fix it properly as these new meag-GRO packets still retain the
-> existing packet boundaries and are trivially segmentable.
->
-> If we are indeed able to do that, I doubt we would even need
-> the sysctl patch since the GRO performance should be vastly
-> superior to the non-GRO case, even for a router/bridge.
+--Signature=_Wed__30_Oct_2013_13_14_13_+1100_M2eGa+aZxh.SWkwU
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Probably not the case for the simple forwarding case. See my
-test result of some small (5-8%) CPU+throughput penalty from
-GRO (over GRE tunnel) posted previously. But I can believe
-the number may be very different if the forwarding path involves
-more work (NAT, iptables filtering,...,etc) resulting in a higher per
-pkt cost.
+Hi all,
 
-Best,
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/netconsole.c between commit c7c6effdeffc ("netconsole: fix
+multiple race conditions") from the net tree and commit 22ded57729e6
+("netconsole: Convert to pr_<level>") from the net-next tree.
 
-Jerry
+(Thanks for removing that spare blank line :-))
 
->
-> Cheers,
-> --
-> Email: Herbert Xu <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/netconsole.c
+index c9a15925a1f7,a8ef4c4b94be..000000000000
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@@ -333,18 -336,14 +335,18 @@@ static ssize_t store_enabled(struct net
+  		netpoll_print_options(&nt->np);
+ =20
+  		err =3D netpoll_setup(&nt->np);
+ -		if (err) {
+ -			mutex_unlock(&nt->mutex);
+ +		if (err)
+  			return err;
+ -		}
+ =20
+- 		printk(KERN_INFO "netconsole: network logging started\n");
++ 		pr_info("network logging started\n");
+ -
+  	} else {	/* 0 */
+ +		/* We need to disable the netconsole before cleaning it up
+ +		 * otherwise we might end up in write_msg() with
+ +		 * nt->np.dev =3D=3D NULL and nt->enabled =3D=3D 1
+ +		 */
+ +		spin_lock_irqsave(&target_list_lock, flags);
+ +		nt->enabled =3D 0;
+ +		spin_unlock_irqrestore(&target_list_lock, flags);
+  		netpoll_cleanup(&nt->np);
+  	}
+ =20
+
+--Signature=_Wed__30_Oct_2013_13_14_13_+1100_M2eGa+aZxh.SWkwU
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJScGt5AAoJEMDTa8Ir7ZwVB88P/jc+1moeyOiW1LD5b0WAp2Xf
+Cy3mnffXsXc4mu9AkHPHidyI0fyXzO9sWiuR53Q8ezGep8Zc5GsS47oRKLxNzmwe
+zTtO33cAt/FYQuyw8bezzcGeytdt3CLm0AK0n1LX6We6+K2DQU7Ky+XUf1+82Hn8
+SQqu4AYfR2lqmPZRgR3492gTOXeO+PRf+vMAsEDQu7kwZzf/b54FGNjGDttU25s+
+NLmfVVAxlpctfY9BpwaTCUwxUhE3iH/D4g7OltLftmkvL1HWAqqdNV7nt4xrhjng
+e6YiAmX6f13QswR8ZkovR6NvJWzcstN1rmH2gRe8oW8rwLQugNaPlNJwPvqebBSV
+1m6NHDzjSKoHTQcaJs2QMLl+quZatQlcjWhwtmU/Qw8W/HaG8vHyHKVMQ5bkkGyV
+8wALM7ujvmmswgdmNy783B4fgOo/mPo/wWi6ELY1GDUQSY9qJVtHJAuW2E4xUsBO
+vLnDqDrPUoCr4dxtnFB4BCCCqwgcgS8u4PV0fFW/GevIOiELt61/y73LDhjSswk0
+ed2otAimsvqKhOass51tUxtuzJIotPMXBUReGKZ+szKLpBa79KNYOGJsM1CDhgdt
+o55TKET43LVEuHcAQWaDFAKwrM3V1Dx2XYAX3itHSDnppuHK5BDuN06MnOgJmBOd
+0l1qiRkHaeXVEUc6I0Gk
+=7mnK
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__30_Oct_2013_13_14_13_+1100_M2eGa+aZxh.SWkwU--
