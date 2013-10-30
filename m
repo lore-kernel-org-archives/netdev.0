@@ -1,39 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bgmac: pass received packet to the netif instead of
- copying it
-Date: Wed, 30 Oct 2013 16:58:45 -0400 (EDT)
-Message-ID: <20131030.165845.354006604111494289.davem@davemloft.net>
-References: <1383116400-29905-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH net v2 2/3] r8152: modify the tx flow
+Date: Wed, 30 Oct 2013 17:04:41 -0400 (EDT)
+Message-ID: <20131030.170441.2031802071448773661.davem@davemloft.net>
+References: <1383033377-1178-1-git-send-email-hayeswang@realtek.com>
+	<1383117220-893-1-git-send-email-hayeswang@realtek.com>
+	<1383117220-893-3-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, openwrt-devel@lists.openwrt.org,
-	nlhintz@hotmail.com
-To: zajec5@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34260 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751797Ab3J3U6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 16:58:47 -0400
-In-Reply-To: <1383116400-29905-1-git-send-email-zajec5@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1383117220-893-3-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Wed, 30 Oct 2013 08:00:00 +0100
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Wed, 30 Oct 2013 15:13:39 +0800
 
-> Copying whole packets with skb_copy_from_linear_data_offset is a pret=
-ty
-> bad idea. CPU was spending time in __copy_user_common and network
-> performance was lower. With the new solution iperf-measured speed
-> increased from 116Mb/s to 134Mb/s.
->=20
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-> ---
-> Changes since [RFC TRY#2]:
-> 1) Fixed arguments alignment
-> 2) Dropped code fixing old slot in case of bgmac_dma_rx_skb_for_slot
-> failure. Thanks to Nathan patch bgmac_dma_rx_skb_for_slot doesn't
-> change anything in slot in case it failed somewhere.
+> Remove the code for sending the packet in the rtl8152_start_xmit().
+> Let rtl8152_start_xmit() to queue the packet only, and schedule a
+> tasklet to send the queued packets. This simplify the code and make
+> sure all the packet would be sent by the original order.
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-Looks good, applied to net-next, thanks.
+Basically, your driver will now queue up to 1,000 packets onto
+this tx_queue list, because that is what tx_queue_len will be
+for alloc_etherdev() allocated network devices.
+
+In my previous reply to you about this patch, I asked you to
+quantify and study the effects of using a limit of 60.  I said
+that 60 might be too large.
+
+You've responded by removing the limit completely, which is exactly
+the opposite of what I've asked you to do.  Why did you do this?
+
+This patch series is still not in a state where I can apply it,
+sorry.
