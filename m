@@ -1,30 +1,32 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next RFC 0/5] xen-netback: TX grant mapping
- instead of copy
-Date: Wed, 30 Oct 2013 21:14:32 +0000
-Message-ID: <527176B8.3060703@citrix.com>
-References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com> <20131030191617.GB14149@phenom.dumpdata.com> <20131030191721.GA14261@phenom.dumpdata.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/4] 6lowpan: cleanup header creation
+Date: Wed, 30 Oct 2013 17:19:15 -0400 (EDT)
+Message-ID: <20131030.171915.285130438459697449.davem@davemloft.net>
+References: <1383121104-2515-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131030191721.GA14261@phenom.dumpdata.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alex.bluesman.smirnov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, werner@almesberger.net,
+	dbaryshkov@gmail.com, netdev@vger.kernel.org
+To: alex.aring@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34541 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752391Ab3J3VTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 17:19:17 -0400
+In-Reply-To: <1383121104-2515-1-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30/10/13 19:17, Konrad Rzeszutek Wilk wrote:
-> On Wed, Oct 30, 2013 at 03:16:17PM -0400, Konrad Rzeszutek Wilk wrote:
->> Odd. I don't see #5 patch patch?
->
-> Ah, you have two #4 patches:
->
-> [PATCH net-next RFC 4/5] xen-netback: Change RX path for mapped SKB fragments
-> [PATCH net-next RFC 4/5] xen-netback: Fix indentations
+From: Alexander Aring <alex.aring@gmail.com>
+Date: Wed, 30 Oct 2013 09:18:20 +0100
 
-Yep, sorry, I will fix it up in the next version!
+> This patch series cleanup the 6LoWPAN header creation and extend the use
+> of skb_*_header functions.
+> 
+> Patch 2/4 fix issues of parsing the mac header. The ieee802.15.4 header
+> has a dynamic size which depends on frame control bits. This patch replaces the
+> static mac header len calculation with a dynamic one.
 
-Zoli
+Series applied, thanks.
