@@ -1,45 +1,65 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH net-next 04/11] openvswitch: Restructure
- datapath.c and flow.c
-Date: Tue, 29 Oct 2013 18:32:35 -0700
-Message-ID: <1383096755.12439.46.camel@joe-AO722>
-References: <1383092544-50599-1-git-send-email-jesse@nicira.com>
-	<1383092544-50599-5-git-send-email-jesse@nicira.com>
-	<1383096313.12439.44.camel@joe-AO722>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next] tipc: remove two indentation
+ levels in tipc_recv_msg routine
+Date: Wed, 30 Oct 2013 09:34:57 +0800
+Message-ID: <52706241.60600@windriver.com>
+References: <1383044471-12982-1-git-send-email-ying.xue@windriver.com>	<AE90C24D6B3A694183C094C60CF0A2F6026B73BC@saturn3.aculab.com>
+	<20131029120708.GI14038@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+	<526FACA9.9020004@ericsson.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B73BD@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1383096313.12439.44.camel@joe-AO722>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net, davem@davemloft.net,
+	Paul.Gortmaker@windriver.com
+To: David Laight <David.Laight@ACULAB.COM>, =?windows-1252?Q?Andreas_Bo?=
+	=?windows-1252?Q?fj=E4ll?= <andreas.bofjall@ericsson.com>, Erik Hugne
+	<erik.hugne@ericsson.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B73BD@saturn3.aculab.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-10-29 at 18:25 -0700, Joe Perches wrote:
-> On Tue, 2013-10-29 at 17:22 -0700, Jesse Gross wrote:
-> > Over the time datapath.c and flow.c has became pretty large files.
-> > Following patch restructures functionality of component into three
-> > different components:
-> []
-> >  net/openvswitch/Makefile       |    2 +
-> >  net/openvswitch/datapath.c     |  528 +------------
-> >  net/openvswitch/datapath.h     |    1 +
-> >  net/openvswitch/flow.c         | 1605 +---------------------------------------
-> >  net/openvswitch/flow.h         |  128 +---
-> >  net/openvswitch/flow_netlink.c | 1603 +++++++++++++++++++++++++++++++++++++++
+On 10/29/2013 08:42 PM, David Laight wrote:
+>>   		continue;
+>> +
+>> +unlock:
+>> +		tipc_node_unlock(n_ptr);
+>>   cont:
+>>   		kfree_skb(buf);
+>>   	}
 > 
-> Is this largish patch any different or easier to
-> read/verify when generated with git format-patch -M ?
+> Might be better to call the labels 'unlock_discard' and 'discard'.
+> 
 
-After a git pull, the short answer is no.
-Oh well.
+Thanks for your valuable suggestions. I will submit next version soon.
+
+Regards,
+Ying
+
+> 	David
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
+
+
+------------------------------------------------------------------------------
+Android is increasing in popularity, but the open development platform that
+developers love is also attractive to malware creators. Download this white
+paper to learn more about secure code signing practices that can help keep
+Android apps secure.
+http://pubads.g.doubleclick.net/gampad/clk?id=65839951&iu=/4140/ostg.clktrk
