@@ -1,36 +1,106 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 1/5] lib: crc32: clean up spacing in test cases
-Date: Wed, 30 Oct 2013 15:15:29 +0100
-Message-ID: <52711481.8030003@redhat.com>
-References: <1383130252-1515-1-git-send-email-dborkman@redhat.com> <1383130252-1515-2-git-send-email-dborkman@redhat.com> <1383141418.12439.76.camel@joe-AO722> <AE90C24D6B3A694183C094C60CF0A2F6026B73C8@saturn3.aculab.com>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: [PATCH 1/4 net-next] net: phy: add Generic Netlink Ethernet
+ switch configuration API
+Date: Wed, 30 Oct 2013 15:28:04 +0100
+Message-ID: <1383143284.29021.48.camel@sakura.staff.proxad.net>
+References: <1382466229-15123-1-git-send-email-f.fainelli@gmail.com>
+		 <1382466229-15123-2-git-send-email-f.fainelli@gmail.com>
+		 <5266D7D6.9000309@intel.com>
+		 <CAGVrzcZS4SGiUFoCnhau1Fvv9F4ffS7tA+PT4r-qLCj8HV8BqQ@mail.gmail.com>
+		 <20131022202537.GA16336@hmsreliant.think-freely.org>
+		 <CAGVrzcaXFboRDn40+VciTes09w-jqTASNZz2GZNpTxbaV6D0Lw@mail.gmail.com>
+		 <5267B764.305@mojatatu.com> <5267BB53.8030703@openwrt.org>
+		 <5267C6B9.4000704@mojatatu.com>
+	 <1383088365.16822.22.camel@sakura.staff.proxad.net>
+	 <5270F282.6000708@mojatatu.com>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ANSI_X3.4-1968"
 Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B73C8@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Felix Fietkau <nbd@openwrt.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	John Crispin <blogic@openwrt.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Gary Thomas <gary@mlbassoc.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.iliad.fr ([212.27.33.1]:53603 "EHLO ns.iliad.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753153Ab3J3O2G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Oct 2013 10:28:06 -0400
+In-Reply-To: <5270F282.6000708@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/30/2013 03:10 PM, David Laight wrote:
->>> +	{0x674bf11d, 0x00000038, 0x00000542, 0x0af6d466, 0xd8b6e4c1, 0xf6e93d6c},
->>
->> these could be
->>
->> +	{0x674bf11d, 0x38, 0x542, 0x0af6d466, 0xd8b6e4c1, 0xf6e93d6c},
->
-> Or even:
-> #define X(a, b, c, d, e, f) {0x##a, 0x##b, 0x##c, 0x##d, 0x##e. 0x##f}
-> 	X(674bf11d, 38, 542, 0af6d466, d8b6e4c1, f6e93d6c),
-> ...
-> #undef X
 
-Sure, sounds good to me. We could do that as a follow-up.
+On Wed, 2013-10-30 at 07:50 -0400, Jamal Hadi Salim wrote:
 
-> 	David
->
->
->
+> The important part is all the APIs stay consistent. I can use
+> same netlink calls. ifconfig works.
+> iproute2 works. People have written books on this stuff - we dont
+
+these books usually start by telling people to assign IP address to
+interfaces, not applicable here.
+
+> If i can get stats by doing ifconfig - that should provide illusion that
+> the netdevice is sending/receiving packets.
+
+4 separated netdevices looks like 4 ethernet segments to me, and nothing
+will prevent me from setting a different ip network on each device.
+
+ENOTSUPP cannot be returned by ndo_start_xmit, the ability for a
+netdevice to be able to receive/send packet from host is IMO
+fundamental.
+
+> This is a good arguement.
+> Can we hear a little more about this?
+
+see this kind of old threads:
+
+http://rt2x00.serialmonkey.com/phpBB/viewtopic.php?f=5&t=4378
+http://www.linuxquestions.org/questions/linux-networking-3/what-is-wmaster0-728708/
+http://forums.debian.net/viewtopic.php?p=219440
+
+> I think that would be a reasonable thing to do if it becomes
+> necessary.
+
+with rough naming:
+
+- struct netdevice
+- struct netdev_queue
+- struct network_port (something to call ethtool on)
+- struct bridge_dev (something you create/destroy vlan on, control FDB)
+- struct bridge_port (something you set path cost on, ...)
+- struct sw_bridge_dev (netdevice + underlying bridge_dev)
+- struct sw_bridge_port (netdevice + underlying bridge_port)
+
+old netdevice => (netdevice + netdev_queue * x + network_port)
+
+ethtool works on netdevice or network_port
+
+brctl addbr/addif creates sw_bridge_dev/sw_bridge_port, other commands
+work on bridge_dev/bridge_port
+
+drivers can register bridge_dev / bridge_port / network_port
+
+simple case of a system with single ethernet mac & directly attached 4
+ports switch:
+
+netdevice: eth0
+bridge_dev: hwbr0
+bridge_port: hwbr0p0, hwbr0p1, hwbr0p2, hwbr0p3
+network ports: eth0np0, hwbr0np0, hwbr0np1, hwbr0np2, hwbr0np3
+
+ifconfig, ip link show only eth0
+brctl show hwbr0
+ethtool works on eth0 or eth0p0, hwbr0npX
+
+-- 
+Maxime
