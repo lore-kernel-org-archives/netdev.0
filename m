@@ -1,46 +1,56 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [Xen-devel] [PATCH net-next RFC 1/5] xen-netback:
- Introduce TX grant map definitions
-Date: Wed, 30 Oct 2013 09:28:06 +0000
-Message-ID: <5270DF3602000078000FDFBE@nat28.tlf.novell.com>
-References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com>
- <1383094220-14775-2-git-send-email-zoltan.kiss@citrix.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH 2/2] ipv6: Add checks for RAWIP ARP type
+Date: Wed, 30 Oct 2013 10:31:38 +0100
+Message-ID: <20131030093137.GA3431@omega>
+References: <1383124271-15290-1-git-send-email-jukka.rissanen@linux.intel.com>
+ <1383124271-15290-3-git-send-email-jukka.rissanen@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <ian.campbell@citrix.com>, <jonathan.davies@citrix.com>,
-	<wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Zoltan Kiss" <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1383094220-14775-2-git-send-email-zoltan.kiss@citrix.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:45224 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752053Ab3J3Jbp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 05:31:45 -0400
+Received: by mail-ee0-f52.google.com with SMTP id e49so480744eek.39
+        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 02:31:43 -0700 (PDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1383124271-15290-3-git-send-email-jukka.rissanen@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>> On 30.10.13 at 01:50, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
-> @@ -119,13 +126,22 @@ struct xenvif {
->  	pending_ring_idx_t pending_cons;
->  	u16 pending_ring[MAX_PENDING_REQS];
->  	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
-> +	grant_handle_t grant_tx_handle[MAX_PENDING_REQS];
+Hi Jukka,
+
+On Wed, Oct 30, 2013 at 11:11:11AM +0200, Jukka Rissanen wrote:
+> Signed-off-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+> ---
+>  net/ipv6/addrconf.c | 14 +++++++++++++-
+>  1 file changed, 13 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index d6ff126..60bf947 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -1783,6 +1783,15 @@ static int addrconf_ifid_ip6tnl(u8 *eui, struct net_device *dev)
+>  	return 0;
+>  }
 >  
->  	/* Coalescing tx requests before copying makes number of grant
->  	 * copy ops greater or equal to number of slots required. In
->  	 * worst case a tx request consumes 2 gnttab_copy.
->  	 */
->  	struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
-> +	struct gnttab_unmap_grant_ref tx_unmap_ops[MAX_PENDING_REQS];
-> +	struct gnttab_map_grant_ref tx_map_ops[MAX_PENDING_REQS];
-> +	/* passed to gnttab_[un]map_refs with pages under (un)mapping */
-> +	struct page *pages_to_gnt[MAX_PENDING_REQS];
+> +static int addrconf_ifid_rawip(u8 *eui, struct net_device *dev)
+> +{
+> +	if (dev->addr_len != 8)
+> +		return -1;
+> +	memcpy(eui, dev->dev_addr, 8);
+> +	eui[0] ^= 2;
+> +	return 0;
+> +}
+> +
 
-I think you will want to try to limit the structure size here by putting
-things into unions that can't be used at the same time: Without
-having looked at the later patches yet, it seems quite unlikely that
-map and unmap can be used simultaneously. And the total of copy
-and map can't also be used at the same time, as for each pending
-request you would use either up to two copy slots or a single map
-slot. I didn't look for further opportunities of sharing space.
+I think we have already a function like this, look for:
 
-Jan
+static int addrconf_ifid_eui64(u8 *eui, struct net_device *dev)
+
+which is the same for ieee802154 6lowpan. Are there any issues why we
+can't use the same function here?
+
+- Alex
