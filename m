@@ -1,46 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH ] net_sched:  actions - Add default lookup
-Date: Wed, 30 Oct 2013 07:00:05 -0700
-Message-ID: <1383141605.4857.38.camel@edumazet-glaptop.roam.corp.google.com>
-References: <5270ECB5.2030601@mojatatu.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] x86: Run checksumming in parallel accross multiple alu's
+Date: Wed, 30 Oct 2013 14:04:13 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73C7@saturn3.aculab.com>
+References: <201310300525.r9U5Pdqo014902@ib.usersys.redhat.com> <20131030110214.GA10220@localhost.localdomain> <52710B09.6090302@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:63534 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752180Ab3J3OAH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 10:00:07 -0400
-Received: by mail-pb0-f50.google.com with SMTP id uo5so1419489pbc.37
-        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 07:00:07 -0700 (PDT)
-In-Reply-To: <5270ECB5.2030601@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Ingo Molnar" <mingo@kernel.org>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Doug Ledford" <dledford@redhat.com>,
+	"Neil Horman" <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <52710B09.6090302@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-10-30 at 07:25 -0400, Jamal Hadi Salim wrote:
-> Attached. Tested with simple action.
-> 
-> cheers,
-> jamal
+...
+> and then I also wanted to try using both xmm and ymm registers and doing
+> 64bit adds with 32bit numbers across multiple xmm/ymm registers as that
+> should parallel nicely.  David, you mentioned you've tried this, how did
+> your experiment turn out and what was your method?  I was planning on
+> doing regular full size loads into one xmm/ymm register, then using
+> pshufd/vshufd to move the data into two different registers, then
+> summing into a fourth register, and possible running two of those
+> pipelines in parallel.
 
-Why not setting .lookup to tcf_hash_search
-in the few actions not already doing that ?
+It was a long time ago, and IIRC the code was just SSE so the
+register length just wasn't going to give the required benefit.
+I know I wrote the code, but I can't even remember whether I
+actually got it working!
+With the longer AVX words it might make enough difference.
+Of course, this assumes that you have the fpu registers
+available. If you have to do a fpu context switch it will
+be a lot slower.
 
-This would be more consistent.
-# git grep -n tcf_hash_search
-include/net/act_api.h:92:int tcf_hash_search(struct tc_action *a, u32 index);
-net/sched/act_api.c:198:int tcf_hash_search(struct tc_action *a, u32 index)
-net/sched/act_api.c:209:EXPORT_SYMBOL(tcf_hash_search);
-net/sched/act_csum.c:588:       .lookup         = tcf_hash_search,
-net/sched/act_gact.c:209:       .lookup         =       tcf_hash_search,
-net/sched/act_ipt.c:301:        .lookup         =       tcf_hash_search,
-net/sched/act_ipt.c:315:        .lookup         =       tcf_hash_search,
-net/sched/act_mirred.c:274:     .lookup         =       tcf_hash_search,
-net/sched/act_nat.c:311:        .lookup         =       tcf_hash_search,
-net/sched/act_pedit.c:246:      .lookup         =       tcf_hash_search,
-net/sched/act_police.c:410:     .lookup         =       tcf_hash_search,
+About the same time I did manage to an open coded copy
+loop to run as fast as 'rep movs' - and without any unrolling
+or any prefetch instructions.
+
+Thinking about AVX you should be able to do (without looking up the
+actual mnemonics):
+	load
+	add 32bit chunks to sum
+	compare sum with read value (equiv of carry)
+	add/subtract compare result (0 or ~0) to a carry-sum register
+That is 4 instructions for 256 bits, so you can aim for 4 clocks.
+You'd need to check the cpu book to see if any of those can
+be scheduled at the same time (if not dependant).
+(and also whether there is any result delay - don't think so.)
+
+I'd try running two copies of the above - probably skewed so that
+the memory accesses are separated, do the memory read for the
+next iteration, and use the 3rd instruction unit for loop control.
+
+	David
