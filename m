@@ -1,39 +1,57 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] bnx2: Use dev_kfree_skb_any() in bnx2_tx_int()
-Date: Wed, 30 Oct 2013 12:23:52 -0700
-Message-ID: <CAM_iQpV6ufX5-OOrNQtsXH0_9itjU-FriOoutyKfDEWdg-irQw@mail.gmail.com>
-References: <1383084998-22673-1-git-send-email-tdmackey@booleanhaiku.com>
-	<20131029.224227.1700872646112764527.davem@davemloft.net>
-	<CAM_iQpXzJOxZ3MFNthKw5ye=WcxDWbiPaHuL=pHMz7D1R4nJ+w@mail.gmail.com>
-	<20131030.024003.1476890051483056287.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v3] sh_eth: check platform data pointer
+Date: Wed, 30 Oct 2013 23:30:19 +0300
+Message-ID: <201310302330.19491.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: tdmackey@booleanhaiku.com, mchan@broadcom.com,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131030.024003.1476890051483056287.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:47359 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754369Ab3J3TaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 15:30:22 -0400
+Received: by mail-lb0-f180.google.com with SMTP id y6so1574493lbh.25
+        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 12:30:21 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 29, 2013 at 11:40 PM, David Miller <davem@davemloft.net> wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Tue, 29 Oct 2013 20:50:08 -0700
->
->> Normally ->poll() is called in softirq context, while netpoll could
->> be called in any context depending on its caller.
->
-> It still makes amends to make the execution context still looks
-> "compatible" as far as locking et al. is concerned.
+Check the platform data pointer before dereferencing it and error out of the
+probe() method if it's NULL.
 
-Adjusting netpoll code for IRQ context is much harder
-than just calling dev_kfree_skb_any()...
+This has additional effect of preventing kernel oops with outdated platform data
+containing zero PHY address instead (such as on SolutionEngine7710).
 
-What's more, we have similar change before:
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-commit ed79bab847d8e5a2986d8ff43c49c6fb8ee3265f
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Wed Oct 14 14:36:43 2009 +0000
+---
+This patch is against David Miller's 'net-next.git' repo.
 
-    virtio_net: use dev_kfree_skb_any() in free_old_xmit_skbs()
+Changes in version 3:
+- refreshed the patch.
+
+Changes in version 2:
+- refreshed the patch.
+
+ drivers/net/ethernet/renesas/sh_eth.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2663,6 +2663,12 @@ static int sh_eth_drv_probe(struct platf
+ 	pm_runtime_enable(&pdev->dev);
+ 	pm_runtime_resume(&pdev->dev);
+ 
++	if (!pd) {
++		dev_err(&pdev->dev, "no platform data\n");
++		ret = -EINVAL;
++		goto out_release;
++	}
++
+ 	/* get PHY ID */
+ 	mdp->phy_id = pd->phy;
+ 	mdp->phy_interface = pd->phy_interface;
