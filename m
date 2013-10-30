@@ -1,99 +1,75 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH 3/3] e1000e: PTP: provide hardware features
-Date: Wed, 30 Oct 2013 19:50:34 -0200
-Message-ID: <20131030215034.GA13373@plex.lan>
-References: <1383159637-8165-1-git-send-email-fbl@redhat.com>
- <1383159637-8165-4-git-send-email-fbl@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv4: introduce new IP_MTU_DISCOVER mode IP_PMTUDISC_INTERFACE
+Date: Wed, 30 Oct 2013 23:58:51 +0100
+Message-ID: <20131030225851.GB13902@order.stressinduktion.org>
+References: <20131029.000844.1092862708536984032.davem@davemloft.net> <20131029120424.GD26185@order.stressinduktion.org> <20131030200725.GB9093@order.stressinduktion.org> <20131030.173608.2156276556221568210.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: linuxptp-devel@lists.sourceforge.net
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, fweimer@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49332 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754239Ab3J3WjL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Oct 2013 18:39:11 -0400
+Received: from order.stressinduktion.org ([87.106.68.36]:39870 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754979Ab3J3W6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 18:58:53 -0400
 Content-Disposition: inline
-In-Reply-To: <1383159637-8165-4-git-send-email-fbl@redhat.com>
+In-Reply-To: <20131030.173608.2156276556221568210.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding CC to netdev.
-
-The first patch [1/3] is the userlevel linuxptp patch, so
-I am not forwarding to netdev.
-
-This is just an example which I used for testing locally. If
-the idea is acceptable, this patch must be replaced since the
-card does support more features than what is listed below.
-
-fbl
-
-On Wed, Oct 30, 2013 at 05:00:37PM -0200, Flavio Leitner wrote:
-> Provide the modes and transports supported by the hardware.
+On Wed, Oct 30, 2013 at 05:36:08PM -0400, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Wed, 30 Oct 2013 21:07:25 +0100
 > 
-> Signed-off-by: Flavio Leitner <fbl@redhat.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/netdev.c | 20 ++++++++++++++++----
->  1 file changed, 16 insertions(+), 4 deletions(-)
+> > On Tue, Oct 29, 2013 at 01:04:25PM +0100, Hannes Frederic Sowa wrote:
+> >> I really tried hard to find alternatives or even a way to enable
+> >> the protection automatically given that at least unbound does apply
+> >> IP_PMTUDISC_DONT to its sockets already. These are the reasons why I
+> >> came up with the new IP_PMTUDISC_INTERFACE value:
+> > 
+> > Sorry to bother you but I would really love to hear your feedback on my
+> > reasoning so I can try to come up with a solution you would be happy with.
+
+Thanks for the answer but I still tend to disagree:
+
+> All I've read is that administrators cannot be relied upon to
+> configure their systems properly for the requirements they have.
 > 
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-> index 4ef7867..8bcf167 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -3498,10 +3498,6 @@ static int e1000e_config_hwtstamp(struct e1000_adapter *adapter)
->  	if (!(adapter->flags & FLAG_HAS_HW_TIMESTAMP))
->  		return -EINVAL;
->  
-> -	/* flags reserved for future extensions - must be zero */
-> -	if (config->flags)
-> -		return -EINVAL;
-> -
->  	switch (config->tx_type) {
->  	case HWTSTAMP_TX_OFF:
->  		tsync_tx_ctl = 0;
-> @@ -5772,6 +5768,9 @@ static int e1000_mii_ioctl(struct net_device *netdev, struct ifreq *ifr,
->  	return 0;
->  }
->  
-> +#define E1000E_HWSTAMP_FLAGS_MASK (HWTSTAMP_DM_E2E | HWTSTAMP_DM_P2P |\
-> +				   HWTSTAMP_TRANS_IEEE_802_3 |\
-> +				   HWTSTAMP_TRANS_UDP_IPV4)
->  /**
->   * e1000e_hwtstamp_ioctl - control hardware time stamping
->   * @netdev: network interface device structure
-> @@ -5792,11 +5791,23 @@ static int e1000e_hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr)
->  {
->  	struct e1000_adapter *adapter = netdev_priv(netdev);
->  	struct hwtstamp_config config;
-> +	int flags_req;
-> +	int flags_unsup;
->  	int ret_val;
->  
->  	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
->  		return -EFAULT;
->  
-> +	if (config.flags & ~HWTSTAMP_FEATURE_FLAGS_MASK)
-> +		return -EINVAL;
-> +
-> +	flags_req = config.flags & HWTSTAMP_FEATURE_FLAGS_MASK;
-> +	flags_unsup = flags_req & ~E1000E_HWSTAMP_FLAGS_MASK;
-> +	if (flags_unsup) {
-> +		config.flags &= ~flags_unsup;
-> +		goto out;
-> +	}
-> +
->  	adapter->hwtstamp_config = config;
->  
->  	ret_val = e1000e_config_hwtstamp(adapter);
-> @@ -5823,6 +5834,7 @@ static int e1000e_hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr)
->  		break;
->  	}
->  
-> +out:
->  	return copy_to_user(ifr->ifr_data, &config,
->  			    sizeof(config)) ? -EFAULT : 0;
->  }
-> -- 
-> 1.8.3.1
-> 
+> And that is a non-argument for adding this new socket option as far as
+> I'm concerned.
+
+First of, it is pretty hard to do it correct. Before writing this patch I
+thought that ip_no_pmtu_disc does not honour pmtu updates at all. But as
+soon as one fragmentation needed ICMP enters the box the mtu is reduced
+to pmin_mtu. This was very counterintuitive for me (I don't know if this is
+actually intended). Also we honour per application settings for TCP and DCCP
+sockets, but I totally understand if you take this as a non-argument.
+
+But that is not that important. Documentation can fix this.
+
+> "I strongly do not trust path MTU information" has a scope as small as
+> a route or an interface, it doesn't go down to the socket or
+> application level at all.
+
+I still disagree here. We can prevent generating UDP fragments if we
+lock the mtu on the route, I agree and somehow missed that before (even
+though I already used that myself once).
+
+DNS resolver can fallback to TCP for querying where we can honour the
+path MTU because it won't do any harm and ensures connectivity.
+
+Also for TCP the socket is matched on the whole 4-tuple and we may
+fallback to a 2-tuple lookup on unconnected UDP sockets. The new socket
+option would let an application programmer choose to do path mtu discovery
+because it knows it will only use a connected socket. On unconnected
+sockets one can specify IP_PMTUDISC_INTERFACE to suppress the path MTU
+updates and always use the interface MTU without the DF-bit set.
+
+I really am open to suggestions. The socket option could be renamed or
+we can transform IP_PMTUDISC_DONT to what I think it actually should
+do. Per route or interface settings to enable the acceptance of path
+MTU updates per protocol would be ok, too, but more complex.
+
+Greetings,
+
+  Hannes
