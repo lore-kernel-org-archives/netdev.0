@@ -1,51 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Bug in skb_segment: fskb->len != len
-Date: Wed, 30 Oct 2013 12:06:44 +0800
-Message-ID: <20131030040644.GA2755@gondor.apana.org.au>
-References: <20131028115552.GC4408@cpaasch-mac>
- <1382966471.13037.18.camel@edumazet-glaptop.roam.corp.google.com>
- <1383009308.5464.2.camel@edumazet-glaptop.roam.corp.google.com>
- <20131029144100.GA28046@gondor.apana.org.au>
- <1383059293.5464.31.camel@edumazet-glaptop.roam.corp.google.com>
- <20131030015002.GB1347@gondor.apana.org.au>
- <1383105785.4857.21.camel@edumazet-glaptop.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: introduce gro_frag_list_enable sysctl
+Date: Tue, 29 Oct 2013 21:06:52 -0700
+Message-ID: <1383106012.4857.26.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131029.194446.2215574000648693370.davem@davemloft.net>
+	 <1383094428.4857.16.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131029.220253.1263087684709722001.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Paasch <christoph.paasch@uclouvain.be>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: christoph.paasch@uclouvain.be, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, hkchu@google.com, mwdalton@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:59832 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750702Ab3J3EGq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 00:06:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1383105785.4857.21.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:41380 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702Ab3J3EGx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 00:06:53 -0400
+Received: by mail-pd0-f179.google.com with SMTP id y10so375900pdj.38
+        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 21:06:53 -0700 (PDT)
+In-Reply-To: <20131029.220253.1263087684709722001.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 29, 2013 at 09:03:05PM -0700, Eric Dumazet wrote:
-> On Wed, 2013-10-30 at 09:50 +0800, Herbert Xu wrote:
-> > 
-> > Indeed I missed this.  Which commit introduced this change?
+On Tue, 2013-10-29 at 22:02 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 29 Oct 2013 17:53:48 -0700
 > 
-> This was mentioned in the changelog :
+> > So should we apply the first fix to avoid the BUG_ON() ?
 > 
-> <quote>
-> 
-> Christoph Paasch and Jerry Chu reported crashes in skb_segment() caused
-> by commit 8a29111c7ca6 ("net: gro: allow to build full sized skb")
-> 
-> </quote>
+> Please be more specific, are you talking about splitting up
+> this patch in some way?
 
-Thanks.
+I am referring to the first version I sent to Christoph :
 
-In that case we should be able to segment these full-sized skbs
-without linearising.  What we should do is iterate through
-each frag_list entry and apply the usual GSO code to them.
+http://www.spinics.net/lists/netdev/msg255452.html
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Then I added the sysctl to avoid future packets to get a frag_list in
+the first place.
+
+Doing a smart skb_segment() is possible, but this function is already
+complex.
+
+I am not sure 64K GRO packets that must be segmented are going to be
+faster than 22K packets without segmentation at all (TSO path on xmit)
