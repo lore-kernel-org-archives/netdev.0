@@ -1,40 +1,26 @@
-From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH -next] SUNRPC: remove duplicated include from clnt.c
-Date: Wed, 30 Oct 2013 13:32:15 +0800
-Message-ID: <CAPgLHd-12jZsZCqyeo0Bu=us_ZQHps4YzcgOfNA_Z4jkSUA4rA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bnx2: Use dev_kfree_skb_any() in bnx2_tx_int()
+Date: Wed, 30 Oct 2013 02:40:03 -0400 (EDT)
+Message-ID: <20131030.024003.1476890051483056287.davem@davemloft.net>
+References: <1383084998-22673-1-git-send-email-tdmackey@booleanhaiku.com>
+	<20131029.224227.1700872646112764527.davem@davemloft.net>
+	<CAM_iQpXzJOxZ3MFNthKw5ye=WcxDWbiPaHuL=pHMz7D1R4nJ+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tdmackey@booleanhaiku.com, mchan@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: xiyou.wangcong@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpXzJOxZ3MFNthKw5ye=WcxDWbiPaHuL=pHMz7D1R4nJ+w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue, 29 Oct 2013 20:50:08 -0700
 
-Remove duplicated include.
+> Normally ->poll() is called in softirq context, while netpoll could
+> be called in any context depending on its caller.
 
-Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
----
- net/sunrpc/clnt.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index 759b78b..dab09da 100644
---- a/net/sunrpc/clnt.c
-+++ b/net/sunrpc/clnt.c
-@@ -31,7 +31,6 @@
- #include <linux/in.h>
- #include <linux/in6.h>
- #include <linux/un.h>
--#include <linux/rcupdate.h>
- 
- #include <linux/sunrpc/clnt.h>
- #include <linux/sunrpc/addr.h>
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It still makes amends to make the execution context still looks
+"compatible" as far as locking et al. is concerned.
