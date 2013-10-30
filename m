@@ -1,68 +1,56 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] virtio_net: migrate mergeable rx buffers to
-	page frag allocators
-Date: Wed, 30 Oct 2013 12:41:46 +0800
-Message-ID: <52708E0A.80904@redhat.com>
-References: <1383000258-1458-1-git-send-email-mwdalton@google.com>
-	<CAG7+5M1VFSZciaZf+Y_yzm=aq1Z4fZ-QgACN2srnC9twOWhVWw@mail.gmail.com>
-	<CANJ5vP+=wCrzJ3Fdg0_5ZTTT-V-fw2AXUG=EgwsUcxXO=UpMgw@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v2 net-next] net: introduce gro_frag_list_enable sysctl
+Date: Wed, 30 Oct 2013 12:42:12 +0800
+Message-ID: <20131030044212.GA3364@gondor.apana.org.au>
+References: <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131029.194446.2215574000648693370.davem@davemloft.net>
+ <1383094428.4857.16.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131029.220253.1263087684709722001.davem@davemloft.net>
+ <1383106012.4857.26.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131030040818.GB2755@gondor.apana.org.au>
+ <1383106577.4857.30.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131030041959.GA3162@gondor.apana.org.au>
+ <1383107681.4857.33.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	lf-virt <virtualization@lists.linux-foundation.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Michael Dalton <mwdalton@google.com>, Eric Northup <digitaleric@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CANJ5vP+=wCrzJ3Fdg0_5ZTTT-V-fw2AXUG=EgwsUcxXO=UpMgw@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, christoph.paasch@uclouvain.be,
+	netdev@vger.kernel.org, hkchu@google.com, mwdalton@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:60310 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750702Ab3J3EmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 00:42:18 -0400
+Content-Disposition: inline
+In-Reply-To: <1383107681.4857.33.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/30/2013 03:05 AM, Michael Dalton wrote:
-> Agreed Eric, the buffer size should be increased so that we can accommodate a
-> MTU-sized packet + mergeable virtio net header in a single buffer. I will send
-> a patch to fix shortly cleaning up the #define headers as Rusty indicated and
-> increasing the buffer size slightly by VirtioNet header size bytes per Eric.
+On Tue, Oct 29, 2013 at 09:34:41PM -0700, Eric Dumazet wrote:
 >
-> Jason, I'll followup with you directly - I'd like to know your exact workload
-> (single steam or multi-stream netperf?), VM configuration, etc, and also see if
-> the nit that Erichas pointed out affects your results.
+> What matters ?
+> 
+> GRO ?
 
-It's just a single TCP_STREAM from local host to guest with vhost_net
-enabled. The host and guest were connected with bridge.
->   It is also
-> worth noting that
-> we may want to tune the queue sizes for your benchmarks, e.g, by reducing
-> buffer size from 4KB to MTU-sized but keeping queue length constant, we're
-> implicitly decreasing the number of bytes stored in the VirtioQueue for the
-> VirtioNet device, so increasing the queue size may help.
+What matters is that you should not treat the forwarding case
+separately from the host case.
 
-The problem is the overhead of introduced by the frag refill and frag
-list. Looking at tg3 and bnx2x, the frag were only used for small
-packets not for jumbo frame which does not need a frag list. But your
-patch tires to use it for GSO packets. So we'd better to solve it in
-device level (e.g multiple rings with different size of buffers).
+For virtualisation the host case looks exactly like the forwarding
+case.
 
-I try to change the queue size from 256 to 1024. Unfortunately, I didn't
-see improvement. As a workaround, If you care only the MTU size packet
-and do not want GSO packet to be received, you can just disable it by
-specifying gso_tso{4|6}=off in qemu command line or let's make it
-configurable through ethtool.
->
-> Best,
->
-> Mike
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+IOW, if having a 64KB packet matters for the host, then it matters
+for forwarding as well.
+
+> Before my patch, GRO packets were 17 MSS, and nobody complained packets
+> were too small, so what are you saying exactly ?
+
+I'm not criticsing your mega-GRO patch at all.  That one is great
+and means that we'll get aggregated packets up to 64K.  What we need
+to do is just to patch up the GSO code so that it can handle these
+mega-packets properly.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
