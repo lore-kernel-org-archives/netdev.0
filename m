@@ -1,38 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Bug in skb_segment: fskb->len != len
-Date: Wed, 30 Oct 2013 09:50:02 +0800
-Message-ID: <20131030015002.GB1347@gondor.apana.org.au>
-References: <20131028115552.GC4408@cpaasch-mac>
- <1382966471.13037.18.camel@edumazet-glaptop.roam.corp.google.com>
- <1383009308.5464.2.camel@edumazet-glaptop.roam.corp.google.com>
- <20131029144100.GA28046@gondor.apana.org.au>
- <1383059293.5464.31.camel@edumazet-glaptop.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] net: introduce gro_frag_list_enable sysctl
+Date: Tue, 29 Oct 2013 22:02:53 -0400 (EDT)
+Message-ID: <20131029.220253.1263087684709722001.davem@davemloft.net>
+References: <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
+	<20131029.194446.2215574000648693370.davem@davemloft.net>
+	<1383094428.4857.16.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Paasch <christoph.paasch@uclouvain.be>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: christoph.paasch@uclouvain.be, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, hkchu@google.com, mwdalton@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:60171 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751470Ab3J3BuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 21:50:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1383059293.5464.31.camel@edumazet-glaptop.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52083 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751310Ab3J3CCz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 22:02:55 -0400
+In-Reply-To: <1383094428.4857.16.camel@edumazet-glaptop.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 29, 2013 at 08:08:13AM -0700, Eric Dumazet wrote:
->
-> GRO layer was updated to be able to stack two or three sk_buff,
-> fully populated with page frags.
-> 
-> Thats quite mandatory to support line rate for 40Gb links.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 29 Oct 2013 17:53:48 -0700
 
-Indeed I missed this.  Which commit introduced this change?
+> So should we apply the first fix to avoid the BUG_ON() ?
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Please be more specific, are you talking about splitting up
+this patch in some way?
