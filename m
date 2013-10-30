@@ -1,47 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: introduce gro_frag_list_enable sysctl
-Date: Tue, 29 Oct 2013 17:53:48 -0700
-Message-ID: <1383094428.4857.16.camel@edumazet-glaptop.roam.corp.google.com>
-References: <20131029090849.GC5944@cpaasch-mac>
-	 <1383051962.5464.25.camel@edumazet-glaptop.roam.corp.google.com>
-	 <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
-	 <20131029.194446.2215574000648693370.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: christoph.paasch@uclouvain.be, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, hkchu@google.com, mwdalton@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:43395 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753068Ab3J3Axy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 20:53:54 -0400
-Received: by mail-pb0-f43.google.com with SMTP id md4so615425pbc.30
-        for <netdev@vger.kernel.org>; Tue, 29 Oct 2013 17:53:53 -0700 (PDT)
-In-Reply-To: <20131029.194446.2215574000648693370.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH nf-next 1/2] net: ipvs: sctp: add missing verdict assignments in sctp_conn_schedule
+Date: Wed, 30 Oct 2013 10:11:25 +0900
+Message-ID: <1383095486-5215-2-git-send-email-horms@verge.net.au>
+References: <1383095486-5215-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1383095486-5215-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-10-29 at 19:44 -0400, David Miller wrote:
+From: Daniel Borkmann <dborkman@redhat.com>
 
-> I do not like the idea of packet actions indirectly changing sysctl
-> values, even if you document it sufficiently as you have here.
-> 
+If skb_header_pointer() fails, we need to assign a verdict, that is
+NF_DROP in this case, otherwise, we would leave the verdict from
+conn_schedule() uninitialized when returning.
 
-Fair enough.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_proto_sctp.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-> I would suggest instead making it change in response to changes to
-> ip_forward, as we do with per-device LRO settings.  This means that,
-> like ip_forward, you should also make this sysctl a global + devinet
-> per-device sysctl.
-> 
+diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+index 23e596e..9ca7aa0 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+@@ -20,13 +20,18 @@ sctp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
+ 	sctp_sctphdr_t *sh, _sctph;
+ 
+ 	sh = skb_header_pointer(skb, iph->len, sizeof(_sctph), &_sctph);
+-	if (sh == NULL)
++	if (sh == NULL) {
++		*verdict = NF_DROP;
+ 		return 0;
++	}
+ 
+ 	sch = skb_header_pointer(skb, iph->len + sizeof(sctp_sctphdr_t),
+ 				 sizeof(_schunkh), &_schunkh);
+-	if (sch == NULL)
++	if (sch == NULL) {
++		*verdict = NF_DROP;
+ 		return 0;
++	}
++
+ 	net = skb_net(skb);
+ 	ipvs = net_ipvs(net);
+ 	rcu_read_lock();
+-- 
+1.8.4
 
-
-> You might even emit a pr_info() when this logic triggers, and if you
-> are ambitious enough keep track of the previous GRO sysctl state so
-> you can restore it if ip_forward is set back to zero.
-
-Ok, but this might take some time.
-
-So should we apply the first fix to avoid the BUG_ON() ?
