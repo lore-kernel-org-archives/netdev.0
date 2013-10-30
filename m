@@ -1,89 +1,87 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 2/4] 6lowpan: set and use
-	mac_len for mac header length
-Date: Wed, 30 Oct 2013 09:18:22 +0100
-Message-ID: <1383121104-2515-3-git-send-email-alex.aring@gmail.com>
-References: <1383121104-2515-1-git-send-email-alex.aring@gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] net/cdc_ncm: fix null pointer panic at usbnet_link_change
+Date: Wed, 30 Oct 2013 09:38:18 +0100
+Message-ID: <87y55bduh1.fsf@nemi.mork.no>
+References: <0C18FE92A7765D4EB9EE5D38D86A563A019F450F@SHSMSX103.ccr.corp.intel.com>
+	<20131029.223823.1852248673779937090.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1383121104-2515-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: changbinx.du@intel.com, oliver@neukum.org,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131029.223823.1852248673779937090.davem@davemloft.net> (David
+	Miller's message of "Tue, 29 Oct 2013 22:38:23 -0400 (EDT)")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Set the mac header length while creating the 802.15.4 mac header.
+David Miller <davem@davemloft.net> writes:
 
-Drop the function for recalculate mac header length in upper layers
-which was static and works for intra pan communication only.
+> The problem is in cdc_ncm_bind_common().
+>
+> It seems to leave dangling interface data pointers in some cases, and
+> then branches just to "error" so that they don't get cleared back out=
+=2E
 
-Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Reviewed-by: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
----
- net/ieee802154/6lowpan.c | 13 +------------
- net/mac802154/wpan.c     |  2 ++
- 2 files changed, 3 insertions(+), 12 deletions(-)
+Sorry, but I fail to see this as well.  I see one "return" and two "got=
+o
+error", but all are well before any intfdata pointer is set:
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 6d67784..e6db1f5 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -1100,17 +1100,6 @@ static int lowpan_set_address(struct net_device *dev, void *p)
- 	return 0;
- }
- 
--static int lowpan_get_mac_header_length(struct sk_buff *skb)
--{
--	/*
--	 * Currently long addressing mode is supported only, so the overall
--	 * header size is 21:
--	 * FC SeqNum DPAN DA  SA  Sec
--	 * 2  +  1  +  2 + 8 + 8 + 0  = 21
--	 */
--	return 21;
--}
--
- static int
- lowpan_fragment_xmit(struct sk_buff *skb, u8 *head,
- 			int mlen, int plen, int offset, int type)
-@@ -1150,7 +1139,7 @@ lowpan_skb_fragmentation(struct sk_buff *skb, struct net_device *dev)
- 	int  err, header_length, payload_length, tag, offset = 0;
- 	u8 head[5];
- 
--	header_length = lowpan_get_mac_header_length(skb);
-+	header_length = skb->mac_len;
- 	payload_length = skb->len - header_length;
- 	tag = lowpan_dev_info(dev)->fragment_tag++;
- 
-diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
-index 2ca2f4d..e24bcf9 100644
---- a/net/mac802154/wpan.c
-+++ b/net/mac802154/wpan.c
-@@ -208,6 +208,8 @@ static int mac802154_header_create(struct sk_buff *skb,
- 	head[1] = fc >> 8;
- 
- 	memcpy(skb_push(skb, pos), head, pos);
-+	skb_reset_mac_header(skb);
-+	skb->mac_len = pos;
- 
- 	return pos;
- }
--- 
-1.8.4.2
+    364         ctx =3D kzalloc(sizeof(*ctx), GFP_KERNEL);
+    365         if (!ctx)
+    366                 return -ENOMEM;
+    367=20
+[..]
+    453         /* check if we got everything */
+    454         if ((ctx->control =3D=3D NULL) || (ctx->data =3D=3D NUL=
+L) ||
+    455             ((!ctx->mbim_desc) && ((ctx->ether_desc =3D=3D NULL=
+) || (ctx->control !=3D intf))))
+    456                 goto error;
+    457=20
+    458         /* claim data interface, if different from control */
+    459         if (ctx->data !=3D ctx->control) {
+    460                 temp =3D usb_driver_claim_interface(driver, ctx=
+->data, dev);
+    461                 if (temp)
+    462                         goto error;
+    463         }
+[..]
+    490         usb_set_intfdata(ctx->data, dev);
+    491         usb_set_intfdata(ctx->control, dev);
+    492         usb_set_intfdata(ctx->intf, dev);
+[..]
+    510         return 0;
+    511=20
+    512 error2:
+    513         usb_set_intfdata(ctx->control, NULL);
+    514         usb_set_intfdata(ctx->data, NULL);
+    515         if (ctx->data !=3D ctx->control)
+    516                 usb_driver_release_interface(driver, ctx->data)=
+;
+    517 error:
+    518         cdc_ncm_free((struct cdc_ncm_ctx *)dev->data[0]);
+    519         dev->data[0] =3D 0;
+    520         dev_info(&dev->udev->dev, "bind() failure\n");
+    521         return -ENODEV;
+    522 }
+=20
+
+This could (and given this thread, probably should) certainly be
+refactored and cleaned up a bit.  But I do not see how it leaves any
+dangling pointers.  The pointers are only set near the end of the
+function, and the only exit points after that are either success or
+through the "error2" label.
+
+Side note: It is definitely confusing that we set 3 pointers, but only
+clean up 2.  The reason is that there are never more than 2 interfaces
+involved here. We always have ctx->intf =3D=3D ctx->control.  I'd reall=
+y
+like to get rid of that redundant ctx->intf pointer.  That's one issue
+to cleanup throughout this driver.
 
 
-------------------------------------------------------------------------------
-Android is increasing in popularity, but the open development platform that
-developers love is also attractive to malware creators. Download this white
-paper to learn more about secure code signing practices that can help keep
-Android apps secure.
-http://pubads.g.doubleclick.net/gampad/clk?id=65839951&iu=/4140/ostg.clktrk
+
+Bj=C3=B8rn
