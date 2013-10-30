@@ -1,80 +1,74 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH 1/4 net-next] net: phy: add Generic Netlink Ethernet switch
- configuration API
-Date: Wed, 30 Oct 2013 10:56:42 -0700
-Message-ID: <5271485A.8030303@intel.com>
-References: <5267C6B9.4000704@mojatatu.com> <5267CFAB.9090100@openwrt.org> <5267D8AE.7080009@mojatatu.com> <5267DDE6.70600@openwrt.org> <526A5949.6040404@mojatatu.com> <526A6BB3.7050507@openwrt.org> <526D4B06.8040505@mojatatu.com> <526D6EBA.3020903@openwrt.org> <526EEAE9.6090508@mojatatu.com> <20131030172756.GM8570@wantstofly.org> <20131030173416.GA32234@wantstofly.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH] net: codel: Avoid undefined behavior from
+ signed overflow
+Date: Wed, 30 Oct 2013 11:01:44 -0700
+Message-ID: <1383156104.4857.49.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131030172341.19203.93490.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Felix Fietkau <nbd@openwrt.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	John Crispin <blogic@openwrt.org>,
-	Jonas Gorski <jogo@openwrt.org>,
-	Gary Thomas <gary@mlbassoc.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Chris Healy <cphealy@gmail.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Dave Taht <dave.taht@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:43098 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753591Ab3J3R5A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Oct 2013 13:57:00 -0400
-In-Reply-To: <20131030173416.GA32234@wantstofly.org>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:53932 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750865Ab3J3SBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 14:01:46 -0400
+Received: by mail-pb0-f41.google.com with SMTP id um1so1736312pbc.14
+        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 11:01:45 -0700 (PDT)
+In-Reply-To: <20131030172341.19203.93490.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/30/2013 10:34 AM, Lennert Buytenhek wrote:
-> On Wed, Oct 30, 2013 at 06:27:56PM +0100, Lennert Buytenhek wrote:
->
->>>> This means that all per-port netdevs will be dummy ports which don't
->>>> include the data path.
->>
->> And I think that's fine.
->>
->> Look, even if you're not going to address data traffic to individual
->> ports on your switch chip, there's still a plethora of per-port
->> operations that you want to be able to do: administratively setting
->> the link state on ports up and down, controlling autonegotiation and
->> other PHY settings on individual ports, etc.
->>
->> You can either let the administrator do this with the standard ifconfig
->> / ip link / ethtool tools, or you can make up a parallel API and
->> corresponding set of userland tools to duplicate most of the existing
->> functionality -- I know which option I prefer.
->>
->> Presenting each switch port as an individual Linux netdevice to the OS
->> is an orthogonal decision to actually using those netdevices for data
->> traffic, and conflating the two by arguing that you need special tools
->> to do per-port operations for the sole reason that your switch chip
->> cannot address individual ports is a rather confused argument.
->
-> Forgot to add: there's a patch for net/dsa that adds exactly such an
-> option.  We called it 'unmanaged' mode, and it doesn't enable packet
-> tagging on the CPU<->switch chip interface, so that data only ever
-> flows over a single network interface ("eth0"), while the other
-> ("dummy") network interfaces ("port1", "port2", etc) are used for
-> setting link state with ip link, setting PHY settings with ethtool,
-> getting ethtool statistics, etc, with 100% unmodified userland tools.
-> This patch is currently buried inside a vendor tree, but I'd be happy
-> to dig it out and submit it.
->
+On Wed, 2013-10-30 at 18:23 +0100, Jesper Dangaard Brouer wrote:
+> From: Jesper Dangaard Brouer <netoptimizer@brouer.com>
+> 
+> As described in commit 5a581b367 (jiffies: Avoid undefined
+> behavior from signed overflow), according to the C standard
+> 3.4.3p3, overflow of a signed integer results in undefined
+> behavior.
+> 
+> To fix this, do as the above commit, and do an unsigned
+> subtraction, and interpreting the result as a signed
+> two's-complement number.  This is based on the theory from
+> RFC 1982 and is nicely described in wikipedia here:
+>  https://en.wikipedia.org/wiki/Serial_number_arithmetic#General_Solution
+> 
+> A side-note, I have seen practical issues with the previous logic
+> when dealing with 16-bit, on a 64-bit machine (gcc version
+> 4.4.5). This were 32-bit, which I have not observed issues with.
+> 
+> Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> Signed-off-by: Jesper Dangaard Brouer <netoptimizer@brouer.com>
+> ---
+> 
+>  include/net/codel.h |    8 ++++----
+>  1 files changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/include/net/codel.h b/include/net/codel.h
+> index 389cf62..700fcdf 100644
+> --- a/include/net/codel.h
+> +++ b/include/net/codel.h
+> @@ -72,10 +72,10 @@ static inline codel_time_t codel_get_time(void)
+>  	return ns >> CODEL_SHIFT;
+>  }
+>  
+> -#define codel_time_after(a, b)		((s32)(a) - (s32)(b) > 0)
+> -#define codel_time_after_eq(a, b)	((s32)(a) - (s32)(b) >= 0)
+> -#define codel_time_before(a, b)		((s32)(a) - (s32)(b) < 0)
+> -#define codel_time_before_eq(a, b)	((s32)(a) - (s32)(b) <= 0)
+> +#define codel_time_after(a, b)		((s32)((a) - (b)) > 0)
+> +#define codel_time_after_eq(a, b)	((s32)((a) - (b)) >= 0)
+> +#define codel_time_before(a, b) 	((s32)((a) - (b)) < 0)
+> +#define codel_time_before_eq(a, b)	((s32)((a) - (b)) <= 0)
+>  
 
-A "dummy" network interface is something I've been thinking about
-for SR-IOV nics as well. In the SR-IOV case we have an embedded bridge
-in the hardware but the virtual functions may be direct assigned
-to a guest and not visible to the host.
+I see nothing enforcing an unsigned subtraction as claimed in your
+changelog.
 
-It would be easier to manage the ports and assign them to different
-bridge/QOS objects (OVS, bridge, nftables) if the ports were visible
-and manageable in the host even though there is no data path. Today
-we special ndo ops that only work for VFs but this is a bit clumsy
-and gets more clumsy as the nic switch becomes more like a real switch.
+a / b could be signed.
 
-.John
+Paul commit 5a581b367b5 was OK because of existing typecheck(unsigned
+long, ....)
