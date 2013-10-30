@@ -1,56 +1,32 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH 2/2] ipv6: Add checks for RAWIP ARP type
-Date: Wed, 30 Oct 2013 10:31:38 +0100
-Message-ID: <20131030093137.GA3431@omega>
-References: <1383124271-15290-1-git-send-email-jukka.rissanen@linux.intel.com>
- <1383124271-15290-3-git-send-email-jukka.rissanen@linux.intel.com>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [PATCH net-next RFC 3/5] xen-netback: Remove
+ old TX grant copy definitons
+Date: Wed, 30 Oct 2013 09:39:53 +0000
+Message-ID: <5270E1F902000078000FDFCA@nat28.tlf.novell.com>
+References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com>
+ <1383094220-14775-4-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Jukka Rissanen <jukka.rissanen@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f52.google.com ([74.125.83.52]:45224 "EHLO
-	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752053Ab3J3Jbp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 05:31:45 -0400
-Received: by mail-ee0-f52.google.com with SMTP id e49so480744eek.39
-        for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 02:31:43 -0700 (PDT)
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <ian.campbell@citrix.com>, <jonathan.davies@citrix.com>,
+	<wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Zoltan Kiss" <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1383094220-14775-4-git-send-email-zoltan.kiss@citrix.com>
 Content-Disposition: inline
-In-Reply-To: <1383124271-15290-3-git-send-email-jukka.rissanen@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jukka,
+>>> On 30.10.13 at 01:50, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
+> These became obsolate with grant mapping.
 
-On Wed, Oct 30, 2013 at 11:11:11AM +0200, Jukka Rissanen wrote:
-> Signed-off-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
-> ---
->  net/ipv6/addrconf.c | 14 +++++++++++++-
->  1 file changed, 13 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index d6ff126..60bf947 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -1783,6 +1783,15 @@ static int addrconf_ifid_ip6tnl(u8 *eui, struct net_device *dev)
->  	return 0;
->  }
->  
-> +static int addrconf_ifid_rawip(u8 *eui, struct net_device *dev)
-> +{
-> +	if (dev->addr_len != 8)
-> +		return -1;
-> +	memcpy(eui, dev->dev_addr, 8);
-> +	eui[0] ^= 2;
-> +	return 0;
-> +}
-> +
+I didn't look at this in detail, but I'm surprised you can get away
+without any copying: For one, the header part needs copying
+anyway, so you'd pointlessly map and then copy it if it's small
+enough. And second you need to be prepared for the frontend
+to hand you more slots than you can fit in MAX_SKB_FRAGS
+(namely when MAX_SKB_FRAGS < XEN_NETIF_NR_SLOTS_MIN),
+which you can't handle with mapping alone afaict.
 
-I think we have already a function like this, look for:
-
-static int addrconf_ifid_eui64(u8 *eui, struct net_device *dev)
-
-which is the same for ieee802154 6lowpan. Are there any issues why we
-can't use the same function here?
-
-- Alex
+Jan
