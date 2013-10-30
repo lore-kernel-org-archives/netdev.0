@@ -1,103 +1,89 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [BUG 3.12.rc4] Oops: unable to handle kernel paging request
- during shutdown
-Date: Wed, 30 Oct 2013 19:04:47 +0100
-Message-ID: <20131030180447.GA9515@localhost>
-References: <525BD08C.2080101@t-online.de>
- <CA+55aFwN++wO=rTFaH7m6YYQX+Fv3qDt6Hxs7UnPUJpFsrwSkA@mail.gmail.com>
- <CA+55aFy7TpvkVuPEOJ7Qqirwap1gXoD1_MrYLhgPAYuVpN8u=w@mail.gmail.com>
- <alpine.DEB.2.02.1310251221310.5266@ionos.tec.linutronix.de>
- <CA+55aFxw1Hm4QVeEigkByP5RppSL30oHnLoR16C=henf-a=uFQ@mail.gmail.com>
- <CA+55aFyb72qoZ1Tjpb+=q-6+GmwoOXjfntY_zZnf300gg3d1Hg@mail.gmail.com>
- <CA+55aFxuVpDo3LvmG9j-Hu7sENLTcsB6_CY2TA4mE-k+CuTeGg@mail.gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH v2 net-next] net: introduce gro_frag_list_enable sysctl
+Date: Wed, 30 Oct 2013 14:09:54 -0400
+Message-ID: <52714B72.2060200@redhat.com>
+References: <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>	<20131029.194446.2215574000648693370.davem@davemloft.net>	<1383094428.4857.16.camel@edumazet-glaptop.roam.corp.google.com>	<20131029.220253.1263087684709722001.davem@davemloft.net>	<1383106012.4857.26.camel@edumazet-glaptop.roam.corp.google.com>	<20131030040818.GB2755@gondor.apana.org.au>	<1383106577.4857.30.camel@edumazet-glaptop.roam.corp.google.com>	<20131030041959.GA3162@gondor.apana.org.au>	<1383107681.4857.33.camel@edumazet-glaptop.roam.corp.google.com>	<20131030044212.GA3364@gondor.apana.org.au> <CAPshTCg8j-y6fGfh0tRMir34-Lzy77qyzibvwjMSMpR0Rr1rsA@mail.gmail.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="xHFwDpU9dbj6ez1V"
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	David Miller <davem@davemloft.net>,
-	Knut Petersen <Knut_Petersen@t-online.de>,
-	Ingo Molnar <mingo@kernel.org>,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>,
-	=?iso-8859-1?Q?Fr=E9d=E9ric?= Weisbecker <fweisbec@gmail.com>,
-	Greg KH <greg@kroah.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFxuVpDo3LvmG9j-Hu7sENLTcsB6_CY2TA4mE-k+CuTeGg@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Christoph Paasch <christoph.paasch@uclouvain.be>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Michael Dalton <mwdalton@google.com>
+To: Jerry Chu <hkchu@google.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37234 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751685Ab3J3SKU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Oct 2013 14:10:20 -0400
+In-Reply-To: <CAPshTCg8j-y6fGfh0tRMir34-Lzy77qyzibvwjMSMpR0Rr1rsA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 10/30/2013 01:39 PM, Jerry Chu wrote:
+> On Tue, Oct 29, 2013 at 9:42 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+>>
+>> On Tue, Oct 29, 2013 at 09:34:41PM -0700, Eric Dumazet wrote:
+>>>
+>>> What matters ?
+>>>
+>>> GRO ?
+>>
+>> What matters is that you should not treat the forwarding case
+>> separately from the host case.
+>>
+>> For virtualisation the host case looks exactly like the forwarding
+>> case.
+>
+>
+> Not sure I agree - there are two different "forwarding" cases - forwarding
+> to another physical NIC (to go out to the wire hence need to do GSO),
+> and (for virtualization) forwarding to a virtual NIC and consumed internally
+> (e.g., VM).
 
---xHFwDpU9dbj6ez1V
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I don't think you can really differentiate these 2 case.  VM are
+very commonly used as routers/forwarders.  In some cases, to get
+better throughput,  VFs are assigned to the VMs as the externally
+facing ports.  So, you still end up forwarding to another physical
+NIC.
 
-On Sun, Oct 27, 2013 at 08:39:47PM +0000, Linus Torvalds wrote:
-> On Sun, Oct 27, 2013 at 8:20 PM, Linus Torvalds
-> <torvalds@linux-foundation.org> wrote:
-> >
-> > Appended is a warning I get with DEBUG_TIMER_OBJECTS. Seems to be a
-> > device-mapper issue.
-> 
-> .. and here's another one. This time it looks like nf_conntrack_free()
-> is freeing something that has a delayed work in it (again, likely an
-> embedded 'struct kobject'). Looks like it is the
-> 
->     kmem_cache_destroy(net->ct.nf_conntrack_cachep);
-> 
-> that triggers this. Which probably means that there are still slab
-> entries on that slab cache or something, but I didn't dig any deeper..
-> 
-> David? Patrick? Pablo? Jozsef? Any ideas? This was immediately preceded by
-> 
->   [ 1136.316280] kobject: 'nf_conntrack_ffff8800b74d0000'
-> (ffff8801196fac78): kobject_uevent_env
->   [ 1136.316287] kobject: 'nf_conntrack_ffff8800b74d0000'
-> (ffff8801196fac78): fill_kobj_path: path =
-> '/kernel/slab/nf_conntrack_ffff8800b74d0000'
->   [ 1136.316331] kobject: 'nf_conntrack_ffff8800b74d0000'
-> (ffff8801196fac78): kobject_release, parent           (null) (delayed)
-> 
-> and I think it's that delayed "kobject_release()" that triggers this.
-> 
-> Notice that kobject_release() can be delayed *without* the magic
-> kobject debugging option by simply having a reference count on it from
-> some external source. So this particular issue is probably triggered
-> by my extra debug options in this case (I'm running with all those
-> nasty "try to find bad object freeing" options, and doing module
-> unloading etc), but can happen without it (it's just very hard to
-> trigger in practice without the debug options).
+-vlad
 
-nf_conntrack_free() is decrementing our object counter (net->ct.count)
-before releasing the object. That counter is used in the
-nf_conntrack_cleanup_net_list path to check if it's time to
-kmem_cache_destroy our cache of conntrack objects. I think we have a
-race there that should be easier to trigger (although still hard) with
-CONFIG_DEBUG_OBJECTS_FREE as object releases become slowier.
-
---xHFwDpU9dbj6ez1V
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="linus.patch"
-
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 5d892fe..d60cf16 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -764,9 +764,10 @@ void nf_conntrack_free(struct nf_conn *ct)
- 	struct net *net = nf_ct_net(ct);
- 
- 	nf_ct_ext_destroy(ct);
--	atomic_dec(&net->ct.count);
- 	nf_ct_ext_free(ct);
- 	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
-+	smp_mb__before_atomic_dec();
-+	atomic_dec(&net->ct.count);
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_free);
- 
-
---xHFwDpU9dbj6ez1V--
+> For the latter we should strive to push GSO pkts all the way
+> to the VM stack w/o breaking them up. So for virtualization GRO is all
+> goodness but not sure about the regular forwarding path. (From the
+> perf perspective it boils down to if the cost of GSO/GRO will offset
+> the benefit of GRO. Sure if one manages to get the cost close to zero
+> than there is not reason to leave GRO always on. But it's still a big if for
+> now.)
+>
+> Best,
+>
+> Jerry
+>
+>>
+>>
+>> IOW, if having a 64KB packet matters for the host, then it matters
+>> for forwarding as well.
+>>
+>>> Before my patch, GRO packets were 17 MSS, and nobody complained packets
+>>> were too small, so what are you saying exactly ?
+>>
+>> I'm not criticsing your mega-GRO patch at all.  That one is great
+>> and means that we'll get aggregated packets up to 64K.  What we need
+>> to do is just to patch up the GSO code so that it can handle these
+>> mega-packets properly.
+>>
+>> Cheers,
+>> --
+>> Email: Herbert Xu <herbert@gondor.apana.org.au>
+>> Home Page: http://gondor.apana.org.au/~herbert/
+>> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
