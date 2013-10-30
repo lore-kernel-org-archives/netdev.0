@@ -1,51 +1,44 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [PATCH] mac802154: Use pr_err(...) rather than printk(KERN_ERR ...)
-Date: Wed, 30 Oct 2013 15:28:07 +0800
-Message-ID: <1383118087-10128-1-git-send-email-chenweilong@huawei.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH] ipv6: remove the unnecessary statement in find_match()
+Date: Wed, 30 Oct 2013 15:39:26 +0800
+Message-ID: <5270B7AE.9020801@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-zigbee-devel@lists.sourceforge.net>,
-	<netdev@vger.kernel.org>, <dingtianhong@huawei.com>
-To: <alex.bluesman.smirnov@gmail.com>, <dbaryshkov@gmail.com>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, duanj.fnst@cn.fujitsu.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:62716 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784Ab3J3H2v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 03:28:51 -0400
+Received: from cn.fujitsu.com ([222.73.24.84]:47312 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751693Ab3J3HlU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Oct 2013 03:41:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change is inspired by checkpatch.
 
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+After reading the function rt6_check_neigh(), we can
+know that the RT6_NUD_FAIL_SOFT can be returned only
+when the IS_ENABLE(CONFIG_IPV6_ROUTER_PREF) is false.
+so in function find_match(), there is no need to execute
+the statement !IS_ENABLED(CONFIG_IPV6_ROUTER_PREF).
+
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 ---
- net/mac802154/ieee802154_dev.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ net/ipv6/route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
-index b7c7f81..52ae664 100644
---- a/net/mac802154/ieee802154_dev.c
-+++ b/net/mac802154/ieee802154_dev.c
-@@ -174,8 +174,7 @@ ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index f54e3a1..708685f 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -619,7 +619,7 @@ static struct rt6_info *find_match(struct rt6_info *rt, int oif, int strict,
+ 		goto out;
  
- 	if (!ops || !ops->xmit || !ops->ed || !ops->start ||
- 	    !ops->stop || !ops->set_channel) {
--		printk(KERN_ERR
--		       "undefined IEEE802.15.4 device operations\n");
-+		pr_err("undefined IEEE802.15.4 device operations\n");
- 		return NULL;
- 	}
- 
-@@ -201,8 +200,7 @@ ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
- 
- 	phy = wpan_phy_alloc(priv_size);
- 	if (!phy) {
--		printk(KERN_ERR
--		       "failure to allocate master IEEE802.15.4 device\n");
-+		pr_err("failure to allocate master IEEE802.15.4 device\n");
- 		return NULL;
- 	}
- 
+ 	m = rt6_score_route(rt, oif, strict);
+-	if (m == RT6_NUD_FAIL_SOFT && !IS_ENABLED(CONFIG_IPV6_ROUTER_PREF)) {
++	if (m == RT6_NUD_FAIL_SOFT) {
+ 		match_do_rr = true;
+ 		m = 0; /* lowest valid score */
+ 	} else if (m < 0) {
 -- 
-1.8.2.1
+1.8.3.1
