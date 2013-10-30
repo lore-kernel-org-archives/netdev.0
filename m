@@ -1,70 +1,51 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net v2 3/3] r8152: fix incorrect type in assignment
-Date: Wed, 30 Oct 2013 15:13:40 +0800
-Message-ID: <1383117220-893-4-git-send-email-hayeswang@realtek.com>
-References: <1383033377-1178-1-git-send-email-hayeswang@realtek.com>
- <1383117220-893-1-git-send-email-hayeswang@realtek.com>
+From: Chen Weilong <chenweilong@huawei.com>
+Subject: [PATCH] mac802154: Use pr_err(...) rather than printk(KERN_ERR ...)
+Date: Wed, 30 Oct 2013 15:28:07 +0800
+Message-ID: <1383118087-10128-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1383117220-893-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux-zigbee-devel@lists.sourceforge.net>,
+	<netdev@vger.kernel.org>, <dingtianhong@huawei.com>
+To: <alex.bluesman.smirnov@gmail.com>, <dbaryshkov@gmail.com>,
+	<davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:62716 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750784Ab3J3H2v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Oct 2013 03:28:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The data from the hardware should be little endian. Correct the
-declaration.
+This change is inspired by checkpatch.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Signed-off-by: Weilong Chen <chenweilong@huawei.com>
 ---
- drivers/net/usb/r8152.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ net/mac802154/ieee802154_dev.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 763234d..a77bdb8 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -307,22 +307,22 @@ enum rtl8152_flags {
- #define MCU_TYPE_USB			0x0000
+diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
+index b7c7f81..52ae664 100644
+--- a/net/mac802154/ieee802154_dev.c
++++ b/net/mac802154/ieee802154_dev.c
+@@ -174,8 +174,7 @@ ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
  
- struct rx_desc {
--	u32 opts1;
-+	__le32 opts1;
- #define RX_LEN_MASK			0x7fff
--	u32 opts2;
--	u32 opts3;
--	u32 opts4;
--	u32 opts5;
--	u32 opts6;
-+	__le32 opts2;
-+	__le32 opts3;
-+	__le32 opts4;
-+	__le32 opts5;
-+	__le32 opts6;
- };
+ 	if (!ops || !ops->xmit || !ops->ed || !ops->start ||
+ 	    !ops->stop || !ops->set_channel) {
+-		printk(KERN_ERR
+-		       "undefined IEEE802.15.4 device operations\n");
++		pr_err("undefined IEEE802.15.4 device operations\n");
+ 		return NULL;
+ 	}
  
- struct tx_desc {
--	u32 opts1;
-+	__le32 opts1;
- #define TX_FS			(1 << 31) /* First segment of a packet */
- #define TX_LS			(1 << 30) /* Final segment of a packet */
- #define TX_LEN_MASK		0x3ffff
+@@ -201,8 +200,7 @@ ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
  
--	u32 opts2;
-+	__le32 opts2;
- #define UDP_CS			(1 << 31) /* Calculate UDP/IP checksum */
- #define TCP_CS			(1 << 30) /* Calculate TCP/IP checksum */
- #define IPV4_CS			(1 << 29) /* Calculate IPv4 checksum */
-@@ -876,7 +876,7 @@ static void write_bulk_callback(struct urb *urb)
- static void intr_callback(struct urb *urb)
- {
- 	struct r8152 *tp;
--	__u16 *d;
-+	__le16 *d;
- 	int status = urb->status;
- 	int res;
+ 	phy = wpan_phy_alloc(priv_size);
+ 	if (!phy) {
+-		printk(KERN_ERR
+-		       "failure to allocate master IEEE802.15.4 device\n");
++		pr_err("failure to allocate master IEEE802.15.4 device\n");
+ 		return NULL;
+ 	}
  
 -- 
-1.8.3.1
+1.8.2.1
