@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ibm emac: Fix locking for enable/disable eob irq
-Date: Tue, 29 Oct 2013 22:58:27 -0400 (EDT)
-Message-ID: <20131029.225827.1459363885174411483.davem@davemloft.net>
-References: <1383090638-21526-1-git-send-email-alistair@popple.id.au>
-	<1383090638-21526-2-git-send-email-alistair@popple.id.au>
+Subject: Re: [PATCH v2] bgmac: don't update slot on skb alloc/dma mapping
+ error
+Date: Tue, 29 Oct 2013 22:59:42 -0400 (EDT)
+Message-ID: <20131029.225942.752679895895679051.davem@davemloft.net>
+References: <BLU0-SMTP255BD097115C7E52E264D41AC0A0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benh@kernel.crashing.org
-To: alistair@popple.id.au
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, zajec5@gmail.com
+To: nlhintz@hotmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52388 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52394 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752527Ab3J3C62 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 22:58:28 -0400
-In-Reply-To: <1383090638-21526-2-git-send-email-alistair@popple.id.au>
+	with ESMTP id S1752010Ab3J3C7x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Oct 2013 22:59:53 -0400
+In-Reply-To: <BLU0-SMTP255BD097115C7E52E264D41AC0A0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alistair Popple <alistair@popple.id.au>
-Date: Wed, 30 Oct 2013 10:50:38 +1100
+=46rom: Nathan Hintz <nlhintz@hotmail.com>
+Date: Tue, 29 Oct 2013 19:32:01 -0700
 
-> Calls to mal_enable_eob_irq perform a read-write-modify of a dcr to
-> enable device irqs which is protected by a spin lock. However calls to
-> mal_disable_eob_irq do not take the corresponding lock.
-> 
-> This patch resolves the problem by ensuring that calls to
-> mal_disable_eob_irq also take the lock.
-> 
-> Signed-off-by: Alistair Popple <alistair@popple.id.au>
+> Don't update the slot in "bgmac_dma_rx_skb_for_slot" unless both the
+> skb alloc and dma mapping are successful; and free the newly allocate=
+d
+> skb if a dma mapping error occurs.  This relieves the caller of the n=
+eed
+> to deduce/execute the appropriate cleanup action required when an err=
+or
+> occurs.
+>=20
+> Signed-off-by: Nathan Hintz <nlhintz@hotmail.com>
+> Acked-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
 
-Applied.
+Applied, thanks.
