@@ -1,99 +1,105 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2 2/2] virtio-net: coalesce rx frags when possible
-	during rx
-Date: Thu, 31 Oct 2013 19:47:07 +0800
-Message-ID: <1383220027-12278-2-git-send-email-jasowang@redhat.com>
-References: <1383220027-12278-1-git-send-email-jasowang@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: remove the unnecessary statement in find_match()
+Date: Thu, 31 Oct 2013 12:57:18 +0100
+Message-ID: <20131031115718.GC17210@order.stressinduktion.org>
+References: <5270B7AE.9020801@cn.fujitsu.com> <20131030.170837.1882918923249091614.davem@davemloft.net> <20131030211157.GA13902@order.stressinduktion.org> <20131031.002234.45924350853188128.davem@davemloft.net> <5271F263.4020800@cn.fujitsu.com> <20131031084537.GA17210@order.stressinduktion.org> <52723A84.9080308@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kmindg@gmail.com
-To: davem@davemloft.net, edumazet@google.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au, mst@redhat.com,
-	mwdalton@google.com, virtualization@lists.linux-foundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1383220027-12278-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:40844 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751817Ab3JaL5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 07:57:19 -0400
+Content-Disposition: inline
+In-Reply-To: <52723A84.9080308@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 2613af0ed18a11d5c566a81f9a6510b73180660a (virtio_net: migrate mergeable
-rx buffers to page frag allocators) try to increase the payload/truesize for
-MTU-sized traffic. But this will introduce the extra overhead for GSO packets
-received because of the frag list. This commit tries to reduce this issue by
-coalesce the possible rx frags when possible during rx. Test result shows the
-about 15% improvement on full size GSO packet receiving (and even better than
-commit 2613af0ed18a11d5c566a81f9a6510b73180660a).
+On Thu, Oct 31, 2013 at 07:09:56PM +0800, Duan Jiong wrote:
+> =E4=BA=8E 2013=E5=B9=B410=E6=9C=8831=E6=97=A5 16:45, Hannes Frederic =
+Sowa =E5=86=99=E9=81=93:
+> > On Thu, Oct 31, 2013 at 02:02:11PM +0800, Duan Jiong wrote:
+> >> =E4=BA=8E 2013=E5=B9=B410=E6=9C=8831=E6=97=A5 12:22, David Miller =
+=E5=86=99=E9=81=93:
+> >>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> >>> Date: Wed, 30 Oct 2013 22:11:57 +0100
+> >>>
+> >>>> On Wed, Oct 30, 2013 at 05:08:37PM -0400, David Miller wrote:
+> >>>>> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> >>>>> Date: Wed, 30 Oct 2013 15:39:26 +0800
+> >>>>>
+> >>>>>>
+> >>>>>> After reading the function rt6_check_neigh(), we can
+> >>>>>> know that the RT6_NUD_FAIL_SOFT can be returned only
+> >>>>>> when the IS_ENABLE(CONFIG_IPV6_ROUTER_PREF) is false.
+> >>>>>> so in function find_match(), there is no need to execute
+> >>>>>> the statement !IS_ENABLED(CONFIG_IPV6_ROUTER_PREF).
+> >>>>>>
+> >>>>>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> >>>>>
+> >>>>> Applied to net-next, thanks.
+> >>>>>
+> >>>>> CONFIG_IPV6_ROUTER_PREF is another good candidate for Kconfig
+> >>>>> removal.  I know we've had several bugs that only apply when
+> >>>>> this option is on vs. off.  We're maintaining two different
+> >>>>> code paths, for really no good reason.
+> >>>>
+> >>>> I agree and actually thought about that yesterday. Do you think =
+a sysctl
+> >>>> is a good option?
+> >>>
+> >>> Every distribution ships with the Kconfig option on, and no sysct=
+l
+> >>> exists currently to control it.
+> >>>
+> >>> So I'd say it's not necessary at all, or at the very least let's =
+have
+> >>> someone come forward with a real rather than theoretical use case=
+ for
+> >>> such a feature before adding it.
+> >>>
+> >>> Actually, if RFC 4191 has the usual language like "there SHOULD b=
+e
+> >>> an administrative mechanism to disable blah blah blah" I could
+> >>> be convinced to add it now.  Can someone take a look?
+> >>
+> >> It seems that there is no such an administrative mechanism in RFC =
+4191.
+> >>
+> >> By the way, if the sysctl is used, we are still maintaining two di=
+fferent
+> >> code paths, isn't it? so i think David's idea is good.
+> >=20
+> > Makes life easier, no objections from me.
+> >=20
+>=20
+> Removing CONFIG_IPV6_ROUTER_PREF means that the Router Preference is =
+always
+> on, is this understanding right?
 
-Before this commit:
-./netperf -H 192.168.100.4
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.100.4
-() port 0 AF_INET : demo
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
+If we drop support for one of the routing scoring algorithms it will be=
+ the
+other one. So yes, it will always be on.
 
- 87380  16384  16384    10.00    20303.87
+> If that's is correct,  i think compatibility issues will arise. For e=
+xample, when the
+> CONFIG_IPV6_ROUTER_PREF option is on, the kernel should not do round-=
+robin during
+> default router selection, but when the CONFIG_IPV6_ROUTER_PREF option=
+ is off, the
+> kernel should do it.
 
-After this commit:
-./netperf -H 192.168.100.4
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.100.4 () port 0 AF_INET : demo
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
+Exactly, but all people use ROUTER_PREF activated given it is enabled
+by default by most distributions. I also know about no best practices
+or IX-policies where they want a router to deliberately turned router
+preference support off.
 
- 87380  16384  16384    10.00    23841.26
+We can talk about doing RR in the same preference level, I'll have to d=
+o more
+research on this.
 
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: Michael Dalton <mwdalton@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 113ee93..5dc0de0 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -305,7 +305,7 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
- 	struct sk_buff *curr_skb = head_skb;
- 	char *buf;
- 	struct page *page;
--	int num_buf, len;
-+	int num_buf, len, offset;
- 
- 	num_buf = hdr->mhdr.num_buffers;
- 	while (--num_buf) {
-@@ -342,9 +342,15 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
- 			head_skb->truesize += MAX_PACKET_LEN;
- 		}
- 		page = virt_to_head_page(buf);
--		skb_add_rx_frag(curr_skb, num_skb_frags, page,
--				buf - (char *)page_address(page), len,
--				MAX_PACKET_LEN);
-+		offset = buf - (char *)page_address(page);
-+		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
-+			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
-+					     len, MAX_PACKET_LEN);
-+		} else {
-+			skb_add_rx_frag(curr_skb, num_skb_frags, page,
-+					offset, len,
-+					MAX_PACKET_LEN);
-+		}
- 		--rq->num;
- 	}
- 	return 0;
--- 
-1.8.1.2
+But given that someone wants RR, it is better done by using ECMP routes=
+=2E
