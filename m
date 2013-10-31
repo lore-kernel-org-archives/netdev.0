@@ -1,140 +1,60 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net-next 1/2] net: cdc_mbim: handle IPv6 Neigbor Solicitations
-Date: Thu, 31 Oct 2013 15:56:10 +0100
-Message-ID: <1383231371-8098-2-git-send-email-bjorn@mork.no>
-References: <1383231371-8098-1-git-send-email-bjorn@mork.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH] net: codel: Avoid undefined behavior from
+ signed overflow
+Date: Thu, 31 Oct 2013 08:10:41 -0700
+Message-ID: <1383232241.4857.73.camel@edumazet-glaptop.roam.corp.google.com>
+References: <20131030172341.19203.93490.stgit@dragon>
+	 <1383156104.4857.49.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131031151551.675ab908@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Orishko <alexey.orishko@gmail.com>,
-	Greg Suarez <gsuarez@smithmicro.com>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Dave Taht <dave.taht@gmail.com>
+To: Jesper Dangaard Brouer <jbrouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:34830 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754738Ab3JaPCQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Oct 2013 11:02:16 -0400
-In-Reply-To: <1383231371-8098-1-git-send-email-bjorn@mork.no>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:54653 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755052Ab3JaPKn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 11:10:43 -0400
+Received: by mail-pa0-f47.google.com with SMTP id lf10so2644687pab.34
+        for <netdev@vger.kernel.org>; Thu, 31 Oct 2013 08:10:43 -0700 (PDT)
+In-Reply-To: <20131031151551.675ab908@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MBIM is a point-to-point protocol transporting raw IP packets
-with no L2 headers. Only IPv4 and IPv6 are supported. ARP in
-particular is not, which is quite logical given the lack of
-L2 headers.
+On Thu, 2013-10-31 at 15:15 +0100, Jesper Dangaard Brouer wrote:
 
-The driver still emulates an ethernet interface, dropping all
-unsupported protocols, and avoiding neigbour resolving by
-setting the IFF_NOARP flag.
+> Okay, I'll cook up another patch, after work.
+> 
+> Adding all the typecheck() stuff, just bloats the code.
+> 
+> Would it be better/okay just to do?:
+>  (s32)((u32)(a) - (u32)(b)) > 0)
+> 
+> 
 
-The MBIM specification does not explicitly forbid IPv6 Neighbor
-Discovery, and it seems the other OS support will respond to
-Neighbor Solicitations on MBIM links. There are therefore
-buggy devices out there, which despite the pointlessness, still
-require Neighbor Discovery for IPv6 over MBIM.
+What about using the existing codel types ?
 
-This is incompatible with the IFF_NOARP flag which disables
-both ARP and ND.  We cannot support ARP in any case, so we
-have to keep that flag. This patch implements a workaround
-for the buggy devices, letting the driver respond directly
-to Neighbor Solicitations from the device.
-
-This is not optimal, but will have minimal effect on any sane
-device.
-
-Cc: Greg Suarez <gsuarez@smithmicro.com>
-Reported-and-tested-by: Thomas Sch=C3=A4fer <tschaefer@t-online.de>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- drivers/net/usb/cdc_mbim.c |   58 ++++++++++++++++++++++++++++++++++++=
-++++++++
- 1 file changed, 58 insertions(+)
-
-diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-index 25ba7ec..6533a9f 100644
---- a/drivers/net/usb/cdc_mbim.c
-+++ b/drivers/net/usb/cdc_mbim.c
-@@ -21,6 +21,8 @@
- #include <linux/usb/usbnet.h>
- #include <linux/usb/cdc-wdm.h>
- #include <linux/usb/cdc_ncm.h>
-+#include <net/ipv6.h>
-+#include <net/addrconf.h>
-=20
- /* driver specific data - must match cdc_ncm usage */
- struct cdc_mbim_state {
-@@ -184,6 +186,60 @@ error:
- 	return NULL;
+diff --git a/include/net/codel.h b/include/net/codel.h
+index 389cf62..89a7781 100644
+--- a/include/net/codel.h
++++ b/include/net/codel.h
+@@ -72,7 +72,12 @@ static inline codel_time_t codel_get_time(void)
+ 	return ns >> CODEL_SHIFT;
  }
-=20
-+/* Some devices are known to send Neigbor Solicitation messages and
-+ * require Neigbor Advertisement replies.  The IPv6 core will not
-+ * respond since IFF_NOARP is set, so we must handle them ourselves.
-+ */
-+static void do_neigh_solicit(struct usbnet *dev, u8 *buf, u16 tci)
+ 
+-#define codel_time_after(a, b)		((s32)(a) - (s32)(b) > 0)
++static inline bool codel_time_after(codel_time_t a, codel_time_t b)
 +{
-+	struct ipv6hdr *iph =3D (void *)buf;
-+	struct nd_msg *msg =3D (void *)(iph + 1);
-+	struct net_device *netdev;
-+	struct inet6_dev *in6_dev;
-+	bool is_router;
++	codel_tdiff_t delta = a - b;
 +
-+	/* we'll only respond to requests from unicast addresses to
-+	 * our solicited node addresses.
-+	 */
-+	if (!ipv6_addr_is_solict_mult(&iph->daddr) ||
-+	    !(ipv6_addr_type(&iph->saddr) & IPV6_ADDR_UNICAST))
-+		return;
-+
-+	/* need to send the NA on the VLAN dev, if any */
-+	if (tci)
-+		netdev =3D __vlan_find_dev_deep(dev->net, htons(ETH_P_8021Q),
-+					      tci);
-+	else
-+		netdev =3D dev->net;
-+	if (!netdev)
-+		return;
-+
-+	in6_dev =3D in6_dev_get(netdev);
-+	if (!in6_dev)
-+		return;
-+	is_router =3D !!in6_dev->cnf.forwarding;
-+	in6_dev_put(in6_dev);
-+
-+	/* ipv6_stub !=3D NULL if in6_dev_get returned an inet6_dev */
-+	ipv6_stub->ndisc_send_na(netdev, NULL, &iph->saddr, &msg->target,
-+				 is_router /* router */,
-+				 true /* solicited */,
-+				 false /* override */,
-+				 true /* inc_opt */);
++	return delta >= 0;
 +}
-+
-+static bool is_neigh_solicit(u8 *buf, size_t len)
-+{
-+	struct ipv6hdr *iph =3D (void *)buf;
-+	struct nd_msg *msg =3D (void *)(iph + 1);
-+
-+	return (len >=3D sizeof(struct ipv6hdr) + sizeof(struct nd_msg) &&
-+		iph->nexthdr =3D=3D IPPROTO_ICMPV6 &&
-+		msg->icmph.icmp6_code =3D=3D 0 &&
-+		msg->icmph.icmp6_type =3D=3D NDISC_NEIGHBOUR_SOLICITATION);
-+}
-+
-+
- static struct sk_buff *cdc_mbim_process_dgram(struct usbnet *dev, u8 *=
-buf, size_t len, u16 tci)
- {
- 	__be16 proto =3D htons(ETH_P_802_3);
-@@ -198,6 +254,8 @@ static struct sk_buff *cdc_mbim_process_dgram(struc=
-t usbnet *dev, u8 *buf, size_
- 			proto =3D htons(ETH_P_IP);
- 			break;
- 		case 0x60:
-+			if (is_neigh_solicit(buf, len))
-+				do_neigh_solicit(dev, buf, tci);
- 			proto =3D htons(ETH_P_IPV6);
- 			break;
- 		default:
---=20
-1.7.10.4
+ #define codel_time_after_eq(a, b)	((s32)(a) - (s32)(b) >= 0)
+ #define codel_time_before(a, b)		((s32)(a) - (s32)(b) < 0)
+ #define codel_time_before_eq(a, b)	((s32)(a) - (s32)(b) <= 0)
+
+
+You need of course something similar for all variants.
