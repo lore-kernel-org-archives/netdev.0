@@ -1,80 +1,98 @@
-From: Kmindg G <kmindg@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net: introduce skb_coalesce_rx_frag()
-Date: Thu, 31 Oct 2013 19:05:14 +0800
-Message-ID: <CAOjA20XtG80ePVKKiTHWvy7m99wo5sYC+64RTJN2tWNEopRiSQ@mail.gmail.com>
-References: <1383215313-23651-1-git-send-email-jasowang@redhat.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: remove the unnecessary statement in find_match()
+Date: Thu, 31 Oct 2013 19:09:56 +0800
+Message-ID: <52723A84.9080308@cn.fujitsu.com>
+References: <5270B7AE.9020801@cn.fujitsu.com> <20131030.170837.1882918923249091614.davem@davemloft.net> <20131030211157.GA13902@order.stressinduktion.org> <20131031.002234.45924350853188128.davem@davemloft.net> <5271F263.4020800@cn.fujitsu.com> <20131031084537.GA17210@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, edumazet@google.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mst@redhat.com, rusty@rustcorp.com.au, mwdalton@google.com,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1383215313-23651-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:14148 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752053Ab3JaLOy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 07:14:54 -0400
+In-Reply-To: <20131031084537.GA17210@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 31, 2013 at 6:28 PM, Jason Wang <jasowang@redhat.com> wrote:
-> Sometimes we need to coalesce the rx frags to avoid frag list. One example is
-> virtio-net driver which tries to use small frags for both MTU sized packet and
-> GSO packet. So this patch introduce skb_coalesce_rx_frag() to do this.
->
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Michael Dalton <mwdalton@google.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  include/linux/skbuff.h |  3 +++
->  net/core/skbuff.c      | 13 +++++++++++++
->  2 files changed, 16 insertions(+)
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 2c15497..e34652b 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -1372,6 +1372,9 @@ static inline void skb_fill_page_desc(struct sk_buff *skb, int i,
->  void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
->                      int size, unsigned int truesize);
->
-> +void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int off, int size,
-> +                         unsigned int truesize);
-> +
->  #define SKB_PAGE_ASSERT(skb)   BUG_ON(skb_shinfo(skb)->nr_frags)
->  #define SKB_FRAG_ASSERT(skb)   BUG_ON(skb_has_frag_list(skb))
->  #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 0ab32fa..fdef994 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -476,6 +476,19 @@ void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
->  }
->  EXPORT_SYMBOL(skb_add_rx_frag);
->
-> +void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int off, int size,
-> +                         unsigned int truesize)
-> +{
-> +       skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-> +
-> +       skb_frag_size_add(frag, size);
-> +       skb->len += size;
-> +       skb->data_len += size;
-> +       skb->truesize += truesize;
-> +       skb_frag_unref(skb, i);
-> +}
+=E4=BA=8E 2013=E5=B9=B410=E6=9C=8831=E6=97=A5 16:45, Hannes Frederic So=
+wa =E5=86=99=E9=81=93:
+> On Thu, Oct 31, 2013 at 02:02:11PM +0800, Duan Jiong wrote:
+>> =E4=BA=8E 2013=E5=B9=B410=E6=9C=8831=E6=97=A5 12:22, David Miller =E5=
+=86=99=E9=81=93:
+>>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>>> Date: Wed, 30 Oct 2013 22:11:57 +0100
+>>>
+>>>> On Wed, Oct 30, 2013 at 05:08:37PM -0400, David Miller wrote:
+>>>>> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>>>> Date: Wed, 30 Oct 2013 15:39:26 +0800
+>>>>>
+>>>>>>
+>>>>>> After reading the function rt6_check_neigh(), we can
+>>>>>> know that the RT6_NUD_FAIL_SOFT can be returned only
+>>>>>> when the IS_ENABLE(CONFIG_IPV6_ROUTER_PREF) is false.
+>>>>>> so in function find_match(), there is no need to execute
+>>>>>> the statement !IS_ENABLED(CONFIG_IPV6_ROUTER_PREF).
+>>>>>>
+>>>>>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>>>>
+>>>>> Applied to net-next, thanks.
+>>>>>
+>>>>> CONFIG_IPV6_ROUTER_PREF is another good candidate for Kconfig
+>>>>> removal.  I know we've had several bugs that only apply when
+>>>>> this option is on vs. off.  We're maintaining two different
+>>>>> code paths, for really no good reason.
+>>>>
+>>>> I agree and actually thought about that yesterday. Do you think a =
+sysctl
+>>>> is a good option?
+>>>
+>>> Every distribution ships with the Kconfig option on, and no sysctl
+>>> exists currently to control it.
+>>>
+>>> So I'd say it's not necessary at all, or at the very least let's ha=
+ve
+>>> someone come forward with a real rather than theoretical use case f=
+or
+>>> such a feature before adding it.
+>>>
+>>> Actually, if RFC 4191 has the usual language like "there SHOULD be
+>>> an administrative mechanism to disable blah blah blah" I could
+>>> be convinced to add it now.  Can someone take a look?
+>>
+>> It seems that there is no such an administrative mechanism in RFC 41=
+91.
+>>
+>> By the way, if the sysctl is used, we are still maintaining two diff=
+erent
+>> code paths, isn't it? so i think David's idea is good.
+>=20
+> Makes life easier, no objections from me.
+>=20
 
-I didn't see  you use "off" in skb_coalesce_rx_frag.
+Removing CONFIG_IPV6_ROUTER_PREF means that the Router Preference is al=
+ways
+on, is this understanding right?
 
-> +EXPORT_SYMBOL(skb_coalesce_rx_frag);
-> +
->  static void skb_drop_list(struct sk_buff **listp)
->  {
->         kfree_skb_list(*listp);
-> --
-> 1.8.1.2
->
+If that's is correct,  i think compatibility issues will arise. For exa=
+mple, when the
+CONFIG_IPV6_ROUTER_PREF option is on, the kernel should not do round-ro=
+bin during
+default router selection, but when the CONFIG_IPV6_ROUTER_PREF option i=
+s off, the
+kernel should do it.
+
+Thanks,
+  Duan
+
+> Greetings,
+>=20
+>   Hannes
+>=20
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
