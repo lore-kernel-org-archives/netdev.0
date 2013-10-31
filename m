@@ -1,19 +1,18 @@
-From: Jason Wang <jasowang@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH net-next 1/2] net: introduce skb_coalesce_rx_frag()
-Date: Thu, 31 Oct 2013 19:34:50 +0800
-Message-ID: <5272405A.4050708@redhat.com>
+Date: Thu, 31 Oct 2013 13:41:28 +0200
+Message-ID: <20131031114128.GC8976@redhat.com>
 References: <1383215313-23651-1-git-send-email-jasowang@redhat.com>
-	<CAOjA20XtG80ePVKKiTHWvy7m99wo5sYC+64RTJN2tWNEopRiSQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mwdalton@google.com, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
+Cc: mwdalton@google.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	virtualization@lists.linux-foundation.org, edumazet@google.com,
 	davem@davemloft.net
-To: Kmindg G <kmindg@gmail.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAOjA20XtG80ePVKKiTHWvy7m99wo5sYC+64RTJN2tWNEopRiSQ@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <1383215313-23651-1-git-send-email-jasowang@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -25,58 +24,62 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 10/31/2013 07:05 PM, Kmindg G wrote:
-> On Thu, Oct 31, 2013 at 6:28 PM, Jason Wang <jasowang@redhat.com> wrote:
->> > Sometimes we need to coalesce the rx frags to avoid frag list. One example is
->> > virtio-net driver which tries to use small frags for both MTU sized packet and
->> > GSO packet. So this patch introduce skb_coalesce_rx_frag() to do this.
->> >
->> > Cc: Rusty Russell <rusty@rustcorp.com.au>
->> > Cc: Michael S. Tsirkin <mst@redhat.com>
->> > Cc: Michael Dalton <mwdalton@google.com>
->> > Cc: Eric Dumazet <edumazet@google.com>
->> > Signed-off-by: Jason Wang <jasowang@redhat.com>
->> > ---
->> >  include/linux/skbuff.h |  3 +++
->> >  net/core/skbuff.c      | 13 +++++++++++++
->> >  2 files changed, 16 insertions(+)
->> >
->> > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->> > index 2c15497..e34652b 100644
->> > --- a/include/linux/skbuff.h
->> > +++ b/include/linux/skbuff.h
->> > @@ -1372,6 +1372,9 @@ static inline void skb_fill_page_desc(struct sk_buff *skb, int i,
->> >  void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
->> >                      int size, unsigned int truesize);
->> >
->> > +void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int off, int size,
->> > +                         unsigned int truesize);
->> > +
->> >  #define SKB_PAGE_ASSERT(skb)   BUG_ON(skb_shinfo(skb)->nr_frags)
->> >  #define SKB_FRAG_ASSERT(skb)   BUG_ON(skb_has_frag_list(skb))
->> >  #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
->> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> > index 0ab32fa..fdef994 100644
->> > --- a/net/core/skbuff.c
->> > +++ b/net/core/skbuff.c
->> > @@ -476,6 +476,19 @@ void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
->> >  }
->> >  EXPORT_SYMBOL(skb_add_rx_frag);
->> >
->> > +void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int off, int size,
->> > +                         unsigned int truesize)
->> > +{
->> > +       skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
->> > +
->> > +       skb_frag_size_add(frag, size);
->> > +       skb->len += size;
->> > +       skb->data_len += size;
->> > +       skb->truesize += truesize;
->> > +       skb_frag_unref(skb, i);
->> > +}
-> I didn't see  you use "off" in skb_coalesce_rx_frag.
->
+On Thu, Oct 31, 2013 at 06:28:32PM +0800, Jason Wang wrote:
+> Sometimes we need to coalesce the rx frags to avoid frag list. One example is
+> virtio-net driver which tries to use small frags for both MTU sized packet and
+> GSO packet. So this patch introduce skb_coalesce_rx_frag() to do this.
+> 
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Michael Dalton <mwdalton@google.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Ture, it's useless. Will post V2.
 
-Thanks
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+> ---
+>  include/linux/skbuff.h |  3 +++
+>  net/core/skbuff.c      | 13 +++++++++++++
+>  2 files changed, 16 insertions(+)
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 2c15497..e34652b 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -1372,6 +1372,9 @@ static inline void skb_fill_page_desc(struct sk_buff *skb, int i,
+>  void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
+>  		     int size, unsigned int truesize);
+>  
+> +void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int off, int size,
+> +			  unsigned int truesize);
+> +
+>  #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
+>  #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_has_frag_list(skb))
+>  #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 0ab32fa..fdef994 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -476,6 +476,19 @@ void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
+>  }
+>  EXPORT_SYMBOL(skb_add_rx_frag);
+>  
+> +void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int off, int size,
+> +			  unsigned int truesize)
+> +{
+> +	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+> +
+> +	skb_frag_size_add(frag, size);
+> +	skb->len += size;
+> +	skb->data_len += size;
+> +	skb->truesize += truesize;
+> +	skb_frag_unref(skb, i);
+> +}
+> +EXPORT_SYMBOL(skb_coalesce_rx_frag);
+> +
+>  static void skb_drop_list(struct sk_buff **listp)
+>  {
+>  	kfree_skb_list(*listp);
+> -- 
+> 1.8.1.2
