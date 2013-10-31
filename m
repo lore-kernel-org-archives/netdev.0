@@ -1,52 +1,59 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2013-10-31
-Date: Thu, 31 Oct 2013 20:24:48 +0100
-Message-ID: <1383247490-26984-1-git-send-email-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:59167 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752158Ab3JaTZF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 15:25:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next RFC 1/5] xen-netback: Introduce TX grant map
+ definitions
+Date: Thu, 31 Oct 2013 19:33:59 +0000
+Message-ID: <5272B0A7.30104@citrix.com>
+References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com> <1383094220-14775-2-git-send-email-zoltan.kiss@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Zoltan Kiss <zoltan.kiss@citrix.com>, <ian.campbell@citrix.com>,
+	<wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1383094220-14775-2-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello David,
+On 30/10/13 00:50, Zoltan Kiss wrote:
+> +void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
+> +{
+> +	unsigned long flags;
+> +	pending_ring_idx_t index;
+> +	u16 pending_idx = ubuf->desc;
+> +	struct pending_tx_info *temp =
+> +		container_of(ubuf, struct pending_tx_info, callback_struct);
+> +	struct xenvif *vif =
+> +		container_of(temp - pending_idx, struct xenvif,
+> +			pending_tx_info[0]);
+> +
+> +	spin_lock_irqsave(&vif->dealloc_lock, flags);
+> +	do {
+> +		pending_idx = ubuf->desc;
+> +		ubuf = (struct ubuf_info *) ubuf->ctx;
+> +		index = pending_index(vif->dealloc_prod);
+> +		vif->dealloc_ring[index] = pending_idx;
+> +		/* Sync with xenvif_tx_action_dealloc:
+> +		 * insert idx then incr producer.
+> +		 */
+> +		smp_wmb();
+> +		vif->dealloc_prod++;
+> +		napi_schedule(&vif->napi);
+> +	} while (ubuf);
+> +	spin_unlock_irqrestore(&vif->dealloc_lock, flags);
+> +}
 
-I have two late fixes for the v3.12 release:
+Another possible place for improvement is the placing of napi_schedule. 
+Now it get called after every fragment, which is probably suboptimal. I 
+think it's likely that the vif thread can't finish one dealloc faster 
+than one iteration of this while loop.
+Another idea is to place it after the while, so it get called only once, 
+but in the meantime the thread doesn't have chance to start working on 
+the deallocs.
+A compromise might be to do it once in the first iteration of the loop, 
+and then once after the loop to make sure the thread knows about the 
+dealloc.
+Thoughts?
 
-The first patch fixes a problem in the c_can's RX message handling, which can
-lead to an endless interrupt loop under heavy load if messages are lost. The
-second patch is by Olivier Sobrie and fixes the endpoint detection of the
-kvaser_usb driver, which is needed for some devices.
-
-regards,
-Marc
-
----
-
-
-The following changes since commit c17cb8b55b104c549aa20a72fa44141ad2c65ec2:
-
-  doc:net: Fix typo in Documentation/networking (2013-10-30 17:10:20 -0400)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can.git fixes-for-3.12
-
-for you to fetch changes up to 896e23bd04ea50a146dffd342e2f96180f0812a5:
-
-  can: kvaser_usb: fix usb endpoints detection (2013-10-31 20:20:23 +0100)
-
-----------------------------------------------------------------
-Markus Pargmann (1):
-      can: c_can: Fix RX message handling, handle lost message before EOB
-
-Olivier Sobrie (1):
-      can: kvaser_usb: fix usb endpoints detection
-
- drivers/net/can/c_can/c_can.c    |  6 +++---
- drivers/net/can/usb/kvaser_usb.c | 20 +++++++++++++-------
- 2 files changed, 16 insertions(+), 10 deletions(-)
+Zoli
