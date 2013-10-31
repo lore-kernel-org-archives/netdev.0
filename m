@@ -1,73 +1,40 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [net-next PATCH] net: codel: Avoid undefined behavior from
- signed overflow
-Date: Wed, 30 Oct 2013 21:55:36 -0700
-Message-ID: <20131031045536.GS4126@linux.vnet.ibm.com>
-References: <20131030172341.19203.93490.stgit@dragon>
- <1383161748.1601.24.camel@bwh-desktop.uk.level5networks.com>
- <20131030201327.GO4126@linux.vnet.ibm.com>
- <1383164352.1601.38.camel@bwh-desktop.uk.level5networks.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net v2 2/3] r8152: modify the tx flow
+Date: Thu, 31 Oct 2013 13:52:38 +0800
+Message-ID: <3FC2D94481C34A40A55B033CB9CFA9FB@realtek.com.tw>
+References: <1383033377-1178-1-git-send-email-hayeswang@realtek.com><1383117220-893-1-git-send-email-hayeswang@realtek.com><1383117220-893-3-git-send-email-hayeswang@realtek.com> <20131030.170441.2031802071448773661.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Dave Taht <dave.taht@gmail.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:50191 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750762Ab3JaEzl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 00:55:41 -0400
-Received: from /spool/local
-	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Wed, 30 Oct 2013 22:55:40 -0600
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 65D083E40026
-	for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 22:55:38 -0600 (MDT)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r9V4tccA225342
-	for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 22:55:38 -0600
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r9V4wRhd010193
-	for <netdev@vger.kernel.org>; Wed, 30 Oct 2013 22:58:28 -0600
-Content-Disposition: inline
-In-Reply-To: <1383164352.1601.38.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, 'nic_swsd' <nic_swsd@realtek.com>,
+	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: 'David Miller' <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131030.170441.2031802071448773661.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 30, 2013 at 08:19:12PM +0000, Ben Hutchings wrote:
-> On Wed, 2013-10-30 at 13:13 -0700, Paul E. McKenney wrote:
-> > On Wed, Oct 30, 2013 at 07:35:48PM +0000, Ben Hutchings wrote:
-> > > On Wed, 2013-10-30 at 18:23 +0100, Jesper Dangaard Brouer wrote:
-> > > > From: Jesper Dangaard Brouer <netoptimizer@brouer.com>
-> > > > 
-> > > > As described in commit 5a581b367 (jiffies: Avoid undefined
-> > > > behavior from signed overflow), according to the C standard
-> > > > 3.4.3p3, overflow of a signed integer results in undefined
-> > > > behavior.
-> > > [...]
-> > > 
-> > > According to the real processors that Linux runs on, signed arithmetic
-> > > uses 2's complement representation and overflow wraps accordingly.  And
-> > > we rely on that behaviour in many places, so we use
-> > > '-fno-strict-overflow' to tell gcc not to assume we avoid signed
-> > > overflow.  (There is also '-fwrapv' which tells gcc to assume the
-> > > processor behaves this way, but shouldn't it already know how the target
-> > > machine works?)
-> > 
-> > We should still fix them as we come across them.  There are a few types
-> > of loops where '-fno-strict-overflow' results in more instructions
-> > being generated.
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Thursday, October 31, 2013 5:05 AM
 > 
-> I realise there's an opportunity for optimisation, but if these cases
-> are fixed on an ad-hoc basis, how will we know we're ready to make the
-> switch?
+> From: Hayes Wang <hayeswang@realtek.com>
+> Date: Wed, 30 Oct 2013 15:13:39 +0800
+[...]
+> Basically, your driver will now queue up to 1,000 packets onto
+> this tx_queue list, because that is what tx_queue_len will be
+> for alloc_etherdev() allocated network devices.
+> 
+> In my previous reply to you about this patch, I asked you to
+> quantify and study the effects of using a limit of 60.  I said
+> that 60 might be too large.
+> 
+> You've responded by removing the limit completely, which is exactly
+> the opposite of what I've asked you to do.  Why did you do this?
 
-I believe that there are some tools that check for code that relies on
-signed integer overflow.  Probably not yet up to dealing with the
-kernel.  In the meantime, fixing them as we come across them is not
-a bad approach.
+Excuse me. My question is that the original code doesn't stop the tx queue
+either, so I don't understand why it is necessary for this patch.
 
-							Thanx, Paul
+I don't say I wouldn't find the suitable value for the tx queue length.
+I feel I need some time to think how to find the reasonable value. And
+I don't hope it influences the submission of the other patches, so I
+remove it first. Or, may I submit the other two patches first?
