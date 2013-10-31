@@ -1,75 +1,95 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V2] net: codel: Avoid undefined behavior from signed
-	overflow
-Date: Thu, 31 Oct 2013 22:10:55 +0100
-Message-ID: <20131031211055.10355.98182.stgit@dragon>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: [net-next PATCH] net: codel: Avoid undefined behavior from
+ signed overflow
+Date: Thu, 31 Oct 2013 22:53:32 +0100
+Message-ID: <20131031225332.38534539@redhat.com>
+References: <20131030172341.19203.93490.stgit@dragon>
+	<1383161748.1601.24.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	<netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	Dave Taht <dave.taht@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org
+	Eilon Greenstein <eilong@broadcom.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9691 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:12605 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751305Ab3JaVEv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Oct 2013 17:04:51 -0400
+	id S1751823Ab3JaVyE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Oct 2013 17:54:04 -0400
+In-Reply-To: <1383161748.1601.24.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <netoptimizer@brouer.com>
+On Wed, 30 Oct 2013 19:35:48 +0000
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-As described in commit 5a581b367 (jiffies: Avoid undefined
-behavior from signed overflow), according to the C standard
-3.4.3p3, overflow of a signed integer results in undefined
-behavior.
+> On Wed, 2013-10-30 at 18:23 +0100, Jesper Dangaard Brouer wrote:
+> > From: Jesper Dangaard Brouer <netoptimizer@brouer.com>
+> > 
+> > As described in commit 5a581b367 (jiffies: Avoid undefined
+> > behavior from signed overflow), according to the C standard
+> > 3.4.3p3, overflow of a signed integer results in undefined
+> > behavior.
+> [...]
+> 
+> According to the real processors that Linux runs on, signed arithmetic
+> uses 2's complement representation and overflow wraps accordingly.  And
+> we rely on that behaviour in many places, so we use
+> '-fno-strict-overflow' to tell gcc not to assume we avoid signed
+> overflow.  (There is also '-fwrapv' which tells gcc to assume the
+> processor behaves this way, but shouldn't it already know how the target
+> machine works?)
 
-To fix this, do as the above commit, and do an unsigned
-subtraction, and interpreting the result as a signed
-two's-complement number.  This is based on the theory from
-RFC 1982 and is nicely described in wikipedia here:
- https://en.wikipedia.org/wiki/Serial_number_arithmetic#General_Solution
+For 16-bit I have tested that is fails, and that it does not help to
+use the compiler flag: '-fno-strict-overflow' or '-fwrapv'. (this was
+userspace test code, so I might be missing some kernel compiler options
+that would make this work for 16-bit, but I doubt it)
 
-A side-note, I have seen practical issues with the previous logic
-when dealing with 16-bit, on a 64-bit machine (gcc version
-4.4.5). This were 32-bit, which I have not observed issues with.
+#define works_u16_time_after(a,b)			\
+	(typecheck(u_int16_t, a) &&		\
+	 typecheck(u_int16_t, b) &&		\
+	 ((int16_t)((b) - (a)) < 0))
 
-Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Signed-off-by: Jesper Dangaard Brouer <netoptimizer@brouer.com>
----
+#define bad_u16_time_after(a,b)			\
+	(typecheck(u_int16_t, a) &&		\
+	 typecheck(u_int16_t, b) &&		\
+	 (((int16_t)(b) - (int16_t)(a)) < 0))
 
- include/net/codel.h |   19 +++++++++++++++----
- 1 files changed, 15 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/codel.h b/include/net/codel.h
-index 389cf62..3b04ff5 100644
---- a/include/net/codel.h
-+++ b/include/net/codel.h
-@@ -72,10 +72,21 @@ static inline codel_time_t codel_get_time(void)
- 	return ns >> CODEL_SHIFT;
- }
+The bnx2x have a wrong/dangerup construct:
+
+ File: drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+ #define SUB_S16(a, b)		(s16)((s16)(a) - (s16)(b))
+ #define SUB_S32(a, b)		(s32)((s32)(a) - (s32)(b))
+
+I have tested this case, and it surprisingly works, due to the outer
+(s16) cast I believe.
+
+I think this should/could be fixed like:
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 4e01c57..8969733 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -838,8 +838,8 @@ static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
+ #define RCQ_TH_HI(bp)          (RCQ_TH_LO(bp) + DROPLESS_FC_HEADROOM)
  
--#define codel_time_after(a, b)		((s32)(a) - (s32)(b) > 0)
--#define codel_time_after_eq(a, b)	((s32)(a) - (s32)(b) >= 0)
--#define codel_time_before(a, b)		((s32)(a) - (s32)(b) < 0)
--#define codel_time_before_eq(a, b)	((s32)(a) - (s32)(b) <= 0)
-+/* Dealing with timer wrapping, according to RFC 1982, as desc in wikipedia:
-+ *  https://en.wikipedia.org/wiki/Serial_number_arithmetic#General_Solution
-+ * codel_time_after(a,b) returns true if the time a is after time b.
-+ */
-+#define codel_time_after(a, b)						\
-+	(typecheck(codel_time_t, a) &&					\
-+	 typecheck(codel_time_t, b) &&					\
-+	 ((s32)((a) - (b)) > 0))
-+#define codel_time_before(a, b) 	codel_time_after(b, a)
-+
-+#define codel_time_after_eq(a, b)					\
-+	(typecheck(codel_time_t, a) &&					\
-+	 typecheck(codel_time_t, b) &&					\
-+	 ((s32)((a) - (b)) >= 0))
-+#define codel_time_before_eq(a, b)	codel_time_after_eq(b, a)
+ /* This is needed for determining of last_max */
+-#define SUB_S16(a, b)          (s16)((s16)(a) - (s16)(b))
+-#define SUB_S32(a, b)          (s32)((s32)(a) - (s32)(b))
++#define SUB_S16(a, b)          (s16)((u16)(a) - (u16)(b))
++#define SUB_S32(a, b)          (s32)((u32)(a) - (u32)(b))
  
- /* Qdiscs using codel plugin must use codel_skb_cb in their own cb[] */
- struct codel_skb_cb {
+ #define BNX2X_SWCID_SHIFT      17
+ #define BNX2X_SWCID_MASK       ((0x1 << BNX2X_SWCID_SHIFT) - 1)
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
