@@ -1,162 +1,76 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2 00/19] Enable various Renesas drivers on all ARM
- platforms
-Date: Thu, 31 Oct 2013 14:52:28 +0900
-Message-ID: <20131031055228.GS1603@verge.net.au>
-References: <1383086274-11049-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: remove the unnecessary statement in find_match()
+Date: Thu, 31 Oct 2013 14:02:11 +0800
+Message-ID: <5271F263.4020800@cn.fujitsu.com>
+References: <5270B7AE.9020801@cn.fujitsu.com> <20131030.170837.1882918923249091614.davem@davemloft.net> <20131030211157.GA13902@order.stressinduktion.org> <20131031.002234.45924350853188128.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-fbdev@vger.kernel.org, Wolfram Sang <wsa@the-dreams.de>,
- Linus Walleij <linus.walleij@linaro.org>,
- Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>,
- Thierry Reding <thierry.reding@gmail.com>, linux-mtd@lists.infradead.org,
- linux-i2c@vger.kernel.org, Vinod Koul <vinod.koul@intel.com>,
- Joerg Roedel <joro@8bytes.org>, linux-sh@vger.kernel.org,
- Magnus Damm <magnus.damm@gmail.com>,
- Eduardo Valentin <eduardo.valentin@ti.com>,
- Tomi Valkeinen <tomi.valkeinen@ti.com>, linux-serial@vger.kernel.org,
- linux-input@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>,
- Chris Ball <cjb@laptop.org>,
- Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
- linux-media@vger.kernel.org, linux-pwm@vger.kernel.org,
- Samuel Ortiz <samuel@sortiz.org>, linux-pm@vger.kernel.org,
- Ian Molton <ian@mnementh.co.uk>, Mark Brown <broonie@kernel.org>,
- linux-arm-kernel@lists.infradead.org,
- Ser
-To: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1383086274-11049-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:2535 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750845Ab3JaGEi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 02:04:38 -0400
+In-Reply-To: <20131031.002234.45924350853188128.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 29, 2013 at 11:37:35PM +0100, Laurent Pinchart wrote:
-> Hello,
-> 
-> This patch series, based on v3.12-rc7, prepares various Renesas drivers
-> for migration to multiplatform kernels by enabling their compilation or
-> otherwise fixing them on all ARM platforms. The patches are pretty
-> straightforward and are described in their commit message.
-> 
-> Changes since v1:
-> 
-> - The drivers can also be selected when COMPILE_TEST is enabled, regardless of
->   the architecture. This should provide a good compromise between wide build
->   test coverage and not clobbering configuration with drivers useless on
->   non-SuperH, non-ARM platforms.
-> 
-> - DMA configuration is now unconditional in patch 08/19
-> 
-> I'd like to get all these patches merged in v3.14. As they will need to go
-> through their respective subsystems' trees, I would appreciate if all
-> maintainers involved could notify me when they merge patches from this series
-> in their tree to help me tracking the merge status. I don't plan to send pull
-> requests individually for these patches, and I will repost patches
-> individually if changes are requested during review.
-> 
-> If you believe the issue should be solved in a different way please reply to
-> the cover letter to let other maintainers chime in.
+=E4=BA=8E 2013=E5=B9=B410=E6=9C=8831=E6=97=A5 12:22, David Miller =E5=86=
+=99=E9=81=93:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Wed, 30 Oct 2013 22:11:57 +0100
+>=20
+>> On Wed, Oct 30, 2013 at 05:08:37PM -0400, David Miller wrote:
+>>> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>> Date: Wed, 30 Oct 2013 15:39:26 +0800
+>>>
+>>>>
+>>>> After reading the function rt6_check_neigh(), we can
+>>>> know that the RT6_NUD_FAIL_SOFT can be returned only
+>>>> when the IS_ENABLE(CONFIG_IPV6_ROUTER_PREF) is false.
+>>>> so in function find_match(), there is no need to execute
+>>>> the statement !IS_ENABLED(CONFIG_IPV6_ROUTER_PREF).
+>>>>
+>>>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>>
+>>> Applied to net-next, thanks.
+>>>
+>>> CONFIG_IPV6_ROUTER_PREF is another good candidate for Kconfig
+>>> removal.  I know we've had several bugs that only apply when
+>>> this option is on vs. off.  We're maintaining two different
+>>> code paths, for really no good reason.
+>>
+>> I agree and actually thought about that yesterday. Do you think a sy=
+sctl
+>> is a good option?
+>=20
+> Every distribution ships with the Kconfig option on, and no sysctl
+> exists currently to control it.
+>=20
+> So I'd say it's not necessary at all, or at the very least let's have
+> someone come forward with a real rather than theoretical use case for
+> such a feature before adding it.
+>=20
+> Actually, if RFC 4191 has the usual language like "there SHOULD be
+> an administrative mechanism to disable blah blah blah" I could
+> be convinced to add it now.  Can someone take a look?
 
-All patches, including the v3 ones present in the thread at this time:
+It seems that there is no such an administrative mechanism in RFC 4191.
 
-Acked-by: Simon Horman <horms@verge.net.au>
+By the way, if the sysctl is used, we are still maintaining two differe=
+nt
+code paths, isn't it? so i think David's idea is good.
 
-> Cc: Chris Ball <cjb@laptop.org>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: David Woodhouse <dwmw2@infradead.org>
-> Cc: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-> Cc: Eduardo Valentin <eduardo.valentin@ti.com>
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: Guennadi Liakhovetski <g.liakhovetski+renesas@gmail.com>
-> Cc: Ian Molton <ian@mnementh.co.uk>
-> Cc: iommu@lists.linux-foundation.org
-> Cc: Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>
-> Cc: Joerg Roedel <joro@8bytes.org>
-> Cc: Linus Walleij <linus.walleij@linaro.org>
-> Cc: Magnus Damm <magnus.damm@gmail.com>
-> Cc: Mark Brown <broonie@kernel.org>
-> Cc: Mauro Carvalho Chehab <m.chehab@samsung.com>
-> Cc: Samuel Ortiz <samuel@sortiz.org>
-> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Cc: Thierry Reding <thierry.reding@gmail.com>
-> Cc: Tomi Valkeinen <tomi.valkeinen@ti.com>
-> Cc: Vinod Koul <vinod.koul@intel.com>
-> Cc: Wolfram Sang <wsa@the-dreams.de>
-> Cc: Zhang Rui <rui.zhang@intel.com>
-> Cc: dmaengine@vger.kernel.org
-> Cc: linux-fbdev@vger.kernel.org
-> Cc: linux-i2c@vger.kernel.org
-> Cc: linux-input@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: linux-media@vger.kernel.org
-> Cc: linux-mmc@vger.kernel.org
-> Cc: linux-mtd@lists.infradead.org
-> Cc: linux-pm@vger.kernel.org
-> Cc: linux-pwm@vger.kernel.org
-> Cc: linux-serial@vger.kernel.org
-> Cc: linux-spi@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> 
-> Laurent Pinchart (19):
->   serial: sh-sci: Enable the driver on all ARM platforms
->   DMA: shdma: Enable the driver on all ARM platforms
->   i2c: sh_mobile: Enable the driver on all ARM platforms
->   input: sh_keysc: Enable the driver on all ARM platforms
->   iommu: shmobile: Enable the driver on all ARM platforms
->   i2c: rcar: Enable the driver on all ARM platforms
->   v4l: sh_vou: Enable the driver on all ARM platforms
->   mmc: sdhi: Enable the driver on all ARM platforms
->   mmc: sh_mmcif: Enable the driver on all ARM platforms
->   mtd: sh_flctl: Enable the driver on all ARM platforms
->   net: sh_eth: Set receive alignment correctly on all ARM platforms
->   irda: sh_irda: Enable the driver on all ARM platforms
->   pinctrl: sh-pfc: Enable the driver on all ARM platforms
->   pwm: pwm-renesas-tpu: Enable the driver on all ARM platforms
->   sh: intc: Enable the driver on all ARM platforms
->   spi: sh_msiof: Enable the driver on all ARM platforms
->   spi: sh_hspi: Enable the driver on all ARM platforms
->   thermal: rcar-thermal: Enable the driver on all ARM platforms
->   fbdev: sh-mobile-lcdcfb: Enable the driver on all ARM platforms
-> 
->  drivers/dma/sh/Kconfig                | 2 +-
->  drivers/dma/sh/shdmac.c               | 6 +++---
->  drivers/i2c/busses/Kconfig            | 4 ++--
->  drivers/input/keyboard/Kconfig        | 2 +-
->  drivers/iommu/Kconfig                 | 2 +-
->  drivers/media/platform/Kconfig        | 2 +-
->  drivers/mmc/host/Kconfig              | 4 ++--
->  drivers/mmc/host/tmio_mmc_dma.c       | 4 +---
->  drivers/mtd/nand/Kconfig              | 2 +-
->  drivers/net/ethernet/renesas/sh_eth.c | 2 +-
->  drivers/net/ethernet/renesas/sh_eth.h | 2 +-
->  drivers/net/irda/Kconfig              | 2 +-
->  drivers/pinctrl/Makefile              | 2 +-
->  drivers/pinctrl/sh-pfc/Kconfig        | 2 +-
->  drivers/pwm/Kconfig                   | 2 +-
->  drivers/sh/intc/Kconfig               | 2 +-
->  drivers/spi/Kconfig                   | 4 ++--
->  drivers/thermal/Kconfig               | 2 +-
->  drivers/tty/serial/Kconfig            | 2 +-
->  drivers/video/Kconfig                 | 6 +++---
->  20 files changed, 27 insertions(+), 29 deletions(-)
-> 
-> -- 
-> Regards,
-> 
-> Laurent Pinchart
-> 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> 
+Thanks,
+  Duan
+
+
+>=20
+> Either way it'd probably be a per-inet6_dev option, right?
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
