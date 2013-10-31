@@ -1,65 +1,532 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: pkt_sched: PIE AQM scheme
-Date: Thu, 31 Oct 2013 10:03:26 -0700
-Message-ID: <1383239006.4857.84.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1383167922-22495-1-git-send-email-subramanian.vijay@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
-	Mythili Prabhu <mysuryan@cisco.com>,
-	Dave Taht <dave.taht@bufferbloat.net>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net-next] tcp: properly handle stretch acks in slow start
+Date: Thu, 31 Oct 2013 11:07:31 -0700
+Message-ID: <1383242851-26748-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, edumazet@google.com, ncardwell@google.com,
+	vanj@google.com, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:46069 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750735Ab3JaRDa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 13:03:30 -0400
-Received: by mail-ob0-f174.google.com with SMTP id vb8so3330688obc.19
-        for <netdev@vger.kernel.org>; Thu, 31 Oct 2013 10:03:28 -0700 (PDT)
-In-Reply-To: <1383167922-22495-1-git-send-email-subramanian.vijay@gmail.com>
+Received: from mail-vb0-f74.google.com ([209.85.212.74]:35522 "EHLO
+	mail-vb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755167Ab3JaSHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 14:07:44 -0400
+Received: by mail-vb0-f74.google.com with SMTP id w8so279882vbj.1
+        for <netdev@vger.kernel.org>; Thu, 31 Oct 2013 11:07:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-10-30 at 14:18 -0700, Vijay Subramanian wrote:
+Slow start now increases cwnd by 1 if an ACK acknowledges some packets,
+regardless the number of packets. Consequently slow start performance
+is highly dependent on the degree of the stretch ACKs caused by
+receiver or network ACK compression mechanisms (e.g., delayed-ACK,
+GRO, etc).  But slow start algorithm is to send twice the amount of
+packets of packets left so it should process a stretch ACK of degree
+N as if N ACKs of degree 1, then exits when cwnd exceeds ssthresh. A
+follow up patch will use the remainder of the N (if greater than 1)
+to adjust cwnd in the congestion avoidance phase.
 
+In addition this patch retires the experimental limited slow start
+(LSS) feature. LSS has multiple drawbacks but questionable benefit. The
+fractional cwnd increase in LSS requires a loop in slow start even
+though it's rarely used. Configuring such an increase step via a global
+sysctl on different BDPS seems hard. Finally and most importantly the
+slow start overshoot concern is now better covered by the Hybrid slow
+start (hystart) enabled by default.
 
-+       if (tb[TCA_PIE_TUPDATE]) {
-+               /* tupdate is in us */
-+               u32 tupdate = nla_get_u32(tb[TCA_PIE_TUPDATE]);
-+               /* convert to pschedtime */
-+               q->params.tupdate = PSCHED_NS2TICKS((u64) tupdate * NSEC_PER_USEC);
-+       }
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ Documentation/networking/ip-sysctl.txt | 11 --------
+ include/net/tcp.h                      |  7 +++--
+ net/ipv4/sysctl_net_ipv4.c             |  7 -----
+ net/ipv4/tcp_bic.c                     |  5 ++--
+ net/ipv4/tcp_cong.c                    | 47 ++++++++++++----------------------
+ net/ipv4/tcp_cubic.c                   |  5 ++--
+ net/ipv4/tcp_highspeed.c               |  4 +--
+ net/ipv4/tcp_htcp.c                    |  4 +--
+ net/ipv4/tcp_hybla.c                   |  5 ++--
+ net/ipv4/tcp_illinois.c                |  5 ++--
+ net/ipv4/tcp_input.c                   |  6 ++---
+ net/ipv4/tcp_lp.c                      |  5 ++--
+ net/ipv4/tcp_scalable.c                |  5 ++--
+ net/ipv4/tcp_vegas.c                   | 11 ++++----
+ net/ipv4/tcp_veno.c                    |  9 ++++---
+ net/ipv4/tcp_yeah.c                    |  5 ++--
+ 16 files changed, 59 insertions(+), 82 deletions(-)
 
-...
-
-> +static void pie_timer(unsigned long arg)
-> +{
-> +	struct Qdisc *sch = (struct Qdisc *)arg;
-> +	struct pie_sched_data *q = qdisc_priv(sch);
-> +	u32 tup;
-> +	spinlock_t *root_lock = qdisc_lock(qdisc_root_sleeping(sch));
-> +
-> +	spin_lock(root_lock);
-> +	calculate_probability(sch);
-> +
-> +	/* reset the timer to fire after 'tupdate'. tupdate is currently in
-> +	 * psched_time; mod_timer expects time to be in jiffies so convert from
-> +	 * pschedtime to jiffies
-> +	 */
-> +	tup = PSCHED_TICKS2NS(q->params.tupdate);
-> +	tup = tup / NSEC_PER_MSEC;
-> +	tup = (tup * HZ) / MSEC_PER_SEC;
-> +
-> +	mod_timer(&q->adapt_timer, jiffies + tup);
-> +	spin_unlock(root_lock);
-> +
-> +}
-
-Oh well, this makes no sense.
-
-mod_timer() resolution is in jiffies, so please maintains params.tupdate
-in usec, and use usecs_to_jiffies()
-
-	mod_timer(&q->adapt_timer, jiffies +
-				   usecs_to_jiffies(q->params.tupdate));
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 6c00983..8b8a057 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -267,17 +267,6 @@ tcp_max_orphans - INTEGER
+ 	more aggressively. Let me to remind again: each orphan eats
+ 	up to ~64K of unswappable memory.
+ 
+-tcp_max_ssthresh - INTEGER
+-	Limited Slow-Start for TCP with large congestion windows (cwnd) defined in
+-	RFC3742. Limited slow-start is a mechanism to limit growth of the cwnd
+-	on the region where cwnd is larger than tcp_max_ssthresh. TCP increases cwnd
+-	by at most tcp_max_ssthresh segments, and by at least tcp_max_ssthresh/2
+-	segments per RTT when the cwnd is above tcp_max_ssthresh.
+-	If TCP connection increased cwnd to thousands (or tens of thousands) segments,
+-	and thousands of packets were being dropped during slow-start, you can set
+-	tcp_max_ssthresh to improve performance for new TCP connection.
+-	Default: 0 (off)
+-
+ tcp_max_syn_backlog - INTEGER
+ 	Maximal number of remembered connection requests, which have not
+ 	received an acknowledgment from connecting client.
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 2d7b4bd..70e55d2 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -275,7 +275,6 @@ extern int sysctl_tcp_mtu_probing;
+ extern int sysctl_tcp_base_mss;
+ extern int sysctl_tcp_workaround_signed_windows;
+ extern int sysctl_tcp_slow_start_after_idle;
+-extern int sysctl_tcp_max_ssthresh;
+ extern int sysctl_tcp_thin_linear_timeouts;
+ extern int sysctl_tcp_thin_dupack;
+ extern int sysctl_tcp_early_retrans;
+@@ -797,7 +796,7 @@ struct tcp_congestion_ops {
+ 	/* lower bound for congestion window (optional) */
+ 	u32 (*min_cwnd)(const struct sock *sk);
+ 	/* do new cwnd calculation (required) */
+-	void (*cong_avoid)(struct sock *sk, u32 ack, u32 in_flight);
++	void (*cong_avoid)(struct sock *sk, u32 ack, u32 acked, u32 in_flight);
+ 	/* call before changing ca_state (optional) */
+ 	void (*set_state)(struct sock *sk, u8 new_state);
+ 	/* call when cwnd event occurs (optional) */
+@@ -824,12 +823,12 @@ void tcp_get_available_congestion_control(char *buf, size_t len);
+ void tcp_get_allowed_congestion_control(char *buf, size_t len);
+ int tcp_set_allowed_congestion_control(char *allowed);
+ int tcp_set_congestion_control(struct sock *sk, const char *name);
+-void tcp_slow_start(struct tcp_sock *tp);
++int tcp_slow_start(struct tcp_sock *tp, u32 acked);
+ void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w);
+ 
+ extern struct tcp_congestion_ops tcp_init_congestion_ops;
+ u32 tcp_reno_ssthresh(struct sock *sk);
+-void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight);
++void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 acked, u32 in_flight);
+ u32 tcp_reno_min_cwnd(const struct sock *sk);
+ extern struct tcp_congestion_ops tcp_reno;
+ 
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index d5b1390..3d69ec8 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -701,13 +701,6 @@ static struct ctl_table ipv4_table[] = {
+ 		.proc_handler   = proc_allowed_congestion_control,
+ 	},
+ 	{
+-		.procname	= "tcp_max_ssthresh",
+-		.data		= &sysctl_tcp_max_ssthresh,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
+-	},
+-	{
+ 		.procname       = "tcp_thin_linear_timeouts",
+ 		.data           = &sysctl_tcp_thin_linear_timeouts,
+ 		.maxlen         = sizeof(int),
+diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
+index f45e1c2..821846f 100644
+--- a/net/ipv4/tcp_bic.c
++++ b/net/ipv4/tcp_bic.c
+@@ -140,7 +140,8 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
+ 		ca->cnt = 1;
+ }
+ 
+-static void bictcp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
++static void bictcp_cong_avoid(struct sock *sk, u32 ack, u32 acked,
++			      u32 in_flight)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct bictcp *ca = inet_csk_ca(sk);
+@@ -149,7 +150,7 @@ static void bictcp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 		return;
+ 
+ 	if (tp->snd_cwnd <= tp->snd_ssthresh)
+-		tcp_slow_start(tp);
++		tcp_slow_start(tp, acked);
+ 	else {
+ 		bictcp_update(ca, tp->snd_cwnd);
+ 		tcp_cong_avoid_ai(tp, ca->cnt);
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 019c238..ad37bf1 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -15,8 +15,6 @@
+ #include <linux/gfp.h>
+ #include <net/tcp.h>
+ 
+-int sysctl_tcp_max_ssthresh = 0;
+-
+ static DEFINE_SPINLOCK(tcp_cong_list_lock);
+ static LIST_HEAD(tcp_cong_list);
+ 
+@@ -299,35 +297,24 @@ bool tcp_is_cwnd_limited(const struct sock *sk, u32 in_flight)
+ }
+ EXPORT_SYMBOL_GPL(tcp_is_cwnd_limited);
+ 
+-/*
+- * Slow start is used when congestion window is less than slow start
+- * threshold. This version implements the basic RFC2581 version
+- * and optionally supports:
+- * 	RFC3742 Limited Slow Start  	  - growth limited to max_ssthresh
+- *	RFC3465 Appropriate Byte Counting - growth limited by bytes acknowledged
++/* Slow start is used when congestion window is no greater than the slow start
++ * threshold. We base on RFC2581 and also handle stretch ACKs properly.
++ * We do not implement RFC3465 Appropriate Byte Counting (ABC) per se but
++ * something better;) a packet is only considered (s)acked in its entirety to
++ * defend the ACK attacks described in the RFC. Slow start processes a stretch
++ * ACK of degree N as if N acks of degree 1 are received back to back except
++ * ABC caps N to 2. Slow start exits when cwnd grows over ssthresh and
++ * returns the leftover acks to adjust cwnd in congestion avoidance mode.
+  */
+-void tcp_slow_start(struct tcp_sock *tp)
++int tcp_slow_start(struct tcp_sock *tp, u32 acked)
+ {
+-	int cnt; /* increase in packets */
+-	unsigned int delta = 0;
+-	u32 snd_cwnd = tp->snd_cwnd;
+-
+-	if (unlikely(!snd_cwnd)) {
+-		pr_err_once("snd_cwnd is nul, please report this bug.\n");
+-		snd_cwnd = 1U;
+-	}
++	u32 cwnd = tp->snd_cwnd + acked;
+ 
+-	if (sysctl_tcp_max_ssthresh > 0 && tp->snd_cwnd > sysctl_tcp_max_ssthresh)
+-		cnt = sysctl_tcp_max_ssthresh >> 1;	/* limited slow start */
+-	else
+-		cnt = snd_cwnd;				/* exponential increase */
+-
+-	tp->snd_cwnd_cnt += cnt;
+-	while (tp->snd_cwnd_cnt >= snd_cwnd) {
+-		tp->snd_cwnd_cnt -= snd_cwnd;
+-		delta++;
+-	}
+-	tp->snd_cwnd = min(snd_cwnd + delta, tp->snd_cwnd_clamp);
++	if (cwnd > tp->snd_ssthresh)
++		cwnd = tp->snd_ssthresh + 1;
++	acked -= cwnd - tp->snd_cwnd;
++	tp->snd_cwnd = min(cwnd, tp->snd_cwnd_clamp);
++	return acked;
+ }
+ EXPORT_SYMBOL_GPL(tcp_slow_start);
+ 
+@@ -351,7 +338,7 @@ EXPORT_SYMBOL_GPL(tcp_cong_avoid_ai);
+ /* This is Jacobson's slow start and congestion avoidance.
+  * SIGCOMM '88, p. 328.
+  */
+-void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
++void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 acked, u32 in_flight)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+@@ -360,7 +347,7 @@ void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 
+ 	/* In "safe" area, increase. */
+ 	if (tp->snd_cwnd <= tp->snd_ssthresh)
+-		tcp_slow_start(tp);
++		tcp_slow_start(tp, acked);
+ 	/* In dangerous area, increase slowly. */
+ 	else
+ 		tcp_cong_avoid_ai(tp, tp->snd_cwnd);
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+index b6ae92a..828e4c3 100644
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -304,7 +304,8 @@ static inline void bictcp_update(struct bictcp *ca, u32 cwnd)
+ 		ca->cnt = 1;
+ }
+ 
+-static void bictcp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
++static void bictcp_cong_avoid(struct sock *sk, u32 ack, u32 acked,
++			      u32 in_flight)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct bictcp *ca = inet_csk_ca(sk);
+@@ -315,7 +316,7 @@ static void bictcp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 	if (tp->snd_cwnd <= tp->snd_ssthresh) {
+ 		if (hystart && after(ack, ca->end_seq))
+ 			bictcp_hystart_reset(sk);
+-		tcp_slow_start(tp);
++		tcp_slow_start(tp, acked);
+ 	} else {
+ 		bictcp_update(ca, tp->snd_cwnd);
+ 		tcp_cong_avoid_ai(tp, ca->cnt);
+diff --git a/net/ipv4/tcp_highspeed.c b/net/ipv4/tcp_highspeed.c
+index 30f27f6..8ed9305 100644
+--- a/net/ipv4/tcp_highspeed.c
++++ b/net/ipv4/tcp_highspeed.c
+@@ -109,7 +109,7 @@ static void hstcp_init(struct sock *sk)
+ 	tp->snd_cwnd_clamp = min_t(u32, tp->snd_cwnd_clamp, 0xffffffff/128);
+ }
+ 
+-static void hstcp_cong_avoid(struct sock *sk, u32 adk, u32 in_flight)
++static void hstcp_cong_avoid(struct sock *sk, u32 ack, u32 acked, u32 in_flight)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct hstcp *ca = inet_csk_ca(sk);
+@@ -118,7 +118,7 @@ static void hstcp_cong_avoid(struct sock *sk, u32 adk, u32 in_flight)
+ 		return;
+ 
+ 	if (tp->snd_cwnd <= tp->snd_ssthresh)
+-		tcp_slow_start(tp);
++		tcp_slow_start(tp, acked);
+ 	else {
+ 		/* Update AIMD parameters.
+ 		 *
+diff --git a/net/ipv4/tcp_htcp.c b/net/ipv4/tcp_htcp.c
+index c1a8175..4a194ac 100644
+--- a/net/ipv4/tcp_htcp.c
++++ b/net/ipv4/tcp_htcp.c
+@@ -227,7 +227,7 @@ static u32 htcp_recalc_ssthresh(struct sock *sk)
+ 	return max((tp->snd_cwnd * ca->beta) >> 7, 2U);
+ }
+ 
+-static void htcp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
++static void htcp_cong_avoid(struct sock *sk, u32 ack, u32 acked, u32 in_flight)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct htcp *ca = inet_csk_ca(sk);
+@@ -236,7 +236,7 @@ static void htcp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 		return;
+ 
+ 	if (tp->snd_cwnd <= tp->snd_ssthresh)
+-		tcp_slow_start(tp);
++		tcp_slow_start(tp, acked);
+ 	else {
+ 		/* In dangerous area, increase slowly.
+ 		 * In theory this is tp->snd_cwnd += alpha / tp->snd_cwnd
+diff --git a/net/ipv4/tcp_hybla.c b/net/ipv4/tcp_hybla.c
+index 57bdd17..478fe82 100644
+--- a/net/ipv4/tcp_hybla.c
++++ b/net/ipv4/tcp_hybla.c
+@@ -85,7 +85,8 @@ static inline u32 hybla_fraction(u32 odds)
+  *     o Give cwnd a new value based on the model proposed
+  *     o remember increments <1
+  */
+-static void hybla_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
++static void hybla_cong_avoid(struct sock *sk, u32 ack, u32 acked,
++			     u32 in_flight)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct hybla *ca = inet_csk_ca(sk);
+@@ -102,7 +103,7 @@ static void hybla_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 		return;
+ 
+ 	if (!ca->hybla_en) {
+-		tcp_reno_cong_avoid(sk, ack, in_flight);
++		tcp_reno_cong_avoid(sk, ack, acked, in_flight);
+ 		return;
+ 	}
+ 
+diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
+index 834857f..8a52099 100644
+--- a/net/ipv4/tcp_illinois.c
++++ b/net/ipv4/tcp_illinois.c
+@@ -256,7 +256,8 @@ static void tcp_illinois_state(struct sock *sk, u8 new_state)
+ /*
+  * Increase window in response to successful acknowledgment.
+  */
+-static void tcp_illinois_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
++static void tcp_illinois_cong_avoid(struct sock *sk, u32 ack, u32 acked,
++				    u32 in_flight)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct illinois *ca = inet_csk_ca(sk);
+@@ -270,7 +271,7 @@ static void tcp_illinois_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 
+ 	/* In slow start */
+ 	if (tp->snd_cwnd <= tp->snd_ssthresh)
+-		tcp_slow_start(tp);
++		tcp_slow_start(tp, acked);
+ 
+ 	else {
+ 		u32 delta;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index b935397..ad8d869 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2928,10 +2928,10 @@ static void tcp_synack_rtt_meas(struct sock *sk, struct request_sock *req)
+ 	tcp_ack_update_rtt(sk, FLAG_SYN_ACKED, seq_rtt, -1);
+ }
+ 
+-static void tcp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
++static void tcp_cong_avoid(struct sock *sk, u32 ack, u32 acked, u32 in_flight)
+ {
+ 	const struct inet_connection_sock *icsk = inet_csk(sk);
+-	icsk->icsk_ca_ops->cong_avoid(sk, ack, in_flight);
++	icsk->icsk_ca_ops->cong_avoid(sk, ack, acked, in_flight);
+ 	tcp_sk(sk)->snd_cwnd_stamp = tcp_time_stamp;
+ }
+ 
+@@ -3441,7 +3441,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 
+ 	/* Advance cwnd if state allows */
+ 	if (tcp_may_raise_cwnd(sk, flag))
+-		tcp_cong_avoid(sk, ack, prior_in_flight);
++		tcp_cong_avoid(sk, ack, acked, prior_in_flight);
+ 
+ 	if (tcp_ack_is_dubious(sk, flag)) {
+ 		is_dupack = !(flag & (FLAG_SND_UNA_ADVANCED | FLAG_NOT_DUP));
+diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
+index 72f7218..991d62a 100644
+--- a/net/ipv4/tcp_lp.c
++++ b/net/ipv4/tcp_lp.c
+@@ -115,12 +115,13 @@ static void tcp_lp_init(struct sock *sk)
+  * Will only call newReno CA when away from inference.
+  * From TCP-LP's paper, this will be handled in additive increasement.
+  */
+-static void tcp_lp_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
++static void tcp_lp_cong_avoid(struct sock *sk, u32 ack, u32 acked,
++			      u32 in_flight)
+ {
+ 	struct lp *lp = inet_csk_ca(sk);
+ 
+ 	if (!(lp->flag & LP_WITHIN_INF))
+-		tcp_reno_cong_avoid(sk, ack, in_flight);
++		tcp_reno_cong_avoid(sk, ack, acked, in_flight);
+ }
+ 
+ /**
+diff --git a/net/ipv4/tcp_scalable.c b/net/ipv4/tcp_scalable.c
+index 8ce55b8..19ea6c2 100644
+--- a/net/ipv4/tcp_scalable.c
++++ b/net/ipv4/tcp_scalable.c
+@@ -15,7 +15,8 @@
+ #define TCP_SCALABLE_AI_CNT	50U
+ #define TCP_SCALABLE_MD_SCALE	3
+ 
+-static void tcp_scalable_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
++static void tcp_scalable_cong_avoid(struct sock *sk, u32 ack, u32 acked,
++				    u32 in_flight)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+@@ -23,7 +24,7 @@ static void tcp_scalable_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 		return;
+ 
+ 	if (tp->snd_cwnd <= tp->snd_ssthresh)
+-		tcp_slow_start(tp);
++		tcp_slow_start(tp, acked);
+ 	else
+ 		tcp_cong_avoid_ai(tp, min(tp->snd_cwnd, TCP_SCALABLE_AI_CNT));
+ }
+diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
+index 80fa2bf..06cae62 100644
+--- a/net/ipv4/tcp_vegas.c
++++ b/net/ipv4/tcp_vegas.c
+@@ -163,13 +163,14 @@ static inline u32 tcp_vegas_ssthresh(struct tcp_sock *tp)
+ 	return  min(tp->snd_ssthresh, tp->snd_cwnd-1);
+ }
+ 
+-static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
++static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 acked,
++				 u32 in_flight)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct vegas *vegas = inet_csk_ca(sk);
+ 
+ 	if (!vegas->doing_vegas_now) {
+-		tcp_reno_cong_avoid(sk, ack, in_flight);
++		tcp_reno_cong_avoid(sk, ack, acked, in_flight);
+ 		return;
+ 	}
+ 
+@@ -194,7 +195,7 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 			/* We don't have enough RTT samples to do the Vegas
+ 			 * calculation, so we'll behave like Reno.
+ 			 */
+-			tcp_reno_cong_avoid(sk, ack, in_flight);
++			tcp_reno_cong_avoid(sk, ack, acked, in_flight);
+ 		} else {
+ 			u32 rtt, diff;
+ 			u64 target_cwnd;
+@@ -243,7 +244,7 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 
+ 			} else if (tp->snd_cwnd <= tp->snd_ssthresh) {
+ 				/* Slow start.  */
+-				tcp_slow_start(tp);
++				tcp_slow_start(tp, acked);
+ 			} else {
+ 				/* Congestion avoidance. */
+ 
+@@ -283,7 +284,7 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 	}
+ 	/* Use normal slow start */
+ 	else if (tp->snd_cwnd <= tp->snd_ssthresh)
+-		tcp_slow_start(tp);
++		tcp_slow_start(tp, acked);
+ 
+ }
+ 
+diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
+index ac43cd7..326475a 100644
+--- a/net/ipv4/tcp_veno.c
++++ b/net/ipv4/tcp_veno.c
+@@ -114,13 +114,14 @@ static void tcp_veno_cwnd_event(struct sock *sk, enum tcp_ca_event event)
+ 		tcp_veno_init(sk);
+ }
+ 
+-static void tcp_veno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
++static void tcp_veno_cong_avoid(struct sock *sk, u32 ack, u32 acked,
++				u32 in_flight)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct veno *veno = inet_csk_ca(sk);
+ 
+ 	if (!veno->doing_veno_now) {
+-		tcp_reno_cong_avoid(sk, ack, in_flight);
++		tcp_reno_cong_avoid(sk, ack, acked, in_flight);
+ 		return;
+ 	}
+ 
+@@ -133,7 +134,7 @@ static void tcp_veno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 		/* We don't have enough rtt samples to do the Veno
+ 		 * calculation, so we'll behave like Reno.
+ 		 */
+-		tcp_reno_cong_avoid(sk, ack, in_flight);
++		tcp_reno_cong_avoid(sk, ack, acked, in_flight);
+ 	} else {
+ 		u64 target_cwnd;
+ 		u32 rtt;
+@@ -152,7 +153,7 @@ static void tcp_veno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 
+ 		if (tp->snd_cwnd <= tp->snd_ssthresh) {
+ 			/* Slow start.  */
+-			tcp_slow_start(tp);
++			tcp_slow_start(tp, acked);
+ 		} else {
+ 			/* Congestion avoidance. */
+ 			if (veno->diff < beta) {
+diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
+index 05c3b6f..a347a07 100644
+--- a/net/ipv4/tcp_yeah.c
++++ b/net/ipv4/tcp_yeah.c
+@@ -69,7 +69,8 @@ static void tcp_yeah_pkts_acked(struct sock *sk, u32 pkts_acked, s32 rtt_us)
+ 	tcp_vegas_pkts_acked(sk, pkts_acked, rtt_us);
+ }
+ 
+-static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
++static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack, u32 acked,
++				u32 in_flight)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct yeah *yeah = inet_csk_ca(sk);
+@@ -78,7 +79,7 @@ static void tcp_yeah_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
+ 		return;
+ 
+ 	if (tp->snd_cwnd <= tp->snd_ssthresh)
+-		tcp_slow_start(tp);
++		tcp_slow_start(tp, acked);
+ 
+ 	else if (!yeah->doing_reno_now) {
+ 		/* Scalable */
+-- 
+1.8.4.1
