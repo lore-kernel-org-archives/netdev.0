@@ -1,105 +1,82 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: remove the unnecessary statement in find_match()
-Date: Thu, 31 Oct 2013 12:57:18 +0100
-Message-ID: <20131031115718.GC17210@order.stressinduktion.org>
-References: <5270B7AE.9020801@cn.fujitsu.com> <20131030.170837.1882918923249091614.davem@davemloft.net> <20131030211157.GA13902@order.stressinduktion.org> <20131031.002234.45924350853188128.davem@davemloft.net> <5271F263.4020800@cn.fujitsu.com> <20131031084537.GA17210@order.stressinduktion.org> <52723A84.9080308@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 02/10] net/mlx4_core: Fix register/unreg vlan flow
+Date: Thu, 31 Oct 2013 14:29:21 +0200
+Message-ID: <1383222569-10930-3-git-send-email-ogerlitz@mellanox.com>
+References: <1383222569-10930-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, roland@kernel.org,
+	jackm@dev.mellanox.co.il, Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:40844 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751817Ab3JaL5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 07:57:19 -0400
-Content-Disposition: inline
-In-Reply-To: <52723A84.9080308@cn.fujitsu.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:41686 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752866Ab3JaM3q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Oct 2013 08:29:46 -0400
+In-Reply-To: <1383222569-10930-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 31, 2013 at 07:09:56PM +0800, Duan Jiong wrote:
-> =E4=BA=8E 2013=E5=B9=B410=E6=9C=8831=E6=97=A5 16:45, Hannes Frederic =
-Sowa =E5=86=99=E9=81=93:
-> > On Thu, Oct 31, 2013 at 02:02:11PM +0800, Duan Jiong wrote:
-> >> =E4=BA=8E 2013=E5=B9=B410=E6=9C=8831=E6=97=A5 12:22, David Miller =
-=E5=86=99=E9=81=93:
-> >>> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> >>> Date: Wed, 30 Oct 2013 22:11:57 +0100
-> >>>
-> >>>> On Wed, Oct 30, 2013 at 05:08:37PM -0400, David Miller wrote:
-> >>>>> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> >>>>> Date: Wed, 30 Oct 2013 15:39:26 +0800
-> >>>>>
-> >>>>>>
-> >>>>>> After reading the function rt6_check_neigh(), we can
-> >>>>>> know that the RT6_NUD_FAIL_SOFT can be returned only
-> >>>>>> when the IS_ENABLE(CONFIG_IPV6_ROUTER_PREF) is false.
-> >>>>>> so in function find_match(), there is no need to execute
-> >>>>>> the statement !IS_ENABLED(CONFIG_IPV6_ROUTER_PREF).
-> >>>>>>
-> >>>>>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> >>>>>
-> >>>>> Applied to net-next, thanks.
-> >>>>>
-> >>>>> CONFIG_IPV6_ROUTER_PREF is another good candidate for Kconfig
-> >>>>> removal.  I know we've had several bugs that only apply when
-> >>>>> this option is on vs. off.  We're maintaining two different
-> >>>>> code paths, for really no good reason.
-> >>>>
-> >>>> I agree and actually thought about that yesterday. Do you think =
-a sysctl
-> >>>> is a good option?
-> >>>
-> >>> Every distribution ships with the Kconfig option on, and no sysct=
-l
-> >>> exists currently to control it.
-> >>>
-> >>> So I'd say it's not necessary at all, or at the very least let's =
-have
-> >>> someone come forward with a real rather than theoretical use case=
- for
-> >>> such a feature before adding it.
-> >>>
-> >>> Actually, if RFC 4191 has the usual language like "there SHOULD b=
-e
-> >>> an administrative mechanism to disable blah blah blah" I could
-> >>> be convinced to add it now.  Can someone take a look?
-> >>
-> >> It seems that there is no such an administrative mechanism in RFC =
-4191.
-> >>
-> >> By the way, if the sysctl is used, we are still maintaining two di=
-fferent
-> >> code paths, isn't it? so i think David's idea is good.
-> >=20
-> > Makes life easier, no objections from me.
-> >=20
->=20
-> Removing CONFIG_IPV6_ROUTER_PREF means that the Router Preference is =
-always
-> on, is this understanding right?
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-If we drop support for one of the routing scoring algorithms it will be=
- the
-other one. So yes, it will always be on.
+The reg/unreg vlan code was broken:
 
-> If that's is correct,  i think compatibility issues will arise. For e=
-xample, when the
-> CONFIG_IPV6_ROUTER_PREF option is on, the kernel should not do round-=
-robin during
-> default router selection, but when the CONFIG_IPV6_ROUTER_PREF option=
- is off, the
-> kernel should do it.
+1. a wrapped function called another wrapped function, causing a deadlock.
 
-Exactly, but all people use ROUTER_PREF activated given it is enabled
-by default by most distributions. I also know about no best practices
-or IX-policies where they want a router to deliberately turned router
-preference support off.
+2. unregister_vlan called cmd_box instead of cmd_box_imm, leading to
+   incorrectly passed parameters.
 
-We can talk about doing RR in the same preference level, I'll have to d=
-o more
-research on this.
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/port.c |   21 ++++++++++-----------
+ 1 files changed, 10 insertions(+), 11 deletions(-)
 
-But given that someone wants RR, it is better done by using ECMP routes=
-=2E
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 946e0af..d3d3106 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -284,7 +284,7 @@ static int mlx4_set_port_vlan_table(struct mlx4_dev *dev, u8 port,
+ 	memcpy(mailbox->buf, entries, MLX4_VLAN_TABLE_SIZE);
+ 	in_mod = MLX4_SET_PORT_VLAN_TABLE << 8 | port;
+ 	err = mlx4_cmd(dev, mailbox->dma, in_mod, 1, MLX4_CMD_SET_PORT,
+-		       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_WRAPPED);
++		       MLX4_CMD_TIME_CLASS_B, MLX4_CMD_NATIVE);
+ 
+ 	mlx4_free_cmd_mailbox(dev, mailbox);
+ 
+@@ -370,6 +370,9 @@ int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index)
+ 	u64 out_param = 0;
+ 	int err;
+ 
++	if (vlan > 4095)
++		return -EINVAL;
++
+ 	if (mlx4_is_mfunc(dev)) {
+ 		set_param_l(&out_param, port);
+ 		err = mlx4_cmd_imm(dev, vlan, &out_param, RES_VLAN,
+@@ -412,18 +415,14 @@ out:
+ 
+ void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, int index)
+ {
+-	u64 in_param = 0;
+-	int err;
++	u64 out_param = 0;
+ 
+ 	if (mlx4_is_mfunc(dev)) {
+-		set_param_l(&in_param, port);
+-		err = mlx4_cmd(dev, in_param, RES_VLAN, RES_OP_RESERVE_AND_MAP,
+-			       MLX4_CMD_FREE_RES, MLX4_CMD_TIME_CLASS_A,
+-			       MLX4_CMD_WRAPPED);
+-		if (!err)
+-			mlx4_warn(dev, "Failed freeing vlan at index:%d\n",
+-					index);
+-
++		set_param_l(&out_param, port);
++		(void) mlx4_cmd_imm(dev, index, &out_param, RES_VLAN,
++				    RES_OP_RESERVE_AND_MAP,
++				    MLX4_CMD_FREE_RES, MLX4_CMD_TIME_CLASS_A,
++				    MLX4_CMD_WRAPPED);
+ 		return;
+ 	}
+ 	__mlx4_unregister_vlan(dev, port, index);
+-- 
+1.7.1
