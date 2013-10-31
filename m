@@ -1,124 +1,151 @@
-From: "Du, ChangbinX" <changbinx.du@intel.com>
-Subject: RE: [PATCH] net/cdc_ncm: fix null pointer panic at
- usbnet_link_change
-Date: Thu, 31 Oct 2013 03:06:03 +0000
-Message-ID: <0C18FE92A7765D4EB9EE5D38D86A563A019F6384@SHSMSX103.ccr.corp.intel.com>
-References: <0C18FE92A7765D4EB9EE5D38D86A563A019F450F@SHSMSX103.ccr.corp.intel.com>
- <87wqkwii4p.fsf@nemi.mork.no>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 31 Oct 2013 15:19:12 +1100
+Message-ID: <20131031151912.3802d9b50ac5a3a09a69e63d@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "oliver@neukum.org" <oliver@neukum.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Bj?rn Mork <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87wqkwii4p.fsf@nemi.mork.no>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__31_Oct_2013_15_19_12_+1100_dvadapgdUST=sYt6"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Joe Perches <joe@perches.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiBGcm9tOiBCasO4cm4gTW9yayBbbWFpbHRvOmJqb3JuQG1vcmsubm9dDQo+IFNlbnQ6IFR1ZXNk
-YXksIE9jdG9iZXIgMjksIDIwMTMgNDo0MSBQTQ0KPiBUbzogRHUsIENoYW5nYmluWA0KPiBDYzog
-b2xpdmVyQG5ldWt1bS5vcmc7IGxpbnV4LXVzYkB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmc7DQo+IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDog
-UmU6IFtQQVRDSF0gbmV0L2NkY19uY206IGZpeCBudWxsIHBvaW50ZXIgcGFuaWMgYXQgdXNibmV0
-X2xpbmtfY2hhbmdlDQo+IA0KPiAiRHUsIENoYW5nYmluWCIgPGNoYW5nYmlueC5kdUBpbnRlbC5j
-b20+IHdyaXRlczoNCj4gDQo+ID4gRnJvbTogIkR1LCBDaGFuZ2JpbiIgPGNoYW5nYmlueC5kdUBp
-bnRlbC5jb20+DQo+ID4NCj4gPiBJbiBjZGNfbmNtX2JpbmQoKSBmdW5jdGlvbiwgaXQgY2FsbCBj
-ZGNfbmNtX2JpbmRfY29tbW9uKCkgdG8gc2V0dXAgdXNiLg0KPiA+IEJ1dCBjZGNfbmNtX2JpbmRf
-Y29tbW9uKCkgbWF5IG1lZXQgZXJyb3IgYW5kIGNhdXNlIHVzYm5ldF9kaXNjb25uZWN0KCkNCj4g
-PiBiZSBjYWxsZWQgd2hpY2ggY2FsbHMgZnJlZV9uZXRkZXYobmV0KS4NCj4gDQo+IEkgYW0gc3Vy
-ZSB5b3UgYXJlIHJpZ2h0LCBidXQgSSByZWFsbHkgZG9uJ3Qgc2VlIGhvdyB0aGF0IGNhbiBoYXBw
-ZW4uDQo+IA0KPiBBRkFJQ1MsIHdlIGVuc3VyZSB0aGF0IHRoZSBpbnRmZGF0YSBpcyBzZXQgdG8g
-TlVMTCBiZWZvcmUgY2FsbGluZw0KPiB1c2JfZHJpdmVyX3JlbGVhc2VfaW50ZXJmYWNlKCkgaW4g
-dGhlIGVycm9yIGNsZWFudXAgaW4NCj4gY2RjX25jbV9iaW5kX2NvbW1vbigpOg0KPiANCj4gDQo+
-IGVycm9yMjoNCj4gCXVzYl9zZXRfaW50ZmRhdGEoY3R4LT5jb250cm9sLCBOVUxMKTsNCj4gCXVz
-Yl9zZXRfaW50ZmRhdGEoY3R4LT5kYXRhLCBOVUxMKTsNCj4gCWlmIChjdHgtPmRhdGEgIT0gY3R4
-LT5jb250cm9sKQ0KPiAJCXVzYl9kcml2ZXJfcmVsZWFzZV9pbnRlcmZhY2UoZHJpdmVyLCBjdHgt
-PmRhdGEpOw0KPiBlcnJvcjoNCj4gCWNkY19uY21fZnJlZSgoc3RydWN0IGNkY19uY21fY3R4ICop
-ZGV2LT5kYXRhWzBdKTsNCj4gCWRldi0+ZGF0YVswXSA9IDA7DQo+IAlkZXZfaW5mbygmZGV2LT51
-ZGV2LT5kZXYsICJiaW5kKCkgZmFpbHVyZVxuIik7DQo+IAlyZXR1cm4gLUVOT0RFVjsNCj4gDQo+
-IA0KPiBUaHVzIHdlIGhpdCB0aGUgdGVzdCBpbiBkaXNjb25uZWN0LCBhbmQgdXNibmV0X2Rpc2Nv
-bm5lY3QoKSBpcyBuZXZlcg0KPiBjYWxsZWQ6DQo+IA0KPiBzdGF0aWMgdm9pZCBjZGNfbmNtX2Rp
-c2Nvbm5lY3Qoc3RydWN0IHVzYl9pbnRlcmZhY2UgKmludGYpDQo+IHsNCj4gCXN0cnVjdCB1c2Ju
-ZXQgKmRldiA9IHVzYl9nZXRfaW50ZmRhdGEoaW50Zik7DQo+IA0KPiAJaWYgKGRldiA9PSBOVUxM
-KQ0KPiAJCXJldHVybjsJCS8qIGFscmVhZHkgZGlzY29ubmVjdGVkICovDQo+IA0KPiAJdXNibmV0
-X2Rpc2Nvbm5lY3QoaW50Zik7DQo+IH0NCj4gDQo+IFNvIHdlIHNob3VsZCByZWFsbHkgYmUgT0ss
-IGJ1dCB3ZSBhcmUgbm90Pz8/PyAgSSB3b3VsZCBhcHByZWNpYXRlIGl0IGlmDQo+IGFueW9uZSB0
-b29rIHRoZSB0aW1lIHRvIGZlZWQgbWUgd2h5LCB3aXRoIGEgdmVyeSBzbWFsbCBzcG9vbi4uLg0K
-PiANCg0KWWVzLCB5b3UgYXJlIHJpZ2h0LiBJdCBzaG91bGQgbm90IGhhcHBlbiBpZiBjZGNfbmNt
-X2Rpc2Nvbm5lY3QgaXMgbm90IGNhbGxlZC4gQnV0IHRoaXMgcmVhbGx5IGhhcHBlbmVkLg0KSXQg
-cHJvZHVjZWQgb24ga2VybmVsIDMuMTAuIEhlcmUgaXMgdGhlIGZ1bGwgcGFuaWMgbWVzc2FnZSBm
-b3IgeW91IHRvIHJlZmVyLiBJIHdpbGwgZ2V0IGEgbWV0aG9kIHRyeSB0byANCnJlcHJvZHVjZSBp
-dC4NCg0KWyAgIDE1LjYzNTcyN10gQlVHOiBCYWQgcGFnZSBzdGF0ZSBpbiBwcm9jZXNzIGtodWJk
-ICBwZm46MzE5OTQNClsgICAxNS42NDE5ODldIHBhZ2U6ZjNhZDkyODAgY291bnQ6MCBtYXBjb3Vu
-dDowIG1hcHBpbmc6MDAwMDAwMjAgaW5kZXg6MHgwDQpbICAgMTUuNjQ5Mzg0XSBwYWdlIGZsYWdz
-OiAweDQwMDAwMDAwKCkNClsgICAxNS42NzAwOTZdIEJVRzogdW5hYmxlIHRvIGhhbmRsZSBrZXJu
-ZWwgTlVMTCBwb2ludGVyIGRlcmVmZXJlbmNlIGF0IDAwMDAwMDc4DQpbICAgMTUuNjc4MDc4XSBJ
-UDogWzxjMjRiN2Y1ZT5dIHVzYm5ldF9saW5rX2NoYW5nZSsweDFlLzB4ODANClsgICAxNS42ODQx
-MjBdICpwZGUgPSAwMDAwMDAwMCANClsgICAxNS42ODczMzldIE9vcHM6IDAwMDAgWyMxXSBTTVAg
-DQpbICAgMTUuNjkwOTUzXSBNb2R1bGVzIGxpbmtlZCBpbjogYXRtZWxfbXh0X3RzIHZ4ZDM5MiB2
-aWRlb2J1Zl92bWFsbG9jIHZpZGVvYnVmX2NvcmUgYmNtX2J0X2xwbSBiY200MzIpDQpbICAgMTUu
-NzAyNjU4XSBDUFU6IDAgUElEOiA1NzMgQ29tbToga2h1YmQgVGFpbnRlZDogRyAgICBCICAgVyAg
-TyAzLjEwLjErICMxDQpbICAgMTUuNzEwMjQxXSB0YXNrOiBmMjdlOGYzMCB0aTogZjIwODQwMDAg
-dGFzay50aTogZjIwODQwMDANClsgICAxNS43MTYyNzBdIEVJUDogMDA2MDpbPGMyNGI3ZjVlPl0g
-RUZMQUdTOiAwMDAxMDI0NiBDUFU6IDANClsgICAxNS43MjIzOTZdIEVJUCBpcyBhdCB1c2JuZXRf
-bGlua19jaGFuZ2UrMHgxZS8weDgwDQpbICAgMTUuNzI3NzQ3XSBFQVg6IGYxODUyNGMwIEVCWDog
-MDAwMDAwMDAgRUNYOiBmMTg1MjRjMCBFRFg6IDAwMDAwMDAwDQpbICAgMTUuNzM0NzQ2XSBFU0k6
-IGYxODUyNGMwIEVESTogMDAwMDAwMDAgRUJQOiBmMjA4NWI3YyBFU1A6IGYyMDg1YjcwDQpbICAg
-MTUuNzQxNzQ2XSBEUzogMDA3YiBFUzogMDA3YiBGUzogMDBkOCBHUzogMDAwMCBTUzogMDA2OA0K
-WyAgIDE1Ljc0Nzc3NV0gQ1IwOiA4MDA1MDAzYiBDUjI6IDAwMDAwMDc4IENSMzogMDJjM2IwMDAg
-Q1I0OiAwMDEwMDdkMA0KWyAgIDE1Ljc1NDc3NF0gRFIwOiAwMDAwMDAwMCBEUjE6IDAwMDAwMDAw
-IERSMjogMDAwMDAwMDAgRFIzOiAwMDAwMDAwMA0KWyAgIDE1Ljc2MTc3NF0gRFI2OiBmZmZmMGZm
-MCBEUjc6IDAwMDAwNDAwDQpbICAgMTUuNzY2MDU0XSBTdGFjazoNClsgICAxNS43NjgyOTVdICAw
-MDAwMDAwMCBmMTg1MjRjMCBjMmEwMzgxOCBmMjA4NWI4YyBjMjRiYzY5YSBmMTg1MjAwMCBmMWY1
-MmUwMCBmMjA4NWJlMA0KWyAgIDE1Ljc3Njk5MV0gIGMyNGI4ZDMyIDAwMDAwMDAwIDAwMDAwMDAx
-IDAwMDAwMDAwIGMyMTY3ZjJjIGYyMDg1YmI0IGMyODIxMjUzIGYyMDg1YmVjDQpbICAgMTUuNzg1
-Njg3XSAgMDAwMDAyNDYgMDAwMDAyNDYgZjE4ZDgwODggZjFmNTJlMWMgZjFmY2U0NjQgZjFmY2U0
-MDAgZjE4NTI0YzAgYzI4YTA2ZTANClsgICAxNS43OTQzNzZdIENhbGwgVHJhY2U6DQpbICAgMTUu
-Nzk3MTA5XSAgWzxjMjRiYzY5YT5dIGNkY19uY21fYmluZCsweDNhLzB4NTANClsgICAxNS44MDIy
-NjddICBbPGMyNGI4ZDMyPl0gdXNibmV0X3Byb2JlKzB4MjgyLzB4N2QwDQpbICAgMTUuODA3NjIx
-XSAgWzxjMjE2N2YyYz5dID8gc3lzZnNfbmV3X2RpcmVudCsweDZjLzB4MTAwDQpbICAgMTUuODEz
-NDYwXSAgWzxjMjgyMTI1Mz5dID8gbXV0ZXhfbG9jaysweDEzLzB4NDANClsgICAxNS44MTg2MThd
-ICBbPGMyNGJiMjc4Pl0gY2RjX25jbV9wcm9iZSsweDgvMHgxMA0KWyAgIDE1LjgyMzc3N10gIFs8
-YzI0ZTBlZjc+XSB1c2JfcHJvYmVfaW50ZXJmYWNlKzB4MTg3LzB4MmMwDQpbICAgMTUuODI5ODEx
-XSAgWzxjMjNjYWE4YT5dID8gZHJpdmVyX3N5c2ZzX2FkZCsweDZhLzB4OTANClsgICAxNS44MzU1
-NTBdICBbPGMyM2NiMjkwPl0gPyBfX2RyaXZlcl9hdHRhY2grMHg5MC8weDkwDQpbICAgMTUuODQx
-MTkyXSAgWzxjMjNjYWYxND5dIGRyaXZlcl9wcm9iZV9kZXZpY2UrMHg3NC8weDM2MA0KWyAgIDE1
-Ljg0NzEyN10gIFs8YzI0ZTA3YjE+XSA/IHVzYl9tYXRjaF9pZCsweDQxLzB4NjANClsgICAxNS44
-NTI0NzldICBbPGMyNGUwODFlPl0gPyB1c2JfZGV2aWNlX21hdGNoKzB4NGUvMHg5MA0KWyAgIDE1
-Ljg1ODIxOV0gIFs8YzIzY2IyOTA+XSA/IF9fZHJpdmVyX2F0dGFjaCsweDkwLzB4OTANClsgICAx
-NS44NjM4NjFdICBbPGMyM2NiMmM5Pl0gX19kZXZpY2VfYXR0YWNoKzB4MzkvMHg1MA0KWyAgIDE1
-Ljg2OTMxMV0gIFs8YzIzYzkzZjQ+XSBidXNfZm9yX2VhY2hfZHJ2KzB4MzQvMHg3MA0KWyAgIDE1
-Ljg3NDg1Nl0gIFs8YzIzY2FlMmI+XSBkZXZpY2VfYXR0YWNoKzB4N2IvMHg5MA0KWyAgIDE1Ljg4
-MDEwOV0gIFs8YzIzY2IyOTA+XSA/IF9fZHJpdmVyX2F0dGFjaCsweDkwLzB4OTANClsgICAxNS44
-ODU3NTJdICBbPGMyM2NhMzhmPl0gYnVzX3Byb2JlX2RldmljZSsweDZmLzB4OTANClsgICAxNS44
-OTEyOThdICBbPGMyM2M4YTA4Pl0gZGV2aWNlX2FkZCsweDU1OC8weDYzMA0KWyAgIDE1Ljg5NjQ1
-N10gIFs8YzI0ZTQ4MjE+XSA/IHVzYl9jcmVhdGVfZXBfZGV2cysweDcxLzB4ZDANClsgICAxNS45
-MDIzOTFdICBbPGMyNGRkMGRiPl0gPyBjcmVhdGVfaW50Zl9lcF9kZXZzKzB4NGIvMHg3MA0KWyAg
-IDE1LjkwODQyMl0gIFs8YzI0ZGYyYmY+XSB1c2Jfc2V0X2NvbmZpZ3VyYXRpb24rMHg0YmYvMHg4
-MDANClsgICAxNS45MTQ2NDhdICBbPGMyM2NiMjkwPl0gPyBfX2RyaXZlcl9hdHRhY2grMHg5MC8w
-eDkwDQpbICAgMTUuOTIwMjkyXSAgWzxjMjRlODA5Yj5dIGdlbmVyaWNfcHJvYmUrMHgyYi8weDkw
-DQpbICAgMTUuOTI1NTQ2XSAgWzxjMjRlMTA1Yz5dIHVzYl9wcm9iZV9kZXZpY2UrMHgyYy8weDcw
-DQpbICAgMTUuOTMxMDkxXSAgWzxjMjNjYWYxND5dIGRyaXZlcl9wcm9iZV9kZXZpY2UrMHg3NC8w
-eDM2MA0KWyAgIDE1Ljk0MzM0NV0gIFs8YzIyNzIxMDI+XSA/IGtvYmplY3RfdWV2ZW50X2Vudisw
-eDE4Mi8weDYyMA0KWyAgIDE1Ljk0OTQ3M10gIFs8YzIyNzIxMDI+XSA/IGtvYmplY3RfdWV2ZW50
-X2VudisweDE4Mi8weDYyMA0KWyAgIDE1Ljk1NTYwMV0gIFs8YzIzY2IyOTA+XSA/IF9fZHJpdmVy
-X2F0dGFjaCsweDkwLzB4OTANClsgICAxNS45NjEyNDJdICBbPGMyM2NiMmM5Pl0gX19kZXZpY2Vf
-YXR0YWNoKzB4MzkvMHg1MA0KWyAgIDE1Ljk2NjY5Ml0gIFs8YzIzYzkzZjQ+XSBidXNfZm9yX2Vh
-Y2hfZHJ2KzB4MzQvMHg3MA0KWyAgIDE1Ljk3MjIzOF0gIFs8YzIzY2FlMmI+XSBkZXZpY2VfYXR0
-YWNoKzB4N2IvMHg5MA0KWyAgIDE1Ljk3NzQ5Ml0gIFs8YzIzY2IyOTA+XSA/IF9fZHJpdmVyX2F0
-dGFjaCsweDkwLzB4OTANClsgICAxNS45ODMxMzVdICBbPGMyM2NhMzhmPl0gYnVzX3Byb2JlX2Rl
-dmljZSsweDZmLzB4OTANClsgICAxNS45ODg2ODJdICBbPGMyM2M4YTA4Pl0gZGV2aWNlX2FkZCsw
-eDU1OC8weDYzMA0KWyAgIDE1Ljk5Mzg0MV0gIFs8YzIzMjBiMTA+XSA/IGFkZF9kZXZpY2VfcmFu
-ZG9tbmVzcysweDYwLzB4NzANClsgICAxNi4wMDAwNjldICBbPGMyNGQ2NDJmPl0gdXNiX25ld19k
-ZXZpY2UrMHgxZGYvMHgzNjANClsgICAxNi4wMDU2MTZdICBbPGMyNGU4MWY2Pl0gPyB1c2JfZGV0
-ZWN0X3F1aXJrcysweDE2LzB4NzANClsgICAxNi4wMTE0NTRdICBbPGMyNGQ3YTlmPl0gaHViX3Ro
-cmVhZCsweGQyZi8weDE1NDANClsgICAxNi4wMTY3MTBdICBbPGMyMDU3M2EwPl0gPyBmaW5pc2hf
-d2FpdCsweDYwLzB4NjANClsgICAxNi4wMjE5NjVdICBbPGMyNGQ2ZDcwPl0gPyBodWJfcG9ydF9k
-ZWJvdW5jZSsweDEzMC8weDEzMA0KWyAgIDE2LjAyNzk5Nl0gIFs8YzIwNTZmMWY+XSBrdGhyZWFk
-KzB4OGYvMHhhMA0KWyAgIDE2LjAzMjY2OV0gIFs8YzI4MmEyMzc+XSByZXRfZnJvbV9rZXJuZWxf
-dGhyZWFkKzB4MWIvMHgyOA0KWyAgIDE2LjAzODc5OF0gIFs8YzIwNTZlOTA+XSA/IGt0aHJlYWRf
-Y3JlYXRlX29uX25vZGUrMHhjMC8weGMwDQo=
+--Signature=_Thu__31_Oct_2013_15_19_12_+1100_dvadapgdUST=sYt6
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi all,
+
+Today's linux-next merge of the net-next tree got a conflict in
+net/bridge/br_private.h between commit 06499098a02b ("bridge: pass
+correct vlan id to multicast code") from the net tree and commit
+348662a1429f ("net: 8021q/bluetooth/bridge/can/ceph: Remove extern from
+function prototypes") from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/bridge/br_private.h
+index 2e8244efb262,d1ca6d956633..000000000000
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@@ -449,44 -434,40 +434,40 @@@ int br_ioctl_deviceless_stub(struct ne
+  /* br_multicast.c */
+  #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+  extern unsigned int br_mdb_rehash_seq;
+- extern int br_multicast_rcv(struct net_bridge *br,
+- 			    struct net_bridge_port *port,
+- 			    struct sk_buff *skb,
+- 			    u16 vid);
+- extern struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
+- 					       struct sk_buff *skb, u16 vid);
+- extern void br_multicast_add_port(struct net_bridge_port *port);
+- extern void br_multicast_del_port(struct net_bridge_port *port);
+- extern void br_multicast_enable_port(struct net_bridge_port *port);
+- extern void br_multicast_disable_port(struct net_bridge_port *port);
+- extern void br_multicast_init(struct net_bridge *br);
+- extern void br_multicast_open(struct net_bridge *br);
+- extern void br_multicast_stop(struct net_bridge *br);
+- extern void br_multicast_deliver(struct net_bridge_mdb_entry *mdst,
+- 				 struct sk_buff *skb);
+- extern void br_multicast_forward(struct net_bridge_mdb_entry *mdst,
+- 				 struct sk_buff *skb, struct sk_buff *skb2);
+- extern int br_multicast_set_router(struct net_bridge *br, unsigned long v=
+al);
+- extern int br_multicast_set_port_router(struct net_bridge_port *p,
+- 					unsigned long val);
+- extern int br_multicast_toggle(struct net_bridge *br, unsigned long val);
+- extern int br_multicast_set_querier(struct net_bridge *br, unsigned long =
+val);
+- extern int br_multicast_set_hash_max(struct net_bridge *br, unsigned long=
+ val);
+- extern struct net_bridge_mdb_entry *br_mdb_ip_get(
+- 				struct net_bridge_mdb_htable *mdb,
+- 				struct br_ip *dst);
+- extern struct net_bridge_mdb_entry *br_multicast_new_group(struct net_bri=
+dge *br,
+- 				struct net_bridge_port *port, struct br_ip *group);
+- extern void br_multicast_free_pg(struct rcu_head *head);
+- extern struct net_bridge_port_group *br_multicast_new_port_group(
+- 				struct net_bridge_port *port,
+- 				struct br_ip *group,
+- 				struct net_bridge_port_group __rcu *next,
+- 				unsigned char state);
+- extern void br_mdb_init(void);
+- extern void br_mdb_uninit(void);
+- extern void br_mdb_notify(struct net_device *dev, struct net_bridge_port =
+*port,
+- 			  struct br_ip *group, int type);
++ int br_multicast_rcv(struct net_bridge *br, struct net_bridge_port *port,
+ -		     struct sk_buff *skb);
+++		     struct sk_buff *skb, u16 vid);
++ struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
++ 					struct sk_buff *skb, u16 vid);
++ void br_multicast_add_port(struct net_bridge_port *port);
++ void br_multicast_del_port(struct net_bridge_port *port);
++ void br_multicast_enable_port(struct net_bridge_port *port);
++ void br_multicast_disable_port(struct net_bridge_port *port);
++ void br_multicast_init(struct net_bridge *br);
++ void br_multicast_open(struct net_bridge *br);
++ void br_multicast_stop(struct net_bridge *br);
++ void br_multicast_deliver(struct net_bridge_mdb_entry *mdst,
++ 			  struct sk_buff *skb);
++ void br_multicast_forward(struct net_bridge_mdb_entry *mdst,
++ 			  struct sk_buff *skb, struct sk_buff *skb2);
++ int br_multicast_set_router(struct net_bridge *br, unsigned long val);
++ int br_multicast_set_port_router(struct net_bridge_port *p, unsigned long=
+ val);
++ int br_multicast_toggle(struct net_bridge *br, unsigned long val);
++ int br_multicast_set_querier(struct net_bridge *br, unsigned long val);
++ int br_multicast_set_hash_max(struct net_bridge *br, unsigned long val);
++ struct net_bridge_mdb_entry *
++ br_mdb_ip_get(struct net_bridge_mdb_htable *mdb, struct br_ip *dst);
++ struct net_bridge_mdb_entry *
++ br_multicast_new_group(struct net_bridge *br, struct net_bridge_port *por=
+t,
++ 		       struct br_ip *group);
++ void br_multicast_free_pg(struct rcu_head *head);
++ struct net_bridge_port_group *
++ br_multicast_new_port_group(struct net_bridge_port *port, struct br_ip *g=
+roup,
++ 			    struct net_bridge_port_group __rcu *next,
++ 			    unsigned char state);
++ void br_mdb_init(void);
++ void br_mdb_uninit(void);
++ void br_mdb_notify(struct net_device *dev, struct net_bridge_port *port,
++ 		   struct br_ip *group, int type);
+ =20
+  #define mlock_dereference(X, br) \
+  	rcu_dereference_protected(X, lockdep_is_held(&br->multicast_lock))
+
+--Signature=_Thu__31_Oct_2013_15_19_12_+1100_dvadapgdUST=sYt6
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJScdpFAAoJEMDTa8Ir7ZwVT1YP/3FAuPmTjeGTqsR9n0h9raZk
+sNRYruI7i4RH2+pGR0VdOsFF0n1XsYEEd2ulb+a4sPgrjh1zv1z/ca+wTHuGnqPP
+ZlHwVO/1fMWlBPpUoBsMB68YkR3lFkz6dw4WCPBvx3al7/WkYX4t/ZEndl16Gkbd
+JPY6QJc1kgxEW+9BWCyfgOE7B/Nov5qGQ8GQK2u68wRj63ajQEUlnD/40vDtqLs/
+JmfbY+ngpBM+4EALdBEtxh7I+W8zERjPwOLtNmDYzc1tomVIqyBL1x8zW58y8JMs
+IKC4GVksiAJmG5Xf8hoFLJnD3Ukg3dpvpi69OvtCIQ4KtVjK5TZ+/fiLBaJ7q72q
+6bm3WM/nGpNcRgvZQC2ScoZESSrq1q9bqEqZh3yIYhI3dckCH+r1LvMXQ1H9OhHO
+w8y/szRG6cgperb1G/2jvXrnFRyANTgc9yZAaFk/AVpiBxRoHbYYWNcCq0b/sH/e
+vXSvJysB6QmQXm7VzTrjzdHjrZVWMOEyh4ETegubpexmPxMfBzcz6S9ptDcKcCte
+EjjafvBruDF1lOP5AhLAhNapCzGPzixRfXUnDFdiSqs3+7/S6lbI9TOIh7CWyDfD
+jS8UJimEuO+cMbSt5y8UqV/XB7Yg2I7IXvJzzSf9c4LtYfkL9aTwuZSIyOQRx0op
+wp1fjXQZDu8RrkZihZno
+=SBGw
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__31_Oct_2013_15_19_12_+1100_dvadapgdUST=sYt6--
