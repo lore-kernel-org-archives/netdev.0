@@ -1,59 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: remove the unnecessary statement in find_match()
-Date: Thu, 31 Oct 2013 00:22:34 -0400 (EDT)
-Message-ID: <20131031.002234.45924350853188128.davem@davemloft.net>
-References: <5270B7AE.9020801@cn.fujitsu.com>
-	<20131030.170837.1882918923249091614.davem@davemloft.net>
-	<20131030211157.GA13902@order.stressinduktion.org>
+Subject: Re: [PATCH] bnx2: Use dev_kfree_skb_any() in bnx2_tx_int()
+Date: Thu, 31 Oct 2013 00:26:02 -0400 (EDT)
+Message-ID: <20131031.002602.2030884257299947291.davem@davemloft.net>
+References: <CAM_iQpV6ufX5-OOrNQtsXH0_9itjU-FriOoutyKfDEWdg-irQw@mail.gmail.com>
+	<20131030.173200.2256841895208134119.davem@davemloft.net>
+	<CAM_iQpWAbSWVeAMwhQADTwO_RdYUXfog-wG9gs4+Zek0g_5Oyg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: duanj.fnst@cn.fujitsu.com, netdev@vger.kernel.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36668 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750703Ab3JaEWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 00:22:37 -0400
-In-Reply-To: <20131030211157.GA13902@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tdmackey@booleanhaiku.com, mchan@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: xiyou.wangcong@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpWAbSWVeAMwhQADTwO_RdYUXfog-wG9gs4+Zek0g_5Oyg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Wed, 30 Oct 2013 22:11:57 +0100
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Wed, 30 Oct 2013 15:01:12 -0700
 
-> On Wed, Oct 30, 2013 at 05:08:37PM -0400, David Miller wrote:
->> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
->> Date: Wed, 30 Oct 2013 15:39:26 +0800
->> 
->> > 
->> > After reading the function rt6_check_neigh(), we can
->> > know that the RT6_NUD_FAIL_SOFT can be returned only
->> > when the IS_ENABLE(CONFIG_IPV6_ROUTER_PREF) is false.
->> > so in function find_match(), there is no need to execute
->> > the statement !IS_ENABLED(CONFIG_IPV6_ROUTER_PREF).
->> > 
->> > Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
->> 
->> Applied to net-next, thanks.
->> 
->> CONFIG_IPV6_ROUTER_PREF is another good candidate for Kconfig
->> removal.  I know we've had several bugs that only apply when
->> this option is on vs. off.  We're maintaining two different
->> code paths, for really no good reason.
+> On Wed, Oct 30, 2013 at 2:32 PM, David Miller <davem@davemloft.net> wrote:
+>>
+>> Explain to me then why other ethernet drivers implemented identically,
+>> such as tg3, can use plain dev_kfree_skb() just fine?
 > 
-> I agree and actually thought about that yesterday. Do you think a sysctl
-> is a good option?
+> I don't think they are fine, I just don't see bug reports
+> for them. At very least, I saw a same bug report for be2net too.
+> 
+> To reproduce this bug, we need to find some one calling printk()
+> within IRQ handler, which seems rare? It seems there are few
+> people using hpsa driver together with netconsole.
 
-Every distribution ships with the Kconfig option on, and no sysctl
-exists currently to control it.
+We've had this conversation before I believe, and I absolutely do not
+want to have to add IRQ safety to every ->poll() implementation.
 
-So I'd say it's not necessary at all, or at the very least let's have
-someone come forward with a real rather than theoretical use case for
-such a feature before adding it.
+We have to provide a softint compatible environment for this callback
+to run in else everything is completely broken.
 
-Actually, if RFC 4191 has the usual language like "there SHOULD be
-an administrative mechanism to disable blah blah blah" I could
-be convinced to add it now.  Can someone take a look?
-
-Either way it'd probably be a per-inet6_dev option, right?
+All these drivers can safely assume softirq safe locking is
+sufficient, you're suggesting we need to take this hardirq safety and
+I'm really not willing to allow things to go that far.  A lot of
+effort has been expended precisely to avoid that kind of overhead and
+cost.
