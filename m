@@ -1,52 +1,84 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next RFC 1/5] xen-netback: Introduce TX
- grant map definitions
-Date: Thu, 31 Oct 2013 19:22:27 +0000
-Message-ID: <5272ADF3.2000301@citrix.com>
-References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com> <1383094220-14775-2-git-send-email-zoltan.kiss@citrix.com> <5270DF3602000078000FDFBE@nat28.tlf.novell.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <jonathan.davies@citrix.com>,
-	<wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5270DF3602000078000FDFBE@nat28.tlf.novell.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 2/2] can: kvaser_usb: fix usb endpoints detection
+Date: Thu, 31 Oct 2013 20:24:50 +0100
+Message-ID: <1383247490-26984-3-git-send-email-mkl@pengutronix.de>
+References: <1383247490-26984-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de, Olivier Sobrie <olivier@sobrie.be>,
+	linux-stable <stable@vger.kernel.org>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:59158 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755428Ab3JaTY6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 15:24:58 -0400
+In-Reply-To: <1383247490-26984-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30/10/13 09:28, Jan Beulich wrote:
->>>> On 30.10.13 at 01:50, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
->> @@ -119,13 +126,22 @@ struct xenvif {
->>   	pending_ring_idx_t pending_cons;
->>   	u16 pending_ring[MAX_PENDING_REQS];
->>   	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
->> +	grant_handle_t grant_tx_handle[MAX_PENDING_REQS];
->>
->>   	/* Coalescing tx requests before copying makes number of grant
->>   	 * copy ops greater or equal to number of slots required. In
->>   	 * worst case a tx request consumes 2 gnttab_copy.
->>   	 */
->>   	struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
->> +	struct gnttab_unmap_grant_ref tx_unmap_ops[MAX_PENDING_REQS];
->> +	struct gnttab_map_grant_ref tx_map_ops[MAX_PENDING_REQS];
->> +	/* passed to gnttab_[un]map_refs with pages under (un)mapping */
->> +	struct page *pages_to_gnt[MAX_PENDING_REQS];
->
-> I think you will want to try to limit the structure size here by putting
-> things into unions that can't be used at the same time: Without
-> having looked at the later patches yet, it seems quite unlikely that
-> map and unmap can be used simultaneously. And the total of copy
-> and map can't also be used at the same time, as for each pending
-> request you would use either up to two copy slots or a single map
-> slot. I didn't look for further opportunities of sharing space.
+From: Olivier Sobrie <olivier@sobrie.be>
 
-Indeed, map and unmap can't be done at the same time, so it's safe to 
-put them into union. But I'm afraid grant_tx_handle and pages_to_gnt 
-can't share space with other members.
-tx_copy_ops is a different topic, let's discuss that in it's own thread ...
+Some devices, like the Kvaser Memorator Professional, have several bulk in
+endpoints. Only the first one found must be used by the driver. The same holds
+for the bulk out endpoint. The official Kvaser driver (leaf) was used as
+reference for this patch.
 
-Thanks,
+Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ drivers/net/can/usb/kvaser_usb.c | 20 +++++++++++++-------
+ 1 file changed, 13 insertions(+), 7 deletions(-)
 
-Zoli
+diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
+index 3b95465..4b2d5ed 100644
+--- a/drivers/net/can/usb/kvaser_usb.c
++++ b/drivers/net/can/usb/kvaser_usb.c
+@@ -1544,9 +1544,9 @@ static int kvaser_usb_init_one(struct usb_interface *intf,
+ 	return 0;
+ }
+ 
+-static void kvaser_usb_get_endpoints(const struct usb_interface *intf,
+-				     struct usb_endpoint_descriptor **in,
+-				     struct usb_endpoint_descriptor **out)
++static int kvaser_usb_get_endpoints(const struct usb_interface *intf,
++				    struct usb_endpoint_descriptor **in,
++				    struct usb_endpoint_descriptor **out)
+ {
+ 	const struct usb_host_interface *iface_desc;
+ 	struct usb_endpoint_descriptor *endpoint;
+@@ -1557,12 +1557,18 @@ static void kvaser_usb_get_endpoints(const struct usb_interface *intf,
+ 	for (i = 0; i < iface_desc->desc.bNumEndpoints; ++i) {
+ 		endpoint = &iface_desc->endpoint[i].desc;
+ 
+-		if (usb_endpoint_is_bulk_in(endpoint))
++		if (!*in && usb_endpoint_is_bulk_in(endpoint))
+ 			*in = endpoint;
+ 
+-		if (usb_endpoint_is_bulk_out(endpoint))
++		if (!*out && usb_endpoint_is_bulk_out(endpoint))
+ 			*out = endpoint;
++
++		/* use first bulk endpoint for in and out */
++		if (*in && *out)
++			return 0;
+ 	}
++
++	return -ENODEV;
+ }
+ 
+ static int kvaser_usb_probe(struct usb_interface *intf,
+@@ -1576,8 +1582,8 @@ static int kvaser_usb_probe(struct usb_interface *intf,
+ 	if (!dev)
+ 		return -ENOMEM;
+ 
+-	kvaser_usb_get_endpoints(intf, &dev->bulk_in, &dev->bulk_out);
+-	if (!dev->bulk_in || !dev->bulk_out) {
++	err = kvaser_usb_get_endpoints(intf, &dev->bulk_in, &dev->bulk_out);
++	if (err) {
+ 		dev_err(&intf->dev, "Cannot get usb endpoint(s)");
+ 		return err;
+ 	}
+-- 
+1.8.4.rc3
