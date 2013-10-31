@@ -1,65 +1,65 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv4: introduce new IP_MTU_DISCOVER mode IP_PMTUDISC_INTERFACE
-Date: Thu, 31 Oct 2013 10:42:26 +0100
-Message-ID: <20131031094226.GB17210@order.stressinduktion.org>
-References: <20131030200725.GB9093@order.stressinduktion.org> <20131030.173608.2156276556221568210.davem@davemloft.net> <20131030225851.GB13902@order.stressinduktion.org> <20131031.002911.1316728367651608156.davem@davemloft.net>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
+Date: Thu, 31 Oct 2013 11:22:00 +0100
+Message-ID: <20131031102200.GA10098@gmail.com>
+References: <20131029082542.GA24625@gmail.com>
+ <20131029112022.GA24477@neilslaptop.think-freely.org>
+ <20131029113031.GA16897@gmail.com>
+ <20131029114907.GE24477@neilslaptop.think-freely.org>
+ <20131029125233.GA17449@gmail.com>
+ <20131029130712.GA25078@neilslaptop.think-freely.org>
+ <20131029131149.GB20408@gmail.com>
+ <20131029141706.GC25078@neilslaptop.think-freely.org>
+ <20131029142716.GA28113@gmail.com>
+ <20131029202644.GB32389@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, fweimer@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:40619 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784Ab3JaJm2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 05:42:28 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20131031.002911.1316728367651608156.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20131029202644.GB32389@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 31, 2013 at 12:29:11AM -0400, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Wed, 30 Oct 2013 23:58:51 +0100
-> 
-> > DNS resolver can fallback to TCP for querying where we can honour the
-> > path MTU because it won't do any harm and ensures connectivity.
+
+* Neil Horman <nhorman@tuxdriver.com> wrote:
+
+> > etc. For such short runtimes make sure the last column displays 
+> > close to 100%, so that the PMU results become trustable.
 > > 
-> > Also for TCP the socket is matched on the whole 4-tuple and we may
-> > fallback to a 2-tuple lookup on unconnected UDP sockets. The new socket
-> > option would let an application programmer choose to do path mtu discovery
-> > because it knows it will only use a connected socket. On unconnected
-> > sockets one can specify IP_PMTUDISC_INTERFACE to suppress the path MTU
-> > updates and always use the interface MTU without the DF-bit set.
+> > A nehalem+ PMU will allow 2-4 events to be measured in parallel, 
+> > plus generics like 'cycles', 'instructions' can be added 'for free' 
+> > because they get counted in a separate (fixed purpose) PMU register.
+> > 
+> > The last colum tells you what percentage of the runtime that 
+> > particular event was actually active. 100% (or empty last column) 
+> > means it was active all the time.
+> > 
+> > Thanks,
+> > 
+> > 	Ingo
+> > 
 > 
-> This still sounds like a route scope policy with two binary states,
-> one for connected sockets and one for unconnected ones.
+> Hmm, 
+> 
+> I ran this test:
+> 
+> for i in `seq 0 1 3`
+> do
+> echo $i > /sys/module/csum_test/parameters/module_test_mode
+> taskset -c 0 perf stat --repeat 20 -C 0 -e L1-dcache-load-misses -e L1-dcache-prefetches -e cycles -e instructions -ddd ./test.sh
+> done
 
-Orthogonally a user may want to decide per protocol. Path MTU discovery
-may happen on protocols where I have protection against fragment poisoning
-because of the TCP 3-WHS and want to drop path mtu discovery information
-on simple UDP request-response protocols even if they are used in
-connected state (this is the specific case I want to protect in DNS).
+You need to remove '-ddd' which is a shortcut for a ton of useful 
+events, but here you want to use fewer events, to increase the 
+precision of the measurement.
 
-Do we accept path MTU information if we just send a spoofed TCP SYN
-request and then just fire a spoofed ICMP path mtu packet afterwards? I
-guess (I really have not checked), yes. If the UDP stack would use this
-information we again generate fragments and are vulnerable to UDP based
-cache poisoning attacks. So when can we really say we can match and
-trust the full socket ID?
+Thanks,
 
-Please note, dropping the path MTU on those sockets is merely an
-optimization.  All I care about is that we don't fragment packets locally
-and have the possibility to not set the DF-bit (so IP_PMTUDISC_PROBE
-without DF). I could very well remove the ip_sk_accept_pmtu logic from
-the patch.
-
-I still think this patch is the reasonable way to solve this problem. If
-you still think it should be on a per-route basis I will look down on
-how this can be achieved but would focus on multiplexing the MTU per
-protocol somehow.
-
-Please let me know!
-
-Thank you,
-
-  Hannes
+	Ingo
