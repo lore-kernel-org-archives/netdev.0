@@ -1,8 +1,10 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 1/2] net: introduce skb_coalesce_rx_frag()
-Date: Thu, 31 Oct 2013 13:41:28 +0200
-Message-ID: <20131031114128.GC8976@redhat.com>
+Subject: Re: [PATCH net-next 2/2] virtio-net: coalesce rx frags when possible
+	during rx
+Date: Thu, 31 Oct 2013 13:41:53 +0200
+Message-ID: <20131031114153.GD8976@redhat.com>
 References: <1383215313-23651-1-git-send-email-jasowang@redhat.com>
+	<1383215313-23651-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +14,7 @@ Cc: mwdalton@google.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Jason Wang <jasowang@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1383215313-23651-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1383215313-23651-2-git-send-email-jasowang@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -24,10 +26,35 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 31, 2013 at 06:28:32PM +0800, Jason Wang wrote:
-> Sometimes we need to coalesce the rx frags to avoid frag list. One example is
-> virtio-net driver which tries to use small frags for both MTU sized packet and
-> GSO packet. So this patch introduce skb_coalesce_rx_frag() to do this.
+On Thu, Oct 31, 2013 at 06:28:33PM +0800, Jason Wang wrote:
+> Commit 2613af0ed18a11d5c566a81f9a6510b73180660a (virtio_net: migrate mergeable
+> rx buffers to page frag allocators) try to increase the payload/truesize for
+> MTU-sized traffic. But this will introduce the extra overhead for GSO packets
+> received because of the frag list. This commit tries to reduce this issue by
+> coalesce the possible rx frags when possible during rx. Test result shows the
+> about 15% improvement on full size GSO packet receiving (and even better than
+> commit 2613af0ed18a11d5c566a81f9a6510b73180660a).
+> 
+> Before this commit:
+> ./netperf -H 192.168.100.4
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.100.4
+> () port 0 AF_INET : demo
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+>  87380  16384  16384    10.00    20303.87
+> 
+> After this commit:
+> ./netperf -H 192.168.100.4
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.100.4 () port 0 AF_INET : demo
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+>  87380  16384  16384    10.00    23841.26
 > 
 > Cc: Rusty Russell <rusty@rustcorp.com.au>
 > Cc: Michael S. Tsirkin <mst@redhat.com>
@@ -35,51 +62,45 @@ On Thu, Oct 31, 2013 at 06:28:32PM +0800, Jason Wang wrote:
 > Cc: Eric Dumazet <edumazet@google.com>
 > Signed-off-by: Jason Wang <jasowang@redhat.com>
 
+Good idea.
 
 Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
 > ---
->  include/linux/skbuff.h |  3 +++
->  net/core/skbuff.c      | 13 +++++++++++++
->  2 files changed, 16 insertions(+)
+>  drivers/net/virtio_net.c | 14 ++++++++++----
+>  1 file changed, 10 insertions(+), 4 deletions(-)
 > 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 2c15497..e34652b 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -1372,6 +1372,9 @@ static inline void skb_fill_page_desc(struct sk_buff *skb, int i,
->  void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
->  		     int size, unsigned int truesize);
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 113ee93..4ff4f78 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -305,7 +305,7 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+>  	struct sk_buff *curr_skb = head_skb;
+>  	char *buf;
+>  	struct page *page;
+> -	int num_buf, len;
+> +	int num_buf, len, offset;
 >  
-> +void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int off, int size,
-> +			  unsigned int truesize);
-> +
->  #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
->  #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_has_frag_list(skb))
->  #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 0ab32fa..fdef994 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -476,6 +476,19 @@ void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
->  }
->  EXPORT_SYMBOL(skb_add_rx_frag);
->  
-> +void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int off, int size,
-> +			  unsigned int truesize)
-> +{
-> +	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-> +
-> +	skb_frag_size_add(frag, size);
-> +	skb->len += size;
-> +	skb->data_len += size;
-> +	skb->truesize += truesize;
-> +	skb_frag_unref(skb, i);
-> +}
-> +EXPORT_SYMBOL(skb_coalesce_rx_frag);
-> +
->  static void skb_drop_list(struct sk_buff **listp)
->  {
->  	kfree_skb_list(*listp);
+>  	num_buf = hdr->mhdr.num_buffers;
+>  	while (--num_buf) {
+> @@ -342,9 +342,15 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+>  			head_skb->truesize += MAX_PACKET_LEN;
+>  		}
+>  		page = virt_to_head_page(buf);
+> -		skb_add_rx_frag(curr_skb, num_skb_frags, page,
+> -				buf - (char *)page_address(page), len,
+> -				MAX_PACKET_LEN);
+> +		offset = buf - (char *)page_address(page);
+> +		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
+> +			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
+> +					     offset, len, MAX_PACKET_LEN);
+> +		} else {
+> +			skb_add_rx_frag(curr_skb, num_skb_frags, page,
+> +					offset, len,
+> +					MAX_PACKET_LEN);
+> +		}
+>  		--rq->num;
+>  	}
+>  	return 0;
 > -- 
 > 1.8.1.2
