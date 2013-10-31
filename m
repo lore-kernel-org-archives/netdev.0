@@ -1,106 +1,98 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 2/2] virtio-net: coalesce rx frags when possible
-	during rx
-Date: Thu, 31 Oct 2013 13:41:53 +0200
-Message-ID: <20131031114153.GD8976@redhat.com>
-References: <1383215313-23651-1-git-send-email-jasowang@redhat.com>
-	<1383215313-23651-2-git-send-email-jasowang@redhat.com>
+From: Mauro Carvalho Chehab <m.chehab-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH 19/51] DMA-API: media: dt3155v4l: replace
+ dma_set_mask()+dma_set_coherent_mask() with new helper
+Date: Thu, 31 Oct 2013 09:46:40 -0200
+Message-ID: <20131031094640.205840a2@samsung.com>
+References: <20130919212235.GD12758@n2100.arm.linux.org.uk>
+ <E1VMm13-0007hO-9l@rmk-PC.arm.linux.org.uk> <5249673B.5020705@xs4all.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mwdalton@google.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1383215313-23651-2-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Solarflare linux maintainers <linux-net-drivers-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Russell King <rmk+kernel@ar
+To: Hans Verkuil <hverkuil-qWit8jRvyhVmR6Xm/wNWPw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-reply-to: <5249673B.5020705-qWit8jRvyhVmR6Xm/wNWPw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 31, 2013 at 06:28:33PM +0800, Jason Wang wrote:
-> Commit 2613af0ed18a11d5c566a81f9a6510b73180660a (virtio_net: migrate mergeable
-> rx buffers to page frag allocators) try to increase the payload/truesize for
-> MTU-sized traffic. But this will introduce the extra overhead for GSO packets
-> received because of the frag list. This commit tries to reduce this issue by
-> coalesce the possible rx frags when possible during rx. Test result shows the
-> about 15% improvement on full size GSO packet receiving (and even better than
-> commit 2613af0ed18a11d5c566a81f9a6510b73180660a).
-> 
-> Before this commit:
-> ./netperf -H 192.168.100.4
-> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.100.4
-> () port 0 AF_INET : demo
-> Recv   Send    Send
-> Socket Socket  Message  Elapsed
-> Size   Size    Size     Time     Throughput
-> bytes  bytes   bytes    secs.    10^6bits/sec
-> 
->  87380  16384  16384    10.00    20303.87
-> 
-> After this commit:
-> ./netperf -H 192.168.100.4
-> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.100.4 () port 0 AF_INET : demo
-> Recv   Send    Send
-> Socket Socket  Message  Elapsed
-> Size   Size    Size     Time     Throughput
-> bytes  bytes   bytes    secs.    10^6bits/sec
-> 
->  87380  16384  16384    10.00    23841.26
-> 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Michael Dalton <mwdalton@google.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+Hi Russell,
 
-Good idea.
+Em Mon, 30 Sep 2013 13:57:47 +0200
+Hans Verkuil <hverkuil-qWit8jRvyhVmR6Xm/wNWPw@public.gmane.org> escreveu:
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-> ---
->  drivers/net/virtio_net.c | 14 ++++++++++----
->  1 file changed, 10 insertions(+), 4 deletions(-)
+> On 09/19/2013 11:44 PM, Russell King wrote:
+> > Replace the following sequence:
+> > 
+> > 	dma_set_mask(dev, mask);
+> > 	dma_set_coherent_mask(dev, mask);
+> > 
+> > with a call to the new helper dma_set_mask_and_coherent().
+> > 
+> > Signed-off-by: Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
 > 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 113ee93..4ff4f78 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -305,7 +305,7 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
->  	struct sk_buff *curr_skb = head_skb;
->  	char *buf;
->  	struct page *page;
-> -	int num_buf, len;
-> +	int num_buf, len, offset;
->  
->  	num_buf = hdr->mhdr.num_buffers;
->  	while (--num_buf) {
-> @@ -342,9 +342,15 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
->  			head_skb->truesize += MAX_PACKET_LEN;
->  		}
->  		page = virt_to_head_page(buf);
-> -		skb_add_rx_frag(curr_skb, num_skb_frags, page,
-> -				buf - (char *)page_address(page), len,
-> -				MAX_PACKET_LEN);
-> +		offset = buf - (char *)page_address(page);
-> +		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
-> +			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
-> +					     offset, len, MAX_PACKET_LEN);
-> +		} else {
-> +			skb_add_rx_frag(curr_skb, num_skb_frags, page,
-> +					offset, len,
-> +					MAX_PACKET_LEN);
-> +		}
->  		--rq->num;
->  	}
->  	return 0;
-> -- 
-> 1.8.1.2
+> Acked-by: Hans Verkuil <hans.verkuil-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+
+Somehow, I lost your original post (I got unsubscribed on a few days 
+from all vger mailing lists at the end of september).
+
+I suspect that you want to sent this via your tree, right?
+If so:
+
+Acked-by: Mauro Carvalho Chehab <m.chehab-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+
+> 
+> Regards,
+> 
+> 	Hans
+> 
+> > ---
+> >  drivers/staging/media/dt3155v4l/dt3155v4l.c |    5 +----
+> >  1 files changed, 1 insertions(+), 4 deletions(-)
+> > 
+> > diff --git a/drivers/staging/media/dt3155v4l/dt3155v4l.c b/drivers/staging/media/dt3155v4l/dt3155v4l.c
+> > index 90d6ac4..081407b 100644
+> > --- a/drivers/staging/media/dt3155v4l/dt3155v4l.c
+> > +++ b/drivers/staging/media/dt3155v4l/dt3155v4l.c
+> > @@ -901,10 +901,7 @@ dt3155_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+> >  	int err;
+> >  	struct dt3155_priv *pd;
+> >  
+> > -	err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
+> > -	if (err)
+> > -		return -ENODEV;
+> > -	err = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+> > +	err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+> >  	if (err)
+> >  		return -ENODEV;
+> >  	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
+> > 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-media" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+-- 
+
+Cheers,
+Mauro
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
