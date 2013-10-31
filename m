@@ -1,58 +1,42 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] net: sctp: do not trigger BUG_ON in sctp_cmd_delete_tcb
-Date: Thu, 31 Oct 2013 09:13:32 +0100
-Message-ID: <1383207212-21658-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: davem@davemloft.net
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH net-next v2 0/3] tipc: message reassembly using fragment chain
+Date: Thu, 31 Oct 2013 09:40:11 +0100
+Message-ID: <1383208814-23476-1-git-send-email-erik.hugne@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <ying.xue@windriver.com>, Erik Hugne <erik.hugne@ericsson.com>
+To: <netdev@vger.kernel.org>, <jon.maloy@ericsson.com>,
+	<maloy@donjonn.com>, <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2702 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752417Ab3JaINl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Oct 2013 04:13:41 -0400
+Received: from mailgw1.ericsson.se ([193.180.251.45]:42660 "EHLO
+	mailgw1.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752063Ab3JaIlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 04:41:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduced in f9e42b853523 ("net: sctp: sideeffect: throw BUG if
-primary_path is NULL"), we intended to find a buggy assoc that's
-part of the assoc hash table with a primary_path that is NULL.
-However, we better remove the BUG_ON for now and find a more
-suitable place to assert for these things as Mark reports that
-this also triggers the bug when duplication cookie processing
-happens, and the assoc is not part of the hash table (so all
-good in this case). Such a situation can for example easily be
-reproduced by:
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-  tc qdisc add dev eth0 root handle 1: prio bands 2 priomap 1 1 1 1 1 1
-  tc qdisc add dev eth0 parent 1:2 handle 20: netem loss 20%
-  tc filter add dev eth0 protocol ip parent 1: prio 2 u32 match ip \
-            protocol 132 0xff match u8 0x0b 0xff at 32 flowid 1:2
+We introduce a new defragmentation algorithm that improves performance
+and eliminates the risk of causing out-of-memory situations.
 
-This drops 20% of COOKIE-ACK packets. After some follow-up
-discussion with Vlad we came to the conclusion that for now we
-should still better remove this BUG_ON() assertion, and come up
-with two follow-ups later on, that is, i) find a more suitable
-place for this assertion, and possibly ii) have a special
-allocator/initializer for such kind of temporary assocs.
+v2: -Rebased on Ying's indentation fix.
+    -Node unlock call in msg_fragmenter case moved from patch #2 to #1.
+     ('continue' with this lock held would cause spinlock recursion if only
+      patch #1 is used)
 
-Reported-by: Mark Thomas <Mark.Thomas@metaswitch.com>
-Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/sctp/sm_sideeffect.c | 1 -
- 1 file changed, 1 deletion(-)
+Erik Hugne (3):
+  tipc: don't reroute message fragments
+  tipc: message reassembly using fragment chain
+  tipc: reassembly failures should cause link reset
 
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 666c668..1a6eef3 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -860,7 +860,6 @@ static void sctp_cmd_delete_tcb(sctp_cmd_seq_t *cmds,
- 	    (!asoc->temp) && (sk->sk_shutdown != SHUTDOWN_MASK))
- 		return;
- 
--	BUG_ON(asoc->peer.primary_path == NULL);
- 	sctp_unhash_established(asoc);
- 	sctp_association_free(asoc);
- }
+ net/tipc/bcast.c |   16 ++++--
+ net/tipc/link.c  |  160 +++++++++++++++---------------------------------------
+ net/tipc/link.h  |   20 +++++--
+ net/tipc/msg.h   |   12 ----
+ net/tipc/node.c  |    7 ++-
+ net/tipc/node.h  |    6 +-
+ 6 files changed, 76 insertions(+), 145 deletions(-)
+
 -- 
-1.8.3.1
+1.7.9.5
