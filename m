@@ -1,72 +1,76 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] net: sctp: do not trigger BUG_ON in
- sctp_cmd_delete_tcb
-Date: Thu, 31 Oct 2013 09:42:42 -0400
-Message-ID: <20131031134242.GA25894@hmsreliant.think-freely.org>
-References: <1383207212-21658-1-git-send-email-dborkman@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next V2 2/2] virtio-net: coalesce rx frags when
+	possible during rx
+Date: Thu, 31 Oct 2013 06:57:52 -0700
+Message-ID: <1383227872.4857.65.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1383220027-12278-1-git-send-email-jasowang@redhat.com>
+	<1383220027-12278-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37488 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753679Ab3JaNmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 09:42:51 -0400
-Content-Disposition: inline
-In-Reply-To: <1383207212-21658-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mwdalton@google.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, kmindg@gmail.com,
+	edumazet@google.com, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1383220027-12278-2-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 31, 2013 at 09:13:32AM +0100, Daniel Borkmann wrote:
-> Introduced in f9e42b853523 ("net: sctp: sideeffect: throw BUG if
-> primary_path is NULL"), we intended to find a buggy assoc that's
-> part of the assoc hash table with a primary_path that is NULL.
-> However, we better remove the BUG_ON for now and find a more
-> suitable place to assert for these things as Mark reports that
-> this also triggers the bug when duplication cookie processing
-> happens, and the assoc is not part of the hash table (so all
-> good in this case). Such a situation can for example easily be
-> reproduced by:
+On Thu, 2013-10-31 at 19:47 +0800, Jason Wang wrote:
+> Commit 2613af0ed18a11d5c566a81f9a6510b73180660a (virtio_net: migrate mergeable
+> rx buffers to page frag allocators) try to increase the payload/truesize for
+> MTU-sized traffic. But this will introduce the extra overhead for GSO packets
+> received because of the frag list. This commit tries to reduce this issue by
+> coalesce the possible rx frags when possible during rx. Test result shows the
+> about 15% improvement on full size GSO packet receiving (and even better than
+> commit 2613af0ed18a11d5c566a81f9a6510b73180660a).
 > 
->   tc qdisc add dev eth0 root handle 1: prio bands 2 priomap 1 1 1 1 1 1
->   tc qdisc add dev eth0 parent 1:2 handle 20: netem loss 20%
->   tc filter add dev eth0 protocol ip parent 1: prio 2 u32 match ip \
->             protocol 132 0xff match u8 0x0b 0xff at 32 flowid 1:2
+> Before this commit:
+> ./netperf -H 192.168.100.4
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.100.4
+> () port 0 AF_INET : demo
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
 > 
-> This drops 20% of COOKIE-ACK packets. After some follow-up
-> discussion with Vlad we came to the conclusion that for now we
-> should still better remove this BUG_ON() assertion, and come up
-> with two follow-ups later on, that is, i) find a more suitable
-> place for this assertion, and possibly ii) have a special
-> allocator/initializer for such kind of temporary assocs.
+>  87380  16384  16384    10.00    20303.87
 > 
-> Reported-by: Mark Thomas <Mark.Thomas@metaswitch.com>
-> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> After this commit:
+> ./netperf -H 192.168.100.4
+> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.100.4 () port 0 AF_INET : demo
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+>  87380  16384  16384    10.00    23841.26
+> 
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Michael Dalton <mwdalton@google.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 > ---
->  net/sctp/sm_sideeffect.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index 666c668..1a6eef3 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -860,7 +860,6 @@ static void sctp_cmd_delete_tcb(sctp_cmd_seq_t *cmds,
->  	    (!asoc->temp) && (sk->sk_shutdown != SHUTDOWN_MASK))
->  		return;
->  
-> -	BUG_ON(asoc->peer.primary_path == NULL);
->  	sctp_unhash_established(asoc);
->  	sctp_association_free(asoc);
->  }
-> -- 
-> 1.8.3.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+
+Excellent !
+
+We now have 2 or 3 frags per skb, like tcp stack manages to do on output
+path.
+
+Michael Dalton is also working on a autotuning patch, using an EWMA, so
+that the size of individual sg blocks can vary from 1500 to 4096, this
+might show even better throughput, we'll see.
+
+Acked-by: Eric Dumazet <edumazet@google.com>
