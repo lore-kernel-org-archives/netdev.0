@@ -1,91 +1,108 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: [net-next PATCH] net: codel: Avoid undefined behavior from
- signed overflow
-Date: Thu, 31 Oct 2013 15:15:51 +0100
-Message-ID: <20131031151551.675ab908@redhat.com>
-References: <20131030172341.19203.93490.stgit@dragon>
-	<1383156104.4857.49.camel@edumazet-glaptop.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next V2 1/2] net: introduce skb_coalesce_rx_frag()
+Date: Thu, 31 Oct 2013 07:26:03 -0700
+Message-ID: <1383229563.4857.71.camel@edumazet-glaptop.roam.corp.google.com>
+References: <1383220027-12278-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Dave Taht <dave.taht@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62046 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754302Ab3JaOQE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Oct 2013 10:16:04 -0400
-In-Reply-To: <1383156104.4857.49.camel@edumazet-glaptop.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mwdalton@google.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, kmindg@gmail.com,
+	edumazet@google.com, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1383220027-12278-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Oct 2013 11:01:44 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> On Wed, 2013-10-30 at 18:23 +0100, Jesper Dangaard Brouer wrote:
-> > From: Jesper Dangaard Brouer <netoptimizer@brouer.com>
-> > 
-> > As described in commit 5a581b367 (jiffies: Avoid undefined
-> > behavior from signed overflow), according to the C standard
-> > 3.4.3p3, overflow of a signed integer results in undefined
-> > behavior.
-> > 
-> > To fix this, do as the above commit, and do an unsigned
-> > subtraction, and interpreting the result as a signed
-> > two's-complement number.  This is based on the theory from
-> > RFC 1982 and is nicely described in wikipedia here:
-> >  https://en.wikipedia.org/wiki/Serial_number_arithmetic#General_Solution
-> > 
-> > A side-note, I have seen practical issues with the previous logic
-> > when dealing with 16-bit, on a 64-bit machine (gcc version
-> > 4.4.5). This were 32-bit, which I have not observed issues with.
-> > 
-> > Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> > Signed-off-by: Jesper Dangaard Brouer <netoptimizer@brouer.com>
-> > ---
-> > 
-> >  include/net/codel.h |    8 ++++----
-> >  1 files changed, 4 insertions(+), 4 deletions(-)
-> > 
-> > diff --git a/include/net/codel.h b/include/net/codel.h
-> > index 389cf62..700fcdf 100644
-> > --- a/include/net/codel.h
-> > +++ b/include/net/codel.h
-> > @@ -72,10 +72,10 @@ static inline codel_time_t codel_get_time(void)
-> >  	return ns >> CODEL_SHIFT;
-> >  }
-> >  
-> > -#define codel_time_after(a, b)		((s32)(a) - (s32)(b) > 0)
-> > -#define codel_time_after_eq(a, b)	((s32)(a) - (s32)(b) >= 0)
-> > -#define codel_time_before(a, b)		((s32)(a) - (s32)(b) < 0)
-> > -#define codel_time_before_eq(a, b)	((s32)(a) - (s32)(b) <= 0)
-> > +#define codel_time_after(a, b)		((s32)((a) - (b)) > 0)
-> > +#define codel_time_after_eq(a, b)	((s32)((a) - (b)) >= 0)
-> > +#define codel_time_before(a, b) 	((s32)((a) - (b)) < 0)
-> > +#define codel_time_before_eq(a, b)	((s32)((a) - (b)) <= 0)
-> >  
+On Thu, 2013-10-31 at 19:47 +0800, Jason Wang wrote:
+> Sometimes we need to coalesce the rx frags to avoid frag list. One example is
+> virtio-net driver which tries to use small frags for both MTU sized packet and
+> GSO packet. So this patch introduce skb_coalesce_rx_frag() to do this.
 > 
-> I see nothing enforcing an unsigned subtraction as claimed in your
-> changelog.
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Michael Dalton <mwdalton@google.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+> Changes from V1:
+> - remove the useless off parameter.
+> ---
+>  include/linux/skbuff.h |  3 +++
+>  net/core/skbuff.c      | 13 +++++++++++++
+>  2 files changed, 16 insertions(+)
 > 
-> a / b could be signed.
-> 
-> Paul commit 5a581b367b5 was OK because of existing typecheck(unsigned
-> long, ....)
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 2c15497..fffaeaf 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -1372,6 +1372,9 @@ static inline void skb_fill_page_desc(struct sk_buff *skb, int i,
+>  void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
+>  		     int size, unsigned int truesize);
+>  
+> +void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int size,
+> +			  unsigned int truesize);
+> +
+>  #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
+>  #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_has_frag_list(skb))
+>  #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 0ab32fa..87670e1 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -476,6 +476,19 @@ void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
+>  }
+>  EXPORT_SYMBOL(skb_add_rx_frag);
+>  
+> +void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int size,
+> +			  unsigned int truesize)
+> +{
+> +	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+> +
+> +	skb_frag_size_add(frag, size);
+> +	skb->len += size;
+> +	skb->data_len += size;
+> +	skb->truesize += truesize;
 
-Okay, I'll cook up another patch, after work.
 
-Adding all the typecheck() stuff, just bloats the code.
+> +	skb_frag_unref(skb, i);
 
-Would it be better/okay just to do?:
- (s32)((u32)(a) - (u32)(b)) > 0)
+This unref is not logical, or should at least be
+
+__skb_frag_unref(frag);
+
+But I do think this is best done in the caller.
+
+In virtio_net this would be a :
+
+put_page(page);
+
+In tcp stack we do almost the same, but we take the reference on the
+page if we could not coalesce with prio frag, instead of doing a get and
+put in the other case.
+
+        if (can_coalesce) {
+                skb_frag_size_add(&skb_shinfo(skb)->frags[i - 1], copy);
+        } else {
+                get_page(page);
+                skb_fill_page_desc(skb, i, page, offset, copy);
+        }
 
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+> +}
+> +EXPORT_SYMBOL(skb_coalesce_rx_frag);
+> +
+>  static void skb_drop_list(struct sk_buff **listp)
+>  {
+>  	kfree_skb_list(*listp);
