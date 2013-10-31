@@ -1,60 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH] net: codel: Avoid undefined behavior from
- signed overflow
-Date: Thu, 31 Oct 2013 08:10:41 -0700
-Message-ID: <1383232241.4857.73.camel@edumazet-glaptop.roam.corp.google.com>
-References: <20131030172341.19203.93490.stgit@dragon>
-	 <1383156104.4857.49.camel@edumazet-glaptop.roam.corp.google.com>
-	 <20131031151551.675ab908@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Dave Taht <dave.taht@gmail.com>
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net-next] tcp: enable sockets to use MSG_FASTOPEN by default
+Date: Thu, 31 Oct 2013 09:19:32 -0700
+Message-ID: <1383236372-1317-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, ncardwell@google.com,
+	sivasankar@cs.ucsd.edu, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:54653 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755052Ab3JaPKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 11:10:43 -0400
-Received: by mail-pa0-f47.google.com with SMTP id lf10so2644687pab.34
-        for <netdev@vger.kernel.org>; Thu, 31 Oct 2013 08:10:43 -0700 (PDT)
-In-Reply-To: <20131031151551.675ab908@redhat.com>
+Received: from mail-ob0-f202.google.com ([209.85.214.202]:46230 "EHLO
+	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752122Ab3JaQUR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 12:20:17 -0400
+Received: by mail-ob0-f202.google.com with SMTP id wn1so640601obc.5
+        for <netdev@vger.kernel.org>; Thu, 31 Oct 2013 09:20:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-10-31 at 15:15 +0100, Jesper Dangaard Brouer wrote:
+Applications have started to use Fast Open (e.g., Chrome browser has
+such an optional flag) and the feature has gone through several
+generations of kernels since 3.7 with many real network tests. It's
+time to enable this flag by default for applications to test more
+conveniently and extensively.
 
-> Okay, I'll cook up another patch, after work.
-> 
-> Adding all the typecheck() stuff, just bloats the code.
-> 
-> Would it be better/okay just to do?:
->  (s32)((u32)(a) - (u32)(b)) > 0)
-> 
-> 
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ Documentation/networking/ip-sysctl.txt | 4 ++--
+ net/ipv4/tcp_fastopen.c                | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-What about using the existing codel types ?
-
-diff --git a/include/net/codel.h b/include/net/codel.h
-index 389cf62..89a7781 100644
---- a/include/net/codel.h
-+++ b/include/net/codel.h
-@@ -72,7 +72,12 @@ static inline codel_time_t codel_get_time(void)
- 	return ns >> CODEL_SHIFT;
- }
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index a46d785..6c00983 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -451,7 +451,7 @@ tcp_fastopen - INTEGER
+ 	connect() to perform a TCP handshake automatically.
  
--#define codel_time_after(a, b)		((s32)(a) - (s32)(b) > 0)
-+static inline bool codel_time_after(codel_time_t a, codel_time_t b)
-+{
-+	codel_tdiff_t delta = a - b;
-+
-+	return delta >= 0;
-+}
- #define codel_time_after_eq(a, b)	((s32)(a) - (s32)(b) >= 0)
- #define codel_time_before(a, b)		((s32)(a) - (s32)(b) < 0)
- #define codel_time_before_eq(a, b)	((s32)(a) - (s32)(b) <= 0)
-
-
-You need of course something similar for all variants.
+ 	The values (bitmap) are
+-	1: Enables sending data in the opening SYN on the client.
++	1: Enables sending data in the opening SYN on the client w/ MSG_FASTOPEN.
+ 	2: Enables TCP Fast Open on the server side, i.e., allowing data in
+ 	   a SYN packet to be accepted and passed to the application before
+ 	   3-way hand shake finishes.
+@@ -464,7 +464,7 @@ tcp_fastopen - INTEGER
+ 	   different ways of setting max_qlen without the TCP_FASTOPEN socket
+ 	   option.
+ 
+-	Default: 0
++	Default: 1
+ 
+ 	Note that the client & server side Fast Open flags (1 and 2
+ 	respectively) must be also enabled before the rest of flags can take
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index 766032b..f195d93 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -8,7 +8,7 @@
+ #include <net/inetpeer.h>
+ #include <net/tcp.h>
+ 
+-int sysctl_tcp_fastopen __read_mostly;
++int sysctl_tcp_fastopen __read_mostly = TFO_CLIENT_ENABLE;
+ 
+ struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
+ 
+-- 
+1.8.4.1
