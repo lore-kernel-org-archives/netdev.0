@@ -1,15 +1,15 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 06/10] net/mlx4_core: Don't fail reg/unreg vlan for older guests
-Date: Thu, 31 Oct 2013 14:29:25 +0200
-Message-ID: <1383222569-10930-7-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 04/10] net/mlx4_en: Use vlan id instead of vlan index for unregistration
+Date: Thu, 31 Oct 2013 14:29:23 +0200
+Message-ID: <1383222569-10930-5-git-send-email-ogerlitz@mellanox.com>
 References: <1383222569-10930-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, amirv@mellanox.com, roland@kernel.org,
 	jackm@dev.mellanox.co.il, Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:41713 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:41710 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753819Ab3JaM3u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753826Ab3JaM3u (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 31 Oct 2013 08:29:50 -0400
 In-Reply-To: <1383222569-10930-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,115 +17,159 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-In upstream kernels under SRIOV, the vlan register/unregister calls
-were NOPs (doing nothing and returning OK). We detect these old
-calls from guests (via the comm channel), since previously the
-port number in mlx4_register_vlan was passed (improperly) in the
-out_param. This has been corrected so that the port number is now
-passed in bits 8..15 of the in_modifier field.
+Use of vlan_index created problems unregistering vlans on guests.
 
-For old calls, these bits will be zero, so if the passed port
-number is zero, we can still look at the out_param field to see
-if it contains a valid port number. If yes, the VM is running
-an old driver.
-
-Since for old drivers, the register/unregister_vlan wrappers were
-NOPs, we continue this policy -- the reason being that upstream
-had an additional bug in eth driver running on guests (where
-procedure mlx4_en_vlan_rx_kill_vid() had the following code:
-
-if (!mlx4_find_cached_vlan(mdev->dev, priv->port, vid, &idx))
-        mlx4_unregister_vlan(mdev->dev, priv->port, idx);
-else
-        en_err(priv, "could not find vid %d in cache\n", vid);
-
-On a VM, mlx4_find_cached_vlan() will always fail, since the
-vlan cache is located on the Hypervisor; on guests it is empty.
-
-Therefore, if we allow upstream guests to register vlans, we will
-have vlan leakage since the unregister will never be performed.
-Leaving vlan reg/unreg for old guest drivers as a NOP is not a
-feature regression, since in upstream the register/unregister
-vlan wrapper is a NOP.
+In addition, tools delete vlan by tag, not by index, lets follow that.
 
 Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |    1 +
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    1 +
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   17 ++++++++++++++++-
- 3 files changed, 18 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |    6 +---
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/port.c          |   27 +++++++++++---------
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    2 +-
+ include/linux/mlx4/device.h                        |    2 +-
+ 6 files changed, 20 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 887d625..65d41b7 100644
+index ae8eb4c..887d625 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1718,6 +1718,7 @@ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
- 	if (cmd == MLX4_COMM_CMD_RESET) {
- 		mlx4_warn(dev, "Received reset from slave:%d\n", slave);
- 		slave_state[slave].active = false;
-+		slave_state[slave].old_vlan_api = false;
- 		mlx4_master_deactivate_admin_state(priv, slave);
- 		for (i = 0; i < MLX4_EVENT_TYPES_NUM; ++i) {
- 				slave_state[slave].event_eq[i].eqn = -1;
+@@ -1687,7 +1687,7 @@ static void mlx4_master_deactivate_admin_state(struct mlx4_priv *priv, int slave
+ 		vp_oper = &priv->mfunc.master.vf_oper[slave].vport[port];
+ 		if (NO_INDX != vp_oper->vlan_idx) {
+ 			__mlx4_unregister_vlan(&priv->dev,
+-					       port, vp_oper->vlan_idx);
++					       port, vp_oper->state.default_vlan);
+ 			vp_oper->vlan_idx = NO_INDX;
+ 		}
+ 		if (NO_INDX != vp_oper->mac_idx) {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 85d9166..b555412 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -417,7 +417,6 @@ static int mlx4_en_vlan_rx_kill_vid(struct net_device *dev,
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	int err;
+-	int idx;
+ 
+ 	en_dbg(HW, priv, "Killing VID:%d\n", vid);
+ 
+@@ -425,10 +424,7 @@ static int mlx4_en_vlan_rx_kill_vid(struct net_device *dev,
+ 
+ 	/* Remove VID from port VLAN filter */
+ 	mutex_lock(&mdev->state_lock);
+-	if (!mlx4_find_cached_vlan(mdev->dev, priv->port, vid, &idx))
+-		mlx4_unregister_vlan(mdev->dev, priv->port, idx);
+-	else
+-		en_dbg(HW, priv, "could not find vid %d in cache\n", vid);
++	mlx4_unregister_vlan(mdev->dev, priv->port, vid);
+ 
+ 	if (mdev->device_up && priv->port_up) {
+ 		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index f2ad4f6..9794126 100644
+index 348bb8c..f2ad4f6 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -455,6 +455,7 @@ struct mlx4_slave_state {
- 	u8 last_cmd;
- 	u8 init_port_mask;
- 	bool active;
-+	bool old_vlan_api;
- 	u8 function;
- 	dma_addr_t vhcr_dma;
- 	u16 mtu[MLX4_MAX_PORTS + 1];
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index e18bfff..3586388 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -1555,15 +1555,26 @@ static void rem_slave_vlans(struct mlx4_dev *dev, int slave)
+@@ -1111,7 +1111,7 @@ int mlx4_change_port_types(struct mlx4_dev *dev,
+ 
+ void mlx4_init_mac_table(struct mlx4_dev *dev, struct mlx4_mac_table *table);
+ void mlx4_init_vlan_table(struct mlx4_dev *dev, struct mlx4_vlan_table *table);
+-void __mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, int index);
++void __mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, u16 vlan);
+ int __mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index);
+ 
+ int mlx4_SET_PORT(struct mlx4_dev *dev, u8 port, int pkey_tbl_sz);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 9433c1f..caaa154 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -406,23 +406,26 @@ int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index)
+ }
+ EXPORT_SYMBOL_GPL(mlx4_register_vlan);
+ 
+-void __mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, int index)
++void __mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, u16 vlan)
+ {
+ 	struct mlx4_vlan_table *table = &mlx4_priv(dev)->port[port].vlan_table;
++	int index;
+ 
+-	if (index < MLX4_VLAN_REGULAR) {
+-		mlx4_warn(dev, "Trying to free special vlan index %d\n", index);
+-		return;
++	mutex_lock(&table->mutex);
++	if (mlx4_find_cached_vlan(dev, port, vlan, &index)) {
++		mlx4_warn(dev, "vlan 0x%x is not in the vlan table\n", vlan);
++		goto out;
+ 	}
+ 
+-	mutex_lock(&table->mutex);
+-	if (!table->refs[index]) {
+-		mlx4_warn(dev, "No vlan entry for index %d\n", index);
++	if (index < MLX4_VLAN_REGULAR) {
++		mlx4_warn(dev, "Trying to free special vlan index %d\n", index);
+ 		goto out;
+ 	}
++
+ 	if (--table->refs[index]) {
+-		mlx4_dbg(dev, "Have more references for index %d,"
+-			 "no need to modify vlan table\n", index);
++		mlx4_dbg(dev, "Have %d more references for index %d,"
++			 "no need to modify vlan table\n", table->refs[index],
++			 index);
+ 		goto out;
+ 	}
+ 	table->entries[index] = 0;
+@@ -432,19 +435,19 @@ out:
+ 	mutex_unlock(&table->mutex);
  }
  
- static int vlan_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
--			  u64 in_param, u64 *out_param, int port)
-+			  u64 in_param, u64 *out_param, int in_port)
+-void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, int index)
++void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, u16 vlan)
  {
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_slave_state *slave_state = priv->mfunc.master.slave_state;
- 	int err;
- 	u16 vlan;
- 	int vlan_index;
-+	int port;
-+
-+	port = !in_port ? get_param_l(out_param) : in_port;
+ 	u64 out_param = 0;
  
- 	if (!port || op != RES_OP_RESERVE_AND_MAP)
- 		return -EINVAL;
+ 	if (mlx4_is_mfunc(dev)) {
+-		(void) mlx4_cmd_imm(dev, index, &out_param,
++		(void) mlx4_cmd_imm(dev, vlan, &out_param,
+ 				    ((u32) port) << 8 | (u32) RES_VLAN,
+ 				    RES_OP_RESERVE_AND_MAP,
+ 				    MLX4_CMD_FREE_RES, MLX4_CMD_TIME_CLASS_A,
+ 				    MLX4_CMD_WRAPPED);
+ 		return;
+ 	}
+-	__mlx4_unregister_vlan(dev, port, index);
++	__mlx4_unregister_vlan(dev, port, vlan);
+ }
+ EXPORT_SYMBOL_GPL(mlx4_unregister_vlan);
  
-+	/* upstream kernels had NOP for reg/unreg vlan. Continue this. */
-+	if (!in_port && port > 0 && port <= dev->caps.num_ports) {
-+		slave_state[slave].old_vlan_api = true;
-+		return 0;
-+	}
-+
- 	vlan = (u16) in_param;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index a5aa3be..993a2ef 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -4085,7 +4085,7 @@ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work)
+ 	if (work->flags & MLX4_VF_IMMED_VLAN_FLAG_VLAN && !errors &&
+ 	    NO_INDX != work->orig_vlan_ix)
+ 		__mlx4_unregister_vlan(&work->priv->dev, work->port,
+-				       work->orig_vlan_ix);
++				       work->orig_vlan_id);
+ out:
+ 	kfree(work);
+ 	return;
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 297a163..e2e9288 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -1079,7 +1079,7 @@ int mlx4_SET_PORT_SCHEDULER(struct mlx4_dev *dev, u8 port, u8 *tc_tx_bw,
+ 		u8 *pg, u16 *ratelimit);
+ int mlx4_find_cached_vlan(struct mlx4_dev *dev, u8 port, u16 vid, int *idx);
+ int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index);
+-void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, int index);
++void mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, u16 vlan);
  
- 	err = __mlx4_register_vlan(dev, port, vlan, &vlan_index);
-@@ -1856,10 +1867,14 @@ static int mac_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
- static int vlan_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
- 			    u64 in_param, u64 *out_param, int port)
- {
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_slave_state *slave_state = priv->mfunc.master.slave_state;
- 	int err = 0;
- 
- 	switch (op) {
- 	case RES_OP_RESERVE_AND_MAP:
-+		if (slave_state[slave].old_vlan_api)
-+			return 0;
- 		if (!port)
- 			return -EINVAL;
- 		vlan_del_from_slave(dev, slave, in_param, port);
+ int mlx4_map_phys_fmr(struct mlx4_dev *dev, struct mlx4_fmr *fmr, u64 *page_list,
+ 		      int npages, u64 iova, u32 *lkey, u32 *rkey);
 -- 
 1.7.1
