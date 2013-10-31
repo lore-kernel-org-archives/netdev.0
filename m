@@ -1,37 +1,52 @@
-From: David Cohen <david.a.cohen@linux.intel.com>
-Subject: Re: [gpio:for-next 67/67] pch_gbe_main.c:undefined reference to `devm_gpio_request_one'
-Date: Thu, 31 Oct 2013 12:12:32 -0700
-Message-ID: <5272ABA0.7040503@linux.intel.com>
-References: <52691c0b.BIIOKlR6F81qU+tE%fengguang.wu@intel.com> <20131025044027.GA27083@localhost> <CACRpkdaJVE44UGRAZ0tnQSArrs+DuVFhVssW6riWmdp8-6E6BQ@mail.gmail.com> <1382696677.4970.40.camel@dvhart-mobl4.amr.corp.intel.com> <CACRpkdYvOMiBOXRi61LjemMSoafR6kv3XoY=A5E90hwMumdw9A@mail.gmail.com> <CACRpkdYDUKK-jAeeHECfRcKM+-MDuyarDMGDP0p39U_-WLgd8w@mail.gmail.com> <526AE0EB.4020602@linux.intel.com> <526AE1E2.9080909@linux.intel.com> <1382819615.23829.16.camel@dvhart-mobl4.amr.corp.intel.com> <1382822142.23829.46.camel@dvhart-mobl4.amr.corp.intel.com> <526CA546.7040406@linux.intel.com> <CACRpkdZM8BBR6NAUTuSpEErZe2541-CvuwFSe13FDfxOBnnygA@mail.gmail.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next RFC 1/5] xen-netback: Introduce TX
+ grant map definitions
+Date: Thu, 31 Oct 2013 19:22:27 +0000
+Message-ID: <5272ADF3.2000301@citrix.com>
+References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com> <1383094220-14775-2-git-send-email-zoltan.kiss@citrix.com> <5270DF3602000078000FDFBE@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Fengguang Wu <fengguang.wu@intel.com>,
-	Alexandre Courbot <acourbot@nvidia.com>,
-	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
-To: Linus Walleij <linus.walleij@linaro.org>,
-	Darren Hart <dvhart@linux.intel.com>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-Reply-To: <CACRpkdZM8BBR6NAUTuSpEErZe2541-CvuwFSe13FDfxOBnnygA@mail.gmail.com>
-Sender: linux-gpio-owner@vger.kernel.org
+Cc: <ian.campbell@citrix.com>, <jonathan.davies@citrix.com>,
+	<wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Jan Beulich <JBeulich@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5270DF3602000078000FDFBE@nat28.tlf.novell.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/30/2013 11:21 AM, Linus Walleij wrote:
-> On Sat, Oct 26, 2013 at 10:31 PM, David Cohen
-> <david.a.cohen@linux.intel.com> wrote:
-> 
->> Maybe if GPIOLIB has the static inline stubs returning -ENODEV we could
->> use a patch similar to the one attached here.
-> 
-> I've added stubs returning -EINVAL just like all siblings there, if you
-> like to have this changed, send a patch changing it to -ENODEV
-> and this patch on top as 2/2 please.
+On 30/10/13 09:28, Jan Beulich wrote:
+>>>> On 30.10.13 at 01:50, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
+>> @@ -119,13 +126,22 @@ struct xenvif {
+>>   	pending_ring_idx_t pending_cons;
+>>   	u16 pending_ring[MAX_PENDING_REQS];
+>>   	struct pending_tx_info pending_tx_info[MAX_PENDING_REQS];
+>> +	grant_handle_t grant_tx_handle[MAX_PENDING_REQS];
+>>
+>>   	/* Coalescing tx requests before copying makes number of grant
+>>   	 * copy ops greater or equal to number of slots required. In
+>>   	 * worst case a tx request consumes 2 gnttab_copy.
+>>   	 */
+>>   	struct gnttab_copy tx_copy_ops[2*MAX_PENDING_REQS];
+>> +	struct gnttab_unmap_grant_ref tx_unmap_ops[MAX_PENDING_REQS];
+>> +	struct gnttab_map_grant_ref tx_map_ops[MAX_PENDING_REQS];
+>> +	/* passed to gnttab_[un]map_refs with pages under (un)mapping */
+>> +	struct page *pages_to_gnt[MAX_PENDING_REQS];
+>
+> I think you will want to try to limit the structure size here by putting
+> things into unions that can't be used at the same time: Without
+> having looked at the later patches yet, it seems quite unlikely that
+> map and unmap can be used simultaneously. And the total of copy
+> and map can't also be used at the same time, as for each pending
+> request you would use either up to two copy slots or a single map
+> slot. I didn't look for further opportunities of sharing space.
 
-Thanks.
+Indeed, map and unmap can't be done at the same time, so it's safe to 
+put them into union. But I'm afraid grant_tx_handle and pages_to_gnt 
+can't share space with other members.
+tx_copy_ops is a different topic, let's discuss that in it's own thread ...
 
-Darren, do you have any objections WRT failing pch_gbe on Minnowboard
-due to lack of GPIO?
+Thanks,
 
-BR, David
+Zoli
