@@ -1,76 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next V2 2/2] virtio-net: coalesce rx frags when
-	possible during rx
-Date: Thu, 31 Oct 2013 06:57:52 -0700
-Message-ID: <1383227872.4857.65.camel@edumazet-glaptop.roam.corp.google.com>
-References: <1383220027-12278-1-git-send-email-jasowang@redhat.com>
-	<1383220027-12278-2-git-send-email-jasowang@redhat.com>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: [net-next PATCH] net: codel: Avoid undefined behavior from
+ signed overflow
+Date: Thu, 31 Oct 2013 15:15:51 +0100
+Message-ID: <20131031151551.675ab908@redhat.com>
+References: <20131030172341.19203.93490.stgit@dragon>
+	<1383156104.4857.49.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mwdalton@google.com, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, kmindg@gmail.com,
-	edumazet@google.com, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1383220027-12278-2-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Dave Taht <dave.taht@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:62046 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754302Ab3JaOQE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Oct 2013 10:16:04 -0400
+In-Reply-To: <1383156104.4857.49.camel@edumazet-glaptop.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-10-31 at 19:47 +0800, Jason Wang wrote:
-> Commit 2613af0ed18a11d5c566a81f9a6510b73180660a (virtio_net: migrate mergeable
-> rx buffers to page frag allocators) try to increase the payload/truesize for
-> MTU-sized traffic. But this will introduce the extra overhead for GSO packets
-> received because of the frag list. This commit tries to reduce this issue by
-> coalesce the possible rx frags when possible during rx. Test result shows the
-> about 15% improvement on full size GSO packet receiving (and even better than
-> commit 2613af0ed18a11d5c566a81f9a6510b73180660a).
-> 
-> Before this commit:
-> ./netperf -H 192.168.100.4
-> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.100.4
-> () port 0 AF_INET : demo
-> Recv   Send    Send
-> Socket Socket  Message  Elapsed
-> Size   Size    Size     Time     Throughput
-> bytes  bytes   bytes    secs.    10^6bits/sec
-> 
->  87380  16384  16384    10.00    20303.87
-> 
-> After this commit:
-> ./netperf -H 192.168.100.4
-> MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.100.4 () port 0 AF_INET : demo
-> Recv   Send    Send
-> Socket Socket  Message  Elapsed
-> Size   Size    Size     Time     Throughput
-> bytes  bytes   bytes    secs.    10^6bits/sec
-> 
->  87380  16384  16384    10.00    23841.26
-> 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Michael Dalton <mwdalton@google.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
+On Wed, 30 Oct 2013 11:01:44 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Excellent !
+> On Wed, 2013-10-30 at 18:23 +0100, Jesper Dangaard Brouer wrote:
+> > From: Jesper Dangaard Brouer <netoptimizer@brouer.com>
+> > 
+> > As described in commit 5a581b367 (jiffies: Avoid undefined
+> > behavior from signed overflow), according to the C standard
+> > 3.4.3p3, overflow of a signed integer results in undefined
+> > behavior.
+> > 
+> > To fix this, do as the above commit, and do an unsigned
+> > subtraction, and interpreting the result as a signed
+> > two's-complement number.  This is based on the theory from
+> > RFC 1982 and is nicely described in wikipedia here:
+> >  https://en.wikipedia.org/wiki/Serial_number_arithmetic#General_Solution
+> > 
+> > A side-note, I have seen practical issues with the previous logic
+> > when dealing with 16-bit, on a 64-bit machine (gcc version
+> > 4.4.5). This were 32-bit, which I have not observed issues with.
+> > 
+> > Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> > Signed-off-by: Jesper Dangaard Brouer <netoptimizer@brouer.com>
+> > ---
+> > 
+> >  include/net/codel.h |    8 ++++----
+> >  1 files changed, 4 insertions(+), 4 deletions(-)
+> > 
+> > diff --git a/include/net/codel.h b/include/net/codel.h
+> > index 389cf62..700fcdf 100644
+> > --- a/include/net/codel.h
+> > +++ b/include/net/codel.h
+> > @@ -72,10 +72,10 @@ static inline codel_time_t codel_get_time(void)
+> >  	return ns >> CODEL_SHIFT;
+> >  }
+> >  
+> > -#define codel_time_after(a, b)		((s32)(a) - (s32)(b) > 0)
+> > -#define codel_time_after_eq(a, b)	((s32)(a) - (s32)(b) >= 0)
+> > -#define codel_time_before(a, b)		((s32)(a) - (s32)(b) < 0)
+> > -#define codel_time_before_eq(a, b)	((s32)(a) - (s32)(b) <= 0)
+> > +#define codel_time_after(a, b)		((s32)((a) - (b)) > 0)
+> > +#define codel_time_after_eq(a, b)	((s32)((a) - (b)) >= 0)
+> > +#define codel_time_before(a, b) 	((s32)((a) - (b)) < 0)
+> > +#define codel_time_before_eq(a, b)	((s32)((a) - (b)) <= 0)
+> >  
+> 
+> I see nothing enforcing an unsigned subtraction as claimed in your
+> changelog.
+> 
+> a / b could be signed.
+> 
+> Paul commit 5a581b367b5 was OK because of existing typecheck(unsigned
+> long, ....)
 
-We now have 2 or 3 frags per skb, like tcp stack manages to do on output
-path.
+Okay, I'll cook up another patch, after work.
 
-Michael Dalton is also working on a autotuning patch, using an EWMA, so
-that the size of individual sg blocks can vary from 1500 to 4096, this
-might show even better throughput, we'll see.
+Adding all the typecheck() stuff, just bloats the code.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Would it be better/okay just to do?:
+ (s32)((u32)(a) - (u32)(b)) > 0)
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
