@@ -1,491 +1,462 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 08/10] mlx4: Structures and init/teardown for VF resource quotas
-Date: Thu, 31 Oct 2013 14:29:27 +0200
-Message-ID: <1383222569-10930-9-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 10/10] net/mlx4_core: Implement resource quota enforcement
+Date: Thu, 31 Oct 2013 14:29:29 +0200
+Message-ID: <1383222569-10930-11-git-send-email-ogerlitz@mellanox.com>
 References: <1383222569-10930-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, amirv@mellanox.com, roland@kernel.org,
 	jackm@dev.mellanox.co.il, Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:41716 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:35628 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752866Ab3JaM3u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Oct 2013 08:29:50 -0400
+	id S1753904Ab3JaM3w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Oct 2013 08:29:52 -0400
 In-Reply-To: <1383222569-10930-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-This is step #1 for implementing SRIOV resource quotas for VFs.
+Implements resource quota grant decision when resources are requested,
+for the following resources:  QPs, CQs, SRQs, MPTs, MTTs, vlans, MACs,
+and Counters.
 
-Quotas are implemented per resource type for VFs and the PF, to prevent
-any entity from simply grabbing all the resources for itself and leaving
-the other entities unable to obtain such resources.
+When granting a resource, the quota system increases the allocated-count
+for that slave.
 
-Resources which are allocated using quotas:  QPs, CQs, SRQs, MPTs, MTTs, MAC,
-                                             VLAN, and Counters.
+When the slave later frees the resource, its allocated-count is reduced.
 
-The quota system works as follows:
-Each entity (VF or PF) is given a max number of a given resource (its quota),
-and a guaranteed minimum number for each resource (starvation prevention).
-
-For QPs, CQs, SRQs, MPTs and MTTs:
-50% of the available quantity for the resource is divided equally among
-the PF and all the active VFs (i.e., the number of VFs in the mlx4_core module
-parameter "num_vfs"). This 50% represents the "guaranteed minimum" pool.
-The other 50% is the "free pool", allocated on a first-come-first-serve basis.
-For each VF/PF, resources are first allocated from its "guaranteed-minimum"
-pool. When that pool is exhausted, the driver attempts to allocate from
-the resource "free-pool".
-
-The quota (i.e., max) for the VFs and the PF is:
-  The free-pool amount (50% of the real max) + the guaranteed minimum
-
-For MACs:
-  Guarantee 2 MACs per VF/PF per port. As a result, since we have only
-  128 MACs per port, reduce the allowable number of VFs from 64 to 63.
-  Any remaining MACs are put into a free pool.
-
-For VLANs:
-  For the PF, the per-port quota is 128 and guarantee is 64
-     (to allow the PF to register at least a VLAN per VF in VST mode).
-  For the VFs, the per-port quota is 64 and the guarantee is 0.
-      We assume that VGT VFs are trusted not to abuse the VLAN resource.
-
-For Counters:
-  For all functions (PF and VFs), the quota is 128 and the guarantee is 0.
-
-In this patch, we define the needed structures, which are added to the
-resource-tracker struct.  In addition, we do initialization
-for the resource quota, and adjust the query_device response to use quotas
-rather than resource maxima.
-
-As part of the implementation, we introduce a new field in
-mlx4_dev: quotas.  This field holds the resource quotas used
-to report maxima to the upper layers (ib_core, via query_device).
-
-The HCA maxima of these values are passed to the VFs (via
-QUERY_HCA) so that they may continue to use these in handling
-QPs, CQs, SRQs and MPTs.
+A spinlock is used to protect the integrity of each resource's free-pool counter.
+(One slave may be in the process of being granted a resource while another
+slave has crashed, initiating cleanup of that slave's resource quotas).
 
 Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/infiniband/hw/mlx4/main.c                  |    8 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c            |   11 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          |   32 +++--
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   17 ++
- drivers/net/ethernet/mellanox/mlx4/qp.c            |    3 +-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  157 +++++++++++++++++++-
- include/linux/mlx4/device.h                        |   17 ++
- 7 files changed, 222 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    1 +
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  185 ++++++++++++++++++--
+ 2 files changed, 173 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
-index f061264..7567437 100644
---- a/drivers/infiniband/hw/mlx4/main.c
-+++ b/drivers/infiniband/hw/mlx4/main.c
-@@ -177,18 +177,18 @@ static int mlx4_ib_query_device(struct ib_device *ibdev,
- 
- 	props->max_mr_size	   = ~0ull;
- 	props->page_size_cap	   = dev->dev->caps.page_size_cap;
--	props->max_qp		   = dev->dev->caps.num_qps - dev->dev->caps.reserved_qps;
-+	props->max_qp		   = dev->dev->quotas.qp;
- 	props->max_qp_wr	   = dev->dev->caps.max_wqes - MLX4_IB_SQ_MAX_SPARE;
- 	props->max_sge		   = min(dev->dev->caps.max_sq_sg,
- 					 dev->dev->caps.max_rq_sg);
--	props->max_cq		   = dev->dev->caps.num_cqs - dev->dev->caps.reserved_cqs;
-+	props->max_cq		   = dev->dev->quotas.cq;
- 	props->max_cqe		   = dev->dev->caps.max_cqes;
--	props->max_mr		   = dev->dev->caps.num_mpts - dev->dev->caps.reserved_mrws;
-+	props->max_mr		   = dev->dev->quotas.mpt;
- 	props->max_pd		   = dev->dev->caps.num_pds - dev->dev->caps.reserved_pds;
- 	props->max_qp_rd_atom	   = dev->dev->caps.max_qp_dest_rdma;
- 	props->max_qp_init_rd_atom = dev->dev->caps.max_qp_init_rdma;
- 	props->max_res_rd_atom	   = props->max_qp_rd_atom * props->max_qp;
--	props->max_srq		   = dev->dev->caps.num_srqs - dev->dev->caps.reserved_srqs;
-+	props->max_srq		   = dev->dev->quotas.srq;
- 	props->max_srq_wr	   = dev->dev->caps.max_srq_wqes - 1;
- 	props->max_srq_sge	   = dev->dev->caps.max_srq_sge;
- 	props->max_fast_reg_page_list_len = MLX4_MAX_FAST_REG_PAGES;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index c151e7a..f8c88c3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -177,6 +177,7 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- 				struct mlx4_cmd_mailbox *outbox,
- 				struct mlx4_cmd_info *cmd)
- {
-+	struct mlx4_priv *priv = mlx4_priv(dev);
- 	u8	field;
- 	u32	size;
- 	int	err = 0;
-@@ -250,13 +251,13 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- 		field = 0; /* protected FMR support not available as yet */
- 		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_FMR_OFFSET);
- 
--		size = dev->caps.num_qps;
-+		size = priv->mfunc.master.res_tracker.res_alloc[RES_QP].quota[slave];
- 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_QP_QUOTA_OFFSET);
- 
--		size = dev->caps.num_srqs;
-+		size = priv->mfunc.master.res_tracker.res_alloc[RES_SRQ].quota[slave];
- 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_SRQ_QUOTA_OFFSET);
- 
--		size = dev->caps.num_cqs;
-+		size = priv->mfunc.master.res_tracker.res_alloc[RES_CQ].quota[slave];
- 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_CQ_QUOTA_OFFSET);
- 
- 		size = dev->caps.num_eqs;
-@@ -265,10 +266,10 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- 		size = dev->caps.reserved_eqs;
- 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_RESERVED_EQ_OFFSET);
- 
--		size = dev->caps.num_mpts;
-+		size = priv->mfunc.master.res_tracker.res_alloc[RES_MPT].quota[slave];
- 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_MPT_QUOTA_OFFSET);
- 
--		size = dev->caps.num_mtts;
-+		size = priv->mfunc.master.res_tracker.res_alloc[RES_MTT].quota[slave];
- 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_MTT_QUOTA_OFFSET);
- 
- 		size = dev->caps.num_mgms + dev->caps.num_amgms;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 179d267..7d2628d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -562,13 +562,17 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 	}
- 
- 	dev->caps.num_ports		= func_cap.num_ports;
--	dev->caps.num_qps		= func_cap.qp_quota;
--	dev->caps.num_srqs		= func_cap.srq_quota;
--	dev->caps.num_cqs		= func_cap.cq_quota;
--	dev->caps.num_eqs               = func_cap.max_eq;
--	dev->caps.reserved_eqs          = func_cap.reserved_eq;
--	dev->caps.num_mpts		= func_cap.mpt_quota;
--	dev->caps.num_mtts		= func_cap.mtt_quota;
-+	dev->quotas.qp			= func_cap.qp_quota;
-+	dev->quotas.srq			= func_cap.srq_quota;
-+	dev->quotas.cq			= func_cap.cq_quota;
-+	dev->quotas.mpt			= func_cap.mpt_quota;
-+	dev->quotas.mtt			= func_cap.mtt_quota;
-+	dev->caps.num_qps		= 1 << hca_param.log_num_qps;
-+	dev->caps.num_srqs		= 1 << hca_param.log_num_srqs;
-+	dev->caps.num_cqs		= 1 << hca_param.log_num_cqs;
-+	dev->caps.num_mpts		= 1 << hca_param.log_mpt_sz;
-+	dev->caps.num_eqs		= func_cap.max_eq;
-+	dev->caps.reserved_eqs		= func_cap.reserved_eq;
- 	dev->caps.num_pds               = MLX4_NUM_PDS;
- 	dev->caps.num_mgms              = 0;
- 	dev->caps.num_amgms             = 0;
-@@ -2102,9 +2106,15 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- 			"aborting.\n");
- 		return err;
- 	}
--	if (num_vfs > MLX4_MAX_NUM_VF) {
--		printk(KERN_ERR "There are more VF's (%d) than allowed(%d)\n",
--		       num_vfs, MLX4_MAX_NUM_VF);
-+
-+	/* Due to requirement that all VFs and the PF are *guaranteed* 2 MACS
-+	 * per port, we must limit the number of VFs to 63 (since their are
-+	 * 128 MACs)
-+	 */
-+	if (num_vfs >= MLX4_MAX_NUM_VF) {
-+		dev_err(&pdev->dev,
-+			"Requested more VF's (%d) than allowed (%d)\n",
-+			num_vfs, MLX4_MAX_NUM_VF - 1);
- 		return -EINVAL;
- 	}
- 
-@@ -2322,6 +2332,8 @@ slave_start:
- 	if (err)
- 		goto err_steer;
- 
-+	mlx4_init_quotas(dev);
-+
- 	for (port = 1; port <= dev->caps.num_ports; port++) {
- 		err = mlx4_init_port_info(dev, port);
- 		if (err)
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 9794126..e7eb86e 100644
+index e7eb86e..e582a41 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -504,12 +504,27 @@ struct slave_list {
- 	struct list_head res_list[MLX4_NUM_OF_RESOURCE_TYPE];
+@@ -505,6 +505,7 @@ struct slave_list {
  };
  
-+struct resource_allocator {
-+	union {
-+		int res_reserved;
-+		int res_port_rsvd[MLX4_MAX_PORTS];
-+	};
-+	union {
-+		int res_free;
-+		int res_port_free[MLX4_MAX_PORTS];
-+	};
-+	int *quota;
-+	int *allocated;
-+	int *guaranteed;
-+};
-+
- struct mlx4_resource_tracker {
- 	spinlock_t lock;
- 	/* tree for each resources */
- 	struct rb_root res_tree[MLX4_NUM_OF_RESOURCE_TYPE];
- 	/* num_of_slave's lists, one per slave */
- 	struct slave_list *slave_list;
-+	struct resource_allocator res_alloc[MLX4_NUM_OF_RESOURCE_TYPE];
- };
- 
- #define SLAVE_EVENT_EQ_SIZE	128
-@@ -1253,4 +1268,6 @@ static inline spinlock_t *mlx4_tlock(struct mlx4_dev *dev)
- 
- void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work);
- 
-+void mlx4_init_quotas(struct mlx4_dev *dev);
-+
- #endif /* MLX4_H */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index e891b05..2715e61 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -480,8 +480,7 @@ int mlx4_init_qp_table(struct mlx4_dev *dev)
- 	*/
- 
- 	err = mlx4_bitmap_init(&qp_table->bitmap, dev->caps.num_qps,
--			       (1 << 23) - 1, dev->phys_caps.base_sqpn + 8 +
--			       16 * MLX4_MFUNC_MAX * !!mlx4_is_master(dev),
-+			       (1 << 23) - 1, mlx4_num_reserved_sqps(dev),
- 			       reserved_from_top);
- 	if (err)
- 		return err;
+ struct resource_allocator {
++	spinlock_t alloc_lock; /* protect quotas */
+ 	union {
+ 		int res_reserved;
+ 		int res_port_rsvd[MLX4_MAX_PORTS];
 diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 3586388..cc5d6d0 100644
+index cc5d6d0..b1603e2 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -284,10 +284,59 @@ static const char *ResourceType(enum mlx4_resource rt)
+@@ -284,6 +284,85 @@ static const char *ResourceType(enum mlx4_resource rt)
  }
  
  static void rem_slave_vlans(struct mlx4_dev *dev, int slave);
-+static inline void initialize_res_quotas(struct mlx4_dev *dev,
-+					 struct resource_allocator *res_alloc,
-+					 enum mlx4_resource res_type,
-+					 int vf, int num_instances)
-+{
-+	res_alloc->guaranteed[vf] = num_instances / (2 * (dev->num_vfs + 1));
-+	res_alloc->quota[vf] = (num_instances / 2) + res_alloc->guaranteed[vf];
-+	if (vf == mlx4_master_func_num(dev)) {
-+		res_alloc->res_free = num_instances;
-+		if (res_type == RES_MTT) {
-+			/* reserved mtts will be taken out of the PF allocation */
-+			res_alloc->res_free += dev->caps.reserved_mtts;
-+			res_alloc->guaranteed[vf] += dev->caps.reserved_mtts;
-+			res_alloc->quota[vf] += dev->caps.reserved_mtts;
-+		}
-+	}
-+}
-+
-+void mlx4_init_quotas(struct mlx4_dev *dev)
++static inline int mlx4_grant_resource(struct mlx4_dev *dev, int slave,
++				      enum mlx4_resource res_type, int count,
++				      int port)
 +{
 +	struct mlx4_priv *priv = mlx4_priv(dev);
-+	int pf;
++	struct resource_allocator *res_alloc =
++		&priv->mfunc.master.res_tracker.res_alloc[res_type];
++	int err = -EINVAL;
++	int allocated, free, reserved, guaranteed, from_free;
 +
-+	/* quotas for VFs are initialized in mlx4_slave_cap */
-+	if (mlx4_is_slave(dev))
-+		return;
++	if (slave > dev->num_vfs)
++		return -EINVAL;
 +
-+	if (!mlx4_is_mfunc(dev)) {
-+		dev->quotas.qp = dev->caps.num_qps - dev->caps.reserved_qps -
-+			mlx4_num_reserved_sqps(dev);
-+		dev->quotas.cq = dev->caps.num_cqs - dev->caps.reserved_cqs;
-+		dev->quotas.srq = dev->caps.num_srqs - dev->caps.reserved_srqs;
-+		dev->quotas.mtt = dev->caps.num_mtts - dev->caps.reserved_mtts;
-+		dev->quotas.mpt = dev->caps.num_mpts - dev->caps.reserved_mrws;
-+		return;
++	spin_lock(&res_alloc->alloc_lock);
++	allocated = (port > 0) ?
++		res_alloc->allocated[(port - 1) * (dev->num_vfs + 1) + slave] :
++		res_alloc->allocated[slave];
++	free = (port > 0) ? res_alloc->res_port_free[port - 1] :
++		res_alloc->res_free;
++	reserved = (port > 0) ? res_alloc->res_port_rsvd[port - 1] :
++		res_alloc->res_reserved;
++	guaranteed = res_alloc->guaranteed[slave];
++
++	if (allocated + count > res_alloc->quota[slave])
++		goto out;
++
++	if (allocated + count <= guaranteed) {
++		err = 0;
++	} else {
++		/* portion may need to be obtained from free area */
++		if (guaranteed - allocated > 0)
++			from_free = count - (guaranteed - allocated);
++		else
++			from_free = count;
++
++		if (free - from_free > reserved)
++			err = 0;
 +	}
 +
-+	pf = mlx4_master_func_num(dev);
-+	dev->quotas.qp =
-+		priv->mfunc.master.res_tracker.res_alloc[RES_QP].quota[pf];
-+	dev->quotas.cq =
-+		priv->mfunc.master.res_tracker.res_alloc[RES_CQ].quota[pf];
-+	dev->quotas.srq =
-+		priv->mfunc.master.res_tracker.res_alloc[RES_SRQ].quota[pf];
-+	dev->quotas.mtt =
-+		priv->mfunc.master.res_tracker.res_alloc[RES_MTT].quota[pf];
-+	dev->quotas.mpt =
-+		priv->mfunc.master.res_tracker.res_alloc[RES_MPT].quota[pf];
-+}
- int mlx4_init_resource_tracker(struct mlx4_dev *dev)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
--	int i;
-+	int i, j;
- 	int t;
- 
- 	priv->mfunc.master.res_tracker.slave_list =
-@@ -308,8 +357,104 @@ int mlx4_init_resource_tracker(struct mlx4_dev *dev)
- 	for (i = 0 ; i < MLX4_NUM_OF_RESOURCE_TYPE; i++)
- 		priv->mfunc.master.res_tracker.res_tree[i] = RB_ROOT;
- 
-+	for (i = 0; i < MLX4_NUM_OF_RESOURCE_TYPE; i++) {
-+		struct resource_allocator *res_alloc =
-+			&priv->mfunc.master.res_tracker.res_alloc[i];
-+		res_alloc->quota = kmalloc((dev->num_vfs + 1) * sizeof(int), GFP_KERNEL);
-+		res_alloc->guaranteed = kmalloc((dev->num_vfs + 1) * sizeof(int), GFP_KERNEL);
-+		if (i == RES_MAC || i == RES_VLAN)
-+			res_alloc->allocated = kzalloc(MLX4_MAX_PORTS *
-+						       (dev->num_vfs + 1) * sizeof(int),
-+							GFP_KERNEL);
-+		else
-+			res_alloc->allocated = kzalloc((dev->num_vfs + 1) * sizeof(int), GFP_KERNEL);
-+
-+		if (!res_alloc->quota || !res_alloc->guaranteed ||
-+		    !res_alloc->allocated)
-+			goto no_mem_err;
-+
-+		for (t = 0; t < dev->num_vfs + 1; t++) {
-+			switch (i) {
-+			case RES_QP:
-+				initialize_res_quotas(dev, res_alloc, RES_QP,
-+						      t, dev->caps.num_qps -
-+						      dev->caps.reserved_qps -
-+						      mlx4_num_reserved_sqps(dev));
-+				break;
-+			case RES_CQ:
-+				initialize_res_quotas(dev, res_alloc, RES_CQ,
-+						      t, dev->caps.num_cqs -
-+						      dev->caps.reserved_cqs);
-+				break;
-+			case RES_SRQ:
-+				initialize_res_quotas(dev, res_alloc, RES_SRQ,
-+						      t, dev->caps.num_srqs -
-+						      dev->caps.reserved_srqs);
-+				break;
-+			case RES_MPT:
-+				initialize_res_quotas(dev, res_alloc, RES_MPT,
-+						      t, dev->caps.num_mpts -
-+						      dev->caps.reserved_mrws);
-+				break;
-+			case RES_MTT:
-+				initialize_res_quotas(dev, res_alloc, RES_MTT,
-+						      t, dev->caps.num_mtts -
-+						      dev->caps.reserved_mtts);
-+				break;
-+			case RES_MAC:
-+				if (t == mlx4_master_func_num(dev)) {
-+					res_alloc->quota[t] = MLX4_MAX_MAC_NUM;
-+					res_alloc->guaranteed[t] = 2;
-+					for (j = 0; j < MLX4_MAX_PORTS; j++)
-+						res_alloc->res_port_free[j] = MLX4_MAX_MAC_NUM;
-+				} else {
-+					res_alloc->quota[t] = MLX4_MAX_MAC_NUM;
-+					res_alloc->guaranteed[t] = 2;
-+				}
-+				break;
-+			case RES_VLAN:
-+				if (t == mlx4_master_func_num(dev)) {
-+					res_alloc->quota[t] = MLX4_MAX_VLAN_NUM;
-+					res_alloc->guaranteed[t] = MLX4_MAX_VLAN_NUM / 2;
-+					for (j = 0; j < MLX4_MAX_PORTS; j++)
-+						res_alloc->res_port_free[j] =
-+							res_alloc->quota[t];
-+				} else {
-+					res_alloc->quota[t] = MLX4_MAX_VLAN_NUM / 2;
-+					res_alloc->guaranteed[t] = 0;
-+				}
-+				break;
-+			case RES_COUNTER:
-+				res_alloc->quota[t] = dev->caps.max_counters;
-+				res_alloc->guaranteed[t] = 0;
-+				if (t == mlx4_master_func_num(dev))
-+					res_alloc->res_free = res_alloc->quota[t];
-+				break;
-+			default:
-+				break;
-+			}
-+			if (i == RES_MAC || i == RES_VLAN) {
-+				for (j = 0; j < MLX4_MAX_PORTS; j++)
-+					res_alloc->res_port_rsvd[j] +=
-+						res_alloc->guaranteed[t];
-+			} else {
-+				res_alloc->res_reserved += res_alloc->guaranteed[t];
-+			}
++	if (!err) {
++		/* grant the request */
++		if (port > 0) {
++			res_alloc->allocated[(port - 1) * (dev->num_vfs + 1) + slave] += count;
++			res_alloc->res_port_free[port - 1] -= count;
++		} else {
++			res_alloc->allocated[slave] += count;
++			res_alloc->res_free -= count;
 +		}
 +	}
- 	spin_lock_init(&priv->mfunc.master.res_tracker.lock);
--	return 0 ;
-+	return 0;
 +
-+no_mem_err:
-+	for (i = 0; i < MLX4_NUM_OF_RESOURCE_TYPE; i++) {
-+		kfree(priv->mfunc.master.res_tracker.res_alloc[i].allocated);
-+		priv->mfunc.master.res_tracker.res_alloc[i].allocated = NULL;
-+		kfree(priv->mfunc.master.res_tracker.res_alloc[i].guaranteed);
-+		priv->mfunc.master.res_tracker.res_alloc[i].guaranteed = NULL;
-+		kfree(priv->mfunc.master.res_tracker.res_alloc[i].quota);
-+		priv->mfunc.master.res_tracker.res_alloc[i].quota = NULL;
-+	}
-+	return -ENOMEM;
- }
- 
- void mlx4_free_resource_tracker(struct mlx4_dev *dev,
-@@ -333,6 +478,14 @@ void mlx4_free_resource_tracker(struct mlx4_dev *dev,
- 		}
- 
- 		if (type != RES_TR_FREE_SLAVES_ONLY) {
-+			for (i = 0; i < MLX4_NUM_OF_RESOURCE_TYPE; i++) {
-+				kfree(priv->mfunc.master.res_tracker.res_alloc[i].allocated);
-+				priv->mfunc.master.res_tracker.res_alloc[i].allocated = NULL;
-+				kfree(priv->mfunc.master.res_tracker.res_alloc[i].guaranteed);
-+				priv->mfunc.master.res_tracker.res_alloc[i].guaranteed = NULL;
-+				kfree(priv->mfunc.master.res_tracker.res_alloc[i].quota);
-+				priv->mfunc.master.res_tracker.res_alloc[i].quota = NULL;
-+			}
- 			kfree(priv->mfunc.master.res_tracker.slave_list);
- 			priv->mfunc.master.res_tracker.slave_list = NULL;
- 		}
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index e2e9288..f6f5927 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -641,12 +641,23 @@ struct mlx4_counter {
- 	__be64	tx_bytes;
- };
- 
-+struct mlx4_quotas {
-+	int qp;
-+	int cq;
-+	int srq;
-+	int mpt;
-+	int mtt;
-+	int counter;
-+	int xrcd;
-+};
-+
- struct mlx4_dev {
- 	struct pci_dev	       *pdev;
- 	unsigned long		flags;
- 	unsigned long		num_slaves;
- 	struct mlx4_caps	caps;
- 	struct mlx4_phys_caps	phys_caps;
-+	struct mlx4_quotas	quotas;
- 	struct radix_tree_root	qp_table_tree;
- 	u8			rev_id;
- 	char			board_id[MLX4_BOARD_ID_LEN];
-@@ -772,6 +783,12 @@ static inline int mlx4_is_master(struct mlx4_dev *dev)
- 	return dev->flags & MLX4_FLAG_MASTER;
- }
- 
-+static inline int mlx4_num_reserved_sqps(struct mlx4_dev *dev)
-+{
-+	return dev->phys_caps.base_sqpn + 8 +
-+		16 * MLX4_MFUNC_MAX * !!mlx4_is_master(dev);
++out:
++	spin_unlock(&res_alloc->alloc_lock);
++	return err;
 +}
 +
- static inline int mlx4_is_qp_reserved(struct mlx4_dev *dev, u32 qpn)
- {
- 	return (qpn < dev->phys_caps.base_sqpn + 8 +
++static inline void mlx4_release_resource(struct mlx4_dev *dev, int slave,
++				    enum mlx4_resource res_type, int count,
++				    int port)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct resource_allocator *res_alloc =
++		&priv->mfunc.master.res_tracker.res_alloc[res_type];
++
++	if (slave > dev->num_vfs)
++		return;
++
++	spin_lock(&res_alloc->alloc_lock);
++	if (port > 0) {
++		res_alloc->allocated[(port - 1) * (dev->num_vfs + 1) + slave] -= count;
++		res_alloc->res_port_free[port - 1] += count;
++	} else {
++		res_alloc->allocated[slave] -= count;
++		res_alloc->res_free += count;
++	}
++
++	spin_unlock(&res_alloc->alloc_lock);
++	return;
++}
++
+ static inline void initialize_res_quotas(struct mlx4_dev *dev,
+ 					 struct resource_allocator *res_alloc,
+ 					 enum mlx4_resource res_type,
+@@ -373,6 +452,7 @@ int mlx4_init_resource_tracker(struct mlx4_dev *dev)
+ 		    !res_alloc->allocated)
+ 			goto no_mem_err;
+ 
++		spin_lock_init(&res_alloc->alloc_lock);
+ 		for (t = 0; t < dev->num_vfs + 1; t++) {
+ 			switch (i) {
+ 			case RES_QP:
+@@ -1399,12 +1479,19 @@ static int qp_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 	case RES_OP_RESERVE:
+ 		count = get_param_l(&in_param);
+ 		align = get_param_h(&in_param);
+-		err = __mlx4_qp_reserve_range(dev, count, align, &base);
++		err = mlx4_grant_resource(dev, slave, RES_QP, count, 0);
+ 		if (err)
+ 			return err;
+ 
++		err = __mlx4_qp_reserve_range(dev, count, align, &base);
++		if (err) {
++			mlx4_release_resource(dev, slave, RES_QP, count, 0);
++			return err;
++		}
++
+ 		err = add_res_range(dev, slave, base, count, RES_QP, 0);
+ 		if (err) {
++			mlx4_release_resource(dev, slave, RES_QP, count, 0);
+ 			__mlx4_qp_release_range(dev, base, count);
+ 			return err;
+ 		}
+@@ -1452,15 +1539,24 @@ static int mtt_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 		return err;
+ 
+ 	order = get_param_l(&in_param);
++
++	err = mlx4_grant_resource(dev, slave, RES_MTT, 1 << order, 0);
++	if (err)
++		return err;
++
+ 	base = __mlx4_alloc_mtt_range(dev, order);
+-	if (base == -1)
++	if (base == -1) {
++		mlx4_release_resource(dev, slave, RES_MTT, 1 << order, 0);
+ 		return -ENOMEM;
++	}
+ 
+ 	err = add_res_range(dev, slave, base, 1, RES_MTT, order);
+-	if (err)
++	if (err) {
++		mlx4_release_resource(dev, slave, RES_MTT, 1 << order, 0);
+ 		__mlx4_free_mtt_range(dev, base, order);
+-	else
++	} else {
+ 		set_param_l(out_param, base);
++	}
+ 
+ 	return err;
+ }
+@@ -1475,13 +1571,20 @@ static int mpt_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 
+ 	switch (op) {
+ 	case RES_OP_RESERVE:
++		err = mlx4_grant_resource(dev, slave, RES_MPT, 1, 0);
++		if (err)
++			break;
++
+ 		index = __mlx4_mpt_reserve(dev);
+-		if (index == -1)
++		if (index == -1) {
++			mlx4_release_resource(dev, slave, RES_MPT, 1, 0);
+ 			break;
++		}
+ 		id = index & mpt_mask(dev);
+ 
+ 		err = add_res_range(dev, slave, id, 1, RES_MPT, index);
+ 		if (err) {
++			mlx4_release_resource(dev, slave, RES_MPT, 1, 0);
+ 			__mlx4_mpt_release(dev, index);
+ 			break;
+ 		}
+@@ -1515,12 +1618,19 @@ static int cq_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 
+ 	switch (op) {
+ 	case RES_OP_RESERVE_AND_MAP:
+-		err = __mlx4_cq_alloc_icm(dev, &cqn);
++		err = mlx4_grant_resource(dev, slave, RES_CQ, 1, 0);
+ 		if (err)
+ 			break;
+ 
++		err = __mlx4_cq_alloc_icm(dev, &cqn);
++		if (err) {
++			mlx4_release_resource(dev, slave, RES_CQ, 1, 0);
++			break;
++		}
++
+ 		err = add_res_range(dev, slave, cqn, 1, RES_CQ, 0);
+ 		if (err) {
++			mlx4_release_resource(dev, slave, RES_CQ, 1, 0);
+ 			__mlx4_cq_free_icm(dev, cqn);
+ 			break;
+ 		}
+@@ -1543,12 +1653,19 @@ static int srq_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 
+ 	switch (op) {
+ 	case RES_OP_RESERVE_AND_MAP:
+-		err = __mlx4_srq_alloc_icm(dev, &srqn);
++		err = mlx4_grant_resource(dev, slave, RES_SRQ, 1, 0);
+ 		if (err)
+ 			break;
+ 
++		err = __mlx4_srq_alloc_icm(dev, &srqn);
++		if (err) {
++			mlx4_release_resource(dev, slave, RES_SRQ, 1, 0);
++			break;
++		}
++
+ 		err = add_res_range(dev, slave, srqn, 1, RES_SRQ, 0);
+ 		if (err) {
++			mlx4_release_resource(dev, slave, RES_SRQ, 1, 0);
+ 			__mlx4_srq_free_icm(dev, srqn);
+ 			break;
+ 		}
+@@ -1569,9 +1686,13 @@ static int mac_add_to_slave(struct mlx4_dev *dev, int slave, u64 mac, int port)
+ 	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
+ 	struct mac_res *res;
+ 
++	if (mlx4_grant_resource(dev, slave, RES_MAC, 1, port))
++		return -EINVAL;
+ 	res = kzalloc(sizeof *res, GFP_KERNEL);
+-	if (!res)
++	if (!res) {
++		mlx4_release_resource(dev, slave, RES_MAC, 1, port);
+ 		return -ENOMEM;
++	}
+ 	res->mac = mac;
+ 	res->port = (u8) port;
+ 	list_add_tail(&res->list,
+@@ -1591,6 +1712,7 @@ static void mac_del_from_slave(struct mlx4_dev *dev, int slave, u64 mac,
+ 	list_for_each_entry_safe(res, tmp, mac_list, list) {
+ 		if (res->mac == mac && res->port == (u8) port) {
+ 			list_del(&res->list);
++			mlx4_release_resource(dev, slave, RES_MAC, 1, port);
+ 			kfree(res);
+ 			break;
+ 		}
+@@ -1608,6 +1730,7 @@ static void rem_slave_macs(struct mlx4_dev *dev, int slave)
+ 	list_for_each_entry_safe(res, tmp, mac_list, list) {
+ 		list_del(&res->list);
+ 		__mlx4_unregister_mac(dev, res->port, res->mac);
++		mlx4_release_resource(dev, slave, RES_MAC, 1, res->port);
+ 		kfree(res);
+ 	}
+ }
+@@ -1656,9 +1779,13 @@ static int vlan_add_to_slave(struct mlx4_dev *dev, int slave, u16 vlan,
+ 		}
+ 	}
+ 
++	if (mlx4_grant_resource(dev, slave, RES_VLAN, 1, port))
++		return -EINVAL;
+ 	res = kzalloc(sizeof(*res), GFP_KERNEL);
+-	if (!res)
++	if (!res) {
++		mlx4_release_resource(dev, slave, RES_VLAN, 1, port);
+ 		return -ENOMEM;
++	}
+ 	res->vlan = vlan;
+ 	res->port = (u8) port;
+ 	res->vlan_index = vlan_index;
+@@ -1682,6 +1809,8 @@ static void vlan_del_from_slave(struct mlx4_dev *dev, int slave, u16 vlan,
+ 		if (res->vlan == vlan && res->port == (u8) port) {
+ 			if (!--res->ref_count) {
+ 				list_del(&res->list);
++				mlx4_release_resource(dev, slave, RES_VLAN,
++						      1, port);
+ 				kfree(res);
+ 			}
+ 			break;
+@@ -1703,6 +1832,7 @@ static void rem_slave_vlans(struct mlx4_dev *dev, int slave)
+ 		/* dereference the vlan the num times the slave referenced it */
+ 		for (i = 0; i < res->ref_count; i++)
+ 			__mlx4_unregister_vlan(dev, res->port, res->vlan);
++		mlx4_release_resource(dev, slave, RES_VLAN, 1, res->port);
+ 		kfree(res);
+ 	}
+ }
+@@ -1749,15 +1879,23 @@ static int counter_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 	if (op != RES_OP_RESERVE)
+ 		return -EINVAL;
+ 
+-	err = __mlx4_counter_alloc(dev, &index);
++	err = mlx4_grant_resource(dev, slave, RES_COUNTER, 1, 0);
+ 	if (err)
+ 		return err;
+ 
++	err = __mlx4_counter_alloc(dev, &index);
++	if (err) {
++		mlx4_release_resource(dev, slave, RES_COUNTER, 1, 0);
++		return err;
++	}
++
+ 	err = add_res_range(dev, slave, index, 1, RES_COUNTER, 0);
+-	if (err)
++	if (err) {
+ 		__mlx4_counter_free(dev, index);
+-	else
++		mlx4_release_resource(dev, slave, RES_COUNTER, 1, 0);
++	} else {
+ 		set_param_l(out_param, index);
++	}
+ 
+ 	return err;
+ }
+@@ -1864,6 +2002,7 @@ static int qp_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 		err = rem_res_range(dev, slave, base, count, RES_QP, 0);
+ 		if (err)
+ 			break;
++		mlx4_release_resource(dev, slave, RES_QP, count, 0);
+ 		__mlx4_qp_release_range(dev, base, count);
+ 		break;
+ 	case RES_OP_MAP_ICM:
+@@ -1901,8 +2040,10 @@ static int mtt_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 	base = get_param_l(&in_param);
+ 	order = get_param_h(&in_param);
+ 	err = rem_res_range(dev, slave, base, 1, RES_MTT, order);
+-	if (!err)
++	if (!err) {
++		mlx4_release_resource(dev, slave, RES_MTT, 1 << order, 0);
+ 		__mlx4_free_mtt_range(dev, base, order);
++	}
+ 	return err;
+ }
+ 
+@@ -1927,6 +2068,7 @@ static int mpt_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 		err = rem_res_range(dev, slave, id, 1, RES_MPT, 0);
+ 		if (err)
+ 			break;
++		mlx4_release_resource(dev, slave, RES_MPT, 1, 0);
+ 		__mlx4_mpt_release(dev, index);
+ 		break;
+ 	case RES_OP_MAP_ICM:
+@@ -1961,6 +2103,7 @@ static int cq_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 		if (err)
+ 			break;
+ 
++		mlx4_release_resource(dev, slave, RES_CQ, 1, 0);
+ 		__mlx4_cq_free_icm(dev, cqn);
+ 		break;
+ 
+@@ -1985,6 +2128,7 @@ static int srq_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 		if (err)
+ 			break;
+ 
++		mlx4_release_resource(dev, slave, RES_SRQ, 1, 0);
+ 		__mlx4_srq_free_icm(dev, srqn);
+ 		break;
+ 
+@@ -2056,6 +2200,7 @@ static int counter_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
+ 		return err;
+ 
+ 	__mlx4_counter_free(dev, index);
++	mlx4_release_resource(dev, slave, RES_COUNTER, 1, 0);
+ 
+ 	return err;
+ }
+@@ -3785,6 +3930,11 @@ static void rem_slave_qps(struct mlx4_dev *dev, int slave)
+ 						 &tracker->res_tree[RES_QP]);
+ 					list_del(&qp->com.list);
+ 					spin_unlock_irq(mlx4_tlock(dev));
++					if (!valid_reserved(dev, slave, qpn)) {
++						__mlx4_qp_release_range(dev, qpn, 1);
++						mlx4_release_resource(dev, slave,
++								      RES_QP, 1, 0);
++					}
+ 					kfree(qp);
+ 					state = 0;
+ 					break;
+@@ -3856,6 +4006,8 @@ static void rem_slave_srqs(struct mlx4_dev *dev, int slave)
+ 						 &tracker->res_tree[RES_SRQ]);
+ 					list_del(&srq->com.list);
+ 					spin_unlock_irq(mlx4_tlock(dev));
++					mlx4_release_resource(dev, slave,
++							      RES_SRQ, 1, 0);
+ 					kfree(srq);
+ 					state = 0;
+ 					break;
+@@ -3922,6 +4074,8 @@ static void rem_slave_cqs(struct mlx4_dev *dev, int slave)
+ 						 &tracker->res_tree[RES_CQ]);
+ 					list_del(&cq->com.list);
+ 					spin_unlock_irq(mlx4_tlock(dev));
++					mlx4_release_resource(dev, slave,
++							      RES_CQ, 1, 0);
+ 					kfree(cq);
+ 					state = 0;
+ 					break;
+@@ -3985,6 +4139,8 @@ static void rem_slave_mrs(struct mlx4_dev *dev, int slave)
+ 						 &tracker->res_tree[RES_MPT]);
+ 					list_del(&mpt->com.list);
+ 					spin_unlock_irq(mlx4_tlock(dev));
++					mlx4_release_resource(dev, slave,
++							      RES_MPT, 1, 0);
+ 					kfree(mpt);
+ 					state = 0;
+ 					break;
+@@ -4054,6 +4210,8 @@ static void rem_slave_mtts(struct mlx4_dev *dev, int slave)
+ 						 &tracker->res_tree[RES_MTT]);
+ 					list_del(&mtt->com.list);
+ 					spin_unlock_irq(mlx4_tlock(dev));
++					mlx4_release_resource(dev, slave, RES_MTT,
++							      1 << mtt->order, 0);
+ 					kfree(mtt);
+ 					state = 0;
+ 					break;
+@@ -4212,6 +4370,7 @@ static void rem_slave_counters(struct mlx4_dev *dev, int slave)
+ 			list_del(&counter->com.list);
+ 			kfree(counter);
+ 			__mlx4_counter_free(dev, index);
++			mlx4_release_resource(dev, slave, RES_COUNTER, 1, 0);
+ 		}
+ 	}
+ 	spin_unlock_irq(mlx4_tlock(dev));
 -- 
 1.7.1
