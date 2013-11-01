@@ -1,20 +1,15 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 2/2] virtio-net: coalesce rx frags when possible
-	during rx
-Date: Fri, 01 Nov 2013 13:37:02 +0800
-Message-ID: <52733DFE.7090704@redhat.com>
-References: <1383215313-23651-1-git-send-email-jasowang@redhat.com>
-	<1383215313-23651-2-git-send-email-jasowang@redhat.com>
-	<87iowcc1id.fsf@rustcorp.com.au>
+Subject: [PATCH net-next V3 1/2] net: introduce skb_coalesce_rx_frag()
+Date: Fri,  1 Nov 2013 14:07:47 +0800
+Message-ID: <1383286068-10421-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Rusty Russell <rusty@rustcorp.com.au>, davem@davemloft.net,
-	edumazet@google.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, mst@redhat.com, mwdalton@google.com,
-	virtualization@lists.linux-foundation.org
+Cc: kmindg@gmail.com
+To: davem@davemloft.net, edumazet@google.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, rusty@rustcorp.com.au, mst@redhat.com,
+	mwdalton@google.com, virtualization@lists.linux-foundation.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87iowcc1id.fsf@rustcorp.com.au>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -26,22 +21,62 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 11/01/2013 10:13 AM, Rusty Russell wrote:
-> Jason Wang <jasowang@redhat.com> writes:
->> Commit 2613af0ed18a11d5c566a81f9a6510b73180660a (virtio_net: migrate mergeable
->> rx buffers to page frag allocators) try to increase the payload/truesize for
->> MTU-sized traffic. But this will introduce the extra overhead for GSO packets
->> received because of the frag list. This commit tries to reduce this issue by
->> coalesce the possible rx frags when possible during rx. Test result shows the
->> about 15% improvement on full size GSO packet receiving (and even better than
->> commit 2613af0ed18a11d5c566a81f9a6510b73180660a).
-> I don't know about the other users of skb_add_rx_frag, but should
-> this coalesce-if-possible code be built into that?
+Sometimes we need to coalesce the rx frags to avoid frag list. One example is
+virtio-net driver which tries to use small frags for both MTU sized packet and
+GSO packet. So this patch introduce skb_coalesce_rx_frag() to do this.
 
-There're several other users without the possibility check. And Eric
-point out in do_tcp_sendpages() skb_add_rx_frag() and skb_can_coalesce()
-were used separatedly which can allows us to do some other things in the
-middle. So it was ok here.
->
-> Thanks,
-> Rusty.
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: Michael Dalton <mwdalton@google.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+Changes from V2:
+- remove the skb_frag_unref() and let the called to put the page reference
+Changes from V1:
+- remove the useless off parameter.
+---
+ include/linux/skbuff.h |  3 +++
+ net/core/skbuff.c      | 12 ++++++++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 2c15497..fffaeaf 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1372,6 +1372,9 @@ static inline void skb_fill_page_desc(struct sk_buff *skb, int i,
+ void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
+ 		     int size, unsigned int truesize);
+ 
++void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int size,
++			  unsigned int truesize);
++
+ #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
+ #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_has_frag_list(skb))
+ #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 0ab32fa..a729b97 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -476,6 +476,18 @@ void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
+ }
+ EXPORT_SYMBOL(skb_add_rx_frag);
+ 
++void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int size,
++			  unsigned int truesize)
++{
++	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
++
++	skb_frag_size_add(frag, size);
++	skb->len += size;
++	skb->data_len += size;
++	skb->truesize += truesize;
++}
++EXPORT_SYMBOL(skb_coalesce_rx_frag);
++
+ static void skb_drop_list(struct sk_buff **listp)
+ {
+ 	kfree_skb_list(*listp);
+-- 
+1.8.1.2
