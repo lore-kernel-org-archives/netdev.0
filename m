@@ -1,56 +1,36 @@
-From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
-Subject: Re: [PATCH v2] WAN: Adding support for Infineon PEF2256 E1 chipset
- (FALC56)
-Date: Fri, 1 Nov 2013 21:06:25 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1311012057090.2407@gmail.com>
-References: <201311011501.rA1F1suj007279@localhost.localdomain>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
+Date: Fri, 1 Nov 2013 15:42:46 +0000
+Message-ID: <1383320566.1737.0.camel@bwh-desktop.uk.level5networks.com>
+References: <201310300525.r9U5Pdqo014902@ib.usersys.redhat.com>
+	 <20131030110214.GA10220@localhost.localdomain>
+	 <52710B09.6090302@redhat.com>
+	 <20131031183003.GC25894@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: Rob Herring <rob.herring@calxeda.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Rob Landley <rob@landley.net>,
-	Grant Likely <grant.likely@linaro.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>, devicetree@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	jerome.chantelauze.ext@c-s.fr
-To: Christophe Leroy <christophe.leroy@c-s.fr>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <201311011501.rA1F1suj007279@localhost.localdomain>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Doug Ledford <dledford@redhat.com>, Ingo Molnar <mingo@kernel.org>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	David Laight <David.Laight@ACULAB.COM>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131031183003.GC25894@hmsreliant.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2013-10-31 at 14:30 -0400, Neil Horman wrote:
+[...]
+> It
+> functions, but unfortunately the performance lost to the completely broken
+> branch prediction that this inflicts makes it a non starter:
+[...]
 
+Conditional branches are no good but conditional moves might be worth a shot.
 
-On Fri, 1 Nov 2013, Christophe Leroy wrote:
+Ben.
 
-> diff -urN a/drivers/net/wan/pef2256.c b/drivers/net/wan/pef2256.c
-[..]
-> +static int pef2256_remove(struct platform_device *pdev)
-> +{
-> +	struct net_device *ndev = dev_get_drvdata(&pdev->dev);
-> +	struct pef2256_dev_priv *priv = dev_to_hdlc(ndev)->priv;
-> +
-> +
-> +	device_remove_file(priv->dev, &dev_attr_regs);
-> +	device_remove_file(priv->dev, &dev_attr_Tx_TS);
-> +	device_remove_file(priv->dev, &dev_attr_Rx_TS);
-> +	device_remove_file(priv->dev, &dev_attr_mode);
-> +
-> +	unregister_hdlc_device(priv->netdev);
-> +
-> +	free_netdev(priv->netdev);
-> +
-> +	iounmap(priv->base_addr);
-> +
-> +	kfree(priv);
-> +
-> +	dev_set_drvdata(&pdev->dev, NULL);
-
-dev_set_drvdata is not necessary. driver core clears the driver data to NULL
-after device_release or on probe failure.
-
-//govind
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
