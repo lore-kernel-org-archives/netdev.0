@@ -1,53 +1,62 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net-next 12/24] net: cdc_ncm: no point in filling up the NTBs if we send ZLPs
-Date: Fri,  1 Nov 2013 11:16:49 +0100
-Message-ID: <1383301021-16613-13-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net-next 20/24] net: cdc_ncm: drop "extern" from header declarations
+Date: Fri,  1 Nov 2013 11:16:57 +0100
+Message-ID: <1383301021-16613-21-git-send-email-bjorn@mork.no>
 References: <1383301021-16613-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org,
-	Alexey Orishko <alexey.orishko@gmail.com>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:49988 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755951Ab3KAKR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Nov 2013 06:17:26 -0400
-In-Reply-To: <1383301021-16613-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1383301021-16613-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Padding NTBs to max size is part of the support for devices
-optimizing their DMA transfers. This optimization depends on
-max sized NTBs not being ZLP terminated. So we are much better
-off dropping the padding if we are going to send a ZLP anyway.
-
-Cc: Alexey Orishko <alexey.orishko@gmail.com>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+Cc: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- drivers/net/usb/cdc_ncm.c |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ include/linux/usb/cdc_ncm.h |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 5aa3e60..42c8620 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -800,8 +800,12 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct s=
-k_buff *skb, __le32 sign)
- 	 * would be more efficient for USB HS mobile device with DMA
- 	 * engine to receive a full size NTB, than canceling DMA
- 	 * transfer and receiving a short packet.
-+	 *
-+	 * This optimization support is pointless if we end up sending
-+	 * a ZLP after full sized NTBs.
- 	 */
--	if (skb_out->len > CDC_NCM_MIN_TX_PKT)
-+	if (!(dev->driver_info->flags & FLAG_SEND_ZLP) &&
-+	    skb_out->len > CDC_NCM_MIN_TX_PKT)
- 		memset(skb_put(skb_out, ctx->tx_max - skb_out->len), 0,
- 		       ctx->tx_max - skb_out->len);
- 	else if ((skb_out->len % dev->maxpacket) =3D=3D 0)
+diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+index cad54ad..2300f74 100644
+--- a/include/linux/usb/cdc_ncm.h
++++ b/include/linux/usb/cdc_ncm.h
+@@ -119,11 +119,11 @@ struct cdc_ncm_ctx {
+ 	u16 connected;
+ };
+=20
+-extern u8 cdc_ncm_select_altsetting(struct usbnet *dev, struct usb_int=
+erface *intf);
+-extern int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interfac=
+e *intf, u8 data_altsetting);
+-extern void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *i=
+ntf);
+-extern struct sk_buff *cdc_ncm_fill_tx_frame(struct usbnet *dev, struc=
+t sk_buff *skb, __le32 sign);
+-extern int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_=
+buff *skb_in);
+-extern int cdc_ncm_rx_verify_ndp16(struct sk_buff *skb_in, int ndpoffs=
+et);
++u8 cdc_ncm_select_altsetting(struct usbnet *dev, struct usb_interface =
+*intf);
++int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf=
+, u8 data_altsetting);
++void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf);
++struct sk_buff *cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_bu=
+ff *skb, __le32 sign);
++int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_buff *s=
+kb_in);
++int cdc_ncm_rx_verify_ndp16(struct sk_buff *skb_in, int ndpoffset);
+=20
+ #endif /* __LINUX_USB_CDC_NCM_H */
 --=20
 1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
