@@ -1,43 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: remove the unnecessary statement in find_match()
-Date: Fri, 01 Nov 2013 18:08:18 -0400 (EDT)
-Message-ID: <20131101.180818.259804474193048469.davem@davemloft.net>
-References: <5271F263.4020800@cn.fujitsu.com>
-	<20131031084537.GA17210@order.stressinduktion.org>
-	<52723A84.9080308@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: duanj.fnst@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59345 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756329Ab3KAWIU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 18:08:20 -0400
-In-Reply-To: <52723A84.9080308@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cody P Schafer <cody@linux.vnet.ibm.com>
+Subject: [PATCH 1/8] net ipset: use rbtree postorder iteration instead of opencoding
+Date: Fri,  1 Nov 2013 15:38:45 -0700
+Message-ID: <1383345566-25087-1-git-send-email-cody@linux.vnet.ibm.com>
+Cc: Cody P Schafer <cody@linux.vnet.ibm.com>, coreteam@netfilter.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: "David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Thu, 31 Oct 2013 19:09:56 +0800
+Use rbtree_postorder_for_each_entry_safe() to destroy the rbtree instead
+of opencoding an alternate postorder iteration that modifies the tree
 
-> Removing CONFIG_IPV6_ROUTER_PREF means that the Router Preference is
-> always on, is this understanding right?
-> 
-> If that's is correct, i think compatibility issues will arise. For
-> example, when the CONFIG_IPV6_ROUTER_PREF option is on, the kernel
-> should not do round-robin during default router selection, but when
-> the CONFIG_IPV6_ROUTER_PREF option is off, the kernel should do it.
+Signed-off-by: Cody P Schafer <cody@linux.vnet.ibm.com>
+---
+ net/netfilter/ipset/ip_set_hash_netiface.c | 27 ++++-----------------------
+ 1 file changed, 4 insertions(+), 23 deletions(-)
 
-Everyone is essentially getting it enabled right now anyways, since
-%99.999999 of users run distribution kernels.  Nobody has asked
-for a run-time knob for this, which therefore means that %99.999999
-of users simply do not care.
-
-Yes there are people who build their own kernels, but to tell you
-the truth I doubt anyone really turns this off explicitly to turn
-off router preference handling.
-
-But I'm willing to cater to them _iff_ the RFC tells us we should
-provide should a capability.
+diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
+index 7d798d5..99dba4c 100644
+--- a/net/netfilter/ipset/ip_set_hash_netiface.c
++++ b/net/netfilter/ipset/ip_set_hash_netiface.c
+@@ -45,31 +45,12 @@ struct iface_node {
+ static void
+ rbtree_destroy(struct rb_root *root)
+ {
+-	struct rb_node *p, *n = root->rb_node;
+-	struct iface_node *node;
+-
+-	/* Non-recursive destroy, like in ext3 */
+-	while (n) {
+-		if (n->rb_left) {
+-			n = n->rb_left;
+-			continue;
+-		}
+-		if (n->rb_right) {
+-			n = n->rb_right;
+-			continue;
+-		}
+-		p = rb_parent(n);
+-		node = rb_entry(n, struct iface_node, node);
+-		if (!p)
+-			*root = RB_ROOT;
+-		else if (p->rb_left == n)
+-			p->rb_left = NULL;
+-		else if (p->rb_right == n)
+-			p->rb_right = NULL;
++	struct iface_node *node, *next;
+ 
++	rbtree_postorder_for_each_entry_safe(node, next, root, node)
+ 		kfree(node);
+-		n = p;
+-	}
++
++	*root = RB_ROOT;
+ }
+ 
+ static int
+-- 
+1.8.4.2
