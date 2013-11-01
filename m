@@ -1,38 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: flow_dissector: fail on evil iph->ihl
-Date: Fri, 01 Nov 2013 02:48:24 -0700
-Message-ID: <1383299304.19864.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1383289270-18952-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Petr Matousek <pmatouse@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH] drivers/net: replace IS_ERR and PTR_ERR with PTR_ERR_OR_ZERO
+Date: Fri, 1 Nov 2013 18:00:16 +0800
+Message-ID: <1383300016-5947-1-git-send-email-duanj.fnst@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Duan Jiong <duanj.fnst@cn.fujitsu.com>
+To: acme@ghostprotocols.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1383289270-18952-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-11-01 at 15:01 +0800, Jason Wang wrote:
-> We don't validate iph->ihl which may lead a dead loop if we meet a IPIP
-> skb whose iph->ihl is zero. Fix this by failing immediately when iph->ihl
-> is evil (less than 5).
-> 
-> This issue were introduced by commit ec5efe7946280d1e84603389a1030ccec0a767ae
-> (rps: support IPIP encapsulation).
-> 
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Petr Matousek <pmatouse@redhat.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
-> This patch is needed for stable.
-> ---
+This patch fixes coccinelle error regarding usage of IS_ERR and
+PTR_ERR instead of PTR_ERR_OR_ZERO.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ drivers/net/appletalk/ipddp.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-Thanks Jason !
+diff --git a/drivers/net/appletalk/ipddp.c b/drivers/net/appletalk/ipddp.c
+index 10d0dba..78f06cb 100644
+--- a/drivers/net/appletalk/ipddp.c
++++ b/drivers/net/appletalk/ipddp.c
+@@ -312,9 +312,7 @@ module_param(ipddp_mode, int, 0);
+ static int __init ipddp_init_module(void)
+ {
+ 	dev_ipddp = ipddp_init();
+-        if (IS_ERR(dev_ipddp))
+-                return PTR_ERR(dev_ipddp);
+-	return 0;
++        return PTR_ERR_OR_ZERO(dev_ipddp);
+ }
+ 
+ static void __exit ipddp_cleanup_module(void)
+-- 
+1.8.3.1
