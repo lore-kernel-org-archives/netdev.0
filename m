@@ -1,34 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH NEXT V2] rtlwifi: Fix endian error in extracting packet
- type
-Date: Thu, 31 Oct 2013 19:04:01 -0700
-Message-ID: <1383271441.2769.18.camel@joe-AO722>
-References: <1383266638-4813-1-git-send-email-Larry.Finger@lwfinger.net>
-	 <1383267769.1583.8.camel@bwh-desktop.uk.level5networks.com>
-	 <1383270515.2769.15.camel@joe-AO722>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH net-next 2/2] virtio-net: coalesce rx frags when possible
+	during rx
+Date: Fri, 01 Nov 2013 12:43:46 +1030
+Message-ID: <87iowcc1id.fsf@rustcorp.com.au>
+References: <1383215313-23651-1-git-send-email-jasowang@redhat.com>
+	<1383215313-23651-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org,
-	Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0237.hostedemail.com ([216.40.44.237]:34395 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755612Ab3KACEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Oct 2013 22:04:05 -0400
-In-Reply-To: <1383270515.2769.15.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Jason Wang <jasowang@redhat.com>, davem@davemloft.net, edumazet@google.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	mst@redhat.com, mwdalton@google.com,
+	virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1383215313-23651-2-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-10-31 at 18:48 -0700, Joe Perches wrote:
-> Or maybe something like this?
-[]
-> diff --git a/drivers/net/wireless/rtlwifi/base.c b/drivers/net/wireless/rtlwifi/base.c
-[]
-> +		src = be16_to_cpu(udp->source) >> 8;
-> +		dst = be16_to_cpu(udp->dest) >> 8;
+Jason Wang <jasowang@redhat.com> writes:
+> Commit 2613af0ed18a11d5c566a81f9a6510b73180660a (virtio_net: migrate mergeable
+> rx buffers to page frag allocators) try to increase the payload/truesize for
+> MTU-sized traffic. But this will introduce the extra overhead for GSO packets
+> received because of the frag list. This commit tries to reduce this issue by
+> coalesce the possible rx frags when possible during rx. Test result shows the
+> about 15% improvement on full size GSO packet receiving (and even better than
+> commit 2613af0ed18a11d5c566a81f9a6510b73180660a).
 
-Of course this doesn't need the >> 8;
+I don't know about the other users of skb_add_rx_frag, but should
+this coalesce-if-possible code be built into that?
+
+Thanks,
+Rusty.
