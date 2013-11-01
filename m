@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net-next 01/24] net: cdc_ncm: simplify and optimize frame padding
-Date: Fri,  1 Nov 2013 11:16:38 +0100
-Message-ID: <1383301021-16613-2-git-send-email-bjorn@mork.no>
+Subject: [PATCH net-next 21/24] net: cdc_ncm: refactoring cdc_ncm_setup
+Date: Fri,  1 Nov 2013 11:16:58 +0100
+Message-ID: <1383301021-16613-22-git-send-email-bjorn@mork.no>
 References: <1383301021-16613-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -11,108 +11,184 @@ Cc: linux-usb@vger.kernel.org,
 	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:49960 "EHLO canardo.mork.no"
+Received: from canardo.mork.no ([148.122.252.1]:49971 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755270Ab3KAKRW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755919Ab3KAKRW (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 1 Nov 2013 06:17:22 -0400
 In-Reply-To: <1383301021-16613-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We can avoid the costly division for the common case where
-we pad the frame to tx_max size as long as we ensure that
-tx_max is either the device specified dwNtbOutMaxSize or not
-a multiplum of wMaxPacketSize.
+Rewriting the "set max datagram" part of dc_ncm_setup to
+separate the selection and validatation of the size from
+the code which optionally informs the device of this
+value.  This ensures that we use the correct value
+regardless of device support for the get and set commands.
 
-Using the preconverted 'maxpacket' field avoids converting
-wMaxPacketSize to CPU endianness for every transmitted frame
-
-And since we only will hit the one byte padding rule for short
-frames, we can drop testing the skb for tailroom.
-
-The change means that tx_max now represents the real maximum
-skb size, enabling us to allocate the correct size instead of
-always making room for one extra byte.
+Removing some of the many indent levels while doing this
+to make the code more readable.
 
 Cc: Alexey Orishko <alexey.orishko@gmail.com>
 Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- drivers/net/usb/cdc_ncm.c |   31 +++++++++++++++++++------------
- 1 file changed, 19 insertions(+), 12 deletions(-)
+ drivers/net/usb/cdc_ncm.c |  108 ++++++++++++++++++-------------------=
+--------
+ 1 file changed, 44 insertions(+), 64 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 43afde8..38566bf 100644
+index 83e6d5b..62dcb2e 100644
 --- a/drivers/net/usb/cdc_ncm.c
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -506,6 +506,15 @@ advance:
- 	dev->status =3D ctx->status_ep;
- 	dev->rx_urb_size =3D ctx->rx_max;
+@@ -76,8 +76,7 @@ static u8 cdc_ncm_setup(struct usbnet *dev)
+ 	int err;
+ 	int eth_hlen;
+ 	u16 ntb_fmt_supported;
+-	u32 min_dgram_size;
+-	u32 min_hdr_size;
++	__le16 max_datagram_size;
 =20
-+	/* cdc_ncm_setup will override dwNtbOutMaxSize if it is
-+	 * outside the sane range. Adding a pad byte here if necessary
-+	 * simplifies the handling in cdc_ncm_fill_tx_frame, making
-+	 * tx_max always represent the real skb max size.
-+	 */
-+	if (ctx->tx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize) &&
-+	    ctx->tx_max % usb_maxpacket(dev->udev, dev->out, 1) =3D=3D 0)
-+		ctx->tx_max++;
-+
- 	ctx->tx_speed =3D ctx->rx_speed =3D 0;
- 	return 0;
+ 	iface_no =3D ctx->control->cur_altsetting->desc.bInterfaceNumber;
 =20
-@@ -664,6 +673,7 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct=
- cdc_ncm_ctx *ctx, struct sk_
- struct sk_buff *
- cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, struct sk_buff *skb, __=
-le32 sign)
- {
-+	struct usbnet *dev =3D netdev_priv(ctx->netdev);
- 	struct usb_cdc_ncm_nth16 *nth16;
- 	struct usb_cdc_ncm_ndp16 *ndp16;
- 	struct sk_buff *skb_out;
-@@ -683,7 +693,7 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, stru=
-ct sk_buff *skb, __le32 sign)
+@@ -101,20 +100,29 @@ static u8 cdc_ncm_setup(struct usbnet *dev)
+ 	ctx->tx_max_datagrams =3D le16_to_cpu(ncm_parm.wNtbOutMaxDatagrams);
+ 	ntb_fmt_supported =3D le16_to_cpu(ncm_parm.bmNtbFormatsSupported);
 =20
- 	/* allocate a new OUT skb */
- 	if (!skb_out) {
--		skb_out =3D alloc_skb((ctx->tx_max + 1), GFP_ATOMIC);
-+		skb_out =3D alloc_skb(ctx->tx_max, GFP_ATOMIC);
- 		if (skb_out =3D=3D NULL) {
- 			if (skb !=3D NULL) {
- 				dev_kfree_skb_any(skb);
-@@ -788,19 +798,16 @@ cdc_ncm_fill_tx_frame(struct cdc_ncm_ctx *ctx, st=
-ruct sk_buff *skb, __le32 sign)
- 		/* variables will be reset at next call */
+-	eth_hlen =3D ETH_HLEN;
+-	min_dgram_size =3D CDC_NCM_MIN_DATAGRAM_SIZE;
+-	min_hdr_size =3D CDC_NCM_MIN_HDR_SIZE;
+-	if (ctx->mbim_desc !=3D NULL) {
+-		flags =3D ctx->mbim_desc->bmNetworkCapabilities;
++	/* there are some minor differences in NCM and MBIM defaults */
++	if (cdc_ncm_comm_intf_is_mbim(ctx->control->cur_altsetting)) {
++		if (!ctx->mbim_desc)
++			return -EINVAL;
+ 		eth_hlen =3D 0;
+-		min_dgram_size =3D CDC_MBIM_MIN_DATAGRAM_SIZE;
+-		min_hdr_size =3D 0;
+-	} else if (ctx->func_desc !=3D NULL) {
+-		flags =3D ctx->func_desc->bmNetworkCapabilities;
++		flags =3D ctx->mbim_desc->bmNetworkCapabilities;
++		ctx->max_datagram_size =3D le16_to_cpu(ctx->mbim_desc->wMaxSegmentSi=
+ze);
++		if (ctx->max_datagram_size < CDC_MBIM_MIN_DATAGRAM_SIZE)
++			ctx->max_datagram_size =3D CDC_MBIM_MIN_DATAGRAM_SIZE;
+ 	} else {
+-		flags =3D 0;
++		if (!ctx->func_desc)
++			return -EINVAL;
++		eth_hlen =3D ETH_HLEN;
++		flags =3D ctx->func_desc->bmNetworkCapabilities;
++		ctx->max_datagram_size =3D le16_to_cpu(ctx->ether_desc->wMaxSegmentS=
+ize);
++		if (ctx->max_datagram_size < CDC_NCM_MIN_DATAGRAM_SIZE)
++			ctx->max_datagram_size =3D CDC_NCM_MIN_DATAGRAM_SIZE;
  	}
 =20
--	/*
--	 * If collected data size is less or equal CDC_NCM_MIN_TX_PKT bytes,
--	 * we send buffers as it is. If we get more data, it would be more
--	 * efficient for USB HS mobile device with DMA engine to receive a fu=
-ll
--	 * size NTB, than canceling DMA transfer and receiving a short packet=
-=2E
-+	/* If collected data size is less or equal CDC_NCM_MIN_TX_PKT
-+	 * bytes, we send buffers as it is. If we get more data, it
-+	 * would be more efficient for USB HS mobile device with DMA
-+	 * engine to receive a full size NTB, than canceling DMA
-+	 * transfer and receiving a short packet.
- 	 */
- 	if (skb_out->len > CDC_NCM_MIN_TX_PKT)
--		/* final zero padding */
--		memset(skb_put(skb_out, ctx->tx_max - skb_out->len), 0, ctx->tx_max =
-- skb_out->len);
--
--	/* do we need to prevent a ZLP? */
--	if (((skb_out->len % le16_to_cpu(ctx->out_ep->desc.wMaxPacketSize)) =3D=
-=3D 0) &&
--	    (skb_out->len < le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize)) && sk=
-b_tailroom(skb_out))
-+		memset(skb_put(skb_out, ctx->tx_max - skb_out->len), 0,
-+		       ctx->tx_max - skb_out->len);
-+	else if ((skb_out->len % dev->maxpacket) =3D=3D 0)
- 		*skb_put(skb_out, 1) =3D 0;	/* force short packet */
++	/* common absolute max for NCM and MBIM */
++	if (ctx->max_datagram_size > CDC_NCM_MAX_DATAGRAM_SIZE)
++		ctx->max_datagram_size =3D CDC_NCM_MAX_DATAGRAM_SIZE;
++
+ 	dev_dbg(&dev->intf->dev,
+ 		"dwNtbInMaxSize=3D%u dwNtbOutMaxSize=3D%u wNdpOutPayloadRemainder=3D=
+%u wNdpOutDivisor=3D%u wNdpOutAlignment=3D%u wNtbOutMaxDatagrams=3D%u f=
+lags=3D0x%x\n",
+ 		ctx->rx_max, ctx->tx_max, ctx->tx_remainder, ctx->tx_modulus,
+@@ -151,8 +159,7 @@ static u8 cdc_ncm_setup(struct usbnet *dev)
+ 	}
 =20
- 	/* set final frame length */
+ 	/* verify maximum size of transmitted NTB in bytes */
+-	if ((ctx->tx_max <
+-	    (min_hdr_size + min_dgram_size)) ||
++	if ((ctx->tx_max < (CDC_NCM_MIN_HDR_SIZE + ctx->max_datagram_size)) |=
+|
+ 	    (ctx->tx_max > CDC_NCM_NTB_MAX_SIZE_TX)) {
+ 		dev_dbg(&dev->intf->dev, "Using default maximum transmit length=3D%d=
+\n",
+ 			CDC_NCM_NTB_MAX_SIZE_TX);
+@@ -229,60 +236,33 @@ static u8 cdc_ncm_setup(struct usbnet *dev)
+ 			dev_dbg(&dev->intf->dev, "Setting NTB format to 16-bit failed\n");
+ 	}
+=20
+-	ctx->max_datagram_size =3D min_dgram_size;
++	/* inform the device about the selected Max Datagram Size */
++	if (!(flags & USB_CDC_NCM_NCAP_MAX_DATAGRAM_SIZE))
++		goto out;
+=20
+-	/* set Max Datagram Size (MTU) */
+-	if (flags & USB_CDC_NCM_NCAP_MAX_DATAGRAM_SIZE) {
+-		__le16 max_datagram_size;
+-		u16 eth_max_sz;
+-		if (ctx->ether_desc !=3D NULL)
+-			eth_max_sz =3D le16_to_cpu(ctx->ether_desc->wMaxSegmentSize);
+-		else if (ctx->mbim_desc !=3D NULL)
+-			eth_max_sz =3D le16_to_cpu(ctx->mbim_desc->wMaxSegmentSize);
+-		else
+-			goto max_dgram_err;
+-
+-		err =3D usbnet_read_cmd(dev, USB_CDC_GET_MAX_DATAGRAM_SIZE,
+-				      USB_TYPE_CLASS | USB_DIR_IN
+-				      | USB_RECIP_INTERFACE,
+-				      0, iface_no, &max_datagram_size, 2);
+-		if (err < 0) {
+-			dev_dbg(&dev->intf->dev, "GET_MAX_DATAGRAM_SIZE failed, use size=3D=
+%u\n",
+-				min_dgram_size);
+-		} else {
+-			ctx->max_datagram_size =3D
+-				le16_to_cpu(max_datagram_size);
+-			/* Check Eth descriptor value */
+-			if (ctx->max_datagram_size > eth_max_sz)
+-					ctx->max_datagram_size =3D eth_max_sz;
+-
+-			if (ctx->max_datagram_size > CDC_NCM_MAX_DATAGRAM_SIZE)
+-				ctx->max_datagram_size =3D CDC_NCM_MAX_DATAGRAM_SIZE;
+-
+-			if (ctx->max_datagram_size < min_dgram_size)
+-				ctx->max_datagram_size =3D min_dgram_size;
+-
+-			/* if value changed, update device */
+-			if (ctx->max_datagram_size !=3D
+-					le16_to_cpu(max_datagram_size)) {
+-				max_datagram_size =3D cpu_to_le16(ctx->max_datagram_size);
+-				err =3D usbnet_write_cmd(dev,
+-						USB_CDC_SET_MAX_DATAGRAM_SIZE,
+-						USB_TYPE_CLASS | USB_DIR_OUT
+-						 | USB_RECIP_INTERFACE,
+-						0,
+-						iface_no, &max_datagram_size,
+-						2);
+-				if (err < 0)
+-					dev_dbg(&dev->intf->dev, "SET_MAX_DGRAM_SIZE failed\n");
+-			}
+-		}
++	/* read current mtu value from device */
++	err =3D usbnet_read_cmd(dev, USB_CDC_GET_MAX_DATAGRAM_SIZE,
++			      USB_TYPE_CLASS | USB_DIR_IN | USB_RECIP_INTERFACE,
++			      0, iface_no, &max_datagram_size, 2);
++	if (err < 0) {
++		dev_dbg(&dev->intf->dev, "GET_MAX_DATAGRAM_SIZE failed\n");
++		goto out;
+ 	}
+=20
+-max_dgram_err:
+-	if (dev->net->mtu !=3D (ctx->max_datagram_size - eth_hlen))
+-		dev->net->mtu =3D ctx->max_datagram_size - eth_hlen;
++	if (le16_to_cpu(max_datagram_size) =3D=3D ctx->max_datagram_size)
++		goto out;
++
++	max_datagram_size =3D cpu_to_le16(ctx->max_datagram_size);
++	err =3D usbnet_write_cmd(dev, USB_CDC_SET_MAX_DATAGRAM_SIZE,
++			       USB_TYPE_CLASS | USB_DIR_OUT | USB_RECIP_INTERFACE,
++			       0, iface_no, &max_datagram_size, 2);
++	if (err < 0)
++		dev_dbg(&dev->intf->dev, "SET_MAX_DATAGRAM_SIZE failed\n");
+=20
++out:
++	/* set MTU to max supported by the device if necessary */
++	if (dev->net->mtu > ctx->max_datagram_size - eth_hlen)
++		dev->net->mtu =3D ctx->max_datagram_size - eth_hlen;
+ 	return 0;
+ }
+=20
 --=20
 1.7.10.4
