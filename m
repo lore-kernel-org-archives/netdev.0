@@ -1,328 +1,220 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next 3/6] qlcnic: Enhance ethtool Statistics for Multiple Tx queue.
-Date: Fri, 1 Nov 2013 16:51:26 -0400
-Message-ID: <644aa8cc1b658602e736238d04a73d0665da3704.1383358893.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next 2/6] qlcnic: Replace kzalloc() with vzalloc().
+Date: Fri, 1 Nov 2013 16:51:25 -0400
+Message-ID: <4e485cb2ec05e3cae68fbf59a0f1597a95098a76.1383358893.git.himanshu.madhani@qlogic.com>
 References: <cover.1383358893.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
+	Manish Chopra <manish.chopra@qlogic.com>,
+	<himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:30871 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:31667 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753659Ab3KAVWn (ORCPT
+	by vger.kernel.org with ESMTP id S1753759Ab3KAVWn (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 17:22:43 -0400
 In-Reply-To: <cover.1383358893.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
 
-o Enhance ethtool statistics to display multiple Tx queue stats for
-  all supported adapters.
+o Some of the places kzalloc() is not required. Replace it
+  with vzalloc() wherever it is not used appropriately
 
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        | 13 ++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    | 96 +++++++++++++++-------
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     | 14 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   | 33 ++++----
- 4 files changed, 94 insertions(+), 62 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c |  4 ++--
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c   | 12 ++++++------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c     | 12 ++++++------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c    | 21 ++++++++++-----------
+ 4 files changed, 24 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index db83edf..2d818c1 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -533,6 +533,14 @@ struct qlcnic_host_sds_ring {
- 	char name[IFNAMSIZ + 12];
- } ____cacheline_internodealigned_in_smp;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index f81e2dd..2270a3e 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -3544,7 +3544,7 @@ void qlcnic_83xx_free_mailbox(struct qlcnic_mailbox *mbx)
+ 		return;
  
-+struct qlcnic_tx_queue_stats {
-+	u64 xmit_on;
-+	u64 xmit_off;
-+	u64 xmit_called;
-+	u64 xmit_finished;
-+	u64 tx_bytes;
-+};
-+
- struct qlcnic_host_tx_ring {
- 	int irq;
- 	void __iomem *crb_intr_mask;
-@@ -544,10 +552,7 @@ struct qlcnic_host_tx_ring {
- 	u32 sw_consumer;
- 	u32 num_desc;
- 
--	u64 xmit_on;
--	u64 xmit_off;
--	u64 xmit_called;
--	u64 xmit_finished;
-+	struct qlcnic_tx_queue_stats tx_stats;
- 
- 	void __iomem *crb_cmd_producer;
- 	struct cmd_desc_type0 *desc_head;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 0aaa52b..9b6dd98 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -27,43 +27,36 @@ static const u32 qlcnic_fw_dump_level[] = {
- };
- 
- static const struct qlcnic_stats qlcnic_gstrings_stats[] = {
-+	{"xmit_on", QLC_SIZEOF(stats.xmit_on), QLC_OFF(stats.xmit_on)},
-+	{"xmit_off", QLC_SIZEOF(stats.xmit_off), QLC_OFF(stats.xmit_off)},
- 	{"xmit_called", QLC_SIZEOF(stats.xmitcalled),
--		QLC_OFF(stats.xmitcalled)},
-+	 QLC_OFF(stats.xmitcalled)},
- 	{"xmit_finished", QLC_SIZEOF(stats.xmitfinished),
--		QLC_OFF(stats.xmitfinished)},
--	{"rx_dropped", QLC_SIZEOF(stats.rxdropped), QLC_OFF(stats.rxdropped)},
-+	 QLC_OFF(stats.xmitfinished)},
-+	{"tx dma map error", QLC_SIZEOF(stats.tx_dma_map_error),
-+	 QLC_OFF(stats.tx_dma_map_error)},
-+	{"tx_bytes", QLC_SIZEOF(stats.txbytes), QLC_OFF(stats.txbytes)},
- 	{"tx_dropped", QLC_SIZEOF(stats.txdropped), QLC_OFF(stats.txdropped)},
--	{"csummed", QLC_SIZEOF(stats.csummed), QLC_OFF(stats.csummed)},
-+	{"rx dma map error", QLC_SIZEOF(stats.rx_dma_map_error),
-+	 QLC_OFF(stats.rx_dma_map_error)},
- 	{"rx_pkts", QLC_SIZEOF(stats.rx_pkts), QLC_OFF(stats.rx_pkts)},
--	{"lro_pkts", QLC_SIZEOF(stats.lro_pkts), QLC_OFF(stats.lro_pkts)},
- 	{"rx_bytes", QLC_SIZEOF(stats.rxbytes), QLC_OFF(stats.rxbytes)},
--	{"tx_bytes", QLC_SIZEOF(stats.txbytes), QLC_OFF(stats.txbytes)},
-+	{"rx_dropped", QLC_SIZEOF(stats.rxdropped), QLC_OFF(stats.rxdropped)},
-+	{"null rxbuf", QLC_SIZEOF(stats.null_rxbuf), QLC_OFF(stats.null_rxbuf)},
-+	{"csummed", QLC_SIZEOF(stats.csummed), QLC_OFF(stats.csummed)},
-+	{"lro_pkts", QLC_SIZEOF(stats.lro_pkts), QLC_OFF(stats.lro_pkts)},
- 	{"lrobytes", QLC_SIZEOF(stats.lrobytes), QLC_OFF(stats.lrobytes)},
- 	{"lso_frames", QLC_SIZEOF(stats.lso_frames), QLC_OFF(stats.lso_frames)},
--	{"xmit_on", QLC_SIZEOF(stats.xmit_on), QLC_OFF(stats.xmit_on)},
--	{"xmit_off", QLC_SIZEOF(stats.xmit_off), QLC_OFF(stats.xmit_off)},
- 	{"skb_alloc_failure", QLC_SIZEOF(stats.skb_alloc_failure),
- 	 QLC_OFF(stats.skb_alloc_failure)},
--	{"null rxbuf", QLC_SIZEOF(stats.null_rxbuf), QLC_OFF(stats.null_rxbuf)},
--	{"rx dma map error", QLC_SIZEOF(stats.rx_dma_map_error),
--					 QLC_OFF(stats.rx_dma_map_error)},
--	{"tx dma map error", QLC_SIZEOF(stats.tx_dma_map_error),
--					 QLC_OFF(stats.tx_dma_map_error)},
- 	{"mac_filter_limit_overrun", QLC_SIZEOF(stats.mac_filter_limit_overrun),
--				QLC_OFF(stats.mac_filter_limit_overrun)},
-+	 QLC_OFF(stats.mac_filter_limit_overrun)},
- 	{"spurious intr", QLC_SIZEOF(stats.spurious_intr),
- 	 QLC_OFF(stats.spurious_intr)},
- 
- };
- 
- static const char qlcnic_device_gstrings_stats[][ETH_GSTRING_LEN] = {
--	"rx unicast frames",
--	"rx multicast frames",
--	"rx broadcast frames",
--	"rx dropped frames",
--	"rx errors",
--	"rx local frames",
--	"rx numbytes",
- 	"tx unicast frames",
- 	"tx multicast frames",
- 	"tx broadcast frames",
-@@ -71,6 +64,13 @@ static const char qlcnic_device_gstrings_stats[][ETH_GSTRING_LEN] = {
- 	"tx errors",
- 	"tx local frames",
- 	"tx numbytes",
-+	"rx unicast frames",
-+	"rx multicast frames",
-+	"rx broadcast frames",
-+	"rx dropped frames",
-+	"rx errors",
-+	"rx local frames",
-+	"rx numbytes",
- };
- 
- static const char qlcnic_83xx_tx_stats_strings[][ETH_GSTRING_LEN] = {
-@@ -126,13 +126,16 @@ static const char qlcnic_83xx_mac_stats_strings[][ETH_GSTRING_LEN] = {
- 
- #define QLCNIC_STATS_LEN	ARRAY_SIZE(qlcnic_gstrings_stats)
- 
--static const char qlcnic_tx_ring_stats_strings[][ETH_GSTRING_LEN] = {
-+static const char qlcnic_tx_queue_stats_strings[][ETH_GSTRING_LEN] = {
- 	"xmit_on",
- 	"xmit_off",
- 	"xmit_called",
- 	"xmit_finished",
-+	"tx_bytes",
- };
- 
-+#define QLCNIC_TX_STATS_LEN	ARRAY_SIZE(qlcnic_tx_queue_stats_strings)
-+
- static const char qlcnic_83xx_rx_stats_strings[][ETH_GSTRING_LEN] = {
- 	"ctx_rx_bytes",
- 	"ctx_rx_pkts",
-@@ -1123,11 +1126,11 @@ qlcnic_get_strings(struct net_device *dev, u32 stringset, u8 *data)
- 		       QLCNIC_TEST_LEN * ETH_GSTRING_LEN);
- 		break;
- 	case ETH_SS_STATS:
--		num_stats = ARRAY_SIZE(qlcnic_tx_ring_stats_strings);
-+		num_stats = ARRAY_SIZE(qlcnic_tx_queue_stats_strings);
- 		for (i = 0; i < adapter->max_drv_tx_rings; i++) {
- 			for (index = 0; index < num_stats; index++) {
--				sprintf(data, "tx_ring_%d %s", i,
--					qlcnic_tx_ring_stats_strings[index]);
-+				sprintf(data, "tx_queue_%d %s", i,
-+					qlcnic_tx_queue_stats_strings[index]);
- 				data += ETH_GSTRING_LEN;
- 			}
- 		}
-@@ -1225,6 +1228,36 @@ static u64 *qlcnic_fill_stats(u64 *data, void *stats, int type)
- 	return data;
+ 	destroy_workqueue(mbx->work_q);
+-	kfree(mbx);
++	vfree(mbx);
  }
  
-+static void qlcnic_update_stats(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_host_tx_ring *tx_ring;
-+	int ring;
-+
-+	for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
-+		tx_ring = &adapter->tx_ring[ring];
-+		adapter->stats.xmit_on += tx_ring->tx_stats.xmit_on;
-+		adapter->stats.xmit_off += tx_ring->tx_stats.xmit_off;
-+		adapter->stats.xmitcalled += tx_ring->tx_stats.xmit_called;
-+		adapter->stats.xmitfinished += tx_ring->tx_stats.xmit_finished;
-+		adapter->stats.txbytes += tx_ring->tx_stats.tx_bytes;
-+	}
-+}
-+
-+static u64 *qlcnic_fill_tx_queue_stats(u64 *data, void *stats)
-+{
-+	struct qlcnic_host_tx_ring *tx_ring;
-+
-+	tx_ring = (struct qlcnic_host_tx_ring *)stats;
-+
-+	*data++ = QLCNIC_FILL_STATS(tx_ring->tx_stats.xmit_on);
-+	*data++ = QLCNIC_FILL_STATS(tx_ring->tx_stats.xmit_off);
-+	*data++ = QLCNIC_FILL_STATS(tx_ring->tx_stats.xmit_called);
-+	*data++ = QLCNIC_FILL_STATS(tx_ring->tx_stats.xmit_finished);
-+	*data++ = QLCNIC_FILL_STATS(tx_ring->tx_stats.tx_bytes);
-+
-+	return data;
-+}
-+
- static void qlcnic_get_ethtool_stats(struct net_device *dev,
- 				     struct ethtool_stats *stats, u64 *data)
+ static inline void
+@@ -3817,7 +3817,7 @@ int qlcnic_83xx_init_mailbox_work(struct qlcnic_adapter *adapter)
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 	struct qlcnic_mailbox *mbx;
+ 
+-	ahw->mailbox = kzalloc(sizeof(*mbx), GFP_KERNEL);
++	ahw->mailbox = vzalloc(sizeof(*mbx));
+ 	if (!ahw->mailbox)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index 4a8a3f1..475e919 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -1254,24 +1254,24 @@ static int qlcnic_83xx_copy_bootloader(struct qlcnic_adapter *adapter)
+ 	if (size & 0xF)
+ 		size = (size + 16) & ~0xF;
+ 
+-	p_cache = kzalloc(size, GFP_KERNEL);
++	p_cache = vzalloc(size);
+ 	if (p_cache == NULL)
+ 		return -ENOMEM;
+ 
+ 	ret = qlcnic_83xx_lockless_flash_read32(adapter, src, p_cache,
+ 						size / sizeof(u32));
+ 	if (ret) {
+-		kfree(p_cache);
++		vfree(p_cache);
+ 		return ret;
+ 	}
+ 	/* 16 byte write to MS memory */
+ 	ret = qlcnic_83xx_ms_mem_write128(adapter, dest, (u32 *)p_cache,
+ 					  size / 16);
+ 	if (ret) {
+-		kfree(p_cache);
++		vfree(p_cache);
+ 		return ret;
+ 	}
+-	kfree(p_cache);
++	vfree(p_cache);
+ 
+ 	return ret;
+ }
+@@ -1605,13 +1605,13 @@ int qlcnic_83xx_get_reset_instruction_template(struct qlcnic_adapter *p_dev)
+ 		prev_ver = p_dev->fw_version;
+ 		curr_ver = qlcnic_83xx_get_fw_version(p_dev);
+ 		if (curr_ver > prev_ver)
+-			kfree(ahw->reset.buff);
++			vfree(ahw->reset.buff);
+ 		else
+ 			return 0;
+ 	}
+ 
+ 	ahw->reset.seq_error = 0;
+-	ahw->reset.buff = kzalloc(QLC_83XX_RESTART_TEMPLATE_SIZE, GFP_KERNEL);
++	ahw->reset.buff = vzalloc(QLC_83XX_RESTART_TEMPLATE_SIZE);
+ 	if (p_dev->ahw->reset.buff == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
+index 86bca7c..d8949b5 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
+@@ -260,7 +260,7 @@ int qlcnic_register_dcb(struct qlcnic_adapter *adapter)
  {
-@@ -1232,19 +1265,20 @@ static void qlcnic_get_ethtool_stats(struct net_device *dev,
- 	struct qlcnic_host_tx_ring *tx_ring;
- 	struct qlcnic_esw_statistics port_stats;
- 	struct qlcnic_mac_statistics mac_stats;
--	int index, ret, length, size, ring;
-+	int index, ret, length, size, tx_size, ring;
- 	char *p;
+ 	struct qlcnic_dcb *dcb;
  
--	memset(data, 0, adapter->max_drv_tx_rings * 4 * sizeof(u64));
-+	tx_size = adapter->max_drv_tx_rings * QLCNIC_TX_STATS_LEN;
-+
-+	memset(data, 0, tx_size * sizeof(u64));
- 	for (ring = 0, index = 0; ring < adapter->max_drv_tx_rings; ring++) {
- 		if (test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
- 			tx_ring = &adapter->tx_ring[ring];
--			*data++ = tx_ring->xmit_on;
--			*data++ = tx_ring->xmit_off;
--			*data++ = tx_ring->xmit_called;
--			*data++ = tx_ring->xmit_finished;
-+			data = qlcnic_fill_tx_queue_stats(data, tx_ring);
-+			qlcnic_update_stats(adapter);
- 		}
+-	dcb = kzalloc(sizeof(struct qlcnic_dcb), GFP_ATOMIC);
++	dcb = vzalloc(sizeof(*dcb));
+ 	if (!dcb)
+ 		return -ENOMEM;
+ 
+@@ -292,11 +292,11 @@ static void __qlcnic_dcb_free(struct qlcnic_dcb *dcb)
+ 		dcb->wq = NULL;
  	}
-+
- 	memset(data, 0, stats->n_stats * sizeof(u64));
- 	length = QLCNIC_STATS_LEN;
- 	for (index = 0; index < length; index++) {
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index 897627d..df31be7 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -607,8 +607,7 @@ netdev_tx_t qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		if (qlcnic_tx_avail(tx_ring) > TX_STOP_THRESH) {
- 			netif_tx_start_queue(tx_ring->txq);
- 		} else {
--			adapter->stats.xmit_off++;
--			tx_ring->xmit_off++;
-+			tx_ring->tx_stats.xmit_off++;
- 			return NETDEV_TX_BUSY;
- 		}
+ 
+-	kfree(dcb->cfg);
++	vfree(dcb->cfg);
+ 	dcb->cfg = NULL;
+-	kfree(dcb->param);
++	vfree(dcb->param);
+ 	dcb->param = NULL;
+-	kfree(dcb);
++	vfree(dcb);
+ 	adapter->dcb = NULL;
+ }
+ 
+@@ -320,13 +320,13 @@ static int __qlcnic_dcb_attach(struct qlcnic_dcb *dcb)
+ 		return -1;
  	}
-@@ -669,9 +668,8 @@ netdev_tx_t qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	if (adapter->drv_mac_learn)
- 		qlcnic_send_filter(adapter, first_desc, skb);
  
--	adapter->stats.txbytes += skb->len;
--	adapter->stats.xmitcalled++;
--	tx_ring->xmit_called++;
-+	tx_ring->tx_stats.tx_bytes += skb->len;
-+	tx_ring->tx_stats.xmit_called++;
+-	dcb->cfg = kzalloc(sizeof(struct qlcnic_dcb_cfg), GFP_ATOMIC);
++	dcb->cfg = vzalloc(sizeof(*dcb->cfg));
+ 	if (!dcb->cfg) {
+ 		err = -ENOMEM;
+ 		goto out_free_wq;
+ 	}
  
- 	qlcnic_update_cmd_producer(tx_ring);
- 
-@@ -805,8 +803,7 @@ static int qlcnic_process_cmd_ring(struct qlcnic_adapter *adapter,
- 					       PCI_DMA_TODEVICE);
- 				frag->dma = 0ULL;
- 			}
--			adapter->stats.xmitfinished++;
--			tx_ring->xmit_finished++;
-+			tx_ring->tx_stats.xmit_finished++;
- 			dev_kfree_skb_any(buffer->skb);
- 			buffer->skb = NULL;
- 		}
-@@ -823,8 +820,7 @@ static int qlcnic_process_cmd_ring(struct qlcnic_adapter *adapter,
- 		    netif_carrier_ok(netdev)) {
- 			if (qlcnic_tx_avail(tx_ring) > TX_STOP_THRESH) {
- 				netif_tx_wake_queue(tx_ring->txq);
--				adapter->stats.xmit_on++;
--				tx_ring->xmit_on++;
-+				tx_ring->tx_stats.xmit_on++;
- 			}
- 		}
- 		adapter->tx_timeo_cnt = 0;
+-	dcb->param = kzalloc(sizeof(struct qlcnic_dcb_mbx_params), GFP_ATOMIC);
++	dcb->param = vzalloc(sizeof(*dcb->param));
+ 	if (!dcb->param) {
+ 		err = -ENOMEM;
+ 		goto out_free_cfg;
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 8d4536d..1215d2a 100644
+index 46ddbd8..8d4536d 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2719,24 +2719,21 @@ static void qlcnic_tx_timeout(struct net_device *netdev)
- 						      QLCNIC_FORCE_FW_DUMP_KEY);
- 	} else {
- 		netdev_info(netdev, "Tx timeout, reset adapter context.\n");
--		if (qlcnic_82xx_check(adapter)) {
--			for (ring = 0; ring < adapter->max_drv_tx_rings;
--			     ring++) {
--				tx_ring = &adapter->tx_ring[ring];
--				dev_info(&netdev->dev, "ring=%d\n", ring);
--				dev_info(&netdev->dev, "crb_intr_mask=%d\n",
--					 readl(tx_ring->crb_intr_mask));
--				dev_info(&netdev->dev, "producer=%d\n",
--					 readl(tx_ring->crb_cmd_producer));
--				dev_info(&netdev->dev, "sw_consumer = %d\n",
--					 tx_ring->sw_consumer);
--				dev_info(&netdev->dev, "hw_consumer = %d\n",
--					 le32_to_cpu(*(tx_ring->hw_consumer)));
--				dev_info(&netdev->dev, "xmit-on=%llu\n",
--					 tx_ring->xmit_on);
--				dev_info(&netdev->dev, "xmit-off=%llu\n",
--					 tx_ring->xmit_off);
--			}
-+		for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
-+			tx_ring = &adapter->tx_ring[ring];
-+			netdev_info(netdev, "Tx ring=%d\n", ring);
-+			netdev_info(netdev,
-+				    "crb_intr_mask=%d, producer=%d, sw_consumer=%d, hw_consumer=%d\n",
-+				    readl(tx_ring->crb_intr_mask),
-+				    readl(tx_ring->crb_cmd_producer),
-+				    tx_ring->sw_consumer,
-+				    le32_to_cpu(*(tx_ring->hw_consumer)));
-+			netdev_info(netdev,
-+				    "xmit_finished=%llu, xmit_called=%llu, xmit_on=%llu, xmit_off=%llu\n",
-+				    tx_ring->tx_stats.xmit_finished,
-+				    tx_ring->tx_stats.xmit_called,
-+				    tx_ring->tx_stats.xmit_on,
-+				    tx_ring->tx_stats.xmit_off);
- 		}
- 		adapter->ahw->reset_context = 1;
+@@ -818,8 +818,8 @@ static bool qlcnic_port_eswitch_cfg_capability(struct qlcnic_adapter *adapter)
+ 
+ int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
+ {
++	int i, id = 0, ret = 0, j = 0, size;
+ 	struct qlcnic_pci_info *pci_info;
+-	int i, id = 0, ret = 0, j = 0;
+ 	u16 act_pci_func;
+ 	u8 pfn;
+ 
+@@ -832,16 +832,15 @@ int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
+ 		goto err_pci_info;
+ 
+ 	act_pci_func = adapter->ahw->act_pci_func;
+-
+-	adapter->npars = kzalloc(sizeof(struct qlcnic_npar_info) *
+-				 act_pci_func, GFP_KERNEL);
++	size = sizeof(struct qlcnic_npar_info) * act_pci_func;
++	adapter->npars = vzalloc(size);
+ 	if (!adapter->npars) {
+ 		ret = -ENOMEM;
+ 		goto err_pci_info;
  	}
+ 
+-	adapter->eswitch = kzalloc(sizeof(struct qlcnic_eswitch) *
+-				QLCNIC_NIU_MAX_XG_PORTS, GFP_KERNEL);
++	size = sizeof(struct qlcnic_eswitch) * QLCNIC_NIU_MAX_XG_PORTS;
++	adapter->eswitch = vzalloc(size);
+ 	if (!adapter->eswitch) {
+ 		ret = -ENOMEM;
+ 		goto err_npars;
+@@ -892,10 +891,10 @@ int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
+ 	return 0;
+ 
+ err_eswitch:
+-	kfree(adapter->eswitch);
++	vfree(adapter->eswitch);
+ 	adapter->eswitch = NULL;
+ err_npars:
+-	kfree(adapter->npars);
++	vfree(adapter->npars);
+ 	adapter->npars = NULL;
+ err_pci_info:
+ 	kfree(pci_info);
+@@ -1881,7 +1880,7 @@ static void qlcnic_free_adapter_resources(struct qlcnic_adapter *adapter)
+ 		adapter->ahw->fw_dump.tmpl_hdr = NULL;
+ 	}
+ 
+-	kfree(adapter->ahw->reset.buff);
++	vfree(adapter->ahw->reset.buff);
+ 	adapter->ahw->fw_dump.tmpl_hdr = NULL;
+ }
+ 
+@@ -2480,9 +2479,9 @@ static void qlcnic_remove(struct pci_dev *pdev)
+ 	qlcnic_detach(adapter);
+ 
+ 	if (adapter->npars != NULL)
+-		kfree(adapter->npars);
++		vfree(adapter->npars);
+ 	if (adapter->eswitch != NULL)
+-		kfree(adapter->eswitch);
++		vfree(adapter->eswitch);
+ 
+ 	if (qlcnic_82xx_check(adapter))
+ 		qlcnic_clr_all_drv_state(adapter, 0);
 -- 
 1.8.1.4
