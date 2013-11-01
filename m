@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net-next 1/5] net: cdc_mbim: manage_power should always set needs_remote_wakeup
-Date: Fri,  1 Nov 2013 14:18:52 +0100
-Message-ID: <1383311936-20954-2-git-send-email-bjorn@mork.no>
+Subject: [PATCH net-next 5/5] net: cdc_mbim: fixup error return value
+Date: Fri,  1 Nov 2013 14:18:56 +0100
+Message-ID: <1383311936-20954-6-git-send-email-bjorn@mork.no>
 References: <1383311936-20954-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -17,34 +17,32 @@ List-Id: netdev.vger.kernel.org
 Reported-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
 Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- drivers/net/usb/cdc_mbim.c |    8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/usb/cdc_mbim.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-index 25ba7ec..172059e 100644
+index 862d137..166e195 100644
 --- a/drivers/net/usb/cdc_mbim.c
 +++ b/drivers/net/usb/cdc_mbim.c
-@@ -42,13 +42,11 @@ static int cdc_mbim_manage_power(struct usbnet *dev=
-, int on)
- 	if ((on && atomic_add_return(1, &info->pmcount) =3D=3D 1) || (!on && =
-atomic_dec_and_test(&info->pmcount))) {
- 		/* need autopm_get/put here to ensure the usbcore sees the new value=
- */
- 		rv =3D usb_autopm_get_interface(dev->intf);
--		if (rv < 0)
--			goto err;
- 		dev->intf->needs_remote_wakeup =3D on;
--		usb_autopm_put_interface(dev->intf);
-+		if (!rv)
-+			usb_autopm_put_interface(dev->intf);
- 	}
--err:
--	return rv;
-+	return 0;
- }
+@@ -311,15 +311,13 @@ error:
 =20
- static int cdc_mbim_wdm_manage_power(struct usb_interface *intf, int s=
-tatus)
+ static int cdc_mbim_suspend(struct usb_interface *intf, pm_message_t m=
+essage)
+ {
+-	int ret =3D 0;
++	int ret =3D -ENODEV;
+ 	struct usbnet *dev =3D usb_get_intfdata(intf);
+ 	struct cdc_mbim_state *info =3D (void *)&dev->data;
+ 	struct cdc_ncm_ctx *ctx =3D info->ctx;
+=20
+-	if (ctx =3D=3D NULL) {
+-		ret =3D -1;
++	if (!ctx)
+ 		goto error;
+-	}
+=20
+ 	/*
+ 	 * Both usbnet_suspend() and subdriver->suspend() MUST return 0
 --=20
 1.7.10.4
 
