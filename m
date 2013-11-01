@@ -1,121 +1,55 @@
 From: Ingo Molnar <mingo@kernel.org>
 Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
-Date: Fri, 1 Nov 2013 10:13:37 +0100
-Message-ID: <20131101091337.GA27063@gmail.com>
-References: <20131029113031.GA16897@gmail.com>
- <20131029114907.GE24477@neilslaptop.think-freely.org>
- <20131029125233.GA17449@gmail.com>
- <20131029130712.GA25078@neilslaptop.think-freely.org>
- <20131029131149.GB20408@gmail.com>
- <20131029141706.GC25078@neilslaptop.think-freely.org>
- <20131029142716.GA28113@gmail.com>
- <20131029202644.GB32389@localhost.localdomain>
- <20131031102200.GA10098@gmail.com>
- <20131031143325.GB25894@hmsreliant.think-freely.org>
+Date: Fri, 1 Nov 2013 10:21:48 +0100
+Message-ID: <20131101092148.GB27063@gmail.com>
+References: <201310300525.r9U5Pdqo014902@ib.usersys.redhat.com>
+ <20131030110214.GA10220@localhost.localdomain>
+ <52710B09.6090302@redhat.com>
+ <20131031183003.GC25894@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	netdev@vger.kernel.org
+Cc: Doug Ledford <dledford@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	David Laight <David.Laight@ACULAB.COM>
 To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20131031143325.GB25894@hmsreliant.think-freely.org>
+In-Reply-To: <20131031183003.GC25894@hmsreliant.think-freely.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 * Neil Horman <nhorman@tuxdriver.com> wrote:
 
-> On Thu, Oct 31, 2013 at 11:22:00AM +0100, Ingo Molnar wrote:
-> > 
-> > * Neil Horman <nhorman@tuxdriver.com> wrote:
-> > 
-> > > > etc. For such short runtimes make sure the last column displays 
-> > > > close to 100%, so that the PMU results become trustable.
-> > > > 
-> > > > A nehalem+ PMU will allow 2-4 events to be measured in parallel, 
-> > > > plus generics like 'cycles', 'instructions' can be added 'for free' 
-> > > > because they get counted in a separate (fixed purpose) PMU register.
-> > > > 
-> > > > The last colum tells you what percentage of the runtime that 
-> > > > particular event was actually active. 100% (or empty last column) 
-> > > > means it was active all the time.
-> > > > 
-> > > > Thanks,
-> > > > 
-> > > > 	Ingo
-> > > > 
-> > > 
-> > > Hmm, 
-> > > 
-> > > I ran this test:
-> > > 
-> > > for i in `seq 0 1 3`
-> > > do
-> > > echo $i > /sys/module/csum_test/parameters/module_test_mode
-> > > taskset -c 0 perf stat --repeat 20 -C 0 -e L1-dcache-load-misses -e L1-dcache-prefetches -e cycles -e instructions -ddd ./test.sh
-> > > done
-> > 
-> > You need to remove '-ddd' which is a shortcut for a ton of useful 
-> > events, but here you want to use fewer events, to increase the 
-> > precision of the measurement.
-> > 
-> > Thanks,
-> > 
-> > 	Ingo
-> > 
+> Prefetch and simluated adcx/adox from above:
+>  Performance counter stats for './test.sh' (20 runs):
 > 
-> Thank you ingo, that fixed it.  I'm trying some other variants of 
-> the csum algorithm that Doug and I discussed last night, but FWIW, 
-> the relative performance of the 4 test cases 
-> (base/prefetch/parallel/both) remains unchanged. I'm starting to 
-> feel like at this point, theres very little point in doing 
-> parallel alu operations (unless we can find a way to break the 
-> dependency on the carry flag, which is what I'm tinkering with 
-> now).
+>         35,704,331 L1-dcache-load-misses                                         ( +-  0.07% ) [75.00%]
+>                  0 L1-dcache-prefetches                                         [75.00%]
+>     19,751,409,264 cycles                    #    0.000 GHz                      ( +-  0.59% ) [75.00%]
+>         34,850,056 branch-misses                                                 ( +-  1.29% ) [75.00%]
+> 
+>        7.768602160 seconds time elapsed                                          ( +-  1.38% )
 
-I would still like to encourage you to pick up the improvements that 
-Doug measured (mostly via prefetch tweaking?) - that looked like 
-some significant speedups that we don't want to lose!
+btw., you might also want to try measuring only the basics:
 
-Also, trying to stick the in-kernel implementation into 'perf bench' 
-would be a useful first step as well, for this and future efforts.
+   -e cycles -e instructions -e branches -e branch-misses
 
-See what we do in tools/perf/bench/mem-memcpy-x86-64-asm.S to pick 
-up the in-kernel assembly memcpy implementations:
+that should give you 100% in the last column and should also allow 
+you to double check whether all the PMU counts are correct: is it 
+the expected number of instructions, expected number of branches, 
+expected number of branch-misses, etc.
 
-#define memcpy MEMCPY /* don't hide glibc's memcpy() */
-#define altinstr_replacement text
-#define globl p2align 4; .globl
-#define Lmemcpy_c globl memcpy_c; memcpy_c
-#define Lmemcpy_c_e globl memcpy_c_e; memcpy_c_e
+Then you can remove branch stats and add just L1-dcache stats - and 
+still be 100% covered:
 
-#include "../../../arch/x86/lib/memcpy_64.S"
+   -e cycles -e instructions -e L1-dcache-loads -e L1-dcache-load-misses
 
-So it needed a bit of trickery/wrappery for 'perf bench mem memcpy', 
-but that is a one-time effort - once it's done then the current 
-in-kernel csum_partial() implementation would be easily measurable 
-(and any performance regression in it bisectable, etc.) from that 
-point on.
+etc.
 
-In user-space it would also be easier to add various parameters and 
-experimental implementations and background cache-stressing 
-workloads automatically.
-
-Something similar might be possible for csum_partial(), 
-csum_partial_copy*(), etc.
-
-Note, if any of you ventures to add checksum-benchmarking to perf 
-bench, please base any patches on top of tip:perf/core:
-
-  git pull git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git perf/core
-
-as there are a couple of perf bench enhancements in the pipeline 
-already for v3.13.
+Just so that you can trust what the PMU tells you. Prefetch counts 
+are sometimes off, they might include speculative activities, etc.
 
 Thanks,
 
