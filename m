@@ -1,54 +1,79 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch -next] bonding: bond_get_size() returns wrong size
-Date: Fri, 1 Nov 2013 12:35:58 +0100
-Message-ID: <20131101113558.GA3106@minipsycho.orion>
-References: <20131101101844.GA29795@longonot.mountain>
- <20131101104100.GU692@redhat.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH V5 net-next 2/3] net: huawei_cdc_ncm: Introduce the huawei_cdc_ncm driver
+Date: Fri, 01 Nov 2013 12:35:45 +0100
+Message-ID: <87fvrgwe0e.fsf@nemi.mork.no>
+References: <1380516609-31242-1-git-send-email-mrkiko.rs@gmail.com>
+	<1380516609-31242-3-git-send-email-mrkiko.rs@gmail.com>
+	<1380532073.1484.15.camel@linux-fkkt.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131101104100.GU692@redhat.com>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Enrico Mioso <mrkiko.rs@gmail.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Steve Glendinning <steve.glendinning@shawell.net>,
+	Robert de Vries <rhdv@xs4all.nl>,
+	Hayes Wang <hayeswang@realtek.com>,
+	Freddy Xin <freddy@asix.com.tw>,
+	Liu Junliang <liujunliang_ljl@163.com>,
+	open list <linux-kernel@vger.kernel.org>,
+	"open list\:USB NETWORKING DR..." <linux-usb@vger.kernel.org>,
+	"open list\:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	ModemManager-devel@lists.freedesktop.org
+To: Oliver Neukum <oneukum@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1380532073.1484.15.camel@linux-fkkt.site> (Oliver Neukum's
+	message of "Mon, 30 Sep 2013 11:07:53 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fri, Nov 01, 2013 at 11:41:00AM CET, vfalico@redhat.com wrote:
->On Fri, Nov 01, 2013 at 01:18:44PM +0300, Dan Carpenter wrote:
->>There is an extra semi-colon so bond_get_size() doesn't return the
->>correct value.
->>
->>Fixes: ec76aa49855f ('bonding: add Netlink support active_slave option')
->>Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Oliver Neukum <oneukum@suse.de> writes:
+> On Mon, 2013-09-30 at 04:50 +0000, Enrico Mioso wrote:
 >
->Hrm, how does it even build. Good catch, thanks.
-
-I wonder about the same thing.
-
-
-Reviewed-by: Jiri Pirko <jiri@resnulli.us>
-
-
+>> +static int huawei_cdc_ncm_manage_power(struct usbnet *usbnet_dev, i=
+nt on)
+>> +{
+>> +	struct huawei_cdc_ncm_state *drvstate =3D (void *)&usbnet_dev->dat=
+a;
+>> +	int rv =3D 0;
+>> +
+>> +	if ((on && atomic_add_return(1, &drvstate->pmcount) =3D=3D 1) ||
+>> +			(!on && atomic_dec_and_test(&drvstate->pmcount))) {
+>> +		rv =3D usb_autopm_get_interface(usbnet_dev->intf);
+>> +		if (rv < 0)
+>> +			goto err;
 >
->Acked-by: Veaceslav Falico <vfalico@redhat.com>
+> The error case corrupts drvstate->pmcount
 >
->>
->>diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
->>index 7661261..40e7b1c 100644
->>--- a/drivers/net/bonding/bond_netlink.c
->>+++ b/drivers/net/bonding/bond_netlink.c
->>@@ -82,8 +82,8 @@ static int bond_newlink(struct net *src_net, struct net_device *bond_dev,
->>
->>static size_t bond_get_size(const struct net_device *bond_dev)
->>{
->>-	return nla_total_size(sizeof(u8));	/* IFLA_BOND_MODE */
->>-		+ nla_total_size(sizeof(u32));	/* IFLA_BOND_ACTIVE_SLAVE */
->>+	return nla_total_size(sizeof(u8)) +	/* IFLA_BOND_MODE */
->>+		nla_total_size(sizeof(u32));	/* IFLA_BOND_ACTIVE_SLAVE */
->>}
->>
->>static int bond_fill_info(struct sk_buff *skb,
+>> +		usbnet_dev->intf->needs_remote_wakeup =3D on;
+>> +		usb_autopm_put_interface(usbnet_dev->intf);
+>> +	}
+>> +err:
+>> +	return rv;
+>> +}
+
+Hello Oliver,
+
+I finally got around to looking closer at this and you are of course
+correct.  This is all my fault when I initially wrapped the
+needs_remote_wakeup update in usb_autopm_{get,put}_interface,
+
+And the problem is not only here in this new driver, but *everywhere* I
+did this, including in cdc-wdm.  That driver doesn't have the counter t=
+o
+corrupt, but failing to update intf->needs_remote_wakeup if
+usb_autopm_get_interface fails is still wrong. The get/put were only
+added to make the change take effect immediately.  Things sort of worke=
+d
+fine before that, and ignoring a get error would only revert to that
+older behaviour.
+
+So I believe we should do the update unconditionally, and but skip
+usb_autopm_put_interface if the get failed.  Accordingly, these
+functions should always return 0 (not that there is anything currently
+checking the return anyway).
+
+I'll prepare patches for cdc-wdm, qmi_wwan and cdc_mbim.
+
+
+Bj=C3=B8rn
