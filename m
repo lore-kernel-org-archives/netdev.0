@@ -1,173 +1,120 @@
 From: Ben Boeckel <mathstuf@gmail.com>
-Subject: [PATCHv3 net-next 6/7] smc91c92_cs: replace printk with netdev_ calls
-Date: Fri,  1 Nov 2013 08:53:35 -0400
-Message-ID: <1383310416-27177-7-git-send-email-mathstuf@gmail.com>
+Subject: [PATCHv3 net-next 7/7] smsc9420: replace printk with netdev_ calls
+Date: Fri,  1 Nov 2013 08:53:36 -0400
+Message-ID: <1383310416-27177-8-git-send-email-mathstuf@gmail.com>
 References: <1382682422-22677-1-git-send-email-mathstuf@gmail.com>
  <1383310416-27177-1-git-send-email-mathstuf@gmail.com>
 Cc: Ben Boeckel <mathstuf@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f180.google.com ([209.85.216.180]:39592 "EHLO
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:47474 "EHLO
 	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751966Ab3KAMyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 08:54:02 -0400
-Received: by mail-qc0-f180.google.com with SMTP id e9so2424555qcy.39
-        for <netdev@vger.kernel.org>; Fri, 01 Nov 2013 05:54:01 -0700 (PDT)
+	with ESMTP id S1752190Ab3KAMyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 08:54:04 -0400
+Received: by mail-qc0-f180.google.com with SMTP id e9so2431167qcy.11
+        for <netdev@vger.kernel.org>; Fri, 01 Nov 2013 05:54:04 -0700 (PDT)
 In-Reply-To: <1383310416-27177-1-git-send-email-mathstuf@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also snipes some trailing whitespace.
-
 Signed-off-by: Ben Boeckel <mathstuf@gmail.com>
 ---
- drivers/net/ethernet/smsc/smc91c92_cs.c | 43 ++++++++++++++++-----------------
- 1 file changed, 21 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/smsc/smsc9420.c | 26 +++++++++++++-------------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/smsc/smc91c92_cs.c b/drivers/net/ethernet/smsc/smc91c92_cs.c
-index 656d2e2..8ef70d9 100644
---- a/drivers/net/ethernet/smsc/smc91c92_cs.c
-+++ b/drivers/net/ethernet/smsc/smc91c92_cs.c
-@@ -740,7 +740,7 @@ static int smc91c92_resume(struct pcmcia_device *link)
- 	     (smc->cardid == PRODID_PSION_NET100))) {
- 		i = osi_load_firmware(link);
- 		if (i) {
--			pr_err("smc91c92_cs: Failed to load firmware\n");
-+			netdev_err(dev, "Failed to load firmware\n");
- 			return i;
- 		}
+diff --git a/drivers/net/ethernet/smsc/smsc9420.c b/drivers/net/ethernet/smsc/smsc9420.c
+index e55e336..059bcaf 100644
+--- a/drivers/net/ethernet/smsc/smsc9420.c
++++ b/drivers/net/ethernet/smsc/smsc9420.c
+@@ -99,17 +99,17 @@ MODULE_PARM_DESC(debug, "debug level");
+ 
+ #define smsc_dbg(TYPE, f, a...) \
+ do {	if ((pd)->msg_enable & NETIF_MSG_##TYPE) \
+-		printk(KERN_DEBUG PFX f "\n", ## a); \
++		netdev_dbg((pd)->dev, PFX f "\n", ## a); \
+ } while (0)
+ 
+ #define smsc_info(TYPE, f, a...) \
+ do {	if ((pd)->msg_enable & NETIF_MSG_##TYPE) \
+-		printk(KERN_INFO PFX f "\n", ## a); \
++		netdev_info((pd)->dev, PFX f "\n", ## a); \
+ } while (0)
+ 
+ #define smsc_warn(TYPE, f, a...) \
+ do {	if ((pd)->msg_enable & NETIF_MSG_##TYPE) \
+-		printk(KERN_WARNING PFX f "\n", ## a); \
++		netdev_warn((pd)->dev, PFX f "\n", ## a); \
+ } while (0)
+ 
+ static inline u32 smsc9420_reg_read(struct smsc9420_pdata *pd, u32 offset)
+@@ -1168,7 +1168,7 @@ static int smsc9420_mii_probe(struct net_device *dev)
+ 
+ 	/* Device only supports internal PHY at address 1 */
+ 	if (!pd->mii_bus->phy_map[1]) {
+-		pr_err("%s: no PHY found at address 1\n", dev->name);
++		netdev_err(dev, "no PHY found at address 1\n");
+ 		return -ENODEV;
  	}
-@@ -793,7 +793,7 @@ static int check_sig(struct pcmcia_device *link)
-     }
  
-     if (width) {
--	    pr_info("using 8-bit IO window\n");
-+	    netdev_info(dev, "using 8-bit IO window\n");
+@@ -1180,12 +1180,12 @@ static int smsc9420_mii_probe(struct net_device *dev)
+ 			     smsc9420_phy_adjust_link, PHY_INTERFACE_MODE_MII);
  
- 	    smc91c92_suspend(link);
- 	    pcmcia_fixup_iowidth(link);
-@@ -1036,7 +1036,7 @@ static void smc_dump(struct net_device *dev)
-     save = inw(ioaddr + BANK_SELECT);
-     for (w = 0; w < 4; w++) {
- 	SMC_SELECT_BANK(w);
--	netdev_printk(KERN_DEBUG, dev, "bank %d: ", w);
-+	netdev_dbg(dev, "bank %d: ", w);
- 	for (i = 0; i < 14; i += 2)
- 	    pr_cont(" %04x", inw(ioaddr + i));
- 	pr_cont("\n");
-@@ -1213,8 +1213,7 @@ static netdev_tx_t smc_start_xmit(struct sk_buff *skb,
-     if (smc->saved_skb) {
- 	/* THIS SHOULD NEVER HAPPEN. */
- 	dev->stats.tx_aborted_errors++;
--	netdev_printk(KERN_DEBUG, dev,
--		      "Internal error -- sent packet while busy\n");
-+	netdev_dbg(dev, "Internal error -- sent packet while busy\n");
- 	return NETDEV_TX_BUSY;
-     }
-     smc->saved_skb = skb;
-@@ -1254,7 +1253,7 @@ static netdev_tx_t smc_start_xmit(struct sk_buff *skb,
-     }
+ 	if (IS_ERR(phydev)) {
+-		pr_err("%s: Could not attach to PHY\n", dev->name);
++		netdev_err(dev, "Could not attach to PHY\n");
+ 		return PTR_ERR(phydev);
+ 	}
  
-     /* Otherwise defer until the Tx-space-allocated interrupt. */
--    pr_debug("%s: memory allocation deferred.\n", dev->name);
-+    netdev_dbg(dev, "memory allocation deferred.\n");
-     outw((IM_ALLOC_INT << 8) | (ir & 0xff00), ioaddr + INTERRUPT);
-     spin_unlock_irqrestore(&smc->lock, flags);
+-	pr_info("%s: attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
+-		dev->name, phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
++	netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
++		    phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
  
-@@ -1317,8 +1316,8 @@ static void smc_eph_irq(struct net_device *dev)
+ 	/* mask with MAC supported features */
+ 	phydev->supported &= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
+@@ -1582,12 +1582,12 @@ smsc9420_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	int result = 0;
+ 	u32 id_rev;
  
-     SMC_SELECT_BANK(0);
-     ephs = inw(ioaddr + EPH);
--    pr_debug("%s: Ethernet protocol handler interrupt, status"
--	  " %4.4x.\n", dev->name, ephs);
-+    netdev_dbg(dev, "Ethernet protocol handler interrupt, status %4.4x.\n",
-+	       ephs);
-     /* Could be a counter roll-over warning: update stats. */
-     card_stats = inw(ioaddr + COUNTER);
-     /* single collisions */
-@@ -1357,8 +1356,8 @@ static irqreturn_t smc_interrupt(int irq, void *dev_id)
+-	printk(KERN_INFO DRV_DESCRIPTION " version " DRV_VERSION "\n");
++	pr_info(DRV_DESCRIPTION " version " DRV_VERSION "\n");
  
-     ioaddr = dev->base_addr;
+ 	/* First do the PCI initialisation */
+ 	result = pci_enable_device(pdev);
+ 	if (unlikely(result)) {
+-		printk(KERN_ERR "Cannot enable smsc9420\n");
++		pr_err("Cannot enable smsc9420\n");
+ 		goto out_0;
+ 	}
  
--    pr_debug("%s: SMC91c92 interrupt %d at %#x.\n", dev->name,
--	  irq, ioaddr);
-+    netdev_dbg(dev, "SMC91c92 interrupt %d at %#x.\n",
-+	       irq, ioaddr);
+@@ -1600,24 +1600,24 @@ smsc9420_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
  
-     spin_lock(&smc->lock);
-     smc->watchdog = 0;
-@@ -1366,8 +1365,8 @@ static irqreturn_t smc_interrupt(int irq, void *dev_id)
-     if ((saved_bank & 0xff00) != 0x3300) {
- 	/* The device does not exist -- the card could be off-line, or
- 	   maybe it has been ejected. */
--	pr_debug("%s: SMC91c92 interrupt %d for non-existent"
--	      "/ejected device.\n", dev->name, irq);
-+	netdev_dbg(dev, "SMC91c92 interrupt %d for non-existent/ejected device.\n",
-+		   irq);
- 	handled = 0;
- 	goto irq_done;
-     }
-@@ -1380,8 +1379,8 @@ static irqreturn_t smc_interrupt(int irq, void *dev_id)
+ 	if (!(pci_resource_flags(pdev, SMSC_BAR) & IORESOURCE_MEM)) {
+-		printk(KERN_ERR "Cannot find PCI device base address\n");
++		netdev_err(dev, "Cannot find PCI device base address\n");
+ 		goto out_free_netdev_2;
+ 	}
  
-     do { /* read the status flag, and mask it */
- 	status = inw(ioaddr + INTERRUPT) & 0xff;
--	pr_debug("%s: Status is %#2.2x (mask %#2.2x).\n", dev->name,
--	      status, mask);
-+	netdev_dbg(dev, "Status is %#2.2x (mask %#2.2x).\n",
-+		   status, mask);
- 	if ((status & mask) == 0) {
- 	    if (bogus_cnt == INTR_WORK)
- 		handled = 0;
-@@ -1425,15 +1424,15 @@ static irqreturn_t smc_interrupt(int irq, void *dev_id)
- 	    smc_eph_irq(dev);
-     } while (--bogus_cnt);
+ 	if ((pci_request_regions(pdev, DRV_NAME))) {
+-		printk(KERN_ERR "Cannot obtain PCI resources, aborting.\n");
++		netdev_err(dev, "Cannot obtain PCI resources, aborting.\n");
+ 		goto out_free_netdev_2;
+ 	}
  
--    pr_debug("  Restoring saved registers mask %2.2x bank %4.4x"
--	  " pointer %4.4x.\n", mask, saved_bank, saved_pointer);
-+    netdev_dbg(dev, "  Restoring saved registers mask %2.2x bank %4.4x pointer %4.4x.\n",
-+	       mask, saved_bank, saved_pointer);
+ 	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) {
+-		printk(KERN_ERR "No usable DMA configuration, aborting.\n");
++		netdev_err(dev, "No usable DMA configuration, aborting.\n");
+ 		goto out_free_regions_3;
+ 	}
  
-     /* restore state register */
-     outw((mask<<8), ioaddr + INTERRUPT);
-     outw(saved_pointer, ioaddr + POINTER);
-     SMC_SELECT_BANK(saved_bank);
+ 	virt_addr = ioremap(pci_resource_start(pdev, SMSC_BAR),
+ 		pci_resource_len(pdev, SMSC_BAR));
+ 	if (!virt_addr) {
+-		printk(KERN_ERR "Cannot map device registers, aborting.\n");
++		netdev_err(dev, "Cannot map device registers, aborting.\n");
+ 		goto out_free_regions_3;
+ 	}
  
--    pr_debug("%s: Exiting interrupt IRQ%d.\n", dev->name, irq);
-+    netdev_dbg(dev, "Exiting interrupt IRQ%d.\n", irq);
- 
- irq_done:
- 
-@@ -1491,10 +1490,10 @@ static void smc_rx(struct net_device *dev)
-     rx_status = inw(ioaddr + DATA_1);
-     packet_length = inw(ioaddr + DATA_1) & 0x07ff;
- 
--    pr_debug("%s: Receive status %4.4x length %d.\n",
--	  dev->name, rx_status, packet_length);
-+    netdev_dbg(dev, "Receive status %4.4x length %d.\n",
-+	       rx_status, packet_length);
- 
--    if (!(rx_status & RS_ERRORS)) {		
-+    if (!(rx_status & RS_ERRORS)) {
- 	/* do stuff to make a new packet */
- 	struct sk_buff *skb;
- 	
-@@ -1502,7 +1501,7 @@ static void smc_rx(struct net_device *dev)
- 	skb = netdev_alloc_skb(dev, packet_length+2);
- 	
- 	if (skb == NULL) {
--	    pr_debug("%s: Low memory, packet dropped.\n", dev->name);
-+	    netdev_dbg(dev, "Low memory, packet dropped.\n");
- 	    dev->stats.rx_dropped++;
- 	    outw(MC_RELEASE, ioaddr + MMU_CMD);
- 	    return;
-@@ -1643,7 +1642,7 @@ static void smc_reset(struct net_device *dev)
-     struct smc_private *smc = netdev_priv(dev);
-     int i;
- 
--    pr_debug("%s: smc91c92 reset called.\n", dev->name);
-+    netdev_dbg(dev, "smc91c92 reset called.\n");
- 
-     /* The first interaction must be a write to bring the chip out
-        of sleep mode. */
 -- 
 1.8.4.2
