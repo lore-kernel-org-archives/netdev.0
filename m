@@ -1,44 +1,61 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [patch -next] bonding: bond_get_size() returns wrong size
-Date: Fri, 1 Nov 2013 11:41:00 +0100
-Message-ID: <20131101104100.GU692@redhat.com>
-References: <20131101101844.GA29795@longonot.mountain>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net-next RFC 0/5] xen-netback: TX grant mapping instead
+ of copy
+Date: Fri, 1 Nov 2013 10:50:35 +0000
+Message-ID: <1383303035.672.29.camel@kazak.uk.xensource.com>
+References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131101101844.GA29795@longonot.mountain>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jonathan.davies@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 01, 2013 at 01:18:44PM +0300, Dan Carpenter wrote:
->There is an extra semi-colon so bond_get_size() doesn't return the
->correct value.
->
->Fixes: ec76aa49855f ('bonding: add Netlink support active_slave option')
->Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+On Wed, 2013-10-30 at 00:50 +0000, Zoltan Kiss wrote:
+> This patch series use SKBTX_DEV_ZEROCOPY flags to tell the stack it needs to
+> know when the skb is freed up.
 
-Hrm, how does it even build. Good catch, thanks.
+Does this always avoid copying when bridging/openvswitching/forwarding
+(e.g. masquerading etc)? For both domU->domU and domU->physical NIC?
 
-Acked-by: Veaceslav Falico <vfalico@redhat.com>
+How does it deal with broadcast traffic?
 
->
->diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
->index 7661261..40e7b1c 100644
->--- a/drivers/net/bonding/bond_netlink.c
->+++ b/drivers/net/bonding/bond_netlink.c
->@@ -82,8 +82,8 @@ static int bond_newlink(struct net *src_net, struct net_device *bond_dev,
->
-> static size_t bond_get_size(const struct net_device *bond_dev)
-> {
->-	return nla_total_size(sizeof(u8));	/* IFLA_BOND_MODE */
->-		+ nla_total_size(sizeof(u32));	/* IFLA_BOND_ACTIVE_SLAVE */
->+	return nla_total_size(sizeof(u8)) +	/* IFLA_BOND_MODE */
->+		nla_total_size(sizeof(u32));	/* IFLA_BOND_ACTIVE_SLAVE */
-> }
->
-> static int bond_fill_info(struct sk_buff *skb,
+>  That is the way KVM solved the same problem,
+> and based on my initial tests it can do the same for us. Avoiding the extra
+> copy boosted up TX throughput from 6.8 Gbps to 7.9 (I used a slower
+> Interlagos box, both Dom0 and guest on upstream kernel, on the same NUMA node,
+> running iperf 2.0.5, and the remote end was a bare metal box on the same 10Gb
+> switch)
+
+Do you have any numbers for the dom0 cpu usage impact?
+
+Aggregate throughput for many guests would be a useful datapoint too.
+
+> Based on my investigations the packet get only copied if it is delivered to
+> Dom0 stack, which is due to this patch:
+> https://lkml.org/lkml/2012/7/20/363
+> That's a bit unfortunate, but as far as I know for the huge majority this use
+> case is not too important.
+
+Likely to be true, but it would still be interesting to know how badly
+this use case suffers with this change, and any increase in CPU usage
+would be interesting to know about as well.
+
+>  There are a couple of things which need more
+> polishing, see the FIXME comments. I will run some more extensive tests, but
+> in the meantime I would like to hear comments about what I've done so far.
+> I've tried to broke it down to smaller patches, with mixed results, so I
+> welcome suggestions on that part as well:
+> 1/5: Introduce TX grant map definitions
+> 2/5: Change TX path from grant copy to mapping
+> 3/5: Remove old TX grant copy definitons
+> 4/5: Fix indentations
+> 5/5: Change RX path for mapped SKB fragments
+> 
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> 
