@@ -1,60 +1,54 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv6: host should probe those non-reachable router
-Date: Fri, 1 Nov 2013 12:19:57 +0100
-Message-ID: <20131101111957.GA30284@order.stressinduktion.org>
-References: <52731633.2030101@cn.fujitsu.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch -next] bonding: bond_get_size() returns wrong size
+Date: Fri, 1 Nov 2013 12:35:58 +0100
+Message-ID: <20131101113558.GA3106@minipsycho.orion>
+References: <20131101101844.GA29795@longonot.mountain>
+ <20131101104100.GU692@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:43055 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812Ab3KALT7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 07:19:59 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <52731633.2030101@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20131101104100.GU692@redhat.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Duan!
+Fri, Nov 01, 2013 at 11:41:00AM CET, vfalico@redhat.com wrote:
+>On Fri, Nov 01, 2013 at 01:18:44PM +0300, Dan Carpenter wrote:
+>>There is an extra semi-colon so bond_get_size() doesn't return the
+>>correct value.
+>>
+>>Fixes: ec76aa49855f ('bonding: add Netlink support active_slave option')
+>>Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>
+>Hrm, how does it even build. Good catch, thanks.
 
-On Fri, Nov 01, 2013 at 10:47:15AM +0800, Duan Jiong wrote:
-> 
-> rather than those routers that the return value of rt6_score_route()
-> is RT6_NUD_SUCCEED.
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> ---
->  net/ipv6/route.c | 5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 1ac0b6e..b7bf5c7 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -623,12 +623,11 @@ static struct rt6_info *find_match(struct rt6_info *rt, int oif, int strict,
->  		match_do_rr = true;
->  		m = 0; /* lowest valid score */
->  	} else if (m < 0) {
-> +		if (strict & RT6_LOOKUP_F_REACHABLE)
-> +			rt6_probe(rt);
->  		goto out;
->  	}
->  
-> -	if (strict & RT6_LOOKUP_F_REACHABLE)
-> -		rt6_probe(rt);
-> -
+I wonder about the same thing.
 
-I don't think this is correct. m < 0 are the routers we really don't want to
-use, e.g. because we get a failure signaled from rt6_check_dev. E.g. we want
-to query a route where a specified interface id is given.
 
-In case router preference is enabled we mostly give back RT6_NUD_SUCCEED for
-routes which are somewhat reachable. Really broken routers in NUD_FAILED state
-are waiting for cleanup and recreation. We also do not accept new NAs on
-neighbours in NUD_FAILED state IIRC.
+Reviewed-by: Jiri Pirko <jiri@resnulli.us>
 
-Greetings,
 
-  Hannes
+>
+>Acked-by: Veaceslav Falico <vfalico@redhat.com>
+>
+>>
+>>diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+>>index 7661261..40e7b1c 100644
+>>--- a/drivers/net/bonding/bond_netlink.c
+>>+++ b/drivers/net/bonding/bond_netlink.c
+>>@@ -82,8 +82,8 @@ static int bond_newlink(struct net *src_net, struct net_device *bond_dev,
+>>
+>>static size_t bond_get_size(const struct net_device *bond_dev)
+>>{
+>>-	return nla_total_size(sizeof(u8));	/* IFLA_BOND_MODE */
+>>-		+ nla_total_size(sizeof(u32));	/* IFLA_BOND_ACTIVE_SLAVE */
+>>+	return nla_total_size(sizeof(u8)) +	/* IFLA_BOND_MODE */
+>>+		nla_total_size(sizeof(u32));	/* IFLA_BOND_ACTIVE_SLAVE */
+>>}
+>>
+>>static int bond_fill_info(struct sk_buff *skb,
