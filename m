@@ -1,52 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch -next] bonding: bond_get_size() returns wrong size
-Date: Fri, 01 Nov 2013 03:52:48 -0700
-Message-ID: <1383303168.19864.7.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131101101844.GA29795@longonot.mountain>
-	 <20131101104100.GU692@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv6: host should probe those non-reachable router
+Date: Fri, 1 Nov 2013 12:19:57 +0100
+Message-ID: <20131101111957.GA30284@order.stressinduktion.org>
+References: <52731633.2030101@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20131101104100.GU692@redhat.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:43055 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750812Ab3KALT7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 07:19:59 -0400
+Content-Disposition: inline
+In-Reply-To: <52731633.2030101@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-11-01 at 11:41 +0100, Veaceslav Falico wrote:
-> On Fri, Nov 01, 2013 at 01:18:44PM +0300, Dan Carpenter wrote:
-> >There is an extra semi-colon so bond_get_size() doesn't return the
-> >correct value.
-> >
-> >Fixes: ec76aa49855f ('bonding: add Netlink support active_slave option')
-> >Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Hi Duan!
+
+On Fri, Nov 01, 2013 at 10:47:15AM +0800, Duan Jiong wrote:
 > 
-> Hrm, how does it even build. Good catch, thanks.
+> rather than those routers that the return value of rt6_score_route()
+> is RT6_NUD_SUCCEED.
 > 
-> Acked-by: Veaceslav Falico <vfalico@redhat.com>
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+>  net/ipv6/route.c | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 1ac0b6e..b7bf5c7 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -623,12 +623,11 @@ static struct rt6_info *find_match(struct rt6_info *rt, int oif, int strict,
+>  		match_do_rr = true;
+>  		m = 0; /* lowest valid score */
+>  	} else if (m < 0) {
+> +		if (strict & RT6_LOOKUP_F_REACHABLE)
+> +			rt6_probe(rt);
+>  		goto out;
+>  	}
+>  
+> -	if (strict & RT6_LOOKUP_F_REACHABLE)
+> -		rt6_probe(rt);
+> -
 
-Yep, an alternative is to use following format :
+I don't think this is correct. m < 0 are the routers we really don't want to
+use, e.g. because we get a failure signaled from rt6_check_dev. E.g. we want
+to query a route where a specified interface id is given.
 
-static inline size_t br_port_info_size(void)
-{
-        return nla_total_size(1)        /* IFLA_BRPORT_STATE  */
-                + nla_total_size(2)     /* IFLA_BRPORT_PRIORITY */
-                + nla_total_size(4)     /* IFLA_BRPORT_COST */
-                + nla_total_size(1)     /* IFLA_BRPORT_MODE */
-                + nla_total_size(1)     /* IFLA_BRPORT_GUARD */
-                + nla_total_size(1)     /* IFLA_BRPORT_PROTECT */
-                + nla_total_size(1)     /* IFLA_BRPORT_FAST_LEAVE */
-                + nla_total_size(1)     /* IFLA_BRPORT_LEARNING */
-                + nla_total_size(1)     /* IFLA_BRPORT_UNICAST_FLOOD */
-                + 0;
-}
+In case router preference is enabled we mostly give back RT6_NUD_SUCCEED for
+routes which are somewhat reachable. Really broken routers in NUD_FAILED state
+are waiting for cleanup and recreation. We also do not accept new NAs on
+neighbours in NUD_FAILED state IIRC.
 
-So that a patch adding a new attribute doesn't have to change the 'last
-line'
+Greetings,
 
- 
-
+  Hannes
