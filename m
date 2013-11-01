@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net-next 15/24] net: cdc_ncm: set correct dev->hard_mtu
-Date: Fri,  1 Nov 2013 11:16:52 +0100
-Message-ID: <1383301021-16613-16-git-send-email-bjorn@mork.no>
+Subject: [PATCH net-next 10/24] net: cdc_ncm: remove descriptor pointers
+Date: Fri,  1 Nov 2013 11:16:47 +0100
+Message-ID: <1383301021-16613-11-git-send-email-bjorn@mork.no>
 References: <1383301021-16613-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -11,53 +11,86 @@ Cc: linux-usb@vger.kernel.org,
 	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:49989 "EHLO canardo.mork.no"
+Received: from canardo.mork.no ([148.122.252.1]:49966 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755949Ab3KAKRZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Nov 2013 06:17:25 -0400
+	id S1755892Ab3KAKRW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Nov 2013 06:17:22 -0400
 In-Reply-To: <1383301021-16613-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-usbnet use the hard_mtu value for sizing the tx queue and nothing
-else.  We will be transmitting buffers of up to tx_max size, so
-that's the proper value to give usbnet.
-
-The individual datagram size is completely irrelevant here.
+header_desc was completely unused and union_desc was never used
+outside cdc_ncm_bind_common.
 
 Cc: Alexey Orishko <alexey.orishko@gmail.com>
 Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- drivers/net/usb/cdc_ncm.c |    9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+ drivers/net/usb/cdc_ncm.c   |   12 ++++++------
+ include/linux/usb/cdc_ncm.h |    4 +---
+ 2 files changed, 7 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 8fc1a06..c40f742 100644
+index b8de8dd..435fcc7 100644
 --- a/drivers/net/usb/cdc_ncm.c
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -404,13 +404,6 @@ int cdc_ncm_bind_common(struct usbnet *dev, struct=
- usb_interface *intf, u8 data_
+@@ -372,6 +372,7 @@ static const struct ethtool_ops cdc_ncm_ethtool_ops=
+ =3D {
 =20
- 			ctx->ether_desc =3D
- 					(const struct usb_cdc_ether_desc *)buf;
--			dev->hard_mtu =3D
--				le16_to_cpu(ctx->ether_desc->wMaxSegmentSize);
--
--			if (dev->hard_mtu < CDC_NCM_MIN_DATAGRAM_SIZE)
--				dev->hard_mtu =3D	CDC_NCM_MIN_DATAGRAM_SIZE;
--			else if (dev->hard_mtu > CDC_NCM_MAX_DATAGRAM_SIZE)
--				dev->hard_mtu =3D	CDC_NCM_MAX_DATAGRAM_SIZE;
+ int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf=
+, u8 data_altsetting)
+ {
++	const struct usb_cdc_union_desc *union_desc =3D NULL;
+ 	struct cdc_ncm_ctx *ctx;
+ 	struct usb_driver *driver;
+ 	u8 *buf;
+@@ -406,16 +407,15 @@ int cdc_ncm_bind_common(struct usbnet *dev, struc=
+t usb_interface *intf, u8 data_
+=20
+ 		switch (buf[2]) {
+ 		case USB_CDC_UNION_TYPE:
+-			if (buf[0] < sizeof(*(ctx->union_desc)))
++			if (buf[0] < sizeof(*union_desc))
+ 				break;
+=20
+-			ctx->union_desc =3D
+-					(const struct usb_cdc_union_desc *)buf;
++			union_desc =3D (const struct usb_cdc_union_desc *)buf;
+=20
+ 			ctx->control =3D usb_ifnum_to_if(dev->udev,
+-					ctx->union_desc->bMasterInterface0);
++						       union_desc->bMasterInterface0);
+ 			ctx->data =3D usb_ifnum_to_if(dev->udev,
+-					ctx->union_desc->bSlaveInterface0);
++						    union_desc->bSlaveInterface0);
  			break;
 =20
- 		case USB_CDC_NCM_TYPE:
-@@ -485,6 +478,8 @@ advance:
- 		dev_info(&dev->udev->dev, "MAC-Address: %pM\n", dev->net->dev_addr);
+ 		case USB_CDC_ETHERNET_TYPE:
+@@ -458,7 +458,7 @@ advance:
  	}
 =20
-+	/* usbnet use these values for sizing tx/rx queues */
-+	dev->hard_mtu =3D ctx->tx_max;
- 	dev->rx_urb_size =3D ctx->rx_max;
+ 	/* some buggy devices have an IAD but no CDC Union */
+-	if (!ctx->union_desc && intf->intf_assoc && intf->intf_assoc->bInterf=
+aceCount =3D=3D 2) {
++	if (!union_desc && intf->intf_assoc && intf->intf_assoc->bInterfaceCo=
+unt =3D=3D 2) {
+ 		ctx->control =3D intf;
+ 		ctx->data =3D usb_ifnum_to_if(dev->udev, intf->cur_altsetting->desc.=
+bInterfaceNumber + 1);
+ 		dev_dbg(&intf->dev, "CDC Union missing - got slave from IAD\n");
+diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+index 89b52a0..cad54ad 100644
+--- a/include/linux/usb/cdc_ncm.h
++++ b/include/linux/usb/cdc_ncm.h
+@@ -92,9 +92,7 @@ struct cdc_ncm_ctx {
+ 	struct tasklet_struct bh;
 =20
- 	return 0;
+ 	const struct usb_cdc_ncm_desc *func_desc;
+-	const struct usb_cdc_mbim_desc   *mbim_desc;
+-	const struct usb_cdc_header_desc *header_desc;
+-	const struct usb_cdc_union_desc *union_desc;
++	const struct usb_cdc_mbim_desc *mbim_desc;
+ 	const struct usb_cdc_ether_desc *ether_desc;
+=20
+ 	struct usb_interface *control;
 --=20
 1.7.10.4
