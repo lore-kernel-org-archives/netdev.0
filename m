@@ -1,56 +1,69 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH] x86: Run checksumming in parallel accross multiple alu's
-Date: Fri, 1 Nov 2013 10:21:48 +0100
-Message-ID: <20131101092148.GB27063@gmail.com>
-References: <201310300525.r9U5Pdqo014902@ib.usersys.redhat.com>
- <20131030110214.GA10220@localhost.localdomain>
- <52710B09.6090302@redhat.com>
- <20131031183003.GC25894@hmsreliant.think-freely.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: ipv6 fragmentation-related panic in netfilter
+Date: Fri, 1 Nov 2013 09:25:37 +0000
+Message-ID: <20131101092536.GA17499@macbook.localnet>
+References: <2060a7d2-c307-4e30-b1d4-0bd26c904d6f@gmail.com>
+ <20131030000701.GB25469@macbook.localnet>
+ <20131101084529.GL31491@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	David Laight <David.Laight@ACULAB.COM>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Tomas Hlavacek <tmshlvck@gmail.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:42003 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755135Ab3KAJZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 05:25:43 -0400
 Content-Disposition: inline
-In-Reply-To: <20131031183003.GC25894@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20131101084529.GL31491@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-* Neil Horman <nhorman@tuxdriver.com> wrote:
-
-> Prefetch and simluated adcx/adox from above:
->  Performance counter stats for './test.sh' (20 runs):
+On Fri, Nov 01, 2013 at 09:45:29AM +0100, Steffen Klassert wrote:
+> On Wed, Oct 30, 2013 at 12:07:11AM +0000, Patrick McHardy wrote:
+> > 
+> > The problem is that the reassembled packet is referenced by the individual
+> > fragments, so we trigger the BUG_ON in pskb_expand_head(). In this
+> > particular case the case we BUG() on is actually OK, but I'm looking at
+> > a way we can fix this without special casing. Hope to have a patch for
+> > testing in the next hours.
 > 
->         35,704,331 L1-dcache-load-misses                                         ( +-  0.07% ) [75.00%]
->                  0 L1-dcache-prefetches                                         [75.00%]
->     19,751,409,264 cycles                    #    0.000 GHz                      ( +-  0.59% ) [75.00%]
->         34,850,056 branch-misses                                                 ( +-  1.29% ) [75.00%]
+> Just for the record. I'm observing similar, quite reproducable crashes when
+> receiving fragmented icmp echo request packets on an IPsec gateway with
+> nf_conntrack_ipv6.
 > 
->        7.768602160 seconds time elapsed                                          ( +-  1.38% )
+> Since git commit 58a317f10 ("netfilter: ipv6: add IPv6 NAT support")
+> netfilter might insert a reassembled ipv6 packet with a shared skb and
+> local_df = 1 to the ok function. In case of xfrm, __xfrm6_output()
+> fragments the packet again and when adjusting the headroom later, we
+> crash because of a shared skb.
+> 
+> I can fix it by checking for a shared skb in ip6_fragment() and do
+> slow path fragmentation then. But we never needed such a check in
+> ip6_fragment(), so it's maybe better to fix it in netfilter.
 
-btw., you might also want to try measuring only the basics:
+So what seems to be happening is that this case in __ipv6_conntrack_in()
+triggers:
 
-   -e cycles -e instructions -e branches -e branch-misses
+        /* Conntrack helpers need the entire reassembled packet in the
+         * POST_ROUTING hook. In case of unconfirmed connections NAT
+         * might reassign a helper, so the entire packet is also
+         * required.
+         */
+        ct = nf_ct_get(reasm, &ctinfo);
+        if (ct != NULL && !nf_ct_is_untracked(ct)) {
+                help = nfct_help(ct);
+                if ((help && help->helper) || !nf_ct_is_confirmed(ct)) {
+                        nf_conntrack_get_reasm(reasm);
+                        NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, reasm,
+                                       (struct net_device *)in,
+                                       (struct net_device *)out,        
+                                       okfn, NF_IP6_PRI_CONNTRACK + 1);
 
-that should give you 100% in the last column and should also allow 
-you to double check whether all the PMU counts are correct: is it 
-the expected number of instructions, expected number of branches, 
-expected number of branch-misses, etc.
+Since this code is called while walking through the fragment chain, we have
+extra references to the reassembled skb. So I think what we need to do is
+to release the fragment chain before calling NF_HOOK_THRESH() and indicate
+this to nf_ct_frag6_output() so it will stop processing the chain immediately.
 
-Then you can remove branch stats and add just L1-dcache stats - and 
-still be 100% covered:
-
-   -e cycles -e instructions -e L1-dcache-loads -e L1-dcache-load-misses
-
-etc.
-
-Just so that you can trust what the PMU tells you. Prefetch counts 
-are sometimes off, they might include speculative activities, etc.
-
-Thanks,
-
-	Ingo
+I'll give it a try, will let you know when I have a patch for testing.
