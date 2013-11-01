@@ -1,68 +1,145 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net-next): ipsec-next 2013-11-01
-Date: Fri,  1 Nov 2013 08:50:53 +0100
-Message-ID: <1383292257-4634-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 3/4] net: esp{4,6}: remove padlen from struct esp_data
+Date: Fri,  1 Nov 2013 08:50:56 +0100
+Message-ID: <1383292257-4634-4-git-send-email-steffen.klassert@secunet.com>
+References: <1383292257-4634-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49094 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:49115 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752488Ab3KAHvI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Nov 2013 03:51:08 -0400
+	id S1755872Ab3KAHvK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Nov 2013 03:51:10 -0400
+In-Reply-To: <1383292257-4634-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This pull request has a trivial merge conflict between git commit
-e7d8f6c ("xfrm: Add refcount handling to queued policies") and
-git commit 4d53eff ("xfrm: Don't queue retransmitted packets if
-the original is still on the host"). It can be solved as it is
-currently done in linux-next.
+From: Mathias Krause <mathias.krause@secunet.com>
 
-1) Use vmalloc_node for ipcomp percpu scratches to get proper
-   NUMA affinity, from Eric Dumazet
+The padlen member of struct esp_data is always zero. Get rid of it.
 
-2) Avoid to retransmit packets if the original packet is
-   still in the xfrm hold queue.
+Signed-off-by: Mathias Krause <mathias.krause@secunet.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/esp.h |    3 ---
+ net/ipv4/esp4.c   |    9 +--------
+ net/ipv6/esp6.c   |    9 +--------
+ 3 files changed, 2 insertions(+), 19 deletions(-)
 
-3) Remove unused padlen field from struct esp_data.
-   From Mathias Krause.
-
-4) Remove struct esp_data because now it consists of a single
-   pointer. From Mathias Krause.
-
-Please pull or let me know if there are problems.
-
-Thanks!
-
-The following changes since commit 5bf47256f5433a9a5782754664e5ea04acb0537d:
-
-  Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge (2013-10-19 19:52:42 -0400)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
-
-for you to fetch changes up to 1c5ad13f7c2b2afe30e43858d04fff979dc9d243:
-
-  net: esp{4,6}: get rid of struct esp_data (2013-10-29 06:39:42 +0100)
-
-----------------------------------------------------------------
-Eric Dumazet (1):
-      xfrm: use vmalloc_node() for percpu scratches
-
-Mathias Krause (2):
-      net: esp{4,6}: remove padlen from struct esp_data
-      net: esp{4,6}: get rid of struct esp_data
-
-Steffen Klassert (1):
-      xfrm: Don't queue retransmitted packets if the original is still on the host
-
- include/net/esp.h      |   10 ----------
- net/ipv4/esp4.c        |   49 +++++++++++++++---------------------------------
- net/ipv6/esp6.c        |   48 +++++++++++++++--------------------------------
- net/xfrm/xfrm_ipcomp.c |    6 ++++--
- net/xfrm/xfrm_policy.c |    7 +++++++
- 5 files changed, 41 insertions(+), 79 deletions(-)
+diff --git a/include/net/esp.h b/include/net/esp.h
+index 1356dda..706b740 100644
+--- a/include/net/esp.h
++++ b/include/net/esp.h
+@@ -6,9 +6,6 @@
+ struct crypto_aead;
+ 
+ struct esp_data {
+-	/* 0..255 */
+-	int padlen;
+-
+ 	/* Confidentiality & Integrity */
+ 	struct crypto_aead *aead;
+ };
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 109ee89..8b5386a 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -154,8 +154,6 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	}
+ 	blksize = ALIGN(crypto_aead_blocksize(aead), 4);
+ 	clen = ALIGN(skb->len + 2 + tfclen, blksize);
+-	if (esp->padlen)
+-		clen = ALIGN(clen, esp->padlen);
+ 	plen = clen - skb->len - tfclen;
+ 
+ 	err = skb_cow_data(skb, tfclen + plen + alen, &trailer);
+@@ -461,7 +459,6 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
+ {
+ 	struct esp_data *esp = x->data;
+ 	u32 blksize = ALIGN(crypto_aead_blocksize(esp->aead), 4);
+-	u32 align = max_t(u32, blksize, esp->padlen);
+ 	unsigned int net_adj;
+ 
+ 	switch (x->props.mode) {
+@@ -477,7 +474,7 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu)
+ 	}
+ 
+ 	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
+-		 net_adj) & ~(align - 1)) + net_adj - 2;
++		 net_adj) & ~(blksize - 1)) + net_adj - 2;
+ }
+ 
+ static void esp4_err(struct sk_buff *skb, u32 info)
+@@ -659,8 +656,6 @@ static int esp_init_state(struct xfrm_state *x)
+ 
+ 	aead = esp->aead;
+ 
+-	esp->padlen = 0;
+-
+ 	x->props.header_len = sizeof(struct ip_esp_hdr) +
+ 			      crypto_aead_ivsize(aead);
+ 	if (x->props.mode == XFRM_MODE_TUNNEL)
+@@ -683,8 +678,6 @@ static int esp_init_state(struct xfrm_state *x)
+ 	}
+ 
+ 	align = ALIGN(crypto_aead_blocksize(aead), 4);
+-	if (esp->padlen)
+-		align = max_t(u32, align, esp->padlen);
+ 	x->props.trailer_len = align + 1 + crypto_aead_authsize(esp->aead);
+ 
+ error:
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index d3618a7..0073cd0 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -181,8 +181,6 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	}
+ 	blksize = ALIGN(crypto_aead_blocksize(aead), 4);
+ 	clen = ALIGN(skb->len + 2 + tfclen, blksize);
+-	if (esp->padlen)
+-		clen = ALIGN(clen, esp->padlen);
+ 	plen = clen - skb->len - tfclen;
+ 
+ 	err = skb_cow_data(skb, tfclen + plen + alen, &trailer);
+@@ -416,7 +414,6 @@ static u32 esp6_get_mtu(struct xfrm_state *x, int mtu)
+ {
+ 	struct esp_data *esp = x->data;
+ 	u32 blksize = ALIGN(crypto_aead_blocksize(esp->aead), 4);
+-	u32 align = max_t(u32, blksize, esp->padlen);
+ 	unsigned int net_adj;
+ 
+ 	if (x->props.mode != XFRM_MODE_TUNNEL)
+@@ -425,7 +422,7 @@ static u32 esp6_get_mtu(struct xfrm_state *x, int mtu)
+ 		net_adj = 0;
+ 
+ 	return ((mtu - x->props.header_len - crypto_aead_authsize(esp->aead) -
+-		 net_adj) & ~(align - 1)) + net_adj - 2;
++		 net_adj) & ~(blksize - 1)) + net_adj - 2;
+ }
+ 
+ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+@@ -606,8 +603,6 @@ static int esp6_init_state(struct xfrm_state *x)
+ 
+ 	aead = esp->aead;
+ 
+-	esp->padlen = 0;
+-
+ 	x->props.header_len = sizeof(struct ip_esp_hdr) +
+ 			      crypto_aead_ivsize(aead);
+ 	switch (x->props.mode) {
+@@ -626,8 +621,6 @@ static int esp6_init_state(struct xfrm_state *x)
+ 	}
+ 
+ 	align = ALIGN(crypto_aead_blocksize(aead), 4);
+-	if (esp->padlen)
+-		align = max_t(u32, align, esp->padlen);
+ 	x->props.trailer_len = align + 1 + crypto_aead_authsize(esp->aead);
+ 
+ error:
+-- 
+1.7.9.5
