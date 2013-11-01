@@ -1,120 +1,144 @@
-From: Ben Boeckel <mathstuf@gmail.com>
-Subject: [PATCHv3 net-next 7/7] smsc9420: replace printk with netdev_ calls
-Date: Fri,  1 Nov 2013 08:53:36 -0400
-Message-ID: <1383310416-27177-8-git-send-email-mathstuf@gmail.com>
-References: <1382682422-22677-1-git-send-email-mathstuf@gmail.com>
- <1383310416-27177-1-git-send-email-mathstuf@gmail.com>
-Cc: Ben Boeckel <mathstuf@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f180.google.com ([209.85.216.180]:47474 "EHLO
-	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752190Ab3KAMyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 08:54:04 -0400
-Received: by mail-qc0-f180.google.com with SMTP id e9so2431167qcy.11
-        for <netdev@vger.kernel.org>; Fri, 01 Nov 2013 05:54:04 -0700 (PDT)
-In-Reply-To: <1383310416-27177-1-git-send-email-mathstuf@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [RFC] Revert "sierra_net: keep status interrupt URB active"
+Date: Fri,  1 Nov 2013 13:53:48 +0100
+Message-ID: <1383310428-19913-1-git-send-email-bjorn@mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, John Henderson <jhen-qw6QB7/foO7QT0dZR+AlfA@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ben Boeckel <mathstuf@gmail.com>
+This reverts commit 7b0c5f21f348a66de495868b8df0284e8dfd6bbf.
+
+It's not easy to create a driver for all the various firmware
+bugs out there.
+
+This change caused regressions for a number of devices, which
+started to fail link detection and therefore became completely
+non-functional. The exact reason is yet unknown, it looks like
+the affected firmwares might actually need all or some of the
+additional SYNC messages the patch got rid of.
+
+Reverting is not optimal, as it will re-introduce the original
+problem, but it is currently the only alternative known to fix
+this issue.
+
+Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Link: https://bugzilla.redhat.com/show_bug.cgi?id=3D998342
+Reported-by: John Henderson <jhen-qw6QB7/foO7QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- drivers/net/ethernet/smsc/smsc9420.c | 26 +++++++++++++-------------
- 1 file changed, 13 insertions(+), 13 deletions(-)
+Hello Dan,
 
-diff --git a/drivers/net/ethernet/smsc/smsc9420.c b/drivers/net/ethernet/smsc/smsc9420.c
-index e55e336..059bcaf 100644
---- a/drivers/net/ethernet/smsc/smsc9420.c
-+++ b/drivers/net/ethernet/smsc/smsc9420.c
-@@ -99,17 +99,17 @@ MODULE_PARM_DESC(debug, "debug level");
- 
- #define smsc_dbg(TYPE, f, a...) \
- do {	if ((pd)->msg_enable & NETIF_MSG_##TYPE) \
--		printk(KERN_DEBUG PFX f "\n", ## a); \
-+		netdev_dbg((pd)->dev, PFX f "\n", ## a); \
- } while (0)
- 
- #define smsc_info(TYPE, f, a...) \
- do {	if ((pd)->msg_enable & NETIF_MSG_##TYPE) \
--		printk(KERN_INFO PFX f "\n", ## a); \
-+		netdev_info((pd)->dev, PFX f "\n", ## a); \
- } while (0)
- 
- #define smsc_warn(TYPE, f, a...) \
- do {	if ((pd)->msg_enable & NETIF_MSG_##TYPE) \
--		printk(KERN_WARNING PFX f "\n", ## a); \
-+		netdev_warn((pd)->dev, PFX f "\n", ## a); \
- } while (0)
- 
- static inline u32 smsc9420_reg_read(struct smsc9420_pdata *pd, u32 offset)
-@@ -1168,7 +1168,7 @@ static int smsc9420_mii_probe(struct net_device *dev)
- 
- 	/* Device only supports internal PHY at address 1 */
- 	if (!pd->mii_bus->phy_map[1]) {
--		pr_err("%s: no PHY found at address 1\n", dev->name);
-+		netdev_err(dev, "no PHY found at address 1\n");
+I don't know if you've noticed the bug report referenced above
+and the discussions taking place down under.  E.g.:
+http://forums.whirlpool.net.au/forum-replies.cfm?t=3D2135188&p=3D15#r30=
+0
+
+It seems that a number of devices just won't work at all with
+the fix for the SYNC problem.  Unfortunately, the only DirectIP
+device I've got (MC7710) doesn't have any of these firmware problems,
+so I have been unable to come up with any better solution than
+reverting.  Which has been confirmed to fix the problem.
+
+My only real alternative proposal, delaying the first SYNC message
+to give the firmware some slack, did not work:
+http://forums.whirlpool.net.au/forum-replies.cfm?t=3D2135188&p=3D16#r31=
+2
+
+So unless you or someone else has a better idea, I don't really
+see any other option than reverting the patch.  I am posting
+this as an RFC initially as I believe we need to discuss the
+options.
+
+
+Bj=C3=B8rn
+
+ drivers/net/usb/sierra_net.c |   38 +++++++---------------------------=
+----
+ 1 file changed, 7 insertions(+), 31 deletions(-)
+
+diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.=
+c
+index a79e9d3..a923d61 100644
+--- a/drivers/net/usb/sierra_net.c
++++ b/drivers/net/usb/sierra_net.c
+@@ -426,13 +426,6 @@ static void sierra_net_dosync(struct usbnet *dev)
+=20
+ 	dev_dbg(&dev->udev->dev, "%s", __func__);
+=20
+-	/* The SIERRA_NET_HIP_MSYNC_ID command appears to request that the
+-	 * firmware restart itself.  After restarting, the modem will respond
+-	 * with the SIERRA_NET_HIP_RESTART_ID indication.  The driver continu=
+es
+-	 * sending MSYNC commands every few seconds until it receives the
+-	 * RESTART event from the firmware
+-	 */
+-
+ 	/* tell modem we are ready */
+ 	status =3D sierra_net_send_sync(dev);
+ 	if (status < 0)
+@@ -711,9 +704,6 @@ static int sierra_net_bind(struct usbnet *dev, stru=
+ct usb_interface *intf)
+ 	/* set context index initially to 0 - prepares tx hdr template */
+ 	sierra_net_set_ctx_index(priv, 0);
+=20
+-	/* prepare sync message template */
+-	memcpy(priv->sync_msg, sync_tmplate, sizeof(priv->sync_msg));
+-
+ 	/* decrease the rx_urb_size and max_tx_size to 4k on USB 1.1 */
+ 	dev->rx_urb_size  =3D SIERRA_NET_RX_URB_SIZE;
+ 	if (dev->udev->speed !=3D USB_SPEED_HIGH)
+@@ -749,6 +739,11 @@ static int sierra_net_bind(struct usbnet *dev, str=
+uct usb_interface *intf)
+ 		kfree(priv);
  		return -ENODEV;
  	}
- 
-@@ -1180,12 +1180,12 @@ static int smsc9420_mii_probe(struct net_device *dev)
- 			     smsc9420_phy_adjust_link, PHY_INTERFACE_MODE_MII);
- 
- 	if (IS_ERR(phydev)) {
--		pr_err("%s: Could not attach to PHY\n", dev->name);
-+		netdev_err(dev, "Could not attach to PHY\n");
- 		return PTR_ERR(phydev);
- 	}
- 
--	pr_info("%s: attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
--		dev->name, phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
-+	netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
-+		    phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
- 
- 	/* mask with MAC supported features */
- 	phydev->supported &= (PHY_BASIC_FEATURES | SUPPORTED_Pause |
-@@ -1582,12 +1582,12 @@ smsc9420_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 	int result = 0;
- 	u32 id_rev;
- 
--	printk(KERN_INFO DRV_DESCRIPTION " version " DRV_VERSION "\n");
-+	pr_info(DRV_DESCRIPTION " version " DRV_VERSION "\n");
- 
- 	/* First do the PCI initialisation */
- 	result = pci_enable_device(pdev);
- 	if (unlikely(result)) {
--		printk(KERN_ERR "Cannot enable smsc9420\n");
-+		pr_err("Cannot enable smsc9420\n");
- 		goto out_0;
- 	}
- 
-@@ -1600,24 +1600,24 @@ smsc9420_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
- 	if (!(pci_resource_flags(pdev, SMSC_BAR) & IORESOURCE_MEM)) {
--		printk(KERN_ERR "Cannot find PCI device base address\n");
-+		netdev_err(dev, "Cannot find PCI device base address\n");
- 		goto out_free_netdev_2;
- 	}
- 
- 	if ((pci_request_regions(pdev, DRV_NAME))) {
--		printk(KERN_ERR "Cannot obtain PCI resources, aborting.\n");
-+		netdev_err(dev, "Cannot obtain PCI resources, aborting.\n");
- 		goto out_free_netdev_2;
- 	}
- 
- 	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) {
--		printk(KERN_ERR "No usable DMA configuration, aborting.\n");
-+		netdev_err(dev, "No usable DMA configuration, aborting.\n");
- 		goto out_free_regions_3;
- 	}
- 
- 	virt_addr = ioremap(pci_resource_start(pdev, SMSC_BAR),
- 		pci_resource_len(pdev, SMSC_BAR));
- 	if (!virt_addr) {
--		printk(KERN_ERR "Cannot map device registers, aborting.\n");
-+		netdev_err(dev, "Cannot map device registers, aborting.\n");
- 		goto out_free_regions_3;
- 	}
- 
--- 
-1.8.4.2
++	/* prepare sync message from template */
++	memcpy(priv->sync_msg, sync_tmplate, sizeof(priv->sync_msg));
++
++	/* initiate the sync sequence */
++	sierra_net_dosync(dev);
+=20
+ 	return 0;
+ }
+@@ -771,9 +766,8 @@ static void sierra_net_unbind(struct usbnet *dev, s=
+truct usb_interface *intf)
+ 		netdev_err(dev->net,
+ 			"usb_control_msg failed, status %d\n", status);
+=20
+-	usbnet_status_stop(dev);
+-
+ 	sierra_net_set_private(dev, NULL);
++
+ 	kfree(priv);
+ }
+=20
+@@ -914,24 +908,6 @@ static const struct driver_info sierra_net_info_di=
+rect_ip =3D {
+ 	.tx_fixup =3D sierra_net_tx_fixup,
+ };
+=20
+-static int
+-sierra_net_probe(struct usb_interface *udev, const struct usb_device_i=
+d *prod)
+-{
+-	int ret;
+-
+-	ret =3D usbnet_probe(udev, prod);
+-	if (ret =3D=3D 0) {
+-		struct usbnet *dev =3D usb_get_intfdata(udev);
+-
+-		ret =3D usbnet_status_start(dev, GFP_KERNEL);
+-		if (ret =3D=3D 0) {
+-			/* Interrupt URB now set up; initiate sync sequence */
+-			sierra_net_dosync(dev);
+-		}
+-	}
+-	return ret;
+-}
