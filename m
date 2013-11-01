@@ -1,50 +1,56 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] tcp: enable sockets to use MSG_FASTOPEN by default
-Date: Fri, 01 Nov 2013 08:29:21 -0700
-Message-ID: <5273C8D1.5080608@hp.com>
-References: <1383236372-1317-1-git-send-email-ycheng@google.com> <1383261598.19864.0.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
+Subject: Re: [PATCH v2] WAN: Adding support for Infineon PEF2256 E1 chipset
+ (FALC56)
+Date: Fri, 1 Nov 2013 21:06:25 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1311012057090.2407@gmail.com>
+References: <201311011501.rA1F1suj007279@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org,
-	ncardwell@google.com, sivasankar@cs.ucsd.edu
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:48888 "EHLO
-	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751810Ab3KAP3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 11:29:25 -0400
-In-Reply-To: <1383261598.19864.0.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: Rob Herring <rob.herring@calxeda.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Rob Landley <rob@landley.net>,
+	Grant Likely <grant.likely@linaro.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>, devicetree@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	jerome.chantelauze.ext@c-s.fr
+To: Christophe Leroy <christophe.leroy@c-s.fr>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <201311011501.rA1F1suj007279@localhost.localdomain>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/31/2013 04:19 PM, Eric Dumazet wrote:
-> On Thu, 2013-10-31 at 09:19 -0700, Yuchung Cheng wrote:
->> Applications have started to use Fast Open (e.g., Chrome browser has
->> such an optional flag) and the feature has gone through several
->> generations of kernels since 3.7 with many real network tests. It's
->> time to enable this flag by default for applications to test more
->> conveniently and extensively.
->>
->> Signed-off-by: Yuchung Cheng <ycheng@google.com>
->> Signed-off-by: Neal Cardwell <ncardwell@google.com>
->> ---
->
-> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Which TCP/IP stacks besides Linux have Fast Open at this point and for 
-how long have they had it?  Basically, how prevalent are servers out 
-there (both Internet and intranet) with support for Fast Open?
 
-http://news.netcraft.com/archives/2013/11/01/november-2013-web-server-survey.html 
-  doesn't go down to the OS level, and 
-http://www.netcraft.com/internet-data-mining/ssl-survey/ is only from 
-May and was in the context of SSL sides, but it does provide an 
-interesting break-down of "OS share" which looks reasonably stable going 
-back three years and so probably isn't too far off presently.
+On Fri, 1 Nov 2013, Christophe Leroy wrote:
 
-<insert the same sort of question about those firewalls and intermediate 
-devices which make our lives so much fun here>
+> diff -urN a/drivers/net/wan/pef2256.c b/drivers/net/wan/pef2256.c
+[..]
+> +static int pef2256_remove(struct platform_device *pdev)
+> +{
+> +	struct net_device *ndev = dev_get_drvdata(&pdev->dev);
+> +	struct pef2256_dev_priv *priv = dev_to_hdlc(ndev)->priv;
+> +
+> +
+> +	device_remove_file(priv->dev, &dev_attr_regs);
+> +	device_remove_file(priv->dev, &dev_attr_Tx_TS);
+> +	device_remove_file(priv->dev, &dev_attr_Rx_TS);
+> +	device_remove_file(priv->dev, &dev_attr_mode);
+> +
+> +	unregister_hdlc_device(priv->netdev);
+> +
+> +	free_netdev(priv->netdev);
+> +
+> +	iounmap(priv->base_addr);
+> +
+> +	kfree(priv);
+> +
+> +	dev_set_drvdata(&pdev->dev, NULL);
 
-rick jones
+dev_set_drvdata is not necessary. driver core clears the driver data to NULL
+after device_release or on probe failure.
+
+//govind
