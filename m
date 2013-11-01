@@ -1,40 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2: Use dev_kfree_skb_any() in bnx2_tx_int()
-Date: Fri, 01 Nov 2013 18:01:47 -0400 (EDT)
-Message-ID: <20131101.180147.629210014672277622.davem@davemloft.net>
-References: <CAM_iQpWAbSWVeAMwhQADTwO_RdYUXfog-wG9gs4+Zek0g_5Oyg@mail.gmail.com>
-	<20131031.002602.2030884257299947291.davem@davemloft.net>
-	<CAM_iQpXPrEj619=PRaKN4PxgOoEB96U0mLFS65AzXOezSWvhxQ@mail.gmail.com>
+Subject: Re: [PATCH] ipv6: remove the unnecessary statement in find_match()
+Date: Fri, 01 Nov 2013 18:08:18 -0400 (EDT)
+Message-ID: <20131101.180818.259804474193048469.davem@davemloft.net>
+References: <5271F263.4020800@cn.fujitsu.com>
+	<20131031084537.GA17210@order.stressinduktion.org>
+	<52723A84.9080308@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, tdmackey@booleanhaiku.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: xiyou.wangcong@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpXPrEj619=PRaKN4PxgOoEB96U0mLFS65AzXOezSWvhxQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: duanj.fnst@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59345 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756329Ab3KAWIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 18:08:20 -0400
+In-Reply-To: <52723A84.9080308@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu, 31 Oct 2013 21:19:16 -0700
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Thu, 31 Oct 2013 19:09:56 +0800
 
-> 2013年10月30日 下午9:26于 "David Miller" <davem@davemloft.net>写道：
->>
->> We have to provide a softint compatible environment for this callback
->> to run in else everything is completely broken.
->>
->> All these drivers can safely assume softirq safe locking is
->> sufficient, you're suggesting we need to take this hardirq safety and
->> I'm really not willing to allow things to go that far.  A lot of
->> effort has been expended precisely to avoid that kind of overhead and
->> cost.
+> Removing CONFIG_IPV6_ROUTER_PREF means that the Router Preference is
+> always on, is this understanding right?
 > 
-> Alright, I am thinking to move netpoll_poll_dev() to a delayed work.
- 
-What if the printk is outputting a message that will help us discover
-that work queues are deadlocked?
+> If that's is correct, i think compatibility issues will arise. For
+> example, when the CONFIG_IPV6_ROUTER_PREF option is on, the kernel
+> should not do round-robin during default router selection, but when
+> the CONFIG_IPV6_ROUTER_PREF option is off, the kernel should do it.
 
-You can't delay the message, because every layer of indirection you
-add increases the possibility that the message it never seen.  You
-have to do it synchronously.
+Everyone is essentially getting it enabled right now anyways, since
+%99.999999 of users run distribution kernels.  Nobody has asked
+for a run-time knob for this, which therefore means that %99.999999
+of users simply do not care.
+
+Yes there are people who build their own kernels, but to tell you
+the truth I doubt anyone really turns this off explicitly to turn
+off router preference handling.
+
+But I'm willing to cater to them _iff_ the RFC tells us we should
+provide should a capability.
