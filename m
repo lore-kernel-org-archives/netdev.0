@@ -1,36 +1,39 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] bonding: bond_get_size() returns wrong size
-Date: Fri, 1 Nov 2013 13:18:44 +0300
-Message-ID: <20131101101844.GA29795@longonot.mountain>
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [patch -next] mlx5_core: warn if no space left in alloc_4k()
+Date: Fri, 1 Nov 2013 13:20:44 +0300
+Message-ID: <20131101102044.GB29795@longonot.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-There is an extra semi-colon so bond_get_size() doesn't return the
-correct value.
+The warning was unreachable.  In the original code, it would print the
+line number and the function but I have added an error message.
 
-Fixes: ec76aa49855f ('bonding: add Netlink support active_slave option')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+---
+I haven't tested this, hopefully the warning is not annoying.
 
-diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-index 7661261..40e7b1c 100644
---- a/drivers/net/bonding/bond_netlink.c
-+++ b/drivers/net/bonding/bond_netlink.c
-@@ -82,8 +82,8 @@ static int bond_newlink(struct net *src_net, struct net_device *bond_dev,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+index ba816c2..cb86265 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+@@ -193,8 +193,8 @@ static int alloc_4k(struct mlx5_core_dev *dev, u64 *addr)
+ 	unsigned n;
  
- static size_t bond_get_size(const struct net_device *bond_dev)
- {
--	return nla_total_size(sizeof(u8));	/* IFLA_BOND_MODE */
--		+ nla_total_size(sizeof(u32));	/* IFLA_BOND_ACTIVE_SLAVE */
-+	return nla_total_size(sizeof(u8)) +	/* IFLA_BOND_MODE */
-+		nla_total_size(sizeof(u32));	/* IFLA_BOND_ACTIVE_SLAVE */
- }
+ 	if (list_empty(&dev->priv.free_list)) {
++		mlx5_core_warn(dev, "no available space\n");
+ 		return -ENOMEM;
+-		mlx5_core_warn(dev, "\n");
+ 	}
  
- static int bond_fill_info(struct sk_buff *skb,
+ 	fp = list_entry(dev->priv.free_list.next, struct fw_page, list);
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
