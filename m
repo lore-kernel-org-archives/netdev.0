@@ -1,42 +1,116 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH net-next] vxlan: Use ERR_CAST inlined function instead of
- ERR_PTR(PTR_ERR(...))
-Date: Fri, 01 Nov 2013 13:09:43 +0800
-Message-ID: <52733797.3010305@cn.fujitsu.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V2 1/2] net: introduce skb_coalesce_rx_frag()
+Date: Fri, 01 Nov 2013 13:25:59 +0800
+Message-ID: <52733B67.4030102@redhat.com>
+References: <1383220027-12278-1-git-send-email-jasowang@redhat.com>
+	<1383229563.4857.71.camel@edumazet-glaptop.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:22144 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752686Ab3KAFLm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Nov 2013 01:11:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mwdalton@google.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, kmindg@gmail.com,
+	edumazet@google.com, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1383229563.4857.71.camel@edumazet-glaptop.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+On 10/31/2013 10:26 PM, Eric Dumazet wrote:
+> On Thu, 2013-10-31 at 19:47 +0800, Jason Wang wrote:
+>> Sometimes we need to coalesce the rx frags to avoid frag list. One example is
+>> virtio-net driver which tries to use small frags for both MTU sized packet and
+>> GSO packet. So this patch introduce skb_coalesce_rx_frag() to do this.
+>>
+>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Cc: Michael Dalton <mwdalton@google.com>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>> Changes from V1:
+>> - remove the useless off parameter.
+>> ---
+>>  include/linux/skbuff.h |  3 +++
+>>  net/core/skbuff.c      | 13 +++++++++++++
+>>  2 files changed, 16 insertions(+)
+>>
+>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>> index 2c15497..fffaeaf 100644
+>> --- a/include/linux/skbuff.h
+>> +++ b/include/linux/skbuff.h
+>> @@ -1372,6 +1372,9 @@ static inline void skb_fill_page_desc(struct sk_buff *skb, int i,
+>>  void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
+>>  		     int size, unsigned int truesize);
+>>  
+>> +void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int size,
+>> +			  unsigned int truesize);
+>> +
+>>  #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
+>>  #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_has_frag_list(skb))
+>>  #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index 0ab32fa..87670e1 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -476,6 +476,19 @@ void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,
+>>  }
+>>  EXPORT_SYMBOL(skb_add_rx_frag);
+>>  
+>> +void skb_coalesce_rx_frag(struct sk_buff *skb, int i, int size,
+>> +			  unsigned int truesize)
+>> +{
+>> +	skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+>> +
+>> +	skb_frag_size_add(frag, size);
+>> +	skb->len += size;
+>> +	skb->data_len += size;
+>> +	skb->truesize += truesize;
+>
+>> +	skb_frag_unref(skb, i);
+> This unref is not logical, or should at least be
+>
+> __skb_frag_unref(frag);
+>
+> But I do think this is best done in the caller.
+>
+> In virtio_net this would be a :
+>
+> put_page(page);
+>
+> In tcp stack we do almost the same, but we take the reference on the
+> page if we could not coalesce with prio frag, instead of doing a get and
+> put in the other case.
+>
+>         if (can_coalesce) {
+>                 skb_frag_size_add(&skb_shinfo(skb)->frags[i - 1], copy);
+>         } else {
+>                 get_page(page);
+>                 skb_fill_page_desc(skb, i, page, offset, copy);
+>         }
+>
 
-trivial patch converting ERR_PTR(PTR_ERR()) into ERR_CAST().
-No functional changes.
+Ok, get it. Will do a put_page() in V3.
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- drivers/net/vxlan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 24260ce..78df8f3 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2285,7 +2285,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- 		sock = create_v4_sock(net, port);
- 	if (IS_ERR(sock)) {
- 		kfree(vs);
--		return ERR_PTR(PTR_ERR(sock));
-+		return ERR_CAST(sock);
- 	}
- 
- 	vs->sock = sock;
--- 
-1.8.3.1
+Thanks
+>> +}
+>> +EXPORT_SYMBOL(skb_coalesce_rx_frag);
+>> +
+>>  static void skb_drop_list(struct sk_buff **listp)
+>>  {
+>>  	kfree_skb_list(*listp);
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
