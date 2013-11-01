@@ -1,53 +1,44 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/4] xfrm: use vmalloc_node() for percpu scratches
-Date: Fri, 01 Nov 2013 17:02:51 +0400
-Message-ID: <5273A67B.9070901@cogentembedded.com>
-References: <1383292257-4634-1-git-send-email-steffen.klassert@secunet.com> <1383292257-4634-2-git-send-email-steffen.klassert@secunet.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net-next 0/5] cdc_mbim + qmi_wwan trivial fixes
+Date: Fri,  1 Nov 2013 14:18:51 +0100
+Message-ID: <1383311936-20954-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:63548 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751479Ab3KANC4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 09:02:56 -0400
-Received: by mail-la0-f47.google.com with SMTP id ep20so3319045lab.20
-        for <netdev@vger.kernel.org>; Fri, 01 Nov 2013 06:02:55 -0700 (PDT)
-In-Reply-To: <1383292257-4634-2-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+This series fixes three problems Oliver pointed out during the
+review of the new huawei_cdc_ncm driver:
+http://patchwork.ozlabs.org/patch/278903/
 
-On 01-11-2013 11:50, Steffen Klassert wrote:
+That innocent driver only used cdc_mbim as a blueprint, and
+all the blame should really have gone to me....
 
-> From: Eric Dumazet <edumazet@google.com>
+I do have a similar fix for the manage_power issue in the
+cdc-wdm USB class driver as well.  It will be submitted to
+linux-usb as soon as Greg opens up his mailbox again :-)
 
-> scratches are per cpu, we can use vmalloc_node() for proper
-> NUMA affinity.
 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->   net/xfrm/xfrm_ipcomp.c |    6 ++++--
->   1 file changed, 4 insertions(+), 2 deletions(-)
+Bj=C3=B8rn Mork (5):
+  net: cdc_mbim: manage_power should always set needs_remote_wakeup
+  net: qmi_wwan: manage_power should always set needs_remote_wakeup
+  net: qmi_wwan: no need to check for resume if suspend exists
+  net: cdc_mbim: no need to check for resume if suspend exists
+  net: cdc_mbim: fixup error return value
 
-> diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
-> index 2906d52..b943c7f 100644
-> --- a/net/xfrm/xfrm_ipcomp.c
-> +++ b/net/xfrm/xfrm_ipcomp.c
-> @@ -220,8 +220,8 @@ static void ipcomp_free_scratches(void)
->
->   static void * __percpu *ipcomp_alloc_scratches(void)
->   {
-> -	int i;
->   	void * __percpu *scratches;
-> +	int i;
+ drivers/net/usb/cdc_mbim.c |   16 ++++++----------
+ drivers/net/usb/qmi_wwan.c |   12 +++++-------
+ 2 files changed, 11 insertions(+), 17 deletions(-)
 
-    This collateral change is not described in the changelog.
+--=20
+1.7.10.4
 
-WBR, Sergei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
