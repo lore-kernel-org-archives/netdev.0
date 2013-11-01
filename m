@@ -1,55 +1,78 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net): ipsec 2013-11-01
-Date: Fri,  1 Nov 2013 09:21:44 +0100
-Message-ID: <1383294107-7509-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 3/3] xfrm: Fix null pointer dereference when decoding sessions
+Date: Fri,  1 Nov 2013 09:21:47 +0100
+Message-ID: <1383294107-7509-4-git-send-email-steffen.klassert@secunet.com>
+References: <1383294107-7509-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49467 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:49483 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750928Ab3KAIVw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Nov 2013 04:21:52 -0400
+	id S1753798Ab3KAIVy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Nov 2013 04:21:54 -0400
+In-Reply-To: <1383294107-7509-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) Fix a possible race on ipcomp scratch buffers because
-   of too early enabled siftirqs. From Michal Kubecek.
+On some codepaths the skb does not have a dst entry
+when xfrm_decode_session() is called. So check for
+a valid skb_dst() before dereferencing the device
+interface index. We use 0 as the device index if
+there is no valid skb_dst(), or at reverse decoding
+we use skb_iif as device interface index.
 
-2) The current xfrm garbage collector threshold is too small
-   for some workloads, resulting in bad performance on these
-   workloads. Increase the threshold from 1024 to 32768.
+Bug was introduced with git commit bafd4bd4dc
+("xfrm: Decode sessions with output interface.").
 
-3) Some codepaths might not have a dst_entry attached to the
-   skb when calling xfrm_decode_session(). So add a check
-   to prevent a null pointer dereference in this case.
+Reported-by: Meelis Roos <mroos@linux.ee>
+Tested-by: Meelis Roos <mroos@linux.ee>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv4/xfrm4_policy.c |    6 +++++-
+ net/ipv6/xfrm6_policy.c |    6 +++++-
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
-Please pull or let me know if there are problems.
-
-Thanks!
-
-The following changes since commit e9e4ea74f06635f2ffc1dffe5ef40c854faa0a90:
-
-  net: smc91x: dont't use SMC_outw for fixing up halfword-aligned data (2013-10-11 17:50:59 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
-
-for you to fetch changes up to 84502b5ef9849a9694673b15c31bd3ac693010ae:
-
-  xfrm: Fix null pointer dereference when decoding sessions (2013-11-01 07:08:46 +0100)
-
-----------------------------------------------------------------
-Michal Kubecek (1):
-      xfrm: prevent ipcomp scratch buffer race condition
-
-Steffen Klassert (2):
-      xfrm: Increase the garbage collector threshold
-      xfrm: Fix null pointer dereference when decoding sessions
-
- net/ipv4/xfrm4_policy.c |    8 ++++++--
- net/ipv6/xfrm6_policy.c |    8 ++++++--
- net/xfrm/xfrm_ipcomp.c  |   12 ++++++------
- 3 files changed, 18 insertions(+), 10 deletions(-)
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index 4764ee4..e1a6393 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -104,10 +104,14 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	u8 *xprth = skb_network_header(skb) + iph->ihl * 4;
+ 	struct flowi4 *fl4 = &fl->u.ip4;
++	int oif = 0;
++
++	if (skb_dst(skb))
++		oif = skb_dst(skb)->dev->ifindex;
+ 
+ 	memset(fl4, 0, sizeof(struct flowi4));
+ 	fl4->flowi4_mark = skb->mark;
+-	fl4->flowi4_oif = skb_dst(skb)->dev->ifindex;
++	fl4->flowi4_oif = reverse ? skb->skb_iif : oif;
+ 
+ 	if (!ip_is_fragment(iph)) {
+ 		switch (iph->protocol) {
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index dd503a3..5f8e128 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -135,10 +135,14 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+ 	struct ipv6_opt_hdr *exthdr;
+ 	const unsigned char *nh = skb_network_header(skb);
+ 	u8 nexthdr = nh[IP6CB(skb)->nhoff];
++	int oif = 0;
++
++	if (skb_dst(skb))
++		oif = skb_dst(skb)->dev->ifindex;
+ 
+ 	memset(fl6, 0, sizeof(struct flowi6));
+ 	fl6->flowi6_mark = skb->mark;
+-	fl6->flowi6_oif = skb_dst(skb)->dev->ifindex;
++	fl6->flowi6_oif = reverse ? skb->skb_iif : oif;
+ 
+ 	fl6->daddr = reverse ? hdr->saddr : hdr->daddr;
+ 	fl6->saddr = reverse ? hdr->daddr : hdr->saddr;
+-- 
+1.7.9.5
