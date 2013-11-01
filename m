@@ -1,78 +1,64 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next RFC 2/5] xen-netback: Change TX path
- from grant copy to mapping
-Date: Fri, 1 Nov 2013 16:09:25 +0000
-Message-ID: <5273D235.3060100@citrix.com>
-References: <1383094220-14775-1-git-send-email-zoltan.kiss@citrix.com> <1383094220-14775-3-git-send-email-zoltan.kiss@citrix.com> <9AAE0902D5BC7E449B7C8E4E778ABCD015717A@AMSPEX01CL01.citrite.net> <527175DB.8070400@citrix.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: enable sockets to use MSG_FASTOPEN by default
+Date: Fri, 1 Nov 2013 09:09:16 -0700
+Message-ID: <CAK6E8=dD+ThgXwuPnKZreEQGUkL5919f91z+fXRYwBxi91ZHYQ@mail.gmail.com>
+References: <1383236372-1317-1-git-send-email-ycheng@google.com>
+ <1383261598.19864.0.camel@edumazet-glaptop2.roam.corp.google.com> <5273C8D1.5080608@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Paul Durrant <Paul.Durrant@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jonathan Davies <Jonathan.Davies@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <527175DB.8070400@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Sivasankar Radhakrishnan <sivasankar@cs.ucsd.edu>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:54878 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754882Ab3KAQJi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 12:09:38 -0400
+Received: by mail-ie0-f172.google.com with SMTP id tp5so7988001ieb.3
+        for <netdev@vger.kernel.org>; Fri, 01 Nov 2013 09:09:37 -0700 (PDT)
+In-Reply-To: <5273C8D1.5080608@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30/10/13 21:10, Zoltan Kiss wrote:
-> On 30/10/13 09:11, Paul Durrant wrote:
->>> +    err = alloc_xenballooned_pages(MAX_PENDING_REQS,
->>> +        vif->mmap_pages,
->>> +        false);
+On Fri, Nov 1, 2013 at 8:29 AM, Rick Jones <rick.jones2@hp.com> wrote:
+> On 10/31/2013 04:19 PM, Eric Dumazet wrote:
 >>
->> Since this is a per-vif allocation, is this going to scale?
-> Good question, I'll look after this.
-I've talked to David Vrabel about this: if ballooning is disabled, this 
-will reserve real memory, therefore for every VIF you allocate usually 
-1MB memory. But if you enable ballooning, it will use pages which are 
-not actually reserved, and that's fine, because we never gonna really 
-use them. The only issue is that you need to set the maximum at boot 
-time, and it will consume memory also because of the page table 
-reservations.
-The long term solution would be to just use a bunch of struct pages, 
-David said the ballooning driver has something like that, but it's 
-broken at the moment.
-
->>>           if (data_len < txp->size) {
->>>               /* Append the packet payload as a fragment. */
->>>               txp->offset += data_len;
->>>               txp->size -= data_len;
->>> -        } else {
->>> +            skb_shinfo(skb)->destructor_arg =
->>> +                &vif-
->>>> pending_tx_info[pending_idx].callback_struct;
->>> +        } else if (!skb_shinfo(skb)->nr_frags) {
->>>               /* Schedule a response immediately. */
->>> +            skb_shinfo(skb)->destructor_arg = NULL;
->>> +            xenvif_idx_unmap(vif, pending_idx);
->>>               xenvif_idx_release(vif, pending_idx,
->>>                          XEN_NETIF_RSP_OKAY);
->>> +        } else {
->>> +            /* FIXME: first request fits linear space, I don't know
->>> +             * if any guest would do that, but I think it's possible
->>> +             */
+>> On Thu, 2013-10-31 at 09:19 -0700, Yuchung Cheng wrote:
+>>>
+>>> Applications have started to use Fast Open (e.g., Chrome browser has
+>>> such an optional flag) and the feature has gone through several
+>>> generations of kernels since 3.7 with many real network tests. It's
+>>> time to enable this flag by default for applications to test more
+>>> conveniently and extensively.
+>>>
+>>> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+>>> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+>>> ---
 >>
->> The Windows frontend, because it has to parse the packet headers, will
->> coalesce everything up to the payload in a single frag and it would be
->> a good idea to copy this directly into the linear area.
-> I forgot to clarify this comment: the problem I wanted to handle here if
-> the first request's size is PKT_PROT_LEN and there is more fragments.
-> Then skb->len will be PKT_PROT_LEN as well, and the if statement falls
-> through to the else branch. That might be problematic if we release the
-> slot of the first request separately from the others. Or am I
-> overlooking something? Does that matter to netfront anyway?
-> And this problem, if it's true, applies to the previous, grant copy
-> method as well.
-> However, as I think, it might be better to change the condition to
-> (data_len <= txp->size), rather than putting an if-else statement into
-> the else branch.
-I've talked to Wei, we think this is a broken guest behaviour, and 
-therefore we shouldn't care if someone does such a stupid thing.
+>>
+>> Acked-by: Eric Dumazet <edumazet@google.com>
+>
+>
+> Which TCP/IP stacks besides Linux have Fast Open at this point and for how
+> long have they had it?  Basically, how prevalent are servers out there (both
+> Internet and intranet) with support for Fast Open?
+google.com supports it. we are working on enabling more Android and
+ChromeOS to use it.
 
-Zoli
+>
+> http://news.netcraft.com/archives/2013/11/01/november-2013-web-server-survey.html
+> doesn't go down to the OS level, and
+> http://www.netcraft.com/internet-data-mining/ssl-survey/ is only from May
+> and was in the context of SSL sides, but it does provide an interesting
+> break-down of "OS share" which looks reasonably stable going back three
+> years and so probably isn't too far off presently.
+>
+> <insert the same sort of question about those firewalls and intermediate
+> devices which make our lives so much fun here>
+>
+> rick jones
+>
