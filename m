@@ -1,57 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 17/24] net: cdc_ncm: use netif_* and dev_*
- instead of pr_*
-Date: Fri, 01 Nov 2013 03:36:54 -0700
-Message-ID: <1383302214.13084.6.camel@joe-AO722>
-References: <1383301021-16613-1-git-send-email-bjorn@mork.no>
-	 <1383301021-16613-18-git-send-email-bjorn@mork.no>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [patch -next] bonding: bond_get_size() returns wrong size
+Date: Fri, 1 Nov 2013 11:41:00 +0100
+Message-ID: <20131101104100.GU692@redhat.com>
+References: <20131101101844.GA29795@longonot.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Alexey Orishko <alexey.orishko@gmail.com>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0063.hostedemail.com ([216.40.44.63]:42162 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752160Ab3KAKgz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 06:36:55 -0400
-In-Reply-To: <1383301021-16613-18-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131101101844.GA29795@longonot.mountain>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-11-01 at 11:16 +0100, Bj=F8rn Mork wrote:
-> Take advantage of standard device name prefixing and
-> netdevice msglvl control where possible.
+On Fri, Nov 01, 2013 at 01:18:44PM +0300, Dan Carpenter wrote:
+>There is an extra semi-colon so bond_get_size() doesn't return the
+>correct value.
+>
+>Fixes: ec76aa49855f ('bonding: add Netlink support active_slave option')
+>Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Nice, thanks.
+Hrm, how does it even build. Good catch, thanks.
 
-You did most all the multi-line statement
-alignment perfectly but missed a couple.
+Acked-by: Veaceslav Falico <vfalico@redhat.com>
 
-Maybe in a follow-on patch.
-
-> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-[]
-> @@ -1031,17 +1035,13 @@ cdc_ncm_speed_change(struct usbnet *dev,
->  	 * device speed. Do print it instead.
->  	 */
->  	if ((tx_speed > 1000000) && (rx_speed > 1000000)) {
-> -		printk(KERN_INFO KBUILD_MODNAME
-> -		       ": %s: %u mbit/s downlink "
-> -		       "%u mbit/s uplink\n",
-> -		       dev->net->name,
-> +		netif_info(dev, link, dev->net,
-> +		       "%u mbit/s downlink %u mbit/s uplink\n",
->  		       (unsigned int)(rx_speed / 1000000U),
->  		       (unsigned int)(tx_speed / 1000000U));
->  	} else {
-> -		printk(KERN_INFO KBUILD_MODNAME
-> -		       ": %s: %u kbit/s downlink "
-> -		       "%u kbit/s uplink\n",
-> -		       dev->net->name,
-> +		netif_info(dev, link, dev->net,
-> +		       "%u kbit/s downlink %u kbit/s uplink\n",
->  		       (unsigned int)(rx_speed / 1000U),
->  		       (unsigned int)(tx_speed / 1000U));
->  	}
+>
+>diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
+>index 7661261..40e7b1c 100644
+>--- a/drivers/net/bonding/bond_netlink.c
+>+++ b/drivers/net/bonding/bond_netlink.c
+>@@ -82,8 +82,8 @@ static int bond_newlink(struct net *src_net, struct net_device *bond_dev,
+>
+> static size_t bond_get_size(const struct net_device *bond_dev)
+> {
+>-	return nla_total_size(sizeof(u8));	/* IFLA_BOND_MODE */
+>-		+ nla_total_size(sizeof(u32));	/* IFLA_BOND_ACTIVE_SLAVE */
+>+	return nla_total_size(sizeof(u8)) +	/* IFLA_BOND_MODE */
+>+		nla_total_size(sizeof(u32));	/* IFLA_BOND_ACTIVE_SLAVE */
+> }
+>
+> static int bond_fill_info(struct sk_buff *skb,
