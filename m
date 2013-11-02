@@ -1,47 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/10] Mellanox driver updates Oct 31 2013
-Date: Sat, 02 Nov 2013 02:20:03 -0400 (EDT)
-Message-ID: <20131102.022003.626036008640723018.davem@davemloft.net>
-References: <1383222569-10930-1-git-send-email-ogerlitz@mellanox.com>
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: Re: [PATCH net-next 1/1] ipv6: remove the destination condition on
+ flow label sharing
+Date: Sat, 02 Nov 2013 14:37:04 +0100
+Message-ID: <52750000.10003@enst-bretagne.fr>
+References: <1383322286-21464-1-git-send-email-florent.fourcot@enst-bretagne.fr> <20131101214048.GD30284@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, roland@kernel.org,
-	jackm@dev.mellanox.co.il
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34060 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751205Ab3KBGUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 02:20:05 -0400
-In-Reply-To: <1383222569-10930-1-git-send-email-ogerlitz@mellanox.com>
+Received: from fourcot.fr ([217.70.191.14]:47347 "EHLO olfflo.fourcot.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752474Ab3KBNq2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Nov 2013 09:46:28 -0400
+In-Reply-To: <20131101214048.GD30284@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 31 Oct 2013 14:29:19 +0200
 
-> This patch set from Jack Morgenstein does the following:
+> Why?
 > 
-> 1. Fix MAC/VLAN SRIOV implementation, and add wrapper functions for VLAN allocation
->    and de-allocation (patches 1-6).
+> Maybe I am not the only one up to date with recent advances in flow label
+> management but I guess others want to know why, too?
 > 
-> 2. Implements resource quotas when running under SRIOV (patches 7-10).
->    Patch 7 is a small bug fix, and patches 8-10 implement the quotas.
-> 
-> Quotas are implemented per resource type for VFs and the PF, to prevent
-> any entity from simply grabbing all the resources for itself and leaving
-> the other entities unable to obtain such resources.
-> 
-> The series is against net-next commit ba48650 "ipv6: remove the unnecessary statement in find_match()"
-> 
-> Patch #1 is bug fix which needs to go into -stable of kernels >= 3.10 
 
-You cannot submit via net-next a bug fix that you want to go to -stable.
-I've stated this a thousand times.
+Actually, the good question is "why this restriction before". It
+probably comes from the RFC 1809, an informational one:
 
-You MUST submit the bug fix for "net", not "net-next".
+RFC 1809 says:
+> 
+>    The specification further requires that all datagrams with the same
+>    (non-zero) Flow Label must have the same Destination Address, Hop-
+>    by-Hop Options header, Routing Header and Source Address contents.
 
-I'm tossing this entire series, submit your changes correctly.
+In standard track RFCs (3697 / 6437), there are no restriction to set a
+flow label to only one destination. In the same way, the condition on
+IPv6 option is obsolete.
 
-Thank you.
+
+> Please reflect this in your changelog.
+> 
+
+I will send a V2.
