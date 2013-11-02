@@ -1,37 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Pull request: sfc-next 2013-11-01
-Date: Sat, 02 Nov 2013 01:11:26 -0400 (EDT)
-Message-ID: <20131102.011126.2090657230004984787.davem@davemloft.net>
-References: <1383356266.1737.42.camel@bwh-desktop.uk.level5networks.com>
+Subject: Re: [PATCH net-next 2/6] qlcnic: Replace kzalloc() with vzalloc().
+Date: Sat, 02 Nov 2013 01:14:59 -0400 (EDT)
+Message-ID: <20131102.011459.236177037024354702.davem@davemloft.net>
+References: <cover.1383358893.git.himanshu.madhani@qlogic.com>
+	<4e485cb2ec05e3cae68fbf59a0f1597a95098a76.1383358893.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
+	manish.chopra@qlogic.com
+To: himanshu.madhani@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33692 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33697 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770Ab3KBFL2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 01:11:28 -0400
-In-Reply-To: <1383356266.1737.42.camel@bwh-desktop.uk.level5networks.com>
+	with ESMTP id S1750729Ab3KBFPG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 01:15:06 -0400
+In-Reply-To: <4e485cb2ec05e3cae68fbf59a0f1597a95098a76.1383358893.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Sat, 2 Nov 2013 01:37:46 +0000
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Date: Fri, 1 Nov 2013 16:51:25 -0400
 
-> The following changes since commit ba4865027c11d7ac8e5a33e0624dd415caab2027:
+> From: Manish Chopra <manish.chopra@qlogic.com>
 > 
->   ipv6: remove the unnecessary statement in find_match() (2013-10-30 17:06:51 -0400)
+> o Some of the places kzalloc() is not required. Replace it
+>   with vzalloc() wherever it is not used appropriately
 > 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
-> 
-> for you to fetch changes up to 2acdb92e85412bf791a3c01f2173695b6e0a3f72:
-> 
->   sfc: Fix DMA unmapping issue with firmware assisted TSO (2013-10-31 20:58:14 +0000)
-> 
-> A single fix by Alexandre Rames for the recent changes to TSO.
+> Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+> Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-Pulled, thanks Ben.
+This commit message is terrible.
+
+In what way is kzalloc() inappropriate for these allocations?
+
+Many of them are quite small, and vzalloc() is completely inappropriate
+to use in such cases.
+
+You should only use vzalloc() for HUGE allocations, those which
+kzalloc() is unable to satisfy.  Many cases changed here in this
+patch do not meet that criteria.
+
+I'm tossing this entire patch series.
