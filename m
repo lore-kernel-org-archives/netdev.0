@@ -1,48 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2: Use dev_kfree_skb_any() in bnx2_tx_int()
-Date: Sat, 02 Nov 2013 01:06:42 -0400 (EDT)
-Message-ID: <20131102.010642.1846904926665537525.davem@davemloft.net>
-References: <CAM_iQpXPrEj619=PRaKN4PxgOoEB96U0mLFS65AzXOezSWvhxQ@mail.gmail.com>
-	<20131101.180147.629210014672277622.davem@davemloft.net>
-	<1383348890.1737.40.camel@bwh-desktop.uk.level5networks.com>
+Subject: Re: Pull request: sfc-next 2013-11-01
+Date: Sat, 02 Nov 2013 01:11:26 -0400 (EDT)
+Message-ID: <20131102.011126.2090657230004984787.davem@davemloft.net>
+References: <1383356266.1737.42.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, mchan@broadcom.com,
-	tdmackey@booleanhaiku.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
 To: bhutchings@solarflare.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1383348890.1737.40.camel@bwh-desktop.uk.level5networks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33692 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750770Ab3KBFL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 01:11:28 -0400
+In-Reply-To: <1383356266.1737.42.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 1 Nov 2013 23:34:50 +0000
+Date: Sat, 2 Nov 2013 01:37:46 +0000
 
-> As you've said, the ndo_start_xmit and NAPI poll operations are intended
-> to be called in softirq context, so everything that interlocks with them
-> will use spin_lock_bh().  Calling them from hardirq context obviously
-> opens the possibility of a deadlock.  How do you expect anyone to solve
-> that?
+> The following changes since commit ba4865027c11d7ac8e5a33e0624dd415caab2027:
+> 
+>   ipv6: remove the unnecessary statement in find_match() (2013-10-30 17:06:51 -0400)
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
+> 
+> for you to fetch changes up to 2acdb92e85412bf791a3c01f2173695b6e0a3f72:
+> 
+>   sfc: Fix DMA unmapping issue with firmware assisted TSO (2013-10-31 20:58:14 +0000)
+> 
+> A single fix by Alexandre Rames for the recent changes to TSO.
 
-That's not what I said.
-
-I did not say that it must be invoked in softirq context.
-
-I said that it MUST LOOK like it is being invoked in softirq
-context as far as the ->poll() code paths can tell.
-
-But yes, that's hard.
-
-The thing is, ->poll() is atomic.  You never will have poll calls
-recurse into eachother.  This is why we strongly encourage all driver
-authors to make their ->poll() implementations lockless.
-
-And, wouldn't you know it, tg3 is a driver that does this
-properly.
-
-Therefore, there are no netpoll no locking problems, because the poll
-implementation takes no locks and therefore doesn't care.
-
-That's why tg3 doesn't have any of these netpoll issues.
+Pulled, thanks Ben.
