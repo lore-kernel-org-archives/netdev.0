@@ -1,174 +1,323 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH NEXT V3] rtlwifi: Fix endian error in extracting packet type
-Date: Sat,  2 Nov 2013 14:28:35 -0500
-Message-ID: <1383420515-13168-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>,
-	netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
-	Stable <stable@vger.kernel.org>
-To: linville@tuxdriver.com
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 net-next] net: introduce dev_set_forwarding()
+Date: Sat, 02 Nov 2013 12:58:50 -0700
+Message-ID: <1383422330.4291.58.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131029090849.GC5944@cpaasch-mac>
+	 <1383051962.5464.25.camel@edumazet-glaptop.roam.corp.google.com>
+	 <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131029.194446.2215574000648693370.davem@davemloft.net>
+	 <1383091610.1534.29.camel@bwh-desktop.uk.level5networks.com>
+	 <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, christoph.paasch@uclouvain.be,
+	herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:53024 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751704Ab3KBT6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 15:58:52 -0400
+Received: by mail-pb0-f53.google.com with SMTP id up7so5574630pbc.26
+        for <netdev@vger.kernel.org>; Sat, 02 Nov 2013 12:58:51 -0700 (PDT)
+In-Reply-To: <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>
+From: Eric Dumazet <edumazet@google.com>
 
-All of the rtlwifi drivers have an error in the routine that tests if
-the data is "special". If it is, the subsequant transmission will be
-at the lowest rate to enhance reliability. The 16-bit quantity is
-big-endian, but was being extracted in native CPU mode. One of the
-effects of this bug is to inhibit association under some conditions
-as the TX rate is too high.
+Christoph Paasch and Jerry Chu reported crashes in skb_segment() caused
+by commit 8a29111c7ca6 ("net: gro: allow to build full sized skb")
 
-Based on suggestions by Joe Perches, the entire routine is rewritten.
-
-One of the local headers contained duplicates of some of the ETH_P_XXX
-definitions. These are deleted.
-
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>
-Cc: Stable <stable@vger.kernel.org> [2.6.38+]
----
-
-V2 - Addresses comments by Ben Hutchings and Bjorn Mork.
-V3 - Rewrite of rtl_is_special_data()
-
- drivers/net/wireless/rtlwifi/base.c |   15 ++++++---------
- drivers/net/wireless/rtlwifi/wifi.h |    6 +-----
- 2 files changed, 7 insertions(+), 14 deletions(-)
-Index: wireless-testing/drivers/net/wireless/rtlwifi/base.c
-===================================================================
---- wireless-testing.orig/drivers/net/wireless/rtlwifi/base.c
-+++ wireless-testing/drivers/net/wireless/rtlwifi/base.c
-@@ -37,6 +37,7 @@
+skb_segment() only deals with a frag_list chain containing MSS sized
+fragments. Even if we fix this problem, its better if GRO layer
+doesn't build skb with a frag_list in the first place, to let TSO
+packets reaching output devices.
  
- #include <linux/ip.h>
- #include <linux/module.h>
-+#include <linux/udp.h>
+David Miller and Ben Hutchings suggested we keep track of number of
+forwarding users to be able to :
+
+- Disable LRO
+- Make sure GRO layer do not use skb frag_list to extend skb capacity
+
+Note that after this patch, LRO is automatically re-enabled if
+forwarding is disabled on the device, or if a device is removed
+from a bridge.
+
+Tested:
+
+lpq84:~# ethtool -k eth0 | grep "large-receive"
+large-receive-offload: on
+lpq84:~# echo 1 >/proc/sys/net/ipv4/conf/eth0/forwarding
+lpq84:~# ethtool -k eth0 | grep "large-receive"
+large-receive-offload: off [requested on]
+lpq84:~# echo 0 >/proc/sys/net/ipv4/conf/eth0/forwarding
+lpq84:~# ethtool -k eth0 | grep "large-receive"
+large-receive-offload: on
+
+
+lpq84:~# ethtool -K eth0 lro off
+lpq84:~# ethtool -k eth0 | grep "large-receive"
+large-receive-offload: off
+lpq84:~# echo 1 >/proc/sys/net/ipv4/conf/eth0/forwarding
+lpq84:~# ethtool -k eth0 | grep "large-receive"
+large-receive-offload: off
+lpq84:~# echo 0 >/proc/sys/net/ipv4/conf/eth0/forwarding
+lpq84:~# ethtool -k eth0 | grep "large-receive"
+large-receive-offload: off
+lpq84:~# ethtool -K eth0 lro on 
+
+
+lpq84:~# cat /proc/sys/net/ipv4/ip_forward
+0
+lpq84:~# echo 1 >/proc/sys/net/ipv4/ip_forward
+lpq84:~# ethtool -k eth0 | grep "large-receive"
+large-receive-offload: off [requested on]
+lpq84:~# echo 0 >/proc/sys/net/ipv4/ip_forward
+lpq84:~# ethtool -k eth0 | grep "large-receive"
+large-receive-offload: on
+
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+Reported-by: Jerry Chu <hkchu@google.com>
+Cc: Michael Dalton <mwdalton@google.com>
+Fixes: 8a29111c7ca6 ("net: gro: allow to build full sized skb")
+---
+v4: drop LRO in netdev_fix_features(), ase Ben pointed out.
+
+ include/linux/netdevice.h |    3 ++-
+ net/bridge/br_if.c        |    4 +++-
+ net/core/dev.c            |   31 ++++++++++++++++++++-----------
+ net/core/skbuff.c         |   11 ++++++++---
+ net/ipv4/devinet.c        |   14 ++++++++------
+ net/ipv6/addrconf.c       |    5 ++---
+ net/ipv6/addrconf_core.c  |    2 ++
+ 7 files changed, 45 insertions(+), 25 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index cb1d918..6ddd0fa 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1295,6 +1295,7 @@ struct net_device {
+ 
+ 	struct netdev_queue __rcu *ingress_queue;
+ 	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
++	unsigned int		forwarding_count;
+ 
  
  /*
-  *NOTICE!!!: This file will be very big, we should
-@@ -1074,64 +1075,52 @@ u8 rtl_is_special_data(struct ieee80211_
- 	if (!ieee80211_is_data(fc))
- 		return false;
+@@ -1787,7 +1788,7 @@ struct net_device *__dev_get_by_name(struct net *net, const char *name);
+ int dev_alloc_name(struct net_device *dev, const char *name);
+ int dev_open(struct net_device *dev);
+ int dev_close(struct net_device *dev);
+-void dev_disable_lro(struct net_device *dev);
++void dev_set_forwarding(struct net_device *dev, int inc);
+ int dev_loopback_xmit(struct sk_buff *newskb);
+ int dev_queue_xmit(struct sk_buff *skb);
+ int register_netdevice(struct net_device *dev);
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index c41d5fb..9591643 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -150,6 +150,8 @@ static void del_nbp(struct net_bridge_port *p)
  
-+	ip = (const struct iphdr *)(skb->data + mac_hdr_len +
-+				    SNAP_SIZE + PROTOC_TYPE_SIZE);
-+	ether_type = be16_to_cpup((__be16 *)
-+				  (skb->data + mac_hdr_len + SNAP_SIZE));
-+
-+	switch (ether_type) {
-+	case ETH_P_IP: {
-+		struct udphdr *udp;
-+		u16 src;
-+		u16 dst;
-+
-+		if (ip->protocol != IPPROTO_UDP)
-+			return false;
-+		udp = (struct udphdr *)((u8 *)ip + (ip->ihl << 2));
-+		src = be16_to_cpu(udp->source);
-+		dst = be16_to_cpu(udp->dest);
-+
-+		/* If this case involves port 68 (UDP BOOTP client) connecting
-+		 * with port 67 (UDP BOOTP server), then return true so that
-+		 * the lowest speed is used.
-+		 */
-+		if (!((src == 68 && dst == 67) || (src == 67 && dst == 68)))
-+			return false;
+ 	netdev_rx_handler_unregister(dev);
  
--	ip = (struct iphdr *)((u8 *) skb->data + mac_hdr_len +
--			      SNAP_SIZE + PROTOC_TYPE_SIZE);
--	ether_type = *(u16 *) ((u8 *) skb->data + mac_hdr_len + SNAP_SIZE);
--	/*	ether_type = ntohs(ether_type); */
--
--	if (ETH_P_IP == ether_type) {
--		if (IPPROTO_UDP == ip->protocol) {
--			struct udphdr *udp = (struct udphdr *)((u8 *) ip +
--							       (ip->ihl << 2));
--			if (((((u8 *) udp)[1] == 68) &&
--			     (((u8 *) udp)[3] == 67)) ||
--			    ((((u8 *) udp)[1] == 67) &&
--			     (((u8 *) udp)[3] == 68))) {
--				/*
--				 * 68 : UDP BOOTP client
--				 * 67 : UDP BOOTP server
--				 */
--				RT_TRACE(rtlpriv, (COMP_SEND | COMP_RECV),
--					 DBG_DMESG, "dhcp %s !!\n",
--					 is_tx ? "Tx" : "Rx");
--
--				if (is_tx) {
--					rtlpriv->enter_ps = false;
--					schedule_work(&rtlpriv->
--						      works.lps_change_work);
--					ppsc->last_delaylps_stamp_jiffies =
--					    jiffies;
--				}
--
--				return true;
--			}
--		}
--	} else if (ETH_P_ARP == ether_type) {
--		if (is_tx) {
--			rtlpriv->enter_ps = false;
--			schedule_work(&rtlpriv->works.lps_change_work);
--			ppsc->last_delaylps_stamp_jiffies = jiffies;
--		}
--
--		return true;
--	} else if (ETH_P_PAE == ether_type) {
-+		RT_TRACE(rtlpriv, (COMP_SEND | COMP_RECV), DBG_DMESG,
-+			 "dhcp %s !!\n", is_tx ? "Tx" : "Rx");
-+		break;
-+	}
-+	case ETH_P_ARP:
-+		break;
-+	case ETH_P_PAE:
- 		RT_TRACE(rtlpriv, (COMP_SEND | COMP_RECV), DBG_DMESG,
- 			 "802.1X %s EAPOL pkt!!\n", is_tx ? "Tx" : "Rx");
--
--		if (is_tx) {
--			rtlpriv->enter_ps = false;
--			schedule_work(&rtlpriv->works.lps_change_work);
--			ppsc->last_delaylps_stamp_jiffies = jiffies;
--		}
--
--		return true;
--	} else if (ETH_P_IPV6 == ether_type) {
--		/* IPv6 */
--		return true;
-+		break;
-+	case ETH_P_IPV6:
-+		/* TODO: Is this right? */
-+		return false;
-+	default:
-+		return false;
- 	}
--
--	return false;
-+	if (is_tx) {
-+		rtlpriv->enter_ps = false;
-+		schedule_work(&rtlpriv->works.lps_change_work);
-+		ppsc->last_delaylps_stamp_jiffies = jiffies;
-+	}
-+	return true;
++	dev_set_forwarding(dev, -1);
++
+ 	netdev_upper_dev_unlink(dev, br->dev);
+ 
+ 	br_multicast_del_port(p);
+@@ -377,7 +379,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 
+ 	dev->priv_flags |= IFF_BRIDGE_PORT;
+ 
+-	dev_disable_lro(dev);
++	dev_set_forwarding(dev, 1);
+ 
+ 	list_add_rcu(&p->list, &br->port_list);
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0054c8c..f95bde6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1408,29 +1408,33 @@ EXPORT_SYMBOL(dev_close);
+ 
+ 
+ /**
+- *	dev_disable_lro - disable Large Receive Offload on a device
+- *	@dev: device
+- *
+- *	Disable Large Receive Offload (LRO) on a net device.  Must be
+- *	called under RTNL.  This is needed if received packets may be
+- *	forwarded to another interface.
++ * dev_set_forwarding - Keep count of forwarding users for a device
++ * @dev: device
++ * @inc: +1 or -1
++ *
++ * Add or remove forwarding from a device.
++ * When the count of forwarding users is above 0 :
++ * 1) disable LRO (Large Receive Offload) on this device.
++ * 2) instruct GRO layer to not use frag_list to extend skb capacity.
++ * Must be called under RTNL.
++ * This is needed if received packets may be forwarded to another interface.
+  */
+-void dev_disable_lro(struct net_device *dev)
++void dev_set_forwarding(struct net_device *dev, int inc)
+ {
+ 	/*
+-	 * If we're trying to disable lro on a vlan device
++	 * If we're trying to enable forwarding from a vlan device
+ 	 * use the underlying physical device instead
+ 	 */
+ 	if (is_vlan_dev(dev))
+ 		dev = vlan_dev_real_dev(dev);
+ 
+-	dev->wanted_features &= ~NETIF_F_LRO;
++	dev->forwarding_count += inc;
+ 	netdev_update_features(dev);
+ 
+-	if (unlikely(dev->features & NETIF_F_LRO))
++	if (unlikely(dev->forwarding_count && (dev->features & NETIF_F_LRO)))
+ 		netdev_WARN(dev, "failed to disable LRO!\n");
  }
- EXPORT_SYMBOL_GPL(rtl_is_special_data);
+-EXPORT_SYMBOL(dev_disable_lro);
++EXPORT_SYMBOL(dev_set_forwarding);
  
-Index: wireless-testing/drivers/net/wireless/rtlwifi/wifi.h
-===================================================================
---- wireless-testing.orig/drivers/net/wireless/rtlwifi/wifi.h
-+++ wireless-testing/drivers/net/wireless/rtlwifi/wifi.h
-@@ -77,11 +77,7 @@
- #define RTL_SLOT_TIME_9				9
- #define RTL_SLOT_TIME_20			20
+ static int call_netdevice_notifier(struct notifier_block *nb, unsigned long val,
+ 				   struct net_device *dev)
+@@ -5584,6 +5588,11 @@ static netdev_features_t netdev_fix_features(struct net_device *dev,
+ 		}
+ 	}
  
--/*related with tcp/ip. */
--/*if_ehther.h*/
--#define ETH_P_PAE		0x888E	/*Port Access Entity (IEEE 802.1X) */
--#define ETH_P_IP		0x0800	/*Internet Protocol packet */
--#define ETH_P_ARP		0x0806	/*Address Resolution packet */
-+/*related to tcp/ip. */
- #define SNAP_SIZE		6
- #define PROTOC_TYPE_SIZE	2
++	if ((features & NETIF_F_LRO) && dev->forwarding_count) {
++		netdev_dbg(dev, "Dropping LRO because of forwarding.\n");
++		features &= ~NETIF_F_LRO;
++	}
++
+ 	return features;
+ }
  
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 0ab32fa..7b1cff8 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2944,9 +2944,11 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 		int i = skbinfo->nr_frags;
+ 		int nr_frags = pinfo->nr_frags + i;
+ 
+-		if (nr_frags > MAX_SKB_FRAGS)
++		if (nr_frags > MAX_SKB_FRAGS) {
++			if (skb->dev->forwarding_count)
++				return -E2BIG;
+ 			goto merge;
+-
++		}
+ 		offset -= headlen;
+ 		pinfo->nr_frags = nr_frags;
+ 		skbinfo->nr_frags = 0;
+@@ -2977,8 +2979,11 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 		unsigned int first_size = headlen - offset;
+ 		unsigned int first_offset;
+ 
+-		if (nr_frags + 1 + skbinfo->nr_frags > MAX_SKB_FRAGS)
++		if (nr_frags + 1 + skbinfo->nr_frags > MAX_SKB_FRAGS) {
++			if (skb->dev->forwarding_count)
++				return -E2BIG;
+ 			goto merge;
++		}
+ 
+ 		first_offset = skb->data -
+ 			       (unsigned char *)page_address(page) +
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index a1b5bcb..cf01e6f 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -223,6 +223,8 @@ void in_dev_finish_destroy(struct in_device *idev)
+ #ifdef NET_REFCNT_DEBUG
+ 	pr_debug("%s: %p=%s\n", __func__, idev, dev ? dev->name : "NIL");
+ #endif
++	if (IPV4_DEVCONF(idev->cnf, FORWARDING))
++		dev_set_forwarding(dev, -1);
+ 	dev_put(dev);
+ 	if (!idev->dead)
+ 		pr_err("Freeing alive in_device %p\n", idev);
+@@ -248,7 +250,7 @@ static struct in_device *inetdev_init(struct net_device *dev)
+ 	if (!in_dev->arp_parms)
+ 		goto out_kfree;
+ 	if (IPV4_DEVCONF(in_dev->cnf, FORWARDING))
+-		dev_disable_lro(dev);
++		dev_set_forwarding(dev, 1);
+ 	/* Reference in_dev->dev */
+ 	dev_hold(dev);
+ 	/* Account for reference dev->ip_ptr (below) */
+@@ -1932,8 +1934,8 @@ static void inet_forward_change(struct net *net)
+ 
+ 	for_each_netdev(net, dev) {
+ 		struct in_device *in_dev;
+-		if (on)
+-			dev_disable_lro(dev);
++
++		dev_set_forwarding(dev, on ? 1 : -1);
+ 		rcu_read_lock();
+ 		in_dev = __in_dev_get_rcu(dev);
+ 		if (in_dev) {
+@@ -1997,7 +1999,7 @@ static int devinet_sysctl_forward(struct ctl_table *ctl, int write,
+ 	loff_t pos = *ppos;
+ 	int ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+ 
+-	if (write && *valp != val) {
++	if (write && (!(*valp) != !val)) {
+ 		struct net *net = ctl->extra2;
+ 
+ 		if (valp != &IPV4_DEVCONF_DFLT(net, FORWARDING)) {
+@@ -2013,8 +2015,8 @@ static int devinet_sysctl_forward(struct ctl_table *ctl, int write,
+ 				struct ipv4_devconf *cnf = ctl->extra1;
+ 				struct in_device *idev =
+ 					container_of(cnf, struct in_device, cnf);
+-				if (*valp)
+-					dev_disable_lro(idev->dev);
++
++				dev_set_forwarding(idev->dev, *valp ? 1 : -1);
+ 				inet_netconf_notify_devconf(net,
+ 							    NETCONFA_FORWARDING,
+ 							    idev->dev->ifindex,
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 542d095..232b2c4 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -322,7 +322,7 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+ 		return NULL;
+ 	}
+ 	if (ndev->cnf.forwarding)
+-		dev_disable_lro(dev);
++		dev_set_forwarding(dev, 1);
+ 	/* We refer to the device */
+ 	dev_hold(dev);
+ 
+@@ -638,8 +638,7 @@ static void dev_forward_change(struct inet6_dev *idev)
+ 	if (!idev)
+ 		return;
+ 	dev = idev->dev;
+-	if (idev->cnf.forwarding)
+-		dev_disable_lro(dev);
++	dev_set_forwarding(dev, idev->cnf.forwarding ? 1 : -1);
+ 	if (dev->flags & IFF_MULTICAST) {
+ 		if (idev->cnf.forwarding) {
+ 			ipv6_dev_mc_inc(dev, &in6addr_linklocal_allrouters);
+diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
+index 4c11cbc..b7620ad 100644
+--- a/net/ipv6/addrconf_core.c
++++ b/net/ipv6/addrconf_core.c
+@@ -139,6 +139,8 @@ void in6_dev_finish_destroy(struct inet6_dev *idev)
+ #ifdef NET_REFCNT_DEBUG
+ 	pr_debug("%s: %s\n", __func__, dev ? dev->name : "NIL");
+ #endif
++	if (idev->cnf.forwarding)
++		dev_set_forwarding(dev, -1);
+ 	dev_put(dev);
+ 	if (!idev->dead) {
+ 		pr_warn("Freeing alive inet6 device %p\n", idev);
