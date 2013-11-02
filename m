@@ -1,13 +1,16 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [GIT net-next] Open vSwitch
-Date: Sat,  2 Nov 2013 00:43:39 -0700
-Message-ID: <1383378230-59624-1-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 01/11] openvswitch: Move flow table
+	rehashing to flow install.
+Date: Sat,  2 Nov 2013 00:43:40 -0700
+Message-ID: <1383378230-59624-2-git-send-email-jesse@nicira.com>
+References: <1383378230-59624-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1383378230-59624-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -19,62 +22,137 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-A set of updates for net-next/3.13. Major changes are:
- * Restructure flow handling code to be more logically organized and
-   easier to read.
- * Rehashing of the flow table is moved from a workqueue to flow
-   installation time. Before, heavy load could block the workqueue for
-   excessive periods of time.
- * Additional debugging information is provided to help diagnose megaflows.
- * It's now possible to match on TCP flags.
+From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-The following changes since commit 272b98c6455f00884f0350f775c5342358ebb73f:
+Rehashing in ovs-workqueue can cause ovs-mutex lock contentions
+in case of heavy flow setups where both needs ovs-mutex.  So by
+moving rehashing to flow-setup we can eliminate contention.
+This also simplify ovs locking and reduces dependence on
+workqueue.
 
-  Linux 3.12-rc1 (2013-09-16 16:17:51 -0400)
+Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+---
+ net/openvswitch/datapath.c | 50 ++++++++++------------------------------------
+ net/openvswitch/datapath.h |  2 ++
+ 2 files changed, 13 insertions(+), 39 deletions(-)
 
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git master
-
-for you to fetch changes up to 8ddd094675cfd453fc9838caa46ea108a4107183:
-
-  openvswitch: Use flow hash during flow lookup operation. (2013-11-01 18:43:46 -0700)
-
-----------------------------------------------------------------
-Andy Zhou (1):
-      openvswitch: collect mega flow mask stats
-
-Jarno Rajahalme (2):
-      openvswitch: Widen TCP flags handling.
-      openvswitch: TCP flags matching support.
-
-Pravin B Shelar (6):
-      openvswitch: Move flow table rehashing to flow install.
-      openvswitch: Restructure datapath.c and flow.c
-      openvswitch: Move mega-flow list out of rehashing struct.
-      openvswitch: Simplify mega-flow APIs.
-      openvswitch: Enable all GSO features on internal port.
-      openvswitch: Use flow hash during flow lookup operation.
-
-Wei Yongjun (2):
-      openvswitch: remove duplicated include from vport-vxlan.c
-      openvswitch: remove duplicated include from vport-gre.c
-
- include/uapi/linux/openvswitch.h     |   18 +-
- net/openvswitch/Makefile             |    2 +
- net/openvswitch/datapath.c           |  668 ++------------
- net/openvswitch/datapath.h           |    9 +-
- net/openvswitch/flow.c               | 1605 +--------------------------------
- net/openvswitch/flow.h               |  132 +--
- net/openvswitch/flow_netlink.c       | 1630 ++++++++++++++++++++++++++++++++++
- net/openvswitch/flow_netlink.h       |   60 ++
- net/openvswitch/flow_table.c         |  592 ++++++++++++
- net/openvswitch/flow_table.h         |   81 ++
- net/openvswitch/vport-gre.c          |    2 -
- net/openvswitch/vport-internal_dev.c |    2 +-
- net/openvswitch/vport-vxlan.c        |    1 -
- 13 files changed, 2511 insertions(+), 2291 deletions(-)
- create mode 100644 net/openvswitch/flow_netlink.c
- create mode 100644 net/openvswitch/flow_netlink.h
- create mode 100644 net/openvswitch/flow_table.c
- create mode 100644 net/openvswitch/flow_table.h
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 2aa13bd..2e1a9c2 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -60,8 +60,6 @@
+ 
+ 
+ #define REHASH_FLOW_INTERVAL (10 * 60 * HZ)
+-static void rehash_flow_table(struct work_struct *work);
+-static DECLARE_DELAYED_WORK(rehash_flow_wq, rehash_flow_table);
+ 
+ int ovs_net_id __read_mostly;
+ 
+@@ -1289,22 +1287,25 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 	/* Check if this is a duplicate flow */
+ 	flow = ovs_flow_lookup(table, &key);
+ 	if (!flow) {
++		struct flow_table *new_table = NULL;
+ 		struct sw_flow_mask *mask_p;
++
+ 		/* Bail out if we're not allowed to create a new flow. */
+ 		error = -ENOENT;
+ 		if (info->genlhdr->cmd == OVS_FLOW_CMD_SET)
+ 			goto err_unlock_ovs;
+ 
+ 		/* Expand table, if necessary, to make room. */
+-		if (ovs_flow_tbl_need_to_expand(table)) {
+-			struct flow_table *new_table;
+-
++		if (ovs_flow_tbl_need_to_expand(table))
+ 			new_table = ovs_flow_tbl_expand(table);
+-			if (!IS_ERR(new_table)) {
+-				rcu_assign_pointer(dp->table, new_table);
+-				ovs_flow_tbl_destroy(table, true);
+-				table = ovsl_dereference(dp->table);
+-			}
++		else if (time_after(jiffies, dp->last_rehash + REHASH_FLOW_INTERVAL))
++			new_table = ovs_flow_tbl_rehash(table);
++
++		if (new_table && !IS_ERR(new_table)) {
++			rcu_assign_pointer(dp->table, new_table);
++			ovs_flow_tbl_destroy(table, true);
++			table = ovsl_dereference(dp->table);
++			dp->last_rehash = jiffies;
+ 		}
+ 
+ 		/* Allocate flow. */
+@@ -2336,32 +2337,6 @@ error:
+ 	return err;
+ }
+ 
+-static void rehash_flow_table(struct work_struct *work)
+-{
+-	struct datapath *dp;
+-	struct net *net;
+-
+-	ovs_lock();
+-	rtnl_lock();
+-	for_each_net(net) {
+-		struct ovs_net *ovs_net = net_generic(net, ovs_net_id);
+-
+-		list_for_each_entry(dp, &ovs_net->dps, list_node) {
+-			struct flow_table *old_table = ovsl_dereference(dp->table);
+-			struct flow_table *new_table;
+-
+-			new_table = ovs_flow_tbl_rehash(old_table);
+-			if (!IS_ERR(new_table)) {
+-				rcu_assign_pointer(dp->table, new_table);
+-				ovs_flow_tbl_destroy(old_table, true);
+-			}
+-		}
+-	}
+-	rtnl_unlock();
+-	ovs_unlock();
+-	schedule_delayed_work(&rehash_flow_wq, REHASH_FLOW_INTERVAL);
+-}
+-
+ static int __net_init ovs_init_net(struct net *net)
+ {
+ 	struct ovs_net *ovs_net = net_generic(net, ovs_net_id);
+@@ -2419,8 +2394,6 @@ static int __init dp_init(void)
+ 	if (err < 0)
+ 		goto error_unreg_notifier;
+ 
+-	schedule_delayed_work(&rehash_flow_wq, REHASH_FLOW_INTERVAL);
+-
+ 	return 0;
+ 
+ error_unreg_notifier:
+@@ -2437,7 +2410,6 @@ error:
+ 
+ static void dp_cleanup(void)
+ {
+-	cancel_delayed_work_sync(&rehash_flow_wq);
+ 	dp_unregister_genl(ARRAY_SIZE(dp_genl_families));
+ 	unregister_netdevice_notifier(&ovs_dp_device_notifier);
+ 	unregister_pernet_device(&ovs_net_ops);
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 4d109c1..2c15541 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -62,6 +62,7 @@ struct dp_stats_percpu {
+  * ovs_mutex and RCU.
+  * @stats_percpu: Per-CPU datapath statistics.
+  * @net: Reference to net namespace.
++ * @last_rehash: Timestamp of last rehash.
+  *
+  * Context: See the comment on locking at the top of datapath.c for additional
+  * locking information.
+@@ -83,6 +84,7 @@ struct datapath {
+ 	/* Network namespace ref. */
+ 	struct net *net;
+ #endif
++	unsigned long last_rehash;
+ };
+ 
+ /**
+-- 
+1.8.3.2
