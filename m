@@ -1,48 +1,90 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net-next 08/11] openvswitch: Enable all GSO features on internal port.
-Date: Sat,  2 Nov 2013 00:43:47 -0700
-Message-ID: <1383378230-59624-9-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 09/11] openvswitch: Widen TCP flags handling.
+Date: Sat,  2 Nov 2013 00:43:48 -0700
+Message-ID: <1383378230-59624-10-git-send-email-jesse@nicira.com>
 References: <1383378230-59624-1-git-send-email-jesse@nicira.com>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Pravin B Shelar <pshelar@nicira.com>,
+	Jarno Rajahalme <jrajahalme@nicira.com>,
 	Jesse Gross <jesse@nicira.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:44060 "HELO
-	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752142Ab3KBVyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 17:54:02 -0400
-Received: by mail-pd0-f173.google.com with SMTP id r10so5197821pdi.4
-        for <netdev@vger.kernel.org>; Sat, 02 Nov 2013 14:54:01 -0700 (PDT)
+Received: from na3sys009aog101.obsmtp.com ([74.125.149.67]:45140 "HELO
+	na3sys009aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754648Ab3KBVyO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 17:54:14 -0400
+Received: by mail-pd0-f178.google.com with SMTP id x10so5243556pdj.37
+        for <netdev@vger.kernel.org>; Sat, 02 Nov 2013 14:54:14 -0700 (PDT)
 In-Reply-To: <1383378230-59624-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
+From: Jarno Rajahalme <jrajahalme@nicira.com>
 
-OVS already can handle all types of segmentation offloads that
-are supported by the kernel.
-Following patch specifically enables UDP and IPV6 segmentation
-offloads.
+Widen TCP flags handling from 7 bits (uint8_t) to 12 bits (uint16_t).
+The kernel interface remains at 8 bits, which makes no functional
+difference now, as none of the higher bits is currently of interest
+to the userspace.
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- net/openvswitch/vport-internal_dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/openvswitch/datapath.c | 2 +-
+ net/openvswitch/flow.c     | 8 +++-----
+ net/openvswitch/flow.h     | 2 +-
+ 3 files changed, 5 insertions(+), 7 deletions(-)
 
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 98d3edb..729c687 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -134,7 +134,7 @@ static void do_setup(struct net_device *netdev)
- 	netdev->tx_queue_len = 0;
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 5bc5a4e..1408adc 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -671,7 +671,7 @@ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
+ 	used = flow->used;
+ 	stats.n_packets = flow->packet_count;
+ 	stats.n_bytes = flow->byte_count;
+-	tcp_flags = flow->tcp_flags;
++	tcp_flags = (u8)ntohs(flow->tcp_flags);
+ 	spin_unlock_bh(&flow->lock);
  
- 	netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
--			   NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_TSO;
-+			   NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE;
+ 	if (used &&
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 617810f..b73c768 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -58,19 +58,17 @@ u64 ovs_flow_used_time(unsigned long flow_jiffies)
+ 	return cur_ms - idle_ms;
+ }
  
- 	netdev->vlan_features = netdev->features;
- 	netdev->features |= NETIF_F_HW_VLAN_CTAG_TX;
+-#define TCP_FLAGS_OFFSET 13
+-#define TCP_FLAG_MASK 0x3f
++#define TCP_FLAGS_BE16(tp) (*(__be16 *)&tcp_flag_word(tp) & htons(0x0FFF))
+ 
+ void ovs_flow_used(struct sw_flow *flow, struct sk_buff *skb)
+ {
+-	u8 tcp_flags = 0;
++	__be16 tcp_flags = 0;
+ 
+ 	if ((flow->key.eth.type == htons(ETH_P_IP) ||
+ 	     flow->key.eth.type == htons(ETH_P_IPV6)) &&
+ 	    flow->key.ip.proto == IPPROTO_TCP &&
+ 	    likely(skb->len >= skb_transport_offset(skb) + sizeof(struct tcphdr))) {
+-		u8 *tcp = (u8 *)tcp_hdr(skb);
+-		tcp_flags = *(tcp + TCP_FLAGS_OFFSET) & TCP_FLAG_MASK;
++		tcp_flags = TCP_FLAGS_BE16(tcp_hdr(skb));
+ 	}
+ 
+ 	spin_lock(&flow->lock);
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index 098fd1d..204e0cc 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -158,7 +158,7 @@ struct sw_flow {
+ 	unsigned long used;	/* Last used time (in jiffies). */
+ 	u64 packet_count;	/* Number of packets matched. */
+ 	u64 byte_count;		/* Number of bytes matched. */
+-	u8 tcp_flags;		/* Union of seen TCP flags. */
++	__be16 tcp_flags;	/* Union of seen TCP flags. */
+ };
+ 
+ struct arp_eth_header {
 -- 
 1.8.3.2
