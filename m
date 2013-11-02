@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH NEXT V2] rtlwifi: Fix endian error in extracting packet type
-Date: Sat,  2 Nov 2013 14:23:09 -0500
-Message-ID: <1383420189-13065-1-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH NEXT V3] rtlwifi: Fix endian error in extracting packet type
+Date: Sat,  2 Nov 2013 14:28:35 -0500
+Message-ID: <1383420515-13168-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>,
 	netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
