@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] xfrm: use vmalloc_node() for percpu scratches
-Date: Sat, 02 Nov 2013 01:21:56 -0400 (EDT)
-Message-ID: <20131102.012156.131372678670615938.davem@davemloft.net>
-References: <1383292257-4634-1-git-send-email-steffen.klassert@secunet.com>
-	<1383292257-4634-2-git-send-email-steffen.klassert@secunet.com>
-	<5273A67B.9070901@cogentembedded.com>
+Subject: Re: pull request (net): ipsec 2013-11-01
+Date: Sat, 02 Nov 2013 01:22:56 -0400 (EDT)
+Message-ID: <20131102.012256.1806070941734948930.davem@davemloft.net>
+References: <1383294107-7509-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33738 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33744 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918Ab3KBFV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 01:21:57 -0400
-In-Reply-To: <5273A67B.9070901@cogentembedded.com>
+	with ESMTP id S1751175Ab3KBFW5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 01:22:57 -0400
+In-Reply-To: <1383294107-7509-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 01 Nov 2013 17:02:51 +0400
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Fri,  1 Nov 2013 09:21:44 +0100
 
->> @@ -220,8 +220,8 @@ static void ipcomp_free_scratches(void)
->>
->>   static void * __percpu *ipcomp_alloc_scratches(void)
->>   {
->> -	int i;
->>   	void * __percpu *scratches;
->> +	int i;
+> 1) Fix a possible race on ipcomp scratch buffers because
+>    of too early enabled siftirqs. From Michal Kubecek.
 > 
->    This collateral change is not described in the changelog.
+> 2) The current xfrm garbage collector threshold is too small
+>    for some workloads, resulting in bad performance on these
+>    workloads. Increase the threshold from 1024 to 32768.
+> 
+> 3) Some codepaths might not have a dst_entry attached to the
+>    skb when calling xfrm_decode_session(). So add a check
+>    to prevent a null pointer dereference in this case.
+> 
+> Please pull or let me know if there are problems.
 
-Yes, but I'm not going to block this series just for this.
+Pulled, thanks a lot Steffen!
