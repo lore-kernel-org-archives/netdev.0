@@ -1,55 +1,50 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] net: flow_dissector: fail on evil iph->ihl
-Date: Sat, 2 Nov 2013 22:22:27 +0200
-Message-ID: <20131102202227.GA31695@redhat.com>
-References: <1383289270-18952-1-git-send-email-jasowang@redhat.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next 08/11] openvswitch: Per cpu flow
+	stats.
+Date: Sat, 2 Nov 2013 14:51:34 -0700
+Message-ID: <CAEP_g=9r2zAW7Ph9_qSDir3VJyOetjiFdMO2Vf2Wk9M0hs=JGg@mail.gmail.com>
+References: <1383092544-50599-1-git-send-email-jesse@nicira.com>
+	<1383092544-50599-9-git-send-email-jesse@nicira.com>
+	<20131029.221125.343749464995759893.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Petr Matousek <pmatouse@redhat.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1383289270-18952-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20131029.221125.343749464995759893.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 01, 2013 at 03:01:10PM +0800, Jason Wang wrote:
-> We don't validate iph->ihl which may lead a dead loop if we meet a IPIP
-> skb whose iph->ihl is zero. Fix this by failing immediately when iph->ihl
-> is evil (less than 5).
-> 
-> This issue were introduced by commit ec5efe7946280d1e84603389a1030ccec0a767ae
-> (rps: support IPIP encapsulation).
-> 
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Petr Matousek <pmatouse@redhat.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+On Tue, Oct 29, 2013 at 7:11 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+> Date: Tue, 29 Oct 2013 17:22:21 -0700
+>
+>> From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+>>
+>> With mega flow implementation ovs flow can be shared between
+>> multiple CPUs which makes stats updates highly contended
+>> operation. Following patch allocates separate stats for each
+>> CPU to make stats update scalable.
+>>
+>> Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+>> Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+>
+> Please properly use __percpu memory for this.
+>
+> Using arrays for this is very strongly discouraged, please instead
+> use the kernel facility designed exactly for this.
 
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-> ---
-> This patch is needed for stable.
-> ---
->  net/core/flow_dissector.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index 8d7d0dd..143b6fd 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -40,7 +40,7 @@ again:
->  		struct iphdr _iph;
->  ip:
->  		iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
-> -		if (!iph)
-> +		if (!iph || iph->ihl < 5)
->  			return false;
->  
->  		if (ip_is_fragment(iph))
-> -- 
-> 1.8.1.2
+Pravin had some concerns about the effects of high churn rate on the
+percpu allocator, which is why he did it this way initially. I'm going
+to drop this patch for now and send out the rest of the series while
+he investigates further.
