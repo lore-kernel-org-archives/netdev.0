@@ -1,37 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] cdc_mbim workarounds for firmware bugs
-Date: Sat, 02 Nov 2013 01:30:12 -0400 (EDT)
-Message-ID: <20131102.013012.722023816896482451.davem@davemloft.net>
-References: <1383231371-8098-1-git-send-email-bjorn@mork.no>
+From: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2.47 0/4] MPLS actions and matches
+Date: Fri, 1 Nov 2013 22:39:16 -0700
+Message-ID: <20131102053916.GE26756@nicira.com>
+References: <1383203792-9774-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, alexey.orishko@gmail.com,
-	gsuarez@smithmicro.com
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33766 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750805Ab3KBFaO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 01:30:14 -0400
-In-Reply-To: <1383231371-8098-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Isaku Yamahata <yamahata-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
+To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1383203792-9774-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Thu, 31 Oct 2013 15:56:09 +0100
+On Thu, Oct 31, 2013 at 04:16:28PM +0900, Simon Horman wrote:
+> This series implements MPLS actions and matches based on work by
+> Ravi K, Leo Alterman, Yamahata-san and Joe Stringer.
 
-> The first patch is an attempt to work around a bug which prevents
-> some devices from working with IPv6. I guess handling ND in a driver
-> can be considered controversial, but it was the best alternative I
-> came up with.
->=20
-> The second is the "final solution" to the well known ZLP bug, which
-> as we feared is present in a number of devices using different
-> vendor IDs. Enabling this is definitely controversial, but I do not
-> see any other possible solution.  The blacklist has become
-> unmanagable, and I am pretty sure it is very incomplete due to
-> under-reporting.  Devices known to work without ZLPs can be added
-> to the whitelist.
-
-This seems fine, both applied, thanks.
+Would you mind rebasing this one more time?
