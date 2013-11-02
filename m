@@ -1,73 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] bnx2: Use dev_kfree_skb_any() in bnx2_tx_int()
-Date: Fri, 1 Nov 2013 23:34:50 +0000
-Message-ID: <1383348890.1737.40.camel@bwh-desktop.uk.level5networks.com>
-References: <CAM_iQpWAbSWVeAMwhQADTwO_RdYUXfog-wG9gs4+Zek0g_5Oyg@mail.gmail.com>
-	 <20131031.002602.2030884257299947291.davem@davemloft.net>
-	 <CAM_iQpXPrEj619=PRaKN4PxgOoEB96U0mLFS65AzXOezSWvhxQ@mail.gmail.com>
-	 <20131101.180147.629210014672277622.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next] net: pkt_sched: PIE AQM scheme
+Date: Fri, 01 Nov 2013 17:56:38 -0700
+Message-ID: <1383353798.4291.24.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1383338722-6000-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <xiyou.wangcong@gmail.com>, <mchan@broadcom.com>,
-	<tdmackey@booleanhaiku.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131101.180147.629210014672277622.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
+	Mythili Prabhu <mysuryan@cisco.com>,
+	Dave Taht <dave.taht@bufferbloat.net>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:59681 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751894Ab3KBA4l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 20:56:41 -0400
+Received: by mail-pb0-f51.google.com with SMTP id xa12so1873909pbc.38
+        for <netdev@vger.kernel.org>; Fri, 01 Nov 2013 17:56:40 -0700 (PDT)
+In-Reply-To: <1383338722-6000-1-git-send-email-subramanian.vijay@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-11-01 at 18:01 -0400, David Miller wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Thu, 31 Oct 2013 21:19:16 -0700
->=20
-> > 2013=E5=B9=B410=E6=9C=8830=E6=97=A5 =E4=B8=8B=E5=8D=889:26=E4=BA=8E=
- "David Miller" <davem@davemloft.net>=E5=86=99=E9=81=93=EF=BC=9A
-> >>
-> >> We have to provide a softint compatible environment for this callb=
-ack
-> >> to run in else everything is completely broken.
-> >>
-> >> All these drivers can safely assume softirq safe locking is
-> >> sufficient, you're suggesting we need to take this hardirq safety =
-and
-> >> I'm really not willing to allow things to go that far.  A lot of
-> >> effort has been expended precisely to avoid that kind of overhead =
-and
-> >> cost.
-> >=20
-> > Alright, I am thinking to move netpoll_poll_dev() to a delayed work=
-=2E
-> =20
-> What if the printk is outputting a message that will help us discover
-> that work queues are deadlocked?
->=20
-> You can't delay the message, because every layer of indirection you
-> add increases the possibility that the message it never seen.  You
-> have to do it synchronously.
+On Fri, 2013-11-01 at 13:45 -0700, Vijay Subramanian wrote:
 
-As you've said, the ndo_start_xmit and NAPI poll operations are intende=
-d
-to be called in softirq context, so everything that interlocks with the=
-m
-will use spin_lock_bh().  Calling them from hardirq context obviously
-opens the possibility of a deadlock.  How do you expect anyone to solve
-that?
+> +
+> +	if (!drop_early(sch, skb->len)) {
+> +		/* we can enqueue the packet */
+> +		q->stats.packets_in++;
+> +
+> +		if (qdisc_qlen(sch) > q->stats.maxq)
+> +			q->stats.maxq = qdisc_qlen(sch);
+> +
+> +		return qdisc_enqueue_tail(skb, sch);
 
-I think that most of the time netpoll doesn't actually call the NAPI
-poll function, and the driver ndo_start_xmit function doesn't take any
-locks, so we don't actually hit the deadlock in practice (on mainline
-kernels - RT is a different story).
+I am not sure why you mix skb->len and qdisc_len(skb)
 
-Obviously, the less machinery netpoll relies on continuing to work, the
-better, so it should preferably defer to sofirq context rather than
-workqueue context.  I think this means hooking queue_process() into
-net_tx_action(), and then cutting out much of the rest of netpoll.
+Also, a default 200 packets limit sounds strange, was it actually tested
+on a 10Gb link ?
 
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Other than that, patch seems fine, thanks !
