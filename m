@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net-next): ipsec-next 2013-11-01
-Date: Sat, 02 Nov 2013 02:14:42 -0400 (EDT)
-Message-ID: <20131102.021442.1241129501223123137.davem@davemloft.net>
-References: <1383292257-4634-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: [PATCH net] net: flow_dissector: fail on evil iph->ihl
+Date: Sat, 02 Nov 2013 02:16:51 -0400 (EDT)
+Message-ID: <20131102.021651.96548203258073968.davem@davemloft.net>
+References: <1383289270-18952-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34034 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770Ab3KBGOn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 02:14:43 -0400
-In-Reply-To: <1383292257-4634-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: edumazet@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, pmatouse@redhat.com, mst@redhat.com,
+	dborkman@redhat.com
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1383289270-18952-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Fri,  1 Nov 2013 08:50:53 +0100
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri,  1 Nov 2013 15:01:10 +0800
 
-> This pull request has a trivial merge conflict between git commit
-> e7d8f6c ("xfrm: Add refcount handling to queued policies") and
-> git commit 4d53eff ("xfrm: Don't queue retransmitted packets if
-> the original is still on the host"). It can be solved as it is
-> currently done in linux-next.
+> We don't validate iph->ihl which may lead a dead loop if we meet a IPIP
+> skb whose iph->ihl is zero. Fix this by failing immediately when iph->ihl
+> is evil (less than 5).
 > 
-> 1) Use vmalloc_node for ipcomp percpu scratches to get proper
->    NUMA affinity, from Eric Dumazet
+> This issue were introduced by commit ec5efe7946280d1e84603389a1030ccec0a767ae
+> (rps: support IPIP encapsulation).
 > 
-> 2) Avoid to retransmit packets if the original packet is
->    still in the xfrm hold queue.
-> 
-> 3) Remove unused padlen field from struct esp_data.
->    From Mathias Krause.
-> 
-> 4) Remove struct esp_data because now it consists of a single
->    pointer. From Mathias Krause.
-> 
-> Please pull or let me know if there are problems.
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Petr Matousek <pmatouse@redhat.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Pulled, thanks a lot.
+Applied and queued up for -stable, thanks Jason.
