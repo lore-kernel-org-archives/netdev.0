@@ -1,7 +1,7 @@
 From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
-Subject: [PATCH net-next 01/13] net: Check skb for NULL in dev_kfree_skb_irq
-Date: Sat,  2 Nov 2013 19:17:42 +0530
-Message-ID: <1383400074-30555-2-git-send-email-govindarajulu90@gmail.com>
+Subject: [PATCH net-next 04/13] driver: staging: remove unnecessary skb NULL check before calling dev_kfree_skb_irq
+Date: Sat,  2 Nov 2013 19:17:45 +0530
+Message-ID: <1383400074-30555-5-git-send-email-govindarajulu90@gmail.com>
 References: <1383400074-30555-1-git-send-email-govindarajulu90@gmail.com>
 Cc: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
 To: davem@davemloft.net, gregkh@linuxfoundation.org,
@@ -18,23 +18,27 @@ In-Reply-To: <1383400074-30555-1-git-send-email-govindarajulu90@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+dev_kfree_skb_irq is protected from NULL. No need to check for NULL while
+calling this function.
+
 Signed-off-by: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
 ---
- net/core/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/staging/slicoss/slicoss.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0054c8c..63bd44d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2146,7 +2146,7 @@ EXPORT_SYMBOL(__netif_schedule);
- 
- void dev_kfree_skb_irq(struct sk_buff *skb)
- {
--	if (atomic_dec_and_test(&skb->users)) {
-+	if (skb && atomic_dec_and_test(&skb->users)) {
- 		struct softnet_data *sd;
- 		unsigned long flags;
- 
+diff --git a/drivers/staging/slicoss/slicoss.c b/drivers/staging/slicoss/slicoss.c
+index 869dcd3..1073880 100644
+--- a/drivers/staging/slicoss/slicoss.c
++++ b/drivers/staging/slicoss/slicoss.c
+@@ -2616,8 +2616,7 @@ static void slic_xmit_complete(struct adapter *adapter)
+ 									address;
+ /*      hcmd = (struct slic_hostcmd *) rspbuf->hosthandle; */
+ 		if (hcmd->type == SLIC_CMD_DUMB) {
+-			if (hcmd->skb)
+-				dev_kfree_skb_irq(hcmd->skb);
++			dev_kfree_skb_irq(hcmd->skb);
+ 			slic_cmdq_putdone_irq(adapter, hcmd);
+ 		}
+ 		rspbuf->status = 0;
 -- 
 1.8.4.2
