@@ -1,7 +1,7 @@
 From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
-Subject: [PATCH net-next 09/13] driver: s390: remove unnecessary NULL check before dev_kfree_skb_any
-Date: Sat,  2 Nov 2013 19:17:50 +0530
-Message-ID: <1383400074-30555-10-git-send-email-govindarajulu90@gmail.com>
+Subject: [PATCH net-next 08/13] driver: isdn: remove unnecessary NULL check before dev_kfree_skb_any
+Date: Sat,  2 Nov 2013 19:17:49 +0530
+Message-ID: <1383400074-30555-9-git-send-email-govindarajulu90@gmail.com>
 References: <1383400074-30555-1-git-send-email-govindarajulu90@gmail.com>
 Cc: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
 To: davem@davemloft.net, gregkh@linuxfoundation.org,
@@ -23,68 +23,130 @@ while calling this function.
 
 Signed-off-by: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
 ---
- drivers/s390/net/claw.c           | 6 ++----
- drivers/s390/net/ctcm_mpc.c       | 6 ++----
- drivers/s390/net/qeth_core_main.c | 6 ++----
- 3 files changed, 6 insertions(+), 12 deletions(-)
+ drivers/isdn/gigaset/ser-gigaset.c | 3 +--
+ drivers/isdn/hisax/hfc_usb.c       | 6 ++----
+ drivers/isdn/hisax/icc.c           | 6 ++----
+ drivers/isdn/hisax/ipacx.c         | 6 ++----
+ drivers/isdn/hisax/isac.c          | 6 ++----
+ drivers/isdn/hisax/st5481_b.c      | 6 ++----
+ drivers/isdn/hisax/w6692.c         | 6 ++----
+ 7 files changed, 13 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/s390/net/claw.c b/drivers/s390/net/claw.c
-index fd7b3bd..66c0b14 100644
---- a/drivers/s390/net/claw.c
-+++ b/drivers/s390/net/claw.c
-@@ -834,10 +834,8 @@ claw_release(struct net_device *dev)
-                         ccw_check_return_code(privptr->channel[i].cdev, rc);
-                 }
-         }
--	if (privptr->pk_skb != NULL) {
--		dev_kfree_skb_any(privptr->pk_skb);
--		privptr->pk_skb = NULL;
--	}
-+	dev_kfree_skb_any(privptr->pk_skb);
-+	privptr->pk_skb = NULL;
- 	if(privptr->buffs_alloc != 1) {
- 		CLAW_DBF_TEXT(4, trace, "none2fre");
- 		return 0;
-diff --git a/drivers/s390/net/ctcm_mpc.c b/drivers/s390/net/ctcm_mpc.c
-index 2dbc77b..2dd53a6 100644
---- a/drivers/s390/net/ctcm_mpc.c
-+++ b/drivers/s390/net/ctcm_mpc.c
-@@ -964,8 +964,7 @@ void mpc_channel_action(struct channel *ch, int direction, int action)
- 		grp->outstanding_xid2++;
- 		ch->in_mpcgroup = 1;
+diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
+index 8c91fd5..9128526 100644
+--- a/drivers/isdn/gigaset/ser-gigaset.c
++++ b/drivers/isdn/gigaset/ser-gigaset.c
+@@ -221,8 +221,7 @@ static void flush_send_queue(struct cardstate *cs)
+ 	spin_unlock_irqrestore(&cs->cmdlock, flags);
  
--		if (ch->xid_skb != NULL)
--			dev_kfree_skb_any(ch->xid_skb);
-+		dev_kfree_skb_any(ch->xid_skb);
+ 	/* data queue */
+-	if (cs->bcs->tx_skb)
+-		dev_kfree_skb_any(cs->bcs->tx_skb);
++	dev_kfree_skb_any(cs->bcs->tx_skb);
+ 	while ((skb = skb_dequeue(&cs->bcs->squeue)) != NULL)
+ 		dev_kfree_skb_any(skb);
+ }
+diff --git a/drivers/isdn/hisax/hfc_usb.c b/drivers/isdn/hisax/hfc_usb.c
+index 849a807..a1f8380 100644
+--- a/drivers/isdn/hisax/hfc_usb.c
++++ b/drivers/isdn/hisax/hfc_usb.c
+@@ -864,10 +864,8 @@ rx_int_complete(struct urb *urb)
+ 		    fifon, urb->status);
  
- 		ch->xid_skb = __dev_alloc_skb(MPC_BUFSIZE_DEFAULT,
- 					GFP_ATOMIC | GFP_DMA);
-@@ -1017,8 +1016,7 @@ void mpc_channel_action(struct channel *ch, int direction, int action)
- 		grp->num_channel_paths--;
- 		grp->active_channels[direction]--;
+ 		fifo->urb->interval = 0;	/* cancel automatic rescheduling */
+-		if (fifo->skbuff) {
+-			dev_kfree_skb_any(fifo->skbuff);
+-			fifo->skbuff = NULL;
+-		}
++		dev_kfree_skb_any(fifo->skbuff);
++		fifo->skbuff = NULL;
+ 		return;
+ 	}
+ 	len = urb->actual_length;
+diff --git a/drivers/isdn/hisax/icc.c b/drivers/isdn/hisax/icc.c
+index 51dae91..2c52996 100644
+--- a/drivers/isdn/hisax/icc.c
++++ b/drivers/isdn/hisax/icc.c
+@@ -549,10 +549,8 @@ ICC_l1hw(struct PStack *st, int pr, void *arg)
+ 	case (HW_DEACTIVATE | RESPONSE):
+ 		skb_queue_purge(&cs->rq);
+ 		skb_queue_purge(&cs->sq);
+-		if (cs->tx_skb) {
+-			dev_kfree_skb_any(cs->tx_skb);
+-			cs->tx_skb = NULL;
+-		}
++		dev_kfree_skb_any(cs->tx_skb);
++		cs->tx_skb = NULL;
+ 		if (test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags))
+ 			del_timer(&cs->dbusytimer);
+ 		if (test_and_clear_bit(FLG_L1_DBUSY, &cs->HW_Flags))
+diff --git a/drivers/isdn/hisax/ipacx.c b/drivers/isdn/hisax/ipacx.c
+index 5faa5de..55192a4 100644
+--- a/drivers/isdn/hisax/ipacx.c
++++ b/drivers/isdn/hisax/ipacx.c
+@@ -181,10 +181,8 @@ dch_l2l1(struct PStack *st, int pr, void *arg)
+ 	case (HW_DEACTIVATE | RESPONSE):
+ 		skb_queue_purge(&cs->rq);
+ 		skb_queue_purge(&cs->sq);
+-		if (cs->tx_skb) {
+-			dev_kfree_skb_any(cs->tx_skb);
+-			cs->tx_skb = NULL;
+-		}
++		dev_kfree_skb_any(cs->tx_skb);
++		cs->tx_skb = NULL;
+ 		if (test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags))
+ 			del_timer(&cs->dbusytimer);
+ 		break;
+diff --git a/drivers/isdn/hisax/isac.c b/drivers/isdn/hisax/isac.c
+index 7fdf78f..d0895f2 100644
+--- a/drivers/isdn/hisax/isac.c
++++ b/drivers/isdn/hisax/isac.c
+@@ -547,10 +547,8 @@ ISAC_l1hw(struct PStack *st, int pr, void *arg)
+ 	case (HW_DEACTIVATE | RESPONSE):
+ 		skb_queue_purge(&cs->rq);
+ 		skb_queue_purge(&cs->sq);
+-		if (cs->tx_skb) {
+-			dev_kfree_skb_any(cs->tx_skb);
+-			cs->tx_skb = NULL;
+-		}
++		dev_kfree_skb_any(cs->tx_skb);
++		cs->tx_skb = NULL;
+ 		if (test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags))
+ 			del_timer(&cs->dbusytimer);
+ 		if (test_and_clear_bit(FLG_L1_DBUSY, &cs->HW_Flags))
+diff --git a/drivers/isdn/hisax/st5481_b.c b/drivers/isdn/hisax/st5481_b.c
+index 4098491..b753aca 100644
+--- a/drivers/isdn/hisax/st5481_b.c
++++ b/drivers/isdn/hisax/st5481_b.c
+@@ -254,10 +254,8 @@ static void st5481B_mode(struct st5481_bcs *bcs, int mode)
+ 		} else {
+ 			st5481_usb_device_ctrl_msg(adapter, GPIO_OUT, adapter->leds, NULL, NULL);
+ 		}
+-		if (b_out->tx_skb) {
+-			dev_kfree_skb_any(b_out->tx_skb);
+-			b_out->tx_skb = NULL;
+-		}
++		dev_kfree_skb_any(b_out->tx_skb);
++		b_out->tx_skb = NULL;
  
--		if (ch->xid_skb != NULL)
--			dev_kfree_skb_any(ch->xid_skb);
-+		dev_kfree_skb_any(ch->xid_skb);
- 		ch->xid_skb = NULL;
- 
- 		if (grp->channels_terminating)
-diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index 0a328d0..7d33b94 100644
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -1282,10 +1282,8 @@ static void qeth_free_qdio_buffers(struct qeth_card *card)
- 
- 	qeth_free_cq(card);
- 	cancel_delayed_work_sync(&card->buffer_reclaim_work);
--	for (j = 0; j < QDIO_MAX_BUFFERS_PER_Q; ++j) {
--		if (card->qdio.in_q->bufs[j].rx_skb)
--			dev_kfree_skb_any(card->qdio.in_q->bufs[j].rx_skb);
--	}
-+	for (j = 0; j < QDIO_MAX_BUFFERS_PER_Q; ++j)
-+		dev_kfree_skb_any(card->qdio.in_q->bufs[j].rx_skb);
- 	kfree(card->qdio.in_q);
- 	card->qdio.in_q = NULL;
- 	/* inbound buffer pool */
+ 	}
+ }
+diff --git a/drivers/isdn/hisax/w6692.c b/drivers/isdn/hisax/w6692.c
+index a858955..dd1fbf4 100644
+--- a/drivers/isdn/hisax/w6692.c
++++ b/drivers/isdn/hisax/w6692.c
+@@ -653,10 +653,8 @@ W6692_l1hw(struct PStack *st, int pr, void *arg)
+ 	case (HW_DEACTIVATE | RESPONSE):
+ 		skb_queue_purge(&cs->rq);
+ 		skb_queue_purge(&cs->sq);
+-		if (cs->tx_skb) {
+-			dev_kfree_skb_any(cs->tx_skb);
+-			cs->tx_skb = NULL;
+-		}
++		dev_kfree_skb_any(cs->tx_skb);
++		cs->tx_skb = NULL;
+ 		if (test_and_clear_bit(FLG_DBUSY_TIMER, &cs->HW_Flags))
+ 			del_timer(&cs->dbusytimer);
+ 		if (test_and_clear_bit(FLG_L1_DBUSY, &cs->HW_Flags))
 -- 
 1.8.4.2
