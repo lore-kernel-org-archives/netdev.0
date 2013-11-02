@@ -1,41 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next] net: pkt_sched: PIE AQM scheme
-Date: Fri, 01 Nov 2013 17:56:38 -0700
-Message-ID: <1383353798.4291.24.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1383338722-6000-1-git-send-email-subramanian.vijay@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Pull request: sfc-next 2013-11-01
+Date: Sat, 2 Nov 2013 01:37:46 +0000
+Message-ID: <1383356266.1737.42.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
-	Mythili Prabhu <mysuryan@cisco.com>,
-	Dave Taht <dave.taht@bufferbloat.net>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:59681 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751894Ab3KBA4l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 20:56:41 -0400
-Received: by mail-pb0-f51.google.com with SMTP id xa12so1873909pbc.38
-        for <netdev@vger.kernel.org>; Fri, 01 Nov 2013 17:56:40 -0700 (PDT)
-In-Reply-To: <1383338722-6000-1-git-send-email-subramanian.vijay@gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:60185 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752718Ab3KBBhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Nov 2013 21:37:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-11-01 at 13:45 -0700, Vijay Subramanian wrote:
+The following changes since commit ba4865027c11d7ac8e5a33e0624dd415caab2027:
 
-> +
-> +	if (!drop_early(sch, skb->len)) {
-> +		/* we can enqueue the packet */
-> +		q->stats.packets_in++;
-> +
-> +		if (qdisc_qlen(sch) > q->stats.maxq)
-> +			q->stats.maxq = qdisc_qlen(sch);
-> +
-> +		return qdisc_enqueue_tail(skb, sch);
+  ipv6: remove the unnecessary statement in find_match() (2013-10-30 17:06:51 -0400)
 
-I am not sure why you mix skb->len and qdisc_len(skb)
+are available in the git repository at:
 
-Also, a default 200 packets limit sounds strange, was it actually tested
-on a 10Gb link ?
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
 
-Other than that, patch seems fine, thanks !
+for you to fetch changes up to 2acdb92e85412bf791a3c01f2173695b6e0a3f72:
+
+  sfc: Fix DMA unmapping issue with firmware assisted TSO (2013-10-31 20:58:14 +0000)
+
+A single fix by Alexandre Rames for the recent changes to TSO.
+
+Ben.
+
+----------------------------------------------------------------
+Alexandre Rames (1):
+      sfc: Fix DMA unmapping issue with firmware assisted TSO
+
+ drivers/net/ethernet/sfc/net_driver.h | 3 +++
+ drivers/net/ethernet/sfc/tx.c         | 7 +++++--
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
