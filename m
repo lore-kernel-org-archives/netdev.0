@@ -1,44 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/6] qlcnic: Replace kzalloc() with vzalloc().
-Date: Sat, 02 Nov 2013 01:14:59 -0400 (EDT)
-Message-ID: <20131102.011459.236177037024354702.davem@davemloft.net>
-References: <cover.1383358893.git.himanshu.madhani@qlogic.com>
-	<4e485cb2ec05e3cae68fbf59a0f1597a95098a76.1383358893.git.himanshu.madhani@qlogic.com>
+Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Sat, 02 Nov 2013 01:17:37 -0400 (EDT)
+Message-ID: <20131102.011737.1955492435748210229.davem@davemloft.net>
+References: <1383314210-24289-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	manish.chopra@qlogic.com
-To: himanshu.madhani@qlogic.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33697 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33716 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729Ab3KBFPG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 01:15:06 -0400
-In-Reply-To: <4e485cb2ec05e3cae68fbf59a0f1597a95098a76.1383358893.git.himanshu.madhani@qlogic.com>
+	with ESMTP id S1750729Ab3KBFRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 01:17:39 -0400
+In-Reply-To: <1383314210-24289-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Date: Fri, 1 Nov 2013 16:51:25 -0400
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri,  1 Nov 2013 06:56:44 -0700
 
-> From: Manish Chopra <manish.chopra@qlogic.com>
+> This series contains updates to e1000, igb, ixgbe and ixgbevf.
 > 
-> o Some of the places kzalloc() is not required. Replace it
->   with vzalloc() wherever it is not used appropriately
+> Hong Zhiguo provides a fix for e1000 where tx_ring and adapter->tx_ring
+> are already of type "struct e1000_tx_ring" so no need to divide by
+> e1000_tx_ring size in the idx calculation.
 > 
-> Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-> Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+> Emil provides a fix for ixgbevf to remove a redundant workaround related
+> to header split and a fix for ixgbe to resolve an issue where the MTA table
+> can be cleared when the interface is reset while in promisc mode.
+> 
+> Todd provides a fix for igb to prevent ethtool from writing to the iNVM
+> in i210/i211 devices.  This issue was reported by Marek Vasut <marex@denx.de>.
+> 
+> Anton Blanchard provides a fix for ixgbe to reduce memory consumption
+> with larger page sizes, seen on PPC.
+> 
+> Don provides a cleanup in ixgbe to replace the IXGBE_DESC_UNUSED macro with
+> the inline function ixgbevf_desc_unused() to make the logic a bit more
+> readable.
 
-This commit message is terrible.
-
-In what way is kzalloc() inappropriate for these allocations?
-
-Many of them are quite small, and vzalloc() is completely inappropriate
-to use in such cases.
-
-You should only use vzalloc() for HUGE allocations, those which
-kzalloc() is unable to satisfy.  Many cases changed here in this
-patch do not meet that criteria.
-
-I'm tossing this entire patch series.
+Pulled, thanks a lot Jeff.
