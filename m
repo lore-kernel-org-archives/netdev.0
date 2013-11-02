@@ -1,90 +1,220 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net-next 09/11] openvswitch: Widen TCP flags handling.
-Date: Sat,  2 Nov 2013 00:43:48 -0700
-Message-ID: <1383378230-59624-10-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 10/11] openvswitch: TCP flags matching support.
+Date: Sat,  2 Nov 2013 00:43:49 -0700
+Message-ID: <1383378230-59624-11-git-send-email-jesse@nicira.com>
 References: <1383378230-59624-1-git-send-email-jesse@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, dev@openvswitch.org,
 	Jarno Rajahalme <jrajahalme@nicira.com>,
 	Jesse Gross <jesse@nicira.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog101.obsmtp.com ([74.125.149.67]:45140 "HELO
-	na3sys009aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754648Ab3KBVyO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 17:54:14 -0400
-Received: by mail-pd0-f178.google.com with SMTP id x10so5243556pdj.37
-        for <netdev@vger.kernel.org>; Sat, 02 Nov 2013 14:54:14 -0700 (PDT)
+Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:43106 "HELO
+	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754648Ab3KBVy3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 17:54:29 -0400
+Received: by mail-pd0-f180.google.com with SMTP id p10so5201656pdj.39
+        for <netdev@vger.kernel.org>; Sat, 02 Nov 2013 14:54:28 -0700 (PDT)
 In-Reply-To: <1383378230-59624-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarno Rajahalme <jrajahalme@nicira.com>
+=46rom: Jarno Rajahalme <jrajahalme@nicira.com>
 
-Widen TCP flags handling from 7 bits (uint8_t) to 12 bits (uint16_t).
-The kernel interface remains at 8 bits, which makes no functional
-difference now, as none of the higher bits is currently of interest
-to the userspace.
+    tcp_flags=3Dflags/mask
+        Bitwise  match on TCP flags.  The flags and mask are 16-bit num=
+=E2=80=90
+        bers written in decimal or in hexadecimal prefixed by 0x.   Eac=
+h
+        1-bit  in  mask requires that the corresponding bit in port mus=
+t
+        match.  Each 0-bit in mask causes the corresponding  bit  to  b=
+e
+        ignored.
+
+        TCP  protocol  currently  defines  9 flag bits, and additional =
+3
+        bits are reserved (must be transmitted as zero), see  RFCs  793=
+,
+        3168, and 3540.  The flag bits are, numbering from the least
+        significant bit:
+
+        0: FIN No more data from sender.
+
+        1: SYN Synchronize sequence numbers.
+
+        2: RST Reset the connection.
+
+        3: PSH Push function.
+
+        4: ACK Acknowledgement field significant.
+
+        5: URG Urgent pointer field significant.
+
+        6: ECE ECN Echo.
+
+        7: CWR Congestion Windows Reduced.
+
+        8: NS  Nonce Sum.
+
+        9-11:  Reserved.
+
+        12-15: Not matchable, must be zero.
 
 Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- net/openvswitch/datapath.c | 2 +-
- net/openvswitch/flow.c     | 8 +++-----
- net/openvswitch/flow.h     | 2 +-
- 3 files changed, 5 insertions(+), 7 deletions(-)
+ include/uapi/linux/openvswitch.h |  1 +
+ net/openvswitch/flow.c           |  2 ++
+ net/openvswitch/flow.h           |  2 ++
+ net/openvswitch/flow_netlink.c   | 31 +++++++++++++++++++++++++++++--
+ 4 files changed, 34 insertions(+), 2 deletions(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 5bc5a4e..1408adc 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -671,7 +671,7 @@ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
- 	used = flow->used;
- 	stats.n_packets = flow->packet_count;
- 	stats.n_bytes = flow->byte_count;
--	tcp_flags = flow->tcp_flags;
-+	tcp_flags = (u8)ntohs(flow->tcp_flags);
- 	spin_unlock_bh(&flow->lock);
- 
- 	if (used &&
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/open=
+vswitch.h
+index 2cc4644..d120f9f 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -271,6 +271,7 @@ enum ovs_key_attr {
+ 	OVS_KEY_ATTR_SKB_MARK,  /* u32 skb mark */
+ 	OVS_KEY_ATTR_TUNNEL,    /* Nested set of ovs_tunnel attributes */
+ 	OVS_KEY_ATTR_SCTP,      /* struct ovs_key_sctp */
++	OVS_KEY_ATTR_TCP_FLAGS,	/* be16 TCP flags. */
+=20
+ #ifdef __KERNEL__
+ 	OVS_KEY_ATTR_IPV4_TUNNEL,  /* struct ovs_key_ipv4_tunnel */
 diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 617810f..b73c768 100644
+index b73c768..b409f52 100644
 --- a/net/openvswitch/flow.c
 +++ b/net/openvswitch/flow.c
-@@ -58,19 +58,17 @@ u64 ovs_flow_used_time(unsigned long flow_jiffies)
- 	return cur_ms - idle_ms;
- }
- 
--#define TCP_FLAGS_OFFSET 13
--#define TCP_FLAG_MASK 0x3f
-+#define TCP_FLAGS_BE16(tp) (*(__be16 *)&tcp_flag_word(tp) & htons(0x0FFF))
- 
- void ovs_flow_used(struct sw_flow *flow, struct sk_buff *skb)
- {
--	u8 tcp_flags = 0;
-+	__be16 tcp_flags = 0;
- 
- 	if ((flow->key.eth.type == htons(ETH_P_IP) ||
- 	     flow->key.eth.type == htons(ETH_P_IPV6)) &&
- 	    flow->key.ip.proto == IPPROTO_TCP &&
- 	    likely(skb->len >= skb_transport_offset(skb) + sizeof(struct tcphdr))) {
--		u8 *tcp = (u8 *)tcp_hdr(skb);
--		tcp_flags = *(tcp + TCP_FLAGS_OFFSET) & TCP_FLAG_MASK;
-+		tcp_flags = TCP_FLAGS_BE16(tcp_hdr(skb));
- 	}
- 
- 	spin_lock(&flow->lock);
+@@ -428,6 +428,7 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_po=
+rt, struct sw_flow_key *key)
+ 				struct tcphdr *tcp =3D tcp_hdr(skb);
+ 				key->ipv4.tp.src =3D tcp->source;
+ 				key->ipv4.tp.dst =3D tcp->dest;
++				key->ipv4.tp.flags =3D TCP_FLAGS_BE16(tcp);
+ 			}
+ 		} else if (key->ip.proto =3D=3D IPPROTO_UDP) {
+ 			if (udphdr_ok(skb)) {
+@@ -496,6 +497,7 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_po=
+rt, struct sw_flow_key *key)
+ 				struct tcphdr *tcp =3D tcp_hdr(skb);
+ 				key->ipv6.tp.src =3D tcp->source;
+ 				key->ipv6.tp.dst =3D tcp->dest;
++				key->ipv6.tp.flags =3D TCP_FLAGS_BE16(tcp);
+ 			}
+ 		} else if (key->ip.proto =3D=3D NEXTHDR_UDP) {
+ 			if (udphdr_ok(skb)) {
 diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index 098fd1d..204e0cc 100644
+index 204e0cc..1510f51 100644
 --- a/net/openvswitch/flow.h
 +++ b/net/openvswitch/flow.h
-@@ -158,7 +158,7 @@ struct sw_flow {
- 	unsigned long used;	/* Last used time (in jiffies). */
- 	u64 packet_count;	/* Number of packets matched. */
- 	u64 byte_count;		/* Number of bytes matched. */
--	u8 tcp_flags;		/* Union of seen TCP flags. */
-+	__be16 tcp_flags;	/* Union of seen TCP flags. */
- };
- 
- struct arp_eth_header {
--- 
+@@ -93,6 +93,7 @@ struct sw_flow_key {
+ 				struct {
+ 					__be16 src;		/* TCP/UDP/SCTP source port. */
+ 					__be16 dst;		/* TCP/UDP/SCTP destination port. */
++					__be16 flags;		/* TCP flags. */
+ 				} tp;
+ 				struct {
+ 					u8 sha[ETH_ALEN];	/* ARP source hardware address. */
+@@ -109,6 +110,7 @@ struct sw_flow_key {
+ 			struct {
+ 				__be16 src;		/* TCP/UDP/SCTP source port. */
+ 				__be16 dst;		/* TCP/UDP/SCTP destination port. */
++				__be16 flags;		/* TCP flags. */
+ 			} tp;
+ 			struct {
+ 				struct in6_addr target;	/* ND target address. */
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netl=
+ink.c
+index e04649c..2bc1bc1 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -114,6 +114,7 @@ static bool match_validate(const struct sw_flow_mat=
+ch *match,
+ 	mask_allowed &=3D ~((1 << OVS_KEY_ATTR_IPV4)
+ 			| (1 << OVS_KEY_ATTR_IPV6)
+ 			| (1 << OVS_KEY_ATTR_TCP)
++			| (1 << OVS_KEY_ATTR_TCP_FLAGS)
+ 			| (1 << OVS_KEY_ATTR_UDP)
+ 			| (1 << OVS_KEY_ATTR_SCTP)
+ 			| (1 << OVS_KEY_ATTR_ICMP)
+@@ -154,8 +155,11 @@ static bool match_validate(const struct sw_flow_ma=
+tch *match,
+=20
+ 			if (match->key->ip.proto =3D=3D IPPROTO_TCP) {
+ 				key_expected |=3D 1 << OVS_KEY_ATTR_TCP;
+-				if (match->mask && (match->mask->key.ip.proto =3D=3D 0xff))
++				key_expected |=3D 1 << OVS_KEY_ATTR_TCP_FLAGS;
++				if (match->mask && (match->mask->key.ip.proto =3D=3D 0xff)) {
+ 					mask_allowed |=3D 1 << OVS_KEY_ATTR_TCP;
++					mask_allowed |=3D 1 << OVS_KEY_ATTR_TCP_FLAGS;
++				}
+ 			}
+=20
+ 			if (match->key->ip.proto =3D=3D IPPROTO_ICMP) {
+@@ -186,8 +190,11 @@ static bool match_validate(const struct sw_flow_ma=
+tch *match,
+=20
+ 			if (match->key->ip.proto =3D=3D IPPROTO_TCP) {
+ 				key_expected |=3D 1 << OVS_KEY_ATTR_TCP;
+-				if (match->mask && (match->mask->key.ip.proto =3D=3D 0xff))
++				key_expected |=3D 1 << OVS_KEY_ATTR_TCP_FLAGS;
++				if (match->mask && (match->mask->key.ip.proto =3D=3D 0xff)) {
+ 					mask_allowed |=3D 1 << OVS_KEY_ATTR_TCP;
++					mask_allowed |=3D 1 << OVS_KEY_ATTR_TCP_FLAGS;
++				}
+ 			}
+=20
+ 			if (match->key->ip.proto =3D=3D IPPROTO_ICMPV6) {
+@@ -235,6 +242,7 @@ static const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1]=
+ =3D {
+ 	[OVS_KEY_ATTR_IPV4] =3D sizeof(struct ovs_key_ipv4),
+ 	[OVS_KEY_ATTR_IPV6] =3D sizeof(struct ovs_key_ipv6),
+ 	[OVS_KEY_ATTR_TCP] =3D sizeof(struct ovs_key_tcp),
++	[OVS_KEY_ATTR_TCP_FLAGS] =3D sizeof(__be16),
+ 	[OVS_KEY_ATTR_UDP] =3D sizeof(struct ovs_key_udp),
+ 	[OVS_KEY_ATTR_SCTP] =3D sizeof(struct ovs_key_sctp),
+ 	[OVS_KEY_ATTR_ICMP] =3D sizeof(struct ovs_key_icmp),
+@@ -634,6 +642,19 @@ static int ovs_key_from_nlattrs(struct sw_flow_mat=
+ch *match,  u64 attrs,
+ 		attrs &=3D ~(1 << OVS_KEY_ATTR_TCP);
+ 	}
+=20
++	if (attrs & (1 << OVS_KEY_ATTR_TCP_FLAGS)) {
++		if (orig_attrs & (1 << OVS_KEY_ATTR_IPV4)) {
++			SW_FLOW_KEY_PUT(match, ipv4.tp.flags,
++					nla_get_be16(a[OVS_KEY_ATTR_TCP_FLAGS]),
++					is_mask);
++		} else {
++			SW_FLOW_KEY_PUT(match, ipv6.tp.flags,
++					nla_get_be16(a[OVS_KEY_ATTR_TCP_FLAGS]),
++					is_mask);
++		}
++		attrs &=3D ~(1 << OVS_KEY_ATTR_TCP_FLAGS);
++	}
++
+ 	if (attrs & (1 << OVS_KEY_ATTR_UDP)) {
+ 		const struct ovs_key_udp *udp_key;
+=20
+@@ -1004,9 +1025,15 @@ int ovs_nla_put_flow(const struct sw_flow_key *s=
+wkey,
+ 			if (swkey->eth.type =3D=3D htons(ETH_P_IP)) {
+ 				tcp_key->tcp_src =3D output->ipv4.tp.src;
+ 				tcp_key->tcp_dst =3D output->ipv4.tp.dst;
++				if (nla_put_be16(skb, OVS_KEY_ATTR_TCP_FLAGS,
++						 output->ipv4.tp.flags))
++					goto nla_put_failure;
+ 			} else if (swkey->eth.type =3D=3D htons(ETH_P_IPV6)) {
+ 				tcp_key->tcp_src =3D output->ipv6.tp.src;
+ 				tcp_key->tcp_dst =3D output->ipv6.tp.dst;
++				if (nla_put_be16(skb, OVS_KEY_ATTR_TCP_FLAGS,
++						 output->ipv6.tp.flags))
++					goto nla_put_failure;
+ 			}
+ 		} else if (swkey->ip.proto =3D=3D IPPROTO_UDP) {
+ 			struct ovs_key_udp *udp_key;
+--=20
 1.8.3.2
