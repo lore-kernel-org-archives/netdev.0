@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net): ipsec 2013-11-01
-Date: Sat, 02 Nov 2013 01:22:56 -0400 (EDT)
-Message-ID: <20131102.012256.1806070941734948930.davem@davemloft.net>
-References: <1383294107-7509-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next 0/2] cdc_mbim workarounds for firmware bugs
+Date: Sat, 02 Nov 2013 01:30:12 -0400 (EDT)
+Message-ID: <20131102.013012.722023816896482451.davem@davemloft.net>
+References: <1383231371-8098-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, alexey.orishko@gmail.com,
+	gsuarez@smithmicro.com
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33744 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33766 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751175Ab3KBFW5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 01:22:57 -0400
-In-Reply-To: <1383294107-7509-1-git-send-email-steffen.klassert@secunet.com>
+	with ESMTP id S1750805Ab3KBFaO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 01:30:14 -0400
+In-Reply-To: <1383231371-8098-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Fri,  1 Nov 2013 09:21:44 +0100
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Thu, 31 Oct 2013 15:56:09 +0100
 
-> 1) Fix a possible race on ipcomp scratch buffers because
->    of too early enabled siftirqs. From Michal Kubecek.
-> 
-> 2) The current xfrm garbage collector threshold is too small
->    for some workloads, resulting in bad performance on these
->    workloads. Increase the threshold from 1024 to 32768.
-> 
-> 3) Some codepaths might not have a dst_entry attached to the
->    skb when calling xfrm_decode_session(). So add a check
->    to prevent a null pointer dereference in this case.
-> 
-> Please pull or let me know if there are problems.
+> The first patch is an attempt to work around a bug which prevents
+> some devices from working with IPv6. I guess handling ND in a driver
+> can be considered controversial, but it was the best alternative I
+> came up with.
+>=20
+> The second is the "final solution" to the well known ZLP bug, which
+> as we feared is present in a number of devices using different
+> vendor IDs. Enabling this is definitely controversial, but I do not
+> see any other possible solution.  The blacklist has become
+> unmanagable, and I am pretty sure it is very incomplete due to
+> under-reporting.  Devices known to work without ZLPs can be added
+> to the whitelist.
 
-Pulled, thanks a lot Steffen!
+This seems fine, both applied, thanks.
