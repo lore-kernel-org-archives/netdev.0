@@ -1,7 +1,7 @@
 From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
-Subject: [PATCH net-next 11/13] driver: usb: remove unnecessary NULL check before dev_kfree_skb_any
-Date: Sat,  2 Nov 2013 19:17:52 +0530
-Message-ID: <1383400074-30555-12-git-send-email-govindarajulu90@gmail.com>
+Subject: [PATCH net-next 12/13] driver: net: fix space before '(' and remove extra variable
+Date: Sat,  2 Nov 2013 19:17:53 +0530
+Message-ID: <1383400074-30555-13-git-send-email-govindarajulu90@gmail.com>
 References: <1383400074-30555-1-git-send-email-govindarajulu90@gmail.com>
 Cc: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
 To: davem@davemloft.net, gregkh@linuxfoundation.org,
@@ -13,42 +13,52 @@ To: davem@davemloft.net, gregkh@linuxfoundation.org,
 	jcliburn@gmail.com, benve@cisco.com, ssujith@cisco.com,
 	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
 	shahed.shaikh@qlogic.com, joe@perches.com, apw@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:51240 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754076Ab3KBNt3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 09:49:29 -0400
 In-Reply-To: <1383400074-30555-1-git-send-email-govindarajulu90@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-dev_kfree_skb_any is protected from NULL. No need to check for NULL
-while calling this function.
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
 ---
- drivers/usb/gadget/u_ether.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/sgi/ioc3-eth.c | 4 +---
+ drivers/net/usb/usbnet.c            | 2 +-
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/usb/gadget/u_ether.c b/drivers/usb/gadget/u_ether.c
-index 2aae0d6..3b61ac6 100644
---- a/drivers/usb/gadget/u_ether.c
-+++ b/drivers/usb/gadget/u_ether.c
-@@ -251,8 +251,7 @@ enomem:
- 		defer_kevent(dev, WORK_RX_MEMORY);
- 	if (retval) {
- 		DBG(dev, "rx submit --> %d\n", retval);
--		if (skb)
--			dev_kfree_skb_any(skb);
-+		dev_kfree_skb_any(skb);
- 		spin_lock_irqsave(&dev->req_lock, flags);
- 		list_add(&req->list, &dev->rx_reqs);
- 		spin_unlock_irqrestore(&dev->req_lock, flags);
-@@ -339,8 +338,7 @@ quiesce:
- 		break;
- 	}
+diff --git a/drivers/net/ethernet/sgi/ioc3-eth.c b/drivers/net/ethernet/sgi/ioc3-eth.c
+index 6bd90f2..80dcfd9 100644
+--- a/drivers/net/ethernet/sgi/ioc3-eth.c
++++ b/drivers/net/ethernet/sgi/ioc3-eth.c
+@@ -851,13 +851,11 @@ static inline void ioc3_clean_rx_ring(struct ioc3_private *ip)
  
--	if (skb)
+ static inline void ioc3_clean_tx_ring(struct ioc3_private *ip)
+ {
+-	struct sk_buff *skb;
+ 	int i;
+ 
+ 	for (i=0; i < 128; i++) {
+-		skb = ip->tx_skbs[i];
++		dev_kfree_skb_any(ip->tx_skbs[i]);
+ 		ip->tx_skbs[i] = NULL;
 -		dev_kfree_skb_any(skb);
-+	dev_kfree_skb_any(skb);
- 	if (!netif_running(dev->net)) {
- clean:
- 		spin_lock(&dev->req_lock);
+ 		ip->txr[i].cmd = 0;
+ 	}
+ 	ip->tx_pi = 0;
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index b37f812..bd18155 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1377,7 +1377,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ drop:
+ 		dev->net->stats.tx_dropped++;
+ not_drop:
+-		dev_kfree_skb_any (skb);
++		dev_kfree_skb_any(skb);
+ 		if (urb) {
+ 			kfree(urb->sg);
+ 			usb_free_urb(urb);
 -- 
 1.8.4.2
