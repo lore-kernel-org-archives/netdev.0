@@ -1,30 +1,34 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL] Second Round of IPVS updates for v3.13
-Date: Sun, 3 Nov 2013 22:35:28 +0100
-Message-ID: <20131103213528.GA10509@localhost>
-References: <1383095486-5215-1-git-send-email-horms@verge.net.au>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] net: flow_dissector: fail on evil iph->ihl
+Date: Sun, 03 Nov 2013 23:18:22 +0100
+Message-ID: <5276CBAE.8010301@redhat.com>
+References: <1383289270-18952-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1383095486-5215-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Petr Matousek <pmatouse@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1383289270-18952-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 30, 2013 at 10:11:24AM +0900, Simon Horman wrote:
-[...]
-> The following changes since commit 6b8dbcf2c44fd7aa716560d04e9857c870bd510c:
-> 
->   bridge: netfilter: orphan skb before invoking ip netfilter hooks (2013-10-27 21:44:33 +0100)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs2-for-v3.13
+On 11/01/2013 08:01 AM, Jason Wang wrote:
+> We don't validate iph->ihl which may lead a dead loop if we meet a IPIP
+> skb whose iph->ihl is zero. Fix this by failing immediately when iph->ihl
+> is evil (less than 5).
+>
+> This issue were introduced by commit ec5efe7946280d1e84603389a1030ccec0a767ae
+> (rps: support IPIP encapsulation).
+>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Petr Matousek <pmatouse@redhat.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Pulled, thanks Simon.
+Sorry, a bit late as I was offline last 4 days, but fwiw:
+
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
