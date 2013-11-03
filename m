@@ -1,66 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Kernel crash - Large UDP packet over IPv6 over UFO-enabled device with TBF qdisc (No corking needed)
-Date: Sun, 3 Nov 2013 04:32:07 +0100
-Message-ID: <20131103033207.GF30284@order.stressinduktion.org>
-References: <4BC5337E23A5EE4A96D91D9DABA8FAE55E440B568D@WP40068.corp.ads>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH v3 net-next] net: pkt_sched: PIE AQM scheme
+Date: Sat, 2 Nov 2013 22:38:03 -0700
+Message-ID: <CAGK4HS-3r77+dk=k78WFC_ppg3cTgR+MwwDX2+Uuqrwb2K_V5w@mail.gmail.com>
+References: <1383338722-6000-1-git-send-email-subramanian.vijay@gmail.com>
+	<1383353798.4291.24.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	pshelar@nicira.com,
-	dl TSL Vulnerability Research Team
-	<tsl-vulnerability-research@telus.com>
-To: Saran Neti <Saran.Neti@telus.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Mythili Prabhu <mysuryan@cisco.com>,
+	Dave Taht <dave.taht@bufferbloat.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:46117 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751611Ab3KCDcJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Nov 2013 23:32:09 -0400
-Content-Disposition: inline
-In-Reply-To: <4BC5337E23A5EE4A96D91D9DABA8FAE55E440B568D@WP40068.corp.ads>
+Received: from mail-vc0-f180.google.com ([209.85.220.180]:47163 "EHLO
+	mail-vc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750931Ab3KCFiG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Nov 2013 01:38:06 -0400
+Received: by mail-vc0-f180.google.com with SMTP id lc6so3829460vcb.39
+        for <netdev@vger.kernel.org>; Sat, 02 Nov 2013 22:38:05 -0700 (PDT)
+In-Reply-To: <1383353798.4291.24.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pravin,
+Thanks for the reviews, Eric.
 
-Could you have a look at this bug?
+>> +
+>> +             return qdisc_enqueue_tail(skb, sch);
+>
+> I am not sure why you mix skb->len and qdisc_len(skb)
 
-On Tue, Oct 29, 2013 at 10:30:34AM -0400, Saran Neti wrote:
-> Sending a UDP packet of size larger than MTU over IPv6 over a device that has UFO enabled, and that uses the TBF qdisc causes the kernel to crash. Unlike CVE-2013-4387, this does not require a corked socket and can be remotely triggered by a tftp request. 
+I will refactor the code to update the stats more cleanly.
 
-It seems it got introduced with this commit:
+>
+> Also, a default 200 packets limit sounds strange, was it actually tested
+> on a 10Gb link ?
+>
+No. It was tested on 1 Gbps link. Increasing limit to a default of
+1000 should be fine.
+I will send v4 after some tests to make sure nothing breaks.
 
-commit 1e2bd517c108816220f262d7954b697af03b5f9c
-Author: Pravin B Shelar <pshelar@nicira.com>
-Date:   Thu May 30 06:45:27 2013 +0000
-
-    udp6: Fix udp fragmentation for tunnel traffic.
-    
-    udp6 over GRE tunnel does not work after to GRE tso changes. GRE
-    tso handler passes inner packet but keeps track of outer header
-    start in SKB_GSO_CB(skb)->mac_offset.  udp6 fragment need to
-    take care of outer header, which start at the mac_offset, while
-    adding fragment header.
-    This bug is introduced by commit 68c3316311 (GRE: Add TCP
-    segmentation offload for GRE).
-
-It seems we don't check for the correct headroom. ->data currently points
-to transport_header, so use of skb_headlen seems wrong.
-
-Following diff fixes the problem:
-
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -90,7 +90,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 
-                /* Check if there is enough headroom to insert fragment header. */
-                tnl_hlen = skb_tnl_header_len(skb);
--               if (skb_headroom(skb) < (tnl_hlen + frag_hdr_sz)) {
-+               if (skb->mac_header < (tnl_hlen + frag_hdr_sz)) {
-                        if (gso_pskb_expand_head(skb, tnl_hlen + frag_hdr_sz))
-                                goto out;
-                }
-
-
-Greetings,
-
-  Hannes
+Thanks,
+Vijay
