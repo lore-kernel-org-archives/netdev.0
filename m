@@ -1,45 +1,43 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v2] ipv6: remove old conditions on flow label sharing
-Date: Mon, 4 Nov 2013 00:17:08 +0100
-Message-ID: <20131103231708.GA8832@order.stressinduktion.org>
-References: <1383400507-12604-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] net: introduce gro_frag_list_enable sysctl
+Date: Sun, 03 Nov 2013 18:19:48 -0500 (EST)
+Message-ID: <20131103.181948.987234612453632341.davem@davemloft.net>
+References: <CAPshTCgykFMa=4rnQ3TKa2cfgWYj4TgByO2GbzLzq71Y_=oc=Q@mail.gmail.com>
+	<20131029.223331.1745589461091527596.davem@davemloft.net>
+	<44571383414236@web13j.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hkchu@google.com, herbert@gondor.apana.org.au,
+	eric.dumazet@gmail.com, christoph.paasch@uclouvain.be,
+	netdev@vger.kernel.org, mwdalton@google.com
+To: sysoleg@yandex.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47369 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751957Ab3KCXRJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Nov 2013 18:17:09 -0500
-Content-Disposition: inline
-In-Reply-To: <1383400507-12604-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47231 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750729Ab3KCXTx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Nov 2013 18:19:53 -0500
+In-Reply-To: <44571383414236@web13j.yandex.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 02, 2013 at 02:55:07PM +0100, Florent Fourcot wrote:
-> The code of flow label in Linux Kernel follows
-> the rules of RFC 1809 (an informational one) for
-> conditions on flow label sharing. There rules are
-> not in the last proposed standard for flow label
-> (RFC 6437), or in the previous one (RFC 3697).
-> 
-> Since this code does not follow any current or
-> old standard, we can remove it.
-> 
-> With this removal, the ipv6_opt_cmp function is
-> now a dead code and it can be removed too.
-> 
-> Changelog to v1:
->  * add justification for the change
->  * remove the condition on IPv6 options
-> 
-> Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+From: Oleg A. Arkhangelsky <sysoleg@yandex.ru>
+Date: Sat, 02 Nov 2013 21:43:56 +0400
 
-Yup, makes sense.
+> 30.10.2013, 06:33, "David Miller" <davem@davemloft.net>:
+> 
+>> GRO should always win, even on a router, because it decreases the
+>> number of fundamental operations (routing lookups) that the stack
+>> needs to perform.
+> 
+> Yes, unless the case when you're using Linux as IP router which is
+> forwarding 500K mixed IP (TCP and UDP) flows traffic @ 10-20 Gbit/s.
+> Then GRO is unnecessarily overhead, cause there's no possibility to
+> accumulate adequate GRO list in such scenario.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+If it's not accumulating, then there really isn't much cost because
+the bulk of the code paths are short circuited when the flow IDs do
+not match.
 
-Thanks,
-
-  Hannes
+We touch these packet headers to forward anyways, and that is the bulk
+of the cost.
