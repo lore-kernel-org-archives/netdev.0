@@ -1,52 +1,60 @@
-From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [patch -next] mlx5_core: warn if no space left in alloc_4k()
-Date: Sun, 3 Nov 2013 09:03:27 +0200
-Message-ID: <20131103070326.GA3051@mtldesk30>
-References: <20131101102044.GB29795@longonot.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20131101102044.GB29795-dZEljifmRObu9KfB+GxooP8+0UxHXcjY@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 0/9] Mellanox driver updates
+Date: Sun,  3 Nov 2013 10:03:16 +0200
+Message-ID: <1383465805-28640-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, roland@kernel.org,
+	jackm@dev.mellanox.co.il, Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:37873 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752014Ab3KCIDc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Nov 2013 03:03:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 01, 2013 at 01:20:44PM +0300, Dan Carpenter wrote:
-> The warning was unreachable.  In the original code, it would print the
-> line number and the function but I have added an error message.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
-> I haven't tested this, hopefully the warning is not annoying.
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-> index ba816c2..cb86265 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-> @@ -193,8 +193,8 @@ static int alloc_4k(struct mlx5_core_dev *dev, u64 *addr)
->  	unsigned n;
->  
->  	if (list_empty(&dev->priv.free_list)) {
-> +		mlx5_core_warn(dev, "no available space\n");
->  		return -ENOMEM;
-> -		mlx5_core_warn(dev, "\n");
->  	}
+Hi Dave, 
 
-What we really need to do here is silently return -ENOMEM. The list
-can be found empty on a regular basis so we don't want to flood dmesg
-with annoying messages. The statement was probably left there from a
-previous debug cycle.
+This patch set from Jack Morgenstein does the following:
 
->  
->  	fp = list_entry(dev->priv.free_list.next, struct fw_page, list);
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1. Fix MAC/VLAN SRIOV implementation, and add wrapper functions for VLAN allocation
+   and de-allocation (patches 1-6).
+
+2. Implements resource quotas when running under SRIOV (patches 7-10).
+   Patch 7 is a small bug fix, and patches 8-10 implement the quotas.
+
+Quotas are implemented per resource type for VFs and the PF, to prevent
+any entity from simply grabbing all the resources for itself and leaving
+the other entities unable to obtain such resources.
+
+The series is against net-next commit ba48650 "ipv6: remove the unnecessary statement in find_match()"
+
+changes from V0:
+ - dropped the 1st patch which needs to go to -stable and hence through net, 
+   not net-next   
+
+Or.
+
+Jack Morgenstein (9):
+  net/mlx4_core: Fix register/unreg vlan flow
+  net/mlx4_core: Fix reg/unreg vlan/mac to conform to the firmware spec
+  net/mlx4_en: Use vlan id instead of vlan index for unregistration
+  net/mlx4_core: Resource tracker for reg/unreg vlans
+  net/mlx4_core: Don't fail reg/unreg vlan for older guests
+  net/mlx4_core: Fix checking order in MR table init
+  mlx4: Structures and init/teardown for VF resource quotas
+  net/mlx4_core: Fix quota handling in the QUERY_FUNC_CAP wrapper
+  net/mlx4_core: Implement resource quota enforcement
+
+ drivers/infiniband/hw/mlx4/main.c                  |    8 +-
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |    3 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c            |   99 +++--
+ drivers/net/ethernet/mellanox/mlx4/main.c          |   32 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   21 +-
+ drivers/net/ethernet/mellanox/mlx4/mr.c            |    6 +-
+ drivers/net/ethernet/mellanox/mlx4/port.c          |   87 ++--
+ drivers/net/ethernet/mellanox/mlx4/qp.c            |    3 +-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  510 ++++++++++++++++++--
+ include/linux/mlx4/device.h                        |   20 +-
+ 11 files changed, 675 insertions(+), 120 deletions(-)
