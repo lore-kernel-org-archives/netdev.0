@@ -1,87 +1,77 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [virtio-net] BUG: sleeping function called from invalid context
-	at kernel/mutex.c:616
-Date: Sun, 3 Nov 2013 22:28:17 +0800
-Message-ID: <20131103142817.GA7641@localhost>
-References: <20131020023418.GA6737@localhost>
- <526638D4.1030403@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next] net: introduce dev_set_forwarding()
+Date: Sun, 03 Nov 2013 08:28:24 -0800
+Message-ID: <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131029090849.GC5944@cpaasch-mac>
+	 <1383051962.5464.25.camel@edumazet-glaptop.roam.corp.google.com>
+	 <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131029.194446.2215574000648693370.davem@davemloft.net>
+	 <1383091610.1534.29.camel@bwh-desktop.uk.level5networks.com>
+	 <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131103122824.GA17394@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>, "David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <526638D4.1030403@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:48037 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751139Ab3KCQ21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Nov 2013 11:28:27 -0500
+Received: by mail-pa0-f43.google.com with SMTP id hz1so5990678pad.16
+        for <netdev@vger.kernel.org>; Sun, 03 Nov 2013 08:28:26 -0800 (PST)
+In-Reply-To: <20131103122824.GA17394@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I noticed that this fix is still not upstreamed. Any chance to push it
-to Linus before the 3.12 release?
+On Sun, 2013-11-03 at 20:28 +0800, Herbert Xu wrote:
+> On Sat, Nov 02, 2013 at 07:01:37AM -0700, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Christoph Paasch and Jerry Chu reported crashes in skb_segment() caused
+> > by commit 8a29111c7ca6 ("net: gro: allow to build full sized skb")
+> > 
+> > skb_segment() only deals with a frag_list chain containing MSS sized
+> > fragments. Even if we fix this problem, its better if GRO layer
+> > doesn't build skb with a frag_list in the first place, to let TSO
+> > packets reaching output devices.
+> >  
+> > David Miller and Ben Hutchings suggested we keep track of number of
+> > forwarding users to be able to :
+> > 
+> > - Disable LRO
+> > - Make sure GRO layer do not use skb frag_list to extend skb capacity
+> 
+> Why are we still doing this instead of fixing skb_segment to
+> deal with skb frag_list properly?
+> 
+> LRO is legacy code and we should not be adding similar cruft
+> to GRO.
 
-> >From 01e6c3f71c202aa02e4feda169e7cc9fb24193f5 Mon Sep 17 00:00:00 2001
-> From: Jason Wang <jasowang@redhat.com>
-> Date: Mon, 21 Oct 2013 20:39:09 +0800
-> Subject: [PATCH] virtio-net: fix
-> 
-> ---
->  drivers/net/virtio_net.c | 13 ++++++-------
->  1 file changed, 6 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 9fbdfcd..bbc9cb8 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1118,11 +1118,6 @@ static int virtnet_cpu_callback(struct notifier_block *nfb,
->  {
->  	struct virtnet_info *vi = container_of(nfb, struct virtnet_info, nb);
->  
-> -	mutex_lock(&vi->config_lock);
-> -
-> -	if (!vi->config_enable)
-> -		goto done;
-> -
->  	switch(action & ~CPU_TASKS_FROZEN) {
->  	case CPU_ONLINE:
->  	case CPU_DOWN_FAILED:
-> @@ -1136,8 +1131,6 @@ static int virtnet_cpu_callback(struct notifier_block *nfb,
->  		break;
->  	}
->  
-> -done:
-> -	mutex_unlock(&vi->config_lock);
->  	return NOTIFY_OK;
->  }
->  
-> @@ -1699,6 +1692,8 @@ static int virtnet_freeze(struct virtio_device *vdev)
->  	struct virtnet_info *vi = vdev->priv;
->  	int i;
->  
-> +	unregister_hotcpu_notifier(&vi->nb);
-> +
->  	/* Prevent config work handler from accessing the device */
->  	mutex_lock(&vi->config_lock);
->  	vi->config_enable = false;
-> @@ -1747,6 +1742,10 @@ static int virtnet_restore(struct virtio_device *vdev)
->  	virtnet_set_queues(vi, vi->curr_queue_pairs);
->  	rtnl_unlock();
->  
-> +	err = register_hotcpu_notifier(&vi->nb);
-> +	if (err)
-> +		return err;
-> +
->  	return 0;
->  }
->  #endif
-> -- 
-> 1.8.1.2
-> 
+1) Because we should not call skb_segment() at all on a router ?
+
+2) If you aggregate too much on a router, you increase latencies,
+   or if you prefer the RTT of TCP flows.
+
+3) Because skb_segment() layer only builds MSS sized skb, so this
+   remove TSO ability on output path
+
+Splitting a 45 MSS packet into 3 TSO packets (16 + 16 + X MSS) is going
+to be quite complex, given the gso_segment() stuff is meant to segment
+in MSS packets. Adding complexity in this already complex stuff is
+simply not worth it.
+
+For local TCP, its different, because if you receive such high
+throughput, ability to build full size GRO packet helps to reduce number
+of ACK segments and number of SKB in receive queue (or OFO queue),
+without impacting ACK clocking and TCP dynamics.
+
+And even if a router does not do this aggregation, the final receiver
+will do.
+
+So in conclusion, GRO is like TSO : Its not because they are able to use
+64KB skbs you always _have_ to fill skb to max capacity.
