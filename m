@@ -1,43 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next] net: introduce dev_set_forwarding()
-Date: Sun, 03 Nov 2013 09:26:43 -0800
-Message-ID: <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131029090849.GC5944@cpaasch-mac>
-	 <1383051962.5464.25.camel@edumazet-glaptop.roam.corp.google.com>
-	 <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
-	 <20131029.194446.2215574000648693370.davem@davemloft.net>
-	 <1383091610.1534.29.camel@bwh-desktop.uk.level5networks.com>
-	 <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131103122824.GA17394@gondor.apana.org.au>
-	 <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131103163103.GA18894@gondor.apana.org.au>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH v3] can: c_can: Speed up rx_poll function
+Date: Sun, 03 Nov 2013 20:20:30 +0100
+Message-ID: <5276A1FE.7040804@grandegger.com>
+References: <1383298596-18385-1-git-send-email-mpa@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:41322 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752684Ab3KCR0o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Nov 2013 12:26:44 -0500
-Received: by mail-pa0-f53.google.com with SMTP id kx10so5993997pab.26
-        for <netdev@vger.kernel.org>; Sun, 03 Nov 2013 09:26:44 -0800 (PST)
-In-Reply-To: <20131103163103.GA18894@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Joe Perches <joe@perches.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@pengutronix.de
+To: Markus Pargmann <mpa@pengutronix.de>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1383298596-18385-1-git-send-email-mpa@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-11-04 at 00:31 +0800, Herbert Xu wrote:
+On 11/01/2013 10:36 AM, Markus Pargmann wrote:
+> This patch speeds up the rx_poll function by reducing the number of
+> register reads.
+> 
+> Replace the 32bit register read by a 16bit register read. Currently
+> the 32bit register read is implemented by using 2 16bit reads. This is
+> inefficient as we only use the lower 16bit in rx_poll.
+> 
+> The for loop reads the pending interrupts in every iteration. This
+> leads up to 16 reads of pending interrupts. The patch introduces a new
+> outer loop to read the pending interrupts as long as 'quota' is above 0.
+> This reduces the total number of reads.
+> 
+> The third change is to replace the for-loop by a ffs loop.
+> 
+> Tested on AM335x. I removed all 'static' and 'inline' from c_can.c to
+> see the timings for all functions. I used the function tracer with
+> trace_stats.
+> 
+> 125kbit:
+>   Function                               Hit    Time            Avg             s^2
+>   --------                               ---    ----            ---             ---
+>   c_can_do_rx_poll                     63960    10168178 us     158.977 us      1493056 us
+> With patch:
+>   c_can_do_rx_poll                     63941    3764057 us      58.867 us       776162.2 us
+> 
+> 1Mbit:
+>   Function                               Hit    Time            Avg             s^2
+>   --------                               ---    ----            ---             ---
+>   c_can_do_rx_poll                     69489    30049498 us     432.435 us      9271851 us
+> With patch:
+>   c_can_do_rx_poll                    207109    24322185 us     117.436 us      171469047 us
+> 
+> Signed-off-by: Markus Pargmann <mpa@pengutronix.de>
+> ---
+> 
+> Notes:
+>     Changes in v3:
+>      - Update commit message (measurements and ffs)
+>     
+>     Changes in v2:
+>      - Small changes, find_next_bit -> ffs and other
+> 
+>  drivers/net/can/c_can/c_can.c | 22 ++++++++++++----------
+>  1 file changed, 12 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+> index a668cd4..428681e 100644
+> --- a/drivers/net/can/c_can/c_can.c
+> +++ b/drivers/net/can/c_can/c_can.c
+> @@ -798,17 +798,19 @@ static int c_can_do_rx_poll(struct net_device *dev, int quota)
+>  	u32 num_rx_pkts = 0;
+>  	unsigned int msg_obj, msg_ctrl_save;
+>  	struct c_can_priv *priv = netdev_priv(dev);
+> -	u32 val = c_can_read_reg32(priv, C_CAN_INTPND1_REG);
+> +	u16 val;
+> +
+> +	/*
+> +	 * It is faster to read only one 16bit register. This is only possible
+> +	 * for a maximum number of 16 objects.
+> +	 */
+> +	BUILD_BUG_ON_MSG(C_CAN_MSG_OBJ_RX_LAST > 16,
+> +			"Implementation does not support more message objects than 16");
+> +
+> +	while (quota > 0 && (val = priv->read_reg(priv, C_CAN_INTPND1_REG))) {
+> +		while ((msg_obj = ffs(val)) && quota > 0) {
+> +			val &= ~BIT(msg_obj - 1);
 
-> I give up.  It's as if you've ignored everything I've said before.
+IIRC, we should avoid assignment in if/while statements.
 
-Not really.
+Wolfgang.
 
-Have you took a look at the GSO path recently ?
-
-The days it was handling only IP+TCP are gone.
-
-If you think you can do better, please do so.
