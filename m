@@ -1,216 +1,237 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V1 4/9] net/mlx4_core: Resource tracker for reg/unreg vlans
-Date: Sun,  3 Nov 2013 10:03:20 +0200
-Message-ID: <1383465805-28640-5-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V1 8/9] net/mlx4_core: Fix quota handling in the QUERY_FUNC_CAP wrapper
+Date: Sun,  3 Nov 2013 10:03:24 +0200
+Message-ID: <1383465805-28640-9-git-send-email-ogerlitz@mellanox.com>
 References: <1383465805-28640-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, amirv@mellanox.com, roland@kernel.org,
 	jackm@dev.mellanox.co.il, Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37911 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:37906 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752701Ab3KCIDl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Nov 2013 03:03:41 -0500
+	id S1752638Ab3KCIDh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Nov 2013 03:03:37 -0500
 In-Reply-To: <1383465805-28640-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-Add resource tracker support for reg/unreg vlans calls done by VFs.
+In current kernels, the mlx4 driver running on a VM does not
+differentiate between max resource numbers for the HCA and
+max quotas -- it simply takes the quota values passed to it
+as max-resource values.
+
+However, the driver actually requires the VFs to be aware of
+the actual number of resources that the HCA was initialized with,
+for QPs, CQs, SRQs and MPTs.
+
+For QPs, CQs and SRQs, the reason is that in completion handling
+the driver must know which of the 24 bits are the actual resource
+number, and which are "padding" bits.
+
+For MPTs, also, the driver assumes knowledge of the number of MPTs
+in the system.
+
+The previous commit fixes the quota logic on the VM for the quota values
+passed to it by QUERY_FUNC_CAPS.
+
+For QPs, CQs, SRQs, and MPTs, it takes the max resource numbers
+from QUERY_HCA (and not QUERY_FUNC_CAPS).  The quotas passed
+in QUERY_FUNC_CAPS are used to report max resource number values
+in the response to ib_query_device.
+
+However, the Hypervisor driver must consider that VMs
+may be running previous kernels, and compatibility must be preserved.
+
+To resolve the incompatibility with previous kernels running on VMs,
+we deprecated the quota fields in mlx4_QUERY_FUNC_CAP.  In the
+deprecated fields, we pass the max-resource values from INIT_HCA
+
+The quota fields are moved to a new location, and the current kernel
+driver takes the proper values from that location. There is
+also a new flag in dword 0, bit 28 of the mlx4_QUERY_FUNC_CAP mailbox;
+if this flag is set, the (VM) driver takes the quota values from the
+new location.
+
+VMs running previous kernels will work properly, except that the max resource
+numbers reported in ib_query_device for these resources will be
+too high.  The Hypervisor driver will, however, enforce the quotas
+for these VMs.
 
 Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  127 +++++++++++++++++++-
- 1 files changed, 121 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/fw.c |   88 +++++++++++++++++++++++--------
+ 1 files changed, 65 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 993a2ef..e18bfff 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -55,6 +55,14 @@ struct mac_res {
- 	u8 port;
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index f8c88c3..c3e70bc 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -186,18 +186,26 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ #define QUERY_FUNC_CAP_NUM_PORTS_OFFSET		0x1
+ #define QUERY_FUNC_CAP_PF_BHVR_OFFSET		0x4
+ #define QUERY_FUNC_CAP_FMR_OFFSET		0x8
+-#define QUERY_FUNC_CAP_QP_QUOTA_OFFSET		0x10
+-#define QUERY_FUNC_CAP_CQ_QUOTA_OFFSET		0x14
+-#define QUERY_FUNC_CAP_SRQ_QUOTA_OFFSET		0x18
+-#define QUERY_FUNC_CAP_MPT_QUOTA_OFFSET		0x20
+-#define QUERY_FUNC_CAP_MTT_QUOTA_OFFSET		0x24
+-#define QUERY_FUNC_CAP_MCG_QUOTA_OFFSET		0x28
++#define QUERY_FUNC_CAP_QP_QUOTA_OFFSET_DEP	0x10
++#define QUERY_FUNC_CAP_CQ_QUOTA_OFFSET_DEP	0x14
++#define QUERY_FUNC_CAP_SRQ_QUOTA_OFFSET_DEP	0x18
++#define QUERY_FUNC_CAP_MPT_QUOTA_OFFSET_DEP	0x20
++#define QUERY_FUNC_CAP_MTT_QUOTA_OFFSET_DEP	0x24
++#define QUERY_FUNC_CAP_MCG_QUOTA_OFFSET_DEP	0x28
+ #define QUERY_FUNC_CAP_MAX_EQ_OFFSET		0x2c
+ #define QUERY_FUNC_CAP_RESERVED_EQ_OFFSET	0x30
  
-+struct vlan_res {
-+	struct list_head list;
-+	u16 vlan;
-+	int ref_count;
-+	int vlan_index;
-+	u8 port;
-+};
++#define QUERY_FUNC_CAP_QP_QUOTA_OFFSET		0x50
++#define QUERY_FUNC_CAP_CQ_QUOTA_OFFSET		0x54
++#define QUERY_FUNC_CAP_SRQ_QUOTA_OFFSET		0x58
++#define QUERY_FUNC_CAP_MPT_QUOTA_OFFSET		0x60
++#define QUERY_FUNC_CAP_MTT_QUOTA_OFFSET		0x64
++#define QUERY_FUNC_CAP_MCG_QUOTA_OFFSET		0x68
 +
- struct res_common {
- 	struct list_head	list;
- 	struct rb_node		node;
-@@ -266,6 +274,7 @@ static const char *ResourceType(enum mlx4_resource rt)
- 	case RES_MPT: return "RES_MPT";
- 	case RES_MTT: return "RES_MTT";
- 	case RES_MAC: return  "RES_MAC";
-+	case RES_VLAN: return  "RES_VLAN";
- 	case RES_EQ: return "RES_EQ";
- 	case RES_COUNTER: return "RES_COUNTER";
- 	case RES_FS_RULE: return "RES_FS_RULE";
-@@ -274,6 +283,7 @@ static const char *ResourceType(enum mlx4_resource rt)
- 	};
- }
+ #define QUERY_FUNC_CAP_FMR_FLAG			0x80
+ #define QUERY_FUNC_CAP_FLAG_RDMA		0x40
+ #define QUERY_FUNC_CAP_FLAG_ETH			0x80
++#define QUERY_FUNC_CAP_FLAG_QUOTAS		0x10
  
-+static void rem_slave_vlans(struct mlx4_dev *dev, int slave);
- int mlx4_init_resource_tracker(struct mlx4_dev *dev)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
-@@ -309,11 +319,18 @@ void mlx4_free_resource_tracker(struct mlx4_dev *dev,
- 	int i;
+ /* when opcode modifier = 1 */
+ #define QUERY_FUNC_CAP_PHYS_PORT_OFFSET		0x3
+@@ -238,8 +246,9 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_QP1_PROXY);
  
- 	if (priv->mfunc.master.res_tracker.slave_list) {
--		if (type != RES_TR_FREE_STRUCTS_ONLY)
--			for (i = 0 ; i < dev->num_slaves; i++)
-+		if (type != RES_TR_FREE_STRUCTS_ONLY) {
-+			for (i = 0; i < dev->num_slaves; i++) {
- 				if (type == RES_TR_FREE_ALL ||
- 				    dev->caps.function != i)
- 					mlx4_delete_all_resources_for_slave(dev, i);
-+			}
-+			/* free master's vlans */
-+			i = dev->caps.function;
-+			mutex_lock(&priv->mfunc.master.res_tracker.slave_list[i].mutex);
-+			rem_slave_vlans(dev, i);
-+			mutex_unlock(&priv->mfunc.master.res_tracker.slave_list[i].mutex);
+ 	} else if (vhcr->op_modifier == 0) {
+-		/* enable rdma and ethernet interfaces */
+-		field = (QUERY_FUNC_CAP_FLAG_ETH | QUERY_FUNC_CAP_FLAG_RDMA);
++		/* enable rdma and ethernet interfaces, and new quota locations */
++		field = (QUERY_FUNC_CAP_FLAG_ETH | QUERY_FUNC_CAP_FLAG_RDMA |
++			 QUERY_FUNC_CAP_FLAG_QUOTAS);
+ 		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_FLAGS_OFFSET);
+ 
+ 		field = dev->caps.num_ports;
+@@ -253,12 +262,18 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 
+ 		size = priv->mfunc.master.res_tracker.res_alloc[RES_QP].quota[slave];
+ 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_QP_QUOTA_OFFSET);
++		size = dev->caps.num_qps;
++		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_QP_QUOTA_OFFSET_DEP);
+ 
+ 		size = priv->mfunc.master.res_tracker.res_alloc[RES_SRQ].quota[slave];
+ 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_SRQ_QUOTA_OFFSET);
++		size = dev->caps.num_srqs;
++		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_SRQ_QUOTA_OFFSET_DEP);
+ 
+ 		size = priv->mfunc.master.res_tracker.res_alloc[RES_CQ].quota[slave];
+ 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_CQ_QUOTA_OFFSET);
++		size = dev->caps.num_cqs;
++		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_CQ_QUOTA_OFFSET_DEP);
+ 
+ 		size = dev->caps.num_eqs;
+ 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_MAX_EQ_OFFSET);
+@@ -268,12 +283,17 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
+ 
+ 		size = priv->mfunc.master.res_tracker.res_alloc[RES_MPT].quota[slave];
+ 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_MPT_QUOTA_OFFSET);
++		size = dev->caps.num_mpts;
++		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_MPT_QUOTA_OFFSET_DEP);
+ 
+ 		size = priv->mfunc.master.res_tracker.res_alloc[RES_MTT].quota[slave];
+ 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_MTT_QUOTA_OFFSET);
++		size = dev->caps.num_mtts;
++		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_MTT_QUOTA_OFFSET_DEP);
+ 
+ 		size = dev->caps.num_mgms + dev->caps.num_amgms;
+ 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_MCG_QUOTA_OFFSET);
++		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_MCG_QUOTA_OFFSET_DEP);
+ 
+ 	} else
+ 		err = -EINVAL;
+@@ -288,7 +308,7 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u32 gen_or_port,
+ 	u32			*outbox;
+ 	u8			field, op_modifier;
+ 	u32			size;
+-	int			err = 0;
++	int			err = 0, quotas = 0;
+ 
+ 	op_modifier = !!gen_or_port; /* 0 = general, 1 = logical port */
+ 
+@@ -312,6 +332,7 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u32 gen_or_port,
+ 			goto out;
+ 		}
+ 		func_cap->flags = field;
++		quotas = !!(func_cap->flags & QUERY_FUNC_CAP_FLAG_QUOTAS);
+ 
+ 		MLX4_GET(field, outbox, QUERY_FUNC_CAP_NUM_PORTS_OFFSET);
+ 		func_cap->num_ports = field;
+@@ -319,29 +340,50 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u32 gen_or_port,
+ 		MLX4_GET(size, outbox, QUERY_FUNC_CAP_PF_BHVR_OFFSET);
+ 		func_cap->pf_context_behaviour = size;
+ 
+-		MLX4_GET(size, outbox, QUERY_FUNC_CAP_QP_QUOTA_OFFSET);
+-		func_cap->qp_quota = size & 0xFFFFFF;
++		if (quotas) {
++			MLX4_GET(size, outbox, QUERY_FUNC_CAP_QP_QUOTA_OFFSET);
++			func_cap->qp_quota = size & 0xFFFFFF;
++
++			MLX4_GET(size, outbox, QUERY_FUNC_CAP_SRQ_QUOTA_OFFSET);
++			func_cap->srq_quota = size & 0xFFFFFF;
++
++			MLX4_GET(size, outbox, QUERY_FUNC_CAP_CQ_QUOTA_OFFSET);
++			func_cap->cq_quota = size & 0xFFFFFF;
++
++			MLX4_GET(size, outbox, QUERY_FUNC_CAP_MPT_QUOTA_OFFSET);
++			func_cap->mpt_quota = size & 0xFFFFFF;
++
++			MLX4_GET(size, outbox, QUERY_FUNC_CAP_MTT_QUOTA_OFFSET);
++			func_cap->mtt_quota = size & 0xFFFFFF;
++
++			MLX4_GET(size, outbox, QUERY_FUNC_CAP_MCG_QUOTA_OFFSET);
++			func_cap->mcg_quota = size & 0xFFFFFF;
+ 
+-		MLX4_GET(size, outbox, QUERY_FUNC_CAP_SRQ_QUOTA_OFFSET);
+-		func_cap->srq_quota = size & 0xFFFFFF;
++		} else {
++			MLX4_GET(size, outbox, QUERY_FUNC_CAP_QP_QUOTA_OFFSET_DEP);
++			func_cap->qp_quota = size & 0xFFFFFF;
+ 
+-		MLX4_GET(size, outbox, QUERY_FUNC_CAP_CQ_QUOTA_OFFSET);
+-		func_cap->cq_quota = size & 0xFFFFFF;
++			MLX4_GET(size, outbox, QUERY_FUNC_CAP_SRQ_QUOTA_OFFSET_DEP);
++			func_cap->srq_quota = size & 0xFFFFFF;
+ 
++			MLX4_GET(size, outbox, QUERY_FUNC_CAP_CQ_QUOTA_OFFSET_DEP);
++			func_cap->cq_quota = size & 0xFFFFFF;
++
++			MLX4_GET(size, outbox, QUERY_FUNC_CAP_MPT_QUOTA_OFFSET_DEP);
++			func_cap->mpt_quota = size & 0xFFFFFF;
++
++			MLX4_GET(size, outbox, QUERY_FUNC_CAP_MTT_QUOTA_OFFSET_DEP);
++			func_cap->mtt_quota = size & 0xFFFFFF;
++
++			MLX4_GET(size, outbox, QUERY_FUNC_CAP_MCG_QUOTA_OFFSET_DEP);
++			func_cap->mcg_quota = size & 0xFFFFFF;
 +		}
+ 		MLX4_GET(size, outbox, QUERY_FUNC_CAP_MAX_EQ_OFFSET);
+ 		func_cap->max_eq = size & 0xFFFFFF;
  
- 		if (type != RES_TR_FREE_SLAVES_ONLY) {
- 			kfree(priv->mfunc.master.res_tracker.slave_list);
-@@ -1469,12 +1486,96 @@ static int mac_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
- 	return err;
- }
+ 		MLX4_GET(size, outbox, QUERY_FUNC_CAP_RESERVED_EQ_OFFSET);
+ 		func_cap->reserved_eq = size & 0xFFFFFF;
  
--static int vlan_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
--			 u64 in_param, u64 *out_param, int port)
-+static int vlan_add_to_slave(struct mlx4_dev *dev, int slave, u16 vlan,
-+			     int port, int vlan_index)
- {
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
-+	struct list_head *vlan_list =
-+		&tracker->slave_list[slave].res_list[RES_VLAN];
-+	struct vlan_res *res, *tmp;
-+
-+	list_for_each_entry_safe(res, tmp, vlan_list, list) {
-+		if (res->vlan == vlan && res->port == (u8) port) {
-+			/* vlan found. update ref count */
-+			++res->ref_count;
-+			return 0;
-+		}
-+	}
-+
-+	res = kzalloc(sizeof(*res), GFP_KERNEL);
-+	if (!res)
-+		return -ENOMEM;
-+	res->vlan = vlan;
-+	res->port = (u8) port;
-+	res->vlan_index = vlan_index;
-+	res->ref_count = 1;
-+	list_add_tail(&res->list,
-+		      &tracker->slave_list[slave].res_list[RES_VLAN]);
- 	return 0;
- }
+-		MLX4_GET(size, outbox, QUERY_FUNC_CAP_MPT_QUOTA_OFFSET);
+-		func_cap->mpt_quota = size & 0xFFFFFF;
+-
+-		MLX4_GET(size, outbox, QUERY_FUNC_CAP_MTT_QUOTA_OFFSET);
+-		func_cap->mtt_quota = size & 0xFFFFFF;
+-
+-		MLX4_GET(size, outbox, QUERY_FUNC_CAP_MCG_QUOTA_OFFSET);
+-		func_cap->mcg_quota = size & 0xFFFFFF;
+ 		goto out;
+ 	}
  
-+
-+static void vlan_del_from_slave(struct mlx4_dev *dev, int slave, u16 vlan,
-+				int port)
-+{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
-+	struct list_head *vlan_list =
-+		&tracker->slave_list[slave].res_list[RES_VLAN];
-+	struct vlan_res *res, *tmp;
-+
-+	list_for_each_entry_safe(res, tmp, vlan_list, list) {
-+		if (res->vlan == vlan && res->port == (u8) port) {
-+			if (!--res->ref_count) {
-+				list_del(&res->list);
-+				kfree(res);
-+			}
-+			break;
-+		}
-+	}
-+}
-+
-+static void rem_slave_vlans(struct mlx4_dev *dev, int slave)
-+{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_resource_tracker *tracker = &priv->mfunc.master.res_tracker;
-+	struct list_head *vlan_list =
-+		&tracker->slave_list[slave].res_list[RES_VLAN];
-+	struct vlan_res *res, *tmp;
-+	int i;
-+
-+	list_for_each_entry_safe(res, tmp, vlan_list, list) {
-+		list_del(&res->list);
-+		/* dereference the vlan the num times the slave referenced it */
-+		for (i = 0; i < res->ref_count; i++)
-+			__mlx4_unregister_vlan(dev, res->port, res->vlan);
-+		kfree(res);
-+	}
-+}
-+
-+static int vlan_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
-+			  u64 in_param, u64 *out_param, int port)
-+{
-+	int err;
-+	u16 vlan;
-+	int vlan_index;
-+
-+	if (!port || op != RES_OP_RESERVE_AND_MAP)
-+		return -EINVAL;
-+
-+	vlan = (u16) in_param;
-+
-+	err = __mlx4_register_vlan(dev, port, vlan, &vlan_index);
-+	if (!err) {
-+		set_param_l(out_param, (u32) vlan_index);
-+		err = vlan_add_to_slave(dev, slave, vlan, port, vlan_index);
-+		if (err)
-+			__mlx4_unregister_vlan(dev, port, vlan);
-+	}
-+	return err;
-+}
-+
- static int counter_alloc_res(struct mlx4_dev *dev, int slave, int op, int cmd,
- 			     u64 in_param, u64 *out_param)
- {
-@@ -1755,7 +1856,21 @@ static int mac_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
- static int vlan_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
- 			    u64 in_param, u64 *out_param, int port)
- {
--	return 0;
-+	int err = 0;
-+
-+	switch (op) {
-+	case RES_OP_RESERVE_AND_MAP:
-+		if (!port)
-+			return -EINVAL;
-+		vlan_del_from_slave(dev, slave, in_param, port);
-+		__mlx4_unregister_vlan(dev, port, in_param);
-+		break;
-+	default:
-+		err = -EINVAL;
-+		break;
-+	}
-+
-+	return err;
- }
- 
- static int counter_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
-@@ -3968,7 +4083,7 @@ void mlx4_delete_all_resources_for_slave(struct mlx4_dev *dev, int slave)
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 
- 	mutex_lock(&priv->mfunc.master.res_tracker.slave_list[slave].mutex);
--	/*VLAN*/
-+	rem_slave_vlans(dev, slave);
- 	rem_slave_macs(dev, slave);
- 	rem_slave_fs_rule(dev, slave);
- 	rem_slave_qps(dev, slave);
 -- 
 1.7.1
