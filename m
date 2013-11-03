@@ -1,34 +1,52 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net] net: flow_dissector: fail on evil iph->ihl
-Date: Sun, 03 Nov 2013 23:18:22 +0100
-Message-ID: <5276CBAE.8010301@redhat.com>
-References: <1383289270-18952-1-git-send-email-jasowang@redhat.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch -next] mlx5_core: warn if no space left in alloc_4k()
+Date: Mon, 4 Nov 2013 02:16:12 +0300
+Message-ID: <20131103231612.GS20521@mwanda>
+References: <20131101102044.GB29795@longonot.mountain>
+ <20131103070326.GA3051@mtldesk30>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Petr Matousek <pmatouse@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1383289270-18952-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eli Cohen <eli@mellanox.com>, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Eli Cohen <eli@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:17226 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752729Ab3KCXQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Nov 2013 18:16:31 -0500
+Content-Disposition: inline
+In-Reply-To: <20131103070326.GA3051@mtldesk30>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/01/2013 08:01 AM, Jason Wang wrote:
-> We don't validate iph->ihl which may lead a dead loop if we meet a IPIP
-> skb whose iph->ihl is zero. Fix this by failing immediately when iph->ihl
-> is evil (less than 5).
->
-> This issue were introduced by commit ec5efe7946280d1e84603389a1030ccec0a767ae
-> (rps: support IPIP encapsulation).
->
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Petr Matousek <pmatouse@redhat.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+On Sun, Nov 03, 2013 at 09:03:27AM +0200, Eli Cohen wrote:
+> On Fri, Nov 01, 2013 at 01:20:44PM +0300, Dan Carpenter wrote:
+> > The warning was unreachable.  In the original code, it would print the
+> > line number and the function but I have added an error message.
+> > 
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > ---
+> > I haven't tested this, hopefully the warning is not annoying.
+> > 
+> > diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+> > index ba816c2..cb86265 100644
+> > --- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+> > +++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+> > @@ -193,8 +193,8 @@ static int alloc_4k(struct mlx5_core_dev *dev, u64 *addr)
+> >  	unsigned n;
+> >  
+> >  	if (list_empty(&dev->priv.free_list)) {
+> > +		mlx5_core_warn(dev, "no available space\n");
+> >  		return -ENOMEM;
+> > -		mlx5_core_warn(dev, "\n");
+> >  	}
+> 
+> What we really need to do here is silently return -ENOMEM. The list
+> can be found empty on a regular basis so we don't want to flood dmesg
+> with annoying messages. The statement was probably left there from a
+> previous debug cycle.
 
-Sorry, a bit late as I was offline last 4 days, but fwiw:
+Ah, ok.  Thanks for the review.  I will remove the message.
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+regards,
+dan carpenter
