@@ -1,61 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v3 net-next] net: introduce dev_set_forwarding()
-Date: Mon, 4 Nov 2013 13:23:21 +0800
-Message-ID: <20131104052321.GA23252@gondor.apana.org.au>
-References: <1383091610.1534.29.camel@bwh-desktop.uk.level5networks.com>
- <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131103122824.GA17394@gondor.apana.org.au>
- <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131103163103.GA18894@gondor.apana.org.au>
- <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131104041108.GA22823@gondor.apana.org.au>
- <1383538982.4291.80.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131104042913.GA23021@gondor.apana.org.au>
- <1383541254.4291.82.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: sctp: do not trigger BUG_ON in
+ sctp_cmd_delete_tcb
+Date: Mon, 04 Nov 2013 00:47:37 -0500 (EST)
+Message-ID: <20131104.004737.1541924078654523492.davem@davemloft.net>
+References: <1383207212-21658-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	vyasevich@gmail.com
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:33060 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750726Ab3KDFXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 00:23:31 -0500
-Content-Disposition: inline
-In-Reply-To: <1383541254.4291.82.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48801 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765Ab3KDFrl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 00:47:41 -0500
+In-Reply-To: <1383207212-21658-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 03, 2013 at 09:00:54PM -0800, Eric Dumazet wrote:
-> On Mon, 2013-11-04 at 12:29 +0800, Herbert Xu wrote:
->
-> > Have you actually measured this? The latency added by GRO is pure
-> > processing overhead.  This is tiny when compared to the time NAPI takes
-> > to wait.
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Thu, 31 Oct 2013 09:13:32 +0100
+
+> Introduced in f9e42b853523 ("net: sctp: sideeffect: throw BUG if
+> primary_path is NULL"), we intended to find a buggy assoc that's
+> part of the assoc hash table with a primary_path that is NULL.
+> However, we better remove the BUG_ON for now and find a more
+> suitable place to assert for these things as Mark reports that
+> this also triggers the bug when duplication cookie processing
+> happens, and the assoc is not part of the hash table (so all
+> good in this case). Such a situation can for example easily be
+> reproduced by:
 > 
-> Please take a look at 
+>   tc qdisc add dev eth0 root handle 1: prio bands 2 priomap 1 1 1 1 1 1
+>   tc qdisc add dev eth0 parent 1:2 handle 20: netem loss 20%
+>   tc filter add dev eth0 protocol ip parent 1: prio 2 u32 match ip \
+>             protocol 132 0xff match u8 0x0b 0xff at 32 flowid 1:2
 > 
-> 2e71a6f8084e net: gro: selective flush of packets
+> This drops 20% of COOKIE-ACK packets. After some follow-up
+> discussion with Vlad we came to the conclusion that for now we
+> should still better remove this BUG_ON() assertion, and come up
+> with two follow-ups later on, that is, i) find a more suitable
+> place for this assertion, and possibly ii) have a special
+> allocator/initializer for such kind of temporary assocs.
+> 
+> Reported-by: Mark Thomas <Mark.Thomas@metaswitch.com>
+> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-This is a different problem altogether.  I was worried about the
-latency in cases where we're idle and waiting for new data, while
-you're worried about the latency in the CPU-bound case.
-
-I think we can definitely improve our behaviour the CPU-bound case.
-Right now if we encounter something we can't hold for GRO we
-start processing it right away.  Instead we can place it in a
-list for later processing together with the GRO packets.
-
-This way GRO packets are not penalised by non-GRO packets.
-
-You can then use the usual NAPI budget to minimise latency and
-ensure scheduling fairness.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied and queued up for -stable, thanks.
