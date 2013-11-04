@@ -1,118 +1,75 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 20/20] netfilter: ctnetlink: account both directions in one step
-Date: Mon,  4 Nov 2013 22:50:42 +0100
-Message-ID: <1383601842-4570-21-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/20] netfilter: ipt_CLUSTERIP: use proper net namespace to operate CLUSTERIP
+Date: Mon,  4 Nov 2013 22:50:32 +0100
+Message-ID: <1383601842-4570-11-git-send-email-pablo@netfilter.org>
 References: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55750 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753837Ab3KDVvE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Nov 2013 16:51:04 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Holger Eitzenberger <holger@eitzenberger.org>
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-With the intent to dump other accounting data later.
-This patch is a cleanup.
+we can allow users in uninit net namespace to operate ipt_CLUSTERIP
+now.
 
-Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_netlink.c |   49 +++++++++++++++++-----------------
- 1 file changed, 24 insertions(+), 25 deletions(-)
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index ddc3777..08870b8 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -211,13 +211,23 @@ nla_put_failure:
- }
- 
- static int
--dump_counters(struct sk_buff *skb, u64 pkts, u64 bytes,
--	      enum ip_conntrack_dir dir)
-+dump_counters(struct sk_buff *skb, struct nf_conn_acct *acct,
-+	      enum ip_conntrack_dir dir, int type)
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index c93dfd2..ecd808a 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -99,7 +99,8 @@ clusterip_config_put(struct clusterip_config *c)
+ static inline void
+ clusterip_config_entry_put(struct clusterip_config *c)
  {
--	enum ctattr_type type = dir ? CTA_COUNTERS_REPLY: CTA_COUNTERS_ORIG;
-+	enum ctattr_type attr = dir ? CTA_COUNTERS_REPLY: CTA_COUNTERS_ORIG;
-+	struct nf_conn_counter *counter = acct->counter;
- 	struct nlattr *nest_count;
-+	u64 pkts, bytes;
+-	struct clusterip_net *cn = net_generic(&init_net, clusterip_net_id);
++	struct net *net = dev_net(c->dev);
++	struct clusterip_net *cn = net_generic(net, clusterip_net_id);
  
--	nest_count = nla_nest_start(skb, type | NLA_F_NESTED);
-+	if (type == IPCTNL_MSG_CT_GET_CTRZERO) {
-+		pkts = atomic64_xchg(&counter[dir].packets, 0);
-+		bytes = atomic64_xchg(&counter[dir].bytes, 0);
-+	} else {
-+		pkts = atomic64_read(&counter[dir].packets);
-+		bytes = atomic64_read(&counter[dir].bytes);
-+	}
-+
-+	nest_count = nla_nest_start(skb, attr | NLA_F_NESTED);
- 	if (!nest_count)
- 		goto nla_put_failure;
+ 	local_bh_disable();
+ 	if (atomic_dec_and_lock(&c->entries, &cn->lock)) {
+@@ -381,7 +382,7 @@ static int clusterip_tg_check(const struct xt_tgchk_param *par)
  
-@@ -234,26 +244,19 @@ nla_put_failure:
- }
+ 	/* FIXME: further sanity checks */
  
- static int
--ctnetlink_dump_counters(struct sk_buff *skb, const struct nf_conn *ct,
--			enum ip_conntrack_dir dir, int type)
-+ctnetlink_dump_acct(struct sk_buff *skb, const struct nf_conn *ct, int type)
- {
--	struct nf_conn_acct *acct;
--	struct nf_conn_counter *counter;
--	u64 pkts, bytes;
-+	struct nf_conn_acct *acct = nf_conn_acct_find(ct);
+-	config = clusterip_config_find_get(&init_net, e->ip.dst.s_addr, 1);
++	config = clusterip_config_find_get(par->net, e->ip.dst.s_addr, 1);
+ 	if (!config) {
+ 		if (!(cipinfo->flags & CLUSTERIP_FLAG_NEW)) {
+ 			pr_info("no config found for %pI4, need 'new'\n",
+@@ -395,7 +396,7 @@ static int clusterip_tg_check(const struct xt_tgchk_param *par)
+ 				return -EINVAL;
+ 			}
  
--	acct = nf_conn_acct_find(ct);
- 	if (!acct)
- 		return 0;
+-			dev = dev_get_by_name(&init_net, e->ip.iniface);
++			dev = dev_get_by_name(par->net, e->ip.iniface);
+ 			if (!dev) {
+ 				pr_info("no such interface %s\n",
+ 					e->ip.iniface);
+@@ -503,6 +504,7 @@ arp_mangle(unsigned int hook,
+ 	struct arphdr *arp = arp_hdr(skb);
+ 	struct arp_payload *payload;
+ 	struct clusterip_config *c;
++	struct net *net = dev_net(in ? in : out);
  
--	counter = acct->counter;
--	if (type == IPCTNL_MSG_CT_GET_CTRZERO) {
--		pkts = atomic64_xchg(&counter[dir].packets, 0);
--		bytes = atomic64_xchg(&counter[dir].bytes, 0);
--	} else {
--		pkts = atomic64_read(&counter[dir].packets);
--		bytes = atomic64_read(&counter[dir].bytes);
--	}
--	return dump_counters(skb, pkts, bytes, dir);
-+	if (dump_counters(skb, acct, IP_CT_DIR_ORIGINAL, type) < 0)
-+		return -1;
-+	if (dump_counters(skb, acct, IP_CT_DIR_REPLY, type) < 0)
-+		return -1;
-+
-+	return 0;
- }
+ 	/* we don't care about non-ethernet and non-ipv4 ARP */
+ 	if (arp->ar_hrd != htons(ARPHRD_ETHER) ||
+@@ -519,7 +521,7 @@ arp_mangle(unsigned int hook,
  
- static int
-@@ -490,8 +493,7 @@ ctnetlink_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
+ 	/* if there is no clusterip configuration for the arp reply's
+ 	 * source ip, we don't want to mangle it */
+-	c = clusterip_config_find_get(&init_net, payload->src_ip, 0);
++	c = clusterip_config_find_get(net, payload->src_ip, 0);
+ 	if (!c)
+ 		return NF_ACCEPT;
  
- 	if (ctnetlink_dump_status(skb, ct) < 0 ||
- 	    ctnetlink_dump_timeout(skb, ct) < 0 ||
--	    ctnetlink_dump_counters(skb, ct, IP_CT_DIR_ORIGINAL, type) < 0 ||
--	    ctnetlink_dump_counters(skb, ct, IP_CT_DIR_REPLY, type) < 0 ||
-+	    ctnetlink_dump_acct(skb, ct, type) < 0 ||
- 	    ctnetlink_dump_timestamp(skb, ct) < 0 ||
- 	    ctnetlink_dump_protoinfo(skb, ct) < 0 ||
- 	    ctnetlink_dump_helpinfo(skb, ct) < 0 ||
-@@ -675,10 +677,7 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
- 		goto nla_put_failure;
- 
- 	if (events & (1 << IPCT_DESTROY)) {
--		if (ctnetlink_dump_counters(skb, ct,
--					    IP_CT_DIR_ORIGINAL, type) < 0 ||
--		    ctnetlink_dump_counters(skb, ct,
--					    IP_CT_DIR_REPLY, type) < 0 ||
-+		if (ctnetlink_dump_acct(skb, ct, type) < 0 ||
- 		    ctnetlink_dump_timestamp(skb, ct) < 0)
- 			goto nla_put_failure;
- 	} else {
 -- 
 1.7.10.4
+
