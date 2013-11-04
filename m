@@ -1,59 +1,78 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 16/20] bridge: netfilter: orphan skb before invoking ip netfilter hooks
-Date: Mon,  4 Nov 2013 22:50:38 +0100
-Message-ID: <1383601842-4570-17-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 13/20] netfilter: ip6t_REJECT: skip checksum verification for outgoing ipv6 packets
+Date: Mon,  4 Nov 2013 22:50:35 +0100
+Message-ID: <1383601842-4570-14-git-send-email-pablo@netfilter.org>
 References: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55736 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753819Ab3KDVvE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Nov 2013 16:51:04 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Florian Westphal <fw@strlen.de>
+From: Stanislav Fomichev <stfomichev@yandex-team.ru>
 
-Pekka Pietik=C3=A4inen reports xt_socket behavioural change after commi=
-t
-00028aa37098o (netfilter: xt_socket: use IP early demux).
+Don't verify checksum for outgoing packets because checksum calculation
+may be done by the device.
 
-Reason is xt_socket now no longer does an unconditional sk lookup -
-it re-uses existing skb->sk if possible, assuming ->sk was set by
-ip early demux.
+Without this patch:
+$ ip6tables -I OUTPUT -p tcp --dport 80 -j REJECT --reject-with tcp-reset
+$ time telnet ipv6.google.com 80
+Trying 2a00:1450:4010:c03::67...
+telnet: Unable to connect to remote host: Connection timed out
 
-However, when netfilter is invoked via bridge, this can cause 'bogus'
-sockets to be examined by the match, e.g. a 'tun' device socket.
+real    0m7.201s
+user    0m0.000s
+sys     0m0.000s
 
-bridge netfilter should orphan the skb just like the routing path
-before invoking ipv4/ipv6 netfilter hooks to avoid this.
+With the patch applied:
+$ ip6tables -I OUTPUT -p tcp --dport 80 -j REJECT --reject-with tcp-reset
+$ time telnet ipv6.google.com 80
+Trying 2a00:1450:4010:c03::67...
+telnet: Unable to connect to remote host: Connection refused
 
-Reported-and-tested-by: Pekka Pietik=C3=A4inen <pp@ee.oulu.fi>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Acked-by: Eric Dumazet <edumazet@google.com>
+real    0m0.085s
+user    0m0.000s
+sys     0m0.000s
+
+Signed-off-by: Stanislav Fomichev <stfomichev@yandex-team.ru>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/br_netfilter.c |    2 ++
- 1 file changed, 2 insertions(+)
+ net/ipv6/netfilter/ip6t_REJECT.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index f877362..3d55312 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -559,6 +559,8 @@ static struct net_device *setup_pre_routing(struct =
-sk_buff *skb)
- 	else if (skb->protocol =3D=3D htons(ETH_P_PPP_SES))
- 		nf_bridge->mask |=3D BRNF_PPPoE;
-=20
-+	/* Must drop socket now because of tproxy. */
-+	skb_orphan(skb);
- 	return skb->dev;
- }
-=20
---=20
+diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
+index 56eef30..da00a2e 100644
+--- a/net/ipv6/netfilter/ip6t_REJECT.c
++++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -39,7 +39,7 @@ MODULE_DESCRIPTION("Xtables: packet \"rejection\" target for IPv6");
+ MODULE_LICENSE("GPL");
+ 
+ /* Send RST reply */
+-static void send_reset(struct net *net, struct sk_buff *oldskb)
++static void send_reset(struct net *net, struct sk_buff *oldskb, int hook)
+ {
+ 	struct sk_buff *nskb;
+ 	struct tcphdr otcph, *tcph;
+@@ -88,8 +88,7 @@ static void send_reset(struct net *net, struct sk_buff *oldskb)
+ 	}
+ 
+ 	/* Check checksum. */
+-	if (csum_ipv6_magic(&oip6h->saddr, &oip6h->daddr, otcplen, IPPROTO_TCP,
+-			    skb_checksum(oldskb, tcphoff, otcplen, 0))) {
++	if (nf_ip6_checksum(oldskb, hook, tcphoff, IPPROTO_TCP)) {
+ 		pr_debug("TCP checksum is invalid\n");
+ 		return;
+ 	}
+@@ -227,7 +226,7 @@ reject_tg6(struct sk_buff *skb, const struct xt_action_param *par)
+ 		/* Do nothing */
+ 		break;
+ 	case IP6T_TCP_RESET:
+-		send_reset(net, skb);
++		send_reset(net, skb, par->hooknum);
+ 		break;
+ 	default:
+ 		net_info_ratelimited("case %u not handled yet\n", reject->with);
+-- 
 1.7.10.4
+
