@@ -1,166 +1,65 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/20] netfilter: ipt_CLUSTERIP: make proc directory per net namespace
-Date: Mon,  4 Nov 2013 22:50:27 +0100
-Message-ID: <1383601842-4570-6-git-send-email-pablo@netfilter.org>
-References: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v6] net/hsr: Add support for the High-availability
+ Seamless Redundancy protocol (HSRv0)
+Date: Mon, 04 Nov 2013 14:03:05 -0800
+Message-ID: <1383602585.28651.10.camel@joe-AO722>
+References: <527167C7.4030305@xdin.com> <1383164122.9435.41.camel@joe-AO722>
+	 <5277F6D6.9040807@xdin.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Javier Boticario <jboticario@gmail.com>,
+	"balferreira@googlemail.com" <balferreira@googlemail.com>,
+	=?ISO-8859-1?Q?El=EDas?= Molina =?ISO-8859-1?Q?Mu=F1oz?=
+	<elias.molina@ehu.es>
+To: Arvid Brodin <arvid.brodin@xdin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55671 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753403Ab3KDVuz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Nov 2013 16:50:55 -0500
-In-Reply-To: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
+Received: from smtprelay0222.hostedemail.com ([216.40.44.222]:60143 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751155Ab3KDWDL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 17:03:11 -0500
+In-Reply-To: <5277F6D6.9040807@xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
+On Mon, 2013-11-04 at 20:34 +0100, Arvid Brodin wrote:
+> On 2013-10-30 21:15, Joe Perches wrote:
+> > On Wed, 2013-10-30 at 21:10 +0100, Arvid Brodin wrote:
+> >> High-availability Seamless Redundancy ("HSR") provides instant failover
+> >> redundancy for Ethernet networks. It requires a special network topology where
+> >> all nodes are connected in a ring (each node having two physical network
+> >> interfaces). It is suited for applications that demand high availability and
+> >> very short reaction time.
+> > 
+> > Thanks Arvid.  Maybe add a MAINTAINERS entry too?
+> 
+> Something like this?
 
-Create /proc/net/ipt_CLUSTERIP directory for per net namespace.
-Right now,only allow to create entries under the ipt_CLUSTERIP
-in init net namespace.
+Yes, with a nit below:
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/ipv4/netfilter/ipt_CLUSTERIP.c |   70 ++++++++++++++++++++++++++----------
- 1 file changed, 51 insertions(+), 19 deletions(-)
+>  S:     Maintained
+>  F:     drivers/net/usb/hso.c
+>  
+> +HSR NETWORK PROTOCOL
+> +M:     Arvid Brodin <arvid.brodin@xdin.com>
+> +L:     netdev@vger.kernel.org
+> +S:     Maintained
+> +F:     net/hsr/*
 
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 0b732ef..e66b91b 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -28,6 +28,7 @@
- #include <linux/netfilter_ipv4/ipt_CLUSTERIP.h>
- #include <net/netfilter/nf_conntrack.h>
- #include <net/net_namespace.h>
-+#include <net/netns/generic.h>
- #include <net/checksum.h>
- #include <net/ip.h>
- 
-@@ -64,9 +65,16 @@ static DEFINE_SPINLOCK(clusterip_lock);
- 
- #ifdef CONFIG_PROC_FS
- static const struct file_operations clusterip_proc_fops;
--static struct proc_dir_entry *clusterip_procdir;
- #endif
- 
-+static int clusterip_net_id __read_mostly;
-+
-+struct clusterip_net {
-+#ifdef CONFIG_PROC_FS
-+	struct proc_dir_entry *procdir;
-+#endif
-+};
-+
- static inline void
- clusterip_config_get(struct clusterip_config *c)
- {
-@@ -158,6 +166,7 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
- 			struct net_device *dev)
- {
- 	struct clusterip_config *c;
-+	struct clusterip_net *cn = net_generic(&init_net, clusterip_net_id);
- 
- 	c = kzalloc(sizeof(*c), GFP_ATOMIC);
- 	if (!c)
-@@ -180,7 +189,7 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
- 		/* create proc dir entry */
- 		sprintf(buffer, "%pI4", &ip);
- 		c->pde = proc_create_data(buffer, S_IWUSR|S_IRUSR,
--					  clusterip_procdir,
-+					  cn->procdir,
- 					  &clusterip_proc_fops, c);
- 		if (!c->pde) {
- 			kfree(c);
-@@ -698,48 +707,71 @@ static const struct file_operations clusterip_proc_fops = {
- 
- #endif /* CONFIG_PROC_FS */
- 
-+static int clusterip_net_init(struct net *net)
-+{
-+#ifdef CONFIG_PROC_FS
-+	struct clusterip_net *cn = net_generic(net, clusterip_net_id);
-+
-+	cn->procdir = proc_mkdir("ipt_CLUSTERIP", net->proc_net);
-+	if (!cn->procdir) {
-+		pr_err("Unable to proc dir entry\n");
-+		return -ENOMEM;
-+	}
-+#endif /* CONFIG_PROC_FS */
-+
-+	return 0;
-+}
-+
-+static void clusterip_net_exit(struct net *net)
-+{
-+#ifdef CONFIG_PROC_FS
-+	struct clusterip_net *cn = net_generic(net, clusterip_net_id);
-+	proc_remove(cn->procdir);
-+#endif
-+}
-+
-+static struct pernet_operations clusterip_net_ops = {
-+	.init = clusterip_net_init,
-+	.exit = clusterip_net_exit,
-+	.id   = &clusterip_net_id,
-+	.size = sizeof(struct clusterip_net),
-+};
-+
- static int __init clusterip_tg_init(void)
- {
- 	int ret;
- 
--	ret = xt_register_target(&clusterip_tg_reg);
-+	ret = register_pernet_subsys(&clusterip_net_ops);
- 	if (ret < 0)
- 		return ret;
- 
-+	ret = xt_register_target(&clusterip_tg_reg);
-+	if (ret < 0)
-+		goto cleanup_subsys;
-+
- 	ret = nf_register_hook(&cip_arp_ops);
- 	if (ret < 0)
- 		goto cleanup_target;
- 
--#ifdef CONFIG_PROC_FS
--	clusterip_procdir = proc_mkdir("ipt_CLUSTERIP", init_net.proc_net);
--	if (!clusterip_procdir) {
--		pr_err("Unable to proc dir entry\n");
--		ret = -ENOMEM;
--		goto cleanup_hook;
--	}
--#endif /* CONFIG_PROC_FS */
--
- 	pr_info("ClusterIP Version %s loaded successfully\n",
- 		CLUSTERIP_VERSION);
-+
- 	return 0;
- 
--#ifdef CONFIG_PROC_FS
--cleanup_hook:
--	nf_unregister_hook(&cip_arp_ops);
--#endif /* CONFIG_PROC_FS */
- cleanup_target:
- 	xt_unregister_target(&clusterip_tg_reg);
-+cleanup_subsys:
-+	unregister_pernet_subsys(&clusterip_net_ops);
- 	return ret;
- }
- 
- static void __exit clusterip_tg_exit(void)
- {
- 	pr_info("ClusterIP Version %s unloading\n", CLUSTERIP_VERSION);
--#ifdef CONFIG_PROC_FS
--	proc_remove(clusterip_procdir);
--#endif
-+
- 	nf_unregister_hook(&cip_arp_ops);
- 	xt_unregister_target(&clusterip_tg_reg);
-+	unregister_pernet_subsys(&clusterip_net_ops);
- 
- 	/* Wait for completion of call_rcu_bh()'s (clusterip_config_rcu_free) */
- 	rcu_barrier_bh();
--- 
-1.7.10.4
+Using
+F:	net/hsr/
+
+will allow any subdirectories to also be under
+the same "Maintained" block.
+
+> This would indicate that people should CC me when they send patches or find bugs, 
+> and that I should review the patch within a couple of weeks and get back to the
+> sender and the list with my comments, right? Just making sure I understand what 
+> would be expected of me.
+> 
+> And where should the MAINTAINERS patch go - to netdev or to lkml?
+
+I think netdev with lkml cc'd.
