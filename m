@@ -1,315 +1,164 @@
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net-next v2 1/5] qlcnic: Register netdev in FAILED state for 83xx/84xx
-Date: Mon, 4 Nov 2013 13:31:29 -0500
-Message-ID: <76b2368c6fb66f0c340cbf651860013e07c5e871.1383612975.git.himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next v2 4/5] qlcnic: Enable multiple Tx queue support for 83xx/84xx Series adapters.
+Date: Mon, 4 Nov 2013 13:31:32 -0500
+Message-ID: <21ed8e5987999abcdcbf2a80c802a9fbc70009b3.1383612976.git.himanshu.madhani@qlogic.com>
 References: <cover.1383612975.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
-	<himanshu.madhani@qlogic.com>
+	Himanshu Madhani <himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:23465 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:25130 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752187Ab3KDTC5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 14:02:57 -0500
+	by vger.kernel.org with ESMTP id S1751968Ab3KDTC6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 14:02:58 -0500
 In-Reply-To: <cover.1383612975.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-o Without failing probe, register netdev when device is in FAILED state.
-o Device will come up with minimum functionality and allow diagnostics and
-  repair of the adapter.
+o 83xx and 84xx firmware is capable of multiple Tx queues.
+  This patch will enable multiple Tx queues for 83xx/84xx
+  series adapters. Max number of Tx queues supported will be 8.
 
-Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |  1 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    | 32 ++++++++++++++-----
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  | 16 ++++++----
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |  6 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   | 37 +++++++++++++++++-----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  |  8 ++---
- 6 files changed, 67 insertions(+), 33 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c   |  4 ++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c | 18 +++++++++++-------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c   |  2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c        |  5 +----
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c      |  6 +-----
+ 5 files changed, 18 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 0c2405d..db83edf 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -961,6 +961,7 @@ struct qlcnic_ipaddr {
- #define __QLCNIC_SRIOV_CAPABLE		11
- #define __QLCNIC_MBX_POLL_ENABLE	12
- #define __QLCNIC_DIAG_MODE		13
-+#define __QLCNIC_MAINTENANCE_MODE	16
- 
- #define QLCNIC_INTERRUPT_TEST		1
- #define QLCNIC_LOOPBACK_TEST		2
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index a126bdf..f81e2dd 100644
+index de7d6f4..99abe73 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -325,7 +325,8 @@ inline void qlcnic_83xx_clear_legacy_intr_mask(struct qlcnic_adapter *adapter)
- 
- inline void qlcnic_83xx_set_legacy_intr_mask(struct qlcnic_adapter *adapter)
- {
--	writel(1, adapter->tgt_mask_reg);
-+	if (adapter->tgt_mask_reg)
-+		writel(1, adapter->tgt_mask_reg);
- }
- 
- /* Enable MSI-x and INT-x interrupts */
-@@ -498,8 +499,11 @@ void qlcnic_83xx_free_mbx_intr(struct qlcnic_adapter *adapter)
- 		num_msix = 0;
- 
- 	msleep(20);
--	synchronize_irq(adapter->msix_entries[num_msix].vector);
--	free_irq(adapter->msix_entries[num_msix].vector, adapter);
-+
-+	if (adapter->msix_entries) {
-+		synchronize_irq(adapter->msix_entries[num_msix].vector);
-+		free_irq(adapter->msix_entries[num_msix].vector, adapter);
-+	}
- }
- 
- int qlcnic_83xx_setup_mbx_intr(struct qlcnic_adapter *adapter)
-@@ -760,6 +764,9 @@ int qlcnic_83xx_issue_cmd(struct qlcnic_adapter *adapter,
- 	int cmd_type, err, opcode;
- 	unsigned long timeout;
- 
-+	if (!mbx)
-+		return -EIO;
-+
- 	opcode = LSW(cmd->req.arg[0]);
- 	cmd_type = cmd->type;
- 	err = mbx->ops->enqueue_cmd(adapter, cmd, &timeout);
-@@ -3049,11 +3056,14 @@ int qlcnic_83xx_get_settings(struct qlcnic_adapter *adapter,
- 	int status = 0;
+@@ -1654,6 +1654,7 @@ int qlcnic_83xx_loopback_test(struct net_device *netdev, u8 mode)
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
  	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 	u8 drv_sds_rings = adapter->drv_sds_rings;
++	u8 drv_tx_rings = adapter->drv_tx_rings;
+ 	int ret = 0, loop = 0;
  
--	/* Get port configuration info */
--	status = qlcnic_83xx_get_port_info(adapter);
--	/* Get Link Status related info */
--	config = qlcnic_83xx_test_link(adapter);
--	ahw->module_type = QLC_83XX_SFP_MODULE_TYPE(config);
-+	if (!test_bit(__QLCNIC_MAINTENANCE_MODE, &adapter->state)) {
-+		/* Get port configuration info */
-+		status = qlcnic_83xx_get_port_info(adapter);
-+		/* Get Link Status related info */
-+		config = qlcnic_83xx_test_link(adapter);
-+		ahw->module_type = QLC_83XX_SFP_MODULE_TYPE(config);
-+	}
-+
- 	/* hard code until there is a way to get it from flash */
- 	ahw->board_type = QLCNIC_BRDTYPE_83XX_10G;
+ 	if (ahw->op_mode == QLCNIC_NON_PRIV_FUNC) {
+@@ -1718,6 +1719,7 @@ free_diag_res:
  
-@@ -3530,6 +3540,9 @@ void qlcnic_83xx_reinit_mbx_work(struct qlcnic_mailbox *mbx)
- 
- void qlcnic_83xx_free_mailbox(struct qlcnic_mailbox *mbx)
- {
-+	if (!mbx)
-+		return;
-+
- 	destroy_workqueue(mbx->work_q);
- 	kfree(mbx);
+ fail_diag_alloc:
+ 	adapter->drv_sds_rings = drv_sds_rings;
++	adapter->drv_tx_rings = drv_tx_rings;
+ 	qlcnic_release_diag_lock(adapter);
+ 	return ret;
  }
-@@ -3650,6 +3663,9 @@ void qlcnic_83xx_detach_mailbox_work(struct qlcnic_adapter *adapter)
- {
- 	struct qlcnic_mailbox *mbx = adapter->ahw->mailbox;
+@@ -3303,6 +3305,7 @@ int qlcnic_83xx_interrupt_test(struct net_device *netdev)
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 	struct qlcnic_cmd_args cmd;
+ 	u8 val, drv_sds_rings = adapter->drv_sds_rings;
++	u8 drv_tx_rings = adapter->drv_tx_rings;
+ 	u32 data;
+ 	u16 intrpt_id, id;
+ 	int ret;
+@@ -3359,6 +3362,7 @@ done:
  
-+	if (!mbx)
-+		return;
-+
- 	clear_bit(QLC_83XX_MBX_READY, &mbx->status);
- 	complete(&mbx->completion);
- 	cancel_work_sync(&mbx->work);
+ fail_diag_irq:
+ 	adapter->drv_sds_rings = drv_sds_rings;
++	adapter->drv_tx_rings = drv_tx_rings;
+ 	qlcnic_release_diag_lock(adapter);
+ 	return ret;
+ }
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index e2cd484..4a8a3f1 100644
+index 5682a40..89208e5 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -2190,20 +2190,24 @@ int qlcnic_83xx_init(struct qlcnic_adapter *adapter, int pci_using_dac)
- 			return err;
- 	}
+@@ -2068,13 +2068,13 @@ int qlcnic_83xx_configure_opmode(struct qlcnic_adapter *adapter)
+ 			return -EIO;
  
-+	if (qlcnic_83xx_read_flash_descriptor_table(adapter) ||
-+	    qlcnic_83xx_read_flash_mfg_id(adapter)) {
-+		dev_err(&adapter->pdev->dev, "Failed reading flash mfg id\n");
-+		err = -ENOTRECOVERABLE;
-+		goto detach_mbx;
-+	}
-+
- 	err = qlcnic_83xx_check_hw_status(adapter);
- 	if (err)
- 		goto detach_mbx;
- 
--	if (!qlcnic_83xx_read_flash_descriptor_table(adapter))
--		qlcnic_83xx_read_flash_mfg_id(adapter);
--
- 	err = qlcnic_83xx_get_fw_info(adapter);
- 	if (err)
- 		goto detach_mbx;
- 
- 	err = qlcnic_83xx_idc_init(adapter);
- 	if (err)
--		goto clear_fw_info;
-+		goto detach_mbx;
- 
- 	err = qlcnic_setup_intr(adapter, 0, 0);
- 	if (err) {
-@@ -2247,12 +2251,10 @@ disable_mbx_intr:
- disable_intr:
- 	qlcnic_teardown_intr(adapter);
- 
--clear_fw_info:
--	kfree(ahw->fw_info);
--
- detach_mbx:
- 	qlcnic_83xx_detach_mailbox_work(adapter);
- 	qlcnic_83xx_free_mailbox(ahw->mailbox);
-+	ahw->mailbox = NULL;
- exit:
- 	return err;
- }
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index b2a8805..0aaa52b 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -1685,7 +1685,6 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
- 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
- 	bool valid_mask = false;
- 	int i, ret = 0;
--	u32 state;
- 
- 	switch (val->flag) {
- 	case QLCNIC_FORCE_FW_DUMP_KEY:
-@@ -1738,9 +1737,8 @@ qlcnic_set_dump(struct net_device *netdev, struct ethtool_dump *val)
- 
- 	case QLCNIC_SET_QUIESCENT:
- 	case QLCNIC_RESET_QUIESCENT:
--		state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
--		if (state == QLCNIC_DEV_FAILED || (state == QLCNIC_DEV_BADBAD))
--			netdev_info(netdev, "Device in FAILED state\n");
-+		if (test_bit(__QLCNIC_MAINTENANCE_MODE, &adapter->state))
-+			netdev_info(netdev, "Device is in non-operational state\n");
- 		break;
- 
- 	default:
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index dcf4a4e..46ddbd8 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2305,10 +2305,23 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		qlcnic_83xx_check_vf(adapter, ent);
- 		adapter->portnum = adapter->ahw->pci_func;
- 		err = qlcnic_83xx_init(adapter, pci_using_dac);
-+
- 		if (err) {
--			dev_err(&pdev->dev, "%s: failed\n", __func__);
--			goto err_out_free_hw;
-+			switch (err) {
-+			case -ENOTRECOVERABLE:
-+				dev_err(&pdev->dev, "Adapter initialization failed due to a faulty hardware. Please reboot\n");
-+				dev_err(&pdev->dev, "If reboot doesn't help, please replace the adapter with new one and return the faulty adapter for repair\n");
-+				goto err_out_free_hw;
-+			case -ENOMEM:
-+				dev_err(&pdev->dev, "Adapter initialization failed. Please reboot\n");
-+				goto err_out_free_hw;
-+			default:
-+				dev_err(&pdev->dev, "Adapter initialization failed. A reboot may be required to recover from this failure\n");
-+				dev_err(&pdev->dev, "If reboot does not help to recover from this failure, try a flash update of the adapter\n");
-+				goto err_out_maintenance_mode;
-+			}
- 		}
-+
- 		if (qlcnic_sriov_vf_check(adapter))
- 			return 0;
+ 		adapter->max_sds_rings = QLCNIC_MAX_VNIC_SDS_RINGS;
+-		adapter->max_tx_rings = QLCNIC_SINGLE_RING;
++		adapter->max_tx_rings = QLCNIC_MAX_VNIC_TX_RINGS;
+ 	} else if (ret == QLC_83XX_DEFAULT_OPMODE) {
+ 		ahw->nic_mode = QLCNIC_DEFAULT_MODE;
+ 		adapter->nic_ops->init_driver = qlcnic_83xx_init_default_driver;
+ 		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
+ 		adapter->max_sds_rings = ahw->max_rx_ques;
+-		adapter->max_tx_rings = QLCNIC_SINGLE_RING;
++		adapter->max_tx_rings = ahw->max_tx_ques;
  	} else {
-@@ -2410,8 +2423,16 @@ err_out_disable_pdev:
- 	return err;
- 
- err_out_maintenance_mode:
-+	set_bit(__QLCNIC_MAINTENANCE_MODE, &adapter->state);
- 	netdev->netdev_ops = &qlcnic_netdev_failed_ops;
- 	SET_ETHTOOL_OPS(netdev, &qlcnic_ethtool_failed_ops);
-+	ahw->port_type = QLCNIC_XGBE;
-+
-+	if (qlcnic_83xx_check(adapter))
-+		adapter->tgt_status_reg = NULL;
-+	else
-+		ahw->board_type = QLCNIC_BRDTYPE_P3P_10G_SFP_PLUS;
-+
- 	err = register_netdev(netdev);
- 
- 	if (err) {
-@@ -2533,12 +2554,11 @@ static int qlcnic_resume(struct pci_dev *pdev)
- static int qlcnic_open(struct net_device *netdev)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
--	u32 state;
- 	int err;
- 
--	state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
--	if (state == QLCNIC_DEV_FAILED || state == QLCNIC_DEV_BADBAD) {
--		netdev_err(netdev, "%s: Device is in FAILED state\n", __func__);
-+	if (test_bit(__QLCNIC_MAINTENANCE_MODE, &adapter->state)) {
-+		netdev_err(netdev, "%s: Device is in non-operational state\n",
-+			   __func__);
- 
  		return -EIO;
  	}
-@@ -3251,8 +3271,9 @@ void qlcnic_82xx_dev_request_reset(struct qlcnic_adapter *adapter, u32 key)
- 		return;
+@@ -2179,16 +2179,20 @@ static int qlcnic_83xx_get_fw_info(struct qlcnic_adapter *adapter)
  
- 	state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
--	if (state == QLCNIC_DEV_FAILED || state == QLCNIC_DEV_BADBAD) {
--		netdev_err(adapter->netdev, "%s: Device is in FAILED state\n",
+ static void qlcnic_83xx_init_rings(struct qlcnic_adapter *adapter)
+ {
++	u8 rx_cnt = QLCNIC_DEF_SDS_RINGS;
++	u8 tx_cnt = QLCNIC_DEF_TX_RINGS;
 +
-+	if (test_bit(__QLCNIC_MAINTENANCE_MODE, &adapter->state)) {
-+		netdev_err(adapter->netdev, "%s: Device is in non-operational state\n",
- 			   __func__);
- 		qlcnic_api_unlock(adapter);
+ 	adapter->max_tx_rings = QLCNIC_MAX_TX_RINGS;
+ 	adapter->max_sds_rings = QLCNIC_MAX_SDS_RINGS;
  
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-index 019f437..e8b1ce6 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-@@ -1272,7 +1272,6 @@ void qlcnic_remove_sysfs_entries(struct qlcnic_adapter *adapter)
- void qlcnic_create_diag_entries(struct qlcnic_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
--	u32 state;
+-	qlcnic_set_tx_ring_count(adapter, QLCNIC_SINGLE_RING);
++	if (!adapter->ahw->msix_supported) {
++		rx_cnt = QLCNIC_SINGLE_RING;
++		tx_cnt = QLCNIC_SINGLE_RING;
++	}
  
- 	if (device_create_bin_file(dev, &bin_attr_port_stats))
- 		dev_info(dev, "failed to create port stats sysfs entry");
-@@ -1286,8 +1285,7 @@ void qlcnic_create_diag_entries(struct qlcnic_adapter *adapter)
- 	if (device_create_bin_file(dev, &bin_attr_mem))
- 		dev_info(dev, "failed to create mem sysfs entry\n");
+ 	/* compute and set drv sds rings */
+-	if (adapter->ahw->msix_supported)
+-		qlcnic_set_sds_ring_count(adapter, QLCNIC_DEF_SDS_RINGS);
+-	else
+-		qlcnic_set_sds_ring_count(adapter, QLCNIC_SINGLE_RING);
++	qlcnic_set_tx_ring_count(adapter, tx_cnt);
++	qlcnic_set_sds_ring_count(adapter, rx_cnt);
+ }
  
--	state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
--	if (state == QLCNIC_DEV_FAILED || state == QLCNIC_DEV_BADBAD)
-+	if (test_bit(__QLCNIC_MAINTENANCE_MODE, &adapter->state))
- 		return;
+ int qlcnic_83xx_init(struct qlcnic_adapter *adapter, int pci_using_dac)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index 225743c..b36c02f 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -731,7 +731,7 @@ static int qlcnic_set_channels(struct net_device *dev,
+ 		}
+ 	}
  
- 	if (device_create_bin_file(dev, &bin_attr_pci_config))
-@@ -1313,7 +1311,6 @@ void qlcnic_create_diag_entries(struct qlcnic_adapter *adapter)
- void qlcnic_remove_diag_entries(struct qlcnic_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
--	u32 state;
+-	if (qlcnic_82xx_check(adapter) && channel->tx_count) {
++	if (channel->tx_count) {
+ 		err = qlcnic_validate_rings(adapter, channel->tx_count,
+ 					    QLCNIC_TX_QUEUE);
+ 		if (err) {
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index 1c07ec2..0149c94 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -581,10 +581,7 @@ netdev_tx_t qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 			goto drop_packet;
+ 	}
  
- 	device_remove_bin_file(dev, &bin_attr_port_stats);
+-	if (qlcnic_check_multi_tx(adapter))
+-		tx_ring = &adapter->tx_ring[skb_get_queue_mapping(skb)];
+-	else
+-		tx_ring = &adapter->tx_ring[0];
++	tx_ring = &adapter->tx_ring[skb_get_queue_mapping(skb)];
+ 	num_txd = tx_ring->num_desc;
  
-@@ -1323,8 +1320,7 @@ void qlcnic_remove_diag_entries(struct qlcnic_adapter *adapter)
- 	device_remove_bin_file(dev, &bin_attr_crb);
- 	device_remove_bin_file(dev, &bin_attr_mem);
- 
--	state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
--	if (state == QLCNIC_DEV_FAILED || state == QLCNIC_DEV_BADBAD)
-+	if (test_bit(__QLCNIC_MAINTENANCE_MODE, &adapter->state))
- 		return;
- 
- 	device_remove_bin_file(dev, &bin_attr_pci_config);
+ 	frag_count = skb_shinfo(skb)->nr_frags + 1;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 8dbc12b..2eb4b03 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -3708,11 +3708,7 @@ int qlcnic_validate_rings(struct qlcnic_adapter *adapter, __u32 ring_cnt,
+ 		cur_rings = adapter->drv_sds_rings;
+ 		strcpy(buf, "SDS");
+ 	} else if (queue_type == QLCNIC_TX_QUEUE) {
+-		if (qlcnic_83xx_check(adapter))
+-			max_hw_rings = QLCNIC_SINGLE_RING;
+-		else
+-			max_hw_rings = adapter->max_tx_rings;
+-
++		max_hw_rings = adapter->max_tx_rings;
+ 		cur_rings = adapter->drv_tx_rings;
+ 		strcpy(buf, "Tx");
+ 	}
 -- 
 1.8.1.4
