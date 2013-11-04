@@ -1,32 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT net-next] Open vSwitch
-Date: Mon, 04 Nov 2013 16:26:11 -0500 (EST)
-Message-ID: <20131104.162611.1615634569631050276.davem@davemloft.net>
-References: <1383378230-59624-1-git-send-email-jesse@nicira.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 5/5] net: sctp: fix and consolidate SCTP checksumming
+ code
+Date: Mon, 04 Nov 2013 22:10:16 +0100
+Message-ID: <52780D38.9050807@redhat.com>
+References: <1383130252-1515-1-git-send-email-dborkman@redhat.com> <1383130252-1515-6-git-send-email-dborkman@redhat.com> <527117C3.2080306@gmail.com> <52778EF6.4000801@redhat.com> <5277C6E4.4010604@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: jesse@nicira.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54494 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753220Ab3KDV0P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 16:26:15 -0500
-In-Reply-To: <1383378230-59624-1-git-send-email-jesse@nicira.com>
+Received: from mx1.redhat.com ([209.132.183.28]:63099 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750749Ab3KDVeO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Nov 2013 16:34:14 -0500
+In-Reply-To: <5277C6E4.4010604@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Sat,  2 Nov 2013 00:43:39 -0700
+On 11/04/2013 05:10 PM, Vlad Yasevich wrote:
+> On 11/04/2013 07:11 AM, Daniel Borkmann wrote:
+>> On 10/30/2013 03:29 PM, Vlad Yasevich wrote:
+>>> On 10/30/2013 06:50 AM, Daniel Borkmann wrote:
+>> [...]
+>>> Daniel
+>>>
+>>> Here is a follow-on idea that might help even more.
+>>> What if we put a pointer to skb_checksum_ops() in the skb
+>>> somewhere (I was thinking of skb_shinfo).  Then
+>>> skb_checksum can simply use the data from there.  This would
+>>> allow us to get rid of all the special cases in SCTP that do
+>>> checksumming.  We can just set it to partial, set up the right
+>>> fields and let HW or SW always do the right thing.
+>>
+>> I need to think about this a bit. This would certainly have the
+>> negative side-effect of a higher skb->truesize usage and thus
+>> affecting memory accounting for everyone as we extend
+>> skb_shared_info.
+>
+> You are talking a single pointer here...  The alternative
+> is to do a per-protocol table.
 
-> A set of updates for net-next/3.13. Major changes are:
->  * Restructure flow handling code to be more logically organized and
->    easier to read.
->  * Rehashing of the flow table is moved from a workqueue to flow
->    installation time. Before, heavy load could block the workqueue for
->    excessive periods of time.
->  * Additional debugging information is provided to help diagnose megaflows.
->  * It's now possible to match on TCP flags.
-
-Looks good, pulled, thanks Jesse.
+Well, that is e.g. 8 more byte per skb, right? ;) I think if we
+need these kind of changes in many more places than currently,
+then this would make sense indeed.
