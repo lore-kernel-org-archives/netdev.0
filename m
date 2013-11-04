@@ -1,50 +1,38 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH/RFC net] ipv6: fix fragmentation bug
-Date: Mon, 4 Nov 2013 10:51:43 +0100
-Message-ID: <20131104095142.GB20131@omega>
-References: <1383557174-19424-1-git-send-email-alex.aring@gmail.com>
- <1383557174-19424-2-git-send-email-alex.aring@gmail.com>
- <52776B5A.6030701@windriver.com>
- <20131104094303.GA20131@omega>
- <52776D10.4020104@windriver.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 5/5] net: sctp: fix and consolidate SCTP checksumming
+ code
+Date: Mon, 04 Nov 2013 13:11:34 +0100
+Message-ID: <52778EF6.4000801@redhat.com>
+References: <1383130252-1515-1-git-send-email-dborkman@redhat.com> <1383130252-1515-6-git-send-email-dborkman@redhat.com> <527117C3.2080306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f180.google.com ([209.85.215.180]:50448 "EHLO
-	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752539Ab3KDJvr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 04:51:47 -0500
-Received: by mail-ea0-f180.google.com with SMTP id l9so2727725eaj.11
-        for <netdev@vger.kernel.org>; Mon, 04 Nov 2013 01:51:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <52776D10.4020104@windriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:14008 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750789Ab3KDMLk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Nov 2013 07:11:40 -0500
+In-Reply-To: <527117C3.2080306@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 04, 2013 at 05:46:56PM +0800, Fan Du wrote:
->=20
->=20
-> On 2013=E5=B9=B411=E6=9C=8804=E6=97=A5 17:43, Alexander Aring wrote:
-> >Hi,
-> >
-> >On Mon, Nov 04, 2013 at 05:39:38PM +0800, Fan Du wrote:
-> >>>  Hi, Alexander
-> >>>
-> >>>  I don't know whether which head commit you are sitting, this iss=
-ue might has already been fixed by Steffen:
-> >>>  https://git.kernel.org/cgit/linux/kernel/git/klassert/ipsec.git/=
-commit/?id=3D84502b5ef9849a9694673b15c31bd3ac693010ae
-> >>>
-> >>>
-> >oh I am using current net-next which haven't this fix.
-> >
->=20
-> Since it's a bug fix, so it's in net tree for the moment...
->=20
-Ok, thanks and sorry for the noise...
+On 10/30/2013 03:29 PM, Vlad Yasevich wrote:
+> On 10/30/2013 06:50 AM, Daniel Borkmann wrote:
+[...]
+> Daniel
+>
+> Here is a follow-on idea that might help even more.
+> What if we put a pointer to skb_checksum_ops() in the skb
+> somewhere (I was thinking of skb_shinfo).  Then
+> skb_checksum can simply use the data from there.  This would
+> allow us to get rid of all the special cases in SCTP that do
+> checksumming.  We can just set it to partial, set up the right
+> fields and let HW or SW always do the right thing.
 
-- Alex
+I need to think about this a bit. This would certainly have the
+negative side-effect of a higher skb->truesize usage and thus
+affecting memory accounting for everyone as we extend
+skb_shared_info.
