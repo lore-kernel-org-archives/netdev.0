@@ -1,94 +1,114 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/20] ipvs: improved SH fallback strategy
-Date: Mon,  4 Nov 2013 22:50:25 +0100
-Message-ID: <1383601842-4570-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/20] ipvs: avoid rcu_barrier during netns cleanup
+Date: Mon,  4 Nov 2013 22:50:24 +0100
+Message-ID: <1383601842-4570-3-git-send-email-pablo@netfilter.org>
 References: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55666 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753505Ab3KDVuy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Nov 2013 16:50:54 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Frolkin <avf@eldamar.org.uk>
+From: Julian Anastasov <ja@ssi.bg>
 
-Improve the SH fallback realserver selection strategy.
+commit 578bc3ef1e473a ("ipvs: reorganize dest trash") added
+rcu_barrier() on cleanup to wait dest users and schedulers
+like LBLC and LBLCR to put their last dest reference.
+Using rcu_barrier with many namespaces is problematic.
 
-With sh and sh-fallback, if a realserver is down, this attempts to
-distribute the traffic that would have gone to that server evenly
-among the remaining servers.
+Trying to fix it by freeing dest with kfree_rcu is not
+a solution, RCU callbacks can run in parallel and execution
+order is random.
 
-Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
-Acked-by: Julian Anastasov <ja@ssi.bg>
+Fix it by creating new function ip_vs_dest_put_and_free()
+which is heavier than ip_vs_dest_put(). We will use it just
+for schedulers like LBLC, LBLCR that can delay their dest
+release.
+
+By default, dests reference is above 0 if they are present in
+service and it is 0 when deleted but still in trash list.
+Change the dest trash code to use ip_vs_dest_put_and_free(),
+so that refcnt -1 can be used for freeing. As result,
+such checks remain in slow path and the rcu_barrier() from
+netns cleanup can be removed.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_sh.c |   39 +++++++++++++++++++++++++++++----------
- 1 file changed, 29 insertions(+), 10 deletions(-)
+ include/net/ip_vs.h              |    6 ++++++
+ net/netfilter/ipvs/ip_vs_ctl.c   |    6 +-----
+ net/netfilter/ipvs/ip_vs_lblc.c  |    2 +-
+ net/netfilter/ipvs/ip_vs_lblcr.c |    2 +-
+ 4 files changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-index 3588fae..cc65b2f 100644
---- a/net/netfilter/ipvs/ip_vs_sh.c
-+++ b/net/netfilter/ipvs/ip_vs_sh.c
-@@ -115,27 +115,46 @@ ip_vs_sh_get(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 1c2e1b9..cd7275f 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1442,6 +1442,12 @@ static inline void ip_vs_dest_put(struct ip_vs_dest *dest)
+ 	atomic_dec(&dest->refcnt);
  }
  
++static inline void ip_vs_dest_put_and_free(struct ip_vs_dest *dest)
++{
++	if (atomic_dec_return(&dest->refcnt) < 0)
++		kfree(dest);
++}
++
+ /*
+  *      IPVS sync daemon data and function prototypes
+  *      (from ip_vs_sync.c)
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index a3df9bd..62786a4 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -704,7 +704,7 @@ static void ip_vs_dest_free(struct ip_vs_dest *dest)
+ 	__ip_vs_dst_cache_reset(dest);
+ 	__ip_vs_svc_put(svc, false);
+ 	free_percpu(dest->stats.cpustats);
+-	kfree(dest);
++	ip_vs_dest_put_and_free(dest);
+ }
  
--/* As ip_vs_sh_get, but with fallback if selected server is unavailable */
-+/* As ip_vs_sh_get, but with fallback if selected server is unavailable
-+ *
-+ * The fallback strategy loops around the table starting from a "random"
-+ * point (in fact, it is chosen to be the original hash value to make the
-+ * algorithm deterministic) to find a new server.
-+ */
- static inline struct ip_vs_dest *
- ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
- 		      const union nf_inet_addr *addr, __be16 port)
+ /*
+@@ -3820,10 +3820,6 @@ void __net_exit ip_vs_control_net_cleanup(struct net *net)
  {
--	unsigned int offset;
--	unsigned int hash;
-+	unsigned int offset, roffset;
-+	unsigned int hash, ihash;
- 	struct ip_vs_dest *dest;
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
  
-+	/* first try the dest it's supposed to go to */
-+	ihash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
-+	dest = rcu_dereference(s->buckets[ihash].dest);
-+	if (!dest)
-+		return NULL;
-+	if (!is_unavailable(dest))
-+		return dest;
-+
-+	IP_VS_DBG_BUF(6, "SH: selected unavailable server %s:%d, reselecting",
-+		      IP_VS_DBG_ADDR(svc->af, &dest->addr), ntohs(dest->port));
-+
-+	/* if the original dest is unavailable, loop around the table
-+	 * starting from ihash to find a new dest
-+	 */
- 	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
--		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
-+		roffset = (offset + ihash) % IP_VS_SH_TAB_SIZE;
-+		hash = ip_vs_sh_hashkey(svc->af, addr, port, roffset);
- 		dest = rcu_dereference(s->buckets[hash].dest);
- 		if (!dest)
- 			break;
--		if (is_unavailable(dest))
--			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
--				      "%s:%d (offset %d)",
--				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
--				      ntohs(dest->port), offset);
--		else
-+		if (!is_unavailable(dest))
- 			return dest;
-+		IP_VS_DBG_BUF(6, "SH: selected unavailable "
-+			      "server %s:%d (offset %d), reselecting",
-+			      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-+			      ntohs(dest->port), roffset);
- 	}
+-	/* Some dest can be in grace period even before cleanup, we have to
+-	 * defer ip_vs_trash_cleanup until ip_vs_dest_wait_readers is called.
+-	 */
+-	rcu_barrier();
+ 	ip_vs_trash_cleanup(net);
+ 	ip_vs_stop_estimator(net, &ipvs->tot_stats);
+ 	ip_vs_control_net_cleanup_sysctl(net);
+diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+index eff13c9..ca056a3 100644
+--- a/net/netfilter/ipvs/ip_vs_lblc.c
++++ b/net/netfilter/ipvs/ip_vs_lblc.c
+@@ -136,7 +136,7 @@ static void ip_vs_lblc_rcu_free(struct rcu_head *head)
+ 						   struct ip_vs_lblc_entry,
+ 						   rcu_head);
  
- 	return NULL;
+-	ip_vs_dest_put(en->dest);
++	ip_vs_dest_put_and_free(en->dest);
+ 	kfree(en);
+ }
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
+index 0b85500..3f21a2f 100644
+--- a/net/netfilter/ipvs/ip_vs_lblcr.c
++++ b/net/netfilter/ipvs/ip_vs_lblcr.c
+@@ -130,7 +130,7 @@ static void ip_vs_lblcr_elem_rcu_free(struct rcu_head *head)
+ 	struct ip_vs_dest_set_elem *e;
+ 
+ 	e = container_of(head, struct ip_vs_dest_set_elem, rcu_head);
+-	ip_vs_dest_put(e->dest);
++	ip_vs_dest_put_and_free(e->dest);
+ 	kfree(e);
+ }
+ 
 -- 
 1.7.10.4
+
