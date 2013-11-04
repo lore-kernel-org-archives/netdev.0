@@ -1,49 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: extend net_device allocation to
- vmalloc()
-Date: Sun, 03 Nov 2013 23:19:36 -0500 (EST)
-Message-ID: <20131103.231936.1376432697924210356.davem@davemloft.net>
-References: <1383141242.4857.36.camel@edumazet-glaptop.roam.corp.google.com>
-	<1383145278.4857.46.camel@edumazet-glaptop.roam.corp.google.com>
-	<1383163844.4857.59.camel@edumazet-glaptop.roam.corp.google.com>
+Subject: Re: [PATCH v6] net/hsr: Add support for the High-availability
+ Seamless Redundancy protocol (HSRv0)
+Date: Sun, 03 Nov 2013 23:20:44 -0500 (EST)
+Message-ID: <20131103.232044.43459849021471837.davem@davemloft.net>
+References: <527167C7.4030305@xdin.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joby.poriyath@citrix.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, wei.liu2@citrix.com,
-	ian.campbell@citrix.com, xen-devel@lists.xen.org,
-	andrew.bennieston@citrix.com, david.vrabel@citrix.com,
-	malcolm.crossley@citrix.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, joe@perches.com,
+	jboticario@gmail.com, balferreira@googlemail.com,
+	elias.molina@ehu.es
+To: arvid.brodin@xdin.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48443 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48449 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751683Ab3KDETj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Nov 2013 23:19:39 -0500
-In-Reply-To: <1383163844.4857.59.camel@edumazet-glaptop.roam.corp.google.com>
+	with ESMTP id S1751527Ab3KDEUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Nov 2013 23:20:46 -0500
+In-Reply-To: <527167C7.4030305@xdin.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 30 Oct 2013 13:10:44 -0700
+From: Arvid Brodin <arvid.brodin@xdin.com>
+Date: Wed, 30 Oct 2013 21:10:47 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> High-availability Seamless Redundancy ("HSR") provides instant failover
+> redundancy for Ethernet networks. It requires a special network topology where
+> all nodes are connected in a ring (each node having two physical network
+> interfaces). It is suited for applications that demand high availability and
+> very short reaction time.
 > 
-> Joby Poriyath provided a xen-netback patch to reduce the size of
-> xenvif structure as some netdev allocation could fail under
-> memory pressure/fragmentation.
+> HSR acts on the Ethernet layer, using a registered Ethernet protocol type to
+> send special HSR frames in both directions over the ring. The driver creates
+> virtual network interfaces that can be used just like any ordinary Linux
+> network interface, for IP/TCP/UDP traffic etc. All nodes in the network ring
+> must be HSR capable.
 > 
-> This patch is handling the problem at the core level, allowing
-> any netdev structures to use vmalloc() if kmalloc() failed.
+> This code is a "best effort" to comply with the HSR standard as described in
+> IEC 62439-3:2010 (HSRv0).
 > 
-> As vmalloc() adds overhead on a critical network path, add __GFP_REPEAT
-> to kzalloc() flags to do this fallback only when really needed.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Joby Poriyath <joby.poriyath@citrix.com>
-> Cc: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> v2: change the Documentation to point to alloc_netdev_mqs()
->     instead of kmalloc()/vzalloc(), from Ben
+> Signed-off-by: Arvid Brodin <arvid.brodin@xdin.com>
 
-Looks good, applied, thanks Eric.
+Applied, thanks.
