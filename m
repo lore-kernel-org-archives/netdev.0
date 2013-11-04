@@ -1,53 +1,61 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 3/3] lib: crc32: reduce number of cases for crc32{,c}_combine
-Date: Mon,  4 Nov 2013 17:10:27 +0100
-Message-ID: <c3a8d8671b3d9b7763e3fac7a70be877b8f8ebab.1383580331.git.dborkman@redhat.com>
+Subject: [PATCH net-next 2/3] lib: crc32: conditionally resched when running testcases
+Date: Mon,  4 Nov 2013 17:10:26 +0100
+Message-ID: <31ff96d855409458e419b75e864b81d5405ce480.1383580331.git.dborkman@redhat.com>
 References: <cover.1383580331.git.dborkman@redhat.com>
 Cc: netdev@vger.kernel.org, fengguang.wu@intel.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8235 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:1867 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753597Ab3KDQKf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Nov 2013 11:10:35 -0500
+	id S1753590Ab3KDQKe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Nov 2013 11:10:34 -0500
 In-Reply-To: <cover.1383580331.git.dborkman@redhat.com>
 In-Reply-To: <cover.1383580331.git.dborkman@redhat.com>
 References: <cover.1383580331.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We can safely reduce the number of test cases by a tenth.
-There is no particular need to run as many as we're running
-now for crc32{,c}_combine, that gives us still ~8000 tests
-we're doing if people run kernels with crc selftests enabled
-which is perfectly fine.
+Fengguang reports that when crc32 selftests are running on startup, on
+some e.g. 32bit systems, we can get a CPU stall like "INFO: rcu_sched
+self-detected stall on CPU { 0} (t=2101 jiffies g=4294967081 c=4294967080
+q=41)". As this is not intended, add a cond_resched() at the end of a
+test case to fix it. Introduced by efba721f63 ("lib: crc32: add test cases
+for crc32{, c}_combine routines").
 
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- lib/crc32.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ lib/crc32.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/lib/crc32.c b/lib/crc32.c
-index 3a1dfa8..70f00ca 100644
+index 69dd124..3a1dfa8 100644
 --- a/lib/crc32.c
 +++ b/lib/crc32.c
-@@ -1037,7 +1037,7 @@ static int __init crc32c_combine_test(void)
- 	int i, j;
- 	int errors = 0, runs = 0;
+@@ -29,6 +29,7 @@
+ #include <linux/crc32.h>
+ #include <linux/module.h>
+ #include <linux/types.h>
++#include <linux/sched.h>
+ #include "crc32defs.h"
  
--	for (i = 0; i < 100; i++) {
-+	for (i = 0; i < 10; i++) {
- 		u32 crc_full;
+ #if CRC_LE_BITS > 8
+@@ -1054,6 +1055,7 @@ static int __init crc32c_combine_test(void)
+ 			      crc_full == test[i].crc32c_le))
+ 				errors++;
+ 			runs++;
++			cond_resched();
+ 		}
+ 	}
  
- 		crc_full = __crc32c_le(test[i].crc, test_buf + test[i].start,
-@@ -1131,7 +1131,7 @@ static int __init crc32_combine_test(void)
- 	int i, j;
- 	int errors = 0, runs = 0;
+@@ -1147,6 +1149,7 @@ static int __init crc32_combine_test(void)
+ 			      crc_full == test[i].crc_le))
+ 				errors++;
+ 			runs++;
++			cond_resched();
+ 		}
+ 	}
  
--	for (i = 0; i < 100; i++) {
-+	for (i = 0; i < 10; i++) {
- 		u32 crc_full;
- 
- 		crc_full = crc32_le(test[i].crc, test_buf + test[i].start,
 -- 
 1.8.3.1
