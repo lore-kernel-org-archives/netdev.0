@@ -1,30 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] SCTP fix/updates
-Date: Sun, 03 Nov 2013 23:07:07 -0500 (EST)
-Message-ID: <20131103.230707.57661027433783956.davem@davemloft.net>
-References: <1383130252-1515-1-git-send-email-dborkman@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v3 net-next] net: introduce dev_set_forwarding()
+Date: Mon, 4 Nov 2013 12:11:08 +0800
+Message-ID: <20131104041108.GA22823@gondor.apana.org.au>
+References: <20131029090849.GC5944@cpaasch-mac>
+ <1383051962.5464.25.camel@edumazet-glaptop.roam.corp.google.com>
+ <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131029.194446.2215574000648693370.davem@davemloft.net>
+ <1383091610.1534.29.camel@bwh-desktop.uk.level5networks.com>
+ <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131103122824.GA17394@gondor.apana.org.au>
+ <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131103163103.GA18894@gondor.apana.org.au>
+ <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: dborkman@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48407 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751250Ab3KDEHM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Nov 2013 23:07:12 -0500
-In-Reply-To: <1383130252-1515-1-git-send-email-dborkman@redhat.com>
+Received: from ringil.hengli.com.au ([178.18.16.133]:35186 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751250Ab3KDELT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Nov 2013 23:11:19 -0500
+Content-Disposition: inline
+In-Reply-To: <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Wed, 30 Oct 2013 11:50:47 +0100
+On Sun, Nov 03, 2013 at 09:26:43AM -0800, Eric Dumazet wrote:
+> 
+> Not really.
+> 
+> Have you took a look at the GSO path recently ?
+> 
+> The days it was handling only IP+TCP are gone.
+> 
+> If you think you can do better, please do so.
 
-> Please see patch 5 for the main description/motivation, the rest just
-> brings in the needed functionality for that. Although this is actually
-> a fix, I've based it against net-next as some additional work for
-> fixing it was needed.
+OK maybe I overreacted.
 
-Great work Daniel, and a long overdue simplification.
+With regards to your point 2), GRO does not introduce any latencies
+because it simply relies on NAPI to do the aggregation.  IOW it is
+no better or worse latency-wise compared to NAPI.  If you need to
+tune it, just use the usual NAPI toggles.
 
-Series applied, thanks!
+With repsect to point 3), sure we can allow the generation of TSO
+segments in skb_segment.
+
+You may be right that this is all too hard, since I haven't actually
+sat down and tried to do it yet.
+
+But please give me chance to have a look first before we give up and
+install a permanent user-space toggle.
+
+Since this is a crashing bug, I'm OK with adding the linearising
+patch to the current tree so that we don't end up shipping with a
+known crash in the network stack.
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
