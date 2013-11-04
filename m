@@ -1,36 +1,46 @@
-From: Alexander Aring <alex.aring@gmail.com>
+From: Fan Du <fan.du@windriver.com>
 Subject: Re: [PATCH/RFC net] ipv6: fix fragmentation bug
-Date: Mon, 4 Nov 2013 10:43:04 +0100
-Message-ID: <20131104094303.GA20131@omega>
-References: <1383557174-19424-1-git-send-email-alex.aring@gmail.com>
- <1383557174-19424-2-git-send-email-alex.aring@gmail.com>
- <52776B5A.6030701@windriver.com>
+Date: Mon, 4 Nov 2013 17:46:56 +0800
+Message-ID: <52776D10.4020104@windriver.com>
+References: <1383557174-19424-1-git-send-email-alex.aring@gmail.com> <1383557174-19424-2-git-send-email-alex.aring@gmail.com> <52776B5A.6030701@windriver.com> <20131104094303.GA20131@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+	<netdev@vger.kernel.org>
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:57975 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752488Ab3KDJnL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 04:43:11 -0500
-Received: by mail-ee0-f43.google.com with SMTP id b47so975750eek.30
-        for <netdev@vger.kernel.org>; Mon, 04 Nov 2013 01:43:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <52776B5A.6030701@windriver.com>
+Received: from mail.windriver.com ([147.11.1.11]:42201 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752488Ab3KDJqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 04:46:30 -0500
+In-Reply-To: <20131104094303.GA20131@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-On Mon, Nov 04, 2013 at 05:39:38PM +0800, Fan Du wrote:
-> Hi, Alexander
-> 
-> I don't know whether which head commit you are sitting, this issue might has already been fixed by Steffen:
-> https://git.kernel.org/cgit/linux/kernel/git/klassert/ipsec.git/commit/?id=84502b5ef9849a9694673b15c31bd3ac693010ae
-> 
-> 
-oh I am using current net-next which haven't this fix.
 
-Thanks
+On 2013=E5=B9=B411=E6=9C=8804=E6=97=A5 17:43, Alexander Aring wrote:
+> Hi,
+>
+> On Mon, Nov 04, 2013 at 05:39:38PM +0800, Fan Du wrote:
+>> >  Hi, Alexander
+>> >
+>> >  I don't know whether which head commit you are sitting, this issu=
+e might has already been fixed by Steffen:
+>> >  https://git.kernel.org/cgit/linux/kernel/git/klassert/ipsec.git/c=
+ommit/?id=3D84502b5ef9849a9694673b15c31bd3ac693010ae
+>> >
+>> >
+> oh I am using current net-next which haven't this fix.
+>
+
+Since it's a bug fix, so it's in net tree for the moment...
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan
