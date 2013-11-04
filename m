@@ -1,24 +1,28 @@
 From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH/RFC net] ipv6: fix fragmentation bug
-Date: Mon,  4 Nov 2013 10:26:14 +0100
-Message-ID: <1383557174-19424-2-git-send-email-alex.aring@gmail.com>
-References: <1383557174-19424-1-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH/RFC net] ipv6: probably fragmentation bug
+Date: Mon,  4 Nov 2013 10:26:13 +0100
+Message-ID: <1383557174-19424-1-git-send-email-alex.aring@gmail.com>
 Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
 	kaber@trash.net, netdev@vger.kernel.org,
 	Alexander Aring <alex.aring@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:50637 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752755Ab3KDJ0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 04:26:24 -0500
-Received: by mail-ee0-f43.google.com with SMTP id b47so965396eek.30
-        for <netdev@vger.kernel.org>; Mon, 04 Nov 2013 01:26:23 -0800 (PST)
-In-Reply-To: <1383557174-19424-1-git-send-email-alex.aring@gmail.com>
+Received: from mail-ee0-f41.google.com ([74.125.83.41]:42387 "EHLO
+	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752774Ab3KDJ00 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 04:26:26 -0500
+Received: by mail-ee0-f41.google.com with SMTP id e53so981648eek.0
+        for <netdev@vger.kernel.org>; Mon, 04 Nov 2013 01:26:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In a very poor 6lowpan wireless connection I got this:
+I currently working for 6lowpan and try to use the fragmentation api like in ipv6.
+
+Maybe I do something wrong with using the api but I don't catch any mistakes and
+my sk_buff is already sent to the ipv6 layer correctly.
+
+In a very poor connection with high payload(which is good for testing) I got a nullpointer
+dereference when the fragmentation expire timer occurs.
 
 BUG: unable to handle kernel NULL pointer dereference
 at 0000000c
@@ -52,31 +56,22 @@ Call Trace:
  [<c01280bf>] ? run_timer_softirq+0x11a/0x14d
  [<c0124097>] ? __do_softirq+0x95/0x13c
 
-I think we need to drop skb_dst_drop(skb) in ip6_frag_queue because we
-send a icmp6_send in the expire function "ip6_expire_frag_queue":
+Maybe this occurs because I did some mistakes in my current 6lowpan fragmentation
+implementation. That's why I sending it to this mailinglist... or maybe I found a bug.
 
-icmpv6_send(fq->q.fragments, ICMPV6_TIME_EXCEED, ICMPV6_EXC_FRAGTIME,
-0);
+The patch fix this issue you can find the removal of skb_dst_drop(skb) which
+was comming in on commit id: 97599dc792b45b1669c3cdb9a4b365aad0232f65
 
-and it can be that the skb is already freed. This null pointer
-dereference occurs when the timer expires.
+Maybe this wasn't a correct solution. We need the sk_buff sometimes when the expire occurs to call
+the icmp6_send function.
 
-Signed-off-by: Alexander Aring <alex.aring@gmail.com>
----
+Regards Alex
+
+Alexander Aring (1):
+  ipv6: fix fragmentation bug
+
  net/ipv6/reassembly.c | 1 -
  1 file changed, 1 deletion(-)
 
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index cc85a9b..6463ae0 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -352,7 +352,6 @@ found:
- 		return res;
- 	}
- 
--	skb_dst_drop(skb);
- 	inet_frag_lru_move(&fq->q);
- 	return -1;
- 
 -- 
 1.8.4.2
