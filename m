@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/20] ipvs: avoid rcu_barrier during netns cleanup
-Date: Mon,  4 Nov 2013 22:50:24 +0100
-Message-ID: <1383601842-4570-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 06/20] netfilter: ipt_CLUSTERIP: make clusterip_list per net namespace
+Date: Mon,  4 Nov 2013 22:50:28 +0100
+Message-ID: <1383601842-4570-7-git-send-email-pablo@netfilter.org>
 References: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,105 +10,73 @@ In-Reply-To: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-commit 578bc3ef1e473a ("ipvs: reorganize dest trash") added
-rcu_barrier() on cleanup to wait dest users and schedulers
-like LBLC and LBLCR to put their last dest reference.
-Using rcu_barrier with many namespaces is problematic.
+clusterip_configs should be per net namespace, so operate
+cluster in one net namespace won't affect other net
+namespace. right now, only allow to operate the clusterip_configs
+of init net namespace.
 
-Trying to fix it by freeing dest with kfree_rcu is not
-a solution, RCU callbacks can run in parallel and execution
-order is random.
-
-Fix it by creating new function ip_vs_dest_put_and_free()
-which is heavier than ip_vs_dest_put(). We will use it just
-for schedulers like LBLC, LBLCR that can delay their dest
-release.
-
-By default, dests reference is above 0 if they are present in
-service and it is 0 when deleted but still in trash list.
-Change the dest trash code to use ip_vs_dest_put_and_free(),
-so that refcnt -1 can be used for freeing. As result,
-such checks remain in slow path and the rcu_barrier() from
-netns cleanup can be removed.
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/ip_vs.h              |    6 ++++++
- net/netfilter/ipvs/ip_vs_ctl.c   |    6 +-----
- net/netfilter/ipvs/ip_vs_lblc.c  |    2 +-
- net/netfilter/ipvs/ip_vs_lblcr.c |    2 +-
- 4 files changed, 9 insertions(+), 7 deletions(-)
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |   12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 1c2e1b9..cd7275f 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1442,6 +1442,12 @@ static inline void ip_vs_dest_put(struct ip_vs_dest *dest)
- 	atomic_dec(&dest->refcnt);
- }
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index e66b91b..8ef3e6f 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -58,8 +58,6 @@ struct clusterip_config {
+ 	struct rcu_head rcu;
+ };
  
-+static inline void ip_vs_dest_put_and_free(struct ip_vs_dest *dest)
-+{
-+	if (atomic_dec_return(&dest->refcnt) < 0)
-+		kfree(dest);
-+}
-+
- /*
-  *      IPVS sync daemon data and function prototypes
-  *      (from ip_vs_sync.c)
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index a3df9bd..62786a4 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -704,7 +704,7 @@ static void ip_vs_dest_free(struct ip_vs_dest *dest)
- 	__ip_vs_dst_cache_reset(dest);
- 	__ip_vs_svc_put(svc, false);
- 	free_percpu(dest->stats.cpustats);
--	kfree(dest);
-+	ip_vs_dest_put_and_free(dest);
- }
+-static LIST_HEAD(clusterip_configs);
+-
+ /* clusterip_lock protects the clusterip_configs list */
+ static DEFINE_SPINLOCK(clusterip_lock);
  
- /*
-@@ -3820,10 +3820,6 @@ void __net_exit ip_vs_control_net_cleanup(struct net *net)
+@@ -70,6 +68,7 @@ static const struct file_operations clusterip_proc_fops;
+ static int clusterip_net_id __read_mostly;
+ 
+ struct clusterip_net {
++	struct list_head configs;
+ #ifdef CONFIG_PROC_FS
+ 	struct proc_dir_entry *procdir;
+ #endif
+@@ -124,8 +123,9 @@ static struct clusterip_config *
+ __clusterip_config_find(__be32 clusterip)
  {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	struct clusterip_config *c;
++	struct clusterip_net *cn = net_generic(&init_net, clusterip_net_id);
  
--	/* Some dest can be in grace period even before cleanup, we have to
--	 * defer ip_vs_trash_cleanup until ip_vs_dest_wait_readers is called.
--	 */
--	rcu_barrier();
- 	ip_vs_trash_cleanup(net);
- 	ip_vs_stop_estimator(net, &ipvs->tot_stats);
- 	ip_vs_control_net_cleanup_sysctl(net);
-diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-index eff13c9..ca056a3 100644
---- a/net/netfilter/ipvs/ip_vs_lblc.c
-+++ b/net/netfilter/ipvs/ip_vs_lblc.c
-@@ -136,7 +136,7 @@ static void ip_vs_lblc_rcu_free(struct rcu_head *head)
- 						   struct ip_vs_lblc_entry,
- 						   rcu_head);
+-	list_for_each_entry_rcu(c, &clusterip_configs, list) {
++	list_for_each_entry_rcu(c, &cn->configs, list) {
+ 		if (c->clusterip == clusterip)
+ 			return c;
+ 	}
+@@ -199,7 +199,7 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
+ #endif
  
--	ip_vs_dest_put(en->dest);
-+	ip_vs_dest_put_and_free(en->dest);
- 	kfree(en);
- }
+ 	spin_lock_bh(&clusterip_lock);
+-	list_add_rcu(&c->list, &clusterip_configs);
++	list_add_rcu(&c->list, &cn->configs);
+ 	spin_unlock_bh(&clusterip_lock);
  
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 0b85500..3f21a2f 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -130,7 +130,7 @@ static void ip_vs_lblcr_elem_rcu_free(struct rcu_head *head)
- 	struct ip_vs_dest_set_elem *e;
+ 	return c;
+@@ -709,9 +709,11 @@ static const struct file_operations clusterip_proc_fops = {
  
- 	e = container_of(head, struct ip_vs_dest_set_elem, rcu_head);
--	ip_vs_dest_put(e->dest);
-+	ip_vs_dest_put_and_free(e->dest);
- 	kfree(e);
- }
+ static int clusterip_net_init(struct net *net)
+ {
+-#ifdef CONFIG_PROC_FS
+ 	struct clusterip_net *cn = net_generic(net, clusterip_net_id);
  
++	INIT_LIST_HEAD(&cn->configs);
++
++#ifdef CONFIG_PROC_FS
+ 	cn->procdir = proc_mkdir("ipt_CLUSTERIP", net->proc_net);
+ 	if (!cn->procdir) {
+ 		pr_err("Unable to proc dir entry\n");
 -- 
 1.7.10.4
 
