@@ -1,78 +1,328 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH RESEND] packet: Deliver VLAN TPID to userspace
-Date: Mon, 04 Nov 2013 19:33:52 +0100
-Message-ID: <5277E890.20308@redhat.com>
-References: <87r4bdk8c3.wl%atzm@stratosphere.co.jp>  <20131025.185920.1893524127229371162.davem@davemloft.net>  <1382991074.3779.22.camel@bwh-desktop.uk.level5networks.com>  <878uxbjl4n.wl%atzm@stratosphere.co.jp> <1383585391.1553.7.camel@bwh-desktop.uk.level5networks.com>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Subject: [PATCH net-next v2 2/5] qlcnic: Enhance ethtool Statistics for Multiple Tx queue.
+Date: Mon, 4 Nov 2013 13:31:30 -0500
+Message-ID: <3612f4906fec0160f3a7d41692c1e374fab0cc37.1383612975.git.himanshu.madhani@qlogic.com>
+References: <cover.1383612975.git.himanshu.madhani@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Atzm Watanabe <atzm@stratosphere.co.jp>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	stephen@networkplumber.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Himanshu Madhani <himanshu.madhani@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12961 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750921Ab3KDSeD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Nov 2013 13:34:03 -0500
-In-Reply-To: <1383585391.1553.7.camel@bwh-desktop.uk.level5networks.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:42915 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751968Ab3KDTCz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 14:02:55 -0500
+In-Reply-To: <cover.1383612975.git.himanshu.madhani@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/04/2013 06:16 PM, Ben Hutchings wrote:
-> On Wed, 2013-10-30 at 16:03 +0900, Atzm Watanabe wrote:
-> [...]
->> Should it be structures as below?
->>
->> struct tpacket_hdr_variant1 {
->>          __u32   tp_rxhash;
->>          __u32   tp_vlan_tci;
->> };
->>
->> struct tpacket_hdr_variant2 {
->>          __u32   tp_rxhash;
->>          __u32   tp_vlan_tci;
->>          __u32   tp_vlan_tpid;
->> };
->>
->> struct tpacket3_hdr {
->>          __u32           tp_next_offset;
->>          __u32           tp_sec;
->>          __u32           tp_nsec;
->>          __u32           tp_snaplen;
->>          __u32           tp_len;
->>          __u32           tp_status;
->>          __u16           tp_mac;
->>          __u16           tp_net;
->>          /* pkt_hdr variants */
->>          union {
->>                  struct tpacket_hdr_variant1 hv1;
->>                  struct tpacket_hdr_variant2 hv2;
->>          };
->> };
->>
->> If it's ok, I'd like to send the patch v2.
-> [...]
->
-> I think this makes sense.
->
-> Also add a BUILD_BUG_ON(TPACKET3_HDRLEN != 48) somewhere.
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-Sorry for coming late into this discussion.
+o Enhance ethtool statistics to display multiple Tx queue stats for
+  all supported adapters.
 
-I think the packet_mmap API with its 3 different API versions
-already is a "bit" terrible, and should only be further extended
-for user space if there is a _*huge*_ (!) improvement somewhere
-(e.g. in terms of packet capturing/transmission performance) that
-would justify it. I'm thinking that this could e.g. be in terms
-of packet capturing and transmission performance.
+Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        | 13 ++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    | 96 +++++++++++++++-------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     | 14 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   | 33 ++++----
+ 4 files changed, 94 insertions(+), 62 deletions(-)
 
-Otherwise, each time we want to add a new member, we add yet
-another subheader for userspace into tpacket, making it even
-more complicated to use, and adding more "legacy" API fragments?
-
-To solve your problem, why don't you add a socket option that,
-if _enabled_, would reconstruct the vlan header as it was seen
-on the "wire" and push that up to userspace, just like libpcap
-does internally. It's not perfect either, but perhaps a better
-way to go. What do you think?
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index db83edf..2d818c1 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -533,6 +533,14 @@ struct qlcnic_host_sds_ring {
+ 	char name[IFNAMSIZ + 12];
+ } ____cacheline_internodealigned_in_smp;
+ 
++struct qlcnic_tx_queue_stats {
++	u64 xmit_on;
++	u64 xmit_off;
++	u64 xmit_called;
++	u64 xmit_finished;
++	u64 tx_bytes;
++};
++
+ struct qlcnic_host_tx_ring {
+ 	int irq;
+ 	void __iomem *crb_intr_mask;
+@@ -544,10 +552,7 @@ struct qlcnic_host_tx_ring {
+ 	u32 sw_consumer;
+ 	u32 num_desc;
+ 
+-	u64 xmit_on;
+-	u64 xmit_off;
+-	u64 xmit_called;
+-	u64 xmit_finished;
++	struct qlcnic_tx_queue_stats tx_stats;
+ 
+ 	void __iomem *crb_cmd_producer;
+ 	struct cmd_desc_type0 *desc_head;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index 0aaa52b..9b6dd98 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -27,43 +27,36 @@ static const u32 qlcnic_fw_dump_level[] = {
+ };
+ 
+ static const struct qlcnic_stats qlcnic_gstrings_stats[] = {
++	{"xmit_on", QLC_SIZEOF(stats.xmit_on), QLC_OFF(stats.xmit_on)},
++	{"xmit_off", QLC_SIZEOF(stats.xmit_off), QLC_OFF(stats.xmit_off)},
+ 	{"xmit_called", QLC_SIZEOF(stats.xmitcalled),
+-		QLC_OFF(stats.xmitcalled)},
++	 QLC_OFF(stats.xmitcalled)},
+ 	{"xmit_finished", QLC_SIZEOF(stats.xmitfinished),
+-		QLC_OFF(stats.xmitfinished)},
+-	{"rx_dropped", QLC_SIZEOF(stats.rxdropped), QLC_OFF(stats.rxdropped)},
++	 QLC_OFF(stats.xmitfinished)},
++	{"tx dma map error", QLC_SIZEOF(stats.tx_dma_map_error),
++	 QLC_OFF(stats.tx_dma_map_error)},
++	{"tx_bytes", QLC_SIZEOF(stats.txbytes), QLC_OFF(stats.txbytes)},
+ 	{"tx_dropped", QLC_SIZEOF(stats.txdropped), QLC_OFF(stats.txdropped)},
+-	{"csummed", QLC_SIZEOF(stats.csummed), QLC_OFF(stats.csummed)},
++	{"rx dma map error", QLC_SIZEOF(stats.rx_dma_map_error),
++	 QLC_OFF(stats.rx_dma_map_error)},
+ 	{"rx_pkts", QLC_SIZEOF(stats.rx_pkts), QLC_OFF(stats.rx_pkts)},
+-	{"lro_pkts", QLC_SIZEOF(stats.lro_pkts), QLC_OFF(stats.lro_pkts)},
+ 	{"rx_bytes", QLC_SIZEOF(stats.rxbytes), QLC_OFF(stats.rxbytes)},
+-	{"tx_bytes", QLC_SIZEOF(stats.txbytes), QLC_OFF(stats.txbytes)},
++	{"rx_dropped", QLC_SIZEOF(stats.rxdropped), QLC_OFF(stats.rxdropped)},
++	{"null rxbuf", QLC_SIZEOF(stats.null_rxbuf), QLC_OFF(stats.null_rxbuf)},
++	{"csummed", QLC_SIZEOF(stats.csummed), QLC_OFF(stats.csummed)},
++	{"lro_pkts", QLC_SIZEOF(stats.lro_pkts), QLC_OFF(stats.lro_pkts)},
+ 	{"lrobytes", QLC_SIZEOF(stats.lrobytes), QLC_OFF(stats.lrobytes)},
+ 	{"lso_frames", QLC_SIZEOF(stats.lso_frames), QLC_OFF(stats.lso_frames)},
+-	{"xmit_on", QLC_SIZEOF(stats.xmit_on), QLC_OFF(stats.xmit_on)},
+-	{"xmit_off", QLC_SIZEOF(stats.xmit_off), QLC_OFF(stats.xmit_off)},
+ 	{"skb_alloc_failure", QLC_SIZEOF(stats.skb_alloc_failure),
+ 	 QLC_OFF(stats.skb_alloc_failure)},
+-	{"null rxbuf", QLC_SIZEOF(stats.null_rxbuf), QLC_OFF(stats.null_rxbuf)},
+-	{"rx dma map error", QLC_SIZEOF(stats.rx_dma_map_error),
+-					 QLC_OFF(stats.rx_dma_map_error)},
+-	{"tx dma map error", QLC_SIZEOF(stats.tx_dma_map_error),
+-					 QLC_OFF(stats.tx_dma_map_error)},
+ 	{"mac_filter_limit_overrun", QLC_SIZEOF(stats.mac_filter_limit_overrun),
+-				QLC_OFF(stats.mac_filter_limit_overrun)},
++	 QLC_OFF(stats.mac_filter_limit_overrun)},
+ 	{"spurious intr", QLC_SIZEOF(stats.spurious_intr),
+ 	 QLC_OFF(stats.spurious_intr)},
+ 
+ };
+ 
+ static const char qlcnic_device_gstrings_stats[][ETH_GSTRING_LEN] = {
+-	"rx unicast frames",
+-	"rx multicast frames",
+-	"rx broadcast frames",
+-	"rx dropped frames",
+-	"rx errors",
+-	"rx local frames",
+-	"rx numbytes",
+ 	"tx unicast frames",
+ 	"tx multicast frames",
+ 	"tx broadcast frames",
+@@ -71,6 +64,13 @@ static const char qlcnic_device_gstrings_stats[][ETH_GSTRING_LEN] = {
+ 	"tx errors",
+ 	"tx local frames",
+ 	"tx numbytes",
++	"rx unicast frames",
++	"rx multicast frames",
++	"rx broadcast frames",
++	"rx dropped frames",
++	"rx errors",
++	"rx local frames",
++	"rx numbytes",
+ };
+ 
+ static const char qlcnic_83xx_tx_stats_strings[][ETH_GSTRING_LEN] = {
+@@ -126,13 +126,16 @@ static const char qlcnic_83xx_mac_stats_strings[][ETH_GSTRING_LEN] = {
+ 
+ #define QLCNIC_STATS_LEN	ARRAY_SIZE(qlcnic_gstrings_stats)
+ 
+-static const char qlcnic_tx_ring_stats_strings[][ETH_GSTRING_LEN] = {
++static const char qlcnic_tx_queue_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"xmit_on",
+ 	"xmit_off",
+ 	"xmit_called",
+ 	"xmit_finished",
++	"tx_bytes",
+ };
+ 
++#define QLCNIC_TX_STATS_LEN	ARRAY_SIZE(qlcnic_tx_queue_stats_strings)
++
+ static const char qlcnic_83xx_rx_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"ctx_rx_bytes",
+ 	"ctx_rx_pkts",
+@@ -1123,11 +1126,11 @@ qlcnic_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+ 		       QLCNIC_TEST_LEN * ETH_GSTRING_LEN);
+ 		break;
+ 	case ETH_SS_STATS:
+-		num_stats = ARRAY_SIZE(qlcnic_tx_ring_stats_strings);
++		num_stats = ARRAY_SIZE(qlcnic_tx_queue_stats_strings);
+ 		for (i = 0; i < adapter->max_drv_tx_rings; i++) {
+ 			for (index = 0; index < num_stats; index++) {
+-				sprintf(data, "tx_ring_%d %s", i,
+-					qlcnic_tx_ring_stats_strings[index]);
++				sprintf(data, "tx_queue_%d %s", i,
++					qlcnic_tx_queue_stats_strings[index]);
+ 				data += ETH_GSTRING_LEN;
+ 			}
+ 		}
+@@ -1225,6 +1228,36 @@ static u64 *qlcnic_fill_stats(u64 *data, void *stats, int type)
+ 	return data;
+ }
+ 
++static void qlcnic_update_stats(struct qlcnic_adapter *adapter)
++{
++	struct qlcnic_host_tx_ring *tx_ring;
++	int ring;
++
++	for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
++		tx_ring = &adapter->tx_ring[ring];
++		adapter->stats.xmit_on += tx_ring->tx_stats.xmit_on;
++		adapter->stats.xmit_off += tx_ring->tx_stats.xmit_off;
++		adapter->stats.xmitcalled += tx_ring->tx_stats.xmit_called;
++		adapter->stats.xmitfinished += tx_ring->tx_stats.xmit_finished;
++		adapter->stats.txbytes += tx_ring->tx_stats.tx_bytes;
++	}
++}
++
++static u64 *qlcnic_fill_tx_queue_stats(u64 *data, void *stats)
++{
++	struct qlcnic_host_tx_ring *tx_ring;
++
++	tx_ring = (struct qlcnic_host_tx_ring *)stats;
++
++	*data++ = QLCNIC_FILL_STATS(tx_ring->tx_stats.xmit_on);
++	*data++ = QLCNIC_FILL_STATS(tx_ring->tx_stats.xmit_off);
++	*data++ = QLCNIC_FILL_STATS(tx_ring->tx_stats.xmit_called);
++	*data++ = QLCNIC_FILL_STATS(tx_ring->tx_stats.xmit_finished);
++	*data++ = QLCNIC_FILL_STATS(tx_ring->tx_stats.tx_bytes);
++
++	return data;
++}
++
+ static void qlcnic_get_ethtool_stats(struct net_device *dev,
+ 				     struct ethtool_stats *stats, u64 *data)
+ {
+@@ -1232,19 +1265,20 @@ static void qlcnic_get_ethtool_stats(struct net_device *dev,
+ 	struct qlcnic_host_tx_ring *tx_ring;
+ 	struct qlcnic_esw_statistics port_stats;
+ 	struct qlcnic_mac_statistics mac_stats;
+-	int index, ret, length, size, ring;
++	int index, ret, length, size, tx_size, ring;
+ 	char *p;
+ 
+-	memset(data, 0, adapter->max_drv_tx_rings * 4 * sizeof(u64));
++	tx_size = adapter->max_drv_tx_rings * QLCNIC_TX_STATS_LEN;
++
++	memset(data, 0, tx_size * sizeof(u64));
+ 	for (ring = 0, index = 0; ring < adapter->max_drv_tx_rings; ring++) {
+ 		if (test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
+ 			tx_ring = &adapter->tx_ring[ring];
+-			*data++ = tx_ring->xmit_on;
+-			*data++ = tx_ring->xmit_off;
+-			*data++ = tx_ring->xmit_called;
+-			*data++ = tx_ring->xmit_finished;
++			data = qlcnic_fill_tx_queue_stats(data, tx_ring);
++			qlcnic_update_stats(adapter);
+ 		}
+ 	}
++
+ 	memset(data, 0, stats->n_stats * sizeof(u64));
+ 	length = QLCNIC_STATS_LEN;
+ 	for (index = 0; index < length; index++) {
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index 897627d..df31be7 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -607,8 +607,7 @@ netdev_tx_t qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 		if (qlcnic_tx_avail(tx_ring) > TX_STOP_THRESH) {
+ 			netif_tx_start_queue(tx_ring->txq);
+ 		} else {
+-			adapter->stats.xmit_off++;
+-			tx_ring->xmit_off++;
++			tx_ring->tx_stats.xmit_off++;
+ 			return NETDEV_TX_BUSY;
+ 		}
+ 	}
+@@ -669,9 +668,8 @@ netdev_tx_t qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	if (adapter->drv_mac_learn)
+ 		qlcnic_send_filter(adapter, first_desc, skb);
+ 
+-	adapter->stats.txbytes += skb->len;
+-	adapter->stats.xmitcalled++;
+-	tx_ring->xmit_called++;
++	tx_ring->tx_stats.tx_bytes += skb->len;
++	tx_ring->tx_stats.xmit_called++;
+ 
+ 	qlcnic_update_cmd_producer(tx_ring);
+ 
+@@ -805,8 +803,7 @@ static int qlcnic_process_cmd_ring(struct qlcnic_adapter *adapter,
+ 					       PCI_DMA_TODEVICE);
+ 				frag->dma = 0ULL;
+ 			}
+-			adapter->stats.xmitfinished++;
+-			tx_ring->xmit_finished++;
++			tx_ring->tx_stats.xmit_finished++;
+ 			dev_kfree_skb_any(buffer->skb);
+ 			buffer->skb = NULL;
+ 		}
+@@ -823,8 +820,7 @@ static int qlcnic_process_cmd_ring(struct qlcnic_adapter *adapter,
+ 		    netif_carrier_ok(netdev)) {
+ 			if (qlcnic_tx_avail(tx_ring) > TX_STOP_THRESH) {
+ 				netif_tx_wake_queue(tx_ring->txq);
+-				adapter->stats.xmit_on++;
+-				tx_ring->xmit_on++;
++				tx_ring->tx_stats.xmit_on++;
+ 			}
+ 		}
+ 		adapter->tx_timeo_cnt = 0;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 46ddbd8..05394a4 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2720,24 +2720,21 @@ static void qlcnic_tx_timeout(struct net_device *netdev)
+ 						      QLCNIC_FORCE_FW_DUMP_KEY);
+ 	} else {
+ 		netdev_info(netdev, "Tx timeout, reset adapter context.\n");
+-		if (qlcnic_82xx_check(adapter)) {
+-			for (ring = 0; ring < adapter->max_drv_tx_rings;
+-			     ring++) {
+-				tx_ring = &adapter->tx_ring[ring];
+-				dev_info(&netdev->dev, "ring=%d\n", ring);
+-				dev_info(&netdev->dev, "crb_intr_mask=%d\n",
+-					 readl(tx_ring->crb_intr_mask));
+-				dev_info(&netdev->dev, "producer=%d\n",
+-					 readl(tx_ring->crb_cmd_producer));
+-				dev_info(&netdev->dev, "sw_consumer = %d\n",
+-					 tx_ring->sw_consumer);
+-				dev_info(&netdev->dev, "hw_consumer = %d\n",
+-					 le32_to_cpu(*(tx_ring->hw_consumer)));
+-				dev_info(&netdev->dev, "xmit-on=%llu\n",
+-					 tx_ring->xmit_on);
+-				dev_info(&netdev->dev, "xmit-off=%llu\n",
+-					 tx_ring->xmit_off);
+-			}
++		for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
++			tx_ring = &adapter->tx_ring[ring];
++			netdev_info(netdev, "Tx ring=%d\n", ring);
++			netdev_info(netdev,
++				    "crb_intr_mask=%d, producer=%d, sw_consumer=%d, hw_consumer=%d\n",
++				    readl(tx_ring->crb_intr_mask),
++				    readl(tx_ring->crb_cmd_producer),
++				    tx_ring->sw_consumer,
++				    le32_to_cpu(*(tx_ring->hw_consumer)));
++			netdev_info(netdev,
++				    "xmit_finished=%llu, xmit_called=%llu, xmit_on=%llu, xmit_off=%llu\n",
++				    tx_ring->tx_stats.xmit_finished,
++				    tx_ring->tx_stats.xmit_called,
++				    tx_ring->tx_stats.xmit_on,
++				    tx_ring->tx_stats.xmit_off);
+ 		}
+ 		adapter->ahw->reset_context = 1;
+ 	}
+-- 
+1.8.1.4
