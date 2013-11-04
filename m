@@ -1,59 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH/RFC net] ipv6: fix fragmentation bug
-Date: Mon, 04 Nov 2013 06:25:42 -0800
-Message-ID: <1383575142.4291.121.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1383557174-19424-1-git-send-email-alex.aring@gmail.com>
-	 <1383557174-19424-2-git-send-email-alex.aring@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC] netfilter: ip6_tables: use reasm skb for
+ matching
+Date: Mon, 4 Nov 2013 16:22:26 +0100
+Message-ID: <20131104152226.GA5103@minipsycho.orion>
+References: <1383130201-6198-1-git-send-email-jiri@resnulli.us>
+ <20131030134100.GD16615@breakpoint.cc>
+ <20131030141354.GB1456@minipsycho.orion>
+ <20131030144400.GE16615@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
-To: Alexander Aring <alex.aring@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	kadlec@blackhole.kfki.hu, kaber@trash.net, mleitner@redhat.com
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:64805 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753424Ab3KDOZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 09:25:43 -0500
-Received: by mail-pa0-f42.google.com with SMTP id kp14so7031649pab.29
-        for <netdev@vger.kernel.org>; Mon, 04 Nov 2013 06:25:43 -0800 (PST)
-In-Reply-To: <1383557174-19424-2-git-send-email-alex.aring@gmail.com>
+Received: from mail-ee0-f49.google.com ([74.125.83.49]:64724 "EHLO
+	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752768Ab3KDPWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 10:22:33 -0500
+Received: by mail-ee0-f49.google.com with SMTP id e52so1178290eek.22
+        for <netdev@vger.kernel.org>; Mon, 04 Nov 2013 07:22:32 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131030144400.GE16615@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-11-04 at 10:26 +0100, Alexander Aring wrote:
-> In a very poor 6lowpan wireless connection I got this:
+Wed, Oct 30, 2013 at 03:44:00PM CET, fw@strlen.de wrote:
+>Jiri Pirko <jiri@resnulli.us> wrote:
+>> >This is a bit backwards, I think.
+>> >- We gather frags
+>> >- Then we invoke ip6t_do_table for each individual fragment
+>> >
+>> >So basically your patch is equivalent to
+>> >for_each_frag( )
+>> >  ip6t_do_table(reassembled_skb)
+>> >
+>> >Which makes no sense to me - why traverse the ruleset n times with the same
+>> >packet?
+>> 
+>> Because each fragment need to be pushed through separately.
+>
+>Why?  AFAIU we only need to ensure that (in forwarding case) we
+>send out the original fragments instead of the reassembled packet.
 
-> 
-> I think we need to drop skb_dst_drop(skb) in ip6_frag_queue because we
-> send a icmp6_send in the expire function "ip6_expire_frag_queue":
-> 
-> icmpv6_send(fq->q.fragments, ICMPV6_TIME_EXCEED, ICMPV6_EXC_FRAGTIME,
-> 0);
-> 
-> and it can be that the skb is already freed. This null pointer
-> dereference occurs when the timer expires.
-> 
-> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
-> ---
->  net/ipv6/reassembly.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-> index cc85a9b..6463ae0 100644
-> --- a/net/ipv6/reassembly.c
-> +++ b/net/ipv6/reassembly.c
-> @@ -352,7 +352,6 @@ found:
->  		return res;
->  	}
->  
-> -	skb_dst_drop(skb);
->  	inet_frag_lru_move(&fq->q);
->  	return -1;
->  
+I don't knot why, that's the way it is done now. From the top of my head
+I can't think of any scenario why it would hurt to push the reassebled
+packet instead (and of course send out original fragments at the end of
+the way for forwarding)
 
-Well, no, this call is needed, please check commit
-97599dc792b45b1669c3cdb9a4b365aad0232f65
-(" net: drop dst before queueing fragments")
+>
+>> What different approach would you suggest?
+>
+>I am sure that current behaviour is intentional, so I'd first like to
+>understand WHY this was implemented this way.
+>
+>Also, this would change very long standing behaviour so one might argue that
+>this is a no-go anyway.
 
-for details.
+Can you think aof any sane use case this change could possible break?
+
+>
+>What is the exact problem that this is supposed to solve?
+
+Look at the patch description. There's an example. The problem is that
+fragments are not correctly matched.
