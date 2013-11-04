@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] cdc_mbim + qmi_wwan trivial fixes
-Date: Mon, 04 Nov 2013 15:48:42 -0500 (EST)
-Message-ID: <20131104.154842.937373087218100293.davem@davemloft.net>
-References: <1383311936-20954-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH v3] sh_eth: check platform data pointer
+Date: Mon, 04 Nov 2013 15:49:49 -0500 (EST)
+Message-ID: <20131104.154949.7139336717561192.davem@davemloft.net>
+References: <201310302330.19491.sergei.shtylyov@cogentembedded.com>
+	<20131031060527.GV1603@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org, oneukum@suse.de
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54247 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750746Ab3KDUst convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 15:48:49 -0500
-In-Reply-To: <1383311936-20954-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+	nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
+To: horms@verge.net.au
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20131031060527.GV1603@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Fri,  1 Nov 2013 14:18:51 +0100
+From: Simon Horman <horms@verge.net.au>
+Date: Thu, 31 Oct 2013 15:05:27 +0900
 
-> This series fixes three problems Oliver pointed out during the
-> review of the new huawei_cdc_ncm driver:
-> http://patchwork.ozlabs.org/patch/278903/
->=20
-> That innocent driver only used cdc_mbim as a blueprint, and
-> all the blame should really have gone to me....
->=20
-> I do have a similar fix for the manage_power issue in the
-> cdc-wdm USB class driver as well.  It will be submitted to
-> linux-usb as soon as Greg opens up his mailbox again :-)
+> [ Cc Dave Miller ]
+> 
+> On Wed, Oct 30, 2013 at 11:30:19PM +0300, Sergei Shtylyov wrote:
+>> Check the platform data pointer before dereferencing it and error out of the
+>> probe() method if it's NULL.
+>> 
+>> This has additional effect of preventing kernel oops with outdated platform data
+>> containing zero PHY address instead (such as on SolutionEngine7710).
+>> 
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
+> Acked-by: Simon Horman <horms+renesas@verge.net.au>
+> 
+> Dave, is it too late to for this to be considered for net-next?
 
-Looks good, applied, thanks.
+Applied, thanks.
