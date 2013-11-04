@@ -1,54 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 2/3] r8152: modify the tx flow
-Date: Mon, 04 Nov 2013 15:53:20 -0500 (EST)
-Message-ID: <20131104.155320.2172500441669637943.davem@davemloft.net>
-References: <1383117220-893-3-git-send-email-hayeswang@realtek.com>
-	<20131030.170441.2031802071448773661.davem@davemloft.net>
-	<3FC2D94481C34A40A55B033CB9CFA9FB@realtek.com.tw>
+Subject: Re: [PATCH net-next v2 2/3] tipc: message reassembly using
+ fragment chain
+Date: Mon, 04 Nov 2013 16:12:54 -0500 (EST)
+Message-ID: <20131104.161254.1576011108092991976.davem@davemloft.net>
+References: <1383208814-23476-1-git-send-email-erik.hugne@ericsson.com>
+	<1383208814-23476-3-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3FC2D94481C34A40A55B033CB9CFA9FB@realtek.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com, maloy@donjonn.com,
+	paul.gortmaker@windriver.com, ying.xue@windriver.com
+To: erik.hugne@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54403 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751155Ab3KDVM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 16:12:56 -0500
+In-Reply-To: <1383208814-23476-3-git-send-email-erik.hugne@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: hayeswang <hayeswang@realtek.com>
-Date: Thu, 31 Oct 2013 13:52:38 +0800
+From: <erik.hugne@ericsson.com>
+Date: Thu, 31 Oct 2013 09:40:13 +0100
 
-> From: David Miller [mailto:davem@davemloft.net] 
-> Sent: Thursday, October 31, 2013 5:05 AM
->> 
->> From: Hayes Wang <hayeswang@realtek.com>
->> Date: Wed, 30 Oct 2013 15:13:39 +0800
-> [...]
->> Basically, your driver will now queue up to 1,000 packets onto
->> this tx_queue list, because that is what tx_queue_len will be
->> for alloc_etherdev() allocated network devices.
->> 
->> In my previous reply to you about this patch, I asked you to
->> quantify and study the effects of using a limit of 60.  I said
->> that 60 might be too large.
->> 
->> You've responded by removing the limit completely, which is exactly
->> the opposite of what I've asked you to do.  Why did you do this?
-> 
-> Excuse me. My question is that the original code doesn't stop the tx queue
-> either, so I don't understand why it is necessary for this patch.
-> 
-> I don't say I wouldn't find the suitable value for the tx queue length.
-> I feel I need some time to think how to find the reasonable value. And
-> I don't hope it influences the submission of the other patches, so I
-> remove it first. Or, may I submit the other two patches first?
+> +	skb_pull(frag, msg_hdr_sz(msg));
+> +	if (fragid == FIRST_FRAGMENT) {
+> +		if (*head)
+> +			goto out_free;
+> +		*head = frag;
+> +		skb_frag_list_init(*head);
+>  		return 0;
+> +	} else {
+> +		if (!*head)
+> +			goto out_free;
+> +		if (!skb_has_frag_list(*head))
+> +			skb_shinfo(*head)->frag_list = frag;
+> +		else
+> +			(*tail)->next = frag;
+> +		*tail = frag;
+> +		(*head)->truesize += frag->truesize;
+> +	}
+> +	if (fragid == LAST_FRAGMENT) {
+> +		*fbuf = *head;
+> +		*tail = *head = NULL;
+> +		return LINK_REASM_COMPLETE;
+>  	}
 
-The more TX work you push into the workqueue handler, the longer the
-latency for releasing the SKB and releasing all the queues that are
-waiting for release of that packet.
+Please use skb_try_coalese(), and only use frag lists if that does not
+succeed.
 
-Do you know that sockets, queueing discplines, etc. all rely upon
-there being a timely release of SKBs once they are successfully
-transmitted?  It must happen at the earliest moment possible that
-can be reasonable obtained.
+Also you must be certain to unclone the SKB if you are going to modify
+it in this kind of way.
+
+For a good example of how to attend to all of these things, see
+ip_frag_reasm() in net/ipv4/ip_fragment.c
