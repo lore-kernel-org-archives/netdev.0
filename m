@@ -1,56 +1,65 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v4 net-next] net: introduce dev_set_forwarding()
-Date: Mon, 4 Nov 2013 16:55:30 +0000
-Message-ID: <1383584130.1553.2.camel@bwh-desktop.uk.level5networks.com>
-References: <20131029090849.GC5944@cpaasch-mac>
-	 <1383051962.5464.25.camel@edumazet-glaptop.roam.corp.google.com>
-	 <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
-	 <20131029.194446.2215574000648693370.davem@davemloft.net>
-	 <1383091610.1534.29.camel@bwh-desktop.uk.level5networks.com>
-	 <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1383422330.4291.58.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: Re: [PATCH RFC] ipv6: enable IPV6_FLOWLABEL_MGR for getsockopt
+Date: Mon, 04 Nov 2013 18:09:01 +0100
+Message-ID: <5277D4AD.10308@enst-bretagne.fr>
+References: <1383411524-16743-1-git-send-email-florent.fourcot@enst-bretagne.fr> <20131104000425.GB8832@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	<christoph.paasch@uclouvain.be>, <herbert@gondor.apana.org.au>,
-	<netdev@vger.kernel.org>, <hkchu@google.com>, <mwdalton@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:52614 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751278Ab3KDQzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 11:55:35 -0500
-In-Reply-To: <1383422330.4291.58.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from fourcot.fr ([217.70.191.14]:46546 "EHLO olfflo.fourcot.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753050Ab3KDRJE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Nov 2013 12:09:04 -0500
+In-Reply-To: <20131104000425.GB8832@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-11-02 at 12:58 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Christoph Paasch and Jerry Chu reported crashes in skb_segment() caused
-> by commit 8a29111c7ca6 ("net: gro: allow to build full sized skb")
-> 
-> skb_segment() only deals with a frag_list chain containing MSS sized
-> fragments. Even if we fix this problem, its better if GRO layer
-> doesn't build skb with a frag_list in the first place, to let TSO
-> packets reaching output devices.
->  
-> David Miller and Ben Hutchings suggested we keep track of number of
-> forwarding users to be able to :
-> 
-> - Disable LRO
-> - Make sure GRO layer do not use skb frag_list to extend skb capacity
-> 
-> Note that after this patch, LRO is automatically re-enabled if
-> forwarding is disabled on the device, or if a device is removed
-> from a bridge.
-[...]
 
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+> We should take ip6_fl_lock here, otherwise expires extraction races with
+> the garbage collector (which can update it). There seem to be some other
+> unsafe places, e.g. fl6_renew.
+> 
 
+I will fix it, and for fl6_renew too.
+
+>> +			freq->flr_label = sfl->fl->label;
+>> +			freq->flr_dst = sfl->fl->dst;
+>> +			freq->flr_share = sfl->fl->share;
+>> +			freq->flr_expires = (sfl->fl->expires - jiffies) / HZ;
+>> +			freq->flr_linger = sfl->fl->linger / HZ;
+>> +
+>> +			rcu_read_unlock_bh();
+>> +			return 0;
+>> +		}
+>> +	}
+>> +	rcu_read_unlock_bh();
+>> +
+>> +	return 0;
+> 
+> Maybe return -EINVAL for not found?
+> 
+
+I don't like -EINVAL for this case, since the user can not know if there
+are no label or if the request has bad parameters. Could -ENOMSG be OK?
+
+
+>> +	case IPV6_FLOWLABEL_MGR:
+>> +	{
+>> +		struct in6_flowlabel_req freq;
+>> +
+> 
+> Can you think about other actions one might do with this getsockopt? Maybe
+> we should copy_from_user freq and check if action specifies a GET
+> request. So a further extension to this API won't break users which did
+> pass uninitialized memory to this getsockopt.
+> 
+
+Very good idea.
+
+Regards,
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Florent.
