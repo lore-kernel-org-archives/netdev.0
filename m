@@ -1,64 +1,50 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] x86: Run checksumming in parallel accross multiple alu's
-Date: Mon, 4 Nov 2013 09:47:35 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73D7@saturn3.aculab.com>
-References: <201310300525.r9U5Pdqo014902@ib.usersys.redhat.com> <20131030110214.GA10220@localhost.localdomain> <52710B09.6090302@redhat.com> <20131031183003.GC25894@hmsreliant.think-freely.org> <1383320566.1737.0.camel@bwh-desktop.uk.level5networks.com> <20131101160802.GB8467@hmsreliant.think-freely.org> <AE90C24D6B3A694183C094C60CF0A2F6026B73D3@saturn3.aculab.com> <20131101173701.GC8467@hmsreliant.think-freely.org>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH/RFC net] ipv6: fix fragmentation bug
+Date: Mon, 4 Nov 2013 10:51:43 +0100
+Message-ID: <20131104095142.GB20131@omega>
+References: <1383557174-19424-1-git-send-email-alex.aring@gmail.com>
+ <1383557174-19424-2-git-send-email-alex.aring@gmail.com>
+ <52776B5A.6030701@windriver.com>
+ <20131104094303.GA20131@omega>
+ <52776D10.4020104@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Ben Hutchings" <bhutchings@solarflare.com>,
-	"Doug Ledford" <dledford@redhat.com>,
-	"Ingo Molnar" <mingo@kernel.org>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Neil Horman" <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:45238 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750773Ab3KDJu5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 04:50:57 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 21865-09 for <netdev@vger.kernel.org>;
- Mon,  4 Nov 2013 09:50:56 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20131101173701.GC8467@hmsreliant.think-freely.org>
+Received: from mail-ea0-f180.google.com ([209.85.215.180]:50448 "EHLO
+	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752539Ab3KDJvr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 04:51:47 -0500
+Received: by mail-ea0-f180.google.com with SMTP id l9so2727725eaj.11
+        for <netdev@vger.kernel.org>; Mon, 04 Nov 2013 01:51:46 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <52776D10.4020104@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > I think you need 3 instructions, move a 0, conditionally move a 1
-> > then add. I suspect it won't be a win!
+On Mon, Nov 04, 2013 at 05:46:56PM +0800, Fan Du wrote:
+>=20
+>=20
+> On 2013=E5=B9=B411=E6=9C=8804=E6=97=A5 17:43, Alexander Aring wrote:
+> >Hi,
+> >
+> >On Mon, Nov 04, 2013 at 05:39:38PM +0800, Fan Du wrote:
+> >>>  Hi, Alexander
+> >>>
+> >>>  I don't know whether which head commit you are sitting, this iss=
+ue might has already been fixed by Steffen:
+> >>>  https://git.kernel.org/cgit/linux/kernel/git/klassert/ipsec.git/=
+commit/?id=3D84502b5ef9849a9694673b15c31bd3ac693010ae
+> >>>
+> >>>
+> >oh I am using current net-next which haven't this fix.
+> >
+>=20
+> Since it's a bug fix, so it's in net tree for the moment...
+>=20
+Ok, thanks and sorry for the noise...
 
-Or, with an appropriately unrolled loop, for each word:
-	zero %eax, cmove a 1 to %al
-	cmove a 1 to %ah
-	shift %eax left, cmove a 1 to %al
-	cmove a 1 to %ah, add %eax onto somewhere.
-However the 2nd instruction stream would have to use a different
-register (IIRC 8bit updates depend on the entire register).
-
-> I agree, that sounds interesting, but very cpu dependent.  Thanks for the
-> suggestion, Ben, but I think it would be better if we just did the prefetch here
-> and re-addressed this area when AVX (or addcx/addox) instructions were available
-> for testing on hardware.
-
-I didn't look too closely at the original figures.
-With a simple loop you need 4 instructions per iteration (load, adc, inc, branch).
-How close to one iteration per clock do you get?
-I thought x86 hardware prefetch would load the cache lines for sequential
-accesses - so any prefetch instructions are rather pointless.
-However reading the value in the previous loop iteration should help.
-
-I've just realised that there is a problem with the loop termination
-condition also needing the flags register:-(
-I don't remember the 'loop' instruction ever being added to any of the
-fast path instruction decodes - so it won't help.
-
-So I suspect the best you'll get is an interleaved sequence of load and adc
-with an lea and inc (both to adjust the index) and a bne back to the top.
-(the lea wants to be in the middle somewhere).
-That might manage 1 clock per word + 1 clock per loop iteration (if the inc
-and bne can be 'fused').
-
-	David
+- Alex
