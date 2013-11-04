@@ -1,33 +1,30 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2.47 0/4] MPLS actions and matches
-Date: Mon, 4 Nov 2013 09:53:58 +0900
-Message-ID: <20131104005355.GA25462@verge.net.au>
-References: <1383203792-9774-1-git-send-email-horms@verge.net.au>
- <20131102053916.GE26756@nicira.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] SCTP fix/updates
+Date: Sun, 03 Nov 2013 23:07:07 -0500 (EST)
+Message-ID: <20131103.230707.57661027433783956.davem@davemloft.net>
+References: <1383130252-1515-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dev@openvswitch.org, netdev@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Joe Stringer <joe@wand.net.nz>
-To: Ben Pfaff <blp@nicira.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:49713 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751963Ab3KDAyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Nov 2013 19:54:02 -0500
-Content-Disposition: inline
-In-Reply-To: <20131102053916.GE26756@nicira.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48407 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751250Ab3KDEHM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Nov 2013 23:07:12 -0500
+In-Reply-To: <1383130252-1515-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 01, 2013 at 10:39:16PM -0700, Ben Pfaff wrote:
-> On Thu, Oct 31, 2013 at 04:16:28PM +0900, Simon Horman wrote:
-> > This series implements MPLS actions and matches based on work by
-> > Ravi K, Leo Alterman, Yamahata-san and Joe Stringer.
-> 
-> Would you mind rebasing this one more time?
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Wed, 30 Oct 2013 11:50:47 +0100
 
-Sure, will do.
+> Please see patch 5 for the main description/motivation, the rest just
+> brings in the needed functionality for that. Although this is actually
+> a fix, I've based it against net-next as some additional work for
+> fixing it was needed.
+
+Great work Daniel, and a long overdue simplification.
+
+Series applied, thanks!
