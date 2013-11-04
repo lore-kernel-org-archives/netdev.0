@@ -1,69 +1,78 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/20] netfilter: xt_socket: use sock_gen_put()
-Date: Mon,  4 Nov 2013 22:50:26 +0100
-Message-ID: <1383601842-4570-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/20] netfilter: ipt_CLUSTERIP: add parameter net in clusterip_config_find_get
+Date: Mon,  4 Nov 2013 22:50:30 +0100
+Message-ID: <1383601842-4570-9-git-send-email-pablo@netfilter.org>
 References: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55669 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:55679 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753519Ab3KDVuy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Nov 2013 16:50:54 -0500
+	id S1753505Ab3KDVu5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Nov 2013 16:50:57 -0500
 In-Reply-To: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-TCP listener refactoring, part 7 :
+Inorder to find clusterip_config in net namespace.
 
-Use sock_gen_put() instead of xt_socket_put_sk() for future
-SYN_RECV support.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_socket.c |   13 ++-----------
- 1 file changed, 2 insertions(+), 11 deletions(-)
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index 3dd0e37..1ba6793 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -35,15 +35,6 @@
- #include <net/netfilter/nf_conntrack.h>
- #endif
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 1bf5aa30..b7fc9d5 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -122,10 +122,10 @@ clusterip_config_entry_put(struct clusterip_config *c)
+ }
  
--static void
--xt_socket_put_sk(struct sock *sk)
--{
--	if (sk->sk_state == TCP_TIME_WAIT)
--		inet_twsk_put(inet_twsk(sk));
--	else
--		sock_put(sk);
--}
--
- static int
- extract_icmp4_fields(const struct sk_buff *skb,
- 		    u8 *protocol,
-@@ -216,7 +207,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
- 					inet_twsk(sk)->tw_transparent));
+ static struct clusterip_config *
+-__clusterip_config_find(__be32 clusterip)
++__clusterip_config_find(struct net *net, __be32 clusterip)
+ {
+ 	struct clusterip_config *c;
+-	struct clusterip_net *cn = net_generic(&init_net, clusterip_net_id);
++	struct clusterip_net *cn = net_generic(net, clusterip_net_id);
  
- 		if (sk != skb->sk)
--			xt_socket_put_sk(sk);
-+			sock_gen_put(sk);
+ 	list_for_each_entry_rcu(c, &cn->configs, list) {
+ 		if (c->clusterip == clusterip)
+@@ -136,12 +136,12 @@ __clusterip_config_find(__be32 clusterip)
+ }
  
- 		if (wildcard || !transparent)
- 			sk = NULL;
-@@ -381,7 +372,7 @@ socket_mt6_v1_v2(const struct sk_buff *skb, struct xt_action_param *par)
- 					inet_twsk(sk)->tw_transparent));
+ static inline struct clusterip_config *
+-clusterip_config_find_get(__be32 clusterip, int entry)
++clusterip_config_find_get(struct net *net, __be32 clusterip, int entry)
+ {
+ 	struct clusterip_config *c;
  
- 		if (sk != skb->sk)
--			xt_socket_put_sk(sk);
-+			sock_gen_put(sk);
+ 	rcu_read_lock_bh();
+-	c = __clusterip_config_find(clusterip);
++	c = __clusterip_config_find(net, clusterip);
+ 	if (c) {
+ 		if (unlikely(!atomic_inc_not_zero(&c->refcount)))
+ 			c = NULL;
+@@ -381,7 +381,7 @@ static int clusterip_tg_check(const struct xt_tgchk_param *par)
  
- 		if (wildcard || !transparent)
- 			sk = NULL;
+ 	/* FIXME: further sanity checks */
+ 
+-	config = clusterip_config_find_get(e->ip.dst.s_addr, 1);
++	config = clusterip_config_find_get(&init_net, e->ip.dst.s_addr, 1);
+ 	if (!config) {
+ 		if (!(cipinfo->flags & CLUSTERIP_FLAG_NEW)) {
+ 			pr_info("no config found for %pI4, need 'new'\n",
+@@ -519,7 +519,7 @@ arp_mangle(unsigned int hook,
+ 
+ 	/* if there is no clusterip configuration for the arp reply's
+ 	 * source ip, we don't want to mangle it */
+-	c = clusterip_config_find_get(payload->src_ip, 0);
++	c = clusterip_config_find_get(&init_net, payload->src_ip, 0);
+ 	if (!c)
+ 		return NF_ACCEPT;
+ 
 -- 
 1.7.10.4
