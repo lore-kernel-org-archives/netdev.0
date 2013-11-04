@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/5]qlcnic: Multiple Tx queue support and
- code refactoring
-Date: Mon, 04 Nov 2013 15:34:13 -0500 (EST)
-Message-ID: <20131104.153413.1652033517527668390.davem@davemloft.net>
-References: <cover.1383612975.git.himanshu.madhani@qlogic.com>
+Subject: Re: [PATCH net-next 0/5] cdc_mbim + qmi_wwan trivial fixes
+Date: Mon, 04 Nov 2013 15:48:42 -0500 (EST)
+Message-ID: <20131104.154842.937373087218100293.davem@davemloft.net>
+References: <1383311936-20954-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: himanshu.madhani@qlogic.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org, oneukum@suse.de
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54147 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54247 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752839Ab3KDUeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 15:34:15 -0500
-In-Reply-To: <cover.1383612975.git.himanshu.madhani@qlogic.com>
+	with ESMTP id S1750746Ab3KDUst convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 15:48:49 -0500
+In-Reply-To: <1383311936-20954-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Date: Mon, 4 Nov 2013 13:31:28 -0500
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Fri,  1 Nov 2013 14:18:51 +0100
 
-> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-> 
-> This Patch series contains following changes
-> 
-> o Refactored code to calculate, validate and assign Tx/SDS rings for  various modes of driver.
-> o Enhanced ethtool statistics for multi Tx queue on all supported adapters.
-> o Enable multiple Tx queue for 83xx and 84xx Series adapters.
-> o Register netdev for failed device state.
-> 
-> changes from v1 -> v2
-> o Dropped patch to replace inappropriate usage of kzalloc() with vzalloc().
-> 
-> Please apply to net-next.
+> This series fixes three problems Oliver pointed out during the
+> review of the new huawei_cdc_ncm driver:
+> http://patchwork.ozlabs.org/patch/278903/
+>=20
+> That innocent driver only used cdc_mbim as a blueprint, and
+> all the blame should really have gone to me....
+>=20
+> I do have a similar fix for the manage_power issue in the
+> cdc-wdm USB class driver as well.  It will be submitted to
+> linux-usb as soon as Greg opens up his mailbox again :-)
 
-Series applied, thanks.
+Looks good, applied, thanks.
