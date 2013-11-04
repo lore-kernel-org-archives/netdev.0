@@ -1,42 +1,91 @@
-From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [patch v2] mlx5_core: delete some dead code
-Date: Tue, 5 Nov 2013 01:20:56 +0300
-Message-ID: <20131104222056.GA4248@elgon.mountain>
-References: <20131103070326.GA3051@mtldesk30>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: Bluetooth 6LoWPAN and routing
+Date: Mon, 4 Nov 2013 23:53:00 +0100
+Message-ID: <20131104225259.GB25392@omega>
+References: <5268C214.2040307@linux.intel.com>
+ <20131024122452.GA5491@omega>
+ <52691711.3010909@linux.intel.com>
+ <CAKT1EBeHs4T3YiFvze2RBbM537pXEj03gTcnCMEZprdBz882hg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Jukka Rissanen <jukka.rissanen@linux.intel.com>,
+	netdev@vger.kernel.org
+To: Claudio Takahasi <claudio.takahasi@openbossa.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f181.google.com ([209.85.215.181]:55089 "EHLO
+	mail-ea0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751842Ab3KDWxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 17:53:04 -0500
+Received: by mail-ea0-f181.google.com with SMTP id d10so3786886eaj.40
+        for <netdev@vger.kernel.org>; Mon, 04 Nov 2013 14:53:02 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20131103070326.GA3051@mtldesk30>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAKT1EBeHs4T3YiFvze2RBbM537pXEj03gTcnCMEZprdBz882hg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The printk() looks like it is left over debug code.  I have removed it.
+On Mon, Nov 04, 2013 at 07:46:06PM -0200, Claudio Takahasi wrote:
+> Hi Jukka,
+> 
+> On Thu, Oct 24, 2013 at 9:48 AM, Jukka Rissanen
+> <jukka.rissanen@linux.intel.com> wrote:
+> > Hi Alexander,
+> >
+> >
+> > On 24.10.2013 15:25, Alexander Aring wrote:
+> >>
+> >> Hi Jukka,
+> >>
+> >> On Thu, Oct 24, 2013 at 09:45:40AM +0300, Jukka Rissanen wrote:
+> >>>
+> >>> Hi,
+> >>>
+> >>> I have been prototyping with BT 6LoWPAN support (using this draft
+> >>> http://tools.ietf.org/html/draft-ietf-6lowpan-btle-12 as a
+> >>> reference). I sent first version yesterday to linux-bluetooth ml
+> >>> http://thread.gmane.org/gmane.linux.bluez.kernel/39394
+> >>>
+> >> I see you take many code from the 6lowpan ieee802154 implementation.
+> >> (Just notice you drop the original authors from there)
+> >
+> >
+> > Hmm, those got dropped, I am sorry about that. I will add the original
+> > authors information of course.
+> >
+> >
+> >>
+> >> I have a couple of patches to fix a lot of bugs in the current 6LoWPAN
+> >> ieee802154 implementation.
+> >>
+> >> Some bugs which I found:
+> >>
+> >>    - Fix race conditions in fragmentation handling
+> >>    - Fix UDP compression/uncompressionm, which is completly broken
+> >>    - Fragmentation handling isn't rfc4944 compatible
+> >>
+> >> And some other improvements. I see your rfc has the same issues (e.g.
+> >> fragmentation race conditions).
+> >>
+> >> Currently I preparing these patches for mainlining.
+> >
+> >
+> > Excellent news!
+> 
+> 
+> Is it necessary to implement 6loWPAN fragmentation/reassembling? For
+> Bluetooth, I thought L2CAP FAR (Fragmentation and Reassembling) could
+> handle the transfer of IPv6 packets that doesn't fit in one single
+> BTLE PDU.
+> What am I missing here?
+>
+mhh, I look a little bit deeper in the 6LoWPAN bluetooth draft and indeed
+it can be handled via L2CAP FAR. I saw the fragmentation struct in the
+rfc implementation(struct lowpan_fragment) but it isn't used in any case
+so Jukka can drop this from the rfc implementation. Sorry about that.
 
-Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
----
-v2:  Remove the printk instead of moving it infront of the return.
+But I don't see udp compression/uncompression in Jukka's rfc
+implementation. But this is a part of rfc 6282 which should blte 6LoWPAN
+should use?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-index ba816c2..9b79067 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-@@ -192,10 +192,8 @@ static int alloc_4k(struct mlx5_core_dev *dev, u64 *addr)
- 	struct fw_page *fp;
- 	unsigned n;
- 
--	if (list_empty(&dev->priv.free_list)) {
-+	if (list_empty(&dev->priv.free_list))
- 		return -ENOMEM;
--		mlx5_core_warn(dev, "\n");
--	}
- 
- 	fp = list_entry(dev->priv.free_list.next, struct fw_page, list);
- 	n = find_first_bit(&fp->bitmask, 8 * sizeof(fp->bitmask));
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So the 6LoWPAN fragmentation thing (rfc4944) is only ieee802154 specific.
+
+- Alex
