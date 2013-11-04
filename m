@@ -1,66 +1,44 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC] netfilter: ip6_tables: use reasm skb for
- matching
-Date: Mon, 4 Nov 2013 16:22:26 +0100
-Message-ID: <20131104152226.GA5103@minipsycho.orion>
-References: <1383130201-6198-1-git-send-email-jiri@resnulli.us>
- <20131030134100.GD16615@breakpoint.cc>
- <20131030141354.GB1456@minipsycho.orion>
- <20131030144400.GE16615@breakpoint.cc>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 5/5] net: sctp: fix and consolidate SCTP checksumming
+ code
+Date: Mon, 04 Nov 2013 11:10:12 -0500
+Message-ID: <5277C6E4.4010604@gmail.com>
+References: <1383130252-1515-1-git-send-email-dborkman@redhat.com> <1383130252-1515-6-git-send-email-dborkman@redhat.com> <527117C3.2080306@gmail.com> <52778EF6.4000801@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	kadlec@blackhole.kfki.hu, kaber@trash.net, mleitner@redhat.com
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:64724 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752768Ab3KDPWd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 10:22:33 -0500
-Received: by mail-ee0-f49.google.com with SMTP id e52so1178290eek.22
-        for <netdev@vger.kernel.org>; Mon, 04 Nov 2013 07:22:32 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20131030144400.GE16615@breakpoint.cc>
+Received: from mail-yh0-f43.google.com ([209.85.213.43]:44835 "EHLO
+	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752757Ab3KDQKT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 11:10:19 -0500
+In-Reply-To: <52778EF6.4000801@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Oct 30, 2013 at 03:44:00PM CET, fw@strlen.de wrote:
->Jiri Pirko <jiri@resnulli.us> wrote:
->> >This is a bit backwards, I think.
->> >- We gather frags
->> >- Then we invoke ip6t_do_table for each individual fragment
->> >
->> >So basically your patch is equivalent to
->> >for_each_frag( )
->> >  ip6t_do_table(reassembled_skb)
->> >
->> >Which makes no sense to me - why traverse the ruleset n times with the same
->> >packet?
->> 
->> Because each fragment need to be pushed through separately.
+On 11/04/2013 07:11 AM, Daniel Borkmann wrote:
+> On 10/30/2013 03:29 PM, Vlad Yasevich wrote:
+>> On 10/30/2013 06:50 AM, Daniel Borkmann wrote:
+> [...]
+>> Daniel
+>>
+>> Here is a follow-on idea that might help even more.
+>> What if we put a pointer to skb_checksum_ops() in the skb
+>> somewhere (I was thinking of skb_shinfo).  Then
+>> skb_checksum can simply use the data from there.  This would
+>> allow us to get rid of all the special cases in SCTP that do
+>> checksumming.  We can just set it to partial, set up the right
+>> fields and let HW or SW always do the right thing.
 >
->Why?  AFAIU we only need to ensure that (in forwarding case) we
->send out the original fragments instead of the reassembled packet.
+> I need to think about this a bit. This would certainly have the
+> negative side-effect of a higher skb->truesize usage and thus
+> affecting memory accounting for everyone as we extend
+> skb_shared_info.
 
-I don't knot why, that's the way it is done now. From the top of my head
-I can't think of any scenario why it would hurt to push the reassebled
-packet instead (and of course send out original fragments at the end of
-the way for forwarding)
+You are talking a single pointer here...  The alternative
+is to do a per-protocol table.
 
->
->> What different approach would you suggest?
->
->I am sure that current behaviour is intentional, so I'd first like to
->understand WHY this was implemented this way.
->
->Also, this would change very long standing behaviour so one might argue that
->this is a no-go anyway.
-
-Can you think aof any sane use case this change could possible break?
-
->
->What is the exact problem that this is supposed to solve?
-
-Look at the patch description. There's an example. The problem is that
-fragments are not correctly matched.
+-vlad
