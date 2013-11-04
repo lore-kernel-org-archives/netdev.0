@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/5] netfilter: nft_nat: Fix endianness issue reported by sparse
-Date: Mon,  4 Nov 2013 23:05:18 +0100
-Message-ID: <1383602721-5728-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/5] netfilter: bridge: nf_tables: add filter chain type
+Date: Mon,  4 Nov 2013 23:05:19 +0100
+Message-ID: <1383602721-5728-4-git-send-email-pablo@netfilter.org>
 References: <1383602721-5728-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,60 +10,78 @@ In-Reply-To: <1383602721-5728-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tomasz Bursztyka <tomasz.bursztyka@linux.intel.com>
+This patch adds the filter chain type which is required to
+create filter chains in the bridge family from userspace.
 
-This patch fixes this:
-
-CHECK   net/netfilter/nft_nat.c
-net/netfilter/nft_nat.c:50:43: warning: incorrect type in assignment (different base types)
-net/netfilter/nft_nat.c:50:43:    expected restricted __be32 [addressable] [usertype] ip
-net/netfilter/nft_nat.c:50:43:    got unsigned int [unsigned] [usertype] <noident>
-net/netfilter/nft_nat.c:51:43: warning: incorrect type in assignment (different base types)
-net/netfilter/nft_nat.c:51:43:    expected restricted __be32 [addressable] [usertype] ip
-net/netfilter/nft_nat.c:51:43:    got unsigned int [unsigned] [usertype] <noident>
-net/netfilter/nft_nat.c:65:37: warning: incorrect type in assignment (different base types)
-net/netfilter/nft_nat.c:65:37:    expected restricted __be16 [addressable] [assigned] [usertype] all
-net/netfilter/nft_nat.c:65:37:    got unsigned int [unsigned] <noident>
-net/netfilter/nft_nat.c:66:37: warning: incorrect type in assignment (different base types)
-net/netfilter/nft_nat.c:66:37:    expected restricted __be16 [addressable] [assigned] [usertype] all
-net/netfilter/nft_nat.c:66:37:    got unsigned int [unsigned] <noident>
-
-Signed-off-by: Tomasz Bursztyka <tomasz.bursztyka@linux.intel.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_nat.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+ net/bridge/netfilter/nf_tables_bridge.c |   41 +++++++++++++++++++++++++++++--
+ 1 file changed, 39 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nft_nat.c b/net/netfilter/nft_nat.c
-index b0b87b2..d3b1ffe 100644
---- a/net/netfilter/nft_nat.c
-+++ b/net/netfilter/nft_nat.c
-@@ -47,8 +47,10 @@ static void nft_nat_eval(const struct nft_expr *expr,
- 	memset(&range, 0, sizeof(range));
- 	if (priv->sreg_addr_min) {
- 		if (priv->family == AF_INET) {
--			range.min_addr.ip = data[priv->sreg_addr_min].data[0];
--			range.max_addr.ip = data[priv->sreg_addr_max].data[0];
-+			range.min_addr.ip = (__force __be32)
-+					data[priv->sreg_addr_min].data[0];
-+			range.max_addr.ip = (__force __be32)
-+					data[priv->sreg_addr_max].data[0];
+diff --git a/net/bridge/netfilter/nf_tables_bridge.c b/net/bridge/netfilter/nf_tables_bridge.c
+index e8cb016..cf54b22 100644
+--- a/net/bridge/netfilter/nf_tables_bridge.c
++++ b/net/bridge/netfilter/nf_tables_bridge.c
+@@ -1,5 +1,6 @@
+ /*
+  * Copyright (c) 2008 Patrick McHardy <kaber@trash.net>
++ * Copyright (c) 2013 Pablo Neira Ayuso <pablo@netfilter.org>
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -47,14 +48,50 @@ static struct pernet_operations nf_tables_bridge_net_ops = {
+ 	.exit	= nf_tables_bridge_exit_net,
+ };
  
- 		} else {
- 			memcpy(range.min_addr.ip6,
-@@ -62,8 +64,10 @@ static void nft_nat_eval(const struct nft_expr *expr,
- 	}
++static unsigned int
++nft_do_chain_bridge(const struct nf_hook_ops *ops,
++		    struct sk_buff *skb,
++		    const struct net_device *in,
++		    const struct net_device *out,
++		    int (*okfn)(struct sk_buff *))
++{
++	struct nft_pktinfo pkt;
++
++	nft_set_pktinfo(&pkt, ops, skb, in, out);
++
++	return nft_do_chain_pktinfo(&pkt, ops);
++}
++
++static struct nf_chain_type filter_bridge = {
++	.family		= NFPROTO_BRIDGE,
++	.name		= "filter",
++	.type		= NFT_CHAIN_T_DEFAULT,
++	.hook_mask	= (1 << NF_BR_LOCAL_IN) |
++			  (1 << NF_BR_FORWARD) |
++			  (1 << NF_BR_LOCAL_OUT),
++	.fn		= {
++		[NF_BR_LOCAL_IN]	= nft_do_chain_bridge,
++		[NF_BR_FORWARD]		= nft_do_chain_bridge,
++		[NF_BR_LOCAL_OUT]	= nft_do_chain_bridge,
++	},
++};
++
+ static int __init nf_tables_bridge_init(void)
+ {
+-	return register_pernet_subsys(&nf_tables_bridge_net_ops);
++	int ret;
++
++	nft_register_chain_type(&filter_bridge);
++	ret = register_pernet_subsys(&nf_tables_bridge_net_ops);
++	if (ret < 0)
++		nft_unregister_chain_type(&filter_bridge);
++
++	return ret;
+ }
  
- 	if (priv->sreg_proto_min) {
--		range.min_proto.all = data[priv->sreg_proto_min].data[0];
--		range.max_proto.all = data[priv->sreg_proto_max].data[0];
-+		range.min_proto.all = (__force __be16)
-+					data[priv->sreg_proto_min].data[0];
-+		range.max_proto.all = (__force __be16)
-+					data[priv->sreg_proto_max].data[0];
- 		range.flags |= NF_NAT_RANGE_PROTO_SPECIFIED;
- 	}
+ static void __exit nf_tables_bridge_exit(void)
+ {
+-	return unregister_pernet_subsys(&nf_tables_bridge_net_ops);
++	unregister_pernet_subsys(&nf_tables_bridge_net_ops);
++	nft_unregister_chain_type(&filter_bridge);
+ }
  
+ module_init(nf_tables_bridge_init);
 -- 
 1.7.10.4
 
