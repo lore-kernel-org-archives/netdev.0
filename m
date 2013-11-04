@@ -1,26 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: net merged into net-next
-Date: Mon, 04 Nov 2013 14:57:27 -0500 (EST)
-Message-ID: <20131104.145727.1519318475711225073.davem@davemloft.net>
+Subject: Re: [PATCH net-next 02/13] driver: net: remove unnecessary skb
+ NULL check before calling dev_kfree_skb_irq
+Date: Mon, 04 Nov 2013 15:12:30 -0500 (EST)
+Message-ID: <20131104.151230.1978898006990867916.davem@davemloft.net>
+References: <1383400074-30555-1-git-send-email-govindarajulu90@gmail.com>
+	<1383400074-30555-3-git-send-email-govindarajulu90@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53910 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750807Ab3KDT5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 14:57:42 -0500
-Received: from localhost (nat-pool-rdu-t.redhat.com [66.187.233.202])
-	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 27F79581427
-	for <netdev@vger.kernel.org>; Mon,  4 Nov 2013 11:57:42 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gregkh@linuxfoundation.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, schwidefsky@de.ibm.com,
+	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, IvDoorn@gmail.com, sbhatewara@vmware.com,
+	samuel@sortiz.org, chas@cmf.nrl.navy.mil, roland@kernel.org,
+	isdn@linux-pingi.de, jcliburn@gmail.com, benve@cisco.com,
+	ssujith@cisco.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, shahed.shaikh@qlogic.com,
+	joe@perches.com, apw@canonical.com
+To: govindarajulu90@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1383400074-30555-3-git-send-email-govindarajulu90@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
+Date: Sat,  2 Nov 2013 19:17:43 +0530
 
-In preparation for the merge window I dumped the last set of bug fixes to
-Linus and merged net into net-next for the final push into the merge
-window.
+> @@ -1030,10 +1030,8 @@ static void ni65_xmit_intr(struct net_device *dev,int csr0)
+>  		}
+>  
+>  #ifdef XMT_VIA_SKB
+> -		if(p->tmd_skb[p->tmdlast]) {
+> -			 dev_kfree_skb_irq(p->tmd_skb[p->tmdlast]);
+> -			 p->tmd_skb[p->tmdlast] = NULL;
+> -		}
+> +		 dev_kfree_skb_irq(p->tmd_skb[p->tmdlast]);
+> +		 p->tmd_skb[p->tmdlast] = NULL;
+>  #endif
 
-Just FYI...
+I absolutely disagree with this kind of change.
+
+There is a non-trivial cost for NULL'ing out that array entry
+unconditionally.  It's a dirtied cache line and this is in the
+fast path of TX SKB reclaim of this driver.
+
+You've made several changes of this kind.
+
+And it sort-of shows that the places that do check for NULL,
+are getting something in return for that test, namely avoidance
+of an unnecessary cpu store in the fast path of the driver.
+
+I'm throwing away this series, sorry.
