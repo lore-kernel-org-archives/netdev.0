@@ -1,42 +1,40 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 09/20] netfilter: ipt_CLUSTERIP: create proc entry under proper ipt_CLUSTERIP directory
-Date: Mon,  4 Nov 2013 22:50:31 +0100
-Message-ID: <1383601842-4570-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 14/20] netfilter:ipset: Fix memory allocation for bitmap:port
+Date: Mon,  4 Nov 2013 22:50:36 +0100
+Message-ID: <1383601842-4570-15-git-send-email-pablo@netfilter.org>
 References: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55682 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753645Ab3KDVu5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Nov 2013 16:50:57 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1383601842-4570-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Create proc entries under the ipt_CLUSTERIP directory of proper
-net namespace.
+At the restructuring of the bitmap types creation in ipset, for the
+bitmap:port type wrong (too large) memory allocation was copied
+(netfilter bugzilla id #859).
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Reported-by: Quentin Armitage <quentin@armitage.org.uk>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 ---
- net/ipv4/netfilter/ipt_CLUSTERIP.c |    2 +-
+ net/netfilter/ipset/ip_set_bitmap_port.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index b7fc9d5..c93dfd2 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -168,7 +168,7 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
- 			struct net_device *dev)
- {
- 	struct clusterip_config *c;
--	struct clusterip_net *cn = net_generic(&init_net, clusterip_net_id);
-+	struct clusterip_net *cn = net_generic(dev_net(dev), clusterip_net_id);
+diff --git a/net/netfilter/ipset/ip_set_bitmap_port.c b/net/netfilter/ipset/ip_set_bitmap_port.c
+index e7603c5..cf99676 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_port.c
++++ b/net/netfilter/ipset/ip_set_bitmap_port.c
+@@ -254,7 +254,7 @@ bitmap_port_create(struct net *net, struct ip_set *set, struct nlattr *tb[],
+ 		return -ENOMEM;
  
- 	c = kzalloc(sizeof(*c), GFP_ATOMIC);
- 	if (!c)
+ 	map->elements = last_port - first_port + 1;
+-	map->memsize = map->elements * sizeof(unsigned long);
++	map->memsize = bitmap_bytes(0, map->elements);
+ 	set->variant = &bitmap_port;
+ 	set->dsize = ip_set_elem_len(set, tb, 0);
+ 	if (!init_map_port(set, map, first_port, last_port)) {
 -- 
 1.7.10.4
+
