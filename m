@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: introduce new IP_MTU_DISCOVER mode
- IP_PMTUDISC_INTERFACE
-Date: Mon, 04 Nov 2013 19:52:30 -0500 (EST)
-Message-ID: <20131104.195230.1532629606565920528.davem@davemloft.net>
-References: <20131031.002911.1316728367651608156.davem@davemloft.net>
-	<20131031094226.GB17210@order.stressinduktion.org>
-	<20131104232541.GD8832@order.stressinduktion.org>
+Subject: Re: [PATCH net-next] tcp: enable sockets to use MSG_FASTOPEN by
+ default
+Date: Mon, 04 Nov 2013 19:58:20 -0500 (EST)
+Message-ID: <20131104.195820.571300845444915757.davem@davemloft.net>
+References: <1383236372-1317-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fweimer@redhat.com
-To: hannes@stressinduktion.org
+Cc: edumazet@google.com, netdev@vger.kernel.org, ncardwell@google.com,
+	sivasankar@cs.ucsd.edu
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55745 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55780 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819Ab3KEAwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 19:52:32 -0500
-In-Reply-To: <20131104232541.GD8832@order.stressinduktion.org>
+	with ESMTP id S1752306Ab3KEA6W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 19:58:22 -0500
+In-Reply-To: <1383236372-1317-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 5 Nov 2013 00:25:41 +0100
+From: Yuchung Cheng <ycheng@google.com>
+Date: Thu, 31 Oct 2013 09:19:32 -0700
 
-> Sorry for being so pushy about this patch! :|
+> Applications have started to use Fast Open (e.g., Chrome browser has
+> such an optional flag) and the feature has gone through several
+> generations of kernels since 3.7 with many real network tests. It's
+> time to enable this flag by default for applications to test more
+> conveniently and extensively.
+> 
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-I haven't ruled out applying your original patch, could you please
-just repost it so that it gets queued up anew in patchwork?
-
-I'll get to resolving this, please be patient.
-
-Thanks.
+Applied.
