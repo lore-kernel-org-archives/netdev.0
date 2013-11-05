@@ -1,123 +1,91 @@
-From: Mathias Krause <mathias.krause@secunet.com>
-Subject: [PATCH net-next 1/3] net: move pskb_put() to core code
-Date: Tue,  5 Nov 2013 14:54:09 +0100
-Message-ID: <5044e9be63b6e0734670654e6249576e3be4279e.1381923854.git.mathias.krause@secunet.com>
-References: <cover.1381923854.git.mathias.krause@secunet.com>
-Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-	netdev@vger.kernel.org,
-	Mathias Krause <mathias.krause@secunet.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:52551 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755015Ab3KENyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Nov 2013 08:54:25 -0500
-In-Reply-To: <cover.1381923854.git.mathias.krause@secunet.com>
-In-Reply-To: <cover.1381923854.git.mathias.krause@secunet.com>
-References: <cover.1381923854.git.mathias.krause@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next 3/3] fix skb_morph to preserve skb->sk and
+ skb->destructor pointers
+Date: Tue, 05 Nov 2013 06:06:12 -0800
+Message-ID: <1383660372.4291.134.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1383649333-6321-1-git-send-email-jiri@resnulli.us>
+	 <1383649333-6321-4-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	kadlec@blackhole.kfki.hu, kaber@trash.net, mleitner@redhat.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
+	horms@verge.net.au, ja@ssi.bg, edumazet@google.com,
+	pshelar@nicira.com, jasowang@redhat.com,
+	alexander.h.duyck@intel.com, coreteam@netfilter.org, fw@strlen.de
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1383649333-6321-4-git-send-email-jiri@resnulli.us>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This function has usage beside IPsec so move it to the core skbuff code.
-While doing so, give it some documentation and change its return type to
-'unsigned char *' to be in line with skb_put().
+On Tue, 2013-11-05 at 12:02 +0100, Jiri Pirko wrote:
+> Currently __skb_clone sets skb->sk and skb->destructor to NULL. This is
+> not right for skb_morph use case because skb->sk may be previously
+> set (e. g. by xt_TPROXY).
+> 
+> Also, during skb_morph the destructor should not be called. It might be
+> previously set, e. g. by xt_TPROXY to sock_edemux, and that would cause
+> put sk while skb is still in flight.
 
-Signed-off-by: Mathias Krause <mathias.krause@secunet.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
----
- include/linux/skbuff.h |    1 +
- include/net/esp.h      |    2 --
- net/core/skbuff.c      |   23 +++++++++++++++++++++++
- net/xfrm/xfrm_algo.c   |   13 -------------
- 4 files changed, 24 insertions(+), 15 deletions(-)
+truesize alert. You should add some documentation that skb_morph()
+must not be used in transmit path.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index c2d8933..9d785f4d 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1418,6 +1418,7 @@ static inline void skb_set_tail_pointer(struct sk_buff *skb, const int offset)
- /*
-  *	Add data to an sk_buff
-  */
-+unsigned char *pskb_put(struct sk_buff *skb, struct sk_buff *tail, int len);
- unsigned char *skb_put(struct sk_buff *skb, unsigned int len);
- static inline unsigned char *__skb_put(struct sk_buff *skb, unsigned int len)
- {
-diff --git a/include/net/esp.h b/include/net/esp.h
-index d584513..5b4fdcc 100644
---- a/include/net/esp.h
-+++ b/include/net/esp.h
-@@ -13,8 +13,6 @@ struct esp_data {
- 
- #include <linux/skbuff.h>
- 
--void *pskb_put(struct sk_buff *skb, struct sk_buff *tail, int len);
--
- struct ip_esp_hdr;
- 
- static inline struct ip_esp_hdr *ip_esp_hdr(const struct sk_buff *skb)
+Its not clear to be how this can happen.
+
+skb_morph() being used only from ipv4 defrag (or ipv6 reassembly).
+
+Maybe the problem could be fixed by doing this defrag _before_ setting
+skb->sk ?
+
+Also, I would prefer you find a way to put all this logic inside
+skb_morph() instead of adding such complexity in this already complex
+code, I fear the compiler will generate slower code with your patch on
+fast path.
+
+Maybe something as simple as following (untested) patch ?
+
+Note that the truesize concern might need some care.
+
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d81cff1..247023d 100644
+index 3735fad5616e..afabfd6ef341 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -1257,6 +1257,29 @@ free_skb:
- EXPORT_SYMBOL(skb_pad);
+@@ -793,18 +793,28 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
  
  /**
-+ *	pskb_put - add data to the tail of a potentially fragmented buffer
-+ *	@skb: start of the buffer to use
-+ *	@tail: tail fragment of the buffer to use
-+ *	@len: amount of data to add
-+ *
-+ *	This function extends the used data area of the potentially
-+ *	fragmented buffer. &tail must be the last fragment of &skb -- or
-+ *	&skb itself. If this would exceed the total buffer size the kernel
-+ *	will panic. A pointer to the first byte of the extra data is
-+ *	returned.
-+ */
+  *	skb_morph	-	morph one skb into another
+- *	@dst: the skb to receive the contents
++ *	@skb: the skb to receive the contents
+  *	@src: the skb to supply the contents
+  *
+  *	This is identical to skb_clone except that the target skb is
+- *	supplied by the user.
++ *	supplied by the user, and that we keep target skb destructor in place,
++ *	meaning this can not be used in transmit path, as skb->truesize might
++ *	change.
+  *
+  *	The target skb is returned upon exit.
+  */
+-struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
++struct sk_buff *skb_morph(struct sk_buff *skb, struct sk_buff *src)
+ {
+-	skb_release_all(dst);
+-	return __skb_clone(dst, src);
++	struct sock *save_sk = skb->sk;
++	void (*save_destructor)(struct sk_buff *) = skb->destructor;
 +
-+unsigned char *pskb_put(struct sk_buff *skb, struct sk_buff *tail, int len)
-+{
-+	if (tail != skb) {
-+		skb->data_len += len;
-+		skb->len += len;
-+	}
-+	return skb_put(tail, len);
-+}
-+EXPORT_SYMBOL_GPL(pskb_put);
-+
-+/**
-  *	skb_put - add data to a buffer
-  *	@skb: buffer to use
-  *	@len: amount of data to add
-diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
-index ab4ef72..debe733 100644
---- a/net/xfrm/xfrm_algo.c
-+++ b/net/xfrm/xfrm_algo.c
-@@ -802,17 +802,4 @@ int xfrm_count_pfkey_enc_supported(void)
++	skb->sk = NULL;
++	skb->destructor = NULL;
++	skb_release_all(skb);
++	__skb_clone(skb, src);
++	skb->sk = save_sk;
++	skb->destructor = save_destructor;
++	return skb;
  }
- EXPORT_SYMBOL_GPL(xfrm_count_pfkey_enc_supported);
+ EXPORT_SYMBOL_GPL(skb_morph);
  
--#if defined(CONFIG_INET_ESP) || defined(CONFIG_INET_ESP_MODULE) || defined(CONFIG_INET6_ESP) || defined(CONFIG_INET6_ESP_MODULE)
--
--void *pskb_put(struct sk_buff *skb, struct sk_buff *tail, int len)
--{
--	if (tail != skb) {
--		skb->data_len += len;
--		skb->len += len;
--	}
--	return skb_put(tail, len);
--}
--EXPORT_SYMBOL_GPL(pskb_put);
--#endif
--
- MODULE_LICENSE("GPL");
--- 
-1.7.2.5
+
+
