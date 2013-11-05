@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/3] netfilter: ip6_tables: use reasm skb for matching
-Date: Tue,  5 Nov 2013 12:02:12 +0100
-Message-ID: <1383649333-6321-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 3/3] fix skb_morph to preserve skb->sk and skb->destructor pointers
+Date: Tue,  5 Nov 2013 12:02:13 +0100
+Message-ID: <1383649333-6321-4-git-send-email-jiri@resnulli.us>
 References: <1383649333-6321-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, pablo@netfilter.org,
 	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
@@ -11,70 +11,148 @@ Cc: davem@davemloft.net, pablo@netfilter.org,
 	pshelar@nicira.com, jasowang@redhat.com,
 	alexander.h.duyck@intel.com, coreteam@netfilter.org, fw@strlen.de
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f169.google.com ([209.85.215.169]:60355 "EHLO
-	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753548Ab3KELCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 06:02:22 -0500
-Received: by mail-ea0-f169.google.com with SMTP id k11so4094992eaj.14
-        for <netdev@vger.kernel.org>; Tue, 05 Nov 2013 03:02:21 -0800 (PST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1383649333-6321-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, when ipv6 fragment goes through the netfilter, match
-functions are called on them directly. This might cause match function
-to fail. So benefit from the fact that nf_defrag_ipv6 constructs
-reassembled skb for us and use this reassembled skb for matching.
+Currently __skb_clone sets skb->sk and skb->destructor to NULL. This is
+not right for skb_morph use case because skb->sk may be previously
+set (e. g. by xt_TPROXY).
 
-This patch fixes for example following situation:
-On HOSTA do:
-ip6tables -I INPUT -p icmpv6 -j DROP
-ip6tables -I INPUT -p icmpv6 -m icmp6 --icmpv6-type 128 -j ACCEPT
+Also, during skb_morph the destructor should not be called. It might be
+previously set, e. g. by xt_TPROXY to sock_edemux, and that would cause
+put sk while skb is still in flight.
 
-and on HOSTB you do:
-ping6 HOSTA -s2000    (MTU is 1500)
-
-Incoming echo requests will be filtered out on HOSTA. This issue does
-not occur with smaller packets than MTU (where fragmentation does not happen).
+This patch fixes these.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/ipv6/netfilter/ip6_tables.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ net/core/skbuff.c | 44 +++++++++++++++++++++++++++-----------------
+ 1 file changed, 27 insertions(+), 17 deletions(-)
 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 710238f..ec9cb1a 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -328,6 +328,10 @@ ip6t_do_table(struct sk_buff *skb,
- 	const struct xt_table_info *private;
- 	struct xt_action_param acpar;
- 	unsigned int addend;
-+	struct sk_buff *reasm = skb_nfct_reasm(skb);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 3735fad..21b320e 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -515,7 +515,7 @@ static void skb_free_head(struct sk_buff *skb)
+ 		kfree(skb->head);
+ }
+ 
+-static void skb_release_data(struct sk_buff *skb)
++static void __skb_release_data(struct sk_buff *skb)
+ {
+ 	if (!skb->cloned ||
+ 	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
+@@ -579,16 +579,12 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 	}
+ }
+ 
+-static void skb_release_head_state(struct sk_buff *skb)
++static void __skb_release_head_state(struct sk_buff *skb)
+ {
+ 	skb_dst_drop(skb);
+ #ifdef CONFIG_XFRM
+ 	secpath_put(skb->sp);
+ #endif
+-	if (skb->destructor) {
+-		WARN_ON(in_irq());
+-		skb->destructor(skb);
+-	}
+ #if IS_ENABLED(CONFIG_NF_CONNTRACK)
+ 	nf_conntrack_put(skb->nfct);
+ #endif
+@@ -607,12 +603,19 @@ static void skb_release_head_state(struct sk_buff *skb)
+ #endif
+ }
+ 
+-/* Free everything but the sk_buff shell. */
+-static void skb_release_all(struct sk_buff *skb)
++static void skb_release_head_state(struct sk_buff *skb)
++{
++	if (skb->destructor) {
++		WARN_ON(in_irq());
++		skb->destructor(skb);
++	}
++	__skb_release_head_state(skb);
++}
 +
-+	if (!reasm)
-+		reasm = skb;
++static void skb_release_data(struct sk_buff *skb)
+ {
+-	skb_release_head_state(skb);
+ 	if (likely(skb->head))
+-		skb_release_data(skb);
++		__skb_release_data(skb);
+ }
  
- 	/* Initialization */
- 	indev = in ? in->name : nulldevname;
-@@ -368,7 +372,7 @@ ip6t_do_table(struct sk_buff *skb,
+ /**
+@@ -626,7 +629,8 @@ static void skb_release_all(struct sk_buff *skb)
  
- 		IP_NF_ASSERT(e);
- 		acpar.thoff = 0;
--		if (!ip6_packet_match(skb, indev, outdev, &e->ipv6,
-+		if (!ip6_packet_match(reasm, indev, outdev, &e->ipv6,
- 		    &acpar.thoff, &acpar.fragoff, &acpar.hotdrop)) {
-  no_match:
- 			e = ip6t_next_entry(e);
-@@ -378,7 +382,7 @@ ip6t_do_table(struct sk_buff *skb,
- 		xt_ematch_foreach(ematch, e) {
- 			acpar.match     = ematch->u.kernel.match;
- 			acpar.matchinfo = ematch->data;
--			if (!acpar.match->match(skb, &acpar))
-+			if (!acpar.match->match(reasm, &acpar))
- 				goto no_match;
- 		}
+ void __kfree_skb(struct sk_buff *skb)
+ {
+-	skb_release_all(skb);
++	skb_release_head_state(skb);
++	skb_release_data(skb);
+ 	kfree_skbmem(skb);
+ }
+ EXPORT_SYMBOL(__kfree_skb);
+@@ -761,12 +765,11 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+  * You should not add any new code to this function.  Add it to
+  * __copy_skb_header above instead.
+  */
+-static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
++static struct sk_buff *___skb_clone(struct sk_buff *n, struct sk_buff *skb)
+ {
+ #define C(x) n->x = skb->x
  
+ 	n->next = n->prev = NULL;
+-	n->sk = NULL;
+ 	__copy_skb_header(n, skb);
+ 
+ 	C(len);
+@@ -775,7 +778,6 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
+ 	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
+ 	n->cloned = 1;
+ 	n->nohdr = 0;
+-	n->destructor = NULL;
+ 	C(tail);
+ 	C(end);
+ 	C(head);
+@@ -791,6 +793,13 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
+ #undef C
+ }
+ 
++static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
++{
++	n->sk = NULL;
++	n->destructor = NULL;
++	return ___skb_clone(n, skb);
++}
++
+ /**
+  *	skb_morph	-	morph one skb into another
+  *	@dst: the skb to receive the contents
+@@ -803,8 +812,9 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
+  */
+ struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
+ {
+-	skb_release_all(dst);
+-	return __skb_clone(dst, src);
++	__skb_release_head_state(dst);
++	skb_release_data(dst);
++	return ___skb_clone(dst, src);
+ }
+ EXPORT_SYMBOL_GPL(skb_morph);
+ 
+@@ -1107,7 +1117,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 		if (skb_has_frag_list(skb))
+ 			skb_clone_fraglist(skb);
+ 
+-		skb_release_data(skb);
++		__skb_release_data(skb);
+ 	} else {
+ 		skb_free_head(skb);
+ 	}
 -- 
 1.8.3.1
+
