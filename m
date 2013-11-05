@@ -1,44 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/7] IBM Akebono: Add support for a new PHY to the IBM
- emac driver
-Date: Tue, 5 Nov 2013 18:16:44 +0000
-Message-ID: <1383675404.2868.8.camel@bwh-desktop.uk.level5networks.com>
-References: <1383629471-16979-1-git-send-email-alistair@popple.id.au>
-	 <1383629471-16979-3-git-send-email-alistair@popple.id.au>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch net-next 2/3] netfilter: ip6_tables: use reasm skb for
+ matching
+Date: Tue, 5 Nov 2013 18:19:24 +0000
+Message-ID: <20131105181923.GB7435@macbook.localnet>
+References: <1383649333-6321-1-git-send-email-jiri@resnulli.us>
+ <1383649333-6321-3-git-send-email-jiri@resnulli.us>
+ <20131105133205.GC15370@breakpoint.cc>
+ <20131105134118.GA5818@macbook.localnet>
+ <20131105150115.GB2438@minipsycho.orion>
+ <20131105153921.GD15370@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linuxppc-dev@lists.ozlabs.org>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Alistair Popple <alistair@popple.id.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:12122 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754945Ab3KESQt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 13:16:49 -0500
-In-Reply-To: <1383629471-16979-3-git-send-email-alistair@popple.id.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	kadlec@blackhole.kfki.hu, mleitner@redhat.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
+	horms@verge.net.au, ja@ssi.bg, edumazet@google.com,
+	pshelar@nicira.com, jasowang@redhat.com,
+	alexander.h.duyck@intel.com, coreteam@netfilter.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131105153921.GD15370@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-11-05 at 16:31 +1100, Alistair Popple wrote:
-[...]
-> --- a/drivers/net/ethernet/ibm/emac/Kconfig
-> +++ b/drivers/net/ethernet/ibm/emac/Kconfig
-> @@ -55,6 +55,10 @@ config IBM_EMAC_RGMII
->  	bool
->  	default n
->  
-> +config IBM_EMAC_RGMII_WOL
-> +	bool
-> +	default n
-> +
-[...]
+On Tue, Nov 05, 2013 at 04:39:21PM +0100, Florian Westphal wrote:
+> Jiri Pirko <jiri@resnulli.us> wrote:
+> > Tue, Nov 05, 2013 at 02:41:19PM CET, kaber@trash.net wrote:
+> > >executing the rules on the reassembled packet multiple times, one
+> > >for each fragment.
+> > 
+> [..]
+> > End even though, the matching is now done for each fragment skb anyway. The
+> > change is only to do it on different skb. I see no erformance or any
+> > other problem in that.
+> 
+> One problem that comes to mind is that nfacct or quota match will
+> now account num_of_fragments * length_of_reassemled_skb bytes.
 
-So no-one can even build-test this at present!
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+indeed. The easiest way to fix all this (and, btw, also the
+pskb_expand_head() oops which is currently reported by multiple people)
+is to get rid of all the fragmentation handling and simply use the
+reassembled skb.
