@@ -1,55 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] ipv6: fix headroom calculation in udp6_ufo_fragment
-Date: Tue, 5 Nov 2013 02:41:27 +0100
-Message-ID: <20131105014127.GG8832@order.stressinduktion.org>
-References: <4BC5337E23A5EE4A96D91D9DABA8FAE55E440B568D@WP40068.corp.ads> <20131103033207.GF30284@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Saran Neti <Saran.Neti@telus.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	pshelar@nicira.com,
-	dl TSL Vulnerability Research Team
-	<tsl-vulnerability-research@telus.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH net] net: sch_red: Fix race between timer and red_destroy()
+Date: Mon,  4 Nov 2013 18:08:16 -0800
+Message-ID: <1383617296-20273-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: davem@davemloft.net, shemminger@vyatta.com, eric.dumazet@gmail.com,
+	Vijay Subramanian <subramanian.vijay@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:49775 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753371Ab3KEBl2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 20:41:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20131103033207.GF30284@order.stressinduktion.org>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:46311 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754011Ab3KECMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 21:12:13 -0500
+Received: by mail-pd0-f178.google.com with SMTP id x10so7441941pdj.23
+        for <netdev@vger.kernel.org>; Mon, 04 Nov 2013 18:12:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 1e2bd517c108816220f262d7954b697af03b5f9c ("udp6: Fix udp
-fragmentation for tunnel traffic.") changed the calculation if
-there is enough space to include a fragment header in the skb from a
-skb->mac_header dervived one to skb_headroom. Because we already peeled
-off the skb to transport_header this is wrong. Change this back to check
-if we have enough room before the mac_header.
+Make sure timer does not fire once qdisc is destroyed.
 
-This fixes a panic Saran Neti reported. He used the tbf scheduler which
-skb_gso_segments the skb. The offsets get negative and we panic in memcpy
-because the skb was erroneously not expanded at the head.
-
-Reported-by: Saran Neti <Saran.Neti@telus.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
 ---
- net/ipv6/udp_offload.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/sched/sch_red.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index 08e23b0..e7359f9 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -90,7 +90,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
+index 633e32d..380507e 100644
+--- a/net/sched/sch_red.c
++++ b/net/sched/sch_red.c
+@@ -39,6 +39,7 @@
+ struct red_sched_data {
+ 	u32			limit;		/* HARD maximal queue length */
+ 	unsigned char		flags;
++	bool			timeron;	/* to prevent race on destroy*/
+ 	struct timer_list	adapt_timer;
+ 	struct red_parms	parms;
+ 	struct red_vars		vars;
+@@ -166,6 +167,7 @@ static void red_destroy(struct Qdisc *sch)
+ {
+ 	struct red_sched_data *q = qdisc_priv(sch);
  
- 		/* Check if there is enough headroom to insert fragment header. */
- 		tnl_hlen = skb_tnl_header_len(skb);
--		if (skb_headroom(skb) < (tnl_hlen + frag_hdr_sz)) {
-+		if (skb->mac_header < (tnl_hlen + frag_hdr_sz)) {
- 			if (gso_pskb_expand_head(skb, tnl_hlen + frag_hdr_sz))
- 				goto out;
- 		}
++	q->timeron = false;
+ 	del_timer_sync(&q->adapt_timer);
+ 	qdisc_destroy(q->qdisc);
+ }
+@@ -241,7 +243,8 @@ static inline void red_adaptative_timer(unsigned long arg)
+ 
+ 	spin_lock(root_lock);
+ 	red_adaptative_algo(&q->parms, &q->vars);
+-	mod_timer(&q->adapt_timer, jiffies + HZ/2);
++	if (q->timeron)
++		mod_timer(&q->adapt_timer, jiffies + HZ/2);
+ 	spin_unlock(root_lock);
+ }
+ 
+@@ -250,6 +253,7 @@ static int red_init(struct Qdisc *sch, struct nlattr *opt)
+ 	struct red_sched_data *q = qdisc_priv(sch);
+ 
+ 	q->qdisc = &noop_qdisc;
++	q->timeron = true;
+ 	setup_timer(&q->adapt_timer, red_adaptative_timer, (unsigned long)sch);
+ 	return red_change(sch, opt);
+ }
 -- 
-1.8.3.1
+1.7.9.5
