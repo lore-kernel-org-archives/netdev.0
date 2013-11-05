@@ -1,27 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sh_eth: call phy_scan_fixups() after PHY reset
-Date: Tue, 05 Nov 2013 15:01:53 -0500 (EST)
-Message-ID: <20131105.150153.251029756944194421.davem@davemloft.net>
-References: <523CEAD2.7030706@cogentembedded.com>
-	<5271712A.6020105@cogentembedded.com>
-	<52795282.20708@cogentembedded.com>
+Subject: Re: [PATCH net-next v6 0/3] The huawei_cdc_ncm driver
+Date: Tue, 05 Nov 2013 15:22:05 -0500 (EST)
+Message-ID: <20131105.152205.2098582195076844580.davem@davemloft.net>
+References: <1383555049-24834-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, laurent.pinchart+renesas@ideasonboard.com
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <52795282.20708@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	mrkiko.rs@gmail.com, oliver@neukum.org
+To: bjorn@mork.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34217 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754403Ab3KEUWI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 15:22:08 -0500
+In-Reply-To: <1383555049-24834-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Tue, 05 Nov 2013 23:18:10 +0300
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Mon,  4 Nov 2013 09:50:46 +0100
 
->    David, will you ever reply to this mail?
+> Enrico has been kind enough to let me repost his driver with the chan=
+ges
+> requested by Oliver Neukum during the last review of this series.
+>=20
+> The changes I have made from Enricos original v5 series to this versi=
+on
+> are:
+>=20
+> v6:
+>  - fix to avoid corrupting drvstate->pmcount
+>  - fix error return value from huawei_cdc_ncm_suspend()
+>  - drop redundant testing for subdriver->suspend during resume
+>  - broke a few lines to keep within the 80 columns recommendation
+>  - rebased on top of current net-next
+>=20
+> Enrico's orginal introduction to the v5 series follows below.  It exp=
+lains
+> the background much better than I can.
 
-I really haven't had the time with my backlog, and it's been so long ago
-that I've forgotten all of the context.
-
-Sorry, someone will have to start the conversation up anew.
+Looks good, series applied, thanks!
