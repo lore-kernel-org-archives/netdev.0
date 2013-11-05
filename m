@@ -1,37 +1,47 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 0/3] Fix incorrect returned signal strengths
-Date: Tue,  5 Nov 2013 15:15:27 -0600
-Message-ID: <1383686130-5113-1-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 1/3] rtlwifi: rtl8192se: Fix incorrect signal strength for unassociated AP
+Date: Tue,  5 Nov 2013 15:15:28 -0600
+Message-ID: <1383686130-5113-2-git-send-email-Larry.Finger@lwfinger.net>
+References: <1383686130-5113-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
 To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:32870 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754726Ab3KEVPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 16:15:43 -0500
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:35881 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754726Ab3KEVPs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 16:15:48 -0500
+In-Reply-To: <1383686130-5113-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In rtl8192se, rtl8192cu, and rtl8192du, the routines that process the
-received frames get the signal strength from the RSSI value. Unfortunately,
-that value is non-zero only if the interface is associated with the AP. As
-a result, scans return incorrect values for the strength, which causes
-unwanted attempts to roam.
+The routine that processes received frames was returning the RSSI value for the
+signal strength; however, that value is available only for associated APs. As
+a result, the strength was the absurd value of 10 dBm. As a result, scans
+return incorrect values for the strength, which causes unwanted attempts to roam.
+
+This patch fixes https://bugzilla.kernel.org/show_bug.cgi?id=63881.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Reported-by: Matthieu Baerts <matttbe@gmail.com>
+Cc: Stable <stable@vger.kernel.org> [3.0 +]
 ---
-
-Larry Finger (3):
-  rtlwifi: rtl8192se: Fix incorrect signal strength for unassociated AP
-  rtlwifi: rtl8192cu: Fix incorrect signal strength for unassociated AP
-  rtlwifi: rtl8192de: Fix incorrect signal strength for unassociated AP
-
- drivers/net/wireless/rtlwifi/rtl8192cu/trx.c | 2 +-
- drivers/net/wireless/rtlwifi/rtl8192de/trx.c | 2 +-
  drivers/net/wireless/rtlwifi/rtl8192se/trx.c | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/trx.c b/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
+index 222d2e7..27efbcd 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
+@@ -329,7 +329,7 @@ bool rtl92se_rx_query_desc(struct ieee80211_hw *hw, struct rtl_stats *stats,
+ 	}
+ 
+ 	/*rx_status->qual = stats->signal; */
+-	rx_status->signal = stats->rssi + 10;
++	rx_status->signal = stats->recvsignalpower + 10;
+ 
+ 	return true;
+ }
 -- 
 1.8.4
