@@ -1,44 +1,61 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [patch net-next] ipv6: allow userspace to create address with IFLA_F_TEMPORARY flag
-Date: Tue, 5 Nov 2013 17:12:46 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73E2@saturn3.aculab.com>
-References: <20131028.204306.2213130677400093266.davem@davemloft.net> <AE90C24D6B3A694183C094C60CF0A2F6026B73BB@saturn3.aculab.com> <20131029124010.GA15762@order.stressinduktion.org> <52792499.3030201@6wind.com>
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: Re: [PATCH net v2] vti: fix spd lookup: match plaintext pkt, not
+ ipsec pkt
+Date: Tue, 05 Nov 2013 18:24:58 +0100
+Message-ID: <527929EA.5070600@6wind.com>
+References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>	 <1383667121-23798-1-git-send-email-christophe.gouault@6wind.com> <1383670903.4291.142.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <nicolas.dichtel@6wind.com>, "David Miller" <davem@davemloft.net>,
-	<jiri@resnulli.us>, <vyasevich@gmail.com>,
-	<netdev@vger.kernel.org>, <kuznet@ms2.inr.ac.ru>,
-	<jmorris@namei.org>, <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	<thaller@redhat.com>, <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, Saurabh Mohan <saurabh.mohan@vyatta.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:40970 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753955Ab3KERTu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Nov 2013 12:19:50 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 28225-08 for <netdev@vger.kernel.org>;
- Tue,  5 Nov 2013 17:19:47 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <52792499.3030201@6wind.com>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:46771 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755043Ab3KERZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 12:25:03 -0500
+Received: by mail-wg0-f41.google.com with SMTP id b13so3291972wgh.0
+        for <netdev@vger.kernel.org>; Tue, 05 Nov 2013 09:25:02 -0800 (PST)
+In-Reply-To: <1383670903.4291.142.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBOaWNvbGFzIERpY2h0ZWwgW21haWx0bzpuaWNvbGFzLmRpY2h0ZWxANndpbmQuY29t
-XQ0KLi4uDQo+IElmIEkgcmVtZW1iZXIgd2VsbCwgYW5vdGhlciBwcm9ibGVtIGlzIHRvIGJlIGFi
-bGUgdG8gc2VuZCB0aGVzZSBwYWNrZXRzIHdpdGgNCj4gMC4wLjAuMCB3aGVuIGFub3RoZXIgSVAg
-YWRkcmVzcyBpcyBhdmFpbGFibGUgb24gdGhlIHN5c3RlbToNCj4gDQo+IFJGQzIxMzENCj4gNC4x
-IENvbnN0cnVjdGluZyBhbmQgc2VuZGluZyBESENQIG1lc3NhZ2VzDQo+IC4uLg0KPiAgICAgREhD
-UCBtZXNzYWdlcyBicm9hZGNhc3QgYnkgYSBjbGllbnQgcHJpb3IgdG8gdGhhdCBjbGllbnQgb2J0
-YWluaW5nDQo+ICAgICBpdHMgSVAgYWRkcmVzcyBtdXN0IGhhdmUgdGhlIHNvdXJjZSBhZGRyZXNz
-IGZpZWxkIGluIHRoZSBJUCBoZWFkZXINCj4gICAgIHNldCB0byAwLg0KPiANCj4gV2UgbWFkZSBh
-IHBhdGNoIChuZXZlciBwcm9wb3NlZCB1cHN0cmVhbSkgdG8gYWRkIGEgc29ja2V0IG9wdGlvbiB0
-byBrZWVwDQo+IHRoaXMgMC4wLjAuMCBhZGRyZXNzLg0KPiBJZiBwZW9wbGUgYXJlIGludGVyZXN0
-ZWQsIEkgY2FuIHRyeSB0byBwb3J0IGl0IG9uIG5ldC1uZXh0Lg0KDQpSZWFsbHksIHdoYXQgZGhj
-cCBkb2VzIGJlZm9yZSB0aGUgaW50ZXJmYWNlIGhhcyBhbiBhZGRyZXNzIGRvZXNuJ3QNCnJlYWxs
-eSBtYXR0ZXIgLSB1c2luZyBicGYgaXNuJ3QgYSBwcm9ibGVtLg0KDQpXaGF0IGl0IG5lZWRzIHRv
-IGRvIGlzIHN3aXRjaCB0byB1c2luZyBhIG5vcm1hbCBzb2NrZXQgZm9yIHRoZSByZW5ld2Fscy4N
-Cg0KTWF5YmUgSSdsbCB0cnkgYXNraW5nIFJveSBhYm91dCBpdCBvbiB0aGUgTmV0QlNEIGxpc3Rz
-Lg0KDQoJRGF2aWQNCg0K
+Hello Eric,
+
+On 11/05/2013 06:01 PM, Eric Dumazet wrote:
+> On Tue, 2013-11-05 at 16:58 +0100, Christophe Gouault wrote:
+>
+>> diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+>> index 6e87f85..bcd85be 100644
+>> --- a/net/ipv4/ip_vti.c
+>> +++ b/net/ipv4/ip_vti.c
+>> @@ -126,6 +126,7 @@ static int vti_rcv(struct sk_buff *skb)
+>>   	if (tunnel != NULL) {
+>>   		struct pcpu_tstats *tstats;
+>>   		u32 oldmark = skb->mark;
+>> +		u16 netoff = skb_network_header(skb) - skb->data;
+> 		unsigned int nhoff = skb_network_offset(skb);
+>
+> There is no need to assume u16 here, even if the implementation
+> currently has this assumption.
+>
+> You also could just use faster operation (no need to access
+> skb->data/head)
+>
+> 	unsigned int old_nh = skb->network_header;
+>
+> ...
+> at restore, use :
+> 	skb->network_header = old_nh;
+>
+> instead of the more expensive skb_set_network_header()
+OK, I was not sure if it was generally agreed to directly manipulate the 
+skb->network_header. I will send a v3 tomorrow with your suggested 
+optimization.
+
+Best Regards,
+Christophe
