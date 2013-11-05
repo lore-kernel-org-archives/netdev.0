@@ -1,40 +1,36 @@
-From: Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>
-Subject: Re: [PATCH 02/10] netfilter: nf_log: prepar net namespace support
-	for nf_log
-Date: Tue, 5 Nov 2013 11:14:55 -0300
-Message-ID: <20131105141455.GB22912@ghostprotocols.net>
-References: <1360223390-15589-1-git-send-email-gaofeng@cn.fujitsu.com>
-	<1360223390-15589-2-git-send-email-gaofeng@cn.fujitsu.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2 1/2] net: Add layer 2 hardware acceleration operations
+ for macvlan devices
+Date: Tue, 5 Nov 2013 09:15:38 -0500
+Message-ID: <20131105141538.GA14954@hmsreliant.think-freely.org>
+References: <20131104185717.11802.69282.stgit@jf-dev1-dcblab>
+ <20131104190149.11802.34110.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, lve-ke3WRBg/xIg@public.gmane.org,
-	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
-To: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
+	andy@greyhouse.net, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57513 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755142Ab3KEOPt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 09:15:49 -0500
 Content-Disposition: inline
-In-Reply-To: <1360223390-15589-2-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20131104190149.11802.34110.stgit@jf-dev1-dcblab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Thu, Feb 07, 2013 at 03:49:42PM +0800, Gao feng escreveu:
-> index 9e31269..b1e5126 100644
-> +++ b/net/netfilter/nf_log.c
-> @@ -16,7 +16,6 @@
->  #define NF_LOG_PREFIXLEN		128
->  #define NFLOGGER_NAME_LEN		64
->  
-> -static const struct nf_logger __rcu *nf_loggers[NFPROTO_NUMPROTO] __read_mostly;
-
-This was initialized to zeros, but then got moved to struct netns_nf,
-I'm trying to figure it out if it is being zeroed somewhere, ideas?
-
-- Arnaldo
+On Mon, Nov 04, 2013 at 11:01:49AM -0800, John Fastabend wrote:
+> Add a operations structure that allows a network interface to export
+> the fact that it supports package forwarding in hardware between
+> physical interfaces and other mac layer devices assigned to it (such
+> as macvlans). This operaions structure can be used by virtual mac
+> devices to bypass software switching so that forwarding can be done
+> in hardware more efficiently.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> CC: "David S. Miller" <davem@davemloft.net>
+For when you send your V3 patch set out:
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
