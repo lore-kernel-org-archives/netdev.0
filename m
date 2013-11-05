@@ -1,284 +1,121 @@
-From: Jonas Jensen <jonas.jensen@gmail.com>
-Subject: [PATCH v2] phy: Add MOXA MDIO driver
-Date: Tue,  5 Nov 2013 16:55:01 +0100
-Message-ID: <1383666901-22354-1-git-send-email-jonas.jensen@gmail.com>
-References: <1383317673-14704-1-git-send-email-jonas.jensen@gmail.com>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org, f.fainelli@gmail.com,
-	grant.likely@secretlab.ca, Jonas Jensen <jonas.jensen@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1383317673-14704-1-git-send-email-jonas.jensen@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: [PATCH net v2] vti: fix spd lookup: match plaintext pkt, not ipsec pkt
+Date: Tue,  5 Nov 2013 16:58:41 +0100
+Message-ID: <1383667121-23798-1-git-send-email-christophe.gouault@6wind.com>
+References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	Saurabh Mohan <saurabh.mohan@vyatta.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: christophe.gouault@6wind.com,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:55608 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752744Ab3KEP6z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 10:58:55 -0500
+In-Reply-To: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The MOXA UC-711X hardware(s) has an ethernet controller that seem
-to be developed internally. The IC used is "RTL8201CP".
+The vti interface inbound and outbound SPD lookups are based on the
+ipsec packet instead of the plaintext packet.
 
-This patch adds an MDIO driver which handles the MII bus.
+Not only is it counterintuitive, it also restricts vti interfaces
+to a single policy (whose selector must match the tunnel local and
+remote addresses).
 
-Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
+The policy selector is supposed to match the plaintext packet, before
+encryption or after decryption.
+
+This patch performs the SPD lookup based on the plaintext packet. It
+enables to create several polices bound to the vti interface (via a
+mark equal to the vti interface okey).
+
+It remains possible to apply the same policy to all packets entering
+the vti interface, by setting an any-to-any selector (src 0.0.0.0/0
+dst 0.0.0.0/0 proto any mark OKEY).
+
+Signed-off-by: Christophe Gouault <christophe.gouault@6wind.com>
 ---
+v2:
+- Fixed comment style
+- Checked with checkpatch.pl and sparse
+---
+ net/ipv4/ip_vti.c |   29 ++++++++++++++++++++++++++++-
+ 1 file changed, 28 insertions(+), 1 deletion(-)
 
-Notes:
-    Thanks for the feedback.
-    
-    Besides what is below I plan to submit changes suggested by
-    Grant as a separate patch (to Documentation/devicetree/bindings/net/phy.txt)
-    
-    Changes since v1:
-    
-    1. split changes to drivers/net/phy/realtek.c into separate patch
-    
-    driver code:
-    2. use dev_dbg() instead of dev_err()
-    3. use id "%s-%d-mii" instead of "%s-mii"
-    4. call mdiobus_free() on of_mdiobus_register() failure
-    
-    DT binding document:
-    5. remove it, submitting changes (to Documentation/devicetree/bindings/net/moxa,moxart-mac.txt) along with changes to the driver
-    
-    Applies to next-20131105
-
- drivers/net/phy/Kconfig       |   7 ++
- drivers/net/phy/Makefile      |   1 +
- drivers/net/phy/mdio-moxart.c | 201 ++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 209 insertions(+)
- create mode 100644 drivers/net/phy/mdio-moxart.c
-
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 342561a..9b5d46c 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -154,6 +154,13 @@ config MDIO_SUN4I
- 	  interface units of the Allwinner SoC that have an EMAC (A10,
- 	  A12, A10s, etc.)
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 6e87f85..bcd85be 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -126,6 +126,7 @@ static int vti_rcv(struct sk_buff *skb)
+ 	if (tunnel != NULL) {
+ 		struct pcpu_tstats *tstats;
+ 		u32 oldmark = skb->mark;
++		u16 netoff = skb_network_header(skb) - skb->data;
+ 		int ret;
  
-+config MDIO_MOXART
-+        tristate "MOXA ART MDIO interface support"
-+        depends on ARCH_MOXART
-+        help
-+          This driver supports the MDIO interface found in the network
-+          interface units of the MOXA ART SoC
-+
- config MDIO_BUS_MUX
- 	tristate
- 	depends on OF_MDIO
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 23a2ab2..9013dfa 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -31,3 +31,4 @@ obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
- obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
- obj-$(CONFIG_MDIO_BUS_MUX_MMIOREG) += mdio-mux-mmioreg.o
- obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
-+obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
-diff --git a/drivers/net/phy/mdio-moxart.c b/drivers/net/phy/mdio-moxart.c
-new file mode 100644
-index 0000000..a5741cb
---- /dev/null
-+++ b/drivers/net/phy/mdio-moxart.c
-@@ -0,0 +1,201 @@
-+/* MOXA ART Ethernet (RTL8201CP) MDIO interface driver
-+ *
-+ * Copyright (C) 2013 Jonas Jensen <jonas.jensen@gmail.com>
-+ *
-+ * This file is licensed under the terms of the GNU General Public
-+ * License version 2.  This program is licensed "as is" without any
-+ * warranty of any kind, whether express or implied.
-+ */
-+
-+#include <linux/delay.h>
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/mutex.h>
-+#include <linux/of_address.h>
-+#include <linux/of_mdio.h>
-+#include <linux/phy.h>
-+#include <linux/platform_device.h>
-+#include <linux/regulator/consumer.h>
-+
-+#define REG_PHY_CTRL            0
-+#define REG_PHY_WRITE_DATA      4
-+
-+/* REG_PHY_CTRL */
-+#define MIIWR                   BIT(27) /* init write sequence (auto cleared)*/
-+#define MIIRD                   BIT(26)
-+#define REGAD_MASK              0x3e00000
-+#define PHYAD_MASK              0x1f0000
-+#define MIIRDATA_MASK           0xffff
-+
-+/* REG_PHY_WRITE_DATA */
-+#define MIIWDATA_MASK           0xffff
-+
-+struct moxart_mdio_data {
-+	void __iomem		*base;
-+};
-+
-+static int moxart_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-+{
-+	struct moxart_mdio_data *data = bus->priv;
-+	u32 ctrl = 0;
-+	unsigned int count = 5;
-+
-+	dev_dbg(&bus->dev, "%s\n", __func__);
-+
-+	ctrl |= MIIRD | ((mii_id << 16) & PHYAD_MASK) |
-+		((regnum << 21) & REGAD_MASK);
-+
-+	writel(ctrl, data->base + REG_PHY_CTRL);
-+
-+	do {
-+		ctrl = readl(data->base + REG_PHY_CTRL);
-+
-+		if (!(ctrl & MIIRD))
-+			return ctrl & MIIRDATA_MASK;
-+
-+		mdelay(10);
-+		count--;
-+	} while (count > 0);
-+
-+	dev_dbg(&bus->dev, "%s timed out\n", __func__);
-+
-+	return -ETIMEDOUT;
-+}
-+
-+static int moxart_mdio_write(struct mii_bus *bus, int mii_id,
-+			     int regnum, u16 value)
-+{
-+	struct moxart_mdio_data *data = bus->priv;
-+	u32 ctrl = 0;
-+	unsigned int count = 5;
-+
-+	dev_dbg(&bus->dev, "%s\n", __func__);
-+
-+	ctrl |= MIIWR | ((mii_id << 16) & PHYAD_MASK) |
-+		((regnum << 21) & REGAD_MASK);
-+
-+	value &= MIIWDATA_MASK;
-+
-+	writel(value, data->base + REG_PHY_WRITE_DATA);
-+	writel(ctrl, data->base + REG_PHY_CTRL);
-+
-+	do {
-+		ctrl = readl(data->base + REG_PHY_CTRL);
-+
-+		if (!(ctrl & MIIWR))
-+			return 0;
-+
-+		mdelay(10);
-+		count--;
-+	} while (count > 0);
-+
-+	dev_dbg(&bus->dev, "%s timed out\n", __func__);
-+
-+	return -ETIMEDOUT;
-+}
-+
-+static int moxart_mdio_reset(struct mii_bus *bus)
-+{
-+	int data, i;
-+
-+	for (i = 0; i < PHY_MAX_ADDR; i++) {
-+		data = moxart_mdio_read(bus, i, MII_BMCR);
-+		if (data < 0)
-+			continue;
-+
-+		data |= BMCR_RESET;
-+		if (moxart_mdio_write(bus, i, MII_BMCR, data) < 0)
-+			continue;
-+	}
-+
-+	return 0;
-+}
-+
-+static int moxart_mdio_probe(struct platform_device *pdev)
-+{
-+	struct device_node *np = pdev->dev.of_node;
-+	struct mii_bus *bus;
-+	struct moxart_mdio_data *data;
-+	struct resource *res;
-+	int ret, i;
-+
-+	bus = mdiobus_alloc_size(sizeof(*data));
-+	if (!bus)
-+		return -ENOMEM;
-+
-+	bus->name = "MOXA ART Ethernet MII";
-+	bus->read = &moxart_mdio_read;
-+	bus->write = &moxart_mdio_write;
-+	bus->reset = &moxart_mdio_reset;
-+	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d-mii", pdev->name, pdev->id);
-+	bus->parent = &pdev->dev;
-+
-+	bus->irq = devm_kzalloc(&pdev->dev, sizeof(int) * PHY_MAX_ADDR,
-+			GFP_KERNEL);
-+	if (!bus->irq) {
-+		ret = -ENOMEM;
-+		goto err_out_free_mdiobus;
-+	}
-+
-+	/* Setting PHY_IGNORE_INTERRUPT here even if it has no effect,
-+	 * of_mdiobus_register() sets these PHY_POLL.
-+	 * Ideally, the interrupt from MAC controller could be used to
-+	 * detect link state changes, not polling, i.e. if there was
-+	 * a way phy_driver could set PHY_HAS_INTERRUPT but have that
-+	 * interrupt handled in ethernet drivercode.
+ 
+@@ -133,7 +134,13 @@ static int vti_rcv(struct sk_buff *skb)
+ 		 * only match policies with this mark.
+ 		 */
+ 		skb->mark = be32_to_cpu(tunnel->parms.o_key);
++		/* The packet is decrypted, but not yet decapsulated.
++		 * Temporarily make network_header point to the inner header
++		 * for policy check.
++		 */
++		skb_reset_network_header(skb);
+ 		ret = xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb);
++		skb_set_network_header(skb, netoff);
+ 		skb->mark = oldmark;
+ 		if (!ret)
+ 			return -1;
+@@ -166,6 +173,8 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct iphdr  *old_iph = ip_hdr(skb);
+ 	__be32 dst = tiph->daddr;
+ 	struct flowi4 fl4;
++	struct flowi fl;
++	u32 oldmark = skb->mark;
+ 	int err;
+ 
+ 	if (skb->protocol != htons(ETH_P_IP))
+@@ -173,17 +182,35 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	tos = old_iph->tos;
+ 
++	/* SPD lookup: we must provide a dst_entry to xfrm_lookup, normally the
++	 * route to the final destination. However this route is a route via
++	 * the vti interface. Now vti interfaces typically have the NOXFRM
++	 * flag, hence xfrm_lookup would bypass IPsec.
++	 *
++	 * Therefore, we feed xfrm_lookup with a route to the vti tunnel remote
++	 * endpoint instead.
 +	 */
-+	for (i = 0; i < PHY_MAX_ADDR; i++)
-+		bus->irq[i] = PHY_IGNORE_INTERRUPT;
+ 	memset(&fl4, 0, sizeof(fl4));
+ 	flowi4_init_output(&fl4, tunnel->parms.link,
+ 			   be32_to_cpu(tunnel->parms.o_key), RT_TOS(tos),
+ 			   RT_SCOPE_UNIVERSE,
+ 			   IPPROTO_IPIP, 0,
+ 			   dst, tiph->saddr, 0, 0);
+-	rt = ip_route_output_key(dev_net(dev), &fl4);
++	rt = __ip_route_output_key(tunnel->net, &fl4);
+ 	if (IS_ERR(rt)) {
+ 		dev->stats.tx_carrier_errors++;
+ 		goto tx_error_icmp;
+ 	}
 +
-+	data = bus->priv;
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	data->base = devm_ioremap_resource(&pdev->dev, res);
-+	if (IS_ERR(data->base)) {
-+		ret = PTR_ERR(data->base);
-+		goto err_out_free_mdiobus;
-+	}
++	memset(&fl, 0, sizeof(fl));
++	/* Temporarily mark the skb with the tunnel o_key, to look up
++	 * for a policy with this mark, matching the plaintext traffic.
++	 */
++	skb->mark = be32_to_cpu(tunnel->parms.o_key);
++	__xfrm_decode_session(skb, &fl, AF_INET, 0);
++	skb->mark = oldmark;
++	rt = (struct rtable *)xfrm_lookup(tunnel->net, &rt->dst, &fl, NULL, 0);
 +
-+	ret = of_mdiobus_register(bus, np);
-+	if (ret < 0)
-+		goto err_out_free_mdiobus;
-+
-+	platform_set_drvdata(pdev, bus);
-+
-+	return 0;
-+
-+err_out_free_mdiobus:
-+	mdiobus_free(bus);
-+	return ret;
-+}
-+
-+static int moxart_mdio_remove(struct platform_device *pdev)
-+{
-+	struct mii_bus *bus = platform_get_drvdata(pdev);
-+
-+	mdiobus_unregister(bus);
-+	mdiobus_free(bus);
-+
-+	return 0;
-+}
-+
-+static const struct of_device_id moxart_mdio_dt_ids[] = {
-+	{ .compatible = "moxa,moxart-mdio" },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, moxart_mdio_dt_ids);
-+
-+static struct platform_driver moxart_mdio_driver = {
-+	.probe = moxart_mdio_probe,
-+	.remove = moxart_mdio_remove,
-+	.driver = {
-+		.name = "moxart-mdio",
-+		.of_match_table = moxart_mdio_dt_ids,
-+	},
-+};
-+
-+module_platform_driver(moxart_mdio_driver);
-+
-+MODULE_DESCRIPTION("MOXA ART MDIO interface driver");
-+MODULE_AUTHOR("Jonas Jensen <jonas.jensen@gmail.com>");
-+MODULE_LICENSE("GPL");
+ 	/* if there is no transform then this tunnel is not functional.
+ 	 * Or if the xfrm is not mode tunnel.
+ 	 */
 -- 
-1.8.2.1
+1.7.10.4
