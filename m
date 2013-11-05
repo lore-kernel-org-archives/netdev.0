@@ -1,52 +1,40 @@
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Subject: [PATCH net] qeth: avoid buffer overflow in snmp ioctl
-Date: Tue, 5 Nov 2013 15:14:00 +0100
-Message-ID: <20131105141400.GA29477@tuxmaker.boeblingen.de.ibm.com>
+From: Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>
+Subject: Re: [PATCH 02/10] netfilter: nf_log: prepar net namespace support
+	for nf_log
+Date: Tue, 5 Nov 2013 11:14:55 -0300
+Message-ID: <20131105141455.GB22912@ghostprotocols.net>
+References: <1360223390-15589-1-git-send-email-gaofeng@cn.fujitsu.com>
+	<1360223390-15589-2-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <stable-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, lve-ke3WRBg/xIg@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
+To: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
 Content-Disposition: inline
-Sender: stable-owner@vger.kernel.org
+In-Reply-To: <1360223390-15589-2-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+Em Thu, Feb 07, 2013 at 03:49:42PM +0800, Gao feng escreveu:
+> index 9e31269..b1e5126 100644
+> +++ b/net/netfilter/nf_log.c
+> @@ -16,7 +16,6 @@
+>  #define NF_LOG_PREFIXLEN		128
+>  #define NFLOGGER_NAME_LEN		64
+>  
+> -static const struct nf_logger __rcu *nf_loggers[NFPROTO_NUMPROTO] __read_mostly;
 
-Check user-defined length in snmp ioctl request and allow request
-only if it fits into a qeth command buffer.
+This was initialized to zeros, but then got moved to struct netns_nf,
+I'm trying to figure it out if it is being zeroed somewhere, ideas?
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
-Reviewed-by: Heiko Carstens <heicars2@linux.vnet.ibm.com>
-Reported-by: Nico Golde <nico@ngolde.de>
-Reported-by: Fabian Yamaguchi <fabs@goesec.de>
-Cc: <stable@vger.kernel.org>
----
- drivers/s390/net/qeth_core_main.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index d7b66a2..642f623 100644
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -4451,7 +4451,7 @@ int qeth_snmp_command(struct qeth_card *card, char __user *udata)
- 	struct qeth_cmd_buffer *iob;
- 	struct qeth_ipa_cmd *cmd;
- 	struct qeth_snmp_ureq *ureq;
--	int req_len;
-+	unsigned int req_len;
- 	struct qeth_arp_query_info qinfo = {0, };
- 	int rc = 0;
- 
-@@ -4467,6 +4467,10 @@ int qeth_snmp_command(struct qeth_card *card, char __user *udata)
- 	/* skip 4 bytes (data_len struct member) to get req_len */
- 	if (copy_from_user(&req_len, udata + sizeof(int), sizeof(int)))
- 		return -EFAULT;
-+	if (req_len > QETH_BUFSIZE - IPA_PDU_HEADER_SIZE
-+				   - sizeof(struct qeth_ipacmd_hdr)
-+				   - sizeof(struct qeth_ipacmd_setadpparms_hdr))
-+		return -EINVAL;
- 	ureq = memdup_user(udata, req_len + sizeof(struct qeth_snmp_ureq_hdr));
- 	if (IS_ERR(ureq)) {
- 		QETH_CARD_TEXT(card, 2, "snmpnome");
+- Arnaldo
