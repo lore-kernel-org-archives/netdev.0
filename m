@@ -1,73 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch net-next 2/3] netfilter: ip6_tables: use reasm skb for
- matching
-Date: Tue, 5 Nov 2013 13:41:19 +0000
-Message-ID: <20131105134118.GA5818@macbook.localnet>
-References: <1383649333-6321-1-git-send-email-jiri@resnulli.us>
- <1383649333-6321-3-git-send-email-jiri@resnulli.us>
- <20131105133205.GC15370@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	davem@davemloft.net, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	kadlec@blackhole.kfki.hu, mleitner@redhat.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
-	horms@verge.net.au, ja@ssi.bg, edumazet@google.com,
-	pshelar@nicira.com, jasowang@redhat.com,
-	alexander.h.duyck@intel.com, coreteam@netfilter.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131105133205.GC15370@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mathias Krause <mathias.krause@secunet.com>
+Subject: [PATCH net-next 0/3] IPsec improvements
+Date: Tue,  5 Nov 2013 14:54:08 +0100
+Message-ID: <cover.1381923854.git.mathias.krause@secunet.com>
+Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+	netdev@vger.kernel.org, Mathias Krause <mathias.krause@secunet.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:52539 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754733Ab3KENyX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Nov 2013 08:54:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 05, 2013 at 02:32:05PM +0100, Florian Westphal wrote:
-> Jiri Pirko <jiri@resnulli.us> wrote:
-> > This patch fixes for example following situation:
-> > On HOSTA do:
-> > ip6tables -I INPUT -p icmpv6 -j DROP
-> > ip6tables -I INPUT -p icmpv6 -m icmp6 --icmpv6-type 128 -j ACCEPT
-> 
-> untested:
-> 
-> -A INPUT -p icmpv6 -m icmp6 --icmpv6-type 128 -j ACCEPT
-> -A INPUT -p icmpv6 -m conntrack --ctstatus CONFIRMED -j ACCEPT
-> -A INPUT -p icmpv6 -j DROP
-> 
-> > and on HOSTB you do:
-> > ping6 HOSTA -s2000    (MTU is 1500)
-> > 
-> > Incoming echo requests will be filtered out on HOSTA. This issue does
-> > not occur with smaller packets than MTU (where fragmentation does not happen).
-> 
-> Patrick, any reason not to kill the special-casing (ct has assigned helper or
-> unconfirmed conntrack) in __ipv6_conntrack_in() ?
-> 
-> This should make ipv6 frag behaviour consistent; right now its rather
-> confusing from ruleset point of view, especially the first packet
-> of a connection is always seen as reassembled.
-> 
-> So with Jiris rules
-> 
-> -A INPUT -p icmpv6 -m icmp6 --icmpv6-type 128 -j ACCEPT
-> -A INPUT -p icmpv6 -j DROP
-> 
-> ping6 -s $bignum works for the first packet but not for subsequent ones
-> which is quite irritating.
+This series moves pskb_put() to the core code -- making the code
+duplication in caif obsolete (patches 1 and 2).
 
-Well, the reason was to avoid unnecessary work doing refragmentation
-unless really required. I know its rather complicated, but IPv6 has
-always required treating fragments manually or using conntrack state.
+Additionally does this series optimize the IPsec receive path in patch 3
+by allowing skb_cow_data() to leave the buffer fragmented. I noticed the
+linearization to be a bottleneck when doing some VPN gateway benchmarks.
+Linearization of the buffer isn't needed in the receive path as the
+crypto API (and all other users of skb_cow_data) can handle sg.
 
-I'm not objecting to changing this, but the patches as they are are
-not the way to go. First, moving nfct_frag to struct sk_buff seems
-like a real waste of space for this quite rare case. Also, we can't
-just use the reassembled packet in ip6tables, when modifying it we
-will still output the unchanged fragments. An last of all, we'll be
-executing the rules on the reassembled packet multiple times, one
-for each fragment.
+With patch 3 applied I was able to increase the throughput of an IPsec
+gateway from 7.12 Gbit/s to 7.28 Gbit/s.
 
-So if someone wants to change this, simply *only* pass the reassembled
-packet through the netfilter hooks and drop the fragments, as in IPv4.
+
+Please apply!
+
+Mathias Krause (3):
+  net: move pskb_put() to core code
+  caif: use pskb_put() instead of reimplementing its functionality
+  net: allow to leave the buffer fragmented in skb_cow_data()
+
+ include/linux/skbuff.h  |    1 +
+ include/net/esp.h       |    2 -
+ net/caif/cfpkt_skbuff.c |   12 +----------
+ net/core/skbuff.c       |   52 +++++++++++++++++++++++++++++++++++++----------
+ net/xfrm/xfrm_algo.c    |   13 -----------
+ 5 files changed, 43 insertions(+), 37 deletions(-)
+
+-- 
+1.7.2.5
