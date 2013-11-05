@@ -1,65 +1,57 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: [PATCH] net: mv643xx_eth: Add missing phy_addr_set in DT mode
-Date: Mon,  4 Nov 2013 17:27:19 -0700
-Message-ID: <1383611239-14556-1-git-send-email-jgunthorpe@obsidianresearch.com>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH] net: mv643xx_eth: Add missing phy_addr_set in DT mode
+Date: Mon, 4 Nov 2013 19:36:35 -0500
+Message-ID: <20131105003635.GG3060@titan.lakedaemon.net>
+References: <1383611239-14556-1-git-send-email-jgunthorpe@obsidianresearch.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
- David Miller <davem@davemloft.net>, Lennert Buytenhek <buytenh@wantstofly.org>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
+ Lennert Buytenhek <buytenh@wantstofly.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1383611239-14556-1-git-send-email-jgunthorpe@obsidianresearch.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Commit cc9d4598 'net: mv643xx_eth: use of_phy_connect if phy_node
-present' made the call to phy_scan optional, if the DT has a link to
-the phy node.
+Jason,
 
-However phy_scan has the side effect of calling phy_addr_set, which
-writes the phy MDIO address to the ethernet controller. If phy_addr_set
-is not called, and the bootloader has not set the correct address then
-the driver will fail to function.
+On Mon, Nov 04, 2013 at 05:27:19PM -0700, Jason Gunthorpe wrote:
+> Commit cc9d4598 'net: mv643xx_eth: use of_phy_connect if phy_node
 
-Tested on Kirkwood.
+fyi: set core.abbrev = 12 in your git config, according to Linus, 7/8
+was a bad decision...
 
-Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
----
-Cc: David Miller <davem@davemloft.net>
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-Cc: Jason Cooper <jason@lakedaemon.net>
-Cc: Andrew Lunn <andrew@lunn.ch>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: netdev@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-kernel@vger.kernel.org
----
- drivers/net/ethernet/marvell/mv643xx_eth.c | 1 +
- 1 file changed, 1 insertion(+)
+> present' made the call to phy_scan optional, if the DT has a link to
+> the phy node.
+> 
+> However phy_scan has the side effect of calling phy_addr_set, which
+> writes the phy MDIO address to the ethernet controller. If phy_addr_set
+> is not called, and the bootloader has not set the correct address then
+> the driver will fail to function.
+> 
+> Tested on Kirkwood.
+> 
+> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 2c210ec..00e43b5 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -2890,6 +2890,7 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
- 					 PHY_INTERFACE_MODE_GMII);
- 		if (!mp->phy)
- 			err = -ENODEV;
-+		phy_addr_set(mp, mp->phy->addr);
- 	} else if (pd->phy_addr != MV643XX_ETH_PHY_NONE) {
- 		mp->phy = phy_scan(mp, pd->phy_addr);
- 
--- 
-1.8.1.2
+Fixes: cc9d459894b0 "net: mv643xx_eth: use of_phy_connect if phy_node present"
+Acked-by: Jason Cooper <jason@lakedaemon.net>
+
+And it should be suitable for v3.11+
+
+thx,
+
+Jason.
