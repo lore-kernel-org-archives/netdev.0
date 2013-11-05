@@ -1,29 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vxlan: Use ERR_CAST inlined function instead
- of ERR_PTR(PTR_ERR(...))
-Date: Mon, 04 Nov 2013 20:03:03 -0500 (EST)
-Message-ID: <20131104.200303.1549746023350899879.davem@davemloft.net>
-References: <52733797.3010305@cn.fujitsu.com>
+Subject: Re: [PATCH net-next V3 1/2] net: introduce skb_coalesce_rx_frag()
+Date: Mon, 04 Nov 2013 20:04:22 -0500 (EST)
+Message-ID: <20131104.200422.1529242936573745110.davem@davemloft.net>
+References: <1383286068-10421-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: duanj.fnst@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55846 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751629Ab3KEBDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 20:03:04 -0500
-In-Reply-To: <52733797.3010305@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mwdalton@google.com, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, kmindg@gmail.com,
+	edumazet@google.com
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1383286068-10421-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Fri, 01 Nov 2013 13:09:43 +0800
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri,  1 Nov 2013 14:07:47 +0800
 
-> trivial patch converting ERR_PTR(PTR_ERR()) into ERR_CAST().
-> No functional changes.
+> Sometimes we need to coalesce the rx frags to avoid frag list. One example is
+> virtio-net driver which tries to use small frags for both MTU sized packet and
+> GSO packet. So this patch introduce skb_coalesce_rx_frag() to do this.
 > 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Michael Dalton <mwdalton@google.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+> Changes from V2:
+> - remove the skb_frag_unref() and let the called to put the page reference
+> Changes from V1:
+> - remove the useless off parameter.
 
-Applied, thank you.
+Applied.
