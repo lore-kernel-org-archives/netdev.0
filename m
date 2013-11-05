@@ -1,43 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] nf_tables updates for net-next
-Date: Mon, 04 Nov 2013 19:49:17 -0500 (EST)
-Message-ID: <20131104.194917.2150577204163052524.davem@davemloft.net>
-References: <1383602721-5728-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net-next] ipv4: introduce new IP_MTU_DISCOVER mode
+ IP_PMTUDISC_INTERFACE
+Date: Mon, 04 Nov 2013 19:52:30 -0500 (EST)
+Message-ID: <20131104.195230.1532629606565920528.davem@davemloft.net>
+References: <20131031.002911.1316728367651608156.davem@davemloft.net>
+	<20131031094226.GB17210@order.stressinduktion.org>
+	<20131104232541.GD8832@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: netdev@vger.kernel.org, fweimer@redhat.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55736 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55745 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984Ab3KEAtT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 19:49:19 -0500
-In-Reply-To: <1383602721-5728-1-git-send-email-pablo@netfilter.org>
+	with ESMTP id S1750819Ab3KEAwc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Nov 2013 19:52:32 -0500
+In-Reply-To: <20131104232541.GD8832@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon,  4 Nov 2013 23:05:16 +0100
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue, 5 Nov 2013 00:25:41 +0100
 
-> This batch contains fives nf_tables patches for your net-next tree,
-> they are:
-> 
-> * Fix possible use after free in the module removal path of the
->   x_tables compatibility layer, from Dan Carpenter.
-> 
-> * Add filter chain type for the bridge family, from myself.
-> 
-> * Fix Kconfig dependencies of the nf_tables bridge family with
->   the core, from myself.
-> 
-> * Fix sparse warnings in nft_nat, from Tomasz Bursztyka.
-> 
-> * Remove duplicated include in the IPv4 family support for nf_tables,
->   from Wei Yongjun.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nftables.git master
+> Sorry for being so pushy about this patch! :|
 
-Also looks fine, pulled, thanks!
+I haven't ruled out applying your original patch, could you please
+just repost it so that it gets queued up anew in patchwork?
+
+I'll get to resolving this, please be patient.
+
+Thanks.
