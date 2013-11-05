@@ -1,51 +1,27 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 3/7] IBM Akebono: Add support for a new PHY to the IBM
- emac driver
-Date: Wed, 06 Nov 2013 06:54:00 +1100
-Message-ID: <1383681240.4776.97.camel@pasglop>
-References: <1383629471-16979-1-git-send-email-alistair@popple.id.au>
-	 <1383629471-16979-3-git-send-email-alistair@popple.id.au>
-	 <1383675404.2868.8.camel@bwh-desktop.uk.level5networks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sh_eth: call phy_scan_fixups() after PHY reset
+Date: Tue, 05 Nov 2013 15:01:53 -0500 (EST)
+Message-ID: <20131105.150153.251029756944194421.davem@davemloft.net>
+References: <523CEAD2.7030706@cogentembedded.com>
+	<5271712A.6020105@cogentembedded.com>
+	<52795282.20708@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alistair Popple <alistair@popple.id.au>, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:34570 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753758Ab3KETyW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Nov 2013 14:54:22 -0500
-In-Reply-To: <1383675404.2868.8.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nobuhiro.iwamatsu.yj@renesas.com, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, laurent.pinchart+renesas@ideasonboard.com
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <52795282.20708@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-11-05 at 18:16 +0000, Ben Hutchings wrote:
-> On Tue, 2013-11-05 at 16:31 +1100, Alistair Popple wrote:
-> [...]
-> > --- a/drivers/net/ethernet/ibm/emac/Kconfig
-> > +++ b/drivers/net/ethernet/ibm/emac/Kconfig
-> > @@ -55,6 +55,10 @@ config IBM_EMAC_RGMII
-> >  	bool
-> >  	default n
-> >  
-> > +config IBM_EMAC_RGMII_WOL
-> > +	bool
-> > +	default n
-> > +
-> [...]
-> 
-> So no-one can even build-test this at present!
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Tue, 05 Nov 2013 23:18:10 +0300
 
-Patch 7/7 adds the select to the platform, isn't that sufficient ?
+>    David, will you ever reply to this mail?
 
-It's an SoC bit so there's little point making it generally
-selectable by the user.
+I really haven't had the time with my backlog, and it's been so long ago
+that I've forgotten all of the context.
 
-Alistair: The commit name should be different, it's not a PHY you are
-adding, it's a PHY interface (the PHY itself is off chip).
-
-Cheers,
-Ben.
+Sorry, someone will have to start the conversation up anew.
