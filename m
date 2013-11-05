@@ -1,56 +1,85 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 3/7] IBM Akebono: Add support for a new PHY to the IBM
- emac driver
-Date: Tue, 5 Nov 2013 10:47:22 -0800
-Message-ID: <CAGVrzcZQ26kbim2piOwrvpyOcSaTET5da7Yh4GWv+erfuOBDhQ@mail.gmail.com>
-References: <1383629471-16979-1-git-send-email-alistair@popple.id.au> <1383629471-16979-3-git-send-email-alistair@popple.id.au>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: call phy_scan_fixups() after PHY reset
+Date: Tue, 05 Nov 2013 23:18:10 +0300
+Message-ID: <52795282.20708@cogentembedded.com>
+References: <201309140410.38396.sergei.shtylyov@cogentembedded.com> <20130917.154446.554384673039269498.davem@davemloft.net> <523CEAD2.7030706@cogentembedded.com> <5271712A.6020105@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linuxppc-dev@lists.ozlabs.org,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Alistair Popple <alistair@popple.id.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:43530 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755313Ab3KESsD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 13:48:03 -0500
-Received: by mail-pd0-f178.google.com with SMTP id x10so9029927pdj.9
-        for <netdev@vger.kernel.org>; Tue, 05 Nov 2013 10:48:03 -0800 (PST)
-In-Reply-To: <1383629471-16979-3-git-send-email-alistair@popple.id.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nobuhiro.iwamatsu.yj@renesas.com, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, laurent.pinchart+renesas@ideasonboard.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <5271712A.6020105@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[snip]
+Hello.
 
-> +/* RGMII bridge supports only GMII/TBI and RGMII/RTBI PHYs */
-> +static inline int rgmii_valid_mode(int phy_mode)
-> +{
-> +       return  phy_mode == PHY_MODE_GMII ||
-> +               phy_mode == PHY_MODE_MII ||
-> +               phy_mode == PHY_MODE_RGMII ||
-> +               phy_mode == PHY_MODE_TBI ||
-> +               phy_mode == PHY_MODE_RTBI;
-> +}
-> +
-> +static inline const char *rgmii_mode_name(int mode)
-> +{
-> +       switch (mode) {
-> +       case PHY_MODE_RGMII:
-> +               return "RGMII";
-> +       case PHY_MODE_TBI:
-> +               return "TBI";
-> +       case PHY_MODE_GMII:
-> +               return "GMII";
-> +       case PHY_MODE_MII:
-> +               return "MII";
-> +       case PHY_MODE_RTBI:
-> +               return "RTBI";
-> +       default:
-> +               BUG();
-> +       }
+On 10/30/2013 11:50 PM, Sergei Shtylyov wrote:
 
-Any reasons why you are duplicating what is available in
-drivers/of/of_net.c ::of_get_phy_mode()?
--- 
-Florian
+>>>> Sometimes the PHY reset that sh_eth_phy_start() does effects the PHY
+>>>> registers
+>>>> registers values of which are vital for the correct functioning of the
+>>>> driver.
+>>>> Unfortunately, the existing PHY platform fixup mechanism doesn't help
+>>>> here as
+>>>> it only hooks PHY resets done by ioctl() calls. Calling phy_scan_fixups()
+>>>> from
+>>>> the driver helps here. With a proper platform fixup, this fixes NFS
+>>>> timeouts on
+>>>> the SH-Mobile Lager board.
+
+>     Timeouts happen because of the sideband ETH_LINK signal connected to PHY's
+> LED0 pin -- it bounces on/off after each packet in the default LED mode and
+> that seems to hinder packet sending and/or reception...
+
+>>     "And sets the PHY LED pins to the desired mode", I should have added.
+
+>>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+>>> The PHY layer is designed to naturally already take care of this kind of
+>>> thing.  I think that part of the problem is that you're fighting the
+>>> natural control flow the PHY layer provides.
+
+>>> When the phy_connect() is performed, what we end up doing is calling
+>>> phy_attach_direct() which invokes the ->probe() method of the driver
+>>> and then afterwards we do phy_init_hw() which takes care of doing
+>>> the fixup calls.
+
+>>     Yes, I have studied the code paths beforehand.
+
+>>> So if you really need to do a BMCR reset then run the fixups I'd like
+>>> you to look into making that happen within the provided control
+>>> flow rather than with an exceptional explicit call to run the fixups.
+
+>>     That could change the behavior of many Ethernet drivers in sometimes
+>> unpredictable ways I think (due to extended registers the PHYs sometimes have,
+>> like in this case) if you meant including the PHY reset into phylib control
+>> flows. Anyway, that would have required more complex patches only good for
+>> merging at the merge window time while I aimed at a quick fix for a problem at
+>> hand (which is NFS timeout/slowdown and LED mode mismatch to what was designed
+>> for the board).
+>>     Some other drivers also do reset the PHYs but usually that's accompanied
+>> by a loop polling for reset completion, so a naive code like that one on the
+>> phylib's ioctl() path couldn't have helped if I wanted to hook reset writes in
+>> the same fashion in phy_write(). In my case reset seems just quick enough for
+>> the extended PHY register reads/writes to work correctly without polling the
+>> reset bit first...
+>>     That's why I took an easy way and used already exported phy_scan_fixups()
+>> to undo what the PHY reset did to some of the PHY's registers. The question is
+>> why it was exported in the first place? It doesn't seem to be used by anything
+>> but phylib internally...
+
+>     Well, how about I create phy_reset() function (that will care about BMCR
+> polling and calling PHY driver/fixups) that those drivers that currently do
+> reset their PHYs can call (instead of open coding BMCR reset)? That way it
+> seems to be less invasive than embedding PHY reset into phylib's control flow...
+
+>>> I'm willing to be convinced that this is a better or necessary approach
+>>> but you'll need to explain it to me.
+
+    David, will you ever reply to this mail?
+
+WBR, Sergei
+
