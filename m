@@ -1,33 +1,216 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v2 2/4] ipv6: enable IPV6_FLOWLABEL_MGR for getsockopt
-Date: Tue, 5 Nov 2013 17:22:25 +0100
-Message-ID: <20131105162225.GI8832@order.stressinduktion.org>
-References: <1383661738-6083-1-git-send-email-florent.fourcot@enst-bretagne.fr> <1383661738-6083-2-git-send-email-florent.fourcot@enst-bretagne.fr> <20131105160838.GH8832@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>,
-	netdev@vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next v2] bonding: add option to specify the number of queues per bond device
+Date: Tue,  5 Nov 2013 17:47:29 +0100
+Message-ID: <1383670049-15235-1-git-send-email-nikolay@redhat.com>
+Cc: andy@greyhouse.net, fubar@us.ibm.com, vfalico@redhat.com,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:51079 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750838Ab3KEQW0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 11:22:26 -0500
-Content-Disposition: inline
-In-Reply-To: <20131105160838.GH8832@order.stressinduktion.org>
+Received: from mx1.redhat.com ([209.132.183.28]:25485 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751519Ab3KEQvL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Nov 2013 11:51:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 05, 2013 at 05:08:38PM +0100, Hannes Frederic Sowa wrote:
-> On Tue, Nov 05, 2013 at 03:28:56PM +0100, Florent Fourcot wrote:
-> > +	spin_lock_bh(&ip6_fl_lock);
-> > +	rcu_read_lock_bh();
-> > +
-> > +	for_each_sk_fl_rcu(np, sfl) {
-> > +		if (sfl->fl->label == (np->flow_label & IPV6_FLOWLABEL_MASK)) {
-> 
-> The iteration is protected by rcu, so need to take the ip6_fl_lock. We should
-                                        ^no                         ^ here.
+Before this patch the only way to specify the number of queues of a bond
+device was to use the tx_queues module parameter on module load. Since
+we can have different setups with different requirements, it's
+beneficial to be able to specify the number of queues per bond device
+creation. This patch adds this ability and uses tx_queues as a default
+and as a fallback in case of an invalid "queues" value.
+The queues are specified when creating a new bond device through sysfs
+by using " " as a delimiter between the name and the value, e.g.:
+echo "+bond1 8" > bonding_masters
+will create bond1 device with 8 queues.
+Add an example in the documentation, and also trim a few extra spaces
+and tabs while at it.
 
-Sorry,
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+v2: change the delimiter to a space, also improve the warning message and
+the documentation
 
-  Hannes
+ Documentation/networking/bonding.txt | 24 +++++++++++++++---------
+ drivers/net/bonding/bond_main.c      |  6 +++---
+ drivers/net/bonding/bond_sysfs.c     | 20 ++++++++++++++++----
+ drivers/net/bonding/bonding.h        |  2 +-
+ 4 files changed, 35 insertions(+), 17 deletions(-)
+
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 2cdb8b6..f87c9a2 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -23,7 +23,7 @@ multiple network interfaces into a single logical "bonded" interface.
+ The behavior of the bonded interfaces depends upon the mode; generally
+ speaking, modes provide either hot standby or load balancing services.
+ Additionally, link integrity monitoring may be performed.
+-	
++
+ 	The bonding driver originally came from Donald Becker's
+ beowulf patches for kernel 2.0. It has changed quite a bit since, and
+ the original tools from extreme-linux and beowulf sites will not work
+@@ -1308,6 +1308,10 @@ Creating and Destroying Bonds
+ To add a new bond foo:
+ # echo +foo > /sys/class/net/bonding_masters
+ 
++To add a new bond foo with 10 queues instead of the default tx_queues:
++# echo "+foo 10" > /sys/class/net/bonding_masters
++The space between the name and the value is used as a delimiter.
++
+ To remove an existing bond bar:
+ # echo -bar > /sys/class/net/bonding_masters
+ 
+@@ -1485,8 +1489,10 @@ using the traffic control utilities inherent in linux.
+ By default the bonding driver is multiqueue aware and 16 queues are created
+ when the driver initializes (see Documentation/networking/multiqueue.txt
+ for details).  If more or less queues are desired the module parameter
+-tx_queues can be used to change this value.  There is no sysfs parameter
+-available as the allocation is done at module init time.
++tx_queues can be used to change this value or the number of queues can be
++specified when creating a bonding device through sysfs by using space as
++a delimiter (e.g., "+bond1 10" will create a bonding device called bond1
++with 10 queues). The tx_queues module parameter value is used as a default.
+ 
+ The output of the file /proc/net/bonding/bondX has changed so the output Queue
+ ID is now printed for each slave:
+@@ -1542,7 +1548,7 @@ that normal output policy selection should take place.  One benefit to simply
+ leaving the qid for a slave to 0 is the multiqueue awareness in the bonding
+ driver that is now present.  This awareness allows tc filters to be placed on
+ slave devices as well as bond devices and the bonding driver will simply act as
+-a pass-through for selecting output queues on the slave device rather than 
++a pass-through for selecting output queues on the slave device rather than
+ output port selection.
+ 
+ This feature first appeared in bonding driver version 3.7.0 and support for
+@@ -2225,7 +2231,7 @@ broadcast: Like active-backup, there is not much advantage to this
+ 	the same speed and duplex.  Also, as with all bonding load
+ 	balance modes other than balance-rr, no single connection will
+ 	be able to utilize more than a single interface's worth of
+-	bandwidth.  
++	bandwidth.
+ 
+ 	Additionally, the linux bonding 802.3ad implementation
+ 	distributes traffic by peer (using an XOR of MAC addresses),
+@@ -2284,7 +2290,7 @@ when they are configured in parallel as part of an isolated network
+ between two or more systems, for example:
+ 
+                        +-----------+
+-                       |  Host A   | 
++                       |  Host A   |
+                        +-+---+---+-+
+                          |   |   |
+                 +--------+   |   +---------+
+@@ -2296,7 +2302,7 @@ between two or more systems, for example:
+                 +--------+   |   +---------+
+                          |   |   |
+                        +-+---+---+-+
+-                       |  Host B   | 
++                       |  Host B   |
+                        +-----------+
+ 
+ 	In this configuration, the switches are isolated from one
+@@ -2524,7 +2530,7 @@ bonding driver.
+ (either the internal Ethernet Switch Module, or an external switch) to
+ avoid fail-over delay issues when using bonding.
+ 
+-	
++
+ 15. Frequently Asked Questions
+ ==============================
+ 
+@@ -2561,7 +2567,7 @@ monitored, and should it recover, it will rejoin the bond (in whatever
+ manner is appropriate for the mode). See the sections on High
+ Availability and the documentation for each mode for additional
+ information.
+-	
++
+ 	Link monitoring can be enabled via either the miimon or
+ arp_interval parameters (described in the module parameters section,
+ above).  In general, miimon monitors the carrier state as sensed by
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 4dd5ee2..95fd7d8 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4414,7 +4414,7 @@ unsigned int bond_get_num_tx_queues(void)
+  * Caller must NOT hold rtnl_lock; we need to release it here before we
+  * set up our sysfs entries.
+  */
+-int bond_create(struct net *net, const char *name)
++int bond_create(struct net *net, const char *name, int queues)
+ {
+ 	struct net_device *bond_dev;
+ 	int res;
+@@ -4423,7 +4423,7 @@ int bond_create(struct net *net, const char *name)
+ 
+ 	bond_dev = alloc_netdev_mq(sizeof(struct bonding),
+ 				   name ? name : "bond%d",
+-				   bond_setup, tx_queues);
++				   bond_setup, queues);
+ 	if (!bond_dev) {
+ 		pr_err("%s: eek! can't alloc netdev!\n", name);
+ 		rtnl_unlock();
+@@ -4502,7 +4502,7 @@ static int __init bonding_init(void)
+ 	bond_create_debugfs();
+ 
+ 	for (i = 0; i < max_bonds; i++) {
+-		res = bond_create(&init_net, NULL);
++		res = bond_create(&init_net, NULL, tx_queues);
+ 		if (res)
+ 			goto err;
+ 	}
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 75dc4d0..edc42dd 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -104,10 +104,17 @@ static ssize_t bonding_store_bonds(struct class *cls,
+ {
+ 	struct bond_net *bn =
+ 		container_of(attr, struct bond_net, class_attr_bonding_masters);
++	unsigned int tx_queues = bond_get_num_tx_queues();
+ 	char command[IFNAMSIZ + 1] = {0, };
+-	char *ifname;
+-	int rv, res = count;
+-
++	int rv, res = count, queues = 0;
++	char *ifname, *delim;
++
++	delim = strchr(buffer, ' ');
++	if (delim) {
++		*delim = '\0';
++		if (sscanf(++delim, "%d", &queues) != 1)
++			queues = tx_queues;
++	}
+ 	sscanf(buffer, "%16s", command); /* IFNAMSIZ*/
+ 	ifname = command + 1;
+ 	if ((strlen(command) <= 1) ||
+@@ -115,8 +122,13 @@ static ssize_t bonding_store_bonds(struct class *cls,
+ 		goto err_no_cmd;
+ 
+ 	if (command[0] == '+') {
++		if (queues < 1 || queues > 255) {
++			pr_warn("%s: Invalid number of queues (%d) specified, should be between 1 and 255, resetting to %u.\n",
++				ifname, queues, tx_queues);
++			queues = tx_queues;
++		}
+ 		pr_info("%s is being created...\n", ifname);
+-		rv = bond_create(bn->net, ifname);
++		rv = bond_create(bn->net, ifname, queues);
+ 		if (rv) {
+ 			if (rv == -EEXIST)
+ 				pr_info("%s already exists.\n", ifname);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 77a07a1..453cd1f 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -404,7 +404,7 @@ struct bond_net;
+ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond, struct slave *slave);
+ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
+ void bond_xmit_slave_id(struct bonding *bond, struct sk_buff *skb, int slave_id);
+-int bond_create(struct net *net, const char *name);
++int bond_create(struct net *net, const char *name, int queues);
+ int bond_create_sysfs(struct bond_net *net);
+ void bond_destroy_sysfs(struct bond_net *net);
+ void bond_prepare_sysfs_group(struct bonding *bond);
+-- 
+1.8.1.4
