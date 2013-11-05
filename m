@@ -1,83 +1,101 @@
-From: "Mrs. Mary Saleh Saville" <pattersonjwilliam@yahoo.com>
-Subject: Donation Project
-Date: Wed, 6 Nov 2013 02:07:15 +0800
-Message-ID: <201311050359.rA53xLuP002841@tx.cpta.com.cn>
-Reply-To: <mary_saleh@europemail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [patch net-next 2/3] netfilter: ip6_tables: use reasm skb for
+ matching
+Date: Tue, 5 Nov 2013 18:16:33 +0000
+Message-ID: <20131105181633.GA7435@macbook.localnet>
+References: <1383649333-6321-1-git-send-email-jiri@resnulli.us>
+ <1383649333-6321-3-git-send-email-jiri@resnulli.us>
+ <20131105133205.GC15370@breakpoint.cc>
+ <20131105134118.GA5818@macbook.localnet>
+ <20131105150115.GB2438@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [114.255.29.133] ([114.255.29.133]:60281 "EHLO tx.cpta.com.cn"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754875Ab3KESOm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Nov 2013 13:14:42 -0500
-To: <net_lm@yahoo.com.mx>
-To: <netcomp3000@yahoo.com>
-To: <netbizpak@yahoo.com>
-To: <netballpk@yahoo.com>
-To: <netabuse@xspedius.com>
-To: <netadmin@world.std.com>
-To: <netcourt@vnet.net>
-To: <netdev@vger.kernel.org>
-To: <net@tm.net.my>
-To: <netcom_dps@telkom.net>
-To: <netbizn@super.net.pk>
-To: <net.country@sk.sympatico.ca>
-To: <netcruiser@prodigy.net>
-To: <netcom@paknet3.ptc.pk>
-To: <netadmin@pakistan.ncr.com>
-To: <netbsd-docs-ru@netbsd.org>
-To: <netbehaviour@netbehaviour.org>
-To: <netadmin@metropolis-inter.com>
-To: <netbytes@maxis.net.my>
-To: <net@mailbase.ac.uk.cpta.com.cn>
-To: <netbsd-soccvs@lists.sourceforge.net>
-To: <netbeans-info@lists.sourceforge.jp>
-To: <netadmin@lisco.com>
-To: <net@khi.comsats.net.pk>
-To: <net@khi.compol.com>
-To: <netadm@kanren.net>
-To: <net@isb.compol.com>
-To: <netadm@humanite.presse.fr>
-To: <netchatcomp@hotmail.com>
-To: <netbazar@hotmail.com>
-To: <netangels@hotmail.com>
-To: <net96@hotmail.com>
-To: <net_central@hotmail.com>
-To: <net-abuse@hosteurope.de>
-To: <netcontact@hawaii.edu>
-To: <netddang@hanmail.net>
-To: <netcom@gerrys.net>
-To: <net-artidaya@disb2b.com>
-To: <netbank@digicom.net.pk.cpta.com.cn>
-To: <netannounce@deshaw.com>
-To: <netcell@cyber.net.pk>
-To: <netbank@cyber.net.pk>
-To: <net@csuchico.edu>
-To: <netcomp@centrin.net.id>
-To: <netabuse@ccnetserv.com>
-To: <netcompd@cbn.net.id>
-To: <netcom@brain.net.pk>
-To: <net818@aol.com>
-To: <net@agi.co.id>
-To: <net1@aber.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	davem@davemloft.net, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	kadlec@blackhole.kfki.hu, mleitner@redhat.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
+	horms@verge.net.au, ja@ssi.bg, edumazet@google.com,
+	pshelar@nicira.com, jasowang@redhat.com,
+	alexander.h.duyck@intel.com, coreteam@netfilter.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131105150115.GB2438@minipsycho.orion>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, Nov 05, 2013 at 04:01:15PM +0100, Jiri Pirko wrote:
+> Tue, Nov 05, 2013 at 02:41:19PM CET, kaber@trash.net wrote:
+> >On Tue, Nov 05, 2013 at 02:32:05PM +0100, Florian Westphal wrote:
+> >> Jiri Pirko <jiri@resnulli.us> wrote:
+> >> > This patch fixes for example following situation:
+> >> > On HOSTA do:
+> >> > ip6tables -I INPUT -p icmpv6 -j DROP
+> >> > ip6tables -I INPUT -p icmpv6 -m icmp6 --icmpv6-type 128 -j ACCEPT
+> >> 
+> >> untested:
+> >> 
+> >> -A INPUT -p icmpv6 -m icmp6 --icmpv6-type 128 -j ACCEPT
+> >> -A INPUT -p icmpv6 -m conntrack --ctstatus CONFIRMED -j ACCEPT
+> >> -A INPUT -p icmpv6 -j DROP
+> >> 
+> >> > and on HOSTB you do:
+> >> > ping6 HOSTA -s2000    (MTU is 1500)
+> >> > 
+> >> > Incoming echo requests will be filtered out on HOSTA. This issue does
+> >> > not occur with smaller packets than MTU (where fragmentation does not happen).
+> >> 
+> >> Patrick, any reason not to kill the special-casing (ct has assigned helper or
+> >> unconfirmed conntrack) in __ipv6_conntrack_in() ?
+> >> 
+> >> This should make ipv6 frag behaviour consistent; right now its rather
+> >> confusing from ruleset point of view, especially the first packet
+> >> of a connection is always seen as reassembled.
+> >> 
+> >> So with Jiris rules
+> >> 
+> >> -A INPUT -p icmpv6 -m icmp6 --icmpv6-type 128 -j ACCEPT
+> >> -A INPUT -p icmpv6 -j DROP
+> >> 
+> >> ping6 -s $bignum works for the first packet but not for subsequent ones
+> >> which is quite irritating.
+> >
+> >Well, the reason was to avoid unnecessary work doing refragmentation
+> >unless really required. I know its rather complicated, but IPv6 has
+> >always required treating fragments manually or using conntrack state.
+> >
+> >I'm not objecting to changing this, but the patches as they are are
+> >not the way to go. First, moving nfct_frag to struct sk_buff seems
+> 
+> I'm a bit lost. What "nfct_frag" are you reffering to here?
 
-I am Mrs. Mary Saleh Saville an ageing widow suffering from long time illness. I have some funds I inherited from my late husband, the sum of US$3,500,000.00 and I am in need of a very honest and God fearing person that will use the fund for God's work to help the less privileged out there.
+I meant nfct_reasm of course.
 
-I have mapped out$1,200.000.00 for your personal use in this work. While the rest will be for the work.Please if you would be able to use the funds for the Lord's work kindly reply for further details.
+> >like a real waste of space for this quite rare case. Also, we can't
+> >just use the reassembled packet in ip6tables, when modifying it we
+> >will still output the unchanged fragments. An last of all, we'll be
+> >executing the rules on the reassembled packet multiple times, one
+> >for each fragment.
+> 
+> Reassembled skb would be only used for matching where no changes takes
+> place.
 
-Your full name:
-Your full address:
-Your telephone/mobile number:
-Your fax Number:
-Your full company name:
-Your age:
+That still doesn't work, our matches are not purely passive.
 
-Thanks and God bless.
+> End even though, the matching is now done for each fragment skb anyway. The
+> change is only to do it on different skb. I see no erformance or any
+> other problem in that.
 
-Mrs. Mary Saleh Saville
+Accounting, quota, statistic, limit, ... come to mind. Basically any
+match that keeps state.
+
+> >So if someone wants to change this, simply *only* pass the reassembled
+> >packet through the netfilter hooks and drop the fragments, as in IPv4.
+> 
+> This is unfortunatelly not possible because in forwarding use case, the
+> fragments have to be send out as they come in.
+
+No, the IPv6 NAT patches fixed that, we still do proper refragmentation
+and we still respect the original fragment sizes, thus are not responsible
+for potentially exceeding the PMTU on the following path.
