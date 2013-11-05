@@ -1,9 +1,9 @@
 From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Subject: Re: [PATCH 2/4] wl1251: move power GPIO handling into the driver
-Date: Tue, 5 Nov 2013 14:11:32 +0100
-Message-ID: <20131105131132.GC30670@amd.pavel.ucw.cz>
+Subject: Re: [PATCH 3/4] wl1251: spi: add vio regulator support
+Date: Tue, 5 Nov 2013 14:12:32 +0100
+Message-ID: <20131105131232.GD30670@amd.pavel.ucw.cz>
 References: <1382890469-25286-1-git-send-email-sre@debian.org>
- <1382890469-25286-3-git-send-email-sre@debian.org>
+ <1382890469-25286-4-git-send-email-sre@debian.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Sebastian Reichel <sre-GFxCN5SEZAc@public.gmane.org>, Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
@@ -27,13 +27,16 @@ Cc: Sebastian Reichel <sre-GFxCN5SEZAc@public.gmane.org>, Luciano Coelho <luca-X
 To: Sebastian Reichel <sre-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1382890469-25286-3-git-send-email-sre-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
+In-Reply-To: <1382890469-25286-4-git-send-email-sre-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun 2013-10-27 17:14:27, Sebastian Reichel wrote:
-> Move the power GPIO handling from the board code into
-> the driver. This is a dependency for device tree support.
+On Sun 2013-10-27 17:14:28, Sebastian Reichel wrote:
+> This patch adds support for requesting the regulator powering
+> the vio pin.
+> 
+> The patch also adds the regulator for the all boards using the
+> wl1251 in spi mode (only the Nokia N900).
 > 
 > Signed-off-by: Sebastian Reichel <sre-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
 
