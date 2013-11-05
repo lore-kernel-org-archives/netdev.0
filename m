@@ -1,93 +1,49 @@
 From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Subject: [PATCH net-next v3 1/4] ipv6: remove old conditions on flow label sharing
-Date: Tue,  5 Nov 2013 15:28:55 +0100
-Message-ID: <1383661738-6083-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+Subject: [PATCH net-next 3/4] ipv6: increase maximum lifetime of flow labels
+Date: Tue,  5 Nov 2013 15:28:57 +0100
+Message-ID: <1383661738-6083-3-git-send-email-florent.fourcot@enst-bretagne.fr>
+References: <1383661738-6083-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fourcot.fr ([217.70.191.14]:40708 "EHLO olfflo.fourcot.fr"
+Received: from fourcot.fr ([217.70.191.14]:40712 "EHLO olfflo.fourcot.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755235Ab3KEO3I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Nov 2013 09:29:08 -0500
+	id S1755157Ab3KEO3M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Nov 2013 09:29:12 -0500
+In-Reply-To: <1383661738-6083-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code of flow label in Linux Kernel follows
-the rules of RFC 1809 (an informational one) for
-conditions on flow label sharing. There rules are
-not in the last proposed standard for flow label
-(RFC 6437), or in the previous one (RFC 3697).
+If the last RFC 6437 does not give any constraints
+for lifetime of flow labels, the previous RFC 3697
+spoke of a minimum of 120 seconds quarantine
+for a flow label.
 
-Since this code does not follow any current or
-old standard, we can remove it.
+The maximum linger is currently set to 60 seconds
+and does not allow this configuration without
+CAP_NET_ADMIN right.
 
-With this removal, the ipv6_opt_cmp and
-pv6_hdr_cmp function are now a dead code and it
-can be removed too.
+This patch increases the maximum linger to 150
+seconds, allowing more flexibility to standard
+users.
 
-Changelog of v2:
- * add justification for the change
- * remove the condition on IPv6 options
- * remove ipv6_opt_cmp
-v3:
- * remove ipv6_hdr_cmp
-
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 ---
- net/ipv6/ip6_flowlabel.c | 33 ---------------------------------
- 1 file changed, 33 deletions(-)
+ net/ipv6/ip6_flowlabel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
-index 46e8843..819578e 100644
+index 76e62a1..41ced9c 100644
 --- a/net/ipv6/ip6_flowlabel.c
 +++ b/net/ipv6/ip6_flowlabel.c
-@@ -465,34 +465,6 @@ static int mem_check(struct sock *sk)
- 	return 0;
- }
+@@ -41,7 +41,7 @@
+ #define FL_MIN_LINGER	6	/* Minimal linger. It is set to 6sec specified
+ 				   in old IPv6 RFC. Well, it was reasonable value.
+ 				 */
+-#define FL_MAX_LINGER	60	/* Maximal linger timeout */
++#define FL_MAX_LINGER	150	/* Maximal linger timeout */
  
--static bool ipv6_hdr_cmp(struct ipv6_opt_hdr *h1, struct ipv6_opt_hdr *h2)
--{
--	if (h1 == h2)
--		return false;
--	if (h1 == NULL || h2 == NULL)
--		return true;
--	if (h1->hdrlen != h2->hdrlen)
--		return true;
--	return memcmp(h1+1, h2+1, ((h1->hdrlen+1)<<3) - sizeof(*h1));
--}
--
--static bool ipv6_opt_cmp(struct ipv6_txoptions *o1, struct ipv6_txoptions *o2)
--{
--	if (o1 == o2)
--		return false;
--	if (o1 == NULL || o2 == NULL)
--		return true;
--	if (o1->opt_nflen != o2->opt_nflen)
--		return true;
--	if (ipv6_hdr_cmp(o1->hopopt, o2->hopopt))
--		return true;
--	if (ipv6_hdr_cmp(o1->dst0opt, o2->dst0opt))
--		return true;
--	if (ipv6_hdr_cmp((struct ipv6_opt_hdr *)o1->srcrt, (struct ipv6_opt_hdr *)o2->srcrt))
--		return true;
--	return false;
--}
--
- static inline void fl_link(struct ipv6_pinfo *np, struct ipv6_fl_socklist *sfl,
- 		struct ip6_flowlabel *fl)
- {
-@@ -603,11 +575,6 @@ recheck:
- 				     uid_eq(fl1->owner.uid, fl->owner.uid)))
- 					goto release;
+ /* FL hash table */
  
--				err = -EINVAL;
--				if (!ipv6_addr_equal(&fl1->dst, &fl->dst) ||
--				    ipv6_opt_cmp(fl1->opt, fl->opt))
--					goto release;
--
- 				err = -ENOMEM;
- 				if (sfl1 == NULL)
- 					goto release;
 -- 
 1.8.4.rc3
