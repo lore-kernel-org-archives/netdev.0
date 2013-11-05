@@ -1,43 +1,110 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v6 0/3] The huawei_cdc_ncm driver
-Date: Tue, 05 Nov 2013 15:22:05 -0500 (EST)
-Message-ID: <20131105.152205.2098582195076844580.davem@davemloft.net>
-References: <1383555049-24834-1-git-send-email-bjorn@mork.no>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH v2 2/2] ixgbe: enable l2 forwarding acceleration for macvlans
+Date: Tue, 05 Nov 2013 12:34:54 -0800
+Message-ID: <5279566E.6030807@intel.com>
+References: <20131104185717.11802.69282.stgit@jf-dev1-dcblab> <20131104190154.11802.75724.stgit@jf-dev1-dcblab> <20131105142631.GB14954@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	mrkiko.rs@gmail.com, oliver@neukum.org
-To: bjorn@mork.no
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
+	andy@greyhouse.net, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34217 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754403Ab3KEUWI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 15:22:08 -0500
-In-Reply-To: <1383555049-24834-1-git-send-email-bjorn@mork.no>
+Received: from mga14.intel.com ([143.182.124.37]:9234 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752906Ab3KEUfA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Nov 2013 15:35:00 -0500
+In-Reply-To: <20131105142631.GB14954@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Mon,  4 Nov 2013 09:50:46 +0100
+On 11/5/2013 6:26 AM, Neil Horman wrote:
+> On Mon, Nov 04, 2013 at 11:01:55AM -0800, John Fastabend wrote:
+>> Now that l2 acceleration ops are in place from the prior patch,
+>> enable ixgbe to take advantage of these operations.  Allow it to
+>> allocate queues for a macvlan so that when we transmit a frame,
+>> we can do the switching in hardware inside the ixgbe card, rather
+>> than in software.
+>>
+>> For now this patch limits the hardware to 8 offloaded macvlan ports.
+>> A follow on patch will remove this limitation but to simplify
+>> review/validation of the new macvlan offload ops we leave it at 8
+>> for now.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> CC: Andy Gospodarek <andy@greyhouse.net>
+>> CC: "David S. Miller" <davem@davemloft.net>
+>
+> A few Nits, since you're going to send a V3 anyway.  Comments inline.
+>
+>> ---
 
-> Enrico has been kind enough to let me repost his driver with the chan=
-ges
-> requested by Oliver Neukum during the last review of this series.
->=20
-> The changes I have made from Enricos original v5 series to this versi=
-on
-> are:
->=20
-> v6:
->  - fix to avoid corrupting drvstate->pmcount
->  - fix error return value from huawei_cdc_ncm_suspend()
->  - drop redundant testing for subdriver->suspend during resume
->  - broke a few lines to keep within the 80 columns recommendation
->  - rebased on top of current net-next
->=20
-> Enrico's orginal introduction to the v5 series follows below.  It exp=
-lains
-> the background much better than I can.
 
-Looks good, series applied, thanks!
+[...]
+
+> Nit: You're using macvlan here, and vsi above.  Might be nice to give everything
+> a consistent suffix/prefix for clarity.  Perhaps dfwd since thats what the new
+> ndo_ops uses?
+>
+
+using dfwd now.
+
+>> <snip>
+>
+>>   static inline bool ixgbe_is_sfp(struct ixgbe_hw *hw)
+>> @@ -4317,6 +4521,8 @@ static void ixgbe_setup_gpie(struct ixgbe_adapter *adapter)
+>>   static void ixgbe_up_complete(struct ixgbe_adapter *adapter)
+>>   {
+>>   	struct ixgbe_hw *hw = &adapter->hw;
+>> +	struct net_device *upper;
+>> +	struct list_head *iter;
+>>   	int err;
+>>   	u32 ctrl_ext;
+>>
+>> @@ -4360,6 +4566,16 @@ static void ixgbe_up_complete(struct ixgbe_adapter *adapter)
+>>   	/* enable transmits */
+>>   	netif_tx_start_all_queues(adapter->netdev);
+>>
+>> +	/* enable any upper devices */
+>> +	netdev_for_each_all_upper_dev_rcu(adapter->netdev, upper, iter) {
+>> +		if (netif_is_macvlan(upper)) {
+>> +			struct macvlan_dev *vlan = netdev_priv(upper);
+>> +
+>> +			if (vlan->fwd_priv)
+>> +				netif_tx_start_all_queues(upper);
+>> +		}
+>> +	}
+>> +
+> I don't think it matters much, but do we want to start the upper devs queues
+> here unilaterally?  Nominally a network interface starts its queues on dev_open.
+> Would it be better to only start those devices if (vlan->fwd_priv &&
+> (upper->flags & IFF_UP)?  We would then have to listen for NETDEV_UP events as
+> well to handle accelerated macvlans comming up after ixgbe does, which is more
+> work, but I wanted to mention this in case theres some disadvantage to starting
+> the queue early.
+>
+
+vlan->fwd_priv is set in macvlan_open() and cleared in macvlan_close()
+and serialized with the rtnl lock. So I think anytime you get here and
+have vlan->fwd_priv non-null its the same as IFF_UP being set.
+
+The only call sites I see changing the IFF_UP flag are dev_open() and
+dev_close() and derivatives.  Each calls ndo_open and ndo_close. So
+assuming I didn't miss some call sites the above seems correct.
+
+>
+> Other than that I think it looks good though.  Nice work!
+>
+
+Great thanks for looking it over. I should have v3 out here shortly
+doing a couple more tests for feature interop.
+
+> Regards
+> Neil
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
