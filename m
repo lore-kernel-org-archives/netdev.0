@@ -1,54 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v2] vti: fix spd lookup: match plaintext pkt, not
- ipsec pkt
-Date: Tue, 05 Nov 2013 09:01:43 -0800
-Message-ID: <1383670903.4291.142.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
-	 <1383667121-23798-1-git-send-email-christophe.gouault@6wind.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [patch net-next] ipv6: allow userspace to create address with
+ IFLA_F_TEMPORARY flag
+Date: Tue, 05 Nov 2013 18:02:17 +0100
+Message-ID: <52792499.3030201@6wind.com>
+References: <20131028.204306.2213130677400093266.davem@davemloft.net> <AE90C24D6B3A694183C094C60CF0A2F6026B73BB@saturn3.aculab.com> <20131029124010.GA15762@order.stressinduktion.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Saurabh Mohan <saurabh.mohan@vyatta.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Christophe Gouault <christophe.gouault@6wind.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: David Laight <David.Laight@ACULAB.COM>,
+	David Miller <davem@davemloft.net>, jiri@resnulli.us,
+	vyasevich@gmail.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	thaller@redhat.com, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:52103 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754279Ab3KERBq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 12:01:46 -0500
-Received: by mail-pa0-f52.google.com with SMTP id bj1so9050689pad.39
-        for <netdev@vger.kernel.org>; Tue, 05 Nov 2013 09:01:44 -0800 (PST)
-In-Reply-To: <1383667121-23798-1-git-send-email-christophe.gouault@6wind.com>
+Received: from mail-bk0-f49.google.com ([209.85.214.49]:41258 "EHLO
+	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755342Ab3KERCV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 12:02:21 -0500
+Received: by mail-bk0-f49.google.com with SMTP id w14so3629809bkz.8
+        for <netdev@vger.kernel.org>; Tue, 05 Nov 2013 09:02:19 -0800 (PST)
+In-Reply-To: <20131029124010.GA15762@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-11-05 at 16:58 +0100, Christophe Gouault wrote:
+Le 29/10/2013 13:40, Hannes Frederic Sowa a =C3=A9crit :
+> On Tue, Oct 29, 2013 at 09:37:06AM -0000, David Laight wrote:
+>>> Note that you don't even need to put the DHCP protocol core into th=
+e
+>>> kernel to fix the promiscuous problem.  You just have to use the
+>>> current kernel interfaces correctly.
+>>>
+>>> It used to be the case a very long time ago that you couldn't even
+>>> receive broadcast UDP datagrams on a socket until an address was
+>>> configured on it.
+>>>
+>>> So everyone turns on promiscuous mode and uses RAW sockets or
+>>> AF_PACKET.
+>>>
+>>> Stupid?  yes.
+>>
+>> Not only that, but the dhcp client could use a normal UDP socket
+>> to keep the lease renewed - I suspect it has only ever needed
+>> to use the BPF interface (I didn't think it set promiscuous)
+>> when acquiring the initial lease.
+>
+> Yes, this is a very unfortunate situation. From my experience it is n=
+ot that
+> easy to get a patch merged into isc-dhcp.
+>
+> It seems not that invasive to switch from af_packet to an udp socket =
+with
+> SO_BROADCAST set.
+If I remember well, another problem is to be able to send these packets=
+ with
+0.0.0.0 when another IP address is available on the system:
 
-> diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-> index 6e87f85..bcd85be 100644
-> --- a/net/ipv4/ip_vti.c
-> +++ b/net/ipv4/ip_vti.c
-> @@ -126,6 +126,7 @@ static int vti_rcv(struct sk_buff *skb)
->  	if (tunnel != NULL) {
->  		struct pcpu_tstats *tstats;
->  		u32 oldmark = skb->mark;
-> +		u16 netoff = skb_network_header(skb) - skb->data;
+RFC2131
+4.1 Constructing and sending DHCP messages
+=2E..
+    DHCP messages broadcast by a client prior to that client obtaining
+    its IP address must have the source address field in the IP header
+    set to 0.
 
-		unsigned int nhoff = skb_network_offset(skb);
+We made a patch (never proposed upstream) to add a socket option to kee=
+p
+this 0.0.0.0 address.
+If people are interested, I can try to port it on net-next.
 
-There is no need to assume u16 here, even if the implementation
-currently has this assumption.
-
-You also could just use faster operation (no need to access
-skb->data/head)
-
-	unsigned int old_nh = skb->network_header;
-
-...
-at restore, use :
-	skb->network_header = old_nh;
-
-instead of the more expensive skb_set_network_header()
+Nicolas
