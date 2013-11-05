@@ -1,34 +1,58 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: drop the judgement in rt6_alloc_cow()
-Date: Tue, 5 Nov 2013 22:23:44 +0100
-Message-ID: <20131105212344.GM8832@order.stressinduktion.org>
-References: <5278837D.7030207@cn.fujitsu.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] can: add Renesas R-Car CAN driver
+Date: Wed, 06 Nov 2013 01:59:26 +0300
+Message-ID: <5279784E.1010205@cogentembedded.com>
+References: <201310250303.00695.sergei.shtylyov@cogentembedded.com> <526AC65B.5020203@grandegger.com> <52742A0F.7040707@cogentembedded.com> <5276A63E.3070505@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sh@vger.kernel.org, vksavl@gmail.com
+To: Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org,
+	mkl@pengutronix.de, linux-can@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:51707 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755167Ab3KEVXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 16:23:46 -0500
-Content-Disposition: inline
-In-Reply-To: <5278837D.7030207@cn.fujitsu.com>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:44849 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755669Ab3KEV7b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 16:59:31 -0500
+Received: by mail-lb0-f170.google.com with SMTP id u14so7096446lbd.15
+        for <netdev@vger.kernel.org>; Tue, 05 Nov 2013 13:59:30 -0800 (PST)
+In-Reply-To: <5276A63E.3070505@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 05, 2013 at 01:34:53PM +0800, Duan Jiong wrote:
-> 
-> Now rt6_alloc_cow() is only called by ip6_pol_route() when
-> rt->rt6i_flags doesn't contain both RTF_NONEXTHOP and RTF_GATEWAY,
-> and rt->rt6i_flags hasn't been changed in ip6_rt_copy().
-> So there is no neccessary to judge whether rt->rt6i_flags contains
-> RTF_GATEWAY or not.
+Hello.
 
-This is ok.
+On 11/03/2013 10:38 PM, Wolfgang Grandegger wrote:
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>>>> Add support for the CAN controller found in Renesas R-Car SoCs.
 
-Thanks,
+>>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-  Hannes
+>> [...]
+
+>>>> Index: linux-can-next/drivers/net/can/rcar_can.c
+>>>> ===================================================================
+>>>> --- /dev/null
+>>>> +++ linux-can-next/drivers/net/can/rcar_can.c
+>>>> @@ -0,0 +1,920 @@
+>> [...]
+
+>>>> +            rcar_can_writeb(priv, RCAR_CAN_ECSR, (u8)~ECSR_ADEF);
+
+>>> Please avoid casts here and below.
+
+>>     These casts help avoid compiler warnings.
+
+> Well instead of using casts the declaration of ECSR_ADEF and otheres
+> should be fixed. I think the problem is that BIT is declared as shown below:
+
+>   #define BIT(nr)                 (1UL << (nr))
+
+> Using BIT seems not appropriate here.
+
+    Well, I thought it was designed to replace explicit (1 << (nr)) #define's. 
+Hopefully those are good for you then...
+
+> Wolfgang,
+
+WBR, Sergei
