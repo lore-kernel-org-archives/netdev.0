@@ -1,91 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next 3/3] fix skb_morph to preserve skb->sk and
- skb->destructor pointers
-Date: Tue, 05 Nov 2013 06:06:12 -0800
-Message-ID: <1383660372.4291.134.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1383649333-6321-1-git-send-email-jiri@resnulli.us>
-	 <1383649333-6321-4-git-send-email-jiri@resnulli.us>
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Subject: [PATCH net] qeth: avoid buffer overflow in snmp ioctl
+Date: Tue, 5 Nov 2013 15:14:00 +0100
+Message-ID: <20131105141400.GA29477@tuxmaker.boeblingen.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	kadlec@blackhole.kfki.hu, kaber@trash.net, mleitner@redhat.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
-	horms@verge.net.au, ja@ssi.bg, edumazet@google.com,
-	pshelar@nicira.com, jasowang@redhat.com,
-	alexander.h.duyck@intel.com, coreteam@netfilter.org, fw@strlen.de
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1383649333-6321-4-git-send-email-jiri@resnulli.us>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-11-05 at 12:02 +0100, Jiri Pirko wrote:
-> Currently __skb_clone sets skb->sk and skb->destructor to NULL. This is
-> not right for skb_morph use case because skb->sk may be previously
-> set (e. g. by xt_TPROXY).
-> 
-> Also, during skb_morph the destructor should not be called. It might be
-> previously set, e. g. by xt_TPROXY to sock_edemux, and that would cause
-> put sk while skb is still in flight.
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-truesize alert. You should add some documentation that skb_morph()
-must not be used in transmit path.
+Check user-defined length in snmp ioctl request and allow request
+only if it fits into a qeth command buffer.
 
-Its not clear to be how this can happen.
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+Reviewed-by: Heiko Carstens <heicars2@linux.vnet.ibm.com>
+Reported-by: Nico Golde <nico@ngolde.de>
+Reported-by: Fabian Yamaguchi <fabs@goesec.de>
+Cc: <stable@vger.kernel.org>
+---
+ drivers/s390/net/qeth_core_main.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-skb_morph() being used only from ipv4 defrag (or ipv6 reassembly).
-
-Maybe the problem could be fixed by doing this defrag _before_ setting
-skb->sk ?
-
-Also, I would prefer you find a way to put all this logic inside
-skb_morph() instead of adding such complexity in this already complex
-code, I fear the compiler will generate slower code with your patch on
-fast path.
-
-Maybe something as simple as following (untested) patch ?
-
-Note that the truesize concern might need some care.
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3735fad5616e..afabfd6ef341 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -793,18 +793,28 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
+diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
+index d7b66a2..642f623 100644
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -4451,7 +4451,7 @@ int qeth_snmp_command(struct qeth_card *card, char __user *udata)
+ 	struct qeth_cmd_buffer *iob;
+ 	struct qeth_ipa_cmd *cmd;
+ 	struct qeth_snmp_ureq *ureq;
+-	int req_len;
++	unsigned int req_len;
+ 	struct qeth_arp_query_info qinfo = {0, };
+ 	int rc = 0;
  
- /**
-  *	skb_morph	-	morph one skb into another
-- *	@dst: the skb to receive the contents
-+ *	@skb: the skb to receive the contents
-  *	@src: the skb to supply the contents
-  *
-  *	This is identical to skb_clone except that the target skb is
-- *	supplied by the user.
-+ *	supplied by the user, and that we keep target skb destructor in place,
-+ *	meaning this can not be used in transmit path, as skb->truesize might
-+ *	change.
-  *
-  *	The target skb is returned upon exit.
-  */
--struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
-+struct sk_buff *skb_morph(struct sk_buff *skb, struct sk_buff *src)
- {
--	skb_release_all(dst);
--	return __skb_clone(dst, src);
-+	struct sock *save_sk = skb->sk;
-+	void (*save_destructor)(struct sk_buff *) = skb->destructor;
-+
-+	skb->sk = NULL;
-+	skb->destructor = NULL;
-+	skb_release_all(skb);
-+	__skb_clone(skb, src);
-+	skb->sk = save_sk;
-+	skb->destructor = save_destructor;
-+	return skb;
- }
- EXPORT_SYMBOL_GPL(skb_morph);
- 
-
-
+@@ -4467,6 +4467,10 @@ int qeth_snmp_command(struct qeth_card *card, char __user *udata)
+ 	/* skip 4 bytes (data_len struct member) to get req_len */
+ 	if (copy_from_user(&req_len, udata + sizeof(int), sizeof(int)))
+ 		return -EFAULT;
++	if (req_len > QETH_BUFSIZE - IPA_PDU_HEADER_SIZE
++				   - sizeof(struct qeth_ipacmd_hdr)
++				   - sizeof(struct qeth_ipacmd_setadpparms_hdr))
++		return -EINVAL;
+ 	ureq = memdup_user(udata, req_len + sizeof(struct qeth_snmp_ureq_hdr));
+ 	if (IS_ERR(ureq)) {
+ 		QETH_CARD_TEXT(card, 2, "snmpnome");
