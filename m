@@ -1,69 +1,104 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 3/7] IBM Akebono: Add support for a new PHY to the IBM
- emac driver
-Date: Tue, 5 Nov 2013 16:16:08 -0800
-Message-ID: <CAGVrzcYzBtDcxYXDopOJn_=vW_58SFs9y0uKeGNB9TDPh6J4wg@mail.gmail.com>
-References: <1383629471-16979-1-git-send-email-alistair@popple.id.au>
- <1383629471-16979-3-git-send-email-alistair@popple.id.au> <CAGVrzcZQ26kbim2piOwrvpyOcSaTET5da7Yh4GWv+erfuOBDhQ@mail.gmail.com>
- <81419762.0SyAdYsUqu@mexican>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch net-next 1/3] move skb_nfct_reasm into skbuff.h
+Date: Wed, 6 Nov 2013 10:00:42 +0900
+Message-ID: <20131106010042.GA30468@verge.net.au>
+References: <1383649333-6321-1-git-send-email-jiri@resnulli.us>
+ <1383649333-6321-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linuxppc-dev <linuxppc-dev@lists.ozlabs.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Alistair Popple <alistair@popple.id.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:44940 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755698Ab3KFAQt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 19:16:49 -0500
-Received: by mail-pa0-f44.google.com with SMTP id fb1so9731332pad.31
-        for <netdev@vger.kernel.org>; Tue, 05 Nov 2013 16:16:48 -0800 (PST)
-In-Reply-To: <81419762.0SyAdYsUqu@mexican>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	kadlec@blackhole.kfki.hu, kaber@trash.net, mleitner@redhat.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
+	ja@ssi.bg, edumazet@google.com, pshelar@nicira.com,
+	jasowang@redhat.com, alexander.h.duyck@intel.com,
+	coreteam@netfilter.org, fw@strlen.de
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1383649333-6321-2-git-send-email-jiri@resnulli.us>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2013/11/5 Alistair Popple <alistair@popple.id.au>:
-> On Tue, 5 Nov 2013 10:47:22 Florian Fainelli wrote:
->> [snip]
->>
->> > +/* RGMII bridge supports only GMII/TBI and RGMII/RTBI PHYs */
->> > +static inline int rgmii_valid_mode(int phy_mode)
->> > +{
->> > +       return  phy_mode == PHY_MODE_GMII ||
->> > +               phy_mode == PHY_MODE_MII ||
->> > +               phy_mode == PHY_MODE_RGMII ||
->> > +               phy_mode == PHY_MODE_TBI ||
->> > +               phy_mode == PHY_MODE_RTBI;
->> > +}
->> > +
->> > +static inline const char *rgmii_mode_name(int mode)
->> > +{
->> > +       switch (mode) {
->> > +       case PHY_MODE_RGMII:
->> > +               return "RGMII";
->> > +       case PHY_MODE_TBI:
->> > +               return "TBI";
->> > +       case PHY_MODE_GMII:
->> > +               return "GMII";
->> > +       case PHY_MODE_MII:
->> > +               return "MII";
->> > +       case PHY_MODE_RTBI:
->> > +               return "RTBI";
->> > +       default:
->> > +               BUG();
->> > +       }
->>
->> Any reasons why you are duplicating what is available in
->> drivers/of/of_net.c ::of_get_phy_mode()?
->
-> Unless I'm missing something of_get_phy_mode() is going the other way.
-> rgmii_mode_name() is converting PHY_MODE_* into a human-readable string. I
-> couldn't find any obvious kernel method to do this but maybe I missed it?
+On Tue, Nov 05, 2013 at 12:02:11PM +0100, Jiri Pirko wrote:
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  include/linux/skbuff.h          | 11 +++++++++++
+>  include/net/ip_vs.h             |  8 --------
+>  net/netfilter/ipvs/ip_vs_core.c |  1 +
+>  3 files changed, 12 insertions(+), 8 deletions(-)
 
-Right, rgmii_mode_name() just has informative purposes and should be
-removed, I would suggest using standard device tree bindings property
-(phy-mode) anyway such that you could use of_get_phy_mode() and use
-phy_interface_t types.
--- 
-Florian
+IPVS portion:
+
+Acked-by: Simon Horman <horms@verge.net.au>
+
+
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 2e153b6..ececdad 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -2606,6 +2606,17 @@ static inline void nf_conntrack_put_reasm(struct sk_buff *skb)
+>  		kfree_skb(skb);
+>  }
+>  #endif
+> +#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+> +static inline struct sk_buff *skb_nfct_reasm(const struct sk_buff *skb)
+> +{
+> +	return skb->nfct_reasm;
+> +}
+> +#else
+> +static inline struct sk_buff *skb_nfct_reasm(const struct sk_buff *skb)
+> +{
+> +	return NULL;
+> +}
+> +#endif
+>  #ifdef CONFIG_BRIDGE_NETFILTER
+>  static inline void nf_bridge_put(struct nf_bridge_info *nf_bridge)
+>  {
+> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+> index cd7275f..6dff2b6 100644
+> --- a/include/net/ip_vs.h
+> +++ b/include/net/ip_vs.h
+> @@ -119,10 +119,6 @@ struct ip_vs_iphdr {
+>  
+>  /* Dependency to module: nf_defrag_ipv6 */
+>  #if defined(CONFIG_NF_DEFRAG_IPV6) || defined(CONFIG_NF_DEFRAG_IPV6_MODULE)
+> -static inline struct sk_buff *skb_nfct_reasm(const struct sk_buff *skb)
+> -{
+> -	return skb->nfct_reasm;
+> -}
+>  static inline void *frag_safe_skb_hp(const struct sk_buff *skb, int offset,
+>  				      int len, void *buffer,
+>  				      const struct ip_vs_iphdr *ipvsh)
+> @@ -134,10 +130,6 @@ static inline void *frag_safe_skb_hp(const struct sk_buff *skb, int offset,
+>  	return skb_header_pointer(skb, offset, len, buffer);
+>  }
+>  #else
+> -static inline struct sk_buff *skb_nfct_reasm(const struct sk_buff *skb)
+> -{
+> -	return NULL;
+> -}
+>  static inline void *frag_safe_skb_hp(const struct sk_buff *skb, int offset,
+>  				      int len, void *buffer,
+>  				      const struct ip_vs_iphdr *ipvsh)
+> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+> index 34fda62..085c242 100644
+> --- a/net/netfilter/ipvs/ip_vs_core.c
+> +++ b/net/netfilter/ipvs/ip_vs_core.c
+> @@ -43,6 +43,7 @@
+>  #include <net/ip6_checksum.h>
+>  #include <net/netns/generic.h>		/* net_generic() */
+>  
+> +#include <linux/skbuff.h>
+>  #include <linux/netfilter.h>
+>  #include <linux/netfilter_ipv4.h>
+>  
+> -- 
+> 1.8.3.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
