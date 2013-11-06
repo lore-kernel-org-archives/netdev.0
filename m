@@ -1,51 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next 3/3] net: allow to leave the buffer fragmented
- in skb_cow_data()
-Date: Wed, 6 Nov 2013 17:52:17 +0800
-Message-ID: <20131106095217.GA18851@gondor.apana.org.au>
-References: <cover.1381923854.git.mathias.krause@secunet.com>
- <14f30e8f5f8405c1ca73b6d3a554441c1736142d.1381923854.git.mathias.krause@secunet.com>
- <20131106093028.GA18435@gondor.apana.org.au>
- <527A109E.5040000@secunet.com>
+From: Ivan Frederiks <frederiks@speechpro.com>
+Subject: Re: Realtek RTL8102E registers
+Date: Wed, 06 Nov 2013 14:13:14 +0400
+Message-ID: <527A163A.9010409@speechpro.com>
+References: <526FCEAA.30102@speechpro.com> <20131029214059.GA26496@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-	netdev@vger.kernel.org
-To: Mathias Krause <mathias.krause@secunet.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux r8169 crew <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:47197 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755142Ab3KFJwW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 04:52:22 -0500
-Content-Disposition: inline
-In-Reply-To: <527A109E.5040000@secunet.com>
+Received: from spb2.speechpro.com ([149.126.18.58]:59366 "EHLO
+	spb2.speechpro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756185Ab3KFKN2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 05:13:28 -0500
+In-Reply-To: <20131029214059.GA26496@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 06, 2013 at 10:49:18AM +0100, Mathias Krause wrote:
-> On 06.11.2013 10:30, Herbert Xu wrote:
->
-> > Hang on, you haven't explained why it is OK to write to pages.
+Hello Francois,
+
+I found solution for the issue that I described earlier: one has to set
+correct MAC-address before bringing up the interface.
+
+On my board RTL8102E works without EEPROM, so initial MAC-address value
+is unpredictable. In many cases this value has multicast bit set to 1.
+This fact breaks driver and (or) TCP stack operation:
+* r8169 reports that link is down
+* r8101 reports that link is OK, but Linux TCP stack ignores packets
+with multicast destination MAC
+
+Hope this info would be useful. BTW, I suppose that driver could have
+some kind of protection against such situations.
+
+On 30.10.2013 01:40, Francois Romieu wrote:
+> Ivan Frederiks <frederiks@speechpro.com> :
+> [...]
+>> Maybe you have access to RTL8102E register description ?
 > 
-> Why wouldn't it if the skb isn't cloned?
-
-Because if it's owned by an entity outside our stack (e.g., virt
-host or app) then the skb itself won't be cloned.
-
-> > What if said page is owned by the virt host or some app?
+> No.
 > 
-> How would one detect such a case. I could image not by testing
-> skb_shinfo(skb)->nr_frags as it is right now?
+> Realtek's hardware documentation policy isn't exactly opened. Your hardware
+> vendor may help.
+> 
+> [...]
+>> Issue description:
+> [snip]
+> 
+> kernel version and r81xx XID value as it should appear in dmesg would
+> be welcome.
+> 
 
-You can't.  That's why we always copy.  If you want to do this
-properly then we'll need to add at least a bit to indicate whether
-the page originated from within the network stack and we have
-full ownership.
+--
+Best regards,
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ivan Frederiks
+Embedded developer
+Speech Technology Center
+
+Phone: +7-812-331-0665, ext. 6123, 6942
+Fax: +7-812-327-9297
