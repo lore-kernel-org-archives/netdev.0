@@ -1,53 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Tue, 05 Nov 2013 21:20:22 -0800
-Message-ID: <1383715222.4291.158.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131103122824.GA17394@gondor.apana.org.au>
-	 <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131103163103.GA18894@gondor.apana.org.au>
-	 <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131104041108.GA22823@gondor.apana.org.au>
-	 <20131106013038.GA14894@gondor.apana.org.au>
-	 <1383702347.4291.152.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131106040717.GA15711@gondor.apana.org.au>
-	 <1383711785.4291.156.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131106042858.GA15745@gondor.apana.org.au>
+From: "Mrs. Nkoana Maite Mashabane" <pesa_san@yahoo.gr>
+Subject: INVESTMENT PARTNERSHIP
+Date: Wed, 6 Nov 2013 13:42:06 +0800
+Message-ID: <201311051534.rA5FY5uP001364@tx.cpta.com.cn>
+Reply-To: <nkoa_mashabane@safrica.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+	charset="Windows-1251"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:35136 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780Ab3KFFUY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 00:20:24 -0500
-Received: by mail-pd0-f181.google.com with SMTP id x10so9579533pdj.40
-        for <netdev@vger.kernel.org>; Tue, 05 Nov 2013 21:20:23 -0800 (PST)
-In-Reply-To: <20131106042858.GA15745@gondor.apana.org.au>
+Received: from [114.255.29.133] ([114.255.29.133]:58217 "EHLO tx.cpta.com.cn"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750871Ab3KFFsn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Nov 2013 00:48:43 -0500
+To: <net_lm@yahoo.com.mx>
+To: <netcomp3000@yahoo.com>
+To: <netbizpak@yahoo.com>
+To: <netballpk@yahoo.com>
+To: <netabuse@xspedius.com>
+To: <netadmin@world.std.com>
+To: <netcourt@vnet.net>
+To: <netdev@vger.kernel.org>
+To: <net@tm.net.my>
+To: <netcom_dps@telkom.net>
+To: <netbizn@super.net.pk>
+To: <net.country@sk.sympatico.ca>
+To: <netcruiser@prodigy.net>
+To: <netcom@paknet3.ptc.pk>
+To: <netadmin@pakistan.ncr.com>
+To: <netbsd-docs-ru@netbsd.org>
+To: <netbehaviour@netbehaviour.org>
+To: <netadmin@metropolis-inter.com>
+To: <netbytes@maxis.net.my>
+To: <net@mailbase.ac.uk>
+To: <netbsd-soccvs@lists.sourceforge.net>
+To: <netbeans-info@lists.sourceforge.jp>
+To: <netadmin@lisco.com>
+To: <net@khi.comsats.net.pk>
+To: <net@khi.compol.com>
+To: <netadm@kanren.net>
+To: <net@isb.compol.com>
+To: <netadm@humanite.presse.fr>
+To: <netchatcomp@hotmail.com>
+To: <netbazar@hotmail.com>
+To: <netangels@hotmail.com>
+To: <net96@hotmail.com>
+To: <net_central@hotmail.com>
+To: <net-abuse@hosteurope.de>
+To: <netcontact@hawaii.edu>
+To: <netddang@hanmail.net>
+To: <netcom@gerrys.net>
+To: <net-artidaya@disb2b.com>
+To: <netbank@digicom.net.pk.cpta.com.cn>
+To: <netannounce@deshaw.com>
+To: <netcell@cyber.net.pk>
+To: <netbank@cyber.net.pk>
+To: <net@csuchico.edu>
+To: <netcomp@centrin.net.id>
+To: <netabuse@ccnetserv.com>
+To: <netcompd@cbn.net.id>
+To: <netcom@brain.net.pk>
+To: <net818@aol.com>
+To: <net@agi.co.id>
+To: <net1@aber.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-11-06 at 12:28 +0800, Herbert Xu wrote:
-> On Tue, Nov 05, 2013 at 08:23:05PM -0800, Eric Dumazet wrote:
-> >
-> > Nope, I already mentioned this :
-> > 
-> > Please take a look at 2613af0ed18a11d5c566a81f9a6510b73180660a
-> > ("virtio_net: migrate mergeable rx buffers to page frag allocators")
-> 
-> This patch should simply be reverted.  You guys steam-rolled over
-> the virtio_net people's concerns that this seriously impacts virt
-> performance.
-> 
+Hello,
 
-Have you followed netdev traffic lately ?
+I am Mrs. Maite Nkoana Mashabane, am the Minister of International Relations and Cooperation of South Africa, Please view my profile. http://www.gcis.gov.za/gcis/gcis_profile.jsp?id=1480.
 
-virtio_net performance is better than before, and we did no revert,
-thank you.
+I would like you to indicate your interest to receive the transfer of $3.5 Million. I will like you to stand as the beneficiary of the said fund.
 
-I am really tired, I'll fix skb_segment() tomorrow.
+However, I will be resigning soon and want to establish any type of machinery tools devices or agriculture or even real estate under my own registered company. I have the sum to invest. How can I come in contact with you in partnership/investment transaction?
+
+I want you to assist me in investing the money in your country.
+
+I will also like you to send me the following information below:
+
+(1)Full names:
+(2)Private phone number:
+(3)Current residential address:
+(4)Your Country:
+(5)Occupation:
+(6)Age and Sex:
+
+Please I do not need to remind you of the need for absolute Confidentiality if this transaction must succeed. YOU MUST NOT CALL ME! If you do not feel comfortable with this transaction, do not hesitate to discontinue.
+
+I will give you more detail's as soon as you confirm your willingness to assisting me.
+
+Mrs. Nkoana Maite Mashabane
