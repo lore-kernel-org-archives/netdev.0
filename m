@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: sch_red: Fix race between timer and
- red_destroy()
-Date: Tue, 05 Nov 2013 22:16:33 -0500 (EST)
-Message-ID: <20131105.221633.636594084725891709.davem@davemloft.net>
-References: <1383617296-20273-1-git-send-email-subramanian.vijay@gmail.com>
+Subject: Re: [PATCH] ipv6: drop the judgement in rt6_alloc_cow()
+Date: Tue, 05 Nov 2013 22:17:34 -0500 (EST)
+Message-ID: <20131105.221734.996824909093482711.davem@davemloft.net>
+References: <5278837D.7030207@cn.fujitsu.com>
+	<20131105212344.GM8832@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	eric.dumazet@gmail.com
-To: subramanian.vijay@gmail.com
+Cc: duanj.fnst@cn.fujitsu.com, netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36347 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36358 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751050Ab3KFDQe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 22:16:34 -0500
-In-Reply-To: <1383617296-20273-1-git-send-email-subramanian.vijay@gmail.com>
+	with ESMTP id S1755762Ab3KFDRg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 22:17:36 -0500
+In-Reply-To: <20131105212344.GM8832@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Date: Mon,  4 Nov 2013 18:08:16 -0800
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue, 5 Nov 2013 22:23:44 +0100
 
-> Make sure timer does not fire once qdisc is destroyed.
+> On Tue, Nov 05, 2013 at 01:34:53PM +0800, Duan Jiong wrote:
+>> 
+>> Now rt6_alloc_cow() is only called by ip6_pol_route() when
+>> rt->rt6i_flags doesn't contain both RTF_NONEXTHOP and RTF_GATEWAY,
+>> and rt->rt6i_flags hasn't been changed in ip6_rt_copy().
+>> So there is no neccessary to judge whether rt->rt6i_flags contains
+>> RTF_GATEWAY or not.
 > 
-> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> This is ok.
+> 
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-I do not understand how this problem can trigger.
-
-del_timer_sync() waits for all instances of the timer handler which
-are running to complete, and then it deletes the timer from any of
-the scheduled timer lists.
-
-Your patch is making the mod_timer() in the timer handler conditional,
-and this really shouldn't be necessary.
-
-The whole point of del_timer_sync() is to address these kinds of
-situations.
+Applied, thanks everyone.
