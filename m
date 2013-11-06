@@ -1,108 +1,126 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net-next 3/3] net_sched: Use pr_debug replace printk(KERN_DEBUG ...)
-Date: Wed, 6 Nov 2013 16:05:09 +0800
-Message-ID: <1383725109-37348-4-git-send-email-yangyingliang@huawei.com>
-References: <1383725109-37348-1-git-send-email-yangyingliang@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <eric.dumazet@gmail.com>, <jhs@mojatatu.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not ipsec pkt
+Date: Wed,  6 Nov 2013 09:05:53 +0100
+Message-ID: <1383725153-26298-1-git-send-email-christophe.gouault@6wind.com>
+References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	Saurabh Mohan <saurabh.mohan@vyatta.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: christophe.gouault@6wind.com,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:6059 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932070Ab3KFIFi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 03:05:38 -0500
-In-Reply-To: <1383725109-37348-1-git-send-email-yangyingliang@huawei.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56991 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753444Ab3KFIGG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 03:06:06 -0500
+In-Reply-To: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace printk(KERN_DEBUG ...) with pr_debug() and
-replace pr_warning() with pr_warn().
+The vti interface inbound and outbound SPD lookups are based on the
+ipsec packet instead of the plaintext packet.
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+Not only is it counterintuitive, it also restricts vti interfaces
+to a single policy (whose selector must match the tunnel local and
+remote addresses).
+
+The policy selector is supposed to match the plaintext packet, before
+encryption or after decryption.
+
+This patch performs the SPD lookup based on the plaintext packet. It
+enables to create several polices bound to the vti interface (via a
+mark equal to the vti interface okey).
+
+It remains possible to apply the same policy to all packets entering
+the vti interface, by setting an any-to-any selector (src 0.0.0.0/0
+dst 0.0.0.0/0 proto any mark OKEY).
+
+Signed-off-by: Christophe Gouault <christophe.gouault@6wind.com>
 ---
- net/sched/sch_cbq.c    | 2 +-
- net/sched/sch_dsmark.c | 2 +-
- net/sched/sch_gred.c   | 4 ++--
- net/sched/sch_htb.c    | 6 +++---
- 4 files changed, 7 insertions(+), 7 deletions(-)
+v2:
+- Fixed comment style
+- Checked with checkpatch.pl and sparse
 
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index a8f40f5..9e3a9dc 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1060,7 +1060,7 @@ static void cbq_normalize_quanta(struct cbq_sched_data *q, int prio)
- 			}
- 			if (cl->quantum <= 0 ||
- 				cl->quantum > 32*qdisc_dev(cl->qdisc)->mtu) {
--				pr_warning("CBQ: class %08x has bad quantum==%ld, repaired.\n",
-+				pr_warn("CBQ: class %08x has bad quantum==%ld, repaired.\n",
- 					   cl->common.classid, cl->quantum);
- 				cl->quantum = qdisc_dev(cl->qdisc)->mtu/2 + 1;
- 			}
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index 3886365..190cf65 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -303,7 +303,7 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
- 		 * and don't need yet another qdisc as a bypass.
+v3:
+- vti_rcv: optimized skb network header shift and restore
+- Checked with checkpatch.pl and sparse
+---
+ net/ipv4/ip_vti.c |   29 ++++++++++++++++++++++++++++-
+ 1 file changed, 28 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 6e87f85..2368262 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -126,6 +126,7 @@ static int vti_rcv(struct sk_buff *skb)
+ 	if (tunnel != NULL) {
+ 		struct pcpu_tstats *tstats;
+ 		u32 oldmark = skb->mark;
++		unsigned int old_nh = skb->network_header;
+ 		int ret;
+ 
+ 
+@@ -133,7 +134,13 @@ static int vti_rcv(struct sk_buff *skb)
+ 		 * only match policies with this mark.
  		 */
- 		if (p->mask[index] != 0xff || p->value[index])
--			pr_warning("dsmark_dequeue: unsupported protocol %d\n",
-+			pr_warn("dsmark_dequeue: unsupported protocol %d\n",
- 				   ntohs(skb->protocol));
- 		break;
+ 		skb->mark = be32_to_cpu(tunnel->parms.o_key);
++		/* The packet is decrypted, but not yet decapsulated.
++		 * Temporarily make network_header point to the inner header
++		 * for policy check.
++		 */
++		skb_reset_network_header(skb);
+ 		ret = xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb);
++		skb->network_header = old_nh;
+ 		skb->mark = oldmark;
+ 		if (!ret)
+ 			return -1;
+@@ -166,6 +173,8 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct iphdr  *old_iph = ip_hdr(skb);
+ 	__be32 dst = tiph->daddr;
+ 	struct flowi4 fl4;
++	struct flowi fl;
++	u32 oldmark = skb->mark;
+ 	int err;
+ 
+ 	if (skb->protocol != htons(ETH_P_IP))
+@@ -173,17 +182,35 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	tos = old_iph->tos;
+ 
++	/* SPD lookup: we must provide a dst_entry to xfrm_lookup, normally the
++	 * route to the final destination. However this route is a route via
++	 * the vti interface. Now vti interfaces typically have the NOXFRM
++	 * flag, hence xfrm_lookup would bypass IPsec.
++	 *
++	 * Therefore, we feed xfrm_lookup with a route to the vti tunnel remote
++	 * endpoint instead.
++	 */
+ 	memset(&fl4, 0, sizeof(fl4));
+ 	flowi4_init_output(&fl4, tunnel->parms.link,
+ 			   be32_to_cpu(tunnel->parms.o_key), RT_TOS(tos),
+ 			   RT_SCOPE_UNIVERSE,
+ 			   IPPROTO_IPIP, 0,
+ 			   dst, tiph->saddr, 0, 0);
+-	rt = ip_route_output_key(dev_net(dev), &fl4);
++	rt = __ip_route_output_key(tunnel->net, &fl4);
+ 	if (IS_ERR(rt)) {
+ 		dev->stats.tx_carrier_errors++;
+ 		goto tx_error_icmp;
  	}
-diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
-index d42234c..19fa4dc 100644
---- a/net/sched/sch_gred.c
-+++ b/net/sched/sch_gred.c
-@@ -370,7 +370,7 @@ static inline int gred_change_table_def(struct Qdisc *sch, struct nlattr *dps)
- 
- 	for (i = table->DPs; i < MAX_DPs; i++) {
- 		if (table->tab[i]) {
--			pr_warning("GRED: Warning: Destroying "
-+			pr_warn("GRED: Warning: Destroying "
- 				   "shadowed VQ 0x%x\n", i);
- 			gred_destroy_vq(table->tab[i]);
- 			table->tab[i] = NULL;
-@@ -456,7 +456,7 @@ static int gred_change(struct Qdisc *sch, struct nlattr *opt)
- 			if (table->tab[table->def])
- 				def_prio = table->tab[table->def]->prio;
- 
--			printk(KERN_DEBUG "GRED: DP %u does not have a prio "
-+			pr_debug("GRED: DP %u does not have a prio "
- 			       "setting default to %d\n", ctl->DP, def_prio);
- 
- 			prio = def_prio;
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index f6e8a74..6586f3b 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -712,7 +712,7 @@ static s64 htb_do_events(struct htb_sched *q, const int level,
- 
- 	/* too much load - let's continue after a break for scheduling */
- 	if (!(q->warned & HTB_WARN_TOOMANYEVENTS)) {
--		pr_warning("htb: too many events!\n");
-+		pr_warn("htb: too many events!\n");
- 		q->warned |= HTB_WARN_TOOMANYEVENTS;
- 	}
- 
-@@ -1484,13 +1484,13 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 	if (!cl->level) {
- 		cl->quantum = hopt->rate.rate / q->rate2quantum;
- 		if (!hopt->quantum && cl->quantum < 1000) {
--			pr_warning(
-+			pr_warn(
- 			       "HTB: quantum of class %X is small. Consider r2q change.\n",
- 			       cl->common.classid);
- 			cl->quantum = 1000;
- 		}
- 		if (!hopt->quantum && cl->quantum > 200000) {
--			pr_warning(
-+			pr_warn(
- 			       "HTB: quantum of class %X is big. Consider r2q change.\n",
- 			       cl->common.classid);
- 			cl->quantum = 200000;
++
++	memset(&fl, 0, sizeof(fl));
++	/* Temporarily mark the skb with the tunnel o_key, to look up
++	 * for a policy with this mark, matching the plaintext traffic.
++	 */
++	skb->mark = be32_to_cpu(tunnel->parms.o_key);
++	__xfrm_decode_session(skb, &fl, AF_INET, 0);
++	skb->mark = oldmark;
++	rt = (struct rtable *)xfrm_lookup(tunnel->net, &rt->dst, &fl, NULL, 0);
++
+ 	/* if there is no transform then this tunnel is not functional.
+ 	 * Or if the xfrm is not mode tunnel.
+ 	 */
 -- 
-1.7.12
+1.7.10.4
