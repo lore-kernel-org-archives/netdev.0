@@ -1,65 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/3] net: allow to leave the buffer fragmented
- in skb_cow_data()
-Date: Wed, 06 Nov 2013 08:39:49 -0800
-Message-ID: <1383755989.4291.178.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <cover.1381923854.git.mathias.krause@secunet.com>
-	 <14f30e8f5f8405c1ca73b6d3a554441c1736142d.1381923854.git.mathias.krause@secunet.com>
-	 <20131106093028.GA18435@gondor.apana.org.au> <527A109E.5040000@secunet.com>
-	 <20131106095217.GA18851@gondor.apana.org.au> <527A391B.4050907@secunet.com>
-	 <20131106124811.GA20404@gondor.apana.org.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/7] IBM Akebono: Add support for a new PHY to the IBM
+ emac driver
+Date: Wed, 6 Nov 2013 16:40:10 +0000
+Message-ID: <1383756010.1520.5.camel@bwh-desktop.uk.level5networks.com>
+References: <1383629471-16979-1-git-send-email-alistair@popple.id.au>
+	 <1383681240.4776.97.camel@pasglop>
+	 <1383693110.2868.17.camel@bwh-desktop.uk.level5networks.com>
+	 <3555701.fBbreSn0Lp@mexican>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Mathias Krause <mathias.krause@secunet.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	<netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Alistair Popple <alistair@popple.id.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:43092 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752436Ab3KFQjz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 11:39:55 -0500
-Received: by mail-pd0-f173.google.com with SMTP id r10so10367090pdi.18
-        for <netdev@vger.kernel.org>; Wed, 06 Nov 2013 08:39:54 -0800 (PST)
-In-Reply-To: <20131106124811.GA20404@gondor.apana.org.au>
+Received: from webmail.solarflare.com ([12.187.104.25]:64431 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752436Ab3KFQkT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 11:40:19 -0500
+In-Reply-To: <3555701.fBbreSn0Lp@mexican>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-11-06 at 20:48 +0800, Herbert Xu wrote:
-> On Wed, Nov 06, 2013 at 01:42:03PM +0100, Mathias Krause wrote:
-> >
-> > Well, skb_cow_data() will only copy, i.e. call __pskb_pull_tail(), in
-> > case the skb is either cloned or fragmented. As you already said it
-> > won't be cloned in your case. Does it contain fragments, i.e. is
-> > skb_shinfo(skb)->nr_frags != 0? If not, we won't copy with the current
-> > code either.
+On Wed, 2013-11-06 at 12:34 +1100, Alistair Popple wrote:
+> On Tue, 5 Nov 2013 23:11:50 Ben Hutchings wrote:
+> > On Wed, 2013-11-06 at 06:54 +1100, Benjamin Herrenschmidt wrote:
 > 
-> Whenever we say page it means nr_frags != 0.  So currently as
-> long as we have pages in our skb we will copy.  With your patch
-> we will no longer copy in the case where we have pages but the
-> skb isn't cloned.  In fact that is the whole point of your patch.
+> [snip]
 > 
-> > Can you please explain why this would be needed? I still don't get the
-> > reasoning behind "pages are considered not writable at the moment even
-> > if they are anonymous".
+> > > It's an SoC bit so there's little point making it generally
+> > > selectable by the user.
+> > 
+> > I think a better way to do this is:
+> > 
+> > config IBM_EMAC_RGMII_WOL
+> > 	bool "IBM EMAC RGMII wake-on-LAN support"
+> > 	depends on MY_WONDERFUL_NEW_SOC || COMPILE_TEST
+> > 	default y if MY_WONDERFUL_NEW_SOC
+> > 
+> > Then anyone making an API change that affects this driver can check that
+> > it still complies.
 > 
-> As I said you don't know where the page in the skb came from.  It
-> may point to read-only memory or memory that's shared with another
-> task that isn't expecting things to change underneath it.
+> The method used in this patch is the same as what is currently used by the 
+> other IBM EMAC PHY interfaces (eg. config IBM_EMAC_ZMII etc). I'm happy to 
+> send a patch to update all of those as well for consistency but that would 
+> mean adding what each platform requires into EMACS Kconfig as well.
+> 
+> Personally I think it is nicer to keep the definitions of what each platform 
+> requires in one place (ie. arch/powerpc/platforms/44x/Kconfig) as it is 
+> consistent with what we do for other 44x drivers, however I am happy to use 
+> the above method if people think it's better.
 
-Note that we might have now a per skb flag telling is all page frags are
-owned.
+Yes, I see your point.
 
-This is SKBTX_SHARED_FRAG
+> Alternatively we could do something like this:
+> 
+> config IBM_EMAC_RGMII_WOL
+>         bool
+>         default y if COMPILE_TEST
+>         default n
+> 
+> This would leave the platform dependencies as they are currently but still 
+> allow compile testing.
 
-If SKBTX_SHARED_FRAG is set on shared_info->tx_flags, then at least
-one frag is not safe and we must copy all frags.
+It still shouldn't default to y in that case.  Instead you can make the
+symbol conditionally configurable:
 
+config IBM_EMAC_RGMII_WOL
+	bool "IBM EMAC RGMII wake-on-LAN support" if COMPILE_TEST
 
-For example, this flag is set in TCP sendfile() path (vmsplice()...),
-and zero copy paths in general (macvtap, tun)
+and then select this from your platform Kconfig as you intended.
 
-I am not 100% sure, but this could be a hint.
+(There is no need to put 'default n' as that's implicit for a
+configurable symbol.  But it doesn't hurt either.)
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
