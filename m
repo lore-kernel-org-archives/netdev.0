@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 9/9] bonding: remove unwanted lock for bond_store_primary_xxx()
-Date: Wed, 6 Nov 2013 14:53:12 +0800
-Message-ID: <5279E758.3090203@huawei.com>
+Subject: [PATCH net-next 4/9] bonding: rebuild the lock use for bond_loadbalance_arp_mon()
+Date: Wed, 6 Nov 2013 14:52:51 +0800
+Message-ID: <5279E743.4050102@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,55 +12,66 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:14658 "EHLO
+Received: from szxga01-in.huawei.com ([119.145.14.64]:17275 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810Ab3KFGzN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 01:55:13 -0500
+	with ESMTP id S1750802Ab3KFG6Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 01:58:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_select_active_slave() in bond_store_primary_xxx() is
-already protected by RTNL, the bond lock and curr_slave_lock is
-no effect here, so remove the unwanted lock.
+The bond_loadbalance_arp_mon() use the bond lock to protect the
+bond slave list, it is no effect, so I could use RTNL or RCU to
+replace it, the bond_select_active_slave() need RTNL, so whatever
+the RCU use, the RTNL is need to add, so I choose the RTNL to
+protect the whole monitor, I still remove the curr_slave_lock for
+it, because RTNL is enough here.
 
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_sysfs.c | 8 --------
- 1 file changed, 8 deletions(-)
+ drivers/net/bonding/bond_main.c | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 47749c9..8f6b713 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -1068,8 +1068,6 @@ static ssize_t bonding_store_primary(struct device *d,
- 	if (!rtnl_trylock())
- 		return restart_syscall();
- 	block_netpoll_tx();
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 98171eb..b875dff 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2376,10 +2376,13 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 	struct list_head *iter;
+ 	int do_failover = 0;
+ 
 -	read_lock(&bond->lock);
--	write_lock_bh(&bond->curr_slave_lock);
++	if (!rtnl_trylock())
++		goto re_arm;
  
- 	if (!USES_PRIMARY(bond->params.mode)) {
- 		pr_info("%s: Unable to set primary slave; %s is in mode %d\n",
-@@ -1107,8 +1105,6 @@ static ssize_t bonding_store_primary(struct device *d,
- 		"but it has not been enslaved to %s yet.\n",
- 		bond->dev->name, ifname, bond->dev->name);
- out:
--	write_unlock_bh(&bond->curr_slave_lock);
+-	if (!bond_has_slaves(bond))
++	if (!bond_has_slaves(bond)) {
++		rtnl_unlock();
+ 		goto re_arm;
++	}
+ 
+ 	oldcurrent = bond->curr_active_slave;
+ 	/* see if any of the previous devices are up now (i.e. they have
+@@ -2454,20 +2457,15 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 
+ 	if (do_failover) {
+ 		block_netpoll_tx();
+-		write_lock_bh(&bond->curr_slave_lock);
+-
+ 		bond_select_active_slave(bond);
+-
+-		write_unlock_bh(&bond->curr_slave_lock);
+ 		unblock_netpoll_tx();
+ 	}
++	rtnl_unlock();
+ 
+ re_arm:
+ 	if (bond->params.arp_interval)
+ 		queue_delayed_work(bond->wq, &bond->arp_work,
+ 				   msecs_to_jiffies(bond->params.arp_interval));
+-
 -	read_unlock(&bond->lock);
- 	unblock_netpoll_tx();
- 	rtnl_unlock();
+ }
  
-@@ -1156,11 +1152,7 @@ static ssize_t bonding_store_primary_reselect(struct device *d,
- 		new_value);
- 
- 	block_netpoll_tx();
--	read_lock(&bond->lock);
--	write_lock_bh(&bond->curr_slave_lock);
- 	bond_select_active_slave(bond);
--	write_unlock_bh(&bond->curr_slave_lock);
--	read_unlock(&bond->lock);
- 	unblock_netpoll_tx();
- out:
- 	rtnl_unlock();
+ /*
 -- 
 1.8.2.1
