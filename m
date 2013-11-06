@@ -1,104 +1,72 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch net-next 1/3] move skb_nfct_reasm into skbuff.h
-Date: Wed, 6 Nov 2013 10:00:42 +0900
-Message-ID: <20131106010042.GA30468@verge.net.au>
-References: <1383649333-6321-1-git-send-email-jiri@resnulli.us>
- <1383649333-6321-2-git-send-email-jiri@resnulli.us>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: gso: Attempt to handle mega-GRO packets
+Date: Wed, 6 Nov 2013 09:30:38 +0800
+Message-ID: <20131106013038.GA14894@gondor.apana.org.au>
+References: <1383051962.5464.25.camel@edumazet-glaptop.roam.corp.google.com>
+ <1383059555.5464.33.camel@edumazet-glaptop.roam.corp.google.com>
+ <20131029.194446.2215574000648693370.davem@davemloft.net>
+ <1383091610.1534.29.camel@bwh-desktop.uk.level5networks.com>
+ <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131103122824.GA17394@gondor.apana.org.au>
+ <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131103163103.GA18894@gondor.apana.org.au>
+ <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131104041108.GA22823@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	kadlec@blackhole.kfki.hu, kaber@trash.net, mleitner@redhat.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
-	ja@ssi.bg, edumazet@google.com, pshelar@nicira.com,
-	jasowang@redhat.com, alexander.h.duyck@intel.com,
-	coreteam@netfilter.org, fw@strlen.de
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:38583 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755847Ab3KFBat (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 20:30:49 -0500
 Content-Disposition: inline
-In-Reply-To: <1383649333-6321-2-git-send-email-jiri@resnulli.us>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20131104041108.GA22823@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 05, 2013 at 12:02:11PM +0100, Jiri Pirko wrote:
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  include/linux/skbuff.h          | 11 +++++++++++
->  include/net/ip_vs.h             |  8 --------
->  net/netfilter/ipvs/ip_vs_core.c |  1 +
->  3 files changed, 12 insertions(+), 8 deletions(-)
+Here is a totally untested patch that tries to trivially process
+these new frags + frag_list skbs.  It should actually be trivial
+to make this generate TSO packets by just adding a gso_ok check
+and short-circuit.
 
-IPVS portion:
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 3735fad..ec8e8bc 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2816,7 +2816,24 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 			hsize = len;
+ 
+ 		if (!hsize && i >= nfrags) {
+-			BUG_ON(fskb->len != len);
++			if (fskb->len != len) {
++				SKB_FRAG_ASSERT(fskb);
++
++				nskb = skb_segment(fskb, features);
++
++				err = PTR_ERR(nskb);
++				if (IS_ERR(nskb))
++					goto err;
++				err = -ENOMEM;
++
++				if (segs)
++					tail->next = nskb;
++				else
++					segs = nskb;
++				tail = nskb;
++				while (tail->next)
++					tail = tail->next;
++			}
+ 
+ 			pos += len;
+ 			nskb = skb_clone(fskb, GFP_ATOMIC);
 
-Acked-by: Simon Horman <horms@verge.net.au>
-
-
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 2e153b6..ececdad 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2606,6 +2606,17 @@ static inline void nf_conntrack_put_reasm(struct sk_buff *skb)
->  		kfree_skb(skb);
->  }
->  #endif
-> +#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
-> +static inline struct sk_buff *skb_nfct_reasm(const struct sk_buff *skb)
-> +{
-> +	return skb->nfct_reasm;
-> +}
-> +#else
-> +static inline struct sk_buff *skb_nfct_reasm(const struct sk_buff *skb)
-> +{
-> +	return NULL;
-> +}
-> +#endif
->  #ifdef CONFIG_BRIDGE_NETFILTER
->  static inline void nf_bridge_put(struct nf_bridge_info *nf_bridge)
->  {
-> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-> index cd7275f..6dff2b6 100644
-> --- a/include/net/ip_vs.h
-> +++ b/include/net/ip_vs.h
-> @@ -119,10 +119,6 @@ struct ip_vs_iphdr {
->  
->  /* Dependency to module: nf_defrag_ipv6 */
->  #if defined(CONFIG_NF_DEFRAG_IPV6) || defined(CONFIG_NF_DEFRAG_IPV6_MODULE)
-> -static inline struct sk_buff *skb_nfct_reasm(const struct sk_buff *skb)
-> -{
-> -	return skb->nfct_reasm;
-> -}
->  static inline void *frag_safe_skb_hp(const struct sk_buff *skb, int offset,
->  				      int len, void *buffer,
->  				      const struct ip_vs_iphdr *ipvsh)
-> @@ -134,10 +130,6 @@ static inline void *frag_safe_skb_hp(const struct sk_buff *skb, int offset,
->  	return skb_header_pointer(skb, offset, len, buffer);
->  }
->  #else
-> -static inline struct sk_buff *skb_nfct_reasm(const struct sk_buff *skb)
-> -{
-> -	return NULL;
-> -}
->  static inline void *frag_safe_skb_hp(const struct sk_buff *skb, int offset,
->  				      int len, void *buffer,
->  				      const struct ip_vs_iphdr *ipvsh)
-> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-> index 34fda62..085c242 100644
-> --- a/net/netfilter/ipvs/ip_vs_core.c
-> +++ b/net/netfilter/ipvs/ip_vs_core.c
-> @@ -43,6 +43,7 @@
->  #include <net/ip6_checksum.h>
->  #include <net/netns/generic.h>		/* net_generic() */
->  
-> +#include <linux/skbuff.h>
->  #include <linux/netfilter.h>
->  #include <linux/netfilter_ipv4.h>
->  
-> -- 
-> 1.8.3.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
