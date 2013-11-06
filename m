@@ -1,84 +1,73 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [patch net-next] ipv6: allow userspace to create address with
- IFLA_F_TEMPORARY flag
-Date: Wed, 06 Nov 2013 09:11:40 +0100
-Message-ID: <5279F9BC.7060600@6wind.com>
-References: <20131028.204306.2213130677400093266.davem@davemloft.net> <AE90C24D6B3A694183C094C60CF0A2F6026B73BB@saturn3.aculab.com> <20131029124010.GA15762@order.stressinduktion.org> <52792499.3030201@6wind.com> <20131105205744.GK8832@order.stressinduktion.org>
-Reply-To: nicolas.dichtel@6wind.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: gso: Attempt to handle mega-GRO packets
+Date: Wed, 6 Nov 2013 16:16:39 +0800
+Message-ID: <20131106081638.GA17665@gondor.apana.org.au>
+References: <20131103163103.GA18894@gondor.apana.org.au>
+ <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131104041108.GA22823@gondor.apana.org.au>
+ <20131106013038.GA14894@gondor.apana.org.au>
+ <1383702347.4291.152.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131106040717.GA15711@gondor.apana.org.au>
+ <1383711785.4291.156.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131106042858.GA15745@gondor.apana.org.au>
+ <1383715222.4291.158.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131106080425.GA17556@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: David Laight <David.Laight@ACULAB.COM>,
-	David Miller <davem@davemloft.net>, jiri@resnulli.us,
-	vyasevich@gmail.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	thaller@redhat.com, stephen@networkplumber.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com, mst@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:51203 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803Ab3KFILp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 03:11:45 -0500
-Received: by mail-we0-f174.google.com with SMTP id u56so4501158wes.19
-        for <netdev@vger.kernel.org>; Wed, 06 Nov 2013 00:11:43 -0800 (PST)
-In-Reply-To: <20131105205744.GK8832@order.stressinduktion.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:34617 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752555Ab3KFIQq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 03:16:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20131106080425.GA17556@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 05/11/2013 21:57, Hannes Frederic Sowa a =C3=A9crit :
-> On Tue, Nov 05, 2013 at 06:02:17PM +0100, Nicolas Dichtel wrote:
->> Le 29/10/2013 13:40, Hannes Frederic Sowa a =C3=A9crit :
->>> On Tue, Oct 29, 2013 at 09:37:06AM -0000, David Laight wrote:
->>>>> Note that you don't even need to put the DHCP protocol core into =
-the
->>>>> kernel to fix the promiscuous problem.  You just have to use the
->>>>> current kernel interfaces correctly.
->>>>>
->>>>> It used to be the case a very long time ago that you couldn't eve=
-n
->>>>> receive broadcast UDP datagrams on a socket until an address was
->>>>> configured on it.
->>>>>
->>>>> So everyone turns on promiscuous mode and uses RAW sockets or
->>>>> AF_PACKET.
->>>>>
->>>>> Stupid?  yes.
->>>>
->>>> Not only that, but the dhcp client could use a normal UDP socket
->>>> to keep the lease renewed - I suspect it has only ever needed
->>>> to use the BPF interface (I didn't think it set promiscuous)
->>>> when acquiring the initial lease.
->>>
->>> Yes, this is a very unfortunate situation. From my experience it is=
- not
->>> that
->>> easy to get a patch merged into isc-dhcp.
->>>
->>> It seems not that invasive to switch from af_packet to an udp socke=
-t with
->>> SO_BROADCAST set.
->> If I remember well, another problem is to be able to send these pack=
-ets with
->> 0.0.0.0 when another IP address is available on the system:
->>
->> RFC2131
->> 4.1 Constructing and sending DHCP messages
->> ...
->>     DHCP messages broadcast by a client prior to that client obtaini=
-ng
->>     its IP address must have the source address field in the IP head=
-er
->>     set to 0.
->>
->> We made a patch (never proposed upstream) to add a socket option to =
-keep
->> this 0.0.0.0 address.
->> If people are interested, I can try to port it on net-next.
->
-> Yes, this indeed is a problem for a socket only dhcp client. I would =
-make the
-> appropriate changes to isc-dhcp if you submit such a patch.
-Ok, I will try to do this for the end of the week.
+On Wed, Nov 06, 2013 at 04:04:25PM +0800, Herbert Xu wrote:
+> On Tue, Nov 05, 2013 at 09:20:22PM -0800, Eric Dumazet wrote:
+> > On Wed, 2013-11-06 at 12:28 +0800, Herbert Xu wrote:
+> > > On Tue, Nov 05, 2013 at 08:23:05PM -0800, Eric Dumazet wrote:
+> > > >
+> > > > Nope, I already mentioned this :
+> > > > 
+> > > > Please take a look at 2613af0ed18a11d5c566a81f9a6510b73180660a
+> > > > ("virtio_net: migrate mergeable rx buffers to page frag allocators")
+> > > 
+> > > This patch should simply be reverted.  You guys steam-rolled over
+> > > the virtio_net people's concerns that this seriously impacts virt
+> > > performance.
+> > > 
+> > 
+> > Have you followed netdev traffic lately ?
+> > 
+> > virtio_net performance is better than before, and we did no revert,
+> > thank you.
+> 
+> The last email I saw from Michael Tsirkin he still wasn't happy
+> that your patch does not degrade virt performance.  Where is the
+> reply to that?
 
+I just looked at the aformentioned patch again and it is seriously
+broken! How on earth did it get merged?
 
-Nicolas
+Instead of using perfectly sane 4K pages per frag to store guest to
+guest traffic, we now end up using 1.5K frags, which that's why you
+end up having to use the frag_list, WTF?
+
+Dave, please revert the above commit as it is seriously broken.
+
+Whatever performance problem it is trying to address can surely
+be fixed without being so stupid as to break up perfectly sized
+4K pages into 1.5K chunks.
+
+Thanks!
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
