@@ -1,51 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Wed, 06 Nov 2013 07:06:32 -0800
-Message-ID: <1383750392.4291.167.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1383091610.1534.29.camel@bwh-desktop.uk.level5networks.com>
-	 <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131103122824.GA17394@gondor.apana.org.au>
-	 <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131103163103.GA18894@gondor.apana.org.au>
-	 <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131104041108.GA22823@gondor.apana.org.au>
-	 <20131106013038.GA14894@gondor.apana.org.au>
-	 <20131106123900.GA20259@gondor.apana.org.au>
-	 <20131106133045.GA20931@gondor.apana.org.au>
-	 <20131106143927.GA21604@gondor.apana.org.au>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 2/3] netfilter: ip6_tables: use reasm skb for
+ matching
+Date: Wed, 6 Nov 2013 16:29:07 +0100
+Message-ID: <20131106152907.GE2458@minipsycho.orion>
+References: <1383649333-6321-1-git-send-email-jiri@resnulli.us>
+ <1383649333-6321-3-git-send-email-jiri@resnulli.us>
+ <20131105133205.GC15370@breakpoint.cc>
+ <20131105134118.GA5818@macbook.localnet>
+ <20131105150115.GB2438@minipsycho.orion>
+ <20131105181633.GA7435@macbook.localnet>
+ <20131106141845.GC2458@minipsycho.orion>
+ <20131106143349.GF15370@breakpoint.cc>
+ <20131106144453.GD2458@minipsycho.orion>
+ <20131106145104.GA18406@macbook.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	davem@davemloft.net, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	kadlec@blackhole.kfki.hu, mleitner@redhat.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
+	horms@verge.net.au, ja@ssi.bg, edumazet@google.com,
+	pshelar@nicira.com, jasowang@redhat.com,
+	alexander.h.duyck@intel.com, coreteam@netfilter.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:32803 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932252Ab3KFPGe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 10:06:34 -0500
-Received: by mail-pb0-f44.google.com with SMTP id rp8so3007009pbb.3
-        for <netdev@vger.kernel.org>; Wed, 06 Nov 2013 07:06:34 -0800 (PST)
-In-Reply-To: <20131106143927.GA21604@gondor.apana.org.au>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:44496 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751263Ab3KFP3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 10:29:13 -0500
+Received: by mail-ee0-f53.google.com with SMTP id e51so2630346eek.40
+        for <netdev@vger.kernel.org>; Wed, 06 Nov 2013 07:29:12 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131106145104.GA18406@macbook.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-11-06 at 22:39 +0800, Herbert Xu wrote:
-> On Wed, Nov 06, 2013 at 09:30:45PM +0800, Herbert Xu wrote:
-> > 
-> > In order to handle malicious GSO packets that is now possible with
-> > the use of frag_list in virtio_net, we need to remove the BUG_ONs.
-> 
-> OK Eric was right and I am a dumb ass.  This has no chance in hell
-> of handling the new virtio_net frag_list since we won't have any
-> headers in the frag_list skbs.
-> 
-> In fact, we never relied on the frag_list having headers anyway so
-> it's not hard to fix this.
-> 
-> Still totally untested but at least this has a chance of handling
-> the new virtio_net.
+Wed, Nov 06, 2013 at 03:51:04PM CET, kaber@trash.net wrote:
+>On Wed, Nov 06, 2013 at 03:44:53PM +0100, Jiri Pirko wrote:
+>> Wed, Nov 06, 2013 at 03:33:49PM CET, fw@strlen.de wrote:
+>> >Jiri Pirko <jiri@resnulli.us> wrote:
+>> >> >> >So if someone wants to change this, simply *only* pass the reassembled
+>> >> >> >packet through the netfilter hooks and drop the fragments, as in IPv4.
+>> >> >> 
+>> >> >> This is unfortunatelly not possible because in forwarding use case, the
+>> >> >> fragments have to be send out as they come in.
+>> >> >
+>> >> >No, the IPv6 NAT patches fixed that, we still do proper refragmentation
+>> >> >and we still respect the original fragment sizes, thus are not responsible
+>> >> >for potentially exceeding the PMTU on the following path.
+>> >> 
+>> >> Can you please point where this is done. Where the original fragment
+>> >> sizes are stored and in which code are they restored? Thanks.
+>> >
+>> >Patrick is probably talking about
+>> >
+>> >commit 4cdd34084d539c758d00c5dc7bf95db2e4f2bc70
+>> >(netfilter: nf_conntrack_ipv6: improve fragmentation handling)
+>> >which introduces 'frag_max_size' in inet6_skb_parm struct.
+>
+>Indeed.
+>
+>> Thanks for the pointer. Interestingly though, according to my testing,
+>> if reassembled packet would fit into outdev mtu, it is not fragmented
+>> to the original frag size and it is send as single big packet. That is
+>> I believe not correct.
+>
+>Hmm right, that wasn't the intention. We currently only use frag_max_size
+>to send PKT_TOOBIG messages if the size exceeds the MTU, but not to trigger
+>fragmentation itself.
+>
+>We probably need to handle this in ip6_finish_output(). Would you mind
+>fixing this up as well in your patches?
 
-OK I'll take a look at this and make tests today, thanks !
+I'm working on it atm.
