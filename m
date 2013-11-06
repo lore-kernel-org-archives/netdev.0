@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 2/9] bonding: remove bond read lock for bond_mii_monitor()
-Date: Wed, 6 Nov 2013 14:52:40 +0800
-Message-ID: <5279E738.4040102@huawei.com>
+Subject: [PATCH net-next 3/9] bonding: rebuild the lock use for bond_alb_monitor()
+Date: Wed, 6 Nov 2013 14:52:48 +0800
+Message-ID: <5279E740.5050102@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,102 +12,121 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:13175 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751916Ab3KFGyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 01:54:08 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:6273 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752568Ab3KFGyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 01:54:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_mii_monitor() still use bond lock read to protect
-bond_has_slaves() and bond_miimon_inspect(), it is no effect,
-so I move the RTNL to the top of the function to protect the
-whole monitor, of course, if the bond state did not changed,
-the monitor still calling RTNL, it may bring more performance
-loss, but as a slow path, it is negligible.
+The bond_alb_monitor use bond lock to protect the bond slave list,
+it is no effect here, we need to use RTNL or RCU to replace bond lock,
+the bond_alb_monitor will called 10 times one second, so I think
+RTNL is fit here, and move the rtnl to the top of the function, the
+RTNL is being used when rlb_enabled is true.
 
-also in bond_miimon_commit(), I remove the unwanted curr_slave_lock
-when calling the bond_select_active_slave(), the RTNL is enough.
+remove the unwanted curr_slave_lock, because the curr_active_slave
+will not be changed out the RTNL, so it is safe to sending the learning
+packets.
 
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 44 ++++++++++++-----------------------------
- 1 file changed, 13 insertions(+), 31 deletions(-)
+ drivers/net/bonding/bond_alb.c | 33 ++++++---------------------------
+ 1 file changed, 6 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 9c9803c..98171eb 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2074,9 +2074,7 @@ static void bond_miimon_commit(struct bonding *bond)
- do_failover:
- 		ASSERT_RTNL();
- 		block_netpoll_tx();
--		write_lock_bh(&bond->curr_slave_lock);
- 		bond_select_active_slave(bond);
--		write_unlock_bh(&bond->curr_slave_lock);
- 		unblock_netpoll_tx();
- 	}
- 
-@@ -2098,47 +2096,31 @@ void bond_mii_monitor(struct work_struct *work)
- 	bool should_notify_peers = false;
- 	unsigned long delay;
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 7870e4e..4ed7fe4 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1491,11 +1491,13 @@ void bond_alb_monitor(struct work_struct *work)
+ 	struct list_head *iter;
+ 	struct slave *slave;
  
 -	read_lock(&bond->lock);
--
- 	delay = msecs_to_jiffies(bond->params.miimon);
- 
--	if (!bond_has_slaves(bond))
-+	if (!rtnl_trylock()) {
-+		delay = 1;
- 		goto re_arm;
-+	}
- 
--	should_notify_peers = bond_should_notify_peers(bond);
--
--	if (bond_miimon_inspect(bond)) {
--		read_unlock(&bond->lock);
--
--		/* Race avoidance with bond_close cancel of workqueue */
--		if (!rtnl_trylock()) {
--			read_lock(&bond->lock);
--			delay = 1;
--			should_notify_peers = false;
--			goto re_arm;
--		}
-+	if (!bond_has_slaves(bond)) {
-+		rtnl_unlock();
++	if (!rtnl_trylock())
 +		goto re_arm;
-+	}
  
--		read_lock(&bond->lock);
-+	should_notify_peers = bond_should_notify_peers(bond);
+ 	if (!bond_has_slaves(bond)) {
+ 		bond_info->tx_rebalance_counter = 0;
+ 		bond_info->lp_counter = 0;
++		rtnl_unlock();
+ 		goto re_arm;
+ 	}
  
-+	if (bond_miimon_inspect(bond))
- 		bond_miimon_commit(bond);
+@@ -1506,24 +1508,17 @@ void bond_alb_monitor(struct work_struct *work)
+ 	if (bond_info->lp_counter >= BOND_ALB_LP_TICKS(bond)) {
+ 		/* change of curr_active_slave involves swapping of mac addresses.
+ 		 * in order to avoid this swapping from happening while
+-		 * sending the learning packets, the curr_slave_lock must be held for
+-		 * read.
++		 * sending the learning packets, the RTNL or curr_slave_lock
++		 *  must be held for read.
+ 		 */
+-		read_lock(&bond->curr_slave_lock);
+-
+ 		bond_for_each_slave(bond, slave, iter)
+ 			alb_send_learning_packets(slave, slave->dev->dev_addr);
  
--		read_unlock(&bond->lock);
--		rtnl_unlock();	/* might sleep, hold no other locks */
--		read_lock(&bond->lock);
--	}
-+	if (should_notify_peers)
-+		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
-+
+-		read_unlock(&bond->curr_slave_lock);
+-
+ 		bond_info->lp_counter = 0;
+ 	}
+ 
+ 	/* rebalance tx traffic */
+ 	if (bond_info->tx_rebalance_counter >= BOND_TLB_REBALANCE_TICKS) {
+-
+-		read_lock(&bond->curr_slave_lock);
+-
+ 		bond_for_each_slave(bond, slave, iter) {
+ 			tlb_clear_slave(bond, slave, 1);
+ 			if (slave == bond->curr_active_slave) {
+@@ -1534,8 +1529,6 @@ void bond_alb_monitor(struct work_struct *work)
+ 			}
+ 		}
+ 
+-		read_unlock(&bond->curr_slave_lock);
+-
+ 		bond_info->tx_rebalance_counter = 0;
+ 	}
+ 
+@@ -1544,16 +1537,6 @@ void bond_alb_monitor(struct work_struct *work)
+ 		if (bond_info->primary_is_promisc &&
+ 		    (++bond_info->rlb_promisc_timeout_counter >= RLB_PROMISC_TIMEOUT)) {
+ 
+-			/*
+-			 * dev_set_promiscuity requires rtnl and
+-			 * nothing else.  Avoid race with bond_close.
+-			 */
+-			read_unlock(&bond->lock);
+-			if (!rtnl_trylock()) {
+-				read_lock(&bond->lock);
+-				goto re_arm;
+-			}
+-
+ 			bond_info->rlb_promisc_timeout_counter = 0;
+ 
+ 			/* If the primary was set to promiscuous mode
+@@ -1562,9 +1545,6 @@ void bond_alb_monitor(struct work_struct *work)
+ 			 */
+ 			dev_set_promiscuity(bond->curr_active_slave->dev, -1);
+ 			bond_info->primary_is_promisc = 0;
+-
+-			rtnl_unlock();
+-			read_lock(&bond->lock);
+ 		}
+ 
+ 		if (bond_info->rlb_rebalance) {
+@@ -1587,10 +1567,9 @@ void bond_alb_monitor(struct work_struct *work)
+ 		}
+ 	}
+ 
 +	rtnl_unlock();
- 
  re_arm:
- 	if (bond->params.miimon)
- 		queue_delayed_work(bond->wq, &bond->mii_work, delay);
+ 	queue_delayed_work(bond->wq, &bond->alb_work, alb_delta_in_ticks);
 -
 -	read_unlock(&bond->lock);
--
--	if (should_notify_peers) {
--		if (!rtnl_trylock())
--			return;
--		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
--		rtnl_unlock();
--	}
  }
  
- static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
+ /* assumption: called before the slave is attached to the bond
 -- 
 1.8.2.1
