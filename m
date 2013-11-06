@@ -1,38 +1,41 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [patch net-next] ipv6: allow userspace to create address with IFLA_F_TEMPORARY flag
-Date: Wed, 6 Nov 2013 09:23:05 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73E3@saturn3.aculab.com>
-References: <20131028.204306.2213130677400093266.davem@davemloft.net> <AE90C24D6B3A694183C094C60CF0A2F6026B73BB@saturn3.aculab.com> <20131029124010.GA15762@order.stressinduktion.org> <52792499.3030201@6wind.com> <AE90C24D6B3A694183C094C60CF0A2F6026B73E2@saturn3.aculab.com> <20131105211158.GL8832@order.stressinduktion.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next 3/3] net: allow to leave the buffer fragmented
+ in skb_cow_data()
+Date: Wed, 6 Nov 2013 17:30:28 +0800
+Message-ID: <20131106093028.GA18435@gondor.apana.org.au>
+References: <cover.1381923854.git.mathias.krause@secunet.com>
+ <14f30e8f5f8405c1ca73b6d3a554441c1736142d.1381923854.git.mathias.krause@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <nicolas.dichtel@6wind.com>, "David Miller" <davem@davemloft.net>,
-	<jiri@resnulli.us>, <vyasevich@gmail.com>,
-	<netdev@vger.kernel.org>, <kuznet@ms2.inr.ac.ru>,
-	<jmorris@namei.org>, <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	<thaller@redhat.com>, <stephen@networkplumber.org>
-To: "Hannes Frederic Sowa" <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+	netdev@vger.kernel.org
+To: Mathias Krause <mathias.krause@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:48184 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1755947Ab3KFJ0K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Nov 2013 04:26:10 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 11122-03 for <netdev@vger.kernel.org>;
- Wed,  6 Nov 2013 09:26:08 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20131105211158.GL8832@order.stressinduktion.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:40200 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756046Ab3KFJah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 04:30:37 -0500
+Content-Disposition: inline
+In-Reply-To: <14f30e8f5f8405c1ca73b6d3a554441c1736142d.1381923854.git.mathias.krause@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBCeSB0aGUgd2F5Og0KPiBBbHRob3VnaCBkaGNsaWVudCB1c2VzIGFuIEFGX1BBQ0tFVCBzb2Nr
-ZXQsIGl0IG5ldmVyIGRvZXMgcmVxdWVzdA0KPiBhZGRpdGlvbmFsIG11bHRpY2FzdCBhZGRyZXNz
-ZXMgb3IgcHJvbWlzYyBtb2RlLiBTbyB0aGUgb25seSBvdmVyaGVhZCBpcw0KPiB0aGF0IHdlIGhh
-dmUgdG8gcnVuIHRoZSBzb2NrZXQgZmlsdGVyIG9uIGVhY2ggaW5jb21pbmcgcGFja2V0Lg0KDQpK
-dXN0IGNyZWF0aW5nIHRoZSBBRl9QQUNLRVQgc29ja2V0IHJlcXVpcmVzIHRoYXQgZXZlcnkgcmVj
-ZWl2ZQ0KZnJhbWUgYmUgZHVwbGljYXRlZC4NCk9uIExpbnV4IHRoaXMgaXMgYSByZWZlcmVuY2Ug
-Y291bnRlZCBidXQgdGhlIGNvc3QgaXMgc3RpbGwgbm9uLXplcm8uDQpPbiBzb21lIG90aGVyIE9T
-IChJIGZpcnN0IHNhdyB0aGlzIHdpdGggVnhXb3JrcykgaXQgaXMgYSBmdWxsIGRhdGEgY29weS4N
-Cg0KCURhdmlkDQoNCg==
+On Tue, Nov 05, 2013 at 02:54:11PM +0100, Mathias Krause wrote:
+>
+> -	/* If skb is cloned or its head is paged, reallocate
+> -	 * head pulling out all the pages (pages are considered not writable
+> -	 * at the moment even if they are anonymous).
+> +	/* If skb is cloned reallocate head pulling out all the pages (pages are
+> +	 * considered not writable at the moment even if they are anonymous).
+>  	 */
+
+Hang on, you haven't explained why it is OK to write to pages.
+What if said page is owned by the virt host or some app?
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
