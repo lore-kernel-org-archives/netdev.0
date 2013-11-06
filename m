@@ -1,34 +1,98 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 0/2] Add accessor to vlan egress map
-Date: Wed,  6 Nov 2013 15:37:22 +0200
-Message-ID: <1383745044-32575-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, sean.hefty@intel.com,
-	eyalpe@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: Andreas Herrmann <andreas.herrmann@calxeda.com>
+Subject: [PATCH] net: calxedaxgmac: Fix panic caused by MTU change of active
+ interface
+Date: Wed, 6 Nov 2013 14:31:27 +0100
+Message-ID: <20131106133126.GL22917@alberich>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Grant Likely <grant.likely@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Rob Herring <rob.herring@calxeda.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:45614 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756544Ab3KFNhd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Nov 2013 08:37:33 -0500
+Received: from smtp141.dfw.emailsrvr.com ([67.192.241.141]:55599 "EHLO
+	smtp141.dfw.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756569Ab3KFNhd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 08:37:33 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave, Sean,
+Changing MTU size of an xgmac network interface while it is active can
+cause a panic like
 
-This series adds on the work done through commits d4a968658c "net/route: export 
-symbol ip_tos2prio" and 366cddb40 "IB/rdma_cm: TOS <=> UP mapping for IBoE".
+  skbuff: skb_over_panic: text:c03bc62c len:1090 put:1090 head:edfb6900 data:edfb6942 tail:0xedfb6d84 end:0xedfb6bc0 dev:eth0
+  ------------[ cut here ]------------
+  kernel BUG at net/core/skbuff.c:126!
+  Internal error: Oops - BUG: 0 [#1] SMP ARM
+  Modules linked in:
+  CPU: 0 PID: 762 Comm: python Tainted: G        W    3.10.0-00015-g3e33cd7 #309
+  task: edcfe000 ti: ed67e000 task.ti: ed67e000
+  PC is at skb_panic+0x64/0x70
+  LR is at wake_up_klogd+0x5c/0x68
 
-When vlans are used, the IBoE stack needs to inherit the egress map
-which is configured on the vlan device. For that end, we provide a
-read-only access method and call it from the RDMA-CM.
+This happens because xgmac_change_mtu modifies dev->mtu before the
+network interface is quiesced. And thus there still might be buffers
+in use which have a buffer size based on the old MTU.
 
-Or.
+To fix this I moved the change of dev->mtu after the call to
+xgmac_stop.
 
-Eyal Perry (2):
-  net/vlan: Provide access to the vlan egress map
-  RDMA/cma: Set IBoE SL (user-priority) by egress map when using vlans
+Another modification is required (in xgmac_stop) to ensure that
+xgmac_xmit is really not called anymore (xgmac_tx_complete might wake
+up the queue again).
 
- drivers/infiniband/core/cma.c |   26 +++++++++++++++++++++-----
- include/linux/if_vlan.h       |    9 ++++++++-
- net/8021q/vlan_dev.c          |   18 ++++++++++++------
- 3 files changed, 41 insertions(+), 12 deletions(-)
+I've tested the fix by switching MTU size every second between 600 and
+1500 while network traffic was going on. The test box survived a test
+of several hours (until I've stopped it) whereas w/o this fix above
+panic occurs after several minutes (at most).
+
+Signed-off-by: Andreas Herrmann <andreas.herrmann@calxeda.com>
+---
+ drivers/net/ethernet/calxeda/xgmac.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+Patch is against v3.12-48-gbe408cd.
+
+Regards,
+Andreas
+
+diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+index 48f5288..8eb422a 100644
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -1067,6 +1067,10 @@ static int xgmac_stop(struct net_device *dev)
+ 
+ 	writel(0, priv->base + XGMAC_DMA_INTR_ENA);
+ 
++	netif_tx_lock_bh(dev);
++	netif_stop_queue(dev);
++	netif_tx_unlock_bh(dev);
++
+ 	/* Disable the MAC core */
+ 	xgmac_mac_disable(priv->base);
+ 
+@@ -1370,11 +1374,8 @@ static int xgmac_change_mtu(struct net_device *dev, int new_mtu)
+ 	}
+ 
+ 	old_mtu = dev->mtu;
+-	dev->mtu = new_mtu;
+ 
+ 	/* return early if the buffer sizes will not change */
+-	if (old_mtu <= ETH_DATA_LEN && new_mtu <= ETH_DATA_LEN)
+-		return 0;
+ 	if (old_mtu == new_mtu)
+ 		return 0;
+ 
+@@ -1382,8 +1383,9 @@ static int xgmac_change_mtu(struct net_device *dev, int new_mtu)
+ 	if (!netif_running(dev))
+ 		return 0;
+ 
+-	/* Bring the interface down and then back up */
++	/* Bring interface down, change mtu and bring interface back up */
+ 	xgmac_stop(dev);
++	dev->mtu = new_mtu;
+ 	return xgmac_open(dev);
+ }
+ 
+-- 
+1.7.9.5
