@@ -1,34 +1,40 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH 02/10] netfilter: nf_log: prepar net namespace support
- for nf_log
-Date: Wed, 06 Nov 2013 10:00:04 +0800
-Message-ID: <5279A2A4.9060405@cn.fujitsu.com>
-References: <1360223390-15589-1-git-send-email-gaofeng@cn.fujitsu.com> <1360223390-15589-2-git-send-email-gaofeng@cn.fujitsu.com> <20131105141455.GB22912@ghostprotocols.net>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 3/7] IBM Akebono: Add support for a new PHY to the IBM
+ emac driver
+Date: Wed, 06 Nov 2013 13:17:20 +1100
+Message-ID: <1383704240.4776.115.camel@pasglop>
+References: <1383629471-16979-1-git-send-email-alistair@popple.id.au>
+	 <81419762.0SyAdYsUqu@mexican>
+	 <CAGVrzcYzBtDcxYXDopOJn_=vW_58SFs9y0uKeGNB9TDPh6J4wg@mail.gmail.com>
+	 <9250529.5UedqhaNce@mexican>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org,
-	containers@lists.linux-foundation.org, pablo@netfilter.org,
-	ebiederm@xmission.com, netdev@vger.kernel.org, lve@guap.ru
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20131105141455.GB22912@ghostprotocols.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	linuxppc-dev <linuxppc-dev@lists.ozlabs.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Alistair Popple <alistair@popple.id.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:39640 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752579Ab3KFCRw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Nov 2013 21:17:52 -0500
+In-Reply-To: <9250529.5UedqhaNce@mexican>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/05/2013 10:14 PM, Arnaldo Carvalho de Melo wrote:
-> Em Thu, Feb 07, 2013 at 03:49:42PM +0800, Gao feng escreveu:
->> index 9e31269..b1e5126 100644
->> +++ b/net/netfilter/nf_log.c
->> @@ -16,7 +16,6 @@
->>  #define NF_LOG_PREFIXLEN		128
->>  #define NFLOGGER_NAME_LEN		64
->>  
->> -static const struct nf_logger __rcu *nf_loggers[NFPROTO_NUMPROTO] __read_mostly;
+On Wed, 2013-11-06 at 12:38 +1100, Alistair Popple wrote:
+> > Right, rgmii_mode_name() just has informative purposes and should be
+> > removed, I would suggest using standard device tree bindings
+> property
+> > (phy-mode) anyway such that you could use of_get_phy_mode() and use
+> > phy_interface_t types.
 > 
-> This was initialized to zeros, but then got moved to struct netns_nf,
-> I'm trying to figure it out if it is being zeroed somewhere, ideas?
-> 
+> Ok, that's what is currently done in the core IBM EMAC driver. As this
+> is used 
+> just for informative purposes I will remove it. Thanks.
 
-The init_net is defined as global, so the nf_loggers of init_net is initialized to zero,
-and for un init_net, we use kmem_cache_zalloc to allocate net struct, so it is initialized to zero too.
+Why ? Information is useful...
+
+Ben.
