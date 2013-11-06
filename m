@@ -1,61 +1,44 @@
-From: Ivan Frederiks <frederiks@speechpro.com>
-Subject: Re: Realtek RTL8102E registers
-Date: Wed, 06 Nov 2013 14:13:14 +0400
-Message-ID: <527A163A.9010409@speechpro.com>
-References: <526FCEAA.30102@speechpro.com> <20131029214059.GA26496@electric-eye.fr.zoreil.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCH net-next 0/3] Small IPsec fix
+Date: Wed, 6 Nov 2013 18:14:13 +0800
+Message-ID: <1383732856-18323-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux r8169 crew <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>, <davem@davemloft.net>,
+	<herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spb2.speechpro.com ([149.126.18.58]:59366 "EHLO
-	spb2.speechpro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756185Ab3KFKN2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 05:13:28 -0500
-In-Reply-To: <20131029214059.GA26496@electric-eye.fr.zoreil.com>
+Received: from mail1.windriver.com ([147.11.146.13]:53431 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756087Ab3KFKOb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 05:14:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Francois,
+Hi
 
-I found solution for the issue that I described earlier: one has to set
-correct MAC-address before bringing up the interface.
+This patchset made below modifications:
+ - Fix setting policy index with "ip xfrm ... index=xx"
+   which is currently broken
 
-On my board RTL8102E works without EEPROM, so initial MAC-address value
-is unpredictable. In many cases this value has multicast bit set to 1.
-This fact breaks driver and (or) TCP stack operation:
-* r8169 reports that link is down
-* r8101 reports that link is OK, but Linux TCP stack ignores packets
-with multicast destination MAC
+ - Using correct name space for home agent when migrating
+   key info.
 
-Hope this info would be useful. BTW, I suppose that driver could have
-some kind of protection against such situations.
+ - Put xfrm locks into per namespace to improve scalability.
 
-On 30.10.2013 01:40, Francois Romieu wrote:
-> Ivan Frederiks <frederiks@speechpro.com> :
-> [...]
->> Maybe you have access to RTL8102E register description ?
-> 
-> No.
-> 
-> Realtek's hardware documentation policy isn't exactly opened. Your hardware
-> vendor may help.
-> 
-> [...]
->> Issue description:
-> [snip]
-> 
-> kernel version and r81xx XID value as it should appear in dmesg would
-> be welcome.
-> 
 
---
-Best regards,
+Fan Du (3):
+  xfrm: Try to honor policy index if it's supplied by user
+  xfrm: Using the right namespace to migrate key info
+  xfrm: Namespacify xfrm state/policy locks
 
-Ivan Frederiks
-Embedded developer
-Speech Technology Center
+ include/net/netns/xfrm.h |    4 ++
+ include/net/xfrm.h       |   13 +++--
+ net/key/af_key.c         |   18 ++++---
+ net/xfrm/xfrm_policy.c   |  130 +++++++++++++++++++++++++---------------------
+ net/xfrm/xfrm_state.c    |  104 +++++++++++++++++++------------------
+ net/xfrm/xfrm_user.c     |   27 +++++++---
+ 6 files changed, 168 insertions(+), 128 deletions(-)
 
-Phone: +7-812-331-0665, ext. 6123, 6942
-Fax: +7-812-327-9297
+-- 
+1.7.9.5
