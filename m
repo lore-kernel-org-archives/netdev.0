@@ -1,64 +1,110 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Wed, 6 Nov 2013 21:12:52 +0800
-Message-ID: <20131106131252.GA20680@gondor.apana.org.au>
-References: <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Wed, 6 Nov 2013 21:30:45 +0800
+Message-ID: <20131106133045.GA20931@gondor.apana.org.au>
+References: <20131029.194446.2215574000648693370.davem@davemloft.net>
+ <1383091610.1534.29.camel@bwh-desktop.uk.level5networks.com>
+ <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131103122824.GA17394@gondor.apana.org.au>
+ <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131103163103.GA18894@gondor.apana.org.au>
+ <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
  <20131104041108.GA22823@gondor.apana.org.au>
  <20131106013038.GA14894@gondor.apana.org.au>
- <1383702347.4291.152.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131106040717.GA15711@gondor.apana.org.au>
- <1383711785.4291.156.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131106042858.GA15745@gondor.apana.org.au>
- <1383715222.4291.158.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131106080425.GA17556@gondor.apana.org.au>
- <20131106081638.GA17665@gondor.apana.org.au>
+ <20131106123900.GA20259@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	David Miller <davem@davemloft.net>,
 	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com, mst@redhat.com
+	hkchu@google.com, mwdalton@google.com
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:45458 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:60542 "EHLO
 	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756221Ab3KFNNA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 08:13:00 -0500
+	with ESMTP id S932088Ab3KFNax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 08:30:53 -0500
 Content-Disposition: inline
-In-Reply-To: <20131106081638.GA17665@gondor.apana.org.au>
+In-Reply-To: <20131106123900.GA20259@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 06, 2013 at 04:16:38PM +0800, Herbert Xu wrote:
->
-> I just looked at the aformentioned patch again and it is seriously
-> broken! How on earth did it get merged?
+On Wed, Nov 06, 2013 at 08:39:00PM +0800, Herbert Xu wrote:
 > 
-> Instead of using perfectly sane 4K pages per frag to store guest to
-> guest traffic, we now end up using 1.5K frags, which that's why you
-> end up having to use the frag_list, WTF?
+> That patch obviously didn't have a chance of working since I missed
+> a continue.
 > 
-> Dave, please revert the above commit as it is seriously broken.
+> Here is a better version.
 
-I take that back.  While the original patch was seriously broken,
-it has since been fixed by the coalescing patch that Jason Wang
-wrote.
-
-It's still pretty weird to be dividing page frags into 1500-byte
-chunks and then merging back up to 4K but at least it should do the
-right thing now.
-
-With regards to the impact on my skb_segment patch, there should be
-none because those packets ultimately are still originating from
-either GRO or the TCP stack.  In which case the same assumptions
-on frag_list still holds.
-
-However, we do have to guard against evil hosts/guests injecting
-bogus packets into our stack, so either we'll have to lose the
-BUG_ON in skb_segment or we'll need some sort of a filter in
-virtio_net.
-
-Perhaps a rate-limited printk might be the go.
+In order to handle malicious GSO packets that is now possible with
+the use of frag_list in virtio_net, we need to remove the BUG_ONs.
+ 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 3735fad..f336e5c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2816,7 +2816,44 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 			hsize = len;
+ 
+ 		if (!hsize && i >= nfrags) {
+-			BUG_ON(fskb->len != len);
++			if (fskb->len != len) {
++				if (skb_has_frag_list(fskb)) {
++					net_warn_ratelimited(
++						"skb_segment: "
++						"nested frag_list detected");
++					err = -EINVAL;
++					goto err;
++				}
++
++				nskb = skb_segment(fskb, features);
++
++				err = PTR_ERR(nskb);
++				if (IS_ERR(nskb))
++					goto err;
++				err = -ENOMEM;
++
++				if (segs)
++					tail->next = nskb;
++				else
++					segs = nskb;
++
++				tail = nskb;
++				while (tail->next)
++					tail = tail->next;
++
++				if (fskb->next && tail->len != len) {
++					net_warn_ratelimited(
++						"skb_segment: "
++						"illegal GSO fragment: %u %u",
++						tail->len, len);
++					err = -EINVAL;
++					goto err;
++				}
++
++				len = fskb->len;
++				fskb = fskb->next;
++				continue;
++			}
+ 
+ 			pos += len;
+ 			nskb = skb_clone(fskb, GFP_ATOMIC);
+@@ -2905,7 +2942,14 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 		if (pos < offset + len) {
+ 			struct sk_buff *fskb2 = fskb;
+ 
+-			BUG_ON(pos + fskb->len != offset + len);
++			if (pos + fskb->len != offset + len) {
++				net_warn_ratelimited(
++					"skb_segment: "
++					"illegal GSO trailer: %u %u",
++					pos + fskb->len, offset + len);
++				err = -EINVAL;
++				goto err;
++			}
+ 
+ 			pos += fskb->len;
+ 			fskb = fskb->next;
 
 Cheers,
 -- 
