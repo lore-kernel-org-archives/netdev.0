@@ -1,58 +1,52 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Wed, 06 Nov 2013 09:25:51 -0800
-Message-ID: <1383758751.7940.20.camel@joe-AO722>
-References: <1383091610.1534.29.camel@bwh-desktop.uk.level5networks.com>
-	 <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131103122824.GA17394@gondor.apana.org.au>
-	 <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131103163103.GA18894@gondor.apana.org.au>
-	 <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131104041108.GA22823@gondor.apana.org.au>
-	 <20131106013038.GA14894@gondor.apana.org.au>
-	 <20131106123900.GA20259@gondor.apana.org.au>
-	 <20131106133045.GA20931@gondor.apana.org.au>
-	 <20131106143927.GA21604@gondor.apana.org.au>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next 0/2] bonding: extend round-robin mode
+Date: Wed, 06 Nov 2013 18:51:42 +0100
+Message-ID: <527A81AE.2070400@redhat.com>
+References: <1383655902-18744-1-git-send-email-nikolay@redhat.com> <23278.1383756949@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
+	vfalico@redhat.com
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0050.hostedemail.com ([216.40.44.50]:56107 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754348Ab3KFRZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 12:25:49 -0500
-In-Reply-To: <20131106143927.GA21604@gondor.apana.org.au>
+Received: from mx1.redhat.com ([209.132.183.28]:36427 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755382Ab3KFRvz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Nov 2013 12:51:55 -0500
+In-Reply-To: <23278.1383756949@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-11-06 at 22:39 +0800, Herbert Xu wrote:
-> On Wed, Nov 06, 2013 at 09:30:45PM +0800, Herbert Xu wrote:
-> > In order to handle malicious GSO packets that is now possible with
-> > the use of frag_list in virtio_net, we need to remove the BUG_ONs.
-[]
-> Still totally untested but at least this has a chance of handling
-> the new virtio_net.
+On 11/06/2013 05:55 PM, Jay Vosburgh wrote:
+> Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+> 
+>> This small patchset adds a new option called packets_per_slave to the
+>> bonding which aims to extend round-robin mode with the following effects:
+>> 0 - choose the slave id at random
+>> 1 - packet per slave (standard round-robin, default option value)
+>>> 1 - transmit >1 packets per slave, switch the slaves in round-robin
+>> Patch02 adds a description for the new option to the bonding documentation.
+> 
+> 	Could you explain why this is useful?  My guess is that you're
+> trying to synchronize with the packet receive processing of a peer
+> (perhaps for GRO?), but I think it would be useful to explain the
+> utility of this.
+> 
+> 	-J
+> 
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> 
+Hi Jay,
+Yes, that is one good use case, I'm also experimenting with a user-space
+software that uses various heuristics and tunes this option (e.g., TCP-RR
+case). I've been playing with this option for the past 3 weeks or so and
+have to move on to some real-world tests, since my current environment
+consists only of VMs and that's nowhere near the real world :-)
+If your intention is to include such information in the bonding
+documentation then I'll need some more time to gather it, and can do it as
+either a follow-up or we can just drop this now and I'll re-post once I've
+some definite real(lab)-world results.
 
-trivial:  please add "\n" to each net_warn_ratelimited
-format termination.
-
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-[]
-> @@ -2861,15 +2853,62 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
-[]
-> +			if (skb_has_frag_list(nskb)) {
-> +				net_warn_ratelimited(
-> +					"skb_segment: "
-> +					"nested frag_list detected");
-
-	"nested frag_list detected\n");
-
-etc...
-
-It might be nicer to coalesce the format fragments too.
+Nik
