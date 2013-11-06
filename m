@@ -1,77 +1,65 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH] net: don't forget to free sk_filter
-Date: Wed, 6 Nov 2013 08:39:00 -0800
-Message-ID: <CAMEtUuwkA0+tKhDB0-cK9wZu11dBvJYPdyfGJLt7jeTGETb4tg@mail.gmail.com>
-References: <1383753106-26978-1-git-send-email-avagin@openvz.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/3] net: allow to leave the buffer fragmented
+ in skb_cow_data()
+Date: Wed, 06 Nov 2013 08:39:49 -0800
+Message-ID: <1383755989.4291.178.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <cover.1381923854.git.mathias.krause@secunet.com>
+	 <14f30e8f5f8405c1ca73b6d3a554441c1736142d.1381923854.git.mathias.krause@secunet.com>
+	 <20131106093028.GA18435@gondor.apana.org.au> <527A109E.5040000@secunet.com>
+	 <20131106095217.GA18851@gondor.apana.org.au> <527A391B.4050907@secunet.com>
+	 <20131106124811.GA20404@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrey Vagin <avagin@openvz.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Mathias Krause <mathias.krause@secunet.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:59370 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754822Ab3KFQjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 11:39:01 -0500
-Received: by mail-wg0-f45.google.com with SMTP id z12so5278522wgg.24
-        for <netdev@vger.kernel.org>; Wed, 06 Nov 2013 08:39:00 -0800 (PST)
-In-Reply-To: <1383753106-26978-1-git-send-email-avagin@openvz.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:43092 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752436Ab3KFQjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 11:39:55 -0500
+Received: by mail-pd0-f173.google.com with SMTP id r10so10367090pdi.18
+        for <netdev@vger.kernel.org>; Wed, 06 Nov 2013 08:39:54 -0800 (PST)
+In-Reply-To: <20131106124811.GA20404@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 6, 2013 at 7:51 AM, Andrey Vagin <avagin@openvz.org> wrote:
-> sk_filter isn't freed if bpf_func is equal to sk_run_filter.
+On Wed, 2013-11-06 at 20:48 +0800, Herbert Xu wrote:
+> On Wed, Nov 06, 2013 at 01:42:03PM +0100, Mathias Krause wrote:
+> >
+> > Well, skb_cow_data() will only copy, i.e. call __pskb_pull_tail(), in
+> > case the skb is either cloned or fragmented. As you already said it
+> > won't be cloned in your case. Does it contain fragments, i.e. is
+> > skb_shinfo(skb)->nr_frags != 0? If not, we won't copy with the current
+> > code either.
+> 
+> Whenever we say page it means nr_frags != 0.  So currently as
+> long as we have pages in our skb we will copy.  With your patch
+> we will no longer copy in the case where we have pages but the
+> skb isn't cloned.  In fact that is the whole point of your patch.
+> 
+> > Can you please explain why this would be needed? I still don't get the
+> > reasoning behind "pages are considered not writable at the moment even
+> > if they are anonymous".
+> 
+> As I said you don't know where the page in the skb came from.  It
+> may point to read-only memory or memory that's shared with another
+> task that isn't expecting things to change underneath it.
 
-good catch! thanks.
+Note that we might have now a per skb flag telling is all page frags are
+owned.
 
-> This memory leak was introduced by
-> commit d45ed4a4e33ae103053c0a53d280014e7101bb5c
-> Author: Alexei Starovoitov <ast@plumgrid.com>
-> Date:   Fri Oct 4 00:14:06 2013 -0700
->
->     net: fix unsafe set_memory_rw from softirq
->
-> Before this patch sk_filter was freed in sk_filter_release_rcu,
-> now it is freed in bpf_jit_free.
->
-> Here is output of kmemleak:
-> unreferenced object 0xffff8800b774eab0 (size 128):
->   comm "systemd", pid 1, jiffies 4294669014 (age 124.062s)
->   hex dump (first 32 bytes):
->     00 00 00 00 0b 00 00 00 20 63 7f b7 00 88 ff ff  ........ c......
->     60 d4 55 81 ff ff ff ff 30 d9 55 81 ff ff ff ff  `.U.....0.U.....
->   backtrace:
->     [<ffffffff816444be>] kmemleak_alloc+0x4e/0xb0
->     [<ffffffff811845af>] __kmalloc+0xef/0x260
->     [<ffffffff81534028>] sock_kmalloc+0x38/0x60
->     [<ffffffff8155d4dd>] sk_attach_filter+0x5d/0x190
->     [<ffffffff815378a1>] sock_setsockopt+0x991/0x9e0
->     [<ffffffff81531bd6>] SyS_setsockopt+0xb6/0xd0
->     [<ffffffff8165f3e9>] system_call_fastpath+0x16/0x1b
->     [<ffffffffffffffff>] 0xffffffffffffffff
->
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: stable@vger.kernel.org # 3.12
-> Signed-off-by: Andrey Vagin <avagin@openvz.org>
-> ---
->  arch/x86/net/bpf_jit_comp.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-> index 516593e..3c55de5 100644
-> --- a/arch/x86/net/bpf_jit_comp.c
-> +++ b/arch/x86/net/bpf_jit_comp.c
-> @@ -788,5 +788,6 @@ void bpf_jit_free(struct sk_filter *fp)
->         if (fp->bpf_func != sk_run_filter) {
->                 INIT_WORK(&fp->work, bpf_jit_free_deferred);
->                 schedule_work(&fp->work);
-> -       }
-> +       } else
-> +               kfree(fp);
+This is SKBTX_SHARED_FRAG
 
-please add extra { } after else
+If SKBTX_SHARED_FRAG is set on shared_info->tx_flags, then at least
+one frag is not safe and we must copy all frags.
 
-Thanks
-Alexei
+
+For example, this flag is set in TCP sendfile() path (vmsplice()...),
+and zero copy paths in general (macvtap, tun)
+
+I am not 100% sure, but this could be a hint.
