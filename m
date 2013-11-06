@@ -1,126 +1,103 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not ipsec pkt
-Date: Wed,  6 Nov 2013 09:05:53 +0100
-Message-ID: <1383725153-26298-1-git-send-email-christophe.gouault@6wind.com>
-References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	Saurabh Mohan <saurabh.mohan@vyatta.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: christophe.gouault@6wind.com,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next 1/3] net_sched: tbf: support of 64bit rates
+Date: Wed, 6 Nov 2013 16:05:07 +0800
+Message-ID: <1383725109-37348-2-git-send-email-yangyingliang@huawei.com>
+References: <1383725109-37348-1-git-send-email-yangyingliang@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>, <jhs@mojatatu.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56991 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753444Ab3KFIGG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 03:06:06 -0500
-In-Reply-To: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:52235 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751270Ab3KFIG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 03:06:28 -0500
+In-Reply-To: <1383725109-37348-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The vti interface inbound and outbound SPD lookups are based on the
-ipsec packet instead of the plaintext packet.
+With psched_ratecfg_precompute(), tbf can deal with 64bit rates.
+Add two new attributes so that tc can use them to break the 32bit
+limit.
 
-Not only is it counterintuitive, it also restricts vti interfaces
-to a single policy (whose selector must match the tunnel local and
-remote addresses).
-
-The policy selector is supposed to match the plaintext packet, before
-encryption or after decryption.
-
-This patch performs the SPD lookup based on the plaintext packet. It
-enables to create several polices bound to the vti interface (via a
-mark equal to the vti interface okey).
-
-It remains possible to apply the same policy to all packets entering
-the vti interface, by setting an any-to-any selector (src 0.0.0.0/0
-dst 0.0.0.0/0 proto any mark OKEY).
-
-Signed-off-by: Christophe Gouault <christophe.gouault@6wind.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 ---
-v2:
-- Fixed comment style
-- Checked with checkpatch.pl and sparse
+ include/uapi/linux/pkt_sched.h |  2 ++
+ net/sched/sch_tbf.c            | 22 ++++++++++++++++++----
+ 2 files changed, 20 insertions(+), 4 deletions(-)
 
-v3:
-- vti_rcv: optimized skb network header shift and restore
-- Checked with checkpatch.pl and sparse
----
- net/ipv4/ip_vti.c |   29 ++++++++++++++++++++++++++++-
- 1 file changed, 28 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 6e87f85..2368262 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -126,6 +126,7 @@ static int vti_rcv(struct sk_buff *skb)
- 	if (tunnel != NULL) {
- 		struct pcpu_tstats *tstats;
- 		u32 oldmark = skb->mark;
-+		unsigned int old_nh = skb->network_header;
- 		int ret;
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index f2624b5..307f293 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -171,6 +171,8 @@ enum {
+ 	TCA_TBF_PARMS,
+ 	TCA_TBF_RTAB,
+ 	TCA_TBF_PTAB,
++	TCA_TBF_RATE64,
++	TCA_TBF_PRATE64,
+ 	__TCA_TBF_MAX,
+ };
  
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index b057122..b736517 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -266,20 +266,23 @@ static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
+ 	[TCA_TBF_PARMS]	= { .len = sizeof(struct tc_tbf_qopt) },
+ 	[TCA_TBF_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
+ 	[TCA_TBF_PTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
++	[TCA_TBF_RATE64]	= { .type = NLA_U64 },
++	[TCA_TBF_PRATE64]	= { .type = NLA_U64 },
+ };
  
-@@ -133,7 +134,13 @@ static int vti_rcv(struct sk_buff *skb)
- 		 * only match policies with this mark.
- 		 */
- 		skb->mark = be32_to_cpu(tunnel->parms.o_key);
-+		/* The packet is decrypted, but not yet decapsulated.
-+		 * Temporarily make network_header point to the inner header
-+		 * for policy check.
-+		 */
-+		skb_reset_network_header(skb);
- 		ret = xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb);
-+		skb->network_header = old_nh;
- 		skb->mark = oldmark;
- 		if (!ret)
- 			return -1;
-@@ -166,6 +173,8 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct iphdr  *old_iph = ip_hdr(skb);
- 	__be32 dst = tiph->daddr;
- 	struct flowi4 fl4;
-+	struct flowi fl;
-+	u32 oldmark = skb->mark;
+ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ {
  	int err;
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+-	struct nlattr *tb[TCA_TBF_PTAB + 1];
++	struct nlattr *tb[TCA_TBF_MAX + 1];
+ 	struct tc_tbf_qopt *qopt;
+ 	struct qdisc_rate_table *rtab = NULL;
+ 	struct qdisc_rate_table *ptab = NULL;
+ 	struct Qdisc *child = NULL;
+ 	int max_size, n;
++	u64 rate64 = 0, prate64 = 0;
  
- 	if (skb->protocol != htons(ETH_P_IP))
-@@ -173,17 +182,35 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+-	err = nla_parse_nested(tb, TCA_TBF_PTAB, opt, tbf_policy);
++	err = nla_parse_nested(tb, TCA_TBF_MAX, opt, tbf_policy);
+ 	if (err < 0)
+ 		return err;
  
- 	tos = old_iph->tos;
+@@ -341,9 +344,13 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	q->tokens = q->buffer;
+ 	q->ptokens = q->mtu;
  
-+	/* SPD lookup: we must provide a dst_entry to xfrm_lookup, normally the
-+	 * route to the final destination. However this route is a route via
-+	 * the vti interface. Now vti interfaces typically have the NOXFRM
-+	 * flag, hence xfrm_lookup would bypass IPsec.
-+	 *
-+	 * Therefore, we feed xfrm_lookup with a route to the vti tunnel remote
-+	 * endpoint instead.
-+	 */
- 	memset(&fl4, 0, sizeof(fl4));
- 	flowi4_init_output(&fl4, tunnel->parms.link,
- 			   be32_to_cpu(tunnel->parms.o_key), RT_TOS(tos),
- 			   RT_SCOPE_UNIVERSE,
- 			   IPPROTO_IPIP, 0,
- 			   dst, tiph->saddr, 0, 0);
--	rt = ip_route_output_key(dev_net(dev), &fl4);
-+	rt = __ip_route_output_key(tunnel->net, &fl4);
- 	if (IS_ERR(rt)) {
- 		dev->stats.tx_carrier_errors++;
- 		goto tx_error_icmp;
- 	}
-+
-+	memset(&fl, 0, sizeof(fl));
-+	/* Temporarily mark the skb with the tunnel o_key, to look up
-+	 * for a policy with this mark, matching the plaintext traffic.
-+	 */
-+	skb->mark = be32_to_cpu(tunnel->parms.o_key);
-+	__xfrm_decode_session(skb, &fl, AF_INET, 0);
-+	skb->mark = oldmark;
-+	rt = (struct rtable *)xfrm_lookup(tunnel->net, &rt->dst, &fl, NULL, 0);
-+
- 	/* if there is no transform then this tunnel is not functional.
- 	 * Or if the xfrm is not mode tunnel.
- 	 */
+-	psched_ratecfg_precompute(&q->rate, &rtab->rate, 0);
++	if (tb[TCA_TBF_RATE64])
++		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
++	psched_ratecfg_precompute(&q->rate, &rtab->rate, rate64);
+ 	if (ptab) {
+-		psched_ratecfg_precompute(&q->peak, &ptab->rate, 0);
++		if (tb[TCA_TBF_PRATE64])
++			prate64 = nla_get_u64(tb[TCA_TBF_PRATE64]);
++		psched_ratecfg_precompute(&q->peak, &ptab->rate, prate64);
+ 		q->peak_present = true;
+ 	} else {
+ 		q->peak_present = false;
+@@ -402,6 +409,13 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	opt.buffer = PSCHED_NS2TICKS(q->buffer);
+ 	if (nla_put(skb, TCA_TBF_PARMS, sizeof(opt), &opt))
+ 		goto nla_put_failure;
++	if ((q->rate.rate_bytes_ps >= (1ULL << 32)) &&
++			nla_put_u64(skb, TCA_TBF_RATE64, q->rate.rate_bytes_ps))
++		goto nla_put_failure;
++	if (q->peak_present &&
++			(q->peak.rate_bytes_ps >= (1ULL << 32)) &&
++			nla_put_u64(skb, TCA_TBF_PRATE64, q->peak.rate_bytes_ps))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(skb, nest);
+ 	return skb->len;
 -- 
-1.7.10.4
+1.7.12
