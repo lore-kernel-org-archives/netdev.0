@@ -1,195 +1,108 @@
 From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net-next 2/3] net_sched: fix some checkpatch errors
-Date: Wed, 6 Nov 2013 16:05:08 +0800
-Message-ID: <1383725109-37348-3-git-send-email-yangyingliang@huawei.com>
+Subject: [PATCH net-next 3/3] net_sched: Use pr_debug replace printk(KERN_DEBUG ...)
+Date: Wed, 6 Nov 2013 16:05:09 +0800
+Message-ID: <1383725109-37348-4-git-send-email-yangyingliang@huawei.com>
 References: <1383725109-37348-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <eric.dumazet@gmail.com>, <jhs@mojatatu.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:51584 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752017Ab3KFIF0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 03:05:26 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:6059 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932070Ab3KFIFi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 03:05:38 -0500
 In-Reply-To: <1383725109-37348-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are some checkpatch errors, fix them.
+Replace printk(KERN_DEBUG ...) with pr_debug() and
+replace pr_warning() with pr_warn().
 
 Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 ---
- net/sched/act_api.c     |  4 ++--
- net/sched/cls_bpf.c     |  2 +-
- net/sched/cls_u32.c     |  2 +-
- net/sched/sch_cbq.c     |  3 ++-
- net/sched/sch_generic.c |  4 ++--
- net/sched/sch_htb.c     | 13 +++++++------
- net/sched/sch_netem.c   |  2 +-
- net/sched/sch_sfq.c     | 10 ++++++----
- 8 files changed, 22 insertions(+), 18 deletions(-)
+ net/sched/sch_cbq.c    | 2 +-
+ net/sched/sch_dsmark.c | 2 +-
+ net/sched/sch_gred.c   | 4 ++--
+ net/sched/sch_htb.c    | 6 +++---
+ 4 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index fd70728..c8aadfa 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -191,7 +191,7 @@ u32 tcf_hash_new_index(u32 *idx_gen, struct tcf_hashinfo *hinfo)
- 			val = 1;
- 	} while (tcf_hash_lookup(val, hinfo));
- 
--	return (*idx_gen = val);
-+	return *idx_gen = val;
- }
- EXPORT_SYMBOL(tcf_hash_new_index);
- 
-@@ -263,7 +263,7 @@ void tcf_hash_insert(struct tcf_common *p, struct tcf_hashinfo *hinfo)
- }
- EXPORT_SYMBOL(tcf_hash_insert);
- 
--static struct tc_action_ops *act_base = NULL;
-+static struct tc_action_ops *act_base;
- static DEFINE_RWLOCK(act_mod_lock);
- 
- int tcf_register_action(struct tc_action_ops *act)
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 1002a82..d7c72be 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -323,7 +323,7 @@ static int cls_bpf_dump(struct tcf_proto *tp, unsigned long fh,
- 	if (nla == NULL)
- 		goto nla_put_failure;
- 
--        memcpy(nla_data(nla), prog->bpf_ops, nla_len(nla));
-+	memcpy(nla_data(nla), prog->bpf_ops, nla_len(nla));
- 
- 	if (tcf_exts_dump(skb, &prog->exts, &bpf_ext_map) < 0)
- 		goto nla_put_failure;
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index eb07a1e..59e546c 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -352,7 +352,7 @@ static int u32_destroy_key(struct tcf_proto *tp, struct tc_u_knode *n)
- 	return 0;
- }
- 
--static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode* key)
-+static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
- {
- 	struct tc_u_knode **kp;
- 	struct tc_u_hnode *ht = key->ht_up;
 diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 7a42c81..a8f40f5 100644
+index a8f40f5..9e3a9dc 100644
 --- a/net/sched/sch_cbq.c
 +++ b/net/sched/sch_cbq.c
-@@ -1058,7 +1058,8 @@ static void cbq_normalize_quanta(struct cbq_sched_data *q, int prio)
- 				cl->quantum = (cl->weight*cl->allot*q->nclasses[prio])/
- 					q->quanta[prio];
+@@ -1060,7 +1060,7 @@ static void cbq_normalize_quanta(struct cbq_sched_data *q, int prio)
  			}
--			if (cl->quantum <= 0 || cl->quantum>32*qdisc_dev(cl->qdisc)->mtu) {
-+			if (cl->quantum <= 0 ||
-+				cl->quantum > 32*qdisc_dev(cl->qdisc)->mtu) {
- 				pr_warning("CBQ: class %08x has bad quantum==%ld, repaired.\n",
+ 			if (cl->quantum <= 0 ||
+ 				cl->quantum > 32*qdisc_dev(cl->qdisc)->mtu) {
+-				pr_warning("CBQ: class %08x has bad quantum==%ld, repaired.\n",
++				pr_warn("CBQ: class %08x has bad quantum==%ld, repaired.\n",
  					   cl->common.classid, cl->quantum);
  				cl->quantum = qdisc_dev(cl->qdisc)->mtu/2 + 1;
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 7fc899a..9421350 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -338,13 +338,13 @@ EXPORT_SYMBOL(netif_carrier_off);
-    cheaper.
-  */
+ 			}
+diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+index 3886365..190cf65 100644
+--- a/net/sched/sch_dsmark.c
++++ b/net/sched/sch_dsmark.c
+@@ -303,7 +303,7 @@ static struct sk_buff *dsmark_dequeue(struct Qdisc *sch)
+ 		 * and don't need yet another qdisc as a bypass.
+ 		 */
+ 		if (p->mask[index] != 0xff || p->value[index])
+-			pr_warning("dsmark_dequeue: unsupported protocol %d\n",
++			pr_warn("dsmark_dequeue: unsupported protocol %d\n",
+ 				   ntohs(skb->protocol));
+ 		break;
+ 	}
+diff --git a/net/sched/sch_gred.c b/net/sched/sch_gred.c
+index d42234c..19fa4dc 100644
+--- a/net/sched/sch_gred.c
++++ b/net/sched/sch_gred.c
+@@ -370,7 +370,7 @@ static inline int gred_change_table_def(struct Qdisc *sch, struct nlattr *dps)
  
--static int noop_enqueue(struct sk_buff *skb, struct Qdisc * qdisc)
-+static int noop_enqueue(struct sk_buff *skb, struct Qdisc *qdisc)
- {
- 	kfree_skb(skb);
- 	return NET_XMIT_CN;
- }
+ 	for (i = table->DPs; i < MAX_DPs; i++) {
+ 		if (table->tab[i]) {
+-			pr_warning("GRED: Warning: Destroying "
++			pr_warn("GRED: Warning: Destroying "
+ 				   "shadowed VQ 0x%x\n", i);
+ 			gred_destroy_vq(table->tab[i]);
+ 			table->tab[i] = NULL;
+@@ -456,7 +456,7 @@ static int gred_change(struct Qdisc *sch, struct nlattr *opt)
+ 			if (table->tab[table->def])
+ 				def_prio = table->tab[table->def]->prio;
  
--static struct sk_buff *noop_dequeue(struct Qdisc * qdisc)
-+static struct sk_buff *noop_dequeue(struct Qdisc *qdisc)
- {
- 	return NULL;
- }
+-			printk(KERN_DEBUG "GRED: DP %u does not have a prio "
++			pr_debug("GRED: DP %u does not have a prio "
+ 			       "setting default to %d\n", ctl->DP, def_prio);
+ 
+ 			prio = def_prio;
 diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 0e1e38b..f6e8a74 100644
+index f6e8a74..6586f3b 100644
 --- a/net/sched/sch_htb.c
 +++ b/net/sched/sch_htb.c
-@@ -54,7 +54,7 @@
-     one less than their parent.
- */
+@@ -712,7 +712,7 @@ static s64 htb_do_events(struct htb_sched *q, const int level,
  
--static int htb_hysteresis __read_mostly = 0; /* whether to use mode hysteresis for speedup */
-+static int htb_hysteresis __read_mostly; /* whether to use mode hysteresis for speedup */
- #define HTB_VER 0x30011		/* major must be matched with number suplied by TC as version */
+ 	/* too much load - let's continue after a break for scheduling */
+ 	if (!(q->warned & HTB_WARN_TOOMANYEVENTS)) {
+-		pr_warning("htb: too many events!\n");
++		pr_warn("htb: too many events!\n");
+ 		q->warned |= HTB_WARN_TOOMANYEVENTS;
+ 	}
  
- #if HTB_VER >> 16 != TC_HTB_PROTOVER
-@@ -65,7 +65,7 @@ static int htb_hysteresis __read_mostly = 0; /* whether to use mode hysteresis f
- module_param    (htb_hysteresis, int, 0640);
- MODULE_PARM_DESC(htb_hysteresis, "Hysteresis mode, less CPU load, less accurate");
- 
--static int htb_rate_est = 0; /* htb classes have a default rate estimator */
-+static int htb_rate_est; /* htb classes have a default rate estimator */
- module_param(htb_rate_est, int, 0640);
- MODULE_PARM_DESC(htb_rate_est, "setup a default rate estimator (4sec 16sec) for htb classes");
- 
-@@ -846,7 +846,7 @@ next:
- 			break;
- 
- 		qdisc_warn_nonwc("htb", cl->un.leaf.q);
--		htb_next_rb_node(level ? &cl->parent->un.inner.clprio[prio].ptr:
-+		htb_next_rb_node(level ? &cl->parent->un.inner.clprio[prio].ptr :
- 					 &q->hlevel[0].hprio[prio].ptr);
- 		cl = htb_lookup_leaf(hprio, prio);
- 
-@@ -1276,9 +1276,10 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
- 	struct Qdisc *new_q = NULL;
- 	int last_child = 0;
- 
--	// TODO: why don't allow to delete subtree ? references ? does
--	// tc subsys quarantee us that in htb_destroy it holds no class
--	// refs so that we can remove children safely there ?
-+	/* TODO: why don't allow to delete subtree ? references ? does
-+	 * tc subsys quarantee us that in htb_destroy it holds no class
-+	 * refs so that we can remove children safely there ?
-+	 */
- 	if (cl->children || cl->filter_cnt)
- 		return -EBUSY;
- 
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 75c94e5..9765c3f 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -728,7 +728,7 @@ static int get_loss_clg(struct Qdisc *sch, const struct nlattr *attr)
- 	nla_for_each_nested(la, attr, rem) {
- 		u16 type = nla_type(la);
- 
--		switch(type) {
-+		switch (type) {
- 		case NETEM_LOSS_GI: {
- 			const struct tc_netem_gimodel *gi = nla_data(la);
- 
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index d3a1bc2..76f01e0 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -237,10 +237,12 @@ static inline void sfq_link(struct sfq_sched_data *q, sfq_index x)
- }
- 
- #define sfq_unlink(q, x, n, p)			\
--	n = q->slots[x].dep.next;		\
--	p = q->slots[x].dep.prev;		\
--	sfq_dep_head(q, p)->next = n;		\
--	sfq_dep_head(q, n)->prev = p
-+	do {					\
-+		n = q->slots[x].dep.next;	\
-+		p = q->slots[x].dep.prev;	\
-+		sfq_dep_head(q, p)->next = n;	\
-+		sfq_dep_head(q, n)->prev = p;	\
-+	} while (0)
- 
- 
- static inline void sfq_dec(struct sfq_sched_data *q, sfq_index x)
+@@ -1484,13 +1484,13 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 	if (!cl->level) {
+ 		cl->quantum = hopt->rate.rate / q->rate2quantum;
+ 		if (!hopt->quantum && cl->quantum < 1000) {
+-			pr_warning(
++			pr_warn(
+ 			       "HTB: quantum of class %X is small. Consider r2q change.\n",
+ 			       cl->common.classid);
+ 			cl->quantum = 1000;
+ 		}
+ 		if (!hopt->quantum && cl->quantum > 200000) {
+-			pr_warning(
++			pr_warn(
+ 			       "HTB: quantum of class %X is big. Consider r2q change.\n",
+ 			       cl->common.classid);
+ 			cl->quantum = 200000;
 -- 
 1.7.12
