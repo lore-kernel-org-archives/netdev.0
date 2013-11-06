@@ -1,7 +1,7 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next 1/3] xfrm: Try to honor policy index if it's supplied by user
-Date: Wed, 6 Nov 2013 18:14:14 +0800
-Message-ID: <1383732856-18323-2-git-send-email-fan.du@windriver.com>
+Subject: [PATCH net-next 2/3] xfrm: Using the right namespace to migrate key info
+Date: Wed, 6 Nov 2013 18:14:15 +0800
+Message-ID: <1383732856-18323-3-git-send-email-fan.du@windriver.com>
 References: <1383732856-18323-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,106 +9,128 @@ Cc: <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>, <davem@davemloft.net>,
 	<herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:43911 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:43910 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756099Ab3KFKOb (ORCPT
+	with ESMTP id S1756057Ab3KFKOb (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 05:14:31 -0500
 In-Reply-To: <1383732856-18323-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xfrm code always searches for unused policy index for
-newly created policy regardless whether or not user
-space policy index hint supplied.
-
-This patch enables such feature so that using
-"ip xfrm ... index=xxx" can be used by user to set
-specific policy index.
-
-Currently this beahvior is broken, so this patch make
-it happen as expected.
+because the home agent could surely be run on a different
+net namespace other than init_net. The original behavior
+could lead into inconsistent of key info.
 
 Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- net/xfrm/xfrm_policy.c |   16 +++++++++++-----
- net/xfrm/xfrm_user.c   |   10 +++++++++-
- 2 files changed, 20 insertions(+), 6 deletions(-)
+ include/net/xfrm.h     |    2 +-
+ net/key/af_key.c       |    3 ++-
+ net/xfrm/xfrm_policy.c |   10 +++++-----
+ net/xfrm/xfrm_user.c   |    3 ++-
+ 4 files changed, 10 insertions(+), 8 deletions(-)
 
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 6b82fdf..5b522c5 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1581,7 +1581,7 @@ struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
+ 				      struct xfrm_migrate *m);
+ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 		 struct xfrm_migrate *m, int num_bundles,
+-		 struct xfrm_kmaddress *k);
++		 struct xfrm_kmaddress *k, struct net *net);
+ #endif
+ 
+ int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, __be16 sport);
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 911ef03..33480b3 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -2485,6 +2485,7 @@ static int pfkey_migrate(struct sock *sk, struct sk_buff *skb,
+ 	struct xfrm_selector sel;
+ 	struct xfrm_migrate m[XFRM_MAX_DEPTH];
+ 	struct xfrm_kmaddress k;
++	struct net *net = sock_net(sk);
+ 
+ 	if (!present_and_same_family(ext_hdrs[SADB_EXT_ADDRESS_SRC - 1],
+ 				     ext_hdrs[SADB_EXT_ADDRESS_DST - 1]) ||
+@@ -2558,7 +2559,7 @@ static int pfkey_migrate(struct sock *sk, struct sk_buff *skb,
+ 	}
+ 
+ 	return xfrm_migrate(&sel, dir, XFRM_POLICY_TYPE_MAIN, m, i,
+-			    kma ? &k : NULL);
++			    kma ? &k : NULL, net);
+ 
+  out:
+ 	return err;
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 9a91f74..a5bbdfb 100644
+index a5bbdfb..907fd2f 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -538,7 +538,7 @@ static void xfrm_hash_resize(struct work_struct *work)
- 
- /* Generate new index... KAME seems to generate them ordered by cost
-  * of an absolute inpredictability of ordering of rules. This will not pass. */
--static u32 xfrm_gen_index(struct net *net, int dir)
-+static u32 xfrm_gen_index(struct net *net, int dir, u32 index)
- {
- 	static u32 idx_generator;
- 
-@@ -548,8 +548,14 @@ static u32 xfrm_gen_index(struct net *net, int dir)
- 		u32 idx;
- 		int found;
- 
--		idx = (idx_generator | dir);
--		idx_generator += 8;
-+		if (!index) {
-+			idx = (idx_generator | dir);
-+			idx_generator += 8;
-+		} else {
-+			idx = index;
-+			index = 0;
-+		}
-+
- 		if (idx == 0)
- 			idx = 8;
- 		list = net->xfrm.policy_byidx + idx_hash(net, idx);
-@@ -672,7 +678,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
- 		xfrm_policy_requeue(delpol, policy);
- 		__xfrm_policy_unlink(delpol, dir);
- 	}
--	policy->index = delpol ? delpol->index : xfrm_gen_index(net, dir);
-+	policy->index = delpol ? delpol->index : xfrm_gen_index(net, dir, policy->index);
- 	hlist_add_head(&policy->byidx, net->xfrm.policy_byidx+idx_hash(net, policy->index));
- 	policy->curlft.add_time = get_seconds();
- 	policy->curlft.use_time = 0;
-@@ -1192,7 +1198,7 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
- 	sk->sk_policy[dir] = pol;
- 	if (pol) {
- 		pol->curlft.add_time = get_seconds();
--		pol->index = xfrm_gen_index(net, XFRM_POLICY_MAX+dir);
-+		pol->index = xfrm_gen_index(net, XFRM_POLICY_MAX+dir, 0);
- 		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
- 	}
- 	if (old_pol) {
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index f964d4c..4e0546e 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1189,6 +1189,8 @@ static int verify_policy_type(u8 type)
- 
- static int verify_newpolicy_info(struct xfrm_userpolicy_info *p)
- {
-+	int ret;
-+
- 	switch (p->share) {
- 	case XFRM_SHARE_ANY:
- 	case XFRM_SHARE_SESSION:
-@@ -1224,7 +1226,13 @@ static int verify_newpolicy_info(struct xfrm_userpolicy_info *p)
- 		return -EINVAL;
- 	}
- 
--	return verify_policy_dir(p->dir);
-+	ret = verify_policy_dir(p->dir);
-+	if (ret)
-+		return ret;
-+	if (p->index && ((p->index & XFRM_POLICY_MAX) != p->dir))
-+		return -EINVAL;
-+
-+	return 0;
+@@ -3076,14 +3076,14 @@ static bool xfrm_migrate_selector_match(const struct xfrm_selector *sel_cmp,
  }
  
- static int copy_from_user_sec_ctx(struct xfrm_policy *pol, struct nlattr **attrs)
+ static struct xfrm_policy * xfrm_migrate_policy_find(const struct xfrm_selector *sel,
+-						     u8 dir, u8 type)
++						     u8 dir, u8 type, struct net *net)
+ {
+ 	struct xfrm_policy *pol, *ret = NULL;
+ 	struct hlist_head *chain;
+ 	u32 priority = ~0U;
+ 
+ 	read_lock_bh(&xfrm_policy_lock);
+-	chain = policy_hash_direct(&init_net, &sel->daddr, &sel->saddr, sel->family, dir);
++	chain = policy_hash_direct(net, &sel->daddr, &sel->saddr, sel->family, dir);
+ 	hlist_for_each_entry(pol, chain, bydst) {
+ 		if (xfrm_migrate_selector_match(sel, &pol->selector) &&
+ 		    pol->type == type) {
+@@ -3092,7 +3092,7 @@ static struct xfrm_policy * xfrm_migrate_policy_find(const struct xfrm_selector
+ 			break;
+ 		}
+ 	}
+-	chain = &init_net.xfrm.policy_inexact[dir];
++	chain = &net->xfrm.policy_inexact[dir];
+ 	hlist_for_each_entry(pol, chain, bydst) {
+ 		if (xfrm_migrate_selector_match(sel, &pol->selector) &&
+ 		    pol->type == type &&
+@@ -3216,7 +3216,7 @@ static int xfrm_migrate_check(const struct xfrm_migrate *m, int num_migrate)
+ 
+ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 		 struct xfrm_migrate *m, int num_migrate,
+-		 struct xfrm_kmaddress *k)
++		 struct xfrm_kmaddress *k, struct net *net)
+ {
+ 	int i, err, nx_cur = 0, nx_new = 0;
+ 	struct xfrm_policy *pol = NULL;
+@@ -3229,7 +3229,7 @@ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 		goto out;
+ 
+ 	/* Stage 1 - find policy */
+-	if ((pol = xfrm_migrate_policy_find(sel, dir, type)) == NULL) {
++	if ((pol = xfrm_migrate_policy_find(sel, dir, type, net)) == NULL) {
+ 		err = -ENOENT;
+ 		goto out;
+ 	}
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 4e0546e..840cc8d 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2137,6 +2137,7 @@ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	u8 type;
+ 	int err;
+ 	int n = 0;
++	struct net *net = sock_net(skb->sk);
+ 
+ 	if (attrs[XFRMA_MIGRATE] == NULL)
+ 		return -EINVAL;
+@@ -2154,7 +2155,7 @@ static int xfrm_do_migrate(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (!n)
+ 		return 0;
+ 
+-	xfrm_migrate(&pi->sel, pi->dir, type, m, n, kmp);
++	xfrm_migrate(&pi->sel, pi->dir, type, m, n, kmp, net);
+ 
+ 	return 0;
+ }
 -- 
 1.7.9.5
