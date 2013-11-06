@@ -1,49 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND PATCH net-next] virtio-net: switch to use XPS to
-	choose txq
-Date: Tue, 05 Nov 2013 22:22:03 -0500 (EST)
-Message-ID: <20131105.222203.740870236265138632.davem@davemloft.net>
-References: <1383646785-10446-1-git-send-email-jasowang@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: gso: Attempt to handle mega-GRO packets
+Date: Wed, 6 Nov 2013 12:07:17 +0800
+Message-ID: <20131106040717.GA15711@gondor.apana.org.au>
+References: <20131029.194446.2215574000648693370.davem@davemloft.net>
+ <1383091610.1534.29.camel@bwh-desktop.uk.level5networks.com>
+ <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131103122824.GA17394@gondor.apana.org.au>
+ <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131103163103.GA18894@gondor.apana.org.au>
+ <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131104041108.GA22823@gondor.apana.org.au>
+ <20131106013038.GA14894@gondor.apana.org.au>
+ <1383702347.4291.152.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1383646785-10446-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:46782 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755373Ab3KFEH3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Nov 2013 23:07:29 -0500
+Content-Disposition: inline
+In-Reply-To: <1383702347.4291.152.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Tue,  5 Nov 2013 18:19:45 +0800
+On Tue, Nov 05, 2013 at 05:45:47PM -0800, Eric Dumazet wrote:
+>
+> Hmm, I do not think fskb has the headers in the general case.
 
-> We used to use a percpu structure vq_index to record the cpu to queue
-> mapping, this is suboptimal since it duplicates the work of XPS and
-> loses all other XPS functionality such as allowing user to configure
-> their own transmission steering strategy.
-> 
-> So this patch switches to use XPS and suggest a default mapping when
-> the number of cpus is equal to the number of queues. With XPS support,
-> there's no need for keeping per-cpu vq_index and .ndo_select_queue(),
-> so they were removed also.
-> 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Acked-by: Rusty Russell <rusty@rustcorp.com.au>
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
-> Resend since the previous complie warning disappears after commit
-> 3573540cafa4296dd60f8be02f2aecaa31047525
-> (netif_set_xps_queue: make cpu mask const).
+Only GRO produces such packets, see the changeset where I added
+frag_list support to skb_setgment
 
-Yep, looks great, applied.  Thanks Jason!
+	89319d3801d1d3ac29c7df1f067038986f267d29
+
+> It might work in the GRO case only.
+
+Any chance you guys can test this patch out?
+
+Thanks!
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
