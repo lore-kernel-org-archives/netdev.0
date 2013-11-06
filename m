@@ -1,65 +1,53 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] net: don't forget to free sk_filter
-Date: Wed, 06 Nov 2013 20:19:20 +0100
-Message-ID: <527A9638.4020404@redhat.com>
-References: <1383753106-26978-1-git-send-email-avagin@openvz.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: calxedaxgmac: Fix panic caused by MTU change of
+ active interface
+Date: Wed, 6 Nov 2013 19:22:36 +0000
+Message-ID: <1383765756.1520.24.camel@bwh-desktop.uk.level5networks.com>
+References: <20131106133126.GL22917@alberich>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	stable@vger.kernel.org.#.3.12
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1383753106-26978-1-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Rob Herring <rob.herring@calxeda.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Andreas Herrmann <andreas.herrmann@calxeda.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:7397 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755524Ab3KFTWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 14:22:40 -0500
+In-Reply-To: <20131106133126.GL22917@alberich>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/06/2013 04:51 PM, Andrey Vagin wrote:
-> sk_filter isn't freed if bpf_func is equal to sk_run_filter.
->
-> This memory leak was introduced by
-> commit d45ed4a4e33ae103053c0a53d280014e7101bb5c
-> Author: Alexei Starovoitov <ast@plumgrid.com>
-> Date:   Fri Oct 4 00:14:06 2013 -0700
->
->      net: fix unsafe set_memory_rw from softirq
->
-> Before this patch sk_filter was freed in sk_filter_release_rcu,
-> now it is freed in bpf_jit_free.
->
-> Here is output of kmemleak:
-> unreferenced object 0xffff8800b774eab0 (size 128):
->    comm "systemd", pid 1, jiffies 4294669014 (age 124.062s)
->    hex dump (first 32 bytes):
->      00 00 00 00 0b 00 00 00 20 63 7f b7 00 88 ff ff  ........ c......
->      60 d4 55 81 ff ff ff ff 30 d9 55 81 ff ff ff ff  `.U.....0.U.....
->    backtrace:
->      [<ffffffff816444be>] kmemleak_alloc+0x4e/0xb0
->      [<ffffffff811845af>] __kmalloc+0xef/0x260
->      [<ffffffff81534028>] sock_kmalloc+0x38/0x60
->      [<ffffffff8155d4dd>] sk_attach_filter+0x5d/0x190
->      [<ffffffff815378a1>] sock_setsockopt+0x991/0x9e0
->      [<ffffffff81531bd6>] SyS_setsockopt+0xb6/0xd0
->      [<ffffffff8165f3e9>] system_call_fastpath+0x16/0x1b
->      [<ffffffffffffffff>] 0xffffffffffffffff
->
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: stable@vger.kernel.org # 3.12
+On Wed, 2013-11-06 at 14:31 +0100, Andreas Herrmann wrote:
+[...]
+> diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+> index 48f5288..8eb422a 100644
+> --- a/drivers/net/ethernet/calxeda/xgmac.c
+> +++ b/drivers/net/ethernet/calxeda/xgmac.c
+> @@ -1067,6 +1067,10 @@ static int xgmac_stop(struct net_device *dev)
+>  
+>  	writel(0, priv->base + XGMAC_DMA_INTR_ENA);
+>  
+> +	netif_tx_lock_bh(dev);
+> +	netif_stop_queue(dev);
+> +	netif_tx_unlock_bh(dev);
+> +
+[...]
 
-^^^^ vi Documentation/networking/netdev-FAQ.txt +155
+There is already a call to netif_stop_queue() at the beginning of this
+function, but without locking.  I think it's the wrong place because the
+NAPI poller may still call netif_wake_queue() at that point.  You're
+putting this in the *right* place, but I think you should remove the
+first call.
 
-> Signed-off-by: Andrey Vagin <avagin@openvz.org>
+Also this sequence is also equivalent to netif_tx_disable(), except that
+that also works for multiqueue net devices.
 
-When you send v2 with Alexei's feedback, please also be more specific
-in your subject like "net: x86: bpf: don't forget to free sk_filter"
-or the like. Also it's enough to say 'This memory leak was introduced
-by commit d45ed4a4e3 ("net: fix unsafe set_memory_rw from softirq")'
-instead of copying the whole log. Anyways, for v2 with feedback included
-then:
+Ben.
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
