@@ -1,39 +1,46 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 2/3] net_sched: fix some checkpatch errors
-Date: Wed, 6 Nov 2013 07:37:41 -0800
-Message-ID: <20131106073741.154f8590@samsung-9>
-References: <1383725109-37348-1-git-send-email-yangyingliang@huawei.com>
-	<1383725109-37348-3-git-send-email-yangyingliang@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next 2/3] netfilter: ip6_tables: use reasm skb for
+ matching
+Date: Wed, 06 Nov 2013 08:12:14 -0800
+Message-ID: <1383754334.4291.174.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1383649333-6321-1-git-send-email-jiri@resnulli.us>
+	 <1383649333-6321-3-git-send-email-jiri@resnulli.us>
+	 <20131105133205.GC15370@breakpoint.cc>
+	 <20131105134118.GA5818@macbook.localnet>
+	 <20131105150115.GB2438@minipsycho.orion>
+	 <20131105181633.GA7435@macbook.localnet>
+	 <20131106141845.GC2458@minipsycho.orion>
+	 <20131106143349.GF15370@breakpoint.cc>
+	 <20131106144453.GD2458@minipsycho.orion>
+	 <20131106145104.GA18406@macbook.localnet>
+	 <20131106152907.GE2458@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<eric.dumazet@gmail.com>, <jhs@mojatatu.com>
-To: Yang Yingliang <yangyingliang@huawei.com>
+Cc: Patrick McHardy <kaber@trash.net>, Florian Westphal <fw@strlen.de>,
+	netdev@vger.kernel.org, davem@davemloft.net, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	kadlec@blackhole.kfki.hu, mleitner@redhat.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
+	horms@verge.net.au, ja@ssi.bg, edumazet@google.com,
+	pshelar@nicira.com, jasowang@redhat.com,
+	alexander.h.duyck@intel.com, coreteam@netfilter.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:48553 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751263Ab3KFPhq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 10:37:46 -0500
-Received: by mail-pb0-f46.google.com with SMTP id un15so4152718pbc.5
-        for <netdev@vger.kernel.org>; Wed, 06 Nov 2013 07:37:45 -0800 (PST)
-In-Reply-To: <1383725109-37348-3-git-send-email-yangyingliang@huawei.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:51206 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755154Ab3KFQMT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 11:12:19 -0500
+In-Reply-To: <20131106152907.GE2458@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 6 Nov 2013 16:05:08 +0800
-Yang Yingliang <yangyingliang@huawei.com> wrote:
+On Wed, 2013-11-06 at 16:29 +0100, Jiri Pirko wrote:
 
-> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-> index fd70728..c8aadfa 100644
-> --- a/net/sched/act_api.c
-> +++ b/net/sched/act_api.c
-> @@ -191,7 +191,7 @@ u32 tcf_hash_new_index(u32 *idx_gen, struct tcf_hashinfo *hinfo)
->  			val = 1;
->  	} while (tcf_hash_lookup(val, hinfo));
->  
-> -	return (*idx_gen = val);
-> +	return *idx_gen = val;
+> I'm working on it atm.
 
-That is not an improvement. I would rather see the return on a assingment and return
-on separate lines.
+Note that we have a similar problem in general with GRO and forwading.
+
+We do no check against output mtu, if the packet is GSO.
+
+skb_is_gso() being true bypasses the safety checks.
