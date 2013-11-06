@@ -1,50 +1,45 @@
-From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Subject: [PATCH v2 net] qeth: avoid buffer overflow in snmp ioctl
-Date: Wed, 6 Nov 2013 09:04:52 +0100
-Message-ID: <20131106080452.GA46718@tuxmaker.boeblingen.de.ibm.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next 0/3] make tbf support 64bit rates
+Date: Wed, 6 Nov 2013 16:05:06 +0800
+Message-ID: <1383725109-37348-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>, <jhs@mojatatu.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:32945 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752017Ab3KFIFR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 03:05:17 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+After this patch(commit 3e1e3aae1f5d4e8e5:
+net_sched: add u64 rate to psched_ratecfg_precompute())
+which is from Eric, tbf can deal with 64bit rates.
+Add two new attributes so that tc can use them to break
+the 32bit limit.
+And, fix some checkpatch errors;
+replace printk(KERN_DEBUG ...) with pr_debug.
 
-Check user-defined length in snmp ioctl request and allow request
-only if it fits into a qeth command buffer.
+Yang Yingliang (3):
+  net_sched: tbf: support of 64bit rates
+  net_sched: fix some checkpatch errors
+  net_sched: Use pr_debug replace printk(KERN_DEBUG ...)
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
-Reviewed-by: Heiko Carstens <heicars2@linux.vnet.ibm.com>
-Reported-by: Nico Golde <nico@ngolde.de>
-Reported-by: Fabian Yamaguchi <fabs@goesec.de>
-Cc: <stable@vger.kernel.org>
----
- drivers/s390/net/qeth_core_main.c |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ include/uapi/linux/pkt_sched.h |  2 ++
+ net/sched/act_api.c            |  4 ++--
+ net/sched/cls_bpf.c            |  2 +-
+ net/sched/cls_u32.c            |  2 +-
+ net/sched/sch_cbq.c            |  5 +++--
+ net/sched/sch_dsmark.c         |  2 +-
+ net/sched/sch_generic.c        |  4 ++--
+ net/sched/sch_gred.c           |  4 ++--
+ net/sched/sch_htb.c            | 19 ++++++++++---------
+ net/sched/sch_netem.c          |  2 +-
+ net/sched/sch_sfq.c            | 10 ++++++----
+ net/sched/sch_tbf.c            | 22 ++++++++++++++++++----
+ 12 files changed, 49 insertions(+), 29 deletions(-)
 
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -4451,7 +4451,7 @@ int qeth_snmp_command(struct qeth_card *
- 	struct qeth_cmd_buffer *iob;
- 	struct qeth_ipa_cmd *cmd;
- 	struct qeth_snmp_ureq *ureq;
--	int req_len;
-+	unsigned int req_len;
- 	struct qeth_arp_query_info qinfo = {0, };
- 	int rc = 0;
- 
-@@ -4467,6 +4467,10 @@ int qeth_snmp_command(struct qeth_card *
- 	/* skip 4 bytes (data_len struct member) to get req_len */
- 	if (copy_from_user(&req_len, udata + sizeof(int), sizeof(int)))
- 		return -EFAULT;
-+	if (req_len > (QETH_BUFSIZE - IPA_PDU_HEADER_SIZE -
-+		       sizeof(struct qeth_ipacmd_hdr) -
-+		       sizeof(struct qeth_ipacmd_setadpparms_hdr)))
-+		return -EINVAL;
- 	ureq = memdup_user(udata, req_len + sizeof(struct qeth_snmp_ureq_hdr));
- 	if (IS_ERR(ureq)) {
- 		QETH_CARD_TEXT(card, 2, "snmpnome");
+-- 
+1.7.12
