@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 0/2] netfilter: push reasm skb through instead of original frag skbs
-Date: Wed,  6 Nov 2013 17:52:18 +0100
-Message-ID: <1383756740-7392-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 1/2] ip6_output: fragment outgoing reassembled skb properly
+Date: Wed,  6 Nov 2013 17:52:19 +0100
+Message-ID: <1383756740-7392-2-git-send-email-jiri@resnulli.us>
+References: <1383756740-7392-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, pablo@netfilter.org,
 	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
 	kadlec@blackhole.kfki.hu, kaber@trash.net, mleitner@redhat.com,
@@ -11,25 +12,37 @@ Cc: davem@davemloft.net, pablo@netfilter.org,
 	alexander.h.duyck@intel.com, fw@strlen.de
 To: netdev@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1383756740-7392-1-git-send-email-jiri@resnulli.us>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Pirko (2):
-  ip6_output: fragment outgoing reassembled skb properly
-  netfilter: push reasm skb through instead of original frag skbs
+If reassembled packet would fit into outdev MTU, it is not fragmented
+according the original frag size and it is send as single big packet.
 
- include/linux/skbuff.h                         | 32 ---------------
- include/net/ip_vs.h                            | 32 +--------------
- include/net/netfilter/ipv6/nf_defrag_ipv6.h    |  4 +-
- net/core/skbuff.c                              |  3 --
- net/ipv6/ip6_output.c                          |  3 +-
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c | 56 +-------------------------
- net/ipv6/netfilter/nf_conntrack_reasm.c        | 19 +--------
- net/ipv6/netfilter/nf_defrag_ipv6_hooks.c      |  7 +++-
- net/netfilter/ipvs/ip_vs_core.c                | 55 +------------------------
- net/netfilter/ipvs/ip_vs_pe_sip.c              |  8 +---
- 10 files changed, 15 insertions(+), 204 deletions(-)
+The second case is if skb is gso. In that case fragmentation does not happen
+according to the original frag size.
 
+This patch fixes these.
+
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/ipv6/ip6_output.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 91fb4e8..5e31a90 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -125,7 +125,8 @@ static int ip6_finish_output2(struct sk_buff *skb)
+ static int ip6_finish_output(struct sk_buff *skb)
+ {
+ 	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
+-	    dst_allfrag(skb_dst(skb)))
++	    dst_allfrag(skb_dst(skb)) ||
++	    (IP6CB(skb)->frag_max_size && skb->len > IP6CB(skb)->frag_max_size))
+ 		return ip6_fragment(skb, ip6_finish_output2);
+ 	else
+ 		return ip6_finish_output2(skb);
 -- 
 1.8.3.1
 
