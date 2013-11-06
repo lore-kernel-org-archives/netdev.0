@@ -1,91 +1,49 @@
-From: "Mrs. Nkoana Maite Mashabane" <pesa_san@yahoo.gr>
-Subject: INVESTMENT PARTNERSHIP
-Date: Wed, 6 Nov 2013 13:42:06 +0800
-Message-ID: <201311051534.rA5FY5uP001364@tx.cpta.com.cn>
-Reply-To: <nkoa_mashabane@safrica.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: spurious ip forwarding inside namespaces
+Date: Tue, 5 Nov 2013 22:32:16 -0800
+Message-ID: <CAMEtUuwKD76xEhysPbLum5wDYyJaX5p0JpdBQUcdHged40eHdg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Isaku Yamahata <yamahata@valinux.co.jp>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [114.255.29.133] ([114.255.29.133]:58217 "EHLO tx.cpta.com.cn"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750871Ab3KFFsn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Nov 2013 00:48:43 -0500
-To: <net_lm@yahoo.com.mx>
-To: <netcomp3000@yahoo.com>
-To: <netbizpak@yahoo.com>
-To: <netballpk@yahoo.com>
-To: <netabuse@xspedius.com>
-To: <netadmin@world.std.com>
-To: <netcourt@vnet.net>
-To: <netdev@vger.kernel.org>
-To: <net@tm.net.my>
-To: <netcom_dps@telkom.net>
-To: <netbizn@super.net.pk>
-To: <net.country@sk.sympatico.ca>
-To: <netcruiser@prodigy.net>
-To: <netcom@paknet3.ptc.pk>
-To: <netadmin@pakistan.ncr.com>
-To: <netbsd-docs-ru@netbsd.org>
-To: <netbehaviour@netbehaviour.org>
-To: <netadmin@metropolis-inter.com>
-To: <netbytes@maxis.net.my>
-To: <net@mailbase.ac.uk>
-To: <netbsd-soccvs@lists.sourceforge.net>
-To: <netbeans-info@lists.sourceforge.jp>
-To: <netadmin@lisco.com>
-To: <net@khi.comsats.net.pk>
-To: <net@khi.compol.com>
-To: <netadm@kanren.net>
-To: <net@isb.compol.com>
-To: <netadm@humanite.presse.fr>
-To: <netchatcomp@hotmail.com>
-To: <netbazar@hotmail.com>
-To: <netangels@hotmail.com>
-To: <net96@hotmail.com>
-To: <net_central@hotmail.com>
-To: <net-abuse@hosteurope.de>
-To: <netcontact@hawaii.edu>
-To: <netddang@hanmail.net>
-To: <netcom@gerrys.net>
-To: <net-artidaya@disb2b.com>
-To: <netbank@digicom.net.pk.cpta.com.cn>
-To: <netannounce@deshaw.com>
-To: <netcell@cyber.net.pk>
-To: <netbank@cyber.net.pk>
-To: <net@csuchico.edu>
-To: <netcomp@centrin.net.id>
-To: <netabuse@ccnetserv.com>
-To: <netcompd@cbn.net.id>
-To: <netcom@brain.net.pk>
-To: <net818@aol.com>
-To: <net@agi.co.id>
-To: <net1@aber.ac.uk>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:43401 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750810Ab3KFGcS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 01:32:18 -0500
+Received: by mail-wi0-f179.google.com with SMTP id hm4so3182372wib.6
+        for <netdev@vger.kernel.org>; Tue, 05 Nov 2013 22:32:16 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi All,
 
-I am Mrs. Maite Nkoana Mashabane, am the Minister of International Relations and Cooperation of South Africa, Please view my profile. http://www.gcis.gov.za/gcis/gcis_profile.jsp?id=1480.
+commit 06a23fe31c
+"core/dev: set pkt_type after eth_type_trans() in dev_forward_skb()"
+and refactoring 64261f230a
+"dev: move skb_scrub_packet() after eth_type_trans()"
 
-I would like you to indicate your interest to receive the transfer of $3.5 Million. I will like you to stand as the beneficiary of the said fund.
+are forcing pkt_type to be PACKET_HOST when skb traverses veth.
 
-However, I will be resigning soon and want to establish any type of machinery tools devices or agriculture or even real estate under my own registered company. I have the sum to invest. How can I come in contact with you in partnership/investment transaction?
+which means that ip forwarding will kick in inside netns
+even if skb->eth->h_dest != dev->dev_addr
 
-I want you to assist me in investing the money in your country.
+The way we hit the problem is the following:
+create 4 or more of netns with veth and attach them to a bridge.
+disable learning on a bridge (via setageing 0), so it will flood
+packets to all namespaces.
+Since ip forwarding and icmp redirect by default is on,
+single icmp request packet from one netns creates a storm of packets,
+since every netns receives it and incorrectly does ip forward on it
+and also incorrectly sends icmp redirect which are multiplied once
+again by flooding in the bridge.
+ping -c1 generates 1 outgoing packet and ~13K incoming packets with
+just 4 netns.
+Running any tcp traffic between such namespaces becomes impossible
+and ksoftirqd cpu usage goes to 100% on all cpus.
 
-I will also like you to send me the following information below:
+Please suggest how to fix this cleanly.
 
-(1)Full names:
-(2)Private phone number:
-(3)Current residential address:
-(4)Your Country:
-(5)Occupation:
-(6)Age and Sex:
-
-Please I do not need to remind you of the need for absolute Confidentiality if this transaction must succeed. YOU MUST NOT CALL ME! If you do not feel comfortable with this transaction, do not hesitate to discontinue.
-
-I will give you more detail's as soon as you confirm your willingness to assisting me.
-
-Mrs. Nkoana Maite Mashabane
+Thanks
+Alexei
