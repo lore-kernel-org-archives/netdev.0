@@ -1,57 +1,59 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next v3 3/3] tipc: reassembly failures should cause link reset
-Date: Wed, 6 Nov 2013 09:28:07 +0100
-Message-ID: <1383726487-27929-4-git-send-email-erik.hugne@ericsson.com>
-References: <1383726487-27929-1-git-send-email-erik.hugne@ericsson.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the akpm tree with the net-next tree
+Date: Wed, 6 Nov 2013 19:55:17 +1100
+Message-ID: <20131106195517.044921fa5141fa781f8c87a9@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ying.xue@windriver.com>, <tipc-discussion@lists.sourceforge.net>,
-	Erik Hugne <erik.hugne@ericsson.com>
-To: <netdev@vger.kernel.org>, <jon.maloy@ericsson.com>,
-	<maloy@donjonn.com>, <paul.gortmaker@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw7.ericsson.se ([193.180.251.48]:49578 "EHLO
-	mailgw7.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932092Ab3KFIaG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 03:30:06 -0500
-In-Reply-To: <1383726487-27929-1-git-send-email-erik.hugne@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__6_Nov_2013_19_55_17_+1100_zGp4lZPEjr2T9.em"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+--Signature=_Wed__6_Nov_2013_19_55_17_+1100_zGp4lZPEjr2T9.em
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-If appending a received fragment to the pending fragment chain
-in a unicast link fails, the current code tries to force a retransmission
-of the fragment by decrementing the 'next received sequence number'
-field in the link. This is done under the assumption that the failure
-is caused by an out-of-memory situation, an assumption that does
-not hold true after the previous patch in this series.
+Hi Andrew,
 
-A failure to append a fragment can now only be caused by a protocol
-violation by the sending peer, and it must hence be assumed that it
-is either malicious or buggy.  Either way, the correct behavior is now
-to reset the link instead of trying to revert its sequence number.
-So, this is what we do in this commit.
+Today's linux-next merge of the akpm tree got a conflict in
+net/netfilter/ipset/ip_set_hash_netnet.c between commit 1a869205c75c
+("netfilter: ipset: The unnamed union initialization may lead to
+compilation error") from the net-next tree and commit
+"net/netfilter/ipset/ip_set_hash_netnet.c: fix build with older gcc" from
+the akpm tree.
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/link.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The latter is a subset of the former. so I just dropped the latter.
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index a63646e..cf465d6 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1652,7 +1652,7 @@ deliver:
- 				goto deliver;
- 			}
- 			if (ret == LINK_REASM_ERROR)
--				l_ptr->next_in_no--;
-+				tipc_link_reset(l_ptr);
- 			tipc_node_unlock(n_ptr);
- 			continue;
- 		case CHANGEOVER_PROTOCOL:
--- 
-1.7.9.5
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Wed__6_Nov_2013_19_55_17_+1100_zGp4lZPEjr2T9.em
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJSegP7AAoJEMDTa8Ir7ZwVjYUQAJQWDoNmcHTaa544TaUEh25e
+ZKVJhCmjKRm4K1i45yTrbYEz7F4FUQUG9i5fyoxhfAkcZdpgtYgqrZVJkiTyQfUk
+uL3eXSC1B+Dh26TMiDj9ORUd7No3+RBfk2Z6fHzxAFRfJ0WWHTbeqN0ipiWLUA7y
+vE+pSR1YYupDAtP4pruePAIp3uo+wzrNo2RZrVAEg4Dw3uLOPjhZPi1ei0CkazUT
+n7Txt+ltOFsu0g8kwf/oJ+2Nf6tF8dgROrdPoNzuGGYlDlpE8LvHbyHA3Udsbs78
+mNhqul7qOhhkeqsp2kQTR1I9d5VoL5IQZkyPU3wdpiW7Wk4Si6aX8pm+LSdy5R+L
+Mdt4s0+N4DuOAc969cKA4FTb7Eb0OQ4OBElMehwMFtU+nMxWSj0Rty7KZtniYVGj
+a+zlklhgmhG1b24VBk+y2+wBoJhlwihAwcJVvVL/J1RO+ixGCYYkKAXv6c5L2A9R
+eSCr55pI4Tpgehevgj9IPPDNbLsigI16Ee+mgSd74DqZUnXln7+H1Qv2XqNk72VI
+aB79FP4O0B3H0+PnhaxumQgIsUpRR/zoq9OCfezQyC5t39OShuPHJS3xgAzA4UcH
+vujyzdG+kNHT1Twbu9tf49AGrRx72VDkVW/L8+P3m7+T3IgwuaJ3lvLslGAPNmvO
+9dM8faaZAgspc/SrR9Ta
+=J9Un
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__6_Nov_2013_19_55_17_+1100_zGp4lZPEjr2T9.em--
