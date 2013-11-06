@@ -1,113 +1,78 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Wed, 6 Nov 2013 21:30:45 +0800
-Message-ID: <20131106133045.GA20931@gondor.apana.org.au>
-References: <20131029.194446.2215574000648693370.davem@davemloft.net>
- <1383091610.1534.29.camel@bwh-desktop.uk.level5networks.com>
- <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131103122824.GA17394@gondor.apana.org.au>
- <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131103163103.GA18894@gondor.apana.org.au>
- <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131104041108.GA22823@gondor.apana.org.au>
- <20131106013038.GA14894@gondor.apana.org.au>
- <20131106123900.GA20259@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 2/2] RDMA/cma: Set IBoE SL (user-priority) by egress map when using vlans
+Date: Wed,  6 Nov 2013 15:37:24 +0200
+Message-ID: <1383745044-32575-3-git-send-email-ogerlitz@mellanox.com>
+References: <1383745044-32575-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, sean.hefty@intel.com,
+	eyalpe@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:60542 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932088Ab3KFNax (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 08:30:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20131106123900.GA20259@gondor.apana.org.au>
+Received: from mailp.voltaire.com ([193.47.165.129]:45613 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756580Ab3KFNhf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Nov 2013 08:37:35 -0500
+In-Reply-To: <1383745044-32575-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 06, 2013 at 08:39:00PM +0800, Herbert Xu wrote:
-> 
-> That patch obviously didn't have a chance of working since I missed
-> a continue.
-> 
-> Here is a better version.
+From: Eyal Perry <eyalpe@mellanox.com>
 
-In order to handle malicious GSO packets that is now possible with
-the use of frag_list in virtio_net, we need to remove the BUG_ONs.
- 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3735fad..f336e5c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2816,7 +2816,44 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
- 			hsize = len;
- 
- 		if (!hsize && i >= nfrags) {
--			BUG_ON(fskb->len != len);
-+			if (fskb->len != len) {
-+				if (skb_has_frag_list(fskb)) {
-+					net_warn_ratelimited(
-+						"skb_segment: "
-+						"nested frag_list detected");
-+					err = -EINVAL;
-+					goto err;
-+				}
-+
-+				nskb = skb_segment(fskb, features);
-+
-+				err = PTR_ERR(nskb);
-+				if (IS_ERR(nskb))
-+					goto err;
-+				err = -ENOMEM;
-+
-+				if (segs)
-+					tail->next = nskb;
-+				else
-+					segs = nskb;
-+
-+				tail = nskb;
-+				while (tail->next)
-+					tail = tail->next;
-+
-+				if (fskb->next && tail->len != len) {
-+					net_warn_ratelimited(
-+						"skb_segment: "
-+						"illegal GSO fragment: %u %u",
-+						tail->len, len);
-+					err = -EINVAL;
-+					goto err;
-+				}
-+
-+				len = fskb->len;
-+				fskb = fskb->next;
-+				continue;
-+			}
- 
- 			pos += len;
- 			nskb = skb_clone(fskb, GFP_ATOMIC);
-@@ -2905,7 +2942,14 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
- 		if (pos < offset + len) {
- 			struct sk_buff *fskb2 = fskb;
- 
--			BUG_ON(pos + fskb->len != offset + len);
-+			if (pos + fskb->len != offset + len) {
-+				net_warn_ratelimited(
-+					"skb_segment: "
-+					"illegal GSO trailer: %u %u",
-+					pos + fskb->len, offset + len);
-+				err = -EINVAL;
-+				goto err;
-+			}
- 
- 			pos += fskb->len;
- 			fskb = fskb->next;
+On top of commit 366cddb40 "IB/rdma_cm: TOS <=> UP mapping for IBoE", add
+support for case vlan egress map is used.
 
-Cheers,
+When the IBoE session is being set over a vlan, inherit the socket priority
+to vlan priority mapping which was configured for the vlan device egress map.
+
+Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/infiniband/core/cma.c |   26 +++++++++++++++++++++-----
+ 1 files changed, 21 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
+index a082fd9..d2172e7 100644
+--- a/drivers/infiniband/core/cma.c
++++ b/drivers/infiniband/core/cma.c
+@@ -1848,6 +1848,26 @@ static int cma_resolve_iw_route(struct rdma_id_private *id_priv, int timeout_ms)
+ 	return 0;
+ }
+ 
++static int iboe_tos_to_sl(struct net_device *ndev, int tos)
++{
++	int prio;
++	struct net_device *dev;
++
++	prio = rt_tos2priority(tos);
++	dev = ndev->priv_flags & IFF_802_1Q_VLAN ?
++		vlan_dev_real_dev(ndev) : ndev;
++
++	if (dev->num_tc)
++		return netdev_get_prio_tc_map(dev, prio);
++
++#if IS_ENABLED(CONFIG_VLAN_8021Q)
++	if (ndev->priv_flags & IFF_802_1Q_VLAN)
++		return (vlan_dev_get_egress_qos_mask(ndev, prio) &
++			VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
++#endif
++	return 0;
++}
++
+ static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
+ {
+ 	struct rdma_route *route = &id_priv->id.route;
+@@ -1888,11 +1908,7 @@ static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
+ 	route->path_rec->reversible = 1;
+ 	route->path_rec->pkey = cpu_to_be16(0xffff);
+ 	route->path_rec->mtu_selector = IB_SA_EQ;
+-	route->path_rec->sl = netdev_get_prio_tc_map(
+-			ndev->priv_flags & IFF_802_1Q_VLAN ?
+-				vlan_dev_real_dev(ndev) : ndev,
+-			rt_tos2priority(id_priv->tos));
+-
++	route->path_rec->sl = iboe_tos_to_sl(ndev, id_priv->tos);
+ 	route->path_rec->mtu = iboe_get_mtu(ndev->mtu);
+ 	route->path_rec->rate_selector = IB_SA_EQ;
+ 	route->path_rec->rate = iboe_get_rate(ndev);
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.1
