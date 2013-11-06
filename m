@@ -1,44 +1,48 @@
-From: Mathias Krause <mathias.krause@secunet.com>
-Subject: Re: [PATCH net-next 3/3] net: allow to leave the buffer fragmented
- in skb_cow_data()
-Date: Wed, 06 Nov 2013 10:49:18 +0100
-Message-ID: <527A109E.5040000@secunet.com>
-References: <cover.1381923854.git.mathias.krause@secunet.com> <14f30e8f5f8405c1ca73b6d3a554441c1736142d.1381923854.git.mathias.krause@secunet.com> <20131106093028.GA18435@gondor.apana.org.au>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: [PATCH net] MAINTAINERS: Update bnx2x maintainer
+Date: Wed, 6 Nov 2013 11:51:32 +0200
+Message-ID: <1383731492.20939.1.camel@lb-tlvb-eilong.il.broadcom.com>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Ariel Elior" <ariele@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:49020 "EHLO a.mx.secunet.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2687 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753854Ab3KFJtV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Nov 2013 04:49:21 -0500
-In-Reply-To: <20131106093028.GA18435@gondor.apana.org.au>
+	id S1753440Ab3KFJvn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Nov 2013 04:51:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06.11.2013 10:30, Herbert Xu wrote:
-> On Tue, Nov 05, 2013 at 02:54:11PM +0100, Mathias Krause wrote:
->> -	/* If skb is cloned or its head is paged, reallocate
->> -	 * head pulling out all the pages (pages are considered not writable
->> -	 * at the moment even if they are anonymous).
->> +	/* If skb is cloned reallocate head pulling out all the pages (pages are
->> +	 * considered not writable at the moment even if they are anonymous).
->>  	 */
-> 
-> Hang on, you haven't explained why it is OK to write to pages.
+From: Eilon Greenstein <eilong@broadcom.com>
 
-Why wouldn't it if the skb isn't cloned?
+Ariel Elior will take over the bnx2x maintenance.
 
-> What if said page is owned by the virt host or some app?
+It's been a pleasure!
 
-How would one detect such a case. I could image not by testing
-skb_shinfo(skb)->nr_frags as it is right now?
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+Acked-by: Ariel Elior <ariele@broadcom.com>
+---
+ MAINTAINERS | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-Regards,
-Mathias
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ffcaf97..315a48a 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1822,7 +1822,7 @@ F:	drivers/net/ethernet/broadcom/bnx2.*
+ F:	drivers/net/ethernet/broadcom/bnx2_*
+ 
+ BROADCOM BNX2X 10 GIGABIT ETHERNET DRIVER
+-M:	Eilon Greenstein <eilong@broadcom.com>
++M:	Ariel Elior <ariele@broadcom.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	drivers/net/ethernet/broadcom/bnx2x/
+-- 
+1.8.3.1
