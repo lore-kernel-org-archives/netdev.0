@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net:drivers/net: replace IS_ERR and PTR_ERR with
- PTR_ERR_OR_ZERO
-Date: Thu, 07 Nov 2013 03:02:37 -0500 (EST)
-Message-ID: <20131107.030237.589434363047224407.davem@davemloft.net>
-References: <1383724693-16220-1-git-send-email-duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH v2 net] qeth: avoid buffer overflow in snmp ioctl
+Date: Thu, 07 Nov 2013 03:02:45 -0500 (EST)
+Message-ID: <20131107.030245.1522434774127686981.davem@davemloft.net>
+References: <20131106080452.GA46718@tuxmaker.boeblingen.de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kernel@pengutronix.de, linux@arm.linux.org.uk,
-	a.zummo@towertech.it, airlied@linux.ie, dmitry.torokhov@gmail.com,
-	axboe@kernel.dk, linux-kernel@vger.kernel.org,
-	rtc-linux@googlegroups.com, dri-devel@lists.freedesktop.org,
-	linux-tegra@vger.kernel.org, linux-input@vger.kernel.org,
-	devel@driverdev.osuosl.org, netdev@vger.kernel.org
-To: duanj.fnst@cn.fujitsu.com
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <1383724693-16220-1-git-send-email-duanj.fnst@cn.fujitsu.com>
-Sender: linux-input-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org
+To: blaschka@linux.vnet.ibm.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20131106080452.GA46718@tuxmaker.boeblingen.de.ibm.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Wed, 6 Nov 2013 15:58:13 +0800
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Date: Wed, 6 Nov 2013 09:04:52 +0100
 
-> This patch fixes coccinelle error regarding usage of IS_ERR and
-> PTR_ERR instead of PTR_ERR_OR_ZERO.
+> From: Ursula Braun <ursula.braun@de.ibm.com>
 > 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> Check user-defined length in snmp ioctl request and allow request
+> only if it fits into a qeth command buffer.
+> 
+> Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+> Reviewed-by: Heiko Carstens <heicars2@linux.vnet.ibm.com>
+> Reported-by: Nico Golde <nico@ngolde.de>
+> Reported-by: Fabian Yamaguchi <fabs@goesec.de>
+> Cc: <stable@vger.kernel.org>
 
 Applied.
