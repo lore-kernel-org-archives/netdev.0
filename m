@@ -1,60 +1,55 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH net-next v4 3/9] static_key: WARN on usage before
- jump_label_init was called
-Date: Thu, 7 Nov 2013 10:08:44 +0100
-Message-ID: <20131107090844.GA719@gmail.com>
-References: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org>
- <1382212139-20301-4-git-send-email-hannes@stressinduktion.org>
- <20131106161649.2bb1dbb0@gandalf.local.home>
- <20131107005027.GC8144@order.stressinduktion.org>
- <20131106200200.7847535d@gandalf.local.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Andi Kleen <andi@firstfloor.org>,
-	Jason Baron <jbaron@akamai.com>
-To: Steven Rostedt <rostedt@goodmis.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net] net/mlx4_en: Fixed crash when port type is changed
+Date: Thu,  7 Nov 2013 11:08:30 +0200
+Message-ID: <1383815310-19116-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:44320 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751540Ab3KGJIs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 04:08:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20131106200200.7847535d@gandalf.local.home>
+Received: from mailp.voltaire.com ([193.47.165.129]:39644 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752251Ab3KGJIw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Nov 2013 04:08:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+timecounter_init() was was called only after first potential
+timecounter_read().
+Moved mlx4_en_init_timestamp() before mlx4_en_init_netdev()
 
-* Steven Rostedt <rostedt@goodmis.org> wrote:
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+Please pull into -stable for kernels >= 3.10
 
-> On Thu, 7 Nov 2013 01:50:27 +0100
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> 
-> > On Wed, Nov 06, 2013 at 04:16:49PM -0500, Steven Rostedt wrote:
-> > > Sorry for the late reply, but this was sent while I was getting ready
-> > > for my two week conference trip.
-> > > 
-> > > Note, this should not go through the net tree, but instead should go
-> > > through tip, as it deals with jump labels and not networking.
-> > > 
-> > > Otherwise, this patch looks good.
-> > > 
-> > > Reviewed-by: Steven Rostedt <rostedt@goodmis.org>
-> > 
-> > Thanks for the review!
-> > 
-> > The patch already got queued up in net-next. Is this ok or what do you
-> > suggest to resolve this?
-> > 
-> 
-> I'm fine, but really. Changes need to go through the trees they are 
-> maintained by. Would Dave Miller like it if I pushed patches that 
-> touched the net directory without a single Ack?
+ drivers/net/ethernet/mellanox/mlx4/en_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-I second that concern.
-
-Thanks,
-
-	Ingo
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+index a071cda..0d087b0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+@@ -264,6 +264,10 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
+ 	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_ETH)
+ 		mdev->port_cnt++;
+ 
++	/* Initialize time stamp mechanism */
++	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
++		mlx4_en_init_timestamp(mdev);
++
+ 	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_ETH) {
+ 		if (!dev->caps.comp_pool) {
+ 			mdev->profile.prof[i].rx_ring_num =
+@@ -301,10 +305,6 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
+ 			mdev->pndev[i] = NULL;
+ 	}
+ 
+-	/* Initialize time stamp mechanism */
+-	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
+-		mlx4_en_init_timestamp(mdev);
+-
+ 	return mdev;
+ 
+ err_mr:
+-- 
+1.8.3.4
