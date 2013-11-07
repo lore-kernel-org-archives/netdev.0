@@ -1,60 +1,67 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: [PATCH] Fix "ip rule delete table 256"
-Date: Thu, 7 Nov 2013 18:26:38 +0100
-Message-ID: <20131107172638.GA6110@amd64.fatal.se>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [3/3] gso: Handle malicious GRO packets without crashing
+Date: Thu, 07 Nov 2013 22:13:29 +0300
+Message-ID: <527BE659.9060702@cogentembedded.com>
+References: <20131104041108.GA22823@gondor.apana.org.au> <20131106013038.GA14894@gondor.apana.org.au> <20131106123900.GA20259@gondor.apana.org.au> <20131106133045.GA20931@gondor.apana.org.au> <20131106143927.GA21604@gondor.apana.org.au> <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com> <20131107004339.GA28156@gondor.apana.org.au> <20131107062234.GA31156@gondor.apana.org.au> <20131107070335.GA31638@gondor.apana.org.au> <20131107070647.GB31638@gondor.apana.org.au> <20131107070847.GC31638@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@networkplumber.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay-h32.telenor.se ([213.150.131.5]:33463 "EHLO
-	smtprelay-h32.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753123Ab3KGR4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 12:56:46 -0500
-Received: from ipb4.telenor.se (ipb4.telenor.se [195.54.127.167])
-	by smtprelay-h32.telenor.se (Postfix) with ESMTP id 7B3BDE96CF
-	for <netdev@vger.kernel.org>; Thu,  7 Nov 2013 18:34:27 +0100 (CET)
-Content-Disposition: inline
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:35316 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751535Ab3KGSNh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 13:13:37 -0500
+Received: by mail-lb0-f176.google.com with SMTP id z5so745148lbh.35
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 10:13:36 -0800 (PST)
+In-Reply-To: <20131107070847.GC31638@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When trying to delete a table >= 256 using iproute2 the local table
-will be deleted.
-The table id is specified as a netlink attribute when it needs more then
-8 bits and iproute2 then sets the table field to RT_TABLE_UNSPEC (0).
-Preconditions to matching the table id in the rule delete code
-doesn't seem to take the "table id in netlink attribute" into condition
-so the frh_get_table helper function never gets to do its job when
-matching against current rule.
-Use the helper function twice instead of peaking at the table value directly.
+Hello.
 
-Originally reported at: http://bugs.debian.org/724783
+On 11/07/2013 10:08 AM, Herbert Xu wrote:
 
-Reported-by: Nicolas HICHER <nhicher@avencall.com>
-Signed-off-by: Andreas Henriksson <andreas@fatal.se>
----
- net/core/fib_rules.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> As virtio_net can now generate GRO frag_list packets without
+> sufficient verification, we need to handle malicious GRO packets
+> thrown at us.
 
-An alternative would be to say RT_TABLE_UNSPEC is incorrect value
-to use for the rule->table when using the netlink attribute and
-change iproute2 instead....
-... but RT_TABLE_UNSPEC sounds quite suitable, so why not
-change the kernel to be more forgiving.
+> This patch converts to affected BUG_ONs in skb_segment to rate-
+> limited warnings.
 
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 2e65413..f409e0b 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -460,7 +460,8 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 		if (frh->action && (frh->action != rule->action))
- 			continue;
- 
--		if (frh->table && (frh_get_table(frh, tb) != rule->table))
-+		if (frh_get_table(frh, tb) &&
-+		    (frh_get_table(frh, tb) != rule->table))
- 			continue;
- 
- 		if (tb[FRA_PRIORITY] &&
--- 
-1.8.4.2
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index bcc3f1c..fb1106d 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -2881,7 +2881,15 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+>   			while (tail->next)
+>   				tail = tail->next;
+>
+> -			BUG_ON(fskb && tail->len != len + doffset);
+> +			if (fskb && tail->len != len + doffset) {
+> +				net_warn_ratelimited(
+> +					"skb_segment: "
+> +					"illegal GSO fragment: %u %u\n",
+
+    Don't break up the message -- chekpatch.pl should allow that...
+
+> @@ -2929,7 +2937,15 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+>   		if (pos < offset + len) {
+>   			struct sk_buff *fskb2 = fskb;
+>
+> -			BUG_ON(pos + fskb->len != offset + len);
+> +			if (pos + fskb->len != offset + len) {
+> +				net_warn_ratelimited(
+> +					"skb_segment: "
+> +					"illegal GSO trailer: %u %u\n",
+
+    Same here.
+
+WBR, Sergei
