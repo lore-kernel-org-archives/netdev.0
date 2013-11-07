@@ -1,43 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Using HTB over MultiQ
-Date: Thu, 07 Nov 2013 08:13:40 -0800
-Message-ID: <1383840820.9412.78.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>
-	 <15059450.XJdZrMIbNO@tuxracer>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [patch] net: make ndev->irq signed for error handling
+Date: Thu, 7 Nov 2013 22:03:19 +0530
+Message-ID: <527BC0CF.70003@ti.com>
+References: <20131107074849.GF21844@elgon.mountain> <527B842E.2060909@ti.com> <20131107122249.GN20521@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sergey Popovich <popovich_sergei@mail.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:56173 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102Ab3KGQNm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 11:13:42 -0500
-Received: by mail-pb0-f54.google.com with SMTP id ro12so812053pbb.27
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 08:13:42 -0800 (PST)
-In-Reply-To: <15059450.XJdZrMIbNO@tuxracer>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131107122249.GN20521@mwanda>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-11-07 at 15:49 +0200, Sergey Popovich wrote:
+On Thursday 07 November 2013 05:52 PM, Dan Carpenter wrote:
+> On Thu, Nov 07, 2013 at 05:44:38PM +0530, Mugunthan V N wrote:
+>> On Thursday 07 November 2013 01:18 PM, Dan Carpenter wrote:
+>>> There is a bug in cpsw_probe() where we do:
+>>>
+>>> 	ndev->irq = platform_get_irq(pdev, 0);
+>>> 	if (ndev->irq < 0) {
+>>>
+>>> The problem is that "ndev->irq" is unsigned so the error handling
+>>> doesn't work.  I have changed it to a regular int.
+>>>
+>>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>> ndev->irq is never used any where in the driver, I think its better to
+>> remove this part of code from probe. If every one is ok, I can send a
+>> patch to remove the code.
+> It seems like cpsw_ndo_poll_controller() uses it.
+>
+>
 
+That can be changed to pass one of the interrupt numbers from priv as
+the irq number is not used in interrupt service routine.
 
-> commit 64153ce0a7b61b2a5cacb01805cbf670142339e9
-> Author: Eric Dumazet
-> Date:   Thu Jun 6 14:53:16 2013 -0700
-> 
->     net_sched: htb: do not setup default rate estimators
-> 
-> rate estimators do not setup by default. To enable rate estimators
-> you could try to load module sch_htb with htb_rate_est=1 
-> or echo 1 >/sys/module/sch_htb/parameters/htb_rate_est and recreate
-> hierarchy.
-> 
-
-To check if packets went through a class, you do not need
-a rate estimator. Its 0 anyway after an idle period.
-
-You have to take a look at counters as in :
-
-Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+Regards
+Mugunthan V N
