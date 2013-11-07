@@ -1,50 +1,85 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next] nfnetlink: do not ack malformed messages
-Date: Thu,  7 Nov 2013 19:59:19 +0100
-Message-ID: <fa44451df8aa56773b1b17cbbd86ced8b54eca5a.1383850681.git.jbenc@redhat.com>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Petr Matousek <pmatouse@redhat.com>
-To: netdev@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] wcn36xx: Fix logging macro with unnecessary semicolon
+Date: Thu, 07 Nov 2013 11:40:21 -0800
+Message-ID: <1383853221.9263.14.camel@joe-AO722>
+References: <1383684000.4387.42.camel@joe-AO722>
+	 <CAFSJ42YQy96Sko8CuG9BGjHzTV7TkRp2=NVt036APxSKpPB=Ag@mail.gmail.com>
+	 <1383760556.7940.28.camel@joe-AO722>
+	 <CAFSJ42Y-3BZqj+JRNa8wdxjnm1fguD8ToH5Oj0m56yT5NexdVQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	wcn36xx <wcn36xx@lists.infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	ath5k-devel@lists.ath5k.org,
+	ath9k-devel <ath9k-devel@lists.ath9k.org>,
+	ath10k@lists.infradead.org, Kalle Valo <kvalo@qca.qualcomm.com>,
+	wil6210@qca.qualcomm.com
+To: Eugene Krasnikov <k.eugene.e@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3105 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750793Ab3KGTA4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Nov 2013 14:00:56 -0500
+Received: from smtprelay0066.hostedemail.com ([216.40.44.66]:47785 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751692Ab3KGTkR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 14:40:17 -0500
+In-Reply-To: <CAFSJ42Y-3BZqj+JRNa8wdxjnm1fguD8ToH5Oj0m56yT5NexdVQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 0628b123c96d ("netfilter: nfnetlink: add batch support and use it
-from nf_tables") introduced a bug leading to various crashes in netlink_ack
-when netlink message with invalid nlmsg_len was sent by an unprivileged
-user.
+On Thu, 2013-11-07 at 07:32 +0000, Eugene Krasnikov wrote:
+> Hi Joe,
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
- net/netfilter/nfnetlink.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+Hi Eugene.
 
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-index 027f16a..046aa13 100644
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -363,13 +363,15 @@ static void nfnetlink_rcv(struct sk_buff *skb)
- 	struct net *net = sock_net(skb->sk);
- 	int msglen;
- 
--	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
--		return netlink_ack(skb, nlh, -EPERM);
+> I personally like the idea of making some kind of framework on top of
+> printing because all ath drivers are using the same printing approach
+> and combining all that code in one place will reduce amount of code in
+> each particular driver. As a true engineer i like when it's less code
+> = less work to do = less bugs:)
+> 
+> Suggestion is to send a patch with semicolon fix only
+
+It's a one line fix, and pretty trivial to do yourself if you
+want it.
+
+I do think though the slightly odd wcn36xx_<level> uses of:
+
+-#define wcn36xx_err(fmt, arg...)                               \
+-       printk(KERN_ERR pr_fmt("ERROR " fmt), ##arg);
 -
- 	if (nlh->nlmsg_len < NLMSG_HDRLEN ||
- 	    skb->len < nlh->nlmsg_len)
- 		return;
- 
-+	if (!ns_capable(net->user_ns, CAP_NET_ADMIN)) {
-+		netlink_ack(skb, nlh, -EPERM);
-+		return;
-+	}
-+
- 	if (nlh->nlmsg_type == NFNL_MSG_BATCH_BEGIN) {
- 		struct nfgenmsg *nfgenmsg;
- 
--- 
-1.7.6.5
+-#define wcn36xx_warn(fmt, arg...)                              \
+-       printk(KERN_WARNING pr_fmt("WARNING " fmt), ##arg)
+-
+-#define wcn36xx_info(fmt, arg...)              \
+-       printk(KERN_INFO pr_fmt(fmt), ##arg)
+-
+[]
++#define wcn36xx_err(fmt, ...)                                  \
++       pr_err("ERROR " fmt, ##__VA_ARGS__)
++#define wcn36xx_warn(fmt, ...)                                 \
++       pr_warn("WARNING " fmt, ##__VA_ARGS__)
++#define wcn36xx_info(fmt, ...)                                 \
++       pr_info(fmt, ##__VA_ARGS__)
+
+should still be converted to more normal pr_<level> like I did.
+
+I don't believe that prefixing of "ERROR " and "WARNING " to
+pr_err and pr_warn actually gain anything as the same level
+information can be got already with dmesg -r via the "<3>" and
+"<4>" prefixes or dmesg -l3 -l4
+
+> have a
+> second round of convincing ath guys to change printing code. How does
+> that sound?
+
+Luis?  Kalle?  Other Qualcomm/Atheros folk?
+
+One of the nominal benefits of separating the ath_<level>
+macros by subsystem was perf/tracing.  I believe some of the
+ath subsystems have integrated the dmesg and tracing code.
+
+I'm not sure how separable those may be here or if it's even
+desirable to separate them.  I'd guess not.
