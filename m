@@ -1,51 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH ethtool] sfc: Remove preprocessor condition from register
- table definitions
-Date: Thu, 7 Nov 2013 19:58:43 +0000
-Message-ID: <1383854323.3802.12.camel@bwh-desktop.uk.level5networks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BUG] v3.12-rc5-139-gbdeeab6 assertion failed at
+ drivers/net/bonding/bond_main.c (3398)
+Date: Thu, 07 Nov 2013 15:12:12 -0500 (EST)
+Message-ID: <20131107.151212.489598950578675166.davem@davemloft.net>
+References: <20131019205222.GA18874@redhat.com>
+	<20131019.184411.2017497732906948451.davem@davemloft.net>
+	<20131107142418.GL19702@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Cc: thomas@glanzmann.de, netdev@vger.kernel.org, fubar@us.ibm.com,
+	andy@greyhouse.net, nikolay@redhat.com, robbat2@gentoo.org
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:36888 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753164Ab3KGT6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 14:58:46 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:54800 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752002Ab3KGUMQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 15:12:16 -0500
+In-Reply-To: <20131107142418.GL19702@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This condition was mistakenly copied from the corresponding
-definitions in the out-of-tree version of sfc.  It has no effect here.
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Thu, 7 Nov 2013 15:24:18 +0100
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-I've applied this change just after the 3.12 tag.
+> Sorry for bringing this up - completely my fault. There are further
+> reports
+> of this bug in mainline. I've read the
+> ./Documentation/networking/netdev-FAQ.txt but haven't seen a way to
+> get a
+> fix that got in net-next to the (correct) net tree.
+> 
+> Is there any way to do it?
+> 
+> Sorry again for the mess :-(.
 
-Ben.
+Since we're in the merge window the tree going to Linus next would
+be net-next, and the fix is there.
 
- sfc.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/sfc.c b/sfc.c
-index 1bb3689..9478b38 100644
---- a/sfc.c
-+++ b/sfc.c
-@@ -3739,9 +3739,7 @@ static const struct efx_nic_reg_table efx_nic_reg_tables[] = {
- 	REGISTER_TABLE_CZ(MC_TREG_SMEM),
- 	/* MSIX_PBA_TABLE is not mapped */
- 	/* SRM_DBG is not mapped (and is redundant with BUF_FLL_TBL) */
--#if !defined(EFX_USE_KCOMPAT) || defined(EFX_HAVE_VMALLOC_REG_DUMP_BUF)
- 	REGISTER_TABLE_BZ(RX_FILTER_TBL0),
--#endif
- 	REGISTER_TABLE_DZ(BIU_MC_SFT_STATUS),
- };
- 
--- 
-1.8.1.4
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Once it hits Linus's tree I can queue it up for -stable.
