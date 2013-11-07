@@ -1,85 +1,63 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: Re: [PATCH] ipv6: replace RTF_ROUTEINFO with RTF_ADDRCONF in  rt6_get_route_info()
-Date: Thu, 07 Nov 2013 12:19:05 +0800
-Message-ID: <527B14B9.7040305@cn.fujitsu.com>
-References: <5279EF31.4040705@cn.fujitsu.com> <20131107015100.GF8144@order.stressinduktion.org> <527AF477.1060604@cn.fujitsu.com> <20131107024202.GH8144@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:7463 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750766Ab3KGEVJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 23:21:09 -0500
-In-Reply-To: <20131107024202.GH8144@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [PATCH] net: x86: bpf: don't forget to free sk_filter (v2)
+Date: Thu,  7 Nov 2013 08:35:12 +0400
+Message-ID: <1383798912-10832-1-git-send-email-avagin@openvz.org>
+Cc: linux-kernel@vger.kernel.org, Andrey Vagin <avagin@openvz.org>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2013=E5=B9=B411=E6=9C=8807=E6=97=A5 10:42, Hannes Frederic So=
-wa =E5=86=99=E9=81=93:
-> On Thu, Nov 07, 2013 at 10:01:27AM +0800, Duan Jiong wrote:
->> =E4=BA=8E 2013=E5=B9=B411=E6=9C=8807=E6=97=A5 09:51, Hannes Frederic=
- Sowa =E5=86=99=E9=81=93:
->>> On Wed, Nov 06, 2013 at 03:26:41PM +0800, Duan Jiong wrote:
->>>>
->>>> As the rfc 4191 said, the Router Preference and Lifetime values in=
- a
->>>> ::/0 Route Information Option should override the preference and l=
-ifetime
->>>> values in the Router Advertisement header. But when the kernel dea=
-ls with
->>>> a ::/0 Route Information Option, the rt6_get_route_info() always r=
-eturn
->>>> NULL, that means that overriding will not happen, because those de=
-fault
->>>> routers were added without flag RTF_ROUTEINFO in rt6_add_dflt_rout=
-er().
->>>>
->>>> In order to match those default routers, we can replace RTF_ROUTEI=
-NFO=20
->>>> with RTF_ADDRCONF in rt6_get_route_info().
->>>>
->>>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
->>>
->>> Hmm, that looks like a bug. Nice catch!
->>>
->>> Couldn't we just replace the rt6_get_route_info in rt6_route_rcv wi=
-th a call
->>> to rt6_get_dflt_router? Seems easier, already handles the ::/0 case=
- and also
->>> does preserve the check for the RTF_ROUTEINFO flag in rt6_add_route=
-_info.
->>
->> Yeah, your idea is better. I will modify my patch.
->=20
-> Stop, stop, stop, sorry that suggestion is plain wrong and stupid.
->=20
+sk_filter isn't freed if bpf_func is equal to sk_run_filter.
 
-In my opinion, i think that is well. According to your suggestion, we c=
-an=20
-call the rt6_get_dflt_router or rt6_get_route_info in different situati=
-on.
+This memory leak was introduced by v3.12-rc3-224-gd45ed4a4
+"net: fix unsafe set_memory_rw from softirq".
 
-if (rinfo->prefix_len =3D=3D 0)
-	rt =3D rt6_get_dflt_router(gwaddr, dev);
-else
-	rt =3D rt6_get_route_info(net, prefix, rinfo->prefix_len, gwaddr,
-				dev->ifindex);
+Before this patch sk_filter was freed in sk_filter_release_rcu,
+now it should be freed in bpf_jit_free.
 
-How do you think of the change above?
+Here is output of kmemleak:
+unreferenced object 0xffff8800b774eab0 (size 128):
+  comm "systemd", pid 1, jiffies 4294669014 (age 124.062s)
+  hex dump (first 32 bytes):
+    00 00 00 00 0b 00 00 00 20 63 7f b7 00 88 ff ff  ........ c......
+    60 d4 55 81 ff ff ff ff 30 d9 55 81 ff ff ff ff  `.U.....0.U.....
+  backtrace:
+    [<ffffffff816444be>] kmemleak_alloc+0x4e/0xb0
+    [<ffffffff811845af>] __kmalloc+0xef/0x260
+    [<ffffffff81534028>] sock_kmalloc+0x38/0x60
+    [<ffffffff8155d4dd>] sk_attach_filter+0x5d/0x190
+    [<ffffffff815378a1>] sock_setsockopt+0x991/0x9e0
+    [<ffffffff81531bd6>] SyS_setsockopt+0xb6/0xd0
+    [<ffffffff8165f3e9>] system_call_fastpath+0x16/0x1b
+    [<ffffffffffffffff>] 0xffffffffffffffff
 
-Thanks,
-  Duan
+v2: add extra { } after else
 
-> But I still would like to see the check for RTF_ROUTEINFO happening
-> in rt6_add_route_info. We should also rename the function if you only=
- query
-> for RTF_ADDRCONF and not RTF_ROUTEINFO.
->=20
-> Sorry,
->=20
->   Hannes
->=20
->=20
+Fixes: d45ed4a4e33a ("net: fix unsafe set_memory_rw from softirq")
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Andrey Vagin <avagin@openvz.org>
+---
+ arch/x86/net/bpf_jit_comp.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 516593e..26328e8 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -788,5 +788,7 @@ void bpf_jit_free(struct sk_filter *fp)
+ 	if (fp->bpf_func != sk_run_filter) {
+ 		INIT_WORK(&fp->work, bpf_jit_free_deferred);
+ 		schedule_work(&fp->work);
++	} else {
++		kfree(fp);
+ 	}
+ }
+-- 
+1.8.3.1
