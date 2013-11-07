@@ -1,48 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Thu, 7 Nov 2013 10:41:16 +0800
-Message-ID: <20131107024116.GA29511@gondor.apana.org.au>
-References: <20131106080425.GA17556@gondor.apana.org.au>
- <20131106081638.GA17665@gondor.apana.org.au>
- <20131106131252.GA20680@gondor.apana.org.au>
- <1383750070.4291.163.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131107003658.GA27976@gondor.apana.org.au>
- <1383786208.2878.15.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131107014724.GA28946@gondor.apana.org.au>
- <1383789758.2878.32.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131107021519.GA29081@gondor.apana.org.au>
- <1383791855.9412.5.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: replace RTF_ROUTEINFO with RTF_ADDRCONF in  rt6_get_route_info()
+Date: Thu, 7 Nov 2013 03:42:02 +0100
+Message-ID: <20131107024202.GH8144@order.stressinduktion.org>
+References: <5279EF31.4040705@cn.fujitsu.com> <20131107015100.GF8144@order.stressinduktion.org> <527AF477.1060604@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com, mst@redhat.com,
-	Jason Wang <jasowang@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:39259 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752334Ab3KGClZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 21:41:25 -0500
+Received: from order.stressinduktion.org ([87.106.68.36]:54589 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752674Ab3KGCmD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 21:42:03 -0500
 Content-Disposition: inline
-In-Reply-To: <1383791855.9412.5.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <527AF477.1060604@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 06, 2013 at 06:37:35PM -0800, Eric Dumazet wrote:
->
-> If the hypervisor is doomed, there is nothing we can do.
+On Thu, Nov 07, 2013 at 10:01:27AM +0800, Duan Jiong wrote:
+> =E4=BA=8E 2013=E5=B9=B411=E6=9C=8807=E6=97=A5 09:51, Hannes Frederic =
+Sowa =E5=86=99=E9=81=93:
+> > On Wed, Nov 06, 2013 at 03:26:41PM +0800, Duan Jiong wrote:
+> >>
+> >> As the rfc 4191 said, the Router Preference and Lifetime values in=
+ a
+> >> ::/0 Route Information Option should override the preference and l=
+ifetime
+> >> values in the Router Advertisement header. But when the kernel dea=
+ls with
+> >> a ::/0 Route Information Option, the rt6_get_route_info() always r=
+eturn
+> >> NULL, that means that overriding will not happen, because those de=
+fault
+> >> routers were added without flag RTF_ROUTEINFO in rt6_add_dflt_rout=
+er().
+> >>
+> >> In order to match those default routers, we can replace RTF_ROUTEI=
+NFO=20
+> >> with RTF_ADDRCONF in rt6_get_route_info().
+> >>
+> >> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> >=20
+> > Hmm, that looks like a bug. Nice catch!
+> >=20
+> > Couldn't we just replace the rt6_get_route_info in rt6_route_rcv wi=
+th a call
+> > to rt6_get_dflt_router? Seems easier, already handles the ::/0 case=
+ and also
+> > does preserve the check for the RTF_ROUTEINFO flag in rt6_add_route=
+_info.
+>=20
+> Yeah, your idea is better. I will modify my patch.
 
-It's not just the hypervisor you know.  There is also DMA etc.
-The hypervisor doesn't know that there is stuff in the page that
-should not be exposed.
+Stop, stop, stop, sorry that suggestion is plain wrong and stupid.
 
-Also one day we may want to do zero-copy receive in which case
-this would be even more important.
+But I still would like to see the check for RTF_ROUTEINFO happening
+in rt6_add_route_info. We should also rename the function if you only q=
+uery
+for RTF_ADDRCONF and not RTF_ROUTEINFO.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Sorry,
+
+  Hannes
