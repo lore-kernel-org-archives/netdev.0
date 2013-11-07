@@ -1,48 +1,60 @@
 From: Mathias Krause <mathias.krause@secunet.com>
-Subject: [PATCHv2 next-next 0/3] move pskb_put (was: IPsec improvements)
-Date: Thu,  7 Nov 2013 14:18:23 +0100
-Message-ID: <1383830306-16697-1-git-send-email-mathias.krause@secunet.com>
+Subject: [PATCHv2 next-next 2/3] caif: use pskb_put() instead of reimplementing its functionality
+Date: Thu,  7 Nov 2013 14:18:25 +0100
+Message-ID: <1383830306-16697-3-git-send-email-mathias.krause@secunet.com>
+References: <1383830306-16697-1-git-send-email-mathias.krause@secunet.com>
 Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
 	Ben Hutchings <bhutchings@solarflare.com>,
 	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	Mathias Krause <mathias.krause@secunet.com>
+	Mathias Krause <mathias.krause@secunet.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: "David S. Miller" <davem@davemloft.net>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:55202 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:55189 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751083Ab3KGNSi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Nov 2013 08:18:38 -0500
+	id S1750869Ab3KGNSg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Nov 2013 08:18:36 -0500
+In-Reply-To: <1383830306-16697-1-git-send-email-mathias.krause@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series moves pskb_put() to the core code, making the code
-duplication in caif obsolete (patches 1 and 2).
-Patch 3 fixes a few kernel-doc issues.
+Also remove the warning for fragmented packets -- skb_cow_data() will
+linearize the buffer, removing all fragments.
 
-v2 of this series does no longer contain the skb_cow_data() patch and
-therefore no performance improvements for IPsec. The change is still
-under discussion, but otherwise independent from the above changes.
-
-Please apply!
-
-v2:
-- kernel-doc fixes for pskb_put, as noticed by Ben
-- dropped skb_cow_data patch as it's still discussed
-- added a kernel-doc fixes patch (patch 3)
-
-Mathias Krause (3):
-  net: move pskb_put() to core code
-  caif: use pskb_put() instead of reimplementing its functionality
-  net: skbuff - kernel-doc fixes
-
- include/linux/skbuff.h  |    3 ++-
- include/net/esp.h       |    2 --
+Signed-off-by: Mathias Krause <mathias.krause@secunet.com>
+Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+Cc: "David S. Miller" <davem@davemloft.net>
+---
  net/caif/cfpkt_skbuff.c |   12 +-----------
- net/core/skbuff.c       |   33 ++++++++++++++++++++++++++++-----
- net/xfrm/xfrm_algo.c    |   13 -------------
- 5 files changed, 31 insertions(+), 32 deletions(-)
+ 1 files changed, 1 insertions(+), 11 deletions(-)
 
+diff --git a/net/caif/cfpkt_skbuff.c b/net/caif/cfpkt_skbuff.c
+index 6493351..1be0b52 100644
+--- a/net/caif/cfpkt_skbuff.c
++++ b/net/caif/cfpkt_skbuff.c
+@@ -203,20 +203,10 @@ int cfpkt_add_body(struct cfpkt *pkt, const void *data, u16 len)
+ 			PKT_ERROR(pkt, "cow failed\n");
+ 			return -EPROTO;
+ 		}
+-		/*
+-		 * Is the SKB non-linear after skb_cow_data()? If so, we are
+-		 * going to add data to the last SKB, so we need to adjust
+-		 * lengths of the top SKB.
+-		 */
+-		if (lastskb != skb) {
+-			pr_warn("Packet is non-linear\n");
+-			skb->len += len;
+-			skb->data_len += len;
+-		}
+ 	}
+ 
+ 	/* All set to put the last SKB and optionally write data there. */
+-	to = skb_put(lastskb, len);
++	to = pskb_put(skb, lastskb, len);
+ 	if (likely(data))
+ 		memcpy(to, data, len);
+ 	return 0;
 -- 
 1.7.2.3
