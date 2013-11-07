@@ -1,64 +1,44 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Thu, 7 Nov 2013 07:56:33 +0200
-Message-ID: <20131107055633.GA28986@redhat.com>
-References: <20131106042858.GA15745@gondor.apana.org.au>
- <1383715222.4291.158.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131106080425.GA17556@gondor.apana.org.au>
- <20131106081638.GA17665@gondor.apana.org.au>
- <20131106131252.GA20680@gondor.apana.org.au>
- <1383750070.4291.163.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131107003658.GA27976@gondor.apana.org.au>
- <1383786208.2878.15.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131107014724.GA28946@gondor.apana.org.au>
- <1383789758.2878.32.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Thu, 7 Nov 2013 14:22:34 +0800
+Message-ID: <20131107062234.GA31156@gondor.apana.org.au>
+References: <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131103163103.GA18894@gondor.apana.org.au>
+ <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131104041108.GA22823@gondor.apana.org.au>
+ <20131106013038.GA14894@gondor.apana.org.au>
+ <20131106123900.GA20259@gondor.apana.org.au>
+ <20131106133045.GA20931@gondor.apana.org.au>
+ <20131106143927.GA21604@gondor.apana.org.au>
+ <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131107004339.GA28156@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
-	Ben Hutchings <bhutchings@solarflare.com>,
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	David Miller <davem@davemloft.net>,
 	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com,
-	Jason Wang <jasowang@redhat.com>
+	hkchu@google.com, mwdalton@google.com
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37312 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751083Ab3KGFxu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Nov 2013 00:53:50 -0500
+Received: from ringil.hengli.com.au ([178.18.16.133]:57437 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750923Ab3KGGWn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 01:22:43 -0500
 Content-Disposition: inline
-In-Reply-To: <1383789758.2878.32.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <20131107004339.GA28156@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 06, 2013 at 06:02:38PM -0800, Eric Dumazet wrote:
-> On Thu, 2013-11-07 at 09:47 +0800, Herbert Xu wrote:
-> 
-> > Say the system is fragmented sufficiently that you'll end up with
-> > 0-order pages.  In that case you'll only ever be able to coalesce
-> > two packets.
-> 
-> 4K page will contain 2 frags and they will coalesce.
-> 
-> Performance will still be quite good.
-> 
-> We probably add a tweak, to not have any hole in this case.
-> 
-> > 
-> > Real systems that run for more than a day do end up with seriously
-> > fragmented memory.
-> 
-> Sure, but having shallow skbs in the first place help quite a bit.
-> 
-> There is no perfect solution, unless of course you change virtio_net to
-> provide different queues, with different frag sizes.
-> 
-> Sort of what NIU driver uses.
-> 
+On Thu, Nov 07, 2013 at 08:43:39AM +0800, Herbert Xu wrote:
+>
+> Yeah I screwed up with the test, it needs an additional doffset
+> since the tail already has the headers pushed:
 
-I considered doing this but won't this mean packets can get reordered?
-In practice we need to maintain ordering of RX frames within
-a given flow, correct?
+OK the patch has passed my tests and I will clean it up for
+submission.
 
+Cheers,
 -- 
-MST
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
