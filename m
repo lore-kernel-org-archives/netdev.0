@@ -1,128 +1,88 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 6/8] bonding: add arp_ip_target netlink support
-Date: Thu, 7 Nov 2013 13:56:47 +0100
-Message-ID: <20131107125647.GB2463@minipsycho.orion>
-References: <20131107094330.15846.84353.stgit@monster-03.cumulusnetworks.com>
- <20131107101640.GA2463@minipsycho.orion>
- <C580A3C6-BF26-4316-A6F5-6DB02319B100@cumulusnetworks.com>
+From: "Anton 'EvilMan' Danilov" <littlesmilingcloud@gmail.com>
+Subject: Using HTB over MultiQ
+Date: Thu, 7 Nov 2013 17:12:31 +0400
+Message-ID: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net,
-	netdev@vger.kernel.org, shm <shm@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:63336 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750996Ab3KGM4x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 07:56:53 -0500
-Received: by mail-ea0-f172.google.com with SMTP id r16so302852ead.17
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 04:56:52 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <C580A3C6-BF26-4316-A6F5-6DB02319B100@cumulusnetworks.com>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:40917 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750867Ab3KGNMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 08:12:35 -0500
+Received: by mail-wg0-f54.google.com with SMTP id c11so495322wgh.33
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 05:12:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Nov 07, 2013 at 11:56:35AM CET, sfeldma@cumulusnetworks.com wrote:
->
->On Nov 7, 2013, at 12:16 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->
->> Thu, Nov 07, 2013 at 10:43:30AM CET, sfeldma@cumulusnetworks.com wro=
-te:
->>> Add IFLA_BOND_ARP_IP_TARGET to allow get/set of bonding parameter
->>> arp_ip_target via netlink.
->>>=20
->>> Signed-off-by: Scott Feldman <sfeldma@cumulusnetworks.com>
->>> ---
->>> drivers/net/bonding/bond_netlink.c |   43 ++++++++++++++-
->>> drivers/net/bonding/bond_options.c |  102 +++++++++++++++++++++++++=
-+++++++++++
->>> drivers/net/bonding/bond_sysfs.c   |   77 +++----------------------=
---
->>> drivers/net/bonding/bonding.h      |    3 +
->>> include/uapi/linux/if_link.h       |    1=20
->>> 5 files changed, 155 insertions(+), 71 deletions(-)
->>>=20
->>> diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bondi=
-ng/bond_netlink.c
->>> index 9c50165..e4673ba 100644
->>> --- a/drivers/net/bonding/bond_netlink.c
->>> +++ b/drivers/net/bonding/bond_netlink.c
->>> @@ -29,6 +29,7 @@ static const struct nla_policy bond_policy[IFLA_B=
-OND_MAX + 1] =3D {
->>> 	[IFLA_BOND_DOWNDELAY]		=3D { .type =3D NLA_U32 },
->>> 	[IFLA_BOND_USE_CARRIER]		=3D { .type =3D NLA_U8 },
->>> 	[IFLA_BOND_ARP_INTERVAL]	=3D { .type =3D NLA_U32 },
->>> +	[IFLA_BOND_ARP_IP_TARGET]	=3D { .type =3D NLA_NESTED },
->>> };
->>>=20
->>> static int bond_validate(struct nlattr *tb[], struct nlattr *data[]=
-)
->>> @@ -109,6 +110,21 @@ static int bond_changelink(struct net_device *=
-bond_dev,
->>> 		if (err)
->>> 			return err;
->>> 	}
->>> +	if (data[IFLA_BOND_ARP_IP_TARGET]) {
->>> +		struct nlattr *attr;
->>> +		int rem;
->>> +
->>> +		err =3D bond_option_arp_ip_target_clear_all(bond);
->>> +		if (err)
->>> +			return err;
->>> +
->>=20
->> Hmm. I think this is not correct. I think you should not clear all. =
-They
->> might be needed to be used but for a brief moment, they disappear.
->>=20
->> Just set or unset them one by one.
->
->That=E2=80=99s a good catch.  I should compare existing set with new s=
-et and retain entries entries common to both sets (and add/remove uncom=
-mon ones).
->
->Just to be clear, for netlink, the idea is to push a set of ip targets=
- addrs as a nested attribute and process as a set.  This is consistent =
-with arp_ip_target documentation in Documentation/networking/bonding.tx=
-t where arp_ip_target is passed as a comma-separated list of addrs.  Ho=
-wever, it=E2=80=99s not consistent with the sysfs interface where addrs=
- are added/removed one at a time using =E2=80=9C+=E2=80=9D or =E2=80=9C=
--=E2=80=9C prefix.
+Hello.
 
-I believe that the behaviour you described is ok.
+I'm experimenting with high performance linux router with 10G NICs.
+On high traffic rates the performance are limited by the lock of root
+queue discipline. For avoid impact of locking i've decided to build
+QoS scheme over the multiq qdisc.
 
->
->e.g.:
->
->ip link add bond7 type bond mode 1
->ip link set dev bond7 type bond arp_ip_target 10.0.0.1,10.0.0.5
->ip link set dev bond7 type bond arp_ip_target 10.0.0.1
->
->
->>> @@ -141,6 +159,8 @@ static int bond_fill_info(struct sk_buff *skb,
->>> {
->>> 	struct bonding *bond =3D netdev_priv(bond_dev);
->>> 	struct net_device *slave_dev =3D bond_option_active_slave_get(bond=
-);
->>> +	struct nlattr *targets;
->>> +	int i, targets_added;
->>>=20
->>> 	if (nla_put_u8(skb, IFLA_BOND_MODE, bond->params.mode))
->>> 		goto nla_put_failure;
->>> @@ -152,10 +172,12 @@ static int bond_fill_info(struct sk_buff *skb=
-,
->>> 	if (nla_put_u32(skb, IFLA_BOND_MIIMON, bond->params.miimon))
->>> 		goto nla_put_failure;
->>>=20
->>> -	if (nla_put_u32(skb, IFLA_BOND_UPDELAY, bond->params.updelay))
->>> +	if (nla_put_u32(skb, IFLA_BOND_UPDELAY,
->>> +		bond->params.updelay * bond->params.miimon))
->>> 		goto nla_put_failure;
->>=20
->> 	This bit should probably no be here :)
->
->Drats, that change goes with earlier patch.  I=E2=80=99ll fix on patch=
- set resend for issue above.
->
->-scott
+And I have the issues with use to multiq discipline.
+
+My setup:
+1. Multiq qdisc is on top of interface.
+2. To every multiq class i've attached htb discipline with own
+hierachy of child classes.
+3. The filters (u32 with hashing) are attached to the root multiq discipline.
+
+Graphical scheme of hierarchy -
+http://pixpin.ru/images/2013/11/07/multiq-hierarchy1.png
+
+Fragments of script:
+
+#add top qdisc and classes
+ qdisc add dev eth0 root handle 10: multiq
+ qdisc add dev eth0 parent 10:1 handle 11: htb
+ class add dev eth0 parent 11: classid 11:1 htb rate 1250Mbit
+ qdisc add dev eth0 parent 10:2 handle 12: htb
+ class add dev eth0 parent 12: classid 12:1 htb rate 1250Mbit
+ qdisc add dev eth0 parent 10:3 handle 13: htb
+ class add dev eth0 parent 13: classid 13:1 htb rate 1250Mbit
+ qdisc add dev eth0 parent 10:4 handle 14: htb
+ class add dev eth0 parent 14: classid 14:1 htb rate 1250Mbit
+ qdisc add dev eth0 parent 10:5 handle 15: htb
+ class add dev eth0 parent 15: classid 15:1 htb rate 1250Mbit
+ qdisc add dev eth0 parent 10:6 handle 16: htb
+ class add dev eth0 parent 16: classid 16:1 htb rate 1250Mbit
+ qdisc add dev eth0 parent 10:7 handle 17: htb
+ class add dev eth0 parent 17: classid 17:1 htb rate 1250Mbit
+ qdisc add dev eth0 parent 10:8 handle 18: htb
+ class add dev eth0 parent 18: classid 18:1 htb rate 1250Mbit
+
+#add leaf classes and qdiscs (several hundreds)
+ ...
+ class add dev eth0 parent 11:1 classid 11:1736 htb rate 1024kbit
+ qdisc add dev eth0 parent 11:1736 handle 1736 pfifo limit 50
+ ...
+
+But I see zero statistics on the leaf htb classes and nonzero
+statistics on the classifier filters:
+
+~$ tc -s -p filter list dev eth1
+ ...
+ filter parent 10: protocol ip pref 5 u32 fh 2:f2:800 order 2048 key
+ht 2 bkt f2 flowid 11:1736  (rule hit 306 success 306)
+   match IP src xx.xx.xx.xx/30 (success 306 )
+ ...
+
+~$ tc -s -s -d c ls dev eth1 classid 11:1736
+ class htb 11:1736 parent 11:1 leaf 1736: prio 0 quantum 12800 rate
+1024Kbit ceil 1024Kbit burst 1599b/1 mpu 0b overhead 0b cburst 1599b/1
+mpu 0b overhead 0b level 0
+  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+  rate 0bit 0pps backlog 0b 0p requeues 0
+  lended: 0 borrowed: 0 giants: 0
+  tokens: 195312 ctokens: 195312
+
+I think I've lost from view the some aspects of settings.
+Has anyone setuped the like complex scheme over the multiq discipline?
+
+
+
+-- 
+Anton.
