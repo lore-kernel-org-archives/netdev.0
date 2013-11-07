@@ -1,39 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Using HTB over MultiQ
-Date: Thu, 07 Nov 2013 06:20:21 -0800
-Message-ID: <1383834021.9412.61.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>
-	 <1383833480.9412.58.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 1/3] net_sched: tbf: support of 64bit rates
+Date: Thu, 07 Nov 2013 18:25:39 +0400
+Message-ID: <527BA2E3.5090905@cogentembedded.com>
+References: <1383790412-41944-1-git-send-email-yangyingliang@huawei.com> <1383790412-41944-2-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>
+Cc: eric.dumazet@gmail.com, jhs@mojatatu.com,
+	stephen@networkplumber.org
+To: Yang Yingliang <yangyingliang@huawei.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:60191 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750996Ab3KGOUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 09:20:23 -0500
-Received: by mail-pa0-f48.google.com with SMTP id kq14so666430pab.21
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 06:20:23 -0800 (PST)
-In-Reply-To: <1383833480.9412.58.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:51874 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751083Ab3KGOZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 09:25:47 -0500
+Received: by mail-lb0-f177.google.com with SMTP id u14so484866lbd.22
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 06:25:46 -0800 (PST)
+In-Reply-To: <1383790412-41944-2-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-07 at 06:11 -0800, Eric Dumazet wrote:
-> On Thu, 2013-11-07 at 17:12 +0400, Anton 'EvilMan' Danilov wrote:
-> > Hello.
-> > 
-> > I'm experimenting with high performance linux router with 10G NICs.
-> > On high traffic rates the performance are limited by the lock of root
-> > queue discipline. For avoid impact of locking i've decided to build
-> > QoS scheme over the multiq qdisc.
-> > 
+Hello.
 
-Oh well, this is a router.
+On 07-11-2013 6:13, Yang Yingliang wrote:
 
-So I think you need to change the device queue selection so that it only
-depends on your filters / htb classes.
+> With psched_ratecfg_precompute(), tbf can deal with 64bit rates.
+> Add two new attributes so that tc can use them to break the 32bit
+> limit.
 
-Otherwise flows for a particular 'customer' might be spread on the 8
-queues, so the rate could be 8 * 1Mbit, instead of 1Mbit.
+> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+[...]
+
+> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+> index b057122..b736517 100644
+> --- a/net/sched/sch_tbf.c
+> +++ b/net/sched/sch_tbf.c
+[...]
+> @@ -402,6 +409,13 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
+>   	opt.buffer = PSCHED_NS2TICKS(q->buffer);
+>   	if (nla_put(skb, TCA_TBF_PARMS, sizeof(opt), &opt))
+>   		goto nla_put_failure;
+> +	if ((q->rate.rate_bytes_ps >= (1ULL << 32)) &&
+> +			nla_put_u64(skb, TCA_TBF_RATE64, q->rate.rate_bytes_ps))
+> +		goto nla_put_failure;
+> +	if (q->peak_present &&
+> +			(q->peak.rate_bytes_ps >= (1ULL << 32)) &&
+> +			nla_put_u64(skb, TCA_TBF_PRATE64, q->peak.rate_bytes_ps))
+> +		goto nla_put_failure;
+
+    According to the networking coding style, the *if* continuation lines 
+should start under the next character after (.
+
+WBR, Sergei
