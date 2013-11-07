@@ -1,55 +1,101 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net] net/mlx4_en: Fixed crash when port type is changed
-Date: Thu,  7 Nov 2013 11:08:30 +0200
-Message-ID: <1383815310-19116-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next] net_sched: tbf: support of 64bit rates
+Date: Thu, 7 Nov 2013 17:40:46 +0800
+Message-ID: <1383817246-3264-1-git-send-email-yangyingliang@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>, <jhs@mojatatu.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:39644 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752251Ab3KGJIw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Nov 2013 04:08:52 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:23381 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753872Ab3KGJlN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 04:41:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-timecounter_init() was was called only after first potential
-timecounter_read().
-Moved mlx4_en_init_timestamp() before mlx4_en_init_netdev()
+With psched_ratecfg_precompute(), tbf can deal with 64bit rates.
+Add two new attributes so that tc can use them to break the 32bit
+limit.
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 ---
-Please pull into -stable for kernels >= 3.10
+ include/uapi/linux/pkt_sched.h |  2 ++
+ net/sched/sch_tbf.c            | 22 ++++++++++++++++++----
+ 2 files changed, 20 insertions(+), 4 deletions(-)
 
- drivers/net/ethernet/mellanox/mlx4/en_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-index a071cda..0d087b0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-@@ -264,6 +264,10 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
- 	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_ETH)
- 		mdev->port_cnt++;
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index f2624b5..307f293 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -171,6 +171,8 @@ enum {
+ 	TCA_TBF_PARMS,
+ 	TCA_TBF_RTAB,
+ 	TCA_TBF_PTAB,
++	TCA_TBF_RATE64,
++	TCA_TBF_PRATE64,
+ 	__TCA_TBF_MAX,
+ };
  
-+	/* Initialize time stamp mechanism */
-+	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
-+		mlx4_en_init_timestamp(mdev);
-+
- 	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_ETH) {
- 		if (!dev->caps.comp_pool) {
- 			mdev->profile.prof[i].rx_ring_num =
-@@ -301,10 +305,6 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
- 			mdev->pndev[i] = NULL;
- 	}
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index b057122..b736517 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -266,20 +266,23 @@ static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
+ 	[TCA_TBF_PARMS]	= { .len = sizeof(struct tc_tbf_qopt) },
+ 	[TCA_TBF_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
+ 	[TCA_TBF_PTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
++	[TCA_TBF_RATE64]	= { .type = NLA_U64 },
++	[TCA_TBF_PRATE64]	= { .type = NLA_U64 },
+ };
  
--	/* Initialize time stamp mechanism */
--	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
--		mlx4_en_init_timestamp(mdev);
--
- 	return mdev;
+ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	int err;
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+-	struct nlattr *tb[TCA_TBF_PTAB + 1];
++	struct nlattr *tb[TCA_TBF_MAX + 1];
+ 	struct tc_tbf_qopt *qopt;
+ 	struct qdisc_rate_table *rtab = NULL;
+ 	struct qdisc_rate_table *ptab = NULL;
+ 	struct Qdisc *child = NULL;
+ 	int max_size, n;
++	u64 rate64 = 0, prate64 = 0;
  
- err_mr:
+-	err = nla_parse_nested(tb, TCA_TBF_PTAB, opt, tbf_policy);
++	err = nla_parse_nested(tb, TCA_TBF_MAX, opt, tbf_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -341,9 +344,13 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	q->tokens = q->buffer;
+ 	q->ptokens = q->mtu;
+ 
+-	psched_ratecfg_precompute(&q->rate, &rtab->rate, 0);
++	if (tb[TCA_TBF_RATE64])
++		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
++	psched_ratecfg_precompute(&q->rate, &rtab->rate, rate64);
+ 	if (ptab) {
+-		psched_ratecfg_precompute(&q->peak, &ptab->rate, 0);
++		if (tb[TCA_TBF_PRATE64])
++			prate64 = nla_get_u64(tb[TCA_TBF_PRATE64]);
++		psched_ratecfg_precompute(&q->peak, &ptab->rate, prate64);
+ 		q->peak_present = true;
+ 	} else {
+ 		q->peak_present = false;
+@@ -402,6 +409,13 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	opt.buffer = PSCHED_NS2TICKS(q->buffer);
+ 	if (nla_put(skb, TCA_TBF_PARMS, sizeof(opt), &opt))
+ 		goto nla_put_failure;
++	if ((q->rate.rate_bytes_ps >= (1ULL << 32)) &&
++			nla_put_u64(skb, TCA_TBF_RATE64, q->rate.rate_bytes_ps))
++		goto nla_put_failure;
++	if (q->peak_present &&
++			(q->peak.rate_bytes_ps >= (1ULL << 32)) &&
++			nla_put_u64(skb, TCA_TBF_PRATE64, q->peak.rate_bytes_ps))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(skb, nest);
+ 	return skb->len;
 -- 
-1.8.3.4
+1.7.12
