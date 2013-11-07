@@ -1,55 +1,47 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v2 1/3] net_sched: tbf: support of 64bit rates
-Date: Thu, 07 Nov 2013 18:25:39 +0400
-Message-ID: <527BA2E3.5090905@cogentembedded.com>
-References: <1383790412-41944-1-git-send-email-yangyingliang@huawei.com> <1383790412-41944-2-git-send-email-yangyingliang@huawei.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [BUG] v3.12-rc5-139-gbdeeab6 assertion failed at
+ drivers/net/bonding/bond_main.c (3398)
+Date: Thu, 7 Nov 2013 15:24:18 +0100
+Message-ID: <20131107142418.GL19702@redhat.com>
+References: <20131019202702.GA8354@glanzmann.de>
+ <20131019205222.GA18874@redhat.com>
+ <20131019.184411.2017497732906948451.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jhs@mojatatu.com,
-	stephen@networkplumber.org
-To: Yang Yingliang <yangyingliang@huawei.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: thomas@glanzmann.de, netdev@vger.kernel.org, fubar@us.ibm.com,
+	andy@greyhouse.net, nikolay@redhat.com, robbat2@gentoo.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:51874 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751083Ab3KGOZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 09:25:47 -0500
-Received: by mail-lb0-f177.google.com with SMTP id u14so484866lbd.22
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 06:25:46 -0800 (PST)
-In-Reply-To: <1383790412-41944-2-git-send-email-yangyingliang@huawei.com>
+Received: from mx1.redhat.com ([209.132.183.28]:16650 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750964Ab3KGO0j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Nov 2013 09:26:39 -0500
+Content-Disposition: inline
+In-Reply-To: <20131019.184411.2017497732906948451.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Sat, Oct 19, 2013 at 06:44:11PM -0400, David Miller wrote:
+>From: Veaceslav Falico <vfalico@redhat.com>
+>Date: Sat, 19 Oct 2013 22:52:22 +0200
+>
+>> Fixed in commit b32418705107265dfca5edfe2b547643e53a732e ("bonding:
+>> RCUify
+>> bond_set_rx_mode()") net-next. It should get into mainline soon.
+>
+>If it's in net-next it's not going into mainline soon.
+>
+>A change that fixes a bug should go into 'net', not 'net-next'.
 
-On 07-11-2013 6:13, Yang Yingliang wrote:
+Hi David,
 
-> With psched_ratecfg_precompute(), tbf can deal with 64bit rates.
-> Add two new attributes so that tc can use them to break the 32bit
-> limit.
+Sorry for bringing this up - completely my fault. There are further reports
+of this bug in mainline. I've read the
+./Documentation/networking/netdev-FAQ.txt but haven't seen a way to get a
+fix that got in net-next to the (correct) net tree.
 
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-[...]
+Is there any way to do it?
 
-> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-> index b057122..b736517 100644
-> --- a/net/sched/sch_tbf.c
-> +++ b/net/sched/sch_tbf.c
-[...]
-> @@ -402,6 +409,13 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
->   	opt.buffer = PSCHED_NS2TICKS(q->buffer);
->   	if (nla_put(skb, TCA_TBF_PARMS, sizeof(opt), &opt))
->   		goto nla_put_failure;
-> +	if ((q->rate.rate_bytes_ps >= (1ULL << 32)) &&
-> +			nla_put_u64(skb, TCA_TBF_RATE64, q->rate.rate_bytes_ps))
-> +		goto nla_put_failure;
-> +	if (q->peak_present &&
-> +			(q->peak.rate_bytes_ps >= (1ULL << 32)) &&
-> +			nla_put_u64(skb, TCA_TBF_PRATE64, q->peak.rate_bytes_ps))
-> +		goto nla_put_failure;
+Sorry again for the mess :-(.
 
-    According to the networking coding style, the *if* continuation lines 
-should start under the next character after (.
-
-WBR, Sergei
+Thank you!
