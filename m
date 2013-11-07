@@ -1,8 +1,9 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Thu, 7 Nov 2013 08:36:58 +0800
-Message-ID: <20131107003658.GA27976@gondor.apana.org.au>
-References: <20131106013038.GA14894@gondor.apana.org.au>
+Date: Thu, 7 Nov 2013 08:39:47 +0800
+Message-ID: <20131107003947.GB27976@gondor.apana.org.au>
+References: <20131104041108.GA22823@gondor.apana.org.au>
+ <20131106013038.GA14894@gondor.apana.org.au>
  <1383702347.4291.152.camel@edumazet-glaptop2.roam.corp.google.com>
  <20131106040717.GA15711@gondor.apana.org.au>
  <1383711785.4291.156.camel@edumazet-glaptop2.roam.corp.google.com>
@@ -10,49 +11,36 @@ References: <20131106013038.GA14894@gondor.apana.org.au>
  <1383715222.4291.158.camel@edumazet-glaptop2.roam.corp.google.com>
  <20131106080425.GA17556@gondor.apana.org.au>
  <20131106081638.GA17665@gondor.apana.org.au>
- <20131106131252.GA20680@gondor.apana.org.au>
- <1383750070.4291.163.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1383750341.4291.166.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	David Miller <davem@davemloft.net>,
 	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com, mst@redhat.com,
-	Jason Wang <jasowang@redhat.com>
+	hkchu@google.com, mwdalton@google.com, mst@redhat.com
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:37606 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:39736 "EHLO
 	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751576Ab3KGAiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 19:38:05 -0500
+	with ESMTP id S1751936Ab3KGAjx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 19:39:53 -0500
 Content-Disposition: inline
-In-Reply-To: <1383750070.4291.163.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <1383750341.4291.166.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 06, 2013 at 07:01:10AM -0800, Eric Dumazet wrote:
-> Have you thought about arches having PAGE_SIZE=65536, and how bad it is
-> to use a full page per network frame ? It is lazy and x86 centered.
+On Wed, Nov 06, 2013 at 07:05:41AM -0800, Eric Dumazet wrote:
+> 
+> Sure, if your host has infinite amount of memory, we can remove all the
+> silly and expensive and bore some checks we added in the stack against
+> skb->truesize.
+> 
+> And yes, network stack will be faster.
+> 
+> But in real life, we have memory constraints.
 
-So instead if we were sending a full 64K packet on such an arch to
-another guest, we'd now chop it up into 1.5K chunks and reassemble them.
-
-> So after our patches, we now have an optimal situation, even on these
-> arches.
-
-Optimal only for physical incoming packets with no jumbo frames.
-
-What's worse, I now realise that the coalesce thing isn't even
-guaranteed to work.  It probably works in your benchmarks because
-you're working with freshly allocated pages.
-
-But once the system has been running for a while, I see nothing
-in the virtio_net code that tries to prevent fragmentation.  Once
-fragmentation sets in, you'll be back in the terrible situation
-that we were in prior to the coalesce patch.
-
-Jason/Michael (Tsirkin), am I missing something that would prevent
-fragmentation of these buffers?
+With intra-page fragmentation, it's not clear that you'd be better
+off with this patch in the long run anyway.
 
 Cheers,
 -- 
