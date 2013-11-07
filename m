@@ -1,94 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [3/3] gso: Handle malicious GRO packets without crashing
-Date: Thu, 7 Nov 2013 18:18:35 +0000
-Message-ID: <1383848315.3802.8.camel@bwh-desktop.uk.level5networks.com>
-References: <20131104041108.GA22823@gondor.apana.org.au>
-	 <20131106013038.GA14894@gondor.apana.org.au>
-	 <20131106123900.GA20259@gondor.apana.org.au>
-	 <20131106133045.GA20931@gondor.apana.org.au>
-	 <20131106143927.GA21604@gondor.apana.org.au>
-	 <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131107004339.GA28156@gondor.apana.org.au>
-	 <20131107062234.GA31156@gondor.apana.org.au>
-	 <20131107070335.GA31638@gondor.apana.org.au>
-	 <20131107070647.GB31638@gondor.apana.org.au>
-	 <20131107070847.GC31638@gondor.apana.org.au>
+From: sowmini varadhan <sowmini05@gmail.com>
+Subject: Re: ipv6: a question about ECMP
+Date: Thu, 7 Nov 2013 13:32:15 -0500
+Message-ID: <CACP96tRh345x4D1BqpOK2eWfoeVbqMnu-+jGfF7eyFC1dbQoug@mail.gmail.com>
+References: <527B6C70.3010507@cn.fujitsu.com>
+	<20131107121602.GI8144@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	<christoph.paasch@uclouvain.be>, <netdev@vger.kernel.org>,
-	<hkchu@google.com>, <mwdalton@google.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>, nicolas.dichtel@6wind.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6228 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755562Ab3KGSSj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 13:18:39 -0500
-In-Reply-To: <20131107070847.GC31638@gondor.apana.org.au>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:42743 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753800Ab3KGScQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 13:32:16 -0500
+Received: by mail-la0-f46.google.com with SMTP id el20so777999lab.33
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 10:32:15 -0800 (PST)
+In-Reply-To: <20131107121602.GI8144@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-07 at 15:08 +0800, Herbert Xu wrote:
-> As virtio_net can now generate GRO frag_list packets without
-> sufficient verification, we need to handle malicious GRO packets
-> thrown at us.
-> 
-> This patch converts to affected BUG_ONs in skb_segment to rate-
-> limited warnings.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index bcc3f1c..fb1106d 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -2881,7 +2881,15 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
->  			while (tail->next)
->  				tail = tail->next;
->  
-> -			BUG_ON(fskb && tail->len != len + doffset);
+On Thu, Nov 7, 2013 at 7:16 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hi Duan!
+>
+> On Thu, Nov 07, 2013 at 06:33:20PM +0800, Duan Jiong wrote:
+>>   After reading the ip6_pol_route(), i have a question about ECMP. Why we call
+>> the rt6_multipath_select() after calling rt6_select()?
+>>   In my opinion, the route returned by rt6_select() has a highest score, but the route
+>> returned by rt6_multipath_select() may has a lower score than the former, because the
+>> ECMP don't take the route preference into consideration. That means that the kernel will
+>> choose a less-desirable route.
+>
+> ECMP routes only differ in the gateway the specify, so I doubt there will be
+> any change in the score they woud receive. rt6_multipath_select does merly
+> make sure we don't select the same route again and again.
 
-Oh well, disregard my previous request for a comment.
+ rt6_multipath_select() -> rt6_socre_route() seems to require that the
+interface *must* matchi, which is consistent with your assertion above that
+"ECMP routes differ in gw only".
 
-> +			if (fskb && tail->len != len + doffset) {
-> +				net_warn_ratelimited(
-> +					"skb_segment: "
-> +					"illegal GSO fragment: %u %u\n",
-> +					tail->len, len + doffset);
-> +				kfree(nskb);
+But for IPv6, the gw addr is a a link-local, which is only required to be
+unique on the link. Thus, e.g.,  you can have fe80::1 as the gw on both eth0 and
+eth1.
 
-kfree_skb()
+What is the assumption around "cost" for ECMP here- are we assuming some
+form of link bundling (Section 6 of rfc 2991) here? or is the "multiple parallel
+links" case handled somewhere else, that I am missing?
 
-> +				err = -EINVAL;
-> +				goto err;
-> +			}
->  
->  			len = nskb->len;
->  			kfree(nskb);
-> @@ -2929,7 +2937,15 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
->  		if (pos < offset + len) {
->  			struct sk_buff *fskb2 = fskb;
->  
-> -			BUG_ON(pos + fskb->len != offset + len);
-> +			if (pos + fskb->len != offset + len) {
-> +				net_warn_ratelimited(
-> +					"skb_segment: "
-> +					"illegal GSO trailer: %u %u\n",
-> +					pos + fskb->len, offset + len);
-> +				kfree(nskb);
+--Sowmini
 
-kfree_skb()
-
-> +				err = -EINVAL;
-> +				goto err;
-> +			}
->  
->  			pos += fskb->len;
->  			fskb = fskb->next;
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>
+> Please note, the rt6_info's siblings fields were added for the solely purpose
+> of ECMP and the insertion only updates the siblings list if the above criteria
+> did hold. They make sure the routes lookup up do differ on each lookup, so it
+> does actually do multipath and does not depend on the order the routes where
+> inserted.
+>
+> Hope that helps,
+>
+>   Hannes
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
