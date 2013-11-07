@@ -1,49 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Wed, 06 Nov 2013 19:05:12 -0800
-Message-ID: <1383793512.9412.15.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131104041108.GA22823@gondor.apana.org.au>
-	 <20131106013038.GA14894@gondor.apana.org.au>
-	 <20131106123900.GA20259@gondor.apana.org.au>
-	 <20131106133045.GA20931@gondor.apana.org.au>
-	 <20131106143927.GA21604@gondor.apana.org.au>
-	 <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1383783321.2878.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131107011337.GD8144@order.stressinduktion.org>
-	 <1383787279.2878.22.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1383788068.2878.26.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131107020321.GG8144@order.stressinduktion.org>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH] ipv6: replace RTF_ROUTEINFO with RTF_ADDRCONF in  rt6_get_route_info()
+Date: Thu, 07 Nov 2013 12:19:05 +0800
+Message-ID: <527B14B9.7040305@cn.fujitsu.com>
+References: <5279EF31.4040705@cn.fujitsu.com> <20131107015100.GF8144@order.stressinduktion.org> <527AF477.1060604@cn.fujitsu.com> <20131107024202.GH8144@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:35287 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753150Ab3KGDFP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 22:05:15 -0500
-Received: by mail-pa0-f53.google.com with SMTP id kx10so596653pab.40
-        for <netdev@vger.kernel.org>; Wed, 06 Nov 2013 19:05:14 -0800 (PST)
-In-Reply-To: <20131107020321.GG8144@order.stressinduktion.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:7463 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750766Ab3KGEVJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 23:21:09 -0500
+In-Reply-To: <20131107024202.GH8144@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-07 at 03:03 +0100, Hannes Frederic Sowa wrote:
+=E4=BA=8E 2013=E5=B9=B411=E6=9C=8807=E6=97=A5 10:42, Hannes Frederic So=
+wa =E5=86=99=E9=81=93:
+> On Thu, Nov 07, 2013 at 10:01:27AM +0800, Duan Jiong wrote:
+>> =E4=BA=8E 2013=E5=B9=B411=E6=9C=8807=E6=97=A5 09:51, Hannes Frederic=
+ Sowa =E5=86=99=E9=81=93:
+>>> On Wed, Nov 06, 2013 at 03:26:41PM +0800, Duan Jiong wrote:
+>>>>
+>>>> As the rfc 4191 said, the Router Preference and Lifetime values in=
+ a
+>>>> ::/0 Route Information Option should override the preference and l=
+ifetime
+>>>> values in the Router Advertisement header. But when the kernel dea=
+ls with
+>>>> a ::/0 Route Information Option, the rt6_get_route_info() always r=
+eturn
+>>>> NULL, that means that overriding will not happen, because those de=
+fault
+>>>> routers were added without flag RTF_ROUTEINFO in rt6_add_dflt_rout=
+er().
+>>>>
+>>>> In order to match those default routers, we can replace RTF_ROUTEI=
+NFO=20
+>>>> with RTF_ADDRCONF in rt6_get_route_info().
+>>>>
+>>>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>>
+>>> Hmm, that looks like a bug. Nice catch!
+>>>
+>>> Couldn't we just replace the rt6_get_route_info in rt6_route_rcv wi=
+th a call
+>>> to rt6_get_dflt_router? Seems easier, already handles the ::/0 case=
+ and also
+>>> does preserve the check for the RTF_ROUTEINFO flag in rt6_add_route=
+_info.
+>>
+>> Yeah, your idea is better. I will modify my patch.
+>=20
+> Stop, stop, stop, sorry that suggestion is plain wrong and stupid.
+>=20
 
-> > Oh yes, I missed a : data_len += remain;
-> > 
-> > at line 2906 :
-> > 
-> > 	offset = remain;
-> > +	data_len += remain;
-> > 	continue;
-> 
-> Hm, I still hit the WARN_ON_ONCE (same test as above) with this fixed up:
-> 
+In my opinion, i think that is well. According to your suggestion, we c=
+an=20
+call the rt6_get_dflt_router or rt6_get_route_info in different situati=
+on.
 
-Thanks, I'll track this and send a v2
+if (rinfo->prefix_len =3D=3D 0)
+	rt =3D rt6_get_dflt_router(gwaddr, dev);
+else
+	rt =3D rt6_get_route_info(net, prefix, rinfo->prefix_len, gwaddr,
+				dev->ifindex);
+
+How do you think of the change above?
+
+Thanks,
+  Duan
+
+> But I still would like to see the check for RTF_ROUTEINFO happening
+> in rt6_add_route_info. We should also rename the function if you only=
+ query
+> for RTF_ADDRCONF and not RTF_ROUTEINFO.
+>=20
+> Sorry,
+>=20
+>   Hannes
+>=20
+>=20
