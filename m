@@ -1,72 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v2 2/3] net_sched: fix some checkpatch errors
-Date: Thu, 07 Nov 2013 18:33:40 +0400
-Message-ID: <527BA4C4.50704@cogentembedded.com>
-References: <1383790412-41944-1-git-send-email-yangyingliang@huawei.com> <1383790412-41944-3-git-send-email-yangyingliang@huawei.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: Using HTB over MultiQ
+Date: Thu, 07 Nov 2013 06:39:59 -0800
+Message-ID: <527BA63F.7040900@intel.com>
+References: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>  <1383833480.9412.58.camel@edumazet-glaptop2.roam.corp.google.com> <1383834021.9412.61.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jhs@mojatatu.com,
-	stephen@networkplumber.org
-To: Yang Yingliang <yangyingliang@huawei.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:34106 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754535Ab3KGOdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 09:33:46 -0500
-Received: by mail-lb0-f182.google.com with SMTP id w6so504248lbh.27
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 06:33:45 -0800 (PST)
-In-Reply-To: <1383790412-41944-3-git-send-email-yangyingliang@huawei.com>
+Received: from mga11.intel.com ([192.55.52.93]:46747 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752476Ab3KGOkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Nov 2013 09:40:09 -0500
+In-Reply-To: <1383834021.9412.61.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 07-11-2013 6:13, Yang Yingliang wrote:
-
-> There are some checkpatch errors, fix them.
-
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-> Suggested-by: Stephen Hemminger <stephen@networkplumber.org>
-[...]
-
-> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-> index fd70728..d92a90e9 100644
-> --- a/net/sched/act_api.c
-> +++ b/net/sched/act_api.c
-> @@ -191,7 +191,8 @@ u32 tcf_hash_new_index(u32 *idx_gen, struct tcf_hashinfo *hinfo)
->   			val = 1;
->   	} while (tcf_hash_lookup(val, hinfo));
+On 11/7/2013 6:20 AM, Eric Dumazet wrote:
+> On Thu, 2013-11-07 at 06:11 -0800, Eric Dumazet wrote:
+>> On Thu, 2013-11-07 at 17:12 +0400, Anton 'EvilMan' Danilov wrote:
+>>> Hello.
+>>>
+>>> I'm experimenting with high performance linux router with 10G NICs.
+>>> On high traffic rates the performance are limited by the lock of root
+>>> queue discipline. For avoid impact of locking i've decided to build
+>>> QoS scheme over the multiq qdisc.
+>>>
 >
-> -	return (*idx_gen = val);
-> +	*idx_gen = val;
-> +	return *idx_gen;
+> Oh well, this is a router.
+>
+> So I think you need to change the device queue selection so that it only
+> depends on your filters / htb classes.
+>
+> Otherwise flows for a particular 'customer' might be spread on the 8
+> queues, so the rate could be 8 * 1Mbit, instead of 1Mbit.
+>
 
-	return val;
 
-would have been simpler.
+With the multiq qdisc you could attach filter to the root qdisc and use
+skbedit to set the queue_mapping field,
 
-> diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-> index 7a42c81..a8f40f5 100644
-> --- a/net/sched/sch_cbq.c
-> +++ b/net/sched/sch_cbq.c
-> @@ -1058,7 +1058,8 @@ static void cbq_normalize_quanta(struct cbq_sched_data *q, int prio)
->   				cl->quantum = (cl->weight*cl->allot*q->nclasses[prio])/
->   					q->quanta[prio];
->   			}
-> -			if (cl->quantum <= 0 || cl->quantum>32*qdisc_dev(cl->qdisc)->mtu) {
-> +			if (cl->quantum <= 0 ||
-> +				cl->quantum > 32*qdisc_dev(cl->qdisc)->mtu) {
+#tc filter add dev eth0 parent 1: protocol ip prio 1 u32 \
+	match ip dst 192.168.0.3 \
+	action skbedit queue_mapping 3
 
-    According to the networking coding style, the continuation line should 
-start right under 'cl' on the first line of *if*. The way you did it makes it 
-harder for the eyes to differentiate the code in the *if* branch from the *if* 
-expression.
+if you configure the filters to map to the correct classes this would
+work.
 
->   				pr_warning("CBQ: class %08x has bad quantum==%ld, repaired.\n",
->   					   cl->common.classid, cl->quantum);
->   				cl->quantum = qdisc_dev(cl->qdisc)->mtu/2 + 1;
-[...]
+Or another way would be use mqprio and steer packets to HTB classes
+using the skb->priority. The priority can be set by iptables/nftables
+or an ingress filter.
 
-WBR, Sergei
+.John
