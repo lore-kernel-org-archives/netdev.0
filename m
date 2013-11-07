@@ -1,53 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Thu, 7 Nov 2013 09:00:37 +0800
-Message-ID: <20131107010037.GA28421@gondor.apana.org.au>
-References: <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131104041108.GA22823@gondor.apana.org.au>
- <20131106013038.GA14894@gondor.apana.org.au>
- <20131106123900.GA20259@gondor.apana.org.au>
- <20131106133045.GA20931@gondor.apana.org.au>
- <20131106143927.GA21604@gondor.apana.org.au>
- <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com>
- <1383783321.2878.6.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131107004704.GB28156@gondor.apana.org.au>
- <1383785763.2878.8.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH net-next v4 3/9] static_key: WARN on usage before
+ jump_label_init was called
+Date: Wed, 6 Nov 2013 20:02:00 -0500
+Message-ID: <20131106200200.7847535d@gandalf.local.home>
+References: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org>
+	<1382212139-20301-4-git-send-email-hannes@stressinduktion.org>
+	<20131106161649.2bb1dbb0@gandalf.local.home>
+	<20131107005027.GC8144@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Andi Kleen <andi@firstfloor.org>,
+	Ingo Molnar <mingo@kernel.org>, Jason Baron <jbaron@akamai.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:49656 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750841Ab3KGBAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 20:00:45 -0500
-Content-Disposition: inline
-In-Reply-To: <1383785763.2878.8.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from cdptpa-outbound-snat.email.rr.com ([107.14.166.226]:14470 "EHLO
+	cdptpa-oedge-vip.email.rr.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751016Ab3KGBC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 20:02:26 -0500
+In-Reply-To: <20131107005027.GC8144@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 06, 2013 at 04:56:03PM -0800, Eric Dumazet wrote:
-> On Thu, 2013-11-07 at 08:47 +0800, Herbert Xu wrote:
-> > On Wed, Nov 06, 2013 at 04:15:21PM -0800, Eric Dumazet wrote:
-> > >
-> > > Here is the patch I came into (I tested it and it works very fine)
+On Thu, 7 Nov 2013 01:50:27 +0100
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+
+> On Wed, Nov 06, 2013 at 04:16:49PM -0500, Steven Rostedt wrote:
+> > Sorry for the late reply, but this was sent while I was getting ready
+> > for my two week conference trip.
 > > 
-> > Thanks.  However, unless I'm missing something aren't you now
-> > copying every linear skb frag_list?  With the current code we
-> > just do a clone and add the headers.
+> > Note, this should not go through the net tree, but instead should go
+> > through tip, as it deals with jump labels and not networking.
+> > 
+> > Otherwise, this patch looks good.
+> > 
+> > Reviewed-by: Steven Rostedt <rostedt@goodmis.org>
 > 
-> No copy at all.
+> Thanks for the review!
 > 
-> As explained, all RX skb are now backed to a page frag.  (see
-> skb->head_frag)
+> The patch already got queued up in net-next. Is this ok or what do you
+> suggest to resolve this?
+> 
 
-Even if we have called pskb_expand_head on it?
+I'm fine, but really. Changes need to go through the trees they are
+maintained by. Would Dave Miller like it if I pushed patches that
+touched the net directory without a single Ack?
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-- Steve
