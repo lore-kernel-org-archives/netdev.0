@@ -1,28 +1,39 @@
-From: Joshua Richenhagen <richenhagen@gmail.com>
-Subject: BCM57786 driver
-Date: Thu, 7 Nov 2013 12:12:07 +0100
-Message-ID: <CAJZ9B5s87PHb3=eAxOy1dDo59Tq8pQbR78-=_zyKt8-0g5tGdg@mail.gmail.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH iproute2] bridge: trivial: Fix typo in error message (hairpin)
+Date: Thu, 7 Nov 2013 12:09:24 +0100
+Message-ID: <20131107110924.GF1172@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:49257 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751783Ab3KGLMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 06:12:07 -0500
-Received: by mail-pa0-f47.google.com with SMTP id lf10so455581pab.6
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 03:12:07 -0800 (PST)
+Received: from zimbra.alphalink.fr ([217.15.80.77]:37082 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753260Ab3KGLS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 06:18:58 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello everyone,
+Option name is hairpin (without 'g').
 
-I recently bought a Acer Aspire E1-572 notebook with the gigabit
-ethernet controller Broadcom Corporation NetXtreme BCM57786 builtin.
-However I can't get it working under Ubuntu, neither with standard
-kernel nor with newest mainline kernel 3.12 final. I doesn't seem to
-be recognized at all, does a driver for this chip exists, or do I have
-to wait till one gets released? How far is the developmend process?
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ bridge/link.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks in advance
-Joshua
+diff --git a/bridge/link.c b/bridge/link.c
+index 38dfaea..a82cce0 100644
+--- a/bridge/link.c
++++ b/bridge/link.c
+@@ -271,7 +271,7 @@ static int brlink_modify(int argc, char **argv)
+ 				exit(-1);
+ 		} else if (strcmp(*argv, "hairpin") == 0) {
+ 			NEXT_ARG();
+-			if (!on_off("hairping", &hairpin, *argv))
++			if (!on_off("hairpin", &hairpin, *argv))
+ 				exit(-1);
+ 		} else if (strcmp(*argv, "fastleave") == 0) {
+ 			NEXT_ARG();
+-- 
+1.8.4.2
