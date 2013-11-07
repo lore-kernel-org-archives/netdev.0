@@ -1,55 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: flow_dissector: small optimizations in IPv4
- dissect
-Date: Thu, 07 Nov 2013 08:37:28 -0800
-Message-ID: <1383842248.9412.84.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: [PATCH net-next 2/3] ipv6: increase maximum lifetime of flow labels
+Date: Thu,  7 Nov 2013 17:53:13 +0100
+Message-ID: <1383843194-22945-2-git-send-email-florent.fourcot@enst-bretagne.fr>
+References: <1383843194-22945-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:46840 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751924Ab3KGQhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 11:37:38 -0500
-Received: by mail-qa0-f49.google.com with SMTP id cm18so629635qab.8
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 08:37:38 -0800 (PST)
+Received: from fourcot.fr ([217.70.191.14]:34530 "EHLO olfflo.fourcot.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752822Ab3KGQxR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Nov 2013 11:53:17 -0500
+In-Reply-To: <1383843194-22945-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+If the last RFC 6437 does not give any constraints
+for lifetime of flow labels, the previous RFC 3697
+spoke of a minimum of 120 seconds between
+reattribution of a flow label.
 
-By moving code around, we avoid :
+The maximum linger is currently set to 60 seconds
+and does not allow this configuration without
+CAP_NET_ADMIN right.
 
-1) A reload of iph->ihl (bit field, so needs a mask)
+This patch increase the maximum linger to 150
+seconds, allowing more flexibility to standard
+users.
 
-2) A conditional test (replaced by a conditional mov on x86)
-   Fast path loads iph->protocol anyway.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 ---
- net/core/flow_dissector.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/ipv6/ip6_flowlabel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 0242035192f1..d6ef17322500 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -68,13 +68,13 @@ ip:
- 		iph = skb_header_pointer(skb, nhoff, sizeof(_iph), &_iph);
- 		if (!iph || iph->ihl < 5)
- 			return false;
-+		nhoff += iph->ihl * 4;
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index 4a06ed0..5f10b0d 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -41,7 +41,7 @@
+ #define FL_MIN_LINGER	6	/* Minimal linger. It is set to 6sec specified
+ 				   in old IPv6 RFC. Well, it was reasonable value.
+ 				 */
+-#define FL_MAX_LINGER	60	/* Maximal linger timeout */
++#define FL_MAX_LINGER	150	/* Maximal linger timeout */
  
-+		ip_proto = iph->protocol;
- 		if (ip_is_fragment(iph))
- 			ip_proto = 0;
--		else
--			ip_proto = iph->protocol;
-+
- 		iph_to_flow_copy_addrs(flow, iph);
--		nhoff += iph->ihl * 4;
- 		break;
- 	}
- 	case __constant_htons(ETH_P_IPV6): {
+ /* FL hash table */
+ 
+-- 
+1.8.4.rc3
