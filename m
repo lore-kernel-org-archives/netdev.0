@@ -1,88 +1,48 @@
-From: "Anton 'EvilMan' Danilov" <littlesmilingcloud@gmail.com>
-Subject: Using HTB over MultiQ
-Date: Thu, 7 Nov 2013 17:12:31 +0400
-Message-ID: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+From: Mathias Krause <mathias.krause@secunet.com>
+Subject: [PATCHv2 next-next 0/3] move pskb_put (was: IPsec improvements)
+Date: Thu,  7 Nov 2013 14:18:23 +0100
+Message-ID: <1383830306-16697-1-git-send-email-mathias.krause@secunet.com>
+Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	Mathias Krause <mathias.krause@secunet.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:40917 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750867Ab3KGNMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 08:12:35 -0500
-Received: by mail-wg0-f54.google.com with SMTP id c11so495322wgh.33
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 05:12:32 -0800 (PST)
+Received: from a.mx.secunet.com ([195.81.216.161]:55202 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751083Ab3KGNSi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Nov 2013 08:18:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+This series moves pskb_put() to the core code, making the code
+duplication in caif obsolete (patches 1 and 2).
+Patch 3 fixes a few kernel-doc issues.
 
-I'm experimenting with high performance linux router with 10G NICs.
-On high traffic rates the performance are limited by the lock of root
-queue discipline. For avoid impact of locking i've decided to build
-QoS scheme over the multiq qdisc.
+v2 of this series does no longer contain the skb_cow_data() patch and
+therefore no performance improvements for IPsec. The change is still
+under discussion, but otherwise independent from the above changes.
 
-And I have the issues with use to multiq discipline.
+Please apply!
 
-My setup:
-1. Multiq qdisc is on top of interface.
-2. To every multiq class i've attached htb discipline with own
-hierachy of child classes.
-3. The filters (u32 with hashing) are attached to the root multiq discipline.
+v2:
+- kernel-doc fixes for pskb_put, as noticed by Ben
+- dropped skb_cow_data patch as it's still discussed
+- added a kernel-doc fixes patch (patch 3)
 
-Graphical scheme of hierarchy -
-http://pixpin.ru/images/2013/11/07/multiq-hierarchy1.png
+Mathias Krause (3):
+  net: move pskb_put() to core code
+  caif: use pskb_put() instead of reimplementing its functionality
+  net: skbuff - kernel-doc fixes
 
-Fragments of script:
-
-#add top qdisc and classes
- qdisc add dev eth0 root handle 10: multiq
- qdisc add dev eth0 parent 10:1 handle 11: htb
- class add dev eth0 parent 11: classid 11:1 htb rate 1250Mbit
- qdisc add dev eth0 parent 10:2 handle 12: htb
- class add dev eth0 parent 12: classid 12:1 htb rate 1250Mbit
- qdisc add dev eth0 parent 10:3 handle 13: htb
- class add dev eth0 parent 13: classid 13:1 htb rate 1250Mbit
- qdisc add dev eth0 parent 10:4 handle 14: htb
- class add dev eth0 parent 14: classid 14:1 htb rate 1250Mbit
- qdisc add dev eth0 parent 10:5 handle 15: htb
- class add dev eth0 parent 15: classid 15:1 htb rate 1250Mbit
- qdisc add dev eth0 parent 10:6 handle 16: htb
- class add dev eth0 parent 16: classid 16:1 htb rate 1250Mbit
- qdisc add dev eth0 parent 10:7 handle 17: htb
- class add dev eth0 parent 17: classid 17:1 htb rate 1250Mbit
- qdisc add dev eth0 parent 10:8 handle 18: htb
- class add dev eth0 parent 18: classid 18:1 htb rate 1250Mbit
-
-#add leaf classes and qdiscs (several hundreds)
- ...
- class add dev eth0 parent 11:1 classid 11:1736 htb rate 1024kbit
- qdisc add dev eth0 parent 11:1736 handle 1736 pfifo limit 50
- ...
-
-But I see zero statistics on the leaf htb classes and nonzero
-statistics on the classifier filters:
-
-~$ tc -s -p filter list dev eth1
- ...
- filter parent 10: protocol ip pref 5 u32 fh 2:f2:800 order 2048 key
-ht 2 bkt f2 flowid 11:1736  (rule hit 306 success 306)
-   match IP src xx.xx.xx.xx/30 (success 306 )
- ...
-
-~$ tc -s -s -d c ls dev eth1 classid 11:1736
- class htb 11:1736 parent 11:1 leaf 1736: prio 0 quantum 12800 rate
-1024Kbit ceil 1024Kbit burst 1599b/1 mpu 0b overhead 0b cburst 1599b/1
-mpu 0b overhead 0b level 0
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  rate 0bit 0pps backlog 0b 0p requeues 0
-  lended: 0 borrowed: 0 giants: 0
-  tokens: 195312 ctokens: 195312
-
-I think I've lost from view the some aspects of settings.
-Has anyone setuped the like complex scheme over the multiq discipline?
-
-
+ include/linux/skbuff.h  |    3 ++-
+ include/net/esp.h       |    2 --
+ net/caif/cfpkt_skbuff.c |   12 +-----------
+ net/core/skbuff.c       |   33 ++++++++++++++++++++++++++++-----
+ net/xfrm/xfrm_algo.c    |   13 -------------
+ 5 files changed, 31 insertions(+), 32 deletions(-)
 
 -- 
-Anton.
+1.7.2.3
