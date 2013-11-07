@@ -1,64 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not
- ipsec pkt
-Date: Thu, 07 Nov 2013 18:17:23 -0500 (EST)
-Message-ID: <20131107.181723.1978438697370768133.davem@davemloft.net>
-References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
-	<1383725153-26298-1-git-send-email-christophe.gouault@6wind.com>
-	<20131107112549.GP31491@secunet.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] inet: restore gso for vxlan
+Date: Thu, 7 Nov 2013 15:27:10 -0800
+Message-ID: <CAMEtUuwqmUhTgeKyodGKmOxhxe23=umnfc7nouhdVrqVNnk6zQ@mail.gmail.com>
+References: <CAMEtUuzswOVA6UkPRjS-O=gOe9BLLJ5qaAG_eAd_fTqDJo8ofA@mail.gmail.com>
+	<1382674000.7572.75.camel@edumazet-glaptop.roam.corp.google.com>
+	<1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
+	<20131025.181809.348808013109842304.davem@davemloft.net>
+	<CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
+	<1382923096.13037.10.camel@edumazet-glaptop.roam.corp.google.com>
+	<1383863586.9412.101.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: christophe.gouault@6wind.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, saurabh.mohan@vyatta.com,
-	sergei.shtylyov@cogentembedded.com, eric.dumazet@gmail.com
-To: steffen.klassert@secunet.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56256 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753164Ab3KGXR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 18:17:28 -0500
-In-Reply-To: <20131107112549.GP31491@secunet.com>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:60729 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753085Ab3KGX1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 18:27:12 -0500
+Received: by mail-we0-f173.google.com with SMTP id u57so1226038wes.18
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 15:27:10 -0800 (PST)
+In-Reply-To: <1383863586.9412.101.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Thu, 7 Nov 2013 12:25:49 +0100
+On Thu, Nov 7, 2013 at 2:33 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sun, 2013-10-27 at 18:18 -0700, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> Alexei reported a performance regression on vxlan, caused
+>> by commit 3347c9602955 "ipv4: gso: make inet_gso_segment() stackable"
+>>
+>> GSO vxlan packets were not properly segmented, adding IP fragments
+>> while they were not expected.
+>>
+>> Rename 'bool tunnel' to 'bool encap', and add a new boolean
+>> to express the fact that UDP should be fragmented.
+>> This fragmentation is triggered by skb->encapsulation being set.
+>>
+>> Remove a "skb->encapsulation = 1" added in above commit,
+>> as its not needed, as frags inherit skb->frag from original
+>> GSO skb.
+>>
+>> Reported-by: Alexei Starovoitov <ast@plumgrid.com>
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Tested-by: Alexei Starovoitov <ast@plumgrid.com>
+>> ---
+>>  net/ipv4/af_inet.c |   15 +++++++--------
+>>  1 file changed, 7 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+>> index f4a159e705c0..09d78d4a3cff 100644
+>> --- a/net/ipv4/af_inet.c
+>> +++ b/net/ipv4/af_inet.c
+>> @@ -1251,8 +1251,8 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+>>       struct sk_buff *segs = ERR_PTR(-EINVAL);
+>>       const struct net_offload *ops;
+>>       unsigned int offset = 0;
+>> +     bool udpfrag, encap;
+>>       struct iphdr *iph;
+>> -     bool tunnel;
+>>       int proto;
+>>       int nhoff;
+>>       int ihl;
+>> @@ -1290,8 +1290,8 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+>>               goto out;
+>>       __skb_pull(skb, ihl);
+>>
+>> -     tunnel = SKB_GSO_CB(skb)->encap_level > 0;
+>> -     if (tunnel)
+>> +     encap = SKB_GSO_CB(skb)->encap_level > 0;
+>> +     if (encap)
+>>               features = skb->dev->hw_enc_features & netif_skb_features(skb);
+>>       SKB_GSO_CB(skb)->encap_level += ihl;
+>>
+>> @@ -1306,24 +1306,23 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+>>       if (IS_ERR_OR_NULL(segs))
+>>               goto out;
+>>
+>> +     udpfrag = !!skb->encapsulation && proto == IPPROTO_UDP;
+>
+> It seems I did an error here, shouldn't it be
+>
+>      udpfrag = !skb->encapsulation && proto == IPPROTO_UDP;
+>
+> instead ?
 
-> On Wed, Nov 06, 2013 at 09:05:53AM +0100, Christophe Gouault wrote:
->> The vti interface inbound and outbound SPD lookups are based on the
->> ipsec packet instead of the plaintext packet.
->> 
->> Not only is it counterintuitive, it also restricts vti interfaces
->> to a single policy (whose selector must match the tunnel local and
->> remote addresses).
->> 
->> The policy selector is supposed to match the plaintext packet, before
->> encryption or after decryption.
->> 
->> This patch performs the SPD lookup based on the plaintext packet. It
->> enables to create several polices bound to the vti interface (via a
->> mark equal to the vti interface okey).
->> 
->> It remains possible to apply the same policy to all packets entering
->> the vti interface, by setting an any-to-any selector (src 0.0.0.0/0
->> dst 0.0.0.0/0 proto any mark OKEY).
->> 
->> Signed-off-by: Christophe Gouault <christophe.gouault@6wind.com>
-> 
-> Hm, this patch breaks my current vti test setup. I would need to
-> configure the policies and states dependent on the kernel version
-> if we apply this patch...
-> 
-> It would be good to hear from the original author of the vti code
-> whether the current behaviour is intentional before we do anything
-> here.
+oops. yes.
+the segs coming out of udp4_ufo_fragment() in case of udp_tunnel should not
+be marked as ip frags.
+ip frags are only for UFO.
 
-I'm disappointed that we're breaking IPSEC semantics several times.
-This really isn't acceptable at all, not even remotely.
+Thank you for spotting it!
 
-The fact that a developer has a configuration he was actually
-using, and would be broken by this patch, says to me that there
-is absolutely no way I can apply this.
-
-Sorry.
+Alexei
