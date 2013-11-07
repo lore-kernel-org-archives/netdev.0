@@ -1,40 +1,41 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] 6lowpan: release device on error path
-Date: Thu, 7 Nov 2013 10:44:45 +0300
-Message-ID: <20131107074445.GD21844@elgon.mountain>
+Subject: [patch] net: make ndev->irq signed for error handling
+Date: Thu, 7 Nov 2013 10:48:49 +0300
+Message-ID: <20131107074849.GF21844@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Alan Ott <alan@signal11.us>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:38079 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751291Ab3KGHs6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 02:48:58 -0500
 Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We recently added a new error path and it needs a dev_put().
+There is a bug in cpsw_probe() where we do:
 
-Fixes: 7adac1ec8198 ('6lowpan: Only make 6lowpan links to IEEE802154 devices')
+	ndev->irq = platform_get_irq(pdev, 0);
+	if (ndev->irq < 0) {
+
+The problem is that "ndev->irq" is unsigned so the error handling
+doesn't work.  I have changed it to a regular int.
+
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-Compile tested only.  Please review carefully.
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 9497c6f..426b5df 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -1358,8 +1358,10 @@ static int lowpan_newlink(struct net *src_net, struct net_device *dev,
- 	real_dev = dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
- 	if (!real_dev)
- 		return -ENODEV;
--	if (real_dev->type != ARPHRD_IEEE802154)
-+	if (real_dev->type != ARPHRD_IEEE802154) {
-+		dev_put(real_dev);
- 		return -EINVAL;
-+	}
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 9da6a04..bb011f6 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1132,7 +1132,7 @@ struct net_device {
+ 	unsigned long		mem_end;	/* shared mem end	*/
+ 	unsigned long		mem_start;	/* shared mem start	*/
+ 	unsigned long		base_addr;	/* device I/O address	*/
+-	unsigned int		irq;		/* device IRQ number	*/
++	int			irq;		/* device IRQ number	*/
  
- 	lowpan_dev_info(dev)->real_dev = real_dev;
- 	lowpan_dev_info(dev)->fragment_tag = 0;
+ 	/*
+ 	 *	Some hardware also needs these fields, but they are not
