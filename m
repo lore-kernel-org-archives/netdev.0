@@ -1,67 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v4 net-next] net: introduce dev_set_forwarding()
-Date: Fri, 8 Nov 2013 05:31:11 +0800
-Message-ID: <20131107213111.GA6885@gondor.apana.org.au>
-References: <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
- <1383422330.4291.58.camel@edumazet-glaptop2.roam.corp.google.com>
- <1383584130.1553.2.camel@bwh-desktop.uk.level5networks.com>
- <20131107.161755.355597965034457889.davem@davemloft.net>
+From: Matthew Whitehead <tedheadster@gmail.com>
+Subject: Re: [PATCH net-next] 8390 : Replace ei_debug with
+ msg_enable/NETIF_MSG_* feature
+Date: Thu, 7 Nov 2013 16:42:22 -0500
+Message-ID: <20131107214222.GA28471@mwhitehe.csb>
+References: <1383771418-28616-1-git-send-email-tedheadster@gmail.com>
+ <1383781753.7940.38.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: bhutchings@solarflare.com, eric.dumazet@gmail.com,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:58744 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752009Ab3KGVbR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 16:31:17 -0500
+Received: from mail-qe0-f49.google.com ([209.85.128.49]:36660 "EHLO
+	mail-qe0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752751Ab3KGVmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 16:42:45 -0500
+Received: by mail-qe0-f49.google.com with SMTP id a11so1114446qen.22
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 13:42:45 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20131107.161755.355597965034457889.davem@davemloft.net>
+In-Reply-To: <1383781753.7940.38.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 07, 2013 at 04:17:55PM -0500, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Mon, 4 Nov 2013 16:55:30 +0000
-> 
-> > On Sat, 2013-11-02 at 12:58 -0700, Eric Dumazet wrote:
-> >> From: Eric Dumazet <edumazet@google.com>
-> >> 
-> >> Christoph Paasch and Jerry Chu reported crashes in skb_segment() caused
-> >> by commit 8a29111c7ca6 ("net: gro: allow to build full sized skb")
-> >> 
-> >> skb_segment() only deals with a frag_list chain containing MSS sized
-> >> fragments. Even if we fix this problem, its better if GRO layer
-> >> doesn't build skb with a frag_list in the first place, to let TSO
-> >> packets reaching output devices.
-> >>  
-> >> David Miller and Ben Hutchings suggested we keep track of number of
-> >> forwarding users to be able to :
-> >> 
-> >> - Disable LRO
-> >> - Make sure GRO layer do not use skb frag_list to extend skb capacity
-> >> 
-> >> Note that after this patch, LRO is automatically re-enabled if
-> >> forwarding is disabled on the device, or if a device is removed
-> >> from a bridge.
-> > [...]
+On Wed, Nov 06, 2013 at 03:49:13PM -0800, Joe Perches wrote:
+> On Wed, 2013-11-06 at 15:56 -0500, Matthew Whitehead wrote:
+> > Removed the shared ei_debug variable. Replaced it by adding u32 msg_enable to
+> > the private struct ei_device. Now each 8390 ethernet instance has a per-device
+> > logging variable.
 > > 
-> > Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+> > Changed printk() calls to netdev_(dbg|info|warn|err) when possible.
 > 
-> Applied, thanks everyone.
+> Hello Matthew.
+> 
+> Ideally, some of these would use:
+> 
+> 	netif_<level>(struct ei_device *, type, struct net_device *, fmt, ...)
+> 
+> > @@ -352,10 +360,12 @@ static void
+> []
+> > +    if (ei_local->msg_enable & NETIF_MSG_HW)
+> > +		netdev_dbg(dev, "resetting the 8390 t=%ld...\n", jiffies);
+> 
+> 	netif_dbg(ei_local, hw, dev, "resetting the 8390 t=%...\n", jiffies);
+> 
 
-Sorry David, I just realised that this patch doesn't address
-this problem fully.  While we can stop the generation of these
-packets in our own stack, if they're coming from the virt host
-or another guest, there is nothing we can do to stop them.
+Joe,
+  what about using netif_msg_(drv|probe|ifdown|rx_err|tx_err|tx_queued|intr|rx_status|hw) calls?
+For example:
 
-So given virtio_net is now generating such packets, our choices
-are either to linearise them or deal with them properly in skb_segment.
+if (netif_msg_rx_err(ei_local))
+        netdev_err(dev, "Couldn't allocate a sk_buff of size %d\n", pkt_len);
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I did a V2 in this style, but I'll change it to
+
+netif_<level>(struct ei_device *, type, struct net_device *, fmt, ...)
+
+if that is the more preferred style
+
+- Matthew
