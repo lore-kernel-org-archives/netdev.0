@@ -1,47 +1,32 @@
-From: Mathias Krause <mathias.krause@secunet.com>
-Subject: Re: [PATCH net-next 3/3] net: allow to leave the buffer fragmented
- in skb_cow_data()
-Date: Thu, 07 Nov 2013 11:01:10 +0100
-Message-ID: <527B64E6.9040004@secunet.com>
-References: <cover.1381923854.git.mathias.krause@secunet.com> <14f30e8f5f8405c1ca73b6d3a554441c1736142d.1381923854.git.mathias.krause@secunet.com> <20131106093028.GA18435@gondor.apana.org.au> <527A109E.5040000@secunet.com> <20131106095217.GA18851@gondor.apana.org.au> <527A391B.4050907@secunet.com> <20131106124811.GA20404@gondor.apana.org.au> <527B5586.3090401@secunet.com> <20131107090135.GA385@gondor.apana.org.au>
+From: Qatar Foundation <rmejia@utm.edu.ec>
+Subject: Sie Won $1,000,000.00 USD
+Date: Thu, 07 Nov 2013 04:44:20 -0500 (ECT)
+Message-ID: <b7172050-1bfd-4473-b6e6-6fc43aa313e2@mail.utm.edu.ec>
+Reply-To: Qatar Foundation <qatarfoundation631@yahoo.com.hk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:40881 "EHLO a.mx.secunet.com"
+Received: from mail.utm.edu.ec ([186.46.160.198]:44216 "EHLO mail.utm.edu.ec"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752909Ab3KGKBN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Nov 2013 05:01:13 -0500
-In-Reply-To: <20131107090135.GA385@gondor.apana.org.au>
+	id S1752155Ab3KGKN6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Nov 2013 05:13:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07.11.2013 10:01, Herbert Xu wrote:
-> On Thu, Nov 07, 2013 at 09:55:34AM +0100, Mathias Krause wrote:
->> Indeed. I want to avoid the costly memcpy() on the CPU serving the NIC
->> interrupt, as that is a bottleneck in my setup. The packet processing --
->> encrypting/decrypting of ESP packets -- gets mostly parallelized via
->> pcrypt, so that's fine. But the initial network processing, i.e. getting
->> to pcrypt, is what's throttling the throughput currently. (RPS only
->> partly solves this problem as for the ESP receive path most traffic ends
->> up on the same flow).
-> 
-> How about this: instead of doing in-place encryption/decryption
-> let's allocate a new destination buffer and encrypt/decrypt into
-> it.  Then we essentially get the copy for free.
-> 
-> So instead of modifying skb_cow_data you can change esp4.c, etc.
-
-That might be another option. But I fear it might affect performance due
-to caching or NUMA effects. :/
-
-I'll think about it and will try to investigate both approaches.
 
 
-Thanks,
-Mathias
+Lieber Beg?nstigten,
+
+Hiermit m?chten wir Sie informieren, dass Sie unter den gl?cklichen Empf?nger ausgew?hlt, um diese Spenden award Summe von $ 1.000.000,00 USD erhalten waren, als wohlt?tige Spenden / Hilfe von der Qatar Foundation statt in Doha, Qatar, 7. November 2013, um Ihre gesch?ftlichen und pers?nlichen Interesse zu f?rdern . Bitte zur?ck zu bekommen, um weitere Informationen, wie man behauptet, Ihre Auszeichnung per E-Mail: qatarfoundation631@yahoo.com.hk
+
+Im Namen der Stiftung, sagen wir herzlichen Gl?ckwunsch an Sie.
+
+Mit freundlichen Gr??en,
+Dr. Mohammad Fathy Saoud.
+Antwort an: qatarfoundation631@yahoo.com.hk
+
+Pr?sident der Qatar Foundation.
+
+WICHTIG: Wenn Sie diese Nachricht in Ihrem Spam-oder Junk erhalten, es ist wegen Ihres Netzbetreibers. Antworten zur?ck zur Spende Anspr?che.
