@@ -1,64 +1,54 @@
-From: Sergey Popovich <popovich_sergei@mail.ru>
+From: John Fastabend <john.r.fastabend@intel.com>
 Subject: Re: Using HTB over MultiQ
-Date: Thu, 07 Nov 2013 15:49:51 +0200
-Message-ID: <15059450.XJdZrMIbNO@tuxracer>
-References: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>
+Date: Thu, 07 Nov 2013 07:06:54 -0800
+Message-ID: <527BAC8E.1090005@intel.com>
+References: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>   <1383833480.9412.58.camel@edumazet-glaptop2.roam.corp.google.com>  <1383834021.9412.61.camel@edumazet-glaptop2.roam.corp.google.com>  <527BA63F.7040900@intel.com> <1383836068.9412.71.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback8.mail.ru ([94.100.176.136]:38389 "EHLO
-	fallback8.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752413Ab3KGPFE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 10:05:04 -0500
-Received: from smtp46.i.mail.ru (smtp46.i.mail.ru [94.100.177.106])
-	by fallback8.mail.ru (mPOP.Fallback_MX) with ESMTP id 228254431D67
-	for <netdev@vger.kernel.org>; Thu,  7 Nov 2013 17:54:14 +0400 (MSK)
-Received: from [2a01:6d80:103:13::c3ea:4404] (port=53356 helo=tuxracer.localnet)
-	by smtp46.i.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1VeQ1v-0003B2-7F
-	for netdev@vger.kernel.org; Thu, 07 Nov 2013 17:53:51 +0400
-In-Reply-To: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:42785 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752862Ab3KGPHT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Nov 2013 10:07:19 -0500
+In-Reply-To: <1383836068.9412.71.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11/7/2013 6:54 AM, Eric Dumazet wrote:
+> On Thu, 2013-11-07 at 06:39 -0800, John Fastabend wrote:
+>
+>>
+>> With the multiq qdisc you could attach filter to the root qdisc and use
+>> skbedit to set the queue_mapping field,
+>>
+>> #tc filter add dev eth0 parent 1: protocol ip prio 1 u32 \
+>> 	match ip dst 192.168.0.3 \
+>> 	action skbedit queue_mapping 3
+>>
+>
+> Oh right, this is the way ;)
+>
+> I wonder if we can have 'action skbedit rxhash 34' ?
+>
 
-> But I see zero statistics on the leaf htb classes and nonzero
-> statistics on the classifier filters:
-> 
-> ~$ tc -s -p filter list dev eth1
->  ...
->  filter parent 10: protocol ip pref 5 u32 fh 2:f2:800 order 2048 key
-> ht 2 bkt f2 flowid 11:1736  (rule hit 306 success 306)
->    match IP src xx.xx.xx.xx/30 (success 306 )
->  ...
-> 
-> ~$ tc -s -s -d c ls dev eth1 classid 11:1736
->  class htb 11:1736 parent 11:1 leaf 1736: prio 0 quantum 12800 rate
-> 1024Kbit ceil 1024Kbit burst 1599b/1 mpu 0b overhead 0b cburst 1599b/1
-> mpu 0b overhead 0b level 0
->   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->   rate 0bit 0pps backlog 0b 0p requeues 0
->   lended: 0 borrowed: 0 giants: 0
->   tokens: 195312 ctokens: 195312
-> 
-> I think I've lost from view the some aspects of settings.
-> Has anyone setuped the like complex scheme over the multiq discipline?
+Sure, it should easy enough.
 
-Since
+>
+>> if you configure the filters to map to the correct classes this would
+>> work.
+>>
+>> Or another way would be use mqprio and steer packets to HTB classes
+>> using the skb->priority. The priority can be set by iptables/nftables
+>> or an ingress filter.
+>
+> Yes, but this might duplicate the 'customer' tree Anton has to put on
+> the filters anyway ?
+>
 
-commit 64153ce0a7b61b2a5cacb01805cbf670142339e9
-Author: Eric Dumazet
-Date:   Thu Jun 6 14:53:16 2013 -0700
-
-    net_sched: htb: do not setup default rate estimators
-
-rate estimators do not setup by default. To enable rate estimators
-you could try to load module sch_htb with htb_rate_est=1 
-or echo 1 >/sys/module/sch_htb/parameters/htb_rate_est and recreate
-hierarchy.
-
--- 
-SP5474-RIPE
-Sergey Popovich
+hmm not sure I understand. As long as customer flows are mapped to the
+correct HTB qdisc via skb priority with the correct htb child classes
+what would be duplicated?
