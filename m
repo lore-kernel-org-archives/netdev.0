@@ -1,48 +1,45 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv2 net-next 0/3] Small IPsec fix
-Date: Thu, 7 Nov 2013 17:47:47 +0800
-Message-ID: <1383817670-5783-1-git-send-email-fan.du@windriver.com>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: [PATCH net-next 0/8] bonding: add more netlink attributes
+Date: Thu, 07 Nov 2013 01:42:46 -0800
+Message-ID: <20131107093823.15846.31745.stgit@monster-03.cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>, <herbert@gondor.hengli.com.au>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com
+To: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:57470 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753763Ab3KGJrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 04:47:52 -0500
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:37357 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754057Ab3KGJtN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 04:49:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+Following Jiri Pirko's lead, add more bonding netlink attributes.  Sending
+matching iproute2 patch separately.  sysfs access to attributes is
+retained.
 
-This patchset made below modifications:
- - Fix setting policy index with "ip xfrm ... index=xx"
-   which is currently broken
+There are more bonding attributes to add to netlink; I'll save those for a
+follow-on patch set.
 
- - Using correct name space for home agent when migrating
-   key info.
+---
 
- - Put xfrm locks into per namespace to improve scalability.
+Scott Feldman (8):
+      bonding: add miimon netlink support
+      bonding: add updelay netlink support
+      bonding: add downdelay netlink support
+      bonding: add use_carrier netlink support
+      bonding: add arp_interval netlink support
+      bonding: add arp_ip_target netlink support
+      bonding: add arp_validate netlink support
+      bonding: add arp_all_targets netlink support
 
-Changelog:
-v2:
-  xfrm: Namespacify xfrm state/policy locks
-  -Fix compile error when CONFIG_NET_NS is unset, thanks for the lovely build robot.
 
-Fan Du (3):
-  xfrm: Try to honor policy index if it's supplied by user
-  xfrm: Using the right namespace to migrate key info
-  xfrm: Namespacify xfrm state/policy locks
-
- include/net/netns/xfrm.h |    4 ++
- include/net/xfrm.h       |   13 +++--
- net/key/af_key.c         |   18 ++++---
- net/xfrm/xfrm_policy.c   |  130 +++++++++++++++++++++++++---------------------
- net/xfrm/xfrm_state.c    |  104 +++++++++++++++++++------------------
- net/xfrm/xfrm_user.c     |   27 +++++++---
- 6 files changed, 168 insertions(+), 128 deletions(-)
+ drivers/net/bonding/bond_netlink.c |  145 +++++++++++++++-
+ drivers/net/bonding/bond_options.c |  297 ++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_sysfs.c   |  335 ++++++++----------------------------
+ drivers/net/bonding/bonding.h      |   10 +
+ include/uapi/linux/if_link.h       |    8 +
+ 5 files changed, 529 insertions(+), 266 deletions(-)
 
 -- 
-1.7.9.5
