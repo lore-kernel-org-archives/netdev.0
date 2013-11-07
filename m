@@ -1,33 +1,29 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] isdn: icn: NULL dereference printing error message
-Date: Thu, 7 Nov 2013 10:58:06 +0300
-Message-ID: <20131107075806.GO21844@elgon.mountain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] smsc: replace IS_ERR and PTR_ERR with PTR_ERR_OR_ZERO
+Date: Thu, 07 Nov 2013 03:02:26 -0500 (EST)
+Message-ID: <20131107.030226.60499118013736952.davem@davemloft.net>
+References: <1383724637-15849-1-git-send-email-duanj.fnst@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	isdn4linux@listserv.isdn4linux.de, kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kernel@pengutronix.de, linux@arm.linux.org.uk,
+	a.zummo@towertech.it, airlied@linux.ie, dmitry.torokhov@gmail.com,
+	axboe@kernel.dk, linux-kernel@vger.kernel.org,
+	rtc-linux@googlegroups.com, dri-devel@lists.freedesktop.org,
+	linux-tegra@vger.kernel.org, linux-input@vger.kernel.org,
+	devel@driverdev.osuosl.org, netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <1383724637-15849-1-git-send-email-duanj.fnst@cn.fujitsu.com>
+Sender: linux-input-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"card2" is NULL here so I have changed it to use "id2" instead of
-"card2->interface.id".
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Wed, 6 Nov 2013 15:57:17 +0800
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> This patch fixes coccinelle error regarding usage of IS_ERR and
+> PTR_ERR instead of PTR_ERR_OR_ZERO.
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-diff --git a/drivers/isdn/icn/icn.c b/drivers/isdn/icn/icn.c
-index e74df7c..53d487f 100644
---- a/drivers/isdn/icn/icn.c
-+++ b/drivers/isdn/icn/icn.c
-@@ -1580,8 +1580,7 @@ icn_addcard(int port, char *id1, char *id2)
- 	}
- 	if (!(card2 = icn_initcard(port, id2))) {
- 		printk(KERN_INFO
--		       "icn: (%s) half ICN-4B, port 0x%x added\n",
--		       card2->interface.id, port);
-+		       "icn: (%s) half ICN-4B, port 0x%x added\n", id2, port);
- 		return 0;
- 	}
- 	card->doubleS0 = 1;
+Applied.
