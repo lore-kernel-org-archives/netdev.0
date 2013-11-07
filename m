@@ -1,81 +1,48 @@
-From: Alistair Popple <alistair@popple.id.au>
-Subject: Re: [PATCH 3/7] IBM Akebono: Add support for a new PHY to the IBM emac driver
-Date: Thu, 07 Nov 2013 13:39:10 +1100
-Message-ID: <9251129.ZkATbJnO5N@mexican>
-References: <1383629471-16979-1-git-send-email-alistair@popple.id.au> <3555701.fBbreSn0Lp@mexican> <1383756010.1520.5.camel@bwh-desktop.uk.level5networks.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: gso: Attempt to handle mega-GRO packets
+Date: Thu, 7 Nov 2013 10:41:16 +0800
+Message-ID: <20131107024116.GA29511@gondor.apana.org.au>
+References: <20131106080425.GA17556@gondor.apana.org.au>
+ <20131106081638.GA17665@gondor.apana.org.au>
+ <20131106131252.GA20680@gondor.apana.org.au>
+ <1383750070.4291.163.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131107003658.GA27976@gondor.apana.org.au>
+ <1383786208.2878.15.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131107014724.GA28946@gondor.apana.org.au>
+ <1383789758.2878.32.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131107021519.GA29081@gondor.apana.org.au>
+ <1383791855.9412.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com, mst@redhat.com,
+	Jason Wang <jasowang@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipmail04.adl6.internode.on.net ([150.101.137.141]:5597 "EHLO
-	ipmail04.adl6.internode.on.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753450Ab3KGCil (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 21:38:41 -0500
-In-Reply-To: <1383756010.1520.5.camel@bwh-desktop.uk.level5networks.com>
+Received: from ringil.hengli.com.au ([178.18.16.133]:39259 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752334Ab3KGClZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 21:41:25 -0500
+Content-Disposition: inline
+In-Reply-To: <1383791855.9412.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 6 Nov 2013 16:40:10 Ben Hutchings wrote:
-> On Wed, 2013-11-06 at 12:34 +1100, Alistair Popple wrote:
-> > On Tue, 5 Nov 2013 23:11:50 Ben Hutchings wrote:
-> > > On Wed, 2013-11-06 at 06:54 +1100, Benjamin Herrenschmidt wrote:
-> > [snip]
-> > 
-> > > > It's an SoC bit so there's little point making it generally
-> > > > selectable by the user.
-> > > 
-> > > I think a better way to do this is:
-> > > 
-> > > config IBM_EMAC_RGMII_WOL
-> > > 
-> > > 	bool "IBM EMAC RGMII wake-on-LAN support"
-> > > 	depends on MY_WONDERFUL_NEW_SOC || COMPILE_TEST
-> > > 	default y if MY_WONDERFUL_NEW_SOC
-> > > 
-> > > Then anyone making an API change that affects this driver can check that
-> > > it still complies.
-> > 
-> > The method used in this patch is the same as what is currently used by the
-> > other IBM EMAC PHY interfaces (eg. config IBM_EMAC_ZMII etc). I'm happy to
-> > send a patch to update all of those as well for consistency but that would
-> > mean adding what each platform requires into EMACS Kconfig as well.
-> > 
-> > Personally I think it is nicer to keep the definitions of what each
-> > platform requires in one place (ie. arch/powerpc/platforms/44x/Kconfig)
-> > as it is consistent with what we do for other 44x drivers, however I am
-> > happy to use the above method if people think it's better.
-> 
-> Yes, I see your point.
-> 
-> > Alternatively we could do something like this:
-> > 
-> > config IBM_EMAC_RGMII_WOL
-> > 
-> >         bool
-> >         default y if COMPILE_TEST
-> >         default n
-> > 
-> > This would leave the platform dependencies as they are currently but still
-> > allow compile testing.
-> 
-> It still shouldn't default to y in that case.  Instead you can make the
-> symbol conditionally configurable:
-> 
-> config IBM_EMAC_RGMII_WOL
-> 	bool "IBM EMAC RGMII wake-on-LAN support" if COMPILE_TEST
-> 
-> and then select this from your platform Kconfig as you intended.
+On Wed, Nov 06, 2013 at 06:37:35PM -0800, Eric Dumazet wrote:
+>
+> If the hypervisor is doomed, there is nothing we can do.
 
-That looks reasonable - I will include it in the next version of the patch 
-series. Thanks.
+It's not just the hypervisor you know.  There is also DMA etc.
+The hypervisor doesn't know that there is stuff in the page that
+should not be exposed.
 
-> (There is no need to put 'default n' as that's implicit for a
-> configurable symbol.  But it doesn't hurt either.)
-> 
-> Ben.
+Also one day we may want to do zero-copy receive in which case
+this would be even more important.
 
-Alistair
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
