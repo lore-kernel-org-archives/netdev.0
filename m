@@ -1,51 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Linux sends IPv6 NS packets with the link-local address
-Date: Thu, 7 Nov 2013 01:46:11 +0100
-Message-ID: <20131107004610.GB8144@order.stressinduktion.org>
-References: <20131107002946.GA16324@sesse.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: gso: Attempt to handle mega-GRO packets
+Date: Thu, 7 Nov 2013 08:47:04 +0800
+Message-ID: <20131107004704.GB28156@gondor.apana.org.au>
+References: <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131103163103.GA18894@gondor.apana.org.au>
+ <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131104041108.GA22823@gondor.apana.org.au>
+ <20131106013038.GA14894@gondor.apana.org.au>
+ <20131106123900.GA20259@gondor.apana.org.au>
+ <20131106133045.GA20931@gondor.apana.org.au>
+ <20131106143927.GA21604@gondor.apana.org.au>
+ <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1383783321.2878.6.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, ayourtch@gmail.com
-To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54364 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752044Ab3KGAqM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 19:46:12 -0500
+Received: from ringil.hengli.com.au ([178.18.16.133]:40013 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753096Ab3KGArK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 19:47:10 -0500
 Content-Disposition: inline
-In-Reply-To: <20131107002946.GA16324@sesse.net>
+In-Reply-To: <1383783321.2878.6.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Steinar,
+On Wed, Nov 06, 2013 at 04:15:21PM -0800, Eric Dumazet wrote:
+>
+> Here is the patch I came into (I tested it and it works very fine)
 
-On Thu, Nov 07, 2013 at 01:29:46AM +0100, Steinar H. Gunderson wrote:
-> Since this is a SHOULD, there's nothing inherently _illegal_ about sending the
-> packets with the link-layer address as source, but the RFC does have a point.
-> Most of the time, Linux indeed seems to be sending with the global source
-> address (heeding the SHOULD), and again, for some reason it suddenly switches
-> to it in this case.
-> 
-> Would anyone happen to know why it uses the link-local in the first place,
-> and why it suddenly changes its mind after ten tries or so? I'm not sure if I
-> can _force_ this behavior, but judging from a tcpdump, it happens many times
-> a day from that specific machine.
+Thanks.  However, unless I'm missing something aren't you now
+copying every linear skb frag_list?  With the current code we
+just do a clone and add the headers.
 
-I am currently a bit busy to look into this closely but maybe there is
-a patch which does help; it is currently in net-next:
-
-<https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/net/core/neighbour.c?id=4ed377e36ec2f385484d12e516faf88516fad31c>
-
-Problem was, if we enqueue a packet to the resolving queue we use those
-packets source address as the address we use as the source address. This
-patch chooses the last enqueued skb's source address to do the resolving
-thus switching over to a global address much more early (hopefully). I
-have seen this problem with routers doing uRPF on the source address of
-arp packets, too.
-
-Does this happen when you configure addresses? Do your addresses have
-a short lifetime advertised by radvd etc?
-
-Greetings,
-
-  Hannes
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
