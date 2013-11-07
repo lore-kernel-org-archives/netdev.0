@@ -1,73 +1,128 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: Re: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not
- ipsec pkt
-Date: Thu, 07 Nov 2013 13:55:33 +0100
-Message-ID: <527B8DC5.6080702@6wind.com>
-References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com> <1383725153-26298-1-git-send-email-christophe.gouault@6wind.com> <20131107112549.GP31491@secunet.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 6/8] bonding: add arp_ip_target netlink support
+Date: Thu, 7 Nov 2013 13:56:47 +0100
+Message-ID: <20131107125647.GB2463@minipsycho.orion>
+References: <20131107094330.15846.84353.stgit@monster-03.cumulusnetworks.com>
+ <20131107101640.GA2463@minipsycho.orion>
+ <C580A3C6-BF26-4316-A6F5-6DB02319B100@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Saurabh Mohan <saurabh.mohan@vyatta.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net,
+	netdev@vger.kernel.org, shm <shm@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:42073 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752785Ab3KGMzm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 07:55:42 -0500
-Received: by mail-wg0-f46.google.com with SMTP id m15so466366wgh.13
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 04:55:40 -0800 (PST)
-In-Reply-To: <20131107112549.GP31491@secunet.com>
+Received: from mail-ea0-f172.google.com ([209.85.215.172]:63336 "EHLO
+	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750996Ab3KGM4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 07:56:53 -0500
+Received: by mail-ea0-f172.google.com with SMTP id r16so302852ead.17
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 04:56:52 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <C580A3C6-BF26-4316-A6F5-6DB02319B100@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Steffen,
-
-I am also interested in knowing Saurabh's intentions regarding the 
-behavior of policies bound to vti interfaces.
-
-However, please note that setting a policy with a wildcard selector 
-works in both cases (before or after this patch), so a common test case 
-can be defined.
-
-Actually the *previous* patch on vti (7263a5187f9e vti: get rid of nf 
-mark rule in prerouting) introduced significant changes, and implies 
-behaviors dependant on the kernel version, but it seemed to meet 
-Saurabh's agreement, as the following thread witnesses:
-
-http://www.spinics.net/lists/netdev/msg253134.html
-
-Best Regards,
-Christophe
-
-On 11/07/2013 12:25 PM, Steffen Klassert wrote:
-> On Wed, Nov 06, 2013 at 09:05:53AM +0100, Christophe Gouault wrote:
->> The vti interface inbound and outbound SPD lookups are based on the
->> ipsec packet instead of the plaintext packet.
->>
->> Not only is it counterintuitive, it also restricts vti interfaces
->> to a single policy (whose selector must match the tunnel local and
->> remote addresses).
->>
->> The policy selector is supposed to match the plaintext packet, before
->> encryption or after decryption.
->>
->> This patch performs the SPD lookup based on the plaintext packet. It
->> enables to create several polices bound to the vti interface (via a
->> mark equal to the vti interface okey).
->>
->> It remains possible to apply the same policy to all packets entering
->> the vti interface, by setting an any-to-any selector (src 0.0.0.0/0
->> dst 0.0.0.0/0 proto any mark OKEY).
->>
->> Signed-off-by: Christophe Gouault <christophe.gouault@6wind.com>
-> Hm, this patch breaks my current vti test setup. I would need to
-> configure the policies and states dependent on the kernel version
-> if we apply this patch...
+Thu, Nov 07, 2013 at 11:56:35AM CET, sfeldma@cumulusnetworks.com wrote:
 >
-> It would be good to hear from the original author of the vti code
-> whether the current behaviour is intentional before we do anything
-> here.
+>On Nov 7, 2013, at 12:16 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>
+>> Thu, Nov 07, 2013 at 10:43:30AM CET, sfeldma@cumulusnetworks.com wro=
+te:
+>>> Add IFLA_BOND_ARP_IP_TARGET to allow get/set of bonding parameter
+>>> arp_ip_target via netlink.
+>>>=20
+>>> Signed-off-by: Scott Feldman <sfeldma@cumulusnetworks.com>
+>>> ---
+>>> drivers/net/bonding/bond_netlink.c |   43 ++++++++++++++-
+>>> drivers/net/bonding/bond_options.c |  102 +++++++++++++++++++++++++=
++++++++++++
+>>> drivers/net/bonding/bond_sysfs.c   |   77 +++----------------------=
+--
+>>> drivers/net/bonding/bonding.h      |    3 +
+>>> include/uapi/linux/if_link.h       |    1=20
+>>> 5 files changed, 155 insertions(+), 71 deletions(-)
+>>>=20
+>>> diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bondi=
+ng/bond_netlink.c
+>>> index 9c50165..e4673ba 100644
+>>> --- a/drivers/net/bonding/bond_netlink.c
+>>> +++ b/drivers/net/bonding/bond_netlink.c
+>>> @@ -29,6 +29,7 @@ static const struct nla_policy bond_policy[IFLA_B=
+OND_MAX + 1] =3D {
+>>> 	[IFLA_BOND_DOWNDELAY]		=3D { .type =3D NLA_U32 },
+>>> 	[IFLA_BOND_USE_CARRIER]		=3D { .type =3D NLA_U8 },
+>>> 	[IFLA_BOND_ARP_INTERVAL]	=3D { .type =3D NLA_U32 },
+>>> +	[IFLA_BOND_ARP_IP_TARGET]	=3D { .type =3D NLA_NESTED },
+>>> };
+>>>=20
+>>> static int bond_validate(struct nlattr *tb[], struct nlattr *data[]=
+)
+>>> @@ -109,6 +110,21 @@ static int bond_changelink(struct net_device *=
+bond_dev,
+>>> 		if (err)
+>>> 			return err;
+>>> 	}
+>>> +	if (data[IFLA_BOND_ARP_IP_TARGET]) {
+>>> +		struct nlattr *attr;
+>>> +		int rem;
+>>> +
+>>> +		err =3D bond_option_arp_ip_target_clear_all(bond);
+>>> +		if (err)
+>>> +			return err;
+>>> +
+>>=20
+>> Hmm. I think this is not correct. I think you should not clear all. =
+They
+>> might be needed to be used but for a brief moment, they disappear.
+>>=20
+>> Just set or unset them one by one.
+>
+>That=E2=80=99s a good catch.  I should compare existing set with new s=
+et and retain entries entries common to both sets (and add/remove uncom=
+mon ones).
+>
+>Just to be clear, for netlink, the idea is to push a set of ip targets=
+ addrs as a nested attribute and process as a set.  This is consistent =
+with arp_ip_target documentation in Documentation/networking/bonding.tx=
+t where arp_ip_target is passed as a comma-separated list of addrs.  Ho=
+wever, it=E2=80=99s not consistent with the sysfs interface where addrs=
+ are added/removed one at a time using =E2=80=9C+=E2=80=9D or =E2=80=9C=
+-=E2=80=9C prefix.
+
+I believe that the behaviour you described is ok.
+
+>
+>e.g.:
+>
+>ip link add bond7 type bond mode 1
+>ip link set dev bond7 type bond arp_ip_target 10.0.0.1,10.0.0.5
+>ip link set dev bond7 type bond arp_ip_target 10.0.0.1
+>
+>
+>>> @@ -141,6 +159,8 @@ static int bond_fill_info(struct sk_buff *skb,
+>>> {
+>>> 	struct bonding *bond =3D netdev_priv(bond_dev);
+>>> 	struct net_device *slave_dev =3D bond_option_active_slave_get(bond=
+);
+>>> +	struct nlattr *targets;
+>>> +	int i, targets_added;
+>>>=20
+>>> 	if (nla_put_u8(skb, IFLA_BOND_MODE, bond->params.mode))
+>>> 		goto nla_put_failure;
+>>> @@ -152,10 +172,12 @@ static int bond_fill_info(struct sk_buff *skb=
+,
+>>> 	if (nla_put_u32(skb, IFLA_BOND_MIIMON, bond->params.miimon))
+>>> 		goto nla_put_failure;
+>>>=20
+>>> -	if (nla_put_u32(skb, IFLA_BOND_UPDELAY, bond->params.updelay))
+>>> +	if (nla_put_u32(skb, IFLA_BOND_UPDELAY,
+>>> +		bond->params.updelay * bond->params.miimon))
+>>> 		goto nla_put_failure;
+>>=20
+>> 	This bit should probably no be here :)
+>
+>Drats, that change goes with earlier patch.  I=E2=80=99ll fix on patch=
+ set resend for issue above.
+>
+>-scott
