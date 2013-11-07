@@ -1,57 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Wed, 06 Nov 2013 18:08:40 -0800
-Message-ID: <1383790120.2878.36.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131106040717.GA15711@gondor.apana.org.au>
-	 <1383711785.4291.156.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131106042858.GA15745@gondor.apana.org.au>
-	 <1383715222.4291.158.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131106080425.GA17556@gondor.apana.org.au>
-	 <20131106081638.GA17665@gondor.apana.org.au>
-	 <20131106131252.GA20680@gondor.apana.org.au>
-	 <1383750070.4291.163.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131107003658.GA27976@gondor.apana.org.au>
-	 <1383786208.2878.15.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131107014724.GA28946@gondor.apana.org.au>
-	 <1383789758.2878.32.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next v2 1/3] net_sched: tbf: support of 64bit rates
+Date: Thu, 7 Nov 2013 10:13:30 +0800
+Message-ID: <1383790412-41944-2-git-send-email-yangyingliang@huawei.com>
+References: <1383790412-41944-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com, mst@redhat.com,
-	Jason Wang <jasowang@redhat.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>, <jhs@mojatatu.com>,
+	<stephen@networkplumber.org>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:60102 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751361Ab3KGCIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 21:08:44 -0500
-Received: by mail-pa0-f47.google.com with SMTP id lf10so538969pab.20
-        for <netdev@vger.kernel.org>; Wed, 06 Nov 2013 18:08:43 -0800 (PST)
-In-Reply-To: <1383789758.2878.32.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:31928 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752526Ab3KGCNx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 21:13:53 -0500
+In-Reply-To: <1383790412-41944-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-11-06 at 18:02 -0800, Eric Dumazet wrote:
-> On Thu, 2013-11-07 at 09:47 +0800, Herbert Xu wrote:
-> 
-> > Say the system is fragmented sufficiently that you'll end up with
-> > 0-order pages.  In that case you'll only ever be able to coalesce
-> > two packets.
-> 
-> 4K page will contain 2 frags and they will coalesce.
-> 
-> Performance will still be quite good.
-> 
-> We probably add a tweak, to not have any hole in this case.
+With psched_ratecfg_precompute(), tbf can deal with 64bit rates.
+Add two new attributes so that tc can use them to break the 32bit
+limit.
 
-After skb_page_frag_refill() call, its trivial to check if the page is
-order-0.
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ include/uapi/linux/pkt_sched.h |  2 ++
+ net/sched/sch_tbf.c            | 22 ++++++++++++++++++----
+ 2 files changed, 20 insertions(+), 4 deletions(-)
 
-If yes, use the whole remaining space, instead of MAX_PACKET_LEN
-
--> If memory is fragmented, we switch back to old behavior.
-
-Really, its that simple.
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index f2624b5..307f293 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -171,6 +171,8 @@ enum {
+ 	TCA_TBF_PARMS,
+ 	TCA_TBF_RTAB,
+ 	TCA_TBF_PTAB,
++	TCA_TBF_RATE64,
++	TCA_TBF_PRATE64,
+ 	__TCA_TBF_MAX,
+ };
+ 
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index b057122..b736517 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -266,20 +266,23 @@ static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
+ 	[TCA_TBF_PARMS]	= { .len = sizeof(struct tc_tbf_qopt) },
+ 	[TCA_TBF_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
+ 	[TCA_TBF_PTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
++	[TCA_TBF_RATE64]	= { .type = NLA_U64 },
++	[TCA_TBF_PRATE64]	= { .type = NLA_U64 },
+ };
+ 
+ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	int err;
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+-	struct nlattr *tb[TCA_TBF_PTAB + 1];
++	struct nlattr *tb[TCA_TBF_MAX + 1];
+ 	struct tc_tbf_qopt *qopt;
+ 	struct qdisc_rate_table *rtab = NULL;
+ 	struct qdisc_rate_table *ptab = NULL;
+ 	struct Qdisc *child = NULL;
+ 	int max_size, n;
++	u64 rate64 = 0, prate64 = 0;
+ 
+-	err = nla_parse_nested(tb, TCA_TBF_PTAB, opt, tbf_policy);
++	err = nla_parse_nested(tb, TCA_TBF_MAX, opt, tbf_policy);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -341,9 +344,13 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	q->tokens = q->buffer;
+ 	q->ptokens = q->mtu;
+ 
+-	psched_ratecfg_precompute(&q->rate, &rtab->rate, 0);
++	if (tb[TCA_TBF_RATE64])
++		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
++	psched_ratecfg_precompute(&q->rate, &rtab->rate, rate64);
+ 	if (ptab) {
+-		psched_ratecfg_precompute(&q->peak, &ptab->rate, 0);
++		if (tb[TCA_TBF_PRATE64])
++			prate64 = nla_get_u64(tb[TCA_TBF_PRATE64]);
++		psched_ratecfg_precompute(&q->peak, &ptab->rate, prate64);
+ 		q->peak_present = true;
+ 	} else {
+ 		q->peak_present = false;
+@@ -402,6 +409,13 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	opt.buffer = PSCHED_NS2TICKS(q->buffer);
+ 	if (nla_put(skb, TCA_TBF_PARMS, sizeof(opt), &opt))
+ 		goto nla_put_failure;
++	if ((q->rate.rate_bytes_ps >= (1ULL << 32)) &&
++			nla_put_u64(skb, TCA_TBF_RATE64, q->rate.rate_bytes_ps))
++		goto nla_put_failure;
++	if (q->peak_present &&
++			(q->peak.rate_bytes_ps >= (1ULL << 32)) &&
++			nla_put_u64(skb, TCA_TBF_PRATE64, q->peak.rate_bytes_ps))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(skb, nest);
+ 	return skb->len;
+-- 
+1.7.12
