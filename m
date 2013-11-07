@@ -1,53 +1,33 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not
- ipsec pkt
-Date: Thu, 7 Nov 2013 12:25:49 +0100
-Message-ID: <20131107112549.GP31491@secunet.com>
-References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
- <1383725153-26298-1-git-send-email-christophe.gouault@6wind.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [patch] net: make ndev->irq signed for error handling
+Date: Thu, 7 Nov 2013 17:44:38 +0530
+Message-ID: <527B842E.2060909@ti.com>
+References: <20131107074849.GF21844@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Saurabh Mohan <saurabh.mohan@vyatta.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Christophe Gouault <christophe.gouault@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:48133 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754351Ab3KGLZw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Nov 2013 06:25:52 -0500
-Content-Disposition: inline
-In-Reply-To: <1383725153-26298-1-git-send-email-christophe.gouault@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131107074849.GF21844@elgon.mountain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 06, 2013 at 09:05:53AM +0100, Christophe Gouault wrote:
-> The vti interface inbound and outbound SPD lookups are based on the
-> ipsec packet instead of the plaintext packet.
-> 
-> Not only is it counterintuitive, it also restricts vti interfaces
-> to a single policy (whose selector must match the tunnel local and
-> remote addresses).
-> 
-> The policy selector is supposed to match the plaintext packet, before
-> encryption or after decryption.
-> 
-> This patch performs the SPD lookup based on the plaintext packet. It
-> enables to create several polices bound to the vti interface (via a
-> mark equal to the vti interface okey).
-> 
-> It remains possible to apply the same policy to all packets entering
-> the vti interface, by setting an any-to-any selector (src 0.0.0.0/0
-> dst 0.0.0.0/0 proto any mark OKEY).
-> 
-> Signed-off-by: Christophe Gouault <christophe.gouault@6wind.com>
+On Thursday 07 November 2013 01:18 PM, Dan Carpenter wrote:
+> There is a bug in cpsw_probe() where we do:
+>
+> 	ndev->irq = platform_get_irq(pdev, 0);
+> 	if (ndev->irq < 0) {
+>
+> The problem is that "ndev->irq" is unsigned so the error handling
+> doesn't work.  I have changed it to a regular int.
+>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+ndev->irq is never used any where in the driver, I think its better to
+remove this part of code from probe. If every one is ok, I can send a
+patch to remove the code.
 
-Hm, this patch breaks my current vti test setup. I would need to
-configure the policies and states dependent on the kernel version
-if we apply this patch...
-
-It would be good to hear from the original author of the vti code
-whether the current behaviour is intentional before we do anything
-here.
+Regards
+Mugunthan V N
