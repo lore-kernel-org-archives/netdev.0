@@ -1,80 +1,53 @@
-From: Cody P Schafer <cody@linux.vnet.ibm.com>
-Subject: [PATCH v2 04/11] net ipset: use rbtree postorder iteration instead of opencoding
-Date: Wed,  6 Nov 2013 17:42:33 -0800
-Message-ID: <1383788572-25938-5-git-send-email-cody@linux.vnet.ibm.com>
-References: <1383788572-25938-1-git-send-email-cody@linux.vnet.ibm.com>
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Cody P Schafer <cody@linux.vnet.ibm.com>,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	EXT4 <linux-ext4@vger.kernel.org>, Jan Kara <jack@suse.cz>,
-	rostedt@goodmis.org, "David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: gso: Attempt to handle mega-GRO packets
+Date: Thu, 7 Nov 2013 09:47:24 +0800
+Message-ID: <20131107014724.GA28946@gondor.apana.org.au>
+References: <20131106040717.GA15711@gondor.apana.org.au>
+ <1383711785.4291.156.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131106042858.GA15745@gondor.apana.org.au>
+ <1383715222.4291.158.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131106080425.GA17556@gondor.apana.org.au>
+ <20131106081638.GA17665@gondor.apana.org.au>
+ <20131106131252.GA20680@gondor.apana.org.au>
+ <1383750070.4291.163.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131107003658.GA27976@gondor.apana.org.au>
+ <1383786208.2878.15.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com, mst@redhat.com,
+	Jason Wang <jasowang@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:48959 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753545Ab3KGBrC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 20:47:02 -0500
-Received: from /spool/local
-	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <cody@linux.vnet.ibm.com>;
-	Wed, 6 Nov 2013 18:47:01 -0700
-In-Reply-To: <1383788572-25938-1-git-send-email-cody@linux.vnet.ibm.com>
+Received: from ringil.hengli.com.au ([178.18.16.133]:52893 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753652Ab3KGBrf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 20:47:35 -0500
+Content-Disposition: inline
+In-Reply-To: <1383786208.2878.15.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use rbtree_postorder_for_each_entry_safe() to destroy the rbtree instead
-of opencoding an alternate postorder iteration that modifies the tree
+On Wed, Nov 06, 2013 at 05:03:28PM -0800, Eric Dumazet wrote:
+>
+> > But once the system has been running for a while, I see nothing
+> > in the virtio_net code that tries to prevent fragmentation.  Once
+> > fragmentation sets in, you'll be back in the terrible situation
+> > that we were in prior to the coalesce patch.
+> 
+> There is no fragmentation, since we allocate 32Kb pages.
 
-Signed-off-by: Cody P Schafer <cody@linux.vnet.ibm.com>
----
- net/netfilter/ipset/ip_set_hash_netiface.c | 27 ++++-----------------------
- 1 file changed, 4 insertions(+), 23 deletions(-)
+Say the system is fragmented sufficiently that you'll end up with
+0-order pages.  In that case you'll only ever be able to coalesce
+two packets.
 
-diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
-index 7d798d5..99dba4c 100644
---- a/net/netfilter/ipset/ip_set_hash_netiface.c
-+++ b/net/netfilter/ipset/ip_set_hash_netiface.c
-@@ -45,31 +45,12 @@ struct iface_node {
- static void
- rbtree_destroy(struct rb_root *root)
- {
--	struct rb_node *p, *n = root->rb_node;
--	struct iface_node *node;
--
--	/* Non-recursive destroy, like in ext3 */
--	while (n) {
--		if (n->rb_left) {
--			n = n->rb_left;
--			continue;
--		}
--		if (n->rb_right) {
--			n = n->rb_right;
--			continue;
--		}
--		p = rb_parent(n);
--		node = rb_entry(n, struct iface_node, node);
--		if (!p)
--			*root = RB_ROOT;
--		else if (p->rb_left == n)
--			p->rb_left = NULL;
--		else if (p->rb_right == n)
--			p->rb_right = NULL;
-+	struct iface_node *node, *next;
- 
-+	rbtree_postorder_for_each_entry_safe(node, next, root, node)
- 		kfree(node);
--		n = p;
--	}
-+
-+	*root = RB_ROOT;
- }
- 
- static int
+Real systems that run for more than a day do end up with seriously
+fragmented memory.
+
+Cheers,
 -- 
-1.8.4.2
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
