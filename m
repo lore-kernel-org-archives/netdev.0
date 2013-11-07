@@ -1,65 +1,57 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: Re: [PATCH] ipv6: replace RTF_ROUTEINFO with RTF_ADDRCONF in  rt6_get_route_info()
-Date: Thu, 07 Nov 2013 10:01:27 +0800
-Message-ID: <527AF477.1060604@cn.fujitsu.com>
-References: <5279EF31.4040705@cn.fujitsu.com> <20131107015100.GF8144@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: gso: Attempt to handle mega-GRO packets
+Date: Wed, 06 Nov 2013 18:08:40 -0800
+Message-ID: <1383790120.2878.36.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131106040717.GA15711@gondor.apana.org.au>
+	 <1383711785.4291.156.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131106042858.GA15745@gondor.apana.org.au>
+	 <1383715222.4291.158.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131106080425.GA17556@gondor.apana.org.au>
+	 <20131106081638.GA17665@gondor.apana.org.au>
+	 <20131106131252.GA20680@gondor.apana.org.au>
+	 <1383750070.4291.163.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131107003658.GA27976@gondor.apana.org.au>
+	 <1383786208.2878.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131107014724.GA28946@gondor.apana.org.au>
+	 <1383789758.2878.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com, mst@redhat.com,
+	Jason Wang <jasowang@redhat.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:5009 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753148Ab3KGCD3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 21:03:29 -0500
-In-Reply-To: <20131107015100.GF8144@order.stressinduktion.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:60102 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751361Ab3KGCIo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 21:08:44 -0500
+Received: by mail-pa0-f47.google.com with SMTP id lf10so538969pab.20
+        for <netdev@vger.kernel.org>; Wed, 06 Nov 2013 18:08:43 -0800 (PST)
+In-Reply-To: <1383789758.2878.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2013=E5=B9=B411=E6=9C=8807=E6=97=A5 09:51, Hannes Frederic So=
-wa =E5=86=99=E9=81=93:
-> On Wed, Nov 06, 2013 at 03:26:41PM +0800, Duan Jiong wrote:
->>
->> As the rfc 4191 said, the Router Preference and Lifetime values in a
->> ::/0 Route Information Option should override the preference and lif=
-etime
->> values in the Router Advertisement header. But when the kernel deals=
- with
->> a ::/0 Route Information Option, the rt6_get_route_info() always ret=
-urn
->> NULL, that means that overriding will not happen, because those defa=
-ult
->> routers were added without flag RTF_ROUTEINFO in rt6_add_dflt_router=
-().
->>
->> In order to match those default routers, we can replace RTF_ROUTEINF=
-O=20
->> with RTF_ADDRCONF in rt6_get_route_info().
->>
->> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
->=20
-> Hmm, that looks like a bug. Nice catch!
->=20
-> Couldn't we just replace the rt6_get_route_info in rt6_route_rcv with=
- a call
-> to rt6_get_dflt_router? Seems easier, already handles the ::/0 case a=
-nd also
-> does preserve the check for the RTF_ROUTEINFO flag in rt6_add_route_i=
-nfo.
+On Wed, 2013-11-06 at 18:02 -0800, Eric Dumazet wrote:
+> On Thu, 2013-11-07 at 09:47 +0800, Herbert Xu wrote:
+> 
+> > Say the system is fragmented sufficiently that you'll end up with
+> > 0-order pages.  In that case you'll only ever be able to coalesce
+> > two packets.
+> 
+> 4K page will contain 2 frags and they will coalesce.
+> 
+> Performance will still be quite good.
+> 
+> We probably add a tweak, to not have any hole in this case.
 
-Yeah, your idea is better. I will modify my patch.
+After skb_page_frag_refill() call, its trivial to check if the page is
+order-0.
 
-Thanks,
-  Duan
+If yes, use the whole remaining space, instead of MAX_PACKET_LEN
 
->=20
-> Greetings,
->=20
->   Hannes
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+-> If memory is fragmented, we switch back to old behavior.
+
+Really, its that simple.
