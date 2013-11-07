@@ -1,19 +1,39 @@
-From: <jjorge@csun.edu>
-Subject: ??
-Date: Thu, 7 Nov 2013 05:57:56 +0100
-Message-ID: <75c56e5a-b260-4298-bc4a-213898f5ae6d@canvasback.csun.edu>
-Reply-To: 2193610711@qq.com
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: [PATCH] netfilter: fix connlimit Kconfig prompt string
+Date: Wed, 06 Nov 2013 21:48:22 -0800
+Message-ID: <527B29A6.6090802@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <jjorge@csun.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canvasback.csun.edu ([130.166.5.142]:50877 "EHLO
-	exchange.csun.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751159Ab3KGFDu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 00:03:50 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, lailavrazda1979@gmail.com
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-is it safe to discuss with you in this email?
+From: Randy Dunlap <rdunlap@infradead.org>
+
+Under Core Netfilter Configuration, connlimit match support has
+an extra double quote at the end of it.
+
+Fixes a portion of kernel bugzilla #52671:
+  https://bugzilla.kernel.org/show_bug.cgi?id=52671
+
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Reported-by: lailavrazda1979@gmail.com
+---
+ net/netfilter/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- lnx-312.orig/net/netfilter/Kconfig
++++ lnx-312/net/netfilter/Kconfig
+@@ -857,7 +857,7 @@ config NETFILTER_XT_MATCH_CONNLABEL
+ 	  connection simultaneously.
+ 
+ config NETFILTER_XT_MATCH_CONNLIMIT
+-	tristate '"connlimit" match support"'
++	tristate '"connlimit" match support'
+ 	depends on NF_CONNTRACK
+ 	depends on NETFILTER_ADVANCED
+ 	---help---
