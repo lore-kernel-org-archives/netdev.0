@@ -1,63 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Wed, 06 Nov 2013 23:31:30 -0800
-Message-ID: <1383809490.9412.50.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131103163103.GA18894@gondor.apana.org.au>
-	 <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131104041108.GA22823@gondor.apana.org.au>
-	 <20131106013038.GA14894@gondor.apana.org.au>
-	 <20131106123900.GA20259@gondor.apana.org.au>
-	 <20131106133045.GA20931@gondor.apana.org.au>
-	 <20131106143927.GA21604@gondor.apana.org.au>
-	 <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131107004339.GA28156@gondor.apana.org.au>
-	 <1383808262.9412.33.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131107071531.GA31857@gondor.apana.org.au>
+From: Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] wcn36xx: Fix logging macro with unnecessary semicolon
+Date: Thu, 7 Nov 2013 07:32:37 +0000
+Message-ID: <CAFSJ42Y-3BZqj+JRNa8wdxjnm1fguD8ToH5Oj0m56yT5NexdVQ@mail.gmail.com>
+References: <1383684000.4387.42.camel@joe-AO722>
+	<CAFSJ42YQy96Sko8CuG9BGjHzTV7TkRp2=NVt036APxSKpPB=Ag@mail.gmail.com>
+	<1383760556.7940.28.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:57094 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752769Ab3KGHbc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 02:31:32 -0500
-Received: by mail-pd0-f178.google.com with SMTP id x10so198315pdj.37
-        for <netdev@vger.kernel.org>; Wed, 06 Nov 2013 23:31:31 -0800 (PST)
-In-Reply-To: <20131107071531.GA31857@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Luis R. Rodriguez" <mcgrof-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	wcn36xx <wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org,
+	ath9k-devel <ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org>,
+	ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1383760556.7940.28.camel@joe-AO722>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-11-07 at 15:15 +0800, Herbert Xu wrote:
+Hi Joe,
 
-> So what in our stack violates this assumption? We've never handled
-> arbitrary frag_lists in GSO and I see no reason why we need to start
-> doing that now.
+I personally like the idea of making some kind of framework on top of
+printing because all ath drivers are using the same printing approach
+and combining all that code in one place will reduce amount of code in
+each particular driver. As a true engineer i like when it's less code
+= less work to do = less bugs:)
 
-I do see this, skb_segment() is generic.
+Suggestion is to send a patch with semicolon fix only and have a
+second round of convincing ath guys to change printing code. How does
+that sound?
 
-> 
-> Also GRO was designed to only merge packets that satisfy these
-> assumptions so that through GSO the original packets can be
-> recovered without losing end-to-end connectivity.  This is really
-> important for routers/switches.
+On Wed, Nov 6, 2013 at 5:55 PM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
+> On Wed, 2013-11-06 at 07:49 +0000, Eugene Krasnikov wrote:
+>> Hm... when it comes to semicolon the patch seems to be good. When it
+>> comes to dynamic debugging i think we should have a separate
+>> discussion about that.
+>> I personally like the whole idea about dynamic debug but if you want
+>> to change it i would suggest to have some kind of framework for all
+>> ath drivers(or maybe all wireless drivers). Because obviously you can
+>> find common code in every driver that defines it's own debug
+>> functions/debug levels and so on. Why not to make a framework with
+>> standard API/levels?
+>
+> You need to bring that up with the Atheros folk.
+> I've tried.  The view seemed to be it was more
+> trouble than it was worth.
+>
+>
+>
 
-I think we all agree on this, and we should keep this property.
 
-The point is : skb_segment() is not tied to GRO anymore.
 
-My patch handles virtio_net just fine, I see nothing really malicious in
-virtio_net.
-
-In particular, each skb found in the frag_list can be of any size,
-and not an exact MSS multiple.
-
-I see frag_list as a way to extend skb capacity, not as something
-tied to GRO/GSO.
-
-I worked last year so that we no longer had the frag_list being used in
-GRO stack. frag_list was no longer needed, thanks to skb->head_frag
+-- 
+Best regards,
+Eugene
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
