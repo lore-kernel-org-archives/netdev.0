@@ -1,51 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Using HTB over MultiQ
-Date: Thu, 07 Nov 2013 06:29:46 -0800
-Message-ID: <1383834586.9412.65.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 2/3] net_sched: fix some checkpatch errors
+Date: Thu, 07 Nov 2013 18:33:40 +0400
+Message-ID: <527BA4C4.50704@cogentembedded.com>
+References: <1383790412-41944-1-git-send-email-yangyingliang@huawei.com> <1383790412-41944-3-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>
+Cc: eric.dumazet@gmail.com, jhs@mojatatu.com,
+	stephen@networkplumber.org
+To: Yang Yingliang <yangyingliang@huawei.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:35225 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751083Ab3KGO3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 09:29:48 -0500
-Received: by mail-pd0-f180.google.com with SMTP id p10so670914pdj.11
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 06:29:48 -0800 (PST)
-In-Reply-To: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:34106 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754535Ab3KGOdq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 09:33:46 -0500
+Received: by mail-lb0-f182.google.com with SMTP id w6so504248lbh.27
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 06:33:45 -0800 (PST)
+In-Reply-To: <1383790412-41944-3-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-07 at 17:12 +0400, Anton 'EvilMan' Danilov wrote:
+Hello.
 
-> But I see zero statistics on the leaf htb classes and nonzero
-> statistics on the classifier filters:
-> 
-> ~$ tc -s -p filter list dev eth1
->  ...
->  filter parent 10: protocol ip pref 5 u32 fh 2:f2:800 order 2048 key
-> ht 2 bkt f2 flowid 11:1736  (rule hit 306 success 306)
->    match IP src xx.xx.xx.xx/30 (success 306 )
->  ...
+On 07-11-2013 6:13, Yang Yingliang wrote:
 
-Filter matches and flowid 11:1736 chosen
+> There are some checkpatch errors, fix them.
 
-But then, when the packet enters HTB, it enters HTB on one of the 8 HTB
-trees, and only one of them contains 11:1736 and could queue the packet
-into its local pfifo 50.
+> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+> Suggested-by: Stephen Hemminger <stephen@networkplumber.org>
+[...]
 
-For 7 others HTB trees, flowid 11:1736 doesn't match any htb class, so
-packet is queued into the default queue attached to the HTB tree.
+> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+> index fd70728..d92a90e9 100644
+> --- a/net/sched/act_api.c
+> +++ b/net/sched/act_api.c
+> @@ -191,7 +191,8 @@ u32 tcf_hash_new_index(u32 *idx_gen, struct tcf_hashinfo *hinfo)
+>   			val = 1;
+>   	} while (tcf_hash_lookup(val, hinfo));
+>
+> -	return (*idx_gen = val);
+> +	*idx_gen = val;
+> +	return *idx_gen;
 
-> 
-> ~$ tc -s -s -d c ls dev eth1 classid 11:1736
->  class htb 11:1736 parent 11:1 leaf 1736: prio 0 quantum 12800 rate
-> 1024Kbit ceil 1024Kbit burst 1599b/1 mpu 0b overhead 0b cburst 1599b/1
-> mpu 0b overhead 0b level 0
->   Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->   rate 0bit 0pps backlog 0b 0p requeues 0
->   lended: 0 borrowed: 0 giants: 0
->   tokens: 195312 ctokens: 195312
+	return val;
+
+would have been simpler.
+
+> diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+> index 7a42c81..a8f40f5 100644
+> --- a/net/sched/sch_cbq.c
+> +++ b/net/sched/sch_cbq.c
+> @@ -1058,7 +1058,8 @@ static void cbq_normalize_quanta(struct cbq_sched_data *q, int prio)
+>   				cl->quantum = (cl->weight*cl->allot*q->nclasses[prio])/
+>   					q->quanta[prio];
+>   			}
+> -			if (cl->quantum <= 0 || cl->quantum>32*qdisc_dev(cl->qdisc)->mtu) {
+> +			if (cl->quantum <= 0 ||
+> +				cl->quantum > 32*qdisc_dev(cl->qdisc)->mtu) {
+
+    According to the networking coding style, the continuation line should 
+start right under 'cl' on the first line of *if*. The way you did it makes it 
+harder for the eyes to differentiate the code in the *if* branch from the *if* 
+expression.
+
+>   				pr_warning("CBQ: class %08x has bad quantum==%ld, repaired.\n",
+>   					   cl->common.classid, cl->quantum);
+>   				cl->quantum = qdisc_dev(cl->qdisc)->mtu/2 + 1;
+[...]
+
+WBR, Sergei
