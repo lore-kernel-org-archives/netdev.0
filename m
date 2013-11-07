@@ -1,51 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next 3/3] net: allow to leave the buffer fragmented
- in skb_cow_data()
-Date: Thu, 7 Nov 2013 17:01:35 +0800
-Message-ID: <20131107090135.GA385@gondor.apana.org.au>
-References: <cover.1381923854.git.mathias.krause@secunet.com>
- <14f30e8f5f8405c1ca73b6d3a554441c1736142d.1381923854.git.mathias.krause@secunet.com>
- <20131106093028.GA18435@gondor.apana.org.au>
- <527A109E.5040000@secunet.com>
- <20131106095217.GA18851@gondor.apana.org.au>
- <527A391B.4050907@secunet.com>
- <20131106124811.GA20404@gondor.apana.org.au>
- <527B5586.3090401@secunet.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH net-next v4 3/9] static_key: WARN on usage before
+ jump_label_init was called
+Date: Thu, 7 Nov 2013 10:08:44 +0100
+Message-ID: <20131107090844.GA719@gmail.com>
+References: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org>
+ <1382212139-20301-4-git-send-email-hannes@stressinduktion.org>
+ <20131106161649.2bb1dbb0@gandalf.local.home>
+ <20131107005027.GC8144@order.stressinduktion.org>
+ <20131106200200.7847535d@gandalf.local.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-	netdev@vger.kernel.org
-To: Mathias Krause <mathias.krause@secunet.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Andi Kleen <andi@firstfloor.org>,
+	Jason Baron <jbaron@akamai.com>
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:46898 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753300Ab3KGJBo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 04:01:44 -0500
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:44320 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751540Ab3KGJIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 04:08:48 -0500
 Content-Disposition: inline
-In-Reply-To: <527B5586.3090401@secunet.com>
+In-Reply-To: <20131106200200.7847535d@gandalf.local.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 07, 2013 at 09:55:34AM +0100, Mathias Krause wrote:
->
-> Indeed. I want to avoid the costly memcpy() on the CPU serving the NIC
-> interrupt, as that is a bottleneck in my setup. The packet processing --
-> encrypting/decrypting of ESP packets -- gets mostly parallelized via
-> pcrypt, so that's fine. But the initial network processing, i.e. getting
-> to pcrypt, is what's throttling the throughput currently. (RPS only
-> partly solves this problem as for the ESP receive path most traffic ends
-> up on the same flow).
 
-How about this: instead of doing in-place encryption/decryption
-let's allocate a new destination buffer and encrypt/decrypt into
-it.  Then we essentially get the copy for free.
+* Steven Rostedt <rostedt@goodmis.org> wrote:
 
-So instead of modifying skb_cow_data you can change esp4.c, etc.
+> On Thu, 7 Nov 2013 01:50:27 +0100
+> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> 
+> > On Wed, Nov 06, 2013 at 04:16:49PM -0500, Steven Rostedt wrote:
+> > > Sorry for the late reply, but this was sent while I was getting ready
+> > > for my two week conference trip.
+> > > 
+> > > Note, this should not go through the net tree, but instead should go
+> > > through tip, as it deals with jump labels and not networking.
+> > > 
+> > > Otherwise, this patch looks good.
+> > > 
+> > > Reviewed-by: Steven Rostedt <rostedt@goodmis.org>
+> > 
+> > Thanks for the review!
+> > 
+> > The patch already got queued up in net-next. Is this ok or what do you
+> > suggest to resolve this?
+> > 
+> 
+> I'm fine, but really. Changes need to go through the trees they are 
+> maintained by. Would Dave Miller like it if I pushed patches that 
+> touched the net directory without a single Ack?
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I second that concern.
+
+Thanks,
+
+	Ingo
