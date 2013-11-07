@@ -1,98 +1,80 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 6/9] bonding: use RTNL instead of bond lock for
- bond_3ad_state_machine_handler()
-Date: Thu, 7 Nov 2013 09:40:56 +0800
-Message-ID: <527AEFA8.9030609@huawei.com>
-References: <5279E74C.8070403@huawei.com> <527AD5BC.7040907@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	"Veaceslav Falico" <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+From: Cody P Schafer <cody@linux.vnet.ibm.com>
+Subject: [PATCH v2 04/11] net ipset: use rbtree postorder iteration instead of opencoding
+Date: Wed,  6 Nov 2013 17:42:33 -0800
+Message-ID: <1383788572-25938-5-git-send-email-cody@linux.vnet.ibm.com>
+References: <1383788572-25938-1-git-send-email-cody@linux.vnet.ibm.com>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Cody P Schafer <cody@linux.vnet.ibm.com>,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Andrew Morton <akpm@linux-foundation.org>,
+	EXT4 <linux-ext4@vger.kernel.org>, Jan Kara <jack@suse.cz>,
+	rostedt@goodmis.org, "David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:10097 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751361Ab3KGBmS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 20:42:18 -0500
-In-Reply-To: <527AD5BC.7040907@cogentembedded.com>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:48959 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753545Ab3KGBrC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 20:47:02 -0500
+Received: from /spool/local
+	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cody@linux.vnet.ibm.com>;
+	Wed, 6 Nov 2013 18:47:01 -0700
+In-Reply-To: <1383788572-25938-1-git-send-email-cody@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/11/7 7:50, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 11/06/2013 09:53 AM, Ding Tianhong wrote:
-> 
->> The bond_3ad_state_machine_handler() is a slow path, it use the bond
->> lock to protect the bond slave list and slave port, the slave list
->> could not be protect by bond lock anymore, so I need to use RTNL or
->> RCU instead of bond lock, but if I remove the bond lock, the
->> bond_3ad_state_machine_handler() may use the slave port when bond
->> releasing the slave, it will occur problems.
-> 
->> As the bond_3ad_unbind_slave() only protected by bond lock or RTNL,
->> so add RCU is not a good solution as it could not protect the slave
->> port, so RTNL is fit here.
-> 
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->>   drivers/net/bonding/bond_3ad.c | 15 +++++++--------
->>   1 file changed, 7 insertions(+), 8 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->> index 187b1b7..a4d190e 100644
->> --- a/drivers/net/bonding/bond_3ad.c
->> +++ b/drivers/net/bonding/bond_3ad.c
->> @@ -2068,18 +2068,19 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
-> [...]
->> -    //check if there are any slaves
->>       if (!bond_has_slaves(bond))
->>           goto re_arm;
->>
->> -    // check if agg_select_timer timer after initialize is timed out
->> +    /* check if agg_select_timer timer after initialize is timed out */
->>       if (BOND_AD_INFO(bond).agg_select_timer && !(--BOND_AD_INFO(bond).agg_select_timer)) {
->>           slave = bond_first_slave(bond);
->>           port = slave ? &(SLAVE_AD_INFO(slave).port) : NULL;
->>
->> -        // select the active aggregator for the bond
->>           if (port) {
->>               if (!port->slave) {
->>                   pr_warning("%s: Warning: bond's first port is uninitialized\n",
->> @@ -2093,7 +2094,6 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
->>           bond_3ad_set_carrier(bond);
->>       }
->>
->> -    // for each port run the state machines
->>       bond_for_each_slave(bond, slave, iter) {
->>           port = &(SLAVE_AD_INFO(slave).port);
->>           if (!port->slave) {
->> @@ -2114,7 +2114,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
->>           ad_mux_machine(port);
->>           ad_tx_machine(port);
->>
->> -        // turn off the BEGIN bit, since we already handled it
->> +        /* turn off the BEGIN bit, since we already handled it */
->>           if (port->sm_vars & AD_PORT_BEGIN)
->>               port->sm_vars &= ~AD_PORT_BEGIN;
->>
-> 
->    These comment changes are not documented in the changelog and should most probably be in a separate patch.
-> 
-> WBR, Sergei
-> 
+Use rbtree_postorder_for_each_entry_safe() to destroy the rbtree instead
+of opencoding an alternate postorder iteration that modifies the tree
 
-thanks for your reply, I miss it in the changelog, it is already a big patch set, so I really do not want to add patch any more, I will add it in changelog.
+Signed-off-by: Cody P Schafer <cody@linux.vnet.ibm.com>
+---
+ net/netfilter/ipset/ip_set_hash_netiface.c | 27 ++++-----------------------
+ 1 file changed, 4 insertions(+), 23 deletions(-)
 
-Tnanks
-
-Ding
-
-> 
-> .
-> 
+diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
+index 7d798d5..99dba4c 100644
+--- a/net/netfilter/ipset/ip_set_hash_netiface.c
++++ b/net/netfilter/ipset/ip_set_hash_netiface.c
+@@ -45,31 +45,12 @@ struct iface_node {
+ static void
+ rbtree_destroy(struct rb_root *root)
+ {
+-	struct rb_node *p, *n = root->rb_node;
+-	struct iface_node *node;
+-
+-	/* Non-recursive destroy, like in ext3 */
+-	while (n) {
+-		if (n->rb_left) {
+-			n = n->rb_left;
+-			continue;
+-		}
+-		if (n->rb_right) {
+-			n = n->rb_right;
+-			continue;
+-		}
+-		p = rb_parent(n);
+-		node = rb_entry(n, struct iface_node, node);
+-		if (!p)
+-			*root = RB_ROOT;
+-		else if (p->rb_left == n)
+-			p->rb_left = NULL;
+-		else if (p->rb_right == n)
+-			p->rb_right = NULL;
++	struct iface_node *node, *next;
+ 
++	rbtree_postorder_for_each_entry_safe(node, next, root, node)
+ 		kfree(node);
+-		n = p;
+-	}
++
++	*root = RB_ROOT;
+ }
+ 
+ static int
+-- 
+1.8.4.2
