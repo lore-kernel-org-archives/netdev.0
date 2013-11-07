@@ -1,45 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Thu, 7 Nov 2013 15:33:49 +0800
-Message-ID: <20131107073348.GA32083@gondor.apana.org.au>
-References: <20131104041108.GA22823@gondor.apana.org.au>
- <20131106013038.GA14894@gondor.apana.org.au>
- <20131106123900.GA20259@gondor.apana.org.au>
- <20131106133045.GA20931@gondor.apana.org.au>
- <20131106143927.GA21604@gondor.apana.org.au>
- <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131107004339.GA28156@gondor.apana.org.au>
- <1383808262.9412.33.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131107071531.GA31857@gondor.apana.org.au>
- <1383809490.9412.50.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] 6lowpan: release device on error path
+Date: Thu, 7 Nov 2013 10:44:45 +0300
+Message-ID: <20131107074445.GD21844@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:59773 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754419Ab3KGHeA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 02:34:00 -0500
+Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Alan Ott <alan@signal11.us>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1383809490.9412.50.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 06, 2013 at 11:31:30PM -0800, Eric Dumazet wrote:
-> On Thu, 2013-11-07 at 15:15 +0800, Herbert Xu wrote:
-> 
-> > So what in our stack violates this assumption? We've never handled
-> > arbitrary frag_lists in GSO and I see no reason why we need to start
-> > doing that now.
-> 
-> I do see this, skb_segment() is generic.
+We recently added a new error path and it needs a dev_put().
 
-IOW there is nothing in our stack that violates this, great!
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Fixes: 7adac1ec8198 ('6lowpan: Only make 6lowpan links to IEEE802154 devices')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+Compile tested only.  Please review carefully.
+
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 9497c6f..426b5df 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -1358,8 +1358,10 @@ static int lowpan_newlink(struct net *src_net, struct net_device *dev,
+ 	real_dev = dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
+ 	if (!real_dev)
+ 		return -ENODEV;
+-	if (real_dev->type != ARPHRD_IEEE802154)
++	if (real_dev->type != ARPHRD_IEEE802154) {
++		dev_put(real_dev);
+ 		return -EINVAL;
++	}
+ 
+ 	lowpan_dev_info(dev)->real_dev = real_dev;
+ 	lowpan_dev_info(dev)->fragment_tag = 0;
