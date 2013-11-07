@@ -1,101 +1,117 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net-next] net_sched: tbf: support of 64bit rates
-Date: Thu, 7 Nov 2013 17:40:46 +0800
-Message-ID: <1383817246-3264-1-git-send-email-yangyingliang@huawei.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCHv2 net-next 1/3] xfrm: Try to honor policy index if it's supplied by user
+Date: Thu, 7 Nov 2013 17:47:48 +0800
+Message-ID: <1383817670-5783-2-git-send-email-fan.du@windriver.com>
+References: <1383817670-5783-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <eric.dumazet@gmail.com>, <jhs@mojatatu.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>, <herbert@gondor.hengli.com.au>,
+	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:23381 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753872Ab3KGJlN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 04:41:13 -0500
+Received: from mail.windriver.com ([147.11.1.11]:60627 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753763Ab3KGJrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 04:47:48 -0500
+In-Reply-To: <1383817670-5783-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With psched_ratecfg_precompute(), tbf can deal with 64bit rates.
-Add two new attributes so that tc can use them to break the 32bit
-limit.
+xfrm code always searches for unused policy index for
+newly created policy regardless whether or not user
+space policy index hint supplied.
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+This patch enables such feature so that using
+"ip xfrm ... index=xxx" can be used by user to set
+specific policy index.
+
+Currently this beahvior is broken, so this patch make
+it happen as expected.
+
+Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
- include/uapi/linux/pkt_sched.h |  2 ++
- net/sched/sch_tbf.c            | 22 ++++++++++++++++++----
- 2 files changed, 20 insertions(+), 4 deletions(-)
+v2:
+ -Unchanged
+---
+ net/xfrm/xfrm_policy.c |   16 +++++++++++-----
+ net/xfrm/xfrm_user.c   |   10 +++++++++-
+ 2 files changed, 20 insertions(+), 6 deletions(-)
 
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index f2624b5..307f293 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -171,6 +171,8 @@ enum {
- 	TCA_TBF_PARMS,
- 	TCA_TBF_RTAB,
- 	TCA_TBF_PTAB,
-+	TCA_TBF_RATE64,
-+	TCA_TBF_PRATE64,
- 	__TCA_TBF_MAX,
- };
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 9a91f74..a5bbdfb 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -538,7 +538,7 @@ static void xfrm_hash_resize(struct work_struct *work)
  
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index b057122..b736517 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -266,20 +266,23 @@ static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
- 	[TCA_TBF_PARMS]	= { .len = sizeof(struct tc_tbf_qopt) },
- 	[TCA_TBF_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
- 	[TCA_TBF_PTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
-+	[TCA_TBF_RATE64]	= { .type = NLA_U64 },
-+	[TCA_TBF_PRATE64]	= { .type = NLA_U64 },
- };
- 
- static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ /* Generate new index... KAME seems to generate them ordered by cost
+  * of an absolute inpredictability of ordering of rules. This will not pass. */
+-static u32 xfrm_gen_index(struct net *net, int dir)
++static u32 xfrm_gen_index(struct net *net, int dir, u32 index)
  {
- 	int err;
- 	struct tbf_sched_data *q = qdisc_priv(sch);
--	struct nlattr *tb[TCA_TBF_PTAB + 1];
-+	struct nlattr *tb[TCA_TBF_MAX + 1];
- 	struct tc_tbf_qopt *qopt;
- 	struct qdisc_rate_table *rtab = NULL;
- 	struct qdisc_rate_table *ptab = NULL;
- 	struct Qdisc *child = NULL;
- 	int max_size, n;
-+	u64 rate64 = 0, prate64 = 0;
+ 	static u32 idx_generator;
  
--	err = nla_parse_nested(tb, TCA_TBF_PTAB, opt, tbf_policy);
-+	err = nla_parse_nested(tb, TCA_TBF_MAX, opt, tbf_policy);
- 	if (err < 0)
- 		return err;
+@@ -548,8 +548,14 @@ static u32 xfrm_gen_index(struct net *net, int dir)
+ 		u32 idx;
+ 		int found;
  
-@@ -341,9 +344,13 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
- 	q->tokens = q->buffer;
- 	q->ptokens = q->mtu;
+-		idx = (idx_generator | dir);
+-		idx_generator += 8;
++		if (!index) {
++			idx = (idx_generator | dir);
++			idx_generator += 8;
++		} else {
++			idx = index;
++			index = 0;
++		}
++
+ 		if (idx == 0)
+ 			idx = 8;
+ 		list = net->xfrm.policy_byidx + idx_hash(net, idx);
+@@ -672,7 +678,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
+ 		xfrm_policy_requeue(delpol, policy);
+ 		__xfrm_policy_unlink(delpol, dir);
+ 	}
+-	policy->index = delpol ? delpol->index : xfrm_gen_index(net, dir);
++	policy->index = delpol ? delpol->index : xfrm_gen_index(net, dir, policy->index);
+ 	hlist_add_head(&policy->byidx, net->xfrm.policy_byidx+idx_hash(net, policy->index));
+ 	policy->curlft.add_time = get_seconds();
+ 	policy->curlft.use_time = 0;
+@@ -1192,7 +1198,7 @@ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
+ 	sk->sk_policy[dir] = pol;
+ 	if (pol) {
+ 		pol->curlft.add_time = get_seconds();
+-		pol->index = xfrm_gen_index(net, XFRM_POLICY_MAX+dir);
++		pol->index = xfrm_gen_index(net, XFRM_POLICY_MAX+dir, 0);
+ 		__xfrm_policy_link(pol, XFRM_POLICY_MAX+dir);
+ 	}
+ 	if (old_pol) {
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index f964d4c..4e0546e 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1189,6 +1189,8 @@ static int verify_policy_type(u8 type)
  
--	psched_ratecfg_precompute(&q->rate, &rtab->rate, 0);
-+	if (tb[TCA_TBF_RATE64])
-+		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
-+	psched_ratecfg_precompute(&q->rate, &rtab->rate, rate64);
- 	if (ptab) {
--		psched_ratecfg_precompute(&q->peak, &ptab->rate, 0);
-+		if (tb[TCA_TBF_PRATE64])
-+			prate64 = nla_get_u64(tb[TCA_TBF_PRATE64]);
-+		psched_ratecfg_precompute(&q->peak, &ptab->rate, prate64);
- 		q->peak_present = true;
- 	} else {
- 		q->peak_present = false;
-@@ -402,6 +409,13 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	opt.buffer = PSCHED_NS2TICKS(q->buffer);
- 	if (nla_put(skb, TCA_TBF_PARMS, sizeof(opt), &opt))
- 		goto nla_put_failure;
-+	if ((q->rate.rate_bytes_ps >= (1ULL << 32)) &&
-+			nla_put_u64(skb, TCA_TBF_RATE64, q->rate.rate_bytes_ps))
-+		goto nla_put_failure;
-+	if (q->peak_present &&
-+			(q->peak.rate_bytes_ps >= (1ULL << 32)) &&
-+			nla_put_u64(skb, TCA_TBF_PRATE64, q->peak.rate_bytes_ps))
-+		goto nla_put_failure;
+ static int verify_newpolicy_info(struct xfrm_userpolicy_info *p)
+ {
++	int ret;
++
+ 	switch (p->share) {
+ 	case XFRM_SHARE_ANY:
+ 	case XFRM_SHARE_SESSION:
+@@ -1224,7 +1226,13 @@ static int verify_newpolicy_info(struct xfrm_userpolicy_info *p)
+ 		return -EINVAL;
+ 	}
  
- 	nla_nest_end(skb, nest);
- 	return skb->len;
+-	return verify_policy_dir(p->dir);
++	ret = verify_policy_dir(p->dir);
++	if (ret)
++		return ret;
++	if (p->index && ((p->index & XFRM_POLICY_MAX) != p->dir))
++		return -EINVAL;
++
++	return 0;
+ }
+ 
+ static int copy_from_user_sec_ctx(struct xfrm_policy *pol, struct nlattr **attrs)
 -- 
-1.7.12
+1.7.9.5
