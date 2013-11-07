@@ -1,9 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [2/3] gso: Handle new frag_list of frags GRO packets
-Date: Thu, 7 Nov 2013 18:16:44 +0000
-Message-ID: <1383848204.3802.6.camel@bwh-desktop.uk.level5networks.com>
-References: <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131104041108.GA22823@gondor.apana.org.au>
+Subject: Re: [3/3] gso: Handle malicious GRO packets without crashing
+Date: Thu, 7 Nov 2013 18:18:35 +0000
+Message-ID: <1383848315.3802.8.camel@bwh-desktop.uk.level5networks.com>
+References: <20131104041108.GA22823@gondor.apana.org.au>
 	 <20131106013038.GA14894@gondor.apana.org.au>
 	 <20131106123900.GA20259@gondor.apana.org.au>
 	 <20131106133045.GA20931@gondor.apana.org.au>
@@ -13,6 +12,7 @@ References: <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <20131107062234.GA31156@gondor.apana.org.au>
 	 <20131107070335.GA31638@gondor.apana.org.au>
 	 <20131107070647.GB31638@gondor.apana.org.au>
+	 <20131107070847.GC31638@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -22,86 +22,71 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	<hkchu@google.com>, <mwdalton@google.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6184 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:6228 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753918Ab3KGSQt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 13:16:49 -0500
-In-Reply-To: <20131107070647.GB31638@gondor.apana.org.au>
+	with ESMTP id S1755562Ab3KGSSj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 13:18:39 -0500
+In-Reply-To: <20131107070847.GC31638@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-07 at 15:06 +0800, Herbert Xu wrote:
-> Recently GRO started generating packets with frag_lists of frags.
-> This was not handled by GSO, thus leading to a crash.
+On Thu, 2013-11-07 at 15:08 +0800, Herbert Xu wrote:
+> As virtio_net can now generate GRO frag_list packets without
+> sufficient verification, we need to handle malicious GRO packets
+> thrown at us.
 > 
-> Thankfully these packets are of a regular form and are easy to
-> handle.  This patch handles them by calling skb_segment for each 
-> frag_list entry.  The depth of recursion is limited to just one.
+> This patch converts to affected BUG_ONs in skb_segment to rate-
+> limited warnings.
 > 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 > 
 > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 88b7dc6..bcc3f1c 100644
+> index bcc3f1c..fb1106d 100644
 > --- a/net/core/skbuff.c
 > +++ b/net/core/skbuff.c
-[...]
-> @@ -2855,8 +2853,40 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
->  						 nskb->data - tnl_hlen,
->  						 doffset + tnl_hlen);
+> @@ -2881,7 +2881,15 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+>  			while (tail->next)
+>  				tail = tail->next;
 >  
-> -		if (fskb != skb_shinfo(skb)->frag_list)
-> -			goto perform_csum_check;
-> +		if (fskb != skb_shinfo(skb)->frag_list) {
-> +			struct sk_buff *nsegs;
-> +
-> +			if (nskb->len == len + doffset)
-> +				goto perform_csum_check;
-> +
-> +			SKB_FRAG_ASSERT(nskb);
-> +
-> +			__skb_pull(nskb, doffset);
-> +			skb_shinfo(nskb)->gso_size = mss;
-> +			nsegs = skb_segment(nskb, features);
-> +
-> +			err = PTR_ERR(nsegs);
-> +			if (IS_ERR(nsegs)) {
+> -			BUG_ON(fskb && tail->len != len + doffset);
+
+Oh well, disregard my previous request for a comment.
+
+> +			if (fskb && tail->len != len + doffset) {
+> +				net_warn_ratelimited(
+> +					"skb_segment: "
+> +					"illegal GSO fragment: %u %u\n",
+> +					tail->len, len + doffset);
 > +				kfree(nskb);
 
-Should be kfree_skb().
+kfree_skb()
 
+> +				err = -EINVAL;
 > +				goto err;
 > +			}
-> +			err = -ENOMEM;
-
-It would be clearer to put this in front of the 'err' label:
-
-err_nomem:
-	err = -ENOMEM;
-
-and change the allocation failure paths to goto err_nomem.
-
-> +			if (segs)
-> +				tail->next = nsegs;
-> +			else
-> +				segs = nsegs;
-> +
-> +			tail = nsegs;
-> +			while (tail->next)
-> +				tail = tail->next;
-> +
-> +			BUG_ON(fskb && tail->len != len + doffset);
-
-Deserves a comment, maybe?
-
-> +			len = nskb->len;
-> +			kfree(nskb);
-> +			continue;
-> +		}
 >  
->  		if (!sg) {
->  			nskb->ip_summed = CHECKSUM_NONE;
+>  			len = nskb->len;
+>  			kfree(nskb);
+> @@ -2929,7 +2937,15 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+>  		if (pos < offset + len) {
+>  			struct sk_buff *fskb2 = fskb;
+>  
+> -			BUG_ON(pos + fskb->len != offset + len);
+> +			if (pos + fskb->len != offset + len) {
+> +				net_warn_ratelimited(
+> +					"skb_segment: "
+> +					"illegal GSO trailer: %u %u\n",
+> +					pos + fskb->len, offset + len);
+> +				kfree(nskb);
 
-Ben.
+kfree_skb()
+
+> +				err = -EINVAL;
+> +				goto err;
+> +			}
+>  
+>  			pos += fskb->len;
+>  			fskb = fskb->next;
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
