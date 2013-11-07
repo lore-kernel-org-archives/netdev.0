@@ -1,44 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Thu, 7 Nov 2013 08:47:04 +0800
-Message-ID: <20131107004704.GB28156@gondor.apana.org.au>
-References: <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131103163103.GA18894@gondor.apana.org.au>
- <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131104041108.GA22823@gondor.apana.org.au>
- <20131106013038.GA14894@gondor.apana.org.au>
- <20131106123900.GA20259@gondor.apana.org.au>
- <20131106133045.GA20931@gondor.apana.org.au>
- <20131106143927.GA21604@gondor.apana.org.au>
- <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com>
- <1383783321.2878.6.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v4 3/9] static_key: WARN on usage before jump_label_init was called
+Date: Thu, 7 Nov 2013 01:50:27 +0100
+Message-ID: <20131107005027.GC8144@order.stressinduktion.org>
+References: <1382212139-20301-1-git-send-email-hannes@stressinduktion.org> <1382212139-20301-4-git-send-email-hannes@stressinduktion.org> <20131106161649.2bb1dbb0@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:40013 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753096Ab3KGArK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 19:47:10 -0500
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Andi Kleen <andi@firstfloor.org>,
+	Ingo Molnar <mingo@kernel.org>, Jason Baron <jbaron@akamai.com>
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1383783321.2878.6.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20131106161649.2bb1dbb0@gandalf.local.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 06, 2013 at 04:15:21PM -0800, Eric Dumazet wrote:
->
-> Here is the patch I came into (I tested it and it works very fine)
+On Wed, Nov 06, 2013 at 04:16:49PM -0500, Steven Rostedt wrote:
+> Sorry for the late reply, but this was sent while I was getting ready
+> for my two week conference trip.
+> 
+> Note, this should not go through the net tree, but instead should go
+> through tip, as it deals with jump labels and not networking.
+> 
+> Otherwise, this patch looks good.
+> 
+> Reviewed-by: Steven Rostedt <rostedt@goodmis.org>
 
-Thanks.  However, unless I'm missing something aren't you now
-copying every linear skb frag_list?  With the current code we
-just do a clone and add the headers.
+Thanks for the review!
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The patch already got queued up in net-next. Is this ok or what do you
+suggest to resolve this?
+
+Greetings,
+
+  Hannes
