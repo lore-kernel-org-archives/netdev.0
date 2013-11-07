@@ -1,33 +1,27 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [patch] net: make ndev->irq signed for error handling
-Date: Thu, 7 Nov 2013 17:44:38 +0530
-Message-ID: <527B842E.2060909@ti.com>
-References: <20131107074849.GF21844@elgon.mountain>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: xen-netback stable backport requests
+Date: Thu, 7 Nov 2013 12:15:30 +0000
+Message-ID: <1383826530.32399.13.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131107074849.GF21844@elgon.mountain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: xen-devel <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	<stable@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 07 November 2013 01:18 PM, Dan Carpenter wrote:
-> There is a bug in cpsw_probe() where we do:
->
-> 	ndev->irq = platform_get_irq(pdev, 0);
-> 	if (ndev->irq < 0) {
->
-> The problem is that "ndev->irq" is unsigned so the error handling
-> doesn't work.  I have changed it to a regular int.
->
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-ndev->irq is never used any where in the driver, I think its better to
-remove this part of code from probe. If every one is ok, I can send a
-patch to remove the code.
+Hi Dave,
 
-Regards
-Mugunthan V N
+279f438e36c0 "xen-netback: Don't destroy the netdev until the vif is
+shut down" has hit stable but unfortunately is causing regressions. 
+
+This should be fixed by dc62ccaccfb1 "xen-netback: transition to CLOSED
+when removing a VIF" which depends on ea732dff5cfa "xen-netback: Handle
+backend state transitions in a more robust way".
+
+Please could you queue hose two for stable.
+
+Thanks,
+Ian.
