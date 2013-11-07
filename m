@@ -1,174 +1,65 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 1/6] net/mlx4_en: Add RFS support in UDP
-Date: Thu,  7 Nov 2013 12:19:49 +0200
-Message-ID: <1383819594-24070-2-git-send-email-amirv@mellanox.com>
-References: <1383819594-24070-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 0/6] net/mlx4: Mellanox driver update 07-11-2013
+Date: Thu,  7 Nov 2013 12:19:48 +0200
+Message-ID: <1383819594-24070-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eyal Perry <eyalpe@mellanox.com>
+	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:33140 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:44663 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751591Ab3KGKUP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Nov 2013 05:20:15 -0500
-In-Reply-To: <1383819594-24070-1-git-send-email-amirv@mellanox.com>
+	id S1750859Ab3KGKUO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Nov 2013 05:20:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eyal Perry <eyalpe@mellanox.com>
+Hi Dave,
 
-Modify RFS code to support applying filters for incoming UDP streams.
+This patchset contains some enhancements and bug fixes for the mlx4_* drivers.
+Patchset was applied and tested against commit: "9bb8ca8 virtio-net: switch to
+use XPS to choose txq"
 
+Thanks,
+Amir
 
-Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 45 +++++++++++++++++++-------
- 1 file changed, 34 insertions(+), 11 deletions(-)
+Eugenia Emantayev (3):
+  net/mlx4_en: Datapath resources allocated dynamically
+  net/mlx4_core: ICM pages are allocated on device NUMA node
+  net/mlx4_en: Datapath structures are allocated per NUMA node
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index b555412..cd61e26 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -102,6 +102,7 @@ struct mlx4_en_filter {
- 	struct list_head next;
- 	struct work_struct work;
- 
-+	u8     ip_proto;
- 	__be32 src_ip;
- 	__be32 dst_ip;
- 	__be16 src_port;
-@@ -120,14 +121,26 @@ struct mlx4_en_filter {
- 
- static void mlx4_en_filter_rfs_expire(struct mlx4_en_priv *priv);
- 
-+static enum mlx4_net_trans_rule_id mlx4_ip_proto_to_trans_rule_id(u8 ip_proto)
-+{
-+	switch (ip_proto) {
-+	case IPPROTO_UDP:
-+		return MLX4_NET_TRANS_RULE_ID_UDP;
-+	case IPPROTO_TCP:
-+		return MLX4_NET_TRANS_RULE_ID_TCP;
-+	default:
-+		return -EPROTONOSUPPORT;
-+	}
-+};
-+
- static void mlx4_en_filter_work(struct work_struct *work)
- {
- 	struct mlx4_en_filter *filter = container_of(work,
- 						     struct mlx4_en_filter,
- 						     work);
- 	struct mlx4_en_priv *priv = filter->priv;
--	struct mlx4_spec_list spec_tcp = {
--		.id = MLX4_NET_TRANS_RULE_ID_TCP,
-+	struct mlx4_spec_list spec_tcp_udp = {
-+		.id = mlx4_ip_proto_to_trans_rule_id(filter->ip_proto),
- 		{
- 			.tcp_udp = {
- 				.dst_port = filter->dst_port,
-@@ -163,9 +176,14 @@ static void mlx4_en_filter_work(struct work_struct *work)
- 	int rc;
- 	__be64 mac_mask = cpu_to_be64(MLX4_MAC_MASK << 16);
- 
-+	if (spec_tcp_udp.id < 0) {
-+		en_warn(priv, "RFS: ignoring unsupported ip protocol (%d)\n",
-+			filter->ip_proto);
-+		goto ignore;
-+	}
- 	list_add_tail(&spec_eth.list, &rule.list);
- 	list_add_tail(&spec_ip.list, &rule.list);
--	list_add_tail(&spec_tcp.list, &rule.list);
-+	list_add_tail(&spec_tcp_udp.list, &rule.list);
- 
- 	rule.qpn = priv->rss_map.qps[filter->rxq_index].qpn;
- 	memcpy(spec_eth.eth.dst_mac, priv->dev->dev_addr, ETH_ALEN);
-@@ -183,6 +201,7 @@ static void mlx4_en_filter_work(struct work_struct *work)
- 	if (rc)
- 		en_err(priv, "Error attaching flow. err = %d\n", rc);
- 
-+ignore:
- 	mlx4_en_filter_rfs_expire(priv);
- 
- 	filter->activated = 1;
-@@ -206,8 +225,8 @@ filter_hash_bucket(struct mlx4_en_priv *priv, __be32 src_ip, __be32 dst_ip,
- 
- static struct mlx4_en_filter *
- mlx4_en_filter_alloc(struct mlx4_en_priv *priv, int rxq_index, __be32 src_ip,
--		     __be32 dst_ip, __be16 src_port, __be16 dst_port,
--		     u32 flow_id)
-+		     __be32 dst_ip, u8 ip_proto, __be16 src_port,
-+		     __be16 dst_port, u32 flow_id)
- {
- 	struct mlx4_en_filter *filter = NULL;
- 
-@@ -221,6 +240,7 @@ mlx4_en_filter_alloc(struct mlx4_en_priv *priv, int rxq_index, __be32 src_ip,
- 
- 	filter->src_ip = src_ip;
- 	filter->dst_ip = dst_ip;
-+	filter->ip_proto = ip_proto;
- 	filter->src_port = src_port;
- 	filter->dst_port = dst_port;
- 
-@@ -252,7 +272,7 @@ static void mlx4_en_filter_free(struct mlx4_en_filter *filter)
- 
- static inline struct mlx4_en_filter *
- mlx4_en_filter_find(struct mlx4_en_priv *priv, __be32 src_ip, __be32 dst_ip,
--		    __be16 src_port, __be16 dst_port)
-+		    u8 ip_proto, __be16 src_port, __be16 dst_port)
- {
- 	struct mlx4_en_filter *filter;
- 	struct mlx4_en_filter *ret = NULL;
-@@ -263,6 +283,7 @@ mlx4_en_filter_find(struct mlx4_en_priv *priv, __be32 src_ip, __be32 dst_ip,
- 			     filter_chain) {
- 		if (filter->src_ip == src_ip &&
- 		    filter->dst_ip == dst_ip &&
-+		    filter->ip_proto == ip_proto &&
- 		    filter->src_port == src_port &&
- 		    filter->dst_port == dst_port) {
- 			ret = filter;
-@@ -281,6 +302,7 @@ mlx4_en_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
- 	struct mlx4_en_filter *filter;
- 	const struct iphdr *ip;
- 	const __be16 *ports;
-+	u8 ip_proto;
- 	__be32 src_ip;
- 	__be32 dst_ip;
- 	__be16 src_port;
-@@ -295,18 +317,19 @@ mlx4_en_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
- 	if (ip_is_fragment(ip))
- 		return -EPROTONOSUPPORT;
- 
-+	if ((ip->protocol != IPPROTO_TCP) && (ip->protocol != IPPROTO_UDP))
-+		return -EPROTONOSUPPORT;
- 	ports = (const __be16 *)(skb->data + nhoff + 4 * ip->ihl);
- 
-+	ip_proto = ip->protocol;
- 	src_ip = ip->saddr;
- 	dst_ip = ip->daddr;
- 	src_port = ports[0];
- 	dst_port = ports[1];
- 
--	if (ip->protocol != IPPROTO_TCP)
--		return -EPROTONOSUPPORT;
--
- 	spin_lock_bh(&priv->filters_lock);
--	filter = mlx4_en_filter_find(priv, src_ip, dst_ip, src_port, dst_port);
-+	filter = mlx4_en_filter_find(priv, src_ip, dst_ip, ip_proto,
-+				     src_port, dst_port);
- 	if (filter) {
- 		if (filter->rxq_index == rxq_index)
- 			goto out;
-@@ -314,7 +337,7 @@ mlx4_en_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
- 		filter->rxq_index = rxq_index;
- 	} else {
- 		filter = mlx4_en_filter_alloc(priv, rxq_index,
--					      src_ip, dst_ip,
-+					      src_ip, dst_ip, ip_proto,
- 					      src_port, dst_port, flow_id);
- 		if (!filter) {
- 			ret = -ENOMEM;
+Eyal Perry (1):
+  net/mlx4_en: Add RFS support in UDP
+
+Jack Morgenstein (1):
+  net/mlx4_core: Initialize all mailbox buffers to zero before use
+
+Rony Efraim (1):
+  net/mlx4_core: Add immediate activate for VGT->VST->VGT
+
+ drivers/infiniband/hw/mlx4/main.c                  |   6 -
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |  36 +++---
+ drivers/net/ethernet/mellanox/mlx4/cq.c            |   6 -
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c         |  45 +++++--
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |  36 +++---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     | 144 +++++++++++++--------
+ drivers/net/ethernet/mellanox/mlx4/en_port.c       |  17 +--
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c         |  68 +++++++---
+ drivers/net/ethernet/mellanox/mlx4/en_selftest.c   |   2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c         |  54 ++++++--
+ drivers/net/ethernet/mellanox/mlx4/eq.c            |   1 -
+ drivers/net/ethernet/mellanox/mlx4/fw.c            |   7 -
+ drivers/net/ethernet/mellanox/mlx4/icm.c           |  42 ++++--
+ drivers/net/ethernet/mellanox/mlx4/main.c          |   1 +
+ drivers/net/ethernet/mellanox/mlx4/mcg.c           |   2 -
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |  33 ++---
+ drivers/net/ethernet/mellanox/mlx4/mr.c            |   5 -
+ drivers/net/ethernet/mellanox/mlx4/pd.c            |  11 +-
+ drivers/net/ethernet/mellanox/mlx4/port.c          |  11 --
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  79 +++++++++--
+ drivers/net/ethernet/mellanox/mlx4/srq.c           |   2 -
+ include/linux/mlx4/device.h                        |   3 +-
+ 22 files changed, 383 insertions(+), 228 deletions(-)
+
 -- 
 1.8.3.4
