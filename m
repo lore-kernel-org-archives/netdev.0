@@ -1,52 +1,35 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [BUG] v3.12-rc5-139-gbdeeab6 assertion failed at
- drivers/net/bonding/bond_main.c (3398)
-Date: Thu, 7 Nov 2013 21:18:42 +0100
-Message-ID: <20131107201842.GC14694@redhat.com>
-References: <20131019205222.GA18874@redhat.com>
- <20131019.184411.2017497732906948451.davem@davemloft.net>
- <20131107142418.GL19702@redhat.com>
- <20131107.151212.489598950578675166.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: no new features at this time
+Date: Thu, 07 Nov 2013 15:32:03 -0500 (EST)
+Message-ID: <20131107.153203.1553135060581735317.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: thomas@glanzmann.de, netdev@vger.kernel.org, fubar@us.ibm.com,
-	andy@greyhouse.net, nikolay@redhat.com, robbat2@gentoo.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19287 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751701Ab3KGUU7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Nov 2013 15:20:59 -0500
-Content-Disposition: inline
-In-Reply-To: <20131107.151212.489598950578675166.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54939 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751743Ab3KGUcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 15:32:04 -0500
+Received: from localhost (cpe-74-68-127-86.nyc.res.rr.com [74.68.127.86])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 17DE258A0E0
+	for <netdev@vger.kernel.org>; Thu,  7 Nov 2013 12:32:04 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 07, 2013 at 03:12:12PM -0500, David Miller wrote:
->From: Veaceslav Falico <vfalico@redhat.com>
->Date: Thu, 7 Nov 2013 15:24:18 +0100
->
->> Sorry for bringing this up - completely my fault. There are further
->> reports
->> of this bug in mainline. I've read the
->> ./Documentation/networking/netdev-FAQ.txt but haven't seen a way to
->> get a
->> fix that got in net-next to the (correct) net tree.
->>
->> Is there any way to do it?
->>
->> Sorry again for the mess :-(.
->
->Since we're in the merge window the tree going to Linus next would
->be net-next, and the fix is there.
->
->Once it hits Linus's tree I can queue it up for -stable.
 
-Awesome, please do, thank you.
+We are in the merge window and Linus is going to start taking pull
+requests in next week.
 
-And sorry again for the noise.
+This means there should be no new feature additions being submitted
+right now.
 
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+John has a wireless pull request pending for me, but that is the only
+new thing I want to see showing up in patchwork at this time.
+
+I am going to reject and delete from patchwork any patches which
+are not appropriate until after the merge window closes and
+net-next reopens.
+
+Thanks in advance for your cooperation.
