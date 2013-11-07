@@ -1,92 +1,167 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: gso: Attempt to handle mega-GRO packets
-Date: Wed, 06 Nov 2013 17:34:28 -0800
-Message-ID: <1383788068.2878.26.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1383496104.4291.69.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131103163103.GA18894@gondor.apana.org.au>
-	 <1383499603.4291.71.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131104041108.GA22823@gondor.apana.org.au>
-	 <20131106013038.GA14894@gondor.apana.org.au>
-	 <20131106123900.GA20259@gondor.apana.org.au>
-	 <20131106133045.GA20931@gondor.apana.org.au>
-	 <20131106143927.GA21604@gondor.apana.org.au>
-	 <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1383783321.2878.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131107011337.GD8144@order.stressinduktion.org>
-	 <1383787279.2878.22.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 2/9] bonding: remove bond read lock for bond_mii_monitor()
+Date: Thu, 7 Nov 2013 09:38:36 +0800
+Message-ID: <527AEF1C.2010307@huawei.com>
+References: <5279E738.4040102@huawei.com> <29223.1383779906@death.nxdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	"Veaceslav Falico" <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:44395 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751787Ab3KGBec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 20:34:32 -0500
-Received: by mail-pa0-f43.google.com with SMTP id hz1so506166pad.2
-        for <netdev@vger.kernel.org>; Wed, 06 Nov 2013 17:34:31 -0800 (PST)
-In-Reply-To: <1383787279.2878.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:53300 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751361Ab3KGBjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Nov 2013 20:39:14 -0500
+In-Reply-To: <29223.1383779906@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-11-06 at 17:21 -0800, Eric Dumazet wrote:
-> On Thu, 2013-11-07 at 02:13 +0100, Hannes Frederic Sowa wrote:
-> > On Wed, Nov 06, 2013 at 04:15:21PM -0800, Eric Dumazet wrote:
-> > > On Wed, 2013-11-06 at 11:47 -0800, Eric Dumazet wrote:
-> > > > I'll try a different way.
-> > > > 
-> > > > The frag_list would contain a bunch of frags, that we logically add to the bunch
-> > > > of frags found in the first skb shared_info structure.
-> > > 
-> > > Here is the patch I came into (I tested it and it works very fine)
-> > > 
-> > > The theory is that in GRO stack, all skbs use the head_frag trick,
-> > > so even if one NIC pulled some payload into skb->head, we do not have to
-> > > copy anything. Outside of GRO stack, we are not supposed to provide data
-> > > in skb->head (I am speaking of the skb found on the frag_list extension,
-> > > not the skb_head)
-> > > 
-> > > I put a fallback code, just in case, with a WARN_ON_ONCE() so that we
-> > > can catch the offenders (if any) to fix them.
-> > > 
-> > > I renamed @skb to @skb_head to more clearly document this code.
-> > > Same for @i renamed to @cur_frag
-> > 
-> > I wanted to understand this code more closely and tried it with a test case I
-> > used for the UDP_CORK bugs and also for the tbf panic.
-> > 
-> > The packet is allocated as an UFO one and gets segmented by tbf.
-> > 
-> > # tc qdisc replace dev eth0 root tbf rate 200kbit latency 20ms burst 5kb
-> > # ./udptest
-> > (Just doing two writes of 200 bytes, then a write of 4096 bytes on a udp
-> > socket. I can send you the source (or a stripped down version, because it got
-> > realy noisy.))
+On 2013/11/7 7:18, Jay Vosburgh wrote:
+> Ding Tianhong <dingtianhong@huawei.com> wrote:
 > 
-> Interesting :
+>> The bond_mii_monitor() still use bond lock read to protect
+>> bond_has_slaves() and bond_miimon_inspect(), it is no effect,
+>> so I move the RTNL to the top of the function to protect the
+>> whole monitor, of course, if the bond state did not changed,
+>> the monitor still calling RTNL, it may bring more performance
+>> loss, but as a slow path, it is negligible.
 > 
->                        if (cskb == head_skb)
->                                cskb = skb_shinfo(head_skb)->frag_list;
->                        else
->                                cskb = cskb->next;
->                        if (!cskb) {
->                                WARN_ON_ONCE(1);
->                                goto err;
->                        }
+> 	I'm not sure this last part is true (about it being ok to
+> acquire RTNL every pass).  The reason the bond_miimon_* functions are
+> arranged in the way they are is specifically to avoid taking RTNL
+> unnecessarily.  A common setting is miimon=100, which will acquire and
+> release RTNL ten times per second.
 > 
-> So here either head_skb->frag_list is NULL, or the frag_list chain finishes too early.
+> 	The inspect function can be make RCU safe, and then the function
+> will operate pretty much as it does now (with the multiple phases).  If
+> a slave disappears between the phases, that's ok; one extra cycle on
+> RTNL isn't a big deal, but 10 per second arguably is.
 > 
-> More probably I have a bug in the code ;)
+> 	My comment also applies to the later patches in the series that
+> make similar "always acquire RTNL" changes to the ARP monitor, ALB
+> monitoring function, and the 802.3ad state machine.  That would be
+> patches:
+> 
+> Subject: [PATCH net-next 3/9] bonding: rebuild the lock use for
+>  bond_alb_monitor()
+> Subject: [PATCH net-next 4/9] bonding: rebuild the lock use for
+>  bond_loadbalance_arp_mon()
+> Subject: [PATCH net-next 5/9] bonding: rebuild the lock use for
+>  bond_activebackup_arp_mon()
+> Subject: [PATCH net-next 6/9] bonding: use RTNL instead of bond lock for
+>  bond_3ad_state_machine_handler()
+> 
+> 	The 802.3ad state machine patch or the balance-alb patch,
+> combined with the miimon patch, will acquire and release the RTNL lock
+> 20 times per second (10 for the 3ad state machine or alb monitor, and 10
+> more for a typical miimon configuration).  I don't believe this is a
+> reasonable implementation.
+> 
+> 	-J
+> 
 
-Oh yes, I missed a : data_len += remain;
+Thansk for your reply. your opinion is reasonable and clear, I will
+optimization the lock for these patch, the RTNL should be replace by 
+RCU in some place.
 
-at line 2906 :
+for better performance :)
 
-	offset = remain;
-+	data_len += remain;
-	continue;
+Ding
+
+>> also in bond_miimon_commit(), I remove the unwanted curr_slave_lock
+>> when calling the bond_select_active_slave(), the RTNL is enough.
+>>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> ---
+>> drivers/net/bonding/bond_main.c | 44 ++++++++++++-----------------------------
+>> 1 file changed, 13 insertions(+), 31 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 9c9803c..98171eb 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -2074,9 +2074,7 @@ static void bond_miimon_commit(struct bonding *bond)
+>> do_failover:
+>> 		ASSERT_RTNL();
+>> 		block_netpoll_tx();
+>> -		write_lock_bh(&bond->curr_slave_lock);
+>> 		bond_select_active_slave(bond);
+>> -		write_unlock_bh(&bond->curr_slave_lock);
+>> 		unblock_netpoll_tx();
+>> 	}
+>>
+>> @@ -2098,47 +2096,31 @@ void bond_mii_monitor(struct work_struct *work)
+>> 	bool should_notify_peers = false;
+>> 	unsigned long delay;
+>>
+>> -	read_lock(&bond->lock);
+>> -
+>> 	delay = msecs_to_jiffies(bond->params.miimon);
+>>
+>> -	if (!bond_has_slaves(bond))
+>> +	if (!rtnl_trylock()) {
+>> +		delay = 1;
+>> 		goto re_arm;
+>> +	}
+>>
+>> -	should_notify_peers = bond_should_notify_peers(bond);
+>> -
+>> -	if (bond_miimon_inspect(bond)) {
+>> -		read_unlock(&bond->lock);
+>> -
+>> -		/* Race avoidance with bond_close cancel of workqueue */
+>> -		if (!rtnl_trylock()) {
+>> -			read_lock(&bond->lock);
+>> -			delay = 1;
+>> -			should_notify_peers = false;
+>> -			goto re_arm;
+>> -		}
+>> +	if (!bond_has_slaves(bond)) {
+>> +		rtnl_unlock();
+>> +		goto re_arm;
+>> +	}
+>>
+>> -		read_lock(&bond->lock);
+>> +	should_notify_peers = bond_should_notify_peers(bond);
+>>
+>> +	if (bond_miimon_inspect(bond))
+>> 		bond_miimon_commit(bond);
+>>
+>> -		read_unlock(&bond->lock);
+>> -		rtnl_unlock();	/* might sleep, hold no other locks */
+>> -		read_lock(&bond->lock);
+>> -	}
+>> +	if (should_notify_peers)
+>> +		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
+>> +
+>> +	rtnl_unlock();
+>>
+>> re_arm:
+>> 	if (bond->params.miimon)
+>> 		queue_delayed_work(bond->wq, &bond->mii_work, delay);
+>> -
+>> -	read_unlock(&bond->lock);
+>> -
+>> -	if (should_notify_peers) {
+>> -		if (!rtnl_trylock())
+>> -			return;
+>> -		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, bond->dev);
+>> -		rtnl_unlock();
+>> -	}
+>> }
+>>
+>> static bool bond_has_this_ip(struct bonding *bond, __be32 ip)
+>> -- 
+>> 1.8.2.1
+> 
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> 
+> 
+> .
+> 
