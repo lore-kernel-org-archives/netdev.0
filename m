@@ -1,34 +1,43 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: xen-netback regression in 3.10.18
-Date: Thu, 7 Nov 2013 12:15:33 +0000
-Message-ID: <527B8465.6050901@citrix.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: ipv6: a question about ECMP
+Date: Thu, 7 Nov 2013 13:16:02 +0100
+Message-ID: <20131107121602.GI8144@order.stressinduktion.org>
+References: <527B6C70.3010507@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "stable@vger.kernel.org" <stable@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Durrant <paul.durrant@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, nicolas.dichtel@6wind.com,
+	netdev@vger.kernel.org
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:55414 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751753Ab3KGMQE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 07:16:04 -0500
+Content-Disposition: inline
+In-Reply-To: <527B6C70.3010507@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-3.10.18 included 279f438e36c0 (xen-netback: Don't destroy the netdev
-until the vif is shut down) but this has a regression that was fixed by
-dc62ccaccfb1 (xen-netback: transition to CLOSED when removing a VIF)
+Hi Duan!
 
-dc62ccaccfb1 depends on ea732dff5cfa (xen-netback: Handle backend state
-transitions in a more robust way) which is also a bug fix for certain
-Windows frontend drivers and is thus also a stable candidate.
+On Thu, Nov 07, 2013 at 06:33:20PM +0800, Duan Jiong wrote:
+>   After reading the ip6_pol_route(), i have a question about ECMP. Why we call
+> the rt6_multipath_select() after calling rt6_select()?
+>   In my opinion, the route returned by rt6_select() has a highest score, but the route
+> returned by rt6_multipath_select() may has a lower score than the former, because the
+> ECMP don't take the route preference into consideration. That means that the kernel will
+> choose a less-desirable route.
 
-Dave can you ensure these two commits are tagged for the next 3.10.y
-stable release?
+ECMP routes only differ in the gateway the specify, so I doubt there will be
+any change in the score they woud receive. rt6_multipath_select does merly
+make sure we don't select the same route again and again.
 
-  ea732dff5cfa10789007bf4a5b935388a0bb2a8f
-  dc62ccaccfb139d9b04bbc5a2688a4402adbfab3
+Please note, the rt6_info's siblings fields were added for the solely purpose
+of ECMP and the insertion only updates the siblings list if the above criteria
+did hold. They make sure the routes lookup up do differ on each lookup, so it
+does actually do multipath and does not depend on the order the routes where
+inserted.
 
-Thanks.
+Hope that helps,
 
-David
+  Hannes
