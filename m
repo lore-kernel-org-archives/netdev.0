@@ -1,42 +1,49 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [Linux-zigbee-devel] [patch] 6lowpan: release device on error
- path
-Date: Thu, 7 Nov 2013 09:17:13 +0100
-Message-ID: <20131107081712.GA1035@x61s.campuswlan.hs-rm.de>
-References: <20131107074445.GD21844@elgon.mountain>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] ixgbevf: use pci drvdata correctly in ixgbevf_suspend()
+Date: Thu, 7 Nov 2013 16:13:24 +0800
+Message-ID: <CAPgLHd8pjBBPwJ+Nn_Ld_YRyd4f_-cxh1U+9ARc5iDRsgXK4-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Alan Ott <alan@signal11.us>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-zigbee-devel@lists.sourceforge.net
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131107074445.GD21844@elgon.mountain>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
+	john.ronciak@intel.com, tushar.n.dave@intel.com,
+	davem@davemloft.net, kaber@trash.net, gregkh@linuxfoundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f54.google.com ([209.85.214.54]:34449 "EHLO
+	mail-bk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751082Ab3KGINZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 03:13:25 -0500
+Received: by mail-bk0-f54.google.com with SMTP id 6so78275bkj.13
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 00:13:24 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 07, 2013 at 10:44:45AM +0300, Dan Carpenter wrote:
-> We recently added a new error path and it needs a dev_put().
-> 
-> Fixes: 7adac1ec8198 ('6lowpan: Only make 6lowpan links to IEEE802154 devices')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> Compile tested only.  Please review carefully.
-> 
-> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-> index 9497c6f..426b5df 100644
-> --- a/net/ieee802154/6lowpan.c
-> +++ b/net/ieee802154/6lowpan.c
-> @@ -1358,8 +1358,10 @@ static int lowpan_newlink(struct net *src_net, struct net_device *dev,
->  	real_dev = dev_get_by_index(src_net, nla_get_u32(tb[IFLA_LINK]));
->  	if (!real_dev)
->  		return -ENODEV;
-> -	if (real_dev->type != ARPHRD_IEEE802154)
-> +	if (real_dev->type != ARPHRD_IEEE802154) {
-> +		dev_put(real_dev);
->  		return -EINVAL;
-> +	}
-looks correct for me.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+
+We had set the pci driver-specific data in ixgbevf_probe() as a type of
+struct net_device, so we should use it as netdev in ixgbevf_suspend().
+
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 59a62bb..a119ae4 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -3197,8 +3197,8 @@ static int ixgbevf_suspend(struct pci_dev *pdev, pm_message_t state)
+ #ifdef CONFIG_PM
+ static int ixgbevf_resume(struct pci_dev *pdev)
+ {
+-	struct ixgbevf_adapter *adapter = pci_get_drvdata(pdev);
+-	struct net_device *netdev = adapter->netdev;
++	struct net_device *netdev = pci_get_drvdata(pdev);
++	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+ 	u32 err;
+ 
+ 	pci_set_power_state(pdev, PCI_D0);
