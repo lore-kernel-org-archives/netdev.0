@@ -1,103 +1,69 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net-next v2] net_sched: tbf: support of 64bit rates
-Date: Fri, 8 Nov 2013 10:23:34 +0800
-Message-ID: <1383877414-9488-1-git-send-email-yangyingliang@huawei.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 5/10] net: add and export netdev_adjacent_get_private_rcu()
+Date: Fri, 8 Nov 2013 10:08:00 +0800
+Message-ID: <527C4780.7010408@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <eric.dumazet@gmail.com>, <jhs@mojatatu.com>,
-	<sergei.shtylyov@cogentembedded.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:56227 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756858Ab3KHCXm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:23:42 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:42060 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757308Ab3KHC3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:29:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With psched_ratecfg_precompute(), tbf can deal with 64bit rates.
-Add two new attributes so that tc can use them to break the 32bit
-limit.
+In bonding, the bond lock could not protect slave list any more,
+the bond lock will be replace with RTNL or RCU, sometimes
+bonding needs netdev_adjacent_get_private_rcu() to get a slave in
+RCU protect, so add a new function and export it.
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-Suggested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
+Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- include/uapi/linux/pkt_sched.h |  2 ++
- net/sched/sch_tbf.c            | 22 ++++++++++++++++++----
- 2 files changed, 20 insertions(+), 4 deletions(-)
+ include/linux/netdevice.h |  1 +
+ net/core/dev.c            | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index f2624b5..307f293 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -171,6 +171,8 @@ enum {
- 	TCA_TBF_PARMS,
- 	TCA_TBF_RTAB,
- 	TCA_TBF_PTAB,
-+	TCA_TBF_RATE64,
-+	TCA_TBF_PRATE64,
- 	__TCA_TBF_MAX,
- };
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e6353ca..c27bb4a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2840,6 +2840,7 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
  
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index b057122..68f9859 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -266,20 +266,23 @@ static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
- 	[TCA_TBF_PARMS]	= { .len = sizeof(struct tc_tbf_qopt) },
- 	[TCA_TBF_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
- 	[TCA_TBF_PTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
-+	[TCA_TBF_RATE64]	= { .type = NLA_U64 },
-+	[TCA_TBF_PRATE64]	= { .type = NLA_U64 },
- };
+ void *netdev_adjacent_get_private(struct list_head *adj_list);
++void *netdev_adjacent_get_private_rcu(struct list_head *adj_list);
+ struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+ struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+ int netdev_upper_dev_link(struct net_device *dev, struct net_device *upper_dev);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0e61365..92613a2 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4478,6 +4478,16 @@ void *netdev_adjacent_get_private(struct list_head *adj_list)
+ }
+ EXPORT_SYMBOL(netdev_adjacent_get_private);
  
- static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
- {
- 	int err;
- 	struct tbf_sched_data *q = qdisc_priv(sch);
--	struct nlattr *tb[TCA_TBF_PTAB + 1];
-+	struct nlattr *tb[TCA_TBF_MAX + 1];
- 	struct tc_tbf_qopt *qopt;
- 	struct qdisc_rate_table *rtab = NULL;
- 	struct qdisc_rate_table *ptab = NULL;
- 	struct Qdisc *child = NULL;
- 	int max_size, n;
-+	u64 rate64 = 0, prate64 = 0;
- 
--	err = nla_parse_nested(tb, TCA_TBF_PTAB, opt, tbf_policy);
-+	err = nla_parse_nested(tb, TCA_TBF_MAX, opt, tbf_policy);
- 	if (err < 0)
- 		return err;
- 
-@@ -341,9 +344,13 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
- 	q->tokens = q->buffer;
- 	q->ptokens = q->mtu;
- 
--	psched_ratecfg_precompute(&q->rate, &rtab->rate, 0);
-+	if (tb[TCA_TBF_RATE64])
-+		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
-+	psched_ratecfg_precompute(&q->rate, &rtab->rate, rate64);
- 	if (ptab) {
--		psched_ratecfg_precompute(&q->peak, &ptab->rate, 0);
-+		if (tb[TCA_TBF_PRATE64])
-+			prate64 = nla_get_u64(tb[TCA_TBF_PRATE64]);
-+		psched_ratecfg_precompute(&q->peak, &ptab->rate, prate64);
- 		q->peak_present = true;
- 	} else {
- 		q->peak_present = false;
-@@ -402,6 +409,13 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	opt.buffer = PSCHED_NS2TICKS(q->buffer);
- 	if (nla_put(skb, TCA_TBF_PARMS, sizeof(opt), &opt))
- 		goto nla_put_failure;
-+	if (q->rate.rate_bytes_ps >= (1ULL << 32) &&
-+	    nla_put_u64(skb, TCA_TBF_RATE64, q->rate.rate_bytes_ps))
-+		goto nla_put_failure;
-+	if (q->peak_present &&
-+	    q->peak.rate_bytes_ps >= (1ULL << 32) &&
-+	    nla_put_u64(skb, TCA_TBF_PRATE64, q->peak.rate_bytes_ps))
-+		goto nla_put_failure;
- 
- 	nla_nest_end(skb, nest);
- 	return skb->len;
++void *netdev_adjacent_get_private_rcu(struct list_head *adj_list)
++{
++	struct netdev_adjacent *adj;
++
++	adj = list_entry_rcu(adj_list, struct netdev_adjacent, list);
++
++	return adj->private;
++}
++EXPORT_SYMBOL(netdev_adjacent_get_private_rcu);
++
+ /**
+  * netdev_all_upper_get_next_dev_rcu - Get the next dev from upper list
+  * @dev: device
 -- 
-1.7.12
+1.8.2.1
