@@ -1,78 +1,87 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next v2 0/10] bonding: rebuild the lock use for bond
- monitor
-Date: Fri, 08 Nov 2013 17:32:14 +0100
-Message-ID: <527D120E.3080706@redhat.com>
-References: <527C4768.3010909@huawei.com>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: Re: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
+ burst.
+Date: Fri, 8 Nov 2013 11:45:59 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.1311081119510.1162-100000@iolanthe.rowland.org>
+References: <20131108001838.GB11529@xanatos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28038 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756797Ab3KHQg4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Nov 2013 11:36:56 -0500
-In-Reply-To: <527C4768.3010909@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20131108001838.GB11529@xanatos>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11/08/2013 03:07 AM, Ding Tianhong wrote:
-> Now the bond slave list is not protected by bond lock, only by RTNL,
-> but the monitor still use the bond lock to protect the slave list,
-> it is useless, according to the Veaceslav's opinion, there were
-> three way to fix the protect problem:
-> 
-> 1. add bond_master_upper_dev_link() and bond_upper_dev_unlink()
->    in bond->lock, but it is unsafe to call call_netdevice_notifiers()
->    in write lock.
-> 2. remove unused bond->lock for monitor function, only use the exist
->    rtnl lock(), it will take performance loss in fast path.
-> 3. use RCU to protect the slave list, of course, performance is better,
->    but in slow path, it is ignored.
-> 
-> obviously the solution 1 is not fit here, I will consider the 2 and 3
-> solution. My principle is simple, if in fast path, RCU is better,
-> otherwise in slow path, both is well, but according to the Jay Vosburgh's
-> opinion, the monitor will loss performace if use RTNL to protect the all
-> slave list, so remove the bond lock and replace with RCU.
-> 
-> The second problem is the curr_slave_lock for bond, it is too old and
-> unwanted in many place, because the curr_active_slave would only be
-> changed in 3 place:
-> 
-> 1. enslave slave.
-> 2. release slave.
-> 3. change active slave.
-> 
-> all above were already holding bond lock, RTNL and curr_slave_lock
-> together, it is tedious and no need to add so mach lock, when change
-> the curr_active_slave, you have to hold the RTNL and curr_slave_lock
-> together, and when you read the curr_active_slave, RTNL or curr_slave_lock,
-> any one of them is no problem.
-> 
-> for the stability, I did not change the logic for the monitor,
-> all change is clear and simple, I have test the patch set for lockdep,
-> it work well and stability.
-> 
-> v2. accept the Jay Vosburgh's opinion, remove the RTNL and replace with RCU,
->     also add some rcu function for bond use, so the patch set reach 10.
-> 
-> Best Regards
-> Ding Tianhong
-> 
+On Thu, 7 Nov 2013, Sarah Sharp wrote:
 
-Hi,
-I've left my comments from a quick overview of the patches, my opinion on the
-patchset is that it wasn't tested thoroughly enough (or at all). There're
-multiple places that use a weaker compiler barrier instead of directly using
-rcu_dereference() or rcu_access_pointer(), also there're multiple places which
-can directly use macros already present in the RCU API.
+> On Thu, Nov 07, 2013 at 05:20:49PM -0000, David Laight wrote:
+> > 
+> > Section 4.11.7.1 of rev 1.0 of the xhci specification states that a link TRB
+> > can only occur at a boundary between underlying USB frames (512 bytes for 480M).
+> 
+> Which version of the spec are you looking at?  I'm looking at the
+> updated version from 08/2012 and I don't see any such requirement.
+> 
+> I do see that section says "A TD Fragment shall not span Transfer Ring
+> Segments" where a TD fragment is defined as exact multiples of Max Burst
+> Size * Max Packet Size bytes for the endpoint.  Is that what you mean
+> about USB frames?
 
-Cheers,
- Nik
+...
+
+> The driver would also have to make sure that TD fragments didn't have
+> link TRBs in them.  That's an issue, since the spec decidedly unclear
+> about what exactly comprises a TD fragment.  Is the xHC host greedy, and
+> will lump all multiples into one TD fragment?  Or will it assume the TD
+> fragment has ended once it consumes one multiple of Max Burst Size * Max
+> Packet Size bytes?
+> 
+> This ambiguity means it's basically impossible to figure out whether a
+> TD with a link TRB in the middle is constructed properly.  The xHCI spec
+> architect didn't have a good solution to this problem, so I punted and
+> never implemented TD fragments.  If this is really an issue, it's going
+> to be pretty complex to solve.
+
+This is something I wanted to ask you about also.
+
+The whole idea of TD fragments is exceedingly cloudy.  The definition
+doesn't make sense, and the spec doesn't say what the actual hardware
+restrictions are, i.e., what is the underlying reality that the TD
+fragment concept wants to express.
+
+Even if you do your best to ignore the whole idea, there still appear
+to be certain restrictions you need to obey.  In addition to the
+question of where Link TRBs are allowed, you also have to worry about
+TDs whose size isn't a multiple of the Max Burst Payload (MBP) size =
+MaxBurstSize * MaxPacketSize.
+
+According to my version of the spec (Rev 1.0, dated 5/21/2010), if a TD
+is larger than the MBP and its length isn't a multiple of the MBP, then
+the last MBP boundary in the TD must also be a TRB boundary.  This 
+follows from two statements in section 4.11.7.1:
+
+	If the TD Transfer Size is an even multiple of the MBP then all 
+	TD Fragments shall define exact multiples of MBP data bytes.  
+	If not, then only the last TD Fragment shall define less than 
+	MBP data (or the Residue) bytes.
+
+So if a TD is longer than MBP then it must contain at least two TD
+fragments, and the last fragment must consist of the last Residue
+bytes (i.e., the bytes beyond the last MBP boundary).
+
+	Each TD Fragment is comprised of one or more TRBs.
+
+Hence the last MBP boundary in the TD, which marks the beginning of the 
+last TD fragment, must also be a TRB boundary.
+
+I have no idea whether violating this restriction will cause trouble
+for real hardware.
+
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
