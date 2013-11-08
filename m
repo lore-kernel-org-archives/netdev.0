@@ -1,51 +1,49 @@
-From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 2/2 net-next] openvswitch: Use skb_zerocopy()
- for upcall
-Date: Fri, 08 Nov 2013 12:24:21 +0100
-Message-ID: <527CC9E5.2070303@redhat.com>
-References: <cover.1383906944.git.tgraf@suug.ch>
-	<9369d871e13fe5b6e468b269450b9f2032a970aa.1383906944.git.tgraf@suug.ch>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCHv2 net-next 0/3] Small IPsec fix
+Date: Fri, 8 Nov 2013 12:54:59 +0100
+Message-ID: <20131108115459.GT31491@secunet.com>
+References: <1383817670-5783-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <9369d871e13fe5b6e468b269450b9f2032a970aa.1383906944.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.hengli.com.au, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:38294 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753166Ab3KHLzB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Nov 2013 06:55:01 -0500
+Content-Disposition: inline
+In-Reply-To: <1383817670-5783-1-git-send-email-fan.du@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/08/2013 11:47 AM, Thomas Graf wrote:
-> Use of skb_zerocopy() avoids the expensive call to memcpy() when
-> copying the packet data into the Netlink skb. Completes checksum
-> through skb_checksum_help() if needed.
->
-> Netlink messaged must be properly padded and aligned to meet
-> sanity checks of the user space counterpart.
->
-> Cost of memcpy is significantly reduced from:
-> +   7.48%       vhost-8471  [k] memcpy
-> +   5.57%     ovs-vswitchd  [k] memcpy
-> +   2.81%       vhost-8471  [k] csum_partial_copy_generic
->
-> to:
-> +   5.72%     ovs-vswitchd  [k] memcpy
-> +   3.32%       vhost-5153  [k] memcpy
-> +   0.68%       vhost-5153  [k] skb_zerocopy
->
-> (megaflows disabled)
->
-> Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-> Cc: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-> Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On Thu, Nov 07, 2013 at 05:47:47PM +0800, Fan Du wrote:
+> Hi
+> 
+> This patchset made below modifications:
+>  - Fix setting policy index with "ip xfrm ... index=xx"
+>    which is currently broken
+> 
+>  - Using correct name space for home agent when migrating
+>    key info.
+> 
+>  - Put xfrm locks into per namespace to improve scalability.
+> 
+> Changelog:
+> v2:
+>   xfrm: Namespacify xfrm state/policy locks
+>   -Fix compile error when CONFIG_NET_NS is unset, thanks for the lovely build robot.
+> 
+> Fan Du (3):
+>   xfrm: Try to honor policy index if it's supplied by user
+>   xfrm: Using the right namespace to migrate key info
+>   xfrm: Namespacify xfrm state/policy locks
 
-Reviewed-by: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Your patches are currently in the ipsec-next testing branch.
+linux-next should not contain v3.14 material at the moment,
+so I'll wait until after the merge window before I'm pushing
+them to the master branch. No further action from your side
+required.
+
+Thanks, Fan!
