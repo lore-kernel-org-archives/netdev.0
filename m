@@ -1,44 +1,77 @@
-From: Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 00/16] wl1251 patches from linux-n900 tree
-Date: Fri, 8 Nov 2013 08:20:07 -0600
-Message-ID: <CAMP44s1ADLHagfPa8kmx_wSyqvLf7pcN_UuOqoPShYx2HPUQXA@mail.gmail.com>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC] tcp: randomize TCP source ports
+Date: Fri, 8 Nov 2013 15:28:56 +0100
+Message-ID: <20131108142856.GA28330@order.stressinduktion.org>
+References: <1383872049.9412.124.camel@edumazet-glaptop2.roam.corp.google.com> <20131108130244.GE5876@order.stressinduktion.org> <1383919418.9412.234.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless Mailing List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	freemangordon-uiMcrn6V0Vs@public.gmane.org, aaro.koskinen-X3B1VOXEql0@public.gmane.org,
-	Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>, sre-GFxCN5SEZAc@public.gmane.org,
-	joni.lapilainen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: =?UTF-8?Q?Pali_Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1382819655-30430-1-git-send-email-pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:58189 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755054Ab3KHO26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 09:28:58 -0500
+Content-Disposition: inline
+In-Reply-To: <1383919418.9412.234.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 26, 2013 at 3:33 PM, Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>=
- wrote:
-> Hello, I'm sending wl1251 patches from linux-n900 tree [1] for commen=
-ts. More
-> patches come from David's monitor & packet injection work. Patches ar=
-e tested
-> with 3.12 rc5 kernel on Nokia N900.
->
-> [1] - https://gitorious.org/linux-n900/linux-n900
+On Fri, Nov 08, 2013 at 06:03:38AM -0800, Eric Dumazet wrote:
+> On Fri, 2013-11-08 at 14:02 +0100, Hannes Frederic Sowa wrote:
+> 
+> > If I understand the code correctly the UDP ports are fully randomized? This
+> > is good as per-peer randomization and then incrementation seems to be
+> > theoretically broken:
+> > 
+> > <https://sites.google.com/site/hayashulman/files/NIC-derandomisation.pdf>
+> > 
+> > Looking at the code I somehow would like to check the use of net_random there.
+> > The prandom function is reseeded as late_initcall and then only seeded by some
+> > network addresses.
+> > 
+> > At the time the late_initcall reseeds the PRNG my tests have shown that
+> > the nonblockingpool was still not fully initialized where the PRNG gets
+> > reseeded from.
+> > 
+> > Hm, I propose a patch which does reseed the pool as soon as the nonblocking
+> > pool got credited enough entropy in credit_entropy_bits. This should help
+> > later binds().
+> 
+> Or even better have a reseed every XX seconds.
 
-How did you test these patches? I get a panic loop immediately after I
-bring the interface loop in monitor mode (v3.12).
+Yes, that's even better.
 
---=20
-=46elipe Contreras
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> Something like :
+> 
+> diff --git a/lib/random32.c b/lib/random32.c
+> index 52280d5526be..4af2d72281e3 100644
+> --- a/lib/random32.c
+> +++ b/lib/random32.c
+> @@ -60,6 +60,8 @@ u32 prandom_u32_state(struct rnd_state *state)
+>  }
+>  EXPORT_SYMBOL(prandom_u32_state);
+>  
+> +static DEFINE_PER_CPU(unsigned long, net_rand_shuffle);
+> +
+>  /**
+>   *	prandom_u32 - pseudo random number generator
+>   *
+> @@ -71,6 +73,19 @@ u32 prandom_u32(void)
+>  {
+>  	unsigned long r;
+>  	struct rnd_state *state = &get_cpu_var(net_rand_state);
+> +
+> +	if (unlikely(time_after(jiffies, net_rand_shuffle))) {
+> +		unsigned long delay;
+> +		u32 entropy;
+> +
+> +		get_random_bytes_arch(&entropy, sizeof(entropy));
+
+What do you think about using a timer to keep the reseed out of fast-path
+and switch to the non-arch get_random_bytes instead?
+
+Thanks,
+
+  Hannes
