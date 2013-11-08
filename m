@@ -1,43 +1,39 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next v2 9/10] bonding: remvoe unwanted lock for bond
- enslave and release
-Date: Fri, 08 Nov 2013 18:15:51 +0100
-Message-ID: <527D1C47.4040008@redhat.com>
-References: <527C4793.5060306@huawei.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: ethtool 3.12 released
+Date: Fri, 8 Nov 2013 17:21:26 +0000
+Message-ID: <1383931286.3802.28.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Leonardo Potenza <leonardo.potenza@intel.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39116 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757532Ab3KHRTS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Nov 2013 12:19:18 -0500
-In-Reply-To: <527C4793.5060306@huawei.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:41279 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751118Ab3KHRVb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 12:21:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/08/2013 03:08 AM, Ding Tianhong wrote:
-> The bond_change_active_slave() and bond_select_active_slave()
-> do't need bond lock anymore, so remove the unwanted bond lock
-> for these two functions.
-> 
-> The bond_select_active_slave() will release and acquire
-> curr_slave_lock, so the curr_slave_lock need to protect
-> the function.
-> 
-> In bond enslave and bond release, the bond slave list is also
-> protected by RTNL, so bond lock is no need to exist, remove
-> the lock and clean the functions.
-> 
-> Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
-> Suggested-by: Veaceslav Falico <vfalico@redhat.com>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
-Small nitpick about the subject:
-"remvoe" -> "remove"
+ethtool version 3.12.1 has been released.
+
+This includes a couple of changes that should have gone into 3.12.
+
+Home page: https://ftp.kernel.org/pub/software/network/ethtool/
+Download link:
+https://ftp.kernel.org/pub/software/network/ethtool/ethtool-3.12.1.tar.xz
+
+Release notes:
+
+	* Fix: Memory corruption when applying external calibration to
+	  SFF-8472 module diagnostics (-m option)
+	* Feature: Add Intel 82599 and x540 DCB registers to dump
+	  (-d option)
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
