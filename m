@@ -1,52 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Using HTB over MultiQ
-Date: Fri, 08 Nov 2013 09:55:29 -0800
-Message-ID: <1383933329.9412.243.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>
-	  <1383833480.9412.58.camel@edumazet-glaptop2.roam.corp.google.com>
-	  <1383834021.9412.61.camel@edumazet-glaptop2.roam.corp.google.com>
-	  <527BA63F.7040900@intel.com>
-	  <CAEzD07JwrnqeB35BiTC2ztpyei2KNDtYO8zuewicKNBwyxmOtQ@mail.gmail.com>
-	 <1383923220.9412.236.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <527CFF2C.2020605@intel.com>
+From: Chris J Arges <chris.j.arges@canonical.com>
+Subject: iproute2: potential upgrade regression with 58a3e827
+Date: Fri, 08 Nov 2013 12:03:20 -0600
+Message-ID: <527D2768.1030403@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>,
-	netdev@vger.kernel.org
-To: John Fastabend <john.r.fastabend@intel.com>
+To: shemminger@osdl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:55275 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757457Ab3KHRzg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 12:55:36 -0500
-Received: by mail-qc0-f173.google.com with SMTP id l13so2005829qcy.4
-        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 09:55:35 -0800 (PST)
-In-Reply-To: <527CFF2C.2020605@intel.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:39427 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757765Ab3KHSDK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 13:03:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-11-08 at 07:11 -0800, John Fastabend wrote:
+Hi,
+The commit
+https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/commit/?id=58a3e8270fe72f8ed92687d3a3132c2a708582dd
+could be potentially introducing a regression on an upgrade.
 
-> 
-> perf would be interesting but note that multiq still uses the root qdisc
-> lock which you original stated you were trying to avoid.
-> 
-> mq and mqprio are really the only two existing qdiscs that work well for
-> performance with small packet sizes and multiqueue nics at least in my
-> experience/setup with these kinds of micro-benchmarks.
+I've noticed that upgrading iproute while there are active namespaces
+could cause the following error:
+seting the network namespace failed: Invalid argument
 
-Right, but can we actually use HTB on MQ ?
+Here's a test case:
+Build and install iproute2 with 4395d48c78a77a99c5a8618403211032356fe552
 
-I do not think so : following does not work.
+In one terminal run:
+ip netns add netns_old
+ip link add name if_old type veth peer name if_old_peer
+ip link set dev if_old_peer netns netns_old
+ip netns exec netns_old bash
 
-for ETH in eth0
-do
- tc qd del dev $ETH root 2>/dev/null
+Build and install iproute2 with 58a3e8270fe72f8ed92687d3a3132c2a708582dd
 
- tc qd add dev $ETH root handle 100: mq 
- for i in `seq 1 4`
- do
-  tc qd add dev $ETH parent 100:$i handle $i htb
- done
-done
+In the same terminal as you typed the original commands run:
+ip netns add netns_one
+ip link add name if_one type veth peer name if_one_peer
+ip link set dev if_one_peer netns netns_one
+ip netns exec netns_one bash
+ip netns exec netns_old bash
+
+You'll get:
+seting the network namespace failed: Invalid argument
+
+If you just run the above without transitioning to the code in 58a3e827,
+then it works.
+
+Thanks,
+--chris j arges
