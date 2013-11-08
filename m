@@ -1,49 +1,37 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH linux-2.6.32.y] sctp: unbalanced rcu lock in ip_queue_xmit()
-Date: Fri,  8 Nov 2013 11:13:55 +0100
-Message-ID: <1383905635-20444-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: eric.dumazet@gmail.com, ben@decadent.org.uk, w@1wt.eu,
-	stable@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 0/2 v4] Open vSwitch zerocopy upcall
+Date: Fri,  8 Nov 2013 11:47:16 +0100
+Message-ID: <cover.1383906944.git.tgraf@suug.ch>
+Cc: dev@openvswitch.org, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: jesse@nicira.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:33713 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752819Ab3KHKQj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 05:16:39 -0500
+Received: from merlin.infradead.org ([205.233.59.134]:47616 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757300Ab3KHKr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 05:47:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bug was introduced by commit b8710128e201 ("inet: add RCU protection to
-inet->opt") (it's a backport of upstream commit f6d8bd051c39).
+Respin of the zerocopy patches for the openvswitch upcall.
 
-In SCTP case, packet is already routed, hence we jump to the label
-'packet_routed', but without rcu_read_lock(). After this label,
-rcu_read_unlock() is called unconditionally.
+V4: - Daniel Borkmann pointed out that the style in skbuff.h has changed
+      in net-next, adapted to no longer using extern in headers.
+V3: - Removed unneeded alignment of nlmsg_len after padding 
+V2: - Added skb_zerocopy_headlen() to calculate headroom of destination
+      buffer. This also takes care of the from->head_frag issue.
+    - Attribute alignment for frag_list case
+    - API documentation
+    - performance data for CHECKSUM_PARTIAL tx case
 
-Spotted-by: Guo Fengtian <fengtian.guo@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv4/ip_output.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thomas Graf (2):
+  net: Export skb_zerocopy() to zerocopy from one skb to another
+  openvswitch: Use skb_zerocopy() for upcall
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 7dde039374e4..2cd69e3497ad 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -320,13 +320,13 @@ int ip_queue_xmit(struct sk_buff *skb, int ipfragok)
- 	/* Skip all of this if the packet is already routed,
- 	 * f.e. by something like SCTP.
- 	 */
-+	rcu_read_lock();
- 	rt = skb_rtable(skb);
- 	if (rt != NULL)
- 		goto packet_routed;
- 
- 	/* Make sure we can route this packet. */
- 	rt = (struct rtable *)__sk_dst_check(sk, 0);
--	rcu_read_lock();
- 	inet_opt = rcu_dereference(inet->inet_opt);
- 	if (rt == NULL) {
- 		__be32 daddr;
+ include/linux/skbuff.h               |  3 ++
+ net/core/skbuff.c                    | 85 ++++++++++++++++++++++++++++++++++++
+ net/netfilter/nfnetlink_queue_core.c | 59 ++-----------------------
+ net/openvswitch/datapath.c           | 52 +++++++++++++++++++---
+ 4 files changed, 137 insertions(+), 62 deletions(-)
+
 -- 
-1.8.4.1
+1.8.3.1
