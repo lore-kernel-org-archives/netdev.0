@@ -1,35 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 next-next 0/3] move pskb_put
-Date: Thu, 07 Nov 2013 19:29:38 -0500 (EST)
-Message-ID: <20131107.192938.841488052158954645.davem@davemloft.net>
-References: <1383830306-16697-1-git-send-email-mathias.krause@secunet.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] inet: fix a UFO regression
+Date: Thu, 07 Nov 2013 16:44:25 -0800
+Message-ID: <1383871465.9412.118.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAMEtUuzswOVA6UkPRjS-O=gOe9BLLJ5qaAG_eAd_fTqDJo8ofA@mail.gmail.com>
+	 <1382674000.7572.75.camel@edumazet-glaptop.roam.corp.google.com>
+	 <1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131025.181809.348808013109842304.davem@davemloft.net>
+	 <CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
+	 <1382923096.13037.10.camel@edumazet-glaptop.roam.corp.google.com>
+	 <1383863586.9412.101.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAMEtUuwqmUhTgeKyodGKmOxhxe23=umnfc7nouhdVrqVNnk6zQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-	dmitry.tarnyagin@lockless.no, bhutchings@solarflare.com,
-	edumazet@google.com, netdev@vger.kernel.org
-To: mathias.krause@secunet.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56725 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753752Ab3KHA3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 19:29:40 -0500
-In-Reply-To: <1383830306-16697-1-git-send-email-mathias.krause@secunet.com>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:48767 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753085Ab3KHAo0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 19:44:26 -0500
+Received: by mail-pb0-f54.google.com with SMTP id ro8so257310pbb.41
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 16:44:26 -0800 (PST)
+In-Reply-To: <CAMEtUuwqmUhTgeKyodGKmOxhxe23=umnfc7nouhdVrqVNnk6zQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mathias Krause <mathias.krause@secunet.com>
-Date: Thu,  7 Nov 2013 14:18:23 +0100
+From: Eric Dumazet <edumazet@google.com>
 
-> This series moves pskb_put() to the core code, making the code
-> duplication in caif obsolete (patches 1 and 2).
-> Patch 3 fixes a few kernel-doc issues.
-> 
-> v2 of this series does no longer contain the skb_cow_data() patch and
-> therefore no performance improvements for IPsec. The change is still
-> under discussion, but otherwise independent from the above changes.
-> 
-> Please apply!
+While testing virtio_net and skb_segment() changes, Hannes reported
+that UFO was sending wrong frames.
 
-Series applied, thanks!
+It appears this was introduced by a recent commit :
+8c3a897bfab1 ("inet: restore gso for vxlan")
+
+The old condition to perform IP frag was :
+
+tunnel = !!skb->encapsulation;
+...
+	if (!tunnel && proto == IPPROTO_UDP) {
+
+So the new one should be :
+
+udpfrag = !skb->encapsulation && proto == IPPROTO_UDP;
+...
+	if (udpfrag) {
+
+With help from Alexei Starovoitov
+
+Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Alexei Starovoitov <ast@plumgrid.com>
+---
+ net/ipv4/af_inet.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 09d78d4a3cff..f17941486ab9 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1306,7 +1306,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 	if (IS_ERR_OR_NULL(segs))
+ 		goto out;
+ 
+-	udpfrag = !!skb->encapsulation && proto == IPPROTO_UDP;
++	udpfrag = !skb->encapsulation && proto == IPPROTO_UDP;
+ 	skb = segs;
+ 	do {
+ 		iph = (struct iphdr *)(skb_mac_header(skb) + nhoff);
