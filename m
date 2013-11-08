@@ -1,37 +1,57 @@
-From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
-Subject: kernel network panic stack traces on ubuntu 12.04
-Date: Fri, 8 Nov 2013 20:40:21 +0000
-Message-ID: <2134F8430051B64F815C691A62D9831814D565@XCH-BLV-504.nw.nos.boeing.com>
-References: <20131108084654.6935.36501.stgit@nitbit.x32>
- <20131108.152148.475567353347933697.davem@davemloft.net>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [RFC] Revert "sierra_net: keep status interrupt URB active"
+Date: Fri, 08 Nov 2013 21:44:14 +0100
+Message-ID: <87txfm8vz5.fsf@nemi.mork.no>
+References: <1383310428-19913-1-git-send-email-bjorn@mork.no>
+	<1383596827.29469.1.camel@dcbw.foobar.com>
+	<1383938944.29096.7.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	John Henderson <jhen@talk21.com>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from blv-mbsout-02.boeing.com ([130.76.32.232]:43052 "EHLO
-	blv-mbsout-02.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757511Ab3KHUkX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 15:40:23 -0500
-Received: from blv-mbsout-02.boeing.com (localhost.localdomain [127.0.0.1])
-	by blv-mbsout-02.boeing.com (8.14.4/8.14.4/DOWNSTREAM_MBSOUT) with ESMTP id rA8KeNYl022244
-	for <netdev@vger.kernel.org>; Fri, 8 Nov 2013 12:40:23 -0800
-Received: from XCH-PHX-212.sw.nos.boeing.com (xch-phx-212.sw.nos.boeing.com [130.247.25.141])
-	by blv-mbsout-02.boeing.com (8.14.4/8.14.4/UPSTREAM_MBSOUT) with ESMTP id rA8KeNI9022238
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 8 Nov 2013 12:40:23 -0800
-In-Reply-To: <20131108.152148.475567353347933697.davem@davemloft.net>
-Content-Language: en-US
+Received: from canardo.mork.no ([148.122.252.1]:52147 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757565Ab3KHUoV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 15:44:21 -0500
+In-Reply-To: <1383938944.29096.7.camel@dcbw.foobar.com> (Dan Williams's
+	message of "Fri, 08 Nov 2013 13:29:04 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Dan Williams <dcbw@redhat.com> writes:
+> On Mon, 2013-11-04 at 14:27 -0600, Dan Williams wrote:
+>> On Fri, 2013-11-01 at 13:53 +0100, Bj=C3=B8rn Mork wrote:
+>> > This reverts commit 7b0c5f21f348a66de495868b8df0284e8dfd6bbf.
+>> >=20
+>> > It's not easy to create a driver for all the various firmware
+>> > bugs out there.
+>> >=20
+>> > This change caused regressions for a number of devices, which
+>> > started to fail link detection and therefore became completely
+>> > non-functional. The exact reason is yet unknown, it looks like
+>> > the affected firmwares might actually need all or some of the
+>> > additional SYNC messages the patch got rid of.
+>> >=20
+>> > Reverting is not optimal, as it will re-introduce the original
+>> > problem, but it is currently the only alternative known to fix
+>> > this issue.
+>>=20
+>> Instead, how does the following patch work for you?
+>
+> Bjorn, did you have a chance to try this patch out on your devices?
 
-I am hacking the kernel network stack on a Dell running ubuntu 12.04
-and when I add code that I know for sure is causing a panic the system
-locks up as if it is hung and never prints out a stack trace. The only
-way out is to hard reset using the power button. This happens on several
-different linux kernel versions - the most recent being 3.10.17. Any
-ideas how I can get a stack trace?
+The only DirectIP device I have is the MC7710, which never had any of
+the firmware issues you are trying to fix. I only tried to forward John=
+s
+issue.
 
-Thanks - Fred 
+When this patch worked for John, then I am pretty confident that you
+have solved the problem here.
+
+
+
+Thanks,
+Bj=C3=B8rn
