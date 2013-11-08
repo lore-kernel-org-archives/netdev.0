@@ -1,49 +1,101 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [patch] net: make ndev->irq signed for error handling
-Date: Fri, 8 Nov 2013 14:48:49 +0530
-Message-ID: <527CAC79.3030709@ti.com>
-References: <20131107074849.GF21844@elgon.mountain> <527B842E.2060909@ti.com> <20131107122249.GN20521@mwanda> <527BC0CF.70003@ti.com> <20131108084136.GY26669@mwanda>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: ipv6: a question about ECMP
+Date: Fri, 08 Nov 2013 11:09:59 +0100
+Message-ID: <527CB877.6050800@6wind.com>
+References: <527B6C70.3010507@cn.fujitsu.com>	<20131107121602.GI8144@order.stressinduktion.org> <CACP96tRh345x4D1BqpOK2eWfoeVbqMnu-+jGfF7eyFC1dbQoug@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: sowmini varadhan <sowmini05@gmail.com>,
+	Duan Jiong <duanj.fnst@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:47071 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752460Ab3KHJSz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 04:18:55 -0500
-In-Reply-To: <20131108084136.GY26669@mwanda>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:34706 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756930Ab3KHKKC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 05:10:02 -0500
+Received: by mail-wg0-f47.google.com with SMTP id c11so1721746wgh.14
+        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 02:10:01 -0800 (PST)
+In-Reply-To: <CACP96tRh345x4D1BqpOK2eWfoeVbqMnu-+jGfF7eyFC1dbQoug@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 08 November 2013 02:11 PM, Dan Carpenter wrote:
-> On Thu, Nov 07, 2013 at 10:03:19PM +0530, Mugunthan V N wrote:
->> On Thursday 07 November 2013 05:52 PM, Dan Carpenter wrote:
->>> On Thu, Nov 07, 2013 at 05:44:38PM +0530, Mugunthan V N wrote:
->>>> On Thursday 07 November 2013 01:18 PM, Dan Carpenter wrote:
->>>>> There is a bug in cpsw_probe() where we do:
->>>>>
->>>>> 	ndev->irq = platform_get_irq(pdev, 0);
->>>>> 	if (ndev->irq < 0) {
->>>>>
->>>>> The problem is that "ndev->irq" is unsigned so the error handling
->>>>> doesn't work.  I have changed it to a regular int.
->>>>>
->>>>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->>>> ndev->irq is never used any where in the driver, I think its better to
->>>> remove this part of code from probe. If every one is ok, I can send a
->>>> patch to remove the code.
->>> It seems like cpsw_ndo_poll_controller() uses it.
->>>
->>>
->> That can be changed to pass one of the interrupt numbers from priv as
->> the irq number is not used in interrupt service routine.
-> I don't know anything about this driver, so I'm fine with your idea.
+Le 07/11/2013 19:32, sowmini varadhan a =E9crit :
+> On Thu, Nov 7, 2013 at 7:16 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>> Hi Duan!
+>>
+>> On Thu, Nov 07, 2013 at 06:33:20PM +0800, Duan Jiong wrote:
+>>>    After reading the ip6_pol_route(), i have a question about ECMP.=
+ Why we call
+>>> the rt6_multipath_select() after calling rt6_select()?
+>>>    In my opinion, the route returned by rt6_select() has a highest =
+score, but the route
+>>> returned by rt6_multipath_select() may has a lower score than the f=
+ormer, because the
+>>> ECMP don't take the route preference into consideration. That means=
+ that the kernel will
+>>> choose a less-desirable route.
+>>
+>> ECMP routes only differ in the gateway the specify, so I doubt there=
+ will be
+>> any change in the score they woud receive. rt6_multipath_select does=
+ merly
+>> make sure we don't select the same route again and again.
 >
-Anyhow David has applied your patch, I will send a driver cleanup patch
-seperately.
+>   rt6_multipath_select() -> rt6_socre_route() seems to require that t=
+he
+> interface *must* matchi, which is consistent with your assertion abov=
+e that
+> "ECMP routes differ in gw only".
+In fact, ECMP routes have the same metric/weight and destination but no=
+t the
+same next hop (ie gw + oif).
 
-Regards
-Mugunthan V N
+>
+> But for IPv6, the gw addr is a a link-local, which is only required t=
+o be
+> unique on the link. Thus, e.g.,  you can have fe80::1 as the gw on bo=
+th eth0 and
+> eth1.
+Yes, oif can be different.
+Note that gw can also be a global address.
+
+>
+> What is the assumption around "cost" for ECMP here- are we assuming s=
+ome
+> form of link bundling (Section 6 of rfc 2991) here? or is the "multip=
+le parallel
+> links" case handled somewhere else, that I am missing?
+rt6_score_route() is called to check requested oif (see 52bd4c0c1551 "i=
+pv6: fix=20
+ecmp lookup when oif is specified").
+
+Regards,
+Nicolas
+
+>
+> --Sowmini
+>
+>>
+>> Please note, the rt6_info's siblings fields were added for the solel=
+y purpose
+>> of ECMP and the insertion only updates the siblings list if the abov=
+e criteria
+>> did hold. They make sure the routes lookup up do differ on each look=
+up, so it
+>> does actually do multipath and does not depend on the order the rout=
+es where
+>> inserted.
+>>
+>> Hope that helps,
+>>
+>>    Hannes
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
