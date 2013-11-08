@@ -1,63 +1,79 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC] Revert "sierra_net: keep status interrupt URB active"
-Date: Fri, 08 Nov 2013 15:29:33 -0600
-Message-ID: <1383946173.29096.12.camel@dcbw.foobar.com>
-References: <1383310428-19913-1-git-send-email-bjorn@mork.no>
-	 <1383596827.29469.1.camel@dcbw.foobar.com>
-	 <1383938944.29096.7.camel@dcbw.foobar.com> <87txfm8vz5.fsf@nemi.mork.no>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: iproute2: potential upgrade regression with 58a3e827
+Date: Fri, 08 Nov 2013 13:36:44 -0800
+Message-ID: <87k3gi4lub.fsf@xmission.com>
+References: <527D2768.1030403@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	John Henderson <jhen-qw6QB7/foO7QT0dZR+AlfA@public.gmane.org>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87txfm8vz5.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
+To: Chris J Arges <chris.j.arges@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:36156 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757565Ab3KHVg5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 16:36:57 -0500
+In-Reply-To: <527D2768.1030403@canonical.com> (Chris J. Arges's message of
+	"Fri, 08 Nov 2013 12:03:20 -0600")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-11-08 at 21:44 +0100, Bj=C3=B8rn Mork wrote:
-> Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
-> > On Mon, 2013-11-04 at 14:27 -0600, Dan Williams wrote:
-> >> On Fri, 2013-11-01 at 13:53 +0100, Bj=C3=B8rn Mork wrote:
-> >> > This reverts commit 7b0c5f21f348a66de495868b8df0284e8dfd6bbf.
-> >> >=20
-> >> > It's not easy to create a driver for all the various firmware
-> >> > bugs out there.
-> >> >=20
-> >> > This change caused regressions for a number of devices, which
-> >> > started to fail link detection and therefore became completely
-> >> > non-functional. The exact reason is yet unknown, it looks like
-> >> > the affected firmwares might actually need all or some of the
-> >> > additional SYNC messages the patch got rid of.
-> >> >=20
-> >> > Reverting is not optimal, as it will re-introduce the original
-> >> > problem, but it is currently the only alternative known to fix
-> >> > this issue.
-> >>=20
-> >> Instead, how does the following patch work for you?
-> >
-> > Bjorn, did you have a chance to try this patch out on your devices?
->=20
-> The only DirectIP device I have is the MC7710, which never had any of
-> the firmware issues you are trying to fix. I only tried to forward Jo=
-hns
-> issue.
->=20
-> When this patch worked for John, then I am pretty confident that you
-> have solved the problem here.
+Chris J Arges <chris.j.arges@canonical.com> writes:
 
-Well, "solved", since I still have no idea why the original patch would
-cause the device behavior based on what I know and have read about the
-expected firmware/host handshaking sequence.  But the patch there
-appears to fix the problem *and* not blindly send tons of SYNCs forever=
-=2E
+> Hi,
+> The commit
+> https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/commit/?id=58a3e8270fe72f8ed92687d3a3132c2a708582dd
+> could be potentially introducing a regression on an upgrade.
+>
+> I've noticed that upgrading iproute while there are active namespaces
+> could cause the following error:
+> seting the network namespace failed: Invalid argument
+>
+> Here's a test case:
+> Build and install iproute2 with 4395d48c78a77a99c5a8618403211032356fe552
+>
+> In one terminal run:
+> ip netns add netns_old
+> ip link add name if_old type veth peer name if_old_peer
+> ip link set dev if_old_peer netns netns_old
+> ip netns exec netns_old bash
+>
+> Build and install iproute2 with 58a3e8270fe72f8ed92687d3a3132c2a708582dd
+>
+> In the same terminal as you typed the original commands run:
+> ip netns add netns_one
+> ip link add name if_one type veth peer name if_one_peer
+> ip link set dev if_one_peer netns netns_one
+> ip netns exec netns_one bash
+> ip netns exec netns_old bash
+>
+> You'll get:
+> seting the network namespace failed: Invalid argument
+>
+> If you just run the above without transitioning to the code in 58a3e827,
+> then it works.
 
-So I'll go ahead and submit a proper version of it.
+ip netns exec is fundamentally designed to run code that knows nothing
+about network namespaces without modification.  If we can make network
+namespace aware code work that is great but the entire point of ip netns
+exec is to remove the need to convert every network aware program in
+linux to be network namespace aware.
 
-Dan
+Shared subtree support that is added in 58a3e827 should make things a
+little better, by letting changes that happen in the initial mount
+namespace propogate into children running inside of ip netns exec.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It appears that somehow you wound up in a mount namespace where the
+mount of netns_one did not propagate too.  Which is weird.  I expect
+we are missing an error message somewhere.
+
+So far nothing allows network namespaces added like:
+ip netns exec ns1 ip netns add ns2
+to propogate up to the initial mount namespace and that will definitely
+cause problems, but not the problem you are seeing.
+
+Shrug.  I will be happy to review patches to make this better but I
+don't care enough to investigate.  If you aren't up to writing patches
+to make ip netns work inside of ip netns exec I recommend you don't do
+that then.
+
+Eric
