@@ -1,24 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2013-11-08
-Date: Fri, 08 Nov 2013 13:16:00 -0500 (EST)
-Message-ID: <20131108.131600.429467852837234893.davem@davemloft.net>
-References: <20131108154802.GG2002@tuxdriver.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2] net_sched: tbf: support of 64bit rates
+Date: Fri, 08 Nov 2013 22:17:13 +0300
+Message-ID: <527D38B9.8000709@cogentembedded.com>
+References: <1383877414-9488-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131108154802.GG2002@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, jhs@mojatatu.com
+To: Yang Yingliang <yangyingliang@huawei.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:33644 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756932Ab3KHSRX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 13:17:23 -0500
+Received: by mail-la0-f53.google.com with SMTP id eh20so2007069lab.26
+        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 10:17:22 -0800 (PST)
+In-Reply-To: <1383877414-9488-1-git-send-email-yangyingliang@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 8 Nov 2013 10:48:03 -0500
+Hello.
 
-> Here is one more pull request for the 3.13 window.  This is primarily
-> composed of downstream pull requests that were posted while I was
-> traveling during the last part of the 3.12 release.
+On 11/08/2013 05:23 AM, Yang Yingliang wrote:
 
-Pulled, thanks John.
+> With psched_ratecfg_precompute(), tbf can deal with 64bit rates.
+> Add two new attributes so that tc can use them to break the 32bit
+> limit.
+
+> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+> Suggested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+    It's too great a honor for me, I didn't suggest this patch. :-)
+You can replace that with Reviewed-by: line.
+
+WBR, Sergei
