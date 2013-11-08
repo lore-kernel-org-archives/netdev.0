@@ -1,54 +1,55 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: Using HTB over MultiQ
-Date: Fri, 08 Nov 2013 15:11:34 -0800
-Message-ID: <527D6FA6.5040508@intel.com>
-References: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>  <1383833480.9412.58.camel@edumazet-glaptop2.roam.corp.google.com>  <1383834021.9412.61.camel@edumazet-glaptop2.roam.corp.google.com>  <527BA63F.7040900@intel.com>  <CAEzD07JwrnqeB35BiTC2ztpyei2KNDtYO8zuewicKNBwyxmOtQ@mail.gmail.com>  <1383923220.9412.236.camel@edumazet-glaptop2.roam.corp.google.com>  <527CFF2C.2020605@intel.com>  <CAEzD07LmgvvfNhNuxzwjy7fxLsCBLiofeXJ61qbdOBQCiSRefw@mail.gmail.com> <1383947802.16391.3.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC] tcp: randomize TCP source ports
+Date: Fri, 08 Nov 2013 15:26:24 -0800
+Message-ID: <527D7320.4050008@hp.com>
+References: <1383872049.9412.124.camel@edumazet-glaptop2.roam.corp.google.com> <527C3942.509@hp.com> <1383876294.9412.136.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>,
-	netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:57369 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757919Ab3KHXLp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Nov 2013 18:11:45 -0500
-In-Reply-To: <1383947802.16391.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:23152 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757954Ab3KHX00 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 18:26:26 -0500
+In-Reply-To: <1383876294.9412.136.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/8/2013 1:56 PM, Eric Dumazet wrote:
-> On Fri, 2013-11-08 at 19:53 +0400, Anton 'EvilMan' Danilov wrote:
+On 11/07/2013 06:04 PM, Eric Dumazet wrote:
+> On Thu, 2013-11-07 at 17:07 -0800, Rick Jones wrote:
 >
->> Hm.. I think I need another way to classify packets for using of mq
->> qdisc, because it don't support classify at root (not supported error
->> on try attach filter).
+>> For perhaps most definitions of well deployed.  There is at least one
+>> load balancer which, while it offers TCP Window Scaling, does not also
+>> offer TCP Time Stamps...
+>>
+>> By rights they should (must) be offering TCP Time Stamps, and they are,
+>> I am told, "working on it."
+>>
+>> Is all going to be "well" when it is the (non-Linux) remote system which
+>> has the TIME_WAIT endpoint?
 >
-> I think it might be time to add filters on the device, and run them
-> without any lock (rcu protection only)
+> Hey, tell us why netperf does a bind(port=0, addr=ANY) and SO_REUSEADDR
+> tricks before connect()
 >
-> John, I think you had some previous work ?
+> It seems you do request randomization, but you do not want it for
+> applications written by innocent people...
 
-Yes, I have a net-next fork with this but I currently introduced a bug
-in the u32 classifier. I'll resurrect this next week and send something
-out. We can take a look and see if its useful.
+That bind() call is not there to request randomization of the TCP source 
+port.
 
->
->> On next week i'll try to write ipset extension for setting of priority
->> and queue_mapping value through the IPSET netfilter target.
->
-> Sounds a nice idea as well.
->
+The bind() call in src/nettest_bsd.c/create_data_socket() is so 
+netserver can report a port number back to netperf.  It is also there so 
+a TCP_CRR test can explicitly use more than the configured ephemeral 
+port range.  It is also used when setting explicit port numbers for 
+getting through firewalls.
 
-Another thought would be to put a netfilter hook above the qdisc and on
-ingress (not in the bridge module). I've been meaning to take a look
-at nftables I'm not sure how much duplication exists between nftables
-and tc classifiers at this point.
+In the establish_control() path the bind() call is also there to allow 
+specifying an explicit port number for the control connection.  I just 
+don't bother avoiding the call when someone hasn't selected an explicit 
+client-side port number for the control connection.
 
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+happy benchmarking,
+
+rick jones
