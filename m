@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] bonding: add more netlink attributes
-Date: Thu, 07 Nov 2013 19:23:44 -0500 (EST)
-Message-ID: <20131107.192344.2135914283317864060.davem@davemloft.net>
-References: <20131107093823.15846.31745.stgit@monster-03.cumulusnetworks.com>
+Subject: Re: [PATCHv2 next-next 0/3] move pskb_put
+Date: Thu, 07 Nov 2013 19:29:38 -0500 (EST)
+Message-ID: <20131107.192938.841488052158954645.davem@davemloft.net>
+References: <1383830306-16697-1-git-send-email-mathias.krause@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net,
-	netdev@vger.kernel.org, shm@cumulusnetworks.com
-To: sfeldma@cumulusnetworks.com
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+	dmitry.tarnyagin@lockless.no, bhutchings@solarflare.com,
+	edumazet@google.com, netdev@vger.kernel.org
+To: mathias.krause@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56701 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56725 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754221Ab3KHAXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 19:23:46 -0500
-In-Reply-To: <20131107093823.15846.31745.stgit@monster-03.cumulusnetworks.com>
+	with ESMTP id S1753752Ab3KHA3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 19:29:40 -0500
+In-Reply-To: <1383830306-16697-1-git-send-email-mathias.krause@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Date: Thu, 07 Nov 2013 01:42:46 -0800
+From: Mathias Krause <mathias.krause@secunet.com>
+Date: Thu,  7 Nov 2013 14:18:23 +0100
 
-> Following Jiri Pirko's lead, add more bonding netlink attributes.  Sending
-> matching iproute2 patch separately.  sysfs access to attributes is
-> retained.
+> This series moves pskb_put() to the core code, making the code
+> duplication in caif obsolete (patches 1 and 2).
+> Patch 3 fixes a few kernel-doc issues.
 > 
-> There are more bonding attributes to add to netlink; I'll save those for a
-> follow-on patch set.
+> v2 of this series does no longer contain the skb_cow_data() patch and
+> therefore no performance improvements for IPsec. The change is still
+> under discussion, but otherwise independent from the above changes.
+> 
+> Please apply!
 
-Scott, please resubmit this work when the current merge window closes
-and I open up net-next for new feature work again, thanks!
+Series applied, thanks!
