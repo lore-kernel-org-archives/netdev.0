@@ -1,56 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/2] ip6_output: fragment outgoing reassembled
- skb properly
-Date: Fri, 8 Nov 2013 08:52:01 +0100
-Message-ID: <20131108075201.GA2455@minipsycho.orion>
-References: <1383756740-7392-1-git-send-email-jiri@resnulli.us>
- <1383756740-7392-2-git-send-email-jiri@resnulli.us>
- <20131107.185453.1341640661253119352.davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH 0/2] ixgbe: macvlan fixes
+Date: Fri, 08 Nov 2013 00:50:07 -0800
+Message-ID: <20131108084654.6935.36501.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	kadlec@blackhole.kfki.hu, kaber@trash.net, mleitner@redhat.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
-	horms@verge.net.au, ja@ssi.bg, edumazet@google.com,
-	pshelar@nicira.com, jasowang@redhat.com,
-	alexander.h.duyck@intel.com, fw@strlen.de
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131107.185453.1341640661253119352.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:35823 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751662Ab3KHIuZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 03:50:25 -0500
+Received: by mail-ob0-f173.google.com with SMTP id wm4so1242344obc.4
+        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 00:50:24 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fri, Nov 08, 2013 at 12:54:53AM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Wed,  6 Nov 2013 17:52:19 +0100
->
->> If reassembled packet would fit into outdev MTU, it is not fragmented
->> according the original frag size and it is send as single big packet.
->> 
->> The second case is if skb is gso. In that case fragmentation does not happen
->> according to the original frag size.
->> 
->> This patch fixes these.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ...
->
->>  	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
->> -	    dst_allfrag(skb_dst(skb)))
->> +	    dst_allfrag(skb_dst(skb)) ||
->> +	    (IP6CB(skb)->frag_max_size && skb->len > IP6CB(skb)->frag_max_size))
->>  		return ip6_fragment(skb, ip6_finish_output2);
->
->Jiri are you sure that you don't need to take GSO into account in the
->new part you are adding to the test?
+Two additional fixes for ixgbe l2 forwarding acceleration. One
+was reported by kbuild build bot and the second after hardening
+my test scripts.
+
+Typically I would send ixgbe fixes through JeffK's tree but I
+know a few people who are looking at the feature in their setup's 
+so wanted to be sure the patches were visible.
+
+For reference the ixgbe accelerated macvlan patch is here:
+
+commit 2a47fa45d4dfbc54659d28de311a1f764b296a3c
+Author: John Fastabend <john.r.fastabend@intel.com>
+Date:   Wed Nov 6 09:54:52 2013 -0800
+
+    ixgbe: enable l2 forwarding acceleration for macvlans
+
+Thanks,
+John
+
+---
+
+John Fastabend (2):
+      ixgbe: fix build err, num_rx_queues is only available with CONFIG_RPS
+      ixgbe: deleting dfwd stations out of order can cause null ptr deref
 
 
-For gso skb, we need co cap outgoing fragments by the original frag size
-as well. So I believe that this code is correct for that case as well.
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   24 ++++++++++++++++--------
+ 1 file changed, 16 insertions(+), 8 deletions(-)
 
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Signature
