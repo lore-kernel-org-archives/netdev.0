@@ -1,40 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v4 net-next] net: introduce dev_set_forwarding()
-Date: Fri, 8 Nov 2013 10:17:58 +0800
-Message-ID: <20131108021758.GA13467@gondor.apana.org.au>
-References: <1383584130.1553.2.camel@bwh-desktop.uk.level5networks.com>
- <20131107.161755.355597965034457889.davem@davemloft.net>
- <20131107213111.GA6885@gondor.apana.org.au>
- <20131107.170651.1819930710384730745.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2] net_sched: tbf: support of 64bit rates
+Date: Thu, 07 Nov 2013 18:34:20 -0800
+Message-ID: <1383878060.9412.146.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1383877414-9488-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhutchings@solarflare.com, eric.dumazet@gmail.com,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jhs@mojatatu.com,
+	sergei.shtylyov@cogentembedded.com
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:46123 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757069Ab3KHCSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:18:10 -0500
-Content-Disposition: inline
-In-Reply-To: <20131107.170651.1819930710384730745.davem@davemloft.net>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:65414 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756328Ab3KHCfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:35:17 -0500
+Received: by mail-pb0-f42.google.com with SMTP id jt11so1494636pbb.29
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 18:35:17 -0800 (PST)
+In-Reply-To: <1383877414-9488-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 07, 2013 at 05:06:51PM -0500, David Miller wrote:
+On Fri, 2013-11-08 at 10:23 +0800, Yang Yingliang wrote:
+> With psched_ratecfg_precompute(), tbf can deal with 64bit rates.
+> Add two new attributes so that tc can use them to break the 32bit
+> limit.
 > 
-> Aside from the segmentation issues, Eric's patch was a nice cleanup
-> which also made it such that we'd be able to get features back when
-> the blocking condition gets removed.
-> 
-> Given all of this, would you like me to revert his change for now?
+> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+> Suggested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> ---
+>  include/uapi/linux/pkt_sched.h |  2 ++
+>  net/sched/sch_tbf.c            | 22 ++++++++++++++++++----
+>  2 files changed, 20 insertions(+), 4 deletions(-)
 
-Oh no let's keep it as it is indeed a great cleanup and improvement
-for LRO.  We can however remove the bits that relate to GRO.
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks !
