@@ -1,166 +1,103 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 6/10] bonding: rebuild the lock use for bond_activebackup_arp_mon()
-Date: Fri, 8 Nov 2013 10:08:04 +0800
-Message-ID: <527C4784.1030402@huawei.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next v2] net_sched: tbf: support of 64bit rates
+Date: Fri, 8 Nov 2013 10:23:34 +0800
+Message-ID: <1383877414-9488-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>, <jhs@mojatatu.com>,
+	<sergei.shtylyov@cogentembedded.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:26448 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756539Ab3KHCI5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:08:57 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:56227 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756858Ab3KHCXm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:23:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_activebackup_arp_mon() use the bond lock for read to
-protect the slave list, it is no effect, and the RTNL is only
-called for bond_ab_arp_commit() and peer notify, for the performance
-better, use RCU instead of the bond lock, because the bond slave
-list need to called in RCU, add a new bond_first_slave_rcu()
-to get the first slave in RCU protection.
+With psched_ratecfg_precompute(), tbf can deal with 64bit rates.
+Add two new attributes so that tc can use them to break the 32bit
+limit.
 
-When bond_ab_arp_inspect() and should_notify_peers is true, the
-RTNL will called twice, it is a loss of performance, so make the
-two RTNL together to avoid performance loss.
-
-Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
-Suggested-by: Veaceslav Falico <vfalico@redhat.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+Suggested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 ---
- drivers/net/bonding/bond_main.c | 35 +++++++++++++++++++----------------
- drivers/net/bonding/bonding.h   |  7 +++++++
- 2 files changed, 26 insertions(+), 16 deletions(-)
+ include/uapi/linux/pkt_sched.h |  2 ++
+ net/sched/sch_tbf.c            | 22 ++++++++++++++++++----
+ 2 files changed, 20 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 759dcd0..b48ca55 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2524,7 +2524,7 @@ static int bond_ab_arp_inspect(struct bonding *bond)
- 	struct slave *slave;
- 	int commit = 0;
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index f2624b5..307f293 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -171,6 +171,8 @@ enum {
+ 	TCA_TBF_PARMS,
+ 	TCA_TBF_RTAB,
+ 	TCA_TBF_PTAB,
++	TCA_TBF_RATE64,
++	TCA_TBF_PRATE64,
+ 	__TCA_TBF_MAX,
+ };
  
--	bond_for_each_slave(bond, slave, iter) {
-+	bond_for_each_slave_rcu(bond, slave, iter) {
- 		slave->new_link = BOND_LINK_NOCHANGE;
- 		last_rx = slave_last_rx(bond, slave);
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index b057122..68f9859 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -266,20 +266,23 @@ static const struct nla_policy tbf_policy[TCA_TBF_MAX + 1] = {
+ 	[TCA_TBF_PARMS]	= { .len = sizeof(struct tc_tbf_qopt) },
+ 	[TCA_TBF_RTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
+ 	[TCA_TBF_PTAB]	= { .type = NLA_BINARY, .len = TC_RTAB_SIZE },
++	[TCA_TBF_RATE64]	= { .type = NLA_U64 },
++	[TCA_TBF_PRATE64]	= { .type = NLA_U64 },
+ };
  
-@@ -2586,7 +2586,7 @@ static int bond_ab_arp_inspect(struct bonding *bond)
-  * Called to commit link state changes noted by inspection step of
-  * active-backup mode ARP monitor.
-  *
-- * Called with RTNL and bond->lock for read.
-+ * Called with RTNL hold.
-  */
- static void bond_ab_arp_commit(struct bonding *bond)
+ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
  {
-@@ -2661,7 +2661,7 @@ do_failover:
- /*
-  * Send ARP probes for active-backup mode ARP monitor.
-  *
-- * Called with bond->lock held for read.
-+ * Called with rcu_read_lock hold.
-  */
- static void bond_ab_arp_probe(struct bonding *bond)
- {
-@@ -2690,14 +2690,14 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 	 */
+ 	int err;
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+-	struct nlattr *tb[TCA_TBF_PTAB + 1];
++	struct nlattr *tb[TCA_TBF_MAX + 1];
+ 	struct tc_tbf_qopt *qopt;
+ 	struct qdisc_rate_table *rtab = NULL;
+ 	struct qdisc_rate_table *ptab = NULL;
+ 	struct Qdisc *child = NULL;
+ 	int max_size, n;
++	u64 rate64 = 0, prate64 = 0;
  
- 	if (!bond->current_arp_slave) {
--		bond->current_arp_slave = bond_first_slave(bond);
-+		bond->current_arp_slave = bond_first_slave_rcu(bond);
- 		if (!bond->current_arp_slave)
- 			return;
- 	}
+-	err = nla_parse_nested(tb, TCA_TBF_PTAB, opt, tbf_policy);
++	err = nla_parse_nested(tb, TCA_TBF_MAX, opt, tbf_policy);
+ 	if (err < 0)
+ 		return err;
  
- 	bond_set_slave_inactive_flags(bond->current_arp_slave);
+@@ -341,9 +344,13 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	q->tokens = q->buffer;
+ 	q->ptokens = q->mtu;
  
--	bond_for_each_slave(bond, slave, iter) {
-+	bond_for_each_slave_rcu(bond, slave, iter) {
- 		if (!found && !before && IS_UP(slave->dev))
- 			before = slave;
+-	psched_ratecfg_precompute(&q->rate, &rtab->rate, 0);
++	if (tb[TCA_TBF_RATE64])
++		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
++	psched_ratecfg_precompute(&q->rate, &rtab->rate, rate64);
+ 	if (ptab) {
+-		psched_ratecfg_precompute(&q->peak, &ptab->rate, 0);
++		if (tb[TCA_TBF_PRATE64])
++			prate64 = nla_get_u64(tb[TCA_TBF_PRATE64]);
++		psched_ratecfg_precompute(&q->peak, &ptab->rate, prate64);
+ 		q->peak_present = true;
+ 	} else {
+ 		q->peak_present = false;
+@@ -402,6 +409,13 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	opt.buffer = PSCHED_NS2TICKS(q->buffer);
+ 	if (nla_put(skb, TCA_TBF_PARMS, sizeof(opt), &opt))
+ 		goto nla_put_failure;
++	if (q->rate.rate_bytes_ps >= (1ULL << 32) &&
++	    nla_put_u64(skb, TCA_TBF_RATE64, q->rate.rate_bytes_ps))
++		goto nla_put_failure;
++	if (q->peak_present &&
++	    q->peak.rate_bytes_ps >= (1ULL << 32) &&
++	    nla_put_u64(skb, TCA_TBF_PRATE64, q->peak.rate_bytes_ps))
++		goto nla_put_failure;
  
-@@ -2745,43 +2745,46 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 	bool should_notify_peers = false;
- 	int delta_in_ticks;
- 
--	read_lock(&bond->lock);
--
- 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
- 
--	if (!bond_has_slaves(bond))
-+	rcu_read_lock();
-+
-+	if (!bond_has_slaves_rcu(bond)) {
-+		rcu_read_unlock();
- 		goto re_arm;
-+	}
- 
- 	should_notify_peers = bond_should_notify_peers(bond);
- 
- 	if (bond_ab_arp_inspect(bond)) {
--		read_unlock(&bond->lock);
-+		rcu_read_unlock();
- 
- 		/* Race avoidance with bond_close flush of workqueue */
- 		if (!rtnl_trylock()) {
--			read_lock(&bond->lock);
- 			delta_in_ticks = 1;
- 			should_notify_peers = false;
- 			goto re_arm;
- 		}
- 
--		read_lock(&bond->lock);
--
- 		bond_ab_arp_commit(bond);
- 
--		read_unlock(&bond->lock);
-+		if (should_notify_peers) {
-+			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
-+					bond->dev);
-+			should_notify_peers = false;
-+		}
-+
- 		rtnl_unlock();
--		read_lock(&bond->lock);
-+		rcu_read_lock();
- 	}
- 
- 	bond_ab_arp_probe(bond);
-+	rcu_read_unlock();
- 
- re_arm:
- 	if (bond->params.arp_interval)
- 		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
- 
--	read_unlock(&bond->lock);
--
- 	if (should_notify_peers) {
- 		if (!rtnl_trylock())
- 			return;
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index deb9738..90b745c 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -97,6 +97,13 @@
- 		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
- 		NULL)
- 
-+#define bond_first_slave_rcu(bond) \
-+	({struct list_head *__ptr = (bond_slave_list(bond)); \
-+	 struct list_head *__next = ACCESS_ONCE(__ptr->next); \
-+	 likely(__ptr != __next) ? \
-+	 netdev_adjacent_get_private_rcu(__next) : NULL; \
-+	 })
-+
- #define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
- #define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
- 
+ 	nla_nest_end(skb, nest);
+ 	return skb->len;
 -- 
-1.8.2.1
+1.7.12
