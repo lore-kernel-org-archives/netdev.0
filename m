@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v4 0/2] l2 hardware accelerated macvlans
-Date: Thu, 07 Nov 2013 19:12:44 -0500 (EST)
-Message-ID: <20131107.191244.1462002095786588675.davem@davemloft.net>
-References: <20131106175308.3822.73239.stgit@jf-dev1-dcblab>
+Subject: Re: [patch] 6lowpan: release device on error path
+Date: Thu, 07 Nov 2013 19:13:31 -0500 (EST)
+Message-ID: <20131107.191331.5561975057667792.davem@davemloft.net>
+References: <20131107074445.GD21844@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, alexander.h.duyck@intel.com,
-	andy@greyhouse.net, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, vyasevich@gmail.com
-To: john.r.fastabend@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56549 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753524Ab3KHAMq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 19:12:46 -0500
-In-Reply-To: <20131106175308.3822.73239.stgit@jf-dev1-dcblab>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alex.bluesman.smirnov@gmail.com, alan@signal11.us,
+	dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20131107074445.GD21844@elgon.mountain>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.r.fastabend@intel.com>
-Date: Wed, 06 Nov 2013 09:54:40 -0800
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 7 Nov 2013 10:44:45 +0300
 
-> This patch adds support to offload macvlan net_devices to the
-> hardware. With these patches packets are pushed to the macvlan
-> net_device directly and do not pass through the lower dev.
+> We recently added a new error path and it needs a dev_put().
+> 
+> Fixes: 7adac1ec8198 ('6lowpan: Only make 6lowpan links to IEEE802154 devices')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Series applied, looks great.
-
-Thanks.
+Applied.
