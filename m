@@ -1,44 +1,40 @@
-From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
-Subject: Re: [PATCH v2 net-next] inet: fix a UFO regression
-Date: Fri, 08 Nov 2013 12:20:30 -0800
-Message-ID: <527D478E.4020607@gmail.com>
-References: <CAMEtUuyuHagy7j+fi8RnKjZNBnwYHhxfed508HyXLfHp-e634w@mail.gmail.com>	 <527C877D.3080309@gmail.com> <1383913124.9412.223.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/2] ixgbe: macvlan fixes
+Date: Fri, 08 Nov 2013 15:21:48 -0500 (EST)
+Message-ID: <20131108.152148.475567353347933697.davem@davemloft.net>
+References: <20131108084654.6935.36501.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	nhorman@tuxdriver.com
+To: john.fastabend@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f43.google.com ([209.85.219.43]:52755 "EHLO
-	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757521Ab3KHUUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 15:20:19 -0500
-Received: by mail-oa0-f43.google.com with SMTP id g12so1293149oah.30
-        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 12:20:19 -0800 (PST)
-In-Reply-To: <1383913124.9412.223.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36881 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757582Ab3KHUVu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 15:21:50 -0500
+In-Reply-To: <20131108084654.6935.36501.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/8/2013 4:18 AM, Eric Dumazet wrote:
-> On Thu, 2013-11-07 at 22:41 -0800, Sridhar Samudrala wrote:
->
->> Does this fix also help vxlan performance between 2 VMs on 2 different
->> physical m/cs across 10G NIC?
->> What is the throughput you are seeing via 10G nics?
->> With linux 3.12, i am only seeing around 2Gbps (iperf TCP_STREAM with
->> 16K messages)  between 2 VMs when using vxlan across a 10G nic.
->> Is this due to the overhead of software GSO and not doing GRO at the
->> receiver?
-> What NIC is used at sender, what NIC is used at receiver ?
-I am seeing almost similar results with both Emulex and Intel 10Gb NICs 
-at both sender and receiver.
->
-> If you use GRE instead of VXLAN, do you get any difference in speed ?
-With GRE, i am seeing slightly better results. 3.2Gb/s compared to 
-1.8Gb/s with vxlan.
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Fri, 08 Nov 2013 00:50:07 -0800
 
+> Two additional fixes for ixgbe l2 forwarding acceleration. One
+> was reported by kbuild build bot and the second after hardening
+> my test scripts.
+> 
+> Typically I would send ixgbe fixes through JeffK's tree but I
+> know a few people who are looking at the feature in their setup's 
+> so wanted to be sure the patches were visible.
+> 
+> For reference the ixgbe accelerated macvlan patch is here:
+> 
+> commit 2a47fa45d4dfbc54659d28de311a1f764b296a3c
+> Author: John Fastabend <john.r.fastabend@intel.com>
+> Date:   Wed Nov 6 09:54:52 2013 -0800
+> 
+>     ixgbe: enable l2 forwarding acceleration for macvlans
 
-Thanks
-Sridhar
+Both applied, thanks John.
