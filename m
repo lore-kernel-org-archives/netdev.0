@@ -1,57 +1,36 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: [PATCH net] net: sch_red: Fix race between timer and red_destroy()
-Date: Fri, 8 Nov 2013 13:59:19 -0800
-Message-ID: <CAGK4HS8SoXAGM-zgbofQp+Cy19Z0doQafvYceePt_kM9CEchYQ@mail.gmail.com>
-References: <1383617296-20273-1-git-send-email-subramanian.vijay@gmail.com>
-	<20131105.221633.636594084725891709.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next 1/2] ip6_output: fragment outgoing reassembled skb properly
+Date: Fri, 8 Nov 2013 23:20:42 +0100
+Message-ID: <20131108222042.GA1963@order.stressinduktion.org>
+References: <1383756740-7392-2-git-send-email-jiri@resnulli.us> <20131107.185453.1341640661253119352.davem@davemloft.net> <20131108075201.GA2455@minipsycho.orion> <20131108.144915.635810300359291522.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: jiri@resnulli.us, netdev@vger.kernel.org, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	kadlec@blackhole.kfki.hu, kaber@trash.net, mleitner@redhat.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
+	horms@verge.net.au, ja@ssi.bg, edumazet@google.com,
+	pshelar@nicira.com, jasowang@redhat.com,
+	alexander.h.duyck@intel.com, fw@strlen.de
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f170.google.com ([209.85.128.170]:62570 "EHLO
-	mail-ve0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757926Ab3KHV7T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 16:59:19 -0500
-Received: by mail-ve0-f170.google.com with SMTP id oy12so1908823veb.15
-        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 13:59:19 -0800 (PST)
-In-Reply-To: <20131105.221633.636594084725891709.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131108.144915.635810300359291522.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> del_timer_sync() waits for all instances of the timer handler which
-> are running to complete, and then it deletes the timer from any of
-> the scheduled timer lists.
->
-> Your patch is making the mod_timer() in the timer handler conditional,
-> and this really shouldn't be necessary.
->
-> The whole point of del_timer_sync() is to address these kinds of
-> situations.
+On Fri, Nov 08, 2013 at 02:49:15PM -0500, David Miller wrote:
+> Perhaps I don't understand completely the intentions and logic of
+> dst_allfrag() in the ipv6 case, and maybe you can explain it to me.
 
+dst_allfrag gets active if we receive a PMTU packet indicating a MTU
+smaller than 1280. Of course IPv6 may not go below 1280 but this indicates
+e.g. a IPv6->IPv4 migration technology is on the path which needs the
+IPv6 fragment header and its fragment id to generate IPv4 fragment ids
+out of the IPv6 ones to produce IPv4 fragments just after this migration
+router which could well be smaller than 1280.
 
-Thanks for the explanation Dave. I am trying to reconcile your
-explanation with the text above del_timer_sync()
-vim +1013 kernel/timer.c
+Maybe this does help a bit,
 
-" * This function only differs from del_timer() on SMP: besides deactivating
- * the timer it also makes sure the handler has finished executing on other
- * CPUs.
- *
- * Synchronization rules: Callers must prevent restarting of the timer,
- * otherwise this function is meaningless.  ..."
+  Hannes
 
-This seems to suggest simply calling del_timer_sync() is not enough.
-In fact, for the same reason  I was recently pointed towards
-commit 980c478ddbb72 (sch_sfq: use del_timer_sync() in sfq_destroy() )
-and I based the patch on how q->perturb_period is reset in
-sfq_destroy() and used in sfq_perturbation().
-
-Based on your explanation , I think we do not need (in sched/sch_sfq.c)
-q->perturb_period = 0;  in sfq_destroy() and just del_timer_sync()
-should be enough.
-
-Thanks,
-Vijay
