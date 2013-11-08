@@ -1,37 +1,56 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v2] net_sched: tbf: support of 64bit rates
-Date: Fri, 08 Nov 2013 22:17:13 +0300
-Message-ID: <527D38B9.8000709@cogentembedded.com>
-References: <1383877414-9488-1-git-send-email-yangyingliang@huawei.com>
+Subject: Re: [PATCH net-next 2/5] sctp: remove the else path
+Date: Fri, 08 Nov 2013 22:19:37 +0300
+Message-ID: <527D3949.2000302@cogentembedded.com>
+References: <1383879310-22792-1-git-send-email-wangweidong1@huawei.com> <1383879310-22792-3-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jhs@mojatatu.com
-To: Yang Yingliang <yangyingliang@huawei.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Cc: dingtianhong@huawei.com, davem@davemloft.net,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Wang Weidong <wangweidong1@huawei.com>, vyasevich@gmail.com,
+	nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:33644 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756932Ab3KHSRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 13:17:23 -0500
-Received: by mail-la0-f53.google.com with SMTP id eh20so2007069lab.26
-        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 10:17:22 -0800 (PST)
-In-Reply-To: <1383877414-9488-1-git-send-email-yangyingliang@huawei.com>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:33322 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756614Ab3KHSTr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 13:19:47 -0500
+Received: by mail-la0-f42.google.com with SMTP id ep20so2097331lab.29
+        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 10:19:45 -0800 (PST)
+In-Reply-To: <1383879310-22792-3-git-send-email-wangweidong1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 11/08/2013 05:23 AM, Yang Yingliang wrote:
+On 11/08/2013 05:55 AM, Wang Weidong wrote:
 
-> With psched_ratecfg_precompute(), tbf can deal with 64bit rates.
-> Add two new attributes so that tc can use them to break the 32bit
-> limit.
+> Make the code more simplification.
 
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-> Suggested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> ---
+>   net/sctp/associola.c | 4 +---
+>   1 file changed, 1 insertion(+), 3 deletions(-)
 
-    It's too great a honor for me, I didn't suggest this patch. :-)
-You can replace that with Reviewed-by: line.
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index 667f984..2d53d4c 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -954,15 +954,13 @@ int sctp_cmp_addr_exact(const union sctp_addr *ss1,
+>    */
+>   struct sctp_chunk *sctp_get_ecne_prepend(struct sctp_association *asoc)
+>   {
+> -	struct sctp_chunk *chunk;
+> +	struct sctp_chunk *chunk = NULL;
+>
+>   	/* Send ECNE if needed.
+>   	 * Not being able to allocate a chunk here is not deadly.
+>   	 */
+>   	if (asoc->need_ecne)
+>   		chunk = sctp_make_ecne(asoc, asoc->last_ecne_tsn);
+> -	else
+> -		chunk = NULL;
+
+    This is hardly better/simpler than it was.
 
 WBR, Sergei
