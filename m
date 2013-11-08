@@ -1,64 +1,67 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next PATCH 2/2] ixgbe: deleting dfwd stations out of order
- can cause null ptr deref
-Date: Fri, 08 Nov 2013 04:36:34 -0800
-Message-ID: <1383914194.2365.31.camel@jtkirshe-mobl>
+Subject: Re: [net-next PATCH 0/2] ixgbe: macvlan fixes
+Date: Fri, 08 Nov 2013 04:39:42 -0800
+Message-ID: <1383914382.2365.34.camel@jtkirshe-mobl>
 References: <20131108084654.6935.36501.stgit@nitbit.x32>
-	 <20131108085109.6935.99661.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-38pABYTUYnXBy/URzshb"
+	protocol="application/pgp-signature"; boundary="=-stwK0yM0zV8xJvvkI26K"
 Cc: netdev@vger.kernel.org, davem@davemloft.net, nhorman@tuxdriver.com
 To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:13887 "EHLO mga14.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:56686 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757103Ab3KHMgi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Nov 2013 07:36:38 -0500
-In-Reply-To: <20131108085109.6935.99661.stgit@nitbit.x32>
+	id S1752822Ab3KHMjo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Nov 2013 07:39:44 -0500
+In-Reply-To: <20131108084654.6935.36501.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-38pABYTUYnXBy/URzshb
+--=-stwK0yM0zV8xJvvkI26K
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2013-11-08 at 00:51 -0800, John Fastabend wrote:
-> The number of stations in use is kept in the num_rx_pools counter
-> in the ixgbe_adapter structure. This is in turn used by the queue
-> allocation scheme to determine how many queues are needed to support
-> the number of pools in use with the current feature set.
+On Fri, 2013-11-08 at 00:50 -0800, John Fastabend wrote:
+> Two additional fixes for ixgbe l2 forwarding acceleration. One
+> was reported by kbuild build bot and the second after hardening
+> my test scripts.
 >=20
-> This works as long as the pools are added and destroyed in order
-> because (num_rx_pools * queues_per_pool) is equal to the last
-> queue in use by a pool. But as soon as you delete a pool out of
-> order this is no longer the case. So the above multiplication
-> allocates to few queues and a pool may reference a ring that has
-> not been allocated/initialized.
+> Typically I would send ixgbe fixes through JeffK's tree but I
+> know a few people who are looking at the feature in their setup's=20
+> so wanted to be sure the patches were visible.
+
+I told John to go ahead and send these patches directly to netdev, so
+that Dave can pick these up before he pushes his net-next to Linus.
+
 >=20
-> To resolve use the bit mask of in use pools to determine the final
-> pool being used and allocate enough queues so that we don't
-> inadvertently remove its queues.
+> For reference the ixgbe accelerated macvlan patch is here:
 >=20
-> # ip link add link eth2 \
->         numtxqueues 4 numrxqueues 4 txqueuelen 50 type macvlan
-> # ip link set dev macvlan0 up
-> # ip link add link eth2 \
->         numtxqueues 4 numrxqueues 4 txqueuelen 50 type macvlan
-> # ip link set dev macvlan1 up
-> # for i in {0..100}; do
->   ip link set dev macvlan0 down; ip link set dev macvlan0 up;
->   done;
+> commit 2a47fa45d4dfbc54659d28de311a1f764b296a3c
+> Author: John Fastabend <john.r.fastabend@intel.com>
+> Date:   Wed Nov 6 09:54:52 2013 -0800
 >=20
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>     ixgbe: enable l2 forwarding acceleration for macvlans
+>=20
+> Thanks,
+> John
+>=20
 > ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
+>=20
+> John Fastabend (2):
+>       ixgbe: fix build err, num_rx_queues is only available with CONFIG_R=
+PS
+>       ixgbe: deleting dfwd stations out of order can cause null ptr deref
+>=20
+>=20
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   24 ++++++++++++++++---=
+-----
+>  1 file changed, 16 insertions(+), 8 deletions(-)
+>=20
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
---=-38pABYTUYnXBy/URzshb
+
+--=-stwK0yM0zV8xJvvkI26K
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -66,19 +69,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.15 (GNU/Linux)
 
-iQIcBAABCgAGBQJSfNrSAAoJEOVv75VaS+3OOhAQAIz8QV9fLsmnk3GS4Y2YigjY
-yp/KmSwBjJ7br+3tEcSEoxLNZEVTkcR3NPmico6DyTh/1O9wCKkVF+C8zDWxTMP5
-BT0t6Mzy5rO/1ilaDMBuE125YnpY5U0a58JkEy7Axwa0WHSbSNSLdVjnMOsKPcFG
-mfqwzpaEcN3/ThBD2zdkpR7HFC4yE4poEUYt9ilYjiJisZtsxpEByrV2+r6G19XK
-FDySx/D/x/DQLm1VN7Ew7ST9Sbpdnf4seX/ZIxxuJ99gwlsQrQYWlQQE6WmbQcrh
-rK9t80tLCn1sgh/46rZPZEzfpg7jl02UZdOa1tUfID6QhtRv4e2llZWADXmO5kMB
-AhCQITEH7tT50nGIu/hXXWq2wzc9MtvF7yos8AOSj5S/7NvUGQkLmLnsVnnMDwda
-PUTTpEO7yoKf0sGCRN2TuBoEHoiHUh1wiGNLzuuAo3s/GaXHmVWmbgwl266iw214
-hDHWeC1D0oD50F8Qt/YyNHoe/fnVCDIFJPIaENFQRqdRSDSS3QGIFYKO4O1qSBsg
-7O0gikx7vqdgjbRch6FJ+xiXd3OQMontFZ8XTHY8Jrc9sLuQTzPShsQHzkOJYxcm
-CI7Y3P0kAQsr9DhJrvkhbzatRHfJ1E7npA6iDUsZ6MBGYVbcrYC3wUlIvlHTc3tL
-4a5T1KOg4PDGIL0h6loY
-=D6VO
+iQIcBAABCgAGBQJSfNuOAAoJEOVv75VaS+3OCy0P/0HvBspVei92q+Jf9MlDGHUn
+hInrn4qYQHaMclnFBeKzXRBTHGTwM7sLcpukIkMFjfeEwAOZiBOciTQ5zoAT0aYi
+nmaWylZ1awA67hvG1Sq/7CRCCZ1To729T6nnhLK2Wi7t+AYZTvNw3Upj8Bzh3s2Q
+H1aaAUZJfs7/C9Ozdmt6/YNx7UkGytSHmvvAgVWZ1v8wS3Sio/qrZeScoIhQAqjB
+ohZdyJ2BEdCWBCQqzYzl4mjPvSg7e6n++W2nYSUQgyQtjDFmeA07f0ANwUmfzF0Q
+aVhjHEz8Fz46Sp2HxI9jFnNQe2Gyvm16h0NjcVJkgv08EEduOiV4DiCvcoHPICzo
+6t9A6uTmPvPu2KumrwSEa6Yd8UZ8Kscir3t4Q+Pvj4wFszTMMBbeoBN7B2rni8j5
+4xSN+2ICQ50ycZiUOEeemDoLunV9K4F8RZe6CKHWSs2doCKvHR2GTtsYUwX+s3QE
+RV65lhy2ccIfYHk5QISgD//5nPDjm9gAkH+8zuaZRhPwYoKCeBIxDD8SqwfP0pfn
+2j813tI8ZDrTGlO3KR8HkDhY1jmSShmF+6014AGF0Lfje1U6hDnGNaguuqzwJEM+
+N6NGeFIO/f8ZQyxLMvDBr7PvaSbFU0W7njHgeaUMo6E/d+onKUTDiED0H0Ajf5pp
+zLvwUReOxcxWzPU0hgJ3
+=mWkm
 -----END PGP SIGNATURE-----
 
---=-38pABYTUYnXBy/URzshb--
+--=-stwK0yM0zV8xJvvkI26K--
