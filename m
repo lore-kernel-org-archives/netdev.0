@@ -1,52 +1,78 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] tcp: randomize TCP source ports
-Date: Thu, 07 Nov 2013 17:07:14 -0800
-Message-ID: <527C3942.509@hp.com>
-References: <1383872049.9412.124.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] inet: fix a UFO regression
+Date: Thu, 7 Nov 2013 17:39:38 -0800
+Message-ID: <CAMEtUuynjTj_eteupaSx1hbZs4OyVtc=fDZAwAFSL24qK8tFLA@mail.gmail.com>
+References: <CAMEtUuzswOVA6UkPRjS-O=gOe9BLLJ5qaAG_eAd_fTqDJo8ofA@mail.gmail.com>
+	<1382674000.7572.75.camel@edumazet-glaptop.roam.corp.google.com>
+	<1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
+	<20131025.181809.348808013109842304.davem@davemloft.net>
+	<CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
+	<1382923096.13037.10.camel@edumazet-glaptop.roam.corp.google.com>
+	<1383863586.9412.101.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAMEtUuwqmUhTgeKyodGKmOxhxe23=umnfc7nouhdVrqVNnk6zQ@mail.gmail.com>
+	<1383871465.9412.118.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:38070 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754113Ab3KHBHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 20:07:15 -0500
-In-Reply-To: <1383872049.9412.124.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:62889 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753320Ab3KHBjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 20:39:39 -0500
+Received: by mail-wi0-f173.google.com with SMTP id ey11so1504434wid.12
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 17:39:38 -0800 (PST)
+In-Reply-To: <1383871465.9412.118.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/07/2013 04:54 PM, Eric Dumazet wrote:
-> TCP does proper randomization of ports on active connections only if
-> bind() is used between socket() and connect()
+On Thu, Nov 7, 2013 at 4:44 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> If bind() is not specifically used, kernel performs autobind, and TCP
-> autobind typically uses a sequential allocation for a given (dst
-> address, dst port, src address) tuple.
+> While testing virtio_net and skb_segment() changes, Hannes reported
+> that UFO was sending wrong frames.
 >
-> UDP autobind does a randomization, as part of the effort to make DNS
-> more secure.
+> It appears this was introduced by a recent commit :
+> 8c3a897bfab1 ("inet: restore gso for vxlan")
 >
-> TCP autobind uses a global sequential number (called @hint in source
-> code) with a perturbation done by secure_ipv4_port_ephemeral(),
->   so that the 'hint' of the next port is per (saddr, daddr, dport) tuple
+> The old condition to perform IP frag was :
 >
-> This was probably done to maximize port use and avoid hitting timewait
-> sockets, but I think it should be OK to replace this stuff by a random
-> selection to have more entropy in the various flow hashing functions,
-> and in general higher security levels. TCP timestamps are now well
-> deployed.
+> tunnel = !!skb->encapsulation;
+> ...
+>         if (!tunnel && proto == IPPROTO_UDP) {
+>
+> So the new one should be :
+>
+> udpfrag = !skb->encapsulation && proto == IPPROTO_UDP;
+> ...
+>         if (udpfrag) {
+>
+> With help from Alexei Starovoitov
+>
+> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+>  net/ipv4/af_inet.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 09d78d4a3cff..f17941486ab9 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1306,7 +1306,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+>         if (IS_ERR_OR_NULL(segs))
+>                 goto out;
+>
+> -       udpfrag = !!skb->encapsulation && proto == IPPROTO_UDP;
+> +       udpfrag = !skb->encapsulation && proto == IPPROTO_UDP;
 
-For perhaps most definitions of well deployed.  There is at least one 
-load balancer which, while it offers TCP Window Scaling, does not also 
-offer TCP Time Stamps...
+as we discussed this will break vxlan :)
+Please move udpfrag assignment before line:
+                segs = ops->callbacks.gso_segment(skb, features);
+since skb_udp_tunnel_segment() does skb->encapsulation = 0
+then both ufo and vxlan should be fine
 
-By rights they should (must) be offering TCP Time Stamps, and they are, 
-I am told, "working on it."
-
-Is all going to be "well" when it is the (non-Linux) remote system which 
-has the TIME_WAIT endpoint?
-
-rick jones
+Thanks
+Alexei
