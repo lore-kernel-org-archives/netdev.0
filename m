@@ -1,44 +1,33 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net-next v2 2/3] net_sched: fix some checkpatch errors
-Date: Fri, 08 Nov 2013 12:04:16 +0100
-Message-ID: <87ob5vf93j.fsf@nemi.mork.no>
-References: <1383790412-41944-1-git-send-email-yangyingliang@huawei.com>
-	<1383790412-41944-3-git-send-email-yangyingliang@huawei.com>
-	<527B5160.5070700@redhat.com>
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 1/2 net-next] net: Export skb_zerocopy() to
+ zerocopy from one skb to another
+Date: Fri, 08 Nov 2013 12:06:00 +0100
+Message-ID: <527CC598.3040104@redhat.com>
+References: <cover.1383906944.git.tgraf@suug.ch>
+	<107fca409db2405bf3c650a03ea2254d3d6b63dc.1383906944.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yang Yingliang <yangyingliang@huawei.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, eric.dumazet@gmail.com, jhs@mojatatu.com,
-	stephen@networkplumber.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:43987 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757116Ab3KHLGC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 06:06:02 -0500
-In-Reply-To: <527B5160.5070700@redhat.com> (Daniel Borkmann's message of "Thu,
-	07 Nov 2013 09:37:52 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <107fca409db2405bf3c650a03ea2254d3d6b63dc.1383906944.git.tgraf-G/eBtMaohhA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Daniel Borkmann <dborkman@redhat.com> writes:
-> On 11/07/2013 03:13 AM, Yang Yingliang wrote:
+On 11/08/2013 11:47 AM, Thomas Graf wrote:
+> Make the skb zerocopy logic written for nfnetlink queue available for
+> use by other modules.
 >
->> @@ -263,7 +264,7 @@ void tcf_hash_insert(struct tcf_common *p, struc=
-t tcf_hashinfo *hinfo)
->>   }
->>   EXPORT_SYMBOL(tcf_hash_insert);
->>
->> -static struct tc_action_ops *act_base =3D NULL;
->> +static struct tc_action_ops *act_base;
->
-> From a readability point of view, I think this makes it worse, also t=
-he other places
-> where you change globals vars like that.
+> Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
 
-Then you should probably argue for a change to checkpatch. It will make
-a lot of noise about such unnecessary initialization.
-
-
-Bj=C3=B8rn
+Reviewed-by: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
