@@ -1,278 +1,225 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [RFC] Revert "sierra_net: keep status interrupt URB active"
-Date: Fri, 08 Nov 2013 13:29:04 -0600
-Message-ID: <1383938944.29096.7.camel@dcbw.foobar.com>
-References: <1383310428-19913-1-git-send-email-bjorn@mork.no>
-	 <1383596827.29469.1.camel@dcbw.foobar.com>
+From: Arvid Brodin <arvid.brodin@xdin.com>
+Subject: [PATCH IPROUTE] ip: Add HSR support
+Date: Fri, 8 Nov 2013 20:34:36 +0100
+Message-ID: <527D3CCC.3020609@xdin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	John Henderson <jhen@talk21.com>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Arvid Brodin <Arvid.Brodin@xdin.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56101 "EHLO mx1.redhat.com"
+Received: from spam1.webland.se ([91.207.112.90]:56254 "EHLO spam1.webland.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757491Ab3KHT3L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Nov 2013 14:29:11 -0500
-In-Reply-To: <1383596827.29469.1.camel@dcbw.foobar.com>
+	id S1757901Ab3KHTej (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Nov 2013 14:34:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-11-04 at 14:27 -0600, Dan Williams wrote:
-> On Fri, 2013-11-01 at 13:53 +0100, Bj=C3=B8rn Mork wrote:
-> > This reverts commit 7b0c5f21f348a66de495868b8df0284e8dfd6bbf.
-> >=20
-> > It's not easy to create a driver for all the various firmware
-> > bugs out there.
-> >=20
-> > This change caused regressions for a number of devices, which
-> > started to fail link detection and therefore became completely
-> > non-functional. The exact reason is yet unknown, it looks like
-> > the affected firmwares might actually need all or some of the
-> > additional SYNC messages the patch got rid of.
-> >=20
-> > Reverting is not optimal, as it will re-introduce the original
-> > problem, but it is currently the only alternative known to fix
-> > this issue.
->=20
-> Instead, how does the following patch work for you?
+This patch adds basic support for High-Availability Seamless
+Redundancy (HSR) network devices.
 
-Bjorn, did you have a chance to try this patch out on your devices?
+Signed-off-by: Arvid Brodin <arvid.brodin@xdin.com>
+---
 
-Dan
+ include/linux/if_link.h |  14 ++++++
+ ip/Makefile             |   2 +-
+ ip/iplink_hsr.c         | 127 ++++++++++++++++++++++++++++++++++++++++=
+++++++++
+ man/man8/ip-link.8.in   |   1 +
+ 4 files changed, 143 insertions(+), 1 deletion(-)
+ create mode 100644 ip/iplink_hsr.c
 
-> Dan
->=20
-> ---
-> diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_ne=
-t.c
-> index a79e9d3..dd59d97 100644
-> --- a/drivers/net/usb/sierra_net.c
-> +++ b/drivers/net/usb/sierra_net.c
-> @@ -163,18 +163,19 @@ struct lsi_umts {
->  #define SIERRA_NET_LSI_UMTS_LEN        (sizeof(struct lsi_umts))
->  #define SIERRA_NET_LSI_UMTS_STATUS_LEN \
->  	(SIERRA_NET_LSI_UMTS_LEN - SIERRA_NET_LSI_COMMON_LEN)
-> =20
->  /* Forward definitions */
->  static void sierra_sync_timer(unsigned long syncdata);
->  static int sierra_net_change_mtu(struct net_device *net, int new_mtu=
-);
-> +static int sierra_net_open (struct net_device *net);
-> =20
->  /* Our own net device operations structure */
->  static const struct net_device_ops sierra_net_device_ops =3D {
-> -	.ndo_open               =3D usbnet_open,
-> +	.ndo_open               =3D sierra_net_open,
->  	.ndo_stop               =3D usbnet_stop,
->  	.ndo_start_xmit         =3D usbnet_start_xmit,
->  	.ndo_tx_timeout         =3D usbnet_tx_timeout,
->  	.ndo_change_mtu         =3D sierra_net_change_mtu,
->  	.ndo_set_mac_address    =3D eth_mac_addr,
->  	.ndo_validate_addr      =3D eth_validate_addr,
->  };
-> @@ -439,14 +440,15 @@ static void sierra_net_dosync(struct usbnet *de=
-v)
->  		netdev_err(dev->net,
->  			"Send SYNC failed, status %d\n", status);
->  	status =3D sierra_net_send_sync(dev);
->  	if (status < 0)
->  		netdev_err(dev->net,
->  			"Send SYNC failed, status %d\n", status);
-> =20
-> +printk(KERN_INFO "%s: sent two SYNC messages\n", __func__);
->  	/* Now, start a timer and make sure we get the Restart Indication *=
-/
->  	priv->sync_timer.function =3D sierra_sync_timer;
->  	priv->sync_timer.data =3D (unsigned long) dev;
->  	priv->sync_timer.expires =3D jiffies + SIERRA_NET_SYNCDELAY;
->  	add_timer(&priv->sync_timer);
->  }
-> =20
-> @@ -497,31 +499,34 @@ static void sierra_net_kevent(struct work_struc=
-t *work)
->  				netdev_err(dev->net, "%s: Bad packet, received"
->  					" %d, expected %d\n",	__func__, len,
->  					hh.hdrlen + hh.payload_len.word);
->  				kfree(buf);
->  				return;
->  			}
-> =20
-> +printk(KERN_INFO "%s: received msg 0x%02x len %d\n", __func__, hh.ms=
-gid.byte, len);
->  			/* Switch on received message types */
->  			switch (hh.msgid.byte) {
->  			case SIERRA_NET_HIP_LSI_UMTSID:
->  				dev_dbg(&dev->udev->dev, "LSI for ctx:%d",
->  					hh.msgspecific.byte);
->  				sierra_net_handle_lsi(dev, buf, &hh);
->  				break;
->  			case SIERRA_NET_HIP_RESTART_ID:
-> +printk(KERN_INFO "%s: RESTART received code 0x%02x\n", __func__, hh.=
-msgspecific.byte);
->  				dev_dbg(&dev->udev->dev, "Restart reported: %d,"
->  						" stopping sync timer",
->  						hh.msgspecific.byte);
->  				/* Got sync resp - stop timer & clear mask */
->  				del_timer_sync(&priv->sync_timer);
->  				clear_bit(SIERRA_NET_TIMER_EXPIRY,
->  					  &priv->kevent_flags);
->  				break;
->  			case SIERRA_NET_HIP_HSYNC_ID:
-> +printk(KERN_INFO "%s: HSYNC received\n", __func__);
->  				dev_dbg(&dev->udev->dev, "SYNC received");
->  				err =3D sierra_net_send_sync(dev);
->  				if (err < 0)
->  					netdev_err(dev->net,
->  						"Send SYNC failed %d\n", err);
->  				break;
->  			case SIERRA_NET_HIP_EXTENDEDID:
-> @@ -537,14 +542,15 @@ static void sierra_net_kevent(struct work_struc=
-t *work)
->  				break;
->  			}
->  		}
->  		kfree(buf);
->  	}
->  	/* The sync timer bit might be set */
->  	if (test_bit(SIERRA_NET_TIMER_EXPIRY, &priv->kevent_flags)) {
-> +printk(KERN_INFO "%s: re-sending SYNC\n", __func__);
->  		clear_bit(SIERRA_NET_TIMER_EXPIRY, &priv->kevent_flags);
->  		dev_dbg(&dev->udev->dev, "Deferred sync timer expiry");
->  		sierra_net_dosync(priv->usbnet);
->  	}
-> =20
->  	if (priv->kevent_flags)
->  		dev_dbg(&dev->udev->dev, "sierra_net_kevent done, "
-> @@ -562,14 +568,15 @@ static void sierra_net_defer_kevent(struct usbn=
-et *dev, int work)
->  /*
->   * Sync Retransmit Timer Handler. On expiry, kick the work queue
->   */
->  static void sierra_sync_timer(unsigned long syncdata)
->  {
->  	struct usbnet *dev =3D (struct usbnet *)syncdata;
-> =20
-> +printk(KERN_INFO "%s: sync timer expired\n", __func__);
->  	dev_dbg(&dev->udev->dev, "%s", __func__);
->  	/* Kick the tasklet */
->  	sierra_net_defer_kevent(dev, SIERRA_NET_TIMER_EXPIRY);
->  }
-> =20
->  static void sierra_net_status(struct usbnet *dev, struct urb *urb)
->  {
-> @@ -584,14 +591,15 @@ static void sierra_net_status(struct usbnet *de=
-v, struct urb *urb)
->  	event =3D urb->transfer_buffer;
->  	switch (event->bNotificationType) {
->  	case USB_CDC_NOTIFY_NETWORK_CONNECTION:
->  	case USB_CDC_NOTIFY_SPEED_CHANGE:
->  		/* USB 305 sends those */
->  		break;
->  	case USB_CDC_NOTIFY_RESPONSE_AVAILABLE:
-> +printk(KERN_INFO "%s: firmware indicates response available\n", __fu=
-nc__);
->  		sierra_net_defer_kevent(dev, SIERRA_NET_EVENT_RESP_AVAIL);
->  		break;
->  	default:
->  		netdev_err(dev->net, ": unexpected notification %02x!\n",
->  				event->bNotificationType);
->  		break;
->  	}
-> @@ -767,20 +775,32 @@ static void sierra_net_unbind(struct usbnet *de=
-v, struct usb_interface *intf)
->  	/* tell modem we are going away */
->  	status =3D sierra_net_send_cmd(dev, priv->shdwn_msg,
->  			sizeof(priv->shdwn_msg), "Shutdown");
->  	if (status < 0)
->  		netdev_err(dev->net,
->  			"usb_control_msg failed, status %d\n", status);
-> =20
-> -	usbnet_status_stop(dev);
-> -
->  	sierra_net_set_private(dev, NULL);
->  	kfree(priv);
->  }
-> =20
-> +static int sierra_net_open (struct net_device *net)
-> +{
-> +	int ret;
-> +
-> +	ret =3D usbnet_open(net);
-> +	if (ret =3D=3D 0) {
-> +		struct usbnet *dev =3D netdev_priv(net);
-> +
-> +		/* Interrupt URB now set up; initiate sync sequence */
-> +		sierra_net_dosync(dev);
-> +	}
-> +	return ret;
-> +}
-> +
->  static struct sk_buff *sierra_net_skb_clone(struct usbnet *dev,
->  		struct sk_buff *skb, int len)
->  {
->  	struct sk_buff *new_skb;
-> =20
->  	/* clone skb */
->  	new_skb =3D skb_clone(skb, GFP_ATOMIC);
-> @@ -910,14 +930,15 @@ static const struct driver_info sierra_net_info=
-_direct_ip =3D {
->  	.bind =3D sierra_net_bind,
->  	.unbind =3D sierra_net_unbind,
->  	.status =3D sierra_net_status,
->  	.rx_fixup =3D sierra_net_rx_fixup,
->  	.tx_fixup =3D sierra_net_tx_fixup,
->  };
-> =20
-> +#if 0
->  static int
->  sierra_net_probe(struct usb_interface *udev, const struct usb_device=
-_id *prod)
->  {
->  	int ret;
-> =20
->  	ret =3D usbnet_probe(udev, prod);
->  	if (ret =3D=3D 0) {
-> @@ -927,14 +948,15 @@ sierra_net_probe(struct usb_interface *udev, co=
-nst struct usb_device_id *prod)
->  		if (ret =3D=3D 0) {
->  			/* Interrupt URB now set up; initiate sync sequence */
->  			sierra_net_dosync(dev);
->  		}
->  	}
->  	return ret;
->  }
-> +#endif
-> =20
->  #define DIRECT_IP_DEVICE(vend, prod) \
->  	{USB_DEVICE_INTERFACE_NUMBER(vend, prod, 7), \
->  	.driver_info =3D (unsigned long)&sierra_net_info_direct_ip}, \
->  	{USB_DEVICE_INTERFACE_NUMBER(vend, prod, 10), \
->  	.driver_info =3D (unsigned long)&sierra_net_info_direct_ip}, \
->  	{USB_DEVICE_INTERFACE_NUMBER(vend, prod, 11), \
-> @@ -950,15 +972,15 @@ static const struct usb_device_id products[] =3D=
- {
->  };
->  MODULE_DEVICE_TABLE(usb, products);
-> =20
->  /* We are based on usbnet, so let it handle the USB driver specifics=
- */
->  static struct usb_driver sierra_net_driver =3D {
->  	.name =3D "sierra_net",
->  	.id_table =3D products,
-> -	.probe =3D sierra_net_probe,
-> +	.probe =3D usbnet_probe,
->  	.disconnect =3D usbnet_disconnect,
->  	.suspend =3D usbnet_suspend,
->  	.resume =3D usbnet_resume,
->  	.no_dynamic_id =3D 1,
->  	.disable_hub_initiated_lpm =3D 1,
->  };
-> =20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-usb" =
-in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index ee4f2ba..1f429f1 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -468,4 +468,18 @@ enum {
+=20
+ #define IFLA_IPOIB_MAX (__IFLA_IPOIB_MAX - 1)
+=20
++/* HSR section */
++
++enum {
++	IFLA_HSR_UNSPEC,
++	IFLA_HSR_SLAVE1,
++	IFLA_HSR_SLAVE2,
++	IFLA_HSR_MULTICAST_SPEC,	/* Last byte of supervision addr */
++	IFLA_HSR_SUPERVISION_ADDR,	/* Supervision frame multicast addr */
++	IFLA_HSR_SEQ_NR,
++	__IFLA_HSR_MAX,
++};
++
++#define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
++
+ #endif /* _LINUX_IF_LINK_H */
+diff --git a/ip/Makefile b/ip/Makefile
+index f10d22f..9dad492 100644
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -5,7 +5,7 @@ IPOBJ=3Dip.o ipaddress.o ipaddrlabel.o iproute.o iprule=
+=2Eo ipnetns.o \
+     iplink_vlan.o link_veth.o link_gre.o iplink_can.o \
+     iplink_macvlan.o iplink_macvtap.o ipl2tp.o link_vti.o \
+     iplink_vxlan.o tcp_metrics.o iplink_ipoib.o ipnetconf.o link_ip6tn=
+l.o \
+-    link_iptnl.o link_gre6.o
++    link_iptnl.o link_gre6.o iplink_hsr.o
+=20
+ RTMONOBJ=3Drtmon.o
+=20
+diff --git a/ip/iplink_hsr.c b/ip/iplink_hsr.c
+new file mode 100644
+index 0000000..4af8f78
+--- /dev/null
++++ b/ip/iplink_hsr.c
+@@ -0,0 +1,127 @@
++/*
++ * iplink_hsr.c	HSR device support
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Arvid Brodin <arvid.brodin@xdin.com>
++ *
++ *		Based on iplink_vlan.c by Patrick McHardy <kaber@trash.net>
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/socket.h>  /* Needed by linux/if.h for some reason */
++#include <linux/if.h>
++#include <linux/if_arp.h>
++#include "rt_names.h"
++#include "utils.h"
++#include "ip_common.h"
++
++static void usage(void)
++{
++	fprintf(stderr,
++"Usage:\tip link add name NAME type hsr slave1 SLAVE1-IF slave2 SLAVE2=
+-IF\n"
++"\t[ supervision ADDR-BYTE ]\n"
++"\n"
++"NAME\n"
++"	name of new hsr device (e.g. hsr0)\n"
++"SLAVE1-IF, SLAVE2-IF\n"
++"	the two slave devices bound to the HSR device\n"
++"ADDR-BYTE\n"
++"	0-255; the last byte of the multicast address used for HSR supervisi=
+on\n"
++"	frames (default =3D 0)\n");
++}
++
++static int hsr_parse_opt(struct link_util *lu, int argc, char **argv,
++			  struct nlmsghdr *n)
++{
++	int ifindex;
++	unsigned char multicast_spec;
++
++	while (argc > 0) {
++		if (matches(*argv, "supervision") =3D=3D 0) {
++			NEXT_ARG();
++			if (get_u8(&multicast_spec, *argv, 0))
++				invarg("ADDR-BYTE is invalid", *argv);
++			addattr_l(n, 1024, IFLA_HSR_MULTICAST_SPEC, &multicast_spec, 1);
++		} else if (matches(*argv, "slave1") =3D=3D 0) {
++			NEXT_ARG();
++			ifindex =3D ll_name_to_index(*argv);
++			if (ifindex =3D=3D 0)
++				invarg("No such interface", *argv);
++			addattr_l(n, 1024, IFLA_HSR_SLAVE1, &ifindex, 4);
++		} else if (matches(*argv, "slave2") =3D=3D 0) {
++			NEXT_ARG();
++			ifindex =3D ll_name_to_index(*argv);
++			if (ifindex =3D=3D 0)
++				invarg("No such interface", *argv);
++			addattr_l(n, 1024, IFLA_HSR_SLAVE2, &ifindex, 4);
++		} else if (matches(*argv, "help") =3D=3D 0) {
++			usage();
++			return -1;
++		} else {
++			fprintf(stderr, "hsr: what is \"%s\"?\n", *argv);
++			usage();
++			return -1;
++		}
++		argc--, argv++;
++	}
++
++	return 0;
++}
++
++static void hsr_print_opt(struct link_util *lu, FILE *f, struct rtattr=
+ *tb[])
++{
++	SPRINT_BUF(b1);
++
++	if (!tb)
++		return;
++
++	if (tb[IFLA_HSR_SLAVE1] &&
++	    RTA_PAYLOAD(tb[IFLA_HSR_SLAVE1]) < sizeof(__u32))
++		return;
++	if (tb[IFLA_HSR_SLAVE2] &&
++	    RTA_PAYLOAD(tb[IFLA_HSR_SLAVE2]) < sizeof(__u32))
++		return;
++	if (tb[IFLA_HSR_SEQ_NR] &&
++	    RTA_PAYLOAD(tb[IFLA_HSR_SEQ_NR]) < sizeof(__u16))
++		return;
++	if (tb[IFLA_HSR_SUPERVISION_ADDR] &&
++	    RTA_PAYLOAD(tb[IFLA_HSR_SUPERVISION_ADDR]) < ETH_ALEN)
++		return;
++
++	fprintf(f, "slave1 ");
++	if (tb[IFLA_HSR_SLAVE1])
++		fprintf(f, "%s ",
++			ll_index_to_name(rta_getattr_u32(tb[IFLA_HSR_SLAVE1])));
++	else
++		fprintf(f, "<none> ");
++
++	fprintf(f, "slave2 ");
++	if (tb[IFLA_HSR_SLAVE2])
++		fprintf(f, "%s ",
++			ll_index_to_name(rta_getattr_u32(tb[IFLA_HSR_SLAVE2])));
++	else
++		fprintf(f, "<none> ");
++
++	if (tb[IFLA_HSR_SEQ_NR])
++		fprintf(f, "sequence %d ", rta_getattr_u16(tb[IFLA_HSR_SEQ_NR]));
++
++	if (tb[IFLA_HSR_SUPERVISION_ADDR])
++		fprintf(f, "supervision %s ",
++			ll_addr_n2a(RTA_DATA(tb[IFLA_HSR_SUPERVISION_ADDR]),
++				    RTA_PAYLOAD(tb[IFLA_HSR_SUPERVISION_ADDR]),
++				    ARPHRD_VOID,
++				    b1, sizeof(b1)));
++}
++
++struct link_util hsr_link_util =3D {
++	.id		=3D "hsr",
++	.maxattr	=3D IFLA_VLAN_MAX,
++	.parse_opt	=3D hsr_parse_opt,
++	.print_opt	=3D hsr_print_opt,
++};
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 8b68c78..7f7f882 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -53,6 +53,7 @@ ip-link \- network device configuration
+ .BR bridge " | "
+ .BR can " | "
+ .BR dummy " | "
++.BR hsr " | "
+ .BR ifb " | "
+ .BR ipoib " |"
+ .BR macvlan  " | "
+--=20
+1.8.1.5
+
+
+--=20
+Arvid Brodin | Consultant (Linux)
+XDIN AB | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden | xdin.com
