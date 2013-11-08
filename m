@@ -1,77 +1,115 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC] tcp: randomize TCP source ports
-Date: Fri, 8 Nov 2013 15:28:56 +0100
-Message-ID: <20131108142856.GA28330@order.stressinduktion.org>
-References: <1383872049.9412.124.camel@edumazet-glaptop2.roam.corp.google.com> <20131108130244.GE5876@order.stressinduktion.org> <1383919418.9412.234.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net] ipv4: fix wildcard search with inet_confirm_addr()
+Date: Fri,  8 Nov 2013 15:37:08 +0100
+Message-ID: <1383921428-4313-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:58189 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755054Ab3KHO26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 09:28:58 -0500
-Content-Disposition: inline
-In-Reply-To: <1383919418.9412.234.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34193 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753977Ab3KHOhO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 09:37:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 08, 2013 at 06:03:38AM -0800, Eric Dumazet wrote:
-> On Fri, 2013-11-08 at 14:02 +0100, Hannes Frederic Sowa wrote:
-> 
-> > If I understand the code correctly the UDP ports are fully randomized? This
-> > is good as per-peer randomization and then incrementation seems to be
-> > theoretically broken:
-> > 
-> > <https://sites.google.com/site/hayashulman/files/NIC-derandomisation.pdf>
-> > 
-> > Looking at the code I somehow would like to check the use of net_random there.
-> > The prandom function is reseeded as late_initcall and then only seeded by some
-> > network addresses.
-> > 
-> > At the time the late_initcall reseeds the PRNG my tests have shown that
-> > the nonblockingpool was still not fully initialized where the PRNG gets
-> > reseeded from.
-> > 
-> > Hm, I propose a patch which does reseed the pool as soon as the nonblocking
-> > pool got credited enough entropy in credit_entropy_bits. This should help
-> > later binds().
-> 
-> Or even better have a reseed every XX seconds.
+Help of this function says: "in_dev: only on this interface, 0=any interface",
+but in fact the code supposes that it will never be NULL.
 
-Yes, that's even better.
+Note that this function was never called with in_dev == NULL, but it's exported
+and may be used by an external module.
 
-> 
-> Something like :
-> 
-> diff --git a/lib/random32.c b/lib/random32.c
-> index 52280d5526be..4af2d72281e3 100644
-> --- a/lib/random32.c
-> +++ b/lib/random32.c
-> @@ -60,6 +60,8 @@ u32 prandom_u32_state(struct rnd_state *state)
->  }
->  EXPORT_SYMBOL(prandom_u32_state);
->  
-> +static DEFINE_PER_CPU(unsigned long, net_rand_shuffle);
-> +
->  /**
->   *	prandom_u32 - pseudo random number generator
->   *
-> @@ -71,6 +73,19 @@ u32 prandom_u32(void)
->  {
->  	unsigned long r;
->  	struct rnd_state *state = &get_cpu_var(net_rand_state);
-> +
-> +	if (unlikely(time_after(jiffies, net_rand_shuffle))) {
-> +		unsigned long delay;
-> +		u32 entropy;
-> +
-> +		get_random_bytes_arch(&entropy, sizeof(entropy));
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
 
-What do you think about using a timer to keep the reseed out of fast-path
-and switch to the non-arch get_random_bytes instead?
+This bug was spotted by code review.
 
-Thanks,
+ drivers/net/bonding/bonding.h | 10 +++-------
+ include/linux/inetdevice.h    |  3 ++-
+ net/ipv4/arp.c                |  3 ++-
+ net/ipv4/devinet.c            |  8 ++++----
+ 4 files changed, 11 insertions(+), 13 deletions(-)
 
-  Hannes
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 03cf3fd14490..448895e90ccb 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -407,15 +407,11 @@ static inline bool bond_is_slave_inactive(struct slave *slave)
+ 
+ static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be32 local)
+ {
+-	struct in_device *in_dev;
+-	__be32 addr = 0;
++	__be32 addr;
+ 
+ 	rcu_read_lock();
+-	in_dev = __in_dev_get_rcu(dev);
+-
+-	if (in_dev)
+-		addr = inet_confirm_addr(in_dev, dst, local, RT_SCOPE_HOST);
+-
++	addr = inet_confirm_addr(dev_net(dev), __in_dev_get_rcu(dev), dst,
++				 local, RT_SCOPE_HOST);
+ 	rcu_read_unlock();
+ 	return addr;
+ }
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 79640e015a86..5870f7060917 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -164,7 +164,8 @@ extern int		devinet_ioctl(struct net *net, unsigned int cmd, void __user *);
+ extern void		devinet_init(void);
+ extern struct in_device	*inetdev_by_index(struct net *, int);
+ extern __be32		inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
+-extern __be32		inet_confirm_addr(struct in_device *in_dev, __be32 dst, __be32 local, int scope);
++__be32 inet_confirm_addr(struct net *net, struct in_device *in_dev, __be32 dst,
++			 __be32 local, int scope);
+ extern struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix, __be32 mask);
+ 
+ static __inline__ int inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 7808093cede6..fc5ebc7e1962 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -408,7 +408,8 @@ static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
+ 	default:
+ 		return 0;
+ 	}
+-	return !inet_confirm_addr(in_dev, sip, tip, scope);
++	return !inet_confirm_addr(dev_net(in_dev->dev), in_dev, sip, tip,
++				  scope);
+ }
+ 
+ static int arp_filter(__be32 sip, __be32 tip, struct net_device *dev)
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index a1b5bcbd04ae..47cdb035f817 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1236,22 +1236,22 @@ static __be32 confirm_addr_indev(struct in_device *in_dev, __be32 dst,
+ 
+ /*
+  * Confirm that local IP address exists using wildcards:
++ * - net: netns to check, cannot be NULL
+  * - in_dev: only on this interface, 0=any interface
+  * - dst: only in the same subnet as dst, 0=any dst
+  * - local: address, 0=autoselect the local address
+  * - scope: maximum allowed scope value for the local address
+  */
+-__be32 inet_confirm_addr(struct in_device *in_dev,
++__be32 inet_confirm_addr(struct net *net, struct in_device *in_dev,
+ 			 __be32 dst, __be32 local, int scope)
+ {
+ 	__be32 addr = 0;
+ 	struct net_device *dev;
+-	struct net *net;
+ 
+ 	if (scope != RT_SCOPE_LINK)
+-		return confirm_addr_indev(in_dev, dst, local, scope);
++		return in_dev ? confirm_addr_indev(in_dev, dst, local, scope) :
++				0;
+ 
+-	net = dev_net(in_dev->dev);
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(net, dev) {
+ 		in_dev = __in_dev_get_rcu(dev);
+-- 
+1.8.4.1
