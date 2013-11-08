@@ -1,29 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/10] bonding: rebuild the lock use for
- bond monitor
-Date: Fri, 08 Nov 2013 01:45:50 -0500 (EST)
-Message-ID: <20131108.014550.886693705136672248.davem@davemloft.net>
-References: <527C4768.3010909@huawei.com>
+From: Doku Michael <dokumic@gmail.com>
+Subject: Buyer.
+Date: Thu, 7 Nov 2013 23:04:13 -0800
+Message-ID: <CABbRtMc4Y4M=62_RR4Urvf_+x-fHhxXO=im5ikAzs7ZAshCBkQ__20132.224847521$1383894272$gmane$org@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, andy@greyhouse.net, nikolay@redhat.com,
-	vfalico@redhat.com, netdev@vger.kernel.org
-To: dingtianhong@huawei.com
+Content-Type: text/plain; charset=ISO-8859-1
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59044 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751443Ab3KHGpw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 01:45:52 -0500
-In-Reply-To: <527C4768.3010909@huawei.com>
+Received: from mail-ie0-f196.google.com ([209.85.223.196]:62701 "EHLO
+	mail-ie0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752626Ab3KHHEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 02:04:16 -0500
+Received: by mail-ie0-f196.google.com with SMTP id e14so621356iej.7
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 23:04:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Dear Buyer,
 
-Such patches should not be submitted at this time, the merge window
-has openned up and therefore the net-next tree is closed.
+ I am Mr. Michael Doku, representative to my villagers in Ghana, we are
+prepared to provide any quantities of 99.6% purity (23 karat+) alluvial
+gold at any time of demand.
 
-Please wait for the merge window to close and the net-next tree
-to open back up before submitting these changes.
+ Below is the information  of our Gold dust:
+Quantity: Large Quantity available monthly
+Quality: 23karat+ plus alluvial
+Origin: Ghana, West Africa
 
-Thanks.
+Assay reports provided by Geological services.
+
+ We also have a reasonable quantity of Rough Diamond for sale.  We seek big
+and genuine buyers for serious and long time business relationship.
+
+ Thanks for your utmost co-operation.
+Best Regards.
+Michael Doku.
+Reply To:micdoku@yahoo.co.uk
