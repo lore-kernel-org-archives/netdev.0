@@ -1,8 +1,8 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next v2 6/10] bonding: rebuild the lock use for bond_activebackup_arp_mon()
-Date: Fri, 08 Nov 2013 17:01:51 +0100
-Message-ID: <527D0AEF.1060802@redhat.com>
-References: <527C4784.1030402@huawei.com>
+Subject: Re: [PATCH net-next v2 3/10] bonding: rebuild the lock use for bond_alb_monitor()
+Date: Fri, 08 Nov 2013 17:07:30 +0100
+Message-ID: <527D0C42.3010402@redhat.com>
+References: <527C4778.5080209@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
@@ -13,168 +13,101 @@ Cc: Jay Vosburgh <fubar@us.ibm.com>,
 	Netdev <netdev@vger.kernel.org>
 To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1166 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49876 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757222Ab3KHQFS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Nov 2013 11:05:18 -0500
-In-Reply-To: <527C4784.1030402@huawei.com>
+	id S1756350Ab3KHQKz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Nov 2013 11:10:55 -0500
+In-Reply-To: <527C4778.5080209@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/08/2013 03:08 AM, Ding Tianhong wrote:
-> The bond_activebackup_arp_mon() use the bond lock for read to
-> protect the slave list, it is no effect, and the RTNL is only
-> called for bond_ab_arp_commit() and peer notify, for the performance
-> better, use RCU instead of the bond lock, because the bond slave
-> list need to called in RCU, add a new bond_first_slave_rcu()
-> to get the first slave in RCU protection.
-> 
-> When bond_ab_arp_inspect() and should_notify_peers is true, the
-> RTNL will called twice, it is a loss of performance, so make the
-> two RTNL together to avoid performance loss.
+On 11/08/2013 03:07 AM, Ding Tianhong wrote:
+> The bond_alb_monitor use bond lock to protect the bond slave list,
+> it is no effect here, we need to use RTNL or RCU to replace bond lock,
+> the bond_alb_monitor will called 10 times one second, RTNL may loss
+> performance here, so the bond lock replace with RCU to protect the
+> bond slave list, also the RTNL is preserved, the logic of the monitor
+> did not changed.
 > 
 > Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
 > Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 > Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 > ---
->  drivers/net/bonding/bond_main.c | 35 +++++++++++++++++++----------------
->  drivers/net/bonding/bonding.h   |  7 +++++++
->  2 files changed, 26 insertions(+), 16 deletions(-)
+>  drivers/net/bonding/bond_alb.c | 21 +++++++++------------
+>  1 file changed, 9 insertions(+), 12 deletions(-)
 > 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 759dcd0..b48ca55 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2524,7 +2524,7 @@ static int bond_ab_arp_inspect(struct bonding *bond)
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+> index 1fae915..ffdb91b 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -816,7 +816,7 @@ static void rlb_rebalance(struct bonding *bond)
+>  	for (; hash_index != RLB_NULL_INDEX;
+>  	     hash_index = client_info->used_next) {
+>  		client_info = &(bond_info->rx_hashtbl[hash_index]);
+> -		assigned_slave = rlb_next_rx_slave(bond);
+> +		assigned_slave = __rlb_next_rx_slave(bond);
+>  		if (assigned_slave && (client_info->slave != assigned_slave)) {
+>  			client_info->slave = assigned_slave;
+>  			client_info->ntt = 1;
+> @@ -1495,9 +1495,10 @@ void bond_alb_monitor(struct work_struct *work)
+>  	struct list_head *iter;
 >  	struct slave *slave;
->  	int commit = 0;
->  
-> -	bond_for_each_slave(bond, slave, iter) {
-> +	bond_for_each_slave_rcu(bond, slave, iter) {
->  		slave->new_link = BOND_LINK_NOCHANGE;
->  		last_rx = slave_last_rx(bond, slave);
->  
-> @@ -2586,7 +2586,7 @@ static int bond_ab_arp_inspect(struct bonding *bond)
->   * Called to commit link state changes noted by inspection step of
->   * active-backup mode ARP monitor.
->   *
-> - * Called with RTNL and bond->lock for read.
-> + * Called with RTNL hold.
->   */
->  static void bond_ab_arp_commit(struct bonding *bond)
->  {
-> @@ -2661,7 +2661,7 @@ do_failover:
->  /*
->   * Send ARP probes for active-backup mode ARP monitor.
->   *
-> - * Called with bond->lock held for read.
-> + * Called with rcu_read_lock hold.
->   */
->  static void bond_ab_arp_probe(struct bonding *bond)
->  {
-> @@ -2690,14 +2690,14 @@ static void bond_ab_arp_probe(struct bonding *bond)
->  	 */
->  
->  	if (!bond->current_arp_slave) {
-> -		bond->current_arp_slave = bond_first_slave(bond);
-> +		bond->current_arp_slave = bond_first_slave_rcu(bond);
->  		if (!bond->current_arp_slave)
->  			return;
->  	}
->  
->  	bond_set_slave_inactive_flags(bond->current_arp_slave);
->  
-> -	bond_for_each_slave(bond, slave, iter) {
-> +	bond_for_each_slave_rcu(bond, slave, iter) {
->  		if (!found && !before && IS_UP(slave->dev))
->  			before = slave;
->  
-> @@ -2745,43 +2745,46 @@ void bond_activebackup_arp_mon(struct work_struct *work)
->  	bool should_notify_peers = false;
->  	int delta_in_ticks;
 >  
 > -	read_lock(&bond->lock);
-> -
->  	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
->  
-> -	if (!bond_has_slaves(bond))
 > +	rcu_read_lock();
-> +
+>  
+> -	if (!bond_has_slaves(bond)) {
 > +	if (!bond_has_slaves_rcu(bond)) {
 > +		rcu_read_unlock();
+>  		bond_info->tx_rebalance_counter = 0;
+>  		bond_info->lp_counter = 0;
 >  		goto re_arm;
-> +	}
->  
->  	should_notify_peers = bond_should_notify_peers(bond);
-Again, bond_should_notify_peers() is not RCU-safe.
+If I'm not mistaken there's one more bond_for_each_slave() inside this function
+which should be converted to RCU.
 
+> @@ -1528,7 +1529,7 @@ void bond_alb_monitor(struct work_struct *work)
 >  
->  	if (bond_ab_arp_inspect(bond)) {
-> -		read_unlock(&bond->lock);
-> +		rcu_read_unlock();
+>  		read_lock(&bond->curr_slave_lock);
 >  
->  		/* Race avoidance with bond_close flush of workqueue */
->  		if (!rtnl_trylock()) {
+> -		bond_for_each_slave(bond, slave, iter) {
+> +		bond_for_each_slave_rcu(bond, slave, iter) {
+>  			tlb_clear_slave(bond, slave, 1);
+>  			if (slave == bond->curr_active_slave) {
+>  				SLAVE_TLB_INFO(slave).load =
+> @@ -1552,11 +1553,9 @@ void bond_alb_monitor(struct work_struct *work)
+>  			 * dev_set_promiscuity requires rtnl and
+>  			 * nothing else.  Avoid race with bond_close.
+>  			 */
+> -			read_unlock(&bond->lock);
+> -			if (!rtnl_trylock()) {
+> -				read_lock(&bond->lock);
+> +			rcu_read_unlock();
+> +			if (!rtnl_trylock())
+>  				goto re_arm;
+> -			}
+>  
+>  			bond_info->rlb_promisc_timeout_counter = 0;
+>  
+> @@ -1568,7 +1567,7 @@ void bond_alb_monitor(struct work_struct *work)
+>  			bond_info->primary_is_promisc = 0;
+>  
+>  			rtnl_unlock();
 > -			read_lock(&bond->lock);
->  			delta_in_ticks = 1;
->  			should_notify_peers = false;
->  			goto re_arm;
+> +			rcu_read_lock();
 >  		}
 >  
-> -		read_lock(&bond->lock);
-> -
->  		bond_ab_arp_commit(bond);
->  
-> -		read_unlock(&bond->lock);
-> +		if (should_notify_peers) {
-> +			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
-> +					bond->dev);
-> +			should_notify_peers = false;
-> +		}
-> +
->  		rtnl_unlock();
-> -		read_lock(&bond->lock);
-> +		rcu_read_lock();
+>  		if (bond_info->rlb_rebalance) {
+> @@ -1590,11 +1589,9 @@ void bond_alb_monitor(struct work_struct *work)
+>  			}
+>  		}
 >  	}
->  
->  	bond_ab_arp_probe(bond);
-Generally you might be safe in bond_ab_arp_probe() due to the synchronization
-done by netdev_rx_handler_unregister(), but this code may run after that (and
-after the unlinked slave) but before current_arp_slave is set to NULL and thus
-use it. Now I don't see a direct problem with that, only a complication that can
-bite us later. I vaguely remember that I re-worked the bond_ab_arp_probe() and
-the way current_arp_slave works when doing this transition in my patches.
-
-> +	rcu_read_unlock();
->  
->  re_arm:
->  	if (bond->params.arp_interval)
->  		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
->  
-> -	read_unlock(&bond->lock);
 > -
->  	if (should_notify_peers) {
->  		if (!rtnl_trylock())
->  			return;
-> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-> index deb9738..90b745c 100644
-> --- a/drivers/net/bonding/bonding.h
-> +++ b/drivers/net/bonding/bonding.h
-> @@ -97,6 +97,13 @@
->  		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
->  		NULL)
+> +	rcu_read_unlock();
+>  re_arm:
+>  	queue_delayed_work(bond->wq, &bond->alb_work, alb_delta_in_ticks);
+> -
+> -	read_unlock(&bond->lock);
+>  }
 >  
-> +#define bond_first_slave_rcu(bond) \
-> +	({struct list_head *__ptr = (bond_slave_list(bond)); \
-> +	 struct list_head *__next = ACCESS_ONCE(__ptr->next); \
-> +	 likely(__ptr != __next) ? \
-> +	 netdev_adjacent_get_private_rcu(__next) : NULL; \
-> +	 })
-> +
-Honestly, I don't like this, it sure can be re-written in a more
-straight-forward manner.
-
->  #define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
->  #define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
->  
+>  /* assumption: called before the slave is attached to the bond
 > 
