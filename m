@@ -1,78 +1,62 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] inet: fix a UFO regression
-Date: Thu, 7 Nov 2013 17:39:38 -0800
-Message-ID: <CAMEtUuynjTj_eteupaSx1hbZs4OyVtc=fDZAwAFSL24qK8tFLA@mail.gmail.com>
-References: <CAMEtUuzswOVA6UkPRjS-O=gOe9BLLJ5qaAG_eAd_fTqDJo8ofA@mail.gmail.com>
-	<1382674000.7572.75.camel@edumazet-glaptop.roam.corp.google.com>
-	<1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
-	<20131025.181809.348808013109842304.davem@davemloft.net>
-	<CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
-	<1382923096.13037.10.camel@edumazet-glaptop.roam.corp.google.com>
-	<1383863586.9412.101.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAMEtUuwqmUhTgeKyodGKmOxhxe23=umnfc7nouhdVrqVNnk6zQ@mail.gmail.com>
-	<1383871465.9412.118.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: [PATCH net-next v2 1/3] net_sched: tbf: support of 64bit rates
+Date: Fri, 8 Nov 2013 09:40:47 +0800
+Message-ID: <527C411F.80307@huawei.com>
+References: <1383790412-41944-1-git-send-email-yangyingliang@huawei.com> <1383790412-41944-2-git-send-email-yangyingliang@huawei.com> <527BA2E3.5090905@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:62889 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753320Ab3KHBjj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 20:39:39 -0500
-Received: by mail-wi0-f173.google.com with SMTP id ey11so1504434wid.12
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 17:39:38 -0800 (PST)
-In-Reply-To: <1383871465.9412.118.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:4117 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753320Ab3KHBlN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 20:41:13 -0500
+In-Reply-To: <527BA2E3.5090905@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 7, 2013 at 4:44 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> While testing virtio_net and skb_segment() changes, Hannes reported
-> that UFO was sending wrong frames.
->
-> It appears this was introduced by a recent commit :
-> 8c3a897bfab1 ("inet: restore gso for vxlan")
->
-> The old condition to perform IP frag was :
->
-> tunnel = !!skb->encapsulation;
-> ...
->         if (!tunnel && proto == IPPROTO_UDP) {
->
-> So the new one should be :
->
-> udpfrag = !skb->encapsulation && proto == IPPROTO_UDP;
-> ...
->         if (udpfrag) {
->
-> With help from Alexei Starovoitov
->
-> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> ---
->  net/ipv4/af_inet.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 09d78d4a3cff..f17941486ab9 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1306,7 +1306,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
->         if (IS_ERR_OR_NULL(segs))
->                 goto out;
->
-> -       udpfrag = !!skb->encapsulation && proto == IPPROTO_UDP;
-> +       udpfrag = !skb->encapsulation && proto == IPPROTO_UDP;
+On 2013/11/7 22:25, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 07-11-2013 6:13, Yang Yingliang wrote:
+> 
+>> With psched_ratecfg_precompute(), tbf can deal with 64bit rates.
+>> Add two new attributes so that tc can use them to break the 32bit
+>> limit.
+> 
+>> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+> [...]
+> 
+>> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+>> index b057122..b736517 100644
+>> --- a/net/sched/sch_tbf.c
+>> +++ b/net/sched/sch_tbf.c
+> [...]
+>> @@ -402,6 +409,13 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
+>>       opt.buffer = PSCHED_NS2TICKS(q->buffer);
+>>       if (nla_put(skb, TCA_TBF_PARMS, sizeof(opt), &opt))
+>>           goto nla_put_failure;
+>> +    if ((q->rate.rate_bytes_ps >= (1ULL << 32)) &&
+>> +            nla_put_u64(skb, TCA_TBF_RATE64, q->rate.rate_bytes_ps))
+>> +        goto nla_put_failure;
+>> +    if (q->peak_present &&
+>> +            (q->peak.rate_bytes_ps >= (1ULL << 32)) &&
+>> +            nla_put_u64(skb, TCA_TBF_PRATE64, q->peak.rate_bytes_ps))
+>> +        goto nla_put_failure;
+> 
+>    According to the networking coding style, the *if* continuation lines should start under the next character after (.
+> 
+> WBR, Sergei
 
-as we discussed this will break vxlan :)
-Please move udpfrag assignment before line:
-                segs = ops->callbacks.gso_segment(skb, features);
-since skb_udp_tunnel_segment() does skb->encapsulation = 0
-then both ufo and vxlan should be fine
-
+Got it, i'll fix in next patch.
 Thanks
-Alexei
+
+> 
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
