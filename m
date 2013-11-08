@@ -1,62 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v4 net-next] net: introduce dev_set_forwarding()
-Date: Fri, 8 Nov 2013 12:28:27 +0800
-Message-ID: <20131108042827.GB14577@gondor.apana.org.au>
-References: <1383584130.1553.2.camel@bwh-desktop.uk.level5networks.com>
- <20131107.161755.355597965034457889.davem@davemloft.net>
- <20131107213111.GA6885@gondor.apana.org.au>
- <20131107.170651.1819930710384730745.davem@davemloft.net>
- <20131108021758.GA13467@gondor.apana.org.au>
- <1383878554.9412.153.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131108032208.GA14056@gondor.apana.org.au>
- <1383883594.9412.158.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131108041016.GB14325@gondor.apana.org.au>
- <1383884683.9412.174.camel@edumazet-glaptop2.roam.corp.google.com>
+From: wangweidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH net-next 3/5] sctp: if we done update ssnmap, free the
+ new ssnmap
+Date: Fri, 8 Nov 2013 12:30:24 +0800
+Message-ID: <527C68E0.40602@huawei.com>
+References: <1383879310-22792-1-git-send-email-wangweidong1@huawei.com> <1383879310-22792-4-git-send-email-wangweidong1@huawei.com> <527C5F3E.3090200@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <dingtianhong@huawei.com>, <davem@davemloft.net>,
+	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>, <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:39768 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753148Ab3KHE2e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 23:28:34 -0500
-Content-Disposition: inline
-In-Reply-To: <1383884683.9412.174.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:58816 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750923Ab3KHEbB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 23:31:01 -0500
+In-Reply-To: <527C5F3E.3090200@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 07, 2013 at 08:24:43PM -0800, Eric Dumazet wrote:
-> On Fri, 2013-11-08 at 12:10 +0800, Herbert Xu wrote:
+On 2013/11/8 11:49, Vlad Yasevich wrote:
+> On 11/07/2013 09:55 PM, Wang Weidong wrote:
+>> I found that free the old parameters after update the peer parameters.
+>> So we should free the new ssnmap which not updated.
+>>
+>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>> ---
+>>   net/sctp/associola.c | 4 ++++
+>>   1 file changed, 4 insertions(+)
+>>
+>> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+>> index 2d53d4c..bca1ad1 100644
+>> --- a/net/sctp/associola.c
+>> +++ b/net/sctp/associola.c
+>> @@ -1223,6 +1223,10 @@ void sctp_assoc_update(struct sctp_association *asoc,
+>>           }
+>>       }
+>>
+>> +    /* if we don't update the ssnmap, we should free it. */
+>> +    if (new->ssnmap)
+>> +        sctp_ssnmap_free(new->ssnmap);
+>> +
+>>       /* SCTP-AUTH: Save the peer parameters from the new assocaitions
+>>        * and also move the association shared keys over
+>>        */
+>>
 > 
-> > Well you still don't seem to be getting this: If you need it for
-> > the host then you will need it even more for virt because the
-> > network stack there is much longer.
-> > 
-> > So having it only available to the host without also giving it
-> > to virt makes *zero* sense.
+> Not necessary.  This will be done when the 'new' association is destroyed.
 > 
-> I am fine with this, but how can we know the packet is going to be
-> delivered to virt instead of forwarded to ethernet ?
+> -vlad
+>
 
-That's the crux of our disagreement :)
+Yeah, it is not necessary done in sctp_assoc_update.
+Thanks. 
 
-My preference is that if we can make it work at least as good
-as before (if not better) in the forwarding case then we won't
-need to care.
-
-And so far I haven't seen any convincing argument why this cannot
-be fixed in the forwarding case.
-
-> Do we want the equivalent of 'IP early demux', done at GRO layer ? ;)
-
-Won't help because the virt guest may end up forwarding the packet
-anyway and you can't rely on it telling you that.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
