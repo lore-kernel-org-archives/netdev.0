@@ -1,62 +1,44 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not
- ipsec pkt
-Date: Fri, 8 Nov 2013 12:01:01 +0100
-Message-ID: <20131108110101.GR31491@secunet.com>
-References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
- <1383725153-26298-1-git-send-email-christophe.gouault@6wind.com>
- <20131107112549.GP31491@secunet.com>
- <527B8DC5.6080702@6wind.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net-next v2 2/3] net_sched: fix some checkpatch errors
+Date: Fri, 08 Nov 2013 12:04:16 +0100
+Message-ID: <87ob5vf93j.fsf@nemi.mork.no>
+References: <1383790412-41944-1-git-send-email-yangyingliang@huawei.com>
+	<1383790412-41944-3-git-send-email-yangyingliang@huawei.com>
+	<527B5160.5070700@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Saurabh Mohan <saurabh.mohan@vyatta.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Christophe Gouault <christophe.gouault@6wind.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yang Yingliang <yangyingliang@huawei.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, eric.dumazet@gmail.com, jhs@mojatatu.com,
+	stephen@networkplumber.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:37426 "EHLO a.mx.secunet.com"
+Received: from canardo.mork.no ([148.122.252.1]:43987 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754117Ab3KHLBF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Nov 2013 06:01:05 -0500
-Content-Disposition: inline
-In-Reply-To: <527B8DC5.6080702@6wind.com>
+	id S1757116Ab3KHLGC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 06:06:02 -0500
+In-Reply-To: <527B5160.5070700@redhat.com> (Daniel Borkmann's message of "Thu,
+	07 Nov 2013 09:37:52 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 07, 2013 at 01:55:33PM +0100, Christophe Gouault wrote:
-> Hello Steffen,
-> 
-> I am also interested in knowing Saurabh's intentions regarding the
-> behavior of policies bound to vti interfaces.
-> 
-> However, please note that setting a policy with a wildcard selector
-> works in both cases (before or after this patch), so a common test
-> case can be defined.
+Daniel Borkmann <dborkman@redhat.com> writes:
+> On 11/07/2013 03:13 AM, Yang Yingliang wrote:
+>
+>> @@ -263,7 +264,7 @@ void tcf_hash_insert(struct tcf_common *p, struc=
+t tcf_hashinfo *hinfo)
+>>   }
+>>   EXPORT_SYMBOL(tcf_hash_insert);
+>>
+>> -static struct tc_action_ops *act_base =3D NULL;
+>> +static struct tc_action_ops *act_base;
+>
+> From a readability point of view, I think this makes it worse, also t=
+he other places
+> where you change globals vars like that.
 
-Yes, I looked at the Cisco vti documents but all examples I found use
-wildcard selectors which work for both. So I'm still not sure which
-version is the right one. Let's wait on Saurabh's explaination.
+Then you should probably argue for a change to checkpatch. It will make
+a lot of noise about such unnecessary initialization.
 
-> 
-> Actually the *previous* patch on vti (7263a5187f9e vti: get rid of
-> nf mark rule in prerouting) introduced significant changes, and
-> implies behaviors dependant on the kernel version, but it seemed to
-> meet Saurabh's agreement, as the following thread witnesses:
-> 
-> http://www.spinics.net/lists/netdev/msg253134.html
 
-I've just noticed that this went to the stable trees. People who
-update a stable kernel want (security) fixes in the first place,
-they don't want to change their configuration on the IPsec gateways.
-So I think patches that require a configuration change should better
-go to net-next, unless it's a urgent fix.
-
-I was not on Cc and it looks like I've overlooked this on the list.
-The vti interfaces are pure IPsec interfaces, so perhaps we should
-add them to the IPsec section in the maintainers file (maybe together
-with the main IPsec protocols esp, ah and ipcomp, which are also not
-listed there).
-
-David, would you agree with such a patch?
+Bj=C3=B8rn
