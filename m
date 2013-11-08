@@ -1,77 +1,70 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: Re: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not
- ipsec pkt
-Date: Fri, 08 Nov 2013 13:55:24 +0100
-Message-ID: <527CDF3C.5060308@6wind.com>
-References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>	<1383725153-26298-1-git-send-email-christophe.gouault@6wind.com>	<20131107112549.GP31491@secunet.com> <20131107.181723.1978438697370768133.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC] tcp: randomize TCP source ports
+Date: Fri, 8 Nov 2013 14:02:44 +0100
+Message-ID: <20131108130244.GE5876@order.stressinduktion.org>
+References: <1383872049.9412.124.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	saurabh.mohan@vyatta.com, sergei.shtylyov@cogentembedded.com,
-	eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>, steffen.klassert@secunet.com
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:37193 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756872Ab3KHMz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 07:55:28 -0500
-Received: by mail-wi0-f180.google.com with SMTP id ey11so2117465wid.1
-        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 04:55:27 -0800 (PST)
-In-Reply-To: <20131107.181723.1978438697370768133.davem@davemloft.net>
+Received: from order.stressinduktion.org ([87.106.68.36]:58066 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757086Ab3KHNCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 08:02:46 -0500
+Content-Disposition: inline
+In-Reply-To: <1383872049.9412.124.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On Thu, Nov 07, 2013 at 04:54:09PM -0800, Eric Dumazet wrote:
+> TCP does proper randomization of ports on active connections only if
+> bind() is used between socket() and connect()
+> 
+> If bind() is not specifically used, kernel performs autobind, and TCP
+> autobind typically uses a sequential allocation for a given (dst
+> address, dst port, src address) tuple.
+> 
+> UDP autobind does a randomization, as part of the effort to make DNS
+> more secure.
 
-On 11/08/2013 12:17 AM, David Miller wrote:
-> From: Steffen Klassert <steffen.klassert@secunet.com>
-> Date: Thu, 7 Nov 2013 12:25:49 +0100
->
->> On Wed, Nov 06, 2013 at 09:05:53AM +0100, Christophe Gouault wrote:
->>> The vti interface inbound and outbound SPD lookups are based on the
->>> ipsec packet instead of the plaintext packet.
->>>
->>> Not only is it counterintuitive, it also restricts vti interfaces
->>> to a single policy (whose selector must match the tunnel local and
->>> remote addresses).
->>>
->>> The policy selector is supposed to match the plaintext packet, before
->>> encryption or after decryption.
->>>
->>> This patch performs the SPD lookup based on the plaintext packet. It
->>> enables to create several polices bound to the vti interface (via a
->>> mark equal to the vti interface okey).
->>>
->>> It remains possible to apply the same policy to all packets entering
->>> the vti interface, by setting an any-to-any selector (src 0.0.0.0/0
->>> dst 0.0.0.0/0 proto any mark OKEY).
->>>
->>> Signed-off-by: Christophe Gouault <christophe.gouault@6wind.com>
->> Hm, this patch breaks my current vti test setup. I would need to
->> configure the policies and states dependent on the kernel version
->> if we apply this patch...
->>
->> It would be good to hear from the original author of the vti code
->> whether the current behaviour is intentional before we do anything
->> here.
-> I'm disappointed that we're breaking IPSEC semantics several times.
-> This really isn't acceptable at all, not even remotely.
-I understand your disappointment, however this patch precisely aims at 
-*restoring* theIPsec semantics:
-the original vti code uses the SP selector to match the ipsec encrypted 
-packetinstead of the plaintext packet, which is contrary to the IPsec 
-semantics.
-> The fact that a developer has a configuration he was actually
-> using, and would be broken by this patch, says to me that there
-> is absolutely no way I can apply this.
-As wrote Steffen Klassert, it would be good to hear from the original 
-author ofthe vti code (Saurabh Mohan) whether the current behaviour is 
-intentional.
+If I understand the code correctly the UDP ports are fully randomized? This
+is good as per-peer randomization and then incrementation seems to be
+theoretically broken:
 
-It would also be good to know how many people currently use vti, but my 
-feeling is that vti is still at an experimental stage.
+<https://sites.google.com/site/hayashulman/files/NIC-derandomisation.pdf>
 
-Best Regards,
-Christophe
-> Sorry.
+Looking at the code I somehow would like to check the use of net_random there.
+The prandom function is reseeded as late_initcall and then only seeded by some
+network addresses.
+
+At the time the late_initcall reseeds the PRNG my tests have shown that
+the nonblockingpool was still not fully initialized where the PRNG gets
+reseeded from.
+
+Hm, I propose a patch which does reseed the pool as soon as the nonblocking
+pool got credited enough entropy in credit_entropy_bits. This should help
+later binds().
+
+> TCP autobind uses a global sequential number (called @hint in source
+> code) with a perturbation done by secure_ipv4_port_ephemeral(),
+>  so that the 'hint' of the next port is per (saddr, daddr, dport) tuple
+> 
+> This was probably done to maximize port use and avoid hitting timewait
+> sockets, but I think it should be OK to replace this stuff by a random
+> selection to have more entropy in the various flow hashing functions,
+> and in general higher security levels. TCP timestamps are now well
+> deployed.
+
+We recently had a thread that Windows (since Vista?) disabled tcp
+timestamps by default. But I don't see how this should make a great
+difference (and still wonder why they give up PAWS.)
+
+> Patch would be trivial, but I'd like to get some comments if
+> you think this idea is wrong.
+
+I would like to see this happening.
+
+Thanks,
+
+  Hannes
