@@ -1,36 +1,57 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] libertas_usb: fix leak at failure path in if_usb_probe()
-Date: Sat,  9 Nov 2013 01:57:03 +0400
-Message-ID: <1383947823-8670-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ldv-project@linuxtesting.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH net] net: sch_red: Fix race between timer and red_destroy()
+Date: Fri, 8 Nov 2013 13:59:19 -0800
+Message-ID: <CAGK4HS8SoXAGM-zgbofQp+Cy19Z0doQafvYceePt_kM9CEchYQ@mail.gmail.com>
+References: <1383617296-20273-1-git-send-email-subramanian.vijay@gmail.com>
+	<20131105.221633.636594084725891709.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f170.google.com ([209.85.128.170]:62570 "EHLO
+	mail-ve0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757926Ab3KHV7T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 16:59:19 -0500
+Received: by mail-ve0-f170.google.com with SMTP id oy12so1908823veb.15
+        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 13:59:19 -0800 (PST)
+In-Reply-To: <20131105.221633.636594084725891709.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Error handling code in if_usb_probe() misses usb_put_dev(udev).
+> del_timer_sync() waits for all instances of the timer handler which
+> are running to complete, and then it deletes the timer from any of
+> the scheduled timer lists.
+>
+> Your patch is making the mod_timer() in the timer handler conditional,
+> and this really shouldn't be necessary.
+>
+> The whole point of del_timer_sync() is to address these kinds of
+> situations.
 
-Found by Linux Driver Verification project (linuxtesting.org).
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/wireless/libertas/if_usb.c | 1 +
- 1 file changed, 1 insertion(+)
+Thanks for the explanation Dave. I am trying to reconcile your
+explanation with the text above del_timer_sync()
+vim +1013 kernel/timer.c
 
-diff --git a/drivers/net/wireless/libertas/if_usb.c b/drivers/net/wireless/libertas/if_usb.c
-index 2798077..7aec7b2 100644
---- a/drivers/net/wireless/libertas/if_usb.c
-+++ b/drivers/net/wireless/libertas/if_usb.c
-@@ -285,6 +285,7 @@ static int if_usb_probe(struct usb_interface *intf,
- 	return 0;
- 
- err_get_fw:
-+	usb_put_dev(udev);
- 	lbs_remove_card(priv);
- err_add_card:
- 	if_usb_reset_device(cardp);
--- 
-1.8.1.2
+" * This function only differs from del_timer() on SMP: besides deactivating
+ * the timer it also makes sure the handler has finished executing on other
+ * CPUs.
+ *
+ * Synchronization rules: Callers must prevent restarting of the timer,
+ * otherwise this function is meaningless.  ..."
+
+This seems to suggest simply calling del_timer_sync() is not enough.
+In fact, for the same reason  I was recently pointed towards
+commit 980c478ddbb72 (sch_sfq: use del_timer_sync() in sfq_destroy() )
+and I based the patch on how q->perturb_period is reset in
+sfq_destroy() and used in sfq_perturbation().
+
+Based on your explanation , I think we do not need (in sched/sch_sfq.c)
+q->perturb_period = 0;  in sfq_destroy() and just del_timer_sync()
+should be enough.
+
+Thanks,
+Vijay
