@@ -1,46 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Using HTB over MultiQ
-Date: Fri, 08 Nov 2013 12:01:10 -0800
-Message-ID: <1383940870.16391.0.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>
-	 <1383833480.9412.58.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1383834021.9412.61.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <527BA63F.7040900@intel.com>
-	 <CAEzD07JwrnqeB35BiTC2ztpyei2KNDtYO8zuewicKNBwyxmOtQ@mail.gmail.com>
-	 <1383923220.9412.236.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <527CFF2C.2020605@intel.com>
-	 <1383933329.9412.243.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] netlink: fix netlink_ack with large messages
+Date: Fri, 08 Nov 2013 15:07:41 -0500 (EST)
+Message-ID: <20131108.150741.966018155704146843.davem@davemloft.net>
+References: <9333f540a9b87adbdd15e274d12a9d60994fdb34.1383850578.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>,
-	netdev@vger.kernel.org
-To: John Fastabend <john.r.fastabend@intel.com>
+Cc: netdev@vger.kernel.org, pablo@netfilter.org
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:46625 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757444Ab3KHUBO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 15:01:14 -0500
-Received: by mail-pb0-f49.google.com with SMTP id um1so606604pbc.8
-        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 12:01:14 -0800 (PST)
-In-Reply-To: <1383933329.9412.243.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36807 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757582Ab3KHUHn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 15:07:43 -0500
+In-Reply-To: <9333f540a9b87adbdd15e274d12a9d60994fdb34.1383850578.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-11-08 at 09:55 -0800, Eric Dumazet wrote:
+From: Jiri Benc <jbenc@redhat.com>
+Date: Thu,  7 Nov 2013 19:57:45 +0100
 
-> I do not think so : following does not work.
+> Commit c05cdb1b864f ("netlink: allow large data transfers from user-space")
+> does not handle cases where netlink_ack is used to report an error. In such
+> case, the original message is copied to the ack message, which needs to be
+> large enough.
 > 
-> for ETH in eth0
-> do
->  tc qd del dev $ETH root 2>/dev/null
-> 
->  tc qd add dev $ETH root handle 100: mq 
->  for i in `seq 1 4`
->  do
->   tc qd add dev $ETH parent 100:$i handle $i htb
->  done
-> done
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
 
-Humpf, I forgot a "default 1" on htb qdisc creation, sorry for the
-noise ;)
+I have two problems with this change.
+
+First of all, if netlink_ack() has this problem, do not extend the
+netlink_alloc_large_skb() usage to dumps too as your patch is
+doing here.
+
+Secondly, it seems sort of over the top to quote such enormous
+messages, and in fact wasteful.  We have the sequence number in
+the netlink header, so the user can tell exactly which message
+we are erroring.
+
+Just quoting such huge requests in ACKs by default doesn't seem
+to make any sense.  I would say that we should have a way to
+turn off the quoting, or at least limit it, and turn this knob
+off for things like nftables that can hit these kinds of cases.
+
+Pablo, what do you think?
