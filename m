@@ -1,46 +1,54 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: iproute2: potential upgrade regression with 58a3e827
-Date: Fri, 08 Nov 2013 14:42:20 -0800
-Message-ID: <87wqkiy0qb.fsf@xmission.com>
-References: <527D2768.1030403@canonical.com> <87k3gi4lub.fsf@xmission.com>
-	<527D65FB.8000407@canonical.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: Using HTB over MultiQ
+Date: Fri, 08 Nov 2013 15:11:34 -0800
+Message-ID: <527D6FA6.5040508@intel.com>
+References: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>  <1383833480.9412.58.camel@edumazet-glaptop2.roam.corp.google.com>  <1383834021.9412.61.camel@edumazet-glaptop2.roam.corp.google.com>  <527BA63F.7040900@intel.com>  <CAEzD07JwrnqeB35BiTC2ztpyei2KNDtYO8zuewicKNBwyxmOtQ@mail.gmail.com>  <1383923220.9412.236.camel@edumazet-glaptop2.roam.corp.google.com>  <527CFF2C.2020605@intel.com>  <CAEzD07LmgvvfNhNuxzwjy7fxLsCBLiofeXJ61qbdOBQCiSRefw@mail.gmail.com> <1383947802.16391.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
-To: Chris J Arges <chris.j.arges@canonical.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:42356 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758023Ab3KHWmc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 17:42:32 -0500
-In-Reply-To: <527D65FB.8000407@canonical.com> (Chris J. Arges's message of
-	"Fri, 08 Nov 2013 16:30:19 -0600")
+Received: from mga03.intel.com ([143.182.124.21]:57369 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757919Ab3KHXLp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Nov 2013 18:11:45 -0500
+In-Reply-To: <1383947802.16391.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris J Arges <chris.j.arges@canonical.com> writes:
+On 11/8/2013 1:56 PM, Eric Dumazet wrote:
+> On Fri, 2013-11-08 at 19:53 +0400, Anton 'EvilMan' Danilov wrote:
+>
+>> Hm.. I think I need another way to classify packets for using of mq
+>> qdisc, because it don't support classify at root (not supported error
+>> on try attach filter).
+>
+> I think it might be time to add filters on the device, and run them
+> without any lock (rcu protection only)
+>
+> John, I think you had some previous work ?
 
-> Fair enough. I really wanted to get a feel if this seemed like an actual
-> bug, or rather it's behaving like we'd expect. I don't mind writing
-> code, but I want to know if I'm hunting a bug, or adding a feature.
+Yes, I have a net-next fork with this but I currently introduced a bug
+in the u32 classifier. I'll resurrect this next week and send something
+out. We can take a look and see if its useful.
 
-Making it ip netns add work reliably inside of ip netns exec and
-handling all of the permutations is adding a feature.
+>
+>> On next week i'll try to write ipset extension for setting of priority
+>> and queue_mapping value through the IPSET netfilter target.
+>
+> Sounds a nice idea as well.
+>
 
-Understanding why ip netns exec is failing in your specific case sounds
-like there may be a missing error message.  Clearly you get into a
-context where /var/run/netns/netns_old is no the bind mount we would
-expect it to be.
+Another thought would be to put a netfilter hook above the qdisc and on
+ingress (not in the bridge module). I've been meaning to take a look
+at nftables I'm not sure how much duplication exists between nftables
+and tc classifiers at this point.
 
-I saw nothing that should unmake /var/run/netns/nnetns_old  as a mount
-point.  So something strange is going on.
-
-So you might want to go through and inspect to see what is happening.
-Perhaps there is a missing error message somewhere.
-
-Without understanding why that mountpoint fails to exist I can't say if
-it is a real bug or if it just something weird caused by using an ip
-netns exec it was not designed to be used and is known not to be 100%
-robust in.
-
-Eric
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
