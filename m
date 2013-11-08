@@ -1,38 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix "ip rule delete table 256"
-Date: Fri, 08 Nov 2013 14:54:01 -0500 (EST)
-Message-ID: <20131108.145401.703012257935119294.davem@davemloft.net>
-References: <20131107172638.GA6110@amd64.fatal.se>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Using HTB over MultiQ
+Date: Fri, 08 Nov 2013 12:01:10 -0800
+Message-ID: <1383940870.16391.0.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>
+	 <1383833480.9412.58.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1383834021.9412.61.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <527BA63F.7040900@intel.com>
+	 <CAEzD07JwrnqeB35BiTC2ztpyei2KNDtYO8zuewicKNBwyxmOtQ@mail.gmail.com>
+	 <1383923220.9412.236.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <527CFF2C.2020605@intel.com>
+	 <1383933329.9412.243.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@networkplumber.org
-To: andreas@fatal.se
+Cc: Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>,
+	netdev@vger.kernel.org
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36655 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757668Ab3KHTyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 14:54:03 -0500
-In-Reply-To: <20131107172638.GA6110@amd64.fatal.se>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:46625 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757444Ab3KHUBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 15:01:14 -0500
+Received: by mail-pb0-f49.google.com with SMTP id um1so606604pbc.8
+        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 12:01:14 -0800 (PST)
+In-Reply-To: <1383933329.9412.243.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Henriksson <andreas@fatal.se>
-Date: Thu, 7 Nov 2013 18:26:38 +0100
+On Fri, 2013-11-08 at 09:55 -0800, Eric Dumazet wrote:
 
-> When trying to delete a table >= 256 using iproute2 the local table
-> will be deleted.
-> The table id is specified as a netlink attribute when it needs more then
-> 8 bits and iproute2 then sets the table field to RT_TABLE_UNSPEC (0).
-> Preconditions to matching the table id in the rule delete code
-> doesn't seem to take the "table id in netlink attribute" into condition
-> so the frh_get_table helper function never gets to do its job when
-> matching against current rule.
-> Use the helper function twice instead of peaking at the table value directly.
+> I do not think so : following does not work.
 > 
-> Originally reported at: http://bugs.debian.org/724783
+> for ETH in eth0
+> do
+>  tc qd del dev $ETH root 2>/dev/null
 > 
-> Reported-by: Nicolas HICHER <nhicher@avencall.com>
-> Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+>  tc qd add dev $ETH root handle 100: mq 
+>  for i in `seq 1 4`
+>  do
+>   tc qd add dev $ETH parent 100:$i handle $i htb
+>  done
+> done
 
-Good catch, applied and queued up for -stable, thanks!
+Humpf, I forgot a "default 1" on htb qdisc creation, sorry for the
+noise ;)
