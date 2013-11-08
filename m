@@ -1,44 +1,34 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next v2 0/4] sctp: do some clean ups
-Date: Fri, 8 Nov 2013 07:31:19 -0500
-Message-ID: <20131108123119.GD4819@hmsreliant.think-freely.org>
-References: <1383891471-20892-1-git-send-email-wangweidong1@huawei.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 2/3] ipv6: increase maximum lifetime of flow labels
+Date: Fri, 8 Nov 2013 13:34:38 +0100
+Message-ID: <20131108123438.GC5876@order.stressinduktion.org>
+References: <1383843194-22945-1-git-send-email-florent.fourcot@enst-bretagne.fr> <1383843194-22945-2-git-send-email-florent.fourcot@enst-bretagne.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vyasevich@gmail.com, davem@davemloft.net, dingtianhong@huawei.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: Wang Weidong <wangweidong1@huawei.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41906 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752830Ab3KHMbY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 07:31:24 -0500
+Received: from order.stressinduktion.org ([87.106.68.36]:58001 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751221Ab3KHMej (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 07:34:39 -0500
 Content-Disposition: inline
-In-Reply-To: <1383891471-20892-1-git-send-email-wangweidong1@huawei.com>
+In-Reply-To: <1383843194-22945-2-git-send-email-florent.fourcot@enst-bretagne.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 08, 2013 at 02:17:47PM +0800, Wang Weidong wrote:
-> This patch series include: remove the duplicate initialize,                                                                                                
-> make code simple, convert func to boolean, fix some typos.
+On Thu, Nov 07, 2013 at 05:53:13PM +0100, Florent Fourcot wrote:
+> If the last RFC 6437 does not give any constraints
+> for lifetime of flow labels, the previous RFC 3697
+> spoke of a minimum of 120 seconds between
+> reattribution of a flow label.
 > 
-> v1 -> v2:
->   - patch2: make the code more simplification, as suggested
->     by Joe Perches.
+> The maximum linger is currently set to 60 seconds
+> and does not allow this configuration without
+> CAP_NET_ADMIN right.
 > 
-> Wang Weidong (4):
->   sctp: remove the duplicate initialize
->   sctp: remove the else path
->   sctp: convert sctp_peer_needs_update to boolean
->   sctp: fix some comments in associola.c
-> 
->  net/sctp/associola.c | 65 ++++++++--------------------------------------------
->  1 file changed, 10 insertions(+), 55 deletions(-)
-> 
-> -- 
-> 1.7.12
-> 
-> 
-> 
+> This patch increase the maximum linger to 150
+> seconds, allowing more flexibility to standard
+> users.
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
