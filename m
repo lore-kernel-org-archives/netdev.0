@@ -1,45 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] tcp: randomize TCP source ports
-Date: Thu, 07 Nov 2013 18:04:54 -0800
-Message-ID: <1383876294.9412.136.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1383872049.9412.124.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <527C3942.509@hp.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 0/10] bonding: rebuild the lock use for bond monitor
+Date: Fri, 8 Nov 2013 10:07:36 +0800
+Message-ID: <527C4768.3010909@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:33124 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752511Ab3KHCE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:04:57 -0500
-Received: by mail-pd0-f170.google.com with SMTP id v10so1463369pde.29
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 18:04:57 -0800 (PST)
-In-Reply-To: <527C3942.509@hp.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:1606 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755555Ab3KHCIN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:08:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-07 at 17:07 -0800, Rick Jones wrote:
+Now the bond slave list is not protected by bond lock, only by RTNL,
+but the monitor still use the bond lock to protect the slave list,
+it is useless, according to the Veaceslav's opinion, there were
+three way to fix the protect problem:
 
-> For perhaps most definitions of well deployed.  There is at least one 
-> load balancer which, while it offers TCP Window Scaling, does not also 
-> offer TCP Time Stamps...
-> 
-> By rights they should (must) be offering TCP Time Stamps, and they are, 
-> I am told, "working on it."
-> 
-> Is all going to be "well" when it is the (non-Linux) remote system which 
-> has the TIME_WAIT endpoint?
+1. add bond_master_upper_dev_link() and bond_upper_dev_unlink()
+   in bond->lock, but it is unsafe to call call_netdevice_notifiers()
+   in write lock.
+2. remove unused bond->lock for monitor function, only use the exist
+   rtnl lock(), it will take performance loss in fast path.
+3. use RCU to protect the slave list, of course, performance is better,
+   but in slow path, it is ignored.
 
-Hey, tell us why netperf does a bind(port=0, addr=ANY) and SO_REUSEADDR
-tricks before connect()
+obviously the solution 1 is not fit here, I will consider the 2 and 3
+solution. My principle is simple, if in fast path, RCU is better,
+otherwise in slow path, both is well, but according to the Jay Vosburgh's
+opinion, the monitor will loss performace if use RTNL to protect the all
+slave list, so remove the bond lock and replace with RCU.
 
-It seems you do request randomization, but you do not want it for
-applications written by innocent people...
+The second problem is the curr_slave_lock for bond, it is too old and
+unwanted in many place, because the curr_active_slave would only be
+changed in 3 place:
 
-Current implementation is lazy at best, as a single @hint variable is
-shared for all cpus, all users, so at moderate load there is actually no
-guarantee of sequential allocations.
+1. enslave slave.
+2. release slave.
+3. change active slave.
 
-RFC 6056 has an interesting list of alternatives
+all above were already holding bond lock, RTNL and curr_slave_lock
+together, it is tedious and no need to add so mach lock, when change
+the curr_active_slave, you have to hold the RTNL and curr_slave_lock
+together, and when you read the curr_active_slave, RTNL or curr_slave_lock,
+any one of them is no problem.
+
+for the stability, I did not change the logic for the monitor,
+all change is clear and simple, I have test the patch set for lockdep,
+it work well and stability.
+
+v2. accept the Jay Vosburgh's opinion, remove the RTNL and replace with RCU,
+    also add some rcu function for bond use, so the patch set reach 10.
+
+Best Regards
+Ding Tianhong
+
+Ding Tianhong (10):
+  bonding: remove the no effect lock for bond_select_active_slave()
+  bonding: rebuild the lock use for bond_mii_monitor()
+  bonding: rebuild the lock use for bond_alb_monitor()
+  bonding: rebuild the lock use for bond_loadbalance_arp_mon()
+  net: add and export netdev_adjacent_get_private_rcu()
+  bonding: rebuild the lock use for bond_activebackup_arp_mon()
+  bonding: rebuild the lock use for bond_3ad_state_machine_handler()
+  bonding: remove unwanted lock for bond_option_active_slave_set()
+  bonding: remvoe unwanted lock for bond enslave and release
+  bonding: remove unwanted lock for bond_store_primaryxxx()
+
+ drivers/net/bonding/bond_3ad.c     |  21 +++---
+ drivers/net/bonding/bond_alb.c     |  33 ++++-----
+ drivers/net/bonding/bond_main.c    | 137 +++++++++++++++++--------------------
+ drivers/net/bonding/bond_options.c |   2 -
+ drivers/net/bonding/bond_sysfs.c   |   4 --
+ drivers/net/bonding/bonding.h      |  13 ++++
+ include/linux/netdevice.h          |   1 +
+ net/core/dev.c                     |  10 +++
+ 8 files changed, 108 insertions(+), 113 deletions(-)
+
+-- 
+1.8.2.1
