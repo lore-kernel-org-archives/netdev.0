@@ -1,32 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4_en: Fixed crash when port type is changed
-Date: Thu, 07 Nov 2013 19:14:18 -0500 (EST)
-Message-ID: <20131107.191418.2145129150067281446.davem@davemloft.net>
-References: <1383815310-19116-1-git-send-email-amirv@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com
-To: amirv@mellanox.com
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH v2.48 3/4] datapath: Break out deacceleration portion of vlan_push
+Date: Fri,  8 Nov 2013 09:17:10 +0900
+Message-ID: <1383869831-9426-4-git-send-email-horms@verge.net.au>
+References: <1383869831-9426-1-git-send-email-horms@verge.net.au>
+Cc: Pravin B Shelar <pshelar@nicira.com>, Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Joe Stringer <joe@wand.net.nz>
+To: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>, Ben Pfaff <blp@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56624 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755102Ab3KHAOU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 19:14:20 -0500
-In-Reply-To: <1383815310-19116-1-git-send-email-amirv@mellanox.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:55590 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753584Ab3KHART (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 19:17:19 -0500
+In-Reply-To: <1383869831-9426-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Thu,  7 Nov 2013 11:08:30 +0200
+Break out deacceleration portion of vlan_push into vlan_put
+so that it may be re-used by mpls_push.
 
-> timecounter_init() was was called only after first potential
-> timecounter_read().
-> Moved mlx4_en_init_timestamp() before mlx4_en_init_netdev()
-> 
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-> ---
-> Please pull into -stable for kernels >= 3.10
+For both vlan_push and mpls_push if there is an accelerated VLAN tag
+present then it should be deaccelerated, adding it to the data of
+the skb, before the new tag is added.
 
-Applied and queued up for -stable, thanks.
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+---
+
+v2.41 - v2.48
+* No change
+
+v2.40
+* As suggested by Jesse Gross
+  + Simplify vlan_push by returning an error code
+    rather than an error code encoded as a struct xkb_buff *
+
+v2.39
+* First post
+---
+ datapath/actions.c | 28 ++++++++++++++++++----------
+ 1 file changed, 18 insertions(+), 10 deletions(-)
+
+diff --git a/datapath/actions.c b/datapath/actions.c
+index 30ea1d2..ee2456b 100644
+--- a/datapath/actions.c
++++ b/datapath/actions.c
+@@ -105,21 +105,29 @@ static int pop_vlan(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
++/* push down current VLAN tag */
++static int put_vlan(struct sk_buff *skb)
+ {
+-	if (unlikely(vlan_tx_tag_present(skb))) {
+-		u16 current_tag;
++	u16 current_tag = vlan_tx_tag_get(skb);
+ 
+-		/* push down current VLAN tag */
+-		current_tag = vlan_tx_tag_get(skb);
++	if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
++		return -ENOMEM;
+ 
+-		if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
+-			return -ENOMEM;
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		skb->csum = csum_add(skb->csum, csum_partial(skb->data
++				+ (2 * ETH_ALEN), VLAN_HLEN, 0));
+ 
+-		if (skb->ip_summed == CHECKSUM_COMPLETE)
+-			skb->csum = csum_add(skb->csum, csum_partial(skb->data
+-					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
++	return 0;
++}
++
++static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
++{
++	if (unlikely(vlan_tx_tag_present(skb))) {
++		int err;
+ 
++		err = put_vlan(skb);
++		if (unlikely(err))
++			return err;
+ 	}
+ 	__vlan_hwaccel_put_tag(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
+ 	return 0;
+-- 
+1.8.4
