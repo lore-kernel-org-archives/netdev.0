@@ -1,156 +1,89 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 9/10] bonding: remvoe unwanted lock for bond enslave
- and release
-Date: Fri, 8 Nov 2013 10:08:19 +0800
-Message-ID: <527C4793.5060306@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net-next] inet: fix a UFO regression
+Date: Thu, 07 Nov 2013 18:32:06 -0800
+Message-ID: <1383877926.9412.145.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAMEtUuzswOVA6UkPRjS-O=gOe9BLLJ5qaAG_eAd_fTqDJo8ofA@mail.gmail.com>
+	 <1382674000.7572.75.camel@edumazet-glaptop.roam.corp.google.com>
+	 <1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
+	 <20131025.181809.348808013109842304.davem@davemloft.net>
+	 <CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
+	 <1382923096.13037.10.camel@edumazet-glaptop.roam.corp.google.com>
+	 <1383863586.9412.101.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAMEtUuwqmUhTgeKyodGKmOxhxe23=umnfc7nouhdVrqVNnk6zQ@mail.gmail.com>
+	 <1383871465.9412.118.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:8833 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932465Ab3KHCSt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:18:49 -0500
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:52794 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932391Ab3KHCcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:32:14 -0500
+Received: by mail-pd0-f172.google.com with SMTP id w10so1475012pde.31
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 18:32:13 -0800 (PST)
+In-Reply-To: <1383871465.9412.118.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_change_active_slave() and bond_select_active_slave()
-do't need bond lock anymore, so remove the unwanted bond lock
-for these two functions.
+From: Eric Dumazet <edumazet@google.com>
 
-The bond_select_active_slave() will release and acquire
-curr_slave_lock, so the curr_slave_lock need to protect
-the function.
+While testing virtio_net and skb_segment() changes, Hannes reported
+that UFO was sending wrong frames.
 
-In bond enslave and bond release, the bond slave list is also
-protected by RTNL, so bond lock is no need to exist, remove
-the lock and clean the functions.
+It appears this was introduced by a recent commit :
+8c3a897bfab1 ("inet: restore gso for vxlan")
 
-Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
-Suggested-by: Veaceslav Falico <vfalico@redhat.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+The old condition to perform IP frag was :
+
+tunnel = !!skb->encapsulation;
+...
+        if (!tunnel && proto == IPPROTO_UDP) {
+
+So the new one should be :
+
+udpfrag = !skb->encapsulation && proto == IPPROTO_UDP;
+...
+        if (udpfrag) {
+
+Initialization of udpfrag must be done before call
+to ops->callbacks.gso_segment(skb, features), as
+skb_udp_tunnel_segment() clears skb->encapsulation
+
+(We want udpfrag to be true for UFO, false for VXLAN)
+
+With help from Alexei Starovoitov
+
+Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Alexei Starovoitov <ast@plumgrid.com>
 ---
- drivers/net/bonding/bond_main.c | 27 ++++++---------------------
- 1 file changed, 6 insertions(+), 21 deletions(-)
+v2: move the udpfrag init, as spotted by Alexei.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b48ca55..be163e2 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1579,11 +1579,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	bond_set_carrier(bond);
+ net/ipv4/af_inet.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 09d78d4a3cff..68af9aac91d0 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1299,6 +1299,9 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
  
- 	if (USES_PRIMARY(bond->params.mode)) {
--		read_lock(&bond->lock);
- 		write_lock_bh(&bond->curr_slave_lock);
- 		bond_select_active_slave(bond);
- 		write_unlock_bh(&bond->curr_slave_lock);
--		read_unlock(&bond->lock);
- 	}
+ 	segs = ERR_PTR(-EPROTONOSUPPORT);
  
- 	pr_info("%s: enslaving %s as a%s interface with a%s link.\n",
-@@ -1603,19 +1601,13 @@ err_detach:
- 		bond_hw_addr_flush(bond_dev, slave_dev);
++	/* Note : following gso_segment() might change skb->encapsulation */
++	udpfrag = !skb->encapsulation && proto == IPPROTO_UDP;
++
+ 	ops = rcu_dereference(inet_offloads[proto]);
+ 	if (likely(ops && ops->callbacks.gso_segment))
+ 		segs = ops->callbacks.gso_segment(skb, features);
+@@ -1306,7 +1309,6 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
+ 	if (IS_ERR_OR_NULL(segs))
+ 		goto out;
  
- 	vlan_vids_del_by_dev(slave_dev, bond_dev);
--	write_lock_bh(&bond->lock);
- 	if (bond->primary_slave == new_slave)
- 		bond->primary_slave = NULL;
- 	if (bond->curr_active_slave == new_slave) {
--		bond_change_active_slave(bond, NULL);
--		write_unlock_bh(&bond->lock);
--		read_lock(&bond->lock);
- 		write_lock_bh(&bond->curr_slave_lock);
-+		bond_change_active_slave(bond, NULL);
- 		bond_select_active_slave(bond);
- 		write_unlock_bh(&bond->curr_slave_lock);
--		read_unlock(&bond->lock);
--	} else {
--		write_unlock_bh(&bond->lock);
- 	}
- 	slave_disable_netpoll(new_slave);
- 
-@@ -1680,20 +1672,16 @@ static int __bond_release_one(struct net_device *bond_dev,
- 	}
- 
- 	block_netpoll_tx();
--	write_lock_bh(&bond->lock);
- 
- 	slave = bond_get_slave_by_dev(bond, slave_dev);
- 	if (!slave) {
- 		/* not a slave of this bond */
- 		pr_info("%s: %s not enslaved\n",
- 			bond_dev->name, slave_dev->name);
--		write_unlock_bh(&bond->lock);
- 		unblock_netpoll_tx();
- 		return -EINVAL;
- 	}
- 
--	write_unlock_bh(&bond->lock);
--
- 	/* release the slave from its bond */
- 	bond->slave_cnt--;
- 
-@@ -1711,6 +1699,7 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		 */
- 		bond_3ad_unbind_slave(slave);
- 	}
-+	write_unlock_bh(&bond->lock);
- 
- 	pr_info("%s: releasing %s interface %s\n",
- 		bond_dev->name,
-@@ -1733,8 +1722,11 @@ static int __bond_release_one(struct net_device *bond_dev,
- 	if (bond->primary_slave == slave)
- 		bond->primary_slave = NULL;
- 
--	if (oldcurrent == slave)
-+	if (oldcurrent == slave) {
-+		write_lock_bh(&bond->curr_slave_lock);
- 		bond_change_active_slave(bond, NULL);
-+		write_unlock_bh(&bond->curr_slave_lock);
-+	}
- 
- 	if (bond_is_lb(bond)) {
- 		/* Must be called only after the slave has been
-@@ -1742,9 +1734,7 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		 * has been cleared (if our_slave == old_current),
- 		 * but before a new active slave is selected.
- 		 */
--		write_unlock_bh(&bond->lock);
- 		bond_alb_deinit_slave(bond, slave);
--		write_lock_bh(&bond->lock);
- 	}
- 
- 	if (all) {
-@@ -1755,15 +1745,11 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		 * is no concern that another slave add/remove event
- 		 * will interfere.
- 		 */
--		write_unlock_bh(&bond->lock);
--		read_lock(&bond->lock);
- 		write_lock_bh(&bond->curr_slave_lock);
- 
- 		bond_select_active_slave(bond);
- 
- 		write_unlock_bh(&bond->curr_slave_lock);
--		read_unlock(&bond->lock);
--		write_lock_bh(&bond->lock);
- 	}
- 
- 	if (!bond_has_slaves(bond)) {
-@@ -1778,7 +1764,6 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		}
- 	}
- 
--	write_unlock_bh(&bond->lock);
- 	unblock_netpoll_tx();
- 	synchronize_rcu();
- 
--- 
-1.8.2.1
+-	udpfrag = !!skb->encapsulation && proto == IPPROTO_UDP;
+ 	skb = segs;
+ 	do {
+ 		iph = (struct iphdr *)(skb_mac_header(skb) + nhoff);
