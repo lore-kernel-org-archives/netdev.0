@@ -1,43 +1,51 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [net-next PATCH 1/2] ixgbe: fix build err, num_rx_queues is only
- available with CONFIG_RPS
-Date: Fri, 8 Nov 2013 07:29:59 -0500
-Message-ID: <20131108122959.GB4819@hmsreliant.think-freely.org>
+Subject: Re: [net-next PATCH 2/2] ixgbe: deleting dfwd stations out of order
+ can cause null ptr deref
+Date: Fri, 8 Nov 2013 07:31:06 -0500
+Message-ID: <20131108123106.GC4819@hmsreliant.think-freely.org>
 References: <20131108084654.6935.36501.stgit@nitbit.x32>
- <20131108085031.6935.61765.stgit@nitbit.x32>
+ <20131108085109.6935.99661.stgit@nitbit.x32>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
 	davem@davemloft.net
 To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41875 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:41892 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752683Ab3KHMaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 07:30:11 -0500
+	with ESMTP id S1752830Ab3KHMbM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 07:31:12 -0500
 Content-Disposition: inline
-In-Reply-To: <20131108085031.6935.61765.stgit@nitbit.x32>
+In-Reply-To: <20131108085109.6935.99661.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 08, 2013 at 12:50:32AM -0800, John Fastabend wrote:
-> In the recent support for layer 2 hardware acceleration, I added a
-> few references to real_num_rx_queues and num_rx_queues which are
-> only available with CONFIG_RPS.
+On Fri, Nov 08, 2013 at 12:51:10AM -0800, John Fastabend wrote:
+> The number of stations in use is kept in the num_rx_pools counter
+> in the ixgbe_adapter structure. This is in turn used by the queue
+> allocation scheme to determine how many queues are needed to support
+> the number of pools in use with the current feature set.
 > 
-> The fix is first to remove unnecessary references to num_rx_queues.
-> Because the hardware offload case is limited to cases where RX queues
-> and TX queues are equal we only need a single check. Then wrap the
-> single case in an ifdef.
+> This works as long as the pools are added and destroyed in order
+> because (num_rx_pools * queues_per_pool) is equal to the last
+> queue in use by a pool. But as soon as you delete a pool out of
+> order this is no longer the case. So the above multiplication
+> allocates to few queues and a pool may reference a ring that has
+> not been allocated/initialized.
 > 
-> The patch that introduce this is here,
+> To resolve use the bit mask of in use pools to determine the final
+> pool being used and allocate enough queues so that we don't
+> inadvertently remove its queues.
 > 
-> commit a6cc0cfa72e0b6d9f2c8fd858aacc32313c4f272
-> Author: John Fastabend <john.r.fastabend@intel.com>
-> Date:   Wed Nov 6 09:54:46 2013 -0800
+> # ip link add link eth2 \
+> 	numtxqueues 4 numrxqueues 4 txqueuelen 50 type macvlan
+> # ip link set dev macvlan0 up
+> # ip link add link eth2 \
+> 	numtxqueues 4 numrxqueues 4 txqueuelen 50 type macvlan
+> # ip link set dev macvlan1 up
+> # for i in {0..100}; do
+>   ip link set dev macvlan0 down; ip link set dev macvlan0 up;
+>   done;
 > 
->     net: Add layer 2 hardware acceleration operations for macvlan devices
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
 > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Acked-by: Neil Horman <nhorman@tuxdriver.com>
