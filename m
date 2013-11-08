@@ -1,43 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: x86: bpf: don't forget to free sk_filter (v2)
-Date: Thu, 07 Nov 2013 19:07:27 -0500 (EST)
-Message-ID: <20131107.190727.1219440287544649912.davem@davemloft.net>
-References: <1383798912-10832-1-git-send-email-avagin@openvz.org>
+Subject: Re: [PATCH net] MAINTAINERS: Update bnx2x maintainer
+Date: Thu, 07 Nov 2013 19:10:03 -0500 (EST)
+Message-ID: <20131107.191003.2279080977464504123.davem@davemloft.net>
+References: <1383731492.20939.1.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ast@plumgrid.com, edumazet@google.com
-To: avagin@openvz.org
+Cc: netdev@vger.kernel.org, ariele@broadcom.com
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56507 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56525 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753800Ab3KHAH3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 19:07:29 -0500
-In-Reply-To: <1383798912-10832-1-git-send-email-avagin@openvz.org>
+	with ESMTP id S1754416Ab3KHAKF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 19:10:05 -0500
+In-Reply-To: <1383731492.20939.1.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrey Vagin <avagin@openvz.org>
-Date: Thu,  7 Nov 2013 08:35:12 +0400
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Wed, 6 Nov 2013 11:51:32 +0200
 
-> sk_filter isn't freed if bpf_func is equal to sk_run_filter.
+> From: Eilon Greenstein <eilong@broadcom.com>
 > 
-> This memory leak was introduced by v3.12-rc3-224-gd45ed4a4
-> "net: fix unsafe set_memory_rw from softirq".
+> Ariel Elior will take over the bnx2x maintenance.
 > 
-> Before this patch sk_filter was freed in sk_filter_release_rcu,
-> now it should be freed in bpf_jit_free.
+> It's been a pleasure!
 > 
-> Here is output of kmemleak:
- ...
-> v2: add extra { } after else
-> 
-> Fixes: d45ed4a4e33a ("net: fix unsafe set_memory_rw from softirq")
-> Acked-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Andrey Vagin <avagin@openvz.org>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> Acked-by: Ariel Elior <ariele@broadcom.com>
 
-Applied and queued up for -stable, thanks!
+Applied, thanks for all of your contributions Eilon.
