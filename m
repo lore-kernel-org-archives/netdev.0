@@ -1,44 +1,133 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: [PATCH 0/2 v3] Open vSwitch zerocopy upcall
-Date: Fri,  8 Nov 2013 10:15:18 +0100
-Message-ID: <cover.1383901577.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 2/2 net-next] openvswitch: Use skb_zerocopy() for upcall
+Date: Fri,  8 Nov 2013 10:15:20 +0100
+Message-ID: <63f4476190ef4044f7c09b225b4e93cd929bf0be.1383901577.git.tgraf@suug.ch>
+References: <cover.1383901577.git.tgraf@suug.ch>
+Cc: dev@openvswitch.org, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: jesse@nicira.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:45543 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757176Ab3KHJP2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 04:15:28 -0500
+In-Reply-To: <cover.1383901577.git.tgraf@suug.ch>
+In-Reply-To: <cover.1383901577.git.tgraf@suug.ch>
+References: <cover.1383901577.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Respin of the zerocopy patches for the openvswitch upcall.
+Use of skb_zerocopy() avoids the expensive call to memcpy() when
+copying the packet data into the Netlink skb. Completes checksum
+through skb_checksum_help() if needed.
 
-V3: - Removed unneeded alignment of nlmsg_len after padding 
-V2: - Added skb_zerocopy_headlen() to calculate headroom of destination
-      buffer. This also takes care of the from->head_frag issue.
-    - Attribute alignment for frag_list case
-    - API documentation
-    - performance data for CHECKSUM_PARTIAL tx case
+Netlink messaged must be properly padded and aligned to meet
+sanity checks of the user space counterpart.
 
+Cost of memcpy is significantly reduced from:
++   7.48%       vhost-8471  [k] memcpy
++   5.57%     ovs-vswitchd  [k] memcpy
++   2.81%       vhost-8471  [k] csum_partial_copy_generic
 
-Thomas Graf (2):
-  net: Export skb_zerocopy() to zerocopy from one skb to another
-  openvswitch: Use skb_zerocopy() for upcall
+to:
++   5.72%     ovs-vswitchd  [k] memcpy
++   3.32%       vhost-5153  [k] memcpy
++   0.68%       vhost-5153  [k] skb_zerocopy
 
- include/linux/skbuff.h               |  3 ++
- net/core/skbuff.c                    | 85 ++++++++++++++++++++++++++++++++++++
- net/netfilter/nfnetlink_queue_core.c | 59 ++-----------------------
- net/openvswitch/datapath.c           | 52 +++++++++++++++++++---
- 4 files changed, 137 insertions(+), 62 deletions(-)
+(megaflows disabled)
 
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ net/openvswitch/datapath.c | 52 +++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 45 insertions(+), 7 deletions(-)
+
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 1408adc..3f170e3 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -381,10 +381,11 @@ static size_t key_attr_size(void)
+ }
+ 
+ static size_t upcall_msg_size(const struct sk_buff *skb,
+-			      const struct nlattr *userdata)
++			      const struct nlattr *userdata,
++			      unsigned int hdrlen)
+ {
+ 	size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
+-		+ nla_total_size(skb->len) /* OVS_PACKET_ATTR_PACKET */
++		+ nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
+ 		+ nla_total_size(key_attr_size()); /* OVS_PACKET_ATTR_KEY */
+ 
+ 	/* OVS_PACKET_ATTR_USERDATA */
+@@ -402,6 +403,7 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 	struct sk_buff *nskb = NULL;
+ 	struct sk_buff *user_skb; /* to be queued to userspace */
+ 	struct nlattr *nla;
++	unsigned int plen, hlen;
+ 	int err;
+ 
+ 	if (vlan_tx_tag_present(skb)) {
+@@ -422,7 +424,13 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 		goto out;
+ 	}
+ 
+-	user_skb = genlmsg_new(upcall_msg_size(skb, upcall_info->userdata), GFP_ATOMIC);
++	/* Complete checksum if needed */
++	if (skb->ip_summed == CHECKSUM_PARTIAL &&
++	    (err = skb_checksum_help(skb)))
++		goto out;
++
++	hlen = skb_zerocopy_headlen(skb);
++	user_skb = genlmsg_new(upcall_msg_size(skb, upcall_info->userdata, hlen), GFP_ATOMIC);
+ 	if (!user_skb) {
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -441,13 +449,43 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 			  nla_len(upcall_info->userdata),
+ 			  nla_data(upcall_info->userdata));
+ 
+-	nla = __nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, skb->len);
++	/* Only reserve room for attribute header, packet data is added
++	 * in skb_zerocopy() */
++	if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0)))
++		goto out;
++	nla->nla_len = nla_attr_size(skb->len);
+ 
+-	skb_copy_and_csum_dev(skb, nla_data(nla));
++	skb_zerocopy(user_skb, skb, skb->len, hlen);
+ 
+-	genlmsg_end(user_skb, upcall);
+-	err = genlmsg_unicast(net, user_skb, upcall_info->portid);
++	/* OVS user space expects the size of the message to be aligned to
++	 * NLA_ALIGNTO. Aligning nlmsg_len is not enough, the actual bytes
++	 * read must match nlmsg_len.
++	 */
++	plen = NLA_ALIGN(user_skb->len) - user_skb->len;
++	if (plen > 0) {
++		int nr_frags = skb_shinfo(user_skb)->nr_frags;
++
++		if (nr_frags) {
++			skb_frag_t *frag;
++
++			frag = &skb_shinfo(user_skb)->frags[nr_frags -1];
++			skb_frag_size_add(frag, plen);
++			BUG_ON(frag->size > PAGE_SIZE);
++
++			user_skb->truesize += plen;
++			user_skb->len += plen;
++			user_skb->data_len += plen;
++		} else {
++			/* The linear headroom is aligned to NLMSG_ALIGN by
++			 * genlmsg_new(), room must be available.
++			 */
++			memset(skb_put(user_skb, plen), 0, plen);
++		}
++	}
+ 
++	((struct nlmsghdr *) user_skb->data)->nlmsg_len = user_skb->len;
++
++	err = genlmsg_unicast(net, user_skb, upcall_info->portid);
+ out:
+ 	kfree_skb(nskb);
+ 	return err;
 -- 
 1.8.3.1
