@@ -1,57 +1,48 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH v2 net-next] inet: fix a UFO regression
-Date: Fri, 08 Nov 2013 02:08:28 -0500 (EST)
-Message-ID: <20131108.020828.965655576855775437.davem@redhat.com>
-References: <CAMEtUuwqmUhTgeKyodGKmOxhxe23=umnfc7nouhdVrqVNnk6zQ@mail.gmail.com>
-	<1383871465.9412.118.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1383877926.9412.145.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Weng Meiling <wengmeiling.weng-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] svcrpc: remove the unnecessary evaluation
+Date: Fri, 8 Nov 2013 15:23:12 +0800
+Message-ID: <527C9160.3070808@huawei.com>
+References: <52786417.6090707@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	hannes@stressinduktion.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5482 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752669Ab3KHHIf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Nov 2013 02:08:35 -0500
-In-Reply-To: <1383877926.9412.145.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>, <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52786417.6090707-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 07 Nov 2013 18:32:06 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> While testing virtio_net and skb_segment() changes, Hannes reported
-> that UFO was sending wrong frames.
-> 
-> It appears this was introduced by a recent commit :
-> 8c3a897bfab1 ("inet: restore gso for vxlan")
-> 
-> The old condition to perform IP frag was :
-> 
-> tunnel = !!skb->encapsulation;
-> ...
->         if (!tunnel && proto == IPPROTO_UDP) {
-> 
-> So the new one should be :
-> 
-> udpfrag = !skb->encapsulation && proto == IPPROTO_UDP;
-> ...
->         if (udpfrag) {
-> 
-> Initialization of udpfrag must be done before call
-> to ops->callbacks.gso_segment(skb, features), as
-> skb_udp_tunnel_segment() clears skb->encapsulation
-> 
-> (We want udpfrag to be true for UFO, false for VXLAN)
-> 
-> With help from Alexei Starovoitov
-> 
-> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+From: Weng Meiling <wengmeiling.weng-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 
-Applied, thanks a lot Eric.
+Signed-off-by: Weng Meiling <wengmeiling.weng-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+---
+ net/sunrpc/svc.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+index b974571..e7fbe36 100644
+--- a/net/sunrpc/svc.c
++++ b/net/sunrpc/svc.c
+@@ -1104,8 +1104,6 @@ svc_process_common(struct svc_rqst *rqstp, struct kvec *argv, struct kvec *resv)
+ 	rqstp->rq_vers = vers = svc_getnl(argv);	/* version number */
+ 	rqstp->rq_proc = proc = svc_getnl(argv);	/* procedure number */
+
+-	progp = serv->sv_program;
+-
+ 	for (progp = serv->sv_program; progp; progp = progp->pg_next)
+ 		if (prog == progp->pg_prog)
+ 			break;
+-- 
+1.8.3.1
+
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
