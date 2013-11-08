@@ -1,87 +1,52 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: Re: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
- burst.
-Date: Fri, 8 Nov 2013 11:45:59 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1311081119510.1162-100000@iolanthe.rowland.org>
-References: <20131108001838.GB11529@xanatos>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [ethtool] ethtool: ixgbe DCB registers dump for 82599 and x540
+Date: Fri, 8 Nov 2013 16:46:45 +0000
+Message-ID: <1383929205.3802.22.camel@bwh-desktop.uk.level5networks.com>
+References: <1380787887-6878-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1383912090.2365.27.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20131108001838.GB11529@xanatos>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Leonardo Potenza <leonardo.potenza@intel.com>,
+	<netdev@vger.kernel.org>, <gospo@redhat.com>,
+	<sassmann@redhat.com>, Maryam Tahhan <maryam.tahhan@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:17055 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757482Ab3KHQqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 11:46:50 -0500
+In-Reply-To: <1383912090.2365.27.camel@jtkirshe-mobl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 7 Nov 2013, Sarah Sharp wrote:
-
-> On Thu, Nov 07, 2013 at 05:20:49PM -0000, David Laight wrote:
+On Fri, 2013-11-08 at 04:01 -0800, Jeff Kirsher wrote:
+> On Thu, 2013-10-03 at 01:11 -0700, Jeff Kirsher wrote:
+> > From: Leonardo Potenza <leonardo.potenza@intel.com>
 > > 
-> > Section 4.11.7.1 of rev 1.0 of the xhci specification states that a link TRB
-> > can only occur at a boundary between underlying USB frames (512 bytes for 480M).
+> > Added support for DCB registers dump using ethtool -d option both for
+> > 82599 and x540 ethernet controllers
+> > 
+> > Signed-off-by: Leonardo Potenza <leonardo.potenza@intel.com>
+> > Signed-off-by: Maryam Tahhan <maryam.tahhan@intel.com>
+> > Acked-by: John Fastabend <john.r.fastabend@intel.com>
+> > Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+> > Tested-by: Jack Morgan <jack.morgan@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+> >  ixgbe.c | 154
+> > ++++++++++++++++++++++++++++++++++++++++++++++++++++------------
+> >  1 file changed, 125 insertions(+), 29 deletions(-)
 > 
-> Which version of the spec are you looking at?  I'm looking at the
-> updated version from 08/2012 and I don't see any such requirement.
-> 
-> I do see that section says "A TD Fragment shall not span Transfer Ring
-> Segments" where a TD fragment is defined as exact multiples of Max Burst
-> Size * Max Packet Size bytes for the endpoint.  Is that what you mean
-> about USB frames?
+> Ben-
+> I see you released 3.12 and I do not see this patch in your tree.  I
+> sent it originally on October 3rd, do need me to resend it?
 
-...
+Sorry, I overlooked that and will reply in a moment.
 
-> The driver would also have to make sure that TD fragments didn't have
-> link TRBs in them.  That's an issue, since the spec decidedly unclear
-> about what exactly comprises a TD fragment.  Is the xHC host greedy, and
-> will lump all multiples into one TD fragment?  Or will it assume the TD
-> fragment has ended once it consumes one multiple of Max Burst Size * Max
-> Packet Size bytes?
-> 
-> This ambiguity means it's basically impossible to figure out whether a
-> TD with a link TRB in the middle is constructed properly.  The xHCI spec
-> architect didn't have a good solution to this problem, so I punted and
-> never implemented TD fragments.  If this is really an issue, it's going
-> to be pretty complex to solve.
+Ben.
 
-This is something I wanted to ask you about also.
-
-The whole idea of TD fragments is exceedingly cloudy.  The definition
-doesn't make sense, and the spec doesn't say what the actual hardware
-restrictions are, i.e., what is the underlying reality that the TD
-fragment concept wants to express.
-
-Even if you do your best to ignore the whole idea, there still appear
-to be certain restrictions you need to obey.  In addition to the
-question of where Link TRBs are allowed, you also have to worry about
-TDs whose size isn't a multiple of the Max Burst Payload (MBP) size =
-MaxBurstSize * MaxPacketSize.
-
-According to my version of the spec (Rev 1.0, dated 5/21/2010), if a TD
-is larger than the MBP and its length isn't a multiple of the MBP, then
-the last MBP boundary in the TD must also be a TRB boundary.  This 
-follows from two statements in section 4.11.7.1:
-
-	If the TD Transfer Size is an even multiple of the MBP then all 
-	TD Fragments shall define exact multiples of MBP data bytes.  
-	If not, then only the last TD Fragment shall define less than 
-	MBP data (or the Residue) bytes.
-
-So if a TD is longer than MBP then it must contain at least two TD
-fragments, and the last fragment must consist of the last Residue
-bytes (i.e., the bytes beyond the last MBP boundary).
-
-	Each TD Fragment is comprised of one or more TRBs.
-
-Hence the last MBP boundary in the TD, which marks the beginning of the 
-last TD fragment, must also be a TRB boundary.
-
-I have no idea whether violating this restriction will cause trouble
-for real hardware.
-
-Alan Stern
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
