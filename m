@@ -1,40 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] inet: fix a UFO regression
-Date: Thu, 07 Nov 2013 18:08:35 -0800
-Message-ID: <1383876515.9412.137.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAMEtUuzswOVA6UkPRjS-O=gOe9BLLJ5qaAG_eAd_fTqDJo8ofA@mail.gmail.com>
-	 <1382674000.7572.75.camel@edumazet-glaptop.roam.corp.google.com>
-	 <1382692140.7572.79.camel@edumazet-glaptop.roam.corp.google.com>
-	 <20131025.181809.348808013109842304.davem@davemloft.net>
-	 <CAMEtUuxwi05oX0TqNdMbjy04MT=ZLemLXJQTTcAMrnWuhXLKdQ@mail.gmail.com>
-	 <1382923096.13037.10.camel@edumazet-glaptop.roam.corp.google.com>
-	 <1383863586.9412.101.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAMEtUuwqmUhTgeKyodGKmOxhxe23=umnfc7nouhdVrqVNnk6zQ@mail.gmail.com>
-	 <1383871465.9412.118.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAMEtUuynjTj_eteupaSx1hbZs4OyVtc=fDZAwAFSL24qK8tFLA@mail.gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 4/10] bonding: rebuild the lock use for bond_loadbalance_arp_mon()
+Date: Fri, 8 Nov 2013 10:07:56 +0800
+Message-ID: <527C477C.9050008@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:48944 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756434Ab3KHCIi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:08:38 -0500
-Received: by mail-pd0-f172.google.com with SMTP id w10so1457195pde.3
-        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 18:08:38 -0800 (PST)
-In-Reply-To: <CAMEtUuynjTj_eteupaSx1hbZs4OyVtc=fDZAwAFSL24qK8tFLA@mail.gmail.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:1763 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753806Ab3KHCI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:08:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-07 at 17:39 -0800, Alexei Starovoitov wrote:
+The bond_loadbalance_arp_mon() use the bond lock to protect the
+bond slave list, it is no effect, so I could use RTNL or RCU to
+replace it, considering the performance impact, the RCU is more
+better here, so the bond lock replace with the RCU.
 
-> as we discussed this will break vxlan :)
-> Please move udpfrag assignment before line:
->                 segs = ops->callbacks.gso_segment(skb, features);
-> since skb_udp_tunnel_segment() does skb->encapsulation = 0
-> then both ufo and vxlan should be fine
+The bond_select_active_slave() need RTNL and curr_slave_lock
+together, but there is no RTNL lock here, so add a rtnl_rtylock.
 
-Oh that's right, thanks again, I'll send a V2
+Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
+Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bond_main.c | 20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index def489d..759dcd0 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2407,12 +2407,14 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 	struct list_head *iter;
+ 	int do_failover = 0;
+ 
+-	read_lock(&bond->lock);
++	rcu_read_lock();
+ 
+-	if (!bond_has_slaves(bond))
++	if (!bond_has_slaves_rcu(bond)) {
++		rcu_read_unlock();
+ 		goto re_arm;
++	}
+ 
+-	oldcurrent = bond->curr_active_slave;
++	oldcurrent = ACCESS_ONCE(bond->curr_active_slave);
+ 	/* see if any of the previous devices are up now (i.e. they have
+ 	 * xmt and rcv traffic). the curr_active_slave does not come into
+ 	 * the picture unless it is null. also, slave->jiffies is not needed
+@@ -2421,7 +2423,7 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 	 * TODO: what about up/down delay in arp mode? it wasn't here before
+ 	 *       so it can wait
+ 	 */
+-	bond_for_each_slave(bond, slave, iter) {
++	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		unsigned long trans_start = dev_trans_start(slave->dev);
+ 
+ 		if (slave->link != BOND_LINK_UP) {
+@@ -2483,7 +2485,14 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 			bond_arp_send_all(bond, slave);
+ 	}
+ 
++	rcu_read_unlock();
++
+ 	if (do_failover) {
++		/* the bond_select_active_slave must hold RTNL
++		 * and curr_slave_lock for write.
++		 */
++		if (!rtnl_trylock())
++			goto re_arm;
+ 		block_netpoll_tx();
+ 		write_lock_bh(&bond->curr_slave_lock);
+ 
+@@ -2491,14 +2500,13 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 
+ 		write_unlock_bh(&bond->curr_slave_lock);
+ 		unblock_netpoll_tx();
++		rtnl_unlock();
+ 	}
+ 
+ re_arm:
+ 	if (bond->params.arp_interval)
+ 		queue_delayed_work(bond->wq, &bond->arp_work,
+ 				   msecs_to_jiffies(bond->params.arp_interval));
+-
+-	read_unlock(&bond->lock);
+ }
+ 
+ /*
+-- 
+1.8.2.1
