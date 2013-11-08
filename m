@@ -1,51 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 1/3] ipv6: enable IPV6_FLOWLABEL_MGR for
- getsockopt
-Date: Fri, 08 Nov 2013 13:43:24 -0500 (EST)
-Message-ID: <20131108.134324.1679400843866741415.davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/3] ipv6: increase maximum lifetime of flow
+ labels
+Date: Fri, 08 Nov 2013 13:44:40 -0500 (EST)
+Message-ID: <20131108.134440.189022097003195180.davem@davemloft.net>
 References: <1383843194-22945-1-git-send-email-florent.fourcot@enst-bretagne.fr>
-	<20131108122749.GA5876@order.stressinduktion.org>
+	<1383843194-22945-2-git-send-email-florent.fourcot@enst-bretagne.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: florent.fourcot@enst-bretagne.fr, netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org
+To: florent.fourcot@enst-bretagne.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36048 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36052 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757406Ab3KHSn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 13:43:26 -0500
-In-Reply-To: <20131108122749.GA5876@order.stressinduktion.org>
+	with ESMTP id S932149Ab3KHSom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 13:44:42 -0500
+In-Reply-To: <1383843194-22945-2-git-send-email-florent.fourcot@enst-bretagne.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 8 Nov 2013 13:27:49 +0100
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Date: Thu,  7 Nov 2013 17:53:13 +0100
 
-> On Thu, Nov 07, 2013 at 05:53:12PM +0100, Florent Fourcot wrote:
->> It is already possible to set/put/renew a label
->> with IPV6_FLOWLABEL_MGR and setsockopt. This patch
->> add the possibility to get information about this
->> label (current value, time before expiration, etc).
->> 
->> It helps application to take decision for a renew
->> or a release of the label.
->> 
->> v2:
->>  * Add spin_lock to prevent race condition
->>  * return -ENOENT if no result found
->>  * check if flr_action is GET
->> 
->> v3:
->>  * move the spin_lock to protect only the
->>    relevant code
->> 
->> Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+> If the last RFC 6437 does not give any constraints
+> for lifetime of flow labels, the previous RFC 3697
+> spoke of a minimum of 120 seconds between
+> reattribution of a flow label.
 > 
-> There still are some locking anomalies in ip6_flowlabel. But none
-> has something to do with your patches. E.g. mem_check runs without
-> rcu_read_lock.
+> The maximum linger is currently set to 60 seconds
+> and does not allow this configuration without
+> CAP_NET_ADMIN right.
 > 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> This patch increase the maximum linger to 150
+> seconds, allowing more flexibility to standard
+> users.
+> 
+> Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 
-Applied, thanks.
+Applied.
