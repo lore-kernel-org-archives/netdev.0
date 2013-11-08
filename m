@@ -1,43 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Using HTB over MultiQ
-Date: Fri, 08 Nov 2013 13:56:42 -0800
-Message-ID: <1383947802.16391.3.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAEzD07+Haf-Kg52H7GsxC5XiQn2KXozHbxgL4Lvn0grhFXVFmA@mail.gmail.com>
-	 <1383833480.9412.58.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1383834021.9412.61.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <527BA63F.7040900@intel.com>
-	 <CAEzD07JwrnqeB35BiTC2ztpyei2KNDtYO8zuewicKNBwyxmOtQ@mail.gmail.com>
-	 <1383923220.9412.236.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <527CFF2C.2020605@intel.com>
-	 <CAEzD07LmgvvfNhNuxzwjy7fxLsCBLiofeXJ61qbdOBQCiSRefw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>, netdev@vger.kernel.org
-To: Anton 'EvilMan' Danilov <littlesmilingcloud@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:57222 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757843Ab3KHV4o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 16:56:44 -0500
-Received: by mail-pd0-f172.google.com with SMTP id w10so2698445pde.31
-        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 13:56:44 -0800 (PST)
-In-Reply-To: <CAEzD07LmgvvfNhNuxzwjy7fxLsCBLiofeXJ61qbdOBQCiSRefw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] libertas_usb: fix leak at failure path in if_usb_probe()
+Date: Sat,  9 Nov 2013 01:57:03 +0400
+Message-ID: <1383947823-8670-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ldv-project@linuxtesting.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-11-08 at 19:53 +0400, Anton 'EvilMan' Danilov wrote:
+Error handling code in if_usb_probe() misses usb_put_dev(udev).
 
-> Hm.. I think I need another way to classify packets for using of mq
-> qdisc, because it don't support classify at root (not supported error
-> on try attach filter).
+Found by Linux Driver Verification project (linuxtesting.org).
 
-I think it might be time to add filters on the device, and run them
-without any lock (rcu protection only)
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/wireless/libertas/if_usb.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-John, I think you had some previous work ?
-
-> On next week i'll try to write ipset extension for setting of priority
-> and queue_mapping value through the IPSET netfilter target.
-
-Sounds a nice idea as well.
+diff --git a/drivers/net/wireless/libertas/if_usb.c b/drivers/net/wireless/libertas/if_usb.c
+index 2798077..7aec7b2 100644
+--- a/drivers/net/wireless/libertas/if_usb.c
++++ b/drivers/net/wireless/libertas/if_usb.c
+@@ -285,6 +285,7 @@ static int if_usb_probe(struct usb_interface *intf,
+ 	return 0;
+ 
+ err_get_fw:
++	usb_put_dev(udev);
+ 	lbs_remove_card(priv);
+ err_add_card:
+ 	if_usb_reset_device(cardp);
+-- 
+1.8.1.2
