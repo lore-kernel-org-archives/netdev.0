@@ -1,37 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: use rt6_get_dflt_router to get default router in
- rt6_route_rcv
-Date: Fri, 08 Nov 2013 15:18:38 -0500 (EST)
-Message-ID: <20131108.151838.396871634708278992.davem@davemloft.net>
-References: <527C44E5.70606@cn.fujitsu.com>
+From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+Subject: Re: [PATCH v2 net-next] inet: fix a UFO regression
+Date: Fri, 08 Nov 2013 12:20:30 -0800
+Message-ID: <527D478E.4020607@gmail.com>
+References: <CAMEtUuyuHagy7j+fi8RnKjZNBnwYHhxfed508HyXLfHp-e634w@mail.gmail.com>	 <527C877D.3080309@gmail.com> <1383913124.9412.223.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
-To: duanj.fnst@cn.fujitsu.com
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36857 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757437Ab3KHUSl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 15:18:41 -0500
-In-Reply-To: <527C44E5.70606@cn.fujitsu.com>
+Received: from mail-oa0-f43.google.com ([209.85.219.43]:52755 "EHLO
+	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757521Ab3KHUUT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 15:20:19 -0500
+Received: by mail-oa0-f43.google.com with SMTP id g12so1293149oah.30
+        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 12:20:19 -0800 (PST)
+In-Reply-To: <1383913124.9412.223.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Fri, 08 Nov 2013 09:56:53 +0800
+On 11/8/2013 4:18 AM, Eric Dumazet wrote:
+> On Thu, 2013-11-07 at 22:41 -0800, Sridhar Samudrala wrote:
+>
+>> Does this fix also help vxlan performance between 2 VMs on 2 different
+>> physical m/cs across 10G NIC?
+>> What is the throughput you are seeing via 10G nics?
+>> With linux 3.12, i am only seeing around 2Gbps (iperf TCP_STREAM with
+>> 16K messages)  between 2 VMs when using vxlan across a 10G nic.
+>> Is this due to the overhead of software GSO and not doing GRO at the
+>> receiver?
+> What NIC is used at sender, what NIC is used at receiver ?
+I am seeing almost similar results with both Emulex and Intel 10Gb NICs 
+at both sender and receiver.
+>
+> If you use GRE instead of VXLAN, do you get any difference in speed ?
+With GRE, i am seeing slightly better results. 3.2Gb/s compared to 
+1.8Gb/s with vxlan.
 
-> 
-> As the rfc 4191 said, the Router Preference and Lifetime values in a
-> ::/0 Route Information Option should override the preference and lifetime
-> values in the Router Advertisement header. But when the kernel deals with
-> a ::/0 Route Information Option, the rt6_get_route_info() always return
-> NULL, that means that overriding will not happen, because those default
-> routers were added without flag RTF_ROUTEINFO in rt6_add_dflt_router().
-> 
-> In order to deal with that condition, we should call rt6_get_dflt_router
-> when the prefix length is 0.
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-Applied and queued up for -stable, thanks!
+Thanks
+Sridhar
