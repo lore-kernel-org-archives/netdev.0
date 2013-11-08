@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] isdn: icn: NULL dereference printing error message
-Date: Thu, 07 Nov 2013 19:14:02 -0500 (EST)
-Message-ID: <20131107.191402.296321377536769892.davem@davemloft.net>
-References: <20131107075806.GO21844@elgon.mountain>
+Subject: Re: [PATCH net] net/mlx4_en: Fixed crash when port type is changed
+Date: Thu, 07 Nov 2013 19:14:18 -0500 (EST)
+Message-ID: <20131107.191418.2145129150067281446.davem@davemloft.net>
+References: <1383815310-19116-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, isdn@linux-pingi.de,
-	isdn4linux@listserv.isdn4linux.de, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56619 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56624 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753904Ab3KHAOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 19:14:04 -0500
-In-Reply-To: <20131107075806.GO21844@elgon.mountain>
+	with ESMTP id S1755102Ab3KHAOU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 19:14:20 -0500
+In-Reply-To: <1383815310-19116-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 7 Nov 2013 10:58:06 +0300
+From: Amir Vadai <amirv@mellanox.com>
+Date: Thu,  7 Nov 2013 11:08:30 +0200
 
-> "card2" is NULL here so I have changed it to use "id2" instead of
-> "card2->interface.id".
+> timecounter_init() was was called only after first potential
+> timecounter_read().
+> Moved mlx4_en_init_timestamp() before mlx4_en_init_netdev()
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> ---
+> Please pull into -stable for kernels >= 3.10
 
-Applied.
+Applied and queued up for -stable, thanks.
