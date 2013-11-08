@@ -1,33 +1,43 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v2 3/3] ipv6: protect flow label renew against GC
-Date: Fri, 8 Nov 2013 13:29:03 +0100
-Message-ID: <20131108122903.GB5876@order.stressinduktion.org>
-References: <1383843194-22945-1-git-send-email-florent.fourcot@enst-bretagne.fr> <1383843194-22945-3-git-send-email-florent.fourcot@enst-bretagne.fr>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [net-next PATCH 1/2] ixgbe: fix build err, num_rx_queues is only
+ available with CONFIG_RPS
+Date: Fri, 8 Nov 2013 07:29:59 -0500
+Message-ID: <20131108122959.GB4819@hmsreliant.think-freely.org>
+References: <20131108084654.6935.36501.stgit@nitbit.x32>
+ <20131108085031.6935.61765.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Content-Type: text/plain; charset=us-ascii
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57991 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752991Ab3KHM3E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 07:29:04 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:41875 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752683Ab3KHMaL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 07:30:11 -0500
 Content-Disposition: inline
-In-Reply-To: <1383843194-22945-3-git-send-email-florent.fourcot@enst-bretagne.fr>
+In-Reply-To: <20131108085031.6935.61765.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 07, 2013 at 05:53:14PM +0100, Florent Fourcot wrote:
-> Take ip6_fl_lock before to read and update
-> a label.
+On Fri, Nov 08, 2013 at 12:50:32AM -0800, John Fastabend wrote:
+> In the recent support for layer 2 hardware acceleration, I added a
+> few references to real_num_rx_queues and num_rx_queues which are
+> only available with CONFIG_RPS.
 > 
-> v2: protect only the relevant code
+> The fix is first to remove unnecessary references to num_rx_queues.
+> Because the hardware offload case is limited to cases where RX queues
+> and TX queues are equal we only need a single check. Then wrap the
+> single case in an ifdef.
 > 
-> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Thanks for fixing this,
-
-  Hannes
+> The patch that introduce this is here,
+> 
+> commit a6cc0cfa72e0b6d9f2c8fd858aacc32313c4f272
+> Author: John Fastabend <john.r.fastabend@intel.com>
+> Date:   Wed Nov 6 09:54:46 2013 -0800
+> 
+>     net: Add layer 2 hardware acceleration operations for macvlan devices
+> 
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
