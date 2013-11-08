@@ -1,37 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] inet: fix a UFO regression
-Date: Fri, 08 Nov 2013 04:18:44 -0800
-Message-ID: <1383913124.9412.223.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAMEtUuyuHagy7j+fi8RnKjZNBnwYHhxfed508HyXLfHp-e634w@mail.gmail.com>
-	 <527C877D.3080309@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v3 1/3] ipv6: enable IPV6_FLOWLABEL_MGR for getsockopt
+Date: Fri, 8 Nov 2013 13:27:49 +0100
+Message-ID: <20131108122749.GA5876@order.stressinduktion.org>
+References: <1383843194-22945-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:56473 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752683Ab3KHMSr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 07:18:47 -0500
-Received: by mail-pd0-f169.google.com with SMTP id q10so2081240pdj.28
-        for <netdev@vger.kernel.org>; Fri, 08 Nov 2013 04:18:47 -0800 (PST)
-In-Reply-To: <527C877D.3080309@gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:57987 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751221Ab3KHM1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 07:27:51 -0500
+Content-Disposition: inline
+In-Reply-To: <1383843194-22945-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-07 at 22:41 -0800, Sridhar Samudrala wrote:
+On Thu, Nov 07, 2013 at 05:53:12PM +0100, Florent Fourcot wrote:
+> It is already possible to set/put/renew a label
+> with IPV6_FLOWLABEL_MGR and setsockopt. This patch
+> add the possibility to get information about this
+> label (current value, time before expiration, etc).
+> 
+> It helps application to take decision for a renew
+> or a release of the label.
+> 
+> v2:
+>  * Add spin_lock to prevent race condition
+>  * return -ENOENT if no result found
+>  * check if flr_action is GET
+> 
+> v3:
+>  * move the spin_lock to protect only the
+>    relevant code
+> 
+> Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 
-> Does this fix also help vxlan performance between 2 VMs on 2 different 
-> physical m/cs across 10G NIC?
-> What is the throughput you are seeing via 10G nics?
-> With linux 3.12, i am only seeing around 2Gbps (iperf TCP_STREAM with 
-> 16K messages)  between 2 VMs when using vxlan across a 10G nic.
-> Is this due to the overhead of software GSO and not doing GRO at the 
-> receiver?
+There still are some locking anomalies in ip6_flowlabel. But none
+has something to do with your patches. E.g. mem_check runs without
+rcu_read_lock.
 
-What NIC is used at sender, what NIC is used at receiver ?
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-If you use GRE instead of VXLAN, do you get any difference in speed ?
+Thanks,
+
+  Hannes
