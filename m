@@ -1,117 +1,70 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [net-next PATCH v4 0/2] l2 hardware accelerated macvlans
-Date: Thu, 07 Nov 2013 23:18:51 -0500
-Message-ID: <527C662B.4080300@redhat.com>
-References: <20131106175308.3822.73239.stgit@jf-dev1-dcblab>
-Reply-To: vyasevic@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 net-next] net: introduce dev_set_forwarding()
+Date: Thu, 07 Nov 2013 20:21:57 -0800
+Message-ID: <1383884517.9412.172.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1383584130.1553.2.camel@bwh-desktop.uk.level5networks.com>
+	 <20131107.161755.355597965034457889.davem@davemloft.net>
+	 <20131107213111.GA6885@gondor.apana.org.au>
+	 <20131107.170651.1819930710384730745.davem@davemloft.net>
+	 <20131108021758.GA13467@gondor.apana.org.au>
+	 <1383878554.9412.153.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1383879113.9412.155.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131108032359.GA14132@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, andy@greyhouse.net,
-	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	vyasevich@gmail.com
-To: John Fastabend <john.r.fastabend@intel.com>, nhorman@tuxdriver.com,
-	davem@davemloft.net
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3074 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750933Ab3KHETO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Nov 2013 23:19:14 -0500
-In-Reply-To: <20131106175308.3822.73239.stgit@jf-dev1-dcblab>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:42652 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754244Ab3KHEWA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 23:22:00 -0500
+Received: by mail-pd0-f181.google.com with SMTP id x10so1578363pdj.26
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 20:21:59 -0800 (PST)
+In-Reply-To: <20131108032359.GA14132@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/06/2013 12:54 PM, John Fastabend wrote:
-> This patch adds support to offload macvlan net_devices to the
-> hardware. With these patches packets are pushed to the macvlan
-> net_device directly and do not pass through the lower dev.
->
-> The patches here have made it through multiple iterations
-> each with a slightly different focus. First I tried to
-> push these as a new link type called "VMDQ". The patches
-> shown here,
->
-> http://comments.gmane.org/gmane.linux.network/237617
->
-> Following this implementation I renamed the link type
-> "VSI" and addressed various comments. Finally Neil
-> Horman picked up the patches and integrated the offload
-> into the macvlan code. Here,
->
-> http://permalink.gmane.org/gmane.linux.network/285658
->
-> The attached series is clean-up of his patches, with a
-> few fixes.
->
-> If folks find this series acceptable there are a few
-> items we can work on next. First broadcast and multicast
-> will use the hardware even for local traffic with this
-> series. It would be best (I think) to use the software
-> path for macvlan to macvlan traffic and save the PCIe
-> bus. This depends on how much you value CPU time vs
-> PCIE bandwidth. This will need another patch series
-> to flush out.
->
+On Fri, 2013-11-08 at 11:23 +0800, Herbert Xu wrote:
+> On Thu, Nov 07, 2013 at 06:51:53PM -0800, Eric Dumazet wrote:
+> > On Thu, 2013-11-07 at 18:42 -0800, Eric Dumazet wrote:
+> > 
+> > > A normal TSO packets with 16 MSS setups a ~17 DMA descriptors,
+> > > while GSO requires 2 DMA descriptors per MSS, plus a lot of overhead
+> > > in sk_buff allocation/deallocation.
+> > 
+> > Not mentioning fact that a 64KB packet is adding latencies, since high
+> > prio packets have to wait the whole preceding 64KB packet has left the
+> > host.
+> 
+> That would be a bug in the GRO code since a high prio packet
+> shouldn't have been merged in the first place and therefore
+> the usual priority mechanism should allow it to preempt the
+> 64KB packet.
 
-John
+Some users install Qdisc (AQM) on their router, to decide of what is
+high priority and what is not. Their iptables or qdisc filters can be
+quite complex.
 
-So, I've been looking at these patches and the more I
-look the more I wonder how much benefit there is in
-sending unicast macvlan<->macvlan traffic through the hw.
-It looks like any bulk transfers would have to undergo
-tso segmentaion and GRO, where as this can be completely
-bypassed right now with software.
+Its all TCP for example.
 
-Did you run any numbers?
+GRO stack cannot make this decision.
 
-Thanks
--vlad
+So lets say we receive on ingress a mix of high prio packets and low
+prio TCP packets. If GRO stack is able to build super big GRO packet,
+then this super big GRO packet is a head of line blocking.
 
+At 1Gbps, a 16 MSS packet is holding the line for about 190 us.
 
-> Also this series only allows for layer 2 mac forwarding
-> where some hardware supports more interesting forwarding
-> capabilities. Integrating with OVS may be useful here.
->
-> As always any comments/feedback welcome.
->
-> My basic I/O test is here but I've also done some link
-> testing, SRIOV/DCB with macvlans and others,
->
-> #ip link add link eth2 numtxqueues 4 numrxqueues 4 txqueuelen 50 type macvlan
-> #tc qdisc add dev macvlan0 mq
-> #iperf -c 10.0.0.1 -P 8 -t 5000 -i 10
->
-> Changelog:
-> v2: two fixes to ixgbe when all features DCB, FCoE, SR-IOV
->      are enabled with macvlans. A VMDQ_P() reference
->      should have been accel->pool and do not set the offset
->      of the ring index from dfwd add call. The offset is used
->      by SR-IOV so clearing it can cause SR-IOV quue index's
->      to go sideways. With these fixes testing macvlan's with
->      SRIOV enabled was successful.
-> v3: addressed Neil's comments in ixgbe
->      fixed error path on dfwd_add_station() in ixgbe
->      fixed ixgbe to allow SRIOV and accelerated macvlans to
->      coexist.
-> v4: Dave caught some strange indentation, fixed it here
-> ---
->
-> John Fastabend (2):
->        ixgbe: enable l2 forwarding acceleration for macvlans
->        net: Add layer 2 hardware acceleration operations for macvlan devices
->
->
->   drivers/net/ethernet/intel/ixgbe/ixgbe.h       |   20 +
->   drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c   |   15 +
->   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  480 ++++++++++++++++++++----
->   drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |   17 -
->   drivers/net/macvlan.c                          |   36 ++
->   include/linux/if_macvlan.h                     |    1
->   include/linux/netdev_features.h                |    2
->   include/linux/netdevice.h                      |   36 ++
->   include/uapi/linux/if.h                        |    1
->   net/core/dev.c                                 |   18 +
->   net/core/ethtool.c                             |    1
->   net/sched/sch_generic.c                        |    2
->   12 files changed, 532 insertions(+), 97 deletions(-)
->
+At 45 MSS, you basically multiply by 3 this latency.
+
+What we probably want is a way to tune this latency, not ignore the
+problem by making big GRO packets.
+
+The only current choice for the user is to enable or disable GRO per
+ingress port.
+
+Thats a trivial patch, but net-next is closed at this moment.
