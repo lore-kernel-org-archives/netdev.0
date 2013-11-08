@@ -1,53 +1,45 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH] ipv6: use rt6_get_dflt_router to get default router in rt6_route_rcv
-Date: Fri, 08 Nov 2013 09:56:53 +0800
-Message-ID: <527C44E5.70606@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] tcp: randomize TCP source ports
+Date: Thu, 07 Nov 2013 18:04:54 -0800
+Message-ID: <1383876294.9412.136.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1383872049.9412.124.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <527C3942.509@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:2137 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751010Ab3KHB7X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Nov 2013 20:59:23 -0500
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:33124 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752511Ab3KHCE5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 21:04:57 -0500
+Received: by mail-pd0-f170.google.com with SMTP id v10so1463369pde.29
+        for <netdev@vger.kernel.org>; Thu, 07 Nov 2013 18:04:57 -0800 (PST)
+In-Reply-To: <527C3942.509@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2013-11-07 at 17:07 -0800, Rick Jones wrote:
 
-As the rfc 4191 said, the Router Preference and Lifetime values in a
-::/0 Route Information Option should override the preference and lifetime
-values in the Router Advertisement header. But when the kernel deals with
-a ::/0 Route Information Option, the rt6_get_route_info() always return
-NULL, that means that overriding will not happen, because those default
-routers were added without flag RTF_ROUTEINFO in rt6_add_dflt_router().
+> For perhaps most definitions of well deployed.  There is at least one 
+> load balancer which, while it offers TCP Window Scaling, does not also 
+> offer TCP Time Stamps...
+> 
+> By rights they should (must) be offering TCP Time Stamps, and they are, 
+> I am told, "working on it."
+> 
+> Is all going to be "well" when it is the (non-Linux) remote system which 
+> has the TIME_WAIT endpoint?
 
-In order to deal with that condition, we should call rt6_get_dflt_router
-when the prefix length is 0.
+Hey, tell us why netperf does a bind(port=0, addr=ANY) and SO_REUSEADDR
+tricks before connect()
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- net/ipv6/route.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+It seems you do request randomization, but you do not want it for
+applications written by innocent people...
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c28cdda..7faa9d5 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -731,8 +731,11 @@ int rt6_route_rcv(struct net_device *dev, u8 *opt, int len,
- 		prefix = &prefix_buf;
- 	}
- 
--	rt = rt6_get_route_info(net, prefix, rinfo->prefix_len, gwaddr,
--				dev->ifindex);
-+	if (rinfo->prefix_len == 0)
-+		rt = rt6_get_dflt_router(gwaddr, dev);
-+	else
-+		rt = rt6_get_route_info(net, prefix, rinfo->prefix_len,
-+					gwaddr, dev->ifindex);
- 
- 	if (rt && !lifetime) {
- 		ip6_del_rt(rt);
--- 
-1.8.3.1
+Current implementation is lazy at best, as a single @hint variable is
+shared for all cpus, all users, so at moderate load there is actually no
+guarantee of sequential allocations.
+
+RFC 6056 has an interesting list of alternatives
