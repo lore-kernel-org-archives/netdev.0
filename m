@@ -1,104 +1,54 @@
-From: =?UTF-8?q?Petr=20=C5=A0abata?= <contyk@redhat.com>
-Subject: [PATCH] iproute2: Document type vlan option in ip-link(8)
-Date: Fri,  8 Nov 2013 12:54:31 +0900
-Message-ID: <1383882871-7632-1-git-send-email-contyk@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v4 net-next] net: introduce dev_set_forwarding()
+Date: Fri, 8 Nov 2013 11:59:49 +0800
+Message-ID: <20131108035949.GA14325@gondor.apana.org.au>
+References: <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1383422330.4291.58.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1383584130.1553.2.camel@bwh-desktop.uk.level5networks.com>
+ <20131107.161755.355597965034457889.davem@davemloft.net>
+ <20131107213111.GA6885@gondor.apana.org.au>
+ <1383861288.9412.89.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?UTF-8?q?Petr=20=C5=A0abata?= <contyk@redhat.com>
-To: stephen@networkplumber.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47687 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752935Ab3KHDyp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Nov 2013 22:54:45 -0500
+Received: from ringil.hengli.com.au ([178.18.16.133]:49954 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756142Ab3KHEAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Nov 2013 23:00:06 -0500
+Content-Disposition: inline
+In-Reply-To: <1383861288.9412.89.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the VLAN Type support section to the ip-link
-manual page.
+On Thu, Nov 07, 2013 at 01:54:48PM -0800, Eric Dumazet wrote:
+>
+> Hi Herbert
+> 
+> I believe I did this on my patch.
 
-Signed-off-by: Petr =C5=A0abata <contyk@redhat.com>
----
- man/man8/ip-link.8.in | 59 +++++++++++++++++++++++++++++++++++++++++++=
-++++++++
- 1 file changed, 59 insertions(+)
+I actually quite like your patch for the pure iterative approach.
 
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 8b68c78..4eddbcd 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -213,6 +213,65 @@ specifies the number of transmit queues for new de=
-vice.
- specifies the number of receive queues for new device.
-=20
- .TP
-+VLAN Type Support
-+For a link of type
-+.I VLAN
-+the following additional arguments are supported:
-+
-+.BI "ip link add link " DEVICE
-+.BI name " NAME "
-+.BI type " vlan "
-+.R " [ "
-+.BI protocol " VLAN_PROTO "
-+.R " ] "
-+.BI id " VLANID "
-+.R " [ "
-+.BR reorder_hdr " { " on " | " off " } "
-+.R " ] "
-+.R " [ "
-+.BR gvrp " { " on " | " off " } "
-+.R " ] "
-+.R " [ "
-+.BR mvrp " { " on " | " off " } "
-+.R " ] "
-+.R " [ "
-+.BR loose_binding " { " on " | " off " } "
-+.R " ] "
-+.R " [ "
-+.BI ingress-qos-map " QOS-MAP "
-+.R " ] "
-+.R " [ "
-+.BI egress-qos-map " QOS-MAP "
-+.R " ] "
-+
-+.in +8
-+.sp
-+.BI protocol " VLAN_PROTO "
-+- either 802.1Q or 802.1ad.
-+
-+.BI id " VLANID "
-+- specifies the VID.
-+
-+.BR reorder_hdr " { " on " | " off " } "
-+- specifies whether ethernet headers are reordered or not.
-+
-+.BR gvrp " { " on " | " off " } "
-+- specifies whether this VLAN should be registered using GARP VLAN Reg=
-istration Protocol.
-+
-+.BR mvrp " { " on " | " off " } "
-+- specifies whether this VLAN should be registered using Multiple VLAN=
- Registration Protocol.
-+
-+.BR loose_binding " { " on " | " off " } "
-+- specifies whether the VLAN device state is bound to the physical dev=
-ice state.
-+
-+.BI ingress-qos-map " QOS-MAP "
-+- defines a mapping between priority code points on incoming frames.  =
-The format is FROM:TO with multiple mappings separated by spaces.
-+
-+.BI egress-qos-map " QOS-MAP "
-+- the same as ingress-qos-map but for outgoing frames.
-+.in -8
-+
-+.TP
- VXLAN Type Support
- For a link of type=20
- .I VXLAN
---=20
-1.8.3.1
+> Note that there is absolutely no requirement on how are the skb found in
+> frag_list (their length is not a multiple of MSS)
+
+OK I am thick and now I finally get what you're saying: virtio_net
+as it stands does not produce the original GRO packet.  So my patch
+is still broken with respect to virtio_net.  It won't crash anymore
+but it'll just drop GRO/GSO packets which is probably worse.
+
+> For the ease of discussion, once patched skb_segment() looks like :
+
+However, I still have one reason for preferring my patch, it'll
+be easier to prodce TSO packets with it.  Let me see if I can
+fix up the arbitrary frag boundary issue without making it too
+ugly.
+
+Thanks!
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
