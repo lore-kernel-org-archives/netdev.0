@@ -1,51 +1,44 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [net-next PATCH 2/2] ixgbe: deleting dfwd stations out of order
- can cause null ptr deref
-Date: Fri, 8 Nov 2013 07:31:06 -0500
-Message-ID: <20131108123106.GC4819@hmsreliant.think-freely.org>
-References: <20131108084654.6935.36501.stgit@nitbit.x32>
- <20131108085109.6935.99661.stgit@nitbit.x32>
+Subject: Re: [PATCH net-next v2 0/4] sctp: do some clean ups
+Date: Fri, 8 Nov 2013 07:31:19 -0500
+Message-ID: <20131108123119.GD4819@hmsreliant.think-freely.org>
+References: <1383891471-20892-1-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: vyasevich@gmail.com, davem@davemloft.net, dingtianhong@huawei.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: Wang Weidong <wangweidong1@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41892 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:41906 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752830Ab3KHMbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 07:31:12 -0500
+	with ESMTP id S1752830Ab3KHMbY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 07:31:24 -0500
 Content-Disposition: inline
-In-Reply-To: <20131108085109.6935.99661.stgit@nitbit.x32>
+In-Reply-To: <1383891471-20892-1-git-send-email-wangweidong1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 08, 2013 at 12:51:10AM -0800, John Fastabend wrote:
-> The number of stations in use is kept in the num_rx_pools counter
-> in the ixgbe_adapter structure. This is in turn used by the queue
-> allocation scheme to determine how many queues are needed to support
-> the number of pools in use with the current feature set.
+On Fri, Nov 08, 2013 at 02:17:47PM +0800, Wang Weidong wrote:
+> This patch series include: remove the duplicate initialize,                                                                                                
+> make code simple, convert func to boolean, fix some typos.
 > 
-> This works as long as the pools are added and destroyed in order
-> because (num_rx_pools * queues_per_pool) is equal to the last
-> queue in use by a pool. But as soon as you delete a pool out of
-> order this is no longer the case. So the above multiplication
-> allocates to few queues and a pool may reference a ring that has
-> not been allocated/initialized.
+> v1 -> v2:
+>   - patch2: make the code more simplification, as suggested
+>     by Joe Perches.
 > 
-> To resolve use the bit mask of in use pools to determine the final
-> pool being used and allocate enough queues so that we don't
-> inadvertently remove its queues.
+> Wang Weidong (4):
+>   sctp: remove the duplicate initialize
+>   sctp: remove the else path
+>   sctp: convert sctp_peer_needs_update to boolean
+>   sctp: fix some comments in associola.c
 > 
-> # ip link add link eth2 \
-> 	numtxqueues 4 numrxqueues 4 txqueuelen 50 type macvlan
-> # ip link set dev macvlan0 up
-> # ip link add link eth2 \
-> 	numtxqueues 4 numrxqueues 4 txqueuelen 50 type macvlan
-> # ip link set dev macvlan1 up
-> # for i in {0..100}; do
->   ip link set dev macvlan0 down; ip link set dev macvlan0 up;
->   done;
+>  net/sctp/associola.c | 65 ++++++++--------------------------------------------
+>  1 file changed, 10 insertions(+), 55 deletions(-)
 > 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> -- 
+> 1.7.12
+> 
+> 
+> 
+
 Acked-by: Neil Horman <nhorman@tuxdriver.com>
