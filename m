@@ -1,153 +1,100 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH] can: add Renesas R-Car CAN driver
-Date: Sat, 09 Nov 2013 11:53:33 +0100
-Message-ID: <527E142D.6070805@grandegger.com>
-References: <201309280211.39068.sergei.shtylyov@cogentembedded.com> <524BB883.2040400@grandegger.com> <526061BE.7060204@cogentembedded.com> <52657CA1.2040708@grandegger.com> <527D89A3.1070403@cogentembedded.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/2] ip6_output: fragment outgoing reassembled
+ skb properly
+Date: Sat, 9 Nov 2013 12:00:53 +0100
+Message-ID: <20131109110053.GA2447@minipsycho.orion>
+References: <1383756740-7392-2-git-send-email-jiri@resnulli.us>
+ <20131107.185453.1341640661253119352.davem@davemloft.net>
+ <20131108075201.GA2455@minipsycho.orion>
+ <20131108.144915.635810300359291522.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org, vksavl@gmail.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org, mkl@pengutronix.de,
-	linux-can@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <527D89A3.1070403@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	kadlec@blackhole.kfki.hu, kaber@trash.net, mleitner@redhat.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
+	horms@verge.net.au, ja@ssi.bg, edumazet@google.com,
+	pshelar@nicira.com, jasowang@redhat.com,
+	alexander.h.duyck@intel.com, fw@strlen.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:46391 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276Ab3KILA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Nov 2013 06:00:58 -0500
+Received: by mail-ee0-f52.google.com with SMTP id e49so1489942eek.39
+        for <netdev@vger.kernel.org>; Sat, 09 Nov 2013 03:00:56 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131108.144915.635810300359291522.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
+Fri, Nov 08, 2013 at 08:49:15PM CET, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Fri, 8 Nov 2013 08:52:01 +0100
+>
+>> Fri, Nov 08, 2013 at 12:54:53AM CET, davem@davemloft.net wrote:
+>>>From: Jiri Pirko <jiri@resnulli.us>
+>>>Date: Wed,  6 Nov 2013 17:52:19 +0100
+>>>
+>>>> If reassembled packet would fit into outdev MTU, it is not fragmented
+>>>> according the original frag size and it is send as single big packet.
+>>>> 
+>>>> The second case is if skb is gso. In that case fragmentation does not happen
+>>>> according to the original frag size.
+>>>> 
+>>>> This patch fixes these.
+>>>> 
+>>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>>> ...
+>>>
+>>>>  	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
+>>>> -	    dst_allfrag(skb_dst(skb)))
+>>>> +	    dst_allfrag(skb_dst(skb)) ||
+>>>> +	    (IP6CB(skb)->frag_max_size && skb->len > IP6CB(skb)->frag_max_size))
+>>>>  		return ip6_fragment(skb, ip6_finish_output2);
+>>>
+>>>Jiri are you sure that you don't need to take GSO into account in the
+>>>new part you are adding to the test?
+>> 
+>> 
+>> For gso skb, we need co cap outgoing fragments by the original frag size
+>> as well. So I believe that this code is correct for that case as well.
+>
+>I'm still not so sure I agree, even after having taken a second look
+>at this.
+>
+>Look at ipv4's logic for this same facility:
+>
+>		if (skb->len > ip_skb_dst_mtu(skb) && !skb_is_gso(skb))
+>			return ip_fragment(skb, ip_finish_output2);
+>
+>Strictly, we only call ip_fragment() if skb_is_gso() is false.  And then
+>in ip_fragment():
+>
+>	if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->local_df) ||
+>		     (IPCB(skb)->frag_max_size &&
+>		      IPCB(skb)->frag_max_size > dst_mtu(&rt->dst)))) {
+>
+>And that second branch of this test is what you're trying to duplicate
+>into ipv6.
 
-On 11/09/2013 02:02 AM, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 10/21/2013 11:12 PM, Wolfgang Grandegger wrote:
-> 
->>>     Sorry for the belated reply -- was on vacations.
-> 
->    And again sorry, couldn't get to this due to other things.
-> 
->>>> thanks for your contribution. The patch looks already quite good.
->>>> Before
->>>> I find time for a detailed review could you please check error handling
->>>> and bus-off recovery by reporting the output of "$ candump -td -e
->>>> any,0:0,#FFFFFFFF" while sending messages to the device ...
-> 
-> [...]
-> 
->>> root@10.0.0.101:/opt/can-utils# ip -details link show can0
->>> 2: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UNKNOWN
->>> qlen 10 link/can
->>> can state ERROR-PASSIVE (berr-counter tx 128 rx 0) restart-ms 0
->>> bitrate 297619 sample-point 0.714
-> 
->> Strange, what bitrate did you configure?
-> 
->    300000.
+That is a different check and the same one is already in ip6_fragment().
 
-Ah, OK. It's just a very unusual CAN bitrate. Common are 125k, 250k,
-500kB, 800kB and 1 MBit/s. Is it your choice?
+You cannot compare this to ipv4 directly. In ipv4 if frag skbs are
+reassembled into one, they can be forwarded out in different frag sizes
+(bigger or smaller) or not in frags at all. Therefore you can lay off
+the work to offload.
 
->>> tq 480 prop-seg 2 phase-seg1 2 phase-seg2 2 sjw 1
->>> rcar_can: tseg1 4..16 tseg2 2..8 sjw 1..4 brp 1..1024 brp-inc 1
->>> clock 49999999
-> 
->> Could you please try if the algorithm works better with 50000000.
-> 
->    It doesn't. Look at the logs below:
+But for ipv6, the same frags need to go out as they came in. Offload would
+not do that as it would try to max the flag sizes to the MTU ->
+That is exactly why I add the "skb->len > IP6CB(skb)->frag_max_size" check.
 
-OK, I was mainly confused by the bitrate. Anyway, the bitrate algorithim
-sometimes does not like exotic clock frequencies or bitrates. Then
-manual setting of the bit-timing parameters might be necessary. But that
-seem not the case here.
+Imagine scenario:
 
->>>> 2. ... with short-circuited CAN high and low and doing some time later
->>>>          a manual recovery with "ip link set can0 type can restart"
-> 
->>>     Now we have auto recovery only. Manual recovery was tested with the
->>> first driver version and worked.
-> 
->> What do you mean with "auto recovery"? Auto recovery by the hardware or
->> via "restart-ms <ms>"? How do you choose between "manual" and "auto"
->> recovery?
-> 
->    This exact test was done with hardware auto-recovery only. No
-> "restart-ms" was programmed.
+hostA-NIC(MTU1400) ------ NIC(MTU1400)-hostB-NIC(MTU1500) ------ NIC(MTU1500)-hostC
 
-OK, you already explained that in another mail and your driver does not
-use/support hardware auto-recovery any longer.
+And fragmented packets go hostA->hostB->hostC, and we are doing
+forwadring on hostB.
 
-> 
->>> Terminal 1:
-> 
->>> root@10.0.0.104:/opt/can-utils# ./cangen -n 1 -g 1 can0
->>> root@10.0.0.104:/opt/can-utils# ./cangen -n 1 -g 1 can0
->>> root@10.0.0.104:/opt/can-utils# ./cangen -n 1 -g 1 can0
->>> root@10.0.0.104:/opt/can-utils#
-> 
->>> Terminal 2:
-> 
->>> root@10.0.0.104:/opt/can-utils# ./candump -td -e any,0:0,#FFFFFFFF
->>> (000.000000) can0 2000008C [8] 00 00 08 00 00 00 00 00 ERRORFRAME
->>> controller-problem{}
->>> protocol-violation{{tx-dominant-bit-error}{}}
->>> bus-error
->>> (000.021147) can0 20000144 [8] 00 00 00 00 00 00 00 00 ERRORFRAME
->>> controller-problem{}
->>> bus-off
->>> restarted-after-bus-off
-> 
->> Why does it get "restarted" directly after the bus-off?
-> 
->    Because we have hardware auto-recovery enabled.
-> 
->>> (011.738522) can0 2000008C [8] 00 00 08 00 00 00 00 00 ERRORFRAME
->>> controller-problem{}
-> 
->> What controller problem? data[1] is not set for some reasom.
-> 
->    Not comments. Looking into it.
-> 
->>> protocol-violation{{tx-dominant-bit-error}{}}
->>> bus-error
->>> (000.021163) can0 20000144 [8] 00 00 00 00 00 00 00 00 ERRORFRAME
->>> controller-problem{}
->>> bus-off
->>> restarted-after-bus-off
->>> (001.666625) can0 2000008C [8] 00 00 08 00 00 00 00 00 ERRORFRAME
->>> controller-problem{}
->>> protocol-violation{{tx-dominant-bit-error}{}}
->>> bus-error
->>> (000.021157) can0 20000144 [8] 00 00 00 00 00 00 00 00 ERRORFRAME
->>> controller-problem{}
->>> bus-off
->>> restarted-after-bus-off
-> 
->>> dmesg:
->>> rcar_can rcar_can.0 can0: Error warning interrupt
->>> rcar_can rcar_can.0 can0: Error passive interrupt
->>> rcar_can rcar_can.0 can0: Bus error interrupt:
->>> rcar_can rcar_can.0 can0: Bit Error (dominant)
->>> rcar_can rcar_can.0 can0: Error warning interrupt
->>> rcar_can rcar_can.0 can0: Error passive interrupt
-> 
->> Why are they reported again. You are already in error passive.
-> 
->    Don't know. :-/
-
-The hardware might not be that smart. Then the software should care.
-
->>>> I also wonder if the messages are always sent in order. You could use
->>>> the program "canfdtest" [1] from the can-utils for validation.
-> 
->>>     This program is PITA. With the driver workaroung it works:
-> 
->> What workaround?
-> 
->    Doesn't matter already, got rid of it.
-
-OK. BTW: I suggest to run "canfdtest" at *1* MB/s with additional system
-and I/O load and for much longer than a minute to increase the
-probability of an out-of-order transmissions to occur.
-
-Wolfgang.
-
+I hope I cleared this out. 
