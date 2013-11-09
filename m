@@ -1,9 +1,8 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH net-next 2/2] udp: add sk opt to allow sending pkt with src 0.0.0.0
-Date: Sat,  9 Nov 2013 01:54:34 +0100
-Message-ID: <1383958474-6255-2-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net-next 1/2] ipv4: fix wildcard search with inet_confirm_addr()
+Date: Sat,  9 Nov 2013 01:54:33 +0100
+Message-ID: <1383958474-6255-1-git-send-email-nicolas.dichtel@6wind.com>
 References: <20131105205744.GK8832@order.stressinduktion.org>
- <1383958474-6255-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	David.Laight@ACULAB.COM, jiri@resnulli.us, vyasevich@gmail.com,
 	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
@@ -11,114 +10,114 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35049 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35047 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756220Ab3KIAyp (ORCPT
+	with ESMTP id S1753007Ab3KIAyp (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 19:54:45 -0500
-In-Reply-To: <1383958474-6255-1-git-send-email-nicolas.dichtel@6wind.com>
+In-Reply-To: <20131105205744.GK8832@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This feature allows to a send packets with address source set to 0.0.0.0 even if
-an ip address is available on another interface.
+Help of this function says: "in_dev: only on this interface, 0=any interface",
+but in fact the code supposes that it will never be NULL.
 
-It's useful for DHCP client, to allow them to use UDP sockets and be compliant
-with the RFC2131, Section 4.1:
-
-4.1 Constructing and sending DHCP messages
-...
-   DHCP messages broadcast by a client prior to that client obtaining
-   its IP address must have the source address field in the IP header
-   set to 0.
-
-Based on a previous work from
-Guillaume Gaudonville <guillaume.gaudonville@6wind.com>.
+Note that this function was never called with in_dev == NULL, but it's exported
+and may be used by an external module.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/linux/udp.h      |  3 ++-
- include/uapi/linux/udp.h |  1 +
- net/ipv4/udp.c           | 21 +++++++++++++++++++++
- 3 files changed, 24 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/udp.h b/include/linux/udp.h
-index 42278bbf7a88..ca947206f0fe 100644
---- a/include/linux/udp.h
-+++ b/include/linux/udp.h
-@@ -63,7 +63,8 @@ struct udp_sock {
- #define UDPLITE_SEND_CC  0x2  		/* set via udplite setsockopt         */
- #define UDPLITE_RECV_CC  0x4		/* set via udplite setsocktopt        */
- 	__u8		 pcflag;        /* marks socket as UDP-Lite if > 0    */
--	__u8		 unused[3];
-+	__u8		 src_any:1;	/* saddr to 0 when no IP is available */
-+	__u8		 unused[2];
- 	/*
- 	 * For encapsulation sockets.
- 	 */
-diff --git a/include/uapi/linux/udp.h b/include/uapi/linux/udp.h
-index e2bcfd75a30d..daf4a48face1 100644
---- a/include/uapi/linux/udp.h
-+++ b/include/uapi/linux/udp.h
-@@ -29,6 +29,7 @@ struct udphdr {
- /* UDP socket options */
- #define UDP_CORK	1	/* Never send partially complete segments */
- #define UDP_ENCAP	100	/* Set the socket to accept encapsulated packets */
-+#define UDP_SRC_ANY	101	/* Set src addr to 0 when no IP is available */
+This patch has been submitted formally for net (some rework are needed), but the
+next one is based on it, it's why I send it here.
+
+ drivers/net/bonding/bonding.h | 10 +++-------
+ include/linux/inetdevice.h    |  4 ++--
+ net/ipv4/arp.c                |  3 ++-
+ net/ipv4/devinet.c            |  8 ++++----
+ 4 files changed, 11 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 77a07a12e77f..203deaf30f83 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -377,15 +377,11 @@ static inline bool bond_is_slave_inactive(struct slave *slave)
  
- /* UDP encapsulation types */
- #define UDP_ENCAP_ESPINUDP_NON_IKE	1 /* draft-ietf-ipsec-nat-t-ike-00/01 */
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 89909dd730dd..f58945187dbd 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -111,6 +111,7 @@
- #include <linux/static_key.h>
- #include <trace/events/skb.h>
- #include <net/busy_poll.h>
-+#include <linux/inetdevice.h>
- #include "udp_impl.h"
+ static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be32 local)
+ {
+-	struct in_device *in_dev;
+-	__be32 addr = 0;
++	__be32 addr;
  
- struct udp_table udp_table __read_mostly;
-@@ -1015,6 +1016,18 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		goto do_confirm;
- back_from_confirm:
+ 	rcu_read_lock();
+-	in_dev = __in_dev_get_rcu(dev);
+-
+-	if (in_dev)
+-		addr = inet_confirm_addr(in_dev, dst, local, RT_SCOPE_HOST);
+-
++	addr = inet_confirm_addr(dev_net(dev), __in_dev_get_rcu(dev), dst,
++				 local, RT_SCOPE_HOST);
+ 	rcu_read_unlock();
+ 	return addr;
+ }
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 0d678aefe69d..f188e7598edd 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -164,8 +164,8 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *);
+ void devinet_init(void);
+ struct in_device *inetdev_by_index(struct net *, int);
+ __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
+-__be32 inet_confirm_addr(struct in_device *in_dev, __be32 dst, __be32 local,
+-			 int scope);
++__be32 inet_confirm_addr(struct net *net, struct in_device *in_dev, __be32 dst,
++			 __be32 local, int scope);
+ struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix,
+ 				    __be32 mask);
  
-+	if (up->src_any && sk->sk_bound_dev_if) {
-+		struct net_device *dev;
-+		struct in_device *in_dev;
-+
-+		rcu_read_lock();
-+		dev = dev_get_by_index_rcu(sock_net(sk), sk->sk_bound_dev_if);
-+		in_dev = dev ? __in_dev_get_rcu(dev) : NULL;
-+		if (!inet_confirm_addr(sock_net(sk), in_dev, 0, 0,
-+				       RT_SCOPE_HOST))
-+			fl4->saddr = 0;
-+		rcu_read_unlock();
-+	}
- 	saddr = fl4->saddr;
- 	if (!ipc.addr)
- 		daddr = ipc.addr = fl4->daddr;
-@@ -2045,6 +2058,10 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
- 		up->pcflag |= UDPLITE_RECV_CC;
- 		break;
- 
-+	case UDP_SRC_ANY:
-+		up->src_any = val ? 1 : 0;
-+		break;
-+
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 7808093cede6..fc5ebc7e1962 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -408,7 +408,8 @@ static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
  	default:
- 		err = -ENOPROTOOPT;
- 		break;
-@@ -2107,6 +2124,10 @@ int udp_lib_getsockopt(struct sock *sk, int level, int optname,
- 		val = up->pcrlen;
- 		break;
- 
-+	case UDP_SRC_ANY:
-+		val = up->src_any;
-+		break;
-+
- 	default:
- 		return -ENOPROTOOPT;
+ 		return 0;
  	}
+-	return !inet_confirm_addr(in_dev, sip, tip, scope);
++	return !inet_confirm_addr(dev_net(in_dev->dev), in_dev, sip, tip,
++				  scope);
+ }
+ 
+ static int arp_filter(__be32 sip, __be32 tip, struct net_device *dev)
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index a1b5bcbd04ae..47cdb035f817 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1236,22 +1236,22 @@ static __be32 confirm_addr_indev(struct in_device *in_dev, __be32 dst,
+ 
+ /*
+  * Confirm that local IP address exists using wildcards:
++ * - net: netns to check, cannot be NULL
+  * - in_dev: only on this interface, 0=any interface
+  * - dst: only in the same subnet as dst, 0=any dst
+  * - local: address, 0=autoselect the local address
+  * - scope: maximum allowed scope value for the local address
+  */
+-__be32 inet_confirm_addr(struct in_device *in_dev,
++__be32 inet_confirm_addr(struct net *net, struct in_device *in_dev,
+ 			 __be32 dst, __be32 local, int scope)
+ {
+ 	__be32 addr = 0;
+ 	struct net_device *dev;
+-	struct net *net;
+ 
+ 	if (scope != RT_SCOPE_LINK)
+-		return confirm_addr_indev(in_dev, dst, local, scope);
++		return in_dev ? confirm_addr_indev(in_dev, dst, local, scope) :
++				0;
+ 
+-	net = dev_net(in_dev->dev);
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(net, dev) {
+ 		in_dev = __in_dev_get_rcu(dev);
 -- 
 1.8.4.1
