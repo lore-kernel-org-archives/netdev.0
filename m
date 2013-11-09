@@ -1,45 +1,61 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net] netlink: fix netlink_ack with large messages
-Date: Sat, 09 Nov 2013 08:43:51 -0500
-Message-ID: <527E3C17.1080508@mojatatu.com>
-References: <9333f540a9b87adbdd15e274d12a9d60994fdb34.1383850578.git.jbenc@redhat.com>	<20131108.150741.966018155704146843.davem@davemloft.net>	<20131109000434.GD28793@casper.infradead.org> <20131109.000012.1393414533296613338.davem@davemloft.net>
+From: Ding Tianhong <dthxman@gmail.com>
+Subject: Re: [PATCH net-next v2 2/10] bonding: rebuild the lock use for bond_mii_monitor()
+Date: Sat, 09 Nov 2013 21:51:03 +0800
+Message-ID: <527E3DC7.3020908@gmail.com>
+References: <527C4771.90207@huawei.com> <527D0303.8030806@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jbenc@redhat.com, netdev@vger.kernel.org, pablo@netfilter.org
-To: David Miller <davem@davemloft.net>, tgraf@suug.ch
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ding Tianhong <dingtianhong@huawei.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:59235 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752297Ab3KINnx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Nov 2013 08:43:53 -0500
-Received: by mail-pb0-f41.google.com with SMTP id wy17so3369486pbc.0
-        for <netdev@vger.kernel.org>; Sat, 09 Nov 2013 05:43:53 -0800 (PST)
-In-Reply-To: <20131109.000012.1393414533296613338.davem@davemloft.net>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:62024 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752479Ab3KIOBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Nov 2013 09:01:51 -0500
+Received: by mail-pb0-f49.google.com with SMTP id um1so1353181pbc.8
+        for <netdev@vger.kernel.org>; Sat, 09 Nov 2013 06:01:50 -0800 (PST)
+In-Reply-To: <527D0303.8030806@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/09/13 00:00, David Miller wrote:
-
-> The user has the message, they gave it to us in the sendmsg()
-> we are responding to.  We absolutely do not need to give it
-> to them again.
+=E4=BA=8E 2013/11/8 23:28, Nikolay Aleksandrov =E5=86=99=E9=81=93:
+> On 11/08/2013 03:07 AM, Ding Tianhong wrote:
+> In fact the bond cannot disappear while this function is running, so =
+this test
+> should be able to run outside the RCU region if I'm not missing somet=
+hing :-)
+> It'll be just as useful as running inside the region, at most a free =
+run may
+> happen if there's one slave and it disappears.
 >
-> If they care about referring to the contents of that message, they can
-> refer to it in their own copy and make sure they are really looking at
-> the same thing by comparing the sequence number in the netlink ACK to
-> the one they used in the netlink header they gave to the kernel in the
-> sendmsg() call.
 >
-> What happens now is pure duplication, and for such huge netlink
-> messages it's really not smart at all.
+> This is unnecessary, bond_has_slaves() should be enough. See bond_sta=
+rt_xmit()
+> and also the list_empty comment in include/linux/rculist.h for more i=
+nformation why.
+> My bond_has_slaves() comments apply to all the patches that use it.
+>
 >
 
-for errors, we need to give the user something back. This has been the
-behavior for 80 years now. Giving them a HUGE message
-back is rediculuos(tm). Ive had enough of SCTP doing that.
-We need to cap it - sort of what ICMP does.
-ICMP caps at 64B; something like 128B is reasonable.
+yes, you are right, I make a silly mistake, the bond list itself is no=20
+need to copy, it
+dose not occur any problem if it be changed.
 
-cheers,
-jamal
+The curr_active_slave needs copy for peer, as it may be changed at=20
+monitor running.
+
+Regards.
+Ding
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
