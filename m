@@ -1,62 +1,53 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: iproute2: potential upgrade regression with 58a3e827
-Date: Sun, 10 Nov 2013 01:00:34 +0800
-Message-ID: <527E6A32.5020808@hp.com>
-References: <527D2768.1030403@canonical.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] netlink: fix netlink_ack with large messages
+Date: Sat, 9 Nov 2013 19:03:53 +0100
+Message-ID: <20131109180353.GA3715@localhost>
+References: <9333f540a9b87adbdd15e274d12a9d60994fdb34.1383850578.git.jbenc@redhat.com>
+ <20131108.150741.966018155704146843.davem@davemloft.net>
+ <20131109000434.GD28793@casper.infradead.org>
+ <20131109.000012.1393414533296613338.davem@davemloft.net>
+ <527E3C17.1080508@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Chris J Arges <chris.j.arges@canonical.com>, shemminger@osdl.org,
-	ebiederm@xmission.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	jbenc@redhat.com, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:16999 "EHLO
-	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756660Ab3KIRAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Nov 2013 12:00:39 -0500
-In-Reply-To: <527D2768.1030403@canonical.com>
+Received: from mail.us.es ([193.147.175.20]:36227 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753740Ab3KISD6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Nov 2013 13:03:58 -0500
+Content-Disposition: inline
+In-Reply-To: <527E3C17.1080508@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/09/2013 02:03 AM, Chris J Arges wrote:
-> Hi,
-> The commit
-> https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/commit/?id=58a3e8270fe72f8ed92687d3a3132c2a708582dd
-> could be potentially introducing a regression on an upgrade.
->
-> I've noticed that upgrading iproute while there are active namespaces
-> could cause the following error:
-> seting the network namespace failed: Invalid argument
->
-> Here's a test case:
-> Build and install iproute2 with 4395d48c78a77a99c5a8618403211032356fe552
->
-> In one terminal run:
-> ip netns add netns_old
-> ip link add name if_old type veth peer name if_old_peer
-> ip link set dev if_old_peer netns netns_old
-> ip netns exec netns_old bash
->
-> Build and install iproute2 with yypyye72f8ed92687d3a3132c2a708582dd
->
-> In the same terminal as you typed the original commands run:
-> ip netns add netns_one
-> ip link add name if_one type veth peer name if_one_peer
-> ip link set dev if_one_peer netns netns_one
-> ip netns exec netns_one bash
-> ip netns exec netns_old bash
->
-> You'll get:
-> seting the network namespace failed: Invalid argument
->
-> If you just run the above without transitioning to the code in 58a3e827,
-> then it works.
+On Sat, Nov 09, 2013 at 08:43:51AM -0500, Jamal Hadi Salim wrote:
+> On 11/09/13 00:00, David Miller wrote:
+> 
+> >The user has the message, they gave it to us in the sendmsg()
+> >we are responding to.  We absolutely do not need to give it
+> >to them again.
+> >
+> >If they care about referring to the contents of that message, they can
+> >refer to it in their own copy and make sure they are really looking at
+> >the same thing by comparing the sequence number in the netlink ACK to
+> >the one they used in the netlink header they gave to the kernel in the
+> >sendmsg() call.
+> >
+> >What happens now is pure duplication, and for such huge netlink
+> >messages it's really not smart at all.
+> >
+> 
+> for errors, we need to give the user something back. This has been the
+> behavior for 80 years now. Giving them a HUGE message
+> back is rediculuos(tm). Ive had enough of SCTP doing that.
+> We need to cap it - sort of what ICMP does.
+> ICMP caps at 64B; something like 128B is reasonable.
 
-I've seen this error recently as well, and when it does happen if you go 
-look in /var/run/netns you'll see that the permissions on your 
-namespace(s) are most likely 000.  The only solution I found was to 
-reboot, and then only use the newer iproute.
-
-Maybe that info can help track down the cause?
-
--Brian
+Personally, I have only used the sequence number to correlate the
+original request with the ack reply, so I agree in that trimming it to
+some reasonable amount of bytes like ICMP is the way to go. I prefer
+if we select a large enough amount of bytes to avoid breaking backward
+compatibility, eg. 128KB, since I'm not sure what kind of handling
+others may have done of this.
