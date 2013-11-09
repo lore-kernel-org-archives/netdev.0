@@ -1,123 +1,115 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH net-next 1/2] ipv4: fix wildcard search with inet_confirm_addr()
-Date: Sat,  9 Nov 2013 01:54:33 +0100
-Message-ID: <1383958474-6255-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <20131105205744.GK8832@order.stressinduktion.org>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	David.Laight@ACULAB.COM, jiri@resnulli.us, vyasevich@gmail.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, thaller@redhat.com, stephen@networkplumber.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: hannes@stressinduktion.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC] tcp: randomize TCP source ports
+Date: Sat, 9 Nov 2013 05:47:24 +0100
+Message-ID: <20131109044724.GB1963@order.stressinduktion.org>
+References: <1383872049.9412.124.camel@edumazet-glaptop2.roam.corp.google.com> <20131108130244.GE5876@order.stressinduktion.org> <1383919418.9412.234.camel@edumazet-glaptop2.roam.corp.google.com> <20131108142856.GA28330@order.stressinduktion.org> <1383923478.9412.240.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35047 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753007Ab3KIAyp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 19:54:45 -0500
-In-Reply-To: <20131105205744.GK8832@order.stressinduktion.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:59770 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751069Ab3KIEr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Nov 2013 23:47:26 -0500
+Content-Disposition: inline
+In-Reply-To: <1383923478.9412.240.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Help of this function says: "in_dev: only on this interface, 0=any interface",
-but in fact the code supposes that it will never be NULL.
+On Fri, Nov 08, 2013 at 07:11:18AM -0800, Eric Dumazet wrote:
+> On Fri, 2013-11-08 at 15:28 +0100, Hannes Frederic Sowa wrote:
+> 
+> > What do you think about using a timer to keep the reseed out of fast-path
+> > and switch to the non-arch get_random_bytes instead?
+> 
+> Well, the initial seed value is get_random_bytes(). I felt that using a
+> xor with the _arch() version would be safe enough.
+> 
+> For the timer, I do not think its worth the pain : Do you want a per cpu
+> timer, or a global one ?
 
-Note that this function was never called with in_dev == NULL, but it's exported
-and may be used by an external module.
+This untested diff came to my mind (it is based on the random tree). I
+actually consider to propose something like this for 3.13. UDP port
+randomization is really critical.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
+In 3.14 timeframe I suggest abandon net_random and use prandom_u32
+directly so code gets easier to audit.
 
-This patch has been submitted formally for net (some rework are needed), but the
-next one is based on it, it's why I send it here.
+Would it hurt to use "proper" get_random_byte calls for port randomization?
 
- drivers/net/bonding/bonding.h | 10 +++-------
- include/linux/inetdevice.h    |  4 ++--
- net/ipv4/arp.c                |  3 ++-
- net/ipv4/devinet.c            |  8 ++++----
- 4 files changed, 11 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 77a07a12e77f..203deaf30f83 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -377,15 +377,11 @@ static inline bool bond_is_slave_inactive(struct slave *slave)
+diff --git a/drivers/char/random.c b/drivers/char/random.c
+index cdf4cfb..e9d0136 100644
+--- a/drivers/char/random.c
++++ b/drivers/char/random.c
+@@ -657,9 +657,11 @@ retry:
+ 	r->entropy_total += nbits;
+ 	if (!r->initialized && nbits > 0) {
+ 		if (r->entropy_total > 128) {
+-			if (r == &nonblocking_pool)
++			if (r == &nonblocking_pool) {
+ 				pr_notice("random: %s pool is initialized\n",
+ 					  r->name);
++				prandom_reseed();
++			}
+ 			r->initialized = 1;
+ 			r->entropy_total = 0;
+ 		}
+diff --git a/include/linux/random.h b/include/linux/random.h
+index 6312dd9..4f878c0 100644
+--- a/include/linux/random.h
++++ b/include/linux/random.h
+@@ -29,6 +29,7 @@ unsigned long randomize_range(unsigned long start, unsigned long end, unsigned l
+ u32 prandom_u32(void);
+ void prandom_bytes(void *buf, int nbytes);
+ void prandom_seed(u32 seed);
++void prandom_reseed(void);
  
- static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be32 local)
- {
--	struct in_device *in_dev;
--	__be32 addr = 0;
-+	__be32 addr;
- 
- 	rcu_read_lock();
--	in_dev = __in_dev_get_rcu(dev);
--
--	if (in_dev)
--		addr = inet_confirm_addr(in_dev, dst, local, RT_SCOPE_HOST);
--
-+	addr = inet_confirm_addr(dev_net(dev), __in_dev_get_rcu(dev), dst,
-+				 local, RT_SCOPE_HOST);
- 	rcu_read_unlock();
- 	return addr;
+ u32 prandom_u32_state(struct rnd_state *);
+ void prandom_bytes_state(struct rnd_state *state, void *buf, int nbytes);
+diff --git a/lib/random32.c b/lib/random32.c
+index 52280d5..1ee611f 100644
+--- a/lib/random32.c
++++ b/lib/random32.c
+@@ -174,11 +174,31 @@ static int __init prandom_init(void)
  }
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index 0d678aefe69d..f188e7598edd 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -164,8 +164,8 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *);
- void devinet_init(void);
- struct in_device *inetdev_by_index(struct net *, int);
- __be32 inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
--__be32 inet_confirm_addr(struct in_device *in_dev, __be32 dst, __be32 local,
--			 int scope);
-+__be32 inet_confirm_addr(struct net *net, struct in_device *in_dev, __be32 dst,
-+			 __be32 local, int scope);
- struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix,
- 				    __be32 mask);
+ core_initcall(prandom_init);
  
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 7808093cede6..fc5ebc7e1962 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -408,7 +408,8 @@ static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
- 	default:
- 		return 0;
- 	}
--	return !inet_confirm_addr(in_dev, sip, tip, scope);
-+	return !inet_confirm_addr(dev_net(in_dev->dev), in_dev, sip, tip,
-+				  scope);
- }
- 
- static int arp_filter(__be32 sip, __be32 tip, struct net_device *dev)
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index a1b5bcbd04ae..47cdb035f817 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1236,22 +1236,22 @@ static __be32 confirm_addr_indev(struct in_device *in_dev, __be32 dst,
- 
++static void __prandom_timer(unsigned long dontcare);
++static DEFINE_TIMER(seed_timer, __prandom_timer, 0, 0);
++
++static void __prandom_timer(unsigned long dontcare)
++{
++	u32 entropy;
++	get_random_bytes(&entropy, sizeof(entropy));
++	prandom_seed(entropy);
++	seed_timer.expires = jiffies + 60 * HZ;
++	add_timer(&seed_timer);
++}
++
++static int prandom_start_seed_timer(void)
++{
++	seed_timer.expires = jiffies + 60 * HZ;
++	add_timer(&seed_timer);
++	return 0;
++}
++late_initcall(prandom_start_seed_timer);
++
  /*
-  * Confirm that local IP address exists using wildcards:
-+ * - net: netns to check, cannot be NULL
-  * - in_dev: only on this interface, 0=any interface
-  * - dst: only in the same subnet as dst, 0=any dst
-  * - local: address, 0=autoselect the local address
-  * - scope: maximum allowed scope value for the local address
+  *	Generate better values after random number generator
+  *	is fully initialized.
   */
--__be32 inet_confirm_addr(struct in_device *in_dev,
-+__be32 inet_confirm_addr(struct net *net, struct in_device *in_dev,
- 			 __be32 dst, __be32 local, int scope)
+-static int __init prandom_reseed(void)
++void prandom_reseed(void)
  {
- 	__be32 addr = 0;
- 	struct net_device *dev;
--	struct net *net;
+ 	int i;
  
- 	if (scope != RT_SCOPE_LINK)
--		return confirm_addr_indev(in_dev, dst, local, scope);
-+		return in_dev ? confirm_addr_indev(in_dev, dst, local, scope) :
-+				0;
- 
--	net = dev_net(in_dev->dev);
- 	rcu_read_lock();
- 	for_each_netdev_rcu(net, dev) {
- 		in_dev = __in_dev_get_rcu(dev);
--- 
-1.8.4.1
+@@ -196,4 +216,3 @@ static int __init prandom_reseed(void)
+ 	}
+ 	return 0;
+ }
+-late_initcall(prandom_reseed);
+
+Greetings,
+
+  Hannes
