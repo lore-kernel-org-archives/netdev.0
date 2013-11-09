@@ -1,100 +1,130 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/2] ip6_output: fragment outgoing reassembled
- skb properly
-Date: Sat, 9 Nov 2013 12:00:53 +0100
-Message-ID: <20131109110053.GA2447@minipsycho.orion>
-References: <1383756740-7392-2-git-send-email-jiri@resnulli.us>
- <20131107.185453.1341640661253119352.davem@davemloft.net>
- <20131108075201.GA2455@minipsycho.orion>
- <20131108.144915.635810300359291522.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	kadlec@blackhole.kfki.hu, kaber@trash.net, mleitner@redhat.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, wensong@linux-vs.org,
-	horms@verge.net.au, ja@ssi.bg, edumazet@google.com,
-	pshelar@nicira.com, jasowang@redhat.com,
-	alexander.h.duyck@intel.com, fw@strlen.de
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 1/2] igb: Update link modes display in ethtool
+Date: Sat,  9 Nov 2013 04:52:14 -0800
+Message-ID: <1384001534-18709-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f52.google.com ([74.125.83.52]:46391 "EHLO
-	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751276Ab3KILA6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Nov 2013 06:00:58 -0500
-Received: by mail-ee0-f52.google.com with SMTP id e49so1489942eek.39
-        for <netdev@vger.kernel.org>; Sat, 09 Nov 2013 03:00:56 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20131108.144915.635810300359291522.davem@davemloft.net>
+Received: from mga03.intel.com ([143.182.124.21]:8453 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752186Ab3KIMwU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Nov 2013 07:52:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Nov 08, 2013 at 08:49:15PM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Fri, 8 Nov 2013 08:52:01 +0100
->
->> Fri, Nov 08, 2013 at 12:54:53AM CET, davem@davemloft.net wrote:
->>>From: Jiri Pirko <jiri@resnulli.us>
->>>Date: Wed,  6 Nov 2013 17:52:19 +0100
->>>
->>>> If reassembled packet would fit into outdev MTU, it is not fragmented
->>>> according the original frag size and it is send as single big packet.
->>>> 
->>>> The second case is if skb is gso. In that case fragmentation does not happen
->>>> according to the original frag size.
->>>> 
->>>> This patch fixes these.
->>>> 
->>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>> ...
->>>
->>>>  	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
->>>> -	    dst_allfrag(skb_dst(skb)))
->>>> +	    dst_allfrag(skb_dst(skb)) ||
->>>> +	    (IP6CB(skb)->frag_max_size && skb->len > IP6CB(skb)->frag_max_size))
->>>>  		return ip6_fragment(skb, ip6_finish_output2);
->>>
->>>Jiri are you sure that you don't need to take GSO into account in the
->>>new part you are adding to the test?
->> 
->> 
->> For gso skb, we need co cap outgoing fragments by the original frag size
->> as well. So I believe that this code is correct for that case as well.
->
->I'm still not so sure I agree, even after having taken a second look
->at this.
->
->Look at ipv4's logic for this same facility:
->
->		if (skb->len > ip_skb_dst_mtu(skb) && !skb_is_gso(skb))
->			return ip_fragment(skb, ip_finish_output2);
->
->Strictly, we only call ip_fragment() if skb_is_gso() is false.  And then
->in ip_fragment():
->
->	if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->local_df) ||
->		     (IPCB(skb)->frag_max_size &&
->		      IPCB(skb)->frag_max_size > dst_mtu(&rt->dst)))) {
->
->And that second branch of this test is what you're trying to duplicate
->into ipv6.
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-That is a different check and the same one is already in ip6_fragment().
+This patch fixes multiple problems in the link modes display in ethtool.
+Newer parts have more complicated methods to determine actual link
+capabilities.  Older parts cannot communicate with their SFP modules.
+Finally, all the available defines are not displayed by ethtool.  This
+updates the link modes to be as accurate as possible depending on what data
+is available to the driver at any given time.
 
-You cannot compare this to ipv4 directly. In ipv4 if frag skbs are
-reassembled into one, they can be forwarded out in different frag sizes
-(bigger or smaller) or not in frags at all. Therefore you can lay off
-the work to offload.
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 51 +++++++++++++++-------------
+ 1 file changed, 27 insertions(+), 24 deletions(-)
 
-But for ipv6, the same frags need to go out as they came in. Offload would
-not do that as it would try to max the flag sizes to the MTU ->
-That is exactly why I add the "skb->len > IP6CB(skb)->frag_max_size" check.
-
-Imagine scenario:
-
-hostA-NIC(MTU1400) ------ NIC(MTU1400)-hostB-NIC(MTU1500) ------ NIC(MTU1500)-hostC
-
-And fragmented packets go hostA->hostB->hostC, and we are doing
-forwadring on hostB.
-
-I hope I cleared this out. 
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 151e00c..430b12f 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -146,6 +146,7 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 	struct e1000_sfp_flags *eth_flags = &dev_spec->eth_flags;
+ 	u32 status;
+ 
++	status = rd32(E1000_STATUS);
+ 	if (hw->phy.media_type == e1000_media_type_copper) {
+ 
+ 		ecmd->supported = (SUPPORTED_10baseT_Half |
+@@ -169,13 +170,22 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 		ecmd->transceiver = XCVR_INTERNAL;
+ 	} else {
+ 		ecmd->supported = (SUPPORTED_FIBRE |
++				   SUPPORTED_1000baseKX_Full |
+ 				   SUPPORTED_Autoneg |
+ 				   SUPPORTED_Pause);
+-		ecmd->advertising = ADVERTISED_FIBRE;
+-
+-		if ((eth_flags->e1000_base_lx) || (eth_flags->e1000_base_sx)) {
+-			ecmd->supported |= SUPPORTED_1000baseT_Full;
+-			ecmd->advertising |= ADVERTISED_1000baseT_Full;
++		ecmd->advertising = (ADVERTISED_FIBRE |
++				     ADVERTISED_1000baseKX_Full);
++		if (hw->mac.type == e1000_i354) {
++			if ((hw->device_id ==
++			     E1000_DEV_ID_I354_BACKPLANE_2_5GBPS) &&
++			    !(status & E1000_STATUS_2P5_SKU_OVER)) {
++				ecmd->supported |= SUPPORTED_2500baseX_Full;
++				ecmd->supported &=
++					~SUPPORTED_1000baseKX_Full;
++				ecmd->advertising |= ADVERTISED_2500baseX_Full;
++				ecmd->advertising &=
++					~ADVERTISED_1000baseKX_Full;
++			}
+ 		}
+ 		if (eth_flags->e100_base_fx) {
+ 			ecmd->supported |= SUPPORTED_100baseT_Full;
+@@ -187,35 +197,29 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 		ecmd->port = PORT_FIBRE;
+ 		ecmd->transceiver = XCVR_EXTERNAL;
+ 	}
+-
+ 	if (hw->mac.autoneg != 1)
+ 		ecmd->advertising &= ~(ADVERTISED_Pause |
+ 				       ADVERTISED_Asym_Pause);
+ 
+-	if (hw->fc.requested_mode == e1000_fc_full)
++	switch (hw->fc.requested_mode) {
++	case e1000_fc_full:
+ 		ecmd->advertising |= ADVERTISED_Pause;
+-	else if (hw->fc.requested_mode == e1000_fc_rx_pause)
++		break;
++	case e1000_fc_rx_pause:
+ 		ecmd->advertising |= (ADVERTISED_Pause |
+ 				      ADVERTISED_Asym_Pause);
+-	else if (hw->fc.requested_mode == e1000_fc_tx_pause)
++		break;
++	case e1000_fc_tx_pause:
+ 		ecmd->advertising |=  ADVERTISED_Asym_Pause;
+-	else
++		break;
++	default:
+ 		ecmd->advertising &= ~(ADVERTISED_Pause |
+ 				       ADVERTISED_Asym_Pause);
+-
+-	status = rd32(E1000_STATUS);
+-
++	}
+ 	if (status & E1000_STATUS_LU) {
+-		if (hw->mac.type == e1000_i354) {
+-			if ((status & E1000_STATUS_2P5_SKU) &&
+-			    !(status & E1000_STATUS_2P5_SKU_OVER)) {
+-				ecmd->supported = SUPPORTED_2500baseX_Full;
+-				ecmd->advertising = ADVERTISED_2500baseX_Full;
+-				ecmd->speed = SPEED_2500;
+-			} else {
+-				ecmd->supported = SUPPORTED_1000baseT_Full;
+-				ecmd->advertising = ADVERTISED_1000baseT_Full;
+-			}
++		if ((status & E1000_STATUS_2P5_SKU) &&
++		    !(status & E1000_STATUS_2P5_SKU_OVER)) {
++			ecmd->speed = SPEED_2500;
+ 		} else if (status & E1000_STATUS_SPEED_1000) {
+ 			ecmd->speed = SPEED_1000;
+ 		} else if (status & E1000_STATUS_SPEED_100) {
+@@ -232,7 +236,6 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 		ecmd->speed = -1;
+ 		ecmd->duplex = -1;
+ 	}
+-
+ 	if ((hw->phy.media_type == e1000_media_type_fiber) ||
+ 	    hw->mac.autoneg)
+ 		ecmd->autoneg = AUTONEG_ENABLE;
+-- 
+1.8.3.1
