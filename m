@@ -1,130 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/2] igb: Update link modes display in ethtool
-Date: Sat,  9 Nov 2013 04:52:14 -0800
-Message-ID: <1384001534-18709-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Subject: [net 2/2] ixgbe: add warning when max_vfs is out of range.
+Date: Sat,  9 Nov 2013 04:52:32 -0800
+Message-ID: <1384001552-18754-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:8453 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:29193 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752186Ab3KIMwU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Nov 2013 07:52:20 -0500
+	id S1751544Ab3KIMwi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Nov 2013 07:52:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch fixes multiple problems in the link modes display in ethtool.
-Newer parts have more complicated methods to determine actual link
-capabilities.  Older parts cannot communicate with their SFP modules.
-Finally, all the available defines are not displayed by ethtool.  This
-updates the link modes to be as accurate as possible depending on what data
-is available to the driver at any given time.
+The max_vfs parameter has a limit of 63 and silently fails (adding 0 vfs) when
+it is out of range. This patch adds a warning so that the user knows something
+went wrong. Also, this patch moves the warning in ixgbe_enable_sriov() to where
+max_vfs is checked, so that even an out of range value will show the deprecated
+warning. Previously, an out of range parameter didn't even warn the user to use
+the new sysfs interface instead.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 51 +++++++++++++++-------------
- 1 file changed, 27 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 17 +++++++++++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  4 ----
+ 2 files changed, 13 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 151e00c..430b12f 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -146,6 +146,7 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 	struct e1000_sfp_flags *eth_flags = &dev_spec->eth_flags;
- 	u32 status;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 0ade0cd..2767cf2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -132,7 +132,7 @@ static struct notifier_block dca_notifier = {
+ static unsigned int max_vfs;
+ module_param(max_vfs, uint, 0);
+ MODULE_PARM_DESC(max_vfs,
+-		 "Maximum number of virtual functions to allocate per physical function - default is zero and maximum value is 63");
++		 "Maximum number of virtual functions to allocate per physical function - default is zero and maximum value is 63. (Deprecated)");
+ #endif /* CONFIG_PCI_IOV */
  
-+	status = rd32(E1000_STATUS);
- 	if (hw->phy.media_type == e1000_media_type_copper) {
+ static unsigned int allow_unsupported_sfp;
+@@ -4816,11 +4816,20 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	hw->fc.disable_fc_autoneg = ixgbe_device_supports_autoneg_fc(hw);
  
- 		ecmd->supported = (SUPPORTED_10baseT_Half |
-@@ -169,13 +170,22 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 		ecmd->transceiver = XCVR_INTERNAL;
- 	} else {
- 		ecmd->supported = (SUPPORTED_FIBRE |
-+				   SUPPORTED_1000baseKX_Full |
- 				   SUPPORTED_Autoneg |
- 				   SUPPORTED_Pause);
--		ecmd->advertising = ADVERTISED_FIBRE;
--
--		if ((eth_flags->e1000_base_lx) || (eth_flags->e1000_base_sx)) {
--			ecmd->supported |= SUPPORTED_1000baseT_Full;
--			ecmd->advertising |= ADVERTISED_1000baseT_Full;
-+		ecmd->advertising = (ADVERTISED_FIBRE |
-+				     ADVERTISED_1000baseKX_Full);
-+		if (hw->mac.type == e1000_i354) {
-+			if ((hw->device_id ==
-+			     E1000_DEV_ID_I354_BACKPLANE_2_5GBPS) &&
-+			    !(status & E1000_STATUS_2P5_SKU_OVER)) {
-+				ecmd->supported |= SUPPORTED_2500baseX_Full;
-+				ecmd->supported &=
-+					~SUPPORTED_1000baseKX_Full;
-+				ecmd->advertising |= ADVERTISED_2500baseX_Full;
-+				ecmd->advertising &=
-+					~ADVERTISED_1000baseKX_Full;
-+			}
- 		}
- 		if (eth_flags->e100_base_fx) {
- 			ecmd->supported |= SUPPORTED_100baseT_Full;
-@@ -187,35 +197,29 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 		ecmd->port = PORT_FIBRE;
- 		ecmd->transceiver = XCVR_EXTERNAL;
- 	}
--
- 	if (hw->mac.autoneg != 1)
- 		ecmd->advertising &= ~(ADVERTISED_Pause |
- 				       ADVERTISED_Asym_Pause);
- 
--	if (hw->fc.requested_mode == e1000_fc_full)
-+	switch (hw->fc.requested_mode) {
-+	case e1000_fc_full:
- 		ecmd->advertising |= ADVERTISED_Pause;
--	else if (hw->fc.requested_mode == e1000_fc_rx_pause)
-+		break;
-+	case e1000_fc_rx_pause:
- 		ecmd->advertising |= (ADVERTISED_Pause |
- 				      ADVERTISED_Asym_Pause);
--	else if (hw->fc.requested_mode == e1000_fc_tx_pause)
-+		break;
-+	case e1000_fc_tx_pause:
- 		ecmd->advertising |=  ADVERTISED_Asym_Pause;
--	else
-+		break;
-+	default:
- 		ecmd->advertising &= ~(ADVERTISED_Pause |
- 				       ADVERTISED_Asym_Pause);
--
--	status = rd32(E1000_STATUS);
--
+ #ifdef CONFIG_PCI_IOV
++	if (max_vfs > 0)
++		e_dev_warn("Enabling SR-IOV VFs using the max_vfs module parameter is deprecated - please use the pci sysfs interface instead.\n");
++
+ 	/* assign number of SR-IOV VFs */
+-	if (hw->mac.type != ixgbe_mac_82598EB)
+-		adapter->num_vfs = (max_vfs > 63) ? 0 : max_vfs;
++	if (hw->mac.type != ixgbe_mac_82598EB) {
++		if (max_vfs > 63) {
++			adapter->num_vfs = 0;
++			e_dev_warn("max_vfs parameter out of range. Not assigning any SR-IOV VFs\n");
++		} else {
++			adapter->num_vfs = max_vfs;
++		}
 +	}
- 	if (status & E1000_STATUS_LU) {
--		if (hw->mac.type == e1000_i354) {
--			if ((status & E1000_STATUS_2P5_SKU) &&
--			    !(status & E1000_STATUS_2P5_SKU_OVER)) {
--				ecmd->supported = SUPPORTED_2500baseX_Full;
--				ecmd->advertising = ADVERTISED_2500baseX_Full;
--				ecmd->speed = SPEED_2500;
--			} else {
--				ecmd->supported = SUPPORTED_1000baseT_Full;
--				ecmd->advertising = ADVERTISED_1000baseT_Full;
--			}
-+		if ((status & E1000_STATUS_2P5_SKU) &&
-+		    !(status & E1000_STATUS_2P5_SKU_OVER)) {
-+			ecmd->speed = SPEED_2500;
- 		} else if (status & E1000_STATUS_SPEED_1000) {
- 			ecmd->speed = SPEED_1000;
- 		} else if (status & E1000_STATUS_SPEED_100) {
-@@ -232,7 +236,6 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 		ecmd->speed = -1;
- 		ecmd->duplex = -1;
- 	}
++#endif /* CONFIG_PCI_IOV */
+ 
+-#endif
+ 	/* enable itr by default in dynamic mode */
+ 	adapter->rx_itr_setting = 1;
+ 	adapter->tx_itr_setting = 1;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 276d7b1..9e0c9c7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -129,10 +129,6 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+ 	if (!pre_existing_vfs && !adapter->num_vfs)
+ 		return;
+ 
+-	if (!pre_existing_vfs)
+-		dev_warn(&adapter->pdev->dev,
+-			 "Enabling SR-IOV VFs using the module parameter is deprecated - please use the pci sysfs interface.\n");
 -
- 	if ((hw->phy.media_type == e1000_media_type_fiber) ||
- 	    hw->mac.autoneg)
- 		ecmd->autoneg = AUTONEG_ENABLE;
+ 	/* If there are pre-existing VFs then we have to force
+ 	 * use of that many - over ride any module parameter value.
+ 	 * This may result from the user unloading the PF driver
 -- 
 1.8.3.1
