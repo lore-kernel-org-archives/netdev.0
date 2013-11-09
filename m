@@ -1,123 +1,140 @@
-From: Ding Tianhong <dthxman@gmail.com>
-Subject: Re: [PATCH net-next v2 3/10] bonding: rebuild the lock use for bond_alb_monitor()
-Date: Sat, 09 Nov 2013 23:14:07 +0800
-Message-ID: <527E513F.4010908@gmail.com>
-References: <527C4778.5080209@huawei.com> <527D0C42.3010402@redhat.com> <527E4365.6060107@gmail.com> <527E46EA.5030804@redhat.com>
+From: Loganaden Velvindron <loganaden@gmail.com>
+Subject: Re: [RFC] tcp: randomize TCP source ports
+Date: Sat, 9 Nov 2013 19:26:57 +0400
+Message-ID: <CAOp4FwTEJ1FkQaQNG9_h464oF3SKTrc3r4=AvTjGapXZwd+8eg@mail.gmail.com>
+References: <1383872049.9412.124.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131108130244.GE5876@order.stressinduktion.org>
+	<1383919418.9412.234.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131108142856.GA28330@order.stressinduktion.org>
+	<1383923478.9412.240.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131109044724.GB1963@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:44389 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753507Ab3KIPYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Nov 2013 10:24:51 -0500
-Received: by mail-pa0-f42.google.com with SMTP id kp14so3512469pab.1
-        for <netdev@vger.kernel.org>; Sat, 09 Nov 2013 07:24:51 -0800 (PST)
-In-Reply-To: <527E46EA.5030804@redhat.com>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:39149 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753256Ab3KIP06 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Nov 2013 10:26:58 -0500
+Received: by mail-wg0-f43.google.com with SMTP id n12so202969wgh.22
+        for <netdev@vger.kernel.org>; Sat, 09 Nov 2013 07:26:57 -0800 (PST)
+In-Reply-To: <20131109044724.GB1963@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2013/11/9 22:30, Nikolay Aleksandrov =E5=86=99=E9=81=93:
-> On 11/09/2013 03:15 PM, Ding Tianhong wrote:
->> =E4=BA=8E 2013/11/9 0:07, Nikolay Aleksandrov =E5=86=99=E9=81=93:
->>> On 11/08/2013 03:07 AM, Ding Tianhong wrote:
->>>> The bond_alb_monitor use bond lock to protect the bond slave list,
->>>> it is no effect here, we need to use RTNL or RCU to replace bond l=
-ock,
->>>> the bond_alb_monitor will called 10 times one second, RTNL may los=
-s
->>>> performance here, so the bond lock replace with RCU to protect the
->>>> bond slave list, also the RTNL is preserved, the logic of the moni=
-tor
->>>> did not changed.
->>>>
->>>> Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
->>>> Suggested-by: Veaceslav Falico <vfalico@redhat.com>
->>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>>> ---
->>>>    drivers/net/bonding/bond_alb.c | 21 +++++++++------------
->>>>    1 file changed, 9 insertions(+), 12 deletions(-)
->>>>
->>>> diff --git a/drivers/net/bonding/bond_alb.c
->>>> b/drivers/net/bonding/bond_alb.c
->>>> index 1fae915..ffdb91b 100644
->>>> --- a/drivers/net/bonding/bond_alb.c
->>>> +++ b/drivers/net/bonding/bond_alb.c
->>>> @@ -816,7 +816,7 @@ static void rlb_rebalance(struct bonding *bond=
-)
->>>>        for (; hash_index !=3D RLB_NULL_INDEX;
->>>>             hash_index =3D client_info->used_next) {
->>>>            client_info =3D &(bond_info->rx_hashtbl[hash_index]);
->>>> -        assigned_slave =3D rlb_next_rx_slave(bond);
->>>> +        assigned_slave =3D __rlb_next_rx_slave(bond);
->>>>            if (assigned_slave && (client_info->slave !=3D assigned=
-_slave)) {
->>>>                client_info->slave =3D assigned_slave;
->>>>                client_info->ntt =3D 1;
->>>> @@ -1495,9 +1495,10 @@ void bond_alb_monitor(struct work_struct *w=
-ork)
->>>>        struct list_head *iter;
->>>>        struct slave *slave;
->>>>    -    read_lock(&bond->lock);
->>>> +    rcu_read_lock();
->>>>    -    if (!bond_has_slaves(bond)) {
->>>> +    if (!bond_has_slaves_rcu(bond)) {
->>>> +        rcu_read_unlock();
->>>>            bond_info->tx_rebalance_counter =3D 0;
->>>>            bond_info->lp_counter =3D 0;
->>>>            goto re_arm;
->>> If I'm not mistaken there's one more bond_for_each_slave() inside t=
-his
->>> function
->>> which should be converted to RCU.
->> But I really could not find any place should converted to RCU,
+On Sat, Nov 9, 2013 at 8:47 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Fri, Nov 08, 2013 at 07:11:18AM -0800, Eric Dumazet wrote:
+>> On Fri, 2013-11-08 at 15:28 +0100, Hannes Frederic Sowa wrote:
 >>
->> __rlb_next_rx_slave() is in RCU yet.
+>> > What do you think about using a timer to keep the reseed out of fast-path
+>> > and switch to the non-arch get_random_bytes instead?
 >>
->> pls remind me if I miss something.
+>> Well, the initial seed value is get_random_bytes(). I felt that using a
+>> xor with the _arch() version would be safe enough.
 >>
->> Regards
->> Ding
->>
->>
-> I was talking about this piece of code inside bond_alb_monitor():
->          /* send learning packets */
->          if (bond_info->lp_counter >=3D BOND_ALB_LP_TICKS(bond)) {
->                  /* change of curr_active_slave involves swapping of =
-mac
-> addresses.
->                   * in order to avoid this swapping from happening wh=
-ile
->                   * sending the learning packets, the curr_slave_lock=
- must
-> be held for
->                   * read.
->                   */
->                  read_lock(&bond->curr_slave_lock);
+>> For the timer, I do not think its worth the pain : Do you want a per cpu
+>> timer, or a global one ?
 >
->                  bond_for_each_slave(bond, slave, iter)
-> ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
->                          alb_send_learning_packets(slave, slave->dev-=
->dev_addr);
->
->                  read_unlock(&bond->curr_slave_lock);
->
->                  bond_info->lp_counter =3D 0;
->          }
->
-> This is copied after your patch-set was applied.
->
-> Cheers,
->   Nik
-oh, yes, thanks, I take the focus on the wrong place.
+> This untested diff came to my mind (it is based on the random tree). I
+> actually consider to propose something like this for 3.13. UDP port
+> randomization is really critical.
 
-Regards
-Ding
+I'll try to test the diff, as the idea seems interesting.
+
+I guess that it would help for DNS.
+
+>
+> In 3.14 timeframe I suggest abandon net_random and use prandom_u32
+> directly so code gets easier to audit.
+>
+> Would it hurt to use "proper" get_random_byte calls for port randomization?
+>
+> diff --git a/drivers/char/random.c b/drivers/char/random.c
+> index cdf4cfb..e9d0136 100644
+> --- a/drivers/char/random.c
+> +++ b/drivers/char/random.c
+> @@ -657,9 +657,11 @@ retry:
+>         r->entropy_total += nbits;
+>         if (!r->initialized && nbits > 0) {
+>                 if (r->entropy_total > 128) {
+> -                       if (r == &nonblocking_pool)
+> +                       if (r == &nonblocking_pool) {
+>                                 pr_notice("random: %s pool is initialized\n",
+>                                           r->name);
+> +                               prandom_reseed();
+> +                       }
+>                         r->initialized = 1;
+>                         r->entropy_total = 0;
+>                 }
+> diff --git a/include/linux/random.h b/include/linux/random.h
+> index 6312dd9..4f878c0 100644
+> --- a/include/linux/random.h
+> +++ b/include/linux/random.h
+> @@ -29,6 +29,7 @@ unsigned long randomize_range(unsigned long start, unsigned long end, unsigned l
+>  u32 prandom_u32(void);
+>  void prandom_bytes(void *buf, int nbytes);
+>  void prandom_seed(u32 seed);
+> +void prandom_reseed(void);
+>
+>  u32 prandom_u32_state(struct rnd_state *);
+>  void prandom_bytes_state(struct rnd_state *state, void *buf, int nbytes);
+> diff --git a/lib/random32.c b/lib/random32.c
+> index 52280d5..1ee611f 100644
+> --- a/lib/random32.c
+> +++ b/lib/random32.c
+> @@ -174,11 +174,31 @@ static int __init prandom_init(void)
+>  }
+>  core_initcall(prandom_init);
+>
+> +static void __prandom_timer(unsigned long dontcare);
+> +static DEFINE_TIMER(seed_timer, __prandom_timer, 0, 0);
+> +
+> +static void __prandom_timer(unsigned long dontcare)
+> +{
+> +       u32 entropy;
+> +       get_random_bytes(&entropy, sizeof(entropy));
+> +       prandom_seed(entropy);
+> +       seed_timer.expires = jiffies + 60 * HZ;
+> +       add_timer(&seed_timer);
+> +}
+> +
+> +static int prandom_start_seed_timer(void)
+> +{
+> +       seed_timer.expires = jiffies + 60 * HZ;
+> +       add_timer(&seed_timer);
+> +       return 0;
+> +}
+> +late_initcall(prandom_start_seed_timer);
+> +
+>  /*
+>   *     Generate better values after random number generator
+>   *     is fully initialized.
+>   */
+> -static int __init prandom_reseed(void)
+> +void prandom_reseed(void)
+>  {
+>         int i;
+>
+> @@ -196,4 +216,3 @@ static int __init prandom_reseed(void)
+>         }
+>         return 0;
+>  }
+> -late_initcall(prandom_reseed);
+>
+> Greetings,
+>
+>   Hannes
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+This message is strictly personal and the opinions expressed do not
+represent those of my employers, either past or present.
