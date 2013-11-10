@@ -1,61 +1,92 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH] net: wireless: iwlwifi: remove minor dead code
-Date: Sun, 10 Nov 2013 23:15:28 +0400
-Message-ID: <527FDB50.1050902@cogentembedded.com>
-References: <1384110397-24386-1-git-send-email-mpn@google.com>
+From: Michal Nazarewicz <mina86@mina86.com>
+Subject: [PATCHv2] net: wireless: iwlwifi: remove minor dead code
+Date: Sun, 10 Nov 2013 21:17:56 +0100
+Message-ID: <87iow080zv.fsf@mina86.com>
+References: <1384110397-24386-1-git-send-email-mpn@google.com> <527FDB50.1050902@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Michal Nazarewicz <mina86-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>
-To: Michal Nazarewicz <mpn-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1384110397-24386-1-git-send-email-mpn-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Intel Linux Wireless <ilw@linux.intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:42452 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751882Ab3KJUSB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Nov 2013 15:18:01 -0500
+In-Reply-To: <527FDB50.1050902@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-On 10-11-2013 23:06, Michal Nazarewicz wrote:
+inta is checked to be zero in a IRQ_NONE branch so afterwards it
+cannot be zero as it is never modified.
+---
+ drivers/net/wireless/iwlwifi/pcie/rx.c | 24 +++++++++---------------
+ 1 file changed, 9 insertions(+), 15 deletions(-)
 
-> From: Michal Nazarewicz <mina86-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>
+On Sun, Nov 10 2013, Sergei Shtylyov wrote:
+> The preferred way of formatting the multi-line comments in the
+> networking code is this:
+>
+> /* bla
+>   * bla
+>   */
 
-> inta is checked to be zero in a IRQ_NONE branch so afterwards it
-> cannot be zero as it is never modified.
+Works for me.  I used /* bla \n * bla */ because this is what the rest
+of this function was using.
 
-> Signed-off-by: Michal Nazarewicz <mina86-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>
-> ---
->   drivers/net/wireless/iwlwifi/pcie/rx.c | 23 ++++++++---------------
->   1 file changed, 8 insertions(+), 15 deletions(-)
-
-> diff --git a/drivers/net/wireless/iwlwifi/pcie/rx.c b/drivers/net/wireless/iwlwifi/pcie/rx.c
-> index 3f237b4..c32122a 100644
-> --- a/drivers/net/wireless/iwlwifi/pcie/rx.c
-> +++ b/drivers/net/wireless/iwlwifi/pcie/rx.c
-[...]
-> @@ -1150,7 +1149,13 @@ static irqreturn_t iwl_pcie_isr(int irq, void *data)
->   	 * or due to sporadic interrupts thrown from our NIC. */
->   	if (!inta) {
->   		IWL_DEBUG_ISR(trans, "Ignore interrupt, inta == 0\n");
-> -		goto none;
-> +		/* re-enable interrupts here since we don't have anything to
-> +		 * service.  only Re-enable if disabled by irq and no
-> +		 * schedules tasklet. */
-
-    The preferred way of formatting the multi-line comments in the networking 
-code is this:
-
-/* bla
-  * bla
-  */
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/iwlwifi/pcie/rx.c b/drivers/net/wireless/iwlwifi/pcie/rx.c
+index 3f237b4..7d0fdc0 100644
+--- a/drivers/net/wireless/iwlwifi/pcie/rx.c
++++ b/drivers/net/wireless/iwlwifi/pcie/rx.c
+@@ -1121,7 +1121,6 @@ static irqreturn_t iwl_pcie_isr(int irq, void *data)
+ 	struct iwl_trans *trans = data;
+ 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
+ 	u32 inta, inta_mask;
+-	irqreturn_t ret = IRQ_NONE;
+ 
+ 	lockdep_assert_held(&trans_pcie->irq_lock);
+ 
+@@ -1150,7 +1149,14 @@ static irqreturn_t iwl_pcie_isr(int irq, void *data)
+ 	 * or due to sporadic interrupts thrown from our NIC. */
+ 	if (!inta) {
+ 		IWL_DEBUG_ISR(trans, "Ignore interrupt, inta == 0\n");
+-		goto none;
++		/* re-enable interrupts here since we don't have anything to
++		 * service.  only Re-enable if disabled by irq and no
++		 * schedules tasklet.
++		 */
++		if (test_bit(STATUS_INT_ENABLED, &trans_pcie->status) &&
++		    !trans_pcie->inta)
++			iwl_enable_interrupts(trans);
++		return IRQ_NONE;
+ 	}
+ 
+ 	if ((inta == 0xFFFFFFFF) || ((inta & 0xFFFFFFF0) == 0xa5a5a5a0)) {
+@@ -1168,19 +1174,7 @@ static irqreturn_t iwl_pcie_isr(int irq, void *data)
+ 
+ 	trans_pcie->inta |= inta;
+ 	/* the thread will service interrupts and re-enable them */
+-	if (likely(inta))
+-		return IRQ_WAKE_THREAD;
+-
+-	ret = IRQ_HANDLED;
+-
+-none:
+-	/* re-enable interrupts here since we don't have anything to service. */
+-	/* only Re-enable if disabled by irq  and no schedules tasklet. */
+-	if (test_bit(STATUS_INT_ENABLED, &trans_pcie->status) &&
+-	    !trans_pcie->inta)
+-		iwl_enable_interrupts(trans);
+-
+-	return ret;
++	return IRQ_WAKE_THREAD;
+ }
+ 
+ /* interrupt handler using ict table, with this interrupt driver will
+-- 
+1.8.3.2
