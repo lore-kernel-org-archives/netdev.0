@@ -1,28 +1,49 @@
-From: Allen and Violet Large <supports2@mipunto.com>
-Subject: Dear Sir/Madam
-Date: Sun, 10 Nov 2013 11:05:58 +0100
-Message-ID: <20131110100314.A85068C583D__17774.607850197$1384083401$gmane$org@mail.distrito1p.gob.ec>
-Reply-To: allenand.viole@aol.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <supports2@mipunto.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next FIX] RDMA/cma: Fix build breakage when infiniband is built-in
+Date: Sun, 10 Nov 2013 15:28:00 +0200
+Message-ID: <1384090080-1862-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com,
+	Eyal Perry <eyalpe@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [190.214.47.212] ([190.214.47.212]:43996 "EHLO
-	mail.distrito1p.gob.ec" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750820Ab3KJLgV convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Nov 2013 06:36:21 -0500
-Content-Description: Mail message body
+Received: from mailp.voltaire.com ([193.47.165.129]:50197 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751326Ab3KJN2I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Nov 2013 08:28:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I saw your email address during the course of my research today.My Name is Allen my wife and I won a Jackpot Lottery 11.3 million in july and during the process my wife passed away as a result of cancer illness, we are donating the sum of 1.million dollars to 6 lucky individual over the world and if you received this email then you are one of the lucky recipients and all you have to do is get back to us so that we can send your details to the payout bank.
-Please note that you have to contact my private email for more information: allenand.viole@aol.com
+From: Eyal Perry <eyalpe@mellanox.com>
 
-You can verify this by visiting the web pages below.
+Commit eb072c4 ("RDMA/cma: Set IBoE SL (user-priority) by egress map when using
+vlans"), broke the build when CONFIG_VLAN_8021Q=m and CONFIG_INFINIBAND=y,
+because the rdma_cm module attempted to call vlan_dev_get_egress_qos_mask()
+which in that case is a modular code being called from built-in kernel code.
 
-http://www.dailymail.co.uk/news/article-1326473/Canadian-couple-Allen-Violet-Large-away-entire-11-2m-lottery-win.html
+Fix this by adding a Kconfig dependency to prevent the rdma_cm code from being
+built in when 8021Q is built modular, in a similar manner we do with IPv6.
 
-Goodluck,
-Allen and Violet Large
+Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+
+Dave, this fixes an issue with the mentioned commit which is in net-next
+
+ drivers/infiniband/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+index b84791f..079dfe4 100644
+--- a/drivers/infiniband/Kconfig
++++ b/drivers/infiniband/Kconfig
+@@ -51,6 +51,7 @@ config INFINIBAND_ADDR_TRANS
+ 	bool
+ 	depends on INET
+ 	depends on !(INFINIBAND = y && IPV6 = m)
++	depends on !(INFINIBAND = y && VLAN_8021Q = m)
+ 	default y
+ 
+ source "drivers/infiniband/hw/mthca/Kconfig"
+-- 
+1.7.1
