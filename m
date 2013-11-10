@@ -1,92 +1,107 @@
-From: Ding Tianhong <dthxman@gmail.com>
-Subject: Re: [PATCH net-next v2 6/10] bonding: rebuild the lock use for bond_activebackup_arp_mon()
-Date: Sun, 10 Nov 2013 12:08:02 +0800
-Message-ID: <527F06A2.2070407@gmail.com>
-References: <527C4784.1030402@huawei.com> <527D0AEF.1060802@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 3/8] bonding: add downdelay netlink support
+Date: Sat, 9 Nov 2013 21:28:38 -1000
+Message-ID: <C73FAA61-4C63-41FC-9BBF-C8314B9DEDE4@cumulusnetworks.com>
+References: <20131107094308.15846.58301.stgit@monster-03.cumulusnetworks.com> <3470.1383843910@death.nxdomain> <5C31F7A9-945E-4DA5-A2E2-92AE0A556970@cumulusnetworks.com> <14955.1383945357@death.nxdomain>
+Mime-Version: 1.0 (Mac OS X Mail 7.0 \(1816\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Veaceslav Falico <vfalico@redhat.com>, andy@greyhouse.net,
+	netdev@vger.kernel.org,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:58888 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758589Ab3KJESr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Nov 2013 23:18:47 -0500
-Received: by mail-pa0-f46.google.com with SMTP id kl14so2587716pab.33
-        for <netdev@vger.kernel.org>; Sat, 09 Nov 2013 20:18:47 -0800 (PST)
-In-Reply-To: <527D0AEF.1060802@redhat.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:47452 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751054Ab3KJH2k convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Nov 2013 02:28:40 -0500
+In-Reply-To: <14955.1383945357@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
->> +	rcu_read_unlock();
->>   
->>   re_arm:
->>   	if (bond->params.arp_interval)
->>   		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
->>   
->> -	read_unlock(&bond->lock);
->> -
->>   	if (should_notify_peers) {
->>   		if (!rtnl_trylock())
->>   			return;
->> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->> index deb9738..90b745c 100644
->> --- a/drivers/net/bonding/bonding.h
->> +++ b/drivers/net/bonding/bonding.h
->> @@ -97,6 +97,13 @@
->>   		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
->>   		NULL)
->>   
->> +#define bond_first_slave_rcu(bond) \
->> +	({struct list_head *__ptr = (bond_slave_list(bond)); \
->> +	 struct list_head *__next = ACCESS_ONCE(__ptr->next); \
->> +	 likely(__ptr != __next) ? \
->> +	 netdev_adjacent_get_private_rcu(__next) : NULL; \
->> +	 })
->> +
-> Honestly, I don't like this, it sure can be re-written in a more
-> straight-forward manner.
+On Nov 8, 2013, at 11:15 AM, Jay Vosburgh <fubar@us.ibm.com> wrote:
 
-I have re-write the function by 2 ways, the first one just like 
-list_first_or_null_rcu,
-the second one just used the exist function 
-netdev_lower_get_next_private_rcu,
-I think the first one is better, it is more exactly.
+> Scott Feldman <sfeldma@cumulusnetworks.com> wrote:
+>=20
+>> What I=92d like to propose, and I hope that you=92ll agree, is we ta=
+ckle
+>> this in two phases.  The first phase is to finish the current
+>> duplication effort to enable netlink equivalents of the attributes i=
+n
+>> sysfs.  This is a fairly mechanical process, preserving existing
+>> behavior as you point out, and keeps the patches single-minded and e=
+asy
+>> to review.
+>>=20
+>> The second phase is to revisit ordering constraints and find places
+>> where we can remove constraints or streamline the dependency checks.
+>>=20
+>> Sound like a plan?
+>=20
+> 	Well, maybe.
+>=20
+> 	What I want to avoid for the iproute / netlink bonding support
+> is all of the hoops that the initscripts / sysconfig scripts had to j=
+ump
+> through to obey the current sysfs ordering limtations.
+>=20
+> 	The primary user of this is going to be iproute.  Will the above
+> quoted limitations (and their equivalents for various other options)
+> make any difference with regards to the following:
+>=20
+> ip [...] bond arp_validate all arp_interval 1000
+> ip [...] bond arp_interval 1000 arp_validate all
+>=20
+> 	I.e., does the ordering matter at the iproute level when
+> multiple options are specified simultaneously?
 
-1:
+Surprisingly, order doesn=92t matter.  Regardless of the ordering of at=
+trs within the netlink msg, the processing order of attrs is always the=
+ same.  In this case of bonding, it=92s bond_netlink.c:bond_changelink(=
+) that dictates the order attrs are processed.  So in your examples abo=
+ve, both versions would yield the same results.
 
-+#define bond_first_slave_rcu(bond) \
-+	({struct list_head *__ptr = (bond_slave_list(bond)); \
-+	 struct list_head *__next = ACCESS_ONCE(__ptr->next); \
-+	 likely(__ptr != __next) ? \
-+	 (list_entry_rcu(__next, struct netdev_adjacent, list))->private : NULL; \
-+	 })
-+
+> 	What happens if I do:
+>=20
+> ip [...] bond arp_interval 1000 arp_validate all miimon 100
+>=20
+> 	This is separate from simply changing one thing at a time, e.g.,
+>=20
+> ip [...] bond arp_validate all
+> ip [...] bond arp_interval 1000
 
-2:
+This is the problem to be solved.  Bonding has several mutually exclusi=
+ve attrs.  When mutually exclusive options are presented at the same ti=
+me (like in you first example above), we can pick a winner using the pr=
+ocessing order in bond_changelink().  When single attrs are set (like i=
+n second example), it=92s trickier to pick winner in bond_changelink(),=
+ but do-able, I think.
 
-+#define bond_first_slave_rcu(bond) \
-+	({struct list_head *iter = (bond_slave_list(bond)); \
-+	 netdev_lower_get_next_private_rcu(bond->dev, &iter) ? : NULL; \
-+	})
+> 	will presuambly hit the test above, and this is where the
+> ordering stuff comes into play for sure.
+>=20
+> 	Also, as I look at the iproute patch, it doesn't appear to
+> accept the text names for the options, only numeric values (e.g., "ip
+> [...]  bond arp_validate 3").  That appears to be a limitation of Jir=
+i's
+> original iproute patch as well.  Am I the only person that perfers th=
+e
+> text labels (e.g., arp_validate as "all") to numbers (arp_validate as
+> "3")?
 
+I can add text names to the iproute patch for v2.
 
-what do you think about is, maybe you have more wonderful idea, pls 
-remind me,
-thanks
+> 	So, honestly, I think if the ordering constraints are going to
+> be relaxed, it should happen sooner rather than later.  Perhaps not i=
+n
+> the same patch as the netlink support, but ideally at least in the sa=
+me
+> series, so there is no real release with the constraints.  Changing t=
+he
+> constraints after the script, etc, conversion is done doesn't really
+> help much.
 
-Regards
-Ding
+Ok, let me study this some more before sending v2.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+-scott
