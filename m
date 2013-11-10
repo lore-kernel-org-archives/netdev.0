@@ -1,63 +1,80 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] xfrm: check function pointer of xfrm_mgr before
- use it
-Date: Sun, 10 Nov 2013 23:03:19 +0400
-Message-ID: <527FD877.70909@cogentembedded.com>
-References: <1384093556-8987-1-git-send-email-baker.kernel@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: baker.kernel@gmail.com, herbert@gondor.apana.org.au,
-	davem@davemloft.net, steffen.klassert@secunet.com
+From: Michal Nazarewicz <mpn@google.com>
+Subject: [PATCH] net: wireless: iwlwifi: remove minor dead code
+Date: Sun, 10 Nov 2013 20:06:37 +0100
+Message-ID: <1384110397-24386-1-git-send-email-mpn@google.com>
+Cc: Intel Linux Wireless <ilw@linux.intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Michal Nazarewicz <mina86@mina86.com>
+To: Johannes Berg <johannes.berg@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:45102 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751204Ab3KJTDW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Nov 2013 14:03:22 -0500
-Received: by mail-la0-f50.google.com with SMTP id eo20so3282487lab.23
-        for <netdev@vger.kernel.org>; Sun, 10 Nov 2013 11:03:20 -0800 (PST)
-In-Reply-To: <1384093556-8987-1-git-send-email-baker.kernel@gmail.com>
+Received: from mail-ea0-f170.google.com ([209.85.215.170]:41845 "EHLO
+	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751644Ab3KJTGn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Nov 2013 14:06:43 -0500
+Received: by mail-ea0-f170.google.com with SMTP id q10so1827929eaj.15
+        for <netdev@vger.kernel.org>; Sun, 10 Nov 2013 11:06:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Michal Nazarewicz <mina86@mina86.com>
 
-On 10-11-2013 18:25, baker.kernel@gmail.com wrote:
+inta is checked to be zero in a IRQ_NONE branch so afterwards it
+cannot be zero as it is never modified.
 
-> From: "baker.zhang" <baker.kernel@gmail.com>
+Signed-off-by: Michal Nazarewicz <mina86@mina86.com>
+---
+ drivers/net/wireless/iwlwifi/pcie/rx.c | 23 ++++++++---------------
+ 1 file changed, 8 insertions(+), 15 deletions(-)
 
-> Signed-off-by: baker.zhang <baker.kernel@gmail.com>
-> ---
-> For current kernel source, there is no problem.
-
-> In our vpn product, we need a xfrm_km in kernel module
-> to monitor the xfrm state change.
-> thus, the 'acquire' and 'compile_policy' may be NULL.
-
-> So I think we should do the check before use it.
-
->   net/xfrm/xfrm_state.c | 18 +++++++++++-------
->   1 file changed, 11 insertions(+), 7 deletions(-)
-
-> diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-> index b9c3f9e..541f684 100644
-> --- a/net/xfrm/xfrm_state.c
-> +++ b/net/xfrm/xfrm_state.c
-[...]
-> @@ -1783,10 +1785,12 @@ int xfrm_user_policy(struct sock *sk, int optname, u8 __user *optval, int optlen
->   	err = -EINVAL;
->   	rcu_read_lock();
->   	list_for_each_entry_rcu(km, &xfrm_km_list, list) {
-> -		pol = km->compile_policy(sk, optname, data,
-> -					 optlen, &err);
-> -		if (err >= 0)
-> -			break;
-> +		if (km->compile_policy) {
-> +			pol = km->compile_policy(sk, optname, data,
-> +					optlen, &err);
-
-    According the networking coding style, the continuation line should start 
-right under 'sk' on the previous line.
-
-WBR, Sergei
+diff --git a/drivers/net/wireless/iwlwifi/pcie/rx.c b/drivers/net/wireless/iwlwifi/pcie/rx.c
+index 3f237b4..c32122a 100644
+--- a/drivers/net/wireless/iwlwifi/pcie/rx.c
++++ b/drivers/net/wireless/iwlwifi/pcie/rx.c
+@@ -1121,7 +1121,6 @@ static irqreturn_t iwl_pcie_isr(int irq, void *data)
+ 	struct iwl_trans *trans = data;
+ 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
+ 	u32 inta, inta_mask;
+-	irqreturn_t ret = IRQ_NONE;
+ 
+ 	lockdep_assert_held(&trans_pcie->irq_lock);
+ 
+@@ -1150,7 +1149,13 @@ static irqreturn_t iwl_pcie_isr(int irq, void *data)
+ 	 * or due to sporadic interrupts thrown from our NIC. */
+ 	if (!inta) {
+ 		IWL_DEBUG_ISR(trans, "Ignore interrupt, inta == 0\n");
+-		goto none;
++		/* re-enable interrupts here since we don't have anything to
++		 * service.  only Re-enable if disabled by irq and no
++		 * schedules tasklet. */
++		if (test_bit(STATUS_INT_ENABLED, &trans_pcie->status) &&
++		    !trans_pcie->inta)
++			iwl_enable_interrupts(trans);
++		return IRQ_NONE;
+ 	}
+ 
+ 	if ((inta == 0xFFFFFFFF) || ((inta & 0xFFFFFFF0) == 0xa5a5a5a0)) {
+@@ -1168,19 +1173,7 @@ static irqreturn_t iwl_pcie_isr(int irq, void *data)
+ 
+ 	trans_pcie->inta |= inta;
+ 	/* the thread will service interrupts and re-enable them */
+-	if (likely(inta))
+-		return IRQ_WAKE_THREAD;
+-
+-	ret = IRQ_HANDLED;
+-
+-none:
+-	/* re-enable interrupts here since we don't have anything to service. */
+-	/* only Re-enable if disabled by irq  and no schedules tasklet. */
+-	if (test_bit(STATUS_INT_ENABLED, &trans_pcie->status) &&
+-	    !trans_pcie->inta)
+-		iwl_enable_interrupts(trans);
+-
+-	return ret;
++	return IRQ_WAKE_THREAD;
+ }
+ 
+ /* interrupt handler using ict table, with this interrupt driver will
+-- 
+1.8.3.2
