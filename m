@@ -1,151 +1,175 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
-Date: Sun, 10 Nov 2013 14:53:46 +0100
-Message-ID: <8761s0cqhh.fsf@natisbad.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v4 net-next] net: introduce dev_set_forwarding()
+Date: Sun, 10 Nov 2013 22:05:41 +0800
+Message-ID: <20131110140540.GA1413@gondor.apana.org.au>
+References: <1383400897.4291.47.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1383422330.4291.58.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1383584130.1553.2.camel@bwh-desktop.uk.level5networks.com>
+ <20131107.161755.355597965034457889.davem@davemloft.net>
+ <20131107213111.GA6885@gondor.apana.org.au>
+ <1383861288.9412.89.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131108035949.GA14325@gondor.apana.org.au>
+ <1383884730.9412.175.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <edumazet@google.com>, David S. Miller <davem@davemloft.net>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:58824 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751384Ab3KJOFz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Nov 2013 09:05:55 -0500
+Content-Disposition: inline
+In-Reply-To: <1383884730.9412.175.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, Nov 07, 2013 at 08:25:30PM -0800, Eric Dumazet wrote:
+> On Fri, 2013-11-08 at 11:59 +0800, Herbert Xu wrote:
+> 
+> > However, I still have one reason for preferring my patch, it'll
+> > be easier to prodce TSO packets with it.  Let me see if I can
+> > fix up the arbitrary frag boundary issue without making it too
+> > ugly.
+> 
+> Sure !
 
-I decided to upgrade the kernel on one of my ReadyNAS 102 from 3.11.1 to 
-3.11.7. The device is based on Marvell Armada 370 SoC and uses mvneta
-driver. Mine runs Debian armel unstable but I can confirm the issue also
-happens on a debian harmhf unstable.
+I ended up giving up on the recursion idea and borrowed your
+iterative approach.  I haven't yet had the chance to test it
+yet but here is the WIP.
 
-Doing some scp transfers of files located on the NAS (1000baseT-FD on
-both side), I noticed the transfers rate is ridiculously slow (280KB/s).
-I did the same test with a 3.12 kernel and got the same results,
-i.e. AFAICT the bug also exist upstream.
+The main assumptions are that virtio_net frag_list is always non-
+linear and GRO frag_list may only contain a linear head part that
+is exactly MSS bytes long.
 
-So, I decided to go to hell and start digging a bit: I run a 'git bisect'
-session on stable tree from 3.11.1 (known good) to 3.11.7 (known
-bad). The results are given below.
-
-I decided to reboot on my old 3.11.1 kernel and do 20 files transfers
-of a 1GB file located on the NAS to my laptop via scp. I took the 20+
-minutes and let them all finish: each transfer took between 1min5s and
-1min7s (around 16MB/s, the limitation in that case being the crypto part).
-
-I rebooted again and did the exact same thing on the 3.11.7 and after
-the completion of the first file transfer in 1m6s (16MB/s), the second
-one gave me that:
-
-arno@small:~scp RN102:/tmp/random /dev/null
-random                               0% 1664KB 278.9KB/s 1:05:37 ETA^C
-
-And it continued that way for the remaining transfers (i did ^c after
-some seconds to restart the transfer when the rate was low):
-
-$ for k in $(seq 1 20) ; do scp RN102:random /dev/null ; done 
-random                             100% 1024MB  15.6MB/s   01:06 ETA^C 
-random                               0% 9856KB 282.2KB/s 1:01:20 ETA^C
-random                              16%  168MB 563.9KB/s   25:54 ETA^C
-random                               0% 2816KB 273.5KB/s 1:03:43 ETA^C
-random                             100% 1024MB  15.5MB/s   01:06    
-random                               1%   17MB 282.3KB/s 1:00:54 ETA^C
-random                               0%  544KB 259.2KB/s 1:07:23 ETA^C
-random                               0% 4224KB 277.3KB/s 1:02:45 ETA^C
-random                               0%  832KB 262.1KB/s 1:06:37 ETA^C
-random                               0% 3360KB 273.4KB/s 1:03:43 ETA^C
-random                               0% 3072KB 271.8KB/s 1:04:07 ETA^C
-random                               0%  832KB 262.1KB/s 1:06:37 ETA^C
-random                               0% 1408KB 267.0KB/s 1:05:21 ETA^C
-random                               0% 1120KB 264.7KB/s 1:05:57 ETA
-...
-
-To be sure, I did 2 additional reboots, one on each kernel and the
-result is consistent. Perfect on 3.11.1 and slow rate most of the time
-on 3.11.7 (Both kernel are compiled from a fresh make clean, using the
-same config file).
-
-Then, knowing that, I started a git bisect session on stable tree to end
-up with the following suspects. I failed to go any further to a single
-commit, due to crashes, but I could recompile a kernel w/ debug info and
-report what I get if neeeded.
-
-commit dc0791aee672 tcp: do not forget FIN in tcp_shifted_skb()     [bad]
-commit 18ddf5127c9f tcp: must unclone packets before mangling them
-commit 80bd5d8968d8 tcp: TSQ can use a dynamic limit
-commit dbeb18b22197 tcp: TSO packets automatic sizing
-commit 50704410d014 Linux 3.11.6                                    [good]
-
-Eric, David, if it has already been reported and fixed, just tell
-me. Otherwise, if you have any ideas, I'll be happy to test this
-evening.
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 3735fad..fab44ff 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2776,6 +2776,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 	struct sk_buff *segs = NULL;
+ 	struct sk_buff *tail = NULL;
+ 	struct sk_buff *fskb = skb_shinfo(skb)->frag_list;
++	skb_frag_t *skb_frag = skb_shinfo(skb)->frags;
+ 	unsigned int mss = skb_shinfo(skb)->gso_size;
+ 	unsigned int doffset = skb->data - skb_mac_header(skb);
+ 	unsigned int offset = doffset;
+@@ -2815,16 +2816,23 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 		if (hsize > len || !sg)
+ 			hsize = len;
+ 
+-		if (!hsize && i >= nfrags) {
+-			BUG_ON(fskb->len != len);
++		if (!hsize && i >= nfrags && skb_headlen(fskb)) {
++			BUG_ON(skb_headlen(fskb) != len);
+ 
+ 			pos += len;
++			i = 0;
++			nfrags = skb_shinfo(fskb)->nr_frags;
++			skb_frag = skb_shinfo(fskb)->frags;
++
+ 			nskb = skb_clone(fskb, GFP_ATOMIC);
+ 			fskb = fskb->next;
+ 
+ 			if (unlikely(!nskb))
+ 				goto err;
+ 
++			if (unlikely(pskb_trim(nskb, len)))
++				goto err;
++
+ 			hsize = skb_end_offset(nskb);
+ 			if (skb_cow_head(nskb, doffset + headroom)) {
+ 				kfree_skb(nskb);
+@@ -2861,7 +2869,8 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 						 nskb->data - tnl_hlen,
+ 						 doffset + tnl_hlen);
+ 
+-		if (fskb != skb_shinfo(skb)->frag_list)
++		if (fskb != skb_shinfo(skb)->frag_list &&
++		    nskb->len == len + doffset)
+ 			goto perform_csum_check;
+ 
+ 		if (!sg) {
+@@ -2879,8 +2888,20 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 
+ 		skb_shinfo(nskb)->tx_flags = skb_shinfo(skb)->tx_flags & SKBTX_SHARED_FRAG;
+ 
+-		while (pos < offset + len && i < nfrags) {
+-			*frag = skb_shinfo(skb)->frags[i];
++		while (pos < offset + len) {
++			if (i >= nfrags) {
++				BUG_ON(skb_headlen(fskb));
++
++				i = 0;
++				nfrags = skb_shinfo(fskb)->nr_frags;
++				skb_frag = skb_shinfo(fskb)->frags;
++
++				BUG_ON(!nfrags);
++
++				fskb = fskb->next;
++			}
++
++			*frag = *skb_frag;
+ 			__skb_frag_ref(frag);
+ 			size = skb_frag_size(frag);
+ 
+@@ -2891,37 +2912,26 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 
+ 			skb_shinfo(nskb)->nr_frags++;
+ 
+-			if (pos + size <= offset + len) {
+-				i++;
+-				pos += size;
+-			} else {
+-				skb_frag_size_sub(frag, pos + size - (offset + len));
+-				goto skip_fraglist;
++			if (pos + size >= offset + len) {
++				skb_frag_size_sub(frag,
++						  pos + size - (offset + len));
++				break;
+ 			}
+ 
++			skb_frag++;
++			i++;
++			pos += size;
+ 			frag++;
+-		}
+-
+-		if (pos < offset + len) {
+-			struct sk_buff *fskb2 = fskb;
+ 
+-			BUG_ON(pos + fskb->len != offset + len);
+-
+-			pos += fskb->len;
+-			fskb = fskb->next;
+-
+-			if (fskb2->next) {
+-				fskb2 = skb_clone(fskb2, GFP_ATOMIC);
+-				if (!fskb2)
+-					goto err;
+-			} else
+-				skb_get(fskb2);
+-
+-			SKB_FRAG_ASSERT(nskb);
+-			skb_shinfo(nskb)->frag_list = fskb2;
++			if (unlikely(skb_shinfo(nskb)->nr_frags >=
++				     MAX_SKB_FRAGS)) {
++				net_warn_ratelimited(
++					"skb_segment: too many frags: %u %u\n",
++					pos, mss);
++				goto err;
++			}
+ 		}
+ 
+-skip_fraglist:
+ 		nskb->data_len = len - hsize;
+ 		nskb->len += nskb->data_len;
+ 		nskb->truesize += nskb->data_len;
 
 Cheers,
-
-a+
-
-
-Just in case it may be useful, here is what ethtool reports on RN102:
-
-# ethtool -i eth0
-driver: mvneta
-version: 1.0
-firmware-version: 
-bus-info: eth0
-supports-statistics: no
-supports-test: no
-supports-eeprom-access: no
-supports-register-dump: no
-supports-priv-flags: no
-
-# ethtool -k eth0
-Features for eth0:
-rx-checksumming: off [fixed]
-tx-checksumming: on
-        tx-checksum-ipv4: on
-        tx-checksum-ip-generic: off [fixed]
-        tx-checksum-ipv6: off [fixed]
-        tx-checksum-fcoe-crc: off [fixed]
-        tx-checksum-sctp: off [fixed]
-scatter-gather: on
-        tx-scatter-gather: on
-        tx-scatter-gather-fraglist: off [fixed]
-tcp-segmentation-offload: off
-        tx-tcp-segmentation: off [fixed]
-        tx-tcp-ecn-segmentation: off [fixed]
-        tx-tcp6-segmentation: off [fixed]
-udp-fragmentation-offload: off [fixed]
-generic-segmentation-offload: on
-generic-receive-offload: on
-large-receive-offload: off [fixed]
-rx-vlan-offload: off [fixed]
-tx-vlan-offload: off [fixed]
-ntuple-filters: off [fixed]
-receive-hashing: off [fixed]
-highdma: off [fixed]
-rx-vlan-filter: off [fixed]
-vlan-challenged: off [fixed]
-tx-lockless: off [fixed]
-netns-local: off [fixed]
-tx-gso-robust: off [fixed]
-tx-fcoe-segmentation: off [fixed]
-tx-gre-segmentation: off [fixed]
-tx-udp_tnl-segmentation: off [fixed]
-tx-mpls-segmentation: off [fixed]
-fcoe-mtu: off [fixed]
-tx-nocache-copy: on
-loopback: off [fixed]
-rx-fcs: off [fixed]
-rx-all: off [fixed]
-tx-vlan-stag-hw-insert: off [fixed]
-rx-vlan-stag-hw-parse: off [fixed]
-rx-vlan-stag-filter: off [fixed]
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
