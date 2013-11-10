@@ -1,18 +1,18 @@
 From: Allen and Violet Large <supports2@mipunto.com>
 Subject: Dear Sir/Madam
-Date: Sun, 10 Nov 2013 08:41:07 +0100
-Message-ID: <20131110073824.22C7C4D74F3@mail.distrito1p.gob.ec>
+Date: Sun, 10 Nov 2013 08:41:31 +0100
+Message-ID: <20131110073848.236AB4D75B5@mail.distrito1p.gob.ec>
 Reply-To: allenand.viole@aol.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: Recipients <supports2@mipunto.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [190.214.47.212] ([190.214.47.212]:53151 "EHLO
+Received: from [190.214.47.212] ([190.214.47.212]:57526 "EHLO
 	mail.distrito1p.gob.ec" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750841Ab3KJIYb convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1751014Ab3KJIa5 convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Nov 2013 03:24:31 -0500
+	Sun, 10 Nov 2013 03:30:57 -0500
 Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
