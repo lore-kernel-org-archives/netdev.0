@@ -1,66 +1,63 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH] usbnet: fix race condition caused spinlock bad magic
- issue
-Date: Mon, 11 Nov 2013 09:23:30 +0100
-Message-ID: <20131111082330.GA12405@gmail.com>
-References: <1384139315.2179.9.camel@wangbiao>
+From: Sujith Manoharan <sujith@msujith.org>
+Subject: Re: TCP performance regression
+Date: Mon, 11 Nov 2013 13:49:27 +0530
+Message-ID: <21120.37647.979237.40802@gargle.gargle.HOWL>
+References: <21120.27501.32323.332316@gargle.gargle.HOWL>
+	<1384149326.16391.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	<21120.29720.673157.151074@gargle.gargle.HOWL>
+	<1384152853.16391.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: oneukum@suse.de, netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	mingo@elte.hu, a.p.zijlstra@chello.nl, rusty@rustcorp.com.au,
-	william.douglas@intel.com
-To: wangbiao <biao.wang@intel.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:49657 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750874Ab3KKIXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 03:23:35 -0500
-Content-Disposition: inline
-In-Reply-To: <1384139315.2179.9.camel@wangbiao>
+Received: from s72.web-hosting.com ([198.187.29.21]:55219 "EHLO
+	s72.web-hosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752794Ab3KKIX4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 03:23:56 -0500
+In-Reply-To: <1384152853.16391.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Eric Dumazet wrote:
+> Hmm... apparently ath9k uses :
+> 
+> #define ATH_AMPDU_LIMIT_MAX        (64 * 1024 - 1)
 
-* wangbiao <biao.wang@intel.com> wrote:
+This is the maximum AMPDU size, specified in the
+802.11 standard.
 
-> @@ -1448,8 +1448,10 @@ static void usbnet_bh (unsigned long param)
->  
->  	// waiting for all pending urbs to complete?
->  	if (dev->wait) {
-> +		wait_queue_head_t *wait_d = dev->wait;
->  		if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) == 0) {
-> -			wake_up (dev->wait);
-> +			if (wait_d)
-> +				wake_up(wait_d);
->  		}
->  
->  	// or are we maybe short a few urbs?
+> And mentions a 4ms time frame :
+> 
+> max_4ms_framelen = ATH_AMPDU_LIMIT_MAX;
 
-1)
+The 4ms limitation is a FCC limitation and is used
+for regulatory compliance.
 
-Nit: the scope of 'wait_d' is unnecessarily broad, it could be moved to 
-the block that uses it.
+> So prior to "tcp: TSQ can use a dynamic limit", the ~128KB bytes TCP
+> could queue per TCP socket on qdisc/NIC would happen to please ath9k
 
-2)
+Ok.
 
-Also, the changelog mentions that dev->wait can race - it would be nice to 
-add to the changelog what exact synchronization mechanism protects 
-usbnet_terminate_urbs() and usbnet_bh() from seeing/modifying that value 
-at once - as the code was clearly written without such interaction in 
-mind.
+> ath9k can set rts_aggr_limit to 8*1024 :
+> 
+>  if (AR_SREV_9160_10_OR_LATER(ah) || AR_SREV_9100(ah))
+>   pCap->rts_aggr_limit = ATH_AMPDU_LIMIT_MAX; 
+>  else
+>   pCap->rts_aggr_limit = (8 * 1024);
 
-> @@ -1602,6 +1604,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
->  	init_timer (&dev->delay);
->  	mutex_init (&dev->phy_mutex);
->  	mutex_init(&dev->interrupt_mutex);
-> +	init_waitqueue_head(&unlink_wakeup);
+The RTS limit is required for some old chips which had HW bugs and
+the above code is a workaround.
 
-3)
+> A timer would be definitely needed, and it should be rather small (1 or
+> 2 ms)
+> 
+> If TCP socket is application limited, it seems ath9k can delay the last
+> block by a too long time.
 
-Can that runtime initialization be avoided by using 
-DECLARE_WAIT_QUEUE_HEAD()?
+I am not really clear on how this regression can be fixed in the driver
+since the majority of the transmission/aggregation logic is present in the
+TX completion path.
 
-Thanks,
-
-	Ingo
+Sujith
