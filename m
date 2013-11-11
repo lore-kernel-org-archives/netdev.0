@@ -1,34 +1,86 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: TCP performance regression
-Date: Mon, 11 Nov 2013 15:43:35 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73FB@saturn3.aculab.com>
-References: <21120.27501.32323.332316@gargle.gargle.HOWL> <1384149326.16391.10.camel@edumazet-glaptop2.roam.corp.google.com> <21120.29720.673157.151074@gargle.gargle.HOWL> <1384152853.16391.19.camel@edumazet-glaptop2.roam.corp.google.com> <21120.37647.979237.40802@gargle.gargle.HOWL> <1384180069.16391.32.camel@edumazet-glaptop2.roam.corp.google.com> <AE90C24D6B3A694183C094C60CF0A2F6026B73F9@saturn3.aculab.com> <1384183799.16391.39.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Sujith Manoharan" <sujith@msujith.org>, <netdev@vger.kernel.org>,
-	"Dave Taht" <dave.taht@gmail.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 2/3 net-next] openvswitch: Allow user space to announce ability to accept unaligned Netlink messages
+Date: Mon, 11 Nov 2013 16:47:43 +0100
+Message-ID: <ffad251a6d593180b81ad123d659716492fc4693.1384184208.git.tgraf@suug.ch>
+References: <cover.1384184208.git.tgraf@suug.ch>
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, dborkman@redhat.com,
+	bhutchings@solarflare.com
+To: jesse@nicira.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33087 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753814Ab3KKPq7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Nov 2013 10:46:59 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 29438-08 for <netdev@vger.kernel.org>;
- Mon, 11 Nov 2013 15:46:55 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1384183799.16391.39.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from merlin.infradead.org ([205.233.59.134]:37131 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753833Ab3KKPr4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 10:47:56 -0500
+In-Reply-To: <cover.1384184208.git.tgraf@suug.ch>
+In-Reply-To: <cover.1384184208.git.tgraf@suug.ch>
+References: <cover.1384184208.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IE9yLCBtYXliZToNCj4gPiA1KSBjYWxsIHNrYl9vcnBoYW4oKSAoSSB0aGluayB0aGF0IGlz
-IHRoZSBjb3JyZWN0IGZ1bmN0aW9uKSB3aGVuIHRyYW5zbWl0DQo+ID4gICAgcGFja2V0cyBhcmUg
-Z2l2ZW4gdG8gdGhlIGhhcmR3YXJlLg0KPiANCj4gVGhpcyBpcyB0aGUgd29ydGggcG9zc2libGUg
-c29sdXRpb24sIGFzIGl0IGJhc2ljYWxseSByZS1lbmFibGVzDQogICAgICAgICAgICAgIF5eXl5e
-IHdvcnN0ID8NCj4gYnVmZmVyYmxvYXQgYWdhaW4uDQoNCkl0IHNob3VsZCBiZSBvayBpZiB0aGUg
-bWFjIGRyaXZlciBvbmx5IGdpdmVzIHRoZSBoYXJkd2FyZSBhIHNtYWxsDQpudW1iZXIgb2YgYnl0
-ZXMvcGFja2V0cyAtIG9yIG9uZSBhcHByb3ByaWF0ZSBmb3IgdGhlIGxpbmsgc3BlZWQuDQoNCglE
-YXZpZA0KDQo=
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ include/uapi/linux/openvswitch.h | 4 ++++
+ net/openvswitch/datapath.c       | 4 ++++
+ net/openvswitch/datapath.h       | 2 ++
+ 3 files changed, 10 insertions(+)
+
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index d120f9f..07ef2c3 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -75,6 +75,7 @@ enum ovs_datapath_attr {
+ 	OVS_DP_ATTR_UPCALL_PID,		/* Netlink PID to receive upcalls */
+ 	OVS_DP_ATTR_STATS,		/* struct ovs_dp_stats */
+ 	OVS_DP_ATTR_MEGAFLOW_STATS,	/* struct ovs_dp_megaflow_stats */
++	OVS_DP_ATTR_USER_FEATURES,	/* OVS_DP_F_*  */
+ 	__OVS_DP_ATTR_MAX
+ };
+ 
+@@ -106,6 +107,9 @@ struct ovs_vport_stats {
+ 	__u64   tx_dropped;		/* no space available in linux  */
+ };
+ 
++/* Allow last Netlink attribute to be unaligned */
++#define OVS_DP_F_UNALIGNED	(1 << 0)
++
+ /* Fixed logical ports. */
+ #define OVSP_LOCAL      ((__u32)0)
+ 
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 1408adc..0a50574 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -1061,6 +1061,7 @@ static struct genl_ops dp_flow_genl_ops[] = {
+ static const struct nla_policy datapath_policy[OVS_DP_ATTR_MAX + 1] = {
+ 	[OVS_DP_ATTR_NAME] = { .type = NLA_NUL_STRING, .len = IFNAMSIZ - 1 },
+ 	[OVS_DP_ATTR_UPCALL_PID] = { .type = NLA_U32 },
++	[OVS_DP_ATTR_USER_FEATURES] = { .type = NLA_U32 },
+ };
+ 
+ static struct genl_family dp_datapath_genl_family = {
+@@ -1217,6 +1218,9 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 	parms.port_no = OVSP_LOCAL;
+ 	parms.upcall_portid = nla_get_u32(a[OVS_DP_ATTR_UPCALL_PID]);
+ 
++	if (a[OVS_DP_ATTR_USER_FEATURES])
++		dp->user_features = nla_get_u32(a[OVS_DP_ATTR_USER_FEATURES]);
++
+ 	vport = new_vport(&parms);
+ 	if (IS_ERR(vport)) {
+ 		err = PTR_ERR(vport);
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index d3d14a58..ecdf44c 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -88,6 +88,8 @@ struct datapath {
+ 	/* Network namespace ref. */
+ 	struct net *net;
+ #endif
++
++	u32 user_features;
+ };
+ 
+ /**
+-- 
+1.8.3.1
