@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 1/2] igb: Update link modes display in ethtool
-Date: Mon, 11 Nov 2013 00:46:44 -0500 (EST)
-Message-ID: <20131111.004644.2260568400720991750.davem@davemloft.net>
-References: <1384001534-18709-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [net 2/2] ixgbe: add warning when max_vfs is out of range.
+Date: Mon, 11 Nov 2013 00:46:50 -0500 (EST)
+Message-ID: <20131111.004650.524780969167147670.davem@davemloft.net>
+References: <1384001552-18754-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: carolyn.wyborny@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Cc: jacob.e.keller@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52425 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52431 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751222Ab3KKFqr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 00:46:47 -0500
-In-Reply-To: <1384001534-18709-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1751894Ab3KKFqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 00:46:51 -0500
+In-Reply-To: <1384001552-18754-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat,  9 Nov 2013 04:52:14 -0800
+Date: Sat,  9 Nov 2013 04:52:32 -0800
 
-> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+> From: Jacob Keller <jacob.e.keller@intel.com>
 > 
-> This patch fixes multiple problems in the link modes display in ethtool.
-> Newer parts have more complicated methods to determine actual link
-> capabilities.  Older parts cannot communicate with their SFP modules.
-> Finally, all the available defines are not displayed by ethtool.  This
-> updates the link modes to be as accurate as possible depending on what data
-> is available to the driver at any given time.
+> The max_vfs parameter has a limit of 63 and silently fails (adding 0 vfs) when
+> it is out of range. This patch adds a warning so that the user knows something
+> went wrong. Also, this patch moves the warning in ixgbe_enable_sriov() to where
+> max_vfs is checked, so that even an out of range value will show the deprecated
+> warning. Previously, an out of range parameter didn't even warn the user to use
+> the new sysfs interface instead.
 > 
-> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
