@@ -1,36 +1,31 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2] mac80211: add assoc beacon timeout logic
-Date: Mon, 11 Nov 2013 10:08:52 +0100
-Message-ID: <1384160932.14334.6.camel@jlt4.sipsolutions.net>
-References: <1384119945-31213-1-git-send-email-felipe.contreras@gmail.com>
-	 (sfid-20131110_225237_639267_0727F79C)
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: spurious ip forwarding inside namespaces
+Date: Mon, 11 Nov 2013 00:01:11 -1000
+Message-ID: <CAHo-OowLFvH_cR-sJN2ft_2E4ASCcWTBQCOp__3CSwU72EqSeg@mail.gmail.com>
+References: <CAMEtUuwKD76xEhysPbLum5wDYyJaX5p0JpdBQUcdHged40eHdg@mail.gmail.com>
+	<CAHo-Oow6h1LRNw5DMb4+6bdwy31WGOTNokKe=C5cj40dDhTyQQ@mail.gmail.com>
+	<CAMEtUuz70qyDgB1-EH9xPK71PagxwHFVCzmrnwC2uWum_gxxFg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Felipe Contreras <felipe.contreras@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux NetDev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:35371 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751419Ab3KKJJC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 04:09:02 -0500
-In-Reply-To: <1384119945-31213-1-git-send-email-felipe.contreras@gmail.com> (sfid-20131110_225237_639267_0727F79C)
+Received: from mail-vb0-f44.google.com ([209.85.212.44]:64810 "EHLO
+	mail-vb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753071Ab3KKKBL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 05:01:11 -0500
+Received: by mail-vb0-f44.google.com with SMTP id 11so3121855vbe.3
+        for <netdev@vger.kernel.org>; Mon, 11 Nov 2013 02:01:11 -0800 (PST)
+In-Reply-To: <CAMEtUuz70qyDgB1-EH9xPK71PagxwHFVCzmrnwC2uWum_gxxFg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-11-10 at 15:45 -0600, Felipe Contreras wrote:
-> We don't want to be waiting forever for a beacon that will never come,
-> just continue the association.
-
-This makes no sense, IMO.
-
-If there really are no beacons at all, then nothing can work with the AP
--- things like HT, regulatory/radar, powersave, multiple virtual
-interfaces and many others require beacons.
-
-If the AP is sending beacons but the device isn't receiving them, then
-it's a driver bug and mac80211 shouldn't work around it.
-
-johannes
+I didn't really understand what he was trying to fix (seemed like a
+userspace misconfiguration issue to me=E2=80=A6), but it seems pretty c=
+lear
+that this is not the right way to go about it.
+Ignoring destination mac address is not the right way to go about doing=
+ things.
