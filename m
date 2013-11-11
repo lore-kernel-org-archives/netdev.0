@@ -1,61 +1,31 @@
-From: Jonas Jensen <jonas.jensen@gmail.com>
-Subject: [PATCH] PHY: Add RTL8201CP phy_driver to realtek
-Date: Mon, 11 Nov 2013 15:46:06 +0100
-Message-ID: <1384181166-15501-1-git-send-email-jonas.jensen@gmail.com>
-Cc: r58129@freescale.com, linux-kernel@vger.kernel.org,
-	Jonas Jensen <jonas.jensen@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next RFC 0/2] ipv6: allow temporary address management for user-created addresses
+Date: Mon, 11 Nov 2013 15:49:17 +0100
+Message-ID: <1384181359-23199-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
+	stephen@networkplumber.org, hannes@stressinduktion.org,
+	vyasevich@gmail.com, dcbw@redhat.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f178.google.com ([209.85.215.178]:47032 "EHLO
+	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753501Ab3KKOtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 09:49:24 -0500
+Received: by mail-ea0-f178.google.com with SMTP id a10so2228424eae.23
+        for <netdev@vger.kernel.org>; Mon, 11 Nov 2013 06:49:23 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add RTL8201CP phy_driver.
+Jiri Pirko (2):
+  ipv6 addrconf: extend ifa_flags to u32
+  ipv6 addrconf: introduce IFA_F_MANAGETEMPADDR to tell kernel to manage
+    temporary addresses
 
-Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
----
+ include/net/if_inet6.h       |   2 +-
+ include/uapi/linux/if_addr.h |   5 ++
+ net/ipv6/addrconf.c          | 181 +++++++++++++++++++++++++------------------
+ 3 files changed, 110 insertions(+), 78 deletions(-)
 
-Notes:
-    RTL8201CP PHY is used on MOXA UC-711X hardware(s).
-    
-    Adding the ID allows the PHY to be probed (by libphy), and eventually connected from MAC code.
-    
-    Applies to next-20131111
-
- drivers/net/phy/realtek.c | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
-
-diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
-index 138de83..fa1d69a 100644
---- a/drivers/net/phy/realtek.c
-+++ b/drivers/net/phy/realtek.c
-@@ -64,6 +64,18 @@ static int rtl8211e_config_intr(struct phy_device *phydev)
- 	return err;
- }
- 
-+/* RTL8201CP */
-+static struct phy_driver rtl8201cp_driver = {
-+	.phy_id         = 0x00008201,
-+	.name           = "RTL8201CP Ethernet",
-+	.phy_id_mask    = 0x0000ffff,
-+	.features       = PHY_BASIC_FEATURES,
-+	.flags          = PHY_HAS_INTERRUPT,
-+	.config_aneg    = &genphy_config_aneg,
-+	.read_status    = &genphy_read_status,
-+	.driver         = { .owner = THIS_MODULE,},
-+};
-+
- /* RTL8211B */
- static struct phy_driver rtl8211b_driver = {
- 	.phy_id		= 0x001cc912,
-@@ -98,6 +110,9 @@ static int __init realtek_init(void)
- {
- 	int ret;
- 
-+	ret = phy_driver_register(&rtl8201cp_driver);
-+	if (ret < 0)
-+		return -ENODEV;
- 	ret = phy_driver_register(&rtl8211b_driver);
- 	if (ret < 0)
- 		return -ENODEV;
 -- 
-1.8.2.1
+1.8.3.1
