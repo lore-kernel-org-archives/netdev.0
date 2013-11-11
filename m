@@ -1,52 +1,52 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
- burst.
-Date: Mon, 11 Nov 2013 15:34:53 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1311111525480.17105-100000@netrider.rowland.org>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B73FE@saturn3.aculab.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPv6: Blackhole route support partial ?
+Date: Mon, 11 Nov 2013 21:39:54 +0100
+Message-ID: <20131111203954.GB3043@order.stressinduktion.org>
+References: <CAP8BHkGZ5EFxW4BNervKrOiEaQTNdSh9s2YOrFoexzQCOR=AqQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B73FE-CgBM+Bx2aUAnGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Kamala R <kamala@aristanetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:36201 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751708Ab3KKUj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 15:39:56 -0500
+Content-Disposition: inline
+In-Reply-To: <CAP8BHkGZ5EFxW4BNervKrOiEaQTNdSh9s2YOrFoexzQCOR=AqQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 11 Nov 2013, David Laight wrote:
+Hello!
 
-> > Suppose, for example, the MBP is 1024.  If you have a TD with length
-> > 1500, and if it had only one fragment, the last (and only) fragment's
-> > length would not less than the MBP and it would not be an exact
-> > multiple of the MBP.
+On Mon, Nov 11, 2013 at 07:25:14PM +0530, Kamala R wrote:
+> On adding IPv6 blackhole routes, ICMP unreachable messages are being
+> sent back to source. According to the definition, packets destined to
+> a blackhole address must be dropped silently.
+
+Yes, this is a bug.
+
+> I applied the patch submitted to the 3.7 kernel that indicates that it
+> supports blackhole and prohibit routes correctly. However, the patch
+> only sets the error code and route type correctly, so the show command
+> displays the appropriate output.
 > 
-> That doesn't matter - eg example 2 in figure 25
+> 
+> It seems to me that the input and output function pointers of the dst
+> variable, which determine packet processing, need to be set to
+> dst_discard. This would enable correct behaviour for blackhole routes.
+> Am I on the right path here ?
 
-You're right.  I do wish the spec had been written more clearly.
+I think you are. ip6_pkt_discard is not the correct input/output
+function for blackhole routes. In ip6_route_add simply set up the
+function pointers in the switch instead to just initializing them to
+ip6_pkt_discard. dst_discard is fine. Looks like prohibit rules are not
+handled correctly either. They should go to ip6_pkt_prohibit. (Just look at
+how the templates are initialized.)
 
-> Reading it all again makes me think that a LINK trb is only
-> allowed on the burst boundary (which might be 16k bytes).
-> The only real way to implement that is to ensure that TD never
-> contain LINK TRB.
+Could you cook a patch?
 
-That's one way to do it.  Or you could allow a Link TRB at an 
-intermediate MBP boundary.
+Thanks,
 
-It comes down to a question of how often you want the controller to
-issue an interrupt.  If a ring segment is 4 KB (one page), then it can
-hold 256 TRBs.  With scatter-gather transfers, each SG element
-typically refers to something like a 2-page buffer (depends on how
-fragmented the memory is).  Therefore a ring segment will describe
-somewhere around 512 pages of data, i.e., something like 2 MB.  Since
-SuperSpeed is 500 MB/s, you'd end up getting in the vicinity of 250
-interrupts every second just because of ring segment crossings.
-
-Using larger ring segments would help.
-
-Alan Stern
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  Hannes
