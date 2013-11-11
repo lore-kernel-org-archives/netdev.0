@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v3 6/10] bonding: rebuild the lock use for bond_activebackup_arp_mon()
-Date: Mon, 11 Nov 2013 20:36:45 +0800
-Message-ID: <5280CF5D.1020502@huawei.com>
+Subject: [PATCH net-next v3 7/10] bonding: rebuild the lock use for bond_3ad_state_machine_handler()
+Date: Mon, 11 Nov 2013 20:36:49 +0800
+Message-ID: <5280CF61.1030606@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,191 +12,195 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:33049 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753809Ab3KKMhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 07:37:42 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:22005 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753640Ab3KKMiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 07:38:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_activebackup_arp_mon() use the bond lock for read to
-protect the slave list, it is no effect, and the RTNL is only
-called for bond_ab_arp_commit() and peer notify, for the performance
-better, use RCU to replace with the bond lock, to the bond slave
-list need to called in RCU, add a new bond_first_slave_rcu()
-to get the first slave in RCU protection.
+The bond_3ad_state_machine_handler() use the bond lock to protect
+the bond slave list and slave port, so as the before patch said,
+I remove bond lock and replace with RCU.
 
-In bond_ab_arp_probe(), the bond->current_arp_slave may changd
-if bond release slave, just like:
+There was a lot of function need RCU protect, I have two choice
+to make the function in RCU-safe, (1) create new similar functions
+and make the bond slave list in RCU. (2) modify the existed functions
+and make them in read-side critical section, because the RCU
+read-side critical sections may be nested.
 
-	bond_ab_arp_probe()			bond_release()
-	cpu 0					cpu 1
-	...
-	if (bond->current_arp_slave...)		...
-	...				bond->current_arp_slave = NULl
-	bond->current_arp_slave->dev->name	...
+I choose (2) because it is no need to create more similar functions.
 
-So the current_arp_slave need to dereference in the section.
-
-When bond_ab_arp_inspect() and should_notify_peers is true, the
-RTNL will called twice, it is a loss of performance, so make the
-two RTNL together to avoid performance loss.
+The nots in the function is still too old, clean up the nots.
 
 Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
 Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
 Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 49 +++++++++++++++++++++--------------------
- 1 file changed, 25 insertions(+), 24 deletions(-)
+ drivers/net/bonding/bond_3ad.c | 53 ++++++++++++++++++++++++------------------
+ 1 file changed, 31 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 5df705c..80d5c6a 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2517,7 +2517,7 @@ re_arm:
-  * place for the slave.  Returns 0 if no changes are found, >0 if changes
-  * to link states must be committed.
-  *
-- * Called with bond->lock held for read.
-+ * Called with rcu_read_lock hold.
-  */
- static int bond_ab_arp_inspect(struct bonding *bond)
- {
-@@ -2526,7 +2526,7 @@ static int bond_ab_arp_inspect(struct bonding *bond)
- 	struct slave *slave;
- 	int commit = 0;
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 187b1b7..d935da5 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -147,11 +147,12 @@ static inline struct aggregator *__get_first_agg(struct port *port)
+ 	struct bonding *bond = __get_bond_by_port(port);
+ 	struct slave *first_slave;
  
--	bond_for_each_slave(bond, slave, iter) {
-+	bond_for_each_slave_rcu(bond, slave, iter) {
- 		slave->new_link = BOND_LINK_NOCHANGE;
- 		last_rx = slave_last_rx(bond, slave);
- 
-@@ -2588,7 +2588,7 @@ static int bond_ab_arp_inspect(struct bonding *bond)
-  * Called to commit link state changes noted by inspection step of
-  * active-backup mode ARP monitor.
-  *
-- * Called with RTNL and bond->lock for read.
-+ * Called with RTNL hold.
-  */
- static void bond_ab_arp_commit(struct bonding *bond)
- {
-@@ -2663,19 +2663,20 @@ do_failover:
- /*
-  * Send ARP probes for active-backup mode ARP monitor.
-  *
-- * Called with bond->lock held for read.
-+ * Called with rcu_read_lock hold.
-  */
- static void bond_ab_arp_probe(struct bonding *bond)
- {
--	struct slave *slave, *before = NULL, *new_slave = NULL;
-+	struct slave *slave, *before = NULL, *new_slave = NULL,
-+		     *curr_arp_slave = rcu_dereference(bond->current_arp_slave);
- 	struct list_head *iter;
- 	bool found = false;
- 
- 	read_lock(&bond->curr_slave_lock);
- 
--	if (bond->current_arp_slave && bond->curr_active_slave)
-+	if (curr_arp_slave && bond->curr_active_slave)
- 		pr_info("PROBE: c_arp %s && cas %s BAD\n",
--			bond->current_arp_slave->dev->name,
-+			curr_arp_slave->dev->name,
- 			bond->curr_active_slave->dev->name);
- 
- 	if (bond->curr_active_slave) {
-@@ -2691,15 +2692,15 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 	 * for becoming the curr_active_slave
- 	 */
- 
--	if (!bond->current_arp_slave) {
--		bond->current_arp_slave = bond_first_slave(bond);
--		if (!bond->current_arp_slave)
-+	if (!curr_arp_slave) {
-+		curr_arp_slave = bond_first_slave_rcu(bond);
-+		if (!curr_arp_slave)
- 			return;
- 	}
- 
--	bond_set_slave_inactive_flags(bond->current_arp_slave);
-+	bond_set_slave_inactive_flags(curr_arp_slave);
- 
--	bond_for_each_slave(bond, slave, iter) {
-+	bond_for_each_slave_rcu(bond, slave, iter) {
- 		if (!found && !before && IS_UP(slave->dev))
- 			before = slave;
- 
-@@ -2722,7 +2723,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 			pr_info("%s: backup interface %s is now down.\n",
- 				bond->dev->name, slave->dev->name);
- 		}
--		if (slave == bond->current_arp_slave)
-+		if (slave == curr_arp_slave)
- 			found = true;
- 	}
- 
-@@ -2736,8 +2737,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 	bond_set_slave_active_flags(new_slave);
- 	bond_arp_send_all(bond, new_slave);
- 	new_slave->jiffies = jiffies;
--	bond->current_arp_slave = new_slave;
+-	// If there's no bond for this port, or bond has no slaves
++	/* If there's no bond for this port, or bond has no slaves */
+ 	if (bond == NULL)
+ 		return NULL;
+-	first_slave = bond_first_slave(bond);
 -
-+	rcu_assign_pointer(bond->current_arp_slave, new_slave);
++	rcu_read_lock();
++	first_slave = bond_first_slave_rcu(bond);
++	rcu_read_unlock();
+ 	return first_slave ? &(SLAVE_AD_INFO(first_slave).aggregator) : NULL;
  }
  
- void bond_activebackup_arp_mon(struct work_struct *work)
-@@ -2747,17 +2747,17 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 	bool should_notify_peers = false;
- 	int delta_in_ticks;
+@@ -702,9 +703,13 @@ static struct aggregator *__get_active_agg(struct aggregator *aggregator)
+ 	struct list_head *iter;
+ 	struct slave *slave;
+ 
+-	bond_for_each_slave(bond, slave, iter)
+-		if (SLAVE_AD_INFO(slave).aggregator.is_active)
++	rcu_read_lock();
++	bond_for_each_slave_rcu(bond, slave, iter)
++		if (SLAVE_AD_INFO(slave).aggregator.is_active) {
++			rcu_read_unlock();
+ 			return &(SLAVE_AD_INFO(slave).aggregator);
++		}
++	rcu_read_unlock();
+ 
+ 	return NULL;
+ }
+@@ -1471,7 +1476,8 @@ static void ad_agg_selection_logic(struct aggregator *agg)
+ 	active = __get_active_agg(agg);
+ 	best = (active && agg_device_up(active)) ? active : NULL;
+ 
+-	bond_for_each_slave(bond, slave, iter) {
++	rcu_read_lock();
++	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		agg = &(SLAVE_AD_INFO(slave).aggregator);
+ 
+ 		agg->is_active = 0;
+@@ -1505,7 +1511,7 @@ static void ad_agg_selection_logic(struct aggregator *agg)
+ 		active->is_active = 1;
+ 	}
+ 
+-	// if there is new best aggregator, activate it
++	/* if there is new best aggregator, activate it */
+ 	if (best) {
+ 		pr_debug("best Agg=%d; P=%d; a k=%d; p k=%d; Ind=%d; Act=%d\n",
+ 			 best->aggregator_identifier, best->num_of_ports,
+@@ -1516,7 +1522,7 @@ static void ad_agg_selection_logic(struct aggregator *agg)
+ 			 best->lag_ports, best->slave,
+ 			 best->slave ? best->slave->dev->name : "NULL");
+ 
+-		bond_for_each_slave(bond, slave, iter) {
++		bond_for_each_slave_rcu(bond, slave, iter) {
+ 			agg = &(SLAVE_AD_INFO(slave).aggregator);
+ 
+ 			pr_debug("Agg=%d; P=%d; a k=%d; p k=%d; Ind=%d; Act=%d\n",
+@@ -1526,10 +1532,10 @@ static void ad_agg_selection_logic(struct aggregator *agg)
+ 				 agg->is_individual, agg->is_active);
+ 		}
+ 
+-		// check if any partner replys
++		/* check if any partner replys */
+ 		if (best->is_individual) {
+ 			pr_warning("%s: Warning: No 802.3ad response from the link partner for any adapters in the bond\n",
+-				   best->slave ? best->slave->bond->dev->name : "NULL");
++			best->slave ? best->slave->bond->dev->name : "NULL");
+ 		}
+ 
+ 		best->is_active = 1;
+@@ -1541,7 +1547,7 @@ static void ad_agg_selection_logic(struct aggregator *agg)
+ 			 best->partner_oper_aggregator_key,
+ 			 best->is_individual, best->is_active);
+ 
+-		// disable the ports that were related to the former active_aggregator
++		/* disable the ports that were related to the former active_aggregator */
+ 		if (active) {
+ 			for (port = active->lag_ports; port;
+ 			     port = port->next_port_in_aggregator) {
+@@ -1565,6 +1571,8 @@ static void ad_agg_selection_logic(struct aggregator *agg)
+ 		}
+ 	}
+ 
++	rcu_read_unlock();
++
+ 	bond_3ad_set_carrier(bond);
+ }
+ 
+@@ -2068,18 +2076,18 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 	struct slave *slave;
+ 	struct port *port;
  
 -	read_lock(&bond->lock);
--
- 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
++	rcu_read_lock();
  
+-	//check if there are any slaves
++	/* check if there are any slaves */
  	if (!bond_has_slaves(bond))
  		goto re_arm;
  
-+	rcu_read_lock();
-+
- 	should_notify_peers = bond_should_notify_peers(bond);
+-	// check if agg_select_timer timer after initialize is timed out
++	/* check if agg_select_timer timer after initialize is timed out */
+ 	if (BOND_AD_INFO(bond).agg_select_timer && !(--BOND_AD_INFO(bond).agg_select_timer)) {
+-		slave = bond_first_slave(bond);
++		slave = bond_first_slave_rcu(bond);
+ 		port = slave ? &(SLAVE_AD_INFO(slave).port) : NULL;
  
- 	if (bond_ab_arp_inspect(bond)) {
--		read_unlock(&bond->lock);
-+		rcu_read_unlock();
- 
- 		/* Race avoidance with bond_close flush of workqueue */
- 		if (!rtnl_trylock()) {
-@@ -2767,23 +2767,24 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 			goto re_arm;
- 		}
- 
--		read_lock(&bond->lock);
--
- 		bond_ab_arp_commit(bond);
-+		if (should_notify_peers) {
-+			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
-+					bond->dev);
-+			should_notify_peers = false;
-+		}
- 
--		read_unlock(&bond->lock);
- 		rtnl_unlock();
--		read_lock(&bond->lock);
-+		rcu_read_lock();
+-		// select the active aggregator for the bond
++		/* select the active aggregator for the bond */
+ 		if (port) {
+ 			if (!port->slave) {
+ 				pr_warning("%s: Warning: bond's first port is uninitialized\n",
+@@ -2093,8 +2101,8 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 		bond_3ad_set_carrier(bond);
  	}
  
- 	bond_ab_arp_probe(bond);
-+	rcu_read_unlock();
+-	// for each port run the state machines
+-	bond_for_each_slave(bond, slave, iter) {
++	/* for each port run the state machines */
++	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		port = &(SLAVE_AD_INFO(slave).port);
+ 		if (!port->slave) {
+ 			pr_warning("%s: Warning: Found an uninitialized port\n",
+@@ -2114,7 +2122,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 		ad_mux_machine(port);
+ 		ad_tx_machine(port);
+ 
+-		// turn off the BEGIN bit, since we already handled it
++		/* turn off the BEGIN bit, since we already handled it */
+ 		if (port->sm_vars & AD_PORT_BEGIN)
+ 			port->sm_vars &= ~AD_PORT_BEGIN;
+ 
+@@ -2122,9 +2130,8 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 	}
  
  re_arm:
- 	if (bond->params.arp_interval)
- 		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
- 
--	read_unlock(&bond->lock);
++	rcu_read_unlock();
+ 	queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
 -
- 	if (should_notify_peers) {
- 		if (!rtnl_trylock())
- 			return;
+-	read_unlock(&bond->lock);
+ }
+ 
+ /**
+@@ -2303,7 +2310,9 @@ int bond_3ad_set_carrier(struct bonding *bond)
+ 	struct aggregator *active;
+ 	struct slave *first_slave;
+ 
+-	first_slave = bond_first_slave(bond);
++	rcu_read_lock();
++	first_slave = bond_first_slave_rcu(bond);
++	rcu_read_unlock();
+ 	if (!first_slave)
+ 		return 0;
+ 	active = __get_active_agg(&(SLAVE_AD_INFO(first_slave).aggregator));
 -- 
 1.8.2.1
