@@ -1,65 +1,100 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: Re: TCP performance regression
-Date: Mon, 11 Nov 2013 17:38:24 +0100
-Message-ID: <52810800.9020402@openwrt.org>
-References: <21120.27501.32323.332316@gargle.gargle.HOWL>	<1384149326.16391.10.camel@edumazet-glaptop2.roam.corp.google.com>	<21120.29720.673157.151074@gargle.gargle.HOWL>	<1384152853.16391.19.camel@edumazet-glaptop2.roam.corp.google.com>	<21120.37647.979237.40802@gargle.gargle.HOWL>	<1384180069.16391.32.camel@edumazet-glaptop2.roam.corp.google.com> <21121.575.539384.948990@gargle.gargle.HOWL>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v2] mac80211: add assoc beacon timeout logic
+Date: Mon, 11 Nov 2013 17:41:07 +0100
+Message-ID: <1384188067.14334.45.camel@jlt4.sipsolutions.net>
+References: <1384119945-31213-1-git-send-email-felipe.contreras@gmail.com>
+	 <1384160932.14334.6.camel@jlt4.sipsolutions.net>
+	 <CAMP44s3TFSgWuR8gVoFBznNP+t9mz+to===9i1PAnra4ogKu9w@mail.gmail.com>
+	 <1384184624.14334.31.camel@jlt4.sipsolutions.net>
+	 <CAMP44s2cVVe4-yW214B9hJu7n6M1onZpZaPCj5N0Fi1JWDKKsw@mail.gmail.com>
+	 (sfid-20131111_172306_225045_4D26036E)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dave Taht <dave.taht@gmail.com>
-To: Sujith Manoharan <sujith@msujith.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Cc: linux-wireless Mailing List <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Felipe Contreras <felipe.contreras@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:59366 "EHLO nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754148Ab3KKQij (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Nov 2013 11:38:39 -0500
-In-Reply-To: <21121.575.539384.948990@gargle.gargle.HOWL>
+Received: from s3.sipsolutions.net ([144.76.43.152]:36720 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753173Ab3KKQlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 11:41:14 -0500
+In-Reply-To: <CAMP44s2cVVe4-yW214B9hJu7n6M1onZpZaPCj5N0Fi1JWDKKsw@mail.gmail.com> (sfid-20131111_172306_225045_4D26036E)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013-11-11 17:13, Sujith Manoharan wrote:
-> Eric Dumazet wrote:
->> We have many choices.
->> 
->> 1) Add back a minimum of ~128 K of outstanding bytes per TCP session,
->>    so that buggy drivers can sustain 'line rate'.
->> 
->>    Note that with 100 concurrent TCP streams, total amount of bytes
->>    queued on the NIC is 12 MB.
->>    And pfifo_fast qdisc will drop packets anyway.
->> 
->>    Thats what we call 'BufferBloat'
->> 
->> 2) Try lower values like 64K. Still bufferbloat.
->> 
->> 3) Fix buggy drivers, using a proper logic, or shorter timers (mvneta
->> case for example)
->> 
->> 4) Add a new netdev attribute, so that well behaving NIC drivers do not
->> have to artificially force TCP stack to queue too many bytes in
->> Qdisc/NIC queues.
+On Mon, 2013-11-11 at 10:23 -0600, Felipe Contreras wrote:
+
+> The driver is not receiving it at all. I already debugged this:
 > 
-> I think the quirks of 802.11 aggregation should be taken into account.
-> I am adding Felix to this thread, who would have more to say on latency/bufferbloat
-> with wireless drivers.
-I don't think this issue is about something as simple as timer handling
-for tx completion (or even broken/buggy drivers).
+> http://article.gmane.org/gmane.linux.kernel.wireless.general/115429
 
-There's simply no way to make 802.11 aggregation work well and have
-similar tx completion latency characteristics as Ethernet devices.
+Hmm, ok. I pretty much didn't read that thread since some others were
+jumping in.
 
-802.11 aggregation reduces the per-packet airtime overhead by combining
-multiple packets into one transmission (saving a lot of time getting a
-tx opportunity, transmitting the PHY header, etc.), which makes the
-'line rate' heavily depend on the amount of buffering.
+> However, I noticed that once in a very long time, sometimes it does
+> receive the corrupted frame and the association continues, and the
+> driver code detects it's a corrupted beacon frame.
 
-Aggregating multiple packets into one transmission also causes extra
-packet loss, which is compensated by retransmission and reordering, thus
-introducing additional latency.
+So how does it treat the corruption?
 
-I don't think that TSQ can do a decent job of mitigating bufferbloat on
-802.11n devices without a significant performance hit, so adding a new
-netdev attribute might be a good idea.
+> > The firmware still
+> > shouldn't be filtering anything since it doesn't really look at the
+> > beacon information (or maybe it filters based on the DS IE? I'm not
+> > entirely sure)
+> 
+> That's what I thought, but I don't see it at all (only in monitor
+> mode, and in ad-hoc).
 
-- Felix
+Yes, that part is odd - that's really the root cause.
+
+I didn't quickly find in the threads what device and firmware you were
+using, mind identifying it (again)?
+
+> Nope, it keeps trying forever.
+> 
+> Oct 13 14:33:15 nysa kernel: wlan0: authenticate with e0:1d:3b:46:82:a0
+> Oct 13 14:33:15 nysa kernel: wlan0: send auth to e0:1d:3b:46:82:a0 (try 1/3)
+> Oct 13 14:33:15 nysa kernel: wlan0: authenticated
+> Oct 13 14:33:15 nysa kernel: wlan0: waiting for beacon from e0:1d:3b:46:82:a0
+> Oct 13 14:33:18 nysa kernel: wlan0: authenticate with e0:1d:3b:46:82:a0
+> Oct 13 14:33:18 nysa kernel: wlan0: send auth to e0:1d:3b:46:82:a0 (try 1/3)
+> Oct 13 14:33:18 nysa kernel: wlan0: authenticated
+> Oct 13 14:33:18 nysa kernel: wlan0: waiting for beacon from e0:1d:3b:46:82:a0
+> Oct 13 14:33:22 nysa kernel: wlan0: authenticate with e0:1d:3b:46:82:a0
+> Oct 13 14:33:22 nysa kernel: wlan0: send auth to e0:1d:3b:46:82:a0 (try 1/3)
+> Oct 13 14:33:22 nysa kernel: wlan0: authenticated
+> Oct 13 14:33:22 nysa kernel: wlan0: waiting for beacon from e0:1d:3b:46:82:a0
+> ...
+
+I see the same behaviour - but it's the supplicant's doing, it is indeed
+getting the event that the AP connection failed (timed out):
+
+wlan0: Event ASSOC_TIMED_OUT (15) received
+
+
+> > This isn't really true like I said above - the kernel can only drop the
+> > association, if userspace *insists* then it will try again and again.
+> 
+> But it's not doing this:
+> 
+>   ieee80211_destroy_assoc_data(sdata, false);
+>   cfg80211_assoc_timeout(sdata->dev, bss);
+> 
+> Which is what causes the association to stop for me.
+> 
+> So where exactly in the code is the association being "dropped"?
+
+This does get called in my setup.
+
+> I would rather fix the problem at the two levels, so even if the
+> firmware passes the corrupt frames correctly, the driver would still
+> somewhat work when there's no beacon frames at all.
+
+Like I said before - trying to work with an AP without beacons at all is
+really bad, we shouldn't be doing it. We might not properly react to
+radar events, and other things, for example.
+
+johannes
