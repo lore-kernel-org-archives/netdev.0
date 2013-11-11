@@ -1,41 +1,41 @@
-From: Sujith Manoharan <sujith@msujith.org>
-Subject: Re: TCP performance regression
-Date: Mon, 11 Nov 2013 11:37:20 +0530
-Message-ID: <21120.29720.673157.151074@gargle.gargle.HOWL>
-References: <21120.27501.32323.332316@gargle.gargle.HOWL>
-	<1384149326.16391.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] ethernet/arc/arc_emac: add missing platform_set_drvdata() in arc_emac_probe()
+Date: Mon, 11 Nov 2013 14:15:12 +0800
+Message-ID: <CAPgLHd_aDFExSewd3ENBgVU1Ru9LaV2Hwg=wjaO5ygo1qXRQQw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: grant.likely@linaro.org, rob.herring@calxeda.com,
+	davem@davemloft.net, abrodkin@synopsys.com, vgupta@synopsys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s72.web-hosting.com ([198.187.29.21]:34959 "EHLO
-	s72.web-hosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751220Ab3KKGLp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 01:11:45 -0500
-In-Reply-To: <1384149326.16391.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-bk0-f41.google.com ([209.85.214.41]:38110 "EHLO
+	mail-bk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751220Ab3KKGPN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 01:15:13 -0500
+Received: by mail-bk0-f41.google.com with SMTP id v15so243759bkz.0
+        for <netdev@vger.kernel.org>; Sun, 10 Nov 2013 22:15:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> I am afraid this commit shows bugs in various network drivers.
-> 
-> All drivers doing TX completion using a timer are buggy.
-> 
-> Holding skb 10 ms before TX completion is totally wrong and must be fixed.
-> 
-> If really NIC is not able to trigger an interrupt after TX completion, then
-> driver should call skb_orphan() in its ndo_start_xmit()
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-802.11 AMPDU formation is done in the TX completion path in ath9k.
+Add missing platform_set_drvdata() in arc_emac_probe(), otherwise
+calling platform_get_drvdata() in arc_emac_remove() may returns NULL.
 
-Incoming frames are added to a software queue and the TX completion
-tasklet checks if enough frames are available to form an aggregate and
-if so, forms new aggregates and transmits them.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/arc/emac_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-There is no timer involved, but the completion routine is rather heavy.
-Many wireless drivers handle 802.11 aggregation in this way:
-ath9k, ath9k_htc, ath10k etc.
-
-Sujith
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index 9e16014..cbaa7f9 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -671,6 +671,7 @@ static int arc_emac_probe(struct platform_device *pdev)
+ 	if (!ndev)
+ 		return -ENOMEM;
+ 
++	platform_set_drvdata(pdev, ndev);
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 
+ 	ndev->netdev_ops = &arc_emac_netdev_ops;
