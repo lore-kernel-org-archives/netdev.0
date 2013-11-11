@@ -1,37 +1,39 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 0/6] prandom fixes/improvements
-Date: Mon, 11 Nov 2013 20:44:32 +0100
-Message-ID: <20131111194432.GA3043@order.stressinduktion.org>
-References: <cover.1384160397.git.dborkman@redhat.com> <20131111.143341.148954332177473990.davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC 0/2] ipv6: allow temporary address
+ management for user-created addresses
+Date: Mon, 11 Nov 2013 20:49:01 +0100
+Message-ID: <20131111194901.GA2397@minipsycho.orion>
+References: <1384181359-23199-1-git-send-email-jiri@resnulli.us>
+ <20131111.134243.26261596699898567.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: dborkman@redhat.com, shemminger@networkplumber.org,
-	fweimer@redhat.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
+	stephen@networkplumber.org, hannes@stressinduktion.org,
+	vyasevich@gmail.com, dcbw@redhat.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:36078 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754321Ab3KKTod (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 14:44:33 -0500
+Received: from mail-ee0-f51.google.com ([74.125.83.51]:33432 "EHLO
+	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753932Ab3KKTtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 14:49:05 -0500
+Received: by mail-ee0-f51.google.com with SMTP id t10so2645330eei.38
+        for <netdev@vger.kernel.org>; Mon, 11 Nov 2013 11:49:04 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20131111.143341.148954332177473990.davem@davemloft.net>
+In-Reply-To: <20131111.134243.26261596699898567.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 11, 2013 at 02:33:41PM -0500, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Mon, 11 Nov 2013 12:20:31 +0100
-> 
-> > It would be great if you could still consider this series that fixes and
-> > improves prandom for 3.13. We have sent it to netdev as prandom() originally
-> > came from net/core/utils.c and networking is its main user. For a detailled
-> > description, please see individual patches.
-> 
-> Ok, series applied, I'll give Linus the merge conflict resolution
-> instructions.
+Mon, Nov 11, 2013 at 07:42:43PM CET, davem@davemloft.net wrote:
+>
+>I'm not really going to read patches not properly at least CC:'d to
+>netdev, sorry Jiri.
 
-We would also suggest to push Patch #1 to -stable.
+netdev is in "To:"
 
-Thank you,
+I marked the patches as "RFC" on patchwork. Maybe I should not do it
+next time, right?
 
-  Hannes
+Thanks
+
+Jiri
