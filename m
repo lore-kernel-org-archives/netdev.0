@@ -1,49 +1,126 @@
-From: Mark Trompell <mark@foresightlinux.org>
-Subject: Re: bridge not getting ip since 3.11.5 and 3.4.66
-Date: Mon, 11 Nov 2013 13:52:13 +0100
-Message-ID: <CAEPa5y=tgdGpDMBGY0ijyWSgQ0m5SZW8EMP072OF=sZZUjqN1g@mail.gmail.com>
-References: <CAEPa5ym2Xz3F19fJJqNawkRLOKk6Ao6oXrzSrHU051V7p=9otA@mail.gmail.com>
-	<CAE3RKNng9A6Bp7wa4+6iCprwEQpzGueagLc8iob+aFabJW4nnw@mail.gmail.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net-next v3 5/10] bonding: create bond_first_slave_rcu()
+Date: Mon, 11 Nov 2013 13:59:17 +0100
+Message-ID: <20131111125917.GX19702@redhat.com>
+References: <5280CF59.5090202@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linux-Kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Veaceslav Falico <veaceslav@falico.eu>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f47.google.com ([209.85.214.47]:49930 "EHLO
-	mail-bk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753094Ab3KKMwP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 07:52:15 -0500
-Received: by mail-bk0-f47.google.com with SMTP id v11so1236664bkz.6
-        for <netdev@vger.kernel.org>; Mon, 11 Nov 2013 04:52:14 -0800 (PST)
-In-Reply-To: <CAE3RKNng9A6Bp7wa4+6iCprwEQpzGueagLc8iob+aFabJW4nnw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:32236 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753728Ab3KKNBj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Nov 2013 08:01:39 -0500
+Content-Disposition: inline
+In-Reply-To: <5280CF59.5090202@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 11, 2013 at 12:07 PM, Veaceslav Falico <veaceslav@falico.eu> wrote:
-> On Mon, Nov 11, 2013 at 11:29 AM, Mark Trompell <mark@foresightlinux.org> wrote:
->> my bridge br0 doesn't get an ip from dhcp anymore after 3.11.5 and 3.4.66,
->> What information would be helpful and required to find out what's going wrong.
+On Mon, Nov 11, 2013 at 08:36:41PM +0800, Ding Tianhong wrote:
+>The bond_first_slave_rcu() will be used to instead of bond_first_slave()
+>in rcu_read_lock().
 >
-> CC netdev
+>So move the struct netdev_adjacent to the netdevice.h and make the
+>bond_first_slave_rcu() could use the struct.
+
+The whole point in netdev_adjacent functions was to hide it from the users
+who wanted to use it directly. See
+
+http://www.spinics.net/lists/netdev/msg248026.html
+
+for reference. Please try to avoid that.
+
 >
-> First thing would be to provide the network scheme. Do you use vlans?
-> Which network
-> cards/drivers are you using? Do you use some kind of virtualization?
-> Is bonding involved?
+>Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
+>Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>---
+> drivers/net/bonding/bonding.h |  9 +++++++++
+> include/linux/netdevice.h     | 16 ++++++++++++++++
+> net/core/dev.c                | 16 ----------------
+> 3 files changed, 25 insertions(+), 16 deletions(-)
 >
-Actually this is my desktop machine using kvm for a virtual machine
-that uses eth0 which is connected to the bridge
-which is used as interface for the host.
-
-$ ip addr
-2. eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast
-master br0 qlen 1000
-...
-3. br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc noqueue
-...
-
-Anything else?
-
-Greetings
-Mark
+>diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+>index 77a07a1..5d37606 100644
+>--- a/drivers/net/bonding/bonding.h
+>+++ b/drivers/net/bonding/bonding.h
+>@@ -91,6 +91,15 @@
+> 		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
+> 		NULL)
+>
+>+/* Caller must have rcu_read_lock */
+>+#define bond_first_slave_rcu(bond) \
+>+	({struct list_head *__ptr = (bond_slave_list(bond)); \
+>+	 struct list_head *__next = ACCESS_ONCE(__ptr->next); \
+>+	 likely(__ptr != __next) ? \
+>+	 list_entry_rcu(__next, struct netdev_adjacent, list)->private : \
+>+		NULL; \
+>+	 })
+>+
+> #define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
+> #define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
+>
+>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>index 15fa01c..7ca0fc8 100644
+>--- a/include/linux/netdevice.h
+>+++ b/include/linux/netdevice.h
+>@@ -2839,6 +2839,22 @@ extern int		netdev_tstamp_prequeue;
+> extern int		weight_p;
+> extern int		bpf_jit_enable;
+>
+>+struct netdev_adjacent {
+>+	struct net_device *dev;
+>+
+>+	/* upper master flag, there can only be one master device per list */
+>+	bool master;
+>+
+>+	/* counter for the number of times this device was added to us */
+>+	u16 ref_nr;
+>+
+>+	/* private field for the users */
+>+	void *private;
+>+
+>+	struct list_head list;
+>+	struct rcu_head rcu;
+>+};
+>+
+> bool netdev_has_upper_dev(struct net_device *dev, struct net_device *upper_dev);
+> bool netdev_has_any_upper_dev(struct net_device *dev);
+> struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
+>diff --git a/net/core/dev.c b/net/core/dev.c
+>index 8ffc52e..bcc5001 100644
+>--- a/net/core/dev.c
+>+++ b/net/core/dev.c
+>@@ -4377,22 +4377,6 @@ softnet_break:
+> 	goto out;
+> }
+>
+>-struct netdev_adjacent {
+>-	struct net_device *dev;
+>-
+>-	/* upper master flag, there can only be one master device per list */
+>-	bool master;
+>-
+>-	/* counter for the number of times this device was added to us */
+>-	u16 ref_nr;
+>-
+>-	/* private field for the users */
+>-	void *private;
+>-
+>-	struct list_head list;
+>-	struct rcu_head rcu;
+>-};
+>-
+> static struct netdev_adjacent *__netdev_find_adj_rcu(struct net_device *dev,
+> 						     struct net_device *adj_dev,
+> 						     struct list_head *adj_list)
+>-- 
+>1.8.2.1
+>
+>
+>
