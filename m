@@ -1,61 +1,80 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH v4 0/2] l2 hardware accelerated macvlans
-Date: Mon, 11 Nov 2013 09:16:24 -0800
-Message-ID: <528110E8.8040708@intel.com>
-References: <20131106175308.3822.73239.stgit@jf-dev1-dcblab> <527C662B.4080300@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP performance regression
+Date: Mon, 11 Nov 2013 09:38:35 -0800
+Message-ID: <1384191515.16391.49.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <21120.27501.32323.332316@gargle.gargle.HOWL>
+		<1384149326.16391.10.camel@edumazet-glaptop2.roam.corp.google.com>
+		<21120.29720.673157.151074@gargle.gargle.HOWL>
+		<1384152853.16391.19.camel@edumazet-glaptop2.roam.corp.google.com>
+		<21120.37647.979237.40802@gargle.gargle.HOWL>
+		<1384180069.16391.32.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <21121.575.539384.948990@gargle.gargle.HOWL> <52810800.9020402@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, davem@davemloft.net,
-	alexander.h.duyck@intel.com, andy@greyhouse.net,
-	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	vyasevich@gmail.com
-To: vyasevic@redhat.com
+Cc: Sujith Manoharan <sujith@msujith.org>, netdev@vger.kernel.org,
+	Dave Taht <dave.taht@gmail.com>
+To: Felix Fietkau <nbd@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:16965 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753173Ab3KKRQZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Nov 2013 12:16:25 -0500
-In-Reply-To: <527C662B.4080300@redhat.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:39610 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755051Ab3KKRih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 12:38:37 -0500
+Received: by mail-pa0-f48.google.com with SMTP id kq14so5652939pab.35
+        for <netdev@vger.kernel.org>; Mon, 11 Nov 2013 09:38:36 -0800 (PST)
+In-Reply-To: <52810800.9020402@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/7/2013 8:18 PM, Vlad Yasevich wrote:
+On Mon, 2013-11-11 at 17:38 +0100, Felix Fietkau wrote:
+> On 2013-11-11 17:13, Sujith Manoharan wrote:
+> > Eric Dumazet wrote:
+> >> We have many choices.
+> >> 
+> >> 1) Add back a minimum of ~128 K of outstanding bytes per TCP session,
+> >>    so that buggy drivers can sustain 'line rate'.
+> >> 
+> >>    Note that with 100 concurrent TCP streams, total amount of bytes
+> >>    queued on the NIC is 12 MB.
+> >>    And pfifo_fast qdisc will drop packets anyway.
+> >> 
+> >>    Thats what we call 'BufferBloat'
+> >> 
+> >> 2) Try lower values like 64K. Still bufferbloat.
+> >> 
+> >> 3) Fix buggy drivers, using a proper logic, or shorter timers (mvneta
+> >> case for example)
+> >> 
+> >> 4) Add a new netdev attribute, so that well behaving NIC drivers do not
+> >> have to artificially force TCP stack to queue too many bytes in
+> >> Qdisc/NIC queues.
+> > 
+> > I think the quirks of 802.11 aggregation should be taken into account.
+> > I am adding Felix to this thread, who would have more to say on latency/bufferbloat
+> > with wireless drivers.
+> I don't think this issue is about something as simple as timer handling
+> for tx completion (or even broken/buggy drivers).
+> 
+> There's simply no way to make 802.11 aggregation work well and have
+> similar tx completion latency characteristics as Ethernet devices.
+> 
+> 802.11 aggregation reduces the per-packet airtime overhead by combining
+> multiple packets into one transmission (saving a lot of time getting a
+> tx opportunity, transmitting the PHY header, etc.), which makes the
+> 'line rate' heavily depend on the amount of buffering.
 
-[...]
+How long a TX packet is put on hold hoping a following packet will
+come ?
 
->> If folks find this series acceptable there are a few
->> items we can work on next. First broadcast and multicast
->> will use the hardware even for local traffic with this
->> series. It would be best (I think) to use the software
->> path for macvlan to macvlan traffic and save the PCIe
->> bus. This depends on how much you value CPU time vs
->> PCIE bandwidth. This will need another patch series
->> to flush out.
->>
->
-> John
->
-> So, I've been looking at these patches and the more I
-> look the more I wonder how much benefit there is in
-> sending unicast macvlan<->macvlan traffic through the hw.
-> It looks like any bulk transfers would have to undergo
-> tso segmentaion and GRO, where as this can be completely
-> bypassed right now with software.
->
-> Did you run any numbers?
->
 
-I have run some numbers on previous versions of the code for
-this. I'll take some new ones with the final code today/tomorrow
-and post them.
 
-Just wanted to let you know I saw this...
+> Aggregating multiple packets into one transmission also causes extra
+> packet loss, which is compensated by retransmission and reordering, thus
+> introducing additional latency.
+> 
+> I don't think that TSQ can do a decent job of mitigating bufferbloat on
+> 802.11n devices without a significant performance hit, so adding a new
+> netdev attribute might be a good idea.
 
-Thanks,
-John
-
-> Thanks
-> -vlad
->
->
+The netdev attribute would work, but might not work well if using a
+tunnel...
