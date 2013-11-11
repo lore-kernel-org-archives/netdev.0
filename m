@@ -1,39 +1,36 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH] usbnet: fix race condition caused spinlock bad magic
- issue
-Date: Mon, 11 Nov 2013 08:44:23 +0100
-Message-ID: <1384155863.23930.4.camel@linux-fkkt.site>
-References: <1384139315.2179.9.camel@wangbiao>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v2] mac80211: add assoc beacon timeout logic
+Date: Mon, 11 Nov 2013 10:08:52 +0100
+Message-ID: <1384160932.14334.6.camel@jlt4.sipsolutions.net>
+References: <1384119945-31213-1-git-send-email-felipe.contreras@gmail.com>
+	 (sfid-20131110_225237_639267_0727F79C)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	mingo@elte.hu, a.p.zijlstra@chello.nl, rusty@rustcorp.com.au,
-	william.douglas@intel.com
-To: wangbiao <biao.wang@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1384139315.2179.9.camel@wangbiao>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Felipe Contreras <felipe.contreras@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.43.152]:35371 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751419Ab3KKJJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 04:09:02 -0500
+In-Reply-To: <1384119945-31213-1-git-send-email-felipe.contreras@gmail.com> (sfid-20131110_225237_639267_0727F79C)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-11-11 at 11:08 +0800, wangbiao wrote:
-> From: wang, biao <biao.wang@intel.com>
-> Date: Mon, 11 Nov 2013 10:23:40 +0800
-> Subject: [PATCH] usbnet: fix race condition caused spinlock bad magic issue
-> 
-> there is race between usbnet_terminate_urbs and usbnet_bh, when
-> unlink_wakeup used in usbnet_bh, it may be already freed and used by
-> other function as unlink_wakeup was a local var on stack.
+On Sun, 2013-11-10 at 15:45 -0600, Felipe Contreras wrote:
+> We don't want to be waiting forever for a beacon that will never come,
+> just continue the association.
 
-Hi,
+This makes no sense, IMO.
 
-the debugging is good, but the fix is not good.
+If there really are no beacons at all, then nothing can work with the AP
+-- things like HT, regulatory/radar, powersave, multiple virtual
+interfaces and many others require beacons.
 
-If you use a global variable, you can init the head
-only once, that is on module load, not during probe()
-Doing so can mess up operations with multiple modules
-as a hotplug happens.
+If the AP is sending beacons but the device isn't receiving them, then
+it's a driver bug and mac80211 shouldn't work around it.
 
-	Regards
-		Oliver
+johannes
