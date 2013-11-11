@@ -1,67 +1,55 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [3/3] gso: Handle malicious GRO packets without crashing
-Date: Tue, 12 Nov 2013 02:55:03 +0800
-Message-ID: <20131111185502.GB12462@gondor.apana.org.au>
-References: <20131106123900.GA20259@gondor.apana.org.au>
- <20131106133045.GA20931@gondor.apana.org.au>
- <20131106143927.GA21604@gondor.apana.org.au>
- <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131107004339.GA28156@gondor.apana.org.au>
- <20131107062234.GA31156@gondor.apana.org.au>
- <20131107070335.GA31638@gondor.apana.org.au>
- <20131107070647.GB31638@gondor.apana.org.au>
- <20131107070847.GC31638@gondor.apana.org.au>
- <527BE659.9060702@cogentembedded.com>
+Subject: Re: [PATCH v4 net-next] net: introduce dev_set_forwarding()
+Date: Tue, 12 Nov 2013 02:58:06 +0800
+Message-ID: <20131111185806.GC12462@gondor.apana.org.au>
+References: <1383878554.9412.153.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1383879113.9412.155.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131108032359.GA14132@gondor.apana.org.au>
+ <1383884517.9412.172.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131108042425.GA14577@gondor.apana.org.au>
+ <1383885600.9412.187.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131108044335.GA14787@gondor.apana.org.au>
+ <1383887329.9412.207.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131108052120.GA15001@gondor.apana.org.au>
+ <1383889212.9412.219.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
 	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
 	hkchu@google.com, mwdalton@google.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:34183 "EHLO
+Received: from ringil.hengli.com.au ([178.18.16.133]:41495 "EHLO
 	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754119Ab3KKSzJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 13:55:09 -0500
+	with ESMTP id S1753520Ab3KKS6M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 13:58:12 -0500
 Content-Disposition: inline
-In-Reply-To: <527BE659.9060702@cogentembedded.com>
+In-Reply-To: <1383889212.9412.219.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 07, 2013 at 10:13:29PM +0300, Sergei Shtylyov wrote:
-> Hello.
+On Thu, Nov 07, 2013 at 09:40:12PM -0800, Eric Dumazet wrote:
+> On Fri, 2013-11-08 at 13:21 +0800, Herbert Xu wrote:
 > 
-> On 11/07/2013 10:08 AM, Herbert Xu wrote:
+> > My point is that even if you did that GRO with your frag_list
+> > patch should still be a win because the stack prior to the qdisc
+> > gets run once instead of two or three times.
+> > 
 > 
-> >As virtio_net can now generate GRO frag_list packets without
-> >sufficient verification, we need to handle malicious GRO packets
-> >thrown at us.
+> OK, lets me repeat again.
 > 
-> >This patch converts to affected BUG_ONs in skb_segment to rate-
-> >limited warnings.
-> 
-> >Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> >diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> >index bcc3f1c..fb1106d 100644
-> >--- a/net/core/skbuff.c
-> >+++ b/net/core/skbuff.c
-> >@@ -2881,7 +2881,15 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
-> >  			while (tail->next)
-> >  				tail = tail->next;
-> >
-> >-			BUG_ON(fskb && tail->len != len + doffset);
-> >+			if (fskb && tail->len != len + doffset) {
-> >+				net_warn_ratelimited(
-> >+					"skb_segment: "
-> >+					"illegal GSO fragment: %u %u\n",
-> 
->    Don't break up the message -- chekpatch.pl should allow that...
+> 64KB packet receive/aggregation time is more than 540 us on 1Gbps link.
 
-Thanks for the comment.  In the latest version of this patch
-this should no longer be an issue.
+I presume you're still talking about the case where we're CPU-
+bound on receive.  In that case I totally agree that you need to
+impose a limit on the NAPI/GRO run so that we don't keep doing GRO
+forever.
+
+However, the limit should be based on time and not an arbitrary
+number such as MAX_SKB_FRAGS.  IOW relying on not having a frag_list
+to provide a bound to GRO is just wrong.
+
+Cheers,
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
