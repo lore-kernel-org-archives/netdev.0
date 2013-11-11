@@ -1,294 +1,93 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 5/6] random32: upgrade taus88 generator to taus113 from errata paper
-Date: Mon, 11 Nov 2013 12:20:36 +0100
-Message-ID: <8f02547e3f23105f3e7e45dbcaf0cdcc5197a5de.1384160397.git.dborkman@redhat.com>
-References: <cover.1384160397.git.dborkman@redhat.com>
-Cc: shemminger@networkplumber.org, fweimer@redhat.com,
-	netdev@vger.kernel.org, "Theodore Ts'o" <tytso@mit.edu>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: davem@davemloft.net
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v3 0/10] bonding: rebuild the lock use for bond monitor
+Date: Mon, 11 Nov 2013 20:36:04 +0800
+Message-ID: <5280CF34.20703@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29657 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753425Ab3KKLU4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Nov 2013 06:20:56 -0500
-In-Reply-To: <cover.1384160397.git.dborkman@redhat.com>
-In-Reply-To: <cover.1384160397.git.dborkman@redhat.com>
-References: <cover.1384160397.git.dborkman@redhat.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:55068 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753314Ab3KKMgz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 07:36:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since we use prandom*() functions quite often in networking code
-i.e. in UDP port selection, netfilter code, etc, upgrade the PRNG
-from Pierre L'Ecuyer's original paper "Maximally Equidistributed
-Combined Tausworthe Generators", Mathematics of Computation, 65,
-213 (1996), 203--213 to the version published in his errata paper [1].
+Now the bond slave list is not protected by bond lock, only by RTNL,
+but the monitor still use the bond lock to protect the slave list,
+it is useless, according to the Veaceslav's opinion, there were
+three way to fix the protect problem:
 
-The Tausworthe generator is a maximally-equidistributed generator,
-that is fast and has good statistical properties [1].
+1. add bond_master_upper_dev_link() and bond_upper_dev_unlink()
+   in bond->lock, but it is unsafe to call call_netdevice_notifiers()
+   in write lock.
+2. remove unused bond->lock for monitor function, only use the exist
+   rtnl lock(), it will take performance loss in fast path.
+3. use RCU to protect the slave list, of course, performance is better,
+   but in slow path, it is ignored.
 
-The version presented there upgrades the 3 state LFSR to a 4 state
-LFSR with increased periodicity from about 2^88 to 2^113. The
-algorithm is presented in [1] by the very same author who also
-designed the original algorithm in [2].
+obviously the solution 1 is not fit here, I will consider the 2 and 3
+solution. My principle is simple, if in fast path, RCU is better,
+otherwise in slow path, both is well, but according to the Jay Vosburgh's
+opinion, the monitor will loss performace if use RTNL to protect the all
+slave list, so remove the bond lock and replace with RCU.
 
-Also, by increasing the state, we make it a bit harder for attackers
-to "guess" the PRNGs internal state. See also discussion in [3].
+The second problem is the curr_slave_lock for bond, it is too old and
+unwanted in many place, because the curr_active_slave would only be
+changed in 3 place:
 
-Now, as we use this sort of weak initialization discussed in [3]
-only between core_initcall() until late_initcall() time [*] for
-prandom32*() users, namely in prandom_init(), it is less relevant
-from late_initcall() onwards as we overwrite seeds through
-prandom_reseed() anyways with a seed source of higher entropy, that
-is, get_random_bytes(). In other words, a exhaustive keysearch of
-96 bit would be needed. Now, with the help of this patch, this
-state-search increases further to 128 bit. Initialization needs
-to make sure that s1 > 1, s2 > 7, s3 > 15, s4 > 127.
+1. enslave slave.
+2. release slave.
+3. change active slave.
 
-taus88 and taus113 algorithm is also part of GSL. I added a test
-case in the next patch to verify internal behaviour of this patch
-with GSL and ran tests with the dieharder 3.31.1 RNG test suite:
+all above were already holding bond lock, RTNL and curr_slave_lock
+together, it is tedious and no need to add so mach lock, when change
+the curr_active_slave, you have to hold the RTNL and curr_slave_lock
+together, and when you read the curr_active_slave, RTNL or curr_slave_lock,
+any one of them is no problem.
 
-$ dieharder -g 052 -a -m 10 -s 1 -S 4137730333 #taus88
-$ dieharder -g 054 -a -m 10 -s 1 -S 4137730333 #taus113
+for the stability, I did not change the logic for the monitor,
+all change is clear and simple, I have test the patch set for lockdep,
+it work well and stability.
 
-With this seed configuration, in order to compare both, we get
-the following differences:
+v2. accept the Jay Vosburgh's opinion, remove the RTNL and replace with RCU,
+    also add some rcu function for bond use, so the patch set reach 10.
 
-algorithm                 taus88           taus113
-rands/second [**]         1.61e+08         1.37e+08
-sts_serial(4, 1st run)    WEAK             PASSED
-sts_serial(9, 2nd run)    WEAK             PASSED
-rgb_lagged_sum(31)        WEAK             PASSED
+v3. accept the Nikolay Aleksandrov's opinion, remove no needed bond_has_slave_rcu(),
+    add protection for several 3ad mode handler functions and current_arp_slave.
+    rebuild the bond_first_slave_rcu(), make it more clear.
 
-We took out diehard_sums test as according to the authors it is
-considered broken and unusable [4]. Despite that and the slight
-decrease in performance (which is acceptable), taus113 here passes
-all 113 tests (only rgb_minimum_distance_5 in WEAK, the rest PASSED).
-In general, taus/taus113 is considered "very good" by the authors
-of dieharder [5].
+Best Regards
+Ding Tianhong
 
-The papers [1][2] states a single warm-up step is sufficient by
-running quicktaus once on each state to ensure proper initialization
-of ~s_{0}:
+Ding Tianhong (10):
+  bonding: remove the no effect lock for bond_select_active_slave()
+  bonding: rebuild the lock use for bond_mii_monitor()
+  bonding: rebuild the lock use for bond_alb_monitor()
+  bonding: rebuild the lock use for bond_loadbalance_arp_mon()
+  bonding: create bond_first_slave_rcu()
+  bonding: rebuild the lock use for bond_activebackup_arp_mon()
+  bonding: rebuild the lock use for bond_3ad_state_machine_handler()
+  bonding: remove unwanted lock for bond_option_active_slave_set()
+  bonding: remove unwanted lock for bond enslave and release
+  bonding: remove unwanted lock for bond_store_primaryxxx()
 
-Our selection of (s) according to Table 1 of [1] row 1 holds the
-condition L - k <= r - s, that is,
+ drivers/net/bonding/bond_3ad.c     |  53 +++++++------
+ drivers/net/bonding/bond_alb.c     |  34 +++------
+ drivers/net/bonding/bond_main.c    | 147 ++++++++++++++++---------------------
+ drivers/net/bonding/bond_options.c |   2 -
+ drivers/net/bonding/bond_sysfs.c   |   4 -
+ drivers/net/bonding/bonding.h      |   9 +++
+ include/linux/netdevice.h          |  16 ++++
+ net/core/dev.c                     |  16 ----
+ 8 files changed, 132 insertions(+), 149 deletions(-)
 
-  (32 32 32 32) - (31 29 28 25) <= (25 27 15 22) - (18 2 7 13)
-
-with r = k - q and q = (6 2 13 3) as also stated by the paper.
-So according to [2] we are safe with one round of quicktaus for
-initialization. However we decided to include the warm-up phase
-of the PRNG as done in GSL in every case as a safety net. We also
-use the warm up phase to make the output of the RNG easier to
-verify by the GSL output.
-
-In prandom_init(), we also mix random_get_entropy() into it, just
-like drivers/char/random.c does it, jiffies ^ random_get_entropy().
-random-get_entropy() is get_cycles(). xor is entropy preserving so
-it is fine if it is not implemented by some architectures.
-
-Note, this PRNG is *not* used for cryptography in the kernel, but
-rather as a fast PRNG for various randomizations i.e. in the
-networking code, or elsewhere for debugging purposes, for example.
-
-[*]: In order to generate some "sort of pseduo-randomness", since
-get_random_bytes() is not yet available for us, we use jiffies and
-initialize states s1 - s3 with a simple linear congruential generator
-(LCG), that is x <- x * 69069; and derive s2, s3, from the 32bit
-initialization from s1. So the above quote from [3] accounts only
-for the time from core to late initcall, not afterwards.
-[**] Single threaded run on MacBook Air w/ Intel Core i5-3317U
-
- [1] http://www.iro.umontreal.ca/~lecuyer/myftp/papers/tausme2.ps
- [2] http://www.iro.umontreal.ca/~lecuyer/myftp/papers/tausme.ps
- [3] http://thread.gmane.org/gmane.comp.encryption.general/12103/
- [4] http://code.google.com/p/dieharder/source/browse/trunk/libdieharder/diehard_sums.c?spec=svn490&r=490#20
- [5] http://www.phy.duke.edu/~rgb/General/dieharder.php
-
-Joint work with Hannes Frederic Sowa.
-
-Cc: Florian Weimer <fweimer@redhat.com>
-Cc: Theodore Ts'o <tytso@mit.edu>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/linux/random.h | 11 +++----
- lib/random32.c         | 80 +++++++++++++++++++++++++++++---------------------
- 2 files changed, 52 insertions(+), 39 deletions(-)
-
-diff --git a/include/linux/random.h b/include/linux/random.h
-index 8ef0b70..4002b3d 100644
---- a/include/linux/random.h
-+++ b/include/linux/random.h
-@@ -32,10 +32,10 @@ void prandom_seed(u32 seed);
- void prandom_reseed_late(void);
- 
- struct rnd_state {
--	__u32 s1, s2, s3;
-+	__u32 s1, s2, s3, s4;
- };
- 
--u32 prandom_u32_state(struct rnd_state *);
-+u32 prandom_u32_state(struct rnd_state *state);
- void prandom_bytes_state(struct rnd_state *state, void *buf, int nbytes);
- 
- /*
-@@ -55,9 +55,10 @@ static inline void prandom_seed_state(struct rnd_state *state, u64 seed)
- {
- 	u32 i = (seed >> 32) ^ (seed << 10) ^ seed;
- 
--	state->s1 = __seed(i, 2);
--	state->s2 = __seed(i, 8);
--	state->s3 = __seed(i, 16);
-+	state->s1 = __seed(i,   2U);
-+	state->s2 = __seed(i,   8U);
-+	state->s3 = __seed(i,  16U);
-+	state->s4 = __seed(i, 128U);
- }
- 
- #ifdef CONFIG_ARCH_RANDOM
-diff --git a/lib/random32.c b/lib/random32.c
-index e048416..7b8ed69 100644
---- a/lib/random32.c
-+++ b/lib/random32.c
-@@ -2,19 +2,19 @@
-   This is a maximally equidistributed combined Tausworthe generator
-   based on code from GNU Scientific Library 1.5 (30 Jun 2004)
- 
--   x_n = (s1_n ^ s2_n ^ s3_n)
-+  lfsr113 version:
- 
--   s1_{n+1} = (((s1_n & 4294967294) <<12) ^ (((s1_n <<13) ^ s1_n) >>19))
--   s2_{n+1} = (((s2_n & 4294967288) << 4) ^ (((s2_n << 2) ^ s2_n) >>25))
--   s3_{n+1} = (((s3_n & 4294967280) <<17) ^ (((s3_n << 3) ^ s3_n) >>11))
-+   x_n = (s1_n ^ s2_n ^ s3_n ^ s4_n)
- 
--   The period of this generator is about 2^88.
-+   s1_{n+1} = (((s1_n & 4294967294) << 18) ^ (((s1_n <<  6) ^ s1_n) >> 13))
-+   s2_{n+1} = (((s2_n & 4294967288) <<  2) ^ (((s2_n <<  2) ^ s2_n) >> 27))
-+   s3_{n+1} = (((s3_n & 4294967280) <<  7) ^ (((s3_n << 13) ^ s3_n) >> 21))
-+   s4_{n+1} = (((s4_n & 4294967168) << 13) ^ (((s4_n <<  3) ^ s4_n) >> 12))
- 
--   From: P. L'Ecuyer, "Maximally Equidistributed Combined Tausworthe
--   Generators", Mathematics of Computation, 65, 213 (1996), 203--213.
--
--   This is available on the net from L'Ecuyer's home page,
-+   The period of this generator is about 2^113 (see erratum paper).
- 
-+   From: P. L'Ecuyer, "Maximally Equidistributed Combined Tausworthe
-+   Generators", Mathematics of Computation, 65, 213 (1996), 203--213:
-    http://www.iro.umontreal.ca/~lecuyer/myftp/papers/tausme.ps
-    ftp://ftp.iro.umontreal.ca/pub/simulation/lecuyer/papers/tausme.ps
- 
-@@ -29,7 +29,7 @@
-         that paper.)
- 
-    This affects the seeding procedure by imposing the requirement
--   s1 > 1, s2 > 7, s3 > 15.
-+   s1 > 1, s2 > 7, s3 > 15, s4 > 127.
- 
- */
- 
-@@ -52,11 +52,12 @@ u32 prandom_u32_state(struct rnd_state *state)
- {
- #define TAUSWORTHE(s,a,b,c,d) ((s&c)<<d) ^ (((s <<a) ^ s)>>b)
- 
--	state->s1 = TAUSWORTHE(state->s1, 13, 19, 4294967294UL, 12);
--	state->s2 = TAUSWORTHE(state->s2, 2, 25, 4294967288UL, 4);
--	state->s3 = TAUSWORTHE(state->s3, 3, 11, 4294967280UL, 17);
-+	state->s1 = TAUSWORTHE(state->s1,  6U, 13U, 4294967294U, 18U);
-+	state->s2 = TAUSWORTHE(state->s2,  2U, 27U, 4294967288U,  2U);
-+	state->s3 = TAUSWORTHE(state->s3, 13U, 21U, 4294967280U,  7U);
-+	state->s4 = TAUSWORTHE(state->s4,  3U, 12U, 4294967168U, 13U);
- 
--	return (state->s1 ^ state->s2 ^ state->s3);
-+	return (state->s1 ^ state->s2 ^ state->s3 ^ state->s4);
- }
- EXPORT_SYMBOL(prandom_u32_state);
- 
-@@ -126,6 +127,21 @@ void prandom_bytes(void *buf, int bytes)
- }
- EXPORT_SYMBOL(prandom_bytes);
- 
-+static void prandom_warmup(struct rnd_state *state)
-+{
-+	/* Calling RNG ten times to satify recurrence condition */
-+	prandom_u32_state(state);
-+	prandom_u32_state(state);
-+	prandom_u32_state(state);
-+	prandom_u32_state(state);
-+	prandom_u32_state(state);
-+	prandom_u32_state(state);
-+	prandom_u32_state(state);
-+	prandom_u32_state(state);
-+	prandom_u32_state(state);
-+	prandom_u32_state(state);
-+}
-+
- /**
-  *	prandom_seed - add entropy to pseudo random number generator
-  *	@seed: seed value
-@@ -141,8 +157,9 @@ void prandom_seed(u32 entropy)
- 	 */
- 	for_each_possible_cpu (i) {
- 		struct rnd_state *state = &per_cpu(net_rand_state, i);
--		state->s1 = __seed(state->s1 ^ entropy, 2);
--		prandom_u32_state(state);
-+
-+		state->s1 = __seed(state->s1 ^ entropy, 2U);
-+		prandom_warmup(state);
- 	}
- }
- EXPORT_SYMBOL(prandom_seed);
-@@ -158,18 +175,13 @@ static int __init prandom_init(void)
- 	for_each_possible_cpu(i) {
- 		struct rnd_state *state = &per_cpu(net_rand_state,i);
- 
--#define LCG(x)	((x) * 69069)	/* super-duper LCG */
--		state->s1 = __seed(LCG(i + jiffies), 2);
--		state->s2 = __seed(LCG(state->s1), 8);
--		state->s3 = __seed(LCG(state->s2), 16);
--
--		/* "warm it up" */
--		prandom_u32_state(state);
--		prandom_u32_state(state);
--		prandom_u32_state(state);
--		prandom_u32_state(state);
--		prandom_u32_state(state);
--		prandom_u32_state(state);
-+#define LCG(x)	((x) * 69069U)	/* super-duper LCG */
-+		state->s1 = __seed(LCG((i + jiffies) ^ random_get_entropy()), 2U);
-+		state->s2 = __seed(LCG(state->s1),   8U);
-+		state->s3 = __seed(LCG(state->s2),  16U);
-+		state->s4 = __seed(LCG(state->s3), 128U);
-+
-+		prandom_warmup(state);
- 	}
- 	return 0;
- }
-@@ -215,15 +227,15 @@ static void __prandom_reseed(bool late)
- 
- 	for_each_possible_cpu(i) {
- 		struct rnd_state *state = &per_cpu(net_rand_state,i);
--		u32 seeds[3];
-+		u32 seeds[4];
- 
- 		get_random_bytes(&seeds, sizeof(seeds));
--		state->s1 = __seed(seeds[0], 2);
--		state->s2 = __seed(seeds[1], 8);
--		state->s3 = __seed(seeds[2], 16);
-+		state->s1 = __seed(seeds[0],   2U);
-+		state->s2 = __seed(seeds[1],   8U);
-+		state->s3 = __seed(seeds[2],  16U);
-+		state->s4 = __seed(seeds[3], 128U);
- 
--		/* mix it in */
--		prandom_u32_state(state);
-+		prandom_warmup(state);
- 	}
- out:
- 	spin_unlock_irqrestore(&lock, flags);
--- 
-1.8.3.1
+--
+1.8.2.1
