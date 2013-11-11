@@ -1,8 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v3 9/10] bonding: remove unwanted lock for bond enslave
- and release
-Date: Mon, 11 Nov 2013 20:36:58 +0800
-Message-ID: <5280CF6A.7070503@huawei.com>
+Subject: [PATCH net-next v3 5/10] bonding: create bond_first_slave_rcu()
+Date: Mon, 11 Nov 2013 20:36:41 +0800
+Message-ID: <5280CF59.5090202@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,144 +12,101 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:33339 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:33960 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753833Ab3KKMin (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 07:38:43 -0500
+	with ESMTP id S1753139Ab3KKMk3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 07:40:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_change_active_slave() and bond_select_active_slave()
-do't need bond lock anymore, so remove the unwanted bond lock
-for these two functions.
+The bond_first_slave_rcu() will be used to instead of bond_first_slave()
+in rcu_read_lock().
 
-The bond_select_active_slave() will release and acquire
-curr_slave_lock, so the curr_slave_lock need to protect
-the function.
-
-In bond enslave and bond release, the bond slave list is also
-protected by RTNL, so bond lock is no need to exist, remove
-the lock and clean the functions.
+So move the struct netdev_adjacent to the netdevice.h and make the
+bond_first_slave_rcu() could use the struct.
 
 Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
 Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 27 ++++++---------------------
- 1 file changed, 6 insertions(+), 21 deletions(-)
+ drivers/net/bonding/bonding.h |  9 +++++++++
+ include/linux/netdevice.h     | 16 ++++++++++++++++
+ net/core/dev.c                | 16 ----------------
+ 3 files changed, 25 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b48ca55..be163e2 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1579,11 +1579,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	bond_set_carrier(bond);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 77a07a1..5d37606 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -91,6 +91,15 @@
+ 		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
+ 		NULL)
  
- 	if (USES_PRIMARY(bond->params.mode)) {
--		read_lock(&bond->lock);
- 		write_lock_bh(&bond->curr_slave_lock);
- 		bond_select_active_slave(bond);
- 		write_unlock_bh(&bond->curr_slave_lock);
--		read_unlock(&bond->lock);
- 	}
++/* Caller must have rcu_read_lock */
++#define bond_first_slave_rcu(bond) \
++	({struct list_head *__ptr = (bond_slave_list(bond)); \
++	 struct list_head *__next = ACCESS_ONCE(__ptr->next); \
++	 likely(__ptr != __next) ? \
++	 list_entry_rcu(__next, struct netdev_adjacent, list)->private : \
++		NULL; \
++	 })
++
+ #define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
+ #define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
  
- 	pr_info("%s: enslaving %s as a%s interface with a%s link.\n",
-@@ -1603,19 +1601,13 @@ err_detach:
- 		bond_hw_addr_flush(bond_dev, slave_dev);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 15fa01c..7ca0fc8 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2839,6 +2839,22 @@ extern int		netdev_tstamp_prequeue;
+ extern int		weight_p;
+ extern int		bpf_jit_enable;
  
- 	vlan_vids_del_by_dev(slave_dev, bond_dev);
--	write_lock_bh(&bond->lock);
- 	if (bond->primary_slave == new_slave)
- 		bond->primary_slave = NULL;
- 	if (bond->curr_active_slave == new_slave) {
--		bond_change_active_slave(bond, NULL);
--		write_unlock_bh(&bond->lock);
--		read_lock(&bond->lock);
- 		write_lock_bh(&bond->curr_slave_lock);
-+		bond_change_active_slave(bond, NULL);
- 		bond_select_active_slave(bond);
- 		write_unlock_bh(&bond->curr_slave_lock);
--		read_unlock(&bond->lock);
--	} else {
--		write_unlock_bh(&bond->lock);
- 	}
- 	slave_disable_netpoll(new_slave);
++struct netdev_adjacent {
++	struct net_device *dev;
++
++	/* upper master flag, there can only be one master device per list */
++	bool master;
++
++	/* counter for the number of times this device was added to us */
++	u16 ref_nr;
++
++	/* private field for the users */
++	void *private;
++
++	struct list_head list;
++	struct rcu_head rcu;
++};
++
+ bool netdev_has_upper_dev(struct net_device *dev, struct net_device *upper_dev);
+ bool netdev_has_any_upper_dev(struct net_device *dev);
+ struct net_device *netdev_all_upper_get_next_dev_rcu(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8ffc52e..bcc5001 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4377,22 +4377,6 @@ softnet_break:
+ 	goto out;
+ }
  
-@@ -1680,20 +1672,16 @@ static int __bond_release_one(struct net_device *bond_dev,
- 	}
- 
- 	block_netpoll_tx();
--	write_lock_bh(&bond->lock);
- 
- 	slave = bond_get_slave_by_dev(bond, slave_dev);
- 	if (!slave) {
- 		/* not a slave of this bond */
- 		pr_info("%s: %s not enslaved\n",
- 			bond_dev->name, slave_dev->name);
--		write_unlock_bh(&bond->lock);
- 		unblock_netpoll_tx();
- 		return -EINVAL;
- 	}
- 
--	write_unlock_bh(&bond->lock);
+-struct netdev_adjacent {
+-	struct net_device *dev;
 -
- 	/* release the slave from its bond */
- 	bond->slave_cnt--;
- 
-@@ -1711,6 +1699,7 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		 */
- 		bond_3ad_unbind_slave(slave);
- 	}
-+	write_unlock_bh(&bond->lock);
- 
- 	pr_info("%s: releasing %s interface %s\n",
- 		bond_dev->name,
-@@ -1733,8 +1722,11 @@ static int __bond_release_one(struct net_device *bond_dev,
- 	if (bond->primary_slave == slave)
- 		bond->primary_slave = NULL;
- 
--	if (oldcurrent == slave)
-+	if (oldcurrent == slave) {
-+		write_lock_bh(&bond->curr_slave_lock);
- 		bond_change_active_slave(bond, NULL);
-+		write_unlock_bh(&bond->curr_slave_lock);
-+	}
- 
- 	if (bond_is_lb(bond)) {
- 		/* Must be called only after the slave has been
-@@ -1742,9 +1734,7 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		 * has been cleared (if our_slave == old_current),
- 		 * but before a new active slave is selected.
- 		 */
--		write_unlock_bh(&bond->lock);
- 		bond_alb_deinit_slave(bond, slave);
--		write_lock_bh(&bond->lock);
- 	}
- 
- 	if (all) {
-@@ -1755,15 +1745,11 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		 * is no concern that another slave add/remove event
- 		 * will interfere.
- 		 */
--		write_unlock_bh(&bond->lock);
--		read_lock(&bond->lock);
- 		write_lock_bh(&bond->curr_slave_lock);
- 
- 		bond_select_active_slave(bond);
- 
- 		write_unlock_bh(&bond->curr_slave_lock);
--		read_unlock(&bond->lock);
--		write_lock_bh(&bond->lock);
- 	}
- 
- 	if (!bond_has_slaves(bond)) {
-@@ -1778,7 +1764,6 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		}
- 	}
- 
--	write_unlock_bh(&bond->lock);
- 	unblock_netpoll_tx();
- 	synchronize_rcu();
- 
+-	/* upper master flag, there can only be one master device per list */
+-	bool master;
+-
+-	/* counter for the number of times this device was added to us */
+-	u16 ref_nr;
+-
+-	/* private field for the users */
+-	void *private;
+-
+-	struct list_head list;
+-	struct rcu_head rcu;
+-};
+-
+ static struct netdev_adjacent *__netdev_find_adj_rcu(struct net_device *dev,
+ 						     struct net_device *adj_dev,
+ 						     struct list_head *adj_list)
 -- 
 1.8.2.1
