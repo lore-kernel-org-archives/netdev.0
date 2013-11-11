@@ -1,94 +1,81 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 2/6] random32: add periodic reseeding
-Date: Mon, 11 Nov 2013 12:20:33 +0100
-Message-ID: <72e3f0b5d2dff4cfe700544dc680aa0727fcab37.1384160397.git.dborkman@redhat.com>
+Subject: [PATCH net-next 4/6] random32: move rnd_state to linux/random.h
+Date: Mon, 11 Nov 2013 12:20:35 +0100
+Message-ID: <33456dc3a929ef80a7fdfae0b26fe7a69b7dc63e.1384160397.git.dborkman@redhat.com>
 References: <cover.1384160397.git.dborkman@redhat.com>
 Cc: shemminger@networkplumber.org, fweimer@redhat.com,
-	netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Theodore Ts'o" <tytso@mit.edu>
+	netdev@vger.kernel.org, Joe Eykholt <jeykholt@cisco.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59944 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:30953 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753418Ab3KKLUw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Nov 2013 06:20:52 -0500
+	id S1753293Ab3KKLU7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Nov 2013 06:20:59 -0500
 In-Reply-To: <cover.1384160397.git.dborkman@redhat.com>
 In-Reply-To: <cover.1384160397.git.dborkman@redhat.com>
 References: <cover.1384160397.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+struct rnd_state got mistakenly pulled into uapi header. It is not
+used anywhere and does also not belong there!
 
-The current Tausworthe PRNG is never reseeded with truly random data after
-the first attempt in late_initcall. As this PRNG is used for some critical
-random data as e.g. UDP port randomization we should try better and reseed
-the PRNG once in a while with truly random data from get_random_bytes().
+Commit 5960164fde ("lib/random32: export pseudo-random number
+generator for modules"), the last commit on rnd_state before it
+got moved to uapi, says:
 
-When we reseed with prandom_seed we now make also sure to throw the first
-output away. This suffices the reseeding procedure.
+  This patch moves the definition of struct rnd_state and the inline
+  __seed() function to linux/random.h.  It renames the static __random32()
+  function to prandom32() and exports it for use in modules.
 
-The delay calculation is based on a proposal from Eric Dumazet.
+Hence, the structure was moved from lib/random32.c to linux/random.h
+so that it can be used within modules (FCoE-related code in this
+case), but not from user space. However, it seems to have been
+mistakenly moved to uapi header through the uapi script. Since no-one
+should make use of it from the linux headers, move the structure back
+to the kernel for internal use, so that it can be modified on demand.
 
-Joint work with Daniel Borkmann.
+Joint work with Hannes Frederic Sowa.
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Theodore Ts'o <tytso@mit.edu>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Joe Eykholt <jeykholt@cisco.com>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- lib/random32.c | 23 +++++++++++++++++++++++
- 1 file changed, 23 insertions(+)
+ include/linux/random.h      | 4 ++++
+ include/uapi/linux/random.h | 7 -------
+ 2 files changed, 4 insertions(+), 7 deletions(-)
 
-diff --git a/lib/random32.c b/lib/random32.c
-index 01e8890..165d0a5f 100644
---- a/lib/random32.c
-+++ b/lib/random32.c
-@@ -142,6 +142,7 @@ void prandom_seed(u32 entropy)
- 	for_each_possible_cpu (i) {
- 		struct rnd_state *state = &per_cpu(net_rand_state, i);
- 		state->s1 = __seed(state->s1 ^ entropy, 2);
-+		prandom_u32_state(state);
- 	}
- }
- EXPORT_SYMBOL(prandom_seed);
-@@ -174,6 +175,27 @@ static int __init prandom_init(void)
- }
- core_initcall(prandom_init);
+diff --git a/include/linux/random.h b/include/linux/random.h
+index 5117ae3..8ef0b70 100644
+--- a/include/linux/random.h
++++ b/include/linux/random.h
+@@ -31,6 +31,10 @@ void prandom_bytes(void *buf, int nbytes);
+ void prandom_seed(u32 seed);
+ void prandom_reseed_late(void);
  
-+static void __prandom_timer(unsigned long dontcare);
-+static DEFINE_TIMER(seed_timer, __prandom_timer, 0, 0);
++struct rnd_state {
++	__u32 s1, s2, s3;
++};
 +
-+static void __prandom_timer(unsigned long dontcare)
-+{
-+	u32 entropy;
-+
-+	get_random_bytes(&entropy, sizeof(entropy));
-+	prandom_seed(entropy);
-+	/* reseed every ~60 seconds, in [40 .. 80) interval with slack */
-+	seed_timer.expires = jiffies + (40 * HZ + (prandom_u32() % (40 * HZ)));
-+	add_timer(&seed_timer);
-+}
-+
-+static void prandom_start_seed_timer(void)
-+{
-+	set_timer_slack(&seed_timer, HZ);
-+	seed_timer.expires = jiffies + 40 * HZ;
-+	add_timer(&seed_timer);
-+}
-+
- /*
-  *	Generate better values after random number generator
-  *	is fully initialized.
-@@ -194,6 +216,7 @@ static int __init prandom_reseed(void)
- 		/* mix it in */
- 		prandom_u32_state(state);
- 	}
-+	prandom_start_seed_timer();
- 	return 0;
- }
- late_initcall(prandom_reseed);
+ u32 prandom_u32_state(struct rnd_state *);
+ void prandom_bytes_state(struct rnd_state *state, void *buf, int nbytes);
+ 
+diff --git a/include/uapi/linux/random.h b/include/uapi/linux/random.h
+index 7471b5b..fff3528 100644
+--- a/include/uapi/linux/random.h
++++ b/include/uapi/linux/random.h
+@@ -40,11 +40,4 @@ struct rand_pool_info {
+ 	__u32	buf[0];
+ };
+ 
+-struct rnd_state {
+-	__u32 s1, s2, s3;
+-};
+-
+-/* Exported functions */
+-
+-
+ #endif /* _UAPI_LINUX_RANDOM_H */
 -- 
 1.8.3.1
