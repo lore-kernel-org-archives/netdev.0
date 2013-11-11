@@ -1,69 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP performance regression
-Date: Sun, 10 Nov 2013 22:54:13 -0800
-Message-ID: <1384152853.16391.19.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <21120.27501.32323.332316@gargle.gargle.HOWL>
-	 <1384149326.16391.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <21120.29720.673157.151074@gargle.gargle.HOWL>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: [PATCH v3 net-next] xfrm: Add check to prevent un-complete key
+ manager
+Date: Mon, 11 Nov 2013 15:11:59 +0800
+Message-ID: <5280833F.6010800@windriver.com>
+References: <1384093556-8987-1-git-send-email-baker.kernel@gmail.com> <1384151951-13549-1-git-send-email-baker.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sujith Manoharan <sujith@msujith.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:45925 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537Ab3KKGyP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 01:54:15 -0500
-Received: by mail-pb0-f53.google.com with SMTP id up7so4824483pbc.12
-        for <netdev@vger.kernel.org>; Sun, 10 Nov 2013 22:54:15 -0800 (PST)
-In-Reply-To: <21120.29720.673157.151074@gargle.gargle.HOWL>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <herbert@gondor.hengli.com.au>,
+	<steffen.klassert@secunet.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: <baker.kernel@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1384151951-13549-1-git-send-email-baker.kernel@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-11-11 at 11:37 +0530, Sujith Manoharan wrote:
-> Eric Dumazet wrote:
-> > I am afraid this commit shows bugs in various network drivers.
-> > 
-> > All drivers doing TX completion using a timer are buggy.
-> > 
-> > Holding skb 10 ms before TX completion is totally wrong and must be fixed.
-> > 
-> > If really NIC is not able to trigger an interrupt after TX completion, then
-> > driver should call skb_orphan() in its ndo_start_xmit()
-> 
-> 802.11 AMPDU formation is done in the TX completion path in ath9k.
-> 
-> Incoming frames are added to a software queue and the TX completion
-> tasklet checks if enough frames are available to form an aggregate and
-> if so, forms new aggregates and transmits them.
-> 
 
-Hmm... apparently ath9k uses :
 
-#define ATH_AMPDU_LIMIT_MAX        (64 * 1024 - 1)
+On 2013=E5=B9=B411=E6=9C=8811=E6=97=A5 14:39, baker.kernel@gmail.com wr=
+ote:
+> From: Baker Zhang<Baker.kernel@gmail.com>
+>
+> "acquire" and "compile_policy" callbacks are necessary for a key mana=
+ger.
+>
+> Signed-off-by: Baker Zhang<Baker.kernel@gmail.com>
+> ---
+> Thanks for all reply.
+>
+> V1:
+> For current kernel source, there is no problem.
+>
+> In our vpn product, we need a xfrm_km in kernel module
+> to monitor the xfrm state change.
+> thus, the 'acquire' and 'compile_policy' may be NULL.
+>
+> So I think we should do the check before use it.
+>
+> V2:
+> Align the continuation line according the networking coding style.
+>
+> V3:
+> Add check to prevent un-complete key manager at register time.
+>
+>   net/xfrm/xfrm_state.c | 3 +++
+>   1 file changed, 3 insertions(+)
+>
+> diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+> index b9c3f9e..178283e 100644
+> --- a/net/xfrm/xfrm_state.c
+> +++ b/net/xfrm/xfrm_state.c
+> @@ -1806,6 +1806,9 @@ static DEFINE_SPINLOCK(xfrm_km_lock);
+>
+>   int xfrm_register_km(struct xfrm_mgr *km)
+>   {
+> +	if (km->acquire =3D=3D NULL || km->compile_policy =3D=3D NULL)
 
-And mentions a 4ms time frame :
+"acquire" is a MUST, "compile_policy" is not a necessity.
 
-max_4ms_framelen = ATH_AMPDU_LIMIT_MAX;
+ From  the fist commit log, you probably add functionality providing SA=
+ state changes
+in your private key manager, which current implementation does not. May=
+be it's worthwhile
+to elaborate the missing functionality than add those checking, because=
+ both key manage
+(pfkeyv2/netlink) in use has "acquire" and "compile_policy" at the same=
+ time.
 
-So prior to "tcp: TSQ can use a dynamic limit", the ~128KB bytes TCP
-could queue per TCP socket on qdisc/NIC would happen to please ath9k
 
-ath9k can set rts_aggr_limit to 8*1024 :
 
- if (AR_SREV_9160_10_OR_LATER(ah) || AR_SREV_9100(ah))
-  pCap->rts_aggr_limit = ATH_AMPDU_LIMIT_MAX; 
- else
-  pCap->rts_aggr_limit = (8 * 1024);
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
 
-> There is no timer involved, but the completion routine is rather heavy.
-> Many wireless drivers handle 802.11 aggregation in this way:
-> ath9k, ath9k_htc, ath10k etc.
-> 
-
-A timer would be definitely needed, and it should be rather small (1 or
-2 ms)
-
-If TCP socket is application limited, it seems ath9k can delay the last
-block by a too long time.
+--fan
