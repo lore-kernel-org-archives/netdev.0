@@ -1,50 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP performance regression
-Date: Mon, 11 Nov 2013 06:27:49 -0800
-Message-ID: <1384180069.16391.32.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <21120.27501.32323.332316@gargle.gargle.HOWL>
-	 <1384149326.16391.10.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <21120.29720.673157.151074@gargle.gargle.HOWL>
-	 <1384152853.16391.19.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <21120.37647.979237.40802@gargle.gargle.HOWL>
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH] USBNET: fix handling padding packet
+Date: Mon, 11 Nov 2013 14:26:13 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73F8@saturn3.aculab.com>
+References: <1379409002-7698-1-git-send-email-ming.lei@canonical.com><878uyu6xjm.fsf@nemi.mork.no><CACVXFVNzTGbCV2wQ4RwxXK1q7+eD2KkOS_G3NvL4uAzdd21SUg@mail.gmail.com><87zjra5dpx.fsf@nemi.mork.no><1379523984.2430.3.camel@linux-fkkt.site><be5ecff3-27e1-4ab7-b3af-9d7c4376140f@email.android.com><1379573843.8608.7.camel@linux-fkkt.site><87wqmd46vj.fsf@nemi.mork.no> <CACVXFVPOyr3eDrJxGhmoxDdZS2FL17qm6jv0ezDECUAk267jFg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dave Taht <dave.taht@gmail.com>
-To: Sujith Manoharan <sujith@msujith.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:44206 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753345Ab3KKO1v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 09:27:51 -0500
-Received: by mail-pd0-f170.google.com with SMTP id q10so1975190pdj.29
-        for <netdev@vger.kernel.org>; Mon, 11 Nov 2013 06:27:50 -0800 (PST)
-In-Reply-To: <21120.37647.979237.40802@gargle.gargle.HOWL>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Oliver Neukum" <oneukum-l3A5Bk7waGM@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Greg Kroah-Hartman" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"Network Development" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Ming Lei" <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	=?Windows-1252?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <CACVXFVPOyr3eDrJxGhmoxDdZS2FL17qm6jv0ezDECUAk267jFg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-11-11 at 13:49 +0530, Sujith Manoharan wrote:
+> As my below test on ax99179_178a, I believe the patch should fix padding
+> for dma sg, but need a little update, and I will send out v1 later:
+> 
+>            $ping -s 974 another_machine  #from host with ax99179_178a attached
+> 
+> If FLAG_SEND_ZLP is set for ax99179_178a, the above ping won't work any
+> more either on USB3.0 or USB 2.0 host controller.
+> 
+> So don't assume that these brand new devices can support ZLP well.
 
-> I am not really clear on how this regression can be fixed in the driver
-> since the majority of the transmission/aggregation logic is present in the
-> TX completion path.
+I've just posted a fix to the xhci driver to implement URB_ZERO_PACKET.
+With that fix (and ZLP enabled in the ax88179_178a driver) the above
+ping works fine (ax88179 Ge card on USB3).
 
-We have many choices.
+I wonder how many other usb drivers fail to support URB_ZERO_PACKET.
+Maybe the driver should pass a flag to its users (along with SG support).
 
-1) Add back a minimum of ~128 K of outstanding bytes per TCP session,
-   so that buggy drivers can sustain 'line rate'.
+I've also posted (to linux-usb) another fix to the xhci driver that is
+needed to get SG (and one that cross 64k boundaries) transfers working.
 
-   Note that with 100 concurrent TCP streams, total amount of bytes
-   queued on the NIC is 12 MB.
-   And pfifo_fast qdisc will drop packets anyway.
+	David
 
-   Thats what we call 'BufferBloat'
 
-2) Try lower values like 64K. Still bufferbloat.
 
-3) Fix buggy drivers, using a proper logic, or shorter timers (mvneta
-case for example)
-
-4) Add a new netdev attribute, so that well behaving NIC drivers do not
-have to artificially force TCP stack to queue too many bytes in
-Qdisc/NIC queues.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
