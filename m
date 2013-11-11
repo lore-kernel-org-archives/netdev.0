@@ -1,151 +1,140 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: [REGRESSION,BISECTED] 3.11.7,3.12: GbE iface rate drops to few KB/s
-Date: Mon, 11 Nov 2013 11:27:48 +0100
-Message-ID: <871u2n44ij.fsf@natisbad.org>
+From: Govindarajulu Varadarajan <gvaradar-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 02/13] driver: net: remove unnecessary skb NULL
+ check before calling dev_kfree_skb_irq
+Date: Mon, 11 Nov 2013 16:01:22 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1311111537020.2363@cisco.com>
+References: <1383400074-30555-1-git-send-email-govindarajulu90@gmail.com> <1383400074-30555-3-git-send-email-govindarajulu90@gmail.com> <20131104.151230.1978898006990867916.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <edumazet@google.com>, David S. Miller <davem@davemloft.net>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: govindarajulu90-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, sbhatewara-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org,
+	chas-vT06rRrALxcmhCb6mdbn6A@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org,
+	jcliburn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, benve-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org, ssujith-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
+	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jesse.brandeburg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	shahed.shaikh-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, apw-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20131104.151230.1978898006990867916.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi,    [resending (previous msg did not hit netdev); also fixed subject]
-
-I decided to upgrade the kernel on one of my ReadyNAS 102 from 3.11.1 to 
-3.11.7. The device is based on Marvell Armada 370 SoC and uses mvneta
-driver. Mine runs Debian armel unstable but I can confirm the issue also
-happens on a debian harmhf unstable.
-
-Doing some scp transfers of files located on the NAS (1000baseT-FD on
-both side), I noticed the transfers rate is ridiculously slow (280KB/s).
-I did the same test with a 3.12 kernel and got the same results,
-i.e. AFAICT the bug also exist upstream.
-
-So, I decided to go to hell and start digging a bit: I run a 'git bisect'
-session on stable tree from 3.11.1 (known good) to 3.11.7 (known
-bad). The results are given below.
-
-I decided to reboot on my old 3.11.1 kernel and do 20 files transfers
-of a 1GB file located on the NAS to my laptop via scp. I took the 20+
-minutes and let them all finish: each transfer took between 1min5s and
-1min7s (around 16MB/s, the limitation in that case being the crypto part).
-
-I rebooted again and did the exact same thing on the 3.11.7 and after
-the completion of the first file transfer in 1m6s (16MB/s), the second
-one gave me that:
-
-arno@small:~scp RN102:/tmp/random /dev/null
-random                               0% 1664KB 278.9KB/s 1:05:37 ETA^C
-
-And it continued that way for the remaining transfers (i did ^c after
-some seconds to restart the transfer when the rate was low):
-
-$ for k in $(seq 1 20) ; do scp RN102:random /dev/null ; done 
-random                             100% 1024MB  15.6MB/s   01:06 ETA^C 
-random                               0% 9856KB 282.2KB/s 1:01:20 ETA^C
-random                              16%  168MB 563.9KB/s   25:54 ETA^C
-random                               0% 2816KB 273.5KB/s 1:03:43 ETA^C
-random                             100% 1024MB  15.5MB/s   01:06    
-random                               1%   17MB 282.3KB/s 1:00:54 ETA^C
-random                               0%  544KB 259.2KB/s 1:07:23 ETA^C
-random                               0% 4224KB 277.3KB/s 1:02:45 ETA^C
-random                               0%  832KB 262.1KB/s 1:06:37 ETA^C
-random                               0% 3360KB 273.4KB/s 1:03:43 ETA^C
-random                               0% 3072KB 271.8KB/s 1:04:07 ETA^C
-random                               0%  832KB 262.1KB/s 1:06:37 ETA^C
-random                               0% 1408KB 267.0KB/s 1:05:21 ETA^C
-random                               0% 1120KB 264.7KB/s 1:05:57 ETA
-...
-
-To be sure, I did 2 additional reboots, one on each kernel and the
-result is consistent. Perfect on 3.11.1 and slow rate most of the time
-on 3.11.7 (Both kernel are compiled from a fresh make clean, using the
-same config file).
-
-Then, knowing that, I started a git bisect session on stable tree to end
-up with the following suspects. I failed to go any further to a single
-commit, due to crashes, but I could recompile a kernel w/ debug info and
-report what I get if neeeded.
-
-commit dc0791aee672 tcp: do not forget FIN in tcp_shifted_skb()     [bad]
-commit 18ddf5127c9f tcp: must unclone packets before mangling them
-commit 80bd5d8968d8 tcp: TSQ can use a dynamic limit
-commit dbeb18b22197 tcp: TSO packets automatic sizing
-commit 50704410d014 Linux 3.11.6                                    [good]
-
-Eric, David, if it has already been reported and fixed, just tell
-me. Otherwise, if you have any ideas, I'll be happy to test this
-evening.
-
-Cheers,
-
-a+
 
 
-Just in case it may be useful, here is what ethtool reports on RN102:
+On Mon, 4 Nov 2013, David Miller wrote:
 
-# ethtool -i eth0
-driver: mvneta
-version: 1.0
-firmware-version: 
-bus-info: eth0
-supports-statistics: no
-supports-test: no
-supports-eeprom-access: no
-supports-register-dump: no
-supports-priv-flags: no
+> From: Govindarajulu Varadarajan <govindarajulu90-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Sat,  2 Nov 2013 19:17:43 +0530
+>
+>> @@ -1030,10 +1030,8 @@ static void ni65_xmit_intr(struct net_device *dev,int csr0)
+>>  		}
+>>
+>>  #ifdef XMT_VIA_SKB
+>> -		if(p->tmd_skb[p->tmdlast]) {
+>> -			 dev_kfree_skb_irq(p->tmd_skb[p->tmdlast]);
+>> -			 p->tmd_skb[p->tmdlast] = NULL;
+>> -		}
+>> +		 dev_kfree_skb_irq(p->tmd_skb[p->tmdlast]);
+>> +		 p->tmd_skb[p->tmdlast] = NULL;
+>>  #endif
+>
+> I absolutely disagree with this kind of change.
+>
+> There is a non-trivial cost for NULL'ing out that array entry
+> unconditionally.  It's a dirtied cache line and this is in the
+> fast path of TX SKB reclaim of this driver.
+>
+> You've made several changes of this kind.
+>
+> And it sort-of shows that the places that do check for NULL,
+> are getting something in return for that test, namely avoidance
+> of an unnecessary cpu store in the fast path of the driver.
+>
 
-# ethtool -k eth0
-Features for eth0:
-rx-checksumming: off [fixed]
-tx-checksumming: on
-        tx-checksum-ipv4: on
-        tx-checksum-ip-generic: off [fixed]
-        tx-checksum-ipv6: off [fixed]
-        tx-checksum-fcoe-crc: off [fixed]
-        tx-checksum-sctp: off [fixed]
-scatter-gather: on
-        tx-scatter-gather: on
-        tx-scatter-gather-fraglist: off [fixed]
-tcp-segmentation-offload: off
-        tx-tcp-segmentation: off [fixed]
-        tx-tcp-ecn-segmentation: off [fixed]
-        tx-tcp6-segmentation: off [fixed]
-udp-fragmentation-offload: off [fixed]
-generic-segmentation-offload: on
-generic-receive-offload: on
-large-receive-offload: off [fixed]
-rx-vlan-offload: off [fixed]
-tx-vlan-offload: off [fixed]
-ntuple-filters: off [fixed]
-receive-hashing: off [fixed]
-highdma: off [fixed]
-rx-vlan-filter: off [fixed]
-vlan-challenged: off [fixed]
-tx-lockless: off [fixed]
-netns-local: off [fixed]
-tx-gso-robust: off [fixed]
-tx-fcoe-segmentation: off [fixed]
-tx-gre-segmentation: off [fixed]
-tx-udp_tnl-segmentation: off [fixed]
-tx-mpls-segmentation: off [fixed]
-fcoe-mtu: off [fixed]
-tx-nocache-copy: on
-loopback: off [fixed]
-rx-fcs: off [fixed]
-rx-all: off [fixed]
-tx-vlan-stag-hw-insert: off [fixed]
-rx-vlan-stag-hw-parse: off [fixed]
-rx-vlan-stag-filter: off [fixed]
+True, in case of dev_kfree_skb_irq. If you look at patch 06-12, at many
+places we do
+
+if (s->skb) {
+ 	dev_kfree_skb_any(s->skb);
+ 	s->skb = NULL)
+}
+
+This is in fast path. If the code is not running in hardirq,
+dev_kfree_skb_any calls dev_kfree_skb. Which again check if skb is NULL.
+So we are checking if skb is null twice. That is what this patch is
+trying to fix. (sorry I should have mentioned this in cover letter).
+
+I am not sure if you have read my previous mail. I am pasting it below.
+
+>> On Sun, 3 Nov 2013, Brandeburg, Jesse wrote: 
+>> Thanks for this work, I'm a little concerned that there is a
+>> non-trivial 
+>> overhead to this patch.
+>> 
+>> when doing (for example in the Intel drivers): 
+>> if (s->skb) {
+>>      dev_kfree_skb(s->skb);
+>>      s->skb = NULL; 
+>> }
+>>
+> 
+>In current code, dev_kfree_skb is NULL safe. Which means skb is
+>checked for NULL inside dev_kfree_skb. dev_kfree_skb_any is also NULL safe
+>when the code is running in non-hardirq.
+>
+>Lets consider two cases
+> 
+>1. skb is not NULL:
+>      * Without my patch:
+>           In the code above, we check for skb!=NULL twice. (once
+>           before calling dev_kfree_skb, once by dev_kfree_skb). And
+>           then we do assignment.
+>       * With this patch:
+>           we check for skb!=NULL once, And then we do assignment.
+>
+>       To fix the twice NULL check, we either have to remove the check
+>       which is inside dev_kfree_skb (1). Or do whats done in this
+>       patch.
+>
+>       (1) is not an option because a lot of kernel code already
+>       assumes that dev_kfree_skb is NULL safe.
+>
+>2. skb is NULL:
+>       * Without this patch:
+>           One if statement is executed.
+>       * With this patch:
+>           One if statement and one assignment is executed.
+> 
+> From my observation most of the dev_kfree_skb calls are from
+> e1000_unmap_and_free_tx_resource, e1000_put_txbuf,
+> atl1_clean_tx_ring, alx_free_txbuf etc. in clean up functions.
+>
+> Is is quite unlikely thats skb is NULL. So it comes down to one extra
+> if-branching statement or one extra assignment. I would prefer extra
+> assignment to branching statement. In my opinion extra assignment is
+> very little price we pay.
+>
+> //govind
+
+Another way to solve the double NULL check is to define a new function
+something like this
+
+dev_kfree_skb_NULL(struct sk_buff **skb)
+{
+ 	if(*skb) {
+ 		free_skb(*skb);
+ 		*skb=NULL;
+ 	}
+}
+
+and use this if you want to free a skb and make it NULL.
+Is this approach better?
+
+//govind
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
