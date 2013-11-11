@@ -1,47 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 1/2] ipv6 addrconf: extend ifa_flags to u32
-Date: Mon, 11 Nov 2013 16:12:07 +0100
-Message-ID: <20131111151207.GA2463@minipsycho.orion>
-References: <1384181359-23199-1-git-send-email-jiri@resnulli.us>
- <1384181359-23199-2-git-send-email-jiri@resnulli.us>
- <AE90C24D6B3A694183C094C60CF0A2F6026B73FA@saturn3.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: TCP performance regression
+Date: Mon, 11 Nov 2013 07:29:59 -0800
+Message-ID: <1384183799.16391.39.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <21120.27501.32323.332316@gargle.gargle.HOWL>
+	 <1384149326.16391.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <21120.29720.673157.151074@gargle.gargle.HOWL>
+	 <1384152853.16391.19.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <21120.37647.979237.40802@gargle.gargle.HOWL>
+	 <1384180069.16391.32.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B73F9@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	thaller@redhat.com, stephen@networkplumber.org,
-	hannes@stressinduktion.org, vyasevich@gmail.com, dcbw@redhat.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sujith Manoharan <sujith@msujith.org>, netdev@vger.kernel.org,
+	Dave Taht <dave.taht@gmail.com>
 To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:47513 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753536Ab3KKPML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 10:12:11 -0500
-Received: by mail-ee0-f48.google.com with SMTP id e49so98981eek.35
-        for <netdev@vger.kernel.org>; Mon, 11 Nov 2013 07:12:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B73FA@saturn3.aculab.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:49516 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753173Ab3KKPaC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 10:30:02 -0500
+Received: by mail-pa0-f41.google.com with SMTP id bj1so4213735pad.14
+        for <netdev@vger.kernel.org>; Mon, 11 Nov 2013 07:30:01 -0800 (PST)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B73F9@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Nov 11, 2013 at 04:07:20PM CET, David.Laight@ACULAB.COM wrote:
->> --- a/include/net/if_inet6.h
->> +++ b/include/net/if_inet6.h
->> @@ -51,7 +51,7 @@ struct inet6_ifaddr {
->>  	int			state;
->> 
->>  	__u8			dad_probes;
->> -	__u8			flags;
->> +	__u32			flags;
->> 
->>  	__u16			scope;
->
->That is adding a lot of padding.
+On Mon, 2013-11-11 at 15:05 +0000, David Laight wrote:
 
-Allright. Will reorder. Thanks
+> Or, maybe:
+> 5) call skb_orphan() (I think that is the correct function) when transmit
+>    packets are given to the hardware.
 
->
->	David
->
->
->
+This is the worth possible solution, as it basically re-enables
+bufferbloat again.
+
+socket sk_wmem_queued should not be fooled, unless we have no other
+choice.
