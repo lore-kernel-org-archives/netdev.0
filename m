@@ -1,140 +1,98 @@
-From: Govindarajulu Varadarajan <gvaradar-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 02/13] driver: net: remove unnecessary skb NULL
- check before calling dev_kfree_skb_irq
-Date: Mon, 11 Nov 2013 16:01:22 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1311111537020.2363@cisco.com>
-References: <1383400074-30555-1-git-send-email-govindarajulu90@gmail.com> <1383400074-30555-3-git-send-email-govindarajulu90@gmail.com> <20131104.151230.1978898006990867916.davem@davemloft.net>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Oops in rfcomm_sock_getsockopt on net-next as of 20131111
+Date: Mon, 11 Nov 2013 11:33:09 +0100
+Message-ID: <874n7j6xei.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: govindarajulu90-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, sbhatewara-pghWNbHTmq7QT0dZR+AlfA@public.gmane.org, samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org,
-	chas-vT06rRrALxcmhCb6mdbn6A@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org,
-	jcliburn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, benve-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org, ssujith-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
-	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jesse.brandeburg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	shahed.shaikh-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, apw-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20131104.151230.1978898006990867916.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Hello,
+
+I got this when I booted my laptop with todays net-next:
+
+[   16.064546] BUG: unable to handle kernel paging request at 00000c8bf=
+d080975
+[   16.064558] IP: [<ffffffffa07f65b3>] rfcomm_sock_getsockopt+0x62/0x2=
+51 [rfcomm]
+[   16.064561] PGD 0=20
+[   16.064564] Oops: 0000 [#1] SMP=20
+[   16.064637] Modules linked in: rfcomm bnep xt_hl binfmt_misc ip6tabl=
+e_filter ip6_tables x_tables nfsd nfs_acl nfs lockd fscache sunrpc 8021=
+q garp stp llc tun loop fuse iTCO_wdt iTCO_vendor_support snd_hda_codec=
+_conexant arc4 snd_hda_intel snd_hda_codec snd_hwdep snd_pcm_oss snd_mi=
+xer_oss iwlmvm mac80211 snd_pcm snd_page_alloc thinkpad_acpi nvram snd_=
+seq_midi snd_seq_midi_event snd_rawmidi snd_seq iwlwifi coretemp uvcvid=
+eo cdc_mbim cdc_wdm videobuf2_vmalloc videobuf2_memops cdc_ncm kvm_inte=
+l videobuf2_core snd_seq_device psmouse usbnet lpc_ich videodev kvm snd=
+_timer evdev serio_raw mfd_core mii cfg80211 i2c_i801 snd soundcore bat=
+tery ac i915 i2c_algo_bit drm_kms_helper drm i2c_core acpi_cpufreq vide=
+o wmi processor button btusb bluetooth rfkill ext4 crc16 jbd2 mbcache n=
+bd sg sd_mod crc_t10dif sr_mod cdrom crct10dif_common ahci libahci micr=
+ocode libata scsi_mod thermal thermal_sys ehci_pci uhci_hcd ehci_hcd e1=
+000e usbcore ptp pps_core usb_common
+[   16.064656] CPU: 1 PID: 3153 Comm: bluetoothd Not tainted 3.12.0+ #1=
+36
+[   16.064658] Hardware name: LENOVO 2776LEG/2776LEG, BIOS 6EET55WW (3.=
+15 ) 12/19/2011
+[   16.064660] task: ffff88022e50a440 ti: ffff8800b78b4000 task.ti: fff=
+f8800b78b4000
+[   16.064669] RIP: 0010:[<ffffffffa07f65b3>]  [<ffffffffa07f65b3>] rfc=
+omm_sock_getsockopt+0x62/0x251 [rfcomm]
+[   16.064670] RSP: 0018:ffff8800b78b5ed8  EFLAGS: 00010246
+[   16.064672] RAX: 00000c8bfd080975 RBX: ffff8800b688b140 RCX: 00007ff=
+f7ae042f8
+[   16.064674] RDX: 0000000000000003 RSI: 0000000000000012 RDI: ffff880=
+0b688b140
+[   16.064676] RBP: ffff8800b78b5f28 R08: 00007fff7ae042fc R09: 00007ff=
+f7ae042f8
+[   16.064678] R10: 00007fff7ae042f8 R11: ffff8800b83ec180 R12: ffff880=
+0b78bc800
+[   16.064680] R13: 00007fff7ae042f8 R14: 0000000000000003 R15: ffff880=
+0b78bc800
+[   16.064682] FS:  00007f020d523740(0000) GS:ffff88023b000000(0000) kn=
+lGS:0000000000000000
+[   16.064685] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   16.064687] CR2: 00000c8bfd080975 CR3: 00000000b78a2000 CR4: 0000000=
+0000007e0
+[   16.064688] Stack:
+[   16.064692]  ffff8800b78b5f08 00007fff7ae042fc ffffffff8139b647 0000=
+7fff7ae04570
+[   16.064696]  ffff8800b78b5f50 ffff8800b688b140 0000000000000012 0000=
+000000000003
+[   16.064700]  0000000000000011 00007f020e6abce0 ffff8800b78b5f78 ffff=
+ffff812b8215
+[   16.064701] Call Trace:
+[   16.064708]  [<ffffffff8139b647>] ? sysret_check+0x1b/0x56
+[   16.064714]  [<ffffffff812b8215>] SyS_getsockopt+0x79/0x99
+[   16.064718]  [<ffffffff8139b622>] system_call_fastpath+0x16/0x1b
+[   16.064756] Code: a0 31 c0 48 c7 c7 08 e0 7f a0 e8 35 45 9f e0 41 83=
+ ff 12 0f 85 1e 01 00 00 4c 8b 7b 20 f6 05 a6 7a 00 00 04 49 8b 87 18 0=
+5 00 00 <4c> 8b 20 74 18 4c 89 fa 48 c7 c6 8f b9 7f a0 31 c0 48 c7 c7 3=
+0=20
+[   16.064763] RIP  [<ffffffffa07f65b3>] rfcomm_sock_getsockopt+0x62/0x=
+251 [rfcomm]
+[   16.064764]  RSP <ffff8800b78b5ed8>
+[   16.064766] CR2: 00000c8bfd080975
+[   16.064769] ---[ end trace f71c8d4720ff0e6f ]---
 
 
-On Mon, 4 Nov 2013, David Miller wrote:
+I am using standard Debian startup scripts AFAIK, doing:
 
-> From: Govindarajulu Varadarajan <govindarajulu90-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Sat,  2 Nov 2013 19:17:43 +0530
->
->> @@ -1030,10 +1030,8 @@ static void ni65_xmit_intr(struct net_device *dev,int csr0)
->>  		}
->>
->>  #ifdef XMT_VIA_SKB
->> -		if(p->tmd_skb[p->tmdlast]) {
->> -			 dev_kfree_skb_irq(p->tmd_skb[p->tmdlast]);
->> -			 p->tmd_skb[p->tmdlast] = NULL;
->> -		}
->> +		 dev_kfree_skb_irq(p->tmd_skb[p->tmdlast]);
->> +		 p->tmd_skb[p->tmdlast] = NULL;
->>  #endif
->
-> I absolutely disagree with this kind of change.
->
-> There is a non-trivial cost for NULL'ing out that array entry
-> unconditionally.  It's a dirtied cache line and this is in the
-> fast path of TX SKB reclaim of this driver.
->
-> You've made several changes of this kind.
->
-> And it sort-of shows that the places that do check for NULL,
-> are getting something in return for that test, namely avoidance
-> of an unnecessary cpu store in the fast path of the driver.
->
+  /usr/bin/rfcomm -f /etc/bluetooth/rfcomm.conf bind all
 
-True, in case of dev_kfree_skb_irq. If you look at patch 06-12, at many
-places we do
+where my rfcomm.conf is completely empty except for comments.  The
+reported userspace version is
 
-if (s->skb) {
- 	dev_kfree_skb_any(s->skb);
- 	s->skb = NULL)
-}
+ RFCOMM configuration utility ver 4.99
 
-This is in fast path. If the code is not running in hardirq,
-dev_kfree_skb_any calls dev_kfree_skb. Which again check if skb is NULL.
-So we are checking if skb is null twice. That is what this patch is
-trying to fix. (sorry I should have mentioned this in cover letter).
+Let me know if there is any other information you need to debug this
+further.
 
-I am not sure if you have read my previous mail. I am pasting it below.
 
->> On Sun, 3 Nov 2013, Brandeburg, Jesse wrote: 
->> Thanks for this work, I'm a little concerned that there is a
->> non-trivial 
->> overhead to this patch.
->> 
->> when doing (for example in the Intel drivers): 
->> if (s->skb) {
->>      dev_kfree_skb(s->skb);
->>      s->skb = NULL; 
->> }
->>
-> 
->In current code, dev_kfree_skb is NULL safe. Which means skb is
->checked for NULL inside dev_kfree_skb. dev_kfree_skb_any is also NULL safe
->when the code is running in non-hardirq.
->
->Lets consider two cases
-> 
->1. skb is not NULL:
->      * Without my patch:
->           In the code above, we check for skb!=NULL twice. (once
->           before calling dev_kfree_skb, once by dev_kfree_skb). And
->           then we do assignment.
->       * With this patch:
->           we check for skb!=NULL once, And then we do assignment.
->
->       To fix the twice NULL check, we either have to remove the check
->       which is inside dev_kfree_skb (1). Or do whats done in this
->       patch.
->
->       (1) is not an option because a lot of kernel code already
->       assumes that dev_kfree_skb is NULL safe.
->
->2. skb is NULL:
->       * Without this patch:
->           One if statement is executed.
->       * With this patch:
->           One if statement and one assignment is executed.
-> 
-> From my observation most of the dev_kfree_skb calls are from
-> e1000_unmap_and_free_tx_resource, e1000_put_txbuf,
-> atl1_clean_tx_ring, alx_free_txbuf etc. in clean up functions.
->
-> Is is quite unlikely thats skb is NULL. So it comes down to one extra
-> if-branching statement or one extra assignment. I would prefer extra
-> assignment to branching statement. In my opinion extra assignment is
-> very little price we pay.
->
-> //govind
 
-Another way to solve the double NULL check is to define a new function
-something like this
-
-dev_kfree_skb_NULL(struct sk_buff **skb)
-{
- 	if(*skb) {
- 		free_skb(*skb);
- 		*skb=NULL;
- 	}
-}
-
-and use this if you want to free a skb and make it NULL.
-Is this approach better?
-
-//govind
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Bj=C3=B8rn
