@@ -1,74 +1,69 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: spurious ip forwarding inside namespaces
-Date: Sun, 10 Nov 2013 22:51:54 -0800
-Message-ID: <CAMEtUuz70qyDgB1-EH9xPK71PagxwHFVCzmrnwC2uWum_gxxFg@mail.gmail.com>
-References: <CAMEtUuwKD76xEhysPbLum5wDYyJaX5p0JpdBQUcdHged40eHdg@mail.gmail.com>
-	<CAHo-Oow6h1LRNw5DMb4+6bdwy31WGOTNokKe=C5cj40dDhTyQQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP performance regression
+Date: Sun, 10 Nov 2013 22:54:13 -0800
+Message-ID: <1384152853.16391.19.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <21120.27501.32323.332316@gargle.gargle.HOWL>
+	 <1384149326.16391.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <21120.29720.673157.151074@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux NetDev <netdev@vger.kernel.org>
-To: =?ISO-8859-2?Q?Maciej_=AFenczykowski?= <zenczykowski@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sujith Manoharan <sujith@msujith.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:62999 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751220Ab3KKGv6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 01:51:58 -0500
-Received: by mail-wg0-f49.google.com with SMTP id x13so240013wgg.16
-        for <netdev@vger.kernel.org>; Sun, 10 Nov 2013 22:51:54 -0800 (PST)
-In-Reply-To: <CAHo-Oow6h1LRNw5DMb4+6bdwy31WGOTNokKe=C5cj40dDhTyQQ@mail.gmail.com>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:45925 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751537Ab3KKGyP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 01:54:15 -0500
+Received: by mail-pb0-f53.google.com with SMTP id up7so4824483pbc.12
+        for <netdev@vger.kernel.org>; Sun, 10 Nov 2013 22:54:15 -0800 (PST)
+In-Reply-To: <21120.29720.673157.151074@gargle.gargle.HOWL>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 10, 2013 at 9:12 PM, Maciej =C5=BBenczykowski
-<zenczykowski@gmail.com> wrote:
-> I've already suggested a month or so back that that patch should be r=
-everted.
+On Mon, 2013-11-11 at 11:37 +0530, Sujith Manoharan wrote:
+> Eric Dumazet wrote:
+> > I am afraid this commit shows bugs in various network drivers.
+> > 
+> > All drivers doing TX completion using a timer are buggy.
+> > 
+> > Holding skb 10 ms before TX completion is totally wrong and must be fixed.
+> > 
+> > If really NIC is not able to trigger an interrupt after TX completion, then
+> > driver should call skb_orphan() in its ndo_start_xmit()
+> 
+> 802.11 AMPDU formation is done in the TX completion path in ath9k.
+> 
+> Incoming frames are added to a software queue and the TX completion
+> tasklet checks if enough frames are available to form an aggregate and
+> if so, forms new aggregates and transmits them.
+> 
 
-Isaku's email (author of offending patch) was bouncing whole week.
-Didn't have time last week to come up with a good fix.
-Reverting fixes 'spurious ip forwarding', but Isaku's original problem
-needs to be fixed somehow.
-May be going through loopback should set pkt_type?
+Hmm... apparently ath9k uses :
 
-Alexei
+#define ATH_AMPDU_LIMIT_MAX        (64 * 1024 - 1)
 
-> On Tue, Nov 5, 2013 at 8:32 PM, Alexei Starovoitov <ast@plumgrid.com>=
- wrote:
->> Hi All,
->>
->> commit 06a23fe31c
->> "core/dev: set pkt_type after eth_type_trans() in dev_forward_skb()"
->> and refactoring 64261f230a
->> "dev: move skb_scrub_packet() after eth_type_trans()"
->>
->> are forcing pkt_type to be PACKET_HOST when skb traverses veth.
->>
->> which means that ip forwarding will kick in inside netns
->> even if skb->eth->h_dest !=3D dev->dev_addr
->>
->> The way we hit the problem is the following:
->> create 4 or more of netns with veth and attach them to a bridge.
->> disable learning on a bridge (via setageing 0), so it will flood
->> packets to all namespaces.
->> Since ip forwarding and icmp redirect by default is on,
->> single icmp request packet from one netns creates a storm of packets=
-,
->> since every netns receives it and incorrectly does ip forward on it
->> and also incorrectly sends icmp redirect which are multiplied once
->> again by flooding in the bridge.
->> ping -c1 generates 1 outgoing packet and ~13K incoming packets with
->> just 4 netns.
->> Running any tcp traffic between such namespaces becomes impossible
->> and ksoftirqd cpu usage goes to 100% on all cpus.
->>
->> Please suggest how to fix this cleanly.
->>
->> Thanks
->> Alexei
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+And mentions a 4ms time frame :
+
+max_4ms_framelen = ATH_AMPDU_LIMIT_MAX;
+
+So prior to "tcp: TSQ can use a dynamic limit", the ~128KB bytes TCP
+could queue per TCP socket on qdisc/NIC would happen to please ath9k
+
+ath9k can set rts_aggr_limit to 8*1024 :
+
+ if (AR_SREV_9160_10_OR_LATER(ah) || AR_SREV_9100(ah))
+  pCap->rts_aggr_limit = ATH_AMPDU_LIMIT_MAX; 
+ else
+  pCap->rts_aggr_limit = (8 * 1024);
+
+> There is no timer involved, but the completion routine is rather heavy.
+> Many wireless drivers handle 802.11 aggregation in this way:
+> ath9k, ath9k_htc, ath10k etc.
+> 
+
+A timer would be definitely needed, and it should be rather small (1 or
+2 ms)
+
+If TCP socket is application limited, it seems ath9k can delay the last
+block by a too long time.
