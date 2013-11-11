@@ -1,118 +1,74 @@
-From: Krishna Chaitanya <chaitanya.mgit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2] mac80211: add assoc beacon timeout logic
-Date: Mon, 11 Nov 2013 12:11:09 +0530
-Message-ID: <CABPxzY+MkosJBeQdBFV3u5X=e5io3qKeb6sqd8Fn89awMc2vuA@mail.gmail.com>
-References: <1384119945-31213-1-git-send-email-felipe.contreras@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: spurious ip forwarding inside namespaces
+Date: Sun, 10 Nov 2013 22:51:54 -0800
+Message-ID: <CAMEtUuz70qyDgB1-EH9xPK71PagxwHFVCzmrnwC2uWum_gxxFg@mail.gmail.com>
+References: <CAMEtUuwKD76xEhysPbLum5wDYyJaX5p0JpdBQUcdHged40eHdg@mail.gmail.com>
+	<CAHo-Oow6h1LRNw5DMb4+6bdwy31WGOTNokKe=C5cj40dDhTyQQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1384119945-31213-1-git-send-email-felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux NetDev <netdev@vger.kernel.org>
+To: =?ISO-8859-2?Q?Maciej_=AFenczykowski?= <zenczykowski@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:62999 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751220Ab3KKGv6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 01:51:58 -0500
+Received: by mail-wg0-f49.google.com with SMTP id x13so240013wgg.16
+        for <netdev@vger.kernel.org>; Sun, 10 Nov 2013 22:51:54 -0800 (PST)
+In-Reply-To: <CAHo-Oow6h1LRNw5DMb4+6bdwy31WGOTNokKe=C5cj40dDhTyQQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 11, 2013 at 3:15 AM, Felipe Contreras
-<felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> We don't want to be waiting forever for a beacon that will never come,
-> just continue the association.
->
-> Signed-off-by: Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->
-> The previous version depended on some cleanup patches, plus had some unclear
-> rerun logic.
->
->  net/mac80211/ieee80211_i.h |  1 +
->  net/mac80211/mlme.c        | 32 ++++++++++++++++++++++++++------
->  2 files changed, 27 insertions(+), 6 deletions(-)
->
-> diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-> index 611abfc..e1f858d 100644
-> --- a/net/mac80211/ieee80211_i.h
-> +++ b/net/mac80211/ieee80211_i.h
-> @@ -358,6 +358,7 @@ struct ieee80211_mgd_assoc_data {
->         const u8 *supp_rates;
->
->         unsigned long timeout;
-> +       unsigned long beacon_timeout;
->         int tries;
->
->         u16 capability;
-> diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
-> index 86e4ad5..68f76f7 100644
-> --- a/net/mac80211/mlme.c
-> +++ b/net/mac80211/mlme.c
-> @@ -38,6 +38,7 @@
->  #define IEEE80211_ASSOC_TIMEOUT                (HZ / 5)
->  #define IEEE80211_ASSOC_TIMEOUT_LONG   (HZ / 2)
->  #define IEEE80211_ASSOC_TIMEOUT_SHORT  (HZ / 10)
-> +#define IEEE80211_ASSOC_BEACON_TIMEOUT 2 * HZ
+On Sun, Nov 10, 2013 at 9:12 PM, Maciej =C5=BBenczykowski
+<zenczykowski@gmail.com> wrote:
+> I've already suggested a month or so back that that patch should be r=
+everted.
 
-Don't you think its too long? 3-4 beacon intervals should suffice.
+Isaku's email (author of offending patch) was bouncing whole week.
+Didn't have time last week to come up with a good fix.
+Reverting fixes 'spurious ip forwarding', but Isaku's original problem
+needs to be fixed somehow.
+May be going through loopback should set pkt_type?
 
->  #define IEEE80211_ASSOC_MAX_TRIES      3
->
->  static int max_nullfunc_tries = 2;
-> @@ -3475,6 +3476,24 @@ void ieee80211_mgd_conn_tx_status(struct ieee80211_sub_if_data *sdata,
->         ieee80211_queue_work(&local->hw, &sdata->work);
->  }
->
-> +static int check_beacon(struct ieee80211_sub_if_data *sdata)
-> +{
-> +       struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
-> +       struct ieee80211_mgd_assoc_data *assoc_data = ifmgd->assoc_data;
-> +
-> +       if (!assoc_data->need_beacon || ifmgd->have_beacon)
-> +               return true;
-> +
-> +       if (time_after(jiffies, assoc_data->beacon_timeout)) {
-> +               sdata_info(sdata, "no beacon from %pM\n", assoc_data->bss->bssid);
-> +               return true;
-> +       }
-> +
-> +       assoc_data->timeout = TU_TO_EXP_TIME(assoc_data->bss->beacon_interval);
-> +       run_again(sdata, assoc_data->timeout);
-> +       return false;
-> +}
-> +
->  void ieee80211_sta_work(struct ieee80211_sub_if_data *sdata)
->  {
->         struct ieee80211_local *local = sdata->local;
-> @@ -3533,12 +3552,12 @@ void ieee80211_sta_work(struct ieee80211_sub_if_data *sdata)
->
->         if (ifmgd->assoc_data && ifmgd->assoc_data->timeout_started &&
->             time_after(jiffies, ifmgd->assoc_data->timeout)) {
-> -               if ((ifmgd->assoc_data->need_beacon && !ifmgd->have_beacon) ||
-> -                   ieee80211_do_assoc(sdata)) {
-> -                       struct cfg80211_bss *bss = ifmgd->assoc_data->bss;
-> -
-> -                       ieee80211_destroy_assoc_data(sdata, false);
-> -                       cfg80211_assoc_timeout(sdata->dev, bss);
-> +               if (check_beacon(sdata)) {
-> +                       if (ieee80211_do_assoc(sdata)) {
-> +                               struct cfg80211_bss *bss = ifmgd->assoc_data->bss;
-> +                               ieee80211_destroy_assoc_data(sdata, false);
-> +                               cfg80211_assoc_timeout(sdata->dev, bss);
-> +                       }
->                 }
->         } else if (ifmgd->assoc_data && ifmgd->assoc_data->timeout_started)
->                 run_again(sdata, ifmgd->assoc_data->timeout);
-> @@ -4335,6 +4354,7 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
->                 sdata_info(sdata, "waiting for beacon from %pM\n",
->                            ifmgd->bssid);
->                 assoc_data->timeout = TU_TO_EXP_TIME(req->bss->beacon_interval);
-> +               assoc_data->beacon_timeout = jiffies + IEEE80211_ASSOC_BEACON_TIMEOUT;
->                 assoc_data->timeout_started = true;
->                 assoc_data->need_beacon = true;
->         } else if (beacon_ies) {
-> --
-> 1.8.4.2+fc1
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Alexei
+
+> On Tue, Nov 5, 2013 at 8:32 PM, Alexei Starovoitov <ast@plumgrid.com>=
+ wrote:
+>> Hi All,
+>>
+>> commit 06a23fe31c
+>> "core/dev: set pkt_type after eth_type_trans() in dev_forward_skb()"
+>> and refactoring 64261f230a
+>> "dev: move skb_scrub_packet() after eth_type_trans()"
+>>
+>> are forcing pkt_type to be PACKET_HOST when skb traverses veth.
+>>
+>> which means that ip forwarding will kick in inside netns
+>> even if skb->eth->h_dest !=3D dev->dev_addr
+>>
+>> The way we hit the problem is the following:
+>> create 4 or more of netns with veth and attach them to a bridge.
+>> disable learning on a bridge (via setageing 0), so it will flood
+>> packets to all namespaces.
+>> Since ip forwarding and icmp redirect by default is on,
+>> single icmp request packet from one netns creates a storm of packets=
+,
+>> since every netns receives it and incorrectly does ip forward on it
+>> and also incorrectly sends icmp redirect which are multiplied once
+>> again by flooding in the bridge.
+>> ping -c1 generates 1 outgoing packet and ~13K incoming packets with
+>> just 4 netns.
+>> Running any tcp traffic between such namespaces becomes impossible
+>> and ksoftirqd cpu usage goes to 100% on all cpus.
+>>
+>> Please suggest how to fix this cleanly.
+>>
+>> Thanks
+>> Alexei
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
