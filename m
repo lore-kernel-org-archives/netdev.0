@@ -1,71 +1,66 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: match those routes that have different metirc
-Date: Mon, 11 Nov 2013 08:39:23 +0100
-Message-ID: <20131111073923.GB27030@order.stressinduktion.org>
-References: <52804865.8090206@cn.fujitsu.com> <20131111060753.GA27030@order.stressinduktion.org> <52808448.3020206@cn.fujitsu.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH] usbnet: fix race condition caused spinlock bad magic
+ issue
+Date: Mon, 11 Nov 2013 09:23:30 +0100
+Message-ID: <20131111082330.GA12405@gmail.com>
+References: <1384139315.2179.9.camel@wangbiao>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: oneukum@suse.de, netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	mingo@elte.hu, a.p.zijlstra@chello.nl, rusty@rustcorp.com.au,
+	william.douglas@intel.com
+To: wangbiao <biao.wang@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:34716 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751256Ab3KKHjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 02:39:25 -0500
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:49657 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750874Ab3KKIXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 03:23:35 -0500
 Content-Disposition: inline
-In-Reply-To: <52808448.3020206@cn.fujitsu.com>
+In-Reply-To: <1384139315.2179.9.camel@wangbiao>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 11, 2013 at 03:16:24PM +0800, Duan Jiong wrote:
-> =E4=BA=8E 2013=E5=B9=B411=E6=9C=8811=E6=97=A5 14:07, Hannes Frederic =
-Sowa =E5=86=99=E9=81=93:
-> > On Mon, Nov 11, 2013 at 11:00:53AM +0800, Duan Jiong wrote:
-> >> Now the kernel only match those routes that have the same
-> >> metirc, so if those routes are non-reachable, then the packets
-> >> can't be sent out.
-> >>
-> >> But according to the rfc 4191 section 3.2, if the best route
-> >> points to a non-reachable route, the next best route should be
-> >> consulted. So the kernel should not only match those routes that
-> >> have minimum metric, and should also match others.
-> >=20
-> > I am not so keen on chaning how metrics get handled. Please note th=
-at
-> > metrics are a pure linux-centric concept and are not standardized. =
-I bet
-> > some people depend on how these work and have the same semantic as =
-IPv4
-> > ones because they use the same code in their routing daemon backend=
-s.
-> >=20
->=20
-> I have a question. If we only match those routes that have lowest met=
-ric, others
-> will never be used, so why the other routes are inserted to the route=
-r table?
 
-Metrics could get used by software which manages dynamic interfaces, e.=
-g.
-vpn/ppp software, to make sure they have priority over the current rout=
-ing
-settings.  If we don't respect metrics there, this could lead to securi=
-ty
-problems. (if the interface vanishes, the other route gets active again=
-).
+* wangbiao <biao.wang@intel.com> wrote:
 
-It could also be used by dynamic routing software, e.g. is-is, ospf, bg=
-p and
-does reflect the admins choice where traffic should get routed. Some ro=
-uting
-daemon apply the whole routing table to the fib. If we don't respect me=
-trics
-there, they could lose money, because maybe they pay for the traffic.
-They really get interesting if you have more than one routing protocol =
-active
-at the same time. ;)
+> @@ -1448,8 +1448,10 @@ static void usbnet_bh (unsigned long param)
+>  
+>  	// waiting for all pending urbs to complete?
+>  	if (dev->wait) {
+> +		wait_queue_head_t *wait_d = dev->wait;
+>  		if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) == 0) {
+> -			wake_up (dev->wait);
+> +			if (wait_d)
+> +				wake_up(wait_d);
+>  		}
+>  
+>  	// or are we maybe short a few urbs?
 
-Greetings,
+1)
 
-  Hannes
+Nit: the scope of 'wait_d' is unnecessarily broad, it could be moved to 
+the block that uses it.
+
+2)
+
+Also, the changelog mentions that dev->wait can race - it would be nice to 
+add to the changelog what exact synchronization mechanism protects 
+usbnet_terminate_urbs() and usbnet_bh() from seeing/modifying that value 
+at once - as the code was clearly written without such interaction in 
+mind.
+
+> @@ -1602,6 +1604,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+>  	init_timer (&dev->delay);
+>  	mutex_init (&dev->phy_mutex);
+>  	mutex_init(&dev->interrupt_mutex);
+> +	init_waitqueue_head(&unlink_wakeup);
+
+3)
+
+Can that runtime initialization be avoided by using 
+DECLARE_WAIT_QUEUE_HEAD()?
+
+Thanks,
+
+	Ingo
