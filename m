@@ -1,79 +1,73 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2] mac80211: add assoc beacon timeout logic
-Date: Mon, 11 Nov 2013 18:01:11 +0100
-Message-ID: <1384189271.14334.49.camel@jlt4.sipsolutions.net>
-References: <1384119945-31213-1-git-send-email-felipe.contreras@gmail.com>
-	 <1384160932.14334.6.camel@jlt4.sipsolutions.net>
-	 <CAMP44s3TFSgWuR8gVoFBznNP+t9mz+to===9i1PAnra4ogKu9w@mail.gmail.com>
-	 <1384184624.14334.31.camel@jlt4.sipsolutions.net>
-	 <CAMP44s2cVVe4-yW214B9hJu7n6M1onZpZaPCj5N0Fi1JWDKKsw@mail.gmail.com>
-	 <1384188067.14334.45.camel@jlt4.sipsolutions.net>
-	 <CAMP44s3nkj2wZYCPve7EhyeD7sEFmpUN=-h015dOP68PcNSTug@mail.gmail.com>
-	 <CAMP44s0Lsd2qMf3a-Vx4=HTd_UxzLVC6q1bAGPr+t6anubNknA@mail.gmail.com>
-	 (sfid-20131111_175658_138899_90A747C6)
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload burst.
+Date: Mon, 11 Nov 2013 17:12:29 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73FE@saturn3.aculab.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B73F4@saturn3.aculab.com> <Pine.LNX.4.44L0.1311081303460.1162-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless Mailing List <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Felipe Contreras <felipe.contreras@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:36789 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753747Ab3KKRBP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 12:01:15 -0500
-In-Reply-To: <CAMP44s0Lsd2qMf3a-Vx4=HTd_UxzLVC6q1bAGPr+t6anubNknA@mail.gmail.com> (sfid-20131111_175658_138899_90A747C6)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Sarah Sharp" <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Alan Stern" <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <Pine.LNX.4.44L0.1311081303460.1162-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-11-11 at 10:56 -0600, Felipe Contreras wrote:
-> On Mon, Nov 11, 2013 at 10:53 AM, Felipe Contreras
-> <felipe.contreras@gmail.com> wrote:
-> > On Mon, Nov 11, 2013 at 10:41 AM, Johannes Berg
-> > <johannes@sipsolutions.net> wrote:
-> >> On Mon, 2013-11-11 at 10:23 -0600, Felipe Contreras wrote:
+> From: Alan Stern [mailto:stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org]
+> On Fri, 8 Nov 2013, David Laight wrote:
 > 
-> >>> > This isn't really true like I said above - the kernel can only drop the
-> >>> > association, if userspace *insists* then it will try again and again.
-> >>>
-> >>> But it's not doing this:
-> >>>
-> >>>   ieee80211_destroy_assoc_data(sdata, false);
-> >>>   cfg80211_assoc_timeout(sdata->dev, bss);
-> >>>
-> >>> Which is what causes the association to stop for me.
-> >>>
-> >>> So where exactly in the code is the association being "dropped"?
-> >>
-> >> This does get called in my setup.
-> >
-> > Yes, because your setup is receiving beacons.
-> >
-> > Check the code:
-> >
-> > if ((ifmgd->assoc_data->need_beacon && !ifmgd->have_beacon) ||
-> >    ieee80211_do_assoc(sdata)) {
-> > struct cfg80211_bss *bss = ifmgd->assoc_data->bss;
-> >
-> > ieee80211_destroy_assoc_data(sdata, false);
-> > cfg80211_assoc_timeout(sdata->dev, bss);
-> > }
-> >
-> > If there's no beacon, cfg80211_assoc_timeout() is not called.
-> >
-> > I'm sure if you don't call ieee80211_rx_mgmt_beacon() at all you will
-> > see the same behavior I see.
-> 
-> My bad, actually the code that is not being called is:
-> 
->   cfg80211_unlink_bss(local->hw.wiphy, assoc_data->bss);
-> 
-> In ieee80211_do_assoc().
+...
+> GET_MAX_PACKET always returns MaxPacketSize, and for USB-3 bulk
+> endpoints, MaxPacketSize is always 1024.  MaxBurstSize can be anything
+> from 1 to 16.
 
-That's not really interesting though, it just deletes the scan entry. If
-it was deleted, then the supplicant would just scan again and probably
-retry the connection.
+I've just read something that explained about bursts.
 
-johannes
+> > > According to my version of the spec (Rev 1.0, dated 5/21/2010), if a TD
+> > > is larger than the MBP and its length isn't a multiple of the MBP, then
+> > > the last MBP boundary in the TD must also be a TRB boundary.  This
+> > > follows from two statements in section 4.11.7.1:
+> > >
+> > > 	If the TD Transfer Size is an even multiple of the MBP then all
+> > > 	TD Fragments shall define exact multiples of MBP data bytes.
+> > > 	If not, then only the last TD Fragment shall define less than
+> > > 	MBP data (or the Residue) bytes.
+> >
+> > No, that doesn't stop there being only 1 TD fragment.
+> > (I think it means exact multiple of the MBP.)
+> 
+> Suppose, for example, the MBP is 1024.  If you have a TD with length
+> 1500, and if it had only one fragment, the last (and only) fragment's
+> length would not less than the MBP and it would not be an exact
+> multiple of the MBP.
+
+That doesn't matter - eg example 2 in figure 25
+ 
+> I agree that the text is not as clear as it should be.
+
+Reading it all again makes me think that a LINK trb is only
+allowed on the burst boundary (which might be 16k bytes).
+The only real way to implement that is to ensure that TD never
+contain LINK TRB.
+
+There are other things that can be done at a TD fragment boundary
+(or only once per TD fragment) - but the code doesn't attempt any
+of them.
+
+The restriction might be there to simplify the hardware to
+retransmit as TRB burst.
+
+My USB3 ethernet card (ax88179_178a driver) is running a lot more
+reliably with these changes.
+
+	David
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
