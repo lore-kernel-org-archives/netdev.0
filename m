@@ -1,170 +1,56 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [patch iproute2] ipaddress: add a black line for each device to
- make the output more readable
-Date: Mon, 11 Nov 2013 23:08:30 +0800
-Message-ID: <CAPwn2JTQjH54jM5Vhz=7GRMOMW-5AXGGRChZrxeSGdiKN6DeMw@mail.gmail.com>
-References: <1384182210-8901-1-git-send-email-liuhangbin@gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: TCP performance regression
+Date: Mon, 11 Nov 2013 15:05:54 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73F9@saturn3.aculab.com>
+References: <21120.27501.32323.332316@gargle.gargle.HOWL> <1384149326.16391.10.camel@edumazet-glaptop2.roam.corp.google.com> <21120.29720.673157.151074@gargle.gargle.HOWL> <1384152853.16391.19.camel@edumazet-glaptop2.roam.corp.google.com> <21120.37647.979237.40802@gargle.gargle.HOWL> <1384180069.16391.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: network dev <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, "Dave Taht" <dave.taht@gmail.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Sujith Manoharan" <sujith@msujith.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:41485 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753493Ab3KKPIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Nov 2013 10:08:32 -0500
-Received: by mail-wi0-f172.google.com with SMTP id ez12so2297870wid.17
-        for <netdev@vger.kernel.org>; Mon, 11 Nov 2013 07:08:31 -0800 (PST)
-In-Reply-To: <1384182210-8901-1-git-send-email-liuhangbin@gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:55032 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753675Ab3KKPJX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Nov 2013 10:09:23 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 10666-07 for <netdev@vger.kernel.org>;
+ Mon, 11 Nov 2013 15:09:19 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1384180069.16391.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/11/11 Hangbin Liu <liuhangbin@gmail.com>:
-> When we have multi links, the output huddled together and make it hard to read.
-> Let's use the old ifconfig output style.
-
-For example:
-
-Before:
-# ip a s
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-       valid_lft forever preferred_lft forever
-    inet6 ::1/128 scope host
-       valid_lft forever preferred_lft forever
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP qlen 1000
-    link/ether 00:10:18:f4:09:c4 brd ff:ff:ff:ff:ff:ff
-    inet 192.168.18.11/24 brd 192.168.18.255 scope global eth0
-       valid_lft forever preferred_lft forever
-    inet 192.168.100.1/24 scope global eth0
-       valid_lft forever preferred_lft forever
-    inet6 2012::1/64 scope global
-       valid_lft forever preferred_lft forever
-    inet6 2001::210:18ff:fef4:9c4/64 scope global dynamic
-       valid_lft 2086084sec preferred_lft 98884sec
-    inet6 fe80::210:18ff:fef4:9c4/64 scope link
-       valid_lft forever preferred_lft forever
-3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
-    link/ether 00:10:18:f4:09:c5 brd ff:ff:ff:ff:ff:ff
-4: eth2: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
-    link/ether 00:10:18:f4:09:c6 brd ff:ff:ff:ff:ff:ff
-5: eth3: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
-    link/ether 00:10:18:f4:09:c7 brd ff:ff:ff:ff:ff:ff
-6: eth4: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-state UP qlen 1000
-    link/ether 00:1b:21:a0:94:b6 brd ff:ff:ff:ff:ff:ff
-    inet6 2001::21b:21ff:fea0:94b6/64 scope global dynamic
-       valid_lft 2591897sec preferred_lft 604697sec
-    inet6 fe80::21b:21ff:fea0:94b6/64 scope link
-       valid_lft forever preferred_lft forever
-7: eth5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP qlen 1000
-    link/ether e4:1f:13:eb:c4:1a brd ff:ff:ff:ff:ff:ff
-    inet 10.66.86.93/23 brd 10.66.87.255 scope global eth5
-       valid_lft forever preferred_lft forever
-    inet 172.16.100.1/24 scope global eth5
-       valid_lft forever preferred_lft forever
-    inet6 2011::1/64 scope global
-       valid_lft forever preferred_lft forever
-    inet6 2620:52:0:4257:e61f:13ff:feeb:c41a/64 scope global dynamic
-       valid_lft 2086053sec preferred_lft 98853sec
-    inet6 fe80::e61f:13ff:feeb:c41a/64 scope link
-       valid_lft forever preferred_lft forever
-8: eth6: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
-    link/ether e4:1f:13:eb:c4:1b brd ff:ff:ff:ff:ff:ff
-9: eth7: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
-    link/ether e4:1f:13:eb:c4:1c brd ff:ff:ff:ff:ff:ff
-10: eth8: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
-    link/ether e4:1f:13:eb:c4:1d brd ff:ff:ff:ff:ff:ff
-
-
-After:
-# ip a s
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
-group default
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-       valid_lft forever preferred_lft forever
-    inet6 ::1/128 scope host
-       valid_lft forever preferred_lft forever
-
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP
-group default qlen 1000
-    link/ether 00:10:18:f4:09:c4 brd ff:ff:ff:ff:ff:ff
-    inet 192.168.18.11/24 brd 192.168.18.255 scope global eth0
-       valid_lft forever preferred_lft forever
-    inet 192.168.100.1/24 scope global eth0
-       valid_lft forever preferred_lft forever
-    inet6 2012::1/64 scope global
-       valid_lft forever preferred_lft forever
-    inet6 2001::210:18ff:fef4:9c4/64 scope global dynamic
-       valid_lft 2086047sec preferred_lft 98847sec
-    inet6 fe80::210:18ff:fef4:9c4/64 scope link
-       valid_lft forever preferred_lft forever
-
-3: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group
-default qlen 1000
-    link/ether 00:10:18:f4:09:c5 brd ff:ff:ff:ff:ff:ff
-
-4: eth2: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group
-default qlen 1000
-    link/ether 00:10:18:f4:09:c6 brd ff:ff:ff:ff:ff:ff
-
-5: eth3: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group
-default qlen 1000
-    link/ether 00:10:18:f4:09:c7 brd ff:ff:ff:ff:ff:ff
-
-6: eth4: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-state UP group default qlen 1000
-    link/ether 00:1b:21:a0:94:b6 brd ff:ff:ff:ff:ff:ff
-    inet6 2001::21b:21ff:fea0:94b6/64 scope global dynamic
-       valid_lft 2591860sec preferred_lft 604660sec
-    inet6 fe80::21b:21ff:fea0:94b6/64 scope link
-       valid_lft forever preferred_lft forever
-
-7: eth5: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP
-group default qlen 1000
-    link/ether e4:1f:13:eb:c4:1a brd ff:ff:ff:ff:ff:ff
-    inet 10.66.86.93/23 brd 10.66.87.255 scope global eth5
-       valid_lft forever preferred_lft forever
-    inet 172.16.100.1/24 scope global eth5
-       valid_lft forever preferred_lft forever
-    inet6 2011::1/64 scope global
-       valid_lft forever preferred_lft forever
-    inet6 2620:52:0:4257:e61f:13ff:feeb:c41a/64 scope global dynamic
-       valid_lft 2086016sec preferred_lft 98816sec
-    inet6 fe80::e61f:13ff:feeb:c41a/64 scope link
-       valid_lft forever preferred_lft forever
-
-8: eth6: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group
-default qlen 1000
-    link/ether e4:1f:13:eb:c4:1b brd ff:ff:ff:ff:ff:ff
-
-9: eth7: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group
-default qlen 1000
-    link/ether e4:1f:13:eb:c4:1c brd ff:ff:ff:ff:ff:ff
-
-10: eth8: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group
-default qlen 1000
-    link/ether e4:1f:13:eb:c4:1d brd ff:ff:ff:ff:ff:ff
-
->
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> ---
->  ip/ipaddress.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-> index 1c3e4da..9570f16 100644
-> --- a/ip/ipaddress.c
-> +++ b/ip/ipaddress.c
-> @@ -782,6 +782,7 @@ static int print_selected_addrinfo(int ifindex, struct nlmsg_list *ainfo, FILE *
->
->                 print_addrinfo(NULL, n, fp);
->         }
-> +       fprintf(fp, "\n");
->         return 0;
->  }
->
-> --
-> 1.8.1.4
->
+PiBPbiBNb24sIDIwMTMtMTEtMTEgYXQgMTM6NDkgKzA1MzAsIFN1aml0aCBNYW5vaGFyYW4gd3Jv
+dGU6DQo+IA0KPiA+IEkgYW0gbm90IHJlYWxseSBjbGVhciBvbiBob3cgdGhpcyByZWdyZXNzaW9u
+IGNhbiBiZSBmaXhlZCBpbiB0aGUgZHJpdmVyDQo+ID4gc2luY2UgdGhlIG1ham9yaXR5IG9mIHRo
+ZSB0cmFuc21pc3Npb24vYWdncmVnYXRpb24gbG9naWMgaXMgcHJlc2VudCBpbiB0aGUNCj4gPiBU
+WCBjb21wbGV0aW9uIHBhdGguDQo+IA0KPiBXZSBoYXZlIG1hbnkgY2hvaWNlcy4NCj4gDQo+IDEp
+IEFkZCBiYWNrIGEgbWluaW11bSBvZiB+MTI4IEsgb2Ygb3V0c3RhbmRpbmcgYnl0ZXMgcGVyIFRD
+UCBzZXNzaW9uLA0KPiAgICBzbyB0aGF0IGJ1Z2d5IGRyaXZlcnMgY2FuIHN1c3RhaW4gJ2xpbmUg
+cmF0ZScuDQo+IA0KPiAgICBOb3RlIHRoYXQgd2l0aCAxMDAgY29uY3VycmVudCBUQ1Agc3RyZWFt
+cywgdG90YWwgYW1vdW50IG9mIGJ5dGVzDQo+ICAgIHF1ZXVlZCBvbiB0aGUgTklDIGlzIDEyIE1C
+Lg0KPiAgICBBbmQgcGZpZm9fZmFzdCBxZGlzYyB3aWxsIGRyb3AgcGFja2V0cyBhbnl3YXkuDQo+
+IA0KPiAgICBUaGF0cyB3aGF0IHdlIGNhbGwgJ0J1ZmZlckJsb2F0Jw0KPiANCj4gMikgVHJ5IGxv
+d2VyIHZhbHVlcyBsaWtlIDY0Sy4gU3RpbGwgYnVmZmVyYmxvYXQuDQo+IA0KPiAzKSBGaXggYnVn
+Z3kgZHJpdmVycywgdXNpbmcgYSBwcm9wZXIgbG9naWMsIG9yIHNob3J0ZXIgdGltZXJzIChtdm5l
+dGENCj4gY2FzZSBmb3IgZXhhbXBsZSkNCj4gDQo+IDQpIEFkZCBhIG5ldyBuZXRkZXYgYXR0cmli
+dXRlLCBzbyB0aGF0IHdlbGwgYmVoYXZpbmcgTklDIGRyaXZlcnMgZG8gbm90DQo+IGhhdmUgdG8g
+YXJ0aWZpY2lhbGx5IGZvcmNlIFRDUCBzdGFjayB0byBxdWV1ZSB0b28gbWFueSBieXRlcyBpbg0K
+PiBRZGlzYy9OSUMgcXVldWVzLg0KDQpPciwgbWF5YmU6DQo1KSBjYWxsIHNrYl9vcnBoYW4oKSAo
+SSB0aGluayB0aGF0IGlzIHRoZSBjb3JyZWN0IGZ1bmN0aW9uKSB3aGVuIHRyYW5zbWl0DQogICBw
+YWNrZXRzIGFyZSBnaXZlbiB0byB0aGUgaGFyZHdhcmUuDQogICBJIHRoaW5rIHRoYXQgaWYgdGhl
+IG1hYyBkcml2ZXIgc3VwcG9ydHMgQlFMIHRoaXMgY291bGQgYmUgZG9uZSBhcyBzb29uDQogICBh
+cyB0aGUgQlFMIHJlc291cmNlIGlzIGFzc2lnbmVkIHRvIHRoZSBwYWNrZXQuDQogICBJIHN1c3Bl
+Y3QgdGhpcyBjb3VsZCBiZSBkb25lIHVuY29uZGl0aW9uYWxseS4NCg0KQ2xlYXJseSB0aGUgc2ti
+IG1heSBhbHNvIG5lZWQgdG8gYmUgZnJlZWQgdG8gYWxsb3cgcHJvdG9jb2wNCnJldHJhbnNtaXNz
+aW9ucyB0byBjb21wbGV0ZSBwcm9wZXJseSAtIGJ1dCB0aGF0IHdvbid0IGJlIHNvIHRpbWluZw0K
+Y3JpdGljYWwuDQoNCkkgcmVtZW1iZXIgKGEgbG9uZyB0aW1lIGFnbykgZ2V0dGluZyBhIG1lYXN1
+cmFibGUgcGVyZm9ybWFuY2UgaW5jcmVhc2UNCmJ5IGRpc2FibGluZyB0aGUgJ2VuZCBvZiB0cmFu
+c21pdCcgaW50ZXJydXB0IGFuZCBvbmx5IGRvaW5nIHR4IHRpZHl1cA0Kd2hlbiB0aGUgZHJpdmVy
+IHdhcyBhY3RpdmUgZm9yIG90aGVyIHJlYXNvbnMuDQpUaGVyZSB3ZXJlIDIgcmVhc29ucyBmb3Ig
+ZW5hYmxpbmcgdGhlIGludGVycnVwdDoNCjEpIHR4IHJpbmcgZnVsbC4NCjIpIHR4IGJ1ZmZlciBo
+YWQgYSB1c2VyLWRlZmluZWQgZGVsZXRlIGZ1bmN0aW9uLg0KDQoJRGF2aWQNCg0K
