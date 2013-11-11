@@ -1,86 +1,78 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH] ipv6: match those routes that have different metirc
-Date: Mon, 11 Nov 2013 11:00:53 +0800
-Message-ID: <52804865.8090206@cn.fujitsu.com>
+From: wangbiao <biao.wang@intel.com>
+Subject: [PATCH] usbnet: fix race condition caused spinlock bad magic issue
+Date: Mon, 11 Nov 2013 11:08:35 +0800
+Message-ID: <1384139315.2179.9.camel@wangbiao>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: akpm@linux-foundation.org, mingo@elte.hu, a.p.zijlstra@chello.nl,
+	rusty@rustcorp.com.au, william.douglas@intel.com,
+	biao.wang@intel.com
+To: oneukum@suse.de, netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:7212 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751003Ab3KKDDT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Nov 2013 22:03:19 -0500
+Received: from mga03.intel.com ([143.182.124.21]:33696 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751003Ab3KKD05 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Nov 2013 22:26:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: wang, biao <biao.wang@intel.com>
+Date: Mon, 11 Nov 2013 10:23:40 +0800
+Subject: [PATCH] usbnet: fix race condition caused spinlock bad magic issue
 
-Now the kernel only match those routes that have the same
-metirc, so if those routes are non-reachable, then the packets
-can't be sent out.
+there is race between usbnet_terminate_urbs and usbnet_bh, when
+unlink_wakeup used in usbnet_bh, it may be already freed and used by
+other function as unlink_wakeup was a local var on stack.
 
-But according to the rfc 4191 section 3.2, if the best route
-points to a non-reachable route, the next best route should be
-consulted. So the kernel should not only match those routes that
-have minimum metric, and should also match others.
+btw, dev->wait should be judged again before use it as there is race
+too.
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Signed-off-by: wang, biao <biao.wang@intel.com>
 ---
- net/ipv6/route.c | 17 +++++------------
- 1 file changed, 5 insertions(+), 12 deletions(-)
+ drivers/net/usb/usbnet.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 7faa9d5..96cd22a 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -629,7 +629,7 @@ static struct rt6_info *find_match(struct rt6_info *rt, int oif, int strict,
- 	if (strict & RT6_LOOKUP_F_REACHABLE)
- 		rt6_probe(rt);
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 90a429b..22fc27f 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -86,6 +86,7 @@ static const char driver_name [] = "usbnet";
  
--	if (m > *mpri) {
-+	if (m > *mpri && (!match || rt->rt6i_metric == match->rt6i_metric)) {
- 		*do_rr = match_do_rr;
- 		*mpri = m;
- 		match = rt;
-@@ -639,19 +639,13 @@ out:
- }
+ /* use ethtool to change the level for any given device */
+ static int msg_level = -1;
++static wait_queue_head_t unlink_wakeup;
+ module_param (msg_level, int, 0);
+ MODULE_PARM_DESC (msg_level, "Override default message level");
  
- static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
--				     struct rt6_info *rr_head,
--				     u32 metric, int oif, int strict,
--				     bool *do_rr)
-+				     int oif, int strict, bool *do_rr)
+@@ -761,7 +762,6 @@ EXPORT_SYMBOL_GPL(usbnet_unlink_rx_urbs);
+ // precondition: never called in_interrupt
+ static void usbnet_terminate_urbs(struct usbnet *dev)
  {
- 	struct rt6_info *rt, *match;
- 	int mpri = -1;
+-	DECLARE_WAIT_QUEUE_HEAD_ONSTACK(unlink_wakeup);
+ 	DECLARE_WAITQUEUE(wait, current);
+ 	int temp;
  
- 	match = NULL;
--	for (rt = rr_head; rt && rt->rt6i_metric == metric;
--	     rt = rt->dst.rt6_next)
--		match = find_match(rt, oif, strict, &mpri, match, do_rr);
--	for (rt = fn->leaf; rt && rt != rr_head && rt->rt6i_metric == metric;
--	     rt = rt->dst.rt6_next)
-+	for (rt = fn->leaf; rt; rt = rt->dst.rt6_next)
- 		match = find_match(rt, oif, strict, &mpri, match, do_rr);
+@@ -1448,8 +1448,10 @@ static void usbnet_bh (unsigned long param)
  
- 	return match;
-@@ -667,14 +661,13 @@ static struct rt6_info *rt6_select(struct fib6_node *fn, int oif, int strict)
- 	if (!rt0)
- 		fn->rr_ptr = rt0 = fn->leaf;
+ 	// waiting for all pending urbs to complete?
+ 	if (dev->wait) {
++		wait_queue_head_t *wait_d = dev->wait;
+ 		if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) == 0) {
+-			wake_up (dev->wait);
++			if (wait_d)
++				wake_up(wait_d);
+ 		}
  
--	match = find_rr_leaf(fn, rt0, rt0->rt6i_metric, oif, strict,
--			     &do_rr);
-+	match = find_rr_leaf(fn, oif, strict, &do_rr);
+ 	// or are we maybe short a few urbs?
+@@ -1602,6 +1604,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 	init_timer (&dev->delay);
+ 	mutex_init (&dev->phy_mutex);
+ 	mutex_init(&dev->interrupt_mutex);
++	init_waitqueue_head(&unlink_wakeup);
+ 	dev->interrupt_count = 0;
  
- 	if (do_rr) {
- 		struct rt6_info *next = rt0->dst.rt6_next;
- 
- 		/* no entries matched; do round-robin */
--		if (!next || next->rt6i_metric != rt0->rt6i_metric)
-+		if (!next)
- 			next = fn->leaf;
- 
- 		if (next != rt0)
+ 	dev->net = net;
 -- 
-1.8.3.1
+1.7.0.4
