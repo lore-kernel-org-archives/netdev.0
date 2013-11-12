@@ -1,58 +1,93 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: IPv6: Blackhole route support partial ?
-Date: Tue, 12 Nov 2013 14:54:12 +0100
-Message-ID: <20131112135412.GF14929@order.stressinduktion.org>
-References: <CAP8BHkGZ5EFxW4BNervKrOiEaQTNdSh9s2YOrFoexzQCOR=AqQ@mail.gmail.com> <20131111203954.GB3043@order.stressinduktion.org> <CAP8BHkG6=KuU9K7=sGsZftMDe58eTYByRu2DZ+j+KNqcfsOfAA@mail.gmail.com>
+From: <srinivas.kandagatla@st.com>
+Subject: [PATCH RFC 07/10] PM / wakeup : Introduce device_child_may_wakeup
+Date: Tue, 12 Nov 2013 13:52:57 +0000
+Message-ID: <1384264377-7609-1-git-send-email-srinivas.kandagatla@st.com>
+References: <1384264311-7308-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Kamala R <kamala@aristanetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAP8BHkG6=KuU9K7=sGsZftMDe58eTYByRu2DZ+j+KNqcfsOfAA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: Rob Herring <rob.herring@calxeda.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Rob Landley <rob@landley.net>,
+	Russell King <linux@arm.linux.org.uk>,
+	Srinivas Kandagatla <srinivas.kandagatla@st.com>,
+	Stuart Menefy <stuart.menefy@st.com>,
+	Pavel Machek <pavel@ucw.cz>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Len Brown <len.brown@intel.com>, <stephen.gallimore@st.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	<devicetree@vger.kernel.org>, <linux-doc@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <kernel@stlinux.com>,
+	<linux-pm@vger.kernel.org>
+To: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1384264311-7308-1-git-send-email-srinivas.kandagatla@st.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 12, 2013 at 04:39:10PM +0530, Kamala R wrote:
-> Hi,
-> 
-> Sure, here it is.
-> 
-> --- linux-3.12/net/ipv6/route.c.orig    2013-11-12 16:23:46.000000000 +0530
-> +++ linux-3.12/net/ipv6/route.c 2013-11-12 16:30:51.000000000 +0530
-> @@ -1570,9 +1570,13 @@ int ip6_route_add(struct fib6_config *cf
->                 switch (cfg->fc_type) {
->                 case RTN_BLACKHOLE:
->                         rt->dst.error = -EINVAL;
-> +                       rt->dst.input = dst_discard;
-> +                       rt->dst.discard = dst_discard;
->                         break;
->                 case RTN_PROHIBIT:
->                         rt->dst.error = -EACCES;
-> +                       rt->dst.input = ip6_pkt_prohibit;
-> +                       rt->dst.output = ip6_pkt_prohibit_out;
->                         break;
->                 case RTN_THROW:
->                         rt->dst.error = -EAGAIN;
-> 
-> Is this ok ?
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-I woud move all the initialization of the function pointer into the
-switch-case. You could merge the case RTN_THROW with the default one by just
-using a ternary statement to initialize dst.error.
+This patch introduces device_child_may_wakeup function, which will be
+useful for wrapper or SoC level driver power management code.
+Without this patch each driver has to write this same code to get the
+functionality.
 
-Your patch must be well-formed to get included into the
-kernel. For that you should base your patch ontop net-next
-or net, write a proper commit message and send the git
-format-patch generated patch to this list. Here some hints:
-<https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/tree/Documentation/SubmittingPatches>
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+---
+ drivers/base/power/wakeup.c |   23 +++++++++++++++++++++++
+ include/linux/pm_wakeup.h   |    1 +
+ 2 files changed, 24 insertions(+), 0 deletions(-)
 
-You can check if your formatting is correct by using scripts/checkpatch
---strict.
+diff --git a/drivers/base/power/wakeup.c b/drivers/base/power/wakeup.c
+index 2d56f41..270f000 100644
+--- a/drivers/base/power/wakeup.c
++++ b/drivers/base/power/wakeup.c
+@@ -342,6 +342,29 @@ int device_set_wakeup_enable(struct device *dev, bool enable)
+ }
+ EXPORT_SYMBOL_GPL(device_set_wakeup_enable);
+ 
++/* callback for device_child_may_wakeup */
++static int __device_child_may_wakeup(struct device *dev, void *c)
++{
++	return device_may_wakeup(dev);
++}
++
++/**
++ * device_child_may_wakeup - Check if any of the child devices are wakeup
++ * sources.
++ * @dev: parent device to handle.
++ *
++ * Function to check if any of the children of a given parent are wakeup
++ * sources.
++ *
++ * This function will return true if any one of the children of given parent
++ * are wakeup sources, else it returns false.
++ */
++bool device_child_may_wakeup(struct device *parent)
++{
++	return device_for_each_child(parent, NULL, __device_child_may_wakeup);
++}
++EXPORT_SYMBOL_GPL(device_child_may_wakeup);
++
+ /*
+  * The functions below use the observation that each wakeup event starts a
+  * period in which the system should not be suspended.  The moment this period
+diff --git a/include/linux/pm_wakeup.h b/include/linux/pm_wakeup.h
+index a0f7080..b376584 100644
+--- a/include/linux/pm_wakeup.h
++++ b/include/linux/pm_wakeup.h
+@@ -93,6 +93,7 @@ extern int device_wakeup_disable(struct device *dev);
+ extern void device_set_wakeup_capable(struct device *dev, bool capable);
+ extern int device_init_wakeup(struct device *dev, bool val);
+ extern int device_set_wakeup_enable(struct device *dev, bool enable);
++bool device_child_may_wakeup(struct device *parent);
+ extern void __pm_stay_awake(struct wakeup_source *ws);
+ extern void pm_stay_awake(struct device *dev);
+ extern void __pm_relax(struct wakeup_source *ws);
+-- 
+1.7.6.5
 
-Let me know if there are any problems with that.
-
-Thank you,
-
-  Hannes
