@@ -1,59 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2] ss: avoid passing negative numbers to malloc
-Date: Tue, 12 Nov 2013 15:18:47 -0800
-Message-ID: <1384298327.28458.37.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131112185214.GA29913@amd64.fatal.se>
+From: Theodore Ts'o <tytso@mit.edu>
+Subject: Re: linux-next: manual merge of the random tree with the net-next
+ tree
+Date: Tue, 12 Nov 2013 18:24:55 -0500
+Message-ID: <20131112232455.GB1643@thunk.org>
+References: <20131112155549.c160273993147244ed6bc81d@canb.auug.org.au>
+ <5281ED01.5020204@redhat.com>
+ <20131112230242.GA1643@thunk.org>
+ <20131112.181717.2152470373264166279.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: Andreas Henriksson <andreas@fatal.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:54115 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756722Ab3KLXSs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 18:18:48 -0500
-Received: by mail-pa0-f52.google.com with SMTP id kl14so1715865pab.25
-        for <netdev@vger.kernel.org>; Tue, 12 Nov 2013 15:18:48 -0800 (PST)
-In-Reply-To: <20131112185214.GA29913@amd64.fatal.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: dborkman@redhat.com, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	hannes@stressinduktion.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131112.181717.2152470373264166279.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-11-12 at 19:52 +0100, Andreas Henriksson wrote:
-> Example:
+On Tue, Nov 12, 2013 at 06:17:17PM -0500, David Miller wrote:
+> > Agreed.  What's the schedule for pushing net-dev to Linus?  I'm
+> > currently at Korea Linux Forum, and I was originally planning on
+> > pushing random.git to Linus sometime today, but I'm also willing to
+> > wait for net-dev to go first.  Either way, we should make sure Linus
+> > is aware of the agreed-upon resolution of the merge conflict.
 > 
-> $ ss state established \( sport = :4060  or sport = :4061 or sport = :4062  or sport = :4063 or sport = :4064  or sport = :4065 or sport = :4066  or sport = :4067 \)  > /dev/null
-> Aborted
-> 
-> In the example above ssfilter_bytecompile(...) will return (int)136.
-> char l1 = 136; means -120 which will result in a negative number
-> being passed to malloc at misc/ss.c:913.
-> 
-> Simply declare l1 and l2 as intergers to avoid the char overflow.
-> 
-> This is one of the issues originally reported in http://bugs.debian.org/511720
-> 
-> Reported-by: Andreas Schuldei <andreas@debian.org>
-> Signed-off-by: Andreas Henriksson <andreas@fatal.se>
-> ---
->  misc/ss.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/misc/ss.c b/misc/ss.c
-> index c0369f1..db3a3a4 100644
-> --- a/misc/ss.c
-> +++ b/misc/ss.c
-> @@ -907,7 +907,8 @@ static int ssfilter_bytecompile(struct ssfilter *f, char **bytecode)
->  	}
->  		case SSF_OR:
->  	{
-> -		char *a1, *a2, *a, l1, l2;
-> +		char *a1, *a2, *a;
-> +		int l1, l2;
->  		l1 = ssfilter_bytecompile(f->pred, &a1);
->  		l2 = ssfilter_bytecompile(f->post, &a2);
->  		if (!(a = malloc(l1+l2+4))) abort();
+> Linus is going to pull it soon, I sent the pull request last night but
+> he was away from decent internet access at the time.
 
-Please fix the other cases (SSF_NOT and SSF_AND) ?
+Great, I'll wait for net-dev to show up in Linus's tree before I send
+the pull request for random.git.
 
-Thanks !
+Thanks,
+
+						- Ted
