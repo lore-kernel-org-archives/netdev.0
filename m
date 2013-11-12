@@ -1,13 +1,19 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net 1/2] tuntap: limit head length of skb allocated
-Date: Tue, 12 Nov 2013 18:02:56 +0800
-Message-ID: <1384250577-20330-1-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net 2/2] macvtap: limit head length of skb allocated
+Date: Tue, 12 Nov 2013 18:02:57 +0800
+Message-ID: <1384250577-20330-2-git-send-email-jasowang@redhat.com>
+References: <1384250577-20330-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, stefanha@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:5421 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754583Ab3KLKDL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Nov 2013 05:03:11 -0500
+In-Reply-To: <1384250577-20330-1-git-send-email-jasowang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 We currently use hdr_len as a hint of head length which is advertised by
 guest. But when guest advertise a very big value, it can lead to an 64K+
@@ -24,17 +30,17 @@ Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
 The patch was needed for stable.
 ---
- drivers/net/tun.c | 5 +++++
+ drivers/net/macvtap.c | 5 +++++
  1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 7cb105c..5537b65 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -954,6 +954,11 @@ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
- 	struct sock *sk = tfile->socket.sk;
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 9dccb1e..7ee6f9d 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -523,6 +523,11 @@ static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
+ 						int noblock, int *err)
+ {
  	struct sk_buff *skb;
- 	int err;
 +	int good_linear = SKB_MAX_HEAD(prepad);
 +
 +	/* Don't use huge linear part */
