@@ -1,52 +1,46 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: linux-next: manual merge of the random tree with the net-next
- tree
-Date: Tue, 12 Nov 2013 09:55:29 +0100
-Message-ID: <5281ED01.5020204@redhat.com>
-References: <20131112155549.c160273993147244ed6bc81d@canb.auug.org.au>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH net] neigh: Force garbage collection if an entry is deleted
+ administratively
+Date: Tue, 12 Nov 2013 09:57:14 +0100
+Message-ID: <20131112085714.GU31491@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Theodore Ts'o" <tytso@mit.edu>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20131112155549.c160273993147244ed6bc81d@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:48705 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751423Ab3KLI5R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Nov 2013 03:57:17 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+Since git commit 2724680 ("neigh: Keep neighbour cache entries if number
+of them is small enough."), we keep all neighbour cache entries if the
+number is below a threshold. But if we now delete an entry administratively
+and then try to replace this by a permanent one, we get -EEXIST because the
+old entry ist still in the table (in NUD_FAILED state).
 
-On 11/12/2013 05:55 AM, Stephen Rothwell wrote:
-> Hi Ted,
->
-> Today's linux-next merge of the random tree got a conflict in
-> drivers/char/random.c between commit 0244ad004a54 ("random32: add
-> prandom_reseed_late() and call when nonblocking pool becomes
-> initialized") from the net-next tree and commit 301f0595c0e7 ("random:
-> printk notifications for urandom pool initialization") from the random
-> tree.
->
-> I fixed it up (probably not properly - see below) and can carry the fix
-> as necessary (no action is required).
+So lets force a garbage collect if we delete an entry administratively.
 
-As per Hannes' suggestion, the result should look like (see cover
-letter in [1]):
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/core/neighbour.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-if (r->entropy_total > 128) {
-	r->initialized = 1;
-	r->entropy_total = 0;
-	if (r == &nonblocking_pool) {
-		prandom_reseed_late();
-		pr_notice("random: %s pool is initialized\n",
-			  r->name);
-	}
-}
-
-Cheers,
-
-Daniel
-
-  [1] http://thread.gmane.org/gmane.linux.network/290303
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 6072610..ec20880 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1659,6 +1659,8 @@ static int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 				   NEIGH_UPDATE_F_OVERRIDE |
+ 				   NEIGH_UPDATE_F_ADMIN);
+ 		neigh_release(neigh);
++
++		neigh_forced_gc(tbl);
+ 		goto out;
+ 	}
+ 	read_unlock(&neigh_tbl_lock);
+-- 
+1.7.9.5
