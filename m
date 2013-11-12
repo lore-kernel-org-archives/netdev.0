@@ -1,130 +1,119 @@
 From: <srinivas.kandagatla@st.com>
-Subject: [PATCH RFC 05/10] drivers: reset: stih416: add softreset controller
-Date: Tue, 12 Nov 2013 13:52:45 +0000
-Message-ID: <1384264365-7523-1-git-send-email-srinivas.kandagatla@st.com>
-References: <1384264311-7308-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: [PATCH RFC 00/10] ARM: STi: Add dwmac glue and reset controller
+Date: Tue, 12 Nov 2013 13:51:51 +0000
+Message-ID: <1384264311-7308-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, Len Brown <len.brown@intel.com>,
- Russell King <linux@arm.linux.org.uk>, Pavel Machek <pavel@ucw.cz>,
- Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
- Srinivas Kandagatla <srinivas.kandagatla@st.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-pm@vger.kernel.org,
- Stephen Warren <swarren@wwwdotorg.org>,
- "Rafael J. Wysocki" <rjw@rjwysocki.net>, stephen.gallimore@st.com,
- Rob Herring <rob.herring@calxeda.com>, linux-doc@vger.kernel.org,
- Stuart Menefy <stuart.menefy@st.com>, devicetree@vger.kernel.org,
- Rob Landley <rob@landley.net>, Grant Likely <grant.likely@linaro.org>,
- Giuseppe Cavallaro <peppe.cavallaro@st.com>, linux-kernel@vger.kernel.org,
- kernel@stlinux.com
+Content-Type: text/plain
+Cc: Rob Herring <rob.herring@calxeda.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Rob Landley <rob@landley.net>,
+	Russell King <linux@arm.linux.org.uk>,
+	Srinivas Kandagatla <srinivas.kandagatla@st.com>,
+	Stuart Menefy <stuart.menefy@st.com>,
+	Pavel Machek <pavel@ucw.cz>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Len Brown <len.brown@intel.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	<devicetree@vger.kernel.org>, <linux-doc@vger.kernel.org>,
+	<stephen.gallimore@st.com>, <linux-kernel@vger.kernel.org>,
+	<kernel@stlinux.com>, <linux-pm@vger.kernel.org>
 To: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1384264311-7308-1-git-send-email-srinivas.kandagatla@st.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Return-path: <linux-pm-owner@vger.kernel.org>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-This patch adds softreset controller for STiH416 SOC, soft reset
-controller is based on system configuration registers which are mapped
-via regmap. This reset controller does not have any feedback or
-acknowledgement. With this patch a new device "st,stih416-softreset" is
-registered with system configuration registers based reset controller
-that controls the softreset state of the hardware such as Ethernet, IRB.
+Hi All,
 
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
----
- arch/arm/boot/dts/stih416.dtsi                     |    5 ++++
- drivers/reset/sti/reset-stih416.c                  |   22 ++++++++++++++++++++
- .../dt-bindings/reset-controller/stih416-resets.h  |    4 +++
- 3 files changed, 31 insertions(+), 0 deletions(-)
+This patch series adds Ethernet support to STi series SOCs STiH415 and STiH416.
+STi SOC series integrates dwmac IP from synopsis, however there is a hardware
+glue on top of this standard IP, this glue needs to configured before the
+actual dwmac can be used.
+To add this a new driver dwmac-sti is introduced whose responsibility is to
+configure dwmac glue and before dwmac driver, this is achieved by making dwmac
+device node as child to ethernet glue node. Inspired by usb/dwc3.
+Also the glue needs to come out of softreset which is why we have added a
+softreset controller to driver which looked perfectly neat, rather then
+driving the softreset bit from the glue driver.
 
-diff --git a/arch/arm/boot/dts/stih416.dtsi b/arch/arm/boot/dts/stih416.dtsi
-index b8cabbb..a3831a3 100644
---- a/arch/arm/boot/dts/stih416.dtsi
-+++ b/arch/arm/boot/dts/stih416.dtsi
-@@ -32,6 +32,11 @@
- 			compatible = "st,stih416-powerdown";
- 		};
- 
-+		softreset: softreset-controller {
-+			#reset-cells = <1>;
-+			compatible = "st,stih416-softreset";
-+		};
-+
- 		syscfg_sbc:sbc-syscfg@fe600000{
- 			compatible	= "st,stih416-sbc-syscfg", "syscon";
- 			reg		= <0xfe600000 0x1000>;
-diff --git a/drivers/reset/sti/reset-stih416.c b/drivers/reset/sti/reset-stih416.c
-index 0becfc5..685fd3b 100644
---- a/drivers/reset/sti/reset-stih416.c
-+++ b/drivers/reset/sti/reset-stih416.c
-@@ -37,6 +37,10 @@ static const char stih416_lpm[] = "st,stih416-lpm-syscfg";
- #define SYSCFG_2525	0x834 /* Powerdown request USB/SATA/PCIe */
- #define SYSSTAT_2583	0x91c /* Powerdown status USB/SATA/PCIe */
- 
-+#define SYSCFG_1539	0x86c /* Softreset Ethernet 0 */
-+#define SYSCFG_510	0x7f8 /* Softreset Ethernet 1 */
-+#define LPM_SYSCFG_1	0x4 /* Softreset IRB */
-+
- static const struct syscfg_reset_channel_data stih416_powerdowns[] = {
- 	[STIH416_EMISS_POWERDOWN]	= STIH416_PDN_FRONT(0),
- 	[STIH416_NAND_POWERDOWN]	= STIH416_PDN_FRONT(1),
-@@ -51,15 +55,33 @@ static const struct syscfg_reset_channel_data stih416_powerdowns[] = {
- 	[STIH416_PCIE1_POWERDOWN]	= STIH416_PDN_REAR(5, 8),
- };
- 
-+static const struct syscfg_reset_channel_data stih416_softresets[] = {
-+	[STIH416_ETH0_SOFTRESET] = _SYSCFG_RST_CH_NO_ACK(stih416_front,
-+							SYSCFG_1539, 0),
-+	[STIH416_ETH1_SOFTRESET] = _SYSCFG_RST_CH_NO_ACK(stih416_sbc,
-+							SYSCFG_510, 0),
-+	[STIH416_IRB_SOFTRESET]	 = _SYSCFG_RST_CH_NO_ACK(stih416_lpm,
-+							LPM_SYSCFG_1, 6),
-+};
-+
- static struct syscfg_reset_controller_data stih416_powerdown_controller = {
- 	.wait_for_ack	= true,
- 	.nr_channels	= ARRAY_SIZE(stih416_powerdowns),
- 	.channels	= stih416_powerdowns,
- };
- 
-+static struct syscfg_reset_controller_data stih416_softreset_controller = {
-+	.wait_for_ack = false,
-+	.active_low = true,
-+	.nr_channels = ARRAY_SIZE(stih416_softresets),
-+	.channels = stih416_softresets,
-+};
-+
- static struct of_device_id stih416_reset_match[] = {
- 	{ .compatible = "st,stih416-powerdown",
- 	  .data = &stih416_powerdown_controller, },
-+	{ .compatible = "st,stih416-softreset",
-+	  .data = &stih416_softreset_controller, },
- 	{},
- };
- 
-diff --git a/include/dt-bindings/reset-controller/stih416-resets.h b/include/dt-bindings/reset-controller/stih416-resets.h
-index d7da55f..ee8ccd0 100644
---- a/include/dt-bindings/reset-controller/stih416-resets.h
-+++ b/include/dt-bindings/reset-controller/stih416-resets.h
-@@ -18,4 +18,8 @@
- #define STIH416_PCIE0_POWERDOWN		9
- #define STIH416_PCIE1_POWERDOWN		10
- 
-+#define STIH416_ETH0_SOFTRESET		0
-+#define STIH416_ETH1_SOFTRESET		1
-+#define STIH416_IRB_SOFTRESET		2
-+
- #endif /* _DT_BINDINGS_RESET_CONTROLLER_STIH416 */
+Also as part of power management in glue driver, I found that there was no
+function to determine if the child device is a wakeup source or not.
+I have added a new api device_child_may_wakeup API which could be useful for
+drivers like this. "PM / wakeup : Introduce device_child_may_wakeup" patch has
+that new API and "net: stmmac:sti: Add STi SOC glue driver." glue driver uses
+this new API.
+
+The reason for combining all these patches in a same series is because of
+dependencies.
+
+This patch series is tested on B2000 and B2020 boards with STiH415, STiH416
+SOC on ethernet 100/1000 Links.
+
+Comments?
+
+Thanks,
+srini
+
+Srinivas Kandagatla (6):
+  drivers: reset: stih415: add softreset controller
+  drivers: reset: stih416: add softreset controller
+  PM / wakeup : Introduce device_child_may_wakeup
+  net: stmmac:sti: Add STi SOC glue driver.
+  ARM: STi: Add STiH415 ethernet support.
+  ARM: STi: Add STiH416 ethernet support.
+
+Stephen Gallimore (4):
+  drivers: reset: STi SoC system configuration reset controller support
+  drivers: reset: Reset controller driver for STiH415
+  drivers: reset: Reset controller driver for STiH416
+  ARM: STi: Add reset controller support to mach-sti Kconfig
+
+ .../devicetree/bindings/net/sti-dwmac.txt          |   45 +++
+ .../devicetree/bindings/reset/st,sti-powerdown.txt |   46 +++
+ .../devicetree/bindings/reset/st,sti-softreset.txt |   45 +++
+ arch/arm/boot/dts/stih415-clock.dtsi               |   14 +
+ arch/arm/boot/dts/stih415-pinctrl.dtsi             |   82 ++++++
+ arch/arm/boot/dts/stih415.dtsi                     |   67 +++++
+ arch/arm/boot/dts/stih416-clock.dtsi               |   14 +
+ arch/arm/boot/dts/stih416-pinctrl.dtsi             |  106 +++++++
+ arch/arm/boot/dts/stih416.dtsi                     |   69 +++++
+ arch/arm/boot/dts/stih41x-b2000.dtsi               |   32 +++
+ arch/arm/boot/dts/stih41x-b2020.dtsi               |   33 +++
+ arch/arm/mach-sti/Kconfig                          |    3 +
+ drivers/base/power/wakeup.c                        |   23 ++
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |    1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    |  294 ++++++++++++++++++++
+ drivers/reset/Kconfig                              |    2 +
+ drivers/reset/Makefile                             |    3 +
+ drivers/reset/sti/Kconfig                          |   15 +
+ drivers/reset/sti/Makefile                         |    4 +
+ drivers/reset/sti/reset-stih415.c                  |   99 +++++++
+ drivers/reset/sti/reset-stih416.c                  |  101 +++++++
+ drivers/reset/sti/reset-syscfg.c                   |  186 ++++++++++++
+ drivers/reset/sti/reset-syscfg.h                   |   69 +++++
+ .../dt-bindings/reset-controller/stih415-resets.h  |   23 ++
+ .../dt-bindings/reset-controller/stih416-resets.h  |   25 ++
+ include/linux/pm_wakeup.h                          |    1 +
+ 26 files changed, 1402 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/sti-dwmac.txt
+ create mode 100644 Documentation/devicetree/bindings/reset/st,sti-powerdown.txt
+ create mode 100644 Documentation/devicetree/bindings/reset/st,sti-softreset.txt
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+ create mode 100644 drivers/reset/sti/Kconfig
+ create mode 100644 drivers/reset/sti/Makefile
+ create mode 100644 drivers/reset/sti/reset-stih415.c
+ create mode 100644 drivers/reset/sti/reset-stih416.c
+ create mode 100644 drivers/reset/sti/reset-syscfg.c
+ create mode 100644 drivers/reset/sti/reset-syscfg.h
+ create mode 100644 include/dt-bindings/reset-controller/stih415-resets.h
+ create mode 100644 include/dt-bindings/reset-controller/stih416-resets.h
+
 -- 
 1.7.6.5
+
