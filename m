@@ -1,51 +1,177 @@
-From: Isaku Yamahata <yamahatanetdev@gmail.com>
-Subject: Re: [PATCH net] core/dev: do not ignore dmac in dev_forward_skb()
-Date: Tue, 12 Nov 2013 14:25:31 +0900
-Message-ID: <20131112052531.GB22272@private.email.ne.jp>
-References: <1384206735-4226-1-git-send-email-ast@plumgrid.com>
- <CAHo-Ooz8aqwOH6HBbBK3AD2=odCQtDyuV8+GdA4SqOWEwX6WTA@mail.gmail.com>
- <CAMEtUuzmZd0RXO+=YhCW7OwfE1kvc2aA2K0gqXRN+LwS-O1f2w@mail.gmail.com>
+From: Jason Liu <r64343@freescale.com>
+Subject: [PATCH] ath6kl: sdio: fix system panic when doing wifi stress test
+Date: Tue, 12 Nov 2013 09:53:05 +0800
+Message-ID: <1384221185-8645-1-git-send-email-r64343@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>,
-	isaku.yamahata@gmail.com, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Linux NetDev <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	yamahatanetdev@gmail.com
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:44218 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751284Ab3KLF0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 00:26:07 -0500
-Received: by mail-pd0-f180.google.com with SMTP id v10so2240204pde.25
-        for <netdev@vger.kernel.org>; Mon, 11 Nov 2013 21:26:06 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAMEtUuzmZd0RXO+=YhCW7OwfE1kvc2aA2K0gqXRN+LwS-O1f2w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvalo@qca.qualcomm.com,
+ linux-wireless@vger.kernel.org, linville@tuxdriver.com,
+ linux-kernel@vger.kernel.org
+To: <linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 11, 2013 at 05:12:10PM -0800,
-Alexei Starovoitov <ast@plumgrid.com> wrote:
+When did the wifi iperf test, meet one following kernel panic:
+command: iperf -c $TARGET_IP -i 5 -t 50 -w 1M
 
-> On Mon, Nov 11, 2013 at 4:39 PM, Maciej =C5=BBenczykowski
-> <zenczykowski@gmail.com> wrote:
-> > Ack.
-> >
-> > I'm sure this breaks whatever the original commit was trying to 'fi=
-x',
-> > however it does so in a clearly incorrect manner by effectively
-> > disabling dst mac address filtering.
->=20
-> actually it doesn't break it. Isaku's testcase works for me.
+Unable to handle kernel paging request at virtual address 1a480000
+pgd = 80004000
+[1a480000] *pgd=00000000
+Internal error: Oops: 805 [#1] SMP ARM
+Modules linked in: ath6kl_sdio ath6kl_core [last unloaded: ath6kl_core]
+CPU: 0 PID: 1953 Comm: kworker/u4:0 Not tainted 3.10.9-1.0.0_alpha+dbf364b #1
+Workqueue: ath6kl ath6kl_sdio_write_async_work [ath6kl_sdio]
+task: dcc9a680 ti: dc9ae000 task.ti: dc9ae000
+PC is at v7_dma_clean_range+0x20/0x38
+LR is at dma_cache_maint_page+0x50/0x54
+pc : [<8001a6f8>]    lr : [<800170fc>]    psr: 20000093
+sp : dc9afcf8  ip : 8001a748  fp : 00000004
+r10: 00000000  r9 : 00000001  r8 : 00000000
+r7 : 00000001  r6 : 00000000  r5 : 80cb7000  r4 : 03f9a480
+r3 : 0000001f  r2 : 00000020  r1 : 1a480000  r0 : 1a480000
+Flags: nzCv  IRQs off  FIQs on  Mode SVC_32  ISA ARM  Segment kernel
+Control: 10c53c7d  Table: 6cc5004a  DAC: 00000015
+Process kworker/u4:0 (pid: 1953, stack limit = 0xdc9ae238)
+Stack: (0xdc9afcf8 to 0xdc9b0000)
+fce0:                                                       80c9b29c 00000000
+fd00: 00000000 80017134 8001a748 dc302ac0 00000000 00000000 dc454a00 80c12ed8
+fd20: dc115410 80017238 00000000 dc454a10 00000001 80017588 00000001 00000000
+fd40: 00000000 dc302ac0 dc9afe38 dc9afe68 00000004 80c12ed8 00000000 dc454a00
+fd60: 00000004 80436f88 00000000 00000000 00000600 0000ffff 0000000c 80c113c4
+fd80: 80c9b29c 00000001 00000004 dc115470 60000013 dc302ac0 dc46e000 dc302800
+fda0: dc9afe10 dc302b78 60000013 dc302ac0 dc46e000 00000035 dc46e5b0 80438c90
+fdc0: dc9afe10 dc302800 dc302800 dc9afe68 dc9afe38 80424cb4 00000005 dc9afe10
+fde0: dc9afe20 80424de8 dc9afe10 dc302800 dc46e910 80424e90 dc473c00 dc454f00
+fe00: 000001b5 7f619d64 dcc7c830 00000000 00000000 dc9afe38 dc9afe68 00000000
+fe20: 00000000 00000000 dc9afe28 dc9afe28 80424d80 00000000 00000035 9cac0034
+fe40: 00000000 00000000 00000000 00000000 000001b5 00000000 00000000 00000000
+fe60: dc9afe68 dc9afe10 3b9aca00 00000000 00000080 00000034 00000000 00000100
+fe80: 00000000 00000000 dc9afe10 00000004 dc454a00 00000000 dc46e010 dc46e96c
+fea0: dc46e000 dc46e964 00200200 00100100 dc46e910 7f619ec0 00000600 80c0e770
+fec0: dc15a900 dcc7c838 00000000 dc46e954 8042d434 dcc44680 dc46e954 dc004400
+fee0: dc454500 00000000 00000000 dc9ae038 dc004400 8003c450 dcc44680 dc004414
+ff00: dc46e954 dc454500 00000001 dcc44680 dc004414 dcc44698 dc9ae000 dc9ae030
+ff20: 00000001 dc9ae000 dc004400 8003d158 8003d020 00000000 00000000 80c53941
+ff40: dc9aff64 dcb71ea0 00000000 dcc44680 8003d020 00000000 00000000 00000000
+ff60: 00000000 80042480 00000000 00000000 000000f8 dcc44680 00000000 00000000
+ff80: dc9aff80 dc9aff80 00000000 00000000 dc9aff90 dc9aff90 dc9affac dcb71ea0
+ffa0: 800423cc 00000000 00000000 8000e018 00000000 00000000 00000000 00000000
+ffc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+ffe0: 00000000 00000000 00000000 00000000 00000013 00000000 00000000 00000000
+[<8001a6f8>] (v7_dma_clean_range+0x20/0x38) from [<800170fc>] (dma_cache_maint_page+0x50/0x54)
+[<800170fc>] (dma_cache_maint_page+0x50/0x54) from [<80017134>] (__dma_page_cpu_to_dev+0x34/0x9c)
+[<80017134>] (__dma_page_cpu_to_dev+0x34/0x9c) from [<80017238>] (arm_dma_map_page+0x64/0x68)
+[<80017238>] (arm_dma_map_page+0x64/0x68) from [<80017588>] (arm_dma_map_sg+0x7c/0xf4)
+[<80017588>] (arm_dma_map_sg+0x7c/0xf4) from [<80436f88>] (sdhci_send_command+0x894/0xe00)
+[<80436f88>] (sdhci_send_command+0x894/0xe00) from [<80438c90>] (sdhci_request+0xc0/0x1ec)
+[<80438c90>] (sdhci_request+0xc0/0x1ec) from [<80424cb4>] (mmc_start_request+0xb8/0xd4)
+[<80424cb4>] (mmc_start_request+0xb8/0xd4) from [<80424de8>] (__mmc_start_req+0x60/0x84)
+[<80424de8>] (__mmc_start_req+0x60/0x84) from [<80424e90>] (mmc_wait_for_req+0x10/0x20)
+[<80424e90>] (mmc_wait_for_req+0x10/0x20) from [<7f619d64>] (ath6kl_sdio_scat_rw.isra.10+0x1dc/0x240 [ath6kl_sdio])
+[<7f619d64>] (ath6kl_sdio_scat_rw.isra.10+0x1dc/0x240 [ath6kl_sdio]) from [<7f619ec0>] (ath6kl_sdio_write_async_work+0x5c/0x104 [ath6kl_sdio])
+[<7f619ec0>] (ath6kl_sdio_write_async_work+0x5c/0x104 [ath6kl_sdio]) from [<8003c450>] (process_one_work+0x10c/0x370)
+[<8003c450>] (process_one_work+0x10c/0x370) from [<8003d158>] (worker_thread+0x138/0x3fc)
+[<8003d158>] (worker_thread+0x138/0x3fc) from [<80042480>] (kthread+0xb4/0xb8)
+[<80042480>] (kthread+0xb4/0xb8) from [<8000e018>] (ret_from_fork+0x14/0x3c)
+Code: e1a02312 e2423001 e1c00003 f57ff04f (ee070f3a)
+---[ end trace 0c038f0b8e0b67a3 ]---
+Kernel panic - not syncing: Fatal exception
 
-The changeset of 963a88b31ddbbe99f38502239b1a46601773d217
-  "tunnels: harmonize cleanup done on skb on xmit path"
-addresses the issue by calling skb_scrub_packet() when sending skb
-through tunnel. So it is safe to revert it.
+The kernel panic is caused by the sg_buf is not set correctly with the
+following code when compiled with Yocto GCC 4.8.1:
 
-thanks,
---=20
-Isaku Yamahata <isaku.yamahata@gmail.com>
+drivers/net/wireless/ath/ath6kl/hif.h:
+struct hif_scatter_req {
+        struct list_head list;
+        /* address for the read/write operation */
+        u32 addr;
+	...
+
+        /* bounce buffer for upper layers to copy to/from */
+        u8 *virt_dma_buf;
+
+        struct hif_scatter_item scat_list[1];
+
+        u32 scat_q_depth;
+};
+
+(Note: the scat_req.scat_list[] will dynamiclly grow with run-time)
+
+drivers/net/wireless/ath/ath6kl/sdio.c: ath6kl_sdio_setup_scat_data(...)
+/* assemble SG list */
+for (i = 0; i < scat_req->scat_entries; i++, sg++) {
+	ath6kl_dbg(ATH6KL_DBG_SCATTER, "%d: addr:0x%p, len:%d\n",
+		   i, scat_req->scat_list[i].buf,
+		   scat_req->scat_list[i].len);
+
+	sg_set_buf(sg, scat_req->scat_list[i].buf,
+		   scat_req->scat_list[i].len);
+}
+
+The GCC 4.8.1 compiler will not do the for-loop till scat_entries, instead,
+it only run one round loop. This may be caused by that the GCC 4.8.1 thought
+that the scat_list only have one item and then no need to do full iteration,
+but this is simply wrong by looking at the assebly code. This will cause the
+sg buffer not get set when scat_entries > 1 and thus lead to kernel panic.
+
+This patch is a workaround to the GCC 4.8.1 complier issue by passing the
+entry address of the scat_req->scat_list to the for-loop and interate it,
+then, GCC 4.8.1 will do the full for-loop correctly.
+(Note: This issue not observed with GCC 4.7.2, only found on the GCC 4.8.1)
+
+This patch does not change any function logic and no any performance downgrade.
+
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Jason Liu <r64343@freescale.com>
+---
+ drivers/net/wireless/ath/ath6kl/sdio.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath6kl/sdio.c b/drivers/net/wireless/ath/ath6kl/sdio.c
+index 7126bdd..c31df7e 100644
+--- a/drivers/net/wireless/ath/ath6kl/sdio.c
++++ b/drivers/net/wireless/ath/ath6kl/sdio.c
+@@ -222,6 +222,7 @@ static void ath6kl_sdio_setup_scat_data(struct hif_scatter_req *scat_req,
+ 					struct mmc_data *data)
+ {
+ 	struct scatterlist *sg;
++	struct hif_scatter_item *scat_list;
+ 	int i;
+ 
+ 	data->blksz = HIF_MBOX_BLOCK_SIZE;
+@@ -240,14 +241,14 @@ static void ath6kl_sdio_setup_scat_data(struct hif_scatter_req *scat_req,
+ 	sg = scat_req->sgentries;
+ 	sg_init_table(sg, scat_req->scat_entries);
+ 
++	scat_list = &scat_req->scat_list[0];
++
+ 	/* assemble SG list */
+-	for (i = 0; i < scat_req->scat_entries; i++, sg++) {
++	for (i = 0; i < scat_req->scat_entries; i++, sg++, scat_list++) {
+ 		ath6kl_dbg(ATH6KL_DBG_SCATTER, "%d: addr:0x%p, len:%d\n",
+-			   i, scat_req->scat_list[i].buf,
+-			   scat_req->scat_list[i].len);
++			   i, scat_list->buf, scat_list->len);
+ 
+-		sg_set_buf(sg, scat_req->scat_list[i].buf,
+-			   scat_req->scat_list[i].len);
++		sg_set_buf(sg, scat_list->buf, scat_list->len);
+ 	}
+ 
+ 	/* set scatter-gather table for request */
+-- 
+1.7.10.4
