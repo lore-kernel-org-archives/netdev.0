@@ -1,90 +1,133 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
- burst.
-Date: Tue, 12 Nov 2013 11:08:34 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1311121051090.1200-100000@iolanthe.rowland.org>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B73FF@saturn3.aculab.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH] ipvs: Remove unused variable ret from
+	sync_thread_master()
+Date: Tue, 12 Nov 2013 17:21:36 +0100
+Message-ID: <20131112162136.GA29065@redhat.com>
+References: <1384264396-14550-1-git-send-email-geert@linux-m68k.org> <20131112141314.GQ5056@laptop.programming.kicks-ass.net> <AE90C24D6B3A694183C094C60CF0A2F6026B7405@saturn3.aculab.com> <20131112145243.GU5056@laptop.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B73FF-CgBM+Bx2aUAnGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Ingo Molnar <mingo@kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>, Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131112145243.GU5056@laptop.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 12 Nov 2013, David Laight wrote:
+On 11/12, Peter Zijlstra wrote:
+>
+> On Tue, Nov 12, 2013 at 02:21:39PM -0000, David Laight wrote:
+> > Shame there isn't a process flag to indicate that the process
+> > will sleep uninterruptibly and that it doesn't matter.
+> > So don't count to the load average and don't emit a warning
+> > if it has been sleeping for a long time.
+>
+> A process flag wouldn't work, because the task could block waiting for
+> actual work to complete in other sleeps.
+>
+> However, we could do something like the below; which would allow us
+> writing things like:
+>
+> 	(void)___wait_event(*sk_sleep(sk),
+> 			    sock_writeable(sk) || kthread_should_stop(),
+> 			    TASK_UNINTERRUPTIBLE | TASK_IDLE, 0, 0,
+> 			    schedule());
+>
+> Marking the one wait-for-more-work as TASK_IDLE such that it doesn't
+> contribute to the load avg.
 
-> > You're right.  I do wish the spec had been written more clearly.
-> 
-> I've read a lot of hardware specs in my time ...
-> 
-> > > Reading it all again makes me think that a LINK trb is only
-> > > allowed on the burst boundary (which might be 16k bytes).
-> > > The only real way to implement that is to ensure that TD never
-> > > contain LINK TRB.
-> > 
-> > That's one way to do it.  Or you could allow a Link TRB at an
-> > intermediate MBP boundary.
-> 
-> If all the fragments are larger than the MBP (assume 16k) then
-> that would be relatively easy. However that is very dependant
-> on the source of the data. It might be true for disk data, but
-> is unlikely to be true for ethernet data.
+Agreed, I thought about additional bit too.
 
-I don't quite understand your point.  Are you saying that if all the 
-TRBs are very short, you might need more than 64 TRBs to reach a 16-KB 
-boundary?
+>  static const char * const task_state_array[] = {
+> -	"R (running)",		/*   0 */
+> -	"S (sleeping)",		/*   1 */
+> -	"D (disk sleep)",	/*   2 */
+> -	"T (stopped)",		/*   4 */
+> -	"t (tracing stop)",	/*   8 */
+> -	"Z (zombie)",		/*  16 */
+> -	"X (dead)",		/*  32 */
+> -	"x (dead)",		/*  64 */
+> -	"K (wakekill)",		/* 128 */
+> -	"W (waking)",		/* 256 */
+> -	"P (parked)",		/* 512 */
+> +	"R (running)",		/*    0 */
+> +	"S (sleeping)",		/*    1 */
+> +	"D (disk sleep)",	/*    2 */
+> +	"T (stopped)",		/*    4 */
+> +	"t (tracing stop)",	/*    8 */
+> +	"Z (zombie)",		/*   16 */
+> +	"X (dead)",		/*   32 */
+> +	"x (dead)",		/*   64 */
+> +	"K (wakekill)",		/*  128 */
+> +	"W (waking)",		/*  256 */
+> +	"P (parked)",		/*  512 */
+> +	"I (idle)",		/* 1024 */
+>  };
 
-> For bulk data the link TRB can be forced at a packet boundary
-> by splitting the TD up - the receiving end won't know the difference.
+but I am not sure about what /proc/ should report in this case...
 
-That won't work.  What happens if you split a TD up into two pieces and 
-the first piece receives a short packet?  The host controller will 
-automatically move to the start of the second piece.  That's not what 
-we want.
+>  #define task_contributes_to_load(task)	\
+>  				((task->state & TASK_UNINTERRUPTIBLE) != 0 && \
+> -				 (task->flags & PF_FROZEN) == 0)
+> +				 (task->flags & PF_FROZEN) == 0 && \
+> +				 (task->state & TASK_IDLE) == 0)
 
-> > It comes down to a question of how often you want the controller to
-> > issue an interrupt.  If a ring segment is 4 KB (one page), then it can
-> > hold 256 TRBs.  With scatter-gather transfers, each SG element
-> > typically refers to something like a 2-page buffer (depends on how
-> > fragmented the memory is).  Therefore a ring segment will describe
-> > somewhere around 512 pages of data, i.e., something like 2 MB.  Since
-> > SuperSpeed is 500 MB/s, you'd end up getting in the vicinity of 250
-> > interrupts every second just because of ring segment crossings.
-> 
-> 250 interrupts/sec is noise. Send/receive 13000 ethernet packets/sec
-> and then look at the interrupt rate!
-> 
-> There is no necessity for taking an interrupt from every link segment.
+perhaps
 
-Yes, there is.  The HCD needs to know when the dequeue pointer has
-moved beyond the end of the ring segment, so that it can start reusing
-the TRB slots in that segment.
+	(task->state & (TASK_UNINTERRUPTIBLE | TASK_IDLE)) == TASK_UNINTERRUPTIBLE
 
-Suppose you have queued a bulk URB because there weren't enough free 
-TRB slots.  How else would you know when the occupied slots became 
-available?
+can save an insn.
 
-> The current ring segments contain 64 entries, a strange choice
-> since they are created with 2 segments.
-> (The ring expansion code soon doubles that for my ethernet traffic.)
-> 
-> I would change the code to use a single segment (for coding simplicity)
-> and queue bulk URB when there isn't enough ring space.
-> URB with too many fragments could either be rejected, sent in sections,
-> or partially linearised (and probably still sent in sections).
+I am also wondering if it makes any sense to turn PF_FROZEN into
+TASK_FROZEN, something like (incomplete, probably racy) patch below.
+Note that it actually adds the new state, not the the qualifier.
 
-Rejecting an URB is not feasible.  Splitting it up into multiple TDs is
-not acceptable, as explained above.  Sending it in sections (i.e.,
-queueing only some of the TRBs at any time) would work, provided you
-got at least two interrupts every time the queue wrapped around (which
-suggests you might want at least two ring segments).
+Oleg.
 
-Alan Stern
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- x/include/linux/freezer.h
++++ x/include/linux/freezer.h
+@@ -23,7 +23,7 @@ extern unsigned int freeze_timeout_msecs
+  */
+ static inline bool frozen(struct task_struct *p)
+ {
+-	return p->flags & PF_FROZEN;
++	return p->state & TASK_FROZEN;
+ }
+ 
+ extern bool freezing_slow_path(struct task_struct *p);
+--- x/kernel/freezer.c
++++ x/kernel/freezer.c
+@@ -57,16 +57,13 @@ bool __refrigerator(bool check_kthr_stop
+ 	pr_debug("%s entered refrigerator\n", current->comm);
+ 
+ 	for (;;) {
+-		set_current_state(TASK_UNINTERRUPTIBLE);
+-
+ 		spin_lock_irq(&freezer_lock);
+-		current->flags |= PF_FROZEN;
+-		if (!freezing(current) ||
+-		    (check_kthr_stop && kthread_should_stop()))
+-			current->flags &= ~PF_FROZEN;
++		if (freezing(current) &&
++		    !(check_kthr_stop && kthread_should_stop()))
++			set_current_state(TASK_FROZEN);
+ 		spin_unlock_irq(&freezer_lock);
+ 
+-		if (!(current->flags & PF_FROZEN))
++		if (!(current->state & TASK_FROZEN))
+ 			break;
+ 		was_frozen = true;
+ 		schedule();
+@@ -148,8 +145,7 @@ void __thaw_task(struct task_struct *p)
+ 	 * refrigerator.
+ 	 */
+ 	spin_lock_irqsave(&freezer_lock, flags);
+-	if (frozen(p))
+-		wake_up_process(p);
++	try_to_wake_up(p, TASK_FROZEN, 0);
+ 	spin_unlock_irqrestore(&freezer_lock, flags);
+ }
+ 
