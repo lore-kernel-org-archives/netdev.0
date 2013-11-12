@@ -1,239 +1,70 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: [PATCH net-next 4/4] virtio-net: auto-tune mergeable rx buffer size for improved performance
-Date: Tue, 12 Nov 2013 14:21:25 -0800
-Message-ID: <1384294885-6444-4-git-send-email-mwdalton@google.com>
-References: <1384294885-6444-1-git-send-email-mwdalton@google.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Eric Northup <digitaleric@google.com>,
-	virtualization@lists.linux-foundation.org,
-	Michael Dalton <mwdalton@google.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:35387 "EHLO
-	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757326Ab3KLWVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 17:21:52 -0500
-Received: by mail-ob0-f202.google.com with SMTP id gq1so1250394obb.3
-        for <netdev@vger.kernel.org>; Tue, 12 Nov 2013 14:21:52 -0800 (PST)
-In-Reply-To: <1384294885-6444-1-git-send-email-mwdalton@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: shutdown(3) and bluetooth.
+Date: Wed, 13 Nov 2013 07:32:09 +0900
+Message-ID: <FC5CE013-B077-4EA5-81C1-A7D8B4A5EF85@holtmann.org>
+References: <20131112211125.GA2912@redhat.com> <DF4C2B40-BD87-4E88-911D-E3E5F488CAE4@holtmann.org> <20131112221038.GA6689@redhat.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.0 \(1822\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org development"
+	<linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20131112221038.GA6689-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Commit 2613af0ed18a ("virtio_net: migrate mergeable rx buffers to page frag
-allocators") changed the mergeable receive buffer size from PAGE_SIZE to
-MTU-size, introducing a single-stream regression for benchmarks with large
-average packet size. There is no single optimal buffer size for all workloads.
-For workloads with packet size <= MTU bytes, MTU + virtio-net header-sized
-buffers are preferred as larger buffers reduce the TCP window due to SKB
-truesize. However, single-stream workloads with large average packet sizes
-have higher throughput if larger (e.g., PAGE_SIZE) buffers are used.
+Hi Dave,
 
-This commit auto-tunes the mergeable receiver buffer packet size by choosing
-the packet buffer size based on an EWMA of the recent packet sizes for the
-receive queue. Packet buffer sizes range from MTU_SIZE + virtio-net header
-len to PAGE_SIZE. This improves throughput for large packet workloads, as
-any workload with average packet size >= PAGE_SIZE will use PAGE_SIZE
-buffers.
+>>> Is shutdown() allowed to block indefinitely ? The man page doesn't say either way,
+>>> and I've noticed that my fuzz tester occasionally hangs for days spinning in bt_sock_wait_state()
+>>> 
+>>> Is there something I should be doing to guarantee that this operation
+>>> will either time out, or return instantly ?
+>>> 
+>>> In this specific case, I doubt anything is on the "sender" end of the socket, so
+>>> it's going to be waiting forever for a state change that won't arrive.
+>> 
+>> can you give us some extra information here. What kind of Bluetooth socket is this actually. From the top of my head, I have no idea why we would even wait forever. Normally when all low-level links are gone, the socket will shut down anyway.
+> 
+> Here's the info I found in the logs, it looks like this was the only bluetooth socket.
+> 
+> fd[195] = domain:31 (PF_BLUETOOTH) type:0x5 protocol:2
+> Setsockopt(1 d 2134000 8) on fd 195
 
-These optimizations interact positively with recent commit
-ba275241030c ("virtio-net: coalesce rx frags when possible during rx"),
-which coalesces adjacent RX SKB fragments in virtio_net. The coalescing
-optimizations benefit buffers of any size.
+this is a bit confusing. Protocol 2 is actually SCO, but the stack trace shows RFCOMM.
 
-Benchmarks taken from an average of 5 netperf 30-second TCP_STREAM runs
-between two QEMU VMs on a single physical machine. Each VM has two VCPUs
-with all offloads & vhost enabled. All VMs and vhost threads run in a
-single 4 CPU cgroup cpuset, using cgroups to ensure that other processes
-in the system will not be scheduled on the benchmark CPUs. Trunk includes
-SKB rx frag coalescing.
+> it doesn't look like any further operations were done on this fd during the fuzzers runtime.
+> 
+> Quick way to reproduce:
+> 
+> ./trinity -P PF_BLUETOOTH -l off -c setsockopt
+> 
+> let it run a few seconds, and then ctrl-c.  The main process will never exit.
+> 
+> 5814 pts/6    Ss     0:00              |       \_ bash
+> 5876 pts/6    S+     0:00              |       |   \_ ./trinity -P PF_BLUETOOTH -l off -c setsockopt
+> 5877 pts/6    Z+     0:00              |       |       \_ [trinity] <defunct>
+> 5878 pts/6    S+     0:01              |       |       \_ [trinity-main]
+> 
+> $ sudo cat /proc/5878/stack
+> [<ffffffffa04397a2>] bt_sock_wait_state+0xc2/0x190 [bluetooth]
+> [<ffffffffa0847a75>] rfcomm_sock_shutdown+0x85/0xb0 [rfcomm]
+> [<ffffffffa0847ad9>] rfcomm_sock_release+0x39/0xb0 [rfcomm]
+> [<ffffffff81532fcf>] sock_release+0x1f/0x80
+> [<ffffffff81533042>] sock_close+0x12/0x20
+> [<ffffffff811a9ac1>] __fput+0xe1/0x230
+> [<ffffffff811a9c5e>] ____fput+0xe/0x10
+> [<ffffffff8108534c>] task_work_run+0xbc/0xe0
+> [<ffffffff8106944c>] do_exit+0x2bc/0xa20
+> [<ffffffff81069c2f>] do_group_exit+0x3f/0xa0
+> [<ffffffff81069ca4>] SyS_exit_group+0x14/0x20
+> [<ffffffff81656b27>] tracesys+0xdd/0xe2
+> [<ffffffffffffffff>] 0xffffffffffffffff
 
-net-next trunk w/ virtio_net before 2613af0ed18a (PAGE_SIZE bufs): 14642.85Gb/s
-net-next trunk (MTU-size bufs):  13170.01Gb/s
-net-next trunk + auto-tune: 14555.94Gb/s
+What kernel did you run this against? It is a shot in the dark, but can you try linux-next quickly. There was a socket related fix for the socket options where we confused RFCOMM vs L2CAP struct sock.
 
-Signed-off-by: Michael Dalton <mwdalton@google.com>
----
- drivers/net/virtio_net.c | 73 +++++++++++++++++++++++++++++++++++-------------
- 1 file changed, 53 insertions(+), 20 deletions(-)
+Regards
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 0c93054..b1086e0 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -27,6 +27,7 @@
- #include <linux/if_vlan.h>
- #include <linux/slab.h>
- #include <linux/cpu.h>
-+#include <linux/average.h>
- 
- static int napi_weight = NAPI_POLL_WEIGHT;
- module_param(napi_weight, int, 0444);
-@@ -37,10 +38,8 @@ module_param(gso, bool, 0444);
- 
- /* FIXME: MTU in config. */
- #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
--#define MERGE_BUFFER_LEN (ALIGN(GOOD_PACKET_LEN + \
--                                sizeof(struct virtio_net_hdr_mrg_rxbuf), \
--                                L1_CACHE_BYTES))
- #define GOOD_COPY_LEN	128
-+#define RECEIVE_AVG_WEIGHT 64
- 
- #define VIRTNET_DRIVER_VERSION "1.0.0"
- 
-@@ -79,6 +78,9 @@ struct receive_queue {
- 	/* Chain pages by the private ptr. */
- 	struct page *pages;
- 
-+	/* Average packet length for mergeable receive buffers. */
-+	struct ewma mrg_avg_pkt_len;
-+
- 	/* Page frag for GFP_ATOMIC packet buffer allocation. */
- 	struct page_frag atomic_frag;
- 
-@@ -302,14 +304,17 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
- 	return skb;
- }
- 
--static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
-+static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb,
-+			     struct page *head_page)
- {
- 	struct skb_vnet_hdr *hdr = skb_vnet_hdr(head_skb);
- 	struct sk_buff *curr_skb = head_skb;
-+	struct page *page = head_page;
- 	char *buf;
--	struct page *page;
--	int num_buf, len, offset, truesize;
-+	int num_buf, len, offset;
-+	u32 est_buffer_len;
- 
-+	len = head_skb->len;
- 	num_buf = hdr->mhdr.num_buffers;
- 	while (--num_buf) {
- 		int num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
-@@ -320,7 +325,6 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
- 			head_skb->dev->stats.rx_length_errors++;
- 			return -EINVAL;
- 		}
--		truesize = max_t(int, len, MERGE_BUFFER_LEN);
- 		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
- 			struct sk_buff *nskb = alloc_skb(0, GFP_ATOMIC);
- 			if (unlikely(!nskb)) {
-@@ -338,20 +342,38 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
- 		if (curr_skb != head_skb) {
- 			head_skb->data_len += len;
- 			head_skb->len += len;
--			head_skb->truesize += truesize;
-+			head_skb->truesize += len;
- 		}
- 		page = virt_to_head_page(buf);
- 		offset = buf - (char *)page_address(page);
- 		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
- 			put_page(page);
- 			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
--					     len, truesize);
-+					     len, len);
- 		} else {
- 			skb_add_rx_frag(curr_skb, num_skb_frags, page,
--					offset, len, truesize);
-+					offset, len, len);
- 		}
- 		--rq->num;
- 	}
-+	/* All frags before the last frag are fully used -- for those frags,
-+	 * truesize = len. Use the size of the most recent buffer allocation
-+	 * from the last frag's page to estimate the truesize of the last frag.
-+	 * EWMA with a weight of 64 makes the size adjustments quite small in
-+	 * the frags allocated on one page (even a order-3 one), and truesize
-+	 * doesn't need to be 100% accurate.
-+	 */
-+	if (page) {
-+		est_buffer_len = page_private(page);
-+		if (est_buffer_len > len) {
-+			u32 truesize_delta = est_buffer_len - len;
-+
-+			curr_skb->truesize += truesize_delta;
-+			if (curr_skb != head_skb)
-+				head_skb->truesize += truesize_delta;
-+		}
-+	}
-+	ewma_add(&rq->mrg_avg_pkt_len, head_skb->len);
- 	return 0;
- }
- 
-@@ -382,16 +404,21 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 		skb_trim(skb, len);
- 	} else if (vi->mergeable_rx_bufs) {
- 		struct page *page = virt_to_head_page(buf);
--		int truesize = max_t(int, len, MERGE_BUFFER_LEN);
-+		/* Use an initial truesize of 'len' bytes for page_to_skb --
-+		 * receive_mergeable will fixup the truesize of the last page
-+		 * frag if the packet is non-linear (> GOOD_COPY_LEN bytes).
-+		 */
- 		skb = page_to_skb(rq, page,
- 				  (char *)buf - (char *)page_address(page),
--				  len, truesize);
-+				  len, len);
- 		if (unlikely(!skb)) {
- 			dev->stats.rx_dropped++;
- 			put_page(page);
- 			return;
- 		}
--		if (receive_mergeable(rq, skb)) {
-+		if (!skb_is_nonlinear(skb))
-+			page = NULL;
-+		if (receive_mergeable(rq, skb, page)) {
- 			dev_kfree_skb(skb);
- 			return;
- 		}
-@@ -540,24 +567,29 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
- static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
- {
- 	struct virtnet_info *vi = rq->vq->vdev->priv;
-+	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
- 	struct page_frag *alloc_frag;
- 	char *buf;
--	int err, len, hole;
-+	int err, hole;
-+	u32 buflen;
- 
-+	buflen = hdr_len + clamp_t(u32, ewma_read(&rq->mrg_avg_pkt_len),
-+				   GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
-+	buflen = ALIGN(buflen, L1_CACHE_BYTES);
- 	alloc_frag = (gfp & __GFP_WAIT) ? &vi->sleep_frag : &rq->atomic_frag;
--	if (unlikely(!skb_page_frag_refill(MERGE_BUFFER_LEN, alloc_frag, gfp)))
-+	if (unlikely(!skb_page_frag_refill(buflen, alloc_frag, gfp)))
- 		return -ENOMEM;
- 	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
- 	get_page(alloc_frag->page);
--	len = MERGE_BUFFER_LEN;
--	alloc_frag->offset += len;
-+	alloc_frag->offset += buflen;
-+	set_page_private(alloc_frag->page, buflen);
- 	hole = alloc_frag->size - alloc_frag->offset;
--	if (hole < MERGE_BUFFER_LEN) {
--		len += hole;
-+	if (hole < buflen) {
-+		buflen += hole;
- 		alloc_frag->offset += hole;
- 	}
- 
--	sg_init_one(rq->sg, buf, len);
-+	sg_init_one(rq->sg, buf, buflen);
- 	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
- 	if (err < 0)
- 		put_page(virt_to_head_page(buf));
-@@ -1475,6 +1507,7 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
- 			       napi_weight);
- 
- 		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
-+		ewma_init(&vi->rq[i].mrg_avg_pkt_len, 1, RECEIVE_AVG_WEIGHT);
- 		sg_init_table(vi->sq[i].sg, ARRAY_SIZE(vi->sq[i].sg));
- 	}
- 
--- 
-1.8.4.1
+Marcel
