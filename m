@@ -1,76 +1,65 @@
-From: Karl Beldan <karl.beldan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 3/6] random32: add prandom_reseed_late() and
- call when nonblocking pool becomes initialized
-Date: Tue, 12 Nov 2013 12:13:10 +0100
-Message-ID: <20131112111310.GA22775@magnum.frso.rivierawaves.com>
-References: <cover.1384160397.git.dborkman@redhat.com>
- <2ea03f60bb65429cbe5d74a6d356fde3eefcf06c.1384160397.git.dborkman@redhat.com>
- <20131111134357.GC10104@thunk.org>
- <20131112000307.GB14929@order.stressinduktion.org>
- <20131112003709.GA11824@gobelin>
- <1384245375.14301.1.camel@jlt4.sipsolutions.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net 1/2] tuntap: limit head length of skb allocated
+Date: Tue, 12 Nov 2013 13:20:09 +0200
+Message-ID: <20131112112008.GA28597@redhat.com>
+References: <1384250577-20330-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
-	Theodore Ts'o <tytso-3s7WtUTddSA@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	shemminger-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, fweimer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stefanha@redhat.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:4035 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751214Ab3KLLRP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Nov 2013 06:17:15 -0500
 Content-Disposition: inline
-In-Reply-To: <1384245375.14301.1.camel-8Nb76shvtaUJvtFkdXX2HixXY32XiHfO@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1384250577-20330-1-git-send-email-jasowang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 12, 2013 at 09:36:15AM +0100, Johannes Berg wrote:
-> On Tue, 2013-11-12 at 01:37 +0100, Karl Beldan wrote:
+On Tue, Nov 12, 2013 at 06:02:56PM +0800, Jason Wang wrote:
+> We currently use hdr_len as a hint of head length which is advertised by
+> guest. But when guest advertise a very big value, it can lead to an 64K+
+> allocating of kmalloc() which has a very high possibility of failure when host
+> memory is fragmented or under heavy stress. The huge hdr_len also reduce the
+> effect of zerocopy or even disable if a gso skb is linearized in guest.
 > 
-> > > > 1)  I'm pretty sure, but it would be good to get netdev confirmation,
-> > > > that the call to get_random_bytes() in
-> > > > net/mac80211/rc80211_minstrel.c's init_sample_table() can be replaced
-> > > > by calls to prandom_u32().
-> > > 
-> > > Would make sense. I added wireless-devel to confirm.
-> > > 
-> > > [...]
-> > > [    0.673260] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > [    0.674024] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > [    0.675012] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > [    0.676032] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > [    0.677020] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > [    0.678011] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > [    0.679011] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > [...]
-> > > 
-> > > In total 80 calls to get_random_bytes.
-> > > 
-> > 
-> > It is already 8 times what rc80211_minstrel_ht_init uses.
-> > If you could apply on top of:
-> > http://marc.info/?l=linux-wireless&m=138392850030987&w=2
-> > although Johannes has not yet agreed/applied this.
+> To solves those issues, this patch introduces an upper limit (PAGE_SIZE) of the
+> head, which guarantees an order 0 allocation each time.
 > 
-> I'll take the patch, I just wanted a more useful commit log :)
-> 
-The commit log still feels very right to me, but I don't want you to go
-grumpy ;) and will reword the log - Hannes, have you staged replacing
-get_random_bytes with prandom_u32 already or can I do it in a reworded
-v2 for minstrel ?
+> Cc: Stefan Hajnoczi <stefanha@redhat.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-> I guess if really needed I'll write that myself :(
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+> ---
+> The patch was needed for stable.
+> ---
+>  drivers/net/tun.c | 5 +++++
+>  1 file changed, 5 insertions(+)
 > 
-> Anyway, I can't comment on prandom_u32(), but it doesn't really have to
-> be all that random here, it's just sample tables for what order to try
-> things in. Technically that could even be static with some per-device
-> pertubation, I guess?
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 7cb105c..5537b65 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -954,6 +954,11 @@ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
+>  	struct sock *sk = tfile->socket.sk;
+>  	struct sk_buff *skb;
+>  	int err;
+> +	int good_linear = SKB_MAX_HEAD(prepad);
+> +
+> +	/* Don't use huge linear part */
+> +	if (linear > good_linear)
+> +		linear = good_linear;
+>  
+>  	/* Under a page?  Don't bother with paged skb. */
+>  	if (prepad + len < PAGE_SIZE || !linear)
+> -- 
+> 1.8.3.2
 > 
-The LFSR is way enough for minstrel, as for moving from prandom to
-handcrafted sample table, this will be another discussion I guess.
- 
-Karl
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
