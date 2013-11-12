@@ -1,53 +1,40 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net 2/2] macvtap: limit head length of skb allocated
-Date: Tue, 12 Nov 2013 18:02:57 +0800
-Message-ID: <1384250577-20330-2-git-send-email-jasowang@redhat.com>
-References: <1384250577-20330-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, stefanha@redhat.com
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: Handle new frag_list of frags GRO packets
+Date: Tue, 12 Nov 2013 10:12:36 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7400@saturn3.aculab.com>
+References: <20131104041108.GA22823@gondor.apana.org.au> <20131106013038.GA14894@gondor.apana.org.au> <20131106123900.GA20259@gondor.apana.org.au> <20131106133045.GA20931@gondor.apana.org.au> <20131106143927.GA21604@gondor.apana.org.au> <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com> <20131107004339.GA28156@gondor.apana.org.au> <20131107062234.GA31156@gondor.apana.org.au> <20131107070335.GA31638@gondor.apana.org.au> <20131107070647.GB31638@gondor.apana.org.au> <20131111185207.GA12277@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Ben Hutchings" <bhutchings@solarflare.com>,
+	"David Miller" <davem@davemloft.net>,
+	<christoph.paasch@uclouvain.be>, <netdev@vger.kernel.org>,
+	<hkchu@google.com>, <mwdalton@google.com>
+To: "Herbert Xu" <herbert@gondor.apana.org.au>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5421 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754583Ab3KLKDL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Nov 2013 05:03:11 -0500
-In-Reply-To: <1384250577-20330-1-git-send-email-jasowang@redhat.com>
+Received: from mx0.aculab.com ([213.249.233.131]:54819 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751946Ab3KLKPI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 05:15:08 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 31235-06 for <netdev@vger.kernel.org>;
+ Tue, 12 Nov 2013 10:15:04 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20131111185207.GA12277@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We currently use hdr_len as a hint of head length which is advertised by
-guest. But when guest advertise a very big value, it can lead to an 64K+
-allocating of kmalloc() which has a very high possibility of failure when host
-memory is fragmented or under heavy stress. The huge hdr_len also reduce the
-effect of zerocopy or even disable if a gso skb is linearized in guest.
+> Recently GRO started generating packets with frag_lists of frags.
+> This was not handled by GSO, thus leading to a crash.
 
-To solves those issues, this patch introduces an upper limit (PAGE_SIZE) of the
-head, which guarantees an order 0 allocation each time.
+Is the build_dma_sg() code in net/usb/usbnet.c correct?
+It creates a 'struct scatterlist' array for all the fragments
+in and skb.
 
-Cc: Stefan Hajnoczi <stefanha@redhat.com>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-The patch was needed for stable.
----
- drivers/net/macvtap.c | 5 +++++
- 1 file changed, 5 insertions(+)
+I'm not at clear of exactly how skb get put together.
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 9dccb1e..7ee6f9d 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -523,6 +523,11 @@ static inline struct sk_buff *macvtap_alloc_skb(struct sock *sk, size_t prepad,
- 						int noblock, int *err)
- {
- 	struct sk_buff *skb;
-+	int good_linear = SKB_MAX_HEAD(prepad);
-+
-+	/* Don't use huge linear part */
-+	if (linear > good_linear)
-+		linear = good_linear;
+	David
  
- 	/* Under a page?  Don't bother with paged skb. */
- 	if (prepad + len < PAGE_SIZE || !linear)
--- 
-1.8.3.2
