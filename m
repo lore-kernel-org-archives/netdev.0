@@ -1,51 +1,48 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
-Date: Tue, 12 Nov 2013 10:14:34 +0100
-Message-ID: <87a9hagex1.fsf@natisbad.org>
-References: <8761s0cqhh.fsf@natisbad.org>
-	<slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
-	<87y54u59zq.fsf@natisbad.org> <20131112083633.GB10318@1wt.eu>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: xen-netback regression in 3.10.18
+Date: Tue, 12 Nov 2013 09:27:06 +0000
+Message-ID: <1384248426.1883.16.camel@kazak.uk.xensource.com>
+References: <527B8465.6050901@citrix.com>
+	 <20131109.155705.1091114498622318881.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	stable@vger.kernel.org, edumazet@google.com
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <david.vrabel@citrix.com>, <netdev@vger.kernel.org>,
+	<stable@vger.kernel.org>, <paul.durrant@citrix.com>,
+	<wei.liu2@citrix.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20131112083633.GB10318@1wt.eu> (Willy Tarreau's message of "Tue,
-	12 Nov 2013 09:36:33 +0100")
+In-Reply-To: <20131109.155705.1091114498622318881.davem@davemloft.net>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Sat, 2013-11-09 at 15:57 -0500, David Miller wrote:
+> From: David Vrabel <david.vrabel@citrix.com>
+> Date: Thu, 7 Nov 2013 12:15:33 +0000
+> 
+> > 3.10.18 included 279f438e36c0 (xen-netback: Don't destroy the netdev
+> > until the vif is shut down) but this has a regression that was fixed by
+> > dc62ccaccfb1 (xen-netback: transition to CLOSED when removing a VIF)
+> > 
+> > dc62ccaccfb1 depends on ea732dff5cfa (xen-netback: Handle backend state
+> > transitions in a more robust way) which is also a bug fix for certain
+> > Windows frontend drivers and is thus also a stable candidate.
+> > 
+> > Dave can you ensure these two commits are tagged for the next 3.10.y
+> > stable release?
+> > 
+> >   ea732dff5cfa10789007bf4a5b935388a0bb2a8f
+> >   dc62ccaccfb139d9b04bbc5a2688a4402adbfab3
+> 
+> Ian already asked me to do this,
 
-Willy Tarreau <w@1wt.eu> writes:
+Sorry, bit of a race condition after Dave V and I spoke. Seems like I
+won by 3s ;-)
 
->> That been said, even if the driver is most probably not the only one to
->> blame here (considering the result of bisect and current thread on
->> netdev), I never managed to get the performance I have on my ReadyNAS
->> Duo v2 (i.e. 108MB/s for a file served by an Apache) with a mvneta-based
->> platform (RN102, RN104 or RN2120). Understanding why is on an already a
->> long todo list. 
->
-> Yes I found that your original numbers were already quite low,
+> and the commits are necessary for 3.11 -stable as well.
+> 
+> They've been queued up.
 
-Tests for the rgression were done w/ scp, and were hence limited by the
-crypto (16MB/s using arcfour128). But I also did some tests w/ a simple
-wget for a file served by Apache *before* the regression and I never got
-more than 60MB/s from what I recall. Can you beat that? 
+Thanks.
 
-> so it is also possible that you have a different problem (eg: faulty
-> switch or auto-negociation problem where the switch goes to half
-> duplex because the neta does not advertise nway or whatever) that is
-> emphasized by the latest changes
-
-Tested w/ back to back connections to the NAS from various hosts and
-through different switch. Never saturated the link.
-
-> I can confirm that I got this message from you on netdev so it should be OK
-> now.
-
-Good. Thanks for the info.
-
-a+
+Ian.
