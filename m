@@ -1,77 +1,65 @@
-From: Kamala R <kamala@aristanetworks.com>
-Subject: Re: IPv6: Blackhole route support partial ?
-Date: Tue, 12 Nov 2013 16:39:10 +0530
-Message-ID: <CAP8BHkG6=KuU9K7=sGsZftMDe58eTYByRu2DZ+j+KNqcfsOfAA@mail.gmail.com>
-References: <CAP8BHkGZ5EFxW4BNervKrOiEaQTNdSh9s2YOrFoexzQCOR=AqQ@mail.gmail.com>
-	<20131111203954.GB3043@order.stressinduktion.org>
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: FW: [REGRESSION] be2net: not work in 3.12
+Date: Tue, 12 Nov 2013 11:13:36 +0000
+Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C26A40D0D@CMEXMB1.ad.emulex.com>
+References: <20131112010807.GA6044@yanx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Kamala R <kamala@aristanetworks.com>, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131111203954.GB3043@order.stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Guo Chao (yan@linux.vnet.ibm.com)" <yan@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:55704 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751610Ab3KLLNi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 06:13:38 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+> -----Original Message-----
+> From: Guo Chao [mailto:yan@linux.vnet.ibm.com]
+> 
+> Hello:
+> 
+>   After commit 92bf14ab(be2net: refactor be_get_resources() code),
+> be2net is not working on a PowerPC machine.
+> 
+> [   72.653560] be2net 0001:01:00.0: Could not use PCIe error reporting
+> [   73.933727] be2net 0001:01:00.0: Max: txqs 8, rxqs 8, rss 7, eqs 0,
+> vfs 20
+> [   73.933794] be2net 0001:01:00.0: Max: uc-macs 64, mc-macs 64, vlans 8
+> [   73.933875] be2net 0001:01:00.0: MSIx enable failed
+> [   73.973728] be2net 0001:01:00.0: created 0 TX queue(s)
+> [   73.973795] be2net 0001:01:00.0: created -1 RSS queue(s) and 1
+> default RX queue
+> [   74.013735] be2net 0001:01:00.0: opcode 12-1 failed:status 3-11
+> [   74.013811] be2net 0001:01:00.0: queue_setup failed
+> [   74.013949] be2net 0001:01:00.0: Emulex OneConnect(Lancer)
+> initialization failed
+> [   74.014018] be2net: probe of 0001:01:00.0 failed with error -1
+> 
+> This change makes it work:
+> 
+> --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+> @@ -3187,6 +3187,8 @@ static void be_copy_nic_desc(struct be_resources
+> *res,
+>         res->max_rss_qs = le16_to_cpu(desc->rssq_count);
+> 	res->max_rx_qs = le16_to_cpu(desc->rq_count);
+> 	res->max_evt_qs = le16_to_cpu(desc->eq_count);
+> +       if (res->max_evt_qs == 0)
+> +               res->max_evt_qs = 8;
+> 	/* Clear flags that driver is not interested in */
+> 	res->if_cap_flags = le32_to_cpu(desc->cap_flags) &
+> 				BE_IF_CAP_FLAGS_WANT;
+> 
+> Looks like firmware returns corrupted value. Can you fall back all
+> limits to static ones if detected this?
 
-Sure, here it is.
+Could you report the old (working) FW version and the new (broken) FW version.
+This clearly seems like a FW bug and I think it should be fixed in FW rather than
+the driver.
 
---- linux-3.12/net/ipv6/route.c.orig    2013-11-12 16:23:46.000000000 +0530
-+++ linux-3.12/net/ipv6/route.c 2013-11-12 16:30:51.000000000 +0530
-@@ -1570,9 +1570,13 @@ int ip6_route_add(struct fib6_config *cf
-                switch (cfg->fc_type) {
-                case RTN_BLACKHOLE:
-                        rt->dst.error = -EINVAL;
-+                       rt->dst.input = dst_discard;
-+                       rt->dst.discard = dst_discard;
-                        break;
-                case RTN_PROHIBIT:
-                        rt->dst.error = -EACCES;
-+                       rt->dst.input = ip6_pkt_prohibit;
-+                       rt->dst.output = ip6_pkt_prohibit_out;
-                        break;
-                case RTN_THROW:
-                        rt->dst.error = -EAGAIN;
-
-Is this ok ?
-
-Regards,
-Kamala
-
-
-On Tue, Nov 12, 2013 at 2:09 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Hello!
->
-> On Mon, Nov 11, 2013 at 07:25:14PM +0530, Kamala R wrote:
->> On adding IPv6 blackhole routes, ICMP unreachable messages are being
->> sent back to source. According to the definition, packets destined to
->> a blackhole address must be dropped silently.
->
-> Yes, this is a bug.
->
->> I applied the patch submitted to the 3.7 kernel that indicates that it
->> supports blackhole and prohibit routes correctly. However, the patch
->> only sets the error code and route type correctly, so the show command
->> displays the appropriate output.
->>
->>
->> It seems to me that the input and output function pointers of the dst
->> variable, which determine packet processing, need to be set to
->> dst_discard. This would enable correct behaviour for blackhole routes.
->> Am I on the right path here ?
->
-> I think you are. ip6_pkt_discard is not the correct input/output
-> function for blackhole routes. In ip6_route_add simply set up the
-> function pointers in the switch instead to just initializing them to
-> ip6_pkt_discard. dst_discard is fine. Looks like prohibit rules are not
-> handled correctly either. They should go to ip6_pkt_prohibit. (Just look at
-> how the templates are initialized.)
->
-> Could you cook a patch?
->
-> Thanks,
->
->   Hannes
->
+thanks,
+-Sathya
