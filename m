@@ -1,87 +1,123 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the random tree with the net-next
- tree
-Date: Wed, 13 Nov 2013 07:46:57 +1100
-Message-ID: <20131113074657.287f83d9669c8144865a77b6@canb.auug.org.au>
-References: <20131112155549.c160273993147244ed6bc81d@canb.auug.org.au>
-	<5281ED01.5020204@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Fwd: Re: [PATCH v2 2/2] x86: add prefetching to do_csum]
+Date: Tue, 12 Nov 2013 15:59:16 -0500
+Message-ID: <20131112205916.GE19780@hmsreliant.think-freely.org>
+References: <1384220542.4771.23.camel@joe-AO722>
+ <20131112171239.GC19780@hmsreliant.think-freely.org>
+ <1384277615.3665.10.camel@joe-AO722>
+ <20131112195005.GD19780@hmsreliant.think-freely.org>
+ <1384288681.3665.22.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Wed__13_Nov_2013_07_46_57_+1100__r00taSe=7PqrdsY"
-Cc: "Theodore Ts'o" <tytso@mit.edu>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, Dave Jones <davej@redhat.com>,
+	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from haggis.pcug.org.au ([203.10.76.10]:37096 "EHLO
-	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756604Ab3KLUrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 15:47:08 -0500
-In-Reply-To: <5281ED01.5020204@redhat.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56480 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752280Ab3KLU7Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 15:59:25 -0500
+Content-Disposition: inline
+In-Reply-To: <1384288681.3665.22.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__13_Nov_2013_07_46_57_+1100__r00taSe=7PqrdsY
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Tue, Nov 12, 2013 at 12:38:01PM -0800, Joe Perches wrote:
+> On Tue, 2013-11-12 at 14:50 -0500, Neil Horman wrote:
+> > On Tue, Nov 12, 2013 at 09:33:35AM -0800, Joe Perches wrote:
+> > > On Tue, 2013-11-12 at 12:12 -0500, Neil Horman wrote:
+> []
+> > > > So, the numbers are correct now that I returned my hardware to its previous
+> > > > interrupt affinity state, but the trend seems to be the same (namely that there
+> > > > isn't a clear one).  We seem to find peak performance around a readahead of 2
+> > > > cachelines, but its very small (about 3%), and its inconsistent (larger set
+> > > > sizes fall to either side of that stride).  So I don't see it as a clear win.  I
+> > > > still think we should probably scrap the readahead for now, just take the perf
+> > > > bits, and revisit this when we can use the vector instructions or the
+> > > > independent carry chain instructions to improve this more consistently.
+> > > > 
+> > > > Thoughts
+> > > 
+> > > Perhaps a single prefetch, not of the first addr but of
+> > > the addr after PREFETCH_STRIDE would work best but only
+> > > if length is > PREFETCH_STRIDE.
+> > > 
+> > > I'd try:
+> > > 
+> > > 	if (len > PREFETCH_STRIDE)
+> > > 		prefetch(buf + PREFETCH_STRIDE);
+> > > 	while (count64) {
+> > > 		etc...
+> > > 	}
+> > > 
+> > > I still don't know how much that impacts very short lengths.
+> > > Can you please add a 20 byte length to your tests?
+> > Sure, I modified the code so that we only prefetched 2 cache lines ahead, but
+> > only if the overall length of the input buffer is more than 2 cache lines.
+> > Below are the results (all counts are the average of 1000000 iterations of the
+> > csum operation, as previous tests were, I just omitted that column).
+> > 
+> > len	set	cycles/byte	cycles/byte	improvement
+> > 		no prefetch	prefetch
+> > ===========================================================
+> > 20B	64MB	45.014989	44.402432	1.3%
+> > 20B	128MB	44.900317	46.146447	-2.7%
+> > 20B	256MB	45.303223	48.193623	-6.3%
+> > 20B	512MB	45.615301	44.486872	2.2%
+> []
+> > I'm still left thinking we should just abandon the prefetch at this point and
+> > keep the perf code until we have new instructions to help us with this further,
+> > unless you see something I dont.
+> 
+> I tend to agree but perhaps the 3% performance
+> increase with a prefetch for longer lengths is
+> actually significant and desirable.
+> 
+Maybe, but I worry that its not going to be consistent.  At least not with the
+cost of the extra comparison and jump.
 
-Hi Daniel,
+> It doesn't seem you've done the test I suggested
+> where prefetch is done only for
+> "len > PREFETCH_STRIDE".
+> 
+No, thats exactly what I did, I did this:
 
-On Tue, 12 Nov 2013 09:55:29 +0100 Daniel Borkmann <dborkman@redhat.com> wr=
-ote:
->
-> On 11/12/2013 05:55 AM, Stephen Rothwell wrote:
-> >
-> > Today's linux-next merge of the random tree got a conflict in
-> > drivers/char/random.c between commit 0244ad004a54 ("random32: add
-> > prandom_reseed_late() and call when nonblocking pool becomes
-> > initialized") from the net-next tree and commit 301f0595c0e7 ("random:
-> > printk notifications for urandom pool initialization") from the random
-> > tree.
-> >
-> > I fixed it up (probably not properly - see below) and can carry the fix
-> > as necessary (no action is required).
->=20
-> As per Hannes' suggestion, the result should look like (see cover
-> letter in [1]):
->=20
-> if (r->entropy_total > 128) {
-> 	r->initialized =3D 1;
-> 	r->entropy_total =3D 0;
-> 	if (r =3D=3D &nonblocking_pool) {
-> 		prandom_reseed_late();
-> 		pr_notice("random: %s pool is initialized\n",
-> 			  r->name);
-> 	}
-> }
+#define PREFETCH_STRIDE (cache_line_size() * 2)
 
-I will use that from today.  Thanks.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+...
 
---Signature=_Wed__13_Nov_2013_07_46_57_+1100__r00taSe=7PqrdsY
-Content-Type: application/pgp-signature
+if (len > PREFETCH_STRIDE)
+	prefecth(buf + PREFETCH_STRIDE)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+while (count64) {
+	...
 
-iQIcBAEBCAAGBQJSgpPGAAoJEMDTa8Ir7ZwVvyUP/iP6icK/bD8+o5JekeVpKc+i
-68aNrUUngmae6JPgobaeI5lYaDRGLuCHnANnZPAugN1PTyeHLUMWfdb/YJeprDAo
-1NA7Oohwoc5UP+7f3rsxPA2e0us0x7JLcEMzUH4vkmWx8JST1NfBKqlbwtc4tiHP
-UtxKvGMQzpI5lsJQK/gfEHRw5bS9j4uG98JbX1aHCGQv5eVU31AXF8dyKF1TZhXb
-w/NZcY/W6B5PwiiMeZBGxvHEvfQnI45XBieatDxmkjuhX8IzuOh4wKz4nsOD+YXJ
-WjJ1mnktGPR63b2ymRqGl4zhHMTZABTc0/BqcSYEiY3Cdd5CuVHcKGPuQPr2zpP4
-p7MSbr7uzdJJaTvi7E3EYd1itoomNVkqXrmsy7TE7UJLCRSIlnSoqV+kJtoy8HUE
-yqw/tSDM08a8wGjQesdb/MXIkUQE9wZfzElACFgNfZ+aZGw/rCMJib62EHlqpRMO
-eMNBQ74RObeSOL80dJo6kQUPxQ1+9V4CT0EQeZQgXTJ903sFulu5rucgXuvP/iH7
-K1EHM9c8JW41TvcM4+p+1arTA0vQ2jHN8eRfETLnJNtR0tUilWRftuq7YyabNONZ
-0J8FLB5glwEiub9uHgSUuX57opnh2JQ8ryywaO6wxbyHaTrJAwy62ojwF/xDKqGs
-IFEt4oz6MU2bW2bRhflp
-=Xf8o
------END PGP SIGNATURE-----
+> Is it ever useful to do a prefetch of the
+> address/data being accessed by the next
+> instruction?
+> 
+Doubtful, you need to prefetch the data far enough in advance that its loaded by
+the time you need to reference it.  Otherwise you wind up stalling the data
+pipeline while the load completes.  So unless you have really fast memory, the
+prefetch is effectively a no-op for the next access.  But the next cacheline
+ahead is good, as it prevents the stall there.  Any more than that though (from
+this testing), seems to again be a no-op as modern hardware automatically issues
+the prefetch because it notices the linear data access pattern.
 
---Signature=_Wed__13_Nov_2013_07_46_57_+1100__r00taSe=7PqrdsY--
+> Anyway, thanks for doing all the work.
+> 
+No worries, glad to do it.  Thanks for the review
+
+Ingo, what do you think, shall I submit the perf bits as a separate thread, or
+do you not want those any more?
+
+Regards
+Neil
+
+> Joe
+> 
+> 
