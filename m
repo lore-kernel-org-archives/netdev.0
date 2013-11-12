@@ -1,97 +1,44 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the random tree with the net-next tree
-Date: Tue, 12 Nov 2013 15:55:49 +1100
-Message-ID: <20131112155549.c160273993147244ed6bc81d@canb.auug.org.au>
+From: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCHv2.1] net: wireless: iwlwifi: remove minor dead code
+Date: Tue, 12 Nov 2013 07:24:04 +0200
+Message-ID: <5281BB74.50903@gmail.com>
+References: <1384110397-24386-1-git-send-email-mpn@google.com> <527FDB50.1050902@cogentembedded.com> <87iow080zv.fsf@mina86.com> <1384177312.14334.12.camel@jlt4.sipsolutions.net> <xa1tr4amwkrt.fsf@mina86.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__12_Nov_2013_15_55_49_+1100_sxF61Q2z/L/7tjR3"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: "Theodore Ts'o" <tytso@mit.edu>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Michal Nazarewicz <mina86-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <xa1tr4amwkrt.fsf-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__12_Nov_2013_15_55_49_+1100_sxF61Q2z/L/7tjR3
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-Hi Ted,
 
-Today's linux-next merge of the random tree got a conflict in
-drivers/char/random.c between commit 0244ad004a54 ("random32: add
-prandom_reseed_late() and call when nonblocking pool becomes
-initialized") from the net-next tree and commit 301f0595c0e7 ("random:
-printk notifications for urandom pool initialization") from the random
-tree.
+On 11/12/2013 02:01 AM, Michal Nazarewicz wrote:
+> inta is checked to be zero in a IRQ_NONE branch so afterwards it
+> cannot be zero as it is never modified.
+> 
+> Signed-off-by: Michal Nazarewicz <mina86-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>
+> ---
+>  drivers/net/wireless/iwlwifi/pcie/rx.c | 24 +++++++++---------------
+>  1 file changed, 9 insertions(+), 15 deletions(-)
+> 
+> On Mon, Nov 11 2013, Johannes Berg wrote:
+>> no signed-off-by
+> 
+> Sorry, fixed.  Interestingly, I did not forget about it in my first patch.
+> 
 
-I fixed it up (probably not properly - see below) and can carry the fix
-as necessary (no action is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/char/random.c
-index 4fe5609eeb72,cdf4cfb2da4d..000000000000
---- a/drivers/char/random.c
-+++ b/drivers/char/random.c
-@@@ -255,8 -255,12 +255,9 @@@
-  #include <linux/fips.h>
-  #include <linux/ptrace.h>
-  #include <linux/kmemcheck.h>
- +#include <linux/irq.h>
-+ #include <linux/workqueue.h>
- =20
- -#ifdef CONFIG_GENERIC_HARDIRQS
- -# include <linux/irq.h>
- -#endif
- -
-  #include <asm/processor.h>
-  #include <asm/uaccess.h>
-  #include <asm/irq.h>
-@@@ -601,12 -654,14 +651,16 @@@ retry
-  	if (cmpxchg(&r->entropy_count, orig, entropy_count) !=3D orig)
-  		goto retry;
- =20
-+ 	r->entropy_total +=3D nbits;
-  	if (!r->initialized && nbits > 0) {
-- 		r->entropy_total +=3D nbits;
-  		if (r->entropy_total > 128) {
-+ 			if (r =3D=3D &nonblocking_pool)
-+ 				pr_notice("random: %s pool is initialized\n",
-+ 					  r->name);
-  			r->initialized =3D 1;
- +			if (r =3D=3D &nonblocking_pool)
- +				prandom_reseed_late();
-+ 			r->entropy_total =3D 0;
-  		}
-  	}
- =20
-
---Signature=_Tue__12_Nov_2013_15_55_49_+1100_sxF61Q2z/L/7tjR3
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJSgbTZAAoJEMDTa8Ir7ZwVM6EP/jqWGOkXLehMTDq3k35DvAcC
-OG9bp4ifSD5JdYoqBaiFxE1L5cCMv8UONj8CYmRkkcCGK1t0Y6/MLxY6424lb7lA
-7ZMlOkOZ7bgu4E9xDOcYj9IJNhKKC740EoLvBVbjGdZ4tAGyx2IcUCdK8j38iV4r
-W0D5SZtgMWqBBgwhVwkcDNCjeOhLzhgPqBjQC9lDQJHbsTJ8963A4BM82ViiBY9Y
-MfpvG60ol/Kdxh2SZqpsNiBL0/Myx5cdka2Kj5vMdlB/Zq2f6NsirdgN05GsKUDf
-CBajnETNTZSifYIA9+11Vidz+ql1DwoQc6tZd0fNZpGU6hZ/lec/3fwT/TGTG8jc
-OQVG8Vju3E+4FgEujhSGzIhLF0gERwNsyNXadROrl6LfGBnkzpYoOgZE2/3CWAn7
-SDcc1Y2BTI6RM93O0s/ukMpKu6HaEXrbZ6o0jjn+6vs+EcCtM/rhkuw4INlPUwqD
-NEY46pFAhcLCoLO1OJgB0qz+JPGJH1xhHeahfOIngTiLUXr75xbYePKzfWXidyfJ
-DGZAPkPdBxoqyHkQbAmKaCse9Hx8wneBGLnORn/6kW6O/TBnsPgtwnf4vs7O8M8I
-Af8g0vfZndS4eyIaFmsb6uK83OPS7tzL1cfL14Wif76pHspG02Wt8ka3ZRUOrDD6
-8oOsGUf6NVhYUrGe7rgo
-=vFsE
------END PGP SIGNATURE-----
-
---Signature=_Tue__12_Nov_2013_15_55_49_+1100_sxF61Q2z/L/7tjR3--
+no worries - I picked it up in our internal tree.
+Thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
