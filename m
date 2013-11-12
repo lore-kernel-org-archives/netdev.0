@@ -1,44 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/4] virtio-net: use per-receive queue page
-	frag alloc for mergeable bufs
-Date: Tue, 12 Nov 2013 14:43:47 -0800
-Message-ID: <1384296227.28458.35.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1384294885-6444-1-git-send-email-mwdalton@google.com>
-	<1384294885-6444-3-git-send-email-mwdalton@google.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] net/7990: Make lance_private.name const
+Date: Tue, 12 Nov 2013 23:44:06 +0100
+Message-ID: <CAMuHMdVn6MFbXgdE_teYW10OfYBjyZsN7v2yTTAsKj0kXao7Hw@mail.gmail.com>
+References: <1384283649-10482-1-git-send-email-geert@linux-m68k.org>
+	<5282A5E1.9090501@cogentembedded.com>
+	<20131112.161253.601617211955537751.davem@davemloft.net>
+	<5282BC76.5050701@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Daniel Borkmann <dborkman@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Michael Dalton <mwdalton@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1384294885-6444-3-git-send-email-mwdalton@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Linux/m68k" <linux-m68k@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <5282BC76.5050701@cogentembedded.com>
+Sender: linux-m68k-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-11-12 at 14:21 -0800, Michael Dalton wrote:
-> The virtio-net driver currently uses netdev_alloc_frag() for GFP_ATOMIC
-> mergeable rx buffer allocations. This commit migrates virtio-net to use
-> per-receive queue page frags for GFP_ATOMIC allocation. This change unifies
-> mergeable rx buffer memory allocation, which now will use skb_refill_frag()
-> for both atomic and GFP-WAIT buffer allocations.
-> 
-> To address fragmentation concerns, if after buffer allocation there
-> is too little space left in the page frag to allocate a subsequent
-> buffer, the remaining space is added to the current allocated buffer
-> so that the remaining space can be used to store packet data.
-> 
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
-> ---
+On Wed, Nov 13, 2013 at 12:40 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> On 11/13/2013 12:12 AM, David Miller wrote:
+>
+>>>> @@ -100,7 +100,7 @@ struct lance_init_block {
+>>>>     */
+>>>>    struct lance_private
+>>>>    {
+>>>> -        char *name;
+>>>> +        const char *name;
+>
+>
+>>>     Indent with tab, not spaces, please.
+>
+>
+>> This whole file is %99 space indentation, you really can't blame
+>> Geert for this.
+>
+>
+>    It's never late to fix some.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+That would be a separate patch. Care to create and send it?
+
+> And remember about checkpatch.pl which was hardly content with the patch.
+
+Only because checkpatch looks at the _new_ lines, and doesn't compare the
+styles of the old and new lines.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
