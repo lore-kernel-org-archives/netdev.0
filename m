@@ -1,60 +1,49 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH -v2] ipvs: Remove unused variable ret from sync_thread_master()
-Date: Tue, 12 Nov 2013 15:34:24 +0100
-Message-ID: <1384266864-564-1-git-send-email-geert@linux-m68k.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Peter Zijlstra <peterz@infradead.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Ingo Molnar <mingo@kernel.org>, Julian Anastasov <ja@ssi.bg>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net] bonding: don't permit to use ARP monitoring in 802.3ad mode
+Date: Tue, 12 Nov 2013 15:37:40 +0100
+Message-ID: <1384267060-10851-1-git-send-email-vfalico@redhat.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from georges.telenet-ops.be ([195.130.137.68]:45136 "EHLO
-	georges.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754817Ab3KLOeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 09:34:31 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:2052 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752010Ab3KLOhI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Nov 2013 09:37:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net/netfilter/ipvs/ip_vs_sync.c: In function 'sync_thread_master':
-net/netfilter/ipvs/ip_vs_sync.c:1640:8: warning: unused variable 'ret' [-Wunused-variable]
+Currently the ARP monitoring is not supported with 802.3ad, and it's
+prohibited to use it via the module params.
 
-Commit 35a2af94c7ce7130ca292c68b1d27fcfdb648f6b ("sched/wait: Make the
-__wait_event*() interface more friendly") changed how the interruption
-state is returned. However, sync_thread_master() ignores this state,
-now causing a compile warning.
+However we still can set it afterwards via sysfs, cause we only check for
+*LB modes there.
 
-According to Julian Anastasov <ja@ssi.bg>, this behavior is OK:
+To fix this - add a check for 802.3ad mode in bonding_store_arp_interval.
 
-    "Yes, your patch looks ok to me. In the past we used ssleep() but IPVS
-     users were confused why IPVS threads increase the load average. So, we
-     switched to _interruptible calls and later the socket polling was
-     added."
-
-Document this, as requested by Peter Zijlstra, to avoid precious developers
-disappearing in this pitfall in the future.
-
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+CC: Jay Vosburgh <fubar@us.ibm.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
-v2: Document that sync_thread_master() ignores the interruption state,
+ drivers/net/bonding/bond_sysfs.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
- net/netfilter/ipvs/ip_vs_sync.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index f63c2388f38d..db801263ee9f 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1637,7 +1637,10 @@ static int sync_thread_master(void *data)
- 			continue;
- 		}
- 		while (ip_vs_send_sync_msg(tinfo->sock, sb->mesg) < 0) {
--			int ret = __wait_event_interruptible(*sk_sleep(sk),
-+			/* (Ab)use interruptible sleep to avoid increasing
-+			 * the load avg.
-+			 */
-+			__wait_event_interruptible(*sk_sleep(sk),
- 						   sock_writeable(sk) ||
- 						   kthread_should_stop());
- 			if (unlikely(kthread_should_stop()))
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index c29b836..e386d6b 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -587,8 +587,9 @@ static ssize_t bonding_store_arp_interval(struct device *d,
+ 		goto out;
+ 	}
+ 	if (bond->params.mode == BOND_MODE_ALB ||
+-	    bond->params.mode == BOND_MODE_TLB) {
+-		pr_info("%s: ARP monitoring cannot be used with ALB/TLB. Only MII monitoring is supported on %s.\n",
++	    bond->params.mode == BOND_MODE_TLB ||
++	    bond->params.mode == BOND_MODE_8023AD) {
++		pr_info("%s: ARP monitoring cannot be used with ALB/TLB/802.3ad. Only MII monitoring is supported on %s.\n",
+ 			bond->dev->name, bond->dev->name);
+ 		ret = -EINVAL;
+ 		goto out;
 -- 
-1.7.9.5
+1.8.4
