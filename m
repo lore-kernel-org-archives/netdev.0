@@ -1,7 +1,7 @@
 From: <srinivas.kandagatla@st.com>
-Subject: [PATCH RFC 02/10] drivers: reset: Reset controller driver for STiH415
-Date: Tue, 12 Nov 2013 13:52:26 +0000
-Message-ID: <1384264346-7397-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: [PATCH RFC 10/10] ARM: STi: Add STiH416 ethernet support.
+Date: Tue, 12 Nov 2013 13:53:15 +0000
+Message-ID: <1384264395-7738-1-git-send-email-srinivas.kandagatla@st.com>
 References: <1384264311-7308-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -24,238 +24,245 @@ Cc: Rob Herring <rob.herring@calxeda.com>,
 	<linux-kernel@vger.kernel.org>, <kernel@stlinux.com>,
 	<linux-pm@vger.kernel.org>
 To: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
-Return-path: <linux-pm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:47628 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755272Ab3KLNyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 08:54:33 -0500
 In-Reply-To: <1384264311-7308-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Gallimore <stephen.gallimore@st.com>
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-This patch adds a reset controller platform driver for the STiH415
-SoC. This initial version provides a compatible driver for the
-"st,stih415-powerdown" device, which registers a system configuration
-register based reset controller that controls the powerdown state of
-hardware such as the on-chip USB host controllers.
+This patch adds support to STiH416 SOC, which has two ethernet
+snps,dwmac controllers version 3.710. With this patch B2000 and B2020
+boards can boot with ethernet in MII and RGMII modes.
 
-Signed-off-by: Stephen Gallimore <stephen.gallimore@st.com>
+Tested on both B2020 and B2000.
+
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 ---
- .../devicetree/bindings/reset/st,sti-powerdown.txt |   46 ++++++++++++
- arch/arm/boot/dts/stih415.dtsi                     |    6 ++
- drivers/reset/sti/Kconfig                          |    4 +
- drivers/reset/sti/Makefile                         |    3 +
- drivers/reset/sti/reset-stih415.c                  |   77 ++++++++++++++++++++
- .../dt-bindings/reset-controller/stih415-resets.h  |   19 +++++
- 6 files changed, 155 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/reset/st,sti-powerdown.txt
- create mode 100644 drivers/reset/sti/reset-stih415.c
- create mode 100644 include/dt-bindings/reset-controller/stih415-resets.h
+ arch/arm/boot/dts/stih416-clock.dtsi   |   14 ++++
+ arch/arm/boot/dts/stih416-pinctrl.dtsi |  106 ++++++++++++++++++++++++++++++++
+ arch/arm/boot/dts/stih416.dtsi         |   58 +++++++++++++++++
+ 3 files changed, 178 insertions(+), 0 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/reset/st,sti-powerdown.txt b/Documentation/devicetree/bindings/reset/st,sti-powerdown.txt
-new file mode 100644
-index 0000000..23a808c
---- /dev/null
-+++ b/Documentation/devicetree/bindings/reset/st,sti-powerdown.txt
-@@ -0,0 +1,46 @@
-+STMicroelectronics STi family Sysconfig Peripheral Powerdown Reset Controller
-+=============================================================================
+diff --git a/arch/arm/boot/dts/stih416-clock.dtsi b/arch/arm/boot/dts/stih416-clock.dtsi
+index 7026bf1..a6942c7 100644
+--- a/arch/arm/boot/dts/stih416-clock.dtsi
++++ b/arch/arm/boot/dts/stih416-clock.dtsi
+@@ -37,5 +37,19 @@
+ 			clock-frequency = <100000000>;
+ 			clock-output-names = "CLK_S_ICN_REG_0";
+ 		};
 +
-+This binding describes a reset controller device that is used to enable and
-+disable on-chip peripheral controllers such as USB and SATA, using
-+"powerdown" control bits found in the STi family SoC system configuration
-+registers. These have been grouped together into a single reset controller
-+device for convenience.
-+
-+The actual action taken when powerdown is asserted is hardware dependent.
-+However, when asserted it may not be possible to access the hardware's
-+registers and after an assert/deassert sequence the hardware's previous state
-+may no longer be valid.
-+
-+Please refer to reset.txt in this directory for common reset
-+controller binding usage.
-+
-+Required properties:
-+- compatible: Should be "st,<chip>-powerdown"
-+- #reset-cells: 1, see below
-+
-+example:
-+
-+	powerdown: powerdown-controller {
-+		#reset-cells = <1>;
-+		compatible = "st,stih415-powerdown";
-+	};
-+
-+
-+Specifying powerdown control of devices
-+=======================================
-+
-+Device nodes should specify the reset channel required in their "resets"
-+property, containing a phandle to the powerdown device node and an
-+index specifying which channel to use, as described in reset.txt
-+
-+example:
-+
-+	usb1: usb@fe200000 {
-+		resets	= <&powerdown STIH41X_USB1_POWERDOWN>;
-+	};
-+
-+Macro definitions for the supported reset channels can be found in:
-+
-+include/dt-bindings/reset-controller/stih415-resets.h
-+include/dt-bindings/reset-controller/stih416-resets.h
-diff --git a/arch/arm/boot/dts/stih415.dtsi b/arch/arm/boot/dts/stih415.dtsi
-index 74ab8de..09379a6b 100644
---- a/arch/arm/boot/dts/stih415.dtsi
-+++ b/arch/arm/boot/dts/stih415.dtsi
-@@ -9,6 +9,7 @@
- #include "stih41x.dtsi"
- #include "stih415-clock.dtsi"
- #include "stih415-pinctrl.dtsi"
-+#include <dt-bindings/reset-controller/stih415-resets.h>
- / {
- 
- 	L2: cache-controller {
-@@ -27,6 +28,11 @@
- 		ranges;
- 		compatible	= "simple-bus";
- 
-+		powerdown: powerdown-controller {
-+			#reset-cells = <1>;
-+			compatible = "st,stih415-powerdown";
++		CLK_S_GMAC0_PHY: clockgenA1@7 {
++			#clock-cells = <0>;
++			compatible = "fixed-clock";
++			clock-frequency = <25000000>;
++			clock-output-names = "CLK_S_GMAC0_PHY";
 +		};
 +
- 		syscfg_sbc: sbc-syscfg@fe600000{
- 			compatible      = "st,stih415-sbc-syscfg", "syscon";
- 			reg		= <0xfe600000 0xb4>;
-diff --git a/drivers/reset/sti/Kconfig b/drivers/reset/sti/Kconfig
-index ba13796..ef6654a 100644
---- a/drivers/reset/sti/Kconfig
-+++ b/drivers/reset/sti/Kconfig
-@@ -4,4 +4,8 @@ config STI_RESET_SYSCFG
- 	bool
- 	select RESET_CONTROLLER
++		CLK_S_ETH1_PHY: clockgenA0@7 {
++			#clock-cells = <0>;
++			compatible = "fixed-clock";
++			clock-frequency = <25000000>;
++			clock-output-names = "CLK_S_ETH1_PHY";
++		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/stih416-pinctrl.dtsi b/arch/arm/boot/dts/stih416-pinctrl.dtsi
+index 0f246c9..216754f 100644
+--- a/arch/arm/boot/dts/stih416-pinctrl.dtsi
++++ b/arch/arm/boot/dts/stih416-pinctrl.dtsi
+@@ -97,6 +97,59 @@
+ 					};
+ 				};
+ 			};
++
++			gmac1 {
++				pinctrl_mii1: mii1 {
++					st,pins {
++						txd0 = <&PIO0 0 ALT1 OUT SE_NICLK_IO 0 CLK_A>;
++						txd1 = <&PIO0 1 ALT1 OUT SE_NICLK_IO 0 CLK_A>;
++						txd2 = <&PIO0 2 ALT1 OUT SE_NICLK_IO 0 CLK_A>;
++						txd3 = <&PIO0 3 ALT1 OUT SE_NICLK_IO 0 CLK_A>;
++						txer = <&PIO0 4 ALT1 OUT SE_NICLK_IO 0 CLK_A>;
++						txen = <&PIO0 5 ALT1 OUT SE_NICLK_IO 0 CLK_A>;
++						txclk = <&PIO0 6 ALT1 IN NICLK 0 CLK_A>;
++						col =   <&PIO0 7 ALT1 IN BYPASS 1000>;
++
++						mdio =  <&PIO1 0 ALT1 OUT BYPASS 1500>;
++						mdc =   <&PIO1 1 ALT1 OUT NICLK 0 CLK_A>;
++						crs =   <&PIO1 2 ALT1 IN BYPASS 1000>;
++						mdint = <&PIO1 3 ALT1 IN BYPASS 0>;
++						rxd0 =  <&PIO1 4 ALT1 IN SE_NICLK_IO 0 CLK_A>;
++						rxd1 =  <&PIO1 5 ALT1 IN SE_NICLK_IO 0 CLK_A>;
++						rxd2 =  <&PIO1 6 ALT1 IN SE_NICLK_IO 0 CLK_A>;
++						rxd3 =  <&PIO1 7 ALT1 IN SE_NICLK_IO 0 CLK_A>;
++
++						rxdv =  <&PIO2 0 ALT1 IN SE_NICLK_IO 0 CLK_A>;
++						rx_er = <&PIO2 1 ALT1 IN SE_NICLK_IO 0 CLK_A>;
++						rxclk = <&PIO2 2 ALT1 IN NICLK 0 CLK_A>;
++					 	phyclk = <&PIO2 3 ALT1 OUT NICLK 0 CLK_A>;
++					};
++				};
++				pinctrl_rgmii1: rgmii1-0 {
++					st,pins {
++						txd0 =  <&PIO0 0 ALT1 OUT DE_IO 500 CLK_A>;
++						txd1 =  <&PIO0 1 ALT1 OUT DE_IO 500 CLK_A>;
++						txd2 =  <&PIO0 2 ALT1 OUT DE_IO 500 CLK_A>;
++						txd3 =  <&PIO0 3 ALT1 OUT DE_IO 500 CLK_A>;
++						txen =  <&PIO0 5 ALT1 OUT DE_IO 0   CLK_A>;
++						txclk = <&PIO0 6 ALT1 IN  NICLK 0   CLK_A>;
++
++						mdio = <&PIO1 0 ALT1 OUT BYPASS 0>;
++						mdc  = <&PIO1 1 ALT1 OUT NICLK  0 CLK_A>;
++						rxd0 = <&PIO1 4 ALT1 IN DE_IO 500 CLK_A>;
++						rxd1 = <&PIO1 5 ALT1 IN DE_IO 500 CLK_A>;
++						rxd2 = <&PIO1 6 ALT1 IN DE_IO 500 CLK_A>;
++						rxd3 = <&PIO1 7 ALT1 IN DE_IO 500 CLK_A>;
++
++						rxdv   = <&PIO2 0 ALT1 IN  DE_IO 500 CLK_A>;
++						rxclk  = <&PIO2 2 ALT1 IN  NICLK 0   CLK_A>;
++						phyclk = <&PIO2 3 ALT4 OUT NICLK 0   CLK_B>;
++
++						clk125= <&PIO3 7 ALT4 IN NICLK 0 CLK_A>;
++					};
++				};
++			};
++
+ 		};
  
-+config STIH415_RESET
-+	bool
-+	select STI_RESET_SYSCFG
+ 		pin-controller-front {
+@@ -230,6 +283,59 @@
+ 					};
+ 				};
+ 			};
 +
- endif
-diff --git a/drivers/reset/sti/Makefile b/drivers/reset/sti/Makefile
-index c4a51d9..fce4433 100644
---- a/drivers/reset/sti/Makefile
-+++ b/drivers/reset/sti/Makefile
-@@ -1 +1,4 @@
- obj-$(CONFIG_STI_RESET_SYSCFG) += reset-syscfg.o
++			gmac0 {
++				pinctrl_mii0: mii0 {
++					st,pins {
++						mdint = <&PIO13 6 ALT2 IN  BYPASS      0>;
++						txen =  <&PIO13 7 ALT2 OUT SE_NICLK_IO 0 CLK_A>;
++						txd0 =  <&PIO14 0 ALT2 OUT SE_NICLK_IO 0 CLK_A>;
++						txd1 =  <&PIO14 1 ALT2 OUT SE_NICLK_IO 0 CLK_A>;
++						txd2 =  <&PIO14 2 ALT2 OUT SE_NICLK_IO 0 CLK_B>;
++						txd3 =  <&PIO14 3 ALT2 OUT SE_NICLK_IO 0 CLK_B>;
 +
-+# SoC specific reset devices
-+obj-$(CONFIG_STIH415_RESET) += reset-stih415.o
-diff --git a/drivers/reset/sti/reset-stih415.c b/drivers/reset/sti/reset-stih415.c
-new file mode 100644
-index 0000000..56c2146
---- /dev/null
-+++ b/drivers/reset/sti/reset-stih415.c
-@@ -0,0 +1,77 @@
-+/*
-+ * Copyright (C) 2013 STMicroelectronics (R&D) Limited
-+ * Author: Stephen Gallimore <stephen.gallimore@st.com>
-+ * Author: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+#include <linux/module.h>
-+#include <linux/of.h>
-+#include <linux/of_platform.h>
-+#include <linux/platform_device.h>
++						txclk = <&PIO15 0 ALT2 IN  NICLK       0 CLK_A>;
++						txer =  <&PIO15 1 ALT2 OUT SE_NICLK_IO 0 CLK_A>;
++						crs = <&PIO15 2 ALT2 IN  BYPASS 1000>;
++						col = <&PIO15 3 ALT2 IN  BYPASS 1000>;
++						mdio= <&PIO15 4 ALT2 OUT BYPASS 1500>;
++						mdc = <&PIO15 5 ALT2 OUT NICLK  0    CLK_B>;
 +
-+#include <dt-bindings/reset-controller/stih415-resets.h>
++						rxd0 =  <&PIO16 0 ALT2 IN SE_NICLK_IO 0 CLK_A>;
++						rxd1 =  <&PIO16 1 ALT2 IN SE_NICLK_IO 0 CLK_A>;
++						rxd2 =  <&PIO16 2 ALT2 IN SE_NICLK_IO 0 CLK_A>;
++						rxd3 =  <&PIO16 3 ALT2 IN SE_NICLK_IO 0 CLK_A>;
++						rxdv =  <&PIO15 6 ALT2 IN SE_NICLK_IO 0 CLK_A>;
++						rx_er = <&PIO15 7 ALT2 IN SE_NICLK_IO 0 CLK_A>;
++						rxclk = <&PIO17 0 ALT2 IN NICLK 0 CLK_A>;
++					 	phyclk = <&PIO13 5 ALT2 OUT NICLK 0 CLK_B>;
++					};
++				};
 +
-+#include "reset-syscfg.h"
++				pinctrl_rgmii0: rgmii0 {
++					st,pins {
++						 phyclk = <&PIO13  5 ALT4 OUT NICLK 0 CLK_B>;
++						 txen = <&PIO13 7 ALT2 OUT DE_IO 0 CLK_A>;
++						 txd0  = <&PIO14 0 ALT2 OUT DE_IO 500 CLK_A>;
++						 txd1  = <&PIO14 1 ALT2 OUT DE_IO 500 CLK_A>;
++						 txd2  = <&PIO14 2 ALT2 OUT DE_IO 500 CLK_B>;
++						 txd3  = <&PIO14 3 ALT2 OUT DE_IO 500 CLK_B>;
++						 txclk = <&PIO15 0 ALT2 IN NICLK 0 CLK_A>;
 +
-+/*
-+ * STiH415 Peripheral powerdown definitions.
-+ */
-+static const char stih415_front[] = "st,stih415-front-syscfg";
-+static const char stih415_rear[] = "st,stih415-rear-syscfg";
-+static const char stih415_sbc[] = "st,stih415-sbc-syscfg";
-+static const char stih415_lpm[] = "st,stih415-lpm-syscfg";
++						 mdio = <&PIO15 4 ALT2 OUT BYPASS 0>;
++						 mdc = <&PIO15 5 ALT2 OUT NICLK 0 CLK_B>;
 +
-+#define STIH415_PDN_FRONT(_bit) \
-+	_SYSCFG_RST_CH(stih415_front, SYSCFG_114, _bit, SYSSTAT_187, _bit)
++						 rxdv = <&PIO15 6 ALT2 IN DE_IO 500 CLK_A>;
++						 rxd0 =<&PIO16 0 ALT2 IN DE_IO	500 CLK_A>;
++						 rxd1 =<&PIO16 1 ALT2 IN DE_IO	500 CLK_A>;
++						 rxd2 =<&PIO16 2 ALT2 IN DE_IO	500 CLK_A>;
++						 rxd3  =<&PIO16 3 ALT2 IN DE_IO 500 CLK_A>;
++						 rxclk =<&PIO17 0 ALT2 IN NICLK 0 CLK_A>;
 +
-+#define STIH415_PDN_REAR(_cntl, _stat) \
-+	_SYSCFG_RST_CH(stih415_rear, SYSCFG_336, _cntl, SYSSTAT_384, _stat)
++						 clk125=<&PIO17 6 ALT1 IN NICLK 0 CLK_A>;
++					};
++				};
++			};
+ 		};
+ 
+ 		pin-controller-fvdp-fe {
+diff --git a/arch/arm/boot/dts/stih416.dtsi b/arch/arm/boot/dts/stih416.dtsi
+index a3831a3..bf052fb 100644
+--- a/arch/arm/boot/dts/stih416.dtsi
++++ b/arch/arm/boot/dts/stih416.dtsi
+@@ -103,5 +103,63 @@
+ 			pinctrl-0 	= <&pinctrl_sbc_serial1>;
+ 			clocks          = <&CLK_SYSIN>;
+ 		};
 +
-+#define SYSCFG_114	0x38 /* Powerdown request EMI/NAND/Keyscan */
-+#define SYSSTAT_187	0x15c /* Powerdown status EMI/NAND/Keyscan */
++		ethernet0: ethernet0{
++			#address-cells = <1>;
++			#size-cells = <1>;
++			status 		= "disabled";
++			compatible		= "st,stih416-dwmac";
++			reg			= <0x8bc 0x4>;
++			st,syscon		= <&syscfg_rear>;
++			resets			= <&softreset STIH416_ETH0_SOFTRESET>;
++			ranges;
 +
-+#define SYSCFG_336	0x90 /* Powerdown request USB/SATA/PCIe */
-+#define SYSSTAT_384	0x150 /* Powerdown status USB/SATA/PCIe */
++			dwmac@fe810000 {
++				device_type 	= "network";
++				compatible	= "snps,dwmac", "snps,dwmac-3.710";
++				status 		= "disabled";
++				reg 		= <0xfe810000 0x8000>;
 +
-+static const struct syscfg_reset_channel_data stih415_powerdowns[] = {
-+	[STIH415_EMISS_POWERDOWN]	= STIH415_PDN_FRONT(0),
-+	[STIH415_NAND_POWERDOWN]	= STIH415_PDN_FRONT(1),
-+	[STIH415_KEYSCAN_POWERDOWN]	= STIH415_PDN_FRONT(2),
-+	[STIH415_USB0_POWERDOWN]	= STIH415_PDN_REAR(0, 0),
-+	[STIH415_USB1_POWERDOWN]	= STIH415_PDN_REAR(1, 1),
-+	[STIH415_USB2_POWERDOWN]	= STIH415_PDN_REAR(2, 2),
-+	[STIH415_SATA0_POWERDOWN]	= STIH415_PDN_REAR(3, 3),
-+	[STIH415_SATA1_POWERDOWN]	= STIH415_PDN_REAR(4, 4),
-+	[STIH415_PCIE_POWERDOWN]	= STIH415_PDN_REAR(5, 8),
-+};
++				interrupts = <0 133 0>, <0 134 0>, <0 135 0>;
++				interrupt-names = "macirq", "eth_wake_irq", "eth_lpi";
 +
-+static struct syscfg_reset_controller_data stih415_powerdown_controller = {
-+	.wait_for_ack = true,
-+	.nr_channels = ARRAY_SIZE(stih415_powerdowns),
-+	.channels = stih415_powerdowns,
-+};
++				snps,pbl 	= <32>;
++				snps,mixed-burst;
 +
-+static struct of_device_id stih415_reset_match[] = {
-+	{ .compatible = "st,stih415-powerdown",
-+	  .data = &stih415_powerdown_controller, },
-+	{},
-+};
++				pinctrl-names 	= "default";
++				pinctrl-0	= <&pinctrl_mii0>;
++				clock-names	= "stmmaceth";
++				clocks		= <&CLK_S_GMAC0_PHY>;
++			};
++		};
 +
-+static struct platform_driver stih415_reset_driver = {
-+	.probe = syscfg_reset_probe,
-+	.driver = {
-+		.name = "reset-stih415",
-+		.owner = THIS_MODULE,
-+		.of_match_table = stih415_reset_match,
-+	},
-+};
++		ethernet1: ethernet1 {
++			#address-cells = <1>;
++			#size-cells = <1>;
++			status 		= "disabled";
++			compatible		= "st,stih416-dwmac";
++			reg			= <0x7f0 0x4>;
++			st,syscon		= <&syscfg_sbc>;
++			resets			= <&softreset STIH416_ETH1_SOFTRESET>;
++			ranges;
 +
-+static int __init stih415_reset_init(void)
-+{
-+	return platform_driver_register(&stih415_reset_driver);
-+}
-+arch_initcall(stih415_reset_init);
-diff --git a/include/dt-bindings/reset-controller/stih415-resets.h b/include/dt-bindings/reset-controller/stih415-resets.h
-new file mode 100644
-index 0000000..2d54e68
---- /dev/null
-+++ b/include/dt-bindings/reset-controller/stih415-resets.h
-@@ -0,0 +1,19 @@
-+/*
-+ * This header provides constants for the reset controller
-+ * based peripheral powerdown requests on the STMicroelectronics
-+ * STiH415 SoC.
-+ */
-+#ifndef _DT_BINDINGS_RESET_CONTROLLER_STIH415
-+#define _DT_BINDINGS_RESET_CONTROLLER_STIH415
++			dwmac@fef08000 {
++				device_type = "network";
++				compatible	= "snps,dwmac", "snps,dwmac-3.710";
++				status 		= "disabled";
++				reg		= <0xfef08000 0x8000>;
++				interrupts = <0 136 0>, <0 137 0>, <0 138 0>;
++				interrupt-names = "macirq", "eth_wake_irq", "eth_lpi";
 +
-+#define STIH415_EMISS_POWERDOWN		0
-+#define STIH415_NAND_POWERDOWN		1
-+#define STIH415_KEYSCAN_POWERDOWN	2
-+#define STIH415_USB0_POWERDOWN		3
-+#define STIH415_USB1_POWERDOWN		4
-+#define STIH415_USB2_POWERDOWN		5
-+#define STIH415_SATA0_POWERDOWN		6
-+#define STIH415_SATA1_POWERDOWN		7
-+#define STIH415_PCIE_POWERDOWN		8
++				snps,pbl	= <32>;
++				snps,mixed-burst;
 +
-+#endif /* _DT_BINDINGS_RESET_CONTROLLER_STIH415 */
++				pinctrl-names 	= "default";
++				pinctrl-0	= <&pinctrl_mii1>;
++				clock-names	= "stmmaceth";
++				clocks		= <&CLK_S_ETH1_PHY>;
++			};
++		};
++
+ 	};
+ };
 -- 
 1.7.6.5
-
