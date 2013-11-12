@@ -1,76 +1,48 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload burst.
-Date: Tue, 12 Nov 2013 09:43:52 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B73FF@saturn3.aculab.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B73FE@saturn3.aculab.com> <Pine.LNX.4.44L0.1311111525480.17105-100000@netrider.rowland.org>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
+Date: Tue, 12 Nov 2013 11:01:26 +0100
+Message-ID: <20131112100126.GB23981@1wt.eu>
+References: <8761s0cqhh.fsf@natisbad.org>
+ <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site> <87y54u59zq.fsf@natisbad.org>
+ <20131112083633.GB10318@1wt.eu> <87a9hagex1.fsf@natisbad.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Sarah Sharp" <sarah.a.sharp@linux.intel.com>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
-To: "Alan Stern" <stern@rowland.harvard.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:51903 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752363Ab3KLJrV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 04:47:21 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 17568-05 for <netdev@vger.kernel.org>;
- Tue, 12 Nov 2013 09:47:16 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <Pine.LNX.4.44L0.1311111525480.17105-100000@netrider.rowland.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, edumazet@google.com,
+ linux-arm-kernel@lists.infradead.org, stable@vger.kernel.org,
+ netdev@vger.kernel.org
+To: Arnaud Ebalard <arno@natisbad.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <87a9hagex1.fsf@natisbad.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-> You're right.  I do wish the spec had been written more clearly.
+Hi Arnaud,
 
-I've read a lot of hardware specs in my time ...
+On Tue, Nov 12, 2013 at 10:14:34AM +0100, Arnaud Ebalard wrote:
+> Tests for the rgression were done w/ scp, and were hence limited by the
+> crypto (16MB/s using arcfour128). But I also did some tests w/ a simple
+> wget for a file served by Apache *before* the regression and I never got
+> more than 60MB/s from what I recall. Can you beat that? 
 
-> > Reading it all again makes me think that a LINK trb is only
-> > allowed on the burst boundary (which might be 16k bytes).
-> > The only real way to implement that is to ensure that TD never
-> > contain LINK TRB.
-> 
-> That's one way to do it.  Or you could allow a Link TRB at an
-> intermediate MBP boundary.
+Yes, I finally picked my mirabox out of my bag for a quick test. It boots
+off 3.10.0-rc7 and I totally saturate one port (stable 988 Mbps) with even
+a single TCP stream.
 
-If all the fragments are larger than the MBP (assume 16k) then
-that would be relatively easy. However that is very dependant
-on the source of the data. It might be true for disk data, but
-is unlikely to be true for ethernet data.
+With two systems, one directly connected (dockstar) and the other one via
+a switch, I get 2*650 Mbps (a single TCP stream is enough on each).
 
-For bulk data the link TRB can be forced at a packet boundary
-by splitting the TD up - the receiving end won't know the difference.
+I'll have to re-run some tests using a more up to date kernel, but that
+will probably not be today though.
 
-> It comes down to a question of how often you want the controller to
-> issue an interrupt.  If a ring segment is 4 KB (one page), then it can
-> hold 256 TRBs.  With scatter-gather transfers, each SG element
-> typically refers to something like a 2-page buffer (depends on how
-> fragmented the memory is).  Therefore a ring segment will describe
-> somewhere around 512 pages of data, i.e., something like 2 MB.  Since
-> SuperSpeed is 500 MB/s, you'd end up getting in the vicinity of 250
-> interrupts every second just because of ring segment crossings.
-
-250 interrupts/sec is noise. Send/receive 13000 ethernet packets/sec
-and then look at the interrupt rate!
-
-There is no necessity for taking an interrupt from every link segment.
-OTOH an interrupt is requested for every bulk TD.
-I'm sending ethernet data (with TSO) and each TD is just under 64k
-mostly made up of 3 or 4 fragments.
-The receive side is interrupting for every receive packet.
-
-> Using larger ring segments would help.
-
-The current ring segments contain 64 entries, a strange choice
-since they are created with 2 segments.
-(The ring expansion code soon doubles that for my ethernet traffic.)
-
-I would change the code to use a single segment (for coding simplicity)
-and queue bulk URB when there isn't enough ring space.
-URB with too many fragments could either be rejected, sent in sections,
-or partially linearised (and probably still sent in sections).
-
-	David
+Regards,
+Willy
