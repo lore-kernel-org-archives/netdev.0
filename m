@@ -1,62 +1,48 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
-Date: Tue, 12 Nov 2013 09:36:33 +0100
-Message-ID: <20131112083633.GB10318@1wt.eu>
-References: <8761s0cqhh.fsf@natisbad.org>
- <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site> <87y54u59zq.fsf@natisbad.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net] core/dev: do not ignore dmac in dev_forward_skb()
+Date: Tue, 12 Nov 2013 09:49:29 +0100
+Message-ID: <5281EB99.5000104@6wind.com>
+References: <1384206735-4226-1-git-send-email-ast@plumgrid.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, edumazet@google.com,
- stable@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- netdev@vger.kernel.org
-To: Arnaud Ebalard <arno@natisbad.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <87y54u59zq.fsf@natisbad.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	Maciej Zenczykowski <zenczykowski@gmail.com>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f171.google.com ([74.125.82.171]:40537 "EHLO
+	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750964Ab3KLItc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 03:49:32 -0500
+Received: by mail-we0-f171.google.com with SMTP id t61so2292488wes.16
+        for <netdev@vger.kernel.org>; Tue, 12 Nov 2013 00:49:31 -0800 (PST)
+In-Reply-To: <1384206735-4226-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Arnaud,
-
-On Tue, Nov 12, 2013 at 08:56:25AM +0100, Arnaud Ebalard wrote:
-> I had some offline (*) discussions w/ Eric and did some test w/ the patches
-> he sent. It does not fix the regression I see. It would be nice if someone
-> w/ the hardware and more knowledge of mvneta driver could reproduce the
-> issue and spend some time on it.
-
-I could give it a try but am falling very short of time at the moment.
-
-> That been said, even if the driver is most probably not the only one to
-> blame here (considering the result of bisect and current thread on
-> netdev), I never managed to get the performance I have on my ReadyNAS
-> Duo v2 (i.e. 108MB/s for a file served by an Apache) with a mvneta-based
-> platform (RN102, RN104 or RN2120). Understanding why is on an already a
-> long todo list. 
-
-Yes I found that your original numbers were already quite low, so it is
-also possible that you have a different problem (eg: faulty switch or
-auto-negociation problem where the switch goes to half duplex because
-the neta does not advertise nway or whatever) that is emphasized by the
-latest changes.
-
-> Cheers,
-> 
-> a+
-> 
-> (*): for some reasons, my messages to netdev and stable are not published
-> even though I can interact w/ {majordomo,autoanswer}@vger.kernel.org. I
-> poked postmaster@ bug got no reply yet.
-
-I can confirm that I got this message from you on netdev so it should be OK
-now.
-
-Willy
+Le 11/11/2013 22:52, Alexei Starovoitov a =C3=A9crit :
+> commit 06a23fe31ca3
+> ("core/dev: set pkt_type after eth_type_trans() in dev_forward_skb()"=
+)
+> and refactoring 64261f230a91
+> ("dev: move skb_scrub_packet() after eth_type_trans()")
+>
+> are forcing pkt_type to be PACKET_HOST when skb traverses veth.
+>
+> which means that ip forwarding will kick in inside netns
+> even if skb->eth->h_dest !=3D dev->dev_addr
+>
+> Revert offending commit
+>
+> Fixes: 06a23fe31ca3 ("core/dev: set pkt_type after eth_type_trans() i=
+n dev_forward_skb()")
+> CC: Maciej Zenczykowski <zenczykowski@gmail.com>
+> CC: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+skb_scrub_packet() is also called after eth_type_trans() in ip_tunnel_r=
+cv().
+I do it to be consistent with dev_forward_skb(), thus it should be inve=
+rted too.
