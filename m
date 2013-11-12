@@ -1,54 +1,61 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: Bug#511720: [PATCH iproute2] ss: avoid passing negative numbers to malloc
-Date: Tue, 12 Nov 2013 19:52:14 +0100
-Message-ID: <20131112185214.GA29913@amd64.fatal.se>
-Reply-To: Andreas Henriksson <andreas@fatal.se>, 511720@bugs.debian.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
-Resent-Message-ID: <handler.511720.B511720.13842827986693@bugs.debian.org>
-Content-Disposition: inline
-List-URL: <http://lists.debian.org/debian-bugs-dist/>
-List-Post: <mailto:debian-bugs-dist@lists.debian.org>
-List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] net/7990: Make lance_private.name const
+Date: Tue, 12 Nov 2013 20:14:09 +0100
+Message-ID: <1384283649-10482-1-git-send-email-geert@linux-m68k.org>
+Cc: netdev@vger.kernel.org, linux-m68k@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+Sender: linux-m68k-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Example:
+This allows to drop a few casts.
 
-$ ss state established \( sport = :4060  or sport = :4061 or sport = :4062  or sport = :4063 or sport = :4064  or sport = :4065 or sport = :4066  or sport = :4067 \)  > /dev/null
-Aborted
-
-In the example above ssfilter_bytecompile(...) will return (int)136.
-char l1 = 136; means -120 which will result in a negative number
-being passed to malloc at misc/ss.c:913.
-
-Simply declare l1 and l2 as intergers to avoid the char overflow.
-
-This is one of the issues originally reported in http://bugs.debian.org/511720
-
-Reported-by: Andreas Schuldei <andreas@debian.org>
-Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
- misc/ss.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/amd/7990.h    |    2 +-
+ drivers/net/ethernet/amd/hplance.c |    2 +-
+ drivers/net/ethernet/amd/mvme147.c |    2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/misc/ss.c b/misc/ss.c
-index c0369f1..db3a3a4 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -907,7 +907,8 @@ static int ssfilter_bytecompile(struct ssfilter *f, char **bytecode)
+diff --git a/drivers/net/ethernet/amd/7990.h b/drivers/net/ethernet/amd/7990.h
+index 0a5837b96421..60c60926afda 100644
+--- a/drivers/net/ethernet/amd/7990.h
++++ b/drivers/net/ethernet/amd/7990.h
+@@ -100,7 +100,7 @@ struct lance_init_block {
+  */
+ struct lance_private
+ {
+-        char *name;
++        const char *name;
+ 	unsigned long base;
+         volatile struct lance_init_block *init_block; /* CPU address of RAM */
+         volatile struct lance_init_block *lance_init_block; /* LANCE address of RAM */
+diff --git a/drivers/net/ethernet/amd/hplance.c b/drivers/net/ethernet/amd/hplance.c
+index 0c61fd50d882..a9046cf3a564 100644
+--- a/drivers/net/ethernet/amd/hplance.c
++++ b/drivers/net/ethernet/amd/hplance.c
+@@ -149,7 +149,7 @@ static void hplance_init(struct net_device *dev, struct dio_dev *d)
+         }
+ 
+         lp = netdev_priv(dev);
+-        lp->lance.name = (char*)d->name;                /* discards const, shut up gcc */
++        lp->lance.name = d->name;
+         lp->lance.base = va;
+         lp->lance.init_block = (struct lance_init_block *)(va + HPLANCE_MEMOFF); /* CPU addr */
+         lp->lance.lance_init_block = NULL;              /* LANCE addr of same RAM */
+diff --git a/drivers/net/ethernet/amd/mvme147.c b/drivers/net/ethernet/amd/mvme147.c
+index e108e911da05..b5d76b45176e 100644
+--- a/drivers/net/ethernet/amd/mvme147.c
++++ b/drivers/net/ethernet/amd/mvme147.c
+@@ -120,7 +120,7 @@ struct net_device * __init mvme147lance_probe(int unit)
+ 		return ERR_PTR(-ENOMEM);
  	}
- 		case SSF_OR:
- 	{
--		char *a1, *a2, *a, l1, l2;
-+		char *a1, *a2, *a;
-+		int l1, l2;
- 		l1 = ssfilter_bytecompile(f->pred, &a1);
- 		l2 = ssfilter_bytecompile(f->post, &a2);
- 		if (!(a = malloc(l1+l2+4))) abort();
+ 
+-	lp->lance.name = (char*)name;                   /* discards const, shut up gcc */
++	lp->lance.name = name;
+ 	lp->lance.base = dev->base_addr;
+ 	lp->lance.init_block = (struct lance_init_block *)(lp->ram); /* CPU addr */
+ 	lp->lance.lance_init_block = (struct lance_init_block *)(lp->ram);                 /* LANCE addr of same RAM */
 -- 
-1.8.4.3
+1.7.9.5
