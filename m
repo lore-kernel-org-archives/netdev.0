@@ -1,69 +1,61 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
 Subject: Re: [PATCH net-next 3/6] random32: add prandom_reseed_late() and call when nonblocking pool becomes initialized
-Date: Tue, 12 Nov 2013 14:09:46 +0100
-Message-ID: <20131112130946.GC14929@order.stressinduktion.org>
-References: <cover.1384160397.git.dborkman@redhat.com> <2ea03f60bb65429cbe5d74a6d356fde3eefcf06c.1384160397.git.dborkman@redhat.com> <20131111134357.GC10104@thunk.org> <20131112000307.GB14929@order.stressinduktion.org> <20131112003709.GA11824@gobelin> <1384245375.14301.1.camel@jlt4.sipsolutions.net> <20131112111310.GA22775@magnum.frso.rivierawaves.com>
+Date: Tue, 12 Nov 2013 14:16:27 +0100
+Message-ID: <20131112131627.GD14929@order.stressinduktion.org>
+References: <cover.1384160397.git.dborkman@redhat.com> <2ea03f60bb65429cbe5d74a6d356fde3eefcf06c.1384160397.git.dborkman@redhat.com> <20131111134357.GC10104@thunk.org> <20131112000307.GB14929@order.stressinduktion.org> <20131112115350.GA14077@thunk.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	shemminger@networkplumber.org, fweimer@redhat.com,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-wireless@vger.kernel.org
-To: Karl Beldan <karl.beldan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:37854 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752657Ab3KLNJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 08:09:48 -0500
+Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	shemminger-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, fweimer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Theodore Ts'o <tytso-3s7WtUTddSA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20131112111310.GA22775@magnum.frso.rivierawaves.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20131112115350.GA14077-AKGzg7BKzIDYtjvyW6yDsg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 12, 2013 at 12:13:10PM +0100, Karl Beldan wrote:
-> On Tue, Nov 12, 2013 at 09:36:15AM +0100, Johannes Berg wrote:
-> > On Tue, 2013-11-12 at 01:37 +0100, Karl Beldan wrote:
+On Tue, Nov 12, 2013 at 06:53:50AM -0500, Theodore Ts'o wrote:
+> > Btw. do you see problems regarding get_random_int on architectures without
+> > hardware offloading?
 > > 
-> > > > > 1)  I'm pretty sure, but it would be good to get netdev confirmation,
-> > > > > that the call to get_random_bytes() in
-> > > > > net/mac80211/rc80211_minstrel.c's init_sample_table() can be replaced
-> > > > > by calls to prandom_u32().
-> > > > 
-> > > > Would make sense. I added wireless-devel to confirm.
-> > > > 
-> > > > [...]
-> > > > [    0.673260] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > > [    0.674024] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > > [    0.675012] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > > [    0.676032] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > > [    0.677020] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > > [    0.678011] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > > [    0.679011] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
-> > > > [...]
-> > > > 
-> > > > In total 80 calls to get_random_bytes.
-> > > > 
-> > > 
-> > > It is already 8 times what rc80211_minstrel_ht_init uses.
-> > > If you could apply on top of:
-> > > http://marc.info/?l=linux-wireless&m=138392850030987&w=2
-> > > although Johannes has not yet agreed/applied this.
-> > 
-> > I'll take the patch, I just wanted a more useful commit log :)
-> > 
-> The commit log still feels very right to me, but I don't want you to go
-> grumpy ;) and will reword the log - Hannes, have you staged replacing
-> get_random_bytes with prandom_u32 already or can I do it in a reworded
-> v2 for minstrel ?
+> > We are initializing random_int_secret really late (after all the init
+> > calls) and I wonder if we should also use a two stage initialization
+> > there, so we have a more unpredictable MD5 hash at early boot.
+> 
+> Most of the users of get_random_int(), at least to date, have been for
+> things like ASLR.  A quick audit shows only one device driver user
+> that might be impacted: drivers/net/wireless/cw1200/wsm.c.
+> 
+> It's not a bad idea to do a two stage init just in case
+> get_random_int() gets used by other code --- although that brings up
+> something that I know is really needed, but which I haven't had time
+> to try to address yet: we really need to document all of the various
+> interfaces that various kernel routines can use to get random numbers,
+> and document what their performance and security characteristics are.
+> We have probably have a lot of code where the authors didn't realize
+> that some other interface would be a better match for their needs, or
+> the code is old enough that predates some of the newer interfaces.
 
-I haven't done that so far. So, go ahead, I would love to see
-that. Btw. there is prandom_bytes, which should be a suitable drop-in.
+It is needed by fork to set up the stack canary. And this actually gets
+called before the secret is initialized.
 
-Btw. if the initialization is run later (as in, after the boot process),
-the prandom-PRNG will be better seeded.
+Btw. the kaslr seeding techniques become quite interesting. It looks like
+they want to hash struct boot_params, maybe the ACPI memory part and also the
+DMI table.
 
-Thank you,
+I guess we should start to implement an interface for early-boot entropy which
+the architectures must override to not use jiffies ^ get_cycles() all the
+time.
+
+The documentation idea also does sound as a very good one. ;)
+
+Greetings,
 
   Hannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
