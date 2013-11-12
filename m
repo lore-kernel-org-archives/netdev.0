@@ -1,61 +1,52 @@
-From: Sujith Manoharan <sujith@msujith.org>
-Subject: Re: [PATCH] tcp: tsq: restore minimal amount of queueing
-Date: Tue, 12 Nov 2013 20:54:33 +0530
-Message-ID: <21122.18481.785917.621199@gargle.gargle.HOWL>
-References: <8761s0cqhh.fsf@natisbad.org>
-	<slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
-	<87y54u59zq.fsf@natisbad.org>
-	<1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] netlink: fix netlink_ack with large messages
+Date: Tue, 12 Nov 2013 16:29:07 +0100
+Message-ID: <20131112162907.50f0bafa@griffin>
+References: <9333f540a9b87adbdd15e274d12a9d60994fdb34.1383850578.git.jbenc@redhat.com>
+	<20131108.150741.966018155704146843.davem@davemloft.net>
+	<20131109000434.GD28793@casper.infradead.org>
+	<20131109.000012.1393414533296613338.davem@davemloft.net>
+	<527E3C17.1080508@mojatatu.com>
+	<20131109180353.GA3715@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Arnaud Ebalard <arno@natisbad.org>,
-	David Miller <davem@davemloft.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-	Felix Fietkau <nbd@openwrt.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s72.web-hosting.com ([198.187.29.21]:40029 "EHLO
-	s72.web-hosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753904Ab3KLP3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 10:29:12 -0500
-In-Reply-To: <1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:57023 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752905Ab3KLP3l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Nov 2013 10:29:41 -0500
+In-Reply-To: <20131109180353.GA3715@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Sat, 9 Nov 2013 19:03:53 +0100, Pablo Neira Ayuso wrote:
+> On Sat, Nov 09, 2013 at 08:43:51AM -0500, Jamal Hadi Salim wrote:
+> > for errors, we need to give the user something back. This has been the
+> > behavior for 80 years now. Giving them a HUGE message
+> > back is rediculuos(tm). Ive had enough of SCTP doing that.
+> > We need to cap it - sort of what ICMP does.
+> > ICMP caps at 64B; something like 128B is reasonable.
 > 
-> After commit c9eeec26e32e ("tcp: TSQ can use a dynamic limit"), several
-> users reported throughput regressions, notably on mvneta and wifi
-> adapters.
-> 
-> 802.11 AMPDU requires a fair amount of queueing to be effective.
-> 
-> This patch partially reverts the change done in tcp_write_xmit()
-> so that the minimal amount is sysctl_tcp_limit_output_bytes.
-> 
-> It also remove the use of this sysctl while building skb stored
-> in write queue, as TSO autosizing does the right thing anyway.
-> 
-> Users with well behaving NICS and correct qdisc (like sch_fq),
-> can then lower the default sysctl_tcp_limit_output_bytes value from
-> 128KB to 8KB.
-> 
-> The new usage of sysctl_tcp_limit_output_bytes permits each driver
-> author to check how driver performs when/if the value is set
-> to a minimum of 4KB :
-> 
-> Normally, line rate for a single TCP flow should be possible, 
-> but some drivers rely on timers to perform TX completion and
-> too long delays prevent reaching full throughput.
+> Personally, I have only used the sequence number to correlate the
+> original request with the ack reply, so I agree in that trimming it to
+> some reasonable amount of bytes like ICMP is the way to go. I prefer
+> if we select a large enough amount of bytes to avoid breaking backward
+> compatibility, eg. 128KB, since I'm not sure what kind of handling
+> others may have done of this.
 
-I tested the patch with ath9k and performance with a 2-stream card is normal
-again, about 195 Mbps in open air.
+Do you think capping at NLMSG_GOODSIZE would be too low? The allocation
+won't fit into one page with NLMSG_GOODSIZE but I doubt we can go lower
+than that. Alternatively, we can do some math to fully use the two
+pages, like
+	NLMSG_GOODSIZE + min(PAGE_SIZE, 8192UL) - NLMSG_HDRLEN - NLMSG_ALIGN(sizeof(struct nlmsgerr))
+(which I'm not sure is worth it).
 
-Thanks for the fix !
+ Jiri
 
-Also, I think this needs to be marked as a stable candidate, since 3.12 needs
-this fix.
-
-Sujith
+-- 
+Jiri Benc
