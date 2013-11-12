@@ -1,159 +1,138 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH] ipvs: Remove unused variable ret from
-	sync_thread_master()
-Date: Tue, 12 Nov 2013 19:04:51 +0100
-Message-ID: <20131112180451.GA32565@redhat.com>
-References: <1384264396-14550-1-git-send-email-geert@linux-m68k.org> <20131112141314.GQ5056@laptop.programming.kicks-ass.net> <AE90C24D6B3A694183C094C60CF0A2F6026B7405@saturn3.aculab.com> <20131112145243.GU5056@laptop.programming.kicks-ass.net> <20131112162136.GA29065@redhat.com> <20131112170043.GB16796@laptop.programming.kicks-ass.net>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
+ burst.
+Date: Tue, 12 Nov 2013 14:00:51 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.1311121343060.1200-100000@iolanthe.rowland.org>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B7407@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj@kernel.org>, David Laight <David.Laight@ACULAB.COM>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Ingo Molnar <mingo@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57948 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751972Ab3KLSD4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Nov 2013 13:03:56 -0500
-Content-Disposition: inline
-In-Reply-To: <20131112170043.GB16796@laptop.programming.kicks-ass.net>
+Received: from iolanthe.rowland.org ([192.131.102.54]:59910 "HELO
+	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752756Ab3KLTAw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 14:00:52 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7407@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/12, Peter Zijlstra wrote:
->
-> On Tue, Nov 12, 2013 at 05:21:36PM +0100, Oleg Nesterov wrote:
-> > On 11/12, Peter Zijlstra wrote:
-> > >
-> > >  static const char * const task_state_array[] = {
-> > >  ...
-> > > +	"I (idle)",		/* 1024 */
-> > >  };
-> >
-> > but I am not sure about what /proc/ should report in this case...
->
-> We have to put in something...
->
-> 	BUILD_BUG_ON(1 + ilog2(TASK_STATE_MAX) != ARRAY_SIZE(task_state_array));
->
-> However, since we always set it together with TASK_UNINTERUPTIBLE
-> userspace shouldn't actually ever see the I thing.
+On Tue, 12 Nov 2013, David Laight wrote:
 
-OOPS. I didn't know that get_task_state() does &= TASK_REPORT. So it
-can never report anything > EXIT_DEAD.
+> > > If all the fragments are larger than the MBP (assume 16k) then
+> > > that would be relatively easy. However that is very dependant
+> > > on the source of the data. It might be true for disk data, but
+> > > is unlikely to be true for ethernet data.
+> > 
+> > I don't quite understand your point.  Are you saying that if all the
+> > TRBs are very short, you might need more than 64 TRBs to reach a 16-KB
+> > boundary?
+> 
+> Since you don't really want to do all the work twice, the sensible
+> way is to add each input fragment to the ring one a time.
+> If you need to cross a link TRB and the last MBP boundary is within
+> the previous data TRB then you can split the previous data TRB at the
+> MBP boundary and continue.
+> If the previous TRB is short then you'd need to go back through the
+> earlier TRB until you found the one that contains a TRB boundary,
+> split it, and write a link TRB in the following slot.
 
-Perhaps we should change BUILD_BUG_ON() and shrink task_state_array?
+Right.  You could avoid doing a lot of work twice by using two passes.  
+In the first pass, keep track of the number of bytes allotted to each
+TRB and the MBP boundaries, without doing anything else.  That way,
+you'll know where to put a Link TRB without any need for backtracking.  
+Then in the second pass, fill in the actual contents of the TRBs.
 
-	--- x/include/linux/sched.h
-	+++ x/include/linux/sched.h
-	@@ -163,7 +163,7 @@ extern char ___assert_task_state[1 - 2*!
-	 /* get_task_state() */
-	 #define TASK_REPORT		(TASK_RUNNING | TASK_INTERRUPTIBLE | \
-					 TASK_UNINTERRUPTIBLE | __TASK_STOPPED | \
-	-				 __TASK_TRACED)
-	+				 __TASK_TRACED | EXIT_ZOMBIE | EXIT_DEAD)
-	 
-	 #define task_is_traced(task)	((task->state & __TASK_TRACED) != 0)
-	 #define task_is_stopped(task)	((task->state & __TASK_STOPPED) != 0)
-	--- x/fs/proc/array.c
-	+++ x/fs/proc/array.c
-	@@ -148,16 +148,12 @@ static const char * const task_state_arr
-	 
-	 static inline const char *get_task_state(struct task_struct *tsk)
-	 {
-	-	unsigned int state = (tsk->state & TASK_REPORT) | tsk->exit_state;
-	+	unsigned int state = (tsk->state | tsk->exit_state) & TASK_REPORT;
-		const char * const *p = &task_state_array[0];
-	 
-	-	BUILD_BUG_ON(1 + ilog2(TASK_STATE_MAX) != ARRAY_SIZE(task_state_array));
-	+	BUILD_BUG_ON(1 + ilog2(TASK_REPORT) != ARRAY_SIZE(task_state_array));
-	 
-	-	while (state) {
-	-		p++;
-	-		state >>= 1;
-	-	}
-	-	return *p;
-	+	return task_state_array[fls(state)];
-	 }
-	 
-	 static inline void task_state(struct seq_file *m, struct pid_namespace *ns,
+> If you are within the first MBP then you'd need to replace the first
+> TRB of the message with a link TRB.
 
-> > I am also wondering if it makes any sense to turn PF_FROZEN into
-> > TASK_FROZEN, something like (incomplete, probably racy) patch below.
-> > Note that it actually adds the new state, not the the qualifier.
-> >
-> > --- x/include/linux/freezer.h
-> > +++ x/include/linux/freezer.h
-> > @@ -23,7 +23,7 @@ extern unsigned int freeze_timeout_msecs
-> >   */
-> >  static inline bool frozen(struct task_struct *p)
-> >  {
-> > -	return p->flags & PF_FROZEN;
-> > +	return p->state & TASK_FROZEN;
->
-> do we want == there?
+Unless the first TRB of the message is the first TRB of the ring 
+segment.  Then you're in trouble...  Hopefully, real URBs will never be 
+that badly fragmented.
 
-Not really, but if we add TASK_FROZEN then we should probably
-add task_is_frozen() just for consistency (frozen() should use
-this helper) and all task_is_* helpers do "&".
+> And yes, if the data is really fragmented you might need a lot of
+> TRB for even 1k of data.
 
-And,
+Until somebody needs more than 16 TRBs for each KB of data, we should 
+be okay.
 
-> Does it make sense to allow it be set with other
-> state flags?
+> > > For bulk data the link TRB can be forced at a packet boundary
+> > > by splitting the TD up - the receiving end won't know the difference.
+> > 
+> > That won't work.  What happens if you split a TD up into two pieces and
+> > the first piece receives a short packet?  The host controller will
+> > automatically move to the start of the second piece.  That's not what
+> > we want.
+> 
+> You can split a bulk TD on a 1k boundary and the target won't know the
+> difference.
 
-Not sure, but _perhaps_ TASK_FROZEN | TASK_KILLABLE can be used
-too, say, we can add CGROUP_FROZEN_KILLABLE. Probably makes no
-sense, I dunno.
+The target won't know the difference, but the host will.  Here's an
+example: Suppose the driver submits two URBs, each for a data-in
+transfer of 32 KB.  You split each URB up into two 16-KB TDs; let's 
+call them A, B, C, and D (where A and B make up the first URB, and C 
+and D make up the second URB).
 
-> > --- x/kernel/freezer.c
-> > +++ x/kernel/freezer.c
-> > @@ -57,16 +57,13 @@ bool __refrigerator(bool check_kthr_stop
-> >  	pr_debug("%s entered refrigerator\n", current->comm);
-> >
-> >  	for (;;) {
-> > -		set_current_state(TASK_UNINTERRUPTIBLE);
-> > -
-> >  		spin_lock_irq(&freezer_lock);
-> > -		current->flags |= PF_FROZEN;
-> > -		if (!freezing(current) ||
-> > -		    (check_kthr_stop && kthread_should_stop()))
-> > -			current->flags &= ~PF_FROZEN;
-> > +		if (freezing(current) &&
-> > +		    !(check_kthr_stop && kthread_should_stop()))
-> > +			set_current_state(TASK_FROZEN);
-> >  		spin_unlock_irq(&freezer_lock);
-> >
-> > -		if (!(current->flags & PF_FROZEN))
-> > +		if (!(current->state & TASK_FROZEN))
-> >  			break;
-> >  		was_frozen = true;
-> >  		schedule();
-> > @@ -148,8 +145,7 @@ void __thaw_task(struct task_struct *p)
-> >  	 * refrigerator.
-> >  	 */
-> >  	spin_lock_irqsave(&freezer_lock, flags);
-> > -	if (frozen(p))
-> > -		wake_up_process(p);
-> > +	try_to_wake_up(p, TASK_FROZEN, 0);
-> >  	spin_unlock_irqrestore(&freezer_lock, flags);
-> >  }
->
-> Should work I suppose...
+Now suppose the device terminates the first transfer after only 7200 
+bytes, with a short packet.  It then sends a complete 32 KB of data for 
+the second transfer.  What will happen in this case?
 
-And perhaps we can simplify this a bit. Not sure we can kill freezer_lock
-altogether, but at least __thaw_task() can avoid it.
+7200 bytes is somewhere in the middle of TD A.  That TD will terminate 
+early.  The host controller will then proceed to TD B.  As a result, 
+the next 32 KB of data will be stored in TD B and C -- not in TD C and 
+D as it should be.
 
-But I am still not sure the new TASK_ state really makes sense, even if
-it looks a bit more clean to me.
+This example shows why you must not split IN URBs into multiple TDs.
 
-OTOH, personally I think that /proc/pid/status should report "F (frozen)"
-if frozen(), but this doesn't need TASK_FROZEN of course.
+> > > There is no necessity for taking an interrupt from every link segment.
+> > 
+> > Yes, there is.  The HCD needs to know when the dequeue pointer has
+> > moved beyond the end of the ring segment, so that it can start reusing
+> > the TRB slots in that segment.
+> 
+> You already know that because of the interrupts for the data packets
+> themselves.
 
-> I'm not entirely sure why that's a PF to begin
-> with.
+I don't know what you mean by this.  The host controller does not 
+generate an interrupt for each data packet.  In generates interrupts 
+only for TRBs with the IOC bit set (which is generally the last TRB in 
+each TD).
 
-Oh, it had more PF_'s until tj improved (and cleanuped) this code ;)
+Suppose you have only two ring segments, and a driver submits an URB 
+which is so fragmented that it requires more TRBs than you have room 
+for in those two segments.  When do you want the interrupts to arrive?  
+Answer: At each segment crossing.
 
-Oleg.
+> > > I would change the code to use a single segment (for coding simplicity)
+> > > and queue bulk URB when there isn't enough ring space.
+> > > URB with too many fragments could either be rejected, sent in sections,
+> > > or partially linearised (and probably still sent in sections).
+> > 
+> > Rejecting an URB is not feasible.  Splitting it up into multiple TDs is
+> > not acceptable, as explained above.  Sending it in sections (i.e.,
+> > queueing only some of the TRBs at any time) would work, provided you
+> > got at least two interrupts every time the queue wrapped around (which
+> > suggests you might want at least two ring segments).
+> 
+> Rejecting badly fragmented URB is almost certainly ok. You really don't
+> want the hardware overhead of processing a TRB every few bytes.
+> This would be especially bad on iommu systems.
+
+I disagree.  Sure, it would be bad.  But if you can handle it, you 
+should.
+
+> Before the ring expansion code was added there was an implicit
+> limit of (probably) 125 fragments for a URB. Exceeding this limit
+> wasn't the reason for adding the ring expansion code.
+> 
+> And, as I've pointed out, both bulk and isoc URB can be split unless
+> they are using too many fragments for a short piece of data.
+> 
+> The current code refuses to write into a TRB segment until it is
+> empty - I think that restriction is only there so that it can
+> add another segment when the space runs out.
+
+That's right.  The idea was my suggestion.
+
+Alan Stern
