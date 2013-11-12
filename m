@@ -1,82 +1,55 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
- burst.
-Date: Tue, 12 Nov 2013 14:22:57 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1311121401510.1200-100000@iolanthe.rowland.org>
-References: <20131112171438.GA4925@xanatos>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] netlink: fix netlink_ack with large messages
+Date: Tue, 12 Nov 2013 14:35:15 -0500 (EST)
+Message-ID: <20131112.143515.1092879587357986857.davem@davemloft.net>
+References: <527E3C17.1080508@mojatatu.com>
+	<20131109180353.GA3715@localhost>
+	<20131112162907.50f0bafa@griffin>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Laight <David.Laight@ACULAB.COM>, <netdev@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, jhs@mojatatu.com, tgraf@suug.ch,
+	netdev@vger.kernel.org
+To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iolanthe.rowland.org ([192.131.102.54]:59921 "HELO
-	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754734Ab3KLTW5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 14:22:57 -0500
-In-Reply-To: <20131112171438.GA4925@xanatos>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36609 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755194Ab3KLTfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 14:35:18 -0500
+In-Reply-To: <20131112162907.50f0bafa@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 Nov 2013, Sarah Sharp wrote:
+From: Jiri Benc <jbenc@redhat.com>
+Date: Tue, 12 Nov 2013 16:29:07 +0100
 
-> > It comes down to a question of how often you want the controller to
-> > issue an interrupt.  If a ring segment is 4 KB (one page), then it can
-> > hold 256 TRBs.  With scatter-gather transfers, each SG element
-> > typically refers to something like a 2-page buffer (depends on how
-> > fragmented the memory is).  Therefore a ring segment will describe
-> > somewhere around 512 pages of data, i.e., something like 2 MB.  Since
-> > SuperSpeed is 500 MB/s, you'd end up getting in the vicinity of 250
-> > interrupts every second just because of ring segment crossings.
+> On Sat, 9 Nov 2013 19:03:53 +0100, Pablo Neira Ayuso wrote:
+>> On Sat, Nov 09, 2013 at 08:43:51AM -0500, Jamal Hadi Salim wrote:
+>> > for errors, we need to give the user something back. This has been the
+>> > behavior for 80 years now. Giving them a HUGE message
+>> > back is rediculuos(tm). Ive had enough of SCTP doing that.
+>> > We need to cap it - sort of what ICMP does.
+>> > ICMP caps at 64B; something like 128B is reasonable.
+>> 
+>> Personally, I have only used the sequence number to correlate the
+>> original request with the ack reply, so I agree in that trimming it to
+>> some reasonable amount of bytes like ICMP is the way to go. I prefer
+>> if we select a large enough amount of bytes to avoid breaking backward
+>> compatibility, eg. 128KB, since I'm not sure what kind of handling
+>> others may have done of this.
 > 
-> The driver is currently defined to have 64 TRBs per ring segment.  But
+> Do you think capping at NLMSG_GOODSIZE would be too low? The allocation
+> won't fit into one page with NLMSG_GOODSIZE but I doubt we can go lower
+> than that. Alternatively, we can do some math to fully use the two
+> pages, like
+> 	NLMSG_GOODSIZE + min(PAGE_SIZE, 8192UL) - NLMSG_HDRLEN - NLMSG_ALIGN(sizeof(struct nlmsgerr))
+> (which I'm not sure is worth it).
 
-A TRB is 16 bytes, right?  So a page can hold 256 TRBs.  Why use only 
-64 per segment?
+I don't think this is the way to go.
 
-> that doesn't matter; we don't get an interrupt when a ring segment is
-> crossed.  Instead we set the interrupt-on-completion flag on the last
-> TRB of the TD, not on any earlier fragment or link TRB.
+I think since existing apps expect the whole message, we have to
+provide it.
 
-That's because you don't worry about handling URBs which require too 
-many TRBs (i.e., more than are available).  You just add more ring 
-segments.  Instead, you could re-use segments on the fly.
-
-For example, suppose you have only two ring segments and you get an URB
-which requires enough TRBs to fill up four segments.  You could fill in
-the first two segments worth, and get an interrupt when the controller
-traverses the Link TRB between them.  At that point you store the third
-set of TRBs in the first segment, which is now vacant.  Similarly, when
-the second Link TRB is traversed, you fill in the fourth set of TRBs.
-
-> > Using larger ring segments would help.
-> 
-> Ring segments have to be physically contiguous, so I'm not sure if we
-> want to ask for segments that are bigger than a page.  I've already got
-> a report from someone else about the ring expansion getting out of
-> control, so I would like to figure that out before we talk about using
-> even bigger segments.
-
-Maybe you can get away with fewer segments, if they are bigger.
-
-> Finally, it's interesting to note that the USB mass storage driver is
-> using scatter gather lists just fine without the driver following the TD
-> fragment rules.  Or at least no one has reported any issues.  I wonder
-> why it works?
-
-I'd guess this is because the hardware is actually a lot more flexible
-than the "No Link TRBs in the middle of a TD fragment" rule.
-
-The whole idea of TD fragments makes no sense to begin with.  What
-point is there in grouping packets into MaxBurst-sized collections?  
-The hardware does not have to finish one burst before beginning the
-next one.  For example, suppose the MaxBurst size is 8.  The host
-starts by bursting packets 1-8.  When it receives the ACK for packet 4,
-the host could then burst packets 9-12.  It doesn't have to wait for
-the ACK to packet 8.  (Unless I have misunderstood the USB-3 spec.)
-
-If the host does this, the burst boundaries won't occur on MBP 
-boundaries, and hence won't occur on TD fragment boundaries.  The 
-fragment boundaries will be essentially meaningless.
-
-Alan Stern
+We should add a new socket option so that applications can ask that
+messages not be quoted in ACKs, as I've stated a few times already in
+this thread.
