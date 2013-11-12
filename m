@@ -1,34 +1,56 @@
-From: <11122121@PetersonWest102.onmicrosoft.com>
-Subject: XMAS LOAN
-Date: Wed, 13 Nov 2013 02:30:30 +0530
-Message-ID: <904b74ac-280f-4a51-9693-6ccdcecddc0d@SINPR06MB009.apcprd06.prod.outlook.com>
-Reply-To: <petersonloanfundingcompany1@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net/7990: Make lance_private.name const
+Date: Wed, 13 Nov 2013 01:04:17 +0300
+Message-ID: <5282A5E1.9090501@cogentembedded.com>
+References: <1384283649-10482-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <11122121@PetersonWest102.onmicrosoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from emea01-am1-ndr.ptr.protection.outlook.com ([157.56.116.102]:54965
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756369Ab3KLVAa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 16:00:30 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-m68k@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <1384283649-10482-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear Sir/Madam
-Are you in debts or Do you need loan to start up a business or do you need christmas loan? We give out all types of loans from $3,000.00 to $100,000,000.00 at 3%, Just address your email to  Mr. Peterson West (petersonloanfundingcompany1@gmail.com) with the following  information:
+Hello.
 
-1: Names:...
-2: Country....
-3: Loan Amount:....
-4: Loan Duration....
-5: Phone Number:....
-6: Monthly Income:......
-7: State:.......
-Note:All reply should be forwarded only to petersonloanfundingcompany1@gmail.com for immediate attention.
-Contact us now and get an urgent loan within two (2) days!!!
+On 11/12/2013 10:14 PM, Geert Uytterhoeven wrote:
 
-Regards,
-Mr.Peterson West
+> This allows to drop a few casts.
+
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> ---
+>   drivers/net/ethernet/amd/7990.h    |    2 +-
+>   drivers/net/ethernet/amd/hplance.c |    2 +-
+>   drivers/net/ethernet/amd/mvme147.c |    2 +-
+>   3 files changed, 3 insertions(+), 3 deletions(-)
+
+> diff --git a/drivers/net/ethernet/amd/7990.h b/drivers/net/ethernet/amd/7990.h
+> index 0a5837b96421..60c60926afda 100644
+> --- a/drivers/net/ethernet/amd/7990.h
+> +++ b/drivers/net/ethernet/amd/7990.h
+> @@ -100,7 +100,7 @@ struct lance_init_block {
+>    */
+>   struct lance_private
+>   {
+> -        char *name;
+> +        const char *name;
+
+    Indent with tab, not spaces, please.
+
+> diff --git a/drivers/net/ethernet/amd/hplance.c b/drivers/net/ethernet/amd/hplance.c
+> index 0c61fd50d882..a9046cf3a564 100644
+> --- a/drivers/net/ethernet/amd/hplance.c
+> +++ b/drivers/net/ethernet/amd/hplance.c
+> @@ -149,7 +149,7 @@ static void hplance_init(struct net_device *dev, struct dio_dev *d)
+>           }
+>
+>           lp = netdev_priv(dev);
+> -        lp->lance.name = (char*)d->name;                /* discards const, shut up gcc */
+> +        lp->lance.name = d->name;
+
+    Same here.
+
+WBR, Sergei
