@@ -1,67 +1,61 @@
-From: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: shutdown(3) and bluetooth.
-Date: Tue, 12 Nov 2013 17:10:38 -0500
-Message-ID: <20131112221038.GA6689@redhat.com>
-References: <20131112211125.GA2912@redhat.com>
- <DF4C2B40-BD87-4E88-911D-E3E5F488CAE4@holtmann.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] genetlink: fix usage of NLM_F_EXCL or NLM_F_REPLACE
+Date: Tue, 12 Nov 2013 17:12:06 -0500 (EST)
+Message-ID: <20131112.171206.591427230164167273.davem@davemloft.net>
+References: <20130731.170348.1752477967026355787.davem@davemloft.net>
+	<20130801003710.GA19777@localhost>
+	<20130801020049.GA4067@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org development"
-	<linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <DF4C2B40-BD87-4E88-911D-E3E5F488CAE4-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37703 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757101Ab3KLWMJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 17:12:09 -0500
+In-Reply-To: <20130801020049.GA4067@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 13, 2013 at 06:56:23AM +0900, Marcel Holtmann wrote:
- > Hi Dave,
- > 
- > > Is shutdown() allowed to block indefinitely ? The man page doesn't say either way,
- > > and I've noticed that my fuzz tester occasionally hangs for days spinning in bt_sock_wait_state()
- > > 
- > > Is there something I should be doing to guarantee that this operation
- > > will either time out, or return instantly ?
- > > 
- > > In this specific case, I doubt anything is on the "sender" end of the socket, so
- > > it's going to be waiting forever for a state change that won't arrive.
- > 
- > can you give us some extra information here. What kind of Bluetooth socket is this actually. From the top of my head, I have no idea why we would even wait forever. Normally when all low-level links are gone, the socket will shut down anyway.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Thu, 1 Aug 2013 04:00:49 +0200
 
-Here's the info I found in the logs, it looks like this was the only bluetooth socket.
+> @@ -571,7 +571,8 @@ static int genl_family_rcv_msg(struct genl_family *family,
+>  	    !capable(CAP_NET_ADMIN))
+>  		return -EPERM;
+>  
+> -	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
+> +	if ((ops->flags & GENL_CMD_CAP_DUMP) &&
+> +	    nlh->nlmsg_flags & NLM_F_DUMP) {
+>  		struct netlink_dump_control c = {
+>  			.dump = ops->dumpit,
+>  			.done = ops->done,
 
- fd[195] = domain:31 (PF_BLUETOOTH) type:0x5 protocol:2
- Setsockopt(1 d 2134000 8) on fd 195
+Sorry for taking so long to get back to you on this, it looks perfect!
 
-it doesn't look like any further operations were done on this fd during the fuzzers runtime.
+I did some auditing of other uses, and briefly crypto does the same:
 
-Quick way to reproduce:
+crypto/crypto_user.c:
 
-./trinity -P PF_BLUETOOTH -l off -c setsockopt
+	if ((type == (CRYPTO_MSG_GETALG - CRYPTO_MSG_BASE) &&
+	    (nlh->nlmsg_flags & NLM_F_DUMP))) {
 
-let it run a few seconds, and then ctrl-c.  The main process will never exit.
+"If this is a GET command, test dump flag"
 
- 5814 pts/6    Ss     0:00              |       \_ bash
- 5876 pts/6    S+     0:00              |       |   \_ ./trinity -P PF_BLUETOOTH -l off -c setsockopt
- 5877 pts/6    Z+     0:00              |       |       \_ [trinity] <defunct>
- 5878 pts/6    S+     0:01              |       |       \_ [trinity-main]
+Same thing for net/xfrm/xfrm_user.c:
 
-$ sudo cat /proc/5878/stack
-[<ffffffffa04397a2>] bt_sock_wait_state+0xc2/0x190 [bluetooth]
-[<ffffffffa0847a75>] rfcomm_sock_shutdown+0x85/0xb0 [rfcomm]
-[<ffffffffa0847ad9>] rfcomm_sock_release+0x39/0xb0 [rfcomm]
-[<ffffffff81532fcf>] sock_release+0x1f/0x80
-[<ffffffff81533042>] sock_close+0x12/0x20
-[<ffffffff811a9ac1>] __fput+0xe1/0x230
-[<ffffffff811a9c5e>] ____fput+0xe/0x10
-[<ffffffff8108534c>] task_work_run+0xbc/0xe0
-[<ffffffff8106944c>] do_exit+0x2bc/0xa20
-[<ffffffff81069c2f>] do_group_exit+0x3f/0xa0
-[<ffffffff81069ca4>] SyS_exit_group+0x14/0x20
-[<ffffffff81656b27>] tracesys+0xdd/0xe2
-[<ffffffffffffffff>] 0xffffffffffffffff
+	if ((type == (XFRM_MSG_GETSA - XFRM_MSG_BASE) ||
+	     type == (XFRM_MSG_GETPOLICY - XFRM_MSG_BASE)) &&
+	    (nlh->nlmsg_flags & NLM_F_DUMP)) {
 
+Similarly all of the netfilter stuff performs this NLM_F_DUMP bit
+test in contexts where we are processing some GET command.
 
-	Dave
+All the "diag" modules are implicitly processing GET commands.
+
+Pablo, could you please retest and resubmit this patch?  I will
+apply it and push to -stable as well.
+
+Thanks!
