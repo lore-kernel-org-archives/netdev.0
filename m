@@ -1,65 +1,76 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: FW: [REGRESSION] be2net: not work in 3.12
-Date: Tue, 12 Nov 2013 11:13:36 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C26A40D0D@CMEXMB1.ad.emulex.com>
-References: <20131112010807.GA6044@yanx>
+From: Karl Beldan <karl.beldan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 3/6] random32: add prandom_reseed_late() and
+ call when nonblocking pool becomes initialized
+Date: Tue, 12 Nov 2013 12:13:10 +0100
+Message-ID: <20131112111310.GA22775@magnum.frso.rivierawaves.com>
+References: <cover.1384160397.git.dborkman@redhat.com>
+ <2ea03f60bb65429cbe5d74a6d356fde3eefcf06c.1384160397.git.dborkman@redhat.com>
+ <20131111134357.GC10104@thunk.org>
+ <20131112000307.GB14929@order.stressinduktion.org>
+ <20131112003709.GA11824@gobelin>
+ <1384245375.14301.1.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Guo Chao (yan@linux.vnet.ibm.com)" <yan@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:55704 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751610Ab3KLLNi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 06:13:38 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>,
+	Theodore Ts'o <tytso-3s7WtUTddSA@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	shemminger-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, fweimer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1384245375.14301.1.camel-8Nb76shvtaUJvtFkdXX2HixXY32XiHfO@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Guo Chao [mailto:yan@linux.vnet.ibm.com]
+On Tue, Nov 12, 2013 at 09:36:15AM +0100, Johannes Berg wrote:
+> On Tue, 2013-11-12 at 01:37 +0100, Karl Beldan wrote:
 > 
-> Hello:
+> > > > 1)  I'm pretty sure, but it would be good to get netdev confirmation,
+> > > > that the call to get_random_bytes() in
+> > > > net/mac80211/rc80211_minstrel.c's init_sample_table() can be replaced
+> > > > by calls to prandom_u32().
+> > > 
+> > > Would make sense. I added wireless-devel to confirm.
+> > > 
+> > > [...]
+> > > [    0.673260] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
+> > > [    0.674024] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
+> > > [    0.675012] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
+> > > [    0.676032] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
+> > > [    0.677020] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
+> > > [    0.678011] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
+> > > [    0.679011] random: rc80211_minstrel_ht_init+0x47/0xaa get_random_bytes called with 3 bits of entropy available
+> > > [...]
+> > > 
+> > > In total 80 calls to get_random_bytes.
+> > > 
+> > 
+> > It is already 8 times what rc80211_minstrel_ht_init uses.
+> > If you could apply on top of:
+> > http://marc.info/?l=linux-wireless&m=138392850030987&w=2
+> > although Johannes has not yet agreed/applied this.
 > 
->   After commit 92bf14ab(be2net: refactor be_get_resources() code),
-> be2net is not working on a PowerPC machine.
+> I'll take the patch, I just wanted a more useful commit log :)
 > 
-> [   72.653560] be2net 0001:01:00.0: Could not use PCIe error reporting
-> [   73.933727] be2net 0001:01:00.0: Max: txqs 8, rxqs 8, rss 7, eqs 0,
-> vfs 20
-> [   73.933794] be2net 0001:01:00.0: Max: uc-macs 64, mc-macs 64, vlans 8
-> [   73.933875] be2net 0001:01:00.0: MSIx enable failed
-> [   73.973728] be2net 0001:01:00.0: created 0 TX queue(s)
-> [   73.973795] be2net 0001:01:00.0: created -1 RSS queue(s) and 1
-> default RX queue
-> [   74.013735] be2net 0001:01:00.0: opcode 12-1 failed:status 3-11
-> [   74.013811] be2net 0001:01:00.0: queue_setup failed
-> [   74.013949] be2net 0001:01:00.0: Emulex OneConnect(Lancer)
-> initialization failed
-> [   74.014018] be2net: probe of 0001:01:00.0 failed with error -1
-> 
-> This change makes it work:
-> 
-> --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-> @@ -3187,6 +3187,8 @@ static void be_copy_nic_desc(struct be_resources
-> *res,
->         res->max_rss_qs = le16_to_cpu(desc->rssq_count);
-> 	res->max_rx_qs = le16_to_cpu(desc->rq_count);
-> 	res->max_evt_qs = le16_to_cpu(desc->eq_count);
-> +       if (res->max_evt_qs == 0)
-> +               res->max_evt_qs = 8;
-> 	/* Clear flags that driver is not interested in */
-> 	res->if_cap_flags = le32_to_cpu(desc->cap_flags) &
-> 				BE_IF_CAP_FLAGS_WANT;
-> 
-> Looks like firmware returns corrupted value. Can you fall back all
-> limits to static ones if detected this?
+The commit log still feels very right to me, but I don't want you to go
+grumpy ;) and will reword the log - Hannes, have you staged replacing
+get_random_bytes with prandom_u32 already or can I do it in a reworded
+v2 for minstrel ?
 
-Could you report the old (working) FW version and the new (broken) FW version.
-This clearly seems like a FW bug and I think it should be fixed in FW rather than
-the driver.
-
-thanks,
--Sathya
+> I guess if really needed I'll write that myself :(
+> 
+> Anyway, I can't comment on prandom_u32(), but it doesn't really have to
+> be all that random here, it's just sample tables for what order to try
+> things in. Technically that could even be static with some per-device
+> pertubation, I guess?
+> 
+The LFSR is way enough for minstrel, as for moving from prandom to
+handcrafted sample table, this will be another discussion I guess.
+ 
+Karl
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
