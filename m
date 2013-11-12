@@ -1,90 +1,130 @@
-From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Subject: [PATCH] random: seed random_int_secret at least poorly at core_initcall time
-Date: Tue, 12 Nov 2013 14:46:03 +0100
-Message-ID: <20131112134603.GE14929@order.stressinduktion.org>
-References: <cover.1384160397.git.dborkman@redhat.com> <2ea03f60bb65429cbe5d74a6d356fde3eefcf06c.1384160397.git.dborkman@redhat.com> <20131111134357.GC10104@thunk.org> <20131112000307.GB14929@order.stressinduktion.org> <20131112115350.GA14077@thunk.org> <20131112131627.GD14929@order.stressinduktion.org>
+From: <srinivas.kandagatla@st.com>
+Subject: [PATCH RFC 05/10] drivers: reset: stih416: add softreset controller
+Date: Tue, 12 Nov 2013 13:52:45 +0000
+Message-ID: <1384264365-7523-1-git-send-email-srinivas.kandagatla@st.com>
+References: <1384264311-7308-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Theodore Ts'o <tytso-3s7WtUTddSA@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	shemminger-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, fweimer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20131112131627.GD14929-5j1vdhnGyZutBveJljeh2VPnkB77EeZ12LY78lusg7I@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, Len Brown <len.brown@intel.com>,
+ Russell King <linux@arm.linux.org.uk>, Pavel Machek <pavel@ucw.cz>,
+ Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ Srinivas Kandagatla <srinivas.kandagatla@st.com>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-pm@vger.kernel.org,
+ Stephen Warren <swarren@wwwdotorg.org>,
+ "Rafael J. Wysocki" <rjw@rjwysocki.net>, stephen.gallimore@st.com,
+ Rob Herring <rob.herring@calxeda.com>, linux-doc@vger.kernel.org,
+ Stuart Menefy <stuart.menefy@st.com>, devicetree@vger.kernel.org,
+ Rob Landley <rob@landley.net>, Grant Likely <grant.likely@linaro.org>,
+ Giuseppe Cavallaro <peppe.cavallaro@st.com>, linux-kernel@vger.kernel.org,
+ kernel@stlinux.com
+To: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1384264311-7308-1-git-send-email-srinivas.kandagatla@st.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 12, 2013 at 02:16:27PM +0100, Hannes Frederic Sowa wrote:
-> On Tue, Nov 12, 2013 at 06:53:50AM -0500, Theodore Ts'o wrote:
-> > > Btw. do you see problems regarding get_random_int on architectures without
-> > > hardware offloading?
-> > > 
-> > > We are initializing random_int_secret really late (after all the init
-> > > calls) and I wonder if we should also use a two stage initialization
-> > > there, so we have a more unpredictable MD5 hash at early boot.
-> > 
-> > Most of the users of get_random_int(), at least to date, have been for
-> > things like ASLR.  A quick audit shows only one device driver user
-> > that might be impacted: drivers/net/wireless/cw1200/wsm.c.
-> > 
-> > It's not a bad idea to do a two stage init just in case
-> > get_random_int() gets used by other code --- although that brings up
-> > something that I know is really needed, but which I haven't had time
-> > to try to address yet: we really need to document all of the various
-> > interfaces that various kernel routines can use to get random numbers,
-> > and document what their performance and security characteristics are.
-> > We have probably have a lot of code where the authors didn't realize
-> > that some other interface would be a better match for their needs, or
-> > the code is old enough that predates some of the newer interfaces.
-> 
-> It is needed by fork to set up the stack canary. And this actually gets
-> called before the secret is initialized.
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-Maybe we could use this for the time being and use the seeding method
-of kaslr as soon as it hits the tree?
+This patch adds softreset controller for STiH416 SOC, soft reset
+controller is based on system configuration registers which are mapped
+via regmap. This reset controller does not have any feedback or
+acknowledgement. With this patch a new device "st,stih416-softreset" is
+registered with system configuration registers based reset controller
+that controls the softreset state of the hardware such as Ethernet, IRB.
 
-I didn't bother including arch_get_random_int as we don't use the seed at all
-if that function is available on the particular architecture.
-
-[PATCH] random: seed random_int_secret at least poorly at core_initcall time
-
-We don't seed random_int secret until after all the initcalls happend. But
-it does get used before that. So try at least to seed it before initial
-usage until it gets reseeded again after the initcalls.
-
-Cc: "Theodore Ts'o" <tytso-3s7WtUTddSA@public.gmane.org>
-Signed-off-by: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 ---
- drivers/char/random.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ arch/arm/boot/dts/stih416.dtsi                     |    5 ++++
+ drivers/reset/sti/reset-stih416.c                  |   22 ++++++++++++++++++++
+ .../dt-bindings/reset-controller/stih416-resets.h  |    4 +++
+ 3 files changed, 31 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/char/random.c b/drivers/char/random.c
-index 4fe5609..9f2623c 100644
---- a/drivers/char/random.c
-+++ b/drivers/char/random.c
-@@ -1468,6 +1468,16 @@ int random_int_secret_init(void)
- 	return 0;
- }
+diff --git a/arch/arm/boot/dts/stih416.dtsi b/arch/arm/boot/dts/stih416.dtsi
+index b8cabbb..a3831a3 100644
+--- a/arch/arm/boot/dts/stih416.dtsi
++++ b/arch/arm/boot/dts/stih416.dtsi
+@@ -32,6 +32,11 @@
+ 			compatible = "st,stih416-powerdown";
+ 		};
  
-+static int __init random_int_secret_init_early(void)
-+{
-+	int i;
++		softreset: softreset-controller {
++			#reset-cells = <1>;
++			compatible = "st,stih416-softreset";
++		};
 +
-+	for (i = 0; i < ARRAY_SIZE(random_int_secret); i++)
-+		random_int_secret[i] = jiffies ^ random_get_entropy();
-+	return 0;
-+}
-+core_initcall(random_int_secret_init_early);
+ 		syscfg_sbc:sbc-syscfg@fe600000{
+ 			compatible	= "st,stih416-sbc-syscfg", "syscon";
+ 			reg		= <0xfe600000 0x1000>;
+diff --git a/drivers/reset/sti/reset-stih416.c b/drivers/reset/sti/reset-stih416.c
+index 0becfc5..685fd3b 100644
+--- a/drivers/reset/sti/reset-stih416.c
++++ b/drivers/reset/sti/reset-stih416.c
+@@ -37,6 +37,10 @@ static const char stih416_lpm[] = "st,stih416-lpm-syscfg";
+ #define SYSCFG_2525	0x834 /* Powerdown request USB/SATA/PCIe */
+ #define SYSSTAT_2583	0x91c /* Powerdown status USB/SATA/PCIe */
+ 
++#define SYSCFG_1539	0x86c /* Softreset Ethernet 0 */
++#define SYSCFG_510	0x7f8 /* Softreset Ethernet 1 */
++#define LPM_SYSCFG_1	0x4 /* Softreset IRB */
 +
- /*
-  * Get a random word for internal kernel use only. Similar to urandom but
-  * with the goal of minimal entropy pool depletion. As a result, the random
+ static const struct syscfg_reset_channel_data stih416_powerdowns[] = {
+ 	[STIH416_EMISS_POWERDOWN]	= STIH416_PDN_FRONT(0),
+ 	[STIH416_NAND_POWERDOWN]	= STIH416_PDN_FRONT(1),
+@@ -51,15 +55,33 @@ static const struct syscfg_reset_channel_data stih416_powerdowns[] = {
+ 	[STIH416_PCIE1_POWERDOWN]	= STIH416_PDN_REAR(5, 8),
+ };
+ 
++static const struct syscfg_reset_channel_data stih416_softresets[] = {
++	[STIH416_ETH0_SOFTRESET] = _SYSCFG_RST_CH_NO_ACK(stih416_front,
++							SYSCFG_1539, 0),
++	[STIH416_ETH1_SOFTRESET] = _SYSCFG_RST_CH_NO_ACK(stih416_sbc,
++							SYSCFG_510, 0),
++	[STIH416_IRB_SOFTRESET]	 = _SYSCFG_RST_CH_NO_ACK(stih416_lpm,
++							LPM_SYSCFG_1, 6),
++};
++
+ static struct syscfg_reset_controller_data stih416_powerdown_controller = {
+ 	.wait_for_ack	= true,
+ 	.nr_channels	= ARRAY_SIZE(stih416_powerdowns),
+ 	.channels	= stih416_powerdowns,
+ };
+ 
++static struct syscfg_reset_controller_data stih416_softreset_controller = {
++	.wait_for_ack = false,
++	.active_low = true,
++	.nr_channels = ARRAY_SIZE(stih416_softresets),
++	.channels = stih416_softresets,
++};
++
+ static struct of_device_id stih416_reset_match[] = {
+ 	{ .compatible = "st,stih416-powerdown",
+ 	  .data = &stih416_powerdown_controller, },
++	{ .compatible = "st,stih416-softreset",
++	  .data = &stih416_softreset_controller, },
+ 	{},
+ };
+ 
+diff --git a/include/dt-bindings/reset-controller/stih416-resets.h b/include/dt-bindings/reset-controller/stih416-resets.h
+index d7da55f..ee8ccd0 100644
+--- a/include/dt-bindings/reset-controller/stih416-resets.h
++++ b/include/dt-bindings/reset-controller/stih416-resets.h
+@@ -18,4 +18,8 @@
+ #define STIH416_PCIE0_POWERDOWN		9
+ #define STIH416_PCIE1_POWERDOWN		10
+ 
++#define STIH416_ETH0_SOFTRESET		0
++#define STIH416_ETH1_SOFTRESET		1
++#define STIH416_IRB_SOFTRESET		2
++
+ #endif /* _DT_BINDINGS_RESET_CONTROLLER_STIH416 */
 -- 
-1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.6.5
