@@ -1,48 +1,52 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net] core/dev: do not ignore dmac in dev_forward_skb()
-Date: Tue, 12 Nov 2013 09:49:29 +0100
-Message-ID: <5281EB99.5000104@6wind.com>
-References: <1384206735-4226-1-git-send-email-ast@plumgrid.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: linux-next: manual merge of the random tree with the net-next
+ tree
+Date: Tue, 12 Nov 2013 09:55:29 +0100
+Message-ID: <5281ED01.5020204@redhat.com>
+References: <20131112155549.c160273993147244ed6bc81d@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	Maciej Zenczykowski <zenczykowski@gmail.com>
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f171.google.com ([74.125.82.171]:40537 "EHLO
-	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964Ab3KLItc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 03:49:32 -0500
-Received: by mail-we0-f171.google.com with SMTP id t61so2292488wes.16
-        for <netdev@vger.kernel.org>; Tue, 12 Nov 2013 00:49:31 -0800 (PST)
-In-Reply-To: <1384206735-4226-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Theodore Ts'o" <tytso@mit.edu>, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20131112155549.c160273993147244ed6bc81d@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 11/11/2013 22:52, Alexei Starovoitov a =C3=A9crit :
-> commit 06a23fe31ca3
-> ("core/dev: set pkt_type after eth_type_trans() in dev_forward_skb()"=
-)
-> and refactoring 64261f230a91
-> ("dev: move skb_scrub_packet() after eth_type_trans()")
+Hi Stephen,
+
+On 11/12/2013 05:55 AM, Stephen Rothwell wrote:
+> Hi Ted,
 >
-> are forcing pkt_type to be PACKET_HOST when skb traverses veth.
+> Today's linux-next merge of the random tree got a conflict in
+> drivers/char/random.c between commit 0244ad004a54 ("random32: add
+> prandom_reseed_late() and call when nonblocking pool becomes
+> initialized") from the net-next tree and commit 301f0595c0e7 ("random:
+> printk notifications for urandom pool initialization") from the random
+> tree.
 >
-> which means that ip forwarding will kick in inside netns
-> even if skb->eth->h_dest !=3D dev->dev_addr
->
-> Revert offending commit
->
-> Fixes: 06a23fe31ca3 ("core/dev: set pkt_type after eth_type_trans() i=
-n dev_forward_skb()")
-> CC: Maciej Zenczykowski <zenczykowski@gmail.com>
-> CC: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-skb_scrub_packet() is also called after eth_type_trans() in ip_tunnel_r=
-cv().
-I do it to be consistent with dev_forward_skb(), thus it should be inve=
-rted too.
+> I fixed it up (probably not properly - see below) and can carry the fix
+> as necessary (no action is required).
+
+As per Hannes' suggestion, the result should look like (see cover
+letter in [1]):
+
+if (r->entropy_total > 128) {
+	r->initialized = 1;
+	r->entropy_total = 0;
+	if (r == &nonblocking_pool) {
+		prandom_reseed_late();
+		pr_notice("random: %s pool is initialized\n",
+			  r->name);
+	}
+}
+
+Cheers,
+
+Daniel
+
+  [1] http://thread.gmane.org/gmane.linux.network/290303
