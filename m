@@ -1,43 +1,101 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH net-next 3/6] random32: add prandom_reseed_late() and
- call when nonblocking pool becomes initialized
-Date: Tue, 12 Nov 2013 13:04:02 +0100
-Message-ID: <1384257842.14301.7.camel@jlt4.sipsolutions.net>
-References: <cover.1384160397.git.dborkman@redhat.com>
-	 <2ea03f60bb65429cbe5d74a6d356fde3eefcf06c.1384160397.git.dborkman@redhat.com>
-	 <20131111134357.GC10104@thunk.org>
-	 <20131112000307.GB14929@order.stressinduktion.org>
-	 <20131112115350.GA14077@thunk.org> (sfid-20131112_125411_173736_4A7C850F)
+From: Shaohui Xie <Shaohui.Xie@freescale.com>
+Subject: RE: [PATCH 1/4] phylib: Add Clause 45 read/write functions
+Date: Tue, 12 Nov 2013 12:30:48 +0000
+Message-ID: <ED492CCEAF882048BC2237DE806547C915117378@039-SN2MPN1-013.039d.mgd.msft.net>
+References: <1384167864-2457-1-git-send-email-shh.xie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	shemminger@networkplumber.org, fweimer@redhat.com,
-	netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-wireless@vger.kernel.org
-To: Theodore Ts'o <tytso@mit.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:40026 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751868Ab3KLMEO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 07:04:14 -0500
-In-Reply-To: <20131112115350.GA14077@thunk.org> (sfid-20131112_125411_173736_4A7C850F)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Madalin-Cristian Bucur <madalin.bucur@freescale.com>,
+	Shruti Kanetkar <Shruti@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"jg1.han@samsung.com" <jg1.han@samsung.com>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+	"michal.simek@xilinx.com" <michal.simek@xilinx.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "shh.xie@gmail.com" <shh.xie@gmail.com>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1384167864-2457-1-git-send-email-shh.xie@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-11-12 at 06:53 -0500, Theodore Ts'o wrote:
-> On Tue, Nov 12, 2013 at 01:03:07AM +0100, Hannes Frederic Sowa wrote:
-> >
-> > We are much too early to enumerate hardware, so it would be hard to
-> > integrate something like mac addresses etc.
+Added more people and list.
+
+Best Regards, 
+Shaohui Xie
+
+
+> -----Original Message-----
+> From: shh.xie@gmail.com [mailto:shh.xie@gmail.com]
+> Sent: Monday, November 11, 2013 7:04 PM
+> To: linuxppc-dev@lists.ozlabs.org; linux-kernel@vger.kernel.org
+> Cc: Bucur Madalin-Cristian-B32716; Kanetkar Shruti-B44454; Xie Shaohui-B21989
+> Subject: [PATCH 1/4] phylib: Add Clause 45 read/write functions
 > 
-> Stupid question --- is there a reason why the minstrel code is
-> initialized so early when it is compiled into the kernel?  Can we
-> change it so it gets initialized later, after the devices are
-> initialized and we get the mac addresses?  
-
-It's a bit of a chicken & egg problem - the minstrel rate control is
-needed for the wireless device to get registered - if anything were to
-fail there then we wouldn't want to register.
-
-johannes
+> From: Andy Fleming
+> 
+> You need an extra parameter to read or write Clause 45 PHYs, so we need a
+> different API with the extra parameter.
+> 
+> Signed-off-by: Andy Fleming
+> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
+> ---
+>  include/linux/phy.h | 33 +++++++++++++++++++++++++++++++++
+>  1 file changed, 33 insertions(+)
+> 
+> diff --git a/include/linux/phy.h b/include/linux/phy.h index 64ab823..684925a
+> 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -498,6 +498,21 @@ static inline int phy_read(struct phy_device *phydev, u32
+> regnum)  }
+> 
+>  /**
+> + * phy_read_mmd - Convenience function for reading a register
+> + *   from an MMD on a given PHY.
+> + * @phydev: The phy_device struct
+> + * @devad: The MMD to read from
+> + * @regnum: The register on the MMD to read
+> + *
+> + * Same rules as for phy_read();
+> + */
+> +static inline int phy_read_mmd(struct phy_device *phydev, int devad,
+> +u32 regnum) {
+> +	return mdiobus_read(phydev->bus, phydev->addr,
+> +		MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff)); }
+> +
+> +/**
+>   * phy_write - Convenience function for writing a given PHY register
+>   * @phydev: the phy_device struct
+>   * @regnum: register number to write
+> @@ -533,6 +548,24 @@ static inline bool phy_is_internal(struct phy_device
+> *phydev)
+>  	return phydev->is_internal;
+>  }
+> 
+> +/**
+> + * phy_write_mmd - Convenience function for writing a register
+> + *   on an MMD on a given PHY.
+> + * @phydev: The phy_device struct
+> + * @devad: The MMD to read from
+> + * @regnum: The register on the MMD to read
+> + * @val: value to write to @regnum
+> + *
+> + * Same rules as for phy_write();
+> + */
+> +static inline int phy_write_mmd(struct phy_device *phydev, int devad,
+> +		u32 regnum, u16 val)
+> +{
+> +	regnum = MII_ADDR_C45 | ((devad & 0x1f) << 16) | (regnum & 0xffff);
+> +
+> +	return mdiobus_write(phydev->bus, phydev->addr, regnum, val); }
+> +
+>  struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
+>  		bool is_c45, struct phy_c45_device_ids *c45_ids);  struct
+> phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
+> --
+> 1.8.4.1
