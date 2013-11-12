@@ -1,88 +1,51 @@
 From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC] Revert "sierra_net: keep status interrupt URB active"
-Date: Tue, 12 Nov 2013 11:37:05 -0600
-Message-ID: <1384277825.14773.1.camel@dcbw.foobar.com>
-References: <1383310428-19913-1-git-send-email-bjorn@mork.no>
-	 <1383596827.29469.1.camel@dcbw.foobar.com>
-	 <1383938944.29096.7.camel@dcbw.foobar.com> <87txfm8vz5.fsf@nemi.mork.no>
-	 <1383946173.29096.12.camel@dcbw.foobar.com>
-	 <1384273510.14773.0.camel@dcbw.foobar.com>
+Subject: Re: [PATCH] usbnet: fix status interrupt urb handling
+Date: Tue, 12 Nov 2013 11:37:54 -0600
+Message-ID: <1384277874.14773.2.camel@dcbw.foobar.com>
+References: <1384270481-30972-1-git-send-email-nbd@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	John Henderson <jhen-qw6QB7/foO7QT0dZR+AlfA@public.gmane.org>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1384273510.14773.0.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
+In-Reply-To: <1384270481-30972-1-git-send-email-nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-11-12 at 10:25 -0600, Dan Williams wrote:
-> On Fri, 2013-11-08 at 15:29 -0600, Dan Williams wrote:
-> > On Fri, 2013-11-08 at 21:44 +0100, Bj=C3=B8rn Mork wrote:
-> > > Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
-> > > > On Mon, 2013-11-04 at 14:27 -0600, Dan Williams wrote:
-> > > >> On Fri, 2013-11-01 at 13:53 +0100, Bj=C3=B8rn Mork wrote:
-> > > >> > This reverts commit 7b0c5f21f348a66de495868b8df0284e8dfd6bbf=
-=2E
-> > > >> >=20
-> > > >> > It's not easy to create a driver for all the various firmwar=
-e
-> > > >> > bugs out there.
-> > > >> >=20
-> > > >> > This change caused regressions for a number of devices, whic=
-h
-> > > >> > started to fail link detection and therefore became complete=
-ly
-> > > >> > non-functional. The exact reason is yet unknown, it looks li=
-ke
-> > > >> > the affected firmwares might actually need all or some of th=
-e
-> > > >> > additional SYNC messages the patch got rid of.
-> > > >> >=20
-> > > >> > Reverting is not optimal, as it will re-introduce the origin=
-al
-> > > >> > problem, but it is currently the only alternative known to f=
-ix
-> > > >> > this issue.
-> > > >>=20
-> > > >> Instead, how does the following patch work for you?
-> > > >
-> > > > Bjorn, did you have a chance to try this patch out on your devi=
-ces?
-> > >=20
-> > > The only DirectIP device I have is the MC7710, which never had an=
-y of
-> > > the firmware issues you are trying to fix. I only tried to forwar=
-d Johns
-> > > issue.
-> > >=20
-> > > When this patch worked for John, then I am pretty confident that =
-you
-> > > have solved the problem here.
-> >=20
-> > Well, "solved", since I still have no idea why the original patch w=
-ould
-> > cause the device behavior based on what I know and have read about =
-the
-> > expected firmware/host handshaking sequence.  But the patch there
-> > appears to fix the problem *and* not blindly send tons of SYNCs for=
-ever.
-> >=20
-> > So I'll go ahead and submit a proper version of it.
->=20
-> Actually, is "[PATCH] usbnet: fix status interrupt urb handling" the
-> real fix for this problem?
->=20
-> John, any chance you could revert my RFC patch and try Felix's patch =
-in
-> that mail?
+On Tue, 2013-11-12 at 16:34 +0100, Felix Fietkau wrote:
+> Since commit 7b0c5f21f348a66de495868b8df0284e8dfd6bbf
+> "sierra_net: keep status interrupt URB active", sierra_net triggers
+> status interrupt polling before the net_device is opened (in order to
+> properly receive the sync message response).
+> 
+> To be able to receive further interrupts, the interrupt urb needs to be
+> re-submitted, so this patch removes the bogus check for netif_running().
+> 
+> Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Signed-off-by: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
 
-It fixes the problem for me without requiring the revert or my RFC
-patch....
+Tested-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-Dan
+> ---
+>  drivers/net/usb/usbnet.c | 3 ---
+>  1 file changed, 3 deletions(-)
+> 
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index 90a429b..8494bb5 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -204,9 +204,6 @@ static void intr_complete (struct urb *urb)
+>  		break;
+>  	}
+>  
+> -	if (!netif_running (dev->net))
+> -		return;
+> -
+>  	status = usb_submit_urb (urb, GFP_ATOMIC);
+>  	if (status != 0)
+>  		netif_err(dev, timer, dev->net,
+
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
