@@ -1,44 +1,51 @@
-From: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCHv2.1] net: wireless: iwlwifi: remove minor dead code
-Date: Tue, 12 Nov 2013 07:24:04 +0200
-Message-ID: <5281BB74.50903@gmail.com>
-References: <1384110397-24386-1-git-send-email-mpn@google.com> <527FDB50.1050902@cogentembedded.com> <87iow080zv.fsf@mina86.com> <1384177312.14334.12.camel@jlt4.sipsolutions.net> <xa1tr4amwkrt.fsf@mina86.com>
+From: Isaku Yamahata <yamahatanetdev@gmail.com>
+Subject: Re: [PATCH net] core/dev: do not ignore dmac in dev_forward_skb()
+Date: Tue, 12 Nov 2013 14:25:31 +0900
+Message-ID: <20131112052531.GB22272@private.email.ne.jp>
+References: <1384206735-4226-1-git-send-email-ast@plumgrid.com>
+ <CAHo-Ooz8aqwOH6HBbBK3AD2=odCQtDyuV8+GdA4SqOWEwX6WTA@mail.gmail.com>
+ <CAMEtUuzmZd0RXO+=YhCW7OwfE1kvc2aA2K0gqXRN+LwS-O1f2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Michal Nazarewicz <mina86-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <xa1tr4amwkrt.fsf-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Maciej =?utf-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>,
+	isaku.yamahata@gmail.com, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Linux NetDev <netdev@vger.kernel.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	yamahatanetdev@gmail.com
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:44218 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751284Ab3KLF0H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 00:26:07 -0500
+Received: by mail-pd0-f180.google.com with SMTP id v10so2240204pde.25
+        for <netdev@vger.kernel.org>; Mon, 11 Nov 2013 21:26:06 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CAMEtUuzmZd0RXO+=YhCW7OwfE1kvc2aA2K0gqXRN+LwS-O1f2w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, Nov 11, 2013 at 05:12:10PM -0800,
+Alexei Starovoitov <ast@plumgrid.com> wrote:
 
+> On Mon, Nov 11, 2013 at 4:39 PM, Maciej =C5=BBenczykowski
+> <zenczykowski@gmail.com> wrote:
+> > Ack.
+> >
+> > I'm sure this breaks whatever the original commit was trying to 'fi=
+x',
+> > however it does so in a clearly incorrect manner by effectively
+> > disabling dst mac address filtering.
+>=20
+> actually it doesn't break it. Isaku's testcase works for me.
 
-On 11/12/2013 02:01 AM, Michal Nazarewicz wrote:
-> inta is checked to be zero in a IRQ_NONE branch so afterwards it
-> cannot be zero as it is never modified.
-> 
-> Signed-off-by: Michal Nazarewicz <mina86-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>
-> ---
->  drivers/net/wireless/iwlwifi/pcie/rx.c | 24 +++++++++---------------
->  1 file changed, 9 insertions(+), 15 deletions(-)
-> 
-> On Mon, Nov 11 2013, Johannes Berg wrote:
->> no signed-off-by
-> 
-> Sorry, fixed.  Interestingly, I did not forget about it in my first patch.
-> 
+The changeset of 963a88b31ddbbe99f38502239b1a46601773d217
+  "tunnels: harmonize cleanup done on skb on xmit path"
+addresses the issue by calling skb_scrub_packet() when sending skb
+through tunnel. So it is safe to revert it.
 
-no worries - I picked it up in our internal tree.
-Thanks!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+thanks,
+--=20
+Isaku Yamahata <isaku.yamahata@gmail.com>
