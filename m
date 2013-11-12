@@ -1,52 +1,51 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net] netlink: fix netlink_ack with large messages
-Date: Tue, 12 Nov 2013 16:29:07 +0100
-Message-ID: <20131112162907.50f0bafa@griffin>
-References: <9333f540a9b87adbdd15e274d12a9d60994fdb34.1383850578.git.jbenc@redhat.com>
-	<20131108.150741.966018155704146843.davem@davemloft.net>
-	<20131109000434.GD28793@casper.infradead.org>
-	<20131109.000012.1393414533296613338.davem@davemloft.net>
-	<527E3C17.1080508@mojatatu.com>
-	<20131109180353.GA3715@localhost>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
+Date: Tue, 12 Nov 2013 16:34:24 +0100
+Message-ID: <87vbzxd473.fsf@natisbad.org>
+References: <8761s0cqhh.fsf@natisbad.org>
+	<slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
+	<87y54u59zq.fsf@natisbad.org> <20131112083633.GB10318@1wt.eu>
+	<87a9hagex1.fsf@natisbad.org> <20131112100126.GB23981@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>, tgraf@suug.ch,
+Content-Type: text/plain
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, edumazet@google.com,
+	stable@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57023 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752905Ab3KLP3l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Nov 2013 10:29:41 -0500
-In-Reply-To: <20131109180353.GA3715@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20131112100126.GB23981@1wt.eu> (Willy Tarreau's message of "Tue,
+	12 Nov 2013 11:01:26 +0100")
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 9 Nov 2013 19:03:53 +0100, Pablo Neira Ayuso wrote:
-> On Sat, Nov 09, 2013 at 08:43:51AM -0500, Jamal Hadi Salim wrote:
-> > for errors, we need to give the user something back. This has been the
-> > behavior for 80 years now. Giving them a HUGE message
-> > back is rediculuos(tm). Ive had enough of SCTP doing that.
-> > We need to cap it - sort of what ICMP does.
-> > ICMP caps at 64B; something like 128B is reasonable.
-> 
-> Personally, I have only used the sequence number to correlate the
-> original request with the ack reply, so I agree in that trimming it to
-> some reasonable amount of bytes like ICMP is the way to go. I prefer
-> if we select a large enough amount of bytes to avoid breaking backward
-> compatibility, eg. 128KB, since I'm not sure what kind of handling
-> others may have done of this.
+Hi,
 
-Do you think capping at NLMSG_GOODSIZE would be too low? The allocation
-won't fit into one page with NLMSG_GOODSIZE but I doubt we can go lower
-than that. Alternatively, we can do some math to fully use the two
-pages, like
-	NLMSG_GOODSIZE + min(PAGE_SIZE, 8192UL) - NLMSG_HDRLEN - NLMSG_ALIGN(sizeof(struct nlmsgerr))
-(which I'm not sure is worth it).
+Willy Tarreau <w@1wt.eu> writes:
 
- Jiri
+> On Tue, Nov 12, 2013 at 10:14:34AM +0100, Arnaud Ebalard wrote:
+>> Tests for the rgression were done w/ scp, and were hence limited by the
+>> crypto (16MB/s using arcfour128). But I also did some tests w/ a simple
+>> wget for a file served by Apache *before* the regression and I never got
+>> more than 60MB/s from what I recall. Can you beat that? 
+>
+> Yes, I finally picked my mirabox out of my bag for a quick test. It boots
+> off 3.10.0-rc7 and I totally saturate one port (stable 988 Mbps) with even
+> a single TCP stream.
 
--- 
-Jiri Benc
+Thanks for the feedback. That's interesting. What are you using for your tests
+(wget, ...)? 
+
+> With two systems, one directly connected (dockstar) and the other one via
+> a switch, I get 2*650 Mbps (a single TCP stream is enough on each).
+>
+> I'll have to re-run some tests using a more up to date kernel, but that
+> will probably not be today though.
+
+Can you give a pre-3.11.7 kernel a try if you find the time? I started
+working on RN102 during 3.10-rc cycle but do not remember if I did the
+first preformance tests on 3.10 or 3.11. And if you find more time,
+3.11.7 would be nice too ;-)
+
+Cheers,
+
+a+
