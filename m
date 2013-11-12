@@ -1,147 +1,96 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [RFC PATCHv2 3/4] of: provide a binding for fixed link PHYs
-Date: Tue, 12 Nov 2013 16:29:14 +0000
-Message-ID: <20131112162914.GE4237@e106331-lin.cambridge.arm.com>
-References: <1378480701-12908-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <20130918042923.5D845C42CF7@trevor.secretlab.ca>
- <20130918181112.56c10dde@skate>
- <1811694.J4B6oUpKxP@lenovo>
- <20131112123746.EAEF0C42283@trevor.secretlab.ca>
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload burst.
+Date: Tue, 12 Nov 2013 16:50:35 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7407@saturn3.aculab.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B73FF@saturn3.aculab.com> <Pine.LNX.4.44L0.1311121051090.1200-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Lior Amsalem <alior@marvell.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Christian Gmeiner <christian.gmeiner@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Grant Likely <grant.likely@secretlab.ca>,
-	Florian Fainelli <florian@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:39730 "EHLO
-	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756109Ab3KLQ3y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 11:29:54 -0500
-Content-Disposition: inline
-In-Reply-To: <20131112123746.EAEF0C42283@trevor.secretlab.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Sarah Sharp" <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Alan Stern" <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <Pine.LNX.4.44L0.1311121051090.1200-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Florian, Grant,
+> > If all the fragments are larger than the MBP (assume 16k) then
+> > that would be relatively easy. However that is very dependant
+> > on the source of the data. It might be true for disk data, but
+> > is unlikely to be true for ethernet data.
+> 
+> I don't quite understand your point.  Are you saying that if all the
+> TRBs are very short, you might need more than 64 TRBs to reach a 16-KB
+> boundary?
 
-On Tue, Nov 12, 2013 at 12:37:46PM +0000, Grant Likely wrote:
-> On Fri, 25 Oct 2013 05:40:57 +0100, Florian Fainelli <florian@openwrt=
-=2Eorg> wrote:
-> > Le mercredi 18 septembre 2013, 18:11:12 Thomas Petazzoni a =C3=83=C2=
-=A9crit :
-> > > Dear Grant Likely,
-> > >=20
-> > > On Tue, 17 Sep 2013 23:29:23 -0500, Grant Likely wrote:
-> > > > I understand what you're trying to do here, but it causes a tro=
-ublesome
-> > > > leakage of implementation detail into the binding, making the w=
-hole
-> > > > thing look very odd. This binding tries to make a fixed link lo=
-ok
-> > > > exactly like a real PHY even to the point of including a phandl=
-e to the
-> > > > phy. But having a phandle to a node which is *always* a direct =
-child of
-> > > > the MAC node is redundant and a rather looney. Yes, doing it th=
-at way
-> > > > makes it easy for of_phy_find_device() to be transparent for fi=
-xed link,
-> > > > but that should *not* drive bindings, especially when that make=
-s the
-> > > > binding really rather weird.
-> > > >=20
-> > > > Second, this new binding doesn't provide anything over and abov=
-e the
-> > > > existing fixed-link binding. It may not be pretty, but it is
-> > > > estabilshed.
-> > >=20
-> > > Have you followed the past discussions about this patch set? Basi=
-cally
-> > > the *only* feedback I received on RFCv1 is that the fixed-link pr=
-operty
-> > > sucks, and everybody (including the known Device Tree binding
-> > > maintainer Mark Rutland) suggested to not use the fixed-link mech=
-anism.
-> > > See http://article.gmane.org/gmane.linux.network/276932, where Ma=
-rk
-> > > said:
-> > >=20
-> > > ""
-> > > I'm not sure grouping these values together is the best way of ha=
-ndling
-> > > this. It's rather opaque, and inflexible for future extension.
-> > > ""
-> > >=20
-> > > So, please DT maintainers, tell me what you want. I honestly don'=
-t care
-> > > whether fixed-link or a separate node is chosen. However, I do ca=
-re
-> > > about being dragged around between two solutions just because the
-> > > former DT maintainer and the new DT maintainers do not agree.
->=20
-> I've been sleepy on this issue, which limits how much I can push. I'l=
-l
-> say one more thing on the issue (below) and then leave the decision u=
-p
-> to Mark. I trust him and he knows what he is doing.
->=20
-> > Since I would like to move forward so I can one day use that bindin=
-g in a=20
-> > real-life product, I am going to go for Mark's side which happens t=
-o be how I=20
-> > want the binding to look like.
-> >=20
-> > Do we all agree that the new binding is just way better than the ol=
-d one? In=20
-> > light of the recent unstable DT ABI discussion, we can still contin=
-ue parsing=20
-> > the old one for the sake of compatibility.
->=20
-> Regardless of what you want it to look like, does the old binding wor=
-k
-> for your purposes? If yes then use it. The only valid reason for
-> creating a new binding is if the old one doesn't work for a specific
-> (not theoretical) use case.
+Since you don't really want to do all the work twice, the sensible
+way is to add each input fragment to the ring one a time.
+If you need to cross a link TRB and the last MBP boundary is within
+the previous data TRB then you can split the previous data TRB at the
+MBP boundary and continue.
+If the previous TRB is short then you'd need to go back through the
+earlier TRB until you found the one that contains a TRB boundary,
+split it, and write a link TRB in the following slot.
+If you are within the first MBP then you'd need to replace the first
+TRB of the message with a link TRB.
 
-I think the issue here was that I am not versed in the history of all o=
-f
-the existing bindings. While I'm not keen on the existing fixed-link
-property and I think it should be done differently were it being create=
-d
-from scratch today, as Grant has pointed out we're already supporting i=
-t
-today, and adding a new binding is going to make the code handling it
-more complex.
+And yes, if the data is really fragmented you might need a lot of
+TRB for even 1k of data.
 
-If fixed-link works for your use case today, then use fixed-link.
+> > For bulk data the link TRB can be forced at a packet boundary
+> > by splitting the TD up - the receiving end won't know the difference.
+> 
+> That won't work.  What happens if you split a TD up into two pieces and
+> the first piece receives a short packet?  The host controller will
+> automatically move to the start of the second piece.  That's not what
+> we want.
 
-If we have a valid reason to create a new binding, we should. At the
-moment I think the only egregious portion of the binding is the globall=
-y
-unique fake PHY id, and if that causes issues we should be able to
-assign IDs within Linux ignoring the values in the DT, or reorganise
-things such that the arbitrary ID doesn't matter.
+You can split a bulk TD on a 1k boundary and the target won't know the
+difference.
 
-If there are configurations we need to support that the fixed-link
-property cannot encode, then I think we should go ahead with the bindin=
-g
-style that you are proposing today. However, we don't need to go with i=
-t
-right away, and we can continue to support fixed-link regardless.
+> > There is no necessity for taking an interrupt from every link segment.
+> 
+> Yes, there is.  The HCD needs to know when the dequeue pointer has
+> moved beyond the end of the ring segment, so that it can start reusing
+> the TRB slots in that segment.
 
-I apologise for the lack of consistency here, and I'm sorry that I've
-delayed this series for so long.
+You already know that because of the interrupts for the data packets
+themselves.
 
-Thanks,
-Mark.
+> > I would change the code to use a single segment (for coding simplicity)
+> > and queue bulk URB when there isn't enough ring space.
+> > URB with too many fragments could either be rejected, sent in sections,
+> > or partially linearised (and probably still sent in sections).
+> 
+> Rejecting an URB is not feasible.  Splitting it up into multiple TDs is
+> not acceptable, as explained above.  Sending it in sections (i.e.,
+> queueing only some of the TRBs at any time) would work, provided you
+> got at least two interrupts every time the queue wrapped around (which
+> suggests you might want at least two ring segments).
+
+Rejecting badly fragmented URB is almost certainly ok. You really don't
+want the hardware overhead of processing a TRB every few bytes.
+This would be especially bad on iommu systems.
+Before the ring expansion code was added there was an implicit
+limit of (probably) 125 fragments for a URB. Exceeding this limit
+wasn't the reason for adding the ring expansion code.
+
+And, as I've pointed out, both bulk and isoc URB can be split unless
+they are using too many fragments for a short piece of data.
+
+The current code refuses to write into a TRB segment until it is
+empty - I think that restriction is only there so that it can
+add another segment when the space runs out.
+
+	David
+
+
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
