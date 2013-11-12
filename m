@@ -1,84 +1,74 @@
-From: Laurent Pinchart <laurent.pinchart-ryLnwIuWjnjg/C1BVhZhaw@public.gmane.org>
-Subject: Re: [PATCH v2 00/19] Enable various Renesas drivers on all ARM
-	platforms
-Date: Wed, 13 Nov 2013 00:32:06 +0100
-Message-ID: <55374441.jb1As8srky@avalon>
-References: <1383086274-11049-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 2/2] random32: use msecs_to_jiffies for reseed timer
+Date: Tue, 12 Nov 2013 15:35:12 -0800
+Message-ID: <20131112153512.68520cca@samsung-9>
+References: <1384296342-3348-1-git-send-email-dborkman@redhat.com>
+	<1384296342-3348-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: , linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Wolfram Sang <wsa-z923LK4zBo2bacvFa/9K2g@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Guennadi Liakhovetski <g.liakhovetski+renesas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Laurent Pinchart <laurent.pinchart+renesas-ryLnwIuWjnjg/C1BVhZhaw@public.gmane.org>,
-	Vinod Koul <vinod.koul-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Magnus Damm <magnus.damm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Eduardo Valentin <eduardo.valentin-l0cyMroinI0@public.gmane.org>,
-	Tomi Valkeinen <tomi.valkeinen-l0cyMroinI0@public.gmane.org>, linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-input-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Zhang Rui <rui.zhang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Chris Ball <cjb-2X9k7bc8m7Mdnm+yROfE0A@public.gmane.org>,
-	Jean-Christophe Plagniol-Villard <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>,
-	linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pwm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>, linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Ian Molton <ian-zdned+2MO1+9FHfhHBbuYA@public.gmane.org>, Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	xfoundat@
-To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1383086274-11049-1-git-send-email-laurent.pinchart+renesas-ryLnwIuWjnjg/C1BVhZhaw@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:43641 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756319Ab3KLXfU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 18:35:20 -0500
+Received: by mail-pd0-f172.google.com with SMTP id w10so7608380pde.31
+        for <netdev@vger.kernel.org>; Tue, 12 Nov 2013 15:35:19 -0800 (PST)
+In-Reply-To: <1384296342-3348-2-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Tue, 12 Nov 2013 23:45:42 +0100
+Daniel Borkmann <dborkman@redhat.com> wrote:
 
-On Tuesday 29 October 2013 23:37:35 Laurent Pinchart wrote:
-> Hello,
+> Use msecs_to_jiffies, for these calculations as different HZ
+> considerations are taken into account for conversion of the timer
+> shot, and also it makes the code more readable.
 > 
-> This patch series, based on v3.12-rc7, prepares various Renesas drivers
-> for migration to multiplatform kernels by enabling their compilation or
-> otherwise fixing them on all ARM platforms. The patches are pretty
-> straightforward and are described in their commit message.
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  lib/random32.c | 8 ++++++--
+>  1 file changed, 6 insertions(+), 2 deletions(-)
 > 
-> Changes since v1:
-> 
-> - The drivers can also be selected when COMPILE_TEST is enabled, regardless
-> of the architecture. This should provide a good compromise between wide
-> build test coverage and not clobbering configuration with drivers useless
-> on non-SuperH, non-ARM platforms.
-> 
-> - DMA configuration is now unconditional in patch 08/19
-> 
-> I'd like to get all these patches merged in v3.14. As they will need to go
-> through their respective subsystems' trees, I would appreciate if all
-> maintainers involved could notify me when they merge patches from this
-> series in their tree to help me tracking the merge status. I don't plan to
-> send pull requests individually for these patches, and I will repost
-> patches individually if changes are requested during review.
-> 
-> If you believe the issue should be solved in a different way please reply to
-> the cover letter to let other maintainers chime in.
+> diff --git a/lib/random32.c b/lib/random32.c
+> index 4f9d5df..1e5b2df 100644
+> --- a/lib/random32.c
+> +++ b/lib/random32.c
+> @@ -214,18 +214,22 @@ static DEFINE_TIMER(seed_timer, __prandom_timer, 0, 0);
+>  static void __prandom_timer(unsigned long dontcare)
+>  {
+>  	u32 entropy;
+> +	unsigned long expires;
+>  
+>  	get_random_bytes(&entropy, sizeof(entropy));
+>  	prandom_seed(entropy);
+> +
+>  	/* reseed every ~60 seconds, in [40 .. 80) interval with slack */
+> -	seed_timer.expires = jiffies + (40 * HZ + (prandom_u32() % (40 * HZ)));
+> +	expires = 40 + (prandom_u32() % 40);
+> +	seed_timer.expires = jiffies + msecs_to_jiffies(expires * MSEC_PER_SEC);
+> +
+>  	add_timer(&seed_timer);
+>  }
+>  
+>  static void __init __prandom_start_seed_timer(void)
+>  {
+>  	set_timer_slack(&seed_timer, HZ);
+> -	seed_timer.expires = jiffies + 40 * HZ;
+> +	seed_timer.expires = jiffies + msecs_to_jiffies(40 * MSEC_PER_SEC);
+>  	add_timer(&seed_timer);
+>  }
+>  
 
-This patch series was a prerequisite for a larger rework of Renesas platforms. 
-However, we've decided to go with an alternative approach that renames Kconfig 
-symbols to avoid touching all the drivers. There is thus no urgency to apply 
-this series anymore.
-
-I still plan to enable COMPILE_TEST on Renesas drivers. I will send a v3 of 
-these patches based on the feedback received on v2. Patches from v2 that have 
-already been applied can be dropped, but there's no need to revert them rebase 
-trees as they're not invalid per-se. I will make sure to address the situation 
-in v3. I'm sorry for the inconvenience.
-
--- 
-Regards,
-
-Laurent Pinchart
+Some questions:
+ 1. What is the point of using msecs_to_jiffies? the older code already handled
+    differing HZ?
+ 2. Why the magic 40-80 sec range? What about platforms with very low entropy
+    you will end up draining it faster.
+ 3. I prefer using mod_timer rather than setting expires and call add_timer
+ 4. You should also use round_jiffies to save power by making the wakeup on a second
+    boundary.
