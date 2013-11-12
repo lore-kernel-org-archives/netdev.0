@@ -1,122 +1,61 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH] ipvs: Remove unused variable ret from
- sync_thread_master()
-Date: Tue, 12 Nov 2013 15:52:43 +0100
-Message-ID: <20131112145243.GU5056@laptop.programming.kicks-ass.net>
-References: <1384264396-14550-1-git-send-email-geert@linux-m68k.org>
- <20131112141314.GQ5056@laptop.programming.kicks-ass.net>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7405@saturn3.aculab.com>
+From: Sujith Manoharan <sujith@msujith.org>
+Subject: Re: [PATCH] tcp: tsq: restore minimal amount of queueing
+Date: Tue, 12 Nov 2013 20:54:33 +0530
+Message-ID: <21122.18481.785917.621199@gargle.gargle.HOWL>
+References: <8761s0cqhh.fsf@natisbad.org>
+	<slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
+	<87y54u59zq.fsf@natisbad.org>
+	<1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Ingo Molnar <mingo@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7405@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Arnaud Ebalard <arno@natisbad.org>,
+	David Miller <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+	Felix Fietkau <nbd@openwrt.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s72.web-hosting.com ([198.187.29.21]:40029 "EHLO
+	s72.web-hosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753904Ab3KLP3M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 10:29:12 -0500
+In-Reply-To: <1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 12, 2013 at 02:21:39PM -0000, David Laight wrote:
-> Shame there isn't a process flag to indicate that the process
-> will sleep uninterruptibly and that it doesn't matter.
-> So don't count to the load average and don't emit a warning
-> if it has been sleeping for a long time.
+Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> After commit c9eeec26e32e ("tcp: TSQ can use a dynamic limit"), several
+> users reported throughput regressions, notably on mvneta and wifi
+> adapters.
+> 
+> 802.11 AMPDU requires a fair amount of queueing to be effective.
+> 
+> This patch partially reverts the change done in tcp_write_xmit()
+> so that the minimal amount is sysctl_tcp_limit_output_bytes.
+> 
+> It also remove the use of this sysctl while building skb stored
+> in write queue, as TSO autosizing does the right thing anyway.
+> 
+> Users with well behaving NICS and correct qdisc (like sch_fq),
+> can then lower the default sysctl_tcp_limit_output_bytes value from
+> 128KB to 8KB.
+> 
+> The new usage of sysctl_tcp_limit_output_bytes permits each driver
+> author to check how driver performs when/if the value is set
+> to a minimum of 4KB :
+> 
+> Normally, line rate for a single TCP flow should be possible, 
+> but some drivers rely on timers to perform TX completion and
+> too long delays prevent reaching full throughput.
 
-A process flag wouldn't work, because the task could block waiting for
-actual work to complete in other sleeps.
+I tested the patch with ath9k and performance with a 2-stream card is normal
+again, about 195 Mbps in open air.
 
-However, we could do something like the below; which would allow us
-writing things like:
+Thanks for the fix !
 
-	(void)___wait_event(*sk_sleep(sk),
-			    sock_writeable(sk) || kthread_should_stop(),
-			    TASK_UNINTERRUPTIBLE | TASK_IDLE, 0, 0,
-			    schedule());
+Also, I think this needs to be marked as a stable candidate, since 3.12 needs
+this fix.
 
-Marking the one wait-for-more-work as TASK_IDLE such that it doesn't
-contribute to the load avg.
-
----
- fs/proc/array.c              | 23 ++++++++++++-----------
- include/linux/sched.h        |  8 +++++---
- include/trace/events/sched.h |  3 ++-
- 3 files changed, 19 insertions(+), 15 deletions(-)
-
-diff --git a/fs/proc/array.c b/fs/proc/array.c
-index 1bd2077187fd..da9a9c8b5bba 100644
---- a/fs/proc/array.c
-+++ b/fs/proc/array.c
-@@ -133,17 +133,18 @@ static inline void task_name(struct seq_file *m, struct task_struct *p)
-  * simple bit tests.
-  */
- static const char * const task_state_array[] = {
--	"R (running)",		/*   0 */
--	"S (sleeping)",		/*   1 */
--	"D (disk sleep)",	/*   2 */
--	"T (stopped)",		/*   4 */
--	"t (tracing stop)",	/*   8 */
--	"Z (zombie)",		/*  16 */
--	"X (dead)",		/*  32 */
--	"x (dead)",		/*  64 */
--	"K (wakekill)",		/* 128 */
--	"W (waking)",		/* 256 */
--	"P (parked)",		/* 512 */
-+	"R (running)",		/*    0 */
-+	"S (sleeping)",		/*    1 */
-+	"D (disk sleep)",	/*    2 */
-+	"T (stopped)",		/*    4 */
-+	"t (tracing stop)",	/*    8 */
-+	"Z (zombie)",		/*   16 */
-+	"X (dead)",		/*   32 */
-+	"x (dead)",		/*   64 */
-+	"K (wakekill)",		/*  128 */
-+	"W (waking)",		/*  256 */
-+	"P (parked)",		/*  512 */
-+	"I (idle)",		/* 1024 */
- };
- 
- static inline const char *get_task_state(struct task_struct *tsk)
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 045b0d227846..a4a9e80688d8 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -145,9 +145,10 @@ print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq);
- #define TASK_WAKEKILL		128
- #define TASK_WAKING		256
- #define TASK_PARKED		512
--#define TASK_STATE_MAX		1024
-+#define TASK_IDLE		1024
-+#define TASK_STATE_MAX		2048
- 
--#define TASK_STATE_TO_CHAR_STR "RSDTtZXxKWP"
-+#define TASK_STATE_TO_CHAR_STR "RSDTtZXxKWPI"
- 
- extern char ___assert_task_state[1 - 2*!!(
- 		sizeof(TASK_STATE_TO_CHAR_STR)-1 != ilog2(TASK_STATE_MAX)+1)];
-@@ -173,7 +174,8 @@ extern char ___assert_task_state[1 - 2*!!(
- 			((task->state & (__TASK_STOPPED | __TASK_TRACED)) != 0)
- #define task_contributes_to_load(task)	\
- 				((task->state & TASK_UNINTERRUPTIBLE) != 0 && \
--				 (task->flags & PF_FROZEN) == 0)
-+				 (task->flags & PF_FROZEN) == 0 && \
-+				 (task->state & TASK_IDLE) == 0)
- 
- #define __set_task_state(tsk, state_value)		\
- 	do { (tsk)->state = (state_value); } while (0)
-diff --git a/include/trace/events/sched.h b/include/trace/events/sched.h
-index 04c308413a5d..4553a2495c25 100644
---- a/include/trace/events/sched.h
-+++ b/include/trace/events/sched.h
-@@ -144,7 +144,8 @@ TRACE_EVENT(sched_switch,
- 		  __print_flags(__entry->prev_state & (TASK_STATE_MAX-1), "|",
- 				{ 1, "S"} , { 2, "D" }, { 4, "T" }, { 8, "t" },
- 				{ 16, "Z" }, { 32, "X" }, { 64, "x" },
--				{ 128, "K" }, { 256, "W" }, { 512, "P" }) : "R",
-+				{ 128, "K" }, { 256, "W" }, { 512, "P" },
-+				{ 1024, "I" }) : "R",
- 		__entry->prev_state & TASK_STATE_MAX ? "+" : "",
- 		__entry->next_comm, __entry->next_pid, __entry->next_prio)
- );
+Sujith
