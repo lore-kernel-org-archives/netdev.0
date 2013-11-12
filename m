@@ -1,118 +1,102 @@
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
-Subject: RE: [PATCH 4/4] phylib: Add of_phy_attach
-Date: Tue, 12 Nov 2013 12:32:09 +0000
-Message-ID: <ED492CCEAF882048BC2237DE806547C9151173AB@039-SN2MPN1-013.039d.mgd.msft.net>
-References: <1384168100-3046-1-git-send-email-shh.xie@gmail.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [RFC PATCHv2 3/4] of: provide a binding for fixed link PHYs
+Date: Tue, 12 Nov 2013 21:37:46 +0900
+Message-ID: <20131112123746.EAEF0C42283@trevor.secretlab.ca>
+References: <1378480701-12908-1-git-send-email-thomas.petazzoni@free-electrons.com> <20130918042923.5D845C42CF7@trevor.secretlab.ca> <20130918181112.56c10dde@skate> <1811694.J4B6oUpKxP@lenovo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Madalin-Cristian Bucur <madalin.bucur@freescale.com>,
-	Shruti Kanetkar <Shruti@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jg1.han@samsung.com" <jg1.han@samsung.com>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-	"michal.simek@xilinx.com" <michal.simek@xilinx.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "shh.xie@gmail.com" <shh.xie@gmail.com>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1384168100-3046-1-git-send-email-shh.xie@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, Lior Amsalem <alior@marvell.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Christian Gmeiner <christian.gmeiner@gmail.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Florian Fainelli <florian@openwrt.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:39452 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754841Ab3KLMhz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 07:37:55 -0500
+Received: by mail-pb0-f49.google.com with SMTP id um1so4871132pbc.22
+        for <netdev@vger.kernel.org>; Tue, 12 Nov 2013 04:37:55 -0800 (PST)
+In-Reply-To: <1811694.J4B6oUpKxP@lenovo>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Added more people and list.
+On Fri, 25 Oct 2013 05:40:57 +0100, Florian Fainelli <florian@openwrt.o=
+rg> wrote:
+> Le mercredi 18 septembre 2013, 18:11:12 Thomas Petazzoni a =C3=A9crit=
+ :
+> > Dear Grant Likely,
+> >=20
+> > On Tue, 17 Sep 2013 23:29:23 -0500, Grant Likely wrote:
+> > > I understand what you're trying to do here, but it causes a troub=
+lesome
+> > > leakage of implementation detail into the binding, making the who=
+le
+> > > thing look very odd. This binding tries to make a fixed link look
+> > > exactly like a real PHY even to the point of including a phandle =
+to the
+> > > phy. But having a phandle to a node which is *always* a direct ch=
+ild of
+> > > the MAC node is redundant and a rather looney. Yes, doing it that=
+ way
+> > > makes it easy for of_phy_find_device() to be transparent for fixe=
+d link,
+> > > but that should *not* drive bindings, especially when that makes =
+the
+> > > binding really rather weird.
+> > >=20
+> > > Second, this new binding doesn't provide anything over and above =
+the
+> > > existing fixed-link binding. It may not be pretty, but it is
+> > > estabilshed.
+> >=20
+> > Have you followed the past discussions about this patch set? Basica=
+lly
+> > the *only* feedback I received on RFCv1 is that the fixed-link prop=
+erty
+> > sucks, and everybody (including the known Device Tree binding
+> > maintainer Mark Rutland) suggested to not use the fixed-link mechan=
+ism.
+> > See http://article.gmane.org/gmane.linux.network/276932, where Mark
+> > said:
+> >=20
+> > ""
+> > I'm not sure grouping these values together is the best way of hand=
+ling
+> > this. It's rather opaque, and inflexible for future extension.
+> > ""
+> >=20
+> > So, please DT maintainers, tell me what you want. I honestly don't =
+care
+> > whether fixed-link or a separate node is chosen. However, I do care
+> > about being dragged around between two solutions just because the
+> > former DT maintainer and the new DT maintainers do not agree.
 
-Best Regards, 
-Shaohui Xie
+I've been sleepy on this issue, which limits how much I can push. I'll
+say one more thing on the issue (below) and then leave the decision up
+to Mark. I trust him and he knows what he is doing.
 
+> Since I would like to move forward so I can one day use that binding =
+in a=20
+> real-life product, I am going to go for Mark's side which happens to =
+be how I=20
+> want the binding to look like.
+>=20
+> Do we all agree that the new binding is just way better than the old =
+one? In=20
+> light of the recent unstable DT ABI discussion, we can still continue=
+ parsing=20
+> the old one for the sake of compatibility.
 
-> -----Original Message-----
-> From: shh.xie@gmail.com [mailto:shh.xie@gmail.com]
-> Sent: Monday, November 11, 2013 7:08 PM
-> To: linuxppc-dev@lists.ozlabs.org; linux-kernel@vger.kernel.org
-> Cc: Bucur Madalin-Cristian-B32716; Kanetkar Shruti-B44454; Xie Shaohui-B21989
-> Subject: [PATCH 4/4] phylib: Add of_phy_attach
-> 
-> From: Andy Fleming
-> 
-> 10G PHYs don't currently support running the state machine, which is implicitly
-> setup via of_phy_connect(). Therefore, it is necessary to implement an OF
-> version of phy_attach(), which does everything except start the state machine.
-> 
-> Signed-off-by: Andy Fleming
-> Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
-> ---
->  drivers/of/of_mdio.c    | 22 ++++++++++++++++++++--
->  include/linux/of_mdio.h |  8 ++++++++
->  2 files changed, 28 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c index d5a57a9..a748274
-> 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -221,8 +221,7 @@ EXPORT_SYMBOL(of_phy_connect);
->   * not call this function from new drivers.
->   */
->  struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
-> -					     void (*hndlr)(struct net_device *),
-> -					     phy_interface_t iface)
-> +		void (*hndlr)(struct net_device *), phy_interface_t iface)
->  {
->  	struct device_node *net_np;
->  	char bus_id[MII_BUS_ID_SIZE + 3];
-> @@ -247,3 +246,22 @@ struct phy_device *of_phy_connect_fixed_link(struct
-> net_device *dev,
->  	return IS_ERR(phy) ? NULL : phy;
->  }
->  EXPORT_SYMBOL(of_phy_connect_fixed_link);
-> +
-> +/**
-> + * of_phy_attach - Attach to a PHY without starting the state machine
-> + * @dev: pointer to net_device claiming the phy
-> + * @phy_np: Node pointer for the PHY
-> + * @flags: flags to pass to the PHY
-> + * @iface: PHY data interface type
-> + */
-> +struct phy_device *of_phy_attach(struct net_device *dev,
-> +		struct device_node *phy_np, u32 flags, phy_interface_t iface) {
-> +	struct phy_device *phy = of_phy_find_device(phy_np);
-> +
-> +	if (!phy)
-> +		return NULL;
-> +
-> +	return phy_attach_direct(dev, phy, flags, iface) ? NULL : phy; }
-> +EXPORT_SYMBOL(of_phy_attach);
-> diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h index
-> 8163107..dcda44d 100644
-> --- a/include/linux/of_mdio.h
-> +++ b/include/linux/of_mdio.h
-> @@ -19,6 +19,8 @@ extern struct phy_device *of_phy_connect(struct net_device
-> *dev,
->  					 struct device_node *phy_np,
->  					 void (*hndlr)(struct net_device *),
->  					 u32 flags, phy_interface_t iface);
-> +extern struct phy_device *of_phy_attach(struct net_device *dev,
-> +		struct device_node *phy_np, u32 flags, phy_interface_t iface);
->  extern struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
->  					 void (*hndlr)(struct net_device *),
->  					 phy_interface_t iface);
-> @@ -44,6 +46,12 @@ static inline struct phy_device *of_phy_connect(struct
-> net_device *dev,
->  	return NULL;
->  }
-> 
-> +static inline struct phy_device *of_phy_attach(struct net_device *dev,
-> +		struct device_node *phy_np, u32 flags, phy_interface_t iface) {
-> +	return NULL;
-> +}
-> +
->  static inline struct phy_device *of_phy_connect_fixed_link(struct net_device
-> *dev,
->  							   void (*hndlr)(struct net_device
-> *),
->  							   phy_interface_t iface)
-> --
-> 1.8.4.1
+Regardless of what you want it to look like, does the old binding work
+for your purposes? If yes then use it. The only valid reason for
+creating a new binding is if the old one doesn't work for a specific
+(not theoretical) use case.
+
+g.
