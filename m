@@ -1,162 +1,134 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: how to mix bridges and bonding inc. vlans correctly on Kernel
- > 3.10
-Date: Wed, 13 Nov 2013 16:17:33 +0100
-Message-ID: <5283980D.7020508@profihost.ag>
-References: <52838590.5070806@profihost.ag> <20131113141244.GM19702@redhat.com> <52838AC8.8070005@profihost.ag> <52839540.6020908@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Veaceslav Falico <vfalico@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net v2] ipv4: fix wildcard search with inet_confirm_addr()
+Date: Wed, 13 Nov 2013 16:23:29 +0100
+Message-ID: <1384356209-4193-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <alpine.LFD.2.03.1311082258430.1811@ssi.bg>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ph.de-nserver.de ([85.158.179.214]:56842 "EHLO
-	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757002Ab3KMPRk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 10:17:40 -0500
-In-Reply-To: <52839540.6020908@gmail.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:43069 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757321Ab3KMPXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 10:23:47 -0500
+In-Reply-To: <alpine.LFD.2.03.1311082258430.1811@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 13.11.2013 16:05, schrieb Vlad Yasevich:
-> On 11/13/2013 09:20 AM, Stefan Priebe - Profihost AG wrote:
->> Hi Falico,
->> Am 13.11.2013 15:12, schrieb Veaceslav Falico:
->>> On Wed, Nov 13, 2013 at 02:58:40PM +0100, Stefan Priebe - Profihost AG
->>> wrote:
->>>> Hello,
->>>>
->>>> while my vlans, bridging and bonding stuff was working until 3.9 i
->>>> never
->>>> thought about how it is right. So maybe i was always wrong.
->>>>
->>>> I've this:
->>>>
->>>> eth2
->>>>      \
->>>>       -- bond1 -- vmbr1
->>>>      /
->>>> eth3
->>>>
->>>> This works fine and as expected now i want to have a vlan using the
->>>> bonding and using a bridge.
->>>>
->>>> I the past i had this:
->>>> eth2
->>>>      \
->>>>       -- bond1 -- vmbr1
->>>>      /              \
->>>> eth3                 \ vmbr1.3000
->>>>                            \ ---- tap114i1
->>>>
->>>> This was working fine until 3.9.X since 3.10. Right now using 3.10 i
->>>> need to put eth2 and eth3 into promisc mode to get it working ;-( this
->>>> is bad!
->>>
->>> As a guess - do you use arp monitoring for bonding? Try using miimon -
->>> there were some issues with it in 3.10, which were fixed by some huge
->>> patchsets that will never hit 3.10 stable.
->>> Also, the bonding configuration would be welcome.
->>
->> Debian Bonding konfiguration looks like this:
->> auto bond1
->> iface bond1 inet manual
->>          slaves eth2 eth3
->>          bond-mode 802.3ad
->>          bond_miimon 100
->>          bond_updelay 200
->>          bond_downdelay 0
->>
->> This should be miimon using lacp and not arp isn't it?
->> Anything more needed?
->>
-> 
-> Hmm..  With 802.3ad mode, when the bond is a port on the bridge, the
-> bond should place all of its ports into promiscuous mode.  Do you see
-> the the kernel messages that say that?
+Help of this function says: "in_dev: only on this interface, 0=any interface",
+but since commit 39a6d0630012 ("[NETNS]: Process inet_confirm_addr in the
+correct namespace."), the code supposes that it will never be NULL. This
+function is never called with in_dev == NULL, but it's exported and may be used
+by an external module.
 
-No it does not - i only see:
-# dmesg -c|egrep "promiscuous|forward"
-[    5.445161] device bond0 entered promiscuous mode
-[    7.670701] device bond1 entered promiscuous mode
-[    7.845472] vmbr0: port 1(bond0) entered forwarding state
-[    7.845474] vmbr0: port 1(bond0) entered forwarding state
-[    8.269769] vmbr1: port 1(bond1) entered forwarding state
-[    8.269771] vmbr1: port 1(bond1) entered forwarding state
+Because this patch restore the ability to call inet_confirm_addr() with in_dev
+== NULL, I partially revert the above commit, as suggested by Julian.
 
-Now adding variant 1:
-# dmesg -c|egrep "promiscuous|forward"
-[   85.919382] device tap113i0 entered promiscuous mode
-[   85.965018] vmbr0: port 2(tap113i0) entered forwarding state
-[   85.965023] vmbr0: port 2(tap113i0) entered forwarding state
-[   86.263292] device tap113i1 entered promiscuous mode
-[   86.314151] device vmbr1.3000 entered promiscuous mode
-[   86.314153] device vmbr1 entered promiscuous mode
-[   86.314192] vmbr1v3000: port 1(vmbr1.3000) entered forwarding state
-[   86.314196] vmbr1v3000: port 1(vmbr1.3000) entered forwarding state
-[   86.318116] vmbr1v3000: port 2(tap113i1) entered forwarding state
-[   86.318120] vmbr1v3000: port 2(tap113i1) entered forwarding state
-[  101.382129] vmbr1v3000: port 1(vmbr1.3000) entered forwarding state
+CC: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
 
-Now it looks like this:
-# ip a l|grep PROMISC
-13: tap113i0: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc
-htb master vmbr0 state UNKNOWN qlen 500
-14: tap113i1: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc
-htb master vmbr1v3000 state UNKNOWN qlen 500
+This bug was spotted by code review.
 
-Greets,
-Stefan
+v2: fix change in bond_confirm_addr()
+    partially revert 39a6d0630012 ("[NETNS]: Process inet_confirm_addr in the
+    correct namespace.")
+    fix API desc of inet_confirm_addr()
 
+ drivers/net/bonding/bonding.h | 4 ++--
+ include/linux/inetdevice.h    | 3 ++-
+ net/ipv4/arp.c                | 4 +++-
+ net/ipv4/devinet.c            | 9 ++++-----
+ 4 files changed, 11 insertions(+), 9 deletions(-)
 
-Main question is - is this one correct:
->>>> eth2
->>>>      \
->>>>       -- bond1 -- vmbr1
->>>>      /              \
->>>> eth3                 \ vmbr1.3000
->>>>                            \ ---- tap114i1
-
-<= does not work at all
-
-or this one?:
->>>> eth2
->>>>      \
->>>>       -- bond1 -- vmbr1
->>>>      /     \
->>>> eth3        ----- bond1.3000 --- vmbr1v3000
->>>>                                      \ ---- tap114i1
-
-<= works if i manually put eth2 and eth3 into promiscous mode.
-
-> -vlad
-> 
->> One thing i forgot the one with vmbr1.3000 does not work at all eben not
->> with promisc mode. The one below works fine if i set eth2 and eth3 into
->> promisc mode.
->>
->> Stefan
->>
->>>> I also tried this one without success:
->>>> eth2
->>>>      \
->>>>       -- bond1 -- vmbr1
->>>>      /     \
->>>> eth3        ----- bond1.3000 --- vmbr1v3000
->>>>                                      \ ---- tap114i1
->>>>
->>>>
->>>>
->>>> Greets,
->>>> Stefan
->>>> -- 
->>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> -- 
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
-> 
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 03cf3fd14490..0ad3f4bd99c0 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -414,8 +414,8 @@ static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be3
+ 	in_dev = __in_dev_get_rcu(dev);
+ 
+ 	if (in_dev)
+-		addr = inet_confirm_addr(in_dev, dst, local, RT_SCOPE_HOST);
+-
++		addr = inet_confirm_addr(dev_net(dev), in_dev, dst, local,
++					 RT_SCOPE_HOST);
+ 	rcu_read_unlock();
+ 	return addr;
+ }
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 79640e015a86..5870f7060917 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -164,7 +164,8 @@ extern int		devinet_ioctl(struct net *net, unsigned int cmd, void __user *);
+ extern void		devinet_init(void);
+ extern struct in_device	*inetdev_by_index(struct net *, int);
+ extern __be32		inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
+-extern __be32		inet_confirm_addr(struct in_device *in_dev, __be32 dst, __be32 local, int scope);
++__be32 inet_confirm_addr(struct net *net, struct in_device *in_dev, __be32 dst,
++			 __be32 local, int scope);
+ extern struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix, __be32 mask);
+ 
+ static __inline__ int inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 7808093cede6..46c7b4483bcf 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -379,6 +379,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 
+ static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
+ {
++	struct net *net = dev_net(in_dev->dev);
+ 	int scope;
+ 
+ 	switch (IN_DEV_ARP_IGNORE(in_dev)) {
+@@ -397,6 +398,7 @@ static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
+ 	case 3:	/* Do not reply for scope host addresses */
+ 		sip = 0;
+ 		scope = RT_SCOPE_LINK;
++		in_dev = NULL;
+ 		break;
+ 	case 4:	/* Reserved */
+ 	case 5:
+@@ -408,7 +410,7 @@ static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
+ 	default:
+ 		return 0;
+ 	}
+-	return !inet_confirm_addr(in_dev, sip, tip, scope);
++	return !inet_confirm_addr(net, in_dev, sip, tip, scope);
+ }
+ 
+ static int arp_filter(__be32 sip, __be32 tip, struct net_device *dev)
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index a1b5bcbd04ae..19426e4b232c 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1236,22 +1236,21 @@ static __be32 confirm_addr_indev(struct in_device *in_dev, __be32 dst,
+ 
+ /*
+  * Confirm that local IP address exists using wildcards:
+- * - in_dev: only on this interface, 0=any interface
++ * - net: netns to check, cannot be NULL
++ * - in_dev: only on this interface, NULL=any interface
+  * - dst: only in the same subnet as dst, 0=any dst
+  * - local: address, 0=autoselect the local address
+  * - scope: maximum allowed scope value for the local address
+  */
+-__be32 inet_confirm_addr(struct in_device *in_dev,
++__be32 inet_confirm_addr(struct net *net, struct in_device *in_dev,
+ 			 __be32 dst, __be32 local, int scope)
+ {
+ 	__be32 addr = 0;
+ 	struct net_device *dev;
+-	struct net *net;
+ 
+-	if (scope != RT_SCOPE_LINK)
++	if (in_dev != NULL)
+ 		return confirm_addr_indev(in_dev, dst, local, scope);
+ 
+-	net = dev_net(in_dev->dev);
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(net, dev) {
+ 		in_dev = __in_dev_get_rcu(dev);
+-- 
+1.8.4.1
