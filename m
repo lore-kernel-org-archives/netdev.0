@@ -1,73 +1,71 @@
-From: Jukka Rissanen <jukka.rissanen@linux.intel.com>
-Subject: [PATCH] 6lowpan: Uncompression of traffic class field was incorrect
-Date: Wed, 13 Nov 2013 11:03:39 +0200
-Message-ID: <1384333419-4087-1-git-send-email-jukka.rissanen@linux.intel.com>
-Cc: alex.aring@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:52515 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933456Ab3KMJDn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Nov 2013 04:03:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 1/3] can: mcp251x: Convert driver to use common clk framework
+Date: Wed, 13 Nov 2013 10:04:39 +0100
+Message-ID: <528340A7.9080708@pengutronix.de>
+References: <1384332144-15211-1-git-send-email-shc_work@mail.ru>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="1QCc3L5bSebRicrGKLm8vJKE8xwTCoVB3"
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Sascha Hauer <kernel@pengutronix.de>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	Haojian Zhuang <haojian.zhuang@gmail.com>
+To: Alexander Shiyan <shc_work@mail.ru>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1384332144-15211-1-git-send-email-shc_work@mail.ru>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If priority/traffic class field in IPv6 header is set (seen when
-using ssh), the uncompression sets the TC and Flow fields incorrectly.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--1QCc3L5bSebRicrGKLm8vJKE8xwTCoVB3
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Example:
+Hello,
 
-This is IPv6 header of a sent packet. Note the priority/TC (=1) in
-the first byte.
+as this series adds device tree bindings, please add
+devicetree@vger.kernel.org on Cc for the whole series.
 
-00000000: 61 00 00 00 00 2c 06 40 fe 80 00 00 00 00 00 00
-00000010: 02 02 72 ff fe c6 42 10 fe 80 00 00 00 00 00 00
-00000020: 02 1e ab ff fe 4c 52 57
+On 11/13/2013 09:42 AM, Alexander Shiyan wrote:
+> This patch converts mcp251x driver to using common clk framework
+> for getting input frequency. The change was made for the preparation
+> of the driver work with the devicetree. As a result private header
+> for the driver is eliminated.
+> Additionally, all existing users of the driver was converted to use
+> this feature.
+>=20
+> Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
 
-This gets compressed like this in the sending side
+Looks good from my point of view. I'll take the whole series via the
+linux-can tree, if there are no objections. I'd like to have the pxa and
+imx maintainer's Ack and an Ack from the DT list.
 
-00000000: 72 31 04 06 02 1e ab ff fe 4c 52 57 ec c2 00 16
-00000010: aa 2d fe 92 86 4e be c6 ....
+Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
 
-In the receiving end, the packet gets uncompressed to this
-IPv6 header
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-00000000: 60 06 06 02 00 2a 1e 40 fe 80 00 00 00 00 00 00
-00000010: 02 02 72 ff fe c6 42 10 fe 80 00 00 00 00 00 00
-00000020: ab ff fe 4c 52 57 ec c2
 
-First four bytes are set incorrectly and we have also lost
-two bytes from destination address.
+--1QCc3L5bSebRicrGKLm8vJKE8xwTCoVB3
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-The fix is to switch the case values in switch statement
-when checking the TC field.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
 
-Signed-off-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
----
- net/ieee802154/6lowpan.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+iEYEARECAAYFAlKDQKcACgkQjTAFq1RaXHNzPQCgk35MyaqMFuOT3QXpYkTRaArO
+tEAAn1bFqs2rVsZPUmjLCEvGnKtn1XzM
+=clJc
+-----END PGP SIGNATURE-----
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 426b5df..459e200 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -956,7 +956,7 @@ lowpan_process_data(struct sk_buff *skb)
- 	 * Traffic class carried in-line
- 	 * ECN + DSCP (1 byte), Flow Label is elided
- 	 */
--	case 1: /* 10b */
-+	case 2: /* 10b */
- 		if (lowpan_fetch_skb_u8(skb, &tmp))
- 			goto drop;
- 
-@@ -967,7 +967,7 @@ lowpan_process_data(struct sk_buff *skb)
- 	 * Flow Label carried in-line
- 	 * ECN + 2-bit Pad + Flow Label (3 bytes), DSCP is elided
- 	 */
--	case 2: /* 01b */
-+	case 1: /* 01b */
- 		if (lowpan_fetch_skb_u8(skb, &tmp))
- 			goto drop;
- 
--- 
-1.8.3.1
+--1QCc3L5bSebRicrGKLm8vJKE8xwTCoVB3--
