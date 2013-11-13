@@ -1,46 +1,43 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: shutdown(3) and bluetooth.
-Date: Wed, 13 Nov 2013 09:02:40 -0500
-Message-ID: <20131113140239.GA2154@tuxdriver.com>
-References: <20131112211125.GA2912@redhat.com>
- <20131112.161350.946584501122269943.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH iproute2 v2] ss: avoid passing negative numbers to malloc
+Date: Wed, 13 Nov 2013 06:16:17 -0800
+Message-ID: <1384352177.28458.99.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131113084642.GA23572@amd64.fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davej@redhat.com, netdev@vger.kernel.org,
-	linux-bluetooth@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: Andreas Henriksson <andreas@fatal.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35405 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759112Ab3KMOPT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 09:15:19 -0500
-Content-Disposition: inline
-In-Reply-To: <20131112.161350.946584501122269943.davem@davemloft.net>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:33728 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755094Ab3KMOQT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 09:16:19 -0500
+Received: by mail-pd0-f169.google.com with SMTP id y13so465769pdi.28
+        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 06:16:18 -0800 (PST)
+In-Reply-To: <20131113084642.GA23572@amd64.fatal.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 12, 2013 at 04:13:50PM -0500, David Miller wrote:
-> From: Dave Jones <davej@redhat.com>
-> Date: Tue, 12 Nov 2013 16:11:25 -0500
+On Wed, 2013-11-13 at 09:46 +0100, Andreas Henriksson wrote:
+> Example:
 > 
-> > Is shutdown() allowed to block indefinitely ? The man page doesn't say either way,
-> > and I've noticed that my fuzz tester occasionally hangs for days spinning in bt_sock_wait_state()
-> > 
-> > Is there something I should be doing to guarantee that this operation
-> > will either time out, or return instantly ?
-> > 
-> > In this specific case, I doubt anything is on the "sender" end of the socket, so
-> > it's going to be waiting forever for a state change that won't arrive.
+> $ ss state established \( sport = :4060  or sport = :4061 or sport = :4062  or sport = :4063 or sport = :4064  or sport = :4065 or sport = :4066  or sport = :4067 \)  > /dev/null
+> Aborted
 > 
-> Adding bluetooth and wireless lists.  Dave, please consult MAINTAINERS when
-> asking questions like this, thanks!
+> In the example above ssfilter_bytecompile(...) will return (int)136.
+> char l1 = 136; means -120 which will result in a negative number
+> being passed to malloc at misc/ss.c:913.
+> 
+> Simply declare l1 and l2 as integers to avoid the char overflow.
+> 
+> This is one of the issues originally reported in http://bugs.debian.org/511720
+> 
+> Fix the same problem in other code paths as well (thanks to Eric Dumazet).
+> 
+> Reported-by: Andreas Schuldei <andreas@debian.org>
+> Signed-off-by: Andreas Henriksson <andreas@fatal.se>
 
-I don't have an authoritative answer.  I do, however, seem to recall
-that trying to shutdown a SunOS box with a hung NFS mount would seem
-to hang forever.  I don't think that is a great metric for how we
-should behave, of course...
+Reviewed-by: Eric Dumazet <edumazet@google.com>
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Thanks !
