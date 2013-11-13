@@ -1,37 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2] htb: support 64bit rates
-Date: Wed, 13 Nov 2013 06:21:50 -0800
-Message-ID: <1384352510.28458.105.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1384295647.28458.31.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <52834248.3040103@huawei.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH 1/1] net: sctp: bug fixing when sctp path recovers
+Date: Wed, 13 Nov 2013 09:22:40 -0500
+Message-ID: <52838B30.6020804@gmail.com>
+References: <1384306486-31345-1-git-send-email-changxiangzhong@gmail.com> <5282E5F9.5000506@gmail.com> <5282E9EC.3090307@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>
-To: Yang Yingliang <yangyingliang@huawei.com>
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dreibh@simula.no
+To: Chang <changxiangzhong@gmail.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:58292 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755066Ab3KMOVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 09:21:52 -0500
-Received: by mail-pb0-f50.google.com with SMTP id xb12so471724pbc.23
-        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 06:21:51 -0800 (PST)
-In-Reply-To: <52834248.3040103@huawei.com>
+Received: from mail-gg0-f177.google.com ([209.85.161.177]:36410 "EHLO
+	mail-gg0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755676Ab3KMOWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 09:22:44 -0500
+In-Reply-To: <5282E9EC.3090307@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-11-13 at 17:11 +0800, Yang Yingliang wrote:
-> > -	if (!buffer) buffer = opt.rate.rate / get_hz() + mtu;
-> > -	if (!cbuffer) cbuffer = opt.ceil.rate / get_hz() + mtu;
-> > +	if (!buffer)
-> > +		buffer = rate64 / get_hz() + mtu;
-> > +	if (!cbuffer)
-> > +		cbuffer = ceil64 / get_hz() + mtu;
-> 
-> Hi,
-> It may overflow here if rate64 and mtu are big enough.
+On 11/12/2013 09:54 PM, Chang wrote:
+>
+> On 11/13/2013 03:37 AM, Vlad Yasevich wrote:
+>> On 11/12/2013 08:34 PM, Chang Xiangzhong wrote:
+>>> Look for the __two__ most recently used path/transport and set to
+>>> active_path
+>>> and retran_path respectively
+>>>
+>>> Signed-off-by: changxiangzhong@gmail.com
+>>> ---
+>>>   net/sctp/associola.c |    4 ++++
+>>>   1 file changed, 4 insertions(+)
+>>>
+>>> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+>>> index ab67efc..070011a 100644
+>>> --- a/net/sctp/associola.c
+>>> +++ b/net/sctp/associola.c
+>>> @@ -913,11 +913,15 @@ void sctp_assoc_control_transport(struct
+>>> sctp_association *asoc,
+>>>           if (!first || t->last_time_heard > first->last_time_heard) {
+>>>               second = first;
+>>>               first = t;
+>>> +            continue;
+>>>           }
+>>>           if (!second || t->last_time_heard > second->last_time_heard)
+>>>               second = t;
+>>
+>> You might as well remove this bit and then you don't need a continue.
+> I don't think we could remove this bit. My understanding of these
+> algorithms are to find the 1st recently used path and the 2nd, assigning
+> to active_path and retran_path respectively. If we remove the
+> looking-for-second block, how are we suppose to find the 2nd?
+> I think we can remove the continue and use else-if in the
+> 2nd-assignment-block.
 
-Not really.
+Yes, you are right.  An if...else block is what we need here.
 
-get_hz() on current kernels is really huge : 1000000000
+-vlad
+
+>>
+>>>       }
+>>>
+>>> +    if (!second)
+>>> +        second = first;
+>>> +
+>>
+>> This needs to move down 1 more block.  Set the second transport after we
+>> check to see if the primary is back up and we need to go back to using
+>> it.
+>>
+>> -vlad
+>>
+> I agree with this change
+>>>       /* RFC 2960 6.4 Multi-Homed SCTP Endpoints
+>>>        *
+>>>        * By default, an endpoint should always transmit to the
+>>>
+>>
+>
