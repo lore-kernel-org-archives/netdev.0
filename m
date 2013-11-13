@@ -1,64 +1,56 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [Fwd: Re: [PATCH v2 2/2] x86: add prefetching to do_csum]
-Date: Wed, 13 Nov 2013 14:53:09 +0100
-Message-ID: <20131113135309.GA27006@gmail.com>
-References: <1384220542.4771.23.camel@joe-AO722>
- <20131112171239.GC19780@hmsreliant.think-freely.org>
- <1384277615.3665.10.camel@joe-AO722>
- <20131112195005.GD19780@hmsreliant.think-freely.org>
- <AE90C24D6B3A694183C094C60CF0A2F6026B740E@saturn3.aculab.com>
- <20131113123010.GB2993@hmsreliant.think-freely.org>
- <20131113130832.GB22140@gmail.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7412@saturn3.aculab.com>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: how to mix bridges and bonding inc. vlans correctly on Kernel > 3.10
+Date: Wed, 13 Nov 2013 14:58:40 +0100
+Message-ID: <52838590.5070806@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>, Joe Perches <joe@perches.com>,
-	netdev <netdev@vger.kernel.org>, Dave Jones <davej@redhat.com>,
-	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7412@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+To: Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ph.de-nserver.de ([85.158.179.214]:53532 "EHLO
+	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757288Ab3KMN6r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 08:58:47 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hello,
+
+while my vlans, bridging and bonding stuff was working until 3.9 i never
+thought about how it is right. So maybe i was always wrong.
+
+I've this:
+
+eth2
+     \
+      -- bond1 -- vmbr1
+     /
+eth3
+
+This works fine and as expected now i want to have a vlan using the
+bonding and using a bridge.
+
+I the past i had this:
+eth2
+     \
+      -- bond1 -- vmbr1
+     /              \
+eth3                 \ vmbr1.3000
+                           \ ---- tap114i1
+
+This was working fine until 3.9.X since 3.10. Right now using 3.10 i
+need to put eth2 and eth3 into promisc mode to get it working ;-( this
+is bad!
+
+I also tried this one without success:
+eth2
+     \
+      -- bond1 -- vmbr1
+     /     \
+eth3        ----- bond1.3000 --- vmbr1v3000
+                                     \ ---- tap114i1
 
 
-* David Laight <David.Laight@ACULAB.COM> wrote:
 
-> > > I'm not sure, whats the typical capacity for the branch predictors 
-> > > ability to remember code paths?
-> ...
-> > 
-> > For such simple single-target branches it goes near or over a thousand 
-> > for recent Intel and AMD microarchitectures. Thousands for really 
-> > recent CPUs.
-> 
-> IIRC the x86 can also correctly predict simple sequences - like a branch 
-> in a loop that is taken every other iteration, or only after a previous 
-> branch is taken.
-
-They tend to be rather capable but not very well documented :) With a 
-large out of order execution design and 20+ pipeline stages x86 branch 
-prediction accuracy is perhaps the most important design aspect to good 
-CPU performance.
-
-> Much simpler cpus may use a much simpler strategy.
-
-Yeah. The patches in this thread are about the x86 assembly implementation 
-of the csum routines, and for 'typical' x86 CPUs the branch prediction 
-units and caches are certainly sophisticated enough.
-
-Also note that here, for real usecases, the csum routines are (or should 
-be) memory bandwidth limited, missing the data cache most of the time, 
-with a partially idling pipeline, while branch prediction accuracy matters 
-most when the pipeline is well fed and there are a lot of instructions in 
-flight.
-
-Thanks,
-
-	Ingo
+Greets,
+Stefan
