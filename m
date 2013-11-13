@@ -1,50 +1,49 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: __refrigerator() && saved task->state
-Date: Wed, 13 Nov 2013 20:11:43 +0100
-Message-ID: <20131113191143.GA24005@redhat.com>
-References: <1384264396-14550-1-git-send-email-geert@linux-m68k.org> <20131112141314.GQ5056@laptop.programming.kicks-ass.net> <AE90C24D6B3A694183C094C60CF0A2F6026B7405@saturn3.aculab.com> <20131112145243.GU5056@laptop.programming.kicks-ass.net> <20131112162136.GA29065@redhat.com> <20131112165643.GA31278@redhat.com> <20131113032053.GA19394@mtj.dyndns.org> <20131113170724.GA17739@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH 1/1] net: sctp: bug fixing when sctp path recovers
+Date: Wed, 13 Nov 2013 20:10:59 +0100
+Message-ID: <5283CEC3.4050507@redhat.com>
+References: <1384306486-31345-1-git-send-email-changxiangzhong@gmail.com> <5282E5F9.5000506@gmail.com> <5282E9EC.3090307@gmail.com> <52833BD3.4040003@redhat.com> <5283CDD1.3090309@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	David Rientjes <rientjes@google.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Ingo Molnar <mingo@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevich@gmail.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dreibh@simula.no
+To: Chang <changxiangzhong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58738 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:61928 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757139Ab3KMTKz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Nov 2013 14:10:55 -0500
-Content-Disposition: inline
-In-Reply-To: <20131113170724.GA17739@redhat.com>
+	id S1757139Ab3KMTLM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Nov 2013 14:11:12 -0500
+In-Reply-To: <5283CDD1.3090309@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry for noise, but I am totally confused.
+On 11/13/2013 08:06 PM, Chang wrote:
+> On 11/13/2013 09:44 AM, Daniel Borkmann wrote:
+>> On 11/13/2013 03:54 AM, Chang wrote:
+>>> On 11/13/2013 03:37 AM, Vlad Yasevich wrote:
+>>>> On 11/12/2013 08:34 PM, Chang Xiangzhong wrote:
+>>>>> Look for the __two__ most recently used path/transport and set to active_path
+>>>>> and retran_path respectively
+>>
+>> Please also for the log, elaborate a bit more, explaining what currently
+>> happens, and what the effects of this bug are, so that later when people
+>> are looking through the Git log they can easily get what problem you are
+>> trying to fix; and if possible, add:
+>>
+>> Fixes: <12 digits SHA1> ("<commit title>")
+>>
+> Yeah, sure, I'll elaborate that more specifically.
 
-Could you please remind why __refrigerator() saves/restores
-task->state?
+Thanks !
 
-I can see only one reason: set_freezable() kernel threads which
-check kthread_should_stop() and do try_to_freeze() by hand.
+> I assume the 12-digit SHA1 is the revision number. But may I ask where and how shall I add the tag "Fixes" tag? The revision number is generated after "git commit", how can I know that in advance?
 
-But does this save/restore actually help?
+Nope, it's the affected commit id from the current git log that
+your patch fixes.
 
-For example kauditd_thread() looks obviously racy exactly because
-try_to_freeze() can return in TASK_INTERRUPTIBLE state after
-wake_up(kauditd_wait) was already called, we can miss an event.
+Have a look for example at commit:
 
-At first glance it would be better to simply kill this logic? If
-it was called with ->state != 0, the caller is going to schedule()
-and it probably executes the wait_event-like code, in this case
-it would me more safe to pretend the task got a spurious wakeup?
-
-(as for kauditd_thread() in particular, it looks wrong in any
- case, even kthread_should_stop() check doesn't look right, it
- needs kthread_freezable_should_stop() afaics).
-
-But I guess I missed something else...
-
-Oleg.
+98bbc06aabac5a2 ("net: x86: bpf: don't forget to free sk_filter (v2)")
