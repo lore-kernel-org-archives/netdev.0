@@ -1,42 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/7990: Make lance_private.name const
-Date: Wed, 13 Nov 2013 15:13:01 -0500 (EST)
-Message-ID: <20131113.151301.100218641838867631.davem@davemloft.net>
-References: <CAMuHMdVn6MFbXgdE_teYW10OfYBjyZsN7v2yTTAsKj0kXao7Hw@mail.gmail.com>
-	<20131112.181629.742226266240112179.davem@davemloft.net>
-	<CAMuHMdXyqOATvE8e=3Ed17bwiDRE8w=B=xKuYwd5qorxqA0BJg@mail.gmail.com>
+Subject: Re: [PATCH RFC] netlink: a flag requesting header w/o data in
+ error ACK
+Date: Wed, 13 Nov 2013 15:31:12 -0500 (EST)
+Message-ID: <20131113.153112.1336285577814329683.davem@davemloft.net>
+References: <231e025015eee115182368b34333b38579e3112d.1384357520.git.jbenc@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
-	linux-m68k@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdXyqOATvE8e=3Ed17bwiDRE8w=B=xKuYwd5qorxqA0BJg@mail.gmail.com>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tgraf@suug.ch, jhs@mojatatu.com,
+	pablo@netfilter.org
+To: jbenc@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45423 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750848Ab3KMUbO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 15:31:14 -0500
+In-Reply-To: <231e025015eee115182368b34333b38579e3112d.1384357520.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Wed, 13 Nov 2013 09:54:18 +0100
+From: Jiri Benc <jbenc@redhat.com>
+Date: Wed, 13 Nov 2013 16:46:09 +0100
 
-> On Wed, Nov 13, 2013 at 12:16 AM, David Miller <davem@davemloft.net> wrote:
->>>> And remember about checkpatch.pl which was hardly content with the patch.
->>>
->>> Only because checkpatch looks at the _new_ lines, and doesn't compare the
->>> styles of the old and new lines.
->>
->> You really should fix the line you are changing to use tabs, please respin
->> with this in mind, thanks.
+> Currently, ACK in case of error contains a full copy of the originating
+> message, although many applications do not need it. This can cause lost ACKs
+> with large netlink messages, especially after commit c05cdb1b864f ("netlink:
+> allow large data transfers from user-space").
 > 
-> As that would add more to the TAB/space mess^H^H^Hix, I prepended a
-> patch to fix all whitespace errors.
+> Introduce a new message flag, NLM_F_SHORT_NACK, which requests only message
+> header to be included in ACK regardless of the error code. This flag has no
+> effect if NLM_F_ACK is not set.
+> 
+> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> ---
+> I'm not entirely happy with taking a bit in netlink message header for this.
+> Alternative approach would be to make this a socket option (as suggested by
+> David) but that would mean a socket lookup in netlink_ack for each and every
+> ACK, which doesn't sound nice, either. If this is preferred, I'll rework the
+> patch.
 
-I implicitly asked you not to do this, now things are more difficult
-and your original change will take longer to integrate.
-
-Becuase now it isn't a patch set I can easily just apply quickly in
-the current merge window, and it's therefore a series you'll have to
-resubmit later when the merge window closes and the net-next tree
-opens up again.
-
-Sorry.
+It's not really all that difficult, you can either attack the sender socket
+to in_skb->sk, or pass a new boolean around in the various code paths that
+lead to the ACK.
