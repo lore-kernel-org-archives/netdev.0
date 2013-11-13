@@ -1,71 +1,99 @@
-From: Karl Beldan <karl.beldan@gmail.com>
-Subject: [PATCH] mac80211: minstrels: spare numerous useless calls to get_random_bytes
-Date: Wed, 13 Nov 2013 10:54:19 +0100
-Message-ID: <1384336459-5322-1-git-send-email-karl.beldan@gmail.com>
-Cc: Felix Fietkau <nbd@openwrt.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, Karl Beldan <karl.beldan@rivierawaves.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH net RESEND] bonding: add ip checks when store ip target
+Date: Wed, 13 Nov 2013 11:00:00 +0100
+Message-ID: <20131113100000.GH19702@redhat.com>
+References: <5282E196.8030401@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:43965 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759211Ab3KMJyt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 04:54:49 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:1827 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759054Ab3KMKCX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Nov 2013 05:02:23 -0500
+Content-Disposition: inline
+In-Reply-To: <5282E196.8030401@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karl Beldan <karl.beldan@rivierawaves.com>
+On Wed, Nov 13, 2013 at 10:19:02AM +0800, Ding Tianhong wrote:
+>I met a Bug when I add ip target with the wrong ip address:
+>
+>echo +500.500.500.500 > /sys/class/net/bond0/bonding/arp_ip_target
+>
+>the wrong ip address will transfor to 245.245.245.244 and add
+>to the ip target success, it is uncorrect, so I add checks to avoid
+>adding wrong address.
+>
+>The in4_pton() will set wrong ip address to 0.0.0.0, it will return by
+>the next check and will not add to ip target.
+>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>---
+> drivers/net/bonding/bond_sysfs.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+>index ec9b646..e0c97fb 100644
+>--- a/drivers/net/bonding/bond_sysfs.c
+>+++ b/drivers/net/bonding/bond_sysfs.c
+>@@ -653,7 +653,7 @@ static ssize_t bonding_store_arp_targets(struct device *d,
+> 	int ind, i, j, ret = -EINVAL;
+>
+> 	targets = bond->params.arp_targets;
+>-	newtarget = in_aton(buf + 1);
+>+	in4_pton(buf + 1, strlen(buf) - 1, (u8 *)&newtarget, -1, NULL);
 
-ATM, only the first array value returned by get_random_bytes is used.
-This change moves the call to get_random_bytes from the nested loop it
-is in to its parent.
-While at it, replace get_random_bytes with prandom_bytes since PRNs are
-way enough for the selection process.
-After this, minstrel_ht reclaims 80 PR-bytes instead of 640 R-bytes.
+No need for strlen(buf)-1, if you specify -1 it will compute it by itself.
 
-minstrels use sample tables to probe different rates in a randomized
-manner.
-minstrel_ht inits one single sample table upon registration (during
-subsys_initcalls) and minstrel uses one per STA addition in minstrel.
+Also, you might simplify the code a bit in the function. Otherwise - looks
+good, thank you.
 
-Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
----
- net/mac80211/rc80211_minstrel.c    | 3 +--
- net/mac80211/rc80211_minstrel_ht.c | 3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+Untested patch:
 
-diff --git a/net/mac80211/rc80211_minstrel.c b/net/mac80211/rc80211_minstrel.c
-index 7fa1b36..d2f19f7 100644
---- a/net/mac80211/rc80211_minstrel.c
-+++ b/net/mac80211/rc80211_minstrel.c
-@@ -422,10 +422,9 @@ init_sample_table(struct minstrel_sta_info *mi)
- 	memset(mi->sample_table, 0xff, SAMPLE_COLUMNS * mi->n_rates);
- 
- 	for (col = 0; col < SAMPLE_COLUMNS; col++) {
-+		prandom_bytes(rnd, sizeof(rnd));
- 		for (i = 0; i < mi->n_rates; i++) {
--			get_random_bytes(rnd, sizeof(rnd));
- 			new_idx = (i + rnd[i & 7]) % mi->n_rates;
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index c29b836..e3fff6e 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -661,16 +661,16 @@ static ssize_t bonding_store_arp_targets(struct device *d,
+  	unsigned long *targets_rx;
+  	int ind, i, j, ret = -EINVAL;
+  
++	if (!in4_pton(buf + 1, -1, (u8 *)&newtarget, -1, NULL)) {
++		pr_err("%s: invalid ARP target specified, use +<addr> or -<addr>\n",
++		       bond->dev->name);
++		goto out;
++	}
++
+  	targets = bond->params.arp_targets;
+-	newtarget = in_aton(buf + 1);
++
+  	/* look for adds */
+  	if (buf[0] == '+') {
+-		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
+-			pr_err("%s: invalid ARP target %pI4 specified for addition\n",
+-			       bond->dev->name, &newtarget);
+-			goto out;
+-		}
 -
- 			while (SAMPLE_TBL(mi, new_idx, col) != 0xff)
- 				new_idx = (new_idx + 1) % mi->n_rates;
- 
-diff --git a/net/mac80211/rc80211_minstrel_ht.c b/net/mac80211/rc80211_minstrel_ht.c
-index 5d60779..91912f8 100644
---- a/net/mac80211/rc80211_minstrel_ht.c
-+++ b/net/mac80211/rc80211_minstrel_ht.c
-@@ -1052,10 +1052,9 @@ init_sample_table(void)
- 
- 	memset(sample_table, 0xff, sizeof(sample_table));
- 	for (col = 0; col < SAMPLE_COLUMNS; col++) {
-+		prandom_bytes(rnd, sizeof(rnd));
- 		for (i = 0; i < MCS_GROUP_RATES; i++) {
--			get_random_bytes(rnd, sizeof(rnd));
- 			new_idx = (i + rnd[i]) % MCS_GROUP_RATES;
+  		if (bond_get_targets_ip(targets, newtarget) != -1) { /* dup */
+  			pr_err("%s: ARP target %pI4 is already present\n",
+  			       bond->dev->name, &newtarget);
+@@ -693,12 +693,6 @@ static ssize_t bonding_store_arp_targets(struct device *d,
+  		targets[ind] = newtarget;
+  		write_unlock_bh(&bond->lock);
+  	} else if (buf[0] == '-')	{
+-		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
+-			pr_err("%s: invalid ARP target %pI4 specified for removal\n",
+-			       bond->dev->name, &newtarget);
+-			goto out;
+-		}
 -
- 			while (sample_table[col][new_idx] != 0xff)
- 				new_idx = (new_idx + 1) % MCS_GROUP_RATES;
- 
--- 
-1.8.2
+  		ind = bond_get_targets_ip(targets, newtarget);
+  		if (ind == -1) {
+  			pr_err("%s: unable to remove nonexistent ARP target %pI4.\n",
