@@ -1,116 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2] tcp: tsq: restore minimal amount of queueing
-Date: Wed, 13 Nov 2013 06:32:54 -0800
-Message-ID: <1384353174.28458.110.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <8761s0cqhh.fsf@natisbad.org>
-	 <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
-	 <87y54u59zq.fsf@natisbad.org>
-	 <1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: how to mix bridges and bonding inc. vlans correctly on Kernel >
+ 3.10
+Date: Wed, 13 Nov 2013 15:34:10 +0100
+Message-ID: <20131113143410.GN19702@redhat.com>
+References: <52838590.5070806@profihost.ag>
+ <20131113141244.GM19702@redhat.com>
+ <52838AC8.8070005@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Sujith Manoharan <sujith@msujith.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-	Felix Fietkau <nbd@openwrt.org>
-To: Arnaud Ebalard <arno@natisbad.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:34252 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755161Ab3KMOc4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 09:32:56 -0500
-Received: by mail-pb0-f43.google.com with SMTP id md4so482074pbc.30
-        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 06:32:55 -0800 (PST)
-In-Reply-To: <1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38423 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932288Ab3KMOg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Nov 2013 09:36:28 -0500
+Content-Disposition: inline
+In-Reply-To: <52838AC8.8070005@profihost.ag>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Nov 13, 2013 at 03:20:56PM +0100, Stefan Priebe - Profihost AG wrote:
+>Hi Falico,
+>Am 13.11.2013 15:12, schrieb Veaceslav Falico:
+>> On Wed, Nov 13, 2013 at 02:58:40PM +0100, Stefan Priebe - Profihost AG
+>> wrote:
+>>> Hello,
+>>>
+>>> while my vlans, bridging and bonding stuff was working until 3.9 i never
+>>> thought about how it is right. So maybe i was always wrong.
+>>>
+>>> I've this:
+>>>
+>>> eth2
+>>>     \
+>>>      -- bond1 -- vmbr1
+>>>     /
+>>> eth3
+>>>
+>>> This works fine and as expected now i want to have a vlan using the
+>>> bonding and using a bridge.
+>>>
+>>> I the past i had this:
+>>> eth2
+>>>     \
+>>>      -- bond1 -- vmbr1
+>>>     /              \
+>>> eth3                 \ vmbr1.3000
+>>>                           \ ---- tap114i1
+>>>
+>>> This was working fine until 3.9.X since 3.10. Right now using 3.10 i
+>>> need to put eth2 and eth3 into promisc mode to get it working ;-( this
+>>> is bad!
+>>
+>> As a guess - do you use arp monitoring for bonding? Try using miimon -
+>> there were some issues with it in 3.10, which were fixed by some huge
+>> patchsets that will never hit 3.10 stable.
+>> Also, the bonding configuration would be welcome.
+>
+>Debian Bonding konfiguration looks like this:
+>auto bond1
+>iface bond1 inet manual
+>        slaves eth2 eth3
+>        bond-mode 802.3ad
+>        bond_miimon 100
+>        bond_updelay 200
+>        bond_downdelay 0
+>
+>This should be miimon using lacp and not arp isn't it?
+>Anything more needed?
 
-After commit c9eeec26e32e ("tcp: TSQ can use a dynamic limit"), several
-users reported throughput regressions, notably on mvneta and wifi
-adapters.
+Yeah, it's miimon, so nothing here...
 
-802.11 AMPDU requires a fair amount of queueing to be effective.
+I'll try to set up a reproducer in the nearest future, a bit burdened now.
 
-This patch partially reverts the change done in tcp_write_xmit()
-so that the minimal amount is sysctl_tcp_limit_output_bytes.
+Are you using 3.10.X stable? Which version exactly? And at what version did
+it work - 3.9.?
 
-It also remove the use of this sysctl while building skb stored
-in write queue, as TSO autosizing does the right thing anyway.
+Thank you!
 
-Users with well behaving NICS and correct qdisc (like sch_fq),
-can then lower the default sysctl_tcp_limit_output_bytes value from
-128KB to 8KB.
-
-This new usage of sysctl_tcp_limit_output_bytes permits each driver
-authors to check how their driver performs when/if the value is set
-to a minimum of 4KB.
-
-Normally, line rate for a single TCP flow should be possible, 
-but some drivers rely on timers to perform TX completion and
-too long TX completion delays prevent reaching full throughput.
-
-Fixes: c9eeec26e32e ("tcp: TSQ can use a dynamic limit")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Sujith Manoharan <sujith@msujith.org>
-Reported-by: Arnaud Ebalard <arno@natisbad.org>
-Tested-by: Sujith Manoharan <sujith@msujith.org>
-Cc: Felix Fietkau <nbd@openwrt.org>
----
-v2: use a max_t() instead of max() to suppress a compiler warning
-
- Documentation/networking/ip-sysctl.txt |    3 ---
- net/ipv4/tcp.c                         |    6 ------
- net/ipv4/tcp_output.c                  |    6 +++++-
- 3 files changed, 5 insertions(+), 10 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 8b8a057..3c12d9a 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -577,9 +577,6 @@ tcp_limit_output_bytes - INTEGER
- 	typical pfifo_fast qdiscs.
- 	tcp_limit_output_bytes limits the number of bytes on qdisc
- 	or device to reduce artificial RTT/cwnd and reduce bufferbloat.
--	Note: For GSO/TSO enabled flows, we try to have at least two
--	packets in flight. Reducing tcp_limit_output_bytes might also
--	reduce the size of individual GSO packet (64KB being the max)
- 	Default: 131072
- 
- tcp_challenge_ack_limit - INTEGER
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 8e8529d..3dc0c6c 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -808,12 +808,6 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
- 		xmit_size_goal = min_t(u32, gso_size,
- 				       sk->sk_gso_max_size - 1 - hlen);
- 
--		/* TSQ : try to have at least two segments in flight
--		 * (one in NIC TX ring, another in Qdisc)
--		 */
--		xmit_size_goal = min_t(u32, xmit_size_goal,
--				       sysctl_tcp_limit_output_bytes >> 1);
--
- 		xmit_size_goal = tcp_bound_to_half_wnd(tp, xmit_size_goal);
- 
- 		/* We try hard to avoid divides here */
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 6728546..c5231d9 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1875,8 +1875,12 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 		 *  - better RTT estimation and ACK scheduling
- 		 *  - faster recovery
- 		 *  - high rates
-+		 * Alas, some drivers / subsystems require a fair amount
-+		 * of queued bytes to ensure line rate.
-+		 * One example is wifi aggregation (802.11 AMPDU)
- 		 */
--		limit = max(skb->truesize, sk->sk_pacing_rate >> 10);
-+		limit = max_t(unsigned int, sysctl_tcp_limit_output_bytes,
-+			      sk->sk_pacing_rate >> 10);
- 
- 		if (atomic_read(&sk->sk_wmem_alloc) > limit) {
- 			set_bit(TSQ_THROTTLED, &tp->tsq_flags);
+>
+>One thing i forgot the one with vmbr1.3000 does not work at all eben not
+>with promisc mode. The one below works fine if i set eth2 and eth3 into
+>promisc mode.
+>
+>Stefan
+>
+>>> I also tried this one without success:
+>>> eth2
+>>>     \
+>>>      -- bond1 -- vmbr1
+>>>     /     \
+>>> eth3        ----- bond1.3000 --- vmbr1v3000
+>>>                                     \ ---- tap114i1
+>>>
+>>>
+>>>
+>>> Greets,
+>>> Stefan
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
