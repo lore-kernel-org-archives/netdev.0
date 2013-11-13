@@ -1,88 +1,55 @@
-From: Kumar Gala <galak@codeaurora.org>
-Subject: Re: [PATCH 3/3] can: mcp251x: Add device tree support
-Date: Wed, 13 Nov 2013 04:53:02 -0600
-Message-ID: <7E7A9748-D946-4FDD-A764-6C7ECA44B890@codeaurora.org>
-References: <1384332341-15363-1-git-send-email-shc_work@mail.ru>
-Mime-Version: 1.0 (Mac OS X Mail 7.0 \(1822\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>
-To: Alexander Shiyan <shc_work@mail.ru>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1384332341-15363-1-git-send-email-shc_work@mail.ru>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net] netlink: fix netlink_ack with large messages
+Date: Wed, 13 Nov 2013 12:25:04 +0100
+Message-ID: <20131113122504.0ddcbf89@griffin>
+References: <527E3C17.1080508@mojatatu.com>
+	<20131109180353.GA3715@localhost>
+	<20131112162907.50f0bafa@griffin>
+	<20131112.143515.1092879587357986857.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, jhs@mojatatu.com, tgraf@suug.ch,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:28627 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756816Ab3KMLZh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Nov 2013 06:25:37 -0500
+In-Reply-To: <20131112.143515.1092879587357986857.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 12 Nov 2013 14:35:15 -0500 (EST), David Miller wrote:
+> > Do you think capping at NLMSG_GOODSIZE would be too low? The allocation
+> > won't fit into one page with NLMSG_GOODSIZE but I doubt we can go lower
+> > than that. Alternatively, we can do some math to fully use the two
+> > pages, like
+> > 	NLMSG_GOODSIZE + min(PAGE_SIZE, 8192UL) - NLMSG_HDRLEN - NLMSG_ALIGN(sizeof(struct nlmsgerr))
+> > (which I'm not sure is worth it).
+> 
+> I don't think this is the way to go.
+> 
+> I think since existing apps expect the whole message, we have to
+> provide it.
+> 
+> We should add a new socket option so that applications can ask that
+> messages not be quoted in ACKs, as I've stated a few times already in
+> this thread.
 
-On Nov 13, 2013, at 2:45 AM, Alexander Shiyan <shc_work@mail.ru> wrote:
+I completely agree with this, sorry for not being clear. I just
+understood from the thread that the way to go is to do both, in order
+to not generate too large ACKs for the _new_ code (i.e. for the
+messages that were not plausible before "netlink: allow large data
+transfers from user-space"). I don't know what the "too large" should
+be, though, hence the question.
 
-> This patch adds Device Tree support to the Microchip MCP251X driver.
->=20
-> Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
-> ---
-> .../bindings/net/can/microchip,mcp251x.txt         | 25 ++++++++++
-> drivers/net/can/mcp251x.c                          | 57 +++++++++++++=
-+++------
-> 2 files changed, 66 insertions(+), 16 deletions(-)
-> create mode 100644 Documentation/devicetree/bindings/net/can/microchi=
-p,mcp251x.txt
->=20
-> diff --git a/Documentation/devicetree/bindings/net/can/microchip,mcp2=
-51x.txt b/Documentation/devicetree/bindings/net/can/microchip,mcp251x.t=
-xt
-> new file mode 100644
-> index 0000000..06d95ee
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/can/microchip,mcp251x.txt
-> @@ -0,0 +1,25 @@
-> +* Microchip MCP251X device tree bindings
-> +
-> +Registers a Microchip MCP251X stand-alone CAN controller connected t=
-o SPI bus.
+But then, if we don't do any capping, the only outcome of a failed
+allocation is the ACK won't be sent and it's clearly stated that
+netlink does not provide reliability. Works for me.
 
-=93Register a=94 doesn=92t seem like it should be in a binding spec.
+ Jiri
 
-> +
-> +Required properties:
-> + - compatible: Should be one of the following:
-> +   - "microchip,mcp2510" for MCP2510.
-> +   - "microchip,mcp2515" for MCP2515.
-> + - reg: SPI chip select.
-> + - clocks: The clock feeding the CAN controller.
-> + - interrupt-parent: The parent interrupt controller.
-> + - interrupts: Should contain IRQ line for the CAN controller.
-> +
-> +Optional properties:
-> + - vdd-supply: Regulator that powers the CAN controller.
-> + - xceiver-supply: Regulator that powers the CAN transceiver.
-> +
-> +Example:
-> +	can0: can@1 {
-> +		compatible =3D "microchip,mcp2515";
-> +		reg =3D <1>;
-> +		clocks =3D <&clk24m>;
-> +		interrupt-parent =3D <&gpio4>;
-> +		interrupts =3D <13 0x2>;
-
-Usually good to have example show all properties used (even optional on=
-es)
-
-> +	};
-
-Other than the nits, binding looks good.
-
-- k
-
---=20
-Employee of Qualcomm Innovation Center, Inc.
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, host=
-ed by The Linux Foundation
-
+-- 
+Jiri Benc
