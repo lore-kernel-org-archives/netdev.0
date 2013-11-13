@@ -1,54 +1,77 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [PATCH v2] tcp: tsq: restore minimal amount of queueing
-Date: Wed, 13 Nov 2013 22:18:12 +0100
-Message-ID: <8738n0ngq3.fsf@natisbad.org>
-References: <8761s0cqhh.fsf@natisbad.org>
-	<slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
-	<87y54u59zq.fsf@natisbad.org>
-	<1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1384353174.28458.110.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Chang <changxiangzhong@gmail.com>
+Subject: Re: [PATCH 1/1] net: sctp: bug fixing when sctp path recovers
+Date: Wed, 13 Nov 2013 22:23:27 +0100
+Message-ID: <5283EDCF.20605@gmail.com>
+References: <1384306486-31345-1-git-send-email-changxiangzhong@gmail.com> <5282E5F9.5000506@gmail.com> <5282E9EC.3090307@gmail.com> <52833BD3.4040003@redhat.com> <5283CDD1.3090309@gmail.com> <5283CEC3.4050507@redhat.com> <5283E5A8.3020809@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>,
-	Sujith Manoharan <sujith@msujith.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-	Felix Fietkau <nbd@openwrt.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevich@gmail.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dreibh@simula.no
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpfb2-g21.free.fr ([212.27.42.10]:38429 "EHLO
-	smtpfb2-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751003Ab3KMVTL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 16:19:11 -0500
-Received: from smtp4-g21.free.fr (smtp4-g21.free.fr [212.27.42.4])
-	by smtpfb2-g21.free.fr (Postfix) with ESMTP id 6EA75D129C8
-	for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 22:19:03 +0100 (CET)
-Received: from smtp.natisbad.org (unknown [81.57.185.249])
-	by smtp4-g21.free.fr (Postfix) with ESMTP id 9EAC44C81E3
-	for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 22:18:21 +0100 (CET)
-In-Reply-To: <1384353174.28458.110.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Wed, 13 Nov 2013 06:32:54 -0800")
+Received: from mail-la0-f41.google.com ([209.85.215.41]:63260 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750874Ab3KMVXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 16:23:30 -0500
+In-Reply-To: <5283E5A8.3020809@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
-
-> From: Eric Dumazet <edumazet@google.com>
+On 11/13/2013 09:48 PM, Chang wrote:
 >
-> After commit c9eeec26e32e ("tcp: TSQ can use a dynamic limit"), several
-> users reported throughput regressions, notably on mvneta and wifi
-> adapters.
+> On 11/13/2013 08:10 PM, Daniel Borkmann wrote:
+>> On 11/13/2013 08:06 PM, Chang wrote:
+>>> On 11/13/2013 09:44 AM, Daniel Borkmann wrote:
+>>>> On 11/13/2013 03:54 AM, Chang wrote:
+>>>>> On 11/13/2013 03:37 AM, Vlad Yasevich wrote:
+>>>>>> On 11/12/2013 08:34 PM, Chang Xiangzhong wrote:
+>>>>>>> Look for the __two__ most recently used path/transport and set 
+>>>>>>> to active_path
+>>>>>>> and retran_path respectively
+>>>>
+>>>> Please also for the log, elaborate a bit more, explaining what 
+>>>> currently
+>>>> happens, and what the effects of this bug are, so that later when 
+>>>> people
+>>>> are looking through the Git log they can easily get what problem 
+>>>> you are
+>>>> trying to fix; and if possible, add:
+>>>>
+>>>> Fixes: <12 digits SHA1> ("<commit title>")
+>>>>
+>>> Yeah, sure, I'll elaborate that more specifically.
+>>
+>> Thanks !
+>>
+>>> I assume the 12-digit SHA1 is the revision number. But may I ask 
+>>> where and how shall I add the tag "Fixes" tag? The revision number 
+>>> is generated after "git commit", how can I know that in advance?
+>>
+>> Nope, it's the affected commit id from the current git log that
+>> your patch fixes.
+>>
+>> Have a look for example at commit:
+>>
+>> 98bbc06aabac5a2 ("net: x86: bpf: don't forget to free sk_filter (v2)")
+> Thank you for your quick response. I'm quite green on kernel 
+> programming and git. So here's one question:
+> To find the the revision that **caused** the bug, I could use gitk to 
+> trace the changing of the file(s) history. Is that correct?
 >
-> 802.11 AMPDU requires a fair amount of queueing to be effective.
->
-> This patch partially reverts the change done in tcp_write_xmit()
-> so that the minimal amount is sysctl_tcp_limit_output_bytes.
+Let's say the following condition
+A - the initial revision
+B - something was wrong that introduced a bug
+C - latest revision
+MyFix - fixing the bug caused by B. Shall I specify B or C in the 
+"fixes:" tag?
 
-I just tested the fix on current linux tree with the same setup
-on which I observed the regression: it also fixes it on my side
-on my RN102. Thanks for the quick fix, Eric. 
 
-Cheers,
-
-a+
+         revision introduces a bug
+          |
+A -> B -> C ->MyFix
+                  |
+                  latest revision
