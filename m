@@ -1,195 +1,87 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: how to mix bridges and bonding inc. vlans correctly on Kernel >
- 3.10
-Date: Wed, 13 Nov 2013 17:21:36 +0100
-Message-ID: <20131113162136.GP19702@redhat.com>
-References: <52838590.5070806@profihost.ag>
- <20131113141244.GM19702@redhat.com>
- <52838AC8.8070005@profihost.ag>
- <52839540.6020908@gmail.com>
- <5283980D.7020508@profihost.ag>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
+ burst.
+Date: Wed, 13 Nov 2013 11:27:21 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.1311131120540.1424-100000@iolanthe.rowland.org>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B740C@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12100 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932267Ab3KMQXz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Nov 2013 11:23:55 -0500
-Content-Disposition: inline
-In-Reply-To: <5283980D.7020508@profihost.ag>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B740C-CgBM+Bx2aUAnGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 13, 2013 at 04:17:33PM +0100, Stefan Priebe - Profihost AG wrote:
->Am 13.11.2013 16:05, schrieb Vlad Yasevich:
->> On 11/13/2013 09:20 AM, Stefan Priebe - Profihost AG wrote:
->>> Hi Falico,
->>> Am 13.11.2013 15:12, schrieb Veaceslav Falico:
->>>> On Wed, Nov 13, 2013 at 02:58:40PM +0100, Stefan Priebe - Profihost AG
->>>> wrote:
->>>>> Hello,
->>>>>
->>>>> while my vlans, bridging and bonding stuff was working until 3.9 i
->>>>> never
->>>>> thought about how it is right. So maybe i was always wrong.
->>>>>
->>>>> I've this:
->>>>>
->>>>> eth2
->>>>>      \
->>>>>       -- bond1 -- vmbr1
->>>>>      /
->>>>> eth3
->>>>>
->>>>> This works fine and as expected now i want to have a vlan using the
->>>>> bonding and using a bridge.
->>>>>
->>>>> I the past i had this:
->>>>> eth2
->>>>>      \
->>>>>       -- bond1 -- vmbr1
->>>>>      /              \
->>>>> eth3                 \ vmbr1.3000
->>>>>                            \ ---- tap114i1
->>>>>
->>>>> This was working fine until 3.9.X since 3.10. Right now using 3.10 i
->>>>> need to put eth2 and eth3 into promisc mode to get it working ;-( this
->>>>> is bad!
->>>>
->>>> As a guess - do you use arp monitoring for bonding? Try using miimon -
->>>> there were some issues with it in 3.10, which were fixed by some huge
->>>> patchsets that will never hit 3.10 stable.
->>>> Also, the bonding configuration would be welcome.
->>>
->>> Debian Bonding konfiguration looks like this:
->>> auto bond1
->>> iface bond1 inet manual
->>>          slaves eth2 eth3
->>>          bond-mode 802.3ad
->>>          bond_miimon 100
->>>          bond_updelay 200
->>>          bond_downdelay 0
->>>
->>> This should be miimon using lacp and not arp isn't it?
->>> Anything more needed?
->>>
->>
->> Hmm..  With 802.3ad mode, when the bond is a port on the bridge, the
->> bond should place all of its ports into promiscuous mode.  Do you see
->> the the kernel messages that say that?
->
->No it does not - i only see:
-># dmesg -c|egrep "promiscuous|forward"
->[    5.445161] device bond0 entered promiscuous mode
->[    7.670701] device bond1 entered promiscuous mode
->[    7.845472] vmbr0: port 1(bond0) entered forwarding state
->[    7.845474] vmbr0: port 1(bond0) entered forwarding state
->[    8.269769] vmbr1: port 1(bond1) entered forwarding state
->[    8.269771] vmbr1: port 1(bond1) entered forwarding state
->
->Now adding variant 1:
-># dmesg -c|egrep "promiscuous|forward"
->[   85.919382] device tap113i0 entered promiscuous mode
->[   85.965018] vmbr0: port 2(tap113i0) entered forwarding state
->[   85.965023] vmbr0: port 2(tap113i0) entered forwarding state
->[   86.263292] device tap113i1 entered promiscuous mode
->[   86.314151] device vmbr1.3000 entered promiscuous mode
->[   86.314153] device vmbr1 entered promiscuous mode
->[   86.314192] vmbr1v3000: port 1(vmbr1.3000) entered forwarding state
->[   86.314196] vmbr1v3000: port 1(vmbr1.3000) entered forwarding state
->[   86.318116] vmbr1v3000: port 2(tap113i1) entered forwarding state
->[   86.318120] vmbr1v3000: port 2(tap113i1) entered forwarding state
->[  101.382129] vmbr1v3000: port 1(vmbr1.3000) entered forwarding state
->
->Now it looks like this:
-># ip a l|grep PROMISC
->13: tap113i0: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc
->htb master vmbr0 state UNKNOWN qlen 500
->14: tap113i1: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc
->htb master vmbr1v3000 state UNKNOWN qlen 500
+On Wed, 13 Nov 2013, David Laight wrote:
 
-eth* should get into forwarding mode cause bond0 is a port of the bridge
-and should propagate its state towards its slaves. Something is wrong here.
+> > > that doesn't matter; we don't get an interrupt when a ring segment is
+> > > crossed.  Instead we set the interrupt-on-completion flag on the last
+> > > TRB of the TD, not on any earlier fragment or link TRB.
+> > 
+> > That's because you don't worry about handling URBs which require too
+> > many TRBs (i.e., more than are available).  You just add more ring
+> > segments.  Instead, you could re-use segments on the fly.
+> > 
+> > For example, suppose you have only two ring segments and you get an URB
+> > which requires enough TRBs to fill up four segments.  You could fill in
+> > the first two segments worth, and get an interrupt when the controller
+> > traverses the Link TRB between them.  At that point you store the third
+> > set of TRBs in the first segment, which is now vacant.  Similarly, when
+> > the second Link TRB is traversed, you fill in the fourth set of TRBs.
+> 
+> That isn't going to work.
 
-Maybe we're looking at the wrong direction - and the promisc for the
-ethernet drivers got broken?
+Queuing URBs and processing them in pieces was _your_ suggestion.  I
+merely repeated it to Sarah and filled in some detail.
 
-What ethernet cards/driver do you use for eth*?
+> It might work for very long TD, but for very fragmented ones the interrupt
+> rate would be stupid.
 
->
->Greets,
->Stefan
->
->
->Main question is - is this one correct:
+Not if the individual SG elements are reasonably large -- say at least 
+512 bytes.  They have to be that big if they are to work with ehci-hcd, 
+so why not also for xhci-hcd?
 
-Both are correct. Here's my setup (sorry for stretching):
+>  In any case you'd definitely need enough ring
+> segments for the TRB that describe a single 'max packet size' block.
 
-+---------------+           +------------+              +-------------+           +---------+           +------+
-|     bond1     |           |            |              |   bridge0   |           |         |           |      |
-|  192.168.2.1  |  master   | bridge0.15 |  neighbour   | 192.168.3.1 |  master   |  bond0  |  master   | eth2 |
-|               | --------> |            | ------------ | 192.168.4.1 | --------> |         | --------> |      |
-+---------------+           +------------+              +-------------+           +---------+           +------+
-                                                                                     |
-                                                                                     | master
-                                                                                     v
-+---------------+                                                                 +---------+
-|    dummy0     |                                                                 |  eth0   |
-+---------------+                                                                 +---------+
+That would be two TRBs (for maxpacket = 1024), meaning you'd need at
+least one ring segment.  That's not much of a restriction.
 
-(disregard that dummy0).
+> > > Finally, it's interesting to note that the USB mass storage driver is
+> > > using scatter gather lists just fine without the driver following the TD
+> > > fragment rules.  Or at least no one has reported any issues.  I wonder
+> > > why it works?
+> > 
+> > I'd guess this is because the hardware is actually a lot more flexible
+> > than the "No Link TRBs in the middle of a TD fragment" rule.
+> 
+> With the hardware I have (Intel i7 Sandy bridge) Link TRB cannot
+> be placed at arbitrary boundaries.
+> I don't know whether the actual restriction is only to packet boundaries.
 
-All 192.168.X.1 ips are pingable (via the correct vlans) on both net-next and stable 3.10.19.
+That's what I had in mind by "more flexible" above.
 
->>>>> eth2
->>>>>      \
->>>>>       -- bond1 -- vmbr1
->>>>>      /              \
->>>>> eth3                 \ vmbr1.3000
->>>>>                            \ ---- tap114i1
->
-><= does not work at all
->
->or this one?:
->>>>> eth2
->>>>>      \
->>>>>       -- bond1 -- vmbr1
->>>>>      /     \
->>>>> eth3        ----- bond1.3000 --- vmbr1v3000
->>>>>                                      \ ---- tap114i1
->
-><= works if i manually put eth2 and eth3 into promiscous mode.
->
->> -vlad
->>
->>> One thing i forgot the one with vmbr1.3000 does not work at all eben not
->>> with promisc mode. The one below works fine if i set eth2 and eth3 into
->>> promisc mode.
->>>
->>> Stefan
->>>
->>>>> I also tried this one without success:
->>>>> eth2
->>>>>      \
->>>>>       -- bond1 -- vmbr1
->>>>>      /     \
->>>>> eth3        ----- bond1.3000 --- vmbr1v3000
->>>>>                                      \ ---- tap114i1
->>>>>
->>>>>
->>>>>
->>>>> Greets,
->>>>> Stefan
->>>>> --
->>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>>> the body of a message to majordomo@vger.kernel.org
->>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>
->>
+> I don't have a USB3 monitor and it would also require a more contrived
+> test than I've been doing.
+
+You wouldn't need a monitor to check it, but you would need some 
+careful tests.
+
+> > The whole idea of TD fragments makes no sense to begin with.  What
+> > point is there in grouping packets into MaxBurst-sized collections?
+> 
+> It probably saved a few logic gates somewhere, either that or it is
+> a bug in some hardware implementation that got documented in the spec
+> instead of being fixed :-)
+
+I can believe the guess about it reflecting a bug.  Particularly since 
+it is so badly written.
+
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
