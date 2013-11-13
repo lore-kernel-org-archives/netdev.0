@@ -1,101 +1,60 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 2/2] random32: use msecs_to_jiffies for reseed timer
-Date: Wed, 13 Nov 2013 00:47:10 +0100
-Message-ID: <20131112234710.GI14929@order.stressinduktion.org>
-References: <1384296342-3348-1-git-send-email-dborkman@redhat.com> <1384296342-3348-2-git-send-email-dborkman@redhat.com> <20131112153512.68520cca@samsung-9>
+From: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: shutdown(3) and bluetooth.
+Date: Tue, 12 Nov 2013 19:28:19 -0500
+Message-ID: <20131113002819.GB12615@redhat.com>
+References: <20131112211125.GA2912@redhat.com>
+ <DF4C2B40-BD87-4E88-911D-E3E5F488CAE4@holtmann.org>
+ <20131112221038.GA6689@redhat.com>
+ <FC5CE013-B077-4EA5-81C1-A7D8B4A5EF85@holtmann.org>
+ <20131112224819.GE9057@redhat.com>
+ <D8BE686E-E81D-48CD-8D67-2B138191E0CC@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:39364 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757460Ab3KLXrM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 18:47:12 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org development"
+	<linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20131112153512.68520cca@samsung-9>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <D8BE686E-E81D-48CD-8D67-2B138191E0CC-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 12, 2013 at 03:35:12PM -0800, Stephen Hemminger wrote:
-> On Tue, 12 Nov 2013 23:45:42 +0100
-> Daniel Borkmann <dborkman@redhat.com> wrote:
-> 
-> > Use msecs_to_jiffies, for these calculations as different HZ
-> > considerations are taken into account for conversion of the timer
-> > shot, and also it makes the code more readable.
-> > 
-> > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > ---
-> >  lib/random32.c | 8 ++++++--
-> >  1 file changed, 6 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/lib/random32.c b/lib/random32.c
-> > index 4f9d5df..1e5b2df 100644
-> > --- a/lib/random32.c
-> > +++ b/lib/random32.c
-> > @@ -214,18 +214,22 @@ static DEFINE_TIMER(seed_timer, __prandom_timer, 0, 0);
-> >  static void __prandom_timer(unsigned long dontcare)
-> >  {
-> >  	u32 entropy;
-> > +	unsigned long expires;
-> >  
-> >  	get_random_bytes(&entropy, sizeof(entropy));
-> >  	prandom_seed(entropy);
-> > +
-> >  	/* reseed every ~60 seconds, in [40 .. 80) interval with slack */
-> > -	seed_timer.expires = jiffies + (40 * HZ + (prandom_u32() % (40 * HZ)));
-> > +	expires = 40 + (prandom_u32() % 40);
-> > +	seed_timer.expires = jiffies + msecs_to_jiffies(expires * MSEC_PER_SEC);
-> > +
-> >  	add_timer(&seed_timer);
-> >  }
-> >  
-> >  static void __init __prandom_start_seed_timer(void)
-> >  {
-> >  	set_timer_slack(&seed_timer, HZ);
-> > -	seed_timer.expires = jiffies + 40 * HZ;
-> > +	seed_timer.expires = jiffies + msecs_to_jiffies(40 * MSEC_PER_SEC);
-> >  	add_timer(&seed_timer);
-> >  }
-> >  
-> 
-> Some questions:
->  1. What is the point of using msecs_to_jiffies? the older code already handled
->     differing HZ?
+On Wed, Nov 13, 2013 at 08:37:15AM +0900, Marcel Holtmann wrote:
+ 
+ > > So it seems it affects both SCO and RFCOMM.
+ > > 
+ > >> What kernel did you run this against? It is a shot in the dark, but can you try linux-next quickly.
+ > >> There was a socket related fix for the socket options where we confused RFCOMM vs L2CAP struct sock.
+ > > 
+ > > first noticed it on Linus' latest HEAD, and then reproduced it on 3.11.6
+ > > I'll look at linux-next tomorrow.
+ > 
+ > I looked through the code and only call bt_sock_wait_state when SOCK_LINGER and sk_lingertime is set. In that case we actually block until the socket state changes to BT_CLOSED.
+ > 
+ > The only way I see this could happen is if you have a huge linger timeout and confused the socket state before. What is actually the list of system calls that you are throwing at this socket.
 
-The change is not that important. It seemed a bit more readable. We could
-certainly drop that.
+Ah. I recently changed some code that's now doing this on every socket at shutdown..
+(simplified cut-n-paste)
 
->  2. Why the magic 40-80 sec range? What about platforms with very low entropy
->     you will end up draining it faster.
+        struct linger ling = { .l_onoff = FALSE, };
 
-Daniel and me had a discussion about that. I originally had it even lower and
-Daniel warned about that. The current window seemd fine to me as we don't want
-to have a too big window where one could probe ports if an attacker could find
-a bias in the PRNG. Do you have a suggestion?
+        for (i = 0; i < nr_sockets; i++) {
+                fd = shm->sockets[i].fd;
+                shm->sockets[i].fd = 0;
 
->  3. I prefer using mod_timer rather than setting expires and call add_timer
+                setsockopt(fd, SOL_SOCKET, SO_LINGER, &ling, sizeof(struct linger));
+                shutdown(fd, SHUT_RDWR);
+                close(fd);
+        }
 
-I wanted the BUG_ON in add_timer in the code path so we can make sure no
-two timers are running concurrently. Would be no problem to change that.
+I could just rip out that linger code completely and just hope that sockets staying in
+TIME_WAIT is good enough. iirc, I added it when after multiple runs, some of the
+weirder protocols would fail to open a socket once a certain number of existing
+sockets had opened, even if they were in SOCK_WAIT
 
->  4. You should also use round_jiffies to save power by making the wakeup on a second
->     boundary.
+two remaining questions though. That code is setting linger to false. Why would
+that cause the sk_lingertime to be taken into consideration ?  And why is this
+only a problem for bluetooth (apparently) ?
 
-We already apply slack when initializing the timer:
-
-static void prandom_start_seed_timer(void)
-{
-        set_timer_slack(&seed_timer, HZ);
-        seed_timer.expires = jiffies + 40 * HZ;
-        add_timer(&seed_timer);
-}
-
-It thus does get rounded by apply_slack in mod_timer.
-
-Greetings,
-
-  Hannes
+	Dave
