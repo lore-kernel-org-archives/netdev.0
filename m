@@ -1,68 +1,66 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload burst.
-Date: Wed, 13 Nov 2013 09:45:06 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B740C@saturn3.aculab.com>
-References: <20131112171438.GA4925@xanatos> <Pine.LNX.4.44L0.1311121401510.1200-100000@iolanthe.rowland.org>
+From: Thomas Graf <tgraf@redhat.com>
+Subject: Re: [ovs-dev] [PATCH] linux: Signal datapath that unaligned Netlink
+ message can be received
+Date: Wed, 13 Nov 2013 10:46:53 +0100
+Message-ID: <52834A8D.9040009@redhat.com>
+References: <51e10053434e3afdf9940d9be7d9f0ff4788d1f7.1384184155.git.tgraf@redhat.com> <20131111155014.GC32602@nicira.com> <5280FD6D.9000609@redhat.com> <CAEP_g=_KWgmfVkNLPGYr=WjNR=UKSt3PhkqU8PE6Ug3ju2R3ig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
-To: "Alan Stern" <stern@rowland.harvard.edu>,
-	"Sarah Sharp" <sarah.a.sharp@linux.intel.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Pfaff <blp@nicira.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Ben Hutchings <bhutchings@solarflare.com>, fleitner@redhat.com,
+	dborkmann@redhat.com, netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:35382 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1758185Ab3KMJph convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 04:45:37 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 07504-07 for <netdev@vger.kernel.org>;
- Wed, 13 Nov 2013 09:45:33 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <Pine.LNX.4.44L0.1311121401510.1200-100000@iolanthe.rowland.org>
+Received: from mx1.redhat.com ([209.132.183.28]:1429 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758814Ab3KMJrG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Nov 2013 04:47:06 -0500
+In-Reply-To: <CAEP_g=_KWgmfVkNLPGYr=WjNR=UKSt3PhkqU8PE6Ug3ju2R3ig@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > that doesn't matter; we don't get an interrupt when a ring segment is
-> > crossed.  Instead we set the interrupt-on-completion flag on the last
-> > TRB of the TD, not on any earlier fragment or link TRB.
-> 
-> That's because you don't worry about handling URBs which require too
-> many TRBs (i.e., more than are available).  You just add more ring
-> segments.  Instead, you could re-use segments on the fly.
-> 
-> For example, suppose you have only two ring segments and you get an URB
-> which requires enough TRBs to fill up four segments.  You could fill in
-> the first two segments worth, and get an interrupt when the controller
-> traverses the Link TRB between them.  At that point you store the third
-> set of TRBs in the first segment, which is now vacant.  Similarly, when
-> the second Link TRB is traversed, you fill in the fourth set of TRBs.
+On 11/13/2013 07:11 AM, Jesse Gross wrote:
+> On Mon, Nov 11, 2013 at 11:53 PM, Thomas Graf <tgraf@redhat.com> wrote:
+>> On 11/11/2013 04:50 PM, Ben Pfaff wrote:
+>>>
+>>> On Mon, Nov 11, 2013 at 04:36:24PM +0100, Thomas Graf wrote:
+>>>>
+>>>> Following commit (''netlink: Do not enforce alignment of last Netlink
+>>>> attribute''), signal the ability to receive unaligned Netlink messages
+>>>> to the datapath to enable utilization of zerocopy optimizations.
+>>>>
+>>>> Signed-off-by: Thomas Graf <tgraf@redhat.com>
+>>>
+>>>
+>>> Seems OK from a userspace point of view.  I am a little concerned that
+>>> downgrading userspace without deleting and re-creating the datapath
+>>> (e.g. via "force-reload-kmod") will result in a totally broken setup
+>>> since userspace will then drop every packet from the kernel.
+>>
+>>
+>> Is that something that occurs occasionally in installations? Utilizing
+>> the version field in the genl header could be used to track this and
+>> clear user_features.
+>
+> It's probably a good idea. I could see us having more of these
+> features flags in the future (although obviously we should try to
+> avoid them if possible) and, as Ben said, it would potentially lead to
+> a bad state otherwise.
+>
+> I'm not sure exactly what you have in mind though, can you elaborate a little?
 
-That isn't going to work.
-It might work for very long TD, but for very fragmented ones the interrupt
-rate would be stupid. In any case you'd definitely need enough ring
-segments for the TRB that describe a single 'max packet size' block.
+My initial thought was to use a version field to notice the replacement
+of user space. On second thought that is not required, modifying user
+space to provide the user features in OVS_DP_CMD_GET as well will
+overwrite the features. Resetting user_features to 0 if not features are
+provided will provide backwards compatibility to versions not aware of
+user features yet. Thoughts?
 
-> > Finally, it's interesting to note that the USB mass storage driver is
-> > using scatter gather lists just fine without the driver following the TD
-> > fragment rules.  Or at least no one has reported any issues.  I wonder
-> > why it works?
-> 
-> I'd guess this is because the hardware is actually a lot more flexible
-> than the "No Link TRBs in the middle of a TD fragment" rule.
+> (By the way, it might be a good idea to keep the same CC list on all
+> of the patches. Otherwise, some people might miss parts of the
+> discussion.)
 
-With the hardware I have (Intel i7 Sandy bridge) Link TRB cannot
-be placed at arbitrary boundaries.
-I don't know whether the actual restriction is only to packet boundaries.
-I don't have a USB3 monitor and it would also require a more contrived
-test than I've been doing.
-
-> The whole idea of TD fragments makes no sense to begin with.  What
-> point is there in grouping packets into MaxBurst-sized collections?
-
-It probably saved a few logic gates somewhere, either that or it is
-a bug in some hardware implementation that got documented in the spec
-instead of being fixed :-)
-
-	David
+I did not CC netdev because this is a pure user space patch and the
+respective kernel bits are included in v5 of the kernel series.
