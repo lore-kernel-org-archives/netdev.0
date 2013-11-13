@@ -1,44 +1,63 @@
-From: "Holger Hoffstaette" <holger.hoffstaette@googlemail.com>
-Subject: Re: [PATCH v2] tcp: tsq: restore minimal amount of queueing
-Date: Thu, 14 Nov 2013 00:52:41 +0100
-Message-ID: <pan.2013.11.13.23.52.41.470832@googlemail.com>
-References: <8761s0cqhh.fsf@natisbad.org> <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site> <87y54u59zq.fsf@natisbad.org> <1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com> <1384353174.28458.110.camel@edumazet-glaptop2.roam.corp.google.com> <8738n0ngq3.fsf@natisbad.org> <pan.2013.11.13.21.59.50.578858@googlemail.com> <1384386040.28458.143.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+From: Chang Xiangzhong <changxiangzhong@gmail.com>
+Subject: [PATCH] net: sctp: bug-fixing: retran_path not set properly after transports recovering (v3)
+Date: Thu, 14 Nov 2013 00:58:26 +0100
+Message-ID: <1384387106-8105-1-git-send-email-changxiangzhong@gmail.com>
+Cc: nhorman@tuxdriver.com, davem@davemloft.net,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	Chang Xiangzhong <changxiangzhong@gmail.com>
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:40881 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751067Ab3KMXwx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Nov 2013 18:52:53 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1VgkEu-0007zp-4I
-	for netdev@vger.kernel.org; Thu, 14 Nov 2013 00:52:52 +0100
-Received: from p5086b3f1.dip0.t-ipconnect.de ([80.134.179.241])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 00:52:52 +0100
-Received: from holger.hoffstaette by p5086b3f1.dip0.t-ipconnect.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 00:52:52 +0100
+Received: from mail-la0-f41.google.com ([209.85.215.41]:45049 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751563Ab3KMX6c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 18:58:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Nov 2013 15:40:40 -0800, Eric Dumazet wrote:
+When a transport recovers due to the new coming sack, SCTP should
+iterate all of its transport_list to locate the __two__ most recently used
+transport and set to active_path and retran_path respectively. The exising
+code does not find the two properly - In case of the following list:
 
-> On Wed, 2013-11-13 at 22:59 +0100, Holger Hoffstaette wrote:
-> 
->> +1: fixes spastic NFS & Samba throughput since 3.12.0 with r8169 and
->> e100e for me as well. It's really not just broken/weird Wifi cards that
->> are affected by this.
-> 
-> Same remark, it would be nice to pinpoint the problematic driver.
+[most-recent] -> [2nd-most-recent] -> ...
 
-Since I saw this with r8169->r8169 and e1000e->r8169 it's probably
-everyone's favourite r8169 :)
-Unfortunately I can't be more help but if you can suggest/whip up a fix
-I'd be happy to help test.
+Both active_path and retran_path would be set to the 1st element.
 
--h
+The bug happens when:
+1) multi-homing
+2) failure/partial_failure transport recovers
+Both active_path and retran_path would be set to the same most-recent one, in
+other words, retran_path would not take its role - an end user might not even
+notice this issue.
+
+Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
+---
+ net/sctp/associola.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index ab67efc..8f26276 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -913,8 +913,8 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
+ 		if (!first || t->last_time_heard > first->last_time_heard) {
+ 			second = first;
+ 			first = t;
+-		}
+-		if (!second || t->last_time_heard > second->last_time_heard)
++		} else if (!second ||
++			   t->last_time_heard > second->last_time_heard)
+ 			second = t;
+ 	}
+ 
+@@ -935,6 +935,8 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
+ 		first = asoc->peer.primary_path;
+ 	}
+ 
++	if (!second)
++		second = first;
+ 	/* If we failed to find a usable transport, just camp on the
+ 	 * primary, even if it is inactive.
+ 	 */
+-- 
+1.7.9.5
