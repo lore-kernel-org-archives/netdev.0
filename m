@@ -1,57 +1,72 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] svcrpc: remove the unnecessary evaluation
-Date: Wed, 13 Nov 2013 10:56:58 -0500
-Message-ID: <20131113155658.GH28033@fieldses.org>
-References: <52786417.6090707@huawei.com>
- <527C9160.3070808@huawei.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Fwd: Re: [PATCH v2 2/2] x86: add prefetching to do_csum]
+Date: Wed, 13 Nov 2013 11:01:03 -0500
+Message-ID: <20131113160103.GA25711@neilslaptop.think-freely.org>
+References: <1384220542.4771.23.camel@joe-AO722>
+ <20131112171239.GC19780@hmsreliant.think-freely.org>
+ <1384277615.3665.10.camel@joe-AO722>
+ <20131112195005.GD19780@hmsreliant.think-freely.org>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B740E@saturn3.aculab.com>
+ <20131113123010.GB2993@hmsreliant.think-freely.org>
+ <20131113130832.GB22140@gmail.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B7412@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Weng Meiling <wengmeiling.weng-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Ingo Molnar <mingo@kernel.org>, Joe Perches <joe@perches.com>,
+	netdev <netdev@vger.kernel.org>, Dave Jones <davej@redhat.com>,
+	linux-kernel@vger.kernel.org, sebastien.dugue@bull.net,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <527C9160.3070808-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7412@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 08, 2013 at 03:23:12PM +0800, Weng Meiling wrote:
+On Wed, Nov 13, 2013 at 01:32:50PM -0000, David Laight wrote:
+> > > I'm not sure, whats the typical capacity for the branch predictors
+> > > ability to remember code paths?
+> ...
+> > 
+> > For such simple single-target branches it goes near or over a thousand for
+> > recent Intel and AMD microarchitectures. Thousands for really recent CPUs.
 > 
-> From: Weng Meiling <wengmeiling.weng-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> IIRC the x86 can also correctly predict simple sequences - like a branch
+> in a loop that is taken every other iteration, or only after a previous
+> branch is taken.
+> 
+> Much simpler cpus may use a much simpler strategy.
+> I think one I've used (a fpga soft-core cpu) just uses the low
+> bits of the instruction address to index a single bit table.
+> This means that branches alias each other.
+> In order to get the consistent cycle counts in order to minimise
+> the worst case code path we had to disable the dynamic prediction.
+> 
+> For the checksum code the loop branch isn't a problem.
+> Tests on entry to the function might get mispredicted.
+> 
+> So if you have conditional prefetch when the buffer is long
+> then time a short buffer after a 100 long ones you'll almost
+> certainly see the mispredition penalty.
+> 
+> FWIW I remember speeding up a copy (I think) loop on a strongarm by
+> adding an extra instruction to fetch a word from later in the buffer
+> into a register I never otherwise used.
+> (That was an unpaged system so I knew it couldn't fault.)
+> 
+Fair enough, but the code we're looking at here is arch specific.  If strongarms
+benefit from different coding patterns, we can handle that in that arch.  This
+x86 implementation can still avoid worrying about branch predicition since its
+hardware handles it well
+Neil
 
-Huh.  Looks like that was introduced with "[PATCH] knfsd: make sure
-svc_process call the correct pg_authenticate for multi-service port" in
-2005.  OK!  Applied.
-
---b.
-
-> 
-> Signed-off-by: Weng Meiling <wengmeiling.weng-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> ---
->  net/sunrpc/svc.c | 2 --
->  1 file changed, 2 deletions(-)
-> 
-> diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-> index b974571..e7fbe36 100644
-> --- a/net/sunrpc/svc.c
-> +++ b/net/sunrpc/svc.c
-> @@ -1104,8 +1104,6 @@ svc_process_common(struct svc_rqst *rqstp, struct kvec *argv, struct kvec *resv)
->  	rqstp->rq_vers = vers = svc_getnl(argv);	/* version number */
->  	rqstp->rq_proc = proc = svc_getnl(argv);	/* procedure number */
-> 
-> -	progp = serv->sv_program;
-> -
->  	for (progp = serv->sv_program; progp; progp = progp->pg_next)
->  		if (prog == progp->pg_prog)
->  			break;
-> -- 
-> 1.8.3.1
+> 	David
 > 
 > 
 > 
 > 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
