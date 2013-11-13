@@ -1,72 +1,90 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net] bonding: fix two race conditions in bond_store_updelay/downdelay
-Date: Wed, 13 Nov 2013 17:07:46 +0100
-Message-ID: <1384358866-15157-1-git-send-email-nikolay@redhat.com>
-Cc: davem@davemloft.net, Nikolay Aleksandrov <nikolay@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54978 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753522Ab3KMQMT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Nov 2013 11:12:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
+ burst.
+Date: Wed, 13 Nov 2013 11:20:49 -0500 (EST)
+Message-ID: <Pine.LNX.4.44L0.1311131113090.1424-100000@iolanthe.rowland.org>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B740B@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B740B-CgBM+Bx2aUAnGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes two race conditions between bond_store_updelay/downdelay
-and bond_store_miimon which could lead to division by zero as miimon can
-be set to 0 while either updelay/downdelay are being set and thus miss the
-zero check in the beginning, the zero div happens because updelay/downdelay
-are stored as new_value / bond->params.miimon. Use rtnl to synchronize with
-miimon setting.
+On Wed, 13 Nov 2013, David Laight wrote:
 
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: Veaceslav Falico <vfalico@redhat.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- drivers/net/bonding/bond_sysfs.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+> > > Since you don't really want to do all the work twice, the sensible
+> > > way is to add each input fragment to the ring one a time.
+> > > If you need to cross a link TRB and the last MBP boundary is within
+> > > the previous data TRB then you can split the previous data TRB at the
+> > > MBP boundary and continue.
+> > > If the previous TRB is short then you'd need to go back through the
+> > > earlier TRB until you found the one that contains a TRB boundary,
+> > > split it, and write a link TRB in the following slot.
+> > 
+> > Right.  You could avoid doing a lot of work twice by using two passes.
+> > In the first pass, keep track of the number of bytes allotted to each
+> > TRB and the MBP boundaries, without doing anything else.  That way,
+> > you'll know where to put a Link TRB without any need for backtracking.
+> > Then in the second pass, fill in the actual contents of the TRBs.
+> 
+> No - you really don't want to process everything twice.
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index bc8fd36..8f8a607 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -701,6 +701,8 @@ static ssize_t bonding_store_downdelay(struct device *d,
- 	int new_value, ret = count;
- 	struct bonding *bond = to_bond(d);
- 
-+	if (!rtnl_trylock())
-+		return restart_syscall();
- 	if (!(bond->params.miimon)) {
- 		pr_err("%s: Unable to set down delay as MII monitoring is disabled\n",
- 		       bond->dev->name);
-@@ -734,6 +736,7 @@ static ssize_t bonding_store_downdelay(struct device *d,
- 	}
- 
- out:
-+	rtnl_unlock();
- 	return ret;
- }
- static DEVICE_ATTR(downdelay, S_IRUGO | S_IWUSR,
-@@ -756,6 +759,8 @@ static ssize_t bonding_store_updelay(struct device *d,
- 	int new_value, ret = count;
- 	struct bonding *bond = to_bond(d);
- 
-+	if (!rtnl_trylock())
-+		return restart_syscall();
- 	if (!(bond->params.miimon)) {
- 		pr_err("%s: Unable to set up delay as MII monitoring is disabled\n",
- 		       bond->dev->name);
-@@ -789,6 +794,7 @@ static ssize_t bonding_store_updelay(struct device *d,
- 	}
- 
- out:
-+	rtnl_unlock();
- 	return ret;
- }
- static DEVICE_ATTR(updelay, S_IRUGO | S_IWUSR,
--- 
-1.8.1.4
+What I described does not process anything twice.  It calculates the 
+byte counts on the first pass and everything else on the second pass.
+
+> You could remember the TRB and offset of the last MBP boundary.
+
+Then you really _do_ end up processing the TRB's which follow the last 
+MBP boundary twice.  Once when setting up the TD as normal, and then 
+again after you realize they need to be moved to a different ring 
+segment.
+
+> > Unless the first TRB of the message is the first TRB of the ring
+> > segment.  Then you're in trouble...  Hopefully, real URBs will never be
+> > that badly fragmented.
+> 
+> I suspect that ones from the network stack might be badly fragmented.
+> The code needs to at least detect and error them.
+
+I'm not so sure about this.  The network stack works okay with other
+host controller drivers (like ehci-hcd), which have much stricter
+requirements about fragmentation.  They require that the length of each
+SG element except the last one must be a multiple of the maxpacket
+size.  For high-speed bulk transfers, that means a multiple of 512.
+
+> > > You can split a bulk TD on a 1k boundary and the target won't know the
+> > > difference.
+> > 
+> > The target won't know the difference, but the host will.  Here's an
+> > example: Suppose the driver submits two URBs, each for a data-in
+> > transfer of 32 KB.  You split each URB up into two 16-KB TDs; let's
+> > call them A, B, C, and D (where A and B make up the first URB, and C
+> > and D make up the second URB).
+> 
+> I was thinking about OUT transfers, IN ones are unlikely to be badly
+> fragmented.
+
+Maybe not for the network stack, but OUT and IN end up equally 
+fragmented for the storage stack.
+
+> > Suppose you have only two ring segments, and a driver submits an URB
+> > which is so fragmented that it requires more TRBs than you have room
+> > for in those two segments.  When do you want the interrupts to arrive?
+> > Answer: At each segment crossing.
+> 
+> You bounce the original request and fix the driver to submit URB
+> with fewer fragments.
+
+In other words, you want to limit the number of SG elements the driver 
+will accept.
+
+Alan Stern
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
