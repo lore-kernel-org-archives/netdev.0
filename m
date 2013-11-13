@@ -1,41 +1,73 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] net/7990: Make lance_private.name const
-Date: Wed, 13 Nov 2013 09:54:18 +0100
-Message-ID: <CAMuHMdXyqOATvE8e=3Ed17bwiDRE8w=B=xKuYwd5qorxqA0BJg@mail.gmail.com>
-References: <20131112.161253.601617211955537751.davem@davemloft.net>
-	<5282BC76.5050701@cogentembedded.com>
-	<CAMuHMdVn6MFbXgdE_teYW10OfYBjyZsN7v2yTTAsKj0kXao7Hw@mail.gmail.com>
-	<20131112.181629.742226266240112179.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Linux/m68k" <linux-m68k@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <20131112.181629.742226266240112179.davem@davemloft.net>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+Subject: [PATCH] 6lowpan: Uncompression of traffic class field was incorrect
+Date: Wed, 13 Nov 2013 11:03:39 +0200
+Message-ID: <1384333419-4087-1-git-send-email-jukka.rissanen@linux.intel.com>
+Cc: alex.aring@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:52515 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933456Ab3KMJDn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Nov 2013 04:03:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 13, 2013 at 12:16 AM, David Miller <davem@davemloft.net> wrote:
->>> And remember about checkpatch.pl which was hardly content with the patch.
->>
->> Only because checkpatch looks at the _new_ lines, and doesn't compare the
->> styles of the old and new lines.
->
-> You really should fix the line you are changing to use tabs, please respin
-> with this in mind, thanks.
+If priority/traffic class field in IPv6 header is set (seen when
+using ssh), the uncompression sets the TC and Flow fields incorrectly.
 
-As that would add more to the TAB/space mess^H^H^Hix, I prepended a
-patch to fix all whitespace errors.
+Example:
 
-Gr{oetje,eeting}s,
+This is IPv6 header of a sent packet. Note the priority/TC (=1) in
+the first byte.
 
-                        Geert
+00000000: 61 00 00 00 00 2c 06 40 fe 80 00 00 00 00 00 00
+00000010: 02 02 72 ff fe c6 42 10 fe 80 00 00 00 00 00 00
+00000020: 02 1e ab ff fe 4c 52 57
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+This gets compressed like this in the sending side
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+00000000: 72 31 04 06 02 1e ab ff fe 4c 52 57 ec c2 00 16
+00000010: aa 2d fe 92 86 4e be c6 ....
+
+In the receiving end, the packet gets uncompressed to this
+IPv6 header
+
+00000000: 60 06 06 02 00 2a 1e 40 fe 80 00 00 00 00 00 00
+00000010: 02 02 72 ff fe c6 42 10 fe 80 00 00 00 00 00 00
+00000020: ab ff fe 4c 52 57 ec c2
+
+First four bytes are set incorrectly and we have also lost
+two bytes from destination address.
+
+The fix is to switch the case values in switch statement
+when checking the TC field.
+
+Signed-off-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+---
+ net/ieee802154/6lowpan.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 426b5df..459e200 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -956,7 +956,7 @@ lowpan_process_data(struct sk_buff *skb)
+ 	 * Traffic class carried in-line
+ 	 * ECN + DSCP (1 byte), Flow Label is elided
+ 	 */
+-	case 1: /* 10b */
++	case 2: /* 10b */
+ 		if (lowpan_fetch_skb_u8(skb, &tmp))
+ 			goto drop;
+ 
+@@ -967,7 +967,7 @@ lowpan_process_data(struct sk_buff *skb)
+ 	 * Flow Label carried in-line
+ 	 * ECN + 2-bit Pad + Flow Label (3 bytes), DSCP is elided
+ 	 */
+-	case 2: /* 01b */
++	case 1: /* 01b */
+ 		if (lowpan_fetch_skb_u8(skb, &tmp))
+ 			goto drop;
+ 
+-- 
+1.8.3.1
