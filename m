@@ -1,66 +1,71 @@
-From: Thomas Graf <tgraf@redhat.com>
-Subject: Re: [ovs-dev] [PATCH] linux: Signal datapath that unaligned Netlink
- message can be received
-Date: Wed, 13 Nov 2013 10:46:53 +0100
-Message-ID: <52834A8D.9040009@redhat.com>
-References: <51e10053434e3afdf9940d9be7d9f0ff4788d1f7.1384184155.git.tgraf@redhat.com> <20131111155014.GC32602@nicira.com> <5280FD6D.9000609@redhat.com> <CAEP_g=_KWgmfVkNLPGYr=WjNR=UKSt3PhkqU8PE6Ug3ju2R3ig@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ben Pfaff <blp@nicira.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Ben Hutchings <bhutchings@solarflare.com>, fleitner@redhat.com,
-	dborkmann@redhat.com, netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+From: Karl Beldan <karl.beldan@gmail.com>
+Subject: [PATCH] mac80211: minstrels: spare numerous useless calls to get_random_bytes
+Date: Wed, 13 Nov 2013 10:54:19 +0100
+Message-ID: <1384336459-5322-1-git-send-email-karl.beldan@gmail.com>
+Cc: Felix Fietkau <nbd@openwrt.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, Karl Beldan <karl.beldan@rivierawaves.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1429 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758814Ab3KMJrG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Nov 2013 04:47:06 -0500
-In-Reply-To: <CAEP_g=_KWgmfVkNLPGYr=WjNR=UKSt3PhkqU8PE6Ug3ju2R3ig@mail.gmail.com>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:43965 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759211Ab3KMJyt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 04:54:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/13/2013 07:11 AM, Jesse Gross wrote:
-> On Mon, Nov 11, 2013 at 11:53 PM, Thomas Graf <tgraf@redhat.com> wrote:
->> On 11/11/2013 04:50 PM, Ben Pfaff wrote:
->>>
->>> On Mon, Nov 11, 2013 at 04:36:24PM +0100, Thomas Graf wrote:
->>>>
->>>> Following commit (''netlink: Do not enforce alignment of last Netlink
->>>> attribute''), signal the ability to receive unaligned Netlink messages
->>>> to the datapath to enable utilization of zerocopy optimizations.
->>>>
->>>> Signed-off-by: Thomas Graf <tgraf@redhat.com>
->>>
->>>
->>> Seems OK from a userspace point of view.  I am a little concerned that
->>> downgrading userspace without deleting and re-creating the datapath
->>> (e.g. via "force-reload-kmod") will result in a totally broken setup
->>> since userspace will then drop every packet from the kernel.
->>
->>
->> Is that something that occurs occasionally in installations? Utilizing
->> the version field in the genl header could be used to track this and
->> clear user_features.
->
-> It's probably a good idea. I could see us having more of these
-> features flags in the future (although obviously we should try to
-> avoid them if possible) and, as Ben said, it would potentially lead to
-> a bad state otherwise.
->
-> I'm not sure exactly what you have in mind though, can you elaborate a little?
+From: Karl Beldan <karl.beldan@rivierawaves.com>
 
-My initial thought was to use a version field to notice the replacement
-of user space. On second thought that is not required, modifying user
-space to provide the user features in OVS_DP_CMD_GET as well will
-overwrite the features. Resetting user_features to 0 if not features are
-provided will provide backwards compatibility to versions not aware of
-user features yet. Thoughts?
+ATM, only the first array value returned by get_random_bytes is used.
+This change moves the call to get_random_bytes from the nested loop it
+is in to its parent.
+While at it, replace get_random_bytes with prandom_bytes since PRNs are
+way enough for the selection process.
+After this, minstrel_ht reclaims 80 PR-bytes instead of 640 R-bytes.
 
-> (By the way, it might be a good idea to keep the same CC list on all
-> of the patches. Otherwise, some people might miss parts of the
-> discussion.)
+minstrels use sample tables to probe different rates in a randomized
+manner.
+minstrel_ht inits one single sample table upon registration (during
+subsys_initcalls) and minstrel uses one per STA addition in minstrel.
 
-I did not CC netdev because this is a pure user space patch and the
-respective kernel bits are included in v5 of the kernel series.
+Signed-off-by: Karl Beldan <karl.beldan@rivierawaves.com>
+---
+ net/mac80211/rc80211_minstrel.c    | 3 +--
+ net/mac80211/rc80211_minstrel_ht.c | 3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/mac80211/rc80211_minstrel.c b/net/mac80211/rc80211_minstrel.c
+index 7fa1b36..d2f19f7 100644
+--- a/net/mac80211/rc80211_minstrel.c
++++ b/net/mac80211/rc80211_minstrel.c
+@@ -422,10 +422,9 @@ init_sample_table(struct minstrel_sta_info *mi)
+ 	memset(mi->sample_table, 0xff, SAMPLE_COLUMNS * mi->n_rates);
+ 
+ 	for (col = 0; col < SAMPLE_COLUMNS; col++) {
++		prandom_bytes(rnd, sizeof(rnd));
+ 		for (i = 0; i < mi->n_rates; i++) {
+-			get_random_bytes(rnd, sizeof(rnd));
+ 			new_idx = (i + rnd[i & 7]) % mi->n_rates;
+-
+ 			while (SAMPLE_TBL(mi, new_idx, col) != 0xff)
+ 				new_idx = (new_idx + 1) % mi->n_rates;
+ 
+diff --git a/net/mac80211/rc80211_minstrel_ht.c b/net/mac80211/rc80211_minstrel_ht.c
+index 5d60779..91912f8 100644
+--- a/net/mac80211/rc80211_minstrel_ht.c
++++ b/net/mac80211/rc80211_minstrel_ht.c
+@@ -1052,10 +1052,9 @@ init_sample_table(void)
+ 
+ 	memset(sample_table, 0xff, sizeof(sample_table));
+ 	for (col = 0; col < SAMPLE_COLUMNS; col++) {
++		prandom_bytes(rnd, sizeof(rnd));
+ 		for (i = 0; i < MCS_GROUP_RATES; i++) {
+-			get_random_bytes(rnd, sizeof(rnd));
+ 			new_idx = (i + rnd[i]) % MCS_GROUP_RATES;
+-
+ 			while (sample_table[col][new_idx] != 0xff)
+ 				new_idx = (new_idx + 1) % MCS_GROUP_RATES;
+ 
+-- 
+1.8.2
