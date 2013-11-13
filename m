@@ -1,44 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] netlink: a flag requesting header w/o data in
- error ACK
-Date: Wed, 13 Nov 2013 15:31:12 -0500 (EST)
-Message-ID: <20131113.153112.1336285577814329683.davem@davemloft.net>
-References: <231e025015eee115182368b34333b38579e3112d.1384357520.git.jbenc@redhat.com>
+Subject: Re: [PATCH net] netlink: fix netlink_ack with large messages
+Date: Wed, 13 Nov 2013 15:43:14 -0500 (EST)
+Message-ID: <20131113.154314.881341992069315387.davem@davemloft.net>
+References: <20131112162907.50f0bafa@griffin>
+	<20131112.143515.1092879587357986857.davem@davemloft.net>
+	<20131113122504.0ddcbf89@griffin>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch, jhs@mojatatu.com,
-	pablo@netfilter.org
+Cc: pablo@netfilter.org, jhs@mojatatu.com, tgraf@suug.ch,
+	netdev@vger.kernel.org
 To: jbenc@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45423 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45524 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750848Ab3KMUbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 15:31:14 -0500
-In-Reply-To: <231e025015eee115182368b34333b38579e3112d.1384357520.git.jbenc@redhat.com>
+	with ESMTP id S1751000Ab3KMUnQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 15:43:16 -0500
+In-Reply-To: <20131113122504.0ddcbf89@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Benc <jbenc@redhat.com>
-Date: Wed, 13 Nov 2013 16:46:09 +0100
+Date: Wed, 13 Nov 2013 12:25:04 +0100
 
-> Currently, ACK in case of error contains a full copy of the originating
-> message, although many applications do not need it. This can cause lost ACKs
-> with large netlink messages, especially after commit c05cdb1b864f ("netlink:
-> allow large data transfers from user-space").
+> I completely agree with this, sorry for not being clear. I just
+> understood from the thread that the way to go is to do both, in order
+> to not generate too large ACKs for the _new_ code (i.e. for the
+> messages that were not plausible before "netlink: allow large data
+> transfers from user-space"). I don't know what the "too large" should
+> be, though, hence the question.
 > 
-> Introduce a new message flag, NLM_F_SHORT_NACK, which requests only message
-> header to be included in ACK regardless of the error code. This flag has no
-> effect if NLM_F_ACK is not set.
-> 
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> ---
-> I'm not entirely happy with taking a bit in netlink message header for this.
-> Alternative approach would be to make this a socket option (as suggested by
-> David) but that would mean a socket lookup in netlink_ack for each and every
-> ACK, which doesn't sound nice, either. If this is preferred, I'll rework the
-> patch.
+> But then, if we don't do any capping, the only outcome of a failed
+> allocation is the ACK won't be sent and it's clearly stated that
+> netlink does not provide reliability. Works for me.
 
-It's not really all that difficult, you can either attack the sender socket
-to in_skb->sk, or pass a new boolean around in the various code paths that
-lead to the ACK.
+Of course, we should meanwhile add the large SKB handling to the
+netlink ACK code.
+
+Therefore, please resubmit your original patch, but modify it as
+I asked such that only the ACK code path gets the new large SKB
+call.
+
+Thanks.
