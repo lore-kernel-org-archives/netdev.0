@@ -1,61 +1,55 @@
-From: Chang <changxiangzhong@gmail.com>
-Subject: Re: [PATCH 1/1] net: sctp: bug fixing when sctp path recovers
-Date: Wed, 13 Nov 2013 21:48:40 +0100
-Message-ID: <5283E5A8.3020809@gmail.com>
-References: <1384306486-31345-1-git-send-email-changxiangzhong@gmail.com> <5282E5F9.5000506@gmail.com> <5282E9EC.3090307@gmail.com> <52833BD3.4040003@redhat.com> <5283CDD1.3090309@gmail.com> <5283CEC3.4050507@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>, nhorman@tuxdriver.com,
-	davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dreibh@simula.no
-To: Daniel Borkmann <dborkman@redhat.com>
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH 1/2] net: phylib: add adjust_state callback to phy device
+Date: Wed, 13 Nov 2013 22:07:49 +0100
+Message-ID: <1384376870-7810-1-git-send-email-zonque@gmail.com>
+Cc: davem@davemloft.net, marek.belisko@gmail.com, ujhelyi.m@gmail.com,
+	Daniel Mack <zonque@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:48230 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750807Ab3KMUsm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 15:48:42 -0500
-In-Reply-To: <5283CEC3.4050507@redhat.com>
+Received: from mail-bk0-f48.google.com ([209.85.214.48]:35666 "EHLO
+	mail-bk0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895Ab3KMVH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 16:07:57 -0500
+Received: by mail-bk0-f48.google.com with SMTP id v10so84325bkz.7
+        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 13:07:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Allow phy drivers to take action when the core does its link adjustment.
+No change for drivers that do not implement this callback.
 
-On 11/13/2013 08:10 PM, Daniel Borkmann wrote:
-> On 11/13/2013 08:06 PM, Chang wrote:
->> On 11/13/2013 09:44 AM, Daniel Borkmann wrote:
->>> On 11/13/2013 03:54 AM, Chang wrote:
->>>> On 11/13/2013 03:37 AM, Vlad Yasevich wrote:
->>>>> On 11/12/2013 08:34 PM, Chang Xiangzhong wrote:
->>>>>> Look for the __two__ most recently used path/transport and set to 
->>>>>> active_path
->>>>>> and retran_path respectively
->>>
->>> Please also for the log, elaborate a bit more, explaining what 
->>> currently
->>> happens, and what the effects of this bug are, so that later when 
->>> people
->>> are looking through the Git log they can easily get what problem you 
->>> are
->>> trying to fix; and if possible, add:
->>>
->>> Fixes: <12 digits SHA1> ("<commit title>")
->>>
->> Yeah, sure, I'll elaborate that more specifically.
->
-> Thanks !
->
->> I assume the 12-digit SHA1 is the revision number. But may I ask 
->> where and how shall I add the tag "Fixes" tag? The revision number is 
->> generated after "git commit", how can I know that in advance?
->
-> Nope, it's the affected commit id from the current git log that
-> your patch fixes.
->
-> Have a look for example at commit:
->
-> 98bbc06aabac5a2 ("net: x86: bpf: don't forget to free sk_filter (v2)")
-Thank you for your quick response. I'm quite green on kernel programming 
-and git. So here's one question:
-To find the the revision that **caused** the bug, I could use gitk to 
-trace the changing of the file(s) history. Is that correct?
+Signed-off-by: Daniel Mack <zonque@gmail.com>
+---
+ drivers/net/phy/phy.c | 3 +++
+ include/linux/phy.h   | 2 ++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 36c6994..240e33f 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -748,6 +748,9 @@ void phy_state_machine(struct work_struct *work)
+ 	if (phydev->adjust_state)
+ 		phydev->adjust_state(phydev->attached_dev);
+ 
++	if (phydev->drv->adjust_state)
++		phydev->drv->adjust_state(phydev);
++
+ 	switch(phydev->state) {
+ 		case PHY_DOWN:
+ 		case PHY_STARTING:
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 64ab823..85826eb 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -467,6 +467,8 @@ struct phy_driver {
+ 	/* See set_wol, but for checking whether Wake on LAN is enabled. */
+ 	void (*get_wol)(struct phy_device *dev, struct ethtool_wolinfo *wol);
+ 
++	void (*adjust_state)(struct phy_device *dev);
++
+ 	struct device_driver driver;
+ };
+ #define to_phy_driver(d) container_of(d, struct phy_driver, driver)
+-- 
+1.8.4.2
