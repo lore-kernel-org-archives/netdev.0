@@ -1,40 +1,271 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] bonding: fix two race conditions in
- bond_store_updelay/downdelay
-Date: Wed, 13 Nov 2013 09:38:19 -0800
-Message-ID: <1384364299.28458.129.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1384358866-15157-1-git-send-email-nikolay@redhat.com>
-	 <1384362214.28458.117.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5283B19A.9050302@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 4/4] virtio-net: auto-tune mergeable rx buffer
+	size for improved performance
+Date: Wed, 13 Nov 2013 19:42:45 +0200
+Message-ID: <20131113174245.GB31078@redhat.com>
+References: <1384294885-6444-1-git-send-email-mwdalton@google.com>
+	<1384294885-6444-4-git-send-email-mwdalton@google.com>
+	<528325DC.3050801@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:45702 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753522Ab3KMRiV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 12:38:21 -0500
-Received: by mail-pa0-f53.google.com with SMTP id kq14so759707pab.12
-        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 09:38:21 -0800 (PST)
-In-Reply-To: <5283B19A.9050302@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	Daniel Borkmann <dborkman@redhat.com>,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <528325DC.3050801@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-11-13 at 18:06 +0100, Nikolay Aleksandrov wrote:
+On Wed, Nov 13, 2013 at 03:10:20PM +0800, Jason Wang wrote:
+> On 11/13/2013 06:21 AM, Michael Dalton wrote:
+> > Commit 2613af0ed18a ("virtio_net: migrate mergeable rx buffers to page frag
+> > allocators") changed the mergeable receive buffer size from PAGE_SIZE to
+> > MTU-size, introducing a single-stream regression for benchmarks with large
+> > average packet size. There is no single optimal buffer size for all workloads.
+> > For workloads with packet size <= MTU bytes, MTU + virtio-net header-sized
+> > buffers are preferred as larger buffers reduce the TCP window due to SKB
+> > truesize. However, single-stream workloads with large average packet sizes
+> > have higher throughput if larger (e.g., PAGE_SIZE) buffers are used.
+> >
+> > This commit auto-tunes the mergeable receiver buffer packet size by choosing
+> > the packet buffer size based on an EWMA of the recent packet sizes for the
+> > receive queue. Packet buffer sizes range from MTU_SIZE + virtio-net header
+> > len to PAGE_SIZE. This improves throughput for large packet workloads, as
+> > any workload with average packet size >= PAGE_SIZE will use PAGE_SIZE
+> > buffers.
+> 
+> Hi Michael:
+> 
+> There's one concern with EWMA. How well does it handle multiple streams
+> each with different packet size? E.g there may be two flows, one with
+> 256 bytes each packet another is 64K.  Looks like it can result we
+> allocate PAGE_SIZE buffer for 256 (which is bad since the
+> payload/truesize is low) bytes or 1500+ for 64K buffer (which is ok
+> since we can do coalescing).
+> >
+> > These optimizations interact positively with recent commit
+> > ba275241030c ("virtio-net: coalesce rx frags when possible during rx"),
+> > which coalesces adjacent RX SKB fragments in virtio_net. The coalescing
+> > optimizations benefit buffers of any size.
+> >
+> > Benchmarks taken from an average of 5 netperf 30-second TCP_STREAM runs
+> > between two QEMU VMs on a single physical machine. Each VM has two VCPUs
+> > with all offloads & vhost enabled. All VMs and vhost threads run in a
+> > single 4 CPU cgroup cpuset, using cgroups to ensure that other processes
+> > in the system will not be scheduled on the benchmark CPUs. Trunk includes
+> > SKB rx frag coalescing.
+> >
+> > net-next trunk w/ virtio_net before 2613af0ed18a (PAGE_SIZE bufs): 14642.85Gb/s
+> > net-next trunk (MTU-size bufs):  13170.01Gb/s
+> > net-next trunk + auto-tune: 14555.94Gb/s
+> 
+> Do you have perf numbers that just without this patch? We need to know
+> how much EWMA help exactly.
 
-> I thought about this version too, but downdelay/updelay can be changed in other
-> places (e.g., store_miimon) and the resulting downdelay/updelay value might not
-> be the right one.
-> Correct me if I'm wrong, but this is what I have in mind (miimon = 100, updelay
-> = 200):
-> set miimon to 300 and concurrently set updelay to 400, we might endup leaving
-> updelay to 400 because the old value of miimon is used in the calculation in
-> store_updelay even though when changing miimon updelay/downdelay get adjusted,
-> they might get adjusted by store_updelay/downdelay to a wrong value afterwards.
+Yes I'm curious too.
 
-OK then ;)
+> >
+> > Signed-off-by: Michael Dalton <mwdalton@google.com>
+> > ---
+> >  drivers/net/virtio_net.c | 73 +++++++++++++++++++++++++++++++++++-------------
+> >  1 file changed, 53 insertions(+), 20 deletions(-)
+> >
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index 0c93054..b1086e0 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -27,6 +27,7 @@
+> >  #include <linux/if_vlan.h>
+> >  #include <linux/slab.h>
+> >  #include <linux/cpu.h>
+> > +#include <linux/average.h>
+> >  
+> >  static int napi_weight = NAPI_POLL_WEIGHT;
+> >  module_param(napi_weight, int, 0444);
+> > @@ -37,10 +38,8 @@ module_param(gso, bool, 0444);
+> >  
+> >  /* FIXME: MTU in config. */
+> >  #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
+> > -#define MERGE_BUFFER_LEN (ALIGN(GOOD_PACKET_LEN + \
+> > -                                sizeof(struct virtio_net_hdr_mrg_rxbuf), \
+> > -                                L1_CACHE_BYTES))
+> >  #define GOOD_COPY_LEN	128
+> > +#define RECEIVE_AVG_WEIGHT 64
+> 
+> Maybe we can make this as a module parameter.
+
+I'm not sure it's useful - no one is likely to tune it in practice.
+But how about a comment explaining how was the number chosen?
+
+> >  
+> >  #define VIRTNET_DRIVER_VERSION "1.0.0"
+> >  
+> > @@ -79,6 +78,9 @@ struct receive_queue {
+> >  	/* Chain pages by the private ptr. */
+> >  	struct page *pages;
+> >  
+> > +	/* Average packet length for mergeable receive buffers. */
+> > +	struct ewma mrg_avg_pkt_len;
+> > +
+> >  	/* Page frag for GFP_ATOMIC packet buffer allocation. */
+> >  	struct page_frag atomic_frag;
+> >  
+> > @@ -302,14 +304,17 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
+> >  	return skb;
+> >  }
+> >  
+> > -static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+> > +static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb,
+> > +			     struct page *head_page)
+> >  {
+> >  	struct skb_vnet_hdr *hdr = skb_vnet_hdr(head_skb);
+> >  	struct sk_buff *curr_skb = head_skb;
+> > +	struct page *page = head_page;
+> >  	char *buf;
+> > -	struct page *page;
+> > -	int num_buf, len, offset, truesize;
+> > +	int num_buf, len, offset;
+> > +	u32 est_buffer_len;
+> >  
+> > +	len = head_skb->len;
+> >  	num_buf = hdr->mhdr.num_buffers;
+> >  	while (--num_buf) {
+> >  		int num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
+> > @@ -320,7 +325,6 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+> >  			head_skb->dev->stats.rx_length_errors++;
+> >  			return -EINVAL;
+> >  		}
+> > -		truesize = max_t(int, len, MERGE_BUFFER_LEN);
+> >  		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
+> >  			struct sk_buff *nskb = alloc_skb(0, GFP_ATOMIC);
+> >  			if (unlikely(!nskb)) {
+> > @@ -338,20 +342,38 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+> >  		if (curr_skb != head_skb) {
+> >  			head_skb->data_len += len;
+> >  			head_skb->len += len;
+> > -			head_skb->truesize += truesize;
+> > +			head_skb->truesize += len;
+> >  		}
+> >  		page = virt_to_head_page(buf);
+> >  		offset = buf - (char *)page_address(page);
+> >  		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
+> >  			put_page(page);
+> >  			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
+> > -					     len, truesize);
+> > +					     len, len);
+> >  		} else {
+> >  			skb_add_rx_frag(curr_skb, num_skb_frags, page,
+> > -					offset, len, truesize);
+> > +					offset, len, len);
+> >  		}
+> >  		--rq->num;
+> >  	}
+> > +	/* All frags before the last frag are fully used -- for those frags,
+> > +	 * truesize = len. Use the size of the most recent buffer allocation
+> > +	 * from the last frag's page to estimate the truesize of the last frag.
+> > +	 * EWMA with a weight of 64 makes the size adjustments quite small in
+> > +	 * the frags allocated on one page (even a order-3 one), and truesize
+> > +	 * doesn't need to be 100% accurate.
+> > +	 */
+> > +	if (page) {
+> > +		est_buffer_len = page_private(page);
+> > +		if (est_buffer_len > len) {
+> > +			u32 truesize_delta = est_buffer_len - len;
+> > +
+> > +			curr_skb->truesize += truesize_delta;
+> > +			if (curr_skb != head_skb)
+> > +				head_skb->truesize += truesize_delta;
+> > +		}
+> 
+> Is there a chance that est_buffer_len was smaller than or equal with len?
+> > +	}
+> > +	ewma_add(&rq->mrg_avg_pkt_len, head_skb->len);
+> >  	return 0;
+> >  }
+> >  
+> > @@ -382,16 +404,21 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+> >  		skb_trim(skb, len);
+> >  	} else if (vi->mergeable_rx_bufs) {
+> >  		struct page *page = virt_to_head_page(buf);
+> > -		int truesize = max_t(int, len, MERGE_BUFFER_LEN);
+> > +		/* Use an initial truesize of 'len' bytes for page_to_skb --
+> > +		 * receive_mergeable will fixup the truesize of the last page
+> > +		 * frag if the packet is non-linear (> GOOD_COPY_LEN bytes).
+> > +		 */
+> >  		skb = page_to_skb(rq, page,
+> >  				  (char *)buf - (char *)page_address(page),
+> > -				  len, truesize);
+> > +				  len, len);
+> >  		if (unlikely(!skb)) {
+> >  			dev->stats.rx_dropped++;
+> >  			put_page(page);
+> >  			return;
+> >  		}
+> > -		if (receive_mergeable(rq, skb)) {
+> > +		if (!skb_is_nonlinear(skb))
+> > +			page = NULL;
+> > +		if (receive_mergeable(rq, skb, page)) {
+> >  			dev_kfree_skb(skb);
+> >  			return;
+> >  		}
+> > @@ -540,24 +567,29 @@ static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
+> >  static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
+> >  {
+> >  	struct virtnet_info *vi = rq->vq->vdev->priv;
+> > +	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+> >  	struct page_frag *alloc_frag;
+> >  	char *buf;
+> > -	int err, len, hole;
+> > +	int err, hole;
+> > +	u32 buflen;
+> >  
+> > +	buflen = hdr_len + clamp_t(u32, ewma_read(&rq->mrg_avg_pkt_len),
+> > +				   GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
+> > +	buflen = ALIGN(buflen, L1_CACHE_BYTES);
+> >  	alloc_frag = (gfp & __GFP_WAIT) ? &vi->sleep_frag : &rq->atomic_frag;
+> > -	if (unlikely(!skb_page_frag_refill(MERGE_BUFFER_LEN, alloc_frag, gfp)))
+> > +	if (unlikely(!skb_page_frag_refill(buflen, alloc_frag, gfp)))
+> >  		return -ENOMEM;
+> >  	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
+> >  	get_page(alloc_frag->page);
+> > -	len = MERGE_BUFFER_LEN;
+> > -	alloc_frag->offset += len;
+> > +	alloc_frag->offset += buflen;
+> > +	set_page_private(alloc_frag->page, buflen);
+> 
+> Not sure this is accurate, since buflen may change and several frags may
+> share a single page. So the est_buffer_len we get in receive_mergeable()
+> may not be the correct value.
+> >  	hole = alloc_frag->size - alloc_frag->offset;
+> > -	if (hole < MERGE_BUFFER_LEN) {
+> > -		len += hole;
+> > +	if (hole < buflen) {
+> > +		buflen += hole;
+> >  		alloc_frag->offset += hole;
+> >  	}
+> >  
+> > -	sg_init_one(rq->sg, buf, len);
+> > +	sg_init_one(rq->sg, buf, buflen);
+> >  	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
+> >  	if (err < 0)
+> >  		put_page(virt_to_head_page(buf));
+> > @@ -1475,6 +1507,7 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
+> >  			       napi_weight);
+> >  
+> >  		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
+> > +		ewma_init(&vi->rq[i].mrg_avg_pkt_len, 1, RECEIVE_AVG_WEIGHT);
+> >  		sg_init_table(vi->sq[i].sg, ARRAY_SIZE(vi->sq[i].sg));
+> >  	}
+> >  
