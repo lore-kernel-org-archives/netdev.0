@@ -1,44 +1,32 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH] net: ethernet: ti/cpsw: do not crash on single-MAC machines during resume
-Date: Wed, 13 Nov 2013 13:53:00 +0100
-Message-ID: <1384347180-3490-1-git-send-email-zonque@gmail.com>
-Cc: mugunthanvnm@ti.com, davem@davemloft.net,
-	Daniel Mack <zonque@gmail.com>
-To: netdev@vger.kernel.org
+From: Jacob Avraham <Jacob.Avraham@compass-eos.com>
+Subject: network namespaces usage in routing appplications with VRF-like
+ features
+Date: Wed, 13 Nov 2013 12:56:02 +0000
+Message-ID: <292D0115604A314481EE77AB54A844C5672403D2@CMP-EX-DB3.cmpsys.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f44.google.com ([209.85.214.44]:59125 "EHLO
-	mail-bk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751699Ab3KMMxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 07:53:08 -0500
-Received: by mail-bk0-f44.google.com with SMTP id d7so317799bkh.31
-        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 04:53:07 -0800 (PST)
+Received: from email.compass-eos.com ([84.95.248.193]:43613 "EHLO
+	email.compass-eos.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751389Ab3KMM4Y convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 07:56:24 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To prevent Oopses, cpsw_suspend() should only soft-reset sliver 1
-on dual MAC enabled machines.
+Hi,
+I'm trying to evaluate the use of network namespaces in some routing ap=
+plications, which are currently based on the VFR patchset.
+I was thinking about distributing several interfaces among a few namesp=
+aces, whereby each namespace has its own routing table(s), ala VRF.
+The questions that I have are:
+1. Can I open a listening socket that accepts traffic from all interfac=
+es in all namespaces? That's the current behavior of my routing protoco=
+l daemons.
+2. =A0=A0Does RTNETLINK API support adding routes to a particular names=
+pace routing table?
 
-Signed-off-by: Daniel Mack <zonque@gmail.com>
----
- drivers/net/ethernet/ti/cpsw.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index edd3e79..702b063 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2173,8 +2173,11 @@ static int cpsw_suspend(struct device *dev)
- 
- 	if (netif_running(ndev))
- 		cpsw_ndo_stop(ndev);
-+
- 	soft_reset("sliver 0", &priv->slaves[0].sliver->soft_reset);
--	soft_reset("sliver 1", &priv->slaves[1].sliver->soft_reset);
-+	if (priv->data.dual_emac)
-+		soft_reset("sliver 1", &priv->slaves[1].sliver->soft_reset);
-+
- 	pm_runtime_put_sync(&pdev->dev);
- 
- 	/* Select sleep pin state */
--- 
-1.8.4.2
+Thanks,
+Jacob
