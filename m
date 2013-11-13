@@ -1,73 +1,70 @@
-From: Josh Hunt <joshhunt00@gmail.com>
-Subject: Re: [PATCH] rds: Error on offset mismatch if not loopback
-Date: Tue, 12 Nov 2013 22:24:50 -0600
-Message-ID: <CAKA=qzYpd7Wo9XdU16TEhnbm5dPJjOZMhAY1jA7N+YFBWz5pzw@mail.gmail.com>
-References: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
-	<20120922.152524.1294103117346567757.davem@davemloft.net>
-	<CAKA=qzac9=UhLF_Z4FnnH+sR7xvkDux4oayC6dPYe=hMLsDxRg@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net 2/2] macvtap: limit head length of skb allocated
+Date: Wed, 13 Nov 2013 13:58:01 +0800
+Message-ID: <528314E9.1020000@redhat.com>
+References: <1384250577-20330-1-git-send-email-jasowang@redhat.com>	<1384250577-20330-2-git-send-email-jasowang@redhat.com> <20131112094501.0000358d@unknown>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: jjolly@suse.com, LKML <linux-kernel@vger.kernel.org>,
-	venkat.x.venkatsubra@oracle.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, stefanha@redhat.com
+To: Greg Rose <gregory.v.rose@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKA=qzac9=UhLF_Z4FnnH+sR7xvkDux4oayC6dPYe=hMLsDxRg@mail.gmail.com>
+In-Reply-To: <20131112094501.0000358d@unknown>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 12, 2013 at 10:22 PM, Josh Hunt <joshhunt00@gmail.com> wrote:
-> On Sat, Sep 22, 2012 at 2:25 PM, David Miller <davem@davemloft.net> wrote:
->>
->> From: John Jolly <jjolly@suse.com>
->> Date: Fri, 21 Sep 2012 15:32:40 -0600
->>
->> > Attempting an rds connection from the IP address of an IPoIB interface
->> > to itself causes a kernel panic due to a BUG_ON() being triggered.
->> > Making the test less strict allows rds-ping to work without crashing
->> > the machine.
->> >
->> > A local unprivileged user could use this flaw to crash the system.
->> >
->> > Signed-off-by: John Jolly <jjolly@suse.com>
->>
->> Besides the questions being asked of you by Venkat Venkatsubra, this
->> patch has another issue.
->>
->> It has been completely corrupted by your email client, it has
->> turned all TAB characters into spaces, making the patch useless.
->>
->> Please learn how to send a patch unmolested in the body of your
->> email.  Test it by emailing the patch to yourself, and verifying
->> that you can in fact apply the patch you receive in that email.
->> Then, and only then, should you consider making a new submission
->> of this patch.
->>
->> Use Documentation/email-clients.txt for guidance.
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> Please read the FAQ at  http://www.tux.org/lkml/
+On 11/13/2013 01:45 AM, Greg Rose wrote:
+> On Tue, 12 Nov 2013 18:02:57 +0800
+> Jason Wang <jasowang@redhat.com> wrote:
 >
+>> We currently use hdr_len as a hint of head length which is advertised
+>> by guest. But when guest advertise a very big value, it can lead to
+>> an 64K+ allocating of kmalloc() which has a very high possibility of
+>> failure when host memory is fragmented or under heavy stress. The
+>> huge hdr_len also reduce the effect of zerocopy or even disable if a
+>> gso skb is linearized in guest.
+>>
+>> To solves those issues, this patch introduces an upper limit
+>> (PAGE_SIZE) of the head, which guarantees an order 0 allocation each
+>> time.
+>>
+>> Cc: Stefan Hajnoczi <stefanha@redhat.com>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>> The patch was needed for stable.
+>> ---
+>>  drivers/net/macvtap.c | 5 +++++
+>>  1 file changed, 5 insertions(+)
+>>
+>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>> index 9dccb1e..7ee6f9d 100644
+>> --- a/drivers/net/macvtap.c
+>> +++ b/drivers/net/macvtap.c
+>> @@ -523,6 +523,11 @@ static inline struct sk_buff
+>> *macvtap_alloc_skb(struct sock *sk, size_t prepad, int noblock, int
+>> *err) {
+>>  	struct sk_buff *skb;
+>> +	int good_linear = SKB_MAX_HEAD(prepad);
+>> +
+>> +	/* Don't use huge linear part */
+>> +	if (linear > good_linear)
+>> +		linear = good_linear;
+>>  
+>>  	/* Under a page?  Don't bother with paged skb. */
+>>  	if (prepad + len < PAGE_SIZE || !linear)
+> I see no problem with this or the tuntap patch except that in both
+> cases kernel coding style would prefer that you align the local
+> variable declarations in a reverse pyramid, longest at the beginning,
+> shortest at the end.
 >
-> I think this issue was lost in the shuffle. It appears that redhat, ubuntu,
-> and oracle are maintaining local patches to resolve this:
->
-> https://oss.oracle.com/git/?p=redpatch.git;a=commit;h=c7b6a0a1d8d636852be130fa15fa8be10d4704e8
-> https://bugzilla.redhat.com/show_bug.cgi?id=822754
-> http://ubuntu.5.x6.nabble.com/CVE-2012-2372-RDS-local-ping-DOS-td4985388.html
->
-> Given that Oracle has applied it I'll make the assumption that Venkat's
-> question was answered at some point.
->
-> David - I can resubmit the patch with the proper signed-off-by and
-> formatting if you are willing to apply it unless John wants to try again. I
-> think it's time this got upstream.
->
+> - Greg
+
+Sure, will do it in V2.
+Thanks
 > --
-> Josh
-
-Ugh.. hopefully resending with all the html crap removed...
-
--- 
-Josh
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
