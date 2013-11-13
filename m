@@ -1,54 +1,44 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Fwd: Re: [PATCH v2 2/2] x86: add prefetching to do_csum]
-Date: Wed, 13 Nov 2013 07:30:10 -0500
-Message-ID: <20131113123010.GB2993@hmsreliant.think-freely.org>
-References: <1384220542.4771.23.camel@joe-AO722>
- <20131112171239.GC19780@hmsreliant.think-freely.org>
- <1384277615.3665.10.camel@joe-AO722>
- <20131112195005.GD19780@hmsreliant.think-freely.org>
- <AE90C24D6B3A694183C094C60CF0A2F6026B740E@saturn3.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, netdev <netdev@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>, linux-kernel@vger.kernel.org,
-	sebastien.dugue@bull.net, Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B740E@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH] net: ethernet: ti/cpsw: do not crash on single-MAC machines during resume
+Date: Wed, 13 Nov 2013 13:53:00 +0100
+Message-ID: <1384347180-3490-1-git-send-email-zonque@gmail.com>
+Cc: mugunthanvnm@ti.com, davem@davemloft.net,
+	Daniel Mack <zonque@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f44.google.com ([209.85.214.44]:59125 "EHLO
+	mail-bk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751699Ab3KMMxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 07:53:08 -0500
+Received: by mail-bk0-f44.google.com with SMTP id d7so317799bkh.31
+        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 04:53:07 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 13, 2013 at 10:09:51AM -0000, David Laight wrote:
-> > Sure, I modified the code so that we only prefetched 2 cache lines ahead, but
-> > only if the overall length of the input buffer is more than 2 cache lines.
-> > Below are the results (all counts are the average of 1000000 iterations of the
-> > csum operation, as previous tests were, I just omitted that column).
-> 
-> Hmmm.... averaging over 100000 iterations means that all the code
-> is in the i-cache and the branch predictor will be correctly primed.
-> 
-> For short checksum requests I'd guess that the relevant data
-> has just been written and is already in the cpu cache (unless
-> there has been a process and cpu switch).
-> So prefetch is likely to be unnecessary.
-> 
-> If you assume that the checksum code isn't in the i-cache then
-> small requests are likely to be dominated by the code size.
-> 
-I'm not sure, whats the typical capacity for the branch predictors ability to
-remember code paths?  I ask because the most likely use of do_csum will be in
-the receive path of the networking stack (specifically in the softirq handler).
-So if we run do_csum once, we're likely to run it many more times, as we clean
-out an adapters receive queue.
+To prevent Oopses, cpsw_suspend() should only soft-reset sliver 1
+on dual MAC enabled machines.
 
-Neil
+Signed-off-by: Daniel Mack <zonque@gmail.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-> 	David
-> 
-> 
-> 
-> 
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index edd3e79..702b063 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -2173,8 +2173,11 @@ static int cpsw_suspend(struct device *dev)
+ 
+ 	if (netif_running(ndev))
+ 		cpsw_ndo_stop(ndev);
++
+ 	soft_reset("sliver 0", &priv->slaves[0].sliver->soft_reset);
+-	soft_reset("sliver 1", &priv->slaves[1].sliver->soft_reset);
++	if (priv->data.dual_emac)
++		soft_reset("sliver 1", &priv->slaves[1].sliver->soft_reset);
++
+ 	pm_runtime_put_sync(&pdev->dev);
+ 
+ 	/* Select sleep pin state */
+-- 
+1.8.4.2
