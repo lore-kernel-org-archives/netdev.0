@@ -1,74 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: gso: Handle new frag_list of frags GRO packets
-Date: Wed, 13 Nov 2013 07:06:25 -0800
-Message-ID: <1384355185.28458.114.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131107062234.GA31156@gondor.apana.org.au>
-	 <20131107070335.GA31638@gondor.apana.org.au>
-	 <20131107070647.GB31638@gondor.apana.org.au>
-	 <20131111185207.GA12277@gondor.apana.org.au>
-	 <1384305223.28458.58.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131113012920.GA27897@gondor.apana.org.au>
-	 <1384309034.28458.69.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131113022243.GA28204@gondor.apana.org.au>
-	 <20131113022525.GA28236@gondor.apana.org.au>
-	 <1384310704.28458.79.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131113142615.GA1851@gondor.apana.org.au>
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Subject: RE: [PATCH] rds: Error on offset mismatch if not loopback
+Date: Wed, 13 Nov 2013 07:16:10 -0800 (PST)
+Message-ID: <23964ca1-e7cb-41c3-9da2-5bc1b2b0c014@default>
+References: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
+ <20120922.152524.1294103117346567757.davem@davemloft.net>
+ <CAKA=qzac9=UhLF_Z4FnnH+sR7xvkDux4oayC6dPYe=hMLsDxRg@mail.gmail.com>
+ <CAKA=qzYpd7Wo9XdU16TEhnbm5dPJjOZMhAY1jA7N+YFBWz5pzw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	hkchu@google.com, mwdalton@google.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: jjolly@suse.com, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Josh Hunt <joshhunt00@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:54882 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757055Ab3KMPG2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 10:06:28 -0500
-Received: by mail-pd0-f173.google.com with SMTP id x10so524237pdj.32
-        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 07:06:27 -0800 (PST)
-In-Reply-To: <20131113142615.GA1851@gondor.apana.org.au>
+Received: from aserp1040.oracle.com ([141.146.126.69]:30724 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755347Ab3KMPQQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 10:16:16 -0500
+In-Reply-To: <CAKA=qzYpd7Wo9XdU16TEhnbm5dPJjOZMhAY1jA7N+YFBWz5pzw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-11-13 at 22:26 +0800, Herbert Xu wrote:
-> On Tue, Nov 12, 2013 at 06:45:04PM -0800, Eric Dumazet wrote:
-> > On Wed, 2013-11-13 at 10:25 +0800, Herbert Xu wrote:
-> > 
-> > > So a better test for the time being would be to test with TSO
-> > > disabled in both cases.
-> > > 
-> > 
-> > GRO on, TSO off, little difference between two cases :
-> > 
-> > (Note some small things run in background, so these numbers are not
-> > ultra precise)
-> 
-> OK looks pretty sane.
->  
-> > > In the mean time I'm cooking up a patch to generate TSO packets.
-> > 
-> > That would be very nice !
-> 
-> It's failing on my machine but I'm not certain whether it's a bug
-> in my patch or a bug in my NIC's TSO code.  So I'd appreciate it
-> if you can give this a spin on your mlx4.
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 557e1a5..1302515 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
 
 
-Well, I wont try this patch, as it can not possibly work :(
+-----Original Message-----
+From: Josh Hunt [mailto:joshhunt00@gmail.com] 
+Sent: Tuesday, November 12, 2013 10:25 PM
+To: David Miller
+Cc: jjolly@suse.com; LKML; Venkat Venkatsubra; netdev@vger.kernel.org
+Subject: Re: [PATCH] rds: Error on offset mismatch if not loopback
 
-The problem is not only skb_segment() but all its callers / users, as I
-mentioned yesterday.
+On Tue, Nov 12, 2013 at 10:22 PM, Josh Hunt <joshhunt00@gmail.com> wrote:
+> On Sat, Sep 22, 2012 at 2:25 PM, David Miller <davem@davemloft.net> wrote:
+>>
+>> From: John Jolly <jjolly@suse.com>
+>> Date: Fri, 21 Sep 2012 15:32:40 -0600
+>>
+>> > Attempting an rds connection from the IP address of an IPoIB 
+>> > interface to itself causes a kernel panic due to a BUG_ON() being triggered.
+>> > Making the test less strict allows rds-ping to work without 
+>> > crashing the machine.
+>> >
+>> > A local unprivileged user could use this flaw to crash the system.
+>> >
+>> > Signed-off-by: John Jolly <jjolly@suse.com>
+>>
+>> Besides the questions being asked of you by Venkat Venkatsubra, this 
+>> patch has another issue.
+>>
+>> It has been completely corrupted by your email client, it has turned 
+>> all TAB characters into spaces, making the patch useless.
+>>
+>> Please learn how to send a patch unmolested in the body of your 
+>> email.  Test it by emailing the patch to yourself, and verifying that 
+>> you can in fact apply the patch you receive in that email.
+>> Then, and only then, should you consider making a new submission of 
+>> this patch.
+>>
+>> Use Documentation/email-clients.txt for guidance.
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe 
+>> linux-kernel" in the body of a message to majordomo@vger.kernel.org 
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Please read the FAQ at  http://www.tux.org/lkml/
+>
+>
+> I think this issue was lost in the shuffle. It appears that redhat, 
+> ubuntu, and oracle are maintaining local patches to resolve this:
+>
+> https://oss.oracle.com/git/?p=redpatch.git;a=commit;h=c7b6a0a1d8d63685
+> 2be130fa15fa8be10d4704e8
+> https://bugzilla.redhat.com/show_bug.cgi?id=822754
+> http://ubuntu.5.x6.nabble.com/CVE-2012-2372-RDS-local-ping-DOS-td49853
+> 88.html
+>
+> Given that Oracle has applied it I'll make the assumption that 
+> Venkat's question was answered at some point.
+>
+> David - I can resubmit the patch with the proper signed-off-by and 
+> formatting if you are willing to apply it unless John wants to try 
+> again. I think it's time this got upstream.
+>
+> --
+> Josh
 
-Specifically, you'll have to change inet_gso_segment(),
-gre_gso_segment(), tcp_gso_segment(), ipv6_gso_segment(),
-udp6_ufo_fragment() ...
+Ugh.. hopefully resending with all the html crap removed...
 
-Yes, we have to propagate correct IP id identifiers, and correct tcp
-sequence numbers, tcp checksums.
+--
+Josh
+
+Hi Josh,
+
+No, I still didn't get an answer for how "off" could be non-zero in case of rds-ping to hit BUG_ON(off % RDS_FRAG_SIZE).
+Because, rds-ping uses zero byte messages to ping.
+If you have a test case that reproduces the kernel panic I can try it out and see how that can happen.
+The Oracle's internal code I checked doesn't have that patch applied.
+
+Venkat
