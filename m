@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: gso: Handle new frag_list of frags GRO packets
-Date: Tue, 12 Nov 2013 18:14:27 -0800
-Message-ID: <1384308867.28458.67.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Tue, 12 Nov 2013 18:17:14 -0800
+Message-ID: <1384309034.28458.69.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <20131106123900.GA20259@gondor.apana.org.au>
 	 <20131106133045.GA20931@gondor.apana.org.au>
 	 <20131106143927.GA21604@gondor.apana.org.au>
@@ -22,36 +22,19 @@ Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	hkchu@google.com, mwdalton@google.com
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:52016 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757543Ab3KMCOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 21:14:30 -0500
-Received: by mail-pb0-f44.google.com with SMTP id rp16so7798035pbb.31
-        for <netdev@vger.kernel.org>; Tue, 12 Nov 2013 18:14:29 -0800 (PST)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:38034 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754491Ab3KMCRR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 21:17:17 -0500
+Received: by mail-pa0-f46.google.com with SMTP id rd3so2704715pab.33
+        for <netdev@vger.kernel.org>; Tue, 12 Nov 2013 18:17:16 -0800 (PST)
 In-Reply-To: <20131113012920.GA27897@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Wed, 2013-11-13 at 09:29 +0800, Herbert Xu wrote:
-> On Tue, Nov 12, 2013 at 05:13:43PM -0800, Eric Dumazet wrote:
-> >
-> > Note this pskb_trim() will reallocate/copy nskb head completely, since
-> > nskb is a clone. (And increment page counts of frags, then eventually
-> > decrement them)
-> > 
-> > I tested this patch one 'router', and it seems fine, although we consume
-> > ~90% more cpu doing the skb_segment() than not doing it.
-> 
+
 > I presume this is on a NIC that produces completely linear packets?
 
-Yes, I used one host with a Mellanox (mlx4 driver), as the bnx2x 'GRO'
-is partially done by the hardware...
-
-
-> I wonder what happens if we don't convert head_frag to frags and just
-> use frag_lists like we used to?
-
-Yep, but this needs quite invasive changes in the GSO stack in general ?
-
-skb_segment() callers would need to know how many MSS are stuffed per
-skb, instead of assuming its 1 MSS.
+Sorry : with mlx4 driver, GRO builds nice skbs with one page frag per
+MSS, so each skb found on frag_list is fully loaded with 16 MSS
