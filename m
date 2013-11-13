@@ -1,52 +1,46 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net RESEND] bonding: add ip checks when store ip target
-Date: Wed, 13 Nov 2013 10:19:02 +0800
-Message-ID: <5282E196.8030401@huawei.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: gso: Handle new frag_list of frags GRO packets
+Date: Wed, 13 Nov 2013 10:22:43 +0800
+Message-ID: <20131113022243.GA28204@gondor.apana.org.au>
+References: <20131106143927.GA21604@gondor.apana.org.au>
+ <1383767241.21999.9.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131107004339.GA28156@gondor.apana.org.au>
+ <20131107062234.GA31156@gondor.apana.org.au>
+ <20131107070335.GA31638@gondor.apana.org.au>
+ <20131107070647.GB31638@gondor.apana.org.au>
+ <20131111185207.GA12277@gondor.apana.org.au>
+ <1384305223.28458.58.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131113012920.GA27897@gondor.apana.org.au>
+ <1384309034.28458.69.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	hkchu@google.com, mwdalton@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:63812 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755737Ab3KMCVM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 21:21:12 -0500
+Received: from ringil.hengli.com.au ([178.18.16.133]:47685 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757035Ab3KMCWu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 21:22:50 -0500
+Content-Disposition: inline
+In-Reply-To: <1384309034.28458.69.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I met a Bug when I add ip target with the wrong ip address:
+On Tue, Nov 12, 2013 at 06:17:14PM -0800, Eric Dumazet wrote:
+> On Wed, 2013-11-13 at 09:29 +0800, Herbert Xu wrote:
+> 
+> > I presume this is on a NIC that produces completely linear packets?
+> 
+> Sorry : with mlx4 driver, GRO builds nice skbs with one page frag per
+> MSS, so each skb found on frag_list is fully loaded with 16 MSS
 
-echo +500.500.500.500 > /sys/class/net/bond0/bonding/arp_ip_target
+OK, so what are the numbers when GRO is off completely?
 
-the wrong ip address will transfor to 245.245.245.244 and add
-to the ip target success, it is uncorrect, so I add checks to avoid
-adding wrong address.
-
-The in4_pton() will set wrong ip address to 0.0.0.0, it will return by
-the next check and will not add to ip target.
-
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/bonding/bond_sysfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index ec9b646..e0c97fb 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -653,7 +653,7 @@ static ssize_t bonding_store_arp_targets(struct device *d,
- 	int ind, i, j, ret = -EINVAL;
- 
- 	targets = bond->params.arp_targets;
--	newtarget = in_aton(buf + 1);
-+	in4_pton(buf + 1, strlen(buf) - 1, (u8 *)&newtarget, -1, NULL);
- 	/* look for adds */
- 	if (buf[0] == '+') {
- 		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
+Thanks,
 -- 
-1.8.0
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
