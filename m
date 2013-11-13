@@ -1,80 +1,66 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: shutdown(3) and bluetooth.
-Date: Wed, 13 Nov 2013 10:58:43 +0900
-Message-ID: <78727581-9350-4E23-95C6-5E7510C24A72@holtmann.org>
-References: <20131112211125.GA2912@redhat.com> <DF4C2B40-BD87-4E88-911D-E3E5F488CAE4@holtmann.org> <20131112221038.GA6689@redhat.com> <FC5CE013-B077-4EA5-81C1-A7D8B4A5EF85@holtmann.org> <20131112224819.GE9057@redhat.com> <D8BE686E-E81D-48CD-8D67-2B138191E0CC@holtmann.org> <20131113002819.GB12615@redhat.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.0 \(1822\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	"linux-bluetooth@vger.kernel.org development"
-	<linux-bluetooth@vger.kernel.org>
-To: Dave Jones <davej@redhat.com>
+From: Fugang Duan <fugang.duan@freescale.com>
+Subject: RE: [PATCH] net:fec: fix WARNING caused by lack of calls to
+ dma_mapping_error()
+Date: Wed, 13 Nov 2013 02:10:04 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE0180475F@039-SN2MPN1-021.039d.mgd.msft.net>
+References: <1384224889-8316-1-git-send-email-B38611@freescale.com>
+	 <1384304453.3802.62.camel@bwh-desktop.uk.level5networks.com>
+ <1384306989.3802.71.camel@bwh-desktop.uk.level5networks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Frank Li <Frank.Li@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:55050 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755239Ab3KMB6w convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 20:58:52 -0500
-In-Reply-To: <20131113002819.GB12615@redhat.com>
+Received: from tx2ehsobe002.messaging.microsoft.com ([65.55.88.12]:26363 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756061Ab3KMCKH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 21:10:07 -0500
+In-Reply-To: <1384306989.3802.71.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
-
->>> So it seems it affects both SCO and RFCOMM.
->>>=20
->>>> What kernel did you run this against? It is a shot in the dark, bu=
-t can you try linux-next quickly.
->>>> There was a socket related fix for the socket options where we con=
-fused RFCOMM vs L2CAP struct sock.
->>>=20
->>> first noticed it on Linus' latest HEAD, and then reproduced it on 3=
-=2E11.6
->>> I'll look at linux-next tomorrow.
->>=20
->> I looked through the code and only call bt_sock_wait_state when SOCK=
-_LINGER and sk_lingertime is set. In that case we actually block until =
-the socket state changes to BT_CLOSED.
->>=20
->> The only way I see this could happen is if you have a huge linger ti=
-meout and confused the socket state before. What is actually the list o=
-f system calls that you are throwing at this socket.
->=20
-> Ah. I recently changed some code that's now doing this on every socke=
-t at shutdown..
-> (simplified cut-n-paste)
->=20
->        struct linger ling =3D { .l_onoff =3D FALSE, };
->=20
->        for (i =3D 0; i < nr_sockets; i++) {
->                fd =3D shm->sockets[i].fd;
->                shm->sockets[i].fd =3D 0;
->=20
->                setsockopt(fd, SOL_SOCKET, SO_LINGER, &ling, sizeof(st=
-ruct linger));
->                shutdown(fd, SHUT_RDWR);
->                close(fd);
->        }
->=20
-> I could just rip out that linger code completely and just hope that s=
-ockets staying in
-> TIME_WAIT is good enough. iirc, I added it when after multiple runs, =
-some of the
-> weirder protocols would fail to open a socket once a certain number o=
-f existing
-> sockets had opened, even if they were in SOCK_WAIT
->=20
-> two remaining questions though. That code is setting linger to false.=
- Why would
-> that cause the sk_lingertime to be taken into consideration ?  And wh=
-y is this
-> only a problem for bluetooth (apparently) ?
-
-we are not touching that part of setsockopt. That is handled by net/cor=
-e/sock.c and we just check if SOCK_LINGER flag is set and if we have a =
-positive sk_lingertime. So this is a bit suspicious on why this is happ=
-ening, but I don=92t think it is our mistake.
-
-Regards
-
-Marcel
+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQpE
+YXRhOiBXZWRuZXNkYXksIE5vdmVtYmVyIDEzLCAyMDEzIDk6NDMgQU0NCg0KPlRvOiBEdWFuIEZ1
+Z2FuZy1CMzg2MTENCj5DYzogTGkgRnJhbmstQjIwNTk2OyBkYXZlbUBkYXZlbWxvZnQubmV0OyBu
+ZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+U3ViamVjdDogUmU6IFtQQVRDSF0gbmV0OmZlYzogZml4
+IFdBUk5JTkcgY2F1c2VkIGJ5IGxhY2sgb2YgY2FsbHMgdG8NCj5kbWFfbWFwcGluZ19lcnJvcigp
+DQo+DQo+T24gV2VkLCAyMDEzLTExLTEzIGF0IDAxOjAwICswMDAwLCBCZW4gSHV0Y2hpbmdzIHdy
+b3RlOg0KPj4gT24gVHVlLCAyMDEzLTExLTEyIGF0IDEwOjU0ICswODAwLCBGdWdhbmcgRHVhbiB3
+cm90ZToNCj4+ID4gRW5hYmxlIENPTkZJR19IQVZFX0RNQV9BUElfREVCVUcsIHRoZSBrZXJuZWwg
+ZHVtcCB3YXJuaW5nOg0KPlsuLi5dDQo+PiA+IEBAIC0xMDAxLDYgKzEwMDUsOSBAQCBmZWNfZW5l
+dF9yeChzdHJ1Y3QgbmV0X2RldmljZSAqbmRldiwgaW50DQo+PiA+IGJ1ZGdldCkNCj4+ID4NCj4+
+ID4gIAkJYmRwLT5jYmRfYnVmYWRkciA9IGRtYV9tYXBfc2luZ2xlKCZmZXAtPnBkZXYtPmRldiwg
+ZGF0YSwNCj4+ID4gIAkJCQlGRUNfRU5FVF9UWF9GUlNJWkUsIERNQV9GUk9NX0RFVklDRSk7DQo+
+PiA+ICsJCS8qIGhlcmUgZG1hIG1hcHBpbmcgc2hvdWxkbid0IGJlIGVycm9yLCBqdXN0IGF2b2lk
+IGtlcm5lbCBkdW1wICovDQo+PiA+ICsJCWlmIChkbWFfbWFwcGluZ19lcnJvcigmZmVwLT5wZGV2
+LT5kZXYsIGJkcC0+Y2JkX2J1ZmFkZHIpKQ0KPj4gPiArCQkJbmV0ZGV2X2VycihuZGV2LCAiUngg
+RE1BIG1lbW9yeSBtYXAgZmFpbGVkXG4iKTsNCj4+DQo+PiBUaGlzIGlzIG5vdCBoYW5kbGluZyB0
+aGUgZXJyb3IuDQo+Wy4uLl0NCj4NCj5JdCBsb29rcyBsaWtlIHRoZSBzYW1lIFJYIERNQSBidWZm
+ZXJzIGFyZSB1c2VkIHJlcGVhdGVkbHkgYW5kIHRoZSBkcml2ZXIgY29waWVzDQo+aW50byBhbiBz
+a2IuICBTbyBmZWNfZW5ldF9yeCgpIHNob3VsZCBub3QgbWFwIG9yIHVubWFwIGF0IGFsbDsgaXQg
+c2hvdWxkIHVzZQ0KPmRtYV9zeW5jX3NpbmdsZV9mb3JfY3B1KCkuICBUaGVuLCBpbmRlZWQsIG5v
+IGVycm9yIGhhbmRsaW5nIGlzIHJlcXVpcmVkLg0KPg0KWWVzLCB0aGVyZSBkb24ndCBuZWVkIHRv
+IHVzZSBkbWFfdW5tYXBfc2luZ2xlKCkvZG1hX21hcF9zaW5nbGUoKSBzaW5jZSB0aGUgZmVjX2Vu
+ZXRfYWxsb2NfYnVmZmVycygpIGhhdmUgbWFwcGVkIHRoZSB2aXJ0dWFsIGFkZHJlc3MuDQpJIHdp
+bGwgY2hhbmdlIGl0LiBUaGFua3MuDQoNCj5CdXQgdGhlcmUncyBzdGlsbCBhIGJpZyBwcm9ibGVt
+IHdpdGggdGhpcyBmdW5jdGlvbi4gIEluc3RlYWQgb2YgcmVtZW1iZXJpbmcgdGhlDQo+dmlydHVh
+bCBhZGRyZXNzIG9mIGVhY2ggYnVmZmVyLCBpdCBwYXNzZXMgdGhlIERNQSBhZGRyZXNzIHRvIF9f
+dmEoKS4gIFBoeXNpY2FsDQo+YW5kIERNQSBhZGRyZXNzZXMgYXJlICpub3QqIHRoZSBzYW1lIHRo
+aW5nIQ0KPlRoZXkgbWF5IGRpZmZlciBpZiB0aGUgZGV2aWNlIGlzIGJlaGluZCBhbiBJT01NVSBv
+ciBib3VuY2UgYnVmZmVyaW5nIHdhcw0KPnJlcXVpcmVkLCBvciBqdXN0IGJlY2F1c2UgdGhlcmUg
+aXMgYSBmaXhlZCBvZmZzZXQgYmV0d2VlbiB0aGUgZGV2aWNlIGFuZCBob3N0DQo+cGh5c2ljYWwg
+YWRkcmVzc2VzLg0KPg0KWWVzLCBJIGFncmVlIHRoYXQgcGh5c2ljYWwgYW5kIERNQSBhZGRyZXNz
+ZXMgYXJlIG5vdCB0aGUgc2FtZSB0aGluZy4NCkJ1dCBmb3IgaW14IHNlcmlhbCBwbGF0Zm9ybXMs
+IHRoZXJlIGhhdmUgbm8gSU9NTVUsIG5vIG9mZnNldCBiZXR3ZWVuIGRldmljZSBhbmQgaG9zdCBw
+aHlzaWNhbCBhZGRyZXNzKHRoaXMgaGFwcGVuIG9uIEZQR0EgcGxhdGZvcm1zIGluIG1vc3RseSks
+IHNvIHRoZXJlIGhhdmUgbm8gcHJvYmxlbS4NCg0KSSBhZ3JlZSBpdCBpcyBub3QgY29tbW9uIGZv
+ciBvdGhlciBwbGF0Zm9ybXMgbGlrZSBJT01NVS4uLg0KU2luY2UgaXQgaXMgYW5vdGhlciBwcm9i
+bGVtLCBJIHdpbGwgc3VibWl0IGFub3RoZXIgcGF0Y2ggdG8gZml4IHRoZSBwcm9ibGVtLg0KDQpU
+aGFua3MsIEJlbi4NCg0KDQo+QmVuLg0KPg0KPi0tDQo+QmVuIEh1dGNoaW5ncywgU3RhZmYgRW5n
+aW5lZXIsIFNvbGFyZmxhcmUgTm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsgdGhhdCdzDQo+
+dGhlIG1hcmtldGluZyBkZXBhcnRtZW50J3Mgam9iLg0KPlRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0
+aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQo+DQo=
