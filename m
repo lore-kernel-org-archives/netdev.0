@@ -1,120 +1,68 @@
 From: "David Laight" <David.Laight@ACULAB.COM>
 Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload burst.
-Date: Wed, 13 Nov 2013 09:28:58 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B740B@saturn3.aculab.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B7407@saturn3.aculab.com> <Pine.LNX.4.44L0.1311121343060.1200-100000@iolanthe.rowland.org>
+Date: Wed, 13 Nov 2013 09:45:06 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B740C@saturn3.aculab.com>
+References: <20131112171438.GA4925@xanatos> <Pine.LNX.4.44L0.1311121401510.1200-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: "Sarah Sharp" <sarah.a.sharp@linux.intel.com>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
-To: "Alan Stern" <stern@rowland.harvard.edu>
+Cc: <netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: "Alan Stern" <stern@rowland.harvard.edu>,
+	"Sarah Sharp" <sarah.a.sharp@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:35130 "HELO mx0.aculab.com"
+Received: from mx0.aculab.com ([213.249.233.131]:35382 "HELO mx0.aculab.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1758670Ab3KMJaS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 04:30:18 -0500
+	id S1758185Ab3KMJph convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 04:45:37 -0500
 Received: from mx0.aculab.com ([127.0.0.1])
  by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 06251-03 for <netdev@vger.kernel.org>;
- Wed, 13 Nov 2013 09:30:15 +0000 (GMT)
+ id 07504-07 for <netdev@vger.kernel.org>;
+ Wed, 13 Nov 2013 09:45:33 +0000 (GMT)
 Content-class: urn:content-classes:message
-In-Reply-To: <Pine.LNX.4.44L0.1311121343060.1200-100000@iolanthe.rowland.org>
+In-Reply-To: <Pine.LNX.4.44L0.1311121401510.1200-100000@iolanthe.rowland.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > Since you don't really want to do all the work twice, the sensible
-> > way is to add each input fragment to the ring one a time.
-> > If you need to cross a link TRB and the last MBP boundary is within
-> > the previous data TRB then you can split the previous data TRB at the
-> > MBP boundary and continue.
-> > If the previous TRB is short then you'd need to go back through the
-> > earlier TRB until you found the one that contains a TRB boundary,
-> > split it, and write a link TRB in the following slot.
+> > that doesn't matter; we don't get an interrupt when a ring segment is
+> > crossed.  Instead we set the interrupt-on-completion flag on the last
+> > TRB of the TD, not on any earlier fragment or link TRB.
 > 
-> Right.  You could avoid doing a lot of work twice by using two passes.
-> In the first pass, keep track of the number of bytes allotted to each
-> TRB and the MBP boundaries, without doing anything else.  That way,
-> you'll know where to put a Link TRB without any need for backtracking.
-> Then in the second pass, fill in the actual contents of the TRBs.
-
-No - you really don't want to process everything twice.
-You could remember the TRB and offset of the last MBP boundary.
- 
-> > If you are within the first MBP then you'd need to replace the first
-> > TRB of the message with a link TRB.
+> That's because you don't worry about handling URBs which require too
+> many TRBs (i.e., more than are available).  You just add more ring
+> segments.  Instead, you could re-use segments on the fly.
 > 
-> Unless the first TRB of the message is the first TRB of the ring
-> segment.  Then you're in trouble...  Hopefully, real URBs will never be
-> that badly fragmented.
+> For example, suppose you have only two ring segments and you get an URB
+> which requires enough TRBs to fill up four segments.  You could fill in
+> the first two segments worth, and get an interrupt when the controller
+> traverses the Link TRB between them.  At that point you store the third
+> set of TRBs in the first segment, which is now vacant.  Similarly, when
+> the second Link TRB is traversed, you fill in the fourth set of TRBs.
 
-I suspect that ones from the network stack might be badly fragmented.
-The code needs to at least detect and error them.
-I don't think linux skb can be as fragmented as I've seen network
-buffers on other systems - 1 byte per buffer chained together to
-a maximal sized ethernet packet.
- 
-> > > > For bulk data the link TRB can be forced at a packet boundary
-> > > > by splitting the TD up - the receiving end won't know the difference.
-> > >
-> > > That won't work.  What happens if you split a TD up into two pieces and
-> > > the first piece receives a short packet?  The host controller will
-> > > automatically move to the start of the second piece.  That's not what
-> > > we want.
-> >
-> > You can split a bulk TD on a 1k boundary and the target won't know the
-> > difference.
+That isn't going to work.
+It might work for very long TD, but for very fragmented ones the interrupt
+rate would be stupid. In any case you'd definitely need enough ring
+segments for the TRB that describe a single 'max packet size' block.
+
+> > Finally, it's interesting to note that the USB mass storage driver is
+> > using scatter gather lists just fine without the driver following the TD
+> > fragment rules.  Or at least no one has reported any issues.  I wonder
+> > why it works?
 > 
-> The target won't know the difference, but the host will.  Here's an
-> example: Suppose the driver submits two URBs, each for a data-in
-> transfer of 32 KB.  You split each URB up into two 16-KB TDs; let's
-> call them A, B, C, and D (where A and B make up the first URB, and C
-> and D make up the second URB).
+> I'd guess this is because the hardware is actually a lot more flexible
+> than the "No Link TRBs in the middle of a TD fragment" rule.
 
-I was thinking about OUT transfers, IN ones are unlikely to be badly
-fragmented.
+With the hardware I have (Intel i7 Sandy bridge) Link TRB cannot
+be placed at arbitrary boundaries.
+I don't know whether the actual restriction is only to packet boundaries.
+I don't have a USB3 monitor and it would also require a more contrived
+test than I've been doing.
 
-> > > > There is no necessity for taking an interrupt from every link segment.
-> > >
-> > > Yes, there is.  The HCD needs to know when the dequeue pointer has
-> > > moved beyond the end of the ring segment, so that it can start reusing
-> > > the TRB slots in that segment.
-> >
-> > You already know that because of the interrupts for the data packets
-> > themselves.
-> 
-> I don't know what you mean by this.  The host controller does not
-> generate an interrupt for each data packet.  In generates interrupts
-> only for TRBs with the IOC bit set (which is generally the last TRB in
-> each TD).
-> 
-> Suppose you have only two ring segments, and a driver submits an URB
-> which is so fragmented that it requires more TRBs than you have room
-> for in those two segments.  When do you want the interrupts to arrive?
-> Answer: At each segment crossing.
+> The whole idea of TD fragments makes no sense to begin with.  What
+> point is there in grouping packets into MaxBurst-sized collections?
 
-You bounce the original request and fix the driver to submit URB
-with fewer fragments.
-
-> > > > I would change the code to use a single segment (for coding simplicity)
-> > > > and queue bulk URB when there isn't enough ring space.
-> > > > URB with too many fragments could either be rejected, sent in sections,
-> > > > or partially linearised (and probably still sent in sections).
-> > >
-> > > Rejecting an URB is not feasible.  Splitting it up into multiple TDs is
-> > > not acceptable, as explained above.  Sending it in sections (i.e.,
-> > > queueing only some of the TRBs at any time) would work, provided you
-> > > got at least two interrupts every time the queue wrapped around (which
-> > > suggests you might want at least two ring segments).
-> >
-> > Rejecting badly fragmented URB is almost certainly ok. You really don't
-> > want the hardware overhead of processing a TRB every few bytes.
-> > This would be especially bad on iommu systems.
-> 
-> I disagree.  Sure, it would be bad.  But if you can handle it, you
-> should.
-
-You have to draw the line somewhere.
+It probably saved a few logic gates somewhere, either that or it is
+a bug in some hardware implementation that got documented in the spec
+instead of being fixed :-)
 
 	David
