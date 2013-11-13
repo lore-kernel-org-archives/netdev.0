@@ -1,54 +1,52 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 2/3] can: mcp251x: Convert to devm-* API
-Date: Wed, 13 Nov 2013 10:05:48 +0100
-Message-ID: <528340EC.3070908@pengutronix.de>
-References: <1384332195-15257-1-git-send-email-shc_work@mail.ru>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH] usbnet: fix status interrupt urb handling
+Date: Wed, 13 Nov 2013 10:09:56 +0100
+Message-ID: <87r4akoefv.fsf@nemi.mork.no>
+References: <1384270481-30972-1-git-send-email-nbd@openwrt.org>
+	<1384329672.5724.6.camel@linux-fkkt.site>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="lhoKq5OUoF3qkisfbn7dogbaeRiHliX4T"
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	Wolfgang Grandegger <wg@grandegger.com>
-To: Alexander Shiyan <shc_work@mail.ru>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1384332195-15257-1-git-send-email-shc_work@mail.ru>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1384329672.5724.6.camel-B2T3B9s34ElbnMAlSieJcQ@public.gmane.org> (Oliver Neukum's
+	message of "Wed, 13 Nov 2013 09:01:12 +0100")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---lhoKq5OUoF3qkisfbn7dogbaeRiHliX4T
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> writes:
 
-On 11/13/2013 09:43 AM, Alexander Shiyan wrote:
-> Replace existing resource handling in the driver with managed
-> device resource, this ensures more consistent error values and
-> simplifies error paths.
->=20
-> Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
+> On Tue, 2013-11-12 at 16:34 +0100, Felix Fietkau wrote:
+>> Since commit 7b0c5f21f348a66de495868b8df0284e8dfd6bbf
+>> "sierra_net: keep status interrupt URB active", sierra_net triggers
+>> status interrupt polling before the net_device is opened (in order t=
+o
+>> properly receive the sync message response).
+>>=20
+>> To be able to receive further interrupts, the interrupt urb needs to=
+ be
+>> re-submitted, so this patch removes the bogus check for netif_runnin=
+g().
+>
+> And what about the other drivers for whom this patch means added
+> traffic? This fix is done with a sledge hammer and cares only about
+> some drivers.
 
-Thanks, looks good.
+usbnet_stop calls usbnet_status_stop which kills the status URB, unless
+the driver explicitly asked for it not to be killed.  And the callback
+properly returns on status =3D=3D -ENOENT, before the lines in question=
+=2E
 
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+So I think Felix is right.   None of the other drivers will ever hit th=
+e
+code he deletes. It only affects sierra_net, and that is unwanted.
 
 
---lhoKq5OUoF3qkisfbn7dogbaeRiHliX4T
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlKDQOwACgkQjTAFq1RaXHN5aACeNIeOmgA12Rh948xSIi4h3fnM
-VuwAniQnFb4ljM/5JIQYlzg7eXm9ZTTD
-=+ISO
------END PGP SIGNATURE-----
-
---lhoKq5OUoF3qkisfbn7dogbaeRiHliX4T--
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
