@@ -1,37 +1,92 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] mac80211: minstrels: spare numerous useless calls to
- get_random_bytes
-Date: Wed, 13 Nov 2013 19:34:06 +0100
-Message-ID: <1384367646.14578.24.camel@jlt4.sipsolutions.net>
-References: <1384336459-5322-1-git-send-email-karl.beldan@gmail.com>
-	 (sfid-20131113_105448_249049_106CA6AF)
+From: Chang <changxiangzhong@gmail.com>
+Subject: Re: [PATCH 1/1] net: sctp: bug fixing when sctp path recovers
+Date: Wed, 13 Nov 2013 20:06:57 +0100
+Message-ID: <5283CDD1.3090309@gmail.com>
+References: <1384306486-31345-1-git-send-email-changxiangzhong@gmail.com> <5282E5F9.5000506@gmail.com> <5282E9EC.3090307@gmail.com> <52833BD3.4040003@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Felix Fietkau <nbd@openwrt.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, Karl Beldan <karl.beldan@rivierawaves.com>
-To: Karl Beldan <karl.beldan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:45263 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759415Ab3KMSeK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 13:34:10 -0500
-In-Reply-To: <1384336459-5322-1-git-send-email-karl.beldan@gmail.com> (sfid-20131113_105448_249049_106CA6AF)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Vlad Yasevich <vyasevich@gmail.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dreibh@simula.no
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52833BD3.4040003@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-11-13 at 10:54 +0100, Karl Beldan wrote:
-> From: Karl Beldan <karl.beldan@rivierawaves.com>
-> 
-> ATM, only the first array value returned by get_random_bytes is used.
-> This change moves the call to get_random_bytes from the nested loop it
-> is in to its parent.
-> While at it, replace get_random_bytes with prandom_bytes since PRNs are
-> way enough for the selection process.
-> After this, minstrel_ht reclaims 80 PR-bytes instead of 640 R-bytes.
 
-Applied.
+On 11/13/2013 09:44 AM, Daniel Borkmann wrote:
+> On 11/13/2013 03:54 AM, Chang wrote:
+>> On 11/13/2013 03:37 AM, Vlad Yasevich wrote:
+>>> On 11/12/2013 08:34 PM, Chang Xiangzhong wrote:
+>>>> Look for the __two__ most recently used path/transport and set to 
+>>>> active_path
+>>>> and retran_path respectively
+>
+> Please also for the log, elaborate a bit more, explaining what currently
+> happens, and what the effects of this bug are, so that later when people
+> are looking through the Git log they can easily get what problem you are
+> trying to fix; and if possible, add:
+>
+> Fixes: <12 digits SHA1> ("<commit title>")
+>
+Yeah, sure, I'll elaborate that more specifically.
+I assume the 12-digit SHA1 is the revision number. But may I ask where 
+and how shall I add the tag "Fixes" tag? The revision number is 
+generated after "git commit", how can I know that in advance?
 
-johannes
+Best Regards!
+
+>>>> Signed-off-by: changxiangzhong@gmail.com
+>>>> ---
+>>>>   net/sctp/associola.c |    4 ++++
+>>>>   1 file changed, 4 insertions(+)
+>>>>
+>>>> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+>>>> index ab67efc..070011a 100644
+>>>> --- a/net/sctp/associola.c
+>>>> +++ b/net/sctp/associola.c
+>>>> @@ -913,11 +913,15 @@ void sctp_assoc_control_transport(struct 
+>>>> sctp_association *asoc,
+>>>>           if (!first || t->last_time_heard > first->last_time_heard) {
+>>>>               second = first;
+>>>>               first = t;
+>>>> +            continue;
+>>>>           }
+>>>>           if (!second || t->last_time_heard > second->last_time_heard)
+>>>>               second = t;
+>>>
+>>> You might as well remove this bit and then you don't need a continue.
+>> I don't think we could remove this bit. My understanding of these 
+>> algorithms are to find the 1st recently used path and the 2nd, 
+>> assigning to active_path and retran_path respectively. If we remove 
+>> the looking-for-second block, how are we suppose to find the 2nd?
+>> I think we can remove the continue and use else-if in the 
+>> 2nd-assignment-block.
+>>>
+>>>>       }
+>>>>
+>>>> +    if (!second)
+>>>> +        second = first;
+>>>> +
+>>>
+>>> This needs to move down 1 more block.  Set the second transport 
+>>> after we
+>>> check to see if the primary is back up and we need to go back to 
+>>> using it.
+>>>
+>>> -vlad
+>>>
+>> I agree with this change
+>>>>       /* RFC 2960 6.4 Multi-Homed SCTP Endpoints
+>>>>        *
+>>>>        * By default, an endpoint should always transmit to the
+>>>>
+>>>
+>>
+>> -- 
+>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at http://vger.kernel.org/majordomo-info.html
