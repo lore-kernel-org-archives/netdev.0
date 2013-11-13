@@ -1,45 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 4/4] virtio-net: auto-tune mergeable rx buffer
-	size for improved performance
-Date: Wed, 13 Nov 2013 06:19:08 -0800
-Message-ID: <1384352348.28458.102.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1384294885-6444-1-git-send-email-mwdalton@google.com>
-	<1384294885-6444-4-git-send-email-mwdalton@google.com>
-	<52833C9B.7070908@redhat.com>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: how to mix bridges and bonding inc. vlans correctly on Kernel
+ > 3.10
+Date: Wed, 13 Nov 2013 15:20:56 +0100
+Message-ID: <52838AC8.8070005@profihost.ag>
+References: <52838590.5070806@profihost.ag> <20131113141244.GM19702@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, "Michael S.
-	Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Daniel Borkmann <dborkman@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Ronen Hod <rhod@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <52833C9B.7070908@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ph.de-nserver.de ([85.158.179.214]:51712 "EHLO
+	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757359Ab3KMOVE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 09:21:04 -0500
+In-Reply-To: <20131113141244.GM19702@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-11-13 at 10:47 +0200, Ronen Hod wrote:
+Hi Falico,
+Am 13.11.2013 15:12, schrieb Veaceslav Falico:
+> On Wed, Nov 13, 2013 at 02:58:40PM +0100, Stefan Priebe - Profihost AG
+> wrote:
+>> Hello,
+>>
+>> while my vlans, bridging and bonding stuff was working until 3.9 i never
+>> thought about how it is right. So maybe i was always wrong.
+>>
+>> I've this:
+>>
+>> eth2
+>>     \
+>>      -- bond1 -- vmbr1
+>>     /
+>> eth3
+>>
+>> This works fine and as expected now i want to have a vlan using the
+>> bonding and using a bridge.
+>>
+>> I the past i had this:
+>> eth2
+>>     \
+>>      -- bond1 -- vmbr1
+>>     /              \
+>> eth3                 \ vmbr1.3000
+>>                           \ ---- tap114i1
+>>
+>> This was working fine until 3.9.X since 3.10. Right now using 3.10 i
+>> need to put eth2 and eth3 into promisc mode to get it working ;-( this
+>> is bad!
+> 
+> As a guess - do you use arp monitoring for bonding? Try using miimon -
+> there were some issues with it in 3.10, which were fixed by some huge
+> patchsets that will never hit 3.10 stable.
+> Also, the bonding configuration would be welcome.
 
-> I looked at how ewma works, and although it is computationally efficient,
-> and it does what it is supposed to do, initially (at the first samples) it is strongly
-> biased towards the value that was added at the first ewma_add.
-> I suggest that you print the values of ewma_add() and ewma_read(). If you are
-> happy with the results, then ignore my comments. If you are not, then I can
-> provide a version that does better for the first samples.
-> Unfortunately, it will be slightly less efficient.
+Debian Bonding konfiguration looks like this:
+auto bond1
+iface bond1 inet manual
+        slaves eth2 eth3
+        bond-mode 802.3ad
+        bond_miimon 100
+        bond_updelay 200
+        bond_downdelay 0
 
-Value is clamped by (GOOD_PACKET_LEN, PAGE_SIZE - hdr_len)
+This should be miimon using lacp and not arp isn't it?
+Anything more needed?
 
-So initial value is conservative and not really used.
+One thing i forgot the one with vmbr1.3000 does not work at all eben not
+with promisc mode. The one below works fine if i set eth2 and eth3 into
+promisc mode.
 
-Thanks
+Stefan
+
+>> I also tried this one without success:
+>> eth2
+>>     \
+>>      -- bond1 -- vmbr1
+>>     /     \
+>> eth3        ----- bond1.3000 --- vmbr1v3000
+>>                                     \ ---- tap114i1
+>>
+>>
+>>
+>> Greets,
+>> Stefan
+>> -- 
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
