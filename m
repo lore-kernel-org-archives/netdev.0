@@ -1,40 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: tsq: restore minimal amount of queueing
-Date: Wed, 13 Nov 2013 06:06:35 -0800
-Message-ID: <1384351595.28458.98.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <8761s0cqhh.fsf@natisbad.org>
-	 <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
-	 <87y54u59zq.fsf@natisbad.org>
-	 <1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: how to mix bridges and bonding inc. vlans correctly on Kernel >
+ 3.10
+Date: Wed, 13 Nov 2013 15:12:44 +0100
+Message-ID: <20131113141244.GM19702@redhat.com>
+References: <52838590.5070806@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Sujith Manoharan <sujith@msujith.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-	Felix Fietkau <nbd@openwrt.org>
-To: Arnaud Ebalard <arno@natisbad.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:59902 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751530Ab3KMOGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 09:06:37 -0500
-Received: by mail-pd0-f172.google.com with SMTP id q10so455259pdj.3
-        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 06:06:36 -0800 (PST)
-In-Reply-To: <1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59106 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755556Ab3KMOPD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Nov 2013 09:15:03 -0500
+Content-Disposition: inline
+In-Reply-To: <52838590.5070806@profihost.ag>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-11-12 at 06:39 -0800, Eric Dumazet wrote:
+On Wed, Nov 13, 2013 at 02:58:40PM +0100, Stefan Priebe - Profihost AG wrote:
+>Hello,
+>
+>while my vlans, bridging and bonding stuff was working until 3.9 i never
+>thought about how it is right. So maybe i was always wrong.
+>
+>I've this:
+>
+>eth2
+>     \
+>      -- bond1 -- vmbr1
+>     /
+>eth3
+>
+>This works fine and as expected now i want to have a vlan using the
+>bonding and using a bridge.
+>
+>I the past i had this:
+>eth2
+>     \
+>      -- bond1 -- vmbr1
+>     /              \
+>eth3                 \ vmbr1.3000
+>                           \ ---- tap114i1
+>
+>This was working fine until 3.9.X since 3.10. Right now using 3.10 i
+>need to put eth2 and eth3 into promisc mode to get it working ;-( this
+>is bad!
 
-> -		limit = max(skb->truesize, sk->sk_pacing_rate >> 10);
-> +		limit = max(sysctl_tcp_limit_output_bytes,
-> +			    sk->sk_pacing_rate >> 10);
->  
+As a guess - do you use arp monitoring for bonding? Try using miimon -
+there were some issues with it in 3.10, which were fixed by some huge
+patchsets that will never hit 3.10 stable.
 
+Also, the bonding configuration would be welcome.
 
-I'll send a v2, a max_t(unsigned int, ..., ...) is needed here,
-as reported by kbuild bot.
-
-net/ipv4/tcp_output.c:1882:177: warning: comparison of distinct pointer
-types lacks a cast [enabled by default]
+>
+>I also tried this one without success:
+>eth2
+>     \
+>      -- bond1 -- vmbr1
+>     /     \
+>eth3        ----- bond1.3000 --- vmbr1v3000
+>                                     \ ---- tap114i1
+>
+>
+>
+>Greets,
+>Stefan
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
