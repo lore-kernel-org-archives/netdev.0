@@ -1,129 +1,153 @@
-From: Ding Tianhong <dthxman@gmail.com>
-Subject: Re: [PATCH net RESEND] bonding: add ip checks when store ip target
-Date: Wed, 13 Nov 2013 22:35:47 +0800
-Message-ID: <52838E43.9080505@gmail.com>
-References: <5282E196.8030401@huawei.com> <20131113100000.GH19702@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: VLAN filtering/VLAN aware bridge problems
+Date: Wed, 13 Nov 2013 09:49:18 -0500
+Message-ID: <5283916E.4050306@gmail.com>
+References: <521F4393.1020907@profihost.ag> <521FB2E3.6060508@redhat.com> <522048CB.1090000@profihost.ag> <5220A895.5040501@redhat.com> <2036307B-46CC-40F6-ACE0-93A08BDEE0B9@profihost.ag> <522F2887.1080300@redhat.com> <52829E41.6060604@profihost.ag> <5282B8E6.5090109@redhat.com> <52832A0B.9030605@profihost.ag>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Veaceslav Falico <vfalico@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
+	vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:39629 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755546Ab3KMOrE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 09:47:04 -0500
-Received: by mail-pa0-f45.google.com with SMTP id kp14so524884pab.18
-        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 06:47:03 -0800 (PST)
-In-Reply-To: <20131113100000.GH19702@redhat.com>
+Received: from mail-yh0-f53.google.com ([209.85.213.53]:43443 "EHLO
+	mail-yh0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755562Ab3KMOtW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 09:49:22 -0500
+Received: by mail-yh0-f53.google.com with SMTP id z20so231139yhz.12
+        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 06:49:21 -0800 (PST)
+In-Reply-To: <52832A0B.9030605@profihost.ag>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2013/11/13 18:00, Veaceslav Falico =E5=86=99=E9=81=93:
-> On Wed, Nov 13, 2013 at 10:19:02AM +0800, Ding Tianhong wrote:
->> I met a Bug when I add ip target with the wrong ip address:
+On 11/13/2013 02:28 AM, Stefan Priebe - Profihost AG wrote:
+> Am 13.11.2013 00:25, schrieb Vlad Yasevich:
+>> On 11/12/2013 04:31 PM, Stefan Priebe wrote:
+>>> sorry for the very late response.
+>>>
+>>> Am 10.09.2013 16:11, schrieb Vlad Yasevich:
+>>>> On 08/30/2013 11:01 AM, Stefan Priebe - Profihost AG wrote:
+>>>>> Yes
+>>>>>
+>>>>
+>>>> Can you apply this patch and see if this fixes your problem.
+>>>>       http://patchwork.ozlabs.org/patch/273841/
+>>>>
+>>>> In my attempts to reproduce your problem I didn't configuring filtering
+>>>> on the upper bridge, but that is what could have been causing
+>>>> your problem.  I'll attempt it and let you know.
+>>>
+>>> Even with the complete patchset which was merged upstream it doesn't
+>>> work ;-(
+>>>
+>>> What's wrong there and / or how can i debug?
 >>
->> echo +500.500.500.500 > /sys/class/net/bond0/bonding/arp_ip_target
->>
->> the wrong ip address will transfor to 245.245.245.244 and add
->> to the ip target success, it is uncorrect, so I add checks to avoid
->> adding wrong address.
->>
->> The in4_pton() will set wrong ip address to 0.0.0.0, it will return =
-by
->> the next check and will not add to ip target.
->>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->> drivers/net/bonding/bond_sysfs.c | 2 +-
->> 1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/bonding/bond_sysfs.c=20
->> b/drivers/net/bonding/bond_sysfs.c
->> index ec9b646..e0c97fb 100644
->> --- a/drivers/net/bonding/bond_sysfs.c
->> +++ b/drivers/net/bonding/bond_sysfs.c
->> @@ -653,7 +653,7 @@ static ssize_t bonding_store_arp_targets(struct=20
->> device *d,
->> int ind, i, j, ret =3D -EINVAL;
->>
->> targets =3D bond->params.arp_targets;
->> - newtarget =3D in_aton(buf + 1);
->> + in4_pton(buf + 1, strlen(buf) - 1, (u8 *)&newtarget, -1, NULL);
+>> Can you provide the filtering settings for both bridges you use?
 >
-> No need for strlen(buf)-1, if you specify -1 it will compute it by=20
-> itself.
+> I don't filter at all right now it's compiled in but not enabled - but i
+> have these problems since these patches were included.
 >
-> Also, you might simplify the code a bit in the function. Otherwise -=20
-> looks
-> good, thank you.
->
-> Untested patch:
->
-> diff --git a/drivers/net/bonding/bond_sysfs.c=20
-> b/drivers/net/bonding/bond_sysfs.c
-> index c29b836..e3fff6e 100644
-> --- a/drivers/net/bonding/bond_sysfs.c
-> +++ b/drivers/net/bonding/bond_sysfs.c
-> @@ -661,16 +661,16 @@ static ssize_t bonding_store_arp_targets(struct=
-=20
-> device *d,
-> unsigned long *targets_rx;
-> int ind, i, j, ret =3D -EINVAL;
->
-> + if (!in4_pton(buf + 1, -1, (u8 *)&newtarget, -1, NULL)) {
-> + pr_err("%s: invalid ARP target specified, use +<addr> or -<addr>\n"=
-,
-> + bond->dev->name);
-> + goto out;
-> + }
-> +
-> targets =3D bond->params.arp_targets;
-> - newtarget =3D in_aton(buf + 1);
-> +
-> /* look for adds */
-> if (buf[0] =3D=3D '+') {
-> - if ((newtarget =3D=3D 0) || (newtarget =3D=3D htonl(INADDR_BROADCAS=
-T))) {
-> - pr_err("%s: invalid ARP target %pI4 specified for addition\n",
-> - bond->dev->name, &newtarget);
-> - goto out;
-> - }
-> -
-> if (bond_get_targets_ip(targets, newtarget) !=3D -1) { /* dup */
-> pr_err("%s: ARP target %pI4 is already present\n",
-> bond->dev->name, &newtarget);
-> @@ -693,12 +693,6 @@ static ssize_t bonding_store_arp_targets(struct=20
-> device *d,
-> targets[ind] =3D newtarget;
-> write_unlock_bh(&bond->lock);
-> } else if (buf[0] =3D=3D '-') {
-> - if ((newtarget =3D=3D 0) || (newtarget =3D=3D htonl(INADDR_BROADCAS=
-T))) {
-> - pr_err("%s: invalid ARP target %pI4 specified for removal\n",
-> - bond->dev->name, &newtarget);
-> - goto out;
-> - }
-> -
-> ind =3D bond_get_targets_ip(targets, newtarget);
-> if (ind =3D=3D -1) {
-> pr_err("%s: unable to remove nonexistent ARP target %pI4.\n",
-> --=20
-Although there is no substantial changes, but more simple more=20
-beautiful, I'll take it,
-resend it later, thanks for your opinion.
+> It only start to work if i set the eth0 and eth1 (slaves of the bond) to
+> promisc mode. So the problem seems to be that the ethernet devices do
+> not accept the VLAN tagged packages.
 
-Regards
-Ding
+That doesn't make much sense. If the filtering is not enabled, then
+this code isn't in use.  It will not try to set any vlan filtering
+so you should be running with essentially stock bridge.
 
+Bridge sets promisc mode on all its ports, so your bond device should
+be in promisc mode.  Bonding code sets different set of slaves into
+promisc mode depending on the mode you use.  Which mode do you have
+your bond configured in?
+Does, dmesg tell you if devices have entered promisc mode?
 
+-vlad
+
+>
+> Stefan
+>
+>> Thanks
+>> -vlad
+>>
+>>>
+>>> Stefan
+>>>
+>>>> -vlad
+>>>>
+>>>>
+>>>>> Stefan
+>>>>>
+>>>>> This mail was sent with my iPhone.
+>>>>>
+>>>>> Am 30.08.2013 um 16:13 schrieb Vlad Yasevich <vyasevic@redhat.com>:
+>>>>>
+>>>>>> On 08/30/2013 03:24 AM, Stefan Priebe - Profihost AG wrote:
+>>>>>>> Am 29.08.2013 22:45, schrieb Vlad Yasevich:
+>>>>>>>> On 08/29/2013 08:50 AM, Stefan Priebe - Profihost AG wrote:
+>>>>>>>
+>>>>>>>>> The packets never reach the TAP device.
+>>>>>>>>>
+>>>>>>>>> Here is an output of ip a l (vlan 3021):
+>>>>>>>>
+>>>>>>>> Can you provide output of brctl show?
+>>>>>>>
+>>>>>>> Sure:
+>>>>>>> # brctl show
+>>>>>>> bridge name     bridge id               STP enabled     interfaces
+>>>>>>> vmbr0           8000.00259084dea8       no              bond0
+>>>>>>>                                                           tap320i0
+>>>>>>> vmbr1           8000.00259084deaa       no              bond1
+>>>>>>> vmbr1v3021              8000.00259084deaa       no
+>>>>>>> tap320i1
+>>>>>>>                                                           vmbr1.3021
+>>>>>>
+>>>>>> so let me see if I can understand this configuration.
+>>>>>>
+>>>>>>            vmbr1v3021 (bridge)
+>>>>>>             /          \
+>>>>>>         tap320i1       vmbr1.3021 (vlan)
+>>>>>>                            \
+>>>>>>                            vmbr1 (bridge)
+>>>>>>                               \
+>>>>>>                              bond1
+>>>>>>                                 \
+>>>>>>                               eth X
+>>>>>>
+>>>>>>
+>>>>>> Is that right? Is this the setup that has the problem you are
+>>>>>> describing?
+>>>>>>
+>>>>>> Thanks
+>>>>>> -vlad
+>>>>>>
+>>>>>>>> On the off chance that you are actually trying to configure vlan
+>>>>>>>> filtering, can you give this patch a try (net-2.6 tree):
+>>>>>>>>
+>>>>>>>> Author: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>>>>>>>> Date:   Tue Aug 20 17:10:18 2013 +0900
+>>>>>>>>
+>>>>>>>>       bridge: Use the correct bit length for bitmap functions in the
+>>>>>>>> VLAN
+>>>>>>>> code
+>>>>>>>>
+>>>>>>>> I don't think it made it to stable yet.
+>>>>>>>
+>>>>>>> I addd that patch and now the vlan stuff works at least on the host
+>>>>>>> node. But my tap devices still don't work.
+>>>>>>>
+>>>>>>> I also tried to attach the tap device on top of a vlan attached to
+>>>>>>> bond1
+>>>>>>> but then gvrp does not work anymore. The kernel announces gvrp once
+>>>>>>> and
+>>>>>>> then does not answer the query packets from the switch.
+>>>>>>>
+>>>>>>> Stefan
+>>>>>>
+>>>>
+>>
+> --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
-> More majordomo info at http://vger.kernel.org/majordomo-info.html
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
