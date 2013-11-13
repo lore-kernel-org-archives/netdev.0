@@ -1,163 +1,131 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 1/4] virtio-net: mergeable buffer size should
-	include virtio-net header
-Date: Wed, 13 Nov 2013 19:43:34 +0200
-Message-ID: <20131113174334.GC31078@redhat.com>
-References: <1384294885-6444-1-git-send-email-mwdalton@google.com>
+From: Josh Hunt <joshhunt00@gmail.com>
+Subject: Re: [PATCH] rds: Error on offset mismatch if not loopback
+Date: Wed, 13 Nov 2013 11:40:45 -0600
+Message-ID: <CAKA=qzbK1YX5OrVQbwM=1xM6Si=GKv0UDofULkOC7RNo08zZPw@mail.gmail.com>
+References: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
+	<20120922.152524.1294103117346567757.davem@davemloft.net>
+	<CAKA=qzac9=UhLF_Z4FnnH+sR7xvkDux4oayC6dPYe=hMLsDxRg@mail.gmail.com>
+	<CAKA=qzYpd7Wo9XdU16TEhnbm5dPJjOZMhAY1jA7N+YFBWz5pzw@mail.gmail.com>
+	<23964ca1-e7cb-41c3-9da2-5bc1b2b0c014@default>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Daniel Borkmann <dborkman@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Michael Dalton <mwdalton@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1384294885-6444-1-git-send-email-mwdalton@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, jjolly@suse.com,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	honli@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:57569 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756914Ab3KMRkq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 12:40:46 -0500
+In-Reply-To: <23964ca1-e7cb-41c3-9da2-5bc1b2b0c014@default>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 12, 2013 at 02:21:22PM -0800, Michael Dalton wrote:
-> Commit 2613af0ed18a ("virtio_net: migrate mergeable rx buffers to page
-> frag allocators") changed the mergeable receive buffer size from PAGE_SIZE
-> to MTU-size. However, the merge buffer size does not take into account the
-> size of the virtio-net header. Consequently, packets that are MTU-size
-> will take two buffers intead of one (to store the virtio-net header),
-> substantially decreasing the throughput of MTU-size traffic due to TCP
-> window / SKB truesize effects.
-> 
-> This commit changes the mergeable buffer size to include the virtio-net
-> header. The buffer size is cacheline-aligned because skb_page_frag_refill
-> will not automatically align the requested size.
-> 
-> Benchmarks taken from an average of 5 netperf 30-second TCP_STREAM runs
-> between two QEMU VMs on a single physical machine. Each VM has two VCPUs and
-> vhost enabled. All VMs and vhost threads run in a single 4 CPU cgroup
-> cpuset, using cgroups to ensure that other processes in the system will not
-> be scheduled on the benchmark CPUs. Transmit offloads and mergeable receive
-> buffers are enabled, but guest_tso4 / guest_csum are explicitly disabled to
-> force MTU-sized packets on the receiver.
-> 
-> next-net trunk before 2613af0ed18a (PAGE_SIZE buf): 3861.08Gb/s
-> net-next trunk (MTU 1500- packet uses two buf due to size bug): 4076.62Gb/s
-> net-next trunk (MTU 1480- packet fits in one buf): 6301.34Gb/s
-> net-next trunk w/ size fix (MTU 1500 - packet fits in one buf): 6445.44Gb/s
-> 
-> Suggested-by: Eric Northup <digitaleric@google.com>
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
+On Wed, Nov 13, 2013 at 9:16 AM, Venkat Venkatsubra
+<venkat.x.venkatsubra@oracle.com> wrote:
+>
+>
+> -----Original Message-----
+> From: Josh Hunt [mailto:joshhunt00@gmail.com]
+> Sent: Tuesday, November 12, 2013 10:25 PM
+> To: David Miller
+> Cc: jjolly@suse.com; LKML; Venkat Venkatsubra; netdev@vger.kernel.org
+> Subject: Re: [PATCH] rds: Error on offset mismatch if not loopback
+>
+> On Tue, Nov 12, 2013 at 10:22 PM, Josh Hunt <joshhunt00@gmail.com> wrote:
+>> On Sat, Sep 22, 2012 at 2:25 PM, David Miller <davem@davemloft.net> wrote:
+>>>
+>>> From: John Jolly <jjolly@suse.com>
+>>> Date: Fri, 21 Sep 2012 15:32:40 -0600
+>>>
+>>> > Attempting an rds connection from the IP address of an IPoIB
+>>> > interface to itself causes a kernel panic due to a BUG_ON() being triggered.
+>>> > Making the test less strict allows rds-ping to work without
+>>> > crashing the machine.
+>>> >
+>>> > A local unprivileged user could use this flaw to crash the system.
+>>> >
+>>> > Signed-off-by: John Jolly <jjolly@suse.com>
+>>>
+>>> Besides the questions being asked of you by Venkat Venkatsubra, this
+>>> patch has another issue.
+>>>
+>>> It has been completely corrupted by your email client, it has turned
+>>> all TAB characters into spaces, making the patch useless.
+>>>
+>>> Please learn how to send a patch unmolested in the body of your
+>>> email.  Test it by emailing the patch to yourself, and verifying that
+>>> you can in fact apply the patch you receive in that email.
+>>> Then, and only then, should you consider making a new submission of
+>>> this patch.
+>>>
+>>> Use Documentation/email-clients.txt for guidance.
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe
+>>> linux-kernel" in the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>> Please read the FAQ at  http://www.tux.org/lkml/
+>>
+>>
+>> I think this issue was lost in the shuffle. It appears that redhat,
+>> ubuntu, and oracle are maintaining local patches to resolve this:
+>>
+>> https://oss.oracle.com/git/?p=redpatch.git;a=commit;h=c7b6a0a1d8d63685
+>> 2be130fa15fa8be10d4704e8
+>> https://bugzilla.redhat.com/show_bug.cgi?id=822754
+>> http://ubuntu.5.x6.nabble.com/CVE-2012-2372-RDS-local-ping-DOS-td49853
+>> 88.html
+>>
+>> Given that Oracle has applied it I'll make the assumption that
+>> Venkat's question was answered at some point.
+>>
+>> David - I can resubmit the patch with the proper signed-off-by and
+>> formatting if you are willing to apply it unless John wants to try
+>> again. I think it's time this got upstream.
+>>
+>> --
+>> Josh
+>
+> Ugh.. hopefully resending with all the html crap removed...
+>
+> --
+> Josh
+>
+> Hi Josh,
+>
+> No, I still didn't get an answer for how "off" could be non-zero in case of rds-ping to hit BUG_ON(off % RDS_FRAG_SIZE).
+> Because, rds-ping uses zero byte messages to ping.
+> If you have a test case that reproduces the kernel panic I can try it out and see how that can happen.
+> The Oracle's internal code I checked doesn't have that patch applied.
+>
+> Venkat
 
-Please note this is a bugfix - useful by itself.
+No I don't have a test case. I came across this CVE while doing an
+audit and noticed it was patched in Ubuntu's kernel and other distros,
+but was not in the upstream kernel yet. Quick googling of lkml showed
+that there were at least two attempts to get this patch upstream, but
+both had issues due to not following the proper submission process:
 
-> ---
->  drivers/net/virtio_net.c | 30 ++++++++++++++++--------------
->  1 file changed, 16 insertions(+), 14 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 01f4eb5..69fb225 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -36,7 +36,10 @@ module_param(csum, bool, 0444);
->  module_param(gso, bool, 0444);
->  
->  /* FIXME: MTU in config. */
-> -#define MAX_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-> +#define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-> +#define MERGE_BUFFER_LEN (ALIGN(GOOD_PACKET_LEN + \
-> +                                sizeof(struct virtio_net_hdr_mrg_rxbuf), \
-> +                                L1_CACHE_BYTES))
->  #define GOOD_COPY_LEN	128
->  
->  #define VIRTNET_DRIVER_VERSION "1.0.0"
-> @@ -314,10 +317,10 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
->  			head_skb->dev->stats.rx_length_errors++;
->  			return -EINVAL;
->  		}
-> -		if (unlikely(len > MAX_PACKET_LEN)) {
-> +		if (unlikely(len > MERGE_BUFFER_LEN)) {
->  			pr_debug("%s: rx error: merge buffer too long\n",
->  				 head_skb->dev->name);
-> -			len = MAX_PACKET_LEN;
-> +			len = MERGE_BUFFER_LEN;
->  		}
->  		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
->  			struct sk_buff *nskb = alloc_skb(0, GFP_ATOMIC);
-> @@ -336,18 +339,17 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
->  		if (curr_skb != head_skb) {
->  			head_skb->data_len += len;
->  			head_skb->len += len;
-> -			head_skb->truesize += MAX_PACKET_LEN;
-> +			head_skb->truesize += MERGE_BUFFER_LEN;
->  		}
->  		page = virt_to_head_page(buf);
->  		offset = buf - (char *)page_address(page);
->  		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
->  			put_page(page);
->  			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
-> -					     len, MAX_PACKET_LEN);
-> +					     len, MERGE_BUFFER_LEN);
->  		} else {
->  			skb_add_rx_frag(curr_skb, num_skb_frags, page,
-> -					offset, len,
-> -					MAX_PACKET_LEN);
-> +					offset, len, MERGE_BUFFER_LEN);
->  		}
->  		--rq->num;
->  	}
-> @@ -383,7 +385,7 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
->  		struct page *page = virt_to_head_page(buf);
->  		skb = page_to_skb(rq, page,
->  				  (char *)buf - (char *)page_address(page),
-> -				  len, MAX_PACKET_LEN);
-> +				  len, MERGE_BUFFER_LEN);
->  		if (unlikely(!skb)) {
->  			dev->stats.rx_dropped++;
->  			put_page(page);
-> @@ -471,11 +473,11 @@ static int add_recvbuf_small(struct receive_queue *rq, gfp_t gfp)
->  	struct skb_vnet_hdr *hdr;
->  	int err;
->  
-> -	skb = __netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN, gfp);
-> +	skb = __netdev_alloc_skb_ip_align(vi->dev, GOOD_PACKET_LEN, gfp);
->  	if (unlikely(!skb))
->  		return -ENOMEM;
->  
-> -	skb_put(skb, MAX_PACKET_LEN);
-> +	skb_put(skb, GOOD_PACKET_LEN);
->  
->  	hdr = skb_vnet_hdr(skb);
->  	sg_set_buf(rq->sg, &hdr->hdr, sizeof hdr->hdr);
-> @@ -542,20 +544,20 @@ static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
->  	int err;
->  
->  	if (gfp & __GFP_WAIT) {
-> -		if (skb_page_frag_refill(MAX_PACKET_LEN, &vi->alloc_frag,
-> +		if (skb_page_frag_refill(MERGE_BUFFER_LEN, &vi->alloc_frag,
->  					 gfp)) {
->  			buf = (char *)page_address(vi->alloc_frag.page) +
->  			      vi->alloc_frag.offset;
->  			get_page(vi->alloc_frag.page);
-> -			vi->alloc_frag.offset += MAX_PACKET_LEN;
-> +			vi->alloc_frag.offset += MERGE_BUFFER_LEN;
->  		}
->  	} else {
-> -		buf = netdev_alloc_frag(MAX_PACKET_LEN);
-> +		buf = netdev_alloc_frag(MERGE_BUFFER_LEN);
->  	}
->  	if (!buf)
->  		return -ENOMEM;
->  
-> -	sg_init_one(rq->sg, buf, MAX_PACKET_LEN);
-> +	sg_init_one(rq->sg, buf, MERGE_BUFFER_LEN);
->  	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
->  	if (err < 0)
->  		put_page(virt_to_head_page(buf));
-> -- 
-> 1.8.4.1
+https://lkml.org/lkml/2012/10/22/433
+https://lkml.org/lkml/2012/9/21/505
+
+>From my searching it appears the initial bug was found by someone at redhat:
+https://bugzilla.redhat.com/show_bug.cgi?id=822754
+
+I've added Li Honggang the reporter of this issue from Redhat to the
+mail. Hopefully he can share his testcase.
+
+and possibly requires certain hardware as Jay writes in the first link above:
+"...some Infiniband HCAs(QLogic, possibly others) the machine will panic..."
+
+I was referring to this oracle commit:
+https://oss.oracle.com/git/?p=redpatch.git;a=commit;h=c7b6a0a1d8d636852be130fa15fa8be10d4704e8
+
+I have no experience with this code. There were a few comments around
+the reset and xmit fns about making sure the caller did certain things
+if not they were racy, but I have no idea if that's coming into play
+here.
+
+-- 
+Josh
