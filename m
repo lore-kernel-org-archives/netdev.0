@@ -1,60 +1,78 @@
-From: Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: shutdown(3) and bluetooth.
-Date: Tue, 12 Nov 2013 19:28:19 -0500
-Message-ID: <20131113002819.GB12615@redhat.com>
-References: <20131112211125.GA2912@redhat.com>
- <DF4C2B40-BD87-4E88-911D-E3E5F488CAE4@holtmann.org>
- <20131112221038.GA6689@redhat.com>
- <FC5CE013-B077-4EA5-81C1-A7D8B4A5EF85@holtmann.org>
- <20131112224819.GE9057@redhat.com>
- <D8BE686E-E81D-48CD-8D67-2B138191E0CC@holtmann.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net:fec: fix WARNING caused by lack of calls to
+ dma_mapping_error()
+Date: Wed, 13 Nov 2013 01:00:53 +0000
+Message-ID: <1384304453.3802.62.camel@bwh-desktop.uk.level5networks.com>
+References: <1384224889-8316-1-git-send-email-B38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org development"
-	<linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <D8BE686E-E81D-48CD-8D67-2B138191E0CC-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <b20596@freescale.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: Fugang Duan <B38611@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:50563 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754978Ab3KMBA5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Nov 2013 20:00:57 -0500
+In-Reply-To: <1384224889-8316-1-git-send-email-B38611@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 13, 2013 at 08:37:15AM +0900, Marcel Holtmann wrote:
- 
- > > So it seems it affects both SCO and RFCOMM.
- > > 
- > >> What kernel did you run this against? It is a shot in the dark, but can you try linux-next quickly.
- > >> There was a socket related fix for the socket options where we confused RFCOMM vs L2CAP struct sock.
- > > 
- > > first noticed it on Linus' latest HEAD, and then reproduced it on 3.11.6
- > > I'll look at linux-next tomorrow.
- > 
- > I looked through the code and only call bt_sock_wait_state when SOCK_LINGER and sk_lingertime is set. In that case we actually block until the socket state changes to BT_CLOSED.
- > 
- > The only way I see this could happen is if you have a huge linger timeout and confused the socket state before. What is actually the list of system calls that you are throwing at this socket.
+On Tue, 2013-11-12 at 10:54 +0800, Fugang Duan wrote:
+> Enable CONFIG_HAVE_DMA_API_DEBUG, the kernel dump warning:
+[...]
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index b2793b9..d93cb0c 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -386,7 +386,11 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  	 */
+>  	bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, bufaddr,
+>  			FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
+> -
+> +	if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
+> +		bdp->cbd_bufaddr = 0;
+> +		netdev_err(ndev, "Tx DMA memory map failed\n");
+> +		return NETDEV_TX_OK;
 
-Ah. I recently changed some code that's now doing this on every socket at shutdown..
-(simplified cut-n-paste)
+This error path must free the skb.
 
-        struct linger ling = { .l_onoff = FALSE, };
+> +	}
+>  	/* Send it on its way.  Tell FEC it's ready, interrupt when done,
+>  	 * it's the last BD of the frame, and to put the CRC on the end.
+>  	 */
+> @@ -1001,6 +1005,9 @@ fec_enet_rx(struct net_device *ndev, int budget)
+>  
+>  		bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, data,
+>  				FEC_ENET_TX_FRSIZE, DMA_FROM_DEVICE);
+> +		/* here dma mapping shouldn't be error, just avoid kernel dump */
+> +		if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr))
+> +			netdev_err(ndev, "Rx DMA memory map failed\n");
 
-        for (i = 0; i < nr_sockets; i++) {
-                fd = shm->sockets[i].fd;
-                shm->sockets[i].fd = 0;
+This is not handling the error.
 
-                setsockopt(fd, SOL_SOCKET, SO_LINGER, &ling, sizeof(struct linger));
-                shutdown(fd, SHUT_RDWR);
-                close(fd);
-        }
+>  rx_processing_done:
+>  		/* Clear the status flags for this buffer */
+>  		status &= ~BD_ENET_RX_STATS;
+> @@ -1719,6 +1726,11 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
+>  
+>  		bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, skb->data,
+>  				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
+> +		if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
+> +			fec_enet_free_buffers(ndev);
+> +			netdev_err(ndev, "Rx DMA memory map failed\n");
+> +			return -ENOMEM;
+> +		}
+>  		bdp->cbd_sc = BD_ENET_RX_EMPTY;
+>  
+>  		if (fep->bufdesc_ex) {
 
-I could just rip out that linger code completely and just hope that sockets staying in
-TIME_WAIT is good enough. iirc, I added it when after multiple runs, some of the
-weirder protocols would fail to open a socket once a certain number of existing
-sockets had opened, even if they were in SOCK_WAIT
+Error logging should be rate-limited.
 
-two remaining questions though. That code is setting linger to false. Why would
-that cause the sk_lingertime to be taken into consideration ?  And why is this
-only a problem for bluetooth (apparently) ?
+Ben.
 
-	Dave
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
