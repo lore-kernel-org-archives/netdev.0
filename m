@@ -1,36 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bonding: don't permit to use ARP monitoring in
- 802.3ad mode
-Date: Thu, 14 Nov 2013 02:29:41 -0500 (EST)
-Message-ID: <20131114.022941.611560061215223767.davem@davemloft.net>
-References: <1384267060-10851-1-git-send-email-vfalico@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] usbnet: fix status interrupt urb handling
+Date: Thu, 14 Nov 2013 02:33:21 -0500 (EST)
+Message-ID: <20131114.023321.740256050148841932.davem@davemloft.net>
+References: <1384270481-30972-1-git-send-email-nbd@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
-To: vfalico@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48083 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751087Ab3KNH3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 02:29:42 -0500
-In-Reply-To: <1384267060-10851-1-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1384270481-30972-1-git-send-email-nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Tue, 12 Nov 2013 15:37:40 +0100
+From: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Date: Tue, 12 Nov 2013 16:34:41 +0100
 
-> Currently the ARP monitoring is not supported with 802.3ad, and it's
-> prohibited to use it via the module params.
+> Since commit 7b0c5f21f348a66de495868b8df0284e8dfd6bbf
+> "sierra_net: keep status interrupt URB active", sierra_net triggers
+> status interrupt polling before the net_device is opened (in order to
+> properly receive the sync message response).
 > 
-> However we still can set it afterwards via sysfs, cause we only check for
-> *LB modes there.
+> To be able to receive further interrupts, the interrupt urb needs to be
+> re-submitted, so this patch removes the bogus check for netif_running().
 > 
-> To fix this - add a check for 802.3ad mode in bonding_store_arp_interval.
-> 
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> Signed-off-by: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
 
 Applied and queued up for -stable, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
