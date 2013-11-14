@@ -1,153 +1,119 @@
-From: Fugang Duan <B38611@freescale.com>
-Subject: [PATCH v2 1/1] net:fec: fix WARNING caused by lack of calls to dma_mapping_error()
-Date: Thu, 14 Nov 2013 09:57:10 +0800
-Message-ID: <1384394230-23380-1-git-send-email-B38611@freescale.com>
+From: wangbiao <biao.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH V3] usbnet: fix race condition caused spinlock bad magic
+ issue
+Date: Thu, 14 Nov 2013 10:03:15 +0800
+Message-ID: <1384394595.4229.24.camel@wangbiao>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <stephen@networkplumber.org>
-To: <bhutchings@solarflare.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe004.messaging.microsoft.com ([207.46.163.27]:16483
-	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750895Ab3KNCTT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 21:19:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org,
+	rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org, william.douglas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	di.zhang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, biao.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: oneukum-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ingo Molnar <mingo.kernel.org-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The driver fails to check the results of DMA mapping and results in
-the following warning: (with kernel config "CONFIG_DMA_API_DEBUG" enable)
+From: wang, biao <biao.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Date: Mon, 11 Nov 2013 10:23:40 +0800
+Subject: [PATCH] usbnet: fix race condition caused spinlock bad magic issue
 
-------------[ cut here ]------------
-WARNING: at lib/dma-debug.c:937 check_unmap+0x43c/0x7d8()
-fec 2188000.ethernet: DMA-API: device driver failed to check map
-error[device address=0x00000000383a8040] [size=2048 bytes] [mapped as single]
+there is race between usbnet_terminate_urbs and usbnet_bh.
+for example:
+    cpu 0                                     cpu 1
+                                          usbnet_suspend
+usbnet_bh {                               ->usbnet_terminate_urbs {
+                                              dev->wait = &unlink_wakeup;
+                                              while(....){..}//break
+    if(dev->wait) is true
+                       		              dev->wait=NULL
+                                          }//unlink_wakeup is invalid
+    __wake_up(dev->wait)//garbage value
+}
 
-Modules linked in:
-CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.10.17-16827-g9cdb0ba-dirty #188
-[<80013c4c>] (unwind_backtrace+0x0/0xf8) from [<80011704>] (show_stack+0x10/0x14)
-[<80011704>] (show_stack+0x10/0x14) from [<80025614>] (warn_slowpath_common+0x4c/0x6c)
-[<80025614>] (warn_slowpath_common+0x4c/0x6c) from [<800256c8>] (warn_slowpath_fmt+0x30/0x40)
-[<800256c8>] (warn_slowpath_fmt+0x30/0x40) from [<8026bfdc>] (check_unmap+0x43c/0x7d8)
-[<8026bfdc>] (check_unmap+0x43c/0x7d8) from [<8026c584>] (debug_dma_unmap_page+0x6c/0x78)
-[<8026c584>] (debug_dma_unmap_page+0x6c/0x78) from [<8038049c>] (fec_enet_rx_napi+0x254/0x8a8)
-[<8038049c>] (fec_enet_rx_napi+0x254/0x8a8) from [<804dc8c0>] (net_rx_action+0x94/0x160)
-[<804dc8c0>] (net_rx_action+0x94/0x160) from [<8002c758>] (__do_softirq+0xe8/0x1d0)
-[<8002c758>] (__do_softirq+0xe8/0x1d0) from [<8002c8e8>] (do_softirq+0x4c/0x58)
-[<8002c8e8>] (do_softirq+0x4c/0x58) from [<8002cb50>] (irq_exit+0x90/0xc8)
-[<8002cb50>] (irq_exit+0x90/0xc8) from [<8000ea88>] (handle_IRQ+0x3c/0x94)
-[<8000ea88>] (handle_IRQ+0x3c/0x94) from [<8000855c>] (gic_handle_irq+0x28/0x5c)
-[<8000855c>] (gic_handle_irq+0x28/0x5c) from [<8000de00>] (__irq_svc+0x40/0x50)
-Exception stack(0x815a5f38 to 0x815a5f80)
-5f20:                                                       815a5f80 3b9aca00
-5f40: 0fe52383 00000002 0dd8950e 00000002 81e7b080 00000000 00000000 815ac4d8
-5f60: 806032ec 00000000 00000017 815a5f80 80059028 8041fc4c 60000013 ffffffff
-[<8000de00>] (__irq_svc+0x40/0x50) from [<8041fc4c>] (cpuidle_enter_state+0x50/0xf0)
-[<8041fc4c>] (cpuidle_enter_state+0x50/0xf0) from [<8041fd94>] (cpuidle_idle_call+0xa8/0x14c)
-[<8041fd94>] (cpuidle_idle_call+0xa8/0x14c) from [<8000edac>] (arch_cpu_idle+0x10/0x4c)
-[<8000edac>] (arch_cpu_idle+0x10/0x4c) from [<800582f8>] (cpu_startup_entry+0x60/0x130)
-[<800582f8>] (cpu_startup_entry+0x60/0x130) from [<80bc7a48>] (start_kernel+0x2d0/0x328)
-[<80bc7a48>] (start_kernel+0x2d0/0x328) from [<10008074>] (0x10008074)
----[ end trace c6edec32436e0042 ]---
+the race is due to unprotection of dev->wait, so this patch involves a
+spinlock to avoid it.
 
-Because dma-debug add new interfaces to debug dma mapping errors, pls refer
-to: http://lwn.net/Articles/516640/
-
-After dma mapping, it must call dma_mapping_error() to check mapping error,
-otherwise the map_err_type alway is MAP_ERR_NOT_CHECKED, check_unmap() define
-the mapping is not checked and dump the error msg. So,add dma_mapping_error()
-checking to fix the WARNING
-
-And RX DMA buffers are used repeatedly and the driver copies it into an skb,
-fec_enet_rx() should not map or unmap, use dma_sync_single_for_cpu()/dma_sync_single_for_device()
-instead of dma_map_single()/dma_unmap_single().
-
-There have another potential issue:  fec_enet_rx() passes the DMA address to __va().
-Physical and DMA addresses are *not* the same thing. They may differ if the device
-is behind an IOMMU or bounce buffering was required, or just because there is a fixed
-offset between the device and host physical addresses. Also fix it in this patch.
-
-=============================================
-V2: add net_ratelimit() to limit map err message.
-    use dma_sync_single_for_cpu() instead of dma_map_single().
-    fix the issue that pass DMA addresses to __va() to get virture address.
-V1: initial send
-=============================================
-
-Signed-off-by: Fugang Duan <B38611@freescale.com>
+Signed-off-by: wang, biao <biao.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Zhang, Di <di.zhang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ethernet/freescale/fec_main.c |   31 +++++++++++++++++++++++-----
- 1 files changed, 25 insertions(+), 6 deletions(-)
+ drivers/net/usb/usbnet.c |   16 ++++++++++++++--
+ 1 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index b2793b9..4cbebf3 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -386,7 +386,14 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	 */
- 	bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, bufaddr,
- 			FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
--
-+	if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
-+		bdp->cbd_bufaddr = 0;
-+		fep->tx_skbuff[index] = NULL;
-+		dev_kfree_skb_any(skb);
-+		if (net_ratelimit())
-+			netdev_err(ndev, "Tx DMA memory map failed\n");
-+		return NETDEV_TX_OK;
-+	}
- 	/* Send it on its way.  Tell FEC it's ready, interrupt when done,
- 	 * it's the last BD of the frame, and to put the CRC on the end.
- 	 */
-@@ -861,6 +868,7 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 	struct	bufdesc_ex *ebdp = NULL;
- 	bool	vlan_packet_rcvd = false;
- 	u16	vlan_tag;
-+	int	index = 0;
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 90a429b..f7df1af 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -86,6 +86,7 @@ static const char driver_name [] = "usbnet";
  
- #ifdef CONFIG_M532x
- 	flush_cache_all();
-@@ -916,10 +924,15 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 		ndev->stats.rx_packets++;
- 		pkt_len = bdp->cbd_datlen;
- 		ndev->stats.rx_bytes += pkt_len;
--		data = (__u8*)__va(bdp->cbd_bufaddr);
+ /* use ethtool to change the level for any given device */
+ static int msg_level = -1;
++static spinlock_t dev_wait_lock = __SPIN_LOCK_UNLOCKED(dev_wait_lock);
+ module_param (msg_level, int, 0);
+ MODULE_PARM_DESC (msg_level, "Override default message level");
  
--		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
--				FEC_ENET_TX_FRSIZE, DMA_FROM_DEVICE);
-+		if (fep->bufdesc_ex)
-+			index = (struct bufdesc_ex *)bdp -
-+				(struct bufdesc_ex *)fep->rx_bd_base;
-+		else
-+			index = bdp - fep->rx_bd_base;
-+		data = fep->rx_skbuff[index]->data;
-+		dma_sync_single_for_cpu(&fep->pdev->dev, bdp->cbd_bufaddr,
-+					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
+@@ -764,11 +765,14 @@ static void usbnet_terminate_urbs(struct usbnet *dev)
+ 	DECLARE_WAIT_QUEUE_HEAD_ONSTACK(unlink_wakeup);
+ 	DECLARE_WAITQUEUE(wait, current);
+ 	int temp;
++	unsigned long flags;
  
- 		if (id_entry->driver_data & FEC_QUIRK_SWAP_FRAME)
- 			swap_buffer(data, pkt_len);
-@@ -999,8 +1012,8 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 			napi_gro_receive(&fep->napi, skb);
+ 	/* ensure there are no more active urbs */
+ 	add_wait_queue(&unlink_wakeup, &wait);
+ 	set_current_state(TASK_UNINTERRUPTIBLE);
++	spin_lock_irqsave(&dev_wait_lock, flags);
+ 	dev->wait = &unlink_wakeup;
++	spin_unlock_irqrestore(&dev_wait_lock, flags);
+ 	temp = unlink_urbs(dev, &dev->txq) +
+ 		unlink_urbs(dev, &dev->rxq);
+ 
+@@ -782,7 +786,9 @@ static void usbnet_terminate_urbs(struct usbnet *dev)
+ 				  "waited for %d urb completions\n", temp);
+ 	}
+ 	set_current_state(TASK_RUNNING);
++	spin_lock_irqsave(&dev_wait_lock, flags);
+ 	dev->wait = NULL;
++	spin_unlock_irqrestore(&dev_wait_lock, flags);
+ 	remove_wait_queue(&unlink_wakeup, &wait);
+ }
+ 
+@@ -1424,6 +1430,7 @@ static void usbnet_bh (unsigned long param)
+ 	struct usbnet		*dev = (struct usbnet *) param;
+ 	struct sk_buff		*skb;
+ 	struct skb_data		*entry;
++	unsigned long           flags;
+ 
+ 	while ((skb = skb_dequeue (&dev->done))) {
+ 		entry = (struct skb_data *) skb->cb;
+@@ -1447,13 +1454,18 @@ static void usbnet_bh (unsigned long param)
+ 	clear_bit(EVENT_RX_KILL, &dev->flags);
+ 
+ 	// waiting for all pending urbs to complete?
++	spin_lock_irqsave(&dev_wait_lock, flags);
+ 	if (dev->wait) {
+ 		if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) == 0) {
+-			wake_up (dev->wait);
++			wake_up(dev->wait);
  		}
++		spin_unlock_irqrestore(&dev_wait_lock, flags);
++		return;
++	}
++	spin_unlock_irqrestore(&dev_wait_lock, flags);
  
--		bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, data,
--				FEC_ENET_TX_FRSIZE, DMA_FROM_DEVICE);
-+		dma_sync_single_for_device(&fep->pdev->dev, bdp->cbd_bufaddr,
-+					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
- rx_processing_done:
- 		/* Clear the status flags for this buffer */
- 		status &= ~BD_ENET_RX_STATS;
-@@ -1719,6 +1732,12 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
- 
- 		bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, skb->data,
- 				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
-+		if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
-+			fec_enet_free_buffers(ndev);
-+			if (net_ratelimit())
-+				netdev_err(ndev, "Rx DMA memory map failed\n");
-+			return -ENOMEM;
-+		}
- 		bdp->cbd_sc = BD_ENET_RX_EMPTY;
- 
- 		if (fep->bufdesc_ex) {
+ 	// or are we maybe short a few urbs?
+-	} else if (netif_running (dev->net) &&
++	if (netif_running(dev->net) &&
+ 		   netif_device_present (dev->net) &&
+ 		   netif_carrier_ok(dev->net) &&
+ 		   !timer_pending (&dev->delay) &&
 -- 
-1.7.2.rc3
+1.7.0.4
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
