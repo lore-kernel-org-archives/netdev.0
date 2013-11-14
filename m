@@ -1,62 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 1/2] macvlan: introduce macvlan_dev_real_dev()
- helper function
-Date: Thu, 14 Nov 2013 17:03:58 -0500 (EST)
-Message-ID: <20131114.170358.941846928393883945.davem@davemloft.net>
-References: <b4ca4f2204f0ffb0bd7f959192462944a8d846a4.1384436410.git.mkubecek@suse.cz>
-	<5284E637.5060805@gmail.com>
-	<20131114155756.GA4161@lion.mk-sys.cz>
+Subject: Re: [PATCH net] ip6tnl: fix use after free of fb_tnl_dev
+Date: Thu, 14 Nov 2013 17:05:29 -0500 (EST)
+Message-ID: <20131114.170529.1627250972818871118.davem@davemloft.net>
+References: <20131113211430.1ad3bb7d@gandalf.local.home>
+	<1384440423-4275-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, netdev@vger.kernel.org, kaber@trash.net,
-	john.r.fastabend@intel.com
-To: mkubecek@suse.cz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53309 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755637Ab3KNWEB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 17:04:01 -0500
-In-Reply-To: <20131114155756.GA4161@lion.mk-sys.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rostedt@goodmis.org, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org, gregkh@linuxfoundation.org,
+	williams@redhat.com, linux-rt-users@vger.kernel.org,
+	lclaudio@uudg.org, netdev@vger.kernel.org, willemb@google.com
+To: nicolas.dichtel@6wind.com
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+In-Reply-To: <1384440423-4275-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Thu, 14 Nov 2013 16:57:57 +0100
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Thu, 14 Nov 2013 15:47:03 +0100
 
-> On Thu, Nov 14, 2013 at 10:03:19AM -0500, Vlad Yasevich wrote:
->> On 11/14/2013 09:00 AM, Michal Kubecek wrote:
->> >+#if IS_ENABLED(CONFIG_MACVLAN)
->> >+static inline struct net_device *
->> >+macvlan_dev_real_dev(const struct net_device *dev)
->> >+{
->> >+	struct macvlan_dev *macvlan = netdev_priv(dev);
->> >+
->> >+	return macvlan->lowerdev;
->> >+}
->> >+#else
->> >+static inline struct net_device *
->> >+macvlan_dev_real_dev(const struct net_device *dev)
->> >+{
->> >+	return NULL;
->> >+}
->> >+#endif
->> >+
->> 
->> You may want to do the same here as was done for
->> vlan_dev_real_dev(). This function is not intended to be called
->> blindly and should always
->> be called after netif_is_macvlan().
+> Bug has been introduced by commit bb8140947a24 ("ip6tnl: allow to use rtnl ops
+> on fb tunnel").
 > 
-> I'm not sure. It makes sense from the developer point of view: if we
-> find an inconsistency which must be caused by a bug in kernel code, do
-> panic so that the bug is found and fixed as soon as possible. However,
-> I remember a discussion where the point was that BUG() and BUG_ON()
-> should only be used if there is no way to recover. From this point of
-> view, WARN or WARN_ONCE might be better choice - but I'm not strictly
-> opposed to BUG().
+> When ip6_tunnel.ko is unloaded, FB device is delete by rtnl_link_unregister()
+> and then we try to use the pointer in ip6_tnl_destroy_tunnels().
+> 
+> Let's add an handler for dellink, which will never remove the FB tunnel. With
+> this patch it will no more be possible to remove it via 'ip link del ip6tnl0',
+> but it's safer.
+> 
+> The same fix was already proposed by Willem de Bruijn <willemb@google.com> for
+> sit interfaces.
+> 
+> CC: Willem de Bruijn <willemb@google.com>
+> Reported-by: Steven Rostedt <rostedt@goodmis.org>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-At least for the time being use BUG(), to be consistent with the same
-way how VLAN handles this situation.
-
-Thanks.
+Applied and queued up for -stable, thanks for being so proactive about this
+Nicolas.
