@@ -1,14 +1,14 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [RFC 2/7] hsr: use genl_register_family_with_ops()
-Date: Thu, 14 Nov 2013 10:14:41 +0100
-Message-ID: <1384420486-8713-3-git-send-email-johannes@sipsolutions.net>
+Subject: [RFC 1/7] taskstats: use genl_register_family_with_ops()
+Date: Thu, 14 Nov 2013 10:14:40 +0100
+Message-ID: <1384420486-8713-2-git-send-email-johannes@sipsolutions.net>
 References: <1384420486-8713-1-git-send-email-johannes@sipsolutions.net>
 Cc: Johannes Berg <johannes.berg@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:47794 "EHLO
+Received: from s3.sipsolutions.net ([144.76.43.152]:47804 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232Ab3KNJOw (ORCPT
+	with ESMTP id S1751623Ab3KNJOw (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 04:14:52 -0500
 In-Reply-To: <1384420486-8713-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
@@ -21,96 +21,71 @@ need to have error handling in the registration.
 
 Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 ---
- net/hsr/hsr_netlink.c | 46 +++++++++++++++++-----------------------------
- 1 file changed, 17 insertions(+), 29 deletions(-)
+ kernel/taskstats.c | 39 ++++++++++++++-------------------------
+ 1 file changed, 14 insertions(+), 25 deletions(-)
 
-diff --git a/net/hsr/hsr_netlink.c b/net/hsr/hsr_netlink.c
-index 4e66bf6..8f52a9f 100644
---- a/net/hsr/hsr_netlink.c
-+++ b/net/hsr/hsr_netlink.c
-@@ -306,15 +306,6 @@ fail:
- 	return res;
+diff --git a/kernel/taskstats.c b/kernel/taskstats.c
+index 9f4618e..609e77f 100644
+--- a/kernel/taskstats.c
++++ b/kernel/taskstats.c
+@@ -673,17 +673,18 @@ err:
+ 	nlmsg_free(rep_skb);
  }
  
--static struct genl_ops hsr_ops_get_node_status = {
--	.cmd = HSR_C_GET_NODE_STATUS,
--	.flags = 0,
--	.policy = hsr_genl_policy,
--	.doit = hsr_get_node_status,
--	.dumpit = NULL,
+-static struct genl_ops taskstats_ops = {
+-	.cmd		= TASKSTATS_CMD_GET,
+-	.doit		= taskstats_user_cmd,
+-	.policy		= taskstats_cmd_get_policy,
+-	.flags		= GENL_ADMIN_PERM,
 -};
 -
--
- /* Get a list of MacAddressA of all nodes known to this node (other than self).
-  */
- static int hsr_get_node_list(struct sk_buff *skb_in, struct genl_info *info)
-@@ -398,12 +389,21 @@ fail:
- }
- 
- 
--static struct genl_ops hsr_ops_get_node_list = {
--	.cmd = HSR_C_GET_NODE_LIST,
--	.flags = 0,
--	.policy = hsr_genl_policy,
--	.doit = hsr_get_node_list,
--	.dumpit = NULL,
-+static struct genl_ops hsr_ops[] = {
+-static struct genl_ops cgroupstats_ops = {
+-	.cmd		= CGROUPSTATS_CMD_GET,
+-	.doit		= cgroupstats_user_cmd,
+-	.policy		= cgroupstats_cmd_get_policy,
++static struct genl_ops taskstats_ops[] = {
 +	{
-+		.cmd = HSR_C_GET_NODE_STATUS,
-+		.flags = 0,
-+		.policy = hsr_genl_policy,
-+		.doit = hsr_get_node_status,
-+		.dumpit = NULL,
++		.cmd		= TASKSTATS_CMD_GET,
++		.doit		= taskstats_user_cmd,
++		.policy		= taskstats_cmd_get_policy,
++		.flags		= GENL_ADMIN_PERM,
 +	},
 +	{
-+		.cmd = HSR_C_GET_NODE_LIST,
-+		.flags = 0,
-+		.policy = hsr_genl_policy,
-+		.doit = hsr_get_node_list,
-+		.dumpit = NULL,
++		.cmd		= CGROUPSTATS_CMD_GET,
++		.doit		= cgroupstats_user_cmd,
++		.policy		= cgroupstats_cmd_get_policy,
 +	},
  };
  
- int __init hsr_netlink_init(void)
-@@ -414,18 +414,11 @@ int __init hsr_netlink_init(void)
- 	if (rc)
- 		goto fail_rtnl_link_register;
- 
--	rc = genl_register_family(&hsr_genl_family);
-+	rc = genl_register_family_with_ops(&hsr_genl_family, hsr_ops,
-+					   ARRAY_SIZE(hsr_ops));
- 	if (rc)
- 		goto fail_genl_register_family;
- 
--	rc = genl_register_ops(&hsr_genl_family, &hsr_ops_get_node_status);
--	if (rc)
--		goto fail_genl_register_ops;
--
--	rc = genl_register_ops(&hsr_genl_family, &hsr_ops_get_node_list);
--	if (rc)
--		goto fail_genl_register_ops_node_list;
--
- 	rc = genl_register_mc_group(&hsr_genl_family, &hsr_network_genl_mcgrp);
- 	if (rc)
- 		goto fail_genl_register_mc_group;
-@@ -433,10 +426,6 @@ int __init hsr_netlink_init(void)
- 	return 0;
- 
- fail_genl_register_mc_group:
--	genl_unregister_ops(&hsr_genl_family, &hsr_ops_get_node_list);
--fail_genl_register_ops_node_list:
--	genl_unregister_ops(&hsr_genl_family, &hsr_ops_get_node_status);
--fail_genl_register_ops:
- 	genl_unregister_family(&hsr_genl_family);
- fail_genl_register_family:
- 	rtnl_link_unregister(&hsr_link_ops);
-@@ -448,7 +437,6 @@ fail_rtnl_link_register:
- void __exit hsr_netlink_exit(void)
+ /* Needed early in initialization */
+@@ -702,26 +703,14 @@ static int __init taskstats_init(void)
  {
- 	genl_unregister_mc_group(&hsr_genl_family, &hsr_network_genl_mcgrp);
--	genl_unregister_ops(&hsr_genl_family, &hsr_ops_get_node_status);
- 	genl_unregister_family(&hsr_genl_family);
+ 	int rc;
  
- 	rtnl_link_unregister(&hsr_link_ops);
+-	rc = genl_register_family(&family);
++	rc = genl_register_family_with_ops(&family, taskstats_ops,
++					   ARRAY_SIZE(taskstats_ops));
+ 	if (rc)
+ 		return rc;
+ 
+-	rc = genl_register_ops(&family, &taskstats_ops);
+-	if (rc < 0)
+-		goto err;
+-
+-	rc = genl_register_ops(&family, &cgroupstats_ops);
+-	if (rc < 0)
+-		goto err_cgroup_ops;
+-
+ 	family_registered = 1;
+ 	pr_info("registered taskstats version %d\n", TASKSTATS_GENL_VERSION);
+ 	return 0;
+-err_cgroup_ops:
+-	genl_unregister_ops(&family, &taskstats_ops);
+-err:
+-	genl_unregister_family(&family);
+-	return rc;
+ }
+ 
+ /*
 -- 
 1.8.4.rc3
