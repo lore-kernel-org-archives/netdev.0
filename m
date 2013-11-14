@@ -1,37 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bonding: fix two race conditions in
- bond_store_updelay/downdelay
-Date: Thu, 14 Nov 2013 16:29:44 -0500 (EST)
-Message-ID: <20131114.162944.207243366387985452.davem@davemloft.net>
-References: <1384358866-15157-1-git-send-email-nikolay@redhat.com>
+Subject: Re: [PATCH 1/2] net: phylib: add adjust_state callback to phy
+ device
+Date: Thu, 14 Nov 2013 16:32:07 -0500 (EST)
+Message-ID: <20131114.163207.230147902479371528.davem@davemloft.net>
+References: <1384376870-7810-1-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	vfalico@redhat.com
-To: nikolay@redhat.com
+Cc: netdev@vger.kernel.org, marek.belisko@gmail.com,
+	ujhelyi.m@gmail.com
+To: zonque@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52945 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52958 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755166Ab3KNV3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:29:46 -0500
-In-Reply-To: <1384358866-15157-1-git-send-email-nikolay@redhat.com>
+	with ESMTP id S1754766Ab3KNVcJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:32:09 -0500
+In-Reply-To: <1384376870-7810-1-git-send-email-zonque@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Wed, 13 Nov 2013 17:07:46 +0100
+From: Daniel Mack <zonque@gmail.com>
+Date: Wed, 13 Nov 2013 22:07:49 +0100
 
-> This patch fixes two race conditions between bond_store_updelay/downdelay
-> and bond_store_miimon which could lead to division by zero as miimon can
-> be set to 0 while either updelay/downdelay are being set and thus miss the
-> zero check in the beginning, the zero div happens because updelay/downdelay
-> are stored as new_value / bond->params.miimon. Use rtnl to synchronize with
-> miimon setting.
+> Allow phy drivers to take action when the core does its link adjustment.
+> No change for drivers that do not implement this callback.
 > 
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: Veaceslav Falico <vfalico@redhat.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> Signed-off-by: Daniel Mack <zonque@gmail.com>
 
-Applied and queued up for -stable, thanks.
+So you're using this to reset the entire PHY via the reset bit in the
+BMCR register when the link goes down.
+
+But this is going to break things.
+
+If the phy library previously programmed a non-autonegotiated static
+link configuration into the BMCR register, your reset is going to
+undo that.
+
+Now the configuration phylib thinks the chip has and the one it
+acutally does is out of sync.
+
+I'm not applying these patches, sorry.
