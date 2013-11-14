@@ -1,39 +1,27 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net-tcp: fix panic in tcp_fastopen_cache_set()
-Date: Thu, 14 Nov 2013 13:22:32 -0800
-Message-ID: <1384464152.28716.35.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131113204543.GA26715@redhat.com>
-	 <1384382413.28458.132.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1384383646.28458.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1384456418.13941.40.camel@jlt4.sipsolutions.net>
-	 <1384457800.28716.30.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1384457922.28716.32.camel@edumazet-glaptop2.roam.corp.google.com>
-	 (sfid-20131114_203846_741927_1B40F181) <1384462403.13941.41.camel@jlt4.sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/6] net_tstamp: Validate hwtstamp_config
+ completely before applying it
+Date: Thu, 14 Nov 2013 16:23:05 -0500 (EST)
+Message-ID: <20131114.162305.2299142468637866964.davem@davemloft.net>
+References: <1384389542.29151.5.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@redhat.com>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f44.google.com ([209.85.213.44]:58496 "EHLO
-	mail-yh0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757728Ab3KNVWi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:22:38 -0500
-Received: by mail-yh0-f44.google.com with SMTP id f73so1361752yha.17
-        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 13:22:37 -0800 (PST)
-In-Reply-To: <1384462403.13941.41.camel@jlt4.sipsolutions.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52907 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756160Ab3KNVXI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:23:08 -0500
+In-Reply-To: <1384389542.29151.5.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-14 at 21:53 +0100, Johannes Berg wrote:
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 14 Nov 2013 00:39:02 +0000
 
-> Heh. I have no idea, it just seemed a little odd on first look given
-> that __sk_dst_get() *can* actually use RCU protection. :)
+> This series fixes very similar bugs in 6 implementations of
+> SIOCSHWTSTAMP.
 
-Yep, the deal is that if you own socket lock, you do not need
-rcu_read_lock()
-
-Look for dst_negative_advice() as another example :
-
-We call __sk_dst_get(sk) without rcu_read_lock() protection.
+Series applied, thanks Ben.
