@@ -1,75 +1,59 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net 1/3] sit: fix prefix length of ll and v4mapped addresses
-Date: Thu, 14 Nov 2013 13:51:05 +0100
-Message-ID: <1384433467-4780-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
+From: Daniel Mack <zonque@gmail.com>
+Subject: Re: [PATCH] net: ethernet: ti/cpsw: do not crash on single-MAC machines
+ during resume
+Date: Thu, 14 Nov 2013 13:56:26 +0100
+Message-ID: <5284C87A.60404@gmail.com>
+References: <1384347180-3490-1-git-send-email-zonque@gmail.com> <5284C602.8000103@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:45296 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753089Ab3KNMva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 07:51:30 -0500
+Received: from mail-bk0-f45.google.com ([209.85.214.45]:37159 "EHLO
+	mail-bk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752902Ab3KNM4i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 07:56:38 -0500
+Received: by mail-bk0-f45.google.com with SMTP id r7so1028003bkg.18
+        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 04:56:37 -0800 (PST)
+In-Reply-To: <5284C602.8000103@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the local IPv4 endpoint is wilcard (0.0.0.0), the prefix length is
-correctly set, ie 64 if the address is a link local one or 96 if the address is
-a v4 mapped one.
-But when the local endpoint is specified, the prefix length is set to 128 for
-both kind of address. This patch fix this wrong prefix length.
+On 11/14/2013 01:45 PM, Mugunthan V N wrote:
+> On Wednesday 13 November 2013 06:23 PM, Daniel Mack wrote:
+>> To prevent Oopses, cpsw_suspend() should only soft-reset sliver 1
+>> on dual MAC enabled machines.
+>>
+>> Signed-off-by: Daniel Mack <zonque@gmail.com>
+>> ---
+>>  drivers/net/ethernet/ti/cpsw.c | 5 ++++-
+>>  1 file changed, 4 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+>> index edd3e79..702b063 100644
+>> --- a/drivers/net/ethernet/ti/cpsw.c
+>> +++ b/drivers/net/ethernet/ti/cpsw.c
+>> @@ -2173,8 +2173,11 @@ static int cpsw_suspend(struct device *dev)
+>>  
+>>  	if (netif_running(ndev))
+>>  		cpsw_ndo_stop(ndev);
+>> +
+>>  	soft_reset("sliver 0", &priv->slaves[0].sliver->soft_reset);
+>> -	soft_reset("sliver 1", &priv->slaves[1].sliver->soft_reset);
+>> +	if (priv->data.dual_emac)
+>> +		soft_reset("sliver 1", &priv->slaves[1].sliver->soft_reset);
+> 
+> Is this tested on a system with both ports in switch mode?
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/addrconf.c | 11 ++++-------
- 1 file changed, 4 insertions(+), 7 deletions(-)
+Nope. I got an Ooops when I tried to suspend a machine that has only one
+slave configured in DTS.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index cd3fb301da38..4e558e5e0e42 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2555,7 +2555,7 @@ static void sit_add_v4_addrs(struct inet6_dev *idev)
- 	struct in6_addr addr;
- 	struct net_device *dev;
- 	struct net *net = dev_net(idev->dev);
--	int scope;
-+	int scope, plen;
- 
- 	ASSERT_RTNL();
- 
-@@ -2565,12 +2565,14 @@ static void sit_add_v4_addrs(struct inet6_dev *idev)
- 	if (idev->dev->flags&IFF_POINTOPOINT) {
- 		addr.s6_addr32[0] = htonl(0xfe800000);
- 		scope = IFA_LINK;
-+		plen = 64;
- 	} else {
- 		scope = IPV6_ADDR_COMPATv4;
-+		plen = 96;
- 	}
- 
- 	if (addr.s6_addr32[3]) {
--		add_addr(idev, &addr, 128, scope);
-+		add_addr(idev, &addr, plen, scope);
- 		return;
- 	}
- 
-@@ -2582,7 +2584,6 @@ static void sit_add_v4_addrs(struct inet6_dev *idev)
- 			int flag = scope;
- 
- 			for (ifa = in_dev->ifa_list; ifa; ifa = ifa->ifa_next) {
--				int plen;
- 
- 				addr.s6_addr32[3] = ifa->ifa_local;
- 
-@@ -2593,10 +2594,6 @@ static void sit_add_v4_addrs(struct inet6_dev *idev)
- 						continue;
- 					flag |= IFA_HOST;
- 				}
--				if (idev->dev->flags&IFF_POINTOPOINT)
--					plen = 64;
--				else
--					plen = 96;
- 
- 				add_addr(idev, &addr, plen, flag);
- 			}
--- 
-1.8.4.1
+> I don't think this will not work with both ports in switch mode.
+
+Why? Isn't priv->data.dual_emac in that case? The same condition is
+checked for in cpsw_remove().
+
+
+Thanks,
+Daniel
