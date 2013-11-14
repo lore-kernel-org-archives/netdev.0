@@ -1,53 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rds: fix local ping DoS
-Date: Thu, 14 Nov 2013 02:03:55 -0500 (EST)
-Message-ID: <20131114.020355.1973894145326845195.davem@davemloft.net>
-References: <1384391743-9342-1-git-send-email-johunt@akamai.com>
+Subject: Re: [PATCH 0/2 v4] Open vSwitch zerocopy upcall
+Date: Thu, 14 Nov 2013 02:13:57 -0500 (EST)
+Message-ID: <20131114.021357.2293924326693299062.davem@davemloft.net>
+References: <cover.1383906944.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, venkat.x.venkatsubra@oracle.com,
-	linux-kernel@vger.kernel.org, jjolly@suse.com, fenlason@redhat.com,
-	honli@redhat.com
-To: johunt@akamai.com
+Cc: jesse@nicira.com, dev@openvswitch.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48003 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48021 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751104Ab3KNHD5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 02:03:57 -0500
-In-Reply-To: <1384391743-9342-1-git-send-email-johunt@akamai.com>
+	with ESMTP id S1751179Ab3KNHN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 02:13:59 -0500
+In-Reply-To: <cover.1383906944.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Josh Hunt <johunt@akamai.com>
-Date: Wed, 13 Nov 2013 17:15:43 -0800
+From: Thomas Graf <tgraf@suug.ch>
+Date: Fri,  8 Nov 2013 11:47:16 +0100
 
-> The rds_ib_xmit function in net/rds/ib_send.c in the Reliable Datagram Sockets
-> (RDS) protocol implementation allows local users to cause a denial of service
-> (BUG_ON and kernel panic) by establishing an RDS connection with the source
-> IP address equal to the IPoIB interface's own IP address, as demonstrated by
-> rds-ping.
+> Respin of the zerocopy patches for the openvswitch upcall.
 > 
-> A local unprivileged user could use this flaw to crash the system.
+> V4: - Daniel Borkmann pointed out that the style in skbuff.h has changed
+>       in net-next, adapted to no longer using extern in headers.
+> V3: - Removed unneeded alignment of nlmsg_len after padding 
+> V2: - Added skb_zerocopy_headlen() to calculate headroom of destination
+>       buffer. This also takes care of the from->head_frag issue.
+>     - Attribute alignment for frag_list case
+>     - API documentation
+>     - performance data for CHECKSUM_PARTIAL tx case
 > 
-> CVE-2012-2372
-> 
-> Reported-by: Honggang Li <honli@redhat.com>
-> Signed-off-by: Josh Hunt <johunt@akamai.com>
+> Thomas Graf (2):
+>   net: Export skb_zerocopy() to zerocopy from one skb to another
+>   openvswitch: Use skb_zerocopy() for upcall
 
-I'm sorry I can't apply this.  This commit message needs to be much
-less terse and explain things more.
+No objections from me for these changes, but it's too late for the
+current merge window.
 
-First of all, why is the "off % RDS_FRAG_SIZE" important?
+Jesse can feel free to queue this up in his tree and you can add my:
 
-And, even more importantly, why is is OK to avoid this assertion just
-because we're going over loopback?
+Acked-by: David S. Miller <davem@davemloft.net>
 
-Furthermore, why doesn't net/rds/iw_send.c:rds_iw_xmit() have the same
-exact problem?  It makes the same exact assertion check.
+to these patches.
 
-I know this RDS code is a steaming pile of poo, but that doesn't mean
-we just randomly adjust assertions to make crashes go away without
-sufficient understanding of exactly what's going on.
-
-Thanks.
+Thanks!
