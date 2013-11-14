@@ -1,38 +1,71 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH net-next 0/6] 6lowpan: udp compression/uncompression fix
-Date: Thu, 14 Nov 2013 17:53:39 +0100
-Message-ID: <20131114165337.GB2346@omega>
-References: <1384444132-1427-1-git-send-email-alex.aring@gmail.com>
- <1384445983.28716.1.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] alx: Reset phy speed after resume
+Date: Thu, 14 Nov 2013 08:57:02 -0800
+Message-ID: <1384448222.15774.12.camel@joe-AO722>
+References: <1384445773.29057.5.camel@localhost.tld>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: alex.bluesman.smirnov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, werner@almesberger.net,
-	jukka.rissanen@linux.intel.com, dbaryshkov@gmail.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: jcliburn@gmail.com, chris.snook@gmail.com, davem@davemloft.net,
+	johannes@sipsolutions.net, wangyijing@huawei.com,
+	maarten.lankhorst@canonical.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: hahnjo <linux@hahnjo.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f48.google.com ([209.85.214.48]:43876 "EHLO
-	mail-bk0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757973Ab3KNQxn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 11:53:43 -0500
-Received: by mail-bk0-f48.google.com with SMTP id v10so652609bkz.35
-        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 08:53:41 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1384445983.28716.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtprelay0166.hostedemail.com ([216.40.44.166]:52690 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755786Ab3KNQ5E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 11:57:04 -0500
+In-Reply-To: <1384445773.29057.5.camel@localhost.tld>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 14, 2013 at 08:19:43AM -0800, Eric Dumazet wrote:
-> On Thu, 2013-11-14 at 16:48 +0100, Alexander Aring wrote:
-> > The current 6LoWPAN udp compression/uncompression is completely broken.
-> > This patch series fix a lot of udp compression/uncompression issues and
-> > add support parsing with lowpan_fetch_skb function.
+On Thu, 2013-11-14 at 17:16 +0100, hahnjo wrote:
+> From 27744b24f9291782c1342dbd6cac511e68da907c Mon Sep 17 00:00:00 2001
+> From: hahnjo <hahnjo@hahnjo.de>
+> Date: Tue, 12 Nov 2013 18:19:24 +0100
+> Subject: [PATCH] alx: Reset phy speed after resume
 > 
-> If its broken, why targeting net-next tree (which is closed BTW ATM) ?
+> This fixes bug 62491 (https://bugzilla.kernel.org/show_bug.cgi?id=62491).
+> After resuming some users got the following error flooding the kernel log:
+> alx 0000:02:00.0: invalid PHY speed/duplex: 0xffff
 > 
-The 6LoWPAN stack still has several unresolved issues (some of which require
-more elaborate changes and are therefore net-next material anyway), so
-rushing fixes into 'net' wouldn't make a big difference.
+> Signed-off-by: Jonas Hahnfeld <linux@hahnjo.de>
+> ---
+>  drivers/net/ethernet/atheros/alx/main.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+> index fc95b23..6305a5d 100644
+> --- a/drivers/net/ethernet/atheros/alx/main.c
+> +++ b/drivers/net/ethernet/atheros/alx/main.c
+> @@ -1389,6 +1389,9 @@ static int alx_resume(struct device *dev)
+>  {
+>  	struct pci_dev *pdev = to_pci_dev(dev);
+>  	struct alx_priv *alx = pci_get_drvdata(pdev);
+> +	struct alx_hw *hw = &alx->hw;
+> +
+> +	alx_reset_phy(hw);
+>  
+>  	if (!netif_running(alx->dev))
+>  		return 0;
 
-- Alex
+Perhaps this would help too:
+---
+ drivers/net/ethernet/atheros/alx/hw.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
+index 1e8c24a..3396224 100644
+--- a/drivers/net/ethernet/atheros/alx/hw.c
++++ b/drivers/net/ethernet/atheros/alx/hw.c
+@@ -908,7 +908,8 @@ int alx_read_phy_link(struct alx_hw *hw)
+ 	return 0;
+ 
+ wrong_speed:
+-	dev_err(&pdev->dev, "invalid PHY speed/duplex: 0x%x\n", giga);
++	dev_err_ratelimited(&pdev->dev, "invalid PHY speed/duplex: 0x%x\n",
++			    giga);
+ 	return -EINVAL;
+ }
+ 
