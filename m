@@ -1,37 +1,52 @@
-From: Dave Jones <davej@redhat.com>
-Subject: netfilter: ipset: fix incorret comparison in
- hash_netnet4_data_equal()
-Date: Thu, 14 Nov 2013 10:41:01 -0500
-Message-ID: <20131114154101.GA22625@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa
-To: netdev@vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH net-next 2/6] 6lowpan: fix udp compress ordering
+Date: Thu, 14 Nov 2013 16:48:48 +0100
+Message-ID: <1384444132-1427-3-git-send-email-alex.aring@gmail.com>
+References: <1384444132-1427-1-git-send-email-alex.aring@gmail.com>
+Cc: linux-zigbee-devel@lists.sourceforge.net, werner@almesberger.net,
+	jukka.rissanen@linux.intel.com, dbaryshkov@gmail.com,
+	netdev@vger.kernel.org, Alexander Aring <alex.aring@gmail.com>
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30124 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753652Ab3KNPlP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Nov 2013 10:41:15 -0500
-Content-Disposition: inline
+Received: from mail-bk0-f48.google.com ([209.85.214.48]:62174 "EHLO
+	mail-bk0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754049Ab3KNPtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 10:49:05 -0500
+Received: by mail-bk0-f48.google.com with SMTP id v10so613094bkz.35
+        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 07:49:04 -0800 (PST)
+In-Reply-To: <1384444132-1427-1-git-send-email-alex.aring@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both sides of the comparison are the same, looks like a cut-and-paste error.
+In case ((ntohs(uh->source) & LOWPAN_NHC_UDP_8BIT_MASK) the order of
+uncompression is wrong. It's always first source port then destination
+port as second.
 
-Spotted by Coverity.
+See:
+http://tools.ietf.org/html/rfc6282#section-4.3.3
 
-Signed-off-by: Dave Jones <davej@fedoraproject.org>
+"Fields carried in-line (in part or in whole) appear in the same order
+as they do in the UDP header format"
 
-diff --git a/net/netfilter/ipset/ip_set_hash_netnet.c b/net/netfilter/ipset/ip_set_hash_netnet.c
-index 2bc2dec20b00..6226803fc490 100644
---- a/net/netfilter/ipset/ip_set_hash_netnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_netnet.c
-@@ -59,7 +59,7 @@ hash_netnet4_data_equal(const struct hash_netnet4_elem *ip1,
- 		     u32 *multi)
- {
- 	return ip1->ipcmp == ip2->ipcmp &&
--	       ip2->ccmp == ip2->ccmp;
-+	       ip1->ccmp == ip2->ccmp;
- }
- 
- static inline int
+Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+---
+ net/ieee802154/6lowpan.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 8633379..ad6755a 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -359,8 +359,8 @@ lowpan_compress_udp_header(u8 **hc06_ptr, struct sk_buff *skb)
+ 			LOWPAN_NHC_UDP_8BIT_PORT) {
+ 		pr_debug("UDP header: remove 8 bits of source\n");
+ 		**hc06_ptr = LOWPAN_NHC_UDP_CS_P_10;
+-		memcpy(*hc06_ptr + 1, &uh->dest, 2);
+-		*(*hc06_ptr + 3) = (u8)(uh->source - LOWPAN_NHC_UDP_8BIT_PORT);
++		*(*hc06_ptr + 1) = (u8)(uh->source - LOWPAN_NHC_UDP_8BIT_PORT);
++		memcpy(*hc06_ptr + 2, &uh->dest, 2);
+ 		*hc06_ptr += 4;
+ 	} else {
+ 		pr_debug("UDP header: can't compress\n");
+-- 
+1.8.4.2
