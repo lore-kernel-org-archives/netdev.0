@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3] bonding: add ip checks when store ip target
-Date: Thu, 14 Nov 2013 16:55:16 -0500 (EST)
-Message-ID: <20131114.165516.863952218326737474.davem@davemloft.net>
-References: <5284ADD2.2060004@huawei.com>
+Subject: Re: [PATCH net 1/3] sit: fix prefix length of ll and v4mapped
+ addresses
+Date: Thu, 14 Nov 2013 16:59:32 -0500 (EST)
+Message-ID: <20131114.165932.1323320586572793443.davem@davemloft.net>
+References: <1384433467-4780-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, andy@greyhouse.net, nikolay@redhat.com,
-	vfalico@redhat.com, netdev@vger.kernel.org
-To: dingtianhong@huawei.com
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53151 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53188 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755637Ab3KNVzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:55:20 -0500
-In-Reply-To: <5284ADD2.2060004@huawei.com>
+	with ESMTP id S1754990Ab3KNV7g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:59:36 -0500
+In-Reply-To: <1384433467-4780-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Thu, 14 Nov 2013 19:02:42 +0800
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Thu, 14 Nov 2013 13:51:05 +0100
 
->  	targets = bond->params.arp_targets;
-> -	newtarget = in_aton(buf + 1);
-> +	if (!in4_pton(buf + 1, -1, (u8 *)&newtarget, -1, NULL) ||
-> +			IS_IP_TARGET_UNUSABLE_ADDRESS(newtarget)) {
+> When the local IPv4 endpoint is wilcard (0.0.0.0), the prefix length is
+> correctly set, ie 64 if the address is a link local one or 96 if the address is
+> a v4 mapped one.
+> But when the local endpoint is specified, the prefix length is set to 128 for
+> both kind of address. This patch fix this wrong prefix length.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-This is not indented correctly.
-
-On the second line, the IS_IP_TARGET... should start at the very
-first column after the openning parenthesis on the previous line.
-
-If you are using only TAB characters to indent, rather than an
-appropriate mix of TAB and SPACE characters, you are doing it
-wrong.
-
-Thanks.
+Applied.
