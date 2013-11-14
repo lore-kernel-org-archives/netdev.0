@@ -1,95 +1,59 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] ip6tnl: fix use after free of fb_tnl_dev
-Date: Thu, 14 Nov 2013 15:47:03 +0100
-Message-ID: <1384440423-4275-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <20131113211430.1ad3bb7d@gandalf.local.home>
-Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	gregkh@linuxfoundation.org, williams@redhat.com,
-	linux-rt-users@vger.kernel.org, lclaudio@uudg.org,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Willem de Bruijn <willemb@google.com>
-To: rostedt@goodmis.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] sit: fix use after free of fb_tunnel_dev
+Date: Thu, 14 Nov 2013 06:47:19 -0800
+Message-ID: <1384440439.28716.0.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1384396058-26850-1-git-send-email-willemb@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, edumazet@google.com,
+	nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:45517 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753331Ab3KNOrQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 09:47:16 -0500
-In-Reply-To: <20131113211430.1ad3bb7d@gandalf.local.home>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:45345 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753555Ab3KNOrV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 09:47:21 -0500
+Received: by mail-pa0-f53.google.com with SMTP id kq14so2167904pab.26
+        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 06:47:20 -0800 (PST)
+In-Reply-To: <1384396058-26850-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bug has been introduced by commit bb8140947a24 ("ip6tnl: allow to use rtnl ops
-on fb tunnel").
+On Wed, 2013-11-13 at 21:27 -0500, Willem de Bruijn wrote:
+> Bug: The fallback device is created in sit_init_net and assumed to be
+> freed in sit_exit_net. First, it is dereferenced in that function, in
+> sit_destroy_tunnels:
+> 
+>         struct net *net = dev_net(sitn->fb_tunnel_dev);
+> 
+> Prior to this, rtnl_unlink_register has removed all devices that match
+> rtnl_link_ops == sit_link_ops.
+> 
+> Commit 205983c43700 added the line
+> 
+> +       sitn->fb_tunnel_dev->rtnl_link_ops = &sit_link_ops;
+> 
+> which cases the fallback device to match here and be freed before it
+> is last dereferenced.
+> 
+> Fix: This commit adds an explicit .delllink callback to sit_link_ops
+> that skips deallocation at rtnl_unlink_register for the fallback
+> device. This mechanism is comparable to the one in ip_tunnel.
+> 
+> It also modifies sit_destroy_tunnels and its only caller sit_exit_net
+> to avoid the offending dereference in the first place. That double
+> lookup is more complicated than required.
+> 
+> Test: The bug is only triggered when CONFIG_NET_NS is enabled. It
+> causes a GPF only when CONFIG_DEBUG_SLAB is enabled. Verified that
+> this bug exists at the mentioned commit, at davem-net HEAD and at
+> 3.11.y HEAD. Verified that it went away after applying this patch.
+> 
+> Fixes: 205983c43700 ("sit: allow to use rtnl ops on fb tunnel")
+> 
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> 
+> ---
 
-When ip6_tunnel.ko is unloaded, FB device is delete by rtnl_link_unregister()
-and then we try to use the pointer in ip6_tnl_destroy_tunnels().
-
-Let's add an handler for dellink, which will never remove the FB tunnel. With
-this patch it will no more be possible to remove it via 'ip link del ip6tnl0',
-but it's safer.
-
-The same fix was already proposed by Willem de Bruijn <willemb@google.com> for
-sit interfaces.
-
-CC: Willem de Bruijn <willemb@google.com>
-Reported-by: Steven Rostedt <rostedt@goodmis.org>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/ip6_tunnel.c | 18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 583b77e2f69b..c1e11b5d6ccc 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1635,6 +1635,15 @@ static int ip6_tnl_changelink(struct net_device *dev, struct nlattr *tb[],
- 	return ip6_tnl_update(t, &p);
- }
- 
-+static void ip6_tnl_dellink(struct net_device *dev, struct list_head *head)
-+{
-+	struct net *net = dev_net(dev);
-+	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
-+
-+	if (dev != ip6n->fb_tnl_dev)
-+		unregister_netdevice_queue(dev, head);
-+}
-+
- static size_t ip6_tnl_get_size(const struct net_device *dev)
- {
- 	return
-@@ -1699,6 +1708,7 @@ static struct rtnl_link_ops ip6_link_ops __read_mostly = {
- 	.validate	= ip6_tnl_validate,
- 	.newlink	= ip6_tnl_newlink,
- 	.changelink	= ip6_tnl_changelink,
-+	.dellink	= ip6_tnl_dellink,
- 	.get_size	= ip6_tnl_get_size,
- 	.fill_info	= ip6_tnl_fill_info,
- };
-@@ -1715,9 +1725,9 @@ static struct xfrm6_tunnel ip6ip6_handler __read_mostly = {
- 	.priority	=	1,
- };
- 
--static void __net_exit ip6_tnl_destroy_tunnels(struct ip6_tnl_net *ip6n)
-+static void __net_exit ip6_tnl_destroy_tunnels(struct net *net)
- {
--	struct net *net = dev_net(ip6n->fb_tnl_dev);
-+	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
- 	struct net_device *dev, *aux;
- 	int h;
- 	struct ip6_tnl *t;
-@@ -1785,10 +1795,8 @@ err_alloc_dev:
- 
- static void __net_exit ip6_tnl_exit_net(struct net *net)
- {
--	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
--
- 	rtnl_lock();
--	ip6_tnl_destroy_tunnels(ip6n);
-+	ip6_tnl_destroy_tunnels(net);
- 	rtnl_unlock();
- }
- 
--- 
-1.8.4.1
+Acked-by: Eric Dumazet <edumazet@google.com>
