@@ -1,54 +1,30 @@
-From: Theodore Ts'o <tytso-3s7WtUTddSA@public.gmane.org>
-Subject: Re: [PATCH] random: seed random_int_secret at least poorly at
- core_initcall time
-Date: Wed, 13 Nov 2013 21:54:48 -0500
-Message-ID: <20131114025448.GB31602@thunk.org>
-References: <cover.1384160397.git.dborkman@redhat.com>
- <2ea03f60bb65429cbe5d74a6d356fde3eefcf06c.1384160397.git.dborkman@redhat.com>
- <20131111134357.GC10104@thunk.org>
- <20131112000307.GB14929@order.stressinduktion.org>
- <20131112115350.GA14077@thunk.org>
- <20131112131627.GD14929@order.stressinduktion.org>
- <20131112134603.GE14929@order.stressinduktion.org>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net] sit: fix use after free of fb_tunnel_dev
+Date: Wed, 13 Nov 2013 21:58:17 -0500
+Message-ID: <CA+FuTSf=oEQQ9R5t7RQ0aJwvqUJ==nZuOR3fY=HySCRuVnxm1g@mail.gmail.com>
+References: <1384396058-26850-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	shemminger-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, fweimer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20131112134603.GE14929-5j1vdhnGyZutBveJljeh2VPnkB77EeZ12LY78lusg7I@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, nicolas.dichtel@6wind.com,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:34419 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895Ab3KNC6s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 21:58:48 -0500
+Received: by mail-qc0-f169.google.com with SMTP id u18so849053qcx.14
+        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 18:58:47 -0800 (PST)
+In-Reply-To: <1384396058-26850-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 12, 2013 at 02:46:03PM +0100, Hannes Frederic Sowa wrote:
-> > It is needed by fork to set up the stack canary. And this actually gets
-> > called before the secret is initialized.
-> 
-> Maybe we could use this for the time being and use the seeding method
-> of kaslr as soon as it hits the tree?
+> Please also queue this patch up for 3.11 stable.
 
-Hmm, from what I can tell even early_initcall() is going to be early
-enough.  The stack canary is set up by boot_init_stack_canary(), which
-is run very, very early in start_kerne() --- way before
-early_initcalls, or even before interrupts are enabled.  So adding
-random_int_secret_init_early() as a core_initcall is still too late.
+It is apparently also relevant for 3.10. That is the only other stable
+branch that has the mentioned patch. This fix does not apply cleanly
+there, however. Only the top half is required. Applying that does
+appear to resolve the problem.
 
-I wonder if we need to do something in common with what Kees has been
-considering for the kaslr code, since it's a similar issue --- we need
-random number way earlier than we can really afford to initialize
-/dev/random.
-
-						- Ted
-
-P.S.  Unless I'm missing something (and I hope I am), it would appear
-that the stack canary is going to easily predictable by an attacker on
-non-x86 platforms that don't have RDRAND.  Has someone tested whether
-or not the stack canary isn't constant across ARM or pre-Sandy Bridge
-x86 systems?
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+And I forgot to mention the actual test: `modprobe sit; rmmod sit`
