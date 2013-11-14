@@ -1,69 +1,96 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH 1/8] net: smc91x: Fix device tree based configuration
- so it's usable
-Date: Thu, 14 Nov 2013 11:03:24 +0000
-Message-ID: <20131114110324.GC16396@e106331-lin.cambridge.arm.com>
-References: <1384396537-3486-1-git-send-email-tony@atomide.com>
- <1384396537-3486-2-git-send-email-tony@atomide.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net v3] bonding: add ip checks when store ip target
+Date: Thu, 14 Nov 2013 19:02:42 +0800
+Message-ID: <5284ADD2.2060004@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	Nicolas Pitre <nico@fluxnic.net>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Tony Lindgren <tony@atomide.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1384396537-3486-2-git-send-email-tony@atomide.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:34983 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752974Ab3KNLFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 06:05:30 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 14, 2013 at 02:35:30AM +0000, Tony Lindgren wrote:
-> Commit 89ce376c6bdc (drivers/net: Use of_match_ptr() macro in smc91x.c)
-> added minimal device tree support to smc91x, but it's not working on
-> many platforms because of the lack of some key configuration bits.
-> 
-> Fix the issue by parsing the necessary configuration like the
-> smc911x driver is doing.
-> 
-> Cc: Nicolas Pitre <nico@fluxnic.net>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Cc: devicetree@vger.kernel.org
-> Signed-off-by: Tony Lindgren <tony@atomide.com>
-> ---
-> 
-> If this looks OK, I'd like to merge this as a fix via arm-soc tree
-> along with the other patches in this series as my later patches
-> depend on patches in this series.
-> 
-> ---
->  .../devicetree/bindings/net/smsc-lan91c111.txt     |  4 ++
->  drivers/net/ethernet/smsc/smc91x.c                 | 52 +++++++++++++++++-----
->  2 files changed, 46 insertions(+), 10 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/smsc-lan91c111.txt b/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
-> index 953049b..53d69e3 100644
-> --- a/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
-> +++ b/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
-> @@ -8,3 +8,7 @@ Required properties:
->  Optional properties:
->  - phy-device : phandle to Ethernet phy
->  - local-mac-address : Ethernet mac address to use
-> +- reg-io-width : Specify the size (in bytes) of the IO accesses that
-> +  should be performed on the device.  Valid value for SMSC LAN is
-> +  1, 2 or 4.  If it's omitted or invalid, the size would be 2.
+I met a Bug when I add ip target with the wrong ip address:
 
-In the driver the supported access sizes are not mutually exclusive.  It
-would be nice for the binding to have the same property.
+echo +500.500.500.500 > /sys/class/net/bond0/bonding/arp_ip_target
 
-> +- smsc,nowait : Setup for fast register access with no waits
+the wrong ip address will transfor to 245.245.245.244 and add
+to the ip target success, it is uncorrect, so I add checks to avoid
+adding wrong address.
 
-I'm confused by what this means. When would this be selected, and when
-wouldn't it be?
+The in4_pton() will set wrong ip address to 0.0.0.0, it will return by
+the next check and will not add to ip target.
 
-Thanks,
-Mark.
+Thanks for Veaceslav's opinion and make the code more simplify, more correctly.
+
+Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bond_sysfs.c | 19 ++++++-------------
+ drivers/net/bonding/bonding.h    |  3 +++
+ 2 files changed, 9 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 47749c9..147dd9c 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -611,15 +611,14 @@ static ssize_t bonding_store_arp_targets(struct device *d,
+ 		return restart_syscall();
+ 
+ 	targets = bond->params.arp_targets;
+-	newtarget = in_aton(buf + 1);
++	if (!in4_pton(buf + 1, -1, (u8 *)&newtarget, -1, NULL) ||
++			IS_IP_TARGET_UNUSABLE_ADDRESS(newtarget)) {
++		pr_err("%s: invalid ARP target %pI4 specified for addition\n",
++		       bond->dev->name, &newtarget);
++		goto out;
++	}
+ 	/* look for adds */
+ 	if (buf[0] == '+') {
+-		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
+-			pr_err("%s: invalid ARP target %pI4 specified for addition\n",
+-			       bond->dev->name, &newtarget);
+-			goto out;
+-		}
+-
+ 		if (bond_get_targets_ip(targets, newtarget) != -1) { /* dup */
+ 			pr_err("%s: ARP target %pI4 is already present\n",
+ 			       bond->dev->name, &newtarget);
+@@ -642,12 +641,6 @@ static ssize_t bonding_store_arp_targets(struct device *d,
+ 		targets[ind] = newtarget;
+ 		write_unlock_bh(&bond->lock);
+ 	} else if (buf[0] == '-')	{
+-		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
+-			pr_err("%s: invalid ARP target %pI4 specified for removal\n",
+-			       bond->dev->name, &newtarget);
+-			goto out;
+-		}
+-
+ 		ind = bond_get_targets_ip(targets, newtarget);
+ 		if (ind == -1) {
+ 			pr_err("%s: unable to remove nonexistent ARP target %pI4.\n",
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 046a605..253d5da 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -63,6 +63,9 @@
+ 		(((mode) == BOND_MODE_TLB) ||	\
+ 		 ((mode) == BOND_MODE_ALB))
+ 
++#define IS_IP_TARGET_UNUSABLE_ADDRESS(a)	\
++	((htonl(INADDR_BROADCAST) == a) ||	\
++	 ipv4_is_zeronet(a))
+ /*
+  * Less bad way to call ioctl from within the kernel; this needs to be
+  * done some other way to get the call out of interrupt context.
+-- 
+1.7.12
