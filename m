@@ -1,55 +1,95 @@
-From: Martin Topholm <mph@one.com>
-Subject: [PATCH 1/2] netfilter: synproxy: send mss option to backend
-Date: Thu, 14 Nov 2013 15:35:30 +0100
-Message-ID: <1384439731-16296-2-git-send-email-mph@one.com>
-References: <1384439731-16296-1-git-send-email-mph@one.com>
-Cc: brouer@redhat.com, kaber@trash.net,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net] ip6tnl: fix use after free of fb_tnl_dev
+Date: Thu, 14 Nov 2013 15:47:03 +0100
+Message-ID: <1384440423-4275-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20131113211430.1ad3bb7d@gandalf.local.home>
+Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	gregkh@linuxfoundation.org, williams@redhat.com,
+	linux-rt-users@vger.kernel.org, lclaudio@uudg.org,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Willem de Bruijn <willemb@google.com>
+To: rostedt@goodmis.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kontorsmtp2.one.com ([195.47.247.17]:41966 "EHLO
-	kontorsmtp2.one.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753746Ab3KNOnt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 09:43:49 -0500
-In-Reply-To: <1384439731-16296-1-git-send-email-mph@one.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:45517 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753331Ab3KNOrQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 09:47:16 -0500
+In-Reply-To: <20131113211430.1ad3bb7d@gandalf.local.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the synproxy_parse_options is called on the client ack the mss
-option will not be present. Consequently mss wont be included in the
-backend syn packet, which falls back to 536 bytes mss.
+Bug has been introduced by commit bb8140947a24 ("ip6tnl: allow to use rtnl ops
+on fb tunnel").
 
-Therefore XT_SYNPROXY_OPT_MSS is explicitly flagged when recovering mss
-value from cookie.
+When ip6_tunnel.ko is unloaded, FB device is delete by rtnl_link_unregister()
+and then we try to use the pointer in ip6_tnl_destroy_tunnels().
 
-Signed-off-by: Martin Topholm <mph@one.com>
-Reviewed-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Let's add an handler for dellink, which will never remove the FB tunnel. With
+this patch it will no more be possible to remove it via 'ip link del ip6tnl0',
+but it's safer.
+
+The same fix was already proposed by Willem de Bruijn <willemb@google.com> for
+sit interfaces.
+
+CC: Willem de Bruijn <willemb@google.com>
+Reported-by: Steven Rostedt <rostedt@goodmis.org>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/ipv4/netfilter/ipt_SYNPROXY.c  | 1 +
- net/ipv6/netfilter/ip6t_SYNPROXY.c | 1 +
- 2 files changed, 2 insertions(+)
+ net/ipv6/ip6_tunnel.c | 18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
-index 01cffea..f13bd91 100644
---- a/net/ipv4/netfilter/ipt_SYNPROXY.c
-+++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
-@@ -244,6 +244,7 @@ synproxy_recv_client_ack(const struct synproxy_net *snet,
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 583b77e2f69b..c1e11b5d6ccc 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1635,6 +1635,15 @@ static int ip6_tnl_changelink(struct net_device *dev, struct nlattr *tb[],
+ 	return ip6_tnl_update(t, &p);
+ }
  
- 	this_cpu_inc(snet->stats->cookie_valid);
- 	opts->mss = mss;
-+	opts->options |= XT_SYNPROXY_OPT_MSS;
++static void ip6_tnl_dellink(struct net_device *dev, struct list_head *head)
++{
++	struct net *net = dev_net(dev);
++	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
++
++	if (dev != ip6n->fb_tnl_dev)
++		unregister_netdevice_queue(dev, head);
++}
++
+ static size_t ip6_tnl_get_size(const struct net_device *dev)
+ {
+ 	return
+@@ -1699,6 +1708,7 @@ static struct rtnl_link_ops ip6_link_ops __read_mostly = {
+ 	.validate	= ip6_tnl_validate,
+ 	.newlink	= ip6_tnl_newlink,
+ 	.changelink	= ip6_tnl_changelink,
++	.dellink	= ip6_tnl_dellink,
+ 	.get_size	= ip6_tnl_get_size,
+ 	.fill_info	= ip6_tnl_fill_info,
+ };
+@@ -1715,9 +1725,9 @@ static struct xfrm6_tunnel ip6ip6_handler __read_mostly = {
+ 	.priority	=	1,
+ };
  
- 	if (opts->options & XT_SYNPROXY_OPT_TIMESTAMP)
- 		synproxy_check_timestamp_cookie(opts);
-diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-index bf9f612..f78f41a 100644
---- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
-+++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-@@ -259,6 +259,7 @@ synproxy_recv_client_ack(const struct synproxy_net *snet,
+-static void __net_exit ip6_tnl_destroy_tunnels(struct ip6_tnl_net *ip6n)
++static void __net_exit ip6_tnl_destroy_tunnels(struct net *net)
+ {
+-	struct net *net = dev_net(ip6n->fb_tnl_dev);
++	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
+ 	struct net_device *dev, *aux;
+ 	int h;
+ 	struct ip6_tnl *t;
+@@ -1785,10 +1795,8 @@ err_alloc_dev:
  
- 	this_cpu_inc(snet->stats->cookie_valid);
- 	opts->mss = mss;
-+	opts->options |= XT_SYNPROXY_OPT_MSS;
+ static void __net_exit ip6_tnl_exit_net(struct net *net)
+ {
+-	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
+-
+ 	rtnl_lock();
+-	ip6_tnl_destroy_tunnels(ip6n);
++	ip6_tnl_destroy_tunnels(net);
+ 	rtnl_unlock();
+ }
  
- 	if (opts->options & XT_SYNPROXY_OPT_TIMESTAMP)
- 		synproxy_check_timestamp_cookie(opts);
+-- 
+1.8.4.1
