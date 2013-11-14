@@ -1,54 +1,46 @@
-From: Jay Fenlason <fenlason@redhat.com>
-Subject: Re: [PATCH] rds: fix local ping DoS
-Date: Thu, 14 Nov 2013 15:47:59 -0500
-Message-ID: <20131114204758.GA22417@redhat.com>
-References: <1384391743-9342-1-git-send-email-johunt@akamai.com>
- <20131114.020355.1973894145326845195.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] net-tcp: fix panic in tcp_fastopen_cache_set()
+Date: Thu, 14 Nov 2013 21:53:23 +0100
+Message-ID: <1384462403.13941.41.camel@jlt4.sipsolutions.net>
+References: <20131113204543.GA26715@redhat.com>
+	 <1384382413.28458.132.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1384383646.28458.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1384456418.13941.40.camel@jlt4.sipsolutions.net>
+	 <1384457800.28716.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1384457922.28716.32.camel@edumazet-glaptop2.roam.corp.google.com>
+	 (sfid-20131114_203846_741927_1B40F181)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johunt@akamai.com, netdev@vger.kernel.org,
-	venkat.x.venkatsubra@oracle.com, linux-kernel@vger.kernel.org,
-	jjolly@suse.com, honli@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131114.020355.1973894145326845195.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dave Jones <davej@redhat.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.43.152]:50327 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755166Ab3KNUxf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 15:53:35 -0500
+In-Reply-To: <1384457922.28716.32.camel@edumazet-glaptop2.roam.corp.google.com> (sfid-20131114_203846_741927_1B40F181)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 14, 2013 at 02:03:55AM -0500, David Miller wrote:
-> From: Josh Hunt <johunt@akamai.com>
-> Date: Wed, 13 Nov 2013 17:15:43 -0800
-> 
-> > The rds_ib_xmit function in net/rds/ib_send.c in the Reliable Datagram Sockets
-> > (RDS) protocol implementation allows local users to cause a denial of service
-> > (BUG_ON and kernel panic) by establishing an RDS connection with the source
-> > IP address equal to the IPoIB interface's own IP address, as demonstrated by
-> > rds-ping.
-> > 
-> > A local unprivileged user could use this flaw to crash the system.
-> > 
-> > CVE-2012-2372
-> > 
-> > Reported-by: Honggang Li <honli@redhat.com>
-> > Signed-off-by: Josh Hunt <johunt@akamai.com>
-> 
-> I'm sorry I can't apply this.  This commit message needs to be much
-> less terse and explain things more.
-> 
-> First of all, why is the "off % RDS_FRAG_SIZE" important?
-> 
-> And, even more importantly, why is is OK to avoid this assertion just
-> because we're going over loopback?
-> 
-> Furthermore, why doesn't net/rds/iw_send.c:rds_iw_xmit() have the same
-> exact problem?  It makes the same exact assertion check.
-> 
-> I know this RDS code is a steaming pile of poo, but that doesn't mean
-> we just randomly adjust assertions to make crashes go away without
-> sufficient understanding of exactly what's going on.
+On Thu, 2013-11-14 at 11:38 -0800, Eric Dumazet wrote:
 
-And that is why rds should be moved to staging, where nobody will
-accidentally think that it is actually being maintained.
+> > > Doesn't that __sk_dst_get() have to go inside the rcu_read_lock()?
+> > > 
+> > > Then again, I guess we hold the socket. Still looks a bit weird to be
+> > > moving it out.
+> > 
+> > Yep, in fact this rcu_read_lock() is not needed. I'll send a v2.
+> 
+> I take it back.
+> 
+> the rcu_read_lock() protects the tcp_get_metrics(), not the
+> __sk_dst_get(sk)
+> 
+> So the patch is correct, unless you disagree of course ;)
 
-			-- JF
+Heh. I have no idea, it just seemed a little odd on first look given
+that __sk_dst_get() *can* actually use RCU protection. :)
+
+johannes
