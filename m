@@ -1,29 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/hsr: Fix possible leak in 'hsr_get_node_status()'
-Date: Thu, 14 Nov 2013 17:26:37 -0500 (EST)
-Message-ID: <20131114.172637.288809112911669556.davem@davemloft.net>
-References: <1384456378-29970-1-git-send-email-geyslan@gmail.com>
+Subject: Re: [PATCH] ipv4: fix possible seqlock deadlock
+Date: Thu, 14 Nov 2013 17:32:47 -0500 (EST)
+Message-ID: <20131114.173247.1356465090660629003.davem@davemloft.net>
+References: <20131114191621.GB9630@redhat.com>
+	<1384458103.28716.33.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1384465074.28716.41.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arvid.brodin@xdin.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: geyslan@gmail.com
+Cc: davej@redhat.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53493 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53534 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754824Ab3KNW0k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 17:26:40 -0500
-In-Reply-To: <1384456378-29970-1-git-send-email-geyslan@gmail.com>
+	with ESMTP id S1754375Ab3KNWct (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 17:32:49 -0500
+In-Reply-To: <1384465074.28716.41.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Geyslan G. Bem" <geyslan@gmail.com>
-Date: Thu, 14 Nov 2013 16:12:54 -0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 14 Nov 2013 13:37:54 -0800
 
-> If 'hsr_get_node_data()' returns error, going directly to 'fail' label
-> doesn't free the memory pointed by 'skb_out'.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Geyslan G. Bem <geyslan@gmail.com>
+> ip4_datagram_connect() being called from process context,
+> it should use IP_INC_STATS() instead of IP_INC_STATS_BH()
+> otherwise we can deadlock on 32bit arches, or get corruptions of
+> SNMP counters.
+> 
+> Fixes: 584bdf8cbdf6 ("[IPV4]: Fix "ipOutNoRoutes" counter error for TCP and UDP")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dave Jones <davej@redhat.com>
 
-Looks good, applied, thanks!
+Applied and queued up for -stable, thanks!
