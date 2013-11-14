@@ -1,40 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] connector: improved unaligned access error fix
-Date: Thu, 14 Nov 2013 17:20:23 -0500 (EST)
-Message-ID: <20131114.172023.1565829138219271745.davem@davemloft.net>
-References: <201311141743.rAEHhuEV004998@farm-0012.internal.tilera.com>
+Subject: Re: [PATCH] pkt_sched: fq: fix pacing for small frames
+Date: Thu, 14 Nov 2013 17:22:20 -0500 (EST)
+Message-ID: <20131114.172220.940454781221829007.davem@davemloft.net>
+References: <1384447843.28716.15.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1384455496.28716.27.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zbr@ioremap.net, erikj@sgi.com, akpm@osdl.org, matthltc@us.ibm.com,
-	zaitcev@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: cmetcalf@tilera.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201311141743.rAEHhuEV004998@farm-0012.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, maze@google.com, willemb@google.com,
+	ycheng@google.com, ncardwell@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53468 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758107Ab3KNWWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 17:22:23 -0500
+In-Reply-To: <1384455496.28716.27.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chris Metcalf <cmetcalf@tilera.com>
-Date: Thu, 14 Nov 2013 12:09:21 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 14 Nov 2013 10:58:16 -0800
 
-> In af3e095a1fb4, Erik Jacobsen fixed one type of unaligned access
-> bug for ia64 by converting a 64-bit write to use put_unaligned().
-> Unfortunately, since gcc will convert a short memset() to a series
-> of appropriately-aligned stores, the problem is now visible again
-> on tilegx, where the memset that zeros out proc_event is converted
-> to three 64-bit stores, causing an unaligned access panic.
-> 
-> A better fix for the original problem is to ensure that proc_event
-> is aligned to 8 bytes here.  We can do that relatively easily by
-> arranging to start the struct cn_msg aligned to 8 bytes and then
-> offset by 4 bytes.  Doing so means that the immediately following
-> proc_event structure is then correctly aligned to 8 bytes.
-> 
-> The result is that the memset() stores are now aligned, and as an
-> added benefit, we can remove the put_unaligned() calls in the code.
-> 
-> Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+> @@ -655,9 +664,6 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
+>  	if (tb[TCA_FQ_INITIAL_QUANTUM])
+>  		q->initial_quantum = nla_get_u32(tb[TCA_FQ_INITIAL_QUANTUM]);
+>  
+> -	if (tb[TCA_FQ_FLOW_DEFAULT_RATE])
+> -		q->flow_default_rate = nla_get_u32(tb[TCA_FQ_FLOW_DEFAULT_RATE]);
+> -
+>  	if (tb[TCA_FQ_FLOW_MAX_RATE])
+>  		q->flow_max_rate = nla_get_u32(tb[TCA_FQ_FLOW_MAX_RATE]);
+>  
 
-This looks fine to me, applied and queued up for -stable, thanks
-Chris.
+I think it's at best confusing to suddenly stop ignoring a configuration
+parameter the user is giving us.
+
+Can you at least ratelimit warn if the parameter is specified so the user
+has some chance to figure out what is happening?
+
+Thanks.
