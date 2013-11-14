@@ -1,49 +1,88 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv4: fix possible seqlock deadlock
-Date: Thu, 14 Nov 2013 13:37:54 -0800
-Message-ID: <1384465074.28716.41.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131114191621.GB9630@redhat.com>
-	 <1384458103.28716.33.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: Fw: [Bug 64981] New: pulseaudio over network desyncs
+Date: Thu, 14 Nov 2013 13:40:30 -0800
+Message-ID: <1384465230.28716.43.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131114125854.337ca105@samsung-9>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>, David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, tjakobi@math.uni-bielefeld.de
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f177.google.com ([209.85.161.177]:45412 "EHLO
-	mail-gg0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758029Ab3KNViB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:38:01 -0500
-Received: by mail-gg0-f177.google.com with SMTP id f4so1075566ggn.8
-        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 13:37:59 -0800 (PST)
-In-Reply-To: <1384458103.28716.33.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-gg0-f176.google.com ([209.85.161.176]:45618 "EHLO
+	mail-gg0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757255Ab3KNVkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:40:33 -0500
+Received: by mail-gg0-f176.google.com with SMTP id u2so457260ggn.35
+        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 13:40:33 -0800 (PST)
+In-Reply-To: <20131114125854.337ca105@samsung-9>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, 2013-11-14 at 12:58 -0800, Stephen Hemminger wrote:
+> 
+> Begin forwarded message:
+> 
+> Date: Thu, 14 Nov 2013 12:13:46 -0800
+> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+> Subject: [Bug 64981] New: pulseaudio over network desyncs
+> 
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=64981
+> 
+>             Bug ID: 64981
+>            Summary: pulseaudio over network desyncs
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 3.10.18
+>           Hardware: x86-64
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>           Assignee: shemminger@linux-foundation.org
+>           Reporter: liquid.acid@gmx.net
+>         Regression: Yes
+> 
+> Hello,
+> 
+> I updated my dedicated audio server to 3.10.18 at the beginning of the week.
+> Yesterday I noticed this issue:
+> 
+> When playing back a video/audio file with mpv (mplayer2 also works), where the
+> audio is streamed from my local machine to the audio server via pulseaudio, the
+> playback desyncs after 5~10 seconds.
+> 
+> The video playback goes into slow-mo, while the audio plays back fine from the
+> DAC connected to the audio server. The maintainer of mpv explained that the
+> application relies on the pulseaudio output module returning appropriate
+> feedback about the samples played back.
+> 
+> Which in turns requires the audio server to reply properly. Going back to
+> 3.10.17 solves the issue, so I bisected and got this commit:
+> 
+> tcp: TSQ can use a dynamic limit
+> https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=0ae5f47eff2e543c3b94eec51c740f38a5071432
+> 
+> What is interesting, that I only get these 5~10 seconds of proper playback
+> after boot of the system. If I don't reboot, all subsequent playback attempts
+> result in an immediate desync.
+> 
+> I also double-checked that this is related to network. I setup an identical PA
+> server here on my laptop (just with a different audio output device), updated
+> the kernel to this specific commit and used another machine to play back some
+> content. Results in the same issue, so I highly doubt this is related to audio
+> components.
+> 
+> Greets,
+> Tobias
+> 
 
-ip4_datagram_connect() being called from process context,
-it should use IP_INC_STATS() instead of IP_INC_STATS_BH()
-otherwise we can deadlock on 32bit arches, or get corruptions of
-SNMP counters.
+Should be fixed by : 
 
-Fixes: 584bdf8cbdf6 ("[IPV4]: Fix "ipOutNoRoutes" counter error for TCP and UDP")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dave Jones <davej@redhat.com>
----
- net/ipv4/datagram.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=98e09386c0ef4dfd48af7ba60ff908f0d525cdee
 
-diff --git a/net/ipv4/datagram.c b/net/ipv4/datagram.c
-index b28e863fe0a7..19e36376d2a0 100644
---- a/net/ipv4/datagram.c
-+++ b/net/ipv4/datagram.c
-@@ -57,7 +57,7 @@ int ip4_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (IS_ERR(rt)) {
- 		err = PTR_ERR(rt);
- 		if (err == -ENETUNREACH)
--			IP_INC_STATS_BH(sock_net(sk), IPSTATS_MIB_OUTNOROUTES);
-+			IP_INC_STATS(sock_net(sk), IPSTATS_MIB_OUTNOROUTES);
- 		goto out;
- 	}
- 
+Thanks !
