@@ -1,34 +1,25 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [PATCH] ipv4: fix possible seqlock deadlock
-Date: Thu, 14 Nov 2013 16:44:02 -0500
-Message-ID: <20131114214402.GA23872@redhat.com>
-References: <20131114191621.GB9630@redhat.com>
- <1384458103.28716.33.camel@edumazet-glaptop2.roam.corp.google.com>
- <1384465074.28716.41.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] isdnloop: use strlcpy() instead of strcpy()
+Date: Thu, 14 Nov 2013 16:50:54 -0500 (EST)
+Message-ID: <20131114.165054.356251797193140551.davem@davemloft.net>
+References: <20131114082110.GD8150@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60576 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757150Ab3KNVoL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Nov 2013 16:44:11 -0500
-Content-Disposition: inline
-In-Reply-To: <1384465074.28716.41.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, isdn@linux-pingi.de,
+	kernel-janitors@vger.kernel.org, isdn4linux@listserv.isdn4linux.de
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20131114082110.GD8150@elgon.mountain>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 14, 2013 at 01:37:54PM -0800, Eric Dumazet wrote:
- > From: Eric Dumazet <edumazet@google.com>
- > 
- > ip4_datagram_connect() being called from process context,
- > it should use IP_INC_STATS() instead of IP_INC_STATS_BH()
- > otherwise we can deadlock on 32bit arches, or get corruptions of
- > SNMP counters.
- > 
- > Fixes: 584bdf8cbdf6 ("[IPV4]: Fix "ipOutNoRoutes" counter error for TCP and UDP")
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 14 Nov 2013 11:21:10 +0300
 
-whoa, 2007. Any idea why I only just started hitting this ?
+> These strings come from a copy_from_user() and there is no way to be
+> sure they are NUL terminated.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-	Dave
+Applied and queued up for -stable, thanks Dan.
