@@ -1,36 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-tcp: fix panic in tcp_fastopen_cache_set()
-Date: Thu, 14 Nov 2013 16:33:58 -0500 (EST)
-Message-ID: <20131114.163358.326663574619567783.davem@davemloft.net>
-References: <20131113204543.GA26715@redhat.com>
-	<1384382413.28458.132.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1384383646.28458.138.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH] net: sctp: bug-fixing: retran_path not set properly
+ after transports recovering (v3)
+Date: Thu, 14 Nov 2013 16:36:06 -0500 (EST)
+Message-ID: <20131114.163606.2234502533328622215.davem@davemloft.net>
+References: <1384387106-8105-1-git-send-email-changxiangzhong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, netdev@vger.kernel.org, ycheng@google.com
-To: eric.dumazet@gmail.com
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: changxiangzhong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52980 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52987 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757124Ab3KNVeB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:34:01 -0500
-In-Reply-To: <1384383646.28458.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1756160Ab3KNVgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:36:08 -0500
+In-Reply-To: <1384387106-8105-1-git-send-email-changxiangzhong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 13 Nov 2013 15:00:46 -0800
+From: Chang Xiangzhong <changxiangzhong@gmail.com>
+Date: Thu, 14 Nov 2013 00:58:26 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> When a transport recovers due to the new coming sack, SCTP should
+> iterate all of its transport_list to locate the __two__ most recently used
+> transport and set to active_path and retran_path respectively. The exising
+> code does not find the two properly - In case of the following list:
 > 
-> We had some reports of crashes using TCP fastopen, and Dave Jones
-> gave a nice stack trace pointing to the error.
+> [most-recent] -> [2nd-most-recent] -> ...
 > 
-> Issue is that tcp_get_metrics() should not be called with a NULL dst
+> Both active_path and retran_path would be set to the 1st element.
 > 
-> Fixes: 1fe4c481ba637 ("net-tcp: Fast Open client - cookie cache")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dave Jones <davej@redhat.com>
+> The bug happens when:
+> 1) multi-homing
+> 2) failure/partial_failure transport recovers
+> Both active_path and retran_path would be set to the same most-recent one, in
+> other words, retran_path would not take its role - an end user might not even
+> notice this issue.
+> 
+> Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
 
-Applied and queued up for -stable, thanks!
+Applied, thanks.
