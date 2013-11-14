@@ -1,81 +1,42 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: Re: [PATCH net 1/6] tg3: Validate hwtstamp_config completely
- before applying it
-Date: Wed, 13 Nov 2013 16:55:59 -0800
-Message-ID: <52841F9F.2040907@broadcom.com>
-References: <1384389542.29151.5.camel@bwh-desktop.uk.level5networks.com>
- <1384389656.29151.7.camel@bwh-desktop.uk.level5networks.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Richard Cochran" <richardcochran@gmail.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "Ben Hutchings" <bhutchings@solarflare.com>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4417 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751544Ab3KNA4i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Nov 2013 19:56:38 -0500
-In-Reply-To: <1384389656.29151.7.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josh Hunt <johunt@akamai.com>
+Subject: [PATCH] rds: fix local ping DoS
+Date: Wed, 13 Nov 2013 17:15:43 -0800
+Message-ID: <1384391743-9342-1-git-send-email-johunt@akamai.com>
+Cc: linux-kernel@vger.kernel.org, jjolly@suse.com, fenlason@redhat.com,
+	honli@redhat.com, Josh Hunt <johunt@akamai.com>
+To: netdev@vger.kernel.org, venkat.x.venkatsubra@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The rds_ib_xmit function in net/rds/ib_send.c in the Reliable Datagram Sockets
+(RDS) protocol implementation allows local users to cause a denial of service
+(BUG_ON and kernel panic) by establishing an RDS connection with the source
+IP address equal to the IPoIB interface's own IP address, as demonstrated by
+rds-ping.
 
+A local unprivileged user could use this flaw to crash the system.
 
-On 11/13/2013 04:40 PM, Ben Hutchings wrote:
-> tg3_hwtstamp_ioctl() should validate all fields of hwtstamp_config
-> before making any changes.  Currently it sets the TX configuration
-> before validating the rx_filter field.
->
-> Compile-tested only.
->
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
->   drivers/net/ethernet/broadcom/tg3.c | 16 +++++++---------
->   1 file changed, 7 insertions(+), 9 deletions(-)
->
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> index 12d961c4ebca..d3a700f86f1a 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-> @@ -13598,16 +13598,9 @@ static int tg3_hwtstamp_ioctl(struct net_device *dev,
->   	if (stmpconf.flags)
->   		return -EINVAL;
->
-> -	switch (stmpconf.tx_type) {
-> -	case HWTSTAMP_TX_ON:
-> -		tg3_flag_set(tp, TX_TSTAMP_EN);
-> -		break;
-> -	case HWTSTAMP_TX_OFF:
-> -		tg3_flag_clear(tp, TX_TSTAMP_EN);
-> -		break;
-> -	default:
-> +	if (stmpconf.tx_type != HWTSTAMP_TX_ON &&
-> +	    stmpconf.tx_type != HWTSTAMP_TX_OFF)
->   		return -ERANGE;
-> -	}
->
->   	switch (stmpconf.rx_filter) {
->   	case HWTSTAMP_FILTER_NONE:
-> @@ -13669,6 +13662,11 @@ static int tg3_hwtstamp_ioctl(struct net_device *dev,
->   		tw32(TG3_RX_PTP_CTL,
->   		     tp->rxptpctl | TG3_RX_PTP_CTL_HWTS_INTERLOCK);
->
-> +	if (stmpconf.tx_type == HWTSTAMP_TX_ON)
-> +		tg3_flag_set(tp, TX_TSTAMP_EN);
-> +	else
-> +		tg3_flag_clear(tp, TX_TSTAMP_EN);
-> +
->   	return copy_to_user(ifr->ifr_data, &stmpconf, sizeof(stmpconf)) ?
->   		-EFAULT : 0;
->   }
->
->
+CVE-2012-2372
 
-Thanks Ben.
+Reported-by: Honggang Li <honli@redhat.com>
+Signed-off-by: Josh Hunt <johunt@akamai.com>
+---
+ net/rds/ib_send.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Acked-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
+index e590949..7920c85 100644
+--- a/net/rds/ib_send.c
++++ b/net/rds/ib_send.c
+@@ -544,7 +544,7 @@ int rds_ib_xmit(struct rds_connection *conn, struct rds_message *rm,
+ 	int flow_controlled = 0;
+ 	int nr_sig = 0;
+ 
+-	BUG_ON(off % RDS_FRAG_SIZE);
++	BUG_ON(!conn->c_loopback && off % RDS_FRAG_SIZE);
+ 	BUG_ON(hdr_off != 0 && hdr_off != sizeof(struct rds_header));
+ 
+ 	/* Do not send cong updates to IB loopback */
+-- 
+1.7.0.4
