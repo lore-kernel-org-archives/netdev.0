@@ -1,50 +1,71 @@
-From: Fugang Duan <fugang.duan@freescale.com>
-Subject: RE: [PATCH v2 1/1] net:fec: fix WARNING caused by lack of calls to
- dma_mapping_error()
-Date: Thu, 14 Nov 2013 01:47:16 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE01815BB1@039-SN2MPN1-023.039d.mgd.msft.net>
-References: <1384311846-4485-1-git-send-email-B38611@freescale.com>
- <1384378020.29151.3.camel@bwh-desktop.uk.level5networks.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net] bonding: fix two race conditions in bond_store_updelay/downdelay
+Date: Thu, 14 Nov 2013 09:50:20 +0800
+Message-ID: <52842C5C.6080505@huawei.com>
+References: <1384358866-15157-1-git-send-email-nikolay@redhat.com> <1384362214.28458.117.camel@edumazet-glaptop2.roam.corp.google.com> <5283B19A.9050302@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Frank Li <Frank.Li@freescale.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>
+To: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:30463
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751170Ab3KNBrU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 20:47:20 -0500
-In-Reply-To: <1384378020.29151.3.camel@bwh-desktop.uk.level5networks.com>
-Content-Language: en-US
+Received: from szxga02-in.huawei.com ([119.145.14.65]:6706 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751132Ab3KNBvD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 20:51:03 -0500
+In-Reply-To: <5283B19A.9050302@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQpE
-YXRhOiBUaHVyc2RheSwgTm92ZW1iZXIgMTQsIDIwMTMgNToyNyBBTQ0KDQo+VG86IER1YW4gRnVn
-YW5nLUIzODYxMQ0KPkNjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwu
-b3JnOyBMaSBGcmFuay1CMjA1OTYNCj5TdWJqZWN0OiBSZTogW1BBVENIIHYyIDEvMV0gbmV0OmZl
-YzogZml4IFdBUk5JTkcgY2F1c2VkIGJ5IGxhY2sgb2YgY2FsbHMgdG8NCj5kbWFfbWFwcGluZ19l
-cnJvcigpDQo+DQo+T24gV2VkLCAyMDEzLTExLTEzIGF0IDExOjA0ICswODAwLCBGdWdhbmcgRHVh
-biB3cm90ZToNCj5bLi4uXQ0KPj4gPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09DQo+PiBWMjogYWRkIG5ldF9yYXRlbGltaXQoKSB0byBsaW1pdCBtYXAgZXJyIG1l
-c3NhZ2UuDQo+PiAgICAgdXNlIGRtYV9zeW5jX3NpbmdsZV9mb3JfY3B1KCkgaW5zdGVhZCBvZiBk
-bWFfbWFwX3NpbmdsZSgpLg0KPj4gICAgIGZpeCB0aGUgaXNzdWUgdGhhdCBwYXNzIERNQSBhZGRy
-ZXNzZXMgdG8gX192YSgpIHRvIGdldCB2aXJ0dXJlIGFkZHJlc3MuDQo+PiBWMTogaW5pdGlhbCBz
-ZW5kDQo+PiA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0NCj4+
-DQo+PiBTaWduZWQtb2ZmLWJ5OiBGdWdhbmcgRHVhbiA8QjM4NjExQGZyZWVzY2FsZS5jb20+DQo+
-PiBTaWduZWQtb2ZmLWJ5OiBCZW4gSHV0Y2hpbmdzIDxiZW5AZGVjYWRlbnQub3JnLnVrPg0KPlsu
-Li5dDQo+DQo+Tm8gdGhhdCdzIG5vdCBob3cgaXQgd29ya3MuICBJZiBJIHdlcmUgdG8gdGhvcm91
-Z2hseSByZXZpZXcgdGhpcyAoYnV0IEkgaGF2ZW4ndCwNCj5hbmQgSSBkb24ndCBoYXZlIHRpbWUg
-dG8pIHRoZW4gSSBtaWdodCBzYXkgJ1Jldmlld2VkLWJ5OiBCZW4gSHV0Y2hpbmdzJyB3aGljaA0K
-PnlvdSBjb3VsZCB0aGVuIGFkZCB0byB0aGUgcGF0Y2ggaWYgcmUtcG9zdGluZyBpdC4NCj5TaWdu
-ZWQtb2ZmLWJ5IG1lYW5zIHNvbWV0aGluZyBkaWZmZXJlbnQgYW5kIHlvdSBtdXN0IG5ldmVyIGFk
-ZCBpdCBvbiBiZWhhbGYgb2YNCj5zb21lb25lIGVsc2UuDQo+DQo+QmVuLg0KDQpZb3UgaGFkIHN1
-cHBvcnRlZCBtYW55IGlkZWFzIGZvciB0aGUgcGF0Y2ggVjIsIHNvIGFkZCB5b3UgdG8gU2lnbmVk
-LW9mZi4NCk9rLCBJIGNoYW5nZSBpdCB0byAiUmV2ZWlld2VkLWJ5IiBhbmQgcmVzZW5kIHRoZSBw
-YXRjaC4NCg0KVGhhbmtzLA0KQW5keQ0KPg0KPi0tDQo+QmVuIEh1dGNoaW5ncywgU3RhZmYgRW5n
-aW5lZXIsIFNvbGFyZmxhcmUgTm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsgdGhhdCdzDQo+
-dGhlIG1hcmtldGluZyBkZXBhcnRtZW50J3Mgam9iLg0KPlRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0
-aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQo=
+On 2013/11/14 1:06, Nikolay Aleksandrov wrote:
+> On 11/13/2013 06:03 PM, Eric Dumazet wrote:
+>> On Wed, 2013-11-13 at 17:07 +0100, Nikolay Aleksandrov wrote:
+>>> This patch fixes two race conditions between bond_store_updelay/downdelay
+>>> and bond_store_miimon which could lead to division by zero as miimon can
+>>> be set to 0 while either updelay/downdelay are being set and thus miss the
+>>> zero check in the beginning, the zero div happens because updelay/downdelay
+>>> are stored as new_value / bond->params.miimon. Use rtnl to synchronize with
+>>> miimon setting.
+>>
+>> It seems a bit heavy duty to take rtnl for this.
+>>
+>> Using ACCESS_ONCE() in bonding_store_updelay()/bonding_store_downdelay()
+>> should be enough ?
+>>
+>> int miimon = ACCESS_ONCE(bond->params.miimon);
+>>
+>>
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+> Hi Eric,
+> I thought about this version too, but downdelay/updelay can be changed in other
+> places (e.g., store_miimon) and the resulting downdelay/updelay value might not
+> be the right one.
+> Correct me if I'm wrong, but this is what I have in mind (miimon = 100, updelay
+> = 200):
+> set miimon to 300 and concurrently set updelay to 400, we might endup leaving
+> updelay to 400 because the old value of miimon is used in the calculation in
+> store_updelay even though when changing miimon updelay/downdelay get adjusted,
+> they might get adjusted by store_updelay/downdelay to a wrong value afterwards.
+> 
+>  Nik
+> 
+> 
+agree, set miimon and set updelay may conflict.
+
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
