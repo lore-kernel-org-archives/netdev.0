@@ -1,36 +1,36 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net 3/6] pch_gbe: Validate hwtstamp_config completely
- before applying it
-Date: Thu, 14 Nov 2013 08:27:45 +0100
-Message-ID: <20131114072743.GB4908@netboy>
-References: <1384389542.29151.5.camel@bwh-desktop.uk.level5networks.com>
- <1384389770.29151.9.camel@bwh-desktop.uk.level5networks.com>
- <20131114072011.GA4908@netboy>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bonding: don't permit to use ARP monitoring in
+ 802.3ad mode
+Date: Thu, 14 Nov 2013 02:29:41 -0500 (EST)
+Message-ID: <20131114.022941.611560061215223767.davem@davemloft.net>
+References: <1384267060-10851-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f178.google.com ([74.125.82.178]:47652 "EHLO
-	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750916Ab3KNH1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 02:27:55 -0500
-Received: by mail-we0-f178.google.com with SMTP id u57so982810wes.37
-        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 23:27:54 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20131114072011.GA4908@netboy>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48083 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751087Ab3KNH3m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 02:29:42 -0500
+In-Reply-To: <1384267060-10851-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 14, 2013 at 08:21:37AM +0100, Richard Cochran wrote:
-> On Thu, Nov 14, 2013 at 12:42:50AM +0000, Ben Hutchings wrote:
-> >  
-> > +	adapter->hwts_tx_en = cfg.tx_type == HWTSTAMP_TX_ON;
-> > +
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Tue, 12 Nov 2013 15:37:40 +0100
+
+> Currently the ARP monitoring is not supported with 802.3ad, and it's
+> prohibited to use it via the module params.
 > 
-> But now there is no way to turn transmit time stamping off?
+> However we still can set it afterwards via sysfs, cause we only check for
+> *LB modes there.
+> 
+> To fix this - add a check for 802.3ad mode in bonding_store_arp_interval.
+> 
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 
-Sorry, overlooked that '==' operator. Tricky.
-
-Thanks,
-Richard
+Applied and queued up for -stable, thanks.
