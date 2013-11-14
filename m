@@ -1,319 +1,189 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [RFC 8/7] genetlink: make all genl_ops users const
-Date: Thu, 14 Nov 2013 14:41:00 +0100
-Message-ID: <1384436460.13941.20.camel@jlt4.sipsolutions.net>
-References: <1384420486-8713-1-git-send-email-johannes@sipsolutions.net>
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Subject: RE: [PATCH] rds: Error on offset mismatch if not loopback
+Date: Thu, 14 Nov 2013 05:43:28 -0800 (PST)
+Message-ID: <41aa904c-6707-4c74-ae72-96e401c68e13@default>
+References: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
+	<20120922.152524.1294103117346567757.davem@davemloft.net>
+	<CAKA=qzac9=UhLF_Z4FnnH+sR7xvkDux4oayC6dPYe=hMLsDxRg@mail.gmail.com>
+	<CAKA=qzYpd7Wo9XdU16TEhnbm5dPJjOZMhAY1jA7N+YFBWz5pzw@mail.gmail.com>
+	<23964ca1-e7cb-41c3-9da2-5bc1b2b0c014@default>
+ <CAKA=qzbK1YX5OrVQbwM=1xM6Si=GKv0UDofULkOC7RNo08zZPw@mail.gmail.com>
+ <52841F95.7040204@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, jjolly@suse.com,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Honggang LI <honli@redhat.com>, Josh Hunt <joshhunt00@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:48584 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753834Ab3KNNlF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 08:41:05 -0500
-Received: by sipsolutions.net with esmtpsa (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:256)
-	(Exim 4.80)
-	(envelope-from <johannes@sipsolutions.net>)
-	id 1VgxAN-0005eK-9x
-	for netdev@vger.kernel.org; Thu, 14 Nov 2013 14:41:03 +0100
-In-Reply-To: <1384420486-8713-1-git-send-email-johannes@sipsolutions.net>
+Received: from aserp1040.oracle.com ([141.146.126.69]:17751 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753716Ab3KNNni convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 08:43:38 -0500
+In-Reply-To: <52841F95.7040204@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
 
-Now that genl_ops are no longer modified in place when
-registering, they can be made const. This patch was done
-mostly with spatch:
 
-@@
-identifier ops;
-@@
-+const
- struct genl_ops ops[] = {
- ...
- };
+-----Original Message-----
+From: Honggang LI [mailto:honli@redhat.com] 
+Sent: Wednesday, November 13, 2013 6:56 PM
+To: Josh Hunt; Venkat Venkatsubra
+Cc: David Miller; jjolly@suse.com; LKML; netdev@vger.kernel.org
+Subject: Re: [PATCH] rds: Error on offset mismatch if not loopback
 
-(except the struct thing in net/openvswitch/datapath.c)
+On 11/14/2013 01:40 AM, Josh Hunt wrote:
+> On Wed, Nov 13, 2013 at 9:16 AM, Venkat Venkatsubra 
+> <venkat.x.venkatsubra@oracle.com> wrote:
+>>
+>> -----Original Message-----
+>> From: Josh Hunt [mailto:joshhunt00@gmail.com]
+>> Sent: Tuesday, November 12, 2013 10:25 PM
+>> To: David Miller
+>> Cc: jjolly@suse.com; LKML; Venkat Venkatsubra; netdev@vger.kernel.org
+>> Subject: Re: [PATCH] rds: Error on offset mismatch if not loopback
+>>
+>> On Tue, Nov 12, 2013 at 10:22 PM, Josh Hunt <joshhunt00@gmail.com> wrote:
+>>> On Sat, Sep 22, 2012 at 2:25 PM, David Miller <davem@davemloft.net> wrote:
+>>>> From: John Jolly <jjolly@suse.com>
+>>>> Date: Fri, 21 Sep 2012 15:32:40 -0600
+>>>>
+>>>>> Attempting an rds connection from the IP address of an IPoIB 
+>>>>> interface to itself causes a kernel panic due to a BUG_ON() being triggered.
+>>>>> Making the test less strict allows rds-ping to work without 
+>>>>> crashing the machine.
+>>>>>
+>>>>> A local unprivileged user could use this flaw to crash the system.
+>>>>>
+>>>>> Signed-off-by: John Jolly <jjolly@suse.com>
+>>>> Besides the questions being asked of you by Venkat Venkatsubra, 
+>>>> this patch has another issue.
+>>>>
+>>>> It has been completely corrupted by your email client, it has 
+>>>> turned all TAB characters into spaces, making the patch useless.
+>>>>
+>>>> Please learn how to send a patch unmolested in the body of your 
+>>>> email.  Test it by emailing the patch to yourself, and verifying 
+>>>> that you can in fact apply the patch you receive in that email.
+>>>> Then, and only then, should you consider making a new submission of 
+>>>> this patch.
+>>>>
+>>>> Use Documentation/email-clients.txt for guidance.
+>>>> --
+>>>> To unsubscribe from this list: send the line "unsubscribe 
+>>>> linux-kernel" in the body of a message to majordomo@vger.kernel.org 
+>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>> Please read the FAQ at  http://www.tux.org/lkml/
+>>>
+>>> I think this issue was lost in the shuffle. It appears that redhat, 
+>>> ubuntu, and oracle are maintaining local patches to resolve this:
+>>>
+>>> https://oss.oracle.com/git/?p=redpatch.git;a=commit;h=c7b6a0a1d8d636
+>>> 85
+>>> 2be130fa15fa8be10d4704e8
+>>> https://bugzilla.redhat.com/show_bug.cgi?id=822754
+>>> http://ubuntu.5.x6.nabble.com/CVE-2012-2372-RDS-local-ping-DOS-td498
+>>> 53
+>>> 88.html
+>>>
+>>> Given that Oracle has applied it I'll make the assumption that 
+>>> Venkat's question was answered at some point.
+>>>
+>>> David - I can resubmit the patch with the proper signed-off-by and 
+>>> formatting if you are willing to apply it unless John wants to try 
+>>> again. I think it's time this got upstream.
+>>>
+>>> --
+>>> Josh
+>> Ugh.. hopefully resending with all the html crap removed...
+>>
+>> --
+>> Josh
+>>
+>> Hi Josh,
+>>
+>> No, I still didn't get an answer for how "off" could be non-zero in case of rds-ping to hit BUG_ON(off % RDS_FRAG_SIZE).
+>> Because, rds-ping uses zero byte messages to ping.
+>> If you have a test case that reproduces the kernel panic I can try it out and see how that can happen.
+>> The Oracle's internal code I checked doesn't have that patch applied.
+>>
+>> Venkat
+> No I don't have a test case. I came across this CVE while doing an 
+> audit and noticed it was patched in Ubuntu's kernel and other distros, 
+> but was not in the upstream kernel yet. Quick googling of lkml showed 
+> that there were at least two attempts to get this patch upstream, but 
+> both had issues due to not following the proper submission process:
+>
+> https://lkml.org/lkml/2012/10/22/433
+> https://lkml.org/lkml/2012/9/21/505
+>
+> From my searching it appears the initial bug was found by someone at redhat:
+> https://bugzilla.redhat.com/show_bug.cgi?id=822754
+>
+> I've added Li Honggang the reporter of this issue from Redhat to the 
+> mail. Hopefully he can share his testcase.
+The test case is very simple:
+Steps to Reproduce:
+1. yum install -y rds-tools
 
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- drivers/net/team/team.c               |  2 +-
- drivers/net/wireless/mac80211_hwsim.c |  2 +-
- kernel/taskstats.c                    |  2 +-
- net/core/drop_monitor.c               |  2 +-
- net/hsr/hsr_netlink.c                 |  2 +-
- net/ieee802154/netlink.c              |  2 +-
- net/ipv4/tcp_metrics.c                |  2 +-
- net/irda/irnetlink.c                  |  2 +-
- net/l2tp/l2tp_netlink.c               |  2 +-
- net/netfilter/ipvs/ip_vs_ctl.c        |  2 +-
- net/netlabel/netlabel_cipso_v4.c      |  2 +-
- net/netlabel/netlabel_mgmt.c          |  2 +-
- net/netlabel/netlabel_unlabeled.c     |  2 +-
- net/nfc/netlink.c                     |  2 +-
- net/openvswitch/datapath.c            | 10 +++++-----
- net/wimax/stack.c                     |  2 +-
- net/wireless/nl80211.c                |  2 +-
- 17 files changed, 21 insertions(+), 21 deletions(-)
+2. [root@rdma3 ~]# ifconfig ib0 | grep 'inet addr'
+          inet addr:172.31.0.3  Bcast:172.31.0.255  Mask:255.255.255.0
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 50e43e6..6390254 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -2644,7 +2644,7 @@ static int team_nl_cmd_port_list_get(struct sk_buff *skb,
- 	return err;
- }
- 
--static struct genl_ops team_nl_ops[] = {
-+static const struct genl_ops team_nl_ops[] = {
- 	{
- 		.cmd = TEAM_CMD_NOOP,
- 		.doit = team_nl_cmd_noop,
-diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
-index de0df86..cfc3fda 100644
---- a/drivers/net/wireless/mac80211_hwsim.c
-+++ b/drivers/net/wireless/mac80211_hwsim.c
-@@ -2097,7 +2097,7 @@ out:
- }
- 
- /* Generic Netlink operations array */
--static struct genl_ops hwsim_ops[] = {
-+static const struct genl_ops hwsim_ops[] = {
- 	{
- 		.cmd = HWSIM_CMD_REGISTER,
- 		.policy = hwsim_genl_policy,
-diff --git a/kernel/taskstats.c b/kernel/taskstats.c
-index 609e77f..76595cd 100644
---- a/kernel/taskstats.c
-+++ b/kernel/taskstats.c
-@@ -673,7 +673,7 @@ err:
- 	nlmsg_free(rep_skb);
- }
- 
--static struct genl_ops taskstats_ops[] = {
-+static const struct genl_ops taskstats_ops[] = {
- 	{
- 		.cmd		= TASKSTATS_CMD_GET,
- 		.doit		= taskstats_user_cmd,
-diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-index 5e78d44..f9fe2f2 100644
---- a/net/core/drop_monitor.c
-+++ b/net/core/drop_monitor.c
-@@ -333,7 +333,7 @@ out:
- 	return NOTIFY_DONE;
- }
- 
--static struct genl_ops dropmon_ops[] = {
-+static const struct genl_ops dropmon_ops[] = {
- 	{
- 		.cmd = NET_DM_CMD_CONFIG,
- 		.doit = net_dm_cmd_config,
-diff --git a/net/hsr/hsr_netlink.c b/net/hsr/hsr_netlink.c
-index 8f52a9f..79d72ca 100644
---- a/net/hsr/hsr_netlink.c
-+++ b/net/hsr/hsr_netlink.c
-@@ -389,7 +389,7 @@ fail:
- }
- 
- 
--static struct genl_ops hsr_ops[] = {
-+static const struct genl_ops hsr_ops[] = {
- 	{
- 		.cmd = HSR_C_GET_NODE_STATUS,
- 		.flags = 0,
-diff --git a/net/ieee802154/netlink.c b/net/ieee802154/netlink.c
-index eb9faef..3ffcdbb 100644
---- a/net/ieee802154/netlink.c
-+++ b/net/ieee802154/netlink.c
-@@ -109,7 +109,7 @@ out:
- 	return -ENOBUFS;
- }
- 
--static struct genl_ops ieee8021154_ops[] = {
-+static const struct genl_ops ieee8021154_ops[] = {
- 	/* see nl-phy.c */
- 	IEEE802154_DUMP(IEEE802154_LIST_PHY, ieee802154_list_phy,
- 			ieee802154_dump_phy),
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 2ab09cb..9b780c1 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -988,7 +988,7 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	return 0;
- }
- 
--static struct genl_ops tcp_metrics_nl_ops[] = {
-+static const struct genl_ops tcp_metrics_nl_ops[] = {
- 	{
- 		.cmd = TCP_METRICS_CMD_GET,
- 		.doit = tcp_metrics_nl_cmd_get,
-diff --git a/net/irda/irnetlink.c b/net/irda/irnetlink.c
-index c3297126..bf5d7d4 100644
---- a/net/irda/irnetlink.c
-+++ b/net/irda/irnetlink.c
-@@ -131,7 +131,7 @@ static const struct nla_policy irda_nl_policy[IRDA_NL_ATTR_MAX + 1] = {
- 	[IRDA_NL_ATTR_MODE] = { .type = NLA_U32 },
- };
- 
--static struct genl_ops irda_nl_ops[] = {
-+static const struct genl_ops irda_nl_ops[] = {
- 	{
- 		.cmd = IRDA_NL_CMD_SET_MODE,
- 		.doit = irda_nl_set_mode,
-diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
-index be446d5..57db66e 100644
---- a/net/l2tp/l2tp_netlink.c
-+++ b/net/l2tp/l2tp_netlink.c
-@@ -793,7 +793,7 @@ static struct nla_policy l2tp_nl_policy[L2TP_ATTR_MAX + 1] = {
- 	},
- };
- 
--static struct genl_ops l2tp_nl_ops[] = {
-+static const struct genl_ops l2tp_nl_ops[] = {
- 	{
- 		.cmd = L2TP_CMD_NOOP,
- 		.doit = l2tp_nl_cmd_noop,
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 62786a4..fc8a04e 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3567,7 +3567,7 @@ out:
- }
- 
- 
--static struct genl_ops ip_vs_genl_ops[] __read_mostly = {
-+static const struct genl_ops ip_vs_genl_ops[] __read_mostly = {
- 	{
- 		.cmd	= IPVS_CMD_NEW_SERVICE,
- 		.flags	= GENL_ADMIN_PERM,
-diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
-index a110064..7066917 100644
---- a/net/netlabel/netlabel_cipso_v4.c
-+++ b/net/netlabel/netlabel_cipso_v4.c
-@@ -737,7 +737,7 @@ static int netlbl_cipsov4_remove(struct sk_buff *skb, struct genl_info *info)
-  * NetLabel Generic NETLINK Command Definitions
-  */
- 
--static struct genl_ops netlbl_cipsov4_ops[] = {
-+static const struct genl_ops netlbl_cipsov4_ops[] = {
- 	{
- 	.cmd = NLBL_CIPSOV4_C_ADD,
- 	.flags = GENL_ADMIN_PERM,
-diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
-index dd1c37d..7de6f66 100644
---- a/net/netlabel/netlabel_mgmt.c
-+++ b/net/netlabel/netlabel_mgmt.c
-@@ -705,7 +705,7 @@ version_failure:
-  * NetLabel Generic NETLINK Command Definitions
-  */
- 
--static struct genl_ops netlbl_mgmt_genl_ops[] = {
-+static const struct genl_ops netlbl_mgmt_genl_ops[] = {
- 	{
- 	.cmd = NLBL_MGMT_C_ADD,
- 	.flags = GENL_ADMIN_PERM,
-diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
-index 8f08974..76ee925 100644
---- a/net/netlabel/netlabel_unlabeled.c
-+++ b/net/netlabel/netlabel_unlabeled.c
-@@ -1323,7 +1323,7 @@ unlabel_staticlistdef_return:
-  * NetLabel Generic NETLINK Command Definitions
-  */
- 
--static struct genl_ops netlbl_unlabel_genl_ops[] = {
-+static const struct genl_ops netlbl_unlabel_genl_ops[] = {
- 	{
- 	.cmd = NLBL_UNLABEL_C_STATICADD,
- 	.flags = GENL_ADMIN_PERM,
-diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
-index 84b7e3e..f558561 100644
---- a/net/nfc/netlink.c
-+++ b/net/nfc/netlink.c
-@@ -1364,7 +1364,7 @@ static int nfc_genl_se_io(struct sk_buff *skb, struct genl_info *info)
- 	return dev->ops->se_io(dev, se_idx, apdu, apdu_len, se_io_cb, ctx);
- }
- 
--static struct genl_ops nfc_genl_ops[] = {
-+static const struct genl_ops nfc_genl_ops[] = {
- 	{
- 		.cmd = NFC_CMD_GET_DEVICE,
- 		.doit = nfc_genl_get_device,
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 1408adc..91e1c92 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -557,7 +557,7 @@ static const struct nla_policy packet_policy[OVS_PACKET_ATTR_MAX + 1] = {
- 	[OVS_PACKET_ATTR_ACTIONS] = { .type = NLA_NESTED },
- };
- 
--static struct genl_ops dp_packet_genl_ops[] = {
-+static const struct genl_ops dp_packet_genl_ops[] = {
- 	{ .cmd = OVS_PACKET_CMD_EXECUTE,
- 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = packet_policy,
-@@ -1034,7 +1034,7 @@ static int ovs_flow_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
--static struct genl_ops dp_flow_genl_ops[] = {
-+static const struct genl_ops dp_flow_genl_ops[] = {
- 	{ .cmd = OVS_FLOW_CMD_NEW,
- 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = flow_policy,
-@@ -1392,7 +1392,7 @@ static int ovs_dp_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
--static struct genl_ops dp_datapath_genl_ops[] = {
-+static const struct genl_ops dp_datapath_genl_ops[] = {
- 	{ .cmd = OVS_DP_CMD_NEW,
- 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = datapath_policy,
-@@ -1753,7 +1753,7 @@ out:
- 	return skb->len;
- }
- 
--static struct genl_ops dp_vport_genl_ops[] = {
-+static const struct genl_ops dp_vport_genl_ops[] = {
- 	{ .cmd = OVS_VPORT_CMD_NEW,
- 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = vport_policy,
-@@ -1779,7 +1779,7 @@ static struct genl_ops dp_vport_genl_ops[] = {
- 
- struct genl_family_and_ops {
- 	struct genl_family *family;
--	struct genl_ops *ops;
-+	const struct genl_ops *ops;
- 	int n_ops;
- 	struct genl_multicast_group *group;
- };
-diff --git a/net/wimax/stack.c b/net/wimax/stack.c
-index 4b7f15a..47170c9 100644
---- a/net/wimax/stack.c
-+++ b/net/wimax/stack.c
-@@ -415,7 +415,7 @@ static const struct nla_policy wimax_gnl_policy[WIMAX_GNL_ATTR_MAX + 1] = {
- 	},
- };
- 
--static struct genl_ops wimax_gnl_ops[] = {
-+static const struct genl_ops wimax_gnl_ops[] = {
- 	{
- 		.cmd = WIMAX_GNL_OP_MSG_FROM_USER,
- 		.flags = GENL_ADMIN_PERM,
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index a7f4e79..7a92c45 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -8937,7 +8937,7 @@ static void nl80211_post_doit(struct genl_ops *ops, struct sk_buff *skb,
- 		rtnl_unlock();
- }
- 
--static struct genl_ops nl80211_ops[] = {
-+static const struct genl_ops nl80211_ops[] = {
- 	{
- 		.cmd = NL80211_CMD_GET_WIPHY,
- 		.doit = nl80211_get_wiphy,
--- 
-1.8.4.rc3
+3. [root@rdma3 ~]# /usr/bin/rds-ping 172.31.0.3  <<<< kernel panic (You may need to wait for a few seconds before the kernel panic.)
+>
+> and possibly requires certain hardware as Jay writes in the first link above:
+> "...some Infiniband HCAs(QLogic, possibly others) the machine will panic..."
+This bug can be reproduced with Mellanox HCAs (mlx4_ib.ko and mthca.ko), QLogic HCA (ib_qib.ko). I did not test the QLogic HCA running "ib_ipath.ko".
+
+As I know the upstream code of RDS is broken. There are *many* RDS bugs.
+
+Best regards.
+Honggang
+>
+> I was referring to this oracle commit:
+> https://oss.oracle.com/git/?p=redpatch.git;a=commit;h=c7b6a0a1d8d63685
+> 2be130fa15fa8be10d4704e8
+>
+> I have no experience with this code. There were a few comments around 
+> the reset and xmit fns about making sure the caller did certain things 
+> if not they were racy, but I have no idea if that's coming into play 
+> here.
+>
+
+Hi Honggang,
+
+I ran rds-ping over local interface for 30 minutes. I stopped it after that.
+It didn't hit any panic.
+
+# ip addr show dev ib0
+6: ib0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 2044 qdisc pfifo_fast qlen 1024
+    link/infiniband 80:00:00:48:fe:80:00:00:00:00:00:00:00:21:28:00:01:cf:63:db brd 00:ff:ff:ff:ff:12:40:1b:ff:ff:00:00:00:00:00:00:ff:ff:ff:ff
+    inet 10.196.4.125/30 brd 10.196.4.127 scope global ib0
+    inet6 fe80::221:2800:1cf:63db/64 scope link
+       valid_lft forever preferred_lft forever
+#
+
+# rds-ping  10.196.4.125
+    1: 170 usec
+    2: 171 usec 
+   ....
+   ....
+   ....
+ 1860: 173 usec
+ 1861: 171 usec
+ 1862: 177 usec
+ 1863: 168 usec
+ 1864: 171 usec
+ 1865: 175 usec
+^C#
+
+I tested with Oracle UEK2 which is based on 2.6.39 kernel. Mellanox IB adaptor.
+19:00.0 InfiniBand: Mellanox Technologies MT26428 [ConnectX VPI PCIe 2.0 5GT/s - IB QDR / 10GigE] (rev b0)
+
+There is something about your setup that must be causing it for you.
+Can I work with you offline if you are available ?
+
+The panic you are hitting is not making sense to me.
+
+Venkat
