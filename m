@@ -1,54 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] net:fec: fix WARNING caused by lack of calls to
- dma_mapping_error()
-Date: Thu, 14 Nov 2013 16:37:57 -0500 (EST)
-Message-ID: <20131114.163757.1438409591991025913.davem@davemloft.net>
-References: <1384394230-23380-1-git-send-email-B38611@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] ipv4: fix possible seqlock deadlock
+Date: Thu, 14 Nov 2013 13:37:54 -0800
+Message-ID: <1384465074.28716.41.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131114191621.GB9630@redhat.com>
+	 <1384458103.28716.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	stephen@networkplumber.org
-To: B38611@freescale.com
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53001 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757995Ab3KNVh7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:37:59 -0500
-In-Reply-To: <1384394230-23380-1-git-send-email-B38611@freescale.com>
+Received: from mail-gg0-f177.google.com ([209.85.161.177]:45412 "EHLO
+	mail-gg0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758029Ab3KNViB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:38:01 -0500
+Received: by mail-gg0-f177.google.com with SMTP id f4so1075566ggn.8
+        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 13:37:59 -0800 (PST)
+In-Reply-To: <1384458103.28716.33.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <B38611@freescale.com>
-Date: Thu, 14 Nov 2013 09:57:10 +0800
+From: Eric Dumazet <edumazet@google.com>
 
-> The driver fails to check the results of DMA mapping and results in
-> the following warning: (with kernel config "CONFIG_DMA_API_DEBUG" enable)
- ...
-> Because dma-debug add new interfaces to debug dma mapping errors, pls refer
-> to: http://lwn.net/Articles/516640/
-> 
-> After dma mapping, it must call dma_mapping_error() to check mapping error,
-> otherwise the map_err_type alway is MAP_ERR_NOT_CHECKED, check_unmap() define
-> the mapping is not checked and dump the error msg. So,add dma_mapping_error()
-> checking to fix the WARNING
-> 
-> And RX DMA buffers are used repeatedly and the driver copies it into an skb,
-> fec_enet_rx() should not map or unmap, use dma_sync_single_for_cpu()/dma_sync_single_for_device()
-> instead of dma_map_single()/dma_unmap_single().
-> 
-> There have another potential issue:  fec_enet_rx() passes the DMA address to __va().
-> Physical and DMA addresses are *not* the same thing. They may differ if the device
-> is behind an IOMMU or bounce buffering was required, or just because there is a fixed
-> offset between the device and host physical addresses. Also fix it in this patch.
-> 
-> =============================================
-> V2: add net_ratelimit() to limit map err message.
->     use dma_sync_single_for_cpu() instead of dma_map_single().
->     fix the issue that pass DMA addresses to __va() to get virture address.
-> V1: initial send
-> =============================================
-> 
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
+ip4_datagram_connect() being called from process context,
+it should use IP_INC_STATS() instead of IP_INC_STATS_BH()
+otherwise we can deadlock on 32bit arches, or get corruptions of
+SNMP counters.
 
-Applied, thanks a lot.
+Fixes: 584bdf8cbdf6 ("[IPV4]: Fix "ipOutNoRoutes" counter error for TCP and UDP")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dave Jones <davej@redhat.com>
+---
+ net/ipv4/datagram.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/datagram.c b/net/ipv4/datagram.c
+index b28e863fe0a7..19e36376d2a0 100644
+--- a/net/ipv4/datagram.c
++++ b/net/ipv4/datagram.c
+@@ -57,7 +57,7 @@ int ip4_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 	if (IS_ERR(rt)) {
+ 		err = PTR_ERR(rt);
+ 		if (err == -ENETUNREACH)
+-			IP_INC_STATS_BH(sock_net(sk), IPSTATS_MIB_OUTNOROUTES);
++			IP_INC_STATS(sock_net(sk), IPSTATS_MIB_OUTNOROUTES);
+ 		goto out;
+ 	}
+ 
