@@ -1,7 +1,7 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 8/9] genetlink: make all genl_ops users const
-Date: Thu, 14 Nov 2013 17:14:46 +0100
-Message-ID: <1384445687-30948-9-git-send-email-johannes@sipsolutions.net>
+Subject: [PATCH 4/9] wimax: use genl_register_family_with_ops()
+Date: Thu, 14 Nov 2013 17:14:42 +0100
+Message-ID: <1384445687-30948-5-git-send-email-johannes@sipsolutions.net>
 References: <1384420486-8713-1-git-send-email-johannes@sipsolutions.net>
  <1384445687-30948-1-git-send-email-johannes@sipsolutions.net>
 Cc: linux-wimax@intel.com, Balbir Singh <bsingharora@gmail.com>,
@@ -17,298 +17,332 @@ List-Id: netdev.vger.kernel.org
 
 From: Johannes Berg <johannes.berg@intel.com>
 
-Now that genl_ops are no longer modified in place when
-registering, they can be made const. This patch was done
-mostly with spatch:
+This simplifies the code since there's no longer a need to
+have error handling in the registration.
 
-@@
-identifier ops;
-@@
-+const
- struct genl_ops ops[] = {
- ...
- };
+Unfortunately it means more extern function declarations are
+needed, but the overall goal would seem to justify this.
 
-(except the struct thing in net/openvswitch/datapath.c)
+Due to the removal of duplication in the netlink policies,
+this reduces the size of wimax by almost 1k.
 
 Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 ---
- drivers/net/team/team.c               |  2 +-
- drivers/net/wireless/mac80211_hwsim.c |  2 +-
- kernel/taskstats.c                    |  2 +-
- net/core/drop_monitor.c               |  2 +-
- net/hsr/hsr_netlink.c                 |  2 +-
- net/ieee802154/netlink.c              |  2 +-
- net/ipv4/tcp_metrics.c                |  2 +-
- net/irda/irnetlink.c                  |  2 +-
- net/l2tp/l2tp_netlink.c               |  2 +-
- net/netfilter/ipvs/ip_vs_ctl.c        |  2 +-
- net/netlabel/netlabel_cipso_v4.c      |  2 +-
- net/netlabel/netlabel_mgmt.c          |  2 +-
- net/netlabel/netlabel_unlabeled.c     |  2 +-
- net/nfc/netlink.c                     |  2 +-
- net/openvswitch/datapath.c            | 10 +++++-----
- net/wimax/stack.c                     |  2 +-
- net/wireless/nl80211.c                |  2 +-
- 17 files changed, 21 insertions(+), 21 deletions(-)
+ net/wimax/op-msg.c         | 25 ---------------
+ net/wimax/op-reset.c       | 17 ----------
+ net/wimax/op-rfkill.c      | 21 ------------
+ net/wimax/op-state-get.c   | 17 ----------
+ net/wimax/stack.c          | 79 +++++++++++++++++++++++-----------------------
+ net/wimax/wimax-internal.h |  7 ++++
+ 6 files changed, 47 insertions(+), 119 deletions(-)
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 50e43e6..6390254 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -2644,7 +2644,7 @@ static int team_nl_cmd_port_list_get(struct sk_buff *skb,
- 	return err;
+diff --git a/net/wimax/op-msg.c b/net/wimax/op-msg.c
+index 0694d62..ff19cbe 100644
+--- a/net/wimax/op-msg.c
++++ b/net/wimax/op-msg.c
+@@ -321,17 +321,6 @@ int wimax_msg(struct wimax_dev *wimax_dev, const char *pipe_name,
+ }
+ EXPORT_SYMBOL_GPL(wimax_msg);
+ 
+-
+-static const struct nla_policy wimax_gnl_msg_policy[WIMAX_GNL_ATTR_MAX + 1] = {
+-	[WIMAX_GNL_MSG_IFIDX] = {
+-		.type = NLA_U32,
+-	},
+-	[WIMAX_GNL_MSG_DATA] = {
+-		.type = NLA_UNSPEC,	/* libnl doesn't grok BINARY yet */
+-	},
+-};
+-
+-
+ /*
+  * Relays a message from user space to the driver
+  *
+@@ -340,7 +329,6 @@ static const struct nla_policy wimax_gnl_msg_policy[WIMAX_GNL_ATTR_MAX + 1] = {
+  *
+  * This call will block while handling/relaying the message.
+  */
+-static
+ int wimax_gnl_doit_msg_from_user(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	int result, ifindex;
+@@ -418,16 +406,3 @@ error_no_wimax_dev:
+ 	return result;
  }
  
--static struct genl_ops team_nl_ops[] = {
-+static const struct genl_ops team_nl_ops[] = {
- 	{
- 		.cmd = TEAM_CMD_NOOP,
- 		.doit = team_nl_cmd_noop,
-diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
-index de0df86..cfc3fda 100644
---- a/drivers/net/wireless/mac80211_hwsim.c
-+++ b/drivers/net/wireless/mac80211_hwsim.c
-@@ -2097,7 +2097,7 @@ out:
+-
+-/*
+- * Generic Netlink glue
+- */
+-
+-struct genl_ops wimax_gnl_msg_from_user = {
+-	.cmd = WIMAX_GNL_OP_MSG_FROM_USER,
+-	.flags = GENL_ADMIN_PERM,
+-	.policy = wimax_gnl_msg_policy,
+-	.doit = wimax_gnl_doit_msg_from_user,
+-	.dumpit = NULL,
+-};
+-
+diff --git a/net/wimax/op-reset.c b/net/wimax/op-reset.c
+index 7ceffe3..eb45807 100644
+--- a/net/wimax/op-reset.c
++++ b/net/wimax/op-reset.c
+@@ -92,13 +92,6 @@ int wimax_reset(struct wimax_dev *wimax_dev)
+ EXPORT_SYMBOL(wimax_reset);
+ 
+ 
+-static const struct nla_policy wimax_gnl_reset_policy[WIMAX_GNL_ATTR_MAX + 1] = {
+-	[WIMAX_GNL_RESET_IFIDX] = {
+-		.type = NLA_U32,
+-	},
+-};
+-
+-
+ /*
+  * Exporting to user space over generic netlink
+  *
+@@ -106,7 +99,6 @@ static const struct nla_policy wimax_gnl_reset_policy[WIMAX_GNL_ATTR_MAX + 1] =
+  *
+  * No attributes.
+  */
+-static
+ int wimax_gnl_doit_reset(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	int result, ifindex;
+@@ -130,12 +122,3 @@ error_no_wimax_dev:
+ 	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
+ 	return result;
  }
- 
- /* Generic Netlink operations array */
--static struct genl_ops hwsim_ops[] = {
-+static const struct genl_ops hwsim_ops[] = {
- 	{
- 		.cmd = HWSIM_CMD_REGISTER,
- 		.policy = hwsim_genl_policy,
-diff --git a/kernel/taskstats.c b/kernel/taskstats.c
-index 609e77f..76595cd 100644
---- a/kernel/taskstats.c
-+++ b/kernel/taskstats.c
-@@ -673,7 +673,7 @@ err:
- 	nlmsg_free(rep_skb);
- }
- 
--static struct genl_ops taskstats_ops[] = {
-+static const struct genl_ops taskstats_ops[] = {
- 	{
- 		.cmd		= TASKSTATS_CMD_GET,
- 		.doit		= taskstats_user_cmd,
-diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-index 5e78d44..f9fe2f2 100644
---- a/net/core/drop_monitor.c
-+++ b/net/core/drop_monitor.c
-@@ -333,7 +333,7 @@ out:
- 	return NOTIFY_DONE;
- }
- 
--static struct genl_ops dropmon_ops[] = {
-+static const struct genl_ops dropmon_ops[] = {
- 	{
- 		.cmd = NET_DM_CMD_CONFIG,
- 		.doit = net_dm_cmd_config,
-diff --git a/net/hsr/hsr_netlink.c b/net/hsr/hsr_netlink.c
-index 8f52a9f..79d72ca 100644
---- a/net/hsr/hsr_netlink.c
-+++ b/net/hsr/hsr_netlink.c
-@@ -389,7 +389,7 @@ fail:
- }
- 
- 
--static struct genl_ops hsr_ops[] = {
-+static const struct genl_ops hsr_ops[] = {
- 	{
- 		.cmd = HSR_C_GET_NODE_STATUS,
- 		.flags = 0,
-diff --git a/net/ieee802154/netlink.c b/net/ieee802154/netlink.c
-index eb9faef..3ffcdbb 100644
---- a/net/ieee802154/netlink.c
-+++ b/net/ieee802154/netlink.c
-@@ -109,7 +109,7 @@ out:
- 	return -ENOBUFS;
- }
- 
--static struct genl_ops ieee8021154_ops[] = {
-+static const struct genl_ops ieee8021154_ops[] = {
- 	/* see nl-phy.c */
- 	IEEE802154_DUMP(IEEE802154_LIST_PHY, ieee802154_list_phy,
- 			ieee802154_dump_phy),
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 2ab09cb..9b780c1 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -988,7 +988,7 @@ static int tcp_metrics_nl_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	return 0;
- }
- 
--static struct genl_ops tcp_metrics_nl_ops[] = {
-+static const struct genl_ops tcp_metrics_nl_ops[] = {
- 	{
- 		.cmd = TCP_METRICS_CMD_GET,
- 		.doit = tcp_metrics_nl_cmd_get,
-diff --git a/net/irda/irnetlink.c b/net/irda/irnetlink.c
-index c3297126..bf5d7d4 100644
---- a/net/irda/irnetlink.c
-+++ b/net/irda/irnetlink.c
-@@ -131,7 +131,7 @@ static const struct nla_policy irda_nl_policy[IRDA_NL_ATTR_MAX + 1] = {
- 	[IRDA_NL_ATTR_MODE] = { .type = NLA_U32 },
- };
- 
--static struct genl_ops irda_nl_ops[] = {
-+static const struct genl_ops irda_nl_ops[] = {
- 	{
- 		.cmd = IRDA_NL_CMD_SET_MODE,
- 		.doit = irda_nl_set_mode,
-diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
-index be446d5..57db66e 100644
---- a/net/l2tp/l2tp_netlink.c
-+++ b/net/l2tp/l2tp_netlink.c
-@@ -793,7 +793,7 @@ static struct nla_policy l2tp_nl_policy[L2TP_ATTR_MAX + 1] = {
- 	},
- };
- 
--static struct genl_ops l2tp_nl_ops[] = {
-+static const struct genl_ops l2tp_nl_ops[] = {
- 	{
- 		.cmd = L2TP_CMD_NOOP,
- 		.doit = l2tp_nl_cmd_noop,
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 62786a4..fc8a04e 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3567,7 +3567,7 @@ out:
- }
- 
- 
--static struct genl_ops ip_vs_genl_ops[] __read_mostly = {
-+static const struct genl_ops ip_vs_genl_ops[] __read_mostly = {
- 	{
- 		.cmd	= IPVS_CMD_NEW_SERVICE,
- 		.flags	= GENL_ADMIN_PERM,
-diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
-index a110064..7066917 100644
---- a/net/netlabel/netlabel_cipso_v4.c
-+++ b/net/netlabel/netlabel_cipso_v4.c
-@@ -737,7 +737,7 @@ static int netlbl_cipsov4_remove(struct sk_buff *skb, struct genl_info *info)
-  * NetLabel Generic NETLINK Command Definitions
+-
+-
+-struct genl_ops wimax_gnl_reset = {
+-	.cmd = WIMAX_GNL_OP_RESET,
+-	.flags = GENL_ADMIN_PERM,
+-	.policy = wimax_gnl_reset_policy,
+-	.doit = wimax_gnl_doit_reset,
+-	.dumpit = NULL,
+-};
+diff --git a/net/wimax/op-rfkill.c b/net/wimax/op-rfkill.c
+index 7ab60ba..403078d 100644
+--- a/net/wimax/op-rfkill.c
++++ b/net/wimax/op-rfkill.c
+@@ -411,17 +411,6 @@ void wimax_rfkill_rm(struct wimax_dev *wimax_dev)
+  * just query).
   */
  
--static struct genl_ops netlbl_cipsov4_ops[] = {
-+static const struct genl_ops netlbl_cipsov4_ops[] = {
- 	{
- 	.cmd = NLBL_CIPSOV4_C_ADD,
- 	.flags = GENL_ADMIN_PERM,
-diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
-index dd1c37d..7de6f66 100644
---- a/net/netlabel/netlabel_mgmt.c
-+++ b/net/netlabel/netlabel_mgmt.c
-@@ -705,7 +705,7 @@ version_failure:
-  * NetLabel Generic NETLINK Command Definitions
+-static const struct nla_policy wimax_gnl_rfkill_policy[WIMAX_GNL_ATTR_MAX + 1] = {
+-	[WIMAX_GNL_RFKILL_IFIDX] = {
+-		.type = NLA_U32,
+-	},
+-	[WIMAX_GNL_RFKILL_STATE] = {
+-		.type = NLA_U32		/* enum wimax_rf_state */
+-	},
+-};
+-
+-
+-static
+ int wimax_gnl_doit_rfkill(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	int result, ifindex;
+@@ -457,13 +446,3 @@ error_no_wimax_dev:
+ 	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
+ 	return result;
+ }
+-
+-
+-struct genl_ops wimax_gnl_rfkill = {
+-	.cmd = WIMAX_GNL_OP_RFKILL,
+-	.flags = GENL_ADMIN_PERM,
+-	.policy = wimax_gnl_rfkill_policy,
+-	.doit = wimax_gnl_doit_rfkill,
+-	.dumpit = NULL,
+-};
+-
+diff --git a/net/wimax/op-state-get.c b/net/wimax/op-state-get.c
+index aff8776..995c08c 100644
+--- a/net/wimax/op-state-get.c
++++ b/net/wimax/op-state-get.c
+@@ -33,13 +33,6 @@
+ #include "debug-levels.h"
+ 
+ 
+-static const struct nla_policy wimax_gnl_state_get_policy[WIMAX_GNL_ATTR_MAX + 1] = {
+-	[WIMAX_GNL_STGET_IFIDX] = {
+-		.type = NLA_U32,
+-	},
+-};
+-
+-
+ /*
+  * Exporting to user space over generic netlink
+  *
+@@ -48,7 +41,6 @@ static const struct nla_policy wimax_gnl_state_get_policy[WIMAX_GNL_ATTR_MAX + 1
+  *
+  * No attributes.
   */
- 
--static struct genl_ops netlbl_mgmt_genl_ops[] = {
-+static const struct genl_ops netlbl_mgmt_genl_ops[] = {
- 	{
- 	.cmd = NLBL_MGMT_C_ADD,
- 	.flags = GENL_ADMIN_PERM,
-diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
-index 8f08974..76ee925 100644
---- a/net/netlabel/netlabel_unlabeled.c
-+++ b/net/netlabel/netlabel_unlabeled.c
-@@ -1323,7 +1323,7 @@ unlabel_staticlistdef_return:
-  * NetLabel Generic NETLINK Command Definitions
-  */
- 
--static struct genl_ops netlbl_unlabel_genl_ops[] = {
-+static const struct genl_ops netlbl_unlabel_genl_ops[] = {
- 	{
- 	.cmd = NLBL_UNLABEL_C_STATICADD,
- 	.flags = GENL_ADMIN_PERM,
-diff --git a/net/nfc/netlink.c b/net/nfc/netlink.c
-index 84b7e3e..f558561 100644
---- a/net/nfc/netlink.c
-+++ b/net/nfc/netlink.c
-@@ -1364,7 +1364,7 @@ static int nfc_genl_se_io(struct sk_buff *skb, struct genl_info *info)
- 	return dev->ops->se_io(dev, se_idx, apdu, apdu_len, se_io_cb, ctx);
+-static
+ int wimax_gnl_doit_state_get(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	int result, ifindex;
+@@ -72,12 +64,3 @@ error_no_wimax_dev:
+ 	d_fnend(3, NULL, "(skb %p info %p) = %d\n", skb, info, result);
+ 	return result;
  }
- 
--static struct genl_ops nfc_genl_ops[] = {
-+static const struct genl_ops nfc_genl_ops[] = {
- 	{
- 		.cmd = NFC_CMD_GET_DEVICE,
- 		.doit = nfc_genl_get_device,
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 1408adc..91e1c92 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -557,7 +557,7 @@ static const struct nla_policy packet_policy[OVS_PACKET_ATTR_MAX + 1] = {
- 	[OVS_PACKET_ATTR_ACTIONS] = { .type = NLA_NESTED },
- };
- 
--static struct genl_ops dp_packet_genl_ops[] = {
-+static const struct genl_ops dp_packet_genl_ops[] = {
- 	{ .cmd = OVS_PACKET_CMD_EXECUTE,
- 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = packet_policy,
-@@ -1034,7 +1034,7 @@ static int ovs_flow_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
--static struct genl_ops dp_flow_genl_ops[] = {
-+static const struct genl_ops dp_flow_genl_ops[] = {
- 	{ .cmd = OVS_FLOW_CMD_NEW,
- 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = flow_policy,
-@@ -1392,7 +1392,7 @@ static int ovs_dp_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
--static struct genl_ops dp_datapath_genl_ops[] = {
-+static const struct genl_ops dp_datapath_genl_ops[] = {
- 	{ .cmd = OVS_DP_CMD_NEW,
- 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = datapath_policy,
-@@ -1753,7 +1753,7 @@ out:
- 	return skb->len;
- }
- 
--static struct genl_ops dp_vport_genl_ops[] = {
-+static const struct genl_ops dp_vport_genl_ops[] = {
- 	{ .cmd = OVS_VPORT_CMD_NEW,
- 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = vport_policy,
-@@ -1779,7 +1779,7 @@ static struct genl_ops dp_vport_genl_ops[] = {
- 
- struct genl_family_and_ops {
- 	struct genl_family *family;
--	struct genl_ops *ops;
-+	const struct genl_ops *ops;
- 	int n_ops;
- 	struct genl_multicast_group *group;
- };
+-
+-
+-struct genl_ops wimax_gnl_state_get = {
+-	.cmd = WIMAX_GNL_OP_STATE_GET,
+-	.flags = GENL_ADMIN_PERM,
+-	.policy = wimax_gnl_state_get_policy,
+-	.doit = wimax_gnl_doit_state_get,
+-	.dumpit = NULL,
+-};
 diff --git a/net/wimax/stack.c b/net/wimax/stack.c
-index 4b7f15a..47170c9 100644
+index a6470ac..4b7f15a 100644
 --- a/net/wimax/stack.c
 +++ b/net/wimax/stack.c
-@@ -415,7 +415,7 @@ static const struct nla_policy wimax_gnl_policy[WIMAX_GNL_ATTR_MAX + 1] = {
- 	},
+@@ -402,22 +402,44 @@ void wimax_dev_init(struct wimax_dev *wimax_dev)
+ }
+ EXPORT_SYMBOL_GPL(wimax_dev_init);
+ 
+-/*
+- * This extern is declared here because it's easier to keep track --
+- * both declarations are a list of the same
+- */
+-extern struct genl_ops
+-	wimax_gnl_msg_from_user,
+-	wimax_gnl_reset,
+-	wimax_gnl_rfkill,
+-	wimax_gnl_state_get;
++static const struct nla_policy wimax_gnl_policy[WIMAX_GNL_ATTR_MAX + 1] = {
++	[WIMAX_GNL_RESET_IFIDX] = { .type = NLA_U32, },
++	[WIMAX_GNL_RFKILL_IFIDX] = { .type = NLA_U32, },
++	[WIMAX_GNL_RFKILL_STATE] = {
++		.type = NLA_U32		/* enum wimax_rf_state */
++	},
++	[WIMAX_GNL_STGET_IFIDX] = { .type = NLA_U32, },
++	[WIMAX_GNL_MSG_IFIDX] = { .type = NLA_U32, },
++	[WIMAX_GNL_MSG_DATA] = {
++		.type = NLA_UNSPEC,	/* libnl doesn't grok BINARY yet */
++	},
++};
+ 
+-static
+-struct genl_ops *wimax_gnl_ops[] = {
+-	&wimax_gnl_msg_from_user,
+-	&wimax_gnl_reset,
+-	&wimax_gnl_rfkill,
+-	&wimax_gnl_state_get,
++static struct genl_ops wimax_gnl_ops[] = {
++	{
++		.cmd = WIMAX_GNL_OP_MSG_FROM_USER,
++		.flags = GENL_ADMIN_PERM,
++		.policy = wimax_gnl_policy,
++		.doit = wimax_gnl_doit_msg_from_user,
++	},
++	{
++		.cmd = WIMAX_GNL_OP_RESET,
++		.flags = GENL_ADMIN_PERM,
++		.policy = wimax_gnl_policy,
++		.doit = wimax_gnl_doit_reset,
++	},
++	{
++		.cmd = WIMAX_GNL_OP_RFKILL,
++		.flags = GENL_ADMIN_PERM,
++		.policy = wimax_gnl_policy,
++		.doit = wimax_gnl_doit_rfkill,
++	},
++	{
++		.cmd = WIMAX_GNL_OP_STATE_GET,
++		.flags = GENL_ADMIN_PERM,
++		.policy = wimax_gnl_policy,
++		.doit = wimax_gnl_doit_state_get,
++	},
  };
  
--static struct genl_ops wimax_gnl_ops[] = {
-+static const struct genl_ops wimax_gnl_ops[] = {
- 	{
- 		.cmd = WIMAX_GNL_OP_MSG_FROM_USER,
- 		.flags = GENL_ADMIN_PERM,
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index 3fef559..58c43c8 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -8937,7 +8937,7 @@ static void nl80211_post_doit(const struct genl_ops *ops, struct sk_buff *skb,
- 		rtnl_unlock();
- }
  
--static struct genl_ops nl80211_ops[] = {
-+static const struct genl_ops nl80211_ops[] = {
- 	{
- 		.cmd = NL80211_CMD_GET_WIPHY,
- 		.doit = nl80211_get_wiphy,
+@@ -567,7 +589,7 @@ struct genl_multicast_group wimax_gnl_mcg = {
+ static
+ int __init wimax_subsys_init(void)
+ {
+-	int result, cnt;
++	int result;
+ 
+ 	d_fnstart(4, NULL, "()\n");
+ 	d_parse_params(D_LEVEL, D_LEVEL_SIZE, wimax_debug_params,
+@@ -575,26 +597,14 @@ int __init wimax_subsys_init(void)
+ 
+ 	snprintf(wimax_gnl_family.name, sizeof(wimax_gnl_family.name),
+ 		 "WiMAX");
+-	result = genl_register_family(&wimax_gnl_family);
++	result = genl_register_family_with_ops(&wimax_gnl_family, wimax_gnl_ops,
++					       ARRAY_SIZE(wimax_gnl_ops));
+ 	if (unlikely(result < 0)) {
+ 		printk(KERN_ERR "cannot register generic netlink family: %d\n",
+ 		       result);
+ 		goto error_register_family;
+ 	}
+ 
+-	for (cnt = 0; cnt < ARRAY_SIZE(wimax_gnl_ops); cnt++) {
+-		result = genl_register_ops(&wimax_gnl_family,
+-					   wimax_gnl_ops[cnt]);
+-		d_printf(4, NULL, "registering generic netlink op code "
+-			 "%u: %d\n", wimax_gnl_ops[cnt]->cmd, result);
+-		if (unlikely(result < 0)) {
+-			printk(KERN_ERR "cannot register generic netlink op "
+-			       "code %u: %d\n",
+-			       wimax_gnl_ops[cnt]->cmd, result);
+-			goto error_register_ops;
+-		}
+-	}
+-
+ 	result = genl_register_mc_group(&wimax_gnl_family, &wimax_gnl_mcg);
+ 	if (result < 0)
+ 		goto error_mc_group;
+@@ -602,10 +612,6 @@ int __init wimax_subsys_init(void)
+ 	return 0;
+ 
+ error_mc_group:
+-error_register_ops:
+-	for (cnt--; cnt >= 0; cnt--)
+-		genl_unregister_ops(&wimax_gnl_family,
+-				    wimax_gnl_ops[cnt]);
+ 	genl_unregister_family(&wimax_gnl_family);
+ error_register_family:
+ 	d_fnend(4, NULL, "() = %d\n", result);
+@@ -619,12 +625,7 @@ module_init(wimax_subsys_init);
+ static
+ void __exit wimax_subsys_exit(void)
+ {
+-	int cnt;
+ 	wimax_id_table_release();
+-	genl_unregister_mc_group(&wimax_gnl_family, &wimax_gnl_mcg);
+-	for (cnt = ARRAY_SIZE(wimax_gnl_ops) - 1; cnt >= 0; cnt--)
+-		genl_unregister_ops(&wimax_gnl_family,
+-				    wimax_gnl_ops[cnt]);
+ 	genl_unregister_family(&wimax_gnl_family);
+ }
+ module_exit(wimax_subsys_exit);
+diff --git a/net/wimax/wimax-internal.h b/net/wimax/wimax-internal.h
+index 5dcd9c0..8567d30 100644
+--- a/net/wimax/wimax-internal.h
++++ b/net/wimax/wimax-internal.h
+@@ -84,8 +84,15 @@ void wimax_id_table_release(void);
+ int wimax_rfkill_add(struct wimax_dev *);
+ void wimax_rfkill_rm(struct wimax_dev *);
+ 
++/* generic netlink */
+ extern struct genl_family wimax_gnl_family;
+ extern struct genl_multicast_group wimax_gnl_mcg;
+ 
++/* ops */
++int wimax_gnl_doit_msg_from_user(struct sk_buff *skb, struct genl_info *info);
++int wimax_gnl_doit_reset(struct sk_buff *skb, struct genl_info *info);
++int wimax_gnl_doit_rfkill(struct sk_buff *skb, struct genl_info *info);
++int wimax_gnl_doit_state_get(struct sk_buff *skb, struct genl_info *info);
++
+ #endif /* #ifdef __KERNEL__ */
+ #endif /* #ifndef __WIMAX_INTERNAL_H__ */
 -- 
 1.8.4.rc3
 
