@@ -1,119 +1,113 @@
-From: wangbiao <biao.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH V3] usbnet: fix race condition caused spinlock bad magic
- issue
-Date: Thu, 14 Nov 2013 10:03:15 +0800
-Message-ID: <1384394595.4229.24.camel@wangbiao>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org,
-	rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org, william.douglas-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	di.zhang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, biao.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: oneukum-l3A5Bk7waGM@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Ingo Molnar <mingo.kernel.org-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net] sit: fix use after free of fb_tunnel_dev
+Date: Wed, 13 Nov 2013 21:27:38 -0500
+Message-ID: <1384396058-26850-1-git-send-email-willemb@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+To: davem@davemloft.net, edumazet@google.com,
+	nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qe0-f73.google.com ([209.85.128.73]:45569 "EHLO
+	mail-qe0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750797Ab3KNC1m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 21:27:42 -0500
+Received: by mail-qe0-f73.google.com with SMTP id t7so18353qeb.0
+        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 18:27:41 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: wang, biao <biao.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Date: Mon, 11 Nov 2013 10:23:40 +0800
-Subject: [PATCH] usbnet: fix race condition caused spinlock bad magic issue
+Bug: The fallback device is created in sit_init_net and assumed to be
+freed in sit_exit_net. First, it is dereferenced in that function, in
+sit_destroy_tunnels:
 
-there is race between usbnet_terminate_urbs and usbnet_bh.
-for example:
-    cpu 0                                     cpu 1
-                                          usbnet_suspend
-usbnet_bh {                               ->usbnet_terminate_urbs {
-                                              dev->wait = &unlink_wakeup;
-                                              while(....){..}//break
-    if(dev->wait) is true
-                       		              dev->wait=NULL
-                                          }//unlink_wakeup is invalid
-    __wake_up(dev->wait)//garbage value
-}
+        struct net *net = dev_net(sitn->fb_tunnel_dev);
 
-the race is due to unprotection of dev->wait, so this patch involves a
-spinlock to avoid it.
+Prior to this, rtnl_unlink_register has removed all devices that match
+rtnl_link_ops == sit_link_ops.
 
-Signed-off-by: wang, biao <biao.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Zhang, Di <di.zhang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Commit 205983c43700 added the line
+
++       sitn->fb_tunnel_dev->rtnl_link_ops = &sit_link_ops;
+
+which cases the fallback device to match here and be freed before it
+is last dereferenced.
+
+Fix: This commit adds an explicit .delllink callback to sit_link_ops
+that skips deallocation at rtnl_unlink_register for the fallback
+device. This mechanism is comparable to the one in ip_tunnel.
+
+It also modifies sit_destroy_tunnels and its only caller sit_exit_net
+to avoid the offending dereference in the first place. That double
+lookup is more complicated than required.
+
+Test: The bug is only triggered when CONFIG_NET_NS is enabled. It
+causes a GPF only when CONFIG_DEBUG_SLAB is enabled. Verified that
+this bug exists at the mentioned commit, at davem-net HEAD and at
+3.11.y HEAD. Verified that it went away after applying this patch.
+
+Fixes: 205983c43700 ("sit: allow to use rtnl ops on fb tunnel")
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+
 ---
- drivers/net/usb/usbnet.c |   16 ++++++++++++++--
- 1 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 90a429b..f7df1af 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -86,6 +86,7 @@ static const char driver_name [] = "usbnet";
+Please also queue this patch up for 3.11 stable.
+---
+ net/ipv6/sit.c | 18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 3a9038d..5a57f38 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -1604,6 +1604,15 @@ static const struct nla_policy ipip6_policy[IFLA_IPTUN_MAX + 1] = {
+ #endif
+ };
  
- /* use ethtool to change the level for any given device */
- static int msg_level = -1;
-+static spinlock_t dev_wait_lock = __SPIN_LOCK_UNLOCKED(dev_wait_lock);
- module_param (msg_level, int, 0);
- MODULE_PARM_DESC (msg_level, "Override default message level");
++static void ipip6_dellink(struct net_device *dev, struct list_head *head)
++{
++	struct net *net = dev_net(dev);
++	struct sit_net *sitn = net_generic(net, sit_net_id);
++
++	if (dev != sitn->fb_tunnel_dev)
++		unregister_netdevice_queue(dev, head);
++}
++
+ static struct rtnl_link_ops sit_link_ops __read_mostly = {
+ 	.kind		= "sit",
+ 	.maxtype	= IFLA_IPTUN_MAX,
+@@ -1615,6 +1624,7 @@ static struct rtnl_link_ops sit_link_ops __read_mostly = {
+ 	.changelink	= ipip6_changelink,
+ 	.get_size	= ipip6_get_size,
+ 	.fill_info	= ipip6_fill_info,
++	.dellink	= ipip6_dellink,
+ };
  
-@@ -764,11 +765,14 @@ static void usbnet_terminate_urbs(struct usbnet *dev)
- 	DECLARE_WAIT_QUEUE_HEAD_ONSTACK(unlink_wakeup);
- 	DECLARE_WAITQUEUE(wait, current);
- 	int temp;
-+	unsigned long flags;
+ static struct xfrm_tunnel sit_handler __read_mostly = {
+@@ -1629,9 +1639,10 @@ static struct xfrm_tunnel ipip_handler __read_mostly = {
+ 	.priority	=	2,
+ };
  
- 	/* ensure there are no more active urbs */
- 	add_wait_queue(&unlink_wakeup, &wait);
- 	set_current_state(TASK_UNINTERRUPTIBLE);
-+	spin_lock_irqsave(&dev_wait_lock, flags);
- 	dev->wait = &unlink_wakeup;
-+	spin_unlock_irqrestore(&dev_wait_lock, flags);
- 	temp = unlink_urbs(dev, &dev->txq) +
- 		unlink_urbs(dev, &dev->rxq);
+-static void __net_exit sit_destroy_tunnels(struct sit_net *sitn, struct list_head *head)
++static void __net_exit sit_destroy_tunnels(struct net *net,
++					   struct list_head *head)
+ {
+-	struct net *net = dev_net(sitn->fb_tunnel_dev);
++	struct sit_net *sitn = net_generic(net, sit_net_id);
+ 	struct net_device *dev, *aux;
+ 	int prio;
  
-@@ -782,7 +786,9 @@ static void usbnet_terminate_urbs(struct usbnet *dev)
- 				  "waited for %d urb completions\n", temp);
- 	}
- 	set_current_state(TASK_RUNNING);
-+	spin_lock_irqsave(&dev_wait_lock, flags);
- 	dev->wait = NULL;
-+	spin_unlock_irqrestore(&dev_wait_lock, flags);
- 	remove_wait_queue(&unlink_wakeup, &wait);
+@@ -1706,11 +1717,10 @@ err_alloc_dev:
+ 
+ static void __net_exit sit_exit_net(struct net *net)
+ {
+-	struct sit_net *sitn = net_generic(net, sit_net_id);
+ 	LIST_HEAD(list);
+ 
+ 	rtnl_lock();
+-	sit_destroy_tunnels(sitn, &list);
++	sit_destroy_tunnels(net, &list);
+ 	unregister_netdevice_many(&list);
+ 	rtnl_unlock();
  }
- 
-@@ -1424,6 +1430,7 @@ static void usbnet_bh (unsigned long param)
- 	struct usbnet		*dev = (struct usbnet *) param;
- 	struct sk_buff		*skb;
- 	struct skb_data		*entry;
-+	unsigned long           flags;
- 
- 	while ((skb = skb_dequeue (&dev->done))) {
- 		entry = (struct skb_data *) skb->cb;
-@@ -1447,13 +1454,18 @@ static void usbnet_bh (unsigned long param)
- 	clear_bit(EVENT_RX_KILL, &dev->flags);
- 
- 	// waiting for all pending urbs to complete?
-+	spin_lock_irqsave(&dev_wait_lock, flags);
- 	if (dev->wait) {
- 		if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) == 0) {
--			wake_up (dev->wait);
-+			wake_up(dev->wait);
- 		}
-+		spin_unlock_irqrestore(&dev_wait_lock, flags);
-+		return;
-+	}
-+	spin_unlock_irqrestore(&dev_wait_lock, flags);
- 
- 	// or are we maybe short a few urbs?
--	} else if (netif_running (dev->net) &&
-+	if (netif_running(dev->net) &&
- 		   netif_device_present (dev->net) &&
- 		   netif_carrier_ok(dev->net) &&
- 		   !timer_pending (&dev->delay) &&
 -- 
-1.7.0.4
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.8.4.1
