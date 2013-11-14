@@ -1,44 +1,56 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] isdnloop: use strlcpy() instead of strcpy()
-Date: Thu, 14 Nov 2013 11:21:10 +0300
-Message-ID: <20131114082110.GD8150@elgon.mountain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] 6lowpan: Uncompression of traffic class field was
+ incorrect
+Date: Thu, 14 Nov 2013 03:22:05 -0500 (EST)
+Message-ID: <20131114.032205.1348397553819887559.davem@davemloft.net>
+References: <1384333419-4087-1-git-send-email-jukka.rissanen@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors@vger.kernel.org, isdn4linux@listserv.isdn4linux.de
-To: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alex.aring@gmail.com
+To: jukka.rissanen@linux.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48356 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751878Ab3KNIWG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 03:22:06 -0500
+In-Reply-To: <1384333419-4087-1-git-send-email-jukka.rissanen@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These strings come from a copy_from_user() and there is no way to be
-sure they are NUL terminated.
+From: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+Date: Wed, 13 Nov 2013 11:03:39 +0200
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> If priority/traffic class field in IPv6 header is set (seen when
+> using ssh), the uncompression sets the TC and Flow fields incorrectly.
+> 
+> Example:
+> 
+> This is IPv6 header of a sent packet. Note the priority/TC (=1) in
+> the first byte.
+> 
+> 00000000: 61 00 00 00 00 2c 06 40 fe 80 00 00 00 00 00 00
+> 00000010: 02 02 72 ff fe c6 42 10 fe 80 00 00 00 00 00 00
+> 00000020: 02 1e ab ff fe 4c 52 57
+> 
+> This gets compressed like this in the sending side
+> 
+> 00000000: 72 31 04 06 02 1e ab ff fe 4c 52 57 ec c2 00 16
+> 00000010: aa 2d fe 92 86 4e be c6 ....
+> 
+> In the receiving end, the packet gets uncompressed to this
+> IPv6 header
+> 
+> 00000000: 60 06 06 02 00 2a 1e 40 fe 80 00 00 00 00 00 00
+> 00000010: 02 02 72 ff fe c6 42 10 fe 80 00 00 00 00 00 00
+> 00000020: ab ff fe 4c 52 57 ec c2
+> 
+> First four bytes are set incorrectly and we have also lost
+> two bytes from destination address.
+> 
+> The fix is to switch the case values in switch statement
+> when checking the TC field.
+> 
+> Signed-off-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
 
-diff --git a/drivers/isdn/isdnloop/isdnloop.c b/drivers/isdn/isdnloop/isdnloop.c
-index baf2686..02125e6 100644
---- a/drivers/isdn/isdnloop/isdnloop.c
-+++ b/drivers/isdn/isdnloop/isdnloop.c
-@@ -1083,8 +1083,10 @@ isdnloop_start(isdnloop_card *card, isdnloop_sdef *sdefp)
- 			spin_unlock_irqrestore(&card->isdnloop_lock, flags);
- 			return -ENOMEM;
- 		}
--		for (i = 0; i < 3; i++)
--			strcpy(card->s0num[i], sdef.num[i]);
-+		for (i = 0; i < 3; i++) {
-+			strlcpy(card->s0num[i], sdef.num[i],
-+				sizeof(card->s0num[0]));
-+		}
- 		break;
- 	case ISDN_PTYPE_1TR6:
- 		if (isdnloop_fake(card, "DRV1.04TC-1TR6-CAPI-CNS-BASIS-29.11.95",
-@@ -1097,7 +1099,7 @@ isdnloop_start(isdnloop_card *card, isdnloop_sdef *sdefp)
- 			spin_unlock_irqrestore(&card->isdnloop_lock, flags);
- 			return -ENOMEM;
- 		}
--		strcpy(card->s0num[0], sdef.num[0]);
-+		strlcpy(card->s0num[0], sdef.num[0], sizeof(card->s0num[0]));
- 		card->s0num[1][0] = '\0';
- 		card->s0num[2][0] = '\0';
- 		break;
+Applied, thanks.
