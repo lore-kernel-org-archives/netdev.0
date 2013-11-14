@@ -1,41 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip6tnl: fix use after free of fb_tnl_dev
-Date: Thu, 14 Nov 2013 17:05:29 -0500 (EST)
-Message-ID: <20131114.170529.1627250972818871118.davem@davemloft.net>
-References: <20131113211430.1ad3bb7d@gandalf.local.home>
-	<1384440423-4275-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next 0/6] 6lowpan: udp compression/uncompression fix
+Date: Thu, 14 Nov 2013 17:06:20 -0500 (EST)
+Message-ID: <20131114.170620.830861106940917404.davem@davemloft.net>
+References: <1384444132-1427-1-git-send-email-alex.aring@gmail.com>
+	<1384445983.28716.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rostedt@goodmis.org, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org, gregkh@linuxfoundation.org,
-	williams@redhat.com, linux-rt-users@vger.kernel.org,
-	lclaudio@uudg.org, netdev@vger.kernel.org, willemb@google.com
-To: nicolas.dichtel@6wind.com
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-In-Reply-To: <1384440423-4275-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alex.aring@gmail.com, alex.bluesman.smirnov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, werner@almesberger.net,
+	jukka.rissanen@linux.intel.com, dbaryshkov@gmail.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53357 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755273Ab3KNWGX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 17:06:23 -0500
+In-Reply-To: <1384445983.28716.1.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Thu, 14 Nov 2013 15:47:03 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 14 Nov 2013 08:19:43 -0800
 
-> Bug has been introduced by commit bb8140947a24 ("ip6tnl: allow to use rtnl ops
-> on fb tunnel").
+> On Thu, 2013-11-14 at 16:48 +0100, Alexander Aring wrote:
+>> The current 6LoWPAN udp compression/uncompression is completely broken.
+>> This patch series fix a lot of udp compression/uncompression issues and
+>> add support parsing with lowpan_fetch_skb function.
 > 
-> When ip6_tunnel.ko is unloaded, FB device is delete by rtnl_link_unregister()
-> and then we try to use the pointer in ip6_tnl_destroy_tunnels().
-> 
-> Let's add an handler for dellink, which will never remove the FB tunnel. With
-> this patch it will no more be possible to remove it via 'ip link del ip6tnl0',
-> but it's safer.
-> 
-> The same fix was already proposed by Willem de Bruijn <willemb@google.com> for
-> sit interfaces.
-> 
-> CC: Willem de Bruijn <willemb@google.com>
-> Reported-by: Steven Rostedt <rostedt@goodmis.org>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> If its broken, why targeting net-next tree (which is closed BTW ATM) ?
 
-Applied and queued up for -stable, thanks for being so proactive about this
-Nicolas.
+In any event, if you do want it to go into net-next, please resubmit
+this series when the net-next tree opens back up after the merge
+window.
+
+Thanks!
