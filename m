@@ -1,55 +1,83 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] net: phy: at803x: soft-reset PHY when link goes down
-Date: Fri, 15 Nov 2013 03:03:36 +0300
-Message-ID: <528564D8.9050504@cogentembedded.com>
-References: <1384376870-7810-1-git-send-email-zonque@gmail.com> <1384376870-7810-2-git-send-email-zonque@gmail.com>
+From: Sebastian Reichel <sre@debian.org>
+Subject: Re: [PATCH 1/4] wl1251: split wl251 platform data to a separate
+ structure
+Date: Thu, 14 Nov 2013 23:03:33 +0000
+Message-ID: <20131114230330.GB6383@earth.universe>
+References: <1382890469-25286-1-git-send-email-sre@debian.org>
+ <1382890469-25286-2-git-send-email-sre@debian.org>
+ <20131114185132.GQ10317@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, marek.belisko@gmail.com, ujhelyi.m@gmail.com
-To: Daniel Mack <zonque@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:44771 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752010Ab3KNXD1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 18:03:27 -0500
-Received: by mail-lb0-f178.google.com with SMTP id y6so2087246lbh.23
-        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 15:03:26 -0800 (PST)
-In-Reply-To: <1384376870-7810-2-git-send-email-zonque@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="V0207lvV8h4k8FAm"
+Cc: Luciano Coelho <luca@coelho.fi>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Rob Landley <rob@landley.net>,
+	Russell King <linux@arm.linux.org.uk>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Felipe Balbi <balbi@ti.com>,
+	Sachin Kamat <sachin.kamat@linaro.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	devicetree@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Luciano Coelho <coelho@ti.com>
+To: Tony Lindgren <tony@atomide.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131114185132.GQ10317@atomide.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
 
-On 11/14/2013 12:07 AM, Daniel Mack wrote:
+--V0207lvV8h4k8FAm
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> When the link goes down and up again quickly and multiple times in a
-> row, the AT803x PHY gets stuck and won't recover unless it is soft-reset
-> via the BMCR register.
-
-> Unfortunately, there is no way to detect this state, as all registers
-> contain perfectly sane values in such cases. Hence, the only option is
-> to always soft-reset the PHY when the link goes down.
-
-> Reset logic is based on a patch from Marek Belisko.
-
-> Signed-off-by: Daniel Mack <zonque@gmail.com>
-> Reported-and-tested-by: Marek Belisko <marek.belisko@gmail.com>
-> ---
->   drivers/net/phy/at803x.c | 52 ++++++++++++++++++++++++++++++++++++++++++++++++
->   1 file changed, 52 insertions(+)
-
-> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-> index bc71947..303c5ae 100644
-> --- a/drivers/net/phy/at803x.c
-> +++ b/drivers/net/phy/at803x.c
-> @@ -32,10 +32,56 @@
->   #define AT803X_DEBUG_SYSTEM_MODE_CTRL		0x05
->   #define AT803X_DEBUG_RGMII_TX_CLK_DLY		BIT(8)
+On Thu, Nov 14, 2013 at 10:51:33AM -0800, Tony Lindgren wrote:
+> [...]
 >
-> +#define AT803X_BMCR_SOFTRESET			BIT(15)
-> +
+> If this is not going into v3.13, these will cause conflicts
+> with the mach-omap2/board-*.c files for v3.14.
+>=20
+> So it might be best to do a minimal header patch first that
+> can be merged in by both linux-omap and wireless trees.
 
-    This is the standard bit (BMCR_RESET) #define'd in the same file as MII_BMCR.
+I guess this patch is pretty minimal. It also seems to be acked by
+the involved Maintainers, so maybe just merge Patch 1 without the
+other patches?
 
-WBR, Sergei
+This does not solve the problem with the struct modification from
+the second patch, but I guess it's the more intrusive patch.
+
+-- Sebastian
+
+--V0207lvV8h4k8FAm
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+
+iQIcBAEBCAAGBQJShVbCAAoJENju1/PIO/qa3ygP+QFNNsOwF5PZp0uSpTuxh3II
+kdL4jIoihLkpJ1dgG6rMsJIqyHAk09XUd5TZjsKandyiv1XCSLzEbC6S3X6kBT15
+/gxWHWUYMCDx7l21DFG5/zaEVCtGMalg2kxX9rClbcEdv1uJtVzw2qywyccWGNmp
+N/D84+/Xu7P6n+AJvdJOMqGT1hMcerZCDc0x/8Ggcu9GMc+Ok6uYNwuoVPWhJbot
+iP7+p9A+tz8n6RwLCmIF45TzDjXbx2dSh66qTChpV5LdOxunCXJe5GchEFbfAorx
+3sEIddHZzC4yT3ArTqm/liyCIOUrVXcw0Hjal05XK+5lFKDSLZSGme6UTT0BzfsJ
+wmrnD3Yo49PZrxYzfzonm8kpJ6YjHWX/b7kLQyY2U2W9f/StCE/WAwImp5Fj/SRC
+ZthE7CNdj8L4OdciRSWgIrs8ttpkSIUhIkQ+0LZH6k/gfQWXD+uSdKJXH7zYnByd
+63SgS+Rj9aaIpNyYTXOuWymeRFhh5Zw7wItrLxhZCZMOkcZ0fFMEqDo+zpNHCB4+
+rblAhOdhDjJxpiOivWprhIUptYDl7VwePRG3XUrJaULDYM9S3rEY45MWCZ83QhkZ
+xmSQm2t5voPfTvTnXKYZhj9WHdKGGCKz/sSaz2Y0c1cZ4qA5FpjKbVqPezovCvaM
+rztAFbkFtnT9Tf9BvnZJ
+=yaNn
+-----END PGP SIGNATURE-----
+
+--V0207lvV8h4k8FAm--
