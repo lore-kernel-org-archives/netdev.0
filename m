@@ -1,45 +1,54 @@
-From: Chang Xiangzhong <changxiangzhong@gmail.com>
-Subject: [PATCH] net: sctp: recover a tranport when an ack comes
-Date: Thu, 14 Nov 2013 21:40:23 +0100
-Message-ID: <1384461624-17636-1-git-send-email-changxiangzhong@gmail.com>
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dreibh@simula.no, ernstgr@simula.no,
-	Chang Xiangzhong <changxiangzhong@gmail.com>
-To: vyasevich@gmail.com, nhorman@tuxdriver.com
+From: Jay Fenlason <fenlason@redhat.com>
+Subject: Re: [PATCH] rds: fix local ping DoS
+Date: Thu, 14 Nov 2013 15:47:59 -0500
+Message-ID: <20131114204758.GA22417@redhat.com>
+References: <1384391743-9342-1-git-send-email-johunt@akamai.com>
+ <20131114.020355.1973894145326845195.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: johunt@akamai.com, netdev@vger.kernel.org,
+	venkat.x.venkatsubra@oracle.com, linux-kernel@vger.kernel.org,
+	jjolly@suse.com, honli@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131114.020355.1973894145326845195.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Expected Behavior:
-When hearing an ack from a tranport/path, set its state to normal/on if it's
-in abnormal(__partial_failure__ or inactive) state.
+On Thu, Nov 14, 2013 at 02:03:55AM -0500, David Miller wrote:
+> From: Josh Hunt <johunt@akamai.com>
+> Date: Wed, 13 Nov 2013 17:15:43 -0800
+> 
+> > The rds_ib_xmit function in net/rds/ib_send.c in the Reliable Datagram Sockets
+> > (RDS) protocol implementation allows local users to cause a denial of service
+> > (BUG_ON and kernel panic) by establishing an RDS connection with the source
+> > IP address equal to the IPoIB interface's own IP address, as demonstrated by
+> > rds-ping.
+> > 
+> > A local unprivileged user could use this flaw to crash the system.
+> > 
+> > CVE-2012-2372
+> > 
+> > Reported-by: Honggang Li <honli@redhat.com>
+> > Signed-off-by: Josh Hunt <johunt@akamai.com>
+> 
+> I'm sorry I can't apply this.  This commit message needs to be much
+> less terse and explain things more.
+> 
+> First of all, why is the "off % RDS_FRAG_SIZE" important?
+> 
+> And, even more importantly, why is is OK to avoid this assertion just
+> because we're going over loopback?
+> 
+> Furthermore, why doesn't net/rds/iw_send.c:rds_iw_xmit() have the same
+> exact problem?  It makes the same exact assertion check.
+> 
+> I know this RDS code is a steaming pile of poo, but that doesn't mean
+> we just randomly adjust assertions to make crashes go away without
+> sufficient understanding of exactly what's going on.
 
-state machine of tranport->state
-Whenever a T3_RTX timer expires, then transport->error_count++.
-When (association->pf_retrans < transport->error_count < tranport->pathmaxrtx)
-	transport->state = SCTP_PF //partial failure
+And that is why rds should be moved to staging, where nobody will
+accidentally think that it is actually being maintained.
 
-When a heartbeat-ack comes or conventional ack acknowledged its availability,
-	transport->state = SCTP_ON
-
-Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
-Fixes: 5aa93bcf66f ("sctp: Implement quick failover draft from tsvwg")
----
- net/sctp/outqueue.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 94df758..2557fa5 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -1517,6 +1517,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
- 			 * active if it is not so marked.
- 			 */
- 			if ((transport->state == SCTP_INACTIVE ||
-+			     transport->state == SCTP_PF ||
- 			     transport->state == SCTP_UNCONFIRMED) &&
- 			    sctp_cmp_addr_exact(&transport->ipaddr, saddr)) {
- 				sctp_assoc_control_transport(
--- 
-1.7.9.5
+			-- JF
