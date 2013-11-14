@@ -1,63 +1,80 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH net-next 1/6] 6lowpan: fix udp nullpointer dereferencing
-Date: Thu, 14 Nov 2013 16:48:47 +0100
-Message-ID: <1384444132-1427-2-git-send-email-alex.aring@gmail.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next 4/6] 6lowpan: add udp warning
+	for elided checksum
+Date: Thu, 14 Nov 2013 16:48:50 +0100
+Message-ID: <1384444132-1427-5-git-send-email-alex.aring@gmail.com>
 References: <1384444132-1427-1-git-send-email-alex.aring@gmail.com>
-Cc: linux-zigbee-devel@lists.sourceforge.net, werner@almesberger.net,
-	jukka.rissanen@linux.intel.com, dbaryshkov@gmail.com,
-	netdev@vger.kernel.org, Alexander Aring <alex.aring@gmail.com>
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f45.google.com ([209.85.214.45]:59482 "EHLO
-	mail-bk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753626Ab3KNPtF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 10:49:05 -0500
-Received: by mail-bk0-f45.google.com with SMTP id r7so1139689bkg.18
-        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 07:49:03 -0800 (PST)
-In-Reply-To: <1384444132-1427-1-git-send-email-alex.aring@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1384444132-1427-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Sometimes a nullpointer dereferencing occurs because of using a wrong
-pointer arithmetic in udp_uncompression.
+Bit 5 of "UDP LOWPAN_NHC Format" indicate that the checksum can be elided.
+The host need to calculate the udp checksum afterwards but this isn't
+supported right now.
 
-This patch changes "**(hc06_ptr + 3)" to the right one "*(*hc06_ptr +
-3)". Dereferencing like "**(hc06_ptr + 3)" works in a random case only.
-
-Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+See:
+http://tools.ietf.org/html/rfc6282#section-4.3.3
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/ieee802154/6lowpan.c | 11 ++++++++---
+ net/ieee802154/6lowpan.h |  1 +
+ 2 files changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 426b5df..8633379 100644
+index 616f2f6..59678da 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -344,7 +344,7 @@ lowpan_compress_udp_header(u8 **hc06_ptr, struct sk_buff *skb)
- 				LOWPAN_NHC_UDP_4BIT_PORT)) {
- 		pr_debug("UDP header: both ports compression to 4 bits\n");
- 		**hc06_ptr = LOWPAN_NHC_UDP_CS_P_11;
--		**(hc06_ptr + 1) = /* subtraction is faster */
-+		*(*hc06_ptr + 1) = /* subtraction is faster */
- 		   (u8)((uh->dest - LOWPAN_NHC_UDP_4BIT_PORT) +
- 		       ((uh->source & LOWPAN_NHC_UDP_4BIT_PORT) << 4));
- 		*hc06_ptr += 2;
-@@ -353,14 +353,14 @@ lowpan_compress_udp_header(u8 **hc06_ptr, struct sk_buff *skb)
- 		pr_debug("UDP header: remove 8 bits of dest\n");
- 		**hc06_ptr = LOWPAN_NHC_UDP_CS_P_01;
- 		memcpy(*hc06_ptr + 1, &uh->source, 2);
--		**(hc06_ptr + 3) = (u8)(uh->dest - LOWPAN_NHC_UDP_8BIT_PORT);
-+		*(*hc06_ptr + 3) = (u8)(uh->dest - LOWPAN_NHC_UDP_8BIT_PORT);
- 		*hc06_ptr += 4;
- 	} else if ((uh->source & LOWPAN_NHC_UDP_8BIT_MASK) ==
- 			LOWPAN_NHC_UDP_8BIT_PORT) {
- 		pr_debug("UDP header: remove 8 bits of source\n");
- 		**hc06_ptr = LOWPAN_NHC_UDP_CS_P_10;
- 		memcpy(*hc06_ptr + 1, &uh->dest, 2);
--		**(hc06_ptr + 3) = (u8)(uh->source - LOWPAN_NHC_UDP_8BIT_PORT);
-+		*(*hc06_ptr + 3) = (u8)(uh->source - LOWPAN_NHC_UDP_8BIT_PORT);
- 		*hc06_ptr += 4;
- 	} else {
- 		pr_debug("UDP header: can't compress\n");
+@@ -448,9 +448,14 @@ lowpan_uncompress_udp_header(struct sk_buff *skb, struct udphdr *uh)
+ 		pr_debug("uncompressed UDP ports: src = %d, dst = %d\n",
+ 			 ntohs(uh->source), ntohs(uh->dest));
+ 
+-		/* copy checksum */
+-		memcpy(&uh->check, &skb->data[0], 2);
+-		skb_pull(skb, 2);
++		/* checksum */
++		if (tmp & LOWPAN_NHC_UDP_CS_C) {
++			pr_debug("checksum elided currently not supported");
++			goto err;
++		} else {
++			memcpy(&uh->check, &skb->data[0], 2);
++			skb_pull(skb, 2);
++		}
+ 
+ 		/*
+ 		 * UDP lenght needs to be infered from the lower layers
+diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
+index 2869c05..2bc231f 100644
+--- a/net/ieee802154/6lowpan.h
++++ b/net/ieee802154/6lowpan.h
+@@ -231,6 +231,7 @@
+ #define LOWPAN_NHC_UDP_CS_P_10	0xF2 /* source = 0xF0 + 8bit inline,
+ 					dest = 16 bit inline */
+ #define LOWPAN_NHC_UDP_CS_P_11	0xF3 /* source & dest = 0xF0B + 4bit inline */
++#define LOWPAN_NHC_UDP_CS_C	0x04 /* checksum elided */
+ 
+ static inline bool lowpan_fetch_skb(struct sk_buff *skb,
+ 		void *data, const unsigned int len)
 -- 
 1.8.4.2
+
+
+------------------------------------------------------------------------------
+DreamFactory - Open Source REST & JSON Services for HTML5 & Native Apps
+OAuth, Users, Roles, SQL, NoSQL, BLOB Storage and External API Access
+Free app hosting. Or install the open source package on any LAMP server.
+Sign up and see examples for AngularJS, jQuery, Sencha Touch and Native!
+http://pubads.g.doubleclick.net/gampad/clk?id=63469471&iu=/4140/ostg.clktrk
