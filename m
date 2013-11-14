@@ -1,40 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] neigh: Force garbage collection if an entry is
- deleted administratively
-Date: Thu, 14 Nov 2013 02:23:56 -0500 (EST)
-Message-ID: <20131114.022356.1095983243221745109.davem@davemloft.net>
-References: <20131112085714.GU31491@secunet.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Bug - regression - Via velocity interface coming up freezes
+ kernel
+Date: Thu, 14 Nov 2013 08:24:51 +0100
+Message-ID: <20131114072451.GA2313@electric-eye.fr.zoreil.com>
+References: <CAFES+i+OYq_dDtEqAqkW7qYDrtdzkqc9hBGBDODQuqgvFJE7zg@mail.gmail.com>
+ <20130922221109.GA14246@electric-eye.fr.zoreil.com>
+ <20131111234656.GA4846@marquez.int.rhx>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Dirk Kraft <dirk.kraft@gmail.com>, netdev@vger.kernel.org,
+	Julia Lawall <Julia.Lawall@lip6.fr>
+To: Michele Baldessari <michele@acksyn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48059 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751181Ab3KNHX6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 02:23:58 -0500
-In-Reply-To: <20131112085714.GU31491@secunet.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57736 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751087Ab3KNHZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 02:25:45 -0500
+Content-Disposition: inline
+In-Reply-To: <20131111234656.GA4846@marquez.int.rhx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Tue, 12 Nov 2013 09:57:14 +0100
+Michele Baldessari <michele@acksyn.org> :
+[...]
+> any chance you can submit this officially ?
 
-> Since git commit 2724680 ("neigh: Keep neighbour cache entries if number
-> of them is small enough."), we keep all neighbour cache entries if the
-> number is below a threshold. But if we now delete an entry administratively
-> and then try to replace this by a permanent one, we get -EEXIST because the
-> old entry ist still in the table (in NUD_FAILED state).
-> 
-> So lets force a garbage collect if we delete an entry administratively.
-> 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Yes.
 
-I don't think this is a sufficient fix.
+> Or does this patch need some more work ?
 
-If some entity refers to this entry (refcnt != 1) then the forced
-GC won't do anything, and this is very much possible.
+I'll write some narrative for the commit message.
 
-It is the difficult situation mentioned in a comment in
-neigh_flush_dev() below the "refcnt != 1" test there.
+-- 
+Ueimor
