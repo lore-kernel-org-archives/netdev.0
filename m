@@ -1,54 +1,31 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: Re: [PATCH iproute2] htb: support 64bit rates
-Date: Thu, 14 Nov 2013 16:03:26 +0800
-Message-ID: <528483CE.6050100@huawei.com>
-References: <1384295647.28458.31.camel@edumazet-glaptop2.roam.corp.google.com>	 <52834248.3040103@huawei.com> <1384352510.28458.105.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: cdc_ncm: cleanup a type issue in cdc_ncm_setup()
+Date: Thu, 14 Nov 2013 03:10:57 -0500 (EST)
+Message-ID: <20131114.031057.1514427325797937478.davem@davemloft.net>
+References: <20131113074234.GB25541@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: oliver@neukum.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:46718 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751437Ab3KNIEU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 03:04:20 -0500
-In-Reply-To: <1384352510.28458.105.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48264 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751190Ab3KNILE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 03:11:04 -0500
+In-Reply-To: <20131113074234.GB25541@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/11/13 22:21, Eric Dumazet wrote:
-> On Wed, 2013-11-13 at 17:11 +0800, Yang Yingliang wrote:
->>> -	if (!buffer) buffer = opt.rate.rate / get_hz() + mtu;
->>> -	if (!cbuffer) cbuffer = opt.ceil.rate / get_hz() + mtu;
->>> +	if (!buffer)
->>> +		buffer = rate64 / get_hz() + mtu;
->>> +	if (!cbuffer)
->>> +		cbuffer = ceil64 / get_hz() + mtu;
->>
->> Hi,
->> It may overflow here if rate64 and mtu are big enough.
-> 
-> Not really.
-> 
-> get_hz() on current kernels is really huge : 1000000000
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 13 Nov 2013 10:42:34 +0300
 
-Yeah, in normal condition, it won't happen.
-If user make a wrong input, such as "rate 0x800000000Gbit",
-Overflow happens. Although it has no impact on the value of the "opt.buffer".
-If it's better to have a judgement of the buffer's value. :)
+> This is harmless but cdc_ncm_setup() returns negative error codes
+> truncated to u8 values.  There is only one caller and treats all
+> non-zero returns as errors but doesn't store the the return code.  So
+> the code works correctly but it's messy and upsets the static checkers.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Regards,
-Yang
-
-> 
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+Applied, thanks Dan.
