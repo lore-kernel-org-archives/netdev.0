@@ -1,71 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] alx: Reset phy speed after resume
-Date: Thu, 14 Nov 2013 08:57:02 -0800
-Message-ID: <1384448222.15774.12.camel@joe-AO722>
-References: <1384445773.29057.5.camel@localhost.tld>
+From: Werner Almesberger <werner-SEdMjqphH88wryQfseakQg@public.gmane.org>
+Subject: Re: [PATCH net-next 1/6] 6lowpan: fix udp
+	nullpointer dereferencing
+Date: Thu, 14 Nov 2013 14:17:58 -0300
+Message-ID: <20131114171758.GA10196@ws>
+References: <1384444132-1427-1-git-send-email-alex.aring@gmail.com>
+	<1384444132-1427-2-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com, chris.snook@gmail.com, davem@davemloft.net,
-	johannes@sipsolutions.net, wangyijing@huawei.com,
-	maarten.lankhorst@canonical.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hahnjo <linux@hahnjo.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0166.hostedemail.com ([216.40.44.166]:52690 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755786Ab3KNQ5E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 11:57:04 -0500
-In-Reply-To: <1384445773.29057.5.camel@localhost.tld>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1384444132-1427-2-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-11-14 at 17:16 +0100, hahnjo wrote:
-> From 27744b24f9291782c1342dbd6cac511e68da907c Mon Sep 17 00:00:00 2001
-> From: hahnjo <hahnjo@hahnjo.de>
-> Date: Tue, 12 Nov 2013 18:19:24 +0100
-> Subject: [PATCH] alx: Reset phy speed after resume
-> 
-> This fixes bug 62491 (https://bugzilla.kernel.org/show_bug.cgi?id=62491).
-> After resuming some users got the following error flooding the kernel log:
-> alx 0000:02:00.0: invalid PHY speed/duplex: 0xffff
-> 
-> Signed-off-by: Jonas Hahnfeld <linux@hahnjo.de>
-> ---
->  drivers/net/ethernet/atheros/alx/main.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-> index fc95b23..6305a5d 100644
-> --- a/drivers/net/ethernet/atheros/alx/main.c
-> +++ b/drivers/net/ethernet/atheros/alx/main.c
-> @@ -1389,6 +1389,9 @@ static int alx_resume(struct device *dev)
->  {
->  	struct pci_dev *pdev = to_pci_dev(dev);
->  	struct alx_priv *alx = pci_get_drvdata(pdev);
-> +	struct alx_hw *hw = &alx->hw;
-> +
-> +	alx_reset_phy(hw);
->  
->  	if (!netif_running(alx->dev))
->  		return 0;
+Alexander Aring wrote:
+> -		**(hc06_ptr + 3) = (u8)(uh->dest - LOWPAN_NHC_UDP_8BIT_PORT);
+> +		*(*hc06_ptr + 3) = (u8)(uh->dest - LOWPAN_NHC_UDP_8BIT_PORT);
 
-Perhaps this would help too:
----
- drivers/net/ethernet/atheros/alx/hw.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+This patch series looks like having an opportunity for killing some
+unnecessary casts, too :) That is, unless you aim to be -Wconversion
+clean, but the kernel is full of things -Wconversion would complain
+about.
 
-diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
-index 1e8c24a..3396224 100644
---- a/drivers/net/ethernet/atheros/alx/hw.c
-+++ b/drivers/net/ethernet/atheros/alx/hw.c
-@@ -908,7 +908,8 @@ int alx_read_phy_link(struct alx_hw *hw)
- 	return 0;
- 
- wrong_speed:
--	dev_err(&pdev->dev, "invalid PHY speed/duplex: 0x%x\n", giga);
-+	dev_err_ratelimited(&pdev->dev, "invalid PHY speed/duplex: 0x%x\n",
-+			    giga);
- 	return -EINVAL;
- }
- 
+- Werner
+
+------------------------------------------------------------------------------
+DreamFactory - Open Source REST & JSON Services for HTML5 & Native Apps
+OAuth, Users, Roles, SQL, NoSQL, BLOB Storage and External API Access
+Free app hosting. Or install the open source package on any LAMP server.
+Sign up and see examples for AngularJS, jQuery, Sencha Touch and Native!
+http://pubads.g.doubleclick.net/gampad/clk?id=63469471&iu=/4140/ostg.clktrk
