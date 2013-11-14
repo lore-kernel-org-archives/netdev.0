@@ -1,43 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sctp: bug-fixing: retran_path not set properly
- after transports recovering (v3)
-Date: Thu, 14 Nov 2013 16:36:06 -0500 (EST)
-Message-ID: <20131114.163606.2234502533328622215.davem@davemloft.net>
-References: <1384387106-8105-1-git-send-email-changxiangzhong@gmail.com>
+Subject: Re: [PATCH v2 1/1] net:fec: fix WARNING caused by lack of calls to
+ dma_mapping_error()
+Date: Thu, 14 Nov 2013 16:37:57 -0500 (EST)
+Message-ID: <20131114.163757.1438409591991025913.davem@davemloft.net>
+References: <1384394230-23380-1-git-send-email-B38611@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: changxiangzhong@gmail.com
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	stephen@networkplumber.org
+To: B38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52987 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53001 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756160Ab3KNVgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:36:08 -0500
-In-Reply-To: <1384387106-8105-1-git-send-email-changxiangzhong@gmail.com>
+	with ESMTP id S1757995Ab3KNVh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:37:59 -0500
+In-Reply-To: <1384394230-23380-1-git-send-email-B38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chang Xiangzhong <changxiangzhong@gmail.com>
-Date: Thu, 14 Nov 2013 00:58:26 +0100
+From: Fugang Duan <B38611@freescale.com>
+Date: Thu, 14 Nov 2013 09:57:10 +0800
 
-> When a transport recovers due to the new coming sack, SCTP should
-> iterate all of its transport_list to locate the __two__ most recently used
-> transport and set to active_path and retran_path respectively. The exising
-> code does not find the two properly - In case of the following list:
+> The driver fails to check the results of DMA mapping and results in
+> the following warning: (with kernel config "CONFIG_DMA_API_DEBUG" enable)
+ ...
+> Because dma-debug add new interfaces to debug dma mapping errors, pls refer
+> to: http://lwn.net/Articles/516640/
 > 
-> [most-recent] -> [2nd-most-recent] -> ...
+> After dma mapping, it must call dma_mapping_error() to check mapping error,
+> otherwise the map_err_type alway is MAP_ERR_NOT_CHECKED, check_unmap() define
+> the mapping is not checked and dump the error msg. So,add dma_mapping_error()
+> checking to fix the WARNING
 > 
-> Both active_path and retran_path would be set to the 1st element.
+> And RX DMA buffers are used repeatedly and the driver copies it into an skb,
+> fec_enet_rx() should not map or unmap, use dma_sync_single_for_cpu()/dma_sync_single_for_device()
+> instead of dma_map_single()/dma_unmap_single().
 > 
-> The bug happens when:
-> 1) multi-homing
-> 2) failure/partial_failure transport recovers
-> Both active_path and retran_path would be set to the same most-recent one, in
-> other words, retran_path would not take its role - an end user might not even
-> notice this issue.
+> There have another potential issue:  fec_enet_rx() passes the DMA address to __va().
+> Physical and DMA addresses are *not* the same thing. They may differ if the device
+> is behind an IOMMU or bounce buffering was required, or just because there is a fixed
+> offset between the device and host physical addresses. Also fix it in this patch.
 > 
-> Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
+> =============================================
+> V2: add net_ratelimit() to limit map err message.
+>     use dma_sync_single_for_cpu() instead of dma_map_single().
+>     fix the issue that pass DMA addresses to __va() to get virture address.
+> V1: initial send
+> =============================================
+> 
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
 
-Applied, thanks.
+Applied, thanks a lot.
