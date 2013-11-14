@@ -1,157 +1,99 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: [PATCH] virtio-net: mergeable buffer size should include virtio-net
-	header
-Date: Thu, 14 Nov 2013 10:41:04 -0800
-Message-ID: <1384454464-19923-1-git-send-email-mwdalton@google.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH 1/4] wl1251: split wl251 platform data to a separate
+ structure
+Date: Thu, 14 Nov 2013 10:51:33 -0800
+Message-ID: <20131114185132.GQ10317@atomide.com>
+References: <1382890469-25286-1-git-send-email-sre@debian.org>
+ <1382890469-25286-2-git-send-email-sre@debian.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, Daniel Borkmann <dborkman@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sebastian Reichel <sre@ring0.de>, Luciano Coelho <luca@coelho.fi>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Rob Landley <rob@landley.net>,
+	Russell King <linux@arm.linux.org.uk>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Felipe Balbi <balbi@ti.com>,
+	Sachin Kamat <sachin.kamat@linaro.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	devicetree@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Luciano Coelho <coelho@ti.com>
+To: Sebastian Reichel <sre@debian.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1382890469-25286-2-git-send-email-sre@debian.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 2613af0ed18a ("virtio_net: migrate mergeable rx buffers to page
-frag allocators") changed the mergeable receive buffer size from PAGE_SIZE
-to MTU-size. However, the merge buffer size does not take into account the
-size of the virtio-net header. Consequently, packets that are MTU-size
-will take two buffers intead of one (to store the virtio-net header),
-substantially decreasing the throughput of MTU-size traffic due to TCP
-window / SKB truesize effects.
+* Sebastian Reichel <sre@debian.org> [131027 09:15]:
+> From: Luciano Coelho <coelho@ti.com>
+> 
+> Move the wl1251 part of the wl12xx platform data structure into a new
+> structure specifically for wl1251.  Change the platform data built-in
+> block and board files accordingly.
+> 
+> Cc: Tony Lindgren <tony@atomide.com>
+> Signed-off-by: Luciano Coelho <coelho@ti.com>
+> Acked-by: Tony Lindgren <tony@atomide.com>
+> Reviewed-by: Felipe Balbi <balbi@ti.com>
+> ---
+>  arch/arm/mach-omap2/board-omap3pandora.c       |  4 +--
+>  arch/arm/mach-omap2/board-rx51-peripherals.c   |  2 +-
+>  drivers/net/wireless/ti/wilink_platform_data.c | 37 +++++++++++++++++++++-----
+>  drivers/net/wireless/ti/wl1251/sdio.c          | 12 ++++-----
+>  drivers/net/wireless/ti/wl1251/spi.c           |  2 +-
+>  include/linux/wl12xx.h                         | 22 ++++++++++++++-
+>  6 files changed, 62 insertions(+), 17 deletions(-)
+> 
+> diff --git a/arch/arm/mach-omap2/board-omap3pandora.c b/arch/arm/mach-omap2/board-omap3pandora.c
+> index de1bc6b..24f3c1b 100644
+> --- a/arch/arm/mach-omap2/board-omap3pandora.c
+> +++ b/arch/arm/mach-omap2/board-omap3pandora.c
+> @@ -536,7 +536,7 @@ static struct spi_board_info omap3pandora_spi_board_info[] __initdata = {
+>  
+>  static void __init pandora_wl1251_init(void)
+>  {
+> -	struct wl12xx_platform_data pandora_wl1251_pdata;
+> +	struct wl1251_platform_data pandora_wl1251_pdata;
+>  	int ret;
+>  
+>  	memset(&pandora_wl1251_pdata, 0, sizeof(pandora_wl1251_pdata));
+> @@ -550,7 +550,7 @@ static void __init pandora_wl1251_init(void)
+>  		goto fail_irq;
+>  
+>  	pandora_wl1251_pdata.use_eeprom = true;
+> -	ret = wl12xx_set_platform_data(&pandora_wl1251_pdata);
+> +	ret = wl1251_set_platform_data(&pandora_wl1251_pdata);
+>  	if (ret < 0)
+>  		goto fail_irq;
+>  
+> diff --git a/arch/arm/mach-omap2/board-rx51-peripherals.c b/arch/arm/mach-omap2/board-rx51-peripherals.c
+> index 65e3627..0d8e7d2 100644
+> --- a/arch/arm/mach-omap2/board-rx51-peripherals.c
+> +++ b/arch/arm/mach-omap2/board-rx51-peripherals.c
+> @@ -82,7 +82,7 @@ enum {
+>  	RX51_SPI_MIPID,		/* LCD panel */
+>  };
+>  
+> -static struct wl12xx_platform_data wl1251_pdata;
+> +static struct wl1251_platform_data wl1251_pdata;
+>  static struct tsc2005_platform_data tsc2005_pdata;
+>  
+>  #if defined(CONFIG_SENSORS_LIS3_I2C) || defined(CONFIG_SENSORS_LIS3_I2C_MODULE)
 
-This commit changes the mergeable buffer size to include the virtio-net
-header. The buffer size is cacheline-aligned because skb_page_frag_refill
-will not automatically align the requested size.
+If this is not going into v3.13, these will cause conflicts
+with the mach-omap2/board-*.c files for v3.14.
 
-Benchmarks taken from an average of 5 netperf 30-second TCP_STREAM runs
-between two QEMU VMs on a single physical machine. Each VM has two VCPUs and
-vhost enabled. All VMs and vhost threads run in a single 4 CPU cgroup
-cpuset, using cgroups to ensure that other processes in the system will not
-be scheduled on the benchmark CPUs. Transmit offloads and mergeable receive
-buffers are enabled, but guest_tso4 / guest_csum are explicitly disabled to
-force MTU-sized packets on the receiver.
+So it might be best to do a minimal header patch first that
+can be merged in by both linux-omap and wireless trees.
 
-next-net trunk before 2613af0ed18a (PAGE_SIZE buf): 3861.08Gb/s
-net-next trunk (MTU 1500- packet uses two buf due to size bug): 4076.62Gb/s
-net-next trunk (MTU 1480- packet fits in one buf): 6301.34Gb/s
-net-next trunk w/ size fix (MTU 1500 - packet fits in one buf): 6445.44Gb/s
+Regards,
 
-Suggested-by: Eric Northup <digitaleric@google.com>
-Signed-off-by: Michael Dalton <mwdalton@google.com>
----
- drivers/net/virtio_net.c | 30 ++++++++++++++++--------------
- 1 file changed, 16 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 01f4eb5..69fb225 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -36,7 +36,10 @@ module_param(csum, bool, 0444);
- module_param(gso, bool, 0444);
- 
- /* FIXME: MTU in config. */
--#define MAX_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-+#define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-+#define MERGE_BUFFER_LEN (ALIGN(GOOD_PACKET_LEN + \
-+                                sizeof(struct virtio_net_hdr_mrg_rxbuf), \
-+                                L1_CACHE_BYTES))
- #define GOOD_COPY_LEN	128
- 
- #define VIRTNET_DRIVER_VERSION "1.0.0"
-@@ -314,10 +317,10 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
- 			head_skb->dev->stats.rx_length_errors++;
- 			return -EINVAL;
- 		}
--		if (unlikely(len > MAX_PACKET_LEN)) {
-+		if (unlikely(len > MERGE_BUFFER_LEN)) {
- 			pr_debug("%s: rx error: merge buffer too long\n",
- 				 head_skb->dev->name);
--			len = MAX_PACKET_LEN;
-+			len = MERGE_BUFFER_LEN;
- 		}
- 		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
- 			struct sk_buff *nskb = alloc_skb(0, GFP_ATOMIC);
-@@ -336,18 +339,17 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
- 		if (curr_skb != head_skb) {
- 			head_skb->data_len += len;
- 			head_skb->len += len;
--			head_skb->truesize += MAX_PACKET_LEN;
-+			head_skb->truesize += MERGE_BUFFER_LEN;
- 		}
- 		page = virt_to_head_page(buf);
- 		offset = buf - (char *)page_address(page);
- 		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
- 			put_page(page);
- 			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
--					     len, MAX_PACKET_LEN);
-+					     len, MERGE_BUFFER_LEN);
- 		} else {
- 			skb_add_rx_frag(curr_skb, num_skb_frags, page,
--					offset, len,
--					MAX_PACKET_LEN);
-+					offset, len, MERGE_BUFFER_LEN);
- 		}
- 		--rq->num;
- 	}
-@@ -383,7 +385,7 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 		struct page *page = virt_to_head_page(buf);
- 		skb = page_to_skb(rq, page,
- 				  (char *)buf - (char *)page_address(page),
--				  len, MAX_PACKET_LEN);
-+				  len, MERGE_BUFFER_LEN);
- 		if (unlikely(!skb)) {
- 			dev->stats.rx_dropped++;
- 			put_page(page);
-@@ -471,11 +473,11 @@ static int add_recvbuf_small(struct receive_queue *rq, gfp_t gfp)
- 	struct skb_vnet_hdr *hdr;
- 	int err;
- 
--	skb = __netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN, gfp);
-+	skb = __netdev_alloc_skb_ip_align(vi->dev, GOOD_PACKET_LEN, gfp);
- 	if (unlikely(!skb))
- 		return -ENOMEM;
- 
--	skb_put(skb, MAX_PACKET_LEN);
-+	skb_put(skb, GOOD_PACKET_LEN);
- 
- 	hdr = skb_vnet_hdr(skb);
- 	sg_set_buf(rq->sg, &hdr->hdr, sizeof hdr->hdr);
-@@ -542,20 +544,20 @@ static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
- 	int err;
- 
- 	if (gfp & __GFP_WAIT) {
--		if (skb_page_frag_refill(MAX_PACKET_LEN, &vi->alloc_frag,
-+		if (skb_page_frag_refill(MERGE_BUFFER_LEN, &vi->alloc_frag,
- 					 gfp)) {
- 			buf = (char *)page_address(vi->alloc_frag.page) +
- 			      vi->alloc_frag.offset;
- 			get_page(vi->alloc_frag.page);
--			vi->alloc_frag.offset += MAX_PACKET_LEN;
-+			vi->alloc_frag.offset += MERGE_BUFFER_LEN;
- 		}
- 	} else {
--		buf = netdev_alloc_frag(MAX_PACKET_LEN);
-+		buf = netdev_alloc_frag(MERGE_BUFFER_LEN);
- 	}
- 	if (!buf)
- 		return -ENOMEM;
- 
--	sg_init_one(rq->sg, buf, MAX_PACKET_LEN);
-+	sg_init_one(rq->sg, buf, MERGE_BUFFER_LEN);
- 	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, buf, gfp);
- 	if (err < 0)
- 		put_page(virt_to_head_page(buf));
--- 
-1.8.4.1
+Tony
