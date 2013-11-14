@@ -1,57 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net-tcp: fix panic in tcp_fastopen_cache_set()
-Date: Thu, 14 Nov 2013 11:38:42 -0800
-Message-ID: <1384457922.28716.32.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131113204543.GA26715@redhat.com>
-	 <1384382413.28458.132.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1384383646.28458.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1384456418.13941.40.camel@jlt4.sipsolutions.net>
-	 <1384457800.28716.30.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Pete Zaitcev <zaitcev@redhat.com>
+Subject: Re: [PATCH] connector: improved unaligned access error fix
+Date: Thu, 14 Nov 2013 12:45:49 -0700
+Message-ID: <20131114124549.7b5f3a7b@lembas.zaitcev.lan>
+References: <201311141743.rAEHhuEV004998@farm-0012.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@redhat.com>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: Evgeniy Polyakov <zbr@ioremap.net>, Erik Jacobson <erikj@sgi.com>,
+	Andrew Morton <akpm@osdl.org>,
+	Matt Helsley <matthltc@us.ibm.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, zaitcev@redhat.com
+To: Chris Metcalf <cmetcalf@tilera.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f43.google.com ([209.85.213.43]:54035 "EHLO
-	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754832Ab3KNTip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 14:38:45 -0500
-Received: by mail-yh0-f43.google.com with SMTP id v1so1275595yhn.16
-        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 11:38:44 -0800 (PST)
-In-Reply-To: <1384457800.28716.30.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:25428 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755073Ab3KNTp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Nov 2013 14:45:58 -0500
+In-Reply-To: <201311141743.rAEHhuEV004998@farm-0012.internal.tilera.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-14 at 11:36 -0800, Eric Dumazet wrote:
-> On Thu, 2013-11-14 at 20:13 +0100, Johannes Berg wrote:
-> > On Wed, 2013-11-13 at 15:00 -0800, Eric Dumazet wrote:
-> > 
-> > > --- a/net/ipv4/tcp_metrics.c
-> > > +++ b/net/ipv4/tcp_metrics.c
-> > > @@ -663,10 +663,13 @@ void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
-> > >  void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
-> > >  			    struct tcp_fastopen_cookie *cookie, bool syn_lost)
-> > >  {
-> > > +	struct dst_entry *dst = __sk_dst_get(sk);
-> > >  	struct tcp_metrics_block *tm;
-> > >  
-> > > +	if (!dst)
-> > > +		return;
-> > >  	rcu_read_lock();
-> > > -	tm = tcp_get_metrics(sk, __sk_dst_get(sk), true);
-> > 
-> > Doesn't that __sk_dst_get() have to go inside the rcu_read_lock()?
-> > 
-> > Then again, I guess we hold the socket. Still looks a bit weird to be
-> > moving it out.
-> 
-> Yep, in fact this rcu_read_lock() is not needed. I'll send a v2.
+On Thu, 14 Nov 2013 12:09:21 -0500
+Chris Metcalf <cmetcalf@tilera.com> wrote:
 
-I take it back.
+> -	__u8 buffer[CN_PROC_MSG_SIZE];
+> +	__u8 buffer[CN_PROC_MSG_SIZE] __aligned(8);
 
-the rcu_read_lock() protects the tcp_get_metrics(), not the
-__sk_dst_get(sk)
+> -	msg = (struct cn_msg *)buffer;
+> +	msg = buffer_to_cn_msg(buffer);
+>  	ev = (struct proc_event *)msg->data;
+>  	memset(&ev->event_data, 0, sizeof(ev->event_data));
 
-So the patch is correct, unless you disagree of course ;)
+Why is memset(buffer,0,CN_PROC_MSG_SIZE) not acceptable?
+
+-- Pete
