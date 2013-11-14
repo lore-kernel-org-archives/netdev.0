@@ -1,43 +1,39 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: [PATCH] connector: improved unaligned access error fix
-Date: Thu, 14 Nov 2013 16:22:32 -0500
-Message-ID: <52853F18.4040605@tilera.com>
-References: <201311141743.rAEHhuEV004998@farm-0012.internal.tilera.com> <20131114124549.7b5f3a7b@lembas.zaitcev.lan>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net-tcp: fix panic in tcp_fastopen_cache_set()
+Date: Thu, 14 Nov 2013 13:22:32 -0800
+Message-ID: <1384464152.28716.35.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131113204543.GA26715@redhat.com>
+	 <1384382413.28458.132.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1384383646.28458.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1384456418.13941.40.camel@jlt4.sipsolutions.net>
+	 <1384457800.28716.30.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1384457922.28716.32.camel@edumazet-glaptop2.roam.corp.google.com>
+	 (sfid-20131114_203846_741927_1B40F181) <1384462403.13941.41.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <zbr@ioremap.net>, Erik Jacobson <erikj@sgi.com>,
-	Andrew Morton <akpm@osdl.org>,
-	Matt Helsley <matthltc@us.ibm.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Pete Zaitcev <zaitcev@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131114124549.7b5f3a7b@lembas.zaitcev.lan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Dave Jones <davej@redhat.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f44.google.com ([209.85.213.44]:58496 "EHLO
+	mail-yh0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757728Ab3KNVWi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:22:38 -0500
+Received: by mail-yh0-f44.google.com with SMTP id f73so1361752yha.17
+        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 13:22:37 -0800 (PST)
+In-Reply-To: <1384462403.13941.41.camel@jlt4.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/14/2013 2:45 PM, Pete Zaitcev wrote:
-> On Thu, 14 Nov 2013 12:09:21 -0500
-> Chris Metcalf <cmetcalf@tilera.com> wrote:
->
->> -	__u8 buffer[CN_PROC_MSG_SIZE];
->> +	__u8 buffer[CN_PROC_MSG_SIZE] __aligned(8);
->> -	msg = (struct cn_msg *)buffer;
->> +	msg = buffer_to_cn_msg(buffer);
->>  	ev = (struct proc_event *)msg->data;
->>  	memset(&ev->event_data, 0, sizeof(ev->event_data));
-> Why is memset(buffer,0,CN_PROC_MSG_SIZE) not acceptable?
+On Thu, 2013-11-14 at 21:53 +0100, Johannes Berg wrote:
 
-That would be fine from a correctness point of view; I'm happy
-either way.  My patch nominally has better performance, for
-what that's worth, since the memset() call is for a smaller
-range (24 bytes instead of 60).  It also avoids the need for
-put_unaligned(), which even on platforms that allow unaligned
-stores can still be slower.
+> Heh. I have no idea, it just seemed a little odd on first look given
+> that __sk_dst_get() *can* actually use RCU protection. :)
 
-I can certainly do a v2 with the larger memset() instead if
-that's the consensus.
+Yep, the deal is that if you own socket lock, you do not need
+rcu_read_lock()
 
--- 
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+Look for dst_negative_advice() as another example :
+
+We call __sk_dst_get(sk) without rcu_read_lock() protection.
