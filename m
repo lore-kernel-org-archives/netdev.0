@@ -1,36 +1,28 @@
-From: Pete Zaitcev <zaitcev@redhat.com>
-Subject: Re: [PATCH] connector: improved unaligned access error fix
-Date: Thu, 14 Nov 2013 12:45:49 -0700
-Message-ID: <20131114124549.7b5f3a7b@lembas.zaitcev.lan>
-References: <201311141743.rAEHhuEV004998@farm-0012.internal.tilera.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: softirq lockdep trace when ethernet (tg3) brought up.
+Date: Thu, 14 Nov 2013 11:41:43 -0800
+Message-ID: <1384458103.28716.33.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131114191621.GB9630@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <zbr@ioremap.net>, Erik Jacobson <erikj@sgi.com>,
-	Andrew Morton <akpm@osdl.org>,
-	Matt Helsley <matthltc@us.ibm.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, zaitcev@redhat.com
-To: Chris Metcalf <cmetcalf@tilera.com>
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25428 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755073Ab3KNTp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Nov 2013 14:45:58 -0500
-In-Reply-To: <201311141743.rAEHhuEV004998@farm-0012.internal.tilera.com>
+Received: from mail-yh0-f49.google.com ([209.85.213.49]:48223 "EHLO
+	mail-yh0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754646Ab3KNTrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 14:47:37 -0500
+Received: by mail-yh0-f49.google.com with SMTP id z6so1271681yhz.8
+        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 11:47:35 -0800 (PST)
+In-Reply-To: <20131114191621.GB9630@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 Nov 2013 12:09:21 -0500
-Chris Metcalf <cmetcalf@tilera.com> wrote:
+On Thu, 2013-11-14 at 14:16 -0500, Dave Jones wrote:
+> See this during boot on one of my test boxes:
+> Not sure why it only shows up on that machine. TG3 specific ?
 
-> -	__u8 buffer[CN_PROC_MSG_SIZE];
-> +	__u8 buffer[CN_PROC_MSG_SIZE] __aligned(8);
+Not tg3 specific, 32bit arches specific ;)
 
-> -	msg = (struct cn_msg *)buffer;
-> +	msg = buffer_to_cn_msg(buffer);
->  	ev = (struct proc_event *)msg->data;
->  	memset(&ev->event_data, 0, sizeof(ev->event_data));
-
-Why is memset(buffer,0,CN_PROC_MSG_SIZE) not acceptable?
-
--- Pete
+Thanks for the report, I'll take a look.
