@@ -1,79 +1,61 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH net-next 2/2] udp: add sk opt to allow sending pkt
- with src 0.0.0.0
-Date: Thu, 14 Nov 2013 14:05:00 +0100
-Message-ID: <5284CA7C.7030402@6wind.com>
-References: <20131105205744.GK8832@order.stressinduktion.org>	<1383958474-6255-1-git-send-email-nicolas.dichtel@6wind.com>	<1383958474-6255-2-git-send-email-nicolas.dichtel@6wind.com> <20131111.001803.110603937316567461.davem@davemloft.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH] net: ethernet: ti/cpsw: do not crash on single-MAC machines
+ during resume
+Date: Thu, 14 Nov 2013 18:39:45 +0530
+Message-ID: <5284CB99.2020707@ti.com>
+References: <1384347180-3490-1-git-send-email-zonque@gmail.com> <5284C602.8000103@ti.com> <5284C87A.60404@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
-	David.Laight@ACULAB.COM, jiri@resnulli.us, vyasevich@gmail.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, thaller@redhat.com, stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>
+To: Daniel Mack <zonque@gmail.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:45718 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753361Ab3KNNFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 08:05:03 -0500
-Received: by mail-wg0-f50.google.com with SMTP id k14so1905145wgh.29
-        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 05:05:02 -0800 (PST)
-In-Reply-To: <20131111.001803.110603937316567461.davem@davemloft.net>
+Received: from bear.ext.ti.com ([192.94.94.41]:35823 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753509Ab3KNNJu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Nov 2013 08:09:50 -0500
+In-Reply-To: <5284C87A.60404@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 11/11/2013 06:18, David Miller a =E9crit :
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Sat,  9 Nov 2013 01:54:34 +0100
->
->> This feature allows to a send packets with address source set to 0.0=
-=2E0.0 even if
->> an ip address is available on another interface.
->>
->> It's useful for DHCP client, to allow them to use UDP sockets and be=
- compliant
->> with the RFC2131, Section 4.1:
->>
->> 4.1 Constructing and sending DHCP messages
->> ...
->>     DHCP messages broadcast by a client prior to that client obtaini=
-ng
->>     its IP address must have the source address field in the IP head=
-er
->>     set to 0.
->>
->> Based on a previous work from
->> Guillaume Gaudonville <guillaume.gaudonville@6wind.com>.
->>
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->
-> This requirement of the RFC is inconsistent with a host based
-> addressing model, that which Linux employs, it assumes an interface
-> based one.
-There are some exceptions, for example when user tunes arp_ignore sysct=
-l ;-)
+On Thursday 14 November 2013 06:26 PM, Daniel Mack wrote:
+> On 11/14/2013 01:45 PM, Mugunthan V N wrote:
+>> On Wednesday 13 November 2013 06:23 PM, Daniel Mack wrote:
+>>> To prevent Oopses, cpsw_suspend() should only soft-reset sliver 1
+>>> on dual MAC enabled machines.
+>>>
+>>> Signed-off-by: Daniel Mack <zonque@gmail.com>
+>>> ---
+>>>  drivers/net/ethernet/ti/cpsw.c | 5 ++++-
+>>>  1 file changed, 4 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+>>> index edd3e79..702b063 100644
+>>> --- a/drivers/net/ethernet/ti/cpsw.c
+>>> +++ b/drivers/net/ethernet/ti/cpsw.c
+>>> @@ -2173,8 +2173,11 @@ static int cpsw_suspend(struct device *dev)
+>>>  
+>>>  	if (netif_running(ndev))
+>>>  		cpsw_ndo_stop(ndev);
+>>> +
+>>>  	soft_reset("sliver 0", &priv->slaves[0].sliver->soft_reset);
+>>> -	soft_reset("sliver 1", &priv->slaves[1].sliver->soft_reset);
+>>> +	if (priv->data.dual_emac)
+>>> +		soft_reset("sliver 1", &priv->slaves[1].sliver->soft_reset);
+>> Is this tested on a system with both ports in switch mode?
+> Nope. I got an Ooops when I tried to suspend a machine that has only one
+> slave configured in DTS.
+
+But the changes above will fail with system with two ports and in switch
+mode.
 
 >
-> The wording here is also very ambiguous.
->
-> This RFC fails to even remotely consider what the right behavior
-> should be in a host based addressing environment at all, and anyone
-> reading this RFC should just accept that.
-I agree that this is ambiguous. And it's a 'must', not a 'MUST', which
-is not the same for an RFC ;-)
+>> I don't think this will not work with both ports in switch mode.
+> Why? Isn't priv->data.dual_emac in that case? The same condition is
+> checked for in cpsw_remove().
+In cpsw_remove that check is used to unregister the second network
+interface registered for same device for port 2. Now I got the issue,
+this has to be done via for_each_slave().
 
->
-> Furthermore, the fact that you're implementing _addressing_ policy in
-> the UDP code makes this change even more unreasonable.
->
-I made this choice because using 0.0.0.0, for TCP for example, seems a
-non-sense.
-
-But fair enough, let's drop this patch.
-
-
-Thank you,
-Nicolas
+Regards
+Mugunthan V N
