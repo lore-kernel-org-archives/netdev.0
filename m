@@ -1,25 +1,44 @@
-From: Chang <changxiangzhong@gmail.com>
-Subject: Re: [PATCH] net: sctp: bug-fixing: retran_path not set properly after
- transports recovering (v3)
-Date: Thu, 14 Nov 2013 09:20:54 +0100
-Message-ID: <528487E6.5010706@gmail.com>
-References: <1384387106-8105-1-git-send-email-changxiangzhong@gmail.com>	<52842A7C.7060908@gmail.com>	<528485F5.3040007@gmail.com> <20131114.032004.1887814616637520096.davem@davemloft.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] isdnloop: use strlcpy() instead of strcpy()
+Date: Thu, 14 Nov 2013 11:21:10 +0300
+Message-ID: <20131114082110.GD8150@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:57301 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751654Ab3KNIU4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 03:20:56 -0500
-In-Reply-To: <20131114.032004.1887814616637520096.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel-janitors@vger.kernel.org, isdn4linux@listserv.isdn4linux.de
+To: netdev@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-So great! And It's a pleasure to work with all you guys!
+These strings come from a copy_from_user() and there is no way to be
+sure they are NUL terminated.
 
-On 11/14/2013 09:20 AM, David Miller wrote:
-> I will apply your patch, you just need to be patient.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+diff --git a/drivers/isdn/isdnloop/isdnloop.c b/drivers/isdn/isdnloop/isdnloop.c
+index baf2686..02125e6 100644
+--- a/drivers/isdn/isdnloop/isdnloop.c
++++ b/drivers/isdn/isdnloop/isdnloop.c
+@@ -1083,8 +1083,10 @@ isdnloop_start(isdnloop_card *card, isdnloop_sdef *sdefp)
+ 			spin_unlock_irqrestore(&card->isdnloop_lock, flags);
+ 			return -ENOMEM;
+ 		}
+-		for (i = 0; i < 3; i++)
+-			strcpy(card->s0num[i], sdef.num[i]);
++		for (i = 0; i < 3; i++) {
++			strlcpy(card->s0num[i], sdef.num[i],
++				sizeof(card->s0num[0]));
++		}
+ 		break;
+ 	case ISDN_PTYPE_1TR6:
+ 		if (isdnloop_fake(card, "DRV1.04TC-1TR6-CAPI-CNS-BASIS-29.11.95",
+@@ -1097,7 +1099,7 @@ isdnloop_start(isdnloop_card *card, isdnloop_sdef *sdefp)
+ 			spin_unlock_irqrestore(&card->isdnloop_lock, flags);
+ 			return -ENOMEM;
+ 		}
+-		strcpy(card->s0num[0], sdef.num[0]);
++		strlcpy(card->s0num[0], sdef.num[0], sizeof(card->s0num[0]));
+ 		card->s0num[1][0] = '\0';
+ 		card->s0num[2][0] = '\0';
+ 		break;
