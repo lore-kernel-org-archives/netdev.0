@@ -1,58 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] virtio-net: mergeable buffer size should include
-	virtio-net header
-Date: Thu, 14 Nov 2013 10:59:12 -0800
-Message-ID: <1384455552.28716.28.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1384454464-19923-1-git-send-email-mwdalton@google.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] net-tcp: fix panic in tcp_fastopen_cache_set()
+Date: Thu, 14 Nov 2013 20:13:38 +0100
+Message-ID: <1384456418.13941.40.camel@jlt4.sipsolutions.net>
+References: <20131113204543.GA26715@redhat.com>
+	 <1384382413.28458.132.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1384383646.28458.138.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Daniel Borkmann <dborkman@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Michael Dalton <mwdalton@google.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1384454464-19923-1-git-send-email-mwdalton@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Dave Jones <davej@redhat.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.43.152]:50026 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755391Ab3KNTNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 14:13:49 -0500
+In-Reply-To: <1384383646.28458.138.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-14 at 10:41 -0800, Michael Dalton wrote:
-> Commit 2613af0ed18a ("virtio_net: migrate mergeable rx buffers to page
-> frag allocators") changed the mergeable receive buffer size from PAGE_SIZE
-> to MTU-size. However, the merge buffer size does not take into account the
-> size of the virtio-net header. Consequently, packets that are MTU-size
-> will take two buffers intead of one (to store the virtio-net header),
-> substantially decreasing the throughput of MTU-size traffic due to TCP
-> window / SKB truesize effects.
-> 
-> This commit changes the mergeable buffer size to include the virtio-net
-> header. The buffer size is cacheline-aligned because skb_page_frag_refill
-> will not automatically align the requested size.
-> 
-> Benchmarks taken from an average of 5 netperf 30-second TCP_STREAM runs
-> between two QEMU VMs on a single physical machine. Each VM has two VCPUs and
-> vhost enabled. All VMs and vhost threads run in a single 4 CPU cgroup
-> cpuset, using cgroups to ensure that other processes in the system will not
-> be scheduled on the benchmark CPUs. Transmit offloads and mergeable receive
-> buffers are enabled, but guest_tso4 / guest_csum are explicitly disabled to
-> force MTU-sized packets on the receiver.
-> 
-> next-net trunk before 2613af0ed18a (PAGE_SIZE buf): 3861.08Gb/s
-> net-next trunk (MTU 1500- packet uses two buf due to size bug): 4076.62Gb/s
-> net-next trunk (MTU 1480- packet fits in one buf): 6301.34Gb/s
-> net-next trunk w/ size fix (MTU 1500 - packet fits in one buf): 6445.44Gb/s
-> 
-> Suggested-by: Eric Northup <digitaleric@google.com>
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
-> ---
+On Wed, 2013-11-13 at 15:00 -0800, Eric Dumazet wrote:
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> --- a/net/ipv4/tcp_metrics.c
+> +++ b/net/ipv4/tcp_metrics.c
+> @@ -663,10 +663,13 @@ void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
+>  void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
+>  			    struct tcp_fastopen_cookie *cookie, bool syn_lost)
+>  {
+> +	struct dst_entry *dst = __sk_dst_get(sk);
+>  	struct tcp_metrics_block *tm;
+>  
+> +	if (!dst)
+> +		return;
+>  	rcu_read_lock();
+> -	tm = tcp_get_metrics(sk, __sk_dst_get(sk), true);
+
+Doesn't that __sk_dst_get() have to go inside the rcu_read_lock()?
+
+Then again, I guess we hold the socket. Still looks a bit weird to be
+moving it out.
+
+johannes
