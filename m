@@ -1,36 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next 2/2] udp: add sk opt to allow sending pkt
- with src 0.0.0.0
-Date: Thu, 14 Nov 2013 15:00:24 -0500 (EST)
-Message-ID: <20131114.150024.679596278327684470.davem@davemloft.net>
-References: <1383958474-6255-2-git-send-email-nicolas.dichtel@6wind.com>
-	<20131111.001803.110603937316567461.davem@davemloft.net>
-	<20131114143154.GD26901@order.stressinduktion.org>
+From: =?ISO-8859-1?Q?Geyslan_Greg=F3rio_Bem?= <geyslan@gmail.com>
+Subject: Re: [PATCH] net/hsr: Fix possible leak in 'hsr_get_node_status()'
+Date: Thu, 14 Nov 2013 18:29:02 -0200
+Message-ID: <CAGG-pUSYRXFyKW_nocM8eitrbdt4YfyMfMq4hN5472bdPUZ7fQ@mail.gmail.com>
+References: <1384456378-29970-1-git-send-email-geyslan@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
-	David.Laight@ACULAB.COM, jiri@resnulli.us, vyasevich@gmail.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, thaller@redhat.com, stephen@networkplumber.org
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Arvid Brodin <arvid.brodin@xdin.com>,
+	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: =?ISO-8859-1?Q?Geyslan_Greg=F3rio_Bem?= <geyslan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52353 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755568Ab3KNUA1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 15:00:27 -0500
-In-Reply-To: <20131114143154.GD26901@order.stressinduktion.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:42634 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756980Ab3KNU3D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 15:29:03 -0500
+In-Reply-To: <1384456378-29970-1-git-send-email-geyslan@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 14 Nov 2013 15:31:54 +0100
+2013/11/14 Geyslan G. Bem <geyslan@gmail.com>:
+> If 'hsr_get_node_data()' returns error, going directly to 'fail' label
+> doesn't free the memory pointed by 'skb_out'.
+>
+> Signed-off-by: Geyslan G. Bem <geyslan@gmail.com>
+> ---
+>  net/hsr/hsr_netlink.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/hsr/hsr_netlink.c b/net/hsr/hsr_netlink.c
+> index 4e66bf6..aef8429 100644
+> --- a/net/hsr/hsr_netlink.c
+> +++ b/net/hsr/hsr_netlink.c
+> @@ -249,7 +249,7 @@ static int hsr_get_node_status(struct sk_buff *skb_in, struct genl_info *info)
+>                         &hsr_node_if2_age,
+>                         &hsr_node_if2_seq);
+>         if (res < 0)
+> -               goto fail;
+> +               goto nla_put_failure;
+>
+>         res = nla_put(skb_out, HSR_A_NODE_ADDR, ETH_ALEN,
+>                                         nla_data(info->attrs[HSR_A_NODE_ADDR]));
+> --
+> 1.8.4.2
+>
 
-> Do you have an idea how to deal with the rp_filter issue if no ip
-> address is set? Should we relax it in such cases?
+It's a Coverity catch: CID 1128855.
 
-I think it is kind of pointless to protect ourselves from locally
-generated packets, for which the flow ID was explicitly asked for
-by the application.
+-- 
+Regards,
 
-So yes I think relaxing rp_filter in such cases makes sense.
+Geyslan G. Bem
+hackingbits.com
