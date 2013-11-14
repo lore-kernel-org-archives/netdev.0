@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: phylib: add adjust_state callback to phy
- device
-Date: Thu, 14 Nov 2013 16:32:07 -0500 (EST)
-Message-ID: <20131114.163207.230147902479371528.davem@davemloft.net>
-References: <1384376870-7810-1-git-send-email-zonque@gmail.com>
+Subject: Re: [PATCH] net-tcp: fix panic in tcp_fastopen_cache_set()
+Date: Thu, 14 Nov 2013 16:33:58 -0500 (EST)
+Message-ID: <20131114.163358.326663574619567783.davem@davemloft.net>
+References: <20131113204543.GA26715@redhat.com>
+	<1384382413.28458.132.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1384383646.28458.138.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, marek.belisko@gmail.com,
-	ujhelyi.m@gmail.com
-To: zonque@gmail.com
+Cc: davej@redhat.com, netdev@vger.kernel.org, ycheng@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52958 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52980 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754766Ab3KNVcJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:32:09 -0500
-In-Reply-To: <1384376870-7810-1-git-send-email-zonque@gmail.com>
+	with ESMTP id S1757124Ab3KNVeB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 16:34:01 -0500
+In-Reply-To: <1384383646.28458.138.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Mack <zonque@gmail.com>
-Date: Wed, 13 Nov 2013 22:07:49 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 13 Nov 2013 15:00:46 -0800
 
-> Allow phy drivers to take action when the core does its link adjustment.
-> No change for drivers that do not implement this callback.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Daniel Mack <zonque@gmail.com>
+> We had some reports of crashes using TCP fastopen, and Dave Jones
+> gave a nice stack trace pointing to the error.
+> 
+> Issue is that tcp_get_metrics() should not be called with a NULL dst
+> 
+> Fixes: 1fe4c481ba637 ("net-tcp: Fast Open client - cookie cache")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dave Jones <davej@redhat.com>
 
-So you're using this to reset the entire PHY via the reset bit in the
-BMCR register when the link goes down.
-
-But this is going to break things.
-
-If the phy library previously programmed a non-autonegotiated static
-link configuration into the BMCR register, your reset is going to
-undo that.
-
-Now the configuration phylib thinks the chip has and the one it
-acutally does is out of sync.
-
-I'm not applying these patches, sorry.
+Applied and queued up for -stable, thanks!
