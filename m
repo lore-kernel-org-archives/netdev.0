@@ -1,37 +1,46 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC][PATCH 0/3] net_tstamp: Add SIOCGHWTSTAMP ioctl
-Date: Thu, 14 Nov 2013 08:41:19 +0100
-Message-ID: <20131114074118.GC4908@netboy>
-References: <1384396635.29151.36.camel@bwh-desktop.uk.level5networks.com>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: how to mix bridges and bonding inc. vlans correctly on Kernel
+ > 3.10
+Date: Thu, 14 Nov 2013 08:47:28 +0100
+Message-ID: <52848010.8030103@profihost.ag>
+References: <52838590.5070806@profihost.ag> <20131113141244.GM19702@redhat.com> <52838AC8.8070005@profihost.ag> <52839540.6020908@gmail.com> <5283980D.7020508@profihost.ag> <20131113162136.GP19702@redhat.com> <5283B500.9040408@gmail.com> <5283DC91.1010402@profihost.ag> <52843EEA.3020905@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: vyasevic@redhat.com, Vlad Yasevich <vyasevich@gmail.com>,
+	Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:47528 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751132Ab3KNHlb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 02:41:31 -0500
-Received: by mail-wg0-f46.google.com with SMTP id x12so1448944wgg.1
-        for <netdev@vger.kernel.org>; Wed, 13 Nov 2013 23:41:29 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1384396635.29151.36.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-ph.de-nserver.de ([85.158.179.214]:39078 "EHLO
+	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751087Ab3KNHrg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 02:47:36 -0500
+In-Reply-To: <52843EEA.3020905@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 14, 2013 at 02:37:15AM +0000, Ben Hutchings wrote:
-> SIOCSHWTSTAMP returns the real configuration to the application
-> using it, but there is currently no way for any other
-> application to find out the configuration non-destructively.
+Hi,
 
-I guess that the reasoning behind the original interface is that an
-application only wants to know the settings when it needs a particular
-setting in order to operate correctly. This would make the query call
-pointless, since the application might as well just go ahead and set
-the values that it needs.
+> eth2
+>      \
+>       -- bond1 -- vmbr1
+>      /     \
+> eth3        ----- bond1.3000 --- vmbr1v3000
+>                                      \ ---- tap114i1
 
-Do you have a particular use case in mind?
+thos one works fine now.
 
-Thanks,
-Richard
+
+> eth2
+>      \
+>       -- bond1 -- vmbr1
+>      /              \
+> eth3                 \ vmbr1.3000
+>                            \ ---- tap114i1
+
+this one does not. Another note to this one. It also never worked on
+RHEL6 - it started working with about 2.6.39 and stopped with 3.9 or
+3.10. But it was the only one where gvrp on vlans had worked.
+
+Greets,
+Stefan
