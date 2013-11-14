@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] genetlink: reduce ops size and complexity (v2)
-Date: Thu, 14 Nov 2013 17:12:04 -0500 (EST)
-Message-ID: <20131114.171204.1979806323628158355.davem@davemloft.net>
-References: <1384420486-8713-1-git-send-email-johannes@sipsolutions.net>
-	<1384445687-30948-1-git-send-email-johannes@sipsolutions.net>
+Subject: Re: [PATCH] alx: Reset phy speed after resume
+Date: Thu, 14 Nov 2013 17:15:21 -0500 (EST)
+Message-ID: <20131114.171521.371758595511020967.davem@davemloft.net>
+References: <1384445773.29057.5.camel@localhost.tld>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wimax@intel.com,
-	bsingharora@gmail.com, netfilter-devel@vger.kernel.org,
-	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com
-To: johannes@sipsolutions.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1384445687-30948-1-git-send-email-johannes@sipsolutions.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jcliburn@gmail.com, chris.snook@gmail.com,
+	johannes@sipsolutions.net, wangyijing@huawei.com,
+	maarten.lankhorst@canonical.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux@hahnjo.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53406 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755273Ab3KNWPY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 17:15:24 -0500
+In-Reply-To: <1384445773.29057.5.camel@localhost.tld>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu, 14 Nov 2013 17:14:38 +0100
+From: hahnjo <linux@hahnjo.de>
+Date: Thu, 14 Nov 2013 17:16:13 +0100
 
-> As before - reduce the complexity and data/code size of genetlink ops
-> by making them an array rather than a linked list. Most users already
-> use an array thanks to genl_register_family_with_ops(), so convert the
-> remaining ones allowing us to get rid of the list head in each op.
+> From 27744b24f9291782c1342dbd6cac511e68da907c Mon Sep 17 00:00:00 2001
+> From: hahnjo <hahnjo@hahnjo.de>
+> Date: Tue, 12 Nov 2013 18:19:24 +0100
+> Subject: [PATCH] alx: Reset phy speed after resume
 > 
-> Also make them const, this just makes sense at that point and the security
-> people like making function pointers const as well :-)
+> This fixes bug 62491 (https://bugzilla.kernel.org/show_bug.cgi?id=62491).
+> After resuming some users got the following error flooding the kernel log:
+> alx 0000:02:00.0: invalid PHY speed/duplex: 0xffff
+> 
+> Signed-off-by: Jonas Hahnfeld <linux@hahnjo.de>
 
-I have to say, this is an absolutely fantastic space usage and
-complexity improvement.
-
-Applied, thanks a lot.
+Applied, thanks.
