@@ -1,62 +1,62 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net] sit: fix use after free of fb_tunnel_dev
-Date: Thu, 14 Nov 2013 11:31:49 +0100
-Message-ID: <5284A695.2090501@6wind.com>
-References: <1384396058-26850-1-git-send-email-willemb@google.com>
+Subject: Re: [PATCH net v2] ipv4: fix wildcard search with inet_confirm_addr()
+Date: Thu, 14 Nov 2013 11:32:53 +0100
+Message-ID: <5284A6D5.7000804@6wind.com>
+References: <alpine.LFD.2.03.1311082258430.1811@ssi.bg> <1384356209-4193-1-git-send-email-nicolas.dichtel@6wind.com> <alpine.LFD.2.03.1311132244001.1712@ssi.bg>
 Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
+Content-Type: text/plain; charset=ISO-8859-1;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Willem de Bruijn <willemb@google.com>, davem@davemloft.net,
-	edumazet@google.com, netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:62725 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752505Ab3KNKb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 05:31:57 -0500
-Received: by mail-wi0-f180.google.com with SMTP id ey16so487264wid.7
-        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 02:31:56 -0800 (PST)
-In-Reply-To: <1384396058-26850-1-git-send-email-willemb@google.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:56687 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753274Ab3KNKcz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 05:32:55 -0500
+Received: by mail-wi0-f178.google.com with SMTP id hn6so2214380wib.11
+        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 02:32:55 -0800 (PST)
+In-Reply-To: <alpine.LFD.2.03.1311132244001.1712@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 14/11/2013 03:27, Willem de Bruijn a =C3=A9crit :
-> Bug: The fallback device is created in sit_init_net and assumed to be
-> freed in sit_exit_net. First, it is dereferenced in that function, in
-> sit_destroy_tunnels:
+Le 13/11/2013 22:27, Julian Anastasov a =E9crit :
 >
->          struct net *net =3D dev_net(sitn->fb_tunnel_dev);
+> 	Hello,
 >
-> Prior to this, rtnl_unlink_register has removed all devices that matc=
-h
-> rtnl_link_ops =3D=3D sit_link_ops.
+> On Wed, 13 Nov 2013, Nicolas Dichtel wrote:
 >
-> Commit 205983c43700 added the line
+>> Help of this function says: "in_dev: only on this interface, 0=3Dany=
+ interface",
+>> but since commit 39a6d0630012 ("[NETNS]: Process inet_confirm_addr i=
+n the
+>> correct namespace."), the code supposes that it will never be NULL. =
+This
+>> function is never called with in_dev =3D=3D NULL, but it's exported =
+and may be used
+>> by an external module.
+>>
+>> Because this patch restore the ability to call inet_confirm_addr() w=
+ith in_dev
+>> =3D=3D NULL, I partially revert the above commit, as suggested by Ju=
+lian.
+>>
+>> CC: Julian Anastasov <ja@ssi.bg>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 >
-> +       sitn->fb_tunnel_dev->rtnl_link_ops =3D &sit_link_ops;
+> 	This patch looks ok to me, thanks!
 >
-> which cases the fallback device to match here and be freed before it
-> is last dereferenced.
+> Reviewed-by: Julian Anastasov <ja@ssi.bg>
 >
-> Fix: This commit adds an explicit .delllink callback to sit_link_ops
-> that skips deallocation at rtnl_unlink_register for the fallback
-> device. This mechanism is comparable to the one in ip_tunnel.
->
-> It also modifies sit_destroy_tunnels and its only caller sit_exit_net
-> to avoid the offending dereference in the first place. That double
-> lookup is more complicated than required.
->
-> Test: The bug is only triggered when CONFIG_NET_NS is enabled. It
-> causes a GPF only when CONFIG_DEBUG_SLAB is enabled. Verified that
-> this bug exists at the mentioned commit, at davem-net HEAD and at
-> 3.11.y HEAD. Verified that it went away after applying this patch.
->
-> Fixes: 205983c43700 ("sit: allow to use rtnl ops on fb tunnel")
->
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-With your patch, it's no more possible to remove manually the fallback =
-device:
-'ip link del sit0', but it's better so ;-)
+> 	Still, I think this is a net-next material
+> and you have to wait some days... The net tree that
+Ok.
 
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> you are using is missing the changes that remove
+> 'extern', so I think you have to port it to net-next
+> tree to avoid the conflict in include/linux/inetdevice.h.
+Yes, checkpatch already warns about this extern kerword.
+
+Thank you,
+Nicolas
