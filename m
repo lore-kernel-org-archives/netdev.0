@@ -1,80 +1,69 @@
-From: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] of: make of_get_phy_mode parse 'phy-connection-type'
-Date: Thu, 14 Nov 2013 16:47:11 +0900
-Message-ID: <20131114074711.9A8C5C402E1@trevor.secretlab.ca>
-References: <1384386147-13817-1-git-send-email-f.fainelli@gmail.com>
-Cc: rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1384386147-13817-1-git-send-email-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH 3/3] net: sched: htb: fix calculation of quantum
+Date: Thu, 14 Nov 2013 17:01:54 +0800
+Message-ID: <1384419714-24364-4-git-send-email-yangyingliang@huawei.com>
+References: <1384419714-24364-1-git-send-email-yangyingliang@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:25696 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751514Ab3KNJCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 04:02:04 -0500
+In-Reply-To: <1384419714-24364-1-git-send-email-yangyingliang@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Nov 2013 15:42:27 -0800, "Florian Fainelli" <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> Per the ePAPR v1.1 specification, 'phy-connection-type' is the canonical
-> property name for describing an Ethernet to PHY connection type. Make
-> sure that of_get_phy_mode() also attempts to parse that property and
-> update the comments mentioninng 'phy-mode' to also include
-> 'phy-connection-type'.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  drivers/of/of_net.c | 16 ++++++++++------
->  1 file changed, 10 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/of/of_net.c b/drivers/of/of_net.c
-> index 8f9be2e..101a34c 100644
-> --- a/drivers/of/of_net.c
-> +++ b/drivers/of/of_net.c
-> @@ -13,8 +13,8 @@
->  
->  /**
->   * It maps 'enum phy_interface_t' found in include/linux/phy.h
-> - * into the device tree binding of 'phy-mode', so that Ethernet
-> - * device driver can get phy interface from device tree.
-> + * into the device tree binding of 'phy-mode' or 'phy-connection-type',
-> + * so that Ethernet device driver can get phy interface from device tree.
->   */
->  static const char *phy_modes[] = {
->  	[PHY_INTERFACE_MODE_NA]		= "",
-> @@ -36,8 +36,9 @@ static const char *phy_modes[] = {
->   * of_get_phy_mode - Get phy mode for given device_node
->   * @np:	Pointer to the given device_node
->   *
-> - * The function gets phy interface string from property 'phy-mode',
-> - * and return its index in phy_modes table, or errno in error case.
-> + * The function gets phy interface string from property 'phy-mode' or
-> + * 'phy-connection-type', and return its index in phy_modes table, or errno in
-> + * error case.
->   */
->  int of_get_phy_mode(struct device_node *np)
->  {
-> @@ -45,8 +46,11 @@ int of_get_phy_mode(struct device_node *np)
->  	int err, i;
->  
->  	err = of_property_read_string(np, "phy-mode", &pm);
-> -	if (err < 0)
-> -		return err;
-> +	if (err < 0) {
-> +		err = of_property_read_string(np, "phy-connection-type", &pm);
-> +		if (err < 0)
-> +			return err;
-> +	}
+Now, 32bit rates may be not the true rate.
+So use rate_bytes_ps which is from
+max(rate32, rate64) to calcualte quantum.
 
-Nit: The following would actually be better:
- 	err = of_property_read_string(np, "phy-mode", &pm);
-+	if (err < 0)
-+		err = of_property_read_string(np, "phy-connection-type", &pm);
- 	if (err < 0)
- 		return err;
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ net/sched/sch_htb.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-Otherwise, the patch looks fine. If you test and repost then it can be merged with my:
-
-Acked-by: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index f983803..9474294 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1478,11 +1478,20 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 		sch_tree_lock(sch);
+ 	}
+ 
++	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
++
++	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
++
++	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
++	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
++
+ 	/* it used to be a nasty bug here, we have to check that node
+ 	 * is really leaf before changing cl->un.leaf !
+ 	 */
+ 	if (!cl->level) {
+-		cl->quantum = hopt->rate.rate / q->rate2quantum;
++		u64 quantum = div64_u64(cl->rate.rate_bytes_ps,
++					q->rate2quantum);
++		cl->quantum = min_t(u64, quantum, INT_MAX);
+ 		if (!hopt->quantum && cl->quantum < 1000) {
+ 			pr_warning(
+ 			       "HTB: quantum of class %X is small. Consider r2q change.\n",
+@@ -1501,13 +1510,6 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 			cl->prio = TC_HTB_NUMPRIO - 1;
+ 	}
+ 
+-	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
+-
+-	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
+-
+-	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
+-	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
+-
+ 	cl->buffer = PSCHED_TICKS2NS(hopt->buffer);
+ 	cl->cbuffer = PSCHED_TICKS2NS(hopt->cbuffer);
+ 
+-- 
+1.7.12
