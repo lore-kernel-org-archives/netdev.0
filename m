@@ -1,54 +1,45 @@
-From: =?ISO-8859-1?Q?Geyslan_Greg=F3rio_Bem?= <geyslan@gmail.com>
-Subject: Re: [PATCH] net/hsr: Fix possible leak in 'hsr_get_node_status()'
-Date: Thu, 14 Nov 2013 18:29:02 -0200
-Message-ID: <CAGG-pUSYRXFyKW_nocM8eitrbdt4YfyMfMq4hN5472bdPUZ7fQ@mail.gmail.com>
-References: <1384456378-29970-1-git-send-email-geyslan@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Arvid Brodin <arvid.brodin@xdin.com>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: =?ISO-8859-1?Q?Geyslan_Greg=F3rio_Bem?= <geyslan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:42634 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756980Ab3KNU3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 15:29:03 -0500
-In-Reply-To: <1384456378-29970-1-git-send-email-geyslan@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chang Xiangzhong <changxiangzhong@gmail.com>
+Subject: [PATCH] net: sctp: recover a tranport when an ack comes
+Date: Thu, 14 Nov 2013 21:40:23 +0100
+Message-ID: <1384461624-17636-1-git-send-email-changxiangzhong@gmail.com>
+Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dreibh@simula.no, ernstgr@simula.no,
+	Chang Xiangzhong <changxiangzhong@gmail.com>
+To: vyasevich@gmail.com, nhorman@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2013/11/14 Geyslan G. Bem <geyslan@gmail.com>:
-> If 'hsr_get_node_data()' returns error, going directly to 'fail' label
-> doesn't free the memory pointed by 'skb_out'.
->
-> Signed-off-by: Geyslan G. Bem <geyslan@gmail.com>
-> ---
->  net/hsr/hsr_netlink.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/hsr/hsr_netlink.c b/net/hsr/hsr_netlink.c
-> index 4e66bf6..aef8429 100644
-> --- a/net/hsr/hsr_netlink.c
-> +++ b/net/hsr/hsr_netlink.c
-> @@ -249,7 +249,7 @@ static int hsr_get_node_status(struct sk_buff *skb_in, struct genl_info *info)
->                         &hsr_node_if2_age,
->                         &hsr_node_if2_seq);
->         if (res < 0)
-> -               goto fail;
-> +               goto nla_put_failure;
->
->         res = nla_put(skb_out, HSR_A_NODE_ADDR, ETH_ALEN,
->                                         nla_data(info->attrs[HSR_A_NODE_ADDR]));
-> --
-> 1.8.4.2
->
+Expected Behavior:
+When hearing an ack from a tranport/path, set its state to normal/on if it's
+in abnormal(__partial_failure__ or inactive) state.
 
-It's a Coverity catch: CID 1128855.
+state machine of tranport->state
+Whenever a T3_RTX timer expires, then transport->error_count++.
+When (association->pf_retrans < transport->error_count < tranport->pathmaxrtx)
+	transport->state = SCTP_PF //partial failure
 
+When a heartbeat-ack comes or conventional ack acknowledged its availability,
+	transport->state = SCTP_ON
+
+Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
+Fixes: 5aa93bcf66f ("sctp: Implement quick failover draft from tsvwg")
+---
+ net/sctp/outqueue.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 94df758..2557fa5 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -1517,6 +1517,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+ 			 * active if it is not so marked.
+ 			 */
+ 			if ((transport->state == SCTP_INACTIVE ||
++			     transport->state == SCTP_PF ||
+ 			     transport->state == SCTP_UNCONFIRMED) &&
+ 			    sctp_cmp_addr_exact(&transport->ipaddr, saddr)) {
+ 				sctp_assoc_control_transport(
 -- 
-Regards,
-
-Geyslan G. Bem
-hackingbits.com
+1.7.9.5
