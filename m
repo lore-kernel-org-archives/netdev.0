@@ -1,189 +1,85 @@
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Subject: RE: [PATCH] rds: Error on offset mismatch if not loopback
-Date: Thu, 14 Nov 2013 05:43:28 -0800 (PST)
-Message-ID: <41aa904c-6707-4c74-ae72-96e401c68e13@default>
-References: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
-	<20120922.152524.1294103117346567757.davem@davemloft.net>
-	<CAKA=qzac9=UhLF_Z4FnnH+sR7xvkDux4oayC6dPYe=hMLsDxRg@mail.gmail.com>
-	<CAKA=qzYpd7Wo9XdU16TEhnbm5dPJjOZMhAY1jA7N+YFBWz5pzw@mail.gmail.com>
-	<23964ca1-e7cb-41c3-9da2-5bc1b2b0c014@default>
- <CAKA=qzbK1YX5OrVQbwM=1xM6Si=GKv0UDofULkOC7RNo08zZPw@mail.gmail.com>
- <52841F95.7040204@redhat.com>
+From: Josh Hunt <johunt@akamai.com>
+Subject: Re: [PATCH] rds: fix local ping DoS
+Date: Thu, 14 Nov 2013 07:45:37 -0600
+Message-ID: <5284D401.1020307@akamai.com>
+References: <1384391743-9342-1-git-send-email-johunt@akamai.com> <20131114.020355.1973894145326845195.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>, jjolly@suse.com,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Honggang LI <honli@redhat.com>, Josh Hunt <joshhunt00@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"venkat.x.venkatsubra@oracle.com" <venkat.x.venkatsubra@oracle.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"jjolly@suse.com" <jjolly@suse.com>,
+	"fenlason@redhat.com" <fenlason@redhat.com>,
+	"honli@redhat.com" <honli@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:17751 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753716Ab3KNNni convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 08:43:38 -0500
-In-Reply-To: <52841F95.7040204@redhat.com>
+Received: from prod-mail-xrelay08.akamai.com ([96.6.114.112]:44206 "EHLO
+	prod-mail-xrelay08.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752932Ab3KNNpm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 08:45:42 -0500
+In-Reply-To: <20131114.020355.1973894145326845195.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
------Original Message-----
-From: Honggang LI [mailto:honli@redhat.com] 
-Sent: Wednesday, November 13, 2013 6:56 PM
-To: Josh Hunt; Venkat Venkatsubra
-Cc: David Miller; jjolly@suse.com; LKML; netdev@vger.kernel.org
-Subject: Re: [PATCH] rds: Error on offset mismatch if not loopback
-
-On 11/14/2013 01:40 AM, Josh Hunt wrote:
-> On Wed, Nov 13, 2013 at 9:16 AM, Venkat Venkatsubra 
-> <venkat.x.venkatsubra@oracle.com> wrote:
->>
->> -----Original Message-----
->> From: Josh Hunt [mailto:joshhunt00@gmail.com]
->> Sent: Tuesday, November 12, 2013 10:25 PM
->> To: David Miller
->> Cc: jjolly@suse.com; LKML; Venkat Venkatsubra; netdev@vger.kernel.org
->> Subject: Re: [PATCH] rds: Error on offset mismatch if not loopback
->>
->> On Tue, Nov 12, 2013 at 10:22 PM, Josh Hunt <joshhunt00@gmail.com> wrote:
->>> On Sat, Sep 22, 2012 at 2:25 PM, David Miller <davem@davemloft.net> wrote:
->>>> From: John Jolly <jjolly@suse.com>
->>>> Date: Fri, 21 Sep 2012 15:32:40 -0600
->>>>
->>>>> Attempting an rds connection from the IP address of an IPoIB 
->>>>> interface to itself causes a kernel panic due to a BUG_ON() being triggered.
->>>>> Making the test less strict allows rds-ping to work without 
->>>>> crashing the machine.
->>>>>
->>>>> A local unprivileged user could use this flaw to crash the system.
->>>>>
->>>>> Signed-off-by: John Jolly <jjolly@suse.com>
->>>> Besides the questions being asked of you by Venkat Venkatsubra, 
->>>> this patch has another issue.
->>>>
->>>> It has been completely corrupted by your email client, it has 
->>>> turned all TAB characters into spaces, making the patch useless.
->>>>
->>>> Please learn how to send a patch unmolested in the body of your 
->>>> email.  Test it by emailing the patch to yourself, and verifying 
->>>> that you can in fact apply the patch you receive in that email.
->>>> Then, and only then, should you consider making a new submission of 
->>>> this patch.
->>>>
->>>> Use Documentation/email-clients.txt for guidance.
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe 
->>>> linux-kernel" in the body of a message to majordomo@vger.kernel.org 
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>> Please read the FAQ at  http://www.tux.org/lkml/
->>>
->>> I think this issue was lost in the shuffle. It appears that redhat, 
->>> ubuntu, and oracle are maintaining local patches to resolve this:
->>>
->>> https://oss.oracle.com/git/?p=redpatch.git;a=commit;h=c7b6a0a1d8d636
->>> 85
->>> 2be130fa15fa8be10d4704e8
->>> https://bugzilla.redhat.com/show_bug.cgi?id=822754
->>> http://ubuntu.5.x6.nabble.com/CVE-2012-2372-RDS-local-ping-DOS-td498
->>> 53
->>> 88.html
->>>
->>> Given that Oracle has applied it I'll make the assumption that 
->>> Venkat's question was answered at some point.
->>>
->>> David - I can resubmit the patch with the proper signed-off-by and 
->>> formatting if you are willing to apply it unless John wants to try 
->>> again. I think it's time this got upstream.
->>>
->>> --
->>> Josh
->> Ugh.. hopefully resending with all the html crap removed...
->>
->> --
->> Josh
->>
->> Hi Josh,
->>
->> No, I still didn't get an answer for how "off" could be non-zero in case of rds-ping to hit BUG_ON(off % RDS_FRAG_SIZE).
->> Because, rds-ping uses zero byte messages to ping.
->> If you have a test case that reproduces the kernel panic I can try it out and see how that can happen.
->> The Oracle's internal code I checked doesn't have that patch applied.
->>
->> Venkat
-> No I don't have a test case. I came across this CVE while doing an 
-> audit and noticed it was patched in Ubuntu's kernel and other distros, 
-> but was not in the upstream kernel yet. Quick googling of lkml showed 
-> that there were at least two attempts to get this patch upstream, but 
-> both had issues due to not following the proper submission process:
+On 11/14/2013 01:03 AM, David Miller wrote:
+> From: Josh Hunt <johunt@akamai.com>
+> Date: Wed, 13 Nov 2013 17:15:43 -0800
 >
-> https://lkml.org/lkml/2012/10/22/433
-> https://lkml.org/lkml/2012/9/21/505
+>> The rds_ib_xmit function in net/rds/ib_send.c in the Reliable Datagram Sockets
+>> (RDS) protocol implementation allows local users to cause a denial of service
+>> (BUG_ON and kernel panic) by establishing an RDS connection with the source
+>> IP address equal to the IPoIB interface's own IP address, as demonstrated by
+>> rds-ping.
+>>
+>> A local unprivileged user could use this flaw to crash the system.
+>>
+>> CVE-2012-2372
+>>
+>> Reported-by: Honggang Li <honli@redhat.com>
+>> Signed-off-by: Josh Hunt <johunt@akamai.com>
 >
-> From my searching it appears the initial bug was found by someone at redhat:
-> https://bugzilla.redhat.com/show_bug.cgi?id=822754
+> I'm sorry I can't apply this.  This commit message needs to be much
+> less terse and explain things more.
 >
-> I've added Li Honggang the reporter of this issue from Redhat to the 
-> mail. Hopefully he can share his testcase.
+> First of all, why is the "off % RDS_FRAG_SIZE" important?
+>
+> And, even more importantly, why is is OK to avoid this assertion just
+> because we're going over loopback?
+>
+> Furthermore, why doesn't net/rds/iw_send.c:rds_iw_xmit() have the same
+> exact problem?  It makes the same exact assertion check.
+>
+> I know this RDS code is a steaming pile of poo, but that doesn't mean
+> we just randomly adjust assertions to make crashes go away without
+> sufficient understanding of exactly what's going on.
+>
+> Thanks.
+>
+
+Sure understandable questions. Unfortunately I don't have the hardware 
+to properly debug and analyze. I was just trying to get this through on 
+the assumption that the previous attempts just failed due to incorrect 
+submission procedures and lack of a reproducible testcase. If nothing 
+else this whole thing brought out the testcase :)
+
+Testcase from Honggang's earlier mail:
+<snip>
 The test case is very simple:
 Steps to Reproduce:
 1. yum install -y rds-tools
 
 2. [root@rdma3 ~]# ifconfig ib0 | grep 'inet addr'
-          inet addr:172.31.0.3  Bcast:172.31.0.255  Mask:255.255.255.0
+           inet addr:172.31.0.3  Bcast:172.31.0.255  Mask:255.255.255.0
 
-3. [root@rdma3 ~]# /usr/bin/rds-ping 172.31.0.3  <<<< kernel panic (You may need to wait for a few seconds before the kernel panic.)
->
-> and possibly requires certain hardware as Jay writes in the first link above:
-> "...some Infiniband HCAs(QLogic, possibly others) the machine will panic..."
-This bug can be reproduced with Mellanox HCAs (mlx4_ib.ko and mthca.ko), QLogic HCA (ib_qib.ko). I did not test the QLogic HCA running "ib_ipath.ko".
+3. [root@rdma3 ~]# /usr/bin/rds-ping 172.31.0.3  <<<< kernel panic (You
+may need to wait for a few seconds before the kernel panic.)
 
-As I know the upstream code of RDS is broken. There are *many* RDS bugs.
+This bug can be reproduced with Mellanox HCAs (mlx4_ib.ko and mthca.ko),
+QLogic HCA (ib_qib.ko). I did not test the QLogic HCA running "ib_ipath.ko".
+</snip>
 
-Best regards.
-Honggang
->
-> I was referring to this oracle commit:
-> https://oss.oracle.com/git/?p=redpatch.git;a=commit;h=c7b6a0a1d8d63685
-> 2be130fa15fa8be10d4704e8
->
-> I have no experience with this code. There were a few comments around 
-> the reset and xmit fns about making sure the caller did certain things 
-> if not they were racy, but I have no idea if that's coming into play 
-> here.
->
+Perhaps Venkat or someone else with the hardware mentioned can provide a 
+better explanation and better solution to the crash.
 
-Hi Honggang,
-
-I ran rds-ping over local interface for 30 minutes. I stopped it after that.
-It didn't hit any panic.
-
-# ip addr show dev ib0
-6: ib0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 2044 qdisc pfifo_fast qlen 1024
-    link/infiniband 80:00:00:48:fe:80:00:00:00:00:00:00:00:21:28:00:01:cf:63:db brd 00:ff:ff:ff:ff:12:40:1b:ff:ff:00:00:00:00:00:00:ff:ff:ff:ff
-    inet 10.196.4.125/30 brd 10.196.4.127 scope global ib0
-    inet6 fe80::221:2800:1cf:63db/64 scope link
-       valid_lft forever preferred_lft forever
-#
-
-# rds-ping  10.196.4.125
-    1: 170 usec
-    2: 171 usec 
-   ....
-   ....
-   ....
- 1860: 173 usec
- 1861: 171 usec
- 1862: 177 usec
- 1863: 168 usec
- 1864: 171 usec
- 1865: 175 usec
-^C#
-
-I tested with Oracle UEK2 which is based on 2.6.39 kernel. Mellanox IB adaptor.
-19:00.0 InfiniBand: Mellanox Technologies MT26428 [ConnectX VPI PCIe 2.0 5GT/s - IB QDR / 10GigE] (rev b0)
-
-There is something about your setup that must be causing it for you.
-Can I work with you offline if you are available ?
-
-The panic you are hitting is not making sense to me.
-
-Venkat
+Josh
