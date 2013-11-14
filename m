@@ -1,26 +1,29 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless 2013-11-14
-Date: Thu, 14 Nov 2013 17:24:48 -0500 (EST)
-Message-ID: <20131114.172448.496771795068401720.davem@davemloft.net>
-References: <20131114191119.GB17693@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/hsr: Fix possible leak in 'hsr_get_node_status()'
+Date: Thu, 14 Nov 2013 17:26:37 -0500 (EST)
+Message-ID: <20131114.172637.288809112911669556.davem@davemloft.net>
+References: <1384456378-29970-1-git-send-email-geyslan@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20131114191119.GB17693-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: arvid.brodin@xdin.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geyslan@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53493 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754824Ab3KNW0k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 17:26:40 -0500
+In-Reply-To: <1384456378-29970-1-git-send-email-geyslan@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Thu, 14 Nov 2013 14:11:20 -0500
+From: "Geyslan G. Bem" <geyslan@gmail.com>
+Date: Thu, 14 Nov 2013 16:12:54 -0300
 
-> Please pull this batch of fixes intended for the 3.13 stream!
+> If 'hsr_get_node_data()' returns error, going directly to 'fail' label
+> doesn't free the memory pointed by 'skb_out'.
+> 
+> Signed-off-by: Geyslan G. Bem <geyslan@gmail.com>
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Looks good, applied, thanks!
