@@ -1,59 +1,80 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] net/7990: Make lance_private.name const
-Date: Thu, 14 Nov 2013 09:37:32 +0100
-Message-ID: <CAMuHMdWN5KGYYZuMYF+cH8dtT9cuaWQNJaaE4wC0LXRVBBrmyw@mail.gmail.com>
-References: <CAMuHMdVn6MFbXgdE_teYW10OfYBjyZsN7v2yTTAsKj0kXao7Hw@mail.gmail.com>
-	<20131112.181629.742226266240112179.davem@davemloft.net>
-	<CAMuHMdXyqOATvE8e=3Ed17bwiDRE8w=B=xKuYwd5qorxqA0BJg@mail.gmail.com>
-	<20131113.151301.100218641838867631.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Linux/m68k" <linux-m68k@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <20131113.151301.100218641838867631.davem@davemloft.net>
-Sender: linux-m68k-owner@vger.kernel.org
+From: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] of: make of_get_phy_mode parse 'phy-connection-type'
+Date: Thu, 14 Nov 2013 16:47:11 +0900
+Message-ID: <20131114074711.9A8C5C402E1@trevor.secretlab.ca>
+References: <1384386147-13817-1-git-send-email-f.fainelli@gmail.com>
+Cc: rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1384386147-13817-1-git-send-email-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Wed, 13 Nov 2013 15:42:27 -0800, "Florian Fainelli" <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> Per the ePAPR v1.1 specification, 'phy-connection-type' is the canonical
+> property name for describing an Ethernet to PHY connection type. Make
+> sure that of_get_phy_mode() also attempts to parse that property and
+> update the comments mentioninng 'phy-mode' to also include
+> 'phy-connection-type'.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  drivers/of/of_net.c | 16 ++++++++++------
+>  1 file changed, 10 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/of/of_net.c b/drivers/of/of_net.c
+> index 8f9be2e..101a34c 100644
+> --- a/drivers/of/of_net.c
+> +++ b/drivers/of/of_net.c
+> @@ -13,8 +13,8 @@
+>  
+>  /**
+>   * It maps 'enum phy_interface_t' found in include/linux/phy.h
+> - * into the device tree binding of 'phy-mode', so that Ethernet
+> - * device driver can get phy interface from device tree.
+> + * into the device tree binding of 'phy-mode' or 'phy-connection-type',
+> + * so that Ethernet device driver can get phy interface from device tree.
+>   */
+>  static const char *phy_modes[] = {
+>  	[PHY_INTERFACE_MODE_NA]		= "",
+> @@ -36,8 +36,9 @@ static const char *phy_modes[] = {
+>   * of_get_phy_mode - Get phy mode for given device_node
+>   * @np:	Pointer to the given device_node
+>   *
+> - * The function gets phy interface string from property 'phy-mode',
+> - * and return its index in phy_modes table, or errno in error case.
+> + * The function gets phy interface string from property 'phy-mode' or
+> + * 'phy-connection-type', and return its index in phy_modes table, or errno in
+> + * error case.
+>   */
+>  int of_get_phy_mode(struct device_node *np)
+>  {
+> @@ -45,8 +46,11 @@ int of_get_phy_mode(struct device_node *np)
+>  	int err, i;
+>  
+>  	err = of_property_read_string(np, "phy-mode", &pm);
+> -	if (err < 0)
+> -		return err;
+> +	if (err < 0) {
+> +		err = of_property_read_string(np, "phy-connection-type", &pm);
+> +		if (err < 0)
+> +			return err;
+> +	}
 
-On Wed, Nov 13, 2013 at 9:13 PM, David Miller <davem@davemloft.net> wrote:
->> On Wed, Nov 13, 2013 at 12:16 AM, David Miller <davem@davemloft.net> wrote:
->>>>> And remember about checkpatch.pl which was hardly content with the patch.
->>>>
->>>> Only because checkpatch looks at the _new_ lines, and doesn't compare the
->>>> styles of the old and new lines.
->>>
->>> You really should fix the line you are changing to use tabs, please respin
->>> with this in mind, thanks.
->>
->> As that would add more to the TAB/space mess^H^H^Hix, I prepended a
->> patch to fix all whitespace errors.
->
-> I implicitly asked you not to do this, now things are more difficult
-> and your original change will take longer to integrate.
+Nit: The following would actually be better:
+ 	err = of_property_read_string(np, "phy-mode", &pm);
++	if (err < 0)
++		err = of_property_read_string(np, "phy-connection-type", &pm);
+ 	if (err < 0)
+ 		return err;
 
-Sorry, I didn't get that message. I was puzzled by your request to correct
-the whitespace of the lines I touched only, which causes them to stand out
-in a block of old non-compliant whitespace.
+Otherwise, the patch looks fine. If you test and repost then it can be merged with my:
 
-> Becuase now it isn't a patch set I can easily just apply quickly in
-> the current merge window, and it's therefore a series you'll have to
-> resubmit later when the merge window closes and the net-next tree
-> opens up again.
-
-Nevermind, it's not urgent nor critical. I will resubmit for the next merge
-window.
-
-Gr{oetje,eeting}s,
-
-                        Geert
+Acked-by: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 
 --
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
