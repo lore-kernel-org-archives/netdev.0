@@ -1,73 +1,50 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] net: sctp: bug-fixing: retran_path not set properly after
- transports recovering (v3)
-Date: Wed, 13 Nov 2013 20:42:20 -0500
-Message-ID: <52842A7C.7060908@gmail.com>
-References: <1384387106-8105-1-git-send-email-changxiangzhong@gmail.com>
+From: Fugang Duan <fugang.duan@freescale.com>
+Subject: RE: [PATCH v2 1/1] net:fec: fix WARNING caused by lack of calls to
+ dma_mapping_error()
+Date: Thu, 14 Nov 2013 01:47:16 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE01815BB1@039-SN2MPN1-023.039d.mgd.msft.net>
+References: <1384311846-4485-1-git-send-email-B38611@freescale.com>
+ <1384378020.29151.3.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: Chang Xiangzhong <changxiangzhong@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Frank Li <Frank.Li@freescale.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f176.google.com ([209.85.216.176]:39912 "EHLO
-	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462Ab3KNBmY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 20:42:24 -0500
-In-Reply-To: <1384387106-8105-1-git-send-email-changxiangzhong@gmail.com>
+Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:30463
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751170Ab3KNBrU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 20:47:20 -0500
+In-Reply-To: <1384378020.29151.3.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/13/2013 06:58 PM, Chang Xiangzhong wrote:
-> When a transport recovers due to the new coming sack, SCTP should
-> iterate all of its transport_list to locate the __two__ most recently used
-> transport and set to active_path and retran_path respectively. The exising
-> code does not find the two properly - In case of the following list:
->
-> [most-recent] -> [2nd-most-recent] -> ...
->
-> Both active_path and retran_path would be set to the 1st element.
->
-> The bug happens when:
-> 1) multi-homing
-> 2) failure/partial_failure transport recovers
-> Both active_path and retran_path would be set to the same most-recent one, in
-> other words, retran_path would not take its role - an end user might not even
-> notice this issue.
->
-> Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
-
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-
--vlad
-
-> ---
->   net/sctp/associola.c |    6 ++++--
->   1 file changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index ab67efc..8f26276 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -913,8 +913,8 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
->   		if (!first || t->last_time_heard > first->last_time_heard) {
->   			second = first;
->   			first = t;
-> -		}
-> -		if (!second || t->last_time_heard > second->last_time_heard)
-> +		} else if (!second ||
-> +			   t->last_time_heard > second->last_time_heard)
->   			second = t;
->   	}
->
-> @@ -935,6 +935,8 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
->   		first = asoc->peer.primary_path;
->   	}
->
-> +	if (!second)
-> +		second = first;
->   	/* If we failed to find a usable transport, just camp on the
->   	 * primary, even if it is inactive.
->   	 */
->
+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQpE
+YXRhOiBUaHVyc2RheSwgTm92ZW1iZXIgMTQsIDIwMTMgNToyNyBBTQ0KDQo+VG86IER1YW4gRnVn
+YW5nLUIzODYxMQ0KPkNjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnOyBMaSBGcmFuay1CMjA1OTYNCj5TdWJqZWN0OiBSZTogW1BBVENIIHYyIDEvMV0gbmV0OmZl
+YzogZml4IFdBUk5JTkcgY2F1c2VkIGJ5IGxhY2sgb2YgY2FsbHMgdG8NCj5kbWFfbWFwcGluZ19l
+cnJvcigpDQo+DQo+T24gV2VkLCAyMDEzLTExLTEzIGF0IDExOjA0ICswODAwLCBGdWdhbmcgRHVh
+biB3cm90ZToNCj5bLi4uXQ0KPj4gPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09DQo+PiBWMjogYWRkIG5ldF9yYXRlbGltaXQoKSB0byBsaW1pdCBtYXAgZXJyIG1l
+c3NhZ2UuDQo+PiAgICAgdXNlIGRtYV9zeW5jX3NpbmdsZV9mb3JfY3B1KCkgaW5zdGVhZCBvZiBk
+bWFfbWFwX3NpbmdsZSgpLg0KPj4gICAgIGZpeCB0aGUgaXNzdWUgdGhhdCBwYXNzIERNQSBhZGRy
+ZXNzZXMgdG8gX192YSgpIHRvIGdldCB2aXJ0dXJlIGFkZHJlc3MuDQo+PiBWMTogaW5pdGlhbCBz
+ZW5kDQo+PiA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0NCj4+
+DQo+PiBTaWduZWQtb2ZmLWJ5OiBGdWdhbmcgRHVhbiA8QjM4NjExQGZyZWVzY2FsZS5jb20+DQo+
+PiBTaWduZWQtb2ZmLWJ5OiBCZW4gSHV0Y2hpbmdzIDxiZW5AZGVjYWRlbnQub3JnLnVrPg0KPlsu
+Li5dDQo+DQo+Tm8gdGhhdCdzIG5vdCBob3cgaXQgd29ya3MuICBJZiBJIHdlcmUgdG8gdGhvcm91
+Z2hseSByZXZpZXcgdGhpcyAoYnV0IEkgaGF2ZW4ndCwNCj5hbmQgSSBkb24ndCBoYXZlIHRpbWUg
+dG8pIHRoZW4gSSBtaWdodCBzYXkgJ1Jldmlld2VkLWJ5OiBCZW4gSHV0Y2hpbmdzJyB3aGljaA0K
+PnlvdSBjb3VsZCB0aGVuIGFkZCB0byB0aGUgcGF0Y2ggaWYgcmUtcG9zdGluZyBpdC4NCj5TaWdu
+ZWQtb2ZmLWJ5IG1lYW5zIHNvbWV0aGluZyBkaWZmZXJlbnQgYW5kIHlvdSBtdXN0IG5ldmVyIGFk
+ZCBpdCBvbiBiZWhhbGYgb2YNCj5zb21lb25lIGVsc2UuDQo+DQo+QmVuLg0KDQpZb3UgaGFkIHN1
+cHBvcnRlZCBtYW55IGlkZWFzIGZvciB0aGUgcGF0Y2ggVjIsIHNvIGFkZCB5b3UgdG8gU2lnbmVk
+LW9mZi4NCk9rLCBJIGNoYW5nZSBpdCB0byAiUmV2ZWlld2VkLWJ5IiBhbmQgcmVzZW5kIHRoZSBw
+YXRjaC4NCg0KVGhhbmtzLA0KQW5keQ0KPg0KPi0tDQo+QmVuIEh1dGNoaW5ncywgU3RhZmYgRW5n
+aW5lZXIsIFNvbGFyZmxhcmUgTm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsgdGhhdCdzDQo+
+dGhlIG1hcmtldGluZyBkZXBhcnRtZW50J3Mgam9iLg0KPlRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0
+aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQo=
