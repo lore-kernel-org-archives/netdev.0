@@ -1,47 +1,75 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net 3/3] sit/gre6: don't try to add the same route two times
-Date: Thu, 14 Nov 2013 13:51:07 +0100
-Message-ID: <1384433467-4780-3-git-send-email-nicolas.dichtel@6wind.com>
-References: <1384433467-4780-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net 1/3] sit: fix prefix length of ll and v4mapped addresses
+Date: Thu, 14 Nov 2013 13:51:05 +0100
+Message-ID: <1384433467-4780-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:45297 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:45296 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752929Ab3KNMva (ORCPT
+	with ESMTP id S1753089Ab3KNMva (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 07:51:30 -0500
-In-Reply-To: <1384433467-4780-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-addrconf_add_linklocal() already adds the link local route, so there is no
-reason to add it before calling this function.
+When the local IPv4 endpoint is wilcard (0.0.0.0), the prefix length is
+correctly set, ie 64 if the address is a link local one or 96 if the address is
+a v4 mapped one.
+But when the local endpoint is specified, the prefix length is set to 128 for
+both kind of address. This patch fix this wrong prefix length.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/ipv6/addrconf.c | 3 ---
- 1 file changed, 3 deletions(-)
+ net/ipv6/addrconf.c | 11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
 
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 237bceb74c4e..cfc47b364e51 100644
+index cd3fb301da38..4e558e5e0e42 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -2709,7 +2709,6 @@ static void addrconf_sit_config(struct net_device *dev)
- 		struct in6_addr addr;
+@@ -2555,7 +2555,7 @@ static void sit_add_v4_addrs(struct inet6_dev *idev)
+ 	struct in6_addr addr;
+ 	struct net_device *dev;
+ 	struct net *net = dev_net(idev->dev);
+-	int scope;
++	int scope, plen;
  
- 		ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
--		addrconf_prefix_route(&addr, 64, dev, 0, 0);
- 		if (!ipv6_generate_eui64(addr.s6_addr + 8, dev))
- 			addrconf_add_linklocal(idev, &addr);
- 		return;
-@@ -2736,8 +2735,6 @@ static void addrconf_gre_config(struct net_device *dev)
+ 	ASSERT_RTNL();
+ 
+@@ -2565,12 +2565,14 @@ static void sit_add_v4_addrs(struct inet6_dev *idev)
+ 	if (idev->dev->flags&IFF_POINTOPOINT) {
+ 		addr.s6_addr32[0] = htonl(0xfe800000);
+ 		scope = IFA_LINK;
++		plen = 64;
+ 	} else {
+ 		scope = IPV6_ADDR_COMPATv4;
++		plen = 96;
  	}
  
- 	ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
--	addrconf_prefix_route(&addr, 64, dev, 0, 0);
--
- 	if (!ipv6_generate_eui64(addr.s6_addr + 8, dev))
- 		addrconf_add_linklocal(idev, &addr);
- }
+ 	if (addr.s6_addr32[3]) {
+-		add_addr(idev, &addr, 128, scope);
++		add_addr(idev, &addr, plen, scope);
+ 		return;
+ 	}
+ 
+@@ -2582,7 +2584,6 @@ static void sit_add_v4_addrs(struct inet6_dev *idev)
+ 			int flag = scope;
+ 
+ 			for (ifa = in_dev->ifa_list; ifa; ifa = ifa->ifa_next) {
+-				int plen;
+ 
+ 				addr.s6_addr32[3] = ifa->ifa_local;
+ 
+@@ -2593,10 +2594,6 @@ static void sit_add_v4_addrs(struct inet6_dev *idev)
+ 						continue;
+ 					flag |= IFA_HOST;
+ 				}
+-				if (idev->dev->flags&IFF_POINTOPOINT)
+-					plen = 64;
+-				else
+-					plen = 96;
+ 
+ 				add_addr(idev, &addr, plen, flag);
+ 			}
 -- 
 1.8.4.1
