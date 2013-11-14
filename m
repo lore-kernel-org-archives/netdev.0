@@ -1,63 +1,45 @@
-From: Chang Xiangzhong <changxiangzhong@gmail.com>
-Subject: [PATCH] net: sctp: bug-fixing: retran_path not set properly after transports recovering (v3)
-Date: Thu, 14 Nov 2013 00:58:26 +0100
-Message-ID: <1384387106-8105-1-git-send-email-changxiangzhong@gmail.com>
-Cc: nhorman@tuxdriver.com, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	Chang Xiangzhong <changxiangzhong@gmail.com>
-To: vyasevich@gmail.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net 0/6] net_tstamp: Validate hwtstamp_config completely
+ before applying it
+Date: Thu, 14 Nov 2013 00:39:02 +0000
+Message-ID: <1384389542.29151.5.camel@bwh-desktop.uk.level5networks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:45049 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751563Ab3KMX6c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 18:58:32 -0500
+Received: from webmail.solarflare.com ([12.187.104.25]:53430 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751544Ab3KNAjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Nov 2013 19:39:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a transport recovers due to the new coming sack, SCTP should
-iterate all of its transport_list to locate the __two__ most recently used
-transport and set to active_path and retran_path respectively. The exising
-code does not find the two properly - In case of the following list:
+This series fixes very similar bugs in 6 implementations of
+SIOCSHWTSTAMP.
 
-[most-recent] -> [2nd-most-recent] -> ...
+Ben.
 
-Both active_path and retran_path would be set to the 1st element.
+Ben Hutchings (6):
+  tg3: Validate hwtstamp_config completely before applying it
+  e1000e: Validate hwtstamp_config completely before applying it
+  pch_gbe: Validate hwtstamp_config completely before applying it
+  stmmac: Validate hwtstamp_config completely before applying it
+  ti_cpsw: Validate hwtstamp_config completely before applying it
+  ixp4xx_eth: Validate hwtstamp_config completely before applying it
 
-The bug happens when:
-1) multi-homing
-2) failure/partial_failure transport recovers
-Both active_path and retran_path would be set to the same most-recent one, in
-other words, retran_path would not take its role - an end user might not even
-notice this issue.
+ drivers/net/ethernet/broadcom/tg3.c                  | 16 +++++++---------
+ drivers/net/ethernet/intel/e1000e/netdev.c           | 14 ++++++--------
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 12 +++---------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    | 12 +++---------
+ drivers/net/ethernet/ti/cpsw.c                       | 18 ++++++++----------
+ drivers/net/ethernet/xscale/ixp4xx_eth.c             | 12 +++---------
+ 6 files changed, 30 insertions(+), 54 deletions(-)
 
-Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
----
- net/sctp/associola.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index ab67efc..8f26276 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -913,8 +913,8 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
- 		if (!first || t->last_time_heard > first->last_time_heard) {
- 			second = first;
- 			first = t;
--		}
--		if (!second || t->last_time_heard > second->last_time_heard)
-+		} else if (!second ||
-+			   t->last_time_heard > second->last_time_heard)
- 			second = t;
- 	}
- 
-@@ -935,6 +935,8 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
- 		first = asoc->peer.primary_path;
- 	}
- 
-+	if (!second)
-+		second = first;
- 	/* If we failed to find a usable transport, just camp on the
- 	 * primary, even if it is inactive.
- 	 */
 -- 
-1.7.9.5
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
