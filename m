@@ -1,55 +1,40 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] alx: Reset phy speed after resume
-Date: Thu, 14 Nov 2013 17:19:35 +0100
-Message-ID: <1384445975.13941.38.camel@jlt4.sipsolutions.net>
-References: <1384445773.29057.5.camel@localhost.tld>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 0/6] 6lowpan: udp
+	compression/uncompression fix
+Date: Thu, 14 Nov 2013 08:19:43 -0800
+Message-ID: <1384445983.28716.1.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1384444132-1427-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jcliburn@gmail.com, chris.snook@gmail.com, davem@davemloft.net,
-	wangyijing@huawei.com, maarten.lankhorst@canonical.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: hahnjo <linux@hahnjo.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:49322 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754589Ab3KNQTo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 11:19:44 -0500
-In-Reply-To: <1384445773.29057.5.camel@localhost.tld>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1384444132-1427-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-11-14 at 17:16 +0100, hahnjo wrote:
-> From 27744b24f9291782c1342dbd6cac511e68da907c Mon Sep 17 00:00:00 2001
-> From: hahnjo <hahnjo@hahnjo.de>
+On Thu, 2013-11-14 at 16:48 +0100, Alexander Aring wrote:
+> The current 6LoWPAN udp compression/uncompression is completely broken.
+> This patch series fix a lot of udp compression/uncompression issues and
+> add support parsing with lowpan_fetch_skb function.
 
-You probably want that to be your full name for the commit log?
+If its broken, why targeting net-next tree (which is closed BTW ATM) ?
 
-> Date: Tue, 12 Nov 2013 18:19:24 +0100
-> Subject: [PATCH] alx: Reset phy speed after resume
-> 
-> This fixes bug 62491 (https://bugzilla.kernel.org/show_bug.cgi?id=62491).
-> After resuming some users got the following error flooding the kernel log:
-> alx 0000:02:00.0: invalid PHY speed/duplex: 0xffff
 
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
 
-> Signed-off-by: Jonas Hahnfeld <linux@hahnjo.de>
-> ---
->  drivers/net/ethernet/atheros/alx/main.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-> index fc95b23..6305a5d 100644
-> --- a/drivers/net/ethernet/atheros/alx/main.c
-> +++ b/drivers/net/ethernet/atheros/alx/main.c
-> @@ -1389,6 +1389,9 @@ static int alx_resume(struct device *dev)
->  {
->  	struct pci_dev *pdev = to_pci_dev(dev);
->  	struct alx_priv *alx = pci_get_drvdata(pdev);
-> +	struct alx_hw *hw = &alx->hw;
-> +
-> +	alx_reset_phy(hw);
->  
->  	if (!netif_running(alx->dev))
->  		return 0;
+
+------------------------------------------------------------------------------
+DreamFactory - Open Source REST & JSON Services for HTML5 & Native Apps
+OAuth, Users, Roles, SQL, NoSQL, BLOB Storage and External API Access
+Free app hosting. Or install the open source package on any LAMP server.
+Sign up and see examples for AngularJS, jQuery, Sencha Touch and Native!
+http://pubads.g.doubleclick.net/gampad/clk?id=63469471&iu=/4140/ostg.clktrk
