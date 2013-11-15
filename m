@@ -1,57 +1,93 @@
-From: Kamala R <kamala@aristanetworks.com>
-Subject: Re: IPv6: Blackhole route support partial ?
-Date: Fri, 15 Nov 2013 15:06:28 +0530
-Message-ID: <CAP8BHkF_axGOChL=GigyKxWY1XYr_tQhWFF21ZxpVX9YpRpQSQ@mail.gmail.com>
-References: <CAP8BHkGZ5EFxW4BNervKrOiEaQTNdSh9s2YOrFoexzQCOR=AqQ@mail.gmail.com>
-	<20131111203954.GB3043@order.stressinduktion.org>
-	<CAP8BHkG6=KuU9K7=sGsZftMDe58eTYByRu2DZ+j+KNqcfsOfAA@mail.gmail.com>
-	<20131112135412.GF14929@order.stressinduktion.org>
-	<CAP8BHkEyASA52Q4Zg4w5OqR7Hv7Y_it8SnG_tMPViza_T9TV+Q@mail.gmail.com>
-	<20131114141149.GC26901@order.stressinduktion.org>
+From: Thomas Graf <tgraf@redhat.com>
+Subject: Re: [ovs-dev] [PATCH] linux: Signal datapath that unaligned Netlink
+ message can be received
+Date: Fri, 15 Nov 2013 10:47:13 +0100
+Message-ID: <5285EDA1.5060609@redhat.com>
+References: <51e10053434e3afdf9940d9be7d9f0ff4788d1f7.1384184155.git.tgraf@redhat.com> <20131111155014.GC32602@nicira.com> <5280FD6D.9000609@redhat.com> <CAEP_g=_KWgmfVkNLPGYr=WjNR=UKSt3PhkqU8PE6Ug3ju2R3ig@mail.gmail.com> <52834A8D.9040009@redhat.com> <CAEP_g=_AN7d94XEoXBaurzTttMHVFii+8hfT0b=tHWBkA-hicw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Kamala R <kamala@aristanetworks.com>, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Pfaff <blp@nicira.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Ben Hutchings <bhutchings@solarflare.com>, fleitner@redhat.com,
+	dborkmann@redhat.com, netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:42593 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753874Ab3KOJg3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 04:36:29 -0500
-Received: by mail-qa0-f46.google.com with SMTP id j7so401413qaq.19
-        for <netdev@vger.kernel.org>; Fri, 15 Nov 2013 01:36:29 -0800 (PST)
-In-Reply-To: <20131114141149.GC26901@order.stressinduktion.org>
+Received: from mx1.redhat.com ([209.132.183.28]:19310 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752653Ab3KOJrX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Nov 2013 04:47:23 -0500
+In-Reply-To: <CAEP_g=_AN7d94XEoXBaurzTttMHVFii+8hfT0b=tHWBkA-hicw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 11/15/2013 10:32 AM, Jesse Gross wrote:
+> On Wed, Nov 13, 2013 at 5:46 PM, Thomas Graf <tgraf@redhat.com> wrote:
+>> On 11/13/2013 07:11 AM, Jesse Gross wrote:
+>>>
+>>> On Mon, Nov 11, 2013 at 11:53 PM, Thomas Graf <tgraf@redhat.com> wrote:
+>>>>
+>>>> On 11/11/2013 04:50 PM, Ben Pfaff wrote:
+>>>>>
+>>>>>
+>>>>> On Mon, Nov 11, 2013 at 04:36:24PM +0100, Thomas Graf wrote:
+>>>>>>
+>>>>>>
+>>>>>> Following commit (''netlink: Do not enforce alignment of last Netlink
+>>>>>> attribute''), signal the ability to receive unaligned Netlink messages
+>>>>>> to the datapath to enable utilization of zerocopy optimizations.
+>>>>>>
+>>>>>> Signed-off-by: Thomas Graf <tgraf@redhat.com>
+>>>>>
+>>>>>
+>>>>>
+>>>>> Seems OK from a userspace point of view.  I am a little concerned that
+>>>>> downgrading userspace without deleting and re-creating the datapath
+>>>>> (e.g. via "force-reload-kmod") will result in a totally broken setup
+>>>>> since userspace will then drop every packet from the kernel.
+>>>>
+>>>>
+>>>>
+>>>> Is that something that occurs occasionally in installations? Utilizing
+>>>> the version field in the genl header could be used to track this and
+>>>> clear user_features.
+>>>
+>>>
+>>> It's probably a good idea. I could see us having more of these
+>>> features flags in the future (although obviously we should try to
+>>> avoid them if possible) and, as Ben said, it would potentially lead to
+>>> a bad state otherwise.
+>>>
+>>> I'm not sure exactly what you have in mind though, can you elaborate a
+>>> little?
+>>
+>>
+>> My initial thought was to use a version field to notice the replacement
+>> of user space. On second thought that is not required, modifying user
+>> space to provide the user features in OVS_DP_CMD_GET as well will
+>> overwrite the features. Resetting user_features to 0 if not features are
+>> provided will provide backwards compatibility to versions not aware of
+>> user features yet. Thoughts?
+>
+> Hmm, it doesn't really seem ideal to make DP_CMD_GET change settings
+> as it's probably not the expected behavior for most users of the
+> command. One example of where this could be a problem is if it is
+> called from both ovs-dpctl and ovs-vswitch. Usually these would be
+> have the same capabilities but I'm not sure that it's strictly
+> required in all cases. DP_CMD_SET seems like the ideal place to put it
+> but I guess we don't use that at all on existing versions of OVS
+> userspace.
 
-That's right. We don't show the error for IPv4 routes as it follows a
-different path in kernel while dumping the information as compared
-with IPv6. Therefore, "ip route show" does not show an error while "ip
--6 route show" does.  So it looks to me that this a kernel problem
-which needs to be fixed for consistent behavior. The simplest way to
-fix this seems to be to set the error to zero while dumping the
-information in the v6 path. I have tested this solution and found that
-it works fine. Do you think this is the way to go ?
+Agreed. Ideal and clean is a DP_CMD_SET lookup-or-create that updates
+the user features. That will leave one OVS version to be non backwards
+compatible in terms of downgrading user features.
 
-Regards,
-Kamala
+For that reason we can bump OVS_DATAPATH_VERSION to version 2 and reset
+the user features if we receive a DP_CMD_GET version 1.
 
-On Thu, Nov 14, 2013 at 7:41 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Hi!
->
-> On Thu, Nov 14, 2013 at 01:50:20PM +0530, Kamala R wrote:
->> I have one quick question before I send the patch across. I noticed
->> that "ip -6 route show" shows an error -22 in the output which
->> signifies -EINVAL associated with blackhole routes. This behaviour is
->> not consistent with that of "ip route show" that shows no such error
->> for a blackhole route. Does this qualify a bug that needs fixing ?
->
-> You mean that we don't show the error for IPv4 routes? Is this a kernel or
-> iproute problem?
->
-> Greetings,
->
->   Hannes
->
+It's not a problem if we reset the user features unnecessarily in some
+corner cases such as mismatching ovs-dpctl and vswitchd. The next
+iteration of the patchset has support for memory mapped netlink i/o
+which would still apply.
+
+If you agree to this then I will cook this up.
