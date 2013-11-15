@@ -1,96 +1,93 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: [PATCH v2.50 5/6] datapath: Break out deacceleration
-	portion of vlan_push
-Date: Fri, 15 Nov 2013 18:10:22 +0900
-Message-ID: <1384506623-18503-6-git-send-email-horms@verge.net.au>
-References: <1384506623-18503-1-git-send-email-horms@verge.net.au>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [ovs-dev] [PATCH] linux: Signal datapath that unaligned Netlink
+ message can be received
+Date: Fri, 15 Nov 2013 17:32:12 +0800
+Message-ID: <CAEP_g=_AN7d94XEoXBaurzTttMHVFii+8hfT0b=tHWBkA-hicw@mail.gmail.com>
+References: <51e10053434e3afdf9940d9be7d9f0ff4788d1f7.1384184155.git.tgraf@redhat.com>
+ <20131111155014.GC32602@nicira.com> <5280FD6D.9000609@redhat.com>
+ <CAEP_g=_KWgmfVkNLPGYr=WjNR=UKSt3PhkqU8PE6Ug3ju2R3ig@mail.gmail.com> <52834A8D.9040009@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1384506623-18503-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Ben Pfaff <blp@nicira.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	Ben Hutchings <bhutchings@solarflare.com>, fleitner@redhat.com,
+	dborkmann@redhat.com, netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:55360 "HELO
+	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751746Ab3KOJce (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 04:32:34 -0500
+Received: by mail-lb0-f181.google.com with SMTP id q8so1305405lbi.40
+        for <netdev@vger.kernel.org>; Fri, 15 Nov 2013 01:32:32 -0800 (PST)
+In-Reply-To: <52834A8D.9040009@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Break out deacceleration portion of vlan_push into vlan_put
-so that it may be re-used by mpls_push.
+On Wed, Nov 13, 2013 at 5:46 PM, Thomas Graf <tgraf@redhat.com> wrote:
+> On 11/13/2013 07:11 AM, Jesse Gross wrote:
+>>
+>> On Mon, Nov 11, 2013 at 11:53 PM, Thomas Graf <tgraf@redhat.com> wrote:
+>>>
+>>> On 11/11/2013 04:50 PM, Ben Pfaff wrote:
+>>>>
+>>>>
+>>>> On Mon, Nov 11, 2013 at 04:36:24PM +0100, Thomas Graf wrote:
+>>>>>
+>>>>>
+>>>>> Following commit (''netlink: Do not enforce alignment of last Netlink
+>>>>> attribute''), signal the ability to receive unaligned Netlink messages
+>>>>> to the datapath to enable utilization of zerocopy optimizations.
+>>>>>
+>>>>> Signed-off-by: Thomas Graf <tgraf@redhat.com>
+>>>>
+>>>>
+>>>>
+>>>> Seems OK from a userspace point of view.  I am a little concerned that
+>>>> downgrading userspace without deleting and re-creating the datapath
+>>>> (e.g. via "force-reload-kmod") will result in a totally broken setup
+>>>> since userspace will then drop every packet from the kernel.
+>>>
+>>>
+>>>
+>>> Is that something that occurs occasionally in installations? Utilizing
+>>> the version field in the genl header could be used to track this and
+>>> clear user_features.
+>>
+>>
+>> It's probably a good idea. I could see us having more of these
+>> features flags in the future (although obviously we should try to
+>> avoid them if possible) and, as Ben said, it would potentially lead to
+>> a bad state otherwise.
+>>
+>> I'm not sure exactly what you have in mind though, can you elaborate a
+>> little?
+>
+>
+> My initial thought was to use a version field to notice the replacement
+> of user space. On second thought that is not required, modifying user
+> space to provide the user features in OVS_DP_CMD_GET as well will
+> overwrite the features. Resetting user_features to 0 if not features are
+> provided will provide backwards compatibility to versions not aware of
+> user features yet. Thoughts?
 
-For both vlan_push and mpls_push if there is an accelerated VLAN tag
-present then it should be deaccelerated, adding it to the data of
-the skb, before the new tag is added.
+Hmm, it doesn't really seem ideal to make DP_CMD_GET change settings
+as it's probably not the expected behavior for most users of the
+command. One example of where this could be a problem is if it is
+called from both ovs-dpctl and ovs-vswitch. Usually these would be
+have the same capabilities but I'm not sure that it's strictly
+required in all cases. DP_CMD_SET seems like the ideal place to put it
+but I guess we don't use that at all on existing versions of OVS
+userspace.
 
-Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+>> (By the way, it might be a good idea to keep the same CC list on all
+>> of the patches. Otherwise, some people might miss parts of the
+>> discussion.)
+>
+>
+> I did not CC netdev because this is a pure user space patch and the
+> respective kernel bits are included in v5 of the kernel series.
 
----
-
-v2.41 - v2.50
-* No change
-
-v2.40
-* As suggested by Jesse Gross
-  + Simplify vlan_push by returning an error code
-    rather than an error code encoded as a struct xkb_buff *
-
-v2.39
-* First post
----
- datapath/actions.c | 28 ++++++++++++++++++----------
- 1 file changed, 18 insertions(+), 10 deletions(-)
-
-diff --git a/datapath/actions.c b/datapath/actions.c
-index 30ea1d2..ee2456b 100644
---- a/datapath/actions.c
-+++ b/datapath/actions.c
-@@ -105,21 +105,29 @@ static int pop_vlan(struct sk_buff *skb)
- 	return 0;
- }
- 
--static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
-+/* push down current VLAN tag */
-+static int put_vlan(struct sk_buff *skb)
- {
--	if (unlikely(vlan_tx_tag_present(skb))) {
--		u16 current_tag;
-+	u16 current_tag = vlan_tx_tag_get(skb);
- 
--		/* push down current VLAN tag */
--		current_tag = vlan_tx_tag_get(skb);
-+	if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
-+		return -ENOMEM;
- 
--		if (!__vlan_put_tag(skb, skb->vlan_proto, current_tag))
--			return -ENOMEM;
-+	if (skb->ip_summed == CHECKSUM_COMPLETE)
-+		skb->csum = csum_add(skb->csum, csum_partial(skb->data
-+				+ (2 * ETH_ALEN), VLAN_HLEN, 0));
- 
--		if (skb->ip_summed == CHECKSUM_COMPLETE)
--			skb->csum = csum_add(skb->csum, csum_partial(skb->data
--					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
-+	return 0;
-+}
-+
-+static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vlan)
-+{
-+	if (unlikely(vlan_tx_tag_present(skb))) {
-+		int err;
- 
-+		err = put_vlan(skb);
-+		if (unlikely(err))
-+			return err;
- 	}
- 	__vlan_hwaccel_put_tag(skb, vlan->vlan_tpid, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
- 	return 0;
--- 
-1.8.4
+I know but I think the outcome of this discussion likely affects all
+of the patches, so it would be helpful even for those who are looking
+at just the kernel patches.
