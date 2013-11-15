@@ -1,88 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [OOPS][3.12] BUG: unable to handle kernel NULL pointer
- dereference at 0000000c
-Date: Fri, 15 Nov 2013 17:44:26 -0500 (EST)
-Message-ID: <20131115.174426.1448825246187940374.davem@davemloft.net>
-References: <20131115183422.GA9417@pomac.netswarm.net>
-	<CAErSpo4jh7pO=jhZTvHD+sT2O12Ly6V3e_oiac8gHqmdmqevkg@mail.gmail.com>
+Subject: Re: [PATCH net v4] bonding: add ip checks when store ip target
+Date: Fri, 15 Nov 2013 17:44:57 -0500 (EST)
+Message-ID: <20131115.174457.1747641547874304346.davem@davemloft.net>
+References: <52857FE2.5060400@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pomac@vapor.com, linux-kernel@vger.kernel.org, edumazet@google.com,
-	netdev@vger.kernel.org, alex.aring@gmail.com
-To: bhelgaas@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAErSpo4jh7pO=jhZTvHD+sT2O12Ly6V3e_oiac8gHqmdmqevkg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: fubar@us.ibm.com, andy@greyhouse.net, nikolay@redhat.com,
+	vfalico@redhat.com, netdev@vger.kernel.org
+To: dingtianhong@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60305 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751981Ab3KOWo7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 17:44:59 -0500
+In-Reply-To: <52857FE2.5060400@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Fri, 15 Nov 2013 15:29:53 -0700
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Fri, 15 Nov 2013 09:58:58 +0800
 
-> [+cc David, Eric, Alex, netdev]
+> From 513509eecdee98d72668219aead9784d56dbad0f Mon Sep 17 00:00:00 2001
+> From: Wang Weidong <wangweidong1@huawei.com>
+> Date: Fri, 15 Nov 2013 10:34:30 -0500
+> Subject: [PATCH] bonding: add ip checks when store ip target
 > 
-> Alex reported a similar issue at
-> http://marc.info/?l=linux-netdev&m=138355719901790&w=4
+> I met a Bug when I add ip target with the wrong ip address:
+> 
+> echo +500.500.500.500 > /sys/class/net/bond0/bonding/arp_ip_target
+> 
+> the wrong ip address will transfor to 245.245.245.244 and add
+> to the ip target success, it is uncorrect, so I add checks to avoid
+> adding wrong address.
+> 
+> The in4_pton() will set wrong ip address to 0.0.0.0, it will return by
+> the next check and will not add to ip target.
+> 
+> v2
+> According Veaceslav's opinion, simplify the code.
+> 
+> v3
+> According Veaceslav's opinion, add broadcast check and make a micro
+> definition to package it.
+> 
+> v4
+> Solve the problem of the format which David point out.
+> 
+> Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+> Suggested-by: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
-Fixed by:
-
-commit 84502b5ef9849a9694673b15c31bd3ac693010ae
-Author: Steffen Klassert <steffen.klassert@secunet.com>
-Date:   Wed Oct 30 11:16:28 2013 +0100
-
-    xfrm: Fix null pointer dereference when decoding sessions
-    
-    On some codepaths the skb does not have a dst entry
-    when xfrm_decode_session() is called. So check for
-    a valid skb_dst() before dereferencing the device
-    interface index. We use 0 as the device index if
-    there is no valid skb_dst(), or at reverse decoding
-    we use skb_iif as device interface index.
-    
-    Bug was introduced with git commit bafd4bd4dc
-    ("xfrm: Decode sessions with output interface.").
-    
-    Reported-by: Meelis Roos <mroos@linux.ee>
-    Tested-by: Meelis Roos <mroos@linux.ee>
-    Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 4764ee4..e1a6393 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -104,10 +104,14 @@ _decode_session4(struct sk_buff *skb, struct flowi *fl, int reverse)
- 	const struct iphdr *iph = ip_hdr(skb);
- 	u8 *xprth = skb_network_header(skb) + iph->ihl * 4;
- 	struct flowi4 *fl4 = &fl->u.ip4;
-+	int oif = 0;
-+
-+	if (skb_dst(skb))
-+		oif = skb_dst(skb)->dev->ifindex;
- 
- 	memset(fl4, 0, sizeof(struct flowi4));
- 	fl4->flowi4_mark = skb->mark;
--	fl4->flowi4_oif = skb_dst(skb)->dev->ifindex;
-+	fl4->flowi4_oif = reverse ? skb->skb_iif : oif;
- 
- 	if (!ip_is_fragment(iph)) {
- 		switch (iph->protocol) {
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index dd503a3..5f8e128 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -135,10 +135,14 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
- 	struct ipv6_opt_hdr *exthdr;
- 	const unsigned char *nh = skb_network_header(skb);
- 	u8 nexthdr = nh[IP6CB(skb)->nhoff];
-+	int oif = 0;
-+
-+	if (skb_dst(skb))
-+		oif = skb_dst(skb)->dev->ifindex;
- 
- 	memset(fl6, 0, sizeof(struct flowi6));
- 	fl6->flowi6_mark = skb->mark;
--	fl6->flowi6_oif = skb_dst(skb)->dev->ifindex;
-+	fl6->flowi6_oif = reverse ? skb->skb_iif : oif;
- 
- 	fl6->daddr = reverse ? hdr->saddr : hdr->daddr;
- 	fl6->saddr = reverse ? hdr->daddr : hdr->saddr;
+Applied, thanks.
