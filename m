@@ -1,37 +1,109 @@
-From: John Hughes <john@atlantech.com>
-Subject: Re: When a TCP segment is split up (to be sent through a TUN device
- with a small MTU) who should recalculate the checksum?
-Date: Fri, 15 Nov 2013 15:55:11 +0100
-Message-ID: <528635CF.9050306@atlantech.com>
-References: <5285E0BC.4090402@atlantech.com> <52862DBF.2060801@gmail.com> <5286305F.5060903@atlantech.com> <528632AA.2090400@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] net: sctp: recover a tranport when an ack comes
+Date: Fri, 15 Nov 2013 09:56:09 -0500
+Message-ID: <20131115145609.GC29877@hmsreliant.think-freely.org>
+References: <1384461624-17636-1-git-send-email-changxiangzhong@gmail.com>
+ <5285884F.8030907@gmail.com>
+ <20131115123055.GA29877@hmsreliant.think-freely.org>
+ <5286291A.7060507@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Hughes <john@atlantech.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
-To: vyasevic@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Chang Xiangzhong <changxiangzhong@gmail.com>, davem@davemloft.net,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dreibh@simula.no, ernstgr@simula.no
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from olympic.calvaedi.com ([89.202.194.163]:47883 "EHLO
-	olympic.calvaedi.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751104Ab3KOOzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 09:55:19 -0500
-In-Reply-To: <528632AA.2090400@redhat.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60949 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751104Ab3KOO4U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 09:56:20 -0500
+Content-Disposition: inline
+In-Reply-To: <5286291A.7060507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15/11/13 15:41, Vlad Yasevich wrote:
-> On 11/15/2013 09:31 AM, John Hughes wrote:
->> On 15/11/13 15:20, Vlad Yasevich wrote:
->>>
->>> Can you check to see if you have the following patch in your kernel
->>> commit: 1cdbcb7957cf9e5f841dbcde9b38fd18a804208b
+On Fri, Nov 15, 2013 at 09:00:58AM -0500, Vlad Yasevich wrote:
+> On 11/15/2013 07:30 AM, Neil Horman wrote:
+> >On Thu, Nov 14, 2013 at 09:34:55PM -0500, Vlad Yasevich wrote:
+> >>On 11/14/2013 03:40 PM, Chang Xiangzhong wrote:
+> >>>Expected Behavior:
+> >>>When hearing an ack from a tranport/path, set its state to normal/on if it's
+> >>>in abnormal(__partial_failure__ or inactive) state.
+> >>>
+> >>>state machine of tranport->state
+> >>>Whenever a T3_RTX timer expires, then transport->error_count++.
+> >>>When (association->pf_retrans < transport->error_count < tranport->pathmaxrtx)
+> >>>	transport->state = SCTP_PF //partial failure
+> >>>
+> >>>When a heartbeat-ack comes or conventional ack acknowledged its availability,
+> >>>	transport->state = SCTP_ON
+> >>>
+> >>>Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
+> >>>Fixes: 5aa93bcf66f ("sctp: Implement quick failover draft from tsvwg")
+> >>
+> >>I don't think this is right.  The spec states:
+> >>  8.  ACKs for retransmissions do not transition a PF destination back
+> >>        to Active state, since a sender cannot disambiguate whether the
+> >>        ack was for the original transmission or the retransmission(s).
+> >>
+> >>
+> >>Now, the proper way to this would would be modify
+> >>sctp_assoc_control_transport() to transition the transport state to
+> >>ACTIVE if it was PF transport that was chosen to send data.
+> >>
+> >>-vlad
+> >>
+> >I agree, this patch doesn't agree with the spec, the only time we transition
+> >from PF to ACTIVE should be on receipt of ack of new data.
+> 
+> You mean HB ACK, right?  The 02 spec that see on the ietf site doesn't
+> mention anything about transition on SACKs.  Also, there is no way to
+> tell right now if the ack is for new or retransmitted data.  We could
+> mark chunks that are retransmitted though.
+> 
+Yes, sorry I wasn't clear, I was speaknig about HB Acks.
 
-> Give it a try.  It has helped me in similar situations.  If it helps,
-> we can get it into the stable tree.
+> > I'm not even sure if
+> >we should allow PF transports to be selected to send new data.  Currently a
+> >potentially failed transport will get ignored when specified, and the stack will
+> >use the active path in its place.  Only if all transports are PF will a PF
+> >transport be chosen.
+> 
+> Not even that :(.  If all transports are PF, we are going to camp on
+> the primary path instead of choosing a PF transport with the lowest
+> error count.
+> 
+Yes, we don't do the smallest error count check, though I have to wonder if
+thats really worthwhile.  If all your transports are PF, you're a step away from
+a connection reset anyway.
+Neil
 
-Ok, I'll make myself a kernel with that patch.
-
-Should be able to try it over the weekend.
-
--- 
-John.
+> -vlad
+> 
+> >Neil
+> >
+> >>>---
+> >>>  net/sctp/outqueue.c |    1 +
+> >>>  1 file changed, 1 insertion(+)
+> >>>
+> >>>diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> >>>index 94df758..2557fa5 100644
+> >>>--- a/net/sctp/outqueue.c
+> >>>+++ b/net/sctp/outqueue.c
+> >>>@@ -1517,6 +1517,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+> >>>  			 * active if it is not so marked.
+> >>>  			 */
+> >>>  			if ((transport->state == SCTP_INACTIVE ||
+> >>>+			     transport->state == SCTP_PF ||
+> >>>  			     transport->state == SCTP_UNCONFIRMED) &&
+> >>>  			    sctp_cmp_addr_exact(&transport->ipaddr, saddr)) {
+> >>>  				sctp_assoc_control_transport(
+> >>>
+> >>
+> >>
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
