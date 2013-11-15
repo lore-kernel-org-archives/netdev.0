@@ -1,47 +1,37 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 0/9] genetlink: reduce ops size and complexity (v2)
-Date: Fri, 15 Nov 2013 14:23:14 +0100
-Message-ID: <1384521794.14295.5.camel@jlt4.sipsolutions.net>
-References: <1384420486-8713-1-git-send-email-johannes@sipsolutions.net>
-	 <1384445687-30948-1-git-send-email-johannes@sipsolutions.net>
-	 <20131114.171204.1979806323628158355.davem@davemloft.net>
-	 <1384521515.14295.2.camel@jlt4.sipsolutions.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPv6: Blackhole route support partial ?
+Date: Fri, 15 Nov 2013 14:48:11 +0100
+Message-ID: <20131115134811.GF26901@order.stressinduktion.org>
+References: <CAP8BHkGZ5EFxW4BNervKrOiEaQTNdSh9s2YOrFoexzQCOR=AqQ@mail.gmail.com> <20131111203954.GB3043@order.stressinduktion.org> <CAP8BHkG6=KuU9K7=sGsZftMDe58eTYByRu2DZ+j+KNqcfsOfAA@mail.gmail.com> <20131112135412.GF14929@order.stressinduktion.org> <CAP8BHkEyASA52Q4Zg4w5OqR7Hv7Y_it8SnG_tMPViza_T9TV+Q@mail.gmail.com> <20131114141149.GC26901@order.stressinduktion.org> <CAP8BHkF_axGOChL=GigyKxWY1XYr_tQhWFF21ZxpVX9YpRpQSQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wimax@intel.com,
-	bsingharora@gmail.com, netfilter-devel@vger.kernel.org,
-	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1384521515.14295.2.camel@jlt4.sipsolutions.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Kamala R <kamala@aristanetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAP8BHkF_axGOChL=GigyKxWY1XYr_tQhWFF21ZxpVX9YpRpQSQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-11-15 at 14:18 +0100, Johannes Berg wrote:
+Hi!
 
-> I've been eyeing the multicast groups as well
+On Fri, Nov 15, 2013 at 03:06:28PM +0530, Kamala R wrote:
+> That's right. We don't show the error for IPv4 routes as it follows a
+> different path in kernel while dumping the information as compared
+> with IPv6. Therefore, "ip route show" does not show an error while "ip
+> -6 route show" does.  So it looks to me that this a kernel problem
+> which needs to be fixed for consistent behavior. The simplest way to
+> fix this seems to be to set the error to zero while dumping the
+> information in the v6 path. I have tested this solution and found that
+> it works fine. Do you think this is the way to go ?
 
-Of course, there are also *much* fewer mcast groups, so the saving isn't
-nearly as big. But we still have some oddball code to register them all,
-basically
+If I understand you correctly you propose to drop the output of the error
+attribute for IPv6 routes too? It is not that important that those two
+outputs are identical and if you make a change, please introduce the
+error propagation for IPv4 so one can see the socket errors for those
+routes, too. I wouldn't drop those for IPv6 just for consistency reasons.
 
-	err = register_mc_group();
-	if (err)
-		goto unregister_family;
+Greetings,
 
-(since we have to register the family first, afaict)
-
-sometimes a few of those back to back, and it'd be nicer on the users if
-that just went away and was
-
-	family.mcast_groups = my_groups;
-	family.n_mcast_groups = ARRAY_SIZE(my_groups);
-	family.ops = my_ops;
-	family.n_ops = ARRAY_SIZE(my_ops);
-	return genl_register_family(&family);
-
-since nobody uses them dynamically anyway, afaict.
-
-johannes
-
+  Hannes
