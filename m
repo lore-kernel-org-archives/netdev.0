@@ -1,35 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: phy: use phy_init_hw instead of
- open-coding it
-Date: Fri, 15 Nov 2013 02:30:48 -0500 (EST)
-Message-ID: <20131115.023048.1035405828290283938.davem@davemloft.net>
-References: <1384495793-22534-1-git-send-email-f.fainelli@gmail.com>
-	<2068298.FXgGSfs2Vb@lenovo>
+From: Daniel Mack <zonque@gmail.com>
+Subject: Re: [PATCH 1/2] net: phylib: add adjust_state callback to phy device
+Date: Fri, 15 Nov 2013 08:35:00 +0100
+Message-ID: <5285CEA4.70207@gmail.com>
+References: <1384376870-7810-1-git-send-email-zonque@gmail.com> <20131114.163207.230147902479371528.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, marek.belisko@gmail.com,
+	ujhelyi.m@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55319 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751042Ab3KOHaw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 02:30:52 -0500
-In-Reply-To: <2068298.FXgGSfs2Vb@lenovo>
+Received: from mail-bk0-f43.google.com ([209.85.214.43]:63483 "EHLO
+	mail-bk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751857Ab3KOHfF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 02:35:05 -0500
+Received: by mail-bk0-f43.google.com with SMTP id mz13so1484367bkb.16
+        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 23:35:03 -0800 (PST)
+In-Reply-To: <20131114.163207.230147902479371528.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 15 Nov 2013 07:03:04 +0000
+On 11/14/2013 10:32 PM, David Miller wrote:
+> From: Daniel Mack <zonque@gmail.com>
+> Date: Wed, 13 Nov 2013 22:07:49 +0100
+> 
+>> Allow phy drivers to take action when the core does its link adjustment.
+>> No change for drivers that do not implement this callback.
+>>
+>> Signed-off-by: Daniel Mack <zonque@gmail.com>
+> 
+> So you're using this to reset the entire PHY via the reset bit in the
+> BMCR register when the link goes down.
+> 
+> But this is going to break things.
+> 
+> If the phy library previously programmed a non-autonegotiated static
+> link configuration into the BMCR register, your reset is going to
+> undo that.
+> 
+> Now the configuration phylib thinks the chip has and the one it
+> acutally does is out of sync.
 
-> Le vendredi 15 novembre 2013, 06:09:53 Florian Fainelli a =E9crit :
->> We already have a helper function which verifies a PHY device driver
->> implements a config_init callback, then calls phy_scan_fixups() and
->> ultimately calls the config_init callback. Use that instead of open
->> coding it.
->=20
-> I did not realize we were in the middle of the merge window, I will r=
-e-submit=20
-> once net-next is open again since this is not a fix.
+You're right, thanks for the review. Let me just state that I'm really
+unhappy about that approach as well.
 
-Thank you.
+However, I currently see no better way than resetting the PHY every time
+the link goes down, as we have no way of telling whether the chip has
+entered its locked-up state which it seemingly does arbitrarily when the
+link changes. This is really not nice, but the only thing that avoided
+the effect in our tests.
+
+That means that we either have to tell the PHY core about what we did,
+or manually preserve the registers contents across the reset. I'll have
+another look next week. Any pointers appreciated :)
+
+
+Daniel
