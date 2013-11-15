@@ -1,89 +1,50 @@
-From: Cedric Le Goater <clg@fr.ibm.com>
-Subject: Re: [PATCH 16/51] DMA-API: ppc: vio.c: replace dma_set_mask()+dma_set_coherent_mask()
- with new helper
-Date: Fri, 15 Nov 2013 17:16:55 +0100
-Message-ID: <528648F7.20900@fr.ibm.com>
-References: <20130919212235.GD12758@n2100.arm.linux.org.uk> <E1VMly8-0007gy-Ru@rmk-PC.arm.linux.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH net-next] net: reorder struct netns_ct for better
+ cache-line usage
+Date: Fri, 15 Nov 2013 08:17:21 -0800
+Message-ID: <1384532241.28716.66.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131115145459.17641.35021.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
-	devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
-	dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
-	linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-fbdev@vger.kernel.org,
-	linux-ide@vger.kernel.org, linux-media@vger.kernel.org,
-	linux-mmc@vger.kernel.org, linux-nvme@lists.infradead.org,
-	linux-omap@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org,
-	linux-tegra@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	Paul Mackerras <paulus@samba.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>
-To: Russell King <rmk+kernel@arm.linux.org.uk>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <E1VMly8-0007gy-Ru@rmk-PC.arm.linux.org.uk>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20131115145459.17641.35021.stgit@dragon>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,=20
-
-On 09/19/2013 11:41 PM, Russell King wrote:
-> Replace the following sequence:
->=20
-> 	dma_set_mask(dev, mask);
-> 	dma_set_coherent_mask(dev, mask);
->=20
-> with a call to the new helper dma_set_mask_and_coherent().
->=20
-> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+On Fri, 2013-11-15 at 15:57 +0100, Jesper Dangaard Brouer wrote:
+> Reorder struct netns_ct so that atomic_t "count" changes don't
+> slowdown users of read mostly fields.
+> 
+> This is based on Eric Dumazet's proposed patch:
+>  "netfilter: conntrack: remove the central spinlock"
+>  http://thread.gmane.org/gmane.linux.network/268758/focus=47306
+> 
+> The tricky part of cache-aligning this structure, that it is getting
+> inlined in struct net (include/net/net_namespace.h), thus changes to
+> other netns_xxx structures affects our alignment.
+> 
+> Eric's original patch contained an ambiguity on 32-bit regarding
+> alignment in struct net.  This patch also takes 32-bit into account,
+> and in case of changed (struct net) alignment sysctl_xxx entries have
+> been ordered according to how often they are accessed.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Reviewed-by: Jiri Benc <jbenc@redhat.com>
 > ---
->  arch/powerpc/kernel/vio.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
->=20
-> diff --git a/arch/powerpc/kernel/vio.c b/arch/powerpc/kernel/vio.c
-> index 78a3506..96b6c97 100644
-> --- a/arch/powerpc/kernel/vio.c
-> +++ b/arch/powerpc/kernel/vio.c
-> @@ -1413,8 +1413,7 @@ struct vio_dev *vio_register_device_node(struct=
- device_node *of_node)
->=20
->  		/* needed to ensure proper operation of coherent allocations
->  		 * later, in case driver doesn't set it explicitly */
-> -		dma_set_mask(&viodev->dev, DMA_BIT_MASK(64));
-> -		dma_set_coherent_mask(&viodev->dev, DMA_BIT_MASK(64));
-> +		dma_set_mask_and_coherent(&viodev->dev, DMA_BIT_MASK(64));
->  	}
->=20
->  	/* register with generic device framework */
->=20
+> Yes, I know it's not the time to submit this patch, but
+> I just want to let Eric know that I'm planning on extracting
+> part of his proposed patch, which have been stalled for months.
+> I'll resubmit once net-next/nf-next opens for changes again.
 
-The new helper routine dma_set_mask_and_coherent() breaks the=20
-initialization of the pseries vio devices which do not have an=20
-initial dev->dma_mask. I think we need to use dma_coerce_mask_and_coher=
-ent()
-instead.
+I have no plan working on conntrack in the near future.
 
-Signed-off-by: C=E9dric Le Goater <clg@fr.ibm.com>
----
- arch/powerpc/kernel/vio.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I cannot really cope with a 3 months response time to a patch.
 
-diff --git a/arch/powerpc/kernel/vio.c b/arch/powerpc/kernel/vio.c
-index e7d0c88f..76a6482 100644
---- a/arch/powerpc/kernel/vio.c
-+++ b/arch/powerpc/kernel/vio.c
-@@ -1419,7 +1419,7 @@ struct vio_dev *vio_register_device_node(struct d=
-evice_node *of_node)
-=20
- 		/* needed to ensure proper operation of coherent allocations
- 		 * later, in case driver doesn't set it explicitly */
--		dma_set_mask_and_coherent(&viodev->dev, DMA_BIT_MASK(64));
-+		dma_coerce_mask_and_coherent(&viodev->dev, DMA_BIT_MASK(64));
- 	}
-=20
- 	/* register with generic device framework */
---=20
-1.7.10.4
+Feel free to grab and continue the work, thanks !
+
+
+
