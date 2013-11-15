@@ -1,131 +1,91 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2.49 1/6] ofp-actions: Consider L4 actions after
- mpls_push as inconsistent
-Date: Fri, 15 Nov 2013 18:01:22 +0900
-Message-ID: <20131115090120.GA13459@verge.net.au>
-References: <1384501858-30535-1-git-send-email-horms@verge.net.au>
- <1384501858-30535-2-git-send-email-horms@verge.net.au>
+From: John Hughes <john@atlantech.com>
+Subject: When a TCP segment is split up (to be sent through a TUN device with
+ a small MTU) who should recalculate the checksum?
+Date: Fri, 15 Nov 2013 09:52:12 +0100
+Message-ID: <5285E0BC.4090402@atlantech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pravin B Shelar <pshelar@nicira.com>, Ravi K <rkerur@gmail.com>,
-	Joe Stringer <joe@wand.net.nz>
-To: dev@openvswitch.org, netdev@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>, Ben Pfaff <blp@nicira.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:43226 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756497Ab3KOJBZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 04:01:25 -0500
-Content-Disposition: inline
-In-Reply-To: <1384501858-30535-2-git-send-email-horms@verge.net.au>
+Received: from olympic.calvaedi.com ([89.202.194.163]:45830 "EHLO
+	olympic.calvaedi.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753494Ab3KOJGn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 04:06:43 -0500
+Received: from [192.168.6.107] (celtic.calvaedi.com [192.168.6.107])
+	(authenticated bits=0)
+	by olympic.calvaedi.com (8.14.4/8.14.4/CalvaEDI-1.17) with ESMTP id rAF8qC9X004156
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-CAMELLIA256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 15 Nov 2013 09:52:13 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 15, 2013 at 04:50:53PM +0900, Simon Horman wrote:
-> After an mpls_push action the resulting packet is MPLS and
-> the MPLS payload is opaque. Thus nothing can be assumed
-> about the packets network protocol and it is inconsistent
-> to apply L4 actions.
-> 
-> With regards to actions that affect the packet at other layers
-> of the protocol stack:
-> 
-> * L3: The consistency of L3 actions should already be handled correctly
->   by virtue of the dl_type of the flow being temporarily altered
->   during consistency checking by both push_mpls and pop_mpls actions.
-> 
-> * MPLS: The consistency checking of MPLS actions appear to already be
->   handled correctly.
-> 
-> * VLAN: At this time Open vSwitch on mpls_push an MPLS LSE is always
->   added after any VLAN tags that follow the ethernet header.
->   That is the tag ordering defined prior to OpenFlow1.3. As such
->   VLAN actions should sill be equally valid before and after mpls_push
->   and mpls_pop actions.
-> 
-> * L2 actions are equally valid before and after mpls_push and mpls_pop actions.
-> 
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-> 
-> ---
-> v2.49
-> * First post
-> ---
->  lib/ofp-actions.c    |  9 ++++++++-
->  tests/ofp-actions.at | 12 ++++++++++++
->  2 files changed, 20 insertions(+), 1 deletion(-)
-> 
-> diff --git a/lib/ofp-actions.c b/lib/ofp-actions.c
-> index abc9505..e4e05dd 100644
-> --- a/lib/ofp-actions.c
-> +++ b/lib/ofp-actions.c
-> @@ -1869,7 +1869,8 @@ ofpact_check_output_port(ofp_port_t port, ofp_port_t max_ports)
->      }
->  }
->  
-> -/* May modify flow->dl_type and flow->vlan_tci, caller must restore them.
-> +/* May modify flow->dl_type, flow->nw_protocol and flow->vlan_tci,
+I have two offices, joined by a OpenVPN tunnel.  I've upgraded the 
+kernels in the machines running the tunnel to 3.10.  All of a sudden I'm 
+getting horrible transmission delays between the two offices.
 
-s/nw_protocol/nw_proto/
+office1 LAN--------office1 tunnel machine
+                             |
+                             | openvpn tunnel
+                             |
+                     office2 tunnel machine------office2 LAN
+                                   
 
-I will re-post.
+What seems to be happening is that packets are arriving at the LAN 
+interface of the machine running the tunnel and being combined by 
+generic-receive-offload.  These packets then have to be split up again 
+as they are too big for the tunnels MTU.
 
-> + * caller must restore them.
->   *
->   * Modifies some actions, filling in fields that could not be properly set
->   * without context. */
-> @@ -2056,6 +2057,10 @@ ofpact_check__(struct ofpact *a, struct flow *flow,
->  
->      case OFPACT_PUSH_MPLS:
->          flow->dl_type = ofpact_get_PUSH_MPLS(a)->ethertype;
-> +        /* The packet is now MPLS and the MPLS payload is opaque.
-> +         * Thus nothing can be assumed about the network protocol.
-> +         * Temporarily mark that we have no nw_proto. */
-> +        flow->nw_proto = 0;
->          return 0;
->  
->      case OFPACT_POP_MPLS:
-> @@ -2127,6 +2132,7 @@ ofpacts_check(struct ofpact ofpacts[], size_t ofpacts_len,
->      struct ofpact *a;
->      ovs_be16 dl_type = flow->dl_type;
->      ovs_be16 vlan_tci = flow->vlan_tci;
-> +    uint8_t nw_proto = flow->nw_proto;
->      enum ofperr error = 0;
->  
->      OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {
-> @@ -2139,6 +2145,7 @@ ofpacts_check(struct ofpact ofpacts[], size_t ofpacts_len,
->      /* Restore fields that may have been modified. */
->      flow->dl_type = dl_type;
->      flow->vlan_tci = vlan_tci;
-> +    flow->nw_proto = nw_proto;
->      return error;
->  }
->  
-> diff --git a/tests/ofp-actions.at b/tests/ofp-actions.at
-> index cdca8ca..08ebccf 100644
-> --- a/tests/ofp-actions.at
-> +++ b/tests/ofp-actions.at
-> @@ -477,3 +477,15 @@ AT_CHECK(
->    [ovs-ofctl '-vPATTERN:console:%c|%p|%m' parse-ofp11-instructions < input.txt],
->    [0], [expout], [experr])
->  AT_CLEANUP
-> +
-> +AT_SETUP([ofp-actions - inconsistent MPLS actions])
-> +OVS_VSWITCHD_START
-> +dnl OK: Use fin_timeout action on TCP flow
-> +AT_CHECK([ovs-ofctl -O OpenFlow11 -vwarn add-flow br0 'tcp actions=fin_timeout(idle_timeout=1)'])
-> +dnl Bad: Use fin_timeout action on TCP flow that has been converted to MPLS
-> +AT_CHECK([ovs-ofctl -O OpenFlow11 -vwarn add-flow br0 'tcp actions=push_mpls:0x8847,fin_timeout(idle_timeout=1)'],
-> +         [1], [], [dnl
-> +ovs-ofctl: actions are invalid with specified match (OFPBAC_MATCH_INCONSISTENT)
-> +])
-> +OVS_VSWITCHD_STOP
-> +AT_CLEANUP
-> -- 
-> 1.8.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+But when the packets are split the TCP checksum doesn't seem to be being 
+recalculated, so the systems on the other end of the tunnel ignore them, 
+forcing many retries and the observed delays.
+
+For example, here is a large packet coming in on the NIC of the machine 
+running the tunnel, followed by a smaller packet ("caronia" is on the 
+office 1 LAN, "olympic" is on the office 2 LAN):
+
+11:59:23.020426 IP caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], seq 3073:9843, ack 2233, win 148, options [nop,nop,TS val 215919291 ecr 1199882508], length 6770
+11:59:23.041072 IP caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], seq 9843:11197, ack 2233, win 148, options [nop,nop,TS val 215919297 ecr 1199882508], length 1354
+
+
+Then the packet gets sent out on the tunnel as 5 smaller packets:
+
+11:59:23.020449 IP caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], seq 3073:4427, ack 2233, win 148, options [nop,nop,TS val 215919291 ecr 1199882508], length 1354
+11:59:23.020534 IP caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], seq 4427:5781, ack 2233, win 148, options [nop,nop,TS val 215919291 ecr 1199882508], length 1354
+11:59:23.020536 IP caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], seq 5781:7135, ack 2233, win 148, options [nop,nop,TS val 215919291 ecr 1199882508], length 1354
+11:59:23.020539 IP caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], seq 7135:8489, ack 2233, win 148, options [nop,nop,TS val 215919291 ecr 1199882508], length 1354
+11:59:23.020543 IP caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], seq 8489:9843, ack 2233, win 148, options [nop,nop,TS val 215919291 ecr 1199882508], length 1354
+11:59:23.041086 IP caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], seq 9843:11197, ack 2233, win 148, options [nop,nop,TS val 215919297 ecr 1199882508], length 1354
+
+
+
+And this is what the receiving system sees:
+
+11:59:23.025658 IP (tos 0x8, ttl 62, id 42831, offset 0, flags [DF], proto TCP (6), length 1406)
+     caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], cksum 0x1003 (incorrect -> 0xb1b9), seq 3073:4427, ack 2233, win 148, options [nop,nop,TS val 215919291 ecr 1199882508], length 1354
+11:59:23.025907 IP (tos 0x8, ttl 62, id 42832, offset 0, flags [DF], proto TCP (6), length 1406)
+     caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], cksum 0x1003 (incorrect -> 0x871c), seq 4427:5781, ack 2233, win 148, options [nop,nop,TS val 215919291 ecr 1199882508], length 1354
+11:59:23.025990 IP (tos 0x8, ttl 62, id 42833, offset 0, flags [DF], proto TCP (6), length 1406)
+     caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], cksum 0x1003 (incorrect -> 0x97dd), seq 5781:7135, ack 2233, win 148, options [nop,nop,TS val 215919291 ecr 1199882508], length 1354
+11:59:23.026183 IP (tos 0x8, ttl 62, id 42834, offset 0, flags [DF], proto TCP (6), length 1406)
+     caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], cksum 0x1003 (incorrect -> 0x9961), seq 7135:8489, ack 2233, win 148, options [nop,nop,TS val 215919291 ecr 1199882508], length 1354
+11:59:23.026231 IP (tos 0x8, ttl 62, id 42835, offset 0, flags [DF], proto TCP (6), length 1406)
+     caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], cksum 0x1003 (incorrect -> 0x6a2a), seq 8489:9843, ack 2233, win 148, options [nop,nop,TS val 215919291 ecr 1199882508], length 1354
+11:59:23.046163 IP (tos 0x8, ttl 62, id 42836, offset 0, flags [DF], proto TCP (6), length 1406)
+     caronia.CalvaEDI.COM.33232 > olympic.calvaedi.com.ssh: Flags [.], cksum 0xd237 (correct), seq 9843:11197, ack 2233, win 148, options [nop,nop,TS val 215919297 ecr 1199882508], length 1354
+
+
+The receiving system is, of course, unhappy about that and complains 
+that it hasn't got 3073:9843
+
+11:59:23.045040 IP olympic.calvaedi.com.ssh > caronia.CalvaEDI.COM.33232: Flags [.], ack 3073, win 1933, options [nop,nop,TS val 1199882514 ecr 215919290,nop,nop,sack 1 {9843:11197}], length 0
+
+
+So, when the 6770 byte segment is split up into five 1354 byte segments 
+who is supposed to recalculate the checksums?
+
+(This is Debian bug 729567).
+
+
+-- 
+John Hughes, SARL Atlantic Technologies.
