@@ -1,329 +1,353 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH v2.49 0/6] MPLS actions and matches
-Date: Fri, 15 Nov 2013 16:50:52 +0900
-Message-ID: <1384501858-30535-1-git-send-email-horms@verge.net.au>
+Subject: [PATCH v2.49 2/6] ofp-actions: Account for OF version when enforcing action consistency
+Date: Fri, 15 Nov 2013 16:50:54 +0900
+Message-ID: <1384501858-30535-3-git-send-email-horms@verge.net.au>
+References: <1384501858-30535-1-git-send-email-horms@verge.net.au>
 Cc: Pravin B Shelar <pshelar@nicira.com>, Ravi K <rkerur@gmail.com>,
 	Joe Stringer <joe@wand.net.nz>
 To: dev@openvswitch.org, netdev@vger.kernel.org,
 	Jesse Gross <jesse@nicira.com>, Ben Pfaff <blp@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:35013 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:35016 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754450Ab3KOHvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 02:51:06 -0500
+	with ESMTP id S1755392Ab3KOHvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 02:51:07 -0500
+In-Reply-To: <1384501858-30535-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-This series implements MPLS actions and matches based on work by
-Ravi K, Leo Alterman, Yamahata-san and Joe Stringer.
-
-This series provides three changes
-
-* Patches 1
-
-  Enhances action consistency checking in the presence
-  of an mpls_push action
-
-  Ben, this is for you to review.
-
-* Patches 2 - 4
-
-  Provide user-space support for the VLAN/MPLS tag insertion order
-  up to and including OpenFlow 1.2, and the different ordering
-  specified from OpenFlow 1.3. In a nutshell the datapath always
-  uses the OpenFlow 1.3 ordering, which is to always insert tags
-  immediately after the L2 header, regardless of the presence of other
-  tags. And ovs-vswtichd provides compatibility for the behaviour up
-  to OpenFlow 1.2, which is that MPLS tags should follow VLAN tags
-  if present.
-
-  Ben, these are for you to review.
-
-* Patches 5 and 6
-
-  Adding basic MPLS action and match support to the kernel datapath
-
-  Jesse, these are for you to review after patches 1 - 4 are reviewed.
-
-
-Difference between v2.49 and v2.48:
-
-* Include action consistency checking changes.
-
-
-Difference between v2.48 and v2.47:
-* Manual rebase for
-  - "OF 1.1 set vlan vid/pcp compatibility"
-  - "Native Set-Field action"
-* Only use OpenFlow1.2 actions in OpenFlow1.2 tests
-
-
-Difference between v2.47 and v2.46:
-
-* Rebase of patch 4 for HAVE_RHEL_OVS_HOOK and OVS_KEY_ATTR_TCP_FLAGS
-
-
-Difference between v2.46 and v2.45:
-
-* Update changelog of "odp: Allow VLAN actions after MPLS actions"
-  to reflect the current implementation
-
-
-Difference between v2.45 and v2.44:
-
-* As pointed out by Ben Pfaff and Joe Stringer
-  + Update VLAN handling in the presence of MPLS push
-
-    Previously the test for committing ODP VLAN actions after MPLS actions
-    was that the VLAN TCI differed before and after the MPLS push action.
-    This results in a false negative in some cases including if a VLAN tag
-    is pushed after the MPLS push action in such a way that it duplicates
-    the VLAN tag present before the MPLS push action.
-
-    This is resolved by ensuring the VLAN_CFI bit of the value used to
-    track the desired VLAN TCI after an MPLS push action is zero unless
-    VLAN actions should be committed after MPLS actions.
-
-  + Update tests to use ovs-ofctl monitor "-m" to allow full inspection of
-    MPLS LSE and VLAN tags present in packets.
-
-Differences between v2.44 and v2.43:
-
-* Rebase for the following changes:
-  f47ea02 ("Set datapath mask bits when setting a flow field.")
-  7fdb60a ("Add support for write-actions")
-  7358063 ("odp-util: Elaborate the comment for odp_flow_format() function.")
-* Correct final_vlan_tci and next_vlan_tci initialisation in xlate_actions__()
-
-
-Differences between v2.43 and v2.42:
-
-* As suggested by Ben Pfaff
-  Move vlan state into struct xlate_ctx
-  1. Add final_vlan_tci member to struct xlate_ctx instead of vlan_tci member
-     struct xlate_xin.  This seems to be a better palace for it as it does
-     not need to be accessible from the caller.
-  2. Move local vlan_tci variable of do_xlate_actions() to be the
-     next_vlan_tci member of strict xlate_ctx.  This allows for it to work
-     across resubmit actions and goto table instructions.
-* Code contributed by Ben Pfaff
-  + Use enum for to control order of MPLS LSE insertion
-    This makes the logic somewhat clearer
-* Add a helper push_mpls_from_openflow() to consolidate
-  the same logic that appears in three locations.
-
-
-Differences between v2.42 and v2.41:
-
-* Rebase for:
-  + 0585f7a ("datapath: Simplify mega-flow APIs.")
-  + a097c0b ("datapath: Restructure datapath.c and flow.c")
-* As suggested by Jesse Gross
-  + Take into account that push_mpls() will have freed the skb on error
-  + Remove dubious !eth_p_mpls(skb->protocol) condition from push_mpls
-    The !eth_p_mpls(skb->protocol) condition on setting inner_protocol
-    has no effect. Its motivation was to ensure that inner_protocol was
-    only set the first time that mpls_push occured. However this is already
-    ensured by the !ovs_skb_get_inner_protocol(skb) condition.
-  + Return -EINVAL instead of -ENOMEM from pop_mpls() if the skb is too short
-  + Do not add @inner_protocol to kernel doc for struct ovs_skb_cb.
-    The patch no longer adds an inner_protocol member to struct ovs_skb_cb
-  + Do not add and set otherwise unsued inner_protocol variable in
-    rpl_dev_queue_xmit()
-* As suggested by Pravin Shelar
-  + Implement compatibility code in existing rpl_skb_gso_segment
-    rather than introducing to use rpl___skb_gso_segment
-
-
-Differences between v2.41 and v2.40:
-
-* As suggested by Ben Pfaff
-  + Expand struct ofpact_reg_load to include a mpls_before_vlan field
-    rather than using the compat field of the ofpact field of
-    struct ofpact_reg_load.
-  + Pass version to  ofpacts_pull_openflow11_actions and
-    ofpacts_pull_openflow11_instructions.  This removes the invalid
-    assumption that that these functions are passed a full message and are
-    thus able to deduce the OpenFlow version.
-
-
-Differences between v2.40 and v2.39:
-
-* Rebase for:
-  + New dev_queue_xmit compat code
-  + Updated put_vlan()
-  + Removal of mpls_depth field from struct flow
-* As suggested by Jesse Gross
-  + Remove bogus mac_len update from push_mpls()
-  + Slightly simplify push_mpls() by using eth_hdr()
-  + Remove dubious condition !eth_p_mpls(inner_protocol) on
-    an skb being considered to be MPLS in netdev_send()
-  + Only use compatibility code for MPLS GSO segmentation on kernels
-    older than 3.11
-  + Revamp setting of inner_protocol
-    1. Do not unconditionally set inner_protocol to the value of
-       skb->protocol in ovs_execute_actions().
-    2. Initialise inner_protocol it to zero only if compatibility code is in
-       use. In the case where compatibility code is not in use it will either
-       be zero due since the allocation of the skb or some other value set
-       by some other user.
-    3. Conditionally set the inner_protocol in push_mpls() to the value of
-       skb->protocol when entering push_mpls(). The condition is that
-       inner_protocol is zero and the value of skb->protocol is not an MPLS
-       ethernet type.
-    - This new scheme:
-      + Pushes logic to set inner_protocol closer to the case where it is
-	needed.
-      + Avoids over-writing values set by other users.
-* As suggested by Pravin Shelar
-  + Only set and restore skb->protocol in rpl___skb_gso_segment() in the
-    case of MPLS
-  + Add inner_protocol field to struct ovs_gso_cb instead of ovs_skb_cb.
-    This moves compatibility code closer to where it is used
-    and creates fewer differences with mainline.
-* Update comment on mac_len updates in datapath/actions.c
-* Remove HAVE_INNER_PROCOTOL and instead just check
-  against kernel version 3.11 directly.
-  HAVE_INNER_PROCOTOL is a hang-over from work done prior
-  to the merge of inner_protocol into the kernel.
-* Remove dubious condition !eth_p_mpls(inner_protocol) on
-  using inner_protocol as the type in rpl_skb_network_protocol()
-* Do not update type of features in rpl_dev_queue_xmit.
-  Though arguably correct this is not an inherent part of
-  the changes made by this patch.
-* Use skb_cow_head() in push_mpls()
-  + Call skb_cow_head(skb, MPLS_HLEN) instead of
-    make_writable(skb, skb->mac_len) to ensure that there is enough head
-    room to push an MPLS LSE regardless of whether the skb is cloned or not.
-  + This is consistent with the behaviour of rpl__vlan_put_tag().
-  + This is a fix for crashes reported when performing mpls_push
-    with headroom less than 4. This problem was introduced in v3.36.
-* Skip popping in mpls_pop if the skb is too short to contain an MPLS LSE
-
-
-Differences between v2.39 and v2.38:
-
-* Rebase for removal of vlan, checksum and skb->mark compat code
-  - This includes adding adding a new patch,
-    "[PATCH v2.39 6/7] datapath: Break out deacceleration portion of
-    vlan_push" to allow re-use of some existing code.
-
-
-Differences between v2.38 and v2.37:
-
-* Rebase for SCTP support
-* Refactor validate_tp_port() to iterate over eth_types rather
-  than open-coding the loop. With the addition of SCTP this logic
-  is now used three times.
-
-
-Differences between v2.37 and v2.36:
-
-* Rebase
-
-
-Differences between v2.36 and v2.35:
-
-* Rebase
-
-* Do not add set_ethertype() to datapath/actions.c.
-  As this patch has evolved this function had devolved into
-  to sets of functionality wrapped into a single function with
-  only one line of common code. Refactor things to simply
-  open-code setting the ether type in the two locations where
-  set_ethertype() was previously used. The aim here is to improve
-  readability.
-
-* Update setting skb->ethertype after mpls push and pop.
-  - In the case of push_mpls it should be set unconditionally
-    as in v2.35 the behaviour of this function to always push
-    an MPLS LSE before any VLAN tags.
-  - In the case of mpls_pop eth_p_mpls(skb->protocol) is a better
-    test than skb->protocol != htons(ETH_P_8021Q) as it will give the
-    correct behaviour in the presence of other VLAN ethernet types,
-    for example 0x88a8 which is used by 802.1ad. Moreover, it seems
-    correct to update the ethernet type if it was previously set
-    according to the top-most MPLS LSE.
-
-* Deaccelerate VLANs when pushing MPLS tags the
-  - Since v2.35 MPLS push will insert an MPLS LSE before any VLAN tags.
-    This means that if an accelerated tag is present it should be
-    deaccelerated to ensure it ends up in the correct position.
-
-* Update skb->mac_len in push_mpls() so that it will be correct
-  when used by a subsequent call to pop_mpls().
-
-  As things stand I do not believe this is strictly necessary as
-  ovs-vswitchd will not send a pop MPLS action after a push MPLS action.
-  However, I have added this in order to code more defensively as I believe
-  that if such a sequence did occur it would be rather unobvious why
-  it didn't work.
-
-* Do not add skb_cow_head() call in push_mpls().
-  It is unnecessary as there is a make_writable() call.
-  This change was also made in v2.30 but some how the
-  code regressed between then and v2.35.
-
-
-Differences between v2.35 and v2.34:
-
-* Add support for the tag ordering specified up until OpenFlow 1.2 and
-  the ordering specified from OpenFlow 1.3.
-
-* Correct error in datapath patch's handling of GSO in the presence
-  of MPLS and absence of VLANs.
-
-
-To aid review this series is available in git at:
-
-git://github.com/horms/openvswitch.git devel/mpls-v2.49
-
-
-Patch list and overall diffstat:
-
-Joe Stringer (1):
-  odp: Allow VLAN actions after MPLS actions
-
-Simon Horman (5):
-  ofp-actions: Consider L4 actions after mpls_push as inconsistent
-  ofp-actions: Account for OF version when enforcing action consistency
-  lib: Support pushing of MPLS LSE before or after VLAN tag
-  datapath: Break out deacceleration portion of vlan_push
-  datapath: Add basic MPLS support to kernel
-
- OPENFLOW-1.1+                                   |  12 -
- datapath/Modules.mk                             |   1 +
- datapath/actions.c                              | 157 ++++-
- datapath/datapath.c                             |   4 +-
- datapath/flow.c                                 |  29 +
- datapath/flow.h                                 |  17 +-
- datapath/flow_netlink.c                         | 286 +++++++-
- datapath/flow_netlink.h                         |   2 +-
- datapath/linux/compat/gso.c                     |  70 +-
- datapath/linux/compat/gso.h                     |  41 ++
- datapath/linux/compat/include/linux/netdevice.h |   6 +-
- datapath/linux/compat/netdevice.c               |  10 +-
- datapath/mpls.h                                 |  15 +
- include/linux/openvswitch.h                     |   7 +-
- lib/flow.c                                      |   2 +-
- lib/odp-util.c                                  |  12 +-
- lib/odp-util.h                                  |   3 +-
- lib/ofp-actions.c                               |  93 ++-
- lib/ofp-actions.h                               |  11 +-
- lib/ofp-parse.c                                 |  24 +-
- lib/ofp-util.c                                  |   6 +-
- lib/packets.c                                   |  10 +-
- lib/packets.h                                   |   2 +-
- ofproto/ofproto-dpif-xlate.c                    | 161 ++++-
- ofproto/ofproto-dpif.c                          |   8 +-
- tests/learn.at                                  |   4 +
- tests/ofp-actions.at                            |  12 +
- tests/ofproto-dpif.at                           | 830 ++++++++++++++++++++++++
- utilities/ovs-ofctl.c                           |   4 +-
- 29 files changed, 1690 insertions(+), 149 deletions(-)
- create mode 100644 datapath/mpls.h
-
+The aim of this patch is to provide infrastructure to differentiate
+between OpenFlow1.1 - 1.2 and OpenFlow1.3+ consistency checking. It
+also provides enhanced OpenFlow1.0 consistency checking.
+
+Some different versions of OpenFlow require different consistency
+checking.
+
+1. OpenFlow1.0
+
+   This variant implicitly pushes a VLAN tag if one doesn't exist
+   and an action to modify a VLAN tag is encountered.
+
+   MPLS push is supported as a Nicira extension whose behaviour is
+   the same as OpenFlow1.1 - 1.2.
+
+   In practice Open vSwitch allows inconsistent OpenFlow 1.0 actions so
+   this portion of the change is just for completeness. I do not believe it
+   has any run-time affect. And I would not be opposed to folding this case
+   into the handling of OpenFlow1.1 - 1.2.
+
+2. OpenFlow1.1 - 1.2
+
+   This does not have the implicit VLAN tag push behaviour of OpenFlow1.0.
+
+   An MPLS push action pushes an MPLS LSE after any VLAN tags that are
+   present. This is pre-OpenFlow1.3 tag ordering.
+
+3. OpenFlow1.3+
+
+   This does not have the implicit VLAN tag push behaviour of OpenFlow1.0.
+
+   An MPLS push action pushes an MPLS LSE before any VLAN tags that are
+   present. This is OpenFlow1.3+ tag ordering. Its implication
+   is that after an MPLS push action a packet is no longer a VLAN
+   packet as there are no longer any VLAN tags immediately after
+   the ethernet header: there is now an MPLS LSE there.
+
+   Currently Open vSwitch does not implement OpenFlow1.3+ tag ordering
+   so this patch uses the same consistency checking for OpenFlow1.3+
+   as for OpenFlow1.1 - 1.2.
+
+   A subsequent patch, which implements OpenFlow1.3+ tag ordering,
+   makes use of the infrastructure provided by this patch to check
+   actions accordingly.
+
+Unfortunately ofpact_get_SET_VLAN_VID(a)->push_vlan_if_needed and similar
+devices can't be used in order to implement logic as they are not set when
+when ofpact_check__() is called via parse_ofp_str().
+
+Instead this patch takes the approach of adding an OpenFlow version
+parameter to ofpact_check__().
+
+A new function ofpact_check_usable_protocols() allows trimming the
+usable_protocols based on action checking.
+
+The net effect of this change on run-time is only to increase logging under
+some circumstances as ofpacts_check() may now be called up to four times
+instead of up to twice for each invocation of parse_ofp_str__()
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+---
+
+v2.49
+* Temporarily set the CFI bit of flow->vlan_tci in ofpact_check__()
+  on mpls_pop as in this case a VLAN is now present. The value
+  of the other bits of the VLAN are unimportant in this context
+* Add ofpact_check_usable_protocols using logic that appeared in
+  parse_ofp_str__() in v1 of this patch. This is to allow it to
+  be re-used in ofproto_unixctl_trace_actions().
+* Move OpenFlow1.3+ logic into a subsequent patch.
+* Enhance changelog
+
+v1
+* First post posted separately to the MPLS patchset that
+  it is now included in.
+---
+ lib/ofp-actions.c      | 61 ++++++++++++++++++++++++++++++++++++++++++--------
+ lib/ofp-actions.h      | 11 ++++++++-
+ lib/ofp-parse.c        | 24 +++++++-------------
+ lib/ofp-util.c         |  6 ++---
+ ofproto/ofproto-dpif.c |  8 ++++---
+ tests/learn.at         |  2 ++
+ utilities/ovs-ofctl.c  |  4 ++--
+ 7 files changed, 82 insertions(+), 34 deletions(-)
+
+diff --git a/lib/ofp-actions.c b/lib/ofp-actions.c
+index e4e05dd..64333b3 100644
+--- a/lib/ofp-actions.c
++++ b/lib/ofp-actions.c
+@@ -1875,9 +1875,9 @@ ofpact_check_output_port(ofp_port_t port, ofp_port_t max_ports)
+  * Modifies some actions, filling in fields that could not be properly set
+  * without context. */
+ static enum ofperr
+-ofpact_check__(struct ofpact *a, struct flow *flow,
+-               bool enforce_consistency, ofp_port_t max_ports,
+-               uint8_t table_id, uint8_t n_tables)
++ofpact_check__(enum ofp_version ofp_version, struct ofpact *a,
++               struct flow *flow, bool enforce_consistency,
++               ofp_port_t max_ports, uint8_t table_id, uint8_t n_tables)
+ {
+     const struct ofpact_enqueue *enqueue;
+     const struct mf_field *mf;
+@@ -1911,7 +1911,7 @@ ofpact_check__(struct ofpact *a, struct flow *flow,
+         ofpact_get_SET_VLAN_VID(a)->flow_has_vlan =
+             (flow->vlan_tci & htons(VLAN_CFI)) == htons(VLAN_CFI);
+         if (!(flow->vlan_tci & htons(VLAN_CFI)) &&
+-            !ofpact_get_SET_VLAN_VID(a)->push_vlan_if_needed) {
++            ofp_version >= OFP11_VERSION) {
+             goto inconsistent;
+         }
+         /* Temporary mark that we have a vlan tag. */
+@@ -1924,7 +1924,7 @@ ofpact_check__(struct ofpact *a, struct flow *flow,
+         ofpact_get_SET_VLAN_PCP(a)->flow_has_vlan =
+             (flow->vlan_tci & htons(VLAN_CFI)) == htons(VLAN_CFI);
+         if (!(flow->vlan_tci & htons(VLAN_CFI)) &&
+-            !ofpact_get_SET_VLAN_PCP(a)->push_vlan_if_needed) {
++            ofp_version >= OFP11_VERSION) {
+             goto inconsistent;
+         }
+         /* Temporary mark that we have a vlan tag. */
+@@ -2078,8 +2078,9 @@ ofpact_check__(struct ofpact *a, struct flow *flow,
+ 
+     case OFPACT_WRITE_ACTIONS: {
+         struct ofpact_nest *on = ofpact_get_WRITE_ACTIONS(a);
+-        return ofpacts_check(on->actions, ofpact_nest_get_action_len(on),
+-                             flow, false, max_ports, table_id, n_tables);
++        return ofpacts_check(ofp_version, on->actions,
++                             ofpact_nest_get_action_len(on), flow, false,
++                             max_ports, table_id, n_tables);
+     }
+ 
+     case OFPACT_WRITE_METADATA:
+@@ -2124,7 +2125,8 @@ ofpact_check__(struct ofpact *a, struct flow *flow,
+  *
+  * May temporarily modify 'flow', but restores the changes before returning. */
+ enum ofperr
+-ofpacts_check(struct ofpact ofpacts[], size_t ofpacts_len,
++ofpacts_check(enum ofp_version ofp_version,
++              struct ofpact ofpacts[], size_t ofpacts_len,
+               struct flow *flow, bool enforce_consistency,
+               ofp_port_t max_ports,
+               uint8_t table_id, uint8_t n_tables)
+@@ -2136,7 +2138,7 @@ ofpacts_check(struct ofpact ofpacts[], size_t ofpacts_len,
+     enum ofperr error = 0;
+ 
+     OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {
+-        error = ofpact_check__(a, flow, enforce_consistency,
++        error = ofpact_check__(ofp_version, a, flow, enforce_consistency,
+                                max_ports, table_id, n_tables);
+         if (error) {
+             break;
+@@ -2149,6 +2151,47 @@ ofpacts_check(struct ofpact ofpacts[], size_t ofpacts_len,
+     return error;
+ }
+ 
++enum ofperr
++ofpacts_check_usable_protocols(enum ofputil_protocol *usable_protocols,
++                               struct ofpact ofpacts[], size_t ofpacts_len,
++                               struct flow *flow, bool enforce_consistency,
++                               ofp_port_t max_ports, uint8_t table_id,
++                               uint8_t n_tables)
++{
++    enum ofperr err;
++    enum ofperr last_err = 0;
++
++    /* XXX: As a side effect of multiple calls to ofpacts_check
++     * logging may be duplicated. */
++    if (*usable_protocols & OFPUTIL_P_OF10_ANY) {
++        err = ofpacts_check(OFP10_VERSION, ofpacts, ofpacts_len, flow,
++                            true, max_ports, table_id, n_tables);
++        if (!enforce_consistency &&
++            err == OFPERR_OFPBAC_MATCH_INCONSISTENT) {
++            /* Try again, allowing for inconsistency. */
++            err = ofpacts_check(OFP10_VERSION, ofpacts, ofpacts_len, flow,
++                                false, max_ports, table_id, n_tables);
++        }
++        if (err) {
++            *usable_protocols &= ~OFPUTIL_P_OF10_ANY;
++            last_err = err;
++        }
++    }
++    if (*usable_protocols & (OFPUTIL_P_OF11_UP)) {
++        err = ofpacts_check(OFP11_VERSION, ofpacts, ofpacts_len, flow,
++                            true, max_ports, table_id, n_tables);
++        if (err) {
++            *usable_protocols &= ~(OFPUTIL_P_OF11_UP);
++            last_err = err;
++        }
++    }
++    if (!*usable_protocols && last_err) {
++        return last_err;
++    }
++
++    return 0;
++}
++
+ /* Verifies that the 'ofpacts_len' bytes of actions in 'ofpacts' are
+  * in the appropriate order as defined by the OpenFlow spec. */
+ enum ofperr
+diff --git a/lib/ofp-actions.h b/lib/ofp-actions.h
+index 70ad4b6..56c84d0 100644
+--- a/lib/ofp-actions.h
++++ b/lib/ofp-actions.h
+@@ -606,10 +606,19 @@ enum ofperr ofpacts_pull_openflow_instructions(struct ofpbuf *openflow,
+                                                unsigned int instructions_len,
+                                                enum ofp_version version,
+                                                struct ofpbuf *ofpacts);
+-enum ofperr ofpacts_check(struct ofpact[], size_t ofpacts_len,
++enum ofperr ofpacts_check(enum ofp_version ofp_version,
++                          struct ofpact[], size_t ofpacts_len,
+                           struct flow *, bool enforce_consistency,
+                           ofp_port_t max_ports,
+                           uint8_t table_id, uint8_t n_tables);
++enum ofperr ofpacts_check_usable_protocols(enum ofputil_protocol *usable_protocols,
++                                           struct ofpact ofpacts[],
++                                           size_t ofpacts_len,
++                                           struct flow *flow,
++                                           bool enforce_consistency,
++                                           ofp_port_t max_ports,
++                                           uint8_t table_id,
++                                           uint8_t n_tables);
+ enum ofperr ofpacts_verify(const struct ofpact ofpacts[], size_t ofpacts_len);
+ enum ofperr ofpact_check_output_port(ofp_port_t port, ofp_port_t max_ports);
+ 
+diff --git a/lib/ofp-parse.c b/lib/ofp-parse.c
+index f2debb3..85e7228 100644
+--- a/lib/ofp-parse.c
++++ b/lib/ofp-parse.c
+@@ -1414,24 +1414,16 @@ parse_ofp_str__(struct ofputil_flow_mod *fm, int command, char *string,
+         if (!error) {
+             enum ofperr err;
+ 
+-            err = ofpacts_check(ofpacts.data, ofpacts.size, &fm->match.flow,
+-                                true, OFPP_MAX, fm->table_id, 255);
++            err = ofpacts_check_usable_protocols(usable_protocols,
++                                                 ofpacts.data, ofpacts.size,
++                                                 &fm->match.flow,
++                                                 enforce_consistency, OFPP_MAX,
++                                                 fm->table_id, 255);
+             if (err) {
+-                if (!enforce_consistency &&
+-                    err == OFPERR_OFPBAC_MATCH_INCONSISTENT) {
+-                    /* Allow inconsistent actions to be used with OF 1.0. */
+-                    *usable_protocols &= OFPUTIL_P_OF10_ANY;
+-                    /* Try again, allowing for inconsistency.
+-                     * XXX: As a side effect, logging may be duplicated. */
+-                    err = ofpacts_check(ofpacts.data, ofpacts.size,
+-                                        &fm->match.flow, false,
+-                                        OFPP_MAX, fm->table_id, 255);
+-                }
+-                if (err) {
+-                    error = xasprintf("actions are invalid with specified match "
+-                                      "(%s)", ofperr_to_string(err));
+-                }
++                error = xasprintf("actions are invalid with specified match "
++                                  "(%s)", ofperr_to_string(err));
+             }
++
+         }
+         if (error) {
+             ofpbuf_uninit(&ofpacts);
+diff --git a/lib/ofp-util.c b/lib/ofp-util.c
+index ede37b0..6678318 100644
+--- a/lib/ofp-util.c
++++ b/lib/ofp-util.c
+@@ -1672,9 +1672,9 @@ ofputil_decode_flow_mod(struct ofputil_flow_mod *fm,
+                 : OFPERR_OFPFMFC_TABLE_FULL);
+     }
+ 
+-    return ofpacts_check(fm->ofpacts, fm->ofpacts_len, &fm->match.flow,
+-                         oh->version > OFP10_VERSION, max_port,
+-                         fm->table_id, max_table);
++    return ofpacts_check(oh->version, fm->ofpacts, fm->ofpacts_len,
++                         &fm->match.flow, oh->version > OFP10_VERSION,
++                         max_port, fm->table_id, max_table);
+ }
+ 
+ static enum ofperr
+diff --git a/ofproto/ofproto-dpif.c b/ofproto/ofproto-dpif.c
+index 3391594..cef6e38 100644
+--- a/ofproto/ofproto-dpif.c
++++ b/ofproto/ofproto-dpif.c
+@@ -5490,9 +5490,11 @@ ofproto_unixctl_trace_actions(struct unixctl_conn *conn, int argc,
+         unixctl_command_reply_error(conn, "invalid in_port");
+         goto exit;
+     }
+-    retval = ofpacts_check(ofpacts.data, ofpacts.size, &flow,
+-                           enforce_consistency,
+-                           u16_to_ofp(ofproto->up.max_ports), 0, 0);
++    retval = ofpacts_check_usable_protocols(&usable_protocols, ofpacts.data,
++                                            ofpacts.size, &flow,
++                                            enforce_consistency,
++                                            u16_to_ofp(ofproto->up.max_ports),
++                                            0, 0);
+     if (retval) {
+         ds_clear(&result);
+         ds_put_format(&result, "Bad actions: %s", ofperr_to_string(retval));
+diff --git a/tests/learn.at b/tests/learn.at
+index 491cd5e..19e4449 100644
+--- a/tests/learn.at
++++ b/tests/learn.at
+@@ -76,6 +76,7 @@ AT_CHECK([[ovs-ofctl parse-flow 'actions=learn(load:5->NXM_OF_IP_DST[])']],
+ AT_CHECK([sed -e 's/.*|meta_flow|WARN|//' < stderr], [0],
+   [[destination field ip_dst lacks correct prerequisites
+ destination field ip_dst lacks correct prerequisites
++destination field ip_dst lacks correct prerequisites
+ ovs-ofctl: actions are invalid with specified match (OFPBAC_MATCH_INCONSISTENT)
+ ]], [[]])
+ AT_CHECK([[ovs-ofctl parse-flow 'actions=learn(load:NXM_OF_IP_DST[]->NXM_NX_REG1[])']],
+@@ -83,6 +84,7 @@ AT_CHECK([[ovs-ofctl parse-flow 'actions=learn(load:NXM_OF_IP_DST[]->NXM_NX_REG1
+ AT_CHECK([sed -e 's/.*|meta_flow|WARN|//' < stderr], [0],
+   [[source field ip_dst lacks correct prerequisites
+ source field ip_dst lacks correct prerequisites
++source field ip_dst lacks correct prerequisites
+ ovs-ofctl: actions are invalid with specified match (OFPBAC_MATCH_INCONSISTENT)
+ ]])
+ AT_CLEANUP
+diff --git a/utilities/ovs-ofctl.c b/utilities/ovs-ofctl.c
+index a0dc5c8..f49093d 100644
+--- a/utilities/ovs-ofctl.c
++++ b/utilities/ovs-ofctl.c
+@@ -3077,8 +3077,8 @@ ofctl_parse_ofp11_instructions(int argc OVS_UNUSED, char *argv[] OVS_UNUSED)
+             /* Verify actions, enforce consistency. */
+             struct flow flow;
+             memset(&flow, 0, sizeof flow);
+-            error = ofpacts_check(ofpacts.data, ofpacts.size, &flow,
+-                                  true, OFPP_MAX,
++            error = ofpacts_check(OFP11_VERSION, ofpacts.data, ofpacts.size,
++                                  &flow, true, OFPP_MAX,
+                                   table_id ? atoi(table_id) : 0, 255);
+         }
+         if (error) {
 -- 
 1.8.4
