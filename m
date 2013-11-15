@@ -1,59 +1,115 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH] random: seed random_int_secret at least poorly at
- core_initcall time
-Date: Fri, 15 Nov 2013 11:07:35 -0800
-Message-ID: <CAGXu5j+emFS+Y-=SOE4SM_gAXfR_NWHRXwv8c6CeB7SgGZgKNw@mail.gmail.com>
-References: <cover.1384160397.git.dborkman@redhat.com>
-	<2ea03f60bb65429cbe5d74a6d356fde3eefcf06c.1384160397.git.dborkman@redhat.com>
-	<20131111134357.GC10104@thunk.org>
-	<20131112000307.GB14929@order.stressinduktion.org>
-	<20131112115350.GA14077@thunk.org>
-	<20131112131627.GD14929@order.stressinduktion.org>
-	<20131112134603.GE14929@order.stressinduktion.org>
-	<20131114025448.GB31602@thunk.org>
-	<CAGXu5j+ySEdQBXKkspYC=svfekBja2Z_2tcWSAOEbvyiMLf=aA@mail.gmail.com>
-	<20131115184510.GA911@redhat.com>
+From: Chang <changxiangzhong@gmail.com>
+Subject: Re: [PATCH] net: sctp: recover a tranport when an ack comes
+Date: Fri, 15 Nov 2013 20:59:42 +0100
+Message-ID: <52867D2E.2090907@gmail.com>
+References: <1384461624-17636-1-git-send-email-changxiangzhong@gmail.com> <5285884F.8030907@gmail.com> <20131115123055.GA29877@hmsreliant.think-freely.org> <5286291A.7060507@gmail.com> <20131115145609.GC29877@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Theodore Ts'o" <tytso@mit.edu>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Weimer <fweimer@redhat.com>, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-wireless@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:53053 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753152Ab3KOTHg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 14:07:36 -0500
-Received: by mail-oa0-f44.google.com with SMTP id l6so4393941oag.17
-        for <netdev@vger.kernel.org>; Fri, 15 Nov 2013 11:07:35 -0800 (PST)
-In-Reply-To: <20131115184510.GA911@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dreibh@simula.no, ernstgr@simula.no
+To: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131115145609.GC29877@hmsreliant.think-freely.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 15, 2013 at 10:45 AM, Dave Jones <davej@redhat.com> wrote:
-> On Fri, Nov 15, 2013 at 10:33:04AM -0800, Kees Cook wrote:
+I've tried to catch you guys up~
+
+Here's a quick question:
+
+Where are the default [transport->pf_retrans] and 
+[transport->pathmaxrtx] set? I could figure out that they could be set 
+through setsockopt(SCTP_PEER_ADDR_THLDS, ...) (but it seems like the 
+SCTP library has not supported such option yet, maybe that's due to my 
+library is out of date). So by default both of the two threshold are zero.
+
+Here's my question: Does it go conflict with "the recommended value for 
+Path.Max.Retrans in the standard is 5"?
+
+Thanks!
+
+On 11/15/2013 03:56 PM, Neil Horman wrote:
+> On Fri, Nov 15, 2013 at 09:00:58AM -0500, Vlad Yasevich wrote:
+>> On 11/15/2013 07:30 AM, Neil Horman wrote:
+>>> On Thu, Nov 14, 2013 at 09:34:55PM -0500, Vlad Yasevich wrote:
+>>>> On 11/14/2013 03:40 PM, Chang Xiangzhong wrote:
+>>>>> Expected Behavior:
+>>>>> When hearing an ack from a tranport/path, set its state to normal/on if it's
+>>>>> in abnormal(__partial_failure__ or inactive) state.
+>>>>>
+>>>>> state machine of tranport->state
+>>>>> Whenever a T3_RTX timer expires, then transport->error_count++.
+>>>>> When (association->pf_retrans < transport->error_count < tranport->pathmaxrtx)
+>>>>> 	transport->state = SCTP_PF //partial failure
+>>>>>
+>>>>> When a heartbeat-ack comes or conventional ack acknowledged its availability,
+>>>>> 	transport->state = SCTP_ON
+>>>>>
+>>>>> Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
+>>>>> Fixes: 5aa93bcf66f ("sctp: Implement quick failover draft from tsvwg")
+>>>> I don't think this is right.  The spec states:
+>>>>   8.  ACKs for retransmissions do not transition a PF destination back
+>>>>         to Active state, since a sender cannot disambiguate whether the
+>>>>         ack was for the original transmission or the retransmission(s).
+>>>>
+>>>>
+>>>> Now, the proper way to this would would be modify
+>>>> sctp_assoc_control_transport() to transition the transport state to
+>>>> ACTIVE if it was PF transport that was chosen to send data.
+>>>>
+>>>> -vlad
+>>>>
+>>> I agree, this patch doesn't agree with the spec, the only time we transition
+>> >from PF to ACTIVE should be on receipt of ack of new data.
+>>
+>> You mean HB ACK, right?  The 02 spec that see on the ietf site doesn't
+>> mention anything about transition on SACKs.  Also, there is no way to
+>> tell right now if the ack is for new or retransmitted data.  We could
+>> mark chunks that are retransmitted though.
+>>
+> Yes, sorry I wasn't clear, I was speaknig about HB Acks.
 >
->  > Ingo wanted even more
->  > unpredictability, in the face of total failure from these more dynamic
->  > sources, so x86 also "seeds" itself with the build string and the
->  > boot_params. These last two are hardly high entropy, but they should
->  > at least make 2 different systems not have _identical_ entropy at the
->  > start. It's far from cryptographically secure, but it's something, I
->  > hope.
+>>> I'm not even sure if
+>>> we should allow PF transports to be selected to send new data.  Currently a
+>>> potentially failed transport will get ignored when specified, and the stack will
+>>> use the active path in its place.  Only if all transports are PF will a PF
+>>> transport be chosen.
+>> Not even that :(.  If all transports are PF, we are going to camp on
+>> the primary path instead of choosing a PF transport with the lowest
+>> error count.
+>>
+> Yes, we don't do the smallest error count check, though I have to wonder if
+> thats really worthwhile.  If all your transports are PF, you're a step away from
+> a connection reset anyway.
+> Neil
 >
-> Those are both likely to be the same on some configurations.
-> On x86, we could maybe hash the dmi tables ? Vendor stupidity aside,
-> things like serial numbers in those tables _should_ be different.
-
-Yeah, DMI tables were suggested as well. (Hopefully people will start
-using -uuid with KVM!) How hard would that be to hook up to the
-pre-random-init code?
-
--Kees
-
--- 
-Kees Cook
-Chrome OS Security
+>> -vlad
+>>
+>>> Neil
+>>>
+>>>>> ---
+>>>>>   net/sctp/outqueue.c |    1 +
+>>>>>   1 file changed, 1 insertion(+)
+>>>>>
+>>>>> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+>>>>> index 94df758..2557fa5 100644
+>>>>> --- a/net/sctp/outqueue.c
+>>>>> +++ b/net/sctp/outqueue.c
+>>>>> @@ -1517,6 +1517,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+>>>>>   			 * active if it is not so marked.
+>>>>>   			 */
+>>>>>   			if ((transport->state == SCTP_INACTIVE ||
+>>>>> +			     transport->state == SCTP_PF ||
+>>>>>   			     transport->state == SCTP_UNCONFIRMED) &&
+>>>>>   			    sctp_cmp_addr_exact(&transport->ipaddr, saddr)) {
+>>>>>   				sctp_assoc_control_transport(
+>>>>>
+>>>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
