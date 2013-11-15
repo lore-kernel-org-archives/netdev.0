@@ -1,8 +1,8 @@
 From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net v3 1/2] macvlan: introduce macvlan_dev_real_dev() helper
- function
-Date: Fri, 15 Nov 2013 06:18:40 +0100 (CET)
-Message-ID: <38a7b0ac80c26d6856444fedce47cec03efc5801.1384492269.git.mkubecek@suse.cz>
+Subject: [PATCH net v3 2/2] macvlan: disable LRO on lower device instead of
+ macvlan
+Date: Fri, 15 Nov 2013 06:18:50 +0100 (CET)
+Message-ID: <78e25272199f3dfba4ecc0787994706f37caab82.1384492269.git.mkubecek@suse.cz>
 References: <cover.1384492269.git.mkubecek@suse.cz>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>,
@@ -10,53 +10,55 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Vlad Yasevich <vyasevich@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:52849 "EHLO mx2.suse.de"
+Received: from cantor2.suse.de ([195.135.220.15]:52857 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751382Ab3KOFSl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Nov 2013 00:18:41 -0500
+	id S1751382Ab3KOFSv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Nov 2013 00:18:51 -0500
 In-Reply-To: <cover.1384492269.git.mkubecek@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce helper function macvlan_dev_real_dev which returns the
-underlying device of a macvlan device, similar to vlan_dev_real_dev()
-for 802.1q VLAN devices.
+A macvlan device has always LRO disabled so that calling
+dev_disable_lro() on it does nothing. If we need to disable LRO
+e.g. because
 
-v2: IFF_MACVLAN flag and equivalent of is_macvlan_dev() were
-introduced in the meantime
+  - the macvlan device is inserted into a bridge
+  - IPv6 forwarding is enabled for it
+  - it is in a different namespace than lowerdev and IPv4
+    forwarding is enabled in it
 
-v3: do BUG() if compiled without macvlan support
+we need to disable LRO on its underlying device instead (as we
+do for 802.1q VLAN devices).
+
+v2: use newly introduced netif_is_macvlan()
 
 Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
- include/linux/if_macvlan.h | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+ net/core/dev.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-index c270285..84ba5ac 100644
---- a/include/linux/if_macvlan.h
-+++ b/include/linux/if_macvlan.h
-@@ -119,4 +119,21 @@ extern int macvlan_link_register(struct rtnl_link_ops *ops);
- extern netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
- 				      struct net_device *dev);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 974143d..7e00a73 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -131,6 +131,7 @@
+ #include <linux/static_key.h>
+ #include <linux/hashtable.h>
+ #include <linux/vmalloc.h>
++#include <linux/if_macvlan.h>
  
-+#if IS_ENABLED(CONFIG_MACVLAN)
-+static inline struct net_device *
-+macvlan_dev_real_dev(const struct net_device *dev)
-+{
-+	struct macvlan_dev *macvlan = netdev_priv(dev);
+ #include "net-sysfs.h"
+ 
+@@ -1424,6 +1425,10 @@ void dev_disable_lro(struct net_device *dev)
+ 	if (is_vlan_dev(dev))
+ 		dev = vlan_dev_real_dev(dev);
+ 
++	/* the same for macvlan devices */
++	if (netif_is_macvlan(dev))
++		dev = macvlan_dev_real_dev(dev);
 +
-+	return macvlan->lowerdev;
-+}
-+#else
-+static inline struct net_device *
-+macvlan_dev_real_dev(const struct net_device *dev)
-+{
-+	BUG();
-+	return NULL;
-+}
-+#endif
-+
- #endif /* _LINUX_IF_MACVLAN_H */
+ 	dev->wanted_features &= ~NETIF_F_LRO;
+ 	netdev_update_features(dev);
+ 
 -- 
 1.8.1.4
