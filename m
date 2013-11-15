@@ -1,70 +1,162 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 0/9] genetlink: reduce ops size and complexity (v2)
-Date: Fri, 15 Nov 2013 14:18:35 +0100
-Message-ID: <1384521515.14295.2.camel@jlt4.sipsolutions.net>
-References: <1384420486-8713-1-git-send-email-johannes@sipsolutions.net>
-	 <1384445687-30948-1-git-send-email-johannes@sipsolutions.net>
-	 <20131114.171204.1979806323628158355.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wimax@intel.com,
-	bsingharora@gmail.com, netfilter-devel@vger.kernel.org,
-	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20131114.171204.1979806323628158355.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH] genetlink: unify registration functions
+Date: Fri, 15 Nov 2013 14:19:08 +0100
+Message-ID: <1384521548-13241-1-git-send-email-johannes@sipsolutions.net>
+Cc: Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.43.152]:53010 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751018Ab3KONTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 08:19:13 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-14 at 17:12 -0500, David Miller wrote:
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Thu, 14 Nov 2013 17:14:38 +0100
-> 
-> > As before - reduce the complexity and data/code size of genetlink ops
-> > by making them an array rather than a linked list. Most users already
-> > use an array thanks to genl_register_family_with_ops(), so convert the
-> > remaining ones allowing us to get rid of the list head in each op.
-> > 
-> > Also make them const, this just makes sense at that point and the security
-> > people like making function pointers const as well :-)
-> 
-> I have to say, this is an absolutely fantastic space usage and
-> complexity improvement.
+From: Johannes Berg <johannes.berg@intel.com>
 
-:-)
+Now that the ops assignment is just two variables rather than a
+long list iteration etc., there's no reason to separately export
+__genl_register_family() and __genl_register_family_with_ops().
 
-FWIW, we can also clean up the two registration functions now and make
-it just a single one (actually we could have done that before as well,
-passing NULL for ops, but hey, now it's even easier). I'll send a patch
-for that.
+Unify the two functions into __genl_register_family() and make
+genl_register_family_with_ops() call it after assigning the ops.
 
-I've been eyeing the multicast groups as well, but the code using them
-is nicer if it's not an array. With an array, you'd have to do something
-like
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ include/net/genetlink.h | 28 ++++++++++++++++++++++----
+ net/netlink/genetlink.c | 53 +++++++++++++++----------------------------------
+ 2 files changed, 40 insertions(+), 41 deletions(-)
 
-send_event(&my_mcast_groups[1]);
-
-instead of
-
-send_event(&my_foo_mcast_group);
-
-which is a bit odd.
-
-We could instead register an array of pointers to the groups:
-
-static const struct mcast_group *my_groups[] = {
-	&my_foo_mcast_group,
-	...
-};
-
-and pass this to the family - that'd still be less space (one pointer
-for each group rather than two in a linked list) and still allow all
-groups and this array to be const, but it's not quite as big a
-saving ...
-
-Thoughts?
-
-johannes
-
-
+diff --git a/include/net/genetlink.h b/include/net/genetlink.h
+index 0b6a144..e96385d 100644
+--- a/include/net/genetlink.h
++++ b/include/net/genetlink.h
+@@ -131,14 +131,34 @@ static inline int genl_register_family(struct genl_family *family)
+ 	return __genl_register_family(family);
+ }
+ 
+-int __genl_register_family_with_ops(struct genl_family *family,
+-				    const struct genl_ops *ops, size_t n_ops);
+-
++/**
++ * genl_register_family_with_ops - register a generic netlink family with ops
++ * @family: generic netlink family
++ * @ops: operations to be registered
++ * @n_ops: number of elements to register
++ *
++ * Registers the specified family and operations from the specified table.
++ * Only one family may be registered with the same family name or identifier.
++ *
++ * The family id may equal GENL_ID_GENERATE causing an unique id to
++ * be automatically generated and assigned.
++ *
++ * Either a doit or dumpit callback must be specified for every registered
++ * operation or the function will fail. Only one operation structure per
++ * command identifier may be registered.
++ *
++ * See include/net/genetlink.h for more documenation on the operations
++ * structure.
++ *
++ * Return 0 on success or a negative error code.
++ */
+ static inline int genl_register_family_with_ops(struct genl_family *family,
+ 	const struct genl_ops *ops, size_t n_ops)
+ {
+ 	family->module = THIS_MODULE;
+-	return __genl_register_family_with_ops(family, ops, n_ops);
++	family->ops = ops;
++	family->n_ops = n_ops;
++	return __genl_register_family(family);
+ }
+ 
+ int genl_unregister_family(struct genl_family *family);
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index a7c62d3..f07eb56 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -283,12 +283,18 @@ static void genl_unregister_mc_groups(struct genl_family *family)
+ 		__genl_unregister_mc_group(family, grp);
+ }
+ 
+-static int genl_validate_add_ops(struct genl_family *family,
+-				 const struct genl_ops *ops,
+-				 unsigned int n_ops)
++static int genl_validate_ops(struct genl_family *family)
+ {
++	const struct genl_ops *ops = family->ops;
++	unsigned int n_ops = family->n_ops;
+ 	int i, j;
+ 
++	if (WARN_ON(n_ops && !ops))
++		return -EINVAL;
++
++	if (!n_ops)
++		return 0;
++
+ 	for (i = 0; i < n_ops; i++) {
+ 		if (ops[i].dumpit == NULL && ops[i].doit == NULL)
+ 			return -EINVAL;
+@@ -313,6 +319,9 @@ static int genl_validate_add_ops(struct genl_family *family,
+  * The family id may equal GENL_ID_GENERATE causing an unique id to
+  * be automatically generated and assigned.
+  *
++ * The family's ops array must already be assigned, you can use the
++ * genl_register_family_with_ops() helper function.
++ *
+  * Return 0 on success or a negative error code.
+  */
+ int __genl_register_family(struct genl_family *family)
+@@ -325,6 +334,10 @@ int __genl_register_family(struct genl_family *family)
+ 	if (family->id > GENL_MAX_ID)
+ 		goto errout;
+ 
++	err = genl_validate_ops(family);
++	if (err)
++		return err;
++
+ 	INIT_LIST_HEAD(&family->mcast_groups);
+ 
+ 	genl_lock_all();
+@@ -373,40 +386,6 @@ errout:
+ EXPORT_SYMBOL(__genl_register_family);
+ 
+ /**
+- * __genl_register_family_with_ops - register a generic netlink family
+- * @family: generic netlink family
+- * @ops: operations to be registered
+- * @n_ops: number of elements to register
+- *
+- * Registers the specified family and operations from the specified table.
+- * Only one family may be registered with the same family name or identifier.
+- *
+- * The family id may equal GENL_ID_GENERATE causing an unique id to
+- * be automatically generated and assigned.
+- *
+- * Either a doit or dumpit callback must be specified for every registered
+- * operation or the function will fail. Only one operation structure per
+- * command identifier may be registered.
+- *
+- * See include/net/genetlink.h for more documenation on the operations
+- * structure.
+- *
+- * Return 0 on success or a negative error code.
+- */
+-int __genl_register_family_with_ops(struct genl_family *family,
+-	const struct genl_ops *ops, size_t n_ops)
+-{
+-	int err;
+-
+-	err = genl_validate_add_ops(family, ops, n_ops);
+-	if (err)
+-		return err;
+-
+-	return __genl_register_family(family);
+-}
+-EXPORT_SYMBOL(__genl_register_family_with_ops);
+-
+-/**
+  * genl_unregister_family - unregister generic netlink family
+  * @family: generic netlink family
+  *
+-- 
+1.8.4.rc3
