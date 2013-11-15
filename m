@@ -1,81 +1,76 @@
-From: Thomas Haller <thaller@redhat.com>
-Subject: Re: [patch net-next RFC 2/2] ipv6 addrconf: introduce
- IFA_F_MANAGETEMPADDR to tell kernel to manage temporary addresses
-Date: Fri, 15 Nov 2013 19:04:25 +0100
-Message-ID: <1384538665.10852.31.camel@rh1.brq.redhat.com>
-References: <1384181359-23199-1-git-send-email-jiri@resnulli.us>
-	 <1384181359-23199-3-git-send-email-jiri@resnulli.us>
+From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] random: seed random_int_secret at least poorly at
+ core_initcall time
+Date: Fri, 15 Nov 2013 10:33:04 -0800
+Message-ID: <CAGXu5j+ySEdQBXKkspYC=svfekBja2Z_2tcWSAOEbvyiMLf=aA@mail.gmail.com>
+References: <cover.1384160397.git.dborkman@redhat.com>
+	<2ea03f60bb65429cbe5d74a6d356fde3eefcf06c.1384160397.git.dborkman@redhat.com>
+	<20131111134357.GC10104@thunk.org>
+	<20131112000307.GB14929@order.stressinduktion.org>
+	<20131112115350.GA14077@thunk.org>
+	<20131112131627.GD14929@order.stressinduktion.org>
+	<20131112134603.GE14929@order.stressinduktion.org>
+	<20131114025448.GB31602@thunk.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-GVaQCdXiBbuwc1xUWo5/"
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	stephen@networkplumber.org, hannes@stressinduktion.org,
-	vyasevich@gmail.com, dcbw@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50792 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751178Ab3KOSFN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Nov 2013 13:05:13 -0500
-In-Reply-To: <1384181359-23199-3-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	shemminger-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, Florian Weimer <fweimer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Theodore Ts'o" <tytso-3s7WtUTddSA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20131114025448.GB31602-AKGzg7BKzIDYtjvyW6yDsg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Nov 13, 2013 at 6:54 PM, Theodore Ts'o <tytso-3s7WtUTddSA@public.gmane.org> wrote:
+> On Tue, Nov 12, 2013 at 02:46:03PM +0100, Hannes Frederic Sowa wrote:
+>> > It is needed by fork to set up the stack canary. And this actually gets
+>> > called before the secret is initialized.
+>>
+>> Maybe we could use this for the time being and use the seeding method
+>> of kaslr as soon as it hits the tree?
+>
+> Hmm, from what I can tell even early_initcall() is going to be early
+> enough.  The stack canary is set up by boot_init_stack_canary(), which
+> is run very, very early in start_kerne() --- way before
+> early_initcalls, or even before interrupts are enabled.  So adding
+> random_int_secret_init_early() as a core_initcall is still too late.
+>
+> I wonder if we need to do something in common with what Kees has been
+> considering for the kaslr code, since it's a similar issue --- we need
+> random number way earlier than we can really afford to initialize
+> /dev/random.
 
---=-GVaQCdXiBbuwc1xUWo5/
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Right now I've only been looking at x86. As things currently stand,
+we'll make use of RDRAND and RDTSC if they're available, and if
+neither are then go to the i8254 timer. Ingo wanted even more
+unpredictability, in the face of total failure from these more dynamic
+sources, so x86 also "seeds" itself with the build string and the
+boot_params. These last two are hardly high entropy, but they should
+at least make 2 different systems not have _identical_ entropy at the
+start. It's far from cryptographically secure, but it's something, I
+hope.
 
-On Mon, 2013-11-11 at 15:49 +0100, Jiri Pirko wrote:
-> Creating an address with this flag set will result in kernel taking care
-> of temporary addresses in the same way as if the address was created by
-> kernel itself (after RA receive). This allows userspace applications
-> implementing the autoconfiguration (NetworkManager for example) to
-> implement ipv6 addresses privacy.
+> P.S.  Unless I'm missing something (and I hope I am), it would appear
+> that the stack canary is going to easily predictable by an attacker on
+> non-x86 platforms that don't have RDRAND.  Has someone tested whether
+> or not the stack canary isn't constant across ARM or pre-Sandy Bridge
+> x86 systems?
 
-Hi,
+When the static stack canary was mentioned during the ARM summit, I
+dug around a little bit and saw that at very early boot, yes, it was
+always the same, but after boot finished, it was different from boot
+to boot. I didn't get far enough to figure out what was changing it
+later on.
 
-I think, addrconf_prefix_rcv should not do anything if user created ones
-already exist.
+-Kees
 
-"Already exist" could mean, a user created address with:
-- the same IP address and MANAGETEMPADDR flag
-- the same IP address
-- the same /64 prefix and MANAGETEMPADDR flag
-- the same /64 prefix
-(??)
-
-Of course, the user should disable accept_ra, if he wants to manage
-the temporary addresses himself. But it would still be more correct
-to check that prefixes from RA do not interfere.
-
-
-Thomas
-
-
-
---=-GVaQCdXiBbuwc1xUWo5/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIcBAABAgAGBQJShmIpAAoJEKHCmQ/SsOFdNBsQAKXpOA0UA/ffu/GNMs5u81V/
-Ezj3mcM58G3yi7I8qomBeXfTmuyrEM81UmcKOSIij/7c7HVLsS27vsafospaK2c+
-kwjF783ff9WL8imU1llmfLcCsO0JYCRq7Lr23ydWpXReeEaA0MWsVibaPNFMbvuq
-uS2Ii1zYZqSJI+U+IZxROcavgXi8SjQ0+6BcUno67fGp8f/NWd1ckGCOpuJQKYlc
-3AG5d5XwNbl7e1gk6+AhayxpXa5jq6tuQtRQaBmydZIh2fbolrXuGd/Uu1Xgb2sD
-4Xer/FvsWhrtoPVdcz4vbetBSZaF88fMaMK8Uw7uqfCVXFMl1c1LPOjP7CStuH4e
-uJz656fG/5bme6nMMCsmwzRW4J5GEA8jE2TUZA4MaR5s0LIJ5hyTp6nQ/3bKdO+z
-4oPf5IBRXjyGWX4t+7laS2Q/3TgZr0i1DBlauPqgNtd+BzngBG9BRGph7tDeJHZ/
-VbDBnik9u0OuTyJ+DDSpgWji0zUqJMtCRsnN+gYceg5fYbAOVnMHNC9FGJhB23W8
-tcd7UHL8NV9tonL+4Hly0u8ByEE/XTN7W5TWkhflkbbnhh3x0EyKUdrMvjGxYccG
-eRnaU+yYpL7t2R4c72vN6+b9sSLM3V7Bu/xQ1P7F+wYp4iVwvZSmrHulJt+HVEWs
-wOYeKbxYUcvVooidKG/V
-=UGg7
------END PGP SIGNATURE-----
-
---=-GVaQCdXiBbuwc1xUWo5/--
+-- 
+Kees Cook
+Chrome OS Security
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
