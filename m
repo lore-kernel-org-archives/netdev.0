@@ -1,48 +1,89 @@
-From: <thomas.langer@lantiq.com>
-Subject: RE: [PATCH v2] WAN: Adding support for Infineon PEF2256 E1 chipset
- (FALC56)
-Date: Fri, 15 Nov 2013 15:17:29 +0000
-Message-ID: <593AEF6C47F46446852B067021A273D6D9A05202@MUCSE039.lantiq.com>
-References: <201311011501.rA1F1suj007279@localhost.localdomain>
+From: Cedric Le Goater <clg@fr.ibm.com>
+Subject: Re: [PATCH 16/51] DMA-API: ppc: vio.c: replace dma_set_mask()+dma_set_coherent_mask()
+ with new helper
+Date: Fri, 15 Nov 2013 17:16:55 +0100
+Message-ID: <528648F7.20900@fr.ibm.com>
+References: <20130919212235.GD12758@n2100.arm.linux.org.uk> <E1VMly8-0007gy-Ru@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <devicetree@vger.kernel.org>, <linux-doc@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<jerome.chantelauze.ext@c-s.fr>
-To: <christophe.leroy@c-s.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Smtp1.Lantiq.com ([195.219.66.200]:16940 "EHLO smtp1.lantiq.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751570Ab3KOP1V convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 10:27:21 -0500
-In-Reply-To: <201311011501.rA1F1suj007279@localhost.localdomain>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alsa-devel@alsa-project.org, b43-dev@lists.infradead.org,
+	devel@driverdev.osuosl.org, devicetree@vger.kernel.org,
+	dri-devel@lists.freedesktop.org, e1000-devel@lists.sourceforge.net,
+	linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-fbdev@vger.kernel.org,
+	linux-ide@vger.kernel.org, linux-media@vger.kernel.org,
+	linux-mmc@vger.kernel.org, linux-nvme@lists.infradead.org,
+	linux-omap@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org,
+	linux-tegra@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	Paul Mackerras <paulus@samba.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+To: Russell King <rmk+kernel@arm.linux.org.uk>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <E1VMly8-0007gy-Ru@rmk-PC.arm.linux.org.uk>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Christophe,
+Hi,=20
 
-Christophe Leroy wrote on=A02013-11-01:
-
-> The patch adds WAN support for Infineon FALC56 - PEF2256 E1 Chipset.
-
-can you please replace "Infineon" with "Lantiq"?
-The former "wire-line" business-unit was transferred into an own compan=
-y some years ago.
-
-Maybe provide a comment in the description or binding document, to avoi=
-d more confusion about this.
-
+On 09/19/2013 11:41 PM, Russell King wrote:
+> Replace the following sequence:
 >=20
-> Signed-off-by: Jerome Chantelauze <jerome.chantelauze.ext@c-s.fr>
-> Acked-by: Christophe Leroy <christophe.leroy@c-s.fr>
+> 	dma_set_mask(dev, mask);
+> 	dma_set_coherent_mask(dev, mask);
+>=20
+> with a call to the new helper dma_set_mask_and_coherent().
+>=20
+> Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> ---
+>  arch/powerpc/kernel/vio.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/arch/powerpc/kernel/vio.c b/arch/powerpc/kernel/vio.c
+> index 78a3506..96b6c97 100644
+> --- a/arch/powerpc/kernel/vio.c
+> +++ b/arch/powerpc/kernel/vio.c
+> @@ -1413,8 +1413,7 @@ struct vio_dev *vio_register_device_node(struct=
+ device_node *of_node)
+>=20
+>  		/* needed to ensure proper operation of coherent allocations
+>  		 * later, in case driver doesn't set it explicitly */
+> -		dma_set_mask(&viodev->dev, DMA_BIT_MASK(64));
+> -		dma_set_coherent_mask(&viodev->dev, DMA_BIT_MASK(64));
+> +		dma_set_mask_and_coherent(&viodev->dev, DMA_BIT_MASK(64));
+>  	}
+>=20
+>  	/* register with generic device framework */
 >=20
 
-Thanks,
-Thomas
+The new helper routine dma_set_mask_and_coherent() breaks the=20
+initialization of the pseries vio devices which do not have an=20
+initial dev->dma_mask. I think we need to use dma_coerce_mask_and_coher=
+ent()
+instead.
 
+Signed-off-by: C=E9dric Le Goater <clg@fr.ibm.com>
 ---
-There are two hard things in computer science: cache invalidation, nami=
-ng things, and off-by-one errors.
----
+ arch/powerpc/kernel/vio.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/powerpc/kernel/vio.c b/arch/powerpc/kernel/vio.c
+index e7d0c88f..76a6482 100644
+--- a/arch/powerpc/kernel/vio.c
++++ b/arch/powerpc/kernel/vio.c
+@@ -1419,7 +1419,7 @@ struct vio_dev *vio_register_device_node(struct d=
+evice_node *of_node)
+=20
+ 		/* needed to ensure proper operation of coherent allocations
+ 		 * later, in case driver doesn't set it explicitly */
+-		dma_set_mask_and_coherent(&viodev->dev, DMA_BIT_MASK(64));
++		dma_coerce_mask_and_coherent(&viodev->dev, DMA_BIT_MASK(64));
+ 	}
+=20
+ 	/* register with generic device framework */
+--=20
+1.7.10.4
