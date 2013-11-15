@@ -1,62 +1,66 @@
 From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] net: sctp: recover a tranport when an ack comes
-Date: Thu, 14 Nov 2013 21:34:55 -0500
-Message-ID: <5285884F.8030907@gmail.com>
-References: <1384461624-17636-1-git-send-email-changxiangzhong@gmail.com>
+Subject: Re: [PATCH net v2 1/2] macvlan: introduce macvlan_dev_real_dev()
+ helper function
+Date: Thu, 14 Nov 2013 21:43:23 -0500
+Message-ID: <52858A4B.7000902@gmail.com>
+References: <cover.1384436410.git.mkubecek@suse.cz> <b4ca4f2204f0ffb0bd7f959192462944a8d846a4.1384436410.git.mkubecek@suse.cz> <5284E637.5060805@gmail.com> <20131114155756.GA4161@lion.mk-sys.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dreibh@simula.no, ernstgr@simula.no
-To: Chang Xiangzhong <changxiangzhong@gmail.com>, nhorman@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1384461624-17636-1-git-send-email-changxiangzhong@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f172.google.com ([209.85.216.172]:65176 "EHLO
+	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755516Ab3KOCn0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Nov 2013 21:43:26 -0500
+Received: by mail-qc0-f172.google.com with SMTP id q4so1570161qcx.3
+        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 18:43:26 -0800 (PST)
+In-Reply-To: <20131114155756.GA4161@lion.mk-sys.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/14/2013 03:40 PM, Chang Xiangzhong wrote:
-> Expected Behavior:
-> When hearing an ack from a tranport/path, set its state to normal/on if it's
-> in abnormal(__partial_failure__ or inactive) state.
+On 11/14/2013 10:57 AM, Michal Kubecek wrote:
+> On Thu, Nov 14, 2013 at 10:03:19AM -0500, Vlad Yasevich wrote:
+>> On 11/14/2013 09:00 AM, Michal Kubecek wrote:
+>>> +#if IS_ENABLED(CONFIG_MACVLAN)
+>>> +static inline struct net_device *
+>>> +macvlan_dev_real_dev(const struct net_device *dev)
+>>> +{
+>>> +	struct macvlan_dev *macvlan = netdev_priv(dev);
+>>> +
+>>> +	return macvlan->lowerdev;
+>>> +}
+>>> +#else
+>>> +static inline struct net_device *
+>>> +macvlan_dev_real_dev(const struct net_device *dev)
+>>> +{
+>>> +	return NULL;
+>>> +}
+>>> +#endif
+>>> +
+>>
+>> You may want to do the same here as was done for
+>> vlan_dev_real_dev(). This function is not intended to be called
+>> blindly and should always
+>> be called after netif_is_macvlan().
 >
-> state machine of tranport->state
-> Whenever a T3_RTX timer expires, then transport->error_count++.
-> When (association->pf_retrans < transport->error_count < tranport->pathmaxrtx)
-> 	transport->state = SCTP_PF //partial failure
+> I'm not sure. It makes sense from the developer point of view: if we
+> find an inconsistency which must be caused by a bug in kernel code, do
+> panic so that the bug is found and fixed as soon as possible. However,
+> I remember a discussion where the point was that BUG() and BUG_ON()
+> should only be used if there is no way to recover. From this point of
+> view, WARN or WARN_ONCE might be better choice - but I'm not strictly
+> opposed to BUG().
 >
-> When a heartbeat-ack comes or conventional ack acknowledged its availability,
-> 	transport->state = SCTP_ON
+>                                                         Michal Kubecek
 >
-> Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
-> Fixes: 5aa93bcf66f ("sctp: Implement quick failover draft from tsvwg")
 
-I don't think this is right.  The spec states:
-  8.  ACKs for retransmissions do not transition a PF destination back
-        to Active state, since a sender cannot disambiguate whether the
-        ack was for the original transmission or the retransmission(s).
-
-
-Now, the proper way to this would would be modify 
-sctp_assoc_control_transport() to transition the transport state to
-ACTIVE if it was PF transport that was chosen to send data.
+If someone blindly calls macvlan_dev_real_dev() and macvlan module is 
+enabled, but there is no macvlan device, you are going to get garbage 
+and crash.  So crashing if module is disabled for the same case seems
+perfectly reasonable.
 
 -vlad
-
-> ---
->   net/sctp/outqueue.c |    1 +
->   1 file changed, 1 insertion(+)
->
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index 94df758..2557fa5 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -1517,6 +1517,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
->   			 * active if it is not so marked.
->   			 */
->   			if ((transport->state == SCTP_INACTIVE ||
-> +			     transport->state == SCTP_PF ||
->   			     transport->state == SCTP_UNCONFIRMED) &&
->   			    sctp_cmp_addr_exact(&transport->ipaddr, saddr)) {
->   				sctp_assoc_control_transport(
->
