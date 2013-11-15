@@ -1,93 +1,65 @@
-From: Thomas Graf <tgraf@redhat.com>
-Subject: Re: [ovs-dev] [PATCH] linux: Signal datapath that unaligned Netlink
- message can be received
-Date: Fri, 15 Nov 2013 10:47:13 +0100
-Message-ID: <5285EDA1.5060609@redhat.com>
-References: <51e10053434e3afdf9940d9be7d9f0ff4788d1f7.1384184155.git.tgraf@redhat.com> <20131111155014.GC32602@nicira.com> <5280FD6D.9000609@redhat.com> <CAEP_g=_KWgmfVkNLPGYr=WjNR=UKSt3PhkqU8PE6Ug3ju2R3ig@mail.gmail.com> <52834A8D.9040009@redhat.com> <CAEP_g=_AN7d94XEoXBaurzTttMHVFii+8hfT0b=tHWBkA-hicw@mail.gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net] bonding: don't change to 802.3ad mode while ARP monitor
+ is running
+Date: Fri, 15 Nov 2013 18:02:18 +0800
+Message-ID: <5285F12A.6030307@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Pfaff <blp@nicira.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Ben Hutchings <bhutchings@solarflare.com>, fleitner@redhat.com,
-	dborkmann@redhat.com, netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19310 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752653Ab3KOJrX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Nov 2013 04:47:23 -0500
-In-Reply-To: <CAEP_g=_AN7d94XEoXBaurzTttMHVFii+8hfT0b=tHWBkA-hicw@mail.gmail.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:23000 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754466Ab3KOKFE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 05:05:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/15/2013 10:32 AM, Jesse Gross wrote:
-> On Wed, Nov 13, 2013 at 5:46 PM, Thomas Graf <tgraf@redhat.com> wrote:
->> On 11/13/2013 07:11 AM, Jesse Gross wrote:
->>>
->>> On Mon, Nov 11, 2013 at 11:53 PM, Thomas Graf <tgraf@redhat.com> wrote:
->>>>
->>>> On 11/11/2013 04:50 PM, Ben Pfaff wrote:
->>>>>
->>>>>
->>>>> On Mon, Nov 11, 2013 at 04:36:24PM +0100, Thomas Graf wrote:
->>>>>>
->>>>>>
->>>>>> Following commit (''netlink: Do not enforce alignment of last Netlink
->>>>>> attribute''), signal the ability to receive unaligned Netlink messages
->>>>>> to the datapath to enable utilization of zerocopy optimizations.
->>>>>>
->>>>>> Signed-off-by: Thomas Graf <tgraf@redhat.com>
->>>>>
->>>>>
->>>>>
->>>>> Seems OK from a userspace point of view.  I am a little concerned that
->>>>> downgrading userspace without deleting and re-creating the datapath
->>>>> (e.g. via "force-reload-kmod") will result in a totally broken setup
->>>>> since userspace will then drop every packet from the kernel.
->>>>
->>>>
->>>>
->>>> Is that something that occurs occasionally in installations? Utilizing
->>>> the version field in the genl header could be used to track this and
->>>> clear user_features.
->>>
->>>
->>> It's probably a good idea. I could see us having more of these
->>> features flags in the future (although obviously we should try to
->>> avoid them if possible) and, as Ben said, it would potentially lead to
->>> a bad state otherwise.
->>>
->>> I'm not sure exactly what you have in mind though, can you elaborate a
->>> little?
->>
->>
->> My initial thought was to use a version field to notice the replacement
->> of user space. On second thought that is not required, modifying user
->> space to provide the user features in OVS_DP_CMD_GET as well will
->> overwrite the features. Resetting user_features to 0 if not features are
->> provided will provide backwards compatibility to versions not aware of
->> user features yet. Thoughts?
->
-> Hmm, it doesn't really seem ideal to make DP_CMD_GET change settings
-> as it's probably not the expected behavior for most users of the
-> command. One example of where this could be a problem is if it is
-> called from both ovs-dpctl and ovs-vswitch. Usually these would be
-> have the same capabilities but I'm not sure that it's strictly
-> required in all cases. DP_CMD_SET seems like the ideal place to put it
-> but I guess we don't use that at all on existing versions of OVS
-> userspace.
+Because the ARP monitor is not support for 802.3ad, but We still
+could change the mode to 802.3ad from ab mode while ARP monirot
+is running, it is incorrect.
 
-Agreed. Ideal and clean is a DP_CMD_SET lookup-or-create that updates
-the user features. That will leave one OVS version to be non backwards
-compatible in terms of downgrading user features.
+So add a check for 802.3ad in bonding_store_mode to fix the problem,
+and make a micro program to simplify the code.
 
-For that reason we can bump OVS_DATAPATH_VERSION to version 2 and reset
-the user features if we receive a DP_CMD_GET version 1.
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bond_options.c | 2 +-
+ drivers/net/bonding/bonding.h      | 4 ++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
 
-It's not a problem if we reset the user features unnecessarily in some
-corner cases such as mismatching ovs-dpctl and vswitchd. The next
-iteration of the patchset has support for memory mapped netlink i/o
-which would still apply.
-
-If you agree to this then I will cook this up.
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 9a5223c..abb4218 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -45,7 +45,7 @@ int bond_option_mode_set(struct bonding *bond, int mode)
+ 		return -EPERM;
+ 	}
+ 
+-	if (BOND_MODE_IS_LB(mode) && bond->params.arp_interval) {
++	if (BOND_NO_USES_ARP(mode) && bond->params.arp_interval) {
+ 		pr_err("%s: %s mode is incompatible with arp monitoring.\n",
+ 		       bond->dev->name, bond_mode_tbl[mode].modename);
+ 		return -EINVAL;
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 046a605..e2c11cb 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -63,6 +63,10 @@
+ 		(((mode) == BOND_MODE_TLB) ||	\
+ 		 ((mode) == BOND_MODE_ALB))
+ 
++#define BOND_NO_USES_ARP(mode)				\
++		(((mode) == BOND_MODE_8023AD)	||	\
++		 ((mode) == BOND_MODE_TLB)	||	\
++		 ((mode) == BOND_MODE_ALB))
+ /*
+  * Less bad way to call ioctl from within the kernel; this needs to be
+  * done some other way to get the call out of interrupt context.
+-- 
+1.7.12
