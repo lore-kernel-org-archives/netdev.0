@@ -1,49 +1,50 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH net v2 1/2] macvlan: introduce macvlan_dev_real_dev()
- helper function
-Date: Fri, 15 Nov 2013 06:26:05 +0100
-Message-ID: <20131115052605.GA12440@lion.mk-sys.cz>
-References: <b4ca4f2204f0ffb0bd7f959192462944a8d846a4.1384436410.git.mkubecek@suse.cz>
- <5284E637.5060805@gmail.com>
- <20131114155756.GA4161@lion.mk-sys.cz>
- <20131114.170358.941846928393883945.davem@davemloft.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] net: Do not include padding in TCP GRO checksum
+Date: Thu, 14 Nov 2013 21:34:14 -0800
+Message-ID: <5285B256.9060605@gmail.com>
+References: <20131115011413.7090.9349.stgit@ahduyck-fpga.jf.intel.com> <20131114.230821.139211038449295349.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vyasevich@gmail.com, netdev@vger.kernel.org, kaber@trash.net,
-	john.r.fastabend@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+	herbert@gondor.apana.org
+To: David Miller <davem@davemloft.net>, alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lion.mk-sys.cz ([213.168.178.121]:46239 "EHLO lion.mk-sys.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755037Ab3KOF0H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Nov 2013 00:26:07 -0500
-Content-Disposition: inline
-In-Reply-To: <20131114.170358.941846928393883945.davem@davemloft.net>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:38548 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752653Ab3KOFk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 00:40:26 -0500
+Received: by mail-pd0-f170.google.com with SMTP id q10so3041455pdj.1
+        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 21:40:25 -0800 (PST)
+In-Reply-To: <20131114.230821.139211038449295349.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 14, 2013 at 05:03:58PM -0500, David Miller wrote:
-> >> On 11/14/2013 09:00 AM, Michal Kubecek wrote:
-> >> >+#if IS_ENABLED(CONFIG_MACVLAN)
-> >> >+static inline struct net_device *
-> >> >+macvlan_dev_real_dev(const struct net_device *dev)
-> >> >+{
-> >> >+	struct macvlan_dev *macvlan = netdev_priv(dev);
-> >> >+
-> >> >+	return macvlan->lowerdev;
-> >> >+}
-> >> >+#else
-> >> >+static inline struct net_device *
-> >> >+macvlan_dev_real_dev(const struct net_device *dev)
-> >> >+{
-> >> >+	return NULL;
-> >> >+}
-> >> >+#endif
-> >> >+
+On 11/14/2013 08:08 PM, David Miller wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> Date: Thu, 14 Nov 2013 17:18:18 -0800
 > 
-> At least for the time being use BUG(), to be consistent with the same
-> way how VLAN handles this situation.
+>> I haven't had a chance to test this much yet and I am not that familiar
+> 
+> As Eric mentioned, unless you tested on big endian, chances are you
+> didn't test this at all. :-)
+> 
 
-OK, v3 sent.
+Actually I had tested it very breifly, but with Rx checksum offloads
+still enabled.
 
-Michal Kubecek
+> You're accessing the IPv4/IPv6 length fields without converting it
+> to CPU endian.
+
+Yeah, I realized that after I hit the BUG_ON in skb_checksum.
+
+I'll be submitting a v2 in the morning with some tested code.  The only
+difficult part is that I don't have any devices that generate
+CHECKSUM_COMPLETE.  I think if there is padding I will probably just
+fall back to the CHECKSUM_NONE case since that seems to be what
+IPv4/IPv6 does in their receive calls when they call pskb_trim_rcsum on
+padded frames.
+
+Thanks,
+
+Alex
