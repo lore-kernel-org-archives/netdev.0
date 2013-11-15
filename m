@@ -1,58 +1,114 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: Re: [PATCH 1/2] net: phylib: add adjust_state callback to phy device
-Date: Fri, 15 Nov 2013 08:35:00 +0100
-Message-ID: <5285CEA4.70207@gmail.com>
-References: <1384376870-7810-1-git-send-email-zonque@gmail.com> <20131114.163207.230147902479371528.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, marek.belisko@gmail.com,
-	ujhelyi.m@gmail.com
-To: David Miller <davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH v2.49 1/6] ofp-actions: Consider L4 actions after mpls_push as inconsistent
+Date: Fri, 15 Nov 2013 16:50:53 +0900
+Message-ID: <1384501858-30535-2-git-send-email-horms@verge.net.au>
+References: <1384501858-30535-1-git-send-email-horms@verge.net.au>
+Cc: Pravin B Shelar <pshelar@nicira.com>, Ravi K <rkerur@gmail.com>,
+	Joe Stringer <joe@wand.net.nz>
+To: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>, Ben Pfaff <blp@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f43.google.com ([209.85.214.43]:63483 "EHLO
-	mail-bk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751857Ab3KOHfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 02:35:05 -0500
-Received: by mail-bk0-f43.google.com with SMTP id mz13so1484367bkb.16
-        for <netdev@vger.kernel.org>; Thu, 14 Nov 2013 23:35:03 -0800 (PST)
-In-Reply-To: <20131114.163207.230147902479371528.davem@davemloft.net>
+Received: from kirsty.vergenet.net ([202.4.237.240]:35014 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754470Ab3KOHvG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 02:51:06 -0500
+In-Reply-To: <1384501858-30535-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/14/2013 10:32 PM, David Miller wrote:
-> From: Daniel Mack <zonque@gmail.com>
-> Date: Wed, 13 Nov 2013 22:07:49 +0100
-> 
->> Allow phy drivers to take action when the core does its link adjustment.
->> No change for drivers that do not implement this callback.
->>
->> Signed-off-by: Daniel Mack <zonque@gmail.com>
-> 
-> So you're using this to reset the entire PHY via the reset bit in the
-> BMCR register when the link goes down.
-> 
-> But this is going to break things.
-> 
-> If the phy library previously programmed a non-autonegotiated static
-> link configuration into the BMCR register, your reset is going to
-> undo that.
-> 
-> Now the configuration phylib thinks the chip has and the one it
-> acutally does is out of sync.
+After an mpls_push action the resulting packet is MPLS and
+the MPLS payload is opaque. Thus nothing can be assumed
+about the packets network protocol and it is inconsistent
+to apply L4 actions.
 
-You're right, thanks for the review. Let me just state that I'm really
-unhappy about that approach as well.
+With regards to actions that affect the packet at other layers
+of the protocol stack:
 
-However, I currently see no better way than resetting the PHY every time
-the link goes down, as we have no way of telling whether the chip has
-entered its locked-up state which it seemingly does arbitrarily when the
-link changes. This is really not nice, but the only thing that avoided
-the effect in our tests.
+* L3: The consistency of L3 actions should already be handled correctly
+  by virtue of the dl_type of the flow being temporarily altered
+  during consistency checking by both push_mpls and pop_mpls actions.
 
-That means that we either have to tell the PHY core about what we did,
-or manually preserve the registers contents across the reset. I'll have
-another look next week. Any pointers appreciated :)
+* MPLS: The consistency checking of MPLS actions appear to already be
+  handled correctly.
 
+* VLAN: At this time Open vSwitch on mpls_push an MPLS LSE is always
+  added after any VLAN tags that follow the ethernet header.
+  That is the tag ordering defined prior to OpenFlow1.3. As such
+  VLAN actions should sill be equally valid before and after mpls_push
+  and mpls_pop actions.
 
-Daniel
+* L2 actions are equally valid before and after mpls_push and mpls_pop actions.
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+---
+v2.49
+* First post
+---
+ lib/ofp-actions.c    |  9 ++++++++-
+ tests/ofp-actions.at | 12 ++++++++++++
+ 2 files changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/lib/ofp-actions.c b/lib/ofp-actions.c
+index abc9505..e4e05dd 100644
+--- a/lib/ofp-actions.c
++++ b/lib/ofp-actions.c
+@@ -1869,7 +1869,8 @@ ofpact_check_output_port(ofp_port_t port, ofp_port_t max_ports)
+     }
+ }
+ 
+-/* May modify flow->dl_type and flow->vlan_tci, caller must restore them.
++/* May modify flow->dl_type, flow->nw_protocol and flow->vlan_tci,
++ * caller must restore them.
+  *
+  * Modifies some actions, filling in fields that could not be properly set
+  * without context. */
+@@ -2056,6 +2057,10 @@ ofpact_check__(struct ofpact *a, struct flow *flow,
+ 
+     case OFPACT_PUSH_MPLS:
+         flow->dl_type = ofpact_get_PUSH_MPLS(a)->ethertype;
++        /* The packet is now MPLS and the MPLS payload is opaque.
++         * Thus nothing can be assumed about the network protocol.
++         * Temporarily mark that we have no nw_proto. */
++        flow->nw_proto = 0;
+         return 0;
+ 
+     case OFPACT_POP_MPLS:
+@@ -2127,6 +2132,7 @@ ofpacts_check(struct ofpact ofpacts[], size_t ofpacts_len,
+     struct ofpact *a;
+     ovs_be16 dl_type = flow->dl_type;
+     ovs_be16 vlan_tci = flow->vlan_tci;
++    uint8_t nw_proto = flow->nw_proto;
+     enum ofperr error = 0;
+ 
+     OFPACT_FOR_EACH (a, ofpacts, ofpacts_len) {
+@@ -2139,6 +2145,7 @@ ofpacts_check(struct ofpact ofpacts[], size_t ofpacts_len,
+     /* Restore fields that may have been modified. */
+     flow->dl_type = dl_type;
+     flow->vlan_tci = vlan_tci;
++    flow->nw_proto = nw_proto;
+     return error;
+ }
+ 
+diff --git a/tests/ofp-actions.at b/tests/ofp-actions.at
+index cdca8ca..08ebccf 100644
+--- a/tests/ofp-actions.at
++++ b/tests/ofp-actions.at
+@@ -477,3 +477,15 @@ AT_CHECK(
+   [ovs-ofctl '-vPATTERN:console:%c|%p|%m' parse-ofp11-instructions < input.txt],
+   [0], [expout], [experr])
+ AT_CLEANUP
++
++AT_SETUP([ofp-actions - inconsistent MPLS actions])
++OVS_VSWITCHD_START
++dnl OK: Use fin_timeout action on TCP flow
++AT_CHECK([ovs-ofctl -O OpenFlow11 -vwarn add-flow br0 'tcp actions=fin_timeout(idle_timeout=1)'])
++dnl Bad: Use fin_timeout action on TCP flow that has been converted to MPLS
++AT_CHECK([ovs-ofctl -O OpenFlow11 -vwarn add-flow br0 'tcp actions=push_mpls:0x8847,fin_timeout(idle_timeout=1)'],
++         [1], [], [dnl
++ovs-ofctl: actions are invalid with specified match (OFPBAC_MATCH_INCONSISTENT)
++])
++OVS_VSWITCHD_STOP
++AT_CLEANUP
+-- 
+1.8.4
