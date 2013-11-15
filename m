@@ -1,69 +1,31 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net v3 4/4] r8152: fix incorrect type in assignment
-Date: Fri, 15 Nov 2013 15:57:59 +0800
-Message-ID: <1384502279-9959-5-git-send-email-hayeswang@realtek.com>
-References: <1384502279-9959-1-git-send-email-hayeswang@realtek.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH v2] net: ethernet: ti/cpsw: do not crash on single-MAC
+ machines during resume
+Date: Fri, 15 Nov 2013 14:18:42 +0530
+Message-ID: <5285DFEA.6030105@ti.com>
+References: <1384500556-11634-1-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1384502279-9959-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <ujhelyi.m@gmail.com>,
+	<sergei.shtylyov@cogentembedded.com>
+To: Daniel Mack <zonque@gmail.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:52360 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754893Ab3KOIst (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Nov 2013 03:48:49 -0500
+In-Reply-To: <1384500556-11634-1-git-send-email-zonque@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The data from the hardware should be little endian. Correct the
-declaration.
+On Friday 15 November 2013 12:59 PM, Daniel Mack wrote:
+> During resume, use for_each_slave to walk the slaves of the cpsw, and
+> soft-reset each of them. This prevents oopses if there is only one
+> slave configured.
+>
+> Signed-off-by: Daniel Mack <zonque@gmail.com>
+Acked-by: Mugunthan V N <mugunthanvnm@gmail.com>
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 81a4171..25e8fa8 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -307,22 +307,22 @@ enum rtl8152_flags {
- #define MCU_TYPE_USB			0x0000
- 
- struct rx_desc {
--	u32 opts1;
-+	__le32 opts1;
- #define RX_LEN_MASK			0x7fff
--	u32 opts2;
--	u32 opts3;
--	u32 opts4;
--	u32 opts5;
--	u32 opts6;
-+	__le32 opts2;
-+	__le32 opts3;
-+	__le32 opts4;
-+	__le32 opts5;
-+	__le32 opts6;
- };
- 
- struct tx_desc {
--	u32 opts1;
-+	__le32 opts1;
- #define TX_FS			(1 << 31) /* First segment of a packet */
- #define TX_LS			(1 << 30) /* Final segment of a packet */
- #define TX_LEN_MASK		0x3ffff
- 
--	u32 opts2;
-+	__le32 opts2;
- #define UDP_CS			(1 << 31) /* Calculate UDP/IP checksum */
- #define TCP_CS			(1 << 30) /* Calculate TCP/IP checksum */
- #define IPV4_CS			(1 << 29) /* Calculate IPv4 checksum */
-@@ -877,7 +877,7 @@ static void write_bulk_callback(struct urb *urb)
- static void intr_callback(struct urb *urb)
- {
- 	struct r8152 *tp;
--	__u16 *d;
-+	__le16 *d;
- 	int status = urb->status;
- 	int res;
- 
--- 
-1.8.3.1
+Regards
+Mugunthan V N
