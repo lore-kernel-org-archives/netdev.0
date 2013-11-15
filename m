@@ -1,33 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/3] net: sched: htb: fix calculation of quantum
-Date: Fri, 15 Nov 2013 06:01:09 -0800
-Message-ID: <1384524069.28716.64.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1384419714-24364-1-git-send-email-yangyingliang@huawei.com>
-	 <1384419714-24364-4-git-send-email-yangyingliang@huawei.com>
+From: John Hughes <john@calva.com>
+Subject: Re: When a TCP segment is split up (to be sent through a TUN device
+ with a small MTU) who should recalculate the checksum?
+Date: Fri, 15 Nov 2013 15:02:08 +0100
+Message-ID: <52862960.6090408@calva.com>
+References: <5285E0BC.4090402@atlantech.com> <1384520815.28716.63.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Yang Yingliang <yangyingliang@huawei.com>
+Cc: John Hughes <john@atlantech.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:52646 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752678Ab3KOOBL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 09:01:11 -0500
-Received: by mail-pa0-f48.google.com with SMTP id bj1so3649633pad.21
-        for <netdev@vger.kernel.org>; Fri, 15 Nov 2013 06:01:11 -0800 (PST)
-In-Reply-To: <1384419714-24364-4-git-send-email-yangyingliang@huawei.com>
+Received: from olympic.calvaedi.com ([89.202.194.163]:47603 "EHLO
+	olympic.calvaedi.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752807Ab3KOOQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 09:16:43 -0500
+In-Reply-To: <1384520815.28716.63.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-14 at 17:01 +0800, Yang Yingliang wrote:
-> Now, 32bit rates may be not the true rate.
-> So use rate_bytes_ps which is from
-> max(rate32, rate64) to calcualte quantum.
-> 
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-> ---
->  net/sched/sch_htb.c | 18 ++++++++++--------
->  1 file changed, 10 insertions(+), 8 deletions(-)
+On 15/11/13 14:06, Eric Dumazet wrote:
+> On Fri, 2013-11-15 at 09:52 +0100, John Hughes wrote:
+>> I have two offices, joined by a OpenVPN tunnel.  I've upgraded the
+>> kernels in the machines running the tunnel to 3.10.  All of a sudden I'm
+>> getting horrible transmission delays between the two offices.
+>>
+>> office1 LAN--------office1 tunnel machine
+>>                               |
+>>                               | openvpn tunnel
+>>                               |
+>>                       office2 tunnel machine------office2 LAN
+>>                                     
+>>
+>> What seems to be happening is that packets are arriving at the LAN
+>> interface of the machine running the tunnel and being combined by
+>> generic-receive-offload.  These packets then have to be split up again
+>> as they are too big for the tunnels MTU.
+>>
+>> But when the packets are split the TCP checksum doesn't seem to be being
+>> recalculated, so the systems on the other end of the tunnel ignore them,
+>> forcing many retries and the observed delays.
+>>
+>>
+> Thanks for the report
+>
+> It depends on the offload capabilities of the NIC forwarding packets
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+The NIC is a kernel tun device.
+>
+> ethtool -k eth0
+
+# ethtool -k tun1
+Features for tun1:
+rx-checksumming: off [fixed]
+tx-checksumming: off
+	tx-checksum-ipv4: off [fixed]
+	tx-checksum-ip-generic: off [requested on]
+	tx-checksum-ipv6: off [fixed]
+	tx-checksum-fcoe-crc: off [fixed]
+	tx-checksum-sctp: off [fixed]
+...
+
+It seems someone has asked the tunnel to compute checksums 
+(tx-checksum-ip-generic), but it can't do that.
+
+
+>
+> TCP checksums can be recomputed by tcp_gso_segment() (it was named
+> tcp_tso_segment() in linux 3.10), unless the NIC told it was doing the
+> checksum computation itself.
+>
+> ethtool -K eth0 tx off
+>
+> Should request stack to perform the cheksums.
+>
+> What is the NIC doing the transmits ?
+>
+>
+>
