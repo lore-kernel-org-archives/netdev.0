@@ -1,93 +1,58 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [ovs-dev] [PATCH] linux: Signal datapath that unaligned Netlink
- message can be received
-Date: Fri, 15 Nov 2013 17:32:12 +0800
-Message-ID: <CAEP_g=_AN7d94XEoXBaurzTttMHVFii+8hfT0b=tHWBkA-hicw@mail.gmail.com>
-References: <51e10053434e3afdf9940d9be7d9f0ff4788d1f7.1384184155.git.tgraf@redhat.com>
- <20131111155014.GC32602@nicira.com> <5280FD6D.9000609@redhat.com>
- <CAEP_g=_KWgmfVkNLPGYr=WjNR=UKSt3PhkqU8PE6Ug3ju2R3ig@mail.gmail.com> <52834A8D.9040009@redhat.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 0/2 v4] Open vSwitch zerocopy upcall
+Date: Fri, 15 Nov 2013 17:34:12 +0800
+Message-ID: <CAEP_g=9gjBYB_K1rD+WWQdJXxUZ-vDLBBeUTio8KEz6TJrMKpw@mail.gmail.com>
+References: <cover.1383906944.git.tgraf@suug.ch>
+	<20131114.021357.2293924326693299062.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Pfaff <blp@nicira.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Ben Hutchings <bhutchings@solarflare.com>, fleitner@redhat.com,
-	dborkmann@redhat.com, netdev <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:55360 "HELO
-	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751746Ab3KOJce (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 04:32:34 -0500
-Received: by mail-lb0-f181.google.com with SMTP id q8so1305405lbi.40
-        for <netdev@vger.kernel.org>; Fri, 15 Nov 2013 01:32:32 -0800 (PST)
-In-Reply-To: <52834A8D.9040009@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20131114.021357.2293924326693299062.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 13, 2013 at 5:46 PM, Thomas Graf <tgraf@redhat.com> wrote:
-> On 11/13/2013 07:11 AM, Jesse Gross wrote:
->>
->> On Mon, Nov 11, 2013 at 11:53 PM, Thomas Graf <tgraf@redhat.com> wrote:
->>>
->>> On 11/11/2013 04:50 PM, Ben Pfaff wrote:
->>>>
->>>>
->>>> On Mon, Nov 11, 2013 at 04:36:24PM +0100, Thomas Graf wrote:
->>>>>
->>>>>
->>>>> Following commit (''netlink: Do not enforce alignment of last Netlink
->>>>> attribute''), signal the ability to receive unaligned Netlink messages
->>>>> to the datapath to enable utilization of zerocopy optimizations.
->>>>>
->>>>> Signed-off-by: Thomas Graf <tgraf@redhat.com>
->>>>
->>>>
->>>>
->>>> Seems OK from a userspace point of view.  I am a little concerned that
->>>> downgrading userspace without deleting and re-creating the datapath
->>>> (e.g. via "force-reload-kmod") will result in a totally broken setup
->>>> since userspace will then drop every packet from the kernel.
->>>
->>>
->>>
->>> Is that something that occurs occasionally in installations? Utilizing
->>> the version field in the genl header could be used to track this and
->>> clear user_features.
->>
->>
->> It's probably a good idea. I could see us having more of these
->> features flags in the future (although obviously we should try to
->> avoid them if possible) and, as Ben said, it would potentially lead to
->> a bad state otherwise.
->>
->> I'm not sure exactly what you have in mind though, can you elaborate a
->> little?
+On Thu, Nov 14, 2013 at 3:13 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+> Date: Fri,  8 Nov 2013 11:47:16 +0100
 >
+>> Respin of the zerocopy patches for the openvswitch upcall.
+>>
+>> V4: - Daniel Borkmann pointed out that the style in skbuff.h has changed
+>>       in net-next, adapted to no longer using extern in headers.
+>> V3: - Removed unneeded alignment of nlmsg_len after padding
+>> V2: - Added skb_zerocopy_headlen() to calculate headroom of destination
+>>       buffer. This also takes care of the from->head_frag issue.
+>>     - Attribute alignment for frag_list case
+>>     - API documentation
+>>     - performance data for CHECKSUM_PARTIAL tx case
+>>
+>> Thomas Graf (2):
+>>   net: Export skb_zerocopy() to zerocopy from one skb to another
+>>   openvswitch: Use skb_zerocopy() for upcall
 >
-> My initial thought was to use a version field to notice the replacement
-> of user space. On second thought that is not required, modifying user
-> space to provide the user features in OVS_DP_CMD_GET as well will
-> overwrite the features. Resetting user_features to 0 if not features are
-> provided will provide backwards compatibility to versions not aware of
-> user features yet. Thoughts?
+> No objections from me for these changes, but it's too late for the
+> current merge window.
+>
+> Jesse can feel free to queue this up in his tree and you can add my:
+>
+> Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>
+> to these patches.
+>
+> Thanks!
 
-Hmm, it doesn't really seem ideal to make DP_CMD_GET change settings
-as it's probably not the expected behavior for most users of the
-command. One example of where this could be a problem is if it is
-called from both ovs-dpctl and ovs-vswitch. Usually these would be
-have the same capabilities but I'm not sure that it's strictly
-required in all cases. DP_CMD_SET seems like the ideal place to put it
-but I guess we don't use that at all on existing versions of OVS
-userspace.
-
->> (By the way, it might be a good idea to keep the same CC list on all
->> of the patches. Otherwise, some people might miss parts of the
->> discussion.)
->
->
-> I did not CC netdev because this is a pure user space patch and the
-> respective kernel bits are included in v5 of the kernel series.
-
-I know but I think the outcome of this discussion likely affects all
-of the patches, so it would be helpful even for those who are looking
-at just the kernel patches.
+Thanks - there's some discussion related to these patches in the
+thread "linux: Signal datapath that unaligned Netlink message can be
+received" so I'm waiting until that concludes.
