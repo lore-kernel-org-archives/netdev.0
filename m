@@ -1,7 +1,7 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: [PATCH tip/core/rcu 08/14] ipv6/sit: Apply ACCESS_ONCE() to avoid sparse false positive
-Date: Fri, 15 Nov 2013 16:40:11 -0800
-Message-ID: <1384562417-817-8-git-send-email-paulmck@linux.vnet.ibm.com>
+Subject: [PATCH tip/core/rcu 09/14] mac80211: Apply ACCESS_ONCE() to avoid sparse false positive
+Date: Fri, 15 Nov 2013 16:40:12 -0800
+Message-ID: <1384562417-817-9-git-send-email-paulmck@linux.vnet.ibm.com>
 References: <20131116003946.GA316@linux.vnet.ibm.com>
  <1384562417-817-1-git-send-email-paulmck@linux.vnet.ibm.com>
 Cc: mingo@kernel.org, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
@@ -10,31 +10,22 @@ Cc: mingo@kernel.org, laijs@cn.fujitsu.com, dipankar@in.ibm.com,
 	peterz@infradead.org, rostedt@goodmis.org, dhowells@redhat.com,
 	edumazet@google.com, darren@dvhart.com, fweisbec@gmail.com,
 	sbw@mit.edu, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:35283 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754846Ab3KPAk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 19:40:28 -0500
-Received: from /spool/local
-	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Fri, 15 Nov 2013 17:40:27 -0700
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1384562417-817-1-git-send-email-paulmck@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 
 The sparse checking for rcu_assign_pointer() was recently upgraded
 to reject non-__kernel address spaces.  This also rejects __rcu,
-which is almost always the right thing to do.  However, the use in
-ipip6_tunnel_unlink() is legitimate: It is assigning a pointer to an
+which is almost always the right thing to do.  However, the uses in
+sta_info_hash_del() are legitimate: They are assigning a pointer to an
 element from an RCU-protected list, and all elements of this list are
 already visible to caller.
 
@@ -44,29 +35,39 @@ Triplett.
 
 Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: Johannes Berg <johannes@sipsolutions.net>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
+Cc: linux-wireless@vger.kernel.org
 Cc: netdev@vger.kernel.org
 ---
- net/ipv6/sit.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/mac80211/sta_info.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 7ee5cb96db34..9b976a4b463d 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -157,7 +157,8 @@ static void ipip6_tunnel_unlink(struct sit_net *sitn, struct ip_tunnel *t)
- 	     (iter = rtnl_dereference(*tp)) != NULL;
- 	     tp = &iter->next) {
- 		if (t == iter) {
--			rcu_assign_pointer(*tp, t->next);
-+			/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
-+			ACCESS_ONCE(*tp) = t->next;
- 			break;
- 		}
+diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+index aeb967a0aeed..494f03c0831f 100644
+--- a/net/mac80211/sta_info.c
++++ b/net/mac80211/sta_info.c
+@@ -74,8 +74,8 @@ static int sta_info_hash_del(struct ieee80211_local *local,
+ 	if (!s)
+ 		return -ENOENT;
+ 	if (s == sta) {
+-		rcu_assign_pointer(local->sta_hash[STA_HASH(sta->sta.addr)],
+-				   s->hnext);
++		/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
++		ACCESS_ONCE(local->sta_hash[STA_HASH(sta->sta.addr)]) = s->hnext;
+ 		return 0;
  	}
+ 
+@@ -84,7 +84,8 @@ static int sta_info_hash_del(struct ieee80211_local *local,
+ 		s = rcu_dereference_protected(s->hnext,
+ 					lockdep_is_held(&local->sta_mtx));
+ 	if (rcu_access_pointer(s->hnext)) {
+-		rcu_assign_pointer(s->hnext, sta->hnext);
++		/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
++		ACCESS_ONCE(s->hnext) = sta->hnext;
+ 		return 0;
+ 	}
+ 
 -- 
 1.8.1.5
