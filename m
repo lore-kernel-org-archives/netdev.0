@@ -1,90 +1,81 @@
 From: Ding Tianhong <dthxman@gmail.com>
-Subject: Re: [PATCH net] bonding: set primary_reselect in LB and AB mode
-Date: Sat, 16 Nov 2013 12:07:21 +0800
-Message-ID: <5286EF79.2080801@gmail.com>
-References: <5285F130.5060705@huawei.com> <4031.1384538565@death.nxdomain>
+Subject: Re: [PATCH tip/core/rcu 11/14] bonding/bond_main: Apply ACCESS_ONCE()
+ to avoid sparse false positive
+Date: Sat, 16 Nov 2013 12:32:16 +0800
+Message-ID: <5286F550.10900@gmail.com>
+References: <20131116003946.GA316@linux.vnet.ibm.com> <1384562417-817-1-git-send-email-paulmck@linux.vnet.ibm.com> <1384562417-817-11-git-send-email-paulmck@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
+Cc: linux-kernel@vger.kernel.org, mingo@kernel.org,
+	laijs@cn.fujitsu.com, dipankar@in.ibm.com,
+	akpm@linux-foundation.org, mathieu.desnoyers@efficios.com,
+	josh@joshtriplett.org, niv@us.ibm.com, tglx@linutronix.de,
+	peterz@infradead.org, rostedt@goodmis.org, dhowells@redhat.com,
+	edumazet@google.com, darren@dvhart.com, fweisbec@gmail.com,
+	sbw@mit.edu, Stephen Hemminger <stephen@networkplumber.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:47503 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752353Ab3KPESP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 23:18:15 -0500
-Received: by mail-pd0-f173.google.com with SMTP id x10so4292808pdj.4
-        for <netdev@vger.kernel.org>; Fri, 15 Nov 2013 20:18:14 -0800 (PST)
-In-Reply-To: <4031.1384538565@death.nxdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1384562417-817-11-git-send-email-paulmck@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=D3=DA 2013/11/16 2:02, Jay Vosburgh =D0=B4=B5=C0:
-> Ding Tianhong <dingtianhong@huawei.com> wrote:
+=D3=DA 2013/11/16 8:40, Paul E. McKenney =D0=B4=B5=C0:
+> From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 >
->> The primary_reselect only reselection for the primary slave,
->> but the primary slave only support for ALB, TLB and AB mode,
->> so we sould set the primary_reselect for these mode.
->>
->> to fix this: Add a check for ALB, TLB and AB mode in
->> bonding_store_primary_reselect, avoid to select active slave
->> again in other modes.
-> 	I don't believe that setting primary_reselect in a
-> !USES_PRIMARY() mode has any negative effects.  It doesn't do anythin=
-g,
-> but also doesn't break anything.  Is there a case that setting
-> primary_reselect causes misbehavior in a !USES_PRIMARY() mode?
+> The sparse checking for rcu_assign_pointer() was recently upgraded
+> to reject non-__kernel address spaces.  This also rejects __rcu,
+> which is almost always the right thing to do.  However, the uses in
+> bond_change_active_slave() and __bond_release_one() are legitimate:
+> They are assigning a pointer to an element from an RCU-protected list
+> (or a NULL pointer), and all elements of this list are already visibl=
+e
+> to caller.
 >
-> 	Presuming that primary_reselect doesn't break things, this just
-> adds an ordering limitation when configuring bonding (mode must be se=
-t
-> prior to primary_reselect).  I don't believe this change adds any val=
-ue,
-> and may break existing configuration scripts.
->
-> 	-J
-agree, I could not find any problem here, it is not bugfix, so miss it.
+> This commit therefore silences these false positives either by launde=
+ring
+> the pointers using ACCESS_ONCE() as suggested by Eric Dumazet and Jos=
+h
+> Triplett, or by using RCU_INIT_POINTER() for NULL pointer assignments=
+=2E
+I think it is fit for net-next.
 
-Regards
-Ding
 
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->> drivers/net/bonding/bond_sysfs.c | 7 +++++++
->> 1 file changed, 7 insertions(+)
->>
->> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/=
-bond_sysfs.c
->> index 47749c9..cac2291 100644
->> --- a/drivers/net/bonding/bond_sysfs.c
->> +++ b/drivers/net/bonding/bond_sysfs.c
->> @@ -1141,6 +1141,13 @@ static ssize_t bonding_store_primary_reselect=
-(struct device *d,
->> 	if (!rtnl_trylock())
->> 		return restart_syscall();
->>
->> +	if (!USES_PRIMARY(bond->params.mode)) {
->> +		pr_info("%s: Unable to set primary reselect; %s is in mode %d\n",
->> +			bond->dev->name, bond->dev->name, bond->params.mode);
->> +		ret =3D -EINVAL;
->> +		goto out;
->> +	}
->> +
->> 	new_value =3D bond_parse_parm(buf, pri_reselect_tbl);
->> 	if (new_value < 0)  {
->> 		pr_err("%s: Ignoring invalid primary_reselect value %.*s.\n",
->> --=20
->> 1.7.12
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: bridge@lists.linux-foundation.org
+> Cc: netdev@vger.kernel.org
 > ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>  drivers/net/bonding/bond_main.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
+nd_main.c
+> index 72df399c4ab3..bbd7fd3e46fe 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -890,7 +890,8 @@ void bond_change_active_slave(struct bonding *bon=
+d, struct slave *new_active)
+>  		if (new_active)
+>  			bond_set_slave_active_flags(new_active);
+>  	} else {
+> -		rcu_assign_pointer(bond->curr_active_slave, new_active);
+> +		/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
+> +		ACCESS_ONCE(bond->curr_active_slave) =3D new_active;
+>  	}
+> =20
+>  	if (bond->params.mode =3D=3D BOND_MODE_ACTIVEBACKUP) {
+> @@ -1801,7 +1802,7 @@ static int __bond_release_one(struct net_device=
+ *bond_dev,
+>  	}
+> =20
+>  	if (all) {
+> -		rcu_assign_pointer(bond->curr_active_slave, NULL);
+> +		RCU_INIT_POINTER(bond->curr_active_slave, NULL);
+>  	} else if (oldcurrent =3D=3D slave) {
+>  		/*
+>  		 * Note that we hold RTNL over this sequence, so there
