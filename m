@@ -1,35 +1,33 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/4] net/phy: Add VSC8234 support
-Date: Fri, 15 Nov 2013 18:04:36 -0800
-Message-ID: <CAGVrzcZmwQMcpk2MXDfq07NEnxYs+UF4016Z_CezMOKVix-9BQ@mail.gmail.com>
-References: <1384556305-17133-1-git-send-email-Shruti@Freescale.com> <20131115.205843.1202324001274425714.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] pkt_sched: fq: warn users using defrate
+Date: Fri, 15 Nov 2013 21:06:33 -0500 (EST)
+Message-ID: <20131115.210633.326047777015636759.davem@davemloft.net>
+References: <1384534646.28716.75.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Shruti@freescale.com, netdev <netdev@vger.kernel.org>,
-	afleming <afleming@gmail.com>, galak@kernel.crashing.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, maze@google.com, willemb@google.com,
+	ycheng@google.com, ncardwell@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:57685 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753282Ab3KPCFR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 21:05:17 -0500
-Received: by mail-pb0-f44.google.com with SMTP id rp16so4356351pbb.3
-        for <netdev@vger.kernel.org>; Fri, 15 Nov 2013 18:05:16 -0800 (PST)
-In-Reply-To: <20131115.205843.1202324001274425714.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32835 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753068Ab3KPCGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 21:06:35 -0500
+In-Reply-To: <1384534646.28716.75.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/11/15 David Miller <davem@davemloft.net>:
->
-> These patches didn't actually make it to the netdev list, so they
-> were not queued up in patchwork.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 15 Nov 2013 08:57:26 -0800
 
-Are you sure about them not making it to netdev? marc.info also has
-the 4 of them here:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Commit 7eec4174ff29 ("pkt_sched: fq: fix non TCP flows pacing")
+> obsoleted TCA_FQ_FLOW_DEFAULT_RATE without notice for the users.
+> 
+> Suggested by David Miller
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-http://marc.info/?l=linux-netdev&m=138455632228947&w=2
-http://marc.info/?l=linux-netdev&m=138455632828949&w=2
-http://marc.info/?l=linux-netdev&m=138455633228950&w=2
-http://marc.info/?l=linux-netdev&m=138455633628952&w=2
--- 
-Florian
+Applied and queued up for -stable.
