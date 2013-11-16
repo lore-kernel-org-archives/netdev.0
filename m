@@ -1,52 +1,105 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] socket: don't return uninitialized addresses on concurrent socket shutdown
-Date: Sat, 16 Nov 2013 07:42:00 +0100
-Message-ID: <20131116064200.GJ26901@order.stressinduktion.org>
-References: <CAApbN=Jm=zuDaVYALmGg5z_QfJJ3q13e9tshb7OpAtPQ8Ema1w@mail.gmail.com> <CAApbN=K8j+XQG+pQF2fxBSrDEPcjD242e9uP72azD9XWBzHcGQ@mail.gmail.com> <20131116054344.GG26901@order.stressinduktion.org> <20131116054814.GH26901@order.stressinduktion.org> <1384583569.8604.4.camel@edumazet-glaptop2.roam.corp.google.com> <20131116063956.GI26901@order.stressinduktion.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v3] net: Do not include padding in TCP GRO checksum
+Date: Sat, 16 Nov 2013 14:46:11 +0800
+Message-ID: <20131116064611.GA12146@gondor.apana.org.au>
+References: <20131115225856.6988.69733.stgit@ahduyck-fpga.jf.intel.com>
+ <20131116004738.GA1491@gondor.apana.org.au>
+ <20131116015301.GA1999@gondor.apana.org.au>
+ <5286F018.8060801@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Eric Dumazet <eric.dumazet@gmail.com>, mpb <mpb.mail@gmail.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, edumazet@google.com
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:46514 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751183Ab3KPGmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 01:42:01 -0500
+Received: from ringil.hengli.com.au ([178.18.16.133]:37505 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751208Ab3KPGqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 01:46:18 -0500
 Content-Disposition: inline
-In-Reply-To: <20131116063956.GI26901@order.stressinduktion.org>
+In-Reply-To: <5286F018.8060801@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 16, 2013 at 07:39:56AM +0100, Hannes Frederic Sowa wrote:
-> On Fri, Nov 15, 2013 at 10:32:49PM -0800, Eric Dumazet wrote:
-> > On Sat, 2013-11-16 at 06:48 +0100, Hannes Frederic Sowa wrote:
-> > > If a blocking read waits on a socket which gets concurrently shut down we
-> > > return 0 as error and so indicate success to the socket functions which
-> > > thus copy an uninitialized stack allocated address back to the user.
-> > > Fix this by clearing the 128 byte size (on x86-64) address first.
-> > > 
-> > > This patch fixes the problem for recvfrom, recvmsg and recvmmsg.
-> > > 
-> > > Reported-by: mpb <mpb.mail@gmail.com>
-> > > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > > ---
-> > 
-> > Are you clearing 128 bytes on every recvfrom() system call, just in case
-> > of this shutdown() issue ?
-> 
-> Yes, that gave me a bad feeling, too (so I explicitly mentioned it in the
-> changelog and hoped for some discussion).
-> 
-> > Can't we avoid this overhead ?
-> > 
-> > msg.msg_namelen should be set to 0 in this case.
-> 
-> I don't see how, currently. Either we tunnel a new return value through
-> ->recvmsg or we use the address structure, mark it with a special AF_FOO and
-> check if we get back that same value.
-> 
-> I don't see how msg.msg_namelen set to zero can help?
+On Fri, Nov 15, 2013 at 08:10:00PM -0800, Alexander Duyck wrote:
+>
+> The case I am addressing is padding added by the remote side. 
+> Specifically in my case I was seeing TCP frames without options that
+> were padded up to 60 bytes from a netperf TCP_RR test.  I messed up the
+> padding/checksum logic so it was making the same mistake in the Tx
+> checksum logic in the driver that I caught here in GRO.  As a result I
+> was seeing checksum errors errors in wireshark, but noticed they were
+> being accepted by the stack as valid.
 
-We could also think about changing the return value on concurrent closed
-sockets entirely and avoiding this whole issue. It would only change
-concurrent shutdown()/read() behaviour, not close as far as I can see.
+OK great.  So this isn't normal data that we expect to aggregate.
+
+In that case the simplest solution is to skip the checksum check
+altogether.  We only require it if the packet is going to be merged.
+
+So how about something like this?
+
+gro: Only verify TCP checksums for candidates
+
+In some cases we may receive IP packets that are longer than
+their stated lengths.  Such packets are never merged in GRO.
+However, we may end up computing their checksums incorrectly
+and end up allowing packets with a bogus checksum enter our
+stack with the checksum status set as verified.
+
+Since such packets are rare and not performance-critical, this
+patch simply skips the checksum verification for them.
+
+Reported-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+index a2b68a1..55aeec9 100644
+--- a/net/ipv4/tcp_offload.c
++++ b/net/ipv4/tcp_offload.c
+@@ -276,6 +276,10 @@ static struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *
+ 	__wsum wsum;
+ 	__sum16 sum;
+ 
++	/* Don't bother verifying checksum if we're going to flush anyway. */
++	if (NAPI_GRO_CB(skb)->flush)
++		goto skip_csum;
++
+ 	switch (skb->ip_summed) {
+ 	case CHECKSUM_COMPLETE:
+ 		if (!tcp_v4_check(skb_gro_len(skb), iph->saddr, iph->daddr,
+@@ -301,6 +305,7 @@ flush:
+ 		break;
+ 	}
+ 
++skip_csum:
+ 	return tcp_gro_receive(head, skb);
+ }
+ 
+diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
+index c1097c7..71923d1 100644
+--- a/net/ipv6/tcpv6_offload.c
++++ b/net/ipv6/tcpv6_offload.c
+@@ -39,6 +39,10 @@ static struct sk_buff **tcp6_gro_receive(struct sk_buff **head,
+ 	__wsum wsum;
+ 	__sum16 sum;
+ 
++	/* Don't bother verifying checksum if we're going to flush anyway. */
++	if (NAPI_GRO_CB(skb)->flush)
++		goto skip_csum;
++
+ 	switch (skb->ip_summed) {
+ 	case CHECKSUM_COMPLETE:
+ 		if (!tcp_v6_check(skb_gro_len(skb), &iph->saddr, &iph->daddr,
+@@ -65,6 +69,7 @@ flush:
+ 		break;
+ 	}
+ 
++skip_csum:
+ 	return tcp_gro_receive(head, skb);
+ }
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
