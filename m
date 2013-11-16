@@ -1,62 +1,70 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/2] net: ipv6: af_inet6: Fix warning when CONFIG_SYSCTL=n
-Date: Sat, 16 Nov 2013 19:26:00 +0100
-Message-ID: <20131116182600.GB16541@order.stressinduktion.org>
-References: <1384570328-21666-1-git-send-email-festevam@gmail.com> <5287B3E2.2030301@gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: [PATCH] ipv6: Fix inet6_init() cleanup order
+Date: Sat, 16 Nov 2013 14:01:40 -0500
+Message-ID: <5287C114.3040306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Fabio Estevam <festevam@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	lorenzo@google.com, Fabio Estevam <fabio.estevam@freescale.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47253 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752478Ab3KPS0C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 13:26:02 -0500
-Content-Disposition: inline
-In-Reply-To: <5287B3E2.2030301@gmail.com>
+Received: from mail-qa0-f54.google.com ([209.85.216.54]:43447 "EHLO
+	mail-qa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752584Ab3KPTBn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 14:01:43 -0500
+Received: by mail-qa0-f54.google.com with SMTP id f11so324764qae.6
+        for <netdev@vger.kernel.org>; Sat, 16 Nov 2013 11:01:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 16, 2013 at 01:05:22PM -0500, Vlad Yasevich wrote:
-> On 11/15/2013 09:52 PM, Fabio Estevam wrote:
-> > From: Fabio Estevam <fabio.estevam@freescale.com>
-> > 
-> > When CONFIG_SYSCTL=n the following build warning happens:
-> > 
-> > net/ipv6/af_inet6.c:710:13: warning: 'ipv6_packet_cleanup' defined but not used [-Wunused-function]
-> > 
-> > ipv6_packet_cleanup() is only used when CONFIG_SYSCTL=y, so protect its 
-> > definition with an'ifdef CONFIG_SYSCTL'.
-> > 
-> > Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
-> > ---
-> >  net/ipv6/af_inet6.c | 2 ++
-> >  1 file changed, 2 insertions(+)
-> > 
-> > diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-> > index ff75313..e4ad65c 100644
-> > --- a/net/ipv6/af_inet6.c
-> > +++ b/net/ipv6/af_inet6.c
-> > @@ -707,10 +707,12 @@ static int __init ipv6_packet_init(void)
-> >  	return 0;
-> >  }
-> >  
-> > +#ifdef CONFIG_SYSCTL
-> >  static void ipv6_packet_cleanup(void)
-> >  {
-> >  	dev_remove_pack(&ipv6_packet_type);
-> >  }
-> > +#endif
-> >  
-> >  static int __net_init ipv6_init_mibs(struct net *net)
-> >  {
-> > 
-> 
-> NACK.  ipv6_packet_init and ipv6_packet_cleanup should in no way depend
-> on sysctl.
+Commit 6d0bfe22611602f36617bc7aa2ffa1bbb2f54c67
+	net: ipv6: Add IPv6 support to the ping socket
 
-It is only used in an error path if CONFIG_SYSCTL=y. I agree it does
-look a bit odd.
+introduced a change in the cleanup logic of inet6_init and
+has a bug in that ipv6_packet_cleanup() may not be called.
+Fix the cleanup ordering and add __maybe_unused to pingv6_exit
+since it may not be called if CONFIG_SYSCTL is turned off.
 
-Maybe just add __maybe_unused to ipv6_packet_cleanup?
+CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
+CC: Lorenzo Colitti <lorenzo@google.com>
+CC: Fabio Estevam <fabio.estevam@freescale.com>
+Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
+---
+ net/ipv6/af_inet6.c | 4 ++--
+ net/ipv6/ping.c     | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 6468bda..56ca35b 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -958,10 +958,10 @@ out:
+  #ifdef CONFIG_SYSCTL
+ sysctl_fail:
+-	ipv6_packet_cleanup();
++	pingv6_exit();
+ #endif
+ pingv6_fail:
+-	pingv6_exit();
++	ipv6_packet_cleanup();
+ ipv6_packet_fail:
+ 	tcpv6_exit();
+ tcpv6_fail:
+diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+index 8815e31..5da68ae 100644
+--- a/net/ipv6/ping.c
++++ b/net/ipv6/ping.c
+@@ -263,7 +263,7 @@ int __init pingv6_init(void)
+ /* This never gets called because it's not possible to unload the ipv6
+module,
+  * but just in case.
+  */
+-void pingv6_exit(void)
++void __maybe_unused pingv6_exit(void)
+ {
+ 	pingv6_ops.ipv6_recv_error = dummy_ipv6_recv_error;
+ 	pingv6_ops.ip6_datagram_recv_ctl = dummy_ip6_datagram_recv_ctl;
+-- 
+1.8.4.2
