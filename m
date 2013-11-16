@@ -1,54 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] genetlink: reduce ops size and complexity (v2)
-Date: Fri, 15 Nov 2013 20:54:14 -0500 (EST)
-Message-ID: <20131115.205414.2167691852332909992.davem@davemloft.net>
-References: <20131114.171204.1979806323628158355.davem@davemloft.net>
-	<1384521515.14295.2.camel@jlt4.sipsolutions.net>
-	<1384521794.14295.5.camel@jlt4.sipsolutions.net>
+Subject: Re: [PATCH 1/4] net/phy: Add VSC8234 support
+Date: Fri, 15 Nov 2013 20:58:43 -0500 (EST)
+Message-ID: <20131115.205843.1202324001274425714.davem@davemloft.net>
+References: <1384556305-17133-1-git-send-email-Shruti@Freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wimax@intel.com,
-	bsingharora@gmail.com, netfilter-devel@vger.kernel.org,
-	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com
-To: johannes@sipsolutions.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1384521794.14295.5.camel@jlt4.sipsolutions.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, afleming@gmail.com,
+	galak@kernel.crashing.org
+To: Shruti@Freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32802 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753068Ab3KPB6p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 20:58:45 -0500
+In-Reply-To: <1384556305-17133-1-git-send-email-Shruti@Freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Fri, 15 Nov 2013 14:23:14 +0100
 
-> On Fri, 2013-11-15 at 14:18 +0100, Johannes Berg wrote:
-> 
->> I've been eyeing the multicast groups as well
-> 
-> Of course, there are also *much* fewer mcast groups, so the saving isn't
-> nearly as big. But we still have some oddball code to register them all,
-> basically
-> 
-> 	err = register_mc_group();
-> 	if (err)
-> 		goto unregister_family;
-> 
-> (since we have to register the family first, afaict)
-> 
-> sometimes a few of those back to back, and it'd be nicer on the users if
-> that just went away and was
-> 
-> 	family.mcast_groups = my_groups;
-> 	family.n_mcast_groups = ARRAY_SIZE(my_groups);
-> 	family.ops = my_ops;
-> 	family.n_ops = ARRAY_SIZE(my_ops);
-> 	return genl_register_family(&family);
-> 
-> since nobody uses them dynamically anyway, afaict.
-
-See my other email:
-
-#define genl_register_family_with_ops_mcast(family, ops, groups) \
-	__genl_register_family(family, ops, ARRAY_SIZE(ops), groups, ARRAY_SIZE(groups))
-
-you get the idea.
-
+These patches didn't actually make it to the netdev list, so they
+were not queued up in patchwork.
