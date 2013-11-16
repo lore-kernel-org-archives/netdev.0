@@ -1,101 +1,68 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] sh_eth: call phy_scan_fixups() after PHY reset
-Date: Fri, 15 Nov 2013 16:04:52 -0800
-Message-ID: <CAGVrzcaKA7T7Cppg0g29wsUZBu4-6+AY+6teH1SWSiT=D7RQBQ@mail.gmail.com>
-References: <523CEAD2.7030706@cogentembedded.com> <5271712A.6020105@cogentembedded.com>
- <52795282.20708@cogentembedded.com> <20131105.150153.251029756944194421.davem@davemloft.net>
- <5286C054.9090602@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	nobuhiro.iwamatsu.yj@renesas.com, netdev <netdev@vger.kernel.org>,
-	linux-sh@vger.kernel.org, laurent.pinchart+renesas@ideasonboard.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <5286C054.9090602@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: [PATCH tip/core/rcu 10/14] bridge/br_mdb: Apply
+	ACCESS_ONCE() to avoid sparse false positive
+Date: Fri, 15 Nov 2013 16:40:13 -0800
+Message-ID: <1384562417-817-10-git-send-email-paulmck@linux.vnet.ibm.com>
+References: <20131116003946.GA316@linux.vnet.ibm.com>
+	<1384562417-817-1-git-send-email-paulmck@linux.vnet.ibm.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>, tglx@linutronix.de,
+	laijs@cn.fujitsu.com, edumazet@google.com, peterz@infradead.org,
+	fweisbec@gmail.com, bridge@lists.linux-foundation.org,
+	josh@joshtriplett.org, rostedt@goodmis.org,
+	"David S. Miller" <davem@davemloft.net>, dhowells@redhat.com,
+	sbw@mit.edu, niv@us.ibm.com, netdev@vger.kernel.org,
+	mathieu.desnoyers@efficios.com, dipankar@in.ibm.com,
+	darren@dvhart.com, akpm@linux-foundation.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, mingo@kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1384562417-817-1-git-send-email-paulmck@linux.vnet.ibm.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-2013/11/15 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
-> Hello.
->
->
-> On 11/05/2013 11:01 PM, David Miller wrote:
->
->>>     David, will you ever reply to this mail?
->
->
->> I really haven't had the time with my backlog, and it's been so long ago
->> that I've forgotten all of the context.
->
->
->    Hm, I thought I provided enough context and also that's what mail
-> archives are for... :-)
->
->
->> Sorry, someone will have to start the conversation up anew.
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 
-[snip]
+The sparse checking for rcu_assign_pointer() was recently upgraded
+to reject non-__kernel address spaces.  This also rejects __rcu,
+which is almost always the right thing to do.  However, the use in
+__br_mdb_del() is legitimate: They are assigning a pointer to an element
+from an RCU-protected list, and all elements of this list are already
+visible to caller.
 
->
->    Now, about the ways to deal with this issue that I see.
->    First I thought about using PHY platform fixup mechanism which is already
-> hooked up to a PHY reset in phy_mii_ioctl() (the code is somewhat naive
-> though as it doesn't wait for the reset completion before calling fixups and
-> the driver's config_init() method).
+This commit therefore silences these false positives by laundering
+the pointers using ACCESS_ONCE() as suggested by Eric Dumazet and Josh
+Triplett.
 
-That's something that needs fixing and also a dedicated helper or such
-should be used because we are potentially messing up with the
-configuration the PHY library thinks it has applied to the PHY (e.g:
-disabling auto-negotiation etc...).
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: bridge@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org
+---
+ net/bridge/br_mdb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> All I needed is calling fixups after
-> direct PHY reset done via phy_write() but I didn't want to add a hook there
-> due to that reset completion wait loop that was obviously necessary (this
-> function is simple *inline*), so went for a simplistic local
-> phy_scan_fixups() call (that function was helpfully already exported
-> although not called by anyone except phylib itself) after PHY reset in the
-> 'sh_eth' driver which you saw in my patch and which you didn't like; I've
-> also coded the PHY platform fixup which got successfully merged via
-> arch/arm/mach-shmobile/ subtree at that time. Your argument was that the
-> driver is going against the control flow provided by phylib (it's not alone
-> doing PHY reset, I should note) and so you wanted me to embed everything
-> into phylib control flow. I replied that I fear the unexpected consequencies
-> of doing compulsory PHY reset for every driver using phylib (that's how I
-> understood your idea at least)... then, after a long pause, I suggested to
-> code phy_reset() function within phylib which the drivers that currently do
-> reset their PHYs could use instead of open coding the reset bit polling
-> loop, etc. and which would include a hook for the platform fixups and PHY
-> driver config_init() call. I'd still like to hear your opinion on this
-> approach -- which is less invasive.
->    What I can also do in this case is again ignore ETH_LINK signal in the
-> 'sh_eth' driver and stop caring about the LED functions matching to what's
-> designed for the boards. This doesn't need PHY platform fixup or any change
-> in phylib and Ethernet driver.
-
-This signal is probably present for a good reason: avoiding expensive
-MDIO register access, and if that works for most platforms why not
-keeping it?
-
->    What I also can do is stop resetting PHY in the 'sh_eth' driver (only
-> getting it out of sleep for which the reset doesn't seem necessary),
-> although we'd still need the PHY platform fixup for the PHY resets done via
-> phy_mii_ioctl()... I'm not so much familiar with the driver to be sure it
-> won't hurt (the driver is used on e.g. some SH platforms I don't get any
-> access to) and I couldn't get any useful input from the driver's primary
-> author -- but perhaps it's really not necessary. What do you think?
-
-Quite a lot of PHYs actually require a reset through BMCR_RESET when
-resuming from S2/S3 sleep states and even if they do not, it does not
-hurt doing so, I would welcome a generic solution to do that which
-would not circumvent the libphy state machine and APIs. So the general
-idea would be to:
-
-- provide a helper, e.g: phy_reset(phydev) which:
-- toggles BMCR_RESET, waits for it to be clear
-- call fixups on the phy_device
-- call config_init on the phy_device
-- restores any kind of duplex/autoneg settings we enabled/disabled
-- resume the PHY state machine at the appropriate state
---
-Florian
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index 85a09bb5ca51..de7197ba8695 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -447,7 +447,7 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
+ 		if (p->port->state == BR_STATE_DISABLED)
+ 			goto unlock;
+ 
+-		rcu_assign_pointer(*pp, p->next);
++		ACCESS_ONCE(*pp) = p->next; /* OK: Both --rcu and visible. */
+ 		hlist_del_init(&p->mglist);
+ 		del_timer(&p->timer);
+ 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
+-- 
+1.8.1.5
