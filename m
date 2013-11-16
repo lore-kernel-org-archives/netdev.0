@@ -1,105 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] veth: extend features to support tunneling
-Date: Sat, 16 Nov 2013 13:40:27 -0800
-Message-ID: <1384638027.8604.22.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAJZOPZ+jUanPW2mT_HiSWdvGfdRMHpX6vWyrboS3Zf_gH7rEgQ@mail.gmail.com>
+From: mpb <mpb.mail@gmail.com>
+Subject: Re: [PATCH v3] net: don't return uninitialized addresses on
+ concurrent socket shutdown
+Date: Sat, 16 Nov 2013 13:57:12 -0800
+Message-ID: <CAApbN=K4gMqsk1SEPfdR1+J0CgoxYDONSi83TPNMxxHisXmA9A@mail.gmail.com>
+References: <CAApbN=Jm=zuDaVYALmGg5z_QfJJ3q13e9tshb7OpAtPQ8Ema1w@mail.gmail.com>
+	<CAApbN=K8j+XQG+pQF2fxBSrDEPcjD242e9uP72azD9XWBzHcGQ@mail.gmail.com>
+	<20131116054344.GG26901@order.stressinduktion.org>
+	<20131116054814.GH26901@order.stressinduktion.org>
+	<20131116191916.GC16541@order.stressinduktion.org>
+	<1384634802.8604.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:56496 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752127Ab3KPVka (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 16:40:30 -0500
-Received: by mail-pb0-f41.google.com with SMTP id jt11so5089993pbb.0
-        for <netdev@vger.kernel.org>; Sat, 16 Nov 2013 13:40:29 -0800 (PST)
-In-Reply-To: <CAJZOPZ+jUanPW2mT_HiSWdvGfdRMHpX6vWyrboS3Zf_gH7rEgQ@mail.gmail.com>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:35412 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752127Ab3KPV5M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 16:57:12 -0500
+Received: by mail-ob0-f176.google.com with SMTP id wp4so5378244obc.21
+        for <netdev@vger.kernel.org>; Sat, 16 Nov 2013 13:57:12 -0800 (PST)
+In-Reply-To: <1384634802.8604.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-11-16 at 23:11 +0200, Or Gerlitz wrote:
+>> @@ -1847,6 +1848,8 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
+>>       err = sock_recvmsg(sock, &msg, size, flags);
+>>
+>>       if (err >= 0 && addr != NULL) {
+>> +             if (unlikely(address.ss_family == AF_INVALID))
+>> +                     memset(&address, 0, sizeof(address));
 
-> Guys (thanks Eric for the clarification over the other vxlan thread),
-> with the latest networking code (e.g 3.12 or net-next)  do you expect
-> notable performance (throughput) difference between these two configs?
-> 
-> 1. bridge --> vxlan --> NIC
-> 2. veth --> bridge --> vxlan --> NIC
-> 
-> BTW #2 doesn't work when packets start to be large unless I manually
-> decrease the veth device pair MTU. E.g if the NIC MTU is 1500, vxlan
-> advertizes an MTU of 1450 (= 1500 - (14 + 20 + 8 + 8)) and the bridge
-> inherits that, but not the veth device. Should someone/somewhere here
-> generate an ICMP packet which will cause the stack to decreate the
-> path mtu for the neighbour created on the veth device? what about
-> para-virtualized guests which are plugged into this (or any host based
-> tunneling) scheme, e.g in this scheme
-> 
-> 3. guest virtio NIC --> vhost  --> tap/macvtap --> bridge --> vxlan --> NIC
-> 
-> Who/how do we want the guest NIC mtu/path mtu to take into account the
-> tunneling over-head?
+Or perhaps only when err == 0?
 
-I mentioned this problem on another thread : gso packets escape the
-normal mtu checks in ip forwarding.
+      if (err >= 0 && addr != NULL) {
++             if ( (err == 0)  &&  unlikely(address.ss_family == AF_INVALID) )
++                     memset(&address, 0, sizeof(address));
 
-vi +91 net/ipv4/ip_forward.c
+In other words, in pseudo code:
 
-gso_size contains the size of the segment minus all headers.
+When err == 0, the kernel checks to make sure the socket has not been
+shutdown before calling move_addr_to_user.
+If err == 0 and a shutdown has happened, then set addr to a value that
+signifies that a shutdown was detected (or at least that a message was
+not received).  After a shutdown, I believe err will only be one of 0
+or -1.  If err > 0, then a shutdown has not happened.
 
-Please try the following :
+Another approach would be to return -1 to userland and set errno to
+something like EWOULDBLOCK.
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index d68633452d9b..489b56935a56 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -388,4 +388,16 @@ static inline int fastopen_init_queue(struct sock *sk, int backlog)
- 	return 0;
- }
- 
-+static inline unsigned int gso_size_with_headers(const struct sk_buff *skb)
-+{
-+	unsigned int hdrlen = skb_transport_header(skb) - skb_mac_header(skb);
-+
-+	if (skb_shinfo(skb)->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))
-+		hdrlen += tcp_hdrlen(skb);
-+	else
-+		hdrlen += 8; // sizeof(struct udphdr)
-+
-+	return skb_shinfo(skb)->gso_size + hdrlen;
-+}
-+
- #endif	/* _LINUX_TCP_H */
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 694de3b7aebf..3949cc1dd1ca 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -57,6 +57,7 @@ int ip_forward(struct sk_buff *skb)
- 	struct iphdr *iph;	/* Our header */
- 	struct rtable *rt;	/* Route we use */
- 	struct ip_options *opt	= &(IPCB(skb)->opt);
-+	unsigned int len;
- 
- 	if (skb_warn_if_lro(skb))
- 		goto drop;
-@@ -88,7 +89,11 @@ int ip_forward(struct sk_buff *skb)
- 	if (opt->is_strictroute && rt->rt_uses_gateway)
- 		goto sr_failed;
- 
--	if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
-+	len = skb->len;
-+	if (skb_is_gso(skb))
-+		len = gso_size_with_headers(skb);
-+
-+	if (unlikely(len > dst_mtu(&rt->dst) &&
- 		     (ip_hdr(skb)->frag_off & htons(IP_DF))) && !skb->local_df) {
- 		IP_INC_STATS(dev_net(rt->dst.dev), IPSTATS_MIB_FRAGFAILS);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
+Another thought: addr_len is probably smaller than sizeof(address), so
+only memset whichever is smaller.
+
+If I had a *BSD box or VM sitting around, I would look to see what
+*BSD does (and perhaps copy the *BSD behavior if it were acceptable).
+
+Eric Dumazet wrote:
+> I really don't think userland should expect to read 128 null bytes if it
+> asked 128 bytes.
+>
+> We can certainly return 2 null bytes (AF_UNSPEC)
+
+AF_UNSPEC is good (and sufficient, IMO).
+
+Do we need to add AF_INVALID at all?  Why not just use AF_UNSPEC?
+
+> and comply with the documentation.
+
+What documentation?  The interesting thing about this situation is I
+have not seen any manpage that describes what should happen after a
+concurrent shutdown.
+
+-mpb
