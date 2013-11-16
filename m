@@ -1,70 +1,91 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: [PATCH] ipv6: Fix inet6_init() cleanup order
-Date: Sat, 16 Nov 2013 14:01:40 -0500
-Message-ID: <5287C114.3040306@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH v3] net: don't return uninitialized addresses on concurrent socket shutdown
+Date: Sat, 16 Nov 2013 20:19:16 +0100
+Message-ID: <20131116191916.GC16541@order.stressinduktion.org>
+References: <CAApbN=Jm=zuDaVYALmGg5z_QfJJ3q13e9tshb7OpAtPQ8Ema1w@mail.gmail.com> <CAApbN=K8j+XQG+pQF2fxBSrDEPcjD242e9uP72azD9XWBzHcGQ@mail.gmail.com> <20131116054344.GG26901@order.stressinduktion.org> <20131116054814.GH26901@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	lorenzo@google.com, Fabio Estevam <fabio.estevam@freescale.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+To: mpb <mpb.mail@gmail.com>, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f54.google.com ([209.85.216.54]:43447 "EHLO
-	mail-qa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752584Ab3KPTBn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 14:01:43 -0500
-Received: by mail-qa0-f54.google.com with SMTP id f11so324764qae.6
-        for <netdev@vger.kernel.org>; Sat, 16 Nov 2013 11:01:42 -0800 (PST)
+Received: from order.stressinduktion.org ([87.106.68.36]:47319 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751483Ab3KPTTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 14:19:17 -0500
+Content-Disposition: inline
+In-Reply-To: <20131116054814.GH26901@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 6d0bfe22611602f36617bc7aa2ffa1bbb2f54c67
-	net: ipv6: Add IPv6 support to the ping socket
+If a blocking read waits on a socket which gets concurrently shut down we
+return 0 as error and so indicate success to the socket functions which
+thus copies an uninitialized stack allocated address back to the user.
 
-introduced a change in the cleanup logic of inet6_init and
-has a bug in that ipv6_packet_cleanup() may not be called.
-Fix the cleanup ordering and add __maybe_unused to pingv6_exit
-since it may not be called if CONFIG_SYSCTL is turned off.
+Fix this by introducing a new AF_INVALID sa_family marker and check if the
+recvmsg function overwrote it. In case it was not overwritten, clear the
+address with zeros (AF_UNSPEC) before returning it to the user. IMHO we
+should only increase msg.msg_namelen (if we have to truncate the address),
+so don't clear msg.msg_namelen.
 
-CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
-CC: Lorenzo Colitti <lorenzo@google.com>
-CC: Fabio Estevam <fabio.estevam@freescale.com>
-Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
+This patch fixes the problem for recvfrom, recvmsg and recvmmsg.
+
+Reported-by: mpb <mpb.mail@gmail.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/ipv6/af_inet6.c | 4 ++--
- net/ipv6/ping.c     | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ include/linux/socket.h | 2 ++
+ net/socket.c           | 6 ++++++
+ 2 files changed, 8 insertions(+)
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 6468bda..56ca35b 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -958,10 +958,10 @@ out:
-  #ifdef CONFIG_SYSCTL
- sysctl_fail:
--	ipv6_packet_cleanup();
-+	pingv6_exit();
- #endif
- pingv6_fail:
--	pingv6_exit();
-+	ipv6_packet_cleanup();
- ipv6_packet_fail:
- 	tcpv6_exit();
- tcpv6_fail:
-diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
-index 8815e31..5da68ae 100644
---- a/net/ipv6/ping.c
-+++ b/net/ipv6/ping.c
-@@ -263,7 +263,7 @@ int __init pingv6_init(void)
- /* This never gets called because it's not possible to unload the ipv6
-module,
-  * but just in case.
-  */
--void pingv6_exit(void)
-+void __maybe_unused pingv6_exit(void)
- {
- 	pingv6_ops.ipv6_recv_error = dummy_ipv6_recv_error;
- 	pingv6_ops.ip6_datagram_recv_ctl = dummy_ip6_datagram_recv_ctl;
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 445ef75..bdf9205 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -182,6 +182,8 @@ struct ucred {
+ #define AF_VSOCK	40	/* vSockets			*/
+ #define AF_MAX		41	/* For now.. */
+ 
++#define AF_INVALID	((__kernel_sa_family_t)(~0U))
++
+ /* Protocol families, same as address families. */
+ #define PF_UNSPEC	AF_UNSPEC
+ #define PF_UNIX		AF_UNIX
+diff --git a/net/socket.c b/net/socket.c
+index c226ace..8361e15 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1834,6 +1834,7 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
+ 	if (!sock)
+ 		goto out;
+ 
++	address.ss_family = AF_INVALID;
+ 	msg.msg_control = NULL;
+ 	msg.msg_controllen = 0;
+ 	msg.msg_iovlen = 1;
+@@ -1847,6 +1848,8 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
+ 	err = sock_recvmsg(sock, &msg, size, flags);
+ 
+ 	if (err >= 0 && addr != NULL) {
++		if (unlikely(address.ss_family == AF_INVALID))
++			memset(&address, 0, sizeof(address));
+ 		err2 = move_addr_to_user(&address,
+ 					 msg.msg_namelen, addr, addr_len);
+ 		if (err2 < 0)
+@@ -2226,6 +2229,7 @@ static int ___sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
+ 	 *      kernel msghdr to use the kernel address space)
+ 	 */
+ 
++	addr.ss_family = AF_INVALID;
+ 	uaddr = (__force void __user *)msg_sys->msg_name;
+ 	uaddr_len = COMPAT_NAMELEN(msg);
+ 	if (MSG_CMSG_COMPAT & flags) {
+@@ -2248,6 +2252,8 @@ static int ___sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
+ 	len = err;
+ 
+ 	if (uaddr != NULL) {
++		if (unlikely(addr.ss_family == AF_INVALID))
++			memset(&addr, 0, sizeof(addr));
+ 		err = move_addr_to_user(&addr,
+ 					msg_sys->msg_namelen, uaddr,
+ 					uaddr_len);
 -- 
-1.8.4.2
+1.8.3.1
