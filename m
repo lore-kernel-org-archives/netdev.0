@@ -1,147 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v3] net: Do not include padding in TCP GRO checksum
-Date: Sat, 16 Nov 2013 15:23:50 +0800
-Message-ID: <20131116072350.GA12530@gondor.apana.org.au>
-References: <20131115225856.6988.69733.stgit@ahduyck-fpga.jf.intel.com>
- <20131116004738.GA1491@gondor.apana.org.au>
- <20131116015301.GA1999@gondor.apana.org.au>
- <5286F018.8060801@gmail.com>
- <20131116064611.GA12146@gondor.apana.org.au>
+From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH] random: seed random_int_secret at least poorly at core_initcall time
+Date: Sat, 16 Nov 2013 08:40:29 +0100
+Message-ID: <20131116074029.GA16541@order.stressinduktion.org>
+References: <cover.1384160397.git.dborkman@redhat.com> <2ea03f60bb65429cbe5d74a6d356fde3eefcf06c.1384160397.git.dborkman@redhat.com> <20131111134357.GC10104@thunk.org> <20131112000307.GB14929@order.stressinduktion.org> <20131112115350.GA14077@thunk.org> <20131112131627.GD14929@order.stressinduktion.org> <20131112134603.GE14929@order.stressinduktion.org> <20131114025448.GB31602@thunk.org> <20131114041829.GA26901@order.stressinduktion.org> <CAGXu5jJJtjvAqROzsekOd9Y5wbiw=G9ToNryOfP8auhQRrYORw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, edumazet@google.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:48530 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751208Ab3KPHX5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 02:23:57 -0500
+Content-Type: text/plain; charset=utf-8
+Cc: Theodore Ts'o <tytso-3s7WtUTddSA@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	shemminger-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, Florian Weimer <fweimer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20131116064611.GA12146@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAGXu5jJJtjvAqROzsekOd9Y5wbiw=G9ToNryOfP8auhQRrYORw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 16, 2013 at 02:46:11PM +0800, Herbert Xu wrote:
+On Fri, Nov 15, 2013 at 10:42:28AM -0800, Kees Cook wrote:
+> On Wed, Nov 13, 2013 at 8:18 PM, Hannes Frederic Sowa
+> <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org> wrote:
+> > On Wed, Nov 13, 2013 at 09:54:48PM -0500, Theodore Ts'o wrote:
+> >> On Tue, Nov 12, 2013 at 02:46:03PM +0100, Hannes Frederic Sowa wrote:
+> >> > > It is needed by fork to set up the stack canary. And this actually gets
+> >> > > called before the secret is initialized.
+> >> >
+> >> > Maybe we could use this for the time being and use the seeding method
+> >> > of kaslr as soon as it hits the tree?
+> >>
+> >> Hmm, from what I can tell even early_initcall() is going to be early
+> >> enough.  The stack canary is set up by boot_init_stack_canary(), which
+> >> is run very, very early in start_kerne() --- way before
+> >> early_initcalls, or even before interrupts are enabled.  So adding
+> >> random_int_secret_init_early() as a core_initcall is still too late.
+> >
+> > Actually I tried to protect the tsk->stack_canary = get_random_int()
+> > in fork.c. It sets up the per-task canary.
 > 
-> gro: Only verify TCP checksums for candidates
+> I haven't looked closely yet at how the stack canary gets plumbed, but
+> what do things outside of process context end up using?
 
-And here is a patch on top of it that simplifies the checksum
-code.
+Early on boot __stack_chk_guard gets initialized. The address of this symbol
+is looked up by gcc to assemble the stack guard checks.
 
-gro: Clean up tcpX_gro_receive checksum verification
-    
-This patch simplifies the checksum verification in tcpX_gro_receive
-by reusing the CHECKSUM_COMPLETE code for CHECKSUM_NONE.  All it
-does for CHECKSUM_NONE is compute the partial checksum and then
-treat it as if it came from the hardware (CHECKSUM_COMPLETE).
-    
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Only on ARM with !CONFIG_SMP the __stack_chk_guard is switched as soon
+as a new process context is entered. This is not possible if the kernel
+is compiled for CONFIG_SMP and the kernel will fallback to the one global
+__stack_chk_guard canary.
 
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 55aeec9..0560635 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -274,35 +274,29 @@ static struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *
- {
- 	const struct iphdr *iph = skb_gro_network_header(skb);
- 	__wsum wsum;
--	__sum16 sum;
- 
- 	/* Don't bother verifying checksum if we're going to flush anyway. */
- 	if (NAPI_GRO_CB(skb)->flush)
- 		goto skip_csum;
- 
-+	wsum = skb->csum;
-+
- 	switch (skb->ip_summed) {
-+	case CHECKSUM_NONE:
-+		wsum = skb_checksum(skb, skb_gro_offset(skb), skb_gro_len(skb),
-+				    0);
-+
-+		/* fall through */
-+
- 	case CHECKSUM_COMPLETE:
- 		if (!tcp_v4_check(skb_gro_len(skb), iph->saddr, iph->daddr,
--				  skb->csum)) {
-+				  wsum)) {
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 			break;
- 		}
--flush:
-+
- 		NAPI_GRO_CB(skb)->flush = 1;
- 		return NULL;
--
--	case CHECKSUM_NONE:
--		wsum = csum_tcpudp_nofold(iph->saddr, iph->daddr,
--					  skb_gro_len(skb), IPPROTO_TCP, 0);
--		sum = csum_fold(skb_checksum(skb,
--					     skb_gro_offset(skb),
--					     skb_gro_len(skb),
--					     wsum));
--		if (sum)
--			goto flush;
--
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
--		break;
- 	}
- 
- skip_csum:
-diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
-index 71923d1..6d18157 100644
---- a/net/ipv6/tcpv6_offload.c
-+++ b/net/ipv6/tcpv6_offload.c
-@@ -37,36 +37,29 @@ static struct sk_buff **tcp6_gro_receive(struct sk_buff **head,
- {
- 	const struct ipv6hdr *iph = skb_gro_network_header(skb);
- 	__wsum wsum;
--	__sum16 sum;
- 
- 	/* Don't bother verifying checksum if we're going to flush anyway. */
- 	if (NAPI_GRO_CB(skb)->flush)
- 		goto skip_csum;
- 
-+	wsum = skb->csum;
-+
- 	switch (skb->ip_summed) {
-+	case CHECKSUM_NONE:
-+		wsum = skb_checksum(skb, skb_gro_offset(skb), skb_gro_len(skb),
-+				    wsum);
-+
-+		/* fall through */
-+
- 	case CHECKSUM_COMPLETE:
- 		if (!tcp_v6_check(skb_gro_len(skb), &iph->saddr, &iph->daddr,
--				  skb->csum)) {
-+				  wsum)) {
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 			break;
- 		}
--flush:
-+
- 		NAPI_GRO_CB(skb)->flush = 1;
- 		return NULL;
--
--	case CHECKSUM_NONE:
--		wsum = ~csum_unfold(csum_ipv6_magic(&iph->saddr, &iph->daddr,
--						    skb_gro_len(skb),
--						    IPPROTO_TCP, 0));
--		sum = csum_fold(skb_checksum(skb,
--					     skb_gro_offset(skb),
--					     skb_gro_len(skb),
--					     wsum));
--		if (sum)
--			goto flush;
--
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
--		break;
- 	}
- 
- skip_csum:
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
