@@ -1,183 +1,103 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH 1/8] net: smc91x: Fix device tree based configuration
- so it's usable
-Date: Sat, 16 Nov 2013 07:16:40 -0800
-Message-ID: <20131116151640.GJ10317@atomide.com>
-References: <1384396537-3486-1-git-send-email-tony@atomide.com>
- <1384396537-3486-2-git-send-email-tony@atomide.com>
- <20131114110324.GC16396@e106331-lin.cambridge.arm.com>
- <20131114160813.GC10317@atomide.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH tip/core/rcu 11/14] bonding/bond_main: Apply
+ ACCESS_ONCE() to avoid sparse false positive
+Date: Sat, 16 Nov 2013 07:21:19 -0800
+Message-ID: <20131116152119.GB4138@linux.vnet.ibm.com>
+References: <20131116003946.GA316@linux.vnet.ibm.com>
+	<1384562417-817-1-git-send-email-paulmck@linux.vnet.ibm.com>
+	<1384562417-817-11-git-send-email-paulmck@linux.vnet.ibm.com>
+	<5286F550.10900@gmail.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	Nicolas Pitre <nico@fluxnic.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Mark Rutland <mark.rutland@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:22426 "EHLO
-	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752035Ab3KPPQq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 10:16:46 -0500
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Stephen Hemminger <stephen@networkplumber.org>, tglx@linutronix.de,
+	laijs@cn.fujitsu.com, edumazet@google.com,
+	"David S. Miller" <davem@davemloft.net>, peterz@infradead.org,
+	fweisbec@gmail.com, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, rostedt@goodmis.org,
+	josh@joshtriplett.org, dhowells@redhat.com, sbw@mit.edu,
+	niv@us.ibm.com, netdev@vger.kernel.org,
+	mathieu.desnoyers@efficios.com, dipankar@in.ibm.com,
+	darren@dvhart.com, akpm@linux-foundation.org, mingo@kernel.org
+To: Ding Tianhong <dthxman@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20131114160813.GC10317@atomide.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <5286F550.10900@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-* Tony Lindgren <tony@atomide.com> [131114 08:09]:
-> * Mark Rutland <mark.rutland@arm.com> [131114 03:04]:
-> > 
-> > In the driver the supported access sizes are not mutually exclusive.  It
-> > would be nice for the binding to have the same property.
-> 
-> Hmm indeed. How about we add reg-io-width-mask:
-> 
-> 	1 = 8-bit access
-> 	2 = 16-bit access
-> 	4 = 32-bit access
-> 	...
-> 
-> So for a driver to support 8, 16 and 32-bit access the mask would
-> be:
-> 	reg-io-width-mask = <7>;
-> 
-> Although the values for reg-io-width would support masks too, it
-> might be better to have reg-io-width-mask to avoid confusion.
-> 
-> Or do you have any better ideas?
->  
-> > > +- smsc,nowait : Setup for fast register access with no waits
-> > 
-> > I'm confused by what this means. When would this be selected, and when
-> > wouldn't it be?
-> 
-> The driver has a module parameter for it and the comments say:
-> 
-> "nowait  = 0 for normal wait states, 1 eliminates additional wait states"
-> 
-> Most platforms seem to set it, but the default is to not set it.
-> I guess we could that be a module parameter for now as that's a
-> timing optimization.
+On Sat, Nov 16, 2013 at 12:32:16PM +0800, Ding Tianhong wrote:
+> =E4=BA=8E 2013/11/16 8:40, Paul E. McKenney =E5=86=99=E9=81=93:
+> > From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> >
+> > The sparse checking for rcu_assign_pointer() was recently upgraded
+> > to reject non-__kernel address spaces.  This also rejects __rcu,
+> > which is almost always the right thing to do.  However, the uses in
+> > bond_change_active_slave() and __bond_release_one() are legitimate:
+> > They are assigning a pointer to an element from an RCU-protected list
+> > (or a NULL pointer), and all elements of this list are already visibl=
+e
+> > to caller.
+> >
+> > This commit therefore silences these false positives either by launde=
+ring
+> > the pointers using ACCESS_ONCE() as suggested by Eric Dumazet and Jos=
+h
+> > Triplett, or by using RCU_INIT_POINTER() for NULL pointer assignments=
+.
+>=20
+> I think it is fit for net-next.
 
-Here's what I was thinking with the reg-io-width-mask. Anybody
-have comments on using reg-io-width vs reg-io-width-mask?
+Thank you!
 
-Regards,
+If this is queued there, I would be happy to drop it from my tree.
+There are no dependencies on anything in my tree.
 
-Tony
+							Thanx, Paul
 
-
-From: Tony Lindgren <tony@atomide.com>
-Date: Wed, 13 Nov 2013 16:36:37 -0800
-Subject: [PATCH] net: smc91x: Fix device tree based configuration so it's usable
-
-Commit 89ce376c6bdc (drivers/net: Use of_match_ptr() macro in smc91x.c)
-added minimal device tree support to smc91x, but it's not working on
-many platforms because of the lack of some key configuration bits.
-
-Fix the issue by parsing the necessary configuration like the
-smc911x driver is doing.
-
-Cc: Nicolas Pitre <nico@fluxnic.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Cc: devicetree@vger.kernel.org
-Signed-off-by: Tony Lindgren <tony@atomide.com>
-
---- a/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
-+++ b/Documentation/devicetree/bindings/net/smsc-lan91c111.txt
-@@ -8,3 +8,7 @@ Required properties:
- Optional properties:
- - phy-device : phandle to Ethernet phy
- - local-mac-address : Ethernet mac address to use
-+- reg-io-width-mask : Mask of sizes (in bytes) of the IO accesses that
-+  are supported on the device.  Valid value for SMSC LAN91c111 are
-+  1, 2 or 4.  If it's omitted or invalid, the size would be 2 meaning
-+  16-bit access only.
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -82,6 +82,7 @@ static const char version[] =
- #include <linux/mii.h>
- #include <linux/workqueue.h>
- #include <linux/of.h>
-+#include <linux/of_device.h>
- 
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
-@@ -2189,6 +2190,15 @@ static void smc_release_datacs(struct platform_device *pdev, struct net_device *
- 	}
- }
- 
-+#if IS_BUILTIN(CONFIG_OF)
-+static const struct of_device_id smc91x_match[] = {
-+	{ .compatible = "smsc,lan91c94", },
-+	{ .compatible = "smsc,lan91c111", },
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, smc91x_match);
-+#endif
-+
- /*
-  * smc_init(void)
-  *   Input parameters:
-@@ -2203,6 +2213,8 @@ static void smc_release_datacs(struct platform_device *pdev, struct net_device *
- static int smc_drv_probe(struct platform_device *pdev)
- {
- 	struct smc91x_platdata *pd = dev_get_platdata(&pdev->dev);
-+	struct device_node *np = pdev->dev.of_node;
-+	const struct of_device_id *match = NULL;
- 	struct smc_local *lp;
- 	struct net_device *ndev;
- 	struct resource *res, *ires;
-@@ -2222,11 +2234,31 @@ static int smc_drv_probe(struct platform_device *pdev)
- 	 */
- 
- 	lp = netdev_priv(ndev);
-+	lp->cfg.flags = 0;
- 
- 	if (pd) {
- 		memcpy(&lp->cfg, pd, sizeof(lp->cfg));
- 		lp->io_shift = SMC91X_IO_SHIFT(lp->cfg.flags);
--	} else {
-+	}
-+
-+#if IS_BUILTIN(CONFIG_OF)
-+	match = of_match_device(of_match_ptr(smc91x_match), &pdev->dev);
-+	if (match) {
-+		u32 val;
-+
-+		of_property_read_u32(np, "reg-io-width", &val);
-+		if (val == 0)
-+			lp->cfg.flags |= SMC91X_USE_16BIT;
-+		if (val & 1)
-+			lp->cfg.flags |= SMC91X_USE_8BIT;
-+		if (val & 2)
-+			lp->cfg.flags |= SMC91X_USE_16BIT;
-+		if (val & 4)
-+			lp->cfg.flags |= SMC91X_USE_32BIT;
-+	}
-+#endif
-+
-+	if (!pd && !match) {
- 		lp->cfg.flags |= (SMC_CAN_USE_8BIT)  ? SMC91X_USE_8BIT  : 0;
- 		lp->cfg.flags |= (SMC_CAN_USE_16BIT) ? SMC91X_USE_16BIT : 0;
- 		lp->cfg.flags |= (SMC_CAN_USE_32BIT) ? SMC91X_USE_32BIT : 0;
-@@ -2375,15 +2407,6 @@ static int smc_drv_resume(struct device *dev)
- 	return 0;
- }
- 
--#ifdef CONFIG_OF
--static const struct of_device_id smc91x_match[] = {
--	{ .compatible = "smsc,lan91c94", },
--	{ .compatible = "smsc,lan91c111", },
--	{},
--};
--MODULE_DEVICE_TABLE(of, smc91x_match);
--#endif
--
- static struct dev_pm_ops smc_drv_pm_ops = {
- 	.suspend	= smc_drv_suspend,
- 	.resume		= smc_drv_resume,
+> > Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> > Cc: Stephen Hemminger <stephen@networkplumber.org>
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Cc: bridge@lists.linux-foundation.org
+> > Cc: netdev@vger.kernel.org
+> > ---
+> >  drivers/net/bonding/bond_main.c | 5 +++--
+> >  1 file changed, 3 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
+nd_main.c
+> > index 72df399c4ab3..bbd7fd3e46fe 100644
+> > --- a/drivers/net/bonding/bond_main.c
+> > +++ b/drivers/net/bonding/bond_main.c
+> > @@ -890,7 +890,8 @@ void bond_change_active_slave(struct bonding *bon=
+d, struct slave *new_active)
+> >  		if (new_active)
+> >  			bond_set_slave_active_flags(new_active);
+> >  	} else {
+> > -		rcu_assign_pointer(bond->curr_active_slave, new_active);
+> > +		/* Both --rcu and visible, so ACCESS_ONCE() is OK. */
+> > +		ACCESS_ONCE(bond->curr_active_slave) =3D new_active;
+> >  	}
+> > =20
+> >  	if (bond->params.mode =3D=3D BOND_MODE_ACTIVEBACKUP) {
+> > @@ -1801,7 +1802,7 @@ static int __bond_release_one(struct net_device=
+ *bond_dev,
+> >  	}
+> > =20
+> >  	if (all) {
+> > -		rcu_assign_pointer(bond->curr_active_slave, NULL);
+> > +		RCU_INIT_POINTER(bond->curr_active_slave, NULL);
+> >  	} else if (oldcurrent =3D=3D slave) {
+> >  		/*
+> >  		 * Note that we hold RTNL over this sequence, so there
+>=20
