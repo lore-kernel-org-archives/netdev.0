@@ -1,91 +1,88 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH v3] net: don't return uninitialized addresses on concurrent socket shutdown
-Date: Sat, 16 Nov 2013 20:19:16 +0100
-Message-ID: <20131116191916.GC16541@order.stressinduktion.org>
-References: <CAApbN=Jm=zuDaVYALmGg5z_QfJJ3q13e9tshb7OpAtPQ8Ema1w@mail.gmail.com> <CAApbN=K8j+XQG+pQF2fxBSrDEPcjD242e9uP72azD9XWBzHcGQ@mail.gmail.com> <20131116054344.GG26901@order.stressinduktion.org> <20131116054814.GH26901@order.stressinduktion.org>
+Subject: Re: [PATCH] ipv6: Fix inet6_init() cleanup order
+Date: Sat, 16 Nov 2013 20:30:07 +0100
+Message-ID: <20131116193007.GD16541@order.stressinduktion.org>
+References: <5287C114.3040306@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-To: mpb <mpb.mail@gmail.com>, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	lorenzo@google.com, Fabio Estevam <fabio.estevam@freescale.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47319 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:47329 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751483Ab3KPTTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 14:19:17 -0500
+	with ESMTP id S1751483Ab3KPTaJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 14:30:09 -0500
 Content-Disposition: inline
-In-Reply-To: <20131116054814.GH26901@order.stressinduktion.org>
+In-Reply-To: <5287C114.3040306@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If a blocking read waits on a socket which gets concurrently shut down we
-return 0 as error and so indicate success to the socket functions which
-thus copies an uninitialized stack allocated address back to the user.
+Hi!
 
-Fix this by introducing a new AF_INVALID sa_family marker and check if the
-recvmsg function overwrote it. In case it was not overwritten, clear the
-address with zeros (AF_UNSPEC) before returning it to the user. IMHO we
-should only increase msg.msg_namelen (if we have to truncate the address),
-so don't clear msg.msg_namelen.
+On Sat, Nov 16, 2013 at 02:01:40PM -0500, Vlad Yasevich wrote:
+> Commit 6d0bfe22611602f36617bc7aa2ffa1bbb2f54c67
+> 	net: ipv6: Add IPv6 support to the ping socket
+> 
+> introduced a change in the cleanup logic of inet6_init and
+> has a bug in that ipv6_packet_cleanup() may not be called.
+> Fix the cleanup ordering and add __maybe_unused to pingv6_exit
+> since it may not be called if CONFIG_SYSCTL is turned off.
+> 
+> CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> CC: Lorenzo Colitti <lorenzo@google.com>
+> CC: Fabio Estevam <fabio.estevam@freescale.com>
+> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
+> ---
+>  net/ipv6/af_inet6.c | 4 ++--
+>  net/ipv6/ping.c     | 2 +-
+>  2 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+> index 6468bda..56ca35b 100644
+> --- a/net/ipv6/af_inet6.c
+> +++ b/net/ipv6/af_inet6.c
+> @@ -958,10 +958,10 @@ out:
+>   #ifdef CONFIG_SYSCTL
+>  sysctl_fail:
+> -	ipv6_packet_cleanup();
+> +	pingv6_exit();
+>  #endif
+>  pingv6_fail:
+> -	pingv6_exit();
+> +	ipv6_packet_cleanup();
+>  ipv6_packet_fail:
+>  	tcpv6_exit();
+>  tcpv6_fail:
 
-This patch fixes the problem for recvfrom, recvmsg and recvmmsg.
+Your patch seems corrupt here:
 
-Reported-by: mpb <mpb.mail@gmail.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/linux/socket.h | 2 ++
- net/socket.c           | 6 ++++++
- 2 files changed, 8 insertions(+)
+$ patch -p1 < .git/rebase-apply/patch
+patching file net/ipv6/af_inet6.c
+patch: **** malformed patch at line 22: diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
 
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 445ef75..bdf9205 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -182,6 +182,8 @@ struct ucred {
- #define AF_VSOCK	40	/* vSockets			*/
- #define AF_MAX		41	/* For now.. */
- 
-+#define AF_INVALID	((__kernel_sa_family_t)(~0U))
-+
- /* Protocol families, same as address families. */
- #define PF_UNSPEC	AF_UNSPEC
- #define PF_UNIX		AF_UNIX
-diff --git a/net/socket.c b/net/socket.c
-index c226ace..8361e15 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1834,6 +1834,7 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
- 	if (!sock)
- 		goto out;
- 
-+	address.ss_family = AF_INVALID;
- 	msg.msg_control = NULL;
- 	msg.msg_controllen = 0;
- 	msg.msg_iovlen = 1;
-@@ -1847,6 +1848,8 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
- 	err = sock_recvmsg(sock, &msg, size, flags);
- 
- 	if (err >= 0 && addr != NULL) {
-+		if (unlikely(address.ss_family == AF_INVALID))
-+			memset(&address, 0, sizeof(address));
- 		err2 = move_addr_to_user(&address,
- 					 msg.msg_namelen, addr, addr_len);
- 		if (err2 < 0)
-@@ -2226,6 +2229,7 @@ static int ___sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
- 	 *      kernel msghdr to use the kernel address space)
- 	 */
- 
-+	addr.ss_family = AF_INVALID;
- 	uaddr = (__force void __user *)msg_sys->msg_name;
- 	uaddr_len = COMPAT_NAMELEN(msg);
- 	if (MSG_CMSG_COMPAT & flags) {
-@@ -2248,6 +2252,8 @@ static int ___sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
- 	len = err;
- 
- 	if (uaddr != NULL) {
-+		if (unlikely(addr.ss_family == AF_INVALID))
-+			memset(&addr, 0, sizeof(addr));
- 		err = move_addr_to_user(&addr,
- 					msg_sys->msg_namelen, uaddr,
- 					uaddr_len);
--- 
-1.8.3.1
+The logic here looks fine though.
+
+> diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+> index 8815e31..5da68ae 100644
+> --- a/net/ipv6/ping.c
+> +++ b/net/ipv6/ping.c
+> @@ -263,7 +263,7 @@ int __init pingv6_init(void)
+>  /* This never gets called because it's not possible to unload the ipv6
+> module,
+>   * but just in case.
+>   */
+> -void pingv6_exit(void)
+> +void __maybe_unused pingv6_exit(void)
+>  {
+>  	pingv6_ops.ipv6_recv_error = dummy_ipv6_recv_error;
+>  	pingv6_ops.ip6_datagram_recv_ctl = dummy_ip6_datagram_recv_ctl;
+
+We only would need __maybe_unused if the function which generates
+the warning is static in the same compilation unit. So this seems
+unneccessary.
+
+Thanks,
+
+  Hannes
