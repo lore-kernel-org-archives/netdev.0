@@ -1,55 +1,95 @@
-From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH] random: seed random_int_secret at least poorly at core_initcall time
-Date: Sat, 16 Nov 2013 08:40:29 +0100
-Message-ID: <20131116074029.GA16541@order.stressinduktion.org>
-References: <cover.1384160397.git.dborkman@redhat.com> <2ea03f60bb65429cbe5d74a6d356fde3eefcf06c.1384160397.git.dborkman@redhat.com> <20131111134357.GC10104@thunk.org> <20131112000307.GB14929@order.stressinduktion.org> <20131112115350.GA14077@thunk.org> <20131112131627.GD14929@order.stressinduktion.org> <20131112134603.GE14929@order.stressinduktion.org> <20131114025448.GB31602@thunk.org> <20131114041829.GA26901@order.stressinduktion.org> <CAGXu5jJJtjvAqROzsekOd9Y5wbiw=G9ToNryOfP8auhQRrYORw@mail.gmail.com>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH net-next 4/4] virtio-net: auto-tune mergeable rx buffer
+	size for improved performance
+Date: Sat, 16 Nov 2013 01:06:32 -0800
+Message-ID: <CANJ5vPKaNsNkx9MLYFYBSxgfuhm_xnmJh_UYadAfv-_t6nPjbA@mail.gmail.com>
+References: <1384294885-6444-1-git-send-email-mwdalton@google.com>
+	<1384294885-6444-4-git-send-email-mwdalton@google.com>
+	<528325DC.3050801@redhat.com> <20131113174245.GB31078@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Theodore Ts'o <tytso-3s7WtUTddSA@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	shemminger-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, Florian Weimer <fweimer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAGXu5jJJtjvAqROzsekOd9Y5wbiw=G9ToNryOfP8auhQRrYORw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20131113174245.GB31078@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 15, 2013 at 10:42:28AM -0800, Kees Cook wrote:
-> On Wed, Nov 13, 2013 at 8:18 PM, Hannes Frederic Sowa
-> <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org> wrote:
-> > On Wed, Nov 13, 2013 at 09:54:48PM -0500, Theodore Ts'o wrote:
-> >> On Tue, Nov 12, 2013 at 02:46:03PM +0100, Hannes Frederic Sowa wrote:
-> >> > > It is needed by fork to set up the stack canary. And this actually gets
-> >> > > called before the secret is initialized.
-> >> >
-> >> > Maybe we could use this for the time being and use the seeding method
-> >> > of kaslr as soon as it hits the tree?
-> >>
-> >> Hmm, from what I can tell even early_initcall() is going to be early
-> >> enough.  The stack canary is set up by boot_init_stack_canary(), which
-> >> is run very, very early in start_kerne() --- way before
-> >> early_initcalls, or even before interrupts are enabled.  So adding
-> >> random_int_secret_init_early() as a core_initcall is still too late.
-> >
-> > Actually I tried to protect the tsk->stack_canary = get_random_int()
-> > in fork.c. It sets up the per-task canary.
-> 
-> I haven't looked closely yet at how the stack canary gets plumbed, but
-> what do things outside of process context end up using?
+Hi,
 
-Early on boot __stack_chk_guard gets initialized. The address of this symbol
-is looked up by gcc to assemble the stack guard checks.
+Apologies for the delay, I wanted to get answers together for all of the
+open questions raised on this thread. The first patch in this patchset is
+already merged, so after the merge window re-opens I'll send out new
+patchsets covering the remaining 3 patches.
 
-Only on ARM with !CONFIG_SMP the __stack_chk_guard is switched as soon
-as a new process context is entered. This is not possible if the kernel
-is compiled for CONFIG_SMP and the kernel will fallback to the one global
-__stack_chk_guard canary.
+After reflecting on feedback from this thread, I think it makes sense to
+separate out the per-receive queue page frag allocator patches from the
+autotuning patch when the merge window re-opens. The per-receive queue
+page frag allocator patches help deal with fragmentation (PAGE_SIZE does
+not evenly divide MERGE_BUFFER_LEN), and provide benefits whether or not
+auto-tuning is present. Auto-tuning can then be evaluated separately.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Wed, 2013-11-13 at 15:10 +0800, Jason Wang wrote:
+> There's one concern with EWMA. How well does it handle multiple streams
+> each with different packet size? E.g there may be two flows, one with
+> 256 bytes each packet another is 64K.  Looks like it can result we
+> allocate PAGE_SIZE buffer for 256 (which is bad since the
+> payload/truesize is low) bytes or 1500+ for 64K buffer (which is ok
+> since we can do coalescing).
+
+If multiple streams of very different packet sizes are arriving on the
+same receive queue, no single buffer size is ideal(e.g., large buffers
+will cause small packets to take up too much memory, but small buffers
+may reduce throughput somewhat for large packets). We don't know a
+priori which packet will be delivered to a given receive queue packet
+buffer, so any size we choose will not be optimal for all cases if we
+have significant variance in packet sizes.
+
+> Do you have perf numbers that just without this patch? We need to know
+> how much EWMA help exactly.
+
+Great point, I should have included that in my initial benchmarking. I ran
+a benchmark in the same environment as my initial results, this time with
+the first 3 patches in this patchset applied but without the autotuning
+patch.  The average performance over 5 runs of 30-second netperf was
+13760.85Gb/s.
+
+> Is there a chance that est_buffer_len was smaller than or equal with len?
+
+Yes, that is possible if the average packet length decreases.
+
+> Not sure this is accurate, since buflen may change and several frags may
+> share a single page. So the est_buffer_len we get in receive_mergeable()
+> may not be the correct value.
+
+I agree it may not be 100% accurate but we can choose a weight that will
+cause the average packet size to change slowly. Even with an order 3 page
+there will not be too many packet buffers allocated from a single page.
+
+On Wed, 2013-11-13 at 17:42 +0800, Michael S. Tsirkin wrote:
+> I'm not sure it's useful - no one is likely to tune it in practice.
+> But how about a comment explaining how was the number chosen?
+
+That makes sense, I agree a comment is needed. The weight determines
+how quickly we react to a change in packet size. As we attempt to fill
+all free ring entries on refill (in try_fill_recv), I chose a large
+weight so that a short burst of traffic with a different average packet
+size will not substantially shift the packet buffer size for the entire
+ring the next time try_fill_recv is called. I'll add a comment that
+compares 64 to nearby values (32, 16).
+
+Best,
+
+Mike
