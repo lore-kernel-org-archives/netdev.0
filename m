@@ -1,89 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: Do not include padding in TCP GRO checksum
-Date: Fri, 15 Nov 2013 20:34:27 -0500 (EST)
-Message-ID: <20131115.203427.1522242353491609372.davem@davemloft.net>
-References: <20131115225856.6988.69733.stgit@ahduyck-fpga.jf.intel.com>
-	<20131116004738.GA1491@gondor.apana.org.au>
+From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Subject: Re: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
+ burst.
+Date: Sat, 16 Nov 2013 01:38:24 +0000
+Message-ID: <1384565904.29151.66.camel@bwh-desktop.uk.level5networks.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B740B@saturn3.aculab.com>
+	 <Pine.LNX.4.44L0.1311131113090.1424-100000@iolanthe.rowland.org>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B741A@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
-	edumazet@google.com, herbert@gondor.apana.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60933 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751192Ab3KPBeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Nov 2013 20:34:31 -0500
-In-Reply-To: <20131116004738.GA1491@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B741A-CgBM+Bx2aUAnGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 16 Nov 2013 08:47:38 +0800
+On Wed, 2013-11-13 at 16:58 +0000, David Laight wrote:
+[...]
+> > > > > You can split a bulk TD on a 1k boundary and the target won't know the
+> > > > > difference.
+> > > >
+> > > > The target won't know the difference, but the host will.  Here's an
+> > > > example: Suppose the driver submits two URBs, each for a data-in
+> > > > transfer of 32 KB.  You split each URB up into two 16-KB TDs; let's
+> > > > call them A, B, C, and D (where A and B make up the first URB, and C
+> > > > and D make up the second URB).
+> > >
+> > > I was thinking about OUT transfers, IN ones are unlikely to be badly
+> > > fragmented.
+> > 
+> > Maybe not for the network stack, but OUT and IN end up equally
+> > fragmented for the storage stack.
+> 
+> But the minimum fragment size is (probably) 4k.
+> For the network stack an OUT transfer might have a lot (and I mean lots)
+> of fragments (there may be constraints, and linearising the skb is a option).
+[...]
 
-> Also, if the padding occurs on every single packet or a fairly
-> large amount of packets then you should consider improving
-> pskb_trim_rcsum to keep the CHECKSUM_COMPLETE value.
+The maximum number of fragments in the skb is going to be 17 (including
+the 'head' area).  (I'm ignoring NETIF_F_FRAGLIST which is not normally
+supported by physical device drivers.)
 
-It should be as easy as this?  (this is actually just a 3 line change,
-it looks like more because I'm moving pskb_trim_rcsum() later in the
-file to where skb_checksum() is in scope).
+I don't know how many fragments that can end up as, at the USB level.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 215b5ea..bec1cc7 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2263,24 +2263,6 @@ static inline void skb_postpull_rcsum(struct sk_buff *skb,
- 
- unsigned char *skb_pull_rcsum(struct sk_buff *skb, unsigned int len);
- 
--/**
-- *	pskb_trim_rcsum - trim received skb and update checksum
-- *	@skb: buffer to trim
-- *	@len: new length
-- *
-- *	This is exactly the same as pskb_trim except that it ensures the
-- *	checksum of received packets are still valid after the operation.
-- */
--
--static inline int pskb_trim_rcsum(struct sk_buff *skb, unsigned int len)
--{
--	if (likely(len >= skb->len))
--		return 0;
--	if (skb->ip_summed == CHECKSUM_COMPLETE)
--		skb->ip_summed = CHECKSUM_NONE;
--	return __pskb_trim(skb, len);
--}
--
- #define skb_queue_walk(queue, skb) \
- 		for (skb = (queue)->next;					\
- 		     skb != (struct sk_buff *)(queue);				\
-@@ -2378,6 +2360,27 @@ __wsum __skb_checksum(const struct sk_buff *skb, int offset, int len,
- __wsum skb_checksum(const struct sk_buff *skb, int offset, int len,
- 		    __wsum csum);
- 
-+/**
-+ *	pskb_trim_rcsum - trim received skb and update checksum
-+ *	@skb: buffer to trim
-+ *	@len: new length
-+ *
-+ *	This is exactly the same as pskb_trim except that it ensures the
-+ *	checksum of received packets are still valid after the operation.
-+ */
-+
-+static inline int pskb_trim_rcsum(struct sk_buff *skb, unsigned int len)
-+{
-+	if (likely(len >= skb->len))
-+		return 0;
-+	if (skb->ip_summed == CHECKSUM_COMPLETE) {
-+		__wsum adj = skb_checksum(skb, len, skb->len - len, 0);
-+
-+		skb->csum = csum_sub(skb->csum, adj);
-+	}
-+	return __pskb_trim(skb, len);
-+}
-+
- static inline void *skb_header_pointer(const struct sk_buff *skb, int offset,
- 				       int len, void *buffer)
- {
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
