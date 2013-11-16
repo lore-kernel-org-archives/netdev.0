@@ -1,65 +1,43 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net RESEND] bonding: don't change to 802.3ad mode while ARP
- monitoring is running
-Date: Sat, 16 Nov 2013 14:30:15 +0800
-Message-ID: <528710F7.7050207@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] socket: don't return uninitialized addresses on
+ concurrent socket shutdown
+Date: Fri, 15 Nov 2013 22:32:49 -0800
+Message-ID: <1384583569.8604.4.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAApbN=Jm=zuDaVYALmGg5z_QfJJ3q13e9tshb7OpAtPQ8Ema1w@mail.gmail.com>
+	 <CAApbN=K8j+XQG+pQF2fxBSrDEPcjD242e9uP72azD9XWBzHcGQ@mail.gmail.com>
+	 <20131116054344.GG26901@order.stressinduktion.org>
+	 <20131116054814.GH26901@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+Cc: mpb <mpb.mail@gmail.com>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:20851 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751044Ab3KPGbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 01:31:35 -0500
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:35344 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751105Ab3KPGcx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 01:32:53 -0500
+Received: by mail-pb0-f54.google.com with SMTP id ro12so4552908pbb.27
+        for <netdev@vger.kernel.org>; Fri, 15 Nov 2013 22:32:52 -0800 (PST)
+In-Reply-To: <20131116054814.GH26901@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Because the ARP monitoring is not support for 802.3ad, but I still
-could change the mode to 802.3ad from ab mode while ARP monitoring
-is running, it is incorrect.
+On Sat, 2013-11-16 at 06:48 +0100, Hannes Frederic Sowa wrote:
+> If a blocking read waits on a socket which gets concurrently shut down we
+> return 0 as error and so indicate success to the socket functions which
+> thus copy an uninitialized stack allocated address back to the user.
+> Fix this by clearing the 128 byte size (on x86-64) address first.
+> 
+> This patch fixes the problem for recvfrom, recvmsg and recvmmsg.
+> 
+> Reported-by: mpb <mpb.mail@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
 
-So add a check for 802.3ad in bonding_store_mode to fix the problem,
-and make a new macro BOND_NO_USES_ARP() to simplify the code.
+Are you clearing 128 bytes on every recvfrom() system call, just in case
+of this shutdown() issue ?
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/bonding/bond_options.c | 2 +-
- drivers/net/bonding/bonding.h      | 4 ++++
- 2 files changed, 5 insertions(+), 1 deletion(-)
+Can't we avoid this overhead ?
 
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 9a5223c..abb4218 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -45,7 +45,7 @@ int bond_option_mode_set(struct bonding *bond, int mode)
- 		return -EPERM;
- 	}
- 
--	if (BOND_MODE_IS_LB(mode) && bond->params.arp_interval) {
-+	if (BOND_NO_USES_ARP(mode) && bond->params.arp_interval) {
- 		pr_err("%s: %s mode is incompatible with arp monitoring.\n",
- 		       bond->dev->name, bond_mode_tbl[mode].modename);
- 		return -EINVAL;
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 046a605..e2c11cb 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -63,6 +63,10 @@
- 		(((mode) == BOND_MODE_TLB) ||	\
- 		 ((mode) == BOND_MODE_ALB))
- 
-+#define BOND_NO_USES_ARP(mode)				\
-+		(((mode) == BOND_MODE_8023AD)	||	\
-+		 ((mode) == BOND_MODE_TLB)	||	\
-+		 ((mode) == BOND_MODE_ALB))
- /*
-  * Less bad way to call ioctl from within the kernel; this needs to be
-  * done some other way to get the call out of interrupt context.
--- 
-1.7.12
+msg.msg_namelen should be set to 0 in this case.
