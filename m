@@ -1,68 +1,97 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] veth: extend features to support tunneling
-Date: Sun, 17 Nov 2013 11:00:52 -0800
-Message-ID: <CAMEtUuw1VUtafKVnBOKAy+rNyKDYnDsst8ygwqEtKX75w96Q-w@mail.gmail.com>
-References: <CAJZOPZ+jUanPW2mT_HiSWdvGfdRMHpX6vWyrboS3Zf_gH7rEgQ@mail.gmail.com>
-	<1384638027.8604.22.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAMEtUuzkwVSetLKb0AK7U=iB5ArhAhs-0vx9cX+WeZ2Fz04kqg@mail.gmail.com>
-	<1384708847.8604.50.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: net/usb/ax88179_178a driver broken in linux-3.12
+Date: Sun, 17 Nov 2013 13:56:56 -0500
+Message-ID: <52891178.2080509@pobox.com>
+References: <52890C7E.6000607@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/mixed;
+ boundary="------------060801080105030709050200"
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Ming Lei <ming.lei@canonical.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f172.google.com ([74.125.82.172]:38779 "EHLO
-	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751446Ab3KQTAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Nov 2013 14:00:54 -0500
-Received: by mail-we0-f172.google.com with SMTP id t60so394586wes.17
-        for <netdev@vger.kernel.org>; Sun, 17 Nov 2013 11:00:53 -0800 (PST)
-In-Reply-To: <1384708847.8604.50.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from a-pb-sasl-quonix.pobox.com ([208.72.237.25]:39897 "EHLO
+	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751446Ab3KQTCK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Nov 2013 14:02:10 -0500
+In-Reply-To: <52890C7E.6000607@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 17, 2013 at 9:20 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sat, 2013-11-16 at 23:31 -0800, Alexei Starovoitov wrote:
->
->> In case of VMs sending gso packets over tap and tunnel in the host,
->> ip_forward is not in the picture.
->>
->
-> I was specifically answering to #2 which should use ip forwarding, of
-> course. Note that my patch was a POC : We have many other places where
-> the typical MTU check is simply disabled as soon as skb is GSO.
+This is a multi-part message in MIME format.
+--------------060801080105030709050200
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 
-I don't think #2 will do ip_forward either. veth goes into a bridge
-and vxlan just adds encap.
+On 13-11-17 01:35 PM, Mark Lord wrote:
+> The USB3 network adapter locks up consistently for me here in 3.12,
+> but was working without issues in 3.11.x
+> 
+> Source of the problem is this patch:
+>    http://patchwork.ozlabs.org/patch/264021/
+> 
+> Reverting the patch fixes the adapter.
 
->> when host mtu doesn't account for overhead of tunnel, the neat trick
->> we can do is to decrease gso_size while adding tunnel header.
->
-> That would be very broken to change gso_size, this breaks DF flag
-> semantic. You need to send an ICMP, and the sender will take appropriate
-> action.
->
-> GRO + GSO request that forwarded segments are the same than incoming
-> ones. It's not like a proxy that can chose to aggregate as it wants.
+Okay, upon closer inspection, the bug appears to be a math error.
+Here's a simpler (non-revert) patch to fix the bug that was introduced in 3.12.
 
-In case of ip_forwarding - yes, but in case of tunnel we may look at
-gso differently.
-I'm not saying that 'gso_size -= tunnel_header' trick should be unconditional.
-Obviously DF flag needs to be respected for pmtu to work.
-ip_tunnel_xmit() already suppose to send icmp_frag_needed back, I'm
-not sure it works for vxlan though.
-What I'm proposing if tunnel receives normal gso packet with df bit
-not set, it can safely
-decrease that skb's gso_size. This way guest vm can have 1500 mtu just
-like host mtu 1500,
-until guest tries to pmtu, then vxlan sends icmp into guest and guest
-adjusts itself if it can.
-Since host cannot guarantee that guest will do the right thing with
-icmp_frag_needed, it may continue doing 'gso_size -= tunnel_header'
-trick without breaking anything.
+(un-mangled copy attached; reproduced below for ease of viewing).
+
+Don't exceed more than the 8 bytes of reserved ("needed_headroom") space
+when calling pskb_expand_head.  This fixes a bug introduced in linux-3.12.0.
+
+Signed-off-by: Mark Lord <mlord@pobox.com>
+
+
+--- ax88179_178a.c.orig 2013-11-03 18:41:51.000000000 -0500
++++ linux/drivers/net/usb/ax88179_178a.c        2013-11-17 13:47:26.127971404 -0500
+@@ -1183,10 +1183,10 @@
+        if (((skb->len + 8) % frame_size) == 0)
+                tx_hdr2 |= 0x80008000;  /* Enable padding */
+
+-       headroom = skb_headroom(skb) - 8;
++       headroom = skb_headroom(skb);
+
+-       if ((skb_header_cloned(skb) || headroom < 0) &&
+-           pskb_expand_head(skb, headroom < 0 ? 8 : 0, 0, GFP_ATOMIC)) {
++       if ((skb_header_cloned(skb) || headroom < 8) &&
++           pskb_expand_head(skb, headroom < 8 ? 8 - headroom : 0, 0, GFP_ATOMIC)) {
+                dev_kfree_skb_any(skb);
+                return NULL;
+        }
+
+-- 
+Mark Lord
+Real-Time Remedies Inc.
+mlord@pobox.com
+
+--------------060801080105030709050200
+Content-Type: text/x-patch;
+ name="51_ax88179_178a_fix_3.12_lockups.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="51_ax88179_178a_fix_3.12_lockups.patch"
+
+Don't exceed more than the 8 bytes of reserved ("needed_headroom") space
+when calling pskb_expand_head.  This fixes a bug introduced in linux-3.12.0.
+
+Signed-off-by: Mark Lord <mlord@pobox.com>
+
+--- ax88179_178a.c.orig	2013-11-03 18:41:51.000000000 -0500
++++ linux/drivers/net/usb/ax88179_178a.c	2013-11-17 13:47:26.127971404 -0500
+@@ -1183,10 +1183,10 @@
+ 	if (((skb->len + 8) % frame_size) == 0)
+ 		tx_hdr2 |= 0x80008000;	/* Enable padding */
+ 
+-	headroom = skb_headroom(skb) - 8;
++	headroom = skb_headroom(skb);
+ 
+-	if ((skb_header_cloned(skb) || headroom < 0) &&
+-	    pskb_expand_head(skb, headroom < 0 ? 8 : 0, 0, GFP_ATOMIC)) {
++	if ((skb_header_cloned(skb) || headroom < 8) &&
++	    pskb_expand_head(skb, headroom < 8 ? 8 - headroom : 0, 0, GFP_ATOMIC)) {
+ 		dev_kfree_skb_any(skb);
+ 		return NULL;
+ 	}
+
+--------------060801080105030709050200--
