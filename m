@@ -1,86 +1,64 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] veth: extend features to support tunneling
-Date: Sat, 16 Nov 2013 16:09:17 -0800
-Message-ID: <1384646957.8604.25.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAJZOPZ+jUanPW2mT_HiSWdvGfdRMHpX6vWyrboS3Zf_gH7rEgQ@mail.gmail.com>
-	 <1384638027.8604.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v3] net: don't return uninitialized addresses on
+ concurrent socket shutdown
+Date: Sat, 16 Nov 2013 16:36:24 -0800
+Message-ID: <1384648584.8604.39.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAApbN=Jm=zuDaVYALmGg5z_QfJJ3q13e9tshb7OpAtPQ8Ema1w@mail.gmail.com>
+	 <CAApbN=K8j+XQG+pQF2fxBSrDEPcjD242e9uP72azD9XWBzHcGQ@mail.gmail.com>
+	 <20131116054344.GG26901@order.stressinduktion.org>
+	 <20131116054814.GH26901@order.stressinduktion.org>
+	 <20131116191916.GC16541@order.stressinduktion.org>
+	 <1384634802.8604.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131116224330.GF16541@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Cc: mpb <mpb.mail@gmail.com>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:50431 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752743Ab3KQAJT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 19:09:19 -0500
-Received: by mail-pb0-f53.google.com with SMTP id ma3so5092152pbc.40
-        for <netdev@vger.kernel.org>; Sat, 16 Nov 2013 16:09:19 -0800 (PST)
-In-Reply-To: <1384638027.8604.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:48617 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751951Ab3KQAg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 19:36:26 -0500
+Received: by mail-pa0-f48.google.com with SMTP id bj1so5185268pad.21
+        for <netdev@vger.kernel.org>; Sat, 16 Nov 2013 16:36:26 -0800 (PST)
+In-Reply-To: <20131116224330.GF16541@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-11-16 at 13:40 -0800, Eric Dumazet wrote:
-> On Sat, 2013-11-16 at 23:11 +0200, Or Gerlitz wrote:
-> 
-> > Guys (thanks Eric for the clarification over the other vxlan thread),
-> > with the latest networking code (e.g 3.12 or net-next)  do you expect
-> > notable performance (throughput) difference between these two configs?
-> > 
-> > 1. bridge --> vxlan --> NIC
-> > 2. veth --> bridge --> vxlan --> NIC
-> > 
-> > BTW #2 doesn't work when packets start to be large unless I manually
-> > decrease the veth device pair MTU. E.g if the NIC MTU is 1500, vxlan
-> > advertizes an MTU of 1450 (= 1500 - (14 + 20 + 8 + 8)) and the bridge
-> > inherits that, but not the veth device. Should someone/somewhere here
-> > generate an ICMP packet which will cause the stack to decreate the
-> > path mtu for the neighbour created on the veth device? what about
-> > para-virtualized guests which are plugged into this (or any host based
-> > tunneling) scheme, e.g in this scheme
-> > 
-> > 3. guest virtio NIC --> vhost  --> tap/macvtap --> bridge --> vxlan --> NIC
-> > 
-> > Who/how do we want the guest NIC mtu/path mtu to take into account the
-> > tunneling over-head?
-> 
-> I mentioned this problem on another thread : gso packets escape the
-> normal mtu checks in ip forwarding.
-> 
-> vi +91 net/ipv4/ip_forward.c
-> 
-> gso_size contains the size of the segment minus all headers.
-> 
-> Please try the following :
-> 
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index d68633452d9b..489b56935a56 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -388,4 +388,16 @@ static inline int fastopen_init_queue(struct sock *sk, int backlog)
->  	return 0;
->  }
->  
-> +static inline unsigned int gso_size_with_headers(const struct sk_buff *skb)
-> +{
-> +	unsigned int hdrlen = skb_transport_header(skb) - skb_mac_header(skb);
+On Sat, 2013-11-16 at 23:43 +0100, Hannes Frederic Sowa wrote:
 
-or more exactly :
-
-	unsigned int hdrlen = skb_transport_header(skb) - skb_network_header(skb);
+> I do think it is common to call recvfrom, process the packet and sendto
+> back a packet with the updated values from recvfrom. We accept AF_UNSPEC
+> on an IPv4 UDP socket and use the addresses as it would be a AF_INET
+> sockaddr. We only bail out if the port is 0.
+> 
+> It was my intend to at least clear the addressing portions of the regular
+> sockaddr_* structure for the user as it could be reused as explained
+> earlier and be allocated uninitialized on the stack (or reused, so
+> sending packet to a previous destination). I think it is very uncommon to
+> expect a non-error value on a recvfrom/recvmsg and have AF_UNSPEC in the
+> sockaddr.
+> 
+> (I erroneously stated that we could return the full 128 zero bytes, we only
+> clear 128 bytes and return only max(128, msg.msg_namelen). msg_namelen gets
+> updated by the recvmsg handler and that only iff we have this concurrent
+> shutdown and blocking read issue.)
+> 
+> If the socket structure is cleared a following sendto would produce a -EINVAL.
+> 
+> Maybe I am too sensible regarding such problems and will think about that a
+> bit more (and check for AF_INVALID/AF_UNSPEC).
+> 
 
 
-> +
-> +	if (skb_shinfo(skb)->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))
-> +		hdrlen += tcp_hdrlen(skb);
-> +	else
-> +		hdrlen += 8; // sizeof(struct udphdr)
-> +
-> +	return skb_shinfo(skb)->gso_size + hdrlen;
-> +}
+I think the _default_ should be to clear it.
+
+-	msg.msg_namelen = sizeof(address);
++	msg.msg_namelen = 0;
+
+And subsystems filling a real address would set it back to the length
+they took care of.
+
+in recvfrom() paths, the kernel _knows_ it uses an array of 128 bytes.
+(struct sockaddr_storage)
