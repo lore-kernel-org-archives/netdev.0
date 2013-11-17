@@ -1,62 +1,97 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next] veth: extend features to support tunneling
-Date: Sun, 17 Nov 2013 08:57:17 +0200
-Message-ID: <CAJZOPZJzynVucz0bn=wOtzc4OwsfQdFaznWGu+d8K0c+jUAfMQ@mail.gmail.com>
-References: <CAJZOPZ+jUanPW2mT_HiSWdvGfdRMHpX6vWyrboS3Zf_gH7rEgQ@mail.gmail.com>
-	<1384638027.8604.22.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net 2/4] bnx2x: Prevent panic during DMAE timeout
+Date: Sun, 17 Nov 2013 08:59:27 +0200
+Message-ID: <1384671569-30105-3-git-send-email-yuvalmin@broadcom.com>
+References: <1384671569-30105-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: ariele@broadcom.com, dmitry@broadcom.com,
+	"Yuval Mintz" <yuvalmin@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:49073 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750721Ab3KQG5R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Nov 2013 01:57:17 -0500
-Received: by mail-pa0-f51.google.com with SMTP id fb1so5362567pad.38
-        for <netdev@vger.kernel.org>; Sat, 16 Nov 2013 22:57:17 -0800 (PST)
-In-Reply-To: <1384638027.8604.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:3131 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750790Ab3KQG7n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Nov 2013 01:59:43 -0500
+In-Reply-To: <1384671569-30105-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 16, 2013 at 11:40 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sat, 2013-11-16 at 23:11 +0200, Or Gerlitz wrote:
->
->> Guys (thanks Eric for the clarification over the other vxlan thread),
->> with the latest networking code (e.g 3.12 or net-next)  do you expect
->> notable performance (throughput) difference between these two configs?
->>
->> 1. bridge --> vxlan --> NIC
->> 2. veth --> bridge --> vxlan --> NIC
->>
->> BTW #2 doesn't work when packets start to be large unless I manually
->> decrease the veth device pair MTU. E.g if the NIC MTU is 1500, vxlan
->> advertizes an MTU of 1450 (= 1500 - (14 + 20 + 8 + 8)) and the bridge
->> inherits that, but not the veth device. Should someone/somewhere here
->> generate an ICMP packet which will cause the stack to decreate the
->> path mtu for the neighbour created on the veth device? what about
->> para-virtualized guests which are plugged into this (or any host based
->> tunneling) scheme, e.g in this scheme
->>
->> 3. guest virtio NIC --> vhost  --> tap/macvtap --> bridge --> vxlan --> NIC
->>
->> Who/how do we want the guest NIC mtu/path mtu to take into account the
->> tunneling over-head?
->
-> I mentioned this problem on another thread : gso packets escape the
-> normal mtu checks in ip forwarding.
->
-> vi +91 net/ipv4/ip_forward.c
->
-> gso_size contains the size of the segment minus all headers.
->
-> Please try the following :
+From: Dmitry Kravkov <dmitry@broadcom.com>
 
-Will setup & try & let you know. However, this doesn't address non TCP
-traffic, e.g pings of large size, correct?
+If chip enters a recovery flow just after the driver issues a DMAE request
+the DMAE will timeout. Current code will cause a bnx2x_panic() as a result,
+which means interface will no longer be usable (regardless of the recovery
+results), as bnx2x_panic() is irreversible for the driver.
+
+As this is a possible flow, the panic should be reached only when driver
+is compiled with STOP_ON_ERROR.
+
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  8 ++++++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  | 11 +++++++++++
+ 2 files changed, 19 insertions(+)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index b42f89c..1d799ee 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -577,7 +577,9 @@ void bnx2x_write_dmae(struct bnx2x *bp, dma_addr_t dma_addr, u32 dst_addr,
+ 	rc = bnx2x_issue_dmae_with_comp(bp, &dmae, bnx2x_sp(bp, wb_comp));
+ 	if (rc) {
+ 		BNX2X_ERR("DMAE returned failure %d\n", rc);
++#ifdef BNX2X_STOP_ON_ERROR
+ 		bnx2x_panic();
++#endif
+ 	}
+ }
+ 
+@@ -614,7 +616,9 @@ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32)
+ 	rc = bnx2x_issue_dmae_with_comp(bp, &dmae, bnx2x_sp(bp, wb_comp));
+ 	if (rc) {
+ 		BNX2X_ERR("DMAE returned failure %d\n", rc);
++#ifdef BNX2X_STOP_ON_ERROR
+ 		bnx2x_panic();
++#endif
+ 	}
+ }
+ 
+@@ -9352,6 +9356,10 @@ static int bnx2x_process_kill(struct bnx2x *bp, bool global)
+ 	bnx2x_process_kill_chip_reset(bp, global);
+ 	barrier();
+ 
++	/* clear errors in PGB */
++	if (!CHIP_IS_E1x(bp))
++		REG_WR(bp, PGLUE_B_REG_LATCHED_ERRORS_CLR, 0x7f);
++
+ 	/* Recover after reset: */
+ 	/* MCP */
+ 	if (global && bnx2x_reset_mcp_comp(bp, val))
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index 5ecf267..3efbb35 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -2864,6 +2864,17 @@
+ #define PGLUE_B_REG_INTERNAL_PFID_ENABLE_TARGET_READ		 0x9430
+ #define PGLUE_B_REG_INTERNAL_PFID_ENABLE_TARGET_WRITE		 0x9434
+ #define PGLUE_B_REG_INTERNAL_VFID_ENABLE			 0x9438
++/* [W 7] Writing 1 to each bit in this register clears a corresponding error
++ * details register and enables logging new error details. Bit 0 - clears
++ * INCORRECT_RCV_DETAILS; Bit 1 - clears RX_ERR_DETAILS; Bit 2 - clears
++ * TX_ERR_WR_ADD_31_0 TX_ERR_WR_ADD_63_32 TX_ERR_WR_DETAILS
++ * TX_ERR_WR_DETAILS2 TX_ERR_RD_ADD_31_0 TX_ERR_RD_ADD_63_32
++ * TX_ERR_RD_DETAILS TX_ERR_RD_DETAILS2 TX_ERR_WR_DETAILS_ICPL; Bit 3 -
++ * clears VF_LENGTH_VIOLATION_DETAILS. Bit 4 - clears
++ * VF_GRC_SPACE_VIOLATION_DETAILS. Bit 5 - clears RX_TCPL_ERR_DETAILS. Bit 6
++ * - clears TCPL_IN_TWO_RCBS_DETAILS. */
++#define PGLUE_B_REG_LATCHED_ERRORS_CLR				 0x943c
++
+ /* [R 9] Interrupt register #0 read */
+ #define PGLUE_B_REG_PGLUE_B_INT_STS				 0x9298
+ /* [RC 9] Interrupt register #0 read clear */
+-- 
+1.8.1.227.g44fe835
