@@ -1,129 +1,54 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC 2/8] drop_monitor/genetlink: use proper genetlink multicast
- APIs
-Date: Sun, 17 Nov 2013 17:14:57 -0500
-Message-ID: <20131117221457.GA9344@neilslaptop.think-freely.org>
-References: <1384621429-24543-1-git-send-email-johannes@sipsolutions.net>
- <1384621429-24543-3-git-send-email-johannes@sipsolutions.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] veth: extend features to support tunneling
+Date: Sun, 17 Nov 2013 14:38:34 -0800
+Message-ID: <1384727914.8604.64.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAJZOPZ+jUanPW2mT_HiSWdvGfdRMHpX6vWyrboS3Zf_gH7rEgQ@mail.gmail.com>
+	 <1384638027.8604.22.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAMEtUuzkwVSetLKb0AK7U=iB5ArhAhs-0vx9cX+WeZ2Fz04kqg@mail.gmail.com>
+	 <1384708847.8604.50.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAMEtUuw1VUtafKVnBOKAy+rNyKDYnDsst8ygwqEtKX75w96Q-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Johannes Berg <johannes.berg@intel.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <or.gerlitz@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47706 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751377Ab3KQWPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Nov 2013 17:15:22 -0500
-Content-Disposition: inline
-In-Reply-To: <1384621429-24543-3-git-send-email-johannes@sipsolutions.net>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:46708 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751377Ab3KQWig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Nov 2013 17:38:36 -0500
+Received: by mail-pb0-f45.google.com with SMTP id mc8so5874775pbc.4
+        for <netdev@vger.kernel.org>; Sun, 17 Nov 2013 14:38:36 -0800 (PST)
+In-Reply-To: <CAMEtUuw1VUtafKVnBOKAy+rNyKDYnDsst8ygwqEtKX75w96Q-w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 16, 2013 at 06:03:43PM +0100, Johannes Berg wrote:
-> From: Johannes Berg <johannes.berg@intel.com>
+On Sun, 2013-11-17 at 11:00 -0800, Alexei Starovoitov wrote:
+> On Sun, Nov 17, 2013 at 9:20 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Sat, 2013-11-16 at 23:31 -0800, Alexei Starovoitov wrote:
+> >
+> >> In case of VMs sending gso packets over tap and tunnel in the host,
+> >> ip_forward is not in the picture.
+> >>
+> >
+> > I was specifically answering to #2 which should use ip forwarding, of
+> > course. Note that my patch was a POC : We have many other places where
+> > the typical MTU check is simply disabled as soon as skb is GSO.
 > 
-> The drop monitor code is abusing the genetlink API and is
-> statically using the generic netlink multicast group 1, even
-> if that group belongs to somebody else (which it invariably
-> will, since it's not reserved.)
-> 
-> Make the drop monitor code use the proper APIs to reserve a
-> group ID, but also reserve the group id 1 in generic netlink
-> code to preserve the userspace API. Since drop monitor can
-> be a module, don't clear the bit for it on unregistration.
-> 
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> ---
->  net/core/drop_monitor.c | 13 ++++++++++++-
->  net/netlink/genetlink.c | 13 ++++++++++---
->  2 files changed, 22 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-> index 0efc502..46ee488 100644
-> --- a/net/core/drop_monitor.c
-> +++ b/net/core/drop_monitor.c
-> @@ -106,6 +106,10 @@ static struct sk_buff *reset_per_cpu_data(struct per_cpu_dm_data *data)
->  	return skb;
->  }
->  
-> +static struct genl_multicast_group dm_mcgrp = {
-> +	.name = "events",
-> +};
-> +
->  static void send_dm_alert(struct work_struct *work)
->  {
->  	struct sk_buff *skb;
-> @@ -116,7 +120,7 @@ static void send_dm_alert(struct work_struct *work)
->  	skb = reset_per_cpu_data(data);
->  
->  	if (skb)
-> -		genlmsg_multicast(skb, 0, NET_DM_GRP_ALERT, GFP_KERNEL);
-> +		genlmsg_multicast(skb, 0, dm_mcgrp.id, GFP_KERNEL);
->  }
->  
->  /*
-> @@ -371,6 +375,13 @@ static int __init init_net_drop_monitor(void)
->  		return rc;
->  	}
->  
-> +	rc = genl_register_mc_group(&net_drop_monitor_family, &dm_mcgrp);
-> +	if (rc) {
-> +		pr_err("Failed to register drop monitor mcast group\n");
-> +		goto out_unreg;
-> +	}
-> +	WARN_ON(dm_mcgrp.id != NET_DM_GRP_ALERT);
-> +
->  	rc = register_netdevice_notifier(&dropmon_net_notifier);
->  	if (rc < 0) {
->  		pr_crit("Failed to register netdevice notifier\n");
-> diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-> index 2b57aee..8a2ed2c 100644
-> --- a/net/netlink/genetlink.c
-> +++ b/net/netlink/genetlink.c
-> @@ -65,8 +65,12 @@ static struct list_head family_ht[GENL_FAM_TAB_SIZE];
->   * To avoid an allocation at boot of just one unsigned long,
->   * declare it global instead.
->   * Bit 0 is marked as already used since group 0 is invalid.
-> + * Bit 1 is marked as already used since the drop-monitor code
-> + * abuses the API and thinks it can statically use group 1.
-> + * That group will typically conflict with other groups that
-> + * any proper users use.
->   */
-> -static unsigned long mc_group_start = 0x1;
-> +static unsigned long mc_group_start = 0x3;
->  static unsigned long *mc_groups = &mc_group_start;
->  static unsigned long mc_groups_longs = 1;
->  
-> @@ -160,9 +164,11 @@ int genl_register_mc_group(struct genl_family *family,
->  
->  	genl_lock_all();
->  
-> -	/* special-case our own group */
-> +	/* special-case our own group and hacks */
->  	if (grp == &notify_grp)
->  		id = GENL_ID_CTRL;
-> +	else if (strcmp(family->name, "NET_DM") == 0)
-> +		id = 1;
->  	else
->  		id = find_first_zero_bit(mc_groups,
->  					 mc_groups_longs * BITS_PER_LONG);
-> @@ -245,7 +251,8 @@ static void __genl_unregister_mc_group(struct genl_family *family,
->  	rcu_read_unlock();
->  	netlink_table_ungrab();
->  
-> -	clear_bit(grp->id, mc_groups);
-> +	if (grp->id != 1)
-> +		clear_bit(grp->id, mc_groups);
->  	list_del(&grp->list);
->  	genl_ctrl_event(CTRL_CMD_DELMCAST_GRP, grp);
->  	grp->id = 0;
-> -- 
-> 1.8.4.rc3
-> 
-> 
+> I don't think #2 will do ip_forward either. veth goes into a bridge
+> and vxlan just adds encap.
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+The point is : nothing really checks mtu for gso packets.
 
-Thanks Johannes!
-Neil
+Same construct was copy/pasted everywhere. See br_dev_queue_push_xmit()
+for another example.
+
+In this particular case, I guess vxlan should generate the ICMP.
+
+But really, its Sunday and I currently do not care ;)
