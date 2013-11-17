@@ -1,58 +1,55 @@
-From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Subject: [PATCH] fix NULL pointer Oops in fib(6)_rule_suppress
-Date: Sun, 17 Nov 2013 12:14:09 +0100
-Message-ID: <20131117111409.GB23153@zirkel.wertarbyte.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Golle <daniel@makrotopia.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zirkel.wertarbyte.de ([188.40.44.137]:54753 "EHLO
-	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751393Ab3KQLvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Nov 2013 06:51:31 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alban Bedel <albeu@free.fr>
+Subject: [PATCH 1/2] 8139too: Allow setting MTU larger than 1500
+Date: Sun, 17 Nov 2013 14:05:23 +0100
+Message-ID: <1384693524-20599-1-git-send-email-albeu@free.fr>
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, davem@davemloft.net
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Reported-by: Daniel Golle <daniel.golle@gmail.com>
-Tested-by: Daniel Golle <daniel.golle@gmail.com>
-Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+Replace the default ndo_change_mtu callback with one that allow
+setting MTU that the driver can handle.
+
+Signed-off-by: Alban Bedel <albeu@free.fr>
 ---
- net/ipv4/fib_rules.c  |    4 +++-
- net/ipv6/fib6_rules.c |    5 ++++-
- 2 files changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/realtek/8139too.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 523be38..4e1c1e5 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -104,7 +104,9 @@ errout:
- static bool fib4_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg)
- {
- 	struct fib_result *result = (struct fib_result *) arg->result;
--	struct net_device *dev = result->fi->fib_dev;
-+	struct net_device *dev = NULL;
-+	if (result->fi)
-+		dev = result->fi->fib_dev;
+diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+index da5972e..9d5d6d1 100644
+--- a/drivers/net/ethernet/realtek/8139too.c
++++ b/drivers/net/ethernet/realtek/8139too.c
+@@ -185,6 +185,9 @@ static int debug = -1;
+ /* max supported ethernet frame size -- must be at least (dev->mtu+14+4).*/
+ #define MAX_ETH_FRAME_SIZE	1536
  
- 	/* do not accept result if the route does
- 	 * not meet the required prefix length
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index e275916..43e45b5 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -122,7 +122,10 @@ out:
- static bool fib6_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg)
- {
- 	struct rt6_info *rt = (struct rt6_info *) arg->result;
--	struct net_device *dev = rt->rt6i_idev->dev;
-+	struct net_device *dev = NULL;
-+	if (rt->rt6i_idev)
-+		dev = rt->rt6i_idev->dev;
++/* max supported payload size */
++#define MAX_ETH_DATA_SIZE	(MAX_ETH_FRAME_SIZE - ETH_HLEN - ETH_FCS_LEN)
 +
- 	/* do not accept result if the route does
- 	 * not meet the required prefix length
- 	 */
+ /* Size of the Tx bounce buffers -- must be at least (dev->mtu+14+4). */
+ #define TX_BUF_SIZE	MAX_ETH_FRAME_SIZE
+ #define TX_BUF_TOT_LEN	(TX_BUF_SIZE * NUM_TX_DESC)
+@@ -920,11 +923,19 @@ static int rtl8139_set_features(struct net_device *dev, netdev_features_t featur
+ 	return 0;
+ }
+ 
++static int rtl8139_change_mtu(struct net_device *dev, int new_mtu)
++{
++	if (new_mtu < 68 || new_mtu > MAX_ETH_DATA_SIZE)
++		return -EINVAL;
++	dev->mtu = new_mtu;
++	return 0;
++}
++
+ static const struct net_device_ops rtl8139_netdev_ops = {
+ 	.ndo_open		= rtl8139_open,
+ 	.ndo_stop		= rtl8139_close,
+ 	.ndo_get_stats64	= rtl8139_get_stats64,
+-	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_change_mtu		= rtl8139_change_mtu,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_set_mac_address 	= rtl8139_set_mac_address,
+ 	.ndo_start_xmit		= rtl8139_start_xmit,
 -- 
-1.7.10.4
+1.8.4.2
