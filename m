@@ -1,30 +1,23 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: r8188eu: Fix AP mode
-Date: Sun, 17 Nov 2013 13:28:29 -0600
-Message-ID: <1384716509-12823-1-git-send-email-Larry.Finger@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Stable <stable@vger.kernel.org>, Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH V2] staging: r8188eu: Fix AP mode
+Date: Sun, 17 Nov 2013 13:32:15 -0600
+Message-ID: <1384716735-12897-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Stable <stable@vger.kernel.org>
 To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Two code lines were accidentally deleted in the code.  Restore them.
+Two code lines were accidentally deleted.  Restore them.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 Cc: Stable <stable@vger.kernel.org>
 ---
+
+V2 - rewrite silly commit message.
+
  drivers/staging/rtl8188eu/core/rtw_ap.c | 3 +++
  1 file changed, 3 insertions(+)
 
