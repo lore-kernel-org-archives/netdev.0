@@ -1,54 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] veth: extend features to support tunneling
-Date: Sun, 17 Nov 2013 14:38:34 -0800
-Message-ID: <1384727914.8604.64.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAJZOPZ+jUanPW2mT_HiSWdvGfdRMHpX6vWyrboS3Zf_gH7rEgQ@mail.gmail.com>
-	 <1384638027.8604.22.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAMEtUuzkwVSetLKb0AK7U=iB5ArhAhs-0vx9cX+WeZ2Fz04kqg@mail.gmail.com>
-	 <1384708847.8604.50.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAMEtUuw1VUtafKVnBOKAy+rNyKDYnDsst8ygwqEtKX75w96Q-w@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v2] tcp: tsq: restore minimal amount of queueing
+Date: Mon, 18 Nov 2013 00:15:45 +0100
+Message-ID: <20131117231545.GA32350@electric-eye.fr.zoreil.com>
+References: <8761s0cqhh.fsf@natisbad.org>
+ <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
+ <87y54u59zq.fsf@natisbad.org>
+ <1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1384353174.28458.110.camel@edumazet-glaptop2.roam.corp.google.com>
+ <8738n0ngq3.fsf@natisbad.org>
+ <pan.2013.11.13.21.59.50.578858@googlemail.com>
+ <1384386040.28458.143.camel@edumazet-glaptop2.roam.corp.google.com>
+ <pan.2013.11.13.23.52.41.470832@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Holger Hoffstaette <holger.hoffstaette@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:46708 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751377Ab3KQWig (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Nov 2013 17:38:36 -0500
-Received: by mail-pb0-f45.google.com with SMTP id mc8so5874775pbc.4
-        for <netdev@vger.kernel.org>; Sun, 17 Nov 2013 14:38:36 -0800 (PST)
-In-Reply-To: <CAMEtUuw1VUtafKVnBOKAy+rNyKDYnDsst8ygwqEtKX75w96Q-w@mail.gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:36979 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751750Ab3KQXPt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Nov 2013 18:15:49 -0500
+Content-Disposition: inline
+In-Reply-To: <pan.2013.11.13.23.52.41.470832@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-11-17 at 11:00 -0800, Alexei Starovoitov wrote:
-> On Sun, Nov 17, 2013 at 9:20 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Sat, 2013-11-16 at 23:31 -0800, Alexei Starovoitov wrote:
-> >
-> >> In case of VMs sending gso packets over tap and tunnel in the host,
-> >> ip_forward is not in the picture.
-> >>
-> >
-> > I was specifically answering to #2 which should use ip forwarding, of
-> > course. Note that my patch was a POC : We have many other places where
-> > the typical MTU check is simply disabled as soon as skb is GSO.
-> 
-> I don't think #2 will do ip_forward either. veth goes into a bridge
-> and vxlan just adds encap.
+Holger Hoffstaette <holger.hoffstaette@googlemail.com> :
+[...]
+> Since I saw this with r8169->r8169 and e1000e->r8169 it's probably
+> everyone's favourite r8169 :)
+> Unfortunately I can't be more help but if you can suggest/whip up a fix
+> I'd be happy to help test.
 
-The point is : nothing really checks mtu for gso packets.
+The r8169 driver does not rely on a timer for Tx completion.
 
-Same construct was copy/pasted everywhere. See br_dev_queue_push_xmit()
-for another example.
+The patch below should not hurt.
 
-In this particular case, I guess vxlan should generate the ICMP.
+Can you describe your system a bit more specifically ?
 
-But really, its Sunday and I currently do not care ;)
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 3397cee..7280d5d 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -6393,12 +6393,12 @@ static int rtl8169_poll(struct napi_struct *napi, int budget)
+ 	status = rtl_get_events(tp);
+ 	rtl_ack_events(tp, status & ~tp->event_slow);
+ 
+-	if (status & RTL_EVENT_NAPI_RX)
+-		work_done = rtl_rx(dev, tp, (u32) budget);
+-
+ 	if (status & RTL_EVENT_NAPI_TX)
+ 		rtl_tx(dev, tp);
+ 
++	if (status & RTL_EVENT_NAPI_RX)
++		work_done = rtl_rx(dev, tp, (u32) budget);
++
+ 	if (status & tp->event_slow) {
+ 		enable_mask &= ~tp->event_slow;
+ 
