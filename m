@@ -1,76 +1,41 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: unregister_netdevice: waiting for lo to become free
-Date: Sat, 16 Nov 2013 18:18:35 -0800
-Message-ID: <CAMEtUuwKd-2YZBF8BtKFaKvgb8MgwTfJKz3KkkzVYkhJPNNXzw@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v3] net: Do not include padding in TCP GRO checksum
+Date: Sun, 17 Nov 2013 11:17:11 +0800
+Message-ID: <20131117031710.GA18254@gondor.apana.org.au>
+References: <20131115225856.6988.69733.stgit@ahduyck-fpga.jf.intel.com>
+ <20131116004738.GA1491@gondor.apana.org.au>
+ <20131116015301.GA1999@gondor.apana.org.au>
+ <5286F018.8060801@gmail.com>
+ <20131116064611.GA12146@gondor.apana.org.au>
+ <5287A52A.2060802@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, edumazet@google.com
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:58214 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753352Ab3KQCSg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 21:18:36 -0500
-Received: by mail-wi0-f181.google.com with SMTP id f4so2485104wiw.14
-        for <netdev@vger.kernel.org>; Sat, 16 Nov 2013 18:18:35 -0800 (PST)
+Received: from ringil.hengli.com.au ([178.18.16.133]:53990 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752892Ab3KQDRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Nov 2013 22:17:22 -0500
+Content-Disposition: inline
+In-Reply-To: <5287A52A.2060802@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Sat, Nov 16, 2013 at 09:02:34AM -0800, Alexander Duyck wrote:
+>
+> That being the case though, why don't we set the flush flag on detecting
+> a bad checksum and hand it off to tcp_gro_receive instead of returning
+> NULL?  It seems like it would be in our interest to flush the flow and
+> then report the bad checksum instead of keeping the flow and handing off
+> the bad checksum to the stack.
 
-once every 24 hr we're hitting namespace cleanup bug:
+Because if the TCP checksum is wrong then it may belong to a
+different flow.
 
-[53432.230745] unregister_netdevice: waiting for lo to become free.
-Usage count = 2
-[53442.456822] unregister_netdevice: waiting for lo to become free.
-Usage count = 2
-[53452.646927] unregister_netdevice: waiting for lo to become free.
-Usage count = 2
-[53462.861009] unregister_netdevice: waiting for lo to become free.
-Usage count = 2
-[53468.423648] INFO: task ip:1444 blocked for more than 120 seconds.
-[53468.423650] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs"
-disables this message.
-[53468.423651] ip              D ffff88082fb13280     0  1444   1443 0x00000000
-[53468.423653]  ffff8806e0b19dd8 0000000000000002 ffff880754b0aee0
-ffff8806e0b19fd8
-[53468.423655]  ffff8806e0b19fd8 ffff8806e0b19fd8 ffff880803d8ddc0
-ffff880754b0aee0
-[53468.423657]  0000000000000002 ffffffff81cbe060 ffffffff81cbe064
-ffff880754b0aee0
-[53468.423658] Call Trace:
-[53468.423663]  [<ffffffff8164a7b9>] schedule+0x29/0x70
-[53468.423664]  [<ffffffff8164aace>] schedule_preempt_disabled+0xe/0x10
-[53468.423666]  [<ffffffff81648b8f>] __mutex_lock_slowpath+0x11f/0x1e0
-[53468.423668]  [<ffffffff8152b6f1>] ? net_alloc_generic+0x21/0x30
-[53468.423670]  [<ffffffff8164851a>] mutex_lock+0x2a/0x50
-[53468.423671]  [<ffffffff8152be20>] copy_net_ns+0x70/0x110
-[53468.423674]  [<ffffffff81073261>] create_new_namespaces+0x101/0x1b0
-[53468.423676]  [<ffffffff810734ee>] unshare_nsproxy_namespaces+0x6e/0xb0
-[53468.423678]  [<ffffffff81047809>] SyS_unshare+0x189/0x2b0
-
-It's reproducible on 3.10.xx
-Not clear whether net-next still has it. May be we just didn't run it
-long enough.
-
-We've tried to narrow it down over the last month, but didn't go too far.
-It can happen on any of our tests. Most of them do: create namespaces,
-veth, bridges, run iperf in namespaces, kill them, disconnect
-interfaces and so on.
-
-We tried numerous netns specific stress tests, but they all seem to be ok.
-It's not clear what combination is causing wrong refcnt.
-
-We tried to add debugging into dst_ifdown() thinking that dev_hold(),
-dev_put() combination is causing it somehow, but amount of logs over
-24hr is too much.
-
-Similar bug description have been reported on ubuntu forums few times
-without real solution. It's not 6549dd43c043
-
-Inside VM with one virtual cpu it hits every 12hr or so.
-On physical machine every 24hr or so.
-
-Any advice on where to look or what to try would be greatly appreciated.
-
-Thanks
-Alexei
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
