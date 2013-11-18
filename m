@@ -1,65 +1,58 @@
 From: <srinivas.kandagatla@st.com>
-Subject: [PATCH RFC 6/9] net: stmmac: fix power mangement suspend-resume case
-Date: Mon, 18 Nov 2013 11:32:12 +0000
-Message-ID: <1384774332-10306-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: [PATCH RFC 5/9] net: stmmac: make stmmac_mdio_reset non-static
+Date: Mon, 18 Nov 2013 11:32:06 +0000
+Message-ID: <1384774326-10262-1-git-send-email-srinivas.kandagatla@st.com>
 References: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>, <srinivas.kandagatla@st.com>
 To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
 	<netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog125.obsmtp.com ([207.126.144.159]:58348 "EHLO
+	eu1sys200aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751766Ab3KRLd4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 06:33:56 -0500
 In-Reply-To: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-The driver PM resume assumes that the IP is still powered up and the
-all the register contents are not disturbed when it comes out of low
-power suspend case. This assumption is wrong, basically the driver
-should not consider any state of registers after it comes out of low
-power. However driver can keep the part of the IP powered up if its a
-wake up source. But it can not assume the register state of the IP. Also
-its possible that SOC glue layer can take the power off the IP if its
-not wake-up source to reduce the power consumption.
-
-This patch re initializes hardware by calling stmmac_hw_setup function in
-resume case.
+This patch promotes stmmac_mdio_reset function from static to
+non-static, so that power management functions can decide to reset if
+the IP comes out from lowe power state specially hibernation cases.
 
 Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    2 +-
+ 2 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index ea34ebc..3b0c18a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2876,18 +2876,18 @@ int stmmac_resume(struct net_device *ndev)
- 	 * this bit because it can generate problems while resuming
- 	 * from another devices (e.g. serial console).
- 	 */
--	if (device_may_wakeup(priv->device))
-+	if (device_may_wakeup(priv->device)) {
- 		priv->hw->mac->pmt(priv->ioaddr, 0);
--	else
-+	} else {
- 		/* enable the clk prevously disabled */
- 		clk_prepare_enable(priv->stmmac_clk);
-+		/* reset the phy so that it's ready */
-+		stmmac_mdio_reset(priv->mii);
-+	}
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index 22f89ff..8c3fed3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -112,6 +112,7 @@ extern int phyaddr;
  
- 	netif_device_attach(ndev);
- 
--	/* Enable the MAC and DMA */
--	stmmac_set_mac(priv->ioaddr, true);
--	priv->hw->dma->start_tx(priv->ioaddr);
--	priv->hw->dma->start_rx(priv->ioaddr);
-+	stmmac_hw_setup(ndev);
- 
- 	napi_enable(&priv->napi);
- 
+ int stmmac_mdio_unregister(struct net_device *ndev);
+ int stmmac_mdio_register(struct net_device *ndev);
++int stmmac_mdio_reset(struct mii_bus *mii);
+ void stmmac_set_ethtool_ops(struct net_device *netdev);
+ extern const struct stmmac_desc_ops enh_desc_ops;
+ extern const struct stmmac_desc_ops ndesc_ops;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index aab12d2..a468eb1 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -128,7 +128,7 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+  * @bus: points to the mii_bus structure
+  * Description: reset the MII bus
+  */
+-static int stmmac_mdio_reset(struct mii_bus *bus)
++int stmmac_mdio_reset(struct mii_bus *bus)
+ {
+ #if defined(CONFIG_STMMAC_PLATFORM)
+ 	struct net_device *ndev = bus->priv;
 -- 
 1.7.6.5
