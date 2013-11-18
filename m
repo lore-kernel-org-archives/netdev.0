@@ -1,139 +1,82 @@
-From: Salam Noureddine <noureddine@aristanetworks.com>
-Subject: [PATCH 1/1] Revert "af-packet: Use existing netdev reference for bound sockets"
-Date: Sun, 17 Nov 2013 21:32:08 -0800
-Message-ID: <1384752728-37157-1-git-send-email-noureddine@aristanetworks.com>
-Cc: Salam Noureddine <noureddine@bs324.sjc.aristanetworks.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Phil Sutter <phil@nwl.cc>, Eric Dumazet <edumazet@google.com>,
-	netdev@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH] ping: prevent NULL pointer dereference on write to msg_name
+Date: Mon, 18 Nov 2013 07:07:45 +0100
+Message-ID: <20131118060745.GL16541@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:56511 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750712Ab3KRFcS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 00:32:18 -0500
-Received: by mail-pb0-f43.google.com with SMTP id rq2so4123947pbb.2
-        for <netdev@vger.kernel.org>; Sun, 17 Nov 2013 21:32:17 -0800 (PST)
+Received: from order.stressinduktion.org ([87.106.68.36]:49230 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751030Ab3KRGHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 01:07:46 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Salam Noureddine <noureddine@bs324.sjc.aristanetworks.com>
+A plain read() on a socket does set msg->msg_name to NULL. So check for
+NULL pointer first.
 
-This reverts commit 827d978037d7d0bf0860481948c6d26ead10042f
-("af-packet: Use existing netdev reference for bound sockets")
-
-The patch introduced a race condition between packet_snd and
-packet_notifier when a net_device is being unregistered. In the case of
-a bound socket, packet_notifier can drop the last reference to the
-net_device and packet_snd might end up sending a packet over a freed
-net_device.
-
-Signed-off-by: Salam Noureddine <noureddine@bs324.sjc.aristanetworks.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/packet/af_packet.c |   26 +++++++++++---------------
- 1 files changed, 11 insertions(+), 15 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 2e8286b..34fe9eb 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2057,8 +2057,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	struct sk_buff *skb;
- 	struct net_device *dev;
- 	__be16 proto;
--	bool need_rls_dev = false;
--	int err, reserve = 0;
-+	int ifindex, err, reserve = 0;
- 	void *ph;
- 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
- 	int tp_len, size_max;
-@@ -2070,7 +2069,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	mutex_lock(&po->pg_vec_lock);
+Addendum to "[v4] inet: prevent leakage of uninitialized memory to user in
+recv syscalls".
+
+ net/ipv4/ping.c | 34 +++++++++++++++++++---------------
+ 1 file changed, 19 insertions(+), 15 deletions(-)
+
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index aacefa0..91bfe04 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -870,11 +870,13 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	if (family == AF_INET) {
+ 		struct sockaddr_in *sin = (struct sockaddr_in *)msg->msg_name;
  
- 	if (saddr == NULL) {
--		dev = po->prot_hook.dev;
-+		ifindex	= po->ifindex;
- 		proto	= po->num;
- 		addr	= NULL;
- 	} else {
-@@ -2081,12 +2080,12 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 					+ offsetof(struct sockaddr_ll,
- 						sll_addr)))
- 			goto out;
-+		ifindex	= saddr->sll_ifindex;
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
--		dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
--		need_rls_dev = true;
- 	}
+-		sin->sin_family = AF_INET;
+-		sin->sin_port = 0 /* skb->h.uh->source */;
+-		sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
+-		memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
+-		*addr_len = sizeof(*sin);
++		if (sin) {
++			sin->sin_family = AF_INET;
++			sin->sin_port = 0 /* skb->h.uh->source */;
++			sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
++			memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
++			*addr_len = sizeof(*sin);
++		}
  
-+	dev = dev_get_by_index(sock_net(&po->sk), ifindex);
- 	err = -ENXIO;
- 	if (unlikely(dev == NULL))
- 		goto out;
-@@ -2173,8 +2172,7 @@ out_status:
- 	__packet_set_status(po, ph, status);
- 	kfree_skb(skb);
- out_put:
--	if (need_rls_dev)
--		dev_put(dev);
-+	dev_put(dev);
- out:
- 	mutex_unlock(&po->pg_vec_lock);
- 	return err;
-@@ -2212,9 +2210,8 @@ static int packet_snd(struct socket *sock,
- 	struct sk_buff *skb;
- 	struct net_device *dev;
- 	__be16 proto;
--	bool need_rls_dev = false;
- 	unsigned char *addr;
--	int err, reserve = 0;
-+	int ifindex, err, reserve = 0;
- 	struct virtio_net_hdr vnet_hdr = { 0 };
- 	int offset = 0;
- 	int vnet_hdr_len;
-@@ -2228,7 +2225,7 @@ static int packet_snd(struct socket *sock,
- 	 */
+ 		if (isk->cmsg_flags)
+ 			ip_cmsg_recv(msg, skb);
+@@ -886,16 +888,18 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		struct sockaddr_in6 *sin6 =
+ 			(struct sockaddr_in6 *)msg->msg_name;
  
- 	if (saddr == NULL) {
--		dev = po->prot_hook.dev;
-+		ifindex	= po->ifindex;
- 		proto	= po->num;
- 		addr	= NULL;
- 	} else {
-@@ -2237,12 +2234,12 @@ static int packet_snd(struct socket *sock,
- 			goto out;
- 		if (msg->msg_namelen < (saddr->sll_halen + offsetof(struct sockaddr_ll, sll_addr)))
- 			goto out;
-+		ifindex	= saddr->sll_ifindex;
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
--		dev = dev_get_by_index(sock_net(sk), saddr->sll_ifindex);
--		need_rls_dev = true;
- 	}
+-		sin6->sin6_family = AF_INET6;
+-		sin6->sin6_port = 0;
+-		sin6->sin6_addr = ip6->saddr;
+-		sin6->sin6_flowinfo = 0;
+-		if (np->sndflow)
+-			sin6->sin6_flowinfo = ip6_flowinfo(ip6);
+-
+-		sin6->sin6_scope_id = ipv6_iface_scope_id(&sin6->sin6_addr,
+-							  IP6CB(skb)->iif);
+-		*addr_len = sizeof(*sin6);
++		if (sin6) {
++			sin6->sin6_family = AF_INET6;
++			sin6->sin6_port = 0;
++			sin6->sin6_addr = ip6->saddr;
++			sin6->sin6_flowinfo = 0;
++			if (np->sndflow)
++				sin6->sin6_flowinfo = ip6_flowinfo(ip6);
++			sin6->sin6_scope_id =
++				ipv6_iface_scope_id(&sin6->sin6_addr,
++						    IP6CB(skb)->iif);
++			*addr_len = sizeof(*sin6);
++		}
  
-+	dev = dev_get_by_index(sock_net(sk), ifindex);
- 	err = -ENXIO;
- 	if (dev == NULL)
- 		goto out_unlock;
-@@ -2386,15 +2383,14 @@ static int packet_snd(struct socket *sock,
- 	if (err > 0 && (err = net_xmit_errno(err)) != 0)
- 		goto out_unlock;
- 
--	if (need_rls_dev)
--		dev_put(dev);
-+	dev_put(dev);
- 
- 	return len;
- 
- out_free:
- 	kfree_skb(skb);
- out_unlock:
--	if (dev && need_rls_dev)
-+	if (dev)
- 		dev_put(dev);
- out:
- 	return err;
+ 		if (inet6_sk(sk)->rxopt.all)
+ 			pingv6_ops.ip6_datagram_recv_ctl(sk, msg, skb);
 -- 
-1.7.4.4
+1.8.3.1
