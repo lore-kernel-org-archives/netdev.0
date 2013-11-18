@@ -1,33 +1,64 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: net/usb/ax88179_178a driver broken in linux-3.12
-Date: Mon, 18 Nov 2013 10:12:10 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com>
-References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com> <52891341.4020403@pobox.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 3/3] vhost: fix the wrong log descriptions
+Date: Mon, 18 Nov 2013 12:18:33 +0200
+Message-ID: <20131118101833.GD3559@redhat.com>
+References: <1384744763-7476-1-git-send-email-zwu.kernel@gmail.com>
+ <1384744763-7476-3-git-send-email-zwu.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "Mark Lord" <mlord@pobox.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Ming Lei" <ming.lei@canonical.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Zhi Yong Wu <zwu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:47081 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751194Ab3KRKNe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Nov 2013 05:13:34 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 07281-04 for <netdev@vger.kernel.org>;
- Mon, 18 Nov 2013 10:13:32 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <52891341.4020403@pobox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:29801 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751288Ab3KRKPb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Nov 2013 05:15:31 -0500
+Content-Disposition: inline
+In-Reply-To: <1384744763-7476-3-git-send-email-zwu.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBPbiAxMy0xMS0xNyAwMTo1NiBQTSwgTWFyayBMb3JkIHdyb3RlOg0KPiA+IE9uIDEzLTExLTE3
-IDAxOjM1IFBNLCBNYXJrIExvcmQgd3JvdGU6DQo+ID4+IFRoZSBVU0IzIG5ldHdvcmsgYWRhcHRl
-ciBsb2NrcyB1cCBjb25zaXN0ZW50bHkgZm9yIG1lIGhlcmUgaW4gMy4xMiwNCj4gPj4gYnV0IHdh
-cyB3b3JraW5nIHdpdGhvdXQgaXNzdWVzIGluIDMuMTEueA0KDQpUaGUgeGhjaSBkcml2ZXIgaXMg
-d2VsbCBicm9rZW4gaW4gMy4xMi4NCg0KVHJ5IGRpc2FibGluZyBHU08gYW5kIFRTTyBzbyB0aGF0
-IHRoZSB4aGNpIGRyaXZlciBpcyBuZXZlciBnaXZlbg0KZnJhZ21lbnRzLg0KDQoJRGF2aWQNCg0K
+On Mon, Nov 18, 2013 at 11:19:23AM +0800, Zhi Yong Wu wrote:
+> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> 
+> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+
+This one does not make sense to me.
+Heads in avail ring are heads which according to Guest are available by
+definition.
+
+
+> ---
+>  drivers/vhost/vhost.c  |    2 +-
+>  drivers/vhost/vringh.c |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 78987e4..568d20f 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -1241,7 +1241,7 @@ int vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+>  
+>  	/* If their number is silly, that's an error. */
+>  	if (unlikely(head >= vq->num)) {
+> -		vq_err(vq, "Guest says index %u > %u is available",
+> +		vq_err(vq, "Guest says index %u > %u is unavailable",
+>  		       head, vq->num);
+>  		return -EINVAL;
+>  	}
+> diff --git a/drivers/vhost/vringh.c b/drivers/vhost/vringh.c
+> index 5174eba..86ef6c4 100644
+> --- a/drivers/vhost/vringh.c
+> +++ b/drivers/vhost/vringh.c
+> @@ -57,7 +57,7 @@ static inline int __vringh_get_head(const struct vringh *vrh,
+>  	}
+>  
+>  	if (head >= vrh->vring.num) {
+> -		vringh_bad("Guest says index %u > %u is available",
+> +		vringh_bad("Guest says index %u > %u is unavailable",
+>  			   head, vrh->vring.num);
+>  		return -EINVAL;
+>  	}
+> -- 
+> 1.7.6.5
