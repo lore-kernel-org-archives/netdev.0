@@ -1,63 +1,65 @@
 From: <srinivas.kandagatla@st.com>
-Subject: [PATCH RFC 8/9] net: stmmac: restore pinstate in pm resume.
-Date: Mon, 18 Nov 2013 11:32:23 +0000
-Message-ID: <1384774343-10388-1-git-send-email-srinivas.kandagatla@st.com>
+Subject: [PATCH RFC 6/9] net: stmmac: fix power mangement suspend-resume case
+Date: Mon, 18 Nov 2013 11:32:12 +0000
+Message-ID: <1384774332-10306-1-git-send-email-srinivas.kandagatla@st.com>
 References: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>, <srinivas.kandagatla@st.com>
 To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
 	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:55609 "EHLO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751057Ab3KRLeL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 06:34:11 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-This patch adds code to restore default pinstate of the pins when it
-comes back from low power state. Without this patch the state of the
-pins would be unknown and the driver would not work.
+The driver PM resume assumes that the IP is still powered up and the
+all the register contents are not disturbed when it comes out of low
+power suspend case. This assumption is wrong, basically the driver
+should not consider any state of registers after it comes out of low
+power. However driver can keep the part of the IP powered up if its a
+wake up source. But it can not assume the register state of the IP. Also
+its possible that SOC glue layer can take the power off the IP if its
+not wake-up source to reduce the power consumption.
 
-This patch also adds code to put the pins in to sleep state when the
-driver enters low power state.
+This patch re initializes hardware by calling stmmac_hw_setup function in
+resume case.
 
 Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 5b4bd7d..c0b5716 100644
+index ea34ebc..3b0c18a 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -43,6 +43,7 @@
- #include <linux/dma-mapping.h>
- #include <linux/slab.h>
- #include <linux/prefetch.h>
-+#include <linux/pinctrl/consumer.h>
- #ifdef CONFIG_STMMAC_DEBUG_FS
- #include <linux/debugfs.h>
- #include <linux/seq_file.h>
-@@ -2853,6 +2854,7 @@ int stmmac_suspend(struct net_device *ndev)
- 		priv->hw->mac->pmt(priv->ioaddr, priv->wolopts);
- 	else {
- 		stmmac_set_mac(priv->ioaddr, false);
-+		pinctrl_pm_select_sleep_state(priv->device);
- 		/* Disable clock in case of PWM is off */
- 		clk_disable_unprepare(priv->stmmac_clk);
- 	}
-@@ -2879,6 +2881,7 @@ int stmmac_resume(struct net_device *ndev)
- 	if (device_may_wakeup(priv->device)) {
+@@ -2876,18 +2876,18 @@ int stmmac_resume(struct net_device *ndev)
+ 	 * this bit because it can generate problems while resuming
+ 	 * from another devices (e.g. serial console).
+ 	 */
+-	if (device_may_wakeup(priv->device))
++	if (device_may_wakeup(priv->device)) {
  		priv->hw->mac->pmt(priv->ioaddr, 0);
- 	} else {
-+		pinctrl_pm_select_default_state(priv->device);
+-	else
++	} else {
  		/* enable the clk prevously disabled */
  		clk_prepare_enable(priv->stmmac_clk);
- 		/* reset the phy so that it's ready */
++		/* reset the phy so that it's ready */
++		stmmac_mdio_reset(priv->mii);
++	}
+ 
+ 	netif_device_attach(ndev);
+ 
+-	/* Enable the MAC and DMA */
+-	stmmac_set_mac(priv->ioaddr, true);
+-	priv->hw->dma->start_tx(priv->ioaddr);
+-	priv->hw->dma->start_rx(priv->ioaddr);
++	stmmac_hw_setup(ndev);
+ 
+ 	napi_enable(&priv->napi);
+ 
 -- 
 1.7.6.5
