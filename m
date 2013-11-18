@@ -1,52 +1,89 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: MLD maturity in kernel version 2.6.32.60
-Date: Mon, 18 Nov 2013 13:23:54 +0100
-Message-ID: <528A06DA.6040302@redhat.com>
-References: <trinity-825e48d2-0bab-4020-84f0-77800e55f25a-1384777048114@3capp-gmx-bs16>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: Re: [PATCH 4/4] net, virtio_net: replace the magic value
+Date: Mon, 18 Nov 2013 20:26:29 +0800
+Message-ID: <CAEH94Lj4hCtcxvibO9RCB1+sbn=+xR2bO7CbCkRyx9BCJFGaOA@mail.gmail.com>
+References: <1384764380-16832-1-git-send-email-zwu.kernel@gmail.com>
+	<20131118095043.GA3470@redhat.com>
+	<CAEH94Ljbu-gJ3SCHYErNEPucV=rR9PHz5COrOp3B-iw+db=LDQ@mail.gmail.com>
+	<20131118101517.GA3559@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Simon Schneider <simon-schneider@gmx.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, QEMU Developers <qemu-devel@nongnu.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	linux-kernel mlist <linux-kernel@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46526 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751965Ab3KRMYE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Nov 2013 07:24:04 -0500
-In-Reply-To: <trinity-825e48d2-0bab-4020-84f0-77800e55f25a-1384777048114@3capp-gmx-bs16>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:36017 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751288Ab3KRM0a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 07:26:30 -0500
+In-Reply-To: <20131118101517.GA3559@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/18/2013 01:17 PM, Simon Schneider wrote:
+On Mon, Nov 18, 2013 at 6:15 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Mon, Nov 18, 2013 at 06:07:45PM +0800, Zhi Yong Wu wrote:
+>> On Mon, Nov 18, 2013 at 5:50 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>> > On Mon, Nov 18, 2013 at 04:46:20PM +0800, Zhi Yong Wu wrote:
+>> >> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>> >>
+>> >> It is more appropriate to use # of queue pairs currently used by
+>> >> the driver instead of a magic value.
+>> >>
+>> >> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>> >
+>> > I don't mind, but driver should be submitted separately
+>> > from qemu patches. As it is only patch 4/4 made it to netdev.
+>> ok, i will sent v2. By the way, can you help take a look at the
+>> following patches?
 >
-> Hi,
-> in a development project, we started evaluating MLD functionality.
+> Will do.
 >
-> Our development is based on kernel version 2.6.32.60.
+>> Maybe i can send their v2 together.
 >
-> We noticed some pretty basic issues:
+> Please don't, these seem to be completely unrelated.
+OK, i will send it separately.
 >
-> - With force_mld_version set to 0 (we expect "MLDv2 with MLDv1 fallback"), we saw only MLDv2 messages, the fallback to MLDv1 didn't seem to work, when we sent MLDv1 messages to the unit.
-> - With force_mld_version set to 1 (we expect "MLDv1 only mode"), we also saw MLDv2 messages being generated.
->
-> Can someone give a general statement about the MLD implementation maturity in kernel 2.6.32.60? Are there known bugs that would explain the above observations?
+>> [PATCH 1/3] vhost: remove the dead branch
+>> [PATCH 2/3] vhost: adjust vhost_dev_init() to be void
+>> [PATCH 3/3] vhost: fix the wrong log descriptions
+>>
+>>
+>> >
+>> >> ---
+>> >>  drivers/net/virtio_net.c |    4 ++--
+>> >>  1 files changed, 2 insertions(+), 2 deletions(-)
+>> >>
+>> >> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> >> index cdc7c90..e0cb2d1 100644
+>> >> --- a/drivers/net/virtio_net.c
+>> >> +++ b/drivers/net/virtio_net.c
+>> >> @@ -1619,8 +1619,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+>> >>       if (err)
+>> >>               goto free_stats;
+>> >>
+>> >> -     netif_set_real_num_tx_queues(dev, 1);
+>> >> -     netif_set_real_num_rx_queues(dev, 1);
+>> >> +     netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
+>> >> +     netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
+>> >>
+>> >>       err = register_netdev(dev);
+>> >>       if (err) {
+>> >> --
+>> >> 1.7.6.5
+>> >>
+>>
+>>
+>>
+>> --
+>> Regards,
+>>
+>> Zhi Yong Wu
 
-(cc'ing Hannes)
 
-You might want to try 3.12 kernel, and if needed backport some of these:
 
-   http://www.spinics.net/lists/netdev/msg249262.html
+-- 
+Regards,
 
-> We need to see whether it makes sense to put further effort in investigating/fixing any MLD related issue we see.
->
-> If this is the wrong list to ask this kind of question, please point me to the correct one.
->
-> Thanks in advance,
-> best regards, Simon Schneider
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Zhi Yong Wu
