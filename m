@@ -1,129 +1,33 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/3] vhost: adjust vhost_dev_init() to be void
-Date: Mon, 18 Nov 2013 12:16:28 +0200
-Message-ID: <20131118101628.GC3559@redhat.com>
-References: <1384744763-7476-1-git-send-email-zwu.kernel@gmail.com>
- <1384744763-7476-2-git-send-email-zwu.kernel@gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: net/usb/ax88179_178a driver broken in linux-3.12
+Date: Mon, 18 Nov 2013 10:12:10 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com>
+References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com> <52891341.4020403@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Zhi Yong Wu <zwu.kernel@gmail.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "Mark Lord" <mlord@pobox.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Ming Lei" <ming.lei@canonical.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13567 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751420Ab3KRKNW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Nov 2013 05:13:22 -0500
-Content-Disposition: inline
-In-Reply-To: <1384744763-7476-2-git-send-email-zwu.kernel@gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:47081 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751194Ab3KRKNe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Nov 2013 05:13:34 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 07281-04 for <netdev@vger.kernel.org>;
+ Mon, 18 Nov 2013 10:13:32 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <52891341.4020403@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 18, 2013 at 11:19:22AM +0800, Zhi Yong Wu wrote:
-> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> 
-> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-> ---
->  drivers/vhost/net.c   |    4 ++--
->  drivers/vhost/scsi.c  |    2 +-
->  drivers/vhost/test.c  |    3 +--
->  drivers/vhost/vhost.c |    4 +---
->  drivers/vhost/vhost.h |    2 +-
->  5 files changed, 6 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 0554785..9a68409 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -683,7 +683,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
->  	struct vhost_net *n = kmalloc(sizeof *n, GFP_KERNEL);
->  	struct vhost_dev *dev;
->  	struct vhost_virtqueue **vqs;
-> -	int r, i;
-> +	int i;
->  
->  	if (!n)
->  		return -ENOMEM;
-> @@ -706,7 +706,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
->  		n->vqs[i].vhost_hlen = 0;
->  		n->vqs[i].sock_hlen = 0;
->  	}
-> -	r = vhost_dev_init(dev, vqs, VHOST_NET_VQ_MAX);
-> +	vhost_dev_init(dev, vqs, VHOST_NET_VQ_MAX);
->  
->  	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT, dev);
->  	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN, dev);
-> diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-> index 9d5e18d..e02b7df 100644
-> --- a/drivers/vhost/scsi.c
-> +++ b/drivers/vhost/scsi.c
-> @@ -1417,7 +1417,7 @@ static int vhost_scsi_open(struct inode *inode, struct file *f)
->  		vqs[i] = &vs->vqs[i].vq;
->  		vs->vqs[i].vq.handle_kick = vhost_scsi_handle_kick;
->  	}
-> -	r = vhost_dev_init(&vs->dev, vqs, VHOST_SCSI_MAX_VQ);
-> +	vhost_dev_init(&vs->dev, vqs, VHOST_SCSI_MAX_VQ);
->  
->  	tcm_vhost_init_inflight(vs, NULL);
->  
-> diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
-> index 99cb960..c2a54fb 100644
-> --- a/drivers/vhost/test.c
-> +++ b/drivers/vhost/test.c
-> @@ -104,7 +104,6 @@ static int vhost_test_open(struct inode *inode, struct file *f)
->  	struct vhost_test *n = kmalloc(sizeof *n, GFP_KERNEL);
->  	struct vhost_dev *dev;
->  	struct vhost_virtqueue **vqs;
-> -	int r;
->  
->  	if (!n)
->  		return -ENOMEM;
-> @@ -117,7 +116,7 @@ static int vhost_test_open(struct inode *inode, struct file *f)
->  	dev = &n->dev;
->  	vqs[VHOST_TEST_VQ] = &n->vqs[VHOST_TEST_VQ];
->  	n->vqs[VHOST_TEST_VQ].handle_kick = handle_vq_kick;
-> -	r = vhost_dev_init(dev, vqs, VHOST_TEST_VQ_MAX);
-> +	vhost_dev_init(dev, vqs, VHOST_TEST_VQ_MAX);
->  
->  	f->private_data = n;
->  
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index 69068e0..78987e4 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -290,7 +290,7 @@ static void vhost_dev_free_iovecs(struct vhost_dev *dev)
->  		vhost_vq_free_iovecs(dev->vqs[i]);
->  }
->  
-> -long vhost_dev_init(struct vhost_dev *dev,
-> +void vhost_dev_init(struct vhost_dev *dev,
->  		    struct vhost_virtqueue **vqs, int nvqs)
->  {
->  	struct vhost_virtqueue *vq;
-> @@ -319,8 +319,6 @@ long vhost_dev_init(struct vhost_dev *dev,
->  			vhost_poll_init(&vq->poll, vq->handle_kick,
->  					POLLIN, dev);
->  	}
-> -
-> -	return 0;
->  }
->  EXPORT_SYMBOL_GPL(vhost_dev_init);
->  
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> index 4465ed5..35eeb2a 100644
-> --- a/drivers/vhost/vhost.h
-> +++ b/drivers/vhost/vhost.h
-> @@ -127,7 +127,7 @@ struct vhost_dev {
->  	struct task_struct *worker;
->  };
->  
-> -long vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue **vqs, int nvqs);
-> +void vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue **vqs, int nvqs);
->  long vhost_dev_set_owner(struct vhost_dev *dev);
->  bool vhost_dev_has_owner(struct vhost_dev *dev);
->  long vhost_dev_check_owner(struct vhost_dev *);
-> -- 
-> 1.7.6.5
+PiBPbiAxMy0xMS0xNyAwMTo1NiBQTSwgTWFyayBMb3JkIHdyb3RlOg0KPiA+IE9uIDEzLTExLTE3
+IDAxOjM1IFBNLCBNYXJrIExvcmQgd3JvdGU6DQo+ID4+IFRoZSBVU0IzIG5ldHdvcmsgYWRhcHRl
+ciBsb2NrcyB1cCBjb25zaXN0ZW50bHkgZm9yIG1lIGhlcmUgaW4gMy4xMiwNCj4gPj4gYnV0IHdh
+cyB3b3JraW5nIHdpdGhvdXQgaXNzdWVzIGluIDMuMTEueA0KDQpUaGUgeGhjaSBkcml2ZXIgaXMg
+d2VsbCBicm9rZW4gaW4gMy4xMi4NCg0KVHJ5IGRpc2FibGluZyBHU08gYW5kIFRTTyBzbyB0aGF0
+IHRoZSB4aGNpIGRyaXZlciBpcyBuZXZlciBnaXZlbg0KZnJhZ21lbnRzLg0KDQoJRGF2aWQNCg0K
