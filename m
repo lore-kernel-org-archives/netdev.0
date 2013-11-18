@@ -1,150 +1,103 @@
-From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
-Subject: Re: [PATCH net-next 02/13] driver: net: remove unnecessary skb NULL
- check before calling dev_kfree_skb_irq
-Date: Tue, 19 Nov 2013 00:56:48 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1311190055150.10646@gmail.com>
-References: <1383400074-30555-1-git-send-email-govindarajulu90@gmail.com> <1383400074-30555-3-git-send-email-govindarajulu90@gmail.com> <20131104.151230.1978898006990867916.davem@davemloft.net> <alpine.LNX.2.03.1311111537020.2363@cisco.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: Fw: [Bug 65131] New: kernel panic (BUG_ON raised) in SCTP function
+ sctp_cmd_interpreter
+Date: Mon, 18 Nov 2013 14:35:23 -0500
+Message-ID: <528A6BFB.9050509@gmail.com>
+References: <20131118091428.6360d82a@samsung-9> <528A5282.7090505@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Govindarajulu Varadarajan <govindarajulu90@gmail.com>,
-	gregkh@linuxfoundation.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, schwidefsky@de.ibm.com,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, IvDoorn@gmail.com, sbhatewara@vmware.com,
-	samuel@sortiz.org, chas@cmf.nrl.navy.mil, roland@kernel.org,
-	isdn@linux-pingi.de, jcliburn@gmail.com,
-	"Christian Benvenuti (benve)" <benve@cisco.com>,
-	"Sujith Sankar (ssujith)" <ssujith@cisco.com>,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shahed.shaikh@qlogic.com, joe@perches.com, apw@canonical.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:45235 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752081Ab3KRT0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 14:26:24 -0500
-In-Reply-To: <alpine.LNX.2.03.1311111537020.2363@cisco.com>
+Received: from mail-yh0-f46.google.com ([209.85.213.46]:44192 "EHLO
+	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751563Ab3KRTf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 14:35:26 -0500
+Received: by mail-yh0-f46.google.com with SMTP id c41so3582347yho.5
+        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 11:35:26 -0800 (PST)
+In-Reply-To: <528A5282.7090505@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave
-
-Did you have a chance to look at this? Let me know how you want me to
-fix this.
-
-//govind
-
-On Mon, 11 Nov 2013, Govindarajulu Varadarajan wrote:
-
->
->
-> On Mon, 4 Nov 2013, David Miller wrote:
->
->> From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
->> Date: Sat,  2 Nov 2013 19:17:43 +0530
->> 
->>> @@ -1030,10 +1030,8 @@ static void ni65_xmit_intr(struct net_device 
->>> *dev,int csr0)
->>>  		}
->>>
->>>  #ifdef XMT_VIA_SKB
->>> -		if(p->tmd_skb[p->tmdlast]) {
->>> -			 dev_kfree_skb_irq(p->tmd_skb[p->tmdlast]);
->>> -			 p->tmd_skb[p->tmdlast] = NULL;
->>> -		}
->>> +		 dev_kfree_skb_irq(p->tmd_skb[p->tmdlast]);
->>> +		 p->tmd_skb[p->tmdlast] = NULL;
->>>  #endif
->> 
->> I absolutely disagree with this kind of change.
->> 
->> There is a non-trivial cost for NULL'ing out that array entry
->> unconditionally.  It's a dirtied cache line and this is in the
->> fast path of TX SKB reclaim of this driver.
->> 
->> You've made several changes of this kind.
->> 
->> And it sort-of shows that the places that do check for NULL,
->> are getting something in return for that test, namely avoidance
->> of an unnecessary cpu store in the fast path of the driver.
->> 
->
-> True, in case of dev_kfree_skb_irq. If you look at patch 06-12, at many
-> places we do
->
-> if (s->skb) {
-> 	dev_kfree_skb_any(s->skb);
-> 	s->skb = NULL)
-> }
->
-> This is in fast path. If the code is not running in hardirq,
-> dev_kfree_skb_any calls dev_kfree_skb. Which again check if skb is NULL.
-> So we are checking if skb is null twice. That is what this patch is
-> trying to fix. (sorry I should have mentioned this in cover letter).
->
-> I am not sure if you have read my previous mail. I am pasting it below.
->
->>> On Sun, 3 Nov 2013, Brandeburg, Jesse wrote: Thanks for this work, I'm a 
->>> little concerned that there is a
->>> non-trivial overhead to this patch.
->>> 
->>> when doing (for example in the Intel drivers): if (s->skb) {
->>>      dev_kfree_skb(s->skb);
->>>      s->skb = NULL; }
->>> 
->> 
->> In current code, dev_kfree_skb is NULL safe. Which means skb is
->> checked for NULL inside dev_kfree_skb. dev_kfree_skb_any is also NULL safe
->> when the code is running in non-hardirq.
->> 
->> Lets consider two cases
->> 
->> 1. skb is not NULL:
->>      * Without my patch:
->>           In the code above, we check for skb!=NULL twice. (once
->>           before calling dev_kfree_skb, once by dev_kfree_skb). And
->>           then we do assignment.
->>       * With this patch:
->>           we check for skb!=NULL once, And then we do assignment.
+On 11/18/2013 12:46 PM, Vlad Yasevich wrote:
+> On 11/18/2013 12:14 PM, Stephen Hemminger wrote:
 >>
->>       To fix the twice NULL check, we either have to remove the check
->>       which is inside dev_kfree_skb (1). Or do whats done in this
->>       patch.
 >>
->>       (1) is not an option because a lot of kernel code already
->>       assumes that dev_kfree_skb is NULL safe.
->> 
->> 2. skb is NULL:
->>       * Without this patch:
->>           One if statement is executed.
->>       * With this patch:
->>           One if statement and one assignment is executed.
->> 
->> From my observation most of the dev_kfree_skb calls are from
->> e1000_unmap_and_free_tx_resource, e1000_put_txbuf,
->> atl1_clean_tx_ring, alx_free_txbuf etc. in clean up functions.
->> 
->> Is is quite unlikely thats skb is NULL. So it comes down to one extra
->> if-branching statement or one extra assignment. I would prefer extra
->> assignment to branching statement. In my opinion extra assignment is
->> very little price we pay.
->> 
->> //govind
->
-> Another way to solve the double NULL check is to define a new function
-> something like this
->
-> dev_kfree_skb_NULL(struct sk_buff **skb)
-> {
-> 	if(*skb) {
-> 		free_skb(*skb);
-> 		*skb=NULL;
-> 	}
-> }
->
-> and use this if you want to free a skb and make it NULL.
-> Is this approach better?
->
-> //govind
->
->
+>> Begin forwarded message:
+>>
+>> Date: Sun, 17 Nov 2013 19:38:56 -0800
+>> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+>> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+>> Subject: [Bug 65131] New: kernel panic (BUG_ON raised) in SCTP function sctp_cmd_interpreter
+>>
+>>
+>> https://bugzilla.kernel.org/show_bug.cgi?id=65131
+>>
+>>             Bug ID: 65131
+>>            Summary: kernel panic (BUG_ON raised) in SCTP function
+>>                     sctp_cmd_interpreter
+>>            Product: Networking
+>>            Version: 2.5
+>>     Kernel Version: 3.11.8 custom build, repeated on 3.11.2
+>>           Hardware: All
+>>                 OS: Linux
+>>               Tree: Mainline
+>>             Status: NEW
+>>           Severity: blocking
+>>           Priority: P1
+>>          Component: IPV4
+>>           Assignee: shemminger@linux-foundation.org
+>>           Reporter: yuras@uch.net
+>>         Regression: No
+>>
+>> Created attachment 114991
+>>   --> https://bugzilla.kernel.org/attachment.cgi?id=114991&action=edit
+>> Screenshot of panic
+>>
+>> Two-node cluster configured using latest corosync (also DRBD 8.4.4, LVM2, and
+>> GFS2 but this is unessential).
+>> Steps to reproduce:
+>> 1. Start corosync on both nodes.
+>> 2. Start dlm_controld (version 4.0.2) on both nodes (used SCTP protocol as TCP
+>> cannot be used on multi-homed hosts). Adds such lines to kern.log:
+>>     kernel: [  580.428664] sctp: Hash tables configured (established 65536 bind
+>> 65536)
+>>     kernel: [  580.441779] DLM installed
+>> 3. Start clvmd on either node. Adds such lines to kern.log:
+>>     kernel: [ 1345.259502] dlm: Using SCTP for communications
+>>     kernel: [ 1345.260699] dlm: clvmd: joining the lockspace group...
+>>     kernel: [ 1345.262962] dlm: clvmd: dlm_recover 1
+>>     kernel: [ 1345.262968] dlm: clvmd: group event done 0 0
+>>     kernel: [ 1345.262992] dlm: clvmd: add member 1024
+>>     kernel: [ 1345.262995] dlm: clvmd: dlm_recover_members 1 nodes
+>>     kernel: [ 1345.262996] dlm: clvmd: join complete
+>>     kernel: [ 1345.262998] dlm: clvmd: generation 1 slots 1 1:1024
+>>     kernel: [ 1345.262999] dlm: clvmd: dlm_recover_directory
+>>     kernel: [ 1345.263000] dlm: clvmd: dlm_recover_directory 0 in 0 new
+>>     kernel: [ 1345.263002] dlm: clvmd: dlm_recover_directory 0 out 0 messages
+>>     kernel: [ 1345.263019] dlm: clvmd: dlm_recover 1 generation 1 done: 0 ms
+>> 4. Start clvmd on second node. With high probability one node or both nodes
+>> panic in the similar way. Screenshot in attachment.
+>>
+>> Stack trace can differ slightly above EOI line, but RIP was always the same. I
+>> suppose provided CPU codes correspond to one of BUG_ON macro inside
+>> sctp_cmd_interpreter. So, this is a bug.
+>>
+>> Now this bug totally prevents me from using my cluster as DLM rejects to use
+>> TCP for multi-homed hosts.
+>>
+> 
+> Should be fixed by:
+> commit 7926c1d5be0b7cbe5b8d5c788d7d39237e7b212c
+> Author: Daniel Borkmann <dborkman@redhat.com>
+> Date:   Thu Oct 31 09:13:32 2013 +0100
+> 
+>     net: sctp: do not trigger BUG_ON in sctp_cmd_delete_tcb
+> 
+> -vlad
+> 
+
+Just received confirmation that the above patch has been queued for 3.11.
+
+-vlad
