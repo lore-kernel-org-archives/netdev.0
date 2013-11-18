@@ -1,105 +1,86 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH v3] net: Do not include padding in TCP GRO checksum
-Date: Mon, 18 Nov 2013 09:43:18 -0800
-Message-ID: <528A51B6.2040609@intel.com>
-References: <20131115225856.6988.69733.stgit@ahduyck-fpga.jf.intel.com> <20131116004738.GA1491@gondor.apana.org.au> <20131116015301.GA1999@gondor.apana.org.au> <5286F018.8060801@gmail.com> <20131116064611.GA12146@gondor.apana.org.au>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH net RESEND] bonding: don't change to 802.3ad mode while
+ ARP monitoring is running
+Date: Mon, 18 Nov 2013 11:44:42 -0600
+Message-ID: <1384796682.4774.26.camel@dcbw.foobar.com>
+References: <528710F7.7050207@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, edumazet@google.com
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	Alexander Duyck <alexander.duyck@gmail.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:51870 "EHLO mga09.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33410 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751266Ab3KRRnT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Nov 2013 12:43:19 -0500
-In-Reply-To: <20131116064611.GA12146@gondor.apana.org.au>
+	id S1751297Ab3KRRoX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Nov 2013 12:44:23 -0500
+In-Reply-To: <528710F7.7050207@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/15/2013 10:46 PM, Herbert Xu wrote:
-> On Fri, Nov 15, 2013 at 08:10:00PM -0800, Alexander Duyck wrote:
->>
->> The case I am addressing is padding added by the remote side. 
->> Specifically in my case I was seeing TCP frames without options that
->> were padded up to 60 bytes from a netperf TCP_RR test.  I messed up the
->> padding/checksum logic so it was making the same mistake in the Tx
->> checksum logic in the driver that I caught here in GRO.  As a result I
->> was seeing checksum errors errors in wireshark, but noticed they were
->> being accepted by the stack as valid.
+On Sat, 2013-11-16 at 14:30 +0800, Ding Tianhong wrote:
+> Because the ARP monitoring is not support for 802.3ad, but I still
+> could change the mode to 802.3ad from ab mode while ARP monitoring
+> is running, it is incorrect.
 > 
-> OK great.  So this isn't normal data that we expect to aggregate.
+> So add a check for 802.3ad in bonding_store_mode to fix the problem,
+> and make a new macro BOND_NO_USES_ARP() to simplify the code.
+
+Instead of failing, couldn't the code stop ARP monitoring and allow the
+mode change?  This is similar to setting miimon, which disables ARP
+monitoring, or setting ARP monitoring, which disables miimon.
+
+	if (new_value && bond->params.arp_interval) {
+		pr_info("%s: MII monitoring cannot be used with ARP monitoring. Disabling ARP monitoring...\n",
+			bond->dev->name);
+		bond->params.arp_interval = 0;
+		if (bond->params.arp_validate)
+			bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
+	}
+
+Bond mode is the most important bond option, so it seems like it should
+override any of the other sub-options.  I know the code doesn't do this
+now, but maybe instead of the patch you propose, it would be nicer to
+allow the mode change instead?
+
+Dan
+
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> ---
+>  drivers/net/bonding/bond_options.c | 2 +-
+>  drivers/net/bonding/bonding.h      | 4 ++++
+>  2 files changed, 5 insertions(+), 1 deletion(-)
 > 
-> In that case the simplest solution is to skip the checksum check
-> altogether.  We only require it if the packet is going to be merged.
-> 
-> So how about something like this?
-> 
-> gro: Only verify TCP checksums for candidates
-> 
-> In some cases we may receive IP packets that are longer than
-> their stated lengths.  Such packets are never merged in GRO.
-> However, we may end up computing their checksums incorrectly
-> and end up allowing packets with a bogus checksum enter our
-> stack with the checksum status set as verified.
-> 
-> Since such packets are rare and not performance-critical, this
-> patch simply skips the checksum verification for them.
-> 
-> Reported-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-> index a2b68a1..55aeec9 100644
-> --- a/net/ipv4/tcp_offload.c
-> +++ b/net/ipv4/tcp_offload.c
-> @@ -276,6 +276,10 @@ static struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *
->  	__wsum wsum;
->  	__sum16 sum;
->  
-> +	/* Don't bother verifying checksum if we're going to flush anyway. */
-> +	if (NAPI_GRO_CB(skb)->flush)
-> +		goto skip_csum;
-> +
->  	switch (skb->ip_summed) {
->  	case CHECKSUM_COMPLETE:
->  		if (!tcp_v4_check(skb_gro_len(skb), iph->saddr, iph->daddr,
-> @@ -301,6 +305,7 @@ flush:
->  		break;
+> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+> index 9a5223c..abb4218 100644
+> --- a/drivers/net/bonding/bond_options.c
+> +++ b/drivers/net/bonding/bond_options.c
+> @@ -45,7 +45,7 @@ int bond_option_mode_set(struct bonding *bond, int mode)
+>  		return -EPERM;
 >  	}
 >  
-> +skip_csum:
->  	return tcp_gro_receive(head, skb);
->  }
+> -	if (BOND_MODE_IS_LB(mode) && bond->params.arp_interval) {
+> +	if (BOND_NO_USES_ARP(mode) && bond->params.arp_interval) {
+>  		pr_err("%s: %s mode is incompatible with arp monitoring.\n",
+>  		       bond->dev->name, bond_mode_tbl[mode].modename);
+>  		return -EINVAL;
+> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+> index 046a605..e2c11cb 100644
+> --- a/drivers/net/bonding/bonding.h
+> +++ b/drivers/net/bonding/bonding.h
+> @@ -63,6 +63,10 @@
+>  		(((mode) == BOND_MODE_TLB) ||	\
+>  		 ((mode) == BOND_MODE_ALB))
 >  
-> diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
-> index c1097c7..71923d1 100644
-> --- a/net/ipv6/tcpv6_offload.c
-> +++ b/net/ipv6/tcpv6_offload.c
-> @@ -39,6 +39,10 @@ static struct sk_buff **tcp6_gro_receive(struct sk_buff **head,
->  	__wsum wsum;
->  	__sum16 sum;
->  
-> +	/* Don't bother verifying checksum if we're going to flush anyway. */
-> +	if (NAPI_GRO_CB(skb)->flush)
-> +		goto skip_csum;
-> +
->  	switch (skb->ip_summed) {
->  	case CHECKSUM_COMPLETE:
->  		if (!tcp_v6_check(skb_gro_len(skb), &iph->saddr, &iph->daddr,
-> @@ -65,6 +69,7 @@ flush:
->  		break;
->  	}
->  
-> +skip_csum:
->  	return tcp_gro_receive(head, skb);
->  }
-> 
-> Thanks,
-> 
-
-I'm not going to have a chance to test this today, but on review it
-should fix the issue.
-
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> +#define BOND_NO_USES_ARP(mode)				\
+> +		(((mode) == BOND_MODE_8023AD)	||	\
+> +		 ((mode) == BOND_MODE_TLB)	||	\
+> +		 ((mode) == BOND_MODE_ALB))
+>  /*
+>   * Less bad way to call ioctl from within the kernel; this needs to be
+>   * done some other way to get the call out of interrupt context.
