@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 09/12 NEXT] rtlwifi: rtl8192cu: Update the power index registers
-Date: Mon, 18 Nov 2013 11:11:33 -0600
-Message-ID: <1384794696-20314-10-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 08/12 NEXT] rtlwifi: rtl8192c: Add routines to save/restore power index registers
+Date: Mon, 18 Nov 2013 11:11:32 -0600
+Message-ID: <1384794696-20314-9-git-send-email-Larry.Finger@lwfinger.net>
 References: <1384794696-20314-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
@@ -12,43 +12,58 @@ In-Reply-To: <1384794696-20314-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch uses the newly introduced power index register routines.
-
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 Cc: Stable <stable@vger.kernel.org>
 ---
- drivers/net/wireless/rtlwifi/rtl8192cu/dm.c | 6 ++++++
- drivers/net/wireless/rtlwifi/rtl8192cu/dm.h | 3 +++
- 2 files changed, 9 insertions(+)
+ drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c | 36 +++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
 
-Index: wireless-testing/drivers/net/wireless/rtlwifi/rtl8192cu/dm.c
-===================================================================
---- wireless-testing.orig/drivers/net/wireless/rtlwifi/rtl8192cu/dm.c
-+++ wireless-testing/drivers/net/wireless/rtlwifi/rtl8192cu/dm.c
-@@ -101,6 +101,15 @@ void rtl92cu_dm_dynamic_txpower(struct i
- 			 "PHY_SetTxPowerLevel8192S() Channel = %d\n",
- 			 rtlphy->current_channel);
- 		rtl92c_phy_set_txpower_level(hw, rtlphy->current_channel);
-+		if (rtlpriv->dm.dynamic_txhighpower_lvl ==
-+		    TXHIGHPWRLEVEL_NORMAL)
-+			dm_restorepowerindex(hw);
-+		else if (rtlpriv->dm.dynamic_txhighpower_lvl ==
-+			 TXHIGHPWRLEVEL_LEVEL1)
-+			dm_writepowerindex(hw, 0x14);
-+		else if (rtlpriv->dm.dynamic_txhighpower_lvl ==
-+			 TXHIGHPWRLEVEL_LEVEL2)
-+			dm_writepowerindex(hw, 0x10);
- 	}
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c b/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
+index a4e9d33..aded51d 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
+@@ -158,6 +158,42 @@ static const u8 cckswing_table_ch14[CCK_TABLE_SIZE][8] = {
+ 	{0x09, 0x08, 0x07, 0x04, 0x00, 0x00, 0x00, 0x00}
+ };
  
- 	rtlpriv->dm.last_dtp_lvl = rtlpriv->dm.dynamic_txhighpower_lvl;
-Index: wireless-testing/drivers/net/wireless/rtlwifi/rtl8192cu/dm.h
-===================================================================
---- wireless-testing.orig/drivers/net/wireless/rtlwifi/rtl8192cu/dm.h
-+++ wireless-testing/drivers/net/wireless/rtlwifi/rtl8192cu/dm.h
-@@ -30,3 +30,6 @@
- #include "../rtl8192ce/dm.h"
- 
- void rtl92cu_dm_dynamic_txpower(struct ieee80211_hw *hw);
-+void dm_savepowerindex(struct ieee80211_hw *hw);
-+void dm_writepowerindex(struct ieee80211_hw *hw, u8 value);
-+void dm_restorepowerindex(struct ieee80211_hw *hw);
++static u32 power_index_reg[6] = {0xc90, 0xc91, 0xc92, 0xc98, 0xc99, 0xc9a};
++
++void dm_restorepowerindex(struct ieee80211_hw *hw)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8	index;
++
++	for (index = 0; index < 6; index++)
++		rtl_write_byte(rtlpriv, power_index_reg[index],
++			       rtlpriv->dm.powerindex_backup[index]);
++}
++EXPORT_SYMBOL_GPL(dm_restorepowerindex);
++
++void dm_writepowerindex(struct ieee80211_hw *hw, u8 value)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 index;
++
++	for (index = 0; index < 6; index++)
++		rtl_write_byte(rtlpriv, power_index_reg[index], value);
++}
++EXPORT_SYMBOL_GPL(dm_writepowerindex);
++
++void dm_savepowerindex(struct ieee80211_hw *hw)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 index;
++	u8 tmp;
++
++	for (index = 0; index < 6; index++) {
++		tmp = rtl_read_byte(rtlpriv, power_index_reg[index]);
++		rtlpriv->dm.powerindex_backup[index] = tmp;
++	}
++}
++EXPORT_SYMBOL_GPL(dm_savepowerindex);
++
+ static void rtl92c_dm_diginit(struct ieee80211_hw *hw)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+-- 
+1.8.4
