@@ -1,74 +1,49 @@
-From: Saurabh Mohan <saurabh.mohan@brocade.com>
-Subject: RE: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not
- ipsec pkt
-Date: Mon, 18 Nov 2013 13:38:19 -0800
-Message-ID: <1902752B0C92F943AB7EA9EE13E2DEEC1273BA977C@HQ1-EXCH02.corp.brocade.com>
-References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
- <1383725153-26298-1-git-send-email-christophe.gouault@6wind.com>
- <20131107112549.GP31491@secunet.com> <527B8DC5.6080702@6wind.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v4] inet: prevent leakage of uninitialized memory to user in recv syscalls
+Date: Mon, 18 Nov 2013 23:14:17 +0100
+Message-ID: <20131118221417.GM16541@order.stressinduktion.org>
+References: <1384648584.8604.39.camel@edumazet-glaptop2.roam.corp.google.com> <20131117192240.GI16541@order.stressinduktion.org> <20131118032045.GJ16541@order.stressinduktion.org> <20131118.151430.75221704090778394.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Christophe Gouault <christophe.gouault@6wind.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=utf-8
+Cc: eric.dumazet@gmail.com, mpb.mail@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:62127 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751281Ab3KRVvg convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Nov 2013 16:51:36 -0500
-Received: from pps.filterd (m0000542 [127.0.0.1])
-	by mx0a-000f0801.pphosted.com (8.14.5/8.14.5) with SMTP id rAILIbP3026154
-	for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 13:38:24 -0800
-Received: from hq1wp-exchub02.corp.brocade.com ([144.49.131.13])
-	by mx0a-000f0801.pphosted.com with ESMTP id 1g7bprrqnf-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 13:38:24 -0800
-In-Reply-To: <527B8DC5.6080702@6wind.com>
-Content-Language: en-US
+Received: from order.stressinduktion.org ([87.106.68.36]:51155 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751350Ab3KRWOS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 17:14:18 -0500
+Content-Disposition: inline
+In-Reply-To: <20131118.151430.75221704090778394.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Nov 18, 2013 at 08:13:50AM -0800, Eric Dumazet wrote:
+> This definitely looks much better, as this will remove lot of crap,
+> thanks !
+> 
+> unix_dgram_recvmsg() and unix_stream_recvmsg() for example clear
+> msg_namelen
 
+Most recvfrom calls are fine, but there is appletalk, tun and even macvtap
+and a lot other recvmsg calls I still have to check.
 
-> -----Original Message-----
-> From: Christophe Gouault [mailto:christophe.gouault@6wind.com]
-> Sent: Thursday, November 07, 2013 4:56 AM
-> To: Steffen Klassert
-> Cc: David S. Miller; Herbert Xu; netdev@vger.kernel.org; Saurabh Mohan;
-> Sergei Shtylyov; Eric Dumazet
-> Subject: Re: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not ipsec
-> pkt
+On Mon, Nov 18, 2013 at 03:14:30PM -0500, David Miller wrote:
+> This looks a lot better than your previous attempts, nice work.
 > 
-> Hello Steffen,
+> Applied and queued up for -stable.
 > 
-> I am also interested in knowing Saurabh's intentions regarding the
-> behavior of policies bound to vti interfaces.
->
-The semantics is to match the policy "src 0.0.0.0/0 dst 0.0.0.0/0 proto any"
-That is the only policy that VTI should use. The mark is needed to
-distinguish and limit the policy to a specific vti tunnel interface only.
-There is no other policy that may be applied to a vti interface.
-The fact that traffic is going over the tunnel  interface implies that it
-must be encrypted/decrypted. Applying the above policy is a way
-to achieve that.
- 
-> However, please note that setting a policy with a wildcard selector
-> works in both cases (before or after this patch), so a common test case
-> can be defined.
-> 
-> Actually the *previous* patch on vti (7263a5187f9e vti: get rid of nf
-> mark rule in prerouting) introduced significant changes, and implies
-> behaviors dependant on the kernel version, but it seemed to meet
-> Saurabh's agreement, as the following thread witnesses:
-> 
-> http://www.spinics.net/lists/netdev/msg253134.html
-> 
-Getting rid of the pre-routing mark, which had to be done outside of
-the vti tunnel code was prone to misconfiguration.
-Though it is unfortunate that it creates a kernel version dependency.
+> The handling of msg_name/msg_namelen in the ->recvmsg proto op is decidedly
+> non-trivial.  Can I suggest that we at least add some documentation about
+> this semantic above "(*recvmsg)" in the definition of proto_ops in
+> include/linux/net.h?
+
+Thanks!
+
+I even want to come up with a better scheme for that. I do think we
+can pass msg_namelen == 0 initially and let the recvmsg handlers update
+it. So we have a safe fallback. The possible uninitialized memory leaks
+can be pretty big, so I would like to see new recvmsg callers not return
+anything if they don't care about msg_namelen. This should get noticed
+during testing.
+
+I'll add documentation in future patches.
