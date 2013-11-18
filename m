@@ -1,7 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 02/12 NEXT] rtlwifi: rtl8192cu: Add new firmware
-Date: Mon, 18 Nov 2013 11:11:26 -0600
-Message-ID: <1384794696-20314-3-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 05/12 NEXT] rtlwifi: rtl8192c: Add new definitions in the dm_common header
+Date: Mon, 18 Nov 2013 11:11:29 -0600
+Message-ID: <1384794696-20314-6-git-send-email-Larry.Finger@lwfinger.net>
 References: <1384794696-20314-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
@@ -12,91 +12,44 @@ In-Reply-To: <1384794696-20314-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Vendor driver rtl8188C_8192C_8192D_usb_linux_v3.4.2_3727.20120404 introduced
-new firmware for these chips. The code try for the new file, and fall back to
-the original firmware if the new file is not available.
+Changes in the gain-control mechanism will require some changes in the header.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 Cc: Stable <stable@vger.kernel.org>
 ---
- drivers/net/wireless/rtlwifi/core.c         | 10 ++++++++++
- drivers/net/wireless/rtlwifi/rtl8192cu/sw.c | 16 +++++++++++++---
- drivers/net/wireless/rtlwifi/wifi.h         |  1 +
- 3 files changed, 24 insertions(+), 3 deletions(-)
+ drivers/net/wireless/rtlwifi/rtl8192c/dm_common.h | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-Index: wireless-testing/drivers/net/wireless/rtlwifi/core.c
-===================================================================
---- wireless-testing.orig/drivers/net/wireless/rtlwifi/core.c
-+++ wireless-testing/drivers/net/wireless/rtlwifi/core.c
-@@ -46,10 +46,20 @@ void rtl_fw_cb(const struct firmware *fi
- 			 "Firmware callback routine entered!\n");
- 	complete(&rtlpriv->firmware_loading_complete);
- 	if (!firmware) {
-+		if (rtlpriv->cfg->alt_fw_name) {
-+			err = request_firmware(&firmware,
-+					       rtlpriv->cfg->alt_fw_name,
-+					       rtlpriv->io.dev);
-+			pr_info("Loading alternative firmware %s\n",
-+				rtlpriv->cfg->alt_fw_name);
-+			if (!err)
-+				goto found_alt;
-+		}
- 		pr_err("Firmware %s not available\n", rtlpriv->cfg->fw_name);
- 		rtlpriv->max_fw_size = 0;
- 		return;
- 	}
-+found_alt:
- 	if (firmware->size > rtlpriv->max_fw_size) {
- 		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
- 			 "Firmware is too big!\n");
-Index: wireless-testing/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-===================================================================
---- wireless-testing.orig/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-+++ wireless-testing/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-@@ -50,6 +50,9 @@ MODULE_AUTHOR("Larry Finger	<Larry.Finge
- MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("Realtek 8192C/8188C 802.11n USB wireless");
- MODULE_FIRMWARE("rtlwifi/rtl8192cufw.bin");
-+MODULE_FIRMWARE("rtlwifi/rtl8192cufw_A.bin");
-+MODULE_FIRMWARE("rtlwifi/rtl8192cufw_B.bin");
-+MODULE_FIRMWARE("rtlwifi/rtl8192cufw_TMSC.bin");
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.h b/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.h
+index 518e208..4f232a0 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.h
++++ b/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.h
+@@ -91,6 +91,17 @@
+ #define TX_POWER_NEAR_FIELD_THRESH_LVL2		74
+ #define TX_POWER_NEAR_FIELD_THRESH_LVL1		67
  
- static int rtl92cu_init_sw_vars(struct ieee80211_hw *hw)
- {
-@@ -69,14 +72,21 @@ static int rtl92cu_init_sw_vars(struct i
- 			 "Can't alloc buffer for fw\n");
- 		return 1;
- 	}
--
-+	if (IS_VENDOR_UMC_A_CUT(rtlpriv->rtlhal.version) &&
-+	    !IS_92C_SERIAL(rtlpriv->rtlhal.version)) {
-+		rtlpriv->cfg->fw_name = "rtlwifi/rtl8192cufw_A.bin";
-+	} else if (IS_81xxC_VENDOR_UMC_B_CUT(rtlpriv->rtlhal.version)) {
-+		rtlpriv->cfg->fw_name = "rtlwifi/rtl8192cufw_B.bin";
-+	} else {
-+		rtlpriv->cfg->fw_name = "rtlwifi/rtl8192cufw_TMSC.bin";
-+	}
-+	/* provide name of alternative file */
-+	rtlpriv->cfg->alt_fw_name = "rtlwifi/rtl8192cufw.bin";
- 	pr_info("Loading firmware %s\n", rtlpriv->cfg->fw_name);
- 	rtlpriv->max_fw_size = 0x4000;
- 	err = request_firmware_nowait(THIS_MODULE, 1,
- 				      rtlpriv->cfg->fw_name, rtlpriv->io.dev,
- 				      GFP_KERNEL, hw, rtl_fw_cb);
--
--
- 	return err;
- }
++#define DYNAMIC_FUNC_DISABLE			0x0
++#define DYNAMIC_FUNC_DIG			BIT(0)
++#define DYNAMIC_FUNC_HP				BIT(1)
++#define DYNAMIC_FUNC_SS				BIT(2) /*Tx Power Tracking*/
++#define DYNAMIC_FUNC_BT				BIT(3)
++#define DYNAMIC_FUNC_ANT_DIV			BIT(4)
++
++#define	RSSI_CCK				0
++#define	RSSI_OFDM				1
++#define	RSSI_DEFAULT				2
++
+ struct swat_t {
+ 	u8 failure_cnt;
+ 	u8 try_flag;
+@@ -167,5 +178,8 @@ void rtl92c_phy_lc_calibrate(struct ieee80211_hw *hw);
+ void rtl92c_phy_iq_calibrate(struct ieee80211_hw *hw, bool recovery);
+ void rtl92c_dm_dynamic_txpower(struct ieee80211_hw *hw);
+ void rtl92c_dm_bt_coexist(struct ieee80211_hw *hw);
++void dm_savepowerindex(struct ieee80211_hw *hw);
++void dm_writepowerindex(struct ieee80211_hw *hw, u8 value);
++void dm_restorepowerindex(struct ieee80211_hw *hw);
  
-Index: wireless-testing/drivers/net/wireless/rtlwifi/wifi.h
-===================================================================
---- wireless-testing.orig/drivers/net/wireless/rtlwifi/wifi.h
-+++ wireless-testing/drivers/net/wireless/rtlwifi/wifi.h
-@@ -1804,6 +1804,7 @@ struct rtl_hal_cfg {
- 	bool write_readback;
- 	char *name;
- 	char *fw_name;
-+	char *alt_fw_name;
- 	struct rtl_hal_ops *ops;
- 	struct rtl_mod_params *mod_params;
- 	struct rtl_hal_usbint_cfg *usb_interface_cfg;
+ #endif
+-- 
+1.8.4
