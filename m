@@ -1,135 +1,63 @@
-From: Salam Noureddine <noureddine@aristanetworks.com>
-Subject: [PATCH] Revert "af-packet: Use existing netdev reference for bound sockets."
-Date: Sun, 17 Nov 2013 16:28:42 -0800
-Message-ID: <1384734522-36613-1-git-send-email-noureddine@aristanetworks.com>
-Cc: Salam Noureddine <noureddine@aristanetworks.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Phil Sutter <phil@nwl.cc>, Eric Dumazet <edumazet@google.com>,
-	netdev@vger.kernel.org
+From: "Shruti@freescale.com" <Shruti@freescale.com>
+Subject: RE: [PATCH 1/4] net/phy: Add VSC8234 support
+Date: Mon, 18 Nov 2013 00:55:44 +0000
+Message-ID: <43d0d5c39be64b198ac51bd9f916b9e1@DM2PR03MB365.namprd03.prod.outlook.com>
+References: <1384556305-17133-1-git-send-email-Shruti@Freescale.com>
+	<20131115.205843.1202324001274425714.davem@davemloft.net>
+	<CAGVrzcZmwQMcpk2MXDfq07NEnxYs+UF4016Z_CezMOKVix-9BQ@mail.gmail.com>
+ <20131115.210921.1205089932014239868.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Shruti@freescale.com" <Shruti@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"afleming@gmail.com" <afleming@gmail.com>,
+	"galak@kernel.crashing.org" <galak@kernel.crashing.org>
+To: David Miller <davem@davemloft.net>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:55676 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751951Ab3KRA3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Nov 2013 19:29:36 -0500
-Received: by mail-pa0-f52.google.com with SMTP id ld10so1366782pab.25
-        for <netdev@vger.kernel.org>; Sun, 17 Nov 2013 16:29:36 -0800 (PST)
+Received: from mail-bl2lp0212.outbound.protection.outlook.com ([207.46.163.212]:25372
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752329Ab3KRA4F convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Nov 2013 19:56:05 -0500
+In-Reply-To: <20131115.210921.1205089932014239868.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 827d978037d7d0bf0860481948c6d26ead10042f.
+Hello David,
 
-The patch introduced a race condition between packet_snd and packet_notifier
-when a net_device is being unregistered. In the case of a bound socket,
-packet_notifier can drop the last reference to the net_device and packet_snd
-might be sending a packet over a freed net_device.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Friday, November 15, 2013 8:09 PM
+> To: f.fainelli@gmail.com
+> Cc: Kanetkar Shruti-B44454; netdev@vger.kernel.org; afleming@gmail.com;
+> galak@kernel.crashing.org
+> Subject: Re: [PATCH 1/4] net/phy: Add VSC8234 support
+> 
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Fri, 15 Nov 2013 18:04:36 -0800
+> 
+> > 2013/11/15 David Miller <davem@davemloft.net>:
+> >>
+> >> These patches didn't actually make it to the netdev list, so they
+> >> were not queued up in patchwork.
 
----
- net/packet/af_packet.c |   27 ++++++++++++---------------
- 1 files changed, 12 insertions(+), 15 deletions(-)
+How can I fix this?
+Should I resend them?
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 2e8286b..a7335ae 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2057,8 +2057,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	struct sk_buff *skb;
- 	struct net_device *dev;
- 	__be16 proto;
--	bool need_rls_dev = false;
--	int err, reserve = 0;
-+	int ifindex, err, reserve = 0;
- 	void *ph;
- 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
- 	int tp_len, size_max;
-@@ -2070,7 +2069,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	mutex_lock(&po->pg_vec_lock);
- 
- 	if (saddr == NULL) {
--		dev = po->prot_hook.dev;
-+		ifindex	= po->ifindex;
- 		proto	= po->num;
- 		addr	= NULL;
- 	} else {
-@@ -2081,12 +2080,12 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 					+ offsetof(struct sockaddr_ll,
- 						sll_addr)))
- 			goto out;
-+		ifindex	= saddr->sll_ifindex;
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
--		dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
--		need_rls_dev = true;
- 	}
- 
-+	dev = dev_get_by_index(sock_net(&po->sk), ifindex);
- 	err = -ENXIO;
- 	if (unlikely(dev == NULL))
- 		goto out;
-@@ -2173,8 +2172,7 @@ out_status:
- 	__packet_set_status(po, ph, status);
- 	kfree_skb(skb);
- out_put:
--	if (need_rls_dev)
--		dev_put(dev);
-+	dev_put(dev);
- out:
- 	mutex_unlock(&po->pg_vec_lock);
- 	return err;
-@@ -2212,9 +2210,8 @@ static int packet_snd(struct socket *sock,
- 	struct sk_buff *skb;
- 	struct net_device *dev;
- 	__be16 proto;
--	bool need_rls_dev = false;
- 	unsigned char *addr;
--	int err, reserve = 0;
-+	int ifindex, err, reserve = 0;
- 	struct virtio_net_hdr vnet_hdr = { 0 };
- 	int offset = 0;
- 	int vnet_hdr_len;
-@@ -2228,7 +2225,7 @@ static int packet_snd(struct socket *sock,
- 	 */
- 
- 	if (saddr == NULL) {
--		dev = po->prot_hook.dev;
-+		ifindex	= po->ifindex;
- 		proto	= po->num;
- 		addr	= NULL;
- 	} else {
-@@ -2237,12 +2234,13 @@ static int packet_snd(struct socket *sock,
- 			goto out;
- 		if (msg->msg_namelen < (saddr->sll_halen + offsetof(struct sockaddr_ll, sll_addr)))
- 			goto out;
-+		ifindex	= saddr->sll_ifindex;
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
--		dev = dev_get_by_index(sock_net(sk), saddr->sll_ifindex);
--		need_rls_dev = true;
- 	}
- 
-+
-+	dev = dev_get_by_index(sock_net(sk), ifindex);
- 	err = -ENXIO;
- 	if (dev == NULL)
- 		goto out_unlock;
-@@ -2386,15 +2384,14 @@ static int packet_snd(struct socket *sock,
- 	if (err > 0 && (err = net_xmit_errno(err)) != 0)
- 		goto out_unlock;
- 
--	if (need_rls_dev)
--		dev_put(dev);
-+	dev_put(dev);
- 
- 	return len;
- 
- out_free:
- 	kfree_skb(skb);
- out_unlock:
--	if (dev && need_rls_dev)
-+	if (dev)
- 		dev_put(dev);
- out:
- 	return err;
--- 
-1.7.4.4
+> >
+> > Are you sure about them not making it to netdev? marc.info also has
+> > the 4 of them here:
+> >
+> > http://marc.info/?l=linux-netdev&m=138455632228947&w=2
+> > http://marc.info/?l=linux-netdev&m=138455632828949&w=2
+> > http://marc.info/?l=linux-netdev&m=138455633228950&w=2
+> > http://marc.info/?l=linux-netdev&m=138455633628952&w=2
+> 
+> More specifically I meant that they didn't end up in patchwork,
+> which is what actually matters for my workflow.
+
+Regards,
+Shruti
