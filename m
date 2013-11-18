@@ -1,92 +1,105 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 65131] New: kernel panic (BUG_ON raised) in SCTP function
- sctp_cmd_interpreter
-Date: Mon, 18 Nov 2013 09:14:28 -0800
-Message-ID: <20131118091428.6360d82a@samsung-9>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH v3] net: Do not include padding in TCP GRO checksum
+Date: Mon, 18 Nov 2013 09:43:18 -0800
+Message-ID: <528A51B6.2040609@intel.com>
+References: <20131115225856.6988.69733.stgit@ahduyck-fpga.jf.intel.com> <20131116004738.GA1491@gondor.apana.org.au> <20131116015301.GA1999@gondor.apana.org.au> <5286F018.8060801@gmail.com> <20131116064611.GA12146@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, edumazet@google.com
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:40040 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751321Ab3KRROb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 12:14:31 -0500
-Received: by mail-pd0-f178.google.com with SMTP id p10so6723083pdj.23
-        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 09:14:31 -0800 (PST)
-Received: from samsung-9 ([172.56.32.29])
-        by mx.google.com with ESMTPSA id oj6sm28003427pab.9.2013.11.18.09.14.30
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 18 Nov 2013 09:14:31 -0800 (PST)
+Received: from mga09.intel.com ([134.134.136.24]:51870 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751266Ab3KRRnT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Nov 2013 12:43:19 -0500
+In-Reply-To: <20131116064611.GA12146@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11/15/2013 10:46 PM, Herbert Xu wrote:
+> On Fri, Nov 15, 2013 at 08:10:00PM -0800, Alexander Duyck wrote:
+>>
+>> The case I am addressing is padding added by the remote side. 
+>> Specifically in my case I was seeing TCP frames without options that
+>> were padded up to 60 bytes from a netperf TCP_RR test.  I messed up the
+>> padding/checksum logic so it was making the same mistake in the Tx
+>> checksum logic in the driver that I caught here in GRO.  As a result I
+>> was seeing checksum errors errors in wireshark, but noticed they were
+>> being accepted by the stack as valid.
+> 
+> OK great.  So this isn't normal data that we expect to aggregate.
+> 
+> In that case the simplest solution is to skip the checksum check
+> altogether.  We only require it if the packet is going to be merged.
+> 
+> So how about something like this?
+> 
+> gro: Only verify TCP checksums for candidates
+> 
+> In some cases we may receive IP packets that are longer than
+> their stated lengths.  Such packets are never merged in GRO.
+> However, we may end up computing their checksums incorrectly
+> and end up allowing packets with a bogus checksum enter our
+> stack with the checksum status set as verified.
+> 
+> Since such packets are rare and not performance-critical, this
+> patch simply skips the checksum verification for them.
+> 
+> Reported-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+> index a2b68a1..55aeec9 100644
+> --- a/net/ipv4/tcp_offload.c
+> +++ b/net/ipv4/tcp_offload.c
+> @@ -276,6 +276,10 @@ static struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *
+>  	__wsum wsum;
+>  	__sum16 sum;
+>  
+> +	/* Don't bother verifying checksum if we're going to flush anyway. */
+> +	if (NAPI_GRO_CB(skb)->flush)
+> +		goto skip_csum;
+> +
+>  	switch (skb->ip_summed) {
+>  	case CHECKSUM_COMPLETE:
+>  		if (!tcp_v4_check(skb_gro_len(skb), iph->saddr, iph->daddr,
+> @@ -301,6 +305,7 @@ flush:
+>  		break;
+>  	}
+>  
+> +skip_csum:
+>  	return tcp_gro_receive(head, skb);
+>  }
+>  
+> diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
+> index c1097c7..71923d1 100644
+> --- a/net/ipv6/tcpv6_offload.c
+> +++ b/net/ipv6/tcpv6_offload.c
+> @@ -39,6 +39,10 @@ static struct sk_buff **tcp6_gro_receive(struct sk_buff **head,
+>  	__wsum wsum;
+>  	__sum16 sum;
+>  
+> +	/* Don't bother verifying checksum if we're going to flush anyway. */
+> +	if (NAPI_GRO_CB(skb)->flush)
+> +		goto skip_csum;
+> +
+>  	switch (skb->ip_summed) {
+>  	case CHECKSUM_COMPLETE:
+>  		if (!tcp_v6_check(skb_gro_len(skb), &iph->saddr, &iph->daddr,
+> @@ -65,6 +69,7 @@ flush:
+>  		break;
+>  	}
+>  
+> +skip_csum:
+>  	return tcp_gro_receive(head, skb);
+>  }
+> 
+> Thanks,
+> 
 
+I'm not going to have a chance to test this today, but on review it
+should fix the issue.
 
-Begin forwarded message:
-
-Date: Sun, 17 Nov 2013 19:38:56 -0800
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 65131] New: kernel panic (BUG_ON raised) in SCTP function sctp_cmd_interpreter
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=65131
-
-            Bug ID: 65131
-           Summary: kernel panic (BUG_ON raised) in SCTP function
-                    sctp_cmd_interpreter
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.11.8 custom build, repeated on 3.11.2
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: blocking
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: yuras@uch.net
-        Regression: No
-
-Created attachment 114991
-  --> https://bugzilla.kernel.org/attachment.cgi?id=114991&action=edit
-Screenshot of panic
-
-Two-node cluster configured using latest corosync (also DRBD 8.4.4, LVM2, and
-GFS2 but this is unessential).
-Steps to reproduce:
-1. Start corosync on both nodes.
-2. Start dlm_controld (version 4.0.2) on both nodes (used SCTP protocol as TCP
-cannot be used on multi-homed hosts). Adds such lines to kern.log:
-    kernel: [  580.428664] sctp: Hash tables configured (established 65536 bind
-65536)
-    kernel: [  580.441779] DLM installed
-3. Start clvmd on either node. Adds such lines to kern.log:
-    kernel: [ 1345.259502] dlm: Using SCTP for communications
-    kernel: [ 1345.260699] dlm: clvmd: joining the lockspace group...
-    kernel: [ 1345.262962] dlm: clvmd: dlm_recover 1
-    kernel: [ 1345.262968] dlm: clvmd: group event done 0 0
-    kernel: [ 1345.262992] dlm: clvmd: add member 1024
-    kernel: [ 1345.262995] dlm: clvmd: dlm_recover_members 1 nodes
-    kernel: [ 1345.262996] dlm: clvmd: join complete
-    kernel: [ 1345.262998] dlm: clvmd: generation 1 slots 1 1:1024
-    kernel: [ 1345.262999] dlm: clvmd: dlm_recover_directory
-    kernel: [ 1345.263000] dlm: clvmd: dlm_recover_directory 0 in 0 new
-    kernel: [ 1345.263002] dlm: clvmd: dlm_recover_directory 0 out 0 messages
-    kernel: [ 1345.263019] dlm: clvmd: dlm_recover 1 generation 1 done: 0 ms
-4. Start clvmd on second node. With high probability one node or both nodes
-panic in the similar way. Screenshot in attachment.
-
-Stack trace can differ slightly above EOI line, but RIP was always the same. I
-suppose provided CPU codes correspond to one of BUG_ON macro inside
-sctp_cmd_interpreter. So, this is a bug.
-
-Now this bug totally prevents me from using my cluster as DLM rejects to use
-TCP for multi-homed hosts.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
