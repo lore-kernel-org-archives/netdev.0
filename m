@@ -1,40 +1,59 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC 3/8] quota/genetlink: use proper genetlink multicast APIs
-Date: Mon, 18 Nov 2013 15:41:46 +0100
-Message-ID: <1384785706.17916.18.camel@jlt4.sipsolutions.net>
-References: <1384621429-24543-1-git-send-email-johannes@sipsolutions.net>
-	 <1384621429-24543-4-git-send-email-johannes@sipsolutions.net>
-	 <20131118123403.GC3921@quack.suse.cz>
-	 <1384778694.17916.5.camel@jlt4.sipsolutions.net>
-	 <20131118141220.GD3921@quack.suse.cz>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
+ burst.
+Date: Mon, 18 Nov 2013 15:03:23 +0000
+Message-ID: <1384787003.10077.34.camel@deadeye.wl.decadent.org.uk>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B740B@saturn3.aculab.com>
+	 <Pine.LNX.4.44L0.1311131113090.1424-100000@iolanthe.rowland.org>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B741A@saturn3.aculab.com>
+	 <1384565904.29151.66.camel@bwh-desktop.uk.level5networks.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B7428@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jan Kara <jack@suse.cz>
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:37258 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751167Ab3KROlw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 09:41:52 -0500
-In-Reply-To: <20131118141220.GD3921@quack.suse.cz>
+Received: from webmail.solarflare.com ([12.187.104.25]:12325 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751171Ab3KRPDb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 10:03:31 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7428@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-11-18 at 15:12 +0100, Jan Kara wrote:
-> On Mon 18-11-13 13:44:54, Johannes Berg wrote:
-> > On Mon, 2013-11-18 at 13:34 +0100, Jan Kara wrote:
-> > > Anyway, I'll fix quota_nld (userspace daemon consuming quota netlink
-> > > messages) to use multicast groups properly with a fallback to previous
-> > > behavior in case that fails (to keep compatibility with older kernels) and
-> > > since I don't believe anyone else is using this interface (and even
-> > > quota_nld isn't widely used), 
+On Mon, 2013-11-18 at 09:48 +0000, David Laight wrote:
+> > > But the minimum fragment size is (probably) 4k.
+> > > For the network stack an OUT transfer might have a lot (and I mean lots)
+> > > of fragments (there may be constraints, and linearising the skb is a option).
+> > [...]
 > > 
-> > Heh. If you want a different group name, that's fine, I just gave it any
-> > name ... We could call it "events" for example, since the group name is
-> > always qualified by the family name anyway.
->   OK, "events" might be a better name then.
+> > The maximum number of fragments in the skb is going to be 17 (including
+> > the 'head' area).  (I'm ignoring NETIF_F_FRAGLIST which is not normally
+> > supported by physical device drivers.)
+> > 
+> > I don't know how many fragments that can end up as, at the USB level.
+> 
+> If you assume that every fragment crosses a 64k boundary that would be 34.
+> OTOH I've not seen a fragment of a 64k TSO send crossing a 32k
+> boundary, and I think the 'head' area is constrained to be part of
+> a single (4k or larger) page.
 
-Ok, I'll rename it in my patch.
+I don't know that it's possible at the moment, but I wouldn't recommend
+relying on that.
 
-johannes
+> Isn't there something odd about skb merged by receive offload?
+> I've not entirely sorted out the full structure of skb.
+
+There has been some work to allow for using both the frags array and
+frag list, but a driver will not see such an skb if it does not
+advertise the NETIF_F_FRAGLIST feature.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
