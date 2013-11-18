@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] fix possible NULL pointer Oops in
- fib(6)_rule_suppress
-Date: Mon, 18 Nov 2013 15:51:31 -0500 (EST)
-Message-ID: <20131118.155131.2222251647728501102.davem@davemloft.net>
-References: <5288CB1B.7050806@cogentembedded.com>
-	<20131117144501.GC23153@zirkel.wertarbyte.de>
+Subject: Re: [PATCH] ping: prevent NULL pointer dereference on write to
+ msg_name
+Date: Mon, 18 Nov 2013 16:02:38 -0500 (EST)
+Message-ID: <20131118.160238.2288108703856396394.davem@davemloft.net>
+References: <20131118060745.GL16541@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel.golle@gmail.com,
-	sergei.shtylyov@cogentembedded.com
-To: stefan.tomanek@wertarbyte.de
+Cc: netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49876 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49971 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751646Ab3KRUvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 15:51:33 -0500
-In-Reply-To: <20131117144501.GC23153@zirkel.wertarbyte.de>
+	with ESMTP id S1751415Ab3KRVCl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 16:02:41 -0500
+In-Reply-To: <20131118060745.GL16541@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Date: Sun, 17 Nov 2013 15:45:01 +0100
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 18 Nov 2013 07:07:45 +0100
 
-> Reported-by: Daniel Golle <daniel.golle@gmail.com>
-> Tested-by: Daniel Golle <daniel.golle@gmail.com>
-> Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+> A plain read() on a socket does set msg->msg_name to NULL. So check for
+> NULL pointer first.
+> 
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+> 
+> Addendum to "[v4] inet: prevent leakage of uninitialized memory to user in
+> recv syscalls".
 
-Please us an appropriate subsystem prefix in your Subject lines, otherwise
-the commit message header is less useful for others scanning the commit
-log.
+Applied and queued up for -stable, thanks Hannes.
 
-"inet: " would work well in this case.
+Looks like ipv6 got this case right.
