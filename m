@@ -1,72 +1,54 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH 11/12 NEXT] rtlwifi:  Add missing code to PWDB statics routine
-Date: Mon, 18 Nov 2013 11:11:35 -0600
-Message-ID: <1384794696-20314-12-git-send-email-Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 09/12 NEXT] rtlwifi: rtl8192cu: Update the power index registers
+Date: Mon, 18 Nov 2013 11:11:33 -0600
+Message-ID: <1384794696-20314-10-git-send-email-Larry.Finger@lwfinger.net>
 References: <1384794696-20314-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1384794696-20314-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
+To: linville@tuxdriver.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1384794696-20314-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+This patch uses the newly introduced power index register routines.
+
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Stable <stable@vger.kernel.org>
 ---
- drivers/net/wireless/rtlwifi/stats.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ drivers/net/wireless/rtlwifi/rtl8192cu/dm.c | 6 ++++++
+ drivers/net/wireless/rtlwifi/rtl8192cu/dm.h | 3 +++
+ 2 files changed, 9 insertions(+)
 
-diff --git a/drivers/net/wireless/rtlwifi/stats.c b/drivers/net/wireless/rtlwifi/stats.c
-index 8ed3174..4f083fc 100644
---- a/drivers/net/wireless/rtlwifi/stats.c
-+++ b/drivers/net/wireless/rtlwifi/stats.c
-@@ -176,6 +176,7 @@ static void rtl_process_pwdb(struct ieee80211_hw *hw, struct rtl_stats *pstatus)
- 	struct rtl_sta_info *drv_priv = NULL;
- 	struct ieee80211_sta *sta = NULL;
- 	long undec_sm_pwdb;
-+	long undec_sm_cck;
- 
- 	rcu_read_lock();
- 	if (rtlpriv->mac80211.opmode != NL80211_IFTYPE_STATION)
-@@ -185,12 +186,16 @@ static void rtl_process_pwdb(struct ieee80211_hw *hw, struct rtl_stats *pstatus)
- 	if (sta) {
- 		drv_priv = (struct rtl_sta_info *) sta->drv_priv;
- 		undec_sm_pwdb = drv_priv->rssi_stat.undec_sm_pwdb;
-+		undec_sm_cck = drv_priv->rssi_stat.undec_sm_cck;
- 	} else {
- 		undec_sm_pwdb = rtlpriv->dm.undec_sm_pwdb;
-+		undec_sm_cck = rtlpriv->dm.undec_sm_cck;
+Index: wireless-testing/drivers/net/wireless/rtlwifi/rtl8192cu/dm.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/rtlwifi/rtl8192cu/dm.c
++++ wireless-testing/drivers/net/wireless/rtlwifi/rtl8192cu/dm.c
+@@ -101,6 +101,15 @@ void rtl92cu_dm_dynamic_txpower(struct i
+ 			 "PHY_SetTxPowerLevel8192S() Channel = %d\n",
+ 			 rtlphy->current_channel);
+ 		rtl92c_phy_set_txpower_level(hw, rtlphy->current_channel);
++		if (rtlpriv->dm.dynamic_txhighpower_lvl ==
++		    TXHIGHPWRLEVEL_NORMAL)
++			dm_restorepowerindex(hw);
++		else if (rtlpriv->dm.dynamic_txhighpower_lvl ==
++			 TXHIGHPWRLEVEL_LEVEL1)
++			dm_writepowerindex(hw, 0x14);
++		else if (rtlpriv->dm.dynamic_txhighpower_lvl ==
++			 TXHIGHPWRLEVEL_LEVEL2)
++			dm_writepowerindex(hw, 0x10);
  	}
  
- 	if (undec_sm_pwdb < 0)
- 		undec_sm_pwdb = pstatus->rx_pwdb_all;
-+	if (undec_sm_cck < 0)
-+		undec_sm_cck = pstatus->rx_pwdb_all;
- 	if (pstatus->rx_pwdb_all > (u32) undec_sm_pwdb) {
- 		undec_sm_pwdb = (((undec_sm_pwdb) *
- 		      (RX_SMOOTH_FACTOR - 1)) +
-@@ -200,6 +205,15 @@ static void rtl_process_pwdb(struct ieee80211_hw *hw, struct rtl_stats *pstatus)
- 		undec_sm_pwdb = (((undec_sm_pwdb) * (RX_SMOOTH_FACTOR - 1)) +
- 		     (pstatus->rx_pwdb_all)) / (RX_SMOOTH_FACTOR);
- 	}
-+	if (pstatus->rx_pwdb_all > (u32) undec_sm_cck) {
-+		undec_sm_cck = (((undec_sm_pwdb) *
-+		      (RX_SMOOTH_FACTOR - 1)) +
-+		     (pstatus->rx_pwdb_all)) / (RX_SMOOTH_FACTOR);
-+		undec_sm_cck = undec_sm_cck + 1;
-+	} else {
-+		undec_sm_pwdb = (((undec_sm_cck) * (RX_SMOOTH_FACTOR - 1)) +
-+		     (pstatus->rx_pwdb_all)) / (RX_SMOOTH_FACTOR);
-+	}
+ 	rtlpriv->dm.last_dtp_lvl = rtlpriv->dm.dynamic_txhighpower_lvl;
+Index: wireless-testing/drivers/net/wireless/rtlwifi/rtl8192cu/dm.h
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/rtlwifi/rtl8192cu/dm.h
++++ wireless-testing/drivers/net/wireless/rtlwifi/rtl8192cu/dm.h
+@@ -30,3 +30,6 @@
+ #include "../rtl8192ce/dm.h"
  
- 	if (sta) {
- 		drv_priv->rssi_stat.undec_sm_pwdb = undec_sm_pwdb;
--- 
-1.8.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ void rtl92cu_dm_dynamic_txpower(struct ieee80211_hw *hw);
++void dm_savepowerindex(struct ieee80211_hw *hw);
++void dm_writepowerindex(struct ieee80211_hw *hw, u8 value);
++void dm_restorepowerindex(struct ieee80211_hw *hw);
