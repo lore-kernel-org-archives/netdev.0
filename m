@@ -1,45 +1,79 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next] veth: extend features to support tunneling
-Date: Mon, 18 Nov 2013 14:57:23 -0800
-Message-ID: <CAEP_g=9hg3zWGUqw4mRdtGu7=aR7-y5bRisWDgRgUfHpio-akw@mail.gmail.com>
-References: <CAJZOPZ+jUanPW2mT_HiSWdvGfdRMHpX6vWyrboS3Zf_gH7rEgQ@mail.gmail.com>
- <1384638027.8604.22.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAMEtUuzkwVSetLKb0AK7U=iB5ArhAhs-0vx9cX+WeZ2Fz04kqg@mail.gmail.com> <OFF76C3619.82D931F7-ON85257C27.005F4843-85257C27.006270D6@us.ibm.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: oops in pskb_expand_head - 3.11.6
+Date: Mon, 18 Nov 2013 23:59:45 +0100
+Message-ID: <20131118225945.GD3743@minipsycho.orion>
+References: <20131116231615.GA24327@marquez.int.rhx>
+ <20131116234223.GG16541@order.stressinduktion.org>
+ <20131117111150.GC24327@marquez.int.rhx>
+ <20131117191810.GH16541@order.stressinduktion.org>
+ <20131118091922.GB11185@marquez.int.rhx>
+ <20131118092436.GA3743@minipsycho.orion>
+ <20131118222543.GP16541@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org, Or Gerlitz <or.gerlitz@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+To: Michele Baldessari <michele@acksyn.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog118.obsmtp.com ([74.125.149.244]:36623 "HELO
-	na3sys009aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751460Ab3KRW5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 17:57:44 -0500
-Received: by mail-ie0-f174.google.com with SMTP id at1so3923724iec.19
-        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 14:57:43 -0800 (PST)
-In-Reply-To: <OFF76C3619.82D931F7-ON85257C27.005F4843-85257C27.006270D6@us.ibm.com>
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:63100 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751301Ab3KRW7s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 17:59:48 -0500
+Received: by mail-ee0-f47.google.com with SMTP id c50so2304883eek.20
+        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 14:59:47 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131118222543.GP16541@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 18, 2013 at 9:55 AM, David Stevens <dlstevens@us.ibm.com> wrote:
-> My idea for solving this ICMP issue is to forge an ICMP2BIG with the
-> source address of the destination and send it back to the originating VM
-> directly. It's complicated a bit because we don't want to use icmp_send()
-> on the host, which will go through host routing tables when we don't
-> necessarily have an IP address or routing for the bridged domain. So, to
-> do this, we really should just have a stand-alone icmp sender for use by
-> tunnel endpoints. But if we do this, the VM can get the correct gso_size
-> accounting for the tunnel overhead too, although it's abusing PMTUD a bit
-> since it doesn't ordinarily apply to hosts on the same L2 network.
+Mon, Nov 18, 2013 at 11:25:43PM CET, hannes@stressinduktion.org wrote:
+>On Mon, Nov 18, 2013 at 10:24:36AM +0100, Jiri Pirko wrote:
+>> Mon, Nov 18, 2013 at 10:19:22AM CET, michele@acksyn.org wrote:
+>> >Hi Hannes,
+>> >
+>> >On Sun, Nov 17, 2013 at 08:18:10PM +0100, Hannes Frederic Sowa wrote:
+>> >> On Sun, Nov 17, 2013 at 11:11:50AM +0000, Michele Baldessari wrote:
+>> >> > Hi Hannes,
+>> >> > 
+>> >> > On Sun, Nov 17, 2013 at 12:42:23AM +0100, Hannes Frederic Sowa wrote:
+>> >> > > On Sat, Nov 16, 2013 at 11:16:15PM +0000, Michele Baldessari wrote:
+>> >> > > > Two oops like the following were reported in Fedora 19 - kernel 3.11.6:
+>> >> > > > https://bugzilla.redhat.com/show_bug.cgi?id=1015905
+>> >> > > 
+>> >> > > I have not followed that issue that closely, but could you try linus tree
+>> >> > > or net-next?
+>> >> > > 
+>> >> > > Maybe those two patches improve the situation:
+>> >> > > https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=9037c3579a277f3a23ba476664629fda8c35f7c4
+>> >> > > https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6aafeef03b9d9ecf255f3a80ed85ee070260e1ae
+>> >> > > 
+>> >> > indeed a current kernel seems to fix the crash (according to the
+>> >> > reporters). I'll see if I manage to bisect exactly.
+>> >> 
+>> >> Great, if you confirm this we can ask David if he adds the commits to the
+>> >> -stable queue.
+>> >
+>> >I can confirm that 6aafeef03b9d9ecf255f3a80ed85ee070260e1ae "netfilter:
+>> >push reasm skb through instead of original frag skbs" fixes the oops
+>> >mentioned in this thread. I've applied it to a 3.11.8 kernel and it
+>> >fixed the crash. I had to slightly tweak it as it does not apply 100%
+>> >cleanly due to 795aa6ef6a1aba99050735eadd0c2341b789b53b " netfilter:
+>> >pass hook ops to hookfn". 
+>> >
+>> >So definitely -stable material.
+>> >
+>> >Not sure if you also want to add 9037c3579a277f3a23ba476664629fda8c35f7c4 
+>> >"ip6_output: fragment outgoing reassembled skb properly". It did not
+>> >have any impact in this particular scenario.
+>> 
+>> It goes hand in hand with 6aafeef03b9d9ecf255f3a80ed85ee070260e1ae.
+>> Without 9037c3579a277f3a23ba476664629fda8c35f7c4 skbs that reasm len is
+>> < MTU would not get fragmented which is not desired.
+>
+>Jiri, David, do you see problems adding this to stable? We got a lot of
+>reports because of exactly those kind of crashes in the past.
 
-OVS used to do exactly this in its tunnel implementation. It worked
-fairly well although we ended up taking it out a while back since it
-was a little offensive due to the need to forge addresses and have
-essentially a parallel stub of an IP stack.
+At this point, I do not see any reason why not to do it.
+
+>
+>Greetings,
+>
+>  Hannes
