@@ -1,50 +1,85 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH 2/2] be2net: Delete secondary unicast MAC addresses during
- be_close
-Date: Mon, 18 Nov 2013 10:44:37 -0600
-Message-ID: <20131118164437.GA3050@emulex.com>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] tcp: tsq: restore minimal amount of queueing
+Date: Mon, 18 Nov 2013 08:47:28 -0800
+Message-ID: <1384793248.8604.72.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <8761s0cqhh.fsf@natisbad.org>
+	 <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
+	 <87y54u59zq.fsf@natisbad.org>
+	 <1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1384353174.28458.110.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <8738n0ngq3.fsf@natisbad.org>
+	 <pan.2013.11.13.21.59.50.578858@googlemail.com>
+	 <1384386040.28458.143.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <pan.2013.11.13.23.52.41.470832@googlemail.com>
+	 <20131117231545.GA32350@electric-eye.fr.zoreil.com>
+	 <528A3FA8.8020202@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+To: Holger =?ISO-8859-1?Q?Hoffst=E4tte?=
+	<holger.hoffstaette@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:28763 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779Ab3KRQon (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 11:44:43 -0500
-Content-Disposition: inline
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:63630 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751199Ab3KRQrf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 11:47:35 -0500
+Received: by mail-pb0-f45.google.com with SMTP id rp16so538854pbb.18
+        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 08:47:35 -0800 (PST)
+In-Reply-To: <528A3FA8.8020202@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Secondary unicast MAC addresses will get deleted only when the interface is UP.
-When the interface is DOWN, though these secondary MAC addresses are unusable
-and awaiting to be deleted, cause the firmware to believe that they are being used.
-If the user intends to set a MAC address as primary MAC from one of these
-secondary MAC addresses, the firmware returns a MAC address Collision error.
-Delete these secondary MAC addresses during be_close.
+On Mon, 2013-11-18 at 17:26 +0100, Holger Hoffst=C3=A4tte wrote:
+> On 11/18/13 00:15, Francois Romieu wrote:
+> > Holger Hoffstaette <holger.hoffstaette@googlemail.com> :
+> > [...]
+> >> Since I saw this with r8169->r8169 and e1000e->r8169 it's probably
+> >> everyone's favourite r8169 :)
+> >> Unfortunately I can't be more help but if you can suggest/whip up =
+a fix
+> >> I'd be happy to help test.
+> >=20
+> > The r8169 driver does not rely on a timer for Tx completion.
+>=20
+> Thankx, that's good to hear.
+>=20
+> > The patch below should not hurt.
+>=20
+> It does not seem to hurt, but neither can I notice much of a change.
+> However that's probably because of some other side effects, see below=
+=2E
+>=20
+> Do I understand the diff correctly that it makes the driver perform
+> outstanding transmissions before budgeting reads? Just curious.
+>=20
+> > Can you describe your system a bit more specifically ?
+>=20
+> Server has r8169, client is either r8169 (Windows/linux) or Thinkpad
+> with e1000e. Clients use NFS & Samba. Since Eric's TSQ patch the erra=
+tic
+> 3.12.0-vanilla behaviour has "stabilized" in the sense that latency &
+> throughout became relatively smooth and more or less as expected, bot=
+h
+> for large copies and many small files.
+>=20
+> However since then I found that increasing the tcp_limit_output_bytes=
+ to
+> 262144 (twice the default of 128k) makes things really fly. Copying
+> large files (>1GB) over NFS from the e1000e now quickly reaches the f=
+ull
+> 1Gb line throughput. This was really surprising.
+>=20
+> Apart from the laptop being relatively old and being difficult to
+> benchmark due to typical power state scaling, I suspect the e1000e
+> running with dynamic interrupt moderation is not completely innocent
+> either. I used to turn this off some years back and had great success=
+,
+> but that was on Windows.
 
-The secondary MAC addresses list will be refreshed during interface open anyway.
+I think it would make sense to instrument the delay between the
+ndo_start_xmit() and kfree_skb() for transmitted skb.
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 13818d3..8e28ced 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2672,6 +2672,11 @@ static int be_close(struct net_device *netdev)
- 
- 	be_rx_qs_destroy(adapter);
- 
-+	for (i = 1; i < (adapter->uc_macs + 1); i++)
-+		be_cmd_pmac_del(adapter, adapter->if_handle,
-+				adapter->pmac_id[i], 0);
-+	adapter->uc_macs = 0;
-+
- 	for_all_evt_queues(adapter, eqo, i) {
- 		if (msix_enabled(adapter))
- 			synchronize_irq(be_msix_vec_get(adapter, eqo));
--- 
-1.8.1.2
+We might have a surprise for some drivers, seeing delays in the order o=
+f
+several ms ....
