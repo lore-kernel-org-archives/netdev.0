@@ -1,53 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
-Date: Mon, 18 Nov 2013 09:13:28 -0800
-Message-ID: <1384794808.8604.76.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <8761s0cqhh.fsf@natisbad.org>
-	 <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
-	 <87y54u59zq.fsf@natisbad.org> <20131112083633.GB10318@1wt.eu>
-	 <87a9hagex1.fsf@natisbad.org> <20131112100126.GB23981@1wt.eu>
-	 <87vbzxd473.fsf@natisbad.org> <20131113072257.GB10591@1wt.eu>
-	 <20131117141940.GA18569@1wt.eu> <20131118112601.65feb708@skate>
-	 <20131118104448.GI16823@kw.sim.vm.gnt> <20131118085407.25dadcaf@samsung-9>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 65131] New: kernel panic (BUG_ON raised) in SCTP function
+ sctp_cmd_interpreter
+Date: Mon, 18 Nov 2013 09:14:28 -0800
+Message-ID: <20131118091428.6360d82a@samsung-9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Simon Guinot <simon.guinot@sequanux.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Willy Tarreau <w@1wt.eu>, Arnaud Ebalard <arno@natisbad.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>, edumazet@google.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	Vincent Donnefort <vdonnefort@gmail.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:45431 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751375Ab3KRRNc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 12:13:32 -0500
-Received: by mail-pb0-f43.google.com with SMTP id rq2so4910311pbb.2
-        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 09:13:31 -0800 (PST)
-In-Reply-To: <20131118085407.25dadcaf@samsung-9>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:40040 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751321Ab3KRROb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 12:14:31 -0500
+Received: by mail-pd0-f178.google.com with SMTP id p10so6723083pdj.23
+        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 09:14:31 -0800 (PST)
+Received: from samsung-9 ([172.56.32.29])
+        by mx.google.com with ESMTPSA id oj6sm28003427pab.9.2013.11.18.09.14.30
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Mon, 18 Nov 2013 09:14:31 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-11-18 at 08:54 -0800, Stephen Hemminger wrote:
-> On Mon, 18 Nov 2013 11:44:48 +0100
-> Simon Guinot <simon.guinot@sequanux.org> wrote:
 
-> > c9eeec26 tcp: TSQ can use a dynamic limit
-> > 
-> 
-> But without that patch there was a performance regression for high speed
-> interfaces whihc was caused by TSQ. 10G performance dropped to 8G
 
-Yes, this made sure we could feed more than 2 TSO packets on TX ring.
+Begin forwarded message:
 
-But decreasing minimal amount of queuing from 128KB to ~1ms of the
-current rate did not please NIC which can have a big delay between
-ndo_start_xmit() and actual skb freeing (TX completion)
+Date: Sun, 17 Nov 2013 19:38:56 -0800
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 65131] New: kernel panic (BUG_ON raised) in SCTP function sctp_cmd_interpreter
 
-So
-http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=98e09386c0ef4dfd48af7ba60ff908f0d525cdee
 
-restored this minimal amount of buffering, and let the bigger amount for
-40Gb NICs ;)
+https://bugzilla.kernel.org/show_bug.cgi?id=65131
+
+            Bug ID: 65131
+           Summary: kernel panic (BUG_ON raised) in SCTP function
+                    sctp_cmd_interpreter
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.11.8 custom build, repeated on 3.11.2
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: blocking
+          Priority: P1
+         Component: IPV4
+          Assignee: shemminger@linux-foundation.org
+          Reporter: yuras@uch.net
+        Regression: No
+
+Created attachment 114991
+  --> https://bugzilla.kernel.org/attachment.cgi?id=114991&action=edit
+Screenshot of panic
+
+Two-node cluster configured using latest corosync (also DRBD 8.4.4, LVM2, and
+GFS2 but this is unessential).
+Steps to reproduce:
+1. Start corosync on both nodes.
+2. Start dlm_controld (version 4.0.2) on both nodes (used SCTP protocol as TCP
+cannot be used on multi-homed hosts). Adds such lines to kern.log:
+    kernel: [  580.428664] sctp: Hash tables configured (established 65536 bind
+65536)
+    kernel: [  580.441779] DLM installed
+3. Start clvmd on either node. Adds such lines to kern.log:
+    kernel: [ 1345.259502] dlm: Using SCTP for communications
+    kernel: [ 1345.260699] dlm: clvmd: joining the lockspace group...
+    kernel: [ 1345.262962] dlm: clvmd: dlm_recover 1
+    kernel: [ 1345.262968] dlm: clvmd: group event done 0 0
+    kernel: [ 1345.262992] dlm: clvmd: add member 1024
+    kernel: [ 1345.262995] dlm: clvmd: dlm_recover_members 1 nodes
+    kernel: [ 1345.262996] dlm: clvmd: join complete
+    kernel: [ 1345.262998] dlm: clvmd: generation 1 slots 1 1:1024
+    kernel: [ 1345.262999] dlm: clvmd: dlm_recover_directory
+    kernel: [ 1345.263000] dlm: clvmd: dlm_recover_directory 0 in 0 new
+    kernel: [ 1345.263002] dlm: clvmd: dlm_recover_directory 0 out 0 messages
+    kernel: [ 1345.263019] dlm: clvmd: dlm_recover 1 generation 1 done: 0 ms
+4. Start clvmd on second node. With high probability one node or both nodes
+panic in the similar way. Screenshot in attachment.
+
+Stack trace can differ slightly above EOI line, but RIP was always the same. I
+suppose provided CPU codes correspond to one of BUG_ON macro inside
+sctp_cmd_interpreter. So, this is a bug.
+
+Now this bug totally prevents me from using my cluster as DLM rejects to use
+TCP for multi-homed hosts.
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
