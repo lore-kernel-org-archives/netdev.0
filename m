@@ -1,295 +1,164 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: [PATCH net v2 1/2] net: sched: tbf: fix calculation of max_size
-Date: Mon, 18 Nov 2013 13:32:46 +0100
-Message-ID: <20131118133246.02651392@redhat.com>
-References: <1384763964-5000-1-git-send-email-yangyingliang@huawei.com>
-	<1384763964-5000-2-git-send-email-yangyingliang@huawei.com>
+From: Jan Kara <jack@suse.cz>
+Subject: Re: [RFC 3/8] quota/genetlink: use proper genetlink multicast APIs
+Date: Mon, 18 Nov 2013 13:34:03 +0100
+Message-ID: <20131118123403.GC3921@quack.suse.cz>
+References: <1384621429-24543-1-git-send-email-johannes@sipsolutions.net>
+ <1384621429-24543-4-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>
-To: Yang Yingliang <yangyingliang@huawei.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Johannes Berg <johannes.berg@intel.com>,
+	Jan Kara <jack@suse.cz>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37973 "EHLO mx1.redhat.com"
+Received: from cantor2.suse.de ([195.135.220.15]:54138 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751266Ab3KRMc7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Nov 2013 07:32:59 -0500
-In-Reply-To: <1384763964-5000-2-git-send-email-yangyingliang@huawei.com>
+	id S1751266Ab3KRMeF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Nov 2013 07:34:05 -0500
+Content-Disposition: inline
+In-Reply-To: <1384621429-24543-4-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 Nov 2013 16:39:23 +0800
-Yang Yingliang <yangyingliang@huawei.com> wrote:
-
-> commit b757c9336d63f94c6b57532(tbf: improved accuracy at high rates)
-> introduce a regression.
+On Sat 16-11-13 18:03:44, Johannes Berg wrote:
+> From: Johannes Berg <johannes.berg@intel.com>
 > 
-> With the follow command:
-> tc qdisc add dev eth1 root handle 1: tbf latency 50ms burst 10KB rate 30gbit mtu 64k
+> The quota code is abusing the genetlink API and is using
+> its family ID as the multicast group ID, which is invalid
+> and may belong to somebody else (and likely will.)
 > 
-> Without this patch, the max_size value is 10751(bytes).
-> But, in fact, the real max_size value should be smaller than 7440(bytes).
-> Or a packet whose length is bigger than 7440 will cause network congestion.
-> Because the packet is so big that can't get enough tokens. Even all the tokens
-> in the buffer is given to the packet.
+> Make the quota code use the correct API, but since this
+> is already used as-is by userspace, reserve a family ID
+> for this code and also reserve that group ID to not break
+> userspace assumptions.
+  Ah, sorry for messing that up. When I was writing this, libnl didn't have
+support for multicast groups and so I didn't figure out from its documentation
+there are any multicast groups at all... I'd also mention that
+documentation of generic netlink at
+http://www.linuxfoundation.org/collaborate/workgroups/networking/generic_netlink_howto
+(pointed to from Documenation/networking/generic_netlink.txt) doesn't
+mention anything about multicast groups either. So chances for messing
+things up are pretty high...
+
+Anyway, I'll fix quota_nld (userspace daemon consuming quota netlink
+messages) to use multicast groups properly with a fallback to previous
+behavior in case that fails (to keep compatibility with older kernels) and
+since I don't believe anyone else is using this interface (and even
+quota_nld isn't widely used), I think we can remove this hack from generic
+netlink layer in a couple of years (hurray to a paragraph long sentence
+;).
+
+Thanks for fixing this and you can add:
+Acked-by: Jan Kara <jack@suse.cz>
+
+								Honza
 > 
-> With this patch, the max_size value is 7440(bytes).
-> The packets whose length is bigger than 7440(bytes) will be dropped or reshape
-> in tbf_enqueue().
-
-
-I acknowledge that TBF seems to have some dependencies to the
-userspace constructed rate table (which we do NOT use anymore in the
-kernel).  And that these should be fixed.
-
-But I'm not sure that your patch is the best solution... and the patch
-also contains some issues, see inlined comments.
-
-The main annoying problem is *again* how the rate table system got
-removed, in the kernel, but nobody fixed userspace.
-
-
-So, the main problem is that qopt->buffer (send from userspace/tc) is
-in a "time-format" (user input "burst" in bytes).  Which used-to, make
-sense because the rate table used the same "time-format".
-
-Now you are reversing this calculation of "q->buffer" (token burst)
-back into bytes, so we can choose "max_size" (to avoid a problem in
-tbf_dequeue()).
-
-I don't like this converting back-and-forth, I'm worried about
-rounding errors.
-
-The easiest "hack" solution would be:
-
- for (n = 0; n < 65535; n++)
-     if (psched_l2t_ns(&qopt->rate, n) > q->buffer)
-         break;
- max_size = n;
-
-Unfortunately we have to keep backward compat with iproute2/tc, but
-IMHO it would be a lot easier, if we could fix userspace, and remove
-all the length-to-time calculations, as they should now be the
-responsibility of the kernel.  Well, wishful thinking...
-
-
-
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+> Cc: Jan Kara <jack@suse.cz>
+> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 > ---
->  include/net/sch_generic.h | 46 ++++++++++++++++++++++++++++++++
->  net/sched/sch_tbf.c       | 67 ++++++++++++++++++++++++++---------------------
->  2 files changed, 83 insertions(+), 30 deletions(-)
+>  fs/quota/netlink.c             | 17 +++++++++++++++--
+>  include/uapi/linux/genetlink.h |  1 +
+>  net/netlink/genetlink.c        | 10 ++++++++--
+>  3 files changed, 24 insertions(+), 4 deletions(-)
 > 
-> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> index d0a6321..8da64f3 100644
-> --- a/include/net/sch_generic.h
-> +++ b/include/net/sch_generic.h
-> @@ -701,6 +701,52 @@ static inline u64 psched_l2t_ns(const struct psched_ratecfg *r,
->  	return ((u64)len * r->mult) >> r->shift;
->  }
+> diff --git a/fs/quota/netlink.c b/fs/quota/netlink.c
+> index 16e8abb..b261ce4 100644
+> --- a/fs/quota/netlink.c
+> +++ b/fs/quota/netlink.c
+> @@ -11,13 +11,23 @@
 >  
-> +/* Time to Length, convert time in ns to length in bytes
-> + * to determinate how many bytes can be sent in given time.
-> + */
-> +static inline u64 psched_ns_t2l(const struct psched_ratecfg *r,
-> +				u64 time_in_ns)
-> +{
-> +	u64 len = time_in_ns;
-> +	u8 shift = r->shift;
-> +	bool is_div = false;
-> +
-> +	/* The formula is :
-> +	 * len = (time_in_ns << shift) / mult
-> +	 * when time_in_ns does shift, it would overflow.
-> +	 * If overflow happens first time, do division.
-> +	 * Then do shift. If it happens again,
-> +	 * set lenth to ~0ULL.
+>  /* Netlink family structure for quota */
+>  static struct genl_family quota_genl_family = {
+> -	.id = GENL_ID_GENERATE,
+> +	/*
+> +	 * Needed due to multicast group ID abuse - old code assumed
+> +	 * the family ID was also a valid multicast group ID (which
+> +	 * isn't true) and userspace might thus rely on it. Assign a
+> +	 * static ID for this group to make dealing with that easier.
 > +	 */
-> +	while (shift) {
-> +		if (len & (1ULL << 63)) {
-> +			if (!is_div) {
-> +				len = div64_u64(len, r->mult);
-> +				is_div = true;
-> +			} else {
-> +				/* overflow happens */
-> +				len = ~0ULL;
-> +				is_div = true;
-> +				break;
-> +			}
-> +		}
-> +		len <<= 1;
-> +		shift--;
-> +	}
-> +	if (!is_div)
-> +		len = div64_u64(len, r->mult);
-> +
-> +	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
-> +		len = (len / 53) * 48;
-> +
-> +	if (len > r->overhead)
-> +		len -= r->overhead;
-> +	else
-> +		len = 0;
-> +
-> +	return len;
-> +}
-> +
-
-Are we 100% sure, that the conversion is accurate between
-psched_l2t_ns() and psched_ns_t2l for all possible rates.
-
-E.g. why is it that r->shift have to be recalculate (orig created in
-psched_ratecfg_precompute()).
-
-
->  void psched_ratecfg_precompute(struct psched_ratecfg *r,
->  			       const struct tc_ratespec *conf,
->  			       u64 rate64);
-> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-> index 68f9859..eb9ce7b 100644
-> --- a/net/sched/sch_tbf.c
-> +++ b/net/sched/sch_tbf.c
-> @@ -279,7 +279,7 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
->  	struct qdisc_rate_table *rtab = NULL;
->  	struct qdisc_rate_table *ptab = NULL;
->  	struct Qdisc *child = NULL;
-> -	int max_size, n;
-> +	u32 max_size = 0;
->  	u64 rate64 = 0, prate64 = 0;
+> +	.id = GENL_ID_VFS_DQUOT,
+>  	.hdrsize = 0,
+>  	.name = "VFS_DQUOT",
+>  	.version = 1,
+>  	.maxattr = QUOTA_NL_A_MAX,
+>  };
 >  
->  	err = nla_parse_nested(tb, TCA_TBF_MAX, opt, tbf_policy);
-> @@ -291,33 +291,20 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
->  		goto done;
->  
->  	qopt = nla_data(tb[TCA_TBF_PARMS]);
-> -	rtab = qdisc_get_rtab(&qopt->rate, tb[TCA_TBF_RTAB]);
-> -	if (rtab == NULL)
-> -		goto done;
-> -
-> -	if (qopt->peakrate.rate) {
-> -		if (qopt->peakrate.rate > qopt->rate.rate)
-> -			ptab = qdisc_get_rtab(&qopt->peakrate, tb[TCA_TBF_PTAB]);
-> -		if (ptab == NULL)
-> -			goto done;
-> +	if (qopt->rate.linklayer == TC_LINKLAYER_UNAWARE) {
-> +		rtab = qdisc_get_rtab(&qopt->rate, tb[TCA_TBF_RTAB]);
-> +		if (rtab) {
-> +			qdisc_put_rtab(rtab);
-> +			rtab = NULL;
-> +		}
-
-This is correct code construct, for backward compatible reading of the
-rate table.
-
-But, notice how your free this at once, which means you also should
-cleanup the exit/done: section.
-
-
-
->  	}
-> -
-> -	for (n = 0; n < 256; n++)
-> -		if (rtab->data[n] > qopt->buffer)
-> -			break;
-> -	max_size = (n << qopt->rate.cell_log) - 1;
-
-This is here we could do the quick-and-dirty solution:
-
- for (n = 0; n < 65535; n++)
-     if (psched_l2t_ns(&qopt->rate, n) > q->buffer)
-         break;
- max_size = n;
-
-
-
-> -	if (ptab) {
-> -		int size;
-> -
-> -		for (n = 0; n < 256; n++)
-> -			if (ptab->data[n] > qopt->mtu)
-> -				break;
-> -		size = (n << qopt->peakrate.cell_log) - 1;
-> -		if (size < max_size)
-> -			max_size = size;
-> +	if (qopt->peakrate.linklayer == TC_LINKLAYER_UNAWARE) {
-> +		ptab = qdisc_get_rtab(&qopt->peakrate, tb[TCA_TBF_PTAB]);
-> +		if (ptab) {
-> +			qdisc_put_rtab(ptab);
-> +			ptab = NULL;
-> +		}
->  	}
-> -	if (max_size < 0)
-> -		goto done;
->  
->  	if (q->qdisc != &noop_qdisc) {
->  		err = fifo_set_limit(q->qdisc, qopt->limit);
-> @@ -339,25 +326,45 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
->  	}
->  	q->limit = qopt->limit;
->  	q->mtu = PSCHED_TICKS2NS(qopt->mtu);
-> -	q->max_size = max_size;
->  	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
->  	q->tokens = q->buffer;
->  	q->ptokens = q->mtu;
->  
->  	if (tb[TCA_TBF_RATE64])
->  		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
-> -	psched_ratecfg_precompute(&q->rate, &rtab->rate, rate64);
-> -	if (ptab) {
-> +	psched_ratecfg_precompute(&q->rate, &qopt->rate, rate64);
-> +	if (!q->rate.rate_bytes_ps)
-> +		goto unlock_done;
-> +	max_size = min_t(u64, psched_ns_t2l(&q->rate, q->buffer), ~0);
-> +	max_size = min_t(u32, max_size, (256 << qopt->rate.cell_log) - 1);
-
-The rate system and the rate.cell_log is not really used anymore, so
-its a bit strange to use it.  Perhaps it's even a bug to base a
-calculation on this.
-
+> +static struct genl_multicast_group quota_mcgrp = {
+> +	.name = "VFS_DQUOT", /* not really used */
+> +};
 > +
-> +	if (qopt->peakrate.rate) {
-> +		u64 size = 0;
->  		if (tb[TCA_TBF_PRATE64])
->  			prate64 = nla_get_u64(tb[TCA_TBF_PRATE64]);
-> -		psched_ratecfg_precompute(&q->peak, &ptab->rate, prate64);
-> +		psched_ratecfg_precompute(&q->peak, &qopt->peakrate, prate64);
-> +		size = psched_ns_t2l(&q->peak, q->mtu);
-> +		max_size = min_t(u64, max_size, size);
-> +		max_size = min_t(u32,
-> +				 max_size,
-> +				 (256 << qopt->peakrate.cell_log) - 1);
->  		q->peak_present = true;
->  	} else {
->  		q->peak_present = false;
->  	}
+>  /**
+>   * quota_send_warning - Send warning to userspace about exceeded quota
+>   * @type: The quota type: USRQQUOTA, GRPQUOTA,...
+> @@ -78,7 +88,7 @@ void quota_send_warning(struct kqid qid, dev_t dev,
+>  		goto attr_err_out;
+>  	genlmsg_end(skb, msg_head);
 >  
-> +	if (!max_size)
-> +		goto unlock_done;
-> +	q->max_size = max_size;
-> +
->  	sch_tree_unlock(sch);
->  	err = 0;
-> +
-> +	if (0) {
-
-I really dislike this construct.  I'm afraid what a dumb compile would
-optimized this to.
-
-> +unlock_done:
-> +		sch_tree_unlock(sch);
-> +		err = -EINVAL;
-> +	}
->  done:
->  	if (rtab)
->  		qdisc_put_rtab(rtab);
-
-This could be cleaned up, as we already have released the rtab's.
-
-
+> -	genlmsg_multicast(skb, 0, quota_genl_family.id, GFP_NOFS);
+> +	genlmsg_multicast(skb, 0, quota_mcgrp.id, GFP_NOFS);
+>  	return;
+>  attr_err_out:
+>  	printk(KERN_ERR "VFS: Not enough space to compose quota message!\n");
+> @@ -92,6 +102,9 @@ static int __init quota_init(void)
+>  	if (genl_register_family(&quota_genl_family) != 0)
+>  		printk(KERN_ERR
+>  		       "VFS: Failed to create quota netlink interface.\n");
+> +	if (genl_register_mc_group(&quota_genl_family, &quota_mcgrp))
+> +		printk(KERN_ERR
+> +		       "VFS: Failed to register quota mcast group.\n");
+>  	return 0;
+>  };
+>  
+> diff --git a/include/uapi/linux/genetlink.h b/include/uapi/linux/genetlink.h
+> index c880a41..1af72d82 100644
+> --- a/include/uapi/linux/genetlink.h
+> +++ b/include/uapi/linux/genetlink.h
+> @@ -27,6 +27,7 @@ struct genlmsghdr {
+>   */
+>  #define GENL_ID_GENERATE	0
+>  #define GENL_ID_CTRL		NLMSG_MIN_TYPE
+> +#define GENL_ID_VFS_DQUOT	(NLMSG_MIN_TYPE + 1)
+>  
+>  /**************************************************************************
+>   * Controller
+> diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+> index 8a2ed2c..d0757c6 100644
+> --- a/net/netlink/genetlink.c
+> +++ b/net/netlink/genetlink.c
+> @@ -69,8 +69,11 @@ static struct list_head family_ht[GENL_FAM_TAB_SIZE];
+>   * abuses the API and thinks it can statically use group 1.
+>   * That group will typically conflict with other groups that
+>   * any proper users use.
+> + * Bit 17 is marked as already used since the VFS quota code
+> + * also abused this API and relied on family == group ID, we
+> + * cater to that by giving it a static family and group ID.
+>   */
+> -static unsigned long mc_group_start = 0x3;
+> +static unsigned long mc_group_start = 0x3 | BIT(GENL_ID_VFS_DQUOT);
+>  static unsigned long *mc_groups = &mc_group_start;
+>  static unsigned long mc_groups_longs = 1;
+>  
+> @@ -130,7 +133,8 @@ static u16 genl_generate_id(void)
+>  	int i;
+>  
+>  	for (i = 0; i <= GENL_MAX_ID - GENL_MIN_ID; i++) {
+> -		if (!genl_family_find_byid(id_gen_idx))
+> +		if (id_gen_idx != GENL_ID_VFS_DQUOT &&
+> +		    !genl_family_find_byid(id_gen_idx))
+>  			return id_gen_idx;
+>  		if (++id_gen_idx > GENL_MAX_ID)
+>  			id_gen_idx = GENL_MIN_ID;
+> @@ -169,6 +173,8 @@ int genl_register_mc_group(struct genl_family *family,
+>  		id = GENL_ID_CTRL;
+>  	else if (strcmp(family->name, "NET_DM") == 0)
+>  		id = 1;
+> +	else if (strcmp(family->name, "VFS_DQUOT") == 0)
+> +		id = GENL_ID_VFS_DQUOT;
+>  	else
+>  		id = find_first_zero_bit(mc_groups,
+>  					 mc_groups_longs * BITS_PER_LONG);
+> -- 
+> 1.8.4.rc3
+> 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Jan Kara <jack@suse.cz>
+SUSE Labs, CR
