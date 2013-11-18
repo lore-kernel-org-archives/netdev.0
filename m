@@ -1,79 +1,56 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH net RESEND] bonding: don't change to 802.3ad mode while
- ARP monitoring is running
-Date: Mon, 18 Nov 2013 16:50:32 -0600
-Message-ID: <1384815032.4774.55.camel@dcbw.foobar.com>
-References: <528710F7.7050207@huawei.com>
-	 <1384796682.4774.26.camel@dcbw.foobar.com>
-	 <20131118.154838.776189725378131169.davem@davemloft.net>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: net/usb/ax88179_178a driver broken in linux-3.12
+Date: Mon, 18 Nov 2013 17:52:38 -0500
+Message-ID: <528A9A36.50903@pobox.com>
+References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com> <52891341.4020403@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: dingtianhong@huawei.com, fubar@us.ibm.com, andy@greyhouse.net,
-	nikolay@redhat.com, vfalico@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ming Lei <ming.lei@canonical.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6233 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751722Ab3KRWub (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Nov 2013 17:50:31 -0500
-In-Reply-To: <20131118.154838.776189725378131169.davem@davemloft.net>
+Received: from a-pb-sasl-quonix.pobox.com ([208.72.237.25]:53554 "EHLO
+	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751171Ab3KRWwk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 17:52:40 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-11-18 at 15:48 -0500, David Miller wrote:
-> From: Dan Williams <dcbw@redhat.com>
-> Date: Mon, 18 Nov 2013 11:44:42 -0600
+On 13-11-18 08:32 AM, David Laight wrote:
+>> From: David Laight
+>>> On 13-11-17 01:56 PM, Mark Lord wrote:
+>>>> On 13-11-17 01:35 PM, Mark Lord wrote:
+>>>>> The USB3 network adapter locks up consistently for me here in 3.12,
+>>>>> but was working without issues in 3.11.x
+>>
+>> The xhci driver is well broken in 3.12.
 > 
-> > On Sat, 2013-11-16 at 14:30 +0800, Ding Tianhong wrote:
-> >> Because the ARP monitoring is not support for 802.3ad, but I still
-> >> could change the mode to 802.3ad from ab mode while ARP monitoring
-> >> is running, it is incorrect.
-> >> 
-> >> So add a check for 802.3ad in bonding_store_mode to fix the problem,
-> >> and make a new macro BOND_NO_USES_ARP() to simplify the code.
-> > 
-> > Instead of failing, couldn't the code stop ARP monitoring and allow the
-> > mode change?  This is similar to setting miimon, which disables ARP
-> > monitoring, or setting ARP monitoring, which disables miimon.
-> > 
-> > 	if (new_value && bond->params.arp_interval) {
-> > 		pr_info("%s: MII monitoring cannot be used with ARP monitoring. Disabling ARP monitoring...\n",
-> > 			bond->dev->name);
-> > 		bond->params.arp_interval = 0;
-> > 		if (bond->params.arp_validate)
-> > 			bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
-> > 	}
-> > 
-> > Bond mode is the most important bond option, so it seems like it should
-> > override any of the other sub-options.  I know the code doesn't do this
-> > now, but maybe instead of the patch you propose, it would be nicer to
-> > allow the mode change instead?
+> To correct myself...
 > 
-> I agree with Dan, if other mode changes behave this way (by dropping the
-> incompatible feature) we should make 802.3ad do so as well at the very
-> least for consistency.
+> The xhci driver has never correctly support scatter-gather requests.
+> In 3.12 code was added to usbnet to generate SG transmits, and to the
+> ax88179_178a driver to use them.
+> TCP segmentation offload was then enabled - with does generate
+> SG transfers.
+> 
+> SG transfers for 'disks' almost certainly work because the
+> fragment boundaries are 'adequately aligned'.
+> 
+> 	David
+> 
 
-Currently ALB and TLB modes will fail if arp_interval > 0, so Ding's
-patch is technically correct.
+Well, that's all very nice and whatnot,
+except the ax88179_178a driver still does not work in linux-3.12,
+whereas it works fine in all earlier kernels.
 
-Instead, I'm proposing that 'mode' trumps all, and if the user changes
-the mode, conflicting values should be cleared or reset.  Otherwise
-userspace has to duplicate a lot of kernel logic/validation.  For
-example:
+That's a regression.
+And a simple revert (earlier in this thread) fixes it.
 
-1) set mode to ROUNDROBIN
-2) set arp_interval
-3) set mode to ALB or TLB
-4) FAIL - incompatible with arp_interval
-5) ok, set arp_interval to zero
-6) set mode to ALB or TLB
-7) SUCCESS
-
-Wouldn't it be nice if the kernel handled clearing arp_interval for us,
-since it knows that arp_interval is incompatible with ALB/TLB...
-
-Could be done separately.  I have no objection to Ding's patch other
-than "life could be even better".
-
-Dan
+So.. let's revert it for now, until a proper xhci compatible patch is produced.
+-- 
+Mark Lord
+Real-Time Remedies Inc.
+mlord@pobox.com
