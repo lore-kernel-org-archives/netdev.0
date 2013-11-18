@@ -1,81 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few
- KB/s
-Date: Mon, 18 Nov 2013 08:54:07 -0800
-Message-ID: <20131118085407.25dadcaf@samsung-9>
-References: <8761s0cqhh.fsf@natisbad.org>
-	<slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
-	<87y54u59zq.fsf@natisbad.org>
-	<20131112083633.GB10318@1wt.eu>
-	<87a9hagex1.fsf@natisbad.org>
-	<20131112100126.GB23981@1wt.eu>
-	<87vbzxd473.fsf@natisbad.org>
-	<20131113072257.GB10591@1wt.eu>
-	<20131117141940.GA18569@1wt.eu>
-	<20131118112601.65feb708@skate>
-	<20131118104448.GI16823@kw.sim.vm.gnt>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Willy Tarreau <w@1wt.eu>, Arnaud Ebalard <arno@natisbad.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>, edumazet@google.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	Vincent Donnefort <vdonnefort@gmail.com>
-To: Simon Guinot <simon.guinot@sequanux.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 00/12]  Fix various problems with the rtl8192cu driver
+Date: Mon, 18 Nov 2013 11:11:24 -0600
+Message-ID: <1384794696-20314-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:49024 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751171Ab3KRQyL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 11:54:11 -0500
-Received: by mail-pd0-f177.google.com with SMTP id q10so1614030pdj.36
-        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 08:54:10 -0800 (PST)
-In-Reply-To: <20131118104448.GI16823@kw.sim.vm.gnt>
+Received: from mail-ob0-f177.google.com ([209.85.214.177]:41398 "EHLO
+	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751199Ab3KRRLr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 12:11:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 Nov 2013 11:44:48 +0100
-Simon Guinot <simon.guinot@sequanux.org> wrote:
+Driver rtl8192cu has not had very high throughput, and it has not maintained
+a stable connection. This set of patches improve the gain control routines,
+which helps solve both problems.
 
-> On Mon, Nov 18, 2013 at 11:26:01AM +0100, Thomas Petazzoni wrote:
-> > Willy, All,
-> > 
-> > On Sun, 17 Nov 2013 15:19:40 +0100, Willy Tarreau wrote:
-> > 
-> > > On Wed, Nov 13, 2013 at 08:22:57AM +0100, Willy Tarreau wrote:
-> > > > On Tue, Nov 12, 2013 at 04:34:24PM +0100, Arnaud Ebalard wrote:
-> > > > > Can you give a pre-3.11.7 kernel a try if you find the time? I
-> > > > > started working on RN102 during 3.10-rc cycle but do not remember
-> > > > > if I did the first preformance tests on 3.10 or 3.11. And if you
-> > > > > find more time, 3.11.7 would be nice too ;-)
-> > > > 
-> > > > Still have not found time for this but I observed something
-> > > > intriguing which might possibly match your experience : if I use
-> > > > large enough send buffers on the mirabox and receive buffers on the
-> > > > client, then the traffic drops for objects larger than 1 MB. I have
-> > > > quickly checked what's happening and it's just that there are
-> > > > pauses of up to 8 ms between some packets when the TCP send window
-> > > > grows larger than about 200 kB. And since there are no drops, there
-> > > > is no reason for the window to shrink. I suspect it's exactly
-> > > > related to the issue explained by Eric about the timer used to
-> > > > recycle the Tx descriptors. However last time I checked, these ones
-> > > > were also processed in the Rx path, which means that the ACKs that
-> > > > flow back should have had the same effect as a Tx IRQ (unless I'd
-> > > > use asymmetric routing, which was not the case). So there might be
-> > > > another issue. Ah, and it only happens with GSO.
-> > 
-> > I haven't read the entire discussion yet, but do you guys have
-> > http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/drivers/clk/mvebu?id=1022c75f5abd3a3b25e679bc8793d21bedd009b4
-> > applied? It got merged recently, and it fixes a number of networking
-> > problems on Armada 370.
-> > 
-> > I've added Simon Guinot in Cc, who is the author of this patch.
-> 
-> I don't think it is related. We also have noticed a huge performance
-> regression. Reverting the following patch restores the rate:
-> 
-> c9eeec26 tcp: TSQ can use a dynamic limit
-> 
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 
-But without that patch there was a performance regression for high speed
-interfaces whihc was caused by TSQ. 10G performance dropped to 8G
+Larry Finger (12):
+  rtlwifi: rtl8192c: Prevent reconnect attempts if not connected
+  rtlwifi: rtl8192cu: Add new firmware
+  rtlwifi: Redo register save locations
+  rtlwifi: Set the link state
+  rtlwifi: rtl8192c: Add new definitions in the dm_common header
+  rtlwifi: Increase the RX queue length for USB drivers
+  rtlwifi: Update beacon statistics for USB driver
+  rtlwifi: rtl8192c: Add routines to save/restore power index registers
+  rtlwifi: rtl8192cu: Update the power index registers
+  rtlwifi: rtl8192cu: Fix some code in RF handling
+  rtlwifi:  Add missing code to PWDB statics routine
+  rtlwifi: rtl8192c: Update dynamic gain calculations
+
+ drivers/net/wireless/rtlwifi/base.c               |   3 +-
+ drivers/net/wireless/rtlwifi/core.c               |  11 +
+ drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c | 318 +++++++++++++++-------
+ drivers/net/wireless/rtlwifi/rtl8192c/dm_common.h |  14 +
+ drivers/net/wireless/rtlwifi/rtl8192cu/dm.c       |   6 +
+ drivers/net/wireless/rtlwifi/rtl8192cu/dm.h       |   3 +
+ drivers/net/wireless/rtlwifi/rtl8192cu/rf.c       |  27 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/sw.c       |  16 +-
+ drivers/net/wireless/rtlwifi/stats.c              |  14 +
+ drivers/net/wireless/rtlwifi/usb.c                |   4 +-
+ drivers/net/wireless/rtlwifi/wifi.h               |  33 +--
+ 11 files changed, 317 insertions(+), 132 deletions(-)
+
+-- 
+1.8.4
