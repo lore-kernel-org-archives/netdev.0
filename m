@@ -1,35 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: ipv6: ndisc: Fix warning when CONFIG_SYSCTL=n
-Date: Mon, 18 Nov 2013 14:49:52 -0500 (EST)
-Message-ID: <20131118.144952.1387398381461593052.davem@davemloft.net>
-References: <1384570328-21666-1-git-send-email-festevam@gmail.com>
-	<1384570328-21666-2-git-send-email-festevam@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fabio.estevam@freescale.com
-To: festevam@gmail.com
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] genetlink: rename shadowed variable
+Date: Mon, 18 Nov 2013 20:54:58 +0100
+Message-ID: <1384804498-7482-1-git-send-email-johannes@sipsolutions.net>
+Cc: Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49411 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751563Ab3KRTt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 14:49:56 -0500
-In-Reply-To: <1384570328-21666-2-git-send-email-festevam@gmail.com>
+Received: from s3.sipsolutions.net ([144.76.43.152]:38348 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751544Ab3KRTzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 14:55:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Sat, 16 Nov 2013 00:52:08 -0200
+From: Johannes Berg <johannes.berg@intel.com>
 
-> From: Fabio Estevam <fabio.estevam@freescale.com>
-> 
-> When CONFIG_SYSCTL=n the following build warning happens:
-> 
-> net/ipv6/ndisc.c:1730:1: warning: label 'out' defined but not used [-Wunused-label]
-> 
-> The 'out' label is only used when CONFIG_SYSCTL=y, so move it inside the 
-> 'ifdef CONFIG_SYSCTL' block.
-> 
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+Sparse pointed out that the new flags variable I had added
+shadowed an existing one, rename the new one to avoid that,
+making the code clearer.
 
-Applied.
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/netlink/genetlink.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 9bdc581..7dbc4f7 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -680,21 +680,21 @@ static int ctrl_fill_info(struct genl_family *family, u32 portid, u32 seq,
+ 		for (i = 0; i < family->n_ops; i++) {
+ 			struct nlattr *nest;
+ 			const struct genl_ops *ops = &family->ops[i];
+-			u32 flags = ops->flags;
++			u32 op_flags = ops->flags;
+ 
+ 			if (ops->dumpit)
+-				flags |= GENL_CMD_CAP_DUMP;
++				op_flags |= GENL_CMD_CAP_DUMP;
+ 			if (ops->doit)
+-				flags |= GENL_CMD_CAP_DO;
++				op_flags |= GENL_CMD_CAP_DO;
+ 			if (ops->policy)
+-				flags |= GENL_CMD_CAP_HASPOL;
++				op_flags |= GENL_CMD_CAP_HASPOL;
+ 
+ 			nest = nla_nest_start(skb, i + 1);
+ 			if (nest == NULL)
+ 				goto nla_put_failure;
+ 
+ 			if (nla_put_u32(skb, CTRL_ATTR_OP_ID, ops->cmd) ||
+-			    nla_put_u32(skb, CTRL_ATTR_OP_FLAGS, flags))
++			    nla_put_u32(skb, CTRL_ATTR_OP_FLAGS, op_flags))
+ 				goto nla_put_failure;
+ 
+ 			nla_nest_end(skb, nest);
+-- 
+1.8.4.rc3
