@@ -1,85 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] tcp: tsq: restore minimal amount of queueing
-Date: Mon, 18 Nov 2013 08:47:28 -0800
-Message-ID: <1384793248.8604.72.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few
+ KB/s
+Date: Mon, 18 Nov 2013 08:54:07 -0800
+Message-ID: <20131118085407.25dadcaf@samsung-9>
 References: <8761s0cqhh.fsf@natisbad.org>
-	 <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
-	 <87y54u59zq.fsf@natisbad.org>
-	 <1384267141.28458.24.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1384353174.28458.110.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <8738n0ngq3.fsf@natisbad.org>
-	 <pan.2013.11.13.21.59.50.578858@googlemail.com>
-	 <1384386040.28458.143.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <pan.2013.11.13.23.52.41.470832@googlemail.com>
-	 <20131117231545.GA32350@electric-eye.fr.zoreil.com>
-	 <528A3FA8.8020202@googlemail.com>
+	<slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
+	<87y54u59zq.fsf@natisbad.org>
+	<20131112083633.GB10318@1wt.eu>
+	<87a9hagex1.fsf@natisbad.org>
+	<20131112100126.GB23981@1wt.eu>
+	<87vbzxd473.fsf@natisbad.org>
+	<20131113072257.GB10591@1wt.eu>
+	<20131117141940.GA18569@1wt.eu>
+	<20131118112601.65feb708@skate>
+	<20131118104448.GI16823@kw.sim.vm.gnt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
-To: Holger =?ISO-8859-1?Q?Hoffst=E4tte?=
-	<holger.hoffstaette@googlemail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Willy Tarreau <w@1wt.eu>, Arnaud Ebalard <arno@natisbad.org>,
+	Cong Wang <xiyou.wangcong@gmail.com>, edumazet@google.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	Vincent Donnefort <vdonnefort@gmail.com>
+To: Simon Guinot <simon.guinot@sequanux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:63630 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751199Ab3KRQrf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 11:47:35 -0500
-Received: by mail-pb0-f45.google.com with SMTP id rp16so538854pbb.18
-        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 08:47:35 -0800 (PST)
-In-Reply-To: <528A3FA8.8020202@googlemail.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:49024 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751171Ab3KRQyL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 11:54:11 -0500
+Received: by mail-pd0-f177.google.com with SMTP id q10so1614030pdj.36
+        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 08:54:10 -0800 (PST)
+In-Reply-To: <20131118104448.GI16823@kw.sim.vm.gnt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-11-18 at 17:26 +0100, Holger Hoffst=C3=A4tte wrote:
-> On 11/18/13 00:15, Francois Romieu wrote:
-> > Holger Hoffstaette <holger.hoffstaette@googlemail.com> :
-> > [...]
-> >> Since I saw this with r8169->r8169 and e1000e->r8169 it's probably
-> >> everyone's favourite r8169 :)
-> >> Unfortunately I can't be more help but if you can suggest/whip up =
-a fix
-> >> I'd be happy to help test.
-> >=20
-> > The r8169 driver does not rely on a timer for Tx completion.
->=20
-> Thankx, that's good to hear.
->=20
-> > The patch below should not hurt.
->=20
-> It does not seem to hurt, but neither can I notice much of a change.
-> However that's probably because of some other side effects, see below=
-=2E
->=20
-> Do I understand the diff correctly that it makes the driver perform
-> outstanding transmissions before budgeting reads? Just curious.
->=20
-> > Can you describe your system a bit more specifically ?
->=20
-> Server has r8169, client is either r8169 (Windows/linux) or Thinkpad
-> with e1000e. Clients use NFS & Samba. Since Eric's TSQ patch the erra=
-tic
-> 3.12.0-vanilla behaviour has "stabilized" in the sense that latency &
-> throughout became relatively smooth and more or less as expected, bot=
-h
-> for large copies and many small files.
->=20
-> However since then I found that increasing the tcp_limit_output_bytes=
- to
-> 262144 (twice the default of 128k) makes things really fly. Copying
-> large files (>1GB) over NFS from the e1000e now quickly reaches the f=
-ull
-> 1Gb line throughput. This was really surprising.
->=20
-> Apart from the laptop being relatively old and being difficult to
-> benchmark due to typical power state scaling, I suspect the e1000e
-> running with dynamic interrupt moderation is not completely innocent
-> either. I used to turn this off some years back and had great success=
-,
-> but that was on Windows.
+On Mon, 18 Nov 2013 11:44:48 +0100
+Simon Guinot <simon.guinot@sequanux.org> wrote:
 
-I think it would make sense to instrument the delay between the
-ndo_start_xmit() and kfree_skb() for transmitted skb.
+> On Mon, Nov 18, 2013 at 11:26:01AM +0100, Thomas Petazzoni wrote:
+> > Willy, All,
+> > 
+> > On Sun, 17 Nov 2013 15:19:40 +0100, Willy Tarreau wrote:
+> > 
+> > > On Wed, Nov 13, 2013 at 08:22:57AM +0100, Willy Tarreau wrote:
+> > > > On Tue, Nov 12, 2013 at 04:34:24PM +0100, Arnaud Ebalard wrote:
+> > > > > Can you give a pre-3.11.7 kernel a try if you find the time? I
+> > > > > started working on RN102 during 3.10-rc cycle but do not remember
+> > > > > if I did the first preformance tests on 3.10 or 3.11. And if you
+> > > > > find more time, 3.11.7 would be nice too ;-)
+> > > > 
+> > > > Still have not found time for this but I observed something
+> > > > intriguing which might possibly match your experience : if I use
+> > > > large enough send buffers on the mirabox and receive buffers on the
+> > > > client, then the traffic drops for objects larger than 1 MB. I have
+> > > > quickly checked what's happening and it's just that there are
+> > > > pauses of up to 8 ms between some packets when the TCP send window
+> > > > grows larger than about 200 kB. And since there are no drops, there
+> > > > is no reason for the window to shrink. I suspect it's exactly
+> > > > related to the issue explained by Eric about the timer used to
+> > > > recycle the Tx descriptors. However last time I checked, these ones
+> > > > were also processed in the Rx path, which means that the ACKs that
+> > > > flow back should have had the same effect as a Tx IRQ (unless I'd
+> > > > use asymmetric routing, which was not the case). So there might be
+> > > > another issue. Ah, and it only happens with GSO.
+> > 
+> > I haven't read the entire discussion yet, but do you guys have
+> > http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/drivers/clk/mvebu?id=1022c75f5abd3a3b25e679bc8793d21bedd009b4
+> > applied? It got merged recently, and it fixes a number of networking
+> > problems on Armada 370.
+> > 
+> > I've added Simon Guinot in Cc, who is the author of this patch.
+> 
+> I don't think it is related. We also have noticed a huge performance
+> regression. Reverting the following patch restores the rate:
+> 
+> c9eeec26 tcp: TSQ can use a dynamic limit
+> 
 
-We might have a surprise for some drivers, seeing delays in the order o=
-f
-several ms ....
+But without that patch there was a performance regression for high speed
+interfaces whihc was caused by TSQ. 10G performance dropped to 8G
