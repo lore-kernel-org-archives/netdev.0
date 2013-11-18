@@ -1,84 +1,137 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: how to mix bridges and bonding inc. vlans correctly on Kernel
- > 3.10
-Date: Mon, 18 Nov 2013 08:37:55 +0100
-Message-ID: <5289C3D3.8080003@profihost.ag>
-References: <52838590.5070806@profihost.ag>	<20131113141244.GM19702@redhat.com>	<52838AC8.8070005@profihost.ag>	<52839540.6020908@gmail.com>	<5283980D.7020508@profihost.ag>	<20131113162136.GP19702@redhat.com>	<5283B500.9040408@gmail.com>	<5283DC91.1010402@profihost.ag>	<52843EEA.3020905@redhat.com>	<52848010.8030103@profihost.ag>	<20131114122928.GV19702@redhat.com>	<52853D02.70804@gmail.com>	<5287DD79.5060906@profihost.ag> <CAGCdqXEQwHy_q+qWQf9oYTkr0v_HXLY-nudjW=4ghYpB+o3H1w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Veaceslav Falico <vfalico@redhat.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Vladislav Yasevich <vyasevich@gmail.com>
+From: Salam Noureddine <noureddine@aristanetworks.com>
+Subject: [PATCH 1/1] Revert "af-packet: Use existing netdev reference for bound sockets"
+Date: Sun, 17 Nov 2013 23:40:25 -0800
+Message-ID: <1384760425-37658-1-git-send-email-noureddine@aristanetworks.com>
+Cc: Salam Noureddine <noureddine@aristanetworks.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Phil Sutter <phil@nwl.cc>, Eric Dumazet <edumazet@google.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ph.de-nserver.de ([85.158.179.214]:42143 "EHLO
-	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751051Ab3KRHh6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 02:37:58 -0500
-In-Reply-To: <CAGCdqXEQwHy_q+qWQf9oYTkr0v_HXLY-nudjW=4ghYpB+o3H1w@mail.gmail.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:41497 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751111Ab3KRHkw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 02:40:52 -0500
+Received: by mail-pa0-f41.google.com with SMTP id bj1so1365041pad.14
+        for <netdev@vger.kernel.org>; Sun, 17 Nov 2013 23:40:51 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 17.11.2013 04:41, schrieb Vladislav Yasevich:
-> On Sat, Nov 16, 2013 at 4:02 PM, Stefan Priebe <s.priebe@profihost.ag> wrote:
->> Am 14.11.2013 22:13, schrieb Vlad Yasevich:
->>
->>> On 11/14/2013 07:29 AM, Veaceslav Falico wrote:
->>>>
->>>> On Thu, Nov 14, 2013 at 08:47:28AM +0100, Stefan Priebe - Profihost AG
->>>> wrote:
->>>>>
->>>>> Hi,
->>>>>
->>>>>> eth2
->>>>>>      \
->>>>>>       -- bond1 -- vmbr1
->>>>>>      /     \
->>>>>> eth3        ----- bond1.3000 --- vmbr1v3000
->>>>>>                                      \ ---- tap114i1
->>>>>
->>>>>
->>>>> thos one works fine now.
->>>>>
->>>>>
->>>>>> eth2
->>>>>>      \
->>>>>>       -- bond1 -- vmbr1
->>>>>>      /              \
->>>>>> eth3                 \ vmbr1.3000
->>>>>>                            \ ---- tap114i1
->>>>>
->>>>>
->>>>> this one does not. Another note to this one. It also never worked on
->>>>> RHEL6 - it started working with about 2.6.39 and stopped with 3.9 or
->>>>> 3.10. But it was the only one where gvrp on vlans had worked.
->>>>
->>>>
->>>> bridge device in this config is neither master nor slave, if I read it
->>>> correctly.
->>>
->>>
->>> Bridge doesn't propagate rx_flags to lower-level devices.  It
->>> automatically set all lower devices to promisc mode.
->>>
->>> So, in the second case above, eth2 and eth3 have to be in promisc, but
->>> nothing else does.  I am not sure I understand Stefans notation though
->>> wrt to how vmbr1.3000 and tap114i1 are configured.  Stefan,  can you
->>> elaborate?
->>
->>
->> Sorry . means vlan - so vmbr1.3000 is just a vlan on top of vmbr1. *brX is a
->> bridge. Bond is a lacp bond ;-)
->>
-> 
-> Ok.  I got that.  But where is tap attached?  You are showing it
-> attached to the vlan,
-> but you can't do that unless its a macvtap.
+This reverts commit 827d978037d7d0bf0860481948c6d26ead10042f
+("af-packet: Use existing netdev reference for bound sockets")
 
-Why not? It was working until 3.9 - but with the patch in this thread
-the first method adding a bridge on top of the bond works fine - so this
-is OK for me too.
+The patch introduced a race condition between packet_snd and
+packet_notifier when a net_device is being unregistered. In the case of
+a bound socket, packet_notifier can drop the last reference to the
+net_device and packet_snd might end up sending a packet over a freed
+net_device.
 
-Greets,
-Stefan
+Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
+---
+ net/packet/af_packet.c |   26 +++++++++++---------------
+ 1 files changed, 11 insertions(+), 15 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 2e8286b..34fe9eb 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2057,8 +2057,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 	struct sk_buff *skb;
+ 	struct net_device *dev;
+ 	__be16 proto;
+-	bool need_rls_dev = false;
+-	int err, reserve = 0;
++	int ifindex, err, reserve = 0;
+ 	void *ph;
+ 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
+ 	int tp_len, size_max;
+@@ -2070,7 +2069,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 	mutex_lock(&po->pg_vec_lock);
+ 
+ 	if (saddr == NULL) {
+-		dev = po->prot_hook.dev;
++		ifindex	= po->ifindex;
+ 		proto	= po->num;
+ 		addr	= NULL;
+ 	} else {
+@@ -2081,12 +2080,12 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 					+ offsetof(struct sockaddr_ll,
+ 						sll_addr)))
+ 			goto out;
++		ifindex	= saddr->sll_ifindex;
+ 		proto	= saddr->sll_protocol;
+ 		addr	= saddr->sll_addr;
+-		dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
+-		need_rls_dev = true;
+ 	}
+ 
++	dev = dev_get_by_index(sock_net(&po->sk), ifindex);
+ 	err = -ENXIO;
+ 	if (unlikely(dev == NULL))
+ 		goto out;
+@@ -2173,8 +2172,7 @@ out_status:
+ 	__packet_set_status(po, ph, status);
+ 	kfree_skb(skb);
+ out_put:
+-	if (need_rls_dev)
+-		dev_put(dev);
++	dev_put(dev);
+ out:
+ 	mutex_unlock(&po->pg_vec_lock);
+ 	return err;
+@@ -2212,9 +2210,8 @@ static int packet_snd(struct socket *sock,
+ 	struct sk_buff *skb;
+ 	struct net_device *dev;
+ 	__be16 proto;
+-	bool need_rls_dev = false;
+ 	unsigned char *addr;
+-	int err, reserve = 0;
++	int ifindex, err, reserve = 0;
+ 	struct virtio_net_hdr vnet_hdr = { 0 };
+ 	int offset = 0;
+ 	int vnet_hdr_len;
+@@ -2228,7 +2225,7 @@ static int packet_snd(struct socket *sock,
+ 	 */
+ 
+ 	if (saddr == NULL) {
+-		dev = po->prot_hook.dev;
++		ifindex	= po->ifindex;
+ 		proto	= po->num;
+ 		addr	= NULL;
+ 	} else {
+@@ -2237,12 +2234,12 @@ static int packet_snd(struct socket *sock,
+ 			goto out;
+ 		if (msg->msg_namelen < (saddr->sll_halen + offsetof(struct sockaddr_ll, sll_addr)))
+ 			goto out;
++		ifindex	= saddr->sll_ifindex;
+ 		proto	= saddr->sll_protocol;
+ 		addr	= saddr->sll_addr;
+-		dev = dev_get_by_index(sock_net(sk), saddr->sll_ifindex);
+-		need_rls_dev = true;
+ 	}
+ 
++	dev = dev_get_by_index(sock_net(sk), ifindex);
+ 	err = -ENXIO;
+ 	if (dev == NULL)
+ 		goto out_unlock;
+@@ -2386,15 +2383,14 @@ static int packet_snd(struct socket *sock,
+ 	if (err > 0 && (err = net_xmit_errno(err)) != 0)
+ 		goto out_unlock;
+ 
+-	if (need_rls_dev)
+-		dev_put(dev);
++	dev_put(dev);
+ 
+ 	return len;
+ 
+ out_free:
+ 	kfree_skb(skb);
+ out_unlock:
+-	if (dev && need_rls_dev)
++	if (dev)
+ 		dev_put(dev);
+ out:
+ 	return err;
+-- 
+1.7.4.4
