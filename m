@@ -1,66 +1,278 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: [PATCH 3/3] vhost: fix the wrong log descriptions
-Date: Mon, 18 Nov 2013 11:19:23 +0800
-Message-ID: <1384744763-7476-3-git-send-email-zwu.kernel@gmail.com>
-References: <1384744763-7476-1-git-send-email-zwu.kernel@gmail.com>
-Cc: mst@redhat.com, rusty@rustcorp.com.au,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH v4] inet: prevent leakage of uninitialized memory to user in recv syscalls
+Date: Mon, 18 Nov 2013 04:20:45 +0100
+Message-ID: <20131118032045.GJ16541@order.stressinduktion.org>
+References: <CAApbN=Jm=zuDaVYALmGg5z_QfJJ3q13e9tshb7OpAtPQ8Ema1w@mail.gmail.com> <CAApbN=K8j+XQG+pQF2fxBSrDEPcjD242e9uP72azD9XWBzHcGQ@mail.gmail.com> <20131116054344.GG26901@order.stressinduktion.org> <20131116054814.GH26901@order.stressinduktion.org> <20131116191916.GC16541@order.stressinduktion.org> <1384634802.8604.14.camel@edumazet-glaptop2.roam.corp.google.com> <20131116224330.GF16541@order.stressinduktion.org> <1384648584.8604.39.camel@edumazet-glaptop2.roam.corp.google.com> <20131117192240.GI16541@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+To: Eric Dumazet <eric.dumazet@gmail.com>, mpb <mpb.mail@gmail.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:41465 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750959Ab3KRDU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Nov 2013 22:20:28 -0500
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <zwu.kernel@gmail.com>;
-	Sun, 17 Nov 2013 22:20:27 -0500
-Received: from b01cxnp23032.gho.pok.ibm.com (b01cxnp23032.gho.pok.ibm.com [9.57.198.27])
-	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id EC8FBC9003E
-	for <netdev@vger.kernel.org>; Sun, 17 Nov 2013 22:20:23 -0500 (EST)
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by b01cxnp23032.gho.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id rAI3KPIL66257056
-	for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 03:20:25 GMT
-Received: from d01av04.pok.ibm.com (localhost [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id rAI3KOia011034
-	for <netdev@vger.kernel.org>; Sun, 17 Nov 2013 22:20:25 -0500
-In-Reply-To: <1384744763-7476-1-git-send-email-zwu.kernel@gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:49083 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750959Ab3KRDUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Nov 2013 22:20:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20131117192240.GI16541@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+Only update *addr_len when we actually fill in sockaddr, otherwise we
+can return uninitialized memory from the stack to the caller in the
+recvfrom, recvmmsg and recvmsg syscalls. Drop the the (addr_len == NULL)
+checks because we only get called with a valid addr_len pointer either
+from sock_common_recvmsg or inet_recvmsg.
 
-Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+If a blocking read waits on a socket which is concurrently shut down we
+now return zero and set msg_msgnamelen to 0.
+
+Reported-by: mpb <mpb.mail@gmail.com>
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/vhost/vhost.c  |    2 +-
- drivers/vhost/vringh.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+This is the first round, fixing the callees of sock_common_recvmsg and
+inet_recvmsg. I guess there are some more problems of this kind with
+recvmsg called directly via proto_ops->recvmsg. I will have a look at
+them in the next days.
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 78987e4..568d20f 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -1241,7 +1241,7 @@ int vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+We could actually leave out filling in msg_name if the user didn't request
+(src_addr == NULL in recvfrom). I'll put this on my TODO for net-next.
+Also it is possible to just update msg->msg_namelen directly here and simplify
+sock_common_recvmsg and inet_recvmsg, also for net-next.
+
+Greetings,
+
+  Hannes
+
+ net/ieee802154/dgram.c |  3 +--
+ net/ipv4/ping.c        | 19 +++++++------------
+ net/ipv4/raw.c         |  4 +---
+ net/ipv4/udp.c         |  7 +------
+ net/ipv6/raw.c         |  4 +---
+ net/ipv6/udp.c         |  5 +----
+ net/l2tp/l2tp_ip.c     |  4 +---
+ net/phonet/datagram.c  |  9 ++++-----
+ 8 files changed, 17 insertions(+), 38 deletions(-)
+
+diff --git a/net/ieee802154/dgram.c b/net/ieee802154/dgram.c
+index 581a595..1865fdf 100644
+--- a/net/ieee802154/dgram.c
++++ b/net/ieee802154/dgram.c
+@@ -315,9 +315,8 @@ static int dgram_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 	if (saddr) {
+ 		saddr->family = AF_IEEE802154;
+ 		saddr->addr = mac_cb(skb)->sa;
+-	}
+-	if (addr_len)
+ 		*addr_len = sizeof(*saddr);
++	}
  
- 	/* If their number is silly, that's an error. */
- 	if (unlikely(head >= vq->num)) {
--		vq_err(vq, "Guest says index %u > %u is available",
-+		vq_err(vq, "Guest says index %u > %u is unavailable",
- 		       head, vq->num);
- 		return -EINVAL;
+ 	if (flags & MSG_TRUNC)
+ 		copied = skb->len;
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 9afbdb1..aacefa0 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -830,8 +830,6 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ {
+ 	struct inet_sock *isk = inet_sk(sk);
+ 	int family = sk->sk_family;
+-	struct sockaddr_in *sin;
+-	struct sockaddr_in6 *sin6;
+ 	struct sk_buff *skb;
+ 	int copied, err;
+ 
+@@ -841,13 +839,6 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	if (flags & MSG_OOB)
+ 		goto out;
+ 
+-	if (addr_len) {
+-		if (family == AF_INET)
+-			*addr_len = sizeof(*sin);
+-		else if (family == AF_INET6 && addr_len)
+-			*addr_len = sizeof(*sin6);
+-	}
+-
+ 	if (flags & MSG_ERRQUEUE) {
+ 		if (family == AF_INET) {
+ 			return ip_recv_error(sk, msg, len);
+@@ -877,11 +868,13 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 
+ 	/* Copy the address and add cmsg data. */
+ 	if (family == AF_INET) {
+-		sin = (struct sockaddr_in *) msg->msg_name;
++		struct sockaddr_in *sin = (struct sockaddr_in *)msg->msg_name;
++
+ 		sin->sin_family = AF_INET;
+ 		sin->sin_port = 0 /* skb->h.uh->source */;
+ 		sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
+ 		memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
++		*addr_len = sizeof(*sin);
+ 
+ 		if (isk->cmsg_flags)
+ 			ip_cmsg_recv(msg, skb);
+@@ -890,17 +883,19 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	} else if (family == AF_INET6) {
+ 		struct ipv6_pinfo *np = inet6_sk(sk);
+ 		struct ipv6hdr *ip6 = ipv6_hdr(skb);
+-		sin6 = (struct sockaddr_in6 *) msg->msg_name;
++		struct sockaddr_in6 *sin6 =
++			(struct sockaddr_in6 *)msg->msg_name;
++
+ 		sin6->sin6_family = AF_INET6;
+ 		sin6->sin6_port = 0;
+ 		sin6->sin6_addr = ip6->saddr;
+-
+ 		sin6->sin6_flowinfo = 0;
+ 		if (np->sndflow)
+ 			sin6->sin6_flowinfo = ip6_flowinfo(ip6);
+ 
+ 		sin6->sin6_scope_id = ipv6_iface_scope_id(&sin6->sin6_addr,
+ 							  IP6CB(skb)->iif);
++		*addr_len = sizeof(*sin6);
+ 
+ 		if (inet6_sk(sk)->rxopt.all)
+ 			pingv6_ops.ip6_datagram_recv_ctl(sk, msg, skb);
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 41e1d28..5cb8ddb 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -696,9 +696,6 @@ static int raw_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	if (flags & MSG_OOB)
+ 		goto out;
+ 
+-	if (addr_len)
+-		*addr_len = sizeof(*sin);
+-
+ 	if (flags & MSG_ERRQUEUE) {
+ 		err = ip_recv_error(sk, msg, len);
+ 		goto out;
+@@ -726,6 +723,7 @@ static int raw_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
+ 		sin->sin_port = 0;
+ 		memset(&sin->sin_zero, 0, sizeof(sin->sin_zero));
++		*addr_len = sizeof(*sin);
  	}
-diff --git a/drivers/vhost/vringh.c b/drivers/vhost/vringh.c
-index 5174eba..86ef6c4 100644
---- a/drivers/vhost/vringh.c
-+++ b/drivers/vhost/vringh.c
-@@ -57,7 +57,7 @@ static inline int __vringh_get_head(const struct vringh *vrh,
+ 	if (inet->cmsg_flags)
+ 		ip_cmsg_recv(msg, skb);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 89909dd..998431c 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1235,12 +1235,6 @@ int udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	int is_udplite = IS_UDPLITE(sk);
+ 	bool slow;
+ 
+-	/*
+-	 *	Check any passed addresses
+-	 */
+-	if (addr_len)
+-		*addr_len = sizeof(*sin);
+-
+ 	if (flags & MSG_ERRQUEUE)
+ 		return ip_recv_error(sk, msg, len);
+ 
+@@ -1302,6 +1296,7 @@ try_again:
+ 		sin->sin_port = udp_hdr(skb)->source;
+ 		sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
+ 		memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
++		*addr_len = sizeof(*sin);
+ 	}
+ 	if (inet->cmsg_flags)
+ 		ip_cmsg_recv(msg, skb);
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 3c00842..e24ff1d 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -465,9 +465,6 @@ static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 	if (flags & MSG_OOB)
+ 		return -EOPNOTSUPP;
+ 
+-	if (addr_len)
+-		*addr_len=sizeof(*sin6);
+-
+ 	if (flags & MSG_ERRQUEUE)
+ 		return ipv6_recv_error(sk, msg, len);
+ 
+@@ -506,6 +503,7 @@ static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 		sin6->sin6_flowinfo = 0;
+ 		sin6->sin6_scope_id = ipv6_iface_scope_id(&sin6->sin6_addr,
+ 							  IP6CB(skb)->iif);
++		*addr_len = sizeof(*sin6);
  	}
  
- 	if (head >= vrh->vring.num) {
--		vringh_bad("Guest says index %u > %u is available",
-+		vringh_bad("Guest says index %u > %u is unavailable",
- 			   head, vrh->vring.num);
- 		return -EINVAL;
+ 	sock_recv_ts_and_drops(msg, sk, skb);
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index f3893e8..81eb8cf 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -392,9 +392,6 @@ int udpv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 	int is_udp4;
+ 	bool slow;
+ 
+-	if (addr_len)
+-		*addr_len = sizeof(struct sockaddr_in6);
+-
+ 	if (flags & MSG_ERRQUEUE)
+ 		return ipv6_recv_error(sk, msg, len);
+ 
+@@ -480,7 +477,7 @@ try_again:
+ 				ipv6_iface_scope_id(&sin6->sin6_addr,
+ 						    IP6CB(skb)->iif);
+ 		}
+-
++		*addr_len = sizeof(*sin6);
  	}
+ 	if (is_udp4) {
+ 		if (inet->cmsg_flags)
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index 571db8d..da1a1ce 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -518,9 +518,6 @@ static int l2tp_ip_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *m
+ 	if (flags & MSG_OOB)
+ 		goto out;
+ 
+-	if (addr_len)
+-		*addr_len = sizeof(*sin);
+-
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+ 		goto out;
+@@ -543,6 +540,7 @@ static int l2tp_ip_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *m
+ 		sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
+ 		sin->sin_port = 0;
+ 		memset(&sin->sin_zero, 0, sizeof(sin->sin_zero));
++		*addr_len = sizeof(*sin);
+ 	}
+ 	if (inet->cmsg_flags)
+ 		ip_cmsg_recv(msg, skb);
+diff --git a/net/phonet/datagram.c b/net/phonet/datagram.c
+index 12c30f3..38946b2 100644
+--- a/net/phonet/datagram.c
++++ b/net/phonet/datagram.c
+@@ -139,9 +139,6 @@ static int pn_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 			MSG_CMSG_COMPAT))
+ 		goto out_nofree;
+ 
+-	if (addr_len)
+-		*addr_len = sizeof(sa);
+-
+ 	skb = skb_recv_datagram(sk, flags, noblock, &rval);
+ 	if (skb == NULL)
+ 		goto out_nofree;
+@@ -162,8 +159,10 @@ static int pn_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 
+ 	rval = (flags & MSG_TRUNC) ? skb->len : copylen;
+ 
+-	if (msg->msg_name != NULL)
+-		memcpy(msg->msg_name, &sa, sizeof(struct sockaddr_pn));
++	if (msg->msg_name != NULL) {
++		memcpy(msg->msg_name, &sa, sizeof(sa));
++		*addr_len = sizeof(sa);
++	}
+ 
+ out:
+ 	skb_free_datagram(sk, skb);
 -- 
-1.7.6.5
+1.8.3.1
