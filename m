@@ -1,39 +1,83 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
-Date: Mon, 18 Nov 2013 11:52:58 +0100
-Message-ID: <20131118105258.GB26398@1wt.eu>
-References: <8761s0cqhh.fsf@natisbad.org> <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site> <87y54u59zq.fsf@natisbad.org> <20131112083633.GB10318@1wt.eu> <87a9hagex1.fsf@natisbad.org> <20131112100126.GB23981@1wt.eu> <87vbzxd473.fsf@natisbad.org> <20131113072257.GB10591@1wt.eu> <20131117141940.GA18569@1wt.eu> <AE90C24D6B3A694183C094C60CF0A2F6026B742A@saturn3.aculab.com>
+From: <srinivas.kandagatla@st.com>
+Subject: [PATCH RFC 0/9]net: stmmac PM related fixes.
+Date: Mon, 18 Nov 2013 11:30:56 +0000
+Message-ID: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaud Ebalard <arno@natisbad.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>, edumazet@google.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:50382 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751360Ab3KRKx0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Nov 2013 05:53:26 -0500
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B742A@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <srinivas.kandagatla@st.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	<netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 18, 2013 at 10:09:53AM -0000, David Laight wrote:
-> > So it is fairly possible that in your case you can't fill the link if you
-> > consume too many descriptors. For example, if your server uses TCP_NODELAY
-> > and sends incomplete segments (which is quite common), it's very easy to
-> > run out of descriptors before the link is full.
-> 
-> Or you have a significant number of active tcp connections.
-> 
-> Even if there were no requirement to free the skb quickly you still
-> need to take a 'tx done' interrupt when the link is transmit rate limited.
-> There are scenarios when there is no receive traffic - eg asymmetric
-> routing, but testable with netperf UDP transmits.
+From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-Yes absolutely, but I was talking about the current situation that Arnaud
-is facing and which I could reproduce with a large window.
+Hi Peppe,
 
-Willy
+During PM_SUSPEND_FREEZE testing, I have noticed that PM support in STMMAC is
+partly broken. I had to re-arrange the code to do PM correctly. There were lot
+of things I did not like personally and some bits did not work in the first
+place. I thought this is the nice opportunity to clean the mess up.
+
+Here is what I did:
+
+1> Test PM suspend freeeze via pm_test
+It did not work for following reasons.
+ - If the power to gmac is removed when it enters in low power state.
+stmmac_resume could not cope up with such behaviour, it was expecting the ip
+register contents to be still same as before entering low power, This
+assumption is wrong. So I started to add some code to do Hardware
+initialization, thats when I started to re-arrange the code. stmmac_open
+contains both resource and memory allocations and hardware initialization. I
+had to separate these two things in two different functions.
+
+These two patches do that
+  net: stmmac: move dma allocation to new function
+  net: stmmac: move hardware setup for stmmac_open to new function
+
+And rest of the other patches are fixing the loose ends, things like mdio
+reset, which might be necessary in cases likes hibernation(I did not test).
+
+In hibernation cases the driver was just unregistering with subsystems and
+releasing resources which I did not like and its not necessary to do this as
+part of PM. So using the same stmmac_suspend/resume made more sense for
+hibernation cases than using stmmac_open/release.
+Also fixed a NULL pointer dereference bug too.
+
+2> Test WOL via PM_SUSPEND_FREEZE
+Did get an wakeup interrupt, but could not wakeup a freeze system.
+So I had to add pm_wakeup_event to the driver.
+net: stmmac: notify the PM core of a wakeup event. patch.
+
+Also few patches like 
+  net: stmmac: make stmmac_mdio_reset non-static
+  net: stmmac: restore pinstate in pm resume.
+helps the resume function to reset the phy and put back the pins in default
+state.
+
+Comments?
+
+Thanks,
+srini
+
+Srinivas Kandagatla (9):
+  net: stmmac: support max-speed device tree property
+  net: stmmac: mdio: remove reset gpio free
+  net: stmmac: move dma allocation to new function
+  net: stmmac: move hardware setup for stmmac_open to new function
+  net: stmmac: make stmmac_mdio_reset non-static
+  net: stmmac: fix power mangement suspend-resume case
+  net: stmmac: use suspend functions for hibernation
+  net: stmmac: restore pinstate in pm resume.
+  net: stmmac: notify the PM core of a wakeup event.
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    4 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  360 ++++++++++----------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |    3 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   51 +--
+ include/linux/stmmac.h                             |    1 +
+ 5 files changed, 209 insertions(+), 210 deletions(-)
+
+-- 
+1.7.6.5
