@@ -1,61 +1,68 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: MLD maturity in kernel version 2.6.32.60
-Date: Mon, 18 Nov 2013 23:18:50 +0100
-Message-ID: <20131118221850.GO16541@order.stressinduktion.org>
-References: <trinity-825e48d2-0bab-4020-84f0-77800e55f25a-1384777048114@3capp-gmx-bs16>
+Subject: Re: oops in pskb_expand_head - 3.11.6
+Date: Mon, 18 Nov 2013 23:25:43 +0100
+Message-ID: <20131118222543.GP16541@order.stressinduktion.org>
+References: <20131116231615.GA24327@marquez.int.rhx> <20131116234223.GG16541@order.stressinduktion.org> <20131117111150.GC24327@marquez.int.rhx> <20131117191810.GH16541@order.stressinduktion.org> <20131118091922.GB11185@marquez.int.rhx> <20131118092436.GA3743@minipsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Simon Schneider <simon-schneider@gmx.net>
+Cc: Michele Baldessari <michele@acksyn.org>, netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:51163 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:51169 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751281Ab3KRWSw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 17:18:52 -0500
+	with ESMTP id S1751281Ab3KRWZo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 17:25:44 -0500
 Content-Disposition: inline
-In-Reply-To: <trinity-825e48d2-0bab-4020-84f0-77800e55f25a-1384777048114@3capp-gmx-bs16>
+In-Reply-To: <20131118092436.GA3743@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 18, 2013 at 01:17:28PM +0100, Simon Schneider wrote:
-> in a development project, we started evaluating MLD functionality.
-> =C2=A0
-> Our development is based on kernel version 2.6.32.60.
-> =C2=A0
-> We noticed some pretty basic issues:
-> =C2=A0
-> - With force_mld_version set to 0 (we expect "MLDv2 with MLDv1 fallba=
-ck"), we saw only MLDv2 messages, the fallback to MLDv1 didn't seem to =
-work, when we sent MLDv1 messages to the unit.
-> - With force_mld_version set to 1 (we expect "MLDv1 only mode"), we a=
-lso saw MLDv2 messages being generated.
-> =C2=A0
-> Can someone give a general statement about the MLD implementation mat=
-urity in kernel 2.6.32.60? Are there known bugs that would explain the =
-above observations?
->=20
-> We need to see whether it makes sense to put further effort in invest=
-igating/fixing any MLD related issue we see.
->=20
-> If this is the wrong list to ask this kind of question, please point =
-me to the correct one.
+On Mon, Nov 18, 2013 at 10:24:36AM +0100, Jiri Pirko wrote:
+> Mon, Nov 18, 2013 at 10:19:22AM CET, michele@acksyn.org wrote:
+> >Hi Hannes,
+> >
+> >On Sun, Nov 17, 2013 at 08:18:10PM +0100, Hannes Frederic Sowa wrote:
+> >> On Sun, Nov 17, 2013 at 11:11:50AM +0000, Michele Baldessari wrote:
+> >> > Hi Hannes,
+> >> > 
+> >> > On Sun, Nov 17, 2013 at 12:42:23AM +0100, Hannes Frederic Sowa wrote:
+> >> > > On Sat, Nov 16, 2013 at 11:16:15PM +0000, Michele Baldessari wrote:
+> >> > > > Two oops like the following were reported in Fedora 19 - kernel 3.11.6:
+> >> > > > https://bugzilla.redhat.com/show_bug.cgi?id=1015905
+> >> > > 
+> >> > > I have not followed that issue that closely, but could you try linus tree
+> >> > > or net-next?
+> >> > > 
+> >> > > Maybe those two patches improve the situation:
+> >> > > https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=9037c3579a277f3a23ba476664629fda8c35f7c4
+> >> > > https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6aafeef03b9d9ecf255f3a80ed85ee070260e1ae
+> >> > > 
+> >> > indeed a current kernel seems to fix the crash (according to the
+> >> > reporters). I'll see if I manage to bisect exactly.
+> >> 
+> >> Great, if you confirm this we can ask David if he adds the commits to the
+> >> -stable queue.
+> >
+> >I can confirm that 6aafeef03b9d9ecf255f3a80ed85ee070260e1ae "netfilter:
+> >push reasm skb through instead of original frag skbs" fixes the oops
+> >mentioned in this thread. I've applied it to a 3.11.8 kernel and it
+> >fixed the crash. I had to slightly tweak it as it does not apply 100%
+> >cleanly due to 795aa6ef6a1aba99050735eadd0c2341b789b53b " netfilter:
+> >pass hook ops to hookfn". 
+> >
+> >So definitely -stable material.
+> >
+> >Not sure if you also want to add 9037c3579a277f3a23ba476664629fda8c35f7c4 
+> >"ip6_output: fragment outgoing reassembled skb properly". It did not
+> >have any impact in this particular scenario.
+> 
+> It goes hand in hand with 6aafeef03b9d9ecf255f3a80ed85ee070260e1ae.
+> Without 9037c3579a277f3a23ba476664629fda8c35f7c4 skbs that reasm len is
+> < MTU would not get fragmented which is not desired.
 
-It would be great if you could share test results with newer kernel wit=
-h us.
-Last time I checked we did correctly fallback to MDLv1 mode but it has =
-been a
-while.
+Jiri, David, do you see problems adding this to stable? We got a lot of
+reports because of exactly those kind of crashes in the past.
 
-If you come up with a specific patch from Daniel's series which fixes t=
-he
-issues you are seeing, we can think about including this to stable.
-
-There are still some issues in mld: we are currently a bit too noisy fo=
-r my
-taste (e.g. on re-enabling interfaces). This is a big problem for large
-wireless networks e.g.
-
-Thanks,
+Greetings,
 
   Hannes
