@@ -1,59 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
- burst.
-Date: Mon, 18 Nov 2013 15:03:23 +0000
-Message-ID: <1384787003.10077.34.camel@deadeye.wl.decadent.org.uk>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B740B@saturn3.aculab.com>
-	 <Pine.LNX.4.44L0.1311131113090.1424-100000@iolanthe.rowland.org>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B741A@saturn3.aculab.com>
-	 <1384565904.29151.66.camel@bwh-desktop.uk.level5networks.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7428@saturn3.aculab.com>
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload burst.
+Date: Mon, 18 Nov 2013 15:41:00 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7430@saturn3.aculab.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B740B@saturn3.aculab.com> <Pine.LNX.4.44L0.1311131113090.1424-100000@iolanthe.rowland.org> <AE90C24D6B3A694183C094C60CF0A2F6026B741A@saturn3.aculab.com> <1384565904.29151.66.camel@bwh-desktop.uk.level5networks.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7428@saturn3.aculab.com> <1384787003.10077.34.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:12325 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751171Ab3KRPDb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 10:03:31 -0500
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7428@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Alan Stern" <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	"Sarah Sharp" <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Ben Hutchings" <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1384787003.10077.34.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-11-18 at 09:48 +0000, David Laight wrote:
-> > > But the minimum fragment size is (probably) 4k.
-> > > For the network stack an OUT transfer might have a lot (and I mean lots)
-> > > of fragments (there may be constraints, and linearising the skb is a option).
-> > [...]
-> > 
-> > The maximum number of fragments in the skb is going to be 17 (including
-> > the 'head' area).  (I'm ignoring NETIF_F_FRAGLIST which is not normally
-> > supported by physical device drivers.)
-> > 
-> > I don't know how many fragments that can end up as, at the USB level.
-> 
-> If you assume that every fragment crosses a 64k boundary that would be 34.
-> OTOH I've not seen a fragment of a 64k TSO send crossing a 32k
-> boundary, and I think the 'head' area is constrained to be part of
-> a single (4k or larger) page.
-
-I don't know that it's possible at the moment, but I wouldn't recommend
-relying on that.
-
-> Isn't there something odd about skb merged by receive offload?
-> I've not entirely sorted out the full structure of skb.
-
-There has been some work to allow for using both the frags array and
-frag list, but a driver will not see such an skb if it does not
-advertise the NETIF_F_FRAGLIST feature.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
+bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IDE4IE5vdmVtYmVyIDIw
+MTMgMTU6MDMNCj4gVG86IERhdmlkIExhaWdodA0KPiBDYzogQWxhbiBTdGVybjsgU2FyYWggU2hh
+cnA7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LXVzYkB2Z2VyLmtlcm5lbC5vcmcNCj4g
+U3ViamVjdDogUmU6IFtQQVRDSF0gdXNiOiB4aGNpOiBMaW5rIFRSQiBtdXN0IG5vdCBvY2N1ciB3
+aXRoIGEgVVNCIHBheWxvYWQgYnVyc3QuDQo+IA0KPiBPbiBNb24sIDIwMTMtMTEtMTggYXQgMDk6
+NDggKzAwMDAsIERhdmlkIExhaWdodCB3cm90ZToNCj4gPiA+ID4gQnV0IHRoZSBtaW5pbXVtIGZy
+YWdtZW50IHNpemUgaXMgKHByb2JhYmx5KSA0ay4NCj4gPiA+ID4gRm9yIHRoZSBuZXR3b3JrIHN0
+YWNrIGFuIE9VVCB0cmFuc2ZlciBtaWdodCBoYXZlIGEgbG90IChhbmQgSSBtZWFuIGxvdHMpDQo+
+ID4gPiA+IG9mIGZyYWdtZW50cyAodGhlcmUgbWF5IGJlIGNvbnN0cmFpbnRzLCBhbmQgbGluZWFy
+aXNpbmcgdGhlIHNrYiBpcyBhIG9wdGlvbikuDQo+ID4gPiBbLi4uXQ0KPiA+ID4NCj4gPiA+IFRo
+ZSBtYXhpbXVtIG51bWJlciBvZiBmcmFnbWVudHMgaW4gdGhlIHNrYiBpcyBnb2luZyB0byBiZSAx
+NyAoaW5jbHVkaW5nDQo+ID4gPiB0aGUgJ2hlYWQnIGFyZWEpLiAgKEknbSBpZ25vcmluZyBORVRJ
+Rl9GX0ZSQUdMSVNUIHdoaWNoIGlzIG5vdCBub3JtYWxseQ0KPiA+ID4gc3VwcG9ydGVkIGJ5IHBo
+eXNpY2FsIGRldmljZSBkcml2ZXJzLikNCj4gPiA+DQo+ID4gPiBJIGRvbid0IGtub3cgaG93IG1h
+bnkgZnJhZ21lbnRzIHRoYXQgY2FuIGVuZCB1cCBhcywgYXQgdGhlIFVTQiBsZXZlbC4NCj4gPg0K
+PiA+IElmIHlvdSBhc3N1bWUgdGhhdCBldmVyeSBmcmFnbWVudCBjcm9zc2VzIGEgNjRrIGJvdW5k
+YXJ5IHRoYXQgd291bGQgYmUgMzQuDQo+ID4gT1RPSCBJJ3ZlIG5vdCBzZWVuIGEgZnJhZ21lbnQg
+b2YgYSA2NGsgVFNPIHNlbmQgY3Jvc3NpbmcgYSAzMmsNCj4gPiBib3VuZGFyeSwgYW5kIEkgdGhp
+bmsgdGhlICdoZWFkJyBhcmVhIGlzIGNvbnN0cmFpbmVkIHRvIGJlIHBhcnQgb2YNCj4gPiBhIHNp
+bmdsZSAoNGsgb3IgbGFyZ2VyKSBwYWdlLg0KPiANCj4gSSBkb24ndCBrbm93IHRoYXQgaXQncyBw
+b3NzaWJsZSBhdCB0aGUgbW9tZW50LCBidXQgSSB3b3VsZG4ndCByZWNvbW1lbmQNCj4gcmVseWlu
+ZyBvbiB0aGF0Lg0KDQpUaGUgeGhjaSAoVVNCMykgaGFyZHdhcmUgc3VwcG9ydHMgU0csIGJ1dCBh
+IG5vbi1vYnZpb3VzIGFsaWdubWVudCByZXN0cmljdGlvbg0KYXBwbGllcyBhdCB0aGUgZW5kIG9m
+IGEgcmluZyBzZWdtZW50LiBJbiBlZmZlY3QgdGhpcyBtZWFucyB0aGF0IHRoZSBudW1iZXIgb2YN
+CmZyYWdtZW50cyBtdXN0bid0IGV4Y2VlZCB0aGUgc2l6ZSBvZiB0aGUgcmluZyBzZWdtZW50Lg0K
+SXQgd291bGQgbWFrZSB0aGUgeGNoaSBkcml2ZXIgc2ltcGxlciBpZiBleGNlc3NpdmVseSBmcmFn
+bWVudGVkIHJlcXVlc3RzDQpjb3VsZCBqdXN0IGJlIGJvdW5jZWQuDQpTaW5jZSByaW5nIGVudHJp
+ZXMgYXJlIDE2IGJ5dGVzIHRoZXJlIGlzbid0IG11Y2ggcmVhc29uIHRvIG5vdCB1c2UgYSA0aw0K
+J3BhZ2UnIGZvciBhIHJpbmcgYW5kIGhhdmUgKGFsbW9zdCkgMjU2IHJpbmcgc2xvdHMuDQooVGhl
+IGNvZGUgY3VycmVudGx5IHVzZXMgbXVsdGlwbGUgcmluZyBzZWdtZW50cyB3aXRoIDYzIHVzYWJs
+ZSBzbG90cy4pDQoNCkxvb2tzIGxpa2Ugc2tiIGFyZSBjb25zdHJhaW5lZCBlbm91Z2ggdGhhdCBh
+IHNlbnNpYmxlIGxpbWl0IGNhbiBiZSBhcHBsaWVkLg0KDQpUaGUgb3RoZXIgbGlrZWx5IGdlbmVy
+YXRvciBvZiBmcmFnbWVudGVkIHJlcXVlc3RzIGlzIHRoZSBtYXNzIHN0b3JhZ2UgY29kZS4NCk1v
+c3QgbGlrZWx5IGZvciBkZCgxKSB3aXRoIGEgbGFyZ2UgYmxvY2sgc2l6ZS4NCg0KCURhdmlkDQoN
+Cg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
