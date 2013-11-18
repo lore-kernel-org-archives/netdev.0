@@ -1,56 +1,45 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: net/usb/ax88179_178a driver broken in linux-3.12
-Date: Mon, 18 Nov 2013 17:52:38 -0500
-Message-ID: <528A9A36.50903@pobox.com>
-References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com> <52891341.4020403@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next] veth: extend features to support tunneling
+Date: Mon, 18 Nov 2013 14:57:23 -0800
+Message-ID: <CAEP_g=9hg3zWGUqw4mRdtGu7=aR7-y5bRisWDgRgUfHpio-akw@mail.gmail.com>
+References: <CAJZOPZ+jUanPW2mT_HiSWdvGfdRMHpX6vWyrboS3Zf_gH7rEgQ@mail.gmail.com>
+ <1384638027.8604.22.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAMEtUuzkwVSetLKb0AK7U=iB5ArhAhs-0vx9cX+WeZ2Fz04kqg@mail.gmail.com> <OFF76C3619.82D931F7-ON85257C27.005F4843-85257C27.006270D6@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: David Laight <David.Laight@ACULAB.COM>,
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ming Lei <ming.lei@canonical.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+	John Fastabend <john.r.fastabend@intel.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org, Or Gerlitz <or.gerlitz@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a-pb-sasl-quonix.pobox.com ([208.72.237.25]:53554 "EHLO
-	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751171Ab3KRWwk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 17:52:40 -0500
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com>
+Received: from na3sys009aog118.obsmtp.com ([74.125.149.244]:36623 "HELO
+	na3sys009aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751460Ab3KRW5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 17:57:44 -0500
+Received: by mail-ie0-f174.google.com with SMTP id at1so3923724iec.19
+        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 14:57:43 -0800 (PST)
+In-Reply-To: <OFF76C3619.82D931F7-ON85257C27.005F4843-85257C27.006270D6@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-11-18 08:32 AM, David Laight wrote:
->> From: David Laight
->>> On 13-11-17 01:56 PM, Mark Lord wrote:
->>>> On 13-11-17 01:35 PM, Mark Lord wrote:
->>>>> The USB3 network adapter locks up consistently for me here in 3.12,
->>>>> but was working without issues in 3.11.x
->>
->> The xhci driver is well broken in 3.12.
-> 
-> To correct myself...
-> 
-> The xhci driver has never correctly support scatter-gather requests.
-> In 3.12 code was added to usbnet to generate SG transmits, and to the
-> ax88179_178a driver to use them.
-> TCP segmentation offload was then enabled - with does generate
-> SG transfers.
-> 
-> SG transfers for 'disks' almost certainly work because the
-> fragment boundaries are 'adequately aligned'.
-> 
-> 	David
-> 
+On Mon, Nov 18, 2013 at 9:55 AM, David Stevens <dlstevens@us.ibm.com> wrote:
+> My idea for solving this ICMP issue is to forge an ICMP2BIG with the
+> source address of the destination and send it back to the originating VM
+> directly. It's complicated a bit because we don't want to use icmp_send()
+> on the host, which will go through host routing tables when we don't
+> necessarily have an IP address or routing for the bridged domain. So, to
+> do this, we really should just have a stand-alone icmp sender for use by
+> tunnel endpoints. But if we do this, the VM can get the correct gso_size
+> accounting for the tunnel overhead too, although it's abusing PMTUD a bit
+> since it doesn't ordinarily apply to hosts on the same L2 network.
 
-Well, that's all very nice and whatnot,
-except the ax88179_178a driver still does not work in linux-3.12,
-whereas it works fine in all earlier kernels.
-
-That's a regression.
-And a simple revert (earlier in this thread) fixes it.
-
-So.. let's revert it for now, until a proper xhci compatible patch is produced.
--- 
-Mark Lord
-Real-Time Remedies Inc.
-mlord@pobox.com
+OVS used to do exactly this in its tunnel implementation. It worked
+fairly well although we ended up taking it out a while back since it
+was a little offensive due to the need to forge addresses and have
+essentially a parallel stub of an IP stack.
