@@ -1,60 +1,75 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC 3/8] quota/genetlink: use proper genetlink multicast APIs
-Date: Mon, 18 Nov 2013 13:44:54 +0100
-Message-ID: <1384778694.17916.5.camel@jlt4.sipsolutions.net>
-References: <1384621429-24543-1-git-send-email-johannes@sipsolutions.net>
-	 <1384621429-24543-4-git-send-email-johannes@sipsolutions.net>
-	 <20131118123403.GC3921@quack.suse.cz>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: Re: [PATCH 3/3] vhost: fix the wrong log descriptions
+Date: Mon, 18 Nov 2013 21:12:22 +0800
+Message-ID: <CAEH94LgTBWqG6At_rbYLkEEp9RSn+RiJPwT7uKzdcu_+7cKhDw@mail.gmail.com>
+References: <1384744763-7476-1-git-send-email-zwu.kernel@gmail.com>
+	<1384744763-7476-3-git-send-email-zwu.kernel@gmail.com>
+	<20131118101833.GD3559@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jan Kara <jack@suse.cz>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:36943 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751461Ab3KRMo6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 07:44:58 -0500
-In-Reply-To: <20131118123403.GC3921@quack.suse.cz>
+Received: from mail-oa0-f54.google.com ([209.85.219.54]:63947 "EHLO
+	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582Ab3KRNMX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 08:12:23 -0500
+Received: by mail-oa0-f54.google.com with SMTP id h16so1079949oag.41
+        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 05:12:22 -0800 (PST)
+In-Reply-To: <20131118101833.GD3559@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-11-18 at 13:34 +0100, Jan Kara wrote:
+On Mon, Nov 18, 2013 at 6:18 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Mon, Nov 18, 2013 at 11:19:23AM +0800, Zhi Yong Wu wrote:
+>> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>>
+>> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>
+> This one does not make sense to me.
+> Heads in avail ring are heads which according to Guest are available by
+> definition.
+ok, please ignore this patch
+>
+>
+>> ---
+>>  drivers/vhost/vhost.c  |    2 +-
+>>  drivers/vhost/vringh.c |    2 +-
+>>  2 files changed, 2 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+>> index 78987e4..568d20f 100644
+>> --- a/drivers/vhost/vhost.c
+>> +++ b/drivers/vhost/vhost.c
+>> @@ -1241,7 +1241,7 @@ int vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+>>
+>>       /* If their number is silly, that's an error. */
+>>       if (unlikely(head >= vq->num)) {
+>> -             vq_err(vq, "Guest says index %u > %u is available",
+>> +             vq_err(vq, "Guest says index %u > %u is unavailable",
+>>                      head, vq->num);
+>>               return -EINVAL;
+>>       }
+>> diff --git a/drivers/vhost/vringh.c b/drivers/vhost/vringh.c
+>> index 5174eba..86ef6c4 100644
+>> --- a/drivers/vhost/vringh.c
+>> +++ b/drivers/vhost/vringh.c
+>> @@ -57,7 +57,7 @@ static inline int __vringh_get_head(const struct vringh *vrh,
+>>       }
+>>
+>>       if (head >= vrh->vring.num) {
+>> -             vringh_bad("Guest says index %u > %u is available",
+>> +             vringh_bad("Guest says index %u > %u is unavailable",
+>>                          head, vrh->vring.num);
+>>               return -EINVAL;
+>>       }
+>> --
+>> 1.7.6.5
 
-> Ah, sorry for messing that up. When I was writing this, libnl didn't have
-> support for multicast groups and so I didn't figure out from its documentation
-> there are any multicast groups at all... I'd also mention that
-> documentation of generic netlink at
-> http://www.linuxfoundation.org/collaborate/workgroups/networking/generic_netlink_howto
-> (pointed to from Documenation/networking/generic_netlink.txt) doesn't
-> mention anything about multicast groups either. So chances for messing
-> things up are pretty high...
 
-Bugger. I guess we should take a look at adding something about
-multicast groups etc.
 
-> Anyway, I'll fix quota_nld (userspace daemon consuming quota netlink
-> messages) to use multicast groups properly with a fallback to previous
-> behavior in case that fails (to keep compatibility with older kernels) and
-> since I don't believe anyone else is using this interface (and even
-> quota_nld isn't widely used), 
+-- 
+Regards,
 
-Heh. If you want a different group name, that's fine, I just gave it any
-name ... We could call it "events" for example, since the group name is
-always qualified by the family name anyway.
-
-I'll remove the comment about it not being really used as well then.
-
-> I think we can remove this hack from generic
-> netlink layer in a couple of years (hurray to a paragraph long
-sentence
-> ;).
-
-:)
-
-> Thanks for fixing this and you can add:
-> Acked-by: Jan Kara <jack@suse.cz>
-
-Will do, thanks.
-
-johannes
+Zhi Yong Wu
