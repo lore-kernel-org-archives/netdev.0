@@ -1,48 +1,41 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: [PATCH] net, virtio_net: replace the magic value
-Date: Mon, 18 Nov 2013 21:19:27 +0800
-Message-ID: <1384780767-25507-1-git-send-email-zwu.kernel@gmail.com>
-Cc: mst@redhat.com, rusty@rustcorp.com.au,
-	linux-kernel@vger.kernel.org,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: net/usb/ax88179_178a driver broken in linux-3.12
+Date: Mon, 18 Nov 2013 13:32:17 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com>
+References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com> <52891341.4020403@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "David Laight" <David.Laight@ACULAB.COM>,
+	"Mark Lord" <mlord@pobox.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Ming Lei" <ming.lei@canonical.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:38678 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751350Ab3KRNTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 08:19:36 -0500
-Received: from /spool/local
-	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <zwu.kernel@gmail.com>;
-	Mon, 18 Nov 2013 06:19:36 -0700
+Received: from mx0.aculab.com ([213.249.233.131]:50382 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752029Ab3KRNdM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Nov 2013 08:33:12 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 15380-01 for <netdev@vger.kernel.org>;
+ Mon, 18 Nov 2013 13:33:09 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-
-It is more appropriate to use # of queue pairs currently used by
-the driver instead of a magic value.
-
-Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/virtio_net.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index cdc7c90..e0cb2d1 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1619,8 +1619,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (err)
- 		goto free_stats;
- 
--	netif_set_real_num_tx_queues(dev, 1);
--	netif_set_real_num_rx_queues(dev, 1);
-+	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
-+	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
- 
- 	err = register_netdev(dev);
- 	if (err) {
--- 
-1.7.6.5
+PiBGcm9tOiBEYXZpZCBMYWlnaHQNCj4gPiBPbiAxMy0xMS0xNyAwMTo1NiBQTSwgTWFyayBMb3Jk
+IHdyb3RlOg0KPiA+ID4gT24gMTMtMTEtMTcgMDE6MzUgUE0sIE1hcmsgTG9yZCB3cm90ZToNCj4g
+PiA+PiBUaGUgVVNCMyBuZXR3b3JrIGFkYXB0ZXIgbG9ja3MgdXAgY29uc2lzdGVudGx5IGZvciBt
+ZSBoZXJlIGluIDMuMTIsDQo+ID4gPj4gYnV0IHdhcyB3b3JraW5nIHdpdGhvdXQgaXNzdWVzIGlu
+IDMuMTEueA0KPiANCj4gVGhlIHhoY2kgZHJpdmVyIGlzIHdlbGwgYnJva2VuIGluIDMuMTIuDQoN
+ClRvIGNvcnJlY3QgbXlzZWxmLi4uDQoNClRoZSB4aGNpIGRyaXZlciBoYXMgbmV2ZXIgY29ycmVj
+dGx5IHN1cHBvcnQgc2NhdHRlci1nYXRoZXIgcmVxdWVzdHMuDQpJbiAzLjEyIGNvZGUgd2FzIGFk
+ZGVkIHRvIHVzYm5ldCB0byBnZW5lcmF0ZSBTRyB0cmFuc21pdHMsIGFuZCB0byB0aGUNCmF4ODgx
+NzlfMTc4YSBkcml2ZXIgdG8gdXNlIHRoZW0uDQpUQ1Agc2VnbWVudGF0aW9uIG9mZmxvYWQgd2Fz
+IHRoZW4gZW5hYmxlZCAtIHdpdGggZG9lcyBnZW5lcmF0ZQ0KU0cgdHJhbnNmZXJzLg0KDQpTRyB0
+cmFuc2ZlcnMgZm9yICdkaXNrcycgYWxtb3N0IGNlcnRhaW5seSB3b3JrIGJlY2F1c2UgdGhlDQpm
+cmFnbWVudCBib3VuZGFyaWVzIGFyZSAnYWRlcXVhdGVseSBhbGlnbmVkJy4NCg0KCURhdmlkDQoN
+Cg==
