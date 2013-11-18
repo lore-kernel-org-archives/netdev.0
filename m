@@ -1,47 +1,52 @@
-From: "Simon Schneider" <simon-schneider@gmx.net>
-Subject: MLD maturity in kernel version 2.6.32.60
-Date: Mon, 18 Nov 2013 13:17:28 +0100 (CET)
-Message-ID: <trinity-825e48d2-0bab-4020-84f0-77800e55f25a-1384777048114@3capp-gmx-bs16>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: MLD maturity in kernel version 2.6.32.60
+Date: Mon, 18 Nov 2013 13:23:54 +0100
+Message-ID: <528A06DA.6040302@redhat.com>
+References: <trinity-825e48d2-0bab-4020-84f0-77800e55f25a-1384777048114@3capp-gmx-bs16>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Simon Schneider <simon-schneider@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:53552 "EHLO mout.gmx.net"
+Received: from mx1.redhat.com ([209.132.183.28]:46526 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751171Ab3KRMR3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 07:17:29 -0500
-Received: from 3capp-gmx-bs16.server.lan ([172.19.170.68]) by
- mrigmx.server.lan (mrigmx001) with ESMTP (Nemesis) id
- 0MKwO6-1ViNlg0xTE-000206 for <netdev@vger.kernel.org>; Mon, 18 Nov 2013
- 13:17:28 +0100
+	id S1751965Ab3KRMYE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Nov 2013 07:24:04 -0500
+In-Reply-To: <trinity-825e48d2-0bab-4020-84f0-77800e55f25a-1384777048114@3capp-gmx-bs16>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11/18/2013 01:17 PM, Simon Schneider wrote:
+>
+> Hi,
+> in a development project, we started evaluating MLD functionality.
+>
+> Our development is based on kernel version 2.6.32.60.
+>
+> We noticed some pretty basic issues:
+>
+> - With force_mld_version set to 0 (we expect "MLDv2 with MLDv1 fallback"), we saw only MLDv2 messages, the fallback to MLDv1 didn't seem to work, when we sent MLDv1 messages to the unit.
+> - With force_mld_version set to 1 (we expect "MLDv1 only mode"), we also saw MLDv2 messages being generated.
+>
+> Can someone give a general statement about the MLD implementation maturity in kernel 2.6.32.60? Are there known bugs that would explain the above observations?
 
-Hi,
-in a development project, we started evaluating MLD functionality.
-=C2=A0
-Our development is based on kernel version 2.6.32.60.
-=C2=A0
-We noticed some pretty basic issues:
-=C2=A0
-- With force_mld_version set to 0 (we expect "MLDv2 with MLDv1 fallback=
-"), we saw only MLDv2 messages, the fallback to MLDv1 didn't seem to wo=
-rk, when we sent MLDv1 messages to the unit.
-- With force_mld_version set to 1 (we expect "MLDv1 only mode"), we als=
-o saw MLDv2 messages being generated.
-=C2=A0
-Can someone give a general statement about the MLD implementation matur=
-ity in kernel 2.6.32.60? Are there known bugs that would explain the ab=
-ove observations?
+(cc'ing Hannes)
 
-We need to see whether it makes sense to put further effort in investig=
-ating/fixing any MLD related issue we see.
+You might want to try 3.12 kernel, and if needed backport some of these:
 
-If this is the wrong list to ask this kind of question, please point me=
- to the correct one.
+   http://www.spinics.net/lists/netdev/msg249262.html
 
-Thanks in advance,
-best regards, Simon Schneider
-=C2=A0
+> We need to see whether it makes sense to put further effort in investigating/fixing any MLD related issue we see.
+>
+> If this is the wrong list to ask this kind of question, please point me to the correct one.
+>
+> Thanks in advance,
+> best regards, Simon Schneider
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
