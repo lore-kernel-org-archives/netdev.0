@@ -1,97 +1,90 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: Fw: [Bug 65131] New: kernel panic (BUG_ON raised) in SCTP function
- sctp_cmd_interpreter
-Date: Mon, 18 Nov 2013 12:46:42 -0500
-Message-ID: <528A5282.7090505@gmail.com>
-References: <20131118091428.6360d82a@samsung-9>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH net-next] veth: extend features to support tunneling
+Date: Mon, 18 Nov 2013 12:55:15 -0500
+Message-ID: <OFF76C3619.82D931F7-ON85257C27.005F4843-85257C27.006270D6@us.ibm.com>
+References: <CAJZOPZ+jUanPW2mT_HiSWdvGfdRMHpX6vWyrboS3Zf_gH7rEgQ@mail.gmail.com>	<1384638027.8604.22.camel@edumazet-glaptop2.roam.corp.google.com> <CAMEtUuzkwVSetLKb0AK7U=iB5ArhAhs-0vx9cX+WeZ2Fz04kqg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org, Or Gerlitz <or.gerlitz@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f181.google.com ([209.85.161.181]:41676 "EHLO
-	mail-gg0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751300Ab3KRRqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 12:46:49 -0500
-Received: by mail-gg0-f181.google.com with SMTP id h1so2965386gga.12
-        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 09:46:47 -0800 (PST)
-In-Reply-To: <20131118091428.6360d82a@samsung-9>
+Received: from e37.co.us.ibm.com ([32.97.110.158]:47745 "EHLO
+	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751421Ab3KRRzW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 12:55:22 -0500
+Received: from /spool/local
+	by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Mon, 18 Nov 2013 10:55:21 -0700
+In-Reply-To: <CAMEtUuzkwVSetLKb0AK7U=iB5ArhAhs-0vx9cX+WeZ2Fz04kqg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/18/2013 12:14 PM, Stephen Hemminger wrote:
-> 
-> 
-> Begin forwarded message:
-> 
-> Date: Sun, 17 Nov 2013 19:38:56 -0800
-> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-> Subject: [Bug 65131] New: kernel panic (BUG_ON raised) in SCTP function sctp_cmd_interpreter
-> 
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=65131
-> 
->             Bug ID: 65131
->            Summary: kernel panic (BUG_ON raised) in SCTP function
->                     sctp_cmd_interpreter
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 3.11.8 custom build, repeated on 3.11.2
->           Hardware: All
->                 OS: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: blocking
->           Priority: P1
->          Component: IPV4
->           Assignee: shemminger@linux-foundation.org
->           Reporter: yuras@uch.net
->         Regression: No
-> 
-> Created attachment 114991
->   --> https://bugzilla.kernel.org/attachment.cgi?id=114991&action=edit
-> Screenshot of panic
-> 
-> Two-node cluster configured using latest corosync (also DRBD 8.4.4, LVM2, and
-> GFS2 but this is unessential).
-> Steps to reproduce:
-> 1. Start corosync on both nodes.
-> 2. Start dlm_controld (version 4.0.2) on both nodes (used SCTP protocol as TCP
-> cannot be used on multi-homed hosts). Adds such lines to kern.log:
->     kernel: [  580.428664] sctp: Hash tables configured (established 65536 bind
-> 65536)
->     kernel: [  580.441779] DLM installed
-> 3. Start clvmd on either node. Adds such lines to kern.log:
->     kernel: [ 1345.259502] dlm: Using SCTP for communications
->     kernel: [ 1345.260699] dlm: clvmd: joining the lockspace group...
->     kernel: [ 1345.262962] dlm: clvmd: dlm_recover 1
->     kernel: [ 1345.262968] dlm: clvmd: group event done 0 0
->     kernel: [ 1345.262992] dlm: clvmd: add member 1024
->     kernel: [ 1345.262995] dlm: clvmd: dlm_recover_members 1 nodes
->     kernel: [ 1345.262996] dlm: clvmd: join complete
->     kernel: [ 1345.262998] dlm: clvmd: generation 1 slots 1 1:1024
->     kernel: [ 1345.262999] dlm: clvmd: dlm_recover_directory
->     kernel: [ 1345.263000] dlm: clvmd: dlm_recover_directory 0 in 0 new
->     kernel: [ 1345.263002] dlm: clvmd: dlm_recover_directory 0 out 0 messages
->     kernel: [ 1345.263019] dlm: clvmd: dlm_recover 1 generation 1 done: 0 ms
-> 4. Start clvmd on second node. With high probability one node or both nodes
-> panic in the similar way. Screenshot in attachment.
-> 
-> Stack trace can differ slightly above EOI line, but RIP was always the same. I
-> suppose provided CPU codes correspond to one of BUG_ON macro inside
-> sctp_cmd_interpreter. So, this is a bug.
-> 
-> Now this bug totally prevents me from using my cluster as DLM rejects to use
-> TCP for multi-homed hosts.
-> 
+netdev-owner@vger.kernel.org wrote on 11/17/2013 02:31:08 AM:
 
-Should be fixed by:
-commit 7926c1d5be0b7cbe5b8d5c788d7d39237e7b212c
-Author: Daniel Borkmann <dborkman@redhat.com>
-Date:   Thu Oct 31 09:13:32 2013 +0100
+> From: Alexei Starovoitov <ast@plumgrid.com>
+ 
+> when host mtu doesn't account for overhead of tunnel, the neat trick
+> we can do is to decrease gso_size while adding tunnel header.
 
-    net: sctp: do not trigger BUG_ON in sctp_cmd_delete_tcb
+Won't this possibly result in ip_id collision if you generate more 
+segments
+than the VM thinks you did? Not an issue of DF is set, I suppose.
 
--vlad
+> This way when skb_gso_segment() kicks in during tx the packets will be
+> segmented into host mtu sized packets.
+
+        I've been looking at something like this, but going the other way.
+In the VXLAN case, other VXLAN VMs are reachable via the virtual L2 
+network
+so we *ought* to use large packets in the whole path if the underlay
+network can do that. PMTUD should not apply within the virtual L2 network,
+but the code as-is will segment to the VM gso_size (say 1500) even if the
+underlay network can send jumbo frames (say 9K).
+        I think what we want for best performance is to send GSO packets 
+from
+the VM and use underlay network MTU minus VXLAN headers as the gso_size 
+for
+those.
+        One complication there is that we would actually want to use the 
+VM
+gso_size if the destination is a router taking us off of the VXLAN 
+network,
+but we can tell that from the fdb entry when route-short-circuiting is 
+enabled.
+
+> Receiving vm on the other side will be seeing packets of size
+> guest_mtu - tunnel_header_size,
+> but imo that's much better than sending ip fragments over vxlan fabric.
+> It will work for guests sending tcp/udp, but there is no good solution
+> for icmp other than ip frags.
+
+My idea for solving this ICMP issue is to forge an ICMP2BIG with the
+source address of the destination and send it back to the originating VM
+directly. It's complicated a bit because we don't want to use icmp_send()
+on the host, which will go through host routing tables when we don't
+necessarily have an IP address or routing for the bridged domain. So, to
+do this, we really should just have a stand-alone icmp sender for use by
+tunnel endpoints. But if we do this, the VM can get the correct gso_size
+accounting for the tunnel overhead too, although it's abusing PMTUD a bit
+since it doesn't ordinarily apply to hosts on the same L2 network.
+
+I haven't gotten working patches for either of these extensions yet--
+if your work overlaps before I do, I'd be happy to see these two things
+incorporated in it:
+
+1) ICMP2BIG reflected from the tunnel endpoint without host routing and
+        using the destination IP as the forged source address, thus 
+appropriate
+        for bridge-only hosting.
+2) Allowing larger-than-gso_size segmentation as well as smaller when the
+        final destination is on the virtual L2 network.
+
+                                                                +-DLS
