@@ -1,41 +1,39 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: net/usb/ax88179_178a driver broken in linux-3.12
-Date: Mon, 18 Nov 2013 13:32:17 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com>
-References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com> <52891341.4020403@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com>
+From: Jan Kara <jack@suse.cz>
+Subject: Re: [RFC 3/8] quota/genetlink: use proper genetlink multicast APIs
+Date: Mon, 18 Nov 2013 15:12:20 +0100
+Message-ID: <20131118141220.GD3921@quack.suse.cz>
+References: <1384621429-24543-1-git-send-email-johannes@sipsolutions.net>
+ <1384621429-24543-4-git-send-email-johannes@sipsolutions.net>
+ <20131118123403.GC3921@quack.suse.cz>
+ <1384778694.17916.5.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "David Laight" <David.Laight@ACULAB.COM>,
-	"Mark Lord" <mlord@pobox.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Ming Lei" <ming.lei@canonical.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jan Kara <jack@suse.cz>, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:50382 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752029Ab3KRNdM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Nov 2013 08:33:12 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 15380-01 for <netdev@vger.kernel.org>;
- Mon, 18 Nov 2013 13:33:09 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com>
+Received: from cantor2.suse.de ([195.135.220.15]:58521 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751185Ab3KROMV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Nov 2013 09:12:21 -0500
+Content-Disposition: inline
+In-Reply-To: <1384778694.17916.5.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBEYXZpZCBMYWlnaHQNCj4gPiBPbiAxMy0xMS0xNyAwMTo1NiBQTSwgTWFyayBMb3Jk
-IHdyb3RlOg0KPiA+ID4gT24gMTMtMTEtMTcgMDE6MzUgUE0sIE1hcmsgTG9yZCB3cm90ZToNCj4g
-PiA+PiBUaGUgVVNCMyBuZXR3b3JrIGFkYXB0ZXIgbG9ja3MgdXAgY29uc2lzdGVudGx5IGZvciBt
-ZSBoZXJlIGluIDMuMTIsDQo+ID4gPj4gYnV0IHdhcyB3b3JraW5nIHdpdGhvdXQgaXNzdWVzIGlu
-IDMuMTEueA0KPiANCj4gVGhlIHhoY2kgZHJpdmVyIGlzIHdlbGwgYnJva2VuIGluIDMuMTIuDQoN
-ClRvIGNvcnJlY3QgbXlzZWxmLi4uDQoNClRoZSB4aGNpIGRyaXZlciBoYXMgbmV2ZXIgY29ycmVj
-dGx5IHN1cHBvcnQgc2NhdHRlci1nYXRoZXIgcmVxdWVzdHMuDQpJbiAzLjEyIGNvZGUgd2FzIGFk
-ZGVkIHRvIHVzYm5ldCB0byBnZW5lcmF0ZSBTRyB0cmFuc21pdHMsIGFuZCB0byB0aGUNCmF4ODgx
-NzlfMTc4YSBkcml2ZXIgdG8gdXNlIHRoZW0uDQpUQ1Agc2VnbWVudGF0aW9uIG9mZmxvYWQgd2Fz
-IHRoZW4gZW5hYmxlZCAtIHdpdGggZG9lcyBnZW5lcmF0ZQ0KU0cgdHJhbnNmZXJzLg0KDQpTRyB0
-cmFuc2ZlcnMgZm9yICdkaXNrcycgYWxtb3N0IGNlcnRhaW5seSB3b3JrIGJlY2F1c2UgdGhlDQpm
-cmFnbWVudCBib3VuZGFyaWVzIGFyZSAnYWRlcXVhdGVseSBhbGlnbmVkJy4NCg0KCURhdmlkDQoN
-Cg==
+On Mon 18-11-13 13:44:54, Johannes Berg wrote:
+> On Mon, 2013-11-18 at 13:34 +0100, Jan Kara wrote:
+> > Anyway, I'll fix quota_nld (userspace daemon consuming quota netlink
+> > messages) to use multicast groups properly with a fallback to previous
+> > behavior in case that fails (to keep compatibility with older kernels) and
+> > since I don't believe anyone else is using this interface (and even
+> > quota_nld isn't widely used), 
+> 
+> Heh. If you want a different group name, that's fine, I just gave it any
+> name ... We could call it "events" for example, since the group name is
+> always qualified by the family name anyway.
+  OK, "events" might be a better name then.
+
+								Honza
+-- 
+Jan Kara <jack@suse.cz>
+SUSE Labs, CR
