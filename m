@@ -1,56 +1,74 @@
-From: Rayagond K <rayagond@vayavyalabs.com>
-Subject: testing and validating 64-bit addressing.
-Date: Mon, 18 Nov 2013 13:27:12 +0530
-Message-ID: <CAJ3bTp6pjy7PFbgAfoXoisue8xAeWA0bxxDPYY01QZN1iCX=rw@mail.gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: bridge: flush br's address entry in fdb when remove the bridge dev
+Date: Mon, 18 Nov 2013 16:25:34 +0800
+Message-ID: <5289CEFE.607@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	<bridge@lists.linux-foundation.org>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:36595 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751111Ab3KRH5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 02:57:13 -0500
-Received: by mail-wi0-f179.google.com with SMTP id fb10so3406444wid.6
-        for <netdev@vger.kernel.org>; Sun, 17 Nov 2013 23:57:12 -0800 (PST)
+Received: from szxga01-in.huawei.com ([119.145.14.64]:48246 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750836Ab3KRI0z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 03:26:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+When the following commands are executed:
 
-I have one Ethernet card which supports 64-bit DMA addressing and I
-need to implement this feature and test it.
+brctl addbr br0
+ifconfig br0 hw ether <addr>
+rmmod bridge
 
-I did following,
+The calltrace will occur:
 
-1. Implemented 64-but addressing ie changed driver to update the
-descriptor start list address and buffer address into two 32-bit reg
-(hig/low)
-2. Enabled 64-bit addressing in device control reg.
-3. Installed the 64-bit operating system on 64-bit architecture -
-Fedora 15, 64 bit os , LINUX 3.8.0 kernel, Intel dual core processor,
-4GB RAM.
-4. And my Ethernet card is connected to HOST via PCIX.
+[  563.312114] device eth1 left promiscuous mode
+[  563.312188] br0: port 1(eth1) entered disabled state
+[  563.468190] kmem_cache_destroy bridge_fdb_cache: Slab cache still has objects
+[  563.468197] CPU: 6 PID: 6982 Comm: rmmod Tainted: G           O 3.12.0-0.7-default+ #9
+[  563.468199] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+[  563.468200]  0000000000000880 ffff88010f111e98 ffffffff814d1c92 ffff88010f111eb8
+[  563.468204]  ffffffff81148efd ffff88010f111eb8 0000000000000000 ffff88010f111ec8
+[  563.468206]  ffffffffa062a270 ffff88010f111ed8 ffffffffa063ac76 ffff88010f111f78
+[  563.468209] Call Trace:
+[  563.468218]  [<ffffffff814d1c92>] dump_stack+0x6a/0x78
+[  563.468234]  [<ffffffff81148efd>] kmem_cache_destroy+0xfd/0x100
+[  563.468242]  [<ffffffffa062a270>] br_fdb_fini+0x10/0x20 [bridge]
+[  563.468247]  [<ffffffffa063ac76>] br_deinit+0x4e/0x50 [bridge]
+[  563.468254]  [<ffffffff810c7dc9>] SyS_delete_module+0x199/0x2b0
+[  563.468259]  [<ffffffff814e0922>] system_call_fastpath+0x16/0x1b
+[  570.377958] Bridge firewalling registered
 
-With the above changes in the driver and test setup I am able to test
-the 64-bit addressing and following are the observation made during
-testing,
+------------------------- cut here ---------------------------
 
-1. Tx/Rx descriptor address is 33-bit and same is updated correctly in
-Tx/Rx desc list address low/high reg.
-2. Tx/Rx buffer address is also 33-bit and same is updated correctly
-in Tx/Rx desc buffer pointer low/high reg.
+The reason is that if the bridge dev's address is changed, the
+br_fdb_change_mac_address() will add new address in fdb, but when
+the bridge was removed, the address entry in the fdb did not free,
+the bridge_fdb_cache still has objects when destroy the cache, Fix
+this by flushing the bridge address entry when removing the bridge.
 
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ net/bridge/br_if.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-But I am not able to understand following,
-
-1. Why are we always getting 33-bit address only ?
-2. Can we configure OS such that it gives 64-bit address or more than
-33-bit address ?
-3. In case of SG list, all buffer addresses are 33-bit, why it is like
-that ? Can we get mixed pointers with different width like 33-bits,
-40-bit, 64-bit etc ?
-
-
-
-Thanks
-Rayagond
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index c41d5fb..baedc32 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -172,6 +172,10 @@ void br_dev_delete(struct net_device *dev, struct list_head *head)
+ 		del_nbp(p);
+ 	}
+ 
++	spin_lock_bh(&br->hash_lock);
++	fdb_delete_by_addr(br, br->dev->dev_addr, 0);
++	spin_unlock_bh(&br->hash_lock);
++
+ 	del_timer_sync(&br->gc_timer);
+ 
+ 	br_sysfs_delbr(br->dev);
+-- 
+1.7.12
