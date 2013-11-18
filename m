@@ -1,222 +1,47 @@
-From: <srinivas.kandagatla@st.com>
-Subject: [PATCH RFC 4/9] net: stmmac: move hardware setup for stmmac_open to new function
-Date: Mon, 18 Nov 2013 11:32:01 +0000
-Message-ID: <1384774321-10221-1-git-send-email-srinivas.kandagatla@st.com>
-References: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com>
+From: "Simon Schneider" <simon-schneider@gmx.net>
+Subject: MLD maturity in kernel version 2.6.32.60
+Date: Mon, 18 Nov 2013 13:17:28 +0100 (CET)
+Message-ID: <trinity-825e48d2-0bab-4020-84f0-77800e55f25a-1384777048114@3capp-gmx-bs16>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <srinivas.kandagatla@st.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	<netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.21]:53552 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751171Ab3KRMR3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 07:17:29 -0500
+Received: from 3capp-gmx-bs16.server.lan ([172.19.170.68]) by
+ mrigmx.server.lan (mrigmx001) with ESMTP (Nemesis) id
+ 0MKwO6-1ViNlg0xTE-000206 for <netdev@vger.kernel.org>; Mon, 18 Nov 2013
+ 13:17:28 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 
-This patch moves hardware setup part of the code in stmmac_open to a new
-function stmmac_hw_setup, the reason for doing this is to make hw
-initialization independent function so that PM functions can re-use it to
-re-initialize the IP after returning from low power state.
-This will also avoid code duplication across stmmac_resume/restore and
-stmmac_open.
+Hi,
+in a development project, we started evaluating MLD functionality.
+=C2=A0
+Our development is based on kernel version 2.6.32.60.
+=C2=A0
+We noticed some pretty basic issues:
+=C2=A0
+- With force_mld_version set to 0 (we expect "MLDv2 with MLDv1 fallback=
+"), we saw only MLDv2 messages, the fallback to MLDv1 didn't seem to wo=
+rk, when we sent MLDv1 messages to the unit.
+- With force_mld_version set to 1 (we expect "MLDv1 only mode"), we als=
+o saw MLDv2 messages being generated.
+=C2=A0
+Can someone give a general statement about the MLD implementation matur=
+ity in kernel 2.6.32.60? Are there known bugs that would explain the ab=
+ove observations?
 
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |  155 ++++++++++++---------
- 1 files changed, 88 insertions(+), 67 deletions(-)
+We need to see whether it makes sense to put further effort in investig=
+ating/fixing any MLD related issue we see.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 296457c..ea34ebc 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1594,6 +1594,86 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
- }
- 
- /**
-+ * stmmac_hw_setup: setup mac in a usable state.
-+ *  @dev : pointer to the device structure.
-+ *  Description:
-+ *  This function sets up the ip in a usable state.
-+ *  Return value:
-+ *  0 on success and an appropriate (-)ve integer as defined in errno.h
-+ *  file on failure.
-+ */
-+static int stmmac_hw_setup(struct net_device *dev)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+	int ret;
-+
-+	ret = init_dma_desc_rings(dev);
-+	if (ret < 0) {
-+		pr_err("%s: DMA descriptors initialization failed\n", __func__);
-+		return ret;
-+	}
-+	/* DMA initialization and SW reset */
-+	ret = stmmac_init_dma_engine(priv);
-+	if (ret < 0) {
-+		pr_err("%s: DMA engine initialization failed\n", __func__);
-+		return ret;
-+	}
-+
-+	/* Copy the MAC addr into the HW  */
-+	priv->hw->mac->set_umac_addr(priv->ioaddr, dev->dev_addr, 0);
-+
-+	/* If required, perform hw setup of the bus. */
-+	if (priv->plat->bus_setup)
-+		priv->plat->bus_setup(priv->ioaddr);
-+
-+	/* Initialize the MAC Core */
-+	priv->hw->mac->core_init(priv->ioaddr);
-+
-+	/* Enable the MAC Rx/Tx */
-+	stmmac_set_mac(priv->ioaddr, true);
-+
-+	/* Set the HW DMA mode and the COE */
-+	stmmac_dma_operation_mode(priv);
-+
-+	stmmac_mmc_setup(priv);
-+
-+	ret = stmmac_init_ptp(priv);
-+	if (ret)
-+		pr_warn("%s: failed PTP initialisation\n", __func__);
-+
-+#ifdef CONFIG_STMMAC_DEBUG_FS
-+	ret = stmmac_init_fs(dev);
-+	if (ret < 0)
-+		pr_warn("%s: failed debugFS registration\n", __func__);
-+#endif
-+	/* Start the ball rolling... */
-+	pr_debug("%s: DMA RX/TX processes started...\n", dev->name);
-+	priv->hw->dma->start_tx(priv->ioaddr);
-+	priv->hw->dma->start_rx(priv->ioaddr);
-+
-+	/* Dump DMA/MAC registers */
-+	if (netif_msg_hw(priv)) {
-+		priv->hw->mac->dump_regs(priv->ioaddr);
-+		priv->hw->dma->dump_regs(priv->ioaddr);
-+	}
-+	priv->tx_lpi_timer = STMMAC_DEFAULT_TWT_LS;
-+
-+	priv->eee_enabled = stmmac_eee_init(priv);
-+
-+	stmmac_init_tx_coalesce(priv);
-+
-+	if ((priv->use_riwt) && (priv->hw->dma->rx_watchdog)) {
-+		priv->rx_riwt = MAX_DMA_RIWT;
-+		priv->hw->dma->rx_watchdog(priv->ioaddr, MAX_DMA_RIWT);
-+	}
-+
-+	if (priv->pcs && priv->hw->mac->ctrl_ane)
-+		priv->hw->mac->ctrl_ane(priv->ioaddr, 0);
-+
-+	return 0;
-+}
-+
-+/**
-  *  stmmac_open - open entry point of the driver
-  *  @dev : pointer to the device structure.
-  *  Description:
-@@ -1621,6 +1701,10 @@ static int stmmac_open(struct net_device *dev)
- 		}
- 	}
- 
-+	/* Extra statistics */
-+	memset(&priv->xstats, 0, sizeof(struct stmmac_extra_stats));
-+	priv->xstats.threshold = tc;
-+
- 	/* Create and initialize the TX/RX descriptors chains. */
- 	priv->dma_tx_size = STMMAC_ALIGN(dma_txsize);
- 	priv->dma_rx_size = STMMAC_ALIGN(dma_rxsize);
-@@ -1632,28 +1716,14 @@ static int stmmac_open(struct net_device *dev)
- 		goto dma_desc_error;
- 	}
- 
--	ret = init_dma_desc_rings(dev);
-+	ret = stmmac_hw_setup(dev);
- 	if (ret < 0) {
--		pr_err("%s: DMA descriptors initialization failed\n", __func__);
--		goto dma_desc_error;
--	}
--
--	/* DMA initialization and SW reset */
--	ret = stmmac_init_dma_engine(priv);
--	if (ret < 0) {
--		pr_err("%s: DMA engine initialization failed\n", __func__);
-+		pr_err("%s: Hw setup failed\n", __func__);
- 		goto init_error;
- 	}
- 
--	/* Copy the MAC addr into the HW  */
--	priv->hw->mac->set_umac_addr(priv->ioaddr, dev->dev_addr, 0);
--
--	/* If required, perform hw setup of the bus. */
--	if (priv->plat->bus_setup)
--		priv->plat->bus_setup(priv->ioaddr);
--
--	/* Initialize the MAC Core */
--	priv->hw->mac->core_init(priv->ioaddr);
-+	if (priv->phydev)
-+		phy_start(priv->phydev);
- 
- 	/* Request the IRQ lines */
- 	ret = request_irq(dev->irq, stmmac_interrupt,
-@@ -1686,55 +1756,6 @@ static int stmmac_open(struct net_device *dev)
- 		}
- 	}
- 
--	/* Enable the MAC Rx/Tx */
--	stmmac_set_mac(priv->ioaddr, true);
--
--	/* Set the HW DMA mode and the COE */
--	stmmac_dma_operation_mode(priv);
--
--	/* Extra statistics */
--	memset(&priv->xstats, 0, sizeof(struct stmmac_extra_stats));
--	priv->xstats.threshold = tc;
--
--	stmmac_mmc_setup(priv);
--
--	ret = stmmac_init_ptp(priv);
--	if (ret)
--		pr_warn("%s: failed PTP initialisation\n", __func__);
--
--#ifdef CONFIG_STMMAC_DEBUG_FS
--	ret = stmmac_init_fs(dev);
--	if (ret < 0)
--		pr_warn("%s: failed debugFS registration\n", __func__);
--#endif
--	/* Start the ball rolling... */
--	pr_debug("%s: DMA RX/TX processes started...\n", dev->name);
--	priv->hw->dma->start_tx(priv->ioaddr);
--	priv->hw->dma->start_rx(priv->ioaddr);
--
--	/* Dump DMA/MAC registers */
--	if (netif_msg_hw(priv)) {
--		priv->hw->mac->dump_regs(priv->ioaddr);
--		priv->hw->dma->dump_regs(priv->ioaddr);
--	}
--
--	if (priv->phydev)
--		phy_start(priv->phydev);
--
--	priv->tx_lpi_timer = STMMAC_DEFAULT_TWT_LS;
--
--	priv->eee_enabled = stmmac_eee_init(priv);
--
--	stmmac_init_tx_coalesce(priv);
--
--	if ((priv->use_riwt) && (priv->hw->dma->rx_watchdog)) {
--		priv->rx_riwt = MAX_DMA_RIWT;
--		priv->hw->dma->rx_watchdog(priv->ioaddr, MAX_DMA_RIWT);
--	}
--
--	if (priv->pcs && priv->hw->mac->ctrl_ane)
--		priv->hw->mac->ctrl_ane(priv->ioaddr, 0);
--
- 	napi_enable(&priv->napi);
- 	netif_start_queue(dev);
- 
--- 
-1.7.6.5
+If this is the wrong list to ask this kind of question, please point me=
+ to the correct one.
+
+Thanks in advance,
+best regards, Simon Schneider
+=C2=A0
