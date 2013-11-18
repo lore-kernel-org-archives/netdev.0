@@ -1,82 +1,30 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH] ping: prevent NULL pointer dereference on write to msg_name
-Date: Mon, 18 Nov 2013 07:07:45 +0100
-Message-ID: <20131118060745.GL16541@order.stressinduktion.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [ovs-dev] [PATCH v2.50 1/6] ofp-actions: Consider L4 actions
+ after mpls_push as inconsistent
+Date: Mon, 18 Nov 2013 15:38:53 +0900
+Message-ID: <20131118063853.GA27935@verge.net.au>
+References: <1384506623-18503-1-git-send-email-horms@verge.net.au>
+ <1384506623-18503-2-git-send-email-horms@verge.net.au>
+ <6A09EE11-CDFA-4E49-AB7F-34746ED4765D@nicira.com>
+ <20131115174530.GE18635@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jarno Rajahalme <jrajahalme@nicira.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@nicira.com>, Ravi K <rkerur@gmail.com>
+To: Ben Pfaff <blp@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:49230 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751030Ab3KRGHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 01:07:46 -0500
+Received: from kirsty.vergenet.net ([202.4.237.240]:38075 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750845Ab3KRGi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 01:38:56 -0500
 Content-Disposition: inline
+In-Reply-To: <20131115174530.GE18635@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A plain read() on a socket does set msg->msg_name to NULL. So check for
-NULL pointer first.
+On Fri, Nov 15, 2013 at 09:45:30AM -0800, Ben Pfaff wrote:
+> Thanks Simon, thanks Jarno, applied.
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
-
-Addendum to "[v4] inet: prevent leakage of uninitialized memory to user in
-recv syscalls".
-
- net/ipv4/ping.c | 34 +++++++++++++++++++---------------
- 1 file changed, 19 insertions(+), 15 deletions(-)
-
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index aacefa0..91bfe04 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -870,11 +870,13 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	if (family == AF_INET) {
- 		struct sockaddr_in *sin = (struct sockaddr_in *)msg->msg_name;
- 
--		sin->sin_family = AF_INET;
--		sin->sin_port = 0 /* skb->h.uh->source */;
--		sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
--		memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
--		*addr_len = sizeof(*sin);
-+		if (sin) {
-+			sin->sin_family = AF_INET;
-+			sin->sin_port = 0 /* skb->h.uh->source */;
-+			sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
-+			memset(sin->sin_zero, 0, sizeof(sin->sin_zero));
-+			*addr_len = sizeof(*sin);
-+		}
- 
- 		if (isk->cmsg_flags)
- 			ip_cmsg_recv(msg, skb);
-@@ -886,16 +888,18 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		struct sockaddr_in6 *sin6 =
- 			(struct sockaddr_in6 *)msg->msg_name;
- 
--		sin6->sin6_family = AF_INET6;
--		sin6->sin6_port = 0;
--		sin6->sin6_addr = ip6->saddr;
--		sin6->sin6_flowinfo = 0;
--		if (np->sndflow)
--			sin6->sin6_flowinfo = ip6_flowinfo(ip6);
--
--		sin6->sin6_scope_id = ipv6_iface_scope_id(&sin6->sin6_addr,
--							  IP6CB(skb)->iif);
--		*addr_len = sizeof(*sin6);
-+		if (sin6) {
-+			sin6->sin6_family = AF_INET6;
-+			sin6->sin6_port = 0;
-+			sin6->sin6_addr = ip6->saddr;
-+			sin6->sin6_flowinfo = 0;
-+			if (np->sndflow)
-+				sin6->sin6_flowinfo = ip6_flowinfo(ip6);
-+			sin6->sin6_scope_id =
-+				ipv6_iface_scope_id(&sin6->sin6_addr,
-+						    IP6CB(skb)->iif);
-+			*addr_len = sizeof(*sin6);
-+		}
- 
- 		if (inet6_sk(sk)->rxopt.all)
- 			pingv6_ops.ip6_datagram_recv_ctl(sk, msg, skb);
--- 
-1.8.3.1
+Thanks.
