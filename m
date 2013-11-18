@@ -1,48 +1,80 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
-Date: Mon, 18 Nov 2013 10:09:53 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B742A@saturn3.aculab.com>
-References: <8761s0cqhh.fsf@natisbad.org> <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site> <87y54u59zq.fsf@natisbad.org> <20131112083633.GB10318@1wt.eu> <87a9hagex1.fsf@natisbad.org> <20131112100126.GB23981@1wt.eu> <87vbzxd473.fsf@natisbad.org> <20131113072257.GB10591@1wt.eu> <20131117141940.GA18569@1wt.eu>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 4/4] net, virtio_net: replace the magic value
+Date: Mon, 18 Nov 2013 12:15:17 +0200
+Message-ID: <20131118101517.GA3559@redhat.com>
+References: <1384764380-16832-1-git-send-email-zwu.kernel@gmail.com>
+ <20131118095043.GA3470@redhat.com>
+ <CAEH94Ljbu-gJ3SCHYErNEPucV=rR9PHz5COrOp3B-iw+db=LDQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Cong Wang" <xiyou.wangcong@gmail.com>, <edumazet@google.com>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	"Thomas Petazzoni" <thomas.petazzoni@free-electrons.com>
-To: "Willy Tarreau" <w@1wt.eu>, "Arnaud Ebalard" <arno@natisbad.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, QEMU Developers <qemu-devel@nongnu.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	linux-kernel mlist <linux-kernel@vger.kernel.org>
+To: Zhi Yong Wu <zwu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:47018 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751281Ab3KRKLc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 05:11:32 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 07281-02 for <netdev@vger.kernel.org>;
- Mon, 18 Nov 2013 10:11:29 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20131117141940.GA18569@1wt.eu>
+Received: from mx1.redhat.com ([209.132.183.28]:32347 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751194Ab3KRKMI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Nov 2013 05:12:08 -0500
+Content-Disposition: inline
+In-Reply-To: <CAEH94Ljbu-gJ3SCHYErNEPucV=rR9PHz5COrOp3B-iw+db=LDQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I wonder if we can call mvneta_txq_done() from the IRQ handler, which would
-> cause some recycling of the Tx descriptors when receiving the corresponding
-> ACKs.
+On Mon, Nov 18, 2013 at 06:07:45PM +0800, Zhi Yong Wu wrote:
+> On Mon, Nov 18, 2013 at 5:50 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> > On Mon, Nov 18, 2013 at 04:46:20PM +0800, Zhi Yong Wu wrote:
+> >> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> >>
+> >> It is more appropriate to use # of queue pairs currently used by
+> >> the driver instead of a magic value.
+> >>
+> >> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> >
+> > I don't mind, but driver should be submitted separately
+> > from qemu patches. As it is only patch 4/4 made it to netdev.
+> ok, i will sent v2. By the way, can you help take a look at the
+> following patches?
+
+Will do.
+
+> Maybe i can send their v2 together.
+
+Please don't, these seem to be completely unrelated.
+
+> [PATCH 1/3] vhost: remove the dead branch
+> [PATCH 2/3] vhost: adjust vhost_dev_init() to be void
+> [PATCH 3/3] vhost: fix the wrong log descriptions
 > 
-> Ideally we should enable the Tx IRQ, but I still have no access to this
-> chip's datasheet despite having asked Marvell several times in one year
-> (Thomas has it though).
 > 
-> So it is fairly possible that in your case you can't fill the link if you
-> consume too many descriptors. For example, if your server uses TCP_NODELAY
-> and sends incomplete segments (which is quite common), it's very easy to
-> run out of descriptors before the link is full.
-
-Or you have a significant number of active tcp connections.
-
-Even if there were no requirement to free the skb quickly you still
-need to take a 'tx done' interrupt when the link is transmit rate limited.
-There are scenarios when there is no receive traffic - eg asymmetric
-routing, but testable with netperf UDP transmits.
-
-	David
+> >
+> >> ---
+> >>  drivers/net/virtio_net.c |    4 ++--
+> >>  1 files changed, 2 insertions(+), 2 deletions(-)
+> >>
+> >> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> >> index cdc7c90..e0cb2d1 100644
+> >> --- a/drivers/net/virtio_net.c
+> >> +++ b/drivers/net/virtio_net.c
+> >> @@ -1619,8 +1619,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+> >>       if (err)
+> >>               goto free_stats;
+> >>
+> >> -     netif_set_real_num_tx_queues(dev, 1);
+> >> -     netif_set_real_num_rx_queues(dev, 1);
+> >> +     netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
+> >> +     netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
+> >>
+> >>       err = register_netdev(dev);
+> >>       if (err) {
+> >> --
+> >> 1.7.6.5
+> >>
+> 
+> 
+> 
+> -- 
+> Regards,
+> 
+> Zhi Yong Wu
