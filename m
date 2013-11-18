@@ -1,7 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: bridge: flush br's address entry in fdb when remove the bridge dev
-Date: Mon, 18 Nov 2013 16:25:34 +0800
-Message-ID: <5289CEFE.607@huawei.com>
+Subject: [PATCH net] bridge: flush br's address entry in fdb when remove the
+ bridge dev
+Date: Mon, 18 Nov 2013 16:26:44 +0800
+Message-ID: <5289CF44.50400@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -10,10 +11,10 @@ To: Stephen Hemminger <stephen@networkplumber.org>,
 	<bridge@lists.linux-foundation.org>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:48246 "EHLO
+Received: from szxga01-in.huawei.com ([119.145.14.64]:48934 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750836Ab3KRI0z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 03:26:55 -0500
+	with ESMTP id S1750836Ab3KRI1e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 03:27:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
