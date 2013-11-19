@@ -1,32 +1,63 @@
-From: "Crawford, Andrew" <crawam91@suny.oneonta.edu>
-Subject: BAYFORD CHARITY DONATIONS!!!
-Date: Tue, 19 Nov 2013 15:05:49 +0100
-Message-ID: <CAAp-gYRcVciVTfqrEmX2aJaO5yBsLWC3y0RN=301g=_QbbReyg@mail.gmail.com>
-Reply-To: bayfordg50@gmx.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net/usb/ax88179_178a driver broken in linux-3.12
+Date: Tue, 19 Nov 2013 06:15:50 -0800
+Message-ID: <1384870550.8604.101.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com>
+	 <52891341.4020403@pobox.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com>
+	 <528A9A36.50903@pobox.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com>
+	 <528B6F73.7040801@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:53009 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751914Ab3KSOFw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 09:05:52 -0500
-Received: by mail-qa0-f46.google.com with SMTP id f11so2131535qae.12
-        for <netdev@vger.kernel.org>; Tue, 19 Nov 2013 06:05:51 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	Ming Lei <ming.lei@canonical.com>, davem@davemloft.net,
+	netdev@vger.kernel.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	stable@vger.kernel.org
+To: Mark Lord <mlord@pobox.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <528B6F73.7040801@pobox.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-My wife and I won $217 million on Powerball jackpot ticket and we have
-decided to donate the sum  of =C2=A31,500,000.00 GBP to you to help us
-promote our charity donation desires. Contact us via (
-bayfordg50@gmx.com)
+On Tue, 2013-11-19 at 09:02 -0500, Mark Lord wrote:
+> On 13-11-19 05:04 AM, David Laight wrote:
+> >> From: Mark Lord
+> ..
+> >> except the ax88179_178a driver still does not work in linux-3.12,
+> >> whereas it works fine in all earlier kernels.
+> >>
+> >> That's a regression.
+> >> And a simple revert (earlier in this thread) fixes it.
+> >> So.. let's revert it for now, until a proper xhci compatible patch is produced.
+> ...
+> > There is a patch to xhci-ring.c that should fix the SG problem.
+> > http://www.spinics.net/lists/linux-usb/msg97176.html
+> > 
+> > I think it should apply to the 3.12 sources.
+> 
+> I am running with that patch here now (thanks),
+> and it too appears to prevent the lockups.
+> 
+> But is this patch upstream already?
+> If yes, then it needs to get pushed out to -stable for 3.12 at least.
+> 
+> If not upstream, then the revert is probably safest for -stable,
+> rather than new code that has never been upstream before.
+> 
 
+> Both patches are attached to this email.
+> One or the other is required for the USB 3.0 network adapters to function in 3.12.
 
-Moje =C5=BEena a j=C3=A1 vyhr=C3=A1l 217.000.000dolar na j=C3=ADzdence =
-jackpot Powerball a
-my jsme se rozhodli darovat =C4=8D=C3=A1stku =C2=A3 1,500,000.00 GBP na=
- v=C3=A1s, abyste
-n=C3=A1m pomohli podpo=C5=99it na=C5=A1e touhy charitativn=C3=AD dar. K=
-ontaktujte n=C3=A1s
-prost=C5=99ednictv=C3=ADm (bayfordg50@gmx.com)
+I do not see any error in commit f27070158d6754765f2
+("ax88179_178a: avoid copy of tx tcp packets")
+
+Quite the contrary in fact...
+
+I suspect a TSO bug, and would rather disable TSO for this nic.
+
+Have you tried to revert 3804fad45411b482
+("USBNET: ax88179_178a: enable tso if usb host supports sg dma")
