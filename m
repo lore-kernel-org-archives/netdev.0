@@ -1,51 +1,55 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 0/3][pull request] Intel Wired LAN Driver Updates
-Date: Tue, 19 Nov 2013 07:40:51 -0800
-Message-ID: <1384875654-7795-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net 2/3] igb: Fixed Wake On Lan support
+Date: Tue, 19 Nov 2013 07:40:53 -0800
+Message-ID: <1384875654-7795-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1384875654-7795-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:11437 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:34890 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751510Ab3KSPk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Nov 2013 10:40:58 -0500
+	id S1753082Ab3KSPk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Nov 2013 10:40:59 -0500
+In-Reply-To: <1384875654-7795-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to net and igb.
+From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 
-John provides a patch against net to be able to walk all upper devices
-when bringing a device online where the RTNL lock is held.
+This patch fixes Wake on Lan being reported as supported on some Ethernet
+ports, in contrary to Hardware capability.
 
-Akeem provides a igb fix where WOL was being reported as supported on
-some ethernet devices which did not have that capability.
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-Carolyn provides a igb fix to add a call to dev_close if the queue
-reinit fails in order to make it clear to the user that the device is
-down.
-
-The following are changes since commit d11a347de3f521af62da25e74156ea39e3774f19:
-  be2net: Delete secondary unicast MAC addresses during be_close
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
-
-Akeem G Abodunrin (1):
-  igb: Fixed Wake On Lan support
-
-Carolyn Wyborny (1):
-  igb: Update queue reinit function to call dev_close when init of
-    queues fails
-
-John Fastabend (1):
-  net: allow netdev_all_upper_get_next_dev_rcu with rtnl lock held
-
- drivers/net/ethernet/intel/igb/igb_ethtool.c  |  7 +++--
- drivers/net/ethernet/intel/igb/igb_main.c     |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  6 ++--
- include/linux/netdevice.h                     |  9 ++++++
- net/core/dev.c                                | 43 ++++++++++++++++++++-------
- 5 files changed, 49 insertions(+), 17 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index b0f3666..c3143da 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -2062,14 +2062,15 @@ static void igb_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ {
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 
+-	wol->supported = WAKE_UCAST | WAKE_MCAST |
+-			 WAKE_BCAST | WAKE_MAGIC |
+-			 WAKE_PHY;
+ 	wol->wolopts = 0;
+ 
+ 	if (!(adapter->flags & IGB_FLAG_WOL_SUPPORTED))
+ 		return;
+ 
++	wol->supported = WAKE_UCAST | WAKE_MCAST |
++			 WAKE_BCAST | WAKE_MAGIC |
++			 WAKE_PHY;
++
+ 	/* apply any specific unsupported masks here */
+ 	switch (adapter->hw.device_id) {
+ 	default:
 -- 
 1.8.3.1
