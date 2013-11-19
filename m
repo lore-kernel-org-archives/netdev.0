@@ -1,83 +1,45 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net RESEND] bonding: don't change to 802.3ad mode while
- ARP monitoring is running
-Date: Mon, 18 Nov 2013 21:31:38 -0500
-Message-ID: <528ACD8A.1010409@greyhouse.net>
-References: <528710F7.7050207@huawei.com>	 <1384796682.4774.26.camel@dcbw.foobar.com>	 <20131118.154838.776189725378131169.davem@davemloft.net> <1384815032.4774.55.camel@dcbw.foobar.com>
+From: hayeswang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH net v3 1/4] r8152: fix tx/rx memory overflow
+Date: Tue, 19 Nov 2013 10:32:47 +0800
+Message-ID: <701E277A875F4A69A1B3C5B306B7CE8B@realtek.com.tw>
+References: <1384502279-9959-1-git-send-email-hayeswang@realtek.com><1384502279-9959-2-git-send-email-hayeswang@realtek.com> <20131115.173948.1712849813995511721.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dingtianhong@huawei.com, fubar@us.ibm.com, nikolay@redhat.com,
-	vfalico@redhat.com, netdev@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f52.google.com ([209.85.128.52]:57665 "EHLO
-	mail-qe0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751754Ab3KSCbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 21:31:41 -0500
-Received: by mail-qe0-f52.google.com with SMTP id cz11so4282604qeb.39
-        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 18:31:40 -0800 (PST)
-In-Reply-To: <1384815032.4774.55.camel@dcbw.foobar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, 'nic_swsd' <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: 'David Miller' <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20131115.173948.1712849813995511721.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11/18/2013 05:50 PM, Dan Williams wrote:
-> On Mon, 2013-11-18 at 15:48 -0500, David Miller wrote:
->> From: Dan Williams <dcbw@redhat.com>
->> Date: Mon, 18 Nov 2013 11:44:42 -0600
->>
->>> On Sat, 2013-11-16 at 14:30 +0800, Ding Tianhong wrote:
->>>> Because the ARP monitoring is not support for 802.3ad, but I still
->>>> could change the mode to 802.3ad from ab mode while ARP monitoring
->>>> is running, it is incorrect.
->>>>
->>>> So add a check for 802.3ad in bonding_store_mode to fix the problem,
->>>> and make a new macro BOND_NO_USES_ARP() to simplify the code.
->>> Instead of failing, couldn't the code stop ARP monitoring and allow the
->>> mode change?  This is similar to setting miimon, which disables ARP
->>> monitoring, or setting ARP monitoring, which disables miimon.
->>>
->>> 	if (new_value && bond->params.arp_interval) {
->>> 		pr_info("%s: MII monitoring cannot be used with ARP monitoring. Disabling ARP monitoring...\n",
->>> 			bond->dev->name);
->>> 		bond->params.arp_interval = 0;
->>> 		if (bond->params.arp_validate)
->>> 			bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
->>> 	}
->>>
->>> Bond mode is the most important bond option, so it seems like it should
->>> override any of the other sub-options.  I know the code doesn't do this
->>> now, but maybe instead of the patch you propose, it would be nicer to
->>> allow the mode change instead?
->> I agree with Dan, if other mode changes behave this way (by dropping the
->> incompatible feature) we should make 802.3ad do so as well at the very
->> least for consistency.
-> Currently ALB and TLB modes will fail if arp_interval > 0, so Ding's
-> patch is technically correct.
->
-> Instead, I'm proposing that 'mode' trumps all, and if the user changes
-> the mode, conflicting values should be cleared or reset.  Otherwise
-> userspace has to duplicate a lot of kernel logic/validation.  For
-> example:
->
-> 1) set mode to ROUNDROBIN
-> 2) set arp_interval
-> 3) set mode to ALB or TLB
-> 4) FAIL - incompatible with arp_interval
-> 5) ok, set arp_interval to zero
-> 6) set mode to ALB or TLB
-> 7) SUCCESS
->
-> Wouldn't it be nice if the kernel handled clearing arp_interval for us,
-> since it knows that arp_interval is incompatible with ALB/TLB...
->
-> Could be done separately.  I have no objection to Ding's patch other
-> than "life could be even better".
->
-> Dan
-Nik was actually planning to work on a pretty significant rewrite of the 
-code that handles setting and clearing of different config options, but 
-I have not seen him chime in on this thread yet.
+David Miller [mailto:davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org] 
+> Sent: Saturday, November 16, 2013 6:40 AM
+> To: Hayeswang
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; nic_swsd; 
+> linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Subject: Re: [PATCH net v3 1/4] r8152: fix tx/rx memory overflow
+> 
+> From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+> Date: Fri, 15 Nov 2013 15:57:56 +0800
+> 
+> > +			unsigned pkt_len;
+> 
+> Please fully specify the type as "unsigned int".  Please 
+> check for this
+> problem in the rest of your patches too.
 
-Nik, anything you can share on this or are you still a bit away from 
-coming up with a design and implementation?
+I would fix it.
+
+I check the other patches, and I don't find the same problem.
+
+Thanks.
+ 
+Best Regards,
+Hayes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
