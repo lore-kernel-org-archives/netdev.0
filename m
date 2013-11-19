@@ -1,38 +1,35 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH] atm: idt77252: fix dev refcnt leak
-Date: Tue, 19 Nov 2013 18:09:27 +0800
-Message-ID: <1384855767-21446-1-git-send-email-ying.xue@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-atm-general@lists.sourceforge.net>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<ying.xue@windriver.com>
-To: <chas@cmf.nrl.navy.mil>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next RFC v2 0/2] ipv6: allow temporary address management for user-created addresses
+Date: Tue, 19 Nov 2013 11:43:27 +0100
+Message-ID: <1384857809-6573-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
+	stephen@networkplumber.org, hannes@stressinduktion.org,
+	vyasevich@gmail.com, dcbw@redhat.com, David.Laight@ACULAB.COM
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:50380 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751701Ab3KSKnd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 05:43:33 -0500
+Received: by mail-ee0-f48.google.com with SMTP id e49so3084090eek.7
+        for <netdev@vger.kernel.org>; Tue, 19 Nov 2013 02:43:32 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-init_card() calls dev_get_by_name() to get a network deceive. But it
-doesn't decrease network device reference count after the device is
-used.
+Both kernel patches were modified, see details in each patch description.
+No modification to iproute2 patches was done.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- drivers/atm/idt77252.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Jiri Pirko (2):
+  ipv6 addrconf: extend ifa_flags to u32
+  ipv6 addrconf: introduce IFA_F_MANAGETEMPADDR to tell kernel to manage
+    temporary addresses
 
-diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
-index 272f009..1bdf104 100644
---- a/drivers/atm/idt77252.c
-+++ b/drivers/atm/idt77252.c
-@@ -3511,7 +3511,7 @@ static int init_card(struct atm_dev *dev)
- 	tmp = dev_get_by_name(&init_net, tname);	/* jhs: was "tmp = dev_get(tname);" */
- 	if (tmp) {
- 		memcpy(card->atmdev->esi, tmp->dev_addr, 6);
--
-+		dev_put(tmp);
- 		printk("%s: ESI %pM\n", card->name, card->atmdev->esi);
- 	}
- 	/*
+ include/net/addrconf.h       |   4 +-
+ include/net/if_inet6.h       |   2 +-
+ include/uapi/linux/if_addr.h |   5 ++
+ net/ipv6/addrconf.c          | 197 +++++++++++++++++++++++++------------------
+ 4 files changed, 122 insertions(+), 86 deletions(-)
+
 -- 
-1.7.9.5
+1.8.3.1
