@@ -1,90 +1,78 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net 1/3] net: allow netdev_all_upper_get_next_dev_rcu with rtnl
- lock held
-Date: Tue, 19 Nov 2013 09:18:42 -0800
-Message-ID: <528B9D72.1090004@gmail.com>
-References: <1384875654-7795-1-git-send-email-jeffrey.t.kirsher@intel.com> <1384875654-7795-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
+Date: Tue, 19 Nov 2013 18:43:23 +0100
+Message-ID: <20131119174323.GH913@1wt.eu>
+References: <87y54u59zq.fsf@natisbad.org> <20131112083633.GB10318@1wt.eu>
+ <87a9hagex1.fsf@natisbad.org> <20131112100126.GB23981@1wt.eu>
+ <87vbzxd473.fsf@natisbad.org> <20131113072257.GB10591@1wt.eu>
+ <20131117141940.GA18569@1wt.eu>
+ <1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
+ <87li0kkhzx.fsf@natisbad.org>
+ <1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Veaceslav Falico <vfalico@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:63925 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753223Ab3KSRS6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 12:18:58 -0500
-Received: by mail-ob0-f175.google.com with SMTP id uz6so859945obc.34
-        for <netdev@vger.kernel.org>; Tue, 19 Nov 2013 09:18:58 -0800 (PST)
-In-Reply-To: <1384875654-7795-2-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Florian Fainelli <f.fainelli@gmail.com>, simon.guinot@sequanux.org,
+ netdev@vger.kernel.org, Arnaud Ebalard <arno@natisbad.org>,
+ edumazet@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+ linux-arm-kernel@lists.infradead.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 11/19/2013 07:40 AM, Jeff Kirsher wrote:
-> From: John Fastabend <john.r.fastabend@intel.com>
->
-> It is useful to be able to walk all upper devices when bringing
-> a device online where the RTNL lock is held. In this case it
-> is safe to walk the all_adj_list because the RTNL lock is used
-> to protect the write side as well.
->
-> Here we rearrange the netdev_all_upper_get_next_dev_rcu into three
-> routines:
->
-> 	netdev_all_upper_get_next_dev_rcu()
-> 	netdev_all_upper_get_next_dev_rtnl()
-> 	netdev_all_upper_get_next_dev()
->
-> One for RCU callers, one for RTNL callers and a final routine
-> to implement the work. Both the _rcu and _rtnl variants are
-> exposed. Where the net/ethernet/intel/ixgbe driver is a consumer
-> of the _rtnl variant. netdev_all_upper_get_next_dev() is static.
->
-> CC: Veaceslav Falico <vfalico@redhat.com>
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
+Hi Eric,
 
-[...]
+On Tue, Nov 19, 2013 at 05:53:14AM -0800, Eric Dumazet wrote:
+> These strange results you have tend to show that if you have a big TCP
+> send window, the web server pushes a lot of bytes per system call and
+> might stall the ACK clocking or TX refills.
 
-NAK, lockdep_rtnl_is_held() is wrapped in CONFIG_PROVE_LOCKING,
+It's tx refills which are not done in this case from what I think I
+understood in the driver. IIRC, the refill is done once at the beginning
+of xmit and in the tx timer callback. So if you have too large a window
+that fills the descriptors during a few tx calls during which no desc was
+released, you could end up having to wait for the timer since you're not
+allowed to send anymore.
 
-	#ifdef CONFIG_PROVE_LOCKING
-	extern int lockdep_rtnl_is_held(void);
-	#endif /* #ifdef CONFIG_PROVE_LOCKING */
+> > Then, I started playing w/ tcp_limit_output_bytes (default is 131072),
+> > w/ TCP send window set to 256KB:
+> > 
+> > tcp_limit_output_bytes set to 512KB: 59.3 MB/s
+> > tcp_limit_output_bytes set to 256KB: 58.5 MB/s
+> > tcp_limit_output_bytes set to 128KB: 56.2 MB/s
+> > tcp_limit_output_bytes set to  64KB: 32.1 MB/s
+> > tcp_limit_output_bytes set to  32KB: 4.76 MB/s
+> > 
+> > As a side note, during the test, I sometimes gets peak for some seconds
+> > at the beginning at 90MB/s which tend to confirm what WIlly wrote,
+> > i.e. that the hardware can do more.
+> 
+> I would also check the receiver. I suspect packets drops because of a
+> bad driver doing skb->truesize overshooting.
 
-[...]
+When I first observed the issue, at first I suspected my laptop's driver
+when I saw this problem, so I tried with a dockstar instead and the issue
+disappeared... until I increased the tcp_rmem on it to match my laptop :-)
 
-> +struct net_device *netdev_all_upper_get_next_dev_rtnl(struct net_device *dev,
-> +						      struct list_head **iter)
-> +{
-> +	WARN_ON_ONCE(!lockdep_rtnl_is_held());
+Arnaud, you might be interested in trying checking if the following change
+does something for you in mvneta.c :
 
-so this can cause a build error without CONFIG_PROVE_LOCKING. I can
-either wrap this in a CONFIG_PROVE_LOCKING or do something like this,
+- #define MVNETA_TX_DONE_TIMER_PERIOD 10
++ #define MVNETA_TX_DONE_TIMER_PERIOD (1000/HZ)
 
-  	extern int rtnl_is_locked(void);
-  	#ifdef CONFIG_PROVE_LOCKING
-  	extern int lockdep_rtnl_is_held(void);
-	+#else
-	+static inline int lockdep_rtnl_is_held(void)
-	+{
-	+       return 0;
-	+}
-	 #endif /* #ifdef CONFIG_PROVE_LOCKING */
+This can only have any effect if you run at 250 or 1000 Hz, but not at 100
+of course. It should reduce the time to first IRQ.
 
-The lazy way to do this is to wrap the call  site in rcu_read_{un}lock
-but I would prefer not to do that.
-
-> +	return netdev_all_upper_get_next_dev(dev, iter);
-> +}
-
-Sorry for the noise I'll spin a new version.
-
-John
-
--- 
-John Fastabend         Intel Corporation
+Willy
