@@ -1,44 +1,38 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: Re: [PATCH net] virtio-net: fix page refcnt leaking when fail to
-	allocate frag skb
-Date: Tue, 19 Nov 2013 13:38:16 -0800
-Message-ID: <CANJ5vPKmP6rFsBgMGFM8DcuGww7B9PxJMSBkUMHNZOa7LJOA2g@mail.gmail.com>
-References: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
-	<1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131119204909.GA15004@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/9] genetlink: clean up multicast group APIs
+Date: Tue, 19 Nov 2013 16:40:34 -0500 (EST)
+Message-ID: <20131119.164034.545622999253259387.davem@davemloft.net>
+References: <1384870779-17571-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20131119204909.GA15004@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58346 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752337Ab3KSVkh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 16:40:37 -0500
+In-Reply-To: <1384870779-17571-1-git-send-email-johannes@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Great catch Jason. I agree this now raises the larger issue of how to
-handle a memory alloc failure in the middle of receive. As Eric mentioned,
-we can drop the packet and free the remaining (num_buf) frags.
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Tue, 19 Nov 2013 15:19:30 +0100
 
-Michael, perhaps I'm missing something, but why would you prefer
-pre-allocating buffers in this case? If the guest kernel is OOM'ing,
-dropping packets should provide backpressure.
+> The generic netlink multicast group registration doesn't have to
+> be dynamic, and can thus be simplified just like I did with the
+> ops. This removes some complexity in registration code.
+> 
+> Additionally, two users of generic netlink already use multicast
+> groups in a wrong way, add workarounds for those two to keep the
+> userspace API working, but at the same time make them not clash
+> with other users of multicast groups as might happen now.
+> 
+> While making it all a bit easier, also prevent such abuse by adding
+> checks to the APIs so each family can only use the groups it owns.
 
-Also, we could just as easily fail the initial skb alloc in page_to_skb,
-and I think that case also needs to be handled now in the same fashion as
-a memory allocation failure in receive_mergeable.
+This looks great, and makes the unfortunate multicast ID handling in
+DM and elsewhere explicit, controlled, and validated.
 
-Best,
-
-Mike
+Series applied, thanks.
