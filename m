@@ -1,55 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] virtio-net: fix page refcnt leaking when fail to
-	allocate frag skb
-Date: Tue, 19 Nov 2013 06:03:48 -0800
-Message-ID: <1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
+From: "Crawford, Andrew" <crawam91@suny.oneonta.edu>
+Subject: BAYFORD CHARITY DONATIONS!!!
+Date: Tue, 19 Nov 2013 15:05:49 +0100
+Message-ID: <CAAp-gYRcVciVTfqrEmX2aJaO5yBsLWC3y0RN=301g=_QbbReyg@mail.gmail.com>
+Reply-To: bayfordg50@gmx.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, mst@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:53009 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751914Ab3KSOFw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 09:05:52 -0500
+Received: by mail-qa0-f46.google.com with SMTP id f11so2131535qae.12
+        for <netdev@vger.kernel.org>; Tue, 19 Nov 2013 06:05:51 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-11-19 at 16:05 +0800, Jason Wang wrote:
-> We need to drop the refcnt of page when we fail to allocate an skb for frag
-> list, otherwise it will be leaked. The bug was introduced by commit
-> 2613af0ed18a11d5c566a81f9a6510b73180660a ("virtio_net: migrate mergeable rx
-> buffers to page frag allocators").
-> 
-> Cc: Michael Dalton <mwdalton@google.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
-> The patch was needed for 3.12 stable.
+My wife and I won $217 million on Powerball jackpot ticket and we have
+decided to donate the sum  of =C2=A31,500,000.00 GBP to you to help us
+promote our charity donation desires. Contact us via (
+bayfordg50@gmx.com)
 
-Good catch, but if we return from receive_mergeable() in the 'middle'
-of the frags we would need for the current skb, who will
-call the virtqueue_get_buf() to flush the remaining frags ?
 
-Don't we also need to call virtqueue_get_buf() like 
-
-while (--num_buf) {
-    buf = virtqueue_get_buf(rq->vq, &len);
-    if (!buf)
-        break;
-    put_page(virt_to_head_page(buf));
-}
-
-?
+Moje =C5=BEena a j=C3=A1 vyhr=C3=A1l 217.000.000dolar na j=C3=ADzdence =
+jackpot Powerball a
+my jsme se rozhodli darovat =C4=8D=C3=A1stku =C2=A3 1,500,000.00 GBP na=
+ v=C3=A1s, abyste
+n=C3=A1m pomohli podpo=C5=99it na=C5=A1e touhy charitativn=C3=AD dar. K=
+ontaktujte n=C3=A1s
+prost=C5=99ednictv=C3=ADm (bayfordg50@gmx.com)
