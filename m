@@ -1,53 +1,31 @@
-From: Chen-Yu Tsai <wens@csie.org>
-Subject: net: stmmac: DT clock parameter and behavior?
-Date: Tue, 19 Nov 2013 22:17:34 +0800
-Message-ID: <CAGb2v65G70x-nqg2pJ2dTovgT-b9n+5JCeABzD0ft1JqPm6f4Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 0/9] genetlink: clean up multicast group APIs
+Date: Tue, 19 Nov 2013 15:19:30 +0100
+Message-ID: <1384870779-17571-1-git-send-email-johannes@sipsolutions.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:58356 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752162Ab3KSOR6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 09:17:58 -0500
-Received: by mail-vb0-f46.google.com with SMTP id i3so3741711vbh.19
-        for <netdev@vger.kernel.org>; Tue, 19 Nov 2013 06:17:57 -0800 (PST)
+Received: from s3.sipsolutions.net ([144.76.43.152]:41394 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752286Ab3KSOTr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 09:19:47 -0500
+Received: by sipsolutions.net with esmtpsa (TLS1.2:DHE_RSA_AES_256_CBC_SHA256:256)
+	(Exim 4.80)
+	(envelope-from <johannes@sipsolutions.net>)
+	id 1Vim9Y-0008QL-9Z
+	for netdev@vger.kernel.org; Tue, 19 Nov 2013 15:19:44 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am currently porting the Linux stmmac driver to an AllWinner SoC
-board. The AllWinner A20 SoC has a GMAC, and the drivers they provided
-seems to be an early version of stmmac, with the names replaced.
-I assume the IP in the SoC is an early version of dwmac. So far I have
-managed to get a running system. I would like to clarify a few details
-to clean up the code.
+The generic netlink multicast group registration doesn't have to
+be dynamic, and can thus be simplified just like I did with the
+ops. This removes some complexity in registration code.
 
-The stmmac core code references a clock named "stmmaceth".
-This clock does not seem to be documented in "networking/stmmac.txt"
-nor in "devicetree/bindings/net/stmmac.txt".
-STMicroelectronics SPEAr board DTs do not mention this clock.
-But I do see Altera SoCFPGA and Samsung Exynos DTs defining it.
+Additionally, two users of generic netlink already use multicast
+groups in a wrong way, add workarounds for those two to keep the
+userspace API working, but at the same time make them not clash
+with other users of multicast groups as might happen now.
 
-The latest patch series for dwmac-sti on netdev suggests that this
-clock is a 25MHz clock for the phy device. Is this true?
+While making it all a bit easier, also prevent such abuse by adding
+checks to the APIs so each family can only use the groups it owns.
 
-Then the driver does not consider that the dwmac might have a gated
-clock that needs to be enabled as well. I ran into problems when
-the dwmac was not initialized by the bootloader. I assume this can
-be dealt with using AUXDATA and .init/.exit callbacks?
-
-Also, earlier versions of stmmac seemed to only give a warning if
-"stmmaceth" clock was not found. But in
-
-    6a81c26f  net/stmmac: remove conditional compilation of clk code
-
-the behavior changed to failing completely. Was this intended?
-
-Last, given the supported device is actually Synopsys DesignWare
-Ethernet MAC, is there any chance the driver could be renamed to dwmac?
-
-
-Thank You
-
-Chen-Yu Tsai
+johannes
