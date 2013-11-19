@@ -1,92 +1,45 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net RESEND] bonding: don't change to 802.3ad mode while
- ARP monitoring is running
-Date: Tue, 19 Nov 2013 11:02:54 +0800
-Message-ID: <528AD4DE.3070002@huawei.com>
-References: <528710F7.7050207@huawei.com>	 <1384796682.4774.26.camel@dcbw.foobar.com>	 <20131118.154838.776189725378131169.davem@davemloft.net> <1384815032.4774.55.camel@dcbw.foobar.com> <528ACD8A.1010409@greyhouse.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 2/2] ipv6: use sk_v6_copy_addrs when memcpy struct ipv6_pinfo
+Date: Tue, 19 Nov 2013 04:14:09 +0100
+Message-ID: <20131119031408.GQ16541@order.stressinduktion.org>
+References: <1384829247-8624-1-git-send-email-wangweidong1@huawei.com> <1384829247-8624-3-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <fubar@us.ibm.com>, <nikolay@redhat.com>, <vfalico@redhat.com>,
-	<netdev@vger.kernel.org>
-To: Andy Gospodarek <andy@greyhouse.net>,
-	Dan Williams <dcbw@redhat.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, gerrit@erg.abdn.ac.uk, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	vyasevich@gmail.com, nhorman@tuxdriver.com, dccp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	dingtianhong@huawei.com
+To: Wang Weidong <wangweidong1@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:19394 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751386Ab3KSDDp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 22:03:45 -0500
-In-Reply-To: <528ACD8A.1010409@greyhouse.net>
+Received: from order.stressinduktion.org ([87.106.68.36]:51564 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751821Ab3KSDOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 22:14:10 -0500
+Content-Disposition: inline
+In-Reply-To: <1384829247-8624-3-git-send-email-wangweidong1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/11/19 10:31, Andy Gospodarek wrote:
-> On 11/18/2013 05:50 PM, Dan Williams wrote:
->> On Mon, 2013-11-18 at 15:48 -0500, David Miller wrote:
->>> From: Dan Williams <dcbw@redhat.com>
->>> Date: Mon, 18 Nov 2013 11:44:42 -0600
->>>
->>>> On Sat, 2013-11-16 at 14:30 +0800, Ding Tianhong wrote:
->>>>> Because the ARP monitoring is not support for 802.3ad, but I still
->>>>> could change the mode to 802.3ad from ab mode while ARP monitoring
->>>>> is running, it is incorrect.
->>>>>
->>>>> So add a check for 802.3ad in bonding_store_mode to fix the problem,
->>>>> and make a new macro BOND_NO_USES_ARP() to simplify the code.
->>>> Instead of failing, couldn't the code stop ARP monitoring and allow the
->>>> mode change?  This is similar to setting miimon, which disables ARP
->>>> monitoring, or setting ARP monitoring, which disables miimon.
->>>>
->>>>     if (new_value && bond->params.arp_interval) {
->>>>         pr_info("%s: MII monitoring cannot be used with ARP monitoring. Disabling ARP monitoring...\n",
->>>>             bond->dev->name);
->>>>         bond->params.arp_interval = 0;
->>>>         if (bond->params.arp_validate)
->>>>             bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
->>>>     }
->>>>
->>>> Bond mode is the most important bond option, so it seems like it should
->>>> override any of the other sub-options.  I know the code doesn't do this
->>>> now, but maybe instead of the patch you propose, it would be nicer to
->>>> allow the mode change instead?
->>> I agree with Dan, if other mode changes behave this way (by dropping the
->>> incompatible feature) we should make 802.3ad do so as well at the very
->>> least for consistency.
->> Currently ALB and TLB modes will fail if arp_interval > 0, so Ding's
->> patch is technically correct.
->>
->> Instead, I'm proposing that 'mode' trumps all, and if the user changes
->> the mode, conflicting values should be cleared or reset.  Otherwise
->> userspace has to duplicate a lot of kernel logic/validation.  For
->> example:
->>
->> 1) set mode to ROUNDROBIN
->> 2) set arp_interval
->> 3) set mode to ALB or TLB
->> 4) FAIL - incompatible with arp_interval
->> 5) ok, set arp_interval to zero
->> 6) set mode to ALB or TLB
->> 7) SUCCESS
->>
->> Wouldn't it be nice if the kernel handled clearing arp_interval for us,
->> since it knows that arp_interval is incompatible with ALB/TLB...
->>
->> Could be done separately.  I have no objection to Ding's patch other
->> than "life could be even better".
->>
->> Dan
-> Nik was actually planning to work on a pretty significant rewrite of the code that handles setting and clearing of different config options, but I have not seen him chime in on this thread yet.
-> 
-> Nik, anything you can share on this or are you still a bit away from coming up with a design and implementation?
-> 
-ok, I will waiting for Nik's suggestion and then decide what to do next.
-Ding
+On Tue, Nov 19, 2013 at 10:47:27AM +0800, Wang Weidong wrote:
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index 0740f93..83d011e 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -1116,6 +1116,10 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+>  		newtp = tcp_sk(newsk);
+>  
+>  		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
+> +		/* Don't forget copy the rcv_saddr and daddr when
+> +		 * copy ipv6_pinfo.
+> +		 */
+> +		sk_v6_copy_addrs(newsk, sk);
+>  
+>  		ipv6_addr_set_v4mapped(newinet->inet_daddr, &newsk->sk_v6_daddr);
+>  
 
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> .
-> 
+Hmm, how did you spot this?
+
+Greetings,
+
+  Hannes
