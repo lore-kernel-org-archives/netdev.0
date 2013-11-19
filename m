@@ -1,83 +1,56 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net v3 1/2] net: sched: tbf: fix calculation of max_size
-Date: Tue, 19 Nov 2013 10:38:28 +0100
-Message-ID: <20131119103828.5697d5c9@redhat.com>
-References: <1384845939-8424-1-git-send-email-yangyingliang@huawei.com>
-	<1384845939-8424-2-git-send-email-yangyingliang@huawei.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: net/usb/ax88179_178a driver broken in linux-3.12
+Date: Tue, 19 Nov 2013 10:04:11 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com>
+References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com> <52891341.4020403@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com> <528A9A36.50903@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>
-To: Yang Yingliang <yangyingliang@huawei.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "Mark Lord" <mlord@pobox.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Ming Lei" <ming.lei@canonical.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20233 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751380Ab3KSJik (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Nov 2013 04:38:40 -0500
-In-Reply-To: <1384845939-8424-2-git-send-email-yangyingliang@huawei.com>
+Received: from mx0.aculab.com ([213.249.233.131]:42048 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751722Ab3KSKFE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Nov 2013 05:05:04 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 20680-10 for <netdev@vger.kernel.org>;
+ Tue, 19 Nov 2013 10:05:01 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <528A9A36.50903@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 19 Nov 2013 15:25:38 +0800
-Yang Yingliang <yangyingliang@huawei.com> wrote:
-
-> commit b757c9336d63f94c6b57532(tbf: improved accuracy at high rates)
-> introduce a regression.
-> 
-> With the follow command:
-> tc qdisc add dev eth1 root handle 1: tbf latency 50ms burst 10KB rate 30gbit mtu 64k
-> 
-> Without this patch, the max_size value is 10751(bytes).
-> But, in fact, the real max_size value should be smaller than 7440(bytes).
-> Or a packet whose length is bigger than 7440 will cause network congestion.
-> Because the packet is so big that can't get enough tokens. Even all the tokens
-> in the buffer is given to the packet.
-
-Sorry, but I don't like the commit message.  The real problem is the
-value in q->buffer, and that the userspace rate table cannot handle
-these high rates, which you don't mention.
-
-I would write something like:
-
-The kernel no longer uses the userspace provided rate table.  Thus, it
-is wrong to calculate max_size based on this rate table.  At high rates
-this rate table gets very inaccurate, which can lead wrong calculation
-of max_size.
-
-Consequence of max_size being too large is severe, and cause packets
-being stalled in tbf_dequeue() because it cannot get enough tokens.
-The max_size guards against enqueuing packet sizes above q->buffer
-"time" in tbf_enqueue().
-
-This patch fixes the calculation of max_size. By ... add desc ...
-perhaps also mention how it is connected to p->mtu (with is also a
-"time" value).
-
-
-The rest of the patch looks okay now, one point below though.
-
-
-> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-> index 68f9859..c194129 100644
-> --- a/net/sched/sch_tbf.c
-> +++ b/net/sched/sch_tbf.c
-[...]
-> @@ -339,30 +326,46 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
-[...]
-> +	for (n = 0; n < 65536; n++)
-> +		if (psched_l2t_ns(&q->rate, n) > q->buffer)
-> +			break;
-> +	max_size = min_t(u32, n, (256ULL << qopt->rate.cell_log) - 1);
-
-I'm a little uncertain about, if using the 65536 constant is okay, or
-considered "bad style".
-
-I'm still a little confused/uncertain why we need the "qopt->rate.cell_log".
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+PiBGcm9tOiBNYXJrIExvcmQNCj4gT24gMTMtMTEtMTggMDg6MzIgQU0sIERhdmlkIExhaWdodCB3
+cm90ZToNCj4gPj4gRnJvbTogRGF2aWQgTGFpZ2h0DQo+ID4+PiBPbiAxMy0xMS0xNyAwMTo1NiBQ
+TSwgTWFyayBMb3JkIHdyb3RlOg0KPiA+Pj4+IE9uIDEzLTExLTE3IDAxOjM1IFBNLCBNYXJrIExv
+cmQgd3JvdGU6DQo+ID4+Pj4+IFRoZSBVU0IzIG5ldHdvcmsgYWRhcHRlciBsb2NrcyB1cCBjb25z
+aXN0ZW50bHkgZm9yIG1lIGhlcmUgaW4gMy4xMiwNCj4gPj4+Pj4gYnV0IHdhcyB3b3JraW5nIHdp
+dGhvdXQgaXNzdWVzIGluIDMuMTEueA0KPiA+Pg0KPiA+PiBUaGUgeGhjaSBkcml2ZXIgaXMgd2Vs
+bCBicm9rZW4gaW4gMy4xMi4NCj4gPg0KPiA+IFRvIGNvcnJlY3QgbXlzZWxmLi4uDQo+ID4NCj4g
+PiBUaGUgeGhjaSBkcml2ZXIgaGFzIG5ldmVyIGNvcnJlY3RseSBzdXBwb3J0IHNjYXR0ZXItZ2F0
+aGVyIHJlcXVlc3RzLg0KPiA+IEluIDMuMTIgY29kZSB3YXMgYWRkZWQgdG8gdXNibmV0IHRvIGdl
+bmVyYXRlIFNHIHRyYW5zbWl0cywgYW5kIHRvIHRoZQ0KPiA+IGF4ODgxNzlfMTc4YSBkcml2ZXIg
+dG8gdXNlIHRoZW0uDQo+ID4gVENQIHNlZ21lbnRhdGlvbiBvZmZsb2FkIHdhcyB0aGVuIGVuYWJs
+ZWQgLSB3aXRoIGRvZXMgZ2VuZXJhdGUNCj4gPiBTRyB0cmFuc2ZlcnMuDQo+ID4NCj4gPiBTRyB0
+cmFuc2ZlcnMgZm9yICdkaXNrcycgYWxtb3N0IGNlcnRhaW5seSB3b3JrIGJlY2F1c2UgdGhlDQo+
+ID4gZnJhZ21lbnQgYm91bmRhcmllcyBhcmUgJ2FkZXF1YXRlbHkgYWxpZ25lZCcuDQo+ID4NCj4g
+PiAJRGF2aWQNCj4gPg0KPiANCj4gV2VsbCwgdGhhdCdzIGFsbCB2ZXJ5IG5pY2UgYW5kIHdoYXRu
+b3QsDQo+IGV4Y2VwdCB0aGUgYXg4ODE3OV8xNzhhIGRyaXZlciBzdGlsbCBkb2VzIG5vdCB3b3Jr
+IGluIGxpbnV4LTMuMTIsDQo+IHdoZXJlYXMgaXQgd29ya3MgZmluZSBpbiBhbGwgZWFybGllciBr
+ZXJuZWxzLg0KPiANCj4gVGhhdCdzIGEgcmVncmVzc2lvbi4NCj4gQW5kIGEgc2ltcGxlIHJldmVy
+dCAoZWFybGllciBpbiB0aGlzIHRocmVhZCkgZml4ZXMgaXQuDQo+IA0KPiBTby4uIGxldCdzIHJl
+dmVydCBpdCBmb3Igbm93LCB1bnRpbCBhIHByb3BlciB4aGNpIGNvbXBhdGlibGUgcGF0Y2ggaXMg
+cHJvZHVjZWQuDQoNCldoaWNoIGNoYW5nZXMgZGlkIHlvdSByZXZlcnQ/DQpJIHRoaW5rIHlvdSBt
+dXN0IGhhdmUgZ29uZSByaWdodCBiYWNrIHRvIHRoZSB2ZXJzaW9uIHRoYXQgZG9lc24ndCBzbyBz
+Y2F0dGVyLWdhdGhlci4NCg0KVGhlcmUgaXMgYSBwYXRjaCB0byB4aGNpLXJpbmcuYyB0aGF0IHNo
+b3VsZCBmaXggdGhlIFNHIHByb2JsZW0uDQpodHRwOi8vd3d3LnNwaW5pY3MubmV0L2xpc3RzL2xp
+bnV4LXVzYi9tc2c5NzE3Ni5odG1sDQoNCkkgdGhpbmsgaXQgc2hvdWxkIGFwcGx5IHRvIHRoZSAz
+LjEyIHNvdXJjZXMuDQoNCk5vdGUgdGhhdCB3aXRoIG9sZGVyIGtlcm5lbHMgdGhlIGFzaXggY2Fy
+ZCBJIGhhdmUgd2lsbCBkcm9wL2Rpc2NhcmQNCnNob3J0IGJ1cnN0cyBvZiB0eC9yeCBwYWNrZXRz
+LiBJJ3ZlIG5vdCBzZWVuIHRoYXQgd2l0aCAzLjEyIGFuZCB0aGUNCnhoY2ktcmluZy5jIHBhdGNo
+Lg0KDQoJRGF2aWQNCg0KDQo=
