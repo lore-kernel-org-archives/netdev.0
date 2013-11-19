@@ -1,14 +1,14 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 5/9] genetlink: remove genl_unregister_mc_group()
-Date: Tue, 19 Nov 2013 15:19:35 +0100
-Message-ID: <1384870779-17571-6-git-send-email-johannes@sipsolutions.net>
+Subject: [PATCH 2/9] drop_monitor/genetlink: use proper genetlink multicast APIs
+Date: Tue, 19 Nov 2013 15:19:32 +0100
+Message-ID: <1384870779-17571-3-git-send-email-johannes@sipsolutions.net>
 References: <1384870779-17571-1-git-send-email-johannes@sipsolutions.net>
 Cc: Johannes Berg <johannes.berg@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:41395 "EHLO
+Received: from s3.sipsolutions.net ([144.76.43.152]:41392 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752458Ab3KSOTr (ORCPT
+	with ESMTP id S1752199Ab3KSOTr (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 09:19:47 -0500
 In-Reply-To: <1384870779-17571-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
@@ -16,61 +16,101 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Johannes Berg <johannes.berg@intel.com>
 
-There are no users of this API remaining, and we'll soon
-change group registration to be static (like ops are now)
+The drop monitor code is abusing the genetlink API and is
+statically using the generic netlink multicast group 1, even
+if that group belongs to somebody else (which it invariably
+will, since it's not reserved.)
 
+Make the drop monitor code use the proper APIs to reserve a
+group ID, but also reserve the group id 1 in generic netlink
+code to preserve the userspace API. Since drop monitor can
+be a module, don't clear the bit for it on unregistration.
+
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 ---
- include/net/genetlink.h |  2 --
- net/netlink/genetlink.c | 23 -----------------------
- 2 files changed, 25 deletions(-)
+ net/core/drop_monitor.c | 13 ++++++++++++-
+ net/netlink/genetlink.c | 13 ++++++++++---
+ 2 files changed, 22 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/genetlink.h b/include/net/genetlink.h
-index 9bd52a4c..067569d 100644
---- a/include/net/genetlink.h
-+++ b/include/net/genetlink.h
-@@ -168,8 +168,6 @@ static inline int _genl_register_family_with_ops(struct genl_family *family,
- int genl_unregister_family(struct genl_family *family);
- int genl_register_mc_group(struct genl_family *family,
- 			   struct genl_multicast_group *grp);
--void genl_unregister_mc_group(struct genl_family *family,
--			      struct genl_multicast_group *grp);
- void genl_notify(struct sk_buff *skb, struct net *net, u32 portid,
- 		 u32 group, struct nlmsghdr *nlh, gfp_t flags);
- 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index bee91a7..6efb0e9 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -265,29 +265,6 @@ static void __genl_unregister_mc_group(struct genl_family *family,
- 	grp->family = NULL;
+diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
+index 0efc502..46ee488 100644
+--- a/net/core/drop_monitor.c
++++ b/net/core/drop_monitor.c
+@@ -106,6 +106,10 @@ static struct sk_buff *reset_per_cpu_data(struct per_cpu_dm_data *data)
+ 	return skb;
  }
  
--/**
-- * genl_unregister_mc_group - unregister a multicast group
-- *
-- * Unregisters the specified multicast group and notifies userspace
-- * about it. All current listeners on the group are removed.
-- *
-- * Note: It is not necessary to unregister all multicast groups before
-- *       unregistering the family, unregistering the family will cause
-- *       all assigned multicast groups to be unregistered automatically.
-- *
-- * @family: Generic netlink family the group belongs to.
-- * @grp: The group to unregister, must have been registered successfully
-- *	 previously.
-- */
--void genl_unregister_mc_group(struct genl_family *family,
--			      struct genl_multicast_group *grp)
--{
--	genl_lock_all();
--	__genl_unregister_mc_group(family, grp);
--	genl_unlock_all();
--}
--EXPORT_SYMBOL(genl_unregister_mc_group);
--
- static void genl_unregister_mc_groups(struct genl_family *family)
++static struct genl_multicast_group dm_mcgrp = {
++	.name = "events",
++};
++
+ static void send_dm_alert(struct work_struct *work)
  {
- 	struct genl_multicast_group *grp, *tmp;
+ 	struct sk_buff *skb;
+@@ -116,7 +120,7 @@ static void send_dm_alert(struct work_struct *work)
+ 	skb = reset_per_cpu_data(data);
+ 
+ 	if (skb)
+-		genlmsg_multicast(skb, 0, NET_DM_GRP_ALERT, GFP_KERNEL);
++		genlmsg_multicast(skb, 0, dm_mcgrp.id, GFP_KERNEL);
+ }
+ 
+ /*
+@@ -371,6 +375,13 @@ static int __init init_net_drop_monitor(void)
+ 		return rc;
+ 	}
+ 
++	rc = genl_register_mc_group(&net_drop_monitor_family, &dm_mcgrp);
++	if (rc) {
++		pr_err("Failed to register drop monitor mcast group\n");
++		goto out_unreg;
++	}
++	WARN_ON(dm_mcgrp.id != NET_DM_GRP_ALERT);
++
+ 	rc = register_netdevice_notifier(&dropmon_net_notifier);
+ 	if (rc < 0) {
+ 		pr_crit("Failed to register netdevice notifier\n");
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index c68ce73..353909d 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -65,8 +65,12 @@ static struct list_head family_ht[GENL_FAM_TAB_SIZE];
+  * To avoid an allocation at boot of just one unsigned long,
+  * declare it global instead.
+  * Bit 0 is marked as already used since group 0 is invalid.
++ * Bit 1 is marked as already used since the drop-monitor code
++ * abuses the API and thinks it can statically use group 1.
++ * That group will typically conflict with other groups that
++ * any proper users use.
+  */
+-static unsigned long mc_group_start = 0x1;
++static unsigned long mc_group_start = 0x3;
+ static unsigned long *mc_groups = &mc_group_start;
+ static unsigned long mc_groups_longs = 1;
+ 
+@@ -160,9 +164,11 @@ int genl_register_mc_group(struct genl_family *family,
+ 
+ 	genl_lock_all();
+ 
+-	/* special-case our own group */
++	/* special-case our own group and hacks */
+ 	if (grp == &notify_grp)
+ 		id = GENL_ID_CTRL;
++	else if (strcmp(family->name, "NET_DM") == 0)
++		id = 1;
+ 	else
+ 		id = find_first_zero_bit(mc_groups,
+ 					 mc_groups_longs * BITS_PER_LONG);
+@@ -245,7 +251,8 @@ static void __genl_unregister_mc_group(struct genl_family *family,
+ 	rcu_read_unlock();
+ 	netlink_table_ungrab();
+ 
+-	clear_bit(grp->id, mc_groups);
++	if (grp->id != 1)
++		clear_bit(grp->id, mc_groups);
+ 	list_del(&grp->list);
+ 	genl_ctrl_event(CTRL_CMD_DELMCAST_GRP, grp);
+ 	grp->id = 0;
 -- 
 1.8.4.rc3
