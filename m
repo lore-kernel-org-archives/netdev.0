@@ -1,89 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] packet: fix use after free race in send path when
- dev is released
-Date: Tue, 19 Nov 2013 15:33:18 -0800
-Message-ID: <1384903998.8604.131.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1384902503-1588-1-git-send-email-dborkman@redhat.com>
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Subject: RE: [PATCH] rds: Error on offset mismatch if not loopback
+Date: Tue, 19 Nov 2013 15:33:06 -0800 (PST)
+Message-ID: <8744a6a4-d7a8-4e6f-8934-48a4fd4da0ce@default>
+References: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
+	<20120922.152524.1294103117346567757.davem@davemloft.net>
+	<CAKA=qzac9=UhLF_Z4FnnH+sR7xvkDux4oayC6dPYe=hMLsDxRg@mail.gmail.com>
+	<CAKA=qzYpd7Wo9XdU16TEhnbm5dPJjOZMhAY1jA7N+YFBWz5pzw@mail.gmail.com>
+	<23964ca1-e7cb-41c3-9da2-5bc1b2b0c014@default>
+ <CAKA=qzbK1YX5OrVQbwM=1xM6Si=GKv0UDofULkOC7RNo08zZPw@mail.gmail.com>
+ <52841F95.7040204@redhat.com> <41aa904c-6707-4c74-ae72-96e401c68e13@default>
+ <528587D0.5060105@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Salam Noureddine <noureddine@aristanetworks.com>,
-	Ben Greear <greearb@candelatech.com>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f54.google.com ([209.85.213.54]:39429 "EHLO
-	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753624Ab3KSXdY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 18:33:24 -0500
-Received: by mail-yh0-f54.google.com with SMTP id a41so4129590yho.27
-        for <netdev@vger.kernel.org>; Tue, 19 Nov 2013 15:33:21 -0800 (PST)
-In-Reply-To: <1384902503-1588-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, jjolly@suse.com,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Honggang LI <honli@redhat.com>, Josh Hunt <joshhunt00@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <528587D0.5060105@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-11-20 at 00:08 +0100, Daniel Borkmann wrote:
-> Salam reported a use after free bug in PF_PACKET that occurs when
-> we're sending out frames on a socket bound device and suddenly the
-> netdevice is being unregistered. It appears that commit 827d9780
-> introduced a possible race condition between {t,}packet_snd and
-> packet_notifier. In the case of a bound socket, packet_notifier can
-> drop the last reference to the net_device and {t,}packet_snd might
-> end up sending a packet over a freed net_device.
-> 
-> To avoid reverting 827d9780 entirely, we could make use of po->running
-> member that gets reset when we're calling __unregister_prot_hook() in
-> packet_notifier() when we receive NETDEV_DOWN or NETDEV_UNREGISTER
-> notification. Plus, we still need to hold ref to the netdev, so
-> that we can assure it won't be released while we're in send path.
-> We try to avoid holding the bind lock all over send code as this
-> would likely make it worse when multiple threads want to send on
-> the same socket (in mmap code we're holding the pg_vec_lock mutex
-> all over the send code; we should try to get rid of that at some
-> point in time!). This at least buys us the possibility that we don't
-> have to walk over the entire dev list in dev_get_by_index() that we
-> would need to do as before 827d9780, which can just hurt as well
-> with many devices registered.
-> 
-> Fixes: 827d978037d7 ("af-packet: Use existing netdev reference for bound sockets.")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
-> Tested-by: Salam Noureddine <noureddine@aristanetworks.com>
-> Cc: Ben Greear <greearb@candelatech.com>
-> ---
->  net/packet/af_packet.c | 33 ++++++++++++++++++++-------------
->  1 file changed, 20 insertions(+), 13 deletions(-)
-> 
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 2e8286b..385b2cc 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -1045,6 +1045,19 @@ static void *__prb_previous_block(struct packet_sock *po,
->  	return prb_lookup_block(po, rb, previous, status);
->  }
->  
-> +static struct net_device *dev_get_packet_sock(struct packet_sock *po)
-> +{
-> +	struct net_device *dev;
-> +
-> +	spin_lock(&po->bind_lock);
-> +	dev = po->prot_hook.dev;
-> +	if (dev)
-> +		dev_hold(dev);
-> +	spin_unlock(&po->bind_lock);
-> +
-> +	return dev;
-> +}
-> +
+We now have lot more information than we did before.
+When sending a "congestion update" in rds_ib_xmit() we are now returning an incorrect number as bytes sent:
 
-...
+        BUG_ON(off % RDS_FRAG_SIZE);
+        BUG_ON(hdr_off != 0 && hdr_off != sizeof(struct rds_header));
 
-dev_get_by_index() would be faster in fact.
+        /* Do not send cong updates to IB loopback */
+        if (conn->c_loopback
+            && rm->m_inc.i_hdr.h_flags & RDS_FLAG_CONG_BITMAP) {
+                rds_cong_map_updated(conn->c_fcong, ~(u64) 0);
+                scat = &rm->data.op_sg[sg];
+                ret = sizeof(struct rds_header) + RDS_CONG_MAP_BYTES;
+                ret = min_t(int, ret, scat->length - conn->c_xmit_data_off);
+                return ret;
+        }
 
-Are you sure rcu_read_lock() is not possible ?
+It returns min(8240, 4096-0) i.e. 4096 bytes.
+The caller rds_send_xmit() is made to think a partial message (4096 out of 8240) was sent.
+It calls rds_ib_xmit() again with a data offset "off" of 4096-48 (rds header) (=4048 bytes). And we hit the BUG_ON.
 
-rcu_read_lock();
-dev = rcu_dereference(po->active_device);
-if (dev)
-	dev_hold(dev);
-rcu_read_unlock();
+The reason I didn't hit the panic on my test on Oracle UEK2 which is based on 2.6.39 kernel is it had it like this:
+        BUG_ON(off % RDS_FRAG_SIZE);
+        BUG_ON(hdr_off != 0 && hdr_off != sizeof(struct rds_header));
+
+        /* Do not send cong updates to IB loopback */
+        if (conn->c_loopback
+            && rm->m_inc.i_hdr.h_flags & RDS_FLAG_CONG_BITMAP) {
+                rds_cong_map_updated(conn->c_fcong, ~(u64) 0);
+                return sizeof(struct rds_header) + RDS_CONG_MAP_BYTES;
+        }
+(So it wasn't 100% 2.6.39 ;-). )
+It returned 8240 bytes. The caller rds_send_xmit decides the full message was sent (48 byte header + 4096 data + 4096 data).
+And it worked.
+
+Then I found this info on the change that was done upstream which now causes the panic:
+http://marc.info/?l=linux-netdev&m=129908332903057
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6094628bfd94323fc1cea05ec2c6affd98c18f7f 
+
+Will investigate more into which problem the above change addressed.
+
+Venkat
