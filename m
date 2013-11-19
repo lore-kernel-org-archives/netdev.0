@@ -1,128 +1,92 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH RFC 00/10] ARM: STi: Add dwmac glue and reset controller
-Date: Tue, 19 Nov 2013 06:28:42 +0100
-Message-ID: <528AF70A.7080603@st.com>
-References: <1384264311-7308-1-git-send-email-srinivas.kandagatla@st.com>
+From: Rayagond K <rayagond@vayavyalabs.com>
+Subject: Re: [PATCH net 4/6] stmmac: Validate hwtstamp_config completely
+ before applying it
+Date: Tue, 19 Nov 2013 11:25:44 +0530
+Message-ID: <CAJ3bTp6rjVxAfZWGY9-wALv8isCMfCZdJ8DfWgkqYwCGOD7HQA@mail.gmail.com>
+References: <1384389542.29151.5.camel@bwh-desktop.uk.level5networks.com>
+	<1384389821.29151.10.camel@bwh-desktop.uk.level5networks.com>
+	<528AF66F.2060204@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Rob Landley <rob@landley.net>,
-	Russell King <linux@arm.linux.org.uk>,
-	Stuart Menefy <stuart.menefy@st.com>,
-	Pavel Machek <pavel@ucw.cz>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Len Brown <len.brown@intel.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Grant Likely <grant.likely@linaro.org>,
-	<devicetree@vger.kernel.org>, <linux-doc@vger.kernel.org>,
-	<stephen.gallimore@st.com>, <linux-kernel@vger.kernel.org>,
-	<kernel@stlinux.com>, <linux-pm@vger.kernel.org>
-To: <srinivas.kandagatla@st.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1384264311-7308-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:36726 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750751Ab3KSFzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 00:55:45 -0500
+Received: by mail-wi0-f169.google.com with SMTP id hj6so854100wib.4
+        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 21:55:44 -0800 (PST)
+In-Reply-To: <528AF66F.2060204@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/12/2013 2:51 PM, srinivas.kandagatla@st.com wrote:
-> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+On Tue, Nov 19, 2013 at 10:56 AM, Giuseppe CAVALLARO
+<peppe.cavallaro@st.com> wrote:
+> On 11/14/2013 1:44 AM, Ben Hutchings wrote:
+>>
+>> stmmac_hwtstamp_ioctl() should validate all fields of hwtstamp_config
+>> before making any changes.  Currently it sets the TX configuration
+>> before validating the rx_filter field.
+>>
+>> Compile-tested only.
 >
-> Hi All,
 >
-> This patch series adds Ethernet support to STi series SOCs STiH415 and STiH416.
-> STi SOC series integrates dwmac IP from synopsis, however there is a hardware
-> glue on top of this standard IP, this glue needs to configured before the
-> actual dwmac can be used.
-> To add this a new driver dwmac-sti is introduced whose responsibility is to
-> configure dwmac glue and before dwmac driver, this is achieved by making dwmac
-> device node as child to ethernet glue node. Inspired by usb/dwc3.
-> Also the glue needs to come out of softreset which is why we have added a
-> softreset controller to driver which looked perfectly neat, rather then
-> driving the softreset bit from the glue driver.
+> Thx Ben for this patch.
 >
-> Also as part of power management in glue driver, I found that there was no
-> function to determine if the child device is a wakeup source or not.
-> I have added a new api device_child_may_wakeup API which could be useful for
-> drivers like this. "PM / wakeup : Introduce device_child_may_wakeup" patch has
-> that new API and "net: stmmac:sti: Add STi SOC glue driver." glue driver uses
-> this new API.
->
-> The reason for combining all these patches in a same series is because of
-> dependencies.
->
-> This patch series is tested on B2000 and B2020 boards with STiH415, STiH416
-> SOC on ethernet 100/1000 Links.
->
-> Comments?
+> Rayagond, can you do any run-time tests?
 
-Hello Srini
-ll these patches are ok for me and, as you know, I have already started
-using them while porting other SoC. Glue logic is mandatory now!
-
-Thanks
-peppe
+I don't have HW now. But next week I will be getting GMAC 4.0, so I
+can do similar changes in that driver and do run-time test.
 
 >
-> Thanks,
-> srini
+> peppe
 >
-> Srinivas Kandagatla (6):
->    drivers: reset: stih415: add softreset controller
->    drivers: reset: stih416: add softreset controller
->    PM / wakeup : Introduce device_child_may_wakeup
->    net: stmmac:sti: Add STi SOC glue driver.
->    ARM: STi: Add STiH415 ethernet support.
->    ARM: STi: Add STiH416 ethernet support.
 >
-> Stephen Gallimore (4):
->    drivers: reset: STi SoC system configuration reset controller support
->    drivers: reset: Reset controller driver for STiH415
->    drivers: reset: Reset controller driver for STiH416
->    ARM: STi: Add reset controller support to mach-sti Kconfig
+>>
+>> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+>> ---
+>>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 12 +++---------
+>>   1 file changed, 3 insertions(+), 9 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> index 8d4ccd35a016..8a7a23a84ac5 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> @@ -435,16 +435,9 @@ static int stmmac_hwtstamp_ioctl(struct net_device
+>> *dev, struct ifreq *ifr)
+>>         if (config.flags)
+>>                 return -EINVAL;
+>>
+>> -       switch (config.tx_type) {
+>> -       case HWTSTAMP_TX_OFF:
+>> -               priv->hwts_tx_en = 0;
+>> -               break;
+>> -       case HWTSTAMP_TX_ON:
+>> -               priv->hwts_tx_en = 1;
+>> -               break;
+>> -       default:
+>> +       if (config.tx_type != HWTSTAMP_TX_OFF &&
+>> +           config.tx_type != HWTSTAMP_TX_ON)
+>>                 return -ERANGE;
+>> -       }
+>>
+>>         if (priv->adv_ts) {
+>>                 switch (config.rx_filter) {
+>> @@ -576,6 +569,7 @@ static int stmmac_hwtstamp_ioctl(struct net_device
+>> *dev, struct ifreq *ifr)
+>>                 }
+>>         }
+>>         priv->hwts_rx_en = ((config.rx_filter == HWTSTAMP_FILTER_NONE) ? 0
+>> : 1);
+>> +       priv->hwts_tx_en = config.tx_type == HWTSTAMP_TX_ON;
+>>
+>>         if (!priv->hwts_tx_en && !priv->hwts_rx_en)
+>>                 priv->hw->ptp->config_hw_tstamping(priv->ioaddr, 0);
+>>
+>>
 >
->   .../devicetree/bindings/net/sti-dwmac.txt          |   45 +++
->   .../devicetree/bindings/reset/st,sti-powerdown.txt |   46 +++
->   .../devicetree/bindings/reset/st,sti-softreset.txt |   45 +++
->   arch/arm/boot/dts/stih415-clock.dtsi               |   14 +
->   arch/arm/boot/dts/stih415-pinctrl.dtsi             |   82 ++++++
->   arch/arm/boot/dts/stih415.dtsi                     |   67 +++++
->   arch/arm/boot/dts/stih416-clock.dtsi               |   14 +
->   arch/arm/boot/dts/stih416-pinctrl.dtsi             |  106 +++++++
->   arch/arm/boot/dts/stih416.dtsi                     |   69 +++++
->   arch/arm/boot/dts/stih41x-b2000.dtsi               |   32 +++
->   arch/arm/boot/dts/stih41x-b2020.dtsi               |   33 +++
->   arch/arm/mach-sti/Kconfig                          |    3 +
->   drivers/base/power/wakeup.c                        |   23 ++
->   drivers/net/ethernet/stmicro/stmmac/Makefile       |    1 +
->   drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    |  294 ++++++++++++++++++++
->   drivers/reset/Kconfig                              |    2 +
->   drivers/reset/Makefile                             |    3 +
->   drivers/reset/sti/Kconfig                          |   15 +
->   drivers/reset/sti/Makefile                         |    4 +
->   drivers/reset/sti/reset-stih415.c                  |   99 +++++++
->   drivers/reset/sti/reset-stih416.c                  |  101 +++++++
->   drivers/reset/sti/reset-syscfg.c                   |  186 ++++++++++++
->   drivers/reset/sti/reset-syscfg.h                   |   69 +++++
->   .../dt-bindings/reset-controller/stih415-resets.h  |   23 ++
->   .../dt-bindings/reset-controller/stih416-resets.h  |   25 ++
->   include/linux/pm_wakeup.h                          |    1 +
->   26 files changed, 1402 insertions(+), 0 deletions(-)
->   create mode 100644 Documentation/devicetree/bindings/net/sti-dwmac.txt
->   create mode 100644 Documentation/devicetree/bindings/reset/st,sti-powerdown.txt
->   create mode 100644 Documentation/devicetree/bindings/reset/st,sti-softreset.txt
->   create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
->   create mode 100644 drivers/reset/sti/Kconfig
->   create mode 100644 drivers/reset/sti/Makefile
->   create mode 100644 drivers/reset/sti/reset-stih415.c
->   create mode 100644 drivers/reset/sti/reset-stih416.c
->   create mode 100644 drivers/reset/sti/reset-syscfg.c
->   create mode 100644 drivers/reset/sti/reset-syscfg.h
->   create mode 100644 include/dt-bindings/reset-controller/stih415-resets.h
->   create mode 100644 include/dt-bindings/reset-controller/stih416-resets.h
->
-
