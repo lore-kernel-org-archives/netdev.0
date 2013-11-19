@@ -1,7 +1,7 @@
 From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net v3 1/2] net: sched: tbf: fix calculation of max_size
-Date: Tue, 19 Nov 2013 15:25:38 +0800
-Message-ID: <1384845939-8424-2-git-send-email-yangyingliang@huawei.com>
+Subject: [PATCH net v3 2/2] net: sched: htb: fix calculation of quantum
+Date: Tue, 19 Nov 2013 15:25:39 +0800
+Message-ID: <1384845939-8424-3-git-send-email-yangyingliang@huawei.com>
 References: <1384845939-8424-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,141 +9,63 @@ Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
 	<jbrouer@redhat.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:11813 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750823Ab3KSHZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 02:25:54 -0500
+Received: from szxga02-in.huawei.com ([119.145.14.65]:41273 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751310Ab3KSHZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 02:25:56 -0500
 In-Reply-To: <1384845939-8424-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit b757c9336d63f94c6b57532(tbf: improved accuracy at high rates)
-introduce a regression.
+Now, 32bit rates may be not the true rate.
+So use rate_bytes_ps which is from
+max(rate32, rate64) to calcualte quantum.
 
-With the follow command:
-tc qdisc add dev eth1 root handle 1: tbf latency 50ms burst 10KB rate 30gbit mtu 64k
-
-Without this patch, the max_size value is 10751(bytes).
-But, in fact, the real max_size value should be smaller than 7440(bytes).
-Or a packet whose length is bigger than 7440 will cause network congestion.
-Because the packet is so big that can't get enough tokens. Even all the tokens
-in the buffer is given to the packet.
-
-With this patch, the max_size value is 7440(bytes).
-The packets whose length is bigger than 7440(bytes) will be dropped or reshape
-in tbf_enqueue().
-
-Suggested-by: Jesper Dangaard Brouer <jbrouer@redhat.com>
 Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- net/sched/sch_tbf.c | 71 ++++++++++++++++++++++++++++-------------------------
- 1 file changed, 37 insertions(+), 34 deletions(-)
+ net/sched/sch_htb.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index 68f9859..c194129 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -291,33 +291,20 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
- 		goto done;
- 
- 	qopt = nla_data(tb[TCA_TBF_PARMS]);
--	rtab = qdisc_get_rtab(&qopt->rate, tb[TCA_TBF_RTAB]);
--	if (rtab == NULL)
--		goto done;
--
--	if (qopt->peakrate.rate) {
--		if (qopt->peakrate.rate > qopt->rate.rate)
--			ptab = qdisc_get_rtab(&qopt->peakrate, tb[TCA_TBF_PTAB]);
--		if (ptab == NULL)
--			goto done;
-+	if (qopt->rate.linklayer == TC_LINKLAYER_UNAWARE) {
-+		rtab = qdisc_get_rtab(&qopt->rate, tb[TCA_TBF_RTAB]);
-+		if (rtab) {
-+			qdisc_put_rtab(rtab);
-+			rtab = NULL;
-+		}
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 0e1e38b..57c6678 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1477,11 +1477,20 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 		sch_tree_lock(sch);
  	}
--
--	for (n = 0; n < 256; n++)
--		if (rtab->data[n] > qopt->buffer)
--			break;
--	max_size = (n << qopt->rate.cell_log) - 1;
--	if (ptab) {
--		int size;
--
--		for (n = 0; n < 256; n++)
--			if (ptab->data[n] > qopt->mtu)
--				break;
--		size = (n << qopt->peakrate.cell_log) - 1;
--		if (size < max_size)
--			max_size = size;
-+	if (qopt->peakrate.linklayer == TC_LINKLAYER_UNAWARE) {
-+		ptab = qdisc_get_rtab(&qopt->peakrate, tb[TCA_TBF_PTAB]);
-+		if (ptab) {
-+			qdisc_put_rtab(ptab);
-+			ptab = NULL;
-+		}
- 	}
--	if (max_size < 0)
--		goto done;
  
- 	if (q->qdisc != &noop_qdisc) {
- 		err = fifo_set_limit(q->qdisc, qopt->limit);
-@@ -339,30 +326,46 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
- 	}
- 	q->limit = qopt->limit;
- 	q->mtu = PSCHED_TICKS2NS(qopt->mtu);
--	q->max_size = max_size;
- 	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
- 	q->tokens = q->buffer;
- 	q->ptokens = q->mtu;
- 
- 	if (tb[TCA_TBF_RATE64])
- 		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
--	psched_ratecfg_precompute(&q->rate, &rtab->rate, rate64);
--	if (ptab) {
-+	psched_ratecfg_precompute(&q->rate, &qopt->rate, rate64);
-+	if (!q->rate.rate_bytes_ps)
-+		goto unlock_done;
-+	for (n = 0; n < 65536; n++)
-+		if (psched_l2t_ns(&q->rate, n) > q->buffer)
-+			break;
-+	max_size = min_t(u32, n, (256ULL << qopt->rate.cell_log) - 1);
++	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
 +
-+	if (qopt->peakrate.rate) {
-+		int size = 0;
- 		if (tb[TCA_TBF_PRATE64])
- 			prate64 = nla_get_u64(tb[TCA_TBF_PRATE64]);
--		psched_ratecfg_precompute(&q->peak, &ptab->rate, prate64);
-+		psched_ratecfg_precompute(&q->peak, &qopt->peakrate, prate64);
-+		for (n = 0; n < 65536; n++)
-+			if (psched_l2t_ns(&q->peak, n) > q->mtu)
-+				break;
-+		size = min_t(u32, n, (256ULL << qopt->rate.cell_log) - 1);
-+		max_size = min_t(u32, max_size, size);
- 		q->peak_present = true;
- 	} else {
- 		q->peak_present = false;
++	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
++
++	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
++	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
++
+ 	/* it used to be a nasty bug here, we have to check that node
+ 	 * is really leaf before changing cl->un.leaf !
+ 	 */
+ 	if (!cl->level) {
+-		cl->quantum = hopt->rate.rate / q->rate2quantum;
++		u64 quantum = div64_u64(cl->rate.rate_bytes_ps,
++					q->rate2quantum);
++		cl->quantum = min_t(u64, quantum, INT_MAX);
+ 		if (!hopt->quantum && cl->quantum < 1000) {
+ 			pr_warning(
+ 			       "HTB: quantum of class %X is small. Consider r2q change.\n",
+@@ -1500,13 +1509,6 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 			cl->prio = TC_HTB_NUMPRIO - 1;
  	}
  
-+	if (!max_size)
-+		goto unlock_done;
-+	q->max_size = max_size;
-+
- 	sch_tree_unlock(sch);
--	err = 0;
-+	return 0;
-+
-+unlock_done:
-+	sch_tree_unlock(sch);
-+	err = -EINVAL;
- done:
--	if (rtab)
--		qdisc_put_rtab(rtab);
--	if (ptab)
--		qdisc_put_rtab(ptab);
- 	return err;
- }
+-	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
+-
+-	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
+-
+-	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
+-	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
+-
+ 	cl->buffer = PSCHED_TICKS2NS(hopt->buffer);
+ 	cl->cbuffer = PSCHED_TICKS2NS(hopt->cbuffer);
  
 -- 
 1.8.0
