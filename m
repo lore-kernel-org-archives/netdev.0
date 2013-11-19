@@ -1,45 +1,89 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [patch iproute2] ipaddrlabel: use uint32_t instead of int32_t
-Date: Tue, 19 Nov 2013 23:46:20 +0800
-Message-ID: <1384875980-21835-1-git-send-email-liuhangbin@gmail.com>
-Cc: Hangbin Liu <liuhangbin@gmail.com>
-To: network dev <netdev@vger.kernel.org>
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: [PATCH net RESEND] bridge: flush br's address entry in fdb when
+ remove the bridge dev
+Date: Wed, 20 Nov 2013 00:46:44 +0900
+Message-ID: <1384876004.1759.7.camel@localhost.localdomain>
+References: <528AD37E.1050105@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org, Netdev <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:45729 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751431Ab3KSPqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 10:46:37 -0500
-Received: by mail-pa0-f53.google.com with SMTP id hz1so5299144pad.26
-        for <netdev@vger.kernel.org>; Tue, 19 Nov 2013 07:46:36 -0800 (PST)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:54943 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752289Ab3KSPqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 10:46:50 -0500
+Received: by mail-pa0-f50.google.com with SMTP id kp14so6934676pab.37
+        for <netdev@vger.kernel.org>; Tue, 19 Nov 2013 07:46:49 -0800 (PST)
+In-Reply-To: <528AD37E.1050105@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As both linux kernel and function ipaddrlabel_modify use unsigned int for
-label. We should also use unsigned int value when print addrlabel in case of
-misunderstanding.
+On Tue, 2013-11-19 at 10:57 +0800, Ding Tianhong wrote:
+> When the following commands are executed:
+> 
+> brctl addbr br0
+> ifconfig br0 hw ether <addr>
+> rmmod bridge
+> 
+> The calltrace will occur:
+> 
+> [  563.312114] device eth1 left promiscuous mode
+> [  563.312188] br0: port 1(eth1) entered disabled state
+> [  563.468190] kmem_cache_destroy bridge_fdb_cache: Slab cache still has objects
+> [  563.468197] CPU: 6 PID: 6982 Comm: rmmod Tainted: G           O 3.12.0-0.7-default+ #9
+> [  563.468199] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+> [  563.468200]  0000000000000880 ffff88010f111e98 ffffffff814d1c92 ffff88010f111eb8
+> [  563.468204]  ffffffff81148efd ffff88010f111eb8 0000000000000000 ffff88010f111ec8
+> [  563.468206]  ffffffffa062a270 ffff88010f111ed8 ffffffffa063ac76 ffff88010f111f78
+> [  563.468209] Call Trace:
+> [  563.468218]  [<ffffffff814d1c92>] dump_stack+0x6a/0x78
+> [  563.468234]  [<ffffffff81148efd>] kmem_cache_destroy+0xfd/0x100
+> [  563.468242]  [<ffffffffa062a270>] br_fdb_fini+0x10/0x20 [bridge]
+> [  563.468247]  [<ffffffffa063ac76>] br_deinit+0x4e/0x50 [bridge]
+> [  563.468254]  [<ffffffff810c7dc9>] SyS_delete_module+0x199/0x2b0
+> [  563.468259]  [<ffffffff814e0922>] system_call_fastpath+0x16/0x1b
+> [  570.377958] Bridge firewalling registered
+> 
+> ------------------------------------------------
+> 
+> The reason is that when the bridge dev's address is changed, the
+> br_fdb_change_mac_address() will add new address in fdb, but when
+> the bridge was removed, the address entry in the fdb did not free,
+> the bridge_fdb_cache still has objects when destroy the cache, Fix
+> this by flushing the bridge address entry when removing the bridge.
+> 
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> ---
+>  net/bridge/br_if.c | 4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> index 6e6194f..98084d8 100644
+> --- a/net/bridge/br_if.c
+> +++ b/net/bridge/br_if.c
+> @@ -172,6 +172,10 @@ void br_dev_delete(struct net_device *dev, struct list_head *head)
+>  		del_nbp(p);
+>  	}
+>  
+> +	spin_lock_bh(&br->hash_lock);
+> +	fdb_delete_by_addr(br, br->dev->dev_addr, 0);
+> +	spin_unlock_bh(&br->hash_lock);
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
----
- ip/ipaddrlabel.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+You are not deleting entries with vid other than 0.
+If we have added some vid, there might be fdb entries with that vid
+whose dst is NULL, which also should be cleaned up.
 
-diff --git a/ip/ipaddrlabel.c b/ip/ipaddrlabel.c
-index 1789d9c..68a94dd 100644
---- a/ip/ipaddrlabel.c
-+++ b/ip/ipaddrlabel.c
-@@ -86,10 +86,10 @@ int print_addrlabel(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg
- 	if (ifal->ifal_index)
- 		fprintf(fp, "dev %s ", ll_index_to_name(ifal->ifal_index));
- 
--	if (tb[IFAL_LABEL] && RTA_PAYLOAD(tb[IFAL_LABEL]) == sizeof(int32_t)) {
--		int32_t label;
-+	if (tb[IFAL_LABEL] && RTA_PAYLOAD(tb[IFAL_LABEL]) == sizeof(uint32_t)) {
-+		uint32_t label;
- 		memcpy(&label, RTA_DATA(tb[IFAL_LABEL]), sizeof(label));
--		fprintf(fp, "label %d ", label);
-+		fprintf(fp, "label %u ", label);
- 	}
- 
- 	fprintf(fp, "\n");
--- 
-1.8.1.4
+How about deleting all fdb entries whose dst is NULL?
+br_fdb_delete_by_port() looks able to be called with p == NULL as well.
+
+Thanks,
+Toshiaki Makita
+
+> +
+>  	br_vlan_flush(br);
+>  	del_timer_sync(&br->gc_timer);
+>  
