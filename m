@@ -1,73 +1,49 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: net/usb/ax88179_178a driver broken in linux-3.12
-Date: Tue, 19 Nov 2013 14:43:42 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7434@saturn3.aculab.com>
-References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com> <52891341.4020403@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com> <528A9A36.50903@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com> <528B6F73.7040801@pobox.com> <1384870550.8604.101.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH 2/2] ipv6: use sk_v6_copy_addrs when memcpy struct ipv6_pinfo
+Date: Tue, 19 Nov 2013 10:25:45 -0500
+Message-ID: <528B82F9.6000708@gmail.com>
+References: <1384829247-8624-1-git-send-email-wangweidong1@huawei.com>	  <1384829247-8624-3-git-send-email-wangweidong1@huawei.com>	  <20131119031408.GQ16541@order.stressinduktion.org>	  <528ADBDD.9040209@huawei.com>	  <1384833538.8604.83.camel@edumazet-glaptop2.roam.corp.google.com>	 <1384833653.8604.84.camel@edumazet-glaptop2.roam.corp.google.com>	 <528B4D0B.10204@redhat.com> <1384871001.8604.103.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Ming Lei" <ming.lei@canonical.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>,
-	"Linux Kernel" <linux-kernel@vger.kernel.org>,
-	<stable@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Mark Lord" <mlord@pobox.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: wangweidong <wangweidong1@huawei.com>, davem@davemloft.net,
+	gerrit@erg.abdn.ac.uk, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, nhorman@tuxdriver.com,
+	dccp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, dingtianhong@huawei.com
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:47281 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752486Ab3KSOod (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Nov 2013 09:44:33 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 15366-06 for <netdev@vger.kernel.org>;
- Tue, 19 Nov 2013 14:44:31 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1384870550.8604.101.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-yh0-f42.google.com ([209.85.213.42]:39729 "EHLO
+	mail-yh0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751307Ab3KSPZu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 10:25:50 -0500
+In-Reply-To: <1384871001.8604.103.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBP
-biBUdWUsIDIwMTMtMTEtMTkgYXQgMDk6MDIgLTA1MDAsIE1hcmsgTG9yZCB3cm90ZToNCj4gPiBP
-biAxMy0xMS0xOSAwNTowNCBBTSwgRGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiA+ID4+IEZyb206IE1h
-cmsgTG9yZA0KPiA+IC4uDQo+ID4gPj4gZXhjZXB0IHRoZSBheDg4MTc5XzE3OGEgZHJpdmVyIHN0
-aWxsIGRvZXMgbm90IHdvcmsgaW4gbGludXgtMy4xMiwNCj4gPiA+PiB3aGVyZWFzIGl0IHdvcmtz
-IGZpbmUgaW4gYWxsIGVhcmxpZXIga2VybmVscy4NCg0KSSd2ZSBzZWVuIGxvc3QgcGFja2V0cyBp
-biBJSVJDIDMuMg0KDQo+ID4gPj4gVGhhdCdzIGEgcmVncmVzc2lvbi4NCj4gPiA+PiBBbmQgYSBz
-aW1wbGUgcmV2ZXJ0IChlYXJsaWVyIGluIHRoaXMgdGhyZWFkKSBmaXhlcyBpdC4NCj4gPiA+PiBT
-by4uIGxldCdzIHJldmVydCBpdCBmb3Igbm93LCB1bnRpbCBhIHByb3BlciB4aGNpIGNvbXBhdGli
-bGUgcGF0Y2ggaXMgcHJvZHVjZWQuDQo+ID4gLi4uDQo+ID4gPiBUaGVyZSBpcyBhIHBhdGNoIHRv
-IHhoY2ktcmluZy5jIHRoYXQgc2hvdWxkIGZpeCB0aGUgU0cgcHJvYmxlbS4NCj4gPiA+IGh0dHA6
-Ly93d3cuc3Bpbmljcy5uZXQvbGlzdHMvbGludXgtdXNiL21zZzk3MTc2Lmh0bWwNCj4gPiA+DQo+
-ID4gPiBJIHRoaW5rIGl0IHNob3VsZCBhcHBseSB0byB0aGUgMy4xMiBzb3VyY2VzLg0KPiA+DQo+
-ID4gSSBhbSBydW5uaW5nIHdpdGggdGhhdCBwYXRjaCBoZXJlIG5vdyAodGhhbmtzKSwNCj4gPiBh
-bmQgaXQgdG9vIGFwcGVhcnMgdG8gcHJldmVudCB0aGUgbG9ja3Vwcy4NCj4gPg0KPiA+IEJ1dCBp
-cyB0aGlzIHBhdGNoIHVwc3RyZWFtIGFscmVhZHk/DQo+ID4gSWYgeWVzLCB0aGVuIGl0IG5lZWRz
-IHRvIGdldCBwdXNoZWQgb3V0IHRvIC1zdGFibGUgZm9yIDMuMTIgYXQgbGVhc3QuDQoNCkhhdmlu
-ZyBzb21lb25lIGVsc2UgY29uZmlybSB0aGF0IHRoZXJlIGlzIGEgYnVnLCBhbmQgdGhhdCB0aGUN
-CnBhdGNoIGZpeGVzIGl0IHNob3VsZCBoZWxwIGl0IGdldCBwdXNoZWQgdG8gLXN0YWJsZS4NCg0K
-PiA+IElmIG5vdCB1cHN0cmVhbSwgdGhlbiB0aGUgcmV2ZXJ0IGlzIHByb2JhYmx5IHNhZmVzdCBm
-b3IgLXN0YWJsZSwNCj4gPiByYXRoZXIgdGhhbiBuZXcgY29kZSB0aGF0IGhhcyBuZXZlciBiZWVu
-IHVwc3RyZWFtIGJlZm9yZS4NCj4gPg0KPiANCj4gPiBCb3RoIHBhdGNoZXMgYXJlIGF0dGFjaGVk
-IHRvIHRoaXMgZW1haWwuDQo+ID4gT25lIG9yIHRoZSBvdGhlciBpcyByZXF1aXJlZCBmb3IgdGhl
-IFVTQiAzLjAgbmV0d29yayBhZGFwdGVycyB0byBmdW5jdGlvbiBpbiAzLjEyLg0KPiANCj4gSSBk
-byBub3Qgc2VlIGFueSBlcnJvciBpbiBjb21taXQgZjI3MDcwMTU4ZDY3NTQ3NjVmMg0KPiAoImF4
-ODgxNzlfMTc4YTogYXZvaWQgY29weSBvZiB0eCB0Y3AgcGFja2V0cyIpDQo+IA0KPiBRdWl0ZSB0
-aGUgY29udHJhcnkgaW4gZmFjdC4uLg0KPiANCj4gSSBzdXNwZWN0IGEgVFNPIGJ1ZywgYW5kIHdv
-dWxkIHJhdGhlciBkaXNhYmxlIFRTTyBmb3IgdGhpcyBuaWMuDQo+IA0KPiBIYXZlIHlvdSB0cmll
-ZCB0byByZXZlcnQgMzgwNGZhZDQ1NDExYjQ4Mg0KPiAoIlVTQk5FVDogYXg4ODE3OV8xNzhhOiBl
-bmFibGUgdHNvIGlmIHVzYiBob3N0IHN1cHBvcnRzIHNnIGRtYSIpDQoNCkl0IGlzbid0IGRpcmVj
-dGx5IGEgVFNPIHByb2JsZW0uDQpUaGVyZSBoYXMgYWx3YXlzIGJlZW4gYSBidWcgaW4gdGhlIHho
-Y2kgZHJpdmVyIGZvciBmcmFnbWVudGVkIGJ1ZmZlcnMuDQpUU08ganVzdCBtZWFucyBpdCBpcyBn
-aXZlbiBhIGxvdCBvZiBmcmFnbWVudGVkIGJ1ZmZlcnMuDQoNCkFzIHdlbGwgYXMgdXNlci1zdXBw
-bGllZCBmcmFnbWVudGVkIGJ1ZmZlcnMsIHRoZSBidWcgYWZmZWN0cw0KaW50ZXJuYWwgZnJhZ21l
-bnRhdGlvbiB0aGF0IGhhcHBlbnMgd2hlbmV2ZXIgYSBidWZmZXIgY3Jvc3NlcyBhIDY0aw0KYnl0
-ZSBib3VuZGFyeSAocGxlYXNlIGh3IGVuZ2luZWVycyAtIHN0b3AgZG9pbmcgdGhpcyEpDQoNCkkn
-bSBub3Qgc3VyZSB3aGV0aGVyIHVzYm5ldCB3b3VsZCBldmVyIHBhc3MgYnVmZmVycyB0aGF0IGNy
-b3NzIDY0aw0KYm91bmRhcmllcy4gSSd2ZSBub3Qgc2VlbiBvbmUgLSBldmVuIHdpdGggVFNPLiBC
-dXQgdGhlIHJ4IGJ1ZmZlcnMNCmFyZSAyMGsgKGRvZXNuJ3Qgc2VlbSBpZGVhbCEpIGFuZCBjb3Vs
-ZCBhbHNvIGJlIHByb2JsZW1hdGljYWwuDQoNClVTQiBtYXNzIHN0b3JhZ2UgaGFzIHVzZWQgU0cg
-Zm9yIGFnZXMsIHRoZSBidWZmZXJzIG11c3QgYWxsIGJlDQphZGVxdWF0ZWx5IGFsaWduZWQgZm9y
-IHRoZSBoYXJkd2FyZSAtIHRoZXkgd29uJ3QgbWVldCB0aGUgY29uc3RyYWludA0KZm9yIFVTQjMg
-aXRzZWxmLCBidXQgdGhlIGRvY3VtZW50ZWQgcmVzdHJpY3Rpb24gbWF5IGJlIG1vcmUgc2V2ZXJl
-DQp0aGFuIHRoZSBhY3R1YWwgb25lLg0KDQoJRGF2aWQNCg0KDQoNCg==
+On 11/19/2013 09:23 AM, Eric Dumazet wrote:
+> On Tue, 2013-11-19 at 12:35 +0100, Daniel Borkmann wrote:
+>> On 11/19/2013 05:00 AM, Eric Dumazet wrote:
+>>> On Mon, 2013-11-18 at 19:58 -0800, Eric Dumazet wrote:
+>>>
+>>>> But sctp is not tcp ;)
+>>>>
+>>>> sctp_copy_sock() is doing some clever/partial copy of the socket, so
+>>>> please fix it ;)
+>>>>
+>>>> No idea why it's not doing the normal copy of the socket.
+>>>
+>>> BTW, not doing the full copy means for example that SO_MAX_PACING_RATE
+>>> is broken for SCTP.
+>>
+>> Yep, indeed. Looking into it ...
+> 
+> It might be the time to finally use inet_csk_clone_lock() in SCTP.
+> 
+> 
+
+I can see sk_clone_lock() since SCTP doesn't use icsk sockets.  Need
+to study the code a bit.
+
+-vlad
