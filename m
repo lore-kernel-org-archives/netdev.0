@@ -1,78 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: don't update snd_nxt, when a socket is switched
- from repair mode
-Date: Tue, 19 Nov 2013 16:15:11 -0500 (EST)
-Message-ID: <20131119.161511.2201597699288568150.davem@davemloft.net>
-References: <1384884606-9978-1-git-send-email-avagin@openvz.org>
+Subject: Re: [patch net-next RFC v2 1/2] ipv6 addrconf: extend ifa_flags to
+ u32
+Date: Tue, 19 Nov 2013 16:16:53 -0500 (EST)
+Message-ID: <20131119.161653.1620911822393300977.davem@davemloft.net>
+References: <1384857809-6573-1-git-send-email-jiri@resnulli.us>
+	<1384857809-6573-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	criu@openvz.org, xemul@parallels.com, edumazet@google.com,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: avagin@openvz.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1384884606-9978-1-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
+	stephen@networkplumber.org, hannes@stressinduktion.org,
+	vyasevich@gmail.com, dcbw@redhat.com, David.Laight@ACULAB.COM
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58226 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751334Ab3KSVQ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 16:16:56 -0500
+In-Reply-To: <1384857809-6573-2-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrey Vagin <avagin@openvz.org>
-Date: Tue, 19 Nov 2013 22:10:06 +0400
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 19 Nov 2013 11:43:28 +0100
 
-> snd_nxt must be updated synchronously with sk_send_head.  Otherwise
-> tp->packets_out may be updated incorrectly, what may bring a kernel panic.
+> There is no more space in u8 ifa_flags. So do what davem suffested and
+> add another netlink attr called IFA_FLAGS for carry more flags.
 > 
-> Here is a kernel panic from my host.
-> [  103.043194] BUG: unable to handle kernel NULL pointer dereference at 0000000000000048
-> [  103.044025] IP: [<ffffffff815aaaaf>] tcp_rearm_rto+0xcf/0x150
-> ...
-> [  146.301158] Call Trace:
-> [  146.301158]  [<ffffffff815ab7f0>] tcp_ack+0xcc0/0x12c0
-> 
-> Before this panic a tcp socket was restored. This socket had sent and
-> unsent data in the write queue. Sent data was restored in repair mode,
-> then the socket was switched from reapair mode and unsent data was
-> restored. After that the socket was switched back into repair mode.
-> 
-> In that moment we had a socket where write queue looks like this:
-> snd_una    snd_nxt   write_seq
->    |_________|________|
->              |
-> 	  sk_send_head
-> 
-> After a second switching from repair mode the state of socket was
-> changed:
-> 
-> snd_una          snd_nxt, write_seq
->    |_________ ________|
->              |
-> 	  sk_send_head
-> 
-> This state is inconsistent, because snd_nxt and sk_send_head are not
-> synchronized.
-> 
-> Bellow you can find a call trace, how packets_out can be incremented
-> twice for one skb, if snd_nxt and sk_send_head are not synchronized.
-> In this case packets_out will be always positive, even when
-> sk_write_queue is empty.
-> 
-> tcp_write_wakeup
-> 	skb = tcp_send_head(sk);
-> 	tcp_fragment
-> 		if (!before(tp->snd_nxt, TCP_SKB_CB(buff)->end_seq))
-> 			tcp_adjust_pcount(sk, skb, diff);
-> 	tcp_event_new_data_sent
-> 		tp->packets_out += tcp_skb_pcount(skb);
-> 
-> I think update of snd_nxt isn't required, when a socket is switched from
-> repair mode.  Because it's initialized in tcp_connect_init. Then when a
-> write queue is restored, snd_nxt is incremented in tcp_event_new_data_sent,
-> so it's always is in consistent state.
-> 
-> I have checked, that the bug is not reproduced with this patch and
-> all tests about restoring tcp connections work fine.
-> 
-> Signed-off-by: Andrey Vagin <avagin@openvz.org>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> Signed-off-by: Thomas Haller <thaller@redhat.com>
+> ---
+> v1->v2:
+> - reordered struct inet6_ifaddr as suggested by David Laight
+> - changed flags type to u32 on couple of places as suggested by Thomas Haller
+> - changed output of if6_seq_show as suggested by Thomas Haller
 
-Applied and queued up for -stable, thank you.
+This looks fine, but I would suggest to extend this to all addressing
+types using ifm->ifa_flags.  It is not such a big deal, there are only
+3 or 4.
+
+DecNET, ipv4, ipv6, and lastly phonet (which just reports "permanent"
+flag on get/dump).
+
+That way tools like iproute2 can just generically provide and
+interpret IFA_FLAGS attribute unconditionally.
