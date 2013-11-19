@@ -1,71 +1,39 @@
 From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net v3 2/2] net: sched: htb: fix calculation of quantum
-Date: Tue, 19 Nov 2013 15:25:39 +0800
-Message-ID: <1384845939-8424-3-git-send-email-yangyingliang@huawei.com>
-References: <1384845939-8424-1-git-send-email-yangyingliang@huawei.com>
+Subject: [PATCH net v3 0/2] net: sched: fix some issues
+Date: Tue, 19 Nov 2013 15:25:37 +0800
+Message-ID: <1384845939-8424-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
 	<jbrouer@redhat.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:41273 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310Ab3KSHZ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 02:25:56 -0500
-In-Reply-To: <1384845939-8424-1-git-send-email-yangyingliang@huawei.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:32885 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750989Ab3KSH0u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 02:26:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now, 32bit rates may be not the true rate.
-So use rate_bytes_ps which is from
-max(rate32, rate64) to calcualte quantum.
+fix a regression introduced by commit b757c9336d63f94c6b57532
+(tbf: improved accuracy at high rates).
+fix quantum calculation introduced by 64bit rates.
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
- net/sched/sch_htb.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+v2
+  patch 1/2: redescribe the regression.
+  patch 2/2: add Eric's ack.
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 0e1e38b..57c6678 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1477,11 +1477,20 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 		sch_tree_lock(sch);
- 	}
- 
-+	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
-+
-+	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
-+
-+	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
-+	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
-+
- 	/* it used to be a nasty bug here, we have to check that node
- 	 * is really leaf before changing cl->un.leaf !
- 	 */
- 	if (!cl->level) {
--		cl->quantum = hopt->rate.rate / q->rate2quantum;
-+		u64 quantum = div64_u64(cl->rate.rate_bytes_ps,
-+					q->rate2quantum);
-+		cl->quantum = min_t(u64, quantum, INT_MAX);
- 		if (!hopt->quantum && cl->quantum < 1000) {
- 			pr_warning(
- 			       "HTB: quantum of class %X is small. Consider r2q change.\n",
-@@ -1500,13 +1509,6 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 			cl->prio = TC_HTB_NUMPRIO - 1;
- 	}
- 
--	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
--
--	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
--
--	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
--	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
--
- 	cl->buffer = PSCHED_TICKS2NS(hopt->buffer);
- 	cl->cbuffer = PSCHED_TICKS2NS(hopt->cbuffer);
- 
+v3
+  patch 1/2: use psched_l2t_ns to calculate max_size
+  and cleanup exit/done section suggested by Jesper.
+
+Yang Yingliang (2):
+  net: sched: tbf: fix calculation of max_size
+  net: sched: htb: fix calculation of quantum
+
+ net/sched/sch_htb.c | 18 ++++++++------
+ net/sched/sch_tbf.c | 71 ++++++++++++++++++++++++++++-------------------------
+ 2 files changed, 47 insertions(+), 42 deletions(-)
+
 -- 
 1.8.0
