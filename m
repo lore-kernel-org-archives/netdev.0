@@ -1,75 +1,92 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net RESEND] bridge: flush br's address entry in fdb when remove
- the bridge dev
-Date: Tue, 19 Nov 2013 10:57:02 +0800
-Message-ID: <528AD37E.1050105@huawei.com>
+Subject: Re: [PATCH net RESEND] bonding: don't change to 802.3ad mode while
+ ARP monitoring is running
+Date: Tue, 19 Nov 2013 11:02:54 +0800
+Message-ID: <528AD4DE.3070002@huawei.com>
+References: <528710F7.7050207@huawei.com>	 <1384796682.4774.26.camel@dcbw.foobar.com>	 <20131118.154838.776189725378131169.davem@davemloft.net> <1384815032.4774.55.camel@dcbw.foobar.com> <528ACD8A.1010409@greyhouse.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	<bridge@lists.linux-foundation.org>,
-	Netdev <netdev@vger.kernel.org>
+Cc: <fubar@us.ibm.com>, <nikolay@redhat.com>, <vfalico@redhat.com>,
+	<netdev@vger.kernel.org>
+To: Andy Gospodarek <andy@greyhouse.net>,
+	Dan Williams <dcbw@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:5405 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751343Ab3KSC7T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 21:59:19 -0500
+Received: from szxga02-in.huawei.com ([119.145.14.65]:19394 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751386Ab3KSDDp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 22:03:45 -0500
+In-Reply-To: <528ACD8A.1010409@greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the following commands are executed:
+On 2013/11/19 10:31, Andy Gospodarek wrote:
+> On 11/18/2013 05:50 PM, Dan Williams wrote:
+>> On Mon, 2013-11-18 at 15:48 -0500, David Miller wrote:
+>>> From: Dan Williams <dcbw@redhat.com>
+>>> Date: Mon, 18 Nov 2013 11:44:42 -0600
+>>>
+>>>> On Sat, 2013-11-16 at 14:30 +0800, Ding Tianhong wrote:
+>>>>> Because the ARP monitoring is not support for 802.3ad, but I still
+>>>>> could change the mode to 802.3ad from ab mode while ARP monitoring
+>>>>> is running, it is incorrect.
+>>>>>
+>>>>> So add a check for 802.3ad in bonding_store_mode to fix the problem,
+>>>>> and make a new macro BOND_NO_USES_ARP() to simplify the code.
+>>>> Instead of failing, couldn't the code stop ARP monitoring and allow the
+>>>> mode change?  This is similar to setting miimon, which disables ARP
+>>>> monitoring, or setting ARP monitoring, which disables miimon.
+>>>>
+>>>>     if (new_value && bond->params.arp_interval) {
+>>>>         pr_info("%s: MII monitoring cannot be used with ARP monitoring. Disabling ARP monitoring...\n",
+>>>>             bond->dev->name);
+>>>>         bond->params.arp_interval = 0;
+>>>>         if (bond->params.arp_validate)
+>>>>             bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
+>>>>     }
+>>>>
+>>>> Bond mode is the most important bond option, so it seems like it should
+>>>> override any of the other sub-options.  I know the code doesn't do this
+>>>> now, but maybe instead of the patch you propose, it would be nicer to
+>>>> allow the mode change instead?
+>>> I agree with Dan, if other mode changes behave this way (by dropping the
+>>> incompatible feature) we should make 802.3ad do so as well at the very
+>>> least for consistency.
+>> Currently ALB and TLB modes will fail if arp_interval > 0, so Ding's
+>> patch is technically correct.
+>>
+>> Instead, I'm proposing that 'mode' trumps all, and if the user changes
+>> the mode, conflicting values should be cleared or reset.  Otherwise
+>> userspace has to duplicate a lot of kernel logic/validation.  For
+>> example:
+>>
+>> 1) set mode to ROUNDROBIN
+>> 2) set arp_interval
+>> 3) set mode to ALB or TLB
+>> 4) FAIL - incompatible with arp_interval
+>> 5) ok, set arp_interval to zero
+>> 6) set mode to ALB or TLB
+>> 7) SUCCESS
+>>
+>> Wouldn't it be nice if the kernel handled clearing arp_interval for us,
+>> since it knows that arp_interval is incompatible with ALB/TLB...
+>>
+>> Could be done separately.  I have no objection to Ding's patch other
+>> than "life could be even better".
+>>
+>> Dan
+> Nik was actually planning to work on a pretty significant rewrite of the code that handles setting and clearing of different config options, but I have not seen him chime in on this thread yet.
+> 
+> Nik, anything you can share on this or are you still a bit away from coming up with a design and implementation?
+> 
+ok, I will waiting for Nik's suggestion and then decide what to do next.
+Ding
 
-brctl addbr br0
-ifconfig br0 hw ether <addr>
-rmmod bridge
-
-The calltrace will occur:
-
-[  563.312114] device eth1 left promiscuous mode
-[  563.312188] br0: port 1(eth1) entered disabled state
-[  563.468190] kmem_cache_destroy bridge_fdb_cache: Slab cache still has objects
-[  563.468197] CPU: 6 PID: 6982 Comm: rmmod Tainted: G           O 3.12.0-0.7-default+ #9
-[  563.468199] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
-[  563.468200]  0000000000000880 ffff88010f111e98 ffffffff814d1c92 ffff88010f111eb8
-[  563.468204]  ffffffff81148efd ffff88010f111eb8 0000000000000000 ffff88010f111ec8
-[  563.468206]  ffffffffa062a270 ffff88010f111ed8 ffffffffa063ac76 ffff88010f111f78
-[  563.468209] Call Trace:
-[  563.468218]  [<ffffffff814d1c92>] dump_stack+0x6a/0x78
-[  563.468234]  [<ffffffff81148efd>] kmem_cache_destroy+0xfd/0x100
-[  563.468242]  [<ffffffffa062a270>] br_fdb_fini+0x10/0x20 [bridge]
-[  563.468247]  [<ffffffffa063ac76>] br_deinit+0x4e/0x50 [bridge]
-[  563.468254]  [<ffffffff810c7dc9>] SyS_delete_module+0x199/0x2b0
-[  563.468259]  [<ffffffff814e0922>] system_call_fastpath+0x16/0x1b
-[  570.377958] Bridge firewalling registered
-
-------------------------------------------------
-
-The reason is that when the bridge dev's address is changed, the
-br_fdb_change_mac_address() will add new address in fdb, but when
-the bridge was removed, the address entry in the fdb did not free,
-the bridge_fdb_cache still has objects when destroy the cache, Fix
-this by flushing the bridge address entry when removing the bridge.
-
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- net/bridge/br_if.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 6e6194f..98084d8 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -172,6 +172,10 @@ void br_dev_delete(struct net_device *dev, struct list_head *head)
- 		del_nbp(p);
- 	}
- 
-+	spin_lock_bh(&br->hash_lock);
-+	fdb_delete_by_addr(br, br->dev->dev_addr, 0);
-+	spin_unlock_bh(&br->hash_lock);
-+
- 	br_vlan_flush(br);
- 	del_timer_sync(&br->gc_timer);
- 
--- 
-1.8.0
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> .
+> 
