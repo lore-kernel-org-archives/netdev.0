@@ -1,45 +1,156 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 2/2] ipv6: use sk_v6_copy_addrs when memcpy struct ipv6_pinfo
-Date: Tue, 19 Nov 2013 04:14:09 +0100
-Message-ID: <20131119031408.GQ16541@order.stressinduktion.org>
-References: <1384829247-8624-1-git-send-email-wangweidong1@huawei.com> <1384829247-8624-3-git-send-email-wangweidong1@huawei.com>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net v4 1/4] r8152: fix tx/rx memory overflow
+Date: Tue, 19 Nov 2013 11:25:08 +0800
+Message-ID: <1384831511-1625-2-git-send-email-hayeswang@realtek.com>
+References: <1384502279-9959-1-git-send-email-hayeswang@realtek.com>
+ <1384831511-1625-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, gerrit@erg.abdn.ac.uk, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	vyasevich@gmail.com, nhorman@tuxdriver.com, dccp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	dingtianhong@huawei.com
-To: Wang Weidong <wangweidong1@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:51564 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751821Ab3KSDOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 22:14:10 -0500
-Content-Disposition: inline
-In-Reply-To: <1384829247-8624-3-git-send-email-wangweidong1@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1384831511-1625-1-git-send-email-hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 19, 2013 at 10:47:27AM +0800, Wang Weidong wrote:
-> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> index 0740f93..83d011e 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -1116,6 +1116,10 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
->  		newtp = tcp_sk(newsk);
->  
->  		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
-> +		/* Don't forget copy the rcv_saddr and daddr when
-> +		 * copy ipv6_pinfo.
-> +		 */
-> +		sk_v6_copy_addrs(newsk, sk);
->  
->  		ipv6_addr_set_v4mapped(newinet->inet_daddr, &newsk->sk_v6_daddr);
->  
+The tx/rx would access the memory which is out of the desired range.
+Modify the method of checking the end of the memory to avoid it.
 
-Hmm, how did you spot this?
+For r8152_tx_agg_fill(), the variable remain may become negative.
+However, the declaration is unsigned, so the while loop wouldn't
+break when reaching the end of the desied memory. Although to change
+the declaration from unsigned to signed is enough to fix it, I also
+modify the checking method for safe. Replace
 
-Greetings,
+		remain = rx_buf_sz - sizeof(*tx_desc) -
+			 (u32)((void *)tx_data - agg->head);
 
-  Hannes
+with
+
+		remain = rx_buf_sz - (int)(tx_agg_align(tx_data) - agg->head);
+
+to make sure the variable remain is always positive. Then, the
+overflow wouldn't happen.
+
+For rx_bottom(), the rx_desc should not be used to calculate the
+packet length before making sure the rx_desc is in the desired range.
+Change the checking to two parts. First, check the descriptor is in
+the memory. The other, using the descriptor to find out the packet
+length and check if the packet is in the memory.
+
+Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/usb/r8152.c | 30 +++++++++++++++++-------------
+ 1 file changed, 17 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index f3fce41..428600d 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -24,7 +24,7 @@
+ #include <linux/ipv6.h>
+ 
+ /* Version Information */
+-#define DRIVER_VERSION "v1.01.0 (2013/08/12)"
++#define DRIVER_VERSION "v1.02.0 (2013/10/28)"
+ #define DRIVER_AUTHOR "Realtek linux nic maintainers <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>"
+ #define DRIVER_DESC "Realtek RTL8152 Based USB 2.0 Ethernet Adapters"
+ #define MODULENAME "r8152"
+@@ -1136,14 +1136,14 @@ r8152_tx_csum(struct r8152 *tp, struct tx_desc *desc, struct sk_buff *skb)
+ 
+ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
+ {
+-	u32 remain;
++	int remain;
+ 	u8 *tx_data;
+ 
+ 	tx_data = agg->head;
+ 	agg->skb_num = agg->skb_len = 0;
+-	remain = rx_buf_sz - sizeof(struct tx_desc);
++	remain = rx_buf_sz;
+ 
+-	while (remain >= ETH_ZLEN) {
++	while (remain >= ETH_ZLEN + sizeof(struct tx_desc)) {
+ 		struct tx_desc *tx_desc;
+ 		struct sk_buff *skb;
+ 		unsigned int len;
+@@ -1152,12 +1152,14 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
+ 		if (!skb)
+ 			break;
+ 
++		remain -= sizeof(*tx_desc);
+ 		len = skb->len;
+ 		if (remain < len) {
+ 			skb_queue_head(&tp->tx_queue, skb);
+ 			break;
+ 		}
+ 
++		tx_data = tx_agg_align(tx_data);
+ 		tx_desc = (struct tx_desc *)tx_data;
+ 		tx_data += sizeof(*tx_desc);
+ 
+@@ -1167,9 +1169,8 @@ static int r8152_tx_agg_fill(struct r8152 *tp, struct tx_agg *agg)
+ 		agg->skb_len += len;
+ 		dev_kfree_skb_any(skb);
+ 
+-		tx_data = tx_agg_align(tx_data + len);
+-		remain = rx_buf_sz - sizeof(*tx_desc) -
+-			 (u32)((void *)tx_data - agg->head);
++		tx_data += len;
++		remain = rx_buf_sz - (int)(tx_agg_align(tx_data) - agg->head);
+ 	}
+ 
+ 	usb_fill_bulk_urb(agg->urb, tp->udev, usb_sndbulkpipe(tp->udev, 2),
+@@ -1188,7 +1189,6 @@ static void rx_bottom(struct r8152 *tp)
+ 	list_for_each_safe(cursor, next, &tp->rx_done) {
+ 		struct rx_desc *rx_desc;
+ 		struct rx_agg *agg;
+-		unsigned pkt_len;
+ 		int len_used = 0;
+ 		struct urb *urb;
+ 		u8 *rx_data;
+@@ -1204,17 +1204,22 @@ static void rx_bottom(struct r8152 *tp)
+ 
+ 		rx_desc = agg->head;
+ 		rx_data = agg->head;
+-		pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
+-		len_used += sizeof(struct rx_desc) + pkt_len;
++		len_used += sizeof(struct rx_desc);
+ 
+-		while (urb->actual_length >= len_used) {
++		while (urb->actual_length > len_used) {
+ 			struct net_device *netdev = tp->netdev;
+ 			struct net_device_stats *stats;
++			unsigned int pkt_len;
+ 			struct sk_buff *skb;
+ 
++			pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
+ 			if (pkt_len < ETH_ZLEN)
+ 				break;
+ 
++			len_used += pkt_len;
++			if (urb->actual_length < len_used)
++				break;
++
+ 			stats = rtl8152_get_stats(netdev);
+ 
+ 			pkt_len -= 4; /* CRC */
+@@ -1234,9 +1239,8 @@ static void rx_bottom(struct r8152 *tp)
+ 
+ 			rx_data = rx_agg_align(rx_data + pkt_len + 4);
+ 			rx_desc = (struct rx_desc *)rx_data;
+-			pkt_len = le32_to_cpu(rx_desc->opts1) & RX_LEN_MASK;
+ 			len_used = (int)(rx_data - (u8 *)agg->head);
+-			len_used += sizeof(struct rx_desc) + pkt_len;
++			len_used += sizeof(struct rx_desc);
+ 		}
+ 
+ submit:
+-- 
+1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
