@@ -1,7 +1,7 @@
 From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH 1/2] ipv6: add helper function for copy addrs from old sock
-Date: Tue, 19 Nov 2013 10:47:26 +0800
-Message-ID: <1384829247-8624-2-git-send-email-wangweidong1@huawei.com>
+Subject: [PATCH 2/2] ipv6: use sk_v6_copy_addrs when memcpy struct ipv6_pinfo
+Date: Tue, 19 Nov 2013 10:47:27 +0800
+Message-ID: <1384829247-8624-3-git-send-email-wangweidong1@huawei.com>
 References: <1384829247-8624-1-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,38 +12,70 @@ To: <davem@davemloft.net>, <gerrit@erg.abdn.ac.uk>,
 	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
 	<vyasevich@gmail.com>, <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:54406 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751754Ab3KSCsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 21:48:24 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:62936 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751467Ab3KSCsw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 21:48:52 -0500
 In-Reply-To: <1384829247-8624-1-git-send-email-wangweidong1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add sk_v6_copy_addrs for copying sk_v6_daddr and sk_v6_rcv_saddr, it
-will be used in the coming patch.
+commit efe4208f ("ipv6: make lookups simpler and faster") remove
+the daddr and rcv_saddr from struct ipv6_pinfo. When use memcpy
+the ipv6_pinfo, we lose the sk_v6_daddr and sk_v6_rcv_saddr, so
+use the sk_v6_copy_addrs when needed.
 
 Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 ---
- include/net/sock.h | 6 ++++++
- 1 file changed, 6 insertions(+)
+ net/dccp/ipv6.c     | 4 ++++
+ net/ipv6/tcp_ipv6.c | 4 ++++
+ net/sctp/ipv6.c     | 4 ++++
+ 3 files changed, 12 insertions(+)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index e3a18ff..9be2b9f 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -442,6 +442,12 @@ struct sock {
- #define SK_CAN_REUSE	1
- #define SK_FORCE_REUSE	2
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 4ac71ff..90182a8 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -465,6 +465,10 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
+ 		newnp = inet6_sk(newsk);
  
-+static inline void sk_v6_copy_addrs(struct sock *newsk, struct sock *oldsk)
-+{
-+	newsk->sk_v6_daddr = oldsk->sk_v6_daddr;
-+	newsk->sk_v6_rcv_saddr = oldsk->sk_v6_rcv_saddr;
-+}
-+
- static inline int sk_peek_offset(struct sock *sk, int flags)
- {
- 	if ((flags & MSG_PEEK) && (sk->sk_peek_off >= 0))
+ 		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
++		/* Don't forget copy the rcv_saddr and daddr when
++		 * copy ipv6_pinfo.
++		 */
++		sk_v6_copy_addrs(newsk, sk);
+ 
+ 		ipv6_addr_set_v4mapped(newinet->inet_daddr, &newsk->sk_v6_daddr);
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 0740f93..83d011e 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1116,6 +1116,10 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 		newtp = tcp_sk(newsk);
+ 
+ 		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
++		/* Don't forget copy the rcv_saddr and daddr when
++		 * copy ipv6_pinfo.
++		 */
++		sk_v6_copy_addrs(newsk, sk);
+ 
+ 		ipv6_addr_set_v4mapped(newinet->inet_daddr, &newsk->sk_v6_daddr);
+ 
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 7567e6f..b76f143 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -656,6 +656,10 @@ static struct sock *sctp_v6_create_accept_sk(struct sock *sk,
+ 	newnp = inet6_sk(newsk);
+ 
+ 	memcpy(newnp, np, sizeof(struct ipv6_pinfo));
++	/* Don't forget copy the rcv_saddr and daddr when
++	 * copy ipv6_pinfo.
++	 */
++	sk_v6_copy_addrs(newsk, sk);
+ 
+ 	/* Initialize sk's sport, dport, rcv_saddr and daddr for getsockname()
+ 	 * and getpeername().
 -- 
 1.7.12
