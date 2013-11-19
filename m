@@ -1,14 +1,14 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 6/9] genetlink: remove family pointer from genl_multicast_group
-Date: Tue, 19 Nov 2013 15:19:36 +0100
-Message-ID: <1384870779-17571-7-git-send-email-johannes@sipsolutions.net>
+Subject: [PATCH 3/9] quota/genetlink: use proper genetlink multicast APIs
+Date: Tue, 19 Nov 2013 15:19:33 +0100
+Message-ID: <1384870779-17571-4-git-send-email-johannes@sipsolutions.net>
 References: <1384870779-17571-1-git-send-email-johannes@sipsolutions.net>
 Cc: Johannes Berg <johannes.berg@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:41397 "EHLO
+Received: from s3.sipsolutions.net ([144.76.43.152]:41399 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752608Ab3KSOTr (ORCPT
+	with ESMTP id S1752727Ab3KSOTr (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 09:19:47 -0500
 In-Reply-To: <1384870779-17571-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
@@ -16,163 +16,118 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Johannes Berg <johannes.berg@intel.com>
 
-There's no reason to have the family pointer there since it
-can just be passed internally where needed, so remove it.
+The quota code is abusing the genetlink API and is using
+its family ID as the multicast group ID, which is invalid
+and may belong to somebody else (and likely will.)
 
+Make the quota code use the correct API, but since this
+is already used as-is by userspace, reserve a family ID
+for this code and also reserve that group ID to not break
+userspace assumptions.
+
+Acked-by: Jan Kara <jack@suse.cz>
 Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 ---
- include/net/genetlink.h |  2 --
- net/netlink/genetlink.c | 38 ++++++++++++++++++--------------------
- 2 files changed, 18 insertions(+), 22 deletions(-)
+ fs/quota/netlink.c             | 17 +++++++++++++++--
+ include/uapi/linux/genetlink.h |  1 +
+ net/netlink/genetlink.c        | 10 ++++++++--
+ 3 files changed, 24 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/genetlink.h b/include/net/genetlink.h
-index 067569d..d8a8b1f 100644
---- a/include/net/genetlink.h
-+++ b/include/net/genetlink.h
-@@ -13,10 +13,8 @@
-  * @id: multicast group ID, assigned by the core, to use with
-  *      genlmsg_multicast().
-  * @list: list entry for linking
-- * @family: pointer to family, need not be set before registering
+diff --git a/fs/quota/netlink.c b/fs/quota/netlink.c
+index 16e8abb..aa22fe0 100644
+--- a/fs/quota/netlink.c
++++ b/fs/quota/netlink.c
+@@ -11,13 +11,23 @@
+ 
+ /* Netlink family structure for quota */
+ static struct genl_family quota_genl_family = {
+-	.id = GENL_ID_GENERATE,
++	/*
++	 * Needed due to multicast group ID abuse - old code assumed
++	 * the family ID was also a valid multicast group ID (which
++	 * isn't true) and userspace might thus rely on it. Assign a
++	 * static ID for this group to make dealing with that easier.
++	 */
++	.id = GENL_ID_VFS_DQUOT,
+ 	.hdrsize = 0,
+ 	.name = "VFS_DQUOT",
+ 	.version = 1,
+ 	.maxattr = QUOTA_NL_A_MAX,
+ };
+ 
++static struct genl_multicast_group quota_mcgrp = {
++	.name = "events",
++};
++
+ /**
+  * quota_send_warning - Send warning to userspace about exceeded quota
+  * @type: The quota type: USRQQUOTA, GRPQUOTA,...
+@@ -78,7 +88,7 @@ void quota_send_warning(struct kqid qid, dev_t dev,
+ 		goto attr_err_out;
+ 	genlmsg_end(skb, msg_head);
+ 
+-	genlmsg_multicast(skb, 0, quota_genl_family.id, GFP_NOFS);
++	genlmsg_multicast(skb, 0, quota_mcgrp.id, GFP_NOFS);
+ 	return;
+ attr_err_out:
+ 	printk(KERN_ERR "VFS: Not enough space to compose quota message!\n");
+@@ -92,6 +102,9 @@ static int __init quota_init(void)
+ 	if (genl_register_family(&quota_genl_family) != 0)
+ 		printk(KERN_ERR
+ 		       "VFS: Failed to create quota netlink interface.\n");
++	if (genl_register_mc_group(&quota_genl_family, &quota_mcgrp))
++		printk(KERN_ERR
++		       "VFS: Failed to register quota mcast group.\n");
+ 	return 0;
+ };
+ 
+diff --git a/include/uapi/linux/genetlink.h b/include/uapi/linux/genetlink.h
+index c880a41..1af72d82 100644
+--- a/include/uapi/linux/genetlink.h
++++ b/include/uapi/linux/genetlink.h
+@@ -27,6 +27,7 @@ struct genlmsghdr {
   */
- struct genl_multicast_group {
--	struct genl_family	*family;	/* private */
- 	struct list_head	list;		/* private */
- 	char			name[GENL_NAMSIZ];
- 	u32			id;
+ #define GENL_ID_GENERATE	0
+ #define GENL_ID_CTRL		NLMSG_MIN_TYPE
++#define GENL_ID_VFS_DQUOT	(NLMSG_MIN_TYPE + 1)
+ 
+ /**************************************************************************
+  * Controller
 diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 6efb0e9..e9ef640 100644
+index 353909d..bee91a7 100644
 --- a/net/netlink/genetlink.c
 +++ b/net/netlink/genetlink.c
-@@ -77,7 +77,8 @@ static unsigned long mc_group_start = 0x3 | BIT(GENL_ID_VFS_DQUOT);
+@@ -69,8 +69,11 @@ static struct list_head family_ht[GENL_FAM_TAB_SIZE];
+  * abuses the API and thinks it can statically use group 1.
+  * That group will typically conflict with other groups that
+  * any proper users use.
++ * Bit 17 is marked as already used since the VFS quota code
++ * also abused this API and relied on family == group ID, we
++ * cater to that by giving it a static family and group ID.
+  */
+-static unsigned long mc_group_start = 0x3;
++static unsigned long mc_group_start = 0x3 | BIT(GENL_ID_VFS_DQUOT);
  static unsigned long *mc_groups = &mc_group_start;
  static unsigned long mc_groups_longs = 1;
  
--static int genl_ctrl_event(int event, void *data);
-+static int genl_ctrl_event(int event, struct genl_family *family,
-+			   struct genl_multicast_group *grp);
+@@ -130,7 +133,8 @@ static u16 genl_generate_id(void)
+ 	int i;
  
- static inline unsigned int genl_family_hash(unsigned int id)
- {
-@@ -235,9 +236,8 @@ int genl_register_mc_group(struct genl_family *family,
- 	grp->id = id;
- 	set_bit(id, mc_groups);
- 	list_add_tail(&grp->list, &family->mcast_groups);
--	grp->family = family;
- 
--	genl_ctrl_event(CTRL_CMD_NEWMCAST_GRP, grp);
-+	genl_ctrl_event(CTRL_CMD_NEWMCAST_GRP, family, grp);
-  out:
- 	genl_unlock_all();
- 	return err;
-@@ -248,7 +248,6 @@ static void __genl_unregister_mc_group(struct genl_family *family,
- 				       struct genl_multicast_group *grp)
- {
- 	struct net *net;
--	BUG_ON(grp->family != family);
- 
- 	netlink_table_grab();
- 	rcu_read_lock();
-@@ -260,9 +259,8 @@ static void __genl_unregister_mc_group(struct genl_family *family,
- 	if (grp->id != 1)
- 		clear_bit(grp->id, mc_groups);
- 	list_del(&grp->list);
--	genl_ctrl_event(CTRL_CMD_DELMCAST_GRP, grp);
-+	genl_ctrl_event(CTRL_CMD_DELMCAST_GRP, family, grp);
- 	grp->id = 0;
--	grp->family = NULL;
- }
- 
- static void genl_unregister_mc_groups(struct genl_family *family)
-@@ -364,7 +362,7 @@ int __genl_register_family(struct genl_family *family)
- 	list_add_tail(&family->family_list, genl_family_chain(family->id));
- 	genl_unlock_all();
- 
--	genl_ctrl_event(CTRL_CMD_NEWFAMILY, family);
-+	genl_ctrl_event(CTRL_CMD_NEWFAMILY, family, NULL);
- 
- 	return 0;
- 
-@@ -400,7 +398,7 @@ int genl_unregister_family(struct genl_family *family)
- 		genl_unlock_all();
- 
- 		kfree(family->attrbuf);
--		genl_ctrl_event(CTRL_CMD_DELFAMILY, family);
-+		genl_ctrl_event(CTRL_CMD_DELFAMILY, family, NULL);
- 		return 0;
- 	}
- 
-@@ -693,7 +691,8 @@ nla_put_failure:
- 	return -EMSGSIZE;
- }
- 
--static int ctrl_fill_mcgrp_info(struct genl_multicast_group *grp, u32 portid,
-+static int ctrl_fill_mcgrp_info(struct genl_family *family,
-+				struct genl_multicast_group *grp, u32 portid,
- 				u32 seq, u32 flags, struct sk_buff *skb,
- 				u8 cmd)
- {
-@@ -705,8 +704,8 @@ static int ctrl_fill_mcgrp_info(struct genl_multicast_group *grp, u32 portid,
- 	if (hdr == NULL)
- 		return -1;
- 
--	if (nla_put_string(skb, CTRL_ATTR_FAMILY_NAME, grp->family->name) ||
--	    nla_put_u16(skb, CTRL_ATTR_FAMILY_ID, grp->family->id))
-+	if (nla_put_string(skb, CTRL_ATTR_FAMILY_NAME, family->name) ||
-+	    nla_put_u16(skb, CTRL_ATTR_FAMILY_ID, family->id))
- 		goto nla_put_failure;
- 
- 	nla_grps = nla_nest_start(skb, CTRL_ATTR_MCAST_GROUPS);
-@@ -783,7 +782,8 @@ static struct sk_buff *ctrl_build_family_msg(struct genl_family *family,
- 	return skb;
- }
- 
--static struct sk_buff *ctrl_build_mcgrp_msg(struct genl_multicast_group *grp,
-+static struct sk_buff *ctrl_build_mcgrp_msg(struct genl_family *family,
-+					    struct genl_multicast_group *grp,
- 					    u32 portid, int seq, u8 cmd)
- {
- 	struct sk_buff *skb;
-@@ -793,7 +793,7 @@ static struct sk_buff *ctrl_build_mcgrp_msg(struct genl_multicast_group *grp,
- 	if (skb == NULL)
- 		return ERR_PTR(-ENOBUFS);
- 
--	err = ctrl_fill_mcgrp_info(grp, portid, seq, 0, skb, cmd);
-+	err = ctrl_fill_mcgrp_info(family, grp, portid, seq, 0, skb, cmd);
- 	if (err < 0) {
- 		nlmsg_free(skb);
- 		return ERR_PTR(err);
-@@ -855,11 +855,10 @@ static int ctrl_getfamily(struct sk_buff *skb, struct genl_info *info)
- 	return genlmsg_reply(msg, info);
- }
- 
--static int genl_ctrl_event(int event, void *data)
-+static int genl_ctrl_event(int event, struct genl_family *family,
-+			   struct genl_multicast_group *grp)
- {
- 	struct sk_buff *msg;
--	struct genl_family *family;
--	struct genl_multicast_group *grp;
- 
- 	/* genl is still initialising */
- 	if (!init_net.genl_sock)
-@@ -868,14 +867,13 @@ static int genl_ctrl_event(int event, void *data)
- 	switch (event) {
- 	case CTRL_CMD_NEWFAMILY:
- 	case CTRL_CMD_DELFAMILY:
--		family = data;
-+		WARN_ON(grp);
- 		msg = ctrl_build_family_msg(family, 0, 0, event);
- 		break;
- 	case CTRL_CMD_NEWMCAST_GRP:
- 	case CTRL_CMD_DELMCAST_GRP:
--		grp = data;
--		family = grp->family;
--		msg = ctrl_build_mcgrp_msg(data, 0, 0, event);
-+		BUG_ON(!grp);
-+		msg = ctrl_build_mcgrp_msg(family, grp, 0, 0, event);
- 		break;
- 	default:
- 		return -EINVAL;
+ 	for (i = 0; i <= GENL_MAX_ID - GENL_MIN_ID; i++) {
+-		if (!genl_family_find_byid(id_gen_idx))
++		if (id_gen_idx != GENL_ID_VFS_DQUOT &&
++		    !genl_family_find_byid(id_gen_idx))
+ 			return id_gen_idx;
+ 		if (++id_gen_idx > GENL_MAX_ID)
+ 			id_gen_idx = GENL_MIN_ID;
+@@ -169,6 +173,8 @@ int genl_register_mc_group(struct genl_family *family,
+ 		id = GENL_ID_CTRL;
+ 	else if (strcmp(family->name, "NET_DM") == 0)
+ 		id = 1;
++	else if (strcmp(family->name, "VFS_DQUOT") == 0)
++		id = GENL_ID_VFS_DQUOT;
+ 	else
+ 		id = find_first_zero_bit(mc_groups,
+ 					 mc_groups_longs * BITS_PER_LONG);
 -- 
 1.8.4.rc3
