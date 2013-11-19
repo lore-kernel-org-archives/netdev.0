@@ -1,69 +1,78 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] veth: extend features to support tunneling
-Date: Mon, 18 Nov 2013 19:51:10 -0800
-Message-ID: <CAMEtUuykKUKcwDcaOC7bHcHkU42UMjDkoio=ehzUNiMew30mhw@mail.gmail.com>
-References: <CAJZOPZ+jUanPW2mT_HiSWdvGfdRMHpX6vWyrboS3Zf_gH7rEgQ@mail.gmail.com>
-	<1384638027.8604.22.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAMEtUuzkwVSetLKb0AK7U=iB5ArhAhs-0vx9cX+WeZ2Fz04kqg@mail.gmail.com>
-	<OFF76C3619.82D931F7-ON85257C27.005F4843-85257C27.006270D6@us.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] ipv6: use sk_v6_copy_addrs when memcpy struct
+ ipv6_pinfo
+Date: Mon, 18 Nov 2013 19:55:03 -0800
+Message-ID: <1384833303.8604.81.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1384829247-8624-1-git-send-email-wangweidong1@huawei.com>
+	 <1384829247-8624-3-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org, Or Gerlitz <or.gerlitz@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, gerrit@erg.abdn.ac.uk, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	vyasevich@gmail.com, nhorman@tuxdriver.com, dccp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	dingtianhong@huawei.com
+To: Wang Weidong <wangweidong1@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:46563 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751469Ab3KSDvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 22:51:12 -0500
-Received: by mail-we0-f173.google.com with SMTP id t61so468221wes.32
-        for <netdev@vger.kernel.org>; Mon, 18 Nov 2013 19:51:11 -0800 (PST)
-In-Reply-To: <OFF76C3619.82D931F7-ON85257C27.005F4843-85257C27.006270D6@us.ibm.com>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:52033 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751694Ab3KSDzG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 22:55:06 -0500
+In-Reply-To: <1384829247-8624-3-git-send-email-wangweidong1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 18, 2013 at 9:55 AM, David Stevens <dlstevens@us.ibm.com> wrote:
-> 1) ICMP2BIG reflected from the tunnel endpoint without host routing and
->         using the destination IP as the forged source address, thus
-> appropriate
->         for bridge-only hosting.
+On Tue, 2013-11-19 at 10:47 +0800, Wang Weidong wrote:
+> commit efe4208f ("ipv6: make lookups simpler and faster") remove
+> the daddr and rcv_saddr from struct ipv6_pinfo. When use memcpy
+> the ipv6_pinfo, we lose the sk_v6_daddr and sk_v6_rcv_saddr, so
+> use the sk_v6_copy_addrs when needed.
+> 
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> ---
+>  net/dccp/ipv6.c     | 4 ++++
+>  net/ipv6/tcp_ipv6.c | 4 ++++
+>  net/sctp/ipv6.c     | 4 ++++
+>  3 files changed, 12 insertions(+)
+> 
+> diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+> index 4ac71ff..90182a8 100644
+> --- a/net/dccp/ipv6.c
+> +++ b/net/dccp/ipv6.c
+> @@ -465,6 +465,10 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
+>  		newnp = inet6_sk(newsk);
+>  
+>  		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
+> +		/* Don't forget copy the rcv_saddr and daddr when
+> +		 * copy ipv6_pinfo.
+> +		 */
+> +		sk_v6_copy_addrs(newsk, sk);
+>  
+>  		ipv6_addr_set_v4mapped(newinet->inet_daddr, &newsk->sk_v6_daddr);
+>  
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index 0740f93..83d011e 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -1116,6 +1116,10 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+>  		newtp = tcp_sk(newsk);
+>  
+>  		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
+> +		/* Don't forget copy the rcv_saddr and daddr when
+> +		 * copy ipv6_pinfo.
+> +		 */
+> +		sk_v6_copy_addrs(newsk, sk);
+>  
+>  		ipv6_addr_set_v4mapped(newinet->inet_daddr, &newsk->sk_v6_daddr);
+>  
 
-It doesn't look that existing icmp_send() can be hacked this way.
-It cannot do route lookup and cannot do neigh lookup.
-IPs and macs are valid within VM and known to virtualized networking
-components, but
-tunnel cannot possibly know what is standing between VM and tunnel.
-VM may be sending over tap into a bridge that forwards into netns that
-is running ip_fowarding
- between two vethes, then goes into 2nd bridge and only then sent into
-vxlan device.
-ovs can do many actions before skb from tap is delivered to vport-vxlan.
-The generic thing vxlan driver can do is to take mac and ip headers
-from inner skb,
-swap macs, swap ips, add icmphdr with code=frag_needed and pretend
-that such packet
-was received and decapsulated by vxlan, and call into vxlan_sock->rcv()
-It will go back into ovs or bridge and will proceed through the
-reverse network topology path all the way back into VM that can adjust
-its mtu accordingly.
 
-> 2) Allowing larger-than-gso_size segmentation as well as smaller when the
->         final destination is on the virtual L2 network.
+No idea why this patch is needed for TCP.
+(btw you deal with v4mapped here, no mention of it in the changelog)
 
-I think it should be ok for virtual L3 as well. From VM point of view,
-it's sending 1500 byte packets and virtual routers/bridges on the path
-to destination should check packets against their own mtu values. But
-if tunneling infra is smart enough to use large frames between two
-hypervisors,
- it should do so. DF bit and pmtu logic applies within virtual
-network, so sending icmp_frag_needed back into VM is exposing physical
-infrastructure to virtual network.
-True virtual distributed bridge with VMs should allow setting 8k mtu
-inside VM and on the bridge and still function with 1500 mtu in the
-underlying physical network.
+The fields were moved into generic socket, and generic socket is copied.
+
+Are you seeing a real bug ?
+
+Please elaborate, thanks !
