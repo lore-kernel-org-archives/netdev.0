@@ -1,66 +1,42 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net] virtio-net: fix page refcnt leaking when fail to allocate
-	frag skb
-Date: Tue, 19 Nov 2013 16:05:07 +0800
-Message-ID: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCH net] xfrm: Release dst if this dst is improper for vti tunnel
+Date: Tue, 19 Nov 2013 16:53:28 +0800
+Message-ID: <1384851208-30353-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, Eric Dumazet <edumazet@google.com>
-To: rusty@rustcorp.com.au, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>, <saurabh.mohan@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:63206 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751186Ab3KSIxi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 03:53:38 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We need to drop the refcnt of page when we fail to allocate an skb for frag
-list, otherwise it will be leaked. The bug was introduced by commit
-2613af0ed18a11d5c566a81f9a6510b73180660a ("virtio_net: migrate mergeable rx
-buffers to page frag allocators").
+After searching rt by the vti tunnel dst/src parameter,
+if this rt has neither attached to any transformation
+nor the transformation is not tunnel oriented, this rt
+should be released back to ip layer.
 
-Cc: Michael Dalton <mwdalton@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
+otherwise causing dst memory leakage.
+
+Signed-off-by: Fan Du <fan.du@windriver.com>
 ---
-The patch was needed for 3.12 stable.
----
- drivers/net/virtio_net.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/ipv4/ip_vti.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 69ad42b..3798517 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -322,9 +322,11 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
- 				 head_skb->dev->name);
- 			len = MERGE_BUFFER_LEN;
- 		}
-+		page = virt_to_head_page(buf);
- 		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
- 			struct sk_buff *nskb = alloc_skb(0, GFP_ATOMIC);
- 			if (unlikely(!nskb)) {
-+				put_page(page);
- 				head_skb->dev->stats.rx_dropped++;
- 				return -ENOMEM;
- 			}
-@@ -341,7 +343,6 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
- 			head_skb->len += len;
- 			head_skb->truesize += MERGE_BUFFER_LEN;
- 		}
--		page = virt_to_head_page(buf);
- 		offset = buf - (char *)page_address(page);
- 		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
- 			put_page(page);
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 5d9c845..52b802a 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -126,6 +126,7 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (!rt->dst.xfrm ||
+ 	    rt->dst.xfrm->props.mode != XFRM_MODE_TUNNEL) {
+ 		dev->stats.tx_carrier_errors++;
++		ip_rt_put(rt);
+ 		goto tx_error_icmp;
+ 	}
+ 	tdev = rt->dst.dev;
 -- 
-1.8.3.2
+1.7.9.5
