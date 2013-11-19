@@ -1,70 +1,56 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net v4 4/4] r8152: fix incorrect type in assignment
-Date: Tue, 19 Nov 2013 11:25:11 +0800
-Message-ID: <1384831511-1625-5-git-send-email-hayeswang@realtek.com>
-References: <1384502279-9959-1-git-send-email-hayeswang@realtek.com>
- <1384831511-1625-1-git-send-email-hayeswang@realtek.com>
+From: wangweidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH 2/2] ipv6: use sk_v6_copy_addrs when memcpy struct ipv6_pinfo
+Date: Tue, 19 Nov 2013 11:32:45 +0800
+Message-ID: <528ADBDD.9040209@huawei.com>
+References: <1384829247-8624-1-git-send-email-wangweidong1@huawei.com> <1384829247-8624-3-git-send-email-wangweidong1@huawei.com> <20131119031408.GQ16541@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1384831511-1625-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: <davem@davemloft.net>, <gerrit@erg.abdn.ac.uk>,
+	<kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+	<vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<dccp@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-sctp@vger.kernel.org>, <dingtianhong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:7796 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751784Ab3KSDdb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Nov 2013 22:33:31 -0500
+In-Reply-To: <20131119031408.GQ16541@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The data from the hardware should be little endian. Correct the
-declaration.
+On 2013/11/19 11:14, Hannes Frederic Sowa wrote:
+> On Tue, Nov 19, 2013 at 10:47:27AM +0800, Wang Weidong wrote:
+>> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+>> index 0740f93..83d011e 100644
+>> --- a/net/ipv6/tcp_ipv6.c
+>> +++ b/net/ipv6/tcp_ipv6.c
+>> @@ -1116,6 +1116,10 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+>>  		newtp = tcp_sk(newsk);
+>>  
+>>  		memcpy(newnp, np, sizeof(struct ipv6_pinfo));
+>> +		/* Don't forget copy the rcv_saddr and daddr when
+>> +		 * copy ipv6_pinfo.
+>> +		 */
+>> +		sk_v6_copy_addrs(newsk, sk);
+>>  
+>>  		ipv6_addr_set_v4mapped(newinet->inet_daddr, &newsk->sk_v6_daddr);
+>>  
+> 
+> Hmm, how did you spot this?
+> 
+> Greetings,
+> 
+>   Hannes
+> 
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+When I did the lksctp-tools(1.0.15)/src/func_tests/test_getname_v6, I got a Segmentation fault.
+So I try to resolve it. I found the sctp_accept will call sctp_v6_create_accept_sk in IPV6,
+the function will memcpy the ipv6_pinfo, and not copy the sk_v6_rcv_saddr. But the getsockname
+will read the sk_v6_rcv_saddr, and the value is not true.
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 0ac2b53..fb35e6e 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -307,22 +307,22 @@ enum rtl8152_flags {
- #define MCU_TYPE_USB			0x0000
- 
- struct rx_desc {
--	u32 opts1;
-+	__le32 opts1;
- #define RX_LEN_MASK			0x7fff
--	u32 opts2;
--	u32 opts3;
--	u32 opts4;
--	u32 opts5;
--	u32 opts6;
-+	__le32 opts2;
-+	__le32 opts3;
-+	__le32 opts4;
-+	__le32 opts5;
-+	__le32 opts6;
- };
- 
- struct tx_desc {
--	u32 opts1;
-+	__le32 opts1;
- #define TX_FS			(1 << 31) /* First segment of a packet */
- #define TX_LS			(1 << 30) /* Final segment of a packet */
- #define TX_LEN_MASK		0x3ffff
- 
--	u32 opts2;
-+	__le32 opts2;
- #define UDP_CS			(1 << 31) /* Calculate UDP/IP checksum */
- #define TCP_CS			(1 << 30) /* Calculate TCP/IP checksum */
- #define IPV4_CS			(1 << 29) /* Calculate IPv4 checksum */
-@@ -877,7 +877,7 @@ static void write_bulk_callback(struct urb *urb)
- static void intr_callback(struct urb *urb)
- {
- 	struct r8152 *tp;
--	__u16 *d;
-+	__le16 *d;
- 	int status = urb->status;
- 	int res;
- 
--- 
-1.8.3.1
+> 
+> .
+> 
