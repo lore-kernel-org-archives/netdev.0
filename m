@@ -1,62 +1,135 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net] neigh: Force garbage collection if an entry is
- deleted administratively
-Date: Tue, 19 Nov 2013 13:41:02 +0100
-Message-ID: <20131119124102.GA31491@secunet.com>
-References: <20131112085714.GU31491@secunet.com>
- <20131114.022356.1095983243221745109.davem@davemloft.net>
- <20131118100843.GY31491@secunet.com>
- <20131118.162115.407611651189468804.davem@davemloft.net>
- <20131119115414.GZ31491@secunet.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7432@saturn3.aculab.com>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: net/usb/ax88179_178a driver broken in linux-3.12
+Date: Tue, 19 Nov 2013 08:44:58 -0500
+Message-ID: <528B6B5A.8000003@pobox.com>
+References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com> <52891341.4020403@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com> <528A9A36.50903@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
+Content-Type: multipart/mixed;
+ boundary="------------030303050805070405050404"
+To: David Laight <David.Laight@ACULAB.COM>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ming Lei <ming.lei@canonical.com>, davem@davemloft.net,
 	netdev@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53231 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752004Ab3KSMlH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Nov 2013 07:41:07 -0500
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7432@saturn3.aculab.com>
+Received: from a-pb-sasl-quonix.pobox.com ([208.72.237.25]:45578 "EHLO
+	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752119Ab3KSNpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 08:45:14 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 19, 2013 at 12:08:06PM -0000, David Laight wrote:
-> > > My conclusion is that the management of the state is the problem.
-> > > Specifically, if we invalidate an entry then we should remove it's
-> > > visisbility.  This means the table should operate by unhashing the
-> > > entry unconditionally during such operations.
-> > >
-> > > If some stray references exist, that's fine, the entity holding the
-> > > reference will perform the final neigh cleanup at release time.
-> > >
-> > > Does this make sense to you?
-> > 
-> > Yes, makes sense :-)
-> 
-> Isn't it enough to act as if the entry were not in the hash tables.
-> So an attempt to add such an entry wouldn't fail.
+This is a multi-part message in MIME format.
+--------------030303050805070405050404
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 
-Hm, how you want to do that?
+On 13-11-19 05:04 AM, David Laight wrote:
+>
+> Which changes did you revert?
 
-> 
-> I've not looked at these code paths, but it can easily be that when
-> the entry is invalidated the hash table isn't (and can't easily be)
-> locked - just having the entry locked may make it difficult.
-> 
+Just the bits that changed how the headroom/tailroom sizes
+were checked and adjusted.  See attachment for the revert patch
+I am using here.  My mailer unfortunately likes to mangle inline patches.
 
-We have the table locked in neigh_periodic_work() so we can unlink
-invalidated entries there. This function could then periodically
-check and remove the unlinked entries if they lost their references.
-Unlinking with neigh_periodic_work() would have some seconds delay
-of course, but I think this is acceptable.
+=========snip===========
+Revert USB 3.0 network driver changes that break the adapter (lockups)
+in 3.12.  This just puts back the original code from previous kernels.
 
-> Whereas the code path to add an entry can easily delete old entries.
-> 
+Signed-off-by: Mark Lord <mlord@pobox.com>
 
-Well, it can not if the old entry is still referenced. That's why
-we need to look periodically for stale entries and remove them
-when they lost their references.
+--- linux/drivers/net/usb/ax88179_178a.c.orig   2013-11-03 18:41:51.000000000 -0500
++++ linux/drivers/net/usb/ax88179_178a.c        2013-11-17 13:23:39.525734277 -0500
+@@ -1177,18 +1177,31 @@
+        int frame_size = dev->maxpacket;
+        int mss = skb_shinfo(skb)->gso_size;
+        int headroom;
++       int tailroom;
+
+        tx_hdr1 = skb->len;
+        tx_hdr2 = mss;
+        if (((skb->len + 8) % frame_size) == 0)
+                tx_hdr2 |= 0x80008000;  /* Enable padding */
+
+-       headroom = skb_headroom(skb) - 8;
++       headroom = skb_headroom(skb);
++       tailroom = skb_tailroom(skb);
+
+-       if ((skb_header_cloned(skb) || headroom < 0) &&
+-           pskb_expand_head(skb, headroom < 0 ? 8 : 0, 0, GFP_ATOMIC)) {
++       if (!skb_header_cloned(skb) &&
++           !skb_cloned(skb) &&
++           (headroom + tailroom) >= 8) {
++               if (headroom < 8) {
++                       skb->data = memmove(skb->head + 8, skb->data, skb->len);
++                       skb_set_tail_pointer(skb, skb->len);
++               }
++       } else {
++               struct sk_buff *skb2;
++
++               skb2 = skb_copy_expand(skb, 8, 0, flags);
+                dev_kfree_skb_any(skb);
+-               return NULL;
++               skb = skb2;
++               if (!skb)
++                       return NULL;
+        }
+
+        skb_push(skb, 4);
+-- 
+Mark Lord
+Real-Time Remedies Inc.
+mlord@pobox.com
+
+--------------030303050805070405050404
+Content-Type: text/x-patch;
+ name="51_ax88179_178a_revert_3.12_lockups.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="51_ax88179_178a_revert_3.12_lockups.patch"
+
+Revert USB 3.0 network driver changes that break the adapter (lockups)
+in 3.12.  This just puts back the original code from previous kernels.
+
+Signed-off-by: Mark Lord <mlord@pobox.com>
+
+--- linux/drivers/net/usb/ax88179_178a.c.orig	2013-11-03 18:41:51.000000000 -0500
++++ linux/drivers/net/usb/ax88179_178a.c	2013-11-17 13:23:39.525734277 -0500
+@@ -1177,18 +1177,31 @@
+ 	int frame_size = dev->maxpacket;
+ 	int mss = skb_shinfo(skb)->gso_size;
+ 	int headroom;
++	int tailroom;
+ 
+ 	tx_hdr1 = skb->len;
+ 	tx_hdr2 = mss;
+ 	if (((skb->len + 8) % frame_size) == 0)
+ 		tx_hdr2 |= 0x80008000;	/* Enable padding */
+ 
+-	headroom = skb_headroom(skb) - 8;
++	headroom = skb_headroom(skb);
++	tailroom = skb_tailroom(skb);
+ 
+-	if ((skb_header_cloned(skb) || headroom < 0) &&
+-	    pskb_expand_head(skb, headroom < 0 ? 8 : 0, 0, GFP_ATOMIC)) {
++	if (!skb_header_cloned(skb) &&
++	    !skb_cloned(skb) &&
++	    (headroom + tailroom) >= 8) {
++		if (headroom < 8) {
++			skb->data = memmove(skb->head + 8, skb->data, skb->len);
++			skb_set_tail_pointer(skb, skb->len);
++		}
++	} else {
++		struct sk_buff *skb2;
++
++		skb2 = skb_copy_expand(skb, 8, 0, flags);
+ 		dev_kfree_skb_any(skb);
+-		return NULL;
++		skb = skb2;
++		if (!skb)
++			return NULL;
+ 	}
+ 
+ 	skb_push(skb, 4);
+
+--------------030303050805070405050404--
