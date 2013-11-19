@@ -1,84 +1,169 @@
-From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
-Subject: Re: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
- burst.
-Date: Tue, 19 Nov 2013 14:58:22 -0800
-Message-ID: <20131119225822.GA9611@xanatos>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B740B@saturn3.aculab.com>
- <Pine.LNX.4.44L0.1311131113090.1424-100000@iolanthe.rowland.org>
- <AE90C24D6B3A694183C094C60CF0A2F6026B741A@saturn3.aculab.com>
- <1384565904.29151.66.camel@bwh-desktop.uk.level5networks.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7428@saturn3.aculab.com>
- <1384787003.10077.34.camel@deadeye.wl.decadent.org.uk>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7430@saturn3.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Alan Stern <stern@rowland.harvard.edu>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] packet: fix use after free race in send path when dev is released
+Date: Wed, 20 Nov 2013 00:08:23 +0100
+Message-ID: <1384902503-1588-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org,
+	Salam Noureddine <noureddine@aristanetworks.com>,
+	Ben Greear <greearb@candelatech.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:38913 "EHLO mga09.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49991 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753291Ab3KSW6X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Nov 2013 17:58:23 -0500
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7430@saturn3.aculab.com>
+	id S1752058Ab3KSXI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Nov 2013 18:08:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 18, 2013 at 03:41:00PM -0000, David Laight wrote:
-> 
-> 
-> > -----Original Message-----
-> > From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> > Sent: 18 November 2013 15:03
-> > To: David Laight
-> > Cc: Alan Stern; Sarah Sharp; netdev@vger.kernel.org; linux-usb@vger.kernel.org
-> > Subject: Re: [PATCH] usb: xhci: Link TRB must not occur with a USB payload burst.
-> > 
-> > On Mon, 2013-11-18 at 09:48 +0000, David Laight wrote:
-> > > > > But the minimum fragment size is (probably) 4k.
-> > > > > For the network stack an OUT transfer might have a lot (and I mean lots)
-> > > > > of fragments (there may be constraints, and linearising the skb is a option).
-> > > > [...]
-> > > >
-> > > > The maximum number of fragments in the skb is going to be 17 (including
-> > > > the 'head' area).  (I'm ignoring NETIF_F_FRAGLIST which is not normally
-> > > > supported by physical device drivers.)
-> > > >
-> > > > I don't know how many fragments that can end up as, at the USB level.
-> > >
-> > > If you assume that every fragment crosses a 64k boundary that would be 34.
-> > > OTOH I've not seen a fragment of a 64k TSO send crossing a 32k
-> > > boundary, and I think the 'head' area is constrained to be part of
-> > > a single (4k or larger) page.
-> > 
-> > I don't know that it's possible at the moment, but I wouldn't recommend
-> > relying on that.
-> 
-> The xhci (USB3) hardware supports SG, but a non-obvious alignment restriction
-> applies at the end of a ring segment. In effect this means that the number of
-> fragments mustn't exceed the size of the ring segment.
-> It would make the xchi driver simpler if excessively fragmented requests
-> could just be bounced.
-> Since ring entries are 16 bytes there isn't much reason to not use a 4k
-> 'page' for a ring and have (almost) 256 ring slots.
-> (The code currently uses multiple ring segments with 63 usable slots.)
-> 
-> Looks like skb are constrained enough that a sensible limit can be applied.
-> 
-> The other likely generator of fragmented requests is the mass storage code.
-> Most likely for dd(1) with a large block size.
+Salam reported a use after free bug in PF_PACKET that occurs when
+we're sending out frames on a socket bound device and suddenly the
+netdevice is being unregistered. It appears that commit 827d9780
+introduced a possible race condition between {t,}packet_snd and
+packet_notifier. In the case of a bound socket, packet_notifier can
+drop the last reference to the net_device and {t,}packet_snd might
+end up sending a packet over a freed net_device.
 
-The xHCI driver can limit the number of sg-list entries through
-hcd->self.sg_tablesize.  It's currently set to ~0, which is "however
-many entries you want.  You could set that to the number of TRBs in a
-segment (minus one for the link TRB).
+To avoid reverting 827d9780 entirely, we could make use of po->running
+member that gets reset when we're calling __unregister_prot_hook() in
+packet_notifier() when we receive NETDEV_DOWN or NETDEV_UNREGISTER
+notification. Plus, we still need to hold ref to the netdev, so
+that we can assure it won't be released while we're in send path.
+We try to avoid holding the bind lock all over send code as this
+would likely make it worse when multiple threads want to send on
+the same socket (in mmap code we're holding the pg_vec_lock mutex
+all over the send code; we should try to get rid of that at some
+point in time!). This at least buys us the possibility that we don't
+have to walk over the entire dev list in dev_get_by_index() that we
+would need to do as before 827d9780, which can just hurt as well
+with many devices registered.
 
-The usb-storage and uas drivers currently use sg_tablesize.  Could the
-network stack be taught to use sg_tablesize as well?
+Fixes: 827d978037d7 ("af-packet: Use existing netdev reference for bound sockets.")
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
+Tested-by: Salam Noureddine <noureddine@aristanetworks.com>
+Cc: Ben Greear <greearb@candelatech.com>
+---
+ net/packet/af_packet.c | 33 ++++++++++++++++++++-------------
+ 1 file changed, 20 insertions(+), 13 deletions(-)
 
-(Also, usb-storage aligns the block sizes to 512K, which explains why
-we've never had an issue with TD fragments with that driver.)
-
-Sarah Sharp
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 2e8286b..385b2cc 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1045,6 +1045,19 @@ static void *__prb_previous_block(struct packet_sock *po,
+ 	return prb_lookup_block(po, rb, previous, status);
+ }
+ 
++static struct net_device *dev_get_packet_sock(struct packet_sock *po)
++{
++	struct net_device *dev;
++
++	spin_lock(&po->bind_lock);
++	dev = po->prot_hook.dev;
++	if (dev)
++		dev_hold(dev);
++	spin_unlock(&po->bind_lock);
++
++	return dev;
++}
++
+ static void *packet_previous_rx_frame(struct packet_sock *po,
+ 					     struct packet_ring_buffer *rb,
+ 					     int status)
+@@ -2057,7 +2070,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 	struct sk_buff *skb;
+ 	struct net_device *dev;
+ 	__be16 proto;
+-	bool need_rls_dev = false;
+ 	int err, reserve = 0;
+ 	void *ph;
+ 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
+@@ -2070,7 +2082,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 	mutex_lock(&po->pg_vec_lock);
+ 
+ 	if (saddr == NULL) {
+-		dev = po->prot_hook.dev;
++		dev	= dev_get_packet_sock(po);
+ 		proto	= po->num;
+ 		addr	= NULL;
+ 	} else {
+@@ -2084,7 +2096,6 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 		proto	= saddr->sll_protocol;
+ 		addr	= saddr->sll_addr;
+ 		dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
+-		need_rls_dev = true;
+ 	}
+ 
+ 	err = -ENXIO;
+@@ -2094,7 +2105,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 	reserve = dev->hard_header_len;
+ 
+ 	err = -ENETDOWN;
+-	if (unlikely(!(dev->flags & IFF_UP)))
++	if (unlikely(!(dev->flags & IFF_UP) || !po->running))
+ 		goto out_put;
+ 
+ 	size_max = po->tx_ring.frame_size
+@@ -2173,8 +2184,7 @@ out_status:
+ 	__packet_set_status(po, ph, status);
+ 	kfree_skb(skb);
+ out_put:
+-	if (need_rls_dev)
+-		dev_put(dev);
++	dev_put(dev);
+ out:
+ 	mutex_unlock(&po->pg_vec_lock);
+ 	return err;
+@@ -2212,7 +2222,6 @@ static int packet_snd(struct socket *sock,
+ 	struct sk_buff *skb;
+ 	struct net_device *dev;
+ 	__be16 proto;
+-	bool need_rls_dev = false;
+ 	unsigned char *addr;
+ 	int err, reserve = 0;
+ 	struct virtio_net_hdr vnet_hdr = { 0 };
+@@ -2228,7 +2237,7 @@ static int packet_snd(struct socket *sock,
+ 	 */
+ 
+ 	if (saddr == NULL) {
+-		dev = po->prot_hook.dev;
++		dev	= dev_get_packet_sock(po);
+ 		proto	= po->num;
+ 		addr	= NULL;
+ 	} else {
+@@ -2240,7 +2249,6 @@ static int packet_snd(struct socket *sock,
+ 		proto	= saddr->sll_protocol;
+ 		addr	= saddr->sll_addr;
+ 		dev = dev_get_by_index(sock_net(sk), saddr->sll_ifindex);
+-		need_rls_dev = true;
+ 	}
+ 
+ 	err = -ENXIO;
+@@ -2250,7 +2258,7 @@ static int packet_snd(struct socket *sock,
+ 		reserve = dev->hard_header_len;
+ 
+ 	err = -ENETDOWN;
+-	if (!(dev->flags & IFF_UP))
++	if (unlikely(!(dev->flags & IFF_UP) || !po->running))
+ 		goto out_unlock;
+ 
+ 	if (po->has_vnet_hdr) {
+@@ -2386,15 +2394,14 @@ static int packet_snd(struct socket *sock,
+ 	if (err > 0 && (err = net_xmit_errno(err)) != 0)
+ 		goto out_unlock;
+ 
+-	if (need_rls_dev)
+-		dev_put(dev);
++	dev_put(dev);
+ 
+ 	return len;
+ 
+ out_free:
+ 	kfree_skb(skb);
+ out_unlock:
+-	if (dev && need_rls_dev)
++	if (dev)
+ 		dev_put(dev);
+ out:
+ 	return err;
+-- 
+1.8.3.1
