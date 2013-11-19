@@ -1,308 +1,130 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: Re: [PATCH net v2 1/2] net: sched: tbf: fix calculation of max_size
-Date: Tue, 19 Nov 2013 14:04:25 +0800
-Message-ID: <528AFF69.5020603@huawei.com>
-References: <1384763964-5000-1-git-send-email-yangyingliang@huawei.com>	<1384763964-5000-2-git-send-email-yangyingliang@huawei.com> <20131118133246.02651392@redhat.com>
+From: Simon Schneider <simon-schneider@gmx.net>
+Subject: Re: MLD maturity in kernel version 2.6.32.60
+Date: Tue, 19 Nov 2013 07:11:17 +0100
+Message-ID: <528B0105.1080101@gmx.net>
+References: <trinity-825e48d2-0bab-4020-84f0-77800e55f25a-1384777048114@3capp-gmx-bs16> <20131118221850.GO16541@order.stressinduktion.org> <528AACF4.1090302@redhat.com>
+Reply-To: simon-schneider@gmx.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:39657 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707Ab3KSGFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 01:05:31 -0500
-In-Reply-To: <20131118133246.02651392@redhat.com>
+Received: from mout.gmx.net ([212.227.17.21]:51394 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750727Ab3KSGK1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Nov 2013 01:10:27 -0500
+Received: from [127.0.0.1] ([77.181.36.66]) by mail.gmx.com (mrgmx003) with
+ ESMTPSA (Nemesis) id 0LoVOE-1VBGln3Cpe-00gZVh for <netdev@vger.kernel.org>;
+ Tue, 19 Nov 2013 07:10:25 +0100
+In-Reply-To: <528AACF4.1090302@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/11/18 20:32, Jesper Dangaard Brouer wrote:
-> On Mon, 18 Nov 2013 16:39:23 +0800
-> Yang Yingliang <yangyingliang@huawei.com> wrote:
-> 
->> commit b757c9336d63f94c6b57532(tbf: improved accuracy at high rates)
->> introduce a regression.
+First of all, many thanks for your quick replies.
+
+Unfortunately, we're only part of a big project, so decision about the 
+kernel version is not really in our hands.
+
+I.e. we're pretty much fixed on 2.6.32.60.
+
+I had a look at the information about Daniel's patches and I also 
+searched CHANGE LOGs for MLD related stuff.
+
+But I didn't find patches/fixes that seem to address the very basic 
+issues we have seen.
+
+Would you say that even in 2.6.32.60:
+- with force_mld_version=0, MLDv2 with fallback to MLDv1 should 
+basically work (apart from "details" like wrong timer calculation)
+- with force_mld_version=1, we should never see MLDv2 messages being 
+generated?
+
+best regards, Simon
+
+
+Am 19.11.2013 01:12, schrieb Daniel Borkmann:
+> On 11/18/2013 11:18 PM, Hannes Frederic Sowa wrote:
+>> On Mon, Nov 18, 2013 at 01:17:28PM +0100, Simon Schneider wrote:
+>>> in a development project, we started evaluating MLD functionality.
+>>>
+>>> Our development is based on kernel version 2.6.32.60.
+>>>
+>>> We noticed some pretty basic issues:
+>>>
+>>> - With force_mld_version set to 0 (we expect "MLDv2 with MLDv1 
+>>> fallback"), we saw only MLDv2 messages, the fallback to MLDv1 didn't 
+>>> seem to work, when we sent MLDv1 messages to the unit.
+>>> - With force_mld_version set to 1 (we expect "MLDv1 only mode"), we 
+>>> also saw MLDv2 messages being generated.
+>>>
+>>> Can someone give a general statement about the MLD implementation 
+>>> maturity in kernel 2.6.32.60? Are there known bugs that would 
+>>> explain the above observations?
+>>>
+>>> We need to see whether it makes sense to put further effort in 
+>>> investigating/fixing any MLD related issue we see.
+>>>
+>>> If this is the wrong list to ask this kind of question, please point 
+>>> me to the correct one.
 >>
->> With the follow command:
->> tc qdisc add dev eth1 root handle 1: tbf latency 50ms burst 10KB rate 30gbit mtu 64k
+>> It would be great if you could share test results with newer kernel 
+>> with us.
+>
+> Indeed, please do so, thus in case something is still missing so that 
+> we can fix it.
+>
+>> Last time I checked we did correctly fallback to MDLv1 mode but it 
+>> has been a
+>> while.
+>
+> Yes, the fallback timeout should work now.
+>
+>> If you come up with a specific patch from Daniel's series which fixes 
+>> the
+>> issues you are seeing, we can think about including this to stable.
 >>
->> Without this patch, the max_size value is 10751(bytes).
->> But, in fact, the real max_size value should be smaller than 7440(bytes).
->> Or a packet whose length is bigger than 7440 will cause network congestion.
->> Because the packet is so big that can't get enough tokens. Even all the tokens
->> in the buffer is given to the packet.
->>
->> With this patch, the max_size value is 7440(bytes).
->> The packets whose length is bigger than 7440(bytes) will be dropped or reshape
->> in tbf_enqueue().
-> 
-> 
-> I acknowledge that TBF seems to have some dependencies to the
-> userspace constructed rate table (which we do NOT use anymore in the
-> kernel).  And that these should be fixed.
-> 
-> But I'm not sure that your patch is the best solution... and the patch
-> also contains some issues, see inlined comments.
-> 
-> The main annoying problem is *again* how the rate table system got
-> removed, in the kernel, but nobody fixed userspace.
-> 
-> 
-> So, the main problem is that qopt->buffer (send from userspace/tc) is
-> in a "time-format" (user input "burst" in bytes).  Which used-to, make
-> sense because the rate table used the same "time-format".
-> 
-> Now you are reversing this calculation of "q->buffer" (token burst)
-> back into bytes, so we can choose "max_size" (to avoid a problem in
-> tbf_dequeue()).
-> 
-> I don't like this converting back-and-forth, I'm worried about
-> rounding errors.
-> 
-> The easiest "hack" solution would be:
-> 
->  for (n = 0; n < 65535; n++)
->      if (psched_l2t_ns(&qopt->rate, n) > q->buffer)
->          break;
->  max_size = n;
-> 
-> Unfortunately we have to keep backward compat with iproute2/tc, but
-> IMHO it would be a lot easier, if we could fix userspace, and remove
-> all the length-to-time calculations, as they should now be the
-> responsibility of the kernel.  Well, wishful thinking...
-> 
-> 
-> 
->> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
->> ---
->>  include/net/sch_generic.h | 46 ++++++++++++++++++++++++++++++++
->>  net/sched/sch_tbf.c       | 67 ++++++++++++++++++++++++++---------------------
->>  2 files changed, 83 insertions(+), 30 deletions(-)
->>
->> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
->> index d0a6321..8da64f3 100644
->> --- a/include/net/sch_generic.h
->> +++ b/include/net/sch_generic.h
->> @@ -701,6 +701,52 @@ static inline u64 psched_l2t_ns(const struct psched_ratecfg *r,
->>  	return ((u64)len * r->mult) >> r->shift;
->>  }
->>  
->> +/* Time to Length, convert time in ns to length in bytes
->> + * to determinate how many bytes can be sent in given time.
->> + */
->> +static inline u64 psched_ns_t2l(const struct psched_ratecfg *r,
->> +				u64 time_in_ns)
->> +{
->> +	u64 len = time_in_ns;
->> +	u8 shift = r->shift;
->> +	bool is_div = false;
->> +
->> +	/* The formula is :
->> +	 * len = (time_in_ns << shift) / mult
->> +	 * when time_in_ns does shift, it would overflow.
->> +	 * If overflow happens first time, do division.
->> +	 * Then do shift. If it happens again,
->> +	 * set lenth to ~0ULL.
->> +	 */
->> +	while (shift) {
->> +		if (len & (1ULL << 63)) {
->> +			if (!is_div) {
->> +				len = div64_u64(len, r->mult);
->> +				is_div = true;
->> +			} else {
->> +				/* overflow happens */
->> +				len = ~0ULL;
->> +				is_div = true;
->> +				break;
->> +			}
->> +		}
->> +		len <<= 1;
->> +		shift--;
->> +	}
->> +	if (!is_div)
->> +		len = div64_u64(len, r->mult);
->> +
->> +	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
->> +		len = (len / 53) * 48;
->> +
->> +	if (len > r->overhead)
->> +		len -= r->overhead;
->> +	else
->> +		len = 0;
->> +
->> +	return len;
->> +}
->> +
-> 
-> Are we 100% sure, that the conversion is accurate between
-> psched_l2t_ns() and psched_ns_t2l for all possible rates.
-> 
-> E.g. why is it that r->shift have to be recalculate (orig created in
-> psched_ratecfg_precompute()).
-
-It don't recalculate r->shift, it just do shift bit by bit in case that
-len overflows. If len overflows, set it to ~0ULL.
-I would like to use the way you suggest to calculate the max_size.
-So forget about this function.:)
-
-> 
-> 
->>  void psched_ratecfg_precompute(struct psched_ratecfg *r,
->>  			       const struct tc_ratespec *conf,
->>  			       u64 rate64);
->> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
->> index 68f9859..eb9ce7b 100644
->> --- a/net/sched/sch_tbf.c
->> +++ b/net/sched/sch_tbf.c
->> @@ -279,7 +279,7 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
->>  	struct qdisc_rate_table *rtab = NULL;
->>  	struct qdisc_rate_table *ptab = NULL;
->>  	struct Qdisc *child = NULL;
->> -	int max_size, n;
->> +	u32 max_size = 0;
->>  	u64 rate64 = 0, prate64 = 0;
->>  
->>  	err = nla_parse_nested(tb, TCA_TBF_MAX, opt, tbf_policy);
->> @@ -291,33 +291,20 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
->>  		goto done;
->>  
->>  	qopt = nla_data(tb[TCA_TBF_PARMS]);
->> -	rtab = qdisc_get_rtab(&qopt->rate, tb[TCA_TBF_RTAB]);
->> -	if (rtab == NULL)
->> -		goto done;
->> -
->> -	if (qopt->peakrate.rate) {
->> -		if (qopt->peakrate.rate > qopt->rate.rate)
->> -			ptab = qdisc_get_rtab(&qopt->peakrate, tb[TCA_TBF_PTAB]);
->> -		if (ptab == NULL)
->> -			goto done;
->> +	if (qopt->rate.linklayer == TC_LINKLAYER_UNAWARE) {
->> +		rtab = qdisc_get_rtab(&qopt->rate, tb[TCA_TBF_RTAB]);
->> +		if (rtab) {
->> +			qdisc_put_rtab(rtab);
->> +			rtab = NULL;
->> +		}
-> 
-> This is correct code construct, for backward compatible reading of the
-> rate table.
-> 
-> But, notice how your free this at once, which means you also should
-> cleanup the exit/done: section.
-
-Agreed, I will change it in v3.
-Thanks!
-
-> 
-> 
-> 
->>  	}
->> -
->> -	for (n = 0; n < 256; n++)
->> -		if (rtab->data[n] > qopt->buffer)
->> -			break;
->> -	max_size = (n << qopt->rate.cell_log) - 1;
-> 
-> This is here we could do the quick-and-dirty solution:
-> 
->  for (n = 0; n < 65535; n++)
->      if (psched_l2t_ns(&qopt->rate, n) > q->buffer)
->          break;
->  max_size = n;
-> 
-> 
-> 
->> -	if (ptab) {
->> -		int size;
->> -
->> -		for (n = 0; n < 256; n++)
->> -			if (ptab->data[n] > qopt->mtu)
->> -				break;
->> -		size = (n << qopt->peakrate.cell_log) - 1;
->> -		if (size < max_size)
->> -			max_size = size;
->> +	if (qopt->peakrate.linklayer == TC_LINKLAYER_UNAWARE) {
->> +		ptab = qdisc_get_rtab(&qopt->peakrate, tb[TCA_TBF_PTAB]);
->> +		if (ptab) {
->> +			qdisc_put_rtab(ptab);
->> +			ptab = NULL;
->> +		}
->>  	}
->> -	if (max_size < 0)
->> -		goto done;
->>  
->>  	if (q->qdisc != &noop_qdisc) {
->>  		err = fifo_set_limit(q->qdisc, qopt->limit);
->> @@ -339,25 +326,45 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
->>  	}
->>  	q->limit = qopt->limit;
->>  	q->mtu = PSCHED_TICKS2NS(qopt->mtu);
->> -	q->max_size = max_size;
->>  	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
->>  	q->tokens = q->buffer;
->>  	q->ptokens = q->mtu;
->>  
->>  	if (tb[TCA_TBF_RATE64])
->>  		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
->> -	psched_ratecfg_precompute(&q->rate, &rtab->rate, rate64);
->> -	if (ptab) {
->> +	psched_ratecfg_precompute(&q->rate, &qopt->rate, rate64);
->> +	if (!q->rate.rate_bytes_ps)
->> +		goto unlock_done;
->> +	max_size = min_t(u64, psched_ns_t2l(&q->rate, q->buffer), ~0);
->> +	max_size = min_t(u32, max_size, (256 << qopt->rate.cell_log) - 1);
-> 
-> The rate system and the rate.cell_log is not really used anymore, so
-> its a bit strange to use it.  Perhaps it's even a bug to base a
-> calculation on this.
-
-cell_log is calculated from mtu(user input in bytes) in userspace.
-In the old calculation, max_size should be smaller than (256 << cell_log)
-which means it's smaller than mtu.
-
-> 
->> +
->> +	if (qopt->peakrate.rate) {
->> +		u64 size = 0;
->>  		if (tb[TCA_TBF_PRATE64])
->>  			prate64 = nla_get_u64(tb[TCA_TBF_PRATE64]);
->> -		psched_ratecfg_precompute(&q->peak, &ptab->rate, prate64);
->> +		psched_ratecfg_precompute(&q->peak, &qopt->peakrate, prate64);
->> +		size = psched_ns_t2l(&q->peak, q->mtu);
->> +		max_size = min_t(u64, max_size, size);
->> +		max_size = min_t(u32,
->> +				 max_size,
->> +				 (256 << qopt->peakrate.cell_log) - 1);
->>  		q->peak_present = true;
->>  	} else {
->>  		q->peak_present = false;
->>  	}
->>  
->> +	if (!max_size)
->> +		goto unlock_done;
->> +	q->max_size = max_size;
->> +
->>  	sch_tree_unlock(sch);
->>  	err = 0;
->> +
->> +	if (0) {
-> 
-> I really dislike this construct.  I'm afraid what a dumb compile would
-> optimized this to.
-
-OK, change it in v3.
-Thanks!
-
-> 
->> +unlock_done:
->> +		sch_tree_unlock(sch);
->> +		err = -EINVAL;
->> +	}
->>  done:
->>  	if (rtab)
->>  		qdisc_put_rtab(rtab);
-> 
-> This could be cleaned up, as we already have released the rtab's.
-> 
-> 
+>> There are still some issues in mld: we are currently a bit too noisy 
+>> for my
+>> taste (e.g. on re-enabling interfaces). This is a big problem for large
+>> wireless networks e.g.
+>
+> There's also still one issue which I am hesitant to implement, as i) I 
+> don't
+> think it's overly useful, ii) nobody complained so far. :-)
+>
+> In RFC2710 (MLD v1 spec), it says:
+>
+> 3.7. Other fields
+>
+>    The length of a received MLD message is computed by taking the IPv6
+>    Payload Length value and subtracting the length of any IPv6 extension
+>    headers present between the IPv6 header and the MLD message. If that
+>    length is greater than 24 octets, that indicates that there are other
+>    fields present beyond the fields described above, perhaps belonging
+>    to a future backwards-compatible version of MLD.  An implementation
+>    of the version of MLD specified in this document MUST NOT send an MLD
+>    message longer than 24 octets and MUST ignore anything past the first
+>    24 octets of a received MLD message.  In all cases, the MLD checksum
+>    MUST be computed over the entire MLD message, not just the first 24
+>    octets.
+>
+> Then, RFC3810 which "updates" RFC2710 obviously has a bigger message 
+> length
+> than that. In igmp6_event_query(), we only check for len == 
+> MLD_V1_QUERY_LEN
+> and process MLD v1. Now, in case of MLD v1-only fallback, we MUST only
+> operate in v1 mode.
+>
+> Now, in case a v2 message comes in we could assume above statement "if
+> that length is greater than 24 octets, that indicates that there are 
+> other
+> fields present beyond the fields described above, perhaps belonging to a
+> future backwards-compatible version of MLD".
+>
+> But then on the other hand, we get completely wrong "Maximum Response 
+> Delay"
+> codes in the packet header as they are differently encoded in MLD v1 
+> and MLD
+> v2 thus not really backwards compatible.
