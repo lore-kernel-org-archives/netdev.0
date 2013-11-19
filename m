@@ -1,100 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
-Date: Tue, 19 Nov 2013 05:53:14 -0800
-Message-ID: <1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <8761s0cqhh.fsf@natisbad.org>
-	 <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
-	 <87y54u59zq.fsf@natisbad.org> <20131112083633.GB10318@1wt.eu>
-	 <87a9hagex1.fsf@natisbad.org> <20131112100126.GB23981@1wt.eu>
-	 <87vbzxd473.fsf@natisbad.org> <20131113072257.GB10591@1wt.eu>
-	 <20131117141940.GA18569@1wt.eu>
-	 <1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <87li0kkhzx.fsf@natisbad.org>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: net/usb/ax88179_178a driver broken in linux-3.12
+Date: Tue, 19 Nov 2013 13:56:43 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7433@saturn3.aculab.com>
+References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com> <52891341.4020403@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com> <528A9A36.50903@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com> <528B6B5A.8000003@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	netdev@vger.kernel.org, edumazet@google.com,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	simon.guinot@sequanux.org
-To: Arnaud Ebalard <arno@natisbad.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "Mark Lord" <mlord@pobox.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Ming Lei" <ming.lei@canonical.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:65470 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751715Ab3KSNxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 08:53:09 -0500
-Received: by mail-pa0-f51.google.com with SMTP id fb1so8346858pad.38
-        for <netdev@vger.kernel.org>; Tue, 19 Nov 2013 05:53:09 -0800 (PST)
-In-Reply-To: <87li0kkhzx.fsf@natisbad.org>
+Received: from mx0.aculab.com ([213.249.233.131]:46235 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752447Ab3KSN6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Nov 2013 08:58:24 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 04345-07 for <netdev@vger.kernel.org>;
+ Tue, 19 Nov 2013 13:58:20 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <528B6B5A.8000003@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-11-19 at 07:44 +0100, Arnaud Ebalard wrote:
-
-> I did some test regarding mvneta perf on current linus tree (commit
-> 2d3c627502f2a9b0, w/ c9eeec26e32e "tcp: TSQ can use a dynamic limit"
-> reverted). It has Simon's tclk patch for mvebu (1022c75f5abd, "clk:
-> armada-370: fix tclk frequencies"). Kernel has some debug options
-> enabled and the patch above is not applied. I will spend some time on
-> this two directions this evening. The idea was to get some numbers on
-> the impact of TCP send window size and tcp_limit_output_bytes for
-> mvneta.
-
-Note the last patch I sent was not relevant to your problem, do not
-bother trying it. Its useful for applications doing lot of consecutive
-short writes, like interactive ssh launching line buffered commands.
-
->  
-> 
-> The test is done with a laptop (Debian, 3.11.0, e1000e) directly
-> connected to a RN102 (Marvell Armada 370 @1.2GHz, mvneta). The RN102
-> is running Debian armhf with an Apache2 serving a 1GB file from ext4
-> over lvm over RAID1 from 2 WD30EFRX. The client is nothing fancy, i.e.
-> a simple wget w/ -O /dev/null option.
-> 
-> With the exact same setup on a ReadyNAS Duo v2 (Kirkwood 88f6282
-> @1.6GHz, mv643xx_eth), I managed to get a throughput of 108MB/s
-> (cannot remember the kernel version but sth between 3.8 and 3.10.
-> 
-> So with that setup:
-> 
-> w/ TCP send window set to   4MB: 17.4 MB/s
-> w/ TCP send window set to   2MB: 16.2 MB/s
-> w/ TCP send window set to   1MB: 15.6 MB/s
-> w/ TCP send window set to 512KB: 25.6 MB/s
-> w/ TCP send window set to 256KB: 57.7 MB/s
-> w/ TCP send window set to 128KB: 54.0 MB/s
-> w/ TCP send window set to  64KB: 46.2 MB/s
-> w/ TCP send window set to  32KB: 42.8 MB/s
-
-One of the problem is that tcp_sendmsg() holds the socket lock for the
-whole duration of the system call if it has not to sleep. This model
-doesnt allow for incoming ACKS to be processed (they are put in socket
-backlog and will be processed at socket release time), and TX completion
-to also queue the next chunk.
-
-These strange results you have tend to show that if you have a big TCP
-send window, the web server pushes a lot of bytes per system call and
-might stall the ACK clocking or TX refills.
-
-> 
-> Then, I started playing w/ tcp_limit_output_bytes (default is 131072),
-> w/ TCP send window set to 256KB:
-> 
-> tcp_limit_output_bytes set to 512KB: 59.3 MB/s
-> tcp_limit_output_bytes set to 256KB: 58.5 MB/s
-> tcp_limit_output_bytes set to 128KB: 56.2 MB/s
-> tcp_limit_output_bytes set to  64KB: 32.1 MB/s
-> tcp_limit_output_bytes set to  32KB: 4.76 MB/s
-> 
-> As a side note, during the test, I sometimes gets peak for some seconds
-> at the beginning at 90MB/s which tend to confirm what WIlly wrote,
-> i.e. that the hardware can do more.
-
-I would also check the receiver. I suspect packets drops because of a
-bad driver doing skb->truesize overshooting.
-
-nstat >/dev/null ; wget .... ; nstat
+PiBGcm9tOiBNYXJrIExvcmQgW21haWx0bzptbG9yZEBwb2JveC5jb21dDQo+IE9uIDEzLTExLTE5
+IDA1OjA0IEFNLCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+ID4NCj4gPiBXaGljaCBjaGFuZ2VzIGRp
+ZCB5b3UgcmV2ZXJ0Pw0KPiANCj4gSnVzdCB0aGUgYml0cyB0aGF0IGNoYW5nZWQgaG93IHRoZSBo
+ZWFkcm9vbS90YWlscm9vbSBzaXplcw0KPiB3ZXJlIGNoZWNrZWQgYW5kIGFkanVzdGVkLiAgU2Vl
+IGF0dGFjaG1lbnQgZm9yIHRoZSByZXZlcnQgcGF0Y2gNCj4gSSBhbSB1c2luZyBoZXJlLiAgTXkg
+bWFpbGVyIHVuZm9ydHVuYXRlbHkgbGlrZXMgdG8gbWFuZ2xlIGlubGluZSBwYXRjaGVzLg0KPiAN
+Cj4gPT09PT09PT09c25pcD09PT09PT09PT09DQo+IFJldmVydCBVU0IgMy4wIG5ldHdvcmsgZHJp
+dmVyIGNoYW5nZXMgdGhhdCBicmVhayB0aGUgYWRhcHRlciAobG9ja3VwcykNCj4gaW4gMy4xMi4g
+IFRoaXMganVzdCBwdXRzIGJhY2sgdGhlIG9yaWdpbmFsIGNvZGUgZnJvbSBwcmV2aW91cyBrZXJu
+ZWxzLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogTWFyayBMb3JkIDxtbG9yZEBwb2JveC5jb20+DQo+
+IA0KPiAtLS0gbGludXgvZHJpdmVycy9uZXQvdXNiL2F4ODgxNzlfMTc4YS5jLm9yaWcgICAyMDEz
+LTExLTAzIDE4OjQxOjUxLjAwMDAwMDAwMCAtMDUwMA0KPiArKysgbGludXgvZHJpdmVycy9uZXQv
+dXNiL2F4ODgxNzlfMTc4YS5jICAgICAgICAyMDEzLTExLTE3IDEzOjIzOjM5LjUyNTczNDI3NyAt
+MDUwMA0KPiBAQCAtMTE3NywxOCArMTE3NywzMSBAQA0KPiAgICAgICAgIGludCBmcmFtZV9zaXpl
+ID0gZGV2LT5tYXhwYWNrZXQ7DQo+ICAgICAgICAgaW50IG1zcyA9IHNrYl9zaGluZm8oc2tiKS0+
+Z3NvX3NpemU7DQo+ICAgICAgICAgaW50IGhlYWRyb29tOw0KPiArICAgICAgIGludCB0YWlscm9v
+bTsNCj4gDQo+ICAgICAgICAgdHhfaGRyMSA9IHNrYi0+bGVuOw0KPiAgICAgICAgIHR4X2hkcjIg
+PSBtc3M7DQo+ICAgICAgICAgaWYgKCgoc2tiLT5sZW4gKyA4KSAlIGZyYW1lX3NpemUpID09IDAp
+DQo+ICAgICAgICAgICAgICAgICB0eF9oZHIyIHw9IDB4ODAwMDgwMDA7ICAvKiBFbmFibGUgcGFk
+ZGluZyAqLw0KPiANCj4gLSAgICAgICBoZWFkcm9vbSA9IHNrYl9oZWFkcm9vbShza2IpIC0gODsN
+Cj4gKyAgICAgICBoZWFkcm9vbSA9IHNrYl9oZWFkcm9vbShza2IpOw0KPiArICAgICAgIHRhaWxy
+b29tID0gc2tiX3RhaWxyb29tKHNrYik7DQo+IA0KPiAtICAgICAgIGlmICgoc2tiX2hlYWRlcl9j
+bG9uZWQoc2tiKSB8fCBoZWFkcm9vbSA8IDApICYmDQo+IC0gICAgICAgICAgIHBza2JfZXhwYW5k
+X2hlYWQoc2tiLCBoZWFkcm9vbSA8IDAgPyA4IDogMCwgMCwgR0ZQX0FUT01JQykpIHsNCj4gKyAg
+ICAgICBpZiAoIXNrYl9oZWFkZXJfY2xvbmVkKHNrYikgJiYNCj4gKyAgICAgICAgICAgIXNrYl9j
+bG9uZWQoc2tiKSAmJg0KPiArICAgICAgICAgICAoaGVhZHJvb20gKyB0YWlscm9vbSkgPj0gOCkg
+ew0KPiArICAgICAgICAgICAgICAgaWYgKGhlYWRyb29tIDwgOCkgew0KPiArICAgICAgICAgICAg
+ICAgICAgICAgICBza2ItPmRhdGEgPSBtZW1tb3ZlKHNrYi0+aGVhZCArIDgsIHNrYi0+ZGF0YSwg
+c2tiLT5sZW4pOw0KPiArICAgICAgICAgICAgICAgICAgICAgICBza2Jfc2V0X3RhaWxfcG9pbnRl
+cihza2IsIHNrYi0+bGVuKTsNCj4gKyAgICAgICAgICAgICAgIH0NCj4gKyAgICAgICB9IGVsc2Ug
+ew0KPiArICAgICAgICAgICAgICAgc3RydWN0IHNrX2J1ZmYgKnNrYjI7DQo+ICsNCj4gKyAgICAg
+ICAgICAgICAgIHNrYjIgPSBza2JfY29weV9leHBhbmQoc2tiLCA4LCAwLCBmbGFncyk7DQo+ICAg
+ICAgICAgICAgICAgICBkZXZfa2ZyZWVfc2tiX2FueShza2IpOw0KPiAtICAgICAgICAgICAgICAg
+cmV0dXJuIE5VTEw7DQo+ICsgICAgICAgICAgICAgICBza2IgPSBza2IyOw0KPiArICAgICAgICAg
+ICAgICAgaWYgKCFza2IpDQo+ICsgICAgICAgICAgICAgICAgICAgICAgIHJldHVybiBOVUxMOw0K
+PiAgICAgICAgIH0NCj4gDQo+ICAgICAgICAgc2tiX3B1c2goc2tiLCA0KTsNCg0KQXQgYSBndWVz
+cyBpdCB3aWxsIGJlIGEgZGlmZmVyZW5jZSBiZXR3ZWVuIHBza2JfZXhwYW5kX2hlYWQoKSBhbmQN
+CnNrYl9jb3B5X2V4cGFuZCgpLiBUaGUgbGF0dGVyIHByb2JhYmx5IGdlbmVyYXRlcyBhIGxpbmVh
+ciBza2IuDQpUaGUgZXh0cmEgY2hlY2sgZm9yIHNrYl9jbG9uZWQoKSBwcm9iYWJseSBhbHNvIGFw
+cGxpZXMgLSBhbmQgZm9yY2VzDQphIGRhdGEgY29weS4NCg0KSGF2ZSB5b3UgdHJpZWQgdGhlIHBh
+dGNoIHRvIHhoY2ktcmluZy5jPw0KDQoJRGF2aWQNCg0K
