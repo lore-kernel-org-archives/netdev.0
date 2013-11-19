@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: sctp: fix copying sk_v6_rcv_saddr in
- sctp_v6_create_accept_sk
-Date: Tue, 19 Nov 2013 16:10:49 -0500 (EST)
-Message-ID: <20131119.161049.40606385929854732.davem@davemloft.net>
-References: <1384858284-2246-1-git-send-email-dborkman@redhat.com>
-	<528B85E2.5080403@gmail.com>
+Subject: Re: net/usb/ax88179_178a driver broken in linux-3.12
+Date: Tue, 19 Nov 2013 16:13:13 -0500 (EST)
+Message-ID: <20131119.161313.743887333007019981.davem@davemloft.net>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com>
+	<528A9A36.50903@pobox.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, wangweidong1@huawei.com,
-	eric.dumazet@gmail.com
-To: vyasevich@gmail.com
+Cc: mlord@pobox.com, eric.dumazet@gmail.com, ming.lei@canonical.com,
+	netdev@vger.kernel.org
+To: David.Laight@ACULAB.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58167 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58181 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751788Ab3KSVKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 16:10:51 -0500
-In-Reply-To: <528B85E2.5080403@gmail.com>
+	with ESMTP id S1751788Ab3KSVNP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 16:13:15 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevich@gmail.com>
-Date: Tue, 19 Nov 2013 10:38:10 -0500
+From: "David Laight" <David.Laight@ACULAB.COM>
+Date: Tue, 19 Nov 2013 10:04:11 -0000
 
-> This fixes the issue for the accept() case, but the bug is still there
-> in the peeloff case.
+> There is a patch to xhci-ring.c that should fix the SG problem.
+> http://www.spinics.net/lists/linux-usb/msg97176.html
 > 
-> I think you should make sctp_copy_sock() use sock_copy() for now.  It
-> looks like it will catch all the cases.
-> 
-> We can then look at possibly getting rid of sctp_copy_sock() for net-next.
+> I think it should apply to the 3.12 sources.
 
-Agreed, it looks like a lot of hair exists because sctp tries to use
-custom code to copy sockets.  Getting away from this will fix this
-address problem as well as things like the pacing rate being wrong
-as Eric Dumazet mentioned.
+David, please get this into Linus's tree and queued up for -stable
+as soon as possible, thank you.
