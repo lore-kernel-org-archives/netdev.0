@@ -1,57 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
 Subject: RE: net/usb/ax88179_178a driver broken in linux-3.12
-Date: Tue, 19 Nov 2013 08:10:00 -0800
-Message-ID: <1384877400.8604.107.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com>
-	 <52891341.4020403@pobox.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com>
-	 <528A9A36.50903@pobox.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com>
-	 <528B6F73.7040801@pobox.com>
-	 <1384870550.8604.101.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7434@saturn3.aculab.com>
+Date: Tue, 19 Nov 2013 16:26:57 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7435@saturn3.aculab.com>
+References: <52890C7E.6000607@pobox.com> <52891178.2080509@pobox.com> <52891341.4020403@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742B@saturn3.aculab.com> <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com> <528A9A36.50903@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com> <528B6F73.7040801@pobox.com> <1384870550.8604.101.camel@edumazet-glaptop2.roam.corp.google.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7434@saturn3.aculab.com> <1384877400.8604.107.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Lord <mlord@pobox.com>, Ming Lei <ming.lei@canonical.com>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	stable@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Mark Lord" <mlord@pobox.com>, "Ming Lei" <ming.lei@canonical.com>,
+	<davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Linux Kernel" <linux-kernel@vger.kernel.org>,
+	<stable@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7434@saturn3.aculab.com>
+Content-class: urn:content-classes:message
+In-Reply-To: <1384877400.8604.107.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-11-19 at 14:43 +0000, David Laight wrote:
-
-> It isn't directly a TSO problem.
-> There has always been a bug in the xhci driver for fragmented buffers.
-> TSO just means it is given a lot of fragmented buffers.
-> 
-> As well as user-supplied fragmented buffers, the bug affects
-> internal fragmentation that happens whenever a buffer crosses a 64k
-> byte boundary (please hw engineers - stop doing this!)
-
-TCP stack uses order-3 allocations.
-
-This means 32KB for x86 (PAGE_SIZE=4096)
-
-What is PAGE_SIZE for your arches ?
-
-If there is a 6KB limit, we might adapt TCP to make sure we do not cross
-a 64KB boundary.
-
-Other strategy would be to detect this case in the driver and split a
-problematic segment into two parts.
-
-> 
-> I'm not sure whether usbnet would ever pass buffers that cross 64k
-> boundaries. I've not seen one - even with TSO. But the rx buffers
-> are 20k (doesn't seem ideal!) and could also be problematical.
-> 
-> USB mass storage has used SG for ages, the buffers must all be
-> adequately aligned for the hardware - they won't meet the constraint
-> for USB3 itself, but the documented restriction may be more severe
-> than the actual one.
+PiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBP
+biBUdWUsIDIwMTMtMTEtMTkgYXQgMTQ6NDMgKzAwMDAsIERhdmlkIExhaWdodCB3cm90ZToNCj4g
+DQo+ID4gSXQgaXNuJ3QgZGlyZWN0bHkgYSBUU08gcHJvYmxlbS4NCj4gPiBUaGVyZSBoYXMgYWx3
+YXlzIGJlZW4gYSBidWcgaW4gdGhlIHhoY2kgZHJpdmVyIGZvciBmcmFnbWVudGVkIGJ1ZmZlcnMu
+DQo+ID4gVFNPIGp1c3QgbWVhbnMgaXQgaXMgZ2l2ZW4gYSBsb3Qgb2YgZnJhZ21lbnRlZCBidWZm
+ZXJzLg0KPiA+DQo+ID4gQXMgd2VsbCBhcyB1c2VyLXN1cHBsaWVkIGZyYWdtZW50ZWQgYnVmZmVy
+cywgdGhlIGJ1ZyBhZmZlY3RzDQo+ID4gaW50ZXJuYWwgZnJhZ21lbnRhdGlvbiB0aGF0IGhhcHBl
+bnMgd2hlbmV2ZXIgYSBidWZmZXIgY3Jvc3NlcyBhIDY0aw0KPiA+IGJ5dGUgYm91bmRhcnkgKHBs
+ZWFzZSBodyBlbmdpbmVlcnMgLSBzdG9wIGRvaW5nIHRoaXMhKQ0KPiANCj4gVENQIHN0YWNrIHVz
+ZXMgb3JkZXItMyBhbGxvY2F0aW9ucy4NCj4gDQo+IFRoaXMgbWVhbnMgMzJLQiBmb3IgeDg2IChQ
+QUdFX1NJWkU9NDA5NikNCj4gDQo+IFdoYXQgaXMgUEFHRV9TSVpFIGZvciB5b3VyIGFyY2hlcyA/
+DQo+IA0KPiBJZiB0aGVyZSBpcyBhIDZLQiBsaW1pdCwgd2UgbWlnaHQgYWRhcHQgVENQIHRvIG1h
+a2Ugc3VyZSB3ZSBkbyBub3QgY3Jvc3MNCj4gYSA2NEtCIGJvdW5kYXJ5Lg0KPiANCj4gT3RoZXIg
+c3RyYXRlZ3kgd291bGQgYmUgdG8gZGV0ZWN0IHRoaXMgY2FzZSBpbiB0aGUgZHJpdmVyIGFuZCBz
+cGxpdCBhDQo+IHByb2JsZW1hdGljIHNlZ21lbnQgaW50byB0d28gcGFydHMuDQoNClRoZSB4aGNp
+IGNvZGUgZG9lcyBhbGwgdGhlIGNoZWNrcyBmb3IgYnVmZmVyIGZyYWdtZW50cyBjcm9zc2luZyA2
+NGsgYm91bmRhcmllcy4NCkkndmUgcG9zdGVkIGEgcGF0Y2ggdGhhdCB1c2VzIGEgY29uc2VydmF0
+aXZlIHVwcGVyIGxpbWl0IGZvciB0aGUNCm51bWJlciBvZiBmcmFnbWVudHM6IDIgKiBudW1iZXJf
+b2Zfc2dfYnVmZnMgKyB4ZmVyX2xlbi82NTUzNi4NClRoaXMgc2F2ZXMgc2Nhbm5pbmcgdGhlIHNn
+IGxpc3QgdHdpY2UuDQoNCkZvciB0aG9zZSBub3QgcmVhZGluZyBsaW51eC11c2I6DQoNClRoZSB4
+aGNpICdidWcnIGlzIHRoYXQgYW4gU0cgbGlzdCBtYXkgb25seSBjcm9zcyB0aGUgZW5kIG9mIGEg
+cmluZw0Kc2VnbWVudCBhdCBhbiBhbGlnbmVkIGxlbmd0aC4NCkZvciBVU0IyIGRldmljZXMgdGhp
+cyB3aWxsIGJlIDUxMiBieXRlcy4gRm9yIFVTQjMgdGhlIGRvY3VtZW50ZWQgYWxpZ25tZW50DQpj
+b3VsZCBiZSAxNmsgKGRlcGVuZHMgb24gYSBidXJzdCBzaXplKSwgYnV0IG1pZ2h0IG9ubHkgYmUg
+MWsuDQooVGhpcyBpcyBhbm90aGVyIHBsYWNlIHdoZXJlIHRoZSBodyBlbmdpbmVlcnMgaGF2ZW4n
+dCBtYWRlIGxpZmUgZWFzeS4pDQpUaGUgb25seSBzaW1wbGUgc29sdXRpb24gaXMgdG8gZW5zdXJl
+IHRoYXQgYSBTRyBsaXN0IGRvZXNuJ3QgY3Jvc3MNCnRoZSBlbmQgb2YgYSByaW5nIHNlZ21lbnQu
+DQoNCglEYXZpZA0KDQoNCg==
