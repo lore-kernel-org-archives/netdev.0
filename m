@@ -1,78 +1,97 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
-Date: Tue, 19 Nov 2013 18:43:23 +0100
-Message-ID: <20131119174323.GH913@1wt.eu>
-References: <87y54u59zq.fsf@natisbad.org> <20131112083633.GB10318@1wt.eu>
- <87a9hagex1.fsf@natisbad.org> <20131112100126.GB23981@1wt.eu>
- <87vbzxd473.fsf@natisbad.org> <20131113072257.GB10591@1wt.eu>
- <20131117141940.GA18569@1wt.eu>
- <1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
- <87li0kkhzx.fsf@natisbad.org>
- <1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Florian Fainelli <f.fainelli@gmail.com>, simon.guinot@sequanux.org,
- netdev@vger.kernel.org, Arnaud Ebalard <arno@natisbad.org>,
- edumazet@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
- linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [PATCH] tcp: don't update snd_nxt, when a socket is switched from repair mode
+Date: Tue, 19 Nov 2013 22:10:06 +0400
+Message-ID: <1384884606-9978-1-git-send-email-avagin@openvz.org>
+Cc: linux-kernel@vger.kernel.org, criu@openvz.org,
+	Andrey Vagin <avagin@openvz.org>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+snd_nxt must be updated synchronously with sk_send_head.  Otherwise
+tp->packets_out may be updated incorrectly, what may bring a kernel panic.
 
-On Tue, Nov 19, 2013 at 05:53:14AM -0800, Eric Dumazet wrote:
-> These strange results you have tend to show that if you have a big TCP
-> send window, the web server pushes a lot of bytes per system call and
-> might stall the ACK clocking or TX refills.
+Here is a kernel panic from my host.
+[  103.043194] BUG: unable to handle kernel NULL pointer dereference at 0000000000000048
+[  103.044025] IP: [<ffffffff815aaaaf>] tcp_rearm_rto+0xcf/0x150
+...
+[  146.301158] Call Trace:
+[  146.301158]  [<ffffffff815ab7f0>] tcp_ack+0xcc0/0x12c0
 
-It's tx refills which are not done in this case from what I think I
-understood in the driver. IIRC, the refill is done once at the beginning
-of xmit and in the tx timer callback. So if you have too large a window
-that fills the descriptors during a few tx calls during which no desc was
-released, you could end up having to wait for the timer since you're not
-allowed to send anymore.
+Before this panic a tcp socket was restored. This socket had sent and
+unsent data in the write queue. Sent data was restored in repair mode,
+then the socket was switched from reapair mode and unsent data was
+restored. After that the socket was switched back into repair mode.
 
-> > Then, I started playing w/ tcp_limit_output_bytes (default is 131072),
-> > w/ TCP send window set to 256KB:
-> > 
-> > tcp_limit_output_bytes set to 512KB: 59.3 MB/s
-> > tcp_limit_output_bytes set to 256KB: 58.5 MB/s
-> > tcp_limit_output_bytes set to 128KB: 56.2 MB/s
-> > tcp_limit_output_bytes set to  64KB: 32.1 MB/s
-> > tcp_limit_output_bytes set to  32KB: 4.76 MB/s
-> > 
-> > As a side note, during the test, I sometimes gets peak for some seconds
-> > at the beginning at 90MB/s which tend to confirm what WIlly wrote,
-> > i.e. that the hardware can do more.
-> 
-> I would also check the receiver. I suspect packets drops because of a
-> bad driver doing skb->truesize overshooting.
+In that moment we had a socket where write queue looks like this:
+snd_una    snd_nxt   write_seq
+   |_________|________|
+             |
+	  sk_send_head
 
-When I first observed the issue, at first I suspected my laptop's driver
-when I saw this problem, so I tried with a dockstar instead and the issue
-disappeared... until I increased the tcp_rmem on it to match my laptop :-)
+After a second switching from repair mode the state of socket was
+changed:
 
-Arnaud, you might be interested in trying checking if the following change
-does something for you in mvneta.c :
+snd_una          snd_nxt, write_seq
+   |_________ ________|
+             |
+	  sk_send_head
 
-- #define MVNETA_TX_DONE_TIMER_PERIOD 10
-+ #define MVNETA_TX_DONE_TIMER_PERIOD (1000/HZ)
+This state is inconsistent, because snd_nxt and sk_send_head are not
+synchronized.
 
-This can only have any effect if you run at 250 or 1000 Hz, but not at 100
-of course. It should reduce the time to first IRQ.
+Bellow you can find a call trace, how packets_out can be incremented
+twice for one skb, if snd_nxt and sk_send_head are not synchronized.
+In this case packets_out will be always positive, even when
+sk_write_queue is empty.
 
-Willy
+tcp_write_wakeup
+	skb = tcp_send_head(sk);
+	tcp_fragment
+		if (!before(tp->snd_nxt, TCP_SKB_CB(buff)->end_seq))
+			tcp_adjust_pcount(sk, skb, diff);
+	tcp_event_new_data_sent
+		tp->packets_out += tcp_skb_pcount(skb);
+
+I think update of snd_nxt isn't required, when a socket is switched from
+repair mode.  Because it's initialized in tcp_connect_init. Then when a
+write queue is restored, snd_nxt is incremented in tcp_event_new_data_sent,
+so it's always is in consistent state.
+
+I have checked, that the bug is not reproduced with this patch and
+all tests about restoring tcp connections work fine.
+
+Cc: Pavel Emelyanov <xemul@parallels.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Andrey Vagin <avagin@openvz.org>
+---
+ net/ipv4/tcp_output.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 6728546..fa9f57d 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3093,7 +3093,6 @@ void tcp_send_window_probe(struct sock *sk)
+ {
+ 	if (sk->sk_state == TCP_ESTABLISHED) {
+ 		tcp_sk(sk)->snd_wl1 = tcp_sk(sk)->rcv_nxt - 1;
+-		tcp_sk(sk)->snd_nxt = tcp_sk(sk)->write_seq;
+ 		tcp_xmit_probe_skb(sk, 0);
+ 	}
+ }
+-- 
+1.8.3.1
