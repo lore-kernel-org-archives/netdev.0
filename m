@@ -1,91 +1,48 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: don't update snd_nxt, when a socket is switched
- from repair mode
-Date: Tue, 19 Nov 2013 10:29:40 -0800
-Message-ID: <1384885780.8604.109.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1384884606-9978-1-git-send-email-avagin@openvz.org>
+Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
+Date: Tue, 19 Nov 2013 10:31:50 -0800
+Message-ID: <1384885910.8604.110.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <87y54u59zq.fsf@natisbad.org> <20131112083633.GB10318@1wt.eu>
+	 <87a9hagex1.fsf@natisbad.org> <20131112100126.GB23981@1wt.eu>
+	 <87vbzxd473.fsf@natisbad.org> <20131113072257.GB10591@1wt.eu>
+	 <20131117141940.GA18569@1wt.eu>
+	 <1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87li0kkhzx.fsf@natisbad.org>
+	 <1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131119174323.GH913@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	criu@openvz.org, Pavel Emelyanov <xemul@parallels.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1384884606-9978-1-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Arnaud Ebalard <arno@natisbad.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	netdev@vger.kernel.org, edumazet@google.com,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	simon.guinot@sequanux.org
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f54.google.com ([209.85.213.54]:51102 "EHLO
+	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751307Ab3KSSby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 13:31:54 -0500
+Received: by mail-yh0-f54.google.com with SMTP id a41so3745043yho.13
+        for <netdev@vger.kernel.org>; Tue, 19 Nov 2013 10:31:53 -0800 (PST)
+In-Reply-To: <20131119174323.GH913@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-11-19 at 22:10 +0400, Andrey Vagin wrote:
-> snd_nxt must be updated synchronously with sk_send_head.  Otherwise
-> tp->packets_out may be updated incorrectly, what may bring a kernel panic.
-> 
-> Here is a kernel panic from my host.
-> [  103.043194] BUG: unable to handle kernel NULL pointer dereference at 0000000000000048
-> [  103.044025] IP: [<ffffffff815aaaaf>] tcp_rearm_rto+0xcf/0x150
-> ...
-> [  146.301158] Call Trace:
-> [  146.301158]  [<ffffffff815ab7f0>] tcp_ack+0xcc0/0x12c0
-> 
-> Before this panic a tcp socket was restored. This socket had sent and
-> unsent data in the write queue. Sent data was restored in repair mode,
-> then the socket was switched from reapair mode and unsent data was
-> restored. After that the socket was switched back into repair mode.
-> 
-> In that moment we had a socket where write queue looks like this:
-> snd_una    snd_nxt   write_seq
->    |_________|________|
->              |
-> 	  sk_send_head
-> 
-> After a second switching from repair mode the state of socket was
-> changed:
-> 
-> snd_una          snd_nxt, write_seq
->    |_________ ________|
->              |
-> 	  sk_send_head
-> 
-> This state is inconsistent, because snd_nxt and sk_send_head are not
-> synchronized.
-> 
-> Bellow you can find a call trace, how packets_out can be incremented
-> twice for one skb, if snd_nxt and sk_send_head are not synchronized.
-> In this case packets_out will be always positive, even when
-> sk_write_queue is empty.
-> 
-> tcp_write_wakeup
-> 	skb = tcp_send_head(sk);
-> 	tcp_fragment
-> 		if (!before(tp->snd_nxt, TCP_SKB_CB(buff)->end_seq))
-> 			tcp_adjust_pcount(sk, skb, diff);
-> 	tcp_event_new_data_sent
-> 		tp->packets_out += tcp_skb_pcount(skb);
-> 
-> I think update of snd_nxt isn't required, when a socket is switched from
-> repair mode.  Because it's initialized in tcp_connect_init. Then when a
-> write queue is restored, snd_nxt is incremented in tcp_event_new_data_sent,
-> so it's always is in consistent state.
-> 
-> I have checked, that the bug is not reproduced with this patch and
-> all tests about restoring tcp connections work fine.
-> 
-> Cc: Pavel Emelyanov <xemul@parallels.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: James Morris <jmorris@namei.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: Andrey Vagin <avagin@openvz.org>
-> ---
->  net/ipv4/tcp_output.c | 1 -
->  1 file changed, 1 deletion(-)
+On Tue, 2013-11-19 at 18:43 +0100, Willy Tarreau wrote:
 
-Fixes: c0e88ff0f256 ("tcp: Repair socket queues")
-Acked-by: Eric Dumazet <edumazet@google.com>
+> - #define MVNETA_TX_DONE_TIMER_PERIOD 10
+> + #define MVNETA_TX_DONE_TIMER_PERIOD (1000/HZ)
+> 
+
+I suggested this in a prior mail :
+
+#define MVNETA_TX_DONE_TIMER_PERIOD 1
+
+But apparently it was triggering strange crashes...
+
+> This can only have any effect if you run at 250 or 1000 Hz, but not at 100
+> of course. It should reduce the time to first IRQ.
