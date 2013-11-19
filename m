@@ -1,48 +1,37 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net] neigh: Force garbage collection if an entry is deleted administratively
-Date: Tue, 19 Nov 2013 12:08:06 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7432@saturn3.aculab.com>
-References: <20131112085714.GU31491@secunet.com> <20131114.022356.1095983243221745109.davem@davemloft.net> <20131118100843.GY31491@secunet.com> <20131118.162115.407611651189468804.davem@davemloft.net> <20131119115414.GZ31491@secunet.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: ipv6 fragmentation-related panic in netfilter
+Date: Tue, 19 Nov 2013 13:40:32 +0100
+Message-ID: <20131119124032.GS16541@order.stressinduktion.org>
+References: <2060a7d2-c307-4e30-b1d4-0bd26c904d6f@gmail.com> <20131101084529.GL31491@secunet.com> <20131101092536.GA17499@macbook.localnet> <19807032.ebUJct12DE@h2o.as.studentenwerk.mhn.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <yoshfuji@linux-ipv6.org>, <netdev@vger.kernel.org>
-To: "Steffen Klassert" <steffen.klassert@secunet.com>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: Patrick McHardy <kaber@trash.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Tomas Hlavacek <tmshlvck@gmail.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Wolfgang Walter <linux@stwm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:44359 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752011Ab3KSMIy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 07:08:54 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 14059-10 for <netdev@vger.kernel.org>;
- Tue, 19 Nov 2013 12:08:50 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20131119115414.GZ31491@secunet.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:52392 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752004Ab3KSMkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 07:40:33 -0500
+Content-Disposition: inline
+In-Reply-To: <19807032.ebUJct12DE@h2o.as.studentenwerk.mhn.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > My conclusion is that the management of the state is the problem.
-> > Specifically, if we invalidate an entry then we should remove it's
-> > visisbility.  This means the table should operate by unhashing the
-> > entry unconditionally during such operations.
-> >
-> > If some stray references exist, that's fine, the entity holding the
-> > reference will perform the final neigh cleanup at release time.
-> >
-> > Does this make sense to you?
+On Tue, Nov 19, 2013 at 12:11:24PM +0100, Wolfgang Walter wrote:
+> Are there patches available? I can crash my 3.12 kernel easily doing
 > 
-> Yes, makes sense :-)
+> 	fping -p 20 -l -b 4000 bla
+> 
+> 3.11.x does not expose this problem.
 
-Isn't it enough to act as if the entry were not in the hash tables.
-So an attempt to add such an entry wouldn't fail.
+Yes, see here:
 
-I've not looked at these code paths, but it can easily be that when
-the entry is invalidated the hash table isn't (and can't easily be)
-locked - just having the entry locked may make it difficult.
+http://patchwork.ozlabs.org/patch/288967/
+http://patchwork.ozlabs.org/patch/288970/
 
-Whereas the code path to add an entry can easily delete old entries.
+Greetings,
 
-	David
+  Hannes
