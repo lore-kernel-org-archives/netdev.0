@@ -1,64 +1,176 @@
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Subject: RE: [PATCH] rds: Error on offset mismatch if not loopback
-Date: Tue, 19 Nov 2013 15:33:06 -0800 (PST)
-Message-ID: <8744a6a4-d7a8-4e6f-8934-48a4fd4da0ce@default>
-References: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
-	<20120922.152524.1294103117346567757.davem@davemloft.net>
-	<CAKA=qzac9=UhLF_Z4FnnH+sR7xvkDux4oayC6dPYe=hMLsDxRg@mail.gmail.com>
-	<CAKA=qzYpd7Wo9XdU16TEhnbm5dPJjOZMhAY1jA7N+YFBWz5pzw@mail.gmail.com>
-	<23964ca1-e7cb-41c3-9da2-5bc1b2b0c014@default>
- <CAKA=qzbK1YX5OrVQbwM=1xM6Si=GKv0UDofULkOC7RNo08zZPw@mail.gmail.com>
- <52841F95.7040204@redhat.com> <41aa904c-6707-4c74-ae72-96e401c68e13@default>
- <528587D0.5060105@redhat.com>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
+Date: Wed, 20 Nov 2013 00:53:43 +0100
+Message-ID: <874n780wzc.fsf@natisbad.org>
+References: <87a9hagex1.fsf@natisbad.org> <20131112100126.GB23981@1wt.eu>
+	<87vbzxd473.fsf@natisbad.org> <20131113072257.GB10591@1wt.eu>
+	<20131117141940.GA18569@1wt.eu>
+	<1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
+	<87li0kkhzx.fsf@natisbad.org>
+	<1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119174323.GH913@1wt.eu>
+	<1384885910.8604.110.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119184121.GN913@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>, jjolly@suse.com,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
-To: Honggang LI <honli@redhat.com>, Josh Hunt <joshhunt00@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <528587D0.5060105@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	simon.guinot@sequanux.org, netdev@vger.kernel.org,
+	edumazet@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Willy Tarreau <w@1wt.eu>, Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4-g21.free.fr ([212.27.42.4]:53610 "EHLO smtp4-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752199Ab3KSXyT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Nov 2013 18:54:19 -0500
+Received: from smtp.natisbad.org (unknown [81.57.185.249])
+	by smtp4-g21.free.fr (Postfix) with ESMTP id 0D3F94C80A8
+	for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 00:54:08 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We now have lot more information than we did before.
-When sending a "congestion update" in rds_ib_xmit() we are now returning an incorrect number as bytes sent:
+Hi,
 
-        BUG_ON(off % RDS_FRAG_SIZE);
-        BUG_ON(hdr_off != 0 && hdr_off != sizeof(struct rds_header));
+Willy Tarreau <w@1wt.eu> writes:
 
-        /* Do not send cong updates to IB loopback */
-        if (conn->c_loopback
-            && rm->m_inc.i_hdr.h_flags & RDS_FLAG_CONG_BITMAP) {
-                rds_cong_map_updated(conn->c_fcong, ~(u64) 0);
-                scat = &rm->data.op_sg[sg];
-                ret = sizeof(struct rds_header) + RDS_CONG_MAP_BYTES;
-                ret = min_t(int, ret, scat->length - conn->c_xmit_data_off);
-                return ret;
-        }
+> On Tue, Nov 19, 2013 at 10:31:50AM -0800, Eric Dumazet wrote:
+>> On Tue, 2013-11-19 at 18:43 +0100, Willy Tarreau wrote:
+>> 
+>> > - #define MVNETA_TX_DONE_TIMER_PERIOD 10
+>> > + #define MVNETA_TX_DONE_TIMER_PERIOD (1000/HZ)
+>> > 
+>> 
+>> I suggested this in a prior mail :
+>> 
+>> #define MVNETA_TX_DONE_TIMER_PERIOD 1
+>
+> Ah sorry, I remember now.
+>
+>> But apparently it was triggering strange crashes...
+>
+> Ah, when a bug hides another one, it's the situation I prefer, because
+> by working on one, you end up fixing two :-)
 
-It returns min(8240, 4096-0) i.e. 4096 bytes.
-The caller rds_send_xmit() is made to think a partial message (4096 out of 8240) was sent.
-It calls rds_ib_xmit() again with a data offset "off" of 4096-48 (rds header) (=4048 bytes). And we hit the BUG_ON.
+Follow me just for one sec: today, I got a USB 3.0 Gigabit Ethernet
+adapter. More specifically an AX88179-based one (Logitec LAN-GTJU3H3),
+about which there is currently a thread on netdev and linux-usb
+lists. Anyway, I decided to give it a try on my RN102 just to check what
+performance I could achieve. So I basically did the same experiment as
+yesterday (wget on client against a 1GB file located on the filesystem
+served by an apache on the NAS) except that time the AX88179-based
+adapater was used instead of the mvneta-based interface. Well, the
+download started at a high rate (90MB/s) but then drops and I get some
+SATA error on the NAS (similar to the errors I already got during
+12.0-rc series [1] to finally *erroneously* consider it was an artefact).
 
-The reason I didn't hit the panic on my test on Oracle UEK2 which is based on 2.6.39 kernel is it had it like this:
-        BUG_ON(off % RDS_FRAG_SIZE);
-        BUG_ON(hdr_off != 0 && hdr_off != sizeof(struct rds_header));
+So I decided to remove the SATA controllers and disks from the equation:
+I switched to my ReadyNAS 2120 whose GbE interfaces are also based on
+mvneta driver and comes w/ 2GB of RAM. The main additional difference is
+that the device is a dual core armada @1.2GHz, where the RN102 is a
+single core armada @1.2GHz. I created a dummy 1GB file *in RAM*
+(/run/shm) to have it served by the apache2 instead of the file
+previously stored on the disks. 
 
-        /* Do not send cong updates to IB loopback */
-        if (conn->c_loopback
-            && rm->m_inc.i_hdr.h_flags & RDS_FLAG_CONG_BITMAP) {
-                rds_cong_map_updated(conn->c_fcong, ~(u64) 0);
-                return sizeof(struct rds_header) + RDS_CONG_MAP_BYTES;
-        }
-(So it wasn't 100% 2.6.39 ;-). )
-It returned 8240 bytes. The caller rds_send_xmit decides the full message was sent (48 byte header + 4096 data + 4096 data).
-And it worked.
+I started w/ todays linus tree (dec8e46178b) with Eric's revert patch
+for c9eeec26e32e (tcp: TSQ can use a dynamic limit) and also the change
+to mvneta driver to have:
 
-Then I found this info on the change that was done upstream which now causes the panic:
-http://marc.info/?l=linux-netdev&m=129908332903057
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6094628bfd94323fc1cea05ec2c6affd98c18f7f 
+-#define MVNETA_TX_DONE_TIMER_PERIOD    10
++#define MVNETA_TX_DONE_TIMER_PERIOD    1
 
-Will investigate more into which problem the above change addressed.
+Here are the average speed given by wget for the following TCP send
+window:
 
-Venkat
+   4 MB:  19 MB/s
+   2 MB:  21 MB/s
+   1 MB:  21 MB/s
+  512KB:  23 MB/s
+  384KB: 105 MB/s
+  256KB: 112 MB/s
+  128KB: 111 MB/s
+   64KB:  93 MB/s
+
+Then, I decided to redo the exact same test w/o the change on
+MVNETA_TX_DONE_TIMER_PERIOD (i.e. w/ the initial value of 10). I get the
+exact same results as with the MVNETA_TX_DONE_TIMER_PERIOD set to 1, i.e:
+
+   4 MB:  20 MB/s
+   2 MB:  21 MB/s
+   1 MB:  21 MB/s
+  512KB:  22 MB/s
+  384KB: 105 MB/s
+  256KB: 112 MB/s
+  128KB: 111 MB/s
+   64KB:  93 MB/s
+
+And, then, I also dropped Eric's revert patch for c9eeec26e32e (tcp: TSQ
+can use a dynamic limit), just to verify we came back where the thread
+started but i got a surprise:
+
+   4 MB:  10 MB/s
+   2 MB:  11 MB/s
+   1 MB:  10 MB/s
+  512KB:  12 MB/s
+  384KB: 104 MB/s
+  256KB: 112 MB/s
+  128KB: 112 MB/s
+   64KB:  93 MB/s
+
+Instead of the 256KB/s I had observed the low value was now 10MB/s. I
+thought it was due to the switch from RN102 to RN2120 so I came back
+to the RN102 w/o any specific patch for mvneta nor your revert patch for 
+c9eeec26e32e, i.e. only Linus tree as it is today (dec8e46178b). The
+file is served from the disk:
+
+   4 MB:   5 MB/s
+   2 MB:   5 MB/s
+   1 MB:   5 MB/s
+  512KB:   5 MB/s
+  384KB:  90 MB/s for 4s, then 3 MB/s
+  256KB:  80 MB/s for 3s, then 2 MB/s
+  128KB:  90 MB/s for 3s, then 3 MB/s
+   64KB:  80 MB/s for 3s, then 3 MB/S
+
+Then, I allocated a dummy 400MB file in RAM (/run/shm) and redid the
+test on the RN102:
+
+   4 MB:   8 MB/s
+   2 MB:   8 MB/s
+   1 MB:  92 MB/s
+  512KB:  90 MB/s
+  384KB:  90 MB/s
+  256KB:  90 MB/s
+  128KB:  90 MB/s
+   64KB:  60 MB/s
+
+In the end, here are the conclusions *I* draw from this test session,
+do not hesitate to correct me:
+
+ - Eric, it seems something changed in linus tree betwen the beginning
+   of the thread and now, which somehow reduces the effect of the
+   regression we were seen: I never got back the 256KB/s.
+ - You revert patch still improves the perf a lot
+ - It seems reducing MVNETA_TX_DONE_TIMER_PERIOD does not help
+ - w/ your revert patch, I can confirm that mvneta driver is capable of
+   doing line rate w/ proper tweak of TCP send window (256KB instead of
+   4M)
+ - It seems I will I have to spend some time on the SATA issues I
+   previously thought were an artefact of not cleaning my tree during a
+   debug session [1], i.e. there is IMHO an issue.
+
+What I do not get is what can cause the perf to drop from 90MB/s to
+3MB/s (w/ a 256KB send window) when streaming from the disk instead of
+the RAM. I have no issue having dd read from the fs @ 150MB/s and
+mvneta streaming from RAM @ 90MB/s but both together get me 3MB/s after
+a few seconds.
+
+Anyway, I think if the thread keeps going on improving mvneta, I'll do
+all additional tests from RAM and will stop polluting netdev w/ possible
+sata/disk/fs issues.
+
+Cheers,
+
+a+
+
+[1]: http://thread.gmane.org/gmane.linux.ports.arm.kernel/271508
