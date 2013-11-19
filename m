@@ -1,65 +1,55 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: fix page refcnt leaking when fail to
-	allocate frag skb
-Date: Tue, 19 Nov 2013 20:44:11 +0200
-Message-ID: <20131119184411.GA14587@redhat.com>
-References: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
-	<1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
+Date: Tue, 19 Nov 2013 19:41:21 +0100
+Message-ID: <20131119184121.GN913@1wt.eu>
+References: <87a9hagex1.fsf@natisbad.org> <20131112100126.GB23981@1wt.eu>
+ <87vbzxd473.fsf@natisbad.org> <20131113072257.GB10591@1wt.eu>
+ <20131117141940.GA18569@1wt.eu>
+ <1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
+ <87li0kkhzx.fsf@natisbad.org>
+ <1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131119174323.GH913@1wt.eu>
+ <1384885910.8604.110.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Florian Fainelli <f.fainelli@gmail.com>, simon.guinot@sequanux.org,
+ netdev@vger.kernel.org, Arnaud Ebalard <arno@natisbad.org>,
+ edumazet@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+ linux-arm-kernel@lists.infradead.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+In-Reply-To: <1384885910.8604.110.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 19, 2013 at 06:03:48AM -0800, Eric Dumazet wrote:
-> On Tue, 2013-11-19 at 16:05 +0800, Jason Wang wrote:
-> > We need to drop the refcnt of page when we fail to allocate an skb for frag
-> > list, otherwise it will be leaked. The bug was introduced by commit
-> > 2613af0ed18a11d5c566a81f9a6510b73180660a ("virtio_net: migrate mergeable rx
-> > buffers to page frag allocators").
+On Tue, Nov 19, 2013 at 10:31:50AM -0800, Eric Dumazet wrote:
+> On Tue, 2013-11-19 at 18:43 +0100, Willy Tarreau wrote:
+> 
+> > - #define MVNETA_TX_DONE_TIMER_PERIOD 10
+> > + #define MVNETA_TX_DONE_TIMER_PERIOD (1000/HZ)
 > > 
-> > Cc: Michael Dalton <mwdalton@google.com>
-> > Cc: Eric Dumazet <edumazet@google.com>
-> > Cc: Rusty Russell <rusty@rustcorp.com.au>
-> > Cc: Michael S. Tsirkin <mst@redhat.com>
-> > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > ---
-> > The patch was needed for 3.12 stable.
 > 
-> Good catch, but if we return from receive_mergeable() in the 'middle'
-> of the frags we would need for the current skb, who will
-> call the virtqueue_get_buf() to flush the remaining frags ?
+> I suggested this in a prior mail :
 > 
-> Don't we also need to call virtqueue_get_buf() like 
-> 
-> while (--num_buf) {
->     buf = virtqueue_get_buf(rq->vq, &len);
->     if (!buf)
->         break;
->     put_page(virt_to_head_page(buf));
-> }
-> 
-> ?
-> 
-> 
-> 
+> #define MVNETA_TX_DONE_TIMER_PERIOD 1
 
+Ah sorry, I remember now.
 
-virtqueue_get_buf only gives you back a buffer that has been DMA-ed
-to by hardware. ATM there's no way to get back a buffer once you
-gave it to hardware without doing a NIC reset.
+> But apparently it was triggering strange crashes...
+
+Ah, when a bug hides another one, it's the situation I prefer, because
+by working on one, you end up fixing two :-)
+
+Cheers,
+Willy
