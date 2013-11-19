@@ -1,46 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] net: rework recvmsg handler msg_name and
- msg_namelen logic
-Date: Tue, 19 Nov 2013 15:40:58 -0500 (EST)
-Message-ID: <20131119.154058.2058377571860676832.davem@davemloft.net>
-References: <20131119052759.GR16541@order.stressinduktion.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] virtio-net: fix page refcnt leaking when fail to
+	allocate frag skb
+Date: Tue, 19 Nov 2013 22:49:09 +0200
+Message-ID: <20131119204909.GA15004@redhat.com>
+References: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
+	<1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57918 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751939Ab3KSUlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 15:41:00 -0500
-In-Reply-To: <20131119052759.GR16541@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 19 Nov 2013 06:27:59 +0100
+On Tue, Nov 19, 2013 at 06:03:48AM -0800, Eric Dumazet wrote:
+> On Tue, 2013-11-19 at 16:05 +0800, Jason Wang wrote:
+> > We need to drop the refcnt of page when we fail to allocate an skb for frag
+> > list, otherwise it will be leaked. The bug was introduced by commit
+> > 2613af0ed18a11d5c566a81f9a6510b73180660a ("virtio_net: migrate mergeable rx
+> > buffers to page frag allocators").
+> > 
+> > Cc: Michael Dalton <mwdalton@google.com>
+> > Cc: Eric Dumazet <edumazet@google.com>
+> > Cc: Rusty Russell <rusty@rustcorp.com.au>
+> > Cc: Michael S. Tsirkin <mst@redhat.com>
+> > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > ---
+> > The patch was needed for 3.12 stable.
+> 
+> Good catch, but if we return from receive_mergeable() in the 'middle'
+> of the frags we would need for the current skb, who will
+> call the virtqueue_get_buf() to flush the remaining frags ?
+> 
+> Don't we also need to call virtqueue_get_buf() like 
+> 
+> while (--num_buf) {
+>     buf = virtqueue_get_buf(rq->vq, &len);
+>     if (!buf)
+>         break;
+>     put_page(virt_to_head_page(buf));
+> }
+> 
+> ?
+> 
+> 
 
-> This patch now always passes msg->msg_namelen as 0. recvmsg handlers must
-> set msg_namelen to the proper size <= sizeof(struct sockaddr_storage)
-> to return msg_name to the user.
-> 
-> This prevents numerous uninitialized memory leaks we had in the
-> recvmsg handlers and makes it harder for new code to accidentally leak
-> uninitialized memory.
-> 
-> Optimize for the case recvfrom is called with NULL as address. We don't
-> need to copy the address at all, so set it to NULL before invoking the
-> recvmsg handler. We can do so, because all the recvmsg handlers must
-> cope with the case a plain read() is called on them. read() also sets
-> msg_name to NULL.
-> 
-> Also document these changes in include/linux/net.h as suggested by David
-> Miller.
-> 
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Looks good to me.
+Let me explain what worries me in your suggestion:
 
-The only other invoker of ->recvmsg is vhost.c but it sets msg_name to NULL
-and msg_namelen to 0 so should be fine.
+                        struct sk_buff *nskb = alloc_skb(0, GFP_ATOMIC);
+                        if (unlikely(!nskb)) {
+                                head_skb->dev->stats.rx_dropped++;
+                                return -ENOMEM;
+                        }
+
+is this the failure case we are talking about?
+
+I think this is a symprom of a larger problem
+introduced by 2613af0ed18a11d5c566a81f9a6510b73180660a,
+namely that we now need to allocate memory in the
+middle of processing a packet.
+
+
+I think discarding a completely valid and well-formed
+packet from the receive queue because we are unable
+to allocate new memory with GFP_ATOMIC
+for future packets is not a good idea.
+
+It certainly violates the principle of least surprize:
+when one sees host pass packet to guest, one expects
+the packet to get into the networking stack, not get
+dropped by the driver internally.
+Guest stack can do with the packet what it sees fit.
+
+We actually wake up a thread if we can't fill up the queue,
+that will fill it up in GFP_KERNEL context.
+
+So I think we should find a way to pre-allocate if necessary and avoid
+error paths where allocating new memory is a required to avoid drops.
+
+-- 
+MST
