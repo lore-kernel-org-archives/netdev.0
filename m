@@ -1,60 +1,49 @@
-From: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
- burst.
-Date: Wed, 20 Nov 2013 08:06:05 -0800
-Message-ID: <20131120160605.GB9611@xanatos>
-References: <20131119225822.GA9611@xanatos>
- <Pine.LNX.4.44L0.1311192204140.6891-100000@netrider.rowland.org>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7437@saturn3.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] virtio-net: fix page refcnt leaking when fail to
+	allocate frag skb
+Date: Wed, 20 Nov 2013 08:14:21 -0800
+Message-ID: <1384964061.8604.151.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
+	<1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119204909.GA15004@redhat.com>
+	<1384896996.8604.120.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119215312.GE15004@redhat.com>
+	<1384898411.8604.127.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131120085835.GB19341@redhat.com>
+	<1384960593.8604.147.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131120160625.GA21188@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7437-CgBM+Bx2aUAnGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20131120160625.GA21188@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 20, 2013 at 09:36:11AM -0000, David Laight wrote:
-> > From: Alan Stern [mailto:stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org]
-> > On Tue, 19 Nov 2013, Sarah Sharp wrote:
-> > 
-> > > The xHCI driver can limit the number of sg-list entries through
-> > > hcd->self.sg_tablesize.  It's currently set to ~0, which is "however
-> > > many entries you want.  You could set that to the number of TRBs in a
-> > > segment (minus one for the link TRB).
-> > >
-> > > The usb-storage and uas drivers currently use sg_tablesize.  Could the
-> > > network stack be taught to use sg_tablesize as well?
-> > 
-> > The sg_tablesize you're talking about is a field in struct usb_bus
-> > (there's a similar field in struct scsi_host_template).  It's not
-> > relevant to the network stack, since network interfaces aren't USB host
-> > controllers (or SCSI hosts).
+On Wed, 2013-11-20 at 18:06 +0200, Michael S. Tsirkin wrote:
+
+> Hmm some kind of disconnect here.
+> I got you rmanagement about bufferbloat.
 > 
-> Ben said the largest number of fragments from the current network
-> stack will be 17, and that none of them will cross 32k boundaries.
-> So the network stack won't send down long SG lists.
+> What I am saying is that maybe we should drop packets more
+> aggressively: when we drop one packet of a flow, why not
+> drop everything that's queued and is for the same flow?
 
-Ok, so the networking layer should be fine.  However, with the current
-patch, if the mass storage driver sends down a scatter-gather list
-that's bigger than a ring segment, or needs to be split up so it doesn't
-cross 64K boundaries, then the URB submission will fail.  We don't want
-that to happen.
+I really hope your TCP flows use SACK ;)
 
-At the very least, we should limit hcd->self.sg_tablesize in
-drivers/usb/host/xhci.c to 63 (TRBS_PER_SEGMENT - 1).  But we could
-still potentially run into the 64K boundary issue in one or maybe all of
-those entries.  Would it be crazy to limit the number of entries to half
-that (31)?  It may impact performance, but it ensures that SCSI reads
-and writes don't randomly fail.  We can always increase the ring segment
-size in a later patch.
+Please read the rfc 2018 introduction for details.
 
-Sarah Sharp
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If a packet is dropped, it doesn't mean following packets _have_ to be
+dropped.
