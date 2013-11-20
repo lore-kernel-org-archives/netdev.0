@@ -1,23 +1,18 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH RFC v1 4/7] net: phy: suspend unused PHYs on mdio_bus in late_initcall
-Date: Wed, 20 Nov 2013 21:21:50 +0100
-Message-ID: <1384978913-8052-5-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH RFC v1 3/7] net: phy: resume/suspend PHYs on attach/detach
+Date: Wed, 20 Nov 2013 21:21:49 +0100
+Message-ID: <1384978913-8052-4-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
 To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f45.google.com ([74.125.83.45]:36683 "EHLO
-	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755149Ab3KTUWD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 15:22:03 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since phy_attach ensures PHYs are resumed, we can now suspend all
-PHYs that have no attached netdev after initcalls.
+This ensures PHYs are resumed on attach and suspended on detach.
 
 Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 ---
@@ -26,46 +21,29 @@ Cc: netdev@vger.kernel.org
 Cc: linux-arm-kernel@lists.infradead.org
 Cc: linux-kernel@vger.kernel.org
 ---
- drivers/net/phy/mdio_bus.c |   27 +++++++++++++++++++++++++++
- 1 files changed, 27 insertions(+), 0 deletions(-)
+ drivers/net/phy/phy_device.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 5617876..10eba58 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -320,6 +320,33 @@ static int mdio_bus_match(struct device *dev, struct device_driver *drv)
- 		(phydev->phy_id & phydrv->phy_id_mask));
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 2442895..a421fc6 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -570,6 +570,8 @@ static int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 	if (err)
+ 		phy_detach(phydev);
+ 
++	phy_resume(phydev);
++
+ 	return err;
  }
  
-+static int mdio_bus_suspend_unused(struct device *busdev, void *data)
-+{
-+	struct mii_bus *bus = to_mii_bus(busdev);
-+	struct phy_device *phydev;
-+	struct phy_driver *phydrv;
-+	int i;
-+
-+	for (i = 0; i < PHY_MAX_ADDR; i++) {
-+		if (!bus->phy_map[i])
-+			continue;
-+
-+		phydev = to_phy_device(&bus->phy_map[i]->dev);
-+		phydrv = to_phy_driver(phydev->dev.driver);
-+		if (!phydev->attached_dev && phydrv && phydrv->suspend)
-+			phy_suspend(phydev);
-+	}
-+
-+	return 0;
-+}
-+
-+static int mdio_bus_class_suspend_unused(void)
-+{
-+	return class_for_each_device(&mdio_bus_class, NULL, NULL,
-+				     mdio_bus_suspend_unused);
-+}
-+late_initcall_sync(mdio_bus_class_suspend_unused);
-+
- #ifdef CONFIG_PM
+@@ -615,6 +617,7 @@ void phy_detach(struct phy_device *phydev)
+ {
+ 	phydev->attached_dev->phydev = NULL;
+ 	phydev->attached_dev = NULL;
++	phy_suspend(phydev);
  
- static bool mdio_bus_phy_may_suspend(struct phy_device *phydev)
+ 	/* If the device had no specific driver before (i.e. - it
+ 	 * was using the generic driver), we unbind the device
 -- 
 1.7.2.5
