@@ -1,109 +1,286 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH RFC v1 4/7] net: phy: suspend unused PHYs on mdio_bus
- in late_initcall
-Date: Wed, 20 Nov 2013 22:05:07 +0100
-Message-ID: <528D2403.5040204@gmail.com>
-References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com> <1384978913-8052-5-git-send-email-sebastian.hesselbarth@gmail.com> <CAGVrzcYBexBWrh2Nz8tu0KRLQ4YPjtJux9N-TC07-Hxf3On1FQ@mail.gmail.com>
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcYBexBWrh2Nz8tu0KRLQ4YPjtJux9N-TC07-Hxf3On1FQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC net-next PATCH] macvtap: Add packet capture support
+Date: Wed, 20 Nov 2013 23:12:28 +0200
+Message-ID: <20131120211228.GB11452@redhat.com>
+References: <1384970649-29839-1-git-send-email-vyasevic@redhat.com>
+ <20131120181949.GB25569@redhat.com>
+ <528D0F48.60304@redhat.com>
+ <20131120200658.GA11070@redhat.com>
+ <528D1935.9020403@redhat.com>
+ <20131120203027.GA11386@redhat.com>
+ <528D1D0A.3010505@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54963 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755275Ab3KTVJP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Nov 2013 16:09:15 -0500
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id rAKL9EWR027544
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 16:09:15 -0500
+Content-Disposition: inline
+In-Reply-To: <528D1D0A.3010505@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/20/2013 09:58 PM, Florian Fainelli wrote:
-> 2013/11/20 Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>:
->> Since phy_attach ensures PHYs are resumed, we can now suspend all
->> PHYs that have no attached netdev after initcalls.
->
-> I do like the idea, but I think you might want to make sure that the
-> MDIO bus suspend policy was set to "auto" (which is the default afair)
-> not to expose unexpected behavior.
+On Wed, Nov 20, 2013 at 03:35:22PM -0500, Vlad Yasevich wrote:
+> On 11/20/2013 03:30 PM, Michael S. Tsirkin wrote:
+> > On Wed, Nov 20, 2013 at 03:19:01PM -0500, Vlad Yasevich wrote:
+> >> On 11/20/2013 03:06 PM, Michael S. Tsirkin wrote:
+> >>> On Wed, Nov 20, 2013 at 02:36:40PM -0500, Vlad Yasevich wrote:
+> >>>> On 11/20/2013 01:19 PM, Michael S. Tsirkin wrote:
+> >>>>> On Wed, Nov 20, 2013 at 01:04:09PM -0500, Vlad Yasevich wrote:
+> >>>>>> Currently it is impossible to capture traffic when using a macvtap
+> >>>>>> device.  The reason is that all capture handling is done either in
+> >>>>>> dev_hard_start_xmit() or in __netif_receive_skb_core().  Macvtap
+> >>>>>> currenlty doesn't use dev_hard_start_xmit(), and at the time the
+> >>>>>> packet traverses __netif_receive_skb_core, the skb->dev is set to
+> >>>>>> the lower-level device that doesn't end up matching macvtap.
+> >>>>>>
+> >>>>>> To solve the issue, use dev_hard_start_xmit() on the output path.
+> >>>>>> On the input path, it is toughter to solve since macvtap ends up
+> >>>>>> consuming the skb so there is nothing more left for
+> >>>>>> __netif_receive_skb_core() to do.
+> >>>
+> >>> Actually I thought I understand what you are saying here, but now I
+> >>> don't. bridge installs rx handler exactly in the same way.
+> >>> packet handlers seem to be called before the rx handlers so
+> >>> everything should just work.
+> >>>
+> >>> Is this about the bridge mode again?
+> >>
+> >> No.  It has to do with bridge submitting the frame back to the
+> >> network stack to forward it to the ports, but macvtap ends up
+> >> stealing it.
+> > 
+> > Confused.
+> > 
+> >         rx_handler = rcu_dereference(skb->dev->rx_handler);
+> >         if (rx_handler) {
+> >                 if (pt_prev) {
+> >                         ret = deliver_skb(skb, pt_prev, orig_dev);
+> >                         pt_prev = NULL;
+> >                 }
+> >                 switch (rx_handler(&skb)) {
+> > 
+> > 		....
+> > 
+> > so packet handlers (including packet socket)
+> > seem to be invoked before rx handlers (including bridge and macvtap).
+> > 
+> > What's the issue then?
+> > 
+> > I guess I'm missing something obvious.
+> 
+> In case of macvtap0@eth0, before rx_handler is invoked skb->dev == eth0.
+> During the macvlan rx_handler, skb->dev = macvtap0, and the packet is
+> stolen and delivered to the socket, thus no capture.
 
-Ok, TBH I haven't looked through all of phy internals. If we are fine
-with the overall approach, I could use some guidance in the individual
-patches and policies.
+Aha. I get what the issue is now. So tcpdump -i eth0 works, you want to make
+tcpdump -i macvtap0@eth0 work too.
 
->>
->> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
->> ---
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: netdev@vger.kernel.org
->> Cc: linux-arm-kernel@lists.infradead.org
->> Cc: linux-kernel@vger.kernel.org
->> ---
->>   drivers/net/phy/mdio_bus.c |   27 +++++++++++++++++++++++++++
->>   1 files changed, 27 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
->> index 5617876..10eba58 100644
->> --- a/drivers/net/phy/mdio_bus.c
->> +++ b/drivers/net/phy/mdio_bus.c
->> @@ -320,6 +320,33 @@ static int mdio_bus_match(struct device *dev, struct device_driver *drv)
->>                  (phydev->phy_id & phydrv->phy_id_mask));
->>   }
->>
->> +static int mdio_bus_suspend_unused(struct device *busdev, void *data)
->> +{
->> +       struct mii_bus *bus = to_mii_bus(busdev);
->> +       struct phy_device *phydev;
->> +       struct phy_driver *phydrv;
->> +       int i;
->> +
->> +       for (i = 0; i < PHY_MAX_ADDR; i++) {
->> +               if (!bus->phy_map[i])
->> +                       continue;
->> +
->> +               phydev = to_phy_device(&bus->phy_map[i]->dev);
->> +               phydrv = to_phy_driver(phydev->dev.driver);
->> +               if (!phydev->attached_dev && phydrv && phydrv->suspend)
->> +                       phy_suspend(phydev);
->> +       }
->> +
->> +       return 0;
->
-> You might want to reuse mdio_bus_phy_may_suspend() here to have a
-> central place checking for phydev->attached_dev and phydrv->suspend
-> just in case we need to add more callbacks in the future or implicit
-> PHY state machine hooks. That might also take care of my concern
-> expressed above.
+> In the case of the bridge (eth0, eth1), during the rx_handler
+> skb->dev = bridge.  Bridge calls netif_receive_skb() again, when in
+> promisc mode, and now packet is captured.
+> 
+> -vlad
 
-Unfortunately, mdio_bus_phy_may_suspend() doesn't help here. It will
-correctly tell that unconnected PHYs may_suspend but also that PHYs
-connected to PM aware drivers may_suspend.
+Well but not in non promisc mode correct?
 
-I tried it and it will also suspend the PHY taken by mv643xx_eth.
+I guess a closer model is tun, you can always
+do tcpdump on it and see whatever application sees.
 
-But actually, as phy_suspend/resume check for phydrv->suspend
-themselves, we can just call it on !phydev->attached_dev and remove
-the additional checks.
+I guess one other option is a new RX_HANDLER_DEV_CHANGED -
+same as consumed but invokes taps after we changed the skb dev
 
->> +}
->> +
->> +static int mdio_bus_class_suspend_unused(void)
->> +{
->> +       return class_for_each_device(&mdio_bus_class, NULL, NULL,
->> +                                    mdio_bus_suspend_unused);
->> +}
->> +late_initcall_sync(mdio_bus_class_suspend_unused);
->> +
->>   #ifdef CONFIG_PM
->>
->>   static bool mdio_bus_phy_may_suspend(struct phy_device *phydev)
->> --
->> 1.7.2.5
->>
->>
->> _______________________________________________
->> linux-arm-kernel mailing list
->> linux-arm-kernel@lists.infradead.org
->> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
->
->
->
+                case RX_HANDLER_DEV_CHANGED:
+			if (!list_empty(&ptype_all))
+                        	goto another_round;
+                        ret = NET_RX_SUCCESS;
+	                kfree_skb(skb);
+                        goto unlock;
+
+
+> > 
+> > 
+> > 
+> >> Also, bridge, if running in promisc mode will hand the frame up
+> >> (as if it received it).  See the IFF_PROMISC code in
+> >> br_handle_frame_finish().
+> >> So, if someone is capturing on the bridge itself, this lets it
+> >> see the packets even though they are not destined for the bridge
+> >> device.
+> > 
+> > Yes, that's quite expected: same thing will happen with
+> > real hardware: set it to promisc, see lots of packets
+> > destined at others.
+> > 
+> >>>
+> >>>>  A simple solution is to
+> >>>>>> pull the code that delivers things to the taps/captures into
+> >>>>>> its own function and allow macvtap to call it from its receive
+> >>>>>> routine.
+> >>>>>>
+> >>>>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> >>>>>> ---
+> >>>>>> This is only an RFC.  I'd like to solicit comments on this simple
+> >>>>>> approach.
+> >>>>>
+> >>>>> I'm kind of worried about this. What worries me is that normally
+> >>>>> if you have a packet socket bound to all interfaces, what it shows is
+> >>>>> traffic to/from the box.
+> >>>>>
+> >>>>> This might be a bug for someone, but I suspect at this point this
+> >>>>> is part of the ABI.
+> >>>>>
+> >>>>> But macvtap bypasses most of the host networking stack,
+> >>>>> So I worry that suddenly showing these packets would be confusing.
+> >>>>
+> >>>> Is it really different from using bridge and tap?  If someone
+> >>>> does 'tcpdump -i any', they will see packets sent by the guest with
+> >>>> bridge+tap.
+> >>>>  It makes sense to do that same thing for macvtap, no?
+> >>>
+> >>> I was going by your comments not the code.
+> >>> Assuming we never showed macvtap traffic this might
+> >>> be part of ABI.
+> >>
+> >> BTW, if we end up doing it with a new rx_handler, it will end up
+> >> showing exactly the same traffic is this patch does because the
+> >> common path in __netif_receive_skb_core() will run and deliver
+> >> to all registered eligible entries in ptype_all.
+> >>
+> >> -vlad
+> > 
+> > Dave here thinks it's not a problem, I trust him ...
+> > 
+> >>>
+> >>>>>
+> >>>>> Assuming we want to show this traffic, I think it's preferable to
+> >>>>> -		if (!ptype->dev || ptype->dev == skb->dev) {
+> >>>>> +		if (ptype->dev == skb->dev) {
+> >>>>> so you have to bind to macvtap explicitly to see the traffic.
+> >>>>>
+> >>>>>
+> >>>>> Of course when you start binding to specific macvtaps
+> >>>>> it doesn't scale well because we'll have a long list
+> >>>>> on ptype_all suddenly.
+> >>>>
+> >>>> How likely is that really?  ptype_all doesn't scale as it.
+> >>>> Any time you don't set the protocol field, the entry goes
+> >>>> into ptype_all.  Macvtap doesn't change that.  You can
+> >>>> create a long list in ptype all if you have lots of guests and
+> >>>> you want to snoop on each guest separately thus binding to tap
+> >>>> device.
+> >>>>
+> >>>> -vlad
+> >>>>
+> >>>>> This might mean we need to keep this list per-device ...
+> >>>>>
+> >>>>>> A more complicated solution would have been to give
+> >>>>>> macvtap its own rx_handler and return RX_HANDLER_ANOTHER during
+> >>>>>> receive operation to make the packet go through another round of
+> >>>>>> capturing and hit the macvtap rx_handler.  I thought this would
+> >>>>>> hurt performance too much for no real gain.
+> >>>>>>
+> >>>>>> Thanks
+> >>>>>> -vlad
+> >>>>>>
+> >>>>>>  drivers/net/macvtap.c     |  4 +++-
+> >>>>>>  include/linux/netdevice.h |  2 ++
+> >>>>>>  net/core/dev.c            | 33 ++++++++++++++++++++++++++-------
+> >>>>>>  3 files changed, 31 insertions(+), 8 deletions(-)
+> >>>>>>
+> >>>>>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> >>>>>> index dc76670..0ed8fae 100644
+> >>>>>> --- a/drivers/net/macvtap.c
+> >>>>>> +++ b/drivers/net/macvtap.c
+> >>>>>> @@ -334,6 +334,7 @@ drop:
+> >>>>>>   */
+> >>>>>>  static int macvtap_receive(struct sk_buff *skb)
+> >>>>>>  {
+> >>>>>> +	netif_receive_skb_taps(skb, true);
+> >>>>>>  	skb_push(skb, ETH_HLEN);
+> >>>>>>  	return macvtap_forward(skb->dev, skb);
+> >>>>>>  }
+> >>>>>> @@ -727,8 +728,9 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+> >>>>>>  		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
+> >>>>>>  	}
+> >>>>>>  	if (vlan) {
+> >>>>>> +		skb->dev = vlan->dev;
+> >>>>>>  		local_bh_disable();
+> >>>>>> -		macvlan_start_xmit(skb, vlan->dev);
+> >>>>>> +		dev_hard_start_xmit(skb, vlan->dev, NULL, NULL);
+> >>>>>>  		local_bh_enable();
+> >>>>>>  	} else {
+> >>>>>>  		kfree_skb(skb);
+> >>>>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> >>>>>> index 8b3de7c..84880eb 100644
+> >>>>>> --- a/include/linux/netdevice.h
+> >>>>>> +++ b/include/linux/netdevice.h
+> >>>>>> @@ -2383,6 +2383,8 @@ void dev_kfree_skb_any(struct sk_buff *skb);
+> >>>>>>  int netif_rx(struct sk_buff *skb);
+> >>>>>>  int netif_rx_ni(struct sk_buff *skb);
+> >>>>>>  int netif_receive_skb(struct sk_buff *skb);
+> >>>>>> +struct packet_type *netif_receive_skb_taps(struct sk_buff *skb,
+> >>>>>> +					   bool last_deliver);
+> >>>>>>  gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb);
+> >>>>>>  void napi_gro_flush(struct napi_struct *napi, bool flush_old);
+> >>>>>>  struct sk_buff *napi_get_frags(struct napi_struct *napi);
+> >>>>>> diff --git a/net/core/dev.c b/net/core/dev.c
+> >>>>>> index da9c5e1..50f0ac4 100644
+> >>>>>> --- a/net/core/dev.c
+> >>>>>> +++ b/net/core/dev.c
+> >>>>>> @@ -3484,6 +3484,31 @@ static bool skb_pfmemalloc_protocol(struct sk_buff *skb)
+> >>>>>>  	}
+> >>>>>>  }
+> >>>>>>  
+> >>>>>> +struct packet_type *netif_receive_skb_taps(struct sk_buff *skb,
+> >>>>>> +					   bool last_deliver)
+> >>>>>> +{
+> >>>>>> +	struct packet_type *ptype, *pt_prev = NULL;
+> >>>>>> +	struct net_device *orig_dev;
+> >>>>>> +
+> >>>>>> +	if (list_empty(&ptype_all))
+> >>>>>> +		return NULL;
+> >>>>>> +
+> >>>>>> +	orig_dev = skb->dev;
+> >>>>>> +	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+> >>>>>> +		if (!ptype->dev || ptype->dev == skb->dev) {
+> >>>>>> +			if (pt_prev)
+> >>>>>> +				deliver_skb(skb, pt_prev, orig_dev);
+> >>>>>> +			pt_prev = ptype;
+> >>>>>> +		}
+> >>>>>> +	}
+> >>>>>> +
+> >>>>>> +	if (last_deliver && pt_prev)
+> >>>>>> +		deliver_skb(skb, pt_prev, orig_dev);
+> >>>>>> +
+> >>>>>> +	return pt_prev;
+> >>>>>> +}
+> >>>>>> +EXPORT_SYMBOL_GPL(netif_receive_skb_taps);
+> >>>>>> +
+> >>>>>>  static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
+> >>>>>>  {
+> >>>>>>  	struct packet_type *ptype, *pt_prev;
+> >>>>>> @@ -3535,13 +3560,7 @@ another_round:
+> >>>>>>  	if (pfmemalloc)
+> >>>>>>  		goto skip_taps;
+> >>>>>>  
+> >>>>>> -	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+> >>>>>> -		if (!ptype->dev || ptype->dev == skb->dev) {
+> >>>>>> -			if (pt_prev)
+> >>>>>> -				ret = deliver_skb(skb, pt_prev, orig_dev);
+> >>>>>> -			pt_prev = ptype;
+> >>>>>> -		}
+> >>>>>> -	}
+> >>>>>> +	pt_prev = netif_receive_skb_taps(skb, false);
+> >>>>>>  
+> >>>>>>  skip_taps:
+> >>>>>>  #ifdef CONFIG_NET_CLS_ACT
+> >>>>>> -- 
+> >>>>>> 1.8.4.2
