@@ -1,44 +1,60 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [PATCH] ethtool: fix man page for new speeds
-Date: Tue, 19 Nov 2013 18:25:40 -0800
-Message-ID: <20131120022540.6464.98397.stgit@jbrandeb-snb.jf.intel.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net] virtio-net: fix page refcnt leaking when fail to
+	allocate frag skb
+Date: Wed, 20 Nov 2013 11:00:41 +0800
+Message-ID: <528C25D9.6030605@redhat.com>
+References: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
+	<1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41454 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752211Ab3KTCZo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Nov 2013 21:25:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Dalton <mwdalton@google.com>, mst@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-both the 20000 and 40000 speeds either were wrong or just
-not documented.  Fix both.
+On 11/19/2013 10:03 PM, Eric Dumazet wrote:
+> On Tue, 2013-11-19 at 16:05 +0800, Jason Wang wrote:
+>> > We need to drop the refcnt of page when we fail to allocate an skb for frag
+>> > list, otherwise it will be leaked. The bug was introduced by commit
+>> > 2613af0ed18a11d5c566a81f9a6510b73180660a ("virtio_net: migrate mergeable rx
+>> > buffers to page frag allocators").
+>> > 
+>> > Cc: Michael Dalton <mwdalton@google.com>
+>> > Cc: Eric Dumazet <edumazet@google.com>
+>> > Cc: Rusty Russell <rusty@rustcorp.com.au>
+>> > Cc: Michael S. Tsirkin <mst@redhat.com>
+>> > Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> > ---
+>> > The patch was needed for 3.12 stable.
+> Good catch, but if we return from receive_mergeable() in the 'middle'
+> of the frags we would need for the current skb, who will
+> call the virtqueue_get_buf() to flush the remaining frags ?
+>
+> Don't we also need to call virtqueue_get_buf() like 
+>
+> while (--num_buf) {
+>     buf = virtqueue_get_buf(rq->vq, &len);
+>     if (!buf)
+>         break;
+>     put_page(virt_to_head_page(buf));
+> }
+>
+> ?
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
----
- ethtool.8.in |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+Yes we need this, will send V2.
 
-diff --git a/ethtool.8.in b/ethtool.8.in
-index f587ec8..f320f7f 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -549,8 +549,12 @@ lB	l	lB.
- 0x020	1000 Full
- 0x8000	2500 Full	(not supported by IEEE standards)
- 0x1000	10000 Full
--0x20000	20000MLD2 Full	(not supported by IEEE standards)
--0x40000	20000KR2 Full	(not supported by IEEE standards)
-+0x200000	20000MLD2 Full	(not supported by IEEE standards)
-+0x400000	20000KR2 Full	(not supported by IEEE standards)
-+0x800000	40000KR4 Full
-+0x1000000	40000CR4 Full
-+0x2000000	40000SR4 Full
-+0x4000000	40000LR4 Full
- .TE
- .TP
- .BI phyad \ N
+Thanks
