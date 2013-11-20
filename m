@@ -1,147 +1,54 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 5/5] tun: Added support for RFS on tun flows
-Date: Wed, 20 Nov 2013 12:27:57 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1311201216270.17749@tomh.mtv.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv4: fix race in concurrent ip_route_input_slow()
+Date: Wed, 20 Nov 2013 15:29:18 -0500 (EST)
+Message-ID: <20131120.152918.493706024928330813.davem@davemloft.net>
+References: <1384917154-11049-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, edumazet@google.com, hkchu@google.com
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:33054 "EHLO
-	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755087Ab3KTU16 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 15:27:58 -0500
-Received: by mail-ob0-f202.google.com with SMTP id gq1so1025906obb.3
-        for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 12:27:57 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:36811 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754965Ab3KTU3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 15:29:20 -0500
+In-Reply-To: <1384917154-11049-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support so that the rps_flow_tables (RFS) can be
-programmed using the tun flows which are already set up to track flows
-for the purposes of queue selection.
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Tue, 19 Nov 2013 19:12:34 -0800
 
-On the receive path (corresponding to select_queue and tun_net_xmit) the
-rxhash is saved in the flow_entry.  The original code only does flow
-lookup in select_queue, so this patch adds a flow lookup in tun_net_xmit
-if num_queues == 1 (select_queue is not called from
-dev_queue_xmit->netdev_pick_tx in that case).
+> CPUs can ask for local route via ip_route_input_noref() concurrently.
+> if nh_rth_input is not cached yet, CPUs will proceed to allocate
+> equivalent DSTs on 'lo' and then will try to cache them in nh_rth_input
+> via rt_cache_route()
+> Most of the time they succeed, but on occasion the following two lines:
+> 	orig = *p;
+> 	prev = cmpxchg(p, orig, rt);
+> in rt_cache_route() do race and one of the cpus fails to complete cmpxchg.
+> But ip_route_input_slow() doesn't check the return code of rt_cache_route(),
+> so dst is leaking. dst_destroy() is never called and 'lo' device
+> refcnt doesn't go to zero, which can be seen in the logs as:
+> 	unregister_netdevice: waiting for lo to become free. Usage count = 1
+> Adding mdelay() between above two lines makes it easily reproducible.
+> Fix it similar to nh_pcpu_rth_output case.
+> 
+> Fixes: d2d68ba9fe8b ("ipv4: Cache input routes in fib_info nexthops.")
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+> 
+> David,
+> 
+> looks like caacf05e5ad1 ("ipv4: Properly purge netdev references on uncached routes.")
+> fixed the race for nexthop/rth_output, but missed it for rth_input.
+> I'm not sure what was the assumption why it's not needed there.
+> We're definitely seeing it every 12-24hr during nightly tests.
+> There are several bugs on ubuntu and debian forums with similar description.
+> Some were closed, since folks struggled to reproduce it.
+> It took us more than a month to debug it.
+> Please queue for stable.
 
-The flow is recorded (processing CPU) in tun_flow_update (TX path), and
-reset when flow is deleted.
-
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- drivers/net/tun.c | 47 ++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 44 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index c3e20c4..81ba181 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -152,6 +152,7 @@ struct tun_flow_entry {
- 	struct tun_struct *tun;
- 
- 	u32 rxhash;
-+	u32 rps_rxhash;
- 	int queue_index;
- 	unsigned long updated;
- };
-@@ -220,6 +221,7 @@ static struct tun_flow_entry *tun_flow_create(struct tun_struct *tun,
- 			  rxhash, queue_index);
- 		e->updated = jiffies;
- 		e->rxhash = rxhash;
-+		e->rps_rxhash = 0;
- 		e->queue_index = queue_index;
- 		e->tun = tun;
- 		hlist_add_head_rcu(&e->hash_link, head);
-@@ -232,6 +234,7 @@ static void tun_flow_delete(struct tun_struct *tun, struct tun_flow_entry *e)
- {
- 	tun_debug(KERN_INFO, tun, "delete flow: hash %u index %u\n",
- 		  e->rxhash, e->queue_index);
-+	sock_rps_reset_flow_hash(e->rps_rxhash);
- 	hlist_del_rcu(&e->hash_link);
- 	kfree_rcu(e, rcu);
- 	--tun->flow_count;
-@@ -325,6 +328,7 @@ static void tun_flow_update(struct tun_struct *tun, u32 rxhash,
- 		/* TODO: keep queueing to old queue until it's empty? */
- 		e->queue_index = queue_index;
- 		e->updated = jiffies;
-+		sock_rps_record_flow_hash(e->rps_rxhash);
- 	} else {
- 		spin_lock_bh(&tun->lock);
- 		if (!tun_flow_find(head, rxhash) &&
-@@ -341,6 +345,18 @@ unlock:
- 	rcu_read_unlock();
- }
- 
-+/*
-+ * Save the hash received in the stack receive path and update the
-+ * flow_hash table accordingly.
-+ */
-+static inline void tun_flow_save_rps_rxhash(struct tun_flow_entry *e, u32 hash)
-+{
-+	if (unlikely(e->rps_rxhash != hash)) {
-+		sock_rps_reset_flow_hash(e->rps_rxhash);
-+		e->rps_rxhash = hash;
-+	}
-+}
-+
- /* We try to identify a flow through its rxhash first. The reason that
-  * we do not check rxq no. is becuase some cards(e.g 82599), chooses
-  * the rxq based on the txq where the last packet of the flow comes. As
-@@ -352,18 +368,26 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct tun_struct *tun = netdev_priv(dev);
- 	struct tun_flow_entry *e;
--	u32 txq = 0;
-+	u32 txq = 0, rps_rxhash;
- 	u32 numqueues = 0;
- 
- 	rcu_read_lock();
- 	numqueues = ACCESS_ONCE(tun->numqueues);
- 
-+	/*
-+	 * Save the original rxhash from the skb.  This may be a hash provided
-+	 * by the hardware.  This should be the one used to program the rps_flow
-+	 * table.
-+	 */
-+	rps_rxhash = skb_get_rxhash(skb);
-+
- 	txq = skb_get_sw_rxhash(skb);
- 	if (txq) {
- 		e = tun_flow_find(&tun->flows[tun_hashfn(txq)], txq);
--		if (e)
-+		if (e) {
- 			txq = e->queue_index;
--		else
-+			tun_flow_save_rps_rxhash(e, rps_rxhash);
-+		} else
- 			/* use multiply and shift instead of expensive divide */
- 			txq = ((u64)txq * numqueues) >> 32;
- 	} else if (likely(skb_rx_queue_recorded(skb))) {
-@@ -728,6 +752,23 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (txq >= tun->numqueues)
- 		goto drop;
- 
-+	if (tun->numqueues == 1) {
-+		/*
-+		 * Select queue was not called for the skbuff, so we extract the
-+		 * RPS hash and save it into the flow_table here.
-+		 */
-+		__u32 rps_rxhash, rxhash;
-+
-+		rps_rxhash = skb_get_rxhash(skb);
-+		rxhash = skb_get_sw_rxhash(skb);
-+		if (rxhash) {
-+			struct tun_flow_entry *e;
-+			e = tun_flow_find(&tun->flows[tun_hashfn(rxhash)], rxhash);
-+			if (e)
-+				tun_flow_save_rps_rxhash(e, rps_rxhash);
-+		}
-+	}
-+
- 	tun_debug(KERN_INFO, tun, "tun_net_xmit %d\n", skb->len);
- 
- 	BUG_ON(!tfile);
--- 
-1.8.4.1
+Your analysis is accurate and your fix is absolutely correct, applied
+and queued up for -stable, thanks!
