@@ -1,94 +1,94 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC v1 2/7] net: phy: provide phy_resume/phy_suspend helpers
-Date: Wed, 20 Nov 2013 12:36:55 -0800
-Message-ID: <CAGVrzcZ9uDK9X-K86Esxb=93tkHuV4-RXxZ8Us-vNJ9UxcTFpQ@mail.gmail.com>
-References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com> <1384978913-8052-3-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fw: [Bug 65271] New: Acceptable RST packets (with seq number in
+ window) are ignored in LAST_ACK state (and previously sent data pending
+ acknowledgement)
+Date: Wed, 20 Nov 2013 12:41:12 -0800
+Message-ID: <1384980072.10637.25.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131120122211.386c9680@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1384978913-8052-3-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	julien.delacroix@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:43652 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755193Ab3KTUlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 15:41:14 -0500
+Received: by mail-pb0-f53.google.com with SMTP id ma3so10377908pbc.26
+        for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 12:41:13 -0800 (PST)
+In-Reply-To: <20131120122211.386c9680@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2013/11/20 Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>:
-> This adds helper functions to resume and suspend a given phy_device
-> by calling the corresponding driver callbacks if available.
->
-> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+On Wed, 2013-11-20 at 12:22 -0800, Stephen Hemminger wrote:
+> 
+> Begin forwarded message:
+> 
+> Date: Wed, 20 Nov 2013 07:03:59 -0800
+> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+> Subject: [Bug 65271] New: Acceptable RST packets (with seq number in window) are ignored in LAST_ACK state (and previously sent data pending acknowledgement)
+> 
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=65271
+> 
+>             Bug ID: 65271
+>            Summary: Acceptable RST packets (with seq number in window) are
+>                     ignored in LAST_ACK state (and previously sent data
+>                     pending acknowledgement)
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.32.59-0.7-default
+>           Hardware: All
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>           Assignee: shemminger@linux-foundation.org
+>           Reporter: julien.delacroix@gmail.com
+>         Regression: No
+> 
+> Created attachment 115271
+>   --> https://bugzilla.kernel.org/attachment.cgi?id=115271&action=edit
+> TCP dump showing described scenario
+> 
+> PCAP file of traffic capture is attached.
+> Note that capture was taken directly on server host, so RST packets definitely
+> reached the server host.
+> 
+> 
+> Here is the flow:
+> 
+> 1: Client ---- SYN ----> Server
+> 2: Client <- SYN, ACK -- Server
+> 3: Client ---- ACK ----> Server 
+> 4: Client ---- FIN ----> Server ( server in CLOSE_WAIT state)
+> 5: Client <- PSH, ACK -- Server 
+> 6: Client <- FIN, ACK -- Server ( server in LAST_ACK state)
+> 
+> 7: Client ---- RST ----> Server 
+> 
+> Then repeat N times:
+>     8: Client <- PSH, ACK -- Server 
+>     9: Client ---RST, ACK -> Server 
+> 
+> 
+> Notes:
+> 5: packet contains 3 bytes of data
+> 7: no ACK flag, and sequence number is correct, but RST packet is ignored
+> 8: retransmission of step 5
+> 9: the sequence number is correct as well as the acknowledgment number
+> (acknowledging data in 5, but not yet FIN in 6), but this RST is again ignored.
+> 
+> From this point client keeps retransmitting 5, while server keeps answering
+> with acceptable RST packets.
+> 
+> You can observe this scenario (with 5 retransmissions and 5 RST) in the
+> attached PCAP file.
+> 
 
-Looks good, thanks Sebastian:
-
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-kernel@vger.kernel.org
-> ---
->  drivers/net/phy/phy_device.c |   19 +++++++++++++++++++
->  include/linux/phy.h          |    2 ++
->  2 files changed, 21 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 74630e9..2442895 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -625,6 +625,25 @@ void phy_detach(struct phy_device *phydev)
->  }
->  EXPORT_SYMBOL(phy_detach);
->
-> +int phy_suspend(struct phy_device *phydev)
-> +{
-> +       struct phy_driver *phydrv = to_phy_driver(phydev->dev.driver);
-> +
-> +       if (phydrv->suspend)
-> +               return phydrv->suspend(phydev);
-> +       return 0;
-> +}
-> +EXPORT_SYMBOL(phy_suspend);
-> +
-> +int phy_resume(struct phy_device *phydev)
-> +{
-> +       struct phy_driver *phydrv = to_phy_driver(phydev->dev.driver);
-> +
-> +       if (phydrv->resume)
-> +               return phydrv->resume(phydev);
-> +       return 0;
-> +}
-> +EXPORT_SYMBOL(phy_resume);
->
->  /* Generic PHY support and helper functions */
->
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index 64ab823..ed0d6d8 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -552,6 +552,8 @@ void phy_detach(struct phy_device *phydev);
->  void phy_start(struct phy_device *phydev);
->  void phy_stop(struct phy_device *phydev);
->  int phy_start_aneg(struct phy_device *phydev);
-> +int phy_suspend(struct phy_device *phydev);
-> +int phy_resume(struct phy_device *phydev);
->
->  int phy_stop_interrupts(struct phy_device *phydev);
->
-> --
-> 1.7.2.5
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-
-
-
--- 
-Florian
+Thanks for the report, you'll take a look.
