@@ -1,35 +1,121 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
- burst.
-Date: Wed, 20 Nov 2013 07:03:47 -0800
-Message-ID: <1384959827.8604.141.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131119225822.GA9611@xanatos>
-	 <Pine.LNX.4.44L0.1311192204140.6891-100000@netrider.rowland.org>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7437@saturn3.aculab.com>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: [PATCHv3] net: core: Always propagate flag changes to interfaces
+Date: Wed, 20 Nov 2013 16:05:39 +0100
+Message-ID: <528CCFC3.3050805@profihost.ag>
+References: <1384912035-17800-1-git-send-email-vyasevic@redhat.com> <528C62F7.2000100@profihost.ag> <528CBF22.4050304@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: vfalico@redhat.com
+To: vyasevic@redhat.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:56970 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751461Ab3KTPDu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 10:03:50 -0500
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7437@saturn3.aculab.com>
+Received: from mail-ph.de-nserver.de ([85.158.179.214]:58984 "EHLO
+	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751608Ab3KTPFp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 10:05:45 -0500
+In-Reply-To: <528CBF22.4050304@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-11-20 at 09:36 +0000, David Laight wrote:
+thanks, works fine.
 
-> Ben said the largest number of fragments from the current network
-> stack will be 17, and that none of them will cross 32k boundaries.
-> So the network stack won't send down long SG lists.
 
-Please note that skb->head itself _might_ cross a 32K or 64K boundary :
 
-skb->head is kmalloc() provided, and SLUB can be tweaked
-(slub_max_order) to use very high order pages.
+Am 20.11.2013 14:54, schrieb Vlad Yasevich:
+> On 11/20/2013 02:21 AM, Stefan Priebe - Profihost AG wrote:
+>> Hi,
+>>
+>> Am 20.11.2013 02:47, schrieb Vlad Yasevich:
+>>> The following commit:
+>>>     b6c40d68ff6498b7f63ddf97cf0aa818d748dee7
+>>>     net: only invoke dev->change_rx_flags when device is UP
+>>>
+>>> tried to fix a problem with VLAN devices and promiscuouse flag setting.
+>>> The issue was that VLAN device was setting a flag on an interface that
+>>> was down, thus resulting in bad promiscuity count.
+>>> This commit blocked flag propagation to any device that is currently
+>>> down.
+>>>
+>>> A later commit:
+>>>     deede2fabe24e00bd7e246eb81cd5767dc6fcfc7
+>>>     vlan: Don't propagate flag changes on down interfaces
+>>>
+>>> fixed VLAN code to only propagate flags when the VLAN interface is up,
+>>> thus fixing the same issue as above, only localized to VLAN.
+>>>
+>>> The problem we have now is that if we have create a complex stack
+>>> involving multiple software devices like bridges, bonds, and vlans,
+>>> then it is possible that the flags would not propagate properly to
+>>> the physical devices.  A simple examle of the scenario is the
+>>> following:
+>>>
+>>>   eth0----> bond0 ----> bridge0 ---> vlan50
+>>>
+>>> If bond0 or eth0 happen to be down at the time bond0 is added to
+>>> the bridge, then eth0 will never have promisc mode set which is
+>>> currently required for operation as part of the bridge.  As a
+>>> result, packets with vlan50 will be dropped by the interface.
+>>>
+>>> The only 2 devices that implement the special flag handling are
+>>> VLAN and DSA and they both have required code to prevent incorrect
+>>> flag propagation.  As a result we can remove the generic solution
+>>> introduced in b6c40d68ff6498b7f63ddf97cf0aa818d748dee7 and leave
+>>> it to the individual devices to decide whether they will block
+>>> flag propagation or not.
+>>>
+>>> Reported-by: Stefan Priebe <s.priebe@profihost.ag>
+>>> Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>>> ---
+>>> v2->v3:  Removed a strange chunk that modified comments.  Not sure where it
+>>>          came from.
+>>>
+>>>  net/core/dev.c | 2 +-
+>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>
+>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>> index 974143d..da9c5e1 100644
+>>> --- a/net/core/dev.c
+>>> +++ b/net/core/dev.c
+>>> @@ -4991,7 +4991,7 @@ static void dev_change_rx_flags(struct net_device *dev, int flags)
+>>>  {
+>>>  	const struct net_device_ops *ops = dev->netdev_ops;
+>>>  
+>>> -	if ((dev->flags & IFF_UP) && ops->ndo_change_rx_flags)
+>>> +	if (ops->ndo_change_rx_flags)
+>>>  		ops->ndo_change_rx_flags(dev, flags);
+>>>  }
+>>
+>> thanks for this patch - in one of the first posts you send this one:
+>>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index fc913f4..016857b 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -4525,7 +4525,9 @@ static void dev_change_rx_flags(struct net_device
+>> *dev, int flags)
+>>  {
+>>         const struct net_device_ops *ops = dev->netdev_ops;
+>>
+>> -       if ((dev->flags & IFF_UP) && ops->ndo_change_rx_flags)
+>> +       if (((dev->flags & IFF_UP) ||
+>> +            (dev->flags & (IFF_MASTER | IFF_SLAVE)))
+>> +           && ops->ndo_change_rx_flags)
+>>                 ops->ndo_change_rx_flags(dev, flags);
+>>  }
+>>
+> 
+> The new one should work just as well.  The first one I had you try
+> removed the restriction for master and slave devices such as bonds
+> and their slaves.  As Veaceslav pointed out, we can simply remove all
+> restrictions in this code and have the individual drivers do the right
+> thing.  The 2 effected drivers are VLAN and DSA and they already do the
+> right checks before propagating flags.
+> 
+> I ran the same test with the simplified code and it worked for me
+> correctly setting promisc mode in the same set-up you had:
+> 
+>    (phys dev) ---> bond ---->  bridge ---> vlan
+> 
+> -vlad
+> 
