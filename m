@@ -1,205 +1,74 @@
-From: <Shruti@freescale.com>
-Subject: [PATCH v3 4/4] net/phy: Add the autocross feature for forced links on VSC82x4
-Date: Wed, 20 Nov 2013 16:38:19 -0600
-Message-ID: <1384987099-4518-4-git-send-email-Shruti@freescale.com>
+From: <Shruti@Freescale.com>
+Subject: [PATCH v3 3/4] net/phy: Add VSC8662 support
+Date: Wed, 20 Nov 2013 16:38:18 -0600
+Message-ID: <1384987099-4518-3-git-send-email-Shruti@freescale.com>
 References: <1384987099-4518-1-git-send-email-Shruti@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Madalin Bucur <madalin.bucur@freescale.com>,
-	Shruti Kanetkar <Shruti@freescale.com>
+Cc: Sandeep Singh <sandeep@Freescale.com>,
+	Sandeep Singh <Sandeep@Freescale.com>,
+	Andy Fleming <afleming@gmail.com>,
+	Shruti Kanetkar <Shruti@Freescale.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:17514
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754074Ab3KTWkE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 17:40:04 -0500
+Received: from mail-db9lp0248.outbound.messaging.microsoft.com ([213.199.154.248]:36424
+	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754374Ab3KTWkK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 17:40:10 -0500
 In-Reply-To: <1384987099-4518-1-git-send-email-Shruti@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Madalin Bucur <madalin.bucur@freescale.com>
+From: Sandeep Singh <sandeep@freescale.com>
 
-Add auto-MDI/MDI-X capability for forced (autonegotiation disabled)
-10/100 Mbps speeds on Vitesse VSC82x4 PHYs. Exported previously static
-function genphy_setup_forced() required by the new config_aneg handler
-in the Vitesse PHY module.
+Vitesse VSC8662 is Dual Port 10/100/1000Base-T Phy
+Its register set and features are similar to other Vitesse Phys.
 
-Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
-Signed-off-by: Shruti Kanetkar <Shruti@freescale.com>
+Signed-off-by: Sandeep Singh <Sandeep@freescale.com>
+Signed-off-by: Andy Fleming <afleming@gmail.com>
+Signed-off-by: Shruti Kanetkar <Shruti@Freescale.com>
 ---
- drivers/net/phy/phy_device.c |    4 +--
- drivers/net/phy/vitesse.c    |   75 +++++++++++++++++++++++++++++++++++++++---
- include/linux/phy.h          |    1 +
- 3 files changed, 73 insertions(+), 7 deletions(-)
+ drivers/net/phy/vitesse.c |   14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 74630e9..d6447b3 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -697,7 +697,7 @@ static int genphy_config_advert(struct phy_device *phydev)
-  *   to the values in phydev. Assumes that the values are valid.
-  *   Please see phy_sanitize_settings().
-  */
--static int genphy_setup_forced(struct phy_device *phydev)
-+int genphy_setup_forced(struct phy_device *phydev)
- {
- 	int err;
- 	int ctl = 0;
-@@ -716,7 +716,7 @@ static int genphy_setup_forced(struct phy_device *phydev)
- 
- 	return err;
- }
--
-+EXPORT_SYMBOL(genphy_setup_forced);
- 
- /**
-  * genphy_restart_aneg - Enable and Restart Autonegotiation
 diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
-index 40406bc..508e435 100644
+index 31b3148..40406bc 100644
 --- a/drivers/net/phy/vitesse.c
 +++ b/drivers/net/phy/vitesse.c
-@@ -3,7 +3,7 @@
-  *
-  * Author: Kriston Carson
-  *
-- * Copyright (c) 2005, 2009 Freescale Semiconductor, Inc.
-+ * Copyright (c) 2005, 2009, 2011 Freescale Semiconductor, Inc.
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
-@@ -18,6 +18,11 @@
- #include <linux/ethtool.h>
- #include <linux/phy.h>
- 
-+/* Vitesse Extended Page Magic Register(s) */
-+#define MII_VSC82X4_EXT_PAGE_16E	0x10
-+#define MII_VSC82X4_EXT_PAGE_17E	0x11
-+#define MII_VSC82X4_EXT_PAGE_18E	0x12
-+
- /* Vitesse Extended Control Register 1 */
- #define MII_VSC8244_EXT_CON1           0x17
- #define MII_VSC8244_EXTCON1_INIT       0x0000
-@@ -54,6 +59,9 @@
- #define MII_VSC8221_AUXCONSTAT_INIT	0x0004 /* need to set this bit? */
- #define MII_VSC8221_AUXCONSTAT_RESERVED	0x0004
- 
-+/* Vitesse Extended Page Access Register */
-+#define MII_VSC82X4_EXT_PAGE_ACCESS	0x1f
-+
+@@ -57,6 +57,7 @@
  #define PHY_ID_VSC8234			0x000fc620
  #define PHY_ID_VSC8244			0x000fc6c0
  #define PHY_ID_VSC8574			0x000704a0
-@@ -154,6 +162,63 @@ static int vsc8221_config_init(struct phy_device *phydev)
- 	 */
- }
++#define PHY_ID_VSC8662			0x00070660
+ #define PHY_ID_VSC8221			0x000fc550
+ #define PHY_ID_VSC8211			0x000fc4b0
  
-+/* vsc82x4_config_autocross_enable - Enable auto MDI/MDI-X for forced links
-+ * @phydev: target phy_device struct
-+ *
-+ * Enable auto MDI/MDI-X when in 10/100 forced link speeds by writing
-+ * special values in the VSC8234/VSC8244 extended reserved registers
-+ */
-+static int vsc82x4_config_autocross_enable(struct phy_device *phydev)
-+{
-+	int ret;
-+
-+	if (phydev->autoneg == AUTONEG_ENABLE || phydev->speed > SPEED_100)
-+		return 0;
-+
-+	/* map extended registers set 0x10 - 0x1e */
-+	ret = phy_write(phydev, MII_VSC82X4_EXT_PAGE_ACCESS, 0x52b5);
-+	if (ret >= 0)
-+		ret = phy_write(phydev, MII_VSC82X4_EXT_PAGE_18E, 0x0012);
-+	if (ret >= 0)
-+		ret = phy_write(phydev, MII_VSC82X4_EXT_PAGE_17E, 0x2803);
-+	if (ret >= 0)
-+		ret = phy_write(phydev, MII_VSC82X4_EXT_PAGE_16E, 0x87fa);
-+	/* map standard registers set 0x10 - 0x1e */
-+	if (ret >= 0)
-+		ret = phy_write(phydev, MII_VSC82X4_EXT_PAGE_ACCESS, 0x0000);
-+	else
-+		phy_write(phydev, MII_VSC82X4_EXT_PAGE_ACCESS, 0x0000);
-+
-+	return ret;
-+}
-+
-+/* vsc82x4_config_aneg - restart auto-negotiation or write BMCR
-+ * @phydev: target phy_device struct
-+ *
-+ * Description: If auto-negotiation is enabled, we configure the
-+ *   advertising, and then restart auto-negotiation.  If it is not
-+ *   enabled, then we write the BMCR and also start the auto
-+ *   MDI/MDI-X feature
-+ */
-+static int vsc82x4_config_aneg(struct phy_device *phydev)
-+{
-+	int ret;
-+
-+	/* Enable auto MDI/MDI-X when in 10/100 forced link speeds by
-+	 * writing special values in the VSC8234 extended reserved registers
-+	 */
-+	if (phydev->autoneg != AUTONEG_ENABLE && phydev->speed <= SPEED_100) {
-+		ret = genphy_setup_forced(phydev);
-+
-+		if (ret < 0) /* error */
-+			return ret;
-+
-+		return vsc82x4_config_autocross_enable(phydev);
-+	}
-+
-+	return genphy_config_aneg(phydev);
-+}
-+
- /* Vitesse 82xx */
- static struct phy_driver vsc82xx_driver[] = {
- {
-@@ -163,7 +228,7 @@ static struct phy_driver vsc82xx_driver[] = {
- 	.features       = PHY_GBIT_FEATURES,
- 	.flags          = PHY_HAS_INTERRUPT,
- 	.config_init    = &vsc824x_config_init,
--	.config_aneg    = &genphy_config_aneg,
-+	.config_aneg    = &vsc82x4_config_aneg,
- 	.read_status    = &genphy_read_status,
- 	.ack_interrupt  = &vsc824x_ack_interrupt,
+@@ -192,6 +193,18 @@ static struct phy_driver vsc82xx_driver[] = {
  	.config_intr    = &vsc82xx_config_intr,
-@@ -175,7 +240,7 @@ static struct phy_driver vsc82xx_driver[] = {
- 	.features	= PHY_GBIT_FEATURES,
- 	.flags		= PHY_HAS_INTERRUPT,
- 	.config_init	= &vsc824x_config_init,
--	.config_aneg	= &genphy_config_aneg,
-+	.config_aneg	= &vsc82x4_config_aneg,
- 	.read_status	= &genphy_read_status,
- 	.ack_interrupt	= &vsc824x_ack_interrupt,
- 	.config_intr	= &vsc82xx_config_intr,
-@@ -187,7 +252,7 @@ static struct phy_driver vsc82xx_driver[] = {
- 	.features       = PHY_GBIT_FEATURES,
- 	.flags          = PHY_HAS_INTERRUPT,
- 	.config_init    = &vsc824x_config_init,
--	.config_aneg    = &genphy_config_aneg,
-+	.config_aneg    = &vsc82x4_config_aneg,
- 	.read_status    = &genphy_read_status,
- 	.ack_interrupt  = &vsc824x_ack_interrupt,
- 	.config_intr    = &vsc82xx_config_intr,
-@@ -199,7 +264,7 @@ static struct phy_driver vsc82xx_driver[] = {
- 	.features       = PHY_GBIT_FEATURES,
- 	.flags          = PHY_HAS_INTERRUPT,
- 	.config_init    = &vsc824x_config_init,
--	.config_aneg    = &genphy_config_aneg,
-+	.config_aneg    = &vsc82x4_config_aneg,
- 	.read_status    = &genphy_read_status,
- 	.ack_interrupt  = &vsc824x_ack_interrupt,
- 	.config_intr    = &vsc82xx_config_intr,
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 64ab823..48a4dc3 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -559,6 +559,7 @@ static inline int phy_read_status(struct phy_device *phydev) {
- 	return phydev->drv->read_status(phydev);
- }
- 
-+int genphy_setup_forced(struct phy_device *phydev);
- int genphy_restart_aneg(struct phy_device *phydev);
- int genphy_config_aneg(struct phy_device *phydev);
- int genphy_update_link(struct phy_device *phydev);
+ 	.driver         = { .owner = THIS_MODULE,},
+ }, {
++	.phy_id         = PHY_ID_VSC8662,
++	.name           = "Vitesse VSC8662",
++	.phy_id_mask    = 0x000ffff0,
++	.features       = PHY_GBIT_FEATURES,
++	.flags          = PHY_HAS_INTERRUPT,
++	.config_init    = &vsc824x_config_init,
++	.config_aneg    = &genphy_config_aneg,
++	.read_status    = &genphy_read_status,
++	.ack_interrupt  = &vsc824x_ack_interrupt,
++	.config_intr    = &vsc82xx_config_intr,
++	.driver         = { .owner = THIS_MODULE,},
++}, {
+ 	/* Vitesse 8221 */
+ 	.phy_id		= PHY_ID_VSC8221,
+ 	.phy_id_mask	= 0x000ffff0,
+@@ -238,6 +251,7 @@ static struct mdio_device_id __maybe_unused vitesse_tbl[] = {
+ 	{ PHY_ID_VSC8234, 0x000ffff0 },
+ 	{ PHY_ID_VSC8244, 0x000fffc0 },
+ 	{ PHY_ID_VSC8574, 0x000ffff0 },
++	{ PHY_ID_VSC8662, 0x000ffff0 },
+ 	{ PHY_ID_VSC8221, 0x000ffff0 },
+ 	{ PHY_ID_VSC8211, 0x000ffff0 },
+ 	{ }
 -- 
 1.7.9.7
