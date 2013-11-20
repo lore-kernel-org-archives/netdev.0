@@ -1,73 +1,61 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [PATCH] cipso: simplify cipso_v4_translate() when !CONFIG_NETLABEL
-Date: Wed, 20 Nov 2013 14:45:19 -0500
-Message-ID: <4007061.3MtKnenLV1@sifl>
-References: <20131120192548.5616.74526.stgit@localhost> <20131120.143407.4095832971724166.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC net-next PATCH] macvtap: Add packet capture support
+Date: Wed, 20 Nov 2013 14:52:33 -0500 (EST)
+Message-ID: <20131120.145233.1158930529349207237.davem@davemloft.net>
+References: <1384970649-29839-1-git-send-email-vyasevic@redhat.com>
+	<20131120181949.GB25569@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com, netdev@vger.kernel.org
+To: mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62171 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754628Ab3KTTpV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Nov 2013 14:45:21 -0500
-In-Reply-To: <20131120.143407.4095832971724166.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36581 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754819Ab3KTTwf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 14:52:35 -0500
+In-Reply-To: <20131120181949.GB25569@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, November 20, 2013 02:34:07 PM David Miller wrote:
-> From: Paul Moore <pmoore@redhat.com>
-> Date: Wed, 20 Nov 2013 14:25:48 -0500
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 20 Nov 2013 20:19:49 +0200
+
+> On Wed, Nov 20, 2013 at 01:04:09PM -0500, Vlad Yasevich wrote:
+>> Currently it is impossible to capture traffic when using a macvtap
+>> device.  The reason is that all capture handling is done either in
+>> dev_hard_start_xmit() or in __netif_receive_skb_core().  Macvtap
+>> currenlty doesn't use dev_hard_start_xmit(), and at the time the
+>> packet traverses __netif_receive_skb_core, the skb->dev is set to
+>> the lower-level device that doesn't end up matching macvtap.
+>> 
+>> To solve the issue, use dev_hard_start_xmit() on the output path.
+>> On the input path, it is toughter to solve since macvtap ends up
+>> consuming the skb so there is nothing more left for
+>> __netif_receive_skb_core() to do.  A simple solution is to
+>> pull the code that delivers things to the taps/captures into
+>> its own function and allow macvtap to call it from its receive
+>> routine.
+>> 
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+>> This is only an RFC.  I'd like to solicit comments on this simple
+>> approach.
 > 
-> > Previous commits corrected some problems with cipso_v4_translate()
-> > when CONFIG_NETLABEL=n but some additional work is needed to tidy
-> > things up a bit.
-> > 
-> > Signed-off-by: Paul Moore <pmoore@redhat.com>
+> I'm kind of worried about this. What worries me is that normally
+> if you have a packet socket bound to all interfaces, what it shows is
+> traffic to/from the box.
 > 
-> That's really vague, please describe exactly what is wrong with the
-> existing conditional and how you have fixed it.
+> This might be a bug for someone, but I suspect at this point this
+> is part of the ABI.
 
-I kinda figured the one line patch and "some additional work is needed to tidy 
-things up a bit" summed it up nicely, but I guess not so here ya go ...
+Tunnel decapsulations on input are shown for other types of devices,
+such as IP tunnels.  It is because they feed packets back into the
+stack via netif_receive_skb() upon decapsulation.
 
-First, for reference, here is the diff one more time (some whitespace damage 
-in the paste below for readability):
+Then we have all of this sideways code for VLANs and "rx_handler"s
+in order to perform decapsulation via direct iteration instead of
+recursion inside of __netif_receive_skb_core().
 
-> diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h
-> index a8c2ef6..2244e02 100644
-> --- a/include/net/cipso_ipv4.h
-> +++ b/include/net/cipso_ipv4.h
-> @@ -304,7 +304,7 @@ static inline int cipso_v4_validate(...)
->   for (opt_iter = 6; opt_iter < opt_len;) {   
->       tag_len = opt[opt_iter + 1];
-> 
-> -     if ((tag_len == 0) || (opt[opt_iter + 1] > (opt_len - opt_iter))) {
-> +     if ((tag_len == 0) || (tag_len > (opt_len - opt_iter))) { 
->            err_offset = opt_iter + 1;
->            goto out;        
->       }
-
-Looking at the original conditional:
-
- if ((tag_len == 0) || (opt[opt_iter + 1] > (opt_len - opt_iter))
-
-... and the replacement:
-
- if ((tag_len == 0) || (tag_len > (opt_len - opt_iter)))
-
-... we notice that "(opt[opt_iter + 1] > (opt_len - opt_iter))" has been 
-replaced with "(tag_len > (opt_len - opt_iter))", substituting 'tag_len' for 
-'opt[opt_iter + 1]'.  This is acceptable because the the first statement in 
-the for loop is:
-
- tag_len = opt[opt_iter + 1]
-
-... which matches the substitution in the conditional.  I'm not sure how much 
-more explicit I can be about this change, it is really pretty minor.
-
--- 
-paul moore
-security and virtualization @ redhat
+I suspect that Vlad's suggested rx_handler alternative approach is
+going to be much better.
