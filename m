@@ -1,103 +1,59 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net RESEND] bridge: flush br's address entry in
- fdb when remove the bridge dev
-Date: Wed, 20 Nov 2013 09:05:39 +0800
-Message-ID: <528C0AE3.5070105@huawei.com>
-References: <528AD37E.1050105@huawei.com> <528B8926.1010201@gmail.com>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH net] virtio-net: fix page refcnt leaking when fail to
+	allocate frag skb
+Date: Tue, 19 Nov 2013 17:34:16 -0800
+Message-ID: <CANJ5vP+ZxtDf8OzREpyDpgh8JLnWGEjkUcS388hi+AOjdu0fZw@mail.gmail.com>
+References: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
+	<1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119204909.GA15004@redhat.com>
+	<1384896996.8604.120.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119215312.GE15004@redhat.com>
+	<1384898411.8604.127.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Vlad Yasevich <vyasevich@gmail.com>, Stephen Hemminger
-	<stephen@networkplumber.org>, "David S. Miller" <davem@davemloft.net>,
-	<bridge@lists.linux-foundation.org>, Netdev <netdev@vger.kernel.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <528B8926.1010201@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1384898411.8604.127.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 2013/11/19 23:52, Vlad Yasevich wrote:
-> On 11/18/2013 09:57 PM, Ding Tianhong wrote:
->> When the following commands are executed:
->>
->> brctl addbr br0
->> ifconfig br0 hw ether <addr>
->> rmmod bridge
->>
->> The calltrace will occur:
->>
->> [  563.312114] device eth1 left promiscuous mode
->> [  563.312188] br0: port 1(eth1) entered disabled state
->> [  563.468190] kmem_cache_destroy bridge_fdb_cache: Slab cache still has objects
->> [  563.468197] CPU: 6 PID: 6982 Comm: rmmod Tainted: G           O 3.12.0-0.7-default+ #9
->> [  563.468199] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
->> [  563.468200]  0000000000000880 ffff88010f111e98 ffffffff814d1c92 ffff88010f111eb8
->> [  563.468204]  ffffffff81148efd ffff88010f111eb8 0000000000000000 ffff88010f111ec8
->> [  563.468206]  ffffffffa062a270 ffff88010f111ed8 ffffffffa063ac76 ffff88010f111f78
->> [  563.468209] Call Trace:
->> [  563.468218]  [<ffffffff814d1c92>] dump_stack+0x6a/0x78
->> [  563.468234]  [<ffffffff81148efd>] kmem_cache_destroy+0xfd/0x100
->> [  563.468242]  [<ffffffffa062a270>] br_fdb_fini+0x10/0x20 [bridge]
->> [  563.468247]  [<ffffffffa063ac76>] br_deinit+0x4e/0x50 [bridge]
->> [  563.468254]  [<ffffffff810c7dc9>] SyS_delete_module+0x199/0x2b0
->> [  563.468259]  [<ffffffff814e0922>] system_call_fastpath+0x16/0x1b
->> [  570.377958] Bridge firewalling registered
->>
->> ------------------------------------------------
->>
->> The reason is that when the bridge dev's address is changed, the
->> br_fdb_change_mac_address() will add new address in fdb, but when
->> the bridge was removed, the address entry in the fdb did not free,
->> the bridge_fdb_cache still has objects when destroy the cache, Fix
->> this by flushing the bridge address entry when removing the bridge.
->>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->>  net/bridge/br_if.c | 4 ++++
->>  1 file changed, 4 insertions(+)
->>
->> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->> index 6e6194f..98084d8 100644
->> --- a/net/bridge/br_if.c
->> +++ b/net/bridge/br_if.c
->> @@ -172,6 +172,10 @@ void br_dev_delete(struct net_device *dev, struct list_head *head)
->>  		del_nbp(p);
->>  	}
->>  
->> +	spin_lock_bh(&br->hash_lock);
->> +	fdb_delete_by_addr(br, br->dev->dev_addr, 0);
->> +	spin_unlock_bh(&br->hash_lock);
->> +
->>  	br_vlan_flush(br);
->>  	del_timer_sync(&br->gc_timer);
->>  
->>
-> 
-> I think you need to use fdb_delete_by_port(br, NULL, 1);  here.
-> 
-> The reason is that if the bridge had vlan filtering configured, when the
-> bridge mac address was changed, an fdb would have been created for
-> for ever vlan configured on the bridge.  You delete only vlan0, so you
-> would still have a leak.
-> 
-> -vlad
+Hi,
 
-agree, I miss the vid problem, I will fix it.
+After further reflection I think we're looking at two related issues:
+(a) a memory leak that Jason has identified that occurs when a memory
+allocation fails in receive_mergeable. Jasons commit solves this issue.
+(b) virtio-net does not dequeue all buffers for a packet in the
+case that an error occurs on receive and mergeable receive buffers is
+enabled.
 
-Regards
-Ding
+For (a), this bug is new and due to changes in 2613af0ed18a, and the
+net impact is memory leak on the physical page. However, I believe (b)
+has always been possible in some form because if page_to_skb() returns
+NULL (e.g., due to SKB allocation failure), receive_mergeable is never
+called. AFAICT this is also the behavior prior to 2613af0ed18a.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> .
-> 
+The net impact of (b) would be that virtio-net would interpret a packet
+buffer that is in the middle of a mergeable packet as the start of a
+new packet, which is definitely also a bug (and the buffer contents
+could contain bytes that resembled a valid virtio-net header).
+
+A solution for (b) will require handling both the page_to_skb memory
+allocation failures and the memory allocation failures in
+receive_mergeable introduced by 2613af0ed18a.
+
+Best,
+
+Mike
