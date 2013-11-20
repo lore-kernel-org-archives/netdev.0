@@ -1,20 +1,19 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net 2/3] virtio-net: fix num calculation on frag skb
-	allocation failure
-Date: Wed, 20 Nov 2013 12:37:29 +0200
-Message-ID: <20131120103729.GG19341@redhat.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net 1/3] virtio-net: drop the rest of buffers when we
+	can't allocate skb
+Date: Wed, 20 Nov 2013 07:08:02 -0500 (EST)
+Message-ID: <1146110853.27426099.1384949282266.JavaMail.root@redhat.com>
 References: <1384938447-3775-1-git-send-email-jasowang@redhat.com>
-	<1384938447-3775-2-git-send-email-jasowang@redhat.com>
+	<20131120103406.GF19341@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>
-To: Jason Wang <jasowang@redhat.com>
+	Eric Dumazet <edumazet@google.com>, Shirley Ma <xma@us.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1384938447-3775-2-git-send-email-jasowang@redhat.com>
+In-Reply-To: <20131120103406.GF19341@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -26,48 +25,54 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 20, 2013 at 05:07:26PM +0800, Jason Wang wrote:
-> We need decrease the rq->num after we can get a buf through
-> virtqueue_get_buf() even if we could not allocate frag skb. Otherwise, the
-> refill routine won't be triggered under heavy memory stress since the driver may
-> still think there's enough room.
-> 
-> This bug was introduced by commit 2613af0ed18a11d5c566a81f9a6510b73180660a
-> (virtio_net: migrate mergeable rx buffers to page frag allocators).
-> 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Michael Dalton <mwdalton@google.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-
-So let's wrap virtqueue_get_buf to make sure we get it right?
-
-> ---
-> The patch was needed for 3.12 stable.
-> ---
->  drivers/net/virtio_net.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 24fd502..de1d6ca 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -333,6 +333,7 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
->  			head_skb->dev->stats.rx_length_errors++;
->  			return -EINVAL;
->  		}
-> +		--rq->num;
->  		if (unlikely(len > MERGE_BUFFER_LEN)) {
->  			pr_debug("%s: rx error: merge buffer too long\n",
->  				 head_skb->dev->name);
-> @@ -367,7 +368,6 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
->  			skb_add_rx_frag(curr_skb, num_skb_frags, page,
->  					offset, len, MERGE_BUFFER_LEN);
->  		}
-> -		--rq->num;
->  	}
->  	return 0;
->  }
-> -- 
-> 1.8.3.2
+CgotLS0tLSDljp/lp4vpgq7ku7YgLS0tLS0KPiBPbiBXZWQsIE5vdiAyMCwgMjAxMyBhdCAwNTow
+NzoyNVBNICswODAwLCBKYXNvbiBXYW5nIHdyb3RlOgo+ID4gV2hlbiBtZXJnZWFibGUgYnVmZmVy
+IHdlcmUgdXNlZCwgd2Ugb25seSBwdXQgdGhlIGZpcnN0IHBhZ2UgYnVmIGxlYXZlIHRoZQo+ID4g
+cmVzdAo+ID4gb2YgYnVmZmVycyBpbiB0aGUgdmlydCBxdWV1ZS4gVGhpcyB3aWxsIGNhdXNlIHRo
+ZSBkcml2ZXIgY291bGQgbm90IGdldCB0aGUKPiA+IGNvcnJlY3QgaGVhZCBidWZmZXIgYW55IG1v
+cmUuIEZpeCB0aGlzIGJ5IGRyb3BwaW5nIHRoZSByZXN0IG9mIGJ1ZmZlcnMgZm9yCj4gPiB0aGlz
+Cj4gPiBwYWNrZXQuCj4gPiAKPiA+IFRoZSBidWcgd2FzIGludHJvZHVjZWQgYnkgY29tbWl0IDlh
+Yjg2YmJjZjhiZTc1NTI1NmYwYTVlOTk0ZTBiMzhhZjZiNGQzOTkKPiA+ICh2aXJ0aW9fbmV0OiBE
+ZWZlciBza2IgYWxsb2NhdGlvbiBpbiByZWNlaXZlIHBhdGgpLgo+ID4gCj4gPiBDYzogUnVzdHkg
+UnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1Pgo+ID4gQ2M6IE1pY2hhZWwgUy4gVHNpcmtp
+biA8bXN0QHJlZGhhdC5jb20+Cj4gPiBDYzogTWljaGFlbCBEYWx0b24gPG13ZGFsdG9uQGdvb2ds
+ZS5jb20+Cj4gPiBDYzogRXJpYyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPgo+ID4gQ2M6
+IFNoaXJsZXkgTWEgPHhtYUB1cy5pYm0uY29tPgo+ID4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2Fu
+ZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPiA+IC0tLQo+ID4gVGhpcyBwYXRjaCB3YXMgbmVlZGVk
+IGZvciBzdGFibGUKPiA+IC0tLQo+ID4gIGRyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYyB8IDE4ICsr
+KysrKysrKysrKysrKysrLQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAxNyBpbnNlcnRpb25zKCspLCAx
+IGRlbGV0aW9uKC0pCj4gPiAKPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0
+LmMgYi9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPiA+IGluZGV4IDdiYWI0ZGUuLjI0ZmQ1MDIg
+MTAwNjQ0Cj4gPiAtLS0gYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPiA+ICsrKyBiL2RyaXZl
+cnMvbmV0L3ZpcnRpb19uZXQuYwo+ID4gQEAgLTIyMiw2ICsyMjIsMTcgQEAgc3RhdGljIHZvaWQg
+c2tiX3htaXRfZG9uZShzdHJ1Y3QgdmlydHF1ZXVlICp2cSkKPiA+ICAJbmV0aWZfd2FrZV9zdWJx
+dWV1ZSh2aS0+ZGV2LCB2cTJ0eHEodnEpKTsKPiA+ICB9Cj4gPiAgCj4gPiArc3RhdGljIHZvaWQg
+ZHJvcF9tZXJnZWFibGVfYnVmZmVyKHN0cnVjdCByZWNlaXZlX3F1ZXVlICpycSwgaW50IG51bV9i
+dWYpCj4gPiArewo+ID4gKwljaGFyICpidWY7Cj4gPiArCWludCBsZW47Cj4gPiArCj4gPiArCXdo
+aWxlICgtLW51bV9idWYgJiYgKGJ1ZiA9IHZpcnRxdWV1ZV9nZXRfYnVmKHJxLT52cSwgJmxlbikp
+ICE9IE5VTEwpIHsKPiA+ICsJCS0tcnEtPm51bTsKPiA+ICsJCXB1dF9wYWdlKHZpcnRfdG9faGVh
+ZF9wYWdlKGJ1ZikpOwo+ID4gKwl9Cj4gPiArfQo+ID4gKwo+IAo+IFRoaXMgaXMgdGhlIHNhbWUg
+Y29kZSB3ZSBoYXZlIGluIHJlY2VpdmVfbWVyZ2VhYmxlIGFueXdheS4KPiBTbyBsZXQncyByZXVz
+ZSB0aGF0Lgo+IAo+IAoKcmVjZWl2ZV9tZXJnZWFibGUoKSB3YXMgY2FsbGVkIGFmdGVyIHBhZ2Vf
+dG9fc2tiKCkgd2FzIGNhbGxlZCBhbmQgCnRoZXJlJ3MgbG90cyBvZiBjb25kaXRpb25zIGNoZWNr
+IHRoZXJlLiBJJ20gbm90IHN1cmUgaG93IGNvdWxkIHdlIApyZXVzZSB0aGVtLgo+ID4gIC8qIENh
+bGxlZCBmcm9tIGJvdHRvbSBoYWxmIGNvbnRleHQgKi8KPiA+ICBzdGF0aWMgc3RydWN0IHNrX2J1
+ZmYgKnBhZ2VfdG9fc2tiKHN0cnVjdCByZWNlaXZlX3F1ZXVlICpycSwKPiA+ICAJCQkJICAgc3Ry
+dWN0IHBhZ2UgKnBhZ2UsIHVuc2lnbmVkIGludCBvZmZzZXQsCj4gPiBAQCAtMjM3LDggKzI0OCwx
+MyBAQCBzdGF0aWMgc3RydWN0IHNrX2J1ZmYgKnBhZ2VfdG9fc2tiKHN0cnVjdAo+ID4gcmVjZWl2
+ZV9xdWV1ZSAqcnEsCj4gPiAgCj4gPiAgCS8qIGNvcHkgc21hbGwgcGFja2V0IHNvIHdlIGNhbiBy
+ZXVzZSB0aGVzZSBwYWdlcyBmb3Igc21hbGwgZGF0YSAqLwo+ID4gIAlza2IgPSBuZXRkZXZfYWxs
+b2Nfc2tiX2lwX2FsaWduKHZpLT5kZXYsIEdPT0RfQ09QWV9MRU4pOwo+ID4gLQlpZiAodW5saWtl
+bHkoIXNrYikpCj4gPiArCWlmICh1bmxpa2VseSghc2tiKSkgewo+ID4gKwkJaWYgKHZpLT5tZXJn
+ZWFibGVfcnhfYnVmcykgewo+ID4gKwkJCWhkciA9IChzdHJ1Y3Qgc2tiX3ZuZXRfaGRyICopcDsK
+PiA+ICsJCQlkcm9wX21lcmdlYWJsZV9idWZmZXIocnEsIGhkci0+bWhkci5udW1fYnVmZmVycyk7
+Cj4gPiArCQl9Cj4gPiAgCQlyZXR1cm4gTlVMTDsKPiA+ICsJfQo+ID4gIAo+ID4gIAloZHIgPSBz
+a2Jfdm5ldF9oZHIoc2tiKTsKPiA+ICAKPiA+IC0tCj4gPiAxLjguMy4yCj4gLS0KPiBUbyB1bnN1
+YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgt
+a2VybmVsIiBpbgo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJu
+ZWwub3JnCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9t
+YWpvcmRvbW8taW5mby5odG1sCj4gUGxlYXNlIHJlYWQgdGhlIEZBUSBhdCAgaHR0cDovL3d3dy50
+dXgub3JnL2xrbWwvCj4gCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5s
+aW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFp
+bG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
