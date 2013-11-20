@@ -1,126 +1,252 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH RFC v1 0/7] net: phy: Ethernet PHY powerdown optimization
-Date: Wed, 20 Nov 2013 21:21:46 +0100
-Message-ID: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Ethernet PHYs consume a significant amount of power when link is detected.
-Especially, for embedded systems it can be easily 20-40% of total system
-power. Now, currently most likely all ethernet drivers leave PHYs powered
-on, even if the device is taken down. Also, some stupid boot loaders power
-on all PHYs available.
-
-This RFC deals with saving power consumed by ethernet PHYs, that have no
-corresponding ethernet device driver or are attached to ethernet devices
-which are taken down by user request, i.e. ifconfig ethN down. Ports with
-no link, i.e. cable removed, are already quite good at power saving due to
-PHY internal link detection.
-
-I did some power measurements for 4 different boards with 3 different
-drivers (all ARM) and reduction in power dissipation is usually ~500mW
-per port. Guruplug savings are a bit high, but while re-testing v3.12
-it just crashed because of heat issues - a known problem with this board
-so don't take the absolute values too serious.
-
-Now, the reason why I send this as a RFC and not a real patch set is,
-that I started with mv643xx_eth which is an "evolutionary piece of code"
-and phy support isn't that well done. When touching mvneta/cpsw, I saw
-that phy_suspend/resume should possibly better be hidden in phy_start
-and phy_stop, respectively. Also, suspending unused PHYs has the potential
-to break stuff and I only had some ARM boards available to test.
-
-Anyway, it would be great to get some general feed-back for the current
-approach and possible improvements.
-
-The individual patches can be summarized as follows:
-Patch 1 adds genphy suspend/resume callbacks to Marvell PHYs.
-Patch 2 introduces phy_resume and phy_suspend helpers to ease calling
-the corresponding PHY driver callbacks, if available.
-Patch 3 calls above helpers to automatically resume PHYs on
-phy_attach and suspend them on phy_detach.
-Patch 4 adds a late_initcall to suspend unused PHYs that have not been
-taken by any driver. This is what we already have for unused clocks in
-the common clock framework.
-Patch 5, 6, and 7 add phy_resume/suspend to the three individual drivers
-on their open/stop callbacks. This suspends the PHY as soon as the ethernet
-device is taken down by ifconfig ethN down.
-
-Below are the results of recent linux/master against this RFC. All links
-are 1Gbps except Beaglebone Black wich is 100Mbps only.
-
-A branch with the RFC applied can also be found at:
-https://github.com/shesselba/linux-dove.git topic/ethphy-power-rfc-v1
-
-Sebastian
-
-(a) SolidRun CuBox, Marvell Dove, Marvell 88E1310, mv643xx_eth
-                          v3.12     +RFC diff/abs diff/rel
-1 port, link, up        2115 mW  2116 mW  +  1 mW   + 0.0%
-1 port, link, down      2104 mW  1572 mW  -532 mW   -25.3%
-1 port, no link, up     1600 mW  1614 mW  + 14 mW   + 0.9%
-1 port, no link, down   1604 mW  1577 mW  - 27 mW   - 1.7%
-
-(b) Beaglebone Black, TI AM3359, SMSC LAN8710/8720, cpsw (100Mbps)
-                          v3.12     +RFC diff/abs diff/rel
-1 port, link, up        1247 mW  1248 mW  +  1 mW   + 0.1%
-1 port, link, down      1247 mW   808 mW  -439 mW   -35.2%
-1 port, no link, up      817 mW   817 mW  +  0 mW   + 0.0%
-1 port, no link, down    808 mW   809 mW  +  1 mW   + 0.1%
-
-(c) Globalscale Guruplug, Marvell Kirkwood, Marvell 88E1121, mv643xx_eth
-                          v3.12     +RFC diff/abs diff/rel
-2 ports, link, up       6611 mW  6587 mW -  24 mW   - 0.4%
-2 ports, link, down     6625 mW  3881 mW -2744 mW   -41.4%
-2 ports, no link, up    4072 mW  4002 mW -  70 mW   - 1.7%
-2 ports, no link, down  4085 mW  3875 mW - 210 mW   - 5.1%
-1 port, link, up
-1 port, link, down      6622 mW  5193 mW -1429 mW   -21.6%
-1 port, link, up
-1 port, no link, down   5276 mW  5193 mW -  83 mW   - 1.6%
-1 port, no link, up
-1 port, no link, down   4029 mW  3941 mW -  88 mW   - 2.2%
-
-(d) Globalscale Mirabox, Marvell Armada 370, Marvell 88E1510, mvneta
-                          v3.12     +RFC diff/abs diff/rel
-2 ports, link, up       5218 mW  5177 mW  - 41 mW   - 0.8%
-2 ports, link, down     5216 mW  4225 mW  -991 mW   -19.0%
-2 ports, no link, up    4352 mW  4320 mW  - 32 mW   - 0.7%
-2 ports, no link, down  4352 mW  4228 mW  -124 mW   - 2.8%
-1 port, link, up
-1 port, link, down      5218 mW  4718 mW  -500 mW   - 9.6%
-1 port, link, up
-1 port, no link, down   4842 mW  4722 mW  -120 mW   - 2.5%
-1 port, no link, up
-1 port, no link, down   4356 mW  4290 mW  - 66 mW   - 1.5%
-
-Sebastian Hesselbarth (7):
-  net: phy: marvell: provide genphy suspend/resume
-  net: phy: provide phy_resume/phy_suspend helpers
-  net: phy: resume/suspend PHYs on attach/detach
-  net: phy: suspend unused PHYs on mdio_bus in late_initcall
-  net: mv643xx_eth: resume/suspend PHY on port start/stop
-  net: mvneta: resume/suspend PHY on port start/stop
-  net: cpsw: resume/suspend PHY on port start/stop
-
- drivers/net/ethernet/marvell/mv643xx_eth.c |    7 +++++++
- drivers/net/ethernet/marvell/mvneta.c      |    2 ++
- drivers/net/ethernet/ti/cpsw.c             |    2 ++
- drivers/net/phy/marvell.c                  |   22 ++++++++++++++++++++++
- drivers/net/phy/mdio_bus.c                 |   27 +++++++++++++++++++++++++++
- drivers/net/phy/phy_device.c               |   22 ++++++++++++++++++++++
- include/linux/phy.h                        |    2 ++
- 7 files changed, 84 insertions(+), 0 deletions(-)
-
----
-Cc: David S. Miller <davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC net-next PATCH] macvtap: Add packet capture support
+Date: Wed, 20 Nov 2013 22:30:27 +0200
+Message-ID: <20131120203027.GA11386@redhat.com>
+References: <1384970649-29839-1-git-send-email-vyasevic@redhat.com>
+ <20131120181949.GB25569@redhat.com>
+ <528D0F48.60304@redhat.com>
+ <20131120200658.GA11070@redhat.com>
+ <528D1935.9020403@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org
--- 
-1.7.2.5
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:65042 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754809Ab3KTU1N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Nov 2013 15:27:13 -0500
+Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id rAKKRD3N031711
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 15:27:13 -0500
+Content-Disposition: inline
+In-Reply-To: <528D1935.9020403@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Wed, Nov 20, 2013 at 03:19:01PM -0500, Vlad Yasevich wrote:
+> On 11/20/2013 03:06 PM, Michael S. Tsirkin wrote:
+> > On Wed, Nov 20, 2013 at 02:36:40PM -0500, Vlad Yasevich wrote:
+> >> On 11/20/2013 01:19 PM, Michael S. Tsirkin wrote:
+> >>> On Wed, Nov 20, 2013 at 01:04:09PM -0500, Vlad Yasevich wrote:
+> >>>> Currently it is impossible to capture traffic when using a macvtap
+> >>>> device.  The reason is that all capture handling is done either in
+> >>>> dev_hard_start_xmit() or in __netif_receive_skb_core().  Macvtap
+> >>>> currenlty doesn't use dev_hard_start_xmit(), and at the time the
+> >>>> packet traverses __netif_receive_skb_core, the skb->dev is set to
+> >>>> the lower-level device that doesn't end up matching macvtap.
+> >>>>
+> >>>> To solve the issue, use dev_hard_start_xmit() on the output path.
+> >>>> On the input path, it is toughter to solve since macvtap ends up
+> >>>> consuming the skb so there is nothing more left for
+> >>>> __netif_receive_skb_core() to do.
+> > 
+> > Actually I thought I understand what you are saying here, but now I
+> > don't. bridge installs rx handler exactly in the same way.
+> > packet handlers seem to be called before the rx handlers so
+> > everything should just work.
+> > 
+> > Is this about the bridge mode again?
+> 
+> No.  It has to do with bridge submitting the frame back to the
+> network stack to forward it to the ports, but macvtap ends up
+> stealing it.
+
+Confused.
+
+        rx_handler = rcu_dereference(skb->dev->rx_handler);
+        if (rx_handler) {
+                if (pt_prev) {
+                        ret = deliver_skb(skb, pt_prev, orig_dev);
+                        pt_prev = NULL;
+                }
+                switch (rx_handler(&skb)) {
+
+		....
+
+so packet handlers (including packet socket)
+seem to be invoked before rx handlers (including bridge and macvtap).
+
+What's the issue then?
+
+I guess I'm missing something obvious.
+
+
+
+> Also, bridge, if running in promisc mode will hand the frame up
+> (as if it received it).  See the IFF_PROMISC code in
+> br_handle_frame_finish().
+> So, if someone is capturing on the bridge itself, this lets it
+> see the packets even though they are not destined for the bridge
+> device.
+
+Yes, that's quite expected: same thing will happen with
+real hardware: set it to promisc, see lots of packets
+destined at others.
+
+> > 
+> >>  A simple solution is to
+> >>>> pull the code that delivers things to the taps/captures into
+> >>>> its own function and allow macvtap to call it from its receive
+> >>>> routine.
+> >>>>
+> >>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> >>>> ---
+> >>>> This is only an RFC.  I'd like to solicit comments on this simple
+> >>>> approach.
+> >>>
+> >>> I'm kind of worried about this. What worries me is that normally
+> >>> if you have a packet socket bound to all interfaces, what it shows is
+> >>> traffic to/from the box.
+> >>>
+> >>> This might be a bug for someone, but I suspect at this point this
+> >>> is part of the ABI.
+> >>>
+> >>> But macvtap bypasses most of the host networking stack,
+> >>> So I worry that suddenly showing these packets would be confusing.
+> >>
+> >> Is it really different from using bridge and tap?  If someone
+> >> does 'tcpdump -i any', they will see packets sent by the guest with
+> >> bridge+tap.
+> >>  It makes sense to do that same thing for macvtap, no?
+> > 
+> > I was going by your comments not the code.
+> > Assuming we never showed macvtap traffic this might
+> > be part of ABI.
+> 
+> BTW, if we end up doing it with a new rx_handler, it will end up
+> showing exactly the same traffic is this patch does because the
+> common path in __netif_receive_skb_core() will run and deliver
+> to all registered eligible entries in ptype_all.
+> 
+> -vlad
+
+Dave here thinks it's not a problem, I trust him ...
+
+> > 
+> >>>
+> >>> Assuming we want to show this traffic, I think it's preferable to
+> >>> -		if (!ptype->dev || ptype->dev == skb->dev) {
+> >>> +		if (ptype->dev == skb->dev) {
+> >>> so you have to bind to macvtap explicitly to see the traffic.
+> >>>
+> >>>
+> >>> Of course when you start binding to specific macvtaps
+> >>> it doesn't scale well because we'll have a long list
+> >>> on ptype_all suddenly.
+> >>
+> >> How likely is that really?  ptype_all doesn't scale as it.
+> >> Any time you don't set the protocol field, the entry goes
+> >> into ptype_all.  Macvtap doesn't change that.  You can
+> >> create a long list in ptype all if you have lots of guests and
+> >> you want to snoop on each guest separately thus binding to tap
+> >> device.
+> >>
+> >> -vlad
+> >>
+> >>> This might mean we need to keep this list per-device ...
+> >>>
+> >>>> A more complicated solution would have been to give
+> >>>> macvtap its own rx_handler and return RX_HANDLER_ANOTHER during
+> >>>> receive operation to make the packet go through another round of
+> >>>> capturing and hit the macvtap rx_handler.  I thought this would
+> >>>> hurt performance too much for no real gain.
+> >>>>
+> >>>> Thanks
+> >>>> -vlad
+> >>>>
+> >>>>  drivers/net/macvtap.c     |  4 +++-
+> >>>>  include/linux/netdevice.h |  2 ++
+> >>>>  net/core/dev.c            | 33 ++++++++++++++++++++++++++-------
+> >>>>  3 files changed, 31 insertions(+), 8 deletions(-)
+> >>>>
+> >>>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> >>>> index dc76670..0ed8fae 100644
+> >>>> --- a/drivers/net/macvtap.c
+> >>>> +++ b/drivers/net/macvtap.c
+> >>>> @@ -334,6 +334,7 @@ drop:
+> >>>>   */
+> >>>>  static int macvtap_receive(struct sk_buff *skb)
+> >>>>  {
+> >>>> +	netif_receive_skb_taps(skb, true);
+> >>>>  	skb_push(skb, ETH_HLEN);
+> >>>>  	return macvtap_forward(skb->dev, skb);
+> >>>>  }
+> >>>> @@ -727,8 +728,9 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+> >>>>  		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
+> >>>>  	}
+> >>>>  	if (vlan) {
+> >>>> +		skb->dev = vlan->dev;
+> >>>>  		local_bh_disable();
+> >>>> -		macvlan_start_xmit(skb, vlan->dev);
+> >>>> +		dev_hard_start_xmit(skb, vlan->dev, NULL, NULL);
+> >>>>  		local_bh_enable();
+> >>>>  	} else {
+> >>>>  		kfree_skb(skb);
+> >>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> >>>> index 8b3de7c..84880eb 100644
+> >>>> --- a/include/linux/netdevice.h
+> >>>> +++ b/include/linux/netdevice.h
+> >>>> @@ -2383,6 +2383,8 @@ void dev_kfree_skb_any(struct sk_buff *skb);
+> >>>>  int netif_rx(struct sk_buff *skb);
+> >>>>  int netif_rx_ni(struct sk_buff *skb);
+> >>>>  int netif_receive_skb(struct sk_buff *skb);
+> >>>> +struct packet_type *netif_receive_skb_taps(struct sk_buff *skb,
+> >>>> +					   bool last_deliver);
+> >>>>  gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb);
+> >>>>  void napi_gro_flush(struct napi_struct *napi, bool flush_old);
+> >>>>  struct sk_buff *napi_get_frags(struct napi_struct *napi);
+> >>>> diff --git a/net/core/dev.c b/net/core/dev.c
+> >>>> index da9c5e1..50f0ac4 100644
+> >>>> --- a/net/core/dev.c
+> >>>> +++ b/net/core/dev.c
+> >>>> @@ -3484,6 +3484,31 @@ static bool skb_pfmemalloc_protocol(struct sk_buff *skb)
+> >>>>  	}
+> >>>>  }
+> >>>>  
+> >>>> +struct packet_type *netif_receive_skb_taps(struct sk_buff *skb,
+> >>>> +					   bool last_deliver)
+> >>>> +{
+> >>>> +	struct packet_type *ptype, *pt_prev = NULL;
+> >>>> +	struct net_device *orig_dev;
+> >>>> +
+> >>>> +	if (list_empty(&ptype_all))
+> >>>> +		return NULL;
+> >>>> +
+> >>>> +	orig_dev = skb->dev;
+> >>>> +	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+> >>>> +		if (!ptype->dev || ptype->dev == skb->dev) {
+> >>>> +			if (pt_prev)
+> >>>> +				deliver_skb(skb, pt_prev, orig_dev);
+> >>>> +			pt_prev = ptype;
+> >>>> +		}
+> >>>> +	}
+> >>>> +
+> >>>> +	if (last_deliver && pt_prev)
+> >>>> +		deliver_skb(skb, pt_prev, orig_dev);
+> >>>> +
+> >>>> +	return pt_prev;
+> >>>> +}
+> >>>> +EXPORT_SYMBOL_GPL(netif_receive_skb_taps);
+> >>>> +
+> >>>>  static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
+> >>>>  {
+> >>>>  	struct packet_type *ptype, *pt_prev;
+> >>>> @@ -3535,13 +3560,7 @@ another_round:
+> >>>>  	if (pfmemalloc)
+> >>>>  		goto skip_taps;
+> >>>>  
+> >>>> -	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+> >>>> -		if (!ptype->dev || ptype->dev == skb->dev) {
+> >>>> -			if (pt_prev)
+> >>>> -				ret = deliver_skb(skb, pt_prev, orig_dev);
+> >>>> -			pt_prev = ptype;
+> >>>> -		}
+> >>>> -	}
+> >>>> +	pt_prev = netif_receive_skb_taps(skb, false);
+> >>>>  
+> >>>>  skip_taps:
+> >>>>  #ifdef CONFIG_NET_CLS_ACT
+> >>>> -- 
+> >>>> 1.8.4.2
