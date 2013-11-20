@@ -1,121 +1,92 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: [PATCHv3] net: core: Always propagate flag changes to interfaces
-Date: Wed, 20 Nov 2013 16:05:39 +0100
-Message-ID: <528CCFC3.3050805@profihost.ag>
-References: <1384912035-17800-1-git-send-email-vyasevic@redhat.com> <528C62F7.2000100@profihost.ag> <528CBF22.4050304@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] virtio-net: fix page refcnt leaking when fail to
+	allocate frag skb
+Date: Wed, 20 Nov 2013 07:16:33 -0800
+Message-ID: <1384960593.8604.147.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
+	<1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119204909.GA15004@redhat.com>
+	<1384896996.8604.120.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119215312.GE15004@redhat.com>
+	<1384898411.8604.127.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131120085835.GB19341@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: vfalico@redhat.com
-To: vyasevic@redhat.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ph.de-nserver.de ([85.158.179.214]:58984 "EHLO
-	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751608Ab3KTPFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 10:05:45 -0500
-In-Reply-To: <528CBF22.4050304@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20131120085835.GB19341@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-thanks, works fine.
+On Wed, 2013-11-20 at 10:58 +0200, Michael S. Tsirkin wrote:
+> On Tue, Nov 19, 2013 at 02:00:11PM -0800, Eric Dumazet wrote:
+> > On Tue, 2013-11-19 at 23:53 +0200, Michael S. Tsirkin wrote:
+> > 
+> > > Which NIC? Virtio? Prior to 2613af0ed18a11d5c566a81f9a6510b73180660a
+> > > it didn't drop packets received from host as far as I can tell.
+> > > virtio is more like a pipe than a real NIC in this respect.
+> > 
+> > Prior/after to this patch, you were not posting buffers, so if packets
+> > were received on a physical NIC, you were dropping the packets anyway.
+> >
+> > It makes no difference at all, adding a cushion might make you feel
+> > better, but its really not worth it.
+> > 
+> > Under memory stress, it makes better sense to drop a super big GRO
+> > packet (The one needing frag_list extension ...)
+> > 
+> > It gives a better signal to the sender to reduce its pressure, and gives
+> > opportunity to free more of your memory.
+> > 
+> 
+> OK, but in that case one wonders whether we should do more to free memory?
+> 
+> E.g. imagine that we dropped a packet of a specific TCP flow
+> because we couldn't allocate a new packet.
+> 
+> What happens now is that the old packet is freed as well.
+> 
+> So quite likely the next packet in queue will get processed
+> since it will reuse the memory we have just freed.
+> 
+> The next packet and the next after it etc all will have to go through
+> the net stack until they get at the socket and are dropped then
+> because we missed a segment.  Even worse, GRO gets disabled so the load
+> on receiver goes up instead of down.
+> 
+> Sounds like a problem doesn't it?
 
+I see no problem at all. GRO is a hint for high rates (and obviously
+when there is enough memory)
 
+> 
+> GRO actually detects it's the same flow and can see packet is
+> out of sequence. Why doesn't it drop the packet then?
+> Alternatively, we could (for example using the pre-allocated skb
+> like I suggested) notify GRO that it should start dropping packets
+> of this flow.
+> 
+> What do you think?
+> 
 
-Am 20.11.2013 14:54, schrieb Vlad Yasevich:
-> On 11/20/2013 02:21 AM, Stefan Priebe - Profihost AG wrote:
->> Hi,
->>
->> Am 20.11.2013 02:47, schrieb Vlad Yasevich:
->>> The following commit:
->>>     b6c40d68ff6498b7f63ddf97cf0aa818d748dee7
->>>     net: only invoke dev->change_rx_flags when device is UP
->>>
->>> tried to fix a problem with VLAN devices and promiscuouse flag setting.
->>> The issue was that VLAN device was setting a flag on an interface that
->>> was down, thus resulting in bad promiscuity count.
->>> This commit blocked flag propagation to any device that is currently
->>> down.
->>>
->>> A later commit:
->>>     deede2fabe24e00bd7e246eb81cd5767dc6fcfc7
->>>     vlan: Don't propagate flag changes on down interfaces
->>>
->>> fixed VLAN code to only propagate flags when the VLAN interface is up,
->>> thus fixing the same issue as above, only localized to VLAN.
->>>
->>> The problem we have now is that if we have create a complex stack
->>> involving multiple software devices like bridges, bonds, and vlans,
->>> then it is possible that the flags would not propagate properly to
->>> the physical devices.  A simple examle of the scenario is the
->>> following:
->>>
->>>   eth0----> bond0 ----> bridge0 ---> vlan50
->>>
->>> If bond0 or eth0 happen to be down at the time bond0 is added to
->>> the bridge, then eth0 will never have promisc mode set which is
->>> currently required for operation as part of the bridge.  As a
->>> result, packets with vlan50 will be dropped by the interface.
->>>
->>> The only 2 devices that implement the special flag handling are
->>> VLAN and DSA and they both have required code to prevent incorrect
->>> flag propagation.  As a result we can remove the generic solution
->>> introduced in b6c40d68ff6498b7f63ddf97cf0aa818d748dee7 and leave
->>> it to the individual devices to decide whether they will block
->>> flag propagation or not.
->>>
->>> Reported-by: Stefan Priebe <s.priebe@profihost.ag>
->>> Suggested-by: Veaceslav Falico <vfalico@redhat.com>
->>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->>> ---
->>> v2->v3:  Removed a strange chunk that modified comments.  Not sure where it
->>>          came from.
->>>
->>>  net/core/dev.c | 2 +-
->>>  1 file changed, 1 insertion(+), 1 deletion(-)
->>>
->>> diff --git a/net/core/dev.c b/net/core/dev.c
->>> index 974143d..da9c5e1 100644
->>> --- a/net/core/dev.c
->>> +++ b/net/core/dev.c
->>> @@ -4991,7 +4991,7 @@ static void dev_change_rx_flags(struct net_device *dev, int flags)
->>>  {
->>>  	const struct net_device_ops *ops = dev->netdev_ops;
->>>  
->>> -	if ((dev->flags & IFF_UP) && ops->ndo_change_rx_flags)
->>> +	if (ops->ndo_change_rx_flags)
->>>  		ops->ndo_change_rx_flags(dev, flags);
->>>  }
->>
->> thanks for this patch - in one of the first posts you send this one:
->>
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index fc913f4..016857b 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -4525,7 +4525,9 @@ static void dev_change_rx_flags(struct net_device
->> *dev, int flags)
->>  {
->>         const struct net_device_ops *ops = dev->netdev_ops;
->>
->> -       if ((dev->flags & IFF_UP) && ops->ndo_change_rx_flags)
->> +       if (((dev->flags & IFF_UP) ||
->> +            (dev->flags & (IFF_MASTER | IFF_SLAVE)))
->> +           && ops->ndo_change_rx_flags)
->>                 ops->ndo_change_rx_flags(dev, flags);
->>  }
->>
-> 
-> The new one should work just as well.  The first one I had you try
-> removed the restriction for master and slave devices such as bonds
-> and their slaves.  As Veaceslav pointed out, we can simply remove all
-> restrictions in this code and have the individual drivers do the right
-> thing.  The 2 effected drivers are VLAN and DSA and they already do the
-> right checks before propagating flags.
-> 
-> I ran the same test with the simplified code and it worked for me
-> correctly setting promisc mode in the same set-up you had:
-> 
->    (phys dev) ---> bond ---->  bridge ---> vlan
-> 
-> -vlad
-> 
+I think we disagree a lot on memory management on networking stacks.
+
+We did a lot of work in TCP stack and Qdisc layers to lower memory
+pressure (and bufferbloat), an you seem to try hard to introduce yet
+another layer of buffer bloat in virtio_net.
+
+So add whatever you want to proudly state to your management :
+
+"Look how smart we are : we drop no packets in our layer"
