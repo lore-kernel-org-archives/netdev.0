@@ -1,22 +1,25 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH net-next 4/4] virtio-net: auto-tune mergeable rx buffer
-	size for improved performance
-Date: Wed, 20 Nov 2013 12:36:09 +1030
-Message-ID: <87li0jddym.fsf@rustcorp.com.au>
-References: <1384294885-6444-1-git-send-email-mwdalton@google.com>
-	<1384294885-6444-4-git-send-email-mwdalton@google.com>
-	<528325DC.3050801@redhat.com>
-	<1384328458.28458.96.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net] virtio-net: fix page refcnt leaking when fail to
+	allocate frag skb
+Date: Wed, 20 Nov 2013 11:17:13 +0800
+Message-ID: <528C29B9.5000701@redhat.com>
+References: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
+	<1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119204909.GA15004@redhat.com>
+	<1384896996.8604.120.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119215312.GE15004@redhat.com>
+	<1384898411.8604.127.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CANJ5vP+ZxtDf8OzREpyDpgh8JLnWGEjkUcS388hi+AOjdu0fZw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, Daniel Borkmann <dborkman@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, "David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>, Jason Wang <jasowang@redhat.com>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Michael Dalton <mwdalton@google.com>, Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1384328458.28458.96.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <CANJ5vP+ZxtDf8OzREpyDpgh8JLnWGEjkUcS388hi+AOjdu0fZw@mail.gmail.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -28,36 +31,38 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
-> On Wed, 2013-11-13 at 15:10 +0800, Jason Wang wrote:
+On 11/20/2013 09:34 AM, Michael Dalton wrote:
+> Hi,
 >
->> There's one concern with EWMA. How well does it handle multiple streams
->> each with different packet size? E.g there may be two flows, one with
->> 256 bytes each packet another is 64K.  Looks like it can result we
->> allocate PAGE_SIZE buffer for 256 (which is bad since the
->> payload/truesize is low) bytes or 1500+ for 64K buffer (which is ok
->> since we can do coalescing).
+> After further reflection I think we're looking at two related issues:
+> (a) a memory leak that Jason has identified that occurs when a memory
+> allocation fails in receive_mergeable. Jasons commit solves this issue.
+> (b) virtio-net does not dequeue all buffers for a packet in the
+> case that an error occurs on receive and mergeable receive buffers is
+> enabled.
 >
-> It's hard to predict the future ;)
+> For (a), this bug is new and due to changes in 2613af0ed18a, and the
+> net impact is memory leak on the physical page. However, I believe (b)
+> has always been possible in some form because if page_to_skb() returns
+> NULL (e.g., due to SKB allocation failure), receive_mergeable is never
+> called. AFAICT this is also the behavior prior to 2613af0ed18a.
 >
-> 256 bytes frames consume 2.5 KB anyway on a traditional NIC.
-> If it was a concern, we would have it already.
+> The net impact of (b) would be that virtio-net would interpret a packet
+> buffer that is in the middle of a mergeable packet as the start of a
+> new packet, which is definitely also a bug (and the buffer contents
+> could contain bytes that resembled a valid virtio-net header).
 >
-> If you receive a mix of big and small frames, there is no win.
+> A solution for (b) will require handling both the page_to_skb memory
+> allocation failures and the memory allocation failures in
+> receive_mergeable introduced by 2613af0ed18a.
 
-Well, that's not quite true.  The device could optimistically look
-through the queue a bit for a small buffer; it does not need to consume
-in order.  We'd probably want a feature bit for this.
+Ture, so we first need a patch to solve page_to_skb() failure which
+could be used for stable tree prior to 2613af0ed18a. Then another patch
+to solve the issue introduced by 2613af0ed18a which could be only used
+for 3.12 stable. Will draft patches for them.
 
-I look forward to your thoughts on what mixing algorithm of different
-sizes to use, of course.
-
-Meanwhile, I suspect your patch works well because of 4k pages.  80%
-non-GSO packets won't drop the average len below 4k.  On PPC64 with 64k
-pages, that's not true.
-
-I wonder if "last used len" would work about as well; it really might if
-we had a smarter device...
-
-Cheers,
-Rusty.
+Thanks
+>
+> Best,
+>
+> Mike
