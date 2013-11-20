@@ -1,17 +1,18 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net 1/3] virtio-net: drop the rest of buffers when we can't
-	allocate skb
-Date: Wed, 20 Nov 2013 17:07:25 +0800
-Message-ID: <1384938447-3775-1-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net 3/3] virtio-net: fix resources leaking when fail to
+	allocate frag skb
+Date: Wed, 20 Nov 2013 17:07:27 +0800
+Message-ID: <1384938447-3775-3-git-send-email-jasowang@redhat.com>
+References: <1384938447-3775-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, Eric Dumazet <edumazet@google.com>,
-	Shirley Ma <xma@us.ibm.com>
+Cc: Michael Dalton <mwdalton@google.com>, Eric Dumazet <edumazet@google.com>
 To: rusty@rustcorp.com.au, mst@redhat.com,
 	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1384938447-3775-1-git-send-email-jasowang@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -23,62 +24,48 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-When mergeable buffer were used, we only put the first page buf leave the rest
-of buffers in the virt queue. This will cause the driver could not get the
-correct head buffer any more. Fix this by dropping the rest of buffers for this
-packet.
+When we fail to allocate a frag skb, we need put the refcnt of the page and drop
+the rest of the buffers. Otherwise the page was leaked and driver won't get a
+correct head buffer after this failure.
 
-The bug was introduced by commit 9ab86bbcf8be755256f0a5e994e0b38af6b4d399
-(virtio_net: Defer skb allocation in receive path).
+This bug was introduced by commit 2613af0ed18a11d5c566a81f9a6510b73180660a
+(virtio_net: migrate mergeable rx buffers to page frag allocators).
 
 Cc: Rusty Russell <rusty@rustcorp.com.au>
 Cc: Michael S. Tsirkin <mst@redhat.com>
 Cc: Michael Dalton <mwdalton@google.com>
 Cc: Eric Dumazet <edumazet@google.com>
-Cc: Shirley Ma <xma@us.ibm.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
-This patch was needed for stable
+The patch was needed for 3.12 stable.
 ---
- drivers/net/virtio_net.c | 18 +++++++++++++++++-
- 1 file changed, 17 insertions(+), 1 deletion(-)
+ drivers/net/virtio_net.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 7bab4de..24fd502 100644
+index de1d6ca..f6f1e20 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -222,6 +222,17 @@ static void skb_xmit_done(struct virtqueue *vq)
- 	netif_wake_subqueue(vi->dev, vq2txq(vq));
- }
- 
-+static void drop_mergeable_buffer(struct receive_queue *rq, int num_buf)
-+{
-+	char *buf;
-+	int len;
-+
-+	while (--num_buf && (buf = virtqueue_get_buf(rq->vq, &len)) != NULL) {
-+		--rq->num;
-+		put_page(virt_to_head_page(buf));
-+	}
-+}
-+
- /* Called from bottom half context */
- static struct sk_buff *page_to_skb(struct receive_queue *rq,
- 				   struct page *page, unsigned int offset,
-@@ -237,8 +248,13 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
- 
- 	/* copy small packet so we can reuse these pages for small data */
- 	skb = netdev_alloc_skb_ip_align(vi->dev, GOOD_COPY_LEN);
--	if (unlikely(!skb))
-+	if (unlikely(!skb)) {
-+		if (vi->mergeable_rx_bufs) {
-+			hdr = (struct skb_vnet_hdr *)p;
-+			drop_mergeable_buffer(rq, hdr->mhdr.num_buffers);
-+		}
- 		return NULL;
-+	}
- 
- 	hdr = skb_vnet_hdr(skb);
- 
+@@ -339,9 +339,12 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+ 				 head_skb->dev->name);
+ 			len = MERGE_BUFFER_LEN;
+ 		}
++		page = virt_to_head_page(buf);
+ 		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
+ 			struct sk_buff *nskb = alloc_skb(0, GFP_ATOMIC);
+ 			if (unlikely(!nskb)) {
++				put_page(page);
++				drop_mergeable_buffer(rq, num_buf);
+ 				head_skb->dev->stats.rx_dropped++;
+ 				return -ENOMEM;
+ 			}
+@@ -358,7 +361,6 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+ 			head_skb->len += len;
+ 			head_skb->truesize += MERGE_BUFFER_LEN;
+ 		}
+-		page = virt_to_head_page(buf);
+ 		offset = buf - (char *)page_address(page);
+ 		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
+ 			put_page(page);
 -- 
 1.8.3.2
