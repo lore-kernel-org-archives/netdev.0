@@ -1,54 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv4: fix race in concurrent ip_route_input_slow()
-Date: Wed, 20 Nov 2013 15:29:18 -0500 (EST)
-Message-ID: <20131120.152918.493706024928330813.davem@davemloft.net>
-References: <1384917154-11049-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCHv3] net: core: Always propagate flag changes to
+ interfaces
+Date: Wed, 20 Nov 2013 15:30:40 -0500 (EST)
+Message-ID: <20131120.153040.1802820913098903513.davem@davemloft.net>
+References: <1384912035-17800-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org
-To: ast@plumgrid.com
+Cc: netdev@vger.kernel.org, s.priebe@profihost.ag, vfalico@redhat.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36811 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36818 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754965Ab3KTU3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 15:29:20 -0500
-In-Reply-To: <1384917154-11049-1-git-send-email-ast@plumgrid.com>
+	with ESMTP id S1755134Ab3KTUam (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 15:30:42 -0500
+In-Reply-To: <1384912035-17800-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Tue, 19 Nov 2013 19:12:34 -0800
+From: Vlad Yasevich <vyasevic@redhat.com>
+Date: Tue, 19 Nov 2013 20:47:15 -0500
 
-> CPUs can ask for local route via ip_route_input_noref() concurrently.
-> if nh_rth_input is not cached yet, CPUs will proceed to allocate
-> equivalent DSTs on 'lo' and then will try to cache them in nh_rth_input
-> via rt_cache_route()
-> Most of the time they succeed, but on occasion the following two lines:
-> 	orig = *p;
-> 	prev = cmpxchg(p, orig, rt);
-> in rt_cache_route() do race and one of the cpus fails to complete cmpxchg.
-> But ip_route_input_slow() doesn't check the return code of rt_cache_route(),
-> so dst is leaking. dst_destroy() is never called and 'lo' device
-> refcnt doesn't go to zero, which can be seen in the logs as:
-> 	unregister_netdevice: waiting for lo to become free. Usage count = 1
-> Adding mdelay() between above two lines makes it easily reproducible.
-> Fix it similar to nh_pcpu_rth_output case.
+> The following commit:
+>     b6c40d68ff6498b7f63ddf97cf0aa818d748dee7
+>     net: only invoke dev->change_rx_flags when device is UP
 > 
-> Fixes: d2d68ba9fe8b ("ipv4: Cache input routes in fib_info nexthops.")
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
+> tried to fix a problem with VLAN devices and promiscuouse flag setting.
+> The issue was that VLAN device was setting a flag on an interface that
+> was down, thus resulting in bad promiscuity count.
+> This commit blocked flag propagation to any device that is currently
+> down.
 > 
-> David,
+> A later commit:
+>     deede2fabe24e00bd7e246eb81cd5767dc6fcfc7
+>     vlan: Don't propagate flag changes on down interfaces
 > 
-> looks like caacf05e5ad1 ("ipv4: Properly purge netdev references on uncached routes.")
-> fixed the race for nexthop/rth_output, but missed it for rth_input.
-> I'm not sure what was the assumption why it's not needed there.
-> We're definitely seeing it every 12-24hr during nightly tests.
-> There are several bugs on ubuntu and debian forums with similar description.
-> Some were closed, since folks struggled to reproduce it.
-> It took us more than a month to debug it.
-> Please queue for stable.
+> fixed VLAN code to only propagate flags when the VLAN interface is up,
+> thus fixing the same issue as above, only localized to VLAN.
+> 
+> The problem we have now is that if we have create a complex stack
+> involving multiple software devices like bridges, bonds, and vlans,
+> then it is possible that the flags would not propagate properly to
+> the physical devices.  A simple examle of the scenario is the
+> following:
+> 
+>   eth0----> bond0 ----> bridge0 ---> vlan50
+> 
+> If bond0 or eth0 happen to be down at the time bond0 is added to
+> the bridge, then eth0 will never have promisc mode set which is
+> currently required for operation as part of the bridge.  As a
+> result, packets with vlan50 will be dropped by the interface.
+> 
+> The only 2 devices that implement the special flag handling are
+> VLAN and DSA and they both have required code to prevent incorrect
+> flag propagation.  As a result we can remove the generic solution
+> introduced in b6c40d68ff6498b7f63ddf97cf0aa818d748dee7 and leave
+> it to the individual devices to decide whether they will block
+> flag propagation or not.
+> 
+> Reported-by: Stefan Priebe <s.priebe@profihost.ag>
+> Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-Your analysis is accurate and your fix is absolutely correct, applied
-and queued up for -stable, thanks!
+Applied and queued up for -stable, thanks Vlad.
