@@ -1,59 +1,87 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH RFC v1 0/7] net: phy: Ethernet PHY powerdown optimization
-Date: Wed, 20 Nov 2013 21:54:19 +0100
-Message-ID: <528D217B.5020500@gmail.com>
-References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com> <20131120.153642.2045230991917379052.davem@davemloft.net>
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Subject: Re: [PATCH RFC v1 7/7] net: cpsw: resume/suspend PHY on port start/stop
+Date: Wed, 20 Nov 2013 21:57:08 +0100
+Message-ID: <528D2224.9090106@gmail.com>
+References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com> <1384978913-8052-8-git-send-email-sebastian.hesselbarth@gmail.com> <CAGVrzcZ+5oaucp+OSeGGe=6MBjEwi4K=E_NbCm3PjR_Owyxstw@mail.gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:40991 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755140Ab3KTUyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 15:54:23 -0500
-In-Reply-To: <20131120.153642.2045230991917379052.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGVrzcZ+5oaucp+OSeGGe=6MBjEwi4K=E_NbCm3PjR_Owyxstw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/20/2013 09:36 PM, David Miller wrote:
-> From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-> Date: Wed, 20 Nov 2013 21:21:46 +0100
->
->> Ethernet PHYs consume a significant amount of power when link is detected.
->> Especially, for embedded systems it can be easily 20-40% of total system
->> power. Now, currently most likely all ethernet drivers leave PHYs powered
->> on, even if the device is taken down. Also, some stupid boot loaders power
->> on all PHYs available.
+On 11/20/2013 09:48 PM, Florian Fainelli wrote:
+> 2013/11/20 Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>:
+>> Network PHYs consume a noticable amount of power. This adds phy_resume
+>> on slave_open and phy_suspend on slave_stop to save this power if the
+>> port is down anyway.
 >>
->> This RFC deals with saving power consumed by ethernet PHYs, that have no
->> corresponding ethernet device driver or are attached to ethernet devices
->> which are taken down by user request, i.e. ifconfig ethN down. Ports with
->> no link, i.e. cable removed, are already quite good at power saving due to
->> PHY internal link detection.
+>> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+>> ---
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Cc: netdev@vger.kernel.org
+>> Cc: linux-arm-kernel@lists.infradead.org
+>> Cc: linux-kernel@vger.kernel.org
+>> ---
+>>   drivers/net/ethernet/ti/cpsw.c |    2 ++
+>>   1 files changed, 2 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+>> index 90d41d2..f1dc54f 100644
+>> --- a/drivers/net/ethernet/ti/cpsw.c
+>> +++ b/drivers/net/ethernet/ti/cpsw.c
+>> @@ -1013,6 +1013,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+>>          } else {
+>>                  dev_info(priv->dev, "phy found : id is : 0x%x\n",
+>>                           slave->phy->phy_id);
+>> +               phy_resume(slave->phy);
+>>                  phy_start(slave->phy);
 >
-> The idea is sound and the goal is of course valuable, but it brings up
-> a chronically reoccurring issue as of late.
+> Cannot phy_start() figure this out for us based on the internal PHY
+> device state machine?
+
+Yeah, as I said in the cover letter, I started with mv643xx_eth which
+is not using phy_start/stop as it probably should be. As soon as I
+looked at mvneta/cpsw, I also came to the conclusion that
+phy_suspend/resume should be hidden in phy_start/stop.
+
+> I would imagine that you would want to call phy_suspend/resume from an
+> Ethernet driver's PM suspend/resume callbacks to make sure that the
+> PHY also enters a low power mode, but I do not want to have to
+> remember that I need to call phy_resume before phy_start for instance.
+> As of today we have PHY_HALTED/PHY_RESUMING, and I think we certainly
+> need at least a PHY_SUSPENDED state to help us with that.
 >
-> You cannot reset the PHY or take it down without somehow retaining the
-> settings the PHY had when you bring it back up.
-
-Right, as far as I understand BMCR powerdown, i.e. what is called in
-genphy_suspend/resume, powers down the PHY but _does_ retain PHY config.
-It is not resetting the device.
-
-I haven't checked a lot of datasheets but [1] notes that "registers will
-preserve their configuration". Even if we have PHYs that do not preserve
-it, they should have a device specific callback for suspend/resume that
-takes care of preserving it.
-
-[1] http://www.ti.com/lit/an/snoa463a/snoa463a.pdf
-
-> If I ifdown/ifup a device, my ethtool link configuration better be
-> retained.
+>>
+>>                  /* Configure GMII_SEL register */
+>> @@ -1081,6 +1082,7 @@ static void cpsw_slave_stop(struct cpsw_slave *slave, struct cpsw_priv *priv)
+>>          if (!slave->phy)
+>>                  return;
+>>          phy_stop(slave->phy);
+>> +       phy_suspend(slave->phy);
 >
-> This means the PHY layer must have a way to reprogram the device when
-> it is brought back up, with whatever settings the software state
-> things are there.
+> Same here, why is not that hidden in phy_stop? If there is any fear
+> that this breaks setups where WoL is used or such, we could add a new
+> argument to phy_connect() and friends which says whether it is okay to
+> auto-suspend the PHY upon PHY_stop
+>
+>>          phy_disconnect(slave->phy);
+>>          slave->phy = NULL;
+>>   }
+>> --
+>> 1.7.2.5
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Please read the FAQ at  http://www.tux.org/lkml/
+>
+>
 >
