@@ -1,57 +1,77 @@
-From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload burst.
-Date: Wed, 20 Nov 2013 17:08:50 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B743C@saturn3.aculab.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B7438@saturn3.aculab.com> <Pine.LNX.4.44L0.1311201121350.1826-100000@iolanthe.rowland.org>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
+Date: Wed, 20 Nov 2013 18:12:27 +0100
+Message-ID: <20131120171227.GG8581@1wt.eu>
+References: <8761s0cqhh.fsf@natisbad.org>
+ <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site> <87y54u59zq.fsf@natisbad.org>
+ <20131112083633.GB10318@1wt.eu> <87a9hagex1.fsf@natisbad.org>
+ <20131112100126.GB23981@1wt.eu> <87vbzxd473.fsf@natisbad.org>
+ <20131113072257.GB10591@1wt.eu> <20131117141940.GA18569@1wt.eu>
+ <1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Sarah Sharp" <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"Ben Hutchings" <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Alan Stern" <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <Pine.LNX.4.44L0.1311201121350.1826-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ netdev@vger.kernel.org, Arnaud Ebalard <arno@natisbad.org>,
+ edumazet@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+ linux-arm-kernel@lists.infradead.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-> From: Alan Stern [mailto:stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org]
-> On Wed, 20 Nov 2013, David Laight wrote:
+Hi guys,
+
+On Sun, Nov 17, 2013 at 09:41:38AM -0800, Eric Dumazet wrote:
+> On Sun, 2013-11-17 at 15:19 +0100, Willy Tarreau wrote:
 > 
-> > > From: Sarah Sharp
-> > ...
-> > > (Also, usb-storage aligns the block sizes to 512K, which explains why
-> > > we've never had an issue with TD fragments with that driver.)
-> >
-> > What is a 'block' in that context?
+> > 
+> > So it is fairly possible that in your case you can't fill the link if you
+> > consume too many descriptors. For example, if your server uses TCP_NODELAY
+> > and sends incomplete segments (which is quite common), it's very easy to
+> > run out of descriptors before the link is full.
 > 
-> I think Sarah means that usb-storage requires the block layer to align
-> its data buffers to 512-byte boundaries.  (Note: 512 bytes, not 512K.)
-
-I did think it might be a typo...
-
-> Disk I/O naturally tends to be done in units of the page size, anyway,
-> although raw I/O can involve single sectors.
+> BTW I have a very simple patch for TCP stack that could help this exact
+> situation...
 > 
-> If a user supplies an unaligned buffer, the block layer will set up a
-> bounce buffer.
+> Idea is to use TCP Small Queue so that we dont fill qdisc/TX ring with
+> very small frames, and let tcp_sendmsg() have more chance to fill
+> complete packets.
+> 
+> Again, for this to work very well, you need that NIC performs TX
+> completion in reasonable amount of time...
 
-Ah, ok, some other systems only do that from byte-misaligned buffers
-(for general disk access).
-The ehci alignment rules force 512 byte alignment.
+Eric, first I would like to confirm that I could reproduce Arnaud's issue
+using 3.10.19 (160 kB/s in the worst case).
 
-That does mean that USB2 mass storage devices (attached to xhci)
-will never generate incorrectly aligned link TRBs.
+Second, I confirm that your patch partially fixes it and my performance
+can be brought back to what I had with 3.10-rc7, but with a lot of
+concurrent streams. In fact, in 3.10-rc7, I managed to constantly saturate
+the wire when transfering 7 concurrent streams (118.6 kB/s). With the patch
+applied, performance is still only 27 MB/s at 7 concurrent streams, and I
+need at least 35 concurrent streams to fill the pipe. Strangely, after
+2 GB of cumulated data transferred, the bandwidth divided by 11-fold and
+fell to 10 MB/s again.
 
-The ax88179_178a driver might still do so.
+If I revert both "0ae5f47eff tcp: TSQ can use a dynamic limit" and
+your latest patch, the performance is back to original.
 
-	David
+Now I understand there's a major issue with the driver. But since the
+patch emphasizes the situations where drivers take a lot of time to
+wake the queue up, don't you think there could be an issue with low
+bandwidth links (eg: PPPoE over xDSL, 10 Mbps ethernet, etc...) ?
+I'm a bit worried about what we might discover in this area I must
+confess (despite generally being mostly focused on 10+ Gbps).
 
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Best regards,
+Willy
