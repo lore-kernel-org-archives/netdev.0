@@ -1,97 +1,61 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net 2/3] virtio-net: fix num calculation on frag skb
-	allocation failure
-Date: Wed, 20 Nov 2013 08:56:54 -0500 (EST)
-Message-ID: <1382353279.27479040.1384955814610.JavaMail.root@redhat.com>
-References: <1384938447-3775-1-git-send-email-jasowang@redhat.com>
-	<1384938447-3775-2-git-send-email-jasowang@redhat.com>
-	<20131120103729.GG19341@redhat.com>
-	<734327384.27426189.1384949330819.JavaMail.root@redhat.com>
-	<20131120133707.GA8523@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next RFC v2 1/2] ipv6 addrconf: extend ifa_flags to
+ u32
+Date: Wed, 20 Nov 2013 15:08:29 +0100
+Message-ID: <20131120140829.GA15778@minipsycho.orion>
+References: <1384857809-6573-1-git-send-email-jiri@resnulli.us>
+ <1384857809-6573-2-git-send-email-jiri@resnulli.us>
+ <20131119.161653.1620911822393300977.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20131120133707.GA8523@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
+	stephen@networkplumber.org, hannes@stressinduktion.org,
+	vyasevich@gmail.com, dcbw@redhat.com, David.Laight@ACULAB.COM
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f182.google.com ([209.85.215.182]:54111 "EHLO
+	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751133Ab3KTOIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 09:08:36 -0500
+Received: by mail-ea0-f182.google.com with SMTP id o10so4923086eaj.27
+        for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 06:08:32 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131119.161653.1620911822393300977.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgotLS0tLSDljp/lp4vpgq7ku7YgLS0tLS0KPiBPbiBXZWQsIE5vdiAyMCwgMjAxMyBhdCAwNzow
-ODo1MEFNIC0wNTAwLCBKYXNvbiBXYW5nIHdyb3RlOgo+ID4gCj4gPiAKPiA+IC0tLS0tIOWOn+Wn
-i+mCruS7tiAtLS0tLQo+ID4gPiBPbiBXZWQsIE5vdiAyMCwgMjAxMyBhdCAwNTowNzoyNlBNICsw
-ODAwLCBKYXNvbiBXYW5nIHdyb3RlOgo+ID4gPiA+IFdlIG5lZWQgZGVjcmVhc2UgdGhlIHJxLT5u
-dW0gYWZ0ZXIgd2UgY2FuIGdldCBhIGJ1ZiB0aHJvdWdoCj4gPiA+ID4gdmlydHF1ZXVlX2dldF9i
-dWYoKSBldmVuIGlmIHdlIGNvdWxkIG5vdCBhbGxvY2F0ZSBmcmFnIHNrYi4gT3RoZXJ3aXNlLAo+
-ID4gPiA+IHRoZQo+ID4gPiA+IHJlZmlsbCByb3V0aW5lIHdvbid0IGJlIHRyaWdnZXJlZCB1bmRl
-ciBoZWF2eSBtZW1vcnkgc3RyZXNzIHNpbmNlIHRoZQo+ID4gPiA+IGRyaXZlciBtYXkKPiA+ID4g
-PiBzdGlsbCB0aGluayB0aGVyZSdzIGVub3VnaCByb29tLgo+ID4gPiA+IAo+ID4gPiA+IFRoaXMg
-YnVnIHdhcyBpbnRyb2R1Y2VkIGJ5IGNvbW1pdAo+ID4gPiA+IDI2MTNhZjBlZDE4YTExZDVjNTY2
-YTgxZjlhNjUxMGI3MzE4MDY2MGEKPiA+ID4gPiAodmlydGlvX25ldDogbWlncmF0ZSBtZXJnZWFi
-bGUgcnggYnVmZmVycyB0byBwYWdlIGZyYWcgYWxsb2NhdG9ycykuCj4gPiA+ID4gCj4gPiA+ID4g
-Q2M6IFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KPiA+ID4gPiBDYzogTWlj
-aGFlbCBTLiBUc2lya2luIDxtc3RAcmVkaGF0LmNvbT4KPiA+ID4gPiBDYzogTWljaGFlbCBEYWx0
-b24gPG13ZGFsdG9uQGdvb2dsZS5jb20+Cj4gPiA+ID4gQ2M6IEVyaWMgRHVtYXpldCA8ZWR1bWF6
-ZXRAZ29vZ2xlLmNvbT4KPiA+ID4gPiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2Fu
-Z0ByZWRoYXQuY29tPgo+ID4gPiAKPiA+ID4gU28gbGV0J3Mgd3JhcCB2aXJ0cXVldWVfZ2V0X2J1
-ZiB0byBtYWtlIHN1cmUgd2UgZ2V0IGl0IHJpZ2h0Pwo+ID4gPiAKPiA+IAo+ID4gT2suIGdvb2Qg
-aWRlYS4KPiAKPiBTbyBJIGRpZCB0aGlzIChiZWxvdykgYnV0IHRoZSBjb21waWxlciBpcyBub3Qg
-c21hcnQgZW5vdWdoIHRvCj4gYXZvaWQgdHdvIGJyYW5jaGVzIG9uIGRhdGEgcGF0aC4KPiBTbyBJ
-J20gbm90IHN1cmUgYW55bW9yZTogd2l0aCBteSBwYXRjaCBpdCdzIHByZXR0eSBjbGVhciBob3cK
-PiB0aGUgY29kZSB3b3Jrcy4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBNaWNoYWVsIFMuIFRzaXJraW4g
-PG1zdEByZWRoYXQuY29tPgo+IAo+IGJ1dCBJIGRvbid0IHRoaW5rIHdlIG5lZWQgdG8gYXBwbHkg
-dGhpcy4KPiAKClRydWUsIGFub3RoZXIgcG9pbnQgaXMgd2UnZCBiZXR0ZXIgdG8gaGFuZGxlIGJv
-dGggaW5jcmVhc2luZyBhbmQgZGVjcmVhc2luZyBpbiB0aGUgCnNhbWUgd2F5LiBXZSBkbyBub3Qg
-aW5jcmVhc2UgaXQgaW4gYSBoZWxwZXIuCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3ZpcnRp
-b19uZXQuYyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+IGluZGV4IDExZDljYzkuLjFjYzJl
-NDMgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gKysrIGIvZHJpdmVy
-cy9uZXQvdmlydGlvX25ldC5jCj4gQEAgLTI5Niw2ICsyOTYsMTQgQEAgc3RhdGljIHN0cnVjdCBz
-a19idWZmICpwYWdlX3RvX3NrYihzdHJ1Y3QgcmVjZWl2ZV9xdWV1ZQo+ICpycSwKPiAgCXJldHVy
-biBza2I7Cj4gIH0KPiAgCj4gK3N0YXRpYyB2b2lkICpycV9nZXRfYnVmKHN0cnVjdCByZWNlaXZl
-X3F1ZXVlICpycSwgdW5zaWduZWQgaW50ICpsZW4pCj4gK3sKPiArCXZvaWQgKmJ1ZiA9IHZpcnRx
-dWV1ZV9nZXRfYnVmKHJxLT52cSwgbGVuKTsKPiArCWlmIChidWYpCj4gKwkJcnEtPm51bS0tOwo+
-ICsJcmV0dXJuIGJ1ZjsKPiArfQo+ICsKPiAgc3RhdGljIHN0cnVjdCBza19idWZmICpyZWNlaXZl
-X21lcmdlYWJsZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAo+ICAJCQkJCSBzdHJ1Y3QgcmVjZWl2
-ZV9xdWV1ZSAqcnEsCj4gIAkJCQkJIHZvaWQgKmJ1ZiwKPiBAQCAtMzE1LDcgKzMyMyw3IEBAIHN0
-YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqcmVjZWl2ZV9tZXJnZWFibGUoc3RydWN0Cj4gbmV0X2Rldmlj
-ZSAqZGV2LAo+ICAJd2hpbGUgKC0tbnVtX2J1Zikgewo+ICAJCWludCBudW1fc2tiX2ZyYWdzOwo+
-ICAKPiAtCQlidWYgPSB2aXJ0cXVldWVfZ2V0X2J1ZihycS0+dnEsICZsZW4pOwo+ICsJCWJ1ZiA9
-IHJxX2dldF9idWYocnEsICZsZW4pOwo+ICAJCWlmICh1bmxpa2VseSghYnVmKSkgewo+ICAJCQlw
-cl9kZWJ1ZygiJXM6IHJ4IGVycm9yOiAlZCBidWZmZXJzIG91dCBvZiAlZCBtaXNzaW5nXG4iLAo+
-ICAJCQkJIGRldi0+bmFtZSwgbnVtX2J1ZiwgaGRyLT5taGRyLm51bV9idWZmZXJzKTsKPiBAQCAt
-MzI5LDcgKzMzNyw2IEBAIHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqcmVjZWl2ZV9tZXJnZWFibGUo
-c3RydWN0Cj4gbmV0X2RldmljZSAqZGV2LAo+ICAJCX0KPiAgCj4gIAkJcGFnZSA9IHZpcnRfdG9f
-aGVhZF9wYWdlKGJ1Zik7Cj4gLQkJLS1ycS0+bnVtOwo+ICAKPiAgCQludW1fc2tiX2ZyYWdzID0g
-c2tiX3NoaW5mbyhjdXJyX3NrYiktPm5yX2ZyYWdzOwo+ICAJCWlmICh1bmxpa2VseShudW1fc2ti
-X2ZyYWdzID09IE1BWF9TS0JfRlJBR1MpKSB7Cj4gQEAgLTM3MCw3ICszNzcsNyBAQCBlcnJfYnVm
-Ogo+ICAJZGV2LT5zdGF0cy5yeF9kcm9wcGVkKys7Cj4gIAlkZXZfa2ZyZWVfc2tiKGhlYWRfc2ti
-KTsKPiAgCXdoaWxlICgtLW51bV9idWYpIHsKPiAtCQlidWYgPSB2aXJ0cXVldWVfZ2V0X2J1Zihy
-cS0+dnEsICZsZW4pOwo+ICsJCWJ1ZiA9IHJxX2dldF9idWYocnEsICZsZW4pOwo+ICAJCWlmICh1
-bmxpa2VseSghYnVmKSkgewo+ICAJCQlwcl9kZWJ1ZygiJXM6IHJ4IGVycm9yOiAlZCBidWZmZXJz
-IG1pc3NpbmdcbiIsCj4gIAkJCQkgZGV2LT5uYW1lLCBudW1fYnVmKTsKPiBAQCAtMzc5LDcgKzM4
-Niw2IEBAIGVycl9idWY6Cj4gIAkJfQo+ICAJCXBhZ2UgPSB2aXJ0X3RvX2hlYWRfcGFnZShidWYp
-Owo+ICAJCXB1dF9wYWdlKHBhZ2UpOwo+IC0JCS0tcnEtPm51bTsKPiAgCX0KPiAgCXJldHVybiBO
-VUxMOwo+ICB9Cj4gQEAgLTY3NSw5ICs2ODEsOCBAQCBzdGF0aWMgaW50IHZpcnRuZXRfcG9sbChz
-dHJ1Y3QgbmFwaV9zdHJ1Y3QgKm5hcGksIGludAo+IGJ1ZGdldCkKPiAgCj4gIGFnYWluOgo+ICAJ
-d2hpbGUgKHJlY2VpdmVkIDwgYnVkZ2V0ICYmCj4gLQkgICAgICAgKGJ1ZiA9IHZpcnRxdWV1ZV9n
-ZXRfYnVmKHJxLT52cSwgJmxlbikpICE9IE5VTEwpIHsKPiArCSAgICAgICAoYnVmID0gcnFfZ2V0
-X2J1ZihycSwgJmxlbikpICE9IE5VTEwpIHsKPiAgCQlyZWNlaXZlX2J1ZihycSwgYnVmLCBsZW4p
-Owo+IC0JCS0tcnEtPm51bTsKPiAgCQlyZWNlaXZlZCsrOwo+ICAJfQo+ICAKPiAtLQo+IFRvIHVu
-c3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRk
-ZXYiIGluCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5v
-cmcKPiBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9y
-ZG9tby1pbmZvLmh0bWwKPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMu
-bGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21h
-aWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+Tue, Nov 19, 2013 at 10:16:53PM CET, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Tue, 19 Nov 2013 11:43:28 +0100
+>
+>> There is no more space in u8 ifa_flags. So do what davem suffested and
+>> add another netlink attr called IFA_FLAGS for carry more flags.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> Signed-off-by: Thomas Haller <thaller@redhat.com>
+>> ---
+>> v1->v2:
+>> - reordered struct inet6_ifaddr as suggested by David Laight
+>> - changed flags type to u32 on couple of places as suggested by Thomas Haller
+>> - changed output of if6_seq_show as suggested by Thomas Haller
+>
+>This looks fine, but I would suggest to extend this to all addressing
+>types using ifm->ifa_flags.  It is not such a big deal, there are only
+>3 or 4.
+
+Okay - I will do that.
+
+>
+>DecNET, ipv4, ipv6, and lastly phonet (which just reports "permanent"
+>flag on get/dump).
+>
+>That way tools like iproute2 can just generically provide and
+>interpret IFA_FLAGS attribute unconditionally.
+
+Well the check and ->ifa_flags fallback needs to be in iproute2 anyway
+in order to maintain compatibility with older kernels.
+
+Thanks for review!
+
+Jiri
