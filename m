@@ -1,45 +1,57 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net] packet: fix use after free race in send path when
- dev is released
-Date: Wed, 20 Nov 2013 09:30:17 +0100
-Message-ID: <528C7319.5050309@redhat.com>
-References: <1384902503-1588-1-git-send-email-dborkman@redhat.com> <20131119.203451.358808893783927503.davem@davemloft.net>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few
+ KB/s
+Date: Wed, 20 Nov 2013 09:50:37 +0100
+Message-ID: <20131120095037.07dc6fc0@skate>
+References: <87a9hagex1.fsf@natisbad.org>
+	<20131112100126.GB23981@1wt.eu>
+	<87vbzxd473.fsf@natisbad.org>
+	<20131113072257.GB10591@1wt.eu>
+	<20131117141940.GA18569@1wt.eu>
+	<1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
+	<87li0kkhzx.fsf@natisbad.org>
+	<1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119174323.GH913@1wt.eu>
+	<1384885910.8604.110.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119184121.GN913@1wt.eu>
+	<874n780wzc.fsf@natisbad.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, noureddine@aristanetworks.com,
-	greearb@candelatech.com
-To: David Miller <davem@davemloft.net>
+Cc: Willy Tarreau <w@1wt.eu>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	simon.guinot@sequanux.org, netdev@vger.kernel.org,
+	edumazet@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+	linux-arm-kernel@lists.infradead.org
+To: arno@natisbad.org (Arnaud Ebalard)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60067 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751330Ab3KTIaY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Nov 2013 03:30:24 -0500
-In-Reply-To: <20131119.203451.358808893783927503.davem@davemloft.net>
+Received: from top.free-electrons.com ([176.31.233.9]:50969 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750858Ab3KTIuk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 03:50:40 -0500
+In-Reply-To: <874n780wzc.fsf@natisbad.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/20/2013 02:34 AM, David Miller wrote:
-> From: Daniel Borkmann <dborkman@redhat.com>
-> Date: Wed, 20 Nov 2013 00:08:23 +0100
->
->> To avoid reverting 827d9780 entirely, we could make use of po->running
->> member that gets reset when we're calling __unregister_prot_hook() in
->> packet_notifier() when we receive NETDEV_DOWN or NETDEV_UNREGISTER
->> notification. Plus, we still need to hold ref to the netdev, so
->> that we can assure it won't be released while we're in send path.
->
-> The avoidance of the atomic ref counting of the network device is the
-> main performance gain we get from that commit.
->
-> Now we'll be doing the refcount _and_ taking a spinlock, it'll be
-> worse than beforehand.
->
-> And this is doubly silly because we already have a reference
-> when we install the device into po->prot_hook.dev
->
-> I bet you can fix this by just deferring the NETDEV_UNREGISTER
-> AF_PACKET notifier work to RCU.
+Arnaud,
 
-Yep, will try if this approach works, in other words doing the earlier
-exit via !po->running, plus deferring the dev_put() et al to RCU.
+On Wed, 20 Nov 2013 00:53:43 +0100, Arnaud Ebalard wrote:
+
+>  - It seems I will I have to spend some time on the SATA issues I
+>    previously thought were an artefact of not cleaning my tree during a
+>    debug session [1], i.e. there is IMHO an issue.
+
+I don't remember in detail what your SATA problem was, but just to let
+you know that we are currently debugging a problem that occurs on
+Armada XP (more than one core is needed for the problem to occur), with
+SATA (the symptom is that after some time of SATA usage, SATA traffic is
+stalled, and no SATA interrupts are generated anymore). We're still
+working on this one, and trying to figure out where the problem is.
+
+Best regards,
+
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
