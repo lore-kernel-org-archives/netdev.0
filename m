@@ -1,59 +1,41 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: Re: [PATCH net] virtio-net: fix page refcnt leaking when fail to
-	allocate frag skb
-Date: Tue, 19 Nov 2013 17:34:16 -0800
-Message-ID: <CANJ5vP+ZxtDf8OzREpyDpgh8JLnWGEjkUcS388hi+AOjdu0fZw@mail.gmail.com>
-References: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
-	<1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131119204909.GA15004@redhat.com>
-	<1384896996.8604.120.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131119215312.GE15004@redhat.com>
-	<1384898411.8604.127.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] packet: fix use after free race in send path when
+ dev is released
+Date: Tue, 19 Nov 2013 20:34:51 -0500 (EST)
+Message-ID: <20131119.203451.358808893783927503.davem@davemloft.net>
+References: <1384902503-1588-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1384898411.8604.127.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, noureddine@aristanetworks.com,
+	greearb@candelatech.com
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59506 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753707Ab3KTBez (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 20:34:55 -0500
+In-Reply-To: <1384902503-1588-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Wed, 20 Nov 2013 00:08:23 +0100
 
-After further reflection I think we're looking at two related issues:
-(a) a memory leak that Jason has identified that occurs when a memory
-allocation fails in receive_mergeable. Jasons commit solves this issue.
-(b) virtio-net does not dequeue all buffers for a packet in the
-case that an error occurs on receive and mergeable receive buffers is
-enabled.
+> To avoid reverting 827d9780 entirely, we could make use of po->running
+> member that gets reset when we're calling __unregister_prot_hook() in
+> packet_notifier() when we receive NETDEV_DOWN or NETDEV_UNREGISTER
+> notification. Plus, we still need to hold ref to the netdev, so
+> that we can assure it won't be released while we're in send path.
 
-For (a), this bug is new and due to changes in 2613af0ed18a, and the
-net impact is memory leak on the physical page. However, I believe (b)
-has always been possible in some form because if page_to_skb() returns
-NULL (e.g., due to SKB allocation failure), receive_mergeable is never
-called. AFAICT this is also the behavior prior to 2613af0ed18a.
+The avoidance of the atomic ref counting of the network device is the
+main performance gain we get from that commit.
 
-The net impact of (b) would be that virtio-net would interpret a packet
-buffer that is in the middle of a mergeable packet as the start of a
-new packet, which is definitely also a bug (and the buffer contents
-could contain bytes that resembled a valid virtio-net header).
+Now we'll be doing the refcount _and_ taking a spinlock, it'll be
+worse than beforehand.
 
-A solution for (b) will require handling both the page_to_skb memory
-allocation failures and the memory allocation failures in
-receive_mergeable introduced by 2613af0ed18a.
+And this is doubly silly because we already have a reference
+when we install the device into po->prot_hook.dev
 
-Best,
-
-Mike
+I bet you can fix this by just deferring the NETDEV_UNREGISTER
+AF_PACKET notifier work to RCU.
