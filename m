@@ -1,47 +1,150 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: net/usb/ax88179_178a driver broken in linux-3.12
-Date: Wed, 20 Nov 2013 09:54:02 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7439@saturn3.aculab.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com><528A9A36.50903@pobox.com><AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com> <20131119.161313.743887333007019981.davem@davemloft.net>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: [PATCH net v3 1/2] net: sched: tbf: fix calculation of max_size
+Date: Wed, 20 Nov 2013 11:04:48 +0100
+Message-ID: <20131120110448.50b68d23@redhat.com>
+References: <1384845939-8424-1-git-send-email-yangyingliang@huawei.com>
+	<1384845939-8424-2-git-send-email-yangyingliang@huawei.com>
+	<20131119103828.5697d5c9@redhat.com>
+	<528C1B13.5090701@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <mlord@pobox.com>, <eric.dumazet@gmail.com>,
-	<ming.lei@canonical.com>, <netdev@vger.kernel.org>,
-	"Sarah Sharp" <sarah.a.sharp@linux.intel.com>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <eric.dumazet@gmail.com>,
+	<jpirko@redhat.com>
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33283 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752433Ab3KTJyv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 04:54:51 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02009-04 for <netdev@vger.kernel.org>;
- Wed, 20 Nov 2013 09:54:46 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20131119.161313.743887333007019981.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:42298 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750834Ab3KTKFC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Nov 2013 05:05:02 -0500
+In-Reply-To: <528C1B13.5090701@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Of David Miller
-> > From: "David Laight" <David.Laight@ACULAB.COM>
-> > Date: Tue, 19 Nov 2013 10:04:11 -0000
+
+On Wed, 20 Nov 2013 10:14:43 +0800
+Yang Yingliang <yangyingliang@huawei.com> wrote:
+> On 2013/11/19 17:38, Jesper Dangaard Brouer wrote:
+> > On Tue, 19 Nov 2013 15:25:38 +0800
+> > Yang Yingliang <yangyingliang@huawei.com> wrote:
+> > 
+[...]
+> > 
+> >> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+> >> index 68f9859..c194129 100644
+> >> --- a/net/sched/sch_tbf.c
+> >> +++ b/net/sched/sch_tbf.c
+> > [...]
+> >> @@ -339,30 +326,46 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+> > [...]
+> >> +	for (n = 0; n < 65536; n++)
+> >> +		if (psched_l2t_ns(&q->rate, n) > q->buffer)
+> >> +			break;
+> >> +	max_size = min_t(u32, n, (256ULL << qopt->rate.cell_log) - 1);
+> > 
+> > I'm a little uncertain about, if using the 65536 constant is okay, or
+> > considered "bad style".
 > 
-> > There is a patch to xhci-ring.c that should fix the SG problem.
-> > http://www.spinics.net/lists/linux-usb/msg97176.html
-> >
-> > I think it should apply to the 3.12 sources.
+> I'll use a MACRO to instead of this constant in v4.
+
+I'm not saying you have to use a macro for this. I'm fine with using
+65536 here, some other developers might have stronger opinions on this?
+
+
+> > I'm still a little confused/uncertain why we need the "qopt->rate.cell_log".
+> > 
 > 
-> David, please get this into Linus's tree and queued up for -stable
-> as soon as possible, thank you.
+> Because we need max_size be smaller than mtu(user input in bytes).
+> E.g. if user inputs like this "...  burst 100KB rate 100mbit mtu 4095",
+> without this patch, max_size is 4095.
+> But with this patch, if don't use cell_log, max_size is 102400.
+> I think it's not correct, so I used cell_log here.
+ 
+Hmmmm... so you are using cell_log to approximate the MTU size, because
+struct tc_ratespec, does not contain the a mtu parameter.  You do
+realize this is only an approximation. (This also smells like a bad
+transition away from the userspace rate tables)
 
-What do I have to do to expedite it?
-I thought that Sarah would have to push the patch through.
+What about the p->mtu parameter from struct tc_tbf_qopt.  I know it is
+in a "time" format... but hey, you are already using this parameter
+requoting your patch:
 
-It might be necessary to limit the number of SG fragments that
-the mass storage (etc) can generate to 63 (from unlimited).
-That should be a 1 line change somewhere.
 
-	David
+On Tue, 19 Nov 2013 15:25:38 +0800
+Yang Yingliang <yangyingliang@huawei.com> wrote:
+
+> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+> index 68f9859..c194129 100644
+> --- a/net/sched/sch_tbf.c
+> +++ b/net/sched/sch_tbf.c
+[... cut ...]
+> @@ -339,30 +326,46 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+>  	}
+>  	q->limit = qopt->limit;
+>  	q->mtu = PSCHED_TICKS2NS(qopt->mtu);
+> -	q->max_size = max_size;
+>  	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
+>  	q->tokens = q->buffer;
+>  	q->ptokens = q->mtu;
+>  
+>  	if (tb[TCA_TBF_RATE64])
+>  		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
+> -	psched_ratecfg_precompute(&q->rate, &rtab->rate, rate64);
+> -	if (ptab) {
+> +	psched_ratecfg_precompute(&q->rate, &qopt->rate, rate64);
+> +	if (!q->rate.rate_bytes_ps)
+> +		goto unlock_done;
+> +	for (n = 0; n < 65536; n++)
+> +		if (psched_l2t_ns(&q->rate, n) > q->buffer)
+> +			break;
+> +	max_size = min_t(u32, n, (256ULL << qopt->rate.cell_log) - 1);
+> +
+> +	if (qopt->peakrate.rate) {
+> +		int size = 0;
+>  		if (tb[TCA_TBF_PRATE64])
+>  			prate64 = nla_get_u64(tb[TCA_TBF_PRATE64]);
+> -		psched_ratecfg_precompute(&q->peak, &ptab->rate, prate64);
+> +		psched_ratecfg_precompute(&q->peak, &qopt->peakrate, prate64);
+> +		for (n = 0; n < 65536; n++)
+> +			if (psched_l2t_ns(&q->peak, n) > q->mtu)
+
+You are using q->mtu here, BUT why are you only doing this, when there
+is a qopt->peakrate.rate, set???  (I might have missed something)
+
+
+> +				break;
+> +		size = min_t(u32, n, (256ULL << qopt->rate.cell_log) - 1);
+> +		max_size = min_t(u32, max_size, size);
+>  		q->peak_present = true;
+>  	} else {
+>  		q->peak_present = false;
+>  	}
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+For easy reference
+------------------
+(include/uapi/linux/pkt_sched.h)
+struct tc_ratespec {
+	unsigned char	cell_log;
+	__u8		linklayer; /* lower 4 bits */
+	unsigned short	overhead;
+	short		cell_align;
+	unsigned short	mpu;
+	__u32		rate;
+};
+
+struct tc_tbf_qopt {
+	struct tc_ratespec rate;
+	struct tc_ratespec peakrate;
+	__u32		limit;
+	__u32		buffer;
+	__u32		mtu;
+};
