@@ -1,44 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC v1 0/7] net: phy: Ethernet PHY powerdown
- optimization
-Date: Wed, 20 Nov 2013 15:36:42 -0500 (EST)
-Message-ID: <20131120.153642.2045230991917379052.davem@davemloft.net>
-References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC v1 2/7] net: phy: provide phy_resume/phy_suspend helpers
+Date: Wed, 20 Nov 2013 12:36:55 -0800
+Message-ID: <CAGVrzcZ9uDK9X-K86Esxb=93tkHuV4-RXxZ8Us-vNJ9UxcTFpQ@mail.gmail.com>
+References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com> <1384978913-8052-3-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: sebastian.hesselbarth@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com>
+In-Reply-To: <1384978913-8052-3-git-send-email-sebastian.hesselbarth@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Date: Wed, 20 Nov 2013 21:21:46 +0100
+2013/11/20 Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>:
+> This adds helper functions to resume and suspend a given phy_device
+> by calling the corresponding driver callbacks if available.
+>
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 
-> Ethernet PHYs consume a significant amount of power when link is detected.
-> Especially, for embedded systems it can be easily 20-40% of total system
-> power. Now, currently most likely all ethernet drivers leave PHYs powered
-> on, even if the device is taken down. Also, some stupid boot loaders power
-> on all PHYs available.
-> 
-> This RFC deals with saving power consumed by ethernet PHYs, that have no
-> corresponding ethernet device driver or are attached to ethernet devices
-> which are taken down by user request, i.e. ifconfig ethN down. Ports with
-> no link, i.e. cable removed, are already quite good at power saving due to
-> PHY internal link detection.
+Looks good, thanks Sebastian:
 
-The idea is sound and the goal is of course valuable, but it brings up
-a chronically reoccurring issue as of late.
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 
-You cannot reset the PHY or take it down without somehow retaining the
-settings the PHY had when you bring it back up.
+> ---
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>  drivers/net/phy/phy_device.c |   19 +++++++++++++++++++
+>  include/linux/phy.h          |    2 ++
+>  2 files changed, 21 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index 74630e9..2442895 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -625,6 +625,25 @@ void phy_detach(struct phy_device *phydev)
+>  }
+>  EXPORT_SYMBOL(phy_detach);
+>
+> +int phy_suspend(struct phy_device *phydev)
+> +{
+> +       struct phy_driver *phydrv = to_phy_driver(phydev->dev.driver);
+> +
+> +       if (phydrv->suspend)
+> +               return phydrv->suspend(phydev);
+> +       return 0;
+> +}
+> +EXPORT_SYMBOL(phy_suspend);
+> +
+> +int phy_resume(struct phy_device *phydev)
+> +{
+> +       struct phy_driver *phydrv = to_phy_driver(phydev->dev.driver);
+> +
+> +       if (phydrv->resume)
+> +               return phydrv->resume(phydev);
+> +       return 0;
+> +}
+> +EXPORT_SYMBOL(phy_resume);
+>
+>  /* Generic PHY support and helper functions */
+>
+> diff --git a/include/linux/phy.h b/include/linux/phy.h
+> index 64ab823..ed0d6d8 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -552,6 +552,8 @@ void phy_detach(struct phy_device *phydev);
+>  void phy_start(struct phy_device *phydev);
+>  void phy_stop(struct phy_device *phydev);
+>  int phy_start_aneg(struct phy_device *phydev);
+> +int phy_suspend(struct phy_device *phydev);
+> +int phy_resume(struct phy_device *phydev);
+>
+>  int phy_stop_interrupts(struct phy_device *phydev);
+>
+> --
+> 1.7.2.5
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-If I ifdown/ifup a device, my ethtool link configuration better be
-retained.
 
-This means the PHY layer must have a way to reprogram the device when
-it is brought back up, with whatever settings the software state
-things are there.
+
+-- 
+Florian
