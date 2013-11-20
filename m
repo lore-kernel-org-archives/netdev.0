@@ -1,53 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] packet: fix use after free race in send path when
- dev is released
-Date: Wed, 20 Nov 2013 15:07:11 -0500 (EST)
-Message-ID: <20131120.150711.1110320732127884184.davem@davemloft.net>
-References: <1384902503-1588-1-git-send-email-dborkman@redhat.com>
-	<20131119.203451.358808893783927503.davem@davemloft.net>
-	<528C7319.5050309@redhat.com>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [PATCH] cipso: simplify cipso_v4_translate() when !CONFIG_NETLABEL
+Date: Wed, 20 Nov 2013 15:09:55 -0500
+Message-ID: <1786707.gpV9S7REAB@sifl>
+References: <4007061.3MtKnenLV1@sifl> <2049996.Ospk96ghpo@sifl> <20131120.150620.1185820553046155927.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, noureddine@aristanetworks.com,
-	greearb@candelatech.com
-To: dborkman@redhat.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36668 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754193Ab3KTUHN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 15:07:13 -0500
-In-Reply-To: <528C7319.5050309@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:34617 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754898Ab3KTUJ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Nov 2013 15:09:58 -0500
+In-Reply-To: <20131120.150620.1185820553046155927.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Wed, 20 Nov 2013 09:30:17 +0100
-
-> On 11/20/2013 02:34 AM, David Miller wrote:
->> From: Daniel Borkmann <dborkman@redhat.com>
->> Date: Wed, 20 Nov 2013 00:08:23 +0100
->>
->>> To avoid reverting 827d9780 entirely, we could make use of po->running
->>> member that gets reset when we're calling __unregister_prot_hook() in
->>> packet_notifier() when we receive NETDEV_DOWN or NETDEV_UNREGISTER
->>> notification. Plus, we still need to hold ref to the netdev, so
->>> that we can assure it won't be released while we're in send path.
->>
->> The avoidance of the atomic ref counting of the network device is the
->> main performance gain we get from that commit.
->>
->> Now we'll be doing the refcount _and_ taking a spinlock, it'll be
->> worse than beforehand.
->>
->> And this is doubly silly because we already have a reference
->> when we install the device into po->prot_hook.dev
->>
->> I bet you can fix this by just deferring the NETDEV_UNREGISTER
->> AF_PACKET notifier work to RCU.
+On Wednesday, November 20, 2013 03:06:20 PM David Miller wrote:
+> From: Paul Moore <pmoore@redhat.com>
+> Date: Wed, 20 Nov 2013 14:59:33 -0500
 > 
-> Yep, will try if this approach works, in other words doing the earlier
-> exit via !po->running, plus deferring the dev_put() et al to RCU.
+> > On Wednesday, November 20, 2013 02:55:11 PM David Miller wrote:
+> >> 1) This is a cleanup, and therefore not suitable for submission right now
+> >>    because the net-next tree is closed.
+> > 
+> > I wasn't expecting it to go into the current merge window, I was just
+> > sending it out now so you'd have it for when things started moving again.
+> >  Think of it as spreading the pain out a bit.
+> 
+> When the merge window opens, I make an announcement here on the list
+> politely asking pople to defer net-next patch submissions until after
+> the merge window closes and I explicitly announce that net-next is
+> open again.
 
-Thank you.  You might have to wrap the sendmsg path in an rcu lock
-sequence.
+My apologies, I missed that.  Subscribed to too many mailing lists and too 
+reliant on my filters to catch the important bits.
+
+> >> 2) A more suitable commit log message would have been "Don't needlessly
+> >>    recompute 'opt[opt_iter + 1]' as we already have it stored in
+> >>    tag_len".
+> >>    
+> >>    Then anyone who reads this commit message can say "yes, obviously this
+> >>    is a correct change and matches what the patch is doing"
+> > 
+> > Fair enough.  Do you want a resubmit with your wording once the merge
+> > window closes?
+> 
+> ... and I announce that net-next is open once more, yes.  Thank you.
+
+Will do.
+
+-- 
+paul moore
+security and virtualization @ redhat
