@@ -1,55 +1,65 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: fix page refcnt leaking when fail to
-	allocate frag skb
-Date: Wed, 20 Nov 2013 19:03:33 +0200
-Message-ID: <20131120170333.GA21972@redhat.com>
-References: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
-	<1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131119204909.GA15004@redhat.com>
-	<1384896996.8604.120.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131119215312.GE15004@redhat.com>
-	<1384898411.8604.127.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131120085835.GB19341@redhat.com>
-	<1384960593.8604.147.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131120160625.GA21188@redhat.com>
-	<1384964061.8604.151.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload burst.
+Date: Wed, 20 Nov 2013 17:02:54 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B743B@saturn3.aculab.com>
+References: <20131119225822.GA9611@xanatos> <Pine.LNX.4.44L0.1311192204140.6891-100000@netrider.rowland.org> <AE90C24D6B3A694183C094C60CF0A2F6026B7437@saturn3.aculab.com> <20131120160605.GB9611@xanatos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1384964061.8604.151.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Alan Stern" <stern@rowland.harvard.edu>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: "Sarah Sharp" <sarah.a.sharp@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:40751 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754393Ab3KTREP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 12:04:15 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 21978-06 for <netdev@vger.kernel.org>;
+ Wed, 20 Nov 2013 17:04:12 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20131120160605.GB9611@xanatos>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 20, 2013 at 08:14:21AM -0800, Eric Dumazet wrote:
-> On Wed, 2013-11-20 at 18:06 +0200, Michael S. Tsirkin wrote:
+> From: Sarah Sharp [mailto:sarah.a.sharp@linux.intel.com]
+> On Wed, Nov 20, 2013 at 09:36:11AM -0000, David Laight wrote:
+> > > From: Alan Stern [mailto:stern@rowland.harvard.edu]
+> > > On Tue, 19 Nov 2013, Sarah Sharp wrote:
+> > >
+> > > > The xHCI driver can limit the number of sg-list entries through
+> > > > hcd->self.sg_tablesize.  It's currently set to ~0, which is "however
+> > > > many entries you want.  You could set that to the number of TRBs in a
+> > > > segment (minus one for the link TRB).
+> > > >
+...
 > 
-> > Hmm some kind of disconnect here.
-> > I got you rmanagement about bufferbloat.
-> > 
-> > What I am saying is that maybe we should drop packets more
-> > aggressively: when we drop one packet of a flow, why not
-> > drop everything that's queued and is for the same flow?
+> Ok, so the networking layer should be fine.  However, with the current
+> patch, if the mass storage driver sends down a scatter-gather list
+> that's bigger than a ring segment, or needs to be split up so it doesn't
+> cross 64K boundaries, then the URB submission will fail.  We don't want
+> that to happen.
 > 
-> I really hope your TCP flows use SACK ;)
-> 
-> Please read the rfc 2018 introduction for details.
-> 
-> If a packet is dropped, it doesn't mean following packets _have_ to be
-> dropped.
+> At the very least, we should limit hcd->self.sg_tablesize in
+> drivers/usb/host/xhci.c to 63 (TRBS_PER_SEGMENT - 1).  But we could
+> still potentially run into the 64K boundary issue in one or maybe all of
+> those entries.  Would it be crazy to limit the number of entries to half
+> that (31)?  It may impact performance, but it ensures that SCSI reads
+> and writes don't randomly fail.  We can always increase the ring segment
+> size in a later patch.
 
+Unless there is a limit on the overall length of the transfer you'll always lose.
+An aligned 4MB transfer in a contiguous memory buffer requires 64 TRBs.
+So won't fit in a ring segment.
 
-Got it, thanks.
+Although I'd guess that such transfers are unusual.
+If you bet that crossing a 64k boundaries is unusual then 32 is probably
+a sane limit.
+
+Fragments over 16k can easily be split between ring segments - so a more
+complex check could allow for that - but it won't be quick to write.
+
+	David
