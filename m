@@ -1,65 +1,57 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
 Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload burst.
-Date: Wed, 20 Nov 2013 17:02:54 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B743B@saturn3.aculab.com>
-References: <20131119225822.GA9611@xanatos> <Pine.LNX.4.44L0.1311192204140.6891-100000@netrider.rowland.org> <AE90C24D6B3A694183C094C60CF0A2F6026B7437@saturn3.aculab.com> <20131120160605.GB9611@xanatos>
+Date: Wed, 20 Nov 2013 17:08:50 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B743C@saturn3.aculab.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B7438@saturn3.aculab.com> <Pine.LNX.4.44L0.1311201121350.1826-100000@iolanthe.rowland.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: "Alan Stern" <stern@rowland.harvard.edu>,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
-To: "Sarah Sharp" <sarah.a.sharp@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:40751 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754393Ab3KTREP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 12:04:15 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 21978-06 for <netdev@vger.kernel.org>;
- Wed, 20 Nov 2013 17:04:12 +0000 (GMT)
+Cc: "Sarah Sharp" <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"Ben Hutchings" <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Alan Stern" <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-class: urn:content-classes:message
-In-Reply-To: <20131120160605.GB9611@xanatos>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.44L0.1311201121350.1826-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> From: Sarah Sharp [mailto:sarah.a.sharp@linux.intel.com]
-> On Wed, Nov 20, 2013 at 09:36:11AM -0000, David Laight wrote:
-> > > From: Alan Stern [mailto:stern@rowland.harvard.edu]
-> > > On Tue, 19 Nov 2013, Sarah Sharp wrote:
-> > >
-> > > > The xHCI driver can limit the number of sg-list entries through
-> > > > hcd->self.sg_tablesize.  It's currently set to ~0, which is "however
-> > > > many entries you want.  You could set that to the number of TRBs in a
-> > > > segment (minus one for the link TRB).
-> > > >
-...
+> From: Alan Stern [mailto:stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org]
+> On Wed, 20 Nov 2013, David Laight wrote:
 > 
-> Ok, so the networking layer should be fine.  However, with the current
-> patch, if the mass storage driver sends down a scatter-gather list
-> that's bigger than a ring segment, or needs to be split up so it doesn't
-> cross 64K boundaries, then the URB submission will fail.  We don't want
-> that to happen.
+> > > From: Sarah Sharp
+> > ...
+> > > (Also, usb-storage aligns the block sizes to 512K, which explains why
+> > > we've never had an issue with TD fragments with that driver.)
+> >
+> > What is a 'block' in that context?
 > 
-> At the very least, we should limit hcd->self.sg_tablesize in
-> drivers/usb/host/xhci.c to 63 (TRBS_PER_SEGMENT - 1).  But we could
-> still potentially run into the 64K boundary issue in one or maybe all of
-> those entries.  Would it be crazy to limit the number of entries to half
-> that (31)?  It may impact performance, but it ensures that SCSI reads
-> and writes don't randomly fail.  We can always increase the ring segment
-> size in a later patch.
+> I think Sarah means that usb-storage requires the block layer to align
+> its data buffers to 512-byte boundaries.  (Note: 512 bytes, not 512K.)
 
-Unless there is a limit on the overall length of the transfer you'll always lose.
-An aligned 4MB transfer in a contiguous memory buffer requires 64 TRBs.
-So won't fit in a ring segment.
+I did think it might be a typo...
 
-Although I'd guess that such transfers are unusual.
-If you bet that crossing a 64k boundaries is unusual then 32 is probably
-a sane limit.
+> Disk I/O naturally tends to be done in units of the page size, anyway,
+> although raw I/O can involve single sectors.
+> 
+> If a user supplies an unaligned buffer, the block layer will set up a
+> bounce buffer.
 
-Fragments over 16k can easily be split between ring segments - so a more
-complex check could allow for that - but it won't be quick to write.
+Ah, ok, some other systems only do that from byte-misaligned buffers
+(for general disk access).
+The ehci alignment rules force 512 byte alignment.
+
+That does mean that USB2 mass storage devices (attached to xhci)
+will never generate incorrectly aligned link TRBs.
+
+The ax88179_178a driver might still do so.
 
 	David
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
