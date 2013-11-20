@@ -1,123 +1,67 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC] virtio_net: fix error handling for mergeable buffers
-Date: Wed, 20 Nov 2013 16:20:32 +0200
-Message-ID: <20131120142032.GA13492@redhat.com>
-References: <1384938447-3775-1-git-send-email-jasowang@redhat.com>
-	<20131120132657.GA8455@redhat.com>
-	<125586345.27477452.1384955642143.JavaMail.root@redhat.com>
+From: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
+Subject: Bluetooth: oops in rfcomm_sock_getsockopt_old
+Date: Wed, 20 Nov 2013 15:57:08 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1311201553040.31451@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, Shirley Ma <xma@us.ibm.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <125586345.27477452.1384955642143.JavaMail.root@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBOb3YgMjAsIDIwMTMgYXQgMDg6NTQ6MDJBTSAtMDUwMCwgSmFzb24gV2FuZyB3cm90
-ZToKPiAKPiAKPiAtLS0tLSDljp/lp4vpgq7ku7YgLS0tLS0KPiA+IE9uIFdlZCwgTm92IDIwLCAy
-MDEzIGF0IDA1OjA3OjI1UE0gKzA4MDAsIEphc29uIFdhbmcgd3JvdGU6Cj4gPiA+IFdoZW4gbWVy
-Z2VhYmxlIGJ1ZmZlciB3ZXJlIHVzZWQsIHdlIG9ubHkgcHV0IHRoZSBmaXJzdCBwYWdlIGJ1ZiBs
-ZWF2ZSB0aGUKPiA+ID4gcmVzdAo+ID4gPiBvZiBidWZmZXJzIGluIHRoZSB2aXJ0IHF1ZXVlLiBU
-aGlzIHdpbGwgY2F1c2UgdGhlIGRyaXZlciBjb3VsZCBub3QgZ2V0IHRoZQo+ID4gPiBjb3JyZWN0
-IGhlYWQgYnVmZmVyIGFueSBtb3JlLiBGaXggdGhpcyBieSBkcm9wcGluZyB0aGUgcmVzdCBvZiBi
-dWZmZXJzIGZvcgo+ID4gPiB0aGlzCj4gPiA+IHBhY2tldC4KPiA+ID4gCj4gPiA+IFRoZSBidWcg
-d2FzIGludHJvZHVjZWQgYnkgY29tbWl0IDlhYjg2YmJjZjhiZTc1NTI1NmYwYTVlOTk0ZTBiMzhh
-ZjZiNGQzOTkKPiA+ID4gKHZpcnRpb19uZXQ6IERlZmVyIHNrYiBhbGxvY2F0aW9uIGluIHJlY2Vp
-dmUgcGF0aCkuCj4gPiA+IAo+ID4gPiBDYzogUnVzdHkgUnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAu
-Y29tLmF1Pgo+ID4gPiBDYzogTWljaGFlbCBTLiBUc2lya2luIDxtc3RAcmVkaGF0LmNvbT4KPiA+
-ID4gQ2M6IE1pY2hhZWwgRGFsdG9uIDxtd2RhbHRvbkBnb29nbGUuY29tPgo+ID4gPiBDYzogRXJp
-YyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPgo+ID4gPiBDYzogU2hpcmxleSBNYSA8eG1h
-QHVzLmlibS5jb20+Cj4gPiA+IFNpZ25lZC1vZmYtYnk6IEphc29uIFdhbmcgPGphc293YW5nQHJl
-ZGhhdC5jb20+Cj4gPiAKPiA+IEp1c3QgdG8gY2xhcmlmeSBteSBwcmV2aW91cyBjb21tZW50OiBp
-dCB3YXMgbm90IGFib3V0IHRoZQo+ID4gaWRlYSBvZiBhZGRpbmcgZHJvcF9tZXJnZWFibGVfYnVm
-ZmVyIC0gcmF0aGVyLCBJIHRoaW5rIHRoYXQKPiA+IGFkZGluZyBrbm93bGVkZ2UgYWJvdXQgbWVy
-Z2VhYmxlIGJ1ZmZlcnMgaW50byBwYWdlX3RvX3NrYiBjcmVhdGVzIGFuCj4gPiB1Z2x5IGludGVy
-bmFsIEFQSS4KPiA+IAo+ID4gTGV0J3MgbW92ZSB0aGUgY2FsbCB0byBwYWdlX3RvX3NrYiB3aXRo
-aW4gcmVjZWl2ZV9tZXJnZWFibGUgaW5zdGVhZDoKPiA+IGl0J3MgYWxzbyBuaWNlIHRoYXQgaW50
-IG9mZnNldCA9IGJ1ZiAtIHBhZ2VfYWRkcmVzcyhwYWdlKSBsb2dpYwo+ID4gaXMgbm90IHNwcmVh
-ZCBhcm91bmQgbGlrZSBpdCB3YXMuCj4gPiAKPiA+IEFsc28sIGl0J3Mgbm90IG5pY2UgdGhhdCB3
-ZSBpZ25vcmUgbGVuZ3RoIGVycm9ycyB3aGVuIHdlIGRyb3AKPiA+IHBhY2tldHMgYmVjYXVzZSBv
-ZiBPT00uCj4gPiAKPiA+IFNvIEkgY2FtZSB1cCB3aXRoIHRoZSBmb2xsb3dpbmcgLSBpdCBzZWVt
-cyB0byB3b3JrIGJ1dCBJIGRpZG4ndAo+ID4gc3RyZXNzIHRlc3QgeWV0Lgo+IAo+IEkndmUgbm8g
-b2JqZWN0aW9uIG9uIHRoaXMuIEJ1dCBJJ3ZlIHJhdGhlciBsaWtlIG15IHNtYWxsIGFuZCBkaXJl
-Y3QgcGF0Y2ggCj4gdG8gYmUgYXBwbGllZCB0byAtbmV0IGZpcnN0LiBJdCBoYXMgbG93ZXIgcmlz
-ayBhbmQgd2FzIG11Y2ggbW9yZSBlYXNpZXIgdG8gCj4gYmUgYmFja3BvcnRlZCB0byBzdGFibGUg
-dHJlZXMuIFRoZW4gd2UgY2FuIGRvIHRoZSByZS1mYWN0b3IgbGlrZSB0aGlzIGluIAo+IG5ldC1u
-ZXh0LiAKCkl0IG1ha2VzIHRoZSBpbnRlcmZhY2VzIHRvbyBtZXNzeS4gV2UgYXJlIG5vdCBpbiBj
-b2RlIGZyZWV6ZSBpbiAtbmV0IC0Kb25seSBmZWF0dXJlIGZyZWV6ZSwgc28gbm8gcmVhc29uIHRv
-IG1ha2UgY29kZSBsaWtlIHNwYWdldHR5LAphbmQgaXQncyBvbmx5IDI1IGxpbmVzIGNoYW5nZWQg
-YXMgY29tcGFyZWQgdG8gNDAuCkl0J3Mgbm90IGEgaHVnZSByZWZhY3RvcmluZy4KCkl0J3MganVz
-dCBhcyBlYXN5IHRvIGJhY2twb3J0IG15IHBhdGNoIHRvby4KWW91IGp1c3QgZHJvcCB0aGUgZ290
-byBpbiB0aGUgbmV3IGNvZGUgcGF0aCB3ZSBhZGRlZC4KCkxldCBtZSBzaG93IHlvdSAodW50ZXN0
-ZWQpIC0geW91ciBwYXRjaCBpcyBub3Qgc21hbGxlci4KClNpZ25lZC1vZmYtYnk6IE1pY2hhZWwg
-Uy4gVHNpcmtpbiA8bXN0QHJlZGhhdC5jb20+CgoKCmNvbW1pdCA5YjQ0MmZlOTcwZDVjNzEzMTFk
-NDMxNGVkZWYyNmVlMmViMTZlN2ZiCkF1dGhvcjogTWljaGFlbCBTLiBUc2lya2luIDxtc3RAcmVk
-aGF0LmNvbT4KRGF0ZTogICBXZWQgTm92IDIwIDEyOjQ0OjE0IDIwMTMgKzAyMDAKCiAgICB2aXJ0
-aW9fbmV0OiBmaXggcmVzb3VyY2UgbGVhayBvbiBhbGxvYyBmYWlsdXJlCiAgICAKICAgIHZpcnRp
-byBuZXQgZ290IGNvbmZ1c2VkLCBzdGFydGVkIGRyb3BwaW5nIHBhY2tldHMuCiAgICAKICAgIFNp
-Z25lZC1vZmYtYnk6IE1pY2hhZWwgUy4gVHNpcmtpbiA8bXN0QHJlZGhhdC5jb20+CgpkaWZmIC0t
-Z2l0IGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5j
-CmluZGV4IDlmYmRmY2QuLmRmNGI5ZDAgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3ZpcnRpb19u
-ZXQuYworKysgYi9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKQEAgLTI5NywxMyArMjk3LDIyIEBA
-IHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqcGFnZV90b19za2Ioc3RydWN0IHJlY2VpdmVfcXVldWUg
-KnJxLAogCXJldHVybiBza2I7CiB9CiAKLXN0YXRpYyBpbnQgcmVjZWl2ZV9tZXJnZWFibGUoc3Ry
-dWN0IHJlY2VpdmVfcXVldWUgKnJxLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQorc3RhdGljIHN0cnVj
-dCBza19idWZmICpyZWNlaXZlX21lcmdlYWJsZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAorCQkJ
-CQkgc3RydWN0IHJlY2VpdmVfcXVldWUgKnJxLAorCQkJCQkgc3RydWN0IHBhZ2UgKnBhZ2UsCisJ
-CQkJCSB1bnNpZ25lZCBpbnQgbGVuKQogewotCXN0cnVjdCBza2Jfdm5ldF9oZHIgKmhkciA9IHNr
-Yl92bmV0X2hkcihza2IpOwotCXN0cnVjdCBwYWdlICpwYWdlOwotCWludCBudW1fYnVmLCBpLCBs
-ZW47CisJc3RydWN0IHNrYl92bmV0X2hkciAqaGRyID0gcGFnZV9hZGRyZXNzKGJ1Zik7CisJaW50
-IG51bV9idWYgPSBoZHItPm1oZHIubnVtX2J1ZmZlcnM7CisJc3RydWN0IHNrX2J1ZmYgKnNrYiA9
-IHBhZ2VfdG9fc2tiKHJxLCBwYWdlLCBsZW4pOworCWludCBpOworCisJc2tiID0gcGFnZV90b19z
-a2IocnEsIHBhZ2UsIGxlbik7CisKKwlpZiAodW5saWtlbHkoIXNrYikpCisJCWdvdG8gZXJyX3Nr
-YjsKKwogCi0JbnVtX2J1ZiA9IGhkci0+bWhkci5udW1fYnVmZmVyczsKIAl3aGlsZSAoLS1udW1f
-YnVmKSB7CiAJCWkgPSBza2Jfc2hpbmZvKHNrYiktPm5yX2ZyYWdzOwogCQlpZiAoaSA+PSBNQVhf
-U0tCX0ZSQUdTKSB7CkBAIC0zMTMsMTAgKzMyMiwxMCBAQCBzdGF0aWMgaW50IHJlY2VpdmVfbWVy
-Z2VhYmxlKHN0cnVjdCByZWNlaXZlX3F1ZXVlICpycSwgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAkJ
-fQogCQlwYWdlID0gdmlydHF1ZXVlX2dldF9idWYocnEtPnZxLCAmbGVuKTsKIAkJaWYgKCFwYWdl
-KSB7Ci0JCQlwcl9kZWJ1ZygiJXM6IHJ4IGVycm9yOiAlZCBidWZmZXJzIG1pc3NpbmdcbiIsCi0J
-CQkJIHNrYi0+ZGV2LT5uYW1lLCBoZHItPm1oZHIubnVtX2J1ZmZlcnMpOwotCQkJc2tiLT5kZXYt
-PnN0YXRzLnJ4X2xlbmd0aF9lcnJvcnMrKzsKLQkJCXJldHVybiAtRUlOVkFMOworCQkJcHJfZGVi
-dWcoIiVzOiByeCBlcnJvcjogJWQgYnVmZmVycyAlZCBtaXNzaW5nXG4iLAorCQkJCSBkZXYtPm5h
-bWUsIGhkci0+bWhkci5udW1fYnVmZmVycywgbnVtX2J1Zik7CisJCQlkZXYtPnN0YXRzLnJ4X2xl
-bmd0aF9lcnJvcnMrKzsKKwkJCWdvdG8gZXJyX2J1ZjsKIAkJfQogCiAJCWlmIChsZW4gPiBQQUdF
-X1NJWkUpCkBAIC0zMjYsNyArMzM1LDI1IEBAIHN0YXRpYyBpbnQgcmVjZWl2ZV9tZXJnZWFibGUo
-c3RydWN0IHJlY2VpdmVfcXVldWUgKnJxLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCiAJCS0tcnEt
-Pm51bTsKIAl9Ci0JcmV0dXJuIDA7CisJcmV0dXJuIHNrYjsKK2Vycl9za2I6CisJcHV0X3BhZ2Uo
-cGFnZSk7CitlcnJfYnVmOgorCWRldi0+c3RhdHMucnhfZHJvcHBlZCsrOworCWRldl9rZnJlZV9z
-a2IoaGVhZF9za2IpOworCXdoaWxlICgtLW51bV9idWYpIHsKKwkJYnVmID0gdmlydHF1ZXVlX2dl
-dF9idWYocnEtPnZxLCAmbGVuKTsKKwkJaWYgKHVubGlrZWx5KCFidWYpKSB7CisJCQlwcl9kZWJ1
-ZygiJXM6IHJ4IGVycm9yOiAlZCBidWZmZXJzIG1pc3NpbmdcbiIsCisJCQkJIGRldi0+bmFtZSwg
-bnVtX2J1Zik7CisJCQlkZXYtPnN0YXRzLnJ4X2xlbmd0aF9lcnJvcnMrKzsKKwkJCWJyZWFrOwor
-CQl9CisJCXBhZ2UgPSBidWY7CisJCWdpdmVfcGFnZXMocnEsIHBhZ2UpOworCQktLXJxLT5udW07
-CisJfQorCXJldHVybiBOVUxMOwogfQogCiBzdGF0aWMgdm9pZCByZWNlaXZlX2J1ZihzdHJ1Y3Qg
-cmVjZWl2ZV9xdWV1ZSAqcnEsIHZvaWQgKmJ1ZiwgdW5zaWduZWQgaW50IGxlbikKQEAgLTM1NCwx
-NyArMzgxLDE4IEBAIHN0YXRpYyB2b2lkIHJlY2VpdmVfYnVmKHN0cnVjdCByZWNlaXZlX3F1ZXVl
-ICpycSwgdm9pZCAqYnVmLCB1bnNpZ25lZCBpbnQgbGVuKQogCQlza2JfdHJpbShza2IsIGxlbik7
-CiAJfSBlbHNlIHsKIAkJcGFnZSA9IGJ1ZjsKLQkJc2tiID0gcGFnZV90b19za2IocnEsIHBhZ2Us
-IGxlbik7Ci0JCWlmICh1bmxpa2VseSghc2tiKSkgewotCQkJZGV2LT5zdGF0cy5yeF9kcm9wcGVk
-Kys7Ci0JCQlnaXZlX3BhZ2VzKHJxLCBwYWdlKTsKLQkJCXJldHVybjsKLQkJfQotCQlpZiAodmkt
-Pm1lcmdlYWJsZV9yeF9idWZzKQotCQkJaWYgKHJlY2VpdmVfbWVyZ2VhYmxlKHJxLCBza2IpKSB7
-Ci0JCQkJZGV2X2tmcmVlX3NrYihza2IpOworCQlpZiAodmktPm1lcmdlYWJsZV9yeF9idWZzKSB7
-CisJCQlza2IgPSByZWNlaXZlX21lcmdlYWJsZShkZXYsIHJxLCBwYWdlLCBsZW4pOworCQkJaWYg
-KHVubGlrZWx5KCFza2IpKQorCQkJCXJldHVybjsKKwkJfSBlbHNlIHsKKwkJCXNrYiA9IHBhZ2Vf
-dG9fc2tiKHJxLCBwYWdlLCBsZW4pOworCQkJaWYgKHVubGlrZWx5KCFza2IpKSB7CisJCQkJZGV2
-LT5zdGF0cy5yeF9kcm9wcGVkKys7CisJCQkJZ2l2ZV9wYWdlcyhycSwgcGFnZSk7CiAJCQkJcmV0
-dXJuOwogCQkJfQorCQl9CiAJfQogCiAJaGRyID0gc2tiX3ZuZXRfaGRyKHNrYik7Cl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1h
-aWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRw
-czovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXph
-dGlvbg==
+Hi,
+
+I am seeing this during boot (when bluetoothd is starting) with current 
+Linus' tree (HEAD == b4789b8e6b), after latest netdev/bluetooth merge:
+
+ BUG: unable to handle kernel paging request at 000000234df5351a
+ IP: [<ffffffffa05e95b9>] rfcomm_sock_getsockopt_old+0x39/0x190 [rfcomm]
+ PGD 0 
+ Oops: 0000 [#1] SMP 
+ Modules linked in: rfcomm bnep cpufreq_conservative cpufreq_userspace cpufreq_powersa
+CO_vendor_support kvm_intel snd_hda_codec_conexant kvm iwldvm mac80211 btusb bluetooth
+d_hda_intel snd_hda_codec snd_hwdep cfg80211 thinkpad_acpi snd_seq pcspkr snd_pcm i2c_i801 lpc_ich mfd_core rfkill e1000e ehci_pci snd_timer snd_page_alloc snd_seq_device ptp pps_core wmi snd tpm_tis soundcore battery ac tpm tpm_bios acpi_cpufreq autofs4 uhci_hcd ehci_hcd i915 usbcore usb_common drm_kms_helper drm i2c_algo_bit button video edd fan processor ata_generic thermal thermal_sys
+ CPU: 0 PID: 1024 Comm: bluetoothd Not tainted 3.11.0-07976-g8d6083f #1
+ Hardware name: LENOVO 7470BN2/7470BN2, BIOS 6DET38WW (2.02 ) 12/19/2008
+ task: ffff880076c0e000 ti: ffff880036f94000 task.ti: ffff880036f94000
+ RIP: 0010:[<ffffffffa05e95b9>]  [<ffffffffa05e95b9>] rfcomm_sock_getsockopt_old+0x39/0x190 [rfcomm]
+ RSP: 0018:ffff880036f95e78  EFLAGS: 00010246
+ RAX: 000000234df53512 RBX: 00007fff5ebe9e9c RCX: 00007fff5ebe9e9c
+ RDX: 00007fff5ebe9e98 RSI: 0000000000000003 RDI: ffff8800784eb480
+ RBP: ffff880036f95ec8 R08: ffff880076c1e000 R09: 00007fff5ebea148
+ R10: 00007fff5ebe9e98 R11: 0000000000000202 R12: ffff880076c1e000
+ R13: 0000000000000003 R14: 00007fff5ebe9e9c R15: 00007fff5ebe9e98
+ FS:  00007fd5d7655700(0000) GS:ffff88007c200000(0000) knlGS:0000000000000000
+ CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+ CR2: 000000234df5351a CR3: 0000000037b06000 CR4: 00000000000007f0
+ Stack:
+  0000000000000004 00007fff5ebe9e98 ffff880036f95ea8 ffffffff81582e8f
+  ffffffff8148e61b ffff8800784eb480 0000000000000012 0000000000000003
+  00007fff5ebe9e9c 00007fff5ebe9e98 ffff880036f95f28 ffffffffa05e9763
+ Call Trace:
+  [<ffffffff81582e8f>] ? _raw_spin_unlock_bh+0x3f/0x50
+  [<ffffffff8148e61b>] ? release_sock+0x2b/0xa0
+  [<ffffffffa05e9763>] rfcomm_sock_getsockopt+0x53/0x190 [rfcomm]
+  [<ffffffff8158b737>] ? sysret_check+0x1b/0x56
+  [<ffffffff81486933>] SyS_getsockopt+0x73/0xe0
+  [<ffffffff8158b712>] system_call_fastpath+0x16/0x1b
+ Code: 04 48 89 5d d8 4c 89 6d e8 48 89 cb 4c 89 65 e0 4c 89 75 f0 41 89 f5 4c 89 7d f8 48 89 55 b8 4c 8b 67 20 49 8b 84 24 50 04 00 00 <4c> 8b 78 08 0f 85 27 01 00 00 e8 e8 83 b6 e0 48 89 d8 e8 60 40 
+ RIP  [<ffffffffa05e95b9>] rfcomm_sock_getsockopt_old+0x39/0x190 [rfcomm]
+  RSP <ffff880036f95e78>
+ CR2: 000000234df5351a
+ ---[ end trace d84df5c733bb1019 ]---
+
+
+I have bisected this to 94a86df01. I don't immediately see how this could 
+be causing the issue directly, hence sending out this as a heads-up, and 
+will continue looking into this eventually.
+
+It seems to be very reliably reproducible, so I expect the bisection to be 
+correct (to be verified still).
+
+-- 
+Jiri Kosina
+SUSE Labs
