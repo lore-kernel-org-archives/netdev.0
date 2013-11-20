@@ -1,135 +1,105 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 1/5] net: Add utility function to clear rxhash
-Date: Wed, 20 Nov 2013 12:26:03 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1311201220410.19615@tomh.mtv.corp.google.com>
+Subject: [PATCH 2/5] net: Add flag for SW computed rxhash
+Date: Wed, 20 Nov 2013 12:26:21 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1311201220310.19505@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, edumazet@google.com, hkchu@google.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f74.google.com ([209.85.219.74]:63428 "EHLO
+Received: from mail-oa0-f74.google.com ([209.85.219.74]:34869 "EHLO
 	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754933Ab3KTUb0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 15:31:26 -0500
-Received: by mail-oa0-f74.google.com with SMTP id o6so834391oag.1
-        for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 12:31:26 -0800 (PST)
+	with ESMTP id S1755002Ab3KTUbt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 15:31:49 -0500
+Received: by mail-oa0-f74.google.com with SMTP id o6so834252oag.5
+        for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 12:31:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In several places 'skb->rxhash = 0' is being done to clear the
-rxhash value in an skb.  This does not clear l4_rxhash which could
-still be set so that the rxhash wouldn't be recalculated on subsequent
-call to skb_get_rxhash.  This patch adds an explict function to clear
-all the rxhash related information in the skb properly.
+This patch adds sw_rxhash flag bit to the skbuff.  It is set in
+flow_dissecor.c to indicate that the rxhash was computed in the stack
+as opposed to being provided by hardware.  This flag is checked in
+skb_get_rxhash so don't repeatedly do full flow dissection every
+time for a packet for which we can't extract an L4 hash.  The
+skb_get_sw_rxhash function was also added to explictly force that
+the rxhash is computed by the stack.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/linux/skbuff.h    |  6 ++++++
- net/ipv4/ip_fragment.c    |  2 +-
- net/ipv4/ip_tunnel_core.c |  4 ++--
- net/openvswitch/actions.c | 10 +++++-----
- 4 files changed, 14 insertions(+), 8 deletions(-)
+ include/linux/skbuff.h    | 14 ++++++++++++--
+ net/core/flow_dissector.c |  1 +
+ net/core/skbuff.c         |  1 +
+ 3 files changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 215b5ea..76d3aa9 100644
+index 76d3aa9..3c8ea3c 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -712,6 +712,12 @@ static inline __u32 skb_get_rxhash(struct sk_buff *skb)
- 	return skb->rxhash;
- }
+@@ -379,6 +379,7 @@ typedef unsigned char *sk_buff_data_t;
+  *	@ooo_okay: allow the mapping of a socket to a queue to be changed
+  *	@l4_rxhash: indicate rxhash is a canonical 4-tuple hash over transport
+  *		ports.
++ *	@sw_rxhash: indicate rxhash was computed in software (flow_dissector).
+  *	@wifi_acked_valid: wifi_acked was set
+  *	@wifi_acked: whether frame was acked on wifi or not
+  *	@no_fcs:  Request NIC to treat last 4 bytes as Ethernet FCS
+@@ -483,6 +484,7 @@ struct sk_buff {
+ 	__u8			pfmemalloc:1;
+ 	__u8			ooo_okay:1;
+ 	__u8			l4_rxhash:1;
++	__u8			sw_rxhash:1;
+ 	__u8			wifi_acked_valid:1;
+ 	__u8			wifi_acked:1;
+ 	__u8			no_fcs:1;
+@@ -493,7 +495,7 @@ struct sk_buff {
+ 	 * headers if needed
+ 	 */
+ 	__u8			encapsulation:1;
+-	/* 6/8 bit hole (depending on ndisc_nodetype presence) */
++	/* 5/7 bit hole (depending on ndisc_nodetype presence) */
+ 	kmemcheck_bitfield_end(flags2);
  
-+static inline void skb_clear_rxhash(struct sk_buff *skb)
-+{
-+	skb->rxhash = 0;
-+	skb->l4_rxhash = 0;
+ #if defined CONFIG_NET_DMA || defined CONFIG_NET_RX_BUSY_POLL
+@@ -706,7 +708,15 @@ unsigned int skb_find_text(struct sk_buff *skb, unsigned int from,
+ void __skb_get_rxhash(struct sk_buff *skb);
+ static inline __u32 skb_get_rxhash(struct sk_buff *skb)
+ {
+-	if (!skb->l4_rxhash)
++	if (!skb->l4_rxhash && !skb->sw_rxhash)
++		__skb_get_rxhash(skb);
++
++	return skb->rxhash;
 +}
 +
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
- static inline unsigned char *skb_end_pointer(const struct sk_buff *skb)
- {
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 2481993..3bc1d0d 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -704,7 +704,7 @@ struct sk_buff *ip_check_defrag(struct sk_buff *skb, u32 user)
- 			memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
- 			if (ip_defrag(skb, user))
- 				return NULL;
--			skb->rxhash = 0;
-+			skb_clear_rxhash(skb);
- 		}
- 	}
- 	return skb;
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 42ffbc8..2148c1d 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -56,7 +56,7 @@ int iptunnel_xmit(struct rtable *rt, struct sk_buff *skb,
++static inline __u32 skb_get_sw_rxhash(struct sk_buff *skb)
++{
++	if (!skb->sw_rxhash)
+ 		__skb_get_rxhash(skb);
  
- 	skb_scrub_packet(skb, xnet);
+ 	return skb->rxhash;
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index d6ef173..6a4bee4 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -233,6 +233,7 @@ void __skb_get_rxhash(struct sk_buff *skb)
+ 		hash = 1;
  
--	skb->rxhash = 0;
-+	skb_clear_rxhash(skb);
- 	skb_dst_set(skb, &rt->dst);
- 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 
-@@ -108,7 +108,7 @@ int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto)
- 	nf_reset(skb);
- 	secpath_reset(skb);
- 	if (!skb->l4_rxhash)
--		skb->rxhash = 0;
-+		skb_clear_rxhash(skb);
- 	skb_dst_drop(skb);
- 	skb->vlan_tci = 0;
- 	skb_set_queue_mapping(skb, 0);
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 65cfaa8..ab0d925 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -165,7 +165,7 @@ static void set_ip_addr(struct sk_buff *skb, struct iphdr *nh,
- 	}
- 
- 	csum_replace4(&nh->check, *addr, new_addr);
--	skb->rxhash = 0;
-+	skb_clear_rxhash(skb);
- 	*addr = new_addr;
+ 	skb->rxhash = hash;
++	skb->sw_rxhash = 1;
  }
+ EXPORT_SYMBOL(__skb_get_rxhash);
  
-@@ -199,7 +199,7 @@ static void set_ipv6_addr(struct sk_buff *skb, u8 l4_proto,
- 	if (recalculate_csum)
- 		update_ipv6_checksum(skb, l4_proto, addr, new_addr);
- 
--	skb->rxhash = 0;
-+	skb_clear_rxhash(skb);
- 	memcpy(addr, new_addr, sizeof(__be32[4]));
- }
- 
-@@ -296,7 +296,7 @@ static void set_tp_port(struct sk_buff *skb, __be16 *port,
- {
- 	inet_proto_csum_replace2(check, skb, *port, new_port, 0);
- 	*port = new_port;
--	skb->rxhash = 0;
-+	skb_clear_rxhash(skb);
- }
- 
- static void set_udp_port(struct sk_buff *skb, __be16 *port, __be16 new_port)
-@@ -310,7 +310,7 @@ static void set_udp_port(struct sk_buff *skb, __be16 *port, __be16 new_port)
- 			uh->check = CSUM_MANGLED_0;
- 	} else {
- 		*port = new_port;
--		skb->rxhash = 0;
-+		skb_clear_rxhash(skb);
- 	}
- }
- 
-@@ -381,7 +381,7 @@ static int set_sctp(struct sk_buff *skb,
- 		/* Carry any checksum errors through. */
- 		sh->checksum = old_csum ^ old_correct_csum ^ new_csum;
- 
--		skb->rxhash = 0;
-+		skb_clear_rxhash(skb);
- 	}
- 
- 	return 0;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 8cec1e6..a16f486 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -715,6 +715,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ 	new->rxhash		= old->rxhash;
+ 	new->ooo_okay		= old->ooo_okay;
+ 	new->l4_rxhash		= old->l4_rxhash;
++	new->sw_rxhash		= old->sw_rxhash;
+ 	new->no_fcs		= old->no_fcs;
+ 	new->encapsulation	= old->encapsulation;
+ #ifdef CONFIG_XFRM
 -- 
 1.8.4.1
