@@ -1,59 +1,82 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 3/5] tun: tun.c calls skb_get_sw_rxhash
-Date: Wed, 20 Nov 2013 12:27:30 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1311201220180.19396@tomh.mtv.corp.google.com>
+Subject: [PATCH 4/5] net: Allow setting sock flow hash without a sock
+Date: Wed, 20 Nov 2013 12:27:49 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1311201219590.17745@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, edumazet@google.com, hkchu@google.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f201.google.com ([209.85.223.201]:53560 "EHLO
-	mail-ie0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754989Ab3KTU1c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 15:27:32 -0500
-Received: by mail-ie0-f201.google.com with SMTP id at1so533879iec.2
-        for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 12:27:31 -0800 (PST)
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:60218 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754992Ab3KTU1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 15:27:51 -0500
+Received: by mail-pa0-f73.google.com with SMTP id kp14so528287pab.0
+        for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 12:27:50 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In tun.c, skb_get_rxhash is called on the transmit path with the
-expectation that this matches the hash value returned by the same flow
-in the receive path.  If the hardware is providing the rxhash values,
-the computation on the transmit path will not match that of the
-received path for the flow, so the flow lookups will always fail
-on the receive side and the queue selection optimization is unused.
+This patch adds sock_rps_record_flow_hash and sock_rps_reset_flow_hash
+which take a hash value as an argument and sets the sock_flow_table
+accordingly.  This allows the table to be populated in cases where flow
+is being tracked outside of a sock structure.
 
-The patch changes the calls to skb_get_sw_rxhash to ensure that the
-stack's rxhash calculation is always used for flow matching.  This
-should always generate the same hash for a flow in both transmit and
-receive paths.
+sock_rps_record_flow and sock_rps_reset_flow call this function
+where the hash is taken from sk_rxhash.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/tun.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ include/net/sock.h | 18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 7cb105c..c3e20c4 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -358,7 +358,7 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
+diff --git a/include/net/sock.h b/include/net/sock.h
+index e3a18ff..fe2410b 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -820,30 +820,40 @@ static inline int sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ 	return sk->sk_backlog_rcv(sk, skb);
+ }
+ 
+-static inline void sock_rps_record_flow(const struct sock *sk)
++static inline void sock_rps_record_flow_hash(__u32 hash)
+ {
+ #ifdef CONFIG_RPS
+ 	struct rps_sock_flow_table *sock_flow_table;
+ 
  	rcu_read_lock();
- 	numqueues = ACCESS_ONCE(tun->numqueues);
+ 	sock_flow_table = rcu_dereference(rps_sock_flow_table);
+-	rps_record_sock_flow(sock_flow_table, sk->sk_rxhash);
++	rps_record_sock_flow(sock_flow_table, hash);
+ 	rcu_read_unlock();
+ #endif
+ }
  
--	txq = skb_get_rxhash(skb);
-+	txq = skb_get_sw_rxhash(skb);
- 	if (txq) {
- 		e = tun_flow_find(&tun->flows[tun_hashfn(txq)], txq);
- 		if (e)
-@@ -1138,7 +1138,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	skb_reset_network_header(skb);
- 	skb_probe_transport_header(skb, 0);
+-static inline void sock_rps_reset_flow(const struct sock *sk)
++static inline void sock_rps_reset_flow_hash(__u32 hash)
+ {
+ #ifdef CONFIG_RPS
+ 	struct rps_sock_flow_table *sock_flow_table;
  
--	rxhash = skb_get_rxhash(skb);
-+	rxhash = skb_get_sw_rxhash(skb);
- 	netif_rx_ni(skb);
+ 	rcu_read_lock();
+ 	sock_flow_table = rcu_dereference(rps_sock_flow_table);
+-	rps_reset_sock_flow(sock_flow_table, sk->sk_rxhash);
++	rps_reset_sock_flow(sock_flow_table, hash);
+ 	rcu_read_unlock();
+ #endif
+ }
  
- 	tun->dev->stats.rx_packets++;
++static inline void sock_rps_record_flow(const struct sock *sk)
++{
++	sock_rps_record_flow_hash(sk->sk_rxhash);
++}
++
++static inline void sock_rps_reset_flow(const struct sock *sk)
++{
++	sock_rps_reset_flow_hash(sk->sk_rxhash);
++}
++
+ static inline void sock_rps_save_rxhash(struct sock *sk,
+ 					const struct sk_buff *skb)
+ {
 -- 
 1.8.4.1
