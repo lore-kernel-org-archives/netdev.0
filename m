@@ -1,91 +1,44 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: Re: [PATCH net v3 1/2] net: sched: tbf: fix calculation of max_size
-Date: Wed, 20 Nov 2013 10:14:43 +0800
-Message-ID: <528C1B13.5090701@huawei.com>
-References: <1384845939-8424-1-git-send-email-yangyingliang@huawei.com>	<1384845939-8424-2-git-send-email-yangyingliang@huawei.com> <20131119103828.5697d5c9@redhat.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: [PATCH] ethtool: fix man page for new speeds
+Date: Tue, 19 Nov 2013 18:25:40 -0800
+Message-ID: <20131120022540.6464.98397.stgit@jbrandeb-snb.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<eric.dumazet@gmail.com>, <jpirko@redhat.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:58745 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753749Ab3KTCP3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 21:15:29 -0500
-In-Reply-To: <20131119103828.5697d5c9@redhat.com>
+Received: from mga02.intel.com ([134.134.136.20]:41454 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752211Ab3KTCZo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Nov 2013 21:25:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/11/19 17:38, Jesper Dangaard Brouer wrote:
-> On Tue, 19 Nov 2013 15:25:38 +0800
-> Yang Yingliang <yangyingliang@huawei.com> wrote:
-> 
->> commit b757c9336d63f94c6b57532(tbf: improved accuracy at high rates)
->> introduce a regression.
->>
->> With the follow command:
->> tc qdisc add dev eth1 root handle 1: tbf latency 50ms burst 10KB rate 30gbit mtu 64k
->>
->> Without this patch, the max_size value is 10751(bytes).
->> But, in fact, the real max_size value should be smaller than 7440(bytes).
->> Or a packet whose length is bigger than 7440 will cause network congestion.
->> Because the packet is so big that can't get enough tokens. Even all the tokens
->> in the buffer is given to the packet.
-> 
-> Sorry, but I don't like the commit message.  The real problem is the
-> value in q->buffer, and that the userspace rate table cannot handle
-> these high rates, which you don't mention.
-> 
-> I would write something like:
-> 
-> The kernel no longer uses the userspace provided rate table.  Thus, it
-> is wrong to calculate max_size based on this rate table.  At high rates
-> this rate table gets very inaccurate, which can lead wrong calculation
-> of max_size.
-> 
-> Consequence of max_size being too large is severe, and cause packets
-> being stalled in tbf_dequeue() because it cannot get enough tokens.
-> The max_size guards against enqueuing packet sizes above q->buffer
-> "time" in tbf_enqueue().
-> 
-> This patch fixes the calculation of max_size. By ... add desc ...
-> perhaps also mention how it is connected to p->mtu (with is also a
-> "time" value).
-> 
-> 
-> The rest of the patch looks okay now, one point below though.
+both the 20000 and 40000 speeds either were wrong or just
+not documented.  Fix both.
 
-OK, change it in v4.
-Thanks!
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+---
+ ethtool.8.in |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-> 
-> 
->> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
->> index 68f9859..c194129 100644
->> --- a/net/sched/sch_tbf.c
->> +++ b/net/sched/sch_tbf.c
-> [...]
->> @@ -339,30 +326,46 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
-> [...]
->> +	for (n = 0; n < 65536; n++)
->> +		if (psched_l2t_ns(&q->rate, n) > q->buffer)
->> +			break;
->> +	max_size = min_t(u32, n, (256ULL << qopt->rate.cell_log) - 1);
-> 
-> I'm a little uncertain about, if using the 65536 constant is okay, or
-> considered "bad style".
-
-I'll use a MACRO to instead of this constant in v4.
-Thanks!
-
-> 
-> I'm still a little confused/uncertain why we need the "qopt->rate.cell_log".
-> 
-
-Because we need max_size be smaller than mtu(user input in bytes).
-E.g. if user inputs like this "...  burst 100KB rate 100mbit mtu 4095",
-without this patch, max_size is 4095.
-But with this patch, if don't use cell_log, max_size is 102400.
-I think it's not correct, so I used cell_log here.
+diff --git a/ethtool.8.in b/ethtool.8.in
+index f587ec8..f320f7f 100644
+--- a/ethtool.8.in
++++ b/ethtool.8.in
+@@ -549,8 +549,12 @@ lB	l	lB.
+ 0x020	1000 Full
+ 0x8000	2500 Full	(not supported by IEEE standards)
+ 0x1000	10000 Full
+-0x20000	20000MLD2 Full	(not supported by IEEE standards)
+-0x40000	20000KR2 Full	(not supported by IEEE standards)
++0x200000	20000MLD2 Full	(not supported by IEEE standards)
++0x400000	20000KR2 Full	(not supported by IEEE standards)
++0x800000	40000KR4 Full
++0x1000000	40000CR4 Full
++0x2000000	40000SR4 Full
++0x4000000	40000LR4 Full
+ .TE
+ .TP
+ .BI phyad \ N
