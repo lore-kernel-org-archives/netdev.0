@@ -1,19 +1,17 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
 Subject: Re: [PATCH net RESEND] bridge: flush br's address entry in
  fdb when remove the bridge dev
-Date: Wed, 20 Nov 2013 09:03:19 +0800
-Message-ID: <528C0A57.5020207@huawei.com>
-References: <528AD37E.1050105@huawei.com>
-	<1384876004.1759.7.camel@localhost.localdomain>
+Date: Wed, 20 Nov 2013 09:05:39 +0800
+Message-ID: <528C0AE3.5070105@huawei.com>
+References: <528AD37E.1050105@huawei.com> <528B8926.1010201@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>, bridge@lists.linux-foundation.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Toshiaki Makita <toshiaki.makita1@gmail.com>
+To: Vlad Yasevich <vyasevich@gmail.com>, Stephen Hemminger
+	<stephen@networkplumber.org>, "David S. Miller" <davem@davemloft.net>,
+	<bridge@lists.linux-foundation.org>, Netdev <netdev@vger.kernel.org>
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1384876004.1759.7.camel@localhost.localdomain>
+In-Reply-To: <528B8926.1010201@gmail.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -25,8 +23,8 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 2013/11/19 23:46, Toshiaki Makita wrote:
-> On Tue, 2013-11-19 at 10:57 +0800, Ding Tianhong wrote:
+On 2013/11/19 23:52, Vlad Yasevich wrote:
+> On 11/18/2013 09:57 PM, Ding Tianhong wrote:
 >> When the following commands are executed:
 >>
 >> brctl addbr br0
@@ -76,31 +74,26 @@ On 2013/11/19 23:46, Toshiaki Makita wrote:
 >> +	spin_lock_bh(&br->hash_lock);
 >> +	fdb_delete_by_addr(br, br->dev->dev_addr, 0);
 >> +	spin_unlock_bh(&br->hash_lock);
-> 
-> You are not deleting entries with vid other than 0.
-> If we have added some vid, there might be fdb entries with that vid
-> whose dst is NULL, which also should be cleaned up.
-> 
-> How about deleting all fdb entries whose dst is NULL?
-> br_fdb_delete_by_port() looks able to be called with p == NULL as well.
-> 
-> Thanks,
-> Toshiaki Makita
->
-
-agree, I miss the vid problem, I should deleteing all entries about this br.
-
-Regards
-Ding
-
-
- 
 >> +
 >>  	br_vlan_flush(br);
 >>  	del_timer_sync(&br->gc_timer);
 >>  
+>>
 > 
+> I think you need to use fdb_delete_by_port(br, NULL, 1);  here.
 > 
+> The reason is that if the bridge had vlan filtering configured, when the
+> bridge mac address was changed, an fdb would have been created for
+> for ever vlan configured on the bridge.  You delete only vlan0, so you
+> would still have a leak.
+> 
+> -vlad
+
+agree, I miss the vid problem, I will fix it.
+
+Regards
+Ding
+
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
