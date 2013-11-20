@@ -1,152 +1,117 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH RFC] virtio_net: fix error handling for mergeable buffers
-Date: Wed, 20 Nov 2013 08:54:02 -0500 (EST)
-Message-ID: <125586345.27477452.1384955642143.JavaMail.root@redhat.com>
-References: <1384938447-3775-1-git-send-email-jasowang@redhat.com>
-	<20131120132657.GA8455@redhat.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCHv3] net: core: Always propagate flag changes to interfaces
+Date: Wed, 20 Nov 2013 08:54:42 -0500
+Message-ID: <528CBF22.4050304@redhat.com>
+References: <1384912035-17800-1-git-send-email-vyasevic@redhat.com> <528C62F7.2000100@profihost.ag>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, Shirley Ma <xma@us.ibm.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20131120132657.GA8455@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: vfalico@redhat.com
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:1504 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752615Ab3KTNyv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Nov 2013 08:54:51 -0500
+In-Reply-To: <528C62F7.2000100@profihost.ag>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgotLS0tLSDljp/lp4vpgq7ku7YgLS0tLS0KPiBPbiBXZWQsIE5vdiAyMCwgMjAxMyBhdCAwNTow
-NzoyNVBNICswODAwLCBKYXNvbiBXYW5nIHdyb3RlOgo+ID4gV2hlbiBtZXJnZWFibGUgYnVmZmVy
-IHdlcmUgdXNlZCwgd2Ugb25seSBwdXQgdGhlIGZpcnN0IHBhZ2UgYnVmIGxlYXZlIHRoZQo+ID4g
-cmVzdAo+ID4gb2YgYnVmZmVycyBpbiB0aGUgdmlydCBxdWV1ZS4gVGhpcyB3aWxsIGNhdXNlIHRo
-ZSBkcml2ZXIgY291bGQgbm90IGdldCB0aGUKPiA+IGNvcnJlY3QgaGVhZCBidWZmZXIgYW55IG1v
-cmUuIEZpeCB0aGlzIGJ5IGRyb3BwaW5nIHRoZSByZXN0IG9mIGJ1ZmZlcnMgZm9yCj4gPiB0aGlz
-Cj4gPiBwYWNrZXQuCj4gPiAKPiA+IFRoZSBidWcgd2FzIGludHJvZHVjZWQgYnkgY29tbWl0IDlh
-Yjg2YmJjZjhiZTc1NTI1NmYwYTVlOTk0ZTBiMzhhZjZiNGQzOTkKPiA+ICh2aXJ0aW9fbmV0OiBE
-ZWZlciBza2IgYWxsb2NhdGlvbiBpbiByZWNlaXZlIHBhdGgpLgo+ID4gCj4gPiBDYzogUnVzdHkg
-UnVzc2VsbCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1Pgo+ID4gQ2M6IE1pY2hhZWwgUy4gVHNpcmtp
-biA8bXN0QHJlZGhhdC5jb20+Cj4gPiBDYzogTWljaGFlbCBEYWx0b24gPG13ZGFsdG9uQGdvb2ds
-ZS5jb20+Cj4gPiBDYzogRXJpYyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPgo+ID4gQ2M6
-IFNoaXJsZXkgTWEgPHhtYUB1cy5pYm0uY29tPgo+ID4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2Fu
-ZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPiAKPiBKdXN0IHRvIGNsYXJpZnkgbXkgcHJldmlvdXMg
-Y29tbWVudDogaXQgd2FzIG5vdCBhYm91dCB0aGUKPiBpZGVhIG9mIGFkZGluZyBkcm9wX21lcmdl
-YWJsZV9idWZmZXIgLSByYXRoZXIsIEkgdGhpbmsgdGhhdAo+IGFkZGluZyBrbm93bGVkZ2UgYWJv
-dXQgbWVyZ2VhYmxlIGJ1ZmZlcnMgaW50byBwYWdlX3RvX3NrYiBjcmVhdGVzIGFuCj4gdWdseSBp
-bnRlcm5hbCBBUEkuCj4gCj4gTGV0J3MgbW92ZSB0aGUgY2FsbCB0byBwYWdlX3RvX3NrYiB3aXRo
-aW4gcmVjZWl2ZV9tZXJnZWFibGUgaW5zdGVhZDoKPiBpdCdzIGFsc28gbmljZSB0aGF0IGludCBv
-ZmZzZXQgPSBidWYgLSBwYWdlX2FkZHJlc3MocGFnZSkgbG9naWMKPiBpcyBub3Qgc3ByZWFkIGFy
-b3VuZCBsaWtlIGl0IHdhcy4KPiAKPiBBbHNvLCBpdCdzIG5vdCBuaWNlIHRoYXQgd2UgaWdub3Jl
-IGxlbmd0aCBlcnJvcnMgd2hlbiB3ZSBkcm9wCj4gcGFja2V0cyBiZWNhdXNlIG9mIE9PTS4KPiAK
-PiBTbyBJIGNhbWUgdXAgd2l0aCB0aGUgZm9sbG93aW5nIC0gaXQgc2VlbXMgdG8gd29yayBidXQg
-SSBkaWRuJ3QKPiBzdHJlc3MgdGVzdCB5ZXQuCgpJJ3ZlIG5vIG9iamVjdGlvbiBvbiB0aGlzLiBC
-dXQgSSd2ZSByYXRoZXIgbGlrZSBteSBzbWFsbCBhbmQgZGlyZWN0IHBhdGNoIAp0byBiZSBhcHBs
-aWVkIHRvIC1uZXQgZmlyc3QuIEl0IGhhcyBsb3dlciByaXNrIGFuZCB3YXMgbXVjaCBtb3JlIGVh
-c2llciB0byAKYmUgYmFja3BvcnRlZCB0byBzdGFibGUgdHJlZXMuIFRoZW4gd2UgY2FuIGRvIHRo
-ZSByZS1mYWN0b3IgbGlrZSB0aGlzIGluIApuZXQtbmV4dC4gCj4gCj4gY29tbWl0IGViZmZiM2Zl
-NDMzNWZmZTA3MTI0ZTQ1MThlNzZkNmUwNTg0NGZhMTgKPiBBdXRob3I6IE1pY2hhZWwgUy4gVHNp
-cmtpbiA8bXN0QHJlZGhhdC5jb20+Cj4gRGF0ZTogICBXZWQgTm92IDIwIDE0OjQxOjI5IDIwMTMg
-KzAyMDAKPiAKPiAgICAgdmlydGlvX25ldDogZml4IGVycm9yIGhhbmRsaW5nIGZvciBtZXJnZWFi
-bGUgYnVmZmVycwo+ICAgICAKPiAgICAgRXJpYyBEdW1hemV0IG5vdGljZWQgdGhhdCBpZiB3ZSBl
-bmNvdW50ZXIgYW4gZXJyb3IKPiAgICAgd2hlbiBwcm9jZXNzaW5nIGEgbWVyZ2VhYmxlIGJ1ZmZl
-ciwgd2UgZG9uJ3QKPiAgICAgZGVxdWV1ZSBhbGwgb2YgdGhlIGJ1ZmZlcnMgZnJvbSB0aGlzIHBh
-Y2tldCwKPiAgICAgdGhlIHJlc3VsdCBpcyBhbG1vc3Qgc3VyZSB0byBiZSBsb3NzIG9mIG5ldHdv
-cmtpbmcuCj4gICAgIAo+ICAgICBKYXNvbiBXYW5nIG5vdGljZWQgdGhhdCB3ZSBhbHNvIGxlYWsg
-YSBwYWdlIGFuZCB0aGF0IHdlIGRvbid0IGRlY3JlbWVudAo+ICAgICB0aGUgcnEgYnVmIGNvdW50
-LCBzbyB3ZSB3b24ndCByZXBvc3QgYnVmZmVycyAoYSByZXNvdXJjZSBsZWFrKS4KPiAgICAgCj4g
-ICAgIENjOiBSdXN0eSBSdXNzZWxsIDxydXN0eUBydXN0Y29ycC5jb20uYXU+Cj4gICAgIENjOiBN
-aWNoYWVsIERhbHRvbiA8bXdkYWx0b25AZ29vZ2xlLmNvbT4KPiAgICAgUmVwb3J0ZWQtYnk6IEVy
-aWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4KPiAgICAgUmVwb3J0ZWQtYnk6IEphc29u
-IFdhbmcgPGphc293YW5nQHJlZGhhdC5jb20+Cj4gICAgIFNpZ25lZC1vZmYtYnk6IE1pY2hhZWwg
-Uy4gVHNpcmtpbiA8bXN0QHJlZGhhdC5jb20+Cj4gCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L3ZpcnRpb19uZXQuYyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+IGluZGV4IDAxZjRlYjUu
-LjQyZjZhMWUgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gKysrIGIv
-ZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gQEAgLTI5Niw0MSArMjk2LDUzIEBAIHN0YXRpYyBz
-dHJ1Y3Qgc2tfYnVmZiAqcGFnZV90b19za2Ioc3RydWN0IHJlY2VpdmVfcXVldWUKPiAqcnEsCj4g
-IAlyZXR1cm4gc2tiOwo+ICB9Cj4gIAo+IC1zdGF0aWMgaW50IHJlY2VpdmVfbWVyZ2VhYmxlKHN0
-cnVjdCByZWNlaXZlX3F1ZXVlICpycSwgc3RydWN0IHNrX2J1ZmYKPiAqaGVhZF9za2IpCj4gK3N0
-YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqcmVjZWl2ZV9tZXJnZWFibGUoc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldiwKPiArCQkJCQkgc3RydWN0IHJlY2VpdmVfcXVldWUgKnJxLAo+ICsJCQkJCSB2b2lkICpi
-dWYsCj4gKwkJCQkJIHVuc2lnbmVkIGludCBsZW4pCj4gIHsKPiAtCXN0cnVjdCBza2Jfdm5ldF9o
-ZHIgKmhkciA9IHNrYl92bmV0X2hkcihoZWFkX3NrYik7Cj4gKwlzdHJ1Y3Qgc2tiX3ZuZXRfaGRy
-ICpoZHIgPSBidWY7Cj4gKwlpbnQgbnVtX2J1ZiA9IGhkci0+bWhkci5udW1fYnVmZmVyczsKPiAr
-CXN0cnVjdCBwYWdlICpwYWdlID0gdmlydF90b19oZWFkX3BhZ2UoYnVmKTsKPiArCWludCBvZmZz
-ZXQgPSBidWYgLSBwYWdlX2FkZHJlc3MocGFnZSk7Cj4gKwlzdHJ1Y3Qgc2tfYnVmZiAqaGVhZF9z
-a2IgPSBwYWdlX3RvX3NrYihycSwgcGFnZSwgb2Zmc2V0LCBsZW4sCj4gKwkJCQkJICAgICAgIE1B
-WF9QQUNLRVRfTEVOKTsKPiAgCXN0cnVjdCBza19idWZmICpjdXJyX3NrYiA9IGhlYWRfc2tiOwo+
-IC0JY2hhciAqYnVmOwo+IC0Jc3RydWN0IHBhZ2UgKnBhZ2U7Cj4gLQlpbnQgbnVtX2J1ZiwgbGVu
-LCBvZmZzZXQ7Cj4gIAo+IC0JbnVtX2J1ZiA9IGhkci0+bWhkci5udW1fYnVmZmVyczsKPiAtCXdo
-aWxlICgtLW51bV9idWYpIHsKPiAtCQlpbnQgbnVtX3NrYl9mcmFncyA9IHNrYl9zaGluZm8oY3Vy
-cl9za2IpLT5ucl9mcmFnczsKPiArCWlmICh1bmxpa2VseSghY3Vycl9za2IpKQo+ICsJCWdvdG8g
-ZXJyX3NrYjsKPiArCj4gKwl3aGlsZSAoLS1udW1fYnVmKSB7Cj4gKwkJaW50IG51bV9za2JfZnJh
-Z3M7Cj4gKwo+ICAJCWJ1ZiA9IHZpcnRxdWV1ZV9nZXRfYnVmKHJxLT52cSwgJmxlbik7Cj4gIAkJ
-aWYgKHVubGlrZWx5KCFidWYpKSB7Cj4gLQkJCXByX2RlYnVnKCIlczogcnggZXJyb3I6ICVkIGJ1
-ZmZlcnMgbWlzc2luZ1xuIiwKPiAtCQkJCSBoZWFkX3NrYi0+ZGV2LT5uYW1lLCBoZHItPm1oZHIu
-bnVtX2J1ZmZlcnMpOwo+IC0JCQloZWFkX3NrYi0+ZGV2LT5zdGF0cy5yeF9sZW5ndGhfZXJyb3Jz
-Kys7Cj4gLQkJCXJldHVybiAtRUlOVkFMOwo+ICsJCQlwcl9kZWJ1ZygiJXM6IHJ4IGVycm9yOiAl
-ZCBidWZmZXJzIG91dCBvZiAlZCBtaXNzaW5nXG4iLAo+ICsJCQkJIGRldi0+bmFtZSwgbnVtX2J1
-ZiwgaGRyLT5taGRyLm51bV9idWZmZXJzKTsKPiArCQkJZGV2LT5zdGF0cy5yeF9sZW5ndGhfZXJy
-b3JzKys7Cj4gKwkJCWdvdG8gZXJyX2J1ZjsKPiAgCQl9Cj4gIAkJaWYgKHVubGlrZWx5KGxlbiA+
-IE1BWF9QQUNLRVRfTEVOKSkgewo+ICAJCQlwcl9kZWJ1ZygiJXM6IHJ4IGVycm9yOiBtZXJnZSBi
-dWZmZXIgdG9vIGxvbmdcbiIsCj4gLQkJCQkgaGVhZF9za2ItPmRldi0+bmFtZSk7Cj4gKwkJCQkg
-ZGV2LT5uYW1lKTsKPiAgCQkJbGVuID0gTUFYX1BBQ0tFVF9MRU47Cj4gIAkJfQo+ICsKPiArCQlw
-YWdlID0gdmlydF90b19oZWFkX3BhZ2UoYnVmKTsKPiArCQktLXJxLT5udW07Cj4gKwo+ICsJCW51
-bV9za2JfZnJhZ3MgPSBza2Jfc2hpbmZvKGN1cnJfc2tiKS0+bnJfZnJhZ3M7Cj4gIAkJaWYgKHVu
-bGlrZWx5KG51bV9za2JfZnJhZ3MgPT0gTUFYX1NLQl9GUkFHUykpIHsKPiAgCQkJc3RydWN0IHNr
-X2J1ZmYgKm5za2IgPSBhbGxvY19za2IoMCwgR0ZQX0FUT01JQyk7Cj4gLQkJCWlmICh1bmxpa2Vs
-eSghbnNrYikpIHsKPiAtCQkJCWhlYWRfc2tiLT5kZXYtPnN0YXRzLnJ4X2Ryb3BwZWQrKzsKPiAt
-CQkJCXJldHVybiAtRU5PTUVNOwo+IC0JCQl9Cj4gKwo+ICsJCQlpZiAodW5saWtlbHkoIW5za2Ip
-KQo+ICsJCQkJZ290byBlcnJfc2tiOwo+ICAJCQlpZiAoY3Vycl9za2IgPT0gaGVhZF9za2IpCj4g
-IAkJCQlza2Jfc2hpbmZvKGN1cnJfc2tiKS0+ZnJhZ19saXN0ID0gbnNrYjsKPiAgCQkJZWxzZQo+
-ICAJCQkJY3Vycl9za2ItPm5leHQgPSBuc2tiOwo+IC0JCQljdXJyX3NrYiA9IG5za2I7Cj4gIAkJ
-CWhlYWRfc2tiLT50cnVlc2l6ZSArPSBuc2tiLT50cnVlc2l6ZTsKPiArCQkJY3Vycl9za2IgPSBu
-c2tiOwo+ICAJCQludW1fc2tiX2ZyYWdzID0gMDsKPiAgCQl9Cj4gIAkJaWYgKGN1cnJfc2tiICE9
-IGhlYWRfc2tiKSB7Cj4gQEAgLTMzOCw4ICszNTAsNyBAQCBzdGF0aWMgaW50IHJlY2VpdmVfbWVy
-Z2VhYmxlKHN0cnVjdCByZWNlaXZlX3F1ZXVlICpycSwKPiBzdHJ1Y3Qgc2tfYnVmZiAqaGVhZF9z
-a2IpCj4gIAkJCWhlYWRfc2tiLT5sZW4gKz0gbGVuOwo+ICAJCQloZWFkX3NrYi0+dHJ1ZXNpemUg
-Kz0gTUFYX1BBQ0tFVF9MRU47Cj4gIAkJfQo+IC0JCXBhZ2UgPSB2aXJ0X3RvX2hlYWRfcGFnZShi
-dWYpOwo+IC0JCW9mZnNldCA9IGJ1ZiAtIChjaGFyICopcGFnZV9hZGRyZXNzKHBhZ2UpOwo+ICsJ
-CW9mZnNldCA9IGJ1ZiAtIHBhZ2VfYWRkcmVzcyhwYWdlKTsKPiAgCQlpZiAoc2tiX2Nhbl9jb2Fs
-ZXNjZShjdXJyX3NrYiwgbnVtX3NrYl9mcmFncywgcGFnZSwgb2Zmc2V0KSkgewo+ICAJCQlwdXRf
-cGFnZShwYWdlKTsKPiAgCQkJc2tiX2NvYWxlc2NlX3J4X2ZyYWcoY3Vycl9za2IsIG51bV9za2Jf
-ZnJhZ3MgLSAxLAo+IEBAIC0zNDksOSArMzYwLDI4IEBAIHN0YXRpYyBpbnQgcmVjZWl2ZV9tZXJn
-ZWFibGUoc3RydWN0IHJlY2VpdmVfcXVldWUgKnJxLAo+IHN0cnVjdCBza19idWZmICpoZWFkX3Nr
-YikKPiAgCQkJCQlvZmZzZXQsIGxlbiwKPiAgCQkJCQlNQVhfUEFDS0VUX0xFTik7Cj4gIAkJfQo+
-ICsJfQo+ICsKPiArCXJldHVybiBoZWFkX3NrYjsKPiArCj4gK2Vycl9za2I6Cj4gKwlwdXRfcGFn
-ZShwYWdlKTsKPiArZXJyX2J1ZjoKPiArCWRldi0+c3RhdHMucnhfZHJvcHBlZCsrOwo+ICsJZGV2
-X2tmcmVlX3NrYihoZWFkX3NrYik7Cj4gKwl3aGlsZSAoLS1udW1fYnVmKSB7Cj4gKwkJYnVmID0g
-dmlydHF1ZXVlX2dldF9idWYocnEtPnZxLCAmbGVuKTsKPiArCQlpZiAodW5saWtlbHkoIWJ1Zikp
-IHsKPiArCQkJcHJfZGVidWcoIiVzOiByeCBlcnJvcjogJWQgYnVmZmVycyBtaXNzaW5nXG4iLAo+
-ICsJCQkJIGRldi0+bmFtZSwgbnVtX2J1Zik7Cj4gKwkJCWRldi0+c3RhdHMucnhfbGVuZ3RoX2Vy
-cm9ycysrOwo+ICsJCQlicmVhazsKPiArCQl9Cj4gKwkJcGFnZSA9IHZpcnRfdG9faGVhZF9wYWdl
-KGJ1Zik7Cj4gKwkJcHV0X3BhZ2UocGFnZSk7Cj4gIAkJLS1ycS0+bnVtOwo+ICAJfQo+IC0JcmV0
-dXJuIDA7Cj4gKwlyZXR1cm4gTlVMTDsKPiAgfQo+ICAKPiAgc3RhdGljIHZvaWQgcmVjZWl2ZV9i
-dWYoc3RydWN0IHJlY2VpdmVfcXVldWUgKnJxLCB2b2lkICpidWYsIHVuc2lnbmVkIGludAo+ICBs
-ZW4pCj4gQEAgLTM4MCwxOSArNDEwLDkgQEAgc3RhdGljIHZvaWQgcmVjZWl2ZV9idWYoc3RydWN0
-IHJlY2VpdmVfcXVldWUgKnJxLCB2b2lkCj4gKmJ1ZiwgdW5zaWduZWQgaW50IGxlbikKPiAgCQls
-ZW4gLT0gc2l6ZW9mKHN0cnVjdCB2aXJ0aW9fbmV0X2hkcik7Cj4gIAkJc2tiX3RyaW0oc2tiLCBs
-ZW4pOwo+ICAJfSBlbHNlIGlmICh2aS0+bWVyZ2VhYmxlX3J4X2J1ZnMpIHsKPiAtCQlzdHJ1Y3Qg
-cGFnZSAqcGFnZSA9IHZpcnRfdG9faGVhZF9wYWdlKGJ1Zik7Cj4gLQkJc2tiID0gcGFnZV90b19z
-a2IocnEsIHBhZ2UsCj4gLQkJCQkgIChjaGFyICopYnVmIC0gKGNoYXIgKilwYWdlX2FkZHJlc3Mo
-cGFnZSksCj4gLQkJCQkgIGxlbiwgTUFYX1BBQ0tFVF9MRU4pOwo+IC0JCWlmICh1bmxpa2VseSgh
-c2tiKSkgewo+IC0JCQlkZXYtPnN0YXRzLnJ4X2Ryb3BwZWQrKzsKPiAtCQkJcHV0X3BhZ2UocGFn
-ZSk7Cj4gKwkJc2tiID0gcmVjZWl2ZV9tZXJnZWFibGUoZGV2LCBycSwgYnVmLCBsZW4pOwo+ICsJ
-CWlmICh1bmxpa2VseSghc2tiKSkKPiAgCQkJcmV0dXJuOwo+IC0JCX0KPiAtCQlpZiAocmVjZWl2
-ZV9tZXJnZWFibGUocnEsIHNrYikpIHsKPiAtCQkJZGV2X2tmcmVlX3NrYihza2IpOwo+IC0JCQly
-ZXR1cm47Cj4gLQkJfQo+ICAJfSBlbHNlIHsKPiAgCQlwYWdlID0gYnVmOwo+ICAJCXNrYiA9IHBh
-Z2VfdG9fc2tiKHJxLCBwYWdlLCAwLCBsZW4sIFBBR0VfU0laRSk7Cj4gLS0KPiBUbyB1bnN1YnNj
-cmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBp
-bgo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnCj4g
-TW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8t
-aW5mby5odG1sCj4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4
-LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFu
-L2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+On 11/20/2013 02:21 AM, Stefan Priebe - Profihost AG wrote:
+> Hi,
+> 
+> Am 20.11.2013 02:47, schrieb Vlad Yasevich:
+>> The following commit:
+>>     b6c40d68ff6498b7f63ddf97cf0aa818d748dee7
+>>     net: only invoke dev->change_rx_flags when device is UP
+>>
+>> tried to fix a problem with VLAN devices and promiscuouse flag setting.
+>> The issue was that VLAN device was setting a flag on an interface that
+>> was down, thus resulting in bad promiscuity count.
+>> This commit blocked flag propagation to any device that is currently
+>> down.
+>>
+>> A later commit:
+>>     deede2fabe24e00bd7e246eb81cd5767dc6fcfc7
+>>     vlan: Don't propagate flag changes on down interfaces
+>>
+>> fixed VLAN code to only propagate flags when the VLAN interface is up,
+>> thus fixing the same issue as above, only localized to VLAN.
+>>
+>> The problem we have now is that if we have create a complex stack
+>> involving multiple software devices like bridges, bonds, and vlans,
+>> then it is possible that the flags would not propagate properly to
+>> the physical devices.  A simple examle of the scenario is the
+>> following:
+>>
+>>   eth0----> bond0 ----> bridge0 ---> vlan50
+>>
+>> If bond0 or eth0 happen to be down at the time bond0 is added to
+>> the bridge, then eth0 will never have promisc mode set which is
+>> currently required for operation as part of the bridge.  As a
+>> result, packets with vlan50 will be dropped by the interface.
+>>
+>> The only 2 devices that implement the special flag handling are
+>> VLAN and DSA and they both have required code to prevent incorrect
+>> flag propagation.  As a result we can remove the generic solution
+>> introduced in b6c40d68ff6498b7f63ddf97cf0aa818d748dee7 and leave
+>> it to the individual devices to decide whether they will block
+>> flag propagation or not.
+>>
+>> Reported-by: Stefan Priebe <s.priebe@profihost.ag>
+>> Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+>> v2->v3:  Removed a strange chunk that modified comments.  Not sure where it
+>>          came from.
+>>
+>>  net/core/dev.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 974143d..da9c5e1 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -4991,7 +4991,7 @@ static void dev_change_rx_flags(struct net_device *dev, int flags)
+>>  {
+>>  	const struct net_device_ops *ops = dev->netdev_ops;
+>>  
+>> -	if ((dev->flags & IFF_UP) && ops->ndo_change_rx_flags)
+>> +	if (ops->ndo_change_rx_flags)
+>>  		ops->ndo_change_rx_flags(dev, flags);
+>>  }
+> 
+> thanks for this patch - in one of the first posts you send this one:
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index fc913f4..016857b 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4525,7 +4525,9 @@ static void dev_change_rx_flags(struct net_device
+> *dev, int flags)
+>  {
+>         const struct net_device_ops *ops = dev->netdev_ops;
+> 
+> -       if ((dev->flags & IFF_UP) && ops->ndo_change_rx_flags)
+> +       if (((dev->flags & IFF_UP) ||
+> +            (dev->flags & (IFF_MASTER | IFF_SLAVE)))
+> +           && ops->ndo_change_rx_flags)
+>                 ops->ndo_change_rx_flags(dev, flags);
+>  }
+> 
+
+The new one should work just as well.  The first one I had you try
+removed the restriction for master and slave devices such as bonds
+and their slaves.  As Veaceslav pointed out, we can simply remove all
+restrictions in this code and have the individual drivers do the right
+thing.  The 2 effected drivers are VLAN and DSA and they already do the
+right checks before propagating flags.
+
+I ran the same test with the simplified code and it worked for me
+correctly setting promisc mode in the same set-up you had:
+
+   (phys dev) ---> bond ---->  bridge ---> vlan
+
+-vlad
