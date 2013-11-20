@@ -1,139 +1,133 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [RFC net-next PATCH] macvtap: Add packet capture support
-Date: Wed, 20 Nov 2013 13:04:09 -0500
-Message-ID: <1384970649-29839-1-git-send-email-vyasevic@redhat.com>
-Cc: mst@redhat.com, Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37395 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753916Ab3KTSEP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Nov 2013 13:04:15 -0500
-Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id rAKI4Drk021319
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 13:04:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Subject: RE: [PATCH] rds: Error on offset mismatch if not loopback
+Date: Wed, 20 Nov 2013 10:09:39 -0800 (PST)
+Message-ID: <25bef391-380b-486a-b06f-8be210e8abb7@default>
+References: <20120921213239.GJ14393@linux-tkdk.sfcn.org>
+ <20120922.152524.1294103117346567757.davem@davemloft.net>
+ <CAKA=qzac9=UhLF_Z4FnnH+sR7xvkDux4oayC6dPYe=hMLsDxRg@mail.gmail.com>
+ <CAKA=qzYpd7Wo9XdU16TEhnbm5dPJjOZMhAY1jA7N+YFBWz5pzw@mail.gmail.com>
+ <23964ca1-e7cb-41c3-9da2-5bc1b2b0c014@default>
+ <CAKA=qzbK1YX5OrVQbwM=1xM6Si=GKv0UDofULkOC7RNo08zZPw@mail.gmail.com>
+ <52841F95.7040204@redhat.com> <41aa904c-6707-4c74-ae72-96e401c68e13@default>
+ <528587D0.5060105@redhat.com> <8744a6a4-d7a8-4e6f-8934-48a4fd4da0ce@default>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, jjolly@suse.com,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Honggang LI <honli@redhat.com>, Josh Hunt <joshhunt00@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8744a6a4-d7a8-4e6f-8934-48a4fd4da0ce@default>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently it is impossible to capture traffic when using a macvtap
-device.  The reason is that all capture handling is done either in
-dev_hard_start_xmit() or in __netif_receive_skb_core().  Macvtap
-currenlty doesn't use dev_hard_start_xmit(), and at the time the
-packet traverses __netif_receive_skb_core, the skb->dev is set to
-the lower-level device that doesn't end up matching macvtap.
 
-To solve the issue, use dev_hard_start_xmit() on the output path.
-On the input path, it is toughter to solve since macvtap ends up
-consuming the skb so there is nothing more left for
-__netif_receive_skb_core() to do.  A simple solution is to
-pull the code that delivers things to the taps/captures into
-its own function and allow macvtap to call it from its receive
-routine.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
-This is only an RFC.  I'd like to solicit comments on this simple
-approach.  A more complicated solution would have been to give
-macvtap its own rx_handler and return RX_HANDLER_ANOTHER during
-receive operation to make the packet go through another round of
-capturing and hit the macvtap rx_handler.  I thought this would
-hurt performance too much for no real gain.
+-----Original Message-----
+From: Venkat Venkatsubra 
+Sent: Tuesday, November 19, 2013 5:33 PM
+To: Honggang LI; Josh Hunt
+Cc: David Miller; jjolly@suse.com; LKML; netdev@vger.kernel.org
+Subject: RE: [PATCH] rds: Error on offset mismatch if not loopback
 
-Thanks
--vlad
+We now have lot more information than we did before.
+When sending a "congestion update" in rds_ib_xmit() we are now returning an incorrect number as bytes sent:
 
- drivers/net/macvtap.c     |  4 +++-
- include/linux/netdevice.h |  2 ++
- net/core/dev.c            | 33 ++++++++++++++++++++++++++-------
- 3 files changed, 31 insertions(+), 8 deletions(-)
+        BUG_ON(off % RDS_FRAG_SIZE);
+        BUG_ON(hdr_off != 0 && hdr_off != sizeof(struct rds_header));
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index dc76670..0ed8fae 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -334,6 +334,7 @@ drop:
-  */
- static int macvtap_receive(struct sk_buff *skb)
- {
-+	netif_receive_skb_taps(skb, true);
- 	skb_push(skb, ETH_HLEN);
- 	return macvtap_forward(skb->dev, skb);
- }
-@@ -727,8 +728,9 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
- 	}
- 	if (vlan) {
-+		skb->dev = vlan->dev;
- 		local_bh_disable();
--		macvlan_start_xmit(skb, vlan->dev);
-+		dev_hard_start_xmit(skb, vlan->dev, NULL, NULL);
- 		local_bh_enable();
- 	} else {
- 		kfree_skb(skb);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 8b3de7c..84880eb 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2383,6 +2383,8 @@ void dev_kfree_skb_any(struct sk_buff *skb);
- int netif_rx(struct sk_buff *skb);
- int netif_rx_ni(struct sk_buff *skb);
- int netif_receive_skb(struct sk_buff *skb);
-+struct packet_type *netif_receive_skb_taps(struct sk_buff *skb,
-+					   bool last_deliver);
- gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb);
- void napi_gro_flush(struct napi_struct *napi, bool flush_old);
- struct sk_buff *napi_get_frags(struct napi_struct *napi);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index da9c5e1..50f0ac4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3484,6 +3484,31 @@ static bool skb_pfmemalloc_protocol(struct sk_buff *skb)
- 	}
- }
- 
-+struct packet_type *netif_receive_skb_taps(struct sk_buff *skb,
-+					   bool last_deliver)
-+{
-+	struct packet_type *ptype, *pt_prev = NULL;
-+	struct net_device *orig_dev;
-+
-+	if (list_empty(&ptype_all))
-+		return NULL;
-+
-+	orig_dev = skb->dev;
-+	list_for_each_entry_rcu(ptype, &ptype_all, list) {
-+		if (!ptype->dev || ptype->dev == skb->dev) {
-+			if (pt_prev)
-+				deliver_skb(skb, pt_prev, orig_dev);
-+			pt_prev = ptype;
-+		}
-+	}
-+
-+	if (last_deliver && pt_prev)
-+		deliver_skb(skb, pt_prev, orig_dev);
-+
-+	return pt_prev;
-+}
-+EXPORT_SYMBOL_GPL(netif_receive_skb_taps);
-+
- static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
- {
- 	struct packet_type *ptype, *pt_prev;
-@@ -3535,13 +3560,7 @@ another_round:
- 	if (pfmemalloc)
- 		goto skip_taps;
- 
--	list_for_each_entry_rcu(ptype, &ptype_all, list) {
--		if (!ptype->dev || ptype->dev == skb->dev) {
--			if (pt_prev)
--				ret = deliver_skb(skb, pt_prev, orig_dev);
--			pt_prev = ptype;
--		}
--	}
-+	pt_prev = netif_receive_skb_taps(skb, false);
- 
- skip_taps:
- #ifdef CONFIG_NET_CLS_ACT
--- 
-1.8.4.2
+        /* Do not send cong updates to IB loopback */
+        if (conn->c_loopback
+            && rm->m_inc.i_hdr.h_flags & RDS_FLAG_CONG_BITMAP) {
+                rds_cong_map_updated(conn->c_fcong, ~(u64) 0);
+                scat = &rm->data.op_sg[sg];
+                ret = sizeof(struct rds_header) + RDS_CONG_MAP_BYTES;
+                ret = min_t(int, ret, scat->length - conn->c_xmit_data_off);
+                return ret;
+        }
+
+It returns min(8240, 4096-0) i.e. 4096 bytes.
+The caller rds_send_xmit() is made to think a partial message (4096 out of 8240) was sent.
+It calls rds_ib_xmit() again with a data offset "off" of 4096-48 (rds header) (=4048 bytes). And we hit the BUG_ON.
+
+The reason I didn't hit the panic on my test on Oracle UEK2 which is based on 2.6.39 kernel is it had it like this:
+        BUG_ON(off % RDS_FRAG_SIZE);
+        BUG_ON(hdr_off != 0 && hdr_off != sizeof(struct rds_header));
+
+        /* Do not send cong updates to IB loopback */
+        if (conn->c_loopback
+            && rm->m_inc.i_hdr.h_flags & RDS_FLAG_CONG_BITMAP) {
+                rds_cong_map_updated(conn->c_fcong, ~(u64) 0);
+                return sizeof(struct rds_header) + RDS_CONG_MAP_BYTES;
+        }
+(So it wasn't 100% 2.6.39 ;-). )
+It returned 8240 bytes. The caller rds_send_xmit decides the full message was sent (48 byte header + 4096 data + 4096 data).
+And it worked.
+
+Then I found this info on the change that was done upstream which now causes the panic:
+http://marc.info/?l=linux-netdev&m=129908332903057
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6094628bfd94323fc1cea05ec2c6affd98c18f7f 
+
+Will investigate more into which problem the above change addressed.
+
+Venkat
+--
+
+Looks like the fix pointed to by the above link is for a panic on a PPC system with a PAGE_SIZE of 64Kbytes.
+I think the sequence it was going through before that fix was:
+/* Do not send cong updates to IB loopback */
+        if (conn->c_loopback
+            && rm->m_inc.i_hdr.h_flags & RDS_FLAG_CONG_BITMAP) {
+                rds_cong_map_updated(conn->c_fcong, ~(u64) 0);
+                return sizeof(struct rds_header) + RDS_CONG_MAP_BYTES;
+        }
+rds_ib_xmit returns 8240
+rds_send_xmit : c_xmit_data_off = 0 + 8240 - 48 (rds header the first time) = 8196
+                c_xmit_data_off < 65536 (sg->length)
+                calls rds_ib_xmit again
+rds_ib_xmit returns 8240
+rds_send_xmit: c_xmit_data_off = 8192+8240 = 16432 and calls rds_ib_xmit
+rds_ib_xmit : returns 8240
+rds_send_xmit: c_xmit_data_off 24672 and calls rds_ib_xmit
+...
+...
+and so on till
+rds_send_xmit: c_xmit_data_off 57632 and calls rds_ib_xmit
+rds_ib_xmit: returns 8240
+
+On the last iteration it hits the below BUG_ON in rds_send_xmit.
+while (ret) {
+    tmp = min_t(int, ret, sg->length -
+                         conn->c_xmit_data_off);
+[tmp = 7904]
+    conn->c_xmit_data_off += tmp;
+[c_xmit_data_off = 65536]
+    ret -= tmp;
+[ret = 8240-7904 = 336]
+    if (conn->c_xmit_data_off == sg->length) {
+         conn->c_xmit_data_off = 0;
+         sg++;
+         conn->c_xmit_sg++;
+         BUG_ON(ret != 0 &&
+             conn->c_xmit_sg == rm->data.op_nents);
+    }
+}
+
+Since the congestion update over loopback is not actually transmitted as a message,
+the multiple iterations we see in the case of ppc is unnecessary.
+All that rds_ib_xmit needs to do is return a number of bytes that will tell the caller that
+we are done with this message.
+  
+This might fix the original problem without introducing the current panic:
+/* Do not send cong updates to IB loopback */
+        if (conn->c_loopback
+            && rm->m_inc.i_hdr.h_flags & RDS_FLAG_CONG_BITMAP) {
+                rds_cong_map_updated(conn->c_fcong, ~(u64) 0);
+                scat = &rm->data.op_sg[sg];
+                ret = max_t(int, RDS_CONG_MAP_BYTES, scat->length);
+                return ret + sizeof(struct rds_header);
+        }
+It will return 8240 when PAGE_SIZE is 4k and 64k+48 in case of ppc when scat->length is 64k and
+be done with one iteration of rds_send_xmit/rds_ib_xmit loop.
+
+Venkat
