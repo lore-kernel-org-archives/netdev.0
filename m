@@ -1,117 +1,97 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCHv3] net: core: Always propagate flag changes to interfaces
-Date: Wed, 20 Nov 2013 08:54:42 -0500
-Message-ID: <528CBF22.4050304@redhat.com>
-References: <1384912035-17800-1-git-send-email-vyasevic@redhat.com> <528C62F7.2000100@profihost.ag>
-Reply-To: vyasevic@redhat.com
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net 2/3] virtio-net: fix num calculation on frag skb
+	allocation failure
+Date: Wed, 20 Nov 2013 08:56:54 -0500 (EST)
+Message-ID: <1382353279.27479040.1384955814610.JavaMail.root@redhat.com>
+References: <1384938447-3775-1-git-send-email-jasowang@redhat.com>
+	<1384938447-3775-2-git-send-email-jasowang@redhat.com>
+	<20131120103729.GG19341@redhat.com>
+	<734327384.27426189.1384949330819.JavaMail.root@redhat.com>
+	<20131120133707.GA8523@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: vfalico@redhat.com
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1504 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752615Ab3KTNyv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Nov 2013 08:54:51 -0500
-In-Reply-To: <528C62F7.2000100@profihost.ag>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20131120133707.GA8523@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 11/20/2013 02:21 AM, Stefan Priebe - Profihost AG wrote:
-> Hi,
-> 
-> Am 20.11.2013 02:47, schrieb Vlad Yasevich:
->> The following commit:
->>     b6c40d68ff6498b7f63ddf97cf0aa818d748dee7
->>     net: only invoke dev->change_rx_flags when device is UP
->>
->> tried to fix a problem with VLAN devices and promiscuouse flag setting.
->> The issue was that VLAN device was setting a flag on an interface that
->> was down, thus resulting in bad promiscuity count.
->> This commit blocked flag propagation to any device that is currently
->> down.
->>
->> A later commit:
->>     deede2fabe24e00bd7e246eb81cd5767dc6fcfc7
->>     vlan: Don't propagate flag changes on down interfaces
->>
->> fixed VLAN code to only propagate flags when the VLAN interface is up,
->> thus fixing the same issue as above, only localized to VLAN.
->>
->> The problem we have now is that if we have create a complex stack
->> involving multiple software devices like bridges, bonds, and vlans,
->> then it is possible that the flags would not propagate properly to
->> the physical devices.  A simple examle of the scenario is the
->> following:
->>
->>   eth0----> bond0 ----> bridge0 ---> vlan50
->>
->> If bond0 or eth0 happen to be down at the time bond0 is added to
->> the bridge, then eth0 will never have promisc mode set which is
->> currently required for operation as part of the bridge.  As a
->> result, packets with vlan50 will be dropped by the interface.
->>
->> The only 2 devices that implement the special flag handling are
->> VLAN and DSA and they both have required code to prevent incorrect
->> flag propagation.  As a result we can remove the generic solution
->> introduced in b6c40d68ff6498b7f63ddf97cf0aa818d748dee7 and leave
->> it to the individual devices to decide whether they will block
->> flag propagation or not.
->>
->> Reported-by: Stefan Priebe <s.priebe@profihost.ag>
->> Suggested-by: Veaceslav Falico <vfalico@redhat.com>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->> v2->v3:  Removed a strange chunk that modified comments.  Not sure where it
->>          came from.
->>
->>  net/core/dev.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 974143d..da9c5e1 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -4991,7 +4991,7 @@ static void dev_change_rx_flags(struct net_device *dev, int flags)
->>  {
->>  	const struct net_device_ops *ops = dev->netdev_ops;
->>  
->> -	if ((dev->flags & IFF_UP) && ops->ndo_change_rx_flags)
->> +	if (ops->ndo_change_rx_flags)
->>  		ops->ndo_change_rx_flags(dev, flags);
->>  }
-> 
-> thanks for this patch - in one of the first posts you send this one:
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index fc913f4..016857b 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4525,7 +4525,9 @@ static void dev_change_rx_flags(struct net_device
-> *dev, int flags)
->  {
->         const struct net_device_ops *ops = dev->netdev_ops;
-> 
-> -       if ((dev->flags & IFF_UP) && ops->ndo_change_rx_flags)
-> +       if (((dev->flags & IFF_UP) ||
-> +            (dev->flags & (IFF_MASTER | IFF_SLAVE)))
-> +           && ops->ndo_change_rx_flags)
->                 ops->ndo_change_rx_flags(dev, flags);
->  }
-> 
-
-The new one should work just as well.  The first one I had you try
-removed the restriction for master and slave devices such as bonds
-and their slaves.  As Veaceslav pointed out, we can simply remove all
-restrictions in this code and have the individual drivers do the right
-thing.  The 2 effected drivers are VLAN and DSA and they already do the
-right checks before propagating flags.
-
-I ran the same test with the simplified code and it worked for me
-correctly setting promisc mode in the same set-up you had:
-
-   (phys dev) ---> bond ---->  bridge ---> vlan
-
--vlad
+CgotLS0tLSDljp/lp4vpgq7ku7YgLS0tLS0KPiBPbiBXZWQsIE5vdiAyMCwgMjAxMyBhdCAwNzow
+ODo1MEFNIC0wNTAwLCBKYXNvbiBXYW5nIHdyb3RlOgo+ID4gCj4gPiAKPiA+IC0tLS0tIOWOn+Wn
+i+mCruS7tiAtLS0tLQo+ID4gPiBPbiBXZWQsIE5vdiAyMCwgMjAxMyBhdCAwNTowNzoyNlBNICsw
+ODAwLCBKYXNvbiBXYW5nIHdyb3RlOgo+ID4gPiA+IFdlIG5lZWQgZGVjcmVhc2UgdGhlIHJxLT5u
+dW0gYWZ0ZXIgd2UgY2FuIGdldCBhIGJ1ZiB0aHJvdWdoCj4gPiA+ID4gdmlydHF1ZXVlX2dldF9i
+dWYoKSBldmVuIGlmIHdlIGNvdWxkIG5vdCBhbGxvY2F0ZSBmcmFnIHNrYi4gT3RoZXJ3aXNlLAo+
+ID4gPiA+IHRoZQo+ID4gPiA+IHJlZmlsbCByb3V0aW5lIHdvbid0IGJlIHRyaWdnZXJlZCB1bmRl
+ciBoZWF2eSBtZW1vcnkgc3RyZXNzIHNpbmNlIHRoZQo+ID4gPiA+IGRyaXZlciBtYXkKPiA+ID4g
+PiBzdGlsbCB0aGluayB0aGVyZSdzIGVub3VnaCByb29tLgo+ID4gPiA+IAo+ID4gPiA+IFRoaXMg
+YnVnIHdhcyBpbnRyb2R1Y2VkIGJ5IGNvbW1pdAo+ID4gPiA+IDI2MTNhZjBlZDE4YTExZDVjNTY2
+YTgxZjlhNjUxMGI3MzE4MDY2MGEKPiA+ID4gPiAodmlydGlvX25ldDogbWlncmF0ZSBtZXJnZWFi
+bGUgcnggYnVmZmVycyB0byBwYWdlIGZyYWcgYWxsb2NhdG9ycykuCj4gPiA+ID4gCj4gPiA+ID4g
+Q2M6IFJ1c3R5IFJ1c3NlbGwgPHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KPiA+ID4gPiBDYzogTWlj
+aGFlbCBTLiBUc2lya2luIDxtc3RAcmVkaGF0LmNvbT4KPiA+ID4gPiBDYzogTWljaGFlbCBEYWx0
+b24gPG13ZGFsdG9uQGdvb2dsZS5jb20+Cj4gPiA+ID4gQ2M6IEVyaWMgRHVtYXpldCA8ZWR1bWF6
+ZXRAZ29vZ2xlLmNvbT4KPiA+ID4gPiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2Fu
+Z0ByZWRoYXQuY29tPgo+ID4gPiAKPiA+ID4gU28gbGV0J3Mgd3JhcCB2aXJ0cXVldWVfZ2V0X2J1
+ZiB0byBtYWtlIHN1cmUgd2UgZ2V0IGl0IHJpZ2h0Pwo+ID4gPiAKPiA+IAo+ID4gT2suIGdvb2Qg
+aWRlYS4KPiAKPiBTbyBJIGRpZCB0aGlzIChiZWxvdykgYnV0IHRoZSBjb21waWxlciBpcyBub3Qg
+c21hcnQgZW5vdWdoIHRvCj4gYXZvaWQgdHdvIGJyYW5jaGVzIG9uIGRhdGEgcGF0aC4KPiBTbyBJ
+J20gbm90IHN1cmUgYW55bW9yZTogd2l0aCBteSBwYXRjaCBpdCdzIHByZXR0eSBjbGVhciBob3cK
+PiB0aGUgY29kZSB3b3Jrcy4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBNaWNoYWVsIFMuIFRzaXJraW4g
+PG1zdEByZWRoYXQuY29tPgo+IAo+IGJ1dCBJIGRvbid0IHRoaW5rIHdlIG5lZWQgdG8gYXBwbHkg
+dGhpcy4KPiAKClRydWUsIGFub3RoZXIgcG9pbnQgaXMgd2UnZCBiZXR0ZXIgdG8gaGFuZGxlIGJv
+dGggaW5jcmVhc2luZyBhbmQgZGVjcmVhc2luZyBpbiB0aGUgCnNhbWUgd2F5LiBXZSBkbyBub3Qg
+aW5jcmVhc2UgaXQgaW4gYSBoZWxwZXIuCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3ZpcnRp
+b19uZXQuYyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+IGluZGV4IDExZDljYzkuLjFjYzJl
+NDMgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4gKysrIGIvZHJpdmVy
+cy9uZXQvdmlydGlvX25ldC5jCj4gQEAgLTI5Niw2ICsyOTYsMTQgQEAgc3RhdGljIHN0cnVjdCBz
+a19idWZmICpwYWdlX3RvX3NrYihzdHJ1Y3QgcmVjZWl2ZV9xdWV1ZQo+ICpycSwKPiAgCXJldHVy
+biBza2I7Cj4gIH0KPiAgCj4gK3N0YXRpYyB2b2lkICpycV9nZXRfYnVmKHN0cnVjdCByZWNlaXZl
+X3F1ZXVlICpycSwgdW5zaWduZWQgaW50ICpsZW4pCj4gK3sKPiArCXZvaWQgKmJ1ZiA9IHZpcnRx
+dWV1ZV9nZXRfYnVmKHJxLT52cSwgbGVuKTsKPiArCWlmIChidWYpCj4gKwkJcnEtPm51bS0tOwo+
+ICsJcmV0dXJuIGJ1ZjsKPiArfQo+ICsKPiAgc3RhdGljIHN0cnVjdCBza19idWZmICpyZWNlaXZl
+X21lcmdlYWJsZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAo+ICAJCQkJCSBzdHJ1Y3QgcmVjZWl2
+ZV9xdWV1ZSAqcnEsCj4gIAkJCQkJIHZvaWQgKmJ1ZiwKPiBAQCAtMzE1LDcgKzMyMyw3IEBAIHN0
+YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqcmVjZWl2ZV9tZXJnZWFibGUoc3RydWN0Cj4gbmV0X2Rldmlj
+ZSAqZGV2LAo+ICAJd2hpbGUgKC0tbnVtX2J1Zikgewo+ICAJCWludCBudW1fc2tiX2ZyYWdzOwo+
+ICAKPiAtCQlidWYgPSB2aXJ0cXVldWVfZ2V0X2J1ZihycS0+dnEsICZsZW4pOwo+ICsJCWJ1ZiA9
+IHJxX2dldF9idWYocnEsICZsZW4pOwo+ICAJCWlmICh1bmxpa2VseSghYnVmKSkgewo+ICAJCQlw
+cl9kZWJ1ZygiJXM6IHJ4IGVycm9yOiAlZCBidWZmZXJzIG91dCBvZiAlZCBtaXNzaW5nXG4iLAo+
+ICAJCQkJIGRldi0+bmFtZSwgbnVtX2J1ZiwgaGRyLT5taGRyLm51bV9idWZmZXJzKTsKPiBAQCAt
+MzI5LDcgKzMzNyw2IEBAIHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqcmVjZWl2ZV9tZXJnZWFibGUo
+c3RydWN0Cj4gbmV0X2RldmljZSAqZGV2LAo+ICAJCX0KPiAgCj4gIAkJcGFnZSA9IHZpcnRfdG9f
+aGVhZF9wYWdlKGJ1Zik7Cj4gLQkJLS1ycS0+bnVtOwo+ICAKPiAgCQludW1fc2tiX2ZyYWdzID0g
+c2tiX3NoaW5mbyhjdXJyX3NrYiktPm5yX2ZyYWdzOwo+ICAJCWlmICh1bmxpa2VseShudW1fc2ti
+X2ZyYWdzID09IE1BWF9TS0JfRlJBR1MpKSB7Cj4gQEAgLTM3MCw3ICszNzcsNyBAQCBlcnJfYnVm
+Ogo+ICAJZGV2LT5zdGF0cy5yeF9kcm9wcGVkKys7Cj4gIAlkZXZfa2ZyZWVfc2tiKGhlYWRfc2ti
+KTsKPiAgCXdoaWxlICgtLW51bV9idWYpIHsKPiAtCQlidWYgPSB2aXJ0cXVldWVfZ2V0X2J1Zihy
+cS0+dnEsICZsZW4pOwo+ICsJCWJ1ZiA9IHJxX2dldF9idWYocnEsICZsZW4pOwo+ICAJCWlmICh1
+bmxpa2VseSghYnVmKSkgewo+ICAJCQlwcl9kZWJ1ZygiJXM6IHJ4IGVycm9yOiAlZCBidWZmZXJz
+IG1pc3NpbmdcbiIsCj4gIAkJCQkgZGV2LT5uYW1lLCBudW1fYnVmKTsKPiBAQCAtMzc5LDcgKzM4
+Niw2IEBAIGVycl9idWY6Cj4gIAkJfQo+ICAJCXBhZ2UgPSB2aXJ0X3RvX2hlYWRfcGFnZShidWYp
+Owo+ICAJCXB1dF9wYWdlKHBhZ2UpOwo+IC0JCS0tcnEtPm51bTsKPiAgCX0KPiAgCXJldHVybiBO
+VUxMOwo+ICB9Cj4gQEAgLTY3NSw5ICs2ODEsOCBAQCBzdGF0aWMgaW50IHZpcnRuZXRfcG9sbChz
+dHJ1Y3QgbmFwaV9zdHJ1Y3QgKm5hcGksIGludAo+IGJ1ZGdldCkKPiAgCj4gIGFnYWluOgo+ICAJ
+d2hpbGUgKHJlY2VpdmVkIDwgYnVkZ2V0ICYmCj4gLQkgICAgICAgKGJ1ZiA9IHZpcnRxdWV1ZV9n
+ZXRfYnVmKHJxLT52cSwgJmxlbikpICE9IE5VTEwpIHsKPiArCSAgICAgICAoYnVmID0gcnFfZ2V0
+X2J1ZihycSwgJmxlbikpICE9IE5VTEwpIHsKPiAgCQlyZWNlaXZlX2J1ZihycSwgYnVmLCBsZW4p
+Owo+IC0JCS0tcnEtPm51bTsKPiAgCQlyZWNlaXZlZCsrOwo+ICAJfQo+ICAKPiAtLQo+IFRvIHVu
+c3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBuZXRk
+ZXYiIGluCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5v
+cmcKPiBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9y
+ZG9tby1pbmZvLmh0bWwKPgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMu
+bGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21h
+aWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
