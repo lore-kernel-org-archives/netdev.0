@@ -1,57 +1,79 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few
- KB/s
-Date: Wed, 20 Nov 2013 09:50:37 +0100
-Message-ID: <20131120095037.07dc6fc0@skate>
-References: <87a9hagex1.fsf@natisbad.org>
-	<20131112100126.GB23981@1wt.eu>
-	<87vbzxd473.fsf@natisbad.org>
-	<20131113072257.GB10591@1wt.eu>
-	<20131117141940.GA18569@1wt.eu>
-	<1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
-	<87li0kkhzx.fsf@natisbad.org>
-	<1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131119174323.GH913@1wt.eu>
-	<1384885910.8604.110.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131119184121.GN913@1wt.eu>
-	<874n780wzc.fsf@natisbad.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] virtio-net: fix page refcnt leaking when fail to
+	allocate frag skb
+Date: Wed, 20 Nov 2013 10:58:35 +0200
+Message-ID: <20131120085835.GB19341@redhat.com>
+References: <1384848307-7217-1-git-send-email-jasowang@redhat.com>
+	<1384869828.8604.97.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119204909.GA15004@redhat.com>
+	<1384896996.8604.120.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131119215312.GE15004@redhat.com>
+	<1384898411.8604.127.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	simon.guinot@sequanux.org, netdev@vger.kernel.org,
-	edumazet@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
-	linux-arm-kernel@lists.infradead.org
-To: arno@natisbad.org (Arnaud Ebalard)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:50969 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750858Ab3KTIuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 03:50:40 -0500
-In-Reply-To: <874n780wzc.fsf@natisbad.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1384898411.8604.127.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Arnaud,
+On Tue, Nov 19, 2013 at 02:00:11PM -0800, Eric Dumazet wrote:
+> On Tue, 2013-11-19 at 23:53 +0200, Michael S. Tsirkin wrote:
+> 
+> > Which NIC? Virtio? Prior to 2613af0ed18a11d5c566a81f9a6510b73180660a
+> > it didn't drop packets received from host as far as I can tell.
+> > virtio is more like a pipe than a real NIC in this respect.
+> 
+> Prior/after to this patch, you were not posting buffers, so if packets
+> were received on a physical NIC, you were dropping the packets anyway.
+>
+> It makes no difference at all, adding a cushion might make you feel
+> better, but its really not worth it.
+> 
+> Under memory stress, it makes better sense to drop a super big GRO
+> packet (The one needing frag_list extension ...)
+> 
+> It gives a better signal to the sender to reduce its pressure, and gives
+> opportunity to free more of your memory.
+> 
 
-On Wed, 20 Nov 2013 00:53:43 +0100, Arnaud Ebalard wrote:
+OK, but in that case one wonders whether we should do more to free memory?
 
->  - It seems I will I have to spend some time on the SATA issues I
->    previously thought were an artefact of not cleaning my tree during a
->    debug session [1], i.e. there is IMHO an issue.
+E.g. imagine that we dropped a packet of a specific TCP flow
+because we couldn't allocate a new packet.
 
-I don't remember in detail what your SATA problem was, but just to let
-you know that we are currently debugging a problem that occurs on
-Armada XP (more than one core is needed for the problem to occur), with
-SATA (the symptom is that after some time of SATA usage, SATA traffic is
-stalled, and no SATA interrupts are generated anymore). We're still
-working on this one, and trying to figure out where the problem is.
+What happens now is that the old packet is freed as well.
 
-Best regards,
+So quite likely the next packet in queue will get processed
+since it will reuse the memory we have just freed.
 
-Thomas
+The next packet and the next after it etc all will have to go through
+the net stack until they get at the socket and are dropped then
+because we missed a segment.  Even worse, GRO gets disabled so the load
+on receiver goes up instead of down.
+
+Sounds like a problem doesn't it?
+
+GRO actually detects it's the same flow and can see packet is
+out of sequence. Why doesn't it drop the packet then?
+Alternatively, we could (for example using the pre-allocated skb
+like I suggested) notify GRO that it should start dropping packets
+of this flow.
+
+What do you think?
+
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+MST
