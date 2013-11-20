@@ -1,48 +1,33 @@
-From: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH] usb: xhci: Link TRB must not occur with a USB payload
- burst.
-Date: Wed, 20 Nov 2013 10:39:11 -0800
-Message-ID: <20131120183911.GE9611@xanatos>
-References: <20131119225822.GA9611@xanatos>
- <Pine.LNX.4.44L0.1311192204140.6891-100000@netrider.rowland.org>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7437@saturn3.aculab.com>
- <20131120160605.GB9611@xanatos>
- <AE90C24D6B3A694183C094C60CF0A2F6026B743D@saturn3.aculab.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few
+ KB/s
+Date: Wed, 20 Nov 2013 13:52:21 -0500 (EST)
+Message-ID: <20131120.135221.974195642039657856.davem@davemloft.net>
+References: <1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131120171227.GG8581@1wt.eu>
+	<1384968607.10637.14.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B743D-CgBM+Bx2aUAnGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: w@1wt.eu, arno@natisbad.org, xiyou.wangcong@gmail.com,
+	edumazet@google.com, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36145 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754011Ab3KTSwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 13:52:24 -0500
+In-Reply-To: <1384968607.10637.14.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 20, 2013 at 05:16:12PM -0000, David Laight wrote:
-> > Ok, so the networking layer should be fine.  However, with the current
-> > patch, if the mass storage driver sends down a scatter-gather list
-> > that's bigger than a ring segment, or needs to be split up so it doesn't
-> > cross 64K boundaries, then the URB submission will fail.  We don't want
-> > that to happen.
-> 
-> My suspicion is that long SG lists are unusual - otherwise the
-> ring expansion code would have been needed much earlier.
-> 
-> Can anyone remember whether that was needed because of long SG lists
-> or because of large numbers of outstanding requests?
->
-> I've seen it for network cards - but only because usbnet sends
-> down far too many tx buffers.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 20 Nov 2013 09:30:07 -0800
 
-It was added because USB video and audio drivers queue isochronous URBs
-with lots of buffers for each service interval.  So basically, lots of
-outstanding requests, not long SG lists was the driving motivation to
-add the ring expansion.
+> max (128KB , 1-2 ms) of buffering per flow should be enough to reach
+> line rate, even for a single flow, but this means the sk_sndbuf value
+> for the socket must take into account the pipe size _plus_ 1ms of
+> buffering.
 
-Sarah Sharp
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+And we can implement this using the estimated pacing rate.
