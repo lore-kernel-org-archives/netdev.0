@@ -1,37 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Willy Tarreau <w@1wt.eu>
 Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
-Date: Wed, 20 Nov 2013 09:30:07 -0800
-Message-ID: <1384968607.10637.14.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <8761s0cqhh.fsf@natisbad.org>
-	 <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
-	 <87y54u59zq.fsf@natisbad.org> <20131112083633.GB10318@1wt.eu>
-	 <87a9hagex1.fsf@natisbad.org> <20131112100126.GB23981@1wt.eu>
-	 <87vbzxd473.fsf@natisbad.org> <20131113072257.GB10591@1wt.eu>
-	 <20131117141940.GA18569@1wt.eu>
-	 <1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131120171227.GG8581@1wt.eu>
+Date: Wed, 20 Nov 2013 18:34:36 +0100
+Message-ID: <20131120173436.GK8581@1wt.eu>
+References: <slrnl83jr5.49f.xiyou.wangcong@linux-6brj.site>
+ <87y54u59zq.fsf@natisbad.org> <20131112083633.GB10318@1wt.eu>
+ <87a9hagex1.fsf@natisbad.org> <20131112100126.GB23981@1wt.eu>
+ <87vbzxd473.fsf@natisbad.org> <20131113072257.GB10591@1wt.eu>
+ <20131117141940.GA18569@1wt.eu>
+ <1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131120171227.GG8581@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Arnaud Ebalard <arno@natisbad.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>, edumazet@google.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:45192 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750834Ab3KTRaJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 12:30:09 -0500
-Received: by mail-pa0-f48.google.com with SMTP id rd3so3021554pab.35
-        for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 09:30:09 -0800 (PST)
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ netdev@vger.kernel.org, Arnaud Ebalard <arno@natisbad.org>,
+ edumazet@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+ linux-arm-kernel@lists.infradead.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
 In-Reply-To: <20131120171227.GG8581@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-11-20 at 18:12 +0100, Willy Tarreau wrote:
+On Wed, Nov 20, 2013 at 06:12:27PM +0100, Willy Tarreau wrote:
 > Hi guys,
-
+> 
+> On Sun, Nov 17, 2013 at 09:41:38AM -0800, Eric Dumazet wrote:
+> > On Sun, 2013-11-17 at 15:19 +0100, Willy Tarreau wrote:
+> > 
+> > > 
+> > > So it is fairly possible that in your case you can't fill the link if you
+> > > consume too many descriptors. For example, if your server uses TCP_NODELAY
+> > > and sends incomplete segments (which is quite common), it's very easy to
+> > > run out of descriptors before the link is full.
+> > 
+> > BTW I have a very simple patch for TCP stack that could help this exact
+> > situation...
+> > 
+> > Idea is to use TCP Small Queue so that we dont fill qdisc/TX ring with
+> > very small frames, and let tcp_sendmsg() have more chance to fill
+> > complete packets.
+> > 
+> > Again, for this to work very well, you need that NIC performs TX
+> > completion in reasonable amount of time...
+> 
 > Eric, first I would like to confirm that I could reproduce Arnaud's issue
 > using 3.10.19 (160 kB/s in the worst case).
 > 
@@ -54,34 +75,17 @@ On Wed, 2013-11-20 at 18:12 +0100, Willy Tarreau wrote:
 > I'm a bit worried about what we might discover in this area I must
 > confess (despite generally being mostly focused on 10+ Gbps).
 
-Well, all TCP performance results are highly dependent on the workload,
-and both receivers and senders behavior.
+One important point, I was looking for the other patch you pointed
+in this long thread and finally found it :
 
-We made many improvements like TSO auto sizing, DRS (dynamic Right
-Sizing), and if the application used some specific settings (like
-SO_SNDBUF / SO_RCVBUF or other tweaks), we can not guarantee that same
-exact performance is reached from kernel version X to kernel version Y.
+> So
+> http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=98e09386c0ef4dfd48af7ba60ff908f0d525cdee
+> 
+> restored this minimal amount of buffering, and let the bigger amount for
+> 40Gb NICs ;)
 
-We try to make forward progress, there is little gain to revert all
-these great works. Linux had this tendency to favor throughput by using
-overly large skbs. Its time to do better.
+This one definitely restores original performance, so it's a much better
+bet in my opinion :-)
 
-As explained, some drivers are buggy, and need fixes.
-
-If nobody wants to fix them, this really means no one is interested
-getting them fixed.
-
-I am willing to help if you provide details, because otherwise I need
-a crystal ball ;)
-
-One known problem of TCP is the fact that an incoming ACK making room in
-socket write queue immediately wakeup a blocked thread (POLLOUT), even
-if only one MSS was ack, and write queue has 2MB of outstanding bytes.
-
-All these scheduling problems should be identified and fixed, and yes,
-this will require a dozen more patches.
-
-max (128KB , 1-2 ms) of buffering per flow should be enough to reach
-line rate, even for a single flow, but this means the sk_sndbuf value
-for the socket must take into account the pipe size _plus_ 1ms of
-buffering.
+Best regards,
+Willy
