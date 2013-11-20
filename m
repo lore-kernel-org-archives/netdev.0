@@ -1,87 +1,95 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH RFC v1 7/7] net: cpsw: resume/suspend PHY on port start/stop
-Date: Wed, 20 Nov 2013 21:57:08 +0100
-Message-ID: <528D2224.9090106@gmail.com>
-References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com> <1384978913-8052-8-git-send-email-sebastian.hesselbarth@gmail.com> <CAGVrzcZ+5oaucp+OSeGGe=6MBjEwi4K=E_NbCm3PjR_Owyxstw@mail.gmail.com>
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC v1 4/7] net: phy: suspend unused PHYs on mdio_bus in late_initcall
+Date: Wed, 20 Nov 2013 12:58:52 -0800
+Message-ID: <CAGVrzcYBexBWrh2Nz8tu0KRLQ4YPjtJux9N-TC07-Hxf3On1FQ@mail.gmail.com>
+References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com> <1384978913-8052-5-git-send-email-sebastian.hesselbarth@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
 	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+	<linux-arm-kernel@lists.infradead.org>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcZ+5oaucp+OSeGGe=6MBjEwi4K=E_NbCm3PjR_Owyxstw@mail.gmail.com>
+In-Reply-To: <1384978913-8052-5-git-send-email-sebastian.hesselbarth@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/20/2013 09:48 PM, Florian Fainelli wrote:
-> 2013/11/20 Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>:
->> Network PHYs consume a noticable amount of power. This adds phy_resume
->> on slave_open and phy_suspend on slave_stop to save this power if the
->> port is down anyway.
->>
->> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
->> ---
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: netdev@vger.kernel.org
->> Cc: linux-arm-kernel@lists.infradead.org
->> Cc: linux-kernel@vger.kernel.org
->> ---
->>   drivers/net/ethernet/ti/cpsw.c |    2 ++
->>   1 files changed, 2 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
->> index 90d41d2..f1dc54f 100644
->> --- a/drivers/net/ethernet/ti/cpsw.c
->> +++ b/drivers/net/ethernet/ti/cpsw.c
->> @@ -1013,6 +1013,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
->>          } else {
->>                  dev_info(priv->dev, "phy found : id is : 0x%x\n",
->>                           slave->phy->phy_id);
->> +               phy_resume(slave->phy);
->>                  phy_start(slave->phy);
->
-> Cannot phy_start() figure this out for us based on the internal PHY
-> device state machine?
+2013/11/20 Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>:
+> Since phy_attach ensures PHYs are resumed, we can now suspend all
+> PHYs that have no attached netdev after initcalls.
 
-Yeah, as I said in the cover letter, I started with mv643xx_eth which
-is not using phy_start/stop as it probably should be. As soon as I
-looked at mvneta/cpsw, I also came to the conclusion that
-phy_suspend/resume should be hidden in phy_start/stop.
+I do like the idea, but I think you might want to make sure that the
+MDIO bus suspend policy was set to "auto" (which is the default afair)
+not to expose unexpected behavior.
 
-> I would imagine that you would want to call phy_suspend/resume from an
-> Ethernet driver's PM suspend/resume callbacks to make sure that the
-> PHY also enters a low power mode, but I do not want to have to
-> remember that I need to call phy_resume before phy_start for instance.
-> As of today we have PHY_HALTED/PHY_RESUMING, and I think we certainly
-> need at least a PHY_SUSPENDED state to help us with that.
 >
->>
->>                  /* Configure GMII_SEL register */
->> @@ -1081,6 +1082,7 @@ static void cpsw_slave_stop(struct cpsw_slave *slave, struct cpsw_priv *priv)
->>          if (!slave->phy)
->>                  return;
->>          phy_stop(slave->phy);
->> +       phy_suspend(slave->phy);
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> ---
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>  drivers/net/phy/mdio_bus.c |   27 +++++++++++++++++++++++++++
+>  1 files changed, 27 insertions(+), 0 deletions(-)
 >
-> Same here, why is not that hidden in phy_stop? If there is any fear
-> that this breaks setups where WoL is used or such, we could add a new
-> argument to phy_connect() and friends which says whether it is okay to
-> auto-suspend the PHY upon PHY_stop
+> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+> index 5617876..10eba58 100644
+> --- a/drivers/net/phy/mdio_bus.c
+> +++ b/drivers/net/phy/mdio_bus.c
+> @@ -320,6 +320,33 @@ static int mdio_bus_match(struct device *dev, struct device_driver *drv)
+>                 (phydev->phy_id & phydrv->phy_id_mask));
+>  }
 >
->>          phy_disconnect(slave->phy);
->>          slave->phy = NULL;
->>   }
->> --
->> 1.7.2.5
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> Please read the FAQ at  http://www.tux.org/lkml/
+> +static int mdio_bus_suspend_unused(struct device *busdev, void *data)
+> +{
+> +       struct mii_bus *bus = to_mii_bus(busdev);
+> +       struct phy_device *phydev;
+> +       struct phy_driver *phydrv;
+> +       int i;
+> +
+> +       for (i = 0; i < PHY_MAX_ADDR; i++) {
+> +               if (!bus->phy_map[i])
+> +                       continue;
+> +
+> +               phydev = to_phy_device(&bus->phy_map[i]->dev);
+> +               phydrv = to_phy_driver(phydev->dev.driver);
+> +               if (!phydev->attached_dev && phydrv && phydrv->suspend)
+> +                       phy_suspend(phydev);
+> +       }
+> +
+> +       return 0;
+
+You might want to reuse mdio_bus_phy_may_suspend() here to have a
+central place checking for phydev->attached_dev and phydrv->suspend
+just in case we need to add more callbacks in the future or implicit
+PHY state machine hooks. That might also take care of my concern
+expressed above.
+
+> +}
+> +
+> +static int mdio_bus_class_suspend_unused(void)
+> +{
+> +       return class_for_each_device(&mdio_bus_class, NULL, NULL,
+> +                                    mdio_bus_suspend_unused);
+> +}
+> +late_initcall_sync(mdio_bus_class_suspend_unused);
+> +
+>  #ifdef CONFIG_PM
+>
+>  static bool mdio_bus_phy_may_suspend(struct phy_device *phydev)
+> --
+> 1.7.2.5
 >
 >
->
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+
+
+
+-- 
+Florian
