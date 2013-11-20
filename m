@@ -1,87 +1,70 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCHv2] net: core: Always propagate flag changes to interfaces
-Date: Tue, 19 Nov 2013 19:37:45 -0500
-Message-ID: <1384907865-14409-1-git-send-email-vyasevic@redhat.com>
-Cc: s.priebe@profihost.ag, vfalico@redhat.com,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s
+Date: Tue, 19 Nov 2013 16:43:48 -0800
+Message-ID: <1384908228.8604.136.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131113072257.GB10591@1wt.eu> <20131117141940.GA18569@1wt.eu>
+	 <1384710098.8604.58.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <87li0kkhzx.fsf@natisbad.org>
+	 <1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131119174323.GH913@1wt.eu>
+	 <1384885910.8604.110.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131119184121.GN913@1wt.eu> <874n780wzc.fsf@natisbad.org>
+	 <1384906129.8604.132.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131120003519.GA22150@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Arnaud Ebalard <arno@natisbad.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	simon.guinot@sequanux.org, netdev@vger.kernel.org,
+	edumazet@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37611 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753578Ab3KTAh7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Nov 2013 19:37:59 -0500
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:52478 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753476Ab3KTAnw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Nov 2013 19:43:52 -0500
+Received: by mail-qa0-f46.google.com with SMTP id f11so2639850qae.19
+        for <netdev@vger.kernel.org>; Tue, 19 Nov 2013 16:43:51 -0800 (PST)
+In-Reply-To: <20131120003519.GA22150@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following commit:
-    b6c40d68ff6498b7f63ddf97cf0aa818d748dee7
-    net: only invoke dev->change_rx_flags when device is UP
+On Wed, 2013-11-20 at 01:35 +0100, Willy Tarreau wrote:
+> On Tue, Nov 19, 2013 at 04:08:49PM -0800, Eric Dumazet wrote:
+> > On Wed, 2013-11-20 at 00:53 +0100, Arnaud Ebalard wrote:
+> > 
+> > > Anyway, I think if the thread keeps going on improving mvneta, I'll do
+> > > all additional tests from RAM and will stop polluting netdev w/ possible
+> > > sata/disk/fs issues.
+> > 
+> > ;)
+> > 
+> > Alternative would be to use netperf or iperf to not use disk at all
+> > and focus on TCP/network issues only.
+> 
+> Yes, that's for the same reason that I continue to use inject/httpterm
+> for such purposes :
+>   - httpterm uses tee()+splice() to send pre-built pages without copying ;
+>   - inject uses recv(MSG_TRUNC) to ack everything without copying.
+> 
+> Both of them are really interesting to test the hardware's capabilities
+> and to push components in the middle to their limits without causing too
+> much burden to the end points.
+> 
+> I don't know if either netperf or iperf can make use of this now, and
+> I've been used to my tools, but I should take a look again.
 
-tried to fix a problem with VLAN devices and promiscuouse flag setting.
-The issue was that VLAN device was setting a flag on an interface that
-was down, thus resulting in bad promiscuity count.
-This commit blocked flag propagation to any device that is currently
-down.
+netperf -t TCP_SENDFILE  does the zero copy at sender.
 
-A later commit:
-    deede2fabe24e00bd7e246eb81cd5767dc6fcfc7
-    vlan: Don't propagate flag changes on down interfaces
+And more generally -V option does copy avoidance
 
-fixed VLAN code to only propagate flags when the VLAN interface is up,
-thus fixing the same issue as above, only localized to VLAN.
+(Use splice(sockfd -> nullfd) at receiver if I remember well)
 
-The problem we have now is that if we have create a complex stack
-involving multiple software devices like bridges, bonds, and vlans,
-then it is possible that the flags would not propagate properly to
-the physical devices.  A simple examle of the scenario is the
-following:
 
-  eth0----> bond0 ----> bridge0 ---> vlan50
+Anyway, we should do the normal copy, because it might demonstrate
+scheduling problems.
 
-If bond0 or eth0 happen to be down at the time bond0 is added to
-the bridge, then eth0 will never have promisc mode set which is
-currently required for operation as part of the bridge.  As a
-result, packets with vlan50 will be dropped by the interface.
-
-The only 2 devices that implement the special flag handling are
-VLAN and DSA and they both have required code to prevent incorrect
-flag propagation.  As a result we can remove the generic solution
-introduced in b6c40d68ff6498b7f63ddf97cf0aa818d748dee7 and leave
-it to the individual devices to decide whether they will block
-flag propagation or not.
-
-Reported-by: Stefan Priebe <s.priebe@profihost.ag>
-Suggested-by: Veaceslav Falico <vfalico@redhat.com>
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
-v1-v2: rebased on the proper net tree.
-
- net/core/dev.c | 6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 974143d..d856e34 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4991,7 +4991,7 @@ static void dev_change_rx_flags(struct net_device *dev, int flags)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
- 
--	if ((dev->flags & IFF_UP) && ops->ndo_change_rx_flags)
-+	if (ops->ndo_change_rx_flags)
- 		ops->ndo_change_rx_flags(dev, flags);
- }
- 
-@@ -6885,10 +6885,6 @@ static struct pernet_operations __net_initdata default_device_ops = {
- 	.exit = default_device_exit,
- 	.exit_batch = default_device_exit_batch,
- };
--
--/*
-- *	Initialize the DEV module. At boot time this walks the device list and
-- *	unhooks any devices that fail to initialise (normally hardware not
-  *	present) and leaves us with a valid list of present and active devices.
-  *
-  */
--- 
-1.8.4.2
+If you want to test raw speed, you could use pktgen ;)
