@@ -1,64 +1,55 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 0/8 v6] Open vSwitch upcall optimiziations
-Date: Thu, 21 Nov 2013 19:13:31 +0100
-Message-ID: <cover.1385057355.git.tgraf@suug.ch>
+Subject: [PATCH net-next 2/8] netlink: Avoid netlink mmap alloc if msg size exceeds frame size
+Date: Thu, 21 Nov 2013 19:13:33 +0100
+Message-ID: <ec90cfecc3489a9959757243c12ddbb8f72aacdd.1385057355.git.tgraf@suug.ch>
+References: <cover.1385057355.git.tgraf@suug.ch>
 Cc: dev@openvswitch.org, netdev@vger.kernel.org, dborkman@redhat.com,
 	ffusco@redhat.com, fleitner@redhat.com, eric.dumazet@gmail.com,
 	bhutchings@solarflare.com
 To: jesse@nicira.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:54582 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:54586 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751569Ab3KUSNt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:13:49 -0500
+	with ESMTP id S1753927Ab3KUSNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:13:50 -0500
+In-Reply-To: <cover.1385057355.git.tgraf@suug.ch>
+In-Reply-To: <cover.1385057355.git.tgraf@suug.ch>
+References: <cover.1385057355.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reposting this before the merge window as it will go through Jesse's
-tree.
+An insufficent ring frame size configuration can lead to an
+unnecessary skb allocation for every Netlink message. Check frame
+size before taking the queue lock and allocating the skb and
+re-check with lock to be safe.
 
-Given jumbo frames, the capacity of the slow path is improved by 
-a factor of 2.5x.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/netlink/af_netlink.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-V6: - Added memory mapped netlink i/o support
-    - Drop user_features if old user space not aware of user features
-      reuses an existing datapath
-V5: - Removed padding requirement in user space
-    - Added OVS_DP_F_UNALIGNED flag let user space signal ability to
-      receive unaligned Netlink messages, fall back to linear copy
-      otherwise.
-V4: - Daniel Borkmann pointed out that the style in skbuff.h has changed
-      in net-next, adapted to no longer using extern in headers.
-V3: - Removed unneeded alignment of nlmsg_len after padding
-V2: - Added skb_zerocopy_headlen() to calculate headroom of destination
-      buffer. This also takes care of the from->head_frag issue.
-    - Attribute alignment for frag_list case
-    - API documentation
-    - performance data for CHECKSUM_PARTIAL tx case
-
-Thomas Graf (8):
-  genl: Add genlmsg_new_unicast() for unicast message allocation
-  netlink: Avoid netlink mmap alloc if msg size exceeds frame size
-  openvswitch: Enable memory mapped Netlink i/o
-  net: Export skb_zerocopy() to zerocopy from one skb to another
-  openvswitch: Allow user space to announce ability to accept unaligned
-    Netlink messages
-  openvswitch: Allow update of dp with OVS_DP_CMD_NEW if NLM_F_REPLACE
-    is set
-  openvswitch: Drop user features if old user space attempted to create
-    datapath
-  openvswitch: Use skb_zerocopy() for upcall
-
- include/linux/skbuff.h               |   3 +
- include/net/genetlink.h              |   4 +
- include/uapi/linux/openvswitch.h     |  15 ++-
- net/core/skbuff.c                    |  85 +++++++++++++++
- net/netfilter/nfnetlink_queue_core.c |  59 +----------
- net/netlink/af_netlink.c             |   4 +
- net/netlink/genetlink.c              |  21 ++++
- net/openvswitch/datapath.c           | 193 ++++++++++++++++++++++-------------
- net/openvswitch/datapath.h           |   2 +
- 9 files changed, 257 insertions(+), 129 deletions(-)
-
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index bca50b9..6433489 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1769,6 +1769,9 @@ struct sk_buff *netlink_alloc_skb(struct sock *ssk, unsigned int size,
+ 	if (ring->pg_vec == NULL)
+ 		goto out_put;
+ 
++	if (ring->frame_size - NL_MMAP_HDRLEN < size)
++		goto out_put;
++
+ 	skb = alloc_skb_head(gfp_mask);
+ 	if (skb == NULL)
+ 		goto err1;
+@@ -1778,6 +1781,7 @@ struct sk_buff *netlink_alloc_skb(struct sock *ssk, unsigned int size,
+ 	if (ring->pg_vec == NULL)
+ 		goto out_free;
+ 
++	/* check again under lock */
+ 	maxlen = ring->frame_size - NL_MMAP_HDRLEN;
+ 	if (maxlen < size)
+ 		goto out_free;
 -- 
 1.8.3.1
