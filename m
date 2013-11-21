@@ -1,32 +1,62 @@
-From: Jukka Rissanen <jukka.rissanen@linux.intel.com>
-Subject: Question about IPv6 neighbor discovery and 6lowpan
-Date: Thu, 21 Nov 2013 17:02:58 +0200
-Message-ID: <1385046178.2723.17.camel@jrissane-mobl.ger.corp.intel.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH 0/4] bonding: L2DA mode
+Date: Thu, 21 Nov 2013 10:09:14 -0500
+Message-ID: <528E221A.6090307@greyhouse.net>
+References: <1385045738-29726-1-git-send-email-Anton.Nayshtut@wilocity.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10463 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754068Ab3KUPDA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Nov 2013 10:03:00 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Anton Nayshtut <Anton.Nayshtut@wilocity.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1385045738-29726-1-git-send-email-Anton.Nayshtut@wilocity.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On 11/21/2013 09:55 AM, Anton Nayshtut wrote:
+> L2 Destination Address based (L2DA) mode allows bonding to send packets using
+> different slaves according to packets L2 Destination Address.
+>
+> In L2DA mode, the bonding maintains a default slave and DA/slave map.
+>
+> Upon a packet transmission, the bonding examines DA of the packet and tries to
+> find a corresponding slave within the map. If found, the slave is used for the
+> packet transmission. Otherwise, the default slave is used. If the default slave
+> is unable to transmit at this moment, the bonding tries to fall back to an
+> arbitrary slave that can transmit.
+>
+> Both the default slave and the map can be controlled via sysfs or by ioctls.
+>
+> Anton Nayshtut (4):
+>    bonding: L2DA mode added
+>    bonding: L2DA mode intergated
+>    bonding: L2DA command IOCTL
+>    bonding: L2DA query IOCTL
+>
+>   drivers/net/bonding/Makefile       |   2 +-
+>   drivers/net/bonding/bond_l2da.c    | 425 +++++++++++++++++++++++++++++++++++++
+>   drivers/net/bonding/bond_l2da.h    |  56 +++++
+>   drivers/net/bonding/bond_main.c    | 172 ++++++++++++++-
+>   drivers/net/bonding/bond_options.c |  17 +-
+>   drivers/net/bonding/bond_sysfs.c   | 223 ++++++++++++++++++-
+>   drivers/net/bonding/bonding.h      |   7 +
+>   include/uapi/linux/if_bonding.h    |  32 +++
+>   include/uapi/linux/sockios.h       |   4 +-
+>   net/core/dev_ioctl.c               |   4 +
+>   net/socket.c                       |   4 +
+>   11 files changed, 937 insertions(+), 9 deletions(-)
+>   create mode 100644 drivers/net/bonding/bond_l2da.c
+>   create mode 100644 drivers/net/bonding/bond_l2da.h
+>
 
-I am investigating RFC 6775 (Neighbor Discovery Optimization for IPv6
-over Low-Power Wireless Personal Area Networks (6LoWPANs))
-http://tools.ietf.org/html/rfc6775
-
-The RFC suggests some changes to neighbor discovery procedure for the
-6LoWPAN networks. I was looking net/ipv6/ndisc.c and it seems that
-ARPHRD type (from type field in net_device struct) is the only way to
-detect and change the discovery procedure in the ndisc.c code. Am I
-right with this assumption here?
-
-
-Cheers,
-Jukka
+I have not done a full review of this, but I notice right away that 
+there are no patches to Documentation/networking/bonding.txt.  You can 
+wait until there are more comments before submitting a v2 of this 
+series, but please make sure it includes a documentation update when 
+submitted.
