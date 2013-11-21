@@ -1,234 +1,97 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 4/8] net: Export skb_zerocopy() to zerocopy from one skb to another
-Date: Thu, 21 Nov 2013 19:13:35 +0100
-Message-ID: <8a036315a873af572a5e6db9367639617e663db2.1385057355.git.tgraf@suug.ch>
-References: <cover.1385057355.git.tgraf@suug.ch>
-Cc: dev@openvswitch.org, netdev@vger.kernel.org, dborkman@redhat.com,
-	ffusco@redhat.com, fleitner@redhat.com, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com
-To: jesse@nicira.com, davem@davemloft.net
+From: Thomas Graf <tgraf@redhat.com>
+Subject: [PATCH openvswitch] linux: Signal datapath that unaligned Netlink message can be received
+Date: Thu, 21 Nov 2013 19:15:27 +0100
+Message-ID: <48c93fb3c82bca0c9858ff528e2cf79d72d76082.1385057672.git.tgraf@redhat.com>
+Cc: dev@openvswitch.org, netdev@vger.kernel.org
+To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:54614 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754713Ab3KUSN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:13:56 -0500
-In-Reply-To: <cover.1385057355.git.tgraf@suug.ch>
-In-Reply-To: <cover.1385057355.git.tgraf@suug.ch>
-References: <cover.1385057355.git.tgraf@suug.ch>
+Received: from mx1.redhat.com ([209.132.183.28]:38297 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750858Ab3KUSPi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Nov 2013 13:15:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make the skb zerocopy logic written for nfnetlink queue available for
-use by other modules.
+Following commit (''netlink: Do not enforce alignment of last Netlink
+attribute''), signal the ability to receive unaligned Netlink messages
+to the datapath to enable utilization of zerocopy optimizations.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
-Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Thomas Graf <tgraf@redhat.com>
 ---
- include/linux/skbuff.h               |  3 ++
- net/core/skbuff.c                    | 85 ++++++++++++++++++++++++++++++++++++
- net/netfilter/nfnetlink_queue_core.c | 59 ++-----------------------
- 3 files changed, 92 insertions(+), 55 deletions(-)
+ include/linux/openvswitch.h | 15 ++++++++++++++-
+ lib/dpif-linux.c            |  6 ++++++
+ 2 files changed, 20 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index bec1cc7..7c48e2d 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2345,6 +2345,9 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
- 		    struct pipe_inode_info *pipe, unsigned int len,
- 		    unsigned int flags);
- void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
-+unsigned int skb_zerocopy_headlen(const struct sk_buff *from);
-+void skb_zerocopy(struct sk_buff *to, const struct sk_buff *from,
-+		  int len, int hlen);
- void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len);
- int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen);
- void skb_scrub_packet(struct sk_buff *skb, bool xnet);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 8cec1e6..b448fc0 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2122,6 +2122,91 @@ __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset,
- }
- EXPORT_SYMBOL(skb_copy_and_csum_bits);
+diff --git a/include/linux/openvswitch.h b/include/linux/openvswitch.h
+index b429201..52dde86 100644
+--- a/include/linux/openvswitch.h
++++ b/include/linux/openvswitch.h
+@@ -60,7 +60,16 @@ struct ovs_header {
  
-+ /**
-+ *	skb_zerocopy_headlen - Calculate headroom needed for skb_zerocopy()
-+ *	@from: source buffer
-+ *
-+ *	Calculates the amount of linear headroom needed in the 'to' skb passed
-+ *	into skb_zerocopy().
-+ */
-+unsigned int
-+skb_zerocopy_headlen(const struct sk_buff *from)
-+{
-+	unsigned int hlen = 0;
-+
-+	if (!from->head_frag ||
-+	    skb_headlen(from) < L1_CACHE_BYTES ||
-+	    skb_shinfo(from)->nr_frags >= MAX_SKB_FRAGS)
-+		hlen = skb_headlen(from);
-+
-+	if (skb_has_frag_list(from))
-+		hlen = from->len;
-+
-+	return hlen;
-+}
-+EXPORT_SYMBOL_GPL(skb_zerocopy_headlen);
+ #define OVS_DATAPATH_FAMILY  "ovs_datapath"
+ #define OVS_DATAPATH_MCGROUP "ovs_datapath"
+-#define OVS_DATAPATH_VERSION 0x1
 +
 +/**
-+ *	skb_zerocopy - Zero copy skb to skb
-+ *	@to: destination buffer
-+ *	@source: source buffer
-+ *	@len: number of bytes to copy from source buffer
-+ *	@hlen: size of linear headroom in destination buffer
-+ *
-+ *	Copies up to `len` bytes from `from` to `to` by creating references
-+ *	to the frags in the source buffer.
-+ *
-+ *	The `hlen` as calculated by skb_zerocopy_headlen() specifies the
-+ *	headroom in the `to` buffer.
++ * V2:
++ *   - API users are expected to provide OVS_DP_ATTR_USER_FEATURES
++ *     with NLM_F_REPLACE when creating the datapath.
 + */
-+void
-+skb_zerocopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
-+{
-+	int i, j = 0;
-+	int plen = 0; /* length of skb->head fragment */
-+	struct page *page;
-+	unsigned int offset;
++#define OVS_DATAPATH_VERSION 2
 +
-+	BUG_ON(!from->head_frag && !hlen);
++/* First OVS datapath version to support features */
++#define OVS_DP_VER_FEATURES 2
+ 
+ enum ovs_datapath_cmd {
+ 	OVS_DP_CMD_UNSPEC,
+@@ -95,6 +104,7 @@ enum ovs_datapath_attr {
+ 	OVS_DP_ATTR_UPCALL_PID,		/* Netlink PID to receive upcalls */
+ 	OVS_DP_ATTR_STATS,		/* struct ovs_dp_stats */
+ 	OVS_DP_ATTR_MEGAFLOW_STATS,	/* struct ovs_dp_megaflow_stats */
++	OVS_DP_ATTR_USER_FEATURES,	/* OVS_DP_F_*  */
+ 	__OVS_DP_ATTR_MAX
+ };
+ 
+@@ -126,6 +136,9 @@ struct ovs_vport_stats {
+ 	__u64   tx_dropped;		/* no space available in linux  */
+ };
+ 
++/* Allow last Netlink attribute to be unaligned */
++#define OVS_DP_F_UNALIGNED (1 << 0)
 +
-+	/* dont bother with small payloads */
-+	if (len <= skb_tailroom(to)) {
-+		skb_copy_bits(from, 0, skb_put(to, len), len);
-+		return;
-+	}
+ /* Fixed logical ports. */
+ #define OVSP_LOCAL      ((__u32)0)
+ 
+diff --git a/lib/dpif-linux.c b/lib/dpif-linux.c
+index 1dcf321..5c952bc 100644
+--- a/lib/dpif-linux.c
++++ b/lib/dpif-linux.c
+@@ -73,6 +73,7 @@ struct dpif_linux_dp {
+     /* Attributes. */
+     const char *name;                  /* OVS_DP_ATTR_NAME. */
+     const uint32_t *upcall_pid;        /* OVS_DP_ATTR_UPCALL_PID. */
++    uint32_t user_features;            /* OVS_DP_ATTR_USER_FEATURES */
+     struct ovs_dp_stats stats;         /* OVS_DP_ATTR_STATS. */
+     struct ovs_dp_megaflow_stats megaflow_stats;
+                                        /* OVS_DP_ATTR_MEGAFLOW_STATS.*/
+@@ -232,6 +233,7 @@ dpif_linux_open(const struct dpif_class *class OVS_UNUSED, const char *name,
+         dp_request.cmd = OVS_DP_CMD_GET;
+     }
+     dp_request.name = name;
++    dp_request.user_features |= OVS_DP_F_UNALIGNED;
+     error = dpif_linux_dp_transact(&dp_request, &dp, &buf);
+     if (error) {
+         return error;
+@@ -1839,6 +1841,10 @@ dpif_linux_dp_to_ofpbuf(const struct dpif_linux_dp *dp, struct ofpbuf *buf)
+         nl_msg_put_u32(buf, OVS_DP_ATTR_UPCALL_PID, *dp->upcall_pid);
+     }
+ 
++    if (dp->user_features) {
++        nl_msg_put_u32(buf, OVS_DP_ATTR_USER_FEATURES, dp->user_features);
++    }
 +
-+	if (hlen) {
-+		skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
-+		len -= hlen;
-+	} else {
-+		plen = min_t(int, skb_headlen(from), len);
-+		if (plen) {
-+			page = virt_to_head_page(from->head);
-+			offset = from->data - (unsigned char *)page_address(page);
-+			__skb_fill_page_desc(to, 0, page, offset, plen);
-+			get_page(page);
-+			j = 1;
-+			len -= plen;
-+		}
-+	}
-+
-+	to->truesize += len + plen;
-+	to->len += len + plen;
-+	to->data_len += len + plen;
-+
-+	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
-+		if (!len)
-+			break;
-+		skb_shinfo(to)->frags[j] = skb_shinfo(from)->frags[i];
-+		skb_shinfo(to)->frags[j].size = min_t(int, skb_shinfo(to)->frags[j].size, len);
-+		len -= skb_shinfo(to)->frags[j].size;
-+		skb_frag_ref(to, j);
-+		j++;
-+	}
-+	skb_shinfo(to)->nr_frags = j;
-+}
-+EXPORT_SYMBOL_GPL(skb_zerocopy);
-+
- void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to)
- {
- 	__wsum csum;
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index 21258cf..615ee12 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -235,51 +235,6 @@ nfqnl_flush(struct nfqnl_instance *queue, nfqnl_cmpfn cmpfn, unsigned long data)
- 	spin_unlock_bh(&queue->lock);
+     /* Skip OVS_DP_ATTR_STATS since we never have a reason to serialize it. */
  }
  
--static void
--nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
--{
--	int i, j = 0;
--	int plen = 0; /* length of skb->head fragment */
--	struct page *page;
--	unsigned int offset;
--
--	/* dont bother with small payloads */
--	if (len <= skb_tailroom(to)) {
--		skb_copy_bits(from, 0, skb_put(to, len), len);
--		return;
--	}
--
--	if (hlen) {
--		skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
--		len -= hlen;
--	} else {
--		plen = min_t(int, skb_headlen(from), len);
--		if (plen) {
--			page = virt_to_head_page(from->head);
--			offset = from->data - (unsigned char *)page_address(page);
--			__skb_fill_page_desc(to, 0, page, offset, plen);
--			get_page(page);
--			j = 1;
--			len -= plen;
--		}
--	}
--
--	to->truesize += len + plen;
--	to->len += len + plen;
--	to->data_len += len + plen;
--
--	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
--		if (!len)
--			break;
--		skb_shinfo(to)->frags[j] = skb_shinfo(from)->frags[i];
--		skb_shinfo(to)->frags[j].size = min_t(int, skb_shinfo(to)->frags[j].size, len);
--		len -= skb_shinfo(to)->frags[j].size;
--		skb_frag_ref(to, j);
--		j++;
--	}
--	skb_shinfo(to)->nr_frags = j;
--}
--
- static int
- nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet,
- 		      bool csum_verify)
-@@ -304,7 +259,7 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- {
- 	size_t size;
- 	size_t data_len = 0, cap_len = 0;
--	int hlen = 0;
-+	unsigned int hlen = 0;
- 	struct sk_buff *skb;
- 	struct nlattr *nla;
- 	struct nfqnl_msg_packet_hdr *pmsg;
-@@ -356,14 +311,8 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 		if (data_len > entskb->len)
- 			data_len = entskb->len;
- 
--		if (!entskb->head_frag ||
--		    skb_headlen(entskb) < L1_CACHE_BYTES ||
--		    skb_shinfo(entskb)->nr_frags >= MAX_SKB_FRAGS)
--			hlen = skb_headlen(entskb);
--
--		if (skb_has_frag_list(entskb))
--			hlen = entskb->len;
--		hlen = min_t(int, data_len, hlen);
-+		hlen = skb_zerocopy_headlen(entskb);
-+		hlen = min_t(unsigned int, hlen, data_len);
- 		size += sizeof(struct nlattr) + hlen;
- 		cap_len = entskb->len;
- 		break;
-@@ -504,7 +453,7 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 		nla->nla_type = NFQA_PAYLOAD;
- 		nla->nla_len = nla_attr_size(data_len);
- 
--		nfqnl_zcopy(skb, entskb, data_len, hlen);
-+		skb_zerocopy(skb, entskb, data_len, hlen);
- 	}
- 
- 	nlh->nlmsg_len = skb->len;
 -- 
 1.8.3.1
