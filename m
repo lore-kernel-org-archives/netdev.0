@@ -1,57 +1,54 @@
-From: rama nichanamatlu <rama.nichanamatlu@oracle.com>
-Subject: Re: [PATCH] bonding: If IP route look-up to send an ARP fails, mark
- in bonding structure as no ARP sent.
-Date: Thu, 21 Nov 2013 12:34:08 -0800
-Message-ID: <528E6E40.6020201@oracle.com>
-References: <528D5980.3040309@oracle.com> <20131121111022.GA30998@redhat.com>
+From: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH openvswitch] linux: Signal datapath that
+ unaligned Netlink message can be received
+Date: Thu, 21 Nov 2013 12:52:08 -0800
+Message-ID: <20131121205208.GA24729@nicira.com>
+References: <48c93fb3c82bca0c9858ff528e2cf79d72d76082.1385057672.git.tgraf@redhat.com>
+	<528E559C.4020201@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:40649 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751508Ab3KUUeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 15:34:16 -0500
-In-Reply-To: <20131121111022.GA30998@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <528E559C.4020201-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11/21/2013 3:10 AM, Veaceslav Falico wrote:
-> On Wed, Nov 20, 2013 at 04:53:20PM -0800, rama nichanamatlu wrote:
->> During the creation of VLAN's atop bonding the underlying interfaces
->> are made part of VLAN's, and at the same bonding driver gets aware
->> that VLAN's exists above it and hence would consult IP routing for
->> every ARP to  be sent to determine the route which tells bonding
->> driver the correct VLAN tag to attach to the outgoing ARP packet. But,
->> during the VLAN creation when vlan driver puts the underlying
->> interface into default vlan and then actual vlan, in-between this if
->> bonding driver consults the IP for a route, IP fails to provide a
->> correct route and upon which bonding driver drops the ARP packet. ARP
->> monitor when it
->> comes around next time, sees no ARP response and fails-over to the
->> next available slave. Consulting for a IP route,
->> ip_route_output(),happens in bond_arp_send_all().
+On Thu, Nov 21, 2013 at 10:49:00PM +0400, Sergei Shtylyov wrote:
+> On 21-11-2013 22:15, Thomas Graf wrote:
 > 
-> bonding works as expected - nothing to fix here. And even as a
-> workaround/hack - I'm not sure we need that to suppress one failover *only*
-> when vlan is added on top.
+> >Following commit (''netlink: Do not enforce alignment of last Netlink
+> >attribute''), signal the ability to receive unaligned Netlink messages
+> >to the datapath to enable utilization of zerocopy optimizations.
 > 
->>
-Thank U.
-With *out* this change our systems failed system testing, to
-consistently be on designated primary interface on *every* single
-reboot. With this change the behavior was as expected even after a few
-thousand reboots & System testing could move to next level catching an
-another bug in sr-iov :). And Without, the outcome was less predictable
-after a reboot and bonding was on a different slave each time.
--Rama
->> To prevent this false fail-over, when bonding driver fails to send an
->> ARP out it marks in its private structure, bonding{},  not to expect
->> an ARP response, when ARP monitor comes around next time ARP sending
->> will be tried again.
->>
->> Extensively tested in a VM environment; sr-iov intf->bonding
->> intf->vlan intf. All virtual interfaces created at boot time.
->>
+> >Signed-off-by: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> [...]
+> 
+> >diff --git a/lib/dpif-linux.c b/lib/dpif-linux.c
+> >index 1dcf321..5c952bc 100644
+> >--- a/lib/dpif-linux.c
+> >+++ b/lib/dpif-linux.c
+> [...]
+> >@@ -1839,6 +1841,10 @@ dpif_linux_dp_to_ofpbuf(const struct dpif_linux_dp *dp, struct ofpbuf *buf)
+> >          nl_msg_put_u32(buf, OVS_DP_ATTR_UPCALL_PID, *dp->upcall_pid);
+> >      }
+> >
+> >+    if (dp->user_features) {
+> >+        nl_msg_put_u32(buf, OVS_DP_ATTR_USER_FEATURES, dp->user_features);
+> >+    }
+> >+
+> 
+>    {} not needed here.
+
+This is Open vSwitch code, so it follows Open vSwitch coding style,
+which requires the {}.
