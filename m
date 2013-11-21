@@ -1,60 +1,45 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] net: sctp: find the correct highest_new_tsn in sack
-Date: Thu, 21 Nov 2013 17:14:01 -0500
-Message-ID: <528E85A9.3000703@gmail.com>
-References: <1385070988-29554-1-git-send-email-changxiangzhong@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 7/8] openvswitch: Drop user features if old user
+ space attempted to create datapath
+Date: Thu, 21 Nov 2013 22:20:47 +0000
+Message-ID: <20131121222047.GA14252@casper.infradead.org>
+References: <cover.1385057355.git.tgraf@suug.ch>
+ <68ddfb6e0ef4401f246f2599ade5c15b25063736.1385057355.git.tgraf@suug.ch>
+ <1385058197.1586.15.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chang Xiangzhong <changxiangzhong@gmail.com>,
-	nhorman@tuxdriver.com, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: jesse@nicira.com, davem@davemloft.net, dev@openvswitch.org,
+	netdev@vger.kernel.org, dborkman@redhat.com, ffusco@redhat.com,
+	fleitner@redhat.com, eric.dumazet@gmail.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f54.google.com ([209.85.213.54]:47307 "EHLO
-	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754333Ab3KUWOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 17:14:05 -0500
-In-Reply-To: <1385070988-29554-1-git-send-email-changxiangzhong@gmail.com>
+Received: from casper.infradead.org ([85.118.1.10]:41264 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752587Ab3KUWUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 17:20:49 -0500
+Content-Disposition: inline
+In-Reply-To: <1385058197.1586.15.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/21/2013 04:56 PM, Chang Xiangzhong wrote:
-> Function sctp_check_transmitted(transport t, ...) would iterate all of
-> transport->transmitted queue and looking for the highest __newly__ acked tsn.
-> The original algorithm would depend on the order of the assoc->transport_list
-> (in function sctp_outq_sack line 1215 - 1226). The result might not be the
-> expected due to the order of the tranport_list.
+On 11/21/13 at 06:23pm, Ben Hutchings wrote:
+> On Thu, 2013-11-21 at 19:13 +0100, Thomas Graf wrote:
+> > +
+> > +/**
+> > + * V2:
 > 
-> Solution: checking if the exising is smaller than the new one before assigning
+> This is not kernel-doc format so don't use '/**'.
+
+I was hoping kernel-doc would pick it up but it doesn't.
+I'll convert it.
+
+> > +		if (info->genlhdr->version < OVS_DP_VER_FEATURES) {
+> > +			WARN_ONCE(dp->user_features, "Dropping previously "
+> > +				  "announced user features");
 > 
-> Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
+> Log messages shouldn't be split like this as it makes them harder to
+> find.  There should also be a newline at the end of the message.
 
-Good find.  This has been around for since day 1.  It doesn't so much
-depend on the order of the transport list, but on the order the
-transports been used.  I agree it is a problem if chunks have been
-distributed across multiple transports and a singe SACK acking them all.
+Right, I'll fix this up. We seem to have many of these unfixed.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-
--vlad
-
-> ---
->  net/sctp/outqueue.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index ef9e2bb..1b494fa 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -1397,7 +1397,8 @@ static void sctp_check_transmitted(struct sctp_outq *q,
->  			 */
->  			if (!tchunk->tsn_gap_acked) {
->  				tchunk->tsn_gap_acked = 1;
-> -				*highest_new_tsn_in_sack = tsn;
-> +				if (TSN_lt(*highest_new_tsn_in_sack, tsn))
-> +					*highest_new_tsn_in_sack = tsn;
->  				bytes_acked += sctp_data_size(tchunk);
->  				if (!tchunk->transport)
->  					migrate_bytes += sctp_data_size(tchunk);
-> 
+Jesse, do you want a full respin or just a v2 of this patch?
