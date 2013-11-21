@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv1 net] xen-netback: stop the VIF thread before
- unbinding IRQs
-Date: Thu, 21 Nov 2013 13:17:51 -0500 (EST)
-Message-ID: <20131121.131751.1231978152112137182.davem@davemloft.net>
-References: <1385047569-23622-1-git-send-email-david.vrabel@citrix.com>
+Subject: Re: [PATCH] genetlink: fix genlmsg_multicast() bug
+Date: Thu, 21 Nov 2013 13:18:09 -0500 (EST)
+Message-ID: <20131121.131809.935111586164423904.davem@davemloft.net>
+References: <1385054224-1410-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, konrad.wilk@oracle.com,
-	boris.ostrovsky@oracle.com, ian.campbell@citrix.com,
-	wei.liu2@citrix.com, netdev@vger.kernel.org
-To: david.vrabel@citrix.com
+Cc: netdev@vger.kernel.org, johannes.berg@intel.com
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43486 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43500 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754044Ab3KUSRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:17:52 -0500
-In-Reply-To: <1385047569-23622-1-git-send-email-david.vrabel@citrix.com>
+	with ESMTP id S1752640Ab3KUSSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:18:10 -0500
+In-Reply-To: <1385054224-1410-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Vrabel <david.vrabel@citrix.com>
-Date: Thu, 21 Nov 2013 15:26:09 +0000
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Thu, 21 Nov 2013 18:17:04 +0100
 
-> From: David Vrabel <david.vrabel@citrix.com>
+> From: Johannes Berg <johannes.berg@intel.com>
 > 
-> If the VIF thread is still running after unbinding the Tx and Rx IRQs
-> in xenvif_disconnect(), the thread may attempt to raise an event which
-> will BUG (as the irq is unbound).
+> Unfortunately, I introduced a tremendously stupid bug into
+> genlmsg_multicast() when doing all those multicast group
+> changes: it adjusts the group number, but then passes it
+> to genlmsg_multicast_netns() which does that again.
 > 
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Somehow, my tests failed to catch this, so add a warning
+> into genlmsg_multicast_netns() and remove the offending
+> group ID adjustment.
+> 
+> Also add a warning to the similar code in other functions
+> so people who misuse them are more loudly warned.
+> 
+> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 
 Applied.
