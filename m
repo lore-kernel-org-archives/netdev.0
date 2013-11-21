@@ -1,23 +1,65 @@
-From: Facebook Award <psxx@health.go.ke>
-Subject: Facebook End Of Year Promotional Award
-Date: Wed, 20 Nov 2013 20:38:51 +0100
-Message-ID: <20131120203650.DAE772684CC@mail.health.go.ke>
-Reply-To: promotionalaward90@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: Get rxhash fixes and RFS support in tun
+Date: Wed, 20 Nov 2013 19:02:52 -0500 (EST)
+Message-ID: <20131120.190252.940036939480739452.davem@davemloft.net>
+References: <alpine.DEB.2.02.1311201220510.19725@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <psxx@health.go.ke>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, hkchu@google.com
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [41.57.103.130] ([41.57.103.130]:13461 "EHLO mail.health.go.ke"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755090Ab3KTX16 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 18:27:58 -0500
-Content-Description: Mail message body
+Received: from shards.monkeyblade.net ([149.20.54.216]:37989 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754975Ab3KUACz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 19:02:55 -0500
+In-Reply-To: <alpine.DEB.2.02.1311201220510.19725@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You Have Been Awarded =A3100,000 Pounds By Facebook End Of Year Promoti=
-onal Award. Contact Our Agent:
+From: Tom Herbert <therbert@google.com>
+Date: Wed, 20 Nov 2013 12:25:48 -0800 (PST)
 
-Le ha concedido =A3 100.000 libras por Facebook Fin A=F1o Premio Promoc=
-ional Of. P=F3ngase en contacto con nuestro agente:
+> This patch series fixes some subtle bugs in tun use of skb->rxhash, all
+> rxhash hash not be cleared appropraitely, and adds support for tun flows
+> to work with RFS.
+> 
+> Testing, in particular with tun, hasn't been completed yet.
+
+I think this needs to be reworked slightly.
+
+We really only have two boolean states:
+
+1) Is the rxhash value in this SKB valid?
+
+2) Is it a full L4 tuple hash?
+
+You are adding a "this is a SW computed hash" boolean state but I do
+not think you should distinguish sw vs. hw especially.  If the
+hardware computed the rxhash on a tunneled packet in the
+pre-decapsulated state, we very much want to recompute it, in
+software, upon tunnel decapsulation in ip_tunnel_core.c
+
+This is actually implemented in this patch set, by testing two states.
+Both the "l4_rxhash" and "sw_rxhash".
+
+Why don't we just do everything in a straightforward manner, where
+nothing directly sets rxhash values.  Only helper routines do.
+
+1) skb_set_rxhash(struct sk_buff *skb, __u32 rxhash, bool l4_rxhash)
+
+   Update all drivers to call this.
+
+2) Add "rxhash_valid" boolean to sk_buff, set it in skb_set_rxhash,
+   test it in skb_get_rxhash(), propagate it in SKB copies.
+
+3) Your skb_clear_rxhash() now just clears rxhash_valid.
+
+Now, if the issue is that HW computed hashes sometimes do the tunnel
+demux and look into the inner L4 headers to compute the hash, you'll
+need a boolean to indicate _that_ rather than unconditionally treating
+hardware that way.  Because not all of them will do this, and for
+those that do not you do want to compute the hash in SW after tunnel
+decapsulation.
+
+Thoughts?
