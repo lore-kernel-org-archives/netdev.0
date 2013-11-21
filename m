@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 07/13] bna: Fix Stale MTU used to Configure Multi-buffer RX
-Date: Wed, 20 Nov 2013 21:54:11 -0800
-Message-ID: <1385013257-32745-8-git-send-email-rmody@brocade.com>
+Subject: [net-next 02/13] bna: Set Get IOC fw State
+Date: Wed, 20 Nov 2013 21:54:06 -0800
+Message-ID: <1385013257-32745-3-git-send-email-rmody@brocade.com>
 References: <1385013257-32745-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,124 +10,216 @@ Cc: <netdev@vger.kernel.org>,
 	Rasesh Mody <rmody@Brocade.COM>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:23167 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:7951 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750856Ab3KUGOr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 01:14:47 -0500
+	by vger.kernel.org with ESMTP id S1750902Ab3KUGSB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 01:18:01 -0500
 In-Reply-To: <1385013257-32745-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change Details:
- - Rx initialization uses MTU. ENET MTU set should be called before setting up
-   Rx. Added checks to make sure that reinit is called only when required.
+Add APIs to set and get IOC currnet fw state and alt IOC fw state
+ - bfa_ioc_ct_set_cur_ioc_fwstate()
+ - bfa_ioc_ct_get_cur_ioc_fwstate()
+ - bfa_ioc_ct_set_alt_ioc_fwstate()
+ - bfa_ioc_ct_get_alt_ioc_fwstate()
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c | 32 +++++++++++++++++++++++++-------
- drivers/net/ethernet/brocade/bna/bnad.h |  6 +-----
- 2 files changed, 26 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c    | 32 +++++++++++++--------
+ drivers/net/ethernet/brocade/bna/bfa_ioc.h    |  7 +++++
+ drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c | 40 +++++++++++++++++++++++++++
+ 3 files changed, 67 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index e8c1900..6ae1d9a 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -2013,6 +2013,7 @@ err_return:
- static void
- bnad_init_rx_config(struct bnad *bnad, struct bna_rx_config *rx_config)
- {
-+	memset(rx_config, 0, sizeof(*rx_config));
- 	rx_config->rx_type = BNA_RX_T_REGULAR;
- 	rx_config->num_paths = bnad->num_rxp_per_rx;
- 	rx_config->coalescing_timeo = bnad->rx_coalescing_timeo;
-@@ -2035,6 +2036,7 @@ bnad_init_rx_config(struct bnad *bnad, struct bna_rx_config *rx_config)
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.c b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+index 6f3cac0..b81132a 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.c
+@@ -42,6 +42,14 @@
+ 			((__ioc)->ioc_hwif->ioc_sync_ack(__ioc))
+ #define bfa_ioc_sync_complete(__ioc)			\
+ 			((__ioc)->ioc_hwif->ioc_sync_complete(__ioc))
++#define bfa_ioc_set_cur_ioc_fwstate(__ioc, __fwstate)		\
++			((__ioc)->ioc_hwif->ioc_set_fwstate(__ioc, __fwstate))
++#define bfa_ioc_get_cur_ioc_fwstate(__ioc)		\
++			((__ioc)->ioc_hwif->ioc_get_fwstate(__ioc))
++#define bfa_ioc_set_alt_ioc_fwstate(__ioc, __fwstate)		\
++		((__ioc)->ioc_hwif->ioc_set_alt_fwstate(__ioc, __fwstate))
++#define bfa_ioc_get_alt_ioc_fwstate(__ioc)		\
++			((__ioc)->ioc_hwif->ioc_get_alt_fwstate(__ioc))
+ 
+ #define bfa_ioc_mbox_cmd_pending(__ioc)		\
+ 			(!list_empty(&((__ioc)->mbox_mod.cmd_q)) || \
+@@ -860,7 +868,7 @@ bfa_iocpf_sm_disabling(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		 */
+ 
+ 	case IOCPF_E_TIMEOUT:
+-		writel(BFI_IOC_FAIL, ioc->ioc_regs.ioc_fwstate);
++		bfa_ioc_set_cur_ioc_fwstate(ioc, BFI_IOC_FAIL);
+ 		bfa_fsm_set_state(iocpf, bfa_iocpf_sm_disabling_sync);
+ 		break;
+ 
+@@ -949,7 +957,7 @@ bfa_iocpf_sm_initfail_sync(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 	case IOCPF_E_SEMLOCKED:
+ 		bfa_ioc_notify_fail(ioc);
+ 		bfa_ioc_sync_leave(ioc);
+-		writel(BFI_IOC_FAIL, ioc->ioc_regs.ioc_fwstate);
++		bfa_ioc_set_cur_ioc_fwstate(ioc, BFI_IOC_FAIL);
+ 		bfa_nw_ioc_hw_sem_release(ioc);
+ 		bfa_fsm_set_state(iocpf, bfa_iocpf_sm_initfail);
+ 		break;
+@@ -1031,7 +1039,7 @@ bfa_iocpf_sm_fail_sync(struct bfa_iocpf *iocpf, enum iocpf_event event)
+ 		bfa_ioc_notify_fail(ioc);
+ 		if (!iocpf->auto_recover) {
+ 			bfa_ioc_sync_leave(ioc);
+-			writel(BFI_IOC_FAIL, ioc->ioc_regs.ioc_fwstate);
++			bfa_ioc_set_cur_ioc_fwstate(ioc, BFI_IOC_FAIL);
+ 			bfa_nw_ioc_hw_sem_release(ioc);
+ 			bfa_fsm_set_state(iocpf, bfa_iocpf_sm_fail);
+ 		} else {
+@@ -1162,7 +1170,7 @@ bfa_ioc_hw_sem_init(struct bfa_ioc *ioc)
+ 		r32 = readl(ioc->ioc_regs.ioc_init_sem_reg);
  	}
  
- 	rx_config->frame_size = BNAD_FRAME_SIZE(bnad->netdev->mtu);
-+	rx_config->q0_multi_buf = BNA_STATUS_T_DISABLED;
+-	fwstate = readl(ioc->ioc_regs.ioc_fwstate);
++	fwstate = bfa_ioc_get_cur_ioc_fwstate(ioc);
+ 	if (fwstate == BFI_IOC_UNINIT) {
+ 		writel(1, ioc->ioc_regs.ioc_init_sem_reg);
+ 		return;
+@@ -1176,8 +1184,8 @@ bfa_ioc_hw_sem_init(struct bfa_ioc *ioc)
+ 	}
  
- 	/* BNA_RXP_SINGLE - one data-buffer queue
- 	 * BNA_RXP_SLR - one small-buffer and one large-buffer queues
-@@ -2044,7 +2046,8 @@ bnad_init_rx_config(struct bnad *bnad, struct bna_rx_config *rx_config)
- 	rx_config->rxp_type = BNA_RXP_SLR;
+ 	bfa_ioc_fwver_clear(ioc);
+-	writel(BFI_IOC_UNINIT, ioc->ioc_regs.ioc_fwstate);
+-	writel(BFI_IOC_UNINIT, ioc->ioc_regs.alt_ioc_fwstate);
++	bfa_ioc_set_cur_ioc_fwstate(ioc, BFI_IOC_UNINIT);
++	bfa_ioc_set_alt_ioc_fwstate(ioc, BFI_IOC_UNINIT);
  
- 	if (BNAD_PCI_DEV_IS_CAT2(bnad) &&
--			bnad_enable_multi_buffer(rx_config->frame_size)) {
-+			bnad_enable_multi_buffer &&
-+			rx_config->frame_size > 4096) {
- 		/* though size_routing_enable is set in SLR,
- 		 * small packets may get routed to same rxq.
- 		 * set buf_size to 2048 instead of PAGE_SIZE.
-@@ -2092,8 +2095,16 @@ bnad_reinit_rx(struct bnad *bnad)
- 	for (rx_id = 0; rx_id < bnad->num_rx; rx_id++) {
- 		if (!bnad->rx_info[rx_id].rx)
- 			continue;
--		count++;
- 		bnad_destroy_rx(bnad, rx_id);
-+	}
-+
-+	spin_lock_irqsave(&bnad->bna_lock, flags);
-+	bna_enet_mtu_set(&bnad->bna.enet,
-+			BNAD_FRAME_SIZE(bnad->netdev->mtu), NULL);
-+	spin_unlock_irqrestore(&bnad->bna_lock, flags);
-+
-+	for (rx_id = 0; rx_id < bnad->num_rx; rx_id++) {
-+		count++;
- 		current_err = bnad_setup_rx(bnad, rx_id);
- 		if (current_err && !err) {
- 			err = current_err;
-@@ -3262,7 +3273,7 @@ bnad_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	int err, mtu;
- 	struct bnad *bnad = netdev_priv(netdev);
--	u32 rx_count = 0;
-+	u32 rx_count = 0, frame, new_frame;
+ 	/*
+ 	 * Try to lock and then unlock the semaphore.
+@@ -1366,7 +1374,7 @@ bfa_ioc_hwinit(struct bfa_ioc *ioc, bool force)
+ 	bool fwvalid;
+ 	u32 boot_env;
  
- 	if (new_mtu + ETH_HLEN < ETH_ZLEN || new_mtu > BNAD_JUMBO_MTU)
- 		return -EINVAL;
-@@ -3272,15 +3283,22 @@ bnad_change_mtu(struct net_device *netdev, int new_mtu)
- 	mtu = netdev->mtu;
- 	netdev->mtu = new_mtu;
+-	ioc_fwstate = readl(ioc->ioc_regs.ioc_fwstate);
++	ioc_fwstate = bfa_ioc_get_cur_ioc_fwstate(ioc);
  
-+	frame = BNAD_FRAME_SIZE(mtu);
-+	new_frame = BNAD_FRAME_SIZE(new_mtu);
-+
- 	/* check if multi-buffer needs to be enabled */
--	if (BNAD_PCI_DEV_IS_CAT2(bnad) &&
--			bnad_reinit_rx_needed(BNAD_FRAME_SIZE(new_mtu)))
--		rx_count = bnad_reinit_rx(bnad);
-+	if (BNAD_PCI_DEV_IS_CAT2(bnad) && bnad_enable_multi_buffer &&
-+						netif_running(bnad->netdev)) {
-+		/* only when transition is over 4K */
-+		if ((frame <= 4096 && new_frame > 4096) ||
-+				(frame > 4096 && new_frame <= 4096))
-+			rx_count = bnad_reinit_rx(bnad);
-+	}
- 
- 	/* rx_count > 0 - new rx created
- 	 *	- Linux set err = 0 and return
+ 	if (force)
+ 		ioc_fwstate = BFI_IOC_UNINIT;
+@@ -1859,11 +1867,11 @@ bfa_ioc_boot(struct bfa_ioc *ioc, enum bfi_fwboot_type boot_type,
+ 	 * Initialize IOC state of all functions on a chip reset.
  	 */
--	err = bnad_mtu_set(bnad, new_mtu);
-+	err = bnad_mtu_set(bnad, new_frame);
- 	if (err)
- 		err = -EBUSY;
+ 	if (boot_type == BFI_FWBOOT_TYPE_MEMTEST) {
+-		writel(BFI_IOC_MEMTEST, ioc->ioc_regs.ioc_fwstate);
+-		writel(BFI_IOC_MEMTEST, ioc->ioc_regs.alt_ioc_fwstate);
++		bfa_ioc_set_cur_ioc_fwstate(ioc, BFI_IOC_MEMTEST);
++		bfa_ioc_set_alt_ioc_fwstate(ioc, BFI_IOC_MEMTEST);
+ 	} else {
+-		writel(BFI_IOC_INITING, ioc->ioc_regs.ioc_fwstate);
+-		writel(BFI_IOC_INITING, ioc->ioc_regs.alt_ioc_fwstate);
++		bfa_ioc_set_cur_ioc_fwstate(ioc, BFI_IOC_INITING);
++		bfa_ioc_set_alt_ioc_fwstate(ioc, BFI_IOC_INITING);
+ 	}
  
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-index d1dc930..f2b50d9 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.h
-+++ b/drivers/net/ethernet/brocade/bna/bnad.h
-@@ -263,11 +263,7 @@ struct bnad_rx_unmap_q {
- #define BNAD_PCI_DEV_IS_CAT2(_bnad) \
- 	((_bnad)->pcidev->device == BFA_PCI_DEVICE_ID_CT2)
+ 	bfa_ioc_msgflush(ioc);
+@@ -2473,7 +2481,7 @@ bfa_nw_iocpf_sem_timeout(void *ioc_arg)
+ static void
+ bfa_ioc_poll_fwinit(struct bfa_ioc *ioc)
+ {
+-	u32 fwstate = readl(ioc->ioc_regs.ioc_fwstate);
++	u32 fwstate = bfa_ioc_get_cur_ioc_fwstate(ioc);
  
--#define bnad_enable_multi_buffer(_mtu) \
--		bnad_reinit_rx_needed((_mtu))
--
--#define bnad_reinit_rx_needed(_frame) \
--	(bnad_multi_buffer_rx && (_frame) > 4096)
-+#define bnad_enable_multi_buffer bnad_multi_buffer_rx
+ 	if (fwstate == BFI_IOC_DISABLED) {
+ 		bfa_fsm_send_event(&ioc->iocpf, IOCPF_E_FWREADY);
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc.h b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
+index f04e0aa..9521cbf 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc.h
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc.h
+@@ -215,6 +215,13 @@ struct bfa_ioc_hwif {
+ 	void		(*ioc_sync_ack)		(struct bfa_ioc *ioc);
+ 	bool		(*ioc_sync_complete)	(struct bfa_ioc *ioc);
+ 	bool		(*ioc_lpu_read_stat)	(struct bfa_ioc *ioc);
++	void		(*ioc_set_fwstate)	(struct bfa_ioc *ioc,
++					enum bfi_ioc_state fwstate);
++	enum bfi_ioc_state (*ioc_get_fwstate) (struct bfa_ioc *ioc);
++	void		(*ioc_set_alt_fwstate)	(struct bfa_ioc *ioc,
++					enum bfi_ioc_state fwstate);
++	enum bfi_ioc_state (*ioc_get_alt_fwstate) (struct bfa_ioc *ioc);
++
+ };
  
- /* Bit mask values for bnad->cfg_flags */
- #define	BNAD_CF_DIM_ENABLED		0x01	/* DIM */
+ #define bfa_ioc_pcifn(__ioc)		((__ioc)->pcidev.pci_func)
+diff --git a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+index 5df0b0c..fca4560 100644
+--- a/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
++++ b/drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c
+@@ -48,6 +48,12 @@ static void bfa_ioc_ct_sync_join(struct bfa_ioc *ioc);
+ static void bfa_ioc_ct_sync_leave(struct bfa_ioc *ioc);
+ static void bfa_ioc_ct_sync_ack(struct bfa_ioc *ioc);
+ static bool bfa_ioc_ct_sync_complete(struct bfa_ioc *ioc);
++static void bfa_ioc_ct_set_cur_ioc_fwstate(
++			struct bfa_ioc *ioc, enum bfi_ioc_state fwstate);
++static enum bfi_ioc_state bfa_ioc_ct_get_cur_ioc_fwstate(struct bfa_ioc *ioc);
++static void bfa_ioc_ct_set_alt_ioc_fwstate(
++			struct bfa_ioc *ioc, enum bfi_ioc_state fwstate);
++static enum bfi_ioc_state bfa_ioc_ct_get_alt_ioc_fwstate(struct bfa_ioc *ioc);
+ static enum bfa_status bfa_ioc_ct_pll_init(void __iomem *rb,
+ 				enum bfi_asic_mode asic_mode);
+ static enum bfa_status bfa_ioc_ct2_pll_init(void __iomem *rb,
+@@ -68,6 +74,10 @@ static const struct bfa_ioc_hwif nw_hwif_ct = {
+ 	.ioc_sync_leave	     = bfa_ioc_ct_sync_leave,
+ 	.ioc_sync_ack	     = bfa_ioc_ct_sync_ack,
+ 	.ioc_sync_complete   = bfa_ioc_ct_sync_complete,
++	.ioc_set_fwstate     = bfa_ioc_ct_set_cur_ioc_fwstate,
++	.ioc_get_fwstate     = bfa_ioc_ct_get_cur_ioc_fwstate,
++	.ioc_set_alt_fwstate     = bfa_ioc_ct_set_alt_ioc_fwstate,
++	.ioc_get_alt_fwstate     = bfa_ioc_ct_get_alt_ioc_fwstate,
+ };
+ 
+ static const struct bfa_ioc_hwif nw_hwif_ct2 = {
+@@ -85,6 +95,10 @@ static const struct bfa_ioc_hwif nw_hwif_ct2 = {
+ 	.ioc_sync_leave	     = bfa_ioc_ct_sync_leave,
+ 	.ioc_sync_ack	     = bfa_ioc_ct_sync_ack,
+ 	.ioc_sync_complete   = bfa_ioc_ct_sync_complete,
++	.ioc_set_fwstate     = bfa_ioc_ct_set_cur_ioc_fwstate,
++	.ioc_get_fwstate     = bfa_ioc_ct_get_cur_ioc_fwstate,
++	.ioc_set_alt_fwstate     = bfa_ioc_ct_set_alt_ioc_fwstate,
++	.ioc_get_alt_fwstate     = bfa_ioc_ct_get_alt_ioc_fwstate,
+ };
+ 
+ /* Called from bfa_ioc_attach() to map asic specific calls. */
+@@ -565,6 +579,32 @@ bfa_ioc_ct_sync_complete(struct bfa_ioc *ioc)
+ 	return false;
+ }
+ 
++static void
++bfa_ioc_ct_set_cur_ioc_fwstate(struct bfa_ioc *ioc,
++		enum bfi_ioc_state fwstate)
++{
++	writel(fwstate, ioc->ioc_regs.ioc_fwstate);
++}
++
++static enum bfi_ioc_state
++bfa_ioc_ct_get_cur_ioc_fwstate(struct bfa_ioc *ioc)
++{
++	return (enum bfi_ioc_state)readl(ioc->ioc_regs.ioc_fwstate);
++}
++
++static void
++bfa_ioc_ct_set_alt_ioc_fwstate(struct bfa_ioc *ioc,
++		enum bfi_ioc_state fwstate)
++{
++	writel(fwstate, ioc->ioc_regs.alt_ioc_fwstate);
++}
++
++static enum bfi_ioc_state
++bfa_ioc_ct_get_alt_ioc_fwstate(struct bfa_ioc *ioc)
++{
++	return (enum bfi_ioc_state)readl(ioc->ioc_regs.alt_ioc_fwstate);
++}
++
+ static enum bfa_status
+ bfa_ioc_ct_pll_init(void __iomem *rb, enum bfi_asic_mode asic_mode)
+ {
 -- 
 1.8.2.3
