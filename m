@@ -1,7 +1,7 @@
 From: Anton Nayshtut <Anton.Nayshtut@wilocity.com>
-Subject: [PATCH 4/4] bonding: L2DA query IOCTL
-Date: Thu, 21 Nov 2013 16:55:38 +0200
-Message-ID: <1385045738-29726-5-git-send-email-Anton.Nayshtut@wilocity.com>
+Subject: [PATCH 3/4] bonding: L2DA command IOCTL
+Date: Thu, 21 Nov 2013 16:55:37 +0200
+Message-ID: <1385045738-29726-4-git-send-email-Anton.Nayshtut@wilocity.com>
 References: <1385045738-29726-1-git-send-email-Anton.Nayshtut@wilocity.com>
 Content-Transfer-Encoding: 7BIT
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -20,72 +20,68 @@ In-reply-to: <1385045738-29726-1-git-send-email-Anton.Nayshtut@wilocity.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-L2DA query IOCTL introduction. The SIOCBONDL2DAQUERY is used to get L2DA related
-information: default slave and map entries.
+L2DA command IOCTL introduction. The SIOCBONDL2DACMD is used to control L2DA
+bonding logic: change default slave, add and delete map entries.
 
 Signed-off-by: Anton Nayshtut <Anton.Nayshtut@wilocity.com>
 Signed-off-by: Erez Kirshenbaum <Erez.Kirshenbaum@wilocity.com>
 Signed-off-by: Boris Lapshin <Boris.Lapshin@wilocity.com>
 ---
- drivers/net/bonding/bond_main.c | 69 +++++++++++++++++++++++++++++++++++++++++
- include/uapi/linux/if_bonding.h | 15 +++++++++
- include/uapi/linux/sockios.h    |  3 +-
+ drivers/net/bonding/bond_main.c | 52 +++++++++++++++++++++++++++++++++++++++++
+ include/uapi/linux/if_bonding.h | 16 +++++++++++++
+ include/uapi/linux/sockios.h    |  1 +
  net/core/dev_ioctl.c            |  2 ++
  net/socket.c                    |  2 ++
- 5 files changed, 90 insertions(+), 1 deletion(-)
+ 5 files changed, 73 insertions(+)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index ddaee7b..ecfe349 100644
+index 33733be..ddaee7b 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -1935,6 +1935,59 @@ out:
- 	return res;
+@@ -1886,6 +1886,55 @@ static int  bond_release_and_destroy(struct net_device *bond_dev,
+ 	return ret;
  }
  
-+struct bond_ioctl_l2da_query_clb_ctx {
-+	int res;
-+	__s32 i;
-+	struct l2da_query *l2da_query;
-+};
-+
-+static int bond_ioctl_l2da_query_clb(const unsigned char *da,
-+				     struct slave *slave, void *_ctx)
++static int bond_ioctl_l2da_cmd(struct net_device *bond_dev,
++			       void __user *usr_data)
 +{
-+	struct bond_ioctl_l2da_query_clb_ctx *ctx = _ctx;
-+	if (ctx->i == ctx->l2da_query->entry_id) {
-+		strcpy(ctx->l2da_query->slave_name, slave->dev->name);
-+		memcpy(ctx->l2da_query->da, da, ETH_ALEN);
-+		ctx->res = 0;
-+		return 1;
-+	}
-+	++ctx->i;
-+	return 0;
-+}
-+
-+static int bond_ioctl_l2da_query(struct net_device *bond_dev,
-+				 struct l2da_query *l2da_query)
-+{
-+	int res = -EINVAL;
 +	struct bonding *bond = netdev_priv(bond_dev);
-+	struct bond_ioctl_l2da_query_clb_ctx ctx;
++	struct l2da_cmd *u_l2dacmd = (struct l2da_cmd __user *)usr_data;
++	struct l2da_cmd  k_l2dacmd;
++	struct net_device *slave_dev;
++	struct slave *slave;
++	int res = -EFAULT;
++
++	if (copy_from_user(&k_l2dacmd, u_l2dacmd, sizeof(struct l2da_cmd)))
++		return res;
 +
 +	read_lock(&bond->lock);
 +
 +	if (!bond_is_l2da(bond))
 +		goto out;
 +
-+	switch (l2da_query->query) {
-+	case BOND_L2DA_QUERY_DEFAULT:
-+		res = bond_l2da_get_default_slave_name(bond,
-+					l2da_query->slave_name,
-+					sizeof(l2da_query->slave_name));
++	switch (k_l2dacmd.cmd) {
++	case BOND_L2DA_CMD_SET_DEFAULT:
++		slave_dev = dev_get_by_name(dev_net(bond_dev),
++					    k_l2dacmd.slave_name);
++		if (slave_dev) {
++			slave = bond_get_slave_by_dev(bond, slave_dev);
++			bond_l2da_set_default_slave(bond, slave);
++			dev_put(slave_dev);
++			res = 0;
++		}
 +		break;
-+	case BOND_L2DA_QUERY_MAP:
-+		ctx.res        = res;
-+		ctx.i          = 0;
-+		ctx.l2da_query = l2da_query;
-+		bond_l2da_call_foreach(bond, bond_ioctl_l2da_query_clb, &ctx);
-+		res = ctx.res;
++	case BOND_L2DA_CMD_MAP_ADD:
++		slave_dev = dev_get_by_name(dev_net(bond_dev),
++					    k_l2dacmd.slave_name);
++		if (slave_dev) {
++			slave = bond_get_slave_by_dev(bond, slave_dev);
++			res = bond_l2da_set_da_slave(bond, k_l2dacmd.da, slave);
++			dev_put(slave_dev);
++		}
++		break;
++	case BOND_L2DA_CMD_MAP_DEL:
++		res = bond_l2da_del_da(bond, k_l2dacmd.da);
 +		break;
 +	default:
 +		break;
@@ -98,120 +94,99 @@ index ddaee7b..ecfe349 100644
  static int bond_info_query(struct net_device *bond_dev, struct ifbond *info)
  {
  	struct bonding *bond = netdev_priv(bond_dev);
-@@ -3239,6 +3292,8 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
- 	struct ifbond __user *u_binfo = NULL;
- 	struct ifslave k_sinfo;
- 	struct ifslave __user *u_sinfo = NULL;
-+	struct l2da_query k_l2da_query;
-+	struct l2da_query __user *u_l2da_query = NULL;
- 	struct mii_ioctl_data *mii = NULL;
- 	struct net *net;
- 	int res = 0;
-@@ -3301,6 +3356,20 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
- 			return -EFAULT;
+@@ -3262,6 +3311,9 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
+ 	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
  
- 		return res;
-+	case SIOCBONDL2DAQUERY:
-+		u_l2da_query = (struct l2da_query __user *)ifr->ifr_data;
++	if (cmd == SIOCBONDL2DACMD)
++		return bond_ioctl_l2da_cmd(bond_dev, ifr->ifr_data);
 +
-+		if (copy_from_user(&k_l2da_query, u_l2da_query,
-+				   sizeof(k_l2da_query)))
-+			return -EFAULT;
-+
-+		res = bond_ioctl_l2da_query(bond_dev, &k_l2da_query);
-+		if (res == 0 &&
-+		    copy_to_user(u_l2da_query, &k_l2da_query,
-+				 sizeof(k_l2da_query)))
-+			return -EFAULT;
-+
-+		return res;
- 	default:
- 		/* Go on */
- 		break;
+ 	slave_dev = dev_get_by_name(net, ifr->ifr_slave);
+ 
+ 	pr_debug("slave_dev=%p:\n", slave_dev);
 diff --git a/include/uapi/linux/if_bonding.h b/include/uapi/linux/if_bonding.h
-index a4d3baf..fdfe491 100644
+index b70ff3e..a4d3baf 100644
 --- a/include/uapi/linux/if_bonding.h
 +++ b/include/uapi/linux/if_bonding.h
-@@ -100,6 +100,10 @@
- #define BOND_L2DA_CMD_MAP_ADD        1 /* add DA:iface mapping */
- #define BOND_L2DA_CMD_MAP_DEL        2 /* add DA mapping */
+@@ -95,6 +95,11 @@
+ #define BOND_XMIT_POLICY_ENCAP23	3 /* encapsulated layer 2+3 */
+ #define BOND_XMIT_POLICY_ENCAP34	4 /* encapsulated layer 3+4 */
  
-+/* l2da queries */
-+#define BOND_L2DA_QUERY_DEFAULT      0 /* get default slave */
-+#define BOND_L2DA_QUERY_MAP          1 /* get map entry */
++/* l2da commands */
++#define BOND_L2DA_CMD_SET_DEFAULT    0 /* set default slave */
++#define BOND_L2DA_CMD_MAP_ADD        1 /* add DA:iface mapping */
++#define BOND_L2DA_CMD_MAP_DEL        2 /* add DA mapping */
 +
  typedef struct ifbond {
  	__s32 bond_mode;
  	__s32 num_slaves;
-@@ -133,6 +137,17 @@ struct l2da_cmd {
- 				    * */
+@@ -117,6 +122,17 @@ struct ad_info {
+ 	__u8 partner_system[ETH_ALEN];
  };
  
-+struct l2da_query {
-+	__u16 query; /* one of the BOND_L2DA_QUERY_... queries */
-+	__s32 entry_id;  /* Used as IN parameter in:
-+			  *   BOND_L2DA_QUERY_MAP */
-+	__u8 da[ETH_ALEN]; /* Used as OUT parameter in:
-+			    *   BOND_L2DA_QUERY_MAP */
-+	char slave_name[IFNAMSIZ]; /* Used as OUT parameter in:
-+				    *   BOND_L2DA_QUERY_DEFAULT
-+				    *   BOND_L2DA_QUERY_MAP */
++struct l2da_cmd {
++	__u16 cmd; /* one of the BOND_L2DA_CMD_... commands */
++	__u8 da[ETH_ALEN]; /* Used as IN parameter in:
++			    *   BOND_L2DA_CMD_MAP_ADD
++			    *   BOND_L2DA_CMD_MAP_DEL*/
++	char slave_name[IFNAMSIZ]; /* Used as IN parameter in:
++				    *   BOND_L2DA_CMD_SET_DEFAULT
++				    *   BOND_L2DA_CMD_MAP_ADD
++				    * */
 +};
 +
  #endif /* _LINUX_IF_BONDING_H */
  
  /*
 diff --git a/include/uapi/linux/sockios.h b/include/uapi/linux/sockios.h
-index 2af055d..86b1d0a 100644
+index 7997a50..2af055d 100644
 --- a/include/uapi/linux/sockios.h
 +++ b/include/uapi/linux/sockios.h
-@@ -118,7 +118,8 @@
+@@ -117,6 +117,7 @@
+ #define SIOCBONDSLAVEINFOQUERY 0x8993   /* rtn info about slave state   */
  #define SIOCBONDINFOQUERY      0x8994	/* rtn info about bond state    */
  #define SIOCBONDCHANGEACTIVE   0x8995   /* update to a new active slave */
- #define SIOCBONDL2DACMD        0x8996   /* l2da related command */
--			
-+#define SIOCBONDL2DAQUERY      0x8997   /* l2da related query */
-+
++#define SIOCBONDL2DACMD        0x8996   /* l2da related command */
+ 			
  /* bridge calls */
  #define SIOCBRADDBR     0x89a0		/* create new bridge device     */
- #define SIOCBRDELBR     0x89a1		/* remove bridge device         */
 diff --git a/net/core/dev_ioctl.c b/net/core/dev_ioctl.c
-index 3a4716a..f189744 100644
+index 5b7d0e1..3a4716a 100644
 --- a/net/core/dev_ioctl.c
 +++ b/net/core/dev_ioctl.c
-@@ -322,6 +322,7 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
+@@ -321,6 +321,7 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
+ 		    cmd == SIOCBONDSLAVEINFOQUERY ||
  		    cmd == SIOCBONDINFOQUERY ||
  		    cmd == SIOCBONDCHANGEACTIVE ||
- 		    cmd == SIOCBONDL2DACMD ||
-+		    cmd == SIOCBONDL2DAQUERY ||
++		    cmd == SIOCBONDL2DACMD ||
  		    cmd == SIOCGMIIPHY ||
  		    cmd == SIOCGMIIREG ||
  		    cmd == SIOCSMIIREG ||
-@@ -528,6 +529,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
- 		/* fall through */
- 	case SIOCBONDSLAVEINFOQUERY:
- 	case SIOCBONDINFOQUERY:
-+	case SIOCBONDL2DAQUERY:
- 		dev_load(net, ifr.ifr_name);
- 		rtnl_lock();
- 		ret = dev_ifsioc(net, &ifr, cmd);
+@@ -518,6 +519,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 	case SIOCBONDRELEASE:
+ 	case SIOCBONDSETHWADDR:
+ 	case SIOCBONDCHANGEACTIVE:
++	case SIOCBONDL2DACMD:
+ 	case SIOCBRADDIF:
+ 	case SIOCBRDELIF:
+ 	case SIOCSHWTSTAMP:
 diff --git a/net/socket.c b/net/socket.c
-index 2ed653b..e4524f5 100644
+index c226ace..2ed653b 100644
 --- a/net/socket.c
 +++ b/net/socket.c
-@@ -2988,6 +2988,7 @@ static int bond_ioctl(struct net *net, unsigned int cmd,
- 		return err;
+@@ -2975,6 +2975,7 @@ static int bond_ioctl(struct net *net, unsigned int cmd,
+ 	case SIOCBONDRELEASE:
+ 	case SIOCBONDSETHWADDR:
+ 	case SIOCBONDCHANGEACTIVE:
++	case SIOCBONDL2DACMD:
+ 		if (copy_from_user(&kifr, ifr32, sizeof(struct compat_ifreq)))
+ 			return -EFAULT;
+ 
+@@ -3262,6 +3263,7 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
  	case SIOCBONDSLAVEINFOQUERY:
  	case SIOCBONDINFOQUERY:
-+	case SIOCBONDL2DAQUERY:
- 		uifr = compat_alloc_user_space(sizeof(*uifr));
- 		if (copy_in_user(&uifr->ifr_name, &ifr32->ifr_name, IFNAMSIZ))
- 			return -EFAULT;
-@@ -3264,6 +3265,7 @@ static int compat_sock_ioctl_trans(struct file *file, struct socket *sock,
- 	case SIOCBONDINFOQUERY:
  	case SIOCBONDCHANGEACTIVE:
- 	case SIOCBONDL2DACMD:
-+	case SIOCBONDL2DAQUERY:
++	case SIOCBONDL2DACMD:
  		return bond_ioctl(net, cmd, argp);
  	case SIOCADDRT:
  	case SIOCDELRT:
