@@ -1,72 +1,50 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 10/13] bna: Handle the TX Setup Failures
-Date: Wed, 20 Nov 2013 21:54:14 -0800
-Message-ID: <1385013257-32745-11-git-send-email-rmody@brocade.com>
-References: <1385013257-32745-1-git-send-email-rmody@brocade.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Issue with gratuitous arps when new addr is different from cached addr
+Date: Thu, 21 Nov 2013 07:23:49 +0100
+Message-ID: <20131121062349.GC4347@order.stressinduktion.org>
+References: <CAO7SqHAVz2D53u141Za01DvBFnLky2imkYNvBV-2UuALpC3w6w@mail.gmail.com> <20131121044048.GB4347@order.stressinduktion.org> <CAO7SqHC4astdejH6wVAyjsVeuh96T8P3ao3bCDNs=opfv5bbUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	<adapter_linux_open_src_team@Brocade.COM>,
-	Rasesh Mody <rmody@Brocade.COM>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Phil Sutter <phil@nwl.cc>, Eric Dumazet <edumazet@google.com>,
+	netdev@vger.kernel.org
+To: Salam Noureddine <noureddine@aristanetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:58002 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754001Ab3KUGVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 01:21:48 -0500
-In-Reply-To: <1385013257-32745-1-git-send-email-rmody@brocade.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:56354 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750782Ab3KUGXv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 01:23:51 -0500
+Content-Disposition: inline
+In-Reply-To: <CAO7SqHC4astdejH6wVAyjsVeuh96T8P3ao3bCDNs=opfv5bbUg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change details:
- - When bnad_setup_tx() returns NULL, the error is NOT returned to the caller.
-   The caller will incorrectly assume success. So Return ENOMEM when bna_tx_create()
-   fails.
- - If bnad_tx_msix_register() fails, call bna_tx_destroy() to free tx & to NULL
-   the bnad reference to tcb.
+On Wed, Nov 20, 2013 at 10:06:34PM -0800, Salam Noureddine wrote:
+> Isn't locktime useful in that case for limiting the rate of garp
+> changes to the arp cache?
 
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
----
- drivers/net/ethernet/brocade/bna/bnad.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+Yes, as I said, it would be nice to have rate-limiting for those, too.
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 41689ae..797d0f2 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -1987,8 +1987,10 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_id)
- 	tx = bna_tx_create(&bnad->bna, bnad, tx_config, &tx_cbfn, res_info,
- 			tx_info);
- 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
--	if (!tx)
-+	if (!tx) {
-+		err = -ENOMEM;
- 		goto err_return;
-+	}
- 	tx_info->tx = tx;
- 
- 	INIT_DELAYED_WORK(&tx_info->tx_cleanup_work,
-@@ -1999,7 +2001,7 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_id)
- 		err = bnad_tx_msix_register(bnad, tx_info,
- 			tx_id, bnad->num_txq_per_tx);
- 		if (err)
--			goto err_return;
-+			goto cleanup_tx;
- 	}
- 
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
-@@ -2008,6 +2010,12 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_id)
- 
- 	return 0;
- 
-+cleanup_tx:
-+	spin_lock_irqsave(&bnad->bna_lock, flags);
-+	bna_tx_destroy(tx_info->tx);
-+	spin_unlock_irqrestore(&bnad->bna_lock, flags);
-+	tx_info->tx = NULL;
-+	tx_info->tx_id = 0;
- err_return:
- 	bnad_tx_res_free(bnad, res_info);
- 	return err;
--- 
-1.8.2.3
+GARP is used in cluster setups to make the switch-over as fast as possible and
+I don't think they accept those lock-down delays, so I guess it would be nice
+to forceful override the lladdr if (sip == tip) && ACCEPT_ARP(dev) is true in
+every case.
+
+I guess you are not testing with ACCEPT_ARP?
+
+In that case I am not sure what to do.
+
+override = (...timing...) || sip == tip; could work but does relax the
+protection of the neigh cache.
+
+In IPv6 we have a flag in the packet if we should overwrite the entry.
+
+I'll have to think about that a bit more. Could well be the case that we need
+your proposal, too. But then we would have to validate the change with IPv6,
+too and neighbour cache states are really complex.
+
+Greetings,
+
+  Hannes
