@@ -1,87 +1,74 @@
-From: Salam Noureddine <noureddine@aristanetworks.com>
-Subject: Re: Issue with gratuitous arps when new addr is different from cached addr
-Date: Wed, 20 Nov 2013 22:06:34 -0800
-Message-ID: <CAO7SqHC4astdejH6wVAyjsVeuh96T8P3ao3bCDNs=opfv5bbUg@mail.gmail.com>
-References: <CAO7SqHAVz2D53u141Za01DvBFnLky2imkYNvBV-2UuALpC3w6w@mail.gmail.com>
-	<20131121044048.GB4347@order.stressinduktion.org>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [net-next 11/13] bna: Embed SKB Length in TX Vector
+Date: Wed, 20 Nov 2013 21:54:15 -0800
+Message-ID: <1385013257-32745-12-git-send-email-rmody@brocade.com>
+References: <1385013257-32745-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Salam Noureddine <noureddine@aristanetworks.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Phil Sutter <phil@nwl.cc>, Eric Dumazet <edumazet@google.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	<adapter_linux_open_src_team@Brocade.COM>,
+	Rasesh Mody <rmody@Brocade.COM>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f49.google.com ([209.85.212.49]:43793 "EHLO
-	mail-vb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927Ab3KUGGf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 01:06:35 -0500
-Received: by mail-vb0-f49.google.com with SMTP id p5so32516vbn.36
-        for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 22:06:35 -0800 (PST)
-In-Reply-To: <20131121044048.GB4347@order.stressinduktion.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:55691 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751952Ab3KUGMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 01:12:06 -0500
+In-Reply-To: <1385013257-32745-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Isn't locktime useful in that case for limiting the rate of garp
-changes to the arp cache?
+ - Store the length of the skb buffer mapped along with the handle and use it
+   while unmapping the buffer.
 
-Thanks,
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ drivers/net/ethernet/brocade/bna/bnad.c | 6 ++++--
+ drivers/net/ethernet/brocade/bna/bnad.h | 1 +
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-Salam
-
-On Wed, Nov 20, 2013 at 8:40 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On Wed, Nov 20, 2013 at 04:40:52PM -0800, Salam Noureddine wrote:
->> Hi,
->>
->> It seems to me that neigh_update is not handling correctly the case
->> when the new address is different from the cached one and
->> NEIGH_UPDATE_F_OVERRIDE is not set. When we receive a gratuitous arp
->> request we check jiffies against the neigh->updated + locktime in
->> arp_process. If we're passed that time then the flag is set.
->>
->> In neigh_update, we set neigh->updated before checking for the case
->> where we have a new address and the override flag is not set. This
->> means, that we "extend the life of the old address". By setting
->> locktime to 2 sec and sending an arp with a new address every 1 sec, I
->> was able to perpetuate the old entry for as long as I wanted.
->>
->> To fix this, we can just move setting neigh->updated to after the
->> check for new address and override flag not present,
->>
->> --- linux-3.4.orig/net/core/neighbour.c
->> +++ linux-3.4/net/core/neighbour.c
->> @@ -1206,10 +1206,6 @@ int neigh_update(struct neighbour *neigh
->>                 lladdr = neigh->ha;
->>         }
->>
->> -       if (new & NUD_CONNECTED)
->> -               neigh->confirmed = jiffies;
->> -       neigh->updated = jiffies;
->> -
->>         /* If entry was valid and address is not changed,
->>            do not change entry state, if new one is STALE.
->>          */
->> @@ -1233,6 +1229,10 @@ int neigh_update(struct neighbour *neigh
->>                 }
->>         }
->>
->> +       if (new & NUD_CONNECTED)
->> +               neigh->confirmed = jiffies;
->> +       neigh->updated = jiffies;
->> +
->>         if (new != old) {
->>                 neigh_del_timer(neigh);
->>                 if (new & NUD_IN_TIMER)
->>
->> If that seems like a an acceptable solution, I would post a patch shortly.
->
-> Yes, that would help. But wouldn't it be better if we detect garp and
-> overwrite the lladdr with F_OVERWRITE? It would be nice if these could also be
-> rate-limited.
->
-> Greetings,
->
->   Hannes
->
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index 797d0f2..949eb2a 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -146,7 +146,8 @@ bnad_tx_buff_unmap(struct bnad *bnad,
+ 
+ 		dma_unmap_page(&bnad->pcidev->dev,
+ 			dma_unmap_addr(&unmap->vectors[vector], dma_addr),
+-			skb_shinfo(skb)->frags[nvecs].size, DMA_TO_DEVICE);
++			dma_unmap_len(&unmap->vectors[vector], dma_len),
++			DMA_TO_DEVICE);
+ 		dma_unmap_addr_set(&unmap->vectors[vector], dma_addr, 0);
+ 		nvecs--;
+ 	}
+@@ -3034,7 +3035,7 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 	for (i = 0, vect_id = 0; i < vectors - 1; i++) {
+ 		const struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
+-		u16		size = skb_frag_size(frag);
++		u32		size = skb_frag_size(frag);
+ 
+ 		if (unlikely(size == 0)) {
+ 			/* Undo the changes starting at tcb->producer_index */
+@@ -3059,6 +3060,7 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 		dma_addr = skb_frag_dma_map(&bnad->pcidev->dev, frag,
+ 					    0, size, DMA_TO_DEVICE);
++		unmap->vectors[vect_id].dma_len = size;
+ 		BNA_SET_DMA_ADDR(dma_addr, &txqent->vector[vect_id].host_addr);
+ 		txqent->vector[vect_id].length = htons(size);
+ 		dma_unmap_addr_set(&unmap->vectors[vect_id], dma_addr,
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+index f2b50d9..474a597 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.h
++++ b/drivers/net/ethernet/brocade/bna/bnad.h
+@@ -222,6 +222,7 @@ struct bnad_rx_info {
+ 
+ struct bnad_tx_vector {
+ 	DEFINE_DMA_UNMAP_ADDR(dma_addr);
++	DEFINE_DMA_UNMAP_LEN(dma_len);
+ };
+ 
+ struct bnad_tx_unmap {
+-- 
+1.8.2.3
