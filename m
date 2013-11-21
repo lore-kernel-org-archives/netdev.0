@@ -1,40 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] wimax: remove dead code
-Date: Thu, 21 Nov 2013 13:19:33 -0500 (EST)
-Message-ID: <20131121.131933.1763933667490268654.davem@davemloft.net>
-References: <1385005391-18379-1-git-send-email-michael.opdenacker@free-electrons.com>
-	<1385007469.2164.39.camel@joe-AO722>
-	<1385018850.14273.0.camel@jlt4.sipsolutions.net>
+From: "lee hyuk" <leehyuk08@mail2world.com>
+Subject: Re:Answer back
+Date: Thu, 21 Nov 2013 12:53:29 -0000
+Message-ID: <730178c99d9cf5bf6655eb51750e54bb.squirrel@168.61.90.144>
+Reply-To: hyuklee1@aol.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, michael.opdenacker@free-electrons.com,
-	inaky.perez-gonzalez@intel.com, linux-wimax@intel.com,
-	wimax@linuxwimax.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: johannes@sipsolutions.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43521 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858Ab3KUSTf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:19:35 -0500
-In-Reply-To: <1385018850.14273.0.camel@jlt4.sipsolutions.net>
+Received: from [168.61.90.144] ([168.61.90.144]:2656 "EHLO mail.vps.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755144Ab3KUSUo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Nov 2013 13:20:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu, 21 Nov 2013 08:27:30 +0100
 
-> On Wed, 2013-11-20 at 20:17 -0800, Joe Perches wrote:
->> On Thu, 2013-11-21 at 04:43 +0100, Michael Opdenacker wrote:
->> > This removes a code line that is between a "return 0;" and an error label.
->> > This code line can never be reached.
->> 
->> Adding Johannes Berg who added this oversight.
-> 
-> Obviously, sorry about that. I seem to remember deleting *something*
-> there (like another error label) but I guess I missed that line.
-> 
-> Acked-by: Johannes Berg <johannes@sipsolutions.net>
 
-Applied, thanks.
+I would like to discuss a very important crude oil project with you,kindly
+revert back to me if this is your valid email address for further
+information.
+
+Regards,
+
+Lee
