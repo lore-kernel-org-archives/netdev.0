@@ -1,114 +1,287 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net] net: sctp: fix copying sk_v6_rcv_saddr in sctp_v6_create_accept_sk
-Date: Thu, 21 Nov 2013 10:08:00 +0100
-Message-ID: <528DCD70.6060306@redhat.com>
-References: <1384858284-2246-1-git-send-email-dborkman@redhat.com> <528B85E2.5080403@gmail.com> <528DAD15.20901@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+Subject: [PATCH net v2] packet: fix use after free race in send path when dev is released
+Date: Thu, 21 Nov 2013 10:47:15 +0100
+Message-ID: <1385027235-2217-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org,
+	Salam Noureddine <noureddine@aristanetworks.com>,
+	Ben Greear <greearb@candelatech.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>
-To: wangweidong <wangweidong1@huawei.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7757 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46711 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753337Ab3KUJIM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Nov 2013 04:08:12 -0500
-In-Reply-To: <528DAD15.20901@huawei.com>
+	id S1753021Ab3KUJrU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Nov 2013 04:47:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/21/2013 07:49 AM, wangweidong wrote:
-> On 2013/11/19 23:38, Vlad Yasevich wrote:
->> On 11/19/2013 05:51 AM, Daniel Borkmann wrote:
->>> Wang reported an issue that lksctp's test_getname_v6 seems to fail.
->>>
->>> The issue is that we do not copy sk_v6_rcv_saddr over to the new
->>> socket, although the comment above says so regarding rcv_saddr.
->>>
->>> Commit 914e1c8b6980 ("sctp: Inherit all socket options from parent
->>> correctly.") originally moved that over to sctp_copy_sock(), but
->>> after commit efe4208f47f9 ("ipv6: make lookups simpler and faster")
->>> this no longer holds and the actual value of sk_v6_rcv_saddr was
->>> no longer being migrated.
->>>
->>> With this patch, the lksctp test suite passes again for IPv6.
->>>
->>> Fixes: efe4208f47f9 ("ipv6: make lookups simpler and faster")
->>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
->>> ---
->>>   net/sctp/ipv6.c | 1 +
->>>   1 file changed, 1 insertion(+)
->>>
->>> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
->>> index 7567e6f..be08592 100644
->>> --- a/net/sctp/ipv6.c
->>> +++ b/net/sctp/ipv6.c
->>> @@ -661,6 +661,7 @@ static struct sock *sctp_v6_create_accept_sk(struct sock *sk,
->>>   	 * and getpeername().
->>>   	 */
->>>   	sctp_v6_to_sk_daddr(&asoc->peer.primary_addr, newsk);
->>> +	newsk->sk_v6_rcv_saddr = sk->sk_v6_rcv_saddr;
->>>
->>>   	sk_refcnt_debug_inc(newsk);
->>>
->>>
->>
->> This fixes the issue for the accept() case, but the bug is still there
->> in the peeloff case.
->>
->> I think you should make sctp_copy_sock() use sock_copy() for now.  It
->> looks like it will catch all the cases.
->>
->
-> I copied the part of the sock_copy() codes into sctp_v6_create_accept_sk instead of
-> sctp_copy_sock for testing. Like this:
->
-> --------------
->
-> @@ -645,7 +645,11 @@ static struct sock *sctp_v6_create_accept_sk(struct sock *sk,
->
->          sock_init_data(NULL, newsk);
->
-> -       sctp_copy_sock(newsk, sk, asoc);
-> +       memcpy(newsk, sk, offsetof(struct sock, sk_dontcopy_begin));
-> +
-> +       memcpy(&newsk->sk_dontcopy_end, &sk->sk_dontcopy_end,
-> +              sk->sk_prot->obj_size - offsetof(struct sock, sk_dontcopy_end));
-> +
->          sock_reset_flag(sk, SOCK_ZAPPED);
->
->          newsctp6sk = (struct sctp6_sock *)newsk;
->
-> --------------
->
-> when I did the test_getname_v6 of lksctp tools. It would hang. And I used the ps aux,
-> I can see the process got a D+ STAT.
->
-> BTW, I test it in the virtual machine.
->
-> So I think: when we use the sock_copy or which calls it, maybe we will get the problem here.
-> Is there I do something wrong?
+Salam reported a use after free bug in PF_PACKET that occurs when
+we're sending out frames on a socket bound device and suddenly the
+net device is being unregistered. It appears that commit 827d9780
+introduced a possible race condition between {t,}packet_snd() and
+packet_notifier(). In the case of a bound socket, packet_notifier()
+can drop the last reference to the net_device and {t,}packet_snd()
+might end up suddenly sending a packet over a freed net_device.
 
-Sorry, got distracted with other things in the mean time.
+To avoid reverting 827d9780 and thus introducing a performance
+regression compared to the current state of things, we decided to
+hold a cached RCU protected pointer to the net device and maintain
+it on write side via bind spin_lock protected register_prot_hook()
+and __unregister_prot_hook() calls.
 
-I will have a closer look at it very soon, so that we can find a proper fix.
+In {t,}packet_snd() path, we access this pointer under rcu_read_lock
+through packet_cached_dev_get() that holds reference to the device
+to prevent it from being freed through packet_notifier() while
+we're in send path. This is okay to do as dev_put()/dev_hold() are
+per-cpu counters, so this should not be a performance issue. Also,
+the code simplifies a bit as we don't need need_rls_dev anymore. For
+the notifier section, we're paranoid and defer putting the reference
+on the net device, so that we really make sure that we've quite the
+RCU read section from packet_cached_dev_get() and waited a grace
+period. This fixes the issue reported.
 
-> Thanks.
->
->> We can then look at possibly getting rid of sctp_copy_sock() for net-next.
->>
->> -vlad
->>
->>
->>
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Fixes: 827d978037d7 ("af-packet: Use existing netdev reference for bound sockets.")
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
+Tested-by: Salam Noureddine <noureddine@aristanetworks.com>
+Cc: Ben Greear <greearb@candelatech.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ v1->v2:
+  - Applied feedback from Dave and Eric, thanks a lot for this!
+  - After back and forth and trying out multiple ideas, we think that this
+    patch seems the best way to fix this issue.
+
+ net/packet/af_packet.c | 85 +++++++++++++++++++++++++++++++++-----------------
+ net/packet/internal.h  |  2 ++
+ 2 files changed, 59 insertions(+), 28 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 2e8286b..e6de9cc 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -244,11 +244,15 @@ static void __fanout_link(struct sock *sk, struct packet_sock *po);
+ static void register_prot_hook(struct sock *sk)
+ {
+ 	struct packet_sock *po = pkt_sk(sk);
++
+ 	if (!po->running) {
+-		if (po->fanout)
++		if (po->fanout) {
+ 			__fanout_link(sk, po);
+-		else
++		} else {
+ 			dev_add_pack(&po->prot_hook);
++			rcu_assign_pointer(po->cached_dev, po->prot_hook.dev);
++		}
++
+ 		sock_hold(sk);
+ 		po->running = 1;
+ 	}
+@@ -266,10 +270,13 @@ static void __unregister_prot_hook(struct sock *sk, bool sync)
+ 	struct packet_sock *po = pkt_sk(sk);
+ 
+ 	po->running = 0;
+-	if (po->fanout)
++	if (po->fanout) {
+ 		__fanout_unlink(sk, po);
+-	else
++	} else {
+ 		__dev_remove_pack(&po->prot_hook);
++		RCU_INIT_POINTER(po->cached_dev, NULL);
++	}
++
+ 	__sock_put(sk);
+ 
+ 	if (sync) {
+@@ -2052,12 +2059,24 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 	return tp_len;
+ }
+ 
++static struct net_device *packet_cached_dev_get(struct packet_sock *po)
++{
++	struct net_device *dev;
++
++	rcu_read_lock();
++	dev = rcu_dereference(po->cached_dev);
++	if (dev)
++		dev_hold(dev);
++	rcu_read_unlock();
++
++	return dev;
++}
++
+ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ {
+ 	struct sk_buff *skb;
+ 	struct net_device *dev;
+ 	__be16 proto;
+-	bool need_rls_dev = false;
+ 	int err, reserve = 0;
+ 	void *ph;
+ 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
+@@ -2070,7 +2089,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 	mutex_lock(&po->pg_vec_lock);
+ 
+ 	if (saddr == NULL) {
+-		dev = po->prot_hook.dev;
++		dev	= packet_cached_dev_get(po);
+ 		proto	= po->num;
+ 		addr	= NULL;
+ 	} else {
+@@ -2084,19 +2103,17 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 		proto	= saddr->sll_protocol;
+ 		addr	= saddr->sll_addr;
+ 		dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
+-		need_rls_dev = true;
+ 	}
+ 
+ 	err = -ENXIO;
+ 	if (unlikely(dev == NULL))
+ 		goto out;
+-
+-	reserve = dev->hard_header_len;
+-
+ 	err = -ENETDOWN;
+ 	if (unlikely(!(dev->flags & IFF_UP)))
+ 		goto out_put;
+ 
++	reserve = dev->hard_header_len;
++
+ 	size_max = po->tx_ring.frame_size
+ 		- (po->tp_hdrlen - sizeof(struct sockaddr_ll));
+ 
+@@ -2173,8 +2190,7 @@ out_status:
+ 	__packet_set_status(po, ph, status);
+ 	kfree_skb(skb);
+ out_put:
+-	if (need_rls_dev)
+-		dev_put(dev);
++	dev_put(dev);
+ out:
+ 	mutex_unlock(&po->pg_vec_lock);
+ 	return err;
+@@ -2212,7 +2228,6 @@ static int packet_snd(struct socket *sock,
+ 	struct sk_buff *skb;
+ 	struct net_device *dev;
+ 	__be16 proto;
+-	bool need_rls_dev = false;
+ 	unsigned char *addr;
+ 	int err, reserve = 0;
+ 	struct virtio_net_hdr vnet_hdr = { 0 };
+@@ -2228,7 +2243,7 @@ static int packet_snd(struct socket *sock,
+ 	 */
+ 
+ 	if (saddr == NULL) {
+-		dev = po->prot_hook.dev;
++		dev	= packet_cached_dev_get(po);
+ 		proto	= po->num;
+ 		addr	= NULL;
+ 	} else {
+@@ -2240,19 +2255,17 @@ static int packet_snd(struct socket *sock,
+ 		proto	= saddr->sll_protocol;
+ 		addr	= saddr->sll_addr;
+ 		dev = dev_get_by_index(sock_net(sk), saddr->sll_ifindex);
+-		need_rls_dev = true;
+ 	}
+ 
+ 	err = -ENXIO;
+-	if (dev == NULL)
++	if (unlikely(dev == NULL))
+ 		goto out_unlock;
+-	if (sock->type == SOCK_RAW)
+-		reserve = dev->hard_header_len;
+-
+ 	err = -ENETDOWN;
+-	if (!(dev->flags & IFF_UP))
++	if (unlikely(!(dev->flags & IFF_UP)))
+ 		goto out_unlock;
+ 
++	if (sock->type == SOCK_RAW)
++		reserve = dev->hard_header_len;
+ 	if (po->has_vnet_hdr) {
+ 		vnet_hdr_len = sizeof(vnet_hdr);
+ 
+@@ -2386,15 +2399,14 @@ static int packet_snd(struct socket *sock,
+ 	if (err > 0 && (err = net_xmit_errno(err)) != 0)
+ 		goto out_unlock;
+ 
+-	if (need_rls_dev)
+-		dev_put(dev);
++	dev_put(dev);
+ 
+ 	return len;
+ 
+ out_free:
+ 	kfree_skb(skb);
+ out_unlock:
+-	if (dev && need_rls_dev)
++	if (dev)
+ 		dev_put(dev);
+ out:
+ 	return err;
+@@ -2614,6 +2626,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol,
+ 	po = pkt_sk(sk);
+ 	sk->sk_family = PF_PACKET;
+ 	po->num = proto;
++	RCU_INIT_POINTER(po->cached_dev, NULL);
+ 
+ 	sk->sk_destruct = packet_sock_destruct;
+ 	sk_refcnt_debug_inc(sk);
+@@ -3298,6 +3311,22 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 	return 0;
+ }
+ 
++static void packet_dev_put_deferred(struct rcu_head *head)
++{
++	struct packet_sock *po = container_of(head, struct packet_sock, rcu);
++	struct sock *sk = &po->sk;
++
++	spin_lock(&po->bind_lock);
++	po->ifindex = -1;
++
++	if (po->prot_hook.dev) {
++		dev_put(po->prot_hook.dev);
++		po->prot_hook.dev = NULL;
++	}
++
++	spin_unlock(&po->bind_lock);
++	sock_put(sk);
++}
+ 
+ static int packet_notifier(struct notifier_block *this,
+ 			   unsigned long msg, void *ptr)
+@@ -3325,13 +3354,13 @@ static int packet_notifier(struct notifier_block *this,
+ 					if (!sock_flag(sk, SOCK_DEAD))
+ 						sk->sk_error_report(sk);
+ 				}
++				spin_unlock(&po->bind_lock);
++
+ 				if (msg == NETDEV_UNREGISTER) {
+-					po->ifindex = -1;
+-					if (po->prot_hook.dev)
+-						dev_put(po->prot_hook.dev);
+-					po->prot_hook.dev = NULL;
++					sock_hold(sk);
++					call_rcu(&po->rcu,
++						 packet_dev_put_deferred);
+ 				}
+-				spin_unlock(&po->bind_lock);
+ 			}
+ 			break;
+ 		case NETDEV_UP:
+diff --git a/net/packet/internal.h b/net/packet/internal.h
+index c4e4b45..c6e2d24 100644
+--- a/net/packet/internal.h
++++ b/net/packet/internal.h
+@@ -113,6 +113,8 @@ struct packet_sock {
+ 	unsigned int		tp_loss:1;
+ 	unsigned int		tp_tx_has_off:1;
+ 	unsigned int		tp_tstamp;
++	struct net_device __rcu	*cached_dev;
++	struct rcu_head		rcu;
+ 	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
+ };
+ 
+-- 
+1.8.3.1
