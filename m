@@ -1,49 +1,55 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Issue with gratuitous arps when new addr is different from cached addr
-Date: Thu, 21 Nov 2013 07:26:35 +0100
-Message-ID: <20131121062635.GD4347@order.stressinduktion.org>
-References: <CAO7SqHAVz2D53u141Za01DvBFnLky2imkYNvBV-2UuALpC3w6w@mail.gmail.com> <20131121044048.GB4347@order.stressinduktion.org> <CAO7SqHC4astdejH6wVAyjsVeuh96T8P3ao3bCDNs=opfv5bbUg@mail.gmail.com> <20131121062349.GC4347@order.stressinduktion.org>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [net-next 08/13] bna: CQ Read Fix
+Date: Wed, 20 Nov 2013 21:54:12 -0800
+Message-ID: <1385013257-32745-9-git-send-email-rmody@brocade.com>
+References: <1385013257-32745-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Salam Noureddine <noureddine@aristanetworks.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Phil Sutter <phil@nwl.cc>, Eric Dumazet <edumazet@google.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	<adapter_linux_open_src_team@Brocade.COM>,
+	Rasesh Mody <rmody@Brocade.COM>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:56367 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086Ab3KUG0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 01:26:36 -0500
-Content-Disposition: inline
-In-Reply-To: <20131121062349.GC4347@order.stressinduktion.org>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:43087 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750805Ab3KUGau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 01:30:50 -0500
+In-Reply-To: <1385013257-32745-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 21, 2013 at 07:23:49AM +0100, Hannes Frederic Sowa wrote:
-> On Wed, Nov 20, 2013 at 10:06:34PM -0800, Salam Noureddine wrote:
-> > Isn't locktime useful in that case for limiting the rate of garp
-> > changes to the arp cache?
-> 
-> Yes, as I said, it would be nice to have rate-limiting for those, too.
-> 
-> GARP is used in cluster setups to make the switch-over as fast as possible and
-> I don't think they accept those lock-down delays, so I guess it would be nice
-> to forceful override the lladdr if (sip == tip) && ACCEPT_ARP(dev) is true in
-> every case.
-> 
-> I guess you are not testing with ACCEPT_ARP?
-> 
-> In that case I am not sure what to do.
-> 
-> override = (...timing...) || sip == tip; could work but does relax the
-> protection of the neigh cache.
-> 
-> In IPv6 we have a flag in the packet if we should overwrite the entry.
-> 
-> I'll have to think about that a bit more. Could well be the case that we need
-> your proposal, too. But then we would have to validate the change with IPv6,
-> too and neighbour cache states are really complex.
+Valid bit check for completion needs read fence so that it does not get
+reordered with other loads.
 
-Hmm, could it help to bring the neighbor to suspect state (== WEAK_OVERRIDE)?
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ drivers/net/ethernet/brocade/bna/bnad.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index 6ae1d9a..cfdcfb6 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -605,7 +605,11 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ 	cq = ccb->sw_q;
+ 	cmpl = &cq[ccb->producer_index];
+ 
+-	while (cmpl->valid && (packets < budget)) {
++	while (packets < budget) {
++		if (!cmpl->valid)
++			break;
++		rmb();
++
+ 		BNA_UPDATE_PKT_CNT(pkt_rt, ntohs(cmpl->length));
+ 
+ 		if (bna_is_small_rxq(cmpl->rxq_id))
+@@ -645,6 +649,7 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ 
+ 				if (!next_cmpl->valid)
+ 					break;
++				mb();
+ 
+ 				len = ntohs(next_cmpl->length);
+ 				flags = ntohl(next_cmpl->flags);
+-- 
+1.8.2.3
