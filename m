@@ -1,69 +1,185 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: ARM network performance and dma_mask (was: [BUG,REGRESSION?]
- 3.11.6+,3.12: GbE iface rate drops to few KB/s)
-Date: Thu, 21 Nov 2013 20:04:33 +0100
-Message-ID: <20131121200433.4cb97d9e@skate>
-References: <87li0kkhzx.fsf@natisbad.org>
-	<1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131119174323.GH913@1wt.eu>
-	<1384885910.8604.110.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131119184121.GN913@1wt.eu>
-	<874n780wzc.fsf@natisbad.org>
-	<20131120191145.GP8581@1wt.eu>
-	<87txf692zx.fsf@natisbad.org>
-	<20131120215435.GT8581@1wt.eu>
-	<20131121004430.GX8581@1wt.eu>
-	<20131121183834.GB18513@1wt.eu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2] gso: handle new frag_list of frags GRO packets
+Date: Thu, 21 Nov 2013 11:10:04 -0800
+Message-ID: <1385061004.10637.64.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1385043004.10637.34.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131121.131741.737292941735802990.davem@davemloft.net>
+	 <1385058216.10637.53.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131121.133824.1318844228024646798.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <rob.herring@calxeda.com>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	simon.guinot@sequanux.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev@vger.kernel.org, edumazet@google.com,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Willy Tarreau <w@1wt.eu>
+Cc: herbert@gondor.apana.org.au, linux@eikelenboom.it,
+	edumazet@google.com, romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:60457 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755271Ab3KUTEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 14:04:40 -0500
-In-Reply-To: <20131121183834.GB18513@1wt.eu>
+Received: from mail-yh0-f47.google.com ([209.85.213.47]:56704 "EHLO
+	mail-yh0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752640Ab3KUTKH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 14:10:07 -0500
+Received: by mail-yh0-f47.google.com with SMTP id 29so3724326yhl.34
+        for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 11:10:07 -0800 (PST)
+In-Reply-To: <20131121.133824.1318844228024646798.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Willy Tarreau,
+From: Herbert Xu <herbert@gondor.apana.org.au>
 
-On Thu, 21 Nov 2013 19:38:34 +0100, Willy Tarreau wrote:
+Recently GRO started generating packets with frag_lists of frags.
+This was not handled by GSO, thus leading to a crash.
 
-> While we were diagnosing a network performance regression that we finally
-> found and fixed, it appeared during a test that Linus' tree shows a much
-> higher performance on Armada 370 (armv7) than its predecessors. I can
-> saturate the two Gig links of my Mirabox each with a single TCP flow and
-> keep up to 25% of idle CPU in the optimal case. In 3.12.1 or 3.10.20, I
-> can achieve around 1.3 Gbps when the two ports are used in parallel.
+Thankfully these packets are of a regular form and are easy to
+handle.  This patch handles them in two ways.  For completely
+non-linear frag_list entries, we simply continue to iterate over
+the frag_list frags once we exhaust the normal frags.  For frag_list
+entries with linear parts, we call pskb_trim on the first part
+of the frag_list skb, and then process the rest of the frags in
+the usual way.
 
-Interesting finding and analysis, once again!
+This patch also kills a chunk of dead frag_list code that has
+obviously never ever been run since it ends up generating a bogus
+GSO-segmented packet with a frag_list entry.
 
-> I'm not at ease with these things so I'd like to ask your opinion here, is
-> this supposed to be an improvement or a fix ? Is this something we should
-> backport into stable versions, or is there something to fix in the armada
-> platform so that it works just as if the patch was applied ?
+Future work is planned to split super big packets into TSO
+ones.
 
-I guess the driver should have been setting its dma_mask to 0xffffffff,
-since the platform is capable of doing DMA on the first 32 bits of the
-physical address space, probably something like calling
-pci_set_dma_mask(pdev, DMA_BIT_MASK(32)) or something like that. I know
-Russell has recently added some helpers to prevent stupid people (like
-me) from doing mistakes when setting the DMA masks. Certainly worth
-having a look.
+Fixes: 8a29111c7ca6 ("net: gro: allow to build full sized skb")
+Reported-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+Reported-by: Jerry Chu <hkchu@google.com>
+Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Sander Eikelenboom <linux@eikelenboom.it>
+Tested-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/skbuff.c |   75 +++++++++++++++++++++++++++++---------------
+ 1 file changed, 50 insertions(+), 25 deletions(-)
 
-Best regards,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 8cec1e6b844d..2718fed53d8c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2796,6 +2796,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 	struct sk_buff *segs = NULL;
+ 	struct sk_buff *tail = NULL;
+ 	struct sk_buff *fskb = skb_shinfo(skb)->frag_list;
++	skb_frag_t *skb_frag = skb_shinfo(skb)->frags;
+ 	unsigned int mss = skb_shinfo(skb)->gso_size;
+ 	unsigned int doffset = skb->data - skb_mac_header(skb);
+ 	unsigned int offset = doffset;
+@@ -2835,16 +2836,38 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 		if (hsize > len || !sg)
+ 			hsize = len;
+ 
+-		if (!hsize && i >= nfrags) {
+-			BUG_ON(fskb->len != len);
++		if (!hsize && i >= nfrags && skb_headlen(fskb) &&
++		    (skb_headlen(fskb) == len || sg)) {
++			BUG_ON(skb_headlen(fskb) > len);
++
++			i = 0;
++			nfrags = skb_shinfo(fskb)->nr_frags;
++			skb_frag = skb_shinfo(fskb)->frags;
++			pos += skb_headlen(fskb);
++
++			while (pos < offset + len) {
++				BUG_ON(i >= nfrags);
++
++				size = skb_frag_size(skb_frag);
++				if (pos + size > offset + len)
++					break;
++
++				i++;
++				pos += size;
++				skb_frag++;
++			}
+ 
+-			pos += len;
+ 			nskb = skb_clone(fskb, GFP_ATOMIC);
+ 			fskb = fskb->next;
+ 
+ 			if (unlikely(!nskb))
+ 				goto err;
+ 
++			if (unlikely(pskb_trim(nskb, len))) {
++				kfree_skb(nskb);
++				goto err;
++			}
++
+ 			hsize = skb_end_offset(nskb);
+ 			if (skb_cow_head(nskb, doffset + headroom)) {
+ 				kfree_skb(nskb);
+@@ -2881,7 +2904,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 						 nskb->data - tnl_hlen,
+ 						 doffset + tnl_hlen);
+ 
+-		if (fskb != skb_shinfo(skb)->frag_list)
++		if (nskb->len == len + doffset)
+ 			goto perform_csum_check;
+ 
+ 		if (!sg) {
+@@ -2899,8 +2922,28 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 
+ 		skb_shinfo(nskb)->tx_flags = skb_shinfo(skb)->tx_flags & SKBTX_SHARED_FRAG;
+ 
+-		while (pos < offset + len && i < nfrags) {
+-			*frag = skb_shinfo(skb)->frags[i];
++		while (pos < offset + len) {
++			if (i >= nfrags) {
++				BUG_ON(skb_headlen(fskb));
++
++				i = 0;
++				nfrags = skb_shinfo(fskb)->nr_frags;
++				skb_frag = skb_shinfo(fskb)->frags;
++
++				BUG_ON(!nfrags);
++
++				fskb = fskb->next;
++			}
++
++			if (unlikely(skb_shinfo(nskb)->nr_frags >=
++				     MAX_SKB_FRAGS)) {
++				net_warn_ratelimited(
++					"skb_segment: too many frags: %u %u\n",
++					pos, mss);
++				goto err;
++			}
++
++			*frag = *skb_frag;
+ 			__skb_frag_ref(frag);
+ 			size = skb_frag_size(frag);
+ 
+@@ -2913,6 +2956,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 
+ 			if (pos + size <= offset + len) {
+ 				i++;
++				skb_frag++;
+ 				pos += size;
+ 			} else {
+ 				skb_frag_size_sub(frag, pos + size - (offset + len));
+@@ -2922,25 +2966,6 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 			frag++;
+ 		}
+ 
+-		if (pos < offset + len) {
+-			struct sk_buff *fskb2 = fskb;
+-
+-			BUG_ON(pos + fskb->len != offset + len);
+-
+-			pos += fskb->len;
+-			fskb = fskb->next;
+-
+-			if (fskb2->next) {
+-				fskb2 = skb_clone(fskb2, GFP_ATOMIC);
+-				if (!fskb2)
+-					goto err;
+-			} else
+-				skb_get(fskb2);
+-
+-			SKB_FRAG_ASSERT(nskb);
+-			skb_shinfo(nskb)->frag_list = fskb2;
+-		}
+-
+ skip_fraglist:
+ 		nskb->data_len = len - hsize;
+ 		nskb->len += nskb->data_len;
