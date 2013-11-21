@@ -1,175 +1,221 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 8/8] openvswitch: Use skb_zerocopy() for upcall
-Date: Thu, 21 Nov 2013 19:13:39 +0100
-Message-ID: <cc812826e4c6d74c08b138a27f8e338ab0eb4580.1385057355.git.tgraf@suug.ch>
+Subject: [PATCH net-next 3/8] openvswitch: Enable memory mapped Netlink i/o
+Date: Thu, 21 Nov 2013 19:13:34 +0100
+Message-ID: <f30ed61c1243e5731977f3e2ae347dfe2e1ff6aa.1385057355.git.tgraf@suug.ch>
 References: <cover.1385057355.git.tgraf@suug.ch>
 Cc: dev@openvswitch.org, netdev@vger.kernel.org, dborkman@redhat.com,
 	ffusco@redhat.com, fleitner@redhat.com, eric.dumazet@gmail.com,
 	bhutchings@solarflare.com
 To: jesse@nicira.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:54639 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:54615 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754896Ab3KUSOB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:14:01 -0500
+	with ESMTP id S1754761Ab3KUSN4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:13:56 -0500
 In-Reply-To: <cover.1385057355.git.tgraf@suug.ch>
 In-Reply-To: <cover.1385057355.git.tgraf@suug.ch>
 References: <cover.1385057355.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use of skb_zerocopy() can avoids the expensive call to memcpy()
-when copying the packet data into the Netlink skb. Completes
-checksum through skb_checksum_help() if needed.
+Use memory mapped Netlink i/o for all unicast openvswitch
+communication if a ring has been set up.
 
-Zerocopy is only performed if user space supported unaligned
-Netlink messages. memory mapped netlink i/o is preferred over
-zerocopy if it is set up.
+Benchmark
+  * pktgen -> ovs internal port
+  * 5M pkts, 5M flows
+  * 4 threads, 8 cores
 
-Cost of upcall is significantly reduced from:
-+   7.48%       vhost-8471  [k] memcpy
-+   5.57%     ovs-vswitchd  [k] memcpy
-+   2.81%       vhost-8471  [k] csum_partial_copy_generic
+Before:
+Result: OK: 67418743(c67108212+d310530) usec, 5000000 (9000byte,0frags)
+  74163pps 5339Mb/sec (5339736000bps) errors: 0
+	+   2.98%     ovs-vswitchd  [k] copy_user_generic_string
+	+   2.49%     ovs-vswitchd  [k] memcpy
+	+   1.84%       kpktgend_2  [k] memcpy
+	+   1.81%       kpktgend_1  [k] memcpy
+	+   1.81%       kpktgend_3  [k] memcpy
+	+   1.78%       kpktgend_0  [k] memcpy
 
-to:
-+   5.72%     ovs-vswitchd  [k] memcpy
-+   3.32%       vhost-5153  [k] memcpy
-+   0.68%       vhost-5153  [k] skb_zerocopy
-
-(megaflows disabled)
+After:
+Result: OK: 24229690(c24127165+d102524) usec, 5000000 (9000byte,0frags)
+  206358pps 14857Mb/sec (14857776000bps) errors: 0
+	+   2.80%     ovs-vswitchd  [k] memcpy
+	+   1.31%       kpktgend_2  [k] memcpy
+	+   1.23%       kpktgend_0  [k] memcpy
+	+   1.09%       kpktgend_1  [k] memcpy
+	+   1.04%       kpktgend_3  [k] memcpy
+	+   0.96%     ovs-vswitchd  [k] copy_user_generic_string
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- net/openvswitch/datapath.c | 54 +++++++++++++++++++++++++++++++---------------
- 1 file changed, 37 insertions(+), 17 deletions(-)
+ net/openvswitch/datapath.c | 56 ++++++++++++++++++++++++----------------------
+ 1 file changed, 29 insertions(+), 27 deletions(-)
 
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 72cdffb..237f7d7 100644
+index 6f5e1dd..0ac9cde 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -108,10 +108,10 @@ int lockdep_ovsl_is_held(void)
- #endif
- 
- static struct vport *new_vport(const struct vport_parms *);
--static int queue_gso_packets(struct net *, int dp_ifindex, struct sk_buff *,
--			     const struct dp_upcall_info *);
--static int queue_userspace_packet(struct net *, int dp_ifindex,
--				  struct sk_buff *,
-+static int queue_gso_packets(struct datapath *, struct net *, int dp_ifindex,
-+			     struct sk_buff *, const struct dp_upcall_info *);
-+static int queue_userspace_packet(struct datapath *, struct net *,
-+				  int dp_ifindex, struct sk_buff *,
- 				  const struct dp_upcall_info *);
- 
- /* Must be called with rcu_read_lock or ovs_mutex. */
-@@ -292,9 +292,9 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
- 	}
- 
- 	if (!skb_is_gso(skb))
--		err = queue_userspace_packet(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
-+		err = queue_userspace_packet(dp, ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
- 	else
--		err = queue_gso_packets(ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
-+		err = queue_gso_packets(dp, ovs_dp_get_net(dp), dp_ifindex, skb, upcall_info);
- 	if (err)
- 		goto err;
- 
-@@ -310,7 +310,7 @@ err:
- 	return err;
- }
- 
--static int queue_gso_packets(struct net *net, int dp_ifindex,
-+static int queue_gso_packets(struct datapath *dp, struct net *net, int dp_ifindex,
- 			     struct sk_buff *skb,
- 			     const struct dp_upcall_info *upcall_info)
- {
-@@ -327,7 +327,7 @@ static int queue_gso_packets(struct net *net, int dp_ifindex,
- 	/* Queue all of the segments. */
- 	skb = segs;
- 	do {
--		err = queue_userspace_packet(net, dp_ifindex, skb, upcall_info);
-+		err = queue_userspace_packet(dp, net, dp_ifindex, skb, upcall_info);
- 		if (err)
- 			break;
- 
-@@ -381,10 +381,11 @@ static size_t key_attr_size(void)
- }
- 
- static size_t upcall_msg_size(const struct sk_buff *skb,
--			      const struct nlattr *userdata)
-+			      const struct nlattr *userdata,
-+			      unsigned int hdrlen)
- {
- 	size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
--		+ nla_total_size(skb->len) /* OVS_PACKET_ATTR_PACKET */
-+		+ nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
- 		+ nla_total_size(key_attr_size()); /* OVS_PACKET_ATTR_KEY */
- 
- 	/* OVS_PACKET_ATTR_USERDATA */
-@@ -394,8 +395,8 @@ static size_t upcall_msg_size(const struct sk_buff *skb,
- 	return size;
- }
- 
--static int queue_userspace_packet(struct net *net, int dp_ifindex,
--				  struct sk_buff *skb,
-+static int queue_userspace_packet(struct datapath *dp, struct net *net,
-+				  int dp_ifindex, struct sk_buff *skb,
- 				  const struct dp_upcall_info *upcall_info)
- {
- 	struct ovs_header *upcall;
-@@ -407,6 +408,7 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
- 		.snd_portid = upcall_info->portid,
- 	};
- 	size_t len;
-+	unsigned int hlen;
+@@ -402,6 +402,11 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 	struct sk_buff *nskb = NULL;
+ 	struct sk_buff *user_skb; /* to be queued to userspace */
+ 	struct nlattr *nla;
++	struct genl_info info = {
++		.dst_sk = net->genl_sock,
++		.snd_portid = upcall_info->portid,
++	};
++	size_t len;
  	int err;
  
  	if (vlan_tx_tag_present(skb)) {
-@@ -427,7 +429,21 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+@@ -422,7 +427,8 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
  		goto out;
  	}
  
--	len = upcall_msg_size(skb, upcall_info->userdata);
-+	/* Complete checksum if needed */
-+	if (skb->ip_summed == CHECKSUM_PARTIAL &&
-+	    (err = skb_checksum_help(skb)))
-+		goto out;
-+
-+	/* Older versions of OVS user space enforce alignment of the last
-+	 * Netlink attribute to NLA_ALIGNTO which would require extensive
-+	 * padding logic. Only perform zerocopy if padding is not required.
-+	 */
-+	if (dp->user_features & OVS_DP_F_UNALIGNED)
-+		hlen = skb_zerocopy_headlen(skb);
-+	else
-+		hlen = skb->len;
-+
-+	len = upcall_msg_size(skb, upcall_info->userdata, hlen);
- 	user_skb = genlmsg_new_unicast(len, &info, GFP_ATOMIC);
+-	user_skb = genlmsg_new(upcall_msg_size(skb, upcall_info->userdata), GFP_ATOMIC);
++	len = upcall_msg_size(skb, upcall_info->userdata);
++	user_skb = genlmsg_new_unicast(len, &info, GFP_ATOMIC);
  	if (!user_skb) {
  		err = -ENOMEM;
-@@ -447,13 +463,17 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
- 			  nla_len(upcall_info->userdata),
- 			  nla_data(upcall_info->userdata));
- 
--	nla = __nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, skb->len);
-+	/* Only reserve room for attribute header, packet data is added
-+	 * in skb_zerocopy() */
-+	if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0)))
-+		goto out;
-+	nla->nla_len = nla_attr_size(skb->len);
-+
-+	skb_zerocopy(user_skb, skb, skb->len, hlen);
- 
--	skb_copy_and_csum_dev(skb, nla_data(nla));
-+	((struct nlmsghdr *) user_skb->data)->nlmsg_len = user_skb->len;
- 
--	genlmsg_end(user_skb, upcall);
- 	err = genlmsg_unicast(net, user_skb, upcall_info->portid);
--
- out:
- 	kfree_skb(nskb);
+ 		goto out;
+@@ -726,27 +732,30 @@ error:
  	return err;
+ }
+ 
+-static struct sk_buff *ovs_flow_cmd_alloc_info(struct sw_flow *flow)
++static struct sk_buff *ovs_flow_cmd_alloc_info(struct sw_flow *flow,
++					       struct genl_info *info)
+ {
+-	const struct sw_flow_actions *sf_acts;
++	size_t len;
+ 
+-	sf_acts = ovsl_dereference(flow->sf_acts);
++	len = ovs_flow_cmd_msg_size(ovsl_dereference(flow->sf_acts));
+ 
+-	return genlmsg_new(ovs_flow_cmd_msg_size(sf_acts), GFP_KERNEL);
++	return genlmsg_new_unicast(len, info, GFP_KERNEL);
+ }
+ 
+ static struct sk_buff *ovs_flow_cmd_build_info(struct sw_flow *flow,
+ 					       struct datapath *dp,
+-					       u32 portid, u32 seq, u8 cmd)
++					       struct genl_info *info,
++					       u8 cmd)
+ {
+ 	struct sk_buff *skb;
+ 	int retval;
+ 
+-	skb = ovs_flow_cmd_alloc_info(flow);
++	skb = ovs_flow_cmd_alloc_info(flow, info);
+ 	if (!skb)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	retval = ovs_flow_cmd_fill_info(flow, dp, skb, portid, seq, 0, cmd);
++	retval = ovs_flow_cmd_fill_info(flow, dp, skb, info->snd_portid,
++					info->snd_seq, 0, cmd);
+ 	BUG_ON(retval < 0);
+ 	return skb;
+ }
+@@ -835,8 +844,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 			goto err_flow_free;
+ 		}
+ 
+-		reply = ovs_flow_cmd_build_info(flow, dp, info->snd_portid,
+-						info->snd_seq, OVS_FLOW_CMD_NEW);
++		reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
+ 	} else {
+ 		/* We found a matching flow. */
+ 		struct sw_flow_actions *old_acts;
+@@ -864,8 +872,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 		rcu_assign_pointer(flow->sf_acts, acts);
+ 		ovs_nla_free_flow_actions(old_acts);
+ 
+-		reply = ovs_flow_cmd_build_info(flow, dp, info->snd_portid,
+-					       info->snd_seq, OVS_FLOW_CMD_NEW);
++		reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
+ 
+ 		/* Clear stats. */
+ 		if (a[OVS_FLOW_ATTR_CLEAR]) {
+@@ -927,8 +934,7 @@ static int ovs_flow_cmd_get(struct sk_buff *skb, struct genl_info *info)
+ 		goto unlock;
+ 	}
+ 
+-	reply = ovs_flow_cmd_build_info(flow, dp, info->snd_portid,
+-					info->snd_seq, OVS_FLOW_CMD_NEW);
++	reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
+ 	if (IS_ERR(reply)) {
+ 		err = PTR_ERR(reply);
+ 		goto unlock;
+@@ -975,7 +981,7 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 		goto unlock;
+ 	}
+ 
+-	reply = ovs_flow_cmd_alloc_info(flow);
++	reply = ovs_flow_cmd_alloc_info(flow, info);
+ 	if (!reply) {
+ 		err = -ENOMEM;
+ 		goto unlock;
+@@ -1127,17 +1133,17 @@ error:
+ 	return -EMSGSIZE;
+ }
+ 
+-static struct sk_buff *ovs_dp_cmd_build_info(struct datapath *dp, u32 portid,
+-					     u32 seq, u8 cmd)
++static struct sk_buff *ovs_dp_cmd_build_info(struct datapath *dp,
++					     struct genl_info *info, u8 cmd)
+ {
+ 	struct sk_buff *skb;
+ 	int retval;
+ 
+-	skb = genlmsg_new(ovs_dp_cmd_msg_size(), GFP_KERNEL);
++	skb = genlmsg_new_unicast(ovs_dp_cmd_msg_size(), info, GFP_KERNEL);
+ 	if (!skb)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	retval = ovs_dp_cmd_fill_info(dp, skb, portid, seq, 0, cmd);
++	retval = ovs_dp_cmd_fill_info(dp, skb, info->snd_portid, info->snd_seq, 0, cmd);
+ 	if (retval < 0) {
+ 		kfree_skb(skb);
+ 		return ERR_PTR(retval);
+@@ -1232,8 +1238,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 		goto err_destroy_ports_array;
+ 	}
+ 
+-	reply = ovs_dp_cmd_build_info(dp, info->snd_portid,
+-				      info->snd_seq, OVS_DP_CMD_NEW);
++	reply = ovs_dp_cmd_build_info(dp, info, OVS_DP_CMD_NEW);
+ 	err = PTR_ERR(reply);
+ 	if (IS_ERR(reply))
+ 		goto err_destroy_local_port;
+@@ -1299,8 +1304,7 @@ static int ovs_dp_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 	if (IS_ERR(dp))
+ 		goto unlock;
+ 
+-	reply = ovs_dp_cmd_build_info(dp, info->snd_portid,
+-				      info->snd_seq, OVS_DP_CMD_DEL);
++	reply = ovs_dp_cmd_build_info(dp, info, OVS_DP_CMD_DEL);
+ 	err = PTR_ERR(reply);
+ 	if (IS_ERR(reply))
+ 		goto unlock;
+@@ -1328,8 +1332,7 @@ static int ovs_dp_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 	if (IS_ERR(dp))
+ 		goto unlock;
+ 
+-	reply = ovs_dp_cmd_build_info(dp, info->snd_portid,
+-				      info->snd_seq, OVS_DP_CMD_NEW);
++	reply = ovs_dp_cmd_build_info(dp, info, OVS_DP_CMD_NEW);
+ 	if (IS_ERR(reply)) {
+ 		err = PTR_ERR(reply);
+ 		genl_set_err(&dp_datapath_genl_family, sock_net(skb->sk), 0,
+@@ -1360,8 +1363,7 @@ static int ovs_dp_cmd_get(struct sk_buff *skb, struct genl_info *info)
+ 		goto unlock;
+ 	}
+ 
+-	reply = ovs_dp_cmd_build_info(dp, info->snd_portid,
+-				      info->snd_seq, OVS_DP_CMD_NEW);
++	reply = ovs_dp_cmd_build_info(dp, info, OVS_DP_CMD_NEW);
+ 	if (IS_ERR(reply)) {
+ 		err = PTR_ERR(reply);
+ 		goto unlock;
 -- 
 1.8.3.1
