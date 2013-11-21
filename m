@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/7] netfilter: nf_conntrack: decrement global counter after object release
-Date: Thu, 21 Nov 2013 10:05:27 +0100
-Message-ID: <1385024728-4057-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/7] netfilter: nft_compat: fix error path in nft_parse_compat()
+Date: Thu, 21 Nov 2013 10:05:26 +0100
+Message-ID: <1385024728-4057-6-git-send-email-pablo@netfilter.org>
 References: <1385024728-4057-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,63 +10,72 @@ In-Reply-To: <1385024728-4057-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-nf_conntrack_free() decrements our counter (net->ct.count)
-before releasing the conntrack object. That counter is used in the
-nf_conntrack_cleanup_net_list path to check if it's time to
-kmem_cache_destroy our cache of conntrack objects. I think we have
-a race there that should be easier to trigger (although still hard)
-with CONFIG_DEBUG_OBJECTS_FREE as object releases become slowier
-according to the following splat:
+The patch 0ca743a55991: "netfilter: nf_tables: add compatibility
+layer for x_tables", leads to the following Smatch
 
-[ 1136.321305] WARNING: CPU: 2 PID: 2483 at lib/debugobjects.c:260
-debug_print_object+0x83/0xa0()
-[ 1136.321311] ODEBUG: free active (active state 0) object type:
-timer_list hint: delayed_work_timer_fn+0x0/0x20
-...
-[ 1136.321390] Call Trace:
-[ 1136.321398]  [<ffffffff8160d4a2>] dump_stack+0x45/0x56
-[ 1136.321405]  [<ffffffff810514e8>] warn_slowpath_common+0x78/0xa0
-[ 1136.321410]  [<ffffffff81051557>] warn_slowpath_fmt+0x47/0x50
-[ 1136.321414]  [<ffffffff812f8883>] debug_print_object+0x83/0xa0
-[ 1136.321420]  [<ffffffff8106aa90>] ? execute_in_process_context+0x90/0x90
-[ 1136.321424]  [<ffffffff812f99fb>] debug_check_no_obj_freed+0x20b/0x250
-[ 1136.321429]  [<ffffffff8112e7f2>] ? kmem_cache_destroy+0x92/0x100
-[ 1136.321433]  [<ffffffff8115d945>] kmem_cache_free+0x125/0x210
-[ 1136.321436]  [<ffffffff8112e7f2>] kmem_cache_destroy+0x92/0x100
-[ 1136.321443]  [<ffffffffa046b806>] nf_conntrack_cleanup_net_list+0x126/0x160 [nf_conntrack]
-[ 1136.321449]  [<ffffffffa046c43d>] nf_conntrack_pernet_exit+0x6d/0x80 [nf_conntrack]
-[ 1136.321453]  [<ffffffff81511cc3>] ops_exit_list.isra.3+0x53/0x60
-[ 1136.321457]  [<ffffffff815124f0>] cleanup_net+0x100/0x1b0
-[ 1136.321460]  [<ffffffff8106b31e>] process_one_work+0x18e/0x430
-[ 1136.321463]  [<ffffffff8106bf49>] worker_thread+0x119/0x390
-[ 1136.321467]  [<ffffffff8106be30>] ? manage_workers.isra.23+0x2a0/0x2a0
-[ 1136.321470]  [<ffffffff8107210b>] kthread+0xbb/0xc0
-[ 1136.321472]  [<ffffffff81072050>] ? kthread_create_on_node+0x110/0x110
-[ 1136.321477]  [<ffffffff8161b8fc>] ret_from_fork+0x7c/0xb0
-[ 1136.321479]  [<ffffffff81072050>] ? kthread_create_on_node+0x110/0x110
-[ 1136.321481] ---[ end trace 25f53c192da70825 ]---
+ warning: "net/netfilter/nft_compat.c:140 nft_parse_compat()
+          warn: signedness bug returning '(-34)'"
 
-Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+This nft_parse_compat function returns error codes but the return
+type is u8 so the error codes are transformed into small positive
+values. The callers don't check the return.
+
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_core.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/netfilter/nft_compat.c |   19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index e22d950..43549eb 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -764,9 +764,10 @@ void nf_conntrack_free(struct nf_conn *ct)
- 	struct net *net = nf_ct_net(ct);
+diff --git a/net/netfilter/nft_compat.c b/net/netfilter/nft_compat.c
+index a82667c..da0c1f4 100644
+--- a/net/netfilter/nft_compat.c
++++ b/net/netfilter/nft_compat.c
+@@ -128,7 +128,7 @@ static const struct nla_policy nft_rule_compat_policy[NFTA_RULE_COMPAT_MAX + 1]
+ 	[NFTA_RULE_COMPAT_FLAGS]	= { .type = NLA_U32 },
+ };
  
- 	nf_ct_ext_destroy(ct);
--	atomic_dec(&net->ct.count);
- 	nf_ct_ext_free(ct);
- 	kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
-+	smp_mb__before_atomic_dec();
-+	atomic_dec(&net->ct.count);
+-static u8 nft_parse_compat(const struct nlattr *attr, bool *inv)
++static int nft_parse_compat(const struct nlattr *attr, u8 *proto, bool *inv)
+ {
+ 	struct nlattr *tb[NFTA_RULE_COMPAT_MAX+1];
+ 	u32 flags;
+@@ -148,7 +148,8 @@ static u8 nft_parse_compat(const struct nlattr *attr, bool *inv)
+ 	if (flags & NFT_RULE_COMPAT_F_INV)
+ 		*inv = true;
+ 
+-	return ntohl(nla_get_be32(tb[NFTA_RULE_COMPAT_PROTO]));
++	*proto = ntohl(nla_get_be32(tb[NFTA_RULE_COMPAT_PROTO]));
++	return 0;
  }
- EXPORT_SYMBOL_GPL(nf_conntrack_free);
+ 
+ static int
+@@ -166,8 +167,11 @@ nft_target_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
+ 
+ 	target_compat_from_user(target, nla_data(tb[NFTA_TARGET_INFO]), info);
+ 
+-	if (ctx->nla[NFTA_RULE_COMPAT])
+-		proto = nft_parse_compat(ctx->nla[NFTA_RULE_COMPAT], &inv);
++	if (ctx->nla[NFTA_RULE_COMPAT]) {
++		ret = nft_parse_compat(ctx->nla[NFTA_RULE_COMPAT], &proto, &inv);
++		if (ret < 0)
++			goto err;
++	}
+ 
+ 	nft_target_set_tgchk_param(&par, ctx, target, info, &e, proto, inv);
+ 
+@@ -356,8 +360,11 @@ nft_match_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
+ 
+ 	match_compat_from_user(match, nla_data(tb[NFTA_MATCH_INFO]), info);
+ 
+-	if (ctx->nla[NFTA_RULE_COMPAT])
+-		proto = nft_parse_compat(ctx->nla[NFTA_RULE_COMPAT], &inv);
++	if (ctx->nla[NFTA_RULE_COMPAT]) {
++		ret = nft_parse_compat(ctx->nla[NFTA_RULE_COMPAT], &proto, &inv);
++		if (ret < 0)
++			goto err;
++	}
+ 
+ 	nft_match_set_mtchk_param(&par, ctx, match, info, &e, proto, inv);
  
 -- 
 1.7.10.4
