@@ -1,49 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: rework recvmsg handler msg_name and msg_namelen
- logic
-Date: Thu, 21 Nov 2013 07:00:14 -0800
-Message-ID: <1385046014.10637.44.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131121003828.GA32587@order.stressinduktion.org>
-	 <528E1E2E.20905@gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net v2] packet: fix use after free race in send path when
+ dev is released
+Date: Thu, 21 Nov 2013 16:02:49 +0100
+Message-ID: <528E2099.90208@redhat.com>
+References: <1385027235-2217-1-git-send-email-dborkman@redhat.com> <1385044842.10637.41.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Vlad Yasevich <vyasevich@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Salam Noureddine <noureddine@aristanetworks.com>,
+	Ben Greear <greearb@candelatech.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:60883 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750913Ab3KUPAU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 10:00:20 -0500
-Received: by mail-pa0-f50.google.com with SMTP id kl14so1126529pab.23
-        for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 07:00:18 -0800 (PST)
-In-Reply-To: <528E1E2E.20905@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:12633 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750827Ab3KUPC4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Nov 2013 10:02:56 -0500
+In-Reply-To: <1385044842.10637.41.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-21 at 09:52 -0500, Vlad Yasevich wrote:
-> On 11/20/2013 07:38 PM, Hannes Frederic Sowa wrote:
-> > diff --git a/include/linux/net.h b/include/linux/net.h
-> > index b292a04..4bcee94 100644
-> > --- a/include/linux/net.h
-> > +++ b/include/linux/net.h
-> > @@ -164,6 +164,14 @@ struct proto_ops {
-> >  #endif
-> >  	int		(*sendmsg)   (struct kiocb *iocb, struct socket *sock,
-> >  				      struct msghdr *m, size_t total_len);
-> > +	/* Notes for implementing recvmsg:
-> > +	 * ===============================
-> > +	 * msg->msg_namelen should get updated by the recvmsg handlers
-> > +	 * iff msg_name != NULL. It is by default 0 to prevent
-> > +	 * returning uninitialized memory to user space.  The recvfrom
-> > +	 * handlers can assume that msg.msg_name is either NULL or has
-> > +	 * a minimum size of sizeof(struct sockaddr_storage).
->              ^^^^^^^
-> 
-> You meant "maximum", right?
+On 11/21/2013 03:40 PM, Eric Dumazet wrote:
+> On Thu, 2013-11-21 at 10:47 +0100, Daniel Borkmann wrote:
+>
+>> +static void packet_dev_put_deferred(struct rcu_head *head)
+>> +{
+>> +	struct packet_sock *po = container_of(head, struct packet_sock, rcu);
+>> +	struct sock *sk = &po->sk;
+>> +
+>> +	spin_lock(&po->bind_lock);
+>> +	po->ifindex = -1;
+>> +
+>> +	if (po->prot_hook.dev) {
+>> +		dev_put(po->prot_hook.dev);
+>> +		po->prot_hook.dev = NULL;
+>> +	}
+>> +
+>> +	spin_unlock(&po->bind_lock);
+>> +	sock_put(sk);
+>> +}
+>
+> I dont think this is needed.
+>
+>>
+>>   static int packet_notifier(struct notifier_block *this,
+>>   			   unsigned long msg, void *ptr)
+>> @@ -3325,13 +3354,13 @@ static int packet_notifier(struct notifier_block *this,
+>>   					if (!sock_flag(sk, SOCK_DEAD))
+>>   						sk->sk_error_report(sk);
+>>   				}
+>> +				spin_unlock(&po->bind_lock);
+>> +
+>>   				if (msg == NETDEV_UNREGISTER) {
+>> -					po->ifindex = -1;
+>> -					if (po->prot_hook.dev)
+>> -						dev_put(po->prot_hook.dev);
+>> -					po->prot_hook.dev = NULL;
+>> +					sock_hold(sk);
+>> +					call_rcu(&po->rcu,
+>> +						 packet_dev_put_deferred);
+>>   				}
+>> -				spin_unlock(&po->bind_lock);
+>>   			}
+>
+> Its not needed because you now take a reference on dev
+> in packet_cached_dev_get()
 
-He meant : A protocol can safely assume there are sizeof(struct
-sockaddr_storage) bytes available.
+That was also my first thought, but Salam pointed out to me, that in case
+we have a situation such as ...
 
-So a protocol should use BUILD_BUG_ON() to make sure sockaddr_storage is
-big enough.
+in packet_cached_dev_get():
+     rcu_read_lock();
+     dev = rcu_dereference(po->cached_dev);      in packet_notifier():
+                                                 ---> CPU1: dev_put(po->prot_hook.dev);
+---> CPU0:
+     if (dev)
+	dev_hold(dev);
+     rcu_read_unlock();
+
+... we could reach a refcount of 0, before we increase it back to 1. Not sure
+if this can actually happen, maybe in preemptible RCU where read-side critical
+sections to be preempted? So with this rather paranoid approach we make sure
+to avoid such a situation as we wait a grace period when readers finished.
+
+> Otherwise, patch looks good !
+
+Thanks!
