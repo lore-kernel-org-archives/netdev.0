@@ -1,71 +1,46 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH RFC v1 7/7] net: cpsw: resume/suspend PHY on port start/stop
-Date: Thu, 21 Nov 2013 09:41:13 +0100
-Message-ID: <528DC729.1000506@gmail.com>
-References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com> <1384978913-8052-8-git-send-email-sebastian.hesselbarth@gmail.com> <528DC5DD.8040801@ti.com>
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <528DC5DD.8040801@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 1/7] netfilter: fix connlimit Kconfig prompt string
+Date: Thu, 21 Nov 2013 10:05:22 +0100
+Message-ID: <1385024728-4057-2-git-send-email-pablo@netfilter.org>
+References: <1385024728-4057-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:34566 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751154Ab3KUJGA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Nov 2013 04:06:00 -0500
+In-Reply-To: <1385024728-4057-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/21/2013 09:35 AM, Mugunthan V N wrote:
-> On Thursday 21 November 2013 01:51 AM, Sebastian Hesselbarth wrote:
->> Network PHYs consume a noticable amount of power. This adds phy_resume
->> on slave_open and phy_suspend on slave_stop to save this power if the
->> port is down anyway.
->>
->> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
->> ---
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: netdev@vger.kernel.org
->> Cc: linux-arm-kernel@lists.infradead.org
->> Cc: linux-kernel@vger.kernel.org
->> ---
->>   drivers/net/ethernet/ti/cpsw.c |    2 ++
->>   1 files changed, 2 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
->> index 90d41d2..f1dc54f 100644
->> --- a/drivers/net/ethernet/ti/cpsw.c
->> +++ b/drivers/net/ethernet/ti/cpsw.c
->> @@ -1013,6 +1013,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
->>   	} else {
->>   		dev_info(priv->dev, "phy found : id is : 0x%x\n",
->>   			 slave->phy->phy_id);
->> +		phy_resume(slave->phy);
->>   		phy_start(slave->phy);
->>
->>   		/* Configure GMII_SEL register */
->> @@ -1081,6 +1082,7 @@ static void cpsw_slave_stop(struct cpsw_slave *slave, struct cpsw_priv *priv)
->>   	if (!slave->phy)
->>   		return;
->>   	phy_stop(slave->phy);
->> +	phy_suspend(slave->phy);
->>   	phy_disconnect(slave->phy);
->>   	slave->phy = NULL;
->>   }
->
-> Can these be called from phy_start and phy_stop itself so that it
-> reduces the effort of patching all drivers and also applies to all
-> etherent drivers.
+From: Randy Dunlap <rdunlap@infradead.org>
 
-Mugunthan,
+Under Core Netfilter Configuration, connlimit match support has
+an extra double quote at the end of it.
 
-Florian already mentioned that and I was already guessing that it will
-be better hidden within the PHY state machine, too.
+Fixes a portion of kernel bugzilla #52671:
+  https://bugzilla.kernel.org/show_bug.cgi?id=52671
 
-My current idea is to have a new state, that Florian also mentioned,
-with the following behavior: On phy_stop the PHY will drop down to
-suspend if (a) the PHY driver provides a suspend callback and (b) if
-there is nothing enabled that requires the PHY to remain powered, e.g.
-WoL.
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Reported-by: lailavrazda1979@gmail.com
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Anyway, I'll have to dig into PHY state machine internals for that
-first.
-
-Sebastian
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 48acec1..c3398cd 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -909,7 +909,7 @@ config NETFILTER_XT_MATCH_CONNLABEL
+ 	  connection simultaneously.
+ 
+ config NETFILTER_XT_MATCH_CONNLIMIT
+-	tristate '"connlimit" match support"'
++	tristate '"connlimit" match support'
+ 	depends on NF_CONNTRACK
+ 	depends on NETFILTER_ADVANCED
+ 	---help---
+-- 
+1.7.10.4
