@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 06/13] bna: UDP RX Processing Improvements
-Date: Wed, 20 Nov 2013 21:54:10 -0800
-Message-ID: <1385013257-32745-7-git-send-email-rmody@brocade.com>
+Subject: [net-next 10/13] bna: Handle the TX Setup Failures
+Date: Wed, 20 Nov 2013 21:54:14 -0800
+Message-ID: <1385013257-32745-11-git-send-email-rmody@brocade.com>
 References: <1385013257-32745-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,77 +12,61 @@ To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:58002 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753710Ab3KUGVr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 01:21:47 -0500
+	by vger.kernel.org with ESMTP id S1754001Ab3KUGVs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 01:21:48 -0500
 In-Reply-To: <1385013257-32745-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change Details:
- - Prefetch header in GRO path. This reduces napi_frags_skb time from 9% to 5%.
- - Changed the configurable limit of RxQ depth to 16384 (was 2048).
- - Rx unmap structure of 40 bytes is packed to 32 bytes reducing unmap_q size by 16K.
- - bnad_rx_unmap_q elements are cachealigned.
+Change details:
+ - When bnad_setup_tx() returns NULL, the error is NOT returned to the caller.
+   The caller will incorrectly assume success. So Return ENOMEM when bna_tx_create()
+   fails.
+ - If bnad_tx_msix_register() fails, call bna_tx_destroy() to free tx & to NULL
+   the bnad reference to tcb.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c | 5 +++++
- drivers/net/ethernet/brocade/bna/bnad.h | 8 ++++----
- 2 files changed, 9 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 8dfd783..e8c1900 100644
+index 41689ae..797d0f2 100644
 --- a/drivers/net/ethernet/brocade/bna/bnad.c
 +++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -540,6 +540,11 @@ bnad_cq_setup_skb_frags(struct bna_rcb *rcb, struct sk_buff *skb,
+@@ -1987,8 +1987,10 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_id)
+ 	tx = bna_tx_create(&bnad->bna, bnad, tx_config, &tx_cbfn, res_info,
+ 			tx_info);
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+-	if (!tx)
++	if (!tx) {
++		err = -ENOMEM;
+ 		goto err_return;
++	}
+ 	tx_info->tx = tx;
  
- 	unmap_q = rcb->unmap_q;
- 	bnad = rcb->bnad;
-+
-+	/* prefetch header */
-+	prefetch(page_address(unmap_q->unmap[sop_ci].page) +
-+			unmap_q->unmap[sop_ci].page_offset);
-+
- 	for (vec = 1, ci = sop_ci; vec <= nvecs; vec++) {
- 		unmap = &unmap_q->unmap[ci];
- 		BNA_QE_INDX_INC(ci, rcb->q_depth);
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-index 03de9cc..d1dc930 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.h
-+++ b/drivers/net/ethernet/brocade/bna/bnad.h
-@@ -84,7 +84,7 @@ struct bnad_rx_ctrl {
- #define BNAD_IOCETH_TIMEOUT	     10000
+ 	INIT_DELAYED_WORK(&tx_info->tx_cleanup_work,
+@@ -1999,7 +2001,7 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_id)
+ 		err = bnad_tx_msix_register(bnad, tx_info,
+ 			tx_id, bnad->num_txq_per_tx);
+ 		if (err)
+-			goto err_return;
++			goto cleanup_tx;
+ 	}
  
- #define BNAD_MIN_Q_DEPTH		512
--#define BNAD_MAX_RXQ_DEPTH		2048
-+#define BNAD_MAX_RXQ_DEPTH		16384
- #define BNAD_MAX_TXQ_DEPTH		2048
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+@@ -2008,6 +2010,12 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_id)
  
- #define BNAD_JUMBO_MTU			9000
-@@ -233,13 +233,13 @@ struct bnad_tx_unmap {
- struct bnad_rx_vector {
- 	DEFINE_DMA_UNMAP_ADDR(dma_addr);
- 	u32			len;
--};
-+} __packed;
+ 	return 0;
  
- struct bnad_rx_unmap {
- 	struct page		*page;
--	u32			page_offset;
- 	struct sk_buff		*skb;
- 	struct bnad_rx_vector	vector;
-+	u32			page_offset;
- };
- 
- enum bnad_rxbuf_type {
-@@ -257,7 +257,7 @@ struct bnad_rx_unmap_q {
- 	int			alloc_order;
- 	u32			map_size;
- 	enum bnad_rxbuf_type	type;
--	struct bnad_rx_unmap	unmap[0];
-+	struct bnad_rx_unmap	unmap[0] ____cacheline_aligned;
- };
- 
- #define BNAD_PCI_DEV_IS_CAT2(_bnad) \
++cleanup_tx:
++	spin_lock_irqsave(&bnad->bna_lock, flags);
++	bna_tx_destroy(tx_info->tx);
++	spin_unlock_irqrestore(&bnad->bna_lock, flags);
++	tx_info->tx = NULL;
++	tx_info->tx_id = 0;
+ err_return:
+ 	bnad_tx_res_free(bnad, res_info);
+ 	return err;
 -- 
 1.8.2.3
