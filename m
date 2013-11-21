@@ -1,47 +1,81 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net: rework recvmsg handler msg_name and msg_namelen logic
-Date: Thu, 21 Nov 2013 18:04:34 +0100
-Message-ID: <20131121170434.GA6745@order.stressinduktion.org>
-References: <20131121003828.GA32587@order.stressinduktion.org> <528E1E2E.20905@gmail.com> <1385046014.10637.44.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] genetlink: fix genlmsg_multicast() bug
+Date: Thu, 21 Nov 2013 18:17:04 +0100
+Message-ID: <1385054224-1410-1-git-send-email-johannes@sipsolutions.net>
+Cc: Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57467 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753057Ab3KUREg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 12:04:36 -0500
-Content-Disposition: inline
-In-Reply-To: <1385046014.10637.44.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from s3.sipsolutions.net ([144.76.43.152]:50881 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754565Ab3KURRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 12:17:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 21, 2013 at 07:00:14AM -0800, Eric Dumazet wrote:
-> On Thu, 2013-11-21 at 09:52 -0500, Vlad Yasevich wrote:
-> > On 11/20/2013 07:38 PM, Hannes Frederic Sowa wrote:
-> > > diff --git a/include/linux/net.h b/include/linux/net.h
-> > > index b292a04..4bcee94 100644
-> > > --- a/include/linux/net.h
-> > > +++ b/include/linux/net.h
-> > > @@ -164,6 +164,14 @@ struct proto_ops {
-> > >  #endif
-> > >  	int		(*sendmsg)   (struct kiocb *iocb, struct socket *sock,
-> > >  				      struct msghdr *m, size_t total_len);
-> > > +	/* Notes for implementing recvmsg:
-> > > +	 * ===============================
-> > > +	 * msg->msg_namelen should get updated by the recvmsg handlers
-> > > +	 * iff msg_name != NULL. It is by default 0 to prevent
-> > > +	 * returning uninitialized memory to user space.  The recvfrom
-> > > +	 * handlers can assume that msg.msg_name is either NULL or has
-> > > +	 * a minimum size of sizeof(struct sockaddr_storage).
-> >              ^^^^^^^
-> > 
-> > You meant "maximum", right?
-> 
-> He meant : A protocol can safely assume there are sizeof(struct
-> sockaddr_storage) bytes available.
+From: Johannes Berg <johannes.berg@intel.com>
 
-Yes, exactly. Apparently it seems to does cause confusion as I wrote it. Maybe I should
-reword it?
+Unfortunately, I introduced a tremendously stupid bug into
+genlmsg_multicast() when doing all those multicast group
+changes: it adjusts the group number, but then passes it
+to genlmsg_multicast_netns() which does that again.
+
+Somehow, my tests failed to catch this, so add a warning
+into genlmsg_multicast_netns() and remove the offending
+group ID adjustment.
+
+Also add a warning to the similar code in other functions
+so people who misuse them are more loudly warned.
+
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ include/net/genetlink.h | 5 +----
+ net/netlink/genetlink.c | 4 ++--
+ 2 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/include/net/genetlink.h b/include/net/genetlink.h
+index ace4abf..771af09 100644
+--- a/include/net/genetlink.h
++++ b/include/net/genetlink.h
+@@ -265,7 +265,7 @@ static inline int genlmsg_multicast_netns(struct genl_family *family,
+ 					  struct net *net, struct sk_buff *skb,
+ 					  u32 portid, unsigned int group, gfp_t flags)
+ {
+-	if (group >= family->n_mcgrps)
++	if (WARN_ON_ONCE(group >= family->n_mcgrps))
+ 		return -EINVAL;
+ 	group = family->mcgrp_offset + group;
+ 	return nlmsg_multicast(net->genl_sock, skb, portid, group, flags);
+@@ -283,9 +283,6 @@ static inline int genlmsg_multicast(struct genl_family *family,
+ 				    struct sk_buff *skb, u32 portid,
+ 				    unsigned int group, gfp_t flags)
+ {
+-	if (group >= family->n_mcgrps)
+-		return -EINVAL;
+-	group = family->mcgrp_offset + group;
+ 	return genlmsg_multicast_netns(family, &init_net, skb,
+ 				       portid, group, flags);
+ }
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 7dbc4f7..4518a57 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -1045,7 +1045,7 @@ static int genlmsg_mcast(struct sk_buff *skb, u32 portid, unsigned long group,
+ int genlmsg_multicast_allns(struct genl_family *family, struct sk_buff *skb,
+ 			    u32 portid, unsigned int group, gfp_t flags)
+ {
+-	if (group >= family->n_mcgrps)
++	if (WARN_ON_ONCE(group >= family->n_mcgrps))
+ 		return -EINVAL;
+ 	group = family->mcgrp_offset + group;
+ 	return genlmsg_mcast(skb, portid, group, flags);
+@@ -1062,7 +1062,7 @@ void genl_notify(struct genl_family *family,
+ 	if (nlh)
+ 		report = nlmsg_report(nlh);
+ 
+-	if (group >= family->n_mcgrps)
++	if (WARN_ON_ONCE(group >= family->n_mcgrps))
+ 		return;
+ 	group = family->mcgrp_offset + group;
+ 	nlmsg_notify(sk, skb, portid, group, report, flags);
+-- 
+1.8.4.rc3
