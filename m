@@ -1,287 +1,54 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net v2] packet: fix use after free race in send path when dev is released
-Date: Thu, 21 Nov 2013 10:47:15 +0100
-Message-ID: <1385027235-2217-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org,
-	Salam Noureddine <noureddine@aristanetworks.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: davem@davemloft.net
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] usb: xhci: Link TRB must not occur with a USB payload burst.
+Date: Thu, 21 Nov 2013 09:53:50 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B743E@saturn3.aculab.com>
+References: <20131119225822.GA9611@xanatos> <Pine.LNX.4.44L0.1311192204140.6891-100000@netrider.rowland.org> <AE90C24D6B3A694183C094C60CF0A2F6026B7437@saturn3.aculab.com> <20131120160605.GB9611@xanatos> <AE90C24D6B3A694183C094C60CF0A2F6026B743D@saturn3.aculab.com> <A2CA0424C0A6F04399FB9E1CD98E030458E28EB7@US01WEMBX2.internal.synopsys.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Alan Stern" <stern@rowland.harvard.edu>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: "Paul Zimmerman" <Paul.Zimmerman@synopsys.com>,
+	"Sarah Sharp" <sarah.a.sharp@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46711 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753021Ab3KUJrU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Nov 2013 04:47:20 -0500
+Received: from mx0.aculab.com ([213.249.233.131]:51719 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752629Ab3KUJ4X convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 04:56:23 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 17972-02 for <netdev@vger.kernel.org>;
+ Thu, 21 Nov 2013 09:56:21 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <A2CA0424C0A6F04399FB9E1CD98E030458E28EB7@US01WEMBX2.internal.synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Salam reported a use after free bug in PF_PACKET that occurs when
-we're sending out frames on a socket bound device and suddenly the
-net device is being unregistered. It appears that commit 827d9780
-introduced a possible race condition between {t,}packet_snd() and
-packet_notifier(). In the case of a bound socket, packet_notifier()
-can drop the last reference to the net_device and {t,}packet_snd()
-might end up suddenly sending a packet over a freed net_device.
+> > My suspicion is that long SG lists are unusual - otherwise the
+> > ring expansion code would have been needed much earlier.
+> >
+> > Can anyone remember whether that was needed because of long SG lists
+> > or because of large numbers of outstanding requests?
+> >
+> > I've seen it for network cards - but only because usbnet sends
+> > down far too many tx buffers.
+> 
+> usb-storage limits the maximum transfer size to 120K. That is a max of
+> 31 page-size segments if my math is right. That's probably why mass-storage
+> never saw a problem.
 
-To avoid reverting 827d9780 and thus introducing a performance
-regression compared to the current state of things, we decided to
-hold a cached RCU protected pointer to the net device and maintain
-it on write side via bind spin_lock protected register_prot_hook()
-and __unregister_prot_hook() calls.
+I found some references to mass storage running out of ring space.
 
-In {t,}packet_snd() path, we access this pointer under rcu_read_lock
-through packet_cached_dev_get() that holds reference to the device
-to prevent it from being freed through packet_notifier() while
-we're in send path. This is okay to do as dev_put()/dev_hold() are
-per-cpu counters, so this should not be a performance issue. Also,
-the code simplifies a bit as we don't need need_rls_dev anymore. For
-the notifier section, we're paranoid and defer putting the reference
-on the net device, so that we really make sure that we've quite the
-RCU read section from packet_cached_dev_get() and waited a grace
-period. This fixes the issue reported.
+My best guess as to why mass storage has never had a problem with
+the alignment at link TRBs is that the effect of getting it wrong
+is to split the transfer. Since almost all the transfers are of page
+aligned data that will only happen on a 1k boundary - where it is
+invisible to the target.
 
-Fixes: 827d978037d7 ("af-packet: Use existing netdev reference for bound sockets.")
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
-Tested-by: Salam Noureddine <noureddine@aristanetworks.com>
-Cc: Ben Greear <greearb@candelatech.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
----
- v1->v2:
-  - Applied feedback from Dave and Eric, thanks a lot for this!
-  - After back and forth and trying out multiple ideas, we think that this
-    patch seems the best way to fix this issue.
+For USB2 targets the link TRB only has to be 512 byte aligned.
+The constraint that mass storage applied for the usb2 controllers
+is enough to satisfy it.
 
- net/packet/af_packet.c | 85 +++++++++++++++++++++++++++++++++-----------------
- net/packet/internal.h  |  2 ++
- 2 files changed, 59 insertions(+), 28 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 2e8286b..e6de9cc 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -244,11 +244,15 @@ static void __fanout_link(struct sock *sk, struct packet_sock *po);
- static void register_prot_hook(struct sock *sk)
- {
- 	struct packet_sock *po = pkt_sk(sk);
-+
- 	if (!po->running) {
--		if (po->fanout)
-+		if (po->fanout) {
- 			__fanout_link(sk, po);
--		else
-+		} else {
- 			dev_add_pack(&po->prot_hook);
-+			rcu_assign_pointer(po->cached_dev, po->prot_hook.dev);
-+		}
-+
- 		sock_hold(sk);
- 		po->running = 1;
- 	}
-@@ -266,10 +270,13 @@ static void __unregister_prot_hook(struct sock *sk, bool sync)
- 	struct packet_sock *po = pkt_sk(sk);
- 
- 	po->running = 0;
--	if (po->fanout)
-+	if (po->fanout) {
- 		__fanout_unlink(sk, po);
--	else
-+	} else {
- 		__dev_remove_pack(&po->prot_hook);
-+		RCU_INIT_POINTER(po->cached_dev, NULL);
-+	}
-+
- 	__sock_put(sk);
- 
- 	if (sync) {
-@@ -2052,12 +2059,24 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	return tp_len;
- }
- 
-+static struct net_device *packet_cached_dev_get(struct packet_sock *po)
-+{
-+	struct net_device *dev;
-+
-+	rcu_read_lock();
-+	dev = rcu_dereference(po->cached_dev);
-+	if (dev)
-+		dev_hold(dev);
-+	rcu_read_unlock();
-+
-+	return dev;
-+}
-+
- static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- {
- 	struct sk_buff *skb;
- 	struct net_device *dev;
- 	__be16 proto;
--	bool need_rls_dev = false;
- 	int err, reserve = 0;
- 	void *ph;
- 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
-@@ -2070,7 +2089,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	mutex_lock(&po->pg_vec_lock);
- 
- 	if (saddr == NULL) {
--		dev = po->prot_hook.dev;
-+		dev	= packet_cached_dev_get(po);
- 		proto	= po->num;
- 		addr	= NULL;
- 	} else {
-@@ -2084,19 +2103,17 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
- 		dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
--		need_rls_dev = true;
- 	}
- 
- 	err = -ENXIO;
- 	if (unlikely(dev == NULL))
- 		goto out;
--
--	reserve = dev->hard_header_len;
--
- 	err = -ENETDOWN;
- 	if (unlikely(!(dev->flags & IFF_UP)))
- 		goto out_put;
- 
-+	reserve = dev->hard_header_len;
-+
- 	size_max = po->tx_ring.frame_size
- 		- (po->tp_hdrlen - sizeof(struct sockaddr_ll));
- 
-@@ -2173,8 +2190,7 @@ out_status:
- 	__packet_set_status(po, ph, status);
- 	kfree_skb(skb);
- out_put:
--	if (need_rls_dev)
--		dev_put(dev);
-+	dev_put(dev);
- out:
- 	mutex_unlock(&po->pg_vec_lock);
- 	return err;
-@@ -2212,7 +2228,6 @@ static int packet_snd(struct socket *sock,
- 	struct sk_buff *skb;
- 	struct net_device *dev;
- 	__be16 proto;
--	bool need_rls_dev = false;
- 	unsigned char *addr;
- 	int err, reserve = 0;
- 	struct virtio_net_hdr vnet_hdr = { 0 };
-@@ -2228,7 +2243,7 @@ static int packet_snd(struct socket *sock,
- 	 */
- 
- 	if (saddr == NULL) {
--		dev = po->prot_hook.dev;
-+		dev	= packet_cached_dev_get(po);
- 		proto	= po->num;
- 		addr	= NULL;
- 	} else {
-@@ -2240,19 +2255,17 @@ static int packet_snd(struct socket *sock,
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
- 		dev = dev_get_by_index(sock_net(sk), saddr->sll_ifindex);
--		need_rls_dev = true;
- 	}
- 
- 	err = -ENXIO;
--	if (dev == NULL)
-+	if (unlikely(dev == NULL))
- 		goto out_unlock;
--	if (sock->type == SOCK_RAW)
--		reserve = dev->hard_header_len;
--
- 	err = -ENETDOWN;
--	if (!(dev->flags & IFF_UP))
-+	if (unlikely(!(dev->flags & IFF_UP)))
- 		goto out_unlock;
- 
-+	if (sock->type == SOCK_RAW)
-+		reserve = dev->hard_header_len;
- 	if (po->has_vnet_hdr) {
- 		vnet_hdr_len = sizeof(vnet_hdr);
- 
-@@ -2386,15 +2399,14 @@ static int packet_snd(struct socket *sock,
- 	if (err > 0 && (err = net_xmit_errno(err)) != 0)
- 		goto out_unlock;
- 
--	if (need_rls_dev)
--		dev_put(dev);
-+	dev_put(dev);
- 
- 	return len;
- 
- out_free:
- 	kfree_skb(skb);
- out_unlock:
--	if (dev && need_rls_dev)
-+	if (dev)
- 		dev_put(dev);
- out:
- 	return err;
-@@ -2614,6 +2626,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol,
- 	po = pkt_sk(sk);
- 	sk->sk_family = PF_PACKET;
- 	po->num = proto;
-+	RCU_INIT_POINTER(po->cached_dev, NULL);
- 
- 	sk->sk_destruct = packet_sock_destruct;
- 	sk_refcnt_debug_inc(sk);
-@@ -3298,6 +3311,22 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 	return 0;
- }
- 
-+static void packet_dev_put_deferred(struct rcu_head *head)
-+{
-+	struct packet_sock *po = container_of(head, struct packet_sock, rcu);
-+	struct sock *sk = &po->sk;
-+
-+	spin_lock(&po->bind_lock);
-+	po->ifindex = -1;
-+
-+	if (po->prot_hook.dev) {
-+		dev_put(po->prot_hook.dev);
-+		po->prot_hook.dev = NULL;
-+	}
-+
-+	spin_unlock(&po->bind_lock);
-+	sock_put(sk);
-+}
- 
- static int packet_notifier(struct notifier_block *this,
- 			   unsigned long msg, void *ptr)
-@@ -3325,13 +3354,13 @@ static int packet_notifier(struct notifier_block *this,
- 					if (!sock_flag(sk, SOCK_DEAD))
- 						sk->sk_error_report(sk);
- 				}
-+				spin_unlock(&po->bind_lock);
-+
- 				if (msg == NETDEV_UNREGISTER) {
--					po->ifindex = -1;
--					if (po->prot_hook.dev)
--						dev_put(po->prot_hook.dev);
--					po->prot_hook.dev = NULL;
-+					sock_hold(sk);
-+					call_rcu(&po->rcu,
-+						 packet_dev_put_deferred);
- 				}
--				spin_unlock(&po->bind_lock);
- 			}
- 			break;
- 		case NETDEV_UP:
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index c4e4b45..c6e2d24 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -113,6 +113,8 @@ struct packet_sock {
- 	unsigned int		tp_loss:1;
- 	unsigned int		tp_tx_has_off:1;
- 	unsigned int		tp_tstamp;
-+	struct net_device __rcu	*cached_dev;
-+	struct rcu_head		rcu;
- 	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
- };
- 
--- 
-1.8.3.1
+	David
