@@ -1,45 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Get rxhash fixes and RFS support in tun
-Date: Wed, 20 Nov 2013 21:50:25 -0500 (EST)
-Message-ID: <20131120.215025.590189385589840672.davem@davemloft.net>
-References: <CA+mtBx91hSmYKrbUsPrtnXRjYR8QDGZ+GAAnMixauUqw9LFkiQ@mail.gmail.com>
-	<20131120.212321.700376819925646003.davem@davemloft.net>
-	<CA+mtBx8g9uYOc0euQiEDi8qfx_ZggsE_Wn8N5R+peE1_N4WKEg@mail.gmail.com>
+Subject: Re: [PATCH v2 1/2] net: rework recvmsg handler msg_name and
+ msg_namelen logic
+Date: Wed, 20 Nov 2013 22:06:50 -0500 (EST)
+Message-ID: <20131120.220650.1525331497396672267.davem@davemloft.net>
+References: <20131121021422.GA934@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, hkchu@google.com
-To: therbert@google.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, joe@perches.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38598 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38659 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751965Ab3KUCu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 21:50:28 -0500
-In-Reply-To: <CA+mtBx8g9uYOc0euQiEDi8qfx_ZggsE_Wn8N5R+peE1_N4WKEg@mail.gmail.com>
+	with ESMTP id S1750860Ab3KUDGw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 22:06:52 -0500
+In-Reply-To: <20131121021422.GA934@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Wed, 20 Nov 2013 18:42:48 -0800
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Thu, 21 Nov 2013 03:14:22 +0100
 
-> We need the rxhash to be the value seen at the point of RPS (to do RFS
-> correctly), which I think probably means we don't ever want to change
-> it after the first calculation! (clearing at tunnel decap wouldn't be
-> correct either)  For ESP or AH, I believe it's appropriate to use SPI
-> as a substitute for ports.
+> This patch now always passes msg->msg_namelen as 0. recvmsg handlers must
+> set msg_namelen to the proper size <= sizeof(struct sockaddr_storage)
+> to return msg_name to the user.
 
-But that means that all connections going over the same IPSEC path
-hash to the same value.
-
-I really think that xfrm_input() should zap the rxhash near the
-existing nf_reset() call.
-
-The same argument goes for tunnels, that is why ip_tunnel_core.c does
-what it does with the rxhash clearing right now.
-
-In both the IPSEC tunnel (not transport) and normal IP/GRE tunnel
-cases, it's a completely new SKB receive, done via netif_rx(), after
-decapsulation.
-
-That leaves only IPSEC transport mode as the only case where RFS isn't
-(re-)performed but we can build infrastructure to make that happen.
+These two patches look fantastic, applied and queued up for -stable
+thanks!
