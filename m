@@ -1,98 +1,117 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Get rxhash fixes and RFS support in tun
-Date: Wed, 20 Nov 2013 17:09:01 -0800
-Message-ID: <CA+mtBx91hSmYKrbUsPrtnXRjYR8QDGZ+GAAnMixauUqw9LFkiQ@mail.gmail.com>
-References: <alpine.DEB.2.02.1311201220510.19725@tomh.mtv.corp.google.com>
-	<20131120.190252.940036939480739452.davem@davemloft.net>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] bonding: If IP route look-up to send an ARP fails, mark
+ in bonding structure as no ARP sent.
+Date: Thu, 21 Nov 2013 09:10:31 +0800
+Message-ID: <528D5D87.9040603@huawei.com>
+References: <528D5980.3040309@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Jerry Chu <hkchu@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: rama nichanamatlu <rama.nichanamatlu@oracle.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:43683 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753481Ab3KUBJD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 20:09:03 -0500
-Received: by mail-ie0-f182.google.com with SMTP id as1so8711879iec.41
-        for <netdev@vger.kernel.org>; Wed, 20 Nov 2013 17:09:01 -0800 (PST)
-In-Reply-To: <20131120.190252.940036939480739452.davem@davemloft.net>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:53644 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753916Ab3KUBKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 20:10:45 -0500
+In-Reply-To: <528D5980.3040309@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 20, 2013 at 4:02 PM, David Miller <davem@davemloft.net> wrote:
-> From: Tom Herbert <therbert@google.com>
-> Date: Wed, 20 Nov 2013 12:25:48 -0800 (PST)
->
->> This patch series fixes some subtle bugs in tun use of skb->rxhash, all
->> rxhash hash not be cleared appropraitely, and adds support for tun flows
->> to work with RFS.
->>
->> Testing, in particular with tun, hasn't been completed yet.
->
-> I think this needs to be reworked slightly.
->
-> We really only have two boolean states:
->
-> 1) Is the rxhash value in this SKB valid?
->
-> 2) Is it a full L4 tuple hash?
->
-> You are adding a "this is a SW computed hash" boolean state but I do
-> not think you should distinguish sw vs. hw especially.  If the
-> hardware computed the rxhash on a tunneled packet in the
-> pre-decapsulated state, we very much want to recompute it, in
-> software, upon tunnel decapsulation in ip_tunnel_core.c
->
-In either case it would be recomputed in SW if L4 hash was not set
-(i.e. no flow_dissector done finding L4).  If L4 hash is set, that
-should refer to the hash of the inner 4-tuple, so I don't think you'd
-need to recompute it.  I suppose there could be a case like encap in
-UDP where there are potentially two 4-tuples to deal with, but then
-the rxhash could just be cleared in decap to force recomputing hash
-over the inner packet-- even better I would hope that the trick of
-using outer source port to hold the hash of the inner packet (like in
-nvgre) is used so that the hash on the outer header is good for L4.
+On 2013/11/21 8:53, rama nichanamatlu wrote:
+> During the creation of VLAN's atop bonding the underlying interfaces are made part of VLAN's, and at the same bonding driver gets aware that VLAN's exists above it and hence would consult IP routing for every ARP to  be sent to determine the route which tells bonding driver the correct VLAN tag to attach to the outgoing ARP packet. But, during the VLAN creation when vlan driver puts the underlying interface into default vlan and then actual vlan, in-between this if bonding driver consults the IP for a route, IP fails to provide a correct route and upon which bonding driver drops the ARP packet. ARP monitor when it
+> comes around next time, sees no ARP response and fails-over to the next available slave. Consulting for a IP route, ip_route_output(),happens in bond_arp_send_all().
+> 
+> To prevent this false fail-over, when bonding driver fails to send an ARP out it marks in its private structure, bonding{},  not to expect an ARP response, when ARP monitor comes around next time ARP sending will be tried again.
+> 
+> Extensively tested in a VM environment; sr-iov intf->bonding intf->vlan intf. All virtual interfaces created at boot time.
+> 
 
-The primary reason for sw_rhash is to know whether it is a comparable
-value to match against that of a flow whose hash was computed in SW
-(tun case).
+please reorganize the changelog, it is too log for a line, please make it in 80 chats.
 
-> This is actually implemented in this patch set, by testing two states.
-> Both the "l4_rxhash" and "sw_rxhash".
->
-> Why don't we just do everything in a straightforward manner, where
-> nothing directly sets rxhash values.  Only helper routines do.
->
-> 1) skb_set_rxhash(struct sk_buff *skb, __u32 rxhash, bool l4_rxhash)
->
-Yes, we should be using helper functions for this anyway.  I'll make
-that change.
+> Orabug: 17172660
+> Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+> Signed-off-by: Rama Nichanamatlu <rama.nichanamatlu@oracle.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 13 ++++++++-----
+>  drivers/net/bonding/bonding.h   |  1 +
+>  2 files changed, 9 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index dde6b4a..d475161 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2661,7 +2661,7 @@ static int bond_has_this_ip(struct bonding *bond, __be32 ip)
+>   * switches in VLAN mode (especially if ports are configured as
+>   * "native" to a VLAN) might not pass non-tagged frames.
+>   */
+> -static void bond_arp_send(struct net_device *slave_dev, int arp_op, __be32 dest_ip, __be32 src_ip, unsigned short vlan_id)
+> +static void bond_arp_send(struct bonding *bond, struct net_device *slave_dev, int arp_op, __be32 dest_ip, __be32 src_ip, unsigned short vlan_id)
 
->    Update all drivers to call this.
->
-> 2) Add "rxhash_valid" boolean to sk_buff, set it in skb_set_rxhash,
->    test it in skb_get_rxhash(), propagate it in SKB copies.
->
-I think the sw_rxhash holds more useful information.  In
-skb_get_rxhash() either we have an L4 hash or we try to get one by
-doing the SW computation, this means we don't ever return a HW hash
-which is not L4 so basically that case is treated as an invalid hash.
-So after a call to skb_get_rxhash, at least one of l4_rxhash or
-sw_rxhash is and we won't redo flow dissection on subsequent calls
-unless the rxhash is cleared.
+no need to add bond, the bond could be get from slave, see slave->bond
 
-Thanks,
-Tom
-
-> 3) Your skb_clear_rxhash() now just clears rxhash_valid.
->
-> Now, if the issue is that HW computed hashes sometimes do the tunnel
-> demux and look into the inner L4 headers to compute the hash, you'll
-> need a boolean to indicate _that_ rather than unconditionally treating
-> hardware that way.  Because not all of them will do this, and for
-> those that do not you do want to compute the hash in SW after tunnel
-> decapsulation.
->
-> Thoughts?
+Ding
+>  {
+>      struct sk_buff *skb;
+>  @@ -2683,6 +2683,7 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op, __be32 dest_
+>          }
+>      }
+>      arp_xmit(skb);
+> +    bond->arp_sent=true;
+>  }
+>   @@ -2700,7 +2701,7 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+>          pr_debug("basa: target %x\n", targets[i]);
+>          if (!bond->vlgrp) {
+>              pr_debug("basa: empty vlan: arp_send\n");
+> -            bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+> +            bond_arp_send(bond, slave->dev, ARPOP_REQUEST, targets[i],
+>                        bond->master_ip, 0);
+>              continue;
+>          }
+> @@ -2726,7 +2727,7 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+>          if (rt->dst.dev == bond->dev) {
+>              ip_rt_put(rt);
+>              pr_debug("basa: rtdev == bond->dev: arp_send\n");
+> -            bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+> +            bond_arp_send(bond, slave->dev, ARPOP_REQUEST, targets[i],
+>                        bond->master_ip, 0);
+>              continue;
+>          }
+> @@ -2744,7 +2745,7 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+>           if (vlan_id) {
+>              ip_rt_put(rt);
+> -            bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
+> +            bond_arp_send(bond, slave->dev, ARPOP_REQUEST, targets[i],
+>                        vlan->vlan_ip, vlan_id);
+>              continue;
+>          }
+> @@ -3206,7 +3207,7 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+>       should_notify_peers = bond_should_notify_peers(bond);
+>  -    if (bond_ab_arp_inspect(bond, delta_in_ticks)) {
+> +    if (bond->arp_sent && bond_ab_arp_inspect(bond, delta_in_ticks)) {
+>          read_unlock(&bond->lock);
+>          rtnl_lock();
+>          read_lock(&bond->lock);
+> @@ -3218,6 +3219,7 @@ void bond_activebackup_arp_mon(struct work_struct *work)
+>          read_lock(&bond->lock);
+>      }
+>  +    bond->arp_sent=false;
+>      bond_ab_arp_probe(bond);
+>   re_arm:
+> @@ -4425,6 +4427,7 @@ static void bond_setup(struct net_device *bond_dev)
+>       bond_dev->hw_features &= ~(NETIF_F_ALL_CSUM & ~NETIF_F_NO_CSUM);
+>      bond_dev->features |= bond_dev->hw_features;
+> +    bond->arp_sent=false;
+>  }
+>   static void bond_work_cancel_all(struct bonding *bond)
+> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+> index e9a3c56..3878bbd 100644
+> --- a/drivers/net/bonding/bonding.h
+> +++ b/drivers/net/bonding/bonding.h
+> @@ -253,6 +253,7 @@ struct bonding {
+>      /* debugging suport via debugfs */
+>      struct     dentry *debug_dir;
+>  #endif /* CONFIG_DEBUG_FS */
+> +        bool arp_sent;
+>  };
+>   #define bond_slave_get_rcu(dev) \
