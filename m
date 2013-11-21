@@ -1,94 +1,49 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/7] netfilter fixes for net
-Date: Thu, 21 Nov 2013 10:05:21 +0100
-Message-ID: <1385024728-4057-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [PATCH 4/7] netfilter: fix wrong byte order in nf_ct_seqadj_set internal information
+Date: Thu, 21 Nov 2013 10:05:25 +0100
+Message-ID: <1385024728-4057-5-git-send-email-pablo@netfilter.org>
+References: <1385024728-4057-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34516 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:34669 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751133Ab3KUJF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Nov 2013 04:05:59 -0500
+	id S1751552Ab3KUJGC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Nov 2013 04:06:02 -0500
+In-Reply-To: <1385024728-4057-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David!
+From: Phil Oester <kernel@linuxace.com>
 
-The following patchset contains fixes for your net tree, they are:
+In commit 41d73ec053d2, sequence number adjustments were moved to a
+separate file. Unfortunately, the sequence numbers that are stored
+in the nf_ct_seqadj structure are expressed in host byte order. The
+necessary ntohl call was removed when the call to adjust_tcp_sequence
+was collapsed into nf_ct_seqadj_set. This broke the FTP NAT helper.
+Fix it by adding back the byte order conversions.
 
-* Remove extra quote from connlimit configuration in Kconfig, from
-  Randy Dunlap.
-
-* Fix missing mss option in syn packets sent to the backend in our
-  new synproxy target, from Martin Topholm.
-
-* Use window scale announced by client when sending the forged
-  syn to the backend, from Martin Topholm.
-
-* Fix IPv6 address comparison in ebtables, from Lu=C3=ADs Fernando
-  Cornachioni Estrozi.
-
-* Fix wrong endianess in sequence adjustment which breaks helpers
-  in NAT configurations, from Phil Oester.
-
-* Fix the error path handling of nft_compat, from me.
-
-* Make sure the global conntrack counter is decremented after the
-  object has been released, also from me.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 42a2d923cc349583ebf6fdd52a7d35e1c2f7=
-e6bd:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next (2=
-013-11-13 17:40:34 +0900)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to acab78b99633f12aa2b697474562e19c5718a1ca=
-:
-
-  netfilter: ebt_ip6: fix source and destination matching (2013-11-19 1=
-5:33:29 +0100)
-
-----------------------------------------------------------------
-Lu=C3=ADs Fernando Cornachioni Estrozi (1):
-      netfilter: ebt_ip6: fix source and destination matching
-
-Martin Topholm (2):
-      netfilter: synproxy: send mss option to backend
-      netfilter: synproxy: correct wscale option passing
-
-Pablo Neira Ayuso (2):
-      netfilter: nft_compat: fix error path in nft_parse_compat()
-      netfilter: nf_conntrack: decrement global counter after object re=
-lease
-
-Phil Oester (1):
-      netfilter: fix wrong byte order in nf_ct_seqadj_set internal info=
-rmation
-
-Randy Dunlap (1):
-      netfilter: fix connlimit Kconfig prompt string
-
- net/bridge/netfilter/ebt_ip6.c      |    8 +++++---
- net/ipv4/netfilter/ipt_SYNPROXY.c   |    1 +
- net/ipv6/netfilter/ip6t_SYNPROXY.c  |    1 +
- net/netfilter/Kconfig               |    2 +-
- net/netfilter/nf_conntrack_core.c   |    3 ++-
+Reported-by: Dawid Stawiarski <dawid.stawiarski@netart.pl>
+Signed-off-by: Phil Oester <kernel@linuxace.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  net/netfilter/nf_conntrack_seqadj.c |    4 ++--
- net/netfilter/nf_synproxy_core.c    |    7 ++++---
- net/netfilter/nft_compat.c          |   19 +++++++++++++------
- 8 files changed, 29 insertions(+), 16 deletions(-)
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_seqadj.c b/net/netfilter/nf_conntrack_seqadj.c
+index 5f9bfd0..17c1bcb 100644
+--- a/net/netfilter/nf_conntrack_seqadj.c
++++ b/net/netfilter/nf_conntrack_seqadj.c
+@@ -41,8 +41,8 @@ int nf_ct_seqadj_set(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ 	spin_lock_bh(&ct->lock);
+ 	this_way = &seqadj->seq[dir];
+ 	if (this_way->offset_before == this_way->offset_after ||
+-	    before(this_way->correction_pos, seq)) {
+-		this_way->correction_pos = seq;
++	    before(this_way->correction_pos, ntohl(seq))) {
++		this_way->correction_pos = ntohl(seq);
+ 		this_way->offset_before	 = this_way->offset_after;
+ 		this_way->offset_after	+= off;
+ 	}
+-- 
+1.7.10.4
