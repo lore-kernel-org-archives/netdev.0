@@ -1,82 +1,51 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/7] netfilter: nft_compat: fix error path in nft_parse_compat()
-Date: Thu, 21 Nov 2013 10:05:26 +0100
-Message-ID: <1385024728-4057-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/7] netfilter: synproxy: correct wscale option passing
+Date: Thu, 21 Nov 2013 10:05:24 +0100
+Message-ID: <1385024728-4057-4-git-send-email-pablo@netfilter.org>
 References: <1385024728-4057-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:34596 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751226Ab3KUJGA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Nov 2013 04:06:00 -0500
 In-Reply-To: <1385024728-4057-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The patch 0ca743a55991: "netfilter: nf_tables: add compatibility
-layer for x_tables", leads to the following Smatch
+From: Martin Topholm <mph@one.com>
 
- warning: "net/netfilter/nft_compat.c:140 nft_parse_compat()
-          warn: signedness bug returning '(-34)'"
+Timestamp are used to store additional syncookie parameters such as sack,
+ecn, and wscale. The wscale value we need to encode is the client's
+wscale, since we can't recover that later in the session. Next overwrite
+the wscale option so the later synproxy_send_client_synack will send
+the backend's wscale to the client.
 
-This nft_parse_compat function returns error codes but the return
-type is u8 so the error codes are transformed into small positive
-values. The callers don't check the return.
-
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Martin Topholm <mph@one.com>
+Reviewed-by: Jesper Dangaard Brouer <brouer@redhat.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_compat.c |   19 +++++++++++++------
- 1 file changed, 13 insertions(+), 6 deletions(-)
+ net/netfilter/nf_synproxy_core.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/nft_compat.c b/net/netfilter/nft_compat.c
-index a82667c..da0c1f4 100644
---- a/net/netfilter/nft_compat.c
-+++ b/net/netfilter/nft_compat.c
-@@ -128,7 +128,7 @@ static const struct nla_policy nft_rule_compat_policy[NFTA_RULE_COMPAT_MAX + 1]
- 	[NFTA_RULE_COMPAT_FLAGS]	= { .type = NLA_U32 },
- };
+diff --git a/net/netfilter/nf_synproxy_core.c b/net/netfilter/nf_synproxy_core.c
+index cdf4567..9858e3e 100644
+--- a/net/netfilter/nf_synproxy_core.c
++++ b/net/netfilter/nf_synproxy_core.c
+@@ -151,9 +151,10 @@ void synproxy_init_timestamp_cookie(const struct xt_synproxy_info *info,
+ 	opts->tsecr = opts->tsval;
+ 	opts->tsval = tcp_time_stamp & ~0x3f;
  
--static u8 nft_parse_compat(const struct nlattr *attr, bool *inv)
-+static int nft_parse_compat(const struct nlattr *attr, u8 *proto, bool *inv)
- {
- 	struct nlattr *tb[NFTA_RULE_COMPAT_MAX+1];
- 	u32 flags;
-@@ -148,7 +148,8 @@ static u8 nft_parse_compat(const struct nlattr *attr, bool *inv)
- 	if (flags & NFT_RULE_COMPAT_F_INV)
- 		*inv = true;
+-	if (opts->options & XT_SYNPROXY_OPT_WSCALE)
+-		opts->tsval |= info->wscale;
+-	else
++	if (opts->options & XT_SYNPROXY_OPT_WSCALE) {
++		opts->tsval |= opts->wscale;
++		opts->wscale = info->wscale;
++	} else
+ 		opts->tsval |= 0xf;
  
--	return ntohl(nla_get_be32(tb[NFTA_RULE_COMPAT_PROTO]));
-+	*proto = ntohl(nla_get_be32(tb[NFTA_RULE_COMPAT_PROTO]));
-+	return 0;
- }
- 
- static int
-@@ -166,8 +167,11 @@ nft_target_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
- 
- 	target_compat_from_user(target, nla_data(tb[NFTA_TARGET_INFO]), info);
- 
--	if (ctx->nla[NFTA_RULE_COMPAT])
--		proto = nft_parse_compat(ctx->nla[NFTA_RULE_COMPAT], &inv);
-+	if (ctx->nla[NFTA_RULE_COMPAT]) {
-+		ret = nft_parse_compat(ctx->nla[NFTA_RULE_COMPAT], &proto, &inv);
-+		if (ret < 0)
-+			goto err;
-+	}
- 
- 	nft_target_set_tgchk_param(&par, ctx, target, info, &e, proto, inv);
- 
-@@ -356,8 +360,11 @@ nft_match_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
- 
- 	match_compat_from_user(match, nla_data(tb[NFTA_MATCH_INFO]), info);
- 
--	if (ctx->nla[NFTA_RULE_COMPAT])
--		proto = nft_parse_compat(ctx->nla[NFTA_RULE_COMPAT], &inv);
-+	if (ctx->nla[NFTA_RULE_COMPAT]) {
-+		ret = nft_parse_compat(ctx->nla[NFTA_RULE_COMPAT], &proto, &inv);
-+		if (ret < 0)
-+			goto err;
-+	}
- 
- 	nft_match_set_mtchk_param(&par, ctx, match, info, &e, proto, inv);
- 
+ 	if (opts->options & XT_SYNPROXY_OPT_SACK_PERM)
 -- 
 1.7.10.4
-
