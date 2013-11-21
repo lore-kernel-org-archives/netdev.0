@@ -1,64 +1,62 @@
-From: =?UTF-8?q?Vincent=20Stehl=C3=A9?= <vincent.stehle@laposte.net>
-Subject: [PATCH linux-next] hisax: disable build for big-endian arm
-Date: Fri, 22 Nov 2013 00:49:54 +0100
-Message-ID: <1385077794-17022-1-git-send-email-vincent.stehle@laposte.net>
+From: Nicholas Mc Guire <der.herr@hofr.at>
+Subject: [PATCH] rebalance locks by converting write_lock_bh to
+	write_lock+local_bh_disable
+Date: Fri, 22 Nov 2013 00:54:02 +0100
+Message-ID: <20131121235402.GA11774@opentech.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Vincent=20Stehl=C3=A9?= <vincent.stehle@laposte.net>,
-	Karsten Keil <isdn@linux-pingi.de>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Pedro Roque <roque@di.fc.ul.pt>,
+	Peter Zijlstra <peterz@infradead.org>, netdev@vger.kernel.org
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hofr.at ([212.69.189.236]:57820 "EHLO mail.hofr.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752069Ab3KVABe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Nov 2013 19:01:34 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Teles PCI and HFC PCI-bus refuse to build on big-endian ARM; disable th=
-em in
-Kconfig.
+>From 2c8e669b691b825c0ed2a02bd7a698d8ed5c6d29 Mon Sep 17 00:00:00 2001
+From: Nicholas Mc Guire <der.herr@hofr.at>
+Date: Thu, 21 Nov 2013 18:22:55 -0500
+Subject: [PATCH] rebalance locks by converting write_lock_bh to write_lock+local_bh_disable
+ 
 
-Signed-off-by: Vincent Stehl=C3=A9 <vincent.stehle@laposte.net>
-Cc: Karsten Keil <isdn@linux-pingi.de>
+ in __neigh_event_send write_lock_bh(&neigh->lock) is implicitly balanced by
+ write_unlock(&neigh->lock)+local_bh_disable() - while this is equivalent with
+ respect to the effective low level locking primitives it breaks balancing
+ in the locking api. This makes automatic lock-checking trigger false 
+ positives, creates an implicit dependency between *_lock_bh and *_lock 
+ functions as well as making the extremly simply locking of net core even
+ easier to understand.
+
+ The api inbalance was introduced in:
+ commit cd28ca0a3dd17c68d24b839602a0e6268ad28b5d
+ Author: Eric Dumazet <eric.dumazet@gmail.com>
+ This patch just rebalances the lock api
+
+ No change of functionality
+
+Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
 ---
+ net/core/neighbour.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Hi,
-
-This can be seen on e.g. linux next-20131121 with arm allyesconfig.
-
-Best regards,
-
-V.
-
- drivers/isdn/hisax/Kconfig | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/isdn/hisax/Kconfig b/drivers/isdn/hisax/Kconfig
-index d9edcc9..53dbb75 100644
---- a/drivers/isdn/hisax/Kconfig
-+++ b/drivers/isdn/hisax/Kconfig
-@@ -109,7 +109,7 @@ config HISAX_16_3
-=20
- config HISAX_TELESPCI
- 	bool "Teles PCI"
--	depends on PCI && (BROKEN || !(SPARC || PPC || PARISC || M68K || (MIP=
-S && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
-+	depends on PCI && (BROKEN || !(SPARC || PPC || PARISC || M68K || (MIP=
-S && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || (A=
-RM && !CPU_LITTLE_ENDIAN)))
- 	help
- 	  This enables HiSax support for the Teles PCI.
- 	  See <file:Documentation/isdn/README.HiSax> on how to configure it.
-@@ -318,7 +318,7 @@ config HISAX_GAZEL
-=20
- config HISAX_HFC_PCI
- 	bool "HFC PCI-Bus cards"
--	depends on PCI && (BROKEN || !(SPARC || PPC || PARISC || M68K || (MIP=
-S && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
-+	depends on PCI && (BROKEN || !(SPARC || PPC || PARISC || M68K || (MIP=
-S && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || (A=
-RM && !CPU_LITTLE_ENDIAN)))
- 	help
- 	  This enables HiSax support for the HFC-S PCI 2BDS0 based cards.
-=20
---=20
-1.8.4.2
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index ca15f32..d681c75 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -966,7 +966,8 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
+ 	int rc;
+ 	bool immediate_probe = false;
+ 
+-	write_lock_bh(&neigh->lock);
++	local_bh_disable();
++	write_lock(&neigh->lock);
+ 
+ 	rc = 0;
+ 	if (neigh->nud_state & (NUD_CONNECTED | NUD_DELAY | NUD_PROBE))
+-- 
+1.7.2.5
