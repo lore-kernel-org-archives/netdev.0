@@ -1,84 +1,73 @@
-From: Saurabh Mohan <saurabh.mohan@brocade.com>
-Subject: RE: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not
- ipsec pkt
-Date: Thu, 21 Nov 2013 10:39:53 -0800
-Message-ID: <1902752B0C92F943AB7EA9EE13E2DEEC1273BA9ACD@HQ1-EXCH02.corp.brocade.com>
-References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
- <1383725153-26298-1-git-send-email-christophe.gouault@6wind.com>
- <20131107112549.GP31491@secunet.com> <527B8DC5.6080702@6wind.com>
- <1902752B0C92F943AB7EA9EE13E2DEEC1273BA977C@HQ1-EXCH02.corp.brocade.com>
- <528B2C72.5060809@windriver.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: ARM network performance and dma_mask (was: [BUG,REGRESSION?] 3.11.6+,3.12: GbE iface rate drops to few KB/s)
+Date: Thu, 21 Nov 2013 19:38:34 +0100
+Message-ID: <20131121183834.GB18513@1wt.eu>
+References: <87li0kkhzx.fsf@natisbad.org> <1384869194.8604.92.camel@edumazet-glaptop2.roam.corp.google.com> <20131119174323.GH913@1wt.eu> <1384885910.8604.110.camel@edumazet-glaptop2.roam.corp.google.com> <20131119184121.GN913@1wt.eu> <874n780wzc.fsf@natisbad.org> <20131120191145.GP8581@1wt.eu> <87txf692zx.fsf@natisbad.org> <20131120215435.GT8581@1wt.eu> <20131121004430.GX8581@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Christophe Gouault <christophe.gouault@6wind.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Fan Du <fan.du@windriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaud Ebalard <arno@natisbad.org>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	simon.guinot@sequanux.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev@vger.kernel.org, edumazet@google.com,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Rob Herring <rob.herring@calxeda.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:26147 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754342Ab3KUSj4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:39:56 -0500
-Received: from pps.filterd (m0000542 [127.0.0.1])
-	by mx0a-000f0801.pphosted.com (8.14.5/8.14.5) with SMTP id rALIJaku004690
-	for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 10:39:56 -0800
-Received: from hq1wp-exchub02.corp.brocade.com ([144.49.131.13])
-	by mx0a-000f0801.pphosted.com with ESMTP id 1g9aytrmrd-3
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 10:39:56 -0800
-In-Reply-To: <528B2C72.5060809@windriver.com>
-Content-Language: en-US
+Received: from 1wt.eu ([62.212.114.60]:51017 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751558Ab3KUSkk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Nov 2013 13:40:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20131121004430.GX8581@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRmFuIER1IFttYWlsdG86
-ZmFuLmR1QHdpbmRyaXZlci5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIE5vdmVtYmVyIDE5LCAyMDEz
-IDE6MTcgQU0NCj4gVG86IFNhdXJhYmggTW9oYW4NCj4gQ2M6IENocmlzdG9waGUgR291YXVsdDsg
-U3RlZmZlbiBLbGFzc2VydDsgRGF2aWQgUy4gTWlsbGVyOyBIZXJiZXJ0IFh1Ow0KPiBuZXRkZXZA
-dmdlci5rZXJuZWwub3JnOyBTZXJnZWkgU2h0eWx5b3Y7IEVyaWMgRHVtYXpldA0KPiBTdWJqZWN0
-OiBSZTogW1BBVENIIG5ldCB2M10gdnRpOiBmaXggc3BkIGxvb2t1cDogbWF0Y2ggcGxhaW50ZXh0
-IHBrdCwgbm90IGlwc2VjDQo+IHBrdA0KPiANCj4gSGksIFNhdXJhYmgNCj4gDQo+IE9uIDIwMTPl
-ubQxMeaciDE55pelIDA1OjM4LCBTYXVyYWJoIE1vaGFuIHdyb3RlOg0KPiA+DQo+ID4NCj4gPj4g
-LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj4gRnJvbTogQ2hyaXN0b3BoZSBHb3VhdWx0
-IFttYWlsdG86Y2hyaXN0b3BoZS5nb3VhdWx0QDZ3aW5kLmNvbV0NCj4gPj4gU2VudDogVGh1cnNk
-YXksIE5vdmVtYmVyIDA3LCAyMDEzIDQ6NTYgQU0NCj4gPj4gVG86IFN0ZWZmZW4gS2xhc3NlcnQN
-Cj4gPj4gQ2M6IERhdmlkIFMuIE1pbGxlcjsgSGVyYmVydCBYdTsgbmV0ZGV2QHZnZXIua2VybmVs
-Lm9yZzsgU2F1cmFiaCBNb2hhbjsNCj4gPj4gU2VyZ2VpIFNodHlseW92OyBFcmljIER1bWF6ZXQN
-Cj4gPj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQgdjNdIHZ0aTogZml4IHNwZCBsb29rdXA6IG1h
-dGNoIHBsYWludGV4dCBwa3QsIG5vdA0KPiBpcHNlYw0KPiA+PiBwa3QNCj4gPj4NCj4gPj4gSGVs
-bG8gU3RlZmZlbiwNCj4gPj4NCj4gPj4gSSBhbSBhbHNvIGludGVyZXN0ZWQgaW4ga25vd2luZyBT
-YXVyYWJoJ3MgaW50ZW50aW9ucyByZWdhcmRpbmcgdGhlDQo+ID4+IGJlaGF2aW9yIG9mIHBvbGlj
-aWVzIGJvdW5kIHRvIHZ0aSBpbnRlcmZhY2VzLg0KPiA+Pg0KPiA+IFRoZSBzZW1hbnRpY3MgaXMg
-dG8gbWF0Y2ggdGhlIHBvbGljeSAic3JjIDAuMC4wLjAvMCBkc3QgMC4wLjAuMC8wIHByb3RvIGFu
-eSINCj4gPiBUaGF0IGlzIHRoZSBvbmx5IHBvbGljeSB0aGF0IFZUSSBzaG91bGQgdXNlLiBUaGUg
-bWFyayBpcyBuZWVkZWQgdG8NCj4gPiBkaXN0aW5ndWlzaCBhbmQgbGltaXQgdGhlIHBvbGljeSB0
-byBhIHNwZWNpZmljIHZ0aSB0dW5uZWwgaW50ZXJmYWNlIG9ubHkuDQo+ID4gVGhlcmUgaXMgbm8g
-b3RoZXIgcG9saWN5IHRoYXQgbWF5IGJlIGFwcGxpZWQgdG8gYSB2dGkgaW50ZXJmYWNlLg0KPiA+
-IFRoZSBmYWN0IHRoYXQgdHJhZmZpYyBpcyBnb2luZyBvdmVyIHRoZSB0dW5uZWwgIGludGVyZmFj
-ZSBpbXBsaWVzIHRoYXQgaXQNCj4gPiBtdXN0IGJlIGVuY3J5cHRlZC9kZWNyeXB0ZWQuIEFwcGx5
-aW5nIHRoZSBhYm92ZSBwb2xpY3kgaXMgYSB3YXkNCj4gPiB0byBhY2hpZXZlIHRoYXQuDQo+IA0K
-PiBJJ20gbm90IG11Y2ggZXhwZXJpZW5jZWQgd2l0aCBWVEkgdXNhZ2UgcHJhY3RpY2FsIHByb2R1
-Y3Rpb24gdXNhZ2UNCj4gc2NlbmFyaW8sIGJ1dA0KPiBJIGhhdmUgb25lIHF1ZXN0aW9uIGFib3V0
-IHRoZSBuZWNlc3NpdHkgb2YgcG9saWN5IGNoZWNraW5nIG9uIFZUSSByZWNlaXZpbmcNCj4gcGFy
-dC4NCj4gLSBBIFZUSSB0dW5uZWwgaXMgaGFzaGVkIGJ5IGRlc3RpbmF0aW9uIGFkZHJlc3MgYW5k
-IGlfa2V5IHdoZW4gY3JlYXRpbmcNCj4gdGhlbTsNCj4gLSBBZnRlciBlYWNoIHR1bm5lbGVkIElQ
-IHBhY2tldCBkZWxpdmVyZWQgdG8gdnRpX3JjdiwgdGhlIGZpcnN0IHN0ZXAgaXMgbG9va2luZw0K
-PiAgICBmb3IgdGhlIHJpZ2h0IHR1bm5lbCwgdGhpcyBpcyBkb25lIGJ5IHVzaW5nIHR1bm5lbGVk
-IElQIHBhY2tldCBvdXRlciBzb3VyY2UNCj4gYW5kDQo+ICAgIGRlc3RpbmF0aW9uIGFkZHJlc3Mg
-d2l0aG91dCBhbnkga2V5IG1hdGNoaW5nIHJ1bGUgaW52b2x2ZWQuDQo+IA0KPiBJZiB0aGVyZSBh
-cmUgYW55IG90aGVyIHR1bm5lbCB3aXRoIHRoZSBzYW1lIHNvdXJjZS9kZXN0aW5hdGlvbiBhZGRy
-ZXNzLCBidXQNCj4gbm90DQo+IHRoZSBzYW1lIG1hcmsgaW4gcGxhY2UsIHRoZSB0dW5uZWwgbG9v
-a3VwIGluIHRoZSB2dGlfcmN2IHdpbGwgcHJvcGVybHkgbm90IGhpdA0KPiBWVEkgdHVubmVsLCBi
-dXQgdGhlIG5vbi1WVEkgdHVubmVsLiBTbyB0aGUgVlRJIG5ldCBkZXZpY2Ugc3RhdGlzdGljcyB3
-aWxsIG5vdCBiZQ0KPiBhY2N1cmF0ZSwgYW5kIHdoYXQncyB0aGUgcG9pbnQgb2YgY2hlY2tpbmcg
-cG9saWN5IGZvciB0aGUgd3JvbmcgdHVubmVsDQo+IGludGVyZmFjZT8NCg0KU28gZmFyIHRoaXMg
-aXMgbm90IHN1cHBvcnRlZC4gSWYgaXQgd2VyZSBuZWVkZWQgdGhlbiB3ZSdkIGhhdmUgdG8gdXNl
-IGFub3RoZXINCmtleSBvbiB0aGUgdHVubmVsKHMpIHRvIGRpc3Rpbmd1aXNoIGJldHdlZW4gdHVu
-bmVsIHdpdGggc2FtZSBzcmMgYW5kIGRzdC4NCkluIHN1Y2ggYSBjYXNlIHRoZXJlIHdvdWxkIGJl
-IHR3byBrZXlzIG9uIHRoZSB0dW5uZWwgKG9uZSBmb3IgdnRpIG1hcmsNCmFuZCB0aGUgb3RoZXIg
-b25lIHRvIHNlcGFyYXRlIG91dCB0dW5uZWxzIHdpdGggc2FtZSBzcmMgYW5kIGRzdCkuDQoNCg==
+Hi Rob,
+
+While we were diagnosing a network performance regression that we finally
+found and fixed, it appeared during a test that Linus' tree shows a much
+higher performance on Armada 370 (armv7) than its predecessors. I can
+saturate the two Gig links of my Mirabox each with a single TCP flow and
+keep up to 25% of idle CPU in the optimal case. In 3.12.1 or 3.10.20, I
+can achieve around 1.3 Gbps when the two ports are used in parallel.
+
+Today I bisected these kernels to find what was causing this difference.
+I found it was your patch below which I can copy entirely here :
+
+  commit 0589342c27944e50ebd7a54f5215002b6598b748
+  Author: Rob Herring <rob.herring@calxeda.com>
+  Date:   Tue Oct 29 23:36:46 2013 -0500
+
+      of: set dma_mask to point to coherent_dma_mask
+    
+      Platform devices created by DT code don't initialize dma_mask pointer to
+      anything. Set it to coherent_dma_mask by default if the architecture
+      code has not set it.
+    
+      Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+
+  diff --git a/drivers/of/platform.c b/drivers/of/platform.c
+  index 9b439ac..c005495 100644
+  --- a/drivers/of/platform.c
+  +++ b/drivers/of/platform.c
+  @@ -216,6 +216,8 @@ static struct platform_device *of_platform_device_create_pdata(
+          dev->archdata.dma_mask = 0xffffffffUL;
+   #endif
+          dev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+  +       if (!dev->dev.dma_mask)
+  +               dev->dev.dma_mask = &dev->dev.coherent_dma_mask;
+          dev->dev.bus = &platform_bus_type;
+          dev->dev.platform_data = platform_data;
+
+And I can confirm that applying this patch on 3.10.20 + the fixes we found
+yesterday substantially boosted my network performance (and reduced the CPU
+usage when running on a single link).
+
+I'm not at ease with these things so I'd like to ask your opinion here, is
+this supposed to be an improvement or a fix ? Is this something we should
+backport into stable versions, or is there something to fix in the armada
+platform so that it works just as if the patch was applied ?
+
+Thanks,
+Willy
