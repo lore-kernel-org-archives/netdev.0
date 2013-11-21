@@ -1,71 +1,37 @@
-From: rama nichanamatlu <rama.nichanamatlu@oracle.com>
-Subject: Re: [PATCH] bonding: If IP route look-up to send an ARP fails, mark
- in bonding structure as no ARP sent.
-Date: Wed, 20 Nov 2013 18:23:01 -0800
-Message-ID: <528D6E85.8040904@oracle.com>
-References: <528D5980.3040309@oracle.com> <12668.1384996699@death.nxdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Get rxhash fixes and RFS support in tun
+Date: Wed, 20 Nov 2013 21:23:21 -0500 (EST)
+Message-ID: <20131120.212321.700376819925646003.davem@davemloft.net>
+References: <alpine.DEB.2.02.1311201220510.19725@tomh.mtv.corp.google.com>
+	<20131120.190252.940036939480739452.davem@davemloft.net>
+	<CA+mtBx91hSmYKrbUsPrtnXRjYR8QDGZ+GAAnMixauUqw9LFkiQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: netdev@vger.kernel.org, edumazet@google.com, hkchu@google.com
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:50160 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754530Ab3KUCXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 21:23:06 -0500
-In-Reply-To: <12668.1384996699@death.nxdomain>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38486 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754336Ab3KUCXY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 21:23:24 -0500
+In-Reply-To: <CA+mtBx91hSmYKrbUsPrtnXRjYR8QDGZ+GAAnMixauUqw9LFkiQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/20/2013 5:18 PM, Jay Vosburgh wrote:
-> rama nichanamatlu <rama.nichanamatlu@oracle.com> wrote:
-> 
->> During the creation of VLAN's atop bonding the underlying interfaces are
->> made part of VLAN's, and at the same bonding driver gets aware that VLAN's
->> exists above it and hence would consult IP routing for every ARP to  be
->> sent to determine the route which tells bonding driver the correct VLAN
->> tag to attach to the outgoing ARP packet. But, during the VLAN creation
->> when vlan driver puts the underlying interface into default vlan and then
->> actual vlan, in-between this if bonding driver consults the IP for a
->> route, IP fails to provide a correct route and upon which bonding driver
->> drops the ARP packet. ARP monitor when it
->> comes around next time, sees no ARP response and fails-over to the next
->> available slave. Consulting for a IP route, ip_route_output(),happens in
->> bond_arp_send_all().
->>
->> To prevent this false fail-over, when bonding driver fails to send an ARP
->> out it marks in its private structure, bonding{},  not to expect an ARP
->> response, when ARP monitor comes around next time ARP sending will be
->> tried again.
->>
->> Extensively tested in a VM environment; sr-iov intf->bonding intf->vlan
->> intf. All virtual interfaces created at boot time.
-> 
-> 	First, this patch appears to be for an older kernel, as the
-> current mainline code is substantially different (e.g., master_ip is no
-> longer used).
-> 
-> 	Second, won't this methodology mask legitimate failures, such as
-> when a single arp_ip_target specifies a destination that is not ever
-> reachable?  I.e., would specifying a permanently unreachable IP address
-> as the arp_ip_target cause all slaves to always stay up (because no ARPs
-> will ever be sent), even if no ARP replies are ever received?
-> 
-> 	-J
-> 
-Thank U.
-I agree with your rationale. Would keep a slave falsely up but traffic
-might flow. And true that, it is not what we are looking for.
-We can try a different approach too, which we used to fix a false
-fail-over in MTU changing case where the device interface takes time to
-change the device MTU. And in the mean time bonding was failing over.
-What we did to fix was to stop the ARP monitoring, bond_change_mtu(),
-and restart it when NETDEV_CHANGE from slave is handled,
-bond_slave_netdev_event(). Not sure if this can used for vlan case, as
-mtu thing is event driven.
+From: Tom Herbert <therbert@google.com>
+Date: Wed, 20 Nov 2013 17:09:01 -0800
 
+> I think the sw_rxhash holds more useful information.  In
+> skb_get_rxhash() either we have an L4 hash or we try to get one by
+> doing the SW computation, this means we don't ever return a HW hash
+> which is not L4 so basically that case is treated as an invalid hash.
+> So after a call to skb_get_rxhash, at least one of l4_rxhash or
+> sw_rxhash is and we won't redo flow dissection on subsequent calls
+> unless the rxhash is cleared.
 
->> Orabug: 17172660
->> Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
->> Signed-off-by: Rama Nichanamatlu <rama.nichanamatlu@oracle.com>
+Ok.... one interesting issue remains, which is that the SW flow
+dissector considers decapsulating protocols like AH and ESP as
+"L4".
+
+I think we'll need to do something about that at some point.
