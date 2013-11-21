@@ -1,47 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] wimax: remove dead code
-Date: Wed, 20 Nov 2013 20:17:49 -0800
-Message-ID: <1385007469.2164.39.camel@joe-AO722>
-References: <1385005391-18379-1-git-send-email-michael.opdenacker@free-electrons.com>
+From: Michael Neuling <mikey@neuling.org>
+Subject: [PATCH] net: Fix ehea warning when built in
+Date: Thu, 21 Nov 2013 15:36:49 +1100
+Message-ID: <11586.1385008609@ale.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: inaky.perez-gonzalez@intel.com, linux-wimax@intel.com,
-	davem@davemloft.net, wimax@linuxwimax.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Michael Opdenacker <michael.opdenacker@free-electrons.com>,
-	Johannes Berg <johannes.berg@intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+To: Jeff Mahoney <jeffm@suse.com>, Olaf Hering <ohering@suse.com>,
+	Jiri Slaby <jslaby@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0165.hostedemail.com ([216.40.44.165]:54157 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751714Ab3KUERy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 23:17:54 -0500
-In-Reply-To: <1385005391-18379-1-git-send-email-michael.opdenacker@free-electrons.com>
+Received: from ozlabs.org ([203.10.76.45]:34103 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750906Ab3KUEgx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Nov 2013 23:36:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-21 at 04:43 +0100, Michael Opdenacker wrote:
-> This removes a code line that is between a "return 0;" and an error label.
-> This code line can never be reached.
+In:
+  commit 7a3a62128388a6af771e99df8628ddee2e8be7ca
+  Author: Olaf Hering <ohering@suse.com>
+  drivers/net/ethernet/ibm/ehea/ehea_main.c: add alias entry for portN properties
+We added ehea_module_device_table.  Unfortunately we only use this when
+building as a module so we get the following warning when built in, like
+in pseries_defconfig:
 
-Adding Johannes Berg who added this oversight.
+  drivers/net/ethernet/ibm/ehea/ehea_main.c:105:1: warning: 'ehea_module_device_table' defined but not used [-Wunused-variable]
 
-> Found by Coverity (CID: 1130529)
-> 
-> Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-> ---
->  net/wimax/stack.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/net/wimax/stack.c b/net/wimax/stack.c
-> index ef2191b969a7..ec8b577db135 100644
-> --- a/net/wimax/stack.c
-> +++ b/net/wimax/stack.c
-> @@ -610,7 +610,6 @@ int __init wimax_subsys_init(void)
->  	d_fnend(4, NULL, "() = 0\n");
->  	return 0;
->  
-> -	genl_unregister_family(&wimax_gnl_family);
->  error_register_family:
->  	d_fnend(4, NULL, "() = %d\n", result);
->  	return result;
+This wraps ehea_module_device_table with #if MODULE.
+
+Signed-off-by: Michael Neuling <mikey@neuling.org>
+
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+index 2d1c6bd..a17a1d1 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+@@ -102,6 +102,7 @@ static int ehea_probe_adapter(struct platform_device *dev);
+ 
+ static int ehea_remove(struct platform_device *dev);
+ 
++#ifdef MODULE
+ static struct of_device_id ehea_module_device_table[] = {
+ 	{
+ 		.name = "lhea",
+@@ -114,6 +115,7 @@ static struct of_device_id ehea_module_device_table[] = {
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, ehea_module_device_table);
++#endif
+ 
+ static struct of_device_id ehea_device_table[] = {
+ 	{
