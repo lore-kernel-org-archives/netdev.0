@@ -1,54 +1,104 @@
-From: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH openvswitch] linux: Signal datapath that
- unaligned Netlink message can be received
-Date: Thu, 21 Nov 2013 12:52:08 -0800
-Message-ID: <20131121205208.GA24729@nicira.com>
-References: <48c93fb3c82bca0c9858ff528e2cf79d72d76082.1385057672.git.tgraf@redhat.com>
-	<528E559C.4020201@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <528E559C.4020201-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bonding: If IP route look-up to send an ARP fails, mark in bonding structure as no ARP sent.
+Date: Thu, 21 Nov 2013 13:12:59 -0800
+Message-ID: <17860.1385068379@death.nxdomain>
+References: <528D5980.3040309@oracle.com> <20131121111022.GA30998@redhat.com> <528E6E40.6020201@oracle.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>, netdev@vger.kernel.org
+To: rama nichanamatlu <rama.nichanamatlu@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:44114 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755134Ab3KUVNE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 16:13:04 -0500
+Received: from /spool/local
+	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Thu, 21 Nov 2013 14:13:04 -0700
+Received: from b03cxnp08027.gho.boulder.ibm.com (b03cxnp08027.gho.boulder.ibm.com [9.17.130.19])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id CF35A3E4003F
+	for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 14:13:02 -0700 (MST)
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by b03cxnp08027.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id rALJBFqF42336450
+	for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 20:11:15 +0100
+Received: from d03av03.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id rALLD2X1011723
+	for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 14:13:02 -0700
+In-reply-to: <528E6E40.6020201@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 21, 2013 at 10:49:00PM +0400, Sergei Shtylyov wrote:
-> On 21-11-2013 22:15, Thomas Graf wrote:
-> 
-> >Following commit (''netlink: Do not enforce alignment of last Netlink
-> >attribute''), signal the ability to receive unaligned Netlink messages
-> >to the datapath to enable utilization of zerocopy optimizations.
-> 
-> >Signed-off-by: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> [...]
-> 
-> >diff --git a/lib/dpif-linux.c b/lib/dpif-linux.c
-> >index 1dcf321..5c952bc 100644
-> >--- a/lib/dpif-linux.c
-> >+++ b/lib/dpif-linux.c
-> [...]
-> >@@ -1839,6 +1841,10 @@ dpif_linux_dp_to_ofpbuf(const struct dpif_linux_dp *dp, struct ofpbuf *buf)
-> >          nl_msg_put_u32(buf, OVS_DP_ATTR_UPCALL_PID, *dp->upcall_pid);
-> >      }
-> >
-> >+    if (dp->user_features) {
-> >+        nl_msg_put_u32(buf, OVS_DP_ATTR_USER_FEATURES, dp->user_features);
-> >+    }
-> >+
-> 
->    {} not needed here.
+rama nichanamatlu <rama.nichanamatlu@oracle.com> wrote:
 
-This is Open vSwitch code, so it follows Open vSwitch coding style,
-which requires the {}.
+>On 11/21/2013 3:10 AM, Veaceslav Falico wrote:
+>> On Wed, Nov 20, 2013 at 04:53:20PM -0800, rama nichanamatlu wrote:
+>>> During the creation of VLAN's atop bonding the underlying interfaces
+>>> are made part of VLAN's, and at the same bonding driver gets aware
+>>> that VLAN's exists above it and hence would consult IP routing for
+>>> every ARP to  be sent to determine the route which tells bonding
+>>> driver the correct VLAN tag to attach to the outgoing ARP packet. But,
+>>> during the VLAN creation when vlan driver puts the underlying
+>>> interface into default vlan and then actual vlan, in-between this if
+>>> bonding driver consults the IP for a route, IP fails to provide a
+>>> correct route and upon which bonding driver drops the ARP packet. ARP
+>>> monitor when it
+>>> comes around next time, sees no ARP response and fails-over to the
+>>> next available slave. Consulting for a IP route,
+>>> ip_route_output(),happens in bond_arp_send_all().
+>> 
+>> bonding works as expected - nothing to fix here. And even as a
+>> workaround/hack - I'm not sure we need that to suppress one failover *only*
+>> when vlan is added on top.
+>> 
+>>>
+>Thank U.
+>With *out* this change our systems failed system testing, to
+>consistently be on designated primary interface on *every* single
+>reboot. With this change the behavior was as expected even after a few
+>thousand reboots & System testing could move to next level catching an
+>another bug in sr-iov :). And Without, the outcome was less predictable
+>after a reboot and bonding was on a different slave each time.
+>-Rama
+
+	By "designated primary" you mean the bonding primary option,
+correct?  If not, does setting primary resolve the problem?  If so,
+you're saying that during the bringup, bonding would end up with a
+non-primary slave as the active slave?  Or that there would be a
+failover / failback cycle during the bringup due to the lack of VLAN
+availability?
+
+	There is already a mechanism in bond_ab_arp_inspect() to give
+new slaves a grace period before applying link failures:
+
+                /*
+                 * Give slaves 2*delta after being enslaved or made
+                 * active.  This avoids bouncing, as the last receive
+                 * times need a full ARP monitor cycle to be updated.
+                 */
+                if (bond_time_in_interval(bond, slave->jiffies, 2))
+                        continue;
+
+	If you extend that grace period (the "2", which is in units of
+the arp_interval), does the problem resolve itself, or is the time
+window here longer than that?
+
+	How is the configuration of bonding and the VLANs taking place?
+
+	I don't think this patch is suitable (because it can mask
+legitimate failures), but I'm not entirely sure I understand the details
+of the problem.  Is this simply that the arp_ip_target is specified as a
+VLAN destination signficantly before (meaning perhaps many seconds of
+real time) the VLAN is configured above bonding, or is it some kind of
+race condition in the VLAN code?
+
+	-J
+
+>>> To prevent this false fail-over, when bonding driver fails to send an
+>>> ARP out it marks in its private structure, bonding{},  not to expect
+>>> an ARP response, when ARP monitor comes around next time ARP sending
+>>> will be tried again.
+>>>
+>>> Extensively tested in a VM environment; sr-iov intf->bonding
+>>> intf->vlan intf. All virtual interfaces created at boot time.
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
