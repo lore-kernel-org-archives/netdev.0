@@ -1,93 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 7/8] openvswitch: Drop user features if old
- user space attempted to create datapath
-Date: Thu, 21 Nov 2013 18:23:17 +0000
-Message-ID: <1385058197.1586.15.camel@bwh-desktop.uk.level5networks.com>
-References: <cover.1385057355.git.tgraf@suug.ch>
-	 <68ddfb6e0ef4401f246f2599ade5c15b25063736.1385057355.git.tgraf@suug.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel BUG at net/core/skbuff.c:2839 RIP [<ffffffff819109a2>]
+ skb_segment+0x6b2/0x6d0
+Date: Thu, 21 Nov 2013 10:23:36 -0800
+Message-ID: <1385058216.10637.53.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1287049824.20131117201744@eikelenboom.it>
+	 <1392359825.20131121130027@eikelenboom.it>
+	 <1385043004.10637.34.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131121.131741.737292941735802990.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <jesse@nicira.com>, <davem@davemloft.net>, <dev@openvswitch.org>,
-	<netdev@vger.kernel.org>, <dborkman@redhat.com>,
-	<ffusco@redhat.com>, <fleitner@redhat.com>,
-	<eric.dumazet@gmail.com>
-To: Thomas Graf <tgraf@suug.ch>
+Cc: herbert@gondor.apana.org.au, linux@eikelenboom.it,
+	edumazet@google.com, romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:30252 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753041Ab3KUSXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:23:23 -0500
-In-Reply-To: <68ddfb6e0ef4401f246f2599ade5c15b25063736.1385057355.git.tgraf@suug.ch>
+Received: from mail-yh0-f51.google.com ([209.85.213.51]:57682 "EHLO
+	mail-yh0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753970Ab3KUSXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:23:39 -0500
+Received: by mail-yh0-f51.google.com with SMTP id t59so6814599yho.10
+        for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 10:23:38 -0800 (PST)
+In-Reply-To: <20131121.131741.737292941735802990.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-21 at 19:13 +0100, Thomas Graf wrote:
-> Drop user features if an outdated user space instance that does not
-> understand the concept of user_features attempted to create a new
-> datapath.
+On Thu, 2013-11-21 at 13:17 -0500, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 21 Nov 2013 06:10:04 -0800
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  include/uapi/linux/openvswitch.h | 11 ++++++++++-
->  net/openvswitch/datapath.c       | 10 ++++++++++
->  2 files changed, 20 insertions(+), 1 deletion(-)
+> > As mentioned earlier, this problem is known and a patch is under review.
+> > 
+> > http://marc.info/?l=linux-netdev&m=138419594024851&w=2
 > 
-> diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-> index 07ef2c3..4f74c2c 100644
-> --- a/include/uapi/linux/openvswitch.h
-> +++ b/include/uapi/linux/openvswitch.h
-> @@ -40,7 +40,16 @@ struct ovs_header {
->  
->  #define OVS_DATAPATH_FAMILY  "ovs_datapath"
->  #define OVS_DATAPATH_MCGROUP "ovs_datapath"
-> -#define OVS_DATAPATH_VERSION 0x1
-> +
-> +/**
-> + * V2:
+> It seems this patch still requires some improvements, can you guys sort
+> out what needs to be done so that I can apply a fix soon?
 
-This is not kernel-doc format so don't use '/**'.
+I think we might apply this patch as is, and do the TSO optimization
+when net-next reopens ?
 
-> + *   - API users are expected to provide OVS_DP_ATTR_USER_FEATURES
-> + *     with NLM_F_REPLACE when creating the datapath.
-> + */
-> +#define OVS_DATAPATH_VERSION 2
-> +
-> +/* First OVS datapath version to support features */
-> +#define OVS_DP_VER_FEATURES 2
->  
->  enum ovs_datapath_cmd {
->  	OVS_DP_CMD_UNSPEC,
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index 3f1fb87..72cdffb 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-> @@ -1198,6 +1198,16 @@ static int ovs_dp_create_or_update(struct sk_buff *skb, struct genl_info *info,
->  		if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE)
->  			goto update;
->  
-> +		/* An outdated user space instance that does not understand
-> +		 * the concept of user_features has attempted to create a new
-> +		 * datapath. Drop all user features.
-> +		 */
-> +		if (info->genlhdr->version < OVS_DP_VER_FEATURES) {
-> +			WARN_ONCE(dp->user_features, "Dropping previously "
-> +				  "announced user features");
-
-Log messages shouldn't be split like this as it makes them harder to
-find.  There should also be a newline at the end of the message.
-
-Ben.
-
-> +			dp->user_features = 0;
-> +		}
-> +
->  		err = -EEXIST;
->  		goto err_unlock_ovs;
->  	}
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I was planning to resend Herbert patch today anyway, after a new round
+of testing on my hosts.
