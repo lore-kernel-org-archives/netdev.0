@@ -1,58 +1,47 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: Get rxhash fixes and RFS support in tun
-Date: Thu, 21 Nov 2013 08:28:18 -0800
-Message-ID: <CA+mtBx_KuiC2KWXKuV-+KBrJ7GhMK0L5kAH8sO7CA3sQqGp+Cg@mail.gmail.com>
-References: <CA+mtBx91hSmYKrbUsPrtnXRjYR8QDGZ+GAAnMixauUqw9LFkiQ@mail.gmail.com>
-	<20131120.212321.700376819925646003.davem@davemloft.net>
-	<CA+mtBx8g9uYOc0euQiEDi8qfx_ZggsE_Wn8N5R+peE1_N4WKEg@mail.gmail.com>
-	<20131120.215025.590189385589840672.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: rework recvmsg handler msg_name and msg_namelen logic
+Date: Thu, 21 Nov 2013 18:04:34 +0100
+Message-ID: <20131121170434.GA6745@order.stressinduktion.org>
+References: <20131121003828.GA32587@order.stressinduktion.org> <528E1E2E.20905@gmail.com> <1385046014.10637.44.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Jerry Chu <hkchu@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:49076 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753813Ab3KUQ2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 11:28:19 -0500
-Received: by mail-ie0-f170.google.com with SMTP id qd12so7364143ieb.15
-        for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 08:28:19 -0800 (PST)
-In-Reply-To: <20131120.215025.590189385589840672.davem@davemloft.net>
+Received: from order.stressinduktion.org ([87.106.68.36]:57467 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753057Ab3KUREg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 12:04:36 -0500
+Content-Disposition: inline
+In-Reply-To: <1385046014.10637.44.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 20, 2013 at 6:50 PM, David Miller <davem@davemloft.net> wrote:
-> From: Tom Herbert <therbert@google.com>
-> Date: Wed, 20 Nov 2013 18:42:48 -0800
->
->> We need the rxhash to be the value seen at the point of RPS (to do RFS
->> correctly), which I think probably means we don't ever want to change
->> it after the first calculation! (clearing at tunnel decap wouldn't be
->> correct either)  For ESP or AH, I believe it's appropriate to use SPI
->> as a substitute for ports.
->
-> But that means that all connections going over the same IPSEC path
-> hash to the same value.
->
-> I really think that xfrm_input() should zap the rxhash near the
-> existing nf_reset() call.
->
-> The same argument goes for tunnels, that is why ip_tunnel_core.c does
-> what it does with the rxhash clearing right now.
->
-I suspect this is not the right thing to do any more.  Since we're
-doing deep inspection now in flow_dissector, we should already have
-the discovered the hash on the inner header if it's a standard encap.
-In order to do RFS for tunneled packets at the NIC interface we don't
-want recompute to a different L4 hash (which would be common case if
-NIC did deep inspection on tunneled packets and we clear hash at
-decap).
+On Thu, Nov 21, 2013 at 07:00:14AM -0800, Eric Dumazet wrote:
+> On Thu, 2013-11-21 at 09:52 -0500, Vlad Yasevich wrote:
+> > On 11/20/2013 07:38 PM, Hannes Frederic Sowa wrote:
+> > > diff --git a/include/linux/net.h b/include/linux/net.h
+> > > index b292a04..4bcee94 100644
+> > > --- a/include/linux/net.h
+> > > +++ b/include/linux/net.h
+> > > @@ -164,6 +164,14 @@ struct proto_ops {
+> > >  #endif
+> > >  	int		(*sendmsg)   (struct kiocb *iocb, struct socket *sock,
+> > >  				      struct msghdr *m, size_t total_len);
+> > > +	/* Notes for implementing recvmsg:
+> > > +	 * ===============================
+> > > +	 * msg->msg_namelen should get updated by the recvmsg handlers
+> > > +	 * iff msg_name != NULL. It is by default 0 to prevent
+> > > +	 * returning uninitialized memory to user space.  The recvfrom
+> > > +	 * handlers can assume that msg.msg_name is either NULL or has
+> > > +	 * a minimum size of sizeof(struct sockaddr_storage).
+> >              ^^^^^^^
+> > 
+> > You meant "maximum", right?
+> 
+> He meant : A protocol can safely assume there are sizeof(struct
+> sockaddr_storage) bytes available.
 
-> In both the IPSEC tunnel (not transport) and normal IP/GRE tunnel
-> cases, it's a completely new SKB receive, done via netif_rx(), after
-> decapsulation.
->
-> That leaves only IPSEC transport mode as the only case where RFS isn't
-> (re-)performed but we can build infrastructure to make that happen.
+Yes, exactly. Apparently it seems to does cause confusion as I wrote it. Maybe I should
+reword it?
