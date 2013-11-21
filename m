@@ -1,90 +1,61 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: Re: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not
- ipsec pkt
-Date: Thu, 21 Nov 2013 11:07:27 +0100
-Message-ID: <528DDB5F.8080400@6wind.com>
-References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com> <1383725153-26298-1-git-send-email-christophe.gouault@6wind.com> <20131107112549.GP31491@secunet.com> <527B8DC5.6080702@6wind.com> <1902752B0C92F943AB7EA9EE13E2DEEC1273BA977C@HQ1-EXCH02.corp.brocade.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: MLD maturity in kernel version 2.6.32.60
+Date: Thu, 21 Nov 2013 11:16:04 +0100
+Message-ID: <528DDD64.3020601@redhat.com>
+References: <trinity-825e48d2-0bab-4020-84f0-77800e55f25a-1384777048114@3capp-gmx-bs16> <20131118221850.GO16541@order.stressinduktion.org> <528AACF4.1090302@redhat.com> <20131121040416.GA4347@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Collins <bsderandrew@gmail.com>,
-	Fan Du <fan.du@windriver.com>
-To: Saurabh Mohan <saurabh.mohan@brocade.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>
+Cc: netdev@vger.kernel.org, Simon Schneider <simon-schneider@gmx.net>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f48.google.com ([209.85.214.48]:61479 "EHLO
-	mail-bk0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750902Ab3KUKIM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 05:08:12 -0500
-Received: by mail-bk0-f48.google.com with SMTP id v10so219725bkz.35
-        for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 02:08:11 -0800 (PST)
-In-Reply-To: <1902752B0C92F943AB7EA9EE13E2DEEC1273BA977C@HQ1-EXCH02.corp.brocade.com>
+Received: from mx1.redhat.com ([209.132.183.28]:21099 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750860Ab3KUKQM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Nov 2013 05:16:12 -0500
+In-Reply-To: <20131121040416.GA4347@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Saurabh,
-
-Good to read your rationale.
-
-On 11/18/2013 10:38 PM, Saurabh Mohan wrote:
+On 11/21/2013 05:04 AM, Hannes Frederic Sowa wrote:
+> On Tue, Nov 19, 2013 at 01:12:36AM +0100, Daniel Borkmann wrote:
+>> There's also still one issue which I am hesitant to implement, as i) I don't
+>> think it's overly useful, ii) nobody complained so far. :-)
+>>
+>> In RFC2710 (MLD v1 spec), it says:
+>>
+>> 3.7. Other fields
+>>
+>>     The length of a received MLD message is computed by taking the IPv6
+>>     Payload Length value and subtracting the length of any IPv6 extension
+>>     headers present between the IPv6 header and the MLD message.  If that
+>>     length is greater than 24 octets, that indicates that there are other
+>>     fields present beyond the fields described above, perhaps belonging
+>>     to a future backwards-compatible version of MLD.  An implementation
+>>     of the version of MLD specified in this document MUST NOT send an MLD
+>>     message longer than 24 octets and MUST ignore anything past the first
+>>     24 octets of a received MLD message.  In all cases, the MLD checksum
+>>     MUST be computed over the entire MLD message, not just the first 24
+>>     octets.
+>>
+>> Then, RFC3810 which "updates" RFC2710 obviously has a bigger message length
+>> than that. In igmp6_event_query(), we only check for len == MLD_V1_QUERY_LEN
+>> and process MLD v1. Now, in case of MLD v1-only fallback, we MUST only
+>> operate in v1 mode.
+>>
+>> Now, in case a v2 message comes in we could assume above statement "if
+>> that length is greater than 24 octets, that indicates that there are other
+>> fields present beyond the fields described above, perhaps belonging to a
+>> future backwards-compatible version of MLD".
+>>
+>> But then on the other hand, we get completely wrong "Maximum Response Delay"
+>> codes in the packet header as they are differently encoded in MLD v1 and MLD
+>> v2 thus not really backwards compatible.
 >
+> Daniel, let's add something where we can easier export the per-interface
+> mld status for net-next inclusive the timers either via netlink or procfs.
 >
->> -----Original Message----- From: Christophe Gouault
->> [mailto:christophe.gouault@6wind.com] Sent: Thursday, November 07,
->> 2013 4:56 AM To: Steffen Klassert Cc: David S. Miller; Herbert Xu;
->> netdev@vger.kernel.org; Saurabh Mohan; Sergei Shtylyov; Eric
->> Dumazet Subject: Re: [PATCH net v3] vti: fix spd lookup: match
->> plaintext pkt, not ipsec pkt
->>
->> Hello Steffen,
->>
->> I am also interested in knowing Saurabh's intentions regarding the
->> behavior of policies bound to vti interfaces.
->>
-> The semantics is to match the policy "src 0.0.0.0/0 dst 0.0.0.0/0
-> proto any" That is the only policy that VTI should use. The mark is
-> needed to distinguish and limit the policy to a specific vti tunnel
-> interface only. There is no other policy that may be applied to a vti
-> interface. The fact that traffic is going over the tunnel interface
-> implies that it must be encrypted/decrypted. Applying the above
-> policy is a way to achieve that.
+> I guess we cannot change /proc/net/igmp6 because of backward compatibility
+> so I favor to add this via Nicolas netconf api.
 
-The proposed patch respects this model and accepts the same
-configuration, but extends the possibilities: you can still set the
-policy "src 0.0.0.0/0 dst 0.0.0.0/0 proto any" (which is the typical use
-case), the mark is still used to distinguish and limit the policy to a
-specific vti tunnel interface only, the traffic that is going over the
-tunnel interface still implies that it must be encrypted/decrypted (in
-tunnel mode).
-
-But you can optionally apply differentiated policies within the same
-tunnel, by setting SPs with narrower selectors: according to the
-plaintext traffic that crosses the tunnel, you can request to use
-different protocols (esp/ah), different SAs, maybe drop some traffic.
-Only ipsec tunnel mode and drop policies should be bound to a VTI interface.
-
-And the patch restores the SP semantics: the selector is used to match
-the plaintext traffic, not the IPsec encrypted traffic.
-
-Best Regards,
-Christophe
-
->> However, please note that setting a policy with a wildcard
->> selector works in both cases (before or after this patch), so a
->> common test case can be defined.
->>
->> Actually the *previous* patch on vti (7263a5187f9e vti: get rid of
->> nf mark rule in prerouting) introduced significant changes, and
->> implies behaviors dependant on the kernel version, but it seemed to
->> meet Saurabh's agreement, as the following thread witnesses:
->>
->> http://www.spinics.net/lists/netdev/msg253134.html
->>
-> Getting rid of the pre-routing mark, which had to be done outside of
-> the vti tunnel code was prone to misconfiguration. Though it is
-> unfortunate that it creates a kernel version dependency.
+Yes, sure sounds good to me. We can do that.
