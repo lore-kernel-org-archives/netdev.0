@@ -1,70 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v2] packet: fix use after free race in send path
- when dev is released
-Date: Thu, 21 Nov 2013 06:40:42 -0800
-Message-ID: <1385044842.10637.41.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1385027235-2217-1-git-send-email-dborkman@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] net: rework recvmsg handler msg_name and msg_namelen
+ logic
+Date: Thu, 21 Nov 2013 09:52:30 -0500
+Message-ID: <528E1E2E.20905@gmail.com>
+References: <20131121003828.GA32587@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Salam Noureddine <noureddine@aristanetworks.com>,
-	Ben Greear <greearb@candelatech.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:64750 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751609Ab3KUOkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 09:40:47 -0500
-Received: by mail-pa0-f52.google.com with SMTP id ld10so7110754pab.11
-        for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 06:40:46 -0800 (PST)
-In-Reply-To: <1385027235-2217-1-git-send-email-dborkman@redhat.com>
+Received: from mail-yh0-f52.google.com ([209.85.213.52]:40893 "EHLO
+	mail-yh0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754425Ab3KUOwe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 09:52:34 -0500
+Received: by mail-yh0-f52.google.com with SMTP id i72so3279999yha.25
+        for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 06:52:33 -0800 (PST)
+In-Reply-To: <20131121003828.GA32587@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-21 at 10:47 +0100, Daniel Borkmann wrote:
+On 11/20/2013 07:38 PM, Hannes Frederic Sowa wrote:
+> diff --git a/include/linux/net.h b/include/linux/net.h
+> index b292a04..4bcee94 100644
+> --- a/include/linux/net.h
+> +++ b/include/linux/net.h
+> @@ -164,6 +164,14 @@ struct proto_ops {
+>  #endif
+>  	int		(*sendmsg)   (struct kiocb *iocb, struct socket *sock,
+>  				      struct msghdr *m, size_t total_len);
+> +	/* Notes for implementing recvmsg:
+> +	 * ===============================
+> +	 * msg->msg_namelen should get updated by the recvmsg handlers
+> +	 * iff msg_name != NULL. It is by default 0 to prevent
+> +	 * returning uninitialized memory to user space.  The recvfrom
+> +	 * handlers can assume that msg.msg_name is either NULL or has
+> +	 * a minimum size of sizeof(struct sockaddr_storage).
+             ^^^^^^^
 
-> +static void packet_dev_put_deferred(struct rcu_head *head)
-> +{
-> +	struct packet_sock *po = container_of(head, struct packet_sock, rcu);
-> +	struct sock *sk = &po->sk;
-> +
-> +	spin_lock(&po->bind_lock);
-> +	po->ifindex = -1;
-> +
-> +	if (po->prot_hook.dev) {
-> +		dev_put(po->prot_hook.dev);
-> +		po->prot_hook.dev = NULL;
-> +	}
-> +
-> +	spin_unlock(&po->bind_lock);
-> +	sock_put(sk);
-> +}
+You meant "maximum", right?
 
-I dont think this is needed.
-
->  
->  static int packet_notifier(struct notifier_block *this,
->  			   unsigned long msg, void *ptr)
-> @@ -3325,13 +3354,13 @@ static int packet_notifier(struct notifier_block *this,
->  					if (!sock_flag(sk, SOCK_DEAD))
->  						sk->sk_error_report(sk);
->  				}
-> +				spin_unlock(&po->bind_lock);
-> +
->  				if (msg == NETDEV_UNREGISTER) {
-> -					po->ifindex = -1;
-> -					if (po->prot_hook.dev)
-> -						dev_put(po->prot_hook.dev);
-> -					po->prot_hook.dev = NULL;
-> +					sock_hold(sk);
-> +					call_rcu(&po->rcu,
-> +						 packet_dev_put_deferred);
->  				}
-> -				spin_unlock(&po->bind_lock);
->  			}
-
-Its not needed because you now take a reference on dev
-in packet_cached_dev_get()
-
-Otherwise, patch looks good !
+-vlad
