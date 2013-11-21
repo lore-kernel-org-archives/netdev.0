@@ -1,46 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix ehea warning when built in
-Date: Thu, 21 Nov 2013 13:07:54 -0500 (EST)
-Message-ID: <20131121.130754.2206370935570985768.davem@davemloft.net>
-References: <11586.1385008609@ale.ozlabs.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffm@suse.com, ohering@suse.com, jslaby@suse.cz,
-	netdev@vger.kernel.org, cascardo@linux.vnet.ibm.com
-To: mikey@neuling.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next 0/8 v6] Open vSwitch upcall optimiziations
+Date: Thu, 21 Nov 2013 19:13:31 +0100
+Message-ID: <cover.1385057355.git.tgraf@suug.ch>
+Cc: dev@openvswitch.org, netdev@vger.kernel.org, dborkman@redhat.com,
+	ffusco@redhat.com, fleitner@redhat.com, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com
+To: jesse@nicira.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43401 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858Ab3KUSH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:07:56 -0500
-In-Reply-To: <11586.1385008609@ale.ozlabs.ibm.com>
+Received: from merlin.infradead.org ([205.233.59.134]:54582 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751569Ab3KUSNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:13:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Neuling <mikey@neuling.org>
-Date: Thu, 21 Nov 2013 15:36:49 +1100
+Reposting this before the merge window as it will go through Jesse's
+tree.
 
-> In:
->   commit 7a3a62128388a6af771e99df8628ddee2e8be7ca
->   Author: Olaf Hering <ohering@suse.com>
->   drivers/net/ethernet/ibm/ehea/ehea_main.c: add alias entry for portN properties
-> We added ehea_module_device_table.  Unfortunately we only use this when
-> building as a module so we get the following warning when built in, like
-> in pseries_defconfig:
-> 
->   drivers/net/ethernet/ibm/ehea/ehea_main.c:105:1: warning: 'ehea_module_device_table' defined but not used [-Wunused-variable]
-> 
-> This wraps ehea_module_device_table with #if MODULE.
-> 
-> Signed-off-by: Michael Neuling <mikey@neuling.org>
+Given jumbo frames, the capacity of the slow path is improved by 
+a factor of 2.5x.
 
-I think putting an ugly MODULE ifdef into every driver that does something
-like this is not going to cut it.
+V6: - Added memory mapped netlink i/o support
+    - Drop user_features if old user space not aware of user features
+      reuses an existing datapath
+V5: - Removed padding requirement in user space
+    - Added OVS_DP_F_UNALIGNED flag let user space signal ability to
+      receive unaligned Netlink messages, fall back to linear copy
+      otherwise.
+V4: - Daniel Borkmann pointed out that the style in skbuff.h has changed
+      in net-next, adapted to no longer using extern in headers.
+V3: - Removed unneeded alignment of nlmsg_len after padding
+V2: - Added skb_zerocopy_headlen() to calculate headroom of destination
+      buffer. This also takes care of the from->head_frag issue.
+    - Attribute alignment for frag_list case
+    - API documentation
+    - performance data for CHECKSUM_PARTIAL tx case
 
-Rather, the MODULE_DEVICE_TABLE() definition when !MODULE should do something
-reasonable, like make a void reference to the symbole.
+Thomas Graf (8):
+  genl: Add genlmsg_new_unicast() for unicast message allocation
+  netlink: Avoid netlink mmap alloc if msg size exceeds frame size
+  openvswitch: Enable memory mapped Netlink i/o
+  net: Export skb_zerocopy() to zerocopy from one skb to another
+  openvswitch: Allow user space to announce ability to accept unaligned
+    Netlink messages
+  openvswitch: Allow update of dp with OVS_DP_CMD_NEW if NLM_F_REPLACE
+    is set
+  openvswitch: Drop user features if old user space attempted to create
+    datapath
+  openvswitch: Use skb_zerocopy() for upcall
 
-I'm not applying this, the fix belongs in a generic place.
+ include/linux/skbuff.h               |   3 +
+ include/net/genetlink.h              |   4 +
+ include/uapi/linux/openvswitch.h     |  15 ++-
+ net/core/skbuff.c                    |  85 +++++++++++++++
+ net/netfilter/nfnetlink_queue_core.c |  59 +----------
+ net/netlink/af_netlink.c             |   4 +
+ net/netlink/genetlink.c              |  21 ++++
+ net/openvswitch/datapath.c           | 193 ++++++++++++++++++++++-------------
+ net/openvswitch/datapath.h           |   2 +
+ 9 files changed, 257 insertions(+), 129 deletions(-)
 
-Thanks.
+-- 
+1.8.3.1
