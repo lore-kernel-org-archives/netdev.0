@@ -1,241 +1,60 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH v3] packet: fix use after free race in send path when dev is released
-Date: Thu, 21 Nov 2013 16:50:58 +0100
-Message-ID: <1385049058-1946-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org,
-	Salam Noureddine <noureddine@aristanetworks.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: davem@davemloft.net
+From: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+Subject: Re: Question about IPv6 neighbor discovery and 6lowpan
+Date: Thu, 21 Nov 2013 17:52:15 +0200
+Message-ID: <1385049135.2723.25.camel@jrissane-mobl.ger.corp.intel.com>
+References: <1385046178.2723.17.camel@jrissane-mobl.ger.corp.intel.com>
+	 <20131121153414.GA9960@omega>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24195 "EHLO mx1.redhat.com"
+Received: from mga01.intel.com ([192.55.52.88]:11237 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753182Ab3KUPvH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Nov 2013 10:51:07 -0500
+	id S1751226Ab3KUPwq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Nov 2013 10:52:46 -0500
+In-Reply-To: <20131121153414.GA9960@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Salam reported a use after free bug in PF_PACKET that occurs when
-we're sending out frames on a socket bound device and suddenly the
-net device is being unregistered. It appears that commit 827d9780
-introduced a possible race condition between {t,}packet_snd() and
-packet_notifier(). In the case of a bound socket, packet_notifier()
-can drop the last reference to the net_device and {t,}packet_snd()
-might end up suddenly sending a packet over a freed net_device.
+On to, 2013-11-21 at 16:34 +0100, Alexander Aring wrote:
+> Hi Jukka,
+> 
+> On Thu, Nov 21, 2013 at 05:02:58PM +0200, Jukka Rissanen wrote:
+> > Hi,
+> > 
+> > I am investigating RFC 6775 (Neighbor Discovery Optimization for IPv6
+> > over Low-Power Wireless Personal Area Networks (6LoWPANs))
+> > http://tools.ietf.org/html/rfc6775
+> > 
+> > The RFC suggests some changes to neighbor discovery procedure for the
+> > 6LoWPAN networks. I was looking net/ipv6/ndisc.c and it seems that
+> > ARPHRD type (from type field in net_device struct) is the only way to
+> > detect and change the discovery procedure in the ndisc.c code. Am I
+> > right with this assumption here?
+> > 
+> I think you are right, there was some patches on linux-zigbee-devel who
+> use exact the same idea to check the ARPHRD type.
 
-To avoid reverting 827d9780 and thus introducing a performance
-regression compared to the current state of things, we decided to
-hold a cached RCU protected pointer to the net device and maintain
-it on write side via bind spin_lock protected register_prot_hook()
-and __unregister_prot_hook() calls.
+Ok. The reason I was interested in about this is that I proposed new
+ARPHRD_RAWIP earlier that I could use in BT LE 6lowpan code. Now I think
+that type might be too generic and perhaps I should have ARPHRD_6LOWPAN
+or even ARPHRD_BT_6LOWPAN.
 
-In {t,}packet_snd() path, we access this pointer under rcu_read_lock
-through packet_cached_dev_get() that holds reference to the device
-to prevent it from being freed through packet_notifier() while
-we're in send path. This is okay to do as dev_put()/dev_hold() are
-per-cpu counters, so this should not be a performance issue. Also,
-the code simplifies a bit as we don't need need_rls_dev anymore.
+> 
+> But I am investigating for rfc6775, too. :-)
+> 
+> 
+> At the moment I see too many unsolved issues in the ieee802154/6lowpan
+> implementation which should be fixed at first. :(
+> 
+> - Alex
 
-Fixes: 827d978037d7 ("af-packet: Use existing netdev reference for bound sockets.")
-Reported-by: Salam Noureddine <noureddine@aristanetworks.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
-Cc: Ben Greear <greearb@candelatech.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
----
- v1->v2:
-  - Applied feedback from Dave and Eric, thanks a lot for this!
- v2->v3:
-  - As Eric points out, we're on the safe side w/o call_rcu() deferral,
-    so remove it, rest stays the same.
+No worries, the rfc6775 is common for both zigbee and bluetooth so
+whoever implements the rfc gets support for both of them at the same
+time.
 
- net/packet/af_packet.c | 59 ++++++++++++++++++++++++++++++--------------------
- net/packet/internal.h  |  1 +
- 2 files changed, 37 insertions(+), 23 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 2e8286b..4204846 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -244,11 +244,15 @@ static void __fanout_link(struct sock *sk, struct packet_sock *po);
- static void register_prot_hook(struct sock *sk)
- {
- 	struct packet_sock *po = pkt_sk(sk);
-+
- 	if (!po->running) {
--		if (po->fanout)
-+		if (po->fanout) {
- 			__fanout_link(sk, po);
--		else
-+		} else {
- 			dev_add_pack(&po->prot_hook);
-+			rcu_assign_pointer(po->cached_dev, po->prot_hook.dev);
-+		}
-+
- 		sock_hold(sk);
- 		po->running = 1;
- 	}
-@@ -266,10 +270,13 @@ static void __unregister_prot_hook(struct sock *sk, bool sync)
- 	struct packet_sock *po = pkt_sk(sk);
- 
- 	po->running = 0;
--	if (po->fanout)
-+	if (po->fanout) {
- 		__fanout_unlink(sk, po);
--	else
-+	} else {
- 		__dev_remove_pack(&po->prot_hook);
-+		RCU_INIT_POINTER(po->cached_dev, NULL);
-+	}
-+
- 	__sock_put(sk);
- 
- 	if (sync) {
-@@ -2052,12 +2059,24 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	return tp_len;
- }
- 
-+static struct net_device *packet_cached_dev_get(struct packet_sock *po)
-+{
-+	struct net_device *dev;
-+
-+	rcu_read_lock();
-+	dev = rcu_dereference(po->cached_dev);
-+	if (dev)
-+		dev_hold(dev);
-+	rcu_read_unlock();
-+
-+	return dev;
-+}
-+
- static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- {
- 	struct sk_buff *skb;
- 	struct net_device *dev;
- 	__be16 proto;
--	bool need_rls_dev = false;
- 	int err, reserve = 0;
- 	void *ph;
- 	struct sockaddr_ll *saddr = (struct sockaddr_ll *)msg->msg_name;
-@@ -2070,7 +2089,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 	mutex_lock(&po->pg_vec_lock);
- 
- 	if (saddr == NULL) {
--		dev = po->prot_hook.dev;
-+		dev	= packet_cached_dev_get(po);
- 		proto	= po->num;
- 		addr	= NULL;
- 	} else {
-@@ -2084,19 +2103,17 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
- 		dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
--		need_rls_dev = true;
- 	}
- 
- 	err = -ENXIO;
- 	if (unlikely(dev == NULL))
- 		goto out;
--
--	reserve = dev->hard_header_len;
--
- 	err = -ENETDOWN;
- 	if (unlikely(!(dev->flags & IFF_UP)))
- 		goto out_put;
- 
-+	reserve = dev->hard_header_len;
-+
- 	size_max = po->tx_ring.frame_size
- 		- (po->tp_hdrlen - sizeof(struct sockaddr_ll));
- 
-@@ -2173,8 +2190,7 @@ out_status:
- 	__packet_set_status(po, ph, status);
- 	kfree_skb(skb);
- out_put:
--	if (need_rls_dev)
--		dev_put(dev);
-+	dev_put(dev);
- out:
- 	mutex_unlock(&po->pg_vec_lock);
- 	return err;
-@@ -2212,7 +2228,6 @@ static int packet_snd(struct socket *sock,
- 	struct sk_buff *skb;
- 	struct net_device *dev;
- 	__be16 proto;
--	bool need_rls_dev = false;
- 	unsigned char *addr;
- 	int err, reserve = 0;
- 	struct virtio_net_hdr vnet_hdr = { 0 };
-@@ -2228,7 +2243,7 @@ static int packet_snd(struct socket *sock,
- 	 */
- 
- 	if (saddr == NULL) {
--		dev = po->prot_hook.dev;
-+		dev	= packet_cached_dev_get(po);
- 		proto	= po->num;
- 		addr	= NULL;
- 	} else {
-@@ -2240,19 +2255,17 @@ static int packet_snd(struct socket *sock,
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
- 		dev = dev_get_by_index(sock_net(sk), saddr->sll_ifindex);
--		need_rls_dev = true;
- 	}
- 
- 	err = -ENXIO;
--	if (dev == NULL)
-+	if (unlikely(dev == NULL))
- 		goto out_unlock;
--	if (sock->type == SOCK_RAW)
--		reserve = dev->hard_header_len;
--
- 	err = -ENETDOWN;
--	if (!(dev->flags & IFF_UP))
-+	if (unlikely(!(dev->flags & IFF_UP)))
- 		goto out_unlock;
- 
-+	if (sock->type == SOCK_RAW)
-+		reserve = dev->hard_header_len;
- 	if (po->has_vnet_hdr) {
- 		vnet_hdr_len = sizeof(vnet_hdr);
- 
-@@ -2386,15 +2399,14 @@ static int packet_snd(struct socket *sock,
- 	if (err > 0 && (err = net_xmit_errno(err)) != 0)
- 		goto out_unlock;
- 
--	if (need_rls_dev)
--		dev_put(dev);
-+	dev_put(dev);
- 
- 	return len;
- 
- out_free:
- 	kfree_skb(skb);
- out_unlock:
--	if (dev && need_rls_dev)
-+	if (dev)
- 		dev_put(dev);
- out:
- 	return err;
-@@ -2614,6 +2626,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol,
- 	po = pkt_sk(sk);
- 	sk->sk_family = PF_PACKET;
- 	po->num = proto;
-+	RCU_INIT_POINTER(po->cached_dev, NULL);
- 
- 	sk->sk_destruct = packet_sock_destruct;
- 	sk_refcnt_debug_inc(sk);
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index c4e4b45..1035fa2 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -113,6 +113,7 @@ struct packet_sock {
- 	unsigned int		tp_loss:1;
- 	unsigned int		tp_tx_has_off:1;
- 	unsigned int		tp_tstamp;
-+	struct net_device __rcu	*cached_dev;
- 	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
- };
- 
--- 
-1.8.3.1
+Cheers,
+Jukka
