@@ -1,160 +1,79 @@
-From: rama nichanamatlu <rama.nichanamatlu@oracle.com>
-Subject: [PATCH] bonding: If IP route look-up to send an ARP fails, mark in
- bonding structure as no ARP sent.
-Date: Wed, 20 Nov 2013 16:53:20 -0800
-Message-ID: <528D5980.3040309@oracle.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: rework recvmsg handler msg_name and msg_namelen
+ logic
+Date: Wed, 20 Nov 2013 17:02:40 -0800
+Message-ID: <1384995760.2164.33.camel@joe-AO722>
+References: <20131121003828.GA32587@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070304000005000501040203"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, eric.dumazet@gmail.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:28156 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754636Ab3KUAxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 19:53:24 -0500
-Received: from acsinet22.oracle.com (acsinet22.oracle.com [141.146.126.238])
-	by userp1040.oracle.com (Sentrion-MTA-4.3.1/Sentrion-MTA-4.3.1) with ESMTP id rAL0rMl3015870
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 00:53:23 GMT
-Received: from aserz7021.oracle.com (aserz7021.oracle.com [141.146.126.230])
-	by acsinet22.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id rAL0rMdM013316
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 00:53:22 GMT
-Received: from abhmp0017.oracle.com (abhmp0017.oracle.com [141.146.116.23])
-	by aserz7021.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id rAL0rMG7026667
-	for <netdev@vger.kernel.org>; Thu, 21 Nov 2013 00:53:22 GMT
+Received: from smtprelay0018.hostedemail.com ([216.40.44.18]:41566 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753481Ab3KUBCo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 20:02:44 -0500
+In-Reply-To: <20131121003828.GA32587@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070304000005000501040203
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On Thu, 2013-11-21 at 01:38 +0100, Hannes Frederic Sowa wrote:
+> This patch now always passes msg->msg_namelen as 0. recvmsg handlers must
+> set msg_namelen to the proper size <= sizeof(struct sockaddr_storage)
+> to return msg_name to the user.
+[]
+> This change does not alter the user visible error logic as we ignore
+> msg_namelen as long as msg_name is NULL.
+> 
+> Also remove two unnecessary curly brackets in ___sys_recvmsg and change
+> comments to netdev style.
 
-During the creation of VLAN's atop bonding the underlying interfaces are 
-made part of VLAN's, and at the same bonding driver gets aware that 
-VLAN's exists above it and hence would consult IP routing for every ARP 
-to  be sent to determine the route which tells bonding driver the 
-correct VLAN tag to attach to the outgoing ARP packet. But, during the 
-VLAN creation when vlan driver puts the underlying interface into 
-default vlan and then actual vlan, in-between this if bonding driver 
-consults the IP for a route, IP fails to provide a correct route and 
-upon which bonding driver drops the ARP packet. ARP monitor when it
-comes around next time, sees no ARP response and fails-over to the next 
-available slave. Consulting for a IP route, ip_route_output(),happens in 
-bond_arp_send_all().
+Perhaps take the opportunity to remove the unnecessary casts of
+struct msghdr.msg_name as it's a void *.
 
-To prevent this false fail-over, when bonding driver fails to send an 
-ARP out it marks in its private structure, bonding{},  not to expect an 
-ARP response, when ARP monitor comes around next time ARP sending will 
-be tried again.
+And there's one other oddity about setting a known NULL to NULL.
 
-Extensively tested in a VM environment; sr-iov intf->bonding intf->vlan 
-intf. All virtual interfaces created at boot time.
+Maybe fix in a follow-on patch?
 
-Orabug: 17172660
-Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Signed-off-by: Rama Nichanamatlu <rama.nichanamatlu@oracle.com>
----
-  drivers/net/bonding/bond_main.c | 13 ++++++++-----
-  drivers/net/bonding/bonding.h   |  1 +
-  2 files changed, 9 insertions(+), 5 deletions(-)
+> diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
+[]
+> @@ -135,9 +134,10 @@ mISDN_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
+[]
+> +	if (msg->msg_name) {
+> +		struct sockaddr_mISDN *maddr =
+> +			(struct sockaddr_mISDN *)msg->msg_name;
 
-diff --git a/drivers/net/bonding/bond_main.c 
-b/drivers/net/bonding/bond_main.c
-index dde6b4a..d475161 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2661,7 +2661,7 @@ static int bond_has_this_ip(struct bonding *bond, 
-__be32 ip)
-   * switches in VLAN mode (especially if ports are configured as
-   * "native" to a VLAN) might not pass non-tagged frames.
-   */
--static void bond_arp_send(struct net_device *slave_dev, int arp_op, 
-__be32 dest_ip, __be32 src_ip, unsigned short vlan_id)
-+static void bond_arp_send(struct bonding *bond, struct net_device 
-*slave_dev, int arp_op, __be32 dest_ip, __be32 src_ip, unsigned short 
-vlan_id)
-  {
-  	struct sk_buff *skb;
-  @@ -2683,6 +2683,7 @@ static void bond_arp_send(struct net_device 
-*slave_dev, int arp_op, __be32 dest_
-  		}
-  	}
-  	arp_xmit(skb);
-+	bond->arp_sent=true;
-  }
-   @@ -2700,7 +2701,7 @@ static void bond_arp_send_all(struct bonding 
-*bond, struct slave *slave)
-  		pr_debug("basa: target %x\n", targets[i]);
-  		if (!bond->vlgrp) {
-  			pr_debug("basa: empty vlan: arp_send\n");
--			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
-+			bond_arp_send(bond, slave->dev, ARPOP_REQUEST, targets[i],
-  				      bond->master_ip, 0);
-  			continue;
-  		}
-@@ -2726,7 +2727,7 @@ static void bond_arp_send_all(struct bonding 
-*bond, struct slave *slave)
-  		if (rt->dst.dev == bond->dev) {
-  			ip_rt_put(rt);
-  			pr_debug("basa: rtdev == bond->dev: arp_send\n");
--			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
-+			bond_arp_send(bond, slave->dev, ARPOP_REQUEST, targets[i],
-  				      bond->master_ip, 0);
-  			continue;
-  		}
-@@ -2744,7 +2745,7 @@ static void bond_arp_send_all(struct bonding 
-*bond, struct slave *slave)
-   		if (vlan_id) {
-  			ip_rt_put(rt);
--			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
-+			bond_arp_send(bond, slave->dev, ARPOP_REQUEST, targets[i],
-  				      vlan->vlan_ip, vlan_id);
-  			continue;
-  		}
-@@ -3206,7 +3207,7 @@ void bond_activebackup_arp_mon(struct work_struct 
-*work)
-   	should_notify_peers = bond_should_notify_peers(bond);
-  -	if (bond_ab_arp_inspect(bond, delta_in_ticks)) {
-+	if (bond->arp_sent && bond_ab_arp_inspect(bond, delta_in_ticks)) {
-  		read_unlock(&bond->lock);
-  		rtnl_lock();
-  		read_lock(&bond->lock);
-@@ -3218,6 +3219,7 @@ void bond_activebackup_arp_mon(struct work_struct 
-*work)
-  		read_lock(&bond->lock);
-  	}
-  +	bond->arp_sent=false;
-  	bond_ab_arp_probe(bond);
-   re_arm:
-@@ -4425,6 +4427,7 @@ static void bond_setup(struct net_device *bond_dev)
-   	bond_dev->hw_features &= ~(NETIF_F_ALL_CSUM & ~NETIF_F_NO_CSUM);
-  	bond_dev->features |= bond_dev->hw_features;
-+	bond->arp_sent=false;
-  }
-   static void bond_work_cancel_all(struct bonding *bond)
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index e9a3c56..3878bbd 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -253,6 +253,7 @@ struct bonding {
-  	/* debugging suport via debugfs */
-  	struct	 dentry *debug_dir;
-  #endif /* CONFIG_DEBUG_FS */
-+        bool arp_sent;
-  };
-   #define bond_slave_get_rcu(dev) \
--- 
-1.8.2.1
+		struct sockaddr_mISDN *maddr = msg->msg_name;
 
+> diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+[]
+> @@ -1764,14 +1763,14 @@ static int atalk_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr
+[]
+> +	if (!err && msg->msg_name) {
+> +		struct sockaddr_at *sat =
+> +			(struct sockaddr_at *)msg->msg_name;
 
---------------070304000005000501040203
-Content-Type: text/plain; charset=windows-1252;
- name="Attached Message Part"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="Attached Message Part"
+> diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+[]
+> @@ -1636,11 +1636,12 @@ static int ax25_recvmsg(struct kiocb *iocb, struct socket *sock,
+[]
+> +		struct sockaddr_ax25 *sax =
+> +			(struct sockaddr_ax25 *)msg->msg_name;
 
+> diff --git a/net/core/iovec.c b/net/core/iovec.c
+[]
+> @@ -48,7 +48,7 @@ int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr_storage *a
+>  			if (err < 0)
+>  				return err;
+>  		}
+> -		m->msg_name = address;
+> +		m->msg_name = (m->msg_name) ? address : NULL;
 
---------------070304000005000501040203--
+It's pretty odd I think to set a known NULL to NULL;
+
+> diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
+[]
+> @@ -1252,8 +1251,11 @@ static int rose_recvmsg(struct kiocb *iocb, struct socket *sock,
+[]
+> +		srose = (struct sockaddr_rose *)msg->msg_name;
