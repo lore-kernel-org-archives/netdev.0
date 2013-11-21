@@ -1,32 +1,68 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] wimax: remove dead code
-Date: Thu, 21 Nov 2013 08:27:30 +0100
-Message-ID: <1385018850.14273.0.camel@jlt4.sipsolutions.net>
-References: <1385005391-18379-1-git-send-email-michael.opdenacker@free-electrons.com>
-	 <1385007469.2164.39.camel@joe-AO722>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH RFC v1 7/7] net: cpsw: resume/suspend PHY on port
+ start/stop
+Date: Thu, 21 Nov 2013 14:05:41 +0530
+Message-ID: <528DC5DD.8040801@ti.com>
+References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1384978913-8052-8-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Opdenacker <michael.opdenacker@free-electrons.com>,
-	inaky.perez-gonzalez@intel.com, linux-wimax@intel.com,
-	davem@davemloft.net, wimax@linuxwimax.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1385007469.2164.39.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+ linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1384978913-8052-8-git-send-email-sebastian.hesselbarth@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-11-20 at 20:17 -0800, Joe Perches wrote:
-> On Thu, 2013-11-21 at 04:43 +0100, Michael Opdenacker wrote:
-> > This removes a code line that is between a "return 0;" and an error label.
-> > This code line can never be reached.
-> 
-> Adding Johannes Berg who added this oversight.
+On Thursday 21 November 2013 01:51 AM, Sebastian Hesselbarth wrote:
+> Network PHYs consume a noticable amount of power. This adds phy_resume
+> on slave_open and phy_suspend on slave_stop to save this power if the
+> port is down anyway.
+>
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> ---
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>  drivers/net/ethernet/ti/cpsw.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 90d41d2..f1dc54f 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -1013,6 +1013,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+>  	} else {
+>  		dev_info(priv->dev, "phy found : id is : 0x%x\n",
+>  			 slave->phy->phy_id);
+> +		phy_resume(slave->phy);
+>  		phy_start(slave->phy);
+>  
+>  		/* Configure GMII_SEL register */
+> @@ -1081,6 +1082,7 @@ static void cpsw_slave_stop(struct cpsw_slave *slave, struct cpsw_priv *priv)
+>  	if (!slave->phy)
+>  		return;
+>  	phy_stop(slave->phy);
+> +	phy_suspend(slave->phy);
+>  	phy_disconnect(slave->phy);
+>  	slave->phy = NULL;
+>  }
 
-Obviously, sorry about that. I seem to remember deleting *something*
-there (like another error label) but I guess I missed that line.
+Can these be called from phy_start and phy_stop itself so that it
+reduces the effort of patching all drivers and also applies to all
+etherent drivers.
 
-Acked-by: Johannes Berg <johannes@sipsolutions.net>
-
-johannes
+Regards
+Mugunthan V N
