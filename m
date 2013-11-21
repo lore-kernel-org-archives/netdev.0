@@ -1,127 +1,71 @@
-From: mark.doffman@codethink.co.uk
-Subject: [PATCH 2/4] Documentation: Document the cephroot functionality
-Date: Wed, 20 Nov 2013 20:13:42 -0600
-Message-ID: <1385000024-23463-3-git-send-email-mark.doffman@codethink.co.uk>
-References: <1385000024-23463-1-git-send-email-mark.doffman@codethink.co.uk>
-Cc: Rob Taylor <rob.taylor@codethink.co.uk>, sage@inktank.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-nfs@vger.kernel.org,
-	Mark Doffman <mark.doffman@codethink.co.uk>
-To: ceph-devel@vger.kernel.org
+From: rama nichanamatlu <rama.nichanamatlu@oracle.com>
+Subject: Re: [PATCH] bonding: If IP route look-up to send an ARP fails, mark
+ in bonding structure as no ARP sent.
+Date: Wed, 20 Nov 2013 18:23:01 -0800
+Message-ID: <528D6E85.8040904@oracle.com>
+References: <528D5980.3040309@oracle.com> <12668.1384996699@death.nxdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([37.128.190.40]:54075 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755042Ab3KUCOT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 21:14:19 -0500
-In-Reply-To: <1385000024-23463-1-git-send-email-mark.doffman@codethink.co.uk>
+Received: from aserp1040.oracle.com ([141.146.126.69]:50160 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754530Ab3KUCXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Nov 2013 21:23:06 -0500
+In-Reply-To: <12668.1384996699@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rob Taylor <rob.taylor@codethink.co.uk>
+On 11/20/2013 5:18 PM, Jay Vosburgh wrote:
+> rama nichanamatlu <rama.nichanamatlu@oracle.com> wrote:
+> 
+>> During the creation of VLAN's atop bonding the underlying interfaces are
+>> made part of VLAN's, and at the same bonding driver gets aware that VLAN's
+>> exists above it and hence would consult IP routing for every ARP to  be
+>> sent to determine the route which tells bonding driver the correct VLAN
+>> tag to attach to the outgoing ARP packet. But, during the VLAN creation
+>> when vlan driver puts the underlying interface into default vlan and then
+>> actual vlan, in-between this if bonding driver consults the IP for a
+>> route, IP fails to provide a correct route and upon which bonding driver
+>> drops the ARP packet. ARP monitor when it
+>> comes around next time, sees no ARP response and fails-over to the next
+>> available slave. Consulting for a IP route, ip_route_output(),happens in
+>> bond_arp_send_all().
+>>
+>> To prevent this false fail-over, when bonding driver fails to send an ARP
+>> out it marks in its private structure, bonding{},  not to expect an ARP
+>> response, when ARP monitor comes around next time ARP sending will be
+>> tried again.
+>>
+>> Extensively tested in a VM environment; sr-iov intf->bonding intf->vlan
+>> intf. All virtual interfaces created at boot time.
+> 
+> 	First, this patch appears to be for an older kernel, as the
+> current mainline code is substantially different (e.g., master_ip is no
+> longer used).
+> 
+> 	Second, won't this methodology mask legitimate failures, such as
+> when a single arp_ip_target specifies a destination that is not ever
+> reachable?  I.e., would specifying a permanently unreachable IP address
+> as the arp_ip_target cause all slaves to always stay up (because no ARPs
+> will ever be sent), even if no ARP replies are ever received?
+> 
+> 	-J
+> 
+Thank U.
+I agree with your rationale. Would keep a slave falsely up but traffic
+might flow. And true that, it is not what we are looking for.
+We can try a different approach too, which we used to fix a false
+fail-over in MTU changing case where the device interface takes time to
+change the device MTU. And in the mean time bonding was failing over.
+What we did to fix was to stop the ARP monitoring, bond_change_mtu(),
+and restart it when NETDEV_CHANGE from slave is handled,
+bond_slave_netdev_event(). Not sure if this can used for vlan case, as
+mtu thing is event driven.
 
-Document using the cephfs as a root device, its purpose,
-functionality and use.
 
-Signed-off-by: Mark Doffman <mark.doffman@codethink.co.uk>
-Signed-off-by: Rob Taylor <rob.taylor@codethink.co.uk>
-Reviewed-by: Ian Molton <ian.molton@codethink.co.uk>
----
- Documentation/filesystems/{ => ceph}/ceph.txt |  0
- Documentation/filesystems/ceph/cephroot.txt   | 81 +++++++++++++++++++++++++++
- 2 files changed, 81 insertions(+)
- rename Documentation/filesystems/{ => ceph}/ceph.txt (100%)
- create mode 100644 Documentation/filesystems/ceph/cephroot.txt
-
-diff --git a/Documentation/filesystems/ceph.txt b/Documentation/filesystems/ceph/ceph.txt
-similarity index 100%
-rename from Documentation/filesystems/ceph.txt
-rename to Documentation/filesystems/ceph/ceph.txt
-diff --git a/Documentation/filesystems/ceph/cephroot.txt b/Documentation/filesystems/ceph/cephroot.txt
-new file mode 100644
-index 0000000..ae0f5bb
---- /dev/null
-+++ b/Documentation/filesystems/ceph/cephroot.txt
-@@ -0,0 +1,81 @@
-+Mounting the root filesystem via Ceph (cephroot)
-+===============================================
-+
-+Written 2013 by Rob Taylor <rob.taylor@codethink.co.uk>
-+
-+derived from nfsroot.txt:
-+
-+Written 1996 by Gero Kuhlmann <gero@gkminix.han.de>
-+Updated 1997 by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
-+Updated 2006 by Nico Schottelius <nico-kernel-nfsroot@schottelius.org>
-+Updated 2006 by Horms <horms@verge.net.au>
-+
-+
-+
-+In order to use a diskless system, such as an X-terminal or printer server
-+for example, it is necessary for the root filesystem to be present on a
-+non-disk device. This may be an initramfs (see Documentation/filesystems/
-+ramfs-rootfs-initramfs.txt), a ramdisk (see Documentation/initrd.txt), a
-+filesystem mounted via NFS or a filesystem mounted via Ceph. The following
-+text describes on how to use Ceph for the root filesystem.
-+
-+For the rest of this text 'client' means the diskless system, and 'server'
-+means the Ceph server.
-+
-+
-+1.) Enabling cephroot capabilities
-+    -----------------------------
-+
-+In order to use cephroot, CEPH_FS needs to be selected as
-+built-in during configuration. Once this has been selected, the cephroot
-+option will become available, which should also be selected.
-+
-+In the networking options, kernel level autoconfiguration can be selected,
-+along with the types of autoconfiguration to support. Selecting all of
-+DHCP, BOOTP and RARP is safe.
-+
-+
-+2.) Kernel command line
-+    -------------------
-+
-+When the kernel has been loaded by a boot loader (see below) it needs to be
-+told what root fs device to use. And in the case of cephroot, where to find
-+both the server and the name of the directory on the server to mount as root.
-+This can be established using the following kernel command line parameters:
-+
-+root=/dev/ceph
-+
-+This is necessary to enable the pseudo-Ceph-device. Note that it's not a
-+real device but just a synonym to tell the kernel to use Ceph instead of
-+a real device.
-+
-+cephroot=<monaddr>:/[<subdir>],<ceph-opts>
-+
-+  <monaddr>     Monitor address. Each takes the form host[:port]. If the port
-+		is not specified, the Ceph default of 6789 is assumed.
-+
-+  <subdir>	A subdirectory subdir may be specified if a subset of the file
-+		system is to be mounted
-+
-+  <ceph-opts>	Standard Ceph options. All options are separated by commas.
-+		See Documentation/filesystems/ceph/ceph.txt for options and
-+		their defaults.
-+
-+4.) References
-+    ----------
-+
-+
-+5.) Credits
-+    -------
-+
-+  cephroot was derived from nfsroot by Rob Taylor <rob.taylor@codethink.co.uk>
-+  and Mark Doffman <mark.doffman@codethink.co.uk>
-+
-+  The nfsroot code in the kernel and the RARP support have been written
-+  by Gero Kuhlmann <gero@gkminix.han.de>.
-+
-+  The rest of the IP layer autoconfiguration code has been written
-+  by Martin Mares <mj@atrey.karlin.mff.cuni.cz>.
-+
-+  In order to write the initial version of nfsroot I would like to thank
-+  Jens-Uwe Mager <jum@anubis.han.de> for his help.
--- 
-1.8.4
+>> Orabug: 17172660
+>> Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+>> Signed-off-by: Rama Nichanamatlu <rama.nichanamatlu@oracle.com>
