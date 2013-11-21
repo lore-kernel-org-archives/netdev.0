@@ -1,55 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] gso: handle new frag_list of frags GRO packets
-Date: Thu, 21 Nov 2013 14:12:50 -0500 (EST)
-Message-ID: <20131121.141250.1850041110555494669.davem@davemloft.net>
-References: <1385058216.10637.53.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131121.133824.1318844228024646798.davem@davemloft.net>
-	<1385061004.10637.64.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [RFC] wireless, ipv4, ipv6: drop GTK-protected unicast IP
+ packets
+Date: Thu, 21 Nov 2013 14:14:52 -0500 (EST)
+Message-ID: <20131121.141452.772050617989153448.davem@davemloft.net>
+References: <1385039307.14273.4.camel@jlt4.sipsolutions.net>
+	<1385043867.10637.39.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1385044264.14273.6.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, linux@eikelenboom.it,
-	edumazet@google.com, romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, jouni@qca.qualcomm.com
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43994 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44016 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751373Ab3KUTMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 14:12:54 -0500
-In-Reply-To: <1385061004.10637.64.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1751569Ab3KUTOy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 14:14:54 -0500
+In-Reply-To: <1385044264.14273.6.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 21 Nov 2013 11:10:04 -0800
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Thu, 21 Nov 2013 15:31:04 +0100
 
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Recently GRO started generating packets with frag_lists of frags.
-> This was not handled by GSO, thus leading to a crash.
-> 
-> Thankfully these packets are of a regular form and are easy to
-> handle.  This patch handles them in two ways.  For completely
-> non-linear frag_list entries, we simply continue to iterate over
-> the frag_list frags once we exhaust the normal frags.  For frag_list
-> entries with linear parts, we call pskb_trim on the first part
-> of the frag_list skb, and then process the rest of the frags in
-> the usual way.
-> 
-> This patch also kills a chunk of dead frag_list code that has
-> obviously never ever been run since it ends up generating a bogus
-> GSO-segmented packet with a frag_list entry.
-> 
-> Future work is planned to split super big packets into TSO
-> ones.
-> 
-> Fixes: 8a29111c7ca6 ("net: gro: allow to build full sized skb")
-> Reported-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> Reported-by: Jerry Chu <hkchu@google.com>
-> Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Tested-by: Sander Eikelenboom <linux@eikelenboom.it>
-> Tested-by: Eric Dumazet <edumazet@google.com>
+> Yeah, that was a concern too. I'll do it entirely in the wireless stack
+> instead I guess. At least it'll be hidden away inside the if that
+> already does the group key check etc.
 
-Applied and queued up for 3.12-stable, thanks!
+I agree that you should try to take care of this in the wireless
+stack.
