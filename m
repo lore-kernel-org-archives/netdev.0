@@ -1,46 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Get rxhash fixes and RFS support in tun
-Date: Thu, 21 Nov 2013 13:03:39 -0500 (EST)
-Message-ID: <20131121.130339.204009506339126583.davem@davemloft.net>
-References: <CA+mtBx8g9uYOc0euQiEDi8qfx_ZggsE_Wn8N5R+peE1_N4WKEg@mail.gmail.com>
-	<20131120.215025.590189385589840672.davem@davemloft.net>
-	<CA+mtBx_KuiC2KWXKuV-+KBrJ7GhMK0L5kAH8sO7CA3sQqGp+Cg@mail.gmail.com>
+Subject: Re: [PATCH] net: Fix ehea warning when built in
+Date: Thu, 21 Nov 2013 13:07:54 -0500 (EST)
+Message-ID: <20131121.130754.2206370935570985768.davem@davemloft.net>
+References: <11586.1385008609@ale.ozlabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, hkchu@google.com
-To: therbert@google.com
+Cc: jeffm@suse.com, ohering@suse.com, jslaby@suse.cz,
+	netdev@vger.kernel.org, cascardo@linux.vnet.ibm.com
+To: mikey@neuling.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43372 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43401 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754224Ab3KUSDl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:03:41 -0500
-In-Reply-To: <CA+mtBx_KuiC2KWXKuV-+KBrJ7GhMK0L5kAH8sO7CA3sQqGp+Cg@mail.gmail.com>
+	with ESMTP id S1750858Ab3KUSH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 13:07:56 -0500
+In-Reply-To: <11586.1385008609@ale.ozlabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Thu, 21 Nov 2013 08:28:18 -0800
+From: Michael Neuling <mikey@neuling.org>
+Date: Thu, 21 Nov 2013 15:36:49 +1100
 
-> Since we're doing deep inspection now in flow_dissector, we should
-> already have the discovered the hash on the inner header if it's a
-> standard encap.
+> In:
+>   commit 7a3a62128388a6af771e99df8628ddee2e8be7ca
+>   Author: Olaf Hering <ohering@suse.com>
+>   drivers/net/ethernet/ibm/ehea/ehea_main.c: add alias entry for portN properties
+> We added ehea_module_device_table.  Unfortunately we only use this when
+> building as a module so we get the following warning when built in, like
+> in pseries_defconfig:
+> 
+>   drivers/net/ethernet/ibm/ehea/ehea_main.c:105:1: warning: 'ehea_module_device_table' defined but not used [-Wunused-variable]
+> 
+> This wraps ehea_module_device_table with #if MODULE.
+> 
+> Signed-off-by: Michael Neuling <mikey@neuling.org>
 
-For AH and normal IP tunnels, this might be fine.  But this is not
-possible for ESP since the inner headers are encrypted when the
-flow_dissector takes a look.
+I think putting an ugly MODULE ifdef into every driver that does something
+like this is not going to cut it.
 
-And again, there is the issue of which hardware devices are doing this
-properly.
+Rather, the MODULE_DEVICE_TABLE() definition when !MODULE should do something
+reasonable, like make a void reference to the symbole.
 
-And for those that do perform inner-tunnel deep inspection for rxhash
-generation, how many layers of tunnels are they able to look beneath?
-
-My impression is that they support one level, at best, which means the
-rxhash is basically reliable only under a specific set of conditions.
-
-I need you to elaborate with your knowledge of what hardware actually
-supports and does in this area a bit more before I can have a real
-opinion on what we should be doing.
+I'm not applying this, the fix belongs in a generic place.
 
 Thanks.
