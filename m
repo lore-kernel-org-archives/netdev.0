@@ -1,45 +1,39 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next 7/8] openvswitch: Drop user features if old user
- space attempted to create datapath
-Date: Thu, 21 Nov 2013 22:20:47 +0000
-Message-ID: <20131121222047.GA14252@casper.infradead.org>
-References: <cover.1385057355.git.tgraf@suug.ch>
- <68ddfb6e0ef4401f246f2599ade5c15b25063736.1385057355.git.tgraf@suug.ch>
- <1385058197.1586.15.camel@bwh-desktop.uk.level5networks.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH v3] packet: fix use after free race in send path when
+ dev is released
+Date: Thu, 21 Nov 2013 14:40:22 -0800
+Message-ID: <528E8BD6.3060200@candelatech.com>
+References: <1385049058-1946-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jesse@nicira.com, davem@davemloft.net, dev@openvswitch.org,
-	netdev@vger.kernel.org, dborkman@redhat.com, ffusco@redhat.com,
-	fleitner@redhat.com, eric.dumazet@gmail.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Salam Noureddine <noureddine@aristanetworks.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:41264 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752587Ab3KUWUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 17:20:49 -0500
-Content-Disposition: inline
-In-Reply-To: <1385058197.1586.15.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail.candelatech.com ([208.74.158.172]:57903 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754044Ab3KUWkk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 17:40:40 -0500
+In-Reply-To: <1385049058-1946-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/21/13 at 06:23pm, Ben Hutchings wrote:
-> On Thu, 2013-11-21 at 19:13 +0100, Thomas Graf wrote:
-> > +
-> > +/**
-> > + * V2:
-> 
-> This is not kernel-doc format so don't use '/**'.
+On 11/21/2013 07:50 AM, Daniel Borkmann wrote:
+> Salam reported a use after free bug in PF_PACKET that occurs when
+> we're sending out frames on a socket bound device and suddenly the
+> net device is being unregistered. It appears that commit 827d9780
+> introduced a possible race condition between {t,}packet_snd() and
+> packet_notifier(). In the case of a bound socket, packet_notifier()
+> can drop the last reference to the net_device and {t,}packet_snd()
+> might end up suddenly sending a packet over a freed net_device.
 
-I was hoping kernel-doc would pick it up but it doesn't.
-I'll convert it.
 
-> > +		if (info->genlhdr->version < OVS_DP_VER_FEATURES) {
-> > +			WARN_ONCE(dp->user_features, "Dropping previously "
-> > +				  "announced user features");
-> 
-> Log messages shouldn't be split like this as it makes them harder to
-> find.  There should also be a newline at the end of the message.
+Thank you all for finding and fixing this!
 
-Right, I'll fix this up. We seem to have many of these unfixed.
+Ben
 
-Jesse, do you want a full respin or just a v2 of this patch?
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
