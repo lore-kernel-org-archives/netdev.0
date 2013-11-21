@@ -1,46 +1,60 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: ARM network performance and dma_mask
-Date: Thu, 21 Nov 2013 23:13:10 +0100
-Message-ID: <20131121221310.GG18513@1wt.eu>
-References: <20131119174323.GH913@1wt.eu> <1384885910.8604.110.camel@edumazet-glaptop2.roam.corp.google.com> <20131119184121.GN913@1wt.eu> <874n780wzc.fsf@natisbad.org> <20131120191145.GP8581@1wt.eu> <87txf692zx.fsf@natisbad.org> <20131120215435.GT8581@1wt.eu> <20131121004430.GX8581@1wt.eu> <20131121183834.GB18513@1wt.eu> <528E82C6.2010106@gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] net: sctp: find the correct highest_new_tsn in sack
+Date: Thu, 21 Nov 2013 17:14:01 -0500
+Message-ID: <528E85A9.3000703@gmail.com>
+References: <1385070988-29554-1-git-send-email-changxiangzhong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaud Ebalard <arno@natisbad.org>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	simon.guinot@sequanux.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev@vger.kernel.org, edumazet@google.com,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Rob Herring <robherring2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chang Xiangzhong <changxiangzhong@gmail.com>,
+	nhorman@tuxdriver.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:51054 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755201Ab3KUWNi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Nov 2013 17:13:38 -0500
-Content-Disposition: inline
-In-Reply-To: <528E82C6.2010106@gmail.com>
+Received: from mail-yh0-f54.google.com ([209.85.213.54]:47307 "EHLO
+	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754333Ab3KUWOF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 17:14:05 -0500
+In-Reply-To: <1385070988-29554-1-git-send-email-changxiangzhong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 21, 2013 at 04:01:42PM -0600, Rob Herring wrote:
-> The patch was to fix this issue[1]. It is fixed in the core code because
-> dma_mask not being set has been a known issue with DT probing for some
-> time. Since most drivers don't seem to care, we've gotten away with it.
-> I thought the normal failure mode was drivers failing to probe.
-
-It seems that very few drivers try to set their mask, so probably that
-the default value was already OK even though less performant.
-
-> As to why it helps performance, I'm not really sure. Perhaps it is
-> causing some bounce buffers to be used.
-
-That's also the thing I have been thinking about, and given this device
-only has a 16-bit DDR bus, bounce buffers can make a difference.
-
-> Rob
+On 11/21/2013 04:56 PM, Chang Xiangzhong wrote:
+> Function sctp_check_transmitted(transport t, ...) would iterate all of
+> transport->transmitted queue and looking for the highest __newly__ acked tsn.
+> The original algorithm would depend on the order of the assoc->transport_list
+> (in function sctp_outq_sack line 1215 - 1226). The result might not be the
+> expected due to the order of the tranport_list.
 > 
-> [1] http://lists.xen.org/archives/html/xen-devel/2013-10/msg00092.html
+> Solution: checking if the exising is smaller than the new one before assigning
+> 
+> Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
 
-Thanks for your quick explanation Rob!
-Willy
+Good find.  This has been around for since day 1.  It doesn't so much
+depend on the order of the transport list, but on the order the
+transports been used.  I agree it is a problem if chunks have been
+distributed across multiple transports and a singe SACK acking them all.
+
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+
+-vlad
+
+> ---
+>  net/sctp/outqueue.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index ef9e2bb..1b494fa 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -1397,7 +1397,8 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+>  			 */
+>  			if (!tchunk->tsn_gap_acked) {
+>  				tchunk->tsn_gap_acked = 1;
+> -				*highest_new_tsn_in_sack = tsn;
+> +				if (TSN_lt(*highest_new_tsn_in_sack, tsn))
+> +					*highest_new_tsn_in_sack = tsn;
+>  				bytes_acked += sctp_data_size(tchunk);
+>  				if (!tchunk->transport)
+>  					migrate_bytes += sctp_data_size(tchunk);
+> 
