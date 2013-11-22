@@ -1,21 +1,40 @@
-From: ''Hyde Loan Finance Company
-	<chishen0020@newdresses.onmicrosoft.com>
-Subject: DO YOU NEED BUSINESS AND PERSONAL LOAN
-Date: Fri, 22 Nov 2013 13:14:42 +0530
-Message-ID: <93904625-9688-49bd-96ee-3c3f8820e426@HKXPR06MB119.apcprd06.prod.outlook.com>
-Reply-To: <hydenance@gmail.com>
+From: Mark Doffman <mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+Subject: Re: [PATCH 0/4] Add ceph root filesystem functionality and documentation.
+Date: Fri, 22 Nov 2013 10:53:21 -0600
+Message-ID: <528F8C01.8020603@codethink.co.uk>
+References: <1385000024-23463-1-git-send-email-mark.doffman@codethink.co.uk> <1385065186.18238.0.camel@frustration.ornl.gov>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <chishen0020@newdresses.onmicrosoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from emea01-db3-ndr.ptr.protection.outlook.com ([157.56.120.104]:11298
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932099Ab3KVQxJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 11:53:09 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sage-4GqslpFJ+cxBDgjK7y7TUQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rob.taylor-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org
+To: David Dillow <dave-i1Mk8JYDVaaSihdK6806/g@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1385065186.18238.0.camel-zHLflQxYYDO4Hhoo1DtQwJ9G+ZOsUmrO@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Loans available at 3%.Contact us for more info if interested.Serious minded only.Contact us Via Email: hydenance@gmail.com
+On 11/21/2013 02:19 PM, David Dillow wrote:
+> On Wed, 2013-11-20 at 20:13 -0600, mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org wrote:
+>> The following patch series adds the ability to use a ceph distributed
+>> file system as the root device. The functionality is similar to
+>> NFS root but for the ceph filesystem.
+>
+> Why do this in the kernel vs in the initramfs? Dracut would be a more
+> appropriate place, I think, as it has support for other network root
+> devices already.
+
+I don't know if its a good idea to require an initramfs for mounting a
+rootfs over the network. NFS root is currently in the kernel, and
+frequently used without an initramfs.
+
+Booting from ceph using a root device is relatively simple compared to
+generating an initramfs and it has the possibility of producing smaller
+images for memory constrained devices.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
