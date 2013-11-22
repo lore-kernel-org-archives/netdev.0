@@ -1,41 +1,216 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 1/1] e1000: prevent oops when adapter is being closed and
- reset simultaneously
-Date: Fri, 22 Nov 2013 15:03:52 -0800
-Message-ID: <CAL3LdT5w5sz8ftm2FBHUT3hajrGZKjwfK5m0WqdcGMTtaMaEGQ@mail.gmail.com>
-References: <528F0DB8.7020604@windriver.com>
+Subject: Re: [PATCH 1/2] e1000: fix lockdep warning in e1000_reset_task
+Date: Fri, 22 Nov 2013 15:13:31 -0800
+Message-ID: <1385162011.2219.28.camel@jtkirshe-mobl>
+References: <0555e8c422c9d920758399edfa08f72df9120713.1385107870.git.vdavydov@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, zhuyj <zyjzyj2000@gmail.com>
-To: yzhu1 <Yanjun.Zhu@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <528F0DB8.7020604@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-UmAazmwgNymID++RNiHc"
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@openvz.org,
+	Tushar Dave <tushar.n.dave@intel.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Vladimir Davydov <vdavydov@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:45546 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755484Ab3KVXNe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Nov 2013 18:13:34 -0500
+In-Reply-To: <0555e8c422c9d920758399edfa08f72df9120713.1385107870.git.vdavydov@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 21, 2013 at 11:54 PM, yzhu1 <Yanjun.Zhu@windriver.com> wrote:
-> Hi, maintainers
->
-> This change is based on a similar change made to e1000e support in
-> commit bb9e44d0d0f4 ("e1000e: prevent oops when adapter is being closed
-> and reset simultaneously").  The same issue has also been observed
-> on the older e1000 cards.
->
-> Here, we have increased the RESET_COUNT value to 50 because there are too
-> many accesses to e1000 nic on stress tests to e1000 nic, it is not enough
-> to set RESET_COUT 25. Experimentation has shown that it is enough to set
-> RESET_COUNT 50.
->
-> Please help me to merge this patch. Thanks a lot.
->
-> Zhu Yanjun
 
-Please remember to actually include the driver maintainer for the
-driver your patch is against (i.e. me).
+--=-UmAazmwgNymID++RNiHc
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I will add your patch to my queue.
+On Fri, 2013-11-22 at 12:20 +0400, Vladimir Davydov wrote:
+> The patch fixes the following lockdep warning, which is 100%
+> reproducible on network restart:
+>=20
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D
+> [ INFO: possible circular locking dependency detected ]
+> 3.12.0+ #47 Tainted: GF
+> -------------------------------------------------------
+> kworker/1:1/27 is trying to acquire lock:
+>  ((&(&adapter->watchdog_task)->work)){+.+...}, at:
+> [<ffffffff8108a5b0>] flush_work+0x0/0x70
+>=20
+> but task is already holding lock:
+>  (&adapter->mutex){+.+...}, at: [<ffffffffa0177c0a>] e1000_reset_task
+> +0x4a/0xa0 [e1000]
+>=20
+> which lock already depends on the new lock.
+>=20
+> the existing dependency chain (in reverse order) is:
+>=20
+> -> #1 (&adapter->mutex){+.+...}:
+>        [<ffffffff810bdb5d>] lock_acquire+0x9d/0x120
+>        [<ffffffff816b8cbc>] mutex_lock_nested+0x4c/0x390
+>        [<ffffffffa017233d>] e1000_watchdog+0x7d/0x5b0 [e1000]
+>        [<ffffffff8108b972>] process_one_work+0x1d2/0x510
+>        [<ffffffff8108ca80>] worker_thread+0x120/0x3a0
+>        [<ffffffff81092c1e>] kthread+0xee/0x110
+>        [<ffffffff816c3d7c>] ret_from_fork+0x7c/0xb0
+>=20
+> -> #0 ((&(&adapter->watchdog_task)->work)){+.+...}:
+>        [<ffffffff810bd9c0>] __lock_acquire+0x1710/0x1810
+>        [<ffffffff810bdb5d>] lock_acquire+0x9d/0x120
+>        [<ffffffff8108a5eb>] flush_work+0x3b/0x70
+>        [<ffffffff8108b5d8>] __cancel_work_timer+0x98/0x140
+>        [<ffffffff8108b693>] cancel_delayed_work_sync+0x13/0x20
+>        [<ffffffffa0170cec>] e1000_down_and_stop+0x3c/0x60 [e1000]
+>        [<ffffffffa01775b1>] e1000_down+0x131/0x220 [e1000]
+>        [<ffffffffa0177c12>] e1000_reset_task+0x52/0xa0 [e1000]
+>        [<ffffffff8108b972>] process_one_work+0x1d2/0x510
+>        [<ffffffff8108ca80>] worker_thread+0x120/0x3a0
+>        [<ffffffff81092c1e>] kthread+0xee/0x110
+>        [<ffffffff816c3d7c>] ret_from_fork+0x7c/0xb0
+>=20
+> other info that might help us debug this:
+>=20
+>  Possible unsafe locking scenario:
+>=20
+>        CPU0                    CPU1
+>        ----                    ----
+>   lock(&adapter->mutex);
+>=20
+> lock((&(&adapter->watchdog_task)->work));
+>                                lock(&adapter->mutex);
+>   lock((&(&adapter->watchdog_task)->work));
+>=20
+>  *** DEADLOCK ***
+>=20
+> 3 locks held by kworker/1:1/27:
+>  #0:  (events){.+.+.+}, at: [<ffffffff8108b906>] process_one_work
+> +0x166/0x510
+>  #1:  ((&adapter->reset_task)){+.+...}, at: [<ffffffff8108b906>]
+> process_one_work+0x166/0x510
+>  #2:  (&adapter->mutex){+.+...}, at: [<ffffffffa0177c0a>]
+> e1000_reset_task+0x4a/0xa0 [e1000]
+>=20
+> stack backtrace:
+> CPU: 1 PID: 27 Comm: kworker/1:1 Tainted: GF            3.12.0+ #47
+> Hardware name: System manufacturer System Product Name/P5B-VM SE, BIOS
+> 0501    05/31/2007
+> Workqueue: events e1000_reset_task [e1000]
+>  ffffffff820f6000 ffff88007b9dba98 ffffffff816b54a2 0000000000000002
+>  ffffffff820f5e50 ffff88007b9dbae8 ffffffff810ba936 ffff88007b9dbac8
+>  ffff88007b9dbb48 ffff88007b9d8f00 ffff88007b9d8780 ffff88007b9d8f00
+> Call Trace:
+>  [<ffffffff816b54a2>] dump_stack+0x49/0x5f
+>  [<ffffffff810ba936>] print_circular_bug+0x216/0x310
+>  [<ffffffff810bd9c0>] __lock_acquire+0x1710/0x1810
+>  [<ffffffff8108a5b0>] ? __flush_work+0x250/0x250
+>  [<ffffffff810bdb5d>] lock_acquire+0x9d/0x120
+>  [<ffffffff8108a5b0>] ? __flush_work+0x250/0x250
+>  [<ffffffff8108a5eb>] flush_work+0x3b/0x70
+>  [<ffffffff8108a5b0>] ? __flush_work+0x250/0x250
+>  [<ffffffff8108b5d8>] __cancel_work_timer+0x98/0x140
+>  [<ffffffff8108b693>] cancel_delayed_work_sync+0x13/0x20
+>  [<ffffffffa0170cec>] e1000_down_and_stop+0x3c/0x60 [e1000]
+>  [<ffffffffa01775b1>] e1000_down+0x131/0x220 [e1000]
+>  [<ffffffffa0177c12>] e1000_reset_task+0x52/0xa0 [e1000]
+>  [<ffffffff8108b972>] process_one_work+0x1d2/0x510
+>  [<ffffffff8108b906>] ? process_one_work+0x166/0x510
+>  [<ffffffff8108ca80>] worker_thread+0x120/0x3a0
+>  [<ffffffff8108c960>] ? manage_workers+0x2c0/0x2c0
+>  [<ffffffff81092c1e>] kthread+0xee/0x110
+>  [<ffffffff81092b30>] ? __init_kthread_worker+0x70/0x70
+>  [<ffffffff816c3d7c>] ret_from_fork+0x7c/0xb0
+>  [<ffffffff81092b30>] ? __init_kthread_worker+0x70/0x70
+>=20
+> =3D=3D The issue background =3D=3D
+>=20
+> The problem occurs, because e1000_down(), which is called under
+> adapter->mutex by e1000_reset_task(), tries to synchronously cancel
+> e1000 auxiliary works (reset_task, watchdog_task, phy_info_task,
+> fifo_stall_task), which take adapter->mutex in their handlers. So the
+> question is what does adapter->mutex protect there?
+>=20
+> The adapter->mutex was introduced by commit 0ef4ee ("e1000: convert to
+> private mutex from rtnl") as a replacement for rtnl_lock() taken in
+> the
+> asynchronous handlers. It targeted on fixing a similar lockdep warning
+> issued when e1000_down() was called under rtnl_lock(), and it fixed
+> it,
+> but unfortunately it introduced the lockdep warning described above.
+> Anyway, that said the source of this bug is that the asynchronous
+> works
+> were made to take rtnl_lock() some time ago, so let's look deeper and
+> find why it was added there.
+>=20
+> The rtnl_lock() was added to asynchronous handlers by commit 338c15
+> ("e1000: fix occasional panic on unload") in order to prevent
+> asynchronous handlers from execution after the module is unloaded
+> (e1000_down() is called) as it follows from the comment to the commit:
+>=20
+> > Net drivers in general have an issue where timers fired
+> > by mod_timer or work threads with schedule_work are running
+> > outside of the rtnl_lock.
+> >
+> > With no other lock protection these routines are vulnerable
+> > to races with driver unload or reset paths.
+> >
+> > The longer term solution to this might be a redesign with
+> > safer locks being taken in the driver to guarantee no
+> > reentrance, but for now a safe and effective fix is
+> > to take the rtnl_lock in these routines.
+>=20
+> I'm not sure if this locking scheme fixed the problem or just made it
+> unlikely, although I incline to the latter. Anyway, this was long time
+> ago when e1000 auxiliary works were implemented as timers scheduling
+> real work handlers in their routines. The e1000_down() function only
+> canceled the timers, but left the real handlers running if they were
+> running, which could result in work execution after module unload.
+> Today, the e1000 driver uses sane delayed works instead of the pair
+> timer+work to implement its delayed asynchronous handlers, and the
+> e1000_down() synchronously cancels all the works so that the problem
+> that commit 338c15 tried to cope with disappeared, and we don't need
+> any
+> locks in the handlers any more. Moreover, any locking there can
+> potentially result in a deadlock.
+>=20
+> So, this patch reverts commits 0ef4ee and 338c15.
+>=20
+> Signed-off-by: Vladimir Davydov <vdavydov@parallels.com>
+> Cc: Tushar Dave <tushar.n.dave@intel.com>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/ethernet/intel/e1000/e1000.h      |    2 --
+>  drivers/net/ethernet/intel/e1000/e1000_main.c |   36
+> +++----------------------
+>  2 files changed, 3 insertions(+), 35 deletions(-)
 
--- 
-Cheers,
-Jeff
+I will apply your patch to my queue, thanks!
+
+--=-UmAazmwgNymID++RNiHc
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+
+iQIcBAABCgAGBQJSj+UbAAoJEOVv75VaS+3ON2QP/irCw1hmThUY8GgFctwdoLvL
+uudepXkpba6LJvVdgItRorVm/pj1FTJFBVaAEjwuVimKE6ww7C9QDnM0lZnnb050
+1OStX8bs6T0i9a8pDIqlr7svPU1/zjwjS0TLDJzDqigNQsHEvRTyyBqT3eKrhOfh
+3cFjeuZUDrRZ4R+DDFMqxx+uU61XpiDlV8GiVe7RBGOunUFRfE/VY22Mk1YzxYxv
+W6/OqdxLYL+aMfpyxLSwldVMGiaqe8weI3mKVkutJx91cbTuhl7uNuzZb79X/2QF
+8icnI3+ZIKyFgPrMNwWO/9BkvBAex5ggWuyLe2+gI5PHRyiUhBDbL3RAx1+uDMwn
+jyYLd/1gcwk+Q3cAfAxuBRVfYd1t2fgNEmLcFNg0T661OWj98uVFCIvziwaPVx/4
+ejtfImrg86c0W+8k8o9AEyZ4UtIo5P14j4nsZoN5whkWVd3z9JpdEY3fD/4VZwvb
+2ceYoti/cUzbNiXkG5M7g70BObmwxj7FawNxQbBMGn9BBNdrWi9Zluik+LUzM3Es
+UXy2is3wsgukKeU5K/HOQ9PUZmgKyw0FR8G1usqPbrnw1uehDMaON49wapE/+2/H
+4EUwEShwB0NBtNLtmPCz/o3WFoy8qjRUrVrLVZaSWFcXlrfiY25gu+ax83SMpdfl
+BxCmoBoZA4Km7dPD5HrG
+=jZFq
+-----END PGP SIGNATURE-----
+
+--=-UmAazmwgNymID++RNiHc--
