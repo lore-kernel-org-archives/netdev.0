@@ -1,60 +1,49 @@
-From: rama nichanamatlu <rama.nichanamatlu@oracle.com>
-Subject: Re: [PATCH] bonding: If IP route look-up to send an ARP fails, mark
- in bonding structure as no ARP sent.
-Date: Thu, 21 Nov 2013 16:34:41 -0800
-Message-ID: <528EA6A1.5040209@oracle.com>
-References: <528D5980.3040309@oracle.com> <20131121111022.GA30998@redhat.com> <528E6E40.6020201@oracle.com> <17860.1385068379@death.nxdomain>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/1] Workaround for Suspend/Resume issue of AX88772B under ChromeOS
+Date: Thu, 21 Nov 2013 17:58:10 -0800
+Message-ID: <CAGVrzcase25NosVHA74OLnviJj7nU_2Rxki_hvi8bOwznDuWGg@mail.gmail.com>
+References: <1384913496-26261-1-git-send-email-freddy@asix.com.tw>
+ <20131120.004026.2013972041095203460.davem@davemloft.net> <CANEJEGtBmvFNcFzOW9ZnOFd=ZMnz82ajcN52YqW3+n0+=rhxBA@mail.gmail.com>
+ <20131120.135413.920731121262719289.davem@davemloft.net> <CANEJEGtXOjxj+85QVfWFGH6WuxxCz6uAfEuUo7bv9YEwh_8OAw@mail.gmail.com>
+ <CANEJEGu_2YdVOjcnzh30RPMiP0KC5bL6JasxMS_+1xV9poxgQw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Veaceslav Falico <vfalico@redhat.com>, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: David Miller <davem@davemloft.net>,
+	Freddy Xin <freddy@asix.com.tw>,
+	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, davemloft@davemloft.net,
+	=?UTF-8?B?QVNJWCBMb3VpcyBb6JiH5aiB6Zm4XQ==?= <louis@asix.com.tw>,
+	Allan Chou <allan@asix.com.tw>,
+	Daniel_ASIX <daniel@asix.com.tw>
+To: Grant Grundler <grundler@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:29397 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751663Ab3KVAfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 19:35:47 -0500
-In-Reply-To: <17860.1385068379@death.nxdomain>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:49188 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755654Ab3KVB6u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 20:58:50 -0500
+In-Reply-To: <CANEJEGu_2YdVOjcnzh30RPMiP0KC5bL6JasxMS_+1xV9poxgQw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/21/2013 1:12 PM, Jay Vosburgh wrote:
-> rama nichanamatlu <rama.nichanamatlu@oracle.com> wrote:
-> 
->> On 11/21/2013 3:10 AM, Veaceslav Falico wrote:
->>> On Wed, Nov 20, 2013 at 04:53:20PM -0800, rama nichanamatlu wrote:
->>>> During the creation of VLAN's atop bonding the underlying interfaces
->>>> are made part of VLAN's, and at the same bonding driver gets aware
->>>> that VLAN's exists above it and hence would consult IP routing for
->>>> every ARP to  be sent to determine the route which tells bonding
->>>> driver the correct VLAN tag to attach to the outgoing ARP packet. But,
->>>> during the VLAN creation when vlan driver puts the underlying
->>>> interface into default vlan and then actual vlan, in-between this if
->>>> bonding driver consults the IP for a route, IP fails to provide a
->>>> correct route and upon which bonding driver drops the ARP packet. ARP
->>>> monitor when it
->>>> comes around next time, sees no ARP response and fails-over to the
->>>> next available slave. Consulting for a IP route,
->>>> ip_route_output(),happens in bond_arp_send_all().
->>>
->>> bonding works as expected - nothing to fix here. And even as a
->>> workaround/hack - I'm not sure we need that to suppress one failover *only*
->>> when vlan is added on top.
->>>
->>>>
->> Thank U.
->> With *out* this change our systems failed system testing, to
->> consistently be on designated primary interface on *every* single
->> reboot. With this change the behavior was as expected even after a few
->> thousand reboots & System testing could move to next level catching an
->> another bug in sr-iov :). And Without, the outcome was less predictable
->> after a reboot and bonding was on a different slave each time.
->> -Rama
-> 
-> 	By "designated primary" you mean the bonding primary option,
-> correct?  
-Yes correct. Bonding primary param is set.
-ex: primary=eth1 and primary_reselect=2.
-Hence it is expected to be on primary on every reboot.
--Rama
->If not, 
+2013/11/21 Grant Grundler <grundler@google.com>:
+> On Wed, Nov 20, 2013 at 11:32 AM, Grant Grundler <grundler@google.com> wrote:
+>> Seems like this should be part of usbnet_resume code based on whether
+>> the driver provides mdio_write hook (most USBNET drivers do).
+>
+> Just to be clear: I don't think this is feasible for the now obvious
+> reason that not all device lose phy stat on resume. :/
+>
+> Freddy sent me a patch that saves/restores MII_ADVERTISE and MII_BMCR
+> registers. Testing that now and he'll post if that all works out.
+
+That should be enough to ensure the PHY is put back into a consistent
+state. So long as you are suspending/resuming from a configuration
+where autoneg was enabled, I would not expect anything bad to happen.
+If the link was forced, that is a different story.
+
+One way to make sure this work properly without driver-specific code
+is to include that functionality into the PHY library. As far as I can
+see it the asix drivers do not use it but implement the old-style
+mii_bus interface so that would be a first step.
+-- 
+Florian
