@@ -1,17 +1,18 @@
 From: Jonas Jensen <jonas.jensen@gmail.com>
-Subject: [PATCH 1/5] net: MOXA ART: clear TX descriptor length bits between sends
-Date: Fri, 22 Nov 2013 15:57:18 +0100
-Message-ID: <1385132242-3204-1-git-send-email-jonas.jensen@gmail.com>
+Subject: [PATCH 4/5] net: MOXA ART: generate random address
+Date: Fri, 22 Nov 2013 15:57:21 +0100
+Message-ID: <1385132242-3204-4-git-send-email-jonas.jensen@gmail.com>
+References: <1385132242-3204-1-git-send-email-jonas.jensen@gmail.com>
 Cc: davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
 	linux-kernel@vger.kernel.org, Jonas Jensen <jonas.jensen@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1385132242-3204-1-git-send-email-jonas.jensen@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add TX_DESC1_BUF_SIZE_MASK to bits that are cleared, before the TX buffer
-length is set. Failing to do so can cause the controller to drop dead
-i.e. all TX interrupts stop, resulting in complete communication failure.
+The address register is zero:ed on boot, fill it with a randomly generated
+address on probe.
 
 Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
 ---
@@ -19,22 +20,25 @@ Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
 Notes:
     Applies to next-20131122
 
- drivers/net/ethernet/moxa/moxart_ether.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/moxa/moxart_ether.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-index cbd0133..3c14afd 100644
+index 08c3905..c02075a 100644
 --- a/drivers/net/ethernet/moxa/moxart_ether.c
 +++ b/drivers/net/ethernet/moxa/moxart_ether.c
-@@ -349,7 +349,8 @@ static int moxart_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+@@ -700,6 +700,12 @@ static int moxart_mac_probe(struct platform_device *pdev)
+ 		goto init_fail;
+ 	}
  
- 	txdes1 = readl(desc + TX_REG_OFFSET_DESC1);
- 	txdes1 |= TX_DESC1_LTS | TX_DESC1_FTS;
--	txdes1 &= ~(TX_DESC1_FIFO_COMPLETE | TX_DESC1_INTR_COMPLETE);
-+	txdes1 &= ~(TX_DESC1_FIFO_COMPLETE | TX_DESC1_INTR_COMPLETE |
-+		    TX_DESC1_BUF_SIZE_MASK);
- 	txdes1 |= (len & TX_DESC1_BUF_SIZE_MASK);
- 	writel(txdes1, desc + TX_REG_OFFSET_DESC1);
- 	writel(TX_DESC0_DMA_OWN, desc + TX_REG_OFFSET_DESC0);
++	if (!is_valid_ether_addr(ndev->dev_addr)) {
++		eth_hw_addr_random(ndev);
++		netdev_info(ndev, "generated random MAC address %pM\n",
++			    ndev->dev_addr);
++	}
++
+ 	netdev_dbg(ndev, "%s: IRQ=%d address=%pM\n",
+ 		   __func__, ndev->irq, ndev->dev_addr);
+ 
 -- 
 1.8.2.1
