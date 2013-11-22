@@ -1,62 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 3/7] netfilter: synproxy: correct wscale option passing
-Date: Fri, 22 Nov 2013 21:19:10 +0400
-Message-ID: <528F920E.1000809@cogentembedded.com>
-References: <1385024728-4057-1-git-send-email-pablo@netfilter.org> <1385024728-4057-4-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:43406 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755938Ab3KVRTP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 12:19:15 -0500
-Received: by mail-la0-f46.google.com with SMTP id eh20so1176960lab.5
-        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 09:19:14 -0800 (PST)
-In-Reply-To: <1385024728-4057-4-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Graf <agraf@suse.de>
+Subject: gem csum breakage with 018c5bba (Handle CHECKSUM_COMPLETE more adequately ...)
+Date: Fri, 22 Nov 2013 19:08:16 +0100
+Message-ID: <B8BCE323-6F65-4D14-BD4A-BFA07C3ED290@suse.de>
+Mime-Version: 1.0 (Mac OS X Mail 7.0 \(1812\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: herbert@gondor.apana.org.au, alexander.h.duyck@intel.com,
+	netdev@vger.kernel.org, edumazet@google.com,
+	herbert@gondor.apana.org,
+	"linux-kernel@vger.kernel.org list" <linux-kernel@vger.kernel.org>,
+	Ben Herrenschmidt <benh@kernel.crashing.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi,
 
-On 21-11-2013 13:05, Pablo Neira Ayuso wrote:
+With current Linus' master tree my ibook started emitting a lot of annoying csum calculation warnings. I've bisected it down to the commit seen in the subject line, but I suppose the real problem lies somewhere a lot deeper and only gets revealed thanks to the more clever checksum logic applied now.
 
-> From: Martin Topholm <mph@one.com>
+Any ideas how to dig further into this?
 
-> Timestamp are used to store additional syncookie parameters such as sack,
-> ecn, and wscale. The wscale value we need to encode is the client's
-> wscale, since we can't recover that later in the session. Next overwrite
-> the wscale option so the later synproxy_send_client_synack will send
-> the backend's wscale to the client.
 
-> Signed-off-by: Martin Topholm <mph@one.com>
-> Reviewed-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> ---
->   net/netfilter/nf_synproxy_core.c |    7 ++++---
->   1 file changed, 4 insertions(+), 3 deletions(-)
+Thanks,
 
-> diff --git a/net/netfilter/nf_synproxy_core.c b/net/netfilter/nf_synproxy_core.c
-> index cdf4567..9858e3e 100644
-> --- a/net/netfilter/nf_synproxy_core.c
-> +++ b/net/netfilter/nf_synproxy_core.c
-> @@ -151,9 +151,10 @@ void synproxy_init_timestamp_cookie(const struct xt_synproxy_info *info,
->   	opts->tsecr = opts->tsval;
->   	opts->tsval = tcp_time_stamp & ~0x3f;
->
-> -	if (opts->options & XT_SYNPROXY_OPT_WSCALE)
-> -		opts->tsval |= info->wscale;
-> -	else
-> +	if (opts->options & XT_SYNPROXY_OPT_WSCALE) {
-> +		opts->tsval |= opts->wscale;
-> +		opts->wscale = info->wscale;
-> +	} else
->   		opts->tsval |= 0xf;
+Alex
 
-    According to Documentation/CodingStyle, both arms of *if* statement should 
-have {} if one arm has it.
+---
 
-WBR, Sergei
+<unknown>: hw csum failure
+CPU: 0 PID: 0 Comm: swapper Not tainted 3.12.0+ #1
+Call Trace:
+[efff1d00] [c00090f0] show_stack+0x48/0x150 (unreliable)
+[efff1d40] [c049f794] csum_partial_copy_to_xdr+0xf8/0x168
+[efff1d60] [c04a1120] xs_udp_data_ready+0xbc/0x140
+[efff1d90] [c03f99f4] sock_queue_rcv_skb+0x144/0x1c0
+[efff1db0] [c045aa28] __udp_queue_rcv_skb+0x38/0xd4
+[efff1dc0] [c045de5c] udp_queue_rcv_skb+0x260/0x3ac
+[efff1de0] [c045e6dc] __udp4_lib_rcv+0x2c8/0x63c
+[efff1e20] [c0432a78] ip_local_deliver_finish+0x100/0x268
+[efff1e40] [c0408264] __netif_receive_skb_core+0x510/0x690
+[efff1ea0] [c040b78c] napi_gro_receive+0xac/0xd8
+[efff1eb0] [c0353b94] gem_poll+0x5bc/0x116c
+[efff1f50] [c040a60c] net_rx_action+0x118/0x1fc
+[efff1f90] [c0046afc] __do_softirq+0xd4/0x1c4
+[efff1fe0] [c0046f04] irq_exit+0x94/0xb8
+[efff1ff0] [c000ef30] call_do_irq+0x24/0x3c
+[c0733e90] [c0006ca4] do_IRQ+0x64/0xb4
+[c0733eb0] [c0011b34] ret_from_except+0x0/0x1c
+--- Exception: 501 at arch_cpu_idle+0x24/0x6c
+    LR = arch_cpu_idle+0x24/0x6c
+[c0733f70] [c0082638] rcu_idle_enter+0x84/0xc4 (unreliable)
+[c0733f80] [c007c4b0] cpu_startup_entry+0xa4/0x16c
+[c0733fb0] [c06caf54] start_kernel+0x308/0x31c
+[c0733ff0] [00003d34] 0x3d34
