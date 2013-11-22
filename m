@@ -1,63 +1,74 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: [PATCH net-next 2/8] netlink: Avoid netlink mmap alloc if
-	msg size exceeds frame size
-Date: Fri, 22 Nov 2013 17:56:05 +0100
-Message-ID: <21435b02616aca6f1442d343e53b69abc2d88b4d.1385137618.git.tgraf@suug.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next 7/8] openvswitch: Drop user features if old user space attempted to create datapath
+Date: Fri, 22 Nov 2013 17:56:10 +0100
+Message-ID: <a207b27c2830c9098045455808e1ca6d203a5d9a.1385137618.git.tgraf@suug.ch>
 References: <cover.1385137618.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, fleitner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <cover.1385137618.git.tgraf-G/eBtMaohhA@public.gmane.org>
-In-Reply-To: <cover.1385137618.git.tgraf-G/eBtMaohhA@public.gmane.org>
-References: <cover.1385137618.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: dev@openvswitch.org, netdev@vger.kernel.org, dborkman@redhat.com,
+	ffusco@redhat.com, fleitner@redhat.com, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com
+To: jesse@nicira.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:51518 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755907Ab3KVQ4e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 11:56:34 -0500
+In-Reply-To: <cover.1385137618.git.tgraf@suug.ch>
+In-Reply-To: <cover.1385137618.git.tgraf@suug.ch>
+References: <cover.1385137618.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-An insufficent ring frame size configuration can lead to an
-unnecessary skb allocation for every Netlink message. Check frame
-size before taking the queue lock and allocating the skb and
-re-check with lock to be safe.
+Drop user features if an outdated user space instance that does not
+understand the concept of user_features attempted to create a new
+datapath.
 
-Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Reviewed-by: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- net/netlink/af_netlink.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ include/uapi/linux/openvswitch.h | 10 +++++++++-
+ net/openvswitch/datapath.c       |  9 +++++++++
+ 2 files changed, 18 insertions(+), 1 deletion(-)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index bca50b9..6433489 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1769,6 +1769,9 @@ struct sk_buff *netlink_alloc_skb(struct sock *ssk, unsigned int size,
- 	if (ring->pg_vec == NULL)
- 		goto out_put;
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 07ef2c3..a6863e2 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -40,7 +40,15 @@ struct ovs_header {
  
-+	if (ring->frame_size - NL_MMAP_HDRLEN < size)
-+		goto out_put;
+ #define OVS_DATAPATH_FAMILY  "ovs_datapath"
+ #define OVS_DATAPATH_MCGROUP "ovs_datapath"
+-#define OVS_DATAPATH_VERSION 0x1
 +
- 	skb = alloc_skb_head(gfp_mask);
- 	if (skb == NULL)
- 		goto err1;
-@@ -1778,6 +1781,7 @@ struct sk_buff *netlink_alloc_skb(struct sock *ssk, unsigned int size,
- 	if (ring->pg_vec == NULL)
- 		goto out_free;
++/* V2:
++ *   - API users are expected to provide OVS_DP_ATTR_USER_FEATURES
++ *     with NLM_F_REPLACE when creating the datapath.
++ */
++#define OVS_DATAPATH_VERSION 2
++
++/* First OVS datapath version to support features */
++#define OVS_DP_VER_FEATURES 2
  
-+	/* check again under lock */
- 	maxlen = ring->frame_size - NL_MMAP_HDRLEN;
- 	if (maxlen < size)
- 		goto out_free;
+ enum ovs_datapath_cmd {
+ 	OVS_DP_CMD_UNSPEC,
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 3f1fb87..f6c1b1e 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -1198,6 +1198,15 @@ static int ovs_dp_create_or_update(struct sk_buff *skb, struct genl_info *info,
+ 		if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE)
+ 			goto update;
+ 
++		/* An outdated user space instance that does not understand
++		 * the concept of user_features has attempted to create a new
++		 * datapath. Drop all user features.
++		 */
++		if (info->genlhdr->version < OVS_DP_VER_FEATURES) {
++			WARN(dp->user_features, "Dropping previously announced user features\n");
++			dp->user_features = 0;
++		}
++
+ 		err = -EEXIST;
+ 		goto err_unlock_ovs;
+ 	}
 -- 
 1.8.3.1
