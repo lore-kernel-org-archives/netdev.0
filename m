@@ -1,37 +1,64 @@
-From: Stefan Roese <stefan.roese@gmail.com>
-Subject: Problem with am335x (cpsw) MDIO state machine
-Date: Fri, 22 Nov 2013 17:06:08 +0100
-Message-ID: <528F80F0.7010003@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Doubt on Implict BUGs caused LRO] doubt about lro status in
+ v3.12 of torvalds/linux.git
+Date: Fri, 22 Nov 2013 08:32:52 -0800
+Message-ID: <1385137972.10637.86.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAJULonje7V_sMt6joBBsM3uuQkYFhfNK70BXzN0EyS3sQNb0uQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p05-ob.rzone.de ([81.169.146.181]:10682 "EHLO
-	mo-p05-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755801Ab3KVQGO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 11:06:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	China Kernel <kernel@vger.linux-kernel.cn>,
+	linux-kernel@vger.kernel.org
+To: Yanfei Wang <backyes@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJULonje7V_sMt6joBBsM3uuQkYFhfNK70BXzN0EyS3sQNb0uQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi All!
+On Fri, 2013-11-22 at 23:00 +0800, Yanfei Wang wrote:
+> Hi,
+> 
+> Compared to the earlier kernel version, I found that Large receive
+> offload(LRO) is obsolete in latest kernel, and that is verified from
+> other materials about Generic receive offload(GRO).
+> 
+> However,  I also found some LRO header files and  lro-related
+> functions referred by some drivers, and the lro-related function
+> definition is already removed at the same time!
+> 
+> TEST steps:
+> 1. my git local db config as follow, url =
+> http://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+> 2. git checkout v3.12 -b 3.12
+> 3. cd net/ipv4,
+>  [backyes@f14 ipv4]$ cat Makefile | grep lro
+> obj-$(CONFIG_INET_LRO) += inet_lro.o
+> [backyes@f14 ipv4]$ ls inet_*
+> inet_connection_sock.c  inet_diag.c  inet_fragment.c
+> inet_hashtables.c  inet_timewait_sock.c
+> [backyes@f14 ipv4]$
+> Here, Makefile has inet_lro.o config, while the inet_lro.c is removed.
+> 4. lro functions referred by some drivers, as follow,
+> [backyes@f14 linux]$ grep "inet_lro" * -r
+> drivers/net/ethernet/pasemi/pasemi_mac.c:#include <linux/inet_lro.h>
+> drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c:#include <linux/inet_lro.h>
+> drivers/infiniband/hw/nes/nes_hw.c:#include <linux/inet_lro.h>
+> drivers/infiniband/hw/nes/nes_hw.h:#include <linux/inet_lro.h>
+> include/linux/inet_lro.h: *  linux/include/linux/inet_lro.h
+> net/ipv4/Makefile:obj-$(CONFIG_INET_LRO) += inet_lro.o
+> 
+> so, I understand that the removal of LRO is not clean, which will
+> cause compiler error for some kernel config.
+> 
 
-I'm currently struggling with the MDIO interface of the am335x SoC. As
-its state machine continuously communicates with the potentially
-available PHY devices (0...31). To determine the link status etc. But
-I'm trying to communicate with am SMSC9303 switch via this MDIO
-interface. It has 32bit registers organized as 2 16bit registers. These
-registers need to be accessed back-to-back. Without any other frame in
-between. And this is often interrupted (disturbed) by these state
-machines polling frames.
+I think you are slightly confused.
 
-Has anyone ever tried to work in this SoC with this MDIO state machine
-disabled? I tried this by clearing the ENABLE bit in the MDIOCONTROL
-register after each transaction. But this doesn't seem to work
-(resulting in timeouts etc)?
+LRO is not yet removed.
 
-Has anybody ever tried anything like this?
+Feel free to contribute ;)
 
-Thanks,
-Stefan
+As long as at least one driver still uses LRO, we can not remove LRO.
+
+Converting a driver means testing the new driver, and owning the
+hardware.
