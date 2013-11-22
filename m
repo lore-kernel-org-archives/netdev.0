@@ -1,145 +1,73 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH net v3] bonding: disable arp and enable mii monitoring
- when bond change to no uses arp mode
-Date: Fri, 22 Nov 2013 13:07:40 -0600
-Message-ID: <1385147260.9654.48.camel@dcbw.foobar.com>
-References: <528710F7.7050207@huawei.com>
-		 <1384796682.4774.26.camel@dcbw.foobar.com>
-		 <20131118.154838.776189725378131169.davem@davemloft.net>
-	 <1384815032.4774.55.camel@dcbw.foobar.com> <528ACD8A.1010409@greyhouse.net>
-	 <528F6A1B.70904@huawei.com>
+From: Chang <changxiangzhong@gmail.com>
+Subject: Re: [PATCH] net: sctp: set chunk->tsn_gap_acked at the end of cycle
+Date: Fri, 22 Nov 2013 20:24:00 +0100
+Message-ID: <528FAF50.10100@gmail.com>
+References: <1385106589-402-1-git-send-email-changxiangzhong@gmail.com> <528F69B7.7020902@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>, fubar@us.ibm.com,
-	nikolay@redhat.com, vfalico@redhat.com, netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37334 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755495Ab3KVTHN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Nov 2013 14:07:13 -0500
-In-Reply-To: <528F6A1B.70904@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <528F69B7.7020902@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-11-22 at 22:28 +0800, Ding Tianhong wrote:
-> Because the ARP monitoring is not support for 802.3ad, but I still
-> could change the mode to 802.3ad from ab mode while ARP monitoring
-> is running, it is incorrect.
-> 
-> So add a check for 802.3ad in bonding_store_mode to fix the problem,
-> and make a new macro BOND_NO_USES_ARP() to simplify the code.
 
-Excellent, that's exactly what I was thinking of.  Thanks!
-
-Dan
-
-> v2: according to the Dan Williams's suggestion, bond mode is the most
->     important bond option, it should override any of the other sub-options.
->     So when the mode is changed, the conficting values should be cleared
->     or reset, otherwise the user has to duplicate more operations to modify
->     the logic. I disable the arp and enable mii monitoring when the bond mode
->     is changed to AB, TB and 8023AD if the arp interval is true.
-> 
-> v3: according to the Nik's suggestion, the default value of miimon should need
->     a name, there is several place to use it, and the bond_store_arp_interval()
->     could use micro BOND_NO_USES_ARP to make the code more simpify.
-> 
-> Suggested-by: Dan Williams <dcbw@redhat.com>
-> Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
->  drivers/net/bonding/bond_main.c    |  4 ++--
->  drivers/net/bonding/bond_options.c | 13 +++++++++----
->  drivers/net/bonding/bond_sysfs.c   |  4 +---
->  drivers/net/bonding/bonding.h      |  7 +++++++
->  4 files changed, 19 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 4dd5ee2..36eab0c 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -4110,7 +4110,7 @@ static int bond_check_params(struct bond_params *params)
->  		if (!miimon) {
->  			pr_warning("Warning: miimon must be specified, otherwise bonding will not detect link failure, speed and duplex which are essential for 802.3ad operation\n");
->  			pr_warning("Forcing miimon to 100msec\n");
-> -			miimon = 100;
-> +			miimon = BOND_DEFAULT_MIIMON;
->  		}
->  	}
->  
-> @@ -4147,7 +4147,7 @@ static int bond_check_params(struct bond_params *params)
->  		if (!miimon) {
->  			pr_warning("Warning: miimon must be specified, otherwise bonding will not detect link failure and link speed which are essential for TLB/ALB load balancing\n");
->  			pr_warning("Forcing miimon to 100msec\n");
-> -			miimon = 100;
-> +			miimon = BOND_DEFAULT_MIIMON;
->  		}
->  	}
->  
-> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-> index 9a5223c..ea6f640 100644
-> --- a/drivers/net/bonding/bond_options.c
-> +++ b/drivers/net/bonding/bond_options.c
-> @@ -45,10 +45,15 @@ int bond_option_mode_set(struct bonding *bond, int mode)
->  		return -EPERM;
->  	}
->  
-> -	if (BOND_MODE_IS_LB(mode) && bond->params.arp_interval) {
-> -		pr_err("%s: %s mode is incompatible with arp monitoring.\n",
-> -		       bond->dev->name, bond_mode_tbl[mode].modename);
-> -		return -EINVAL;
-> +	if (BOND_NO_USES_ARP(mode) && bond->params.arp_interval) {
-> +		pr_info("%s: %s mode is incompatible with arp monitoring, start mii monitoring\n",
-> +			bond->dev->name, bond_mode_tbl[mode].modename);
-> +		/* disable arp monitoring */
-> +		bond->params.arp_interval = 0;
-> +		/* set miimon to default value */
-> +		bond->params.miimon = BOND_DEFAULT_MIIMON;
-> +		pr_info("%s: Setting MII monitoring interval to %d.\n",
-> +			bond->dev->name, bond->params.miimon);
->  	}
->  
->  	/* don't cache arp_validate between modes */
-> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-> index 0ec2a7e..abf5e10 100644
-> --- a/drivers/net/bonding/bond_sysfs.c
-> +++ b/drivers/net/bonding/bond_sysfs.c
-> @@ -523,9 +523,7 @@ static ssize_t bonding_store_arp_interval(struct device *d,
->  		ret = -EINVAL;
->  		goto out;
->  	}
-> -	if (bond->params.mode == BOND_MODE_ALB ||
-> -	    bond->params.mode == BOND_MODE_TLB ||
-> -	    bond->params.mode == BOND_MODE_8023AD) {
-> +	if (BOND_NO_USES_ARP(bond->params.mode)) {
->  		pr_info("%s: ARP monitoring cannot be used with ALB/TLB/802.3ad. Only MII monitoring is supported on %s.\n",
->  			bond->dev->name, bond->dev->name);
->  		ret = -EINVAL;
-> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-> index ca31286..a9f4f9f 100644
-> --- a/drivers/net/bonding/bonding.h
-> +++ b/drivers/net/bonding/bonding.h
-> @@ -35,6 +35,8 @@
->  
->  #define BOND_MAX_ARP_TARGETS	16
->  
-> +#define BOND_DEFAULT_MIIMON	100
-> +
->  #define IS_UP(dev)					   \
->  	      ((((dev)->flags & IFF_UP) == IFF_UP)	&& \
->  	       netif_running(dev)			&& \
-> @@ -55,6 +57,11 @@
->  		 ((mode) == BOND_MODE_TLB)          ||	\
->  		 ((mode) == BOND_MODE_ALB))
->  
-> +#define BOND_NO_USES_ARP(mode)				\
-> +		(((mode) == BOND_MODE_8023AD)	||	\
-> +		 ((mode) == BOND_MODE_TLB)	||	\
-> +		 ((mode) == BOND_MODE_ALB))
-> +
->  #define TX_QUEUE_OVERRIDE(mode)				\
->  			(((mode) == BOND_MODE_ACTIVEBACKUP) ||	\
->  			 ((mode) == BOND_MODE_ROUNDROBIN))
+On 11/22/2013 03:27 PM, Vlad Yasevich wrote:
+> On 11/22/2013 02:49 AM, Chang Xiangzhong wrote:
+>> tsn_gap_acked is an important state flag in chunk, which indicates if the
+>> chunk has been acked in gap reports before.
+> Actually, this bit indicates simply that the chunk has been acked.  It
+> doesn't state whether it's been acked in a gap report or via cumulative tsn.
+Thanks for pointing this out. Sorry for not having made that clear.
+>
+>> SFR-CACC algorithm depends on this
+>> variable. So set this at the end of each iteration, otherwise the SFR-CACC
+>> algorithm would never be toggled.
+>>
+>> Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
+>> ---
+>>   net/sctp/outqueue.c | 3 ++-
+>>   1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+>> index 1b494fa..bff828c 100644
+>> --- a/net/sctp/outqueue.c
+>> +++ b/net/sctp/outqueue.c
+>> @@ -1396,7 +1396,6 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+>>   			 * while DATA was outstanding).
+>>   			 */
+>>   			if (!tchunk->tsn_gap_acked) {
+>> -				tchunk->tsn_gap_acked = 1;
+>>   				if (TSN_lt(*highest_new_tsn_in_sack, tsn))
+>>   					*highest_new_tsn_in_sack = tsn;
+>>   				bytes_acked += sctp_data_size(tchunk);
+>> @@ -1460,6 +1459,8 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+>>   				 */
+>>   				list_add_tail(lchunk, &tlist);
+>>   			}
+>> +
+>> +			tchunk->tsn_gap_acked = 1;
+> The current code will set the state if it hasn't been set yet.  Why is
+> this needed?
+Because in line 1420 ~ 1440 The SFR-CACC algorithms use tsn_gap_acked. 
+That "if block" would never be triggered because the varaiable's been 
+set. That's why I move the "state changing sentence" to the end of the 
+iteration.
+> Now there is an issue with tracking highest_new_tsn_in_sack.  The spec
+> is a little vague on this, but the highest_new_tsn_in_sack only supposed
+> to track tsns that have not been resent.  If a tsn has been reneged, and
+> then sent again, it is not considered 'new' thus should not count
+> toward highest_new_tsn_in_sack.  We currently do not track this right.
+I'll try to figure this out.
+> -vlad
+>
+> -vlad
+>
+>>   		} else {
+>>   			if (tchunk->tsn_gap_acked) {
+>>   				pr_debug("%s: receiver reneged on data TSN:0x%x\n",
+>>
