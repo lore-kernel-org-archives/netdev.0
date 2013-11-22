@@ -1,71 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/5] net: MOXA ART: connect to PHY and add ethtool
- support
-Date: Fri, 22 Nov 2013 23:48:29 +0000
-Message-ID: <1385164109.20467.56.camel@deadeye.wl.decadent.org.uk>
-References: <1385132242-3204-1-git-send-email-jonas.jensen@gmail.com>
-	 <1385132242-3204-2-git-send-email-jonas.jensen@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: dynamic TCP algorithms switching
+Date: Fri, 22 Nov 2013 15:53:03 -0800
+Message-ID: <20131122155303.68da12ec@nehalam.linuxnetplumber.net>
+References: <CAAVq3rnxE92PsJOChr+H52k5QfG7E=hAjsohK4Um0ZRO9TdYuA@mail.gmail.com>
+	<20131122145621.344fa999@nehalam.linuxnetplumber.net>
+	<CAAVq3rnmWUAzDGy9_nMLsbx++opgZpuYtG34VpZEBbJ2psBnZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>
-To: Jonas Jensen <jonas.jensen@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1385132242-3204-2-git-send-email-jonas.jensen@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org
+To: yan cui <ccuiyyan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:54642 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756344Ab3KVXxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 18:53:07 -0500
+Received: by mail-pb0-f44.google.com with SMTP id rq2so1982674pbb.17
+        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 15:53:07 -0800 (PST)
+In-Reply-To: <CAAVq3rnmWUAzDGy9_nMLsbx++opgZpuYtG34VpZEBbJ2psBnZw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-11-22 at 15:57 +0100, Jonas Jensen wrote:
-> The kernel now has a MDIO bus driver and a phy_driver (RTL8201CP),
-> connect to this PHY using OF and add ethtool support.
+On Fri, 22 Nov 2013 18:21:12 -0500
+yan cui <ccuiyyan@gmail.com> wrote:
+
+> Then, why include so many (current Linux has 10+ TCP congestion algorithms)
+> algorithms? For users who want to deploy their application on Linux
+> and if the applications
+> are system resource intensive, they always want to tune the
+> configurations of the operating systems for the last piece of
+> performance. If they do so, maybe they are confused
+> about which TCP congestion algorithm to use for their environment. So,
+> the only way is to try each algorithm one by one. I understand the
+> setting of the default TCP congestion
+> algorithm to be Cubic means that it works well for most environments.
+> But if others
+> are seldom used, or can be replace with another implementation.
+> Why not just remove from the kernel?
 > 
-> Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
-> ---
-> 
-> Notes:
->     Applies to next-20131122
-> 
->  drivers/net/ethernet/moxa/moxart_ether.c | 179 ++++++++++++++++++++++++++++++-
->  drivers/net/ethernet/moxa/moxart_ether.h |   1 +
->  2 files changed, 179 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-> index 3c14afd..bcc6005 100644
-> --- a/drivers/net/ethernet/moxa/moxart_ether.c
-> +++ b/drivers/net/ethernet/moxa/moxart_ether.c
-> @@ -26,9 +26,15 @@
->  #include <linux/of_irq.h>
->  #include <linux/crc32.h>
->  #include <linux/crc32c.h>
-> +#include <linux/phy.h>
-> +#include <linux/of_mdio.h>
->  
->  #include "moxart_ether.h"
->  
-> +#define DRV_NAME                "moxart-ethernet"
-> +#define DRV_VERSION             "0.2"
-> +#define MOXART_NUM_STATS        16
+> Yan
 
-MOXART_NUM_STATS should be defined as ARRAY_SIZE(ethtool_stats_keys).
-
-[...]
-> +static void moxart_get_drvinfo(struct net_device *ndev,
-> +			       struct ethtool_drvinfo *info)
-> +{
-> +	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
-> +	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
-> +	strlcpy(info->bus_info, dev_name(&ndev->dev), sizeof(info->bus_info));
-> +	info->n_stats = MOXART_NUM_STATS;
-[...]
-
-Don't initialise n_stats here; the core will initialise it using your
-get_sset_count implementation.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Most are intended for research and testing only.
+Only a few are worth considering in a production environment.
+That is also why there so many qdisc algorithms as well.
