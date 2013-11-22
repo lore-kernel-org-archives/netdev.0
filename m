@@ -1,70 +1,41 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: Re: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not
- ipsec pkt
-Date: Fri, 22 Nov 2013 15:33:22 +0100
-Message-ID: <528F6B32.5050103@6wind.com>
-References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com> <1383725153-26298-1-git-send-email-christophe.gouault@6wind.com> <20131121121246.GD31491@secunet.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: sched: tbf: fix an oops when a GSO packet cannot
+ be enqueued
+Date: Fri, 22 Nov 2013 06:50:01 -0800
+Message-ID: <1385131801.10637.84.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1385112446-15564-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Saurabh Mohan <saurabh.mohan@vyatta.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ben@decadent.org.uk,
+	jpirko@redhat.com, jhs@mojatatu.com
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:64658 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755445Ab3KVOd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 09:33:26 -0500
-Received: by mail-wg0-f51.google.com with SMTP id l18so1221298wgh.30
-        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 06:33:25 -0800 (PST)
-In-Reply-To: <20131121121246.GD31491@secunet.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:43974 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753034Ab3KVOuD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 09:50:03 -0500
+Received: by mail-pd0-f177.google.com with SMTP id q10so1332062pdj.22
+        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 06:50:02 -0800 (PST)
+In-Reply-To: <1385112446-15564-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/21/2013 01:12 PM, Steffen Klassert wrote:
- > On Wed, Nov 06, 2013 at 09:05:53AM +0100, Christophe Gouault wrote:
- >>
- >> @@ -133,7 +134,13 @@ static int vti_rcv(struct sk_buff *skb)
- >>            * only match policies with this mark.
- >>            */
- >>           skb->mark = be32_to_cpu(tunnel->parms.o_key);
- >> +        /* The packet is decrypted, but not yet decapsulated.
- >> +         * Temporarily make network_header point to the inner header
- >> +         * for policy check.
- >> +         */
- >> +        skb_reset_network_header(skb);
- >>           ret = xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb);
- >
- > If we do it like this, we would do an input policy check even for
- > packets that should be forwarded. I think that's a bit odd.
+On Fri, 2013-11-22 at 17:27 +0800, Yang Yingliang wrote:
+> It seems commit e43ac79a4b("sch_tbf: segment too big GSO packets")
+> introduce this oops.
+> 
+> When GSO mode is on, use the following command:
+> tc qdisc add dev eth0 root handle 1: tbf latency 50ms burst 1KB rate 50mbit mtu 1KB
+> iperf -c host -t 30
 
-Admittedly, a forward policy check would be more appropriate for
-forwarded traffic.
+I think your patch is not needed, the stack trace point to a different
+spot.
 
- > If we really change to match plaintext traffic, we should do
- > it like Fan Du proposed. Remove the policy check here and
- > let the further layers do the policy enforcement. All we
- > have to do is to set the skb mark, then the lookup should
- > match the vti policy.
+The issue should be fixed by :
 
-This solution sounds seductive, however, we must be careful because we
-change the skb input device (from the physical interface to the vti
-interface). So we are supposed to call skb_scrub_packet as is normally
-done when decapsulating a packet from a tunnel. This will reset the skb
-secpath and mark, and hence will compromise the deferred inbound policy
-check.
+http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=9d8506cc2d7ea1f911c72c100193a3677f6668c3
 
- > It is already clear that this packet was IPsec transformed
- > when it enters vti_rcv, so deferring the policy check should
- > be ok.
+Could you check again ?
 
-I had in mind to later support cross netns in vti interfaces like for
-ipip tunnels (different netns for the decapsulated and encapsulated
-packets). With the deferred inbound policy check, the SA and SP will not
-be in the same netns, this will cause problems for the inbound policy check.
-
-Best Regards,
-Christophe
+Thanks
