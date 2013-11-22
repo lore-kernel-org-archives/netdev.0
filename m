@@ -1,56 +1,77 @@
-From: Alexander Graf <agraf@suse.de>
-Subject: gem csum breakage with 018c5bba (Handle CHECKSUM_COMPLETE more adequately ...)
-Date: Fri, 22 Nov 2013 19:08:16 +0100
-Message-ID: <B8BCE323-6F65-4D14-BD4A-BFA07C3ED290@suse.de>
-Mime-Version: 1.0 (Mac OS X Mail 7.0 \(1812\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: herbert@gondor.apana.org.au, alexander.h.duyck@intel.com,
-	netdev@vger.kernel.org, edumazet@google.com,
-	herbert@gondor.apana.org,
-	"linux-kernel@vger.kernel.org list" <linux-kernel@vger.kernel.org>,
-	Ben Herrenschmidt <benh@kernel.crashing.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net] netem: fix loss generators
+Date: Thu, 21 Nov 2013 17:54:19 -0800
+Message-ID: <20131121175419.59059598@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, stefano.salsano@uniroma2.it
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:53260 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754477Ab3KVScI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 13:32:08 -0500
+Received: by mail-pb0-f52.google.com with SMTP id uo5so1665042pbc.11
+        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 10:32:08 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Patch from developers of the alternative loss models, downloaded from:
+   http://netgroup.uniroma2.it/twiki/bin/view.cgi/Main/NetemCLG
 
-With current Linus' master tree my ibook started emitting a lot of annoying csum calculation warnings. I've bisected it down to the commit seen in the subject line, but I suppose the real problem lies somewhere a lot deeper and only gets revealed thanks to the more clever checksum logic applied now.
+We found some bugs in our first implementation.
+A first set of bugs is in the function loss_4state:
+   In the case 1 of the switch statement in the if conditions we
+    need to add clg->a4 to clg->a1, according to the model.
+   In the case 3 of the switch statement we need to delete "return
+    true" if the condition leads us in the state 1, because the state 1 is
+    a good state.
 
-Any ideas how to dig further into this?
+A second set of bugs is in the function loss_gilb_ell
+  In both cases of the switch statement we need to add the break
+    statement, because the two cases are mutually exclusive.
+  In the case 2, of the switch we change the direction of the inequality to
+    net_random()>clg->a3, because clg->a3 is h in the GE model and when h
+    is 0 all packets will be lost.
 
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Thanks,
-
-Alex
-
----
-
-<unknown>: hw csum failure
-CPU: 0 PID: 0 Comm: swapper Not tainted 3.12.0+ #1
-Call Trace:
-[efff1d00] [c00090f0] show_stack+0x48/0x150 (unreliable)
-[efff1d40] [c049f794] csum_partial_copy_to_xdr+0xf8/0x168
-[efff1d60] [c04a1120] xs_udp_data_ready+0xbc/0x140
-[efff1d90] [c03f99f4] sock_queue_rcv_skb+0x144/0x1c0
-[efff1db0] [c045aa28] __udp_queue_rcv_skb+0x38/0xd4
-[efff1dc0] [c045de5c] udp_queue_rcv_skb+0x260/0x3ac
-[efff1de0] [c045e6dc] __udp4_lib_rcv+0x2c8/0x63c
-[efff1e20] [c0432a78] ip_local_deliver_finish+0x100/0x268
-[efff1e40] [c0408264] __netif_receive_skb_core+0x510/0x690
-[efff1ea0] [c040b78c] napi_gro_receive+0xac/0xd8
-[efff1eb0] [c0353b94] gem_poll+0x5bc/0x116c
-[efff1f50] [c040a60c] net_rx_action+0x118/0x1fc
-[efff1f90] [c0046afc] __do_softirq+0xd4/0x1c4
-[efff1fe0] [c0046f04] irq_exit+0x94/0xb8
-[efff1ff0] [c000ef30] call_do_irq+0x24/0x3c
-[c0733e90] [c0006ca4] do_IRQ+0x64/0xb4
-[c0733eb0] [c0011b34] ret_from_except+0x0/0x1c
---- Exception: 501 at arch_cpu_idle+0x24/0x6c
-    LR = arch_cpu_idle+0x24/0x6c
-[c0733f70] [c0082638] rcu_idle_enter+0x84/0xc4 (unreliable)
-[c0733f80] [c007c4b0] cpu_startup_entry+0xa4/0x16c
-[c0733fb0] [c06caf54] start_kernel+0x308/0x31c
-[c0733ff0] [00003d34] 0x3d34
+--- a/net/sched/sch_netem.c	2013-11-21 17:22:03.655649667 -0800
++++ b/net/sched/sch_netem.c	2013-11-21 17:24:46.438773795 -0800
+@@ -215,10 +215,10 @@ static bool loss_4state(struct netem_sch
+ 		if (rnd < clg->a4) {
+ 			clg->state = 4;
+ 			return true;
+-		} else if (clg->a4 < rnd && rnd < clg->a1) {
++		} else if (clg->a4 < rnd && rnd < clg->a1 + clg->a4) {
+ 			clg->state = 3;
+ 			return true;
+-		} else if (clg->a1 < rnd)
++		} else if (clg->a1 + clg->a4 < rnd)
+ 			clg->state = 1;
+ 
+ 		break;
+@@ -235,6 +235,7 @@ static bool loss_4state(struct netem_sch
+ 			clg->state = 2;
+ 		else if (clg->a3 < rnd && rnd < clg->a2 + clg->a3) {
+ 			clg->state = 1;
++			return true;
+ 		} else if (clg->a2 + clg->a3 < rnd) {
+ 			clg->state = 3;
+ 			return true;
+@@ -268,11 +269,13 @@ static bool loss_gilb_ell(struct netem_s
+ 			clg->state = 2;
+ 		if (net_random() < clg->a4)
+ 			return true;
++		break;
+ 	case 2:
+ 		if (net_random() < clg->a2)
+ 			clg->state = 1;
+-		if (clg->a3 > net_random())
++		if (net_random() > clg->a3)
+ 			return true;
++		break;
+ 	}
+ 
+ 	return false;
