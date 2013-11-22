@@ -1,67 +1,262 @@
-From: yan cui <ccuiyyan@gmail.com>
-Subject: Re: dynamic TCP algorithms switching
-Date: Fri, 22 Nov 2013 18:21:12 -0500
-Message-ID: <CAAVq3rnmWUAzDGy9_nMLsbx++opgZpuYtG34VpZEBbJ2psBnZw@mail.gmail.com>
-References: <CAAVq3rnxE92PsJOChr+H52k5QfG7E=hAjsohK4Um0ZRO9TdYuA@mail.gmail.com>
-	<20131122145621.344fa999@nehalam.linuxnetplumber.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH] inet: fix addr_len/msg->msg_namelen assignment in recv_error and rxpmtu functions
+Date: Sat, 23 Nov 2013 00:46:12 +0100
+Message-ID: <20131122234612.GB15822@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=utf-8
+Cc: spender@grsecurity.net, mpb.mail@gmail.com, davem@davemloft.net,
+	eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:63136 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755338Ab3KVXVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 18:21:15 -0500
-In-Reply-To: <20131122145621.344fa999@nehalam.linuxnetplumber.net>
+Received: from order.stressinduktion.org ([87.106.68.36]:60266 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755969Ab3KVXqN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 18:46:13 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Then, why include so many (current Linux has 10+ TCP congestion algorithms)
-algorithms? For users who want to deploy their application on Linux
-and if the applications
-are system resource intensive, they always want to tune the
-configurations of the operating systems for the last piece of
-performance. If they do so, maybe they are confused
-about which TCP congestion algorithm to use for their environment. So,
-the only way is to try each algorithm one by one. I understand the
-setting of the default TCP congestion
-algorithm to be Cubic means that it works well for most environments.
-But if others
-are seldom used, or can be replace with another implementation.
-Why not just remove from the kernel?
+Commit bceaa90240b6019ed73b49965eac7d167610be69 ("inet: prevent leakage
+of uninitialized memory to user in recv syscalls") conditionally updated
+addr_len if the msg_name is written to. The recv_error and rxpmtu
+functions relied on the recvmsg functions to set up addr_len before.
 
-Yan
+As this does not happen any more we have to pass addr_len to those
+functions as well and set it to the size of the corresponding sockaddr
+length.
 
-2013/11/22 Stephen Hemminger <stephen@networkplumber.org>:
-> On Fri, 22 Nov 2013 17:49:58 -0500
-> yan cui <ccuiyyan@gmail.com> wrote:
->
->> Hi all:
->>
->>    Currently, Linux has kinds of TCP congestion algorithms, such as
->> reno, cubic, bic, hybla, ...., and each TCP congestion algorithm has
->> its target networking environment. I just wonder to know is it
->> possible to do dynamic TCP algorithm switching? In other words, the
->> system has a combined TCP congestion algorithm (say, TCP-auto), and it
->> behaves like one of the integrated TCP congestion algorithms according
->> to different detected networking environment, but can switch to a
->> different one. For example, TCP-auto totally uses the set of
->> congestion control operations in TCP-cubic by default, but when it
->> detects that the current OS uses wireless networking, it switches to
->> some wireless friendly TCP congestion algorithm. Does Linux have some
->> features like that, or do you (networking developers and users) care
->> about it?
->>
->> Best Wishes!
->>
->
-> You overestimate the advantage of one verus the other.
-> It is possible to control algorithm on per-socket, and per-route
-> but other than benchmarking there or bulk transfer for normal net
-> traffic Cubic works fine for all environments.
+This broke traceroute and such.
 
+Fixes: bceaa90240b6 ("inet: prevent leakage of uninitialized memory to user in recv syscalls")
+Reported-by: Brad Spengler <spender@grsecurity.net>
+Reported-by: Tom Labanowski
+Cc: mpb <mpb.mail@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ include/net/ip.h       | 2 +-
+ include/net/ipv6.h     | 6 ++++--
+ include/net/ping.h     | 3 ++-
+ net/ipv4/ip_sockglue.c | 3 ++-
+ net/ipv4/ping.c        | 5 +++--
+ net/ipv4/raw.c         | 2 +-
+ net/ipv4/udp.c         | 2 +-
+ net/ipv6/datagram.c    | 7 +++++--
+ net/ipv6/ping.c        | 3 ++-
+ net/ipv6/raw.c         | 4 ++--
+ net/ipv6/udp.c         | 4 ++--
+ net/l2tp/l2tp_ip6.c    | 2 +-
+ 12 files changed, 26 insertions(+), 17 deletions(-)
 
-
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 217bc5b..5a25f36 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -473,7 +473,7 @@ int compat_ip_getsockopt(struct sock *sk, int level, int optname,
+ int ip_ra_control(struct sock *sk, unsigned char on,
+ 		  void (*destructor)(struct sock *));
+ 
+-int ip_recv_error(struct sock *sk, struct msghdr *msg, int len);
++int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len);
+ void ip_icmp_error(struct sock *sk, struct sk_buff *skb, int err, __be16 port,
+ 		   u32 info, u8 *payload);
+ void ip_local_error(struct sock *sk, int err, __be32 daddr, __be16 dport,
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 2a5f668..eb198ac 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -776,8 +776,10 @@ int compat_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 
+ int ip6_datagram_connect(struct sock *sk, struct sockaddr *addr, int addr_len);
+ 
+-int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len);
+-int ipv6_recv_rxpmtu(struct sock *sk, struct msghdr *msg, int len);
++int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len,
++		    int *addr_len);
++int ipv6_recv_rxpmtu(struct sock *sk, struct msghdr *msg, int len,
++		     int *addr_len);
+ void ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int err, __be16 port,
+ 		     u32 info, u8 *payload);
+ void ipv6_local_error(struct sock *sk, int err, struct flowi6 *fl6, u32 info);
+diff --git a/include/net/ping.h b/include/net/ping.h
+index 3f67704..90f4841 100644
+--- a/include/net/ping.h
++++ b/include/net/ping.h
+@@ -31,7 +31,8 @@
+ 
+ /* Compatibility glue so we can support IPv6 when it's compiled as a module */
+ struct pingv6_ops {
+-	int (*ipv6_recv_error)(struct sock *sk, struct msghdr *msg, int len);
++	int (*ipv6_recv_error)(struct sock *sk, struct msghdr *msg, int len,
++			       int *addr_len);
+ 	int (*ip6_datagram_recv_ctl)(struct sock *sk, struct msghdr *msg,
+ 				     struct sk_buff *skb);
+ 	int (*icmpv6_err_convert)(u8 type, u8 code, int *err);
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 3f85826..ddf32a6 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -386,7 +386,7 @@ void ip_local_error(struct sock *sk, int err, __be32 daddr, __be16 port, u32 inf
+ /*
+  *	Handle MSG_ERRQUEUE
+  */
+-int ip_recv_error(struct sock *sk, struct msghdr *msg, int len)
++int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+ {
+ 	struct sock_exterr_skb *serr;
+ 	struct sk_buff *skb, *skb2;
+@@ -423,6 +423,7 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len)
+ 						   serr->addr_offset);
+ 		sin->sin_port = serr->port;
+ 		memset(&sin->sin_zero, 0, sizeof(sin->sin_zero));
++		*addr_len = sizeof(*sin);
+ 	}
+ 
+ 	memcpy(&errhdr.ee, &serr->ee, sizeof(struct sock_extended_err));
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 876c6ca..840cf1b 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -841,10 +841,11 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 
+ 	if (flags & MSG_ERRQUEUE) {
+ 		if (family == AF_INET) {
+-			return ip_recv_error(sk, msg, len);
++			return ip_recv_error(sk, msg, len, addr_len);
+ #if IS_ENABLED(CONFIG_IPV6)
+ 		} else if (family == AF_INET6) {
+-			return pingv6_ops.ipv6_recv_error(sk, msg, len);
++			return pingv6_ops.ipv6_recv_error(sk, msg, len,
++							  addr_len);
+ #endif
+ 		}
+ 	}
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 5cb8ddb..23c3e5b 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -697,7 +697,7 @@ static int raw_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		goto out;
+ 
+ 	if (flags & MSG_ERRQUEUE) {
+-		err = ip_recv_error(sk, msg, len);
++		err = ip_recv_error(sk, msg, len, addr_len);
+ 		goto out;
+ 	}
+ 
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 5944d7d..44dfaa0 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1236,7 +1236,7 @@ int udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	bool slow;
+ 
+ 	if (flags & MSG_ERRQUEUE)
+-		return ip_recv_error(sk, msg, len);
++		return ip_recv_error(sk, msg, len, addr_len);
+ 
+ try_again:
+ 	skb = __skb_recv_datagram(sk, flags | (noblock ? MSG_DONTWAIT : 0),
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index a454b0f..d690204 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -318,7 +318,7 @@ void ipv6_local_rxpmtu(struct sock *sk, struct flowi6 *fl6, u32 mtu)
+ /*
+  *	Handle MSG_ERRQUEUE
+  */
+-int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
++int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+ {
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct sock_exterr_skb *serr;
+@@ -369,6 +369,7 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
+ 					       &sin->sin6_addr);
+ 			sin->sin6_scope_id = 0;
+ 		}
++		*addr_len = sizeof(*sin);
+ 	}
+ 
+ 	memcpy(&errhdr.ee, &serr->ee, sizeof(struct sock_extended_err));
+@@ -423,7 +424,8 @@ EXPORT_SYMBOL_GPL(ipv6_recv_error);
+ /*
+  *	Handle IPV6_RECVPATHMTU
+  */
+-int ipv6_recv_rxpmtu(struct sock *sk, struct msghdr *msg, int len)
++int ipv6_recv_rxpmtu(struct sock *sk, struct msghdr *msg, int len,
++		     int *addr_len)
+ {
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct sk_buff *skb;
+@@ -457,6 +459,7 @@ int ipv6_recv_rxpmtu(struct sock *sk, struct msghdr *msg, int len)
+ 		sin->sin6_port = 0;
+ 		sin->sin6_scope_id = mtu_info.ip6m_addr.sin6_scope_id;
+ 		sin->sin6_addr = mtu_info.ip6m_addr.sin6_addr;
++		*addr_len = sizeof(*sin);
+ 	}
+ 
+ 	put_cmsg(msg, SOL_IPV6, IPV6_PATHMTU, sizeof(mtu_info), &mtu_info);
+diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+index 8815e31..a83243c 100644
+--- a/net/ipv6/ping.c
++++ b/net/ipv6/ping.c
+@@ -57,7 +57,8 @@ static struct inet_protosw pingv6_protosw = {
+ 
+ 
+ /* Compatibility glue so we can support IPv6 when it's compiled as a module */
+-static int dummy_ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
++static int dummy_ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len,
++				 int *addr_len)
+ {
+ 	return -EAFNOSUPPORT;
+ }
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index e24ff1d..7fb4e14 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -466,10 +466,10 @@ static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 		return -EOPNOTSUPP;
+ 
+ 	if (flags & MSG_ERRQUEUE)
+-		return ipv6_recv_error(sk, msg, len);
++		return ipv6_recv_error(sk, msg, len, addr_len);
+ 
+ 	if (np->rxpmtu && np->rxopt.bits.rxpmtu)
+-		return ipv6_recv_rxpmtu(sk, msg, len);
++		return ipv6_recv_rxpmtu(sk, msg, len, addr_len);
+ 
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 81eb8cf..bcd5699 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -393,10 +393,10 @@ int udpv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 	bool slow;
+ 
+ 	if (flags & MSG_ERRQUEUE)
+-		return ipv6_recv_error(sk, msg, len);
++		return ipv6_recv_error(sk, msg, len, addr_len);
+ 
+ 	if (np->rxpmtu && np->rxopt.bits.rxpmtu)
+-		return ipv6_recv_rxpmtu(sk, msg, len);
++		return ipv6_recv_rxpmtu(sk, msg, len, addr_len);
+ 
+ try_again:
+ 	skb = __skb_recv_datagram(sk, flags | (noblock ? MSG_DONTWAIT : 0),
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index cfd6530..d9b437e 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -665,7 +665,7 @@ static int l2tp_ip6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 		*addr_len = sizeof(*lsa);
+ 
+ 	if (flags & MSG_ERRQUEUE)
+-		return ipv6_recv_error(sk, msg, len);
++		return ipv6_recv_error(sk, msg, len, addr_len);
+ 
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
 -- 
-Think big; Dream impossible; Make it happen.
+1.8.3.1
