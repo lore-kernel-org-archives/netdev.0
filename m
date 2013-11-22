@@ -1,142 +1,92 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 2/5] net: MOXA ART: connect to PHY and add ethtool support
-Date: Fri, 22 Nov 2013 13:14:28 -0800
-Message-ID: <CAGVrzcZOKegkSTtzF9RyuEhWcz6Popm69ZFirYdTfeXLfVRdhQ@mail.gmail.com>
-References: <1385132242-3204-1-git-send-email-jonas.jensen@gmail.com> <1385132242-3204-2-git-send-email-jonas.jensen@gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] net: sctp: set chunk->tsn_gap_acked at the end of cycle
+Date: Fri, 22 Nov 2013 17:48:50 -0500
+Message-ID: <528FDF52.4030500@gmail.com>
+References: <1385106589-402-1-git-send-email-changxiangzhong@gmail.com> <528F69B7.7020902@gmail.com> <528FAF50.10100@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jonas Jensen <jonas.jensen@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1385132242-3204-2-git-send-email-jonas.jensen@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chang <changxiangzhong@gmail.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f54.google.com ([209.85.213.54]:63320 "EHLO
+	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755876Ab3KVWsy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 17:48:54 -0500
+In-Reply-To: <528FAF50.10100@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Jonas,
+On 11/22/2013 02:24 PM, Chang wrote:
+> 
+> On 11/22/2013 03:27 PM, Vlad Yasevich wrote:
+>> On 11/22/2013 02:49 AM, Chang Xiangzhong wrote:
+>>> tsn_gap_acked is an important state flag in chunk, which indicates if
+>>> the
+>>> chunk has been acked in gap reports before.
+>> Actually, this bit indicates simply that the chunk has been acked.  It
+>> doesn't state whether it's been acked in a gap report or via
+>> cumulative tsn.
+> Thanks for pointing this out. Sorry for not having made that clear.
+>>
+>>> SFR-CACC algorithm depends on this
+>>> variable. So set this at the end of each iteration, otherwise the
+>>> SFR-CACC
+>>> algorithm would never be toggled.
+>>>
+>>> Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
+>>> ---
+>>>   net/sctp/outqueue.c | 3 ++-
+>>>   1 file changed, 2 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+>>> index 1b494fa..bff828c 100644
+>>> --- a/net/sctp/outqueue.c
+>>> +++ b/net/sctp/outqueue.c
+>>> @@ -1396,7 +1396,6 @@ static void sctp_check_transmitted(struct
+>>> sctp_outq *q,
+>>>                * while DATA was outstanding).
+>>>                */
+>>>               if (!tchunk->tsn_gap_acked) {
+>>> -                tchunk->tsn_gap_acked = 1;
+>>>                   if (TSN_lt(*highest_new_tsn_in_sack, tsn))
+>>>                       *highest_new_tsn_in_sack = tsn;
+>>>                   bytes_acked += sctp_data_size(tchunk);
+>>> @@ -1460,6 +1459,8 @@ static void sctp_check_transmitted(struct
+>>> sctp_outq *q,
+>>>                    */
+>>>                   list_add_tail(lchunk, &tlist);
+>>>               }
+>>> +
+>>> +            tchunk->tsn_gap_acked = 1;
+>> The current code will set the state if it hasn't been set yet.  Why is
+>> this needed?
+> Because in line 1420 ~ 1440 The SFR-CACC algorithms use tsn_gap_acked.
+> That "if block" would never be triggered because the varaiable's been
+> set. That's why I move the "state changing sentence" to the end of the
+> iteration.
+>> Now there is an issue with tracking highest_new_tsn_in_sack.  The spec
+>> is a little vague on this, but the highest_new_tsn_in_sack only supposed
+>> to track tsns that have not been resent.  If a tsn has been reneged, and
+>> then sent again, it is not considered 'new' thus should not count
+>> toward highest_new_tsn_in_sack.  We currently do not track this right.
+> I'll try to figure this out.
 
-> +       if (!priv->phy_dev)
-> +               return -ENODEV;
+So the solution that's been proposed before is to move the CACC block up
+and merge it with the !tsn_gap_acked block.  This requires additional
+change though to only mark highest_new_tsn if the chunk has not been
+retransmitted (which you've added in a prior patch).
 
-This should not be required since you will fail probing the interface
-if you cannot connect to the PHY device.
+-vlad
 
-> +
-> +       return phy_ethtool_gset(priv->phy_dev, cmd);
-> +}
-> +
-> +static int moxart_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
-> +{
-> +       struct moxart_mac_priv_t *priv = netdev_priv(ndev);
-> +
-> +       if (!priv->phy_dev)
-> +               return -ENODEV;
-
-Same here
-
-> +
-> +       return phy_ethtool_sset(priv->phy_dev, cmd);
-> +}
-> +
-> +static int moxart_nway_reset(struct net_device *ndev)
-> +{
-> +       struct moxart_mac_priv_t *priv = netdev_priv(ndev);
-> +
-> +       if (!priv->phy_dev)
-> +               return -EINVAL;
-
-And here
-
-[snip]
-
-> +       if (!priv->phy_dev)
-> +               return -ENODEV;
-
-And here
-
-> +
-> +       return phy_mii_ioctl(priv->phy_dev, ir, cmd);
-> +}
-> +
->  static void moxart_mac_free_memory(struct net_device *ndev)
->  {
->         struct moxart_mac_priv_t *priv = netdev_priv(ndev);
-> @@ -169,6 +314,10 @@ static int moxart_mac_open(struct net_device *ndev)
->         moxart_update_mac_address(ndev);
->         moxart_mac_setup_desc_ring(ndev);
->         moxart_mac_enable(ndev);
-> +
-> +       if (priv->phy_dev)
-> +               phy_start(priv->phy_dev);
-> +
->         netif_start_queue(ndev);
->
->         netdev_dbg(ndev, "%s: IMR=0x%x, MACCR=0x%x\n",
-> @@ -184,6 +333,9 @@ static int moxart_mac_stop(struct net_device *ndev)
->
->         napi_disable(&priv->napi);
->
-> +       if (priv->phy_dev)
-> +               phy_stop(priv->phy_dev);
-> +
->         netif_stop_queue(ndev);
->
->         /* disable all interrupts */
-> @@ -429,12 +581,22 @@ static struct net_device_ops moxart_netdev_ops = {
->         .ndo_set_mac_address    = moxart_set_mac_address,
->         .ndo_validate_addr      = eth_validate_addr,
->         .ndo_change_mtu         = eth_change_mtu,
-> +       .ndo_do_ioctl           = moxart_do_ioctl,
->  };
->
-> +static void moxart_adjust_link(struct net_device *ndev)
-> +{
-> +#ifdef DEBUG
-> +       struct moxart_mac_priv_t *priv = netdev_priv(ndev);
-> +
-> +       phy_print_status(priv->phy_dev);
-> +#endif
-
-This is too simplistic, you should at least do the following:
-
-- check for an update in the PHY duplex setting and update the
-Ethernet MAC with this new setting
-- check for an update in the PHY speed settings and update relevant
-MAC registers (RX/TX clock speed, PHY speed etc...)
-
-Also, it is a good practice to retain the previous link
-state/duplex/speed, compare them against the phydev values and call
-phy_print_status() if there is any change.
-
-> +}
-> +
->  static int moxart_mac_probe(struct platform_device *pdev)
->  {
->         struct device *p_dev = &pdev->dev;
-> -       struct device_node *node = p_dev->of_node;
-> +       struct device_node *node = p_dev->of_node, *phy_node;
->         struct net_device *ndev;
->         struct moxart_mac_priv_t *priv;
->         struct resource *res;
-> @@ -455,6 +617,20 @@ static int moxart_mac_probe(struct platform_device *pdev)
->         priv = netdev_priv(ndev);
->         priv->ndev = ndev;
->
-> +       phy_node = of_parse_phandle(node, "phy-handle", 0);
-> +       if (!phy_node)
-> +               dev_err(p_dev, "of_parse_phandle failed\n");
-> +
-> +       if (phy_node) {
-> +               priv->phy_dev = of_phy_connect(priv->ndev, phy_node,
-> +                                              &moxart_adjust_link,
-> +                                              0, PHY_INTERFACE_MODE_MII);
-
-Unless the hardware supports anything but MII, this is fine. A nicer
-binding would include a "phy-mode" or "phy-connection-type" property
-which describes how the Ethernet MAC and PHY are connected to each
-other. You can then retrieve that property using of_get_phy_mode().
--- 
-Florian
+>> -vlad
+>>
+>> -vlad
+>>
+>>>           } else {
+>>>               if (tchunk->tsn_gap_acked) {
+>>>                   pr_debug("%s: receiver reneged on data TSN:0x%x\n",
+>>>
+> 
