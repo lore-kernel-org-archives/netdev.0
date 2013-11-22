@@ -1,49 +1,97 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/1] Workaround for Suspend/Resume issue of AX88772B under ChromeOS
-Date: Thu, 21 Nov 2013 17:58:10 -0800
-Message-ID: <CAGVrzcase25NosVHA74OLnviJj7nU_2Rxki_hvi8bOwznDuWGg@mail.gmail.com>
-References: <1384913496-26261-1-git-send-email-freddy@asix.com.tw>
- <20131120.004026.2013972041095203460.davem@davemloft.net> <CANEJEGtBmvFNcFzOW9ZnOFd=ZMnz82ajcN52YqW3+n0+=rhxBA@mail.gmail.com>
- <20131120.135413.920731121262719289.davem@davemloft.net> <CANEJEGtXOjxj+85QVfWFGH6WuxxCz6uAfEuUo7bv9YEwh_8OAw@mail.gmail.com>
- <CANEJEGu_2YdVOjcnzh30RPMiP0KC5bL6JasxMS_+1xV9poxgQw@mail.gmail.com>
+From: Alistair Popple <alistair@popple.id.au>
+Subject: [PATCH 0/8] IBM Akebono/PPC476GTR Support
+Date: Fri, 22 Nov 2013 13:07:37 +1100
+Message-ID: <1385086057-10884-1-git-send-email-alistair@popple.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Freddy Xin <freddy@asix.com.tw>,
-	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, davemloft@davemloft.net,
-	=?UTF-8?B?QVNJWCBMb3VpcyBb6JiH5aiB6Zm4XQ==?= <louis@asix.com.tw>,
-	Allan Chou <allan@asix.com.tw>,
-	Daniel_ASIX <daniel@asix.com.tw>
-To: Grant Grundler <grundler@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:49188 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755654Ab3KVB6u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 20:58:50 -0500
-In-Reply-To: <CANEJEGu_2YdVOjcnzh30RPMiP0KC5bL6JasxMS_+1xV9poxgQw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+ linux-mmc@vger.kernel.org, linuxppc-dev@ozlabs.org, stern@rowland.harvard.edu,
+ Alistair Popple <alistair@popple.id.au>, cjb@laptop.org, davem@davemloft.net
+To: benh@kernel.crashing.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-2013/11/21 Grant Grundler <grundler@google.com>:
-> On Wed, Nov 20, 2013 at 11:32 AM, Grant Grundler <grundler@google.com> wrote:
->> Seems like this should be part of usbnet_resume code based on whether
->> the driver provides mdio_write hook (most USBNET drivers do).
->
-> Just to be clear: I don't think this is feasible for the now obvious
-> reason that not all device lose phy stat on resume. :/
->
-> Freddy sent me a patch that saves/restores MII_ADVERTISE and MII_BMCR
-> registers. Testing that now and he'll post if that all works out.
+The IBM Akebono board is a development board for the new PPC476GTR
+system on chip (SoC).
 
-That should be enough to ensure the PHY is put back into a consistent
-state. So long as you are suspending/resuming from a configuration
-where autoneg was enabled, I would not expect anything bad to happen.
-If the link was forced, that is a different story.
+Changes from V1:
+ * Update device-tree compatible strings to reflect the name of the
+   SoC rather than the board when those components are integrated into
+   the SoC.
+ * Updates to allow the new EMAC PHY interface to be compile tested.
+ * Rather than adding a new compatible string for EHCI support
+   usb-ehci is used and the corresponding driver (ehci-ppc-of)
+   is merged into the generic EHCI platform driver.
+ * A generic (usb-ohci) compatible string is used for OHCI.
+ * PCI MSI support has been added via the HSTA module.
 
-One way to make sure this work properly without driver-specific code
-is to include that functionality into the PHY library. As far as I can
-see it the asix drivers do not use it but implement the old-style
-mii_bus interface so that would be a first step.
+Alistair Popple (8):
+  IBM Akebono: Add support to AHCI platform driver
+  IBM Akebono: Add a SDHCI platform driver
+  IBM Akebono: Add support for a new PHY interface to the IBM emac
+    driver
+  IBM Akebono: Add support to the OHCI platform driver for PPC476GTR
+  ECHI Platform: Merge ppc-of EHCI driver into the ehci-platform driver
+  IBM Currituck: Clean up board specific code before adding Akebono
+    code
+  IBM Akebono: Add the Akebono platform
+  powerpc: Added PCI MSI support using the HSTA module
+
+ .../devicetree/bindings/powerpc/4xx/akebono.txt    |   54 +++
+ .../devicetree/bindings/powerpc/4xx/emac.txt       |    9 +
+ arch/powerpc/boot/Makefile                         |    3 +
+ arch/powerpc/boot/dcr.h                            |    4 +
+ arch/powerpc/boot/dts/akebono.dts                  |  415 ++++++++++++++++++++
+ arch/powerpc/boot/treeboot-akebono.c               |  179 +++++++++
+ arch/powerpc/boot/wrapper                          |    3 +
+ arch/powerpc/configs/44x/akebono_defconfig         |  148 +++++++
+ arch/powerpc/platforms/44x/Kconfig                 |   32 +-
+ arch/powerpc/platforms/44x/Makefile                |    3 +-
+ arch/powerpc/platforms/44x/currituck.c             |  233 -----------
+ arch/powerpc/platforms/44x/ppc476.c                |  299 ++++++++++++++
+ arch/powerpc/sysdev/Kconfig                        |    6 +
+ arch/powerpc/sysdev/Makefile                       |    1 +
+ arch/powerpc/sysdev/ppc4xx_hsta_msi.c              |  266 +++++++++++++
+ arch/powerpc/sysdev/ppc4xx_pci.c                   |   41 +-
+ arch/powerpc/sysdev/ppc4xx_pci.h                   |    4 +-
+ drivers/ata/ahci_platform.c                        |    1 +
+ drivers/mmc/host/Kconfig                           |   12 +
+ drivers/mmc/host/Makefile                          |    1 +
+ drivers/mmc/host/sdhci-of-476gtr.c                 |   60 +++
+ drivers/net/ethernet/ibm/emac/Kconfig              |    4 +
+ drivers/net/ethernet/ibm/emac/Makefile             |    1 +
+ drivers/net/ethernet/ibm/emac/core.c               |   50 ++-
+ drivers/net/ethernet/ibm/emac/core.h               |   12 +
+ drivers/net/ethernet/ibm/emac/rgmii_wol.c          |  243 ++++++++++++
+ drivers/net/ethernet/ibm/emac/rgmii_wol.h          |   62 +++
+ drivers/usb/host/Kconfig                           |    7 +-
+ drivers/usb/host/ehci-hcd.c                        |    5 -
+ drivers/usb/host/ehci-platform.c                   |   86 +++-
+ drivers/usb/host/ehci-ppc-of.c                     |  236 -----------
+ drivers/usb/host/ohci-platform.c                   |   22 +-
+ 32 files changed, 1992 insertions(+), 510 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/powerpc/4xx/akebono.txt
+ create mode 100644 arch/powerpc/boot/dts/akebono.dts
+ create mode 100644 arch/powerpc/boot/treeboot-akebono.c
+ create mode 100644 arch/powerpc/configs/44x/akebono_defconfig
+ delete mode 100644 arch/powerpc/platforms/44x/currituck.c
+ create mode 100644 arch/powerpc/platforms/44x/ppc476.c
+ create mode 100644 arch/powerpc/sysdev/ppc4xx_hsta_msi.c
+ create mode 100644 drivers/mmc/host/sdhci-of-476gtr.c
+ create mode 100644 drivers/net/ethernet/ibm/emac/rgmii_wol.c
+ create mode 100644 drivers/net/ethernet/ibm/emac/rgmii_wol.h
+ delete mode 100644 drivers/usb/host/ehci-ppc-of.c
+
 -- 
-Florian
+1.7.10.4
