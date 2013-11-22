@@ -1,62 +1,60 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: [PATCH] rebalance locks by converting write_lock_bh to
-	write_lock+local_bh_disable
-Date: Fri, 22 Nov 2013 00:54:02 +0100
-Message-ID: <20131121235402.GA11774@opentech.at>
+From: rama nichanamatlu <rama.nichanamatlu@oracle.com>
+Subject: Re: [PATCH] bonding: If IP route look-up to send an ARP fails, mark
+ in bonding structure as no ARP sent.
+Date: Thu, 21 Nov 2013 16:34:41 -0800
+Message-ID: <528EA6A1.5040209@oracle.com>
+References: <528D5980.3040309@oracle.com> <20131121111022.GA30998@redhat.com> <528E6E40.6020201@oracle.com> <17860.1385068379@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Pedro Roque <roque@di.fc.ul.pt>,
-	Peter Zijlstra <peterz@infradead.org>, netdev@vger.kernel.org
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Veaceslav Falico <vfalico@redhat.com>, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hofr.at ([212.69.189.236]:57820 "EHLO mail.hofr.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752069Ab3KVABe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Nov 2013 19:01:34 -0500
-Content-Disposition: inline
+Received: from userp1040.oracle.com ([156.151.31.81]:29397 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751663Ab3KVAfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 19:35:47 -0500
+In-Reply-To: <17860.1385068379@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From 2c8e669b691b825c0ed2a02bd7a698d8ed5c6d29 Mon Sep 17 00:00:00 2001
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Date: Thu, 21 Nov 2013 18:22:55 -0500
-Subject: [PATCH] rebalance locks by converting write_lock_bh to write_lock+local_bh_disable
- 
-
- in __neigh_event_send write_lock_bh(&neigh->lock) is implicitly balanced by
- write_unlock(&neigh->lock)+local_bh_disable() - while this is equivalent with
- respect to the effective low level locking primitives it breaks balancing
- in the locking api. This makes automatic lock-checking trigger false 
- positives, creates an implicit dependency between *_lock_bh and *_lock 
- functions as well as making the extremly simply locking of net core even
- easier to understand.
-
- The api inbalance was introduced in:
- commit cd28ca0a3dd17c68d24b839602a0e6268ad28b5d
- Author: Eric Dumazet <eric.dumazet@gmail.com>
- This patch just rebalances the lock api
-
- No change of functionality
-
-Signed-off-by: Nicholas Mc Guire <der.herr@hofr.at>
----
- net/core/neighbour.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index ca15f32..d681c75 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -966,7 +966,8 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
- 	int rc;
- 	bool immediate_probe = false;
- 
--	write_lock_bh(&neigh->lock);
-+	local_bh_disable();
-+	write_lock(&neigh->lock);
- 
- 	rc = 0;
- 	if (neigh->nud_state & (NUD_CONNECTED | NUD_DELAY | NUD_PROBE))
--- 
-1.7.2.5
+On 11/21/2013 1:12 PM, Jay Vosburgh wrote:
+> rama nichanamatlu <rama.nichanamatlu@oracle.com> wrote:
+> 
+>> On 11/21/2013 3:10 AM, Veaceslav Falico wrote:
+>>> On Wed, Nov 20, 2013 at 04:53:20PM -0800, rama nichanamatlu wrote:
+>>>> During the creation of VLAN's atop bonding the underlying interfaces
+>>>> are made part of VLAN's, and at the same bonding driver gets aware
+>>>> that VLAN's exists above it and hence would consult IP routing for
+>>>> every ARP to  be sent to determine the route which tells bonding
+>>>> driver the correct VLAN tag to attach to the outgoing ARP packet. But,
+>>>> during the VLAN creation when vlan driver puts the underlying
+>>>> interface into default vlan and then actual vlan, in-between this if
+>>>> bonding driver consults the IP for a route, IP fails to provide a
+>>>> correct route and upon which bonding driver drops the ARP packet. ARP
+>>>> monitor when it
+>>>> comes around next time, sees no ARP response and fails-over to the
+>>>> next available slave. Consulting for a IP route,
+>>>> ip_route_output(),happens in bond_arp_send_all().
+>>>
+>>> bonding works as expected - nothing to fix here. And even as a
+>>> workaround/hack - I'm not sure we need that to suppress one failover *only*
+>>> when vlan is added on top.
+>>>
+>>>>
+>> Thank U.
+>> With *out* this change our systems failed system testing, to
+>> consistently be on designated primary interface on *every* single
+>> reboot. With this change the behavior was as expected even after a few
+>> thousand reboots & System testing could move to next level catching an
+>> another bug in sr-iov :). And Without, the outcome was less predictable
+>> after a reboot and bonding was on a different slave each time.
+>> -Rama
+> 
+> 	By "designated primary" you mean the bonding primary option,
+> correct?  
+Yes correct. Bonding primary param is set.
+ex: primary=eth1 and primary_reselect=2.
+Hence it is expected to be on primary on every reboot.
+-Rama
+>If not, 
