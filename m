@@ -1,103 +1,92 @@
-From: Eric Leblond <eric@regit.org>
-Subject: [ANNOUNCE] ulogd 2.0.3 release
-Date: Fri, 22 Nov 2013 14:04:20 +0100
-Message-ID: <1385125460.5297.132.camel@tiger2>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net RESEND] bonding: don't change to 802.3ad mode while
+ ARP monitoring is running
+Date: Fri, 22 Nov 2013 14:36:22 +0100
+Message-ID: <528F5DD6.4050806@redhat.com>
+References: <528710F7.7050207@huawei.com>	 <1384796682.4774.26.camel@dcbw.foobar.com>	 <20131118.154838.776189725378131169.davem@davemloft.net> <1384815032.4774.55.camel@dcbw.foobar.com> <528ACD8A.1010409@greyhouse.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-weiKAKPefre4hNoE1v2g"
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-weiKAKPefre4hNoE1v2g
-Content-Type: multipart/mixed; boundary="=-B8Deui24OajgKTqJD+wr"
-
-
---=-B8Deui24OajgKTqJD+wr
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-Hi!
-
-The Netfilter project proudly presents:
-
-        ulogd 2.0.3
-
-ulogd is a userspace logging daemon for netfilter/iptables related
-logging. This includes per-packet logging of security violations,
-per-packet logging for accounting, per-flow logging and flexible
-user-defined accounting.
-
-ulogd 2.0.3 features major improvements in the database output:
-      * Optional backlog system to avoid event loss in case of database
-        downtime
-      * Optional running mode where acquisition is made in one thread
-        and queries to databases are made in separate threads=20
-
-See ChangeLog that comes attached to this email for more details.
-
-Thanks to Chris Boot, Ilya Tumaykin, Ulrich Weber and Victor Julien for
-their contributions to this release of ulogd.
-
-You can download it from:
-
-http://www.netfilter.org/projects/ulogd/downloads.html
-ftp://ftp.netfilter.org/pub/ulogd/
-
-Have fun!
---=20
-Eric Leblond <eric@regit.org>
-Blog: https://home.regit.org/
-
---=-B8Deui24OajgKTqJD+wr
-Content-Disposition: attachment; filename="changes-ulogd-2.0.3.txt"
-Content-Type: text/plain; name="changes-ulogd-2.0.3.txt"; charset="UTF-8"
-Content-Transfer-Encoding: base64
-
-Q2hyaXMgQm9vdCAoMyk6DQogICAgICB1bG9nZDogUGVyZm9ybSBuaWNlKCkgYmVmb3JlIGdpdmlu
-ZyB1cCByb290DQogICAgICB1bG9nZDogSW1wbGVtZW50IFBJRCBmaWxlIHdyaXRpbmcNCiAgICAg
-IHVsb2dkOiB1bG9nZF9pbnBwa3RfTkZMT0c6IGNsb3NlIG5mbG9nIGhhbmRsZSBhZnRlciB1bmJp
-bmRpbmcNCg0KRXJpYyBMZWJsb25kICgxNyk6DQogICAgICBuZmN0OiB1c2UgdGltZXN0YW1wIG9m
-IGNvbm50cmFjayBvYmplY3QuDQogICAgICB1bG9nZDogY2hhbmdlIHZlcmJvc2l0eSBvZiBhIG1l
-c3NhZ2UNCiAgICAgIHVsb2dkOiBkaXNwbGF5IHN0YWNrIGR1cmluZyBjb25maWd1cmF0aW9uDQog
-ICAgICBwb3N0Z3Jlc3FsOiBhZGQgc2FuaXR5IGNoZWNraW5nDQogICAgICBteXNxbDogYWRkIHNh
-bml0eSBjaGVja2luZw0KICAgICAgc3FsaXRlMzogYWRkIHNhbml0eSBjaGVja2luZw0KICAgICAg
-ZGI6IHN0b3JlIGRhdGEgaW4gbWVtb3J5IGR1cmluZyBkYXRhYmFzZSBkb3dudGltZQ0KICAgICAg
-ZGI6IHN1cHByZXNzIGZpZWxkIGluIGRiIHN0cnVjdHVyZQ0KICAgICAgZGI6IHVzZSBvZmZzZXQg
-aW5zdGVhZCBvZiBkaXJlY3QgcG9pbnRlci4NCiAgICAgIGRiOiBhZGQgcmluZyBidWZmZXIgZm9y
-IERCIHF1ZXJ5DQogICAgICBkYjogZGlzYWJsZSBTSUdIVVAgaWYgcmluZyBidWZmZXIgaXMgdXNl
-ZC4NCiAgICAgIGRiOiBkYiByaW5nIGhhcyBwcmVjZWRlbmNlIG92ZXIgYmFja2xvZy4NCiAgICAg
-IEltcHJvdmUgcGlkIGZpbGUgaGFuZGxpbmcuDQogICAgICBwZ3NxbDogYWRkIHZhciB0byBzcGVj
-aWZ5IGFyYml0cmFyeSBjb25uIHBhcmFtcw0KICAgICAgdWxvZ2QuY29uZjogYWRkIG1pc3Npbmcg
-cXVvdGUuDQogICAgICB1bG9nZDogdXNlIGRhZW1vbigpIGZ1bmN0aW9uDQogICAgICBTZXQgcmVs
-ZWFzZSBudW1iZXIgdG8gMi4wLjMuDQoNCklseWEgVHVtYXlraW4gKDEpOg0KICAgICAgRml4IGF1
-dG9tYWdpYyBzdXBwb3J0IG9mIGRiaSwgcGNhcCBhbmQgc3FsaXRlMw0KDQpQYWJsbyBOZWlyYSBB
-eXVzbyAoMik6DQogICAgICB1bG9nZDogY2xvc2UgbG9nZmlsZSBkZXNjcmlwdGlvbiBpbiB0aGUg
-ZXhpdCBwYXRoIG9mIHBhcmVudCBwcm9jZXNzDQogICAgICBSZXZlcnQgInVsb2dkOiBjbG9zZSBs
-b2dmaWxlIGRlc2NyaXB0aW9uIGluIHRoZSBleGl0IHBhdGggb2YgcGFyZW50IHByb2Nlc3MiDQoN
-ClVscmljaCBXZWJlciAoMSk6DQogICAgICBuZmN0OiBtYWtlIE5GQ1QgcGFja2V0IGNvdW50ZXIv
-bGVuZ3RoIDY0IGJpdA0KDQpWaWN0b3IgSnVsaWVuICgxKToNCiAgICAgIEV4ZWMgbGlibW5sIGNv
-bmZpZyBjaGVjayBvbmx5IGlmIG5mYWNjdCBpcyBlbmFibGVkDQoNCg==
-
-
---=-B8Deui24OajgKTqJD+wr--
-
---=-weiKAKPefre4hNoE1v2g
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
+Cc: dingtianhong@huawei.com, fubar@us.ibm.com, vfalico@redhat.com,
+	netdev@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>,
+	Dan Williams <dcbw@redhat.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33174 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755419Ab3KVNlx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Nov 2013 08:41:53 -0500
+In-Reply-To: <528ACD8A.1010409@greyhouse.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
+On 11/19/2013 03:31 AM, Andy Gospodarek wrote:
+> On 11/18/2013 05:50 PM, Dan Williams wrote:
+>> On Mon, 2013-11-18 at 15:48 -0500, David Miller wrote:
+>>> From: Dan Williams <dcbw@redhat.com>
+>>> Date: Mon, 18 Nov 2013 11:44:42 -0600
+>>>
+>>>> On Sat, 2013-11-16 at 14:30 +0800, Ding Tianhong wrote:
+>>>>> Because the ARP monitoring is not support for 802.3ad, but I still
+>>>>> could change the mode to 802.3ad from ab mode while ARP monitoring
+>>>>> is running, it is incorrect.
+>>>>>
+>>>>> So add a check for 802.3ad in bonding_store_mode to fix the problem,
+>>>>> and make a new macro BOND_NO_USES_ARP() to simplify the code.
+>>>> Instead of failing, couldn't the code stop ARP monitoring and allow the
+>>>> mode change?  This is similar to setting miimon, which disables ARP
+>>>> monitoring, or setting ARP monitoring, which disables miimon.
+>>>>
+>>>>     if (new_value && bond->params.arp_interval) {
+>>>>         pr_info("%s: MII monitoring cannot be used with ARP monitoring.
+>>>> Disabling ARP monitoring...\n",
+>>>>             bond->dev->name);
+>>>>         bond->params.arp_interval = 0;
+>>>>         if (bond->params.arp_validate)
+>>>>             bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
+>>>>     }
+>>>>
+>>>> Bond mode is the most important bond option, so it seems like it should
+>>>> override any of the other sub-options.  I know the code doesn't do this
+>>>> now, but maybe instead of the patch you propose, it would be nicer to
+>>>> allow the mode change instead?
+>>> I agree with Dan, if other mode changes behave this way (by dropping the
+>>> incompatible feature) we should make 802.3ad do so as well at the very
+>>> least for consistency.
+>> Currently ALB and TLB modes will fail if arp_interval > 0, so Ding's
+>> patch is technically correct.
+>>
+>> Instead, I'm proposing that 'mode' trumps all, and if the user changes
+>> the mode, conflicting values should be cleared or reset.  Otherwise
+>> userspace has to duplicate a lot of kernel logic/validation.  For
+>> example:
+>>
+>> 1) set mode to ROUNDROBIN
+>> 2) set arp_interval
+>> 3) set mode to ALB or TLB
+>> 4) FAIL - incompatible with arp_interval
+>> 5) ok, set arp_interval to zero
+>> 6) set mode to ALB or TLB
+>> 7) SUCCESS
+>>
+>> Wouldn't it be nice if the kernel handled clearing arp_interval for us,
+>> since it knows that arp_interval is incompatible with ALB/TLB...
+>>
+>> Could be done separately.  I have no objection to Ding's patch other
+>> than "life could be even better".
+>>
+>> Dan
+> Nik was actually planning to work on a pretty significant rewrite of the code
+> that handles setting and clearing of different config options, but I have not
+> seen him chime in on this thread yet.
+> 
+> Nik, anything you can share on this or are you still a bit away from coming up
+> with a design and implementation?
+> 
+Oops sorry, it seems I've missed this thread and saw it just now. I'm working on
+the new option code, but it's far from ready yet. I personally don't mind for
+such patch to go in *now*, I can always re-work it once net-next opens up.
 
-iEYEABECAAYFAlKPVlQACgkQnxA7CdMWjzLQhwCcCVYKQ/3ojfUMzvT/RdBr1/lz
-7U4AnRtYAoqFTrBWijPYRl8jFHhJ1u7C
-=napV
------END PGP SIGNATURE-----
-
---=-weiKAKPefre4hNoE1v2g--
-
+Cheers,
+ Nik
