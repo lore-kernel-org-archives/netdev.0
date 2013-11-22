@@ -1,44 +1,52 @@
-From: Jonas Jensen <jonas.jensen@gmail.com>
-Subject: [PATCH 3/5] net: MOXA ART: add IFF_LIVE_ADDR_CHANGE flag
-Date: Fri, 22 Nov 2013 15:57:20 +0100
-Message-ID: <1385132242-3204-3-git-send-email-jonas.jensen@gmail.com>
-References: <1385132242-3204-1-git-send-email-jonas.jensen@gmail.com>
-Cc: davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, Jonas Jensen <jonas.jensen@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:41255 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755840Ab3KVO5n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 09:57:43 -0500
-In-Reply-To: <1385132242-3204-1-git-send-email-jonas.jensen@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yanfei Wang <backyes@gmail.com>
+Subject: [Doubt on Implict BUGs caused LRO] doubt about lro status in v3.12 of torvalds/linux.git
+Date: Fri, 22 Nov 2013 23:00:50 +0800
+Message-ID: <CAJULonje7V_sMt6joBBsM3uuQkYFhfNK70BXzN0EyS3sQNb0uQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev <netdev@vger.kernel.org>,
+	China Kernel <kernel@vger.linux-kernel.cn>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-.ndo_set_mac_address hook callback already supports IFF_LIVE_ADDR_CHANGE
-so add it to our flags.
+Hi,
 
-Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
----
+Compared to the earlier kernel version, I found that Large receive
+offload(LRO) is obsolete in latest kernel, and that is verified from
+other materials about Generic receive offload(GRO).
 
-Notes:
-    Applies to next-20131122
+However,  I also found some LRO header files and  lro-related
+functions referred by some drivers, and the lro-related function
+definition is already removed at the same time!
 
- drivers/net/ethernet/moxa/moxart_ether.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+TEST steps:
+1. my git local db config as follow, url =
+http://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+2. git checkout v3.12 -b 3.12
+3. cd net/ipv4,
+ [backyes@f14 ipv4]$ cat Makefile | grep lro
+obj-$(CONFIG_INET_LRO) += inet_lro.o
+[backyes@f14 ipv4]$ ls inet_*
+inet_connection_sock.c  inet_diag.c  inet_fragment.c
+inet_hashtables.c  inet_timewait_sock.c
+[backyes@f14 ipv4]$
+Here, Makefile has inet_lro.o config, while the inet_lro.c is removed.
+4. lro functions referred by some drivers, as follow,
+[backyes@f14 linux]$ grep "inet_lro" * -r
+drivers/net/ethernet/pasemi/pasemi_mac.c:#include <linux/inet_lro.h>
+drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c:#include <linux/inet_lro.h>
+drivers/infiniband/hw/nes/nes_hw.c:#include <linux/inet_lro.h>
+drivers/infiniband/hw/nes/nes_hw.h:#include <linux/inet_lro.h>
+include/linux/inet_lro.h: *  linux/include/linux/inet_lro.h
+net/ipv4/Makefile:obj-$(CONFIG_INET_LRO) += inet_lro.o
 
-diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-index bcc6005..08c3905 100644
---- a/drivers/net/ethernet/moxa/moxart_ether.c
-+++ b/drivers/net/ethernet/moxa/moxart_ether.c
-@@ -688,7 +688,7 @@ static int moxart_mac_probe(struct platform_device *pdev)
- 	ether_setup(ndev);
- 	ndev->netdev_ops = &moxart_netdev_ops;
- 	netif_napi_add(ndev, &priv->napi, moxart_rx_poll, RX_DESC_NUM);
--	ndev->priv_flags |= IFF_UNICAST_FLT;
-+	ndev->priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE;
- 	ndev->irq = irq;
- 
- 	SET_NETDEV_DEV(ndev, &pdev->dev);
--- 
-1.8.2.1
+so, I understand that the removal of LRO is not clean, which will
+cause compiler error for some kernel config.
+
+
+--
+Best Regard!
+
+Yanfei Wang
