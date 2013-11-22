@@ -1,48 +1,44 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net v3] bonding: disable arp and enable mii monitoring
- when bond change to no uses arp mode
-Date: Fri, 22 Nov 2013 21:01:21 +0100
-Message-ID: <528FB811.2010801@redhat.com>
-References: <528710F7.7050207@huawei.com>	 <1384796682.4774.26.camel@dcbw.foobar.com>	 <20131118.154838.776189725378131169.davem@davemloft.net> <1384815032.4774.55.camel@dcbw.foobar.com> <528ACD8A.1010409@greyhouse.net> <528F6A1B.70904@huawei.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: Get rxhash fixes and RFS support in tun
+Date: Fri, 22 Nov 2013 12:09:18 -0800
+Message-ID: <CA+mtBx_GkvRg++JCg-wjmuYvC3wWizFkOaTuKqni1i-E6ata8g@mail.gmail.com>
+References: <alpine.DEB.2.02.1311201220510.19725@tomh.mtv.corp.google.com>
+	<528D940A.5010803@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, vfalico@redhat.com, netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Dan Williams <dcbw@redhat.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Jerry Chu <hkchu@google.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19198 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755936Ab3KVUCc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Nov 2013 15:02:32 -0500
-In-Reply-To: <528F6A1B.70904@huawei.com>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:44416 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755898Ab3KVUJV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 15:09:21 -0500
+Received: by mail-ie0-f176.google.com with SMTP id at1so2832489iec.7
+        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 12:09:20 -0800 (PST)
+In-Reply-To: <528D940A.5010803@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/22/2013 03:28 PM, Ding Tianhong wrote:
-> Because the ARP monitoring is not support for 802.3ad, but I still
-> could change the mode to 802.3ad from ab mode while ARP monitoring
-> is running, it is incorrect.
-> 
-> So add a check for 802.3ad in bonding_store_mode to fix the problem,
-> and make a new macro BOND_NO_USES_ARP() to simplify the code.
-> 
-> v2: according to the Dan Williams's suggestion, bond mode is the most
->     important bond option, it should override any of the other sub-options.
->     So when the mode is changed, the conficting values should be cleared
->     or reset, otherwise the user has to duplicate more operations to modify
->     the logic. I disable the arp and enable mii monitoring when the bond mode
->     is changed to AB, TB and 8023AD if the arp interval is true.
-> 
-> v3: according to the Nik's suggestion, the default value of miimon should need
->     a name, there is several place to use it, and the bond_store_arp_interval()
->     could use micro BOND_NO_USES_ARP to make the code more simpify.
-> 
-> Suggested-by: Dan Williams <dcbw@redhat.com>
-> Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> ---
+On Wed, Nov 20, 2013 at 9:03 PM, Jason Wang <jasowang@redhat.com> wrote:
+> On 11/21/2013 04:25 AM, Tom Herbert wrote:
+>> This patch series fixes some subtle bugs in tun use of skb->rxhash, all
+>> rxhash hash not be cleared appropraitely, and adds support for tun flows
+>> to work with RFS.
+>>
+>>
+>> Testing, in particular with tun, hasn't been completed yet.
+>
+> Interesting work, did you plan to test this with a kvm guest or even a
+> multi-queue guest?
+>
+Yes, I think that is the direction.  Once we clean up the hashing in
+the stack, next thing will be to extend RPS/RFS and computed hashes
+functionality all the way into the guest.  I'm not sure yet if the
+flow director like mechanism (like in tun) is sufficient, or if we
+want to expose aRFS to the guest driver.  As I mentioned, first we
+need to test RFS integration in tun to see the effect.
 
-Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> Thanks
