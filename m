@@ -1,102 +1,82 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] iptables 1.4.21 release
-Date: Fri, 22 Nov 2013 13:12:32 +0100
-Message-ID: <20131122121232.GA5698@localhost>
+From: Hector Palacios <hector.palacios@digi.com>
+Subject: FEC performance degradation on iMX28 with forced link media
+Date: Fri, 22 Nov 2013 13:40:14 +0100
+Message-ID: <528F50AE.3030804@digi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Qxx1br4bt0+wmkIi"
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "fabio.estevam@freescale.com" <fabio.estevam@freescale.com>,
+	Marek Vasut <marex@denx.de>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.bemta7.messagelabs.com ([216.82.254.113]:34277 "EHLO
+	mail1.bemta7.messagelabs.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755246Ab3KVMqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 07:46:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
---Qxx1br4bt0+wmkIi
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+When forcing the Ethernet PHY link media with ethtool/mii-tool on the i.MX28 I've seen 
+important performance degradation as the packet size increases.
 
-Hi!
+On the target:
+# mii-tool eth0 -F 10baseT-FD
+# netpipe
 
-The Netfilter project proudly presents:
+On the host:
+# netpipe -h <target-ip> -n 1
+...
+44:    1024 bytes      1 times -->      6.56 Mbps in    1191.00 usec
+45:    1027 bytes      1 times -->      6.56 Mbps in    1193.52 usec
+46:    1533 bytes      1 times -->      0.60 Mbps in   19600.54 usec
+47:    1536 bytes      1 times -->      0.46 Mbps in   25262.52 usec
+48:    1539 bytes      1 times -->      0.57 Mbps in   20745.54 usec
+49:    2045 bytes      1 times -->      0.74 Mbps in   20971.95 usec
+...
+On loop 46, as the packet size exceeds the MTU (1500) performance falls from 6.56Mbps 
+to 0.60Mbps.
 
-        iptables 1.4.21
+Going back to 100baseTX-FD, but still forced (autonegotiation off), the same occurs:
+On the target:
+# mii-tool eth0 -F 100baseTx-FD
+# netpipe
 
-iptables is the userspace command line program used to configure the
-Linux packet filtering ruleset. It is targeted towards system administrators.
-Since Network Address Translation is also configured from the packet filter
-ruleset, iptables is used for this, too. The iptables package also includes
-ip6tables. ip6tables is used for configuring the IPv6 packet filter.
+On the host:
+# netpipe -h <target-ip> -n 1
+...
+58:    6141 bytes      1 times -->     39.74 Mbps in    1179.03 usec
+59:    6144 bytes      1 times -->     41.83 Mbps in    1120.51 usec
+60:    6147 bytes      1 times -->     41.39 Mbps in    1133.03 usec
+61:    8189 bytes      1 times -->      6.36 Mbps in    9823.94 usec
+62:    8192 bytes      1 times -->      6.56 Mbps in    9521.46 usec
+63:    8195 bytes      1 times -->      6.56 Mbps in    9532.99 usec
+...
+only this time it happens with a larger packet size (8189 bytes).
 
-This release includes fixes and a couple of new features:
+With autonegotiation on, performance is ok and does not suffer these drops.
 
-* --nowildcard option for xt_socket, available since Linux kernel 3.11,
-  from Eric Dumazet.
+I've reproduced this on the mx28evk board but it also happens in my hardware, with 
+different PHY on v3.10.
+I also tried on an old v2.6.35 kernel and the issue was reproducible as well, though 
+it happened with larger packet sizes than it happens with v3.10:
+...
+75:   32771 bytes      1 times -->     49.64 Mbps in    5036.50 usec
+76:   49149 bytes      1 times -->     46.18 Mbps in    8120.48 usec
+77:   49152 bytes      1 times -->     43.30 Mbps in    8660.46 usec
+78:   49155 bytes      1 times -->     40.10 Mbps in    9351.46 usec
+79:   65533 bytes      1 times -->      2.03 Mbps in  246061.04 usec
+80:   65536 bytes      1 times -->      2.21 Mbps in  226516.50 usec
+81:   65539 bytes      1 times -->      1.45 Mbps in  344196.46 usec
+...
 
-* SYNPROXY support, available since Linux kernel 3.12, from Patrick McHardy.
+Could there be any issue with packet fragmentation?
+I tried the same on imx6sabresd but here the issue is not reproducible. I don't know 
+if the higher CPU frequency might be hiding the problem, though.
 
-See ChangeLog that comes attached to this email for more details.
+Any idea about what can make the difference between forcing media vs autonegotiation?
 
-You can download it from:
-
-http://www.netfilter.org/projects/iptables/downloads.html
-ftp://ftp.netfilter.org/pub/iptables/
-
-Have fun!
-
---Qxx1br4bt0+wmkIi
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="changes-iptables-1.4.21.txt"
-
-Eric Dumazet (1):
-      xt_socket: add --nowildcard flag
-
-Florian Westphal (3):
-      extensions: libxt_socket: update man page
-      doc: add libnetfilter_queue pointer to libxt_NFQUEUE.man
-      doc: merge ip6table man pages into ipv4 ones
-
-Jozsef Kadlecsik (1):
-      extensions: libxt_set, libxt_SET: check the set family too
-
-Kevin Cernekee (1):
-      ip6tables: Use consistent exit code for EAGAIN
-
-Laurence J. Lane (8):
-      iptables: libxt_hashlimit.man: correct address
-      iptables: libxt_conntrack.man extraneous commas
-      iptables: libip(6)t_REJECT.man default icmp types
-      iptables: iptables-xm1.1 correct man section
-      iptables: libxt_recent.{c,man} dead URL
-      iptables: libxt_string.man add examples
-      extensions: libxt_LOG: use generic syslog reference in manpage
-      iptables: extensions/GNUMakefile.in use CPPFLAGS
-
-Lutz Jaenicke (1):
-      iptables: correctly reference generated file
-
-Pablo Neira Ayuso (7):
-      Merge branch 'stable-1.4.20'
-      Merge branch 'stable-1.4.20'
-      ip[6]tables: fix incorrect alignment in commands_v_options
-      build: add software version to manpage first line at configure stage
-      extensions: libxt_cluster: add note on arptables-jf
-      utils: nfsynproxy: fix error while compiling the BPF filter
-      iptables 1.4.21 release
-
-Patrick McHardy (2):
-      extensions: add SYNPROXY extension
-      utils: add nfsynproxy tool
-
-Phil Oester (4):
-      iptables: state match incompatibilty across versions
-      libxtables: xtables_ipmask_to_numeric incorrect with non-CIDR masks
-      iptables: improve chain name validation
-      iptables: spurious error in load_extension
-
-stephen hemminger (1):
-      xtables: trivial spelling fix
-
-
---Qxx1br4bt0+wmkIi--
+Best regards,
+--
+Hector Palacios
