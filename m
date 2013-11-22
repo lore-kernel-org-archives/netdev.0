@@ -1,138 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [2/2] gro: Clean up tcpX_gro_receive checksum verification
-Date: Fri, 22 Nov 2013 10:32:11 +0800
-Message-ID: <20131122023210.GB6506@gondor.apana.org.au>
-References: <5286F018.8060801@gmail.com>
- <20131116064611.GA12146@gondor.apana.org.au>
- <528A51B6.2040609@intel.com>
- <20131121.133501.272071098922555423.davem@davemloft.net>
- <20131122023013.GA6387@gondor.apana.org.au>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/1] Workaround for Suspend/Resume issue of AX88772B under ChromeOS
+Date: Thu, 21 Nov 2013 18:42:22 -0800
+Message-ID: <CAGVrzcY14kHeDkSYDz6Pcjr1-s-EcFnqS37DQKcXkPwBm0_EHA@mail.gmail.com>
+References: <1384913496-26261-1-git-send-email-freddy@asix.com.tw>
+ <20131120.004026.2013972041095203460.davem@davemloft.net> <CANEJEGtBmvFNcFzOW9ZnOFd=ZMnz82ajcN52YqW3+n0+=rhxBA@mail.gmail.com>
+ <20131120.135413.920731121262719289.davem@davemloft.net> <CANEJEGtXOjxj+85QVfWFGH6WuxxCz6uAfEuUo7bv9YEwh_8OAw@mail.gmail.com>
+ <CANEJEGu_2YdVOjcnzh30RPMiP0KC5bL6JasxMS_+1xV9poxgQw@mail.gmail.com>
+ <CAGVrzcase25NosVHA74OLnviJj7nU_2Rxki_hvi8bOwznDuWGg@mail.gmail.com> <CANEJEGuo4rbz4hP=RfN8A+4ozjuJ7oZmtLcmkjbkxrGZrpRr5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexander.h.duyck@intel.com, alexander.duyck@gmail.com,
-	netdev@vger.kernel.org, edumazet@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:54814 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754000Ab3KVCcO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 21:32:14 -0500
-Content-Disposition: inline
-In-Reply-To: <20131122023013.GA6387@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Freddy Xin <freddy@asix.com.tw>,
+	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	davemloft <davemloft@davemloft.net>,
+	=?UTF-8?B?QVNJWCBMb3VpcyBb6JiH5aiB6Zm4XQ==?= <louis@asix.com.tw>,
+	Allan Chou <allan@asix.com.tw>,
+	Daniel_ASIX <daniel@asix.com.tw>
+To: Grant Grundler <grundler@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANEJEGuo4rbz4hP=RfN8A+4ozjuJ7oZmtLcmkjbkxrGZrpRr5A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch simplifies the checksum verification in tcpX_gro_receive
-by reusing the CHECKSUM_COMPLETE code for CHECKSUM_NONE.  All it
-does for CHECKSUM_NONE is compute the partial checksum and then
-treat it as if it came from the hardware (CHECKSUM_COMPLETE).
-    
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+2013/11/21 Grant Grundler <grundler@google.com>:
+> On Thu, Nov 21, 2013 at 5:58 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> ...
+>>> Freddy sent me a patch that saves/restores MII_ADVERTISE and MII_BMCR
+>>> registers. Testing that now and he'll post if that all works out.
+>
+> Bad News: Freddy's patch didn't work and needs to be rework it.
+>
+>> That should be enough to ensure the PHY is put back into a consistent
+>> state. So long as you are suspending/resuming from a configuration
+>> where autoneg was enabled, I would not expect anything bad to happen.
+>
+> Well, I think davem NACK'd that approach (the original patch in this
+> thread did that).
+>
+>> If the link was forced, that is a different story.
+>>
+>> One way to make sure this work properly without driver-specific code
+>> is to include that functionality into the PHY library. As far as I can
+>> see it the asix drivers do not use it but implement the old-style
+>> mii_bus interface so that would be a first step.
+>
+> AFAICT, many USBNET drivers support mii_bus interface. Can you point
+> at a good example of a USBNET driver that is supporting PHY lib?
 
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 55aeec9..0560635 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -274,35 +274,29 @@ static struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *
- {
- 	const struct iphdr *iph = skb_gro_network_header(skb);
- 	__wsum wsum;
--	__sum16 sum;
- 
- 	/* Don't bother verifying checksum if we're going to flush anyway. */
- 	if (NAPI_GRO_CB(skb)->flush)
- 		goto skip_csum;
- 
-+	wsum = skb->csum;
-+
- 	switch (skb->ip_summed) {
-+	case CHECKSUM_NONE:
-+		wsum = skb_checksum(skb, skb_gro_offset(skb), skb_gro_len(skb),
-+				    0);
-+
-+		/* fall through */
-+
- 	case CHECKSUM_COMPLETE:
- 		if (!tcp_v4_check(skb_gro_len(skb), iph->saddr, iph->daddr,
--				  skb->csum)) {
-+				  wsum)) {
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 			break;
- 		}
--flush:
-+
- 		NAPI_GRO_CB(skb)->flush = 1;
- 		return NULL;
--
--	case CHECKSUM_NONE:
--		wsum = csum_tcpudp_nofold(iph->saddr, iph->daddr,
--					  skb_gro_len(skb), IPPROTO_TCP, 0);
--		sum = csum_fold(skb_checksum(skb,
--					     skb_gro_offset(skb),
--					     skb_gro_len(skb),
--					     wsum));
--		if (sum)
--			goto flush;
--
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
--		break;
- 	}
- 
- skip_csum:
-diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
-index 71923d1..6d18157 100644
---- a/net/ipv6/tcpv6_offload.c
-+++ b/net/ipv6/tcpv6_offload.c
-@@ -37,36 +37,29 @@ static struct sk_buff **tcp6_gro_receive(struct sk_buff **head,
- {
- 	const struct ipv6hdr *iph = skb_gro_network_header(skb);
- 	__wsum wsum;
--	__sum16 sum;
- 
- 	/* Don't bother verifying checksum if we're going to flush anyway. */
- 	if (NAPI_GRO_CB(skb)->flush)
- 		goto skip_csum;
- 
-+	wsum = skb->csum;
-+
- 	switch (skb->ip_summed) {
-+	case CHECKSUM_NONE:
-+		wsum = skb_checksum(skb, skb_gro_offset(skb), skb_gro_len(skb),
-+				    wsum);
-+
-+		/* fall through */
-+
- 	case CHECKSUM_COMPLETE:
- 		if (!tcp_v6_check(skb_gro_len(skb), &iph->saddr, &iph->daddr,
--				  skb->csum)) {
-+				  wsum)) {
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 			break;
- 		}
--flush:
-+
- 		NAPI_GRO_CB(skb)->flush = 1;
- 		return NULL;
--
--	case CHECKSUM_NONE:
--		wsum = ~csum_unfold(csum_ipv6_magic(&iph->saddr, &iph->daddr,
--						    skb_gro_len(skb),
--						    IPPROTO_TCP, 0));
--		sum = csum_fold(skb_checksum(skb,
--					     skb_gro_offset(skb),
--					     skb_gro_len(skb),
--					     wsum));
--		if (sum)
--			goto flush;
--
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
--		break;
- 	}
- 
- skip_csum:
+drivers/net/usb/ax88172a.c implements the PHY library calls.
 
-Cheers,
+>
+> I also didn't see anything in usbnet_resume() code path that calls
+> into a phy lib. So it seems that some infrastructure still needs to
+> happen if that's considered a feasible.
+
+There are still some pending patches to make sure that suspend/resume
+are properly being taken care of when issuing phy_stop/phy_start, but
+once that is done, you would not have to call anything in
+usbnet_resume(), the driver's ndo_open() callback would call
+phy_start() which would resume the PHY into the state it was before
+suspending.
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Florian
