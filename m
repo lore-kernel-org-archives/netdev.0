@@ -1,139 +1,37 @@
-From: "Marksteiner, Stefan" <stefan.marksteiner@joanneum.at>
-Subject: Possible bit/byte conversion mistake in xfrm_state.c
-Date: Fri, 22 Nov 2013 15:54:01 +0100
-Message-ID: <528F7009.4080303@joanneum.at>
+From: Stefan Roese <stefan.roese@gmail.com>
+Subject: Problem with am335x (cpsw) MDIO state machine
+Date: Fri, 22 Nov 2013 17:06:08 +0100
+Message-ID: <528F80F0.7010003@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature";
-	micalg=sha1; boundary="------------ms020700040501070603040701"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rzjgate1.joanneum.ac.at ([143.224.185.3]:55598 "EHLO
-	rzjgate1.joanneum.ac.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755592Ab3KVPpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 10:45:13 -0500
-Received: from RZJS077.jr1.local (rzjs077.joanneum.ac.at [143.224.71.18])
-	by rzjgate1.joanneum.ac.at (8.14.4/8.14.4) with ESMTP id rAMEs2S9023257
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 15:54:02 +0100
+Received: from mo-p05-ob.rzone.de ([81.169.146.181]:10682 "EHLO
+	mo-p05-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755801Ab3KVQGO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 11:06:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------ms020700040501070603040701
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: quoted-printable
+Hi All!
 
-Hi folks,
+I'm currently struggling with the MDIO interface of the am335x SoC. As
+its state machine continuously communicates with the potentially
+available PHY devices (0...31). To determine the link status etc. But
+I'm trying to communicate with am SMSC9303 switch via this MDIO
+interface. It has 32bit registers organized as 2 16bit registers. These
+registers need to be accessed back-to-back. Without any other frame in
+between. And this is often interrupted (disturbed) by these state
+machines polling frames.
 
-I might have found a little bit/byte mistake in xfrm_state.c of=20
-iproute2-3.11.0 (and also lower versions).
+Has anyone ever tried to work in this SoC with this MDIO state machine
+disabled? I tried this by clearing the ENABLE bit in the MDIOCONTROL
+register after each transaction. But this doesn't seem to work
+(resulting in timeouts etc)?
 
-In line 169 the algorithm length is set correctly ("alg->alg_key_len =3D =
+Has anybody ever tried anything like this?
 
-len * 8;") in bits (as it is supposed by /usr/include/linux/xfrm.h, line =
-
-101), but later in line 496 the same value is read and added to a length =
-
-value in bytes ("len +=3D alg.u.alg.alg_key_len;").
-
-I'm not completetly sure, but I'm wondering if this might lead to errors =
-
-for algorithms with big key sizes (>2048 bits)  for the key buffer=20
-("char buf[RTA_BUF_SIZE]" in line 274)  reserves only 2048 bytes of=20
-memory (RTA_BUF_SIZE=3D2048). So taking bits for bytes, the following=20
-memcopy operation may overwrite adjacent memory areas.
-
-Can somebody verify if this is in fact an issue? Maybe I'm reading this=20
-whole stuff wrong.
-
-Cheers,
-
+Thanks,
 Stefan
-
-
---------------ms020700040501070603040701
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIILYDCC
-BRowggQCoAMCAQICEG0Z6qcZT2ozIuYiMnqqcd4wDQYJKoZIhvcNAQEFBQAwga4xCzAJBgNV
-BAYTAlVTMQswCQYDVQQIEwJVVDEXMBUGA1UEBxMOU2FsdCBMYWtlIENpdHkxHjAcBgNVBAoT
-FVRoZSBVU0VSVFJVU1QgTmV0d29yazEhMB8GA1UECxMYaHR0cDovL3d3dy51c2VydHJ1c3Qu
-Y29tMTYwNAYDVQQDEy1VVE4tVVNFUkZpcnN0LUNsaWVudCBBdXRoZW50aWNhdGlvbiBhbmQg
-RW1haWwwHhcNMTEwNDI4MDAwMDAwWhcNMjAwNTMwMTA0ODM4WjCBkzELMAkGA1UEBhMCR0Ix
-GzAZBgNVBAgTEkdyZWF0ZXIgTWFuY2hlc3RlcjEQMA4GA1UEBxMHU2FsZm9yZDEaMBgGA1UE
-ChMRQ09NT0RPIENBIExpbWl0ZWQxOTA3BgNVBAMTMENPTU9ETyBDbGllbnQgQXV0aGVudGlj
-YXRpb24gYW5kIFNlY3VyZSBFbWFpbCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC
-ggEBAJKEhFtLV5jUXi+LpOFAyKNTWF9mZfEyTvefMn1V0HhMVbdClOD5J3EHxcZppLkyxPFA
-GpDMJ1Zifxe1cWmu5SAb5MtjXmDKokH2auGj/7jfH0htZUOMKi4rYzh337EXrMLaggLW1DJq
-1GdvIBOPXDX65VSAr9hxCh03CgJQU2yVHakQFLSZlVkSMf8JotJM3FLb3uJAAVtIaN3FSrTg
-7SQfOq9xXwfjrL8UO7AlcWg99A/WF1hGFYE8aIuLgw9teiFX5jSw2zJ+40rhpVJyZCaRTqWS
-D//gsWD9Gm9oUZljjRqLpcxCm5t9ImPTqaD8zp6Q30QZ9FxbNboW86eb/8ECAwEAAaOCAUsw
-ggFHMB8GA1UdIwQYMBaAFImCZ33EnSZwAEu0UEh83j2uBG59MB0GA1UdDgQWBBR6E04AdFvG
-eGNkJ8Ev4qBbvHnFezAOBgNVHQ8BAf8EBAMCAQYwEgYDVR0TAQH/BAgwBgEB/wIBADARBgNV
-HSAECjAIMAYGBFUdIAAwWAYDVR0fBFEwTzBNoEugSYZHaHR0cDovL2NybC51c2VydHJ1c3Qu
-Y29tL1VUTi1VU0VSRmlyc3QtQ2xpZW50QXV0aGVudGljYXRpb25hbmRFbWFpbC5jcmwwdAYI
-KwYBBQUHAQEEaDBmMD0GCCsGAQUFBzAChjFodHRwOi8vY3J0LnVzZXJ0cnVzdC5jb20vVVRO
-QWRkVHJ1c3RDbGllbnRfQ0EuY3J0MCUGCCsGAQUFBzABhhlodHRwOi8vb2NzcC51c2VydHJ1
-c3QuY29tMA0GCSqGSIb3DQEBBQUAA4IBAQCF1r54V1VtM39EUv5C1QaoAQOAivsNsv1Kv/av
-QUn1G1rF0q0bc24+6SZ85kyYwTAo38v7QjyhJT4KddbQPTmGZtGhm7VNm2+vKGwdr+XqdFqo
-2rHA8XV6L566k3nK/uKRHlZ0sviN0+BDchvtj/1gOSBH+4uvOmVIPJg9pSW/ve9g4EnlFsjr
-P0OD8ODuDcHTzTNfm9C9YGqzO/761Mk6PB/tm/+bSTO+Qik5g+4zaS6CnUVNqGnagBsePdIa
-XXxHmaWbCG0SmYbWXVcHG6cwvktJRLiQfsrReTjrtDP6oDpdJlieYVUYtCHVmdXgQ0BCML7q
-peeU0rD+83X5f27nMIIGPjCCBSagAwIBAgIRAOk50xD+LB2d3FAS4+WJsEQwDQYJKoZIhvcN
-AQEFBQAwgZMxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAO
-BgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMTkwNwYDVQQDEzBD
-T01PRE8gQ2xpZW50IEF1dGhlbnRpY2F0aW9uIGFuZCBTZWN1cmUgRW1haWwgQ0EwHhcNMTMx
-MDAzMDAwMDAwWhcNMTQxMDAzMjM1OTU5WjAvMS0wKwYJKoZIhvcNAQkBFh5zdGVmYW4ubWFy
-a3N0ZWluZXJAam9hbm5ldW0uYXQwggIiMA0GCSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQDw
-1twm2FUXkN3U7rA4tgDz6RoFMIwF7F3uDph7HSZVXxYXPZ0uMVCPHSScSWJO4qGMjyfqkq0i
-+dVFX/1QLGwKHhWYmvv866kAqzVSlImhiQogvt6If3W2Lacs7UFWFHvzWFKxpOF3LPYtMYsV
-GUo9uSvTE/cuooZN3n4kXHvbxX5SRIHAW74tFsLsZA9vI3Fzn829NAX9W74cvZoH5RGrNZgA
-IMHSLpyd+zfaUdmugIpu+sISuCC39SoTxj5jJcxoqPSDuyubnJG/HSXODWt8YdlIpEBOmsXg
-FTft6HyxaRzVZROY5u0pNYilNFcHFWJAWed7I6uIFNy7/tn6yPD1OgMj9rsYxDRi6PVST05q
-0fpsxPwjR8VtZsO6ILaIk8v9PPtVB2/1xZkFyv2CEC6p56LJDCs8lPUPUUQ0B2MGUopOiTtS
-Im4Yo0tiiQBQTQO9p380s3HhOGxTO1LfkN+3MdDwsYbQapun8qfLpO3uSoV3pclCAj/QEp1+
-bPYrx3ohNjkIPipXfpu2iQgYwIt8YE+8qhj5+Yzam/b6LeS9KYrtbhUjN5FWjLzREi1DydnX
-Z+dtw/23f8ibsJJZ+kovoSQL77/T1gS+SulYDJEMVZ2QDT/44BBszms0fRpv8wrdhnuqNvZ3
-RLYWEbfT/Jxm13WNxkiKGqjtIiiuIeJ76wIDAQABo4IB7jCCAeowHwYDVR0jBBgwFoAUehNO
-AHRbxnhjZCfBL+KgW7x5xXswHQYDVR0OBBYEFBYCVitu+tAanv+gLRziohpXaKjIMA4GA1Ud
-DwEB/wQEAwIFoDAMBgNVHRMBAf8EAjAAMCAGA1UdJQQZMBcGCCsGAQUFBwMEBgsrBgEEAbIx
-AQMFAjARBglghkgBhvhCAQEEBAMCBSAwRgYDVR0gBD8wPTA7BgwrBgEEAbIxAQIBAQEwKzAp
-BggrBgEFBQcCARYdaHR0cHM6Ly9zZWN1cmUuY29tb2RvLm5ldC9DUFMwVwYDVR0fBFAwTjBM
-oEqgSIZGaHR0cDovL2NybC5jb21vZG9jYS5jb20vQ09NT0RPQ2xpZW50QXV0aGVudGljYXRp
-b25hbmRTZWN1cmVFbWFpbENBLmNybDCBiAYIKwYBBQUHAQEEfDB6MFIGCCsGAQUFBzAChkZo
-dHRwOi8vY3J0LmNvbW9kb2NhLmNvbS9DT01PRE9DbGllbnRBdXRoZW50aWNhdGlvbmFuZFNl
-Y3VyZUVtYWlsQ0EuY3J0MCQGCCsGAQUFBzABhhhodHRwOi8vb2NzcC5jb21vZG9jYS5jb20w
-KQYDVR0RBCIwIIEec3RlZmFuLm1hcmtzdGVpbmVyQGpvYW5uZXVtLmF0MA0GCSqGSIb3DQEB
-BQUAA4IBAQCM5jo02/zS1tWxLuB7bJI4fwKKQuMcDyt6rSKzvI0J4Pas8wa62Nj9BgLMSoHs
-P1BW96D4xZ3YRTp/h0jCvFs8ZSB5JMpEcFPBK0/DhNi55u9qqBrJyF3ETApeiWPaeiHiS8mV
-Ke36aYGsA1xAB9PeOyDbGjnoVTHDsblHgQdyvG6MJrZBUWjv8a0zq9ZdV2qXV6rY0TL09sZh
-0FGWB+m7J8PhdHxXcs/n6rhGgeoB7XXbm134VFSS9oDhtljSn6WCXPNDmH6h8nToguYKyvjX
-00aCOOhaC99cp+WDzlyIyV7nk6HmmtRL+WBQpfoHjkIo3718YJapFOLb50B/xHcQMYIFHDCC
-BRgCAQEwgakwgZMxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIx
-EDAOBgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMTkwNwYDVQQD
-EzBDT01PRE8gQ2xpZW50IEF1dGhlbnRpY2F0aW9uIGFuZCBTZWN1cmUgRW1haWwgQ0ECEQDp
-OdMQ/iwdndxQEuPlibBEMAkGBSsOAwIaBQCgggJHMBgGCSqGSIb3DQEJAzELBgkqhkiG9w0B
-BwEwHAYJKoZIhvcNAQkFMQ8XDTEzMTEyMjE0NTQwMVowIwYJKoZIhvcNAQkEMRYEFK5oS3cB
-PY83YhNiSaJOSLH7GTiNMGwGCSqGSIb3DQEJDzFfMF0wCwYJYIZIAWUDBAEqMAsGCWCGSAFl
-AwQBAjAKBggqhkiG9w0DBzAOBggqhkiG9w0DAgICAIAwDQYIKoZIhvcNAwICAUAwBwYFKw4D
-AgcwDQYIKoZIhvcNAwICASgwgboGCSsGAQQBgjcQBDGBrDCBqTCBkzELMAkGA1UEBhMCR0Ix
-GzAZBgNVBAgTEkdyZWF0ZXIgTWFuY2hlc3RlcjEQMA4GA1UEBxMHU2FsZm9yZDEaMBgGA1UE
-ChMRQ09NT0RPIENBIExpbWl0ZWQxOTA3BgNVBAMTMENPTU9ETyBDbGllbnQgQXV0aGVudGlj
-YXRpb24gYW5kIFNlY3VyZSBFbWFpbCBDQQIRAOk50xD+LB2d3FAS4+WJsEQwgbwGCyqGSIb3
-DQEJEAILMYGsoIGpMIGTMQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRlciBNYW5jaGVz
-dGVyMRAwDgYDVQQHEwdTYWxmb3JkMRowGAYDVQQKExFDT01PRE8gQ0EgTGltaXRlZDE5MDcG
-A1UEAxMwQ09NT0RPIENsaWVudCBBdXRoZW50aWNhdGlvbiBhbmQgU2VjdXJlIEVtYWlsIENB
-AhEA6TnTEP4sHZ3cUBLj5YmwRDANBgkqhkiG9w0BAQEFAASCAgAxtg4cOTBTRg5dNeHQ5RyF
-jjC3B7Ki+hKdXjXiKm2A7aAS/BZwSpz84mCftP3Z1+0XbfNSNV8gMMZSDcsKnqFvt6yDFJ26
-kAeHRnjyGn/rRojGKdW1vatTwBCWcxzL8lzL8GQiT4guzvdzydntFjjQ9i52ziR/lJjEF/g5
-eMrnaVMKRZhLbIIMiVQHwRQndFJa7L0HM+g9vZ4q3IE/C2GONmkfnz4xJD5+23N0m1Fk9ONV
-+wyg5ZsP9L+KAOcmIyH4MOH0uLqSzdkDPkSKxtHSyoNjpOKCCyZ5KBWceWl2dZ4iqYtifwdf
-tGyvHjPf/o6G/ucPVANhK/zFTNN0SOpAhT9RQxScrUX31wcp/OhdmmjdBI6Zw7BRlE/Xoc6B
-g1ll+W3ZK48sA8JnwgOXh/zCQOkF4zwEmIZNvi0jrzLmeV40cfyU8aWXDvFiCIm0jnfF5KOB
-8B5bRtxK+ic1a4pbZO5bdyIYjxaIcxbN9DylUo0opmRa1bAnJv0hboahCQ0KcGJ1gNo2+y8e
-WzHD+XRLYqYfq7uvSfPoyIbxU6gRFQxPYdgsCkTEr/TEr8rFGzuZAmxiZocU8V75rQNimxaJ
-UQtZk/9SGgwEm6R2sWXRbL7lYEGu+FETX9oBg3+Mgw6PNeVr/jB38JafiI4+kIps/xE71vfv
-dZoHzrS2d5++vgAAAAAAAA==
---------------ms020700040501070603040701--
