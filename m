@@ -1,61 +1,117 @@
-From: Kamala R <kamala@aristanetworks.com>
-Subject: [Patch v2] IPv6: Fixed support for blackhole and prohibit routes
-Date: Fri, 22 Nov 2013 13:51:28 +0530
-Message-ID: <1385108488-32163-1-git-send-email-kamala@aristanetwors.com>
-Cc: linux-kernel@vger.kernel.org, Kamala R <kamala@aristanetworks.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xufeng Zhang <xufeng.zhang@windriver.com>
+Subject: [PATCH] sctp: Restore 'resent' bit to avoid retransmitted chunks for RTT measurements
+Date: Fri, 22 Nov 2013 16:30:31 +0800
+Message-ID: <1385109031-4246-1-git-send-email-xufeng.zhang@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-sctp@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:60021 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751590Ab3KVI1Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 03:27:25 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kamala R <kamala@aristanetworks.com>
+From: Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
 
-The behaviour of blackhole and prohibit routes has been corrected by setting
-the input and output function pointers of the dst variable appropriately. For
-blackhole routes, they are set to dst_discard and to ip6_pkt_prohibit and
-ip6_pkt_prohbit_out respectively for prohibit routes.
+Currently retransmitted DATA chunks could also be used for
+RTT measurements since there are no flag to identify whether
+the transmitted DATA chunk is a new one or a retransmitted one.
+This problem is introduced by commit ae19c5486 ("sctp: remove
+'resent' bit from the chunk") which inappropriately removed the
+'resent' bit completely, instead of doing this, we should set 
+the resent bit only for the retransmitted DATA chunks.
 
-Changes from v1: Logic is the same. Changes made for readability and so it
-looks pleasing.
-
-Signed-off-by: Kamala R <kamala@aristanetworks.com>
+Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
 ---
- net/ipv6/route.c |   11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ include/net/sctp/structs.h |    1 +
+ net/sctp/output.c          |   23 +++++++++++++----------
+ net/sctp/outqueue.c        |    3 +++
+ net/sctp/sm_make_chunk.c   |    1 +
+ 4 files changed, 18 insertions(+), 10 deletions(-)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f54e3a1..d90b9ab 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1564,21 +1564,24 @@ int ip6_route_add(struct fib6_config *cfg)
- 				goto out;
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 2174d8d..ea0ca5f 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -629,6 +629,7 @@ struct sctp_chunk {
+ #define SCTP_NEED_FRTX 0x1
+ #define SCTP_DONT_FRTX 0x2
+ 	__u16	rtt_in_progress:1,	/* This chunk used for RTT calc? */
++		resent:1,		/* Has this chunk ever been resent. */
+ 		has_tsn:1,		/* Does this chunk have a TSN yet? */
+ 		has_ssn:1,		/* Does this chunk have a SSN yet? */
+ 		singleton:1,		/* Only chunk in the packet? */
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index e650978..32c214d 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -467,17 +467,20 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+ 	list_for_each_entry_safe(chunk, tmp, &packet->chunk_list, list) {
+ 		list_del_init(&chunk->list);
+ 		if (sctp_chunk_is_data(chunk)) {
+-			/* 6.3.1 C4) When data is in flight and when allowed
+-			 * by rule C5, a new RTT measurement MUST be made each
+-			 * round trip.  Furthermore, new RTT measurements
+-			 * SHOULD be made no more than once per round-trip
+-			 * for a given destination transport address.
+-			 */
+-
+-			if (!tp->rto_pending) {
+-				chunk->rtt_in_progress = 1;
+-				tp->rto_pending = 1;
++			if (!chunk->resent) {
++				/* 6.3.1 C4) When data is in flight and when allowed
++				 * by rule C5, a new RTT measurement MUST be made each
++				 * round trip.  Furthermore, new RTT measurements
++				 * SHOULD be made no more than once per round-trip
++				 * for a given destination transport address.
++				 */
++
++				if (!tp->rto_pending) {
++					chunk->rtt_in_progress = 1;
++					tp->rto_pending = 1;
++				}
  			}
++
+ 			has_data = 1;
  		}
--		rt->dst.output = ip6_pkt_discard_out;
--		rt->dst.input = ip6_pkt_discard;
- 		rt->rt6i_flags = RTF_REJECT|RTF_NONEXTHOP;
-+		rt->dst.error = -ENETUNREACH;
- 		switch (cfg->fc_type) {
- 		case RTN_BLACKHOLE:
- 			rt->dst.error = -EINVAL;
-+			rt->dst.output = dst_discard;
-+			rt->dst.input = dst_discard;
- 			break;
- 		case RTN_PROHIBIT:
- 			rt->dst.error = -EACCES;
-+			rt->dst.output = ip6_pkt_prohibit_out;
-+			rt->dst.input = ip6_pkt_prohibit;
- 			break;
- 		case RTN_THROW:
- 			rt->dst.error = -EAGAIN;
--			break;
- 		default:
--			rt->dst.error = -ENETUNREACH;
-+			rt->dst.output = ip6_pkt_discard_out;
-+			rt->dst.input = ip6_pkt_discard;
- 			break;
- 		}
- 		goto install_route;
+ 
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 94df758..70f4f56 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -446,6 +446,8 @@ void sctp_retransmit_mark(struct sctp_outq *q,
+ 				transport->rto_pending = 0;
+ 			}
+ 
++			chunk->resent = 1;
++
+ 			/* Move the chunk to the retransmit queue. The chunks
+ 			 * on the retransmit queue are always kept in order.
+ 			 */
+@@ -1375,6 +1377,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+ 				 * instance).
+ 				 */
+ 				if (!tchunk->tsn_gap_acked &&
++				    !tchunk->resent &&
+ 				    tchunk->rtt_in_progress) {
+ 					tchunk->rtt_in_progress = 0;
+ 					rtt = jiffies - tchunk->sent_at;
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index fe69032..8fe89f8 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1321,6 +1321,7 @@ struct sctp_chunk *sctp_chunkify(struct sk_buff *skb,
+ 	INIT_LIST_HEAD(&retval->list);
+ 	retval->skb		= skb;
+ 	retval->asoc		= (struct sctp_association *)asoc;
++	retval->resent          = 0;
+ 	retval->singleton	= 1;
+ 
+ 	retval->fast_retransmit = SCTP_CAN_FRTX;
 -- 
-1.7.9.5
+1.7.0.2
