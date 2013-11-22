@@ -1,45 +1,39 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Question about IPv6 neighbor discovery and 6lowpan
-Date: Fri, 22 Nov 2013 10:29:06 +0700
-Message-ID: <692AEC23-372B-48A9-BEA7-02C2F6C13A47@holtmann.org>
-References: <1385046178.2723.17.camel@jrissane-mobl.ger.corp.intel.com> <20131121153414.GA9960@omega> <1385049135.2723.25.camel@jrissane-mobl.ger.corp.intel.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.0 \(1822\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Alexander Aring <alex.aring@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
+Subject: gretap IP fragmentation
+Date: Fri, 22 Nov 2013 08:20:55 +0400
+Message-ID: <284221385094055@web4m.yandex.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=koi8-r
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53358 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753575Ab3KVD3y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 22:29:54 -0500
-In-Reply-To: <1385049135.2723.25.camel@jrissane-mobl.ger.corp.intel.com>
+Received: from forward1m.mail.yandex.net ([37.140.138.1]:56076 "EHLO
+	forward1m.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753279Ab3KVE05 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Nov 2013 23:26:57 -0500
+Received: from web4m.yandex.ru (web4m.yandex.ru [37.140.138.95])
+	by forward1m.mail.yandex.net (Yandex) with ESMTP id 047BA1221EB3
+	for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 08:20:55 +0400 (MSK)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jukka,
+Hello,
 
->>> I am investigating RFC 6775 (Neighbor Discovery Optimization for IPv6
->>> over Low-Power Wireless Personal Area Networks (6LoWPANs))
->>> http://tools.ietf.org/html/rfc6775
->>> 
->>> The RFC suggests some changes to neighbor discovery procedure for the
->>> 6LoWPAN networks. I was looking net/ipv6/ndisc.c and it seems that
->>> ARPHRD type (from type field in net_device struct) is the only way to
->>> detect and change the discovery procedure in the ndisc.c code. Am I
->>> right with this assumption here?
->>> 
->> I think you are right, there was some patches on linux-zigbee-devel who
->> use exact the same idea to check the ARPHRD type.
-> 
-> Ok. The reason I was interested in about this is that I proposed new
-> ARPHRD_RAWIP earlier that I could use in BT LE 6lowpan code. Now I think
-> that type might be too generic and perhaps I should have ARPHRD_6LOWPAN
-> or even ARPHRD_BT_6LOWPAN.
+Trying to investigate problems transmitting IP packets of specific size
+from gretap interface which is member of bridge device. To correctly
+forward near-1500 byte L2 packets MTU of GRE-interface should be 1500.
+But I don't understand why in case of IP packet tunnel code just copies
+DF flag from the inner IP header to the outer header even when
+"nopmtudisc" for gretap device is set? In this way fragmentation doesn'=
+t
+performed and packet silently dropped.
 
-if it can be shared between 802.15.4 and Bluetooth, then I would propose to use ARPHRD_6LOWPAN and also convert the 802.15.4 stack to use that one.
+Is this an intentional behavior of gretap or some kind of bug?
 
-Regards
+Thank you!
 
-Marcel
+--=20
+wbr, Oleg.
+
+"Anarchy is about taking complete responsibility for yourself."
+=9A=9A=9A=9A=9A Alan Moore.
