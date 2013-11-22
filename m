@@ -1,110 +1,130 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net v2] bonding: disable arp and enable mii monitoring
- when bond change to no uses arp mode
-Date: Fri, 22 Nov 2013 22:12:43 +0800
-Message-ID: <528F665B.30307@huawei.com>
-References: <528710F7.7050207@huawei.com>	 <1384796682.4774.26.camel@dcbw.foobar.com>	 <20131118.154838.776189725378131169.davem@davemloft.net> <1384815032.4774.55.camel@dcbw.foobar.com> <528ACD8A.1010409@greyhouse.net> <528EBD96.2090706@huawei.com> <528F6247.2080007@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] sctp: Restore 'resent' bit to avoid retransmitted chunks
+ for RTT measurements
+Date: Fri, 22 Nov 2013 09:18:09 -0500
+Message-ID: <528F67A1.60306@gmail.com>
+References: <1385109031-4246-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: <fubar@us.ibm.com>, <vfalico@redhat.com>, <netdev@vger.kernel.org>
-To: Nikolay Aleksandrov <nikolay@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Dan Williams <dcbw@redhat.com>,
-	David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Xufeng Zhang <xufeng.zhang@windriver.com>, nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:28347 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932070Ab3KVON1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 09:13:27 -0500
-In-Reply-To: <528F6247.2080007@redhat.com>
+Received: from mail-yh0-f43.google.com ([209.85.213.43]:62539 "EHLO
+	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755618Ab3KVOSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 09:18:13 -0500
+In-Reply-To: <1385109031-4246-1-git-send-email-xufeng.zhang@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/11/22 21:55, Nikolay Aleksandrov wrote:
-> On 11/22/2013 03:12 AM, Ding Tianhong wrote:
->> Because the ARP monitoring is not support for 802.3ad, but I still
->> could change the mode to 802.3ad from ab mode while ARP monitoring
->> is running, it is incorrect.
->>
->> So add a check for 802.3ad in bonding_store_mode to fix the problem,
->> and make a new macro BOND_NO_USES_ARP() to simplify the code.
->>
->> v2: according to the Dan Williams's suggestion, bond mode is the most
->>     important bond option, it should override any of the other sub-options.
->>     So when the mode is changed, the conficting values should be cleared
->>     or reset, otherwise the user has to duplicate more operations to modify
->>     the logic. I disable the arp and enable mii monitoring when the bond mode
->>     is changed to AB, TB and 8023AD if the arp interval is true.
->>
->> Suggested-by: Dan Williams <dcbw@redhat.com>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->>  drivers/net/bonding/bond_options.c | 13 +++++++++----
->>  drivers/net/bonding/bonding.h      |  5 +++++
->>  2 files changed, 14 insertions(+), 4 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
->> index 9a5223c..04364f7a 100644
->> --- a/drivers/net/bonding/bond_options.c
->> +++ b/drivers/net/bonding/bond_options.c
->> @@ -45,10 +45,15 @@ int bond_option_mode_set(struct bonding *bond, int mode)
->>  		return -EPERM;
->>  	}
->>  
->> -	if (BOND_MODE_IS_LB(mode) && bond->params.arp_interval) {
->> -		pr_err("%s: %s mode is incompatible with arp monitoring.\n",
->> -		       bond->dev->name, bond_mode_tbl[mode].modename);
->> -		return -EINVAL;
->> +	if (BOND_NO_USES_ARP(mode) && bond->params.arp_interval) {
->> +		pr_info("%s: %s mode is incompatible with arp monitoring, start mii monitoring\n",
->> +			bond->dev->name, bond_mode_tbl[mode].modename);
->> +		/* disable arp monitoring */
->> +		bond->params.arp_interval = 0;
->> +		/* set miimon to default value */
->> +		bond->params.miimon = 100;
->> +		pr_info("%s: Setting MII monitoring interval to %d.\n",
->> +			bond->dev->name, bond->params.miimon);
->>  	}
->>  
-> Maybe define the "default" miimon value somewhere ? A value of 100 for miimon is
-> used repeatedly in bond_check_params() as well, it'd be nice to give it a name,
-> e.g. I had to grep around to see why you chose 100 to be that value.
+On 11/22/2013 03:30 AM, Xufeng Zhang wrote:
+> From: Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
 > 
-
-yes, I get it from bond_check_params(), I think it is time to give it a new name, MIIMON_DEFAULT_VALUE = 100.
-
->>  	/* don't cache arp_validate between modes */
->> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->> index ca31286..a310fb5 100644
->> --- a/drivers/net/bonding/bonding.h
->> +++ b/drivers/net/bonding/bonding.h
->> @@ -55,6 +55,11 @@
->>  		 ((mode) == BOND_MODE_TLB)          ||	\
->>  		 ((mode) == BOND_MODE_ALB))
->>  
->> +#define BOND_NO_USES_ARP(mode)				\
->> +		(((mode) == BOND_MODE_8023AD)	||	\
->> +		 ((mode) == BOND_MODE_TLB)	||	\
->> +		 ((mode) == BOND_MODE_ALB))
->> +
->>  #define TX_QUEUE_OVERRIDE(mode)				\
->>  			(((mode) == BOND_MODE_ACTIVEBACKUP) ||	\
->>  			 ((mode) == BOND_MODE_ROUNDROBIN))
->>
-> One small note, you can save a few lines in bond_sysfs.c if you switch
-> the check in bonding_store_arp_interval() to the new macro BOND_NO_USES_ARP()
-> as it's identical.
+> Currently retransmitted DATA chunks could also be used for
+> RTT measurements since there are no flag to identify whether
+> the transmitted DATA chunk is a new one or a retransmitted one.
+> This problem is introduced by commit ae19c5486 ("sctp: remove
+> 'resent' bit from the chunk") which inappropriately removed the
+> 'resent' bit completely, instead of doing this, we should set 
+> the resent bit only for the retransmitted DATA chunks.
 > 
-> Cheers,
->  Nik
-
-good idea.
-
-Regards.
-Ding
-
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+> ---
+>  include/net/sctp/structs.h |    1 +
+>  net/sctp/output.c          |   23 +++++++++++++----------
+>  net/sctp/outqueue.c        |    3 +++
+>  net/sctp/sm_make_chunk.c   |    1 +
+>  4 files changed, 18 insertions(+), 10 deletions(-)
 > 
-> 
-> .
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 2174d8d..ea0ca5f 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -629,6 +629,7 @@ struct sctp_chunk {
+>  #define SCTP_NEED_FRTX 0x1
+>  #define SCTP_DONT_FRTX 0x2
+>  	__u16	rtt_in_progress:1,	/* This chunk used for RTT calc? */
+> +		resent:1,		/* Has this chunk ever been resent. */
+>  		has_tsn:1,		/* Does this chunk have a TSN yet? */
+>  		has_ssn:1,		/* Does this chunk have a SSN yet? */
+>  		singleton:1,		/* Only chunk in the packet? */
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index e650978..32c214d 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -467,17 +467,20 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+>  	list_for_each_entry_safe(chunk, tmp, &packet->chunk_list, list) {
+>  		list_del_init(&chunk->list);
+>  		if (sctp_chunk_is_data(chunk)) {
+> -			/* 6.3.1 C4) When data is in flight and when allowed
+> -			 * by rule C5, a new RTT measurement MUST be made each
+> -			 * round trip.  Furthermore, new RTT measurements
+> -			 * SHOULD be made no more than once per round-trip
+> -			 * for a given destination transport address.
+> -			 */
+> -
+> -			if (!tp->rto_pending) {
+> -				chunk->rtt_in_progress = 1;
+> -				tp->rto_pending = 1;
+> +			if (!chunk->resent) {
+> +				/* 6.3.1 C4) When data is in flight and when allowed
+> +				 * by rule C5, a new RTT measurement MUST be made each
+> +				 * round trip.  Furthermore, new RTT measurements
+> +				 * SHOULD be made no more than once per round-trip
+> +				 * for a given destination transport address.
+> +				 */
+> +
+> +				if (!tp->rto_pending) {
+
+Could be combined as
+    if (!chunk->resent && !tp->rto_pending) {
+
+> +					chunk->rtt_in_progress = 1;
+> +					tp->rto_pending = 1;
+> +				}
+>  			}
+> +
+>  			has_data = 1;
+>  		}
+>  
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index 94df758..70f4f56 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -446,6 +446,8 @@ void sctp_retransmit_mark(struct sctp_outq *q,
+>  				transport->rto_pending = 0;
+>  			}
+>  
+> +			chunk->resent = 1;
+> +
+>  			/* Move the chunk to the retransmit queue. The chunks
+>  			 * on the retransmit queue are always kept in order.
+>  			 */
+> @@ -1375,6 +1377,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+>  				 * instance).
+>  				 */
+>  				if (!tchunk->tsn_gap_acked &&
+> +				    !tchunk->resent &&
+>  				    tchunk->rtt_in_progress) {
+>  					tchunk->rtt_in_progress = 0;
+>  					rtt = jiffies - tchunk->sent_at;
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index fe69032..8fe89f8 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -1321,6 +1321,7 @@ struct sctp_chunk *sctp_chunkify(struct sk_buff *skb,
+>  	INIT_LIST_HEAD(&retval->list);
+>  	retval->skb		= skb;
+>  	retval->asoc		= (struct sctp_association *)asoc;
+> +	retval->resent          = 0;
+
+Not needed due to zeroed out malloc.
+
+-vlad
+
+>  	retval->singleton	= 1;
+>  
+>  	retval->fast_retransmit = SCTP_CAN_FRTX;
 > 
