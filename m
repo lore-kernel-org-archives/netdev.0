@@ -1,7 +1,7 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH 3/5] ixgbe: Convert to use devm_hwmon_device_register_with_groups
-Date: Fri, 22 Nov 2013 22:07:59 -0800
-Message-ID: <1385186881-7931-4-git-send-email-linux@roeck-us.net>
+Subject: [PATCH 2/5] igb: Convert to use devm_hwmon_device_register_with_groups
+Date: Fri, 22 Nov 2013 22:07:58 -0800
+Message-ID: <1385186881-7931-3-git-send-email-linux@roeck-us.net>
 References: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
@@ -16,20 +16,20 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Guenter Roeck <linux@roeck-us.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:49606 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754295Ab3KWGIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 01:08:21 -0500
-Received: by mail-pd0-f175.google.com with SMTP id w10so2262194pde.34
-        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 22:08:20 -0800 (PST)
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:54039 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750851Ab3KWGIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 01:08:18 -0500
+Received: by mail-pd0-f171.google.com with SMTP id z10so2248737pdj.30
+        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 22:08:17 -0800 (PST)
 In-Reply-To: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Simplify the code. Attach hwmon sysfs attributes to hwmon device
 instead of pci device. Avoid race conditions caused by attributes
-being created after hwmon device registration. Implicitly
-(through hwmon API) add mandatory 'name' sysfs attribute.
+being created after registration and provide mandatory 'name'
+attribute by using new hwmon API.
 
 Other cleanup:
 
@@ -42,164 +42,186 @@ of logically combining them all together.
 
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    8 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c |   76 ++++++++++--------------
- 2 files changed, 36 insertions(+), 48 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h       |    8 ++-
+ drivers/net/ethernet/intel/igb/igb_hwmon.c |  100 +++++++++++++---------------
+ 2 files changed, 53 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index f38fc0a..49531cd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -552,8 +552,10 @@ struct hwmon_attr {
- };
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 5e9ed89..99c3d33 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -337,8 +337,10 @@ struct hwmon_attr {
+ 	};
  
  struct hwmon_buff {
 -	struct device *device;
 -	struct hwmon_attr *hwmon_list;
 +	struct attribute_group group;
 +	const struct attribute_group *groups[2];
-+	struct attribute *attrs[IXGBE_MAX_SENSORS * 4 + 1];
-+	struct hwmon_attr hwmon_list[IXGBE_MAX_SENSORS * 4];
++	struct attribute *attrs[E1000_MAX_SENSORS * 4 + 1];
++	struct hwmon_attr hwmon_list[E1000_MAX_SENSORS * 4];
  	unsigned int n_hwmon;
- };
- #endif /* CONFIG_IXGBE_HWMON */
-@@ -775,7 +777,7 @@ struct ixgbe_adapter {
- 	u32 vferr_refcount;
- 	struct kobject *info_kobj;
- #ifdef CONFIG_IXGBE_HWMON
--	struct hwmon_buff ixgbe_hwmon_buff;
-+	struct hwmon_buff *ixgbe_hwmon_buff;
- #endif /* CONFIG_IXGBE_HWMON */
- #ifdef CONFIG_DEBUG_FS
- 	struct dentry *ixgbe_dbg_adapter;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-index d118def..3081974 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-@@ -111,8 +111,8 @@ static int ixgbe_add_hwmon_attr(struct ixgbe_adapter *adapter,
- 	unsigned int n_attr;
- 	struct hwmon_attr *ixgbe_attr;
+ 	};
+ #endif
+@@ -440,7 +442,7 @@ struct igb_adapter {
  
--	n_attr = adapter->ixgbe_hwmon_buff.n_hwmon;
--	ixgbe_attr = &adapter->ixgbe_hwmon_buff.hwmon_list[n_attr];
-+	n_attr = adapter->ixgbe_hwmon_buff->n_hwmon;
-+	ixgbe_attr = &adapter->ixgbe_hwmon_buff->hwmon_list[n_attr];
+ 	char fw_version[32];
+ #ifdef CONFIG_IGB_HWMON
+-	struct hwmon_buff igb_hwmon_buff;
++	struct hwmon_buff *igb_hwmon_buff;
+ 	bool ets;
+ #endif
+ 	struct i2c_algo_bit_data i2c_algo;
+diff --git a/drivers/net/ethernet/intel/igb/igb_hwmon.c b/drivers/net/ethernet/intel/igb/igb_hwmon.c
+index 58f1ce9..2e7ef2d 100644
+--- a/drivers/net/ethernet/intel/igb/igb_hwmon.c
++++ b/drivers/net/ethernet/intel/igb/igb_hwmon.c
+@@ -117,8 +117,8 @@ static int igb_add_hwmon_attr(struct igb_adapter *adapter,
+ 	unsigned int n_attr;
+ 	struct hwmon_attr *igb_attr;
+ 
+-	n_attr = adapter->igb_hwmon_buff.n_hwmon;
+-	igb_attr = &adapter->igb_hwmon_buff.hwmon_list[n_attr];
++	n_attr = adapter->igb_hwmon_buff->n_hwmon;
++	igb_attr = &adapter->igb_hwmon_buff->hwmon_list[n_attr];
  
  	switch (type) {
- 	case IXGBE_HWMON_TYPE_LOC:
-@@ -147,32 +147,17 @@ static int ixgbe_add_hwmon_attr(struct ixgbe_adapter *adapter,
- 	ixgbe_attr->dev_attr.store = NULL;
- 	ixgbe_attr->dev_attr.attr.mode = S_IRUGO;
- 	ixgbe_attr->dev_attr.attr.name = ixgbe_attr->name;
-+	sysfs_attr_init(&ixgbe_attr->dev_attr.attr);
- 
+ 	case IGB_HWMON_TYPE_LOC:
+@@ -154,30 +154,16 @@ static int igb_add_hwmon_attr(struct igb_adapter *adapter,
+ 	igb_attr->dev_attr.attr.mode = S_IRUGO;
+ 	igb_attr->dev_attr.attr.name = igb_attr->name;
+ 	sysfs_attr_init(&igb_attr->dev_attr.attr);
 -	rc = device_create_file(&adapter->pdev->dev,
--				&ixgbe_attr->dev_attr);
-+	adapter->ixgbe_hwmon_buff->attrs[n_attr] = &ixgbe_attr->dev_attr.attr;
- 
+-				&igb_attr->dev_attr);
 -	if (rc == 0)
--		++adapter->ixgbe_hwmon_buff.n_hwmon;
-+	++adapter->ixgbe_hwmon_buff->n_hwmon;
+-		++adapter->igb_hwmon_buff.n_hwmon;
  
 -	return rc;
++	adapter->igb_hwmon_buff->attrs[n_attr] = &igb_attr->dev_attr.attr;
++
++	++adapter->igb_hwmon_buff->n_hwmon;
++
 +	return 0;
  }
  
- static void ixgbe_sysfs_del_adapter(struct ixgbe_adapter *adapter)
+ static void igb_sysfs_del_adapter(struct igb_adapter *adapter)
  {
 -	int i;
 -
 -	if (adapter == NULL)
 -		return;
 -
--	for (i = 0; i < adapter->ixgbe_hwmon_buff.n_hwmon; i++) {
+-	for (i = 0; i < adapter->igb_hwmon_buff.n_hwmon; i++) {
 -		device_remove_file(&adapter->pdev->dev,
--			   &adapter->ixgbe_hwmon_buff.hwmon_list[i].dev_attr);
+-			   &adapter->igb_hwmon_buff.hwmon_list[i].dev_attr);
 -	}
 -
--	kfree(adapter->ixgbe_hwmon_buff.hwmon_list);
+-	kfree(adapter->igb_hwmon_buff.hwmon_list);
 -
--	if (adapter->ixgbe_hwmon_buff.device)
--		hwmon_device_unregister(adapter->ixgbe_hwmon_buff.device);
+-	if (adapter->igb_hwmon_buff.device)
+-		hwmon_device_unregister(adapter->igb_hwmon_buff.device);
  }
  
- /* called from ixgbe_main.c */
-@@ -184,9 +169,9 @@ void ixgbe_sysfs_exit(struct ixgbe_adapter *adapter)
- /* called from ixgbe_main.c */
- int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
+ /* called from igb_main.c */
+@@ -189,11 +175,11 @@ void igb_sysfs_exit(struct igb_adapter *adapter)
+ /* called from igb_main.c */
+ int igb_sysfs_init(struct igb_adapter *adapter)
  {
--	struct hwmon_buff *ixgbe_hwmon = &adapter->ixgbe_hwmon_buff;
-+	struct hwmon_buff *ixgbe_hwmon;
+-	struct hwmon_buff *igb_hwmon = &adapter->igb_hwmon_buff;
++	struct hwmon_buff *igb_hwmon;
++	struct i2c_client *client;
 +	struct device *hwmon_dev;
  	unsigned int i;
 -	int n_attrs;
  	int rc = 0;
+-	struct i2c_client *client = NULL;
  
  	/* If this method isn't defined we don't support thermals */
-@@ -198,23 +183,13 @@ int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
- 	if (adapter->hw.mac.ops.init_thermal_sensor_thresh(&adapter->hw))
- 		goto exit;
+ 	if (adapter->hw.mac.ops.init_thermal_sensor_thresh == NULL)
+@@ -201,34 +187,16 @@ int igb_sysfs_init(struct igb_adapter *adapter)
  
--	/*
--	 * Allocation space for max attributs
+ 	/* Don't create thermal hwmon interface if no sensors present */
+ 	rc = (adapter->hw.mac.ops.init_thermal_sensor_thresh(&adapter->hw));
+-		if (rc)
+-			goto exit;
+-
+-	/* init i2c_client */
+-	client = i2c_new_device(&adapter->i2c_adap, &i350_sensor_info);
+-	if (client == NULL) {
+-		dev_info(&adapter->pdev->dev,
+-			"Failed to create new i2c device..\n");
++	if (rc)
+ 		goto exit;
+-	}
+-	adapter->i2c_client = client;
+ 
+-	/* Allocation space for max attributes
 -	 * max num sensors * values (loc, temp, max, caution)
 -	 */
--	n_attrs = IXGBE_MAX_SENSORS * 4;
--	ixgbe_hwmon->hwmon_list = kcalloc(n_attrs, sizeof(struct hwmon_attr),
--					  GFP_KERNEL);
--	if (!ixgbe_hwmon->hwmon_list) {
-+	ixgbe_hwmon = devm_kzalloc(&adapter->pdev->dev, sizeof(*ixgbe_hwmon),
-+				   GFP_KERNEL);
-+	if (ixgbe_hwmon == NULL) {
+-	n_attrs = E1000_MAX_SENSORS * 4;
+-	igb_hwmon->hwmon_list = kcalloc(n_attrs, sizeof(struct hwmon_attr),
+-					GFP_KERNEL);
+-	if (!igb_hwmon->hwmon_list) {
++	igb_hwmon = devm_kzalloc(&adapter->pdev->dev, sizeof(*igb_hwmon),
++				 GFP_KERNEL);
++	if (!igb_hwmon) {
  		rc = -ENOMEM;
 -		goto err;
 -	}
 -
--	ixgbe_hwmon->device = hwmon_device_register(&adapter->pdev->dev);
--	if (IS_ERR(ixgbe_hwmon->device)) {
--		rc = PTR_ERR(ixgbe_hwmon->device);
+-	igb_hwmon->device = hwmon_device_register(&adapter->pdev->dev);
+-	if (IS_ERR(igb_hwmon->device)) {
+-		rc = PTR_ERR(igb_hwmon->device);
 -		goto err;
 +		goto exit;
  	}
-+	adapter->ixgbe_hwmon_buff = ixgbe_hwmon;
++	adapter->igb_hwmon_buff = igb_hwmon;
  
- 	for (i = 0; i < IXGBE_MAX_SENSORS; i++) {
- 		/*
-@@ -226,17 +201,28 @@ int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
+ 	for (i = 0; i < E1000_MAX_SENSORS; i++) {
+ 
+@@ -240,11 +208,39 @@ int igb_sysfs_init(struct igb_adapter *adapter)
  
  		/* Bail if any hwmon attr struct fails to initialize */
- 		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_CAUTION);
--		rc |= ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_LOC);
--		rc |= ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_TEMP);
--		rc |= ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_MAX);
+ 		rc = igb_add_hwmon_attr(adapter, i, IGB_HWMON_TYPE_CAUTION);
+-		rc |= igb_add_hwmon_attr(adapter, i, IGB_HWMON_TYPE_LOC);
+-		rc |= igb_add_hwmon_attr(adapter, i, IGB_HWMON_TYPE_TEMP);
+-		rc |= igb_add_hwmon_attr(adapter, i, IGB_HWMON_TYPE_MAX);
  		if (rc)
 -			goto err;
 +			goto exit;
-+		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_LOC);
++		rc = igb_add_hwmon_attr(adapter, i, IGB_HWMON_TYPE_LOC);
 +		if (rc)
 +			goto exit;
-+		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_TEMP);
++		rc = igb_add_hwmon_attr(adapter, i, IGB_HWMON_TYPE_TEMP);
 +		if (rc)
 +			goto exit;
-+		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_MAX);
++		rc = igb_add_hwmon_attr(adapter, i, IGB_HWMON_TYPE_MAX);
 +		if (rc)
 +			goto exit;
++	}
++
++	/* init i2c_client */
++	client = i2c_new_device(&adapter->i2c_adap, &i350_sensor_info);
++	if (client == NULL) {
++		dev_info(&adapter->pdev->dev,
++			 "Failed to create new i2c device.\n");
++		rc = -ENODEV;
++		goto exit;
++	}
++	adapter->i2c_client = client;
++
++	igb_hwmon->groups[0] = &igb_hwmon->group;
++	igb_hwmon->group.attrs = igb_hwmon->attrs;
++
++	hwmon_dev = devm_hwmon_device_register_with_groups(&adapter->pdev->dev,
++							   client->name,
++							   igb_hwmon,
++							   igb_hwmon->groups);
++	if (IS_ERR(hwmon_dev)) {
++		rc = PTR_ERR(hwmon_dev);
++		goto err;
  	}
  
--	goto exit;
-+	ixgbe_hwmon->groups[0] = &ixgbe_hwmon->group;
-+	ixgbe_hwmon->group.attrs = ixgbe_hwmon->attrs;
- 
--err:
--	ixgbe_sysfs_del_adapter(adapter);
-+	hwmon_dev = devm_hwmon_device_register_with_groups(&adapter->pdev->dev,
-+							   "ixgbe",
-+							   ixgbe_hwmon,
-+							   ixgbe_hwmon->groups);
-+	if (IS_ERR(hwmon_dev))
-+		rc = PTR_ERR(hwmon_dev);
- exit:
- 	return rc;
- }
+ 	goto exit;
 -- 
 1.7.9.7
