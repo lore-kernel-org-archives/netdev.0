@@ -1,61 +1,53 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 0/5] net: hwmon fixes
-Date: Sat, 23 Nov 2013 09:07:05 -0800
-Message-ID: <5290E0B9.1030606@roeck-us.net>
-References: <1385186881-7931-1-git-send-email-linux@roeck-us.net> <1385225290.20467.73.camel@deadeye.wl.decadent.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: sched: tbf: fix an oops when a GSO packet cannot
+ be enqueued
+Date: Sat, 23 Nov 2013 09:56:07 -0800
+Message-ID: <1385229367.10637.92.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1385112446-15564-1-git-send-email-yangyingliang@huawei.com>
+	 <1385131801.10637.84.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5290628F.6080604@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Nithin Nayak Sujir <nsujir@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	e1000-devel@lists.sourceforge.net, lm-sensors@lm-sensors.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ben@decadent.org.uk,
+	jpirko@redhat.com, jhs@mojatatu.com
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.active-venture.com ([67.228.131.205]:65231 "EHLO
-	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755539Ab3KWRHH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 12:07:07 -0500
-In-Reply-To: <1385225290.20467.73.camel@deadeye.wl.decadent.org.uk>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:51031 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775Ab3KWR4J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 12:56:09 -0500
+Received: by mail-pd0-f169.google.com with SMTP id v10so2909163pde.14
+        for <netdev@vger.kernel.org>; Sat, 23 Nov 2013 09:56:08 -0800 (PST)
+In-Reply-To: <5290628F.6080604@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/23/2013 08:48 AM, Ben Hutchings wrote:
-> On Fri, 2013-11-22 at 22:07 -0800, Guenter Roeck wrote:
->> The hwmon subsystem is used by various network drivers to report temperature
->> sensor and other information. Unfortunately, its use is often not correct.
->> Typical errors are that the mandatory name sysfs attribute is not created,
->> that the temperature sensor index starts with 0 instead of 1, and/or that
->> sysfs attributes are created after the hwmon device was created.
->
-> As it happens, I was just looking at what we do in sfc
-> (drivers/net/ethernet/sfc/mcdi_mon.c) and wondering why I made it create
-> the hwmon device before the attributes.  I think I avoided the other
-> bugs though.
->
-Hi Ben,
+On Sat, 2013-11-23 at 16:08 +0800, Yang Yingliang wrote:
 
-Yes, I know about that one. It concluded that it would be too invasive
-and risky to try to fix it without access to hardware to test the results.
-That is why I said "fixes _most_ of the problems".
+> 
+> I've applied this patch, but it's oops too.
+> I think it's not the same problem. In this
+> problem, when the segs is not enqueued, we do
+> nothing to the segs.I think it causes the
+> problem. If I am wrong, please point out.
+> Thanks!
+> 
+> Here is the call trace after applying the above patch:
+> BTW, the call trace is not always same no matter the
+> above patch is applied.
+> 
 
-As for why the attributes are created after registration, it was most likely
-because there was no API available to attach the sysfs attributes to
-the hwmon device in a clean way. The new APIs fix that.
+Oh right. Your patch on the right way, but changelog very confusing.
 
-Thanks,
-Guenter
+BTW, setting a mtu of 1KB on TBF never worked if your ethernet device
+has MTU of 1500.
 
-> Ben.
->
->> The following sequence of patches fixes most of the problems.
->>
->> The igb patches have been tested with real hardware; the others are compile
->> tested only.
->
+I think that we should emit a warning if TBF mtu is too low.
+
+Ideally we should not even call skb_gso_segment() at all.
+
+I'll post an updated version of the patch with a more detailed changelog
+and explanations.
+
+Thanks !
