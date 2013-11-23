@@ -1,126 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] sch_tbf: handle too small burst
-Date: Sat, 23 Nov 2013 12:59:20 -0800
-Message-ID: <1385240360.10637.108.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1385112446-15564-1-git-send-email-yangyingliang@huawei.com>
-	 <1385131801.10637.84.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5290628F.6080604@huawei.com>
-	 <1385229367.10637.92.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Arno Wagner <arno@wagner.name>
+Subject: Re: Fw: [Bug 65261] New: Packet loss or excessive packet delay
+ repeatedly for some seconds
+Date: Sat, 23 Nov 2013 23:00:00 +0100
+Message-ID: <20131123215959.GA2570@tansi.org>
+References: <20131120122316.77ce76c5@nehalam.linuxnetplumber.net>
+ <20131123043359.GC15822@order.stressinduktion.org>
+ <20131123121140.GB28775@tansi.org>
+ <1385225158.20467.70.camel@deadeye.wl.decadent.org.uk>
+ <20131123202046.GB715@tansi.org>
+ <20131123203933.GE15822@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ben@decadent.org.uk, jpirko@redhat.com,
-	jhs@mojatatu.com
-To: Yang Yingliang <yangyingliang@huawei.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
+	stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:38015 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756308Ab3KWU7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 15:59:21 -0500
-Received: by mail-pb0-f41.google.com with SMTP id jt11so3188843pbb.0
-        for <netdev@vger.kernel.org>; Sat, 23 Nov 2013 12:59:21 -0800 (PST)
-In-Reply-To: <1385229367.10637.92.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from ns.km31936-01.keymachine.de ([87.118.116.4]:42832 "EHLO
+	v6.tansi.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755708Ab3KWWAY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Nov 2013 17:00:24 -0500
+Content-Disposition: inline
+In-Reply-To: <20131123203933.GE15822@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Sat, Nov 23, 2013 at 21:39:33 CET, Hannes Frederic Sowa wrote:
+> On Sat, Nov 23, 2013 at 09:20:47PM +0100, Arno Wagner wrote:
+> > On Sat, Nov 23, 2013 at 17:45:58 CET, Ben Hutchings wrote:
+> > > On Sat, 2013-11-23 at 13:11 +0100, Arno Wagner wrote:
+> > > > On Sat, Nov 23, 2013 at 05:33:59 CET, Hannes Frederic Sowa wrote:
+> > > [...]
+> > > > > Could you try dropwatch while the packet drops are happening?
+> > > > > Often it is helpful to check ip monitor all if events happen during bursty
+> > > > > losses.
+> > > > 
+> > > > Sorry, but dropwatch is not in Debian and compiling it from sources
+> > > > seem to require something called "rpmbuild". Hence I cannot use
+> > > > it or at least would have to write my own Makefile for it. 
+> > > 
+> > > You could use 'perf script net_dropmonitor' instead.
+> > 
+> > That gets me "invalid or unsupported event: 'skb:kfree_skb'"
+> > with 3.10.17, so I guess it will not work with 3.10.19 either.
+> 
+> You need CONFIG_DROP_MONITOR enabled on your kernel build.
 
-If a too small burst is inadvertently set on TBF, we might trigger
-a bug in tbf_segment(), as 'skb' instead of 'segs' was used in a
-qdisc_reshape_fail() call.
+Interestingly, that option is not even there in .config. 
+Must be someting that "make oldconfig" messed up along 
+the way, as making a new .config with all default values 
+does have it commented out as "not set".
 
-tc qdisc add dev eth0 root handle 1: tbf latency 50ms burst 1KB rate
-50mbit
+After a bit of poking around, I found it and its pre-requisites 
+net/Kconfig, where it says it depends on INET && TRACEPOINTS.
+After a bit more poking I finally found TRACEPOINTS on init/Kconfig,
+depending on nothing. But it does not get displayed as selectable
+in "make menuconfig".  As far as I can tell, it is not constrained
+and should show up? 
 
-Fix the bug, and add a warning, as such configuration is not
-going to work anyway for non GSO packets.
+So I really have no clue how to turn this on...
 
-(For some reason, one has to use a burst >= 1520 to get a working
-configuration, even with old kernels. This is a probable iproute2/tc
-bug)
+Arno
 
-Based on a report and initial patch from Yang Yingliang
 
-Fixes: e43ac79a4bc6 ("sch_tbf: segment too big GSO packets")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Yang Yingliang <yangyingliang@huawei.com>
----
-Note : I prepared a self contained patch for the ease of stable
-       submissions. We might later move skb_gso_seglen() in an
-       include file.
 
- net/sched/sch_tbf.c |   32 +++++++++++++++++++++++++-------
- 1 file changed, 25 insertions(+), 7 deletions(-)
 
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index 68f9859..a609005 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -21,6 +21,7 @@
- #include <net/netlink.h>
- #include <net/sch_generic.h>
- #include <net/pkt_sched.h>
-+#include <net/tcp.h>
- 
- 
- /*	Simple Token Bucket Filter.
-@@ -117,6 +118,22 @@ struct tbf_sched_data {
- };
- 
- 
-+/*
-+ * Return length of individual segments of a gso packet,
-+ * including all headers (MAC, IP, TCP/UDP)
-+ */
-+static unsigned int skb_gso_seglen(const struct sk_buff *skb)
-+{
-+	unsigned int hdr_len = skb_transport_header(skb) - skb_mac_header(skb);
-+	const struct skb_shared_info *shinfo = skb_shinfo(skb);
-+
-+	if (likely(shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)))
-+		hdr_len += tcp_hdrlen(skb);
-+	else
-+		hdr_len += sizeof(struct udphdr);
-+	return hdr_len + shinfo->gso_size;
-+}
-+
- /* GSO packet is too big, segment it so that tbf can transmit
-  * each segment in time
-  */
-@@ -136,12 +153,8 @@ static int tbf_segment(struct sk_buff *skb, struct Qdisc *sch)
- 	while (segs) {
- 		nskb = segs->next;
- 		segs->next = NULL;
--		if (likely(segs->len <= q->max_size)) {
--			qdisc_skb_cb(segs)->pkt_len = segs->len;
--			ret = qdisc_enqueue(segs, q->qdisc);
--		} else {
--			ret = qdisc_reshape_fail(skb, sch);
--		}
-+		qdisc_skb_cb(segs)->pkt_len = segs->len;
-+		ret = qdisc_enqueue(segs, q->qdisc);
- 		if (ret != NET_XMIT_SUCCESS) {
- 			if (net_xmit_drop_count(ret))
- 				sch->qstats.drops++;
-@@ -163,7 +176,7 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	int ret;
- 
- 	if (qdisc_pkt_len(skb) > q->max_size) {
--		if (skb_is_gso(skb))
-+		if (skb_is_gso(skb) && skb_gso_seglen(skb) <= q->max_size)
- 			return tbf_segment(skb, sch);
- 		return qdisc_reshape_fail(skb, sch);
- 	}
-@@ -319,6 +332,11 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
- 	if (max_size < 0)
- 		goto done;
- 
-+	if (max_size < psched_mtu(qdisc_dev(sch)))
-+		pr_warn_ratelimited("sch_tbf: burst %u is lower than device %s mtu (%u) !\n",
-+				    max_size, qdisc_dev(sch)->name,
-+				    psched_mtu(qdisc_dev(sch)));
-+
- 	if (q->qdisc != &noop_qdisc) {
- 		err = fifo_set_limit(q->qdisc, qopt->limit);
- 		if (err)
+-- 
+Arno Wagner,     Dr. sc. techn., Dipl. Inform.,    Email: arno@wagner.name
+GnuPG: ID: CB5D9718  FP: 12D6 C03B 1B30 33BB 13CF  B774 E35C 5FA1 CB5D 9718
+----
+There are two ways of constructing a software design: One way is to make it
+so simple that there are obviously no deficiencies, and the other way is to
+make it so complicated that there are no obvious deficiencies. The first
+method is far more difficult.  --Tony Hoare
