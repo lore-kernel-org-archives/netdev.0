@@ -1,10 +1,10 @@
 From: Jean Delvare <khali@linux-fr.org>
-Subject: Re: [lm-sensors] [PATCH 5/5] ixgbe: Start temperature sensor
- attribute  index with 1
-Date: Sat, 23 Nov 2013 14:01:58 +0100
-Message-ID: <20131123140158.47ce529d@endymion.delvare>
+Subject: Re: [lm-sensors] [PATCH 1/5] tg3: Convert to use
+ hwmon_device_register_with_groups
+Date: Sat, 23 Nov 2013 15:32:59 +0100
+Message-ID: <20131123153259.16c0fe28@endymion.delvare>
 References: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
-	<1385186881-7931-6-git-send-email-linux@roeck-us.net>
+	<1385186881-7931-2-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -20,53 +20,98 @@ Cc: netdev@vger.kernel.org, Nithin Nayak Sujir <nsujir@broadcom.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zoneX.GCU-Squad.org ([194.213.125.0]:14934 "EHLO
+Received: from zoneX.GCU-Squad.org ([194.213.125.0]:46552 "EHLO
 	services.gcu-squad.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753485Ab3KWNCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 08:02:06 -0500
-In-Reply-To: <1385186881-7931-6-git-send-email-linux@roeck-us.net>
+	with ESMTP id S1753299Ab3KWOdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 09:33:13 -0500
+In-Reply-To: <1385186881-7931-2-git-send-email-linux@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 22 Nov 2013 22:08:01 -0800, Guenter Roeck wrote:
-> Per hwmon ABI, temperature sensor attribute index starts with 1, not 0.
+Hi Guenter,
+
+On Fri, 22 Nov 2013 22:07:57 -0800, Guenter Roeck wrote:
+> Use new hwmon API to simplify code, provide missing mandatory 'name'
+> sysfs attribute, and attach hwmon attributes to hwmon device instead
+> of pci device.
 > 
 > Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 > ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c |    8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
+>  drivers/net/ethernet/broadcom/tg3.c |   25 ++++++-------------------
+>  1 file changed, 6 insertions(+), 19 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-> index 3081974..e74ae36 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-> @@ -118,22 +118,22 @@ static int ixgbe_add_hwmon_attr(struct ixgbe_adapter *adapter,
->  	case IXGBE_HWMON_TYPE_LOC:
->  		ixgbe_attr->dev_attr.show = ixgbe_hwmon_show_location;
->  		snprintf(ixgbe_attr->name, sizeof(ixgbe_attr->name),
-> -			 "temp%u_label", offset);
-> +			 "temp%u_label", offset + 1);
->  		break;
->  	case IXGBE_HWMON_TYPE_TEMP:
->  		ixgbe_attr->dev_attr.show = ixgbe_hwmon_show_temp;
->  		snprintf(ixgbe_attr->name, sizeof(ixgbe_attr->name),
-> -			 "temp%u_input", offset);
-> +			 "temp%u_input", offset + 1);
->  		break;
->  	case IXGBE_HWMON_TYPE_CAUTION:
->  		ixgbe_attr->dev_attr.show = ixgbe_hwmon_show_cautionthresh;
->  		snprintf(ixgbe_attr->name, sizeof(ixgbe_attr->name),
-> -			 "temp%u_max", offset);
-> +			 "temp%u_max", offset + 1);
->  		break;
->  	case IXGBE_HWMON_TYPE_MAX:
->  		ixgbe_attr->dev_attr.show = ixgbe_hwmon_show_maxopthresh;
->  		snprintf(ixgbe_attr->name, sizeof(ixgbe_attr->name),
-> -			 "temp%u_crit", offset);
-> +			 "temp%u_crit", offset + 1);
->  		break;
->  	default:
->  		rc = -EPERM;
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index a9e0684..369b736 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -10629,10 +10629,8 @@ static void tg3_sd_scan_scratchpad(struct tg3 *tp, struct tg3_ocir *ocir)
+>  static ssize_t tg3_show_temp(struct device *dev,
+>  			     struct device_attribute *devattr, char *buf)
+>  {
+> -	struct pci_dev *pdev = to_pci_dev(dev);
+> -	struct net_device *netdev = pci_get_drvdata(pdev);
+> -	struct tg3 *tp = netdev_priv(netdev);
+>  	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
+> +	struct tg3 *tp = dev_get_drvdata(dev);
+>  	u32 temperature;
+>  
+>  	spin_lock_bh(&tp->lock);
+> @@ -10650,29 +10648,25 @@ static SENSOR_DEVICE_ATTR(temp1_crit, S_IRUGO, tg3_show_temp, NULL,
+>  static SENSOR_DEVICE_ATTR(temp1_max, S_IRUGO, tg3_show_temp, NULL,
+>  			  TG3_TEMP_MAX_OFFSET);
+>  
+> -static struct attribute *tg3_attributes[] = {
+> +static struct attribute *tg3_attrs[] = {
+>  	&sensor_dev_attr_temp1_input.dev_attr.attr,
+>  	&sensor_dev_attr_temp1_crit.dev_attr.attr,
+>  	&sensor_dev_attr_temp1_max.dev_attr.attr,
+>  	NULL
+>  };
+> -
+> -static const struct attribute_group tg3_group = {
+> -	.attrs = tg3_attributes,
+> -};
+> +ATTRIBUTE_GROUPS(tg3);
+>  
+>  static void tg3_hwmon_close(struct tg3 *tp)
+>  {
+>  	if (tp->hwmon_dev) {
+>  		hwmon_device_unregister(tp->hwmon_dev);
+>  		tp->hwmon_dev = NULL;
+> -		sysfs_remove_group(&tp->pdev->dev.kobj, &tg3_group);
+>  	}
+>  }
+>  
+>  static void tg3_hwmon_open(struct tg3 *tp)
+>  {
+> -	int i, err;
+> +	int i;
+>  	u32 size = 0;
+>  	struct pci_dev *pdev = tp->pdev;
+>  	struct tg3_ocir ocirs[TG3_SD_NUM_RECS];
+> @@ -10690,18 +10684,11 @@ static void tg3_hwmon_open(struct tg3 *tp)
+>  	if (!size)
+>  		return;
+>  
+> -	/* Register hwmon sysfs hooks */
+> -	err = sysfs_create_group(&pdev->dev.kobj, &tg3_group);
+> -	if (err) {
+> -		dev_err(&pdev->dev, "Cannot create sysfs group, aborting\n");
+> -		return;
+> -	}
+> -
+> -	tp->hwmon_dev = hwmon_device_register(&pdev->dev);
+> +	tp->hwmon_dev = hwmon_device_register_with_groups(&pdev->dev, "tg3",
+> +							  tp, tg3_groups);
+>  	if (IS_ERR(tp->hwmon_dev)) {
+>  		tp->hwmon_dev = NULL;
+>  		dev_err(&pdev->dev, "Cannot register hwmon device, aborting\n");
+> -		sysfs_remove_group(&pdev->dev.kobj, &tg3_group);
+>  	}
+>  }
+>  
+
+I can't test this, but the changes look good to me.
 
 Reviewed-by: Jean Delvare <khali@linux-fr.org>
 
