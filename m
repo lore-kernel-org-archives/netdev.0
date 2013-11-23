@@ -1,39 +1,49 @@
-From: James Feeney <james@nurealm.net>
-Subject: r8169 - it's dead jim
-Date: Sat, 23 Nov 2013 12:46:00 -0700
-Message-ID: <529105F8.9030901@nurealm.net>
-Reply-To: james@nurealm.net
+From: Arno Wagner <arno@wagner.name>
+Subject: Re: Fw: [Bug 65261] New: Packet loss or excessive packet delay
+ repeatedly for some seconds
+Date: Sat, 23 Nov 2013 21:20:47 +0100
+Message-ID: <20131123202046.GB715@tansi.org>
+References: <20131120122316.77ce76c5@nehalam.linuxnetplumber.net>
+ <20131123043359.GC15822@order.stressinduktion.org>
+ <20131123121140.GB28775@tansi.org>
+ <1385225158.20467.70.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: Realtek and the Linux r8169 crew <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay-fo.embarq.synacor.com ([208.47.184.9]:60894 "EHLO
-	mailrelay.embarq.synacor.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753034Ab3KWUGF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 15:06:05 -0500
+Received: from ns.km31936-01.keymachine.de ([87.118.116.4]:56344 "EHLO
+	v6.tansi.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755638Ab3KWUVK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Nov 2013 15:21:10 -0500
+Content-Disposition: inline
+In-Reply-To: <1385225158.20467.70.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hey
+On Sat, Nov 23, 2013 at 17:45:58 CET, Ben Hutchings wrote:
+> On Sat, 2013-11-23 at 13:11 +0100, Arno Wagner wrote:
+> > On Sat, Nov 23, 2013 at 05:33:59 CET, Hannes Frederic Sowa wrote:
+> [...]
+> > > Could you try dropwatch while the packet drops are happening?
+> > > Often it is helpful to check ip monitor all if events happen during bursty
+> > > losses.
+> > 
+> > Sorry, but dropwatch is not in Debian and compiling it from sources
+> > seem to require something called "rpmbuild". Hence I cannot use
+> > it or at least would have to write my own Makefile for it. 
+> 
+> You could use 'perf script net_dropmonitor' instead.
 
-Going from 3.12.0-1-ARCH to 3.12.1-1-ARCH, the r8169 module is having the "link
-detect" problem again.
+That gets me "invalid or unsupported event: 'skb:kfree_skb'"
+with 3.10.17, so I guess it will not work with 3.10.19 either.
 
-Initially, "ethtool -s <blah> autoneg off" gives "invalid argument".
-
-"sudo mii-tool -R enp22s0" - Reset the MII to its default configuration - will
-allow a 10Mb/s half duplex connection, with "autoneg off".
-
-"ethtool -s <blah> autoneg off" then will work, after the "mii-tool -R <blah>".
-
-After some time, Auto-negotiation will spontaneously go on, and a 100Mb/s full
-duplex connection will come up, on a 1Gb/s interface.  Subsequent unplugging and
-plugging the cable gives a 1Gb/s full duplex connection.
-
-This problem has been recurring for so many years, I hope the solution is
-something obvious, perhaps a recent change to the kernel?
-
-
-Thanks
-James
+Arno
+-- 
+Arno Wagner,     Dr. sc. techn., Dipl. Inform.,    Email: arno@wagner.name
+GnuPG: ID: CB5D9718  FP: 12D6 C03B 1B30 33BB 13CF  B774 E35C 5FA1 CB5D 9718
+----
+There are two ways of constructing a software design: One way is to make it
+so simple that there are obviously no deficiencies, and the other way is to
+make it so complicated that there are no obvious deficiencies. The first
+method is far more difficult.  --Tony Hoare
