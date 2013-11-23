@@ -1,88 +1,50 @@
-From: Chang <changxiangzhong@gmail.com>
-Subject: Re: [PATCH] net: sctp: set chunk->tsn_gap_acked at the end of cycle
-Date: Sat, 23 Nov 2013 09:22:11 +0100
-Message-ID: <529065B3.6060905@gmail.com>
-References: <1385106589-402-1-git-send-email-changxiangzhong@gmail.com> <528F69B7.7020902@gmail.com> <528FAF50.10100@gmail.com> <528FDF52.4030500@gmail.com>
+From: SUN EAST FEDERAL CREDIT UNION <lpimentel@mij.gov.ve>
+Subject: Darlehen bieten jetzt bewerben.
+Date: Sat, 23 Nov 2013 04:05:23 -0430 (VET)
+Message-ID: <17769769.12241385195723597.JavaMail.root@mail.mij.gov.ve>
+Reply-To: "sun.east@webadicta.org" <sun.east@webadicta.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>, nhorman@tuxdriver.com,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <528FDF52.4030500@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mij.gov.ve ([200.11.241.122]:43734 "HELO mail.mij.gov.ve"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753955Ab3KWJPj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 04:15:39 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-On 11/22/2013 11:48 PM, Vlad Yasevich wrote:
-> On 11/22/2013 02:24 PM, Chang wrote:
->> On 11/22/2013 03:27 PM, Vlad Yasevich wrote:
->>> On 11/22/2013 02:49 AM, Chang Xiangzhong wrote:
->>>> tsn_gap_acked is an important state flag in chunk, which indicates if
->>>> the
->>>> chunk has been acked in gap reports before.
->>> Actually, this bit indicates simply that the chunk has been acked.  It
->>> doesn't state whether it's been acked in a gap report or via
->>> cumulative tsn.
->> Thanks for pointing this out. Sorry for not having made that clear.
->>>> SFR-CACC algorithm depends on this
->>>> variable. So set this at the end of each iteration, otherwise the
->>>> SFR-CACC
->>>> algorithm would never be toggled.
->>>>
->>>> Signed-off-by: Chang Xiangzhong <changxiangzhong@gmail.com>
->>>> ---
->>>>    net/sctp/outqueue.c | 3 ++-
->>>>    1 file changed, 2 insertions(+), 1 deletion(-)
->>>>
->>>> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
->>>> index 1b494fa..bff828c 100644
->>>> --- a/net/sctp/outqueue.c
->>>> +++ b/net/sctp/outqueue.c
->>>> @@ -1396,7 +1396,6 @@ static void sctp_check_transmitted(struct
->>>> sctp_outq *q,
->>>>                 * while DATA was outstanding).
->>>>                 */
->>>>                if (!tchunk->tsn_gap_acked) {
->>>> -                tchunk->tsn_gap_acked = 1;
->>>>                    if (TSN_lt(*highest_new_tsn_in_sack, tsn))
->>>>                        *highest_new_tsn_in_sack = tsn;
->>>>                    bytes_acked += sctp_data_size(tchunk);
->>>> @@ -1460,6 +1459,8 @@ static void sctp_check_transmitted(struct
->>>> sctp_outq *q,
->>>>                     */
->>>>                    list_add_tail(lchunk, &tlist);
->>>>                }
->>>> +
->>>> +            tchunk->tsn_gap_acked = 1;
->>> The current code will set the state if it hasn't been set yet.  Why is
->>> this needed?
->> Because in line 1420 ~ 1440 The SFR-CACC algorithms use tsn_gap_acked.
->> That "if block" would never be triggered because the varaiable's been
->> set. That's why I move the "state changing sentence" to the end of the
->> iteration.
->>> Now there is an issue with tracking highest_new_tsn_in_sack.  The spec
->>> is a little vague on this, but the highest_new_tsn_in_sack only supposed
->>> to track tsns that have not been resent.  If a tsn has been reneged, and
->>> then sent again, it is not considered 'new' thus should not count
->>> toward highest_new_tsn_in_sack.  We currently do not track this right.
->> I'll try to figure this out.
-> So the solution that's been proposed before is to move the CACC block up
-> and merge it with the !tsn_gap_acked block.  This requires additional
-> change though to only mark highest_new_tsn if the chunk has not been
-> retransmitted (which you've added in a prior patch).
->
-> -vlad
-Yeah, I've mixed that up with a prior patch. How was the previous patch? 
-Was it approved?
--chang
->>> -vlad
->>>
->>> -vlad
->>>
->>>>            } else {
->>>>                if (tchunk->tsn_gap_acked) {
->>>>                    pr_debug("%s: receiver reneged on data TSN:0x%x\n",
->>>>
+
+SUN EAST FEDERAL CREDIT UNION=C2=AE geben wir Kredite zu einem niedrige=
+n Zinssatz von 3%. Eine seri=C3=B6se, legitim und akkreditierte Geld Le=
+nding Company. Wir leihen Geld aus, um Menschen in Not der finanziellen=
+ Unterst=C3=BCtzung. Haben Sie eine schlechte Kredit haben oder Sie bra=
+uchen Geld, um Rechnungen zu bezahlen? Wir wollen dieses Medium nutzen,=
+ um Ihnen mitzuteilen, dass wir zuverl=C3=A4ssige Empf=C3=A4nger Hilfe =
+machen, wie wir Ihnen gerne ein Darlehen anbieten zu k=C3=B6nnen.
+
+Nach der Reaktion, werden Sie ein Darlehen Antragsformular per Post zu =
+f=C3=BCllen.
+
+Keine soziale Sicherheit und keine Bonit=C3=A4tspr=C3=BCfung, 100% gara=
+ntiert.
+
+Wir freuen uns erlaubt mir der Service f=C3=BCr Sie sein.
+
+Ben=C3=B6tigte Informationen
+*****************************
+Ihre Namen: ...........
+Adresse: .........
+Telefonnummer: .........
+Betrag ben=C3=B6tigt: ......
+Dauer: ...............
+Monatliches Einkommen Niveau .....
+Land: .........
+Postleitzahl: ....
+
+Susane Robert.
+
+Telefon: +447035993973
+Oder mailen Sie uns unter: sun.east@webadicta.org
