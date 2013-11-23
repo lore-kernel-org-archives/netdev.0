@@ -1,48 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sch_tbf: handle too small burst
-Date: Sat, 23 Nov 2013 14:49:33 -0800 (PST)
-Message-ID: <20131123.144933.671852794341688223.davem@davemloft.net>
-References: <5290628F.6080604@huawei.com>
-	<1385229367.10637.92.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1385240360.10637.108.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [Patch v2] IPv6: Fixed support for blackhole and prohibit routes
+Date: Sat, 23 Nov 2013 23:41:16 +0100
+Message-ID: <20131123224116.GH15822@order.stressinduktion.org>
+References: <1385108488-32163-1-git-send-email-kamala@aristanetwors.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yangyingliang@huawei.com, netdev@vger.kernel.org,
-	ben@decadent.org.uk, jpirko@redhat.com, jhs@mojatatu.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60826 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932089Ab3KWWlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 17:41:03 -0500
-In-Reply-To: <1385240360.10637.108.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Kamala R <kamala@aristanetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1385108488-32163-1-git-send-email-kamala@aristanetwors.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 23 Nov 2013 12:59:20 -0800
+On Fri, Nov 22, 2013 at 01:51:28PM +0530, Kamala R wrote:
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index f54e3a1..d90b9ab 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1564,21 +1564,24 @@ int ip6_route_add(struct fib6_config *cfg)
+>  				goto out;
+>  			}
+>  		}
+> -		rt->dst.output = ip6_pkt_discard_out;
+> -		rt->dst.input = ip6_pkt_discard;
+>  		rt->rt6i_flags = RTF_REJECT|RTF_NONEXTHOP;
+> +		rt->dst.error = -ENETUNREACH;
+>  		switch (cfg->fc_type) {
+>  		case RTN_BLACKHOLE:
+>  			rt->dst.error = -EINVAL;
+> +			rt->dst.output = dst_discard;
+> +			rt->dst.input = dst_discard;
+>  			break;
+>  		case RTN_PROHIBIT:
+>  			rt->dst.error = -EACCES;
+> +			rt->dst.output = ip6_pkt_prohibit_out;
+> +			rt->dst.input = ip6_pkt_prohibit;
+>  			break;
+>  		case RTN_THROW:
+>  			rt->dst.error = -EAGAIN;
+> -			break;
+>  		default:
+> -			rt->dst.error = -ENETUNREACH;
+> +			rt->dst.output = ip6_pkt_discard_out;
+> +			rt->dst.input = ip6_pkt_discard;
+>  			break;
+>  		}
+>  		goto install_route;
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> If a too small burst is inadvertently set on TBF, we might trigger
-> a bug in tbf_segment(), as 'skb' instead of 'segs' was used in a
-> qdisc_reshape_fail() call.
-> 
-> tc qdisc add dev eth0 root handle 1: tbf latency 50ms burst 1KB rate
-> 50mbit
-> 
-> Fix the bug, and add a warning, as such configuration is not
-> going to work anyway for non GSO packets.
-> 
-> (For some reason, one has to use a burst >= 1520 to get a working
-> configuration, even with old kernels. This is a probable iproute2/tc
-> bug)
-> 
-> Based on a report and initial patch from Yang Yingliang
-> 
-> Fixes: e43ac79a4bc6 ("sch_tbf: segment too big GSO packets")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Yang Yingliang <yangyingliang@huawei.com>
-
-Applied and queued up for -stable.
+I like it more if a variable is only assigned once. Otherwise it is fine by
+me. 
