@@ -1,63 +1,64 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH 4/5] igb: Start temperature sensor attribute
-	index with 1
-Date: Fri, 22 Nov 2013 22:08:00 -0800
-Message-ID: <1385186881-7931-5-git-send-email-linux@roeck-us.net>
+Subject: [PATCH 5/5] ixgbe: Start temperature sensor attribute index with 1
+Date: Fri, 22 Nov 2013 22:08:01 -0800
+Message-ID: <1385186881-7931-6-git-send-email-linux@roeck-us.net>
 References: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Nithin Nayak Sujir <nsujir@broadcom.com>, e1000-devel@lists.sourceforge.net,
-	Bruce Allan <bruce.w.allan@intel.com>,
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	lm-sensors@lm-sensors.org, Michael Chan <mchan@broadcom.com>,
-	"David S. Miller" <davem@davemloft.net>, Guenter Roeck <linux@roeck-us.net>
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	e1000-devel@lists.sourceforge.net, lm-sensors@lm-sensors.org,
+	Guenter Roeck <linux@roeck-us.net>
 To: netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:64312 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754295Ab3KWGIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 01:08:23 -0500
+Received: by mail-pd0-f182.google.com with SMTP id v10so2266503pde.13
+        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 22:08:23 -0800 (PST)
 In-Reply-To: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Per hwmon ABI, temperature sensor attribute index starts with 1, not 0.
 
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/net/ethernet/intel/igb/igb_hwmon.c |    8 ++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c |    8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_hwmon.c b/drivers/net/ethernet/intel/igb/igb_hwmon.c
-index 2e7ef2d..e0af5bc 100644
---- a/drivers/net/ethernet/intel/igb/igb_hwmon.c
-+++ b/drivers/net/ethernet/intel/igb/igb_hwmon.c
-@@ -124,22 +124,22 @@ static int igb_add_hwmon_attr(struct igb_adapter *adapter,
- 	case IGB_HWMON_TYPE_LOC:
- 		igb_attr->dev_attr.show = igb_hwmon_show_location;
- 		snprintf(igb_attr->name, sizeof(igb_attr->name),
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
+index 3081974..e74ae36 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
+@@ -118,22 +118,22 @@ static int ixgbe_add_hwmon_attr(struct ixgbe_adapter *adapter,
+ 	case IXGBE_HWMON_TYPE_LOC:
+ 		ixgbe_attr->dev_attr.show = ixgbe_hwmon_show_location;
+ 		snprintf(ixgbe_attr->name, sizeof(ixgbe_attr->name),
 -			 "temp%u_label", offset);
 +			 "temp%u_label", offset + 1);
  		break;
- 	case IGB_HWMON_TYPE_TEMP:
- 		igb_attr->dev_attr.show = igb_hwmon_show_temp;
- 		snprintf(igb_attr->name, sizeof(igb_attr->name),
+ 	case IXGBE_HWMON_TYPE_TEMP:
+ 		ixgbe_attr->dev_attr.show = ixgbe_hwmon_show_temp;
+ 		snprintf(ixgbe_attr->name, sizeof(ixgbe_attr->name),
 -			 "temp%u_input", offset);
 +			 "temp%u_input", offset + 1);
  		break;
- 	case IGB_HWMON_TYPE_CAUTION:
- 		igb_attr->dev_attr.show = igb_hwmon_show_cautionthresh;
- 		snprintf(igb_attr->name, sizeof(igb_attr->name),
+ 	case IXGBE_HWMON_TYPE_CAUTION:
+ 		ixgbe_attr->dev_attr.show = ixgbe_hwmon_show_cautionthresh;
+ 		snprintf(ixgbe_attr->name, sizeof(ixgbe_attr->name),
 -			 "temp%u_max", offset);
 +			 "temp%u_max", offset + 1);
  		break;
- 	case IGB_HWMON_TYPE_MAX:
- 		igb_attr->dev_attr.show = igb_hwmon_show_maxopthresh;
- 		snprintf(igb_attr->name, sizeof(igb_attr->name),
+ 	case IXGBE_HWMON_TYPE_MAX:
+ 		ixgbe_attr->dev_attr.show = ixgbe_hwmon_show_maxopthresh;
+ 		snprintf(ixgbe_attr->name, sizeof(ixgbe_attr->name),
 -			 "temp%u_crit", offset);
 +			 "temp%u_crit", offset + 1);
  		break;
@@ -65,16 +66,3 @@ index 2e7ef2d..e0af5bc 100644
  		rc = -EPERM;
 -- 
 1.7.9.7
-
-
-------------------------------------------------------------------------------
-Shape the Mobile Experience: Free Subscription
-Software experts and developers: Be at the forefront of tech innovation.
-Intel(R) Software Adrenaline delivers strategic insight and game-changing 
-conversations that shape the rapidly evolving mobile landscape. Sign up now. 
-http://pubads.g.doubleclick.net/gampad/clk?id=63431311&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
