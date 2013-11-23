@@ -1,73 +1,68 @@
-From: Arno Wagner <arno@wagner.name>
-Subject: Re: Fw: [Bug 65261] New: Packet loss or excessive packet delay
- repeatedly for some seconds
-Date: Sat, 23 Nov 2013 23:00:00 +0100
-Message-ID: <20131123215959.GA2570@tansi.org>
-References: <20131120122316.77ce76c5@nehalam.linuxnetplumber.net>
- <20131123043359.GC15822@order.stressinduktion.org>
- <20131123121140.GB28775@tansi.org>
- <1385225158.20467.70.camel@deadeye.wl.decadent.org.uk>
- <20131123202046.GB715@tansi.org>
- <20131123203933.GE15822@order.stressinduktion.org>
+From: "Kirill A. Shutemov" <kirill@shutemov.name>
+Subject: Re: [OOPS][3.12] BUG: unable to handle kernel NULL pointer
+ dereference at 0000000c
+Date: Sat, 23 Nov 2013 23:10:19 +0200
+Message-ID: <20131123211019.GA7084@shutemov.name>
+References: <CAErSpo4jh7pO=jhZTvHD+sT2O12Ly6V3e_oiac8gHqmdmqevkg@mail.gmail.com>
+ <20131115.174426.1448825246187940374.davem@davemloft.net>
+ <20131115233919.GB11450@pomac.netswarm.net>
+ <20131115.185755.1752342950675745464.davem@davemloft.net>
+ <20131118092255.GX31491@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
-	stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.km31936-01.keymachine.de ([87.118.116.4]:42832 "EHLO
-	v6.tansi.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755708Ab3KWWAY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Nov 2013 17:00:24 -0500
+Cc: David Miller <davem@davemloft.net>, pomac@demius.net,
+	bhelgaas@google.com, pomac@vapor.com, linux-kernel@vger.kernel.org,
+	edumazet@google.com, netdev@vger.kernel.org, alex.aring@gmail.com,
+	stable@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20131123203933.GE15822@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20131118092255.GX31491@secunet.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 23, 2013 at 21:39:33 CET, Hannes Frederic Sowa wrote:
-> On Sat, Nov 23, 2013 at 09:20:47PM +0100, Arno Wagner wrote:
-> > On Sat, Nov 23, 2013 at 17:45:58 CET, Ben Hutchings wrote:
-> > > On Sat, 2013-11-23 at 13:11 +0100, Arno Wagner wrote:
-> > > > On Sat, Nov 23, 2013 at 05:33:59 CET, Hannes Frederic Sowa wrote:
-> > > [...]
-> > > > > Could you try dropwatch while the packet drops are happening?
-> > > > > Often it is helpful to check ip monitor all if events happen during bursty
-> > > > > losses.
-> > > > 
-> > > > Sorry, but dropwatch is not in Debian and compiling it from sources
-> > > > seem to require something called "rpmbuild". Hence I cannot use
-> > > > it or at least would have to write my own Makefile for it. 
-> > > 
-> > > You could use 'perf script net_dropmonitor' instead.
+On Mon, Nov 18, 2013 at 10:22:55AM +0100, Steffen Klassert wrote:
+> On Fri, Nov 15, 2013 at 06:57:55PM -0500, David Miller wrote:
+> > From: Ian Kumlien <pomac@demius.net>
+> > Date: Sat, 16 Nov 2013 00:39:19 +0100
 > > 
-> > That gets me "invalid or unsupported event: 'skb:kfree_skb'"
-> > with 3.10.17, so I guess it will not work with 3.10.19 either.
+> > > On Fri, Nov 15, 2013 at 05:44:26PM -0500, David Miller wrote:
+> > >> From: Bjorn Helgaas <bhelgaas@google.com>
+> > >> Date: Fri, 15 Nov 2013 15:29:53 -0700
+> > >> 
+> > >> > [+cc David, Eric, Alex, netdev]
+> > >> > 
+> > >> > Alex reported a similar issue at
+> > >> > http://marc.info/?l=linux-netdev&m=138355719901790&w=4
+> > >> 
+> > >> Fixed by:
+> > >> 
+> > >> commit 84502b5ef9849a9694673b15c31bd3ac693010ae
+> > >> Author: Steffen Klassert <steffen.klassert@secunet.com>
+> > >> Date:   Wed Oct 30 11:16:28 2013 +0100
+> > > 
+> > > Cherry-picked, compiled and preparing for reboot - thanks!
+> > > 
+> > > Shouldn't this be queued up in stable sometime soonish?
+> > > 
+> > > (Sorry for the change of email address, i had forgot to switch the
+> > > configurations in mutt)
+> > 
+> > Steffen is in charge of IPSEC -stable submissions, please ask him
+> > :-)
 > 
-> You need CONFIG_DROP_MONITOR enabled on your kernel build.
+> It was intended for v3.12 but the release came before it was merged
+> into the manline. So yes, it should go to the v3.12 stable tree.
+> 
+> I've always did stable submissions just by marking them as a
+> candidate for stable, this did not happen here because I hoped
+> it will make it into v3.12. It should apply cleanly to v3.12
+> stable, you could just pick it into you stable queue, or
+> alternatively I can submit to stable.
 
-Interestingly, that option is not even there in .config. 
-Must be someting that "make oldconfig" messed up along 
-the way, as making a new .config with all default values 
-does have it commented out as "not set".
+Any progress with getting the patch into stable?
 
-After a bit of poking around, I found it and its pre-requisites 
-net/Kconfig, where it says it depends on INET && TRACEPOINTS.
-After a bit more poking I finally found TRACEPOINTS on init/Kconfig,
-depending on nothing. But it does not get displayed as selectable
-in "make menuconfig".  As far as I can tell, it is not constrained
-and should show up? 
-
-So I really have no clue how to turn this on...
-
-Arno
-
-
-
+It's not in v3.12.1 and I don't see it in stable queue.
 
 -- 
-Arno Wagner,     Dr. sc. techn., Dipl. Inform.,    Email: arno@wagner.name
-GnuPG: ID: CB5D9718  FP: 12D6 C03B 1B30 33BB 13CF  B774 E35C 5FA1 CB5D 9718
-----
-There are two ways of constructing a software design: One way is to make it
-so simple that there are obviously no deficiencies, and the other way is to
-make it so complicated that there are no obvious deficiencies. The first
-method is far more difficult.  --Tony Hoare
+ Kirill A. Shutemov
