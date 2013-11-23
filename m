@@ -1,36 +1,61 @@
-From: "CARLOS FERNANDEZ" <ferncarlosrod@outlook.es>
-Subject: Earnestly Confidential
-Date: Sat, 23 Nov 2013 01:35:10 -0200
-Message-ID: <03459a0a49c8dbd603cf93c83bc00034.squirrel@41.221.245.42>
-Reply-To: ferncarlosrod@outlook.es
+From: yan cui <ccuiyyan@gmail.com>
+Subject: Re: dynamic TCP algorithms switching
+Date: Fri, 22 Nov 2013 22:56:10 -0500
+Message-ID: <CAAVq3rmgzL4Hg__dSkmEM75ZHuEsebE1D4ko-viSEggcYdrPjw@mail.gmail.com>
+References: <CAAVq3rnxE92PsJOChr+H52k5QfG7E=hAjsohK4Um0ZRO9TdYuA@mail.gmail.com>
+	<20131122145621.344fa999@nehalam.linuxnetplumber.net>
+	<CAAVq3rnmWUAzDGy9_nMLsbx++opgZpuYtG34VpZEBbJ2psBnZw@mail.gmail.com>
+	<20131122155303.68da12ec@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.unimetro.ed.ao ([41.221.245.42]:47583 "EHLO
-	mail.unimetro.ed.ao" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755311Ab3KWDgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 22:36:09 -0500
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:38774 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755248Ab3KWD4M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 22:56:12 -0500
+Received: by mail-wi0-f175.google.com with SMTP id hi5so1575056wib.8
+        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 19:56:10 -0800 (PST)
+In-Reply-To: <20131122155303.68da12ec@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Thanks for the quick reply!
+Do you have the real-world workload results that demonstrate
+that cubic has the best performance among all the available congestion
+algorithms? If so, could you please post some?
 
-Earnestly Confidential
 
-I am Carlos Fernandez, a Banker and credit system programmer with Banco
-Santander.
-I saw your email address while browsing through the bank D.T.C Screen in
-my office
-yesterday so I decided to use this very chance to know you. I believe we
-should use
-every opportunity to know each other better. However, I am contacting you
-for obvious reason
-which you will understand.
-I am sending this mail just to know if this email address is OK,
-reply me back so that I will send  more details to you.
-I have a very important thing to discuss with you, I look forward to
-receiving your response at
-jscregoffice@postino.net . Have a pleasant day.
+Thanks, Yan
 
-Carlos Fernandez
+
+2013/11/22 Stephen Hemminger <stephen@networkplumber.org>:
+> On Fri, 22 Nov 2013 18:21:12 -0500
+> yan cui <ccuiyyan@gmail.com> wrote:
+>
+>> Then, why include so many (current Linux has 10+ TCP congestion algorithms)
+>> algorithms? For users who want to deploy their application on Linux
+>> and if the applications
+>> are system resource intensive, they always want to tune the
+>> configurations of the operating systems for the last piece of
+>> performance. If they do so, maybe they are confused
+>> about which TCP congestion algorithm to use for their environment. So,
+>> the only way is to try each algorithm one by one. I understand the
+>> setting of the default TCP congestion
+>> algorithm to be Cubic means that it works well for most environments.
+>> But if others
+>> are seldom used, or can be replace with another implementation.
+>> Why not just remove from the kernel?
+>>
+>> Yan
+>
+> Most are intended for research and testing only.
+> Only a few are worth considering in a production environment.
+> That is also why there so many qdisc algorithms as well.
+>
+
+
+
+-- 
+Think big; Dream impossible; Make it happen.
