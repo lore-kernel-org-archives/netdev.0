@@ -1,50 +1,44 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH IPROUTE] ip: Add HSR support
-Date: Fri, 22 Nov 2013 17:33:34 -0800
-Message-ID: <20131122173334.0ae81887@nehalam.linuxnetplumber.net>
-References: <527D3CCC.3020609@xdin.com>
+Subject: Re: [PATCH iproute2] htb: support 64bit rates
+Date: Fri, 22 Nov 2013 17:36:58 -0800
+Message-ID: <20131122173658.5685d8aa@nehalam.linuxnetplumber.net>
+References: <1384295647.28458.31.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Arvid Brodin <arvid.brodin@xdin.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:52687 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755911Ab3KWBdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 20:33:38 -0500
-Received: by mail-pd0-f175.google.com with SMTP id w10so1981811pde.6
-        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 17:33:37 -0800 (PST)
-In-Reply-To: <527D3CCC.3020609@xdin.com>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:59424 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755893Ab3KWBhC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 20:37:02 -0500
+Received: by mail-pb0-f54.google.com with SMTP id un15so2092141pbc.27
+        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 17:37:01 -0800 (PST)
+In-Reply-To: <1384295647.28458.31.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 8 Nov 2013 20:34:36 +0100
-Arvid Brodin <arvid.brodin@xdin.com> wrote:
+On Tue, 12 Nov 2013 14:34:07 -0800
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> This patch adds basic support for High-Availability Seamless
-> Redundancy (HSR) network devices.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Arvid Brodin <arvid.brodin@xdin.com>
+> Starting from linux-3.13, we can break the 32bit limitation of
+> rates on HTB qdisc/classes.
+> 
+> Prior limit was 34.359.738.360 bits per second.
+> 
+> lpq83:~# tc -s qdisc show dev lo ; tc -s class show dev lo
+> qdisc htb 1: root refcnt 2 r2q 2000 default 1 direct_packets_stat 0 direct_qlen 6000
+>  Sent 6591936144493 bytes 149549182 pkt (dropped 0, overlimits 213757419 requeues 0) 
+>  rate 39464Mbit 114938pps backlog 0b 15p requeues 0 
+> class htb 1:1 root prio 0 rate 50000Mbit ceil 50000Mbit burst 200000b cburst 0b 
+>  Sent 6591942184547 bytes 149549310 pkt (dropped 0, overlimits 0 requeues 0) 
+>  rate 39464Mbit 114938pps backlog 0b 15p requeues 0 
+>  lended: 149549310 borrowed: 0 giants: 0
+>  tokens: 336 ctokens: -164
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Will not apply to current iproute source. The header files have been updated
-to be from current upstream (linus), and the IFLA_HSR doesn't match.
-
-Please fix, and resubmit. Note, for iproute2 the header files are updated
-perodically by using headers from kernel source (sanitized).
-
-usr/include/linux/if_link.h
-
-
-/* HSR section */
-
-enum {
-        IFLA_HSR_UNSPEC,
-        IFLA_HSR_SLAVE1,
-        IFLA_HSR_SLAVE2,
-        IFLA_HSR_MULTICAST_SPEC,
-        __IFLA_HSR_MAX,
-};
-
-#define IFLA_HSR_MAX (__IFLA_HSR_MAX - 1)
+Applied to net-next-for-3.13 branch
