@@ -1,52 +1,43 @@
-From: Michele Baldessari <michele@acksyn.org>
-Subject: Re: Bug - regression - Via velocity interface coming up freezes
- kernel
-Date: Sat, 23 Nov 2013 18:28:49 +0000
-Message-ID: <20131123182849.6d742f82@fante.int.rhx>
-References: <CAFES+i+OYq_dDtEqAqkW7qYDrtdzkqc9hBGBDODQuqgvFJE7zg@mail.gmail.com>
-	<20130922221109.GA14246@electric-eye.fr.zoreil.com>
-	<20131111234656.GA4846@marquez.int.rhx>
-	<20131114072451.GA2313@electric-eye.fr.zoreil.com>
-	<20131115000113.GA22051@electric-eye.fr.zoreil.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v3 1/2] net: sched: tbf: fix calculation of max_size
+Date: Sat, 23 Nov 2013 11:06:19 -0800
+Message-ID: <1385233579.10637.95.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1384845939-8424-1-git-send-email-yangyingliang@huawei.com>
+	 <1384845939-8424-2-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Dirk Kraft <dirk.kraft@gmail.com>, netdev@vger.kernel.org,
-	Julia Lawall <Julia.Lawall@lip6.fr>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, brouer@redhat.com,
+	jpirko@redhat.com, jbrouer@redhat.com
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palahniuk.acksyn.org ([5.9.7.26]:43406 "EHLO
-	palahniuk.acksyn.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755539Ab3KWS2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 13:28:52 -0500
-In-Reply-To: <20131115000113.GA22051@electric-eye.fr.zoreil.com>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:40286 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755987Ab3KWTGW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 14:06:22 -0500
+Received: by mail-pb0-f44.google.com with SMTP id rq2so3080329pbb.17
+        for <netdev@vger.kernel.org>; Sat, 23 Nov 2013 11:06:22 -0800 (PST)
+In-Reply-To: <1384845939-8424-2-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Francois,
-
-On Fri, 15 Nov 2013 01:01:13 +0100 
-Francois Romieu <romieu@fr.zoreil.com> wrote:
-> Francois Romieu <romieu@fr.zoreil.com> :
-> > Michele Baldessari <michele@acksyn.org> :
-> > [...]
-> > > any chance you can submit this officially ?
-> > 
-> > Yes.
-> > 
-> > > Or does this patch need some more work ?
-> > 
-> > I'll write some narrative for the commit message.
+On Tue, 2013-11-19 at 15:25 +0800, Yang Yingliang wrote:
+> commit b757c9336d63f94c6b57532(tbf: improved accuracy at high rates)
+> introduce a regression.
 > 
-> I would actually rather send the patch below.
+> With the follow command:
+> tc qdisc add dev eth1 root handle 1: tbf latency 50ms burst 10KB rate 30gbit mtu 64k
 > 
-> The previous patch isn't safe against mtu changes. Please give the
-> patch below some testing. Test case: receive lots of packets while
-> changing MTU. Loop. The former patch may crash. The later shouldn't.
+> Without this patch, the max_size value is 10751(bytes).
+> But, in fact, the real max_size value should be smaller than 7440(bytes).
+> Or a packet whose length is bigger than 7440 will cause network congestion.
+> Because the packet is so big that can't get enough tokens. Even all the tokens
+> in the buffer is given to the packet.
+> 
+> With this patch, the max_size value is 7440(bytes).
+> The packets whose length is bigger than 7440(bytes) will be dropped or reshape
+> in tbf_enqueue().
 
-testing was performed by Alex A. Schmidt on this second patch variant
-with MTU changes and no crashes were observed. Is the patch good
-to go now?
+This changelog makes no sense.
 
-thanks,
-Michele
+If userland asks 'burst 10KB', then burst is 10KB, not 7440.
