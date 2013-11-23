@@ -1,44 +1,45 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] htb: support 64bit rates
-Date: Fri, 22 Nov 2013 17:36:58 -0800
-Message-ID: <20131122173658.5685d8aa@nehalam.linuxnetplumber.net>
-References: <1384295647.28458.31.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: gem csum breakage with 018c5bba (Handle CHECKSUM_COMPLETE more
+ adequately ...)
+Date: Sat, 23 Nov 2013 09:47:17 +0800
+Message-ID: <20131123014716.GA16661@gondor.apana.org.au>
+References: <B8BCE323-6F65-4D14-BD4A-BFA07C3ED290@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, alexander.h.duyck@intel.com,
+	netdev@vger.kernel.org, edumazet@google.com,
+	herbert@gondor.apana.org,
+	"linux-kernel@vger.kernel.org list" <linux-kernel@vger.kernel.org>,
+	Ben Herrenschmidt <benh@kernel.crashing.org>
+To: Alexander Graf <agraf@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:59424 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755893Ab3KWBhC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 20:37:02 -0500
-Received: by mail-pb0-f54.google.com with SMTP id un15so2092141pbc.27
-        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 17:37:01 -0800 (PST)
-In-Reply-To: <1384295647.28458.31.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from ringil.hengli.com.au ([178.18.16.133]:57045 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755857Ab3KWBr2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Nov 2013 20:47:28 -0500
+Content-Disposition: inline
+In-Reply-To: <B8BCE323-6F65-4D14-BD4A-BFA07C3ED290@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 Nov 2013 14:34:07 -0800
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Fri, Nov 22, 2013 at 07:08:16PM +0100, Alexander Graf wrote:
+> Hi,
+> 
+> With current Linus' master tree my ibook started emitting a lot of annoying csum calculation warnings. I've bisected it down to the commit seen in the subject line, but I suppose the real problem lies somewhere a lot deeper and only gets revealed thanks to the more clever checksum logic applied now.
+> 
+> Any ideas how to dig further into this?
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Starting from linux-3.13, we can break the 32bit limitation of
-> rates on HTB qdisc/classes.
-> 
-> Prior limit was 34.359.738.360 bits per second.
-> 
-> lpq83:~# tc -s qdisc show dev lo ; tc -s class show dev lo
-> qdisc htb 1: root refcnt 2 r2q 2000 default 1 direct_packets_stat 0 direct_qlen 6000
->  Sent 6591936144493 bytes 149549182 pkt (dropped 0, overlimits 213757419 requeues 0) 
->  rate 39464Mbit 114938pps backlog 0b 15p requeues 0 
-> class htb 1:1 root prio 0 rate 50000Mbit ceil 50000Mbit burst 200000b cburst 0b 
->  Sent 6591942184547 bytes 149549310 pkt (dropped 0, overlimits 0 requeues 0) 
->  rate 39464Mbit 114938pps backlog 0b 15p requeues 0 
->  lended: 149549310 borrowed: 0 giants: 0
->  tokens: 336 ctokens: -164
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Sorry, I don't have any docs on this device.  Perhaps Dave has
+the docs which can tell us what RXDCTRL_TCPCSUM actually returns?
 
-Applied to net-next-for-3.13 branch
+I assume it returns the correct checksum ending at the IP
+packet boundary and only goes wrong when extra padding exists.
+
+Hmm, I suppose the question then is what exactly does it do
+if the packet isn't an IP packet?
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
