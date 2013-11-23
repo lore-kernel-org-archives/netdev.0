@@ -1,53 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: sched: tbf: fix an oops when a GSO packet cannot
- be enqueued
-Date: Sat, 23 Nov 2013 09:56:07 -0800
-Message-ID: <1385229367.10637.92.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1385112446-15564-1-git-send-email-yangyingliang@huawei.com>
-	 <1385131801.10637.84.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5290628F.6080604@huawei.com>
+From: Michele Baldessari <michele@acksyn.org>
+Subject: Re: Bug - regression - Via velocity interface coming up freezes
+ kernel
+Date: Sat, 23 Nov 2013 18:28:49 +0000
+Message-ID: <20131123182849.6d742f82@fante.int.rhx>
+References: <CAFES+i+OYq_dDtEqAqkW7qYDrtdzkqc9hBGBDODQuqgvFJE7zg@mail.gmail.com>
+	<20130922221109.GA14246@electric-eye.fr.zoreil.com>
+	<20131111234656.GA4846@marquez.int.rhx>
+	<20131114072451.GA2313@electric-eye.fr.zoreil.com>
+	<20131115000113.GA22051@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ben@decadent.org.uk,
-	jpirko@redhat.com, jhs@mojatatu.com
-To: Yang Yingliang <yangyingliang@huawei.com>
+Cc: Dirk Kraft <dirk.kraft@gmail.com>, netdev@vger.kernel.org,
+	Julia Lawall <Julia.Lawall@lip6.fr>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:51031 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750775Ab3KWR4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 12:56:09 -0500
-Received: by mail-pd0-f169.google.com with SMTP id v10so2909163pde.14
-        for <netdev@vger.kernel.org>; Sat, 23 Nov 2013 09:56:08 -0800 (PST)
-In-Reply-To: <5290628F.6080604@huawei.com>
+Received: from palahniuk.acksyn.org ([5.9.7.26]:43406 "EHLO
+	palahniuk.acksyn.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755539Ab3KWS2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 13:28:52 -0500
+In-Reply-To: <20131115000113.GA22051@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-11-23 at 16:08 +0800, Yang Yingliang wrote:
+Hi Francois,
 
+On Fri, 15 Nov 2013 01:01:13 +0100 
+Francois Romieu <romieu@fr.zoreil.com> wrote:
+> Francois Romieu <romieu@fr.zoreil.com> :
+> > Michele Baldessari <michele@acksyn.org> :
+> > [...]
+> > > any chance you can submit this officially ?
+> > 
+> > Yes.
+> > 
+> > > Or does this patch need some more work ?
+> > 
+> > I'll write some narrative for the commit message.
 > 
-> I've applied this patch, but it's oops too.
-> I think it's not the same problem. In this
-> problem, when the segs is not enqueued, we do
-> nothing to the segs.I think it causes the
-> problem. If I am wrong, please point out.
-> Thanks!
+> I would actually rather send the patch below.
 > 
-> Here is the call trace after applying the above patch:
-> BTW, the call trace is not always same no matter the
-> above patch is applied.
-> 
+> The previous patch isn't safe against mtu changes. Please give the
+> patch below some testing. Test case: receive lots of packets while
+> changing MTU. Loop. The former patch may crash. The later shouldn't.
 
-Oh right. Your patch on the right way, but changelog very confusing.
+testing was performed by Alex A. Schmidt on this second patch variant
+with MTU changes and no crashes were observed. Is the patch good
+to go now?
 
-BTW, setting a mtu of 1KB on TBF never worked if your ethernet device
-has MTU of 1500.
-
-I think that we should emit a warning if TBF mtu is too low.
-
-Ideally we should not even call skb_gso_segment() at all.
-
-I'll post an updated version of the patch with a more detailed changelog
-and explanations.
-
-Thanks !
+thanks,
+Michele
