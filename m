@@ -1,7 +1,7 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH 1/5] tg3: Convert to use hwmon_device_register_with_groups
-Date: Fri, 22 Nov 2013 22:07:57 -0800
-Message-ID: <1385186881-7931-2-git-send-email-linux@roeck-us.net>
+Subject: [PATCH 3/5] ixgbe: Convert to use devm_hwmon_device_register_with_groups
+Date: Fri, 22 Nov 2013 22:07:59 -0800
+Message-ID: <1385186881-7931-4-git-send-email-linux@roeck-us.net>
 References: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
@@ -16,94 +16,190 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Guenter Roeck <linux@roeck-us.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:58710 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753957Ab3KWGIQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 01:08:16 -0500
-Received: by mail-pb0-f49.google.com with SMTP id jt11so2342162pbb.22
-        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 22:08:15 -0800 (PST)
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:49606 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754295Ab3KWGIV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 01:08:21 -0500
+Received: by mail-pd0-f175.google.com with SMTP id w10so2262194pde.34
+        for <netdev@vger.kernel.org>; Fri, 22 Nov 2013 22:08:20 -0800 (PST)
 In-Reply-To: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use new hwmon API to simplify code, provide missing mandatory 'name'
-sysfs attribute, and attach hwmon attributes to hwmon device instead
-of pci device.
+Simplify the code. Attach hwmon sysfs attributes to hwmon device
+instead of pci device. Avoid race conditions caused by attributes
+being created after hwmon device registration. Implicitly
+(through hwmon API) add mandatory 'name' sysfs attribute.
+
+Other cleanup:
+
+Instead of allocating memory for hwmon attributes, move attributes
+and all other hwmon related data into struct hwmon_buff and allocate
+the entire structure using devm_kzalloc.
+
+Check return value from calls to igb_add_hwmon_attr() one by one instead
+of logically combining them all together.
 
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   25 ++++++-------------------
- 1 file changed, 6 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    8 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c |   76 ++++++++++--------------
+ 2 files changed, 36 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index a9e0684..369b736 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -10629,10 +10629,8 @@ static void tg3_sd_scan_scratchpad(struct tg3 *tp, struct tg3_ocir *ocir)
- static ssize_t tg3_show_temp(struct device *dev,
- 			     struct device_attribute *devattr, char *buf)
- {
--	struct pci_dev *pdev = to_pci_dev(dev);
--	struct net_device *netdev = pci_get_drvdata(pdev);
--	struct tg3 *tp = netdev_priv(netdev);
- 	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
-+	struct tg3 *tp = dev_get_drvdata(dev);
- 	u32 temperature;
- 
- 	spin_lock_bh(&tp->lock);
-@@ -10650,29 +10648,25 @@ static SENSOR_DEVICE_ATTR(temp1_crit, S_IRUGO, tg3_show_temp, NULL,
- static SENSOR_DEVICE_ATTR(temp1_max, S_IRUGO, tg3_show_temp, NULL,
- 			  TG3_TEMP_MAX_OFFSET);
- 
--static struct attribute *tg3_attributes[] = {
-+static struct attribute *tg3_attrs[] = {
- 	&sensor_dev_attr_temp1_input.dev_attr.attr,
- 	&sensor_dev_attr_temp1_crit.dev_attr.attr,
- 	&sensor_dev_attr_temp1_max.dev_attr.attr,
- 	NULL
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index f38fc0a..49531cd 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -552,8 +552,10 @@ struct hwmon_attr {
  };
--
--static const struct attribute_group tg3_group = {
--	.attrs = tg3_attributes,
--};
-+ATTRIBUTE_GROUPS(tg3);
  
- static void tg3_hwmon_close(struct tg3 *tp)
- {
- 	if (tp->hwmon_dev) {
- 		hwmon_device_unregister(tp->hwmon_dev);
- 		tp->hwmon_dev = NULL;
--		sysfs_remove_group(&tp->pdev->dev.kobj, &tg3_group);
- 	}
+ struct hwmon_buff {
+-	struct device *device;
+-	struct hwmon_attr *hwmon_list;
++	struct attribute_group group;
++	const struct attribute_group *groups[2];
++	struct attribute *attrs[IXGBE_MAX_SENSORS * 4 + 1];
++	struct hwmon_attr hwmon_list[IXGBE_MAX_SENSORS * 4];
+ 	unsigned int n_hwmon;
+ };
+ #endif /* CONFIG_IXGBE_HWMON */
+@@ -775,7 +777,7 @@ struct ixgbe_adapter {
+ 	u32 vferr_refcount;
+ 	struct kobject *info_kobj;
+ #ifdef CONFIG_IXGBE_HWMON
+-	struct hwmon_buff ixgbe_hwmon_buff;
++	struct hwmon_buff *ixgbe_hwmon_buff;
+ #endif /* CONFIG_IXGBE_HWMON */
+ #ifdef CONFIG_DEBUG_FS
+ 	struct dentry *ixgbe_dbg_adapter;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
+index d118def..3081974 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
+@@ -111,8 +111,8 @@ static int ixgbe_add_hwmon_attr(struct ixgbe_adapter *adapter,
+ 	unsigned int n_attr;
+ 	struct hwmon_attr *ixgbe_attr;
+ 
+-	n_attr = adapter->ixgbe_hwmon_buff.n_hwmon;
+-	ixgbe_attr = &adapter->ixgbe_hwmon_buff.hwmon_list[n_attr];
++	n_attr = adapter->ixgbe_hwmon_buff->n_hwmon;
++	ixgbe_attr = &adapter->ixgbe_hwmon_buff->hwmon_list[n_attr];
+ 
+ 	switch (type) {
+ 	case IXGBE_HWMON_TYPE_LOC:
+@@ -147,32 +147,17 @@ static int ixgbe_add_hwmon_attr(struct ixgbe_adapter *adapter,
+ 	ixgbe_attr->dev_attr.store = NULL;
+ 	ixgbe_attr->dev_attr.attr.mode = S_IRUGO;
+ 	ixgbe_attr->dev_attr.attr.name = ixgbe_attr->name;
++	sysfs_attr_init(&ixgbe_attr->dev_attr.attr);
+ 
+-	rc = device_create_file(&adapter->pdev->dev,
+-				&ixgbe_attr->dev_attr);
++	adapter->ixgbe_hwmon_buff->attrs[n_attr] = &ixgbe_attr->dev_attr.attr;
+ 
+-	if (rc == 0)
+-		++adapter->ixgbe_hwmon_buff.n_hwmon;
++	++adapter->ixgbe_hwmon_buff->n_hwmon;
+ 
+-	return rc;
++	return 0;
  }
  
- static void tg3_hwmon_open(struct tg3 *tp)
+ static void ixgbe_sysfs_del_adapter(struct ixgbe_adapter *adapter)
  {
--	int i, err;
-+	int i;
- 	u32 size = 0;
- 	struct pci_dev *pdev = tp->pdev;
- 	struct tg3_ocir ocirs[TG3_SD_NUM_RECS];
-@@ -10690,18 +10684,11 @@ static void tg3_hwmon_open(struct tg3 *tp)
- 	if (!size)
- 		return;
- 
--	/* Register hwmon sysfs hooks */
--	err = sysfs_create_group(&pdev->dev.kobj, &tg3_group);
--	if (err) {
--		dev_err(&pdev->dev, "Cannot create sysfs group, aborting\n");
+-	int i;
+-
+-	if (adapter == NULL)
 -		return;
+-
+-	for (i = 0; i < adapter->ixgbe_hwmon_buff.n_hwmon; i++) {
+-		device_remove_file(&adapter->pdev->dev,
+-			   &adapter->ixgbe_hwmon_buff.hwmon_list[i].dev_attr);
 -	}
 -
--	tp->hwmon_dev = hwmon_device_register(&pdev->dev);
-+	tp->hwmon_dev = hwmon_device_register_with_groups(&pdev->dev, "tg3",
-+							  tp, tg3_groups);
- 	if (IS_ERR(tp->hwmon_dev)) {
- 		tp->hwmon_dev = NULL;
- 		dev_err(&pdev->dev, "Cannot register hwmon device, aborting\n");
--		sysfs_remove_group(&pdev->dev.kobj, &tg3_group);
- 	}
+-	kfree(adapter->ixgbe_hwmon_buff.hwmon_list);
+-
+-	if (adapter->ixgbe_hwmon_buff.device)
+-		hwmon_device_unregister(adapter->ixgbe_hwmon_buff.device);
  }
  
+ /* called from ixgbe_main.c */
+@@ -184,9 +169,9 @@ void ixgbe_sysfs_exit(struct ixgbe_adapter *adapter)
+ /* called from ixgbe_main.c */
+ int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
+ {
+-	struct hwmon_buff *ixgbe_hwmon = &adapter->ixgbe_hwmon_buff;
++	struct hwmon_buff *ixgbe_hwmon;
++	struct device *hwmon_dev;
+ 	unsigned int i;
+-	int n_attrs;
+ 	int rc = 0;
+ 
+ 	/* If this method isn't defined we don't support thermals */
+@@ -198,23 +183,13 @@ int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
+ 	if (adapter->hw.mac.ops.init_thermal_sensor_thresh(&adapter->hw))
+ 		goto exit;
+ 
+-	/*
+-	 * Allocation space for max attributs
+-	 * max num sensors * values (loc, temp, max, caution)
+-	 */
+-	n_attrs = IXGBE_MAX_SENSORS * 4;
+-	ixgbe_hwmon->hwmon_list = kcalloc(n_attrs, sizeof(struct hwmon_attr),
+-					  GFP_KERNEL);
+-	if (!ixgbe_hwmon->hwmon_list) {
++	ixgbe_hwmon = devm_kzalloc(&adapter->pdev->dev, sizeof(*ixgbe_hwmon),
++				   GFP_KERNEL);
++	if (ixgbe_hwmon == NULL) {
+ 		rc = -ENOMEM;
+-		goto err;
+-	}
+-
+-	ixgbe_hwmon->device = hwmon_device_register(&adapter->pdev->dev);
+-	if (IS_ERR(ixgbe_hwmon->device)) {
+-		rc = PTR_ERR(ixgbe_hwmon->device);
+-		goto err;
++		goto exit;
+ 	}
++	adapter->ixgbe_hwmon_buff = ixgbe_hwmon;
+ 
+ 	for (i = 0; i < IXGBE_MAX_SENSORS; i++) {
+ 		/*
+@@ -226,17 +201,28 @@ int ixgbe_sysfs_init(struct ixgbe_adapter *adapter)
+ 
+ 		/* Bail if any hwmon attr struct fails to initialize */
+ 		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_CAUTION);
+-		rc |= ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_LOC);
+-		rc |= ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_TEMP);
+-		rc |= ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_MAX);
+ 		if (rc)
+-			goto err;
++			goto exit;
++		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_LOC);
++		if (rc)
++			goto exit;
++		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_TEMP);
++		if (rc)
++			goto exit;
++		rc = ixgbe_add_hwmon_attr(adapter, i, IXGBE_HWMON_TYPE_MAX);
++		if (rc)
++			goto exit;
+ 	}
+ 
+-	goto exit;
++	ixgbe_hwmon->groups[0] = &ixgbe_hwmon->group;
++	ixgbe_hwmon->group.attrs = ixgbe_hwmon->attrs;
+ 
+-err:
+-	ixgbe_sysfs_del_adapter(adapter);
++	hwmon_dev = devm_hwmon_device_register_with_groups(&adapter->pdev->dev,
++							   "ixgbe",
++							   ixgbe_hwmon,
++							   ixgbe_hwmon->groups);
++	if (IS_ERR(hwmon_dev))
++		rc = PTR_ERR(hwmon_dev);
+ exit:
+ 	return rc;
+ }
 -- 
 1.7.9.7
