@@ -1,68 +1,112 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: dynamic TCP algorithms switching
-Date: Sat, 23 Nov 2013 16:42:20 -0800
-Message-ID: <20131123164220.0992c445@nehalam.linuxnetplumber.net>
-References: <CAAVq3rnxE92PsJOChr+H52k5QfG7E=hAjsohK4Um0ZRO9TdYuA@mail.gmail.com>
-	<20131122145621.344fa999@nehalam.linuxnetplumber.net>
-	<CAAVq3rnmWUAzDGy9_nMLsbx++opgZpuYtG34VpZEBbJ2psBnZw@mail.gmail.com>
-	<20131122155303.68da12ec@nehalam.linuxnetplumber.net>
-	<CAAVq3rmgzL4Hg__dSkmEM75ZHuEsebE1D4ko-viSEggcYdrPjw@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 - it's dead jim
+Date: Sun, 24 Nov 2013 01:50:22 +0100
+Message-ID: <20131124005022.GA6299@electric-eye.fr.zoreil.com>
+References: <529105F8.9030901@nurealm.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yan cui <ccuiyyan@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Realtek and the Linux r8169 crew <netdev@vger.kernel.org>
+To: James Feeney <james@nurealm.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:40005 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756390Ab3KXAmY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 19:42:24 -0500
-Received: by mail-pd0-f171.google.com with SMTP id z10so3225047pdj.16
-        for <netdev@vger.kernel.org>; Sat, 23 Nov 2013 16:42:24 -0800 (PST)
-In-Reply-To: <CAAVq3rmgzL4Hg__dSkmEM75ZHuEsebE1D4ko-viSEggcYdrPjw@mail.gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:53192 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755583Ab3KXAuY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 19:50:24 -0500
+Content-Disposition: inline
+In-Reply-To: <529105F8.9030901@nurealm.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 22 Nov 2013 22:56:10 -0500
-yan cui <ccuiyyan@gmail.com> wrote:
+James Feeney <james@nurealm.net> :
+[...]
+> Going from 3.12.0-1-ARCH to 3.12.1-1-ARCH, the r8169 module is having the
+> "link detect" problem again.
 
-> Thanks for the quick reply!
-> Do you have the real-world workload results that demonstrate
-> that cubic has the best performance among all the available congestion
-> algorithms? If so, could you please post some?
-> 
-> 
-> Thanks, Yan
-> 
-> 
-> 2013/11/22 Stephen Hemminger <stephen@networkplumber.org>:
-> > On Fri, 22 Nov 2013 18:21:12 -0500
-> > yan cui <ccuiyyan@gmail.com> wrote:
-> >
-> >> Then, why include so many (current Linux has 10+ TCP congestion algorithms)
-> >> algorithms? For users who want to deploy their application on Linux
-> >> and if the applications
-> >> are system resource intensive, they always want to tune the
-> >> configurations of the operating systems for the last piece of
-> >> performance. If they do so, maybe they are confused
-> >> about which TCP congestion algorithm to use for their environment. So,
-> >> the only way is to try each algorithm one by one. I understand the
-> >> setting of the default TCP congestion
-> >> algorithm to be Cubic means that it works well for most environments.
-> >> But if others
-> >> are seldom used, or can be replace with another implementation.
-> >> Why not just remove from the kernel?
-> >>
-> >> Yan
-> >
-> > Most are intended for research and testing only.
-> > Only a few are worth considering in a production environment.
-> > That is also why there so many qdisc algorithms as well.
-> >
-> 
-> 
-> 
+$ grep james@nurealm.net ~/Mail/linux/netdev/201[123]?? | grep -v 201311
 
-If you did a little searching around, you would find that there has been extensive
-research in this area. http://netsrv.csc.ncsu.edu/wiki/index.php/TCP_Testing
-is a good place to start.
+Which one exactly ?
+
+> Initially, "ethtool -s <blah> autoneg off" gives "invalid argument".
+
+blah ?
+
+[...]
+> After some time, Auto-negotiation will spontaneously go on, and a 100Mb/s full
+> duplex connection will come up, on a 1Gb/s interface.  Subsequent unplugging and
+> plugging the cable gives a 1Gb/s full duplex connection.
+> 
+> This problem has been recurring for so many years, I hope the solution is
+> something obvious, perhaps a recent change to the kernel?
+
+The r8169 driver is the same in v3.12 and v3.12.1. Either some userspace
+application works in your back or your device experienced a runtime
+suspend / resume cycle where it previously didn't.
+
+You can try the genuinely untested hack below if you don't like current
+runtime suspend / resume behavior.
+
+What do you want exactly ? 10 Mb/s, 100 Mb/s ? Limited / no advertising ?
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 7280d5d..701ca00 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -812,6 +812,13 @@ struct rtl8169_private {
+ #define RTL_FIRMWARE_UNKNOWN	ERR_PTR(-EAGAIN)
+ 
+ 	u32 ocp_base;
++
++	struct {
++		u32 adv;
++		u16 speed;
++		u8 duplex;
++		u8 autoneg;
++	} rtl_settings;
+ };
+ 
+ MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
+@@ -1755,6 +1762,11 @@ static int rtl8169_set_speed(struct net_device *dev,
+ 	if (ret < 0)
+ 		goto out;
+ 
++	tp->autoneg	= autoneg;
++	tp->speed	= speed;
++	tp->duplex	= duplex;
++	tp->adv		= advertising;
++
+ 	if (netif_running(dev) && (autoneg == AUTONEG_ENABLE) &&
+ 	    (advertising & ADVERTISED_1000baseT_Full)) {
+ 		mod_timer(&tp->timer, jiffies + RTL8169_PHY_TIMEOUT);
+@@ -3778,6 +3790,14 @@ static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
+ 		netif_info(tp, link, dev, "TBI auto-negotiating\n");
+ }
+ 
++static void rtl_resume_phy(struct net_device *dev, struct rtl8169_private *tp)
++{
++	rtl8169_init_phy(dev, tp);
++
++	if (tp->speed)
++		tp->set_speed(dev, tp->autoneg, tp->speed, tp->duplex, tp->adv);
++}
++
+ static void rtl_rar_set(struct rtl8169_private *tp, u8 *addr)
+ {
+ 	void __iomem *ioaddr = tp->mmio_addr;
+@@ -6661,7 +6681,7 @@ static int rtl8169_resume(struct device *device)
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 
+-	rtl8169_init_phy(dev, tp);
++	rtl_resume_phy(dev, tp);
+ 
+ 	if (netif_running(dev))
+ 		__rtl8169_resume(dev);
+@@ -6702,7 +6722,7 @@ static int rtl8169_runtime_resume(struct device *device)
+ 	tp->saved_wolopts = 0;
+ 	rtl_unlock_work(tp);
+ 
+-	rtl8169_init_phy(dev, tp);
++	rtl_resume_phy(dev, tp);
+ 
+ 	__rtl8169_resume(dev);
+ 
