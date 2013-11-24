@@ -1,112 +1,96 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 - it's dead jim
-Date: Sun, 24 Nov 2013 01:50:22 +0100
-Message-ID: <20131124005022.GA6299@electric-eye.fr.zoreil.com>
-References: <529105F8.9030901@nurealm.net>
+From: Marek Vasut <marex@denx.de>
+Subject: Re: FEC performance degradation on iMX28 with forced link media
+Date: Sun, 24 Nov 2013 05:40:23 +0100
+Message-ID: <201311240540.23813.marex@denx.de>
+References: <528F50AE.3030804@digi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Realtek and the Linux r8169 crew <netdev@vger.kernel.org>
-To: James Feeney <james@nurealm.net>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"fabio.estevam@freescale.com" <fabio.estevam@freescale.com>
+To: Hector Palacios <hector.palacios@digi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:53192 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755583Ab3KXAuY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 19:50:24 -0500
-Content-Disposition: inline
-In-Reply-To: <529105F8.9030901@nurealm.net>
+Received: from mail-out.m-online.net ([212.18.0.9]:51594 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753756Ab3KXEkZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Nov 2013 23:40:25 -0500
+In-Reply-To: <528F50AE.3030804@digi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-James Feeney <james@nurealm.net> :
-[...]
-> Going from 3.12.0-1-ARCH to 3.12.1-1-ARCH, the r8169 module is having the
-> "link detect" problem again.
+Hi Hector,
 
-$ grep james@nurealm.net ~/Mail/linux/netdev/201[123]?? | grep -v 201311
-
-Which one exactly ?
-
-> Initially, "ethtool -s <blah> autoneg off" gives "invalid argument".
-
-blah ?
-
-[...]
-> After some time, Auto-negotiation will spontaneously go on, and a 100Mb/s full
-> duplex connection will come up, on a 1Gb/s interface.  Subsequent unplugging and
-> plugging the cable gives a 1Gb/s full duplex connection.
+> Hello,
 > 
-> This problem has been recurring for so many years, I hope the solution is
-> something obvious, perhaps a recent change to the kernel?
+> When forcing the Ethernet PHY link media with ethtool/mii-tool on the
+> i.MX28 I've seen important performance degradation as the packet size
+> increases.
+> 
+> On the target:
+> # mii-tool eth0 -F 10baseT-FD
+> # netpipe
+> 
+> On the host:
+> # netpipe -h <target-ip> -n 1
+> ...
+> 44:    1024 bytes      1 times -->      6.56 Mbps in    1191.00 usec
+> 45:    1027 bytes      1 times -->      6.56 Mbps in    1193.52 usec
+> 46:    1533 bytes      1 times -->      0.60 Mbps in   19600.54 usec
+> 47:    1536 bytes      1 times -->      0.46 Mbps in   25262.52 usec
+> 48:    1539 bytes      1 times -->      0.57 Mbps in   20745.54 usec
+> 49:    2045 bytes      1 times -->      0.74 Mbps in   20971.95 usec
+> ...
+> On loop 46, as the packet size exceeds the MTU (1500) performance falls
+> from 6.56Mbps to 0.60Mbps.
+> 
+> Going back to 100baseTX-FD, but still forced (autonegotiation off), the
+> same occurs: On the target:
+> # mii-tool eth0 -F 100baseTx-FD
+> # netpipe
+> 
+> On the host:
+> # netpipe -h <target-ip> -n 1
+> ...
+> 58:    6141 bytes      1 times -->     39.74 Mbps in    1179.03 usec
+> 59:    6144 bytes      1 times -->     41.83 Mbps in    1120.51 usec
+> 60:    6147 bytes      1 times -->     41.39 Mbps in    1133.03 usec
+> 61:    8189 bytes      1 times -->      6.36 Mbps in    9823.94 usec
+> 62:    8192 bytes      1 times -->      6.56 Mbps in    9521.46 usec
+> 63:    8195 bytes      1 times -->      6.56 Mbps in    9532.99 usec
+> ...
+> only this time it happens with a larger packet size (8189 bytes).
+> 
+> With autonegotiation on, performance is ok and does not suffer these drops.
+> 
+> I've reproduced this on the mx28evk board but it also happens in my
+> hardware, with different PHY on v3.10.
+> I also tried on an old v2.6.35 kernel and the issue was reproducible as
+> well, though it happened with larger packet sizes than it happens with
+> v3.10:
+> ...
+> 75:   32771 bytes      1 times -->     49.64 Mbps in    5036.50 usec
+> 76:   49149 bytes      1 times -->     46.18 Mbps in    8120.48 usec
+> 77:   49152 bytes      1 times -->     43.30 Mbps in    8660.46 usec
+> 78:   49155 bytes      1 times -->     40.10 Mbps in    9351.46 usec
+> 79:   65533 bytes      1 times -->      2.03 Mbps in  246061.04 usec
+> 80:   65536 bytes      1 times -->      2.21 Mbps in  226516.50 usec
+> 81:   65539 bytes      1 times -->      1.45 Mbps in  344196.46 usec
+> ...
+> 
+> Could there be any issue with packet fragmentation?
+> I tried the same on imx6sabresd but here the issue is not reproducible. I
+> don't know if the higher CPU frequency might be hiding the problem,
+> though.
+> 
+> Any idea about what can make the difference between forcing media vs
+> autonegotiation?
 
-The r8169 driver is the same in v3.12 and v3.12.1. Either some userspace
-application works in your back or your device experienced a runtime
-suspend / resume cycle where it previously didn't.
+Let me ask, this might be unrelated, but I will still go ahead. Do you also 
+observe packetloss? You can check with iperf:
 
-You can try the genuinely untested hack below if you don't like current
-runtime suspend / resume behavior.
+On host machine (PC): iperf -u -s -l 4M -i 60
+On target: iperf -u -c <hostip> -t 3600 -B 100M -i 60
 
-What do you want exactly ? 10 Mb/s, 100 Mb/s ? Limited / no advertising ?
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 7280d5d..701ca00 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -812,6 +812,13 @@ struct rtl8169_private {
- #define RTL_FIRMWARE_UNKNOWN	ERR_PTR(-EAGAIN)
- 
- 	u32 ocp_base;
-+
-+	struct {
-+		u32 adv;
-+		u16 speed;
-+		u8 duplex;
-+		u8 autoneg;
-+	} rtl_settings;
- };
- 
- MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.org>");
-@@ -1755,6 +1762,11 @@ static int rtl8169_set_speed(struct net_device *dev,
- 	if (ret < 0)
- 		goto out;
- 
-+	tp->autoneg	= autoneg;
-+	tp->speed	= speed;
-+	tp->duplex	= duplex;
-+	tp->adv		= advertising;
-+
- 	if (netif_running(dev) && (autoneg == AUTONEG_ENABLE) &&
- 	    (advertising & ADVERTISED_1000baseT_Full)) {
- 		mod_timer(&tp->timer, jiffies + RTL8169_PHY_TIMEOUT);
-@@ -3778,6 +3790,14 @@ static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
- 		netif_info(tp, link, dev, "TBI auto-negotiating\n");
- }
- 
-+static void rtl_resume_phy(struct net_device *dev, struct rtl8169_private *tp)
-+{
-+	rtl8169_init_phy(dev, tp);
-+
-+	if (tp->speed)
-+		tp->set_speed(dev, tp->autoneg, tp->speed, tp->duplex, tp->adv);
-+}
-+
- static void rtl_rar_set(struct rtl8169_private *tp, u8 *addr)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -6661,7 +6681,7 @@ static int rtl8169_resume(struct device *device)
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 
--	rtl8169_init_phy(dev, tp);
-+	rtl_resume_phy(dev, tp);
- 
- 	if (netif_running(dev))
- 		__rtl8169_resume(dev);
-@@ -6702,7 +6722,7 @@ static int rtl8169_runtime_resume(struct device *device)
- 	tp->saved_wolopts = 0;
- 	rtl_unlock_work(tp);
- 
--	rtl8169_init_phy(dev, tp);
-+	rtl_resume_phy(dev, tp);
- 
- 	__rtl8169_resume(dev);
- 
+Best regards,
+Marek Vasut
