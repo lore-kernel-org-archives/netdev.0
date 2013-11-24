@@ -1,53 +1,135 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v3 1/2] net: sched: tbf: fix calculation of max_size
-Date: Sun, 24 Nov 2013 10:40:52 -0800
-Message-ID: <1385318452.10637.116.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1384845939-8424-1-git-send-email-yangyingliang@huawei.com>
-		 <1384845939-8424-2-git-send-email-yangyingliang@huawei.com>
-	 <1385233579.10637.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5291AA8D.6060108@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yang Yingliang <yangyingliang@huawei.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, brouer@redhat.com, jpirko@redhat.com,
-	jbrouer@redhat.com
-To: Yang Yingliang <zjutyyl@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:48339 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752213Ab3KXSky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Nov 2013 13:40:54 -0500
-Received: by mail-pd0-f176.google.com with SMTP id w10so3997979pde.7
-        for <netdev@vger.kernel.org>; Sun, 24 Nov 2013 10:40:53 -0800 (PST)
-In-Reply-To: <5291AA8D.6060108@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 3.13] genetlink/pmcraid: use proper genetlink multicast API
+Date: Sun, 24 Nov 2013 21:09:26 +0100
+Message-ID: <1385323766-30356-1-git-send-email-johannes@sipsolutions.net>
+Cc: Anil Ravindranath <anil_ravindranath@pmc-sierra.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	linux-scsi@vger.kernel.org, Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-11-24 at 15:28 +0800, Yang Yingliang wrote:
-> O>
-> >> With the follow command:
-> >> tc qdisc add dev eth1 root handle 1: tbf latency 50ms burst 10KB rate 30gbit mtu 64k
-> >>
-> >
-> Ideally burst should be 10KB in kernel space.
-> But at hight rates, when burst is converted to
-> time in tick in userland, it gets much more loss
-> than low rates. So the burst can't actually
-> reach 10KB in kernel.
+From: Johannes Berg <johannes.berg@intel.com>
 
-If you think tc can help to fix user choices, please provide an
-iproute2 patch.
+The pmcraid driver is abusing the genetlink API and is using its
+family ID as the multicast group ID, which is invalid and may
+belong to somebody else (and likely will.)
 
-Quite frankly, using a burst of 10KB and a rate of 30gbit is simply a
-user error. It cannot possibly work. At all.
+Make it use the correct API, but since this may already be used
+as-is by userspace, reserve a family ID for this code and also
+reserve that group ID to not break userspace assumptions.
 
-As stated in many tbf docs, burst must be larger than device mtu (1514)
+My previous patch broke event delivery in the driver as I missed
+that it wasn't using the right API and forgot to update it later
+in my series.
 
-By extension, with GRO/GSO, burst should be larger than 68130, otherwise
-we need to segment the packets, and this is horribly expensive for high
-rates.
+While changing this, I noticed that the genetlink code could use
+the static group ID instead of a strcmp(), so also do that for
+the VFS_DQUOT family.
 
-I personally tc/tbf needs some changes, because the logical way would be
-to use the 1514 value for low rates, but if we use this value, the
-kernel gets a value of 1511, which doesn't work.
+Cc: Anil Ravindranath <anil_ravindranath@pmc-sierra.com>
+Cc: "James E.J. Bottomley" <JBottomley@parallels.com>
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ drivers/scsi/pmcraid.c         | 20 +++++++++++++++-----
+ include/uapi/linux/genetlink.h |  1 +
+ net/netlink/genetlink.c        | 11 +++++++++--
+ 3 files changed, 25 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
+index bd6f743..892ea61 100644
+--- a/drivers/scsi/pmcraid.c
++++ b/drivers/scsi/pmcraid.c
+@@ -1404,11 +1404,22 @@ enum {
+ };
+ #define PMCRAID_AEN_CMD_MAX (__PMCRAID_AEN_CMD_MAX - 1)
+ 
++static struct genl_multicast_group pmcraid_mcgrps[] = {
++	{ .name = "events", /* not really used - see ID discussion below */ },
++};
++
+ static struct genl_family pmcraid_event_family = {
+-	.id = GENL_ID_GENERATE,
++	/*
++	 * Due to prior multicast group abuse (the code having assumed that
++	 * the family ID can be used as a multicast group ID) we need to
++	 * statically allocate a family (and thus group) ID.
++	 */
++	.id = GENL_ID_PMCRAID,
+ 	.name = "pmcraid",
+ 	.version = 1,
+-	.maxattr = PMCRAID_AEN_ATTR_MAX
++	.maxattr = PMCRAID_AEN_ATTR_MAX,
++	.mcgrps = pmcraid_mcgrps,
++	.n_mcgrps = ARRAY_SIZE(pmcraid_mcgrps),
+ };
+ 
+ /**
+@@ -1511,9 +1522,8 @@ static int pmcraid_notify_aen(
+ 		return result;
+ 	}
+ 
+-	result =
+-		genlmsg_multicast(&pmcraid_event_family, skb, 0,
+-				  pmcraid_event_family.id, GFP_ATOMIC);
++	result = genlmsg_multicast(&pmcraid_event_family, skb,
++				   0, 0, GFP_ATOMIC);
+ 
+ 	/* If there are no listeners, genlmsg_multicast may return non-zero
+ 	 * value.
+diff --git a/include/uapi/linux/genetlink.h b/include/uapi/linux/genetlink.h
+index 1af72d82..c3363ba 100644
+--- a/include/uapi/linux/genetlink.h
++++ b/include/uapi/linux/genetlink.h
+@@ -28,6 +28,7 @@ struct genlmsghdr {
+ #define GENL_ID_GENERATE	0
+ #define GENL_ID_CTRL		NLMSG_MIN_TYPE
+ #define GENL_ID_VFS_DQUOT	(NLMSG_MIN_TYPE + 1)
++#define GENL_ID_PMCRAID		(NLMSG_MIN_TYPE + 2)
+ 
+ /**************************************************************************
+  * Controller
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 4518a57..1e393aa 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -74,9 +74,12 @@ static struct list_head family_ht[GENL_FAM_TAB_SIZE];
+  * Bit 17 is marked as already used since the VFS quota code
+  * also abused this API and relied on family == group ID, we
+  * cater to that by giving it a static family and group ID.
++ * Bit 18 is marked as already used since the PMCRAID driver
++ * did the same thing as the VFS quota code (maybe copied?)
+  */
+ static unsigned long mc_group_start = 0x3 | BIT(GENL_ID_CTRL) |
+-				      BIT(GENL_ID_VFS_DQUOT);
++				      BIT(GENL_ID_VFS_DQUOT) |
++				      BIT(GENL_ID_PMCRAID);
+ static unsigned long *mc_groups = &mc_group_start;
+ static unsigned long mc_groups_longs = 1;
+ 
+@@ -139,6 +142,7 @@ static u16 genl_generate_id(void)
+ 
+ 	for (i = 0; i <= GENL_MAX_ID - GENL_MIN_ID; i++) {
+ 		if (id_gen_idx != GENL_ID_VFS_DQUOT &&
++		    id_gen_idx != GENL_ID_PMCRAID &&
+ 		    !genl_family_find_byid(id_gen_idx))
+ 			return id_gen_idx;
+ 		if (++id_gen_idx > GENL_MAX_ID)
+@@ -236,9 +240,12 @@ static int genl_validate_assign_mc_groups(struct genl_family *family)
+ 	} else if (strcmp(family->name, "NET_DM") == 0) {
+ 		first_id = 1;
+ 		BUG_ON(n_groups != 1);
+-	} else if (strcmp(family->name, "VFS_DQUOT") == 0) {
++	} else if (family->id == GENL_ID_VFS_DQUOT) {
+ 		first_id = GENL_ID_VFS_DQUOT;
+ 		BUG_ON(n_groups != 1);
++	} else if (family->id == GENL_ID_PMCRAID) {
++		first_id = GENL_ID_PMCRAID;
++		BUG_ON(n_groups != 1);
+ 	} else {
+ 		groups_allocated = true;
+ 		err = genl_allocate_reserve_groups(n_groups, &first_id);
+-- 
+1.8.4.rc3
+
