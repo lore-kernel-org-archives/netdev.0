@@ -1,67 +1,50 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: request to queue "5d0f801 can: c_can: Fix RX message handling, handle
- lost message before EOB" for stable
-Date: Sun, 24 Nov 2013 23:58:08 +0100
-Message-ID: <52928480.8010803@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="mRtI8a6M2PLHPablM0mCG00U1btHwb3Fo"
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>,
-	Holger.Bechtold@gmx.net, Linux Netdev List <netdev@vger.kernel.org>
-To: stable@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+From: Richard Weinberger <richard@nod.at>
+Subject: [PATCH] pipe_to_sendpage: Ensure that MSG_MORE is set if we set MSG_SENDPAGE_NOTLAST
+Date: Mon, 25 Nov 2013 00:42:07 +0100
+Message-ID: <1385336527-27304-1-git-send-email-richard@nod.at>
+References: <CAJusiZXN4dOxg9S4ZiCziVXfNZ+=yu7a=84vUikV2RhbhYU7QA@mail.gmail.com>
+Cc: linux-fsdevel@vger.kernel.org, viro@zeniv.linux.org.uk,
+	shawnlandden@gmail.com, linux-crypto@vger.kernel.org,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	Richard Weinberger <richard@nod.at>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, <stable@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <CAJusiZXN4dOxg9S4ZiCziVXfNZ+=yu7a=84vUikV2RhbhYU7QA@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---mRtI8a6M2PLHPablM0mCG00U1btHwb3Fo
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Commit 35f9c09fe (tcp: tcp_sendpages() should call tcp_push() once)
+added an internal flag MSG_SENDPAGE_NOTLAST.
+We have to ensure that MSG_MORE is also set if we set MSG_SENDPAGE_NOTLAST.
+Otherwise users that check against MSG_MORE will not see it.
 
-Hello Greg,
+This fixes sendfile() on AF_ALG.
 
-can you please queue
+Cc: Tom Herbert <therbert@google.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: <stable@vger.kernel.org> # 3.4.x
+Reported-and-tested-by: Shawn Landden <shawnlandden@gmail.com>
+Signed-off-by: Richard Weinberger <richard@nod.at>
+---
+ fs/splice.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-    5d0f801 can: c_can: Fix RX message handling, handle lost message befo=
-re EOB
-
-for the stable trees.
-
-This patch was part of a two-patches pull request to David's net/master
-tree, which was merged in:
-
-    e9b51a1 Merge branch 'fixes-for-3.12' of git://gitorious.org/linux-ca=
-n/linux-can
-
-One patch has already been queued, the other not.
-
-Thanks,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
-
-
---mRtI8a6M2PLHPablM0mCG00U1btHwb3Fo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlKShIAACgkQjTAFq1RaXHMcfwCfRMXNFT1XGU+EwUC7esYQja5F
-JfYAoJgsFoZpVaxlSi7F6YAzMwhR/oGW
-=mbrn
------END PGP SIGNATURE-----
-
---mRtI8a6M2PLHPablM0mCG00U1btHwb3Fo--
+diff --git a/fs/splice.c b/fs/splice.c
+index 3b7ee65..b93f1b8 100644
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -701,7 +701,7 @@ static int pipe_to_sendpage(struct pipe_inode_info *pipe,
+ 	more = (sd->flags & SPLICE_F_MORE) ? MSG_MORE : 0;
+ 
+ 	if (sd->len < sd->total_len && pipe->nrbufs > 1)
+-		more |= MSG_SENDPAGE_NOTLAST;
++		more |= MSG_SENDPAGE_NOTLAST | MSG_MORE;
+ 
+ 	return file->f_op->sendpage(file, buf->page, buf->offset,
+ 				    sd->len, &pos, more);
+-- 
+1.8.1.4
