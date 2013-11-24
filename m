@@ -1,135 +1,71 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 3.13] genetlink/pmcraid: use proper genetlink multicast API
-Date: Sun, 24 Nov 2013 21:09:26 +0100
-Message-ID: <1385323766-30356-1-git-send-email-johannes@sipsolutions.net>
-Cc: Anil Ravindranath <anil_ravindranath@pmc-sierra.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	linux-scsi@vger.kernel.org, Johannes Berg <johannes.berg@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
+From: Shawn Landden <shawnlandden@gmail.com>
+Subject: Re: AF_ALG buggy with sendfile
+Date: Sun, 24 Nov 2013 14:00:12 -0800
+Message-ID: <CAJusiZXN4dOxg9S4ZiCziVXfNZ+=yu7a=84vUikV2RhbhYU7QA@mail.gmail.com>
+References: <CAJusiZVq3O1rok20HyYaoJDWxjtBdvMbDtjCif+sCyKPzpXMNA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=047d7b41402e263c8804ebf35f1d
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	linux-crypto@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJusiZVq3O1rok20HyYaoJDWxjtBdvMbDtjCif+sCyKPzpXMNA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes.berg@intel.com>
+--047d7b41402e263c8804ebf35f1d
+Content-Type: text/plain; charset=ISO-8859-1
 
-The pmcraid driver is abusing the genetlink API and is using its
-family ID as the multicast group ID, which is invalid and may
-belong to somebody else (and likely will.)
+heres a version of the test case that builds.....
 
-Make it use the correct API, but since this may already be used
-as-is by userspace, reserve a family ID for this code and also
-reserve that group ID to not break userspace assumptions.
+Sorry about that.
 
-My previous patch broke event delivery in the driver as I missed
-that it wasn't using the right API and forgot to update it later
-in my series.
+On Sun, Nov 24, 2013 at 9:21 AM, Shawn Landden <shawnlandden@gmail.com> wrote:
+> If I use sendfile() to send to a accept()ed AF_ALG socket set up for
+> "hash", I get the wrong
+> answer, if I read() and then write() I get the right answer. None of
+> the system calls return an error.
+>
+> test case attached.
+>
+> --
+>
+> ---
+> Shawn Landden
+> +1 360 389 3001 (SMS preferred)
 
-While changing this, I noticed that the genetlink code could use
-the static group ID instead of a strcmp(), so also do that for
-the VFS_DQUOT family.
 
-Cc: Anil Ravindranath <anil_ravindranath@pmc-sierra.com>
-Cc: "James E.J. Bottomley" <JBottomley@parallels.com>
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- drivers/scsi/pmcraid.c         | 20 +++++++++++++++-----
- include/uapi/linux/genetlink.h |  1 +
- net/netlink/genetlink.c        | 11 +++++++++--
- 3 files changed, 25 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
-index bd6f743..892ea61 100644
---- a/drivers/scsi/pmcraid.c
-+++ b/drivers/scsi/pmcraid.c
-@@ -1404,11 +1404,22 @@ enum {
- };
- #define PMCRAID_AEN_CMD_MAX (__PMCRAID_AEN_CMD_MAX - 1)
- 
-+static struct genl_multicast_group pmcraid_mcgrps[] = {
-+	{ .name = "events", /* not really used - see ID discussion below */ },
-+};
-+
- static struct genl_family pmcraid_event_family = {
--	.id = GENL_ID_GENERATE,
-+	/*
-+	 * Due to prior multicast group abuse (the code having assumed that
-+	 * the family ID can be used as a multicast group ID) we need to
-+	 * statically allocate a family (and thus group) ID.
-+	 */
-+	.id = GENL_ID_PMCRAID,
- 	.name = "pmcraid",
- 	.version = 1,
--	.maxattr = PMCRAID_AEN_ATTR_MAX
-+	.maxattr = PMCRAID_AEN_ATTR_MAX,
-+	.mcgrps = pmcraid_mcgrps,
-+	.n_mcgrps = ARRAY_SIZE(pmcraid_mcgrps),
- };
- 
- /**
-@@ -1511,9 +1522,8 @@ static int pmcraid_notify_aen(
- 		return result;
- 	}
- 
--	result =
--		genlmsg_multicast(&pmcraid_event_family, skb, 0,
--				  pmcraid_event_family.id, GFP_ATOMIC);
-+	result = genlmsg_multicast(&pmcraid_event_family, skb,
-+				   0, 0, GFP_ATOMIC);
- 
- 	/* If there are no listeners, genlmsg_multicast may return non-zero
- 	 * value.
-diff --git a/include/uapi/linux/genetlink.h b/include/uapi/linux/genetlink.h
-index 1af72d82..c3363ba 100644
---- a/include/uapi/linux/genetlink.h
-+++ b/include/uapi/linux/genetlink.h
-@@ -28,6 +28,7 @@ struct genlmsghdr {
- #define GENL_ID_GENERATE	0
- #define GENL_ID_CTRL		NLMSG_MIN_TYPE
- #define GENL_ID_VFS_DQUOT	(NLMSG_MIN_TYPE + 1)
-+#define GENL_ID_PMCRAID		(NLMSG_MIN_TYPE + 2)
- 
- /**************************************************************************
-  * Controller
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 4518a57..1e393aa 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -74,9 +74,12 @@ static struct list_head family_ht[GENL_FAM_TAB_SIZE];
-  * Bit 17 is marked as already used since the VFS quota code
-  * also abused this API and relied on family == group ID, we
-  * cater to that by giving it a static family and group ID.
-+ * Bit 18 is marked as already used since the PMCRAID driver
-+ * did the same thing as the VFS quota code (maybe copied?)
-  */
- static unsigned long mc_group_start = 0x3 | BIT(GENL_ID_CTRL) |
--				      BIT(GENL_ID_VFS_DQUOT);
-+				      BIT(GENL_ID_VFS_DQUOT) |
-+				      BIT(GENL_ID_PMCRAID);
- static unsigned long *mc_groups = &mc_group_start;
- static unsigned long mc_groups_longs = 1;
- 
-@@ -139,6 +142,7 @@ static u16 genl_generate_id(void)
- 
- 	for (i = 0; i <= GENL_MAX_ID - GENL_MIN_ID; i++) {
- 		if (id_gen_idx != GENL_ID_VFS_DQUOT &&
-+		    id_gen_idx != GENL_ID_PMCRAID &&
- 		    !genl_family_find_byid(id_gen_idx))
- 			return id_gen_idx;
- 		if (++id_gen_idx > GENL_MAX_ID)
-@@ -236,9 +240,12 @@ static int genl_validate_assign_mc_groups(struct genl_family *family)
- 	} else if (strcmp(family->name, "NET_DM") == 0) {
- 		first_id = 1;
- 		BUG_ON(n_groups != 1);
--	} else if (strcmp(family->name, "VFS_DQUOT") == 0) {
-+	} else if (family->id == GENL_ID_VFS_DQUOT) {
- 		first_id = GENL_ID_VFS_DQUOT;
- 		BUG_ON(n_groups != 1);
-+	} else if (family->id == GENL_ID_PMCRAID) {
-+		first_id = GENL_ID_PMCRAID;
-+		BUG_ON(n_groups != 1);
- 	} else {
- 		groups_allocated = true;
- 		err = genl_allocate_reserve_groups(n_groups, &first_id);
 -- 
-1.8.4.rc3
 
+---
+Shawn Landden
++1 360 389 3001 (SMS preferred)
+
+--047d7b41402e263c8804ebf35f1d
+Content-Type: text/x-csrc; charset=US-ASCII; name="af_alg.c"
+Content-Disposition: attachment; filename="af_alg.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hoetxq0r1
+
+CiNpbmNsdWRlIDxzeXMvc2VuZGZpbGUuaD4KI2luY2x1ZGUgPHN5cy9zb2NrZXQuaD4KI2luY2x1
+ZGUgPGxpbnV4L2lmX2FsZy5oPgojaW5jbHVkZSA8c3RkaW8uaD4KI2luY2x1ZGUgPHN5cy9zdGF0
+Lmg+CiNpbmNsdWRlIDxmY250bC5oPgojaW5jbHVkZSA8c3RkbGliLmg+CiNpbmNsdWRlIDx1bmlz
+dGQuaD4KaW50IG1haW4odm9pZCkKewoJaW50IG9wZmQ7CglpbnQgdGZtZmQ7CglzdHJ1Y3Qgc29j
+a2FkZHJfYWxnIHNhID0gewoJCS5zYWxnX2ZhbWlseSA9IEFGX0FMRywKCQkuc2FsZ190eXBlID0g
+Imhhc2giLAoJCS5zYWxnX25hbWUgPSAic2hhMSIKCX07CgljaGFyICpidWYyOwoJY2hhciBidWZb
+MjBdOwoJaW50IGk7CglzdHJ1Y3Qgc3RhdCBzdDsKCXNzaXplX3Qgc2l6ZTsKCgl0Zm1mZCA9IHNv
+Y2tldChBRl9BTEcsIFNPQ0tfU0VRUEFDS0VULCAwKTsKCgliaW5kKHRmbWZkLCAoc3RydWN0IHNv
+Y2thZGRyICopJnNhLCBzaXplb2Yoc2EpKTsKCglvcGZkID0gYWNjZXB0KHRmbWZkLCBOVUxMLCAw
+KTsKCiAgICAgICAgaW50IHQgPSBvcGVuKCIvYmluL3RydWUiLCBPX1JET05MWSk7CiAgICAgICAg
+ZnN0YXQodCwgJnN0KTsKCiAgICAgICAgc2l6ZSA9IHNlbmRmaWxlKG9wZmQsIHQsIE5VTEwsIHN0
+LnN0X3NpemUpOwogICAgICAgIGlmIChzaXplICE9IHN0LnN0X3NpemUpCiAgICAgICAgICAgICAg
+ICBleGl0KDEpOyAgICAgICAgICAgICAgICAKCXJlYWQob3BmZCwgJmJ1ZiwgMjApOwoKCWZvciAo
+aSA9IDA7IGkgPCAyMDsgaSsrKSB7CgkJcHJpbnRmKCIlMDJ4IiwgKHVuc2lnbmVkIGNoYXIpYnVm
+W2ldKTsKCX0KCXByaW50ZigiXG4iKTsKCiAgICAgICAgbHNlZWsodCwgMCwgU0VFS19TRVQpOwog
+ICAgICAgIGJ1ZjIgPSBtYWxsb2Moc3Quc3Rfc2l6ZSArIDEpOwogICAgICAgIHJlYWQodCwgYnVm
+Miwgc3Quc3Rfc2l6ZSk7CiAgICAgICAgd3JpdGUob3BmZCwgYnVmMiwgc3Quc3Rfc2l6ZSk7Cgly
+ZWFkKG9wZmQsICZidWYsIDIwKTsKCglmb3IgKGkgPSAwOyBpIDwgMjA7IGkrKykgewoJCXByaW50
+ZigiJTAyeCIsICh1bnNpZ25lZCBjaGFyKWJ1ZltpXSk7Cgl9CglwcmludGYoIlxuIik7CgoJY2xv
+c2Uob3BmZCk7CgljbG9zZSh0Zm1mZCk7CgoJcmV0dXJuIDA7Cn0KCg==
+--047d7b41402e263c8804ebf35f1d--
