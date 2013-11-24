@@ -1,56 +1,65 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: Possible bit/byte conversion mistake in xfrm_state.c
-Date: Sun, 24 Nov 2013 19:54:55 +0800
-Message-ID: <5291E90F.2060902@windriver.com>
-References: <528F7009.4080303@joanneum.at>
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+Subject: Re: [PATCH 3/3] xfrm: Fix null pointer dereference when decoding
+ sessions
+Date: Sun, 24 Nov 2013 15:27:58 +0100
+Message-ID: <52920CEE.2040407@universe-factory.net>
+References: <1383294107-7509-1-git-send-email-steffen.klassert@secunet.com> <1383294107-7509-4-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: "Marksteiner, Stefan" <stefan.marksteiner@joanneum.at>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="ba8K8tfi4v3qlL90S2rAbN8td2bhp9Ie2"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:50466 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752005Ab3KXLwR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Nov 2013 06:52:17 -0500
-In-Reply-To: <528F7009.4080303@joanneum.at>
+Received: from chaos.universe-factory.net ([37.72.148.22]:48439 "EHLO
+	chaos.universe-factory.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752380Ab3KXOgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Nov 2013 09:36:06 -0500
+In-Reply-To: <1383294107-7509-4-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please wrap the line in shorter length ;)
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--ba8K8tfi4v3qlL90S2rAbN8td2bhp9Ie2
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-On 2013=E5=B9=B411=E6=9C=8822=E6=97=A5 22:54, Marksteiner, Stefan wrote=
-:
-> Hi folks,
->
-> I might have found a little bit/byte mistake in xfrm_state.c of iprou=
-te2-3.11.0 (and also lower versions).
->
-> In line 169 the algorithm length is set correctly ("alg->alg_key_len =
-=3D len * 8;") in bits (as it is supposed by /usr/include/linux/xfrm.h,=
- line 101), but later in line 496 the same value is read and added to a=
- length value in bytes ("len +=3D alg.u.alg.alg_key_len;").
->
-> I'm not completetly sure, but I'm wondering if this might lead to err=
-ors for algorithms with big key sizes (>2048 bits) for the key buffer (=
-"char buf[RTA_BUF_SIZE]" in line 274) reserves only 2048 bytes of memor=
-y (RTA_BUF_SIZE=3D2048). So taking bits for bytes, the following memcop=
-y operation may overwrite adjacent memory areas.
->
-> Can somebody verify if this is in fact an issue? Maybe I'm reading th=
-is whole stuff wrong.
+On 11/01/2013 09:21 AM, Steffen Klassert wrote:
+> On some codepaths the skb does not have a dst entry
+> when xfrm_decode_session() is called. So check for
+> a valid skb_dst() before dereferencing the device
+> interface index. We use 0 as the device index if
+> there is no valid skb_dst(), or at reverse decoding
+> we use skb_iif as device interface index.
+>=20
+> Bug was introduced with git commit bafd4bd4dc
+> ("xfrm: Decode sessions with output interface.").
+>=20
+> Reported-by: Meelis Roos <mroos@linux.ee>
+> Tested-by: Meelis Roos <mroos@linux.ee>
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-You are totally right about this bit/byte mistake here.
+Please queue this for 3.12-stable, I've seen this bug trigger a panic
+when heavily using Bittorrent (screenshot:
+http://i.imgur.com/OIKVccM.jpg )
 
-Normally the aes key len is 128bits, and 160bits for sha1, and
-the key buf  defined here is XFRM_ALGO_KEY_BUF_SIZE 512 bytes,
-so there are stale data append after each key content, although
-is not used by key interface anyway, which means the IPsec
-communication goes well after all.
+Thanks,
+Matthias
 
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
 
---fan fan
+--ba8K8tfi4v3qlL90S2rAbN8td2bhp9Ie2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlKSDO4ACgkQq3qIxbiQM9hMsACfdkhdtKL1rgMTyu7e84fiPNEm
+QlwAnifDJlacNK0w3JWRn2SrIA/ENF0e
+=fa2M
+-----END PGP SIGNATURE-----
+
+--ba8K8tfi4v3qlL90S2rAbN8td2bhp9Ie2--
