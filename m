@@ -1,63 +1,66 @@
-From: Shawn Landden <shawnlandden@gmail.com>
-Subject: Re: AF_ALG buggy with sendfile
-Date: Sun, 24 Nov 2013 14:04:14 -0800
-Message-ID: <CAJusiZVxBg7=GX1-gQjXyyXznKvAnv26EWzVFu59+TBm5mGRsA@mail.gmail.com>
-References: <CAJusiZVq3O1rok20HyYaoJDWxjtBdvMbDtjCif+sCyKPzpXMNA@mail.gmail.com>
-	<CAJusiZXN4dOxg9S4ZiCziVXfNZ+=yu7a=84vUikV2RhbhYU7QA@mail.gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: request to queue "5d0f801 can: c_can: Fix RX message handling, handle
+ lost message before EOB" for stable
+Date: Sun, 24 Nov 2013 23:15:51 +0100
+Message-ID: <52927A97.2060601@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-crypto@vger.kernel.org
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <CAJusiZXN4dOxg9S4ZiCziVXfNZ+=yu7a=84vUikV2RhbhYU7QA@mail.gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="Rr3R45IOP21efj3pEaoXfva9qQJvPjqcm"
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>,
+	Holger.Bechtold@gmx.net
+To: Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If you build https://kernel.googlesource.com/pub/scm/network/connman/connman/+/0.80/tools/alg-test.c
-from the connman source code and compare the output to coreutils
-sha1sum you can see the problem.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--Rr3R45IOP21efj3pEaoXfva9qQJvPjqcm
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-shawn@debian-T61:~/git/test$ make connman_afalg
-cc     connman_afalg.c   -o connman_afalg
-shawn@debian-T61:~/git/test$ ./connman_afalg /bin/true
-send 27080 bytes
-recv 20 bytes
-45384483cf9cd0d82eba164131795b4807c6d39d  /bin/true
-shawn@debian-T61:~/git/test$ sha1sum /bin/true
-82667ba2ec681d8e55b0ee3b6db2970f9911680d  /bin/true
+Hello David,
 
-On Sun, Nov 24, 2013 at 2:00 PM, Shawn Landden <shawnlandden@gmail.com> wrote:
-> heres a version of the test case that builds.....
->
-> Sorry about that.
->
-> On Sun, Nov 24, 2013 at 9:21 AM, Shawn Landden <shawnlandden@gmail.com> wrote:
->> If I use sendfile() to send to a accept()ed AF_ALG socket set up for
->> "hash", I get the wrong
->> answer, if I read() and then write() I get the right answer. None of
->> the system calls return an error.
->>
->> test case attached.
->>
->> --
->>
->> ---
->> Shawn Landden
->> +1 360 389 3001 (SMS preferred)
->
->
->
-> --
->
-> ---
-> Shawn Landden
-> +1 360 389 3001 (SMS preferred)
+usually all relevant patches find their way (from my point of view,
+magically :) to the stable trees, however in my last pull request to
+net/master, which was merged in
+
+    e9b51a1 Merge branch 'fixes-for-3.12' of
+git://gitorious.org/linux-can/linux-can
+
+there were two patches, both had stable on Cc. So far one has been added
+to the stable queue, the other:
+
+    5d0f801 can: c_can: Fix RX message handling, handle lost message
+before EOB
+
+is missing. Can you please queue, if not happened so far, that patch, too=
+?
+
+cheers,
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
+--Rr3R45IOP21efj3pEaoXfva9qQJvPjqcm
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
--- 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
 
----
-Shawn Landden
-+1 360 389 3001 (SMS preferred)
+iEYEARECAAYFAlKSepgACgkQjTAFq1RaXHNHkQCeNGVPjpTxmzgE4iqcwh/MY2H5
++xEAnAuEySsGUXp61uJgTCEyi28Se7Wd
+=wOKQ
+-----END PGP SIGNATURE-----
+
+--Rr3R45IOP21efj3pEaoXfva9qQJvPjqcm--
