@@ -1,81 +1,95 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [lm-sensors] [PATCH 5/5] ixgbe: Start temperature sensor
- attribute  index with 1
-Date: Mon, 25 Nov 2013 10:08:42 -0800
-Message-ID: <20131125180842.GB20159@roeck-us.net>
-References: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
- <1385186881-7931-6-git-send-email-linux@roeck-us.net>
- <20131123140158.47ce529d@endymion.delvare>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [V2 PATCH] sctp: Restore 'resent' bit to avoid retransmitted
+ chunks for RTT measurements
+Date: Mon, 25 Nov 2013 13:17:34 -0500
+Message-ID: <5293943E.2000800@gmail.com>
+References: <1385350017-11324-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Nithin Nayak Sujir <nsujir@broadcom.com>,
-	e1000-devel@lists.sourceforge.net,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	lm-sensors@lm-sensors.org, Greg Rose <gregory.v.rose@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jean Delvare <khali@linux-fr.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:56707 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756636Ab3KYSIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Nov 2013 13:08:44 -0500
-Received: by mail-pd0-f173.google.com with SMTP id p10so5992702pdj.4
-        for <netdev@vger.kernel.org>; Mon, 25 Nov 2013 10:08:44 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20131123140158.47ce529d@endymion.delvare>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Xufeng Zhang <xufeng.zhang@windriver.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1385350017-11324-1-git-send-email-xufeng.zhang@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 23, 2013 at 02:01:58PM +0100, Jean Delvare wrote:
-> On Fri, 22 Nov 2013 22:08:01 -0800, Guenter Roeck wrote:
-> > Per hwmon ABI, temperature sensor attribute index starts with 1, not 0.
-> > 
-> > Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> > ---
-> >  drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c |    8 ++++----
-> >  1 file changed, 4 insertions(+), 4 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-> > index 3081974..e74ae36 100644
-> > --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-> > +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c
-> > @@ -118,22 +118,22 @@ static int ixgbe_add_hwmon_attr(struct ixgbe_adapter *adapter,
-> >  	case IXGBE_HWMON_TYPE_LOC:
-> >  		ixgbe_attr->dev_attr.show = ixgbe_hwmon_show_location;
-> >  		snprintf(ixgbe_attr->name, sizeof(ixgbe_attr->name),
-> > -			 "temp%u_label", offset);
-> > +			 "temp%u_label", offset + 1);
-> >  		break;
-> >  	case IXGBE_HWMON_TYPE_TEMP:
-> >  		ixgbe_attr->dev_attr.show = ixgbe_hwmon_show_temp;
-> >  		snprintf(ixgbe_attr->name, sizeof(ixgbe_attr->name),
-> > -			 "temp%u_input", offset);
-> > +			 "temp%u_input", offset + 1);
-> >  		break;
-> >  	case IXGBE_HWMON_TYPE_CAUTION:
-> >  		ixgbe_attr->dev_attr.show = ixgbe_hwmon_show_cautionthresh;
-> >  		snprintf(ixgbe_attr->name, sizeof(ixgbe_attr->name),
-> > -			 "temp%u_max", offset);
-> > +			 "temp%u_max", offset + 1);
-> >  		break;
-> >  	case IXGBE_HWMON_TYPE_MAX:
-> >  		ixgbe_attr->dev_attr.show = ixgbe_hwmon_show_maxopthresh;
-> >  		snprintf(ixgbe_attr->name, sizeof(ixgbe_attr->name),
-> > -			 "temp%u_crit", offset);
-> > +			 "temp%u_crit", offset + 1);
-> >  		break;
-> >  	default:
-> >  		rc = -EPERM;
+On 11/24/2013 10:26 PM, Xufeng Zhang wrote:
+> Currently retransmitted DATA chunks could also be used for
+> RTT measurements since there are no flag to identify whether
+> the transmitted DATA chunk is a new one or a retransmitted one.
+> This problem is introduced by commit ae19c5486 ("sctp: remove
+> 'resent' bit from the chunk") which inappropriately removed the
+> 'resent' bit completely, instead of doing this, we should set
+> the resent bit only for the retransmitted DATA chunks.
 > 
-> Reviewed-by: Jean Delvare <khali@linux-fr.org>
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+
+Thanks
+-vlad
+
+> ---
+> v1->v2:
+> Rmoved initialization for resent bit.
+> Combined two if clause
 > 
-Hi Jean,
-
-thanks a lot for the reviews!
-
-Guenter
+>  include/net/sctp/structs.h |    1 +
+>  net/sctp/output.c          |    3 ++-
+>  net/sctp/outqueue.c        |    3 +++
+>  3 files changed, 6 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 2174d8d..ea0ca5f 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -629,6 +629,7 @@ struct sctp_chunk {
+>  #define SCTP_NEED_FRTX 0x1
+>  #define SCTP_DONT_FRTX 0x2
+>  	__u16	rtt_in_progress:1,	/* This chunk used for RTT calc? */
+> +		resent:1,		/* Has this chunk ever been resent. */
+>  		has_tsn:1,		/* Does this chunk have a TSN yet? */
+>  		has_ssn:1,		/* Does this chunk have a SSN yet? */
+>  		singleton:1,		/* Only chunk in the packet? */
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index e650978..0e2644d 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -474,10 +474,11 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+>  			 * for a given destination transport address.
+>  			 */
+>  
+> -			if (!tp->rto_pending) {
+> +			if (!chunk->resent && !tp->rto_pending) {
+>  				chunk->rtt_in_progress = 1;
+>  				tp->rto_pending = 1;
+>  			}
+> +
+>  			has_data = 1;
+>  		}
+>  
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index 94df758..70f4f56 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -446,6 +446,8 @@ void sctp_retransmit_mark(struct sctp_outq *q,
+>  				transport->rto_pending = 0;
+>  			}
+>  
+> +			chunk->resent = 1;
+> +
+>  			/* Move the chunk to the retransmit queue. The chunks
+>  			 * on the retransmit queue are always kept in order.
+>  			 */
+> @@ -1375,6 +1377,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+>  				 * instance).
+>  				 */
+>  				if (!tchunk->tsn_gap_acked &&
+> +				    !tchunk->resent &&
+>  				    tchunk->rtt_in_progress) {
+>  					tchunk->rtt_in_progress = 0;
+>  					rtt = jiffies - tchunk->sent_at;
+> 
