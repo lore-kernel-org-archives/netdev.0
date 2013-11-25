@@ -1,193 +1,147 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 3/6] net: MOXA ART: add ethtool support
-Date: Mon, 25 Nov 2013 15:36:26 +0000
-Message-ID: <1385393786.1586.29.camel@bwh-desktop.uk.level5networks.com>
-References: <1385393228-22416-1-git-send-email-jonas.jensen@gmail.com>
-	 <1385393228-22416-3-git-send-email-jonas.jensen@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <f.fainelli@gmail.com>
-To: Jonas Jensen <jonas.jensen@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1385393228-22416-3-git-send-email-jonas.jensen@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: fx.lebail@yahoo.com
+Subject: [PATCH] ipv6 addrconf: source address selection, Rule 7: Prefer temporary addresses (RFC 6724)
+Date: Mon, 25 Nov 2013 17:16:45 +0100
+Message-ID: <1385396205-6105-1-git-send-email-fx.lebail@yahoo.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp03.smtpout.orange.fr ([80.12.242.125]:38309 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757092Ab3KYQ33 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Nov 2013 11:29:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-11-25 at 16:27 +0100, Jonas Jensen wrote:
-> Add and assign ethtool_ops callback functions.
-> 
-> Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
+The RFC 6724 change the default recommendation for source address selection
+Rule 7 to prefer temporary addresses rather than public addresses,
+while providing an administrative override.
 
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+The administrative override is based on the prefer_src_public sysctl.
 
-> ---
-> 
-> Notes:
->     Thanks for reviewing!
->     
->     Changes since v1:
->     
->     1. declare MOXART_NUM_STATS with ARRAY_SIZE macro
->     2. don't initialise info->n_stats in moxart_get_drvinfo()
->     3. remove "if (!priv->phy_dev) return -ENODEV;"
->        moxart_get_settings(), moxart_set_settings(), moxart_nway_reset()
->     
->     Applies to next-20131125
-> 
->  drivers/net/ethernet/moxa/moxart_ether.c | 121 +++++++++++++++++++++++++++++++
->  1 file changed, 121 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
-> index 1b87034..cd46a23 100644
-> --- a/drivers/net/ethernet/moxa/moxart_ether.c
-> +++ b/drivers/net/ethernet/moxa/moxart_ether.c
-> @@ -32,6 +32,10 @@
->  
->  #include "moxart_ether.h"
->  
-> +#define DRV_NAME		"moxart-ethernet"
-> +#define DRV_VERSION		"0.2"
-> +#define MOXART_NUM_STATS	ARRAY_SIZE(ethtool_stats_keys)
-> +
->  static inline void moxart_emac_write(struct net_device *ndev,
->  				     unsigned int reg, unsigned long value)
->  {
-> @@ -64,6 +68,122 @@ static int moxart_set_mac_address(struct net_device *ndev, void *addr)
->  	return 0;
->  }
->  
-> +static struct {
-> +	const char str[ETH_GSTRING_LEN];
-> +} ethtool_stats_keys[] = {
-> +	{ "tx_ok_mcol_2to15" },
-> +	{ "tx_ok_1col" },
-> +	{ "rx_frame_pause" },
-> +	{ "frame_align_err" },
-> +	{ "err_col_late_16" },
-> +	{ "err_col_16" },
-> +	{ "rx_runt" },
-> +	{ "late_col" },
-> +	{ "crc_err" },
-> +	{ "rx_ftl" },
-> +	{ "rx_fifo_full" },
-> +	{ "rx_col" },
-> +	{ "rx_bcast" },
-> +	{ "rx_mcast" },
-> +	{ "rx_ok" },
-> +	{ "tx_ok" },
-> +};
-> +
-> +static void moxart_get_drvinfo(struct net_device *ndev,
-> +			       struct ethtool_drvinfo *info)
-> +{
-> +	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
-> +	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
-> +	strlcpy(info->bus_info, dev_name(&ndev->dev), sizeof(info->bus_info));
-> +}
-> +
-> +static int moxart_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
-> +{
-> +	struct moxart_mac_priv_t *priv = netdev_priv(ndev);
-> +
-> +	return phy_ethtool_gset(priv->phy_dev, cmd);
-> +}
-> +
-> +static int moxart_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
-> +{
-> +	struct moxart_mac_priv_t *priv = netdev_priv(ndev);
-> +
-> +	return phy_ethtool_sset(priv->phy_dev, cmd);
-> +}
-> +
-> +static int moxart_nway_reset(struct net_device *ndev)
-> +{
-> +	struct moxart_mac_priv_t *priv = netdev_priv(ndev);
-> +
-> +	return genphy_restart_aneg(priv->phy_dev);
-> +}
-> +
-> +static void moxart_get_ethtool_stats(struct net_device *ndev,
-> +				     struct ethtool_stats *estats,
-> +				     u64 *tmp_stats)
-> +{
-> +	struct moxart_mac_priv_t *priv = netdev_priv(ndev);
-> +	u32 s;
-> +	int i = 0;
-> +
-> +	s = readl(priv->base + REG_TX_COL_COUNTER);
-> +	tmp_stats[i++] = s & 0xffff0000;
-> +	tmp_stats[i++] = s & 0x0000ffff;
-> +	s = readl(priv->base + REG_RPF_AEP_COUNTER);
-> +	tmp_stats[i++] = s & 0xffff0000;
-> +	tmp_stats[i++] = s & 0x0000ffff;
-> +	s = readl(priv->base + REG_XM_PG_COUNTER);
-> +	tmp_stats[i++] = s & 0xffff0000;
-> +	tmp_stats[i++] = s & 0x0000ffff;
-> +	s = readl(priv->base + REG_RUNT_TLC_COUNTER);
-> +	tmp_stats[i++] = s & 0xffff0000;
-> +	tmp_stats[i++] = s & 0x0000ffff;
-> +	s = readl(priv->base + REG_CRC_FTL_COUNTER);
-> +	tmp_stats[i++] = s & 0xffff0000;
-> +	tmp_stats[i++] = s & 0x0000ffff;
-> +	s = readl(priv->base + REG_RLC_RCC_COUNTER);
-> +	tmp_stats[i++] = s & 0xffff0000;
-> +	tmp_stats[i++] = s & 0x0000ffff;
-> +	tmp_stats[i++] = readl(priv->base + REG_BROC_COUNTER);
-> +	tmp_stats[i++] = readl(priv->base + REG_MULCA_COUNTER);
-> +	tmp_stats[i++] = readl(priv->base + REG_XP_COUNTER);
-> +	tmp_stats[i++] = readl(priv->base + REG_RP_COUNTER);
-> +}
-> +
-> +static int moxart_get_sset_count(struct net_device *netdev,
-> +					int string_set)
-> +{
-> +	switch (string_set) {
-> +	case ETH_SS_STATS:
-> +		return MOXART_NUM_STATS;
-> +	default:
-> +		return -EINVAL;
-> +	}
-> +}
-> +
-> +static void moxart_get_strings(struct net_device *dev, u32 stringset, u8 *data)
-> +{
-> +	switch (stringset) {
-> +	case ETH_SS_STATS:
-> +		memcpy(data, &ethtool_stats_keys, sizeof(ethtool_stats_keys));
-> +		break;
-> +	default:
-> +		WARN_ON(1);
-> +		break;
-> +	}
-> +}
-> +
-> +static const struct ethtool_ops moxart_ethtool_ops = {
-> +	.set_settings		= moxart_set_settings,
-> +	.get_settings		= moxart_get_settings,
-> +	.get_drvinfo		= moxart_get_drvinfo,
-> +	.nway_reset		= moxart_nway_reset,
-> +	.get_link		= ethtool_op_get_link,
-> +	.get_ethtool_stats	= moxart_get_ethtool_stats,
-> +	.get_sset_count		= moxart_get_sset_count,
-> +	.get_strings		= moxart_get_strings,
-> +};
-> +
->  static int moxart_do_ioctl(struct net_device *ndev, struct ifreq *ir, int cmd)
->  {
->  	struct moxart_mac_priv_t *priv = netdev_priv(ndev);
-> @@ -606,6 +726,7 @@ static int moxart_mac_probe(struct platform_device *pdev)
->  	ndev->irq = irq;
->  
->  	SET_NETDEV_DEV(ndev, &pdev->dev);
-> +	SET_ETHTOOL_OPS(ndev, &moxart_ethtool_ops);
->  
->  	ret = register_netdev(ndev);
->  	if (ret) {
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+---
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 3c12d9a..0f7ecaa 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1256,13 +1256,15 @@ router_solicitations - INTEGER
+ use_tempaddr - INTEGER
+ 	Preference for Privacy Extensions (RFC3041).
+ 	  <= 0 : disable Privacy Extensions
+-	  == 1 : enable Privacy Extensions, but prefer public
+-	         addresses over temporary addresses.
+-	  >  1 : enable Privacy Extensions and prefer temporary
+-	         addresses over public addresses.
++	  >= 1 : enable Privacy Extensions and prefer temporary
++	         addresses over public addresses (RFC 6724).
+ 	Default:  0 (for most devices)
+ 		 -1 (for point-to-point devices and loopback devices)
+ 
++prefer_src_public - BOOLEAN
++	Prefer public addresses over temporary addresses.
++	Default: FALSE
++
+ temp_valid_lft - INTEGER
+ 	valid lifetime (in seconds) for temporary addresses.
+ 	Default: 604800 (7 days)
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 5d89d1b..c90a1e6 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -49,6 +49,7 @@ struct ipv6_devconf {
+ 	__s32		force_tllao;
+ 	__s32           ndisc_notify;
+ 	__s32		suppress_frag_ndisc;
++	__s32		prefer_src_public;
+ 	void		*sysctl;
+ };
+ 
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 593b0e3..37dabcc 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -163,6 +163,7 @@ enum {
+ 	DEVCONF_MLDV1_UNSOLICITED_REPORT_INTERVAL,
+ 	DEVCONF_MLDV2_UNSOLICITED_REPORT_INTERVAL,
+ 	DEVCONF_SUPPRESS_FRAG_NDISC,
++	DEVCONF_PREFER_SRC_PUBLIC,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/include/uapi/linux/sysctl.h b/include/uapi/linux/sysctl.h
+index 6d67213..0034b48 100644
+--- a/include/uapi/linux/sysctl.h
++++ b/include/uapi/linux/sysctl.h
+@@ -568,6 +568,7 @@ enum {
+ 	NET_IPV6_ACCEPT_RA_RT_INFO_MAX_PLEN=22,
+ 	NET_IPV6_PROXY_NDP=23,
+ 	NET_IPV6_ACCEPT_SOURCE_ROUTE=25,
++	NET_IPV6_PREFER_SRC_PUBLIC = 26,
+ 	__NET_IPV6_MAX
+ };
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 12c97d8..b0127cd 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -197,6 +197,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.disable_ipv6		= 0,
+ 	.accept_dad		= 1,
+ 	.suppress_frag_ndisc	= 1,
++	.prefer_src_public	= 0,
+ };
+ 
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+@@ -233,6 +234,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.disable_ipv6		= 0,
+ 	.accept_dad		= 1,
+ 	.suppress_frag_ndisc	= 1,
++	.prefer_src_public	= 0,
+ };
+ 
+ /* Check if a valid qdisc is available */
+@@ -1245,12 +1247,14 @@ static int ipv6_get_saddr_eval(struct net *net,
+ 		break;
+ 	case IPV6_SADDR_RULE_PRIVACY:
+ 	    {
+-		/* Rule 7: Prefer public address
+-		 * Note: prefer temporary address if use_tempaddr >= 2
++		/* Rule 7: Prefer temporary addresses (updated in RFC 6724)
++		 * Note: test on use_tempaddr >= 1 to avoid changing previous
++		 * behaviour using > 1 value for the same purpose
+ 		 */
+ 		int preftmp = dst->prefs & (IPV6_PREFER_SRC_PUBLIC|IPV6_PREFER_SRC_TMP) ?
+ 				!!(dst->prefs & IPV6_PREFER_SRC_TMP) :
+-				score->ifa->idev->cnf.use_tempaddr >= 2;
++				score->ifa->idev->cnf.use_tempaddr >= 1 &&
++				!score->ifa->idev->cnf.prefer_src_public;
+ 		ret = (!(score->ifa->flags & IFA_F_TEMPORARY)) ^ preftmp;
+ 		break;
+ 	    }
+@@ -4120,6 +4124,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_FORCE_TLLAO] = cnf->force_tllao;
+ 	array[DEVCONF_NDISC_NOTIFY] = cnf->ndisc_notify;
+ 	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
++	array[DEVCONF_PREFER_SRC_PUBLIC] = cnf->prefer_src_public;
+ }
+ 
+ static inline size_t inet6_ifla6_size(void)
+@@ -4939,6 +4944,13 @@ static struct addrconf_sysctl_table
+ 			.proc_handler	= proc_dointvec
+ 		},
+ 		{
++			.procname	= "prefer_src_public",
++			.data		= &ipv6_devconf.prefer_src_public,
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= proc_dointvec,
++		},
++		{
+ 			/* sentinel */
+ 		}
+ 	},
