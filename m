@@ -1,69 +1,74 @@
-From: Shawn Landden <shawn@churchofgit.com>
-Subject: [PATCH] update consumers of MSG_MORE to recognize MSG_SENDPAGE_NOTLAST
-Date: Sun, 24 Nov 2013 18:08:59 -0800
-Message-ID: <1385345339-2184-1-git-send-email-shawn@churchofgit.com>
-References: <1385342706.10637.125.camel@edumazet-glaptop2.roam.corp.google.com>
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-fsdevel@vger.kernel.org, viro@zeniv.linux.org.uk,
-	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org,
-	Shawn Landden <shawn@churchofgit.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1385342706.10637.125.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH] net: ieee802154: remove unnecessary spi_set_drvdata()
+Date: Mon, 25 Nov 2013 11:09:34 +0900
+Message-ID: <001901cee983$62dc37b0$2894a710$%han@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net,
+	'Alexander Smirnov' <alex.bluesman.smirnov@gmail.com>,
+	'Dmitry Eremin-Solenikov' <dbaryshkov@gmail.com>,
+	'Jingoo Han' <jg1.han@samsung.com>,
+	'Sascha Herrmann' <sascha@ps.nvbi.de>,
+	'Stefan Schmidt' <stefan@datenfreihafen.org>,
+	'Alan Ott' <alan@signal11.us>
+To: "'David S. Miller'" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout2.samsung.com ([203.254.224.25]:13518 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752965Ab3KYCJh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Nov 2013 21:09:37 -0500
+Received: from epcpsbgr5.samsung.com
+ (u145.gpu120.samsung.co.kr [203.254.230.145])
+ by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MWS00J4TRBZ46E0@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Mon, 25 Nov 2013 11:09:35 +0900 (KST)
+Content-language: ko
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 35f9c09fe (tcp: tcp_sendpages() should call tcp_push() once)
-added an internal flag MSG_SENDPAGE_NOTLAST, similar to
-MSG_MORE.
+The driver core clears the driver data to NULL after device_release
+or on probe failure. Thus, it is not needed to manually clear the
+device driver data to NULL.
 
-algif_hash and algif_skcipher used MSG_MORE from tcp_sendpages()
-and need to see the new flag as identical to MSG_MORE.
-
-This fixes sendfile() on AF_ALG.
-
-Cc: Tom Herbert <therbert@google.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: <stable@vger.kernel.org> # 3.4.x + 3.2.x
-Reported-and-tested-by: Shawn Landden <shawnlandden@gmail.com>
-Original-patch: Richard Weinberger <richard@nod.at>
-Signed-off-by: Shawn Landden <shawn@churchofgit.com>
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- crypto/algif_hash.c     | 3 +++
- crypto/algif_skcipher.c | 3 +++
- 2 files changed, 6 insertions(+)
+ drivers/net/ieee802154/at86rf230.c |    2 --
+ drivers/net/ieee802154/mrf24j40.c  |    1 -
+ 2 files changed, 3 deletions(-)
 
-diff --git a/crypto/algif_hash.c b/crypto/algif_hash.c
-index ef5356c..8502462 100644
---- a/crypto/algif_hash.c
-+++ b/crypto/algif_hash.c
-@@ -114,6 +114,9 @@ static ssize_t hash_sendpage(struct socket *sock, struct page *page,
- 	struct hash_ctx *ctx = ask->private;
- 	int err;
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index 2cbe1c2..ab31544 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -987,7 +987,6 @@ err_gpio_dir:
+ err_slp_tr:
+ 	gpio_free(lp->rstn);
+ err_rstn:
+-	spi_set_drvdata(spi, NULL);
+ 	mutex_destroy(&lp->bmux);
+ 	ieee802154_free_device(lp->dev);
+ 	return rc;
+@@ -1006,7 +1005,6 @@ static int at86rf230_remove(struct spi_device *spi)
+ 		gpio_free(lp->slp_tr);
+ 	gpio_free(lp->rstn);
  
-+	if (flags & MSG_SENDPAGE_NOTLAST)
-+		flags |= MSG_MORE;
-+
- 	lock_sock(sk);
- 	sg_init_table(ctx->sgl.sg, 1);
- 	sg_set_page(ctx->sgl.sg, page, size, offset);
-diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
-index 6a6dfc0..a19c027 100644
---- a/crypto/algif_skcipher.c
-+++ b/crypto/algif_skcipher.c
-@@ -378,6 +378,9 @@ static ssize_t skcipher_sendpage(struct socket *sock, struct page *page,
- 	struct skcipher_sg_list *sgl;
- 	int err = -EINVAL;
+-	spi_set_drvdata(spi, NULL);
+ 	mutex_destroy(&lp->bmux);
+ 	ieee802154_free_device(lp->dev);
  
-+	if (flags & MSG_SENDPAGE_NOTLAST)
-+		flags |= MSG_MORE;
-+
- 	lock_sock(sk);
- 	if (!ctx->more && ctx->used)
- 		goto unlock;
+diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+index c6e46d6..246befa 100644
+--- a/drivers/net/ieee802154/mrf24j40.c
++++ b/drivers/net/ieee802154/mrf24j40.c
+@@ -715,7 +715,6 @@ static int mrf24j40_remove(struct spi_device *spi)
+ 	 * complete? */
+ 
+ 	/* Clean up the SPI stuff. */
+-	spi_set_drvdata(spi, NULL);
+ 	kfree(devrec->buf);
+ 	kfree(devrec);
+ 	return 0;
 -- 
-1.8.4.4
+1.7.10.4
