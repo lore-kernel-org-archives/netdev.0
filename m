@@ -1,47 +1,84 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 3/3] can: c_can: fix calculation of transmitted bytes on tx complete
-Date: Mon, 25 Nov 2013 21:56:27 +0100
-Message-ID: <1385412987-31205-4-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 2/3] can: c_can: don't call pm_runtime_get_sync() from interrupt context
+Date: Mon, 25 Nov 2013 21:56:26 +0100
+Message-ID: <1385412987-31205-3-git-send-email-mkl@pengutronix.de>
 References: <1385412987-31205-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Holger Bechtold <Holger.Bechtold@gmx.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
+	kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
+	Andrew Glen <AGlen@bepmarine.com>,
+	linux-stable <stable@vger.kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1385412987-31205-1-git-send-email-mkl@pengutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Holger Bechtold <Holger.Bechtold@gmx.net>
+The c_can driver contians a callpath (c_can_poll -> c_can_state_change ->
+c_can_get_berr_counter) which may call pm_runtime_get_sync() from the IRQ
+handler, which is not allowed and results in "BUG: scheduling while atomic".
 
-The number of bytes transmitted was not updated correctly, if several CAN
-messages (with different length) were transmitted in one 'bunch'. Thus
-programs like 'ifconfig' showed wrong transmit byte counts. Reason was, that
-the message object whose DLC is to be read was not necessarily the active one
-at the time when
+This problem is fixed by introducing __c_can_get_berr_counter, which will not
+call pm_runtime_get_sync().
 
-    priv->read_reg(priv, C_CAN_IFACE(MSGCTRL_REG, 0)) & IF_MCONT_DLC_MASK;
-
-was executed.
-
-Signed-off-by: Holger Bechtold <Holger.Bechtold@gmx.net>
+Reported-by: Andrew Glen <AGlen@bepmarine.com>
+Tested-by: Andrew Glen <AGlen@bepmarine.com>
+Signed-off-by: Andrew Glen <AGlen@bepmarine.com>
+Cc: linux-stable <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/c_can/c_can.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/can/c_can/c_can.c | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index e59c42b..77061ee 100644
+index e3fc07c..e59c42b 100644
 --- a/drivers/net/can/c_can/c_can.c
 +++ b/drivers/net/can/c_can/c_can.c
-@@ -763,6 +763,7 @@ static void c_can_do_tx(struct net_device *dev)
- 		if (!(val & (1 << (msg_obj_no - 1)))) {
- 			can_get_echo_skb(dev,
- 					msg_obj_no - C_CAN_MSG_OBJ_TX_FIRST);
-+			c_can_object_get(dev, 0, msg_obj_no, IF_COMM_ALL);
- 			stats->tx_bytes += priv->read_reg(priv,
- 					C_CAN_IFACE(MSGCTRL_REG, 0))
- 					& IF_MCONT_DLC_MASK;
+@@ -712,22 +712,31 @@ static int c_can_set_mode(struct net_device *dev, enum can_mode mode)
+ 	return 0;
+ }
+ 
+-static int c_can_get_berr_counter(const struct net_device *dev,
+-					struct can_berr_counter *bec)
++static int __c_can_get_berr_counter(const struct net_device *dev,
++				    struct can_berr_counter *bec)
+ {
+ 	unsigned int reg_err_counter;
+ 	struct c_can_priv *priv = netdev_priv(dev);
+ 
+-	c_can_pm_runtime_get_sync(priv);
+-
+ 	reg_err_counter = priv->read_reg(priv, C_CAN_ERR_CNT_REG);
+ 	bec->rxerr = (reg_err_counter & ERR_CNT_REC_MASK) >>
+ 				ERR_CNT_REC_SHIFT;
+ 	bec->txerr = reg_err_counter & ERR_CNT_TEC_MASK;
+ 
++	return 0;
++}
++
++static int c_can_get_berr_counter(const struct net_device *dev,
++				  struct can_berr_counter *bec)
++{
++	struct c_can_priv *priv = netdev_priv(dev);
++	int err;
++
++	c_can_pm_runtime_get_sync(priv);
++	err = __c_can_get_berr_counter(dev, bec);
+ 	c_can_pm_runtime_put_sync(priv);
+ 
+-	return 0;
++	return err;
+ }
+ 
+ /*
+@@ -872,7 +881,7 @@ static int c_can_handle_state_change(struct net_device *dev,
+ 	if (unlikely(!skb))
+ 		return 0;
+ 
+-	c_can_get_berr_counter(dev, &bec);
++	__c_can_get_berr_counter(dev, &bec);
+ 	reg_err_counter = priv->read_reg(priv, C_CAN_ERR_CNT_REG);
+ 	rx_err_passive = (reg_err_counter & ERR_CNT_RP_MASK) >>
+ 				ERR_CNT_RP_SHIFT;
 -- 
 1.8.5.rc0
 
