@@ -1,88 +1,57 @@
-From: Shawn Landden <shawnlandden@gmail.com>
-Subject: Re: [PATCH] pipe_to_sendpage: Ensure that MSG_MORE is set if we set MSG_SENDPAGE_NOTLAST
-Date: Sun, 24 Nov 2013 17:40:06 -0800
-Message-ID: <CAJusiZWh-4iofNA91im4cFC4OnkJYSoS7_vT60WAarb1kK-ASg@mail.gmail.com>
-References: <CAJusiZXN4dOxg9S4ZiCziVXfNZ+=yu7a=84vUikV2RhbhYU7QA@mail.gmail.com>
-	<1385336527-27304-1-git-send-email-richard@nod.at>
-	<1385342706.10637.125.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 1/5] net: sfc: remove unnecessary pci_set_drvdata()
+Date: Mon, 25 Nov 2013 10:43:09 +0900
+Message-ID: <000101cee97f$b2271ff0$16755fd0$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Richard Weinberger <richard@nod.at>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-fsdevel@vger.kernel.org, viro@zeniv.linux.org.uk,
-	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1385342706.10637.125.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>,
+	linux-net-drivers@solarflare.com,
+	'Ben Hutchings' <bhutchings@solarflare.com>
+To: "'David S. Miller'" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout3.samsung.com ([203.254.224.33]:46066 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751749Ab3KYBnL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Nov 2013 20:43:11 -0500
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MWS0034OQ3YSVB0@mailout3.samsung.com> for
+ netdev@vger.kernel.org; Mon, 25 Nov 2013 10:43:10 +0900 (KST)
+Content-language: ko
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 24, 2013 at 5:25 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2013-11-25 at 00:42 +0100, Richard Weinberger wrote:
->> Commit 35f9c09fe (tcp: tcp_sendpages() should call tcp_push() once)
->> added an internal flag MSG_SENDPAGE_NOTLAST.
->> We have to ensure that MSG_MORE is also set if we set MSG_SENDPAGE_NOTLAST.
->> Otherwise users that check against MSG_MORE will not see it.
->>
->> This fixes sendfile() on AF_ALG.
->>
->> Cc: Tom Herbert <therbert@google.com>
->> Cc: Eric Dumazet <eric.dumazet@gmail.com>
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: <stable@vger.kernel.org> # 3.4.x
->> Reported-and-tested-by: Shawn Landden <shawnlandden@gmail.com>
->> Signed-off-by: Richard Weinberger <richard@nod.at>
->> ---
->>  fs/splice.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/fs/splice.c b/fs/splice.c
->> index 3b7ee65..b93f1b8 100644
->> --- a/fs/splice.c
->> +++ b/fs/splice.c
->> @@ -701,7 +701,7 @@ static int pipe_to_sendpage(struct pipe_inode_info *pipe,
->>       more = (sd->flags & SPLICE_F_MORE) ? MSG_MORE : 0;
->>
->>       if (sd->len < sd->total_len && pipe->nrbufs > 1)
->> -             more |= MSG_SENDPAGE_NOTLAST;
->> +             more |= MSG_SENDPAGE_NOTLAST | MSG_MORE;
->>
->>       return file->f_op->sendpage(file, buf->page, buf->offset,
->>                                   sd->len, &pos, more);
->
-> I do not think this patch is right. It looks like a revert of a useful
-> patch for TCP zero copy. Given the time it took to discover this
-> regression, I bet tcp zero copy has more users than AF_ALG, by 5 or 6
-> order of magnitude ;)
->
-> Here we want to make the difference between the two flags, not merge
-> them.
->
-> If AF_ALG do not care of the difference, try instead :
->
-> diff --git a/crypto/algif_hash.c b/crypto/algif_hash.c
-> index ef5356cd280a..850246206b12 100644
-> --- a/crypto/algif_hash.c
-> +++ b/crypto/algif_hash.c
-> @@ -114,6 +114,9 @@ static ssize_t hash_sendpage(struct socket *sock, struct page *page,
->         struct hash_ctx *ctx = ask->private;
->         int err;
->
-> +       if (flags & MSG_SENDPAGE_NOTLAST)
-> +               flags |= MSG_MORE;
-> +
->         lock_sock(sk);
->         sg_init_table(ctx->sgl.sg, 1);
->         sg_set_page(ctx->sgl.sg, page, size, offset);
->
+The driver core clears the driver data to NULL after device_release
+or on probe failure. Thus, it is not needed to manually clear the
+device driver data to NULL.
 
->From my testing this works.
-
--- 
-
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
-Shawn Landden
-+1 360 389 3001 (SMS preferred)
+ drivers/net/ethernet/sfc/efx.c |    2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 2e27837..ad6b811 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2641,7 +2641,6 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
+ 	netif_dbg(efx, drv, efx->net_dev, "shutdown successful\n");
+ 
+ 	efx_fini_struct(efx);
+-	pci_set_drvdata(pci_dev, NULL);
+ 	free_netdev(efx->net_dev);
+ 
+ 	pci_disable_pcie_error_reporting(pci_dev);
+@@ -2835,7 +2834,6 @@ static int efx_pci_probe(struct pci_dev *pci_dev,
+  fail2:
+ 	efx_fini_struct(efx);
+  fail1:
+-	pci_set_drvdata(pci_dev, NULL);
+ 	WARN_ON(rc > 0);
+ 	netif_dbg(efx, drv, efx->net_dev, "initialisation failed. rc=%d\n", rc);
+ 	free_netdev(net_dev);
+-- 
+1.7.10.4
