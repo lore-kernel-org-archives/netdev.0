@@ -1,58 +1,54 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: Re: [PATCH] rebalance locks by converting write_lock_bh
-	towrite_lock+local_bh_disable
-Date: Mon, 25 Nov 2013 11:37:51 +0100
-Message-ID: <20131125103751.GC23813@opentech.at>
-References: <20131121235402.GA11774@opentech.at> <20131123.143929.975712910203893827.davem@davemloft.net> <20131123235823.GA23670@opentech.at> <AE90C24D6B3A694183C094C60CF0A2F6026B7441@saturn3.aculab.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] macvtap: fix tx_dropped counting error
+Date: Mon, 25 Nov 2013 13:50:05 +0200
+Message-ID: <20131125115005.GA32173@redhat.com>
+References: <1385371144-11071-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	eric.dumazet@gmail.com, roque@di.fc.ul.pt, peterz@infradead.org,
-	netdev@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hofr.at ([212.69.189.236]:46273 "EHLO mail.hofr.at"
+Received: from mx1.redhat.com ([209.132.183.28]:5234 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751068Ab3KYKhx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Nov 2013 05:37:53 -0500
+	id S1750822Ab3KYLqw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Nov 2013 06:46:52 -0500
 Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7441@saturn3.aculab.com>
+In-Reply-To: <1385371144-11071-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 25 Nov 2013, David Laight wrote:
-
-> > in one of the cases I do not understand the intent behind the split:
-> > in net/core/sock.c:lock_sock_fast
-> > 
-> > 	spin_lock_bh(&sk->sk_lock.slock);
-> > 	...
-> >         spin_unlock(&sk->sk_lock.slock);
-> >         /*
-> >          * The sk_lock has mutex_lock() semantics here:
-> >          */
-> >         mutex_acquire(&sk->sk_lock.dep_map, 0, 0, _RET_IP_);
-> >         local_bh_enable();
-> > 
-> >  I think that
-> > 
-> > 	spin_lock_bh(&sk->sk_lock.slock);
-> > 	...
-> >         /*
-> >          * The sk_lock has mutex_lock() semantics here:
-> >          */
-> >         mutex_acquire(&sk->sk_lock.dep_map, 0, 0, _RET_IP_);
-> >         spin_unlock_bh(&sk->sk_lock.slock);
-> > 
-> >  should be equivalent ?
+On Mon, Nov 25, 2013 at 05:19:04PM +0800, Jason Wang wrote:
+> After commit 8ffab51b3dfc54876f145f15b351c41f3f703195
+> (macvlan: lockless tx path), tx stat counter were converted to percpu stat
+> structure. So we need use to this also for tx_dropped in macvtap. Otherwise, the
+> management won't notice the dropping packet in macvtap tx path.
 > 
-> You've added a lock ordering that wasn't there before.
-> Also I suspect that mutex_acquire() might be allowed to sleep,
-> whereas you shouldn't sleep with a spin lock held.
->
-mutex_acquire is not a lock but a lockdep entry. 
-As far as I understand it it nither can sleep nor is there a change of 
-order here. Am I missing something ?
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Vlad Yasevich <vyasevic@redhat.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-thx!
-hofrat
+
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+> ---
+>  drivers/net/macvtap.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index dc76670..0605da8 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -744,7 +744,7 @@ err:
+>  	rcu_read_lock();
+>  	vlan = rcu_dereference(q->vlan);
+>  	if (vlan)
+> -		vlan->dev->stats.tx_dropped++;
+> +		this_cpu_inc(vlan->pcpu_stats->tx_dropped);
+>  	rcu_read_unlock();
+>  
+>  	return err;
+> -- 
+> 1.8.3.2
