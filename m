@@ -1,61 +1,64 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH] sit: use kfree_skb to replace dev_kfree_skb
-Date: Mon, 25 Nov 2013 17:21:24 +0800
-Message-ID: <1385371284-15105-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: Gao feng <gaofeng@cn.fujitsu.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:7440 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751088Ab3KYJU3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Nov 2013 04:20:29 -0500
-Received: from fnstmail02.fnst.cn.fujitsu.com (tang.cn.fujitsu.com [127.0.0.1])
-	by tang.cn.fujitsu.com (8.14.3/8.13.1) with ESMTP id rAP9KRwm027636
-	for <netdev@vger.kernel.org>; Mon, 25 Nov 2013 17:20:27 +0800
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Anton Nayshtut <Anton.Nayshtut@Wilocity.com>
+Subject: Re: [PATCH 1/4] bonding: L2DA mode added
+Date: Mon, 25 Nov 2013 11:10:54 +0200
+Message-ID: <5293141E.5090202@Wilocity.com>
+References: <1385045738-29726-1-git-send-email-Anton.Nayshtut@wilocity.com>
+ <1385045738-29726-2-git-send-email-Anton.Nayshtut@wilocity.com>
+ <1385047978.10637.51.camel@edumazet-glaptop2.roam.corp.google.com>
+ <528E28D7.4010306@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; CHARSET=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	Eric Dumazet <edumazet@google.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Erez Kirshenbaum <Erez.Kirshenbaum@Wilocity.com>,
+	Boris Lapshin <Boris.Lapshin@Wilocity.com>
+To: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <528E28D7.4010306@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In failure case, we should use kfree_skb not
-dev_kfree_skb to free skbuff, dev_kfree_skb
-is defined as consume_skb.
+Eric, Nik, Andy,
 
-Trace takes advantage of this point.
+Thanks for your comments.
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- net/ipv6/sit.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+I'll investigate the override option approach first, and then will
+re-implement the patch using RCU with corresponding
+Documentation/networking/bonding.txt changes, if still needed.
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 8435267..366fbba 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -951,7 +951,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 		if (!new_skb) {
- 			ip_rt_put(rt);
- 			dev->stats.tx_dropped++;
--			dev_kfree_skb(skb);
-+			kfree_skb(skb);
- 			return NETDEV_TX_OK;
- 		}
- 		if (skb->sk)
-@@ -977,7 +977,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- tx_error_icmp:
- 	dst_link_failure(skb);
- tx_error:
--	dev_kfree_skb(skb);
-+	kfree_skb(skb);
- out:
- 	dev->stats.tx_errors++;
- 	return NETDEV_TX_OK;
-@@ -1017,7 +1017,7 @@ static netdev_tx_t sit_tunnel_xmit(struct sk_buff *skb,
- 
- tx_err:
- 	dev->stats.tx_errors++;
--	dev_kfree_skb(skb);
-+	kfree_skb(skb);
- 	return NETDEV_TX_OK;
- 
- }
--- 
-1.8.3.1
+P.S. Sorry for delay with my reply. It was caused by personal reasons.
+
+Best Regards,
+Anton
+
+On 21/11/2013 17:37, Nikolay Aleksandrov wrote:
+> On 11/21/2013 04:32 PM, Eric Dumazet wrote:
+>> On Thu, 2013-11-21 at 16:55 +0200, Anton Nayshtut wrote:
+>>> This patches introduces L2DA bonding module with all the data structures and
+>>> interfaces. It's not integrated yet.
+>>
+>> I veto any kind of new bonding mode not using RCU.
+>>
+>> Adding another rwlock in 2013 is simply not an option.
+>>
+>> Thanks
+>>
+>>
+> +1
+> Also,
+> I haven't read the patch-set closely but based on the description in the first
+> patch I think you can already get this (or very similar) functionality by using
+> the slave override option in the bonding. You can match the destination L2
+> address and override the slave based on that.
+> 
+> Nik
+> 
