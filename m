@@ -1,55 +1,69 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH] net: phy: spi_ks8995: remove unnecessary spi_set_drvdata()
-Date: Mon, 25 Nov 2013 11:06:21 +0900
-Message-ID: <001801cee982$efd07740$cf7165c0$%han@samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:61255 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752965Ab3KYCGX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Nov 2013 21:06:23 -0500
-Received: from epcpsbgr1.samsung.com
- (u141.gpu120.samsung.co.kr [203.254.230.141])
- by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MWS00IJGR6M7ND0@mailout4.samsung.com> for
- netdev@vger.kernel.org; Mon, 25 Nov 2013 11:06:22 +0900 (KST)
-Content-language: ko
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shawn Landden <shawn@churchofgit.com>
+Subject: [PATCH] update consumers of MSG_MORE to recognize MSG_SENDPAGE_NOTLAST
+Date: Sun, 24 Nov 2013 18:08:59 -0800
+Message-ID: <1385345339-2184-1-git-send-email-shawn@churchofgit.com>
+References: <1385342706.10637.125.camel@edumazet-glaptop2.roam.corp.google.com>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-fsdevel@vger.kernel.org, viro@zeniv.linux.org.uk,
+	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Tom Herbert <therbert@google.com>,
+	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org,
+	Shawn Landden <shawn@churchofgit.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1385342706.10637.125.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The driver core clears the driver data to NULL after device_release
-or on probe failure. Thus, it is not needed to manually clear the
-device driver data to NULL.
+Commit 35f9c09fe (tcp: tcp_sendpages() should call tcp_push() once)
+added an internal flag MSG_SENDPAGE_NOTLAST, similar to
+MSG_MORE.
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+algif_hash and algif_skcipher used MSG_MORE from tcp_sendpages()
+and need to see the new flag as identical to MSG_MORE.
+
+This fixes sendfile() on AF_ALG.
+
+Cc: Tom Herbert <therbert@google.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: <stable@vger.kernel.org> # 3.4.x + 3.2.x
+Reported-and-tested-by: Shawn Landden <shawnlandden@gmail.com>
+Original-patch: Richard Weinberger <richard@nod.at>
+Signed-off-by: Shawn Landden <shawn@churchofgit.com>
 ---
- drivers/net/phy/spi_ks8995.c |    2 --
- 1 file changed, 2 deletions(-)
+ crypto/algif_hash.c     | 3 +++
+ crypto/algif_skcipher.c | 3 +++
+ 2 files changed, 6 insertions(+)
 
-diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index f3bea13..98fb9f3 100644
---- a/drivers/net/phy/spi_ks8995.c
-+++ b/drivers/net/phy/spi_ks8995.c
-@@ -325,7 +325,6 @@ static int ks8995_probe(struct spi_device *spi)
- 	return 0;
+diff --git a/crypto/algif_hash.c b/crypto/algif_hash.c
+index ef5356c..8502462 100644
+--- a/crypto/algif_hash.c
++++ b/crypto/algif_hash.c
+@@ -114,6 +114,9 @@ static ssize_t hash_sendpage(struct socket *sock, struct page *page,
+ 	struct hash_ctx *ctx = ask->private;
+ 	int err;
  
- err_drvdata:
--	spi_set_drvdata(spi, NULL);
- 	kfree(ks);
- 	return err;
- }
-@@ -337,7 +336,6 @@ static int ks8995_remove(struct spi_device *spi)
- 	ks8995 = spi_get_drvdata(spi);
- 	sysfs_remove_bin_file(&spi->dev.kobj, &ks8995_registers_attr);
++	if (flags & MSG_SENDPAGE_NOTLAST)
++		flags |= MSG_MORE;
++
+ 	lock_sock(sk);
+ 	sg_init_table(ctx->sgl.sg, 1);
+ 	sg_set_page(ctx->sgl.sg, page, size, offset);
+diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
+index 6a6dfc0..a19c027 100644
+--- a/crypto/algif_skcipher.c
++++ b/crypto/algif_skcipher.c
+@@ -378,6 +378,9 @@ static ssize_t skcipher_sendpage(struct socket *sock, struct page *page,
+ 	struct skcipher_sg_list *sgl;
+ 	int err = -EINVAL;
  
--	spi_set_drvdata(spi, NULL);
- 	kfree(ks8995);
- 
- 	return 0;
++	if (flags & MSG_SENDPAGE_NOTLAST)
++		flags |= MSG_MORE;
++
+ 	lock_sock(sk);
+ 	if (!ctx->more && ctx->used)
+ 		goto unlock;
 -- 
-1.7.10.4
+1.8.4.4
