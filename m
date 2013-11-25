@@ -1,56 +1,88 @@
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Subject: [PATCH] rds: prevent BUG_ON triggered on congestion update to
- loopback
-Date: Mon, 25 Nov 2013 09:47:34 +0300
-Message-ID: <1385167442-6997-1-git-send-email-venkat.x.venkatsubra@oracle.com>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [PATCH] pipe_to_sendpage: Ensure that MSG_MORE is set if we set MSG_SENDPAGE_NOTLAST
+Date: Mon, 25 Nov 2013 08:42:16 +0100
+Message-ID: <47783210.a9ocpbYofP@sandpuppy>
+References: <CAJusiZXN4dOxg9S4ZiCziVXfNZ+=yu7a=84vUikV2RhbhYU7QA@mail.gmail.com> <1385336527-27304-1-git-send-email-richard@nod.at> <1385342706.10637.125.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	Honggang Li <honli@redhat.com>,
-	Josh Hunt <joshhunt00@gmail.com>,
-	Bang Nguyen <bang.nguyen@oracle.com>
-To: rds-devel@oss.oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:34285 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750793Ab3KYGrs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Nov 2013 01:47:48 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	viro@zeniv.linux.org.uk, shawnlandden@gmail.com,
+	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, Tom Herbert <therbert@google.com>,
+	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1385342706.10637.125.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Am Sonntag, 24. November 2013, 17:25:06 schrieb Eric Dumazet:
+> On Mon, 2013-11-25 at 00:42 +0100, Richard Weinberger wrote:
+> > Commit 35f9c09fe (tcp: tcp_sendpages() should call tcp_push() once)
+> > added an internal flag MSG_SENDPAGE_NOTLAST.
+> > We have to ensure that MSG_MORE is also set if we set
+> > MSG_SENDPAGE_NOTLAST.
+> > Otherwise users that check against MSG_MORE will not see it.
+> > 
+> > This fixes sendfile() on AF_ALG.
+> > 
+> > Cc: Tom Herbert <therbert@google.com>
+> > Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> > Cc: David S. Miller <davem@davemloft.net>
+> > Cc: <stable@vger.kernel.org> # 3.4.x
+> > Reported-and-tested-by: Shawn Landden <shawnlandden@gmail.com>
+> > Signed-off-by: Richard Weinberger <richard@nod.at>
+> > ---
+> > 
+> >  fs/splice.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff --git a/fs/splice.c b/fs/splice.c
+> > index 3b7ee65..b93f1b8 100644
+> > --- a/fs/splice.c
+> > +++ b/fs/splice.c
+> > @@ -701,7 +701,7 @@ static int pipe_to_sendpage(struct pipe_inode_info
+> > *pipe,> 
+> >  	more = (sd->flags & SPLICE_F_MORE) ? MSG_MORE : 0;
+> >  	
+> >  	if (sd->len < sd->total_len && pipe->nrbufs > 1)
+> > 
+> > -		more |= MSG_SENDPAGE_NOTLAST;
+> > +		more |= MSG_SENDPAGE_NOTLAST | MSG_MORE;
+> > 
+> >  	return file->f_op->sendpage(file, buf->page, buf->offset,
+> >  	
+> >  				    sd->len, &pos, more);
+> 
+> I do not think this patch is right. It looks like a revert of a useful
+> patch for TCP zero copy. Given the time it took to discover this
+> regression, I bet tcp zero copy has more users than AF_ALG, by 5 or 6
+> order of magnitude ;)
 
-After congestion update on a local connection, when rds_ib_xmit returns
-less bytes than that are there in the message, rds_send_xmit calls
-back rds_ib_xmit with an offset that causes BUG_ON(off & RDS_FRAG_SIZE)
-to trigger.
+Yeah, but AF_ALG broke. That's why I did the patch.
 
-Reported-by: Josh Hunt <joshhunt00@gmail.com>
-Tested-by: Honggang Li <honli@redhat.com>
-Acked-by: Bang Nguyen <bang.nguyen@oracle.com>
-Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
- net/rds/ib_send.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+> Here we want to make the difference between the two flags, not merge
+> them.
+> 
+> If AF_ALG do not care of the difference, try instead :
+> 
+> diff --git a/crypto/algif_hash.c b/crypto/algif_hash.c
+> index ef5356cd280a..850246206b12 100644
+> --- a/crypto/algif_hash.c
+> +++ b/crypto/algif_hash.c
+> @@ -114,6 +114,9 @@ static ssize_t hash_sendpage(struct socket *sock, struct
+> page *page, struct hash_ctx *ctx = ask->private;
+>  	int err;
+> 
+> +	if (flags & MSG_SENDPAGE_NOTLAST)
+> +		flags |= MSG_MORE;
+> +
 
-diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
-index e590949..37be6e2 100644
---- a/net/rds/ib_send.c
-+++ b/net/rds/ib_send.c
-@@ -552,9 +552,8 @@ int rds_ib_xmit(struct rds_connection *conn, struct rds_message *rm,
- 	    && rm->m_inc.i_hdr.h_flags & RDS_FLAG_CONG_BITMAP) {
- 		rds_cong_map_updated(conn->c_fcong, ~(u64) 0);
- 		scat = &rm->data.op_sg[sg];
--		ret = sizeof(struct rds_header) + RDS_CONG_MAP_BYTES;
--		ret = min_t(int, ret, scat->length - conn->c_xmit_data_off);
--		return ret;
-+		ret = max_t(int, RDS_CONG_MAP_BYTES, scat->length);
-+		return sizeof(struct rds_header) + ret;
- 	}
- 
- 	/* FIXME we may overallocate here */
--- 
-1.7.6
+In the commit message of your patch you wrote "For all sendpage() providers, 
+its a transparent change.". Why does AF_ALG need special handling?
+If users have to care about MSG_SENDPAGE_NOTLAST it is no longer really an 
+internal flag.
+
+Thanks,
+//richard
