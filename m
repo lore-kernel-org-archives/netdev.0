@@ -1,86 +1,56 @@
-From: Shawn Landden <shawn@churchofgit.com>
-Subject: [PATCH] update consumers of MSG_MORE to recognize MSG_SENDPAGE_NOTLAST
-Date: Sun, 24 Nov 2013 22:36:28 -0800
-Message-ID: <1385361388-2175-1-git-send-email-shawn@churchofgit.com>
-References: <20131125042633.GA4156@order.stressinduktion.org>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	viro@zeniv.linux.org.uk, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org,
-	Shawn Landden <shawn@churchofgit.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20131125042633.GA4156@order.stressinduktion.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Subject: [PATCH] rds: prevent BUG_ON triggered on congestion update to
+ loopback
+Date: Mon, 25 Nov 2013 09:47:34 +0300
+Message-ID: <1385167442-6997-1-git-send-email-venkat.x.venkatsubra@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	Honggang Li <honli@redhat.com>,
+	Josh Hunt <joshhunt00@gmail.com>,
+	Bang Nguyen <bang.nguyen@oracle.com>
+To: rds-devel@oss.oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:34285 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750793Ab3KYGrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Nov 2013 01:47:48 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 35f9c09fe (tcp: tcp_sendpages() should call tcp_push() once)
-added an internal flag MSG_SENDPAGE_NOTLAST, similar to
-MSG_MORE.
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
 
-algif_hash, algif_skcipher, and udp used MSG_MORE from tcp_sendpages()
-and need to see the new flag as identical to MSG_MORE.
+After congestion update on a local connection, when rds_ib_xmit returns
+less bytes than that are there in the message, rds_send_xmit calls
+back rds_ib_xmit with an offset that causes BUG_ON(off & RDS_FRAG_SIZE)
+to trigger.
 
-This fixes sendfile() on AF_ALG.
-
-v3: also fix udp
-
-Cc: Tom Herbert <therbert@google.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: <stable@vger.kernel.org> # 3.4.x + 3.2.x
-Reported-and-tested-by: Shawn Landden <shawnlandden@gmail.com>
-Original-patch: Richard Weinberger <richard@nod.at>
-Signed-off-by: Shawn Landden <shawn@churchofgit.com>
+Reported-by: Josh Hunt <joshhunt00@gmail.com>
+Tested-by: Honggang Li <honli@redhat.com>
+Acked-by: Bang Nguyen <bang.nguyen@oracle.com>
+Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
- crypto/algif_hash.c     | 3 +++
- crypto/algif_skcipher.c | 3 +++
- net/ipv4/udp.c          | 3 +++
- 3 files changed, 9 insertions(+)
+ net/rds/ib_send.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/crypto/algif_hash.c b/crypto/algif_hash.c
-index ef5356c..8502462 100644
---- a/crypto/algif_hash.c
-+++ b/crypto/algif_hash.c
-@@ -114,6 +114,9 @@ static ssize_t hash_sendpage(struct socket *sock, struct page *page,
- 	struct hash_ctx *ctx = ask->private;
- 	int err;
+diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
+index e590949..37be6e2 100644
+--- a/net/rds/ib_send.c
++++ b/net/rds/ib_send.c
+@@ -552,9 +552,8 @@ int rds_ib_xmit(struct rds_connection *conn, struct rds_message *rm,
+ 	    && rm->m_inc.i_hdr.h_flags & RDS_FLAG_CONG_BITMAP) {
+ 		rds_cong_map_updated(conn->c_fcong, ~(u64) 0);
+ 		scat = &rm->data.op_sg[sg];
+-		ret = sizeof(struct rds_header) + RDS_CONG_MAP_BYTES;
+-		ret = min_t(int, ret, scat->length - conn->c_xmit_data_off);
+-		return ret;
++		ret = max_t(int, RDS_CONG_MAP_BYTES, scat->length);
++		return sizeof(struct rds_header) + ret;
+ 	}
  
-+	if (flags & MSG_SENDPAGE_NOTLAST)
-+		flags |= MSG_MORE;
-+
- 	lock_sock(sk);
- 	sg_init_table(ctx->sgl.sg, 1);
- 	sg_set_page(ctx->sgl.sg, page, size, offset);
-diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
-index 6a6dfc0..a19c027 100644
---- a/crypto/algif_skcipher.c
-+++ b/crypto/algif_skcipher.c
-@@ -378,6 +378,9 @@ static ssize_t skcipher_sendpage(struct socket *sock, struct page *page,
- 	struct skcipher_sg_list *sgl;
- 	int err = -EINVAL;
- 
-+	if (flags & MSG_SENDPAGE_NOTLAST)
-+		flags |= MSG_MORE;
-+
- 	lock_sock(sk);
- 	if (!ctx->more && ctx->used)
- 		goto unlock;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 5944d7d..8bd04df 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1098,6 +1098,9 @@ int udp_sendpage(struct sock *sk, struct page *page, int offset,
- 	struct udp_sock *up = udp_sk(sk);
- 	int ret;
- 
-+	if (flags & MSG_SENDPAGE_NOTLAST)
-+		flags |= MSG_MORE;
-+
- 	if (!up->pending) {
- 		struct msghdr msg = {	.msg_flags = flags|MSG_MORE };
- 
+ 	/* FIXME we may overallocate here */
 -- 
-1.8.4.4
+1.7.6
