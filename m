@@ -1,78 +1,83 @@
-From: Ben Pfaff <blp@nicira.com>
-Subject: Re: [ovs-dev] [PATCH openvswitch] netlink: Implement & enable memory
- mapped netlink i/o
-Date: Mon, 25 Nov 2013 15:02:53 -0800
-Message-ID: <20131125230253.GR1435@nicira.com>
-References: <2336aeee25d64eab89302c28c33b7cb7d1a55560.1385057738.git.tgraf@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 2/5] igb: Convert to use
+ devm_hwmon_device_register_with_groups
+Date: Mon, 25 Nov 2013 15:16:37 -0800
+Message-ID: <1385421397.2270.14.camel@jtkirshe-mobl>
+References: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
+	 <1385186881-7931-3-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jesse@nicira.com, dev@openvswitch.org, fleitner@redhat.com,
-	netdev@vger.kernel.org
-To: Thomas Graf <tgraf@redhat.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-zTC7tvhG9HrXTPzUwtwI"
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	e1000-devel@lists.sourceforge.net, lm-sensors@lm-sensors.org
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog138.obsmtp.com ([74.125.149.19]:34454 "HELO
-	na3sys009aog138.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751258Ab3KYXDB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Nov 2013 18:03:01 -0500
-Received: by mail-qa0-f41.google.com with SMTP id j5so3671767qaq.7
-        for <netdev@vger.kernel.org>; Mon, 25 Nov 2013 15:03:00 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <2336aeee25d64eab89302c28c33b7cb7d1a55560.1385057738.git.tgraf@redhat.com>
+Received: from mga02.intel.com ([134.134.136.20]:24831 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753290Ab3KYXQj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Nov 2013 18:16:39 -0500
+In-Reply-To: <1385186881-7931-3-git-send-email-linux@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 21, 2013 at 07:16:54PM +0100, Thomas Graf wrote:
-> Based on the initial patch by Cong Wang posted a couple of months
-> ago.
-> 
-> This is the user space counterpart needed for the kernel patch
-> '[PATCH net-next 3/8] openvswitch: Enable memory mapped Netlink i/o'
-> 
-> Allows the kernel to construct Netlink messages on memory mapped
-> buffers and thus avoids copying. The functionality is enabled on
-> sockets used for unicast traffic.
-> 
-> Further optimizations are possible by avoiding the copy into the
-> ofpbuf after reading.
-> 
-> Cc: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Thomas Graf <tgraf@redhat.com>
 
-Does this depend on other patches or some specific Linux kernel
-headers?  It doesn't build here on GCC (similar results with Clang):
+--=-zTC7tvhG9HrXTPzUwtwI
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-../lib/netlink-socket.c: In function 'nl_sock_set_ring':
-../lib/netlink-socket.c:101:12: error: variable 'req' has initializer but incomplete type
-../lib/netlink-socket.c:102:9: error: unknown field 'nm_block_size' specified in initializer
-../lib/netlink-socket.c:102:9: error: excess elements in struct initializer [-Werror]
-../lib/netlink-socket.c:102:9: error: (near initialization for 'req') [-Werror]
-../lib/netlink-socket.c:103:9: error: unknown field 'nm_block_nr' specified in initializer
-../lib/netlink-socket.c:103:9: error: excess elements in struct initializer [-Werror]
-../lib/netlink-socket.c:103:9: error: (near initialization for 'req') [-Werror]
-../lib/netlink-socket.c:104:9: error: unknown field 'nm_frame_size' specified in initializer
-../lib/netlink-socket.c:104:9: error: excess elements in struct initializer [-Werror]
-../lib/netlink-socket.c:104:9: error: (near initialization for 'req') [-Werror]
-../lib/netlink-socket.c:101:24: error: storage size of 'req' isn't known
-../lib/netlink-socket.c:109:43: error: 'NETLINK_RX_RING' undeclared (first use in this function)
-../lib/netlink-socket.c:109:43: note: each undeclared identifier is reported only once for each function it appears in
-../lib/netlink-socket.c:110:46: error: 'NETLINK_TX_RING' undeclared (first use in this function)
-../lib/netlink-socket.c:101:24: error: unused variable 'req' [-Werror=unused-variable]
-../lib/netlink-socket.c: In function 'nl_sock_send_mmap':
-../lib/netlink-socket.c:369:22: error: 'NL_MMAP_HDRLEN' undeclared (first use in this function)
-../lib/netlink-socket.c:374:12: error: dereferencing pointer to incomplete type
-../lib/netlink-socket.c:374:27: error: 'NL_MMAP_STATUS_UNUSED' undeclared (first use in this function)
-../lib/netlink-socket.c:385:8: error: dereferencing pointer to incomplete type
-../lib/netlink-socket.c:386:8: error: dereferencing pointer to incomplete type
-../lib/netlink-socket.c:386:23: error: 'NL_MMAP_STATUS_VALID' undeclared (first use in this function)
-../lib/netlink-socket.c: In function 'nl_sock_recv_mmap':
-../lib/netlink-socket.c:514:16: error: dereferencing pointer to incomplete type
-../lib/netlink-socket.c:515:10: error: 'NL_MMAP_STATUS_VALID' undeclared (first use in this function)
-../lib/netlink-socket.c:516:16: error: dereferencing pointer to incomplete type
-../lib/netlink-socket.c:518:16: error: dereferencing pointer to incomplete type
-../lib/netlink-socket.c:518:30: error: 'NL_MMAP_STATUS_UNUSED' undeclared (first use in this function)
-../lib/netlink-socket.c:523:40: error: 'NL_MMAP_HDRLEN' undeclared (first use in this function)
-../lib/netlink-socket.c:523:59: error: dereferencing pointer to incomplete type
-../lib/netlink-socket.c:527:10: error: 'NL_MMAP_STATUS_COPY' undeclared (first use in this function)
-../lib/netlink-socket.c:535:10: error: 'NL_MMAP_STATUS_RESERVED' undeclared (first use in this function)
-../lib/netlink-socket.c:546:8: error: dereferencing pointer to incomplete type
-cc1: all warnings being treated as errors
+On Fri, 2013-11-22 at 22:07 -0800, Guenter Roeck wrote:
+> Simplify the code. Attach hwmon sysfs attributes to hwmon device
+> instead of pci device. Avoid race conditions caused by attributes
+> being created after registration and provide mandatory 'name'
+> attribute by using new hwmon API.
+>=20
+> Other cleanup:
+>=20
+> Instead of allocating memory for hwmon attributes, move attributes
+> and all other hwmon related data into struct hwmon_buff and allocate
+> the entire structure using devm_kzalloc.
+>=20
+> Check return value from calls to igb_add_hwmon_attr() one by one
+> instead
+> of logically combining them all together.
+>=20
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> ---
+>  drivers/net/ethernet/intel/igb/igb.h       |    8 ++-
+>  drivers/net/ethernet/intel/igb/igb_hwmon.c |  100
+> +++++++++++++---------------
+>  2 files changed, 53 insertions(+), 55 deletions(-)
+
+I have added this to my queue, thanks!
+
+--=-zTC7tvhG9HrXTPzUwtwI
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+
+iQIcBAABCgAGBQJSk9pVAAoJEOVv75VaS+3OhA4P/14Kyd1XgPHqBp5olLOsfnQ5
+vZnKEvWxDkriOmIt+KuaQlVPMUU6g5pJ8DREbmp+XcV+PuA/sWVLhdnJa5Xt0QNq
+6g9MD1KBDspH5uJ6N6ekH1BZm87k2d15ejskm7j0XHVStkZ4pz8yN17hQnz9kG4C
+oEXPTXW17zXDpScamn8b/C+12Ig2QAsonB39utHV8ZW9BrJPWt0P/z/h80itStyL
+IxTOR1GYGPM4ZK0ZcTje6jerJjRPgPoUthF/FSLZs5Ewoa+Hlf6+z7eq/2yIW7T6
+lJrDFxdgy9N6VGk1FAvA5bAg6Bt1GnxU8gvI+9bLlP3jvofXncaAxgd2JAcdM2iu
+Vgr0VsGQ/QBYt/iW9jPCiC+9oAOtYKo36kulkH2igyWjfjvAjLnAcnEdehNW5Qit
+QMYFiSOsbWHeBvASaFWV1ToN0D6c999POPaYnb1+5d6T/a9HXW8gxm1qI7sHvbNG
+mTd8Pxjeibga6T1lBiQrhYmupHVswYLbmT8Dr2zPMf056Gu3zGo35HctvaHEPXAP
+so0Lm8/R1yyOmXLuh1pOZrD8PPAmdX3ajfA63R8hmd5w6e5S+mJ6J20q2Y7nSzfO
+r+VZZNX+kN4L5voHYGUGT4rZcE0T8yh9IJR4mVu9rCj8sIiDR8uVgOkHJfek6fgO
+J3w1F0VonRdMA0pOXAre
+=vBHb
+-----END PGP SIGNATURE-----
+
+--=-zTC7tvhG9HrXTPzUwtwI--
