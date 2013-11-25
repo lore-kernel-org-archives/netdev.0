@@ -1,50 +1,63 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 1/1] xen-netback: include definition of csum_ipv6_magic
-Date: Mon, 25 Nov 2013 16:54:18 +0000
-Message-ID: <1385398458.22002.99.camel@kazak.uk.xensource.com>
-References: <1385398354-21636-1-git-send-email-apw@canonical.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 0/5] net: hwmon fixes
+Date: Mon, 25 Nov 2013 17:15:50 +0000
+Message-ID: <1385399750.1586.40.camel@bwh-desktop.uk.level5networks.com>
+References: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
+	 <1385225290.20467.73.camel@deadeye.wl.decadent.org.uk>
+	 <5290E0B9.1030606@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Andy Whitcroft <apw@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1385398354-21636-1-git-send-email-apw@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	"Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	<e1000-devel@lists.sourceforge.net>, <lm-sensors@lm-sensors.org>
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:56267 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753871Ab3KYRP4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Nov 2013 12:15:56 -0500
+In-Reply-To: <5290E0B9.1030606@roeck-us.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-11-25 at 16:52 +0000, Andy Whitcroft wrote:
-> We are now using csum_ipv6_magic, include the appropriate header.
-> Avoids the following error:
+On Sat, 2013-11-23 at 09:07 -0800, Guenter Roeck wrote:
+> On 11/23/2013 08:48 AM, Ben Hutchings wrote:
+> > On Fri, 2013-11-22 at 22:07 -0800, Guenter Roeck wrote:
+> >> The hwmon subsystem is used by various network drivers to report temperature
+> >> sensor and other information. Unfortunately, its use is often not correct.
+> >> Typical errors are that the mandatory name sysfs attribute is not created,
+> >> that the temperature sensor index starts with 0 instead of 1, and/or that
+> >> sysfs attributes are created after the hwmon device was created.
+> >
+> > As it happens, I was just looking at what we do in sfc
+> > (drivers/net/ethernet/sfc/mcdi_mon.c) and wondering why I made it create
+> > the hwmon device before the attributes.  I think I avoided the other
+> > bugs though.
+> >
+> Hi Ben,
 > 
->     drivers/net/xen-netback/netback.c:1313:4: error: implicit declaration of function 'csum_ipv6_magic' [-Werror=implicit-function-declaration]
->         tcph->check = ~csum_ipv6_magic(&ipv6h->saddr,
+> Yes, I know about that one. It concluded that it would be too invasive
+> and risky to try to fix it without access to hardware to test the results.
+> That is why I said "fixes _most_ of the problems".
 > 
-> Signed-off-by: Andy Whitcroft <apw@canonical.com>
+> As for why the attributes are created after registration, it was most likely
+> because there was no API available to attach the sysfs attributes to
+> the hwmon device in a clean way. The new APIs fix that.
 
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
+We don't attach them to the hwmon device either, and I would rather not
+change that yet because lm-sensors 2 is still widely used.
 
-Thanks!
+Ben.
 
-> ---
->  drivers/net/xen-netback/netback.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
->     Found while trying to couple latest kernels for arm64 platforms.
->     Looks like it got missed in the transition.
-> 
->     -apw
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 919b650..64f0e0d 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -39,6 +39,7 @@
->  #include <linux/udp.h>
->  
->  #include <net/tcp.h>
-> +#include <net/ip6_checksum.h>
->  
->  #include <xen/xen.h>
->  #include <xen/events.h>
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
