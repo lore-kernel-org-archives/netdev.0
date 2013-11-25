@@ -1,13 +1,12 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 3/5] ixgbe: Convert to use
- devm_hwmon_device_register_with_groups
-Date: Mon, 25 Nov 2013 15:17:08 -0800
-Message-ID: <1385421428.2270.15.camel@jtkirshe-mobl>
+Subject: Re: [PATCH 4/5] igb: Start temperature sensor attribute index with 1
+Date: Mon, 25 Nov 2013 15:17:47 -0800
+Message-ID: <1385421467.2270.16.camel@jtkirshe-mobl>
 References: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
-	 <1385186881-7931-4-git-send-email-linux@roeck-us.net>
+	 <1385186881-7931-5-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-oUI0QQLclxRcq2Zba0eC"
+	protocol="application/pgp-signature"; boundary="=-f2BmIOG1F4VKcn8DMp9t"
 Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Bruce Allan <bruce.w.allan@intel.com>,
@@ -19,45 +18,31 @@ Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	e1000-devel@lists.sourceforge.net, lm-sensors@lm-sensors.org
 To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:63974 "EHLO mga09.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:14202 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752732Ab3KYXR2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Nov 2013 18:17:28 -0500
-In-Reply-To: <1385186881-7931-4-git-send-email-linux@roeck-us.net>
+	id S1751975Ab3KYXRs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Nov 2013 18:17:48 -0500
+In-Reply-To: <1385186881-7931-5-git-send-email-linux@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-oUI0QQLclxRcq2Zba0eC
+--=-f2BmIOG1F4VKcn8DMp9t
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2013-11-22 at 22:07 -0800, Guenter Roeck wrote:
-> Simplify the code. Attach hwmon sysfs attributes to hwmon device
-> instead of pci device. Avoid race conditions caused by attributes
-> being created after hwmon device registration. Implicitly
-> (through hwmon API) add mandatory 'name' sysfs attribute.
->=20
-> Other cleanup:
->=20
-> Instead of allocating memory for hwmon attributes, move attributes
-> and all other hwmon related data into struct hwmon_buff and allocate
-> the entire structure using devm_kzalloc.
->=20
-> Check return value from calls to igb_add_hwmon_attr() one by one
-> instead
-> of logically combining them all together.
+On Fri, 2013-11-22 at 22:08 -0800, Guenter Roeck wrote:
+> Per hwmon ABI, temperature sensor attribute index starts with 1, not
+> 0.
 >=20
 > Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 > ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe.h       |    8 ++-
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c |   76
-> ++++++++++--------------
->  2 files changed, 36 insertions(+), 48 deletions(-)
+>  drivers/net/ethernet/intel/igb/igb_hwmon.c |    8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
 
-I have added this to my queue, thanks!
+I have also added this to my queue, thank you.
 
---=-oUI0QQLclxRcq2Zba0eC
+--=-f2BmIOG1F4VKcn8DMp9t
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -65,19 +50,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.15 (GNU/Linux)
 
-iQIcBAABCgAGBQJSk9p0AAoJEOVv75VaS+3OYvEP/RM07jlWycrhE4k8YJddAxX2
-8QoB7cPfHJF/rCwSzObGWPVO4QDR+NdkOKGErR8jhQzhhI4AVp+Nc92RAKcAKyx2
-hVqGJQeIVXsU5OdTki3p7pSVNKZjEqz54z7LT809S16AJSvJMJJKB0gTWLo5zdS4
-KuxOwN03tNvfTwPD68Jdh1l+iXCNRSpwceXIdqRSCUfAqQ3mYhlRsmnv8T+2Cpp4
-285jCqYgeZbfW8gboKzLK4W1g192gTIvlYwAed00X0aPmByWZCI00ckj87m4nSNC
-wu8RcEyvNvTbNWA1uZq/bmSTwQ25GdZaU2QvzHwANIo0UIPy95bwROTsezPpPwtG
-8P5eiufXv9kiIkkXW5B8+nfaoNr60rwANZohuT6DxolMuAYqSpa/rvO9Z2HtTIDc
-5EgK1PgdFAvtDCAd+B1Vf4IXw1UeszMPZZR2ruKtpDln4gBn6fHolGqEb4WxAt/H
-HfNos1Yod0uG3qZN4n+uQ7JiJU/Ghmim8CRnORdQ0dml5xoFeOmBQtGb54YEQWmO
-5QnzcECSl5ngugz7mBKWAzZMpJBHcx3Woe8tXXvtNdL9Gg/3WfCWs5Lq0gl5+Cm/
-wZcMDntM8v23fWHhE8TYteyEHtV9Wy4F5WX9Jjx8GearFtWhT8c3b7qutXtI2G8L
-/amh0NOwr5U3mvB6VBhK
-=S5Fr
+iQIcBAABCgAGBQJSk9qbAAoJEOVv75VaS+3OSs4QAIDhuBtyJ7eP/AXMdgrp+xyG
+6nzNRSP4JyfBl1fq5zT46XoBYvN6k4xDzC/Hdb5LymE4LP7egJsrKJ7ABZ2kb5lN
+hUuRaedybwyX65xnf9tw7fQyfPrJloHo1McwL6Ye4J5tcJHSVnqD5I+vHHSMFc+L
+JkJRYhV2+tUIJ3QHFpMAA7MH8ruiYT56TsFWhS7A5uXLt8t2FYbYpmJpvkuIMrX/
+o9h/alBHj66oc/lVVFckyZiOVUGFmUbI17Ic0vokc82c9JzBcnJzGk8aHiwutACv
+8fE9NEsOpwcj20vzz6MoszxWaYfZ8NTDuFIloW0Y+r13pAvQ+JP8GzieyDrtfAuO
+/p/UZQbYRFeFifag1kdlm/J8CFVPEKmMGth+6jQcH/kcbUaviXtA7mbMTEnBMfeU
+1A54j2ofdy2NqLlkXd2xKCvvPOY/jmircCdh+0u4Mx7uekMZOoJlmN0DA+BWiora
+CgjbKTl9jvPyriNaq3GvcD6rqZnYkRC6/I2InrYLrLzFxzQ21BB+UgCyKAvFMR9T
+LrkO/5tWYyGynoSjRk9dXtBG70LRhm/JBzy5Vb2chvNxeKMRQop/FoYz/NTi3n4U
+5Q6vi1I/iBlsrogGXfHojw/DXN00TRJtHeAIs6om4D9Pvaw2PMMJkqlNOw/YDnwf
+4GlS8wJW2f5eoi0YjcoO
+=O4HA
 -----END PGP SIGNATURE-----
 
---=-oUI0QQLclxRcq2Zba0eC--
+--=-f2BmIOG1F4VKcn8DMp9t--
