@@ -1,17 +1,17 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 13/17] net: mlx4 calls skb_set_rxhash
-Date: Tue, 26 Nov 2013 09:31:50 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1311260928050.21143@tomh.mtv.corp.google.com>
+Subject: [PATCH v2 14/17] net: vxge calls skb_set_rxhash
+Date: Tue, 26 Nov 2013 09:32:01 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1311260928060.21248@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:47093 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750950Ab3KZRbv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:31:51 -0500
-Received: by mail-vc0-f202.google.com with SMTP id id10so632301vcb.3
-        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:31:50 -0800 (PST)
+Received: from mail-oa0-f73.google.com ([209.85.219.73]:62535 "EHLO
+	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751655Ab3KZRcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:32:03 -0500
+Received: by mail-oa0-f73.google.com with SMTP id i4so1255424oah.2
+        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:32:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,30 +20,22 @@ in an skbuff.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/neterion/vxge/vxge-main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 07a1d0f..3e48c44 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -747,7 +747,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 					}
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+index 8614eeb..17749a2 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
++++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+@@ -507,7 +507,8 @@ vxge_rx_1b_compl(struct __vxge_hw_ring *ringh, void *dtr,
+ 		 * if rss is disabled/enabled, so key off of that.
+ 		 */
+ 		if (ext_info.rth_value)
+-			skb->rxhash = ext_info.rth_value;
++			skb_set_rxhash(skb, ext_info.rth_value,
++				       RXHASH_TYPE_L3);
  
- 					if (dev->features & NETIF_F_RXHASH)
--						gro_skb->rxhash = be32_to_cpu(cqe->immed_rss_invalid);
-+						skb_set_rxhash(gro_skb, be32_to_cpu(cqe->immed_rss_invalid), RXHASH_TYPE_L3);
- 
- 					skb_record_rx_queue(gro_skb, cq->ring);
- 
-@@ -789,7 +789,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		skb_record_rx_queue(skb, cq->ring);
- 
- 		if (dev->features & NETIF_F_RXHASH)
--			skb->rxhash = be32_to_cpu(cqe->immed_rss_invalid);
-+			skb_set_rxhash(skb, be32_to_cpu(cqe->immed_rss_invalid), RXHASH_TYPE_L3);
- 
- 		if ((be32_to_cpu(cqe->vlan_my_qpn) &
- 		    MLX4_CQE_VLAN_PRESENT_MASK) &&
+ 		vxge_rx_complete(ring, skb, ext_info.vlan,
+ 			pkt_length, &ext_info);
 -- 
 1.8.4.1
