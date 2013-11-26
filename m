@@ -1,17 +1,17 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 10/17] net: igb calls skb_get_rxhash
-Date: Mon, 25 Nov 2013 21:54:28 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1311252153020.22983@tomh.mtv.corp.google.com>
+Subject: [PATCH 04/17] net: bnx2x calls skb_get_rxhash
+Date: Mon, 25 Nov 2013 21:49:54 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1311252148390.22983@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f73.google.com ([209.85.219.73]:56691 "EHLO
-	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751140Ab3KZFy3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 00:54:29 -0500
-Received: by mail-oa0-f73.google.com with SMTP id i4so1115408oah.4
-        for <netdev@vger.kernel.org>; Mon, 25 Nov 2013 21:54:29 -0800 (PST)
+Received: from mail-ob0-f202.google.com ([209.85.214.202]:60063 "EHLO
+	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752117Ab3KZFzd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 00:55:33 -0500
+Received: by mail-ob0-f202.google.com with SMTP id gq1so1115627obb.5
+        for <netdev@vger.kernel.org>; Mon, 25 Nov 2013 21:55:33 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,23 +20,43 @@ in an skbuff.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index ebe6370..4e8e2b2 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6412,7 +6412,9 @@ static inline void igb_rx_hash(struct igb_ring *ring,
- 			       struct sk_buff *skb)
- {
- 	if (ring->netdev->features & NETIF_F_RXHASH)
--		skb->rxhash = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
-+		skb_set_rxhash(skb,
-+			       le32_to_cpu(rx_desc->wb.lower.hi_dword.rss),
-+			       RXHASH_TYPE_L3);
- }
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index dcafbda..7c1d45d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -728,8 +728,8 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
  
- /**
+ 		skb_reserve(skb, pad + NET_SKB_PAD);
+ 		skb_put(skb, len);
+-		skb->rxhash = tpa_info->rxhash;
+-		skb->l4_rxhash = tpa_info->l4_rxhash;
++		skb_set_rxhash(skb, tpa_info->rxhash,
++		    tpa_info->l4_rxhash ? RXHASH_TYPE_L4 : RXHASH_TYPE_L3);
+ 
+ 		skb->protocol = eth_type_trans(skb, bp->dev);
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+@@ -846,6 +846,7 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+ 		enum eth_rx_cqe_type cqe_fp_type;
+ 		u16 len, pad, queue;
+ 		u8 *data;
++		u32 rxhash;
+ 		bool l4_rxhash;
+ 
+ #ifdef BNX2X_STOP_ON_ERROR
+@@ -987,8 +988,9 @@ reuse_rx:
+ 		skb->protocol = eth_type_trans(skb, bp->dev);
+ 
+ 		/* Set Toeplitz hash for a none-LRO skb */
+-		skb->rxhash = bnx2x_get_rxhash(bp, cqe_fp, &l4_rxhash);
+-		skb->l4_rxhash = l4_rxhash;
++		rxhash = bnx2x_get_rxhash(bp, cqe_fp, &l4_rxhash);
++		skb_set_rxhash(skb, rxhash,
++			       l4_rxhash ? RXHASH_TYPE_L4 : RXHASH_TYPE_L3);
+ 
+ 		skb_checksum_none_assert(skb);
+ 
 -- 
 1.8.4.1
