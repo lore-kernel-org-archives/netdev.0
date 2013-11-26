@@ -1,190 +1,830 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH iproute2] tbf: add 64bit rates support
-Date: Tue, 26 Nov 2013 09:55:35 +0800
-Message-ID: <1385430935-19740-1-git-send-email-yangyingliang@huawei.com>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: Re: BCM5720 transmit queue 1 timed out
+Date: Mon, 25 Nov 2013 18:10:42 -0800
+Message-ID: <52940322.1000808@broadcom.com>
+References: <59CC998F-C7A6-4879-9BD0-2B9800FE6164@btisystems.com>
+ <52812764.5090803@broadcom.com>
+ <E26A7505-D0D3-4C63-8CB9-E334F523623B@btisystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <eric.dumazet@gmail.com>
-To: <netdev@vger.kernel.org>, <stephen@networkplumber.org>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Atif Faheem" <afaheem@btisystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:1273 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751322Ab3KZBzy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Nov 2013 20:55:54 -0500
+Received: from mms2.broadcom.com ([216.31.210.18]:2874 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751986Ab3KZCLC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Nov 2013 21:11:02 -0500
+In-Reply-To: <E26A7505-D0D3-4C63-8CB9-E334F523623B@btisystems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tbf support 64bit rates start from linux-3.13.
-Add 64bit rates support in tc tools.
 
-tc qdisc show dev eth0
-qdisc tbf 1: root refcnt 2 rate 40000Mbit burst 230000b peakrate 50000Mbit minburst 87500b lat 50.0ms
 
-This is a followup to ("htb: support 64bit rates").
+On 11/24/2013 12:44 AM, Atif Faheem wrote:
+> Hi Nithin. I can get the RDMA change to trigger / resolve, however, I=
+ have one Q. Are the RDMA length registers 16 bit or 32 bit? The code s=
+eems to imply they are 32-bit, however, my understanding is that the le=
+ngth registers are 16-bit at 4be0, 4be2, 4be4, 4be6.
+>
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-Cc: Eric Dumazet <edumazet@google.com>
----
- tc/q_tbf.c | 58 ++++++++++++++++++++++++++++++++++++++--------------------
- 1 file changed, 38 insertions(+), 20 deletions(-)
+Glad to know that resolves the problem.
 
-diff --git a/tc/q_tbf.c b/tc/q_tbf.c
-index 34784a4..2fbfd3b 100644
---- a/tc/q_tbf.c
-+++ b/tc/q_tbf.c
-@@ -47,6 +47,7 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 	unsigned short overhead=0;
- 	unsigned int linklayer = LINKLAYER_ETHERNET; /* Assume ethernet */
- 	struct rtattr *tail;
-+	__u64 rate64 = 0, prate64 = 0;
- 
- 	memset(&opt, 0, sizeof(opt));
- 
-@@ -121,22 +122,22 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 			ok++;
- 		} else if (strcmp(*argv, "rate") == 0) {
- 			NEXT_ARG();
--			if (opt.rate.rate) {
-+			if (rate64) {
- 				fprintf(stderr, "tbf: duplicate \"rate\" specification\n");
- 				return -1;
- 			}
--			if (get_rate(&opt.rate.rate, *argv)) {
-+			if (get_rate64(&rate64, *argv)) {
- 				explain1("rate", *argv);
- 				return -1;
- 			}
- 			ok++;
- 		} else if (matches(*argv, "peakrate") == 0) {
- 			NEXT_ARG();
--			if (opt.peakrate.rate) {
-+			if (prate64) {
- 				fprintf(stderr, "tbf: duplicate \"peakrate\" specification\n");
- 				return -1;
- 			}
--			if (get_rate(&opt.peakrate.rate, *argv)) {
-+			if (get_rate64(&prate64, *argv)) {
- 				explain1("peakrate", *argv);
- 				return -1;
- 			}
-@@ -172,7 +173,7 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
-          * one go rather than reveal one more problem when a
-          * previous one has been fixed.
-          */
--	if (opt.rate.rate == 0) {
-+	if (rate64 == 0) {
- 		fprintf(stderr, "tbf: the \"rate\" parameter is mandatory.\n");
- 		verdict = -1;
- 	}
-@@ -180,7 +181,7 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 		fprintf(stderr, "tbf: the \"burst\" parameter is mandatory.\n");
- 		verdict = -1;
- 	}
--	if (opt.peakrate.rate) {
-+	if (prate64) {
- 		if (!mtu) {
- 			fprintf(stderr, "tbf: when \"peakrate\" is specified, \"mtu\" must also be specified.\n");
- 			verdict = -1;
-@@ -197,10 +198,13 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
-                 return verdict;
-         }
- 
-+	opt.rate.rate = (rate64 >= (1ULL << 32)) ? ~0U : rate64;
-+	opt.peakrate.rate = (prate64 >= (1ULL << 32)) ? ~0U : prate64;
-+
- 	if (opt.limit == 0) {
--		double lim = opt.rate.rate*(double)latency/TIME_UNITS_PER_SEC + buffer;
--		if (opt.peakrate.rate) {
--			double lim2 = opt.peakrate.rate*(double)latency/TIME_UNITS_PER_SEC + mtu;
-+		double lim = rate64*(double)latency/TIME_UNITS_PER_SEC + buffer;
-+		if (prate64) {
-+			double lim2 = prate64*(double)latency/TIME_UNITS_PER_SEC + mtu;
- 			if (lim2 < lim)
- 				lim = lim2;
- 		}
-@@ -228,20 +232,26 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 	tail = NLMSG_TAIL(n);
- 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
- 	addattr_l(n, 2024, TCA_TBF_PARMS, &opt, sizeof(opt));
-+	if (rate64 >= (1ULL << 32))
-+		addattr_l(n, 2124, TCA_TBF_RATE64, &rate64, sizeof(rate64));
- 	addattr_l(n, 3024, TCA_TBF_RTAB, rtab, 1024);
--	if (opt.peakrate.rate)
-+	if (opt.peakrate.rate) {
-+		if (prate64 >= (1ULL << 32))
-+			addattr_l(n, 3124, TCA_TBF_PRATE64, &prate64, sizeof(prate64));
- 		addattr_l(n, 4096, TCA_TBF_PTAB, ptab, 1024);
-+	}
- 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
- 	return 0;
- }
- 
- static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- {
--	struct rtattr *tb[TCA_TBF_PTAB+1];
-+	struct rtattr *tb[TCA_TBF_MAX+1];
- 	struct tc_tbf_qopt *qopt;
- 	unsigned int linklayer;
- 	double buffer, mtu;
- 	double latency;
-+	__u64 rate64 = 0, prate64 = 0;
- 	SPRINT_BUF(b1);
- 	SPRINT_BUF(b2);
- 	SPRINT_BUF(b3);
-@@ -249,7 +259,7 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	if (opt == NULL)
- 		return 0;
- 
--	parse_rtattr_nested(tb, TCA_TBF_PTAB, opt);
-+	parse_rtattr_nested(tb, TCA_TBF_MAX, opt);
- 
- 	if (tb[TCA_TBF_PARMS] == NULL)
- 		return -1;
-@@ -257,8 +267,12 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	qopt = RTA_DATA(tb[TCA_TBF_PARMS]);
- 	if (RTA_PAYLOAD(tb[TCA_TBF_PARMS])  < sizeof(*qopt))
- 		return -1;
--	fprintf(f, "rate %s ", sprint_rate(qopt->rate.rate, b1));
--	buffer = tc_calc_xmitsize(qopt->rate.rate, qopt->buffer);
-+	rate64 = qopt->rate.rate;
-+	if (tb[TCA_TBF_RATE64] &&
-+	    RTA_PAYLOAD(tb[TCA_TBF_RATE64]) >= sizeof(rate64))
-+		rate64 = rta_getattr_u64(tb[TCA_TBF_RATE64]);
-+	fprintf(f, "rate %s ", sprint_rate(rate64, b1));
-+	buffer = tc_calc_xmitsize(rate64, qopt->buffer);
- 	if (show_details) {
- 		fprintf(f, "burst %s/%u mpu %s ", sprint_size(buffer, b1),
- 			1<<qopt->rate.cell_log, sprint_size(qopt->rate.mpu, b2));
-@@ -267,10 +281,14 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	}
- 	if (show_raw)
- 		fprintf(f, "[%08x] ", qopt->buffer);
--	if (qopt->peakrate.rate) {
--		fprintf(f, "peakrate %s ", sprint_rate(qopt->peakrate.rate, b1));
-+	prate64 = qopt->peakrate.rate;
-+	if (tb[TCA_TBF_PRATE64] &&
-+	    RTA_PAYLOAD(tb[TCA_TBF_PRATE64]) >= sizeof(prate64))
-+		prate64 = rta_getattr_u64(tb[TCA_TBF_PRATE64]);
-+	if (prate64) {
-+		fprintf(f, "peakrate %s ", sprint_rate(prate64, b1));
- 		if (qopt->mtu || qopt->peakrate.mpu) {
--			mtu = tc_calc_xmitsize(qopt->peakrate.rate, qopt->mtu);
-+			mtu = tc_calc_xmitsize(prate64, qopt->mtu);
- 			if (show_details) {
- 				fprintf(f, "mtu %s/%u mpu %s ", sprint_size(mtu, b1),
- 					1<<qopt->peakrate.cell_log, sprint_size(qopt->peakrate.mpu, b2));
-@@ -285,9 +303,9 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	if (show_raw)
- 		fprintf(f, "limit %s ", sprint_size(qopt->limit, b1));
- 
--	latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->rate.rate) - tc_core_tick2time(qopt->buffer);
--	if (qopt->peakrate.rate) {
--		double lat2 = TIME_UNITS_PER_SEC*(qopt->limit/(double)qopt->peakrate.rate) - tc_core_tick2time(qopt->mtu);
-+	latency = TIME_UNITS_PER_SEC*(qopt->limit/(double)rate64) - tc_core_tick2time(qopt->buffer);
-+	if (prate64) {
-+		double lat2 = TIME_UNITS_PER_SEC*(qopt->limit/(double)prate64) - tc_core_tick2time(qopt->mtu);
- 		if (lat2 > latency)
- 			latency = lat2;
- 	}
--- 
-1.8.0
+
+>              if (tr32(TG3_RDMA_LENGTH + (i << 2)) > TG3_MAX_MTU(tp))
+>
+
+The RDMA registers are 32 bit.
+Note - the loop adds (i << 2) and not i * 2. Adding (i << 2) gives 4be0=
+, 4be4,=20
+4be8 and 4bec.
+
+
+> The change gets executed when the value of 0x4be0 is e.g., 0x00960096=
+, or 0x00a200a2. Just wanted to confirm that the lengths are indeed 32-=
+bit in the register map.
+>
+> Thanks.
+> - Atif
+>
+> On Nov 11, 2013, at 1:52 PM, Nithin Nayak Sujir <nsujir@broadcom.com>=
+ wrote:
+>
+>>
+>>
+>> On 11/08/2013 09:24 PM, Atif Faheem wrote:
+>>> Hi.  I need some help with transmit Q timeouts on the 5720. We are =
+using Linux kernel 3.4.34, with channel bonding on 5720 on embedded. Oc=
+casionally immediately after a reboot or a power cycle we get a lockup =
+on the 5720, which looks like given below; the problem seems to happen =
+on some 5720=92s more often. Recently there has been a lot of discussio=
+n on this issue on the list and based on that I have incorporated the f=
+ollowing 2 patches from upstream into the driver, but the problem still=
+ continues to happen.
+>>>
+>> Hi Atif,
+>>
+>> The symptom you're describing matches the fixes that went in for the=
+ DMA workaround.
+>>
+>>> -- After Power-on-reset, the 5719's TX DMA length registers may con=
+tain
+>>> uninitialized values and cause TX DMA to stall.  Check for invalid
+>>> values and set a register bit to flush the TX channels.  The bit
+>>> needs to be turned off after the DMA channels have been flushed.
+>>>
+>>> -- There was a subsequent fix (06/13) that applies the patch above =
+to the 5720. Commit 091f0ea30074bc43f9250961b3247af713024bc6.
+>>>
+>>
+>> This commit id is for the 5719 fix. The 5720 fix is
+>> 9bc297ea0622bb2a6b3abfa2fa84f0a3b86ef8c8.
+>>
+>>
+>>> Is there anything else that might be missing from 3.4.34 as far as =
+the transmit lockups are concerned? Any ideas will be great.
+>>>
+>>
+>> No, these two patches should fix the issue. Are you certain both pat=
+ches are
+>> applied and being used? Also, would you mind trying the latest stabl=
+e 3.11.x kernel?
+>>
+>> Please make sure to *power cycle* the system after a previous timeou=
+t. A reboot
+>> may not be enough once the hardware is already in a bad state for th=
+is issue.
+>> Pull the plug and power down and wait a few seconds before powering =
+on.
+>>
+>> Thanks,
+>> Nithin.
+>>
+>>
+>>
+>>> Thanks.
+>>> Atif Faheem
+>>> BTI Systems
+>>> net
+>>>
+>>> ------------[ cut here ]------------
+>>> WARNING: at /home/jenkins/jobs/r102-os/workspace/opt/os/wrlinux/bui=
+lds/atom64/bitbake_build/tmp/work/intel_atom_64-wrs-linux/linux-windriv=
+er-3.4-r0/linux/net/sched/sch_generic.c:256 dev_watchdog+0x277/0x280()
+>>> Hardware name: To be filled by O.E.M.
+>>> NETDEV WATCHDOG: eth1 (tg3): transmit queue 1 timed out
+>>> Modules linked in: firmware_class libphy tg3 bonding
+>>> Pid: 0, comm: swapper/0 Not tainted 3.4.34-WR5.0.1.3_standard #1
+>>> Call Trace:
+>>> <IRQ>  [<ffffffff81030c84>] warn_slowpath_common+0x84/0xc0
+>>> [<ffffffff81030d77>] warn_slowpath_fmt+0x47/0x50
+>>> [<ffffffff816799f7>] dev_watchdog+0x277/0x280
+>>> [<ffffffff81040784>] run_timer_softirq+0x134/0x420
+>>> [<ffffffff8134f5ee>] ? timerqueue_add+0x6e/0xc0
+>>> [<ffffffff81679780>] ? qdisc_reset+0x50/0x50
+>>> [<ffffffff8103811d>] __do_softirq+0xbd/0x280
+>>> [<ffffffff81079375>] ? clockevents_program_event+0x75/0xf0
+>>> [<ffffffff8107a7b4>] ? tick_program_event+0x24/0x30
+>>> [<ffffffff81777b8c>] call_softirq+0x1c/0x30
+>>> [<ffffffff810037b5>] do_softirq+0x55/0x90
+>>> [<ffffffff810385ee>] irq_exit+0x8e/0xb0
+>>> [<ffffffff817781e9>] smp_apic_timer_interrupt+0x99/0x1cd
+>>> [<ffffffff817773c7>] apic_timer_interrupt+0x67/0x70
+>>> <EOI>  [<ffffffff813c2689>] ? acpi_idle_enter_bm+0x240/0x281
+>>> [<ffffffff813c2684>] ? acpi_idle_enter_bm+0x23b/0x281
+>>> [<ffffffff815cc58f>] ? menu_select+0xff/0x3c0
+>>> [<ffffffff815ca8d8>] cpuidle_enter+0x18/0x20
+>>> [<ffffffff815caf59>] cpuidle_idle_call+0xc9/0x3b0
+>>> [<ffffffff8100b59f>] cpu_idle+0x7f/0xd0
+>>> [<ffffffff8174b3a7>] rest_init+0x7b/0x84
+>>> [<ffffffff81cd3b76>] start_kernel+0x35b/0x369
+>>> [<ffffffff81cd3616>] ? repair_env_string+0x5a/0x5a
+>>> [<ffffffff81cd3321>] x86_64_start_reservations+0x131/0x135
+>>> [<ffffffff81cd3416>] x86_64_start_kernel+0xf1/0xf9
+>>> ---[ end trace b625d70ff7be1bd7 ]=97
+>>> kernel: tg3 0000:03:00.1: eth1: transmit timed out, resetting
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000000: 0x165f14e4, 0x00100406,=
+ 0x02000000, 0x00800010
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000010: 0xbc14000c, 0x00000000,=
+ 0xbc13000c, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000020: 0xbc12000c, 0x00000000,=
+ 0x00000000, 0x165f14e4
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000030: 0x00000000, 0x00000048,=
+ 0x00000000, 0x0000020b
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000040: 0x00000000, 0x03000000,=
+ 0xc8035001, 0x64002008
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000050: 0x00005803, 0x00000000,=
+ 0x0086a005, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000060: 0x00000000, 0x00000000,=
+ 0xf0000298, 0x00380081
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000070: 0x00071090, 0xffffe0ff,=
+ 0x00000438, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000080: 0x0000024c, 0x40000040,=
+ 0x00000000, 0x0000000c
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000090: 0x00000000, 0x00000000,=
+ 0x00000000, 0x000000e8
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000000a0: 0x8010ac11, 0x00000004,=
+ 0x00001004, 0x00020010
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000000b0: 0x15048d81, 0x00102400,=
+ 0x0004cc22, 0x10110040
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000000d0: 0x0000001f, 0x00000000,=
+ 0x00000000, 0x00010000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000000f0: 0x00000000, 0x05720000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000100: 0x13c10001, 0x00000000,=
+ 0x00000000, 0x00062030
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000110: 0x00002080, 0x00002000,=
+ 0x000000a0, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000130: 0x00000000, 0x00000000,=
+ 0x00000000, 0x15010003
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000140: 0xd0400c65, 0x00000014,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000150: 0x16010004, 0x00000000,=
+ 0x0007811b, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000160: 0x00010002, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000170: 0x00000000, 0x800000ff,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000200: 0x00000000, 0x03000000,=
+ 0x00000000, 0x0d000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000210: 0x00000000, 0x07000000,=
+ 0x00000000, 0x0b000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000220: 0x00000000, 0x04000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000260: 0x00000000, 0x00000000,=
+ 0x00000000, 0x000000e8
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000280: 0x00000000, 0x0000000c,=
+ 0x00000000, 0x00000006
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000290: 0x00000000, 0x0000000a,=
+ 0x00000000, 0x00000004
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000300: 0x00000001, 0x00000000,=
+ 0x00000000, 0x00000001
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000400: 0x18e04808, 0x00400000,=
+ 0x00001000, 0x00000880
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000410: 0x00000014, 0xd0400c64,=
+ 0x00000014, 0xd0400c64
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000420: 0x00000014, 0xd0400c64,=
+ 0x00000014, 0xd0400c64
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000430: 0x00000400, 0x00000000,=
+ 0x000002dd, 0x000005f2
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000440: 0x00000000, 0x00000000,=
+ 0x00000000, 0x04584400
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000450: 0x00000001, 0x00008000,=
+ 0x00000000, 0x00000102
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000460: 0x00000008, 0x00002620,=
+ 0x01ff0002, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000470: 0x80000000, 0x00000080,=
+ 0x00000000, 0x40200000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000480: 0x42000000, 0x7fffffff,=
+ 0x06000004, 0x7fffffff
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000500: 0x00000008, 0x00000002,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000540: 0x00000014, 0xd0400c66,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000590: 0x00e00000, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000005b0: 0x00000000, 0x00000008,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000005c0: 0xb26ff6f0, 0xa1d5ff82,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000600: 0xffffffff, 0x00f80011,=
+ 0x00000000, 0x00001f04
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000610: 0xffffffff, 0x00000000,=
+ 0x07c00004, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000620: 0x00000040, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000630: 0x01230123, 0x01230123,=
+ 0x01230123, 0x01230123
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000640: 0x01230123, 0x01230123,=
+ 0x01230123, 0x01230123
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000650: 0x01230123, 0x01230123,=
+ 0x01230123, 0x01230123
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000660: 0x01230123, 0x01230123,=
+ 0x01230123, 0x01230123
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000670: 0x5f865437, 0xe4ac62cc,=
+ 0x50103a45, 0x36621985
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000680: 0xbf14c0e8, 0x1bc27a1e,=
+ 0x84f4b556, 0x094ea6fe
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000690: 0x7dda01e7, 0xc04d7481,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000006c0: 0x00000000, 0x00000000,=
+ 0x04000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000006d0: 0x00000001, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000800: 0x00000000, 0xffffffff,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000810: 0x00000000, 0xffffffff,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000820: 0x00000000, 0x00000000,=
+ 0xffffffff, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000830: 0x00000000, 0xffffffff,=
+ 0xffffffff, 0xffffffff
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000840: 0xffffffff, 0xffffffff,=
+ 0xffffffff, 0xffffffff
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000850: 0xffffffff, 0xffffffff,=
+ 0xffffffff, 0xffffffff
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000860: 0xffffffff, 0xffffffff,=
+ 0xffffffff, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000880: 0x00000108, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000890: 0x00000002, 0x00000001,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000008f0: 0x00000001, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000900: 0x00000000, 0xffffffff,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000910: 0x00000000, 0xffffffff,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000920: 0x00000000, 0x00000000,=
+ 0xffffffff, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000930: 0x00000000, 0xffffffff,=
+ 0xffffffff, 0xffffffff
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000940: 0xffffffff, 0xffffffff,=
+ 0xffffffff, 0xffffffff
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000950: 0xffffffff, 0xffffffff,=
+ 0xffffffff, 0xffffffff
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000960: 0xffffffff, 0xffffffff,=
+ 0xffffffff, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000980: 0x00000108, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000990: 0x0000000a, 0x00000020,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000c00: 0x0000000a, 0x00000000,=
+ 0x00000003, 0x00000001
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000c10: 0x00000000, 0x00000000,=
+ 0x00000000, 0x01420000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000c80: 0x00000002, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000ce0: 0x79fa6c02, 0x00000001,=
+ 0x00000142, 0x00040028
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00000cf0: 0x00000000, 0x50000001,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00001000: 0x00000002, 0x00000000,=
+ 0xa0000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00001400: 0x00000006, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00001440: 0x00000000, 0x00000001,=
+ 0x00000001, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00001480: 0x00003321, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00001800: 0x00000036, 0x00000000,=
+ 0x00000000, 0x00000001
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00001810: 0x00000001, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00001830: 0x00000000, 0x00000000,=
+ 0x00000000, 0x74218000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00001840: 0x79012000, 0x00000001,=
+ 0x00000204, 0xc0000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00001850: 0x0000001f, 0x00000000,=
+ 0x00004800, 0x00000001
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00001860: 0x01000100, 0x00000000,=
+ 0x78f2e000, 0x00000001
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00001c00: 0x00000002, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002000: 0x00000002, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002010: 0x00000181, 0x00000001,=
+ 0x00780003, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002100: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002110: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002120: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002130: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002140: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002150: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002160: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002170: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002180: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002190: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000021a0: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000021b0: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000021c0: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000021d0: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000021e0: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000021f0: 0x0008c061, 0x0008c061,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002200: 0x0000002a, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002250: 0x0000000a, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002400: 0x00010012, 0x00000000,=
+ 0x00204001, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002410: 0x0000000f, 0x00005d00,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002440: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00044400
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002450: 0x00000001, 0x73a10000,=
+ 0x08001800, 0x00040000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002470: 0x00000000, 0x00000020,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002500: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00044800
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002510: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00040400
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002520: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00044c00
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002530: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00040800
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002540: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00045000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002550: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00040c00
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002560: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00045400
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002570: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00041000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002580: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00045800
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002590: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00041400
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000025a0: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00045c00
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000025b0: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00041800
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000025c0: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00046000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000025d0: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00041c00
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000025e0: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00046400
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000025f0: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00042000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002600: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00046800
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002610: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00042400
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002620: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00046c00
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002630: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00042800
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002640: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00047000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002650: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00042c00
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002660: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00047400
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002670: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00043000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002680: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00047800
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002690: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00043400
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000026a0: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00047c00
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000026b0: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00043800
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000026c0: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00048000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000026d0: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00043c00
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000026e0: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00048400
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000026f0: 0x00000000, 0x00000000,=
+ 0x00000002, 0x00044000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002800: 0x00000006, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002c00: 0x00000006, 0x00000000,=
+ 0x00000000, 0x000000a0
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002c10: 0x00000000, 0x00000000,=
+ 0x00000019, 0x0000000c
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002c20: 0x00000001, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00002d00: 0x00000080, 0x00000040,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003000: 0x00000006, 0x00000000,=
+ 0x00000000, 0x000000a0
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003440: 0x00000000, 0x00000000,=
+ 0x00000000, 0x00000110
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003600: 0x00000600, 0x00170000,=
+ 0x00110000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003610: 0x00170000, 0x00000000,=
+ 0x00130000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003620: 0x00110011, 0x00000000,=
+ 0x00000000, 0x40032080
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003630: 0x00800000, 0x87748774,=
+ 0x02c01000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003640: 0x00000000, 0x00000000,=
+ 0x00000020, 0x00000019
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003650: 0x00000171, 0x000f03ff,=
+ 0x05720000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003660: 0x00000000, 0x00000000,=
+ 0x02000000, 0x00000202
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003670: 0x00000000, 0xfeffbff7,=
+ 0x00000000, 0x00000020
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003680: 0x30018010, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000036a0: 0x000001a0, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000036b0: 0x0010034c, 0x07ff07ff,=
+ 0x07ff07ff, 0x01000004
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000036c0: 0xffffffff, 0x00000000,=
+ 0x00000000, 0x000001c6
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000036d0: 0x0000019d, 0x00000000,=
+ 0x00000000, 0x0000485f
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000036f0: 0x00000000, 0x00000000,=
+ 0x00000000, 0x00013301
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003800: 0x00000001, 0x00000000,=
+ 0x0000000e, 0x0516028b
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003810: 0x000001f6, 0x00000052,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003c00: 0x00000306, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003c30: 0x00000000, 0x00000000,=
+ 0x00000001, 0x74320000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003c40: 0x00000000, 0x00000b00,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003c50: 0x00000000, 0x00000020,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003c80: 0x0000000c, 0x00000006,=
+ 0x0000000a, 0x00000004
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003cd0: 0x00000000, 0x0000000f,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003d00: 0x00000001, 0x790b7000,=
+ 0x00000001, 0x7429d000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003d10: 0x00000001, 0x76be5000,=
+ 0x00000001, 0x79abb000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003d80: 0x00000014, 0x00000048,=
+ 0x00000005, 0x00000035
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003d90: 0x00000005, 0x00000005,=
+ 0x00000014, 0x00000048
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003da0: 0x00000005, 0x00000035,=
+ 0x00000005, 0x00000005
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003db0: 0x00000014, 0x00000048,=
+ 0x00000005, 0x00000035
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003dc0: 0x00000005, 0x00000005,=
+ 0x00000014, 0x00000048
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003dd0: 0x00000005, 0x00000035,=
+ 0x00000005, 0x00000005
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00003fc0: 0x00000026, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004000: 0x00000002, 0x00000000,=
+ 0x0003afe9, 0x0014654c
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004010: 0x00000000, 0x00261012,=
+ 0x00000480, 0x00848042
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004020: 0x00000000, 0x00000000,=
+ 0x00000010, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004030: 0x00000010, 0x00000050,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004040: 0x00000000, 0x00000000,=
+ 0x01090020, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004050: 0x00000000, 0x00000000,=
+ 0x0025d010, 0x00000002
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004060: 0x00400000, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004400: 0x00000016, 0x00000000,=
+ 0x00010000, 0x0000a000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004410: 0x00000000, 0x0000002a,=
+ 0x000000a0, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004420: 0x0000003d, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004440: 0x00000000, 0x00000000,=
+ 0x00000000, 0x00000001
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004450: 0x0002033f, 0x00620063,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004800: 0x380303fe, 0x00000000,=
+ 0x00000000, 0x00000100
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004810: 0x00000000, 0x00000004,=
+ 0x00009c80, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004820: 0x737c0014, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004840: 0x00000000, 0x00000000,=
+ 0x00d73500, 0x00fd175d
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004850: 0xe58e042e, 0xd1927a2c,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004860: 0x00000014, 0x11548788,=
+ 0x00100800, 0x00040000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004870: 0x05ea0000, 0x003e1820,=
+ 0x003e1820, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004880: 0x00000014, 0xd0400c66,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004900: 0x28190404, 0x00305407,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004910: 0x000f001c, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004a00: 0x180303fe, 0x00200000,=
+ 0x00200020, 0x00210000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004a10: 0x73a113a0, 0x008ca924,=
+ 0x00200012, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004a20: 0x00000000, 0x00000000,=
+ 0xf02c0000, 0x73a11400
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004a30: 0x00000000, 0x00000084,=
+ 0x00000084, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004a40: 0x73a11380, 0x73a113a0,=
+ 0x73a11340, 0x73a11360
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004a50: 0x00200020, 0x00200020,=
+ 0x00200020, 0x00200020
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004a70: 0x28190404, 0x00305407,=
+ 0x000f001c, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004b00: 0x180303fe, 0x005a0003,=
+ 0x30000000, 0x01420160
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004b10: 0xe01a0000, 0x00000003,=
+ 0x005adc88, 0x00001692
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004b20: 0x00000000, 0x02000000,=
+ 0x00000000, 0x005a0000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004b30: 0x00000000, 0x00420000,=
+ 0x00000000, 0x001a0000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004b50: 0x00000000, 0x00000000,=
+ 0x88000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004b60: 0x00000000, 0x00000000,=
+ 0x88000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004b70: 0x00000000, 0x00000000,=
+ 0x88000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004b80: 0x00000000, 0x11548788,=
+ 0x00100800, 0x00040000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004b90: 0x05ea0000, 0x28190404,=
+ 0x00305407, 0x000f001c
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004ba0: 0x330c3000, 0x00000000,=
+ 0x11548788, 0x000f001c
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004bc0: 0x738e8002, 0x79fa6c02,=
+ 0x1ce29ebe, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004bd0: 0x79fa6402, 0x746ed002,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004be0: 0x0142005a, 0x0000e01a,=
+ 0x00460142, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004bf0: 0x00000000, 0x00000000,=
+ 0x88000000, 0x00003333
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004c00: 0x200003fe, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004c10: 0x0000002a, 0x00000000,=
+ 0x00000006, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004c20: 0x00000000, 0x00000000,=
+ 0x00000000, 0x00000006
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004c30: 0x00000000, 0x00018000,=
+ 0x00108000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004c40: 0x00000020, 0x00000000,=
+ 0x001d0020, 0x00040020
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004c50: 0x0900500b, 0x0000b003,=
+ 0x0400a006, 0x00200303
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00004c60: 0x00000020, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005000: 0x00009800, 0x80004000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005010: 0x00000000, 0x00000000,=
+ 0x00000000, 0x08002c9c
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005020: 0x0e000b25, 0x00000000,=
+ 0x00000000, 0x40000020
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005030: 0x00000000, 0x0000001d,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005040: 0x00000000, 0x00000000,=
+ 0x080019d2, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005080: 0x00009800, 0x80000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005090: 0x00000000, 0x00000000,=
+ 0x00000000, 0x08001fac
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000050a0: 0x30422000, 0x00000000,=
+ 0x00000000, 0x40000020
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000050b0: 0x00000000, 0x0000001d,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000050c0: 0x00000000, 0x00000000,=
+ 0x08000088, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005100: 0x00009800, 0x80000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005110: 0x00000000, 0x00000000,=
+ 0x00000000, 0x080019c4
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005120: 0x30422000, 0x00000000,=
+ 0x00000000, 0x40000020
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005130: 0x00000000, 0x0000001d,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005140: 0x00000000, 0x00000000,=
+ 0x08002cd4, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005180: 0x00009800, 0x80004000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005190: 0x00000000, 0x00000000,=
+ 0x00000000, 0x08002ca0
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000051a0: 0x00621024, 0x00000000,=
+ 0x00000000, 0x40000020
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000051b0: 0x00000000, 0x0000001d,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000051c0: 0x00000000, 0x00000000,=
+ 0x08000088, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005200: 0x14600027, 0x144001e2,=
+ 0x144001e2, 0x3c038000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005210: 0x01020000, 0x01020000,=
+ 0xc0000000, 0xdeaddead
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005220: 0xdeaddead, 0x3c038000,=
+ 0xc0000000, 0x01020000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005230: 0x14600027, 0x00000000,=
+ 0xc0000000, 0x14600027
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005240: 0xb49a89ab, 0x144001e2,=
+ 0x144001e2, 0x14600027
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005250: 0x00000b50, 0x144001e2,=
+ 0x3c038000, 0xc0010000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005260: 0x00000000, 0x00000b50,=
+ 0x01020000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005270: 0x00000000, 0x14600027,=
+ 0xb49a89ab, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005280: 0x00009800, 0x80000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005290: 0x00000000, 0x00000000,=
+ 0x00000000, 0x08002c9c
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000052a0: 0x30422000, 0x00000000,=
+ 0x00000000, 0x40000020
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000052b0: 0x00000000, 0x0000001d,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000052c0: 0x00000000, 0x00000000,=
+ 0x080027fc, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005300: 0x00009800, 0x80004000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005310: 0x00000000, 0x00000000,=
+ 0x00000000, 0x08001fc0
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005320: 0x00831824, 0x00000000,=
+ 0x00000000, 0x40000020
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005330: 0x00000000, 0x0000001d,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005340: 0x00000000, 0x00000000,=
+ 0x08002cb6, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005380: 0x00009800, 0x80004000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005390: 0x00000000, 0x00000000,=
+ 0x00000000, 0x08002068
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000053a0: 0x8c434014, 0x00000000,=
+ 0x00000000, 0x40000020
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000053b0: 0x00000000, 0x0000001d,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000053c0: 0x00000000, 0x00000000,=
+ 0x080027fc, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005800: 0x03000000, 0x03000000,=
+ 0x0d000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005810: 0x07000000, 0x00000000,=
+ 0x0b000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005820: 0x04000000, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005860: 0x00000000, 0x00000000,=
+ 0x000000e8, 0x000000e8
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005880: 0x0000000c, 0x0000000c,=
+ 0x00000006, 0x00000006
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005890: 0x0000000a, 0x0000000a,=
+ 0x00000004, 0x00000004
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005900: 0x00000000, 0x00000000,=
+ 0x00000001, 0x00000001
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005980: 0x00000000, 0x00000001,=
+ 0x00000001, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00005a00: 0x000f601f, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006000: 0x00010082, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006400: 0x00000000, 0x00000000,=
+ 0x00010091, 0xc0000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006410: 0x0a000064, 0x0a000064,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006430: 0x00000000, 0x14e4165f,=
+ 0x165f14e4, 0x00020000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006440: 0x0000304f, 0x000002e4,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000064c0: 0x00000010, 0x00000004,=
+ 0x00001004, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000064d0: 0x00000000, 0x10008d81,=
+ 0x00000000, 0x00315e22
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000064e0: 0x00000031, 0x0000001f,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000064f0: 0x00000002, 0x00000031,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006500: 0x01e10003, 0xd0400c65,=
+ 0x00000014, 0x00000003
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006510: 0x0007811b, 0x00058116,=
+ 0x00046113, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006550: 0x00000000, 0x02800000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000065f0: 0x00000000, 0x00000109,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006800: 0x14130034, 0x20099082,=
+ 0x01000008, 0x00a16dd0
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006810: 0x01020000, 0xffffffff,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006830: 0xffffffff, 0xffffffff,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006840: 0x00000000, 0x00000001,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006890: 0x00000000, 0x88003800,=
+ 0x00000000, 0x04102040
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000068a0: 0x00000020, 0x00000001,=
+ 0x03ff03ff, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000068b0: 0xe0011514, 0x00000000,=
+ 0x00000000, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x000068f0: 0x00ff000e, 0x00ff0000,=
+ 0x00000000, 0x04444444
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00006920: 0x00000000, 0x00000000,=
+ 0x00000001, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00007000: 0x00000008, 0x00000000,=
+ 0x00000000, 0x00004868
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00007010: 0x1a5876c2, 0x01c080f3,=
+ 0x00d70081, 0x03008200
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00007020: 0x00000000, 0x00000000,=
+ 0x00000406, 0x10004000
+>>> kernel: tg3 0000:03:00.1: eth1: 0x00007030: 0x000e0000, 0x0000486c,=
+ 0x00170030, 0x00000000
+>>> kernel: tg3 0000:03:00.1: eth1: 0: Host status block [00000005:0000=
+0003:(0000:0000:0000):(0000:0000)]
+>>> kernel: tg3 0000:03:00.1: eth1: 0: NAPI info [00000003:00000003:(00=
+00:0000:01ff):0000:(00f2:0000:0000:0000)]
+>>> kernel: tg3 0000:03:00.1: eth1: 1: Host status block [00000001:0000=
+0013:(0000:0000:0000):(0012:0000)]
+>>> kernel: tg3 0000:03:00.1: eth1: 1: NAPI info [00000013:00000013:(00=
+00:0000:01ff):0012:(0012:0012:0000:0000)]
+>>> kernel: tg3 0000:03:00.1: eth1: 2: Host status block [00000001:0000=
+0007:(0006:0000:0000):(0000:0000)]
+>>> kernel: tg3 0000:03:00.1: eth1: 2: NAPI info [00000007:00000007:(00=
+01:0000:01ff):0006:(0006:0006:0000:0000)]
+>>> kernel: tg3 0000:03:00.1: eth1: 3: Host status block [00000001:0000=
+000b:(0000:0000:0000):(0000:0000)]
+>>> kernel: tg3 0000:03:00.1: eth1: 3: NAPI info [0000000b:0000000b:(00=
+01:0000:01ff):000a:(000a:000a:0000:0000)]
+>>> kernel: tg3 0000:03:00.1: eth1: 4: Host status block [00000001:0000=
+0007:(0000:0000:0008):(0000:0000)]
+>>> kernel: tg3 0000:03:00.1: eth1: 4: NAPI info [00000007:00000007:(00=
+00:0000:01ff):0008:(0008:0008:0000:0000)]
+>>> kernel: tg3 0000:03:00.1: eth1: Link is down
+>>>
+>>>
+>>> 03:00.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5720=
+ Gigabit Ethernet PCIe
+>>>          Subsystem: Broadcom Corporation NetXtreme BCM5720 Gigabit =
+Ethernet PCIe
+>>>          Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop=
+- ParErr- Stepping- SERR- FastB2B- DisINTx+
+>>>          Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast >T=
+Abort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+>>>          Latency: 0, Cache Line Size: 64 bytes
+>>>          Interrupt: pin B routed to IRQ 19
+>>>          Region 0: Memory at bc140000 (64-bit, prefetchable) [size=3D=
+64K]
+>>>          Region 2: Memory at bc130000 (64-bit, prefetchable) [size=3D=
+64K]
+>>>          Region 4: Memory at bc120000 (64-bit, prefetchable) [size=3D=
+64K]
+>>>          Capabilities: [48] Power Management version 3
+>>>                  Flags: PMEClk- DSI- D1- D2- AuxCurrent=3D0mA PME(D=
+0+,D1-,D2-,D3hot+,D3cold+)
+>>>                  Status: D0 NoSoftRst+ PME-Enable- DSel=3D0 DScale=3D=
+1 PME-
+>>>          Capabilities: [50] Vital Product Data
+>>>                  Product Name: Broadcom NetXtreme Gigabit Ethernet =
+Controller
+>>>                  Read-only fields:
+>>>                          [PN] Part number: BCM95720
+>>>                          [EC] Engineering changes: 106679-15
+>>>                          [MN] Manufacture ID: 31 34 65 34
+>>>                          [RV] Reserved: checksum good, 28 byte(s) r=
+eserved
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" i=
+n
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
