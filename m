@@ -1,44 +1,54 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6 addrconf: source address selection, Rule 7: Prefer temporary addresses (RFC 6724)
-Date: Tue, 26 Nov 2013 20:26:00 +0100
-Message-ID: <20131126192600.GB20630@order.stressinduktion.org>
-References: <1385396205-6105-1-git-send-email-fx.lebail@yahoo.com> <20131126085404.GA20630@order.stressinduktion.org> <5294E13B.8010108@enst-bretagne.fr>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 15/17] net: sfc calls skb_get_rxhash
+Date: Tue, 26 Nov 2013 19:59:17 +0000
+Message-ID: <1385495957.1586.54.camel@bwh-desktop.uk.level5networks.com>
+References: <alpine.DEB.2.02.1311252156170.23058@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: fx.lebail@yahoo.com, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, dcbw@redhat.com,
-	jiri@resnulli.us
-To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:39992 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754388Ab3KZT0B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 14:26:01 -0500
-Content-Disposition: inline
-In-Reply-To: <5294E13B.8010108@enst-bretagne.fr>
+Received: from webmail.solarflare.com ([12.187.104.25]:25572 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754362Ab3KZT7W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 14:59:22 -0500
+In-Reply-To: <alpine.DEB.2.02.1311252156170.23058@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 26, 2013 at 06:58:19PM +0100, Florent Fourcot wrote:
-> >> The RFC 6724 change the default recommendation for source address selection
-> >> Rule 7 to prefer temporary addresses rather than public addresses,
-> >> while providing an administrative override.
-> >>
-> >> The administrative override is based on the prefer_src_public sysctl.
-> > 
-> > I like the idea and it could be useful in addition to the new
-> > IFA_F_MANAGETEMPADDR flag which should show up any time soon.
-> > 
+On Mon, 2013-11-25 at 21:57 -0800, Tom Herbert wrote:
+> Drivers should call skb_get_rxhash to set the rxhash and its type
+> in an skbuff.
 > 
-> I like the principle of the idea too, but is it acceptable to break the
-> user space compatibility?
-> If the patch is accepted, someone with the value "1" in use_tempaddr
-> will have a big surprise with a newer kernel  (I do not see any use case
-> to set this option to 1, but maybe...).
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  drivers/net/ethernet/sfc/rx.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+> index 8f09e68..b51466e 100644
+> --- a/drivers/net/ethernet/sfc/rx.c
+> +++ b/drivers/net/ethernet/sfc/rx.c
+> @@ -439,7 +439,8 @@ efx_rx_packet_gro(struct efx_channel *channel, struct efx_rx_buffer *rx_buf,
+>  	}
+>  
+>  	if (efx->net_dev->features & NETIF_F_RXHASH)
+> -		skb->rxhash = efx_rx_buf_hash(efx, eh);
+> +		skb_set_rxhash(skb, efx_rx_buf_hash(efx, eh),
+> +			       RXHASH_TYPE_L3);
 
-Yeah, I thought about that, too. But as new kernels would ship with a default
-policy of prefer those temporary addresses I thought it would be ok.
+This is equivalent to what we do now.  But efx_rx_packet_gro() is only
+ever called for TCP packets (checked in __efx_rx_packet()) and their
+hashes include port numbers, so the hash type could be RXHASH_TYPE_L4.
+
+Ben.
+
+>  	skb->ip_summed = ((rx_buf->flags & EFX_RX_PKT_CSUMMED) ?
+>  			  CHECKSUM_UNNECESSARY : CHECKSUM_NONE);
+>  
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
