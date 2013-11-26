@@ -1,136 +1,64 @@
-From: Sergey Popovich <popovich_sergei@mail.ru>
-Subject: netfilter: xt_hashlimit: fix proc entry leak in netns destroy path
-Date: Tue, 26 Nov 2013 14:09:47 +0200
-Message-ID: <2088236.yE4m0nz1sa@tuxracer>
+From: William Dauchy <william@gandi.net>
+Subject: Re: loop on reset adapter with ixgbe
+Date: Tue, 26 Nov 2013 14:00:54 +0100
+Message-ID: <20131126130054.GC2849@gandi.net>
+References: <20131120182524.GC16953@gandi.net>
+ <F6FB0E698C9B3143BDF729DF222866466FD88708@ORSMSX110.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="lCAWRPmW1mITcIfM"
+Cc: William Dauchy <william@gandi.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"Potenza, Leonardo" <leonardo.potenza@intel.com>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp9.mail.ru ([94.100.176.54]:53281 "EHLO smtp9.mail.ru"
+Received: from mail4.gandi.net ([217.70.183.210]:60736 "EHLO mail4.gandi.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755276Ab3KZMOd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Nov 2013 07:14:33 -0500
-Received: from [2a01:6d80:103:13::c3ea:4404] (port=51330 helo=tuxracer.localnet)
-	by smtp9.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1VlHXC-0003vR-EL
-	for netdev@vger.kernel.org; Tue, 26 Nov 2013 16:14:30 +0400
+	id S1754542Ab3KZNA4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Nov 2013 08:00:56 -0500
+Content-Disposition: inline
+In-Reply-To: <F6FB0E698C9B3143BDF729DF222866466FD88708@ORSMSX110.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 32263dd1b43378b4f7d7796ed713f77e95f27e8a
-Author: Vitaly E. Lavrov <>
-Date:   Mon Dec 24 14:42:17 2012 +0100
 
-    netfilter: xt_hashlimit: fix namespace destroy path
+--lCAWRPmW1mITcIfM
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Takes into account fact, that hashlimit_net_exit() called right before
-hashlimit_mt_destroy() and fixes destroy path for netns.
+Hi,
 
-However using xt_hashlimit for IPv4 and IPv6 together produces following 
-output
-on netconsole from one of our servers on netns destroy:
+Thank you for your quick reply.
 
- Pid: 9499, comm: kworker/u:0 Tainted: G        WC O 3.2.0-5-netctl-amd64-
-core2
- Call Trace:
-  [<ffffffff8104708d>] ? warn_slowpath_common+0x78/0x8c
-  [<ffffffff81047139>] ? warn_slowpath_fmt+0x45/0x4a
-  [<ffffffff81144a99>] ? remove_proc_entry+0xd8/0x22e
-  [<ffffffff810ebbaa>] ? kfree+0x5b/0x6c
-  [<ffffffffa043c501>] ? hashlimit_net_exit+0x45/0x8d [xt_hashlimit]
-  [<ffffffff8128ab30>] ? ops_exit_list+0x1c/0x44
-  [<ffffffff8128b28e>] ? cleanup_net+0xf1/0x180
-  [<ffffffff810369fc>] ? should_resched+0x5/0x23
-  [<ffffffff8105b8f9>] ? process_one_work+0x161/0x269
-  [<ffffffff8105aea5>] ? cwq_activate_delayed_work+0x3c/0x48
-  [<ffffffff8105c8c2>] ? worker_thread+0xc2/0x145
-  [<ffffffff8105c800>] ? manage_workers.isra.25+0x15b/0x15b
-  [<ffffffff8105fa01>] ? kthread+0x76/0x7e
-  [<ffffffff813581f4>] ? kernel_thread_helper+0x4/0x10
-  [<ffffffff8105f98b>] ? kthread_worker_fn+0x139/0x139
-  [<ffffffff813581f0>] ? gs_change+0x13/0x13
- ---[ end trace d8c3cc0ad163ef79 ]---
- ------------[ cut here ]------------
- WARNING: at 
-/usr/src/linux-3.2.52/debian/build/source_netctl/fs/proc/generic.c:849
- remove_proc_entry+0x217/0x22e()
- Hardware name:
- remove_proc_entry: removing non-empty directory 'net/ip6t_hashlimit', leaking
-at least 'IN-REJECT'
+On Nov20 18:53, Skidmore, Donald C wrote:
+> Thanks for letting know what you're running into, however I don't remembe=
+r ever seeing a failure quite like this.  I'm wondering if it is something =
+we might have fixed in later versions of the driver.  By any chance could y=
+ou see if you get the same failure with the latest source forge driver?  It=
+ will make it easier to track down if we are looking for something we alrea=
+dy fix or a new problem altogether.
 
-This is due to lack of removal net/ip6t_hashlimit/* entries in
-hashlimit_proc_net_exit().
+I am unfortunately getting the same result with ixgbe 3.18.7 compiled
+with a linux kernel v3.10.x
 
-Found and tested with custom build 3.2.x and backported commits
-32263dd1b (netfilter: xt_hashlimit: fix namespace destroy path) and
-commit 665e205c1 (netfilter: xt_recent: fix namespace destroy path),
-which seems not currently in linux-stable (at least for 3.2.x series).
+Sorry for my late answer,
+--=20
+William
 
-Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
----
- net/netfilter/xt_hashlimit.c | 25 +++++++++++--------------
- 1 file changed, 11 insertions(+), 14 deletions(-)
+--lCAWRPmW1mITcIfM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 9ff035c..a3910fc 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -325,21 +325,24 @@ static void htable_gc(unsigned long htlong)
- 	add_timer(&ht->timer);
- }
- 
--static void htable_destroy(struct xt_hashlimit_htable *hinfo)
-+static void htable_remove_proc_entry(struct xt_hashlimit_htable *hinfo)
- {
- 	struct hashlimit_net *hashlimit_net = hashlimit_pernet(hinfo->net);
- 	struct proc_dir_entry *parent;
- 
--	del_timer_sync(&hinfo->timer);
--
- 	if (hinfo->family == NFPROTO_IPV4)
- 		parent = hashlimit_net->ipt_hashlimit;
- 	else
- 		parent = hashlimit_net->ip6t_hashlimit;
- 
--	if(parent != NULL)
-+	if (parent != NULL)
- 		remove_proc_entry(hinfo->name, parent);
-+}
- 
-+static void htable_destroy(struct xt_hashlimit_htable *hinfo)
-+{
-+	del_timer_sync(&hinfo->timer);
-+	htable_remove_proc_entry(hinfo);
- 	htable_selective_cleanup(hinfo, select_all);
- 	kfree(hinfo->name);
- 	vfree(hinfo);
-@@ -883,21 +886,15 @@ static int __net_init hashlimit_proc_net_init(struct net 
-*net)
- static void __net_exit hashlimit_proc_net_exit(struct net *net)
- {
- 	struct xt_hashlimit_htable *hinfo;
--	struct proc_dir_entry *pde;
- 	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
- 
--	/* recent_net_exit() is called before recent_mt_destroy(). Make sure
--	 * that the parent xt_recent proc entry is is empty before trying to
--	 * remove it.
-+	/* hashlimit_net_exit() is called before hashlimit_mt_destroy().
-+	 * Make sure that the parent ipt_hashlimit and ip6t_hashlimit proc
-+	 * entries is empty before trying to remove it.
- 	 */
- 	mutex_lock(&hashlimit_mutex);
--	pde = hashlimit_net->ipt_hashlimit;
--	if (pde == NULL)
--		pde = hashlimit_net->ip6t_hashlimit;
--
- 	hlist_for_each_entry(hinfo, &hashlimit_net->htables, node)
--		remove_proc_entry(hinfo->name, pde);
--
-+		htable_remove_proc_entry(hinfo);
- 	hashlimit_net->ipt_hashlimit = NULL;
- 	hashlimit_net->ip6t_hashlimit = NULL;
- 	mutex_unlock(&hashlimit_mutex);
--- 
-1.8.3.4
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iEYEARECAAYFAlKUm4YACgkQ1I6eqOUidQEHmACfXO3A9/ffjYyiPY5aG8XNDo7t
+c4YAnAw81cgxotD3JZFCJJfx/fp0M1JT
+=5Y0b
+-----END PGP SIGNATURE-----
+
+--lCAWRPmW1mITcIfM--
