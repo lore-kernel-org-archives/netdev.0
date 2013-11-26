@@ -1,61 +1,80 @@
-From: Shawn Landden <shawn@churchofgit.com>
-Subject: Re: [PATCH] update consumers of MSG_MORE to recognize MSG_SENDPAGE_NOTLAST
-Date: Mon, 25 Nov 2013 18:43:56 -0800
-Message-ID: <CAJusiZV-NeiAfW=O-eUDPhW-BmTh5fNTn6R86axt22=mg-HDnA@mail.gmail.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 1/5] tg3: Convert to use
+	hwmon_device_register_with_groups
+Date: Mon, 25 Nov 2013 18:47:48 -0800
+Message-ID: <52940BD4.9000605@roeck-us.net>
+References: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
+	<1385186881-7931-2-git-send-email-linux@roeck-us.net>
+	<5293FEFA.4000700@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-fsdevel@vger.kernel.org, viro@zeniv.linux.org.uk,
-	Shawn Landden <shawnlandden@gmail.com>,
-	linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org,
-	Richard Weinberger <richard@nod.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	lm-sensors@lm-sensors.org, Michael Chan <mchan@broadcom.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Nithin Nayak Sujir <nsujir@broadcom.com>, netdev@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <5293FEFA.4000700@broadcom.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 25, 2013 at 7:36 AM, Shawn Landden <shawn@churchofgit.com> wrote:
-> Commit 35f9c09fe (tcp: tcp_sendpages() should call tcp_push() once)
-> added an internal flag MSG_SENDPAGE_NOTLAST, similar to
-> MSG_MORE.
+On 11/25/2013 05:52 PM, Nithin Nayak Sujir wrote:
 >
-> algif_hash, algif_skcipher, and udp used MSG_MORE from tcp_sendpages()
-> and need to see the new flag as identical to MSG_MORE.
 >
-> This fixes sendfile() on AF_ALG.
+> On 11/22/2013 10:07 PM, Guenter Roeck wrote:
+>> Use new hwmon API to simplify code, provide missing mandatory 'name'
+>> sysfs attribute, and attach hwmon attributes to hwmon device instead
+>> of pci device.
+>>
+>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+>> ---
+>>   drivers/net/ethernet/broadcom/tg3.c |   25 ++++++-------------------
+>>   1 file changed, 6 insertions(+), 19 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+>> index a9e0684..369b736 100644
+>> --- a/drivers/net/ethernet/broadcom/tg3.c
+>> +++ b/drivers/net/ethernet/broadcom/tg3.c
+>> @@ -10629,10 +10629,8 @@ static void tg3_sd_scan_scratchpad(struct tg3 *tp, struct tg3_ocir *ocir)
+>>   static ssize_t tg3_show_temp(struct device *dev,
+>>                    struct device_attribute *devattr, char *buf)
+>>   {
+>> -    struct pci_dev *pdev = to_pci_dev(dev);
+>> -    struct net_device *netdev = pci_get_drvdata(pdev);
+>> -    struct tg3 *tp = netdev_priv(netdev);
+>>       struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
+>> +    struct tg3 *tp = dev_get_drvdata(dev);
 >
-> v3: also fix udp
 >
-> Cc: Tom Herbert <therbert@google.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: <stable@vger.kernel.org> # 3.4.x + 3.2.x
-> Reported-and-tested-by: Shawn Landden <shawnlandden@gmail.com>
-> Original-patch: Richard Weinberger <richard@nod.at>
-> Signed-off-by: Shawn Landden <shawn@churchofgit.com>
+> Shouldn't this be
+> struct tg3 *tp = netdev_priv(dev_get_drvdata(dev));
+>
 
->May I ask why you took over the my patch without even CC'in me nor
->replying to the original
->thread "[PATCH] pipe_to_sendpage: Ensure that MSG_MORE is set if we
->set MSG_SENDPAGE_NOTLAST"?
->You are acting very rude.
-Not CCing you was an oversight.
+'struct tg3 *tp' is attached to the hwmon device in
+hwmon_device_register_with_groups(), so it can be retrieved
+with dev_get_drvdata() from there. Keep in mind that 'dev'
+is no longer the pci device but the hwmon device.
 
->The discussion at the original thread is not done.
->Does skcipher_sendpage() really also need fixing? or UDP?
+Guenter
 
-UDP needs it or it will send out packets mid-sendfile. skcipher needs
-it or it will produce incorrect
-output like hash.
->I didn't send another patch because I'm waiting for Eric's answer first.
-Eric forgot to update consumers internal consumers of MSG_MORE when he created
-this distinction in sendpage. That became clear when he first
-responded. Changing this where the consumers are makes sense. I just
-want this bug fixed, feel free to send your next version.
 
->Thanks,
->//richard
 
--Shawn
+------------------------------------------------------------------------------
+Shape the Mobile Experience: Free Subscription
+Software experts and developers: Be at the forefront of tech innovation.
+Intel(R) Software Adrenaline delivers strategic insight and game-changing 
+conversations that shape the rapidly evolving mobile landscape. Sign up now. 
+http://pubads.g.doubleclick.net/gampad/clk?id=63431311&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
