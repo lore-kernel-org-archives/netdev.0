@@ -1,64 +1,87 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: Re: [PATCH] net: sched: tbf: fix calculation of max_size
-Date: Tue, 26 Nov 2013 09:28:15 +0800
-Message-ID: <5293F92F.606@huawei.com>
-References: <1384845939-8424-1-git-send-email-yangyingliang@huawei.com>		 <1384845939-8424-2-git-send-email-yangyingliang@huawei.com>	 <1385233579.10637.95.camel@edumazet-glaptop2.roam.corp.google.com>	 <5291AA8D.6060108@gmail.com> <1385318452.10637.116.camel@edumazet-glaptop2.roam.corp.google.com> <5292C76E.1070701@huawei.com> <52933CC7.9070805@huawei.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7443@saturn3.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<brouer@redhat.com>, <jpirko@redhat.com>, <jbrouer@redhat.com>
-To: David Laight <David.Laight@ACULAB.COM>
+From: baker.kernel@gmail.com
+Subject: [PATCH v2 net-next] net: remove outdated comment for ipv4 and ipv6 protocol handler
+Date: Tue, 26 Nov 2013 09:29:15 +0800
+Message-ID: <1385429355-21442-1-git-send-email-baker.kernel@gmail.com>
+References: <1385365686-17804-1-git-send-email-baker.kernel@gmail.com>
+Cc: netdev@vger.kernel.org, Baker Zhang <Baker.kernel@gmail.com>
+To: sergei.shtylyov@cogentembedded.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:48109 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753718Ab3KZB2g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Nov 2013 20:28:36 -0500
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7443@saturn3.aculab.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:64478 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752056Ab3KZB3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Nov 2013 20:29:48 -0500
+Received: by mail-pd0-f172.google.com with SMTP id g10so6700814pdj.31
+        for <netdev@vger.kernel.org>; Mon, 25 Nov 2013 17:29:48 -0800 (PST)
+In-Reply-To: <1385365686-17804-1-git-send-email-baker.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/11/25 20:22, David Laight wrote:
->> From: Yang Yingliang <yangyingliang@huawei.com>
->>
->> Current max_size is caluated from rate table. Now, the rate table
->> has been replaced and it's wrong to caculate max_size based on this
->> rate table. It can lead wrong calculation of max_size.
->>
->> The burst in kernel may be lower than user asked, because burst may gets
->> some loss when transform it to buffer(E.g. "burst 40kb rate 30mbit/s")
->> and it seems we cannot avoid this loss. And burst's value(max_size) based
->> on rate table may be equal user asked. If a packet's length is max_size,
->> this packet will be stalled in tbf_dequeue() because its length is above
->> the burst in kernel so that it cannot get enough tokens. The max_size guards
->> against enqueuing packet sizes above q->buffer "time" in tbf_enqueue().
-> 
-> Why not adjust the calculations so that the number of allocated tokens
-> can go negative?
-> 
-> So allow the transfer if the number of tokens is +ve and then subtract
-> the number needed for the message itself.
+From: Baker Zhang <Baker.kernel@gmail.com>
 
-Thanks for your advice!
-I had considered it before. But, I think that we calculate tokens from ns
-but max_size is calculated based on rate table causes the problem. I think we
-should make them consistent.
+since f9242b6b28d61295f2bf7e8adfb1060b382e5381
+inet: Sanitize inet{,6} protocol demux.
 
-> 
-> I think this would change the semantics of the configured 'burst' value
-> very slightly (to 'at least' from 'at most') but the average would still
-> be correct.
+there are not pretended hash tables for ipv4 or
+ipv6 protocol handler.
 
-Hmm, I'm not sure it is 'at least'. Maybe it could be lower.
+Signed-off-by: Baker Zhang <Baker.kernel@gmail.com>
+---
+V1:
+inet_add_protocol/inet_del_protocol and inet6_del_protocol
+are very simple in current version.
 
-Regards,
-Yang
+so I remove the outdated comment instead of fixing them,
+just like inet6_add_protocol.
 
-> 
-> FWIW I've done similar rate limiters that run directly in units of 'time'.
-> The fact that system time advances automatically generates credit.
-> 
-> 	David
-> 
-> 
+V2:
+Add summary line in parens.
+URL:
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=f9242b6b28d61295f2bf7e8adfb1060b382e5381
+
+ net/ipv4/protocol.c | 8 --------
+ net/ipv6/protocol.c | 4 ----
+ 2 files changed, 12 deletions(-)
+
+diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
+index ce84846..46d6a1c 100644
+--- a/net/ipv4/protocol.c
++++ b/net/ipv4/protocol.c
+@@ -31,10 +31,6 @@
+ const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS] __read_mostly;
+ const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS] __read_mostly;
+ 
+-/*
+- *	Add a protocol handler to the hash tables
+- */
+-
+ int inet_add_protocol(const struct net_protocol *prot, unsigned char protocol)
+ {
+ 	if (!prot->netns_ok) {
+@@ -55,10 +51,6 @@ int inet_add_offload(const struct net_offload *prot, unsigned char protocol)
+ }
+ EXPORT_SYMBOL(inet_add_offload);
+ 
+-/*
+- *	Remove a protocol from the hash tables.
+- */
+-
+ int inet_del_protocol(const struct net_protocol *prot, unsigned char protocol)
+ {
+ 	int ret;
+diff --git a/net/ipv6/protocol.c b/net/ipv6/protocol.c
+index 22d1bd4..e048cf1 100644
+--- a/net/ipv6/protocol.c
++++ b/net/ipv6/protocol.c
+@@ -36,10 +36,6 @@ int inet6_add_protocol(const struct inet6_protocol *prot, unsigned char protocol
+ }
+ EXPORT_SYMBOL(inet6_add_protocol);
+ 
+-/*
+- *	Remove a protocol from the hash tables.
+- */
+-
+ int inet6_del_protocol(const struct inet6_protocol *prot, unsigned char protocol)
+ {
+ 	int ret;
+-- 
+1.8.3.2
