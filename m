@@ -1,114 +1,55 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: bridge not getting ip since 3.11.5 and 3.4.66
-Date: Tue, 26 Nov 2013 10:25:23 -0500
-Message-ID: <5294BD63.7020905@gmail.com>
-References: <CAEPa5ym2Xz3F19fJJqNawkRLOKk6Ao6oXrzSrHU051V7p=9otA@mail.gmail.com>	<CAE3RKNng9A6Bp7wa4+6iCprwEQpzGueagLc8iob+aFabJW4nnw@mail.gmail.com>	<CAEPa5y=tgdGpDMBGY0ijyWSgQ0m5SZW8EMP072OF=sZZUjqN1g@mail.gmail.com>	<CAEPa5ym0+-_Q9zUidDfE2SD7XYZxAqqEUByBkkH1ZOmh9rmFHg@mail.gmail.com> <CAEPa5ym4HWK9vo_BYYZbQsGZXG9r2kfYR2rFGaYjjJqDfkf2uQ@mail.gmail.com>
+From: Ben Pfaff <blp@nicira.com>
+Subject: Re: [ovs-dev] [PATCH v2.51 0/5] MPLS actions and matches
+Date: Tue, 26 Nov 2013 07:33:47 -0800
+Message-ID: <20131126153347.GA2662@nicira.com>
+References: <1385005606-30130-1-git-send-email-horms@verge.net.au>
+ <20131126080759.GA26597@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, herbert@gondor.apana.org.au
-To: Mark Trompell <mark@foresightlinux.org>,
-	Veaceslav Falico <veaceslav@falico.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEPa5ym4HWK9vo_BYYZbQsGZXG9r2kfYR2rFGaYjjJqDfkf2uQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>, Ravi K <rkerur@gmail.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:34318 "HELO
+	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756518Ab3KZPdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 10:33:53 -0500
+Received: by mail-pb0-f51.google.com with SMTP id up15so8198937pbc.38
+        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 07:33:52 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131126080759.GA26597@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/26/2013 08:27 AM, Mark Trompell wrote:
-> Answering my own mail again and even top posting, sorry, but makes
-> more sense to me in that case).
-> I reverted bridge related patches from 3.11.5 and it boils down to
-> commit 0e308361d7ca0bf8b23fd472b90aae0fb10a1c32
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Thu Sep 12 17:12:05 2013 +1000
+On Tue, Nov 26, 2013 at 05:08:04PM +0900, Simon Horman wrote:
+> On Thu, Nov 21, 2013 at 12:46:41PM +0900, Simon Horman wrote:
+> > Hi,
+> > 
+> > This series implements MPLS actions and matches based on work by
+> > Ravi K, Leo Alterman, Yamahata-san and Joe Stringer.
+> > 
+> > This series provides three changes
+> > 
+> > * Patches 1 - 3
+> > 
+> >   Provide user-space support for the VLAN/MPLS tag insertion order
+> >   up to and including OpenFlow 1.2, and the different ordering
+> >   specified from OpenFlow 1.3. In a nutshell the datapath always
+> >   uses the OpenFlow 1.3 ordering, which is to always insert tags
+> >   immediately after the L2 header, regardless of the presence of other
+> >   tags. And ovs-vswtichd provides compatibility for the behaviour up
+> >   to OpenFlow 1.2, which is that MPLS tags should follow VLAN tags
+> >   if present.
+> > 
+> >   Ben, these are for you to review.
 > 
->     bridge: Clamp forward_delay when enabling STP
+> Hi Ben,
 > 
->     [ Upstream commit be4f154d5ef0ca147ab6bcd38857a774133f5450 ]
+> I wonder if you could find some time to look over these.
 > 
->     At some point limits were added to forward_delay.  However, the
->     limits are only enforced when STP is enabled.  This created a
->     scenario where you could have a value outside the allowed range
->     while STP is disabled, which then stuck around even after STP
->     is enabled.
-> 
->     This patch fixes this by clamping the value when we enable STP.
-> 
->     I had to move the locking around a bit to ensure that there is
->     no window where someone could insert a value outside the range
->     while we're in the middle of enabling STP.
-> 
-> Causing the issue for me. Reverting that patch and br0 comes up again
-> and gets an ip.
+> I believe that the first patch has not previously been reviewed
+> but other than that there should be few areas of excitement.
 
-yes, that patch introduced a bug where we always used the
-max_forward delay value.
-
-you have 2 options:
- 1) disable STP.  Since you are just running VMs and you have a single
-    physical connection on the bridge, you can safely disable STP since
-    your system is a leaf node.
-
- 2) Get the latest stable kernel.  The bug has been fixed there.
-
--vlad
-
-> 
-> On Tue, Nov 12, 2013 at 11:57 AM, Mark Trompell <mark@foresightlinux.org> wrote:
->> On Mon, Nov 11, 2013 at 1:52 PM, Mark Trompell <mark@foresightlinux.org> wrote:
->>> On Mon, Nov 11, 2013 at 12:07 PM, Veaceslav Falico <veaceslav@falico.eu> wrote:
->>>> On Mon, Nov 11, 2013 at 11:29 AM, Mark Trompell <mark@foresightlinux.org> wrote:
->>>>> my bridge br0 doesn't get an ip from dhcp anymore after 3.11.5 and 3.4.66,
->>>>> What information would be helpful and required to find out what's going wrong.
->>>>
->>>> CC netdev
->>>>
->>>> First thing would be to provide the network scheme. Do you use vlans?
->>>> Which network
->>>> cards/drivers are you using? Do you use some kind of virtualization?
->>>> Is bonding involved?
->>>>
->>> Actually this is my desktop machine using kvm for a virtual machine
->>> that uses eth0 which is connected to the bridge
->>> which is used as interface for the host.
->>>
->>> $ ip addr
->>> 2. eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast
->>> master br0 qlen 1000
->>> ...
->>> 3. br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc noqueue
->>> ...
->>>
->>> Anything else?
->>
->> Okay more about my hardware and configuration:
->> from lspci:
->> 00:19.0 Ethernet controller: Intel Corporation 82579V Gigabit Network
->> Connection (rev 04)
->>
->> /etc/sysconfig/network-scripts/ifcfg-br0
->> DEVICE=br0
->> ONBOOT=yes
->> MACADDR=00:19:99:ac:b3:24
->> TYPE=Bridge
->> BOOTPROTO=dhcp
->> STP=on
->> NM_CONTROLLED=no
->> DELAY=0
->>
->> /etc/sysconfig/network-scripts/ifcfg-eth0
->> DEVICE=eth0
->> HWADDR=00:19:99:cd:a5:e6
->> #BOOTPROTO=dhcp
->> ONBOOT=yes
->> BRIDGE=br0
->> TYPE=Ethernet
->> NM_CONTROLLED=no
->>
->>
->>> Greetings
->>> Mark
-> 
-> 
-> 
+I'm taking today and the remainder of this week off (Thursday and Friday
+are a holiday here in the U.S.), so unfortunately there is not much
+chance of progress before Monday.
