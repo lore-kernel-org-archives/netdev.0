@@ -1,70 +1,63 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] macvtap: Do not double-count received packets
-Date: Tue, 26 Nov 2013 23:09:39 +0200
-Message-ID: <20131126210939.GB26547@redhat.com>
-References: <1385487432-17651-1-git-send-email-vyasevic@redhat.com>
+From: Ajit Khaparde <Ajit.Khaparde@Emulex.Com>
+Subject: RE: [PATCH net] be2net: call napi_disable() for all event queues
+Date: Tue, 26 Nov 2013 21:33:37 +0000
+Message-ID: <3ecb1939-97c2-4fe6-a437-8f840bec9e89@CMEXHTCAS2.ad.emulex.com>
+References: <1385484881-25715-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Sathya Perla <Sathya.Perla@Emulex.Com>,
+	Subramanian Seetharaman <subbu.seetharaman@emulex.com>
+To: Ivan Vecera <ivecera@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51304 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932499Ab3KZVGW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Nov 2013 16:06:22 -0500
-Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id rAQL6LPW021246
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 16:06:21 -0500
-Content-Disposition: inline
-In-Reply-To: <1385487432-17651-1-git-send-email-vyasevic@redhat.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:11882 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753963Ab3KZVdn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 16:33:43 -0500
+In-Reply-To: <1385484881-25715-1-git-send-email-ivecera@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 26, 2013 at 12:37:12PM -0500, Vlad Yasevich wrote:
-> Currently macvlan will count received packets after calling each
-> vlans receive handler.   Macvtap attempts to count the packet
-> yet again when the user reads the packet from the tap socket.
-> This code doesn't do this consistently either.  Remove the
-> counting from macvap and let only macvlan count received
-> packets.
+> -----Original Message-----
+> From: Ivan Vecera [mailto:ivecera@redhat.com]
+> Sent: Tuesday, November 26, 2013 10:55 AM
+> To: netdev@vger.kernel.org
+> Cc: Sathya Perla; Subramanian Seetharaman; Ajit Khaparde
+> Subject: [PATCH net] be2net: call napi_disable() for all event queues
 > 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> The recent be2net commit 6384a4d (adds a support for busy polling)
+> introduces a regression that results in kernel crash. It incorrectly
+> modified be_close() so napi_disable() is called only for the first queue.
+> This breaks a correct pairing of napi_enable/_disable for the rest
+> of event queues and causes a crash in subsequent be_open() call.
+> 
+> Cc: Sathya Perla <sathya.perla@emulex.com>
+> Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
+> Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 
 > ---
->  drivers/net/macvtap.c | 10 ----------
->  1 file changed, 10 deletions(-)
+>  drivers/net/ethernet/emulex/benet/be_main.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index dc76670..50f8dce 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -767,7 +767,6 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
->  				const struct sk_buff *skb,
->  				const struct iovec *iv, int len)
->  {
-> -	struct macvlan_dev *vlan;
->  	int ret;
->  	int vnet_hdr_len = 0;
->  	int vlan_offset = 0;
-> @@ -821,15 +820,6 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
->  	copied += len;
->  
->  done:
-> -	rcu_read_lock();
-> -	vlan = rcu_dereference(q->vlan);
-> -	if (vlan) {
-> -		preempt_disable();
-> -		macvlan_count_rx(vlan, copied - vnet_hdr_len, ret == 0, 0);
-> -		preempt_enable();
-> -	}
-> -	rcu_read_unlock();
-> -
->  	return ret ? ret : copied;
->  }
->  
-> -- 
-> 1.8.4.2
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c
+> b/drivers/net/ethernet/emulex/benet/be_main.c
+> index 78a0e85..0aec4d2 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -2663,8 +2663,8 @@ static int be_close(struct net_device *netdev)
+>  			napi_disable(&eqo->napi);
+>  			be_disable_busy_poll(eqo);
+>  		}
+> -		adapter->flags &= ~BE_FLAGS_NAPI_ENABLED;
+>  	}
+> +	adapter->flags &= ~BE_FLAGS_NAPI_ENABLED;
+> 
+>  	be_async_mcc_disable(adapter);
+> 
+> --
+> 1.8.3.2
