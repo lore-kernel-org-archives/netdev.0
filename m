@@ -1,17 +1,17 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 11/17] net: ixgbe calls skb_set_rxhash
-Date: Tue, 26 Nov 2013 09:31:23 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1311260928030.21138@tomh.mtv.corp.google.com>
+Subject: [PATCH v2 12/17] net: sky2 calls skb_set_rxhash
+Date: Tue, 26 Nov 2013 09:31:40 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1311260928040.21024@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f74.google.com ([209.85.160.74]:34702 "EHLO
-	mail-pb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752318Ab3KZRbY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:31:24 -0500
-Received: by mail-pb0-f74.google.com with SMTP id uo5so841271pbc.1
-        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:31:24 -0800 (PST)
+Received: from mail-vb0-f73.google.com ([209.85.212.73]:52389 "EHLO
+	mail-vb0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750879Ab3KZRbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:31:41 -0500
+Received: by mail-vb0-f73.google.com with SMTP id m10so633397vbh.2
+        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:31:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,23 +20,39 @@ in an skbuff.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/sky2.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index bd8f523..9973eaf 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1233,7 +1233,9 @@ static inline void ixgbe_rx_hash(struct ixgbe_ring *ring,
- 				 struct sk_buff *skb)
- {
- 	if (ring->netdev->features & NETIF_F_RXHASH)
--		skb->rxhash = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
-+		skb_set_rxhash(skb,
-+			       le32_to_cpu(rx_desc->wb.lower.hi_dword.rss),
-+			       RXHASH_TYPE_L3);
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index a7df981..abfe57a 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -2495,7 +2495,7 @@ static struct sk_buff *receive_copy(struct sky2_port *sky2,
+ 		skb_copy_from_linear_data(re->skb, skb->data, length);
+ 		skb->ip_summed = re->skb->ip_summed;
+ 		skb->csum = re->skb->csum;
+-		skb->rxhash = re->skb->rxhash;
++		skb_set_rxhash(skb, re->skb->rxhash, RXHASH_TYPE_L3);
+ 		skb->vlan_proto = re->skb->vlan_proto;
+ 		skb->vlan_tci = re->skb->vlan_tci;
+ 
+@@ -2503,7 +2503,7 @@ static struct sk_buff *receive_copy(struct sky2_port *sky2,
+ 					       length, PCI_DMA_FROMDEVICE);
+ 		re->skb->vlan_proto = 0;
+ 		re->skb->vlan_tci = 0;
+-		re->skb->rxhash = 0;
++		skb_clear_rxhash(re->skb);
+ 		re->skb->ip_summed = CHECKSUM_NONE;
+ 		skb_put(skb, length);
+ 	}
+@@ -2723,7 +2723,7 @@ static void sky2_rx_hash(struct sky2_port *sky2, u32 status)
+ 	struct sk_buff *skb;
+ 
+ 	skb = sky2->rx_ring[sky2->rx_next].skb;
+-	skb->rxhash = le32_to_cpu(status);
++	skb_set_rxhash(skb, le32_to_cpu(status), RXHASH_TYPE_L3);
  }
  
- #ifdef IXGBE_FCOE
+ /* Process status response ring */
 -- 
 1.8.4.1
