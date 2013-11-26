@@ -1,17 +1,17 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 13/17] net: mlx4 calls skb_get_rxhash
-Date: Mon, 25 Nov 2013 21:56:02 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1311252154520.23058@tomh.mtv.corp.google.com>
+Subject: [PATCH 05/17] net: cxgb4 calls skb_get_rxhash
+Date: Mon, 25 Nov 2013 21:50:01 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1311252148360.23058@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f74.google.com ([209.85.128.74]:42452 "EHLO
-	mail-qe0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752669Ab3KZF4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 00:56:03 -0500
-Received: by mail-qe0-f74.google.com with SMTP id b10so264378qen.5
-        for <netdev@vger.kernel.org>; Mon, 25 Nov 2013 21:56:03 -0800 (PST)
+Received: from mail-vb0-f74.google.com ([209.85.212.74]:42076 "EHLO
+	mail-vb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752669Ab3KZF45 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 00:56:57 -0500
+Received: by mail-vb0-f74.google.com with SMTP id w8so557829vbj.1
+        for <netdev@vger.kernel.org>; Mon, 25 Nov 2013 21:56:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,30 +20,32 @@ in an skbuff.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/sge.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 07a1d0f..3e48c44 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -747,7 +747,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 					}
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index ac311f5..c9fd598 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -1630,7 +1630,8 @@ static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	skb_record_rx_queue(skb, rxq->rspq.idx);
+ 	if (rxq->rspq.netdev->features & NETIF_F_RXHASH)
+-		skb->rxhash = (__force u32)pkt->rsshdr.hash_val;
++		skb_set_rxhash(skb, (__force u32)pkt->rsshdr.hash_val,
++			       RXHASH_TYPE_L3);
  
- 					if (dev->features & NETIF_F_RXHASH)
--						gro_skb->rxhash = be32_to_cpu(cqe->immed_rss_invalid);
-+						skb_set_rxhash(gro_skb, be32_to_cpu(cqe->immed_rss_invalid), RXHASH_TYPE_L3);
+ 	if (unlikely(pkt->vlan_ex)) {
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(pkt->vlan));
+@@ -1686,7 +1687,8 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
+ 	skb->protocol = eth_type_trans(skb, q->netdev);
+ 	skb_record_rx_queue(skb, q->idx);
+ 	if (skb->dev->features & NETIF_F_RXHASH)
+-		skb->rxhash = (__force u32)pkt->rsshdr.hash_val;
++		skb_set_rxhash(skb, (__force u32)pkt->rsshdr.hash_val,
++			       RXHASH_TYPE_L3);
  
- 					skb_record_rx_queue(gro_skb, cq->ring);
+ 	rxq->stats.pkts++;
  
-@@ -789,7 +789,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		skb_record_rx_queue(skb, cq->ring);
- 
- 		if (dev->features & NETIF_F_RXHASH)
--			skb->rxhash = be32_to_cpu(cqe->immed_rss_invalid);
-+			skb_set_rxhash(skb, be32_to_cpu(cqe->immed_rss_invalid), RXHASH_TYPE_L3);
- 
- 		if ((be32_to_cpu(cqe->vlan_my_qpn) &
- 		    MLX4_CQE_VLAN_PRESENT_MASK) &&
 -- 
 1.8.4.1
