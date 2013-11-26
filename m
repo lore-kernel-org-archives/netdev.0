@@ -1,41 +1,51 @@
-From: Pablo Cholaky <mrwaltercool@gmail.com>
-Subject: r8169 Wake on Lan
-Date: Tue, 26 Nov 2013 14:23:36 -0300
-Message-ID: <CAEv3EXFiUnfkBCiedjXUzc6MXBnP2vqNx4R3739642dGYazTwA@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH v2 05/17] net: cxgb4 calls skb_set_rxhash
+Date: Tue, 26 Nov 2013 09:27:29 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1311260922590.21031@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:36550 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932362Ab3KZRX6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:23:58 -0500
-Received: by mail-wi0-f169.google.com with SMTP id hm6so6194565wib.2
-        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:23:56 -0800 (PST)
+Received: from mail-ob0-f201.google.com ([209.85.214.201]:41093 "EHLO
+	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932317Ab3KZR1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:27:30 -0500
+Received: by mail-ob0-f201.google.com with SMTP id va2so1255797obc.0
+        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:27:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi there:
+Drivers should call skb_set_rxhash to set the rxhash and its type
+in an skbuff.
 
-I have a HP ENVY laptop with this RealTek, and my laptop don't have a
-BIOS option to disable WOL. I'm currently using a script on start and
-shutdown to disable WOL, but could you guys make a module param to
-enable/disable WOL?
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-This freaking WOL eats a lot of battery on my laptop and my scripts
-don't work when I'm using a hibernation or booting a Linux ISO per
-example. I don't know really if many HP laptops have this RealTek, but
-a lot of HP laptops have this annoying problem (just see on Google hp
-WOL battery drain). Seems like HP is only giving a bios option to
-enterprise, and for users let a OS dependent option (Windows will
-disable on boot).
-
-
-Thank you very much dudes ;)
-
-
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index ac311f5..c9fd598 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -1630,7 +1630,8 @@ static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	skb_record_rx_queue(skb, rxq->rspq.idx);
+ 	if (rxq->rspq.netdev->features & NETIF_F_RXHASH)
+-		skb->rxhash = (__force u32)pkt->rsshdr.hash_val;
++		skb_set_rxhash(skb, (__force u32)pkt->rsshdr.hash_val,
++			       RXHASH_TYPE_L3);
+ 
+ 	if (unlikely(pkt->vlan_ex)) {
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(pkt->vlan));
+@@ -1686,7 +1687,8 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
+ 	skb->protocol = eth_type_trans(skb, q->netdev);
+ 	skb_record_rx_queue(skb, q->idx);
+ 	if (skb->dev->features & NETIF_F_RXHASH)
+-		skb->rxhash = (__force u32)pkt->rsshdr.hash_val;
++		skb_set_rxhash(skb, (__force u32)pkt->rsshdr.hash_val,
++			       RXHASH_TYPE_L3);
+ 
+ 	rxq->stats.pkts++;
+ 
 -- 
-Pablo Cholaky
-Linux user and developer
-Slash.cl Owner
-Blablabla
+1.8.4.1
