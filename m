@@ -1,46 +1,134 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net] be2net: call napi_disable() for all event queues
-Date: Tue, 26 Nov 2013 17:54:41 +0100
-Message-ID: <1385484881-25715-1-git-send-email-ivecera@redhat.com>
-Cc: Sathya Perla <sathya.perla@emulex.com>,
-	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>
-To: netdev@vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH v2 01/17] net: Add utility function to clear rxhash
+Date: Tue, 26 Nov 2013 09:22:21 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1311260913550.21138@tomh.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40378 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757348Ab3KZQyq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Nov 2013 11:54:46 -0500
+Received: from mail-qa0-f74.google.com ([209.85.216.74]:62403 "EHLO
+	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757478Ab3KZRWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:22:23 -0500
+Received: by mail-qa0-f74.google.com with SMTP id i13so1140978qae.3
+        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:22:22 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The recent be2net commit 6384a4d (adds a support for busy polling)
-introduces a regression that results in kernel crash. It incorrectly
-modified be_close() so napi_disable() is called only for the first queue.
-This breaks a correct pairing of napi_enable/_disable for the rest
-of event queues and causes a crash in subsequent be_open() call.
+In several places 'skb->rxhash = 0' is being done to clear the
+rxhash value in an skb.  This does not clear l4_rxhash which could
+still be set so that the rxhash wouldn't be recalculated on subsequent
+call to skb_get_rxhash.  This patch adds an explict function to clear
+all the rxhash related information in the skb properly.
 
-Cc: Sathya Perla <sathya.perla@emulex.com>
-Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
-Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/linux/skbuff.h    |  6 ++++++
+ net/ipv4/ip_fragment.c    |  2 +-
+ net/ipv4/ip_tunnel_core.c |  4 ++--
+ net/openvswitch/actions.c | 10 +++++-----
+ 4 files changed, 14 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 78a0e85..0aec4d2 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2663,8 +2663,8 @@ static int be_close(struct net_device *netdev)
- 			napi_disable(&eqo->napi);
- 			be_disable_busy_poll(eqo);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 215b5ea..76d3aa9 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -712,6 +712,12 @@ static inline __u32 skb_get_rxhash(struct sk_buff *skb)
+ 	return skb->rxhash;
+ }
+ 
++static inline void skb_clear_rxhash(struct sk_buff *skb)
++{
++	skb->rxhash = 0;
++	skb->l4_rxhash = 0;
++}
++
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+ static inline unsigned char *skb_end_pointer(const struct sk_buff *skb)
+ {
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 2481993..3bc1d0d 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -704,7 +704,7 @@ struct sk_buff *ip_check_defrag(struct sk_buff *skb, u32 user)
+ 			memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
+ 			if (ip_defrag(skb, user))
+ 				return NULL;
+-			skb->rxhash = 0;
++			skb_clear_rxhash(skb);
  		}
--		adapter->flags &= ~BE_FLAGS_NAPI_ENABLED;
  	}
-+	adapter->flags &= ~BE_FLAGS_NAPI_ENABLED;
+ 	return skb;
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 42ffbc8..2148c1d 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -56,7 +56,7 @@ int iptunnel_xmit(struct rtable *rt, struct sk_buff *skb,
  
- 	be_async_mcc_disable(adapter);
+ 	skb_scrub_packet(skb, xnet);
  
+-	skb->rxhash = 0;
++	skb_clear_rxhash(skb);
+ 	skb_dst_set(skb, &rt->dst);
+ 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 
+@@ -108,7 +108,7 @@ int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto)
+ 	nf_reset(skb);
+ 	secpath_reset(skb);
+ 	if (!skb->l4_rxhash)
+-		skb->rxhash = 0;
++		skb_clear_rxhash(skb);
+ 	skb_dst_drop(skb);
+ 	skb->vlan_tci = 0;
+ 	skb_set_queue_mapping(skb, 0);
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 65cfaa8..ab0d925 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -165,7 +165,7 @@ static void set_ip_addr(struct sk_buff *skb, struct iphdr *nh,
+ 	}
+ 
+ 	csum_replace4(&nh->check, *addr, new_addr);
+-	skb->rxhash = 0;
++	skb_clear_rxhash(skb);
+ 	*addr = new_addr;
+ }
+ 
+@@ -199,7 +199,7 @@ static void set_ipv6_addr(struct sk_buff *skb, u8 l4_proto,
+ 	if (recalculate_csum)
+ 		update_ipv6_checksum(skb, l4_proto, addr, new_addr);
+ 
+-	skb->rxhash = 0;
++	skb_clear_rxhash(skb);
+ 	memcpy(addr, new_addr, sizeof(__be32[4]));
+ }
+ 
+@@ -296,7 +296,7 @@ static void set_tp_port(struct sk_buff *skb, __be16 *port,
+ {
+ 	inet_proto_csum_replace2(check, skb, *port, new_port, 0);
+ 	*port = new_port;
+-	skb->rxhash = 0;
++	skb_clear_rxhash(skb);
+ }
+ 
+ static void set_udp_port(struct sk_buff *skb, __be16 *port, __be16 new_port)
+@@ -310,7 +310,7 @@ static void set_udp_port(struct sk_buff *skb, __be16 *port, __be16 new_port)
+ 			uh->check = CSUM_MANGLED_0;
+ 	} else {
+ 		*port = new_port;
+-		skb->rxhash = 0;
++		skb_clear_rxhash(skb);
+ 	}
+ }
+ 
+@@ -381,7 +381,7 @@ static int set_sctp(struct sk_buff *skb,
+ 		/* Carry any checksum errors through. */
+ 		sh->checksum = old_csum ^ old_correct_csum ^ new_csum;
+ 
+-		skb->rxhash = 0;
++		skb_clear_rxhash(skb);
+ 	}
+ 
+ 	return 0;
 -- 
-1.8.3.2
+1.8.4.1
