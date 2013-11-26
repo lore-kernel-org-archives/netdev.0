@@ -1,17 +1,17 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 17/17] net: vmxnet3 calls skb_set_rxhash
-Date: Tue, 26 Nov 2013 09:34:47 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1311260932080.21248@tomh.mtv.corp.google.com>
+Subject: [PATCH v2 06/17] net: cisco-enic calls skb_set_rxhash
+Date: Tue, 26 Nov 2013 09:27:34 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1311260923000.21138@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f73.google.com ([209.85.212.73]:62585 "EHLO
-	mail-vb0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752574Ab3KZRes (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:34:48 -0500
-Received: by mail-vb0-f73.google.com with SMTP id m10so633983vbh.0
-        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:34:48 -0800 (PST)
+Received: from mail-oa0-f74.google.com ([209.85.219.74]:43759 "EHLO
+	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753229Ab3KZRfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:35:31 -0500
+Received: by mail-oa0-f74.google.com with SMTP id o6so1256991oag.5
+        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:35:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,22 +20,30 @@ in an skbuff.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/cisco/enic/enic_main.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 7e2788c..88d8ff8 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -1235,7 +1235,8 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- #ifdef VMXNET3_RSS
- 			if (rcd->rssType != VMXNET3_RCD_RSS_TYPE_NONE &&
- 			    (adapter->netdev->features & NETIF_F_RXHASH))
--				ctx->skb->rxhash = le32_to_cpu(rcd->rssHash);
-+				skb_set_rxhash(skb, le32_to_cpu(rcd->rssHash),
-+					       RXHASH_TYPE_L3);
- #endif
- 			skb_put(ctx->skb, rcd->len);
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index ff78dfa..ea30551 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1036,11 +1036,12 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
+ 		skb->protocol = eth_type_trans(skb, netdev);
+ 		skb_record_rx_queue(skb, q_number);
+ 		if (netdev->features & NETIF_F_RXHASH) {
+-			skb->rxhash = rss_hash;
+-			if (rss_type & (NIC_CFG_RSS_HASH_TYPE_TCP_IPV6_EX |
+-					NIC_CFG_RSS_HASH_TYPE_TCP_IPV6 |
+-					NIC_CFG_RSS_HASH_TYPE_TCP_IPV4))
+-				skb->l4_rxhash = true;
++			skb_set_rxhash(skb, rss_hash,
++			    (rss_type & (NIC_CFG_RSS_HASH_TYPE_TCP_IPV6_EX |
++					 NIC_CFG_RSS_HASH_TYPE_TCP_IPV6 |
++					 NIC_CFG_RSS_HASH_TYPE_TCP_IPV4)) ?
++			     RXHASH_TYPE_L4 : RXHASH_TYPE_L3);
++
+ 		}
  
+ 		if ((netdev->features & NETIF_F_RXCSUM) && !csum_not_calc) {
 -- 
 1.8.4.1
