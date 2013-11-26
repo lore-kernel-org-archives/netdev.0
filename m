@@ -1,17 +1,17 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 12/17] net: sky2 calls skb_set_rxhash
-Date: Tue, 26 Nov 2013 09:31:40 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1311260928040.21024@tomh.mtv.corp.google.com>
+Subject: [PATCH v2 13/17] net: mlx4 calls skb_set_rxhash
+Date: Tue, 26 Nov 2013 09:31:50 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1311260928050.21143@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f73.google.com ([209.85.212.73]:52389 "EHLO
-	mail-vb0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750879Ab3KZRbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:31:41 -0500
-Received: by mail-vb0-f73.google.com with SMTP id m10so633397vbh.2
-        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:31:40 -0800 (PST)
+Received: from mail-vc0-f202.google.com ([209.85.220.202]:47093 "EHLO
+	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750950Ab3KZRbv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:31:51 -0500
+Received: by mail-vc0-f202.google.com with SMTP id id10so632301vcb.3
+        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:31:50 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,39 +20,30 @@ in an skbuff.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/marvell/sky2.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index a7df981..abfe57a 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -2495,7 +2495,7 @@ static struct sk_buff *receive_copy(struct sky2_port *sky2,
- 		skb_copy_from_linear_data(re->skb, skb->data, length);
- 		skb->ip_summed = re->skb->ip_summed;
- 		skb->csum = re->skb->csum;
--		skb->rxhash = re->skb->rxhash;
-+		skb_set_rxhash(skb, re->skb->rxhash, RXHASH_TYPE_L3);
- 		skb->vlan_proto = re->skb->vlan_proto;
- 		skb->vlan_tci = re->skb->vlan_tci;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 07a1d0f..3e48c44 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -747,7 +747,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 					}
  
-@@ -2503,7 +2503,7 @@ static struct sk_buff *receive_copy(struct sky2_port *sky2,
- 					       length, PCI_DMA_FROMDEVICE);
- 		re->skb->vlan_proto = 0;
- 		re->skb->vlan_tci = 0;
--		re->skb->rxhash = 0;
-+		skb_clear_rxhash(re->skb);
- 		re->skb->ip_summed = CHECKSUM_NONE;
- 		skb_put(skb, length);
- 	}
-@@ -2723,7 +2723,7 @@ static void sky2_rx_hash(struct sky2_port *sky2, u32 status)
- 	struct sk_buff *skb;
+ 					if (dev->features & NETIF_F_RXHASH)
+-						gro_skb->rxhash = be32_to_cpu(cqe->immed_rss_invalid);
++						skb_set_rxhash(gro_skb, be32_to_cpu(cqe->immed_rss_invalid), RXHASH_TYPE_L3);
  
- 	skb = sky2->rx_ring[sky2->rx_next].skb;
--	skb->rxhash = le32_to_cpu(status);
-+	skb_set_rxhash(skb, le32_to_cpu(status), RXHASH_TYPE_L3);
- }
+ 					skb_record_rx_queue(gro_skb, cq->ring);
  
- /* Process status response ring */
+@@ -789,7 +789,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		skb_record_rx_queue(skb, cq->ring);
+ 
+ 		if (dev->features & NETIF_F_RXHASH)
+-			skb->rxhash = be32_to_cpu(cqe->immed_rss_invalid);
++			skb_set_rxhash(skb, be32_to_cpu(cqe->immed_rss_invalid), RXHASH_TYPE_L3);
+ 
+ 		if ((be32_to_cpu(cqe->vlan_my_qpn) &
+ 		    MLX4_CQE_VLAN_PRESENT_MASK) &&
 -- 
 1.8.4.1
