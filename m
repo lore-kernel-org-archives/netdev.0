@@ -1,30 +1,53 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 0/17 v2] net: Add rxhash utility hash functions
-Date: Tue, 26 Nov 2013 09:22:14 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1311260913490.21031@tomh.mtv.corp.google.com>
+Subject: [PATCH v2 02/17] net: Add utility function to set the rxhash
+Date: Tue, 26 Nov 2013 09:22:34 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1311260913480.21024@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f73.google.com ([209.85.219.73]:62203 "EHLO
-	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757478Ab3KZRWS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:22:18 -0500
-Received: by mail-oa0-f73.google.com with SMTP id i4so1251583oah.4
-        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:22:15 -0800 (PST)
+Received: from mail-oa0-f74.google.com ([209.85.219.74]:62799 "EHLO
+	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754183Ab3KZRWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:22:36 -0500
+Received: by mail-oa0-f74.google.com with SMTP id o6so1253200oag.3
+        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:22:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v2: Change occurences of 'get' to be 'set' in commit logs.
+The function skb_set_rxash was added for drivers to call to set
+the rxhash in an skb. The type of hash is also specified as
+a parameter (L2, L3, L4, or unknown type).
 
-This patch series introduce skb_set_rxhash and skb_clear_rxhash
-which are called to set the rxhash (from network drivers) and
-to clear the rxhash. This API should be used instead of updating
-fields in the skbuff directly.
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ include/linux/skbuff.h | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-Verified that the drivers compiled with the changes (verified
-bnx2x is operational).
-
-By my count 15 NIC drivers set the rxhash, but only two of them
-mark the hash as L4. It looks like several of those have capability
-do determine an L4 hash was done.
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 76d3aa9..25f190e 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -703,6 +703,20 @@ unsigned int skb_find_text(struct sk_buff *skb, unsigned int from,
+ 			   unsigned int to, struct ts_config *config,
+ 			   struct ts_state *state);
+ 
++enum rxhash_types {
++	RXHASH_TYPE_NONE,	/* Undefined type */
++	RXHASH_TYPE_L2,		/* Uses L2 information (addresses) */
++	RXHASH_TYPE_L3,		/* Uses L3 information */
++	RXHASH_TYPE_L4,		/* Uses L4 information (ports) */
++};
++
++static inline void
++skb_set_rxhash(struct sk_buff *skb, __u32 hash, enum rxhash_types type)
++{
++	skb->l4_rxhash = (type == RXHASH_TYPE_L4);
++	skb->rxhash = hash;
++}
++
+ void __skb_get_rxhash(struct sk_buff *skb);
+ static inline __u32 skb_get_rxhash(struct sk_buff *skb)
+ {
+-- 
+1.8.4.1
