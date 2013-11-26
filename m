@@ -1,53 +1,41 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 02/17] net: Add utility function to set the rxhash
-Date: Tue, 26 Nov 2013 09:22:34 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1311260913480.21024@tomh.mtv.corp.google.com>
+Subject: [PATCH v2 03/17] net: bnx2 calls skb_set_rxhash
+Date: Tue, 26 Nov 2013 09:22:47 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1311260914010.21143@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f74.google.com ([209.85.219.74]:62799 "EHLO
-	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754183Ab3KZRWg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:22:36 -0500
-Received: by mail-oa0-f74.google.com with SMTP id o6so1253200oag.3
-        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:22:35 -0800 (PST)
+Received: from mail-vc0-f201.google.com ([209.85.220.201]:50161 "EHLO
+	mail-vc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932406Ab3KZRWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 12:22:48 -0500
+Received: by mail-vc0-f201.google.com with SMTP id ie18so631852vcb.2
+        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 09:22:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function skb_set_rxash was added for drivers to call to set
-the rxhash in an skb. The type of hash is also specified as
-a parameter (L2, L3, L4, or unknown type).
+Drivers should call skb_set_rxhash to set the rxhash and its type
+in an skbuff.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/linux/skbuff.h | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ drivers/net/ethernet/broadcom/bnx2.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 76d3aa9..25f190e 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -703,6 +703,20 @@ unsigned int skb_find_text(struct sk_buff *skb, unsigned int from,
- 			   unsigned int to, struct ts_config *config,
- 			   struct ts_state *state);
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index d9980ad..0d7bea2b 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -3234,7 +3234,8 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
+ 		if ((bp->dev->features & NETIF_F_RXHASH) &&
+ 		    ((status & L2_FHDR_STATUS_USE_RXHASH) ==
+ 		     L2_FHDR_STATUS_USE_RXHASH))
+-			skb->rxhash = rx_hdr->l2_fhdr_hash;
++			skb_set_rxhash(skb, rx_hdr->l2_fhdr_hash,
++				       RXHASH_TYPE_L3);
  
-+enum rxhash_types {
-+	RXHASH_TYPE_NONE,	/* Undefined type */
-+	RXHASH_TYPE_L2,		/* Uses L2 information (addresses) */
-+	RXHASH_TYPE_L3,		/* Uses L3 information */
-+	RXHASH_TYPE_L4,		/* Uses L4 information (ports) */
-+};
-+
-+static inline void
-+skb_set_rxhash(struct sk_buff *skb, __u32 hash, enum rxhash_types type)
-+{
-+	skb->l4_rxhash = (type == RXHASH_TYPE_L4);
-+	skb->rxhash = hash;
-+}
-+
- void __skb_get_rxhash(struct sk_buff *skb);
- static inline __u32 skb_get_rxhash(struct sk_buff *skb)
- {
+ 		skb_record_rx_queue(skb, bnapi - &bp->bnx2_napi[0]);
+ 		napi_gro_receive(&bnapi->napi, skb);
 -- 
 1.8.4.1
