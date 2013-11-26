@@ -1,49 +1,51 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6 addrconf: source address selection, Rule 7: Prefer temporary addresses (RFC 6724)
-Date: Tue, 26 Nov 2013 09:54:04 +0100
-Message-ID: <20131126085404.GA20630@order.stressinduktion.org>
-References: <1385396205-6105-1-git-send-email-fx.lebail@yahoo.com>
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: Re: bridge vlan filtering question
+Date: Tue, 26 Nov 2013 11:46:58 +0200
+Message-ID: <CAF1J0HONLgBGdQFvD1A+r9yfD3fb2tr+beY6OzPe36tBhk0y_Q@mail.gmail.com>
+References: <CAF1J0HPkZgiLCY2eiUUWb+t8dJSr2SrUsPtCeHPOxRqU9G6TbA@mail.gmail.com>
+	<529394BC.5060805@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, dcbw@redhat.com,
-	jiri@resnulli.us
-To: fx.lebail@yahoo.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:38773 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751719Ab3KZIy1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 03:54:27 -0500
-Content-Disposition: inline
-In-Reply-To: <1385396205-6105-1-git-send-email-fx.lebail@yahoo.com>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:61380 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754808Ab3KZJq7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 04:46:59 -0500
+Received: by mail-oa0-f49.google.com with SMTP id i4so5674296oah.22
+        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 01:46:58 -0800 (PST)
+In-Reply-To: <529394BC.5060805@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Added Jiri and Dan]
+On Mon, Nov 25, 2013 at 8:19 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
+> On 11/25/2013 02:54 AM, Mike Rapoport wrote:
+>> Hi all,
+>>
+>> I'm trying to use brigde vlan filtering and I cannot get any traffic
+>> through the bridge.
+>> After looking at the code I've noticed that br_get_pvid is always
+>> returning VLAN_N_VID because VLAN_TAG_PRESENT is never set in the pvid
+>> field of net_port_vlans.
+>> Am I missing something or is this an actual bug?
+>>
+>
+> It's a bug.  It's been fixed upstream and has been queued to stable.
 
-On Mon, Nov 25, 2013 at 05:16:45PM +0100, fx.lebail@yahoo.com wrote:
-> The RFC 6724 change the default recommendation for source address selection
-> Rule 7 to prefer temporary addresses rather than public addresses,
-> while providing an administrative override.
-> 
-> The administrative override is based on the prefer_src_public sysctl.
+Thanks a lot.
 
-I like the idea and it could be useful in addition to the new
-IFA_F_MANAGETEMPADDR flag which should show up any time soon.
+> commit d1c6c708c4da9d104e0b7c116654cb449bff9b5f
+> Author: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> Date:   Wed Oct 16 17:07:15 2013 +0900
+>
+>     bridge: Fix the way the PVID is referenced
+>
+>
+> -vlad
 
-With IFA_F_MANAGETEMPADDR iproute/netlink could add a public address
-and indicate the kernel it should also generate a new temporary address
-without touching the use_tempaddr knob. So there is no possiblity to
-change the priority of public and temporary addresses any more. This
-patch could restore that.
 
-A netconf API for this would be nice, too.
 
-Jiri, Dan do you agree?
-
-Greetings,
-
-  Hannes
+-- 
+Sincerely yours,
+Mike.
