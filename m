@@ -1,45 +1,57 @@
-From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Subject: Re: [PATCH] ipv6 addrconf: source address selection, Rule 7: Prefer
- temporary addresses (RFC 6724)
-Date: Tue, 26 Nov 2013 18:58:19 +0100
-Message-ID: <5294E13B.8010108@enst-bretagne.fr>
-References: <1385396205-6105-1-git-send-email-fx.lebail@yahoo.com> <20131126085404.GA20630@order.stressinduktion.org>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: loop on reset adapter with ixgbe
+Date: Tue, 26 Nov 2013 18:47:41 +0000
+Message-ID: <87618083B2453E4A8714035B62D679924FE8D806@FMSMSX105.amr.corp.intel.com>
+References: <20131120182524.GC16953@gandi.net>
+ <F6FB0E698C9B3143BDF729DF222866466FD88724@ORSMSX110.amr.corp.intel.com>
+ <20131126130410.GD2849@gandi.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: fx.lebail@yahoo.com, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, dcbw@redhat.com,
-	jiri@resnulli.us
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"Potenza, Leonardo" <leonardo.potenza@intel.com>
+To: William Dauchy <william@gandi.net>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fourcot.fr ([217.70.191.14]:45416 "EHLO olfflo.fourcot.fr"
+Received: from mga02.intel.com ([134.134.136.20]:44843 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752983Ab3KZR6V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Nov 2013 12:58:21 -0500
-In-Reply-To: <20131126085404.GA20630@order.stressinduktion.org>
+	id S1751539Ab3KZSrz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 13:47:55 -0500
+In-Reply-To: <20131126130410.GD2849@gandi.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> The RFC 6724 change the default recommendation for source address selection
->> Rule 7 to prefer temporary addresses rather than public addresses,
->> while providing an administrative override.
->>
->> The administrative override is based on the prefer_src_public sysctl.
-> 
-> I like the idea and it could be useful in addition to the new
-> IFA_F_MANAGETEMPADDR flag which should show up any time soon.
-> 
+Could you please send the complete output from dmesg along with the stats (ethtool -S) from the interface and also your .config from your kernel?
 
-I like the principle of the idea too, but is it acceptable to break the
-user space compatibility?
-If the patch is accepted, someone with the value "1" in use_tempaddr
-will have a big surprise with a newer kernel  (I do not see any use case
-to set this option to 1, but maybe...).
+You can send the attachments directly to me or Don, or better yet open a bug at e1000.sf.net if possible.
 
-Regards,
+Thanks,
+Emil
 
-Florent.
+>-----Original Message-----
+>From: William Dauchy [mailto:william@gandi.net]
+>Sent: Tuesday, November 26, 2013 5:04 AM
+>To: Skidmore, Donald C
+>Cc: William Dauchy; netdev@vger.kernel.org; Keller, Jacob E;
+>Fastabend, John R; Tantilov, Emil S; Potenza, Leonardo
+>Subject: Re: loop on reset adapter with ixgbe
+>
+>On Nov20 18:58, Skidmore, Donald C wrote:
+>> I also just noticed your firmware looks in correct.  What
+>is the DevID for your device?
+>
+>might be a stupid question, but which id are you talking
+>about? How can
+>I get it?
+>
+>> Likewise do you have another NIC and if so could you check
+>it's firmware-version?
+>
+>I have some NIC with the same firmware without any problem.
+>
+>Regards,
+>--
+>William
