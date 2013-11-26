@@ -1,86 +1,25 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH 5/5][v2] phylib: Add of_phy_attach
-Date: Tue, 26 Nov 2013 17:55:35 +0800
-Message-ID: <1385459735-722-1-git-send-email-shh.xie@gmail.com>
+From: "Lee Hyuk" <hyuk.lee@lawyer.com>
+Subject: Re:Answer back.
+Date: Tue, 26 Nov 2013 11:12:00 -0000
+Message-ID: <880a177cae08ac95b4ef0046e3319444.squirrel__22201.6677064405$1385466275$gmane$org@168.63.99.252>
+Reply-To: hyuklee1@aol.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Emilian.Medve@freescale.com>, <madalin.bucur@freescale.com>
-To: <davem@davemloft.net>, <jg1.han@samsung.com>,
-	<mugunthanvnm@ti.com>, <f.fainelli@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [168.63.99.252] ([168.63.99.252]:1032 "EHLO mail.momo.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755814Ab3KZLoR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Nov 2013 06:44:17 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andy Fleming <afleming@freescale.com>
 
-10G PHYs don't currently support running the state machine, which
-is implicitly setup via of_phy_connect(). Therefore, it is necessary
-to implement an OF version of phy_attach(), which does everything
-except start the state machine.
 
-Signed-off-by: Andy Fleming <afleming@freescale.com>
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
----
-v2: no changes.
 
- drivers/of/of_mdio.c    | 19 +++++++++++++++++++
- include/linux/of_mdio.h |  9 +++++++++
- 2 files changed, 28 insertions(+)
-
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index d5a57a9..21076ac 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -247,3 +247,22 @@ struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
- 	return IS_ERR(phy) ? NULL : phy;
- }
- EXPORT_SYMBOL(of_phy_connect_fixed_link);
-+
-+/**
-+ * of_phy_attach - Attach to a PHY without starting the state machine
-+ * @dev: pointer to net_device claiming the phy
-+ * @phy_np: Node pointer for the PHY
-+ * @flags: flags to pass to the PHY
-+ * @iface: PHY data interface type
-+ */
-+struct phy_device *of_phy_attach(struct net_device *dev,
-+		struct device_node *phy_np, u32 flags, phy_interface_t iface)
-+{
-+	struct phy_device *phy = of_phy_find_device(phy_np);
-+
-+	if (!phy)
-+		return NULL;
-+
-+	return phy_attach_direct(dev, phy, flags, iface) ? NULL : phy;
-+}
-+EXPORT_SYMBOL(of_phy_attach);
-diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-index 8163107..108583a 100644
---- a/include/linux/of_mdio.h
-+++ b/include/linux/of_mdio.h
-@@ -19,6 +19,9 @@ extern struct phy_device *of_phy_connect(struct net_device *dev,
- 					 struct device_node *phy_np,
- 					 void (*hndlr)(struct net_device *),
- 					 u32 flags, phy_interface_t iface);
-+struct phy_device *of_phy_attach(struct net_device *dev,
-+				 struct device_node *phy_np, u32 flags,
-+				 phy_interface_t iface);
- extern struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
- 					 void (*hndlr)(struct net_device *),
- 					 phy_interface_t iface);
-@@ -44,6 +47,12 @@ static inline struct phy_device *of_phy_connect(struct net_device *dev,
- 	return NULL;
- }
- 
-+static inline struct phy_device *of_phy_attach(struct net_device *dev,
-+		struct device_node *phy_np, u32 flags, phy_interface_t iface)
-+{
-+	return NULL;
-+}
-+
- static inline struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
- 							   void (*hndlr)(struct net_device *),
- 							   phy_interface_t iface)
--- 
-1.8.4.1
+I would like to discuss a very important crude oil project with you,kindly
+revert back to me if this is your valid email address forfurther
+information.
+Regards,
+Lee
