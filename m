@@ -1,42 +1,45 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 11/17] net: ixgbe calls skb_get_rxhash
-Date: Mon, 25 Nov 2013 21:54:33 -0800 (PST)
-Message-ID: <alpine.DEB.2.02.1311252153050.23058@tomh.mtv.corp.google.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH] ipv6: judge the accept_ra_defrtr before calling rt6_route_rcv
+Date: Tue, 26 Nov 2013 15:46:56 +0800
+Message-ID: <529451F0.1060707@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f73.google.com ([209.85.216.73]:43917 "EHLO
-	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753116Ab3KZGBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 01:01:37 -0500
-Received: by mail-qa0-f73.google.com with SMTP id o15so1137634qap.2
-        for <netdev@vger.kernel.org>; Mon, 25 Nov 2013 22:01:36 -0800 (PST)
+Received: from cn.fujitsu.com ([222.73.24.84]:25335 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751553Ab3KZHtT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Nov 2013 02:49:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Drivers should call skb_get_rxhash to set the rxhash and its type
-in an skbuff.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
+when dealing with a RA message, if accept_ra_defrtr is false,
+the kernel will not add the default route, and then deal with
+the following route information options. Unfortunately, those
+options maybe contain default route, so let's judge the
+accept_ra_defrtr before calling rt6_route_rcv.
+
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/ipv6/ndisc.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index bd8f523..9973eaf 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1233,7 +1233,9 @@ static inline void ixgbe_rx_hash(struct ixgbe_ring *ring,
- 				 struct sk_buff *skb)
- {
- 	if (ring->netdev->features & NETIF_F_RXHASH)
--		skb->rxhash = le32_to_cpu(rx_desc->wb.lower.hi_dword.rss);
-+		skb_set_rxhash(skb,
-+			       le32_to_cpu(rx_desc->wb.lower.hi_dword.rss),
-+			       RXHASH_TYPE_L3);
- }
- 
- #ifdef IXGBE_FCOE
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 3512177..3008651 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1277,6 +1277,9 @@ skip_linkparms:
+ 			    ri->prefix_len == 0)
+ 				continue;
+ #endif
++			if (ri->prefix_len == 0 &&
++			    !in6_dev->cnf.accept_ra_defrtr)
++				continue;
+ 			if (ri->prefix_len > in6_dev->cnf.accept_ra_rt_info_max_plen)
+ 				continue;
+ 			rt6_route_rcv(skb->dev, (u8*)p, (p->nd_opt_len) << 3,
 -- 
-1.8.4.1
+1.8.3.1
