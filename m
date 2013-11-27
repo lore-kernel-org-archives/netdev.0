@@ -1,96 +1,71 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: netfilter: active obj WARN when cleaning up
-Date: Wed, 27 Nov 2013 15:34:15 -0800
-Message-ID: <20131127233415.GB19270@kroah.com>
-References: <522B25B5.6000808@oracle.com>
- <5294F27D.4000108@oracle.com>
- <20131126230709.GA10948@localhost>
- <alpine.DEB.2.02.1311271106090.30673@ionos.tec.linutronix.de>
- <20131127113939.GL16735@n2100.arm.linux.org.uk>
- <alpine.DEB.2.02.1311271409280.30673@ionos.tec.linutronix.de>
- <20131127133231.GO16735@n2100.arm.linux.org.uk>
- <20131127134015.GA6011@n2100.arm.linux.org.uk>
- <alpine.DEB.2.02.1311271443580.30673@ionos.tec.linutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
-	Christoph Lameter <cl@linux-foundation.org>
-To: Christoph Lameter <cl@linux-foundation.org>,
-	Thomas Gleixner <tglx@linutronix.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.02.1311271443580.30673@ionos.tec.linutronix.de>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Ondrej Puzman <puzman@gmail.com>
+Subject: [PATCH] pch_gbe: Add DQL support to the driver
+Date: Thu, 28 Nov 2013 00:29:09 +0100
+Message-ID: <1385594950-2662-3-git-send-email-puzman@gmail.com>
+References: <1385594950-2662-1-git-send-email-puzman@gmail.com>
+ <1385594950-2662-2-git-send-email-puzman@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ondrej Puzman <puzman@gmail.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1385594950-2662-2-git-send-email-puzman@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 27, 2013 at 02:44:58PM +0100, Thomas Gleixner wrote:
-> On Wed, 27 Nov 2013, Russell King - ARM Linux wrote:
-> 
-> > On Wed, Nov 27, 2013 at 01:32:31PM +0000, Russell King - ARM Linux wrote:
-> > > On Wed, Nov 27, 2013 at 02:29:41PM +0100, Thomas Gleixner wrote:
-> > > > Though the kobject is the only thing which has a delayed work embedded
-> > > > inside struct kmem_cache. And the debug object splat points at the
-> > > > kmem_cache_free() of the struct kmem_cache itself. That's why I
-> > > > assumed the wreckage around that place. And indeed:
-> > > > 
-> > > > kmem_cache_destroy(s)
-> > > >     __kmem_cache_shutdown(s)
-> > > >       sysfs_slab_remove(s)
-> > > >         ....
-> > > > 	kobject_put(&s->kobj)
-> > > >            kref_put(&kobj->kref, kobject_release);
-> > > > 	     kobject_release(kref)
-> > > >     	       #ifdef CONFIG_DEBUG_KOBJECT_RELEASE
-> > > > 	         schedule_delayed_work(&kobj->release)
-> > > > 	       #else
-> > > > 	        kobject_cleanup(kobj)
-> > > > 	       #endif
-> > > > 
-> > > > So in the CONFIG_DEBUG_KOBJECT_RELEASE=y case, schedule_delayed_work()
-> > > > _IS_ called which arms the timer. debugobjects catches the attempt to
-> > > > free struct kmem_cache which contains the armed timer.
-> > > 
-> > > You fail to show where the free is in the above path.
-> > 
-> > Right, there's a kmem_cache_free(kmem_cache, s); by the slob code
-> > after the above sequence, which is The Bug(tm).
-> > 
-> > As I said, a kobject has its own lifetime.  If you embed that into
-> > another structure, that structure inherits the lifetime of the kobject,
-> > which is from the point at which it's created to the point at which the
-> > kobject's release function is called.
-> > 
-> > So no, the code here is buggy.  The kobject debugging has yet again
-> > found a violation of the kobject lifetime rules.  slub needs fixing.
-> 
-> I leave that discussion to you, greg and the slub folks.
+Add dynamic queue limits support to the driver.
 
-/me grabs some popcorn from tglx
+Signed-off-by: Ondrej Puzman <puzman@gmail.com>
+---
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
 
-It's really not that much of a discussion, Documentation/kobject.txt has
-said this for years, it's as if no one even reads documentation
-anymore...
-
-If you embed a kobject into a structure, you have to use the kobject for
-the reference counting of the structure, otherwise it's a bug.  If you
-don't want to use a kobject to reference count the structure, don't
-embed it into it, use a pointer.
-
-Are "slabs" never freed in the slub allocator?  Surely someone should
-have seen the huge "this kobject doesn't have a release function" error
-message that the kernel should have spit out for it?
-
-Just make the kobject "dynamic" instead of embedded in struct kmem_cache
-and all will be fine.  I can't believe this code has been broken for
-this long.
-
-thanks,
-
-greg k-h
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index d967603..2c14e2e 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -994,6 +994,8 @@ static void pch_gbe_clean_tx_ring(struct pch_gbe_adapter *adapter,
+ 	netdev_dbg(adapter->netdev,
+ 		   "call pch_gbe_unmap_and_free_tx_resource() %d count\n", i);
+ 
++	netdev_reset_queue(adapter->netdev);
++
+ 	size = (unsigned long)sizeof(struct pch_gbe_buffer) * tx_ring->count;
+ 	memset(tx_ring->buffer_info, 0, size);
+ 
+@@ -1544,6 +1546,7 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
+ 	unsigned int cleaned_count = 0;
+ 	bool cleaned = false;
+ 	int unused, thresh;
++	unsigned int bytes_compl = 0, pkts_compl = 0;
+ 
+ 	netdev_dbg(adapter->netdev, "next_to_clean : %d\n",
+ 		   tx_ring->next_to_clean);
+@@ -1622,6 +1625,8 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
+ 			buffer_info->mapped = false;
+ 		}
+ 		if (buffer_info->skb) {
++			bytes_compl += buffer_info->skb->len;
++			pkts_compl++;
+ 			netdev_dbg(adapter->netdev,
+ 				   "trim buffer_info->skb : %d\n", i);
+ 			skb_trim(buffer_info->skb, 0);
+@@ -1641,6 +1646,9 @@ pch_gbe_clean_tx(struct pch_gbe_adapter *adapter,
+ 		   "called pch_gbe_unmap_and_free_tx_resource() %d count\n",
+ 		   cleaned_count);
+ 	if (cleaned_count > 0)  { /*skip this if nothing cleaned*/
++		netdev_completed_queue(adapter->netdev,
++				       pkts_compl, bytes_compl);
++
+ 		/* Recover from running out of Tx resources in xmit_frame */
+ 		spin_lock(&tx_ring->tx_lock);
+ 		if (unlikely(cleaned && (netif_queue_stopped(adapter->netdev))))
+@@ -2152,6 +2160,7 @@ static int pch_gbe_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 	/* CRC,ITAG no support */
+ 	pch_gbe_tx_queue(adapter, tx_ring, skb);
++	netdev_sent_queue(netdev, skb->len);
+ 
+ 	if (unlikely(!PCH_GBE_DESC_UNUSED(tx_ring)))
+ 		netif_stop_queue(netdev);
+-- 
+1.5.6.5
