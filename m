@@ -1,59 +1,89 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2013-11-27
-Date: Wed, 27 Nov 2013 22:11:31 +0100
-Message-ID: <1385586695-11134-1-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 1/4] can: sja1000: fix {pre,post}_irq() handling and IRQ handler return value
+Date: Wed, 27 Nov 2013 22:11:32 +0100
+Message-ID: <1385586695-11134-2-git-send-email-mkl@pengutronix.de>
+References: <1385586695-11134-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
+	kernel@pengutronix.de, Oliver Hartkopp <socketcan@hartkopp.net>,
+	linux-stable <stable@vger.kernel.org>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:49146 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753802Ab3K0VLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 16:11:48 -0500
+In-Reply-To: <1385586695-11134-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+From: Oliver Hartkopp <socketcan@hartkopp.net>
 
-this is an extention of my pull request from 2013-11-25, it includes an
-additional patch.
+This patch fixes the issue that the sja1000_interrupt() function may have
+returned IRQ_NONE without processing the optional pre_irq() and post_irq()
+function before. Further the irq processing counter 'n' is moved to the end of
+the while statement to return correct IRQ_[NONE|HANDLED] values at error
+conditions.
 
-This series consists of a patch by Oliver Hartkopp which fixes some corner
-cases in the interrupt handler of the sja1000 driver. Then there are two
-patches for the c_can dirver. One by me, which fixes a runtime pm related
-"scheduling while atomic" error and patch by Holger Bechtold that fixes the
-calculation of the transmitted bytes.
-
-The fourth patch (the additional one) is by me, it corrects the clock usage in
-the flexcan driver.
-
-regards,
-Marc
-
+Reported-by: Wolfgang Grandegger <wg@grandegger.com>
+Acked-by: Wolfgang Grandegger <wg@grandegger.com>
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
-
-The following changes since commit 2c7a9dc1641664173211c4ebc5db510a08684c46:
-
-  be2net: Avoid programming permenant MAC by BE3-R VFs (2013-11-23 15:11:07 -0800)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can.git fixes-for-3.13-20131127
-
-for you to fetch changes up to 1a3e5173f5e72cbf7f0c8927b33082e361c16d72:
-
-  can: flexcan: use correct clock as base for bit rate calculation (2013-11-26 15:39:47 +0100)
-
-----------------------------------------------------------------
-Holger Bechtold (1):
-      can: c_can: fix calculation of transmitted bytes on tx complete
-
-Marc Kleine-Budde (2):
-      can: c_can: don't call pm_runtime_get_sync() from interrupt context
-      can: flexcan: use correct clock as base for bit rate calculation
-
-Oliver Hartkopp (1):
-      can: sja1000: fix {pre,post}_irq() handling and IRQ handler return value
-
- drivers/net/can/c_can/c_can.c     | 22 ++++++++++++++++------
- drivers/net/can/flexcan.c         |  2 +-
  drivers/net/can/sja1000/sja1000.c | 17 +++++++++--------
- 3 files changed, 26 insertions(+), 15 deletions(-)
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
-
+diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
+index 7164a99..f17c301 100644
+--- a/drivers/net/can/sja1000/sja1000.c
++++ b/drivers/net/can/sja1000/sja1000.c
+@@ -494,20 +494,20 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
+ 	uint8_t isrc, status;
+ 	int n = 0;
+ 
+-	/* Shared interrupts and IRQ off? */
+-	if (priv->read_reg(priv, SJA1000_IER) == IRQ_OFF)
+-		return IRQ_NONE;
+-
+ 	if (priv->pre_irq)
+ 		priv->pre_irq(priv);
+ 
++	/* Shared interrupts and IRQ off? */
++	if (priv->read_reg(priv, SJA1000_IER) == IRQ_OFF)
++		goto out;
++
+ 	while ((isrc = priv->read_reg(priv, SJA1000_IR)) &&
+ 	       (n < SJA1000_MAX_IRQ)) {
+-		n++;
++
+ 		status = priv->read_reg(priv, SJA1000_SR);
+ 		/* check for absent controller due to hw unplug */
+ 		if (status == 0xFF && sja1000_is_absent(priv))
+-			return IRQ_NONE;
++			goto out;
+ 
+ 		if (isrc & IRQ_WUI)
+ 			netdev_warn(dev, "wakeup interrupt\n");
+@@ -535,7 +535,7 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
+ 				status = priv->read_reg(priv, SJA1000_SR);
+ 				/* check for absent controller */
+ 				if (status == 0xFF && sja1000_is_absent(priv))
+-					return IRQ_NONE;
++					goto out;
+ 			}
+ 		}
+ 		if (isrc & (IRQ_DOI | IRQ_EI | IRQ_BEI | IRQ_EPI | IRQ_ALI)) {
+@@ -543,8 +543,9 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
+ 			if (sja1000_err(dev, isrc, status))
+ 				break;
+ 		}
++		n++;
+ 	}
+-
++out:
+ 	if (priv->post_irq)
+ 		priv->post_irq(priv);
+ 
+-- 
+1.8.5.rc0
