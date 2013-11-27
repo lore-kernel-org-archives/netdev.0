@@ -1,78 +1,110 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH net] be2net: call napi_disable() for all event queues
-Date: Wed, 27 Nov 2013 05:28:02 +0000
-Message-ID: <f158e8ac-98d2-4be4-b801-20a18912d672@CMEXHTCAS1.ad.emulex.com>
-References: <1385484881-25715-1-git-send-email-ivecera@redhat.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: [PATCH] net: 8139cp: fix a BUG_ON triggered by wrong bytes_compl
+Date: Wed, 27 Nov 2013 14:05:22 +0800
+Message-ID: <52958BA2.4060405@huawei.com>
+References: <1385525270-56580-1-git-send-email-yangyingliang@huawei.com> <1385526903.5352.6.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Subramanian Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <Ajit.Khaparde@Emulex.Com>
-To: Ivan Vecera <ivecera@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<dwmw2@infradead.org>, <dave.taht@bufferbloat.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:9230 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750728Ab3K0F2G convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 00:28:06 -0500
-In-Reply-To: <1385484881-25715-1-git-send-email-ivecera@redhat.com>
-Content-Language: en-US
+Received: from szxga02-in.huawei.com ([119.145.14.65]:43227 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751977Ab3K0GFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 01:05:30 -0500
+In-Reply-To: <1385526903.5352.6.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Ivan Vecera [mailto:ivecera@redhat.com]
+On 2013/11/27 12:35, Eric Dumazet wrote:
+> On Wed, 2013-11-27 at 12:07 +0800, Yang Yingliang wrote:
+>> Using iperf to send packets(GSO mode is on), a bug is triggered:
+>>
 > 
-> The recent be2net commit 6384a4d (adds a support for busy polling)
-> introduces a regression that results in kernel crash. It incorrectly
-> modified be_close() so napi_disable() is called only for the first queue.
-> This breaks a correct pairing of napi_enable/_disable for the rest
-> of event queues and causes a crash in subsequent be_open() call.
+>> When a skb has frags, bytes_compl plus skb->len nr_frags times in cp_tx().
+>> It's not the correct value(actually, it should plus skb->len once) and it
+>> will trigger the BUG_ON(bytes_compl > num_queued - dql->num_completed).Use
+>> txd->opts1 which stores the real length of a frag in cp_start_xmit() to
+>> calculate bytes_compl.
+>> pkts_compl also has a wrong value, fix it too.
+>>
+>> It's introduced by commit 871f0d4c("8139cp: enable bql").
+>>
+>> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+>> ---
+>>  drivers/net/ethernet/realtek/8139cp.c | 8 +++++---
+>>  1 file changed, 5 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+>> index f2a2128..3b837f0 100644
+>> --- a/drivers/net/ethernet/realtek/8139cp.c
+>> +++ b/drivers/net/ethernet/realtek/8139cp.c
+>> @@ -664,7 +664,7 @@ static void cp_tx (struct cp_private *cp)
+>>  	while (tx_tail != tx_head) {
+>>  		struct cp_desc *txd = cp->tx_ring + tx_tail;
+>>  		struct sk_buff *skb;
+>> -		u32 status;
+>> +		u32 status, flags;
+>>  
+>>  		rmb();
+>>  		status = le32_to_cpu(txd->opts1);
+>> @@ -678,8 +678,10 @@ static void cp_tx (struct cp_private *cp)
+>>  				 le32_to_cpu(txd->opts1) & 0xffff,
+>>  				 PCI_DMA_TODEVICE);
+>>  
+>> -		bytes_compl += skb->len;
+>> -		pkts_compl++;
+>> +		flags = le32_to_cpu(txd->opts1);
 > 
-> Cc: Sathya Perla <sathya.perla@emulex.com>
-> Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
-> Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-> ---
->  drivers/net/ethernet/emulex/benet/be_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> Why not using 'status' here, its the same value.
 > 
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c
-> b/drivers/net/ethernet/emulex/benet/be_main.c
-> index 78a0e85..0aec4d2 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -2663,8 +2663,8 @@ static int be_close(struct net_device *netdev)
->  			napi_disable(&eqo->napi);
->  			be_disable_busy_poll(eqo);
+>> +		bytes_compl += (flags & 0xffff);
+>> +		if (flags & FirstFrag)
+>> +			pkts_compl++;
+>>  
+>>  		if (status & LastFrag) {
+>>  			if (status & (TxError | TxFIFOUnder)) {
+> 
+> I dont know, this seems a bit convoluted and dangerous, as
+> cp_start_xmit() did :
+> 
+> netdev_sent_queue(dev, skb->len);
+
+I tried to let pkts_compl equals sum of every frags' length.
+Your way looks more simpler. I'll post an updated version of
+the patch as you suggested.
+
+Thanks!
+
+> 
+> So I would just use :
+> 
+> diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+> index f2a2128165dd..4a935a966e28 100644
+> --- a/drivers/net/ethernet/realtek/8139cp.c
+> +++ b/drivers/net/ethernet/realtek/8139cp.c
+> @@ -678,8 +678,6 @@ static void cp_tx (struct cp_private *cp)
+>  				 le32_to_cpu(txd->opts1) & 0xffff,
+>  				 PCI_DMA_TODEVICE);
+>  
+> -		bytes_compl += skb->len;
+> -		pkts_compl++;
+>  
+>  		if (status & LastFrag) {
+>  			if (status & (TxError | TxFIFOUnder)) {
+> @@ -702,6 +700,8 @@ static void cp_tx (struct cp_private *cp)
+>  				netif_dbg(cp, tx_done, cp->dev,
+>  					  "tx done, slot %d\n", tx_tail);
+>  			}
+> +			bytes_compl += skb->len;
+> +			pkts_compl++;
+>  			dev_kfree_skb_irq(skb);
 >  		}
-> -		adapter->flags &= ~BE_FLAGS_NAPI_ENABLED;
->  	}
-> +	adapter->flags &= ~BE_FLAGS_NAPI_ENABLED;
+>  
 > 
-
-Ivan, Thanks for spotting this.
-Your fix is correct but it'll be nice if the for-loop for napi_disable
-is not even entered when FLAGS_NAPI_ENABLED is not set, as in:
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 603b662..40d2adb 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2658,8 +2658,8 @@ static int be_close(struct net_device *netdev)
- 
- 	be_roce_dev_close(adapter);
- 
--	for_all_evt_queues(adapter, eqo, i) {
--		if (adapter->flags & BE_FLAGS_NAPI_ENABLED) {
-+	if (adapter->flags & BE_FLAGS_NAPI_ENABLED) {
-+		for_all_evt_queues(adapter, eqo, i) {
- 			napi_disable(&eqo->napi);
- 			be_disable_busy_poll(eqo);
- 		}
-
-Could you also add the following line to your patch as it fixes a
-regression caused by an older be2net commit:
-Fixes: 6384a4d0dcf9 ("be2net: add support for ndo_busy_poll")
-
--Sathya
+> 
+> 
+> .
+> 
