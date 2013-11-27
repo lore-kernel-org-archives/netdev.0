@@ -1,17 +1,18 @@
 From: Guenter Roeck <linux@roeck-us.net>
 Subject: [PATCH] sfc: Convert to use hwmon_device_register_with_groups
-Date: Tue, 26 Nov 2013 19:30:37 -0800
-Message-ID: <1385523037-3774-1-git-send-email-linux@roeck-us.net>
-Cc: linux-net-drivers@solarflare.com, lm-sensors@lm-sensors.org,
-	Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 26 Nov 2013 19:33:07 -0800
+Message-ID: <1385523187-31996-1-git-send-email-linux@roeck-us.net>
+Cc: linux-net-drivers@solarflare.com,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	lm-sensors@lm-sensors.org, Guenter Roeck <linux@roeck-us.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:61728 "EHLO
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:61977 "EHLO
 	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751793Ab3K0Dal (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 22:30:41 -0500
-Received: by mail-pd0-f178.google.com with SMTP id y10so9068097pdj.9
-        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 19:30:40 -0800 (PST)
+	with ESMTP id S1751793Ab3K0DdR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 22:33:17 -0500
+Received: by mail-pd0-f178.google.com with SMTP id y10so9071844pdj.9
+        for <netdev@vger.kernel.org>; Tue, 26 Nov 2013 19:33:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
