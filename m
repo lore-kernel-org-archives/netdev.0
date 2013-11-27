@@ -1,11 +1,11 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next 6/8] openvswitch: Allow update of dp with
- OVS_DP_CMD_NEW if NLM_F_REPLACE is set
-Date: Wed, 27 Nov 2013 22:32:20 +0000
-Message-ID: <20131127223220.GA26084@casper.infradead.org>
+Subject: Re: [PATCH net-next 7/8] openvswitch: Drop user features if old user
+ space attempted to create datapath
+Date: Wed, 27 Nov 2013 22:35:12 +0000
+Message-ID: <20131127223512.GB26084@casper.infradead.org>
 References: <cover.1385137618.git.tgraf@suug.ch>
- <2b77b94f043dbed36a08dcc0a876830d6ad1a97a.1385137618.git.tgraf@suug.ch>
- <CAEP_g=8=dzm7NS5zx4-+wY+AXZLpym7JGQO9YTAgdTPm9v1mpQ@mail.gmail.com>
+ <a207b27c2830c9098045455808e1ca6d203a5d9a.1385137618.git.tgraf@suug.ch>
+ <CAEP_g=8nADwqAJ81gtpJ-6v2XW4Se+OK1RPcEZ7mh-_PAwyo7g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>,
@@ -16,68 +16,36 @@ Cc: David Miller <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>
 To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:48665 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:48804 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757299Ab3K0WcZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 17:32:25 -0500
+	with ESMTP id S1755397Ab3K0WfO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 17:35:14 -0500
 Content-Disposition: inline
-In-Reply-To: <CAEP_g=8=dzm7NS5zx4-+wY+AXZLpym7JGQO9YTAgdTPm9v1mpQ@mail.gmail.com>
+In-Reply-To: <CAEP_g=8nADwqAJ81gtpJ-6v2XW4Se+OK1RPcEZ7mh-_PAwyo7g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/25/13 at 01:23pm, Jesse Gross wrote:
+On 11/25/13 at 03:40pm, Jesse Gross wrote:
 > On Fri, Nov 22, 2013 at 8:56 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> > diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> > index 95d4424..3f1fb87 100644
-> > --- a/net/openvswitch/datapath.c
-> > +++ b/net/openvswitch/datapath.c
-> 
-> I'm a little worried that this introduces some quirks to the interface. Such as:
-> 
-> > @@ -1190,6 +1185,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
-> >         struct vport *vport;
-> >         struct ovs_net *ovs_net;
-> >         int err, i;
-> > +       bool allocated = false;
+> > diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+> > index 07ef2c3..a6863e2 100644
+> > --- a/include/uapi/linux/openvswitch.h
+> > +++ b/include/uapi/linux/openvswitch.h
+> > @@ -40,7 +40,15 @@ struct ovs_header {
 > >
-> >         err = -EINVAL;
-> >         if (!a[OVS_DP_ATTR_NAME] || !a[OVS_DP_ATTR_UPCALL_PID])
+> >  #define OVS_DATAPATH_FAMILY  "ovs_datapath"
+> >  #define OVS_DATAPATH_MCGROUP "ovs_datapath"
+> > -#define OVS_DATAPATH_VERSION 0x1
+> > +
+> > +/* V2:
+> > + *   - API users are expected to provide OVS_DP_ATTR_USER_FEATURES
+> > + *     with NLM_F_REPLACE when creating the datapath.
+> > + */
+> > +#define OVS_DATAPATH_VERSION 2
 > 
-> This requires that DP_CMD_SET supply an OVS_DP_ATTR_UPCALL_PID
-> although I don't think that it's really necessary. In fact, we used to
-> completely ignore that field on SET since it's really only useful on
-> datapath creation and can otherwise be done more naturally through the
-> vport interface.
+> I'm not sure that I understand this comment - I guess it means that
+> there's no legacy path when using NLM_F_REPLACE?
 
-It's a theoretical exercise since nobody is using OVS_DP_CMD_SET
-but I agree, it should be optional in the update path. I'll update
-the patch.
-
-> > @@ -1197,11 +1193,26 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
-> >
-> >         ovs_lock();
-> >
-> > +       dp = lookup_datapath(sock_net(skb->sk), info->userhdr, info->attrs);
-> > +       if (!IS_ERR(dp)) {
-> > +               if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE)
-> > +                       goto update;
-> 
-> Conversely, this won't respect the UPCALL_PID field, which I would
-> expect it to since I think NLM_F_REPLACE should be roughly equivalent
-> to a delete and create. I believe that's the only field that is
-> missing although it seems easy to have the same problem as others are
-> added in the future.
-
-It's up to us to define that.
-
-What the patch proposes is what OVS has been doing already: Try to
-find a datapath with matching name and reuse it. Otherwise create
-a new data path. Disregard UPCALL_PID.
-
-As you state above, the upcall pid can be modified through the vport
-interface which in my opinion is the correct way to modify it if
-needed.
-
-I have no problem with adding upcall pid overwrite logic to the
-NLM_F_REPLACE path but it _changes_ the existing semantics in
-terms of "opening" a datapath.
+It means that if the V2 caller does not provide user features the
+existing user features are preserved upon NLM_F_REPLACE. V1 users
+can't be aware and the user features are always reset.
