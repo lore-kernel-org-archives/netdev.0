@@ -1,144 +1,58 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: [PATCH v2] net: smc91: fix crash regression on the versatile
-Date: Wed, 27 Nov 2013 13:33:21 +0100
-Message-ID: <1385555601-4497-1-git-send-email-linus.walleij@linaro.org>
-Cc: Linus Walleij <linus.walleij@linaro.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Eric Miao <eric.y.miao@gmail.com>,
-	Jonathan Cameron <jic23@cam.ac.uk>, stable@vger.kernel.org
-To: netdev@vger.kernel.org, Nicolas Pitre <nico@fluxnic.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Will Deacon <will.deacon@arm.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] net: clamp ->msg_namelen instead of returning an error
+Date: Wed, 27 Nov 2013 15:40:21 +0300
+Message-ID: <20131127124021.GA2025@elgon.mountain>
+References: <20131127115120.GC20630@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Eric Wong <normalperson@yhbt.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:34035 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753346Ab3K0Mdb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 07:33:31 -0500
-Received: by mail-lb0-f182.google.com with SMTP id u14so5307749lbd.41
-        for <netdev@vger.kernel.org>; Wed, 27 Nov 2013 04:33:29 -0800 (PST)
+Received: from userp1040.oracle.com ([156.151.31.81]:48555 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751871Ab3K0Mkh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 07:40:37 -0500
+Content-Disposition: inline
+In-Reply-To: <20131127115120.GC20630@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After commit e9e4ea74f06635f2ffc1dffe5ef40c854faa0a90
-"net: smc91x: dont't use SMC_outw for fixing up halfword-aligned data"
-The Versatile SMSC LAN91C111 is crashing like this:
+If kmsg->msg_namelen > sizeof(struct sockaddr_storage) then in the
+original code that would lead to memory corruption in the kernel if you
+had audit configured.  If you didn't have audit configured it was
+harmless.
 
-------------[ cut here ]------------
-kernel BUG at /home/linus/linux/drivers/net/ethernet/smsc/smc91x.c:599!
-Internal error: Oops - BUG: 0 [#1] ARM
-Modules linked in:
-CPU: 0 PID: 43 Comm: udhcpc Not tainted 3.13.0-rc1+ #24
-task: c6ccfaa0 ti: c6cd0000 task.ti: c6cd0000
-PC is at smc_hardware_send_pkt+0x198/0x22c
-LR is at smc_hardware_send_pkt+0x24/0x22c
-pc : [<c01be324>]    lr : [<c01be1b0>]    psr: 20000013
-sp : c6cd1d08  ip : 00000001  fp : 00000000
-r10: c02adb08  r9 : 00000000  r8 : c6ced802
-r7 : c786fba0  r6 : 00000146  r5 : c8800000  r4 : c78d6000
-r3 : 0000000f  r2 : 00000146  r1 : 00000000  r0 : 00000031
-Flags: nzCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
-Control: 0005317f  Table: 06cf4000  DAC: 00000015
-Process udhcpc (pid: 43, stack limit = 0xc6cd01c0)
-Stack: (0xc6cd1d08 to 0xc6cd2000)
-1d00:                   00000010 c8800000 c78d6000 c786fba0 c78d6000 c01be868
-1d20: c01be7a4 00004000 00000000 c786fba0 c6c12b80 c0208554 000004d0 c780fc60
-1d40: 00000220 c01fb734 00000000 00000000 00000000 c6c9a440 c6c12b80 c78d6000
-1d60: c786fba0 c6c9a440 00000000 c021d1d8 00000000 00000000 c6c12b80 c78d6000
-1d80: c786fba0 00000001 c6c9a440 c02087f8 c6c9a4a0 00080008 00000000 00000000
-1da0: c78d6000 c786fba0 c78d6000 00000138 00000000 00000000 00000000 00000000
-1dc0: 00000000 c027ba74 00000138 00000138 00000001 00000010 c6cedc00 00000000
-1de0: 00000008 c7404400 c6cd1eec c6cd1f14 c067a73c c065c0b8 00000000 c067a740
-1e00: 01ffffff 002040d0 00000000 00000000 00000000 00000000 00000000 ffffffff
-1e20: 43004400 00110022 c6cdef20 c027ae8c c6ccfaa0 be82d65c 00000014 be82d3cc
-1e40: 00000000 00000000 00000000 c01f2870 00000000 00000000 00000000 c6cd1e88
-1e60: c6ccfaa0 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-1e80: 00000000 00000000 00000031 c7802310 c7802300 00000138 c7404400 c0771da0
-1ea0: 00000000 c6cd1eec c7800340 00000138 be82d65c 00000014 be82d3cc c6cd1f08
-1ec0: 00000014 00000000 c7404400 c7404400 00000138 c01f4628 c78d6000 00000000
-1ee0: 00000000 be82d3cc 00000138 c6cd1f08 00000014 c6cd1ee4 00000001 00000000
-1f00: 00000000 00000000 00080011 00000002 06000000 ffffffff 0000ffff 00000002
-1f20: 06000000 ffffffff 0000ffff c00928c8 c065c520 c6cd1f58 00000003 c009299c
-1f40: 00000003 c065c520 c7404400 00000000 c7404400 c01f2218 c78106b0 c7441cb0
-1f60: 00000000 00000006 c06799fc 00000000 00000000 00000006 00000000 c01f3ee0
-1f80: 00000000 00000000 be82d678 be82d65c 00000014 00000001 00000122 c00139c8
-1fa0: c6cd0000 c0013840 be82d65c 00000014 00000006 be82d3cc 00000138 00000000
-1fc0: be82d65c 00000014 00000001 00000122 00000000 00000000 00018cb1 00000000
-1fe0: 00003801 be82d3a8 0003a0c7 b6e9af08 60000010 00000006 00000000 00000000
-[<c01be324>] (smc_hardware_send_pkt+0x198/0x22c) from [<c01be868>] (smc_hard_start_xmit+0xc4/0x1e8)
-[<c01be868>] (smc_hard_start_xmit+0xc4/0x1e8) from [<c0208554>] (dev_hard_start_xmit+0x460/0x4cc)
-[<c0208554>] (dev_hard_start_xmit+0x460/0x4cc) from [<c021d1d8>] (sch_direct_xmit+0x94/0x18c)
-[<c021d1d8>] (sch_direct_xmit+0x94/0x18c) from [<c02087f8>] (dev_queue_xmit+0x238/0x42c)
-[<c02087f8>] (dev_queue_xmit+0x238/0x42c) from [<c027ba74>] (packet_sendmsg+0xbe8/0xd28)
-[<c027ba74>] (packet_sendmsg+0xbe8/0xd28) from [<c01f2870>] (sock_sendmsg+0x84/0xa8)
-[<c01f2870>] (sock_sendmsg+0x84/0xa8) from [<c01f4628>] (SyS_sendto+0xb8/0xdc)
-[<c01f4628>] (SyS_sendto+0xb8/0xdc) from [<c0013840>] (ret_fast_syscall+0x0/0x2c)
-Code: e3130002 1a000001 e3130001 0affffcd (e7f001f2)
----[ end trace 81104fe70e8da7fe ]---
-Kernel panic - not syncing: Fatal exception in interrupt
+There are some programs such as beta versions of Ruby which use too
+large of a buffer and returning an error code breaks them.  We should
+clamp the ->msg_namelen value instead.
 
-This is because the macro operations in smc91x.h defined
-for Versatile are missing SMC_outsw() as used in this
-commit.
+Reported-by: Eric Wong <normalperson@yhbt.net>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-The Versatile needs and uses the same accessors as the other
-platforms in the first if(...) clause, just switch it to using
-that and we have one problem less to worry about.
-
-Checkpatch complains about spacing, but I have opted to
-follow the style of this .h-file.
-
-Cc: Russell King <linux@arm.linux.org.uk>
-Cc: Nicolas Pitre <nico@fluxnic.net>
-Cc: Eric Miao <eric.y.miao@gmail.com>
-Cc: Jonathan Cameron <jic23@cam.ac.uk>
-Cc: Will Deacon <will.deacon@arm.com>
-Cc: stable@vger.kernel.org
-Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
----
-ChangeLog v1->v2:
-- Correct commit message to nail the actual commit causing
-  the bug, as pointed out by Russell.
----
- drivers/net/ethernet/smsc/smc91x.h | 20 ++------------------
- 1 file changed, 2 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
-index c9d4c872e81d..902a7c268d82 100644
---- a/drivers/net/ethernet/smsc/smc91x.h
-+++ b/drivers/net/ethernet/smsc/smc91x.h
-@@ -46,7 +46,8 @@
-     defined(CONFIG_MACH_LITTLETON) ||\
-     defined(CONFIG_MACH_ZYLONITE2) ||\
-     defined(CONFIG_ARCH_VIPER) ||\
--    defined(CONFIG_MACH_STARGATE2)
-+    defined(CONFIG_MACH_STARGATE2) ||\
-+    defined(CONFIG_ARCH_VERSATILE)
+diff --git a/net/socket.c b/net/socket.c
+index 0b18693f2be6..e83c416708af 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1973,7 +1973,7 @@ static int copy_msghdr_from_user(struct msghdr *kmsg,
+ 	if (copy_from_user(kmsg, umsg, sizeof(struct msghdr)))
+ 		return -EFAULT;
+ 	if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
+-		return -EINVAL;
++		kmsg->msg_namelen = sizeof(struct sockaddr_storage);
+ 	return 0;
+ }
  
- #include <asm/mach-types.h>
- 
-@@ -206,23 +207,6 @@ SMC_outw(u16 val, void __iomem *ioaddr, int reg)
- #define RPC_LSA_DEFAULT		RPC_LED_TX_RX
- #define RPC_LSB_DEFAULT		RPC_LED_100_10
- 
--#elif	defined(CONFIG_ARCH_VERSATILE)
--
--#define SMC_CAN_USE_8BIT	1
--#define SMC_CAN_USE_16BIT	1
--#define SMC_CAN_USE_32BIT	1
--#define SMC_NOWAIT		1
--
--#define SMC_inb(a, r)		readb((a) + (r))
--#define SMC_inw(a, r)		readw((a) + (r))
--#define SMC_inl(a, r)		readl((a) + (r))
--#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
--#define SMC_outw(v, a, r)	writew(v, (a) + (r))
--#define SMC_outl(v, a, r)	writel(v, (a) + (r))
--#define SMC_insl(a, r, p, l)	readsl((a) + (r), p, l)
--#define SMC_outsl(a, r, p, l)	writesl((a) + (r), p, l)
--#define SMC_IRQ_FLAGS		(-1)	/* from resource */
--
- #elif defined(CONFIG_MN10300)
- 
- /*
--- 
-1.8.3.1
+diff --git a/net/compat.c b/net/compat.c
+index 618c6a8a911b..dd32e34c1e2c 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -72,7 +72,7 @@ int get_compat_msghdr(struct msghdr *kmsg, struct compat_msghdr __user *umsg)
+ 	    __get_user(kmsg->msg_flags, &umsg->msg_flags))
+ 		return -EFAULT;
+ 	if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
+-		return -EINVAL;
++		kmsg->msg_namelen = sizeof(struct sockaddr_storage);
+ 	kmsg->msg_name = compat_ptr(tmp1);
+ 	kmsg->msg_iov = compat_ptr(tmp2);
+ 	kmsg->msg_control = compat_ptr(tmp3);
