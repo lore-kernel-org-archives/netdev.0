@@ -1,89 +1,87 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 1/4] can: sja1000: fix {pre,post}_irq() handling and IRQ handler return value
-Date: Wed, 27 Nov 2013 22:11:32 +0100
-Message-ID: <1385586695-11134-2-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 2/4] can: c_can: don't call pm_runtime_get_sync() from interrupt context
+Date: Wed, 27 Nov 2013 22:11:33 +0100
+Message-ID: <1385586695-11134-3-git-send-email-mkl@pengutronix.de>
 References: <1385586695-11134-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Oliver Hartkopp <socketcan@hartkopp.net>,
-	linux-stable <stable@vger.kernel.org>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
+	kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
+	Andrew Glen <AGlen@bepmarine.com>,
+	linux-stable <stable@vger.kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:49146 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:49155 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753802Ab3K0VLs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 16:11:48 -0500
+	with ESMTP id S1757681Ab3K0VLv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 16:11:51 -0500
 In-Reply-To: <1385586695-11134-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
+The c_can driver contians a callpath (c_can_poll -> c_can_state_change ->
+c_can_get_berr_counter) which may call pm_runtime_get_sync() from the IRQ
+handler, which is not allowed and results in "BUG: scheduling while atomic".
 
-This patch fixes the issue that the sja1000_interrupt() function may have
-returned IRQ_NONE without processing the optional pre_irq() and post_irq()
-function before. Further the irq processing counter 'n' is moved to the end of
-the while statement to return correct IRQ_[NONE|HANDLED] values at error
-conditions.
+This problem is fixed by introducing __c_can_get_berr_counter, which will not
+call pm_runtime_get_sync().
 
-Reported-by: Wolfgang Grandegger <wg@grandegger.com>
-Acked-by: Wolfgang Grandegger <wg@grandegger.com>
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Reported-by: Andrew Glen <AGlen@bepmarine.com>
+Tested-by: Andrew Glen <AGlen@bepmarine.com>
+Signed-off-by: Andrew Glen <AGlen@bepmarine.com>
 Cc: linux-stable <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/sja1000/sja1000.c | 17 +++++++++--------
- 1 file changed, 9 insertions(+), 8 deletions(-)
+ drivers/net/can/c_can/c_can.c | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
-index 7164a99..f17c301 100644
---- a/drivers/net/can/sja1000/sja1000.c
-+++ b/drivers/net/can/sja1000/sja1000.c
-@@ -494,20 +494,20 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
- 	uint8_t isrc, status;
- 	int n = 0;
+diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+index e3fc07c..e59c42b 100644
+--- a/drivers/net/can/c_can/c_can.c
++++ b/drivers/net/can/c_can/c_can.c
+@@ -712,22 +712,31 @@ static int c_can_set_mode(struct net_device *dev, enum can_mode mode)
+ 	return 0;
+ }
  
--	/* Shared interrupts and IRQ off? */
--	if (priv->read_reg(priv, SJA1000_IER) == IRQ_OFF)
--		return IRQ_NONE;
+-static int c_can_get_berr_counter(const struct net_device *dev,
+-					struct can_berr_counter *bec)
++static int __c_can_get_berr_counter(const struct net_device *dev,
++				    struct can_berr_counter *bec)
+ {
+ 	unsigned int reg_err_counter;
+ 	struct c_can_priv *priv = netdev_priv(dev);
+ 
+-	c_can_pm_runtime_get_sync(priv);
 -
- 	if (priv->pre_irq)
- 		priv->pre_irq(priv);
+ 	reg_err_counter = priv->read_reg(priv, C_CAN_ERR_CNT_REG);
+ 	bec->rxerr = (reg_err_counter & ERR_CNT_REC_MASK) >>
+ 				ERR_CNT_REC_SHIFT;
+ 	bec->txerr = reg_err_counter & ERR_CNT_TEC_MASK;
  
-+	/* Shared interrupts and IRQ off? */
-+	if (priv->read_reg(priv, SJA1000_IER) == IRQ_OFF)
-+		goto out;
++	return 0;
++}
 +
- 	while ((isrc = priv->read_reg(priv, SJA1000_IR)) &&
- 	       (n < SJA1000_MAX_IRQ)) {
--		n++;
++static int c_can_get_berr_counter(const struct net_device *dev,
++				  struct can_berr_counter *bec)
++{
++	struct c_can_priv *priv = netdev_priv(dev);
++	int err;
 +
- 		status = priv->read_reg(priv, SJA1000_SR);
- 		/* check for absent controller due to hw unplug */
- 		if (status == 0xFF && sja1000_is_absent(priv))
--			return IRQ_NONE;
-+			goto out;
++	c_can_pm_runtime_get_sync(priv);
++	err = __c_can_get_berr_counter(dev, bec);
+ 	c_can_pm_runtime_put_sync(priv);
  
- 		if (isrc & IRQ_WUI)
- 			netdev_warn(dev, "wakeup interrupt\n");
-@@ -535,7 +535,7 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
- 				status = priv->read_reg(priv, SJA1000_SR);
- 				/* check for absent controller */
- 				if (status == 0xFF && sja1000_is_absent(priv))
--					return IRQ_NONE;
-+					goto out;
- 			}
- 		}
- 		if (isrc & (IRQ_DOI | IRQ_EI | IRQ_BEI | IRQ_EPI | IRQ_ALI)) {
-@@ -543,8 +543,9 @@ irqreturn_t sja1000_interrupt(int irq, void *dev_id)
- 			if (sja1000_err(dev, isrc, status))
- 				break;
- 		}
-+		n++;
- 	}
--
-+out:
- 	if (priv->post_irq)
- 		priv->post_irq(priv);
+-	return 0;
++	return err;
+ }
  
+ /*
+@@ -872,7 +881,7 @@ static int c_can_handle_state_change(struct net_device *dev,
+ 	if (unlikely(!skb))
+ 		return 0;
+ 
+-	c_can_get_berr_counter(dev, &bec);
++	__c_can_get_berr_counter(dev, &bec);
+ 	reg_err_counter = priv->read_reg(priv, C_CAN_ERR_CNT_REG);
+ 	rx_err_passive = (reg_err_counter & ERR_CNT_RP_MASK) >>
+ 				ERR_CNT_RP_SHIFT;
 -- 
 1.8.5.rc0
