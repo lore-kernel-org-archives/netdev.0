@@ -1,59 +1,83 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH net] netem: fix loss generators
-Date: Wed, 27 Nov 2013 22:28:50 +0100
-Message-ID: <20131127212849.GA1428@virgo.local>
-References: <20131121175419.59059598@nehalam.linuxnetplumber.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 6/8] openvswitch: Allow update of dp with
+ OVS_DP_CMD_NEW if NLM_F_REPLACE is set
+Date: Wed, 27 Nov 2013 22:32:20 +0000
+Message-ID: <20131127223220.GA26084@casper.infradead.org>
+References: <cover.1385137618.git.tgraf@suug.ch>
+ <2b77b94f043dbed36a08dcc0a876830d6ad1a97a.1385137618.git.tgraf@suug.ch>
+ <CAEP_g=8=dzm7NS5zx4-+wY+AXZLpym7JGQO9YTAgdTPm9v1mpQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="PEIAKu/WMn1b1Hv9"
-Cc: David Miller <davem@davemloft.net>, stefano.salsano@uniroma2.it,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Daniel Borkmann <dborkman@redhat.com>, ffusco@redhat.com,
+	fleitner@redhat.com, Eric Dumazet <eric.dumazet@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:36551 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755867Ab3K0V24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 16:28:56 -0500
+Received: from casper.infradead.org ([85.118.1.10]:48665 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757299Ab3K0WcZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 17:32:25 -0500
 Content-Disposition: inline
-In-Reply-To: <20131121175419.59059598@nehalam.linuxnetplumber.net>
+In-Reply-To: <CAEP_g=8=dzm7NS5zx4-+wY+AXZLpym7JGQO9YTAgdTPm9v1mpQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11/25/13 at 01:23pm, Jesse Gross wrote:
+> On Fri, Nov 22, 2013 at 8:56 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> > diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> > index 95d4424..3f1fb87 100644
+> > --- a/net/openvswitch/datapath.c
+> > +++ b/net/openvswitch/datapath.c
+> 
+> I'm a little worried that this introduces some quirks to the interface. Such as:
+> 
+> > @@ -1190,6 +1185,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
+> >         struct vport *vport;
+> >         struct ovs_net *ovs_net;
+> >         int err, i;
+> > +       bool allocated = false;
+> >
+> >         err = -EINVAL;
+> >         if (!a[OVS_DP_ATTR_NAME] || !a[OVS_DP_ATTR_UPCALL_PID])
+> 
+> This requires that DP_CMD_SET supply an OVS_DP_ATTR_UPCALL_PID
+> although I don't think that it's really necessary. In fact, we used to
+> completely ignore that field on SET since it's really only useful on
+> datapath creation and can otherwise be done more naturally through the
+> vport interface.
 
---PEIAKu/WMn1b1Hv9
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+It's a theoretical exercise since nobody is using OVS_DP_CMD_SET
+but I agree, it should be optional in the update path. I'll update
+the patch.
 
-* Stephen Hemminger | 2013-11-21 17:54:19 [-0800]:
+> > @@ -1197,11 +1193,26 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
+> >
+> >         ovs_lock();
+> >
+> > +       dp = lookup_datapath(sock_net(skb->sk), info->userhdr, info->attrs);
+> > +       if (!IS_ERR(dp)) {
+> > +               if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE)
+> > +                       goto update;
+> 
+> Conversely, this won't respect the UPCALL_PID field, which I would
+> expect it to since I think NLM_F_REPLACE should be roughly equivalent
+> to a delete and create. I believe that's the only field that is
+> missing although it seems easy to have the same problem as others are
+> added in the future.
 
->Patch from developers of the alternative loss models, downloaded from:
->   http://netgroup.uniroma2.it/twiki/bin/view.cgi/Main/NetemCLG
->
->We found some bugs in our first implementation.
->A first set of bugs is in the function loss_4state:
->   In the case 1 of the switch statement in the if conditions we
->    need to add clg->a4 to clg->a1, according to the model.
->   In the case 3 of the switch statement we need to delete "return
->    true" if the condition leads us in the state 1, because the state 1 is
->    a good state.
+It's up to us to define that.
 
-I already fixed the former bug[1]. I cc'ed stefano.salsano@uniroma2.it but did
-not get any acked-by/tested-by. The second bug still exists.
+What the patch proposes is what OVS has been doing already: Try to
+find a datapath with matching name and reuse it. Otherwise create
+a new data path. Disregard UPCALL_PID.
 
-Hagen
+As you state above, the upcall pid can be modified through the vport
+interface which in my opinion is the correct way to modify it if
+needed.
 
-[1] http://www.spinics.net/lists/netdev/msg255165.html
-
---PEIAKu/WMn1b1Hv9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iEYEARECAAYFAlKWZBEACgkQSiKNRZg1DCK3rwCg+oi9QVAx2L+4+VH6l1BCPH2d
-7GoAnRI1/82X3IxEiMa+aC36/sPceNCy
-=dZ+F
------END PGP SIGNATURE-----
-
---PEIAKu/WMn1b1Hv9--
+I have no problem with adding upcall pid overwrite logic to the
+NLM_F_REPLACE path but it _changes_ the existing semantics in
+terms of "opening" a datapath.
