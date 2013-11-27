@@ -1,80 +1,45 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH net] be2net: call napi_disable() for all event queues
-Date: Wed, 27 Nov 2013 09:00:00 +0100
-Message-ID: <5295A680.7070909@redhat.com>
-References: <1385484881-25715-1-git-send-email-ivecera@redhat.com> <f158e8ac-98d2-4be4-b801-20a18912d672@CMEXHTCAS1.ad.emulex.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: Re: Kernel Panic in IPv6 vxlan
+Date: Wed, 27 Nov 2013 16:25:30 +0800
+Message-ID: <5295AC7A.8020502@windriver.com>
+References: <CAM3m09T2tuFCMjzdJq7AVBDnPeK0kVKt51JXsE954cHO6u_u2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Subramanian Seetharaman <subbu.seetharaman@Emulex.Com>,
-	Ajit Khaparde <Ajit.Khaparde@Emulex.Com>
-To: Sathya Perla <Sathya.Perla@Emulex.Com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <amwang@redhat.com>
+To: Ryan Whelan <rcwhelan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12308 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756160Ab3K0IWp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Nov 2013 03:22:45 -0500
-In-Reply-To: <f158e8ac-98d2-4be4-b801-20a18912d672@CMEXHTCAS1.ad.emulex.com>
+Received: from mail1.windriver.com ([147.11.146.13]:56054 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752810Ab3K0IZf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 03:25:35 -0500
+In-Reply-To: <CAM3m09T2tuFCMjzdJq7AVBDnPeK0kVKt51JXsE954cHO6u_u2A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/27/2013 06:28 AM, Sathya Perla wrote:
->> -----Original Message-----
->> From: Ivan Vecera [mailto:ivecera@redhat.com]
->>
->> The recent be2net commit 6384a4d (adds a support for busy polling)
->> introduces a regression that results in kernel crash. It incorrectly
->> modified be_close() so napi_disable() is called only for the first queue.
->> This breaks a correct pairing of napi_enable/_disable for the rest
->> of event queues and causes a crash in subsequent be_open() call.
->>
->> Cc: Sathya Perla <sathya.perla@emulex.com>
->> Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
->> Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
->> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
->> ---
->>   drivers/net/ethernet/emulex/benet/be_main.c | 2 +-
->>   1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c
->> b/drivers/net/ethernet/emulex/benet/be_main.c
->> index 78a0e85..0aec4d2 100644
->> --- a/drivers/net/ethernet/emulex/benet/be_main.c
->> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
->> @@ -2663,8 +2663,8 @@ static int be_close(struct net_device *netdev)
->>   			napi_disable(&eqo->napi);
->>   			be_disable_busy_poll(eqo);
->>   		}
->> -		adapter->flags &= ~BE_FLAGS_NAPI_ENABLED;
->>   	}
->> +	adapter->flags &= ~BE_FLAGS_NAPI_ENABLED;
->>
->
-> Ivan, Thanks for spotting this.
-> Your fix is correct but it'll be nice if the for-loop for napi_disable
-> is not even entered when FLAGS_NAPI_ENABLED is not set, as in:
->
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-> index 603b662..40d2adb 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -2658,8 +2658,8 @@ static int be_close(struct net_device *netdev)
->
->   	be_roce_dev_close(adapter);
->
-> -	for_all_evt_queues(adapter, eqo, i) {
-> -		if (adapter->flags & BE_FLAGS_NAPI_ENABLED) {
-> +	if (adapter->flags & BE_FLAGS_NAPI_ENABLED) {
-> +		for_all_evt_queues(adapter, eqo, i) {
->   			napi_disable(&eqo->napi);
->   			be_disable_busy_poll(eqo);
->   		}
->
-> Could you also add the following line to your patch as it fixes a
-> regression caused by an older be2net commit:
-> Fixes: 6384a4d0dcf9 ("be2net: add support for ndo_busy_poll")
->
-Sure, I'm sending v2.
+Hallo,
 
-Ivan
+On 2013=E5=B9=B411=E6=9C=8827=E6=97=A5 05:41, Ryan Whelan wrote:
+> I'm not sure if this is the right place to report this- please correc=
+t
+> me if I'm mistaken.
+>
+> When creating a vxlan interface with an IPv6 multicast group but not
+> specifying an underlying device, the kernel panics when the vxlan
+> interface is brought up.  This doesn't happen with an IPv4 multicast
+> group.  Linux 3.12.1 x86_64
+>
+> `ip link add vxlan0 type vxlan id 42 group ff0e::110`
+
+You forgot to attach vxlan0 to a physical netdev ;) try:
+
+ip link add vxlan0 type vxlan id 42 group ff0e::110 dev ethX
+
+This will work anyway.
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan fan
