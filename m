@@ -1,139 +1,88 @@
-From: Mark Trompell <mark@foresightlinux.org>
-Subject: Re: bridge not getting ip since 3.11.5 and 3.4.66
-Date: Wed, 27 Nov 2013 07:46:55 +0100
-Message-ID: <CAEPa5y=PPO1PoaMqgB1ifc64GVK8NkGDtnOftTZ=n+-f-7e7xA@mail.gmail.com>
-References: <CAEPa5ym2Xz3F19fJJqNawkRLOKk6Ao6oXrzSrHU051V7p=9otA@mail.gmail.com>
-	<CAE3RKNng9A6Bp7wa4+6iCprwEQpzGueagLc8iob+aFabJW4nnw@mail.gmail.com>
-	<CAEPa5y=tgdGpDMBGY0ijyWSgQ0m5SZW8EMP072OF=sZZUjqN1g@mail.gmail.com>
-	<CAEPa5ym0+-_Q9zUidDfE2SD7XYZxAqqEUByBkkH1ZOmh9rmFHg@mail.gmail.com>
-	<CAEPa5ym4HWK9vo_BYYZbQsGZXG9r2kfYR2rFGaYjjJqDfkf2uQ@mail.gmail.com>
-	<5294BD63.7020905@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Veaceslav Falico <veaceslav@falico.eu>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, herbert@gondor.apana.org.au
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5294BD63.7020905@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [RESEND/PATCH v2] mac80211: add assoc beacon timeout logic
+Date: Wed, 27 Nov 2013 00:45:32 -0600
+Message-ID: <1385534732-8129-1-git-send-email-felipe.contreras@gmail.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 26, 2013 at 4:25 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
-> On 11/26/2013 08:27 AM, Mark Trompell wrote:
->> Answering my own mail again and even top posting, sorry, but makes
->> more sense to me in that case).
->> I reverted bridge related patches from 3.11.5 and it boils down to
->> commit 0e308361d7ca0bf8b23fd472b90aae0fb10a1c32
->> Author: Herbert Xu <herbert@gondor.apana.org.au>
->> Date:   Thu Sep 12 17:12:05 2013 +1000
->>
->>     bridge: Clamp forward_delay when enabling STP
->>
->>     [ Upstream commit be4f154d5ef0ca147ab6bcd38857a774133f5450 ]
->>
->>     At some point limits were added to forward_delay.  However, the
->>     limits are only enforced when STP is enabled.  This created a
->>     scenario where you could have a value outside the allowed range
->>     while STP is disabled, which then stuck around even after STP
->>     is enabled.
->>
->>     This patch fixes this by clamping the value when we enable STP.
->>
->>     I had to move the locking around a bit to ensure that there is
->>     no window where someone could insert a value outside the range
->>     while we're in the middle of enabling STP.
->>
->> Causing the issue for me. Reverting that patch and br0 comes up again
->> and gets an ip.
->
-> yes, that patch introduced a bug where we always used the
-> max_forward delay value.
->
-> you have 2 options:
->  1) disable STP.  Since you are just running VMs and you have a single
->     physical connection on the bridge, you can safely disable STP since
->     your system is a leaf node.
+We don't want to be waiting forever for a beacon that will never come,
+just continue the association.
 
-disabling stp indeed helps here, but ...
+Signed-off-by: Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
 
->  2) Get the latest stable kernel.  The bug has been fixed there.
+This is exactly the same as the previous patch.
 
-3.12.1 still doesn't work with stp enabled.
-I guess you're talking about 4b6c7879d84ad06a2ac5b964808ed599187a188d
-bridge: Correctly clamp MAX forward_delay when enabling STP
-which should fix that?
+All the reasons given to not apply this patch have been dismissed. Power saving
+is disabled as expected, regulatory/radar doesn't apply to the station mode, we
+already connect if there are no APs for other drivers.
 
-> -vlad
+Therefore there's no reason standing to not apply the patch.
 
+ net/mac80211/ieee80211_i.h |  1 +
+ net/mac80211/mlme.c        | 32 ++++++++++++++++++++++++++------
+ 2 files changed, 27 insertions(+), 6 deletions(-)
 
-Mark
-
->>
->> On Tue, Nov 12, 2013 at 11:57 AM, Mark Trompell <mark@foresightlinux.org> wrote:
->>> On Mon, Nov 11, 2013 at 1:52 PM, Mark Trompell <mark@foresightlinux.org> wrote:
->>>> On Mon, Nov 11, 2013 at 12:07 PM, Veaceslav Falico <veaceslav@falico.eu> wrote:
->>>>> On Mon, Nov 11, 2013 at 11:29 AM, Mark Trompell <mark@foresightlinux.org> wrote:
->>>>>> my bridge br0 doesn't get an ip from dhcp anymore after 3.11.5 and 3.4.66,
->>>>>> What information would be helpful and required to find out what's going wrong.
->>>>>
->>>>> CC netdev
->>>>>
->>>>> First thing would be to provide the network scheme. Do you use vlans?
->>>>> Which network
->>>>> cards/drivers are you using? Do you use some kind of virtualization?
->>>>> Is bonding involved?
->>>>>
->>>> Actually this is my desktop machine using kvm for a virtual machine
->>>> that uses eth0 which is connected to the bridge
->>>> which is used as interface for the host.
->>>>
->>>> $ ip addr
->>>> 2. eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast
->>>> master br0 qlen 1000
->>>> ...
->>>> 3. br0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc noqueue
->>>> ...
->>>>
->>>> Anything else?
->>>
->>> Okay more about my hardware and configuration:
->>> from lspci:
->>> 00:19.0 Ethernet controller: Intel Corporation 82579V Gigabit Network
->>> Connection (rev 04)
->>>
->>> /etc/sysconfig/network-scripts/ifcfg-br0
->>> DEVICE=br0
->>> ONBOOT=yes
->>> MACADDR=00:19:99:ac:b3:24
->>> TYPE=Bridge
->>> BOOTPROTO=dhcp
->>> STP=on
->>> NM_CONTROLLED=no
->>> DELAY=0
->>>
->>> /etc/sysconfig/network-scripts/ifcfg-eth0
->>> DEVICE=eth0
->>> HWADDR=00:19:99:cd:a5:e6
->>> #BOOTPROTO=dhcp
->>> ONBOOT=yes
->>> BRIDGE=br0
->>> TYPE=Ethernet
->>> NM_CONTROLLED=no
->>>
->>>
->>>> Greetings
->>>> Mark
->>
->>
->>
->
-
-
-
--- 
-Mark Trompell
-
-Foresight Linux Xfce Edition
-Cause your desktop should be freaking cool
-(and Xfce)
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index 611abfc..e1f858d 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -358,6 +358,7 @@ struct ieee80211_mgd_assoc_data {
+ 	const u8 *supp_rates;
+ 
+ 	unsigned long timeout;
++	unsigned long beacon_timeout;
+ 	int tries;
+ 
+ 	u16 capability;
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index 86e4ad5..68f76f7 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -38,6 +38,7 @@
+ #define IEEE80211_ASSOC_TIMEOUT		(HZ / 5)
+ #define IEEE80211_ASSOC_TIMEOUT_LONG	(HZ / 2)
+ #define IEEE80211_ASSOC_TIMEOUT_SHORT	(HZ / 10)
++#define IEEE80211_ASSOC_BEACON_TIMEOUT	2 * HZ
+ #define IEEE80211_ASSOC_MAX_TRIES	3
+ 
+ static int max_nullfunc_tries = 2;
+@@ -3475,6 +3476,24 @@ void ieee80211_mgd_conn_tx_status(struct ieee80211_sub_if_data *sdata,
+ 	ieee80211_queue_work(&local->hw, &sdata->work);
+ }
+ 
++static int check_beacon(struct ieee80211_sub_if_data *sdata)
++{
++	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
++	struct ieee80211_mgd_assoc_data *assoc_data = ifmgd->assoc_data;
++
++	if (!assoc_data->need_beacon || ifmgd->have_beacon)
++		return true;
++
++	if (time_after(jiffies, assoc_data->beacon_timeout)) {
++		sdata_info(sdata, "no beacon from %pM\n", assoc_data->bss->bssid);
++		return true;
++	}
++
++	assoc_data->timeout = TU_TO_EXP_TIME(assoc_data->bss->beacon_interval);
++	run_again(sdata, assoc_data->timeout);
++	return false;
++}
++
+ void ieee80211_sta_work(struct ieee80211_sub_if_data *sdata)
+ {
+ 	struct ieee80211_local *local = sdata->local;
+@@ -3533,12 +3552,12 @@ void ieee80211_sta_work(struct ieee80211_sub_if_data *sdata)
+ 
+ 	if (ifmgd->assoc_data && ifmgd->assoc_data->timeout_started &&
+ 	    time_after(jiffies, ifmgd->assoc_data->timeout)) {
+-		if ((ifmgd->assoc_data->need_beacon && !ifmgd->have_beacon) ||
+-		    ieee80211_do_assoc(sdata)) {
+-			struct cfg80211_bss *bss = ifmgd->assoc_data->bss;
