@@ -1,52 +1,47 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 4/4] can: flexcan: use correct clock as base for bit rate calculation
-Date: Wed, 27 Nov 2013 22:11:35 +0100
-Message-ID: <1385586695-11134-5-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 3/4] can: c_can: fix calculation of transmitted bytes on tx complete
+Date: Wed, 27 Nov 2013 22:11:34 +0100
+Message-ID: <1385586695-11134-4-git-send-email-mkl@pengutronix.de>
 References: <1385586695-11134-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-stable <stable@vger.kernel.org>
+	kernel@pengutronix.de, Holger Bechtold <Holger.Bechtold@gmx.net>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:49165 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757815Ab3K0VLy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 16:11:54 -0500
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1385586695-11134-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The flexcan IP core uses the peripheral clock ("per") as basic clock for the
-bit timing calculation. However the driver uses the the wrong clock ("ipg").
-This leads to wrong bit rates if the rates on both clock are different.
+From: Holger Bechtold <Holger.Bechtold@gmx.net>
 
-This patch fixes the problem by using the correct clock for the bit rate
-calculation.
+The number of bytes transmitted was not updated correctly, if several CAN
+messages (with different length) were transmitted in one 'bunch'. Thus
+programs like 'ifconfig' showed wrong transmit byte counts. Reason was, that
+the message object whose DLC is to be read was not necessarily the active one
+at the time when
 
-Cc: linux-stable <stable@vger.kernel.org>
+    priv->read_reg(priv, C_CAN_IFACE(MSGCTRL_REG, 0)) & IF_MCONT_DLC_MASK;
+
+was executed.
+
+Signed-off-by: Holger Bechtold <Holger.Bechtold@gmx.net>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/flexcan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/can/c_can/c_can.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index ae08cf1..aaed97b 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -1020,13 +1020,13 @@ static int flexcan_probe(struct platform_device *pdev)
- 			dev_err(&pdev->dev, "no ipg clock defined\n");
- 			return PTR_ERR(clk_ipg);
- 		}
--		clock_freq = clk_get_rate(clk_ipg);
- 
- 		clk_per = devm_clk_get(&pdev->dev, "per");
- 		if (IS_ERR(clk_per)) {
- 			dev_err(&pdev->dev, "no per clock defined\n");
- 			return PTR_ERR(clk_per);
- 		}
-+		clock_freq = clk_get_rate(clk_per);
- 	}
- 
- 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+index e59c42b..77061ee 100644
+--- a/drivers/net/can/c_can/c_can.c
++++ b/drivers/net/can/c_can/c_can.c
+@@ -763,6 +763,7 @@ static void c_can_do_tx(struct net_device *dev)
+ 		if (!(val & (1 << (msg_obj_no - 1)))) {
+ 			can_get_echo_skb(dev,
+ 					msg_obj_no - C_CAN_MSG_OBJ_TX_FIRST);
++			c_can_object_get(dev, 0, msg_obj_no, IF_COMM_ALL);
+ 			stats->tx_bytes += priv->read_reg(priv,
+ 					C_CAN_IFACE(MSGCTRL_REG, 0))
+ 					& IF_MCONT_DLC_MASK;
 -- 
 1.8.5.rc0
+
