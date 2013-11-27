@@ -1,121 +1,51 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH v2] net: 8139cp: fix a BUG_ON triggered by wrong bytes_compl
-Date: Wed, 27 Nov 2013 14:32:52 +0800
-Message-ID: <52959214.7000501@huawei.com>
-References: <1385525270-56580-1-git-send-email-yangyingliang@huawei.com> <1385526903.5352.6.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2] mac80211: add assoc beacon timeout logic
+Date: Wed, 27 Nov 2013 00:44:36 -0600
+Message-ID: <CAMP44s0y+YTSMdWMB5fBsa4UdBUB5ccXR5a-GL-10L807aCT9w@mail.gmail.com>
+References: <1384119945-31213-1-git-send-email-felipe.contreras@gmail.com>
+	<1384160932.14334.6.camel@jlt4.sipsolutions.net>
+	<CAMP44s3TFSgWuR8gVoFBznNP+t9mz+to===9i1PAnra4ogKu9w@mail.gmail.com>
+	<1384184624.14334.31.camel@jlt4.sipsolutions.net>
+	<CAMP44s2cVVe4-yW214B9hJu7n6M1onZpZaPCj5N0Fi1JWDKKsw@mail.gmail.com>
+	<1384188067.14334.45.camel@jlt4.sipsolutions.net>
+	<CAMP44s3nkj2wZYCPve7EhyeD7sEFmpUN=-h015dOP68PcNSTug@mail.gmail.com>
+	<1384189227.14334.48.camel@jlt4.sipsolutions.net>
+	<CAMP44s1yJMd+9G5yu988GqafRYnAteN-y-WWDe-rJh_qQpSPkQ@mail.gmail.com>
+	<1384367422.14578.20.camel@jlt4.sipsolutions.net>
+	<CAMP44s1orLwg4v8UPM_1c-PspKQd5run_wAwHj-8oKmj2uqUgw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <dwmw2@infradead.org>, <dave.taht@bufferbloat.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:2611 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750986Ab3K0GdA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 01:33:00 -0500
-In-Reply-To: <1385526903.5352.6.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-wireless Mailing List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMP44s1orLwg4v8UPM_1c-PspKQd5run_wAwHj-8oKmj2uqUgw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Yang Yingliang <yangyingliang@huawei.com>
+On Thu, Nov 14, 2013 at 4:44 AM, Felipe Contreras
+<felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Wed, Nov 13, 2013 at 12:30 PM, Johannes Berg
+> <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
 
-Using iperf to send packets(GSO mode is on), a bug is triggered:
+>> In any case, I'm not really comfortable connecting to an AP that we
+>> never ever receive beacons from.
+>
+> Well, we are *already* doing that for every driver, except the ones
+> that do IEEE80211_HW_NEED_DTIM_BEFORE_ASSOC, which are few.
 
-[  212.672781] kernel BUG at lib/dynamic_queue_limits.c:26!
-[  212.673396] invalid opcode: 0000 [#1] SMP
-[  212.673882] Modules linked in: 8139cp(O) nls_utf8 edd fuse loop dm_mod ipv6 i2c_piix4 8139too i2c_core intel_agp joydev pcspkr hid_generic intel_gtt floppy sr_mod mii button sg cdrom ext3 jbd mbcache usbhid hid uhci_hcd ehci_hcd usbcore sd_mod usb_common crc_t10dif crct10dif_common processor thermal_sys hwmon scsi_dh_emc scsi_dh_rdac scsi_dh_hp_sw scsi_dh ata_generic ata_piix libata scsi_mod [last unloaded: 8139cp]
-[  212.676084] CPU: 0 PID: 4124 Comm: iperf Tainted: G           O 3.12.0-0.7-default+ #16
-[  212.676084] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
-[  212.676084] task: ffff8800d83966c0 ti: ffff8800db4c8000 task.ti: ffff8800db4c8000
-[  212.676084] RIP: 0010:[<ffffffff8122e23f>]  [<ffffffff8122e23f>] dql_completed+0x17f/0x190
-[  212.676084] RSP: 0018:ffff880116e03e30  EFLAGS: 00010083
-[  212.676084] RAX: 00000000000005ea RBX: 0000000000000f7c RCX: 0000000000000002
-[  212.676084] RDX: ffff880111dd0dc0 RSI: 0000000000000bd4 RDI: ffff8800db6ffcc0
-[  212.676084] RBP: ffff880116e03e48 R08: 0000000000000992 R09: 0000000000000000
-[  212.676084] R10: ffffffff8181e400 R11: 0000000000000004 R12: 000000000000000f
-[  212.676084] R13: ffff8800d94ec840 R14: ffff8800db440c80 R15: 000000000000000e
-[  212.676084] FS:  00007f6685a3c700(0000) GS:ffff880116e00000(0000) knlGS:0000000000000000
-[  212.676084] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  212.676084] CR2: 00007f6685ad6460 CR3: 00000000db714000 CR4: 00000000000006f0
-[  212.676084] Stack:
-[  212.676084]  ffff8800db6ffc00 000000000000000f ffff8800d94ec840 ffff880116e03eb8
-[  212.676084]  ffffffffa041509f ffff880116e03e88 0000000f16e03e88 ffff8800d94ec000
-[  212.676084]  00000bd400059858 000000050000000f ffffffff81094c36 ffff880116e03eb8
-[  212.676084] Call Trace:
-[  212.676084]  <IRQ>
-[  212.676084]  [<ffffffffa041509f>] cp_interrupt+0x4ef/0x590 [8139cp]
-[  212.676084]  [<ffffffff81094c36>] ? ktime_get+0x56/0xd0
-[  212.676084]  [<ffffffff8108cf73>] handle_irq_event_percpu+0x53/0x170
-[  212.676084]  [<ffffffff8108d0cc>] handle_irq_event+0x3c/0x60
-[  212.676084]  [<ffffffff8108fdb5>] handle_fasteoi_irq+0x55/0xf0
-[  212.676084]  [<ffffffff810045df>] handle_irq+0x1f/0x30
-[  212.676084]  [<ffffffff81003c8b>] do_IRQ+0x5b/0xe0
-[  212.676084]  [<ffffffff8142beaa>] common_interrupt+0x6a/0x6a
-[  212.676084]  <EOI>
-[  212.676084]  [<ffffffffa0416a21>] ? cp_start_xmit+0x621/0x97c [8139cp]
-[  212.676084]  [<ffffffffa0416a09>] ? cp_start_xmit+0x609/0x97c [8139cp]
-[  212.676084]  [<ffffffff81378ed9>] dev_hard_start_xmit+0x2c9/0x550
-[  212.676084]  [<ffffffff813960a9>] sch_direct_xmit+0x179/0x1d0
-[  212.676084]  [<ffffffff813793f3>] dev_queue_xmit+0x293/0x440
-[  212.676084]  [<ffffffff813b0e46>] ip_finish_output+0x236/0x450
-[  212.676084]  [<ffffffff810e59e7>] ? __alloc_pages_nodemask+0x187/0xb10
-[  212.676084]  [<ffffffff813b10e8>] ip_output+0x88/0x90
-[  212.676084]  [<ffffffff813afa64>] ip_local_out+0x24/0x30
-[  212.676084]  [<ffffffff813aff0d>] ip_queue_xmit+0x14d/0x3e0
-[  212.676084]  [<ffffffff813c6fd1>] tcp_transmit_skb+0x501/0x840
-[  212.676084]  [<ffffffff813c8323>] tcp_write_xmit+0x1e3/0xb20
-[  212.676084]  [<ffffffff81363237>] ? skb_page_frag_refill+0x87/0xd0
-[  212.676084]  [<ffffffff813c8c8b>] tcp_push_one+0x2b/0x40
-[  212.676084]  [<ffffffff813bb7e6>] tcp_sendmsg+0x926/0xc90
-[  212.676084]  [<ffffffff813e1d21>] inet_sendmsg+0x61/0xc0
-[  212.676084]  [<ffffffff8135e861>] sock_aio_write+0x101/0x120
-[  212.676084]  [<ffffffff81107cf1>] ? vma_adjust+0x2e1/0x5d0
-[  212.676084]  [<ffffffff812163e0>] ? timerqueue_add+0x60/0xb0
-[  212.676084]  [<ffffffff81130b60>] do_sync_write+0x60/0x90
-[  212.676084]  [<ffffffff81130d44>] ? rw_verify_area+0x54/0xf0
-[  212.676084]  [<ffffffff81130f66>] vfs_write+0x186/0x190
-[  212.676084]  [<ffffffff811317fd>] SyS_write+0x5d/0xa0
-[  212.676084]  [<ffffffff814321e2>] system_call_fastpath+0x16/0x1b
-[  212.676084] Code: ca 41 89 dc 41 29 cc 45 31 db 29 c2 41 89 c5 89 d0 45 29 c5 f7 d0 c1 e8 1f e9 43 ff ff ff 66 0f 1f 44 00 00 31 c0 e9 7b ff ff ff <0f> 0b eb fe 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 c7 47 40 00
-[  212.676084] RIP  [<ffffffff8122e23f>] dql_completed+0x17f/0x190
-------------[ cut here ]------------
+Since you didn't reply I'm going to arrive to the obvious conclusion;
+we *already* connect to APs even if we don't receive any beacons, my
+patch simply makes it consistent for the drivers that set
+IEEE80211_HW_NEED_DTIM_BEFORE_ASSOC.
 
-When a skb has frags, bytes_compl plus skb->len nr_frags times in cp_tx().
-It's not the correct value(actually, it should plus skb->len once) and it
-will trigger the BUG_ON(bytes_compl > num_queued - dql->num_completed).
-So only increase bytes_compl when finish sending all frags. pkts_compl also
-has a wrong value, fix it too.
+Therefore all your reasons to not apply the patch have been dismissed.
 
-It's introduced by commit 871f0d4c("8139cp: enable bql").
-
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
----
- drivers/net/ethernet/realtek/8139cp.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index f2a2128..737c1a8 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -678,9 +678,6 @@ static void cp_tx (struct cp_private *cp)
- 				 le32_to_cpu(txd->opts1) & 0xffff,
- 				 PCI_DMA_TODEVICE);
- 
--		bytes_compl += skb->len;
--		pkts_compl++;
--
- 		if (status & LastFrag) {
- 			if (status & (TxError | TxFIFOUnder)) {
- 				netif_dbg(cp, tx_err, cp->dev,
-@@ -702,6 +699,8 @@ static void cp_tx (struct cp_private *cp)
- 				netif_dbg(cp, tx_done, cp->dev,
- 					  "tx done, slot %d\n", tx_tail);
- 			}
-+			bytes_compl += skb->len;
-+			pkts_compl++;
- 			dev_kfree_skb_irq(skb);
- 		}
- 
--- 1.8.0
+-- 
+Felipe Contreras
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
