@@ -1,114 +1,121 @@
-From: Fugang Duan <fugang.duan@freescale.com>
-Subject: RE: [PATCH] net: fec_main: dma_map() only the length of the skb
-Date: Wed, 27 Nov 2013 13:08:18 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE01899801@039-SN2MPN1-023.039d.mgd.msft.net>
-References: <1385556253-4130-1-git-send-email-bigeasy@linutronix.de>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: netfilter: active obj WARN when cleaning up
+Date: Wed, 27 Nov 2013 14:29:41 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1311271409280.30673@ionos.tec.linutronix.de>
+References: <522B25B5.6000808@oracle.com> <5294F27D.4000108@oracle.com> <20131126230709.GA10948@localhost> <alpine.DEB.2.02.1311271106090.30673@ionos.tec.linutronix.de> <20131127113939.GL16735@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <Fabio.Estevam@freescale.com>,
-	Frank Li <frank.li@freescale.net>,
-	Jim Baxter <jim_baxter@mentor.com>,
-	Marek Szyprowski <m.szyprowski@samsung.com>
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db9lp0250.outbound.messaging.microsoft.com ([213.199.154.250]:7102
-	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750972Ab3K0NIZ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Nov 2013 08:08:25 -0500
-In-Reply-To: <1385556253-4130-1-git-send-email-bigeasy@linutronix.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+    Sasha Levin <sasha.levin@oracle.com>, Patrick McHardy <kaber@trash.net>,
+    kadlec@blackhole.kfki.hu, "David S. Miller" <davem@davemloft.net>,
+    netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+    netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+    linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
+    Christoph Lameter <cl@linux-foundation.org>, Greg KH <greg@kroah.com>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20131127113939.GL16735@n2100.arm.linux.org.uk>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Data: Wednesday, November 27, 2013 8:44 PM
+On Wed, 27 Nov 2013, Russell King - ARM Linux wrote:
+> On Wed, Nov 27, 2013 at 11:45:17AM +0100, Thomas Gleixner wrote:
+> > On Wed, 27 Nov 2013, Pablo Neira Ayuso wrote:
+> > 
+> > > On Tue, Nov 26, 2013 at 02:11:57PM -0500, Sasha Levin wrote:
+> > > > Ping? I still see this warning.
+> > > 
+> > > Did your test include patch 0c3c6c00c6?
+> > 
+> > And how is that patch supposed to help?
+> >  
+> > > > >[  418.312449] WARNING: CPU: 6 PID: 4178 at lib/debugobjects.c:260 debug_print_object+0x8d/0xb0()
+> > > > >[  418.313243] ODEBUG: free active (active state 0) object type: timer_list hint:
+> > > > >delayed_work_timer_fn+0x0/0x20
+> > 
+> > > > >[  418.321101]  [<ffffffff812874d7>] kmem_cache_free+0x197/0x340
+> > > > >[  418.321101]  [<ffffffff81249e76>] kmem_cache_destroy+0x86/0xe0
+> > > > >[  418.321101]  [<ffffffff83d5d681>] nf_conntrack_cleanup_net_list+0x131/0x170
+> > 
+> > The debug code detects an active timer, which itself is part of a
+> > delayed work struct. The call comes from kmem_cache_destroy().
+> > 
+> >          kmem_cache_free(kmem_cache, s);
+> > 
+> > So debug object says: s contains an active timer. s is the kmem_cache
+> > which is destroyed from nf_conntrack_cleanup_net_list.
+> > 
+> > Now struct kmem_cache has in case of SLUB:
+> > 
+> >     struct kobject kobj;    /* For sysfs */
+> > 
+> > and struct kobject has:
+> > 
+> > #ifdef CONFIG_DEBUG_KOBJECT_RELEASE
+> >     struct delayed_work     release;
+> > #endif
+> > 
+> > So this is the thing you want to look at:
+> > 
+> > commit c817a67ec (kobject: delayed kobject release: help find buggy
+> > drivers) added that delayed work thing.
+> > 
+> > I fear that does not work for kobjects which are embedded into
+> > something else.
+> 
+> No, kobjects embedded into something else have their lifetime determined
+> by the embedded kobject.  That's rule #1 of kobjects - or rather reference
+> counted objects.
+> 
+> The point at which the kobject gets destructed is when the release function
+> is called.  If it is destructed before that time, that's a violation of
+> the reference counted nature of kobjects, and that's what the delay on
+> releasing is designed to catch.
+> 
+> It's designed to catch code which does this exact path:
+> 
+> 	put(obj)
+> 	free(obj)
+> 
+> rather than code which does it the right way:
+> 
+> 	put(obj)
+> 		-> refcount becomes 0
+> 			-> release function gets called
+> 				->free(obj)
+> 
+> The former is unsafe because obj may have other references.
 
->To: netdev@vger.kernel.org
->Cc: David S. Miller; Estevam Fabio-R49496; Frank Li; Duan Fugang-B38611; Jim
->Baxter; Marek Szyprowski; Sebastian Andrzej Siewior
->Subject: [PATCH] net: fec_main: dma_map() only the length of the skb
->
->On tx submit the driver always dma_map_single() FEC_ENET_TX_FRSIZE (=2048)
->bytes. This works because we don't overwrite any memory after the data buffer,
->we remove it from cache if it was there. So we hurt performace in case the
->mapping of a smaller area makes a difference.
->There is also a bug: If the data area starts shortly before the end of RAM say
->0xc7fffa10 and the RAM ends at 0xc8000000 then we have enough space to fit the
->data area (according to skb->len) but we would map beyond end of ram if we are
->using 2048. In v2.6.31 (against which kernel this patch
->made) there is the following check in dma_cache_maint():
->
->|BUG_ON(!virt_addr_valid(start) || !virt_addr_valid(start + size - 1));
->
->Since the area starting at 0xc8000000 is no longer virt_addr_valid() we
->BUG() during dma_map_single(). The BUG() statement was removed in v3.5-rc1 as
->per 2dc6a016 ("ARM: dma-mapping: use asm-generic/dma-mapping-common.h").
->
->This patch was tested on v2.6.31 and then forward-ported and compile tested
->only against the net tree. I think it is still worth fixing mainline even after
->the BUG() statement is gone.
->
->Cc: Marek Szyprowski <m.szyprowski@samsung.com>
->Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
->---
->It would be nice if someone could test this on current kernel.
->Is this worth pushing stable?
->
->Marek: Was there a special reason why the check was removed? Would it make
->sense to bring it back say under CONFIG_DMA_DEBUG?
->
-> drivers/net/ethernet/freescale/fec_main.c | 8 ++++----
-> 1 file changed, 4 insertions(+), 4 deletions(-)
->
->diff --git a/drivers/net/ethernet/freescale/fec_main.c
->b/drivers/net/ethernet/freescale/fec_main.c
->index 4cbebf3..29d8dc4 100644
->--- a/drivers/net/ethernet/freescale/fec_main.c
->+++ b/drivers/net/ethernet/freescale/fec_main.c
->@@ -385,7 +385,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device
->*ndev)
-> 	 * data.
-> 	 */
-> 	bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, bufaddr,
->-			FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
->+			skb->len, DMA_TO_DEVICE);
-> 	if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
-> 		bdp->cbd_bufaddr = 0;
-> 		fep->tx_skbuff[index] = NULL;
->@@ -779,11 +779,11 @@ fec_enet_tx(struct net_device *ndev)
-> 		else
-> 			index = bdp - fep->tx_bd_base;
->
->-		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
->-				FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
->+		skb = fep->tx_skbuff[index];
->+		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr, skb->len,
->+				DMA_TO_DEVICE);
-> 		bdp->cbd_bufaddr = 0;
->
->-		skb = fep->tx_skbuff[index];
->
-> 		/* Check for errors. */
-> 		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC |
->--
->1.8.4.4
->
-In fact, there have one memory copy for enet as below since enet have 16 bytes data buffer alignment request.
-if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
-                memcpy(fep->tx_bounce[index], skb->data, skb->len);
-                bufaddr = fep->tx_bounce[index];
-}
+Though the kobject is the only thing which has a delayed work embedded
+inside struct kmem_cache. And the debug object splat points at the
+kmem_cache_free() of the struct kmem_cache itself. That's why I
+assumed the wreckage around that place. And indeed:
 
-So, the bug you describe at commit log shouldn't exist.
+kmem_cache_destroy(s)
+    __kmem_cache_shutdown(s)
+      sysfs_slab_remove(s)
+        ....
+	kobject_put(&s->kobj)
+           kref_put(&kobj->kref, kobject_release);
+	     kobject_release(kref)
+    	       #ifdef CONFIG_DEBUG_KOBJECT_RELEASE
+	         schedule_delayed_work(&kobj->release)
+	       #else
+	        kobject_cleanup(kobj)
+	       #endif
 
-Anyway, it is better to use the real packet size for the mapping.
+So in the CONFIG_DEBUG_KOBJECT_RELEASE=y case, schedule_delayed_work()
+_IS_ called which arms the timer. debugobjects catches the attempt to
+free struct kmem_cache which contains the armed timer.
 
-
-I will do overnight stress test for the patch tomorrow.
+So much for rule #1
 
 Thanks,
-Andy
+
+	tglx
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
