@@ -1,58 +1,82 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] net: clamp ->msg_namelen instead of returning an error
-Date: Wed, 27 Nov 2013 15:40:21 +0300
-Message-ID: <20131127124021.GA2025@elgon.mountain>
-References: <20131127115120.GC20630@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Eric Wong <normalperson@yhbt.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: [PATCH] net: fec_main: dma_map() only the length of the skb
+Date: Wed, 27 Nov 2013 13:44:13 +0100
+Message-ID: <1385556253-4130-1-git-send-email-bigeasy@linutronix.de>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Frank Li <frank.li@freescale.net>,
+	Fugang Duan <B38611@freescale.com>,
+	Jim Baxter <jim_baxter@mentor.com>,
+	Marek Szyprowski <m.szyprowski@samsung.com>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:48555 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751871Ab3K0Mkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 07:40:37 -0500
-Content-Disposition: inline
-In-Reply-To: <20131127115120.GC20630@order.stressinduktion.org>
+Received: from www.linutronix.de ([62.245.132.108]:44652 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753346Ab3K0MoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 07:44:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If kmsg->msg_namelen > sizeof(struct sockaddr_storage) then in the
-original code that would lead to memory corruption in the kernel if you
-had audit configured.  If you didn't have audit configured it was
-harmless.
+On tx submit the driver always dma_map_single() FEC_ENET_TX_FRSIZE (=2048)
+bytes. This works because we don't overwrite any memory after the data buffer,
+we remove it from cache if it was there. So we hurt performace in case the
+mapping of a smaller area makes a difference.
+There is also a bug: If the data area starts shortly before the end of
+RAM say 0xc7fffa10 and the RAM ends at 0xc8000000 then we have enough
+space to fit the data area (according to skb->len) but we would map beyond
+end of ram if we are using 2048. In v2.6.31 (against which kernel this patch
+made) there is the following check in dma_cache_maint():
 
-There are some programs such as beta versions of Ruby which use too
-large of a buffer and returning an error code breaks them.  We should
-clamp the ->msg_namelen value instead.
+|BUG_ON(!virt_addr_valid(start) || !virt_addr_valid(start + size - 1));
 
-Reported-by: Eric Wong <normalperson@yhbt.net>
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Since the area starting at 0xc8000000 is no longer virt_addr_valid() we
+BUG() during dma_map_single(). The BUG() statement was removed in v3.5-rc1 as
+per 2dc6a016 ("ARM: dma-mapping: use asm-generic/dma-mapping-common.h").
 
-diff --git a/net/socket.c b/net/socket.c
-index 0b18693f2be6..e83c416708af 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1973,7 +1973,7 @@ static int copy_msghdr_from_user(struct msghdr *kmsg,
- 	if (copy_from_user(kmsg, umsg, sizeof(struct msghdr)))
- 		return -EFAULT;
- 	if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
--		return -EINVAL;
-+		kmsg->msg_namelen = sizeof(struct sockaddr_storage);
- 	return 0;
- }
+This patch was tested on v2.6.31 and then forward-ported and compile
+tested only against the net tree. I think it is still worth fixing
+mainline even after the BUG() statement is gone.
+
+Cc: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+It would be nice if someone could test this on current kernel.
+Is this worth pushing stable?
+
+Marek: Was there a special reason why the check was removed? Would it make
+sense to bring it back say under CONFIG_DMA_DEBUG?
+
+ drivers/net/ethernet/freescale/fec_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 4cbebf3..29d8dc4 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -385,7 +385,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	 * data.
+ 	 */
+ 	bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, bufaddr,
+-			FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
++			skb->len, DMA_TO_DEVICE);
+ 	if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
+ 		bdp->cbd_bufaddr = 0;
+ 		fep->tx_skbuff[index] = NULL;
+@@ -779,11 +779,11 @@ fec_enet_tx(struct net_device *ndev)
+ 		else
+ 			index = bdp - fep->tx_bd_base;
  
-diff --git a/net/compat.c b/net/compat.c
-index 618c6a8a911b..dd32e34c1e2c 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -72,7 +72,7 @@ int get_compat_msghdr(struct msghdr *kmsg, struct compat_msghdr __user *umsg)
- 	    __get_user(kmsg->msg_flags, &umsg->msg_flags))
- 		return -EFAULT;
- 	if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
--		return -EINVAL;
-+		kmsg->msg_namelen = sizeof(struct sockaddr_storage);
- 	kmsg->msg_name = compat_ptr(tmp1);
- 	kmsg->msg_iov = compat_ptr(tmp2);
- 	kmsg->msg_control = compat_ptr(tmp3);
+-		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
+-				FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
++		skb = fep->tx_skbuff[index];
++		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr, skb->len,
++				DMA_TO_DEVICE);
+ 		bdp->cbd_bufaddr = 0;
+ 
+-		skb = fep->tx_skbuff[index];
+ 
+ 		/* Check for errors. */
+ 		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC |
+-- 
+1.8.4.4
