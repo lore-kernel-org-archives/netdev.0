@@ -1,33 +1,119 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH] sfc: Convert to use hwmon_device_register_with_groups
-Date: Tue, 26 Nov 2013 19:34:50 -0800
-Message-ID: <5295685A.7010707@roeck-us.net>
-References: <1385523037-3774-1-git-send-email-linux@roeck-us.net>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH] net: 8139cp: fix a BUG_ON triggered by wrong bytes_compl
+Date: Wed, 27 Nov 2013 12:07:50 +0800
+Message-ID: <1385525270-56580-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, lm-sensors@lm-sensors.org,
-	Guenter Roeck <linux@roeck-us.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <dwmw2@infradead.org>, <dave.taht@bufferbloat.net>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.active-venture.com ([67.228.131.205]:53272 "EHLO
-	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827Ab3K0Dew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 22:34:52 -0500
-In-Reply-To: <1385523037-3774-1-git-send-email-linux@roeck-us.net>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:61395 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751539Ab3K0EIJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Nov 2013 23:08:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/26/2013 07:30 PM, Guenter Roeck wrote:
-> Simplify the code. Avoid race conditions caused by attributes
-> being created after hwmon device registration. Implicitly
-> (through hwmon API) add mandatory 'name' sysfs attribute.
->
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
-> Compile tested only.
->
+Using iperf to send packets(GSO mode is on), a bug is triggered:
 
-Sorry for the noise if you see this patch multiple times. My send script tried to annoy me.
+[  212.672781] kernel BUG at lib/dynamic_queue_limits.c:26!
+[  212.673396] invalid opcode: 0000 [#1] SMP
+[  212.673882] Modules linked in: 8139cp(O) nls_utf8 edd fuse loop dm_mod ipv6 i2c_piix4 8139too i2c_core intel_agp joydev pcspkr hid_generic intel_gtt floppy sr_mod mii button sg cdrom ext3 jbd mbcache usbhid hid uhci_hcd ehci_hcd usbcore sd_mod usb_common crc_t10dif crct10dif_common processor thermal_sys hwmon scsi_dh_emc scsi_dh_rdac scsi_dh_hp_sw scsi_dh ata_generic ata_piix libata scsi_mod [last unloaded: 8139cp]
+[  212.676084] CPU: 0 PID: 4124 Comm: iperf Tainted: G           O 3.12.0-0.7-default+ #16
+[  212.676084] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+[  212.676084] task: ffff8800d83966c0 ti: ffff8800db4c8000 task.ti: ffff8800db4c8000
+[  212.676084] RIP: 0010:[<ffffffff8122e23f>]  [<ffffffff8122e23f>] dql_completed+0x17f/0x190
+[  212.676084] RSP: 0018:ffff880116e03e30  EFLAGS: 00010083
+[  212.676084] RAX: 00000000000005ea RBX: 0000000000000f7c RCX: 0000000000000002
+[  212.676084] RDX: ffff880111dd0dc0 RSI: 0000000000000bd4 RDI: ffff8800db6ffcc0
+[  212.676084] RBP: ffff880116e03e48 R08: 0000000000000992 R09: 0000000000000000
+[  212.676084] R10: ffffffff8181e400 R11: 0000000000000004 R12: 000000000000000f
+[  212.676084] R13: ffff8800d94ec840 R14: ffff8800db440c80 R15: 000000000000000e
+[  212.676084] FS:  00007f6685a3c700(0000) GS:ffff880116e00000(0000) knlGS:0000000000000000
+[  212.676084] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  212.676084] CR2: 00007f6685ad6460 CR3: 00000000db714000 CR4: 00000000000006f0
+[  212.676084] Stack:
+[  212.676084]  ffff8800db6ffc00 000000000000000f ffff8800d94ec840 ffff880116e03eb8
+[  212.676084]  ffffffffa041509f ffff880116e03e88 0000000f16e03e88 ffff8800d94ec000
+[  212.676084]  00000bd400059858 000000050000000f ffffffff81094c36 ffff880116e03eb8
+[  212.676084] Call Trace:
+[  212.676084]  <IRQ>
+[  212.676084]  [<ffffffffa041509f>] cp_interrupt+0x4ef/0x590 [8139cp]
+[  212.676084]  [<ffffffff81094c36>] ? ktime_get+0x56/0xd0
+[  212.676084]  [<ffffffff8108cf73>] handle_irq_event_percpu+0x53/0x170
+[  212.676084]  [<ffffffff8108d0cc>] handle_irq_event+0x3c/0x60
+[  212.676084]  [<ffffffff8108fdb5>] handle_fasteoi_irq+0x55/0xf0
+[  212.676084]  [<ffffffff810045df>] handle_irq+0x1f/0x30
+[  212.676084]  [<ffffffff81003c8b>] do_IRQ+0x5b/0xe0
+[  212.676084]  [<ffffffff8142beaa>] common_interrupt+0x6a/0x6a
+[  212.676084]  <EOI>
+[  212.676084]  [<ffffffffa0416a21>] ? cp_start_xmit+0x621/0x97c [8139cp]
+[  212.676084]  [<ffffffffa0416a09>] ? cp_start_xmit+0x609/0x97c [8139cp]
+[  212.676084]  [<ffffffff81378ed9>] dev_hard_start_xmit+0x2c9/0x550
+[  212.676084]  [<ffffffff813960a9>] sch_direct_xmit+0x179/0x1d0
+[  212.676084]  [<ffffffff813793f3>] dev_queue_xmit+0x293/0x440
+[  212.676084]  [<ffffffff813b0e46>] ip_finish_output+0x236/0x450
+[  212.676084]  [<ffffffff810e59e7>] ? __alloc_pages_nodemask+0x187/0xb10
+[  212.676084]  [<ffffffff813b10e8>] ip_output+0x88/0x90
+[  212.676084]  [<ffffffff813afa64>] ip_local_out+0x24/0x30
+[  212.676084]  [<ffffffff813aff0d>] ip_queue_xmit+0x14d/0x3e0
+[  212.676084]  [<ffffffff813c6fd1>] tcp_transmit_skb+0x501/0x840
+[  212.676084]  [<ffffffff813c8323>] tcp_write_xmit+0x1e3/0xb20
+[  212.676084]  [<ffffffff81363237>] ? skb_page_frag_refill+0x87/0xd0
+[  212.676084]  [<ffffffff813c8c8b>] tcp_push_one+0x2b/0x40
+[  212.676084]  [<ffffffff813bb7e6>] tcp_sendmsg+0x926/0xc90
+[  212.676084]  [<ffffffff813e1d21>] inet_sendmsg+0x61/0xc0
+[  212.676084]  [<ffffffff8135e861>] sock_aio_write+0x101/0x120
+[  212.676084]  [<ffffffff81107cf1>] ? vma_adjust+0x2e1/0x5d0
+[  212.676084]  [<ffffffff812163e0>] ? timerqueue_add+0x60/0xb0
+[  212.676084]  [<ffffffff81130b60>] do_sync_write+0x60/0x90
+[  212.676084]  [<ffffffff81130d44>] ? rw_verify_area+0x54/0xf0
+[  212.676084]  [<ffffffff81130f66>] vfs_write+0x186/0x190
+[  212.676084]  [<ffffffff811317fd>] SyS_write+0x5d/0xa0
+[  212.676084]  [<ffffffff814321e2>] system_call_fastpath+0x16/0x1b
+[  212.676084] Code: ca 41 89 dc 41 29 cc 45 31 db 29 c2 41 89 c5 89 d0 45 29 c5 f7 d0 c1 e8 1f e9 43 ff ff ff 66 0f 1f 44 00 00 31 c0 e9 7b ff ff ff <0f> 0b eb fe 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 c7 47 40 00 
+[  212.676084] RIP  [<ffffffff8122e23f>] dql_completed+0x17f/0x190
+------------[ cut here ]------------
 
-Guenter
+When a skb has frags, bytes_compl plus skb->len nr_frags times in cp_tx().
+It's not the correct value(actually, it should plus skb->len once) and it
+will trigger the BUG_ON(bytes_compl > num_queued - dql->num_completed).Use
+txd->opts1 which stores the real length of a frag in cp_start_xmit() to
+calculate bytes_compl.
+pkts_compl also has a wrong value, fix it too.
+
+It's introduced by commit 871f0d4c("8139cp: enable bql").
+
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ drivers/net/ethernet/realtek/8139cp.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index f2a2128..3b837f0 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -664,7 +664,7 @@ static void cp_tx (struct cp_private *cp)
+ 	while (tx_tail != tx_head) {
+ 		struct cp_desc *txd = cp->tx_ring + tx_tail;
+ 		struct sk_buff *skb;
+-		u32 status;
++		u32 status, flags;
+ 
+ 		rmb();
+ 		status = le32_to_cpu(txd->opts1);
+@@ -678,8 +678,10 @@ static void cp_tx (struct cp_private *cp)
+ 				 le32_to_cpu(txd->opts1) & 0xffff,
+ 				 PCI_DMA_TODEVICE);
+ 
+-		bytes_compl += skb->len;
+-		pkts_compl++;
++		flags = le32_to_cpu(txd->opts1);
++		bytes_compl += (flags & 0xffff);
++		if (flags & FirstFrag)
++			pkts_compl++;
+ 
+ 		if (status & LastFrag) {
+ 			if (status & (TxError | TxFIFOUnder)) {
+-- 
+1.8.0
