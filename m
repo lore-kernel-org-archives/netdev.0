@@ -1,53 +1,59 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: [PATCH] net: fec_main: dma_map() only the length of the skb
-Date: Wed, 27 Nov 2013 14:38:27 +0100
-Message-ID: <5295F5D3.8020002@linutronix.de>
-References: <1385556253-4130-1-git-send-email-bigeasy@linutronix.de> <9848F2DB572E5649BA045B288BE08FBE01899801@039-SN2MPN1-023.039d.mgd.msft.net>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: netfilter: active obj WARN when cleaning up
+Date: Wed, 27 Nov 2013 13:40:16 +0000
+Message-ID: <20131127134015.GA6011@n2100.arm.linux.org.uk>
+References: <522B25B5.6000808@oracle.com> <5294F27D.4000108@oracle.com> <20131126230709.GA10948@localhost> <alpine.DEB.2.02.1311271106090.30673@ionos.tec.linutronix.de> <20131127113939.GL16735@n2100.arm.linux.org.uk> <alpine.DEB.2.02.1311271409280.30673@ionos.tec.linutronix.de> <20131127133231.GO16735@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
 	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <Fabio.Estevam@freescale.com>,
-	Frank Li <frank.li@freescale.net>,
-	Jim Baxter <jim_baxter@mentor.com>,
-	Marek Szyprowski <m.szyprowski@samsung.com>
-To: Fugang Duan <fugang.duan@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:46198 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751611Ab3K0Nib (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 08:38:31 -0500
-In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE01899801@039-SN2MPN1-023.039d.mgd.msft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Greg KH <greg@kroah.com>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131127133231.GO16735@n2100.arm.linux.org.uk>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-- <frank.li@freescale.net> because MTA complains
-
-On 11/27/2013 02:08 PM, Fugang Duan wrote:
-> In fact, there have one memory copy for enet as below since enet have 16 bytes data buffer alignment request.
-> if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
->                 memcpy(fep->tx_bounce[index], skb->data, skb->len);
->                 bufaddr = fep->tx_bounce[index];
-> }
-
-This memcpy() is only executed if the buffer isn't properly aligned
-which shouldn't be the rule but an exception. This aligment check is
-also available in v2.6.31 where the BUG_ON() statement was triggered.
-
+On Wed, Nov 27, 2013 at 01:32:31PM +0000, Russell King - ARM Linux wrote:
+> On Wed, Nov 27, 2013 at 02:29:41PM +0100, Thomas Gleixner wrote:
+> > Though the kobject is the only thing which has a delayed work embedded
+> > inside struct kmem_cache. And the debug object splat points at the
+> > kmem_cache_free() of the struct kmem_cache itself. That's why I
+> > assumed the wreckage around that place. And indeed:
+> > 
+> > kmem_cache_destroy(s)
+> >     __kmem_cache_shutdown(s)
+> >       sysfs_slab_remove(s)
+> >         ....
+> > 	kobject_put(&s->kobj)
+> >            kref_put(&kobj->kref, kobject_release);
+> > 	     kobject_release(kref)
+> >     	       #ifdef CONFIG_DEBUG_KOBJECT_RELEASE
+> > 	         schedule_delayed_work(&kobj->release)
+> > 	       #else
+> > 	        kobject_cleanup(kobj)
+> > 	       #endif
+> > 
+> > So in the CONFIG_DEBUG_KOBJECT_RELEASE=y case, schedule_delayed_work()
+> > _IS_ called which arms the timer. debugobjects catches the attempt to
+> > free struct kmem_cache which contains the armed timer.
 > 
-> So, the bug you describe at commit log shouldn't exist.
-> 
-> Anyway, it is better to use the real packet size for the mapping.
-> 
-> 
-> I will do overnight stress test for the patch tomorrow.
+> You fail to show where the free is in the above path.
 
-Thanks.
+Right, there's a kmem_cache_free(kmem_cache, s); by the slob code
+after the above sequence, which is The Bug(tm).
 
-> 
-> Thanks,
-> Andy
-> 
+As I said, a kobject has its own lifetime.  If you embed that into
+another structure, that structure inherits the lifetime of the kobject,
+which is from the point at which it's created to the point at which the
+kobject's release function is called.
 
-Sebastian
+So no, the code here is buggy.  The kobject debugging has yet again
+found a violation of the kobject lifetime rules.  slub needs fixing.
