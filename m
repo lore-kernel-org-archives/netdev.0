@@ -1,28 +1,59 @@
-From: Pablo Cholaky <mrwaltercool@gmail.com>
-Subject: Re: r8169 Wake on Lan
-Date: Wed, 27 Nov 2013 17:32:36 -0300
-Message-ID: <CAEv3EXG++vPHTT8iK4guonfgqFR4t+eHoZPn4n21cR5gJx3Bpg@mail.gmail.com>
-References: <CAEv3EXFiUnfkBCiedjXUzc6MXBnP2vqNx4R3739642dGYazTwA@mail.gmail.com>
- <CAOWq=SwL=+-rwEqOYH8qUCObzL9sABA1f+6=pgnvQf1wNis3gw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Anupama Reddy <bn.anupama@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:45084 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751613Ab3K0Uc6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 15:32:58 -0500
-Received: by mail-wg0-f54.google.com with SMTP id n12so6368228wgh.9
-        for <netdev@vger.kernel.org>; Wed, 27 Nov 2013 12:32:56 -0800 (PST)
-In-Reply-To: <CAOWq=SwL=+-rwEqOYH8qUCObzL9sABA1f+6=pgnvQf1wNis3gw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2013-11-27
+Date: Wed, 27 Nov 2013 22:11:31 +0100
+Message-ID: <1385586695-11134-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Anupama Reddy <bn.anupama@gmail.com>
->use the ethtool to disable the WOL option
+Hello David,
 
-Yes, I'm doing that, but a init script will not solve suspend to disk
-or RAM auto-WOL problems, I need to "remember" it, I'm doing that
-right now, but I don't think it's the best solution. Do you know
-another option?
+this is an extention of my pull request from 2013-11-25, it includes an
+additional patch.
+
+This series consists of a patch by Oliver Hartkopp which fixes some corner
+cases in the interrupt handler of the sja1000 driver. Then there are two
+patches for the c_can dirver. One by me, which fixes a runtime pm related
+"scheduling while atomic" error and patch by Holger Bechtold that fixes the
+calculation of the transmitted bytes.
+
+The fourth patch (the additional one) is by me, it corrects the clock usage in
+the flexcan driver.
+
+regards,
+Marc
+
+---
+
+The following changes since commit 2c7a9dc1641664173211c4ebc5db510a08684c46:
+
+  be2net: Avoid programming permenant MAC by BE3-R VFs (2013-11-23 15:11:07 -0800)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can.git fixes-for-3.13-20131127
+
+for you to fetch changes up to 1a3e5173f5e72cbf7f0c8927b33082e361c16d72:
+
+  can: flexcan: use correct clock as base for bit rate calculation (2013-11-26 15:39:47 +0100)
+
+----------------------------------------------------------------
+Holger Bechtold (1):
+      can: c_can: fix calculation of transmitted bytes on tx complete
+
+Marc Kleine-Budde (2):
+      can: c_can: don't call pm_runtime_get_sync() from interrupt context
+      can: flexcan: use correct clock as base for bit rate calculation
+
+Oliver Hartkopp (1):
+      can: sja1000: fix {pre,post}_irq() handling and IRQ handler return value
+
+ drivers/net/can/c_can/c_can.c     | 22 ++++++++++++++++------
+ drivers/net/can/flexcan.c         |  2 +-
+ drivers/net/can/sja1000/sja1000.c | 17 +++++++++--------
+ 3 files changed, 26 insertions(+), 15 deletions(-)
+
+
