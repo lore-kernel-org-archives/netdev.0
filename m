@@ -1,44 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3.13] genetlink/pmcraid: use proper genetlink multicast
- API
-Date: Thu, 28 Nov 2013 18:27:02 -0500 (EST)
-Message-ID: <20131128.182702.413058319099526285.davem@davemloft.net>
-References: <1385323766-30356-1-git-send-email-johannes@sipsolutions.net>
+Subject: Re: [V2 PATCH] sctp: Restore 'resent' bit to avoid retransmitted
+ chunks for RTT measurements
+Date: Thu, 28 Nov 2013 18:30:24 -0500 (EST)
+Message-ID: <20131128.183024.1122040393172123504.davem@davemloft.net>
+References: <1385350017-11324-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, anil_ravindranath@pmc-sierra.com,
-	JBottomley@parallels.com, linux-scsi@vger.kernel.org,
-	johannes.berg@intel.com
-To: johannes@sipsolutions.net
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1385323766-30356-1-git-send-email-johannes@sipsolutions.net>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: xufeng.zhang@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47397 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751329Ab3K1XaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 18:30:25 -0500
+In-Reply-To: <1385350017-11324-1-git-send-email-xufeng.zhang@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Sun, 24 Nov 2013 21:09:26 +0100
+From: Xufeng Zhang <xufeng.zhang@windriver.com>
+Date: Mon, 25 Nov 2013 11:26:57 +0800
 
-> From: Johannes Berg <johannes.berg@intel.com>
+> Currently retransmitted DATA chunks could also be used for
+> RTT measurements since there are no flag to identify whether
+> the transmitted DATA chunk is a new one or a retransmitted one.
+> This problem is introduced by commit ae19c5486 ("sctp: remove
+> 'resent' bit from the chunk") which inappropriately removed the
+> 'resent' bit completely, instead of doing this, we should set
+> the resent bit only for the retransmitted DATA chunks.
 > 
-> The pmcraid driver is abusing the genetlink API and is using its
-> family ID as the multicast group ID, which is invalid and may
-> belong to somebody else (and likely will.)
-> 
-> Make it use the correct API, but since this may already be used
-> as-is by userspace, reserve a family ID for this code and also
-> reserve that group ID to not break userspace assumptions.
-> 
-> My previous patch broke event delivery in the driver as I missed
-> that it wasn't using the right API and forgot to update it later
-> in my series.
-> 
-> While changing this, I noticed that the genetlink code could use
-> the static group ID instead of a strcmp(), so also do that for
-> the VFS_DQUOT family.
-> 
-> Cc: Anil Ravindranath <anil_ravindranath@pmc-sierra.com>
-> Cc: "James E.J. Bottomley" <JBottomley@parallels.com>
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+> ---
+> v1->v2:
+> Rmoved initialization for resent bit.
+> Combined two if clause
 
-Applied, thanks Johannes.
+Applied, thanks.
