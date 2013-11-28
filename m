@@ -1,40 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v2] xen-netback: fix fragment detection in checksum
- setup
-Date: Thu, 28 Nov 2013 09:29:05 -0800
-Message-ID: <1385659745.5352.23.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1385645032-29848-1-git-send-email-paul.durrant@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH v2] diag: warn about missing first netlink attribute
+Date: Thu, 28 Nov 2013 18:31:05 +0100
+Message-ID: <1385659865-1926-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20131128163816.GA32047@casper.infradead.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:43855 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754091Ab3K1R3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 12:29:07 -0500
-Received: by mail-pb0-f50.google.com with SMTP id rr13so12844008pbb.23
-        for <netdev@vger.kernel.org>; Thu, 28 Nov 2013 09:29:06 -0800 (PST)
-In-Reply-To: <1385645032-29848-1-git-send-email-paul.durrant@citrix.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:48416 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758916Ab3K1RbT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 12:31:19 -0500
+In-Reply-To: <20131128163816.GA32047@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-28 at 13:23 +0000, Paul Durrant wrote:
-> The code to detect fragments in checksum_setup() was missing for IPv4 and
-> too eager for IPv6. (It transpires that Windows seems to send IPv6 packets
-> with a fragment header even if they are not a fragment - i.e. offset is zero,
-> and M bit is not set).
+The first netlink attribute (value 0) must always be defined as none/unspec.
+This is correctly done in inet_diag.h, but other diag interfaces are wrong.
 
-> +	/* 3fff -> fragment offset != 0 OR more fragments */
-> +	if (ntohs(iph->frag_off) & 0x3fff)
-> +		fragment = true;
-> +
+Because we cannot change an existing API, I add a comment to point the mistake
+and avoid to propagate it in a new diag API in the future.
 
-What about the more self documented and faster :
+CC: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
 
-if (iph->frag_off & htons(IP_OFFSET | IP_MF))
-	fragment = true;
+v2: just warn about the missing attribute
+
+If patch is approved, I will submit it when the net-next tree opens.
+
+ include/uapi/linux/netlink_diag.h | 1 +
+ include/uapi/linux/packet_diag.h  | 1 +
+ include/uapi/linux/unix_diag.h    | 1 +
+ 3 files changed, 3 insertions(+)
+
+diff --git a/include/uapi/linux/netlink_diag.h b/include/uapi/linux/netlink_diag.h
+index 4e31db4eea41..f2159d30d1f5 100644
+--- a/include/uapi/linux/netlink_diag.h
++++ b/include/uapi/linux/netlink_diag.h
+@@ -33,6 +33,7 @@ struct netlink_diag_ring {
+ };
+ 
+ enum {
++	/* NETLINK_DIAG_NONE, standard nl API requires this attribute!  */
+ 	NETLINK_DIAG_MEMINFO,
+ 	NETLINK_DIAG_GROUPS,
+ 	NETLINK_DIAG_RX_RING,
+diff --git a/include/uapi/linux/packet_diag.h b/include/uapi/linux/packet_diag.h
+index b2cc0cd9c4d9..d08c63f3dd6f 100644
+--- a/include/uapi/linux/packet_diag.h
++++ b/include/uapi/linux/packet_diag.h
+@@ -29,6 +29,7 @@ struct packet_diag_msg {
+ };
+ 
+ enum {
++	/* PACKET_DIAG_NONE, standard nl API requires this attribute!  */
+ 	PACKET_DIAG_INFO,
+ 	PACKET_DIAG_MCLIST,
+ 	PACKET_DIAG_RX_RING,
+diff --git a/include/uapi/linux/unix_diag.h b/include/uapi/linux/unix_diag.h
+index b9e2a6a7446f..1eb0b8dd1830 100644
+--- a/include/uapi/linux/unix_diag.h
++++ b/include/uapi/linux/unix_diag.h
+@@ -31,6 +31,7 @@ struct unix_diag_msg {
+ };
+ 
+ enum {
++	/* UNIX_DIAG_NONE, standard nl API requires this attribute!  */
+ 	UNIX_DIAG_NAME,
+ 	UNIX_DIAG_VFS,
+ 	UNIX_DIAG_PEER,
+-- 
+1.8.4.1
