@@ -1,58 +1,178 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: [PATCH] net: fec_main: dma_map() only the length of the skb
-Date: Thu, 28 Nov 2013 12:24:26 +0100
-Message-ID: <529727EA.5010405@linutronix.de>
-References: <1385556253-4130-1-git-send-email-bigeasy@linutronix.de> <9848F2DB572E5649BA045B288BE08FBE01899801@039-SN2MPN1-023.039d.mgd.msft.net> <5295F5D3.8020002@linutronix.de> <9848F2DB572E5649BA045B288BE08FBE0189C105@039-SN2MPN1-023.039d.mgd.msft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v2 1/2] virtio_net: fix error handling for mergeable buffers
+Date: Thu, 28 Nov 2013 13:30:55 +0200
+Message-ID: <1385638044-27467-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <Fabio.Estevam@freescale.com>,
-	Jim Baxter <jim_baxter@mentor.com>,
-	Marek Szyprowski <m.szyprowski@samsung.com>
-To: Fugang Duan <fugang.duan@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:56871 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752306Ab3K1LYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 06:24:31 -0500
-In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE0189C105@039-SN2MPN1-023.039d.mgd.msft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 11/28/2013 02:18 AM, Fugang Duan wrote:
-- <frank.li@freescale.net> because MTA complains (now really)
+Eric Dumazet noticed that if we encounter an error
+when processing a mergeable buffer, we don't
+dequeue all of the buffers from this packet,
+the result is almost sure to be loss of networking.
 
->> On 11/27/2013 02:08 PM, Fugang Duan wrote:
->>> In fact, there have one memory copy for enet as below since enet have 16
->> bytes data buffer alignment request.
->>> if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
->>>                 memcpy(fep->tx_bounce[index], skb->data, skb->len);
->>>                 bufaddr = fep->tx_bounce[index]; }
->>
->> This memcpy() is only executed if the buffer isn't properly aligned which
->> shouldn't be the rule but an exception. This aligment check is also available
->> in v2.6.31 where the BUG_ON() statement was triggered.
->>
-> In fact, the skb->data address is not aligned with FEC_ALIGNMENT, so memcpy() always is called at here.
+Jason Wang noticed that we also leak a page and that we don't decrement
+the rq buf count, so we won't repost buffers (a resource leak).
 
-I am aware of NET_IP_ALIGN. The pointers I mentioned in the log were
-from a printk() shortly before that bug triggered. So I am not making
-this up :) I am not aware of the load that triggered this.
+Fix both issues.
 
-Anyway, adding this
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Michael Dalton <mwdalton@google.com>
+Reported-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
 
-   WARN_ON(!((unsigned long)skb->data & 0xf));
+Stable patch will be sent later.
 
-in my e1000 on v3.12 triggers shortly after boot and according to the
-backtrace it comes aoe. So that is at least one user :)
-Since that aligment is for IP, I am not sure if non-IP based protocol
-are using this. I know however that the workload, that triggered the
-problem, is not IP-based.
+ drivers/net/virtio_net.c | 82 ++++++++++++++++++++++++++++++------------------
+ 1 file changed, 51 insertions(+), 31 deletions(-)
 
-> 
-> Thanks,
-> Andy 
-
-Sebastian
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 7bab4de..5408de6 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -299,35 +299,47 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
+ 	return skb;
+ }
+ 
+-static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
++static struct sk_buff *receive_mergeable(struct net_device *dev,
++					 struct receive_queue *rq,
++					 void *buf,
++					 unsigned int len)
+ {
+-	struct skb_vnet_hdr *hdr = skb_vnet_hdr(head_skb);
++	struct skb_vnet_hdr *hdr = buf;
++	int num_buf = hdr->mhdr.num_buffers;
++	struct page *page = virt_to_head_page(buf);
++	int offset = buf - page_address(page);
++	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len,
++					       MERGE_BUFFER_LEN);
+ 	struct sk_buff *curr_skb = head_skb;
+-	char *buf;
+-	struct page *page;
+-	int num_buf, len, offset;
+ 
+-	num_buf = hdr->mhdr.num_buffers;
++	if (unlikely(!curr_skb))
++		goto err_skb;
++
+ 	while (--num_buf) {
+-		int num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
++		int num_skb_frags;
++
+ 		buf = virtqueue_get_buf(rq->vq, &len);
+ 		if (unlikely(!buf)) {
+-			pr_debug("%s: rx error: %d buffers missing\n",
+-				 head_skb->dev->name, hdr->mhdr.num_buffers);
+-			head_skb->dev->stats.rx_length_errors++;
+-			return -EINVAL;
++			pr_debug("%s: rx error: %d buffers out of %d missing\n",
++				 dev->name, num_buf, hdr->mhdr.num_buffers);
++			dev->stats.rx_length_errors++;
++			goto err_buf;
+ 		}
+ 		if (unlikely(len > MERGE_BUFFER_LEN)) {
+ 			pr_debug("%s: rx error: merge buffer too long\n",
+-				 head_skb->dev->name);
++				 dev->name);
+ 			len = MERGE_BUFFER_LEN;
+ 		}
++
++		page = virt_to_head_page(buf);
++		--rq->num;
++
++		num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
+ 		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
+ 			struct sk_buff *nskb = alloc_skb(0, GFP_ATOMIC);
+-			if (unlikely(!nskb)) {
+-				head_skb->dev->stats.rx_dropped++;
+-				return -ENOMEM;
+-			}
++
++			if (unlikely(!nskb))
++				goto err_skb;
+ 			if (curr_skb == head_skb)
+ 				skb_shinfo(curr_skb)->frag_list = nskb;
+ 			else
+@@ -341,8 +353,7 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+ 			head_skb->len += len;
+ 			head_skb->truesize += MERGE_BUFFER_LEN;
+ 		}
+-		page = virt_to_head_page(buf);
+-		offset = buf - (char *)page_address(page);
++		offset = buf - page_address(page);
+ 		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
+ 			put_page(page);
+ 			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
+@@ -351,9 +362,28 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+ 			skb_add_rx_frag(curr_skb, num_skb_frags, page,
+ 					offset, len, MERGE_BUFFER_LEN);
+ 		}
++	}
++
++	return head_skb;
++
++err_skb:
++	put_page(page);
++	while (--num_buf) {
++		buf = virtqueue_get_buf(rq->vq, &len);
++		if (unlikely(!buf)) {
++			pr_debug("%s: rx error: %d buffers missing\n",
++				 dev->name, num_buf);
++			dev->stats.rx_length_errors++;
++			break;
++		}
++		page = virt_to_head_page(buf);
++		put_page(page);
+ 		--rq->num;
+ 	}
+-	return 0;
++err_buf:
++	dev->stats.rx_dropped++;
++	dev_kfree_skb(head_skb);
++	return NULL;
+ }
+ 
+ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+@@ -382,19 +412,9 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ 		len -= sizeof(struct virtio_net_hdr);
+ 		skb_trim(skb, len);
+ 	} else if (vi->mergeable_rx_bufs) {
+-		struct page *page = virt_to_head_page(buf);
+-		skb = page_to_skb(rq, page,
+-				  (char *)buf - (char *)page_address(page),
+-				  len, MERGE_BUFFER_LEN);
+-		if (unlikely(!skb)) {
+-			dev->stats.rx_dropped++;
+-			put_page(page);
++		skb = receive_mergeable(dev, rq, buf, len);
++		if (unlikely(!skb))
+ 			return;
+-		}
+-		if (receive_mergeable(rq, skb)) {
+-			dev_kfree_skb(skb);
+-			return;
+-		}
+ 	} else {
+ 		page = buf;
+ 		skb = page_to_skb(rq, page, 0, len, PAGE_SIZE);
+-- 
+MST
