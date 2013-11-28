@@ -1,48 +1,42 @@
-From: Chao Bi <chao.bi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] WIFI: handle a neglected case in
- nl80211_new_interface()
-Date: Thu, 28 Nov 2013 13:21:37 +0800
-Message-ID: <1385616097.7437.8.camel@bichao>
-References: <1385521254.23222.8.camel@bichao>
-	 <CAE2MWk=WEwxbnBDhBRHKVQ7JhAwKANv-HQXyK=qTb4qaH4GZRg@mail.gmail.com>
-	 <1385610818.7437.1.camel@bichao>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net] r8169: check ALDPS bit and disable it if enabled forthe 8168g
+Date: Thu, 28 Nov 2013 13:28:08 +0800
+Message-ID: <39CC8E82FCD4479EAB9EDB7D7F708397@realtek.com.tw>
+References: <1385538516-32104-1-git-send-email-dchang@suse.com> <103D217663F345E1877FB05AC93E3CFF@realtek.com.tw> <20131128042904.GA9297@linux-g7tt.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ujjal Roy <royujjal-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1385610818.7437.1.camel@bichao>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>,
+	"'David S. Miller'" <davem@davemloft.net>,
+	'Francois Romieu' <romieu@fr.zoreil.com>, <jlee@suse.com>,
+	'nic_swsd' <nic_swsd@realtek.com>
+To: 'David Chang' <dchang@suse.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:42149 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750788Ab3K1F2Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 00:28:24 -0500
+In-Reply-To: <20131128042904.GA9297@linux-g7tt.site>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-28 at 11:53 +0800, Chao Bi wrote:
-> On Wed, 2013-11-27 at 20:43 +0530, Ujjal Roy wrote:
-> > Hi,
-> > 
-> > 
-> > We can use IS_ERR_OR_NULL(wdev) to check NULL as well as error value.
-> > 
-> > Thanks,
-> > UjjaL
-> > 
-> > On Wed, Nov 27, 2013 at 8:30 AM, Chao Bi <chao.bi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
-> >         In nl80211_new_interface(), it calls rdev_add_virtual_intf() to create
-> >         a new interface, however, it only checks whether returned value is err
-> >         code, but doesn't check if returned value is NULL. The returned 
+ David Chang [mailto:dchang@suse.com] 
+> Sent: Thursday, November 28, 2013 12:29 PM
+> To: Hayeswang
+> Cc: netdev@vger.kernel.org; 'David S. Miller'; 'Francois 
+> Romieu'; jlee@suse.com; nic_swsd
+> Subject: Re: [PATCH net] r8169: check ALDPS bit and disable 
+> it if enabled forthe 8168g
+[...]
+> > You have to delay at least 10 ms after disable it.
+> > This makes sure the hw completes the action.
+> >  
 > 
-> Thanks Ujjal. I'll update it.
-> 
-Hi all,
-This patch is not valid, I further check the nl80211 API introduce,
-don't need to handle this NULL return value because it bans NULL
-feedback of add_virtual_intf() API in cfg80211.h.
+> Thanks for your comment. 
+> I'd add a delay time and send the v2 version.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Excuse me. Our engineers have different opinions about the delay.
+I would comfirm it first.
+ 
+Best Regards,
+Hayes
