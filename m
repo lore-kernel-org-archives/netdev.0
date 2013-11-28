@@ -1,58 +1,79 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 7/8] ixgbe: turn NETIF_F_HW_L2FW_DOFFLOAD off by default
-Date: Wed, 27 Nov 2013 23:36:01 -0800
-Message-ID: <1385624162-10116-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 5/8] e1000: fix possible reset_task running after adapter down
+Date: Wed, 27 Nov 2013 23:35:59 -0800
+Message-ID: <1385624162-10116-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1385624162-10116-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Vladimir Davydov <VDavydov@parallels.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Tushar Dave <tushar.n.dave@intel.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Vladimir Davydov <vdavydov@parallels.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:4773 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:62417 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754070Ab3K1Hge (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753122Ab3K1Hge (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 28 Nov 2013 02:36:34 -0500
 In-Reply-To: <1385624162-10116-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Vladimir Davydov <VDavydov@parallels.com>
 
-NETIF_F_HW_L2FW_DOFFLOAD allows upper layer net devices such
-as macvlan to use queues in the hardware to directly submit and
-receive skbs.
+On e1000_down(), we should ensure every asynchronous work is canceled
+before proceeding. Since the watchdog_task can schedule other works
+apart from itself, it should be stopped first, but currently it is
+stopped after the reset_task. This can result in the following race
+leading to the reset_task running after the module unload:
 
-This creates a subtle change in the datapath though. One change
-being the skb may no longer use the root devices qdisc.
+e1000_down_and_stop():			e1000_watchdog():
+----------------------			-----------------
 
-Because users may not expect this we can't enable the feature
-by default unless the hardware can offload all the software
-functionality above it. So for now disable it by default and
-let users opt in.
+cancel_work_sync(reset_task)
+					schedule_work(reset_task)
+cancel_delayed_work_sync(watchdog_task)
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+The patch moves cancel_delayed_work_sync(watchdog_task) at the beginning
+of e1000_down_and_stop() thus ensuring the race is impossible.
+
+Cc: Tushar Dave <tushar.n.dave@intel.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Vladimir Davydov <vdavydov@parallels.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index ad9d670..cc06854 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7986,10 +7986,9 @@ skip_sriov:
- 			   NETIF_F_TSO |
- 			   NETIF_F_TSO6 |
- 			   NETIF_F_RXHASH |
--			   NETIF_F_RXCSUM |
--			   NETIF_F_HW_L2FW_DOFFLOAD;
-+			   NETIF_F_RXCSUM;
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 619b0cb..46e6544 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -494,13 +494,20 @@ static void e1000_down_and_stop(struct e1000_adapter *adapter)
+ {
+ 	set_bit(__E1000_DOWN, &adapter->flags);
  
--	netdev->hw_features = netdev->features;
-+	netdev->hw_features = netdev->features | NETIF_F_HW_L2FW_DOFFLOAD;
+-	/* Only kill reset task if adapter is not resetting */
+-	if (!test_bit(__E1000_RESETTING, &adapter->flags))
+-		cancel_work_sync(&adapter->reset_task);
+-
+ 	cancel_delayed_work_sync(&adapter->watchdog_task);
++
++	/*
++	 * Since the watchdog task can reschedule other tasks, we should cancel
++	 * it first, otherwise we can run into the situation when a work is
++	 * still running after the adapter has been turned down.
++	 */
++
+ 	cancel_delayed_work_sync(&adapter->phy_info_task);
+ 	cancel_delayed_work_sync(&adapter->fifo_stall_task);
++
++	/* Only kill reset task if adapter is not resetting */
++	if (!test_bit(__E1000_RESETTING, &adapter->flags))
++		cancel_work_sync(&adapter->reset_task);
+ }
  
- 	switch (adapter->hw.mac.type) {
- 	case ixgbe_mac_82599EB:
+ void e1000_down(struct e1000_adapter *adapter)
 -- 
 1.8.3.1
