@@ -1,51 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] udp: fix possible seqlock deadlock
-Date: Thu, 28 Nov 2013 09:23:10 -0800
-Message-ID: <1385659390.5352.20.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH v3] net: smc91: fix crash regression on the versatile
+Date: Thu, 28 Nov 2013 17:24:42 +0000
+Message-ID: <20131128172442.GC16203@mudshark.cambridge.arm.com>
+References: <1385645632-3577-1-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: jongman.heo@samsung.com, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:58388 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751219Ab3K1RXN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 12:23:13 -0500
-In-Reply-To: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Nicolas Pitre <nico@fluxnic.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Russell King <linux@arm.linux.org.uk>,
+	Eric Miao <eric.y.miao@gmail.com>,
+	Jonathan Cameron <jic23@cam.ac.uk>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+To: Linus Walleij <linus.walleij@linaro.org>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1385645632-3577-1-git-send-email-linus.walleij@linaro.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, Nov 28, 2013 at 01:33:52PM +0000, Linus Walleij wrote:
+> After commit e9e4ea74f06635f2ffc1dffe5ef40c854faa0a90
+> "net: smc91x: dont't use SMC_outw for fixing up halfword-aligned data"
+> The Versatile SMSC LAN91C111 is crashing like this:
 
-In commit c9e9042994d3 ("ipv4: fix possible seqlock deadlock") I left
-another spot where IP_INC_STATS_BH() was improperly used.
+[...]
 
-udp_sendmsg() is called from process context, not from softirq context.
+> ---
+> ChangeLog v2->v3:
+> - Fold in a hunk from Will Deacon's patch addressing the same
+>   issue.
+> ChangeLog v1->v2:
+> - Correct commit message to nail the actual commit causing
+>   the bug, as pointed out by Russell.
+> ---
+>  drivers/net/ethernet/smsc/smc91x.h | 22 ++++------------------
+>  1 file changed, 4 insertions(+), 18 deletions(-)
 
-This was detected by lockdep seqlock support.
+  Acked-by: Will Deacon <will.deacon@arm.com>
 
-Reported-by: jongman heo <jongman.heo@samsung.com>
-Fixes: 584bdf8cbdf6 ("[IPV4]: Fix "ipOutNoRoutes" counter error for TCP and UDP")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv4/udp.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Cheers for sorting that out, Linus.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 44dfaa09b584..44e3884f9e4c 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -999,7 +999,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 			err = PTR_ERR(rt);
- 			rt = NULL;
- 			if (err == -ENETUNREACH)
--				IP_INC_STATS_BH(net, IPSTATS_MIB_OUTNOROUTES);
-+				IP_INC_STATS(net, IPSTATS_MIB_OUTNOROUTES);
- 			goto out;
- 		}
- 
+Will
