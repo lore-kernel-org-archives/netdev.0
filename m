@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] xen-netback: include definition of csum_ipv6_magic
-Date: Thu, 28 Nov 2013 18:38:54 -0500 (EST)
-Message-ID: <20131128.183854.1965568926565257648.davem@davemloft.net>
-References: <1385398354-21636-1-git-send-email-apw@canonical.com>
+Subject: Re: pull-request: can 2013-11-27
+Date: Thu, 28 Nov 2013 18:42:03 -0500 (EST)
+Message-ID: <20131128.184203.1814210379631673420.davem@davemloft.net>
+References: <1385586695-11134-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: apw@canonical.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47452 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751891Ab3K1Xi4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 18:38:56 -0500
-In-Reply-To: <1385398354-21636-1-git-send-email-apw@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1385586695-11134-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andy Whitcroft <apw@canonical.com>
-Date: Mon, 25 Nov 2013 16:52:34 +0000
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Wed, 27 Nov 2013 22:11:31 +0100
 
-> We are now using csum_ipv6_magic, include the appropriate header.
-> Avoids the following error:
+> this is an extention of my pull request from 2013-11-25, it includes an
+> additional patch.
 > 
->     drivers/net/xen-netback/netback.c:1313:4: error: implicit declaration of function 'csum_ipv6_magic' [-Werror=implicit-function-declaration]
->         tcph->check = ~csum_ipv6_magic(&ipv6h->saddr,
+> This series consists of a patch by Oliver Hartkopp which fixes some corner
+> cases in the interrupt handler of the sja1000 driver. Then there are two
+> patches for the c_can dirver. One by me, which fixes a runtime pm related
+> "scheduling while atomic" error and patch by Holger Bechtold that fixes the
+> calculation of the transmitted bytes.
 > 
-> Signed-off-by: Andy Whitcroft <apw@canonical.com>
+> The fourth patch (the additional one) is by me, it corrects the clock usage in
+> the flexcan driver.
 
-Applied, thank you.
+Pulled, thanks Marc.
