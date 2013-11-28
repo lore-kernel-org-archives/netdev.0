@@ -1,55 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 2/8] igb: Fixed Wake On LAN support
-Date: Wed, 27 Nov 2013 23:35:56 -0800
-Message-ID: <1385624162-10116-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 7/8] ixgbe: turn NETIF_F_HW_L2FW_DOFFLOAD off by default
+Date: Wed, 27 Nov 2013 23:36:01 -0800
+Message-ID: <1385624162-10116-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1385624162-10116-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:37634 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:4773 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752552Ab3K1Hgd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Nov 2013 02:36:33 -0500
+	id S1754070Ab3K1Hge (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Nov 2013 02:36:34 -0500
 In-Reply-To: <1385624162-10116-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-This patch fixes Wake on LAN being reported as supported on some Ethernet
-ports, in contrary to Hardware capability.
+NETIF_F_HW_L2FW_DOFFLOAD allows upper layer net devices such
+as macvlan to use queues in the hardware to directly submit and
+receive skbs.
 
-Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+This creates a subtle change in the datapath though. One change
+being the skb may no longer use the root devices qdisc.
+
+Because users may not expect this we can't enable the feature
+by default unless the hardware can offload all the software
+functionality above it. So for now disable it by default and
+let users opt in.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index b0f3666..c3143da 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -2062,14 +2062,15 @@ static void igb_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index ad9d670..cc06854 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7986,10 +7986,9 @@ skip_sriov:
+ 			   NETIF_F_TSO |
+ 			   NETIF_F_TSO6 |
+ 			   NETIF_F_RXHASH |
+-			   NETIF_F_RXCSUM |
+-			   NETIF_F_HW_L2FW_DOFFLOAD;
++			   NETIF_F_RXCSUM;
  
--	wol->supported = WAKE_UCAST | WAKE_MCAST |
--			 WAKE_BCAST | WAKE_MAGIC |
--			 WAKE_PHY;
- 	wol->wolopts = 0;
+-	netdev->hw_features = netdev->features;
++	netdev->hw_features = netdev->features | NETIF_F_HW_L2FW_DOFFLOAD;
  
- 	if (!(adapter->flags & IGB_FLAG_WOL_SUPPORTED))
- 		return;
- 
-+	wol->supported = WAKE_UCAST | WAKE_MCAST |
-+			 WAKE_BCAST | WAKE_MAGIC |
-+			 WAKE_PHY;
-+
- 	/* apply any specific unsupported masks here */
- 	switch (adapter->hw.device_id) {
- 	default:
+ 	switch (adapter->hw.mac.type) {
+ 	case ixgbe_mac_82599EB:
 -- 
 1.8.3.1
