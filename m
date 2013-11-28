@@ -1,41 +1,60 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] inet: further fixes of possible seqlock deadlocks
-Date: Thu, 28 Nov 2013 23:19:26 +0100
-Message-ID: <20131128221926.GG24171@order.stressinduktion.org>
-References: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01> <1385659390.5352.20.camel@edumazet-glaptop2.roam.corp.google.com> <1385661082.5352.34.camel@edumazet-glaptop2.roam.corp.google.com> <20131128192231.GE24171@order.stressinduktion.org> <1385672502.5352.38.camel@edumazet-glaptop2.roam.corp.google.com> <20131128212700.GF24171@order.stressinduktion.org>
+From: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH openvswitch] netlink: Implement & enable
+ memory mapped netlink i/o
+Date: Thu, 28 Nov 2013 23:31:52 +0100
+Message-ID: <5297C458.4020100@redhat.com>
+References: <2336aeee25d64eab89302c28c33b7cb7d1a55560.1385057738.git.tgraf@redhat.com>
+	<20131125230253.GR1435@nicira.com> <52967768.8090308@redhat.com>
+	<20131128192449.GA28279@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Eric Dumazet <eric.dumazet@gmail.com>, jongman.heo@samsung.com,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:45222 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751015Ab3K1WT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 17:19:27 -0500
-Content-Disposition: inline
-In-Reply-To: <20131128212700.GF24171@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fleitner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20131128192449.GA28279-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 28, 2013 at 10:27:00PM +0100, Hannes Frederic Sowa wrote:
-> > > @@ -1524,8 +1524,8 @@ int ip6_push_pending_frames(struct sock *sk)
-> > >  	if (proto == IPPROTO_ICMPV6) {
-> > >  		struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
-> > >  
-> > > -		ICMP6MSGOUT_INC_STATS_BH(net, idev, icmp6_hdr(skb)->icmp6_type);
-> > > -		ICMP6_INC_STATS_BH(net, idev, ICMP6_MIB_OUTMSGS);
-> > > +		ICMP6MSGOUT_INC_STATS(net, idev, icmp6_hdr(skb)->icmp6_type);
-> > > +		ICMP6_INC_STATS(net, idev, ICMP6_MIB_OUTMSGS);
-> > 
-> > I am not sure we use a seqlock for ICMP stats.
-> > 
-> > seqlocks were used for 64bit IP stats
-> 
-> True, atomic longs get used here in both cases.
+On 11/28/2013 08:24 PM, Ben Pfaff wrote:
+> On Wed, Nov 27, 2013 at 11:51:20PM +0100, Thomas Graf wrote:
+>> On 11/26/2013 12:02 AM, Ben Pfaff wrote:
+>>> On Thu, Nov 21, 2013 at 07:16:54PM +0100, Thomas Graf wrote:
+>>>> Based on the initial patch by Cong Wang posted a couple of months
+>>>> ago.
+>>>>
+>>>> This is the user space counterpart needed for the kernel patch
+>>>> '[PATCH net-next 3/8] openvswitch: Enable memory mapped Netlink i/o'
+>>>>
+>>>> Allows the kernel to construct Netlink messages on memory mapped
+>>>> buffers and thus avoids copying. The functionality is enabled on
+>>>> sockets used for unicast traffic.
+>>>>
+>>>> Further optimizations are possible by avoiding the copy into the
+>>>> ofpbuf after reading.
+>>>>
+>>>> Cc: Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>>> Signed-off-by: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>>
+>>> Does this depend on other patches or some specific Linux kernel
+>>> headers?  It doesn't build here on GCC (similar results with Clang):
+>>
+>> Yes, it depends on a sufficiently recent <linux/netlink.h>. We can
+>> either #ifdef the mmap code or we provide a local copy of
+>> <linux/netlink.h> in include/linux. The code automatically falls back if
+>> the kernel does not support NL MMAP so that seems superior.
+>
+> Can you add the new definitions to the end of lib/netlink-protocol.h,
+> conditional on their being needed?  We already have a number of
+> compatibility definitions there.
 
-I don't really understand why we distinguish between _BH and plain ICMP stat
-calls then.
-
-The non-_BH versions deactivate interrupts when updating the per-cpu counter.
+Sure. I'll move the definitions out of !HAVE_NETLINK and into
+appropriate conditionals.
