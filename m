@@ -1,74 +1,48 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH v2] diag: warn about missing first netlink attribute
-Date: Thu, 28 Nov 2013 18:31:05 +0100
-Message-ID: <1385659865-1926-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <20131128163816.GA32047@casper.infradead.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: tgraf@suug.ch
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: introduce SO_BPF_EXTENSIONS
+Date: Thu, 28 Nov 2013 09:31:29 -0800
+Message-ID: <1385659889.5352.25.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1385639832-3938-1-git-send-email-msekleta@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Michael Kerrisk <mtk.manpages@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Michal Sekletar <msekleta@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:48416 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758916Ab3K1RbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 12:31:19 -0500
-In-Reply-To: <20131128163816.GA32047@casper.infradead.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:56864 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759118Ab3K1Rba (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 12:31:30 -0500
+Received: by mail-pd0-f175.google.com with SMTP id w10so12290296pde.20
+        for <netdev@vger.kernel.org>; Thu, 28 Nov 2013 09:31:30 -0800 (PST)
+In-Reply-To: <1385639832-3938-1-git-send-email-msekleta@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The first netlink attribute (value 0) must always be defined as none/unspec.
-This is correctly done in inet_diag.h, but other diag interfaces are wrong.
+On Thu, 2013-11-28 at 12:57 +0100, Michal Sekletar wrote:
 
-Because we cannot change an existing API, I add a comment to point the mistake
-and avoid to propagate it in a new diag API in the future.
+> +enum {
+> +	BPF_ANC_FLAG_PROTOCOL         = (1 << 0),
+> +	BPF_ANC_FLAG_PKTTYPE          =	(1 << 1),
+> +	BPF_ANC_FLAG_IFINDEX          = (1 << 2),
+> +	BPF_ANC_FLAG_NLATTR           = (1 << 3),
+> +	BPF_ANC_FLAG_NLATTR_NEST      = (1 << 4),
+> +	BPF_ANC_FLAG_MARK             = (1 << 5),
+> +	BPF_ANC_FLAG_QUEUE            = (1 << 6),
+> +	BPF_ANC_FLAG_HATYPE           = (1 << 7),
+> +	BPF_ANC_FLAG_RXHASH           = (1 << 8),
+> +	BPF_ANC_FLAG_CPU              = (1 << 9),
+> +	BPF_ANC_FLAG_ALU_XOR_X        = (1 << 10),
+> +	BPF_ANC_FLAG_SECCOMP_LD_W     = (1 << 11),
+> +	BPF_ANC_FLAG_VLAN_TAG         = (1 << 12),
+> +	BPF_ANC_FLAG_VLAN_TAG_PRESENT = (1 << 13),
+> +	BPF_ANC_FLAG_PAY_OFFSET       = (1 << 14),
+> +};
+> +
 
-CC: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
+Why spending 15 bits (out of 32), for all these extensions ?
 
-v2: just warn about the missing attribute
+It seems a single one should be enough.
 
-If patch is approved, I will submit it when the net-next tree opens.
-
- include/uapi/linux/netlink_diag.h | 1 +
- include/uapi/linux/packet_diag.h  | 1 +
- include/uapi/linux/unix_diag.h    | 1 +
- 3 files changed, 3 insertions(+)
-
-diff --git a/include/uapi/linux/netlink_diag.h b/include/uapi/linux/netlink_diag.h
-index 4e31db4eea41..f2159d30d1f5 100644
---- a/include/uapi/linux/netlink_diag.h
-+++ b/include/uapi/linux/netlink_diag.h
-@@ -33,6 +33,7 @@ struct netlink_diag_ring {
- };
- 
- enum {
-+	/* NETLINK_DIAG_NONE, standard nl API requires this attribute!  */
- 	NETLINK_DIAG_MEMINFO,
- 	NETLINK_DIAG_GROUPS,
- 	NETLINK_DIAG_RX_RING,
-diff --git a/include/uapi/linux/packet_diag.h b/include/uapi/linux/packet_diag.h
-index b2cc0cd9c4d9..d08c63f3dd6f 100644
---- a/include/uapi/linux/packet_diag.h
-+++ b/include/uapi/linux/packet_diag.h
-@@ -29,6 +29,7 @@ struct packet_diag_msg {
- };
- 
- enum {
-+	/* PACKET_DIAG_NONE, standard nl API requires this attribute!  */
- 	PACKET_DIAG_INFO,
- 	PACKET_DIAG_MCLIST,
- 	PACKET_DIAG_RX_RING,
-diff --git a/include/uapi/linux/unix_diag.h b/include/uapi/linux/unix_diag.h
-index b9e2a6a7446f..1eb0b8dd1830 100644
---- a/include/uapi/linux/unix_diag.h
-+++ b/include/uapi/linux/unix_diag.h
-@@ -31,6 +31,7 @@ struct unix_diag_msg {
- };
- 
- enum {
-+	/* UNIX_DIAG_NONE, standard nl API requires this attribute!  */
- 	UNIX_DIAG_NAME,
- 	UNIX_DIAG_VFS,
- 	UNIX_DIAG_PEER,
--- 
-1.8.4.1
+I do not think we will ever remove one of these extension.
