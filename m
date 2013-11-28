@@ -1,43 +1,48 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: Re: [RESEND PATCH net-next 0/4] net: several cleanups
-Date: Thu, 28 Nov 2013 12:42:51 +0800
-Message-ID: <CAEH94LiGPJ+NSWxsWMjyV==sQq56pyitYgyZHUrhFzm=kxt-sQ@mail.gmail.com>
-References: <1385602293-24024-1-git-send-email-zwu.kernel@gmail.com>
-	<20131127.204312.866055325581511577.davem@davemloft.net>
+From: Chao Bi <chao.bi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] WIFI: handle a neglected case in
+ nl80211_new_interface()
+Date: Thu, 28 Nov 2013 13:21:37 +0800
+Message-ID: <1385616097.7437.8.camel@bichao>
+References: <1385521254.23222.8.camel@bichao>
+	 <CAE2MWk=WEwxbnBDhBRHKVQ7JhAwKANv-HQXyK=qTb4qaH4GZRg@mail.gmail.com>
+	 <1385610818.7437.1.camel@bichao>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org,
-	linux-kernel mlist <linux-kernel@vger.kernel.org>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f43.google.com ([209.85.219.43]:46926 "EHLO
-	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754667Ab3K1Emw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 23:42:52 -0500
-In-Reply-To: <20131127.204312.866055325581511577.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ujjal Roy <royujjal-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1385610818.7437.1.camel@bichao>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 28, 2013 at 12:43 PM, David Miller <davem@davemloft.net> wrote:
-> From: Zhi Yong Wu <zwu.kernel@gmail.com>
-> Date: Thu, 28 Nov 2013 09:31:29 +0800
->
->> Per David's request, it's time to resend them now.
->
-> No, it is not the time.
->
-> You should not submit these kinds of patches until the net-next
-> tree is open again, and I make an announcement here when that
-> is the case.  I have yet to make such an announcement, and I
-> do not plan to do so for several days as I am travelling and
-> will be busy dealing with my backlog of patches once I get
-> home.
-ok, will wait for your announcement to be out.
+On Thu, 2013-11-28 at 11:53 +0800, Chao Bi wrote:
+> On Wed, 2013-11-27 at 20:43 +0530, Ujjal Roy wrote:
+> > Hi,
+> > 
+> > 
+> > We can use IS_ERR_OR_NULL(wdev) to check NULL as well as error value.
+> > 
+> > Thanks,
+> > UjjaL
+> > 
+> > On Wed, Nov 27, 2013 at 8:30 AM, Chao Bi <chao.bi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
+> >         In nl80211_new_interface(), it calls rdev_add_virtual_intf() to create
+> >         a new interface, however, it only checks whether returned value is err
+> >         code, but doesn't check if returned value is NULL. The returned 
+> 
+> Thanks Ujjal. I'll update it.
+> 
+Hi all,
+This patch is not valid, I further check the nl80211 API introduce,
+don't need to handle this NULL return value because it bans NULL
+feedback of add_virtual_intf() API in cfg80211.h.
 
-
-
--- 
-Regards,
-
-Zhi Yong Wu
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
