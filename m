@@ -1,38 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/8] atm: eni: use DEFINE_PCI_DEVICE_TABLE macro
-Date: Thu, 28 Nov 2013 15:48:39 -0500 (EST)
-Message-ID: <20131128.154839.1344104104193014015.davem@davemloft.net>
-References: <004501ceebeb$27dcd970$77968c50$%han@samsung.com>
-	<005701ceebf3$dc4ae840$94e0b8c0$%han@samsung.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] inet: further fixes of possible seqlock deadlocks
+Date: Thu, 28 Nov 2013 13:01:42 -0800
+Message-ID: <1385672502.5352.38.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01>
+	 <1385659390.5352.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1385661082.5352.34.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131128192231.GE24171@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net, romieu@fr.zoreil.com
-To: jg1.han@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46472 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751045Ab3K1Usn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 15:48:43 -0500
-In-Reply-To: <005701ceebf3$dc4ae840$94e0b8c0$%han@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jongman.heo@samsung.com, David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131128192231.GE24171@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jingoo Han <jg1.han@samsung.com>
-Date: Thu, 28 Nov 2013 13:39:44 +0900
-
-> On Thursday, November 28, 2013 12:37 PM, Jingoo Han wrote:
->> 
->> This macro is used to create a struct pci_device_id array.
->> 
->> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+On Thu, 2013-11-28 at 20:22 +0100, Hannes Frederic Sowa wrote:
+> This fixes more incorrect uses of *_STATS_BH in process context.
 > 
-> Please, ignore these patches.
-> According to the Greg Kroah-Hartman, 
- ...
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  net/ipv4/udp.c        | 8 ++++----
+>  net/ipv6/ip6_output.c | 8 ++++----
+>  net/ipv6/ping.c       | 4 ++--
+>  3 files changed, 10 insertions(+), 10 deletions(-)
+> 
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index 44e3884..f5cc018 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -1160,10 +1160,10 @@ static unsigned int first_packet_length(struct sock *sk)
+>  	spin_lock_bh(&rcvq->lock);
 
-Ok, but it was also not appropriate to submit these patches because the
-net-next tree is not open yet.
+Here we block BH, because of spin_lock_bh()
 
-Thank you.
+>  	while ((skb = skb_peek(rcvq)) != NULL &&
+>  		udp_lib_checksum_complete(skb)) {
+> -		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_CSUMERRORS,
+> -				 IS_UDPLITE(sk));
+> -		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS,
+> -				 IS_UDPLITE(sk));
+
+So this is the right thing, this change is not needed.
+
+> +		UDP_INC_STATS_USER(sock_net(sk), UDP_MIB_CSUMERRORS,
+> +				   IS_UDPLITE(sk));
+> +		UDP_INC_STATS_USER(sock_net(sk), UDP_MIB_INERRORS,
+> +				   IS_UDPLITE(sk));
+>  		atomic_inc(&sk->sk_drops);
+>  		__skb_unlink(skb, rcvq);
+>  		__skb_queue_tail(&list_kill, skb);
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index 59df872..e05cf0a 100644
+> --- a/net/ipv6/ip6_output.c
+> +++ b/j
+> @@ -116,8 +116,8 @@ static int ip6_finish_output2(struct sk_buff *skb)
+>  	}
+>  	rcu_read_unlock_bh();
+>  
+> -	IP6_INC_STATS_BH(dev_net(dst->dev),
+> -			 ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
+> +	IP6_INC_STATS(dev_net(dst->dev),
+> +		      ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
+
+This is ipv6, not inet changes ;)
+
+>  	kfree_skb(skb);
+>  	return -EINVAL;
+>  }
+> @@ -1524,8 +1524,8 @@ int ip6_push_pending_frames(struct sock *sk)
+>  	if (proto == IPPROTO_ICMPV6) {
+>  		struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
+>  
+> -		ICMP6MSGOUT_INC_STATS_BH(net, idev, icmp6_hdr(skb)->icmp6_type);
+> -		ICMP6_INC_STATS_BH(net, idev, ICMP6_MIB_OUTMSGS);
+> +		ICMP6MSGOUT_INC_STATS(net, idev, icmp6_hdr(skb)->icmp6_type);
+> +		ICMP6_INC_STATS(net, idev, ICMP6_MIB_OUTMSGS);
+
+I am not sure we use a seqlock for ICMP stats.
+
+seqlocks were used for 64bit IP stats
