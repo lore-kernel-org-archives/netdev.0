@@ -1,40 +1,50 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH net] r8169: check ALDPS bit and disable it if enabled for the 8168g
-Date: Thu, 28 Nov 2013 11:37:18 +0800
-Message-ID: <103D217663F345E1877FB05AC93E3CFF@realtek.com.tw>
-References: <1385538516-32104-1-git-send-email-dchang@suse.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 2/8] atm: fore200e: use DEFINE_PCI_DEVICE_TABLE macro
+Date: Thu, 28 Nov 2013 12:38:56 +0900
+Message-ID: <004701ceebeb$5e1f3af0$1a5db0d0$%han@samsung.com>
+References: <004501ceebeb$27dcd970$77968c50$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "'David S. Miller'" <davem@davemloft.net>,
-	'Francois Romieu' <romieu@fr.zoreil.com>, <jlee@suse.com>,
-	'nic_swsd' <nic_swsd@realtek.com>
-To: 'David Chang' <dchang@suse.com>, <netdev@vger.kernel.org>
+Cc: 'Chas Williams' <chas@cmf.nrl.navy.mil>, netdev@vger.kernel.org,
+	linux-atm-general@lists.sourceforge.net,
+	'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:60860 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754257Ab3K1Dhf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 22:37:35 -0500
-In-Reply-To: <1385538516-32104-1-git-send-email-dchang@suse.com>
+Received: from mailout1.samsung.com ([203.254.224.24]:24897 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756119Ab3K1Di6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 22:38:58 -0500
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MWY00CE6FGXGFD0@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Thu, 28 Nov 2013 12:38:57 +0900 (KST)
+In-reply-to: <004501ceebeb$27dcd970$77968c50$%han@samsung.com>
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- David Chang [mailto:dchang@suse.com] 
-> Sent: Wednesday, November 27, 2013 3:49 PM
-> To: netdev@vger.kernel.org
-> Cc: David S. Miller; Francois Romieu; Hayeswang; jlee@suse.com
-> Subject: [PATCH net] r8169: check ALDPS bit and disable it if 
-> enabled for the 8168g
-> 
-[...]
-> +	/* Check ALDPS bit, disable it if enabled */
-> +	rtl_writephy(tp, 0x1f, 0x0a43);
-> +	if (rtl_readphy(tp, 0x10) & 0x0004)
-> +		rtl_w1w0_phy(tp, 0x10, 0x0000, 0x0004);
-> +
+This macro is used to create a struct pci_device_id array.
 
-You have to delay at least 10 ms after disable it.
-This makes sure the hw completes the action.
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+---
+ drivers/atm/fore200e.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+index 204814e..04fd372 100644
+--- a/drivers/atm/fore200e.c
++++ b/drivers/atm/fore200e.c
+@@ -2762,7 +2762,7 @@ static void fore200e_pca_remove_one(struct pci_dev *pci_dev)
+ }
  
-Best Regards,
-Hayes
+ 
+-static struct pci_device_id fore200e_pca_tbl[] = {
++static DEFINE_PCI_DEVICE_TABLE(fore200e_pca_tbl) = {
+     { PCI_VENDOR_ID_FORE, PCI_DEVICE_ID_FORE_PCA200E, PCI_ANY_ID, PCI_ANY_ID,
+       0, 0, (unsigned long) &fore200e_bus[0] },
+     { 0, }
+-- 
+1.7.10.4
