@@ -1,281 +1,119 @@
-From: Michal Sekletar <msekleta@redhat.com>
-Subject: [PATCH] net: introduce SO_BPF_EXTENSIONS
-Date: Thu, 28 Nov 2013 12:57:12 +0100
-Message-ID: <1385639832-3938-1-git-send-email-msekleta@redhat.com>
-Cc: Michal Sekletar <msekleta@redhat.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: netdev@vger.kernel.org
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net] net: neighbour: make sure the handler has finished before
+ kfree neighbour
+Date: Thu, 28 Nov 2013 20:28:52 +0800
+Message-ID: <52973704.1030202@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"Joe Perches" <joe@perches.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53376 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754867Ab3K1L5a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Nov 2013 06:57:30 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:55409 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750985Ab3K1M3R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 07:29:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-userspace packet capturing libraries (e.g. libpcap) don't have a way how to find
-out which BPF extensions are supported by the kernel, except compiling a filter
-which uses extensions and trying to apply filter to the socket. This is very
-inconvenient.
+I have met the oops in Suse11 SP2, the kernel is 2.6.32.59-0.7-default:
 
-Therefore this commit introduces new option which can be used as an argument for
-getsockopt() and allows one to obtain information about which BPF extensions are
-supported by the kernel.
+[64306.089036] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+[64306.089343] IP: [<ffffffff812f8e36>] neigh_timer_handler+0x116/0x3b0
+[64306.089535] PGD 0
+[64306.089706] Oops: 0000 [#1] SMP
+[64306.089935] last sysfs file: /sys/devices/pci0000:00/0000:00:03.0/0000:02:00.0/host0/target0:1:0/0:1:0:0/scsi_generic/sg0/dev
+[64306.090142] Die func triggered, code:1
+[64306.090147] CPU 1
+[64306.090149] Modules linked in: nfsd nfs_common(N) lockd auth_rpcgss smb2(N) smb(N) smb_manager(N) nas_acl(N) nas_proto_vfs(N) snas_ts(N) snas_cafs(PN) snas_ca(N) snas_mds(PN) snas_ds(N) nm(PN) snas_nvcache(PN) snas_dlm(PN) snas_trns(PN) ipmi_devintf(N) ipmi_si(N) ipmi_msghandler(N) af_packet(N) snas_cm_sdd(PN) snas_cm_pma(PN) disk_online_diagnostic(N) snas_monc(N) snas_fc(N) snas_mml(PN) ptlrpc(N) ko2iblnd(N) ksocklnd(N) obdclass(N) lnet(N) lvfs(PN) libcfs(N) snas_base(N) nofs(N) usos(N) zlib_deflate(N) joydev(N) nas_netlink(N) sunrpc cpufreq_conservative(N) cpufreq_userspace(N) cpufreq_powersave(N) acpi_cpufreq(N) t3k_mpt2sas_vdl(N) raidrepair(N) ib_ipoib ib_umad iw_nes crc32c(N) libcrc32c(N) iw_cxgb3 cxgb3 mlx4_ib mlx4_en mlx4_core ib_mthca nvdimm_mapping(N) smbuspci(N) microcode(N) r
+ dma_ucm ib_uverbs rdma_cm ib_cm iw_cm ib_sa ib_mad ib_addr ipv6(N) iw_cxgb4(N) ib_core cxgb4(N) nvdimm_mem(N) soft_watchdog(PN) kbox(PN) fuse(N) loop(N) dm_mod(N) iTCO_wdt(N) i2c_i801(N) tp!
+m_tis(N)
+ tpm(N) rtc_cmos(N) tpm_bios(N) bnx2 ses(N) i2c_core(N) sg(N) iTCO_vendor_support(N) pcspkr(N) rtc_core(N) enclosure(N) rtc_lib(N) wmi(N) container(N) button(N) usbhid(N) hid(N) ehci_hcd(N) usbcore(N) sd_mod crc_t10dif(N) edd(N) ext3(N) mbcache(N) jbd(N) fan(N) processor(N) mpt2sas scsi_transport_sas(N) raid_class(N) scsi_mod thermal(N) thermal_sys(N) hwmon(N) [last unloaded: ipmi_msghandler]
+[64306.090258] Supported: Yes, External
+[64306.090262] Pid: 58359, comm: socknal_cd04 Tainted: P          N  2.6.32.59-0.7-default #1 T3500 G3
+[64306.090266] RIP: 0010:[<ffffffff812f8e36>]  [<ffffffff812f8e36>] neigh_timer_handler+0x116/0x3b0
+[64306.090272] RSP: 0018:ffff880c273499d8  EFLAGS: 00010206
+[64306.090275] RAX: 0000000000000000 RBX: ffff8801cddf1500 RCX: ffff8801cddf14f2
+[64306.090278] RDX: 0000000000000000 RSI: ffff8805e40d3a28 RDI: ffff8801cddf1500
+[64306.090281] RBP: ffff8805e40d3a28 R08: ffff8801cddf1530 R09: ffff880c27349b17
+[64306.090284] R10: 000000000000000e R11: ffffffff812f8e22 R12: ffff880185c0e840
+[64306.090287] R13: 0000000000000000 R14: ffff8805e40d3a60 R15: 0000000003484560
+[64306.090291] FS:  00007f081210e700(0000) GS:ffff880036420000(0000) knlGS:0000000000000000
+[64306.090295] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[64306.090297] CR2: 0000000000000008 CR3: 0000000001804000 CR4: 00000000000406e0
+[64306.090301] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[64306.090304] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[64306.090308] Process socknal_cd04 (pid: 58359, threadinfo ffff880c27348000, task ffff880c25d02300)
+[64306.090310] Stack:
+[64306.090426]  ffffffff8131f8e0 0000000000000003 ffff8801c189eb40 000000000000000a
+[64306.090437] <0> ffffffff00000000 0000000000000002 ffff880c27349a30 ffffffffa304790c
+[64306.090444] <0> 0000000000000246 000051010a010000 ffffffff81318357 31312d3300007fff
+[64306.090450] <0> ffff880c27349bb8 0248456003484560 ffff8801c189eb40 ffffffff81869300
+[64306.090456] <0> ffff880185c0e840 ffff8801cddf1514 ffff8805e40d3a28 00000000000000d0
+[64306.090464] Call Trace:
 
-Signed-off-by: Michal Sekletar <msekleta@redhat.com>
-Cc: Michael Kerrisk <mtk.manpages@gmail.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>
+--------------------------- cut here -------------------------------------
+
+I found the NULL place int the neigh_timer_handler, the neigh->ops is NULL,
+so the calling of neigh->ops->solicit(neigh, skb) will panic, I found the
+neigh has been freed via the kdump, the so I think the neigh was kfreed while
+the neigh timer handler is running.
+
+The situation is that there are several server in the local lan:
+A: 128.5.10.83
+B: 128.5.10.85
+C: 128.5.10.xx
+
+I panic the A by manual, and set B's IP to 128.5.10.83, so send broadcast to tell
+the lan that B is 128.5.10.83, then the B panic, it is hard to appeared again, so
+I only met once.
+
+I think the reason is that:
+
+	CPU0					CPU1
+	-----					-----
+						<SOFTIRQ>
+						neigh_timer_handler();
+	neigh_release();
+	write_lock(&neigh->lock);
+	del_timer(neigh->timer);
+	write_unlock(&neigh->lock);
+						write_lock(&neigh->lock);
+	kfree(neigh);
+ 						neigh->ops->solicit();
+
+--------------------------------------------------------------------------
+
+So I think the latest kernel still has the problem.
+
+The timer handler must be finished before kfree the neigh in SMP,
+but the del_timer could only detach the timer, not sure the timer
+is finished, so I use the del_timer_sync() to make sure the handler
+has finished before kfree the neighour.
+
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- arch/alpha/include/uapi/asm/socket.h   |  2 ++
- arch/avr32/include/uapi/asm/socket.h   |  2 ++
- arch/cris/include/uapi/asm/socket.h    |  2 ++
- arch/frv/include/uapi/asm/socket.h     |  2 ++
- arch/ia64/include/uapi/asm/socket.h    |  2 ++
- arch/m32r/include/uapi/asm/socket.h    |  2 ++
- arch/mips/include/uapi/asm/socket.h    |  2 ++
- arch/mn10300/include/uapi/asm/socket.h |  2 ++
- arch/parisc/include/uapi/asm/socket.h  |  2 ++
- arch/powerpc/include/uapi/asm/socket.h |  2 ++
- arch/s390/include/uapi/asm/socket.h    |  2 ++
- arch/sparc/include/uapi/asm/socket.h   |  2 ++
- arch/xtensa/include/uapi/asm/socket.h  |  2 ++
- include/linux/filter.h                 | 18 ++++++++++++++++++
- include/net/sock.h                     | 19 +++++++++++++++++++
- include/uapi/asm-generic/socket.h      |  2 ++
- net/core/sock.c                        |  4 ++++
- 17 files changed, 69 insertions(+)
+ net/core/neighbour.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
-index e3a1491..3de1394 100644
---- a/arch/alpha/include/uapi/asm/socket.h
-+++ b/arch/alpha/include/uapi/asm/socket.h
-@@ -85,4 +85,6 @@
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index ca15f32..ce7cc83 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -705,8 +705,8 @@ void neigh_destroy(struct neighbour *neigh)
+ 		return;
+ 	}
  
- #define SO_MAX_PACING_RATE	47
+-	if (neigh_del_timer(neigh))
+-		pr_warn("Impossible event\n");
++	if (neigh->nud_state & NUD_IN_TIMER)
++		del_timer_sync(&neigh->timer);
  
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
-index 4399364..35e677e 100644
---- a/arch/avr32/include/uapi/asm/socket.h
-+++ b/arch/avr32/include/uapi/asm/socket.h
-@@ -78,4 +78,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* __ASM_AVR32_SOCKET_H */
-diff --git a/arch/cris/include/uapi/asm/socket.h b/arch/cris/include/uapi/asm/socket.h
-index 13829aa..ed94e5e 100644
---- a/arch/cris/include/uapi/asm/socket.h
-+++ b/arch/cris/include/uapi/asm/socket.h
-@@ -80,6 +80,8 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _ASM_SOCKET_H */
- 
- 
-diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
-index 5d42997..ca2c6e6 100644
---- a/arch/frv/include/uapi/asm/socket.h
-+++ b/arch/frv/include/uapi/asm/socket.h
-@@ -78,5 +78,7 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _ASM_SOCKET_H */
- 
-diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
-index c25302f..a1b49ba 100644
---- a/arch/ia64/include/uapi/asm/socket.h
-+++ b/arch/ia64/include/uapi/asm/socket.h
-@@ -87,4 +87,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _ASM_IA64_SOCKET_H */
-diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
-index 5296665..6c9a24b 100644
---- a/arch/m32r/include/uapi/asm/socket.h
-+++ b/arch/m32r/include/uapi/asm/socket.h
-@@ -78,4 +78,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _ASM_M32R_SOCKET_H */
-diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
-index 0df9787..a14baa2 100644
---- a/arch/mips/include/uapi/asm/socket.h
-+++ b/arch/mips/include/uapi/asm/socket.h
-@@ -96,4 +96,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
-index 71dedca..6aa3ce1 100644
---- a/arch/mn10300/include/uapi/asm/socket.h
-+++ b/arch/mn10300/include/uapi/asm/socket.h
-@@ -78,4 +78,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
-index 7c614d0..e789b32 100644
---- a/arch/parisc/include/uapi/asm/socket.h
-+++ b/arch/parisc/include/uapi/asm/socket.h
-@@ -77,6 +77,8 @@
- 
- #define SO_MAX_PACING_RATE	0x4048
- 
-+#define SO_BPF_EXTENSIONS	0x4029
-+
- /* O_NONBLOCK clashes with the bits used for socket types.  Therefore we
-  * have to define SOCK_NONBLOCK to a different value here.
-  */
-diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
-index fa69832..a9c3e2e 100644
---- a/arch/powerpc/include/uapi/asm/socket.h
-+++ b/arch/powerpc/include/uapi/asm/socket.h
-@@ -85,4 +85,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif	/* _ASM_POWERPC_SOCKET_H */
-diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
-index c286c2e..e031332 100644
---- a/arch/s390/include/uapi/asm/socket.h
-+++ b/arch/s390/include/uapi/asm/socket.h
-@@ -84,4 +84,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
-index 0f21e9a..54d9608 100644
---- a/arch/sparc/include/uapi/asm/socket.h
-+++ b/arch/sparc/include/uapi/asm/socket.h
-@@ -74,6 +74,8 @@
- 
- #define SO_MAX_PACING_RATE	0x0031
- 
-+#define SO_BPF_EXTENSIONS	0x0032
-+
- /* Security levels - as per NRL IPv6 - don't actually do anything */
- #define SO_SECURITY_AUTHENTICATION		0x5001
- #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
-diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
-index 7db5c22..39acec0 100644
---- a/arch/xtensa/include/uapi/asm/socket.h
-+++ b/arch/xtensa/include/uapi/asm/socket.h
-@@ -89,4 +89,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif	/* _XTENSA_SOCKET_H */
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index ff4e40c..9f0ea23 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -151,4 +151,22 @@ enum {
- 	BPF_S_ANC_PAY_OFFSET,
- };
- 
-+enum {
-+	BPF_ANC_FLAG_PROTOCOL         = (1 << 0),
-+	BPF_ANC_FLAG_PKTTYPE          =	(1 << 1),
-+	BPF_ANC_FLAG_IFINDEX          = (1 << 2),
-+	BPF_ANC_FLAG_NLATTR           = (1 << 3),
-+	BPF_ANC_FLAG_NLATTR_NEST      = (1 << 4),
-+	BPF_ANC_FLAG_MARK             = (1 << 5),
-+	BPF_ANC_FLAG_QUEUE            = (1 << 6),
-+	BPF_ANC_FLAG_HATYPE           = (1 << 7),
-+	BPF_ANC_FLAG_RXHASH           = (1 << 8),
-+	BPF_ANC_FLAG_CPU              = (1 << 9),
-+	BPF_ANC_FLAG_ALU_XOR_X        = (1 << 10),
-+	BPF_ANC_FLAG_SECCOMP_LD_W     = (1 << 11),
-+	BPF_ANC_FLAG_VLAN_TAG         = (1 << 12),
-+	BPF_ANC_FLAG_VLAN_TAG_PRESENT = (1 << 13),
-+	BPF_ANC_FLAG_PAY_OFFSET       = (1 << 14),
-+};
-+
- #endif /* __LINUX_FILTER_H__ */
-diff --git a/include/net/sock.h b/include/net/sock.h
-index e3a18ff..b0a1887 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -2282,4 +2282,23 @@ extern int sysctl_optmem_max;
- extern __u32 sysctl_wmem_default;
- extern __u32 sysctl_rmem_default;
- 
-+static inline int bpf_get_extensions(void)
-+{
-+	return BPF_ANC_FLAG_PROTOCOL |
-+		BPF_ANC_FLAG_PKTTYPE |
-+		BPF_ANC_FLAG_IFINDEX |
-+		BPF_ANC_FLAG_NLATTR |
-+		BPF_ANC_FLAG_NLATTR_NEST |
-+		BPF_ANC_FLAG_MARK |
-+		BPF_ANC_FLAG_QUEUE |
-+		BPF_ANC_FLAG_HATYPE |
-+		BPF_ANC_FLAG_RXHASH |
-+		BPF_ANC_FLAG_CPU |
-+		BPF_ANC_FLAG_ALU_XOR_X |
-+		BPF_ANC_FLAG_SECCOMP_LD_W |
-+		BPF_ANC_FLAG_VLAN_TAG |
-+		BPF_ANC_FLAG_VLAN_TAG_PRESENT |
-+		BPF_ANC_FLAG_PAY_OFFSET;
-+}
-+
- #endif	/* _SOCK_H */
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index 38f14d0..ea0796b 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -80,4 +80,6 @@
- 
- #define SO_MAX_PACING_RATE	47
- 
-+#define SO_BPF_EXTENSIONS	48
-+
- #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/net/core/sock.c b/net/core/sock.c
-index ab20ed9..2acec15 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1168,6 +1168,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 		v.val = sock_flag(sk, SOCK_FILTER_LOCKED);
- 		break;
- 
-+	case SO_BPF_EXTENSIONS:
-+		v.val = bpf_get_extensions();
-+		break;
-+
- 	case SO_SELECT_ERR_QUEUE:
- 		v.val = sock_flag(sk, SOCK_SELECT_ERR_QUEUE);
- 		break;
+ 	write_lock_bh(&neigh->lock);
+ 	__skb_queue_purge(&neigh->arp_queue);
 -- 
-1.8.3.1
+1.8.0
