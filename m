@@ -1,69 +1,43 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: Re: [PATCH 1/8] atm: eni: use DEFINE_PCI_DEVICE_TABLE macro
-Date: Thu, 28 Nov 2013 13:39:44 +0900
-Message-ID: <005701ceebf3$dc4ae840$94e0b8c0$%han@samsung.com>
-References: <004501ceebeb$27dcd970$77968c50$%han@samsung.com>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: Re: [RESEND PATCH net-next 0/4] net: several cleanups
+Date: Thu, 28 Nov 2013 12:42:51 +0800
+Message-ID: <CAEH94LiGPJ+NSWxsWMjyV==sQq56pyitYgyZHUrhFzm=kxt-sQ@mail.gmail.com>
+References: <1385602293-24024-1-git-send-email-zwu.kernel@gmail.com>
+	<20131127.204312.866055325581511577.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: 'Chas Williams' <chas@cmf.nrl.navy.mil>, netdev@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net,
-	'Francois Romieu' <romieu@fr.zoreil.com>,
-	'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org,
+	linux-kernel mlist <linux-kernel@vger.kernel.org>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:9453 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754471Ab3K1Eju (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 23:39:50 -0500
-Received: from epcpsbgr4.samsung.com
- (u144.gpu120.samsung.co.kr [203.254.230.144])
- by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MWY00IJ0IA8Z690@mailout4.samsung.com> for
- netdev@vger.kernel.org; Thu, 28 Nov 2013 13:39:45 +0900 (KST)
-In-reply-to: <004501ceebeb$27dcd970$77968c50$%han@samsung.com>
-Content-language: ko
+Received: from mail-oa0-f43.google.com ([209.85.219.43]:46926 "EHLO
+	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754667Ab3K1Emw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 23:42:52 -0500
+In-Reply-To: <20131127.204312.866055325581511577.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, November 28, 2013 12:37 PM, Jingoo Han wrote:
-> 
-> This macro is used to create a struct pci_device_id array.
-> 
-> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+On Thu, Nov 28, 2013 at 12:43 PM, David Miller <davem@davemloft.net> wrote:
+> From: Zhi Yong Wu <zwu.kernel@gmail.com>
+> Date: Thu, 28 Nov 2013 09:31:29 +0800
+>
+>> Per David's request, it's time to resend them now.
+>
+> No, it is not the time.
+>
+> You should not submit these kinds of patches until the net-next
+> tree is open again, and I make an announcement here when that
+> is the case.  I have yet to make such an announcement, and I
+> do not plan to do so for several days as I am travelling and
+> will be busy dealing with my backlog of patches once I get
+> home.
+ok, will wait for your announcement to be out.
 
-Please, ignore these patches.
-According to the Greg Kroah-Hartman, 
 
-"Yeah, and it's a horrid macro that deserves to be removed, please don't
-use it in more places.
 
-Actually, if you could just remove it, that would be best, sorry, I'm
-not going to take these patches."
+-- 
+Regards,
 
-So, I will send the patch to remove 'DEFINE_PCI_DEVICE_TABLE' instead.
-Sorry for annoying. :-)
-
-Best regards,
-Jingoo Han
-
-> ---
->  drivers/atm/eni.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
-> index b1955ba..846fc9e 100644
-> --- a/drivers/atm/eni.c
-> +++ b/drivers/atm/eni.c
-> @@ -2283,7 +2283,7 @@ err_disable:
->  }
-> 
-> 
-> -static struct pci_device_id eni_pci_tbl[] = {
-> +static DEFINE_PCI_DEVICE_TABLE(eni_pci_tbl) = {
->  	{ PCI_VDEVICE(EF, PCI_DEVICE_ID_EF_ATM_FPGA), 0 /* FPGA */ },
->  	{ PCI_VDEVICE(EF, PCI_DEVICE_ID_EF_ATM_ASIC), 1 /* ASIC */ },
->  	{ 0, }
-> --
-> 1.7.10.4
+Zhi Yong Wu
