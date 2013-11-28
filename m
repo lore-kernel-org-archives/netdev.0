@@ -1,38 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/5] tg3: Convert to use
- hwmon_device_register_with_groups
-Date: Thu, 28 Nov 2013 18:22:28 -0500 (EST)
-Message-ID: <20131128.182228.1780515135706805369.davem@davemloft.net>
-References: <1385186881-7931-1-git-send-email-linux@roeck-us.net>
-	<1385186881-7931-2-git-send-email-linux@roeck-us.net>
+Subject: Re: [PATCH] genetlink: Fix uninitialized variable in
+ genl_validate_assign_mc_groups()
+Date: Thu, 28 Nov 2013 18:25:05 -0500 (EST)
+Message-ID: <20131128.182505.1593147138692009632.davem@davemloft.net>
+References: <1385208110-17120-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, nsujir@broadcom.com, mchan@broadcom.com,
-	e1000-devel@lists.sourceforge.net, lm-sensors@lm-sensors.org
-To: linux@roeck-us.net
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: johannes.berg@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: geert@linux-m68k.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47351 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47367 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751089Ab3K1XWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 18:22:30 -0500
-In-Reply-To: <1385186881-7931-2-git-send-email-linux@roeck-us.net>
+	with ESMTP id S1751001Ab3K1XZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 18:25:07 -0500
+In-Reply-To: <1385208110-17120-1-git-send-email-geert@linux-m68k.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Fri, 22 Nov 2013 22:07:57 -0800
-
-> Use new hwmon API to simplify code, provide missing mandatory 'name'
-> sysfs attribute, and attach hwmon attributes to hwmon device instead
-> of pci device.
-> 
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-
-Applied, thanks.
-
-Jeff Kirsher will pull the rest of this series in via his Intel ethernet
-driver tree.
+RnJvbTogR2VlcnQgVXl0dGVyaG9ldmVuIDxnZWVydEBsaW51eC1tNjhrLm9yZz4NCkRhdGU6IFNh
+dCwgMjMgTm92IDIwMTMgMTM6MDE6NTAgKzAxMDANCg0KPiBuZXQvbmV0bGluay9nZW5ldGxpbmsu
+YzogSW4gZnVuY3Rpb24goWdlbmxfdmFsaWRhdGVfYXNzaWduX21jX2dyb3Vwc6I6DQo+IG5ldC9u
+ZXRsaW5rL2dlbmV0bGluay5jOjIxNzogd2FybmluZzogoWVycqIgbWF5IGJlIHVzZWQgdW5pbml0
+aWFsaXplZCBpbiB0aGlzDQo+IGZ1bmN0aW9uDQo+IA0KPiBDb21taXQgMmE5NGZlNDhmMzJjY2Y3
+MzIxNDUwYTJjYzA3ZjJiNzI0YTQ0NGU1YiAoImdlbmV0bGluazogbWFrZSBtdWx0aWNhc3QNCj4g
+Z3JvdXBzIGNvbnN0LCBwcmV2ZW50IGFidXNlIikgc3BsaXQgZ2VubF9yZWdpc3Rlcl9tY19ncm91
+cCgpIGluIG11bHRpcGxlDQo+IGZ1bmN0aW9ucywgYnV0IGRyb3BwZWQgdGhlIGluaXRpYWxpemF0
+aW9uIG9mIGVyci4NCj4gDQo+IEluaXRpYWxpemUgZXJyIHRvIHplcm8gdG8gZml4IHRoaXMuDQo+
+IA0KPiBTaWduZWQtb2ZmLWJ5OiBHZWVydCBVeXR0ZXJob2V2ZW4gPGdlZXJ0QGxpbnV4LW02OGsu
+b3JnPg0KPiAtLS0NCj4gUXVlc3Rpb246IElzIHRoZSBmb3JfZWFjaF9uZXRfcmN1KCkgbG9vcCBp
+biBnZW5sX3ZhbGlkYXRlX2Fzc2lnbl9tY19ncm91cHMoKQ0KPiAgICAgICAgICAgZ3VhcmFudGVl
+ZCB0byBsb29wIGF0IGxlYXN0IG9uY2U/DQo+IAkgIElmIHllcywgdGhpcyBpcyBhIGZhbHNlIHBv
+c2l0aXZlLg0KDQpBcHBsaWVkLCBidXQgeWVzIGl0J3MgYSBmYWxzZSBwb3NpdGl2ZS4gIFRoZXJl
+IGlzIGFsd2F5cyAmaW5pdF9uZXQgc28gdGhlDQpsb29wIGFsd2F5cyBpdGVyYXRlcyBhdCBsZWFz
+dCBvbmNlLg0K
