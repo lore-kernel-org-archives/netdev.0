@@ -1,41 +1,49 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: 3.13.0-rc1+ INFO: inconsistent lock state
-Date: Thu, 28 Nov 2013 08:18:06 +0100
-Message-ID: <20131128071806.GE20630@order.stressinduktion.org>
-References: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01>
+From: Srikanth Thokala <srikanth.thokala@xilinx.com>
+Subject: [PATCH 2/2] net: emaclite: add barriers to support Xilinx Zynq platform
+Date: Thu, 28 Nov 2013 12:59:57 +0530
+Message-ID: <9045da6f-88e5-4a20-be68-477790588131@TX2EHSMHS023.ehs.local>
+References: <1385623797-26034-1-git-send-email-sthokal@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: =?utf-8?B?7ZeI7KKF66eM?= <jongman.heo@samsung.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Michal Simek <michal.simek@xilinx.com>,
+	Srikanth Thokala <sthokal@xilinx.com>
+To: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:43671 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758468Ab3K1HSI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 02:18:08 -0500
-Content-Disposition: inline
-In-Reply-To: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01>
+Received: from tx2ehsobe002.messaging.microsoft.com ([65.55.88.12]:12027 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750741Ab3K1Hdh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 02:33:37 -0500
+In-Reply-To: <1385623797-26034-1-git-send-email-sthokal@xilinx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 28, 2013 at 04:17:56AM +0000, =ED=97=88=EC=A2=85=EB=A7=8C w=
-rote:
-> With current linus git (HEAD 8ae516aa), I got following kernel messag=
-e.
-> This is slightly different from what I had reported recently (14th No=
-v).
+This patch adds barriers at appropriate places to ensure the driver
+works on Xilinx Zynq ARM-based SoC platform.
 
-I guess the prolem is that the STATS _BH functions are to be used if th=
-ey
-are executed in bottom half and maybe people expect it to protect again=
-st
-bottom half. We seem to have some more of this problems in udp_sendmsg
-(this trace) and ping_sendmsg, maybe in tcp, too. The non-_BH functions
-actually disable bh.
+Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
+---
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-I'll check for more prolems and will post a patch.
-
-Thanks for reporting,
-
-  Hannes
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+index 3a693a1..31b8b6c 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -220,6 +220,7 @@ static void xemaclite_aligned_write(void *src_ptr, u32 *dest_ptr,
+ 		to_u16_ptr = (u16 *)&align_buffer;
+ 		*to_u16_ptr++ = *from_u16_ptr++;
+ 		*to_u16_ptr++ = *from_u16_ptr++;
++		wmb();
+ 
+ 		/* Output a word */
+ 		*to_u32_ptr++ = align_buffer;
+@@ -236,6 +237,7 @@ static void xemaclite_aligned_write(void *src_ptr, u32 *dest_ptr,
+ 		for (; length > 0; length--)
+ 			*to_u8_ptr++ = *from_u8_ptr++;
+ 
++		wmb();
+ 		*to_u32_ptr = align_buffer;
+ 	}
+ }
+-- 
+1.8.2.GIT
