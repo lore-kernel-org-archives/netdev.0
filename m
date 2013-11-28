@@ -1,49 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netem: fix loss generators
-Date: Thu, 28 Nov 2013 18:18:13 -0500 (EST)
-Message-ID: <20131128.181813.1984270468860720177.davem@davemloft.net>
-References: <20131121175419.59059598@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net v3] bonding: disable arp and enable mii monitoring
+ when bond change to no uses arp mode
+Date: Thu, 28 Nov 2013 18:20:49 -0500 (EST)
+Message-ID: <20131128.182049.1314421032838540772.davem@davemloft.net>
+References: <1384815032.4774.55.camel@dcbw.foobar.com>
+	<528ACD8A.1010409@greyhouse.net>
+	<528F6A1B.70904@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stefano.salsano@uniroma2.it, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: andy@greyhouse.net, dcbw@redhat.com, fubar@us.ibm.com,
+	nikolay@redhat.com, vfalico@redhat.com, netdev@vger.kernel.org
+To: dingtianhong@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47328 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47337 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072Ab3K1XSO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 18:18:14 -0500
-In-Reply-To: <20131121175419.59059598@nehalam.linuxnetplumber.net>
+	with ESMTP id S1751072Ab3K1XUv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 18:20:51 -0500
+In-Reply-To: <528F6A1B.70904@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Thu, 21 Nov 2013 17:54:19 -0800
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Fri, 22 Nov 2013 22:28:43 +0800
 
-> Patch from developers of the alternative loss models, downloaded from:
->    http://netgroup.uniroma2.it/twiki/bin/view.cgi/Main/NetemCLG
+> Because the ARP monitoring is not support for 802.3ad, but I still
+> could change the mode to 802.3ad from ab mode while ARP monitoring
+> is running, it is incorrect.
 > 
-> We found some bugs in our first implementation.
-> A first set of bugs is in the function loss_4state:
->    In the case 1 of the switch statement in the if conditions we
->     need to add clg->a4 to clg->a1, according to the model.
->    In the case 3 of the switch statement we need to delete "return
->     true" if the condition leads us in the state 1, because the state 1 is
->     a good state.
+> So add a check for 802.3ad in bonding_store_mode to fix the problem,
+> and make a new macro BOND_NO_USES_ARP() to simplify the code.
 > 
-> A second set of bugs is in the function loss_gilb_ell
->   In both cases of the switch statement we need to add the break
->     statement, because the two cases are mutually exclusive.
->   In the case 2, of the switch we change the direction of the inequality to
->     net_random()>clg->a3, because clg->a3 is h in the GE model and when h
->     is 0 all packets will be lost.
+> v2: according to the Dan Williams's suggestion, bond mode is the most
+>     important bond option, it should override any of the other sub-options.
+>     So when the mode is changed, the conficting values should be cleared
+>     or reset, otherwise the user has to duplicate more operations to modify
+>     the logic. I disable the arp and enable mii monitoring when the bond mode
+>     is changed to AB, TB and 8023AD if the arp interval is true.
 > 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> v3: according to the Nik's suggestion, the default value of miimon should need
+>     a name, there is several place to use it, and the bond_store_arp_interval()
+>     could use micro BOND_NO_USES_ARP to make the code more simpify.
+> 
+> Suggested-by: Dan Williams <dcbw@redhat.com>
+> Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 
-Stephen, can you adjust this patch to take into account commit:
-
-4a3ad7b3eade08ad1c760aaa4fe06a36f2584939
-
-as Hagen noted?
-
-Thank you.
+Applied, thanks for following up on this Ding.
