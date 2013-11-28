@@ -1,42 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH v2] diag: warn about missing first netlink attribute
-Date: Thu, 28 Nov 2013 18:16:54 -0500 (EST)
-Message-ID: <20131128.181654.469352290882758065.davem@davemloft.net>
-References: <20131128163816.GA32047@casper.infradead.org>
-	<1385659865-1926-1-git-send-email-nicolas.dichtel@6wind.com>
-	<20131128220909.GA4100@casper.infradead.org>
+Subject: Re: [PATCH net] netem: fix loss generators
+Date: Thu, 28 Nov 2013 18:18:13 -0500 (EST)
+Message-ID: <20131128.181813.1984270468860720177.davem@davemloft.net>
+References: <20131121175419.59059598@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: tgraf@suug.ch
+Cc: stefano.salsano@uniroma2.it, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47316 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47328 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072Ab3K1XQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 18:16:55 -0500
-In-Reply-To: <20131128220909.GA4100@casper.infradead.org>
+	with ESMTP id S1751072Ab3K1XSO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 18:18:14 -0500
+In-Reply-To: <20131121175419.59059598@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 28 Nov 2013 22:09:09 +0000
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 21 Nov 2013 17:54:19 -0800
 
-> On 11/28/13 at 06:31pm, Nicolas Dichtel wrote:
->> The first netlink attribute (value 0) must always be defined as none/unspec.
->> This is correctly done in inet_diag.h, but other diag interfaces are wrong.
->> 
->> Because we cannot change an existing API, I add a comment to point the mistake
->> and avoid to propagate it in a new diag API in the future.
->> 
->> CC: Thomas Graf <tgraf@suug.ch>
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> ---
->> 
->> v2: just warn about the missing attribute
->> 
->> If patch is approved, I will submit it when the net-next tree opens.
+> Patch from developers of the alternative loss models, downloaded from:
+>    http://netgroup.uniroma2.it/twiki/bin/view.cgi/Main/NetemCLG
 > 
-> Acked-by: Thomas Graf <tgraf@suug.ch>
+> We found some bugs in our first implementation.
+> A first set of bugs is in the function loss_4state:
+>    In the case 1 of the switch statement in the if conditions we
+>     need to add clg->a4 to clg->a1, according to the model.
+>    In the case 3 of the switch statement we need to delete "return
+>     true" if the condition leads us in the state 1, because the state 1 is
+>     a good state.
+> 
+> A second set of bugs is in the function loss_gilb_ell
+>   In both cases of the switch statement we need to add the break
+>     statement, because the two cases are mutually exclusive.
+>   In the case 2, of the switch we change the direction of the inequality to
+>     net_random()>clg->a3, because clg->a3 is h in the GE model and when h
+>     is 0 all packets will be lost.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied, thanks.
+Stephen, can you adjust this patch to take into account commit:
+
+4a3ad7b3eade08ad1c760aaa4fe06a36f2584939
+
+as Hagen noted?
+
+Thank you.
