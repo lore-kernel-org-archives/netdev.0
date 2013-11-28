@@ -1,59 +1,41 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net] af_packet: use spin_lock_bh() for sk_buff_head
-Date: Thu, 28 Nov 2013 08:06:23 +0100
-Message-ID: <20131128070623.GA24570@redhat.com>
-References: <1385557075-8896-1-git-send-email-vfalico@redhat.com>
- <1385569075.5352.12.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: 3.13.0-rc1+ INFO: inconsistent lock state
+Date: Thu, 28 Nov 2013 08:18:06 +0100
+Message-ID: <20131128071806.GE20630@order.stressinduktion.org>
+References: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, jstancek@redhat.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Phil Sutter <phil@nwl.cc>, Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: =?utf-8?B?7ZeI7KKF66eM?= <jongman.heo@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59574 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751129Ab3K1HJN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Nov 2013 02:09:13 -0500
+Received: from order.stressinduktion.org ([87.106.68.36]:43671 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758468Ab3K1HSI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 02:18:08 -0500
 Content-Disposition: inline
-In-Reply-To: <1385569075.5352.12.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 27, 2013 at 08:17:55AM -0800, Eric Dumazet wrote:
->On Wed, 2013-11-27 at 13:57 +0100, Veaceslav Falico wrote:
->> While running a debug kernel, a warning of inconsistent lock state showed
->> up for sk->sk_receive_queue->lock between packet_set_ring() (actually,
->> static prb_shutdown_retire_blk_timer(), which does spin_lock()) and
->> sock_queue_rcv_skb(), which does spin_lock_irqsave().
->>
->> Fix this by converting the spin_lock() used in
->> prb_shutdown_retire_blk_timer() to spin_lock_bh(), as it is used in
->> packet_set_ring().
->
->Patch is good, but description is slightly misleading.
+On Thu, Nov 28, 2013 at 04:17:56AM +0000, =ED=97=88=EC=A2=85=EB=A7=8C w=
+rote:
+> With current linus git (HEAD 8ae516aa), I got following kernel messag=
+e.
+> This is slightly different from what I had reported recently (14th No=
+v).
 
-Yep, thank you, will reword and resubmit.
+I guess the prolem is that the STATS _BH functions are to be used if th=
+ey
+are executed in bottom half and maybe people expect it to protect again=
+st
+bottom half. We seem to have some more of this problems in udp_sendmsg
+(this trace) and ping_sendmsg, maybe in tcp, too. The non-_BH functions
+actually disable bh.
 
->
->Problem is not because sock_queue_rcv_skb() uses spin_lock_irqsave().
->
->Problem is prb_retire_rx_blk_timer_expired() is called from softirq
->context.
->
->So if we do not block BH in prb_shutdown_retire_blk_timer() :
->
->spin_lock(&rb_queue->lock);
->pkc->delete_blk_timer = 1;
->spin_unlock(&rb_queue->lock);
->
->Timer could fire right in the middle and would spin forever trying
->to acquire the same lock.
->
->Using spin_lock_bh() prevents timer being fired on this cpu.
->
->Thanks !
->
->
+I'll check for more prolems and will post a patch.
+
+Thanks for reporting,
+
+  Hannes
