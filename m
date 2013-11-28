@@ -1,197 +1,237 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH net-next] netfilter: add IPComp extension match support
-Date: Thu, 28 Nov 2013 10:53:24 +0800
-Message-ID: <1385607204-27650-1-git-send-email-fan.du@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kaber@trash.net>, <netdev@vger.kernel.org>,
-	<netfilter-devel@vger.kernel.org>
-To: <steffen.klassert@secunet.com>, <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH v2] sfc: Convert to use hwmon_device_register_with_groups
+Date: Wed, 27 Nov 2013 18:54:31 -0800
+Message-ID: <1385607271-11842-1-git-send-email-linux@roeck-us.net>
+Cc: linux-net-drivers@solarflare.com,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	lm-sensors@lm-sensors.org, Guenter Roeck <linux@roeck-us.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:45998 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754118Ab3K1Cyg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 21:54:36 -0500
+Received: by mail-pd0-f172.google.com with SMTP id g10so11149947pdj.31
+        for <netdev@vger.kernel.org>; Wed, 27 Nov 2013 18:54:36 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With this plugin, user could specify IPComp tagged with certain 
-CPI that host not interested will be DROPped or any other action.
+Simplify the code. Avoid race conditions caused by attributes
+being created after hwmon device registration. Implicitly
+(through hwmon API) add mandatory 'name' sysfs attribute.
 
-For example:
-iptables -A INPUT -p 108 -m ipcomp --ipcompspi 0x87 -j DROP
-
-Then input IPComp packet with CPI equates 0x87 will not reach
-upper layer anymore.
-
-Signed-off-by: Fan Du <fan.du@windriver.com>
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- include/uapi/linux/netfilter_ipv4/ipt_comp.h |   17 +++++
- net/ipv4/netfilter/Kconfig                   |    9 +++
- net/ipv4/netfilter/Makefile                  |    1 +
- net/ipv4/netfilter/ipt_comp.c                |  101 ++++++++++++++++++++++++++
- 4 files changed, 128 insertions(+)
- create mode 100644 include/uapi/linux/netfilter_ipv4/ipt_comp.h
- create mode 100644 net/ipv4/netfilter/ipt_comp.c
+v2: Fix wrong dev_get_drvdata dereference in efx_mcdi_mon_get_entry()
 
-diff --git a/include/uapi/linux/netfilter_ipv4/ipt_comp.h b/include/uapi/linux/netfilter_ipv4/ipt_comp.h
-new file mode 100644
-index 0000000..d072202
---- /dev/null
-+++ b/include/uapi/linux/netfilter_ipv4/ipt_comp.h
-@@ -0,0 +1,17 @@
-+#ifndef _IPT_COMP_H
-+#define _IPT_COMP_H
-+
-+#include <linux/types.h>
-+
-+struct ipt_comp {
-+	__u32 spis[2];			/* Security Parameter Index */
-+	__u8  invflags;			/* Inverse flags */
-+};
-+
-+
-+
-+/* Values for "invflags" field in struct ipt_comp. */
-+#define IPT_IPCOMP_INV_SPI		0x01	/* Invert the sense of spi. */
-+#define IPT_IPCOMP_INV_MASK	0x01	/* All possible flags. */
-+
-+#endif /*_IPT_COMP_H*/
-diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index 40d5607..f71cf7b 100644
---- a/net/ipv4/netfilter/Kconfig
-+++ b/net/ipv4/netfilter/Kconfig
-@@ -81,6 +81,15 @@ config IP_NF_MATCH_AH
+ drivers/net/ethernet/sfc/mcdi.h     |    2 +
+ drivers/net/ethernet/sfc/mcdi_mon.c |   78 ++++++++++++++---------------------
+ 2 files changed, 32 insertions(+), 48 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index 656a327..15816ca 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -75,6 +75,8 @@ struct efx_mcdi_mon {
+ 	unsigned long last_update;
+ 	struct device *device;
+ 	struct efx_mcdi_mon_attribute *attrs;
++	struct attribute_group group;
++	const struct attribute_group *groups[2];
+ 	unsigned int n_attrs;
+ };
  
- 	  To compile it as a module, choose M here.  If unsure, say N.
+diff --git a/drivers/net/ethernet/sfc/mcdi_mon.c b/drivers/net/ethernet/sfc/mcdi_mon.c
+index 4cc5d95..d72ad4f 100644
+--- a/drivers/net/ethernet/sfc/mcdi_mon.c
++++ b/drivers/net/ethernet/sfc/mcdi_mon.c
+@@ -139,17 +139,10 @@ static int efx_mcdi_mon_update(struct efx_nic *efx)
+ 	return rc;
+ }
  
-+config IP_NF_MATCH_IPCOMP
-+	tristate '"ipcomp" match support'
-+	depends on NETFILTER_ADVANCED
-+	help
-+	  This match extension allows you to match a range of SPIs (Actually it's
-+	  Compression Parameter Index(CPI) inside IPComp header of IPSec packets.
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config IP_NF_MATCH_ECN
- 	tristate '"ecn" match support'
- 	depends on NETFILTER_ADVANCED
-diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
-index 19df72b..b67ecb8 100644
---- a/net/ipv4/netfilter/Makefile
-+++ b/net/ipv4/netfilter/Makefile
-@@ -45,6 +45,7 @@ obj-$(CONFIG_IP_NF_SECURITY) += iptable_security.o
+-static ssize_t efx_mcdi_mon_show_name(struct device *dev,
+-				      struct device_attribute *attr,
+-				      char *buf)
+-{
+-	return sprintf(buf, "%s\n", KBUILD_MODNAME);
+-}
+-
+ static int efx_mcdi_mon_get_entry(struct device *dev, unsigned int index,
+ 				  efx_dword_t *entry)
+ {
+-	struct efx_nic *efx = dev_get_drvdata(dev);
++	struct efx_nic *efx = dev_get_drvdata(dev->parent);
+ 	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
+ 	int rc;
  
- # matches
- obj-$(CONFIG_IP_NF_MATCH_AH) += ipt_ah.o
-+obj-$(CONFIG_IP_NF_MATCH_IPCOMP) += ipt_comp.o
- obj-$(CONFIG_IP_NF_MATCH_RPFILTER) += ipt_rpfilter.o
+@@ -263,7 +256,7 @@ static ssize_t efx_mcdi_mon_show_label(struct device *dev,
+ 		       efx_mcdi_sensor_type[mon_attr->type].label);
+ }
  
- # targets
-diff --git a/net/ipv4/netfilter/ipt_comp.c b/net/ipv4/netfilter/ipt_comp.c
-new file mode 100644
-index 0000000..7796e6e
---- /dev/null
-+++ b/net/ipv4/netfilter/ipt_comp.c
-@@ -0,0 +1,101 @@
-+/*  Kernel module to match IPComp parameters
-+ *
-+ *  Copyright (C) 2013 WindRiver
-+ *
-+ *  Author:
-+ *  Fan Du <fan.du@windriver.com>
-+ *
-+ *  Based on:
-+ *  net/ipv4/netfilter/ipt_ah.c
-+ *
-+ *  This program is free software; you can redistribute it and/or
-+ *  modify it under the terms of the GNU General Public License
-+ *  as published by the Free Software Foundation; either version
-+ *  2 of the License, or (at your option) any later version.
-+ */
-+
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+#include <linux/in.h>
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+
-+#include <linux/netfilter_ipv4/ipt_comp.h>
-+#include <linux/netfilter/x_tables.h>
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Fan Du <fan.du@windriver.com>");
-+MODULE_DESCRIPTION("Xtables: IPv4 IPsec-IPComp SPI match");
-+
-+/* Returns 1 if the spi is matched by the range, 0 otherwise */
-+static inline bool
-+spi_match(u_int32_t min, u_int32_t max, u_int32_t spi, bool invert)
-+{
-+	bool r;
-+	pr_debug("spi_match:%c 0x%x <= 0x%x <= 0x%x\n",
-+		 invert ? '!' : ' ', min, spi, max);
-+	r = (spi >= min && spi <= max) ^ invert;
-+	pr_debug(" result %s\n", r ? "PASS" : "FAILED");
-+	return r;
-+}
-+
-+static bool comp_mt(const struct sk_buff *skb, struct xt_action_param *par)
-+{
-+	struct ip_comp_hdr _comphdr;
-+	const struct ip_comp_hdr *chdr;
-+	const struct ipt_comp *compinfo = par->matchinfo;
-+
-+	/* Must not be a fragment. */
-+	if (par->fragoff != 0)
-+		return false;
-+
-+	chdr = skb_header_pointer(skb, par->thoff, sizeof(_comphdr), &_comphdr);
-+	if (chdr == NULL) {
-+		/* We've been asked to examine this packet, and we
-+		 * can't.  Hence, no choice but to drop.
-+		 */
-+		pr_debug("Dropping evil IPComp tinygram.\n");
-+		par->hotdrop = true;
-+		return 0;
+-static int
++static void
+ efx_mcdi_mon_add_attr(struct efx_nic *efx, const char *name,
+ 		      ssize_t (*reader)(struct device *,
+ 					struct device_attribute *, char *),
+@@ -272,7 +265,6 @@ efx_mcdi_mon_add_attr(struct efx_nic *efx, const char *name,
+ {
+ 	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
+ 	struct efx_mcdi_mon_attribute *attr = &hwmon->attrs[hwmon->n_attrs];
+-	int rc;
+ 
+ 	strlcpy(attr->name, name, sizeof(attr->name));
+ 	attr->index = index;
+@@ -286,10 +278,7 @@ efx_mcdi_mon_add_attr(struct efx_nic *efx, const char *name,
+ 	attr->dev_attr.attr.name = attr->name;
+ 	attr->dev_attr.attr.mode = S_IRUGO;
+ 	attr->dev_attr.show = reader;
+-	rc = device_create_file(&efx->pci_dev->dev, &attr->dev_attr);
+-	if (rc == 0)
+-		++hwmon->n_attrs;
+-	return rc;
++	hwmon->group.attrs[hwmon->n_attrs++] = &attr->dev_attr.attr;
+ }
+ 
+ int efx_mcdi_mon_probe(struct efx_nic *efx)
+@@ -338,26 +327,22 @@ int efx_mcdi_mon_probe(struct efx_nic *efx)
+ 	efx_mcdi_mon_update(efx);
+ 
+ 	/* Allocate space for the maximum possible number of
+-	 * attributes for this set of sensors: name of the driver plus
++	 * attributes for this set of sensors:
+ 	 * value, min, max, crit, alarm and label for each sensor.
+ 	 */
+-	n_attrs = 1 + 6 * n_sensors;
++	n_attrs = 6 * n_sensors;
+ 	hwmon->attrs = kcalloc(n_attrs, sizeof(*hwmon->attrs), GFP_KERNEL);
+ 	if (!hwmon->attrs) {
+ 		rc = -ENOMEM;
+ 		goto fail;
+ 	}
+-
+-	hwmon->device = hwmon_device_register(&efx->pci_dev->dev);
+-	if (IS_ERR(hwmon->device)) {
+-		rc = PTR_ERR(hwmon->device);
++	hwmon->group.attrs = kcalloc(n_attrs + 1, sizeof(struct attribute *),
++				     GFP_KERNEL);
++	if (!hwmon->group.attrs) {
++		rc = -ENOMEM;
+ 		goto fail;
+ 	}
+ 
+-	rc = efx_mcdi_mon_add_attr(efx, "name", efx_mcdi_mon_show_name, 0, 0, 0);
+-	if (rc)
+-		goto fail;
+-
+ 	for (i = 0, j = -1, type = -1; ; i++) {
+ 		enum efx_hwmon_type hwmon_type;
+ 		const char *hwmon_prefix;
+@@ -372,7 +357,7 @@ int efx_mcdi_mon_probe(struct efx_nic *efx)
+ 				page = type / 32;
+ 				j = -1;
+ 				if (page == n_pages)
+-					return 0;
++					goto hwmon_register;
+ 
+ 				MCDI_SET_DWORD(inbuf, SENSOR_INFO_EXT_IN_PAGE,
+ 					       page);
+@@ -453,28 +438,22 @@ int efx_mcdi_mon_probe(struct efx_nic *efx)
+ 		if (min1 != max1) {
+ 			snprintf(name, sizeof(name), "%s%u_input",
+ 				 hwmon_prefix, hwmon_index);
+-			rc = efx_mcdi_mon_add_attr(
++			efx_mcdi_mon_add_attr(
+ 				efx, name, efx_mcdi_mon_show_value, i, type, 0);
+-			if (rc)
+-				goto fail;
+ 
+ 			if (hwmon_type != EFX_HWMON_POWER) {
+ 				snprintf(name, sizeof(name), "%s%u_min",
+ 					 hwmon_prefix, hwmon_index);
+-				rc = efx_mcdi_mon_add_attr(
++				efx_mcdi_mon_add_attr(
+ 					efx, name, efx_mcdi_mon_show_limit,
+ 					i, type, min1);
+-				if (rc)
+-					goto fail;
+ 			}
+ 
+ 			snprintf(name, sizeof(name), "%s%u_max",
+ 				 hwmon_prefix, hwmon_index);
+-			rc = efx_mcdi_mon_add_attr(
++			efx_mcdi_mon_add_attr(
+ 				efx, name, efx_mcdi_mon_show_limit,
+ 				i, type, max1);
+-			if (rc)
+-				goto fail;
+ 
+ 			if (min2 != max2) {
+ 				/* Assume max2 is critical value.
+@@ -482,32 +461,38 @@ int efx_mcdi_mon_probe(struct efx_nic *efx)
+ 				 */
+ 				snprintf(name, sizeof(name), "%s%u_crit",
+ 					 hwmon_prefix, hwmon_index);
+-				rc = efx_mcdi_mon_add_attr(
++				efx_mcdi_mon_add_attr(
+ 					efx, name, efx_mcdi_mon_show_limit,
+ 					i, type, max2);
+-				if (rc)
+-					goto fail;
+ 			}
+ 		}
+ 
+ 		snprintf(name, sizeof(name), "%s%u_alarm",
+ 			 hwmon_prefix, hwmon_index);
+-		rc = efx_mcdi_mon_add_attr(
++		efx_mcdi_mon_add_attr(
+ 			efx, name, efx_mcdi_mon_show_alarm, i, type, 0);
+-		if (rc)
+-			goto fail;
+ 
+ 		if (type < ARRAY_SIZE(efx_mcdi_sensor_type) &&
+ 		    efx_mcdi_sensor_type[type].label) {
+ 			snprintf(name, sizeof(name), "%s%u_label",
+ 				 hwmon_prefix, hwmon_index);
+-			rc = efx_mcdi_mon_add_attr(
++			efx_mcdi_mon_add_attr(
+ 				efx, name, efx_mcdi_mon_show_label, i, type, 0);
+-			if (rc)
+-				goto fail;
+ 		}
+ 	}
+ 
++hwmon_register:
++	hwmon->groups[0] = &hwmon->group;
++	hwmon->device = hwmon_device_register_with_groups(&efx->pci_dev->dev,
++							  KBUILD_MODNAME, NULL,
++							  hwmon->groups);
++	if (IS_ERR(hwmon->device)) {
++		rc = PTR_ERR(hwmon->device);
++		goto fail;
 +	}
 +
-+	return spi_match(compinfo->spis[0], compinfo->spis[1],
-+			 ntohl(chdr->cpi << 16),
-+			 !!(compinfo->invflags & IPT_IPCOMP_INV_SPI));
-+}
-+
-+static int comp_mt_check(const struct xt_mtchk_param *par)
-+{
-+	const struct ipt_comp *compinfo = par->matchinfo;
-+
-+	/* Must specify no unknown invflags */
-+	if (compinfo->invflags & ~IPT_IPCOMP_INV_MASK) {
-+		pr_debug("unknown flags %X\n", compinfo->invflags);
-+		return -EINVAL;
-+	}
 +	return 0;
-+}
 +
-+static struct xt_match comp_mt_reg __read_mostly = {
-+	.name		= "ipcomp",
-+	.family		= NFPROTO_IPV4,
-+	.match		= comp_mt,
-+	.matchsize	= sizeof(struct ipt_comp),
-+	.proto		= IPPROTO_COMP,
-+	.checkentry	= comp_mt_check,
-+	.me		= THIS_MODULE,
-+};
-+
-+static int __init comp_mt_init(void)
-+{
-+	return xt_register_match(&comp_mt_reg);
-+}
-+
-+static void __exit comp_mt_exit(void)
-+{
-+	xt_unregister_match(&comp_mt_reg);
-+}
-+
-+module_init(comp_mt_init);
-+module_exit(comp_mt_exit);
+ fail:
+ 	efx_mcdi_mon_remove(efx);
+ 	return rc;
+@@ -516,14 +501,11 @@ fail:
+ void efx_mcdi_mon_remove(struct efx_nic *efx)
+ {
+ 	struct efx_mcdi_mon *hwmon = efx_mcdi_mon(efx);
+-	unsigned int i;
+ 
+-	for (i = 0; i < hwmon->n_attrs; i++)
+-		device_remove_file(&efx->pci_dev->dev,
+-				   &hwmon->attrs[i].dev_attr);
+-	kfree(hwmon->attrs);
+ 	if (hwmon->device)
+ 		hwmon_device_unregister(hwmon->device);
++	kfree(hwmon->attrs);
++	kfree(hwmon->group.attrs);
+ 	efx_nic_free_buffer(efx, &hwmon->dma_buf);
+ }
+ 
 -- 
-1.7.9.5
-
+1.7.9.7
