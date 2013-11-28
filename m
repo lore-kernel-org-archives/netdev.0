@@ -1,29 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND PATCH net-next 0/4] net: several cleanups
-Date: Wed, 27 Nov 2013 20:43:12 -0800 (PST)
-Message-ID: <20131127.204312.866055325581511577.davem@davemloft.net>
-References: <1385602293-24024-1-git-send-email-zwu.kernel@gmail.com>
+Subject: Re: [PATCH 1/8] atm: eni: use DEFINE_PCI_DEVICE_TABLE macro
+Date: Wed, 27 Nov 2013 20:44:49 -0800 (PST)
+Message-ID: <20131127.204449.1385789184009780466.davem@davemloft.net>
+References: <004501ceebeb$27dcd970$77968c50$%han@samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	wuzhy@linux.vnet.ibm.com
-To: zwu.kernel@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1385602293-24024-1-git-send-email-zwu.kernel@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: chas@cmf.nrl.navy.mil, netdev@vger.kernel.org,
+	linux-atm-general@lists.sourceforge.net, romieu@fr.zoreil.com
+To: jg1.han@samsung.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41466 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932245Ab3K1EgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 23:36:06 -0500
+In-Reply-To: <004501ceebeb$27dcd970$77968c50$%han@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Date: Thu, 28 Nov 2013 09:31:29 +0800
 
-> Per David's request, it's time to resend them now.
-
-No, it is not the time.
-
-You should not submit these kinds of patches until the net-next
-tree is open again, and I make an announcement here when that
-is the case.  I have yet to make such an announcement, and I
-do not plan to do so for several days as I am travelling and
-will be busy dealing with my backlog of patches once I get
-home.
+It is not appropriate to submit changes like this at this time
+as the net-next tree is not open.
