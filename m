@@ -1,79 +1,216 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: packet: use macro GET_PBDQC_FROM_RB to simplify the codes
-Date: Thu, 28 Nov 2013 11:27:02 +0100
-Message-ID: <52971A76.4020202@redhat.com>
-References: <529712A7.3010604@cn.fujitsu.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 1/2] virtio_net: fix error handling for mergeable buffers
+Date: Thu, 28 Nov 2013 13:14:47 +0200
+Message-ID: <20131128111447.GA26534@redhat.com>
+References: <1385569684-26595-1-git-send-email-mst@redhat.com>
+	<5296B525.5060509@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54686 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754631Ab3K1K1K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Nov 2013 05:27:10 -0500
-In-Reply-To: <529712A7.3010604@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michael Dalton <mwdalton@google.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <5296B525.5060509@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 11/28/2013 10:53 AM, Duan Jiong wrote:
+On Thu, Nov 28, 2013 at 11:14:45AM +0800, Jason Wang wrote:
+> On 11/28/2013 12:31 AM, Michael S. Tsirkin wrote:
+> > Eric Dumazet noticed that if we encounter an error
+> > when processing a mergeable buffer, we don't
+> > dequeue all of the buffers from this packet,
+> > the result is almost sure to be loss of networking.
+> >
+> > Jason Wang noticed that we also leak a page and that we don't decrement
+> > the rq buf count, so we won't repost buffers (a resource leak).
+> >
+> > Fix both issues, and also make the logic a bit more
+> > robust against device errors by not looping when e.g. because of a leak
+> > like the one we are fixing here the number of buffers is 0.
+> >
+> > Cc: Rusty Russell <rusty@rustcorp.com.au>
+> > Cc: Michael Dalton <mwdalton@google.com>
+> > Reported-by: Eric Dumazet <edumazet@google.com>
+> > Reported-by: Jason Wang <jasowang@redhat.com>
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > ---
+> >
+> > Note: this bugfix is needed on stable too, but backport
+> > might not be trivial.
+> > I'll send a backport for stable separately.
 > 
+> That will be fine.
+> >
+> >  drivers/net/virtio_net.c | 84 ++++++++++++++++++++++++++++++------------------
+> >  1 file changed, 52 insertions(+), 32 deletions(-)
+> >
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index 7bab4de..0e6ea69 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -299,41 +299,53 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
+> >  	return skb;
+> >  }
+> >  
+> > -static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+> > +static struct sk_buff *receive_mergeable(struct net_device *dev,
+> > +					 struct receive_queue *rq,
+> > +					 void *buf,
+> > +					 unsigned int len)
+> >  {
+> > -	struct skb_vnet_hdr *hdr = skb_vnet_hdr(head_skb);
+> > +	struct skb_vnet_hdr *hdr = buf;
+> > +	int num_buf = hdr->mhdr.num_buffers;
+> > +	struct page *page = virt_to_head_page(buf);
+> > +	int offset = buf - page_address(page);
+> > +	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len,
+> > +					       MERGE_BUFFER_LEN);
+> >  	struct sk_buff *curr_skb = head_skb;
+> > -	char *buf;
+> > -	struct page *page;
+> > -	int num_buf, len, offset;
+> >  
+> > -	num_buf = hdr->mhdr.num_buffers;
+> > +	if (unlikely(!curr_skb))
+> > +		goto err_skb;
+> > +
+> >  	while (--num_buf) {
+> > -		int num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
+> > +		int num_skb_frags;
+> > +
+> >  		buf = virtqueue_get_buf(rq->vq, &len);
+> >  		if (unlikely(!buf)) {
+> > -			pr_debug("%s: rx error: %d buffers missing\n",
+> > -				 head_skb->dev->name, hdr->mhdr.num_buffers);
+> > -			head_skb->dev->stats.rx_length_errors++;
+> > -			return -EINVAL;
+> > +			pr_debug("%s: rx error: %d buffers out of %d missing\n",
+> > +				 dev->name, num_buf, hdr->mhdr.num_buffers);
+> > +			dev->stats.rx_length_errors++;
+> > +			goto err_buf;
 > 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> Not sure it's correct here. Since the we break immediately if buffer is
+> missed in err_buf and rx_length_error will be miss counted.
 
-Please resubmit when net-next is open.
+Note that this never happens: it's an internal device error, we are
+just trying to be defensive here. I would not worry about getting
+error counters right in this case.
 
-> ---
->   net/packet/af_packet.c | 10 ++++++----
->   1 file changed, 6 insertions(+), 4 deletions(-)
+But I agree - since we know virtqueue_get_buf failed it's useless to try
+and get more. So let's move the loop before the err_buf label.
+
+> Maybe an ERR_PTR(-EINVAL) is better.
+
+This will just make callers worry about checking IS_ERR, and
+caller returns void so it has nothing to do with the return code anyway.
+
+> >  		}
+> >  		if (unlikely(len > MERGE_BUFFER_LEN)) {
+> >  			pr_debug("%s: rx error: merge buffer too long\n",
+> > -				 head_skb->dev->name);
+> > +				 dev->name);
+> >  			len = MERGE_BUFFER_LEN;
+> >  		}
+> > +
+> > +		page = virt_to_head_page(buf);
+> > +		--rq->num;
+> > +
+> > +		num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
+> >  		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
+> >  			struct sk_buff *nskb = alloc_skb(0, GFP_ATOMIC);
+> > -			if (unlikely(!nskb)) {
+> > -				head_skb->dev->stats.rx_dropped++;
+> > -				return -ENOMEM;
+> > -			}
+> > +
+> > +			if (unlikely(!nskb))
+> > +				goto err_skb;
+> >  			if (curr_skb == head_skb)
+> >  				skb_shinfo(curr_skb)->frag_list = nskb;
+> >  			else
+> >  				curr_skb->next = nskb;
+> > -			curr_skb = nskb;
+> >  			head_skb->truesize += nskb->truesize;
+> > +			curr_skb = nskb;
 > 
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 2e8286b..955611f 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -430,7 +430,8 @@ static void prb_shutdown_retire_blk_timer(struct packet_sock *po,
->   {
->   	struct tpacket_kbdq_core *pkc;
->   
-> -	pkc = tx_ring ? &po->tx_ring.prb_bdqc : &po->rx_ring.prb_bdqc;
-> +	pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring)
-> +		      : GET_PBDQC_FROM_RB(&po->rx_ring);
+> This change seems unnecessary.
 
-Nit: the colon should actually still be on the previous line.
+Right, I'll drop it.
 
-It would be nice if at some point in time we could get rid of these TPACKET_V3 specific
-macros and actually use some inline functions.
-
->   
->   	spin_lock(&rb_queue->lock);
->   	pkc->delete_blk_timer = 1;
-> @@ -456,7 +457,8 @@ static void prb_setup_retire_blk_timer(struct packet_sock *po, int tx_ring)
->   	if (tx_ring)
->   		BUG();
->   
-> -	pkc = tx_ring ? &po->tx_ring.prb_bdqc : &po->rx_ring.prb_bdqc;
-> +	pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring)
-> +		      : GET_RBDQC_FROM_RB(&po->rx_ring);
->   	prb_init_blk_timer(po, pkc, prb_retire_rx_blk_timer_expired);
->   }
->   
-> @@ -514,7 +516,7 @@ static void init_prb_bdqc(struct packet_sock *po,
->   			struct pgv *pg_vec,
->   			union tpacket_req_u *req_u, int tx_ring)
->   {
-> -	struct tpacket_kbdq_core *p1 = &rb->prb_bdqc;
-> +	struct tpacket_kbdq_core *p1 = GET_PBDQC_FROM_RB(rb);
->   	struct tpacket_block_desc *pbd;
->   
->   	memset(p1, 0x0, sizeof(*p1));
-> @@ -578,7 +580,7 @@ static void _prb_refresh_rx_retire_blk_timer(struct tpacket_kbdq_core *pkc)
->   static void prb_retire_rx_blk_timer_expired(unsigned long data)
->   {
->   	struct packet_sock *po = (struct packet_sock *)data;
-> -	struct tpacket_kbdq_core *pkc = &po->rx_ring.prb_bdqc;
-> +	struct tpacket_kbdq_core *pkc = GET_PBDQC_FROM_RB(&po->rx_ring);
->   	unsigned int frozen;
->   	struct tpacket_block_desc *pbd;
->   
-> 
+> Other looks good.
+> >  			num_skb_frags = 0;
+> >  		}
+> >  		if (curr_skb != head_skb) {
+> > @@ -341,8 +353,7 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+> >  			head_skb->len += len;
+> >  			head_skb->truesize += MERGE_BUFFER_LEN;
+> >  		}
+> > -		page = virt_to_head_page(buf);
+> > -		offset = buf - (char *)page_address(page);
+> > +		offset = buf - page_address(page);
+> >  		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
+> >  			put_page(page);
+> >  			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
+> > @@ -351,9 +362,28 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+> >  			skb_add_rx_frag(curr_skb, num_skb_frags, page,
+> >  					offset, len, MERGE_BUFFER_LEN);
+> >  		}
+> > +	}
+> > +
+> > +	return head_skb;
+> > +
+> > +err_skb:
+> > +	put_page(page);
+> > +err_buf:
+> > +	dev->stats.rx_dropped++;
+> > +	dev_kfree_skb(head_skb);
+> > +	while (--num_buf) {
+> > +		buf = virtqueue_get_buf(rq->vq, &len);
+> > +		if (unlikely(!buf)) {
+> > +			pr_debug("%s: rx error: %d buffers missing\n",
+> > +				 dev->name, num_buf);
+> > +			dev->stats.rx_length_errors++;
+> > +			break;
+> > +		}
+> > +		page = virt_to_head_page(buf);
+> > +		put_page(page);
+> >  		--rq->num;
+> >  	}
+> > -	return 0;
+> > +	return NULL;
+> >  }
+> >  
+> >  static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+> > @@ -382,19 +412,9 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+> >  		len -= sizeof(struct virtio_net_hdr);
+> >  		skb_trim(skb, len);
+> >  	} else if (vi->mergeable_rx_bufs) {
+> > -		struct page *page = virt_to_head_page(buf);
+> > -		skb = page_to_skb(rq, page,
+> > -				  (char *)buf - (char *)page_address(page),
+> > -				  len, MERGE_BUFFER_LEN);
+> > -		if (unlikely(!skb)) {
+> > -			dev->stats.rx_dropped++;
+> > -			put_page(page);
+> > +		skb = receive_mergeable(dev, rq, buf, len);
+> > +		if (unlikely(!skb))
+> >  			return;
+> > -		}
+> > -		if (receive_mergeable(rq, skb)) {
+> > -			dev_kfree_skb(skb);
+> > -			return;
+> > -		}
+> >  	} else {
+> >  		page = buf;
+> >  		skb = page_to_skb(rq, page, 0, len, PAGE_SIZE);
