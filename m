@@ -1,79 +1,54 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 5/8] e1000: fix possible reset_task running after adapter down
-Date: Wed, 27 Nov 2013 23:35:59 -0800
-Message-ID: <1385624162-10116-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1385624162-10116-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Vladimir Davydov <VDavydov@parallels.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Tushar Dave <tushar.n.dave@intel.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Vladimir Davydov <vdavydov@parallels.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net] r8169: check ALDPS bit and disable it if enabledforthe 8168g
+Date: Thu, 28 Nov 2013 15:58:53 +0800
+Message-ID: <3D20A16DBE2E409ABD3A208B40879CC5@realtek.com.tw>
+References: <1385538516-32104-1-git-send-email-dchang@suse.com> <103D217663F345E1877FB05AC93E3CFF@realtek.com.tw> <20131128042904.GA9297@linux-g7tt.site> <39CC8E82FCD4479EAB9EDB7D7F708397@realtek.com.tw> <20131128062257.GB9297@linux-g7tt.site>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	"'David S. Miller'" <davem@davemloft.net>,
+	'Francois Romieu' <romieu@fr.zoreil.com>, <jlee@suse.com>,
+	'nic_swsd' <nic_swsd@realtek.com>
+To: 'David Chang' <dchang@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:62417 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753122Ab3K1Hge (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Nov 2013 02:36:34 -0500
-In-Reply-To: <1385624162-10116-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from rtits2.realtek.com ([60.250.210.242]:55495 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750781Ab3K1H7T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 02:59:19 -0500
+In-Reply-To: <20131128062257.GB9297@linux-g7tt.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladimir Davydov <VDavydov@parallels.com>
+ David Chang [mailto:dchang@suse.com] 
+> Sent: Thursday, November 28, 2013 2:23 PM
+> To: Hayeswang
+> Cc: netdev@vger.kernel.org; 'David S. Miller'; 'Francois 
+> Romieu'; jlee@suse.com; nic_swsd
+> Subject: Re: [PATCH net] r8169: check ALDPS bit and disable 
+> it if enabledforthe 8168g
+> 
+> On Thu, Nov 28, 2013 at 01:28:08PM +0800, hayeswang wrote:
+> >  David Chang [mailto:dchang@suse.com] 
+> > > Sent: Thursday, November 28, 2013 12:29 PM
+> > > To: Hayeswang
+> > > Cc: netdev@vger.kernel.org; 'David S. Miller'; 'Francois 
+> > > Romieu'; jlee@suse.com; nic_swsd
+> > > Subject: Re: [PATCH net] r8169: check ALDPS bit and disable 
+> > > it if enabled forthe 8168g
+> > [...]
+> > > > You have to delay at least 10 ms after disable it.
+> > > > This makes sure the hw completes the action.
+> > > >  
+> > > 
+> > > Thanks for your comment. 
+> > > I'd add a delay time and send the v2 version.
+> > 
+> > Excuse me. Our engineers have different opinions about the delay.
+> > I would comfirm it first.
+> >  
+> OK! I'd wait until the final result, thanks!
 
-On e1000_down(), we should ensure every asynchronous work is canceled
-before proceeding. Since the watchdog_task can schedule other works
-apart from itself, it should be stopped first, but currently it is
-stopped after the reset_task. This can result in the following race
-leading to the reset_task running after the module unload:
+The delay is unnecessary. Thanks.
 
-e1000_down_and_stop():			e1000_watchdog():
-----------------------			-----------------
-
-cancel_work_sync(reset_task)
-					schedule_work(reset_task)
-cancel_delayed_work_sync(watchdog_task)
-
-The patch moves cancel_delayed_work_sync(watchdog_task) at the beginning
-of e1000_down_and_stop() thus ensuring the race is impossible.
-
-Cc: Tushar Dave <tushar.n.dave@intel.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Vladimir Davydov <vdavydov@parallels.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 619b0cb..46e6544 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -494,13 +494,20 @@ static void e1000_down_and_stop(struct e1000_adapter *adapter)
- {
- 	set_bit(__E1000_DOWN, &adapter->flags);
- 
--	/* Only kill reset task if adapter is not resetting */
--	if (!test_bit(__E1000_RESETTING, &adapter->flags))
--		cancel_work_sync(&adapter->reset_task);
--
- 	cancel_delayed_work_sync(&adapter->watchdog_task);
-+
-+	/*
-+	 * Since the watchdog task can reschedule other tasks, we should cancel
-+	 * it first, otherwise we can run into the situation when a work is
-+	 * still running after the adapter has been turned down.
-+	 */
-+
- 	cancel_delayed_work_sync(&adapter->phy_info_task);
- 	cancel_delayed_work_sync(&adapter->fifo_stall_task);
-+
-+	/* Only kill reset task if adapter is not resetting */
-+	if (!test_bit(__E1000_RESETTING, &adapter->flags))
-+		cancel_work_sync(&adapter->reset_task);
- }
- 
- void e1000_down(struct e1000_adapter *adapter)
--- 
-1.8.3.1
+Acked-by: Hayes Wang <hayeswang@realtek.com>
