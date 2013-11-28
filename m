@@ -1,74 +1,41 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net] diag: fix netlink API attributes
-Date: Thu, 28 Nov 2013 22:19:16 +0000
-Message-ID: <20131128221916.GB4100@casper.infradead.org>
-References: <1385647039-1547-1-git-send-email-nicolas.dichtel@6wind.com>
- <20131128163816.GA32047@casper.infradead.org>
- <52977F44.6070002@6wind.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] inet: further fixes of possible seqlock deadlocks
+Date: Thu, 28 Nov 2013 23:19:26 +0100
+Message-ID: <20131128221926.GG24171@order.stressinduktion.org>
+References: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01> <1385659390.5352.20.camel@edumazet-glaptop2.roam.corp.google.com> <1385661082.5352.34.camel@edumazet-glaptop2.roam.corp.google.com> <20131128192231.GE24171@order.stressinduktion.org> <1385672502.5352.38.camel@edumazet-glaptop2.roam.corp.google.com> <20131128212700.GF24171@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=utf-8
+To: Eric Dumazet <eric.dumazet@gmail.com>, jongman.heo@samsung.com,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:60578 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751001Ab3K1WTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 17:19:17 -0500
+Received: from order.stressinduktion.org ([87.106.68.36]:45222 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751015Ab3K1WT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 17:19:27 -0500
 Content-Disposition: inline
-In-Reply-To: <52977F44.6070002@6wind.com>
+In-Reply-To: <20131128212700.GF24171@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/28/13 at 06:37pm, Nicolas Dichtel wrote:
-> Le 28/11/2013 17:38, Thomas Graf a =E9crit :
-> >On 11/28/13 at 02:57pm, Nicolas Dichtel wrote:
-> >>The first netlink attribute (value 0) must always be defined as non=
-e/unspec.
-> >>This is correctly done in inet_diag.h, but other diag interfaces ar=
-e broken.
-> >>
-> >>Libraries like libnl skip this kind of attributes, thus it's never =
-reported to
-> >>the application.
-> >>
-> >>CC: Thomas Graf <tgraf@suug.ch>
-> >>Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> >
-> >First of all, thanks for the notification Nicolas. I'll fix libnl to
-> >pass through these attributes.
-> Fine :)
-> Thank you!
+On Thu, Nov 28, 2013 at 10:27:00PM +0100, Hannes Frederic Sowa wrote:
+> > > @@ -1524,8 +1524,8 @@ int ip6_push_pending_frames(struct sock *sk)
+> > >  	if (proto == IPPROTO_ICMPV6) {
+> > >  		struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
+> > >  
+> > > -		ICMP6MSGOUT_INC_STATS_BH(net, idev, icmp6_hdr(skb)->icmp6_type);
+> > > -		ICMP6_INC_STATS_BH(net, idev, ICMP6_MIB_OUTMSGS);
+> > > +		ICMP6MSGOUT_INC_STATS(net, idev, icmp6_hdr(skb)->icmp6_type);
+> > > +		ICMP6_INC_STATS(net, idev, ICMP6_MIB_OUTMSGS);
+> > 
+> > I am not sure we use a seqlock for ICMP stats.
+> > 
+> > seqlocks were used for 64bit IP stats
+> 
+> True, atomic longs get used here in both cases.
 
-=46ixed in:
+I don't really understand why we distinguish between _BH and plain ICMP stat
+calls then.
 
-commit 6a8d90f5fec48b6e376ff29ccf3e0c620a41e758
-Author: Thomas Graf <tgraf@suug.ch>
-Date:   Thu Nov 28 23:14:38 2013 +0100
-
-    attr: Allow attribute type 0
-
-    {netlink,packet,unix}_diag use attribute type 0 for valid
-    attributes. The value was reserved and usage was prohibited
-    by the protocol but we can't undo the breakge.
-   =20
-    Make libnl accept attribute type 0 to allow parsing these
-    attributes.
-   =20
-    Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-    Signed-off-by: Thomas Graf <tgraf@suug.ch>
-
-> >I think the fix you propose is no an option as it breaks backwards
-> >compatiblity with existing user space. We cannot change the value
-> >of existing attributes.
-> Yes, I was just wondering how to fix it.
-> It also breaks the patch you've proposed in this thread:
-> http://thread.gmane.org/gmane.linux.network/251478/focus=3D252764
->=20
-> Hence, aligning attributes on 64-bits is still unresolved :(
-
-Unfortunately I ran into other places where an attribute type 0
-was used. Therefore the idea of using NLA_UNSPEC (0) to insert
-padding attributes doesn't work. We would need to find another
-way to insert padding. I'll be glad to share the WIP patch if
-somebody else would like to continue the work.
+The non-_BH versions deactivate interrupts when updating the per-cpu counter.
