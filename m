@@ -1,32 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2013-11-27
-Date: Thu, 28 Nov 2013 18:42:03 -0500 (EST)
-Message-ID: <20131128.184203.1814210379631673420.davem@davemloft.net>
-References: <1385586695-11134-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: [PATCH net 1/1] via-velocity: fix netif_receive_skb use in irq
+ disabled section.
+Date: Thu, 28 Nov 2013 18:45:29 -0500 (EST)
+Message-ID: <20131128.184529.1997166326512828518.davem@davemloft.net>
+References: <20131125234058.GA12566@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1385586695-11134-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, aaschmidt1@gmail.com, michele@acksyn.org,
+	jamie@audible.transient.net, Julia.Lawall@lip6.fr
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47486 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751749Ab3K1Xpb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 18:45:31 -0500
+In-Reply-To: <20131125234058.GA12566@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Wed, 27 Nov 2013 22:11:31 +0100
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Tue, 26 Nov 2013 00:40:58 +0100
 
-> this is an extention of my pull request from 2013-11-25, it includes an
-> additional patch.
+> 2fdac010bdcf10a30711b6924612dfc40daf19b8 ("via-velocity.c: update napi
+> implementation") overlooked an irq disabling spinlock when the Rx part
+> of the NAPI poll handler was converted from netif_rx to netif_receive_skb.
 > 
-> This series consists of a patch by Oliver Hartkopp which fixes some corner
-> cases in the interrupt handler of the sja1000 driver. Then there are two
-> patches for the c_can dirver. One by me, which fixes a runtime pm related
-> "scheduling while atomic" error and patch by Holger Bechtold that fixes the
-> calculation of the transmitted bytes.
+> NAPI Rx processing can be taken out of the locked section with a pair of
+> napi_{disable / enable} since it only races with the MTU change function.
 > 
-> The fourth patch (the additional one) is by me, it corrects the clock usage in
-> the flexcan driver.
+> An heavier rework of the NAPI locking would be able to perform NAPI Tx
+> before Rx where I simply removed one of velocity_tx_srv calls.
+> 
+> References: https://bugzilla.redhat.com/show_bug.cgi?id=1022733
+> Fixes: 2fdac010bdcf (via-velocity.c: update napi implementation)
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Tested-by: Alex A. Schmidt <aaschmidt1@gmail.com>
 
-Pulled, thanks Marc.
+Applied and queued up for -stable, thanks.
+
+Just a note that we usually recommend to people to do TX processing
+before RX in NAPI, because the TX work can liberate packets and make
+them available to RX reclaim.  But that would be quite hard with the
+approach you took to fix this bug simply.
