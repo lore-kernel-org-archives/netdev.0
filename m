@@ -1,40 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] udp: fix possible seqlock deadlock
-Date: Thu, 28 Nov 2013 09:36:20 -0800
-Message-ID: <1385660180.5352.26.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01>
-	 <1385659390.5352.20.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net] diag: fix netlink API attributes
+Date: Thu, 28 Nov 2013 18:37:08 +0100
+Message-ID: <52977F44.6070002@6wind.com>
+References: <1385647039-1547-1-git-send-email-nicolas.dichtel@6wind.com> <20131128163816.GA32047@casper.infradead.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: jongman.heo@samsung.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:45008 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755090Ab3K1RgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 12:36:22 -0500
-In-Reply-To: <1385659390.5352.20.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:36770 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752135Ab3K1RhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 12:37:12 -0500
+Received: by mail-wi0-f182.google.com with SMTP id en1so1128203wid.9
+        for <netdev@vger.kernel.org>; Thu, 28 Nov 2013 09:37:10 -0800 (PST)
+In-Reply-To: <20131128163816.GA32047@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-11-28 at 09:23 -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> In commit c9e9042994d3 ("ipv4: fix possible seqlock deadlock") I left
-> another spot where IP_INC_STATS_BH() was improperly used.
-> 
-> udp_sendmsg() is called from process context, not from softirq context.
-> 
-> This was detected by lockdep seqlock support.
-> 
-> Reported-by: jongman heo <jongman.heo@samsung.com>
-> Fixes: 584bdf8cbdf6 ("[IPV4]: Fix "ipOutNoRoutes" counter error for TCP and UDP")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
+Le 28/11/2013 17:38, Thomas Graf a =E9crit :
+> On 11/28/13 at 02:57pm, Nicolas Dichtel wrote:
+>> The first netlink attribute (value 0) must always be defined as none=
+/unspec.
+>> This is correctly done in inet_diag.h, but other diag interfaces are=
+ broken.
+>>
+>> Libraries like libnl skip this kind of attributes, thus it's never r=
+eported to
+>> the application.
+>>
+>> CC: Thomas Graf <tgraf@suug.ch>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>
+> First of all, thanks for the notification Nicolas. I'll fix libnl to
+> pass through these attributes.
+=46ine :)
+Thank you!
 
-Scrap this, I'll send a v2 with a complete check.
+>
+> I think the fix you propose is no an option as it breaks backwards
+> compatiblity with existing user space. We cannot change the value
+> of existing attributes.
+Yes, I was just wondering how to fix it.
+It also breaks the patch you've proposed in this thread:
+http://thread.gmane.org/gmane.linux.network/251478/focus=3D252764
+
+Hence, aligning attributes on 64-bits is still unresolved :(
