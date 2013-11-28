@@ -1,25 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/5] net: sfc: remove unnecessary pci_set_drvdata()
-Date: Thu, 28 Nov 2013 18:11:37 -0500 (EST)
-Message-ID: <20131128.181137.2129415290144555685.davem@davemloft.net>
-References: <000101cee97f$b2271ff0$16755fd0$%han@samsung.com>
+Subject: Re: [PATCH] inet: further fixes of possible seqlock deadlocks
+Date: Thu, 28 Nov 2013 18:15:54 -0500 (EST)
+Message-ID: <20131128.181554.1888077442034865299.davem@davemloft.net>
+References: <1385672502.5352.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20131128212700.GF24171@order.stressinduktion.org>
+	<20131128221926.GG24171@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	bhutchings@solarflare.com
-To: jg1.han@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47287 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751001Ab3K1XLl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 18:11:41 -0500
-In-Reply-To: <000101cee97f$b2271ff0$16755fd0$%han@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, jongman.heo@samsung.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: hannes@stressinduktion.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131128221926.GG24171@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Thu, 28 Nov 2013 23:19:26 +0100
 
-Can you please resubmit these pci_set_drvdata() patches (the IRDA,
-WAN, hippi, fiddi ones too) when I open the net-next tree back up?
+> I don't really understand why we distinguish between _BH and plain ICMP stat
+> calls then.
+> 
+> The non-_BH versions deactivate interrupts when updating the per-cpu counter.
 
-Thank you.
+This level of distinction exists back in the day where we did per-cpu counters
+by hand.  We used to have a BH counter and a non-BH counter for each statistic
+and it really helped performance wise.
+
+These days most of that may not be so relevant any more.
