@@ -1,60 +1,51 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net/stable] team: fix master carrier set when user linkup is enabled
-Date: Thu, 28 Nov 2013 18:01:38 +0100
-Message-ID: <1385658098-21653-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jtluka@redhat.com
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] udp: fix possible seqlock deadlock
+Date: Thu, 28 Nov 2013 09:23:10 -0800
+Message-ID: <1385659390.5352.20.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: jongman.heo@samsung.com, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f175.google.com ([209.85.215.175]:52101 "EHLO
-	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754763Ab3K1RBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 12:01:41 -0500
-Received: by mail-ea0-f175.google.com with SMTP id z10so5933558ead.6
-        for <netdev@vger.kernel.org>; Thu, 28 Nov 2013 09:01:40 -0800 (PST)
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:58388 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751219Ab3K1RXN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 12:23:13 -0500
+In-Reply-To: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When user linkup is enabled and user sets linkup of individual port,
-we need to recompute linkup (carrier) of master interface so the change
-is reflected. Fix this by calling __team_carrier_check() which does the
-needed work.
+From: Eric Dumazet <edumazet@google.com>
 
-Please apply to all stable kernels as well. Thanks.
+In commit c9e9042994d3 ("ipv4: fix possible seqlock deadlock") I left
+another spot where IP_INC_STATS_BH() was improperly used.
 
-Reported-by: Jan Tluka <jtluka@redhat.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+udp_sendmsg() is called from process context, not from softirq context.
+
+This was detected by lockdep seqlock support.
+
+Reported-by: jongman heo <jongman.heo@samsung.com>
+Fixes: 584bdf8cbdf6 ("[IPV4]: Fix "ipOutNoRoutes" counter error for TCP and UDP")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/team/team.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ net/ipv4/udp.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 34b0de0..736050d 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1366,6 +1366,8 @@ static int team_user_linkup_option_get(struct team *team,
- 	return 0;
- }
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 44dfaa09b584..44e3884f9e4c 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -999,7 +999,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 			err = PTR_ERR(rt);
+ 			rt = NULL;
+ 			if (err == -ENETUNREACH)
+-				IP_INC_STATS_BH(net, IPSTATS_MIB_OUTNOROUTES);
++				IP_INC_STATS(net, IPSTATS_MIB_OUTNOROUTES);
+ 			goto out;
+ 		}
  
-+static void __team_carrier_check(struct team *team);
-+
- static int team_user_linkup_option_set(struct team *team,
- 				       struct team_gsetter_ctx *ctx)
- {
-@@ -1373,6 +1375,7 @@ static int team_user_linkup_option_set(struct team *team,
- 
- 	port->user.linkup = ctx->data.bool_val;
- 	team_refresh_port_linkup(port);
-+	__team_carrier_check(port->team);
- 	return 0;
- }
- 
-@@ -1392,6 +1395,7 @@ static int team_user_linkup_en_option_set(struct team *team,
- 
- 	port->user.linkup_enabled = ctx->data.bool_val;
- 	team_refresh_port_linkup(port);
-+	__team_carrier_check(port->team);
- 	return 0;
- }
- 
--- 
-1.8.3.1
