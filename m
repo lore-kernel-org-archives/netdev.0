@@ -1,36 +1,49 @@
-From: Chao Bi <chao.bi@intel.com>
-Subject: Re: [PATCH] WIFI: handle a neglected case in
- nl80211_new_interface()
-Date: Thu, 28 Nov 2013 11:53:38 +0800
-Message-ID: <1385610818.7437.1.camel@bichao>
-References: <1385521254.23222.8.camel@bichao>
-	 <CAE2MWk=WEwxbnBDhBRHKVQ7JhAwKANv-HQXyK=qTb4qaH4GZRg@mail.gmail.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 1/8] atm: eni: use DEFINE_PCI_DEVICE_TABLE macro
+Date: Thu, 28 Nov 2013 12:37:25 +0900
+Message-ID: <004501ceebeb$27dcd970$77968c50$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Ujjal Roy <royujjal@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAE2MWk=WEwxbnBDhBRHKVQ7JhAwKANv-HQXyK=qTb4qaH4GZRg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: 'Chas Williams' <chas@cmf.nrl.navy.mil>, netdev@vger.kernel.org,
+	linux-atm-general@lists.sourceforge.net,
+	'Jingoo Han' <jg1.han@samsung.com>,
+	'Francois Romieu' <romieu@fr.zoreil.com>
+To: "'David S. Miller'" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout4.samsung.com ([203.254.224.34]:55130 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754154Ab3K1Dh1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Nov 2013 22:37:27 -0500
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MWY00L8XFEE9T20@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Thu, 28 Nov 2013 12:37:26 +0900 (KST)
+Content-language: ko
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-11-27 at 20:43 +0530, Ujjal Roy wrote:
-> Hi,
-> 
-> 
-> We can use IS_ERR_OR_NULL(wdev) to check NULL as well as error value.
-> 
-> Thanks,
-> UjjaL
-> 
-> On Wed, Nov 27, 2013 at 8:30 AM, Chao Bi <chao.bi@intel.com> wrote:
->         In nl80211_new_interface(), it calls rdev_add_virtual_intf() to create
->         a new interface, however, it only checks whether returned value is err
->         code, but doesn't check if returned value is NULL. The returned 
+This macro is used to create a struct pci_device_id array.
 
-Thanks Ujjal. I'll update it.
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+---
+ drivers/atm/eni.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
+index b1955ba..846fc9e 100644
+--- a/drivers/atm/eni.c
++++ b/drivers/atm/eni.c
+@@ -2283,7 +2283,7 @@ err_disable:
+ }
+ 
+ 
+-static struct pci_device_id eni_pci_tbl[] = {
++static DEFINE_PCI_DEVICE_TABLE(eni_pci_tbl) = {
+ 	{ PCI_VDEVICE(EF, PCI_DEVICE_ID_EF_ATM_FPGA), 0 /* FPGA */ },
+ 	{ PCI_VDEVICE(EF, PCI_DEVICE_ID_EF_ATM_ASIC), 1 /* ASIC */ },
+ 	{ 0, }
+-- 
+1.7.10.4
