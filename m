@@ -1,39 +1,62 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: Re: [PATCH 1/5] net: sfc: remove unnecessary pci_set_drvdata()
-Date: Fri, 29 Nov 2013 08:54:40 +0900
-Message-ID: <001901ceec95$344a2640$9cde72c0$%han@samsung.com>
-References: <000101cee97f$b2271ff0$16755fd0$%han@samsung.com>
- <20131128.181137.2129415290144555685.davem@davemloft.net>
+From: Jongman Heo <jongman.heo@samsung.com>
+Subject: Re: [PATCH v2] inet: fix possible seqlock deadlocks
+Date: Fri, 29 Nov 2013 02:08:29 +0000 (GMT)
+Message-ID: <20844393.153981385690907396.JavaMail.weblogic@epml08>
+Reply-To: jongman.heo@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	bhutchings@solarflare.com, 'Jingoo Han' <jg1.han@samsung.com>
-To: 'David Miller' <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:31324 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072Ab3K1Xym (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Nov 2013 18:54:42 -0500
-Received: from epcpsbgr2.samsung.com
- (u142.gpu120.samsung.co.kr [203.254.230.142])
- by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MWZ007G9ZR5KN60@mailout2.samsung.com> for
- netdev@vger.kernel.org; Fri, 29 Nov 2013 08:54:41 +0900 (KST)
-In-reply-to: <20131128.181137.2129415290144555685.davem@davemloft.net>
-Content-language: ko
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+MIME-version: 1.0
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday, November 29, 2013 8:12 AM, David Miller wrote:
-> 
-> Can you please resubmit these pci_set_drvdata() patches (the IRDA,
-> WAN, hippi, fiddi ones too) when I open the net-next tree back up?
-
-I see. :-)
-I will resubmit these patches, when you open the net-next tree.
-Thank you for your guidance.
-
-Best regards,
-Jingoo Han
+IA0KLS0tLS0tIE9yaWdpbmFsIE1lc3NhZ2UgLS0tLS0tLQ0KU2VuZGVyIDogRXJpYyBEdW1hemV0
+PGVyaWMuZHVtYXpldEBnbWFpbC5jb20+DQpEYXRlIDogMjAxMy0xMS0yOSAwMjo1MSAoR01UKzA5
+OjAwKQ0KVGl0bGUgOiBbUEFUQ0ggdjJdIGluZXQ6IGZpeCBwb3NzaWJsZSBzZXFsb2NrIGRlYWRs
+b2Nrcw0KPiANCj4gRnJvbTogRXJpYyBEdW1hemV0IA0KPiANCj4gSW4gY29tbWl0IGM5ZTkwNDI5
+OTRkMyAoImlwdjQ6IGZpeCBwb3NzaWJsZSBzZXFsb2NrIGRlYWRsb2NrIikgSSBsZWZ0DQo+IGFu
+b3RoZXIgcGxhY2VzIHdoZXJlIElQX0lOQ19TVEFUU19CSCgpIHdlcmUgaW1wcm9wZXJseSB1c2Vk
+Lg0KPiANCj4gdWRwX3NlbmRtc2coKSwgcGluZ192NF9zZW5kbXNnKCkgYW5kIHRjcF92NF9jb25u
+ZWN0KCkgYXJlIGNhbGxlZCBmcm9tDQo+IHByb2Nlc3MgY29udGV4dCwgbm90IGZyb20gc29mdGly
+cSBjb250ZXh0Lg0KPiANCj4gVGhpcyB3YXMgZGV0ZWN0ZWQgYnkgbG9ja2RlcCBzZXFsb2NrIHN1
+cHBvcnQuDQo+IA0KPiBSZXBvcnRlZC1ieTogam9uZ21hbiBoZW8gDQo+IEZpeGVzOiA1ODRiZGY4
+Y2JkZjYgKCJbSVBWNF06IEZpeCAiaXBPdXROb1JvdXRlcyIgY291bnRlciBlcnJvciBmb3IgVENQ
+IGFuZCBVRFAiKQ0KPiBGaXhlczogYzMxOWI0ZDc2YjllICgibmV0OiBpcHY0OiBhZGQgSVBQUk9U
+T19JQ01QIHNvY2tldCBraW5kIikNCj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IA0KPiBD
+YzogSGFubmVzIEZyZWRlcmljIFNvd2EgDQo+IC0tLQ0KPiBuZXQvaXB2NC9waW5nLmMgICAgIHwg
+ICAgMiArLQ0KPiBuZXQvaXB2NC90Y3BfaXB2NC5jIHwgICAgMiArLQ0KPiBuZXQvaXB2NC91ZHAu
+YyAgICAgIHwgICAgMiArLQ0KPiAzIGZpbGVzIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMyBk
+ZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9uZXQvaXB2NC9waW5nLmMgYi9uZXQvaXB2
+NC9waW5nLmMNCj4gaW5kZXggODQwY2YxYjllNmVlLi4yNDJlN2Y0ZWQ2ZjQgMTAwNjQ0DQo+IC0t
+LSBhL25ldC9pcHY0L3BpbmcuYw0KPiArKysgYi9uZXQvaXB2NC9waW5nLmMNCj4gQEAgLTc3Miw3
+ICs3NzIsNyBAQCBpbnQgcGluZ192NF9zZW5kbXNnKHN0cnVjdCBraW9jYiAqaW9jYiwgc3RydWN0
+IHNvY2sgKnNrLCBzdHJ1Y3QgbXNnaGRyICptc2csDQo+IGVyciA9IFBUUl9FUlIocnQpOw0KPiBy
+dCA9IE5VTEw7DQo+IGlmIChlcnIgPT0gLUVORVRVTlJFQUNIKQ0KPiAtIElQX0lOQ19TVEFUU19C
+SChuZXQsIElQU1RBVFNfTUlCX09VVE5PUk9VVEVTKTsNCj4gKyBJUF9JTkNfU1RBVFMobmV0LCBJ
+UFNUQVRTX01JQl9PVVROT1JPVVRFUyk7DQo+IGdvdG8gb3V0Ow0KPiB9DQo+IA0KPiBkaWZmIC0t
+Z2l0IGEvbmV0L2lwdjQvdGNwX2lwdjQuYyBiL25ldC9pcHY0L3RjcF9pcHY0LmMNCj4gaW5kZXgg
+NTlhNmY4YjkwY2Q5Li4wNjcyMTM5MjQ3NTEgMTAwNjQ0DQo+IC0tLSBhL25ldC9pcHY0L3RjcF9p
+cHY0LmMNCj4gKysrIGIvbmV0L2lwdjQvdGNwX2lwdjQuYw0KPiBAQCAtMTc3LDcgKzE3Nyw3IEBA
+IGludCB0Y3BfdjRfY29ubmVjdChzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBzb2NrYWRkciAqdWFk
+ZHIsIGludCBhZGRyX2xlbikNCj4gaWYgKElTX0VSUihydCkpIHsNCj4gZXJyID0gUFRSX0VSUihy
+dCk7DQo+IGlmIChlcnIgPT0gLUVORVRVTlJFQUNIKQ0KPiAtIElQX0lOQ19TVEFUU19CSChzb2Nr
+X25ldChzayksIElQU1RBVFNfTUlCX09VVE5PUk9VVEVTKTsNCj4gKyBJUF9JTkNfU1RBVFMoc29j
+a19uZXQoc2spLCBJUFNUQVRTX01JQl9PVVROT1JPVVRFUyk7DQo+IHJldHVybiBlcnI7DQo+IH0N
+Cj4gDQo+IGRpZmYgLS1naXQgYS9uZXQvaXB2NC91ZHAuYyBiL25ldC9pcHY0L3VkcC5jDQo+IGlu
+ZGV4IDQ0ZGZhYTA5YjU4NC4uNDRlMzg4NGY5ZTRjIDEwMDY0NA0KPiAtLS0gYS9uZXQvaXB2NC91
+ZHAuYw0KPiArKysgYi9uZXQvaXB2NC91ZHAuYw0KPiBAQCAtOTk5LDcgKzk5OSw3IEBAIGludCB1
+ZHBfc2VuZG1zZyhzdHJ1Y3Qga2lvY2IgKmlvY2IsIHN0cnVjdCBzb2NrICpzaywgc3RydWN0IG1z
+Z2hkciAqbXNnLA0KPiBlcnIgPSBQVFJfRVJSKHJ0KTsNCj4gcnQgPSBOVUxMOw0KPiBpZiAoZXJy
+ID09IC1FTkVUVU5SRUFDSCkNCj4gLSBJUF9JTkNfU1RBVFNfQkgobmV0LCBJUFNUQVRTX01JQl9P
+VVROT1JPVVRFUyk7DQo+ICsgSVBfSU5DX1NUQVRTKG5ldCwgSVBTVEFUU19NSUJfT1VUTk9ST1VU
+RVMpOw0KPiBnb3RvIG91dDsNCj4gfQ0KPiANCg0KSGksIEVyaWMsDQoNCkkndmUgYXBwbGllZCB5
+b3VyIHBhdGNoLCBhbmQgd2lsbCBsZXQgeW91IGtub3cgdGhlIHJlc3VsdCwgYWZ0ZXIgYSBmdWxs
+IGRheSBvciBoYWxmIGRheSB0ZXN0Lg0KVXN1YWxseSB0aGUgaXNzdWUgaGFwcGVucyB3aXRoaW4g
+MTAgbWludXRlcyBhZnRlciBib290LCBidXQgdG8gYmUgc3VyZS4uLg0KDQpSZWdhcmRzLA0KSm9u
+Z21hbiBIZW8uDQo=
