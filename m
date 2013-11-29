@@ -1,118 +1,181 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net v2] xen-netback: fix fragment detection
- in checksum setup
-Date: Fri, 29 Nov 2013 17:57:03 +0800
-Message-ID: <529864EF.6090503@oracle.com>
-References: <1385645032-29848-1-git-send-email-paul.durrant@citrix.com> <529827BC.8050207@oracle.com> <9AAE0902D5BC7E449B7C8E4E778ABCD0195CB0@AMSPEX01CL01.citrite.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH v2 1/2] virtio_net: fix error handling for mergeable
+	buffers
+Date: Fri, 29 Nov 2013 18:13:07 +0800
+Message-ID: <529868B3.9090905@redhat.com>
+References: <1385638044-27467-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: Paul Durrant <Paul.Durrant@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:35503 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752819Ab3K2J5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Nov 2013 04:57:14 -0500
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD0195CB0@AMSPEX01CL01.citrite.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Michael Dalton <mwdalton@google.com>,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1385638044-27467-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-
-On 2013/11/29 17:10, Paul Durrant wrote:
->> -----Original Message-----
->> From: annie li [mailto:annie.li@oracle.com]
->> Sent: 29 November 2013 05:36
->> To: Paul Durrant
->> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Wei Liu; Ian Campbell;
->> David Vrabel
->> Subject: Re: [PATCH net v2] xen-netback: fix fragment detection in checksum
->> setup
->>
->>
->> On 2013/11/28 21:23, Paul Durrant wrote:
->>> The code to detect fragments in checksum_setup() was missing for IPv4
->> and
->>> too eager for IPv6. (It transpires that Windows seems to send IPv6 packets
->>> with a fragment header even if they are not a fragment - i.e. offset is zero,
->>> and M bit is not set).
->>>
->>> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
->>> Cc: Wei Liu <wei.liu2@citrix.com>
->>> Cc: Ian Campbell <ian.campbell@citrix.com>
->>> Cc: David Vrabel <david.vrabel@citrix.com>
->>> ---
->>> v2
->>>
->>> - Added comments noting what fragment/offset masks mean
->>>
->>>    drivers/net/xen-netback/netback.c |   33
->> ++++++++++++++++++++++++++++++---
->>>    1 file changed, 30 insertions(+), 3 deletions(-)
->>>
->>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
->> netback/netback.c
->>> index 919b650..c7464d8 100644
->>> --- a/drivers/net/xen-netback/netback.c
->>> +++ b/drivers/net/xen-netback/netback.c
->>> @@ -1165,15 +1165,28 @@ static int checksum_setup_ip(struct xenvif *vif,
->> struct sk_buff *skb,
->>>    	struct iphdr *iph = (void *)skb->data;
->>>    	unsigned int header_size;
->>>    	unsigned int off;
->>> +	bool fragment;
->>>    	int err = -EPROTO;
->>>
->>> +	fragment = false;
->> Is it better to initialize fragment directly as following?
->> bool fragment = false;
->>
-> I think that's a matter of personal taste. I tend to favour this style.
+On 11/28/2013 07:30 PM, Michael S. Tsirkin wrote:
+> Eric Dumazet noticed that if we encounter an error
+> when processing a mergeable buffer, we don't
+> dequeue all of the buffers from this packet,
+> the result is almost sure to be loss of networking.
 >
-
-That is OK, I point this out because it is inconsistent with other 
-variable initialization in netback.c.
-
-Thanks
-Annie
+> Jason Wang noticed that we also leak a page and that we don't decrement
+> the rq buf count, so we won't repost buffers (a resource leak).
 >
->>> +
->>>    	off = sizeof(struct iphdr);
->>>
->>>    	header_size = skb->network_header + off + MAX_IPOPTLEN;
->>>    	maybe_pull_tail(skb, header_size);
->>>
->>> +	/* 3fff -> fragment offset != 0 OR more fragments */
->>> +	if (ntohs(iph->frag_off) & 0x3fff)
->>> +		fragment = true;
->>> +
->>>    	off = iph->ihl * 4;
->>>
->>> +	if (fragment) {
->>> +		if (net_ratelimit())
->>> +			netdev_err(vif->dev, "Packet is a fragment!\n");
->>> +		goto out;
->>> +	}
->>> +
->>>    	switch (iph->protocol) {
->>>    	case IPPROTO_TCP:
->>>    		if (!skb_partial_csum_set(skb, off,
->>> @@ -1237,6 +1250,7 @@ static int checksum_setup_ipv6(struct xenvif *vif,
->> struct sk_buff *skb,
->>>    	bool fragment;
->>>    	bool done;
->>>
->>> +	fragment = false;
->>>    	done = false;
->> Same as above for "done" and "fragment"...
->>
->> Thanks
->> Annie
-> _______________________________________________
-> Xen-devel mailing list
-> Xen-devel@lists.xen.org
-> http://lists.xen.org/xen-devel
+> Fix both issues.
+>
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: Michael Dalton <mwdalton@google.com>
+> Reported-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>
+> Stable patch will be sent later.
+>
+>  drivers/net/virtio_net.c | 82 ++++++++++++++++++++++++++++++------------------
+>  1 file changed, 51 insertions(+), 31 deletions(-)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 7bab4de..5408de6 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -299,35 +299,47 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
+>  	return skb;
+>  }
+>  
+> -static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+> +static struct sk_buff *receive_mergeable(struct net_device *dev,
+> +					 struct receive_queue *rq,
+> +					 void *buf,
+> +					 unsigned int len)
+>  {
+> -	struct skb_vnet_hdr *hdr = skb_vnet_hdr(head_skb);
+> +	struct skb_vnet_hdr *hdr = buf;
+> +	int num_buf = hdr->mhdr.num_buffers;
+> +	struct page *page = virt_to_head_page(buf);
+> +	int offset = buf - page_address(page);
+> +	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len,
+> +					       MERGE_BUFFER_LEN);
+>  	struct sk_buff *curr_skb = head_skb;
+> -	char *buf;
+> -	struct page *page;
+> -	int num_buf, len, offset;
+>  
+> -	num_buf = hdr->mhdr.num_buffers;
+> +	if (unlikely(!curr_skb))
+> +		goto err_skb;
+> +
+>  	while (--num_buf) {
+> -		int num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
+> +		int num_skb_frags;
+> +
+>  		buf = virtqueue_get_buf(rq->vq, &len);
+>  		if (unlikely(!buf)) {
+> -			pr_debug("%s: rx error: %d buffers missing\n",
+> -				 head_skb->dev->name, hdr->mhdr.num_buffers);
+> -			head_skb->dev->stats.rx_length_errors++;
+> -			return -EINVAL;
+> +			pr_debug("%s: rx error: %d buffers out of %d missing\n",
+> +				 dev->name, num_buf, hdr->mhdr.num_buffers);
+> +			dev->stats.rx_length_errors++;
+> +			goto err_buf;
+>  		}
+>  		if (unlikely(len > MERGE_BUFFER_LEN)) {
+>  			pr_debug("%s: rx error: merge buffer too long\n",
+> -				 head_skb->dev->name);
+> +				 dev->name);
+>  			len = MERGE_BUFFER_LEN;
+>  		}
+> +
+> +		page = virt_to_head_page(buf);
+> +		--rq->num;
+> +
+> +		num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
+>  		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
+>  			struct sk_buff *nskb = alloc_skb(0, GFP_ATOMIC);
+> -			if (unlikely(!nskb)) {
+> -				head_skb->dev->stats.rx_dropped++;
+> -				return -ENOMEM;
+> -			}
+> +
+> +			if (unlikely(!nskb))
+> +				goto err_skb;
+>  			if (curr_skb == head_skb)
+>  				skb_shinfo(curr_skb)->frag_list = nskb;
+>  			else
+> @@ -341,8 +353,7 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+>  			head_skb->len += len;
+>  			head_skb->truesize += MERGE_BUFFER_LEN;
+>  		}
+> -		page = virt_to_head_page(buf);
+> -		offset = buf - (char *)page_address(page);
+> +		offset = buf - page_address(page);
+>  		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
+>  			put_page(page);
+>  			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
+> @@ -351,9 +362,28 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
+>  			skb_add_rx_frag(curr_skb, num_skb_frags, page,
+>  					offset, len, MERGE_BUFFER_LEN);
+>  		}
+> +	}
+> +
+> +	return head_skb;
+> +
+> +err_skb:
+> +	put_page(page);
+> +	while (--num_buf) {
+> +		buf = virtqueue_get_buf(rq->vq, &len);
+> +		if (unlikely(!buf)) {
+> +			pr_debug("%s: rx error: %d buffers missing\n",
+> +				 dev->name, num_buf);
+> +			dev->stats.rx_length_errors++;
+> +			break;
+> +		}
+> +		page = virt_to_head_page(buf);
+> +		put_page(page);
+>  		--rq->num;
+>  	}
+> -	return 0;
+> +err_buf:
+> +	dev->stats.rx_dropped++;
+> +	dev_kfree_skb(head_skb);
+> +	return NULL;
+>  }
+>  
+>  static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+> @@ -382,19 +412,9 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+>  		len -= sizeof(struct virtio_net_hdr);
+>  		skb_trim(skb, len);
+>  	} else if (vi->mergeable_rx_bufs) {
+> -		struct page *page = virt_to_head_page(buf);
+> -		skb = page_to_skb(rq, page,
+> -				  (char *)buf - (char *)page_address(page),
+> -				  len, MERGE_BUFFER_LEN);
+> -		if (unlikely(!skb)) {
+> -			dev->stats.rx_dropped++;
+> -			put_page(page);
+> +		skb = receive_mergeable(dev, rq, buf, len);
+> +		if (unlikely(!skb))
+>  			return;
+> -		}
+> -		if (receive_mergeable(rq, skb)) {
+> -			dev_kfree_skb(skb);
+> -			return;
+> -		}
+>  	} else {
+>  		page = buf;
+>  		skb = page_to_skb(rq, page, 0, len, PAGE_SIZE);
+
+Acked-by: Jason Wang <jasowang@redhat.com>
