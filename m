@@ -1,43 +1,53 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net 3/3] netem: fix gemodel loss generator
-Date: Fri, 29 Nov 2013 11:04:26 -0800
-Message-ID: <20131129110426.5aa54569@nehalam.linuxnetplumber.net>
-References: <20131129110243.1ce4e87b@nehalam.linuxnetplumber.net>
+Subject: Re: [RFC] Should skb->csum include 8021Q header for
+ CHECKSUM_COMPLETE && NETIF_F_HW_VLAN_CTAG_RX
+Date: Fri, 29 Nov 2013 11:08:22 -0800
+Message-ID: <20131129110822.6e4cf256@nehalam.linuxnetplumber.net>
+References: <20131129132819.GA9176@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Martin Burri <martin.burri@ch.abb.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:40676 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753821Ab3K2TEe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Nov 2013 14:04:34 -0500
-Received: by mail-pd0-f182.google.com with SMTP id v10so14268089pde.13
-        for <netdev@vger.kernel.org>; Fri, 29 Nov 2013 11:04:34 -0800 (PST)
-In-Reply-To: <20131129110243.1ce4e87b@nehalam.linuxnetplumber.net>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:54675 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753276Ab3K2TI0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Nov 2013 14:08:26 -0500
+Received: by mail-pb0-f42.google.com with SMTP id uo5so15003648pbc.29
+        for <netdev@vger.kernel.org>; Fri, 29 Nov 2013 11:08:25 -0800 (PST)
+In-Reply-To: <20131129132819.GA9176@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch from developers of the alternative loss models, downloaded from:
-   http://netgroup.uniroma2.it/twiki/bin/view.cgi/Main/NetemCLG
+On Fri, 29 Nov 2013 13:28:19 +0000
+Thomas Graf <tgraf@suug.ch> wrote:
 
- "in case 2, of the switch we change the direction of the inequality to
-  net_random()>clg->a3, because clg->a3 is h in the GE model and when h
-  is 0 all packets will be lost."
+> Hi
+> 
+> Given CHECKSUM_COMPLETE, is skb->csum supposed to include the
+> checksum of the VLAN header if the header was stripped by the
+> NIC?
+> 
+> The answer is clear for non accelerated VLAN: it covers all of
+> the packet without ethernet CRC.
+> 
+> For the accelerated path the answer is less clear after staring
+> at drivers. The stack currently only fixes the csum for the
+> software path.
+> 
+> We are seeing hw csum failure warnings for drivers like enic if
+> OVS pops a VLAN header that was previously stripped  in hardware.
+> Should we force CHECKSUM_NONE like VXLAN does or are all drivers
+> guaranteed to include VLAN bits for CHECK_COMPLETE regardless of
+> acceleration?
+> 
+> Best,
+> Thomas
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-
---- a/net/sched/sch_netem.c	2013-11-29 10:58:49.441419081 -0800
-+++ b/net/sched/sch_netem.c	2013-11-29 10:58:55.313369015 -0800
-@@ -272,7 +272,7 @@ static bool loss_gilb_ell(struct netem_s
- 	case 2:
- 		if (net_random() < clg->a2)
- 			clg->state = 1;
--		if (clg->a3 > net_random())
-+		if (net_random() > clg->a3)
- 			return true;
- 	}
- 
+Most hardware is smart enough that if it strips the VLAN header,
+it does not include it in the checksum.
