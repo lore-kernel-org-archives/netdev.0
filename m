@@ -1,180 +1,125 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCH RFC 08/10] net: stmmac:sti: Add STi SOC glue driver.
-Date: Fri, 29 Nov 2013 20:37:15 +0100
-Message-ID: <20131129193715.GA3441@lukather>
-References: <1384264311-7308-1-git-send-email-srinivas.kandagatla@st.com>
- <1384264383-7653-1-git-send-email-srinivas.kandagatla@st.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next] xen-netback: Fix pull size in checksum_setup_ip*
+Date: Fri, 29 Nov 2013 20:26:15 +0000
+Message-ID: <5298F867.3030200@citrix.com>
+References: <1385751407-9365-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="n8g4imXOkfNTN/H1"
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	Rob Herring <rob.herring@calxeda.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Rob Landley <rob@landley.net>,
-	Russell King <linux@arm.linux.org.uk>,
-	Stuart Menefy <stuart.menefy@st.com>,
-	Pavel Machek <pavel@ucw.cz>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Len Brown <len.brown@intel.com>, stephen.gallimore@st.com,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	devicetree@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel@stlinux.com,
-	linux-pm@vger.kernel.org
-To: srinivas.kandagatla@st.com
-Return-path: <linux-pm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1384264383-7653-1-git-send-email-srinivas.kandagatla@st.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
+To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>,
+	<paul.durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:15319 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752192Ab3K2U0S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Nov 2013 15:26:18 -0500
+In-Reply-To: <1385751407-9365-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Or would it make sense to drop header_size and use off + something as 
+function parameters?
 
---n8g4imXOkfNTN/H1
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Zoli
 
-Hi Srinivas,
-
-On Tue, Nov 12, 2013 at 01:53:03PM +0000, srinivas.kandagatla@st.com wrote:
-> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
->=20
-> STi series SOCs have a glue layer on top of the synopsis gmac IP, this
-> glue layer needs to be configured before the gmac driver starts using
-> the IP.
->=20
-> This patch adds a platform driver for the glue layer which configures
-> the IP before stmmac driver takes over.
->=20
-> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+On 29/11/13 18:56, Zoltan Kiss wrote:
+> Before checksum setup we need to make sure we have enough data in linear
+> buffer, so we do a pull if not. The calculation of the required data counts
+> with skb->network_header, which is the headroom size actually. This is not
+> necessary, and can cause unreasonable pulling. I've also removed
+> MAX_IPOPTLEN, as we only need the base header at that point.
+>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>
 > ---
->  .../devicetree/bindings/net/sti-dwmac.txt          |   45 +++
->  drivers/net/ethernet/stmicro/stmmac/Makefile       |    1 +
->  drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    |  294 ++++++++++++++=
-++++++
->  3 files changed, 340 insertions(+), 0 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/net/sti-dwmac.txt
->  create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
->=20
-> diff --git a/Documentation/devicetree/bindings/net/sti-dwmac.txt b/Docume=
-ntation/devicetree/bindings/net/sti-dwmac.txt
-> new file mode 100644
-> index 0000000..5431d9d
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/sti-dwmac.txt
-> @@ -0,0 +1,45 @@
-> +STMicroelectronics SoC DWMAC controller
-> +
-> +The device node has following properties.
-> +
-> +Required properties:
-> + - compatible	: Can be "st,stih415-dwmac", "st,stih416-dwmac" or
-> +   "st,stid127-dwmac".
-> + - reg		: Offset of the glue configuration register map in system
-> +   configuration regmap pointed by st,syscon property and size.
-> + - st,syscon	: Should be phandle to system configuration node which
-> +   encompases this glue registers.
-> + - st,tx-retime-src: This specifies which clk is wired up to the mac for
-> +   retimeing tx lines. This is totally board dependent and can take one =
-of the
-> +   posssible values from "txclk", "clk_125", "phyclk" or "clkgen".
-> +
-> +Optional properties:
-> + - resets	: phandle pointing to the system reset controller with correct
-> +   reset line index for ethernet reset.
-> +
-> +Sub-nodes:
-> +The dwmac core should be added as subnode to STMicroelectronics dwmac gl=
-ue.
-> +- dwmac :	The binding details of dwmac can be found in
-> +  Documentation/devicetree/bindings/net/stmmac.txt
-> +
-> +Example:
-> +
-> +ethernet0: ethernet0{
-> +	#address-cells =3D <1>;
-> +	#size-cells =3D <1>;
-> +	compatible		=3D "st,stih415-dwmac";
-> +	reg			=3D <0x148 0x4>;
-> +	resets			=3D <&softreset STIH415_ETH0_SOFTRESET>;
-> +	st,syscon		=3D <&syscfg_rear>;
-> +	st,tx-retime-src	=3D "clk_125";
-> +	ranges;
-> +
-> +	dwmac0:dwmac@fe810000 {
-> +		device_type 	=3D "network";
-> +		compatible	=3D "snps,dwmac", "snps,dwmac-3.610";
-> +		reg 		=3D <0xfe810000 0x8000>;
-> +		interrupts 	=3D <0 147 0>;
-> +		interrupt-names =3D "macirq";
-> +		...
-> +	};
-> +};
-
-Sorry for stepping up so late, but I dont' think this is the right way
-to do it.
-
-DT is to describe how the hardware is laid out in a system agnostic
-way, hence, it should not be impacted by the implementation details.
-
-The fact that you use a glue to the dwmac driver *is* an
-implementation detail.
-
-I think you'd rather have something like:
-
-dwmac0: ethernet@fe810000 {
-	compatible		=3D "st,stih415-dwmac";
-	reg 			=3D <0xfe810000 0x8000 0x148 0x4>;
-	resets			=3D <&softreset STIH415_ETH0_SOFTRESET>;
-	st,syscon		=3D <&syscfg_rear>;
-	st,tx-retime-src	=3D "clk_125";
-	interrupts 		=3D <0 147 0>;
-	interrupt-names 	=3D "macirq";
-	...
-};
-
-Then, the driver can have its init functions associated to the
-compatible you're using, through the .data field of the of_device_id
-structure, and you just call it in the generic driver at probe's time.
-
-
-I don't really know what this syscon thing is either, but I think the
-reg <0x148 0x4> is related to that.
-
-Why don't you pass it directly in the st,syscon property, to have
-something like <&syscfg_rear 0x148>?
-
-Maxime
-
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
-
---n8g4imXOkfNTN/H1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-
-iQIcBAEBAgAGBQJSmOzrAAoJEBx+YmzsjxAgrw0QAI9JhZLvGUDKp70jGHcp/xtZ
-20OVTR2WYS1DA6M/qTZQOc2NDWzvq3MFE6NIz3e+P9GaoRjiQGYLIbHEXtTWXdR8
-RVrYKJDmsMYVTbt7Ir3s+olWCv2dmQJqkbvnhMaVoAoTO6+B1QMTMmzT+FbhLCBV
-CBQxJLjuYVT1erqtSv1daMqzsw40iAObi9IG4MJyXo7ZQ92F5BOSohCCQ5JN+4wN
-WCk2uzhTjDClbY4ReuMXy9QSdcIWBvkH9g+pGZr5WXvtfdtL7abwG19xQesxQrk9
-SUVJyVfoE8zwnQWesWJ/LlvgkfMvuKXn3aNWM2py57Wfkh1F5jTQ/aqLUKHI734S
-zwJvn0SjNv5P9T3REJtK1BnxaNhc/bBrIuwj1xnGok5XdXZr8jwIPzT1QV1PBcdk
-TrvABsopxySnskguYEyOgYF5g5SE/0fWoGxjsbcihFGq8HfoV/BPpTW45NMun/jy
-Z20l4QsV7Ymk+7DxDtHYZ8FP1Y3/Y0MG2jseJHD8pbRBclIKFe34Lh07OYci3xsE
-85W0lvLfIV9MPNKyeQEW7ZGc8hEG3QM8a7tNugyjSvFcVwB863nnjR7VKYqrJlSF
-HiEvh2Qf5z+jj4HCO0Vwgel4RrzGos07QqRKiZdshZU1UaV5Q978U+oJJCQyP6zz
-+PzArETdO7W+CDdm4Rs+
-=9Opn
------END PGP SIGNATURE-----
-
---n8g4imXOkfNTN/H1--
+>   drivers/net/xen-netback/netback.c |   24 ++++++++----------------
+>   1 file changed, 8 insertions(+), 16 deletions(-)
+>
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 919b650..adadf76 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1169,8 +1169,7 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+>
+>   	off = sizeof(struct iphdr);
+>
+> -	header_size = skb->network_header + off + MAX_IPOPTLEN;
+> -	maybe_pull_tail(skb, header_size);
+> +	maybe_pull_tail(skb, off);
+>
+>   	off = iph->ihl * 4;
+>
+> @@ -1183,8 +1182,7 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+>   		if (recalculate_partial_csum) {
+>   			struct tcphdr *tcph = tcp_hdr(skb);
+>
+> -			header_size = skb->network_header +
+> -				off +
+> +			header_size = off +
+>   				sizeof(struct tcphdr);
+>   			maybe_pull_tail(skb, header_size);
+>
+> @@ -1201,8 +1199,7 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+>   		if (recalculate_partial_csum) {
+>   			struct udphdr *udph = udp_hdr(skb);
+>
+> -			header_size = skb->network_header +
+> -				off +
+> +			header_size = off +
+>   				sizeof(struct udphdr);
+>   			maybe_pull_tail(skb, header_size);
+>
+> @@ -1241,8 +1238,7 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
+>
+>   	off = sizeof(struct ipv6hdr);
+>
+> -	header_size = skb->network_header + off;
+> -	maybe_pull_tail(skb, header_size);
+> +	maybe_pull_tail(skb, off);
+>
+>   	nexthdr = ipv6h->nexthdr;
+>
+> @@ -1254,8 +1250,7 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
+>   		case IPPROTO_ROUTING: {
+>   			struct ipv6_opt_hdr *hp = (void *)(skb->data + off);
+>
+> -			header_size = skb->network_header +
+> -				off +
+> +			header_size = off +
+>   				sizeof(struct ipv6_opt_hdr);
+>   			maybe_pull_tail(skb, header_size);
+>
+> @@ -1266,8 +1261,7 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
+>   		case IPPROTO_AH: {
+>   			struct ip_auth_hdr *hp = (void *)(skb->data + off);
+>
+> -			header_size = skb->network_header +
+> -				off +
+> +			header_size = off +
+>   				sizeof(struct ip_auth_hdr);
+>   			maybe_pull_tail(skb, header_size);
+>
+> @@ -1305,8 +1299,7 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
+>   		if (recalculate_partial_csum) {
+>   			struct tcphdr *tcph = tcp_hdr(skb);
+>
+> -			header_size = skb->network_header +
+> -				off +
+> +			header_size = off +
+>   				sizeof(struct tcphdr);
+>   			maybe_pull_tail(skb, header_size);
+>
+> @@ -1324,8 +1317,7 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
+>   		if (recalculate_partial_csum) {
+>   			struct udphdr *udph = udp_hdr(skb);
+>
+> -			header_size = skb->network_header +
+> -				off +
+> +			header_size = off +
+>   				sizeof(struct udphdr);
+>   			maybe_pull_tail(skb, header_size);
+>
+>
