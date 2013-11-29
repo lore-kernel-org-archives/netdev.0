@@ -1,32 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] sfc: Convert to use
- hwmon_device_register_with_groups
-Date: Fri, 29 Nov 2013 16:26:45 -0500 (EST)
-Message-ID: <20131129.162645.721442484846350724.davem@davemloft.net>
-References: <1385607271-11842-1-git-send-email-linux@roeck-us.net>
+Subject: Re: [PATCH] update consumers of MSG_MORE to recognize
+ MSG_SENDPAGE_NOTLAST
+Date: Fri, 29 Nov 2013 16:33:39 -0500 (EST)
+Message-ID: <20131129.163339.2047522433275114284.davem@davemloft.net>
+References: <20131125042633.GA4156@order.stressinduktion.org>
+	<1385361388-2175-1-git-send-email-shawn@churchofgit.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	bhutchings@solarflare.com, lm-sensors@lm-sensors.org
-To: linux@roeck-us.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54844 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752634Ab3K2V0r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Nov 2013 16:26:47 -0500
-In-Reply-To: <1385607271-11842-1-git-send-email-linux@roeck-us.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hannes@stressinduktion.org, eric.dumazet@gmail.com,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	viro@zeniv.linux.org.uk, linux-crypto@vger.kernel.org,
+	netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	therbert@google.com, stable@vger.kernel.org
+To: shawn@churchofgit.com
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1385361388-2175-1-git-send-email-shawn@churchofgit.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Wed, 27 Nov 2013 18:54:31 -0800
+From: Shawn Landden <shawn@churchofgit.com>
+Date: Sun, 24 Nov 2013 22:36:28 -0800
 
-> Simplify the code. Avoid race conditions caused by attributes
-> being created after hwmon device registration. Implicitly
-> (through hwmon API) add mandatory 'name' sysfs attribute.
+> Commit 35f9c09fe (tcp: tcp_sendpages() should call tcp_push() once)
+> added an internal flag MSG_SENDPAGE_NOTLAST, similar to
+> MSG_MORE.
 > 
-> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> algif_hash, algif_skcipher, and udp used MSG_MORE from tcp_sendpages()
+> and need to see the new flag as identical to MSG_MORE.
+> 
+> This fixes sendfile() on AF_ALG.
+> 
+> v3: also fix udp
+> 
+> Cc: Tom Herbert <therbert@google.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: <stable@vger.kernel.org> # 3.4.x + 3.2.x
+> Reported-and-tested-by: Shawn Landden <shawnlandden@gmail.com>
+> Original-patch: Richard Weinberger <richard@nod.at>
+> Signed-off-by: Shawn Landden <shawn@churchofgit.com>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks everyone.
