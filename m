@@ -1,34 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: ip6_pkt_prohibit(_out) should not depend on
- CONFIG_IPV6_MULTIPLE_TABLES
-Date: Fri, 29 Nov 2013 16:39:30 -0500 (EST)
-Message-ID: <20131129.163930.203685593163996122.davem@davemloft.net>
-References: <1385629923-22920-1-git-send-email-kamala@aristanetwors.com>
-	<20131128190411.GD24171@order.stressinduktion.org>
+Subject: Re: [PATCH 1/4] pch_gbe: Fix transmit queue management
+Date: Fri, 29 Nov 2013 16:42:29 -0500 (EST)
+Message-ID: <20131129.164229.2292905485668904870.davem@davemloft.net>
+References: <20131127.203929.1379316258754767343.davem@davemloft.net>
+	<1385631882-12827-2-git-send-email-puzman@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kamala@aristanetworks.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: puzman@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54938 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54956 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753712Ab3K2Vjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Nov 2013 16:39:31 -0500
-In-Reply-To: <20131128190411.GD24171@order.stressinduktion.org>
+	with ESMTP id S1752545Ab3K2Vmb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Nov 2013 16:42:31 -0500
+In-Reply-To: <1385631882-12827-2-git-send-email-puzman@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 28 Nov 2013 20:04:11 +0100
+From: Ondrej Puzman <puzman@gmail.com>
+Date: Thu, 28 Nov 2013 10:44:39 +0100
 
-> Since patch "IPv6: Fixed support for blackhole and prohibit routes" we
-> need ip6_pkt_prohibit(_out) available without CONFIG_IPV6_MULTIPLE_TABLES
-> defined.
+> According to Documentation/networking/driver.txt the ndo_start_xmit method should not return NETDEV_TX_BUSY under normal circumstances.
+> Stop the transmit queue when tx_ring is full.
+
+Please format your commit message text to 80 columns.
+
 > 
-> Cc: Kamala R <kamala@aristanetworks.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Ondrej Puzman <puzman@gmail.com>
 
-Please reference the SHA1 ID of the change as well as it's commit
-header text, thank you.
+You should be instead preventing the transmit method from being invoked
+when it might be possible that a request cannot be satisfied.
+
+This means that at the end of a transmit request, you must stop the
+queue if a packet with the maximum number of possible descriptors
+cannot be satisfied.  Then it is impossible for the transmit function
+to be invoked in a situation where it would need to fail for lack of
+available transmit descriptors.
+
+This is why drivers decided whether to stop their TX queues based upon
+calculations involving MAX_SKB_FRAGS.
