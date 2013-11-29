@@ -1,181 +1,45 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH v2 1/2] virtio_net: fix error handling for mergeable
-	buffers
-Date: Fri, 29 Nov 2013 18:13:07 +0800
-Message-ID: <529868B3.9090905@redhat.com>
-References: <1385638044-27467-1-git-send-email-mst@redhat.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net v2] xen-netback: fix fragment detection in checksum
+ setup
+Date: Fri, 29 Nov 2013 10:32:13 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0196259@AMSPEX01CL01.citrite.net>
+References: <1385645032-29848-1-git-send-email-paul.durrant@citrix.com>
+ <1385659745.5352.23.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Michael Dalton <mwdalton@google.com>,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1385638044-27467-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:30768 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752297Ab3K2Kcd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Nov 2013 05:32:33 -0500
+In-Reply-To: <1385659745.5352.23.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/28/2013 07:30 PM, Michael S. Tsirkin wrote:
-> Eric Dumazet noticed that if we encounter an error
-> when processing a mergeable buffer, we don't
-> dequeue all of the buffers from this packet,
-> the result is almost sure to be loss of networking.
->
-> Jason Wang noticed that we also leak a page and that we don't decrement
-> the rq buf count, so we won't repost buffers (a resource leak).
->
-> Fix both issues.
->
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Michael Dalton <mwdalton@google.com>
-> Reported-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Jason Wang <jasowang@redhat.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->
-> Stable patch will be sent later.
->
->  drivers/net/virtio_net.c | 82 ++++++++++++++++++++++++++++++------------------
->  1 file changed, 51 insertions(+), 31 deletions(-)
->
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 7bab4de..5408de6 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -299,35 +299,47 @@ static struct sk_buff *page_to_skb(struct receive_queue *rq,
->  	return skb;
->  }
->  
-> -static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
-> +static struct sk_buff *receive_mergeable(struct net_device *dev,
-> +					 struct receive_queue *rq,
-> +					 void *buf,
-> +					 unsigned int len)
->  {
-> -	struct skb_vnet_hdr *hdr = skb_vnet_hdr(head_skb);
-> +	struct skb_vnet_hdr *hdr = buf;
-> +	int num_buf = hdr->mhdr.num_buffers;
-> +	struct page *page = virt_to_head_page(buf);
-> +	int offset = buf - page_address(page);
-> +	struct sk_buff *head_skb = page_to_skb(rq, page, offset, len,
-> +					       MERGE_BUFFER_LEN);
->  	struct sk_buff *curr_skb = head_skb;
-> -	char *buf;
-> -	struct page *page;
-> -	int num_buf, len, offset;
->  
-> -	num_buf = hdr->mhdr.num_buffers;
-> +	if (unlikely(!curr_skb))
-> +		goto err_skb;
-> +
->  	while (--num_buf) {
-> -		int num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
-> +		int num_skb_frags;
-> +
->  		buf = virtqueue_get_buf(rq->vq, &len);
->  		if (unlikely(!buf)) {
-> -			pr_debug("%s: rx error: %d buffers missing\n",
-> -				 head_skb->dev->name, hdr->mhdr.num_buffers);
-> -			head_skb->dev->stats.rx_length_errors++;
-> -			return -EINVAL;
-> +			pr_debug("%s: rx error: %d buffers out of %d missing\n",
-> +				 dev->name, num_buf, hdr->mhdr.num_buffers);
-> +			dev->stats.rx_length_errors++;
-> +			goto err_buf;
->  		}
->  		if (unlikely(len > MERGE_BUFFER_LEN)) {
->  			pr_debug("%s: rx error: merge buffer too long\n",
-> -				 head_skb->dev->name);
-> +				 dev->name);
->  			len = MERGE_BUFFER_LEN;
->  		}
-> +
-> +		page = virt_to_head_page(buf);
-> +		--rq->num;
-> +
-> +		num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
->  		if (unlikely(num_skb_frags == MAX_SKB_FRAGS)) {
->  			struct sk_buff *nskb = alloc_skb(0, GFP_ATOMIC);
-> -			if (unlikely(!nskb)) {
-> -				head_skb->dev->stats.rx_dropped++;
-> -				return -ENOMEM;
-> -			}
-> +
-> +			if (unlikely(!nskb))
-> +				goto err_skb;
->  			if (curr_skb == head_skb)
->  				skb_shinfo(curr_skb)->frag_list = nskb;
->  			else
-> @@ -341,8 +353,7 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
->  			head_skb->len += len;
->  			head_skb->truesize += MERGE_BUFFER_LEN;
->  		}
-> -		page = virt_to_head_page(buf);
-> -		offset = buf - (char *)page_address(page);
-> +		offset = buf - page_address(page);
->  		if (skb_can_coalesce(curr_skb, num_skb_frags, page, offset)) {
->  			put_page(page);
->  			skb_coalesce_rx_frag(curr_skb, num_skb_frags - 1,
-> @@ -351,9 +362,28 @@ static int receive_mergeable(struct receive_queue *rq, struct sk_buff *head_skb)
->  			skb_add_rx_frag(curr_skb, num_skb_frags, page,
->  					offset, len, MERGE_BUFFER_LEN);
->  		}
-> +	}
-> +
-> +	return head_skb;
-> +
-> +err_skb:
-> +	put_page(page);
-> +	while (--num_buf) {
-> +		buf = virtqueue_get_buf(rq->vq, &len);
-> +		if (unlikely(!buf)) {
-> +			pr_debug("%s: rx error: %d buffers missing\n",
-> +				 dev->name, num_buf);
-> +			dev->stats.rx_length_errors++;
-> +			break;
-> +		}
-> +		page = virt_to_head_page(buf);
-> +		put_page(page);
->  		--rq->num;
->  	}
-> -	return 0;
-> +err_buf:
-> +	dev->stats.rx_dropped++;
-> +	dev_kfree_skb(head_skb);
-> +	return NULL;
->  }
->  
->  static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
-> @@ -382,19 +412,9 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
->  		len -= sizeof(struct virtio_net_hdr);
->  		skb_trim(skb, len);
->  	} else if (vi->mergeable_rx_bufs) {
-> -		struct page *page = virt_to_head_page(buf);
-> -		skb = page_to_skb(rq, page,
-> -				  (char *)buf - (char *)page_address(page),
-> -				  len, MERGE_BUFFER_LEN);
-> -		if (unlikely(!skb)) {
-> -			dev->stats.rx_dropped++;
-> -			put_page(page);
-> +		skb = receive_mergeable(dev, rq, buf, len);
-> +		if (unlikely(!skb))
->  			return;
-> -		}
-> -		if (receive_mergeable(rq, skb)) {
-> -			dev_kfree_skb(skb);
-> -			return;
-> -		}
->  	} else {
->  		page = buf;
->  		skb = page_to_skb(rq, page, 0, len, PAGE_SIZE);
-
-Acked-by: Jason Wang <jasowang@redhat.com>
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiAyOCBOb3ZlbWJlciAyMDEzIDE3OjI5
+DQo+IFRvOiBQYXVsIER1cnJhbnQNCj4gQ2M6IHhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnOyBuZXRk
+ZXZAdmdlci5rZXJuZWwub3JnOyBXZWkgTGl1OyBJYW4gQ2FtcGJlbGw7DQo+IERhdmlkIFZyYWJl
+bA0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldCB2Ml0geGVuLW5ldGJhY2s6IGZpeCBmcmFnbWVu
+dCBkZXRlY3Rpb24gaW4gY2hlY2tzdW0NCj4gc2V0dXANCj4gDQo+IE9uIFRodSwgMjAxMy0xMS0y
+OCBhdCAxMzoyMyArMDAwMCwgUGF1bCBEdXJyYW50IHdyb3RlOg0KPiA+IFRoZSBjb2RlIHRvIGRl
+dGVjdCBmcmFnbWVudHMgaW4gY2hlY2tzdW1fc2V0dXAoKSB3YXMgbWlzc2luZyBmb3IgSVB2NA0K
+PiBhbmQNCj4gPiB0b28gZWFnZXIgZm9yIElQdjYuIChJdCB0cmFuc3BpcmVzIHRoYXQgV2luZG93
+cyBzZWVtcyB0byBzZW5kIElQdjYgcGFja2V0cw0KPiA+IHdpdGggYSBmcmFnbWVudCBoZWFkZXIg
+ZXZlbiBpZiB0aGV5IGFyZSBub3QgYSBmcmFnbWVudCAtIGkuZS4gb2Zmc2V0IGlzIHplcm8sDQo+
+ID4gYW5kIE0gYml0IGlzIG5vdCBzZXQpLg0KPiANCj4gPiArCS8qIDNmZmYgLT4gZnJhZ21lbnQg
+b2Zmc2V0ICE9IDAgT1IgbW9yZSBmcmFnbWVudHMgKi8NCj4gPiArCWlmIChudG9ocyhpcGgtPmZy
+YWdfb2ZmKSAmIDB4M2ZmZikNCj4gPiArCQlmcmFnbWVudCA9IHRydWU7DQo+ID4gKw0KPiANCj4g
+V2hhdCBhYm91dCB0aGUgbW9yZSBzZWxmIGRvY3VtZW50ZWQgYW5kIGZhc3RlciA6DQo+IA0KPiBp
+ZiAoaXBoLT5mcmFnX29mZiAmIGh0b25zKElQX09GRlNFVCB8IElQX01GKSkNCj4gCWZyYWdtZW50
+ID0gdHJ1ZTsNCj4gDQoNCk5pY2VyIGRlZmluaXRlbHkuIEknbGwgbmVlZCB0byBhZGQgdGhlIGVx
+dWl2YWxlbnQgZGVmIGZvciBJUDZfT0ZGU0VUIHRvIHVzZSB0aGUgc2FtZSBzdHlsZSBvZiB0ZXN0
+IHRoZXJlLg0KDQpUaGFua3MsDQoNCiAgUGF1bA0K
