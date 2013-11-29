@@ -1,41 +1,43 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net] diag: fix netlink API attributes
-Date: Fri, 29 Nov 2013 08:42:25 +0000
-Message-ID: <20131129084225.GC4100@casper.infradead.org>
-References: <1385647039-1547-1-git-send-email-nicolas.dichtel@6wind.com>
- <20131128163816.GA32047@casper.infradead.org>
- <52977F44.6070002@6wind.com>
- <20131128221916.GB4100@casper.infradead.org>
- <5298503C.6080100@6wind.com>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [PATCH] update consumers of MSG_MORE to recognize MSG_SENDPAGE_NOTLAST
+Date: Fri, 29 Nov 2013 09:50:11 +0100
+Message-ID: <5125331.5M593Q7tBS@sandpuppy>
+References: <20131125042633.GA4156@order.stressinduktion.org> <1385361388-2175-1-git-send-email-shawn@churchofgit.com> <20131129054704.GI24171@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	"Samuel.gauthier@6wind.com" <Samuel.gauthier@6wind.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:56924 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750985Ab3K2Im2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Nov 2013 03:42:28 -0500
-Content-Disposition: inline
-In-Reply-To: <5298503C.6080100@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Shawn Landden <shawn@churchofgit.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	viro@zeniv.linux.org.uk, linux-crypto@vger.kernel.org,
+	netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Tom Herbert <therbert@google.com>,
+	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20131129054704.GI24171@order.stressinduktion.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/29/13 at 09:28am, Nicolas Dichtel wrote:
-> I think the following patch is also needed (not based on HEAD):
-> 
-> From 8aa4397d43fbd34deea9ed11677c04b460895f15 Mon Sep 17 00:00:00 2001
-> From: Samuel Gauthier <samuel.gauthier@6wind.com>
-> Date: Fri, 29 Nov 2013 09:15:34 +0100
-> Subject: [PATCH] attr: Allow attribute type 0 parsing
-> 
-> The commit 6a8d90f5fec4 "attr: Allow attribute type 0" intended to
-> allow the parsing of {netlink,packet,unix}_diag, even if they are
-> using type 0 for valid attributes.
-> 
-> It lacked this part in nla_parse.
-> 
-> Signed-off-by: Samuel Gauthier <samuel.gauthier@6wind.com>
+Shawn,
 
-Good catch, applied, thanks!
+Am Freitag, 29. November 2013, 06:47:04 schrieb Hannes Frederic Sowa:
+> On Sun, Nov 24, 2013 at 10:36:28PM -0800, Shawn Landden wrote:
+> > Commit 35f9c09fe (tcp: tcp_sendpages() should call tcp_push() once)
+> > added an internal flag MSG_SENDPAGE_NOTLAST, similar to
+> > MSG_MORE.
+> > 
+> > algif_hash, algif_skcipher, and udp used MSG_MORE from tcp_sendpages()
+> > and need to see the new flag as identical to MSG_MORE.
+> > 
+> > This fixes sendfile() on AF_ALG.
+> > 
+> > v3: also fix udp
+> 
+> The UDP bits look fine to me.
+
+please don't forget to resend the patch (only the UDP fix).
+I sent the AF_ALG part already.
+
+Thanks,
+//richard
