@@ -1,43 +1,32 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] update consumers of MSG_MORE to recognize MSG_SENDPAGE_NOTLAST
-Date: Fri, 29 Nov 2013 09:50:11 +0100
-Message-ID: <5125331.5M593Q7tBS@sandpuppy>
-References: <20131125042633.GA4156@order.stressinduktion.org> <1385361388-2175-1-git-send-email-shawn@churchofgit.com> <20131129054704.GI24171@order.stressinduktion.org>
+From: FreeLotto Services <f.kreeft1@upcmail.nl>
+Subject: TSN#:3579220329 E-mail ID Won! Congratulations
+Date: Fri, 29 Nov 2013 09:52:37 +0100 (CET)
+Message-ID: <34030599.912747.1385715157359.open-xchange__18678.8779836663$1385715193$gmane$org@upcmail.upc.nl>
+Reply-To: autoresponse.flsuk@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Shawn Landden <shawn@churchofgit.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	viro@zeniv.linux.org.uk, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>, stable@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20131129054704.GI24171@order.stressinduktion.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fep12.mx.upcmail.net ([62.179.121.32]:40697 "EHLO
+	fep12.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751089Ab3K2Iwq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Nov 2013 03:52:46 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Shawn,
+Congratulations - TSN#:3579220329
 
-Am Freitag, 29. November 2013, 06:47:04 schrieb Hannes Frederic Sowa:
-> On Sun, Nov 24, 2013 at 10:36:28PM -0800, Shawn Landden wrote:
-> > Commit 35f9c09fe (tcp: tcp_sendpages() should call tcp_push() once)
-> > added an internal flag MSG_SENDPAGE_NOTLAST, similar to
-> > MSG_MORE.
-> > 
-> > algif_hash, algif_skcipher, and udp used MSG_MORE from tcp_sendpages()
-> > and need to see the new flag as identical to MSG_MORE.
-> > 
-> > This fixes sendfile() on AF_ALG.
-> > 
-> > v3: also fix udp
-> 
-> The UDP bits look fine to me.
+Your e-Mail has won $1,500,000.00 USD in our ongoing FREELOTTO online
+International program. To begin your claims therefore, Email us your FU=
+LL NAME,
+ADDRESS/COUNTRY & MOBILE No to our e-mail below: FreeLotto=C2=AE Servic=
+es (Government
+Accredited Licensed Office) E-mal:  fls.licenseduk@gmail.com
+Office Tel on: 07011127802 (intl. +447011127802)
 
-please don't forget to resend the patch (only the UDP fix).
-I sent the AF_ALG part already.
+Sincerely Yours,
+Vera Kepla Mrs.,
+(Coordinator/Online Publicity).
 
-Thanks,
-//richard
+SEND YOUR RESPONSE TO fls.licenseduk@gmail.com TO CLAIM YOUR PRIZE.
