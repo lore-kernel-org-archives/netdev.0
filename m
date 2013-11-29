@@ -1,72 +1,42 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net v2] xen-netback: fix fragment detection in checksum
- setup
-Date: Fri, 29 Nov 2013 09:10:01 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0195CB0@AMSPEX01CL01.citrite.net>
-References: <1385645032-29848-1-git-send-email-paul.durrant@citrix.com>
- <529827BC.8050207@oracle.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2 net] af_packet: block BH in prb_shutdown_retire_blk_timer()
+Date: Fri, 29 Nov 2013 10:19:29 +0100
+Message-ID: <52985C21.7040303@redhat.com>
+References: <1385715203-14712-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: annie li <annie.li@oracle.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jstancek@redhat.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Willem de Bruijn <willemb@google.com>,
+	Phil Sutter <phil@nwl.cc>, Eric Dumazet <edumazet@google.com>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:31983 "EHLO SMTP.CITRIX.COM"
+Received: from mx1.redhat.com ([209.132.183.28]:22471 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751016Ab3K2JKZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Nov 2013 04:10:25 -0500
-In-Reply-To: <529827BC.8050207@oracle.com>
-Content-Language: en-US
+	id S1751016Ab3K2JT6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Nov 2013 04:19:58 -0500
+In-Reply-To: <1385715203-14712-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBhbm5pZSBsaSBbbWFpbHRvOmFu
-bmllLmxpQG9yYWNsZS5jb21dDQo+IFNlbnQ6IDI5IE5vdmVtYmVyIDIwMTMgMDU6MzYNCj4gVG86
-IFBhdWwgRHVycmFudA0KPiBDYzogeGVuLWRldmVsQGxpc3RzLnhlbi5vcmc7IG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmc7IFdlaSBMaXU7IElhbiBDYW1wYmVsbDsNCj4gRGF2aWQgVnJhYmVsDQo+IFN1
-YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IHYyXSB4ZW4tbmV0YmFjazogZml4IGZyYWdtZW50IGRldGVj
-dGlvbiBpbiBjaGVja3N1bQ0KPiBzZXR1cA0KPiANCj4gDQo+IE9uIDIwMTMvMTEvMjggMjE6MjMs
-IFBhdWwgRHVycmFudCB3cm90ZToNCj4gPiBUaGUgY29kZSB0byBkZXRlY3QgZnJhZ21lbnRzIGlu
-IGNoZWNrc3VtX3NldHVwKCkgd2FzIG1pc3NpbmcgZm9yIElQdjQNCj4gYW5kDQo+ID4gdG9vIGVh
-Z2VyIGZvciBJUHY2LiAoSXQgdHJhbnNwaXJlcyB0aGF0IFdpbmRvd3Mgc2VlbXMgdG8gc2VuZCBJ
-UHY2IHBhY2tldHMNCj4gPiB3aXRoIGEgZnJhZ21lbnQgaGVhZGVyIGV2ZW4gaWYgdGhleSBhcmUg
-bm90IGEgZnJhZ21lbnQgLSBpLmUuIG9mZnNldCBpcyB6ZXJvLA0KPiA+IGFuZCBNIGJpdCBpcyBu
-b3Qgc2V0KS4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IFBhdWwgRHVycmFudCA8cGF1bC5kdXJy
-YW50QGNpdHJpeC5jb20+DQo+ID4gQ2M6IFdlaSBMaXUgPHdlaS5saXUyQGNpdHJpeC5jb20+DQo+
-ID4gQ2M6IElhbiBDYW1wYmVsbCA8aWFuLmNhbXBiZWxsQGNpdHJpeC5jb20+DQo+ID4gQ2M6IERh
-dmlkIFZyYWJlbCA8ZGF2aWQudnJhYmVsQGNpdHJpeC5jb20+DQo+ID4gLS0tDQo+ID4gdjINCj4g
-Pg0KPiA+IC0gQWRkZWQgY29tbWVudHMgbm90aW5nIHdoYXQgZnJhZ21lbnQvb2Zmc2V0IG1hc2tz
-IG1lYW4NCj4gPg0KPiA+ICAgZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jIHwgICAz
-Mw0KPiArKysrKysrKysrKysrKysrKysrKysrKysrKysrKystLS0NCj4gPiAgIDEgZmlsZSBjaGFu
-Z2VkLCAzMCBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdp
-dCBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL25ldGJhY2suYyBiL2RyaXZlcnMvbmV0L3hlbi0N
-Cj4gbmV0YmFjay9uZXRiYWNrLmMNCj4gPiBpbmRleCA5MTliNjUwLi5jNzQ2NGQ4IDEwMDY0NA0K
-PiA+IC0tLSBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL25ldGJhY2suYw0KPiA+ICsrKyBiL2Ry
-aXZlcnMvbmV0L3hlbi1uZXRiYWNrL25ldGJhY2suYw0KPiA+IEBAIC0xMTY1LDE1ICsxMTY1LDI4
-IEBAIHN0YXRpYyBpbnQgY2hlY2tzdW1fc2V0dXBfaXAoc3RydWN0IHhlbnZpZiAqdmlmLA0KPiBz
-dHJ1Y3Qgc2tfYnVmZiAqc2tiLA0KPiA+ICAgCXN0cnVjdCBpcGhkciAqaXBoID0gKHZvaWQgKilz
-a2ItPmRhdGE7DQo+ID4gICAJdW5zaWduZWQgaW50IGhlYWRlcl9zaXplOw0KPiA+ICAgCXVuc2ln
-bmVkIGludCBvZmY7DQo+ID4gKwlib29sIGZyYWdtZW50Ow0KPiA+ICAgCWludCBlcnIgPSAtRVBS
-T1RPOw0KPiA+DQo+ID4gKwlmcmFnbWVudCA9IGZhbHNlOw0KPiANCj4gSXMgaXQgYmV0dGVyIHRv
-IGluaXRpYWxpemUgZnJhZ21lbnQgZGlyZWN0bHkgYXMgZm9sbG93aW5nPw0KPiBib29sIGZyYWdt
-ZW50ID0gZmFsc2U7DQo+IA0KDQpJIHRoaW5rIHRoYXQncyBhIG1hdHRlciBvZiBwZXJzb25hbCB0
-YXN0ZS4gSSB0ZW5kIHRvIGZhdm91ciB0aGlzIHN0eWxlLg0KDQogIFBhdWwNCg0KPiA+ICsNCj4g
-PiAgIAlvZmYgPSBzaXplb2Yoc3RydWN0IGlwaGRyKTsNCj4gPg0KPiA+ICAgCWhlYWRlcl9zaXpl
-ID0gc2tiLT5uZXR3b3JrX2hlYWRlciArIG9mZiArIE1BWF9JUE9QVExFTjsNCj4gPiAgIAltYXli
-ZV9wdWxsX3RhaWwoc2tiLCBoZWFkZXJfc2l6ZSk7DQo+ID4NCj4gPiArCS8qIDNmZmYgLT4gZnJh
-Z21lbnQgb2Zmc2V0ICE9IDAgT1IgbW9yZSBmcmFnbWVudHMgKi8NCj4gPiArCWlmIChudG9ocyhp
-cGgtPmZyYWdfb2ZmKSAmIDB4M2ZmZikNCj4gPiArCQlmcmFnbWVudCA9IHRydWU7DQo+ID4gKw0K
-PiA+ICAgCW9mZiA9IGlwaC0+aWhsICogNDsNCj4gPg0KPiA+ICsJaWYgKGZyYWdtZW50KSB7DQo+
-ID4gKwkJaWYgKG5ldF9yYXRlbGltaXQoKSkNCj4gPiArCQkJbmV0ZGV2X2Vycih2aWYtPmRldiwg
-IlBhY2tldCBpcyBhIGZyYWdtZW50IVxuIik7DQo+ID4gKwkJZ290byBvdXQ7DQo+ID4gKwl9DQo+
-ID4gKw0KPiA+ICAgCXN3aXRjaCAoaXBoLT5wcm90b2NvbCkgew0KPiA+ICAgCWNhc2UgSVBQUk9U
-T19UQ1A6DQo+ID4gICAJCWlmICghc2tiX3BhcnRpYWxfY3N1bV9zZXQoc2tiLCBvZmYsDQo+ID4g
-QEAgLTEyMzcsNiArMTI1MCw3IEBAIHN0YXRpYyBpbnQgY2hlY2tzdW1fc2V0dXBfaXB2NihzdHJ1
-Y3QgeGVudmlmICp2aWYsDQo+IHN0cnVjdCBza19idWZmICpza2IsDQo+ID4gICAJYm9vbCBmcmFn
-bWVudDsNCj4gPiAgIAlib29sIGRvbmU7DQo+ID4NCj4gPiArCWZyYWdtZW50ID0gZmFsc2U7DQo+
-ID4gICAJZG9uZSA9IGZhbHNlOw0KPiANCj4gU2FtZSBhcyBhYm92ZSBmb3IgImRvbmUiIGFuZCAi
-ZnJhZ21lbnQiLi4uDQo+IA0KPiBUaGFua3MNCj4gQW5uaWUNCg==
+On 11/29/2013 09:53 AM, Veaceslav Falico wrote:
+> Currently we're using plain spin_lock() in prb_shutdown_retire_blk_timer(),
+> however the timer might fire right in the middle and thus try to re-aquire
+> the same spinlock, leaving us in a endless loop.
+>
+> To fix that, use the spin_lock_bh() to block it.
+>
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: Daniel Borkmann <dborkman@redhat.com>
+> CC: Willem de Bruijn <willemb@google.com>
+> CC: Phil Sutter <phil@nwl.cc>
+> CC: Eric Dumazet <edumazet@google.com>
+> Reported-by: Jan Stancek <jstancek@redhat.com>
+> Tested-by: Jan Stancek <jstancek@redhat.com>
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+
+Fixes: f6fb8f100b80 ("af-packet: TPACKET_V3 flexible buffer implementation.")
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
+
+Thanks everyone!
