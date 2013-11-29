@@ -1,7 +1,7 @@
 From: Arvid Brodin <arvid.brodin@alten.se>
-Subject: [PATCH net 0/3] net/hsr: Fix omissions
-Date: Fri, 29 Nov 2013 23:34:40 +0100
-Message-ID: <52991680.1020707@alten.se>
+Subject: [PATCH net 1/3] MAINTAINERS: Added net/hsr/ maintainer
+Date: Fri, 29 Nov 2013 23:36:00 +0100
+Message-ID: <529916D0.6020100@alten.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -11,40 +11,41 @@ Cc: David Miller <davem@davemloft.net>,
 	Javier Boticario <jboticario@gmail.com>,
 	balferreira <balferreira@googlemail.com>,
 	=?UTF-8?B?RWzDrWFzIE1vbGluYSBNdcOxb3o=?= <elias.molina@ehu.es>,
-	Arvid Brodin <Arvid.Brodin@alten.se>
+	Arvid Brodin <arvid.brodin@alten.se>
 To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam2.webland.se ([91.207.112.92]:60801 "EHLO spam2.webland.se"
+Received: from spam2.webland.se ([91.207.112.92]:50657 "EHLO spam2.webland.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751289Ab3K2Wp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Nov 2013 17:45:59 -0500
+	id S1751068Ab3K2Wp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Nov 2013 17:45:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a patch series that fixes a few omissions in the original HSR p=
-atch.
+Signed-off-by: Arvid Brodin <arvid.brodin@alten.se>
+---
+ MAINTAINERS | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-The HSR driver is completely new in v3.13-rc1, so the risk that someone=
- would
-hit a regression should be very small. Also, the HSR driver is pretty u=
-seless
-without iproute support, which depends on patch 3 in the series. So I h=
-ope=20
-these are OK for net.
-
-Arvid Brodin (3):
-  MAINTAINERS: Added net/hsr/ maintainer
-  net/hsr: Very small fix of comment style.
-  net/hsr: Support iproute print_opt ('ip -details ...').
-
- MAINTAINERS                  |  6 ++++++
- include/uapi/linux/if_link.h |  4 +++-
- net/hsr/hsr_framereg.c       |  3 ++-
- net/hsr/hsr_netlink.c        | 28 ++++++++++++++++++++++++++++
- 4 files changed, 39 insertions(+), 2 deletions(-)
-
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 63f3048..aadfe34 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4044,6 +4044,12 @@ W:	http://www.pharscape.org
+ S:	Maintained
+ F:	drivers/net/usb/hso.c
+=20
++HSR NETWORK PROTOCOL
++M:	Arvid Brodin <arvid.brodin@alten.se>
++L:	netdev@vger.kernel.org
++S:	Maintained
++F:	net/hsr/
++
+ HTCPEN TOUCHSCREEN DRIVER
+ M:	Pau Oliva Fora <pof@eslack.org>
+ L:	linux-input@vger.kernel.org
 --=20
 1.8.1.5
+
 
 --=20
 Arvid Brodin | Consultant (Linux)
