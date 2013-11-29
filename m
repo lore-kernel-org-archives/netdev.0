@@ -1,68 +1,121 @@
-From: Jongman Heo <jongman.heo@samsung.com>
-Subject: Re: Re: [PATCH v2] inet: fix possible seqlock deadlocks
-Date: Fri, 29 Nov 2013 10:42:41 +0000 (GMT)
-Message-ID: <788421.176041385721758959.JavaMail.weblogic@epml08>
-Reply-To: jongman.heo@samsung.com
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net v3] xen-netback: fix fragment detection in checksum setup
+Date: Fri, 29 Nov 2013 10:52:08 +0000
+Message-ID: <1385722328-32875-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-MIME-version: 1.0
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:19853 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751780Ab3K2KwT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Nov 2013 05:52:19 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQotLS0tLS0tIE9yaWdpbmFsIE1lc3NhZ2UgLS0tLS0tLQ0KU2VuZGVyIDogSm9uZ21hbiBIZW8g
-PGpvbmdtYW4uaGVvQHNhbXN1bmcuY29tPg0KRGF0ZSA6IDIwMTMtMTEtMjkgMTE6MDggKEdNVCsw
-OTowMCkNClRpdGxlIDogUmU6IFtQQVRDSCB2Ml0gaW5ldDogZml4IHBvc3NpYmxlIHNlcWxvY2sg
-ZGVhZGxvY2tzDQo+DQo+DQo+LS0tLS0tIE9yaWdpbmFsIE1lc3NhZ2UgLS0tLS0tLQ0KPlNlbmRl
-ciA6IEVyaWMgRHVtYXpldA0KPkRhdGUgOiAyMDEzLTExLTI5IDAyOjUxIChHTVQrMDk6MDApDQo+
-VGl0bGUgOiBbUEFUQ0ggdjJdIGluZXQ6IGZpeCBwb3NzaWJsZSBzZXFsb2NrIGRlYWRsb2Nrcw0K
-Pj4gDQo+PiBGcm9tOiBFcmljIER1bWF6ZXQgDQo+PiANCj4+IEluIGNvbW1pdCBjOWU5MDQyOTk0
-ZDMgKCJpcHY0OiBmaXggcG9zc2libGUgc2VxbG9jayBkZWFkbG9jayIpIEkgbGVmdA0KPj4gYW5v
-dGhlciBwbGFjZXMgd2hlcmUgSVBfSU5DX1NUQVRTX0JIKCkgd2VyZSBpbXByb3Blcmx5IHVzZWQu
-DQo+PiANCj4+IHVkcF9zZW5kbXNnKCksIHBpbmdfdjRfc2VuZG1zZygpIGFuZCB0Y3BfdjRfY29u
-bmVjdCgpIGFyZSBjYWxsZWQgZnJvbQ0KPj4gcHJvY2VzcyBjb250ZXh0LCBub3QgZnJvbSBzb2Z0
-aXJxIGNvbnRleHQuDQo+PiANCj4+IFRoaXMgd2FzIGRldGVjdGVkIGJ5IGxvY2tkZXAgc2VxbG9j
-ayBzdXBwb3J0Lg0KPj4gDQo+PiBSZXBvcnRlZC1ieTogam9uZ21hbiBoZW8gDQo+PiBGaXhlczog
-NTg0YmRmOGNiZGY2ICgiW0lQVjRdOiBGaXggImlwT3V0Tm9Sb3V0ZXMiIGNvdW50ZXIgZXJyb3Ig
-Zm9yIFRDUCBhbmQgVURQIikNCj4+IEZpeGVzOiBjMzE5YjRkNzZiOWUgKCJuZXQ6IGlwdjQ6IGFk
-ZCBJUFBST1RPX0lDTVAgc29ja2V0IGtpbmQiKQ0KPj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1h
-emV0IA0KPj4gQ2M6IEhhbm5lcyBGcmVkZXJpYyBTb3dhIA0KPj4gLS0tDQo+PiBuZXQvaXB2NC9w
-aW5nLmMgICAgIHwgICAgMiArLQ0KPj4gbmV0L2lwdjQvdGNwX2lwdjQuYyB8ICAgIDIgKy0NCj4+
-IG5ldC9pcHY0L3VkcC5jICAgICAgfCAgICAyICstDQo+PiAzIGZpbGVzIGNoYW5nZWQsIDMgaW5z
-ZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkNCj4+IA0KPj4gZGlmZiAtLWdpdCBhL25ldC9pcHY0
-L3BpbmcuYyBiL25ldC9pcHY0L3BpbmcuYw0KPj4gaW5kZXggODQwY2YxYjllNmVlLi4yNDJlN2Y0
-ZWQ2ZjQgMTAwNjQ0DQo+PiAtLS0gYS9uZXQvaXB2NC9waW5nLmMNCj4+ICsrKyBiL25ldC9pcHY0
-L3BpbmcuYw0KPj4gQEAgLTc3Miw3ICs3NzIsNyBAQCBpbnQgcGluZ192NF9zZW5kbXNnKHN0cnVj
-dCBraW9jYiAqaW9jYiwgc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3QgbXNnaGRyICptc2csDQo+PiBl
-cnIgPSBQVFJfRVJSKHJ0KTsNCj4+IHJ0ID0gTlVMTDsNCj4+IGlmIChlcnIgPT0gLUVORVRVTlJF
-QUNIKQ0KPj4gLSBJUF9JTkNfU1RBVFNfQkgobmV0LCBJUFNUQVRTX01JQl9PVVROT1JPVVRFUyk7
-DQo+PiArIElQX0lOQ19TVEFUUyhuZXQsIElQU1RBVFNfTUlCX09VVE5PUk9VVEVTKTsNCj4+IGdv
-dG8gb3V0Ow0KPj4gfQ0KPj4gDQo+PiBkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvdGNwX2lwdjQuYyBi
-L25ldC9pcHY0L3RjcF9pcHY0LmMNCj4+IGluZGV4IDU5YTZmOGI5MGNkOS4uMDY3MjEzOTI0NzUx
-IDEwMDY0NA0KPj4gLS0tIGEvbmV0L2lwdjQvdGNwX2lwdjQuYw0KPj4gKysrIGIvbmV0L2lwdjQv
-dGNwX2lwdjQuYw0KPj4gQEAgLTE3Nyw3ICsxNzcsNyBAQCBpbnQgdGNwX3Y0X2Nvbm5lY3Qoc3Ry
-dWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc29ja2FkZHIgKnVhZGRyLCBpbnQgYWRkcl9sZW4pDQo+PiBp
-ZiAoSVNfRVJSKHJ0KSkgew0KPj4gZXJyID0gUFRSX0VSUihydCk7DQo+PiBpZiAoZXJyID09IC1F
-TkVUVU5SRUFDSCkNCj4+IC0gSVBfSU5DX1NUQVRTX0JIKHNvY2tfbmV0KHNrKSwgSVBTVEFUU19N
-SUJfT1VUTk9ST1VURVMpOw0KPj4gKyBJUF9JTkNfU1RBVFMoc29ja19uZXQoc2spLCBJUFNUQVRT
-X01JQl9PVVROT1JPVVRFUyk7DQo+PiByZXR1cm4gZXJyOw0KPj4gfQ0KPj4gDQo+PiBkaWZmIC0t
-Z2l0IGEvbmV0L2lwdjQvdWRwLmMgYi9uZXQvaXB2NC91ZHAuYw0KPj4gaW5kZXggNDRkZmFhMDli
-NTg0Li40NGUzODg0ZjllNGMgMTAwNjQ0DQo+PiAtLS0gYS9uZXQvaXB2NC91ZHAuYw0KPj4gKysr
-IGIvbmV0L2lwdjQvdWRwLmMNCj4+IEBAIC05OTksNyArOTk5LDcgQEAgaW50IHVkcF9zZW5kbXNn
-KHN0cnVjdCBraW9jYiAqaW9jYiwgc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3QgbXNnaGRyICptc2cs
-DQo+PiBlcnIgPSBQVFJfRVJSKHJ0KTsNCj4+IHJ0ID0gTlVMTDsNCj4+IGlmIChlcnIgPT0gLUVO
-RVRVTlJFQUNIKQ0KPj4gLSBJUF9JTkNfU1RBVFNfQkgobmV0LCBJUFNUQVRTX01JQl9PVVROT1JP
-VVRFUyk7DQo+PiArIElQX0lOQ19TVEFUUyhuZXQsIElQU1RBVFNfTUlCX09VVE5PUk9VVEVTKTsN
-Cj4+IGdvdG8gb3V0Ow0KPj4gfQ0KPj4gDQo+DQo+SGksIEVyaWMsDQo+DQo+SSd2ZSBhcHBsaWVk
-IHlvdXIgcGF0Y2gsIGFuZCB3aWxsIGxldCB5b3Uga25vdyB0aGUgcmVzdWx0LCBhZnRlciBhIGZ1
-bGwgZGF5IG9yIGhhbGYgZGF5IHRlc3QuDQo+VXN1YWxseSB0aGUgaXNzdWUgaGFwcGVucyB3aXRo
-aW4gMTAgbWludXRlcyBhZnRlciBib290LCBidXQgdG8gYmUgc3VyZS4uLg0KPg0KPlJlZ2FyZHMs
-DQo+Sm9uZ21hbiBIZW8uDQo+DQoNCkhpLCBFcmljLA0KDQpJdCBoYXMgc3Vydml2ZWQgYWJvdXQg
-OSBob3VycywgbG9va3MgZmluZS4gVGhhbmtzfi4NCg0KVGVzdGVkLWJ5OiBKb25nbWFuIEhlbyA8
-am9uZ21hbi5oZW9Ac2Ftc3VuZy5jb20+DQo=
+The code to detect fragments in checksum_setup() was missing for IPv4 and
+too eager for IPv6. (It transpires that Windows seems to send IPv6 packets
+with a fragment header even if they are not a fragment - i.e. offset is zero,
+and M bit is not set).
+
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+---
+v3
+- Use defined values for 'fragment offset' and 'more fragments'
+
+v2
+- Added comments noting what fragment/offset masks mean
+
+
+ drivers/net/xen-netback/netback.c |   31 ++++++++++++++++++++++++++++---
+ include/net/ipv6.h                |    3 ++-
+ 2 files changed, 30 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 64f0e0d..53419f6 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1166,15 +1166,27 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+ 	struct iphdr *iph = (void *)skb->data;
+ 	unsigned int header_size;
+ 	unsigned int off;
++	bool fragment;
+ 	int err = -EPROTO;
+ 
++	fragment = false;
++
+ 	off = sizeof(struct iphdr);
+ 
+ 	header_size = skb->network_header + off + MAX_IPOPTLEN;
+ 	maybe_pull_tail(skb, header_size);
+ 
++	if (iph->frag_off & htons(IP_OFFSET | IP_MF))
++		fragment = true;
++
+ 	off = iph->ihl * 4;
+ 
++	if (fragment) {
++		if (net_ratelimit())
++			netdev_err(vif->dev, "Packet is a fragment!\n");
++		goto out;
++	}
++
+ 	switch (iph->protocol) {
+ 	case IPPROTO_TCP:
+ 		if (!skb_partial_csum_set(skb, off,
+@@ -1238,6 +1250,7 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
+ 	bool fragment;
+ 	bool done;
+ 
++	fragment = false;
+ 	done = false;
+ 
+ 	off = sizeof(struct ipv6hdr);
+@@ -1276,9 +1289,21 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
+ 			off += (hp->hdrlen+2)<<2;
+ 			break;
+ 		}
+-		case IPPROTO_FRAGMENT:
+-			fragment = true;
+-			/* fall through */
++		case IPPROTO_FRAGMENT: {
++			struct frag_hdr *hp = (void *)(skb->data + off);
++
++			header_size = skb->network_header +
++				off +
++				sizeof(struct frag_hdr);
++			maybe_pull_tail(skb, header_size);
++
++			if (hp->frag_off & htons(IP6_OFFSET | IP6_MF))
++				fragment = true;
++
++			nexthdr = hp->nexthdr;
++			off += sizeof(struct frag_hdr);
++			break;
++		}
+ 		default:
+ 			done = true;
+ 			break;
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index eb198ac..488316e 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -110,7 +110,8 @@ struct frag_hdr {
+ 	__be32	identification;
+ };
+ 
+-#define	IP6_MF	0x0001
++#define	IP6_MF		0x0001
++#define	IP6_OFFSET	0xFFF8
+ 
+ #include <net/sock.h>
+ 
+-- 
+1.7.10.4
