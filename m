@@ -1,125 +1,58 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next] xen-netback: Fix pull size in checksum_setup_ip*
-Date: Fri, 29 Nov 2013 20:26:15 +0000
-Message-ID: <5298F867.3030200@citrix.com>
-References: <1385751407-9365-1-git-send-email-zoltan.kiss@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 02/17] net: Add utility function to set the rxhash
+Date: Fri, 29 Nov 2013 15:42:28 -0500 (EST)
+Message-ID: <20131129.154228.1595262198220391193.davem@davemloft.net>
+References: <alpine.DEB.2.02.1311260913480.21024@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
-To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>,
-	<paul.durrant@citrix.com>
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:15319 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752192Ab3K2U0S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Nov 2013 15:26:18 -0500
-In-Reply-To: <1385751407-9365-1-git-send-email-zoltan.kiss@citrix.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54412 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752606Ab3K2Umc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Nov 2013 15:42:32 -0500
+In-Reply-To: <alpine.DEB.2.02.1311260913480.21024@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Or would it make sense to drop header_size and use off + something as 
-function parameters?
+From: Tom Herbert <therbert@google.com>
+Date: Tue, 26 Nov 2013 09:22:34 -0800 (PST)
 
-Zoli
+> @@ -703,6 +703,20 @@ unsigned int skb_find_text(struct sk_buff *skb, unsigned int from,
+>  			   unsigned int to, struct ts_config *config,
+>  			   struct ts_state *state);
+>  
+> +enum rxhash_types {
+> +	RXHASH_TYPE_NONE,	/* Undefined type */
+> +	RXHASH_TYPE_L2,		/* Uses L2 information (addresses) */
+> +	RXHASH_TYPE_L3,		/* Uses L3 information */
+> +	RXHASH_TYPE_L4,		/* Uses L4 information (ports) */
+> +};
+> +
+> +static inline void
+> +skb_set_rxhash(struct sk_buff *skb, __u32 hash, enum rxhash_types type)
+> +{
+> +	skb->l4_rxhash = (type == RXHASH_TYPE_L4);
+> +	skb->rxhash = hash;
+> +}
 
-On 29/11/13 18:56, Zoltan Kiss wrote:
-> Before checksum setup we need to make sure we have enough data in linear
-> buffer, so we do a pull if not. The calculation of the required data counts
-> with skb->network_header, which is the headroom size actually. This is not
-> necessary, and can cause unreasonable pulling. I've also removed
-> MAX_IPOPTLEN, as we only need the base header at that point.
->
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
->
-> ---
->   drivers/net/xen-netback/netback.c |   24 ++++++++----------------
->   1 file changed, 8 insertions(+), 16 deletions(-)
->
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 919b650..adadf76 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1169,8 +1169,7 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
->
->   	off = sizeof(struct iphdr);
->
-> -	header_size = skb->network_header + off + MAX_IPOPTLEN;
-> -	maybe_pull_tail(skb, header_size);
-> +	maybe_pull_tail(skb, off);
->
->   	off = iph->ihl * 4;
->
-> @@ -1183,8 +1182,7 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
->   		if (recalculate_partial_csum) {
->   			struct tcphdr *tcph = tcp_hdr(skb);
->
-> -			header_size = skb->network_header +
-> -				off +
-> +			header_size = off +
->   				sizeof(struct tcphdr);
->   			maybe_pull_tail(skb, header_size);
->
-> @@ -1201,8 +1199,7 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
->   		if (recalculate_partial_csum) {
->   			struct udphdr *udph = udp_hdr(skb);
->
-> -			header_size = skb->network_header +
-> -				off +
-> +			header_size = off +
->   				sizeof(struct udphdr);
->   			maybe_pull_tail(skb, header_size);
->
-> @@ -1241,8 +1238,7 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
->
->   	off = sizeof(struct ipv6hdr);
->
-> -	header_size = skb->network_header + off;
-> -	maybe_pull_tail(skb, header_size);
-> +	maybe_pull_tail(skb, off);
->
->   	nexthdr = ipv6h->nexthdr;
->
-> @@ -1254,8 +1250,7 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
->   		case IPPROTO_ROUTING: {
->   			struct ipv6_opt_hdr *hp = (void *)(skb->data + off);
->
-> -			header_size = skb->network_header +
-> -				off +
-> +			header_size = off +
->   				sizeof(struct ipv6_opt_hdr);
->   			maybe_pull_tail(skb, header_size);
->
-> @@ -1266,8 +1261,7 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
->   		case IPPROTO_AH: {
->   			struct ip_auth_hdr *hp = (void *)(skb->data + off);
->
-> -			header_size = skb->network_header +
-> -				off +
-> +			header_size = off +
->   				sizeof(struct ip_auth_hdr);
->   			maybe_pull_tail(skb, header_size);
->
-> @@ -1305,8 +1299,7 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
->   		if (recalculate_partial_csum) {
->   			struct tcphdr *tcph = tcp_hdr(skb);
->
-> -			header_size = skb->network_header +
-> -				off +
-> +			header_size = off +
->   				sizeof(struct tcphdr);
->   			maybe_pull_tail(skb, header_size);
->
-> @@ -1324,8 +1317,7 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
->   		if (recalculate_partial_csum) {
->   			struct udphdr *udph = udp_hdr(skb);
->
-> -			header_size = skb->network_header +
-> -				off +
-> +			header_size = off +
->   				sizeof(struct udphdr);
->   			maybe_pull_tail(skb, header_size);
->
->
+This looks fine but I want slightly more documentation in the
+comments.
+
+First of all, L2 is link layer "addresses" like ethernet, and L3 is
+for protocol "addresses" such as for IPv4/IPv6.  Make this explicit
+in the comments.
+
+Next, answer the question "Does RXHASH_TYPE_LN imply
+RXHASH_TYPE_L{N-1}?"
+
+I suspect it's variable, so for example L4 implies L3, but not
+necessarily L2.  Document this fully.
+
+Finally, are there any serious negative consequences for not setting
+the type correctly?  Or is it just a minor performance issue?  Either
+way, document it.
+
+Thanks.
