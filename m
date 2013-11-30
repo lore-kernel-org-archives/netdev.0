@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix possible seqlock deadlock in
- ip6_finish_output2
-Date: Sat, 30 Nov 2013 12:49:05 -0500 (EST)
-Message-ID: <20131130.124905.1525994055463627833.davem@davemloft.net>
-References: <20131128192231.GE24171@order.stressinduktion.org>
-	<20131129053944.GH24171@order.stressinduktion.org>
-	<1385829955.5352.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net 0/3] net/hsr: Fix omissions
+Date: Sat, 30 Nov 2013 12:49:16 -0500 (EST)
+Message-ID: <20131130.124916.886794226134774421.davem@davemloft.net>
+References: <52991680.1020707@alten.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, jongman.heo@samsung.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1385829955.5352.40.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, joe@perches.com,
+	jboticario@gmail.com, balferreira@googlemail.com,
+	elias.molina@ehu.es
+To: arvid.brodin@alten.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33407 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751627Ab3K3RtS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 12:49:18 -0500
+In-Reply-To: <52991680.1020707@alten.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 30 Nov 2013 08:45:55 -0800
+From: Arvid Brodin <arvid.brodin@alten.se>
+Date: Fri, 29 Nov 2013 23:34:40 +0100
 
-> On Fri, 2013-11-29 at 06:39 +0100, Hannes Frederic Sowa wrote:
->> IPv6 stats are 64 bits and thus are protected with a seqlock. By not
->> disabling bottom-half we could deadlock here if we don't disable bh and
->> a softirq reentrantly updates the same mib.
->> 
->> Cc: Eric Dumazet <eric.dumazet@gmail.com>
->> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> ---
+> This is a patch series that fixes a few omissions in the original HSR patch.
 > 
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> 
-> (Note that the seqlock is only for 32bit arches)
+> The HSR driver is completely new in v3.13-rc1, so the risk that someone would
+> hit a regression should be very small. Also, the HSR driver is pretty useless
+> without iproute support, which depends on patch 3 in the series. So I hope 
+> these are OK for net.
 
-Applied and queued up for -stable, thanks.
+Series applied.
