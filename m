@@ -1,47 +1,38 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net v2 2/7] e1000: prevent oops when adapter is being closed
- and reset simultaneously
-Date: Sat, 30 Nov 2013 20:37:48 +0400
-Message-ID: <529A145C.4030503@cogentembedded.com>
-References: <1385803221-3752-1-git-send-email-jeffrey.t.kirsher@intel.com> <1385803221-3752-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv6: fix possible seqlock deadlock in
+ ip6_finish_output2
+Date: Sat, 30 Nov 2013 08:45:55 -0800
+Message-ID: <1385829955.5352.40.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <13025162.118881385612276530.JavaMail.weblogic@epv6ml01>
+	 <1385659390.5352.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1385661082.5352.34.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131128192231.GE24171@order.stressinduktion.org>
+	 <20131129053944.GH24171@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: yzhu1 <yanjun.zhu@windriver.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Cc: jongman.heo@samsung.com, David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:39408 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751712Ab3K3Qhu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 11:37:50 -0500
-Received: by mail-lb0-f181.google.com with SMTP id q8so7733070lbi.12
-        for <netdev@vger.kernel.org>; Sat, 30 Nov 2013 08:37:47 -0800 (PST)
-In-Reply-To: <1385803221-3752-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:54839 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751327Ab3K3Qp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 11:45:58 -0500
+In-Reply-To: <20131129053944.GH24171@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Fri, 2013-11-29 at 06:39 +0100, Hannes Frederic Sowa wrote:
+> IPv6 stats are 64 bits and thus are protected with a seqlock. By not
+> disabling bottom-half we could deadlock here if we don't disable bh and
+> a softirq reentrantly updates the same mib.
+> 
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
 
-On 30-11-2013 13:20, Jeff Kirsher wrote:
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-> From: yzhu1 <yanjun.zhu@windriver.com>
-
-> This change is based on a similar change made to e1000e support in
-> commit bb9e44d0d0f4 ("e1000e: prevent oops when adapter is being closed
-> and reset simultaneously").  The same issue has also been observed
-> on the older e1000 cards.
-
-> Here, we have increased the RESET_COUNT value to 50 because there are too
-> many accesses to e1000 nic on stress tests to e1000 nic, it is not enough
-> to set RESET_COUT 25. Experimentation has shown that it is enough to set
-> RESET_COUNT 50.
-
-> Signed-off-by: yzhu1 <yanjun.zhu@windriver.com>
-
-    Jeff, why are you accepting patches without real name in the sign-off line?
-
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
-WBR, Sergei
+(Note that the seqlock is only for 32bit arches)
