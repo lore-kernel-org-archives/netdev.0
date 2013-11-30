@@ -1,50 +1,76 @@
-From: Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [net-next 3/7] openvswitch: Enable memory mapped
-	Netlink i/o
-Date: Sat, 30 Nov 2013 13:35:49 +0100
-Message-ID: <20131130123549.GH2067@breakpoint.cc>
-References: <cover.1385813891.git.tgraf@suug.ch>
-	<9f7f05a726935c434d43d92c2908a997c403725b.1385813891.git.tgraf@suug.ch>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] net: mac80211: tx.c: be sure of 'sdata->vif.type' must
+ be NL80211_IFTYPE_AP when be in NL80211_IFTYPE_AP case
+Date: Sat, 30 Nov 2013 13:53:33 +0100
+Message-ID: <1385816013.4327.1.camel@jlt4.sipsolutions.net>
+References: <528AEFB7.4060301@gmail.com>
+	  <20131125011938.GB18921@codeaurora.org> <5292B845.3010404@gmail.com>
+	  <5292B8A0.7020409@gmail.com> <5294255E.7040105@gmail.com>
+	  <52957ADA.2080704@gmail.com>
+	 (sfid-20131127_055211_558798_A7DF5684) <1385739487.8656.1.camel@jlt4.sipsolutions.net>
+	 <5299D306.7070701@gmail.com> (sfid-20131130_125901_519610_EDA4068E)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, fleitner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <9f7f05a726935c434d43d92c2908a997c403725b.1385813891.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	rkuo <rkuo@codeaurora.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Chen Gang <gang.chen.5i5j@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5299D306.7070701@gmail.com> (sfid-20131130_125901_519610_EDA4068E)
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org> wrote:
-> Benchmark
->   * pktgen -> ovs internal port
->   * 5M pkts, 5M flows
->   * 4 threads, 8 cores
+On Sat, 2013-11-30 at 19:59 +0800, Chen Gang wrote:
+> On 11/29/2013 11:38 PM, Johannes Berg wrote:
+> > 
+> >> +++ b/net/mac80211/tx.c
+> >> @@ -1814,8 +1814,9 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+> >>  			break;
+> >>  		/* fall through */
+> >>  	case NL80211_IFTYPE_AP:
+> >> -		if (sdata->vif.type == NL80211_IFTYPE_AP)
+> >> -			chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
+> >> +		if (sdata->vif.type != NL80211_IFTYPE_AP)
+> >> +			goto fail_rcu;
+> >> +		chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
+> > 
+> > This change is completely wrong.
+> > 
 > 
-> Before:
-> Result: OK: 67418743(c67108212+d310530) usec, 5000000 (9000byte,0frags)
->   74163pps 5339Mb/sec (5339736000bps) errors: 0
-[..]
-> After:
-> Result: OK: 24229690(c24127165+d102524) usec, 5000000 (9000byte,0frags)
->   206358pps 14857Mb/sec (14857776000bps) errors: 0
+> Oh, it is.
+> 
+> Hmm... for me, this work flow still can be implemented with a little
+> clearer way (at least it will avoid related warning):
+> 
+> -------------------------diff begin------------------------------
+> 
+> diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+> index c558b24..7076128 100644
+> --- a/net/mac80211/tx.c
+> +++ b/net/mac80211/tx.c
+> @@ -1810,14 +1810,14 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+>  		if (!chanctx_conf)
+>  			goto fail_rcu;
+>  		band = chanctx_conf->def.chan->band;
+> -		if (sta)
+> -			break;
+> -		/* fall through */
+> +		if (!sta)
+> +			goto try_next;
+> +		break;
+>  	case NL80211_IFTYPE_AP:
+> -		if (sdata->vif.type == NL80211_IFTYPE_AP)
+> -			chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
+> +		chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
+>  		if (!chanctx_conf)
+>  			goto fail_rcu;
+> +try_next:
 
-I'm curious.  Is the 'old' value with skb_zerocopy() or without?
-Does ovs-vswitchd 'read-access' the entire packet or just e.g. the
-header?
+I don't think that's better than the (fairly obvious) fall-through, and
+has a pretty odd goto. Also, depending on the compiler, it still knows
+the previous case label and doesn't warn.
 
-I ask because in netfilter nfqueue tests I could not see any difference
-between 'zerocopy' vs. mmap in the receive-path tests I made a while
-back.
-
-[ I have no objections to your patch, of course ].
+johannes
