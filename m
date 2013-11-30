@@ -1,46 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: neighbour: make sure the handler has finished
- before kfree neighbour
-Date: Sat, 30 Nov 2013 16:27:33 -0500 (EST)
-Message-ID: <20131130.162733.145727596946626316.davem@davemloft.net>
-References: <52973704.1030202@huawei.com>
+From: Andreas Schwab <schwab@linux-m68k.org>
+Subject: Re: 3.13-rc1: eth0 hw csum failure on powerpc
+Date: Sat, 30 Nov 2013 23:05:14 +0100
+Message-ID: <87vbz9pmud.fsf@igel.home>
+References: <alpine.DEB.2.11.1311300156380.31521@trent.utfs.org>
+	<alpine.DEB.2.11.1311300210360.31521@trent.utfs.org>
+	<alpine.DEB.2.11.1311301314220.31521__48727.6146108799$1385846242$gmane$org@trent.utfs.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gaofeng@cn.fujitsu.com, yoshfuji@linux-ipv6.org, joe@perches.com,
-	vfalico@redhat.com, netdev@vger.kernel.org
-To: dingtianhong@huawei.com
+Content-Type: text/plain
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, Alexander Graf <agraf@suse.de>
+To: Christian Kujau <lists@nerdbynature.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34625 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750940Ab3K3V1f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 16:27:35 -0500
-In-Reply-To: <52973704.1030202@huawei.com>
+Received: from mail-out.m-online.net ([212.18.0.10]:60046 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751366Ab3K3WFZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 17:05:25 -0500
+In-Reply-To: <alpine.DEB.2.11.1311301314220.31521__48727.6146108799$1385846242$gmane$org@trent.utfs.org>
+	(Christian Kujau's message of "Sat, 30 Nov 2013 13:16:34 -0800 (PST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Thu, 28 Nov 2013 20:28:52 +0800
+Christian Kujau <lists@nerdbynature.de> writes:
 
-> I have met the oops in Suse11 SP2, the kernel is 2.6.32.59-0.7-default:
+> On Sat, 30 Nov 2013 at 02:11, Christian Kujau wrote:
+>> On Sat, 30 Nov 2013 at 02:07, Christian Kujau wrote:
+>> > while trying to upgrade from 3.12.0 to 3.13-rc1 or -rc2, the following 
+>> > happens early during bootup:
+>> > 
+>> > [...]
+>> >  Freeing unused kernel memory: 204K (c06ea000 - c071d000)
+>> >  eth0: hw csum failure
+>> >  CPU: 0 PID: 0 Comm: swapper Not tainted 3.13.0-rc2 #1
+>> >  Call Trace:
+>> 
+>> Btw, full dmesg & .config:  http://nerdbynature.de/bits/3.13-rc1/
+>
+> Oh, this has already been reported earlier this week:
+>
+> https://lists.ozlabs.org/pipermail/linuxppc-dev/2013-November/113584.html
 
-This doesn't make any sense.
+No solution yet, though, 3.13-rc2 is still broken.
 
-If this actually was the reason, then del_timer() would have returned true,
-and thus neigh_del_timer() would have returned "1" and you would have
-seen the "Impossible event" log message that neigh_destroy() prints out.
+Andreas.
 
-You may think the cause is a pending timer, but the data you've provided
-does not support this at all.
-
-And if it isn't happening, your patch removing that warning is wrong.
-
-Furthermore, if this change to use del_timer_sync() is correct, it
-probably belongs in neigh_del_timer() because all of it's other callers
-expect the timer to not be running and that all references to the object
-are stable after such calls.
-
-I'm not applying this, you really need to pursue this bug fix more
-cleanly and more thoroughly because it's a non-trivial issue.
-
-Thanks.
+-- 
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
