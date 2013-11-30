@@ -1,80 +1,67 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: Re: [PATCH] net: mac80211: tx.c: be sure of 'sdata->vif.type' must
- be NL80211_IFTYPE_AP when be in NL80211_IFTYPE_AP case
-Date: Sat, 30 Nov 2013 19:59:02 +0800
-Message-ID: <5299D306.7070701@gmail.com>
-References: <528AEFB7.4060301@gmail.com>  <20131125011938.GB18921@codeaurora.org> <5292B845.3010404@gmail.com>  <5292B8A0.7020409@gmail.com> <5294255E.7040105@gmail.com>  <52957ADA.2080704@gmail.com> (sfid-20131127_055211_558798_A7DF5684) <1385739487.8656.1.camel@jlt4.sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	rkuo <rkuo@codeaurora.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next 0/8 v8] Open vSwitch upcall optimiziations
+Date: Sat, 30 Nov 2013 13:21:29 +0100
+Message-ID: <cover.1385813891.git.tgraf@suug.ch>
+Cc: dev@openvswitch.org, netdev@vger.kernel.org, dborkman@redhat.com,
+	ffusco@redhat.com, fleitner@redhat.com, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com
+To: jesse@nicira.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:59949 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751214Ab3K3L67 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 06:58:59 -0500
-In-Reply-To: <1385739487.8656.1.camel@jlt4.sipsolutions.net>
+Received: from merlin.infradead.org ([205.233.59.134]:59171 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751320Ab3K3MVw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 07:21:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2013 11:38 PM, Johannes Berg wrote:
-> 
->> +++ b/net/mac80211/tx.c
->> @@ -1814,8 +1814,9 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
->>  			break;
->>  		/* fall through */
->>  	case NL80211_IFTYPE_AP:
->> -		if (sdata->vif.type == NL80211_IFTYPE_AP)
->> -			chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
->> +		if (sdata->vif.type != NL80211_IFTYPE_AP)
->> +			goto fail_rcu;
->> +		chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
-> 
-> This change is completely wrong.
-> 
+Reposting this before the merge window as it will go through Jesse's
+tree.
 
-Oh, it is.
+Given jumbo frames, the capacity of the slow path is improved by 
+a factor of 2.5x.
 
-Hmm... for me, this work flow still can be implemented with a little
-clearer way (at least it will avoid related warning):
+V8: - Dropped patch adding NLM_F_REPLACE support, I'll pursue this in a
+      separate patch series. Addresses Jesse's comments.
+    - Improved comment describing OVS_DATAPATH_VERSION bump.
+V7: - removed unintential kernel-doc comment
+    - WARN_ONCE() -> WARN(), message on single line, added \n
+V6: - Added memory mapped netlink i/o support
+    - Drop user_features if old user space not aware of user features
+      reuses an existing datapath
+V5: - Removed padding requirement in user space
+    - Added OVS_DP_F_UNALIGNED flag let user space signal ability to
+      receive unaligned Netlink messages, fall back to linear copy
+      otherwise.
+V4: - Daniel Borkmann pointed out that the style in skbuff.h has changed
+      in net-next, adapted to no longer using extern in headers.
+V3: - Removed unneeded alignment of nlmsg_len after padding
+V2: - Added skb_zerocopy_headlen() to calculate headroom of destination
+      buffer. This also takes care of the from->head_frag issue.
+    - Attribute alignment for frag_list case
+    - API documentation
+    - performance data for CHECKSUM_PARTIAL tx case
 
--------------------------diff begin------------------------------
+Thomas Graf (7):
+  genl: Add genlmsg_new_unicast() for unicast message allocation
+  netlink: Avoid netlink mmap alloc if msg size exceeds frame size
+  openvswitch: Enable memory mapped Netlink i/o
+  net: Export skb_zerocopy() to zerocopy from one skb to another
+  openvswitch: Allow user space to announce ability to accept unaligned
+    Netlink messages
+  openvswitch: Drop user features if old user space attempted to create
+    datapath
+  openvswitch: Use skb_zerocopy() for upcall
 
-diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index c558b24..7076128 100644
---- a/net/mac80211/tx.c
-+++ b/net/mac80211/tx.c
-@@ -1810,14 +1810,14 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
- 		if (!chanctx_conf)
- 			goto fail_rcu;
- 		band = chanctx_conf->def.chan->band;
--		if (sta)
--			break;
--		/* fall through */
-+		if (!sta)
-+			goto try_next;
-+		break;
- 	case NL80211_IFTYPE_AP:
--		if (sdata->vif.type == NL80211_IFTYPE_AP)
--			chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
-+		chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
- 		if (!chanctx_conf)
- 			goto fail_rcu;
-+try_next:
- 		fc |= cpu_to_le16(IEEE80211_FCTL_FROMDS);
- 		/* DA BSSID SA */
- 		memcpy(hdr.addr1, skb->data, ETH_ALEN);
+ include/linux/skbuff.h               |   3 +
+ include/net/genetlink.h              |   4 +
+ include/uapi/linux/openvswitch.h     |  14 +++-
+ net/core/skbuff.c                    |  85 +++++++++++++++++++++
+ net/netfilter/nfnetlink_queue_core.c |  59 +--------------
+ net/netlink/af_netlink.c             |   4 +
+ net/netlink/genetlink.c              |  21 +++++
+ net/openvswitch/datapath.c           | 143 ++++++++++++++++++++++++-----------
+ net/openvswitch/datapath.h           |   2 +
+ 9 files changed, 236 insertions(+), 99 deletions(-)
 
-
-
--------------------------diff end--------------------------------
-
-
-Thanks.
 -- 
-Chen Gang
+1.8.3.1
