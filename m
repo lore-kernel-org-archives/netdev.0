@@ -1,38 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] xen-netback: Fix pull size in
- checksum_setup_ip*
-Date: Sat, 30 Nov 2013 16:10:00 -0500 (EST)
-Message-ID: <20131130.161000.1050565138363035368.davem@davemloft.net>
-References: <1385751407-9365-1-git-send-email-zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net v3] xen-netback: fix fragment detection in checksum
+ setup
+Date: Sat, 30 Nov 2013 16:13:57 -0500 (EST)
+Message-ID: <20131130.161357.1101467615641418549.davem@davemloft.net>
+References: <1385722328-32875-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
-	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jonathan.davies@citrix.com,
-	paul.durrant@citrix.com
-To: zoltan.kiss@citrix.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1385751407-9365-1-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	wei.liu2@citrix.com, ian.campbell@citrix.com,
+	david.vrabel@citrix.com
+To: paul.durrant@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34539 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750908Ab3K3VN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 16:13:58 -0500
+In-Reply-To: <1385722328-32875-1-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Date: Fri, 29 Nov 2013 18:56:47 +0000
+From: Paul Durrant <paul.durrant@citrix.com>
+Date: Fri, 29 Nov 2013 10:52:08 +0000
 
-> Before checksum setup we need to make sure we have enough data in linear
-> buffer, so we do a pull if not. The calculation of the required data counts
-> with skb->network_header, which is the headroom size actually. This is not
-> necessary, and can cause unreasonable pulling. I've also removed
-> MAX_IPOPTLEN, as we only need the base header at that point.
-> 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> @@ -1166,15 +1166,27 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+>  	struct iphdr *iph = (void *)skb->data;
+>  	unsigned int header_size;
+>  	unsigned int off;
+> +	bool fragment;
+>  	int err = -EPROTO;
+>  
+> +	fragment = false;
+> +
+>  	off = sizeof(struct iphdr);
+>  
+>  	header_size = skb->network_header + off + MAX_IPOPTLEN;
+>  	maybe_pull_tail(skb, header_size);
+>  
+> +	if (iph->frag_off & htons(IP_OFFSET | IP_MF))
+> +		fragment = true;
 
-The net-next tree is no open, therefore it is not appropriate to submit
-patches targetting to that tree at this time.
+This function has a serious problem.
 
-I will make an explicit announcement on netdev when I have openned
-the net-next tree, so it will be clear exactly when you can submit
-patches targetting that tree again.
+maybe_pull_tail() can change skb->data, therefore this "iph" pointer
+can become invalid, you're essentially dereferencing garbage if
+maybe_pull_tail() actually does any work.
 
-Thank you.
+Secondly, do you really (even rate limited) want to span the system
+log just because some ipv4 fragmented frames end up here?  That
+doesn't make any sense to me.  Maybe bump a statistic or something
+like that, but a log message triggerable by a remote entity?  No way.
