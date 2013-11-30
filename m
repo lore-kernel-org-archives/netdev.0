@@ -1,36 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: check the rto_min and rto_max
-Date: Sat, 30 Nov 2013 16:08:47 -0500 (EST)
-Message-ID: <20131130.160847.361995350346508364.davem@davemloft.net>
-References: <5299BCB8.6070409@huawei.com>
+Subject: Re: [PATCH net-next] xen-netback: Fix pull size in
+ checksum_setup_ip*
+Date: Sat, 30 Nov 2013 16:10:00 -0500 (EST)
+Message-ID: <20131130.161000.1050565138363035368.davem@davemloft.net>
+References: <1385751407-9365-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	dingtianhong@huawei.com
-To: wangweidong1@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34515 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987Ab3K3VIu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 16:08:50 -0500
-In-Reply-To: <5299BCB8.6070409@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ian.campbell@citrix.com, wei.liu2@citrix.com,
+	xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jonathan.davies@citrix.com,
+	paul.durrant@citrix.com
+To: zoltan.kiss@citrix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1385751407-9365-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: wangweidong <wangweidong1@huawei.com>
-Date: Sat, 30 Nov 2013 18:23:52 +0800
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Date: Fri, 29 Nov 2013 18:56:47 +0000
 
-> rto_min should be smaller than rto_max while rto_max should be larger
-> than rto_min. so just add the check.
+> Before checksum setup we need to make sure we have enough data in linear
+> buffer, so we do a pull if not. The calculation of the required data counts
+> with skb->network_header, which is the headroom size actually. This is not
+> necessary, and can cause unreasonable pulling. I've also removed
+> MAX_IPOPTLEN, as we only need the base header at that point.
 > 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 
-Please fix your submission process such that your real full name
-appears in the "From: " field of your patch emails, instead of
-just "wangweidong", which is your username not your real full
-name.
+The net-next tree is no open, therefore it is not appropriate to submit
+patches targetting to that tree at this time.
 
-I'm not applying your patches until you correct this and submit
-the patch properly, thanks.
+I will make an explicit announcement on netdev when I have openned
+the net-next tree, so it will be clear exactly when you can submit
+patches targetting that tree again.
+
+Thank you.
