@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net v2 0/7][pull request] Intel Wired LAN Driver Updates
-Date: Sat, 30 Nov 2013 12:46:47 -0500 (EST)
-Message-ID: <20131130.124647.931514144170809282.davem@davemloft.net>
-References: <1385803221-3752-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] ipv6: fix possible seqlock deadlock in
+ ip6_finish_output2
+Date: Sat, 30 Nov 2013 12:49:05 -0500 (EST)
+Message-ID: <20131130.124905.1525994055463627833.davem@davemloft.net>
+References: <20131128192231.GE24171@order.stressinduktion.org>
+	<20131129053944.GH24171@order.stressinduktion.org>
+	<1385829955.5352.40.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33384 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751271Ab3K3Rqs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 12:46:48 -0500
-In-Reply-To: <1385803221-3752-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hannes@stressinduktion.org, jongman.heo@samsung.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1385829955.5352.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sat, 30 Nov 2013 01:20:14 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 30 Nov 2013 08:45:55 -0800
 
-> This series contains updates to igb, e1000 and ixgbe.
- ...
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+> On Fri, 2013-11-29 at 06:39 +0100, Hannes Frederic Sowa wrote:
+>> IPv6 stats are 64 bits and thus are protected with a seqlock. By not
+>> disabling bottom-half we could deadlock here if we don't disable bh and
+>> a softirq reentrantly updates the same mib.
+>> 
+>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> ---
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> (Note that the seqlock is only for 32bit arches)
 
-Pulled, but as mentioned by others please get real names from people
-in their Signoffs in the future.  Thanks.
+Applied and queued up for -stable, thanks.
