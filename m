@@ -1,41 +1,49 @@
-From: =?UTF-8?B?T25kxZllaiBQdcW+bWFu?= <puzman@gmail.com>
-Subject: Re: [PATCH 1/4] pch_gbe: Fix transmit queue management
-Date: Sat, 30 Nov 2013 23:41:06 +0100
-Message-ID: <529A6982.1090206@gmail.com>
-References: <20131127.203929.1379316258754767343.davem@davemloft.net>	<1385631882-12827-2-git-send-email-puzman@gmail.com> <20131129.164229.2292905485668904870.davem@davemloft.net>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH] Fix ARM BUILD_BUG_ON() errors with batman-adv
+Date: Sat, 30 Nov 2013 23:03:20 +0000
+Message-ID: <20131130230319.GB16735@n2100.arm.linux.org.uk>
+References: <20131130191553.GA16735@n2100.arm.linux.org.uk> <20131130.160547.837987320410619405.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: mareklindner@neomailbox.ch, sw@simonwunderlich.de,
+	antonio@meshcoding.com, b.a.t.m.a.n@lists.open-mesh.org,
+	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131129.164229.2292905485668904870.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:43759 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751196Ab3K3XDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 18:03:51 -0500
+Content-Disposition: inline
+In-Reply-To: <20131130.160547.837987320410619405.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Please format your commit  message text to 80 columns.
+On Sat, Nov 30, 2013 at 04:05:47PM -0500, David Miller wrote:
+> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+> Date: Sat, 30 Nov 2013 19:15:53 +0000
+> 
+> > so there should be no undesired side effect from this packing.
+> 
+> There is a huge side effect from ever using the packed attribute, in
+> that the compiler can assume absolutely nothing about the alignment of
+> any object or sub-object of the type you apply this attribute to.
+> 
+> Even if it is "obvious" that some members will be aligned, the
+> compiler cannot take advantage of this assumption because this
+> attribute also means that an array of such elements might have
+> arbitrary alignment.  So you when you get a pointer to one of these
+> objects, the compiler has to assume the worst possible case.
+> 
+> This means using 4 byte loads to load a 32-bit quantity, always,
+> unconditionally, no matter what.
+> 
+> That's why we should do whatever is necessary to align things properly
+> by hand, and use packed only as the last possible and least desirable
+> resort.
+> 
+> I'm not applying this, please try work to implement this more
+> acceptably first.
 
-Ok, no problem. I did not know that 80 columns limitation applies also
-for commit messages.
-
-> You should be instead  preventing the transmit method from being
-> invoked when it might be possible that a request cannot be
-> satisfied. This means that at the end of a transmit request, you must
-> stop the queue if a packet with the maximum number of possible
-> descriptors cannot be satisfied. Then it is impossible for the
-> transmit function to be invoked in a situation where it would need to
-> fail for lack of available transmit descriptors. This is why drivers
-> decided whether to stop their TX queues based upon calculations
-> involving MAX_SKB_FRAGS.
-
-Hmm, correct me if I'm wrong ... but the driver and hardware does not
-support scatter-gather DMA. So fragmented skbs can't be passed to
-ndo_start_xmit function and each skb passed to the function represents
-one packet and one descriptor in tx_ring.
-I do not think that in this caseit makes sense to to involve
-MAX_SKB_FRAGS in any calculation and the queue should be stopped in the
-moment when it gets full.
-But maybe I am missing something, I am no expert in this kind of stuff.
-
---
-Ondrej Puzman
+Okay, someone else fixes this problem then, I've no idea how this can
+be fixed.
