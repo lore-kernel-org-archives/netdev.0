@@ -1,16 +1,16 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [net-next 4/7] net: Export skb_zerocopy() to zerocopy from one skb to another
-Date: Sat, 30 Nov 2013 13:21:33 +0100
-Message-ID: <8f1a59a950c1fdd0aeaae8067584d2528ac3e726.1385813891.git.tgraf@suug.ch>
+Subject: [net-next 1/7] genl: Add genlmsg_new_unicast() for unicast message allocation
+Date: Sat, 30 Nov 2013 13:21:30 +0100
+Message-ID: <c727d672b0a72e5fd836883ab9cb1d820df90ea7.1385813891.git.tgraf@suug.ch>
 References: <cover.1385813891.git.tgraf@suug.ch>
 Cc: dev@openvswitch.org, netdev@vger.kernel.org, dborkman@redhat.com,
 	ffusco@redhat.com, fleitner@redhat.com, eric.dumazet@gmail.com,
 	bhutchings@solarflare.com
 To: jesse@nicira.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:59175 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:59173 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751579Ab3K3MVw (ORCPT
+	with ESMTP id S1751555Ab3K3MVw (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 07:21:52 -0500
 In-Reply-To: <cover.1385813891.git.tgraf@suug.ch>
 In-Reply-To: <cover.1385813891.git.tgraf@suug.ch>
@@ -18,217 +18,85 @@ References: <cover.1385813891.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make the skb zerocopy logic written for nfnetlink queue available for
-use by other modules.
+Allocates a new sk_buff large enough to cover the specified payload
+plus required Netlink headers. Will check receiving socket for
+memory mapped i/o capability and use it if enabled. Will fall back
+to non-mapped skb if message size exceeds the frame size of the ring.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Signed-of-by: Thomas Graf <tgraf@suug.ch>
 Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- include/linux/skbuff.h               |  3 ++
- net/core/skbuff.c                    | 85 ++++++++++++++++++++++++++++++++++++
- net/netfilter/nfnetlink_queue_core.c | 59 ++-----------------------
- 3 files changed, 92 insertions(+), 55 deletions(-)
+ include/net/genetlink.h |  4 ++++
+ net/netlink/genetlink.c | 21 +++++++++++++++++++++
+ 2 files changed, 25 insertions(+)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index bec1cc7..7c48e2d 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2345,6 +2345,9 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
- 		    struct pipe_inode_info *pipe, unsigned int len,
- 		    unsigned int flags);
- void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
-+unsigned int skb_zerocopy_headlen(const struct sk_buff *from);
-+void skb_zerocopy(struct sk_buff *to, const struct sk_buff *from,
-+		  int len, int hlen);
- void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len);
- int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen);
- void skb_scrub_packet(struct sk_buff *skb, bool xnet);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 2718fed..55859cb 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2122,6 +2122,91 @@ __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset,
- }
- EXPORT_SYMBOL(skb_copy_and_csum_bits);
+diff --git a/include/net/genetlink.h b/include/net/genetlink.h
+index 1b177ed..93695f0 100644
+--- a/include/net/genetlink.h
++++ b/include/net/genetlink.h
+@@ -73,6 +73,7 @@ struct genl_family {
+  * @attrs: netlink attributes
+  * @_net: network namespace
+  * @user_ptr: user pointers
++ * @dst_sk: destination socket
+  */
+ struct genl_info {
+ 	u32			snd_seq;
+@@ -85,6 +86,7 @@ struct genl_info {
+ 	struct net *		_net;
+ #endif
+ 	void *			user_ptr[2];
++	struct sock *		dst_sk;
+ };
  
-+ /**
-+ *	skb_zerocopy_headlen - Calculate headroom needed for skb_zerocopy()
-+ *	@from: source buffer
+ static inline struct net *genl_info_net(struct genl_info *info)
+@@ -177,6 +179,8 @@ void genl_notify(struct genl_family *family,
+ 		 struct sk_buff *skb, struct net *net, u32 portid,
+ 		 u32 group, struct nlmsghdr *nlh, gfp_t flags);
+ 
++struct sk_buff *genlmsg_new_unicast(size_t payload, struct genl_info *info,
++				    gfp_t flags);
+ void *genlmsg_put(struct sk_buff *skb, u32 portid, u32 seq,
+ 		  struct genl_family *family, int flags, u8 cmd);
+ 
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 713671a..b1dcdb9 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -461,6 +461,26 @@ int genl_unregister_family(struct genl_family *family)
+ EXPORT_SYMBOL(genl_unregister_family);
+ 
+ /**
++ * genlmsg_new_unicast - Allocate generic netlink message for unicast
++ * @payload: size of the message payload
++ * @info: information on destination
++ * @flags: the type of memory to allocate
 + *
-+ *	Calculates the amount of linear headroom needed in the 'to' skb passed
-+ *	into skb_zerocopy().
++ * Allocates a new sk_buff large enough to cover the specified payload
++ * plus required Netlink headers. Will check receiving socket for
++ * memory mapped i/o capability and use it if enabled. Will fall back
++ * to non-mapped skb if message size exceeds the frame size of the ring.
 + */
-+unsigned int
-+skb_zerocopy_headlen(const struct sk_buff *from)
++struct sk_buff *genlmsg_new_unicast(size_t payload, struct genl_info *info,
++				    gfp_t flags)
 +{
-+	unsigned int hlen = 0;
++	size_t len = nlmsg_total_size(genlmsg_total_size(payload));
 +
-+	if (!from->head_frag ||
-+	    skb_headlen(from) < L1_CACHE_BYTES ||
-+	    skb_shinfo(from)->nr_frags >= MAX_SKB_FRAGS)
-+		hlen = skb_headlen(from);
-+
-+	if (skb_has_frag_list(from))
-+		hlen = from->len;
-+
-+	return hlen;
++	return netlink_alloc_skb(info->dst_sk, len, info->snd_portid, flags);
 +}
-+EXPORT_SYMBOL_GPL(skb_zerocopy_headlen);
++EXPORT_SYMBOL_GPL(genlmsg_new_unicast);
 +
 +/**
-+ *	skb_zerocopy - Zero copy skb to skb
-+ *	@to: destination buffer
-+ *	@source: source buffer
-+ *	@len: number of bytes to copy from source buffer
-+ *	@hlen: size of linear headroom in destination buffer
-+ *
-+ *	Copies up to `len` bytes from `from` to `to` by creating references
-+ *	to the frags in the source buffer.
-+ *
-+ *	The `hlen` as calculated by skb_zerocopy_headlen() specifies the
-+ *	headroom in the `to` buffer.
-+ */
-+void
-+skb_zerocopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
-+{
-+	int i, j = 0;
-+	int plen = 0; /* length of skb->head fragment */
-+	struct page *page;
-+	unsigned int offset;
-+
-+	BUG_ON(!from->head_frag && !hlen);
-+
-+	/* dont bother with small payloads */
-+	if (len <= skb_tailroom(to)) {
-+		skb_copy_bits(from, 0, skb_put(to, len), len);
-+		return;
-+	}
-+
-+	if (hlen) {
-+		skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
-+		len -= hlen;
-+	} else {
-+		plen = min_t(int, skb_headlen(from), len);
-+		if (plen) {
-+			page = virt_to_head_page(from->head);
-+			offset = from->data - (unsigned char *)page_address(page);
-+			__skb_fill_page_desc(to, 0, page, offset, plen);
-+			get_page(page);
-+			j = 1;
-+			len -= plen;
-+		}
-+	}
-+
-+	to->truesize += len + plen;
-+	to->len += len + plen;
-+	to->data_len += len + plen;
-+
-+	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
-+		if (!len)
-+			break;
-+		skb_shinfo(to)->frags[j] = skb_shinfo(from)->frags[i];
-+		skb_shinfo(to)->frags[j].size = min_t(int, skb_shinfo(to)->frags[j].size, len);
-+		len -= skb_shinfo(to)->frags[j].size;
-+		skb_frag_ref(to, j);
-+		j++;
-+	}
-+	skb_shinfo(to)->nr_frags = j;
-+}
-+EXPORT_SYMBOL_GPL(skb_zerocopy);
-+
- void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to)
- {
- 	__wsum csum;
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index 21258cf..615ee12 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -235,51 +235,6 @@ nfqnl_flush(struct nfqnl_instance *queue, nfqnl_cmpfn cmpfn, unsigned long data)
- 	spin_unlock_bh(&queue->lock);
- }
+  * genlmsg_put - Add generic netlink header to netlink message
+  * @skb: socket buffer holding the message
+  * @portid: netlink portid the message is addressed to
+@@ -600,6 +620,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
+ 	info.genlhdr = nlmsg_data(nlh);
+ 	info.userhdr = nlmsg_data(nlh) + GENL_HDRLEN;
+ 	info.attrs = attrbuf;
++	info.dst_sk = skb->sk;
+ 	genl_info_net_set(&info, net);
+ 	memset(&info.user_ptr, 0, sizeof(info.user_ptr));
  
--static void
--nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
--{
--	int i, j = 0;
--	int plen = 0; /* length of skb->head fragment */
--	struct page *page;
--	unsigned int offset;
--
--	/* dont bother with small payloads */
--	if (len <= skb_tailroom(to)) {
--		skb_copy_bits(from, 0, skb_put(to, len), len);
--		return;
--	}
--
--	if (hlen) {
--		skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
--		len -= hlen;
--	} else {
--		plen = min_t(int, skb_headlen(from), len);
--		if (plen) {
--			page = virt_to_head_page(from->head);
--			offset = from->data - (unsigned char *)page_address(page);
--			__skb_fill_page_desc(to, 0, page, offset, plen);
--			get_page(page);
--			j = 1;
--			len -= plen;
--		}
--	}
--
--	to->truesize += len + plen;
--	to->len += len + plen;
--	to->data_len += len + plen;
--
--	for (i = 0; i < skb_shinfo(from)->nr_frags; i++) {
--		if (!len)
--			break;
--		skb_shinfo(to)->frags[j] = skb_shinfo(from)->frags[i];
--		skb_shinfo(to)->frags[j].size = min_t(int, skb_shinfo(to)->frags[j].size, len);
--		len -= skb_shinfo(to)->frags[j].size;
--		skb_frag_ref(to, j);
--		j++;
--	}
--	skb_shinfo(to)->nr_frags = j;
--}
--
- static int
- nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet,
- 		      bool csum_verify)
-@@ -304,7 +259,7 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- {
- 	size_t size;
- 	size_t data_len = 0, cap_len = 0;
--	int hlen = 0;
-+	unsigned int hlen = 0;
- 	struct sk_buff *skb;
- 	struct nlattr *nla;
- 	struct nfqnl_msg_packet_hdr *pmsg;
-@@ -356,14 +311,8 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 		if (data_len > entskb->len)
- 			data_len = entskb->len;
- 
--		if (!entskb->head_frag ||
--		    skb_headlen(entskb) < L1_CACHE_BYTES ||
--		    skb_shinfo(entskb)->nr_frags >= MAX_SKB_FRAGS)
--			hlen = skb_headlen(entskb);
--
--		if (skb_has_frag_list(entskb))
--			hlen = entskb->len;
--		hlen = min_t(int, data_len, hlen);
-+		hlen = skb_zerocopy_headlen(entskb);
-+		hlen = min_t(unsigned int, hlen, data_len);
- 		size += sizeof(struct nlattr) + hlen;
- 		cap_len = entskb->len;
- 		break;
-@@ -504,7 +453,7 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 		nla->nla_type = NFQA_PAYLOAD;
- 		nla->nla_len = nla_attr_size(data_len);
- 
--		nfqnl_zcopy(skb, entskb, data_len, hlen);
-+		skb_zerocopy(skb, entskb, data_len, hlen);
- 	}
- 
- 	nlh->nlmsg_len = skb->len;
 -- 
 1.8.3.1
