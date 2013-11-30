@@ -1,88 +1,78 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net 1/8] igb: Update queue reinit function to call dev_close
- when init of queues fails
-Date: Fri, 29 Nov 2013 23:52:26 -0800
-Message-ID: <1385797946.2248.64.camel@jtkirshe-mobl>
-References: <1385624162-10116-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1385624162-10116-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20131129.154757.2160926223289559260.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-uMXUHQTjdJQWzm7GJNoM"
-Cc: carolyn.wyborny@intel.com, netdev@vger.kernel.org,
+Subject: [net v2 0/7][pull request] Intel Wired LAN Driver Updates
+Date: Sat, 30 Nov 2013 01:20:14 -0800
+Message-ID: <1385803221-3752-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com
-To: David Miller <davem@davemloft.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27506 "EHLO mga09.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:56959 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750955Ab3K3Hwg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Nov 2013 02:52:36 -0500
-In-Reply-To: <20131129.154757.2160926223289559260.davem@davemloft.net>
+	id S1750988Ab3K3JUX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Nov 2013 04:20:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This series contains updates to igb, e1000 and ixgbe.
 
---=-uMXUHQTjdJQWzm7GJNoM
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Akeem provides a igb fix where WOL was being reported as supported on
+some ethernet devices which did not have that capability.
 
-On Fri, 2013-11-29 at 15:47 -0500, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Wed, 27 Nov 2013 23:35:55 -0800
->=20
-> > From: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> >=20
-> > This patch adds a call to dev_close if the queue reinit fails in order
-> > to make clearer to the user that the device is down.
-> >=20
-> > Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> > Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->=20
-> This is a very bad approach to this problem.
->=20
-> Users absolutely do not expect their entire interface to go down
-> simply because an ethtool request cannot be satisfied.  This is
-> extremely poor quality of implementation.
->=20
-> And in this specific case it absolutely is not necessary.
->=20
-> The only thing that can fail is the queue allocation, so make a
-> function which can preserve the previous configuration if the queue
-> allocation fails.  How about "igb_reinit_interrupt_scheme".
->=20
-> Don't free the q vectors until the very last moment, when you know
-> that the allocation of the new q vectors has succeeded.
->=20
-> I'm not applying this patch, it needs to be reimplemented more
-> sanely, using the above suggestions or similar.
->=20
-> Thanks.
+Yanjun provides a fix for e1000 which is similar to a previous fix
+for e1000e commit bb9e44d0d0f4 ("e1000e: prevent oops when adapter is
+being closed and reset simultaneously"), where the same issue was
+observed on the older e1000 cards.
 
-Thanks for the feedback Dave, I will drop this patch from the series so
-that Carolyn can re-work the solution.
+Vladimir Davydov provides 2 e1000 fixes.  The first fixes a lockdep
+warning e1000_down() tries to synchronously cancel e1000 auxiliary
+works (reset_task, watchdog_task, phy_info_task and fifo_stall_task)
+which take adapter->mutex in their handlers.  The second patch is to
+fix a possible race condition where reset_task() would be running
+after adapter down.
 
---=-uMXUHQTjdJQWzm7GJNoM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+John provides 2 fixes for ixgbe.  First turns ixgbe_fwd_ring_down
+to static and the second disables NETIF_F_HW_L2FW_DOFFLOAD by default
+because it allows upper layer net devices to use queues in the hardware
+to directly submit and receive skbs.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
+Mark Rustad provides a single patch for ixgbe to make
+ixgbe_identify_qsfp_module_generic static to resolve compile
+warnings.
 
-iQIcBAABCgAGBQJSmZk6AAoJEOVv75VaS+3O2x0P/A9KtrnKHn8Yx4AjhYYXjy3n
-mgJtUodkw6TcazZc75iOSjmblGDz1r9MzRcfgVIo55HtlmHlVA4V2/XVdZxepJPQ
-VYPVYErO/hKVLs0USJlYSkabXkYGD916MBH19qQCijTis8Oe18ExGF5nIEmyr0Wq
-kVFxthVLQmMm1gqDZzoQ15/VZ7A8Nr2x2hdoObXPohooQ/Ul0P4eaIie53P6VxyJ
-lDQ9kI7gDn0s3Lr8lbuUAzY/OyNUlkSwck30Raqv5fvO/wJUmrFvmk35aRm/3TlR
-BLdjWCpKKD20hlDU90qTR55OQQcDH2+/Euij/KtLMb7Bazvgt84ZjGG5gSxi06if
-b0gWJLC3Wf6z5Mh5Z9Njj1GzJy8Rhl2pxBfP3PLX8oKd1/XKZsKJLYV1Chjzpeck
-9IA3KpS2htLGDoq1rlRYSFFOo0qPdZkJBRj5mIRZGE+ub60cqOoODtooGMTKIRFa
-WZi8YVGv3ZT8Oc9h9D//nDfwsV7PDSmB+g/YehljnKVe6kllmhdSXEohxVDKcLIa
-tMr9e1z/quORM/C6DS4+5rzIMrN4oNENj6BZgUGjaRJvvLhVBn/GJHukwJ/U2ik3
-xZ4CSP9+nsvnrU36PMfH8V7zYScTMLPmN28tfIw5GjmcFW0nY1YYpoTFYJLwkP1z
-Fr4/Yn+l0JMqIQHb9BRx
-=SGIq
------END PGP SIGNATURE-----
+v2: Drop igb patch "igb: Update queue reinit function to call dev_close
+    when init of queues fails" from Carolyn, so that the solution can
+    be re-worked based on feedback from David Miller.
 
---=-uMXUHQTjdJQWzm7GJNoM--
+The following are changes since commit f1d8cba61c3c4b1eb88e507249c4cb8d635d9a76:
+  inet: fix possible seqlock deadlocks
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net master
+
+Akeem G Abodunrin (1):
+  igb: Fixed Wake On LAN support
+
+John Fastabend (2):
+  ixgbe: ixgbe_fwd_ring_down needs to be static
+  ixgbe: turn NETIF_F_HW_L2FW_DOFFLOAD off by default
+
+Mark Rustad (1):
+  ixgbe: Make ixgbe_identify_qsfp_module_generic static
+
+Vladimir Davydov (2):
+  e1000: fix lockdep warning in e1000_reset_task
+  e1000: fix possible reset_task running after adapter down
+
+yzhu1 (1):
+  e1000: prevent oops when adapter is being closed and reset
+    simultaneously
+
+ drivers/net/ethernet/intel/e1000/e1000.h      |  7 +++-
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 60 ++++++++++-----------------
+ drivers/net/ethernet/intel/igb/igb_ethtool.c  |  7 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  9 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c  |  3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h  |  1 -
+ 6 files changed, 38 insertions(+), 49 deletions(-)
+
+-- 
+1.8.3.1
