@@ -1,41 +1,51 @@
-From: Christian Kujau <lists@nerdbynature.de>
-Subject: Re: 3.13-rc1: eth0 hw csum failure on powerpc
-Date: Sat, 30 Nov 2013 02:11:53 -0800 (PST)
-Message-ID: <alpine.DEB.2.11.1311300210360.31521@trent.utfs.org>
-References: <alpine.DEB.2.11.1311300156380.31521@trent.utfs.org>
+From: wangweidong <wangweidong1@huawei.com>
+Subject: [PATCH] sctp: check the rto_min and rto_max
+Date: Sat, 30 Nov 2013 18:23:52 +0800
+Message-ID: <5299BCB8.6070409@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <alpine.DEB.2.11.1311300156380.31521@trent.utfs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<dingtianhong@huawei.com>
+To: Vlad Yasevich <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:30763 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751017Ab3K3K0t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 05:26:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 30 Nov 2013 at 02:07, Christian Kujau wrote:
-> while trying to upgrade from 3.12.0 to 3.13-rc1 or -rc2, the following 
-> happens early during bootup:
-> 
-> [...]
->  Freeing unused kernel memory: 204K (c06ea000 - c071d000)
->  eth0: hw csum failure
->  CPU: 0 PID: 0 Comm: swapper Not tainted 3.13.0-rc2 #1
->  Call Trace:
+rto_min should be smaller than rto_max while rto_max should be larger
+than rto_min. so just add the check.
 
-Btw, full dmesg & .config:  http://nerdbynature.de/bits/3.13-rc1/
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+---
+ net/sctp/sysctl.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-C.
+diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+index 6b36561..7637e8e 100644
+--- a/net/sctp/sysctl.c
++++ b/net/sctp/sysctl.c
+@@ -104,7 +104,7 @@ static struct ctl_table sctp_net_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_minmax,
+ 		.extra1         = &one,
+-		.extra2         = &timer_max
++		.extra2         = &init_net.sctp.rto_max
+ 	},
+ 	{
+ 		.procname	= "rto_max",
+@@ -112,7 +112,7 @@ static struct ctl_table sctp_net_table[] = {
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_minmax,
+-		.extra1         = &one,
++		.extra1         = &init_net.sctp.rto_min,
+ 		.extra2         = &timer_max
+ 	},
+ 	{
 -- 
-BOFH excuse #449:
-
-greenpeace free'd the mallocs
+1.7.12
