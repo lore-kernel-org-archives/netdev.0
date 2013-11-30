@@ -1,36 +1,52 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [net-next 5/7] openvswitch: Allow user space to announce ability to accept unaligned Netlink messages
-Date: Sat, 30 Nov 2013 13:21:34 +0100
-Message-ID: <7bb39d7b006866557a987297c146fcdc486aafa6.1385813891.git.tgraf@suug.ch>
-References: <cover.1385813891.git.tgraf@suug.ch>
-Cc: dev@openvswitch.org, netdev@vger.kernel.org, dborkman@redhat.com,
-	ffusco@redhat.com, fleitner@redhat.com, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com
-To: jesse@nicira.com, davem@davemloft.net
+From: Thomas Graf <tgraf@redhat.com>
+Subject: [PATCH v2] linux: Signal datapath that unaligned Netlink message can be received
+Date: Sat, 30 Nov 2013 13:25:17 +0100
+Message-ID: <a960865f3ad68da1016f35085c1d84126e92f0a5.1385814128.git.tgraf@redhat.com>
+Cc: dev@openvswitch.org, netdev@vger.kernel.org
+To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:59191 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751320Ab3K3MVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 07:21:54 -0500
-In-Reply-To: <cover.1385813891.git.tgraf@suug.ch>
-In-Reply-To: <cover.1385813891.git.tgraf@suug.ch>
-References: <cover.1385813891.git.tgraf@suug.ch>
+Received: from mx1.redhat.com ([209.132.183.28]:23583 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751320Ab3K3MZ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Nov 2013 07:25:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
-Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
----
- include/uapi/linux/openvswitch.h |  4 ++++
- net/openvswitch/datapath.c       | 14 ++++++++++++++
- net/openvswitch/datapath.h       |  2 ++
- 3 files changed, 20 insertions(+)
+Following commit (''netlink: Do not enforce alignment of last Netlink
+attribute''), signal the ability to receive unaligned Netlink messages
+to the datapath to enable utilization of zerocopy optimizations.
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index d120f9f..07ef2c3 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -75,6 +75,7 @@ enum ovs_datapath_attr {
+Signed-off-by: Thomas Graf <tgraf@redhat.com>
+---
+V2: - Only provide OVS_DP_ATTR_USER_FEATURES on OVS_DP_CMD_NEW
+
+ include/linux/openvswitch.h | 15 ++++++++++++++-
+ lib/dpif-linux.c            |  6 ++++++
+ 2 files changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/openvswitch.h b/include/linux/openvswitch.h
+index b429201..80266b1 100644
+--- a/include/linux/openvswitch.h
++++ b/include/linux/openvswitch.h
+@@ -60,7 +60,16 @@ struct ovs_header {
+ 
+ #define OVS_DATAPATH_FAMILY  "ovs_datapath"
+ #define OVS_DATAPATH_MCGROUP "ovs_datapath"
+-#define OVS_DATAPATH_VERSION 0x1
++
++/**
++ * V2:
++ *   - API users are expected to provide OVS_DP_ATTR_USER_FEATURES
++ *     when creating or updating the datapath.
++ */
++#define OVS_DATAPATH_VERSION 2
++
++/* First OVS datapath version to support features */
++#define OVS_DP_VER_FEATURES 2
+ 
+ enum ovs_datapath_cmd {
+ 	OVS_DP_CMD_UNSPEC,
+@@ -95,6 +104,7 @@ enum ovs_datapath_attr {
  	OVS_DP_ATTR_UPCALL_PID,		/* Netlink PID to receive upcalls */
  	OVS_DP_ATTR_STATS,		/* struct ovs_dp_stats */
  	OVS_DP_ATTR_MEGAFLOW_STATS,	/* struct ovs_dp_megaflow_stats */
@@ -38,81 +54,46 @@ index d120f9f..07ef2c3 100644
  	__OVS_DP_ATTR_MAX
  };
  
-@@ -106,6 +107,9 @@ struct ovs_vport_stats {
+@@ -126,6 +136,9 @@ struct ovs_vport_stats {
  	__u64   tx_dropped;		/* no space available in linux  */
  };
  
 +/* Allow last Netlink attribute to be unaligned */
-+#define OVS_DP_F_UNALIGNED	(1 << 0)
++#define OVS_DP_F_UNALIGNED (1 << 0)
 +
  /* Fixed logical ports. */
  #define OVSP_LOCAL      ((__u32)0)
  
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 0ac9cde..95d4424 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -1067,6 +1067,7 @@ static const struct genl_ops dp_flow_genl_ops[] = {
- static const struct nla_policy datapath_policy[OVS_DP_ATTR_MAX + 1] = {
- 	[OVS_DP_ATTR_NAME] = { .type = NLA_NUL_STRING, .len = IFNAMSIZ - 1 },
- 	[OVS_DP_ATTR_UPCALL_PID] = { .type = NLA_U32 },
-+	[OVS_DP_ATTR_USER_FEATURES] = { .type = NLA_U32 },
- };
+diff --git a/lib/dpif-linux.c b/lib/dpif-linux.c
+index 6c482d0..2d8a1aa 100644
+--- a/lib/dpif-linux.c
++++ b/lib/dpif-linux.c
+@@ -73,6 +73,7 @@ struct dpif_linux_dp {
+     /* Attributes. */
+     const char *name;                  /* OVS_DP_ATTR_NAME. */
+     const uint32_t *upcall_pid;        /* OVS_DP_ATTR_UPCALL_PID. */
++    uint32_t user_features;            /* OVS_DP_ATTR_USER_FEATURES */
+     struct ovs_dp_stats stats;         /* OVS_DP_ATTR_STATS. */
+     struct ovs_dp_megaflow_stats megaflow_stats;
+                                        /* OVS_DP_ATTR_MEGAFLOW_STATS.*/
+@@ -228,6 +229,7 @@ dpif_linux_open(const struct dpif_class *class OVS_UNUSED, const char *name,
+         dp_request.cmd = OVS_DP_CMD_NEW;
+         upcall_pid = 0;
+         dp_request.upcall_pid = &upcall_pid;
++        dp_request.user_features |= OVS_DP_F_UNALIGNED;
+     } else {
+         dp_request.cmd = OVS_DP_CMD_GET;
+     }
+@@ -1839,6 +1841,10 @@ dpif_linux_dp_to_ofpbuf(const struct dpif_linux_dp *dp, struct ofpbuf *buf)
+         nl_msg_put_u32(buf, OVS_DP_ATTR_UPCALL_PID, *dp->upcall_pid);
+     }
  
- static struct genl_family dp_datapath_genl_family = {
-@@ -1125,6 +1126,9 @@ static int ovs_dp_cmd_fill_info(struct datapath *dp, struct sk_buff *skb,
- 			&dp_megaflow_stats))
- 		goto nla_put_failure;
- 
-+	if (nla_put_u32(skb, OVS_DP_ATTR_USER_FEATURES, dp->user_features))
-+		goto nla_put_failure;
++    if (dp->user_features) {
++        nl_msg_put_u32(buf, OVS_DP_ATTR_USER_FEATURES, dp->user_features);
++    }
 +
- 	return genlmsg_end(skb, ovs_header);
- 
- nla_put_failure:
-@@ -1171,6 +1175,12 @@ static struct datapath *lookup_datapath(struct net *net,
- 	return dp ? dp : ERR_PTR(-ENODEV);
+     /* Skip OVS_DP_ATTR_STATS since we never have a reason to serialize it. */
  }
  
-+static void ovs_dp_change(struct datapath *dp, struct nlattr **a)
-+{
-+	if (a[OVS_DP_ATTR_USER_FEATURES])
-+		dp->user_features = nla_get_u32(a[OVS_DP_ATTR_USER_FEATURES]);
-+}
-+
- static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct nlattr **a = info->attrs;
-@@ -1229,6 +1239,8 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 	parms.port_no = OVSP_LOCAL;
- 	parms.upcall_portid = nla_get_u32(a[OVS_DP_ATTR_UPCALL_PID]);
- 
-+	ovs_dp_change(dp, a);
-+
- 	vport = new_vport(&parms);
- 	if (IS_ERR(vport)) {
- 		err = PTR_ERR(vport);
-@@ -1332,6 +1344,8 @@ static int ovs_dp_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 	if (IS_ERR(dp))
- 		goto unlock;
- 
-+	ovs_dp_change(dp, info->attrs);
-+
- 	reply = ovs_dp_cmd_build_info(dp, info, OVS_DP_CMD_NEW);
- 	if (IS_ERR(reply)) {
- 		err = PTR_ERR(reply);
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 4067ea4..193e2e0 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -88,6 +88,8 @@ struct datapath {
- 	/* Network namespace ref. */
- 	struct net *net;
- #endif
-+
-+	u32 user_features;
- };
- 
- /**
 -- 
 1.8.3.1
