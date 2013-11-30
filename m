@@ -1,59 +1,47 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: check the rto_min and rto_max
-Date: Sat, 30 Nov 2013 09:17:42 -0500
-Message-ID: <20131130141741.GA12344@neilslaptop.think-freely.org>
-References: <5299BCB8.6070409@huawei.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net v2 2/7] e1000: prevent oops when adapter is being closed
+ and reset simultaneously
+Date: Sat, 30 Nov 2013 20:37:48 +0400
+Message-ID: <529A145C.4030503@cogentembedded.com>
+References: <1385803221-3752-1-git-send-email-jeffrey.t.kirsher@intel.com> <1385803221-3752-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	dingtianhong@huawei.com
-To: wangweidong <wangweidong1@huawei.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: yzhu1 <yanjun.zhu@windriver.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40090 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751771Ab3K3OSA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 09:18:00 -0500
-Content-Disposition: inline
-In-Reply-To: <5299BCB8.6070409@huawei.com>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:39408 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751712Ab3K3Qhu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 11:37:50 -0500
+Received: by mail-lb0-f181.google.com with SMTP id q8so7733070lbi.12
+        for <netdev@vger.kernel.org>; Sat, 30 Nov 2013 08:37:47 -0800 (PST)
+In-Reply-To: <1385803221-3752-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 30, 2013 at 06:23:52PM +0800, wangweidong wrote:
-> rto_min should be smaller than rto_max while rto_max should be larger
-> than rto_min. so just add the check.
-> 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> ---
->  net/sctp/sysctl.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-> index 6b36561..7637e8e 100644
-> --- a/net/sctp/sysctl.c
-> +++ b/net/sctp/sysctl.c
-> @@ -104,7 +104,7 @@ static struct ctl_table sctp_net_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec_minmax,
->  		.extra1         = &one,
-> -		.extra2         = &timer_max
-> +		.extra2         = &init_net.sctp.rto_max
->  	},
->  	{
->  		.procname	= "rto_max",
-> @@ -112,7 +112,7 @@ static struct ctl_table sctp_net_table[] = {
->  		.maxlen		= sizeof(unsigned int),
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec_minmax,
-> -		.extra1         = &one,
-> +		.extra1         = &init_net.sctp.rto_min,
->  		.extra2         = &timer_max
->  	},
->  	{
-> -- 
-> 1.7.12
-> 
-> 
-> 
+Hello.
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+On 30-11-2013 13:20, Jeff Kirsher wrote:
+
+> From: yzhu1 <yanjun.zhu@windriver.com>
+
+> This change is based on a similar change made to e1000e support in
+> commit bb9e44d0d0f4 ("e1000e: prevent oops when adapter is being closed
+> and reset simultaneously").  The same issue has also been observed
+> on the older e1000 cards.
+
+> Here, we have increased the RESET_COUNT value to 50 because there are too
+> many accesses to e1000 nic on stress tests to e1000 nic, it is not enough
+> to set RESET_COUT 25. Experimentation has shown that it is enough to set
+> RESET_COUNT 50.
+
+> Signed-off-by: yzhu1 <yanjun.zhu@windriver.com>
+
+    Jeff, why are you accepting patches without real name in the sign-off line?
+
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+WBR, Sergei
