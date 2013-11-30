@@ -1,64 +1,71 @@
-From: Weng Meiling <wengmeiling.weng-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] sunrpc: fix some typos
-Date: Sat, 30 Nov 2013 17:56:44 +0800
-Message-ID: <5299B65C.4070700@huawei.com>
+From: Christian Kujau <lists@nerdbynature.de>
+Subject: 3.13-rc1: eth0 hw csum failure on powerpc
+Date: Sat, 30 Nov 2013 02:07:04 -0800 (PST)
+Message-ID: <alpine.DEB.2.11.1311300156380.31521@trent.utfs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Huang Qiang <h.huangqiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	<Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-From: Weng Meiling <wengmeiling.weng-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+while trying to upgrade from 3.12.0 to 3.13-rc1 or -rc2, the following 
+happens early during bootup:
 
-Signed-off-by: Weng Meiling <wengmeiling.weng-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
----
- include/linux/sunrpc/svc.h | 2 +-
- net/sunrpc/xprtsock.c      | 7 +++----
- 2 files changed, 4 insertions(+), 5 deletions(-)
+[...]
+ Freeing unused kernel memory: 204K (c06ea000 - c071d000)
+ eth0: hw csum failure
+ CPU: 0 PID: 0 Comm: swapper Not tainted 3.13.0-rc2 #1
+ Call Trace:
+ [effefd00] [c0008b3c] show_stack+0x48/0x150 (unreliable)
+ [effefd40] [c045c6ac] __skb_checksum_complete_head+0x7c/0x80
+ [effefd50] [c04fefd8] icmpv6_rcv+0x1cc/0x62c
+ [effefdf0] [c04e3dd4] ip6_input+0x140/0x4b4
+ [effefe30] [c04e422c] ip6_mc_input+0xe4/0x19c
+ [effefe40] [c046254c] __netif_receive_skb_core+0x5c4/0x760
+ [effefea0] [c04654a0] napi_gro_receive+0xac/0xd8
+ [effefeb0] [c03da7e8] gem_poll+0x5bc/0x119c
+ [effeff50] [c0465140] net_rx_action+0x150/0x24c
+ [effeff90] [c003533c] __do_softirq+0xe8/0x1e8
+ [effeffe0] [c003586c] irq_exit+0xa4/0xc8
+ [effefff0] [c000e678] call_do_irq+0x24/0x3c
+ [c0753e90] [c0006448] do_IRQ+0x64/0xb4
+ [c0753eb0] [c0010fac] ret_from_except+0x0/0x14
+ --- Exception: 501 at arch_cpu_idle+0x24/0x94
+     LR = arch_cpu_idle+0x24/0x94
+ [c0753f70] [c0073440] rcu_idle_enter+0x90/0xdc (unreliable)
+ [c0753f80] [c006d05c] cpu_startup_entry+0xa8/0x178
+ [c0753fb0] [c06ece70] start_kernel+0x2f0/0x304
+ [c0753ff0] [00003444] 0x3444
 
-diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
-index 6eecfc2..b6316423 100644
---- a/include/linux/sunrpc/svc.h
-+++ b/include/linux/sunrpc/svc.h
-@@ -368,7 +368,7 @@ struct svc_program {
- 	struct svc_program *	pg_next;	/* other programs (same xprt) */
- 	u32			pg_prog;	/* program number */
- 	unsigned int		pg_lovers;	/* lowest version */
--	unsigned int		pg_hivers;	/* lowest version */
-+	unsigned int		pg_hivers;	/* highest version */
- 	unsigned int		pg_nvers;	/* number of versions */
- 	struct svc_version **	pg_vers;	/* version array */
- 	char *			pg_name;	/* service name */
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index dd9d295..0f4f391 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -2932,10 +2932,9 @@ static struct rpc_xprt *xs_setup_bc_tcp(struct xprt_create *args)
 
- 	/*
- 	 * Once we've associated a backchannel xprt with a connection,
--	 * we want to keep it around as long as long as the connection
--	 * lasts, in case we need to start using it for a backchannel
--	 * again; this reference won't be dropped until bc_xprt is
--	 * destroyed.
-+	 * we want to keep it around as long as the connection lasts,
-+	 * in case we need to start using it for a backchannel again;
-+	 * this reference won't be dropped until bc_xprt is destroyed.
- 	 */
- 	xprt_get(xprt);
- 	args->bc_xprt->xpt_bc_xprt = xprt;
+This happens only first right after "Freeing unused kernel...", then 
+bootup continues....until a certain point, where these messages are 
+repated really often, like 10 times at once, every 5 seconds.
+
+Bootup continues though and I'm even able to login remotely via SSH,
+but the messages are really annoying. In 3.13-rc1, the system
+rebooted itself shortly after bootup was complete, probably due to
+these "eth0: hw csum failure" messages, I assume.
+
+Any ideas on that?
+
+Thanks,
+Christian.
 -- 
-1.8.3
+BOFH excuse #16:
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+somebody was calculating pi on the server
