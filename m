@@ -1,104 +1,60 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: Re: [PATCH] net: mac80211: tx.c: be sure of 'sdata->vif.type' must
- be NL80211_IFTYPE_AP when be in NL80211_IFTYPE_AP case
-Date: Sat, 30 Nov 2013 22:02:05 +0800
-Message-ID: <5299EFDD.6060405@gmail.com>
-References: <528AEFB7.4060301@gmail.com>   <20131125011938.GB18921@codeaurora.org> <5292B845.3010404@gmail.com>   <5292B8A0.7020409@gmail.com> <5294255E.7040105@gmail.com>   <52957ADA.2080704@gmail.com>  (sfid-20131127_055211_558798_A7DF5684) <1385739487.8656.1.camel@jlt4.sipsolutions.net>  <5299D306.7070701@gmail.com> (sfid-20131130_125901_519610_EDA4068E) <1385816013.4327.1.camel@jlt4.sipsolutions.net> <5299ED38.4090509@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [net-next 3/7] openvswitch: Enable memory mapped Netlink i/o
+Date: Sat, 30 Nov 2013 14:04:20 +0000
+Message-ID: <20131130140420.GF4100@casper.infradead.org>
+References: <cover.1385813891.git.tgraf@suug.ch>
+ <9f7f05a726935c434d43d92c2908a997c403725b.1385813891.git.tgraf@suug.ch>
+ <20131130123549.GH2067@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	rkuo <rkuo@codeaurora.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5299ED38.4090509@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jesse@nicira.com, davem@davemloft.net, dev@openvswitch.org,
+	netdev@vger.kernel.org, dborkman@redhat.com, ffusco@redhat.com,
+	fleitner@redhat.com, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:51605 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752219Ab3K3OEX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 09:04:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20131130123549.GH2067@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/30/2013 09:50 PM, Chen Gang wrote:
-> On 11/30/2013 08:53 PM, Johannes Berg wrote:
->> On Sat, 2013-11-30 at 19:59 +0800, Chen Gang wrote:
->>> On 11/29/2013 11:38 PM, Johannes Berg wrote:
->>>>
->>>>> +++ b/net/mac80211/tx.c
->>>>> @@ -1814,8 +1814,9 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
->>>>>  			break;
->>>>>  		/* fall through */
->>>>>  	case NL80211_IFTYPE_AP:
->>>>> -		if (sdata->vif.type == NL80211_IFTYPE_AP)
->>>>> -			chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
->>>>> +		if (sdata->vif.type != NL80211_IFTYPE_AP)
->>>>> +			goto fail_rcu;
->>>>> +		chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
->>>>
->>>> This change is completely wrong.
->>>>
->>>
->>> Oh, it is.
->>>
->>> Hmm... for me, this work flow still can be implemented with a little
->>> clearer way (at least it will avoid related warning):
->>>
->>> -------------------------diff begin------------------------------
->>>
->>> diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
->>> index c558b24..7076128 100644
->>> --- a/net/mac80211/tx.c
->>> +++ b/net/mac80211/tx.c
->>> @@ -1810,14 +1810,14 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
->>>  		if (!chanctx_conf)
->>>  			goto fail_rcu;
->>>  		band = chanctx_conf->def.chan->band;
->>> -		if (sta)
->>> -			break;
->>> -		/* fall through */
->>> +		if (!sta)
->>> +			goto try_next;
->>> +		break;
->>>  	case NL80211_IFTYPE_AP:
->>> -		if (sdata->vif.type == NL80211_IFTYPE_AP)
->>> -			chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
->>> +		chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
->>>  		if (!chanctx_conf)
->>>  			goto fail_rcu;
->>> +try_next:
->>
->> I don't think that's better than the (fairly obvious) fall-through, and
->> has a pretty odd goto. Also, depending on the compiler, it still knows
->> the previous case label and doesn't warn.
->>
+On 11/30/13 at 01:35pm, Florian Westphal wrote:
+> Thomas Graf <tgraf@suug.ch> wrote:
+> > Benchmark
+> >   * pktgen -> ovs internal port
+> >   * 5M pkts, 5M flows
+> >   * 4 threads, 8 cores
+> > 
+> > Before:
+> > Result: OK: 67418743(c67108212+d310530) usec, 5000000 (9000byte,0frags)
+> >   74163pps 5339Mb/sec (5339736000bps) errors: 0
+> [..]
+> > After:
+> > Result: OK: 24229690(c24127165+d102524) usec, 5000000 (9000byte,0frags)
+> >   206358pps 14857Mb/sec (14857776000bps) errors: 0
 > 
-> Yeah, fall-through is obvious. But check 'A' again just near by "case A"
-> seems a little strange, and some of compilers (or some of versions) are
-> really not quit smart enough to know it is not a warning.
+> I'm curious.  Is the 'old' value with skb_zerocopy() or without?
+> Does ovs-vswitchd 'read-access' the entire packet or just e.g. the
+> header?
 > 
+> I ask because in netfilter nfqueue tests I could not see any difference
+> between 'zerocopy' vs. mmap in the receive-path tests I made a while
+> back.
 
-Sorry, the paragraph above may lead misunderstanding, I repeated again:
+The numbers quoted do not involve any zerocopy at all. It's a pure
+original vs. mmap comparison. I expect the numbers to grow even more
+once we get rid of the immediate ofpbuf copy in user space.
 
- - fall-through is obvious (although I did not notice it, originally).
+Zerocopy as implemened right now does not provide much gains on
+top of mmap. We have no way yet to inject the skb frags into the
+ring so we are forced to copy the data. The mapped skb is simply a
+buffer with a tremendous tailroom to the zerocopy code.
 
- - Check 'A' again just near by "case A" seems a little strange.
-
- - Some compilers aren't quit smart enough to know 'chanctx_conf' is OK.
-
-
-Thanks.
-
-> Hmm... for me, if the code (implementation) can express real logical
-> work flow as much as directly and simply, the code (implementation) is
-> clear enough (don't mind whether use 'goto' or not).
-> 
-> 
-> And originally, at first, I am really not quite careful enough, and sent
-> an incorrect patch after noticed the related compiler's warning. :-)
-> 
-> 
-> Thanks.
-> 
-
-
--- 
-Chen Gang
+Eventually we can find a way to make the skb frags shared and link
+them to the ring buffer and avoid the copy. This would especially
+make sense if we add GSO support to openvswitch user space as nfqueue
+provides and avoid the segmentation before the upcall.
