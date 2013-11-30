@@ -1,49 +1,38 @@
 From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH] Fix ARM BUILD_BUG_ON() errors with batman-adv
-Date: Sat, 30 Nov 2013 23:03:20 +0000
-Message-ID: <20131130230319.GB16735@n2100.arm.linux.org.uk>
-References: <20131130191553.GA16735@n2100.arm.linux.org.uk> <20131130.160547.837987320410619405.davem@davemloft.net>
+Subject: Re: [B.A.T.M.A.N.] [PATCH] Fix ARM BUILD_BUG_ON() errors with
+	batman-adv
+Date: Sat, 30 Nov 2013 23:05:18 +0000
+Message-ID: <20131130230518.GC16735@n2100.arm.linux.org.uk>
+References: <20131130191553.GA16735@n2100.arm.linux.org.uk> <529A46C4.9090906@meshcoding.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mareklindner@neomailbox.ch, sw@simonwunderlich.de,
-	antonio@meshcoding.com, b.a.t.m.a.n@lists.open-mesh.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: The list for a Better Approach To Mobile Ad-hoc
+	 Networking <b.a.t.m.a.n@lists.open-mesh.org>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Antonio Quartulli <antonio@meshcoding.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:43759 "EHLO
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:43764 "EHLO
 	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751196Ab3K3XDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 18:03:51 -0500
+	with ESMTP id S1751328Ab3K3XFk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 18:05:40 -0500
 Content-Disposition: inline
-In-Reply-To: <20131130.160547.837987320410619405.davem@davemloft.net>
+In-Reply-To: <529A46C4.9090906@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 30, 2013 at 04:05:47PM -0500, David Miller wrote:
-> From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-> Date: Sat, 30 Nov 2013 19:15:53 +0000
-> 
-> > so there should be no undesired side effect from this packing.
-> 
-> There is a huge side effect from ever using the packed attribute, in
-> that the compiler can assume absolutely nothing about the alignment of
-> any object or sub-object of the type you apply this attribute to.
-> 
-> Even if it is "obvious" that some members will be aligned, the
-> compiler cannot take advantage of this assumption because this
-> attribute also means that an array of such elements might have
-> arbitrary alignment.  So you when you get a pointer to one of these
-> objects, the compiler has to assume the worst possible case.
-> 
-> This means using 4 byte loads to load a 32-bit quantity, always,
-> unconditionally, no matter what.
-> 
-> That's why we should do whatever is necessary to align things properly
-> by hand, and use packed only as the last possible and least desirable
-> resort.
-> 
-> I'm not applying this, please try work to implement this more
-> acceptably first.
+On Sat, Nov 30, 2013 at 09:12:52PM +0100, Antonio Quartulli wrote:
+> I don't know the ARM architecture at all (I don't know if the other
+> batman-adv developers do), so could you please provide here some more
+> details about why that static check is failing? We would like to
+> address this issue differently rather than re-adding the __packed
+> attribute.
 
-Okay, someone else fixes this problem then, I've no idea how this can
-be fixed.
+The reason is this struct becomes a size of 4 bytes, even though
+it only contains three uint8_t members.  This offsets the members
+of all structs that this struct is embedded in.
+
+If you don't wish to fix this, then please make your subsystem
+depend on !ARM because it's otherwise impossible to fix and can never
+work on ARM.
