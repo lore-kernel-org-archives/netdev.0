@@ -1,67 +1,221 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 0/8 v8] Open vSwitch upcall optimiziations
-Date: Sat, 30 Nov 2013 13:21:29 +0100
-Message-ID: <cover.1385813891.git.tgraf@suug.ch>
+Subject: [net-next 3/7] openvswitch: Enable memory mapped Netlink i/o
+Date: Sat, 30 Nov 2013 13:21:32 +0100
+Message-ID: <9f7f05a726935c434d43d92c2908a997c403725b.1385813891.git.tgraf@suug.ch>
+References: <cover.1385813891.git.tgraf@suug.ch>
 Cc: dev@openvswitch.org, netdev@vger.kernel.org, dborkman@redhat.com,
 	ffusco@redhat.com, fleitner@redhat.com, eric.dumazet@gmail.com,
 	bhutchings@solarflare.com
 To: jesse@nicira.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:59171 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:59174 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751320Ab3K3MVw (ORCPT
+	with ESMTP id S1751559Ab3K3MVw (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 07:21:52 -0500
+In-Reply-To: <cover.1385813891.git.tgraf@suug.ch>
+In-Reply-To: <cover.1385813891.git.tgraf@suug.ch>
+References: <cover.1385813891.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reposting this before the merge window as it will go through Jesse's
-tree.
+Use memory mapped Netlink i/o for all unicast openvswitch
+communication if a ring has been set up.
 
-Given jumbo frames, the capacity of the slow path is improved by 
-a factor of 2.5x.
+Benchmark
+  * pktgen -> ovs internal port
+  * 5M pkts, 5M flows
+  * 4 threads, 8 cores
 
-V8: - Dropped patch adding NLM_F_REPLACE support, I'll pursue this in a
-      separate patch series. Addresses Jesse's comments.
-    - Improved comment describing OVS_DATAPATH_VERSION bump.
-V7: - removed unintential kernel-doc comment
-    - WARN_ONCE() -> WARN(), message on single line, added \n
-V6: - Added memory mapped netlink i/o support
-    - Drop user_features if old user space not aware of user features
-      reuses an existing datapath
-V5: - Removed padding requirement in user space
-    - Added OVS_DP_F_UNALIGNED flag let user space signal ability to
-      receive unaligned Netlink messages, fall back to linear copy
-      otherwise.
-V4: - Daniel Borkmann pointed out that the style in skbuff.h has changed
-      in net-next, adapted to no longer using extern in headers.
-V3: - Removed unneeded alignment of nlmsg_len after padding
-V2: - Added skb_zerocopy_headlen() to calculate headroom of destination
-      buffer. This also takes care of the from->head_frag issue.
-    - Attribute alignment for frag_list case
-    - API documentation
-    - performance data for CHECKSUM_PARTIAL tx case
+Before:
+Result: OK: 67418743(c67108212+d310530) usec, 5000000 (9000byte,0frags)
+  74163pps 5339Mb/sec (5339736000bps) errors: 0
+	+   2.98%     ovs-vswitchd  [k] copy_user_generic_string
+	+   2.49%     ovs-vswitchd  [k] memcpy
+	+   1.84%       kpktgend_2  [k] memcpy
+	+   1.81%       kpktgend_1  [k] memcpy
+	+   1.81%       kpktgend_3  [k] memcpy
+	+   1.78%       kpktgend_0  [k] memcpy
 
-Thomas Graf (7):
-  genl: Add genlmsg_new_unicast() for unicast message allocation
-  netlink: Avoid netlink mmap alloc if msg size exceeds frame size
-  openvswitch: Enable memory mapped Netlink i/o
-  net: Export skb_zerocopy() to zerocopy from one skb to another
-  openvswitch: Allow user space to announce ability to accept unaligned
-    Netlink messages
-  openvswitch: Drop user features if old user space attempted to create
-    datapath
-  openvswitch: Use skb_zerocopy() for upcall
+After:
+Result: OK: 24229690(c24127165+d102524) usec, 5000000 (9000byte,0frags)
+  206358pps 14857Mb/sec (14857776000bps) errors: 0
+	+   2.80%     ovs-vswitchd  [k] memcpy
+	+   1.31%       kpktgend_2  [k] memcpy
+	+   1.23%       kpktgend_0  [k] memcpy
+	+   1.09%       kpktgend_1  [k] memcpy
+	+   1.04%       kpktgend_3  [k] memcpy
+	+   0.96%     ovs-vswitchd  [k] copy_user_generic_string
 
- include/linux/skbuff.h               |   3 +
- include/net/genetlink.h              |   4 +
- include/uapi/linux/openvswitch.h     |  14 +++-
- net/core/skbuff.c                    |  85 +++++++++++++++++++++
- net/netfilter/nfnetlink_queue_core.c |  59 +--------------
- net/netlink/af_netlink.c             |   4 +
- net/netlink/genetlink.c              |  21 +++++
- net/openvswitch/datapath.c           | 143 ++++++++++++++++++++++++-----------
- net/openvswitch/datapath.h           |   2 +
- 9 files changed, 236 insertions(+), 99 deletions(-)
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/openvswitch/datapath.c | 56 ++++++++++++++++++++++++----------------------
+ 1 file changed, 29 insertions(+), 27 deletions(-)
 
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 6f5e1dd..0ac9cde 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -402,6 +402,11 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 	struct sk_buff *nskb = NULL;
+ 	struct sk_buff *user_skb; /* to be queued to userspace */
+ 	struct nlattr *nla;
++	struct genl_info info = {
++		.dst_sk = net->genl_sock,
++		.snd_portid = upcall_info->portid,
++	};
++	size_t len;
+ 	int err;
+ 
+ 	if (vlan_tx_tag_present(skb)) {
+@@ -422,7 +427,8 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
+ 		goto out;
+ 	}
+ 
+-	user_skb = genlmsg_new(upcall_msg_size(skb, upcall_info->userdata), GFP_ATOMIC);
++	len = upcall_msg_size(skb, upcall_info->userdata);
++	user_skb = genlmsg_new_unicast(len, &info, GFP_ATOMIC);
+ 	if (!user_skb) {
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -726,27 +732,30 @@ error:
+ 	return err;
+ }
+ 
+-static struct sk_buff *ovs_flow_cmd_alloc_info(struct sw_flow *flow)
++static struct sk_buff *ovs_flow_cmd_alloc_info(struct sw_flow *flow,
++					       struct genl_info *info)
+ {
+-	const struct sw_flow_actions *sf_acts;
++	size_t len;
+ 
+-	sf_acts = ovsl_dereference(flow->sf_acts);
++	len = ovs_flow_cmd_msg_size(ovsl_dereference(flow->sf_acts));
+ 
+-	return genlmsg_new(ovs_flow_cmd_msg_size(sf_acts), GFP_KERNEL);
++	return genlmsg_new_unicast(len, info, GFP_KERNEL);
+ }
+ 
+ static struct sk_buff *ovs_flow_cmd_build_info(struct sw_flow *flow,
+ 					       struct datapath *dp,
+-					       u32 portid, u32 seq, u8 cmd)
++					       struct genl_info *info,
++					       u8 cmd)
+ {
+ 	struct sk_buff *skb;
+ 	int retval;
+ 
+-	skb = ovs_flow_cmd_alloc_info(flow);
++	skb = ovs_flow_cmd_alloc_info(flow, info);
+ 	if (!skb)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	retval = ovs_flow_cmd_fill_info(flow, dp, skb, portid, seq, 0, cmd);
++	retval = ovs_flow_cmd_fill_info(flow, dp, skb, info->snd_portid,
++					info->snd_seq, 0, cmd);
+ 	BUG_ON(retval < 0);
+ 	return skb;
+ }
+@@ -835,8 +844,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 			goto err_flow_free;
+ 		}
+ 
+-		reply = ovs_flow_cmd_build_info(flow, dp, info->snd_portid,
+-						info->snd_seq, OVS_FLOW_CMD_NEW);
++		reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
+ 	} else {
+ 		/* We found a matching flow. */
+ 		struct sw_flow_actions *old_acts;
+@@ -864,8 +872,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 		rcu_assign_pointer(flow->sf_acts, acts);
+ 		ovs_nla_free_flow_actions(old_acts);
+ 
+-		reply = ovs_flow_cmd_build_info(flow, dp, info->snd_portid,
+-					       info->snd_seq, OVS_FLOW_CMD_NEW);
++		reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
+ 
+ 		/* Clear stats. */
+ 		if (a[OVS_FLOW_ATTR_CLEAR]) {
+@@ -927,8 +934,7 @@ static int ovs_flow_cmd_get(struct sk_buff *skb, struct genl_info *info)
+ 		goto unlock;
+ 	}
+ 
+-	reply = ovs_flow_cmd_build_info(flow, dp, info->snd_portid,
+-					info->snd_seq, OVS_FLOW_CMD_NEW);
++	reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
+ 	if (IS_ERR(reply)) {
+ 		err = PTR_ERR(reply);
+ 		goto unlock;
+@@ -975,7 +981,7 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 		goto unlock;
+ 	}
+ 
+-	reply = ovs_flow_cmd_alloc_info(flow);
++	reply = ovs_flow_cmd_alloc_info(flow, info);
+ 	if (!reply) {
+ 		err = -ENOMEM;
+ 		goto unlock;
+@@ -1127,17 +1133,17 @@ error:
+ 	return -EMSGSIZE;
+ }
+ 
+-static struct sk_buff *ovs_dp_cmd_build_info(struct datapath *dp, u32 portid,
+-					     u32 seq, u8 cmd)
++static struct sk_buff *ovs_dp_cmd_build_info(struct datapath *dp,
++					     struct genl_info *info, u8 cmd)
+ {
+ 	struct sk_buff *skb;
+ 	int retval;
+ 
+-	skb = genlmsg_new(ovs_dp_cmd_msg_size(), GFP_KERNEL);
++	skb = genlmsg_new_unicast(ovs_dp_cmd_msg_size(), info, GFP_KERNEL);
+ 	if (!skb)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	retval = ovs_dp_cmd_fill_info(dp, skb, portid, seq, 0, cmd);
++	retval = ovs_dp_cmd_fill_info(dp, skb, info->snd_portid, info->snd_seq, 0, cmd);
+ 	if (retval < 0) {
+ 		kfree_skb(skb);
+ 		return ERR_PTR(retval);
+@@ -1232,8 +1238,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 		goto err_destroy_ports_array;
+ 	}
+ 
+-	reply = ovs_dp_cmd_build_info(dp, info->snd_portid,
+-				      info->snd_seq, OVS_DP_CMD_NEW);
++	reply = ovs_dp_cmd_build_info(dp, info, OVS_DP_CMD_NEW);
+ 	err = PTR_ERR(reply);
+ 	if (IS_ERR(reply))
+ 		goto err_destroy_local_port;
+@@ -1299,8 +1304,7 @@ static int ovs_dp_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 	if (IS_ERR(dp))
+ 		goto unlock;
+ 
+-	reply = ovs_dp_cmd_build_info(dp, info->snd_portid,
+-				      info->snd_seq, OVS_DP_CMD_DEL);
++	reply = ovs_dp_cmd_build_info(dp, info, OVS_DP_CMD_DEL);
+ 	err = PTR_ERR(reply);
+ 	if (IS_ERR(reply))
+ 		goto unlock;
+@@ -1328,8 +1332,7 @@ static int ovs_dp_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 	if (IS_ERR(dp))
+ 		goto unlock;
+ 
+-	reply = ovs_dp_cmd_build_info(dp, info->snd_portid,
+-				      info->snd_seq, OVS_DP_CMD_NEW);
++	reply = ovs_dp_cmd_build_info(dp, info, OVS_DP_CMD_NEW);
+ 	if (IS_ERR(reply)) {
+ 		err = PTR_ERR(reply);
+ 		genl_set_err(&dp_datapath_genl_family, sock_net(skb->sk), 0,
+@@ -1360,8 +1363,7 @@ static int ovs_dp_cmd_get(struct sk_buff *skb, struct genl_info *info)
+ 		goto unlock;
+ 	}
+ 
+-	reply = ovs_dp_cmd_build_info(dp, info->snd_portid,
+-				      info->snd_seq, OVS_DP_CMD_NEW);
++	reply = ovs_dp_cmd_build_info(dp, info, OVS_DP_CMD_NEW);
+ 	if (IS_ERR(reply)) {
+ 		err = PTR_ERR(reply);
+ 		goto unlock;
 -- 
 1.8.3.1
