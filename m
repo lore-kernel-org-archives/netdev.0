@@ -1,45 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [[PATCH stable <3.12]] xen-netback: fix refcnt unbalance for
- 3.11 and earlier versions
-Date: Sat, 30 Nov 2013 16:19:11 -0500 (EST)
-Message-ID: <20131130.161911.986012805406716752.davem@davemloft.net>
-References: <1385642889-11513-1-git-send-email-wei.liu2@citrix.com>
-	<1385644133.20209.11.camel@kazak.uk.xensource.com>
-	<20131128131346.GK12187@zion.uk.xensource.com>
+Subject: Re: [PATCH net] net: neighbour: make sure the handler has finished
+ before kfree neighbour
+Date: Sat, 30 Nov 2013 16:27:33 -0500 (EST)
+Message-ID: <20131130.162733.145727596946626316.davem@davemloft.net>
+References: <52973704.1030202@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ian.Campbell@citrix.com, xen-devel@lists.xen.org,
-	netdev@vger.kernel.org, stable@vger.kernel.org,
-	tomasz.wroblewski@citrix.com, konrad.wilk@oracle.com,
-	david.vrabel@citrix.com
-To: wei.liu2@citrix.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20131128131346.GK12187@zion.uk.xensource.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: gaofeng@cn.fujitsu.com, yoshfuji@linux-ipv6.org, joe@perches.com,
+	vfalico@redhat.com, netdev@vger.kernel.org
+To: dingtianhong@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34625 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750940Ab3K3V1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 16:27:35 -0500
+In-Reply-To: <52973704.1030202@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Thu, 28 Nov 2013 13:13:46 +0000
+From: Ding Tianhong <dingtianhong@huawei.com>
+Date: Thu, 28 Nov 2013 20:28:52 +0800
 
-> On Thu, Nov 28, 2013 at 01:08:53PM +0000, Ian Campbell wrote:
->> On Thu, 2013-11-28 at 12:48 +0000, Wei Liu wrote:
->> > With the introduction of "xen-netback: Don't destroy the netdev until
->> > the vif is shut down" (upstream commit id 279f438e36), vif disconnect
->> > and free are separated. However in the backported verion reference
->> > counting code was not correctly modified, and the reset of vif->tx_irq
->> > was lost. If frontend goes through vif life cycle more than once the
->> > reference counting is skewed.
->> > 
->> > This patch adds back the missing tx_irq reset line. It also moves
->> > several lines of the reference counting code to vif_free, so the moved
->> > code corresponds to the counterpart in vif_alloc, thus the reference
->> > counting is balanced.
->> 
->> Is this a requirement of the bugfix or just to make reasoning about
->> things easier?
->> 
-> 
-> The latter.
+> I have met the oops in Suse11 SP2, the kernel is 2.6.32.59-0.7-default:
 
-I've queued this up for -stable, thanks.
+This doesn't make any sense.
+
+If this actually was the reason, then del_timer() would have returned true,
+and thus neigh_del_timer() would have returned "1" and you would have
+seen the "Impossible event" log message that neigh_destroy() prints out.
+
+You may think the cause is a pending timer, but the data you've provided
+does not support this at all.
+
+And if it isn't happening, your patch removing that warning is wrong.
+
+Furthermore, if this change to use del_timer_sync() is correct, it
+probably belongs in neigh_del_timer() because all of it's other callers
+expect the timer to not be running and that all references to the object
+are stable after such calls.
+
+I'm not applying this, you really need to pursue this bug fix more
+cleanly and more thoroughly because it's a non-trivial issue.
+
+Thanks.
