@@ -1,59 +1,47 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Subject: Re: "swiotlb buffer is full" with 3.13-rc1+ but not 3.4.
-Date: Sat, 30 Nov 2013 15:48:44 -0500
-Message-ID: <1385844524.2170.10.camel@dabdike>
-References: <21144.47873.639231.96901@mariner.uk.xensource.com>
-	 <20131130185639.GA13039@pegasus.dumpdata.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix ARM BUILD_BUG_ON() errors with batman-adv
+Date: Sat, 30 Nov 2013 16:05:47 -0500 (EST)
+Message-ID: <20131130.160547.837987320410619405.davem@davemloft.net>
+References: <20131130191553.GA16735@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ian Jackson <Ian.Jackson@eu.citrix.com>, netdev@vger.kernel.org,
-	Michael Chan <mchan@broadcom.com>, dl-mptfusionlinux@lsi.com,
-	linux-scsi@vger.kernel.org, support@lsi.com,
-	Sreekanth Reddy <Sreekanth.Reddy@lsi.com>,
-	Nagalakshmi Nandigama <Nagalakshmi.Nandigama@lsi.com>,
-	xen-devel@lists.xenproject.org, linux-kernel@vger.kernel.org
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20131130185639.GA13039@pegasus.dumpdata.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mareklindner@neomailbox.ch, sw@simonwunderlich.de,
+	antonio@meshcoding.com, b.a.t.m.a.n@lists.open-mesh.org,
+	netdev@vger.kernel.org
+To: linux@arm.linux.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34491 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750892Ab3K3VFv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 16:05:51 -0500
+In-Reply-To: <20131130191553.GA16735@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-11-30 at 13:56 -0500, Konrad Rzeszutek Wilk wrote:
-> My theory is that the SWIOTLB is not full - it is just that the request
-> is for a compound page that is more than 512kB. Please note that
-> SWIOTLB highest "chunk" of buffer it can deal with is 512kb.
-> 
-> And that is of course the question comes out - why would it try to
-> bounce buffer it. In Xen the answer is simple - the sg chunks cross page
-> boundaries which means that they are not physically contingous - so we
-> have to use the bounce buffer. It would be better if the the sg list
-> provided a large list of 4KB pages instead of compound pages as that
-> could help in avoiding the bounce buffer.
-> 
-> But I digress - this is a theory - I don't know whether the SCSI layer
-> does any colescing of the sg list - and if so, whether there is any
-> easy knob to tell it to not do it.
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Date: Sat, 30 Nov 2013 19:15:53 +0000
 
-Well, SCSI doesn't, but block does.  It's actually an efficiency thing
-since most firmware descriptor formats cope with multiple pages and the
-more descriptors you have for a transaction, the more work the on-board
-processor on the HBA has to do.  If you have an emulated HBA, like
-virtio, you could turn off physical coalesing by setting the
-use_clustering flag to DISABLE_CLUSTERING.  But you can't do that for a
-real card.  I assume the problem here is that the host is passing the
-card directly to the guest and the guest clusters based on its idea of
-guest pages which don't map to contiguous physical pages?
+> so there should be no undesired side effect from this packing.
 
-The way you tell how many physically contiguous pages block is willing
-to merge is by looking at /sys/block/<dev>/queue/max_segment_size if
-that's 4k then it won't merge, if it's greater than 4k, then it will.
+There is a huge side effect from ever using the packed attribute, in
+that the compiler can assume absolutely nothing about the alignment of
+any object or sub-object of the type you apply this attribute to.
 
-I'm not quite sure what to do ... you can't turn of clustering globally
-in the guest because the virtio drivers use it to reduce ring descriptor
-pressure, what you probably want is some way to flag a pass through
-device.
+Even if it is "obvious" that some members will be aligned, the
+compiler cannot take advantage of this assumption because this
+attribute also means that an array of such elements might have
+arbitrary alignment.  So you when you get a pointer to one of these
+objects, the compiler has to assume the worst possible case.
 
-James
+This means using 4 byte loads to load a 32-bit quantity, always,
+unconditionally, no matter what.
 
+That's why we should do whatever is necessary to align things properly
+by hand, and use packed only as the last possible and least desirable
+resort.
 
+I'm not applying this, please try work to implement this more
+acceptably first.
+
+Thanks.
