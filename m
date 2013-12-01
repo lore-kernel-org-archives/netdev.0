@@ -1,55 +1,38 @@
-From: Xose Vazquez Perez <xose.vazquez@gmail.com>
-Subject: Re: [RFC] Fix Free Software Foundation address in file headers
-Date: Sun, 01 Dec 2013 19:56:15 +0100
-Message-ID: <529B864F.3000206@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] Fix ARM BUILD_BUG_ON() errors with
+ batman-adv
+Date: Sun, 01 Dec 2013 14:21:35 -0500 (EST)
+Message-ID: <20131201.142135.880608909113540809.davem@davemloft.net>
+References: <20131130230518.GC16735@n2100.arm.linux.org.uk>
+ <529A8276.9060002@meshcoding.com> <529B47AA.8060403@meshcoding.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:45274 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751838Ab3LAS4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Dec 2013 13:56:20 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org
+To: antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <529B47AA.8060403-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Jeff Kirsher wrote:
+From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+Date: Sun, 01 Dec 2013 15:28:58 +0100
 
-> This came up when John Fastabend got a patch to fix up the headers in
-> the drivers/scsi/ directory and so I did a quick search of the network
-> drivers and found several instances in the file headers where an old FSF
-> address remains.  The old address is:
-> 
-> 59 Temple Place - Suite 330
-> Boston, MA 02111-1307
-> 
-> The current address is:
-> 
-> 51 Franklin Street - Fifth Floor
-> Boston, MA 02110-1301
-> 
-> I am wondering whether it may be best to just put a link to the Free
-> Software Foundation web page instead of having to update the address any
-> time a change is made.
-> 
-> Either way, I feel the address either needs to get corrected or changed
-> to the URL, even though I am not a fan of huge patch series to make
-> trivial changes like this.
-> 
-> Thoughts?
+> Am I wrong or this is a problem in the ARM compiler not doing the
+> right assumption? On x86 and x86_64 offset_of dest is 4, as expected.
 
-Something like that should be enough:
-
-     [...]
-     You should have received a copy of the GNU General Public License along
--    with this program; if not, write to the Free Software Foundation, Inc.,
--    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-+    with this program.  If not, see <http://www.gnu.org/licenses/>.
-     [...]
-
-This was changed in that form in gpl3.
-
-
-There are about 3684 references with, at least, 140 variations. Infinite Patience(TM).
+These alignment behaviors are defined by the processor ABI, there is
+no set of global rules that apply, so it behaves differently on
+different CPUs.  What you observe is correct behavior for compilation
+on ARM processors.
