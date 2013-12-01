@@ -1,67 +1,151 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [RFC] Fix Free Software Foundation address in file headers
-Date: Sat, 30 Nov 2013 16:42:46 -0800
-Message-ID: <1385858566.2248.79.camel@jtkirshe-mobl>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Subject: [PATCH] PCI / tg3: Give up chip reset and carrier loss handling if PCI device is not present
+Date: Sun, 01 Dec 2013 02:34:37 +0100
+Message-ID: <7807315.7cU9KldDtM@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-BDW4jfmCbkzPPigL7LAi"
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Linux PM list <linux-pm@vger.kernel.org>,
+	Linux PCI <linux-pci@vger.kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-pm-owner@vger.kernel.org>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
 
---=-BDW4jfmCbkzPPigL7LAi
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Modify tg3_chip_reset() and tg3_close() to check if the PCI network
+adapter device is accessible at all in order to skip poking it or
+trying to handle a carrier loss in vain when that's not the case.
+Introduce a special PCI helper function pci_device_is_present()
+for this purpose.
 
-This came up when John Fastabend got a patch to fix up the headers in
-the drivers/scsi/ directory and so I did a quick search of the network
-drivers and found several instances in the file headers where an old FSF
-address remains.  The old address is:
+Of course, this uncovers the lack of the appropriate RTNL locking
+in tg3_suspend() and tg3_resume(), so add that locking in there
+too.
 
-59 Temple Place - Suite 330
-Boston, MA 02111-1307
+These changes prevent tg3 from burning a CPU at 100% load level for
+solid several seconds after the Thunderbolt link is disconnected from
+a Matrox DS1 docking station.
 
-The current address is:
+Signed-off-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |   26 +++++++++++++++++++-------
+ drivers/pci/pci.c                   |    8 ++++++++
+ include/linux/pci.h                 |    1 +
+ 3 files changed, 28 insertions(+), 7 deletions(-)
 
-51 Franklin Street - Fifth Floor
-Boston, MA 02110-1301
+Index: linux-pm/drivers/net/ethernet/broadcom/tg3.c
+===================================================================
+--- linux-pm.orig/drivers/net/ethernet/broadcom/tg3.c
++++ linux-pm/drivers/net/ethernet/broadcom/tg3.c
+@@ -8932,6 +8932,9 @@ static int tg3_chip_reset(struct tg3 *tp
+ 	void (*write_op)(struct tg3 *, u32, u32);
+ 	int i, err;
+ 
++	if (!pci_device_is_present(tp->pdev))
++		return -ENODEV;
++
+ 	tg3_nvram_lock(tp);
+ 
+ 	tg3_ape_lock(tp, TG3_APE_LOCK_GRC);
+@@ -11594,10 +11597,11 @@ static int tg3_close(struct net_device *
+ 	memset(&tp->net_stats_prev, 0, sizeof(tp->net_stats_prev));
+ 	memset(&tp->estats_prev, 0, sizeof(tp->estats_prev));
+ 
+-	tg3_power_down_prepare(tp);
+-
+-	tg3_carrier_off(tp);
++	if (pci_device_is_present(tp->pdev)) {
++		tg3_power_down_prepare(tp);
+ 
++		tg3_carrier_off(tp);
++	}
+ 	return 0;
+ }
+ 
+@@ -17739,10 +17743,12 @@ static int tg3_suspend(struct device *de
+ 	struct pci_dev *pdev = to_pci_dev(device);
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct tg3 *tp = netdev_priv(dev);
+-	int err;
++	int err = 0;
++
++	rtnl_lock();
+ 
+ 	if (!netif_running(dev))
+-		return 0;
++		goto unlock;
+ 
+ 	tg3_reset_task_cancel(tp);
+ 	tg3_phy_stop(tp);
+@@ -17784,6 +17790,8 @@ out:
+ 			tg3_phy_start(tp);
+ 	}
+ 
++unlock:
++	rtnl_unlock();
+ 	return err;
+ }
+ 
+@@ -17792,10 +17800,12 @@ static int tg3_resume(struct device *dev
+ 	struct pci_dev *pdev = to_pci_dev(device);
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct tg3 *tp = netdev_priv(dev);
+-	int err;
++	int err = 0;
++
++	rtnl_lock();
+ 
+ 	if (!netif_running(dev))
+-		return 0;
++		goto unlock;
+ 
+ 	netif_device_attach(dev);
+ 
+@@ -17819,6 +17829,8 @@ out:
+ 	if (!err)
+ 		tg3_phy_start(tp);
+ 
++unlock:
++	rtnl_unlock();
+ 	return err;
+ }
+ #endif /* CONFIG_PM_SLEEP */
+Index: linux-pm/drivers/pci/pci.c
+===================================================================
+--- linux-pm.orig/drivers/pci/pci.c
++++ linux-pm/drivers/pci/pci.c
+@@ -4171,6 +4171,14 @@ int pci_set_vga_state(struct pci_dev *de
+ 	return 0;
+ }
+ 
++bool pci_device_is_present(struct pci_dev *pdev)
++{
++	u32 v;
++
++	return pci_bus_read_dev_vendor_id(pdev->bus, pdev->devfn, &v, 0);
++}
++EXPORT_SYMBOL_GPL(pci_device_is_present);
++
+ #define RESOURCE_ALIGNMENT_PARAM_SIZE COMMAND_LINE_SIZE
+ static char resource_alignment_param[RESOURCE_ALIGNMENT_PARAM_SIZE] = {0};
+ static DEFINE_SPINLOCK(resource_alignment_lock);
+Index: linux-pm/include/linux/pci.h
+===================================================================
+--- linux-pm.orig/include/linux/pci.h
++++ linux-pm/include/linux/pci.h
+@@ -961,6 +961,7 @@ void pci_update_resource(struct pci_dev
+ int __must_check pci_assign_resource(struct pci_dev *dev, int i);
+ int __must_check pci_reassign_resource(struct pci_dev *dev, int i, resource_size_t add_size, resource_size_t align);
+ int pci_select_bars(struct pci_dev *dev, unsigned long flags);
++bool pci_device_is_present(struct pci_dev *pdev);
+ 
+ /* ROM control related routines */
+ int pci_enable_rom(struct pci_dev *pdev);
 
-I am wondering whether it may be best to just put a link to the Free
-Software Foundation web page instead of having to update the address any
-time a change is made.
-
-Either way, I feel the address either needs to get corrected or changed
-to the URL, even though I am not a fan of huge patch series to make
-trivial changes like this.
-
-Thoughts?
-
-Cheers,
-Jeff Kirsher
-
---=-BDW4jfmCbkzPPigL7LAi
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIcBAABCgAGBQJSmoYGAAoJEOVv75VaS+3Ol8AP/1bfaYV5kFBLI5RzoMVIpDRQ
-H0p4U1YNdE2h36I1wGvytRpTtRNF99zcLjRGTz7xsOlUxFl6AhIY6gbwtLQySc3H
-Q9QNufRVbwCt/RfieGsDCzaYfXOpwEDif0F9Uw5OJSHNx05JQI9I61IWZGjJnu+d
-nNX3YpvvS4g7iq339c+k2gzMQErlnC4OToJxFRMxSBFfqxmGiav7pPir7NkQh3Jv
-imsPulZKCq7eCZL37u1hqRjn/4Yg8GIlvntqO2+lrl17xVUdVqpp98B7u0BMO49q
-B+8cad81W3C+nYZtTVln3FOvQjLtxVb2gXzt2xh/tQ95sCsVG+meInrqzHwGmC+Y
-qBiNqFxXFbgLKWlDbZusrEO3yq6DSAust3dhiCOi6bS6O9xhwcnPKMehGKfsLJBi
-G6tjJUZS3oNn0HY1cMWEi5Bo38kLd36DmdHqFPd+pe/FTzKekA0EQzsgcuNMwy8y
-/fodgj6Qmd94d5narlHEcUOPlzBxvDc+9amIZDD7rLBFXb4R8bPrwP9iaL5hCgA9
-Qmh4uGJIa86SlKohmr8Y3BwnrQj3S6zyys60R5dsfOH5fK3/mH2LqWqfq+MS2RE5
-rfklGfJNr6SOlfofBSzBUioaW1XbsnwGgrBuE48hwoY58F0yJyNDsLNENonMNTgo
-TRGlhLLYuNIvDIy9GTYQ
-=L7AD
------END PGP SIGNATURE-----
-
---=-BDW4jfmCbkzPPigL7LAi--
