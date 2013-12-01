@@ -1,70 +1,46 @@
-From: Matthias Schiffer <mschiffer@universe-factory.net>
-Subject: Re: [PATCH 3/3] xfrm: Fix null pointer dereference when decoding
- sessions
-Date: Sun, 01 Dec 2013 05:19:53 +0100
-Message-ID: <529AB8E9.30004@universe-factory.net>
-References: <1383294107-7509-1-git-send-email-steffen.klassert@secunet.com> <1383294107-7509-4-git-send-email-steffen.klassert@secunet.com> <52920CEE.2040407@universe-factory.net>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [[PATCH stable <3.12]] xen-netback: fix refcnt unbalance for
+ 3.11 and earlier versions
+Date: Sat, 30 Nov 2013 20:48:35 -0800
+Message-ID: <20131201044835.GB19516@kroah.com>
+References: <1385642889-11513-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="bc85cvIXFSm8HBLhI8uOLEfL2tb1rUS6h"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from chaos.universe-factory.net ([37.72.148.22]:42807 "EHLO
-	chaos.universe-factory.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751529Ab3LAETz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 23:19:55 -0500
-In-Reply-To: <52920CEE.2040407@universe-factory.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	stable@vger.kernel.org, tomasz.wroblewski@citrix.com,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Konrad Wilk <konrad.wilk@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1385642889-11513-1-git-send-email-wei.liu2@citrix.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---bc85cvIXFSm8HBLhI8uOLEfL2tb1rUS6h
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Thu, Nov 28, 2013 at 12:48:09PM +0000, Wei Liu wrote:
+> With the introduction of "xen-netback: Don't destroy the netdev until
+> the vif is shut down" (upstream commit id 279f438e36), vif disconnect
+> and free are separated. However in the backported verion reference
+> counting code was not correctly modified, and the reset of vif->tx_irq
+> was lost. If frontend goes through vif life cycle more than once the
+> reference counting is skewed.
+> 
+> This patch adds back the missing tx_irq reset line. It also moves
+> several lines of the reference counting code to vif_free, so the moved
+> code corresponds to the counterpart in vif_alloc, thus the reference
+> counting is balanced.
+> 
+> 3.12 and onward versions are not affected by this bug, because reference
+> counting code was removed due to the introduction of 1:1 model.
+> 
+> This pacth should be backported to all stable verions which are lower
+> than 3.12 and have 279f438e36.
 
-On 11/24/2013 03:27 PM, Matthias Schiffer wrote:
-> On 11/01/2013 09:21 AM, Steffen Klassert wrote:
->> On some codepaths the skb does not have a dst entry
->> when xfrm_decode_session() is called. So check for
->> a valid skb_dst() before dereferencing the device
->> interface index. We use 0 as the device index if
->> there is no valid skb_dst(), or at reverse decoding
->> we use skb_iif as device interface index.
->>
->> Bug was introduced with git commit bafd4bd4dc
->> ("xfrm: Decode sessions with output interface.").
->>
->> Reported-by: Meelis Roos <mroos@linux.ee>
->> Tested-by: Meelis Roos <mroos@linux.ee>
->> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
->=20
-> Please queue this for 3.12-stable, I've seen this bug trigger a panic
-> when heavily using Bittorrent (screenshot:
-> http://i.imgur.com/OIKVccM.jpg )
->=20
-> Thanks,
-> Matthias
->=20
+What stable versions are those?  279f438e36 showed up in 3.12-rc2, and
+was not marked for stable inclusion, so what kernel would end up needing
+this patch?
 
-Ping? Several people I know have hit this panic with 3.12.x at least
-once or twice by now during heavy IPv6 usage.
+confused,
 
-
---bc85cvIXFSm8HBLhI8uOLEfL2tb1rUS6h
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlKauOkACgkQq3qIxbiQM9hnvACgmTb/SLCJzVfNGR1s6q5qLGB7
-D1kAnixQ1KY0YLsg7S0n0bVvCre/XxZo
-=MZHf
------END PGP SIGNATURE-----
-
---bc85cvIXFSm8HBLhI8uOLEfL2tb1rUS6h--
+greg k-h
