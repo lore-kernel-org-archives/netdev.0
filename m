@@ -1,71 +1,93 @@
-From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
-Subject: Re: "swiotlb buffer is full" with 3.13-rc1+ but not 3.4.
-Date: Sun, 1 Dec 2013 17:06:00 +0000
-Message-ID: <alpine.DEB.2.02.1312011659500.3198@kaball.uk.xensource.com>
-References: <21144.47873.639231.96901@mariner.uk.xensource.com>  <20131130185639.GA13039@pegasus.dumpdata.com> <1385844524.2170.10.camel@dabdike>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [B.A.T.M.A.N.] [PATCH] Fix ARM BUILD_BUG_ON() errors with
+	batman-adv
+Date: Sun, 1 Dec 2013 17:13:09 +0000
+Message-ID: <20131201171309.GD16735@n2100.arm.linux.org.uk>
+References: <20131130191553.GA16735@n2100.arm.linux.org.uk> <529A46C4.9090906@meshcoding.com> <20131130230518.GC16735@n2100.arm.linux.org.uk> <529A8276.9060002@meshcoding.com> <529B47AA.8060403@meshcoding.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Ian Jackson <Ian.Jackson@eu.citrix.com>,
-	<netdev@vger.kernel.org>, Michael Chan <mchan@broadcom.com>,
-	<dl-mptfusionlinux@lsi.com>, <linux-scsi@vger.kernel.org>,
-	<support@lsi.com>, Sreekanth Reddy <Sreekanth.Reddy@lsi.com>,
-	Nagalakshmi Nandigama <Nagalakshmi.Nandigama@lsi.com>,
-	<xen-devel@lists.xenproject.org>, <linux-kernel@vger.kernel.org>
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: The list for a Better Approach To Mobile Ad-hoc
+	 Networking <b.a.t.m.a.n@lists.open-mesh.org>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Antonio Quartulli <antonio@meshcoding.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:37125 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751599Ab3LARGT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Dec 2013 12:06:19 -0500
-In-Reply-To: <1385844524.2170.10.camel@dabdike>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:43775 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751035Ab3LARNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Dec 2013 12:13:25 -0500
+Content-Disposition: inline
+In-Reply-To: <529B47AA.8060403@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 30 Nov 2013, James Bottomley wrote:
-> On Sat, 2013-11-30 at 13:56 -0500, Konrad Rzeszutek Wilk wrote:
-> > My theory is that the SWIOTLB is not full - it is just that the request
-> > is for a compound page that is more than 512kB. Please note that
-> > SWIOTLB highest "chunk" of buffer it can deal with is 512kb.
+On Sun, Dec 01, 2013 at 03:28:58PM +0100, Antonio Quartulli wrote:
+> On 01/12/13 01:27, Antonio Quartulli wrote:
+> > On 01/12/13 00:05, Russell King - ARM Linux wrote:
+> >> On Sat, Nov 30, 2013 at 09:12:52PM +0100, Antonio Quartulli 
+> >> wrote:
+> >>> I don't know the ARM architecture at all (I don't know if the 
+> >>> other batman-adv developers do), so could you please provide 
+> >>> here some more details about why that static check is failing? 
+> >>> We would like to address this issue differently rather than 
+> >>> re-adding the __packed attribute.
 > > 
-> > And that is of course the question comes out - why would it try to
-> > bounce buffer it. In Xen the answer is simple - the sg chunks cross page
-> > boundaries which means that they are not physically contingous - so we
-> > have to use the bounce buffer. It would be better if the the sg list
-> > provided a large list of 4KB pages instead of compound pages as that
-> > could help in avoiding the bounce buffer.
+> >> The reason is this struct becomes a size of 4 bytes, even though 
+> >> it only contains three uint8_t members.  This offsets the
+> >> members of all structs that this struct is embedded in.
 > > 
-> > But I digress - this is a theory - I don't know whether the SCSI layer
-> > does any colescing of the sg list - and if so, whether there is any
-> > easy knob to tell it to not do it.
+> >> If you don't wish to fix this, then please make your subsystem 
+> >> depend on !ARM because it's otherwise impossible to fix and can 
+> >> never work on ARM.
+> > 
+> > 
+> > I'd like to fix this.
+> > 
+> > Actually I can't really understand your explanation: struct 
+> > batadv_header is always used inside another parent structure and 
+> > the latter always has a uint8_t following the batadv_header, thus 
+> > filling that gap and aligning it to 4bytes. I think this is also 
+> > why we don't get this compiler error on any other architecture. Or 
+> > am I missing something?
+> > 
+> > I'll install a toolchain for ARM and I'll try to inspect it
+> > better. If we have to make a change we should do it before 3.13 is
+> > release since this change could possibly alter the packet layout.
+> > 
+> > 
 > 
-> Well, SCSI doesn't, but block does.  It's actually an efficiency thing
-> since most firmware descriptor formats cope with multiple pages and the
-> more descriptors you have for a transaction, the more work the on-board
-> processor on the HBA has to do.  If you have an emulated HBA, like
-> virtio, you could turn off physical coalesing by setting the
-> use_clustering flag to DISABLE_CLUSTERING.  But you can't do that for a
-> real card.  I assume the problem here is that the host is passing the
-> card directly to the guest and the guest clusters based on its idea of
-> guest pages which don't map to contiguous physical pages?
+> It looks like that the ARM compiler cannot pack the structures properly.
+
+This is not a compiler bug.  This is a bug in how you understand the C
+specifications.
+
+> we have the compiler saying that offset_of dest in struct
+> batadv_unicast_packet is 5.
+
+Correct.
+
+> This means that struct batadv_header is padded to 4 bytes even if it
+> is enclosed in struct batadv_unicast_packet and a proper 1byte member
+> is put right after it.
 > 
-> The way you tell how many physically contiguous pages block is willing
-> to merge is by looking at /sys/block/<dev>/queue/max_segment_size if
-> that's 4k then it won't merge, if it's greater than 4k, then it will.
-> 
-> I'm not quite sure what to do ... you can't turn of clustering globally
-> in the guest because the virtio drivers use it to reduce ring descriptor
-> pressure, what you probably want is some way to flag a pass through
-> device.
+> Am I wrong or this is a problem in the ARM compiler not doing the
+> right assumption? On x86 and x86_64 offset_of dest is 4, as expected.
 
-Given that we don't use virtio on Xen, we could actually turn off
-clustering globally (if we are running on Xen).
+The C standards allow implementations to pad structures as they see fit
+for performance reasons.  The only thing which C guarantees is that the
+order of the structure members are specified.  Padding is allowed to be
+added between members and at the end of the structure.
 
-In fact for example BIOVEC_PHYS_MERGEABLE is defined:
+The ARM compilers have for the last 20 years always aligned the size of
+structs to a multiple of 32 bits to ensure that members following a
+structure are appropriately aligned.
 
-+#define BIOVEC_PHYS_MERGEABLE(vec1, vec2)				\
-+	(__BIOVEC_PHYS_MERGEABLE(vec1, vec2) &&				\
-+	 (!xen_domain() || xen_biovec_phys_mergeable(vec1, vec2)))
+Changing this behaviour is completely out of the question: that would
+be similar to asking for the x86 compiler to change the way it lays out
+its structures.
 
-so that we can disable it if the two bv_page are not actually physical
-contiguous.
+The only solutions are: use the GCC packed attribute, redesign the
+structures, or just accept that it won't ever be usable on ARM.
+
+Frankly, I don't care about having this protocol working on ARM.  My
+report was just because it was found by one of my randconfig builds.
+I've learned my lesson now - don't report bugs...
