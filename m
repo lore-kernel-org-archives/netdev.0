@@ -1,59 +1,96 @@
-From: Amir Vadai <amirv.mellanox@gmail.com>
-Subject: Re: [PATCH v2 13/17] net: mlx4 calls skb_set_rxhash
-Date: Sun, 01 Dec 2013 14:26:31 +0200
-Message-ID: <529B2AF7.90309@gmail.com>
-References: <alpine.DEB.2.02.1311260928050.21143@tomh.mtv.corp.google.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: [B.A.T.M.A.N.] [PATCH] Fix ARM BUILD_BUG_ON() errors with	batman-adv
+Date: Sun, 01 Dec 2013 15:28:58 +0100
+Message-ID: <529B47AA.8060403@meshcoding.com>
+References: <20131130191553.GA16735@n2100.arm.linux.org.uk> <529A46C4.9090906@meshcoding.com> <20131130230518.GC16735@n2100.arm.linux.org.uk> <529A8276.9060002@meshcoding.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Hadar Hen Zion <hadarh@mellanox.com>
-To: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
+Cc: The list for a Better Approach To Mobile Ad-hoc
+	 Networking <b.a.t.m.a.n@lists.open-mesh.org>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: linux@arm.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f51.google.com ([209.85.214.51]:42109 "EHLO
-	mail-bk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752048Ab3LAM0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Dec 2013 07:26:37 -0500
-Received: by mail-bk0-f51.google.com with SMTP id 6so4891978bkj.38
-        for <netdev@vger.kernel.org>; Sun, 01 Dec 2013 04:26:36 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.02.1311260928050.21143@tomh.mtv.corp.google.com>
+Received: from s3.neomailbox.net ([178.209.62.157]:17988 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751123Ab3LAO3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Dec 2013 09:29:40 -0500
+In-Reply-To: <529A8276.9060002@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/11/2013 19:31, Tom Herbert wrote:
-> Drivers should call skb_set_rxhash to set the rxhash and its type
-> in an skbuff.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+On 01/12/13 01:27, Antonio Quartulli wrote:
+> On 01/12/13 00:05, Russell King - ARM Linux wrote:
+>> On Sat, Nov 30, 2013 at 09:12:52PM +0100, Antonio Quartulli 
+>> wrote:
+>>> I don't know the ARM architecture at all (I don't know if the 
+>>> other batman-adv developers do), so could you please provide 
+>>> here some more details about why that static check is failing? 
+>>> We would like to address this issue differently rather than 
+>>> re-adding the __packed attribute.
 > 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+>> The reason is this struct becomes a size of 4 bytes, even though 
+>> it only contains three uint8_t members.  This offsets the
+>> members of all structs that this struct is embedded in.
 > 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index 07a1d0f..3e48c44 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -747,7 +747,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->  					}
->  
->  					if (dev->features & NETIF_F_RXHASH)
-> -						gro_skb->rxhash = be32_to_cpu(cqe->immed_rss_invalid);
-> +						skb_set_rxhash(gro_skb, be32_to_cpu(cqe->immed_rss_invalid), RXHASH_TYPE_L3);
->  
->  					skb_record_rx_queue(gro_skb, cq->ring);
->  
-> @@ -789,7 +789,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->  		skb_record_rx_queue(skb, cq->ring);
->  
->  		if (dev->features & NETIF_F_RXHASH)
-> -			skb->rxhash = be32_to_cpu(cqe->immed_rss_invalid);
-> +			skb_set_rxhash(skb, be32_to_cpu(cqe->immed_rss_invalid), RXHASH_TYPE_L3);
->  
->  		if ((be32_to_cpu(cqe->vlan_my_qpn) &
->  		    MLX4_CQE_VLAN_PRESENT_MASK) &&
+>> If you don't wish to fix this, then please make your subsystem 
+>> depend on !ARM because it's otherwise impossible to fix and can 
+>> never work on ARM.
+> 
+> 
+> I'd like to fix this.
+> 
+> Actually I can't really understand your explanation: struct 
+> batadv_header is always used inside another parent structure and 
+> the latter always has a uint8_t following the batadv_header, thus 
+> filling that gap and aligning it to 4bytes. I think this is also 
+> why we don't get this compiler error on any other architecture. Or 
+> am I missing something?
+> 
+> I'll install a toolchain for ARM and I'll try to inspect it
+> better. If we have to make a change we should do it before 3.13 is
+> release since this change could possibly alter the packet layout.
+> 
 > 
 
-I need to do some work in this area of code, but anyway it is not in the
-scope of this patchset.
+It looks like that the ARM compiler cannot pack the structures properly.
 
-Acked-By: Amir Vadai <amirv@mellanox.com>
+So, given these two structures:
+
+struct batadv_header {
+        uint8_t  packet_type;
+        uint8_t  version;
+        uint8_t  ttl;
+};
+
+struct batadv_unicast_packet {
+        struct batadv_header header;
+        uint8_t  ttvn;
+        uint8_t  dest[ETH_ALEN];
+};
+
+we have the compiler saying that offset_of dest in struct
+batadv_unicast_packet is 5.
+
+This means that struct batadv_header is padded to 4 bytes even if it
+is enclosed in struct batadv_unicast_packet and a proper 1byte member
+is put right after it.
+
+Am I wrong or this is a problem in the ARM compiler not doing the
+right assumption? On x86 and x86_64 offset_of dest is 4, as expected.
+
+
+Regards,
+
+- -- 
+Antonio Quartulli
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iEYEARECAAYFAlKbR6oACgkQpGgxIkP9cwdpYACgjcWLZ7EGFDatHTsByPz7idsY
+YOgAnRq6JTmOv8zI3OrRiBRtOIprgOew
+=Jxbq
+-----END PGP SIGNATURE-----
