@@ -1,151 +1,68 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: [PATCH] PCI / tg3: Give up chip reset and carrier loss handling if PCI device is not present
-Date: Sun, 01 Dec 2013 02:34:37 +0100
-Message-ID: <7807315.7cU9KldDtM@vostro.rjw.lan>
+From: Ding Tianhong <dthxman@gmail.com>
+Subject: Re: [PATCH net] net: neighbour: make sure the handler has finished
+ before kfree neighbour
+Date: Sun, 01 Dec 2013 10:43:10 +0800
+Message-ID: <529AA23E.8040306@gmail.com>
+References: <52973704.1030202@huawei.com> <20131130.162733.145727596946626316.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Linux PM list <linux-pm@vger.kernel.org>,
-	Linux PCI <linux-pci@vger.kernel.org>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Nithin Nayak Sujir <nsujir@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-pm-owner@vger.kernel.org>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dingtianhong@huawei.com, gaofeng@cn.fujitsu.com,
+	yoshfuji@linux-ipv6.org, joe@perches.com, vfalico@redhat.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:53831 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751412Ab3LACyT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Nov 2013 21:54:19 -0500
+Received: by mail-pb0-f48.google.com with SMTP id md12so16416530pbc.7
+        for <netdev@vger.kernel.org>; Sat, 30 Nov 2013 18:54:18 -0800 (PST)
+In-Reply-To: <20131130.162733.145727596946626316.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+=E4=BA=8E 2013/12/1 5:27, David Miller =E5=86=99=E9=81=93:
+> From: Ding Tianhong <dingtianhong@huawei.com>
+> Date: Thu, 28 Nov 2013 20:28:52 +0800
+>=20
+>> I have met the oops in Suse11 SP2, the kernel is 2.6.32.59-0.7-defau=
+lt:
+>=20
+> This doesn't make any sense.
+>=20
+> If this actually was the reason, then del_timer() would have returned=
+ true,
+> and thus neigh_del_timer() would have returned "1" and you would have
+> seen the "Impossible event" log message that neigh_destroy() prints o=
+ut.
+>=20
+> You may think the cause is a pending timer, but the data you've provi=
+ded
+> does not support this at all.
+>=20
+> And if it isn't happening, your patch removing that warning is wrong.
+>=20
+> Furthermore, if this change to use del_timer_sync() is correct, it
+> probably belongs in neigh_del_timer() because all of it's other calle=
+rs
+> expect the timer to not be running and that all references to the obj=
+ect
+> are stable after such calls.
+>=20
+> I'm not applying this, you really need to pursue this bug fix more
+> cleanly and more thoroughly because it's a non-trivial issue.
+>=20
+> Thanks.
 
-Modify tg3_chip_reset() and tg3_close() to check if the PCI network
-adapter device is accessible at all in order to skip poking it or
-trying to handle a carrier loss in vain when that's not the case.
-Introduce a special PCI helper function pci_device_is_present()
-for this purpose.
+ok=EF=BC=8Cthanks for the advice, I would like to think it over and mak=
+e it better.
 
-Of course, this uncovers the lack of the appropriate RTNL locking
-in tg3_suspend() and tg3_resume(), so add that locking in there
-too.
+Regards
+Ding
 
-These changes prevent tg3 from burning a CPU at 100% load level for
-solid several seconds after the Thunderbolt link is disconnected from
-a Matrox DS1 docking station.
-
-Signed-off-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
----
- drivers/net/ethernet/broadcom/tg3.c |   26 +++++++++++++++++++-------
- drivers/pci/pci.c                   |    8 ++++++++
- include/linux/pci.h                 |    1 +
- 3 files changed, 28 insertions(+), 7 deletions(-)
-
-Index: linux-pm/drivers/net/ethernet/broadcom/tg3.c
-===================================================================
---- linux-pm.orig/drivers/net/ethernet/broadcom/tg3.c
-+++ linux-pm/drivers/net/ethernet/broadcom/tg3.c
-@@ -8932,6 +8932,9 @@ static int tg3_chip_reset(struct tg3 *tp
- 	void (*write_op)(struct tg3 *, u32, u32);
- 	int i, err;
- 
-+	if (!pci_device_is_present(tp->pdev))
-+		return -ENODEV;
-+
- 	tg3_nvram_lock(tp);
- 
- 	tg3_ape_lock(tp, TG3_APE_LOCK_GRC);
-@@ -11594,10 +11597,11 @@ static int tg3_close(struct net_device *
- 	memset(&tp->net_stats_prev, 0, sizeof(tp->net_stats_prev));
- 	memset(&tp->estats_prev, 0, sizeof(tp->estats_prev));
- 
--	tg3_power_down_prepare(tp);
--
--	tg3_carrier_off(tp);
-+	if (pci_device_is_present(tp->pdev)) {
-+		tg3_power_down_prepare(tp);
- 
-+		tg3_carrier_off(tp);
-+	}
- 	return 0;
- }
- 
-@@ -17739,10 +17743,12 @@ static int tg3_suspend(struct device *de
- 	struct pci_dev *pdev = to_pci_dev(device);
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct tg3 *tp = netdev_priv(dev);
--	int err;
-+	int err = 0;
-+
-+	rtnl_lock();
- 
- 	if (!netif_running(dev))
--		return 0;
-+		goto unlock;
- 
- 	tg3_reset_task_cancel(tp);
- 	tg3_phy_stop(tp);
-@@ -17784,6 +17790,8 @@ out:
- 			tg3_phy_start(tp);
- 	}
- 
-+unlock:
-+	rtnl_unlock();
- 	return err;
- }
- 
-@@ -17792,10 +17800,12 @@ static int tg3_resume(struct device *dev
- 	struct pci_dev *pdev = to_pci_dev(device);
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct tg3 *tp = netdev_priv(dev);
--	int err;
-+	int err = 0;
-+
-+	rtnl_lock();
- 
- 	if (!netif_running(dev))
--		return 0;
-+		goto unlock;
- 
- 	netif_device_attach(dev);
- 
-@@ -17819,6 +17829,8 @@ out:
- 	if (!err)
- 		tg3_phy_start(tp);
- 
-+unlock:
-+	rtnl_unlock();
- 	return err;
- }
- #endif /* CONFIG_PM_SLEEP */
-Index: linux-pm/drivers/pci/pci.c
-===================================================================
---- linux-pm.orig/drivers/pci/pci.c
-+++ linux-pm/drivers/pci/pci.c
-@@ -4171,6 +4171,14 @@ int pci_set_vga_state(struct pci_dev *de
- 	return 0;
- }
- 
-+bool pci_device_is_present(struct pci_dev *pdev)
-+{
-+	u32 v;
-+
-+	return pci_bus_read_dev_vendor_id(pdev->bus, pdev->devfn, &v, 0);
-+}
-+EXPORT_SYMBOL_GPL(pci_device_is_present);
-+
- #define RESOURCE_ALIGNMENT_PARAM_SIZE COMMAND_LINE_SIZE
- static char resource_alignment_param[RESOURCE_ALIGNMENT_PARAM_SIZE] = {0};
- static DEFINE_SPINLOCK(resource_alignment_lock);
-Index: linux-pm/include/linux/pci.h
-===================================================================
---- linux-pm.orig/include/linux/pci.h
-+++ linux-pm/include/linux/pci.h
-@@ -961,6 +961,7 @@ void pci_update_resource(struct pci_dev
- int __must_check pci_assign_resource(struct pci_dev *dev, int i);
- int __must_check pci_reassign_resource(struct pci_dev *dev, int i, resource_size_t add_size, resource_size_t align);
- int pci_select_bars(struct pci_dev *dev, unsigned long flags);
-+bool pci_device_is_present(struct pci_dev *pdev);
- 
- /* ROM control related routines */
- int pci_enable_rom(struct pci_dev *pdev);
-
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
