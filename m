@@ -1,118 +1,72 @@
-From: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: mac80211: tx.c: be sure of 'sdata->vif.type' must
- be NL80211_IFTYPE_AP when be in NL80211_IFTYPE_AP case
-Date: Sun, 01 Dec 2013 07:59:43 +0800
-Message-ID: <529A7BEF.6020100@gmail.com>
-References: <528AEFB7.4060301@gmail.com>  <20131125011938.GB18921@codeaurora.org> <5292B845.3010404@gmail.com>  <5292B8A0.7020409@gmail.com> <5294255E.7040105@gmail.com>  <52957ADA.2080704@gmail.com>  (sfid-20131127_055211_558798_A7DF5684) <1385739487.8656.1.camel@jlt4.sipsolutions.net>  <5299D306.7070701@gmail.com>  (sfid-20131130_125901_519610_EDA4068E) <1385816013.4327.1.camel@jlt4.sipsolutions.net>  <5299ED38.4090509@gmail.com> <5299EFDD.6060405@gmail.com>  (sfid-20131130_150205_984535_068F14A9) <1385842134.6108.4.camel@jlt4.sipsolutions.net> <1385843940.2664.4.camel@joe-AO722> <529A7955.9010507@gmail.com>
+From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+Subject: Re: [PATCH] Fix ARM BUILD_BUG_ON() errors
+	with	batman-adv
+Date: Sun, 01 Dec 2013 01:27:34 +0100
+Message-ID: <529A8276.9060002@meshcoding.com>
+References: <20131130191553.GA16735@n2100.arm.linux.org.uk>
+ <529A46C4.9090906@meshcoding.com>
+ <20131130230518.GC16735@n2100.arm.linux.org.uk>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	rkuo <rkuo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <529A7955.9010507-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
+To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20131130230518.GC16735-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On 12/01/2013 07:48 AM, Chen Gang wrote:
-> On 12/01/2013 04:39 AM, Joe Perches wrote:
->> On Sat, 2013-11-30 at 21:08 +0100, Johannes Berg wrote:
->>> On Sat, 2013-11-30 at 22:02 +0800, Chen Gang wrote:
->>>>  - fall-through is obvious (although I did not notice it, originally).
->>>>
->>>>  - Check 'A' again just near by "case A" seems a little strange.
->>>>
->>>>  - Some compilers aren't quit smart enough to know 'chanctx_conf' is OK.
->>>
->>> I know. If you have any good ideas of how to make it more obvious to the
->>> compiler, I'm all ears, I just don't like any of the solutions offered
->>> so far (and you aren't the first to do so either) :-)
->>>
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+On 01/12/13 00:05, Russell King - ARM Linux wrote:
+> On Sat, Nov 30, 2013 at 09:12:52PM +0100, Antonio Quartulli wrote:
+>> I don't know the ARM architecture at all (I don't know if the
+>> other batman-adv developers do), so could you please provide here
+>> some more details about why that static check is failing? We
+>> would like to address this issue differently rather than
+>> re-adding the __packed attribute.
 > 
-> OK, thanks.
+> The reason is this struct becomes a size of 4 bytes, even though it
+> only contains three uint8_t members.  This offsets the members of
+> all structs that this struct is embedded in.
 > 
->>> FWIW, I find the label to be odd because if you're familiar with the
->>> code then AP/AP_VLAN *should* be identical except for two special things
->>> that are now linearly & neatly handled in the code (the first being the
->>> 4-addr station, the second the chanctx assignment which always has to be
->>> done regardless of 4-addr). IMHO the == check after case should be
->>> enough to make a human reader take a closer look. I understand that you
->>> didn't and that's OK since you were just trying to squelch compile
->>> warnings, but I don't see that this one warrants much attention.
->>
->> The label/test could be moved to save a couple of lines
->> of duplicated code.
->>
-> 
-> Hmm... for me, it must be an implementation which can satisfy all of us.
-> 
-> If ieee80211_subif_start_xmit() is not performance sensitive (I guess
-> so), we can use some short static functions instead of some code blocks
-> within ieee80211_subif_start_xmit().
-> 
->  - ieee80211_subif_start_xmit() is a long function (600+ lines).
+> If you don't wish to fix this, then please make your subsystem 
+> depend on !ARM because it's otherwise impossible to fix and can
+> never work on ARM.
 > 
 
-Oh, one typo issue (need use 400+ instead of 600+), it is a long
-function (although not quite long).
+I'd like to fix this.
 
->  - use short static function can share some code.
-> 
->  - if code can be shared, the work flow can be more clearer too (don't
->    need fall-through or goto).
-> 
-> 
-> And I guess, the implementation below can cause panic when
-> "sdata->vif.type == NL80211_IFTYPE_AP_VLAN".  :-(
-> 
->> Maybe:
->>
->>  net/mac80211/tx.c | 14 ++++++--------
->>  1 file changed, 6 insertions(+), 8 deletions(-)
->>
->> diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
->> index 70b5a05..b2160f4 100644
->> --- a/net/mac80211/tx.c
->> +++ b/net/mac80211/tx.c
->> @@ -1777,18 +1777,16 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
->>  		}
->>  		ap_sdata = container_of(sdata->bss, struct ieee80211_sub_if_data,
->>  					u.ap);
->> -		chanctx_conf = rcu_dereference(ap_sdata->vif.chanctx_conf);
->> -		if (!chanctx_conf)
->> -			goto fail_rcu;
->> -		band = chanctx_conf->def.chan->band;
->> -		if (sta)
->> -			break;
->>  		/* fall through */
->>  	case NL80211_IFTYPE_AP:
->> -		if (sdata->vif.type == NL80211_IFTYPE_AP)
->> -			chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
->> +		chanctx_conf = rcu_dereference(ap_sdata->vif.chanctx_conf);
->>  		if (!chanctx_conf)
->>  			goto fail_rcu;
->> +		if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN) {
->> +			band = chanctx_conf->def.chan->band;
->> +			if (sta)
->> +				break;
->> +		}
->>  		fc |= cpu_to_le16(IEEE80211_FCTL_FROMDS);
->>  		/* DA BSSID SA */
->>  		memcpy(hdr.addr1, skb->data, ETH_ALEN);
->>
->>
-> 
-> 
+Actually I can't really understand your explanation: struct
+batadv_header is always used inside another parent structure and the
+latter always has a uint8_t following the batadv_header, thus filling
+that gap and aligning it to 4bytes.
+I think this is also why we don't get this compiler error on any other
+architecture. Or am I missing something?
 
+I'll install a toolchain for ARM and I'll try to inspect it better. If
+we have to make a change we should do it before 3.13 is release since
+this change could possibly alter the packet layout.
 
--- 
-Chen Gang
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- -- 
+Antonio Quartulli
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iEYEARECAAYFAlKagnYACgkQpGgxIkP9cwe1KgCeMUkV6xpNOsM4Bilc1e1uHpCG
+8BAAnjsHJ/AHn8COhwiZ5wrKiIpQ0CFa
+=D4xa
+-----END PGP SIGNATURE-----
