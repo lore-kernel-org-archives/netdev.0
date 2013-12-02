@@ -1,126 +1,91 @@
-From: srinivas kandagatla <srinivas.kandagatla@st.com>
-Subject: Re: [PATCH RFC 0/9]net: stmmac PM related fixes.
-Date: Mon, 2 Dec 2013 10:48:32 +0000
-Message-ID: <529C6580.1020304@st.com>
-References: <1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com> <528AF617.70802@st.com>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH 1/2] net: emaclite: Remove unnecessary code that
+ enables/disables interrupts on PONG buffers
+Date: Mon, 02 Dec 2013 12:20:02 +0100
+Message-ID: <529C6CE2.60909@monstr.eu>
+References: <f9b49a0c-0627-432d-b6c9-faeaa7c412b8@CH1EHSMHS011.ehs.local>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:35334 "EHLO
-	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753267Ab3LBKxN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 05:53:13 -0500
-In-Reply-To: <528AF617.70802@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============0573134421737909683=="
+Cc: netdev@vger.kernel.org, Srikanth Thokala <sthokal@xilinx.com>,
+ davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
+ Michal Simek <michal.simek@xilinx.com>
+To: Srikanth Thokala <srikanth.thokala@xilinx.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <f9b49a0c-0627-432d-b6c9-faeaa7c412b8@CH1EHSMHS011.ehs.local>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-Do you have any plans to take this series?
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--===============0573134421737909683==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="QBlf0HI7j2rgnt9d05tK9jXsm6t1f7GUX"
 
-Peppe already Acked these series
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--QBlf0HI7j2rgnt9d05tK9jXsm6t1f7GUX
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Please let me know if you want me to rebase these patches on any
-particular branch.
+On 11/28/2013 08:29 AM, Srikanth Thokala wrote:
+> There are no specific interrupts for the PONG buffer on both
+> transmit and receive side, same interrupt is valid for both
+> buffers. So, this patch removes this code.
+>=20
+> Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
+> ---
+>  drivers/net/ethernet/xilinx/xilinx_emaclite.c | 38 -------------------=
+--------
+>  1 file changed, 38 deletions(-)
+
+Reviewed-by: Michal Simek <monstr@monstr.eu>
 
 Thanks,
-srini
+Michal
 
-On 19/11/13 05:24, Giuseppe CAVALLARO wrote:
-> On 11/18/2013 12:30 PM, srinivas.kandagatla@st.com wrote:
->> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
->>
->> Hi Peppe,
->>
->> During PM_SUSPEND_FREEZE testing, I have noticed that PM support in
->> STMMAC is
->> partly broken. I had to re-arrange the code to do PM correctly. There
->> were lot
->> of things I did not like personally and some bits did not work in the
->> first
->> place. I thought this is the nice opportunity to clean the mess up.
->>
->> Here is what I did:
->>
->> 1> Test PM suspend freeeze via pm_test
->> It did not work for following reasons.
->>   - If the power to gmac is removed when it enters in low power state.
->> stmmac_resume could not cope up with such behaviour, it was expecting
->> the ip
->> register contents to be still same as before entering low power, This
->> assumption is wrong. So I started to add some code to do Hardware
->> initialization, thats when I started to re-arrange the code. stmmac_open
->> contains both resource and memory allocations and hardware
->> initialization. I
->> had to separate these two things in two different functions.
->>
->> These two patches do that
->>    net: stmmac: move dma allocation to new function
->>    net: stmmac: move hardware setup for stmmac_open to new function
->>
->> And rest of the other patches are fixing the loose ends, things like mdio
->> reset, which might be necessary in cases likes hibernation(I did not
->> test).
->>
->> In hibernation cases the driver was just unregistering with subsystems
->> and
->> releasing resources which I did not like and its not necessary to do
->> this as
->> part of PM. So using the same stmmac_suspend/resume made more sense for
->> hibernation cases than using stmmac_open/release.
->> Also fixed a NULL pointer dereference bug too.
->>
->> 2> Test WOL via PM_SUSPEND_FREEZE
->> Did get an wakeup interrupt, but could not wakeup a freeze system.
->> So I had to add pm_wakeup_event to the driver.
->> net: stmmac: notify the PM core of a wakeup event. patch.
->>
->> Also few patches like
->>    net: stmmac: make stmmac_mdio_reset non-static
->>    net: stmmac: restore pinstate in pm resume.
->> helps the resume function to reset the phy and put back the pins in
->> default
->> state.
->>
->> Comments?
-> 
-> Srini, as we had internally discussed before sending the patches to the
-> net ML, I agreed with your work. Some parts of the PM stuff was fully
-> tested on our product kernels (where the PM was a bit different
-> especially on HoM) and nobody raised issues to me for this code.
-> Also some rework you did, for example to move the dma allocation in
-> a new function is fine for me.
-> 
-> So you continue to have my Acked-by for all.
-> 
-> peppe
-> 
->>
->> Thanks,
->> srini
->>
->> Srinivas Kandagatla (9):
->>    net: stmmac: support max-speed device tree property
->>    net: stmmac: mdio: remove reset gpio free
->>    net: stmmac: move dma allocation to new function
->>    net: stmmac: move hardware setup for stmmac_open to new function
->>    net: stmmac: make stmmac_mdio_reset non-static
->>    net: stmmac: fix power mangement suspend-resume case
->>    net: stmmac: use suspend functions for hibernation
->>    net: stmmac: restore pinstate in pm resume.
->>    net: stmmac: notify the PM core of a wakeup event.
->>
->>   drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    4 +-
->>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  360
->> ++++++++++----------
->>   drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |    3 +-
->>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   51 +--
->>   include/linux/stmmac.h                             |    1 +
->>   5 files changed, 209 insertions(+), 210 deletions(-)
->>
-> 
-> 
-> 
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
+Maintainer of Linux kernel - Xilinx Zynq ARM architecture
+Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+
+
+
+--QBlf0HI7j2rgnt9d05tK9jXsm6t1f7GUX
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlKcbOIACgkQykllyylKDCH+zQCeLIwXqEbLUJfbjngJ3SGZAsYd
+TJQAmgJCZCc64o7TP9b8UafwA2WIh//i
+=yDL0
+-----END PGP SIGNATURE-----
+
+--QBlf0HI7j2rgnt9d05tK9jXsm6t1f7GUX--
+
+
+--===============0573134421737909683==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+linux-arm-kernel mailing list
+linux-arm-kernel@lists.infradead.org
+http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+
+--===============0573134421737909683==--
