@@ -1,74 +1,79 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: netfilter: active obj WARN when cleaning up
-Date: Mon, 2 Dec 2013 09:26:15 -0800
-Message-ID: <20131202172615.GA4722@kroah.com>
-References: <alpine.DEB.2.02.1311271106090.30673@ionos.tec.linutronix.de>
- <20131127113939.GL16735@n2100.arm.linux.org.uk>
- <alpine.DEB.2.02.1311271409280.30673@ionos.tec.linutronix.de>
- <20131127133231.GO16735@n2100.arm.linux.org.uk>
- <20131127134015.GA6011@n2100.arm.linux.org.uk>
- <alpine.DEB.2.02.1311271443580.30673@ionos.tec.linutronix.de>
- <20131127233415.GB19270@kroah.com>
- <00000142b4282aaf-913f5e4c-314c-4351-9d24-615e66928157-000000@email.amazonses.com>
- <20131202164039.GA19937@kroah.com>
- <00000142b4514eb5-2e8f675d-0ecc-423b-9906-58c5f383089b-000000@email.amazonses.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net v3] xen-netback: fix fragment detection in checksum
+ setup
+Date: Mon, 2 Dec 2013 17:27:37 +0000
+Message-ID: <1386005257.1516.20.camel@bwh-desktop.uk.level5networks.com>
+References: <1385722328-32875-1-git-send-email-paul.durrant@citrix.com>
+	 <20131130.161357.1101467615641418549.davem@davemloft.net>
+	 <9AAE0902D5BC7E449B7C8E4E778ABCD019BC50@AMSPEX01CL01.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <00000142b4514eb5-2e8f675d-0ecc-423b-9906-58c5f383089b-000000@email.amazonses.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:44951 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752837Ab3LBR1m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 12:27:42 -0500
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD019BC50@AMSPEX01CL01.citrite.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 02, 2013 at 05:18:16PM +0000, Christoph Lameter wrote:
-> On Mon, 2 Dec 2013, Greg KH wrote:
-> 
-> > On Mon, Dec 02, 2013 at 04:33:20PM +0000, Christoph Lameter wrote:
-> > > On Wed, 27 Nov 2013, Greg KH wrote:
+On Mon, 2013-12-02 at 09:45 +0000, Paul Durrant wrote:
+> > -----Original Message-----
+> > From: David Miller [mailto:davem@davemloft.net]
+> > Sent: 30 November 2013 21:14
+> > To: Paul Durrant
+> > Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Wei Liu; Ian Campbell;
+> > David Vrabel
+> > Subject: Re: [PATCH net v3] xen-netback: fix fragment detection in checksum
+> > setup
+> > 
+> > From: Paul Durrant <paul.durrant@citrix.com>
+> > Date: Fri, 29 Nov 2013 10:52:08 +0000
+> > 
+> > > @@ -1166,15 +1166,27 @@ static int checksum_setup_ip(struct xenvif *vif,
+> > struct sk_buff *skb,
+> > >  	struct iphdr *iph = (void *)skb->data;
+> > >  	unsigned int header_size;
+> > >  	unsigned int off;
+> > > +	bool fragment;
+> > >  	int err = -EPROTO;
 > > >
-> > > > Just make the kobject "dynamic" instead of embedded in struct kmem_cache
-> > > > and all will be fine.  I can't believe this code has been broken for
-> > > > this long.
+> > > +	fragment = false;
+> > > +
+> > >  	off = sizeof(struct iphdr);
 > > >
-> > > The slub code is was designed to use an embedded structure since we
-> > > only get the kobj  pointer passed to us from sysfs. If kobj is not
-> > > embedded then how can we get from the sysfs object to the kmem_cache
-> > > structure from the sysfs callbacks? Sysfs was designed to have embedded
-> > > objects as far as I can recall.
-> >
-> > Yes, it's designed to have embedded objects, so then use it that way and
-> > clean up the structure when the kobject goes away.  Don't use a
-> > different reference count for your structure than the one in the kobject
-> > and think that all will be fine.
+> > >  	header_size = skb->network_header + off + MAX_IPOPTLEN;
+> > >  	maybe_pull_tail(skb, header_size);
+> > >
+> > > +	if (iph->frag_off & htons(IP_OFFSET | IP_MF))
+> > > +		fragment = true;
+> > 
+> > This function has a serious problem.
+> > 
+> > maybe_pull_tail() can change skb->data, therefore this "iph" pointer
+> > can become invalid, you're essentially dereferencing garbage if
+> > maybe_pull_tail() actually does any work.
 > 
-> We need our own reference count. So we just have to defer the
-> release of the kmem_cache struct until the ->release callback is
-> triggered. The put of the embedded kobject must be the last action on the
-> kmem_cache  structure which will then trigger release and that will
-> trigger the kmem_cache_free().
-> 
+> Ok. Clearly I'm misunderstanding what __pskb_pull_tail() does then. I
+> was under the impression that it moved skb->tail on but left skb->data
+> alone (which is what I want to do). I will have another look.
+[...]
 
-Ok, that sounds reasonable, or you can just create a "tiny" structure
-for the kobject that has a pointer back to your kmem_cache structure
-that you can then reference from the show/store functions.  Either is
-fine with me.
+A pull does not change the offset of skb->data but it may need to
+expand, i.e. reallocate, the skb head area.  The kernel-doc states
+clearly that this can happen.
 
-thanks,
+Ben.
 
-greg k-h
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
