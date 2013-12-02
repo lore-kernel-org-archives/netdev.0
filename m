@@ -1,65 +1,70 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: make the max_burst min value to 1
-Date: Mon, 2 Dec 2013 06:56:40 -0500
-Message-ID: <20131202115640.GA10857@hmsreliant.think-freely.org>
-References: <529C2E01.3090005@huawei.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [[PATCH stable <3.12]] xen-netback: fix refcnt unbalance for
+ 3.11 and earlier versions
+Date: Mon, 2 Dec 2013 12:01:34 +0000
+Message-ID: <20131202120134.GA14293@zion.uk.xensource.com>
+References: <1385642889-11513-1-git-send-email-wei.liu2@citrix.com>
+ <20131201044835.GB19516@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, dingtianhong@huawei.com
-To: Wang Weidong <wangweidong1@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53104 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753555Ab3LBL4z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 06:56:55 -0500
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, <stable@vger.kernel.org>,
+	<tomasz.wroblewski@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Konrad Wilk <konrad.wilk@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <stable-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <529C2E01.3090005@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20131201044835.GB19516@kroah.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 02, 2013 at 02:51:45PM +0800, Wang Weidong wrote:
-> From: Wang Weidong <wangweidong1@huawei.com>
+On Sat, Nov 30, 2013 at 08:48:35PM -0800, Greg KH wrote:
+> On Thu, Nov 28, 2013 at 12:48:09PM +0000, Wei Liu wrote:
+> > With the introduction of "xen-netback: Don't destroy the netdev until
+> > the vif is shut down" (upstream commit id 279f438e36), vif disconnect
+> > and free are separated. However in the backported verion reference
+> > counting code was not correctly modified, and the reset of vif->tx_irq
+> > was lost. If frontend goes through vif life cycle more than once the
+> > reference counting is skewed.
+> > 
+> > This patch adds back the missing tx_irq reset line. It also moves
+> > several lines of the reference counting code to vif_free, so the moved
+> > code corresponds to the counterpart in vif_alloc, thus the reference
+> > counting is balanced.
+> > 
+> > 3.12 and onward versions are not affected by this bug, because reference
+> > counting code was removed due to the introduction of 1:1 model.
+> > 
+> > This pacth should be backported to all stable verions which are lower
+> > than 3.12 and have 279f438e36.
 > 
-> when I setted the max_burst to 0, do the lksctp-tools I got hang.
-> I found sctp_transport_burst_limited would make the cwnd to 0.
-> so I make the max_burst min value to 1.
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> ---
->  net/sctp/sysctl.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-> index 7637e8e..46832d3 100644
-> --- a/net/sctp/sysctl.c
-> +++ b/net/sctp/sysctl.c
-> @@ -135,7 +135,7 @@ static struct ctl_table sctp_net_table[] = {
->  		.maxlen		= sizeof(int),
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec_minmax,
-> -		.extra1		= &zero,
-> +		.extra1		= &one,
->  		.extra2		= &int_max
->  	},
->  	{
-> -- 
-> 1.7.12
-> 
+> What stable versions are those?  279f438e36 showed up in 3.12-rc2, and
+> was not marked for stable inclusion, so what kernel would end up needing
+> this patch?
 > 
 
+Greg,
 
-This seems like a band-aid to me.  There are a few things wrong:
+279f438e36 was backported to at least stable branches 
 
-1) You can also set the the max_burst via setsockopt, and so this would need to
-be checked in that path as well.
+  3.11.y: <13826815042174@kroah.org> commit id f495ddc46
+  3.10.y: <13828112161592@kroah.com> commit id a4626bf64
 
-2) I don't see how having a cwnd of zero would cause a hang.  It looks like a
-cwnd of zero would perpetually place the association in a slow start state,
-which is silly but not illegal.  
+So at least those two need this patch.
 
-Please investigate the acutally root cause of the problem before just avoiding
-it like this.
+And I remeber 3.8.y.z extended stable branch maintained by Kamal also
+has the said commit.
 
-Thanks!
-Neil
+> confused,
+> 
+
+Sorry, I should've stated cleared all versions.
+
+BTW the above patch applies to 3.11.y. I can provide backports to 3.10.y
+as well, if necessary.
+
+Wei.
+
+> greg k-h
