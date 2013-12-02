@@ -1,79 +1,60 @@
-From: Fugang Duan <fugang.duan@freescale.com>
-Subject: RE: [PATCH v2] net: fec_main: dma_map() only the length of the skb
-Date: Mon, 2 Dec 2013 09:58:02 +0000
-Message-ID: <9848F2DB572E5649BA045B288BE08FBE018B749F@039-SN2MPN1-022.039d.mgd.msft.net>
-References: <1385556253-4130-1-git-send-email-bigeasy@linutronix.de>
- <9848F2DB572E5649BA045B288BE08FBE018B5B1A@039-SN2MPN1-022.039d.mgd.msft.net>
- <20131202095255.GA13247@linutronix.de>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/4] pch_gbe: Fix transmit queue management
+Date: Mon, 2 Dec 2013 10:04:49 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B744F@saturn3.aculab.com>
+References: <20131127.203929.1379316258754767343.davem@davemloft.net><1385631882-12827-2-git-send-email-puzman@gmail.com> <20131129.164229.2292905485668904870.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <Fabio.Estevam@freescale.com>,
-	Frank Li <frank.li@freescale.net>,
-	Jim Baxter <jim_baxter@mentor.com>,
-	Marek Szyprowski <m.szyprowski@samsung.com>
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:22005 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751232Ab3LBJ6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 04:58:05 -0500
-In-Reply-To: <20131202095255.GA13247@linutronix.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>, <puzman@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20131129.164229.2292905485668904870.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogU2ViYXN0aWFuIEFuZHJ6ZWogU2lld2lvciA8YmlnZWFzeUBsaW51dHJvbml4LmRlPg0K
-RGF0YTogTW9uZGF5LCBEZWNlbWJlciAwMiwgMjAxMyA1OjUzIFBNDQoNCj5UbzogRHVhbiBGdWdh
-bmctQjM4NjExDQo+Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IERhdmlkIFMuIE1pbGxlcjsg
-RXN0ZXZhbSBGYWJpby1SNDk0OTY7IEZyYW5rIExpOw0KPkppbSBCYXh0ZXI7IE1hcmVrIFN6eXBy
-b3dza2kNCj5TdWJqZWN0OiBbUEFUQ0ggdjJdIG5ldDogZmVjX21haW46IGRtYV9tYXAoKSBvbmx5
-IHRoZSBsZW5ndGggb2YgdGhlIHNrYg0KPg0KPk9uIHR4IHN1Ym1pdCB0aGUgZHJpdmVyIGFsd2F5
-cyBkbWFfbWFwX3NpbmdsZSgpIEZFQ19FTkVUX1RYX0ZSU0laRSAoPTIwNDgpDQo+Ynl0ZXMuIFRo
-aXMgd29ya3MgYmVjYXVzZSB3ZSBkb24ndCBvdmVyd3JpdGUgYW55IG1lbW9yeSBhZnRlciB0aGUg
-ZGF0YSBidWZmZXIsDQo+d2UgcmVtb3ZlIGl0IGZyb20gY2FjaGUgaWYgaXQgd2FzIHRoZXJlLiBT
-byB3ZSBodXJ0IHBlcmZvcm1hY2UgaW4gY2FzZSB0aGUNCj5tYXBwaW5nIG9mIGEgc21hbGxlciBh
-cmVhIG1ha2VzIGEgZGlmZmVyZW5jZS4NCj5UaGVyZSBpcyBhbHNvIGEgYnVnOiBJZiB0aGUgZGF0
-YSBhcmVhIHN0YXJ0cyBzaG9ydGx5IGJlZm9yZSB0aGUgZW5kIG9mIFJBTSBzYXkNCj4weGM3ZmZm
-YTEwIGFuZCB0aGUgUkFNIGVuZHMgYXQgMHhjODAwMDAwMCB0aGVuIHdlIGhhdmUgZW5vdWdoIHNw
-YWNlIHRvIGZpdCB0aGUNCj5kYXRhIGFyZWEgKGFjY29yZGluZyB0byBza2ItPmxlbikgYnV0IHdl
-IHdvdWxkIG1hcCBiZXlvbmQgZW5kIG9mIHJhbSBpZiB3ZSBhcmUNCj51c2luZyAyMDQ4LiBJbiB2
-Mi42LjMxIChhZ2FpbnN0IHdoaWNoIGtlcm5lbCB0aGlzIHBhdGNoDQo+bWFkZSkgdGhlcmUgaXMg
-dGhlIGZvbGxvd2luZyBjaGVjayBpbiBkbWFfY2FjaGVfbWFpbnQoKToNCj4NCj58QlVHX09OKCF2
-aXJ0X2FkZHJfdmFsaWQoc3RhcnQpIHx8ICF2aXJ0X2FkZHJfdmFsaWQoc3RhcnQgKyBzaXplIC0g
-MSkpOw0KPg0KPlNpbmNlIHRoZSBhcmVhIHN0YXJ0aW5nIGF0IDB4YzgwMDAwMDAgaXMgbm8gbG9u
-Z2VyIHZpcnRfYWRkcl92YWxpZCgpIHdlDQo+QlVHKCkgZHVyaW5nIGRtYV9tYXBfc2luZ2xlKCku
-IFRoZSBCVUcoKSBzdGF0ZW1lbnQgd2FzIHJlbW92ZWQgaW4gdjMuNS1yYzEgYXMNCj5wZXIgMmRj
-NmEwMTYgKCJBUk06IGRtYS1tYXBwaW5nOiB1c2UgYXNtLWdlbmVyaWMvZG1hLW1hcHBpbmctY29t
-bW9uLmgiKS4NCj4NCj5UaGlzIHBhdGNoIHdhcyB0ZXN0ZWQgb24gdjIuNi4zMSBhbmQgdGhlbiBm
-b3J3YXJkLXBvcnRlZCBhbmQgY29tcGlsZSB0ZXN0ZWQNCj5vbmx5IGFnYWluc3QgdGhlIG5ldCB0
-cmVlLiBJIHRoaW5rIGl0IGlzIHN0aWxsIHdvcnRoIGZpeGluZyBtYWlubGluZSBldmVuIGFmdGVy
-DQo+dGhlIEJVRygpIHN0YXRlbWVudCBpcyBnb25lLg0KPg0KPlRlc3RlZC1ieTogRnVnYW5nIER1
-YW4gPEIzODYxMUBmcmVlc2NhbGUuY29tPg0KPkNjOiBNYXJlayBTenlwcm93c2tpIDxtLnN6eXBy
-b3dza2lAc2Ftc3VuZy5jb20+DQo+U2lnbmVkLW9mZi1ieTogU2ViYXN0aWFuIEFuZHJ6ZWogU2ll
-d2lvciA8YmlnZWFzeUBsaW51dHJvbml4LmRlPg0KPi0tLQ0KPnYxLi52MjogcmVtb3ZlZCBhIGJs
-YW5rIGxpbmUuDQo+DQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5j
-IHwgOSArKysrLS0tLS0NCj4gMSBmaWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKSwgNSBkZWxl
-dGlvbnMoLSkNCj4NCj5kaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
-L2ZlY19tYWluLmMNCj5iL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5j
-DQo+aW5kZXggNGNiZWJmMy4uNzNiMDAwZCAxMDA2NDQNCj4tLS0gYS9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Zy
-ZWVzY2FsZS9mZWNfbWFpbi5jDQo+QEAgLTM4NSw3ICszODUsNyBAQCBmZWNfZW5ldF9zdGFydF94
-bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRfZGV2aWNlDQo+Km5kZXYpDQo+IAkg
-KiBkYXRhLg0KPiAJICovDQo+IAliZHAtPmNiZF9idWZhZGRyID0gZG1hX21hcF9zaW5nbGUoJmZl
-cC0+cGRldi0+ZGV2LCBidWZhZGRyLA0KPi0JCQlGRUNfRU5FVF9UWF9GUlNJWkUsIERNQV9UT19E
-RVZJQ0UpOw0KPisJCQlza2ItPmxlbiwgRE1BX1RPX0RFVklDRSk7DQo+IAlpZiAoZG1hX21hcHBp
-bmdfZXJyb3IoJmZlcC0+cGRldi0+ZGV2LCBiZHAtPmNiZF9idWZhZGRyKSkgew0KPiAJCWJkcC0+
-Y2JkX2J1ZmFkZHIgPSAwOw0KPiAJCWZlcC0+dHhfc2tidWZmW2luZGV4XSA9IE5VTEw7DQo+QEAg
-LTc3OSwxMSArNzc5LDEwIEBAIGZlY19lbmV0X3R4KHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQ0K
-PiAJCWVsc2UNCj4gCQkJaW5kZXggPSBiZHAgLSBmZXAtPnR4X2JkX2Jhc2U7DQo+DQo+LQkJZG1h
-X3VubWFwX3NpbmdsZSgmZmVwLT5wZGV2LT5kZXYsIGJkcC0+Y2JkX2J1ZmFkZHIsDQo+LQkJCQlG
-RUNfRU5FVF9UWF9GUlNJWkUsIERNQV9UT19ERVZJQ0UpOw0KPi0JCWJkcC0+Y2JkX2J1ZmFkZHIg
-PSAwOw0KPi0NCj4gCQlza2IgPSBmZXAtPnR4X3NrYnVmZltpbmRleF07DQo+KwkJZG1hX3VubWFw
-X3NpbmdsZSgmZmVwLT5wZGV2LT5kZXYsIGJkcC0+Y2JkX2J1ZmFkZHIsIHNrYi0+bGVuLA0KPisJ
-CQkJRE1BX1RPX0RFVklDRSk7DQo+KwkJYmRwLT5jYmRfYnVmYWRkciA9IDA7DQo+DQo+IAkJLyog
-Q2hlY2sgZm9yIGVycm9ycy4gKi8NCj4gCQlpZiAoc3RhdHVzICYgKEJEX0VORVRfVFhfSEIgfCBC
-RF9FTkVUX1RYX0xDIHwNCj4tLQ0KPjEuOC40LjQNCj4NCg0KQWNrZWQtYnk6IEZ1Z2FuZyBEdWFu
-IDxCMzg2MTFAZnJlZXNjYWxlLmNvbT4NCg==
+> From: David Miller
+> 
+> > According to Documentation/networking/driver.txt the ndo_start_xmit
+> > method should not return NETDEV_TX_BUSY under normal circumstances.
+> > Stop the transmit queue when tx_ring is full.
+... 
+> You should be instead preventing the transmit method from being invoked
+> when it might be possible that a request cannot be satisfied.
+> 
+> This means that at the end of a transmit request, you must stop the
+> queue if a packet with the maximum number of possible descriptors
+> cannot be satisfied.  Then it is impossible for the transmit function
+> to be invoked in a situation where it would need to fail for lack of
+> available transmit descriptors.
+
+I know you like ethernet drivers to work this way, but requiring enough
+descriptors for a maximally fragmented packet requires a difficult
+calculation and will cause the tx queue to be stopped unnecessarily.
+
+IIRC a normal skb can have a maximum of 17 fragments, if these end up
+being transmitted over USB using xhci they might need 34 descriptors
+(because descriptors can't cross 64k boundaries).
+However a typical 64k TCP packet just needs 4.
+xhci has a further constraint that the ring end can only be at
+specific alignments, in effect thus means that the descriptors for
+a single packet cannot cross the end of a ring segment.
+So if the available space in the xhci ring was used to stop the
+ethernet tx queue (which it isn't at the moment) it would have to
+be stopped very early.
+
+Isn't there also a new skb structure that allows lists of fragments?
+That might need even more descriptors for a worst case transmit.
+
+I would have thought it would make sense for the ethernet driver
+to stop the queue when there is a reasonable expectation that there
+won't be enough descriptors for the next packet, but have a reasonable
+code path when a packet with a large number of fragments won't fit
+in the tx ring. This either requires the driver itself to hold the
+skb, or to return NETDEV_TX_BUSY.
+It might make sense to monitor recent traffic to find the 'expected
+maximum number of fragments'.
+
+	David
