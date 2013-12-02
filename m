@@ -1,84 +1,79 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: [PATCH v2] net: fec_main: dma_map() only the length of the skb
-Date: Mon, 2 Dec 2013 10:52:55 +0100
-Message-ID: <20131202095255.GA13247@linutronix.de>
+From: Fugang Duan <fugang.duan@freescale.com>
+Subject: RE: [PATCH v2] net: fec_main: dma_map() only the length of the skb
+Date: Mon, 2 Dec 2013 09:58:02 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE018B749F@039-SN2MPN1-022.039d.mgd.msft.net>
 References: <1385556253-4130-1-git-send-email-bigeasy@linutronix.de>
  <9848F2DB572E5649BA045B288BE08FBE018B5B1A@039-SN2MPN1-022.039d.mgd.msft.net>
+ <20131202095255.GA13247@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Fabio Estevam <Fabio.Estevam@freescale.com>,
 	Frank Li <frank.li@freescale.net>,
 	Jim Baxter <jim_baxter@mentor.com>,
 	Marek Szyprowski <m.szyprowski@samsung.com>
-To: Fugang Duan <fugang.duan@freescale.com>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:42227 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751232Ab3LBJxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 04:53:04 -0500
-Content-Disposition: inline
-In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE018B5B1A@039-SN2MPN1-022.039d.mgd.msft.net>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:22005 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751232Ab3LBJ6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 04:58:05 -0500
+In-Reply-To: <20131202095255.GA13247@linutronix.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On tx submit the driver always dma_map_single() FEC_ENET_TX_FRSIZE (=2048)
-bytes. This works because we don't overwrite any memory after the data buffer,
-we remove it from cache if it was there. So we hurt performace in case the
-mapping of a smaller area makes a difference.
-There is also a bug: If the data area starts shortly before the end of
-RAM say 0xc7fffa10 and the RAM ends at 0xc8000000 then we have enough
-space to fit the data area (according to skb->len) but we would map beyond
-end of ram if we are using 2048. In v2.6.31 (against which kernel this patch
-made) there is the following check in dma_cache_maint():
-
-|BUG_ON(!virt_addr_valid(start) || !virt_addr_valid(start + size - 1));
-
-Since the area starting at 0xc8000000 is no longer virt_addr_valid() we
-BUG() during dma_map_single(). The BUG() statement was removed in v3.5-rc1 as
-per 2dc6a016 ("ARM: dma-mapping: use asm-generic/dma-mapping-common.h").
-
-This patch was tested on v2.6.31 and then forward-ported and compile
-tested only against the net tree. I think it is still worth fixing
-mainline even after the BUG() statement is gone.
-
-Tested-by: Fugang Duan <B38611@freescale.com>
-Cc: Marek Szyprowski <m.szyprowski@samsung.com>
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
----
-v1..v2: removed a blank line.
-
- drivers/net/ethernet/freescale/fec_main.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 4cbebf3..73b000d 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -385,7 +385,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	 * data.
- 	 */
- 	bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, bufaddr,
--			FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
-+			skb->len, DMA_TO_DEVICE);
- 	if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
- 		bdp->cbd_bufaddr = 0;
- 		fep->tx_skbuff[index] = NULL;
-@@ -779,11 +779,10 @@ fec_enet_tx(struct net_device *ndev)
- 		else
- 			index = bdp - fep->tx_bd_base;
- 
--		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
--				FEC_ENET_TX_FRSIZE, DMA_TO_DEVICE);
--		bdp->cbd_bufaddr = 0;
--
- 		skb = fep->tx_skbuff[index];
-+		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr, skb->len,
-+				DMA_TO_DEVICE);
-+		bdp->cbd_bufaddr = 0;
- 
- 		/* Check for errors. */
- 		if (status & (BD_ENET_TX_HB | BD_ENET_TX_LC |
--- 
-1.8.4.4
+RnJvbTogU2ViYXN0aWFuIEFuZHJ6ZWogU2lld2lvciA8YmlnZWFzeUBsaW51dHJvbml4LmRlPg0K
+RGF0YTogTW9uZGF5LCBEZWNlbWJlciAwMiwgMjAxMyA1OjUzIFBNDQoNCj5UbzogRHVhbiBGdWdh
+bmctQjM4NjExDQo+Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IERhdmlkIFMuIE1pbGxlcjsg
+RXN0ZXZhbSBGYWJpby1SNDk0OTY7IEZyYW5rIExpOw0KPkppbSBCYXh0ZXI7IE1hcmVrIFN6eXBy
+b3dza2kNCj5TdWJqZWN0OiBbUEFUQ0ggdjJdIG5ldDogZmVjX21haW46IGRtYV9tYXAoKSBvbmx5
+IHRoZSBsZW5ndGggb2YgdGhlIHNrYg0KPg0KPk9uIHR4IHN1Ym1pdCB0aGUgZHJpdmVyIGFsd2F5
+cyBkbWFfbWFwX3NpbmdsZSgpIEZFQ19FTkVUX1RYX0ZSU0laRSAoPTIwNDgpDQo+Ynl0ZXMuIFRo
+aXMgd29ya3MgYmVjYXVzZSB3ZSBkb24ndCBvdmVyd3JpdGUgYW55IG1lbW9yeSBhZnRlciB0aGUg
+ZGF0YSBidWZmZXIsDQo+d2UgcmVtb3ZlIGl0IGZyb20gY2FjaGUgaWYgaXQgd2FzIHRoZXJlLiBT
+byB3ZSBodXJ0IHBlcmZvcm1hY2UgaW4gY2FzZSB0aGUNCj5tYXBwaW5nIG9mIGEgc21hbGxlciBh
+cmVhIG1ha2VzIGEgZGlmZmVyZW5jZS4NCj5UaGVyZSBpcyBhbHNvIGEgYnVnOiBJZiB0aGUgZGF0
+YSBhcmVhIHN0YXJ0cyBzaG9ydGx5IGJlZm9yZSB0aGUgZW5kIG9mIFJBTSBzYXkNCj4weGM3ZmZm
+YTEwIGFuZCB0aGUgUkFNIGVuZHMgYXQgMHhjODAwMDAwMCB0aGVuIHdlIGhhdmUgZW5vdWdoIHNw
+YWNlIHRvIGZpdCB0aGUNCj5kYXRhIGFyZWEgKGFjY29yZGluZyB0byBza2ItPmxlbikgYnV0IHdl
+IHdvdWxkIG1hcCBiZXlvbmQgZW5kIG9mIHJhbSBpZiB3ZSBhcmUNCj51c2luZyAyMDQ4LiBJbiB2
+Mi42LjMxIChhZ2FpbnN0IHdoaWNoIGtlcm5lbCB0aGlzIHBhdGNoDQo+bWFkZSkgdGhlcmUgaXMg
+dGhlIGZvbGxvd2luZyBjaGVjayBpbiBkbWFfY2FjaGVfbWFpbnQoKToNCj4NCj58QlVHX09OKCF2
+aXJ0X2FkZHJfdmFsaWQoc3RhcnQpIHx8ICF2aXJ0X2FkZHJfdmFsaWQoc3RhcnQgKyBzaXplIC0g
+MSkpOw0KPg0KPlNpbmNlIHRoZSBhcmVhIHN0YXJ0aW5nIGF0IDB4YzgwMDAwMDAgaXMgbm8gbG9u
+Z2VyIHZpcnRfYWRkcl92YWxpZCgpIHdlDQo+QlVHKCkgZHVyaW5nIGRtYV9tYXBfc2luZ2xlKCku
+IFRoZSBCVUcoKSBzdGF0ZW1lbnQgd2FzIHJlbW92ZWQgaW4gdjMuNS1yYzEgYXMNCj5wZXIgMmRj
+NmEwMTYgKCJBUk06IGRtYS1tYXBwaW5nOiB1c2UgYXNtLWdlbmVyaWMvZG1hLW1hcHBpbmctY29t
+bW9uLmgiKS4NCj4NCj5UaGlzIHBhdGNoIHdhcyB0ZXN0ZWQgb24gdjIuNi4zMSBhbmQgdGhlbiBm
+b3J3YXJkLXBvcnRlZCBhbmQgY29tcGlsZSB0ZXN0ZWQNCj5vbmx5IGFnYWluc3QgdGhlIG5ldCB0
+cmVlLiBJIHRoaW5rIGl0IGlzIHN0aWxsIHdvcnRoIGZpeGluZyBtYWlubGluZSBldmVuIGFmdGVy
+DQo+dGhlIEJVRygpIHN0YXRlbWVudCBpcyBnb25lLg0KPg0KPlRlc3RlZC1ieTogRnVnYW5nIER1
+YW4gPEIzODYxMUBmcmVlc2NhbGUuY29tPg0KPkNjOiBNYXJlayBTenlwcm93c2tpIDxtLnN6eXBy
+b3dza2lAc2Ftc3VuZy5jb20+DQo+U2lnbmVkLW9mZi1ieTogU2ViYXN0aWFuIEFuZHJ6ZWogU2ll
+d2lvciA8YmlnZWFzeUBsaW51dHJvbml4LmRlPg0KPi0tLQ0KPnYxLi52MjogcmVtb3ZlZCBhIGJs
+YW5rIGxpbmUuDQo+DQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5j
+IHwgOSArKysrLS0tLS0NCj4gMSBmaWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKSwgNSBkZWxl
+dGlvbnMoLSkNCj4NCj5kaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
+L2ZlY19tYWluLmMNCj5iL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfbWFpbi5j
+DQo+aW5kZXggNGNiZWJmMy4uNzNiMDAwZCAxMDA2NDQNCj4tLS0gYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYw0KPisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Zy
+ZWVzY2FsZS9mZWNfbWFpbi5jDQo+QEAgLTM4NSw3ICszODUsNyBAQCBmZWNfZW5ldF9zdGFydF94
+bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRfZGV2aWNlDQo+Km5kZXYpDQo+IAkg
+KiBkYXRhLg0KPiAJICovDQo+IAliZHAtPmNiZF9idWZhZGRyID0gZG1hX21hcF9zaW5nbGUoJmZl
+cC0+cGRldi0+ZGV2LCBidWZhZGRyLA0KPi0JCQlGRUNfRU5FVF9UWF9GUlNJWkUsIERNQV9UT19E
+RVZJQ0UpOw0KPisJCQlza2ItPmxlbiwgRE1BX1RPX0RFVklDRSk7DQo+IAlpZiAoZG1hX21hcHBp
+bmdfZXJyb3IoJmZlcC0+cGRldi0+ZGV2LCBiZHAtPmNiZF9idWZhZGRyKSkgew0KPiAJCWJkcC0+
+Y2JkX2J1ZmFkZHIgPSAwOw0KPiAJCWZlcC0+dHhfc2tidWZmW2luZGV4XSA9IE5VTEw7DQo+QEAg
+LTc3OSwxMSArNzc5LDEwIEBAIGZlY19lbmV0X3R4KHN0cnVjdCBuZXRfZGV2aWNlICpuZGV2KQ0K
+PiAJCWVsc2UNCj4gCQkJaW5kZXggPSBiZHAgLSBmZXAtPnR4X2JkX2Jhc2U7DQo+DQo+LQkJZG1h
+X3VubWFwX3NpbmdsZSgmZmVwLT5wZGV2LT5kZXYsIGJkcC0+Y2JkX2J1ZmFkZHIsDQo+LQkJCQlG
+RUNfRU5FVF9UWF9GUlNJWkUsIERNQV9UT19ERVZJQ0UpOw0KPi0JCWJkcC0+Y2JkX2J1ZmFkZHIg
+PSAwOw0KPi0NCj4gCQlza2IgPSBmZXAtPnR4X3NrYnVmZltpbmRleF07DQo+KwkJZG1hX3VubWFw
+X3NpbmdsZSgmZmVwLT5wZGV2LT5kZXYsIGJkcC0+Y2JkX2J1ZmFkZHIsIHNrYi0+bGVuLA0KPisJ
+CQkJRE1BX1RPX0RFVklDRSk7DQo+KwkJYmRwLT5jYmRfYnVmYWRkciA9IDA7DQo+DQo+IAkJLyog
+Q2hlY2sgZm9yIGVycm9ycy4gKi8NCj4gCQlpZiAoc3RhdHVzICYgKEJEX0VORVRfVFhfSEIgfCBC
+RF9FTkVUX1RYX0xDIHwNCj4tLQ0KPjEuOC40LjQNCj4NCg0KQWNrZWQtYnk6IEZ1Z2FuZyBEdWFu
+IDxCMzg2MTFAZnJlZXNjYWxlLmNvbT4NCg==
