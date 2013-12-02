@@ -1,120 +1,42 @@
-From: <shh.xie@gmail.com>
-Subject: [PATCH 3/6][v2] phylib: turn genphy_driver to an array
-Date: Mon, 2 Dec 2013 15:30:47 +0800
-Message-ID: <1385969447-17079-1-git-send-email-shh.xie@gmail.com>
+From: "David Laight" <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: net/usb/ax88179_178a driver broken in linux-3.12
+Date: Mon, 2 Dec 2013 09:30:02 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B744E@saturn3.aculab.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com> <528A9A36.50903@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com> <20131119.161313.743887333007019981.davem@davemloft.net> <AE90C24D6B3A694183C094C60CF0A2F6026B7439@saturn3.aculab.com> <20131120165420.GD9611@xanatos> <5299546B.2020800@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Shaohui.Xie@freescale.com>
-To: <davem@davemloft.net>, <jg1.han@samsung.com>,
-	<mugunthanvnm@ti.com>, <f.fainelli@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db9lp0248.outbound.messaging.microsoft.com ([213.199.154.248]:8098
-	"EHLO db9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751132Ab3LBIvt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 03:51:49 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Mark Lord" <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	"Sarah Sharp" <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <5299546B.2020800-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Shaohui Xie <Shaohui.Xie@freescale.com>
-
-Then other generic phy driver such as generic 10g phy driver can join it.
-
-Signed-off-by: Shaohui Xie <Shaohui.Xie@freescale.com>
----
-v2 changes: add break if find a match in unbind.
-
- drivers/net/phy/phy_device.c | 29 +++++++++++++++++++++--------
- 1 file changed, 21 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index d6447b3..748bf07 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -53,7 +53,12 @@ static void phy_device_release(struct device *dev)
- 	kfree(to_phy_device(dev));
- }
- 
--static struct phy_driver genphy_driver;
-+enum genphy_driver {
-+	GENPHY_DRV_1G,
-+	GENPHY_DRV_MAX
-+};
-+
-+static struct phy_driver genphy_driver[GENPHY_DRV_MAX];
- extern int mdio_bus_init(void);
- extern void mdio_bus_exit(void);
- 
-@@ -539,7 +544,7 @@ static int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 			return -ENODEV;
- 		}
- 
--		d->driver = &genphy_driver.driver;
-+		d->driver = &genphy_driver[GENPHY_DRV_1G].driver;
- 
- 		err = d->driver->probe(d);
- 		if (err >= 0)
-@@ -613,6 +618,7 @@ EXPORT_SYMBOL(phy_attach);
-  */
- void phy_detach(struct phy_device *phydev)
- {
-+	int i;
- 	phydev->attached_dev->phydev = NULL;
- 	phydev->attached_dev = NULL;
- 
-@@ -620,8 +626,12 @@ void phy_detach(struct phy_device *phydev)
- 	 * was using the generic driver), we unbind the device
- 	 * from the generic driver so that there's a chance a
- 	 * real driver could be loaded */
--	if (phydev->dev.driver == &genphy_driver.driver)
--		device_release_driver(&phydev->dev);
-+	for (i = 0; i < ARRAY_SIZE(genphy_driver); i++) {
-+		if (phydev->dev.driver == &genphy_driver[i].driver) {
-+			device_release_driver(&phydev->dev);
-+			break;
-+		}
-+	}
- }
- EXPORT_SYMBOL(phy_detach);
- 
-@@ -1116,7 +1126,8 @@ void phy_drivers_unregister(struct phy_driver *drv, int n)
- }
- EXPORT_SYMBOL(phy_drivers_unregister);
- 
--static struct phy_driver genphy_driver = {
-+static struct phy_driver genphy_driver[] = {
-+{
- 	.phy_id		= 0xffffffff,
- 	.phy_id_mask	= 0xffffffff,
- 	.name		= "Generic PHY",
-@@ -1127,7 +1138,7 @@ static struct phy_driver genphy_driver = {
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
- 	.driver		= {.owner= THIS_MODULE, },
--};
-+} };
- 
- static int __init phy_init(void)
- {
-@@ -1137,7 +1148,8 @@ static int __init phy_init(void)
- 	if (rc)
- 		return rc;
- 
--	rc = phy_driver_register(&genphy_driver);
-+	rc = phy_drivers_register(genphy_driver,
-+				  ARRAY_SIZE(genphy_driver));
- 	if (rc)
- 		mdio_bus_exit();
- 
-@@ -1146,7 +1158,8 @@ static int __init phy_init(void)
- 
- static void __exit phy_exit(void)
- {
--	phy_driver_unregister(&genphy_driver);
-+	phy_drivers_unregister(genphy_driver,
-+			       ARRAY_SIZE(genphy_driver));
- 	mdio_bus_exit();
- }
- 
--- 
-1.8.4.1
+PiBGcm9tOiBNYXJrIExvcmQNCj4gU2VudDogMzAgTm92ZW1iZXIgMjAxMyAwMjo1OQ0KPiBUbzog
+U2FyYWggU2hhcnA7IERhdmlkIExhaWdodA0KPiBDYzogRGF2aWQgTWlsbGVyOyBlcmljLmR1bWF6
+ZXRAZ21haWwuY29tOyBtaW5nLmxlaUBjYW5vbmljYWwuY29tOyBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnOyBsaW51eC0NCj4gdXNiQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTogbmV0L3Vz
+Yi9heDg4MTc5XzE3OGEgZHJpdmVyIGJyb2tlbiBpbiBsaW51eC0zLjEyDQo+IA0KPiBPbiAxMy0x
+MS0xOSAwODo0NCBBTSwgTWFyayBMb3JkIHdyb3RlOg0KPiA+IE9uIDEzLTExLTE5IDA1OjA0IEFN
+LCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+ID4+DQo+ID4+IFdoaWNoIGNoYW5nZXMgZGlkIHlvdSBy
+ZXZlcnQ/DQo+ID4NCj4gPiBKdXN0IHRoZSBiaXRzIHRoYXQgY2hhbmdlZCBob3cgdGhlIGhlYWRy
+b29tL3RhaWxyb29tIHNpemVzDQo+ID4gd2VyZSBjaGVja2VkIGFuZCBhZGp1c3RlZC4gIFNlZSBh
+dHRhY2htZW50IGZvciB0aGUgcmV2ZXJ0IHBhdGNoDQo+ID4gSSBhbSB1c2luZyBoZXJlLiAgTXkg
+bWFpbGVyIHVuZm9ydHVuYXRlbHkgbGlrZXMgdG8gbWFuZ2xlIGlubGluZSBwYXRjaGVzLg0KPiA+
+DQouLi4NCj4gDQo+IFR3byBrZXJuZWxzIGxhdGVyLCBhbmQgdGhpcyByZWdyZXNzaW9uIGhhcyBz
+dGlsbCBub3QgYmVlbiBmaXhlZC4NCj4gDQo+IEEgc2ltcGxlIHJldmVydCwgZm9sa3MuDQoNClJl
+dmVydGluZyB0aGUgYXg4ODE3OV8xNzhhIGRyaXZlciBkb2Vzbid0IGZpeCB0aGUgcHJvYmxlbS4N
+CkknbSBzZWVuIHR4L3J4IGlzc3VlcyB3aXRoIGl0IG9uIG11Y2ggb2xkZXIga2VybmVscyB0aGF0
+IGRvbid0DQphcHBlYXIgd2l0aCBhIGN1cnJlbnQga2VybmVsIGFuZCB0aGUgZml4ZWQgeGhjaSBj
+b2RlLg0KDQpTYXJhaCBuZWVkcyB0byBmZWVkIHRoZSB4aGNpX3JpbmcuYyBmaXggdGhyb3VnaCBp
+bnRvIHN0YWJsZS4NCg0KCURhdmlkDQoNCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
