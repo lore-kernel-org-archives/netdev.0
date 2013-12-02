@@ -1,66 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] net_sched: actions - Add default lookup and walker
-Date: Mon, 02 Dec 2013 16:27:52 -0500 (EST)
-Message-ID: <20131202.162752.2143617473594386587.davem@davemloft.net>
-References: <1385937009-589-1-git-send-email-jhs@mojatatu.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [GIT PULL] xhci: Regression fix for 3.13.
+Date: Mon, 2 Dec 2013 13:42:05 -0800
+Message-ID: <20131202214205.GA26175@kroah.com>
+References: <cover.1386017042.git.sarah.a.sharp@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	alexander.h.duyck@intel.com, ebiederm@xmission.com
-To: jhs@mojatatu.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-usb@vger.kernel.org, David Laight <David.Laight@ACULAB.COM>,
+	Mark Lord <mlord@pobox.com>, netdev@vger.kernel.org
+To: Sarah Sharp <sarah.a.sharp@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54538 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754591Ab3LBV14 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 16:27:56 -0500
-In-Reply-To: <1385937009-589-1-git-send-email-jhs@mojatatu.com>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:41104 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751514Ab3LBVmG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 16:42:06 -0500
+Content-Disposition: inline
+In-Reply-To: <cover.1386017042.git.sarah.a.sharp@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Sun,  1 Dec 2013 17:30:05 -0500
-
-> This set of patches provide defaults for lookup and walkers for actions.
-> Users can override when needed.
+On Mon, Dec 02, 2013 at 12:49:08PM -0800, Sarah Sharp wrote:
+> The following changes since commit c24cb6c8b501ebdf1aacec7960110a9741a45ced:
 > 
-> Jamal Hadi Salim (4):
->   Provide default lookup function for actions that dont provide one
->   Use default lookup functions. Users are free to override when needed.
->   Provide default walker function for actions that dont provide one
->   Use default walker functions. Users who need something special can
->     override.
+>   Merge tag 'fixes-for-v3.13-rc2' of git://git.kernel.org/pub/scm/linux/kernel/git/balbi/usb into usb-linus (2013-11-27 09:49:03 -0800)
+> 
+> are available in the git repository at:
+> 
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/sarah/xhci.git tags/for-usb-linus-2013-12-02
 
-Ok, but can you respin this set, adding in changes to remove
-the code that checks for NULL in these operations?
+Pulled and pushed out, thanks.
 
-Specifically, we still have:
-
-	if (a->ops->lookup == NULL)
-		goto err_mod;
-
-in tcf_action_get_1().  And:
-
-	if (a_o->walk == NULL) {
-
-in tc_dump_action().
-
-Furthermore, there is a hard assumption that a_o->init() is non-NULL
-as well.  So maybe add a:
-
-	if (!act->init)
-		return -EINVAL;
-
-at the top of tcf_register_action().
-
-It also occurred to me that it would be simpler to audit and be a
-simpler patch set to review if you just added the missing ".lookup ="
-assignments to the actions and added a similar "if (!act->lookup)" et
-al. check to tcf_register_action().
-
-That looks more like a rigorous requirement to have a valid method
-present for these three operations: init, lookup, walk.
-
-What do you think?
-
-Thanks!
+greg k-h
