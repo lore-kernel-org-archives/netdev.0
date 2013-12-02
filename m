@@ -1,73 +1,74 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [[PATCH stable <3.12]] xen-netback: fix refcnt unbalance for
- 3.11 and earlier versions
-Date: Mon, 2 Dec 2013 09:19:58 -0800
-Message-ID: <20131202171958.GA661@kroah.com>
-References: <1385642889-11513-1-git-send-email-wei.liu2@citrix.com>
- <20131201044835.GB19516@kroah.com>
- <20131202120134.GA14293@zion.uk.xensource.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: netfilter: active obj WARN when cleaning up
+Date: Mon, 2 Dec 2013 09:26:15 -0800
+Message-ID: <20131202172615.GA4722@kroah.com>
+References: <alpine.DEB.2.02.1311271106090.30673@ionos.tec.linutronix.de>
+ <20131127113939.GL16735@n2100.arm.linux.org.uk>
+ <alpine.DEB.2.02.1311271409280.30673@ionos.tec.linutronix.de>
+ <20131127133231.GO16735@n2100.arm.linux.org.uk>
+ <20131127134015.GA6011@n2100.arm.linux.org.uk>
+ <alpine.DEB.2.02.1311271443580.30673@ionos.tec.linutronix.de>
+ <20131127233415.GB19270@kroah.com>
+ <00000142b4282aaf-913f5e4c-314c-4351-9d24-615e66928157-000000@email.amazonses.com>
+ <20131202164039.GA19937@kroah.com>
+ <00000142b4514eb5-2e8f675d-0ecc-423b-9906-58c5f383089b-000000@email.amazonses.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	stable@vger.kernel.org, tomasz.wroblewski@citrix.com,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Konrad Wilk <konrad.wilk@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <stable-owner@vger.kernel.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20131202120134.GA14293@zion.uk.xensource.com>
-Sender: stable-owner@vger.kernel.org
+In-Reply-To: <00000142b4514eb5-2e8f675d-0ecc-423b-9906-58c5f383089b-000000@email.amazonses.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 02, 2013 at 12:01:34PM +0000, Wei Liu wrote:
-> On Sat, Nov 30, 2013 at 08:48:35PM -0800, Greg KH wrote:
-> > On Thu, Nov 28, 2013 at 12:48:09PM +0000, Wei Liu wrote:
-> > > With the introduction of "xen-netback: Don't destroy the netdev until
-> > > the vif is shut down" (upstream commit id 279f438e36), vif disconnect
-> > > and free are separated. However in the backported verion reference
-> > > counting code was not correctly modified, and the reset of vif->tx_irq
-> > > was lost. If frontend goes through vif life cycle more than once the
-> > > reference counting is skewed.
-> > > 
-> > > This patch adds back the missing tx_irq reset line. It also moves
-> > > several lines of the reference counting code to vif_free, so the moved
-> > > code corresponds to the counterpart in vif_alloc, thus the reference
-> > > counting is balanced.
-> > > 
-> > > 3.12 and onward versions are not affected by this bug, because reference
-> > > counting code was removed due to the introduction of 1:1 model.
-> > > 
-> > > This pacth should be backported to all stable verions which are lower
-> > > than 3.12 and have 279f438e36.
-> > 
-> > What stable versions are those?  279f438e36 showed up in 3.12-rc2, and
-> > was not marked for stable inclusion, so what kernel would end up needing
-> > this patch?
-> > 
+On Mon, Dec 02, 2013 at 05:18:16PM +0000, Christoph Lameter wrote:
+> On Mon, 2 Dec 2013, Greg KH wrote:
 > 
-> Greg,
+> > On Mon, Dec 02, 2013 at 04:33:20PM +0000, Christoph Lameter wrote:
+> > > On Wed, 27 Nov 2013, Greg KH wrote:
+> > >
+> > > > Just make the kobject "dynamic" instead of embedded in struct kmem_cache
+> > > > and all will be fine.  I can't believe this code has been broken for
+> > > > this long.
+> > >
+> > > The slub code is was designed to use an embedded structure since we
+> > > only get the kobj  pointer passed to us from sysfs. If kobj is not
+> > > embedded then how can we get from the sysfs object to the kmem_cache
+> > > structure from the sysfs callbacks? Sysfs was designed to have embedded
+> > > objects as far as I can recall.
+> >
+> > Yes, it's designed to have embedded objects, so then use it that way and
+> > clean up the structure when the kobject goes away.  Don't use a
+> > different reference count for your structure than the one in the kobject
+> > and think that all will be fine.
 > 
-> 279f438e36 was backported to at least stable branches 
+> We need our own reference count. So we just have to defer the
+> release of the kmem_cache struct until the ->release callback is
+> triggered. The put of the embedded kobject must be the last action on the
+> kmem_cache  structure which will then trigger release and that will
+> trigger the kmem_cache_free().
 > 
->   3.11.y: <13826815042174@kroah.org> commit id f495ddc46
->   3.10.y: <13828112161592@kroah.com> commit id a4626bf64
-> 
-> So at least those two need this patch.
-> 
-> And I remeber 3.8.y.z extended stable branch maintained by Kamal also
-> has the said commit.
-> 
-> > confused,
-> > 
-> 
-> Sorry, I should've stated cleared all versions.
-> 
-> BTW the above patch applies to 3.11.y. I can provide backports to 3.10.y
-> as well, if necessary.
 
-As 3.11.y is now dead, there's not much I can do with that one, but I
-could use a backport for 3.10.y, as this patch does not apply there,
-thanks.
+Ok, that sounds reasonable, or you can just create a "tiny" structure
+for the kobject that has a pointer back to your kmem_cache structure
+that you can then reference from the show/store functions.  Either is
+fine with me.
+
+thanks,
 
 greg k-h
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
