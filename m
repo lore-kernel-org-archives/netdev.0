@@ -1,91 +1,65 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH 1/2] net: emaclite: Remove unnecessary code that
- enables/disables interrupts on PONG buffers
-Date: Mon, 02 Dec 2013 12:20:02 +0100
-Message-ID: <529C6CE2.60909@monstr.eu>
-References: <f9b49a0c-0627-432d-b6c9-faeaa7c412b8@CH1EHSMHS011.ehs.local>
-Reply-To: monstr@monstr.eu
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp: make the max_burst min value to 1
+Date: Mon, 2 Dec 2013 06:56:40 -0500
+Message-ID: <20131202115640.GA10857@hmsreliant.think-freely.org>
+References: <529C2E01.3090005@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0573134421737909683=="
-Cc: netdev@vger.kernel.org, Srikanth Thokala <sthokal@xilinx.com>,
- davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
- Michal Simek <michal.simek@xilinx.com>
-To: Srikanth Thokala <srikanth.thokala@xilinx.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <f9b49a0c-0627-432d-b6c9-faeaa7c412b8@CH1EHSMHS011.ehs.local>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---===============0573134421737909683==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="QBlf0HI7j2rgnt9d05tK9jXsm6t1f7GUX"
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---QBlf0HI7j2rgnt9d05tK9jXsm6t1f7GUX
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 11/28/2013 08:29 AM, Srikanth Thokala wrote:
-> There are no specific interrupts for the PONG buffer on both
-> transmit and receive side, same interrupt is valid for both
-> buffers. So, this patch removes this code.
->=20
-> Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
-> ---
->  drivers/net/ethernet/xilinx/xilinx_emaclite.c | 38 -------------------=
---------
->  1 file changed, 38 deletions(-)
-
-Reviewed-by: Michal Simek <monstr@monstr.eu>
-
-Thanks,
-Michal
-
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-Maintainer of Linux kernel - Xilinx Zynq ARM architecture
-Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
-
-
-
---QBlf0HI7j2rgnt9d05tK9jXsm6t1f7GUX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlKcbOIACgkQykllyylKDCH+zQCeLIwXqEbLUJfbjngJ3SGZAsYd
-TJQAmgJCZCc64o7TP9b8UafwA2WIh//i
-=yDL0
------END PGP SIGNATURE-----
-
---QBlf0HI7j2rgnt9d05tK9jXsm6t1f7GUX--
-
-
---===============0573134421737909683==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, dingtianhong@huawei.com
+To: Wang Weidong <wangweidong1@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53104 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753555Ab3LBL4z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 06:56:55 -0500
 Content-Disposition: inline
+In-Reply-To: <529C2E01.3090005@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-linux-arm-kernel mailing list
-linux-arm-kernel@lists.infradead.org
-http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+On Mon, Dec 02, 2013 at 02:51:45PM +0800, Wang Weidong wrote:
+> From: Wang Weidong <wangweidong1@huawei.com>
+> 
+> when I setted the max_burst to 0, do the lksctp-tools I got hang.
+> I found sctp_transport_burst_limited would make the cwnd to 0.
+> so I make the max_burst min value to 1.
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> ---
+>  net/sctp/sysctl.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+> index 7637e8e..46832d3 100644
+> --- a/net/sctp/sysctl.c
+> +++ b/net/sctp/sysctl.c
+> @@ -135,7 +135,7 @@ static struct ctl_table sctp_net_table[] = {
+>  		.maxlen		= sizeof(int),
+>  		.mode		= 0644,
+>  		.proc_handler	= proc_dointvec_minmax,
+> -		.extra1		= &zero,
+> +		.extra1		= &one,
+>  		.extra2		= &int_max
+>  	},
+>  	{
+> -- 
+> 1.7.12
+> 
+> 
 
---===============0573134421737909683==--
+
+This seems like a band-aid to me.  There are a few things wrong:
+
+1) You can also set the the max_burst via setsockopt, and so this would need to
+be checked in that path as well.
+
+2) I don't see how having a cwnd of zero would cause a hang.  It looks like a
+cwnd of zero would perpetually place the association in a slow start state,
+which is silly but not illegal.  
+
+Please investigate the acutally root cause of the problem before just avoiding
+it like this.
+
+Thanks!
+Neil
