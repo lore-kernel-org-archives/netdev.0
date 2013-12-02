@@ -1,64 +1,35 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: Re: [PATCH] PCI / tg3: Give up chip reset and carrier loss handling if PCI device is not present
-Date: Mon, 02 Dec 2013 02:18:50 +0100
-Message-ID: <3652057.Ek7BjA2Oi2@vostro.rjw.lan>
-References: <7807315.7cU9KldDtM@vostro.rjw.lan> <1385930359.6988.7.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] net: emaclite: add barriers to support Xilinx Zynq
+ platform
+Date: Sun, 01 Dec 2013 20:09:06 -0500 (EST)
+Message-ID: <20131201.200906.25118738399177322.davem@davemloft.net>
+References: <1385623797-26034-1-git-send-email-sthokal@xilinx.com>
+	<9045da6f-88e5-4a20-be68-477790588131@TX2EHSMHS023.ehs.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Linux PM list <linux-pm@vger.kernel.org>,
-	Linux PCI <linux-pci@vger.kernel.org>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Nithin Nayak Sujir <nsujir@broadcom.com>,
-	David Miller <davem@davemloft.net>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <1385930359.6988.7.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	michal.simek@xilinx.com, sthokal@xilinx.com
+To: srikanth.thokala@xilinx.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45186 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751967Ab3LBBJK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Dec 2013 20:09:10 -0500
+In-Reply-To: <9045da6f-88e5-4a20-be68-477790588131@TX2EHSMHS023.ehs.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday, December 01, 2013 12:39:19 PM Michael Chan wrote:
-> On Sun, 2013-12-01 at 02:34 +0100, Rafael J. Wysocki wrote:
-> > From: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-> > 
-> > Modify tg3_chip_reset() and tg3_close() to check if the PCI network
-> > adapter device is accessible at all in order to skip poking it or
-> > trying to handle a carrier loss in vain when that's not the case.
-> > Introduce a special PCI helper function pci_device_is_present()
-> > for this purpose.
-> > 
-> > Of course, this uncovers the lack of the appropriate RTNL locking
-> > in tg3_suspend() and tg3_resume(), so add that locking in there
-> > too.
-> > 
-> > These changes prevent tg3 from burning a CPU at 100% load level for
-> > solid several seconds after the Thunderbolt link is disconnected from
-> > a Matrox DS1 docking station. 
+From: Srikanth Thokala <srikanth.thokala@xilinx.com>
+Date: Thu, 28 Nov 2013 12:59:57 +0530
+
+> This patch adds barriers at appropriate places to ensure the driver
+> works on Xilinx Zynq ARM-based SoC platform.
 > 
-> I'm not familiar with the DS1.  Does the tg3 device get removed through
-> tg3_remove_one() in this case?
+> Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
 
-Yes, this is a normal removal except that the device is gone physically when
-it happens.
+Memory barriers must have comments.
 
-Thunderbolt cable disconnect is like a power failure for all devices on
-the link (that is, all devices in the DS1 in this particular case).
-
-> What happens when you reconnect the DS1?
-
-Well, it works.  ACPIPHP just waits for the removal to complete and then it
-handles the hot-add event and the device works normally after that.
-
-The only problem is that without the patch the hot-removal takes a few seconds
-and quite a lot of CPU power due to the tight loop spinning in tg3_carrier_off()
-called by tg3_close(), while with the patch it just happens almost instantaneously.
-
-And in the Thunderbolt disconnect case doing the entire tg3_chip_reset() is
-pointless anyway, because the config space of the device is not available then.
-
-Thanks!
-
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+Specifically, the comment must describe what exactly is being ensured
+by the memory barrier.  What entity must see what memory operations in
+what order?
