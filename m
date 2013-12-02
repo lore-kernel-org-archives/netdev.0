@@ -1,33 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/4] pch_gbe: Fix transmit queue management
-Date: Mon, 02 Dec 2013 08:33:19 -0800
-Message-ID: <1386001999.5352.51.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1385631882-12827-2-git-send-email-puzman@gmail.com>
-	 <20131129.164229.2292905485668904870.davem@davemloft.net>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B744F@saturn3.aculab.com>
-	 <20131202.111600.1622488165507147936.davem@davemloft.net>
+From: Greg KH <greg@kroah.com>
+Subject: Re: netfilter: active obj WARN when cleaning up
+Date: Mon, 2 Dec 2013 08:40:39 -0800
+Message-ID: <20131202164039.GA19937@kroah.com>
+References: <5294F27D.4000108@oracle.com>
+ <20131126230709.GA10948@localhost>
+ <alpine.DEB.2.02.1311271106090.30673@ionos.tec.linutronix.de>
+ <20131127113939.GL16735@n2100.arm.linux.org.uk>
+ <alpine.DEB.2.02.1311271409280.30673@ionos.tec.linutronix.de>
+ <20131127133231.GO16735@n2100.arm.linux.org.uk>
+ <20131127134015.GA6011@n2100.arm.linux.org.uk>
+ <alpine.DEB.2.02.1311271443580.30673@ionos.tec.linutronix.de>
+ <20131127233415.GB19270@kroah.com>
+ <00000142b4282aaf-913f5e4c-314c-4351-9d24-615e66928157-000000@email.amazonses.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, puzman@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131202.111600.1622488165507147936.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <00000142b4282aaf-913f5e4c-314c-4351-9d24-615e66928157-000000@email.amazonses.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-12-02 at 11:16 -0500, David Miller wrote:
+On Mon, Dec 02, 2013 at 04:33:20PM +0000, Christoph Lameter wrote:
+> On Wed, 27 Nov 2013, Greg KH wrote:
+> 
+> > Just make the kobject "dynamic" instead of embedded in struct kmem_cache
+> > and all will be fine.  I can't believe this code has been broken for
+> > this long.
+> 
+> The slub code is was designed to use an embedded structure since we
+> only get the kobj  pointer passed to us from sysfs. If kobj is not
+> embedded then how can we get from the sysfs object to the kmem_cache
+> structure from the sysfs callbacks? Sysfs was designed to have embedded
+> objects as far as I can recall.
 
-> Fragment lists are not to be found in the transmit function of the
-> driver.  Any such SKBs will be linearized or similar first.  We do
-> want to support them in some capacity in the future, but right now
-> we don't.
+Yes, it's designed to have embedded objects, so then use it that way and
+clean up the structure when the kobject goes away.  Don't use a
+different reference count for your structure than the one in the kobject
+and think that all will be fine.
 
-Right. Such skb are segmented before reaching the driver, unless driver
-asserts NETIF_F_FRAGLIST.
-
-So far, only virtual drivers and 2 or 3 others advertise
-NETIF_F_FRAGLIST 'support'.
-
-I suspect that the '2 or 3 others' are plain bugs, I'll check this.
+greg k-h
