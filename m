@@ -1,78 +1,52 @@
-From: William Dauchy <william@gandi.net>
-Subject: Re: loop on reset adapter with ixgbe
-Date: Mon, 2 Dec 2013 13:42:47 +0100
-Message-ID: <20131202124247.GO6428@gandi.net>
-References: <20131120182524.GC16953@gandi.net>
- <F6FB0E698C9B3143BDF729DF222866466FD88724@ORSMSX110.amr.corp.intel.com>
- <20131126130410.GD2849@gandi.net>
- <F6FB0E698C9B3143BDF729DF222866466FD8A479@ORSMSX110.amr.corp.intel.com>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: Re: [B.A.T.M.A.N.] [PATCH] Fix ARM BUILD_BUG_ON() errors withbatman-adv
+Date: Mon, 02 Dec 2013 13:50:46 +0100
+Message-ID: <529C8226.2040000@meshcoding.com>
+References: <20131130191553.GA16735@n2100.arm.linux.org.uk> <529A46C4.9090906@meshcoding.com> <20131130230518.GC16735@n2100.arm.linux.org.uk> <529A8276.9060002@meshcoding.com> <529B47AA.8060403@meshcoding.com> <20131201171309.GD16735@n2100.arm.linux.org.uk> <AE90C24D6B3A694183C094C60CF0A2F6026B7451@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="eQyCKlb8USywWNtC"
-Cc: William Dauchy <william@gandi.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-	"Potenza, Leonardo" <leonardo.potenza@intel.com>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: The list for a Better Approach To Mobile Ad-hoc
+	 Networking <b.a.t.m.a.n@lists.open-mesh.org>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.gandi.net ([217.70.183.210]:53527 "EHLO mail4.gandi.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752494Ab3LBMmw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Dec 2013 07:42:52 -0500
-Content-Disposition: inline
-In-Reply-To: <F6FB0E698C9B3143BDF729DF222866466FD8A479@ORSMSX110.amr.corp.intel.com>
+Received: from s3.neomailbox.net ([178.209.62.157]:46648 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751087Ab3LBMvh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 07:51:37 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7451@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
---eQyCKlb8USywWNtC
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 02/12/13 11:24, David Laight wrote:
+> ...
+>> The only solutions are: use the GCC packed attribute, redesign
+>> the structures...
+> 
+> It is probably enough to mark the inner structure containing the
+> three byte fields 'packed'. Marking it aligned(1) might also have
+> the desired effect. The outer structure should then be ok. But
+> would need to use a specially named attribute so it doesn't get
+> removed.
 
-Hi Skidmore,
+This may work with the structures I reported in a previous email, but
+it is not a good solution for us because we have other more complex
+substructs that cannot be packed that way.
 
-Sorry for the late answer, I needed to wait for a physical access.
+I think we will simply duplicate the members and avoid substructs in
+our packets.
 
-On Nov26 18:59, Skidmore, Donald C wrote:
-> [root@dcsworkstation src]# ethtool -i p258p1
-> driver: ixgbe
-> version: 3.11.33-k
-> firmware-version: 0x18eb0001
-> bus-info: 0000:05:00.0
-> supports-statistics: yes
-> supports-test: yes
-> supports-eeprom-access: yes
-> supports-register-dump: yes
-> supports-priv-flags: no
->=20
-> Then use that address to find the device ID:
->=20
-> [root@dcsworkstation src]# lspci -ns 0000:05:00.0
-> 05:00.0 0200: 8086:10fb (rev 01)
-
-for me it is:
-03:00.0 0200: 8086:10fb (rev 01)
-
-> As for the FW version I'm concerned that yours might not be correct from =
-the output you sent me earlier.
-
-or might be a userland issue (ethtool not reading the correct part?)
---=20
-William
-
---eQyCKlb8USywWNtC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
+- -- 
+Antonio Quartulli
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+Version: GnuPG v2.0.22 (GNU/Linux)
 
-iEYEARECAAYFAlKcgEcACgkQ1I6eqOUidQGYuACeOHzrfB8uLsrdN00AtgswmNhQ
-52MAnjTxEWT/IyucfeY4UviA6ZdIwWdK
-=cGPW
+iEYEARECAAYFAlKcgiYACgkQpGgxIkP9cwfeeQCfef0xDfD2TucJBhzoTmDfwA29
+Oc4An3Etz3USDC0cf/+R+Gyx8LEtpq16
+=XZn5
 -----END PGP SIGNATURE-----
-
---eQyCKlb8USywWNtC--
