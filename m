@@ -1,43 +1,55 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH] sctp: check the rto_min and rto_max
-Date: Mon, 2 Dec 2013 09:33:26 +0800
-Message-ID: <529BE366.2060504@huawei.com>
-References: <5299BCB8.6070409@huawei.com> <20131130.160847.361995350346508364.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3] xfrm: Fix null pointer dereference when decoding
+ sessions
+Date: Sun, 01 Dec 2013 20:35:06 -0500 (EST)
+Message-ID: <20131201.203506.1790384137281236147.davem@davemloft.net>
+References: <1383294107-7509-4-git-send-email-steffen.klassert@secunet.com>
+	<52920CEE.2040407@universe-factory.net>
+	<529AB8E9.30004@universe-factory.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
-	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<dingtianhong@huawei.com>
-To: David Miller <davem@davemloft.net>
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: mschiffer@universe-factory.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:16804 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752500Ab3LBBec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Dec 2013 20:34:32 -0500
-In-Reply-To: <20131130.160847.361995350346508364.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45427 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752500Ab3LBBfI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Dec 2013 20:35:08 -0500
+In-Reply-To: <529AB8E9.30004@universe-factory.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/1 5:08, David Miller wrote:
-> From: wangweidong <wangweidong1@huawei.com>
-> Date: Sat, 30 Nov 2013 18:23:52 +0800
-> 
->> rto_min should be smaller than rto_max while rto_max should be larger
->> than rto_min. so just add the check.
->>
->> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> 
-> Please fix your submission process such that your real full name
-> appears in the "From: " field of your patch emails, instead of
-> just "wangweidong", which is your username not your real full
-> name.
-> 
-> I'm not applying your patches until you correct this and submit
-> the patch properly, thanks.
-> 
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+Date: Sun, 01 Dec 2013 05:19:53 +0100
 
-Ok, I will fix it in v2.
-Thanks.
-
+> On 11/24/2013 03:27 PM, Matthias Schiffer wrote:
+>> On 11/01/2013 09:21 AM, Steffen Klassert wrote:
+>>> On some codepaths the skb does not have a dst entry
+>>> when xfrm_decode_session() is called. So check for
+>>> a valid skb_dst() before dereferencing the device
+>>> interface index. We use 0 as the device index if
+>>> there is no valid skb_dst(), or at reverse decoding
+>>> we use skb_iif as device interface index.
+>>>
+>>> Bug was introduced with git commit bafd4bd4dc
+>>> ("xfrm: Decode sessions with output interface.").
+>>>
+>>> Reported-by: Meelis Roos <mroos@linux.ee>
+>>> Tested-by: Meelis Roos <mroos@linux.ee>
+>>> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+>> 
+>> Please queue this for 3.12-stable, I've seen this bug trigger a panic
+>> when heavily using Bittorrent (screenshot:
+>> http://i.imgur.com/OIKVccM.jpg )
+>> 
+>> Thanks,
+>> Matthias
+>> 
 > 
+> Ping? Several people I know have hit this panic with 3.12.x at least
+> once or twice by now during heavy IPv6 usage.
+
+Steffen submitted it to stable@vger.kernel.org for inclusion on Monday
+November 25th.
