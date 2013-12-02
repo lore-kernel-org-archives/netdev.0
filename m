@@ -1,64 +1,78 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH v2] sctp: check the rto_min and rto_max
-Date: Mon, 2 Dec 2013 20:15:24 +0800
-Message-ID: <529C79DC.7090203@huawei.com>
-References: <529BE620.8090004@huawei.com>
+From: William Dauchy <william@gandi.net>
+Subject: Re: loop on reset adapter with ixgbe
+Date: Mon, 2 Dec 2013 13:42:47 +0100
+Message-ID: <20131202124247.GO6428@gandi.net>
+References: <20131120182524.GC16953@gandi.net>
+ <F6FB0E698C9B3143BDF729DF222866466FD88724@ORSMSX110.amr.corp.intel.com>
+ <20131126130410.GD2849@gandi.net>
+ <F6FB0E698C9B3143BDF729DF222866466FD8A479@ORSMSX110.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<dingtianhong@huawei.com>
-To: Vlad Yasevich <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="eQyCKlb8USywWNtC"
+Cc: William Dauchy <william@gandi.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"Potenza, Leonardo" <leonardo.potenza@intel.com>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:58744 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753448Ab3LBMPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 07:15:55 -0500
-In-Reply-To: <529BE620.8090004@huawei.com>
+Received: from mail4.gandi.net ([217.70.183.210]:53527 "EHLO mail4.gandi.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752494Ab3LBMmw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Dec 2013 07:42:52 -0500
+Content-Disposition: inline
+In-Reply-To: <F6FB0E698C9B3143BDF729DF222866466FD8A479@ORSMSX110.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/2 9:45, Wang Weidong wrote:
-> rto_min should be smaller than rto_max while rto_max should be larger
-> than rto_min. so just add the check.
-> 
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> ---
->  net/sctp/sysctl.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-> index 6b36561..7637e8e 100644
-> --- a/net/sctp/sysctl.c
-> +++ b/net/sctp/sysctl.c
-> @@ -104,7 +104,7 @@ static struct ctl_table sctp_net_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec_minmax,
->  		.extra1         = &one,
-> -		.extra2         = &timer_max
-> +		.extra2         = &init_net.sctp.rto_max
->  	},
->  	{
->  		.procname	= "rto_max",
-> @@ -112,7 +112,7 @@ static struct ctl_table sctp_net_table[] = {
->  		.maxlen		= sizeof(unsigned int),
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec_minmax,
-> -		.extra1         = &one,
-> +		.extra1         = &init_net.sctp.rto_min,
->  		.extra2         = &timer_max
->  	},
->  	{
-> 
 
-Hi Neil,
+--eQyCKlb8USywWNtC
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-As you point out that in "[PATCH] sctp: make the max_burst min value to 1":
-> 1) You can also set the the max_burst via setsockopt, and so this would need to
-> be checked in that path as well.
+Hi Skidmore,
 
-we can set the rto_min/rto_max via setsockopt. Should I check it in the path as well?
+Sorry for the late answer, I needed to wait for a physical access.
 
-Thanks.
+On Nov26 18:59, Skidmore, Donald C wrote:
+> [root@dcsworkstation src]# ethtool -i p258p1
+> driver: ixgbe
+> version: 3.11.33-k
+> firmware-version: 0x18eb0001
+> bus-info: 0000:05:00.0
+> supports-statistics: yes
+> supports-test: yes
+> supports-eeprom-access: yes
+> supports-register-dump: yes
+> supports-priv-flags: no
+>=20
+> Then use that address to find the device ID:
+>=20
+> [root@dcsworkstation src]# lspci -ns 0000:05:00.0
+> 05:00.0 0200: 8086:10fb (rev 01)
+
+for me it is:
+03:00.0 0200: 8086:10fb (rev 01)
+
+> As for the FW version I'm concerned that yours might not be correct from =
+the output you sent me earlier.
+
+or might be a userland issue (ethtool not reading the correct part?)
+--=20
+William
+
+--eQyCKlb8USywWNtC
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iEYEARECAAYFAlKcgEcACgkQ1I6eqOUidQGYuACeOHzrfB8uLsrdN00AtgswmNhQ
+52MAnjTxEWT/IyucfeY4UviA6ZdIwWdK
+=cGPW
+-----END PGP SIGNATURE-----
+
+--eQyCKlb8USywWNtC--
