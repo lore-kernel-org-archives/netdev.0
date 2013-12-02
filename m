@@ -1,60 +1,51 @@
-From: Mark Lord <mlord@pobox.com>
-Subject: Re: net/usb/ax88179_178a driver broken in linux-3.12
-Date: Mon, 02 Dec 2013 10:05:54 -0500
-Message-ID: <529CA1D2.2070806@pobox.com>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com> <528A9A36.50903@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com> <20131119.161313.743887333007019981.davem@davemloft.net> <AE90C24D6B3A694183C094C60CF0A2F6026B7439@saturn3.aculab.com> <20131120165420.GD9611@xanatos> <5299546B.2020800@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B744E@saturn3.aculab.com>
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: Spurious timeouts in mvmdio
+Date: Mon, 02 Dec 2013 16:15:54 +0100
+Message-ID: <529CA42A.3040504@freebox.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	ming.lei@canonical.com, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>,
-	Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <florian@openwrt.org>,
+	Leigh Brown <leigh@solinno.co.uk>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a-pb-sasl-quonix.pobox.com ([208.72.237.25]:44999 "EHLO
-	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751753Ab3LBPGC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 10:06:02 -0500
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B744E@saturn3.aculab.com>
+Received: from ns.iliad.fr ([212.27.33.1]:38157 "EHLO ns.iliad.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751438Ab3LBPPz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Dec 2013 10:15:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-12-02 04:30 AM, David Laight wrote:
->> From: Mark Lord
->> Sent: 30 November 2013 02:59
->> To: Sarah Sharp; David Laight
->> Cc: David Miller; eric.dumazet@gmail.com; ming.lei@canonical.com; netdev@vger.kernel.org; linux-
->> usb@vger.kernel.org
->> Subject: Re: net/usb/ax88179_178a driver broken in linux-3.12
->>
->> On 13-11-19 08:44 AM, Mark Lord wrote:
->>> On 13-11-19 05:04 AM, David Laight wrote:
->>>>
->>>> Which changes did you revert?
->>>
->>> Just the bits that changed how the headroom/tailroom sizes
->>> were checked and adjusted.  See attachment for the revert patch
->>> I am using here.  My mailer unfortunately likes to mangle inline patches.
->>>
-> ...
->>
->> Two kernels later, and this regression has still not been fixed.
->>
->> A simple revert, folks.
-> 
-> Reverting the ax88179_178a driver doesn't fix the problem.
-> I'm seen tx/rx issues with it on much older kernels that don't
-> appear with a current kernel and the fixed xhci code.
-> 
-> Sarah needs to feed the xhci_ring.c fix through into stable.
 
-Oh, I agree.  But Linus makes a MASSIVE distinction between things
-that have always been broken, and REGRESSIONS from the immediately
-prior kernel that can be tracked to a single update.
+Hi,
 
-Let's see some action, here folks!
+During 3.13-rc1 testing, I have found out that the mvmdio driver would report 
+timeouts on the kernel console:
+
+[   11.011334] orion-mdio orion-mdio: Timeout: SMI busy for too long
+
+The hardware is a MV88F6281 Kirkwood CPU. The mvmdio driver is using the irq 
+line 46 (ge00_err).
+
+I am inclined to believe that it is due to the fact that wait_event_timeout() 
+is called with a timeout parameter of 1 jiffy in orion_mdio_wait_ready(). If 
+the timer interrupt ticks right after calling wait_event_timeout(), we may end 
+up spending much less time than MVMDIO_SMI_TIMEOUT (1 msec) in 
+wait_event_timeout(), and as a result report a timeout as the MDIO access did 
+not complete in such a short time.
+
+As to how to fix this, I see two options (I don't know which one would be 
+prefered):
+
+- Option 1: always pass a timeout of at least 2 jiffy to wait_event_timeout().
+- Option 2: switch to wait_event_hrtimeout().
+
+I can provide patches for both options.
+
+Regards,
+
 -- 
-Mark Lord
-Real-Time Remedies Inc.
-mlord@pobox.com
+Nicolas Schichan
