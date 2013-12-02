@@ -1,35 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [B.A.T.M.A.N.] [PATCH] Fix ARM BUILD_BUG_ON() errors
- withbatman-adv
-Date: Mon, 02 Dec 2013 11:20:42 -0500 (EST)
-Message-ID: <20131202.112042.875349112345949903.davem@davemloft.net>
-References: <20131201171309.GD16735@n2100.arm.linux.org.uk>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B7451@saturn3.aculab.com>
-	<529C8226.2040000@meshcoding.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: netfilter: active obj WARN when cleaning up
+Date: Mon, 2 Dec 2013 16:33:20 +0000
+Message-ID: <00000142b4282aaf-913f5e4c-314c-4351-9d24-615e66928157-000000@email.amazonses.com>
+References: <522B25B5.6000808@oracle.com> <5294F27D.4000108@oracle.com> <20131126230709.GA10948@localhost> <alpine.DEB.2.02.1311271106090.30673@ionos.tec.linutronix.de> <20131127113939.GL16735@n2100.arm.linux.org.uk> <alpine.DEB.2.02.1311271409280.30673@ionos.tec.linutronix.de>
+ <20131127133231.GO16735@n2100.arm.linux.org.uk> <20131127134015.GA6011@n2100.arm.linux.org.uk> <alpine.DEB.2.02.1311271443580.30673@ionos.tec.linutronix.de> <20131127233415.GB19270@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, linux@arm.linux.org.uk,
-	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
-To: antonio@meshcoding.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51534 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168Ab3LBQUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 11:20:48 -0500
-In-Reply-To: <529C8226.2040000@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+    Russell King - ARM Linux <linux@arm.linux.org.uk>,
+    Pablo Neira Ayuso <pablo@netfilter.org>,
+    Sasha Levin <sasha.levin@oracle.com>, Patrick McHardy <kaber@trash.net>,
+    kadlec@blackhole.kfki.hu, "David S. Miller" <davem@davemloft.net>,
+    netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+    netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+    linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>
+To: Greg KH <greg@kroah.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20131127233415.GB19270@kroah.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Mon, 02 Dec 2013 13:50:46 +0100
+On Wed, 27 Nov 2013, Greg KH wrote:
 
-> This may work with the structures I reported in a previous email, but
-> it is not a good solution for us because we have other more complex
-> substructs that cannot be packed that way.
-> 
-> I think we will simply duplicate the members and avoid substructs in
-> our packets.
+> Just make the kobject "dynamic" instead of embedded in struct kmem_cache
+> and all will be fine.  I can't believe this code has been broken for
+> this long.
 
-I would strongly suggest just making everything a multiple of 4 bytes in
-size.
+The slub code is was designed to use an embedded structure since we
+only get the kobj  pointer passed to us from sysfs. If kobj is not
+embedded then how can we get from the sysfs object to the kmem_cache
+structure from the sysfs callbacks? Sysfs was designed to have embedded
+objects as far as I can recall.
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
