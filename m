@@ -1,62 +1,61 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net-next] xen-netback: Fix pull size in
- checksum_setup_ip*
-Date: Mon, 2 Dec 2013 13:04:42 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD019C6C4@AMSPEX01CL01.citrite.net>
-References: <1385751407-9365-1-git-send-email-zoltan.kiss@citrix.com>
- <20131130.161000.1050565138363035368.davem@davemloft.net>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [B.A.T.M.A.N.] [PATCH] Fix ARM BUILD_BUG_ON() errors withbatman-adv
+Date: Mon, 2 Dec 2013 13:10:12 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7453@saturn3.aculab.com>
+References: <20131130191553.GA16735@n2100.arm.linux.org.uk> <529A46C4.9090906@meshcoding.com> <20131130230518.GC16735@n2100.arm.linux.org.uk> <529A8276.9060002@meshcoding.com> <529B47AA.8060403@meshcoding.com> <20131201171309.GD16735@n2100.arm.linux.org.uk> <AE90C24D6B3A694183C094C60CF0A2F6026B7451@saturn3.aculab.com> <529C8226.2040000@meshcoding.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+	charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Jonathan Davies" <Jonathan.Davies@citrix.com>
-To: David Miller <davem@davemloft.net>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>
+Cc: "The list for a Better Approach To Mobile Ad-hoc Networking"
+	<b.a.t.m.a.n@lists.open-mesh.org>, <netdev@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>
+To: "Antonio Quartulli" <antonio@meshcoding.com>,
+	"Russell King - ARM Linux" <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:53888 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753095Ab3LBNEp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 08:04:45 -0500
-In-Reply-To: <20131130.161000.1050565138363035368.davem@davemloft.net>
-Content-Language: en-US
+Received: from mx0.aculab.com ([213.249.233.131]:59706 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751478Ab3LBNMa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 08:12:30 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 24974-07 for <netdev@vger.kernel.org>;
+ Mon,  2 Dec 2013 13:12:26 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <529C8226.2040000@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: 30 November 2013 21:10
-> To: Zoltan Kiss
-> Cc: Ian Campbell; Wei Liu; xen-devel@lists.xenproject.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Jonathan Davies;
-> Paul Durrant
-> Subject: Re: [PATCH net-next] xen-netback: Fix pull size in
-> checksum_setup_ip*
-> 
-> From: Zoltan Kiss <zoltan.kiss@citrix.com>
-> Date: Fri, 29 Nov 2013 18:56:47 +0000
-> 
-> > Before checksum setup we need to make sure we have enough data in
-> linear
-> > buffer, so we do a pull if not. The calculation of the required data counts
-> > with skb->network_header, which is the headroom size actually. This is not
-> > necessary, and can cause unreasonable pulling. I've also removed
-> > MAX_IPOPTLEN, as we only need the base header at that point.
+> From: Antonio Quartulli
+> On 02/12/13 11:24, David Laight wrote:
+> > ...
+> >> The only solutions are: use the GCC packed attribute, redesign
+> >> the structures...
 > >
-> > Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> > It is probably enough to mark the inner structure containing the
+> > three byte fields 'packed'. Marking it aligned(1) might also have
+> > the desired effect. The outer structure should then be ok. But
+> > would need to use a specially named attribute so it doesn't get
+> > removed.
 > 
-> The net-next tree is no open, therefore it is not appropriate to submit
-> patches targetting to that tree at this time.
-> 
-> I will make an explicit announcement on netdev when I have openned
-> the net-next tree, so it will be clear exactly when you can submit
-> patches targetting that tree again.
-> 
-> Thank you.
+> This may work with the structures I reported in a previous email, but
+> it is not a good solution for us because we have other more complex
+> substructs that cannot be packed that way.
 
-I think this patch should be for net rather than net-next anyway. Since it appears that maybe_pull_tail() has bigger problems I'll incorporate this fix as part of v4 of the fix for fragment detection.
+You really don't want to have structures that need to be (say) 7 bytes
+long and contain a 32bit value that will always be correctly aligned.
 
-  Paul
+IIRC adding __attribute__((aligned(1))) to a structure isn't the same
+as marking it 'packed' - it doesn't normally reduce the alignment
+for structures (but can be used to force a reduced alignment on a
+structure member - eg a 4byte aligned 64bit integer).
+
+I don't have an arm compiler handy.
+
+> I think we will simply duplicate the members and avoid substructs in
+> our packets.
+
+Can be easiest...
+
+
+	David
