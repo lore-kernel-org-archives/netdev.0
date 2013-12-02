@@ -1,7 +1,7 @@
 From: Paul Durrant <paul.durrant@citrix.com>
 Subject: [PATCH net v4] xen-netback: fix fragment detection in checksum setup
-Date: Mon, 2 Dec 2013 17:41:13 +0000
-Message-ID: <1386006073-27725-1-git-send-email-paul.durrant@citrix.com>
+Date: Mon, 2 Dec 2013 17:35:15 +0000
+Message-ID: <1386005715-27566-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Paul Durrant <paul.durrant@citrix.com>,
@@ -12,10 +12,10 @@ Cc: Paul Durrant <paul.durrant@citrix.com>,
 	David Miller <davem@davemloft.net>
 To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:4064 "EHLO SMTP.CITRIX.COM"
+Received: from smtp02.citrix.com ([66.165.176.63]:3779 "EHLO SMTP02.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752841Ab3LBRpk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Dec 2013 12:45:40 -0500
+	id S1753131Ab3LBRqk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Dec 2013 12:46:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
