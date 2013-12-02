@@ -1,63 +1,66 @@
-From: Ben Pfaff <blp@nicira.com>
-Subject: Re: [PATCH openvswitch v2] netlink: Implement & enable memory mapped
- netlink i/o
-Date: Mon, 2 Dec 2013 13:23:25 -0800
-Message-ID: <20131202212325.GG15335@nicira.com>
-References: <6a9efcafd9386ddd24fbfabb799bd2b5cc536430.1385814132.git.tgraf@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] net_sched: actions - Add default lookup and walker
+Date: Mon, 02 Dec 2013 16:27:52 -0500 (EST)
+Message-ID: <20131202.162752.2143617473594386587.davem@davemloft.net>
+References: <1385937009-589-1-git-send-email-jhs@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jesse@nicira.com, dev@openvswitch.org, netdev@vger.kernel.org,
-	dborkman@redhat.com, ffusco@redhat.com, fleitner@redhat.com,
-	xiyou.wangcong@gmail.com
-To: Thomas Graf <tgraf@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	alexander.h.duyck@intel.com, ebiederm@xmission.com
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog111.obsmtp.com ([74.125.149.205]:57983 "HELO
-	na3sys009aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758047Ab3LBVXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 16:23:31 -0500
-Received: by mail-qa0-f50.google.com with SMTP id i13so5006676qae.9
-        for <netdev@vger.kernel.org>; Mon, 02 Dec 2013 13:23:30 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <6a9efcafd9386ddd24fbfabb799bd2b5cc536430.1385814132.git.tgraf@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54538 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754591Ab3LBV14 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 16:27:56 -0500
+In-Reply-To: <1385937009-589-1-git-send-email-jhs@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 30, 2013 at 01:27:33PM +0100, Thomas Graf wrote:
-> Based on the initial patch by Cong Wang posted a couple of months
-> ago.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Sun,  1 Dec 2013 17:30:05 -0500
+
+> This set of patches provide defaults for lookup and walkers for actions.
+> Users can override when needed.
 > 
-> This is the user space counterpart needed for the kernel patch
-> '[PATCH net-next 3/8] openvswitch: Enable memory mapped Netlink i/o'
-> 
-> Allows the kernel to construct Netlink messages on memory mapped
-> buffers and thus avoids copying. The functionality is enabled on
-> sockets used for unicast traffic.
-> 
-> Further optimizations are possible by avoiding the copy into the
-> ofpbuf after reading.
-> 
-> Signed-off-by: Thomas Graf <tgraf@redhat.com>
+> Jamal Hadi Salim (4):
+>   Provide default lookup function for actions that dont provide one
+>   Use default lookup functions. Users are free to override when needed.
+>   Provide default walker function for actions that dont provide one
+>   Use default walker functions. Users who need something special can
+>     override.
 
-Clang reports:
+Ok, but can you respin this set, adding in changes to remove
+the code that checks for NULL in these operations?
 
-    ../lib/netlink-socket.c:330:12: error: cast from 'char *' to 'struct nl_mmap_hdr *' increases required alignment from 1 to 4 [-Werror,-Wcast-align]
-        return (struct nl_mmap_hdr *)(start + r->head * sock->frame_size);
-               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    ../lib/netlink-socket.c:369:22: error: implicit declaration of function '__ALIGN_KERNEL' is invalid in C99 [-Werror,-Wimplicit-function-declaration]
-    -> sock->frame_size)
-                         ^
-    ../lib/netlink-protocol.h:213:26: note: expanded from macro 'NL_MMAP_HDRLEN'
-    #define NL_MMAP_HDRLEN                  NL_MMAP_MSG_ALIGN(sizeof(struct nl_mmap_hdr))
-                                            ^
-    ../lib/netlink-protocol.h:212:32: note: expanded from macro 'NL_MMAP_MSG_ALIGN'
-    #define NL_MMAP_MSG_ALIGN(sz)           __ALIGN_KERNEL(sz, NL_MMAP_MSG_ALIGNMENT)
-                                            ^
-GCC reports:
+Specifically, we still have:
 
-    ../lib/netlink-socket.c: In function 'nl_sock_send_mmap':
-    ../lib/netlink-socket.c:369:5: error: implicit declaration of function '__ALIGN_KERNEL' [-Werror=implicit-function-declaration]
-    cc1: all warnings being treated as errors
+	if (a->ops->lookup == NULL)
+		goto err_mod;
 
-Thanks,
+in tcf_action_get_1().  And:
 
-Ben.
+	if (a_o->walk == NULL) {
+
+in tc_dump_action().
+
+Furthermore, there is a hard assumption that a_o->init() is non-NULL
+as well.  So maybe add a:
+
+	if (!act->init)
+		return -EINVAL;
+
+at the top of tcf_register_action().
+
+It also occurred to me that it would be simpler to audit and be a
+simpler patch set to review if you just added the missing ".lookup ="
+assignments to the actions and added a similar "if (!act->lookup)" et
+al. check to tcf_register_action().
+
+That looks more like a rigorous requirement to have a valid method
+present for these three operations: init, lookup, walk.
+
+What do you think?
+
+Thanks!
