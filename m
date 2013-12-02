@@ -1,60 +1,71 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: netfilter: active obj WARN when cleaning up
-Date: Mon, 2 Dec 2013 11:08:14 -0800
-Message-ID: <20131202190814.GA2267@kroah.com>
-References: <alpine.DEB.2.02.1311271409280.30673@ionos.tec.linutronix.de>
- <20131127133231.GO16735@n2100.arm.linux.org.uk>
- <20131127134015.GA6011@n2100.arm.linux.org.uk>
- <alpine.DEB.2.02.1311271443580.30673@ionos.tec.linutronix.de>
- <20131127233415.GB19270@kroah.com>
- <00000142b4282aaf-913f5e4c-314c-4351-9d24-615e66928157-000000@email.amazonses.com>
- <20131202164039.GA19937@kroah.com>
- <00000142b4514eb5-2e8f675d-0ecc-423b-9906-58c5f383089b-000000@email.amazonses.com>
- <20131202172615.GA4722@kroah.com>
- <00000142b4aeca89-186fc179-92b8-492f-956c-38a7c196d187-000000@email.amazonses.com>
+From: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: net/usb/ax88179_178a driver broken in linux-3.12
+Date: Mon, 2 Dec 2013 11:08:36 -0800
+Message-ID: <20131202190836.GC3898@xanatos>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com>
+ <528A9A36.50903@pobox.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com>
+ <20131119.161313.743887333007019981.davem@davemloft.net>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B7439@saturn3.aculab.com>
+ <20131120165420.GD9611@xanatos>
+ <5299546B.2020800@pobox.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B744E@saturn3.aculab.com>
+ <529CA1D2.2070806@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Sasha Levin <sasha.levin@oracle.com>,
-	Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Mark Lord <mlord-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <00000142b4aeca89-186fc179-92b8-492f-956c-38a7c196d187-000000@email.amazonses.com>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <529CA1D2.2070806-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 02, 2013 at 07:00:23PM +0000, Christoph Lameter wrote:
-> On Mon, 2 Dec 2013, Greg KH wrote:
+On Mon, Dec 02, 2013 at 10:05:54AM -0500, Mark Lord wrote:
+> On 13-12-02 04:30 AM, David Laight wrote:
+> >> From: Mark Lord
+> >> Sent: 30 November 2013 02:59
+> >> To: Sarah Sharp; David Laight
+> >> Cc: David Miller; eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
+> >> usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> >> Subject: Re: net/usb/ax88179_178a driver broken in linux-3.12
+> >>
+> >> On 13-11-19 08:44 AM, Mark Lord wrote:
+> >>> On 13-11-19 05:04 AM, David Laight wrote:
+> >>>>
+> >>>> Which changes did you revert?
+> >>>
+> >>> Just the bits that changed how the headroom/tailroom sizes
+> >>> were checked and adjusted.  See attachment for the revert patch
+> >>> I am using here.  My mailer unfortunately likes to mangle inline patches.
+> >>>
+> > ...
+> >>
+> >> Two kernels later, and this regression has still not been fixed.
+> >>
+> >> A simple revert, folks.
+> > 
+> > Reverting the ax88179_178a driver doesn't fix the problem.
+> > I'm seen tx/rx issues with it on much older kernels that don't
+> > appear with a current kernel and the fixed xhci code.
+> > 
+> > Sarah needs to feed the xhci_ring.c fix through into stable.
 > 
-> > >
-> > > We need our own reference count. So we just have to defer the
-> > > release of the kmem_cache struct until the ->release callback is
-> > > triggered. The put of the embedded kobject must be the last action on the
-> > > kmem_cache  structure which will then trigger release and that will
-> > > trigger the kmem_cache_free().
-> > >
-> >
-> > Ok, that sounds reasonable, or you can just create a "tiny" structure
-> > for the kobject that has a pointer back to your kmem_cache structure
-> > that you can then reference from the show/store functions.  Either is
-> > fine with me.
+> Oh, I agree.  But Linus makes a MASSIVE distinction between things
+> that have always been broken, and REGRESSIONS from the immediately
+> prior kernel that can be tracked to a single update.
 > 
-> Problem is that the release field is only available if
-> CONFIG_DEBUG_KOBJECT_RELEASE is enabled. Without the callback I cannot
-> tell when it is legit to release the kobject structure unless I keep
-> scanning it once in awhile.
+> Let's see some action, here folks!
 
-No, the release callback is in the kobj_type, not the kobject itself.
+I'm working on it.  You will probably have to wait for -rc3, depending
+on when Greg sends his next pull request.  I will Cc you on the pull
+request and patch, which should be sent out today.
 
+Sarah Sharp
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
