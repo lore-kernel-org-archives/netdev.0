@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/2] virtio-net: make all RX paths handle erors
-	consistently
-Date: Sun, 01 Dec 2013 20:28:20 -0500 (EST)
-Message-ID: <20131201.202820.1535300264634944655.davem@davemloft.net>
-References: <1385638044-27467-1-git-send-email-mst@redhat.com>
-	<1385638044-27467-2-git-send-email-mst@redhat.com>
+Subject: Re: packet: use macro GET_PBDQC_FROM_RB to simplify the codes
+Date: Sun, 01 Dec 2013 20:32:19 -0500 (EST)
+Message-ID: <20131201.203219.1494692026611250983.davem@davemloft.net>
+References: <529712A7.3010604@cn.fujitsu.com>
+	<52971A76.4020202@redhat.com>
+	<529BE037.90006@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1385638044-27467-2-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: dborkman@redhat.com, netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45395 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752250Ab3LBBcU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Dec 2013 20:32:20 -0500
+In-Reply-To: <529BE037.90006@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 28 Nov 2013 13:30:59 +0200
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Mon, 02 Dec 2013 09:19:51 +0800
 
-> receive mergeable now handles errors internally.
-> Do same for big and small packet paths, otherwise
-> the logic is too hard to follow.
+> 于 2013年11月28日 18:27, Daniel Borkmann 写道:
+>> On 11/28/2013 10:53 AM, Duan Jiong wrote:
+>>>
+>>>
+>>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>> 
+>> Please resubmit when net-next is open.
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> Acked-by: Jason Wang <jasowang@redhat.com>
+> How can i know when the net-next will be open?
 
-Applied and I fixed the subject text to use an underscore '_' instead
-of a dash '-' for "virtio_net: ".
+I announce it explicitly on the netdev list.
