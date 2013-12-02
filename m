@@ -1,45 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: judge the accept_ra_defrtr before calling
- rt6_route_rcv
-Date: Mon, 02 Dec 2013 16:01:07 -0500 (EST)
-Message-ID: <20131202.160107.287731047825113467.davem@davemloft.net>
-References: <529451F0.1060707@cn.fujitsu.com>
-	<20131129060945.GJ24171@order.stressinduktion.org>
+Subject: Re: [PATCH] PCI / tg3: Give up chip reset and carrier loss
+ handling if PCI device is not present
+Date: Mon, 02 Dec 2013 16:02:19 -0500 (EST)
+Message-ID: <20131202.160219.837472723344445995.davem@davemloft.net>
+References: <7807315.7cU9KldDtM@vostro.rjw.lan>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: duanj.fnst@cn.fujitsu.com, netdev@vger.kernel.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54233 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758907Ab3LBVBL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 16:01:11 -0500
-In-Reply-To: <20131129060945.GJ24171@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-pm@vger.kernel.org, linux-pci@vger.kernel.org,
+	bhelgaas@google.com, nsujir@broadcom.com, mchan@broadcom.com
+To: rjw@rjwysocki.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7807315.7cU9KldDtM@vostro.rjw.lan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 29 Nov 2013 07:09:45 +0100
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Date: Sun, 01 Dec 2013 02:34:37 +0100
 
-> On Tue, Nov 26, 2013 at 03:46:56PM +0800, Duan Jiong wrote:
->> 
->> when dealing with a RA message, if accept_ra_defrtr is false,
->> the kernel will not add the default route, and then deal with
->> the following route information options. Unfortunately, those
->> options maybe contain default route, so let's judge the
->> accept_ra_defrtr before calling rt6_route_rcv.
->> 
->> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> From: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
 > 
-> I am ambivalent regarding this change.
+> Modify tg3_chip_reset() and tg3_close() to check if the PCI network
+> adapter device is accessible at all in order to skip poking it or
+> trying to handle a carrier loss in vain when that's not the case.
+> Introduce a special PCI helper function pci_device_is_present()
+> for this purpose.
 > 
-> accept_ra_defrtr protected against adding default routers without routing
-> options and accept_ra_rt_info_max_plen == -1 disables the acceptance of any
-> routing options in router advertisments.
+> Of course, this uncovers the lack of the appropriate RTNL locking
+> in tg3_suspend() and tg3_resume(), so add that locking in there
+> too.
 > 
-> I don't have an idea why we need this distinction altough I once used it for
-> testing. But because this change makes it more understandable for users I am
-> ok with that.
+> These changes prevent tg3 from burning a CPU at 100% load level for
+> solid several seconds after the Thunderbolt link is disconnected from
+> a Matrox DS1 docking station.
+> 
+> Signed-off-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
 
-I've applied this, thanks everyone.
+Applied, thanks everyone.
