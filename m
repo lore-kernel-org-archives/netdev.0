@@ -1,73 +1,142 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net v3] xen-netback: fix fragment detection in checksum
- setup
-Date: Mon, 2 Dec 2013 09:45:50 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD019BC50@AMSPEX01CL01.citrite.net>
-References: <1385722328-32875-1-git-send-email-paul.durrant@citrix.com>
- <20131130.161357.1101467615641418549.davem@davemloft.net>
+From: yzhu1 <Yanjun.Zhu@windriver.com>
+Subject: Re: [net v2 2/7] e1000: prevent oops when adapter is being closed
+ and reset simultaneously
+Date: Mon, 2 Dec 2013 17:50:06 +0800
+Message-ID: <529C57CE.1040801@windriver.com>
+References: <1385803221-3752-1-git-send-email-jeffrey.t.kirsher@intel.com> <1385803221-3752-3-git-send-email-jeffrey.t.kirsher@intel.com> <529A145C.4030503@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+	boundary="------------040704000609090002060304"
+Cc: <netdev@vger.kernel.org>, <gospo@redhat.com>, <sassmann@redhat.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:64174 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753213Ab3LBJpx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 04:45:53 -0500
-In-Reply-To: <20131130.161357.1101467615641418549.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail.windriver.com ([147.11.1.11]:38961 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753201Ab3LBJuN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 04:50:13 -0500
+In-Reply-To: <529A145C.4030503@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: 30 November 2013 21:14
-> To: Paul Durrant
-> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Wei Liu; Ian Campbell;
-> David Vrabel
-> Subject: Re: [PATCH net v3] xen-netback: fix fragment detection in checksum
-> setup
-> 
-> From: Paul Durrant <paul.durrant@citrix.com>
-> Date: Fri, 29 Nov 2013 10:52:08 +0000
-> 
-> > @@ -1166,15 +1166,27 @@ static int checksum_setup_ip(struct xenvif *vif,
-> struct sk_buff *skb,
-> >  	struct iphdr *iph = (void *)skb->data;
-> >  	unsigned int header_size;
-> >  	unsigned int off;
-> > +	bool fragment;
-> >  	int err = -EPROTO;
-> >
-> > +	fragment = false;
-> > +
-> >  	off = sizeof(struct iphdr);
-> >
-> >  	header_size = skb->network_header + off + MAX_IPOPTLEN;
-> >  	maybe_pull_tail(skb, header_size);
-> >
-> > +	if (iph->frag_off & htons(IP_OFFSET | IP_MF))
-> > +		fragment = true;
-> 
-> This function has a serious problem.
-> 
-> maybe_pull_tail() can change skb->data, therefore this "iph" pointer
-> can become invalid, you're essentially dereferencing garbage if
-> maybe_pull_tail() actually does any work.
+--------------040704000609090002060304
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Ok. Clearly I'm misunderstanding what __pskb_pull_tail() does then. I was under the impression that it moved skb->tail on but left skb->data alone (which is what I want to do). I will have another look.
+On 12/01/2013 12:37 AM, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 30-11-2013 13:20, Jeff Kirsher wrote:
+>
+>> From: yzhu1 <yanjun.zhu@windriver.com>
+>
+>> This change is based on a similar change made to e1000e support in
+>> commit bb9e44d0d0f4 ("e1000e: prevent oops when adapter is being closed
+>> and reset simultaneously").  The same issue has also been observed
+>> on the older e1000 cards.
+>
+>> Here, we have increased the RESET_COUNT value to 50 because there are 
+>> too
+>> many accesses to e1000 nic on stress tests to e1000 nic, it is not 
+>> enough
+>> to set RESET_COUT 25. Experimentation has shown that it is enough to set
+>> RESET_COUNT 50.
+>
+>> Signed-off-by: yzhu1 <yanjun.zhu@windriver.com>
+>
+>    Jeff, why are you accepting patches without real name in the 
+> sign-off line?
+>
+>> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>
+> WBR, Sergei
+>
+>
+Hi,
 
-> 
-> Secondly, do you really (even rate limited) want to span the system
-> log just because some ipv4 fragmented frames end up here?  That
-> doesn't make any sense to me.  Maybe bump a statistic or something
-> like that, but a log message triggerable by a remote entity?  No way.
+Thanks for the advice from Sergei. I made a new patch with the name 
+"yanjun.zhu".
 
-Ok.
+Best Regards!
+Zhu Yanjun
 
-  Paul
+--------------040704000609090002060304
+Content-Type: text/x-patch;
+	name="0001-e1000-prevent-oops-when-adapter-is-being-closed-and-.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename*0="0001-e1000-prevent-oops-when-adapter-is-being-closed-and-.pa";
+	filename*1="tch"
+
+>From 54e9e48a9f878eb45f0cc6322415244d7a9f1598 Mon Sep 17 00:00:00 2001
+From: yzhu1 <yanjun.zhu@windriver.com>
+Date: Fri, 22 Nov 2013 15:46:48 +0800
+Subject: [PATCH 1/1] e1000: prevent oops when adapter is being closed and
+ reset simultaneously
+
+This change is based on a similar change made to e1000e support in
+commit bb9e44d0d0f4 ("e1000e: prevent oops when adapter is being closed
+and reset simultaneously").  The same issue has also been observed
+on the older e1000 cards.
+
+Here, we have increased the RESET_COUNT value to 50 because there are too
+many accesses to e1000 nic on stress tests to e1000 nic, it is not enough
+to set RESET_COUT 25. Experimentation has shown that it is enough to set
+RESET_COUNT 50.
+
+Signed-off-by: yanjun.zhu <yanjun.zhu@windriver.com>
+---
+ drivers/net/ethernet/intel/e1000/e1000.h      |    5 +++++
+ drivers/net/ethernet/intel/e1000/e1000_main.c |    9 +++++++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/e1000/e1000.h b/drivers/net/ethernet/intel/e1000/e1000.h
+index 58c1472..0af4a8e 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000.h
++++ b/drivers/net/ethernet/intel/e1000/e1000.h
+@@ -83,6 +83,11 @@ struct e1000_adapter;
+ 
+ #define E1000_MAX_INTR			10
+ 
++/*
++ * Count for polling __E1000_RESET condition every 10-20msec.
++ */
++#define E1000_CHECK_RESET_COUNT         50
++
+ /* TX/RX descriptor defines */
+ #define E1000_DEFAULT_TXD		256
+ #define E1000_MAX_TXD			256
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index e386228..c0f5217 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -1440,6 +1440,10 @@ static int e1000_close(struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
++	int count = E1000_CHECK_RESET_COUNT;
++
++	while (test_bit(__E1000_RESETTING, &adapter->flags) && count--)
++		usleep_range(10000, 20000);
+ 
+ 	WARN_ON(test_bit(__E1000_RESETTING, &adapter->flags));
+ 	e1000_down(adapter);
+@@ -4963,6 +4967,11 @@ static int __e1000_shutdown(struct pci_dev *pdev, bool *enable_wake)
+ 	netif_device_detach(netdev);
+ 
+ 	if (netif_running(netdev)) {
++		int count = E1000_CHECK_RESET_COUNT;
++
++		while (test_bit(__E1000_RESETTING, &adapter->flags) && count--)
++			usleep_range(10000, 20000);
++
+ 		WARN_ON(test_bit(__E1000_RESETTING, &adapter->flags));
+ 		e1000_down(adapter);
+ 	}
+-- 
+1.7.9.5
+
+
+--------------040704000609090002060304--
