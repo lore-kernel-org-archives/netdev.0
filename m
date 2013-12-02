@@ -1,86 +1,60 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: make the max_burst min value to 1
-Date: Mon, 02 Dec 2013 09:51:43 -0500
-Message-ID: <529C9E7F.7040707@gmail.com>
-References: <529C2E01.3090005@huawei.com> <20131202115640.GA10857@hmsreliant.think-freely.org> <529C7707.5020908@huawei.com>
+From: Mark Lord <mlord@pobox.com>
+Subject: Re: net/usb/ax88179_178a driver broken in linux-3.12
+Date: Mon, 02 Dec 2013 10:05:54 -0500
+Message-ID: <529CA1D2.2070806@pobox.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B742F@saturn3.aculab.com> <528A9A36.50903@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7431@saturn3.aculab.com> <20131119.161313.743887333007019981.davem@davemloft.net> <AE90C24D6B3A694183C094C60CF0A2F6026B7439@saturn3.aculab.com> <20131120165420.GD9611@xanatos> <5299546B.2020800@pobox.com> <AE90C24D6B3A694183C094C60CF0A2F6026B744E@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, dingtianhong@huawei.com
-To: Wang Weidong <wangweidong1@huawei.com>,
-	Neil Horman <nhorman@tuxdriver.com>
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	ming.lei@canonical.com, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>,
+	Sarah Sharp <sarah.a.sharp@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f49.google.com ([209.85.213.49]:48291 "EHLO
-	mail-yh0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751963Ab3LBOvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 09:51:46 -0500
-In-Reply-To: <529C7707.5020908@huawei.com>
+Received: from a-pb-sasl-quonix.pobox.com ([208.72.237.25]:44999 "EHLO
+	sasl.smtp.pobox.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751753Ab3LBPGC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 10:06:02 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B744E@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/02/2013 07:03 AM, Wang Weidong wrote:
-> On 2013/12/2 19:56, Neil Horman wrote:
->> On Mon, Dec 02, 2013 at 02:51:45PM +0800, Wang Weidong wrote:
->>> From: Wang Weidong <wangweidong1@huawei.com>
+On 13-12-02 04:30 AM, David Laight wrote:
+>> From: Mark Lord
+>> Sent: 30 November 2013 02:59
+>> To: Sarah Sharp; David Laight
+>> Cc: David Miller; eric.dumazet@gmail.com; ming.lei@canonical.com; netdev@vger.kernel.org; linux-
+>> usb@vger.kernel.org
+>> Subject: Re: net/usb/ax88179_178a driver broken in linux-3.12
+>>
+>> On 13-11-19 08:44 AM, Mark Lord wrote:
+>>> On 13-11-19 05:04 AM, David Laight wrote:
+>>>>
+>>>> Which changes did you revert?
 >>>
->>> when I setted the max_burst to 0, do the lksctp-tools I got hang.
->>> I found sctp_transport_burst_limited would make the cwnd to 0.
->>> so I make the max_burst min value to 1.
->>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->>> ---
->>>  net/sctp/sysctl.c | 2 +-
->>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>> Just the bits that changed how the headroom/tailroom sizes
+>>> were checked and adjusted.  See attachment for the revert patch
+>>> I am using here.  My mailer unfortunately likes to mangle inline patches.
 >>>
->>> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
->>> index 7637e8e..46832d3 100644
->>> --- a/net/sctp/sysctl.c
->>> +++ b/net/sctp/sysctl.c
->>> @@ -135,7 +135,7 @@ static struct ctl_table sctp_net_table[] = {
->>>  		.maxlen		= sizeof(int),
->>>  		.mode		= 0644,
->>>  		.proc_handler	= proc_dointvec_minmax,
->>> -		.extra1		= &zero,
->>> +		.extra1		= &one,
->>>  		.extra2		= &int_max
->>>  	},
->>>  	{
->>> -- 
->>> 1.7.12
->>>
->>>
+> ...
 >>
+>> Two kernels later, and this regression has still not been fixed.
 >>
->> This seems like a band-aid to me.  There are a few things wrong:
->>
->> 1) You can also set the the max_burst via setsockopt, and so this would need to
->> be checked in that path as well.
->>
->> 2) I don't see how having a cwnd of zero would cause a hang.  It looks like a
->> cwnd of zero would perpetually place the association in a slow start state,
->> which is silly but not illegal.  
->>
+>> A simple revert, folks.
 > 
-> Hm, Good suggestions. Ok, I will try it again and find the root cause.
-> Thanks!
+> Reverting the ax88179_178a driver doesn't fix the problem.
+> I'm seen tx/rx issues with it on much older kernels that don't
+> appear with a current kernel and the fixed xhci code.
+> 
+> Sarah needs to feed the xhci_ring.c fix through into stable.
 
-It's really simple.  sctp_transport_burst_limited() should simply do
-nothing if max_burst is 0, essentially allowing unlimited bursts.
+Oh, I agree.  But Linus makes a MASSIVE distinction between things
+that have always been broken, and REGRESSIONS from the immediately
+prior kernel that can be tracked to a single update.
 
--vlad
-
-> 
->> Please investigate the acutally root cause of the problem before just avoiding
->> it like this.
->>
->> Thanks!
->> Neil
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->>
-> 
-> 
+Let's see some action, here folks!
+-- 
+Mark Lord
+Real-Time Remedies Inc.
+mlord@pobox.com
