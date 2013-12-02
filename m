@@ -1,40 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] PCI / tg3: Give up chip reset and carrier loss
- handling if PCI device is not present
-Date: Mon, 02 Dec 2013 16:02:19 -0500 (EST)
-Message-ID: <20131202.160219.837472723344445995.davem@davemloft.net>
-References: <7807315.7cU9KldDtM@vostro.rjw.lan>
+From: Greg KH <greg@kroah.com>
+Subject: Re: netfilter: active obj WARN when cleaning up
+Date: Mon, 2 Dec 2013 13:22:35 -0800
+Message-ID: <20131202212235.GA1297@kroah.com>
+References: <20131127134015.GA6011@n2100.arm.linux.org.uk>
+ <alpine.DEB.2.02.1311271443580.30673@ionos.tec.linutronix.de>
+ <20131127233415.GB19270@kroah.com>
+ <00000142b4282aaf-913f5e4c-314c-4351-9d24-615e66928157-000000@email.amazonses.com>
+ <20131202164039.GA19937@kroah.com>
+ <00000142b4514eb5-2e8f675d-0ecc-423b-9906-58c5f383089b-000000@email.amazonses.com>
+ <20131202172615.GA4722@kroah.com>
+ <00000142b4aeca89-186fc179-92b8-492f-956c-38a7c196d187-000000@email.amazonses.com>
+ <20131202190814.GA2267@kroah.com>
+ <00000142b4d4360c-5755af87-b9b0-4847-b5fa-7a9dd13b49c5-000000@email.amazonses.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-pm@vger.kernel.org, linux-pci@vger.kernel.org,
-	bhelgaas@google.com, nsujir@broadcom.com, mchan@broadcom.com
-To: rjw@rjwysocki.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7807315.7cU9KldDtM@vostro.rjw.lan>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>
+To: Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <00000142b4d4360c-5755af87-b9b0-4847-b5fa-7a9dd13b49c5-000000@email.amazonses.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Date: Sun, 01 Dec 2013 02:34:37 +0100
+On Mon, Dec 02, 2013 at 07:41:15PM +0000, Christoph Lameter wrote:
+> On Mon, 2 Dec 2013, Greg KH wrote:
+> 
+> > No, the release callback is in the kobj_type, not the kobject itself.
+> 
+> Ahh... Ok. Patch follows:
+> 
+> 
+> Subject: slub: use sysfs'es release mechanism for kmem_cache
+> 
+> Sysfs has a release mechanism. Use that to release the
+> kmem_cache structure if CONFIG_SYSFS is enabled.
+> 
+> Signed-off-by: Christoph Lameter <cl@linux.com>
 
-> From: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-> 
-> Modify tg3_chip_reset() and tg3_close() to check if the PCI network
-> adapter device is accessible at all in order to skip poking it or
-> trying to handle a carrier loss in vain when that's not the case.
-> Introduce a special PCI helper function pci_device_is_present()
-> for this purpose.
-> 
-> Of course, this uncovers the lack of the appropriate RTNL locking
-> in tg3_suspend() and tg3_resume(), so add that locking in there
-> too.
-> 
-> These changes prevent tg3 from burning a CPU at 100% load level for
-> solid several seconds after the Thunderbolt link is disconnected from
-> a Matrox DS1 docking station.
-> 
-> Signed-off-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+That looks good, if you fix the indentation issue :)
 
-Applied, thanks everyone.
+> 
+> Index: linux/include/linux/slub_def.h
+> ===================================================================
+> --- linux.orig/include/linux/slub_def.h	2013-12-02 13:31:07.395905824 -0600
+> +++ linux/include/linux/slub_def.h	2013-12-02 13:31:07.385906101 -0600
+> @@ -98,4 +98,8 @@ struct kmem_cache {
+>  	struct kmem_cache_node *node[MAX_NUMNODES];
+>  };
+> 
+> +#ifdef CONFIG_SYSFS
+> +#define SLAB_SUPPORTS_SYSFS
+
+Why even define this?  Why not just use CONFIG_SYSFS?
+
+thanks,
+
+greg k-h
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
