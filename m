@@ -1,34 +1,37 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] PCI / tg3: Give up chip reset and carrier loss
- handling if PCI device is not present
-Date: Mon, 2 Dec 2013 10:54:57 -0800
-Message-ID: <1386010497.6988.8.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <7807315.7cU9KldDtM@vostro.rjw.lan>
- <1385930359.6988.7.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <20131202.134829.2041194874847967680.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: gem csum breakage with 018c5bba (Handle CHECKSUM_COMPLETE more
+ adequately ...)
+Date: Mon, 02 Dec 2013 13:59:02 -0500 (EST)
+Message-ID: <20131202.135902.408377838919681103.davem@davemloft.net>
+References: <B8BCE323-6F65-4D14-BD4A-BFA07C3ED290@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rjw@rjwysocki.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org,
-	linux-pci@vger.kernel.org, bhelgaas@google.com, nsujir@broadcom.com
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20131202.134829.2041194874847967680.davem@davemloft.net>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, alexander.h.duyck@intel.com,
+	netdev@vger.kernel.org, edumazet@google.com,
+	herbert@gondor.apana.org, linux-kernel@vger.kernel.org,
+	benh@kernel.crashing.org
+To: agraf@suse.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <B8BCE323-6F65-4D14-BD4A-BFA07C3ED290@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-12-02 at 13:48 -0500, David Miller wrote: 
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Sun, 1 Dec 2013 12:39:19 -0800
-> 
-> > I'm not familiar with the DS1.  Does the tg3 device get removed through
-> > tg3_remove_one() in this case?  What happens when you reconnect the DS1?
-> 
-> Michael, is Rafael's explanation sufficient for you?
-> 
+From: Alexander Graf <agraf@suse.de>
+Date: Fri, 22 Nov 2013 19:08:16 +0100
 
-Yes, thanks.
+> With current Linus' master tree my ibook started emitting a lot of
+> annoying csum calculation warnings. I've bisected it down to the
+> commit seen in the subject line, but I suppose the real problem lies
+> somewhere a lot deeper and only gets revealed thanks to the more
+> clever checksum logic applied now.
+> 
+> Any ideas how to dig further into this?
 
-Acked-by: Michael Chan <mchan@broadcom.com>
+Ok, I'm going to revert this commit, for several reasons.
+
+In addition to the problem you are running into, it just occurred to me
+that if the __pskb_trim() call fails, we'll leave a corrupted checksum
+in the SKB.
+
+Thanks for your report.
