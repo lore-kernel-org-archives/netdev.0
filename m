@@ -1,90 +1,73 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net 1/8] igb: Update queue reinit function to call dev_close
- when init of queues fails
-Date: Mon, 2 Dec 2013 17:18:16 +0000
-Message-ID: <1386004696.1516.15.camel@bwh-desktop.uk.level5networks.com>
-References: <1385624162-10116-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1385624162-10116-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20131129.154757.2160926223289559260.davem@davemloft.net>
-	 <9BBC4E0CF881AA4299206E2E1412B6264FA00871@ORSMSX102.amr.corp.intel.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [[PATCH stable <3.12]] xen-netback: fix refcnt unbalance for
+ 3.11 and earlier versions
+Date: Mon, 2 Dec 2013 09:19:58 -0800
+Message-ID: <20131202171958.GA661@kroah.com>
+References: <1385642889-11513-1-git-send-email-wei.liu2@citrix.com>
+ <20131201044835.GB19516@kroah.com>
+ <20131202120134.GA14293@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:43880 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752107Ab3LBRSU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 12:18:20 -0500
-In-Reply-To: <9BBC4E0CF881AA4299206E2E1412B6264FA00871@ORSMSX102.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	stable@vger.kernel.org, tomasz.wroblewski@citrix.com,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Konrad Wilk <konrad.wilk@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131202120134.GA14293@zion.uk.xensource.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-12-02 at 16:55 +0000, Wyborny, Carolyn wrote:
-> > -----Original Message-----
-> > From: David Miller [mailto:davem@davemloft.net]
-> > Sent: Friday, November 29, 2013 12:48 PM
-> > To: Kirsher, Jeffrey T
-> > Cc: Wyborny, Carolyn; netdev@vger.kernel.org; gospo@redhat.com;
-> > sassmann@redhat.com
-> > Subject: Re: [net 1/8] igb: Update queue reinit function to call dev_close when
-> > init of queues fails
+On Mon, Dec 02, 2013 at 12:01:34PM +0000, Wei Liu wrote:
+> On Sat, Nov 30, 2013 at 08:48:35PM -0800, Greg KH wrote:
+> > On Thu, Nov 28, 2013 at 12:48:09PM +0000, Wei Liu wrote:
+> > > With the introduction of "xen-netback: Don't destroy the netdev until
+> > > the vif is shut down" (upstream commit id 279f438e36), vif disconnect
+> > > and free are separated. However in the backported verion reference
+> > > counting code was not correctly modified, and the reset of vif->tx_irq
+> > > was lost. If frontend goes through vif life cycle more than once the
+> > > reference counting is skewed.
+> > > 
+> > > This patch adds back the missing tx_irq reset line. It also moves
+> > > several lines of the reference counting code to vif_free, so the moved
+> > > code corresponds to the counterpart in vif_alloc, thus the reference
+> > > counting is balanced.
+> > > 
+> > > 3.12 and onward versions are not affected by this bug, because reference
+> > > counting code was removed due to the introduction of 1:1 model.
+> > > 
+> > > This pacth should be backported to all stable verions which are lower
+> > > than 3.12 and have 279f438e36.
 > > 
-> > From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > Date: Wed, 27 Nov 2013 23:35:55 -0800
-> > 
-> > > From: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> > >
-> > > This patch adds a call to dev_close if the queue reinit fails in order
-> > > to make clearer to the user that the device is down.
-> > >
-> > > Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> > > Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > 
-> > This is a very bad approach to this problem.
-> > 
-> > Users absolutely do not expect their entire interface to go down simply because
-> > an ethtool request cannot be satisfied.  This is extremely poor quality of
-> > implementation.
-> > 
-> > And in this specific case it absolutely is not necessary.
-> > 
-> > The only thing that can fail is the queue allocation, so make a function which can
-> > preserve the previous configuration if the queue allocation fails.  How about
-> > "igb_reinit_interrupt_scheme".
-> > 
-> > Don't free the q vectors until the very last moment, when you know that the
-> > allocation of the new q vectors has succeeded.
-> > 
-> > I'm not applying this patch, it needs to be reimplemented more sanely, using the
-> > above suggestions or similar.
+> > What stable versions are those?  279f438e36 showed up in 3.12-rc2, and
+> > was not marked for stable inclusion, so what kernel would end up needing
+> > this patch?
 > > 
 > 
-> I did this per Ben's suggestion on Laura's original patch.  You didn't
-> argue with it at the time.  I don't think I misunderstood his
-> suggestion, but if so, I'll rework it.
+> Greg,
+> 
+> 279f438e36 was backported to at least stable branches 
+> 
+>   3.11.y: <13826815042174@kroah.org> commit id f495ddc46
+>   3.10.y: <13828112161592@kroah.com> commit id a4626bf64
+> 
+> So at least those two need this patch.
+> 
+> And I remeber 3.8.y.z extended stable branch maintained by Kamal also
+> has the said commit.
+> 
+> > confused,
+> > 
+> 
+> Sorry, I should've stated cleared all versions.
+> 
+> BTW the above patch applies to 3.11.y. I can provide backports to 3.10.y
+> as well, if necessary.
 
-My concerns were that after a failure where the interface is effectively
-down,
-- the interface must be in a consistent state where is it safe to
-reconfigure the interface again or to unbind the driver, and
-- it should be obviously down so the user can then try to bring it up
-again.
+As 3.11.y is now dead, there's not much I can do with that one, but I
+could use a backport for 3.10.y, as this patch does not apply there,
+thanks.
 
-David is saying that you should implement the reconfiguration in such a
-way that you can always roll back to the previous working state in case
-of a failure (which would make my concerns moot).  This is definitely a
-good goal but I'm not convinced that it's always possible.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+greg k-h
