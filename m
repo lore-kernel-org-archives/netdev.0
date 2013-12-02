@@ -1,44 +1,38 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH] sctp: make the max_burst min value to 1
-Date: Mon, 2 Dec 2013 14:51:45 +0800
-Message-ID: <529C2E01.3090005@huawei.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH 1/1] drivers: net: cpsw: fix dt probe for one port ethernet
+Date: Mon, 2 Dec 2013 12:53:39 +0530
+Message-ID: <1385969019-12880-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<dingtianhong@huawei.com>
-To: Vlad Yasevich <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:58082 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752556Ab3LBGwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 01:52:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wang Weidong <wangweidong1@huawei.com>
+When only one port of the two port is pinned out, then dt probe is failing
+because second port phy is not found. fixing this by checking the number of
+slaves and breaking the loop.
 
-when I setted the max_burst to 0, do the lksctp-tools I got hang.
-I found sctp_transport_burst_limited would make the cwnd to 0.
-so I make the max_burst min value to 1.
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- net/sctp/sysctl.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/ti/cpsw.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 7637e8e..46832d3 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -135,7 +135,7 @@ static struct ctl_table sctp_net_table[] = {
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_minmax,
--		.extra1		= &zero,
-+		.extra1		= &one,
- 		.extra2		= &int_max
- 	},
- 	{
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 90d41d2..68ef9f2 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1813,6 +1813,8 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 		}
+ 
+ 		i++;
++		if (i == data->slaves)
++			break;
+ 	}
+ 
+ 	return 0;
 -- 
-1.7.12
+1.8.5.rc3.2.gc302941
+
