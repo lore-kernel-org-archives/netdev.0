@@ -1,26 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix third arg of anycast_dst_alloc(), must be
- bool.
-Date: Mon, 02 Dec 2013 17:13:44 -0500 (EST)
-Message-ID: <20131202.171344.1725532307032158966.davem@davemloft.net>
-References: <1385980129-16471-1-git-send-email-fx.lebail@yahoo.com>
+Subject: Re: [Patch v4] IPv6: Fixed support for blackhole and prohibit
+ routes
+Date: Mon, 02 Dec 2013 17:16:54 -0500 (EST)
+Message-ID: <20131202.171654.1682815174948392171.davem@davemloft.net>
+References: <1385994322-23117-1-git-send-email-kamala@aristanetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fx.lebail@yahoo.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54932 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752739Ab3LBWNq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 17:13:46 -0500
-In-Reply-To: <1385980129-16471-1-git-send-email-fx.lebail@yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kamala@aristanetworks.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1385994322-23117-1-git-send-email-kamala@aristanetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
-Date: Mon,  2 Dec 2013 11:28:49 +0100
+From: Kamala R <kamala@aristanetworks.com>
+Date: Mon,  2 Dec 2013 19:55:21 +0530
 
-> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+> The behaviour of blackhole and prohibit routes has been corrected by setting
+> the input and output pointers of the dst variable appropriately. For
+> blackhole routes, they are set to dst_discard and to ip6_pkt_discard and
+> ip6_pkt_discard_out respectively for prohibit routes.
+> 
+> ipv6: ip6_pkt_prohibit(_out) should not depend on
+> CONFIG_IPV6_MULTIPLE_TABLES
+> 
+> We need ip6_pkt_prohibit(_out) available without
+> CONFIG_IPV6_MULTIPLE_TABLES
+> 
+> Signed-off-by: Kamala R <kamala@aristanetworks.com>
 
-Applied, thank you.
+Applied and queued up for -stable, thanks.
