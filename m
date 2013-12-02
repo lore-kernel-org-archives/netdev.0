@@ -1,56 +1,64 @@
-From: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: mac80211: tx.c: be sure of 'sdata->vif.type' must
- be NL80211_IFTYPE_AP when be in NL80211_IFTYPE_AP case
-Date: Mon, 02 Dec 2013 08:45:47 +0800
-Message-ID: <529BD83B.4030103@gmail.com>
-References: <528AEFB7.4060301@gmail.com>  <20131125011938.GB18921@codeaurora.org> <5292B845.3010404@gmail.com>  <5292B8A0.7020409@gmail.com> <5294255E.7040105@gmail.com>  <52957ADA.2080704@gmail.com>  (sfid-20131127_055211_558798_A7DF5684) <1385739487.8656.1.camel@jlt4.sipsolutions.net>  <5299D306.7070701@gmail.com>  (sfid-20131130_125901_519610_EDA4068E) <1385816013.4327.1.camel@jlt4.sipsolutions.net>  <5299ED38.4090509@gmail.com> <5299EFDD.6060405@gmail.com>  (sfid-20131130_150205_984535_068F14A9) <1385842134.6108.4.camel@jlt4.sipsolutions.net>  <1385843940.2664.4.camel@joe-AO722>  <1385890523.4171.1.camel@jlt4.sipsolutions.net> <1385937499.2664.21.camel@joe-AO722>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Subject: Re: [PATCH] PCI / tg3: Give up chip reset and carrier loss handling if PCI device is not present
+Date: Mon, 02 Dec 2013 02:18:50 +0100
+Message-ID: <3652057.Ek7BjA2Oi2@vostro.rjw.lan>
+References: <7807315.7cU9KldDtM@vostro.rjw.lan> <1385930359.6988.7.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	rkuo <rkuo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1385937499.2664.21.camel@joe-AO722>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Linux PM list <linux-pm@vger.kernel.org>,
+	Linux PCI <linux-pci@vger.kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	David Miller <davem@davemloft.net>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <1385930359.6988.7.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/02/2013 06:38 AM, Joe Perches wrote:
-> On Sun, 2013-12-01 at 10:35 +0100, Johannes Berg wrote:
->> Good try, but no, now ap_sdata isn't even assigned. :)
+On Sunday, December 01, 2013 12:39:19 PM Michael Chan wrote:
+> On Sun, 2013-12-01 at 02:34 +0100, Rafael J. Wysocki wrote:
+> > From: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+> > 
+> > Modify tg3_chip_reset() and tg3_close() to check if the PCI network
+> > adapter device is accessible at all in order to skip poking it or
+> > trying to handle a carrier loss in vain when that's not the case.
+> > Introduce a special PCI helper function pci_device_is_present()
+> > for this purpose.
+> > 
+> > Of course, this uncovers the lack of the appropriate RTNL locking
+> > in tg3_suspend() and tg3_resume(), so add that locking in there
+> > too.
+> > 
+> > These changes prevent tg3 from burning a CPU at 100% load level for
+> > solid several seconds after the Thunderbolt link is disconnected from
+> > a Matrox DS1 docking station. 
 > 
-> Right.  Oh well.  There's no improving this without
-> significant rewrite.  Even then, there may not be much
-> overall improvement.
-> 
-> btw: Chen, I think fall-throughs are fine as long as
-> they are commented appropriately.
-> 
+> I'm not familiar with the DS1.  Does the tg3 device get removed through
+> tg3_remove_one() in this case?
 
-Hmm... for me, when use fall-through, need 2 things:
+Yes, this is a normal removal except that the device is gone physically when
+it happens.
 
- - need a comment.
+Thunderbolt cable disconnect is like a power failure for all devices on
+the link (that is, all devices in the DS1 in this particular case).
 
- - next case need not notice about prev case which fall-through.
+> What happens when you reconnect the DS1?
 
+Well, it works.  ACPIPHP just waits for the removal to complete and then it
+handles the hot-add event and the device works normally after that.
 
-If we can not fit the 2 things above, either can not use sub functions
-or macros for it because of performance reason, 'goto' is better than
-'fall-through'.
+The only problem is that without the patch the hot-removal takes a few seconds
+and quite a lot of CPU power due to the tight loop spinning in tg3_carrier_off()
+called by tg3_close(), while with the patch it just happens almost instantaneously.
 
-For me, in most cases, when a function becomes a long function, it is
-always better to use sub-fuctions or macros instead of some blocks (but
-it is really not urgent :-) ).
+And in the Thunderbolt disconnect case doing the entire tg3_chip_reset() is
+pointless anyway, because the config space of the device is not available then.
 
+Thanks!
 
-Thanks.
 -- 
-Chen Gang
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I speak only for myself.
+Rafael J. Wysocki, Intel Open Source Technology Center.
