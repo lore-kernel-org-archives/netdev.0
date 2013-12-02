@@ -1,49 +1,65 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] net: mac80211: tx.c: be sure of 'sdata->vif.type' must
- be NL80211_IFTYPE_AP when be in NL80211_IFTYPE_AP case
-Date: Mon, 02 Dec 2013 15:48:58 +0100
-Message-ID: <1385995738.20277.4.camel@jlt4.sipsolutions.net>
-References: <528AEFB7.4060301@gmail.com>
-	 <20131125011938.GB18921@codeaurora.org> <5292B845.3010404@gmail.com>
-	 <5292B8A0.7020409@gmail.com> <5294255E.7040105@gmail.com>
-	 <52957ADA.2080704@gmail.com>
-	 (sfid-20131127_055211_558798_A7DF5684) <1385739487.8656.1.camel@jlt4.sipsolutions.net>
-	 <5299D306.7070701@gmail.com>
-	 (sfid-20131130_125901_519610_EDA4068E) <1385816013.4327.1.camel@jlt4.sipsolutions.net>
-	 <5299ED38.4090509@gmail.com> <5299EFDD.6060405@gmail.com>
-	 (sfid-20131130_150205_984535_068F14A9) <1385842134.6108.4.camel@jlt4.sipsolutions.net>
-	 <1385843940.2664.4.camel@joe-AO722>
-	 <1385890523.4171.1.camel@jlt4.sipsolutions.net>
-	 <1385937499.2664.21.camel@joe-AO722>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH] sunrpc: fix some typos
+Date: Mon, 2 Dec 2013 09:51:01 -0500
+Message-ID: <20131202145101.GE1960@fieldses.org>
+References: <5299B65C.4070700@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Chen Gang <gang.chen.5i5j@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	rkuo <rkuo@codeaurora.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-nfs@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Trond.Myklebust@netapp.com,
+	davem@davemloft.net, Li Zefan <lizefan@huawei.com>,
+	Huang Qiang <h.huangqiang@huawei.com>
+To: Weng Meiling <wengmeiling.weng@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1385937499.2664.21.camel@joe-AO722>
+Content-Disposition: inline
+In-Reply-To: <5299B65C.4070700@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-12-01 at 14:38 -0800, Joe Perches wrote:
-> On Sun, 2013-12-01 at 10:35 +0100, Johannes Berg wrote:
-> > Good try, but no, now ap_sdata isn't even assigned. :)
+Thanks, applying.--b.
+
+On Sat, Nov 30, 2013 at 05:56:44PM +0800, Weng Meiling wrote:
 > 
-> Right.  Oh well.  There's no improving this without
-> significant rewrite.  Even then, there may not be much
-> overall improvement.
-
-I could see an improvement if we were to actually make changes to assign
-the pointer based on the iftype, when that changes, so that each
-function only has to handle the right type and we don't need the switch
-statement at all...
-
-But that's tricky to get right and I'm between vacations and holidays
-and all that ...
-
-johannes
+> From: Weng Meiling <wengmeiling.weng@huawei.com>
+> 
+> Signed-off-by: Weng Meiling <wengmeiling.weng@huawei.com>
+> ---
+>  include/linux/sunrpc/svc.h | 2 +-
+>  net/sunrpc/xprtsock.c      | 7 +++----
+>  2 files changed, 4 insertions(+), 5 deletions(-)
+> 
+> diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
+> index 6eecfc2..b6316423 100644
+> --- a/include/linux/sunrpc/svc.h
+> +++ b/include/linux/sunrpc/svc.h
+> @@ -368,7 +368,7 @@ struct svc_program {
+>  	struct svc_program *	pg_next;	/* other programs (same xprt) */
+>  	u32			pg_prog;	/* program number */
+>  	unsigned int		pg_lovers;	/* lowest version */
+> -	unsigned int		pg_hivers;	/* lowest version */
+> +	unsigned int		pg_hivers;	/* highest version */
+>  	unsigned int		pg_nvers;	/* number of versions */
+>  	struct svc_version **	pg_vers;	/* version array */
+>  	char *			pg_name;	/* service name */
+> diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+> index dd9d295..0f4f391 100644
+> --- a/net/sunrpc/xprtsock.c
+> +++ b/net/sunrpc/xprtsock.c
+> @@ -2932,10 +2932,9 @@ static struct rpc_xprt *xs_setup_bc_tcp(struct xprt_create *args)
+> 
+>  	/*
+>  	 * Once we've associated a backchannel xprt with a connection,
+> -	 * we want to keep it around as long as long as the connection
+> -	 * lasts, in case we need to start using it for a backchannel
+> -	 * again; this reference won't be dropped until bc_xprt is
+> -	 * destroyed.
+> +	 * we want to keep it around as long as the connection lasts,
+> +	 * in case we need to start using it for a backchannel again;
+> +	 * this reference won't be dropped until bc_xprt is destroyed.
+>  	 */
+>  	xprt_get(xprt);
+>  	args->bc_xprt->xpt_bc_xprt = xprt;
+> -- 
+> 1.8.3
+> 
+> 
