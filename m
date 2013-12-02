@@ -1,43 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6 addrconf: source address selection, Rule 7:
- Prefer temporary addresses (RFC 6724)
-Date: Sun, 01 Dec 2013 20:22:37 -0500 (EST)
-Message-ID: <20131201.202237.1289362147164597952.davem@davemloft.net>
-References: <1385396205-6105-1-git-send-email-fx.lebail@yahoo.com>
+Subject: Re: [PATCH] net: fec_main: dma_map() only the length of the skb
+Date: Sun, 01 Dec 2013 20:25:18 -0500 (EST)
+Message-ID: <20131201.202518.357889616067021901.davem@davemloft.net>
+References: <1385556253-4130-1-git-send-email-bigeasy@linutronix.de>
+	<9848F2DB572E5649BA045B288BE08FBE01899801@039-SN2MPN1-023.039d.mgd.msft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: fx.lebail@yahoo.com
+Cc: bigeasy@linutronix.de, netdev@vger.kernel.org,
+	Fabio.Estevam@freescale.com, frank.li@freescale.net,
+	jim_baxter@mentor.com, m.szyprowski@samsung.com
+To: fugang.duan@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45285 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45323 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752227Ab3LBBWi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Dec 2013 20:22:38 -0500
-In-Reply-To: <1385396205-6105-1-git-send-email-fx.lebail@yahoo.com>
+	with ESMTP id S1752316Ab3LBBZU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Dec 2013 20:25:20 -0500
+In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE01899801@039-SN2MPN1-023.039d.mgd.msft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: fx.lebail@yahoo.com
-Date: Mon, 25 Nov 2013 17:16:45 +0100
+From: Fugang Duan <fugang.duan@freescale.com>
+Date: Wed, 27 Nov 2013 13:08:18 +0000
 
-> The RFC 6724 change the default recommendation for source address selection
-> Rule 7 to prefer temporary addresses rather than public addresses,
-> while providing an administrative override.
-> 
-> The administrative override is based on the prefer_src_public sysctl.
-> 
-> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+> I will do overnight stress test for the patch tomorrow.
 
-I think we need to preserve existing behavior, but this patch does not
-do that.
+So, what was the result of your testing?
 
-Sorry, I can't apply this.
+Can you please Ack this patch if there are no problems with it and
+your testing went well?
 
-If someone was depending upon the old preferencing in some way, we will
-break communications for them, and that really isn't acceptable.
-
-It's really ill advised for the RFC folks to create situations like
-this, where implementations have to choose between following the
-updated RFC to the letter and keeping existing setups working.
+Thanks.
