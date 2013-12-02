@@ -1,60 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sched: tbf: fix calculation of max_size
-Date: Mon, 02 Dec 2013 11:45:34 -0500 (EST)
-Message-ID: <20131202.114534.2139333951615698198.davem@davemloft.net>
-References: <1385318452.10637.116.camel@edumazet-glaptop2.roam.corp.google.com>
-	<5292C76E.1070701@huawei.com>
-	<52933CC7.9070805@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: do not pretend FRAGLIST support
+Date: Mon, 02 Dec 2013 08:51:13 -0800
+Message-ID: <1386003073.5352.58.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1385631882-12827-2-git-send-email-puzman@gmail.com>
+	 <20131129.164229.2292905485668904870.davem@davemloft.net>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B744F@saturn3.aculab.com>
+	 <20131202.111600.1622488165507147936.davem@davemloft.net>
+	 <1386001999.5352.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, brouer@redhat.com,
-	jpirko@redhat.com, jbrouer@redhat.com
-To: yangyingliang@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51734 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753018Ab3LBQqR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 11:46:17 -0500
-In-Reply-To: <52933CC7.9070805@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David.Laight@ACULAB.COM, puzman@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	Anirudha Sarangi <anirudh@xilinx.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1386001999.5352.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yang Yingliang <yangyingliang@huawei.com>
-Date: Mon, 25 Nov 2013 20:04:23 +0800
+From: Eric Dumazet <edumazet@google.com>
 
-> From: Yang Yingliang <yangyingliang@huawei.com>
-> 
-> Current max_size is caluated from rate table. Now, the rate table
-> has been replaced and it's wrong to caculate max_size based on this
-> rate table. It can lead wrong calculation of max_size.
-> 
-> The burst in kernel may be lower than user asked, because burst may gets
-> some loss when transform it to buffer(E.g. "burst 40kb rate 30mbit/s")
-> and it seems we cannot avoid this loss. And burst's value(max_size) based
-> on rate table may be equal user asked. If a packet's length is max_size,
-> this packet will be stalled in tbf_dequeue() because its length is above
-> the burst in kernel so that it cannot get enough tokens. The max_size guards
-> against enqueuing packet sizes above q->buffer "time" in tbf_enqueue().
-> 
-> This patch fixes the calculation of max_size by using psched_l2t_ns() and
-> q->buffer to recalculate burst(max_size).
-> 
-> Also, add support to get burst from userland directly. We can avoid loss
-> in byte-to-time transform by using burst directly. Iproute2 will need a
-> patch to send burst to kernel.
-> 
-> Suggested-by: Jesper Dangaard Brouer <jbrouer@redhat.com>
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+Few network drivers really supports frag_list : virtual drivers.
 
-I don't see why you need to add the userland explicit burst capability
-to fix the calculation of max_size.
+Some drivers wrongly advertise NETIF_F_FRAGLIST feature.
 
-These two things are separate, the new netlink attributes are a new
-feature.
+If skb with a frag_list is given to them, packet on the wire will be
+corrupt.
 
-Therefore, please submit these two things separately.  First, submit
-the pure max_size bug fix for 'net'.  Then when I open 'net-next' back
-up you can submit the support for the new netlink attributes.
+Remove this flag, as core networking stack will make sure to
+provide packets that can be sent without corruption.
 
-Thanks.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Cc: Anirudha Sarangi <anirudh@xilinx.com>
+---
+ drivers/net/ethernet/ibm/ehea/ehea_main.c         |    2 +-
+ drivers/net/ethernet/tehuti/tehuti.c              |    1 -
+ drivers/net/ethernet/xilinx/ll_temac_main.c       |    2 +-
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c |    2 +-
+ 4 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+index 2d1c6bdd3618..7628e0fd8455 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+@@ -3033,7 +3033,7 @@ static struct ehea_port *ehea_setup_single_port(struct ehea_adapter *adapter,
+ 
+ 	dev->hw_features = NETIF_F_SG | NETIF_F_TSO |
+ 		      NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_CTAG_TX;
+-	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO |
++	dev->features = NETIF_F_SG | NETIF_F_TSO |
+ 		      NETIF_F_HIGHDMA | NETIF_F_IP_CSUM |
+ 		      NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
+ 		      NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_RXCSUM;
+diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
+index dd0dd6279b4e..4f1d2549130e 100644
+--- a/drivers/net/ethernet/tehuti/tehuti.c
++++ b/drivers/net/ethernet/tehuti/tehuti.c
+@@ -2019,7 +2019,6 @@ bdx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		ndev->features = NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO
+ 		    | NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
+ 		    NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_RXCSUM
+-		    /*| NETIF_F_FRAGLIST */
+ 		    ;
+ 		ndev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
+ 			NETIF_F_TSO | NETIF_F_HW_VLAN_CTAG_TX;
+diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
+index 1f2364126323..2166e879a096 100644
+--- a/drivers/net/ethernet/xilinx/ll_temac_main.c
++++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+@@ -1017,7 +1017,7 @@ static int temac_of_probe(struct platform_device *op)
+ 	platform_set_drvdata(op, ndev);
+ 	SET_NETDEV_DEV(ndev, &op->dev);
+ 	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
+-	ndev->features = NETIF_F_SG | NETIF_F_FRAGLIST;
++	ndev->features = NETIF_F_SG;
+ 	ndev->netdev_ops = &temac_netdev_ops;
+ 	ndev->ethtool_ops = &temac_ethtool_ops;
+ #if 0
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index b2ff038d6d20..f9293da19e26 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -1486,7 +1486,7 @@ static int axienet_of_probe(struct platform_device *op)
+ 
+ 	SET_NETDEV_DEV(ndev, &op->dev);
+ 	ndev->flags &= ~IFF_MULTICAST;  /* clear multicast */
+-	ndev->features = NETIF_F_SG | NETIF_F_FRAGLIST;
++	ndev->features = NETIF_F_SG;
+ 	ndev->netdev_ops = &axienet_netdev_ops;
+ 	ndev->ethtool_ops = &axienet_ethtool_ops;
+ 
