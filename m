@@ -1,91 +1,150 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH] mac80211: rx: Neaten ieee80211_deliver_skb, remove
- compare_ether_addr
-Date: Tue, 03 Dec 2013 10:29:20 -0800
-Message-ID: <1386095360.15309.29.camel@joe-AO722>
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: Re: Spurious timeouts in mvmdio
+Date: Tue, 03 Dec 2013 19:48:52 +0100
+Message-ID: <529E2794.7090205@freebox.fr>
+References: <529CA42A.3040504@freebox.fr> <20131203122346.GD29282@titan.lakedaemon.net> <20131203124033.GT16735@n2100.arm.linux.org.uk> <20131203134310.GE29282@titan.lakedaemon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Leigh Brown <leigh@solinno.co.uk>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Florian Fainelli <florian@openwrt.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jason Cooper <jason@lakedaemon.net>,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.iliad.fr ([212.27.33.1]:54446 "EHLO ns.iliad.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752716Ab3LCSsy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Dec 2013 13:48:54 -0500
+In-Reply-To: <20131203134310.GE29282@titan.lakedaemon.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove the unnecessary duplicate test of "if (skb) {"
-when !CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS.
+On 12/03/2013 02:43 PM, Jason Cooper wrote:
+> On Tue, Dec 03, 2013 at 12:40:34PM +0000, Russell King - ARM Linux wrote:
+>> On Tue, Dec 03, 2013 at 07:23:46AM -0500, Jason Cooper wrote:
+>>> On Mon, Dec 02, 2013 at 04:15:54PM +0100, Nicolas Schichan wrote:
+>>>> During 3.13-rc1 testing, I have found out that the mvmdio driver
+>>>> would report timeouts on the kernel console:
+>>>>
+>>>> [   11.011334] orion-mdio orion-mdio: Timeout: SMI busy for too long
+>>>>
+>>>> The hardware is a MV88F6281 Kirkwood CPU. The mvmdio driver is using
+>>>> the irq line 46 (ge00_err).
+>>>>
+>>>> I am inclined to believe that it is due to the fact that
+>>>> wait_event_timeout() is called with a timeout parameter of 1 jiffy
+>>>> in orion_mdio_wait_ready(). If the timer interrupt ticks right after
+>>>> calling wait_event_timeout(), we may end up spending much less time
+>>>> than MVMDIO_SMI_TIMEOUT (1 msec) in wait_event_timeout(), and as a
+>>>> result report a timeout as the MDIO access did not complete in such
+>>>> a short time.
+>>>>
+>>>> As to how to fix this, I see two options (I don't know which one
+>>>> would be prefered):
+>>>>
+>>>> - Option 1: always pass a timeout of at least 2 jiffy to wait_event_timeout().
+>>>> - Option 2: switch to wait_event_hrtimeout().
+>>>>
+>>>> I can provide patches for both options.
+>>>
+>>> Based on yesterday's irc chat, option 1 sounds good.  Here's the dump
+>>> from yesterday where Sebastian provided a thorough explanation:
+>>>
+>>> 11:29 < shesselba> increasing max timeout to 2 ticks at least sounds reasonable
+>>> 11:29 < shesselba> 10ms should be enough for every CONFIG_HZ there is
+>>>
+>>> 11:30 < kos_tom> why make the timeout tied to the ticks? there are functions/macros to convert real time numbers into ticks.
+>>> 11:30 < kos_tom> msecs_to_jiffies() or something
+>>>
+>>> 11:31 < shesselba> kos_tom: it is already using usecs_to_jiffies()
+>>> 11:31 < shesselba> the thing is: 1ms is less than a jiffy
+>>
+>> Yes, and the kernels time conversion functions aren't stupid.  Let's
+>> look at this function's implementation:
+>>
+>> unsigned long usecs_to_jiffies(const unsigned int u)
+>> {
+>>          if (u > jiffies_to_usecs(MAX_JIFFY_OFFSET))
+>>                  return MAX_JIFFY_OFFSET;
+>> #if HZ <= USEC_PER_SEC && !(USEC_PER_SEC % HZ)
+>>          return (u + (USEC_PER_SEC / HZ) - 1) / (USEC_PER_SEC / HZ);
+>> #elif HZ > USEC_PER_SEC && !(HZ % USEC_PER_SEC)
+>>          return u * (HZ / USEC_PER_SEC);
+>> #else
+>>          return (USEC_TO_HZ_MUL32 * u + USEC_TO_HZ_ADJ32)
+>>                  >> USEC_TO_HZ_SHR32;
+>> #endif
+>> }
+>>
+>> Now, assuming HZ=100 and USEC_PER_SEC=1000000, we will use:
+>>
+>> 	return (u + (USEC_PER_SEC / HZ) - 1) / (USEC_PER_SEC / HZ);
+>>
+>> If you ask for 1us, this comes out as:
+>>
+>> 	return (1 + (1000000 / 100) - 1) / (1000000 / 100);
+>>
+>> which is one jiffy.  So, for a requested 1us period, you're given a
+>> 1 jiffy interval, or 10ms.  For other (sensible) values:
+>>
+>>          return (USEC_TO_HZ_MUL32 * u + USEC_TO_HZ_ADJ32)
+>>                  >> USEC_TO_HZ_SHR32;
+>>
+>> gets used, which has a similar behaviour.
+>>
+>> Now, depending on how you use this one jiffy interval, the thing to realise
+>> is that with this kind of loop:
+>>
+>> 	timeout = jiffies + usecs_to_jiffies(1);
+>> 	do {
+>> 		something;
+>> 	} while (time_is_before_jiffies(timeout));
+>>
+>> what this equates to is:
+>>
+>> 	} while (jiffies - timeout < 0);
+>>
+>> What this means is that the loop breaks at jiffies = timeout, so it can
+>> indeed timeout before one tick - within 0 to 10ms for HZ=100.  The problem
+>> is not the usecs_to_jiffies(), it's with the implementation.
+>
+> Ack.
+>
+>> If you use time_is_before_eq_jiffies() instead, it will also loop if
+>> jiffies == timeout, which will give you the additional safety margin -
+>> meaning it will timeout after 10 to 20ms instead.
+>>
+>> You may wish to consider coding this differently as well - if you have
+>> the error interrupt, there's no need for this loop.  You only need the
+>> loop if you're using usleep_range().  Note the return value of
+>> wait_event_timeout() will tell you positively and correctly if the waited
+>> condition succeeded or you timed out.
+>
+> Nicolas, sorry for the confusion.  Mind spinning a v2?
 
-Remove now unnecessary __maybe_unused, neaten comment
-Remove unnecessary parenthesis around align cast.
-Substitute reference to deprecated compare_ether_addr
-with ether_addr_equal.
+Sure, I'll respin a V2 of the patch with the following:
 
-Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
----
- net/mac80211/rx.c | 33 +++++++++++++++------------------
- 1 file changed, 15 insertions(+), 18 deletions(-)
+- loop only when using polling mode.
+- set timeout given to wait_event_timeout() to at least 2
+- use the return value of wait_event_timeout to check if condition was met or not.
 
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index caecef8..b178c8f 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -1937,20 +1937,17 @@ ieee80211_deliver_skb(struct ieee80211_rx_data *rx)
- 		}
- 	}
- 
--	if (skb) {
--		int align __maybe_unused;
--
- #ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
--		/*
--		 * 'align' will only take the values 0 or 2 here
--		 * since all frames are required to be aligned
--		 * to 2-byte boundaries when being passed to
--		 * mac80211; the code here works just as well if
--		 * that isn't true, but mac80211 assumes it can
--		 * access fields as 2-byte aligned (e.g. for
--		 * compare_ether_addr)
-+	if (skb) {
-+		/* 'align' will only take the values 0 or 2 here since all
-+		 * frames are required to be aligned to 2-byte boundaries
-+		 * when being passed to mac80211; the code here works just
-+		 * as well if that isn't true, but mac80211 assumes it can
-+		 * access fields as 2-byte aligned (e.g. for ether_addr_equal)
- 		 */
--		align = ((unsigned long)(skb->data + sizeof(struct ethhdr))) & 3;
-+		int align;
-+
-+		align = (unsigned long)(skb->data + sizeof(struct ethhdr)) & 3;
- 		if (align) {
- 			if (WARN_ON(skb_headroom(skb) < 3)) {
- 				dev_kfree_skb(skb);
-@@ -1963,14 +1960,14 @@ ieee80211_deliver_skb(struct ieee80211_rx_data *rx)
- 				skb_set_tail_pointer(skb, len);
- 			}
- 		}
-+	}
- #endif
- 
--		if (skb) {
--			/* deliver to local stack */
--			skb->protocol = eth_type_trans(skb, dev);
--			memset(skb->cb, 0, sizeof(skb->cb));
--			netif_receive_skb(skb);
--		}
-+	if (skb) {
-+		/* deliver to local stack */
-+		skb->protocol = eth_type_trans(skb, dev);
-+		memset(skb->cb, 0, sizeof(skb->cb));
-+		netif_receive_skb(skb);
- 	}
- 
- 	if (xmit_skb) {
+As for the time_is_before_jiffies() use, when end == jiffies, (end - jiffies < 
+0) is false, so we'll stay in the loop for one more jiffy so I guess the code 
+is Ok in that regard (and as expected I get SMI timeouts in poll mode when I 
+replace time_is_before_jiffies() with time_is_before_eq_jiffies()).
 
+By the way time_is_before_jiffies(timeout) does not expand to (jiffies - 
+timeout < 0). I have the following:
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+time_is_before_jiffies(timeout) -> time_after(jiffies, timeout)
+time_after(jiffies, timeout) ->  (timeout - jiffies < 0)
+
+Regards,
+
+-- 
+Nicolas Schichan
+Freebox SAS
