@@ -1,58 +1,65 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net v3] vti: fix spd lookup: match plaintext pkt, not
- ipsec pkt
-Date: Tue, 3 Dec 2013 10:39:34 +0100
-Message-ID: <20131203093934.GR31491@secunet.com>
-References: <1383646612-30103-1-git-send-email-christophe.gouault@6wind.com>
- <1383725153-26298-1-git-send-email-christophe.gouault@6wind.com>
- <20131121121246.GD31491@secunet.com>
- <528F6B32.5050103@6wind.com>
- <20131203075513.GQ31491@secunet.com>
- <529D9DD3.7000908@6wind.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: [PATCH net v4 1/2] net: sched: tbf: fix calculation of max_size
+Date: Tue, 3 Dec 2013 17:47:45 +0800
+Message-ID: <529DA8C1.4000504@huawei.com>
+References: <1386041214-72744-1-git-send-email-yangyingliang@huawei.com>		 <1386041214-72744-2-git-send-email-yangyingliang@huawei.com>	 <1386046793.30495.12.camel@edumazet-glaptop2.roam.corp.google.com>	 <529D8BC7.4050005@huawei.com> <1386058339.30495.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, Saurabh Mohan <saurabh.mohan@vyatta.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Christophe Gouault <christophe.gouault@6wind.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<brouer@redhat.com>, <jpirko@redhat.com>, <jbrouer@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:57083 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751252Ab3LCJjh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Dec 2013 04:39:37 -0500
-Content-Disposition: inline
-In-Reply-To: <529D9DD3.7000908@6wind.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:9890 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752007Ab3LCJsQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 04:48:16 -0500
+In-Reply-To: <1386058339.30495.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 03, 2013 at 10:01:07AM +0100, Christophe Gouault wrote:
-> >
-> >On transmit side:
-> >
-> >1. Mark the packet with the o_key. The policy and the state
-> >    must match this key now.
-> >
-> >2. Do a xfrm_lookup on the original packet with the mark applied.
-> >
-> >3. Check if we got an IPsec route.
-> >
-> >4. Clean the skb to not leak informations on namespace
-> >    transitions.
-> >
-> >5. Attach the dst_enty we got from the xfrm_lookup to the skb.
+On 2013/12/3 16:12, Eric Dumazet wrote:
+> On Tue, 2013-12-03 at 15:44 +0800, Yang Yingliang wrote:
+>> On 2013/12/3 12:59, Eric Dumazet wrote:
+>>> On Tue, 2013-12-03 at 11:26 +0800, Yang Yingliang wrote:
+>>>
+>>>> +	for (max_size = 0; max_size < MAX_PKT_LEN; max_size++)
+>>>> +		if (psched_l2t_ns(&q->rate, max_size) > q->buffer)
+>>>> +			break;
+>>>> +	if (--max_size <= 0)
+>>>> +		goto unlock_done;
+>>>> +
+>>>
+>>> This seems dubious. With your new code, max_size < 65536
+>>>
+>>> Prior code had :
+>>>
+>>> for (n = 0; n < 256; n++)
+>>>     if (rtab->data[n] > qopt->buffer)
+>>>         break;
+>>> max_size = (n << qopt->rate.cell_log) - 1;
+>>>
+>>> So we could have much bigger max_size.
+>>>
+>>> The reason I ask is that its possible to have qdisc_pkt_len(skb) being
+>>> bigger than 65536, for TCP packets with low MSS value.
+>>>
+>>
+>> Hmmm, if qdisc_pkt_len(skb) is bigger than 65536, skb_is_gso(skb) is true,
+>> it will go into tbf_segment(). If I am wrong, please point me out, thanks!
+>>
+>> BTW, 65536 is suggested by Jesper, I'm a little uncertain about it. He is, too.
+>> Do you or some other developers have stronger opinions on this?
 > 
-> I am just wondering when exactly the netns transition IPsec and route
-> lookups are performed (as far as I understand, we first need to perform
-> the SP+SA lookup in inner netns, then change namespaces to outer
-> netns, then perform a route lookup).
-> 
+> We do not want to go to tbf_segment() if we programmed tbf to allow TSO
+> packets of 68.000 bytes being sent without being segmented.
 
-The idea is to do the xfrm_lookup based on the original dst_entry that
-comes with the skb. xfrm_lookup then generates a bundle with the IPsec
-dst entries on top. Later xfrm_output pops all IPsec dst entires from
-the skb, such that only the original routing one remains. I did not
-do much with namespaces so far, but after the IPsec processing we should
-be in the situation as we are when we transmitting via ipip. If it
-works there it should work with vti too.
+I mean a 64KB TSO packet's "qdisc_pkt_len(skb)" is bigger than 65536, but it will go
+to tbf_segment(), so the TSO packet of 64KB can be enqueued.
+
+> 
+> TSO packet of 64KB -> about 45 frames if MSS=1448, 45*1514 = 68130 bytes
+> 
+> Have you tried to use TBF on a 10 Gbps link, say with one TCP flow ?
+
+Yes, I had tried it with intel82599 nic.
