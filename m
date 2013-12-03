@@ -1,58 +1,48 @@
-From: Kevin Wallace <kevin@pentabarf.net>
-Subject: [PATCH] macvlan: Support creating macvtaps from macvlans
-Date: Mon,  2 Dec 2013 20:13:11 -0800
-Message-ID: <1386043991-4372-1-git-send-email-kevin@pentabarf.net>
-Cc: Kevin Wallace <kevin@pentabarf.net>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v4 1/2] net: sched: tbf: fix calculation of max_size
+Date: Mon, 02 Dec 2013 20:51:08 -0800
+Message-ID: <1386046268.30495.5.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386041214-72744-1-git-send-email-yangyingliang@huawei.com>
+	 <1386041214-72744-2-git-send-email-yangyingliang@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, brouer@redhat.com,
+	jpirko@redhat.com, jbrouer@redhat.com
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:63234 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751383Ab3LCENW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 23:13:22 -0500
-Received: by mail-pd0-f181.google.com with SMTP id p10so19331965pdj.40
-        for <netdev@vger.kernel.org>; Mon, 02 Dec 2013 20:13:21 -0800 (PST)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:54395 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751863Ab3LCEvK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 23:51:10 -0500
+Received: by mail-pa0-f50.google.com with SMTP id kl14so2405041pab.9
+        for <netdev@vger.kernel.org>; Mon, 02 Dec 2013 20:51:09 -0800 (PST)
+In-Reply-To: <1386041214-72744-2-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When running in a network namespace whose only link to the outside
-world is a macvlan device, not being able to create a macvtap off of
-it is a real pain.
+On Tue, 2013-12-03 at 11:26 +0800, Yang Yingliang wrote:
 
-So modify macvtap creation to automatically forward a creation of a
-macvtap on a macvlan to become a creation of a macvtap on the
-underlying network device, just like is currently done with
-macvlan-on-macvlan devices.
+> +	if (qopt->rate.linklayer == TC_LINKLAYER_UNAWARE) {
+> +		rtab = qdisc_get_rtab(&qopt->rate, tb[TCA_TBF_RTAB]);
+> +		if (rtab) {
+> +			qdisc_put_rtab(rtab);
+> +			rtab = NULL;
+> +		}
+>  	}
 
-Signed-off-by: Kevin Wallace <kevin@pentabarf.net>
----
- drivers/net/macvlan.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+Please make remove rtab use to make sure you dont leak a pointer.
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 16b43bf..3fa86cb 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -757,6 +757,8 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
- 	return 0;
- }
- 
-+static struct rtnl_link_ops macvlan_link_ops;
-+
- int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 			   struct nlattr *tb[], struct nlattr *data[],
- 			   int (*receive)(struct sk_buff *skb),
-@@ -775,10 +777,10 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 	if (lowerdev == NULL)
- 		return -ENODEV;
- 
--	/* When creating macvlans on top of other macvlans - use
-+	/* When creating macvlans or macvtaps on top of other macvlans - use
- 	 * the real device as the lowerdev.
- 	 */
--	if (lowerdev->rtnl_link_ops == dev->rtnl_link_ops) {
-+	if (lowerdev->rtnl_link_ops == &macvlan_link_ops) {
- 		struct macvlan_dev *lowervlan = netdev_priv(lowerdev);
- 		lowerdev = lowervlan->lowerdev;
- 	}
--- 
-1.8.3.2
+	if (qopt->rate.linklayer == TC_LINKLAYER_UNAWARE)
+	    qdisc_put_rtab(qdisc_get_rtab(&qopt->rate,
+				          tb[TCA_TBF_RTAB]));
+
+
+> +	if (qopt->peakrate.linklayer == TC_LINKLAYER_UNAWARE) {
+> +		ptab = qdisc_get_rtab(&qopt->peakrate, tb[TCA_TBF_PTAB]);
+> +		if (ptab) {
+> +			qdisc_put_rtab(ptab);
+> +			ptab = NULL;
+> +		}
+
+Same here for ptab
