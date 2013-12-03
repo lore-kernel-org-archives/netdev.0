@@ -1,92 +1,289 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Tue, 3 Dec 2013 23:36:50 +0200
-Message-ID: <CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com>
-References: <529DF340.70602@mellanox.com>
-	<1386084620.30495.28.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAJZOPZJ9WM1H9zKNzT5MvQ2UH7RxkTLk2Rhzsk9vdvKz6d2uAw@mail.gmail.com>
-	<alpine.LFD.2.03.1312031310140.23893@intel.com>
-	<CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
-	<1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: [PATCH] xen/pvhvm: If xen_platform_pci=0 is set don't
+	blow up.
+Date: Tue,  3 Dec 2013 16:14:06 -0500
+Message-ID: <1386105246-14337-1-git-send-email-konrad.wilk@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Jerry Chu <hkchu@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:55315 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755098Ab3LCVgv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 16:36:51 -0500
-Received: by mail-pb0-f43.google.com with SMTP id rq2so21873778pbb.2
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 13:36:50 -0800 (PST)
-In-Reply-To: <1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+To: stefano.stabellini@eu.citrix.com, ian.campbell@citrix.com,
+	xen-devel@lists.xenproject.org, linux-kernel@vger.kernel.org,
+	boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
+	leosilva@linux.vnet.ibm.com, ashley@ashleylai.com, peterhuewe@gmx.de,
+	mail@srajiv.net, tpmdd@selhorst.net, tpmdd@sirrix.com,
+	dmitry.torokhov@gmail.com, bhelgaas@google.com, plagnioj@jcrosoft.com,
+	tomi.valkeinen@ti.com, tpmdd-devel@lists.sourceforge.net,
+	linux-input@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, linux-fbdev@vger.kernel.org
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 3, 2013 at 11:24 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2013-12-03 at 23:09 +0200, Or Gerlitz wrote:
->> On Tue, Dec 3, 2013 at 11:11 PM, Joseph Gasparakis
->> <joseph.gasparakis@intel.com> wrote:
->>
->> >>> lack of GRO : receiver seems to not be able to receive as fast as you want.
->> >>>>      TCPOFOQueue: 3167879
->> >>> So many packets are received out of order (because of losses)
->>
->> >> I see that there's no GRO also for the non-veth tests which involve
->> >> vxlan, and over there the receiving side is capable to consume the
->> >> packets, do you have rough explaination why adding veth to the chain
->> >> is such game changer which makes things to start falling out?
->>
->> > I have seen this before. Here are my findings:
->> >
->> > The gso_type is different if the skb comes from veth or not. From veth,
->> > you will see the SKB_GSO_DODGY set. This breaks things as when the
->> > skb with DODGY set moves from vxlan to the driver through dev_xmit_hard,
->> > the stack drops it silently. I never got the time to find the root cause
->> > for this, but I know it causes re-transmissions and big performance
->> > degregation.
->> >
->> > I went as far as just quickly hacking a one liner unsetting the DODGY bit
->> > in vxlan.c and that bypassed the issue and recovered the performance
->> > problem, but obviously this is not a real fix.
->>
->> thanks for the heads up, few quick questions/clafications --
->>
->> -- you are talking on drops done @ the sender side, correct? Eric was
->> saying we have evidences that the drops happen on the receiver.
->
-> I suggested you take a look at the receiver, like "ifconfig -a"
+The user has the option of disabling the platform driver:
+00:02.0 Unassigned class [ff80]: XenSource, Inc. Xen Platform Device (rev 01)
 
-Eric, sorry I am away from the system now, will try to get some access
-and report back now and if not, tomorow, but
+which is used to unplug the emulated drivers (IDE, Realtek 8169, etc)
+and allow the PV drivers to take over. If the user wishes
+to disable that they can set:
 
+  xen_platform_pci=0
+  (in the guest config file)
 
-> I suspect one cpu is 100% in sofirq mode draining packets from the NIC
-> and feeding IP / TCP stack.
+or
+  xen_emul_unplug=never
+  (on the Linux command line)
 
-> Because of vxlan encap, all the packets are delivered to a single RX
-> queue (I dont think mlx4 is able to look at inner header to get L4 info)
+except it does not work properly. The PV drivers still try to
+load and since the Xen platform driver is not run - and it
+has not initialized the grant tables, most of the PV drivers
+stumble upon:
 
-With the new card, ConnectX3-pro we are able to look on inner headers
-and do RX/TX checksum and LSO for the encapsulated traffic, this is
-how I initially got into this problem. But as I wrote earlier, I was
-able to see the problem w.o activating the offloads for the inner
-packets. Sorry if I didn't mention that, but from the mlx4_en NIC
-driver point of view, different stream do map to different RX queues,
-b/c the HW does RSS on the outer (UDP) header and the sender vxlan
-code uses few sockets to send multiple streams which each having
-difference source UDP port. For the "outer RSS" you don't need the
--pro card, just make sure the udp_rss module param of mlx4 is set.
+input: Xen Virtual Keyboard as /devices/virtual/input/input5
+input: Xen Virtual Pointer as /devices/virtual/input/input6M
+------------[ cut here ]------------
+kernel BUG at /home/konrad/ssd/konrad/linux/drivers/xen/grant-table.c:1206!
+invalid opcode: 0000 [#1] SMP
+Modules linked in: xen_kbdfront(+) xenfs xen_privcmd
+CPU: 6 PID: 1389 Comm: modprobe Not tainted 3.13.0-rc1upstream-00021-ga6c892b-dirty #1
+Hardware name: Xen HVM domU, BIOS 4.4-unstable 11/26/2013
+RIP: 0010:[<ffffffff813ddc40>]  [<ffffffff813ddc40>] get_free_entries+0x2e0/0x300
+Call Trace:
+ [<ffffffff8150d9a3>] ? evdev_connect+0x1e3/0x240
+ [<ffffffff813ddd0e>] gnttab_grant_foreign_access+0x2e/0x70
+ [<ffffffffa0010081>] xenkbd_connect_backend+0x41/0x290 [xen_kbdfront]
+ [<ffffffffa0010a12>] xenkbd_probe+0x2f2/0x324 [xen_kbdfront]
+ [<ffffffff813e5757>] xenbus_dev_probe+0x77/0x130
+ [<ffffffff813e7217>] xenbus_frontend_dev_probe+0x47/0x50
+ [<ffffffff8145e9a9>] driver_probe_device+0x89/0x230
+ [<ffffffff8145ebeb>] __driver_attach+0x9b/0xa0
+ [<ffffffff8145eb50>] ? driver_probe_device+0x230/0x230
+ [<ffffffff8145eb50>] ? driver_probe_device+0x230/0x230
+ [<ffffffff8145cf1c>] bus_for_each_dev+0x8c/0xb0
+ [<ffffffff8145e7d9>] driver_attach+0x19/0x20
+ [<ffffffff8145e260>] bus_add_driver+0x1a0/0x220
+ [<ffffffff8145f1ff>] driver_register+0x5f/0xf0
+ [<ffffffff813e55c5>] xenbus_register_driver_common+0x15/0x20
+ [<ffffffff813e76b3>] xenbus_register_frontend+0x23/0x40
+ [<ffffffffa0015000>] ? 0xffffffffa0014fff
+ [<ffffffffa001502b>] xenkbd_init+0x2b/0x1000 [xen_kbdfront]
+ [<ffffffff81002049>] do_one_initcall+0x49/0x170
 
-I also thought that under veth there's contention point which could
-explain why packets are dropped, but haven't found it.
+.. snip..
 
+which is hardly nice. This patch fixes this by having each
+PV driver check for:
+ - if running in PV, then it is fine to execute (as that is their
+   native environment).
+ - if running in HVM, check if user wanted 'xen_emul_unplug=never',
+   in which case bail out and don't load PV drivers.
+ - if running in HVM, and if PCI device 5853:0001 (xen_platform_pci)
+   does not exist, then bail out and not load PV drivers.
 
-> mpstat -P ALL 10 10
+P.S.
+Ian Campbell suggested getting rid of 'xen_platform_pci_unplug'
+but unfortunatly the xen-blkfront driver is using it, so we
+cannot do it.
+
+Reported-by: Sander Eikelenboom <linux@eikelenboom.it
+Reported-by: Anthony PERARD <anthony.perard@citrix.com>
+Reported-by: Fabio Fantoni <fabio.fantoni@m2r.biz>
+---
+ arch/x86/xen/platform-pci-unplug.c         | 18 ++++++++++++++++++
+ drivers/block/xen-blkfront.c               |  2 +-
+ drivers/char/tpm/xen-tpmfront.c            |  4 ++++
+ drivers/input/misc/xen-kbdfront.c          |  4 ++++
+ drivers/net/xen-netfront.c                 |  2 +-
+ drivers/pci/xen-pcifront.c                 |  4 ++++
+ drivers/video/xen-fbfront.c                |  4 ++++
+ drivers/xen/xenbus/xenbus_probe_frontend.c |  2 +-
+ include/xen/platform_pci.h                 | 13 ++++++++++++-
+ 9 files changed, 49 insertions(+), 4 deletions(-)
+
+diff --git a/arch/x86/xen/platform-pci-unplug.c b/arch/x86/xen/platform-pci-unplug.c
+index 0a78524..087dfeb 100644
+--- a/arch/x86/xen/platform-pci-unplug.c
++++ b/arch/x86/xen/platform-pci-unplug.c
+@@ -69,6 +69,24 @@ static int check_platform_magic(void)
+ 	return 0;
+ }
+ 
++bool xen_has_pv_devices(void)
++{
++	if (!xen_domain())
++		return false;
++
++	if (xen_hvm_domain()) {
++		/* User requested no unplug, so no PV drivers. */
++		if (xen_emul_unplug & XEN_UNPLUG_NEVER)
++			return false;
++		/* And user has xen_platform_pci=0 set in guest config as
++		 * driver did not modify the value. */
++		if (!xen_platform_pci_unplug)
++			return false;
++	}
++	return true;
++}
++EXPORT_SYMBOL_GPL(xen_has_pv_devices);
++
+ void xen_unplug_emulated_devices(void)
+ {
+ 	int r;
+diff --git a/drivers/block/xen-blkfront.c b/drivers/block/xen-blkfront.c
+index 432db1b..9616b81 100644
+--- a/drivers/block/xen-blkfront.c
++++ b/drivers/block/xen-blkfront.c
+@@ -2074,7 +2074,7 @@ static int __init xlblk_init(void)
+ 	if (!xen_domain())
+ 		return -ENODEV;
+ 
+-	if (xen_hvm_domain() && !xen_platform_pci_unplug)
++	if (!xen_has_pv_devices())
+ 		return -ENODEV;
+ 
+ 	if (register_blkdev(XENVBD_MAJOR, DEV_NAME)) {
+diff --git a/drivers/char/tpm/xen-tpmfront.c b/drivers/char/tpm/xen-tpmfront.c
+index c8ff4df..62e7d38 100644
+--- a/drivers/char/tpm/xen-tpmfront.c
++++ b/drivers/char/tpm/xen-tpmfront.c
+@@ -17,6 +17,7 @@
+ #include <xen/xenbus.h>
+ #include <xen/page.h>
+ #include "tpm.h"
++#include <xen/platform_pci.h>
+ 
+ struct tpm_private {
+ 	struct tpm_chip *chip;
+@@ -421,6 +422,9 @@ static int __init xen_tpmfront_init(void)
+ 	if (!xen_domain())
+ 		return -ENODEV;
+ 
++	if (!xen_has_pv_devices())
++		return -ENODEV;
++
+ 	return xenbus_register_frontend(&tpmfront_driver);
+ }
+ module_init(xen_tpmfront_init);
+diff --git a/drivers/input/misc/xen-kbdfront.c b/drivers/input/misc/xen-kbdfront.c
+index e21c181..fbfdc10 100644
+--- a/drivers/input/misc/xen-kbdfront.c
++++ b/drivers/input/misc/xen-kbdfront.c
+@@ -29,6 +29,7 @@
+ #include <xen/interface/io/fbif.h>
+ #include <xen/interface/io/kbdif.h>
+ #include <xen/xenbus.h>
++#include <xen/platform_pci.h>
+ 
+ struct xenkbd_info {
+ 	struct input_dev *kbd;
+@@ -380,6 +381,9 @@ static int __init xenkbd_init(void)
+ 	if (xen_initial_domain())
+ 		return -ENODEV;
+ 
++	if (!xen_has_pv_devices())
++		return -ENODEV;
++
+ 	return xenbus_register_frontend(&xenkbd_driver);
+ }
+ 
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index e59acb1..d4b52e9 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -2115,7 +2115,7 @@ static int __init netif_init(void)
+ 	if (!xen_domain())
+ 		return -ENODEV;
+ 
+-	if (xen_hvm_domain() && !xen_platform_pci_unplug)
++	if (!xen_has_pv_devices())
+ 		return -ENODEV;
+ 
+ 	pr_info("Initialising Xen virtual ethernet driver\n");
+diff --git a/drivers/pci/xen-pcifront.c b/drivers/pci/xen-pcifront.c
+index f7197a7..eae7cd9 100644
+--- a/drivers/pci/xen-pcifront.c
++++ b/drivers/pci/xen-pcifront.c
+@@ -20,6 +20,7 @@
+ #include <linux/workqueue.h>
+ #include <linux/bitops.h>
+ #include <linux/time.h>
++#include <xen/platform_pci.h>
+ 
+ #include <asm/xen/swiotlb-xen.h>
+ #define INVALID_GRANT_REF (0)
+@@ -1138,6 +1139,9 @@ static int __init pcifront_init(void)
+ 	if (!xen_pv_domain() || xen_initial_domain())
+ 		return -ENODEV;
+ 
++	if (!xen_has_pv_devices())
++		return -ENODEV;
++
+ 	pci_frontend_registrar(1 /* enable */);
+ 
+ 	return xenbus_register_frontend(&xenpci_driver);
+diff --git a/drivers/video/xen-fbfront.c b/drivers/video/xen-fbfront.c
+index cd005c2..4b2d3ab 100644
+--- a/drivers/video/xen-fbfront.c
++++ b/drivers/video/xen-fbfront.c
+@@ -35,6 +35,7 @@
+ #include <xen/interface/io/fbif.h>
+ #include <xen/interface/io/protocols.h>
+ #include <xen/xenbus.h>
++#include <xen/platform_pci.h>
+ 
+ struct xenfb_info {
+ 	unsigned char		*fb;
+@@ -699,6 +700,9 @@ static int __init xenfb_init(void)
+ 	if (xen_initial_domain())
+ 		return -ENODEV;
+ 
++	if (!xen_has_pv_devices())
++		return -ENODEV;
++
+ 	return xenbus_register_frontend(&xenfb_driver);
+ }
+ 
+diff --git a/drivers/xen/xenbus/xenbus_probe_frontend.c b/drivers/xen/xenbus/xenbus_probe_frontend.c
+index 129bf84..cb385c1 100644
+--- a/drivers/xen/xenbus/xenbus_probe_frontend.c
++++ b/drivers/xen/xenbus/xenbus_probe_frontend.c
+@@ -496,7 +496,7 @@ subsys_initcall(xenbus_probe_frontend_init);
+ #ifndef MODULE
+ static int __init boot_wait_for_devices(void)
+ {
+-	if (xen_hvm_domain() && !xen_platform_pci_unplug)
++	if (!xen_has_pv_devices())
+ 		return -ENODEV;
+ 
+ 	ready_to_wait_for_devices = 1;
+diff --git a/include/xen/platform_pci.h b/include/xen/platform_pci.h
+index 438c256..87bc59c 100644
+--- a/include/xen/platform_pci.h
++++ b/include/xen/platform_pci.h
+@@ -47,5 +47,16 @@ static inline int xen_must_unplug_disks(void) {
+ }
+ 
+ extern int xen_platform_pci_unplug;
+-
++#if defined(CONFIG_XEN_PVHVM)
++extern bool xen_has_pv_devices(void);
++#else
++static inline bool xen_has_pv_devices(void)
++{
++#if defined(CONFIG_XEN)
++	return true;
++#else
++	return false;
++#endif
++}
++#endif
+ #endif /* _XEN_PLATFORM_PCI_H */
+-- 
+1.8.3.1
