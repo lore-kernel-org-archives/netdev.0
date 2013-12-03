@@ -1,63 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v4 1/2] net: sched: tbf: fix calculation of max_size
-Date: Tue, 03 Dec 2013 00:12:19 -0800
-Message-ID: <1386058339.30495.19.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386041214-72744-1-git-send-email-yangyingliang@huawei.com>
-		 <1386041214-72744-2-git-send-email-yangyingliang@huawei.com>
-	 <1386046793.30495.12.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <529D8BC7.4050005@huawei.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH] macvlan: Support creating macvtaps from macvlans
+Date: Tue, 3 Dec 2013 09:24:51 +0100
+Message-ID: <20131203082450.GA17839@unicorn.suse.cz>
+References: <1386043991-4372-1-git-send-email-kevin@pentabarf.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, brouer@redhat.com,
-	jpirko@redhat.com, jbrouer@redhat.com
-To: Yang Yingliang <yangyingliang@huawei.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Kevin Wallace <kevin@pentabarf.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:40445 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751941Ab3LCIMW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 03:12:22 -0500
-Received: by mail-pd0-f178.google.com with SMTP id y10so19498319pdj.23
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 00:12:22 -0800 (PST)
-In-Reply-To: <529D8BC7.4050005@huawei.com>
+Received: from cantor2.suse.de ([195.135.220.15]:48285 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751808Ab3LCIYw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Dec 2013 03:24:52 -0500
+Content-Disposition: inline
+In-Reply-To: <1386043991-4372-1-git-send-email-kevin@pentabarf.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-03 at 15:44 +0800, Yang Yingliang wrote:
-> On 2013/12/3 12:59, Eric Dumazet wrote:
-> > On Tue, 2013-12-03 at 11:26 +0800, Yang Yingliang wrote:
-> > 
-> >> +	for (max_size = 0; max_size < MAX_PKT_LEN; max_size++)
-> >> +		if (psched_l2t_ns(&q->rate, max_size) > q->buffer)
-> >> +			break;
-> >> +	if (--max_size <= 0)
-> >> +		goto unlock_done;
-> >> +
-> > 
-> > This seems dubious. With your new code, max_size < 65536
-> > 
-> > Prior code had :
-> > 
-> > for (n = 0; n < 256; n++)
-> >     if (rtab->data[n] > qopt->buffer)
-> >         break;
-> > max_size = (n << qopt->rate.cell_log) - 1;
-> > 
-> > So we could have much bigger max_size.
-> > 
-> > The reason I ask is that its possible to have qdisc_pkt_len(skb) being
-> > bigger than 65536, for TCP packets with low MSS value.
-> > 
-> 
-> Hmmm, if qdisc_pkt_len(skb) is bigger than 65536, skb_is_gso(skb) is true,
-> it will go into tbf_segment(). If I am wrong, please point me out, thanks!
-> 
-> BTW, 65536 is suggested by Jesper, I'm a little uncertain about it. He is, too.
-> Do you or some other developers have stronger opinions on this?
+On Mon, Dec 02, 2013 at 08:13:11PM -0800, Kevin Wallace wrote:
+> -	/* When creating macvlans on top of other macvlans - use
+> +	/* When creating macvlans or macvtaps on top of other macvlans - use
+>  	 * the real device as the lowerdev.
+>  	 */
+> -	if (lowerdev->rtnl_link_ops == dev->rtnl_link_ops) {
+> +	if (lowerdev->rtnl_link_ops == &macvlan_link_ops) {
+>  		struct macvlan_dev *lowervlan = netdev_priv(lowerdev);
+>  		lowerdev = lowervlan->lowerdev;
+>  	}
 
-We do not want to go to tbf_segment() if we programmed tbf to allow TSO
-packets of 68.000 bytes being sent without being segmented.
+Perhaps we could use the helpers:
 
-TSO packet of 64KB -> about 45 frames if MSS=1448, 45*1514 = 68130 bytes
+	if (netif_is_macvlan(lowerdev))
+		lowerdev = macvlan_dev_real_dev(lowerdev);
 
-Have you tried to use TBF on a 10 Gbps link, say with one TCP flow ?
+to show more clearly what we are doing.
+
+                                                        Michal Kubecek
