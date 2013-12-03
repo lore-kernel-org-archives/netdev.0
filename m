@@ -1,37 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Tue, 03 Dec 2013 13:55:14 -0800
-Message-ID: <1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
-	 <1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com>
-	 <20131203.165034.1085515763685633822.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2 0/3] Fixes T5 adapter init, due to incorrect FW
+ version check
+Date: Tue, 03 Dec 2013 17:00:20 -0500 (EST)
+Message-ID: <20131203.170020.81119884094393685.davem@davemloft.net>
+References: <1386070558-21521-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: or.gerlitz@gmail.com, joseph.gasparakis@intel.com,
-	hkchu@google.com, ogerlitz@mellanox.com, edumazet@google.com,
-	ast@plumgrid.com, pshelar@nicira.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, dm@chelsio.com, leedom@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com, santosh@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f41.google.com ([209.85.213.41]:53862 "EHLO
-	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755106Ab3LCVzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 16:55:19 -0500
-Received: by mail-yh0-f41.google.com with SMTP id f11so10683205yha.14
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 13:55:19 -0800 (PST)
-In-Reply-To: <20131203.165034.1085515763685633822.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36841 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754816Ab3LCWAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 17:00:22 -0500
+In-Reply-To: <1386070558-21521-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-03 at 16:50 -0500, David Miller wrote:
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Tue,  3 Dec 2013 17:05:55 +0530
 
-> At this point I would use drop monitor to figure out in what context
-> packets are being dropped on the floor.  There are scripts provided
-> with the perf tool to utilize it.
+> This patch series fixes, Chelsio T5 adapter initialization failure due to
+> incorrect firmware version check. This patch series modifies the firmware
+> flashing mechanism for T4/T5 adapter.
+> 
+> The patch series moves chip type from struct adapter to struct adapter_params.
+> It changes the references of chip type in cxgb4 and cxgb4vf drivers such that
+> build failure is avoided.
+> 
+> Patch 3/3 is dependent on patch 1/3
+> Patch 2/3 is also dependent on patch 1/3
+> 
+> We would like to request this patch series to get merged via David Miller's
+> 'net' tree.
+> 
+> We have included all the maintainers of respective drivers. Kindly review the
+> change and let us know in case of any review comments.
 
-Most easy way is to do :
-
-perf record -e skb:kfree_skb -a -g sleep 10
-
-perf report
+Series applied, thanks.
