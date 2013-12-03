@@ -1,68 +1,45 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: Re: [PATCH 20/39] net: remove DEFINE_PCI_DEVICE_TABLE macro
-Date: Tue, 03 Dec 2013 11:44:16 +0900
-Message-ID: <004601ceefd1$8efd6ea0$acf84be0$%han@samsung.com>
-References: <001501ceefb1$69c96820$3d5c3860$%han@samsung.com>
- <002901ceefb4$f1191e30$d34b5a90$%han@samsung.com>
- <20131202183646.459564a9@nehalam.linuxnetplumber.net>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net v4 0/2] net: sched: fix some issues
+Date: Tue, 3 Dec 2013 11:26:52 +0800
+Message-ID: <1386041214-72744-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: 'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>,
-	linux-kernel@vger.kernel.org, 'David Miller' <davem@davemloft.net>,
-	netdev@vger.kernel.org, 'Joe Perches' <joe@perches.com>,
-	'Jonas Bonn' <jonas@southpole.se>,
-	'Jingoo Han' <jg1.han@samsung.com>
-To: 'Stephen Hemminger' <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <20131202183646.459564a9@nehalam.linuxnetplumber.net>
-Content-language: ko
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
+	<jbrouer@redhat.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:12232 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751025Ab3LCD1E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 22:27:04 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, December 03, 2013 11:37 AM, Stephen Hemminger wrote:
-> On Tue, 03 Dec 2013 08:19:25 +0900
-> Jingoo Han <jg1.han@samsung.com> wrote:
-> 
-> > Don't use DEFINE_PCI_DEVICE_TABLE macro, because this macro
-> > is not preferred.
-> >
-> > Signed-off-by: Jingoo Han <jg1.han@samsung.com>
-> 
-> Perhaps a little more explanation why it is not preferred.
-> Not everyone tracks LKML or the PCI list.
+fix calculation of max_size in tbf
+fix quantum calculation introduced by 64bit rates.
 
-(+cc Joe Perches, Jonas Bonn)
+v2
+  patch 1/2: redescribe the regression.
+  patch 2/2: add Eric's ack.
 
-It is simple.
-There is no special reason to use DEFINE_PCI_DEVICE_TABLE macro.
+v3
+  patch 1/2: use psched_l2t_ns to calculate max_size
+  and cleanup exit/done section suggested by Jesper.
 
-According to the Greg Kroah-Hartman,
-"Yeah, and it's a horrid macro that deserves to be removed,
-please don't use it in more places."
+v4
+  patch 1/2:
+  1.Update commit message suggested by Jesper.
+  2.Use a macro to replace 65535 constant.
+  3.Add condition that when peakrate is lower than rate, return -EINVAL.
+  4.Don't use cell_log anymore.
 
-Currently, there is no other bus that has something like this
-macro for their device ids. Thus, DEFINE_PCI_DEVICE_TABLE macro
-should be removed.
+Yang Yingliang (2):
+  net: sched: tbf: fix calculation of max_size
+  net: sched: htb: fix calculation of quantum
 
-Jonas Bonn (author of DEFINE_PCI_DEVICE_TABLE macro) also agreed
-to remove this macro. According to Jonas Bonn,
-"Actually, I think I submitted an even uglier macro called 
-DECLARE_PCI_DEVICE_TABLE... might have been the first kernel
-Patch I  ever sent?  In any case, it should certainly have been
-kindly rejected."
+ net/sched/sch_htb.c | 18 ++++++-----
+ net/sched/sch_tbf.c | 91 ++++++++++++++++++++++++++++++-----------------------
+ 2 files changed, 61 insertions(+), 48 deletions(-)
 
-After Joe Perches's patch[1] is merged, I will send these patches
-to each subsystem maintainer.
-
-[1][PATCH] pci/checkpatch: Deprecate DEFINE_PCI_DEVICE_TABLE
-    (http://lkml.org/lkml/2013/12/2/400)
-
-In this patch, Joe Perches fixed 'Documentation/PCI/pci.txt', and
-'scripts/checkpatch.pl', in order to guide to use 'struct pci_device_id'
-instead of 'DEFINE_PCI_DEVICE_TABLE' macro.
-
-Thank you.
-
-Best regards,
-Jingoo Han
+-- 
+1.8.0
