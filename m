@@ -1,75 +1,59 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 3/3] xfrm: Fix null pointer dereference when decoding sessions
-Date: Tue, 3 Dec 2013 11:41:31 +0100
-Message-ID: <20131203104130.GA8920@order.stressinduktion.org>
-References: <1383294107-7509-4-git-send-email-steffen.klassert@secunet.com> <20131201.203506.1790384137281236147.davem@davemloft.net> <20131203095645.GS31491@secunet.com> <2526311.Qy2u417McY@h2o.as.studentenwerk.mhn.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	mschiffer@universe-factory.net, stable@vger.kernel.org
-To: Wolfgang Walter <linux@stwm.de>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <2526311.Qy2u417McY@h2o.as.studentenwerk.mhn.de>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kevin Wallace <kevin@pentabarf.net>
+Subject: [PATCH v2] macvlan: Support creating macvtaps from macvlans
+Date: Tue,  3 Dec 2013 02:55:22 -0800
+Message-ID: <1386068122-12039-1-git-send-email-kevin@pentabarf.net>
+References: <1386043991-4372-1-git-send-email-kevin@pentabarf.net>
+Cc: Michal Kubecek <mkubecek@suse.cz>,
+	Kevin Wallace <kevin@pentabarf.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:44446 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752372Ab3LCK4V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 05:56:21 -0500
+Received: by mail-pb0-f50.google.com with SMTP id rr13so20644970pbb.23
+        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 02:56:21 -0800 (PST)
+In-Reply-To: <1386043991-4372-1-git-send-email-kevin@pentabarf.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 03, 2013 at 11:37:04AM +0100, Wolfgang Walter wrote:
-> Am Dienstag, 3. Dezember 2013, 10:56:45 schrieb Steffen Klassert:
-> > Ccing stable.
-> > 
-> > On Sun, Dec 01, 2013 at 08:35:06PM -0500, David Miller wrote:
-> > > From: Matthias Schiffer <mschiffer@universe-factory.net>
-> > > Date: Sun, 01 Dec 2013 05:19:53 +0100
-> > > 
-> > > > On 11/24/2013 03:27 PM, Matthias Schiffer wrote:
-> > > >> On 11/01/2013 09:21 AM, Steffen Klassert wrote:
-> > > >>> On some codepaths the skb does not have a dst entry
-> > > >>> when xfrm_decode_session() is called. So check for
-> > > >>> a valid skb_dst() before dereferencing the device
-> > > >>> interface index. We use 0 as the device index if
-> > > >>> there is no valid skb_dst(), or at reverse decoding
-> > > >>> we use skb_iif as device interface index.
-> > > >>> 
-> > > >>> Bug was introduced with git commit bafd4bd4dc
-> > > >>> ("xfrm: Decode sessions with output interface.").
-> > > >>> 
-> > > >>> Reported-by: Meelis Roos <mroos@linux.ee>
-> > > >>> Tested-by: Meelis Roos <mroos@linux.ee>
-> > > >>> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> > > >> 
-> > > >> Please queue this for 3.12-stable, I've seen this bug trigger a panic
-> > > >> when heavily using Bittorrent (screenshot:
-> > > >> http://i.imgur.com/OIKVccM.jpg )
-> > > >> 
-> > > >> Thanks,
-> > > >> Matthias
-> > > > 
-> > > > Ping? Several people I know have hit this panic with 3.12.x at least
-> > > > once or twice by now during heavy IPv6 usage.
-> > > 
-> > > Steffen submitted it to stable@vger.kernel.org for inclusion on Monday
-> > > November 25th.
-> > 
-> > It apparently did not make it into v3.12.2 and it is not in the v3.12.3
-> > review included. So I wonder if I need to do anything additional to
-> > get it included. It is the first time that I did a stable submission
-> > myself.
-> > 
-> > I tried to follow the instructions at Documentation/stable_kernel_rules.txt
-> > but maybe I've missed something.
-> 
-> There is another weakness with ipv6 in 3.12.x which - under certain 
-> circumstances - can be exploited remotely:
-> 
-> 	ipv6 fragmentation-related panic in netfilter
-> 
-> I would be very glad if this would make it into 3.12 stable soon.
+When running in a network namespace whose only link to the outside
+world is a macvlan device, not being able to create a macvtap off of
+it is a real pain.
 
-These patches are already queued up for stable by David:
-http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
+So modify macvtap creation to automatically forward a creation of a
+macvtap on a macvlan to become a creation of a macvtap on the
+underlying network device, just like is currently done with
+macvlan-on-macvlan devices.
 
-Greetings,
+v2: Use netif_is_macvlan and macvlan_dev_real_dev helpers to make it
+    more clear what we're doing.
 
-  Hannes
+Signed-off-by: Kevin Wallace <kevin@pentabarf.net>
+---
+ drivers/net/macvlan.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index acf9379..cfb9157 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -820,13 +820,11 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+ 	if (lowerdev == NULL)
+ 		return -ENODEV;
+ 
+-	/* When creating macvlans on top of other macvlans - use
++	/* When creating macvlans or macvtaps on top of other macvlans - use
+ 	 * the real device as the lowerdev.
+ 	 */
+-	if (lowerdev->rtnl_link_ops == dev->rtnl_link_ops) {
+-		struct macvlan_dev *lowervlan = netdev_priv(lowerdev);
+-		lowerdev = lowervlan->lowerdev;
+-	}
++	if (netif_is_macvlan(lowerdev))
++		lowerdev = macvlan_dev_real_dev(lowerdev);
+ 
+ 	if (!tb[IFLA_MTU])
+ 		dev->mtu = lowerdev->mtu;
+-- 
+1.8.3.2
