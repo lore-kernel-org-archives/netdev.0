@@ -1,46 +1,64 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: [PATCH] net: fec_main: dma_map() only the length of the skb
-Date: Tue, 03 Dec 2013 08:54:38 +0100
-Message-ID: <529D8E3E.2050009@linutronix.de>
-References: <1385556253-4130-1-git-send-email-bigeasy@linutronix.de> <529D89EF.1000507@samsung.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] Add more supoprt for bonding netlink
+ attributes
+Date: Mon, 2 Dec 2013 23:54:56 -0800
+Message-ID: <20131202235456.14e68d53@nehalam.linuxnetplumber.net>
+References: <20131107103609.27546.20194.stgit@monster-03.cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Frank Li <frank.li@freescale.net>,
-	Fugang Duan <B38611@freescale.com>,
-	Jim Baxter <jim_baxter@mentor.com>
-To: Marek Szyprowski <m.szyprowski@samsung.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shm@cumulusnetworks.com
+To: Scott Feldman <sfeldma@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:49271 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751871Ab3LCHym (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 02:54:42 -0500
-In-Reply-To: <529D89EF.1000507@samsung.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:63548 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751871Ab3LCHzA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 02:55:00 -0500
+Received: by mail-pd0-f177.google.com with SMTP id q10so19619216pdj.22
+        for <netdev@vger.kernel.org>; Mon, 02 Dec 2013 23:54:59 -0800 (PST)
+In-Reply-To: <20131107103609.27546.20194.stgit@monster-03.cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/03/2013 08:36 AM, Marek Szyprowski wrote:
-> Hello,
-Hi,
+On Thu, 07 Nov 2013 02:36:09 -0800
+Scott Feldman <sfeldma@cumulusnetworks.com> wrote:
 
-> I'm sorry for a delay. The check has been removed during conversion t=
-o
-> common,
-> generic dma_map_ops implementation. During those convesion
-> dma_(un)map_single
-> calls have been implemented on top of dma_(un)map_page operation, wha=
-t
-> removed
-> those additional check (*_page based function didn't have such check)=
-=2E I
-> agree
-> that it might be a good idea to bring them back conditionally under
-> CONFIG_DMA_DEBUG. Would you like to send a respective patch?
+> Add get/set support for the following bonding attributes:
+> 
+> miimon
+> updelay
+> downdelay
+> use_carrier
+> arp_interval
+> arp_ip_target
+> arp_validate
+> arp_all_targets
+> 
+> Signed-off-by: Scott Feldman <sfeldma@cumulusnetworks.com>
+> ---
+>  include/linux/if_link.h |    8 +++
+>  ip/iplink_bond.c        |  134 ++++++++++++++++++++++++++++++++++++++++++++++-
+>  2 files changed, 140 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+> index a485920..69e0353 100644
+> --- a/include/linux/if_link.h
+> +++ b/include/linux/if_link.h
+> @@ -329,6 +329,14 @@ enum {
+>  	IFLA_BOND_UNSPEC,
+>  	IFLA_BOND_MODE,
+>  	IFLA_BOND_ACTIVE_SLAVE,
+> +        IFLA_BOND_MIIMON,
+> +        IFLA_BOND_UPDELAY,
+> +        IFLA_BOND_DOWNDELAY,
+> +        IFLA_BOND_USE_CARRIER,
+> +        IFLA_BOND_ARP_INTERVAL,
+> +        IFLA_BOND_ARP_IP_TARGET,
+> +        IFLA_BOND_ARP_VALIDATE,
+> +        IFLA_BOND_ARP_ALL_TARGETS,
+>  	__IFLA_BOND_MAX,
+>  };
+>  
 
-Yes, but it will take a while=E2=80=A6
-
-> Best regards
-
-Sebastian
+Since these header file patches are not even in net-next. Please resubmit when
+net-next reopens and the kernel part is done.
