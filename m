@@ -1,117 +1,121 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: Spurious timeouts in mvmdio
-Date: Tue, 3 Dec 2013 12:40:34 +0000
-Message-ID: <20131203124033.GT16735@n2100.arm.linux.org.uk>
-References: <529CA42A.3040504@freebox.fr> <20131203122346.GD29282@titan.lakedaemon.net>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net 4/7] bridge: Fix the way checking if a local fdb
+ entry can be deleted
+Date: Tue, 03 Dec 2013 21:45:38 +0900
+Message-ID: <1386074738.4038.65.camel@ubuntu-vm-makita>
+References: <1385966439-26526-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <1385966439-26526-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <529CBE61.8030402@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Schichan <nschichan@freebox.fr>,
-	Leigh Brown <leigh@solinno.co.uk>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Florian Fainelli <florian@openwrt.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Jason Cooper <jason@lakedaemon.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131203122346.GD29282@titan.lakedaemon.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:46134 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752098Ab3LCMps (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 07:45:48 -0500
+In-Reply-To: <529CBE61.8030402@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 03, 2013 at 07:23:46AM -0500, Jason Cooper wrote:
-> On Mon, Dec 02, 2013 at 04:15:54PM +0100, Nicolas Schichan wrote:
-> > During 3.13-rc1 testing, I have found out that the mvmdio driver
-> > would report timeouts on the kernel console:
+On Mon, 2013-12-02 at 12:07 -0500, Vlad Yasevich wrote:
+> On 12/02/2013 01:40 AM, Toshiaki Makita wrote:
+> > We should take into account the followings when deleting a local fdb entry.
 > > 
-> > [   11.011334] orion-mdio orion-mdio: Timeout: SMI busy for too long
+> > - nbp_vlan_find() can be used only when vid != 0 to check if an entry is
+> >   deletable, because a fdb entry with vid 0 can exist at any time but
+> >   nbp_vlan_find() always return false with vid 0.
 > > 
-> > The hardware is a MV88F6281 Kirkwood CPU. The mvmdio driver is using
-> > the irq line 46 (ge00_err).
+> >   Example of problematic case:
+> >     ip link set eth0 address 12:34:56:78:90:ab
+> >     ip link set eth1 address 12:34:56:78:90:ab
+> >     brctl addif br0 eth0
+> >     brctl addif br0 eth1
+> >     ip link set eth0 address aa:bb:cc:dd:ee:ff
+> >   Then, the fdb entry 12:34:56:78:90:ab will be deleted even though the
+> >   bridge port eth1 still has that address.
 > > 
-> > I am inclined to believe that it is due to the fact that
-> > wait_event_timeout() is called with a timeout parameter of 1 jiffy
-> > in orion_mdio_wait_ready(). If the timer interrupt ticks right after
-> > calling wait_event_timeout(), we may end up spending much less time
-> > than MVMDIO_SMI_TIMEOUT (1 msec) in wait_event_timeout(), and as a
-> > result report a timeout as the MDIO access did not complete in such
-> > a short time.
+> > - The port to which the bridge device is attached might needs a local entry
+> >   if its mac address is set manually.
 > > 
-> > As to how to fix this, I see two options (I don't know which one
-> > would be prefered):
+> >   Example of problematic case:
+> >     ip link set eth0 address 12:34:56:78:90:ab
+> >     brctl addif br0 eth0
+> >     ip link set br0 address 12:34:56:78:90:ab
+> >     ip link set eth0 address aa:bb:cc:dd:ee:ff
+> >   Then, the fdb still must have the entry 12:34:56:78:90:ab, but it will be
+> >   deleted.
 > > 
-> > - Option 1: always pass a timeout of at least 2 jiffy to wait_event_timeout().
-> > - Option 2: switch to wait_event_hrtimeout().
+> > We can use br->dev->addr_assign_type to check if the address is manually
+> > set or not, but I propose another approach.
 > > 
-> > I can provide patches for both options.
+> > Since we delete and insert local entries whenever changing mac address
+> > of the bridge device, we can change dst of the entry to NULL regardless of
+> > addr_assign_type when deleting an entry associated with a certain port,
+> > and if it is found to be unnecessary later, then delete it.
+> > That is, if changing mac address of a port, the entry might be changed
+> > to its dst being NULL first, but is eventually deleted when recalculating
+> > and changing bridge id.
+> > 
+> > This approach is useful when we want to share the code with deleting
+> > vlan in which the bridge device might want such an entry regardless of
+> > addr_assign_type, and makes things easy because we don't have to consider
+> > if mac address of the bridge device will be changed or not at
+> > fdb_delete_local().
 > 
-> Based on yesterday's irc chat, option 1 sounds good.  Here's the dump
-> from yesterday where Sebastian provided a thorough explanation:
+> This is a nifty approach, but it does have one side-effect that I am not
+> sure is correct.  In the case where bridge mac address is not manually
+> set, a fdb entry for the removed address survives past the
+> synchronize_net() call.  This would result in a behavioral change where
+> packets that always used to flood, would now sometimes be delivered
+> only to the bridge.
+
+I think no unnecessary entry will survive in any case.
+It will survive only if the bridge device remains to have the same mac
+address, because we check if the entry is necessary or not whenever the
+address of the bridge device is changed (assuming patch 3/7 is applied).
+
+Further analysis:
+The function fdb_delete_local() (and __fdb_delete_local()) will called
+by br_fdb_changeaddr(), br_fdb_change_mac_address(),
+br_fdb_delete_by_port() (with do_all==1), br_vlan_delete(), and
+nbp_vlan_delete() after all of this patch series are applied.
+So, we have to consider only these 5 functions.
+
+br_fdb_changeaddr():
+It is called by br_device_event().
+br_device_event() calls br_stp_recalculate_bridge_id() right after
+calling br_fdb_changeaddr(), so if the address of bridge device should
+be changed, the fdb entry will immediately reflect it and be deleted.
+
+br_fdb_change_mac_address():
+In this case, fdb_delete_local() is called with p==NULL, so it will not
+be affected by this change.
+
+br_fdb_delete_by_port() with do_all==1 and p!=NULL:
+It is called by del_nbp() and del_nbp() is called by br_del_if() and
+br_dev_delete().
+br_del_if() calls br_stp_recalculate_bridge_id() right after calling
+del_nbp(), so if the address of bridge device should be changed, the fdb
+entry will immediately reflect it and be deleted.
+br_dev_delete() calls br_fdb_delete_by_port() with p==NULL right after
+calling del_nbp(), so all fdb entry will be immediately deleted.
+
+br_vlan_delete():
+In this case, fdb_delete_local() is called with p==NULL, so it will not
+be affected by this change.
+
+nbp_vlan_delete():
+In this case, the address of bridge device will not be changed, and if
+the bridge device has the same vlan, it survives. This is very my
+intended behavior.
+
+Thanks,
+Toshiaki Makita
+
 > 
-> 11:29 < shesselba> increasing max timeout to 2 ticks at least sounds reasonable
-> 11:29 < shesselba> 10ms should be enough for every CONFIG_HZ there is
-> 
-> 11:30 < kos_tom> why make the timeout tied to the ticks? there are functions/macros to convert real time numbers into ticks.
-> 11:30 < kos_tom> msecs_to_jiffies() or something
-> 
-> 11:31 < shesselba> kos_tom: it is already using usecs_to_jiffies()
-> 11:31 < shesselba> the thing is: 1ms is less than a jiffy
-
-Yes, and the kernels time conversion functions aren't stupid.  Let's
-look at this function's implementation:
-
-unsigned long usecs_to_jiffies(const unsigned int u)
-{
-        if (u > jiffies_to_usecs(MAX_JIFFY_OFFSET))
-                return MAX_JIFFY_OFFSET;
-#if HZ <= USEC_PER_SEC && !(USEC_PER_SEC % HZ)
-        return (u + (USEC_PER_SEC / HZ) - 1) / (USEC_PER_SEC / HZ);
-#elif HZ > USEC_PER_SEC && !(HZ % USEC_PER_SEC)
-        return u * (HZ / USEC_PER_SEC);
-#else
-        return (USEC_TO_HZ_MUL32 * u + USEC_TO_HZ_ADJ32)
-                >> USEC_TO_HZ_SHR32;
-#endif
-}
-
-Now, assuming HZ=100 and USEC_PER_SEC=1000000, we will use:
-
-	return (u + (USEC_PER_SEC / HZ) - 1) / (USEC_PER_SEC / HZ);
-
-If you ask for 1us, this comes out as:
-
-	return (1 + (1000000 / 100) - 1) / (1000000 / 100);
-
-which is one jiffy.  So, for a requested 1us period, you're given a
-1 jiffy interval, or 10ms.  For other (sensible) values:
-
-        return (USEC_TO_HZ_MUL32 * u + USEC_TO_HZ_ADJ32)
-                >> USEC_TO_HZ_SHR32;
-
-gets used, which has a similar behaviour.
-
-Now, depending on how you use this one jiffy interval, the thing to realise
-is that with this kind of loop:
-
-	timeout = jiffies + usecs_to_jiffies(1);
-	do {
-		something;
-	} while (time_is_before_jiffies(timeout));
-
-what this equates to is:
-
-	} while (jiffies - timeout < 0);
-
-What this means is that the loop breaks at jiffies = timeout, so it can
-indeed timeout before one tick - within 0 to 10ms for HZ=100.  The problem
-is not the usecs_to_jiffies(), it's with the implementation.
-
-If you use time_is_before_eq_jiffies() instead, it will also loop if
-jiffies == timeout, which will give you the additional safety margin -
-meaning it will timeout after 10 to 20ms instead.
-
-You may wish to consider coding this differently as well - if you have
-the error interrupt, there's no need for this loop.  You only need the
-loop if you're using usleep_range().  Note the return value of
-wait_event_timeout() will tell you positively and correctly if the waited
-condition succeeded or you timed out.
+> -vlad
