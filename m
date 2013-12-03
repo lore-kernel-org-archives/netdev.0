@@ -1,39 +1,63 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] tc: more user friendly rates
-Date: Tue, 3 Dec 2013 00:08:29 -0800
-Message-ID: <20131203000829.152f8d65@nehalam.linuxnetplumber.net>
-References: <1385102237.10637.82.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v4 1/2] net: sched: tbf: fix calculation of max_size
+Date: Tue, 03 Dec 2013 00:12:19 -0800
+Message-ID: <1386058339.30495.19.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386041214-72744-1-git-send-email-yangyingliang@huawei.com>
+		 <1386041214-72744-2-git-send-email-yangyingliang@huawei.com>
+	 <1386046793.30495.12.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <529D8BC7.4050005@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, brouer@redhat.com,
+	jpirko@redhat.com, jbrouer@redhat.com
+To: Yang Yingliang <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:46118 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751067Ab3LCIIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 03:08:32 -0500
-Received: by mail-pb0-f52.google.com with SMTP id uo5so20568404pbc.39
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 00:08:32 -0800 (PST)
-In-Reply-To: <1385102237.10637.82.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:40445 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751941Ab3LCIMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 03:12:22 -0500
+Received: by mail-pd0-f178.google.com with SMTP id y10so19498319pdj.23
+        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 00:12:22 -0800 (PST)
+In-Reply-To: <529D8BC7.4050005@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 21 Nov 2013 22:37:17 -0800
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Tue, 2013-12-03 at 15:44 +0800, Yang Yingliang wrote:
+> On 2013/12/3 12:59, Eric Dumazet wrote:
+> > On Tue, 2013-12-03 at 11:26 +0800, Yang Yingliang wrote:
+> > 
+> >> +	for (max_size = 0; max_size < MAX_PKT_LEN; max_size++)
+> >> +		if (psched_l2t_ns(&q->rate, max_size) > q->buffer)
+> >> +			break;
+> >> +	if (--max_size <= 0)
+> >> +		goto unlock_done;
+> >> +
+> > 
+> > This seems dubious. With your new code, max_size < 65536
+> > 
+> > Prior code had :
+> > 
+> > for (n = 0; n < 256; n++)
+> >     if (rtab->data[n] > qopt->buffer)
+> >         break;
+> > max_size = (n << qopt->rate.cell_log) - 1;
+> > 
+> > So we could have much bigger max_size.
+> > 
+> > The reason I ask is that its possible to have qdisc_pkt_len(skb) being
+> > bigger than 65536, for TCP packets with low MSS value.
+> > 
+> 
+> Hmmm, if qdisc_pkt_len(skb) is bigger than 65536, skb_is_gso(skb) is true,
+> it will go into tbf_segment(). If I am wrong, please point me out, thanks!
+> 
+> BTW, 65536 is suggested by Jesper, I'm a little uncertain about it. He is, too.
+> Do you or some other developers have stronger opinions on this?
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Display more user friendly rates.
-> 
-> 10Mbit is more readable than 10000Kbit
-> 
-> Before : 
-> class htb 1:2 root prio 0 rate 10000Kbit ceil 10000Kbit ...
-> 
-> After:
-> class htb 1:2 root prio 0 rate 10Mbit ceil 10Mbit ...
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+We do not want to go to tbf_segment() if we programmed tbf to allow TSO
+packets of 68.000 bytes being sent without being segmented.
 
-Sure, accepted.
+TSO packet of 64KB -> about 45 frames if MSS=1448, 45*1514 = 68130 bytes
+
+Have you tried to use TBF on a 10 Gbps link, say with one TCP flow ?
