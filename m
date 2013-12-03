@@ -1,71 +1,58 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net v4 2/2] net: sched: htb: fix calculation of quantum
-Date: Tue, 3 Dec 2013 11:26:54 +0800
-Message-ID: <1386041214-72744-3-git-send-email-yangyingliang@huawei.com>
-References: <1386041214-72744-1-git-send-email-yangyingliang@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
-	<jbrouer@redhat.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Kevin Wallace <kevin@pentabarf.net>
+Subject: [PATCH] macvlan: Support creating macvtaps from macvlans
+Date: Mon,  2 Dec 2013 20:13:11 -0800
+Message-ID: <1386043991-4372-1-git-send-email-kevin@pentabarf.net>
+Cc: Kevin Wallace <kevin@pentabarf.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:16923 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751173Ab3LCD11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 22:27:27 -0500
-In-Reply-To: <1386041214-72744-1-git-send-email-yangyingliang@huawei.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:63234 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751383Ab3LCENW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 23:13:22 -0500
+Received: by mail-pd0-f181.google.com with SMTP id p10so19331965pdj.40
+        for <netdev@vger.kernel.org>; Mon, 02 Dec 2013 20:13:21 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now, 32bit rates may be not the true rate.
-So use rate_bytes_ps which is from
-max(rate32, rate64) to calcualte quantum.
+When running in a network namespace whose only link to the outside
+world is a macvlan device, not being able to create a macvtap off of
+it is a real pain.
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
+So modify macvtap creation to automatically forward a creation of a
+macvtap on a macvlan to become a creation of a macvtap on the
+underlying network device, just like is currently done with
+macvlan-on-macvlan devices.
+
+Signed-off-by: Kevin Wallace <kevin@pentabarf.net>
 ---
- net/sched/sch_htb.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+ drivers/net/macvlan.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 0e1e38b..57c6678 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1477,11 +1477,20 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 		sch_tree_lock(sch);
- 	}
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 16b43bf..3fa86cb 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -757,6 +757,8 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
+ 	return 0;
+ }
  
-+	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
++static struct rtnl_link_ops macvlan_link_ops;
 +
-+	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
-+
-+	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
-+	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
-+
- 	/* it used to be a nasty bug here, we have to check that node
- 	 * is really leaf before changing cl->un.leaf !
+ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+ 			   struct nlattr *tb[], struct nlattr *data[],
+ 			   int (*receive)(struct sk_buff *skb),
+@@ -775,10 +777,10 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+ 	if (lowerdev == NULL)
+ 		return -ENODEV;
+ 
+-	/* When creating macvlans on top of other macvlans - use
++	/* When creating macvlans or macvtaps on top of other macvlans - use
+ 	 * the real device as the lowerdev.
  	 */
- 	if (!cl->level) {
--		cl->quantum = hopt->rate.rate / q->rate2quantum;
-+		u64 quantum = div64_u64(cl->rate.rate_bytes_ps,
-+					q->rate2quantum);
-+		cl->quantum = min_t(u64, quantum, INT_MAX);
- 		if (!hopt->quantum && cl->quantum < 1000) {
- 			pr_warning(
- 			       "HTB: quantum of class %X is small. Consider r2q change.\n",
-@@ -1500,13 +1509,6 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 			cl->prio = TC_HTB_NUMPRIO - 1;
+-	if (lowerdev->rtnl_link_ops == dev->rtnl_link_ops) {
++	if (lowerdev->rtnl_link_ops == &macvlan_link_ops) {
+ 		struct macvlan_dev *lowervlan = netdev_priv(lowerdev);
+ 		lowerdev = lowervlan->lowerdev;
  	}
- 
--	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
--
--	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
--
--	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
--	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
--
- 	cl->buffer = PSCHED_TICKS2NS(hopt->buffer);
- 	cl->cbuffer = PSCHED_TICKS2NS(hopt->cbuffer);
- 
 -- 
-1.8.0
+1.8.3.2
