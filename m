@@ -1,65 +1,110 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Wed, 4 Dec 2013 01:10:35 +0200
-Message-ID: <CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com>
-References: <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
-	<1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com>
-	<20131203.165034.1085515763685633822.davem@davemloft.net>
-	<1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: [PATCH] net: davinci_emac: Fix platform data handling and make
+ usable for am3517
+Date: Tue, 3 Dec 2013 15:13:02 -0800
+Message-ID: <20131203231301.GN26766@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Jerry Chu <hkchu@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mugunthan V N <mugunthanvnm@ti.com>, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org, linux-omap@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:56562 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754444Ab3LCXKg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 18:10:36 -0500
-Received: by mail-pd0-f179.google.com with SMTP id r10so20977593pdi.24
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 15:10:36 -0800 (PST)
-In-Reply-To: <1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:29920 "EHLO
+	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753867Ab3LCXNF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 18:13:05 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 3, 2013 at 11:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2013-12-03 at 16:50 -0500, David Miller wrote:
->
->> At this point I would use drop monitor to figure out in what context
->> packets are being dropped on the floor.  There are scripts provided
->> with the perf tool to utilize it.
->
-> Most easy way is to do :
->
-> perf record -e skb:kfree_skb -a -g sleep 10
-> perf report
+When booted with device tree, we may still have platform data passed
+as auxdata. For am3517 this is needed for passing the interrupt_enable
+and interrupt_disable callbacks that access the omap system control module
+registers. These callback functions will eventually go away when we have
+a separate system control module driver.
 
-$ ./perf record -e skb:kfree_skb -g -a sleep 10
-$ ./perf report -i perf.data
+Some of the things that are currently passed as platform data we don't need
+to set up as device tree properties as they are always the same on am3517.
+So let's use a new compatible flag for those so we can get those from
+the device tree match data.
 
+Also note that we need to fix setting of phy_dev to NULL instead of an empty
+string as the code later on uses that to find the first phy on the mdio bus.
+This seems to have been caused by 5d69e0076a72 (net: davinci_emac: switch to
+new mdio).
 
-Samples: 883K of event 'skb:kfree_skb', Event count (approx.): 883406
-+  97.13%          swapper  [kernel.kallsyms]  [k] net_tx_action
-+   1.53%            iperf  [kernel.kallsyms]  [k] net_tx_action
-+   1.03%             perf  [kernel.kallsyms]  [k] net_tx_action
-+   0.27%      ksoftirqd/7  [kernel.kallsyms]  [k] net_tx_action
-+   0.03%      kworker/7:1  [kernel.kallsyms]  [k] net_tx_action
-+   0.00%          rpcbind  [kernel.kallsyms]  [k] net_tx_action
-+   0.00%          swapper  [kernel.kallsyms]  [k] kfree_skb
-+   0.00%            sleep  [kernel.kallsyms]  [k] net_tx_action
-+   0.00%  hald-addon-acpi  [kernel.kallsyms]  [k] kfree_skb
-+   0.00%            iperf  [kernel.kallsyms]  [k] kfree_skb
-+   0.00%             perf  [kernel.kallsyms]  [k] kfree_skb
+Signed-off-by: Tony Lindgren <tony@atomide.com>
 
-
-
->
->
->
+--- a/Documentation/devicetree/bindings/net/davinci_emac.txt
++++ b/Documentation/devicetree/bindings/net/davinci_emac.txt
+@@ -4,7 +4,7 @@ This file provides information, what the device node
+ for the davinci_emac interface contains.
+ 
+ Required properties:
+-- compatible: "ti,davinci-dm6467-emac";
++- compatible: "ti,davinci-dm6467-emac" or "ti,am3517-emac"
+ - reg: Offset and length of the register set for the device
+ - ti,davinci-ctrl-reg-offset: offset to control register
+ - ti,davinci-ctrl-mod-reg-offset: offset to control module register
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -61,6 +61,7 @@
+ #include <linux/davinci_emac.h>
+ #include <linux/of.h>
+ #include <linux/of_address.h>
++#include <linux/of_device.h>
+ #include <linux/of_irq.h>
+ #include <linux/of_net.h>
+ 
+@@ -1752,10 +1753,14 @@ static const struct net_device_ops emac_netdev_ops = {
+ #endif
+ };
+ 
++static const struct of_device_id davinci_emac_of_match[];
++
+ static struct emac_platform_data *
+ davinci_emac_of_get_pdata(struct platform_device *pdev, struct emac_priv *priv)
+ {
+ 	struct device_node *np;
++	const struct of_device_id *match;
++	const struct emac_platform_data *auxdata;
+ 	struct emac_platform_data *pdata = NULL;
+ 	const u8 *mac_addr;
+ 
+@@ -1793,7 +1798,20 @@ davinci_emac_of_get_pdata(struct platform_device *pdev, struct emac_priv *priv)
+ 
+ 	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
+ 	if (!priv->phy_node)
+-		pdata->phy_id = "";
++		pdata->phy_id = NULL;
++
++	auxdata = pdev->dev.platform_data;
++	if (auxdata) {
++		pdata->interrupt_enable = auxdata->interrupt_enable;
++		pdata->interrupt_disable = auxdata->interrupt_disable;
++	}
++
++	match = of_match_device(davinci_emac_of_match, &pdev->dev);
++	if (match && match->data) {
++		auxdata = match->data;
++		pdata->version = auxdata->version;
++		pdata->hw_ram_addr = auxdata->hw_ram_addr;
++	}
+ 
+ 	pdev->dev.platform_data = pdata;
+ 
+@@ -2020,8 +2038,14 @@ static const struct dev_pm_ops davinci_emac_pm_ops = {
+ };
+ 
+ #if IS_ENABLED(CONFIG_OF)
++static const struct emac_platform_data am3517_emac_data = {
++	.version		= EMAC_VERSION_2,
++	.hw_ram_addr		= 0x01e20000,
++};
++
+ static const struct of_device_id davinci_emac_of_match[] = {
+ 	{.compatible = "ti,davinci-dm6467-emac", },
++	{.compatible = "ti,am3517-emac", .data = &am3517_emac_data, },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, davinci_emac_of_match);
