@@ -1,424 +1,102 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net v5] xen-netback: fix fragment detection in checksum setup
-Date: Tue, 3 Dec 2013 17:39:29 +0000
-Message-ID: <1386092369-13618-1-git-send-email-paul.durrant@citrix.com>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: "swiotlb buffer is full" with 3.13-rc1+ but not 3.4.
+Date: Tue, 03 Dec 2013 09:45:59 -0800
+Message-ID: <1386092759.2166.85.camel@dabdike.int.hansenpartnership.com>
+References: <21144.47873.639231.96901@mariner.uk.xensource.com>
+	 <20131130185639.GA13039@pegasus.dumpdata.com>
+	 <1385844524.2170.10.camel@dabdike>
+	 <20131203173332.GE3734@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Durrant <paul.durrant@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	David Miller <davem@davemloft.net>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:45252 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754426Ab3LCRjd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Dec 2013 12:39:33 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Ian Jackson <Ian.Jackson@eu.citrix.com>, netdev@vger.kernel.org,
+	Michael Chan <mchan@broadcom.com>, dl-mptfusionlinux@lsi.com,
+	linux-scsi@vger.kernel.org, support@lsi.com,
+	Sreekanth Reddy <Sreekanth.Reddy@lsi.com>,
+	Nagalakshmi Nandigama <Nagalakshmi.Nandigama@lsi.com>,
+	xen-devel@lists.xenproject.org, linux-kernel@vger.kernel.org
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131203173332.GE3734@phenom.dumpdata.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The code to detect fragments in checksum_setup() was missing for IPv4 and
-too eager for IPv6. (It transpires that Windows seems to send IPv6 packets
-with a fragment header even if they are not a fragment - i.e. offset is zero,
-and M bit is not set).
+On Tue, 2013-12-03 at 12:33 -0500, Konrad Rzeszutek Wilk wrote:
+> On Sat, Nov 30, 2013 at 03:48:44PM -0500, James Bottomley wrote:
+> > On Sat, 2013-11-30 at 13:56 -0500, Konrad Rzeszutek Wilk wrote:
+> > > My theory is that the SWIOTLB is not full - it is just that the request
+> > > is for a compound page that is more than 512kB. Please note that
+> > > SWIOTLB highest "chunk" of buffer it can deal with is 512kb.
+> > > 
+> > > And that is of course the question comes out - why would it try to
+> > > bounce buffer it. In Xen the answer is simple - the sg chunks cross page
+> > > boundaries which means that they are not physically contingous - so we
+> > > have to use the bounce buffer. It would be better if the the sg list
+> > > provided a large list of 4KB pages instead of compound pages as that
+> > > could help in avoiding the bounce buffer.
+> > > 
+> > > But I digress - this is a theory - I don't know whether the SCSI layer
+> > > does any colescing of the sg list - and if so, whether there is any
+> > > easy knob to tell it to not do it.
+> > 
+> > Well, SCSI doesn't, but block does.  It's actually an efficiency thing
+> > since most firmware descriptor formats cope with multiple pages and the
+> > more descriptors you have for a transaction, the more work the on-board
+> > processor on the HBA has to do.  If you have an emulated HBA, like
+> > virtio, you could turn off physical coalesing by setting the
+> > use_clustering flag to DISABLE_CLUSTERING.  But you can't do that for a
+> > real card.  I assume the problem here is that the host is passing the
+> > card directly to the guest and the guest clusters based on its idea of
+> > guest pages which don't map to contiguous physical pages?
+> 
+> Kind of. Except that in this case the guest does know that it can't map
+> them contingously - and resorts to using the bounce buffer so that it
+> can provide a nice chunk of contingous area. This is detected by
+> the SWIOTLB layer and also the block layer to discourage coalescing
+> there.
+> 
+> But since SCSI is all about sg list I think it gets tangled up here:
+> 
+> 537         for_each_sg(sgl, sg, nelems, i) {                                       
+> 538                 phys_addr_t paddr = sg_phys(sg);                                
+> 539                 dma_addr_t dev_addr = xen_phys_to_bus(paddr);                   
+> 540                                                                                 
+> 541                 if (swiotlb_force ||                                            
+> 542                     !dma_capable(hwdev, dev_addr, sg->length) ||                
+> 543                     range_straddles_page_boundary(paddr, sg->length)) {         
+> 544                         phys_addr_t map = swiotlb_tbl_map_single(hwdev,         
+> 545                                                                  start_dma_addr,
+> 546                                                                  sg_phys(sg),   
+> 547                                                                  sg->length,    
+> 548                                                                  dir);          
+> 
+> So it is either not capable of reaching that physical address (so DMA
+> mask, but I doubt it - this is LSI which can do 64bit).
 
-This patch also incorporates a fix to callers of maybe_pull_tail() where
-skb->network_header was being erroneously added to the length argument.
+Right, so no bouncing.
 
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
-cc: David Miller <davem@davemloft.net>
----
-v5
-- Return an error from maybe_pull_tail() to distiguish issues due to the
-  frontend from those due to the backend.
+>  Or the pages
+> straddle. They can straddle it by well, being offset at odd locations, or
+> compound pages.
 
-v4
-- Re-work maybe_pull_tail() to have a failure path and update mac and
-  network header pointers on success.
-- Re-work callers of maybe_pull_tail() to handle failures and allow for
-  movement of skb header pointers.
-- Incorporate fixes from patch "Fix pull size in checksum_setup_ip" since
-  it also modifies callers of maybe_pull_tail().
-- Remove error messages in checksum routines that could be triggered by frontends
+All modern filesystems have 4k+ block sizes, so no offsets at all.  For
+DIO you can get offsets at the beginning and end of the transfer, but
+they will be offsets within the page, so the problem can only be
+clustering (physical merging).
 
-v3
-- Use defined values for 'fragment offset' and 'more fragments'
+> But why would they in the first place - and so many of them - considering
+> the flow of those printks Ian's is seeing.
 
-v2
-- Added comments noting what fragment/offset masks mean
+Probably because compaction and our allocators are designed to give out
+physically contiguous pages, which work their way back into the block
+layer in order.  On a lot of I/O workloads, we see 30%+ physical
+merging.
 
- drivers/net/xen-netback/netback.c |  236 +++++++++++++++++++++----------------
- include/linux/ipv6.h              |    1 +
- include/net/ipv6.h                |    3 +-
- 3 files changed, 140 insertions(+), 100 deletions(-)
+> James,
+> The SCSI layer wouldn't do any funny business here right - no reording
+> of bios? That is all left to the block layer right?
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 64f0e0d..acf1392 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1149,49 +1149,72 @@ static int xenvif_set_skb_gso(struct xenvif *vif,
- 	return 0;
- }
- 
--static inline void maybe_pull_tail(struct sk_buff *skb, unsigned int len)
-+static inline int maybe_pull_tail(struct sk_buff *skb, unsigned int len,
-+				  unsigned int max)
- {
--	if (skb_is_nonlinear(skb) && skb_headlen(skb) < len) {
--		/* If we need to pullup then pullup to the max, so we
--		 * won't need to do it again.
--		 */
--		int target = min_t(int, skb->len, MAX_TCP_HEADER);
--		__pskb_pull_tail(skb, target - skb_headlen(skb));
--	}
-+	if (skb_headlen(skb) >= len)
-+		return 0;
-+
-+	/* If we need to pullup then pullup to the max, so we
-+	 * won't need to do it again.
-+	 */
-+	if (max > skb->len)
-+		max = skb->len;
-+
-+	if (__pskb_pull_tail(skb, max - skb_headlen(skb)) == NULL)
-+		return -ENOMEM;
-+
-+	if (skb_headlen(skb) < len)
-+		return -EPROTO;
-+
-+	return 0;
- }
- 
-+/* This value should be large enough to cover a tagged ethernet header plus
-+ * maximally sized IP and TCP or UDP headers.
-+ */
-+#define MAX_IP_HDR_LEN 128
-+
- static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
- 			     int recalculate_partial_csum)
- {
--	struct iphdr *iph = (void *)skb->data;
--	unsigned int header_size;
- 	unsigned int off;
--	int err = -EPROTO;
-+	bool fragment;
-+	int err;
-+
-+	fragment = false;
-+
-+	err = maybe_pull_tail(skb,
-+			      sizeof(struct iphdr),
-+			      MAX_IP_HDR_LEN);
-+	if (err < 0)
-+		goto out;
- 
--	off = sizeof(struct iphdr);
-+	if (ip_hdr(skb)->frag_off & htons(IP_OFFSET | IP_MF))
-+		fragment = true;
- 
--	header_size = skb->network_header + off + MAX_IPOPTLEN;
--	maybe_pull_tail(skb, header_size);
-+	off = ip_hdrlen(skb);
- 
--	off = iph->ihl * 4;
-+	err = -EPROTO;
- 
--	switch (iph->protocol) {
-+	switch (ip_hdr(skb)->protocol) {
- 	case IPPROTO_TCP:
- 		if (!skb_partial_csum_set(skb, off,
- 					  offsetof(struct tcphdr, check)))
- 			goto out;
- 
- 		if (recalculate_partial_csum) {
--			struct tcphdr *tcph = tcp_hdr(skb);
--
--			header_size = skb->network_header +
--				off +
--				sizeof(struct tcphdr);
--			maybe_pull_tail(skb, header_size);
--
--			tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
--							 skb->len - off,
--							 IPPROTO_TCP, 0);
-+			err = maybe_pull_tail(skb,
-+					      off + sizeof(struct tcphdr),
-+					      MAX_IP_HDR_LEN);
-+			if (err < 0)
-+				goto out;
-+
-+			tcp_hdr(skb)->check =
-+				~csum_tcpudp_magic(ip_hdr(skb)->saddr,
-+						   ip_hdr(skb)->daddr,
-+						   skb->len - off,
-+						   IPPROTO_TCP, 0);
- 		}
- 		break;
- 	case IPPROTO_UDP:
-@@ -1200,24 +1223,20 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
- 			goto out;
- 
- 		if (recalculate_partial_csum) {
--			struct udphdr *udph = udp_hdr(skb);
--
--			header_size = skb->network_header +
--				off +
--				sizeof(struct udphdr);
--			maybe_pull_tail(skb, header_size);
--
--			udph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
--							 skb->len - off,
--							 IPPROTO_UDP, 0);
-+			err = maybe_pull_tail(skb,
-+					      off + sizeof(struct udphdr),
-+					      MAX_IP_HDR_LEN);
-+			if (err < 0)
-+				goto out;
-+
-+			udp_hdr(skb)->check =
-+				~csum_tcpudp_magic(ip_hdr(skb)->saddr,
-+						   ip_hdr(skb)->daddr,
-+						   skb->len - off,
-+						   IPPROTO_UDP, 0);
- 		}
- 		break;
- 	default:
--		if (net_ratelimit())
--			netdev_err(vif->dev,
--				   "Attempting to checksum a non-TCP/UDP packet, "
--				   "dropping a protocol %d packet\n",
--				   iph->protocol);
- 		goto out;
- 	}
- 
-@@ -1227,75 +1246,99 @@ out:
- 	return err;
- }
- 
-+/* This value should be large enough to cover a tagged ethernet header plus
-+ * an IPv6 header, all options, and a maximal TCP or UDP header.
-+ */
-+#define MAX_IPV6_HDR_LEN 256
-+
-+#define OPT_HDR(type, skb, off) \
-+	(type *)(skb_network_header(skb) + (off))
-+
- static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
- 			       int recalculate_partial_csum)
- {
--	int err = -EPROTO;
--	struct ipv6hdr *ipv6h = (void *)skb->data;
-+	int err;
- 	u8 nexthdr;
--	unsigned int header_size;
- 	unsigned int off;
-+	unsigned int len;
- 	bool fragment;
- 	bool done;
- 
-+	fragment = false;
- 	done = false;
- 
- 	off = sizeof(struct ipv6hdr);
- 
--	header_size = skb->network_header + off;
--	maybe_pull_tail(skb, header_size);
-+	err = maybe_pull_tail(skb, off, MAX_IPV6_HDR_LEN);
-+	if (err < 0)
-+		goto out;
- 
--	nexthdr = ipv6h->nexthdr;
-+	nexthdr = ipv6_hdr(skb)->nexthdr;
- 
--	while ((off <= sizeof(struct ipv6hdr) + ntohs(ipv6h->payload_len)) &&
--	       !done) {
-+	len = sizeof(struct ipv6hdr) + ntohs(ipv6_hdr(skb)->payload_len);
-+	while (off <= len && !done) {
- 		switch (nexthdr) {
- 		case IPPROTO_DSTOPTS:
- 		case IPPROTO_HOPOPTS:
- 		case IPPROTO_ROUTING: {
--			struct ipv6_opt_hdr *hp = (void *)(skb->data + off);
-+			struct ipv6_opt_hdr *hp;
- 
--			header_size = skb->network_header +
--				off +
--				sizeof(struct ipv6_opt_hdr);
--			maybe_pull_tail(skb, header_size);
-+			err = maybe_pull_tail(skb,
-+					      off +
-+					      sizeof(struct ipv6_opt_hdr),
-+					      MAX_IPV6_HDR_LEN);
-+			if (err < 0)
-+				goto out;
- 
-+			hp = OPT_HDR(struct ipv6_opt_hdr, skb, off);
- 			nexthdr = hp->nexthdr;
- 			off += ipv6_optlen(hp);
- 			break;
- 		}
- 		case IPPROTO_AH: {
--			struct ip_auth_hdr *hp = (void *)(skb->data + off);
-+			struct ip_auth_hdr *hp;
-+
-+			err = maybe_pull_tail(skb,
-+					      off +
-+					      sizeof(struct ip_auth_hdr),
-+					      MAX_IPV6_HDR_LEN);
-+			if (err < 0)
-+				goto out;
-+
-+			hp = OPT_HDR(struct ip_auth_hdr, skb, off);
-+			nexthdr = hp->nexthdr;
-+			off += ipv6_authlen(hp);
-+			break;
-+		}
-+		case IPPROTO_FRAGMENT: {
-+			struct frag_hdr *hp;
- 
--			header_size = skb->network_header +
--				off +
--				sizeof(struct ip_auth_hdr);
--			maybe_pull_tail(skb, header_size);
-+			err = maybe_pull_tail(skb,
-+					      off +
-+					      sizeof(struct frag_hdr),
-+					      MAX_IPV6_HDR_LEN);
-+			if (err < 0)
-+				goto out;
-+
-+			hp = OPT_HDR(struct frag_hdr, skb, off);
-+
-+			if (hp->frag_off & htons(IP6_OFFSET | IP6_MF))
-+				fragment = true;
- 
- 			nexthdr = hp->nexthdr;
--			off += (hp->hdrlen+2)<<2;
-+			off += sizeof(struct frag_hdr);
- 			break;
- 		}
--		case IPPROTO_FRAGMENT:
--			fragment = true;
--			/* fall through */
- 		default:
- 			done = true;
- 			break;
- 		}
- 	}
- 
--	if (!done) {
--		if (net_ratelimit())
--			netdev_err(vif->dev, "Failed to parse packet header\n");
--		goto out;
--	}
-+	err = -EPROTO;
- 
--	if (fragment) {
--		if (net_ratelimit())
--			netdev_err(vif->dev, "Packet is a fragment!\n");
-+	if (!done || fragment)
- 		goto out;
--	}
- 
- 	switch (nexthdr) {
- 	case IPPROTO_TCP:
-@@ -1304,17 +1347,17 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
- 			goto out;
- 
- 		if (recalculate_partial_csum) {
--			struct tcphdr *tcph = tcp_hdr(skb);
--
--			header_size = skb->network_header +
--				off +
--				sizeof(struct tcphdr);
--			maybe_pull_tail(skb, header_size);
--
--			tcph->check = ~csum_ipv6_magic(&ipv6h->saddr,
--						       &ipv6h->daddr,
--						       skb->len - off,
--						       IPPROTO_TCP, 0);
-+			err = maybe_pull_tail(skb,
-+					      off + sizeof(struct tcphdr),
-+					      MAX_IPV6_HDR_LEN);
-+			if (err < 0)
-+				goto out;
-+
-+			tcp_hdr(skb)->check =
-+				~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
-+						 &ipv6_hdr(skb)->daddr,
-+						 skb->len - off,
-+						 IPPROTO_TCP, 0);
- 		}
- 		break;
- 	case IPPROTO_UDP:
-@@ -1323,25 +1366,20 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
- 			goto out;
- 
- 		if (recalculate_partial_csum) {
--			struct udphdr *udph = udp_hdr(skb);
--
--			header_size = skb->network_header +
--				off +
--				sizeof(struct udphdr);
--			maybe_pull_tail(skb, header_size);
--
--			udph->check = ~csum_ipv6_magic(&ipv6h->saddr,
--						       &ipv6h->daddr,
--						       skb->len - off,
--						       IPPROTO_UDP, 0);
-+			err = maybe_pull_tail(skb,
-+					      off + sizeof(struct udphdr),
-+					      MAX_IPV6_HDR_LEN);
-+			if (err < 0)
-+				goto out;
-+
-+			udp_hdr(skb)->check =
-+				~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
-+						 &ipv6_hdr(skb)->daddr,
-+						 skb->len - off,
-+						 IPPROTO_UDP, 0);
- 		}
- 		break;
- 	default:
--		if (net_ratelimit())
--			netdev_err(vif->dev,
--				   "Attempting to checksum a non-TCP/UDP packet, "
--				   "dropping a protocol %d packet\n",
--				   nexthdr);
- 		goto out;
- 	}
- 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 5d89d1b..c56c350 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -4,6 +4,7 @@
- #include <uapi/linux/ipv6.h>
- 
- #define ipv6_optlen(p)  (((p)->hdrlen+1) << 3)
-+#define ipv6_authlen(p) (((p)->hdrlen+2) << 2)
- /*
-  * This structure contains configuration options per IPv6 link.
-  */
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index eb198ac..488316e 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -110,7 +110,8 @@ struct frag_hdr {
- 	__be32	identification;
- };
- 
--#define	IP6_MF	0x0001
-+#define	IP6_MF		0x0001
-+#define	IP6_OFFSET	0xFFF8
- 
- #include <net/sock.h>
- 
--- 
-1.7.10.4
+We don't see bios ... they're top of block.  SCSI sees requests but the
+block layer does all our request and sg list manipulation for us.
+
+James
