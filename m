@@ -1,127 +1,121 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
-Date: Tue, 3 Dec 2013 21:48:45 +0800
-Message-ID: <529DE13D.2070509@huawei.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net v4] xen-netback: fix fragment detection in checksum
+ setup
+Date: Tue, 3 Dec 2013 14:02:44 +0000
+Message-ID: <20131203140243.GF14293@zion.uk.xensource.com>
+References: <1386005715-27566-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	"Joe Perches" <joe@perches.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	David Miller <davem@davemloft.net>
+To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:49704 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753929Ab3LCNtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 08:49:20 -0500
+Received: from smtp.citrix.com ([66.165.176.89]:22903 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752729Ab3LCOCp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Dec 2013 09:02:45 -0500
+Content-Disposition: inline
+In-Reply-To: <1386005715-27566-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have met the oops in Suse11 SP2, the kernel is 2.6.32.59-0.7-default:
+On Mon, Dec 02, 2013 at 05:35:15PM +0000, Paul Durrant wrote:
+> The code to detect fragments in checksum_setup() was missing for IPv4 and
+> too eager for IPv6. (It transpires that Windows seems to send IPv6 packets
+> with a fragment header even if they are not a fragment - i.e. offset is zero,
+> and M bit is not set).
+> This patch also incorporates a fix to callers of maybe_pull_tail() where
+> skb->network_header was being erroneously added to the length argument.
+> 
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: David Vrabel <david.vrabel@citrix.com>
+> cc: David Miller <davem@davemloft.net>
+> ---
+> v4
+> - Re-work maybe_pull_tail() to have a failure path and update mac and
+>   network header pointers on success.
+> - Re-work callers of maybe_pull_tail() to handle failures and allow for
+>   movement of skb header pointers.
+> - Incorporate fixes from patch "Fix pull size in checksum_setup_ip" since
+>   it also modifies callers of maybe_pull_tail().
+> - Remove error messages in checksum routines that could be triggered by frontends
+> 
+> v3
+> - Use defined values for 'fragment offset' and 'more fragments'
+> 
+> v2
+> - Added comments noting what fragment/offset masks mean
+> 
+>  drivers/net/xen-netback/netback.c |  215 ++++++++++++++++++++-----------------
+>  include/linux/ipv6.h              |    1 +
+>  include/net/ipv6.h                |    3 +-
+>  3 files changed, 120 insertions(+), 99 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 64f0e0d..e3d7216 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1149,49 +1149,62 @@ static int xenvif_set_skb_gso(struct xenvif *vif,
+>  	return 0;
+>  }
+>  
+> -static inline void maybe_pull_tail(struct sk_buff *skb, unsigned int len)
+> +static inline bool maybe_pull_tail(struct sk_buff *skb, unsigned int len,
+> +				   unsigned int max)
+>  {
+> -	if (skb_is_nonlinear(skb) && skb_headlen(skb) < len) {
+> -		/* If we need to pullup then pullup to the max, so we
+> -		 * won't need to do it again.
+> -		 */
+> -		int target = min_t(int, skb->len, MAX_TCP_HEADER);
+> -		__pskb_pull_tail(skb, target - skb_headlen(skb));
+> -	}
+> +	if (skb_headlen(skb) >= len)
+> +		return true;
+> +
+> +	/* If we need to pullup then pullup to the max, so we
+> +	 * won't need to do it again.
+> +	 */
+> +	if (max > skb->len)
+> +		max = skb->len;
+> +
+> +	__pskb_pull_tail(skb, max - skb_headlen(skb));
+> +
+> +	return skb_headlen(skb) >= len;
+>  }
+>  
+> +/* This value should be large enough to cover a tagged ethernet header plus
+> + * maximally sized IP and TCP or UDP headers.
+> + */
+> +#define MAX_IP_HDR_LEN 128
+> +
+>  static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+>  			     int recalculate_partial_csum)
+>  {
+> -	struct iphdr *iph = (void *)skb->data;
+> -	unsigned int header_size;
+>  	unsigned int off;
+> +	bool fragment;
+>  	int err = -EPROTO;
+>  
+> -	off = sizeof(struct iphdr);
+> +	fragment = false;
+>  
+> -	header_size = skb->network_header + off + MAX_IPOPTLEN;
+> -	maybe_pull_tail(skb, header_size);
+> +	if (!maybe_pull_tail(skb, sizeof(struct iphdr), MAX_IP_HDR_LEN))
+> +		goto out;
+> +
 
-[64306.089036] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-[64306.089343] IP: [<ffffffff812f8e36>] neigh_timer_handler+0x116/0x3b0
-[64306.089535] PGD 0
-[64306.089706] Oops: 0000 [#1] SMP
-[64306.089935] last sysfs file: /sys/devices/pci0000:00/0000:00:03.0/0000:02:00.0/host0/target0:1:0/0:1:0:0/scsi_generic/sg0/dev
-[64306.090142] Die func triggered, code:1
-[64306.090147] CPU 1
-[64306.090258] Supported: Yes, External
-[64306.090262] Pid: 58359, comm: socknal_cd04 Tainted: P          N  2.6.32.59-0.7-default #1 T3500 G3
-[64306.090266] RIP: 0010:[<ffffffff812f8e36>]  [<ffffffff812f8e36>] neigh_timer_handler+0x116/0x3b0
-[64306.090272] RSP: 0018:ffff880c273499d8  EFLAGS: 00010206
-[64306.090275] RAX: 0000000000000000 RBX: ffff8801cddf1500 RCX: ffff8801cddf14f2
-[64306.090278] RDX: 0000000000000000 RSI: ffff8805e40d3a28 RDI: ffff8801cddf1500
-[64306.090281] RBP: ffff8805e40d3a28 R08: ffff8801cddf1530 R09: ffff880c27349b17
-[64306.090284] R10: 000000000000000e R11: ffffffff812f8e22 R12: ffff880185c0e840
-[64306.090287] R13: 0000000000000000 R14: ffff8805e40d3a60 R15: 0000000003484560
-[64306.090291] FS:  00007f081210e700(0000) GS:ffff880036420000(0000) knlGS:0000000000000000
-[64306.090295] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[64306.090297] CR2: 0000000000000008 CR3: 0000000001804000 CR4: 00000000000406e0
-[64306.090301] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[64306.090304] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[64306.090308] Process socknal_cd04 (pid: 58359, threadinfo ffff880c27348000, task ffff880c25d02300)
-[64306.090310] Stack:
-[64306.090426]  ffffffff8131f8e0 0000000000000003 ffff8801c189eb40 000000000000000a
-[64306.090437] <0> ffffffff00000000 0000000000000002 ffff880c27349a30 ffffffffa304790c
-[64306.090444] <0> 0000000000000246 000051010a010000 ffffffff81318357 31312d3300007fff
-[64306.090450] <0> ffff880c27349bb8 0248456003484560 ffff8801c189eb40 ffffffff81869300
-[64306.090456] <0> ffff880185c0e840 ffff8801cddf1514 ffff8805e40d3a28 00000000000000d0
-[64306.090464] Call Trace:
+I think you need to correctly update err to reflect this failure.
+Using -EPROTO will wrongly blame frontend while it is backend that's
+failing to process the packet.
 
---------------------------- cut here -------------------------------------
-
-I found the NULL place int the neigh_timer_handler, the neigh->ops is NULL,
-so the calling of neigh->ops->solicit(neigh, skb) will panic, I found the
-neigh has been freed via the kdump, the so I think the neigh was kfreed while
-the neigh timer handler is running.
-
-The situation is that there are several server in the local lan:
-A: 128.5.10.83
-B: 128.5.10.85
-C: 128.5.10.xx
-
-I panic the A by manual, and set B's IP to 128.5.10.83, so send broadcast to tell
-the lan that B is 128.5.10.83, then the B panic, it is hard to appeared again, so
-I only met once.
-
-I think the reason is that:
-
-	CPU0					CPU1
-	-----					-----
-						<SOFTIRQ>
-						call_timer_fn();
-						base->running_timer = neigh->timer;
-						neigh_timer_handler();
-	neigh_release();
-	write_lock(&neigh->lock);
-	del_timer(neigh->timer);
-	write_unlock(&neigh->lock);
-						write_lock(&neigh->lock);
-	kfree(neigh);
- 						neigh->ops->solicit();
-
---------------------------------------------------------------------------
-
-The reason is : besides deactivating the timer it also makes sure the handler
-has finished executing on other CPUs, But the del_timer() just only detach the
-timer and not wait for the timer finish executing on other CPUs.
-
-According to the David's opinion, the del_timer_sync() should belongs in
-neigh_del_timer(), but the neigh_del_timer() will be called in
-write_lock(&neigh->lock), it will occur deadlock if the timer is calling the same
-lock, so del_timer_sync() should not be used in neigh_del_timer().
-
-I fix the problem by add neigh->dead check in neigh_timer_handler(), because
-if the neigh is in release path, the neigh is already in dead state, if the
-timer is running on other CPUs, the timer will be finished and no problems
-will occur when kfree the neighbour.
-
-I think the latest kernel still has the problem and make the patch for it.
-
-Suggested-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- net/core/neighbour.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index ca15f32..38f3d23 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -888,6 +888,11 @@ static void neigh_timer_handler(unsigned long arg)
- 
- 	write_lock(&neigh->lock);
- 
-+	if (neigh->dead) {
-+		pr_warn("neighbour is dead and should be destroyed\n");
-+		goto out;
-+	}
-+
- 	state = neigh->nud_state;
- 	now = jiffies;
- 	next = now + HZ;
--- 
-1.8.0
+Wei.
