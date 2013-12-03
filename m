@@ -1,52 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for
- neigh_timer_handler()
-Date: Tue, 03 Dec 2013 11:37:37 -0500 (EST)
-Message-ID: <20131203.113737.729256753956074289.davem@davemloft.net>
-References: <529DE13D.2070509@huawei.com>
+Subject: Re: [PATCH 5/5] net_sched: Fail if missing mandatory action
+ operation methods
+Date: Tue, 03 Dec 2013 11:48:34 -0500 (EST)
+Message-ID: <20131203.114834.106107332355850481.davem@davemloft.net>
+References: <1386080600-4067-1-git-send-email-jhs@mojatatu.com>
+	<1386080600-4067-6-git-send-email-jhs@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gaofeng@cn.fujitsu.com, yoshfuji@linux-ipv6.org, joe@perches.com,
-	vfalico@redhat.com, netdev@vger.kernel.org
-To: dingtianhong@huawei.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	alexander.h.duyck@intel.com, ebiederm@xmission.com
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34084 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34211 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754106Ab3LCQhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 11:37:42 -0500
-In-Reply-To: <529DE13D.2070509@huawei.com>
+	with ESMTP id S1752716Ab3LCQsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 11:48:36 -0500
+In-Reply-To: <1386080600-4067-6-git-send-email-jhs@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Tue, 3 Dec 2013 21:48:45 +0800
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Tue,  3 Dec 2013 09:23:19 -0500
 
-> @@ -888,6 +888,11 @@ static void neigh_timer_handler(unsigned long arg)
->  
->  	write_lock(&neigh->lock);
->  
-> +	if (neigh->dead) {
-> +		pr_warn("neighbour is dead and should be destroyed\n");
-> +		goto out;
-> +	}
+> @@ -277,8 +277,10 @@ int tcf_register_action(struct tc_action_ops *act)
+>  			return -EEXIST;
+>  		}
+>  	}
+> -	act->next = NULL;
+> -	*ap = act;
 > +
+> +	/* Must supply act, dump, cleanup and init */
+> +	if (!act->act || !act->dump || !act->cleanup || !act->init)
+> +		return -EINVAL;
+>  
+>  	/* Supply defaults */
+>  	if (!act->lookup)
 
+You are going to return with a lock held on error here.
 
-I agree with Eric, if the neigh has been freed at this point you
-cannot touch any member of it.
+I was going to tell you not to do these fixups so late in the
+function, inside of the write lock, there is no reason for it.
 
-This means you cannot take neigh->lock.
-
-This means you can't even test neigh->dead because it could be
-arbitrary garbage, it's freed memory after all.
-
-Worse yet, the neigh->timer is implicitly referenced by the timer
-subsystem, the caller of neigh_timer_handler().  It is referencing
-freed memory if it is touching neigh->timer members at all.
-
-You can't avoid things by pretending that you can leave this timer
-pending or potentially running asynchronously.
-
-You must guarentee that all pending timer instances are complete
-and no longer scheduled before you allow kfree(neigh) to execute.
+You should do all of this operation handling at the top of
+the function, before the write lock is taken.
