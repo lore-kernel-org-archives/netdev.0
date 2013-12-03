@@ -1,266 +1,139 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Tue, 03 Dec 2013 07:30:20 -0800
-Message-ID: <1386084620.30495.28.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <529DF340.70602@mellanox.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net 4/7] bridge: Fix the way checking if a local fdb entry
+ can be deleted
+Date: Tue, 03 Dec 2013 10:41:00 -0500
+Message-ID: <529DFB8C.2080300@redhat.com>
+References: <1385966439-26526-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>	 <1385966439-26526-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>	 <529CBE61.8030402@redhat.com> <1386074738.4038.65.camel@ubuntu-vm-makita>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:60269 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754202Ab3LCPa0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 10:30:26 -0500
-Received: by mail-pd0-f169.google.com with SMTP id v10so20319698pde.14
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 07:30:21 -0800 (PST)
-In-Reply-To: <529DF340.70602@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:64217 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753100Ab3LCPlI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Dec 2013 10:41:08 -0500
+In-Reply-To: <1386074738.4038.65.camel@ubuntu-vm-makita>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-03 at 17:05 +0200, Or Gerlitz wrote:
-> I've been chasing lately a performance issues which come into play when 
-> combining veth and vxlan over fast Ethernet NIC.
+On 12/03/2013 07:45 AM, Toshiaki Makita wrote:
+> On Mon, 2013-12-02 at 12:07 -0500, Vlad Yasevich wrote:
+>> On 12/02/2013 01:40 AM, Toshiaki Makita wrote:
+>>> We should take into account the followings when deleting a local fdb entry.
+>>>
+>>> - nbp_vlan_find() can be used only when vid != 0 to check if an entry is
+>>>   deletable, because a fdb entry with vid 0 can exist at any time but
+>>>   nbp_vlan_find() always return false with vid 0.
+>>>
+>>>   Example of problematic case:
+>>>     ip link set eth0 address 12:34:56:78:90:ab
+>>>     ip link set eth1 address 12:34:56:78:90:ab
+>>>     brctl addif br0 eth0
+>>>     brctl addif br0 eth1
+>>>     ip link set eth0 address aa:bb:cc:dd:ee:ff
+>>>   Then, the fdb entry 12:34:56:78:90:ab will be deleted even though the
+>>>   bridge port eth1 still has that address.
+>>>
+>>> - The port to which the bridge device is attached might needs a local entry
+>>>   if its mac address is set manually.
+>>>
+>>>   Example of problematic case:
+>>>     ip link set eth0 address 12:34:56:78:90:ab
+>>>     brctl addif br0 eth0
+>>>     ip link set br0 address 12:34:56:78:90:ab
+>>>     ip link set eth0 address aa:bb:cc:dd:ee:ff
+>>>   Then, the fdb still must have the entry 12:34:56:78:90:ab, but it will be
+>>>   deleted.
+>>>
+>>> We can use br->dev->addr_assign_type to check if the address is manually
+>>> set or not, but I propose another approach.
+>>>
+>>> Since we delete and insert local entries whenever changing mac address
+>>> of the bridge device, we can change dst of the entry to NULL regardless of
+>>> addr_assign_type when deleting an entry associated with a certain port,
+>>> and if it is found to be unnecessary later, then delete it.
+>>> That is, if changing mac address of a port, the entry might be changed
+>>> to its dst being NULL first, but is eventually deleted when recalculating
+>>> and changing bridge id.
+>>>
+>>> This approach is useful when we want to share the code with deleting
+>>> vlan in which the bridge device might want such an entry regardless of
+>>> addr_assign_type, and makes things easy because we don't have to consider
+>>> if mac address of the bridge device will be changed or not at
+>>> fdb_delete_local().
+>>
+>> This is a nifty approach, but it does have one side-effect that I am not
+>> sure is correct.  In the case where bridge mac address is not manually
+>> set, a fdb entry for the removed address survives past the
+>> synchronize_net() call.  This would result in a behavioral change where
+>> packets that always used to flood, would now sometimes be delivered
+>> only to the bridge.
 > 
-> I came across it while working to enable TCP stateless offloads for 
-> vxlan encapsulated traffic in the mlx4 driver, but I can clearly see the 
-> issue without any HWoffloads involved, so it would be easier to discuss 
-> like that (no offloads involved).
+> I think no unnecessary entry will survive in any case.
+> It will survive only if the bridge device remains to have the same mac
+> address, because we check if the entry is necessary or not whenever the
+> address of the bridge device is changed (assuming patch 3/7 is applied).
 > 
-> The setup involves a stacked {veth --> bridge --> vlxan --> IP stack --> 
-> NIC} or {veth --> ovs+vxlan -->  IP stack --> NIC} chain.
+> Further analysis:
+> The function fdb_delete_local() (and __fdb_delete_local()) will called
+> by br_fdb_changeaddr(), br_fdb_change_mac_address(),
+> br_fdb_delete_by_port() (with do_all==1), br_vlan_delete(), and
+> nbp_vlan_delete() after all of this patch series are applied.
+> So, we have to consider only these 5 functions.
 > 
-> Basically, in my testbed which uses iperf over 40Gbs Mellanox NICs, 
-> vxlan traffic goes up to 5-7Gbs for single session and up to 14Gbs for 
-> multiple sessions, as long as veth isn't involved. Once veth is used I 
-> can't get to > 7-8Gbs, no matter how many sessions are used. For the 
-> time being, I manually took into account the tunneling overhead and 
-> reduced the veth pair MTU by 50 bytes.
-> 
-> Looking on the kernel TCP counters in a {veth --> bridge --> vxlan --> 
-> NIC} configuration, on the client side I see lots of hits for the 
-> following TCP counters (the numbers are just single sample, I look on 
-> the output of iterative sampling every seconds, e.g using "watch -d -n 1 
-> netstat -st"):
-> 
-> 67092 segments retransmited
-> 
-> 31461 times recovered from packet loss due to SACK data
-> Detected reordering 1045142 times using SACK
-> 436215 fast retransmits
-> 59966 forward retransmits
-> 
-> Also on the passive side I see hits for the "Quick ack mode was 
-> activated N times" counter, see below full snapshot of the counters from 
-> both sides.
-> 
-> Without using veth, e.g when running in a {vxlan -> NIC} or {bridge --> 
-> vxlan --> NIC},I see hits only for the "recovered from packet loss due 
-> to SACK data" counter and fastretransmits counter,  but not for the 
-> forward retransmits or "Detected reordering N timesusing SACK". Also, 
-> the quick ack mode counter isn't active on the passive side.
-> 
-> I tested net.git (3.13-rc2+), 3.12.2 and 3.11.9, I see the same problems 
-> on all. At this point I don't really see a past point to go and apply 
-> bisection. So I hope this counter report can help to shed some light on 
-> the nature of the problem and possible solution, so ideas welcome!!
-> 
-> without vxlan, these are the Gbs results for 1/2/4 streams over 3.12.2, 
-> the results
-> for the net.git are pretty much the same.
-> 
-> 18/32/38  NIC
-> 17/30/35  bridge --> NIC
-> 14/23/35  veth --> bridge --> NIC
-> 
-> with vxlan, these are the Gbs results for 1/2/4 streams
-> 
-> 6/12/14  vxlan --> IP --> NIC
-> 5/10/14  bridge --> vxlan --> IP --> NIC
-> 6/7/7    veth --> bridge --> vxlan --> IP --> NIC
-> 
-> Also, the 3.12.2 number do get any better also when adding a ported 
-> version of 82d8189826d5 "veth: extend features to support tunneling" on 
-> top of 3.12.2
-> 
-> See @ the end the sequence of commands I use for the environment
-> 
-> Or.
-> 
-> 
-> --> TCP counters from active side
-> 
-> # netstat -ts
-> IcmpMsg:
->      InType0: 2
->      InType8: 1
->      OutType0: 1
->      OutType3: 4
->      OutType8: 2
-> Tcp:
->      189 active connections openings
->      4 passive connection openings
->      0 failed connection attempts
->      0 connection resets received
->      4 connections established
->      22403193 segments received
->      541234150 segments send out
->      14248 segments retransmited
->      0 bad segments received.
->      5 resets sent
-> UdpLite:
-> TcpExt:
->      2 invalid SYN cookies received
->      178 TCP sockets finished time wait in fast timer
->      10 delayed acks sent
->      Quick ack mode was activated 1 times
->      4 packets directly queued to recvmsg prequeue.
->      3728 packets directly received from backlog
->      2 packets directly received from prequeue
->      2524 packets header predicted
->      4 packets header predicted and directly queued to user
->      19793310 acknowledgments not containing data received
->      1216966 predicted acknowledgments
->      2130 times recovered from packet loss due to SACK data
->      Detected reordering 73 times using FACK
->      Detected reordering 11424 times using SACK
->      55 congestion windows partially recovered using Hoe heuristic
->      TCPDSACKUndo: 457
->      2 congestion windows recovered after partial ack
->      11498 fast retransmits
->      2748 forward retransmits
->      2 other TCP timeouts
->      TCPLossProbes: 4
->      3 DSACKs sent for old packets
->      TCPSackShifted: 1037782
->      TCPSackMerged: 332827
->      TCPSackShiftFallback: 598055
->      TCPRcvCoalesce: 380
->      TCPOFOQueue: 463
->      TCPSpuriousRtxHostQueues: 192
-> IpExt:
->      InNoRoutes: 1
->      InMcastPkts: 191
->      OutMcastPkts: 28
->      InBcastPkts: 25
->      InOctets: 1789360097
->      OutOctets: 893757758988
->      InMcastOctets: 8152
->      OutMcastOctets: 3044
->      InBcastOctets: 4259
->      InNoECTPkts: 30117553
-> 
-> 
-> 
-> --> TCP counters from passiveside
-> 
-> netstat -ts
-> IcmpMsg:
->      InType0: 1
->      InType8: 2
->      OutType0: 2
->      OutType3: 5
->      OutType8: 1
-> Tcp:
->      75 active connections openings
->      140 passive connection openings
->      0 failed connection attempts
->      0 connection resets received
->      4 connections established
->      146888643 segments received
->      27430160 segments send out
->      0 segments retransmited
->      0 bad segments received.
->      6 resets sent
-> UdpLite:
-> TcpExt:
->      3 invalid SYN cookies received
->      72 TCP sockets finished time wait in fast timer
->      10 delayed acks sent
->      3 delayed acks further delayed because of locked socket
->      Quick ack mode was activated 13548 times
->      4 packets directly queued to recvmsg prequeue.
->      2 packets directly received from prequeue
->      139384763 packets header predicted
->      2 packets header predicted and directly queued to user
->      671 acknowledgments not containing data received
->      938 predicted acknowledgments
->      TCPLossProbes: 2
->      TCPLossProbeRecovery: 1
->      14 DSACKs sent for old packets
->      TCPBacklogDrop: 848
+> br_fdb_changeaddr():
+> It is called by br_device_event().
+> br_device_event() calls br_stp_recalculate_bridge_id() right after
+> calling br_fdb_changeaddr(), so if the address of bridge device should
+> be changed, the fdb entry will immediately reflect it and be deleted.
 
-Thats bad : Dropping packets on receiver.
+This doesn't happen until later.  Currently nbp_del() will remove all
+fdb entries for a given port.  With this patch, the local fdb entry for
+the port will survive the removal process and the fdb->dst will be set
+to NULL.
+The port is now removed from the list, rx_handler is unregistered and we
+push call synchronize_net() trying flush all packets currently in rcu
+section.  Once this completes, the port and all the fdbs for it should
+be removed, but now they are not. We have to wait for br_del_if() to
+call the notifier call chain to remove the the fdb entry.  Any packet
+arriving at the bridge for the mac address of the port that just got
+removed will now be handed over to the bridge, instead of being flooded.
+This is a change in behavior.
 
-Check also "ifconfig -a" to see if rxdrop is increasing as well.
+-vlad
 
->      TCPRcvCoalesce: 118368414
-
-lack of GRO : receiver seems to not be able to receive as fast as you
-want.
-
->      TCPOFOQueue: 3167879
-
-So many packets are received out of order (because of losses)
-
-> IpExt:
->      InNoRoutes: 1
->      InMcastPkts: 184
->      OutMcastPkts: 26
->      InBcastPkts: 26
->      InOctets: 1007364296775
->      OutOctets: 2433872888
->      InMcastOctets: 6202
->      OutMcastOctets: 2888
->      InBcastOctets: 4597
->      InNoECTPkts: 702313233
 > 
+> br_fdb_change_mac_address():
+> In this case, fdb_delete_local() is called with p==NULL, so it will not
+> be affected by this change.
 > 
-> client side (node 144)
-> ----------------------
+> br_fdb_delete_by_port() with do_all==1 and p!=NULL:
+> It is called by del_nbp() and del_nbp() is called by br_del_if() and
+> br_dev_delete().
+> br_del_if() calls br_stp_recalculate_bridge_id() right after calling
+> del_nbp(), so if the address of bridge device should be changed, the fdb
+> entry will immediately reflect it and be deleted.
+> br_dev_delete() calls br_fdb_delete_by_port() with p==NULL right after
+> calling del_nbp(), so all fdb entry will be immediately deleted.
 > 
-> ip link add vxlan42 type vxlan id 42 group 239.0.0.42 ttl 10 dev ethN
-> ifconfig vxlan42 192.168.42.144/24 up
+> br_vlan_delete():
+> In this case, fdb_delete_local() is called with p==NULL, so it will not
+> be affected by this change.
 > 
-> brctl addbr br-vx
-> ip link set br-vx up
+> nbp_vlan_delete():
+> In this case, the address of bridge device will not be changed, and if
+> the bridge device has the same vlan, it survives. This is very my
+> intended behavior.
 > 
-> ifconfig br-vx 192.168.52.144/24 up
-> brctl addif br-vx vxlan42
+> Thanks,
+> Toshiaki Makita
 > 
-> ip link add type veth
-> brctl addif br-vx veth1
-> ifconfig veth0 192.168.62.144/24 up
-> ip link set veth1 up
-> 
-> ifconfig veth0 mtu 1450
-> ifconfig veth1 mtu 1450
-> 
-> 
-> server side (node 147)
-> ----------------------
-> 
-> ip link add vxlan42 type vxlan id 42 group 239.0.0.42 ttl 10 dev ethN
-> ifconfig vxlan42 192.168.42.147/24 up
-> 
-> brctl addbr br-vx
-> ip link set br-vx up
-> 
-> ifconfig br-vx 192.168.52.147/24 up
-> brctl addif br-vx vxlan42
-> 
-> 
-> ip link add type veth
-> brctl addif br-vx veth1
-> ifconfig veth0 192.168.62.147/24 up
-> ip link set veth1 up
-> 
-> ifconfig veth0 mtu 1450
-> ifconfig veth1 mtu 1450
+>>
+>> -vlad
 > 
 > 
