@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/mlx4_core: destroy workqueue when driver fails to
- register
-Date: Tue, 03 Dec 2013 11:56:04 -0500 (EST)
-Message-ID: <20131203.115604.955668068029147691.davem@davemloft.net>
-References: <1386036250-8485-1-git-send-email-weiyang@linux.vnet.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: vxlan/veth performance issues on net.git + latest kernels
+Date: Tue, 03 Dec 2013 09:12:33 -0800
+Message-ID: <1386090753.30495.33.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <529DF340.70602@mellanox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: amirv@mellanox.com, jackm@dev.mellanox.co.il,
-	netdev@vger.kernel.org
-To: weiyang@linux.vnet.ibm.com
+Cc: Eric Dumazet <edumazet@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34290 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752412Ab3LCQ4G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 11:56:06 -0500
-In-Reply-To: <1386036250-8485-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:58228 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754141Ab3LCRMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 12:12:35 -0500
+Received: by mail-pb0-f46.google.com with SMTP id md12so21284975pbc.5
+        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 09:12:35 -0800 (PST)
+In-Reply-To: <529DF340.70602@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Date: Tue,  3 Dec 2013 10:04:10 +0800
+On Tue, 2013-12-03 at 17:05 +0200, Or Gerlitz wrote:
 
-> When driver registration fails, we need to clean up the resources allocated
-> before. mlx4_core missed destroying the workqueue allocated.
+> ----------------------
 > 
-> This patch destroys the workqueue when registration fails.
+> ip link add vxlan42 type vxlan id 42 group 239.0.0.42 ttl 10 dev ethN
+> ifconfig vxlan42 192.168.42.144/24 up
 > 
-> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+> brctl addbr br-vx
+> ip link set br-vx up
+> 
+> ifconfig br-vx 192.168.52.144/24 up
+> brctl addif br-vx vxlan42
+> 
+> ip link add type veth
 
-Applied.
+> brctl addif br-vx veth1
+
+Aside question : If I do not have brctl on my host,
+how can I use "ip" command to perform this "brctl addif" action ?
