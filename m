@@ -1,148 +1,117 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH v3] sctp: check the rto_min and rto_max
-Date: Tue, 03 Dec 2013 07:39:47 -0500
-Message-ID: <529DD113.6070204@gmail.com>
-References: <529BE620.8090004@huawei.com> <529C9D13.10107@gmail.com> <529D3ABB.8040908@huawei.com> <529D7A0F.50201@huawei.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: Spurious timeouts in mvmdio
+Date: Tue, 3 Dec 2013 12:40:34 +0000
+Message-ID: <20131203124033.GT16735@n2100.arm.linux.org.uk>
+References: <529CA42A.3040504@freebox.fr> <20131203122346.GD29282@titan.lakedaemon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	dingtianhong@huawei.com
-To: Wang Weidong <wangweidong1@huawei.com>, nhorman@tuxdriver.com,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:60220 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752337Ab3LCMjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 07:39:51 -0500
-In-Reply-To: <529D7A0F.50201@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Schichan <nschichan@freebox.fr>,
+	Leigh Brown <leigh@solinno.co.uk>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Florian Fainelli <florian@openwrt.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jason Cooper <jason@lakedaemon.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131203122346.GD29282@titan.lakedaemon.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/03/2013 01:28 AM, Wang Weidong wrote:
-> rto_min should be smaller than rto_max while rto_max should be larger
-> than rto_min. Add two proc_handler for the checking. Add the check in
-> sctp_setsockopt_rtoinfo.
+On Tue, Dec 03, 2013 at 07:23:46AM -0500, Jason Cooper wrote:
+> On Mon, Dec 02, 2013 at 04:15:54PM +0100, Nicolas Schichan wrote:
+> > During 3.13-rc1 testing, I have found out that the mvmdio driver
+> > would report timeouts on the kernel console:
+> > 
+> > [   11.011334] orion-mdio orion-mdio: Timeout: SMI busy for too long
+> > 
+> > The hardware is a MV88F6281 Kirkwood CPU. The mvmdio driver is using
+> > the irq line 46 (ge00_err).
+> > 
+> > I am inclined to believe that it is due to the fact that
+> > wait_event_timeout() is called with a timeout parameter of 1 jiffy
+> > in orion_mdio_wait_ready(). If the timer interrupt ticks right after
+> > calling wait_event_timeout(), we may end up spending much less time
+> > than MVMDIO_SMI_TIMEOUT (1 msec) in wait_event_timeout(), and as a
+> > result report a timeout as the MDIO access did not complete in such
+> > a short time.
+> > 
+> > As to how to fix this, I see two options (I don't know which one
+> > would be prefered):
+> > 
+> > - Option 1: always pass a timeout of at least 2 jiffy to wait_event_timeout().
+> > - Option 2: switch to wait_event_hrtimeout().
+> > 
+> > I can provide patches for both options.
 > 
-> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> ---
->  net/sctp/socket.c |  5 +++++
->  net/sctp/sysctl.c | 58 ++++++++++++++++++++++++++++++++++++++++++++++++-------
->  2 files changed, 56 insertions(+), 7 deletions(-)
+> Based on yesterday's irc chat, option 1 sounds good.  Here's the dump
+> from yesterday where Sebastian provided a thorough explanation:
 > 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 72046b9..2e1af1b 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -2818,6 +2818,11 @@ static int sctp_setsockopt_rtoinfo(struct sock *sk, char __user *optval, unsigne
->  	if (copy_from_user(&rtoinfo, optval, optlen))
->  		return -EFAULT;
->  
-> +	if (rtoinfo.srto_min < 1 ||
-> +	    rtoinfo.srto_max > 86400000 ||
-> +	    rtoinfo.srto_max < rtoinfo.srto_min)
-> +		return -EINVAL;
-> +
->  	asoc = sctp_id2assoc(sk, rtoinfo.srto_assoc_id);
->  
->  	/* Set the values to the specific association */
-> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-> index 6b36561..525b06d 100644
-> --- a/net/sctp/sysctl.c
-> +++ b/net/sctp/sysctl.c
-> @@ -59,8 +59,16 @@ extern int sysctl_sctp_wmem[3];
->  static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
->  				int write,
->  				void __user *buffer, size_t *lenp,
-> -
->  				loff_t *ppos);
-> +static int proc_sctp_check_rtomin(struct ctl_table *ctl,
-> +				int write,
-> +				void __user *buffer, size_t *lenp,
-> +				loff_t *ppos);
-> +static int proc_sctp_check_rtomax(struct ctl_table *ctl,
-> +				int write,
-> +				void __user *buffer, size_t *lenp,
-> +				loff_t *ppos);
-> +
->  static struct ctl_table sctp_table[] = {
->  	{
->  		.procname	= "sctp_mem",
-> @@ -102,18 +110,14 @@ static struct ctl_table sctp_net_table[] = {
->  		.data		= &init_net.sctp.rto_min,
->  		.maxlen		= sizeof(unsigned int),
->  		.mode		= 0644,
-> -		.proc_handler	= proc_dointvec_minmax,
-> -		.extra1         = &one,
-> -		.extra2         = &timer_max
-> +		.proc_handler	= proc_sctp_check_rtomin,
->  	},
->  	{
->  		.procname	= "rto_max",
->  		.data		= &init_net.sctp.rto_max,
->  		.maxlen		= sizeof(unsigned int),
->  		.mode		= 0644,
-> -		.proc_handler	= proc_dointvec_minmax,
-> -		.extra1         = &one,
-> -		.extra2         = &timer_max
-> +		.proc_handler	= proc_sctp_check_rtomax,
->  	},
->  	{
->  		.procname	= "rto_alpha_exp_divisor",
-> @@ -342,6 +346,46 @@ static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
->  	return ret;
->  }
->  
-> +static int proc_sctp_check_rtomin(struct ctl_table *ctl,
-> +				int write,
-> +				void __user *buffer, size_t *lenp,
-> +				loff_t *ppos)
-> +{
-> +	int old_value = *(int *) ctl->data;
-> +	int ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-> +
-> +	if (write) {
-> +		int new_value = *(int *) ctl->data;
-> +		if (ret || new_value < one || new_value > init_net.sctp.rto_max) {
-> +			init_net.sctp.rto_min = old_value;
-> +			return -EINVAL;
-> +		}
-> +		init_net.sctp.rto_min = new_value;
-> +	}
-> +
-> +	return ret;
-> +}
-> +
-> +static int proc_sctp_check_rtomax(struct ctl_table *ctl,
-> +				int write,
-> +				void __user*buffer, size_t *lenp,
-> +				loff_t *ppos)
-> +{
-> +	int old_value = *(int *) ctl->data;
-> +	int ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-> +
-> +	if (write) {
-> +		int new_value = *(int *) ctl->data;
-> +		if (ret || new_value > timer_max || new_value < init_net.sctp.rto_min) {
-> +			init_net.sctp.rto_max = old_value;
-> +			return -EINVAL;
-> +		}
-> +		init_net.sctp.rto_max = new_value;
-> +	}
-> +
-> +	return ret;
-> +}
-> +
-
-
-You can't used init_net directly.  You have to use .data as the target
-of assignment and .extra1 and .extra2 as the min and max boundries.
-Otherwise, this has the same problem as before where assignments for
-created namespace try to change the values in the initial namespace.
-
--vlad
->  int sctp_sysctl_net_register(struct net *net)
->  {
->  	struct ctl_table *table;
+> 11:29 < shesselba> increasing max timeout to 2 ticks at least sounds reasonable
+> 11:29 < shesselba> 10ms should be enough for every CONFIG_HZ there is
 > 
+> 11:30 < kos_tom> why make the timeout tied to the ticks? there are functions/macros to convert real time numbers into ticks.
+> 11:30 < kos_tom> msecs_to_jiffies() or something
+> 
+> 11:31 < shesselba> kos_tom: it is already using usecs_to_jiffies()
+> 11:31 < shesselba> the thing is: 1ms is less than a jiffy
+
+Yes, and the kernels time conversion functions aren't stupid.  Let's
+look at this function's implementation:
+
+unsigned long usecs_to_jiffies(const unsigned int u)
+{
+        if (u > jiffies_to_usecs(MAX_JIFFY_OFFSET))
+                return MAX_JIFFY_OFFSET;
+#if HZ <= USEC_PER_SEC && !(USEC_PER_SEC % HZ)
+        return (u + (USEC_PER_SEC / HZ) - 1) / (USEC_PER_SEC / HZ);
+#elif HZ > USEC_PER_SEC && !(HZ % USEC_PER_SEC)
+        return u * (HZ / USEC_PER_SEC);
+#else
+        return (USEC_TO_HZ_MUL32 * u + USEC_TO_HZ_ADJ32)
+                >> USEC_TO_HZ_SHR32;
+#endif
+}
+
+Now, assuming HZ=100 and USEC_PER_SEC=1000000, we will use:
+
+	return (u + (USEC_PER_SEC / HZ) - 1) / (USEC_PER_SEC / HZ);
+
+If you ask for 1us, this comes out as:
+
+	return (1 + (1000000 / 100) - 1) / (1000000 / 100);
+
+which is one jiffy.  So, for a requested 1us period, you're given a
+1 jiffy interval, or 10ms.  For other (sensible) values:
+
+        return (USEC_TO_HZ_MUL32 * u + USEC_TO_HZ_ADJ32)
+                >> USEC_TO_HZ_SHR32;
+
+gets used, which has a similar behaviour.
+
+Now, depending on how you use this one jiffy interval, the thing to realise
+is that with this kind of loop:
+
+	timeout = jiffies + usecs_to_jiffies(1);
+	do {
+		something;
+	} while (time_is_before_jiffies(timeout));
+
+what this equates to is:
+
+	} while (jiffies - timeout < 0);
+
+What this means is that the loop breaks at jiffies = timeout, so it can
+indeed timeout before one tick - within 0 to 10ms for HZ=100.  The problem
+is not the usecs_to_jiffies(), it's with the implementation.
+
+If you use time_is_before_eq_jiffies() instead, it will also loop if
+jiffies == timeout, which will give you the additional safety margin -
+meaning it will timeout after 10 to 20ms instead.
+
+You may wish to consider coding this differently as well - if you have
+the error interrupt, there's no need for this loop.  You only need the
+loop if you're using usleep_range().  Note the return value of
+wait_event_timeout() will tell you positively and correctly if the waited
+condition succeeded or you timed out.
