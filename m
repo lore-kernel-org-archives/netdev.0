@@ -1,96 +1,142 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net v2] xen-netback: clear vif->task on disconnect
-Date: Tue, 3 Dec 2013 14:06:25 +0000
-Message-ID: <1386079585-3469-1-git-send-email-paul.durrant@citrix.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net v4] xen-netback: fix fragment detection in checksum
+ setup
+Date: Tue, 3 Dec 2013 14:05:17 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD019E1E0@AMSPEX01CL01.citrite.net>
+References: <1386005715-27566-1-git-send-email-paul.durrant@citrix.com>
+ <20131203140243.GF14293@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Durrant <paul.durrant@citrix.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
 	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"David Miller" <davem@davemloft.net>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:35802 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753449Ab3LCOGa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Dec 2013 09:06:30 -0500
+Received: from smtp02.citrix.com ([66.165.176.63]:31374 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753786Ab3LCOIN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 09:08:13 -0500
+In-Reply-To: <20131203140243.GF14293@zion.uk.xensource.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xenvif_start_xmit() relies on checking vif->task for NULL to determine
-whether the vif is ready to accept packets. The task thread is stopped in
-xenvif_disconnect() but task is not set to NULL. Thus, on a re-connect the
-check will give a false positive.
+> -----Original Message-----
+> From: Wei Liu [mailto:wei.liu2@citrix.com]
+> Sent: 03 December 2013 14:03
+> To: Paul Durrant
+> Cc: xen-devel@lists.xen.org; netdev@vger.kernel.org; Zoltan Kiss; Wei Liu;
+> Ian Campbell; David Vrabel; David Miller
+> Subject: Re: [PATCH net v4] xen-netback: fix fragment detection in checksum
+> setup
+> 
+> On Mon, Dec 02, 2013 at 05:35:15PM +0000, Paul Durrant wrote:
+> > The code to detect fragments in checksum_setup() was missing for IPv4
+> and
+> > too eager for IPv6. (It transpires that Windows seems to send IPv6 packets
+> > with a fragment header even if they are not a fragment - i.e. offset is zero,
+> > and M bit is not set).
+> > This patch also incorporates a fix to callers of maybe_pull_tail() where
+> > skb->network_header was being erroneously added to the length
+> argument.
+> >
+> > Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> > Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> > Cc: Wei Liu <wei.liu2@citrix.com>
+> > Cc: Ian Campbell <ian.campbell@citrix.com>
+> > Cc: David Vrabel <david.vrabel@citrix.com>
+> > cc: David Miller <davem@davemloft.net>
+> > ---
+> > v4
+> > - Re-work maybe_pull_tail() to have a failure path and update mac and
+> >   network header pointers on success.
+> > - Re-work callers of maybe_pull_tail() to handle failures and allow for
+> >   movement of skb header pointers.
+> > - Incorporate fixes from patch "Fix pull size in checksum_setup_ip" since
+> >   it also modifies callers of maybe_pull_tail().
+> > - Remove error messages in checksum routines that could be triggered by
+> frontends
+> >
+> > v3
+> > - Use defined values for 'fragment offset' and 'more fragments'
+> >
+> > v2
+> > - Added comments noting what fragment/offset masks mean
+> >
+> >  drivers/net/xen-netback/netback.c |  215 ++++++++++++++++++++-------
+> ----------
+> >  include/linux/ipv6.h              |    1 +
+> >  include/net/ipv6.h                |    3 +-
+> >  3 files changed, 120 insertions(+), 99 deletions(-)
+> >
+> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
+> netback/netback.c
+> > index 64f0e0d..e3d7216 100644
+> > --- a/drivers/net/xen-netback/netback.c
+> > +++ b/drivers/net/xen-netback/netback.c
+> > @@ -1149,49 +1149,62 @@ static int xenvif_set_skb_gso(struct xenvif *vif,
+> >  	return 0;
+> >  }
+> >
+> > -static inline void maybe_pull_tail(struct sk_buff *skb, unsigned int len)
+> > +static inline bool maybe_pull_tail(struct sk_buff *skb, unsigned int len,
+> > +				   unsigned int max)
+> >  {
+> > -	if (skb_is_nonlinear(skb) && skb_headlen(skb) < len) {
+> > -		/* If we need to pullup then pullup to the max, so we
+> > -		 * won't need to do it again.
+> > -		 */
+> > -		int target = min_t(int, skb->len, MAX_TCP_HEADER);
+> > -		__pskb_pull_tail(skb, target - skb_headlen(skb));
+> > -	}
+> > +	if (skb_headlen(skb) >= len)
+> > +		return true;
+> > +
+> > +	/* If we need to pullup then pullup to the max, so we
+> > +	 * won't need to do it again.
+> > +	 */
+> > +	if (max > skb->len)
+> > +		max = skb->len;
+> > +
+> > +	__pskb_pull_tail(skb, max - skb_headlen(skb));
+> > +
+> > +	return skb_headlen(skb) >= len;
+> >  }
+> >
+> > +/* This value should be large enough to cover a tagged ethernet header
+> plus
+> > + * maximally sized IP and TCP or UDP headers.
+> > + */
+> > +#define MAX_IP_HDR_LEN 128
+> > +
+> >  static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+> >  			     int recalculate_partial_csum)
+> >  {
+> > -	struct iphdr *iph = (void *)skb->data;
+> > -	unsigned int header_size;
+> >  	unsigned int off;
+> > +	bool fragment;
+> >  	int err = -EPROTO;
+> >
+> > -	off = sizeof(struct iphdr);
+> > +	fragment = false;
+> >
+> > -	header_size = skb->network_header + off + MAX_IPOPTLEN;
+> > -	maybe_pull_tail(skb, header_size);
+> > +	if (!maybe_pull_tail(skb, sizeof(struct iphdr), MAX_IP_HDR_LEN))
+> > +		goto out;
+> > +
+> 
+> I think you need to correctly update err to reflect this failure.
+> Using -EPROTO will wrongly blame frontend while it is backend that's
+> failing to process the packet.
+> 
 
-Also since commit ea732dff5cfa10789007bf4a5b935388a0bb2a8f (Handle backend
-state transitions in a more robust way) it should not be possible for
-xenvif_connect() to be called if the vif is already connected so change the
-check of vif->tx_irq to a BUG_ON() and also add a BUG_ON(vif->task).
+But a failure should only occur if the packet is malformed, so that would be a frontend error wouldn't it?
 
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
----
-v2
-- Make sure vif->task remains NULL in xenvif_connect() if  kthread_create()
-  fails
-- Fix patch comment
-
- drivers/net/xen-netback/interface.c |   20 ++++++++++++--------
- 1 file changed, 12 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 2329ccc..870f1fa 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -368,11 +368,11 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 		   unsigned long rx_ring_ref, unsigned int tx_evtchn,
- 		   unsigned int rx_evtchn)
- {
-+	struct task_struct *task;
- 	int err = -ENOMEM;
- 
--	/* Already connected through? */
--	if (vif->tx_irq)
--		return 0;
-+	BUG_ON(vif->tx_irq);
-+	BUG_ON(vif->task);
- 
- 	err = xenvif_map_frontend_rings(vif, tx_ring_ref, rx_ring_ref);
- 	if (err < 0)
-@@ -411,14 +411,16 @@ int xenvif_connect(struct xenvif *vif, unsigned long tx_ring_ref,
- 	}
- 
- 	init_waitqueue_head(&vif->wq);
--	vif->task = kthread_create(xenvif_kthread,
--				   (void *)vif, "%s", vif->dev->name);
--	if (IS_ERR(vif->task)) {
-+	task = kthread_create(xenvif_kthread,
-+			      (void *)vif, "%s", vif->dev->name);
-+	if (IS_ERR(task)) {
- 		pr_warn("Could not allocate kthread for %s\n", vif->dev->name);
--		err = PTR_ERR(vif->task);
-+		err = PTR_ERR(task);
- 		goto err_rx_unbind;
- 	}
- 
-+	vif->task = task;
-+
- 	rtnl_lock();
- 	if (!vif->can_sg && vif->dev->mtu > ETH_DATA_LEN)
- 		dev_set_mtu(vif->dev, ETH_DATA_LEN);
-@@ -461,8 +463,10 @@ void xenvif_disconnect(struct xenvif *vif)
- 	if (netif_carrier_ok(vif->dev))
- 		xenvif_carrier_off(vif);
- 
--	if (vif->task)
-+	if (vif->task) {
- 		kthread_stop(vif->task);
-+		vif->task = NULL;
-+	}
- 
- 	if (vif->tx_irq) {
- 		if (vif->tx_irq == vif->rx_irq)
--- 
-1.7.10.4
+  Paul
