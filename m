@@ -1,36 +1,46 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] tbf: add 64bit rates support
-Date: Mon, 2 Dec 2013 23:52:55 -0800
-Message-ID: <20131202235255.3d1fb74f@nehalam.linuxnetplumber.net>
-References: <1385430935-19740-1-git-send-email-yangyingliang@huawei.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [PATCH] net: fec_main: dma_map() only the length of the skb
+Date: Tue, 03 Dec 2013 08:54:38 +0100
+Message-ID: <529D8E3E.2050009@linutronix.de>
+References: <1385556253-4130-1-git-send-email-bigeasy@linutronix.de> <529D89EF.1000507@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <eric.dumazet@gmail.com>
-To: Yang Yingliang <yangyingliang@huawei.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Frank Li <frank.li@freescale.net>,
+	Fugang Duan <B38611@freescale.com>,
+	Jim Baxter <jim_baxter@mentor.com>
+To: Marek Szyprowski <m.szyprowski@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:41011 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818Ab3LCHw7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 02:52:59 -0500
-Received: by mail-pa0-f49.google.com with SMTP id kx10so2578358pab.36
-        for <netdev@vger.kernel.org>; Mon, 02 Dec 2013 23:52:58 -0800 (PST)
-In-Reply-To: <1385430935-19740-1-git-send-email-yangyingliang@huawei.com>
+Received: from www.linutronix.de ([62.245.132.108]:49271 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751871Ab3LCHym (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 02:54:42 -0500
+In-Reply-To: <529D89EF.1000507@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Nov 2013 09:55:35 +0800
-Yang Yingliang <yangyingliang@huawei.com> wrote:
+On 12/03/2013 08:36 AM, Marek Szyprowski wrote:
+> Hello,
+Hi,
 
-> tbf support 64bit rates start from linux-3.13.
-> Add 64bit rates support in tc tools.
-> 
-> tc qdisc show dev eth0
-> qdisc tbf 1: root refcnt 2 rate 40000Mbit burst 230000b peakrate 50000Mbit minburst 87500b lat 50.0ms
-> 
-> This is a followup to ("htb: support 64bit rates").
-> 
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-> Cc: Eric Dumazet <edumazet@google.com>
+> I'm sorry for a delay. The check has been removed during conversion t=
+o
+> common,
+> generic dma_map_ops implementation. During those convesion
+> dma_(un)map_single
+> calls have been implemented on top of dma_(un)map_page operation, wha=
+t
+> removed
+> those additional check (*_page based function didn't have such check)=
+=2E I
+> agree
+> that it might be a good idea to bring them back conditionally under
+> CONFIG_DMA_DEBUG. Would you like to send a respective patch?
 
-Queued in net-next-for-3.13; since it does not build against 3.13-rc2
+Yes, but it will take a while=E2=80=A6
+
+> Best regards
+
+Sebastian
