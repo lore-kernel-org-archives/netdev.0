@@ -1,63 +1,48 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 3/3] xfrm: Fix null pointer dereference when decoding
- sessions
-Date: Tue, 3 Dec 2013 10:56:45 +0100
-Message-ID: <20131203095645.GS31491@secunet.com>
-References: <1383294107-7509-4-git-send-email-steffen.klassert@secunet.com>
- <52920CEE.2040407@universe-factory.net>
- <529AB8E9.30004@universe-factory.net>
- <20131201.203506.1790384137281236147.davem@davemloft.net>
+From: Kevin Wallace <kevin@pentabarf.net>
+Subject: Re: [PATCH] macvlan: Support creating macvtaps from macvlans
+Date: Tue, 3 Dec 2013 01:58:37 -0800
+Message-ID: <CAEQCv+aM6_SYR1-igsHXmBgxOMsQwBAFNrYe6_VxMEEH62xg3A@mail.gmail.com>
+References: <1386043991-4372-1-git-send-email-kevin@pentabarf.net> <20131203082450.GA17839@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mschiffer@universe-factory.net, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, stable@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131201.203506.1790384137281236147.davem@davemloft.net>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f45.google.com ([209.85.216.45]:62838 "EHLO
+	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752301Ab3LCJ66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 04:58:58 -0500
+Received: by mail-qa0-f45.google.com with SMTP id o15so5414864qap.11
+        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 01:58:57 -0800 (PST)
+In-Reply-To: <20131203082450.GA17839@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ccing stable.
+Good call; I didn't see those.  I'll grab a more recent snapshot that
+includes those helpers, and send out a v2 once I've tested.
 
-On Sun, Dec 01, 2013 at 08:35:06PM -0500, David Miller wrote:
-> From: Matthias Schiffer <mschiffer@universe-factory.net>
-> Date: Sun, 01 Dec 2013 05:19:53 +0100
-> 
-> > On 11/24/2013 03:27 PM, Matthias Schiffer wrote:
-> >> On 11/01/2013 09:21 AM, Steffen Klassert wrote:
-> >>> On some codepaths the skb does not have a dst entry
-> >>> when xfrm_decode_session() is called. So check for
-> >>> a valid skb_dst() before dereferencing the device
-> >>> interface index. We use 0 as the device index if
-> >>> there is no valid skb_dst(), or at reverse decoding
-> >>> we use skb_iif as device interface index.
-> >>>
-> >>> Bug was introduced with git commit bafd4bd4dc
-> >>> ("xfrm: Decode sessions with output interface.").
-> >>>
-> >>> Reported-by: Meelis Roos <mroos@linux.ee>
-> >>> Tested-by: Meelis Roos <mroos@linux.ee>
-> >>> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> >> 
-> >> Please queue this for 3.12-stable, I've seen this bug trigger a panic
-> >> when heavily using Bittorrent (screenshot:
-> >> http://i.imgur.com/OIKVccM.jpg )
-> >> 
-> >> Thanks,
-> >> Matthias
-> >> 
-> > 
-> > Ping? Several people I know have hit this panic with 3.12.x at least
-> > once or twice by now during heavy IPv6 usage.
-> 
-> Steffen submitted it to stable@vger.kernel.org for inclusion on Monday
-> November 25th.
+Thanks!
 
-It apparently did not make it into v3.12.2 and it is not in the v3.12.3
-review included. So I wonder if I need to do anything additional to
-get it included. It is the first time that I did a stable submission
-myself.
+Kevin
 
-I tried to follow the instructions at Documentation/stable_kernel_rules.txt
-but maybe I've missed something.
+On Tue, Dec 3, 2013 at 12:24 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
+> On Mon, Dec 02, 2013 at 08:13:11PM -0800, Kevin Wallace wrote:
+>> -     /* When creating macvlans on top of other macvlans - use
+>> +     /* When creating macvlans or macvtaps on top of other macvlans - use
+>>        * the real device as the lowerdev.
+>>        */
+>> -     if (lowerdev->rtnl_link_ops == dev->rtnl_link_ops) {
+>> +     if (lowerdev->rtnl_link_ops == &macvlan_link_ops) {
+>>               struct macvlan_dev *lowervlan = netdev_priv(lowerdev);
+>>               lowerdev = lowervlan->lowerdev;
+>>       }
+>
+> Perhaps we could use the helpers:
+>
+>         if (netif_is_macvlan(lowerdev))
+>                 lowerdev = macvlan_dev_real_dev(lowerdev);
+>
+> to show more clearly what we are doing.
+>
+>                                                         Michal Kubecek
+>
