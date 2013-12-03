@@ -1,52 +1,80 @@
-From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH] net: mvmdio: fix wait_event_timeout() being called with a 1 jiffy timeout.
-Date: Tue,  3 Dec 2013 14:16:00 +0100
-Message-ID: <1386076560-1886-1-git-send-email-nschichan@freebox.fr>
-References: <20131203122346.GD29282@titan.lakedaemon.net>
-Cc: Florian Fainelli <florian@openwrt.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Leigh Brown <leigh@solinno.co.uk>,
-	Nicolas Schichan <nschichan@freebox.fr>
-To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131203122346.GD29282@titan.lakedaemon.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH 0/4] net_sched: actions - Add default lookup and walker
+Date: Tue, 03 Dec 2013 08:34:12 -0500
+Message-ID: <529DDDD4.6070706@mojatatu.com>
+References: <1385937009-589-1-git-send-email-jhs@mojatatu.com> <20131202.162752.2143617473594386587.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	alexander.h.duyck@intel.com, ebiederm@xmission.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:36041 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753531Ab3LCNeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 08:34:22 -0500
+Received: by mail-ie0-f181.google.com with SMTP id e14so23241269iej.40
+        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 05:34:21 -0800 (PST)
+In-Reply-To: <20131202.162752.2143617473594386587.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If a timer interrupt kicks right after the wait_event_timeout() call,
-we may endup a reporting timeout before the timeout really occured.
+On 12/02/13 16:27, David Miller wrote:
+>
+> Ok, but can you respin this set, adding in changes to remove
+> the code that checks for NULL in these operations?
+>
+> Specifically, we still have:
+>
+> 	if (a->ops->lookup == NULL)
+> 		goto err_mod;
+>
+> in tcf_action_get_1().  And:
+>
+> 	if (a_o->walk == NULL) {
+>
+> in tc_dump_action().
+>
 
-Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
----
- drivers/net/ethernet/marvell/mvmdio.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+Ok, I think i finaly understood what you were saying earlier;->
+I was too focused on the simple fix needed for Eric B.
+Will make this change ..
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 7354960..2814bbc 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -76,9 +76,19 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
- {
- 	struct orion_mdio_dev *dev = bus->priv;
- 	unsigned long timeout = usecs_to_jiffies(MVMDIO_SMI_TIMEOUT);
--	unsigned long end = jiffies + timeout;
-+	unsigned long end;
- 	int timedout = 0;
- 
-+	/*
-+	 * make sure that we wait at least more than one
-+	 * jiffy. wait_event_timeout() with a timeout parameter of 1
-+	 * jiffy may return before the SMI access is done if a timer
-+	 * interrupt kicks immediately after.
-+	 */
-+	if (timeout < 2)
-+		timeout = 2;
-+	end = jiffies + timeout;
-+
- 	while (1) {
- 	        if (orion_mdio_smi_is_done(dev))
- 			return 0;
--- 
-1.8.1.2
+> Furthermore, there is a hard assumption that a_o->init() is non-NULL
+> as well.  So maybe add a:
+>
+> 	if (!act->init)
+> 		return -EINVAL;
+>
+> at the top of tcf_register_action().
+>
+
+Makes sense.
+
+> It also occurred to me that it would be simpler to audit and be a
+> simpler patch set to review if you just added the missing ".lookup ="
+> assignments to the actions
+
+Those two methods have proven to be always the defaults and only the
+oddball action deviates. So my preference is to have defaults as per
+that earlier patch (and overrides for the oddball).
+
+
+ >and added a similar "if (!act->lookup)" et
+> al. check to tcf_register_action().
+>
+> That looks more like a rigorous requirement to have a valid method
+> present for these three operations: init, lookup, walk.
+>
+> What do you think?
+
+Yep - makes sense (I think you meant act, dump, cleanup and init)
+I will add an extra patch..
+
+cheers,
+jamal
+
+
+> Thanks!
+>
