@@ -1,89 +1,54 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH 5/5] net_sched: Fail if missing mandatory action operation methods
-Date: Tue,  3 Dec 2013 09:23:19 -0500
-Message-ID: <1386080600-4067-6-git-send-email-jhs@mojatatu.com>
-References: <1386080600-4067-1-git-send-email-jhs@mojatatu.com>
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	alexander.h.duyck@intel.com, jhs@mojatatu.com,
-	ebiederm@xmission.com
-To: davem@davemloft.net
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net v4] xen-netback: fix fragment detection in checksum
+ setup
+Date: Tue, 3 Dec 2013 14:28:38 +0000
+Message-ID: <20131203142838.GH14293@zion.uk.xensource.com>
+References: <1386005715-27566-1-git-send-email-paul.durrant@citrix.com>
+ <20131203140243.GF14293@zion.uk.xensource.com>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD019E1E0@AMSPEX01CL01.citrite.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	David Miller <davem@davemloft.net>
+To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:47761 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754203Ab3LCOY0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 09:24:26 -0500
-Received: by mail-ie0-f173.google.com with SMTP id to1so24136454ieb.32
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 06:24:26 -0800 (PST)
-In-Reply-To: <1386080600-4067-1-git-send-email-jhs@mojatatu.com>
+Received: from smtp.citrix.com ([66.165.176.89]:30341 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753886Ab3LCO2j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Dec 2013 09:28:39 -0500
+Content-Disposition: inline
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD019E1E0@AMSPEX01CL01.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- net/sched/act_api.c |   16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+On Tue, Dec 03, 2013 at 02:05:17PM +0000, Paul Durrant wrote:
+[...]
+> > >
+> > > -	header_size = skb->network_header + off + MAX_IPOPTLEN;
+> > > -	maybe_pull_tail(skb, header_size);
+> > > +	if (!maybe_pull_tail(skb, sizeof(struct iphdr), MAX_IP_HDR_LEN))
+> > > +		goto out;
+> > > +
+> > 
+> > I think you need to correctly update err to reflect this failure.
+> > Using -EPROTO will wrongly blame frontend while it is backend that's
+> > failing to process the packet.
+> > 
+> 
+> But a failure should only occur if the packet is malformed, so that would be a frontend error wouldn't it?
+> 
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 401eca8..c708f3b 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -277,8 +277,10 @@ int tcf_register_action(struct tc_action_ops *act)
- 			return -EEXIST;
- 		}
- 	}
--	act->next = NULL;
--	*ap = act;
-+
-+	/* Must supply act, dump, cleanup and init */
-+	if (!act->act || !act->dump || !act->cleanup || !act->init)
-+		return -EINVAL;
- 
- 	/* Supply defaults */
- 	if (!act->lookup)
-@@ -286,6 +288,8 @@ int tcf_register_action(struct tc_action_ops *act)
- 	if (!act->walk)
- 		act->walk = tcf_generic_walker;
- 
-+	act->next = NULL;
-+	*ap = act;
- 	write_unlock(&act_mod_lock);
- 	return 0;
- }
-@@ -388,7 +392,7 @@ int tcf_action_exec(struct sk_buff *skb, const struct tc_action *act,
- 	}
- 	while ((a = act) != NULL) {
- repeat:
--		if (a->ops && a->ops->act) {
-+		if (a->ops) {
- 			ret = a->ops->act(skb, a, res);
- 			if (TC_MUNGED & skb->tc_verd) {
- 				/* copied already, allow trampling */
-@@ -412,7 +416,7 @@ void tcf_action_destroy(struct tc_action *act, int bind)
- 	struct tc_action *a;
- 
- 	for (a = act; a; a = act) {
--		if (a->ops && a->ops->cleanup) {
-+		if (a->ops) {
- 			if (a->ops->cleanup(a, bind) == ACT_P_DELETED)
- 				module_put(a->ops->owner);
- 			act = act->next;
-@@ -431,7 +435,7 @@ tcf_action_dump_old(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
- {
- 	int err = -EINVAL;
- 
--	if (a->ops == NULL || a->ops->dump == NULL)
-+	if (a->ops == NULL)
- 		return err;
- 	return a->ops->dump(skb, a, bind, ref);
- }
-@@ -443,7 +447,7 @@ tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
- 	unsigned char *b = skb_tail_pointer(skb);
- 	struct nlattr *nest;
- 
--	if (a->ops == NULL || a->ops->dump == NULL)
-+	if (a->ops == NULL)
- 		return err;
- 
- 	if (nla_put_string(skb, TCA_KIND, a->ops->kind))
--- 
-1.7.10.4
+__pskb_pull_tail may fail due to malloc failure.
+
+However the return value of __pskb_pull_tail cannot reflect the wether
+the failure is due to malformed packet or OOM. Not sure what's the best
+solution here. What's the malformed packet you were talking about?
+
+Wei.
+
+>   Paul
