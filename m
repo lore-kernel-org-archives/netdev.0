@@ -1,34 +1,34 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net 1/7] bridge: Fix the way finding the old local fdb
- entry in br_fdb_changeaddr
-Date: Tue, 3 Dec 2013 08:50:35 -0800
-Message-ID: <20131203085035.6a11b1de@nehalam.linuxnetplumber.net>
-References: <1385966439-26526-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<1385966439-26526-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<20131202180917.1e844dde@nehalam.linuxnetplumber.net>
-	<1386075326.4038.66.camel@ubuntu-vm-makita>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rds: prevent BUG_ON triggered on congestion update to
+ loopback
+Date: Tue, 03 Dec 2013 11:55:06 -0500 (EST)
+Message-ID: <20131203.115506.839802901968613934.davem@davemloft.net>
+References: <1386027699-30513-1-git-send-email-venkat.x.venkatsubra@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com
+To: venkat.x.venkatsubra@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:65225 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753383Ab3LCQuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 11:50:40 -0500
-Received: by mail-pb0-f53.google.com with SMTP id ma3so21229711pbc.26
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 08:50:39 -0800 (PST)
-In-Reply-To: <1386075326.4038.66.camel@ubuntu-vm-makita>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34276 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754118Ab3LCQzI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 11:55:08 -0500
+In-Reply-To: <1386027699-30513-1-git-send-email-venkat.x.venkatsubra@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 03 Dec 2013 21:55:26 +0900
-Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Date: Mon,  2 Dec 2013 15:41:39 -0800
 
-> Another approach I can conceive is:
-> - Make fdb entries be able to be differentiated from those user added
->   by introducing a flag in struct net_bridge_fdb_entry. 
+> After congestion update on a local connection, when rds_ib_xmit returns
+> less bytes than that are there in the message, rds_send_xmit calls
+> back rds_ib_xmit with an offset that causes BUG_ON(off & RDS_FRAG_SIZE)
+> to trigger.
+ ...
+> Reported-by: Josh Hunt <joshhunt00@gmail.com>
+> Tested-by: Honggang Li <honli@redhat.com>
+> Acked-by: Bang Nguyen <bang.nguyen@oracle.com>
+> Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
 
-Yes, this makes more sense; and it would be useful for administration display commands.
+This looks great, applied and queued up for -stable, thanks!
