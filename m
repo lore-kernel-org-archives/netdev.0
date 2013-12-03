@@ -1,128 +1,127 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: Spurious timeouts in mvmdio
-Date: Tue, 3 Dec 2013 08:43:10 -0500
-Message-ID: <20131203134310.GE29282@titan.lakedaemon.net>
-References: <529CA42A.3040504@freebox.fr>
- <20131203122346.GD29282@titan.lakedaemon.net>
- <20131203124033.GT16735@n2100.arm.linux.org.uk>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
+Date: Tue, 3 Dec 2013 21:48:45 +0800
+Message-ID: <529DE13D.2070509@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Leigh Brown <leigh@solinno.co.uk>,
-	Nicolas Schichan <nschichan@freebox.fr>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Florian Fainelli <florian@openwrt.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131203124033.GT16735@n2100.arm.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"Joe Perches" <joe@perches.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:49704 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753929Ab3LCNtU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 08:49:20 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 03, 2013 at 12:40:34PM +0000, Russell King - ARM Linux wrote:
-> On Tue, Dec 03, 2013 at 07:23:46AM -0500, Jason Cooper wrote:
-> > On Mon, Dec 02, 2013 at 04:15:54PM +0100, Nicolas Schichan wrote:
-> > > During 3.13-rc1 testing, I have found out that the mvmdio driver
-> > > would report timeouts on the kernel console:
-> > > 
-> > > [   11.011334] orion-mdio orion-mdio: Timeout: SMI busy for too long
-> > > 
-> > > The hardware is a MV88F6281 Kirkwood CPU. The mvmdio driver is using
-> > > the irq line 46 (ge00_err).
-> > > 
-> > > I am inclined to believe that it is due to the fact that
-> > > wait_event_timeout() is called with a timeout parameter of 1 jiffy
-> > > in orion_mdio_wait_ready(). If the timer interrupt ticks right after
-> > > calling wait_event_timeout(), we may end up spending much less time
-> > > than MVMDIO_SMI_TIMEOUT (1 msec) in wait_event_timeout(), and as a
-> > > result report a timeout as the MDIO access did not complete in such
-> > > a short time.
-> > > 
-> > > As to how to fix this, I see two options (I don't know which one
-> > > would be prefered):
-> > > 
-> > > - Option 1: always pass a timeout of at least 2 jiffy to wait_event_timeout().
-> > > - Option 2: switch to wait_event_hrtimeout().
-> > > 
-> > > I can provide patches for both options.
-> > 
-> > Based on yesterday's irc chat, option 1 sounds good.  Here's the dump
-> > from yesterday where Sebastian provided a thorough explanation:
-> > 
-> > 11:29 < shesselba> increasing max timeout to 2 ticks at least sounds reasonable
-> > 11:29 < shesselba> 10ms should be enough for every CONFIG_HZ there is
-> > 
-> > 11:30 < kos_tom> why make the timeout tied to the ticks? there are functions/macros to convert real time numbers into ticks.
-> > 11:30 < kos_tom> msecs_to_jiffies() or something
-> > 
-> > 11:31 < shesselba> kos_tom: it is already using usecs_to_jiffies()
-> > 11:31 < shesselba> the thing is: 1ms is less than a jiffy
-> 
-> Yes, and the kernels time conversion functions aren't stupid.  Let's
-> look at this function's implementation:
-> 
-> unsigned long usecs_to_jiffies(const unsigned int u)
-> {
->         if (u > jiffies_to_usecs(MAX_JIFFY_OFFSET))
->                 return MAX_JIFFY_OFFSET;
-> #if HZ <= USEC_PER_SEC && !(USEC_PER_SEC % HZ)
->         return (u + (USEC_PER_SEC / HZ) - 1) / (USEC_PER_SEC / HZ);
-> #elif HZ > USEC_PER_SEC && !(HZ % USEC_PER_SEC)
->         return u * (HZ / USEC_PER_SEC);
-> #else
->         return (USEC_TO_HZ_MUL32 * u + USEC_TO_HZ_ADJ32)
->                 >> USEC_TO_HZ_SHR32;
-> #endif
-> }
-> 
-> Now, assuming HZ=100 and USEC_PER_SEC=1000000, we will use:
-> 
-> 	return (u + (USEC_PER_SEC / HZ) - 1) / (USEC_PER_SEC / HZ);
-> 
-> If you ask for 1us, this comes out as:
-> 
-> 	return (1 + (1000000 / 100) - 1) / (1000000 / 100);
-> 
-> which is one jiffy.  So, for a requested 1us period, you're given a
-> 1 jiffy interval, or 10ms.  For other (sensible) values:
-> 
->         return (USEC_TO_HZ_MUL32 * u + USEC_TO_HZ_ADJ32)
->                 >> USEC_TO_HZ_SHR32;
-> 
-> gets used, which has a similar behaviour.
-> 
-> Now, depending on how you use this one jiffy interval, the thing to realise
-> is that with this kind of loop:
-> 
-> 	timeout = jiffies + usecs_to_jiffies(1);
-> 	do {
-> 		something;
-> 	} while (time_is_before_jiffies(timeout));
-> 
-> what this equates to is:
-> 
-> 	} while (jiffies - timeout < 0);
-> 
-> What this means is that the loop breaks at jiffies = timeout, so it can
-> indeed timeout before one tick - within 0 to 10ms for HZ=100.  The problem
-> is not the usecs_to_jiffies(), it's with the implementation.
+I have met the oops in Suse11 SP2, the kernel is 2.6.32.59-0.7-default:
 
-Ack.
+[64306.089036] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+[64306.089343] IP: [<ffffffff812f8e36>] neigh_timer_handler+0x116/0x3b0
+[64306.089535] PGD 0
+[64306.089706] Oops: 0000 [#1] SMP
+[64306.089935] last sysfs file: /sys/devices/pci0000:00/0000:00:03.0/0000:02:00.0/host0/target0:1:0/0:1:0:0/scsi_generic/sg0/dev
+[64306.090142] Die func triggered, code:1
+[64306.090147] CPU 1
+[64306.090258] Supported: Yes, External
+[64306.090262] Pid: 58359, comm: socknal_cd04 Tainted: P          N  2.6.32.59-0.7-default #1 T3500 G3
+[64306.090266] RIP: 0010:[<ffffffff812f8e36>]  [<ffffffff812f8e36>] neigh_timer_handler+0x116/0x3b0
+[64306.090272] RSP: 0018:ffff880c273499d8  EFLAGS: 00010206
+[64306.090275] RAX: 0000000000000000 RBX: ffff8801cddf1500 RCX: ffff8801cddf14f2
+[64306.090278] RDX: 0000000000000000 RSI: ffff8805e40d3a28 RDI: ffff8801cddf1500
+[64306.090281] RBP: ffff8805e40d3a28 R08: ffff8801cddf1530 R09: ffff880c27349b17
+[64306.090284] R10: 000000000000000e R11: ffffffff812f8e22 R12: ffff880185c0e840
+[64306.090287] R13: 0000000000000000 R14: ffff8805e40d3a60 R15: 0000000003484560
+[64306.090291] FS:  00007f081210e700(0000) GS:ffff880036420000(0000) knlGS:0000000000000000
+[64306.090295] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[64306.090297] CR2: 0000000000000008 CR3: 0000000001804000 CR4: 00000000000406e0
+[64306.090301] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[64306.090304] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[64306.090308] Process socknal_cd04 (pid: 58359, threadinfo ffff880c27348000, task ffff880c25d02300)
+[64306.090310] Stack:
+[64306.090426]  ffffffff8131f8e0 0000000000000003 ffff8801c189eb40 000000000000000a
+[64306.090437] <0> ffffffff00000000 0000000000000002 ffff880c27349a30 ffffffffa304790c
+[64306.090444] <0> 0000000000000246 000051010a010000 ffffffff81318357 31312d3300007fff
+[64306.090450] <0> ffff880c27349bb8 0248456003484560 ffff8801c189eb40 ffffffff81869300
+[64306.090456] <0> ffff880185c0e840 ffff8801cddf1514 ffff8805e40d3a28 00000000000000d0
+[64306.090464] Call Trace:
 
-> If you use time_is_before_eq_jiffies() instead, it will also loop if
-> jiffies == timeout, which will give you the additional safety margin -
-> meaning it will timeout after 10 to 20ms instead.
-> 
-> You may wish to consider coding this differently as well - if you have
-> the error interrupt, there's no need for this loop.  You only need the
-> loop if you're using usleep_range().  Note the return value of
-> wait_event_timeout() will tell you positively and correctly if the waited
-> condition succeeded or you timed out.
+--------------------------- cut here -------------------------------------
 
-Nicolas, sorry for the confusion.  Mind spinning a v2?
+I found the NULL place int the neigh_timer_handler, the neigh->ops is NULL,
+so the calling of neigh->ops->solicit(neigh, skb) will panic, I found the
+neigh has been freed via the kdump, the so I think the neigh was kfreed while
+the neigh timer handler is running.
 
-thx,
+The situation is that there are several server in the local lan:
+A: 128.5.10.83
+B: 128.5.10.85
+C: 128.5.10.xx
 
-Jason.
+I panic the A by manual, and set B's IP to 128.5.10.83, so send broadcast to tell
+the lan that B is 128.5.10.83, then the B panic, it is hard to appeared again, so
+I only met once.
+
+I think the reason is that:
+
+	CPU0					CPU1
+	-----					-----
+						<SOFTIRQ>
+						call_timer_fn();
+						base->running_timer = neigh->timer;
+						neigh_timer_handler();
+	neigh_release();
+	write_lock(&neigh->lock);
+	del_timer(neigh->timer);
+	write_unlock(&neigh->lock);
+						write_lock(&neigh->lock);
+	kfree(neigh);
+ 						neigh->ops->solicit();
+
+--------------------------------------------------------------------------
+
+The reason is : besides deactivating the timer it also makes sure the handler
+has finished executing on other CPUs, But the del_timer() just only detach the
+timer and not wait for the timer finish executing on other CPUs.
+
+According to the David's opinion, the del_timer_sync() should belongs in
+neigh_del_timer(), but the neigh_del_timer() will be called in
+write_lock(&neigh->lock), it will occur deadlock if the timer is calling the same
+lock, so del_timer_sync() should not be used in neigh_del_timer().
+
+I fix the problem by add neigh->dead check in neigh_timer_handler(), because
+if the neigh is in release path, the neigh is already in dead state, if the
+timer is running on other CPUs, the timer will be finished and no problems
+will occur when kfree the neighbour.
+
+I think the latest kernel still has the problem and make the patch for it.
+
+Suggested-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ net/core/neighbour.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index ca15f32..38f3d23 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -888,6 +888,11 @@ static void neigh_timer_handler(unsigned long arg)
+ 
+ 	write_lock(&neigh->lock);
+ 
++	if (neigh->dead) {
++		pr_warn("neighbour is dead and should be destroyed\n");
++		goto out;
++	}
++
+ 	state = neigh->nud_state;
+ 	now = jiffies;
+ 	next = now + HZ;
+-- 
+1.8.0
