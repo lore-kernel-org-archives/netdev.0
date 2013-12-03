@@ -1,96 +1,65 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: Spurious timeouts in mvmdio
-Date: Wed, 04 Dec 2013 00:45:58 +0100
-Message-ID: <529E6D36.40606@gmail.com>
-References: <529CA42A.3040504@freebox.fr>
- <20131203122346.GD29282@titan.lakedaemon.net>
- <20131203124033.GT16735@n2100.arm.linux.org.uk>
- <abe249f5cba5c267e2c536bd62c57908@doppler.thel33t.co.uk>
- <529E5F03.8040607@gmail.com>
- <8d65780eb7bfe49bb0734a09f05f70a6@doppler.thel33t.co.uk>
- <529E66A4.4050000@gmail.com>
- <ae69666fd3b61411d7bbd9ac993cec13@doppler.thel33t.co.uk>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: vxlan/veth performance issues on net.git + latest kernels
+Date: Wed, 4 Dec 2013 00:49:20 +0100
+Message-ID: <20131203234919.GA27943@order.stressinduktion.org>
+References: <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com> <1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com> <CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com> <20131203.165034.1085515763685633822.davem@davemloft.net> <1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com> <CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com> <CAJZOPZKg0UMmdknLJCgNo3cTFmszASLPYYJnB7g9h4M64xMy8w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
- Jason Cooper <jason@lakedaemon.net>, Nicolas Schichan <nschichan@freebox.fr>,
- netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
- "David S. Miller" <davem@davemloft.net>,
- Florian Fainelli <florian@openwrt.org>, linux-arm-kernel@lists.infradead.org
-To: Leigh Brown <leigh@solinno.co.uk>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <ae69666fd3b61411d7bbd9ac993cec13@doppler.thel33t.co.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Jerry Chu <hkchu@google.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:57435 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755696Ab3LCXtV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 18:49:21 -0500
+Content-Disposition: inline
+In-Reply-To: <CAJZOPZKg0UMmdknLJCgNo3cTFmszASLPYYJnB7g9h4M64xMy8w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/04/2013 12:38 AM, Leigh Brown wrote:
-> On 2013-12-03 23:17, Sebastian Hesselbarth wrote:
->> On 12/04/2013 12:20 AM, Leigh Brown wrote:
->>> On 2013-12-03 22:45, Sebastian Hesselbarth wrote:
->>>> On 12/03/2013 09:57 PM, Leigh Brown wrote:
->>> [...]
->>>>> Nicolas' patch should fix the issue, but I prefer the following as
->>>>> it is
->>>>> more
->>>>> correct, as it only adjusts the timeout when calling
->>>>> wait_event_timeout().  As
->>>>> I said above,I believe the polling code is correct.
->>>>>
->>>>> diff --git a/drivers/net/ethernet/marvell/mvmdio.c
->>>>> b/drivers/net/ethernet/marvell/mvmdio.c
->>>>> index 7354960..b187c08 100644
->>>>> --- a/drivers/net/ethernet/marvell/mvmdio.c
->>>>> +++ b/drivers/net/ethernet/marvell/mvmdio.c
->>>>> @@ -92,6 +92,14 @@ static int orion_mdio_wait_ready(struct mii_bus
->>>>> *bus)
->>>>>               if (time_is_before_jiffies(end))
->>>>>                   ++timedout;
->>>>>               } else {
->>>>> +            /*
->>>>> +             * wait_event_timeout does not guarantee a delay of at
->>>>> +             * least one whole jiffie, so timeout must be no less
->>>>> +             * than two.
->>>>> +             */
->>>>> +            if (timeout < 2)
->>>>> +                timeout = 2;
->>>>
->>>> If you always want to wait at least two jiffies, why not just increase
->>>> TIMEOUT makro to 20ms instead of messing here with it again?
->>>> As said on IRC log above, originally timeout was 100ms.
->>>
->>> You could do that, but would you not feel bad leaving a latent bug in
->>> the code?
->>> I know it's unlikely that someone would set HZ to 50, but if they did,
->>> the same
->>> bug would appear again.
->>
->> If you want to ensure timeout > 2, why not then just use:
->>
->> -     unsigned long timeout = usecs_to_jiffies(MVMDIO_SMI_TIMEOUT);
->> +     unsigned long timeout = 1 + usecs_to_jiffies(MVMDIO_SMI_TIMEOUT);
->
-> This will make it correct when using interrupts but it will make the
-> loop wait one
-> jiffie longer than it should when polling.
+On Wed, Dec 04, 2013 at 01:30:09AM +0200, Or Gerlitz wrote:
+> On Wed, Dec 4, 2013 at 1:10 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> > On Tue, Dec 3, 2013 at 11:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >> On Tue, 2013-12-03 at 16:50 -0500, David Miller wrote:
+> >>
+> >>> At this point I would use drop monitor to figure out in what context
+> >>> packets are being dropped on the floor.  There are scripts provided
+> >>> with the perf tool to utilize it.
+> >>
+> >> Most easy way is to do :
+> >>
+> >> perf record -e skb:kfree_skb -a -g sleep 10
+> >> perf report
+> >
+> > $ ./perf record -e skb:kfree_skb -g -a sleep 10
+> > $ ./perf report -i perf.data
+> >
+> >
+> > Samples: 883K of event 'skb:kfree_skb', Event count (approx.): 883406
+> > +  97.13%          swapper  [kernel.kallsyms]  [k] net_tx_action
+> > +   1.53%            iperf  [kernel.kallsyms]  [k] net_tx_action
+> > +   1.03%             perf  [kernel.kallsyms]  [k] net_tx_action
+> > +   0.27%      ksoftirqd/7  [kernel.kallsyms]  [k] net_tx_action
+> > +   0.03%      kworker/7:1  [kernel.kallsyms]  [k] net_tx_action
+> > +   0.00%          rpcbind  [kernel.kallsyms]  [k] net_tx_action
+> > +   0.00%          swapper  [kernel.kallsyms]  [k] kfree_skb
+> > +   0.00%            sleep  [kernel.kallsyms]  [k] net_tx_action
+> > +   0.00%  hald-addon-acpi  [kernel.kallsyms]  [k] kfree_skb
+> > +   0.00%            iperf  [kernel.kallsyms]  [k] kfree_skb
+> > +   0.00%             perf  [kernel.kallsyms]  [k] kfree_skb
+> 
+> I added proper sorting (thanks Rick), here's the passive side report
 
-Leigh,
+Btw. the nice helper for the dropwatch is "perf script net_dropmonitor".
 
-it is not about "waiting longer than it should" but increasing the
-_timeout_ to more than one jiffy. If you poll and everything is fine
-with mdio, you exit way before timeout. If mdio hangs, it does not
-really matter if you timeout after 10, 20, or even 100ms.
+Greetings,
 
-Anyway, I am fine with every patch that increases timeout to more than
-one jiffy. Also, Russell just sent a patch to separate irq/polling
-completely. Maybe give it a try.
-
-Sebastian
+  Hannes
