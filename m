@@ -1,45 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v4 1/2] net: sched: tbf: fix calculation of max_size
-Date: Mon, 02 Dec 2013 20:59:53 -0800
-Message-ID: <1386046793.30495.12.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386041214-72744-1-git-send-email-yangyingliang@huawei.com>
-	 <1386041214-72744-2-git-send-email-yangyingliang@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net v2 2/7] e1000: prevent oops when adapter is being closed
+ and reset simultaneously
+Date: Tue, 03 Dec 2013 00:26:35 -0500 (EST)
+Message-ID: <20131203.002635.905796895450448355.davem@davemloft.net>
+References: <529C57CE.1040801@windriver.com>
+	<20131202.111237.721028511867832463.davem@davemloft.net>
+	<529D3BC0.3020206@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, brouer@redhat.com,
-	jpirko@redhat.com, jbrouer@redhat.com
-To: Yang Yingliang <yangyingliang@huawei.com>
+Cc: sergei.shtylyov@cogentembedded.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	zyjzyj2000@gmail.com
+To: Yanjun.Zhu@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:56369 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752027Ab3LCE7z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Dec 2013 23:59:55 -0500
-Received: by mail-pb0-f42.google.com with SMTP id uo5so20504045pbc.29
-        for <netdev@vger.kernel.org>; Mon, 02 Dec 2013 20:59:54 -0800 (PST)
-In-Reply-To: <1386041214-72744-2-git-send-email-yangyingliang@huawei.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57468 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751439Ab3LCF0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 00:26:39 -0500
+In-Reply-To: <529D3BC0.3020206@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-03 at 11:26 +0800, Yang Yingliang wrote:
+From: yzhu1 <Yanjun.Zhu@windriver.com>
+Date: Tue, 3 Dec 2013 10:02:40 +0800
 
-> +	for (max_size = 0; max_size < MAX_PKT_LEN; max_size++)
-> +		if (psched_l2t_ns(&q->rate, max_size) > q->buffer)
-> +			break;
-> +	if (--max_size <= 0)
-> +		goto unlock_done;
-> +
+> On 12/03/2013 12:12 AM, David Miller wrote:
+>> From: yzhu1 <Yanjun.Zhu@windriver.com>
+>> Date: Mon, 2 Dec 2013 17:50:06 +0800
+>>
+>>> Thanks for the advice from Sergei. I made a new patch with the name
+>>> "yanjun.zhu".
+>> That's not a properly formatted real name either, it should be
+>> something
+>> like Yanjun Zhu.
+>>
+>> How do you write your name on paper when it needs to be romanized?
+>>
+>> Do you write "yanjun.zhu"?  I doubt that you do :-)
+> Hi, David
+> 
+> According to the tradition and the regulations, my name should be "Zhu
+> Yanjun"
 
-This seems dubious. With your new code, max_size < 65536
+This form is fine.
 
-Prior code had :
+> or "yanjun.zhu".
 
-for (n = 0; n < 256; n++)
-    if (rtab->data[n] > qopt->buffer)
-        break;
-max_size = (n << qopt->rate.cell_log) - 1;
-
-So we could have much bigger max_size.
-
-The reason I ask is that its possible to have qdisc_pkt_len(skb) being
-bigger than 65536, for TCP packets with low MSS value.
+Whereas you would never write this form by hand in a document, ever.
