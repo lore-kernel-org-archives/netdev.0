@@ -1,53 +1,53 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: Re: [PATCH net v4 1/2] net: sched: tbf: fix calculation of max_size
-Date: Tue, 3 Dec 2013 15:44:07 +0800
-Message-ID: <529D8BC7.4050005@huawei.com>
-References: <1386041214-72744-1-git-send-email-yangyingliang@huawei.com>	 <1386041214-72744-2-git-send-email-yangyingliang@huawei.com> <1386046793.30495.12.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch iproute2] ipneigh: update ip neigh usage
+Date: Mon, 2 Dec 2013 23:51:01 -0800
+Message-ID: <20131202235101.5b20f866@nehalam.linuxnetplumber.net>
+References: <1385735860-7574-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<brouer@redhat.com>, <jpirko@redhat.com>, <jbrouer@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: network dev <netdev@vger.kernel.org>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:33312 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751145Ab3LCHog (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 02:44:36 -0500
-In-Reply-To: <1386046793.30495.12.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:42794 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751145Ab3LCHvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 02:51:05 -0500
+Received: by mail-pb0-f52.google.com with SMTP id uo5so20548911pbc.39
+        for <netdev@vger.kernel.org>; Mon, 02 Dec 2013 23:51:04 -0800 (PST)
+In-Reply-To: <1385735860-7574-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/3 12:59, Eric Dumazet wrote:
-> On Tue, 2013-12-03 at 11:26 +0800, Yang Yingliang wrote:
-> 
->> +	for (max_size = 0; max_size < MAX_PKT_LEN; max_size++)
->> +		if (psched_l2t_ns(&q->rate, max_size) > q->buffer)
->> +			break;
->> +	if (--max_size <= 0)
->> +		goto unlock_done;
->> +
-> 
-> This seems dubious. With your new code, max_size < 65536
-> 
-> Prior code had :
-> 
-> for (n = 0; n < 256; n++)
->     if (rtab->data[n] > qopt->buffer)
->         break;
-> max_size = (n << qopt->rate.cell_log) - 1;
-> 
-> So we could have much bigger max_size.
-> 
-> The reason I ask is that its possible to have qdisc_pkt_len(skb) being
-> bigger than 65536, for TCP packets with low MSS value.
-> 
+On Fri, 29 Nov 2013 22:37:40 +0800
+Hangbin Liu <liuhangbin@gmail.com> wrote:
 
-Hmmm, if qdisc_pkt_len(skb) is bigger than 65536, skb_is_gso(skb) is true,
-it will go into tbf_segment(). If I am wrong, please point me out, thanks!
+> From function nud_state_a2n we can see there are more states could be used. So
+> update the ip neigh usage.
+> 
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> ---
+>  ip/ipneigh.c | 7 +++++--
+>  1 file changed, 5 insertions(+), 2 deletions(-)
+> 
+> diff --git a/ip/ipneigh.c b/ip/ipneigh.c
+> index d76e035..c203775 100644
+> --- a/ip/ipneigh.c
+> +++ b/ip/ipneigh.c
+> @@ -46,9 +46,12 @@ static void usage(void) __attribute__((noreturn));
+>  static void usage(void)
+>  {
+>  	fprintf(stderr, "Usage: ip neigh { add | del | change | replace } { ADDR [ lladdr LLADDR ]\n"
+> -		        "          [ nud { permanent | noarp | stale | reachable } ]\n"
+> -		        "          | proxy ADDR } [ dev DEV ]\n");
+> +		        "                    [ nud STATE ] | proxy ADDR } [ dev DEV ]\n");
+> +	fprintf(stderr, "\n");
+>  	fprintf(stderr, "       ip neigh {show|flush} [ to PREFIX ] [ dev DEV ] [ nud STATE ]\n");
+> +	fprintf(stderr, "\n");
+> +	fprintf(stderr, "STATE := { permanent | reachable | noarp | none | stale |\n");
+> +	fprintf(stderr, "           incomplete | delay | probe | failed }\n");
+>  	exit(-1);
+>  }
+>  
 
-BTW, 65536 is suggested by Jesper, I'm a little uncertain about it. He is, too.
-Do you or some other developers have stronger opinions on this?
-
-Thanks!
-Yang
+Accepted.
