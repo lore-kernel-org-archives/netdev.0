@@ -1,259 +1,157 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Tue, 03 Dec 2013 17:23:36 -0800
-Message-ID: <1386120216.30495.59.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
-	 <1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com>
-	 <20131203.165034.1085515763685633822.davem@davemloft.net>
-	 <1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com>
-	 <1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAMEtUuzEM957fRjsb5aSG7xHWKp13fy59QxWpsU_=d+-6ydazg@mail.gmail.com>
-	 <1386117362.30495.49.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAMEtUuy8HA1nOQJTnxy+p7vNFV25zxMAmz1fh2spj0k4hYgh4w@mail.gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
+Date: Wed, 4 Dec 2013 09:36:37 +0800
+Message-ID: <529E8725.7000306@huawei.com>
+References: <529DE13D.2070509@huawei.com> <20131203150307.GB8920@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Jerry Chu <hkchu@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"Joe Perches" <joe@perches.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f47.google.com ([209.85.213.47]:47179 "EHLO
-	mail-yh0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755881Ab3LDBXj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 20:23:39 -0500
-Received: by mail-yh0-f47.google.com with SMTP id 29so10720498yhl.20
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 17:23:39 -0800 (PST)
-In-Reply-To: <CAMEtUuy8HA1nOQJTnxy+p7vNFV25zxMAmz1fh2spj0k4hYgh4w@mail.gmail.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:39783 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754164Ab3LDBja (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 20:39:30 -0500
+In-Reply-To: <20131203150307.GB8920@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-03 at 16:55 -0800, Alexei Starovoitov wrote:
-> On Tue, Dec 3, 2013 at 4:36 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Tue, 2013-12-03 at 16:26 -0800, Alexei Starovoitov wrote:
-> >
-> >>
-> >> Could you use some other way to mark skb ?
-> >
-> > I could ;)
-> >
-> >> In tracing we might want to examine skb more carefully and not being
-> >> able to see the device
-> >> will limit the usability of this tracepoint.
-> >
-> > Unfortunately, using skb->dev as a pointer to device would be buggy or
-> > expensive (you would need to take a reference on device in order not
-> > letting it disappear, as we escape RCU protection)
+On 2013/12/3 23:03, Hannes Frederic Sowa wrote:
+> Hi Ding!
 > 
-> well, yes, you might have an skb around when device is already freed
-> when skb_dst_noref.
-> but I'm not suggesting anything expensive. Tracing definitely should
-> not add overhead by doing rcu_lock() or dev_hold(). Instead it can go
-> through skb, skb->dev, skb->dev->xxx via probe_kernel_read(). If dev
-> is gone, it's still safe.
-
-Its certainly not safe to 'probe'.
-
-Its not about faulting inexistent memory, that is the least of the
-problem.
-
-Any kind of information fetched from skb->dev might have been
-overwritten.
-
-You could for example fetch security sensitive data and expose it.
-
-
+> On Tue, Dec 03, 2013 at 09:48:45PM +0800, Ding Tianhong wrote:
+>> I have met the oops in Suse11 SP2, the kernel is 2.6.32.59-0.7-default:
+>>
+>> [64306.089036] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+>> [64306.089343] IP: [<ffffffff812f8e36>] neigh_timer_handler+0x116/0x3b0
+>> [64306.089535] PGD 0
+>> [64306.089706] Oops: 0000 [#1] SMP
+>> [64306.089935] last sysfs file: /sys/devices/pci0000:00/0000:00:03.0/0000:02:00.0/host0/target0:1:0/0:1:0:0/scsi_generic/sg0/dev
+>> [64306.090142] Die func triggered, code:1
+>> [64306.090147] CPU 1
+>> [64306.090258] Supported: Yes, External
+>> [64306.090262] Pid: 58359, comm: socknal_cd04 Tainted: P          N  2.6.32.59-0.7-default #1 T3500 G3
+>> [64306.090266] RIP: 0010:[<ffffffff812f8e36>]  [<ffffffff812f8e36>] neigh_timer_handler+0x116/0x3b0
+>> [64306.090272] RSP: 0018:ffff880c273499d8  EFLAGS: 00010206
+>> [64306.090275] RAX: 0000000000000000 RBX: ffff8801cddf1500 RCX: ffff8801cddf14f2
+>> [64306.090278] RDX: 0000000000000000 RSI: ffff8805e40d3a28 RDI: ffff8801cddf1500
+>> [64306.090281] RBP: ffff8805e40d3a28 R08: ffff8801cddf1530 R09: ffff880c27349b17
+>> [64306.090284] R10: 000000000000000e R11: ffffffff812f8e22 R12: ffff880185c0e840
+>> [64306.090287] R13: 0000000000000000 R14: ffff8805e40d3a60 R15: 0000000003484560
+>> [64306.090291] FS:  00007f081210e700(0000) GS:ffff880036420000(0000) knlGS:0000000000000000
+>> [64306.090295] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+>> [64306.090297] CR2: 0000000000000008 CR3: 0000000001804000 CR4: 00000000000406e0
+>> [64306.090301] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+>> [64306.090304] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+>> [64306.090308] Process socknal_cd04 (pid: 58359, threadinfo ffff880c27348000, task ffff880c25d02300)
+>> [64306.090310] Stack:
+>> [64306.090426]  ffffffff8131f8e0 0000000000000003 ffff8801c189eb40 000000000000000a
+>> [64306.090437] <0> ffffffff00000000 0000000000000002 ffff880c27349a30 ffffffffa304790c
+>> [64306.090444] <0> 0000000000000246 000051010a010000 ffffffff81318357 31312d3300007fff
+>> [64306.090450] <0> ffff880c27349bb8 0248456003484560 ffff8801c189eb40 ffffffff81869300
+>> [64306.090456] <0> ffff880185c0e840 ffff8801cddf1514 ffff8805e40d3a28 00000000000000d0
+>> [64306.090464] Call Trace:
 > 
-> > Anyway, this magic is pretty easy to change, I am open to suggestions.
+> Do you still have the full output of the panic including the Code section
+> and could post it here?
 > 
-> you're the expert :) use skb->mark field, since it's unused during
-> freeing path... ?
+> Greetings,
+> 
+>   Hannes
+> 
 
-cache line miss ;)
+ok, the bt -t is:
 
-skb->dev is in the first cache line, where we access skb->next anyway.
+PID: 58359  TASK: ffff880c25d02300  CPU: 1   COMMAND: "socknal_cd04"
+ #0 [ffff880c273496e0] machine_kexec at ffffffff810203a2
+ #1 [ffff880c27349730] crash_kexec at ffffffff81085c80
+ #2 [ffff880c27349800] oops_end at ffffffff81395c80
+ #3 [ffff880c27349820] no_context at ffffffff8102d0a7
+ #4 [ffff880c27349860] __bad_area_nosemaphore at ffffffff8102d365
+ #5 [ffff880c27349888] vsnprintf at fffffff
+ #6 [ffff880c27349958] neigh_timer_handler at ffffffff812f8e22
+ #7 [ffff880c273499a8] neigh_timer_handler at ffffffff812f8e36
+ #8 [ffff880c273499d8] ip_queue_xmit at ffffffff8131f8e0
+ #9 [ffff880c27349a88] tcp_transmit_skb at ffffffff8133398b
+#10 [ffff880c27349af8] tcp_connect at ffffffff813355c6
+caitao 00137488(c00137488) 2013-11-19 10:27:31
+#11 [ffff880c27349b28] tcp_v4_connect at ffffffff8133a85a
+#12 [ffff880c27349bf8] inet_stream_connect at ffffffff813490a8
+#13 [ffff880c27349c08] libcfs_debug_vmsg2 at ffffffffa0acd29c
+#14 [ffff880c27349c78] libcfs_sock_connect at ffffffffa0ac3d04
+#15 [ffff880c27349cc8] dequeue_task_fair at ffffffff81040445
 
-I could use skb->cb[] like the following patch :
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index ec96130533cc..8b8c2171b187 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -209,9 +209,9 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
- 	if (likely(skb)) {
- 		(*pkts_compl)++;
- 		(*bytes_compl) += skb->len;
-+		dev_consume_skb_any(skb);
- 	}
- 
--	dev_kfree_skb_any(skb);
- 	tx_buf->first_bd = 0;
- 	tx_buf->skb = NULL;
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 8d3945ab7334..03081932e519 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1058,7 +1058,7 @@ static void e1000_put_txbuf(struct e1000_ring *tx_ring,
- 		buffer_info->dma = 0;
- 	}
- 	if (buffer_info->skb) {
--		dev_kfree_skb_any(buffer_info->skb);
-+		dev_consume_skb_any(buffer_info->skb);
- 		buffer_info->skb = NULL;
- 	}
- 	buffer_info->time_stamp = 0;
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index 43aa7acd84a6..294825efb248 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -2037,7 +2037,7 @@ static void sky2_tx_complete(struct sky2_port *sky2, u16 done)
- 			bytes_compl += skb->len;
- 
- 			re->skb = NULL;
--			dev_kfree_skb_any(skb);
-+			dev_consume_skb_any(skb);
- 
- 			sky2->tx_next = RING_NEXT(idx, sky2->tx_ring_size);
- 		}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index f54ebd5a1702..653484bfae98 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -317,7 +317,7 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
- 			}
- 		}
- 	}
--	dev_kfree_skb_any(skb);
-+	dev_consume_skb_any(skb);
- 	return tx_info->nr_txbb;
- }
- 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 2d045be4b5cf..d44f7b69a6a0 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -2557,7 +2557,7 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 					u64_stats_update_end(&np->swstats_tx_syncp);
- 				}
- 				bytes_compl += np->get_tx_ctx->skb->len;
--				dev_kfree_skb_any(np->get_tx_ctx->skb);
-+				dev_consume_skb_any(np->get_tx_ctx->skb);
- 				np->get_tx_ctx->skb = NULL;
- 				tx_work++;
- 			}
-@@ -2574,7 +2574,7 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 					u64_stats_update_end(&np->swstats_tx_syncp);
- 				}
- 				bytes_compl += np->get_tx_ctx->skb->len;
--				dev_kfree_skb_any(np->get_tx_ctx->skb);
-+				dev_consume_skb_any(np->get_tx_ctx->skb);
- 				np->get_tx_ctx->skb = NULL;
- 				tx_work++;
- 			}
-@@ -2625,7 +2625,7 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
- 			}
- 
- 			bytes_cleaned += np->get_tx_ctx->skb->len;
--			dev_kfree_skb_any(np->get_tx_ctx->skb);
-+			dev_consume_skb_any(np->get_tx_ctx->skb);
- 			np->get_tx_ctx->skb = NULL;
- 			tx_work++;
- 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 916241d16c67..ab8970693ff3 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -755,7 +755,7 @@ static void free_old_xmit_skbs(struct send_queue *sq)
- 		stats->tx_packets++;
- 		u64_stats_update_end(&stats->tx_syncp);
- 
--		dev_kfree_skb_any(skb);
-+		dev_consume_skb_any(skb);
- 	}
- }
- 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 7f0ed423a360..8b80a58ec1ac 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2374,11 +2374,38 @@ int netif_get_num_default_rss_queues(void);
-  */
- void dev_kfree_skb_irq(struct sk_buff *skb);
- 
-+void __dev_kfree_skb_any(struct sk_buff *skb);
-+
-+struct __dev_kfree_skb_cb {
-+	unsigned int reason;
-+};
-+
-+static inline struct __dev_kfree_skb_cb *get_kfree_skb_cb(const struct sk_buff *skb)
-+{
-+	return (struct __dev_kfree_skb_cb *)skb->cb;
-+}
-+
-+enum {
-+	SKB_REASON_CONSUMED,
-+	SKB_REASON_DROPPED,
-+};
-+
- /* Use this variant in places where it could be invoked
-  * from either hardware interrupt or other context, with hardware interrupts
-  * either disabled or enabled.
-+ * Note that TX completion should use dev_consume_skb_any()
-  */
--void dev_kfree_skb_any(struct sk_buff *skb);
-+static inline void dev_kfree_skb_any(struct sk_buff *skb)
-+{
-+	get_kfree_skb_cb(skb)->reason = SKB_REASON_DROPPED;
-+	__dev_kfree_skb_any(skb);
-+}
-+
-+static inline void dev_consume_skb_any(struct sk_buff *skb)
-+{
-+	get_kfree_skb_cb(skb)->reason = SKB_REASON_CONSUMED;
-+	__dev_kfree_skb_any(skb);
-+}
- 
- int netif_rx(struct sk_buff *skb);
- int netif_rx_ni(struct sk_buff *skb);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ba3b7ea5ebb3..3170776e53da 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2161,14 +2161,14 @@ void dev_kfree_skb_irq(struct sk_buff *skb)
- }
- EXPORT_SYMBOL(dev_kfree_skb_irq);
- 
--void dev_kfree_skb_any(struct sk_buff *skb)
-+void __dev_kfree_skb_any(struct sk_buff *skb)
- {
- 	if (in_irq() || irqs_disabled())
- 		dev_kfree_skb_irq(skb);
- 	else
- 		dev_kfree_skb(skb);
- }
--EXPORT_SYMBOL(dev_kfree_skb_any);
-+EXPORT_SYMBOL(__dev_kfree_skb_any);
- 
- 
- /**
-@@ -3306,7 +3306,10 @@ static void net_tx_action(struct softirq_action *h)
- 			clist = clist->next;
- 
- 			WARN_ON(atomic_read(&skb->users));
--			trace_kfree_skb(skb, net_tx_action);
-+			if (likely(get_kfree_skb_cb(skb)->reason == SKB_REASON_CONSUMED))
-+				trace_consume_skb(skb);
-+			else
-+				trace_kfree_skb(skb, net_tx_action);
- 			__kfree_skb(skb);
- 		}
- 	}
+and the memory for struct neighbour is:
+
+crash>  neighbour ffff8801cddf1500
+struct neighbour {
+  next = 0x4037ad30000045, 
+  tbl = 0x2484560013d0640, 
+  parms = 0xdc03ff7f03484560, 
+  dev = 0x23351d86, 
+  used = 170277469553264, 
+  confirmed = 649366077121561602, 
+  updated = 0, 
+  flags = 0 '\000', 
+  nud_state = 0 '\000', 
+  type = 0 '\000', 
+  dead = 0 '\000', 
+  probes = {
+    counter = 0
+  }, 
+  lock = {
+    raw_lock = {
+      lock = 16777216
+    }
+  }, 
+  ha = "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\0
+00", 
+  hh = 0x0, 
+  refcnt = {
+    counter = 0
+  }, 
+  output = 0, 
+  arp_queue = {
+    next = 0x10002, 
+    prev = 0x0, 
+    qlen = 1, 
+    lock = {
+      raw_lock = {
+        slock = 0
+      }
+    }
+  }, 
+  timer = {
+    entry = {
+      next = 0x0, 
+      prev = 0x0
+    }, 
+    expires = 0, 
+    function = 0, 
+    data = 0, 
+    base = 0x0, 
+    start_site = 0x0, 
+    start_comm = "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000", 
+    start_pid = 0
+  }, 
+  ops = 0x0, 
+  primary_key = 0xffff8801cddf15f0 ""
+}
+
+Regards
+Ding
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> .
+> 
