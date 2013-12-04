@@ -1,61 +1,127 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: Supporting 4 way connections in LKSCTP
-Date: Wed, 4 Dec 2013 16:12:58 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B745E@saturn3.aculab.com>
-References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>	<CAFXGftLsKm9a5bmXX4Fe+rnSvYVdBDOyYGwisRP7XMu+ky=DGw@mail.gmail.com>	<CAFXGftLt1p6XpR2eGsMYKjEbbOHvch-LgcFw1sAXThcA2Rtjyw@mail.gmail.com>	<20131127124530.GA23369@hmsreliant.think-freely.org>	<CAFXGftJQV=5Pqs3bhfiS3T1VO1q8jfaMjAUiqm2tDbtSyBCM3A@mail.gmail.com>	<529C9B50.50002@gmail.com>	<CAGugRbXFirQ5P3ek9zN86h4vvO6qsy3eNEooJOApotA+dL+C_g@mail.gmail.com>	<529CB859.9090904@gmail.com>	<CAFXGft+F52p+oaa59=5e5pGfON44N36NA-XMYi5PorzWeybnKw@mail.gmail.com>	<CAFXGft+4o6fT4SYbu3musC+-BEi=xOEGUbZSavF1-0_V1mg6zg@mail.gmail.com>	<529D3BF9.3070208@gmail.com>	<CAFXGftJtCCJ=pVxg_DH-+n2bKmoKXavog0y8mfX+h-1z3hP49Q@mail.gmail.com>	<529DCF42.1070800@gmail.com>	<CAFXGftK5tz90OzObiV7Hi+g080j3zWCNdo217CKdNkOY4JWQUg@mail.gmail.com>	
- <529DF73E.7060604@gmail.com> <CAFXGftKZD0zN1S=UTa_bYr71-v=7mzU=_CewTNkjPv9CGGB_Fg@mail.gmail.com> <529F395B.9040308@gmail.com> <AE90C24D6B3A694183C094C60CF0A2F6026B745D@saturn3.aculab.com> <529F4D1A
-	.3050304@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>,
-	"Karl Heiss" <kheiss@gmail.com>,
-	"Neil Horman" <nhorman@tuxdriver.com>,
-	<linux-kernel@vger.kernel.org>
-To: "Vlad Yasevich" <vyasevich@gmail.com>,
-	"Sun Paul" <paulrbk@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:60681 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S932602Ab3LDQNp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Dec 2013 11:13:45 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 20998-07 for <netdev@vger.kernel.org>;
- Wed,  4 Dec 2013 16:13:43 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <529F4D1A.3050304@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Tuexen <Michael.Tuexen@lurchi.franken.de>
+Subject: Re: Supporting 4 way connections in LKSCTP
+Date: Wed, 4 Dec 2013 17:25:40 +0100
+Message-ID: <4F0BC498-2F09-4DB6-83DC-82571645476B@lurchi.franken.de>
+References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>	<20131127124530.GA23369@hmsreliant.think-freely.org>	<CAFXGftJQV=5Pqs3bhfiS3T1VO1q8jfaMjAUiqm2tDbtSyBCM3A@mail.gmail.com>	<529C9B50.50002@gmail.com>	<CAGugRbXFirQ5P3ek9zN86h4vvO6qsy3eNEooJOApotA+dL+C_g@mail.gmail.com>	<529CB859.9090904@gmail.com>	<CAFXGft+F52p+oaa59=5e5pGfON44N36NA-XMYi5PorzWeybnKw@mail.gmail.com>	<CAFXGft+4o6fT4SYbu3musC+-BEi=xOEGUbZSavF1-0_V1mg6zg@mail.gmail.com>	<529D3BF9.3070208@gmail.com>	<CAFXGftJtCCJ=pVxg_DH-+n2bKmoKXavog0y8mfX+h-1z3hP49Q@mail.gmail.com>	<529DCF42.1070800@gmail.com>	<CAFXGftK5tz90OzObiV7Hi+g080j3zWCNdo217CKdNkOY4JWQUg@mail.gmail.com>	<529DF73E.7060604@gmail.com> <CAFXGftKZD0zN1S=UTa_bYr71-v=7mzU=_CewTNkjPv9CGGB_Fg@mail.gmail.com> <529F395B.9040308@gmail.com> <AE90C24D6B
+ 3A694183C094C60CF0A2F6026B745D@saturn3.aculab.com> <529F4D1A.3050304@gmail.com> <7A4B9BD9-B2BF-4625-A2E5-500CD4A6D399@lurchi.franken.de> <529F5472.9030207@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 6.6 \(1510\))
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	Sun Paul <paulrbk@gmail.com>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, Karl Heiss <kheiss@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-kernel@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <529F5472.9030207@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiA+IFRoZXJlIGFyZSBzb21lIG5ldHdvcmsgY29uZmlndXJhdGlvbnMgdGhhdCBkbyBjYXVzZSBw
-cm9ibGVtcy4NCj4gPiBDb25zaWRlciA0IHN5c3RlbXMgd2l0aCAzIExBTiBzZWdtZW50czoNCj4g
-PiBBKSAxMC4xMC4xMC4xIG9uIExBTiBYIGFuZCAxOTIuMTY4LjEuMSBvbiBMQU4gWS4NCj4gPiBC
-KSAxMC4xMC4xMC4yIG9uIExBTiBYIGFuZCAxOTIuMTY4LjEuMiBvbiBMQU4gWS4NCj4gPiBDKSAx
-MC4xMC4xMC4zIG9uIExBTiBYLg0KPiA+IEQpIDEwLjEwLjEwLjQgb24gTEFOIFggYW5kIDE5Mi4x
-NjguMS4yIG9uIExBTiBaLg0KPiA+IFRoZXJlIGFyZSBubyByb3V0ZXJzIGJldHdlZW4gdGhlIG5l
-dHdvcmtzIChhbmQgbm9uZSBvZiB0aGUgc3lzdGVtcw0KPiA+IGFyZSBydW5uaW5nIElQIGZvcndh
-cmRpbmcpLg0KPiA+DQo+ID4gSWYgQSBjb25uZWN0cyB0byBCIGV2ZXJ5dGhpbmcgaXMgZmluZSAt
-IHRyYWZmaWMgY2FuIHVzZSBlaXRoZXIgTEFOLg0KPiA+DQo+ID4gQ29ubmVjdGlvbnMgZnJvbSBB
-IHRvIEMgYXJlIHByb2JsZW1hdGljIGlmIEMgdHJpZXMgdG8gc2VuZCBhbnl0aGluZw0KPiA+IChl
-eGNlcHQgYSBIQikgdG8gMTkyLjE2OC4xLjEgYmVmb3JlIHJlY2VpdmluZyBhIEhCIHJlc3BvbnNl
-Lg0KPiA+IE9uZSBvZiB0aGUgU0NUUCBzdGFja3Mgd2UndmUgdXNlZCBkaWQgc2VuZCBtZXNzYWdl
-cyB0byBhbg0KPiA+IGluYXBwcm9wcmlhdGUgYWRkcmVzcywgYnV0IEkndmUgZm9yZ290dGVuIHdo
-aWNoIG9uZS4NCj4gDQo+IEkgZ3Vlc3MgdGhhdCB3b3VsZCBiZSBwcm9ibGVtYXRpYyBpZiBBIGNh
-biBub3QgcmVjZWl2ZSB0cmFmZmljIGZvcg0KPiAxOTIuMTY4LjEuMSBvbiB0aGUgaW50ZXJmYWNl
-IGNvbm5lY3RlZCB0byBMQU4gWC4gIEkgc2hvdWxkbid0DQo+IHRlY2huaWNhbGx5IGJlIGEgcHJv
-YmxlbSBmb3IgQyBhcyBpdCBzaG91bGQgbWFyayB0aGUgcGF0aCB0byAxOTIuMTY4LjEuMQ0KPiBh
-cyBkb3duLiAgRm9yIEEsIGFzIGxvbmcgYXMgaXQgZG9lc24ndCBkZWNpZGUgdG8gQUJPUlQgdGhl
-IGFzc29jaWF0aW9uLA0KPiBpdCBzaG91bGRuJ3QgYmUgYSBwcm9ibGVtIGVpdGhlci4gIEl0IHdv
-dWxkIGJlIGludGVyZXN0aW5nIHRvIGtub3cgbW9yZQ0KPiBhYm91dCB3aGF0IHByb2JsZW1zIHlv
-dSd2ZSBvYnNlcnZlZC4NCg0KSXQgd2FzIGEgbG9uZyB0aW1lIGFnbywgd2UgZG9uJ3QgYWN0dWFs
-bHkgZG8gbXVjaCBTQ1RQIHRlc3RpbmcgZXZlbiB0aG91Z2gNCm91ciBwcm9kdWN0IChTUzcgTTNV
-QSkgdXNlcyBpdC4gTW9zdGx5IGJlY2F1c2Ugd2UgZG9uJ3Qgd2FudCB0byBmaW5kDQpidWdzIHRo
-YXQgYXJlIGhhcmQgdG8gZml4IQ0KDQpXaGF0IHdlIHNhdyB3YXMgQyB1c2luZyB0aGUgMTkyLngg
-YWRkcmVzcyAoYXMgc3VwcGxpZWQgaW4gdGhlIElOSVQpIGFuZA0KdGhlc2Ugbm90IGJlaW5nIHJv
-dXRhYmxlIHRvIEEgKGFuZCBub3QgZ2V0dGluZyBhIHJlc3BvbnNlIGZyb20gYSAzcmQgc3lzdGVt
-KS4NClNvIHRoZSBhcHBsaWNhdGlvbiBsYXllciBpbW1lZGlhdGVseSB0aW1lZCBldmVyeXRoaW5n
-IG91dC4NCg0KV2hhdCBJIGNhbid0IHJlbWVtYmVyIGlzIHdoZXRoZXIgdGhpcyB3YXMgTGludXgs
-IFNvbGFyaXMgb3IgdGhlIFNDVFAgc3RhY2sNCndlIHRvb2sgZnJvbSBmcmVlYnNkIGFuZCByYW1t
-ZWQgaW50byB0aGUgd2luZG93cyBrZXJuZWwuDQoNCglEYXZpZA0KDQo=
+On Dec 4, 2013, at 5:12 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
+
+> On 12/04/2013 11:01 AM, Michael Tuexen wrote:
+>> On Dec 4, 2013, at 4:41 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
+>> 
+>>> On 12/04/2013 09:50 AM, David Laight wrote:
+>>>>>> In normal operation, IP-A sends INIT to IP-X, IP-X returns INIT_ACK to
+>>>>>> IP-A. IP-A then sends HB to IP-X, IP-X then returns HB_ACK to IP-A. In
+>>>>>> the meantime, IP-B sends HB to IP-Y and IPY returns HB_ACK.
+>>>>>> 
+>>>>>> In case of the path between IP-A and IP-X is broken, IP-B sends INIT
+>>>>>> to IP-X, NODE-B uses IP-Y to return INIT_ACK to IP-B. Then IP-B sends
+>>>>>> HB to IP-X, and IP-Y returns HB_ACK to IP-B. In the meantime, the HB
+>>>>>> communication between IP-B and IP-Y follows the normal flow.
+>>>>>> 
+>>>>>> Can I confirm, is it really valid?
+>>>>> 
+>>>>> As long as NODE-B knows about both IP-A and IP-B, and NODE-A knows about
+>>>>> both IP-X and IP-Y (meaning all the addresses were exchanged inside INIT
+>>>>> and INIT-ACK), then this situation is perfectly valid.  In fact, this
+>>>>> has been tested an multiple interops.
+>>>> 
+>>>> There are some network configurations that do cause problems.
+>>>> Consider 4 systems with 3 LAN segments:
+>>>> A) 10.10.10.1 on LAN X and 192.168.1.1 on LAN Y.
+>>>> B) 10.10.10.2 on LAN X and 192.168.1.2 on LAN Y.
+>>>> C) 10.10.10.3 on LAN X.
+>>>> D) 10.10.10.4 on LAN X and 192.168.1.2 on LAN Z.
+>>>> There are no routers between the networks (and none of the systems
+>>>> are running IP forwarding).
+>>>> 
+>>>> If A connects to B everything is fine - traffic can use either LAN.
+>>>> 
+>>>> Connections from A to C are problematic if C tries to send anything
+>>>> (except a HB) to 192.168.1.1 before receiving a HB response.
+>>>> One of the SCTP stacks we've used did send messages to an
+>>>> inappropriate address, but I've forgotten which one.
+>>> 
+>>> I guess that would be problematic if A can not receive traffic for
+>>> 192.168.1.1 on the interface connected to LAN X.  I shouldn't
+>>> technically be a problem for C as it should mark the path to 192.168.1.1
+>>> as down.  For A, as long as it doesn't decide to ABORT the association,
+>>> it shouldn't be a problem either.  It would be interesting to know more
+>>> about what problems you've observed.
+>>> 
+>>>> 
+>>>> Connections between A and D fail unless the HB errors A receives
+>>>> for 192.168.1.2 are ignored.
+>>> 
+>>> Yes, this configuration is very error prone, especially if system B and
+>>> system D are up at the same time.  Any attempts by system A to use
+>>> LAN Y will result in an ABORT generated by system B.  I have seen
+>>> this issue well in production and we had to renumber system D to solve
+>>> it.
+>> The point is that address scoping should be used. When sending an
+>> INIT from 10.10.10.1 to 10.10.10.4 you should not list 192.168.1.1,
+>> since you are transmitting an address to a node which might or might
+>> not "be in the same scope". We had IDs for that in the past, but
+>> they never made it to RFC state, because they were not progressed enough
+>> by the authors. Maybe we should push them again...
+> 
+> But these 2 are technically in the same scope.  They are both private
+> address types.  Also, this will not solve the problem either since
+That is correct. But I think you should not transfer a private address
+to another private address belonging to a different network.
+I don't think this was specified in the older IDs...
+> the configured addresses could be:
+> System A) 10.0.0.1 on Lan X, 10.10.0.1 on Lan Y
+> System B) 10.0.0.2 on Lan X, 10.10.0.2 on Lan Y
+> System C) 10.0.0.3 on Lan X, 10.10.0.2 on Lan Z
+> 
+> Same problem will occur.
+Depending on the subnet masks, it might work not not. Are you
+configuring them with /8? 
+> 
+> Btw, were there any IDs other then draft-stewart-tsvwg-sctp-ipv4?
+Yes, one for IPv6.
+http://tools.ietf.org/html/draft-stewart-tsvwg-sctpipv6-01
+They need to be integrated and improved...
+
+Best regards
+Michael
+> 
+> Thanks
+> -vlad
+> 
+>> 
+>> Best regards
+>> Michael
+>>> 
+>>> -vlad
+>>>> 
+>>>> Of course the application could explicitly bind to only the 10.x address
+>>>> but that requires the application know the exact network topology
+>>>> and may be difficult for incoming calls.
+>>>> 
+>>>> 	David
+>>>> 
+>>> 
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>> 
+>> 
+> 
+> 
