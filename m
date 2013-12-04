@@ -1,33 +1,58 @@
-From: Fiedler Roman <Roman.Fiedler@ait.ac.at>
-Subject: Change in IPv4 TCP reset behavior after kernel upgrade
-Date: Wed, 4 Dec 2013 10:09:01 +0000
-Message-ID: <2ECE9D9EEF1F524185270138AE2326593BF9B5EE@S0MSMAIL112.arc.local>
+From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Subject: Re: [PATCH] xen/pvhvm: If xen_platform_pci=0 is set don't blow up.
+Date: Wed, 4 Dec 2013 10:48:17 +0000
+Message-ID: <alpine.DEB.2.02.1312041047200.7093@kaball.uk.xensource.com>
+References: <1386105246-14337-1-git-send-email-konrad.wilk@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.ait.ac.at ([62.218.164.132]:39881 "EHLO MX2.ait.ac.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755297Ab3LDKPS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 05:15:18 -0500
-Content-Language: de-DE
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: <stefano.stabellini@eu.citrix.com>, <ian.campbell@citrix.com>,
+	<xen-devel@lists.xenproject.org>, <linux-kernel@vger.kernel.org>,
+	<boris.ostrovsky@oracle.com>, <david.vrabel@citrix.com>,
+	<leosilva@linux.vnet.ibm.com>, <ashley@ashleylai.com>,
+	<peterhuewe@gmx.de>, <mail@srajiv.net>, <tpmdd@selhorst.net>,
+	<tpmdd@sirrix.com>, <dmitry.torokhov@gmail.com>,
+	<bhelgaas@google.com>, <plagnioj@jcrosoft.com>,
+	<tomi.valkeinen@ti.com>, <tpmdd-devel@lists.sourceforge.net>,
+	<linux-input@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-pci@vger.kernel.org>, <linux-fbdev@vger.kernel.org>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1386105246-14337-1-git-send-email-konrad.wilk@oracle.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, 3 Dec 2013, Konrad Rzeszutek Wilk wrote:
+> diff --git a/arch/x86/xen/platform-pci-unplug.c b/arch/x86/xen/platform-pci-unplug.c
+> index 0a78524..087dfeb 100644
+> --- a/arch/x86/xen/platform-pci-unplug.c
+> +++ b/arch/x86/xen/platform-pci-unplug.c
+> @@ -69,6 +69,24 @@ static int check_platform_magic(void)
+>  	return 0;
+>  }
+>  
+> +bool xen_has_pv_devices(void)
+> +{
+> +	if (!xen_domain())
+> +		return false;
+> +
+> +	if (xen_hvm_domain()) {
+> +		/* User requested no unplug, so no PV drivers. */
+> +		if (xen_emul_unplug & XEN_UNPLUG_NEVER)
+> +			return false;
 
-After upgrading from linux-image-3.10.17 to linux-image-3.10.21 I noticed, that afterwards reset packets started to be transmitted with ID != 0. For testing:
+Considering that if (xen_emul_unplug & XEN_UNPLUG_NEVER) we never set
+xen_platform_pci_unplug, this check is redundant.
 
-tcpdump -i eth0 -nn -s0 -X -vvv 'tcp[tcpflags] & tcp-rst != 0'
 
-I did a short search to find out when and why this was changed (PATCH), but did not get any wiser.
-
-Was this an intended change, e.g. to increase resilience against RST-packet injection/DOS scenarios? Is it just accidentally?
-
-The ID seems to be in sequence, so it is not uninitialized memory content.
-
-Roman
-
-PS: The kernel was patched with the vserver-patch, this might have an influence. I did not have time yet to build a kernel without that modification.
+> +		/* And user has xen_platform_pci=0 set in guest config as
+> +		 * driver did not modify the value. */
+> +		if (!xen_platform_pci_unplug)
+> +			return false;
+> +	}
+> +	return true;
+> +}
+> +EXPORT_SYMBOL_GPL(xen_has_pv_devices);
+> +
+>  void xen_unplug_emulated_devices(void)
+>  {
+>  	int r;
