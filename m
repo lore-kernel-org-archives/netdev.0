@@ -1,150 +1,53 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: Supporting 4 way connections in LKSCTP
-Date: Wed, 04 Dec 2013 13:23:50 -0500
-Message-ID: <529F7336.1000007@gmail.com>
-References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>	<CAFXGftJQV=5Pqs3bhfiS3T1VO1q8jfaMjAUiqm2tDbtSyBCM3A@mail.gmail.com>	<529C9B50.50002@gmail.com>	<CAGugRbXFirQ5P3ek9zN86h4vvO6qsy3eNEooJOApotA+dL+C_g@mail.gmail.com>	<529CB859.9090904@gmail.com>	<CAFXGft+F52p+oaa59=5e5pGfON44N36NA-XMYi5PorzWeybnKw@mail.gmail.com>	<CAFXGft+4o6fT4SYbu3musC+-BEi=xOEGUbZSavF1-0_V1mg6zg@mail.gmail.com>	<529D3BF9.3070208@gmail.com>	<CAFXGftJtCCJ=pVxg_DH-+n2bKmoKXavog0y8mfX+h-1z3hP49Q@mail.gmail.com>	<529DCF42.1070800@gmail.com>	<CAFXGftK5tz90OzObiV7Hi+g080j3zWCNdo217CKdNkOY4JWQUg@mail.gmail.com>	<529DF73E.7060604@gmail.com> <CAFXGftKZD0zN1S=UTa_bYr71-v=7mzU=_CewTNkjPv9CGGB_Fg@mail.gmail.com> <529F395B.9040308@gmail.com> <AE90C24D6B3A694183C094C60CF0A2F6026B745D@saturn3.aculab.com> <5
- 29F4D1A.3050304@gmail.com> <7A4B9BD9-B2BF-4625-A2E5-500CD4A6D399@lurchi.franken.de> <529F5472.9030207@gmail.com> <4F0BC498-2F09-4DB6-83DC-82571645476B@lurchi.franken.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Change in IPv4 TCP reset behavior after kernel upgrade
+Date: Wed, 04 Dec 2013 10:29:34 -0800
+Message-ID: <1386181774.30495.113.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <2ECE9D9EEF1F524185270138AE2326593BF9B5EE@S0MSMAIL112.arc.local>
+	 <CADVnQynL6=91zAZXMAoKEeCY7=Eajfq1DyP+Dzd8xhzBhujtyQ@mail.gmail.com>
+	 <2ECE9D9EEF1F524185270138AE2326593BF9B935@S0MSMAIL112.arc.local>
+	 <20131204175610.GB27943@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	Sun Paul <paulrbk@gmail.com>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, Karl Heiss <kheiss@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-kernel@vger.kernel.org
-To: Michael Tuexen <Michael.Tuexen@lurchi.franken.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4F0BC498-2F09-4DB6-83DC-82571645476B@lurchi.franken.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Fiedler Roman <Roman.Fiedler@ait.ac.at>,
+	Neal Cardwell <ncardwell@google.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f46.google.com ([209.85.213.46]:56785 "EHLO
+	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755911Ab3LDS3j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 13:29:39 -0500
+Received: by mail-yh0-f46.google.com with SMTP id l109so11665727yhq.19
+        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 10:29:38 -0800 (PST)
+In-Reply-To: <20131204175610.GB27943@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/04/2013 11:25 AM, Michael Tuexen wrote:
-> On Dec 4, 2013, at 5:12 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
+On Wed, 2013-12-04 at 18:56 +0100, Hannes Frederic Sowa wrote:
+> On Wed, Dec 04, 2013 at 04:13:10PM +0000, Fiedler Roman wrote:
+> > -static inline void ip_select_ident_more(struct iphdr *iph, struct dst_entry *dst, struct sock *sk, int more)
+> > +static inline void ip_select_ident_more(struct sk_buff *skb, struct dst_entry *dst, struct sock *sk, int more)
+> > {
+> > - if (iph->frag_off & htons(IP_DF)) {
+> > + struct iphdr *iph = ip_hdr(skb);
+> > +
+> > + if ((iph->frag_off & htons(IP_DF)) && !skb->local_df) {
+> > if (sk && inet_sk(sk)->inet_daddr) {
+> > iph->id = htons(inet_sk(sk)->inet_id);
+> > inet_sk(sk)->inet_id += 1 + more;
+> > 
+> > ... from 3.10.16 would disable ID setting on some packets, where it was done previously. Perhaps this caused problems in and hence behaviour was changed by another patch to one of the following kernel versions. Or perhaps the additional vserver-patch in my kernel interacted with that change and made it first visible after 3.10.17.
+> > 
+> > At least there has been activity around that part of the TCP-stack near the relevant time window, so it is not completely unexpected.
+> > 
+> > Since it seems, that the patch only affects sending of RSTs, there should be no real security impact also: Only difference seems to be, that by sending SYNs to closed ports, you now can get some incrementing next ID value (do not know, where this number really comes from). With a quick look, I could not find out how this ID relates to other ID values of .e.g UDP/TCP activity, e.g. for packet spoofing. Only thing that is possible so far (and not very valuable from my point of view) is port/firewall-rule probing using SYN on closed port, mechanism:
 > 
->> On 12/04/2013 11:01 AM, Michael Tuexen wrote:
->>> On Dec 4, 2013, at 4:41 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
->>>
->>>> On 12/04/2013 09:50 AM, David Laight wrote:
->>>>>>> In normal operation, IP-A sends INIT to IP-X, IP-X returns INIT_ACK to
->>>>>>> IP-A. IP-A then sends HB to IP-X, IP-X then returns HB_ACK to IP-A. In
->>>>>>> the meantime, IP-B sends HB to IP-Y and IPY returns HB_ACK.
->>>>>>>
->>>>>>> In case of the path between IP-A and IP-X is broken, IP-B sends INIT
->>>>>>> to IP-X, NODE-B uses IP-Y to return INIT_ACK to IP-B. Then IP-B sends
->>>>>>> HB to IP-X, and IP-Y returns HB_ACK to IP-B. In the meantime, the HB
->>>>>>> communication between IP-B and IP-Y follows the normal flow.
->>>>>>>
->>>>>>> Can I confirm, is it really valid?
->>>>>>
->>>>>> As long as NODE-B knows about both IP-A and IP-B, and NODE-A knows about
->>>>>> both IP-X and IP-Y (meaning all the addresses were exchanged inside INIT
->>>>>> and INIT-ACK), then this situation is perfectly valid.  In fact, this
->>>>>> has been tested an multiple interops.
->>>>>
->>>>> There are some network configurations that do cause problems.
->>>>> Consider 4 systems with 3 LAN segments:
->>>>> A) 10.10.10.1 on LAN X and 192.168.1.1 on LAN Y.
->>>>> B) 10.10.10.2 on LAN X and 192.168.1.2 on LAN Y.
->>>>> C) 10.10.10.3 on LAN X.
->>>>> D) 10.10.10.4 on LAN X and 192.168.1.2 on LAN Z.
->>>>> There are no routers between the networks (and none of the systems
->>>>> are running IP forwarding).
->>>>>
->>>>> If A connects to B everything is fine - traffic can use either LAN.
->>>>>
->>>>> Connections from A to C are problematic if C tries to send anything
->>>>> (except a HB) to 192.168.1.1 before receiving a HB response.
->>>>> One of the SCTP stacks we've used did send messages to an
->>>>> inappropriate address, but I've forgotten which one.
->>>>
->>>> I guess that would be problematic if A can not receive traffic for
->>>> 192.168.1.1 on the interface connected to LAN X.  I shouldn't
->>>> technically be a problem for C as it should mark the path to 192.168.1.1
->>>> as down.  For A, as long as it doesn't decide to ABORT the association,
->>>> it shouldn't be a problem either.  It would be interesting to know more
->>>> about what problems you've observed.
->>>>
->>>>>
->>>>> Connections between A and D fail unless the HB errors A receives
->>>>> for 192.168.1.2 are ignored.
->>>>
->>>> Yes, this configuration is very error prone, especially if system B and
->>>> system D are up at the same time.  Any attempts by system A to use
->>>> LAN Y will result in an ABORT generated by system B.  I have seen
->>>> this issue well in production and we had to renumber system D to solve
->>>> it.
->>> The point is that address scoping should be used. When sending an
->>> INIT from 10.10.10.1 to 10.10.10.4 you should not list 192.168.1.1,
->>> since you are transmitting an address to a node which might or might
->>> not "be in the same scope". We had IDs for that in the past, but
->>> they never made it to RFC state, because they were not progressed enough
->>> by the authors. Maybe we should push them again...
->>
->> But these 2 are technically in the same scope.  They are both private
->> address types.  Also, this will not solve the problem either since
-> That is correct. But I think you should not transfer a private address
-> to another private address belonging to a different network.
-> I don't think this was specified in the older IDs...
->> the configured addresses could be:
->> System A) 10.0.0.1 on Lan X, 10.10.0.1 on Lan Y
->> System B) 10.0.0.2 on Lan X, 10.10.0.2 on Lan Y
->> System C) 10.0.0.3 on Lan X, 10.10.0.2 on Lan Z
->>
->> Same problem will occur.
-> Depending on the subnet masks, it might work not not. Are you
-> configuring them with /8? 
+> E.g. icmp uses per-namespace per-cpu sockets where it counts the non-DF and
+> non-local_df fragments and increases that per-socket. TCP-RST use a global
+> per-cpu socket to send RST packets. ip_select_ident does increase inet_id for
+> each sent fragment.
 
-No, /16 :).  With that, Sys A talking to Sys C will get an abort
-from Sys B when trying to talk to 10.10.0.2.  With /8, it'll be
-even worse since SysB and SysC will have duplicate addresses
-within the subnet. :)
-
-The point is that you don't always know that the same private subnet
-is in reality 2 different subnets with duplicate addresses.
-
-I've had to debug an actual production issue similar to this where
-customer had a very similar configuration to above, and their
-associations kept getting aborted.  When I tried accessing the
-system that kept sending aborts, I found it was some windows
-server and not a Diameter station they were expecting.
-
->>
->> Btw, were there any IDs other then draft-stewart-tsvwg-sctp-ipv4?
-> Yes, one for IPv6.
-> http://tools.ietf.org/html/draft-stewart-tsvwg-sctpipv6-01
-> They need to be integrated and improved...
-> 
-
-Ok.  I'll take a look.
-
-Thanks
--vlad
-
-> Best regards
-> Michael
->>
->> Thanks
->> -vlad
->>
->>>
->>> Best regards
->>> Michael
->>>>
->>>> -vlad
->>>>>
->>>>> Of course the application could explicitly bind to only the 10.x address
->>>>> but that requires the application know the exact network topology
->>>>> and may be difficult for incoming calls.
->>>>>
->>>>> 	David
->>>>>
->>>>
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>>
->>>
->>
->>
-> 
+Well, it should not, because for this particular socket (assuming you
+speak of ip_send_unicast_reply()), inet_sk(sk)->inet_daddr is not set.
