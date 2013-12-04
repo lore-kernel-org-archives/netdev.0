@@ -1,65 +1,107 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Wed, 4 Dec 2013 11:41:34 +0200
-Message-ID: <CAJZOPZJVBpqm-OduV4K2YwbXESP7awhsk0HbjuHazAiQJZTLWQ@mail.gmail.com>
-References: <529DF340.70602@mellanox.com>
-	<1386084620.30495.28.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAJZOPZJ9WM1H9zKNzT5MvQ2UH7RxkTLk2Rhzsk9vdvKz6d2uAw@mail.gmail.com>
-	<alpine.LFD.2.03.1312031310140.23893@intel.com>
-	<CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
-	<alpine.LFD.2.03.1312031500020.570@intel.com>
-	<CAJZOPZLT_3msfz_XY45GOBMWK_y8WEYBTq3rGRUijpYyXE1ddg@mail.gmail.com>
-	<alpine.LFD.2.03.1312031626400.7539@intel.com>
-	<CAJZOPZJKsrj2+SQJsgq-w7BrNwDR0OsYWiF+1CcRQ3-KhejZhQ@mail.gmail.com>
-	<alpine.LFD.2.03.1312040113290.14367@intel.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
+Date: Wed, 04 Dec 2013 18:10:01 +0800
+Message-ID: <529EFF79.4040803@cn.fujitsu.com>
+References: <529DE13D.2070509@huawei.com>	<529E9579.7090201@cn.fujitsu.com>		<529EA9CF.2090008@huawei.com>	 <20131203.232122.852236751455974887.davem@davemloft.net>	 <529EC95A.5080908@huawei.com> <1386138457.30495.86.camel@edumazet-glaptop2.roam.corp.google.com> <529EF30A.4050609@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jerry Chu <hkchu@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
+	joe@perches.com, vfalico@redhat.com, netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:62144 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755342Ab3LDJlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 04:41:35 -0500
-Received: by mail-pd0-f171.google.com with SMTP id z10so22013765pdj.16
-        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 01:41:35 -0800 (PST)
-In-Reply-To: <alpine.LFD.2.03.1312040113290.14367@intel.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:54296 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755224Ab3LDKI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Dec 2013 05:08:57 -0500
+In-Reply-To: <529EF30A.4050609@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 4, 2013 at 11:24 AM, Joseph Gasparakis
-<joseph.gasparakis@intel.com> wrote:
-> On Wed, 4 Dec 2013, Or Gerlitz wrote:
+On 12/04/2013 05:16 PM, Ding Tianhong wrote:
+> On 2013/12/4 14:27, Eric Dumazet wrote:
+>> On Wed, 2013-12-04 at 14:19 +0800, Ding Tianhong wrote:
+>>> On 2013/12/4 12:21, David Miller wrote:
+>>>> From: Ding Tianhong <dingtianhong@huawei.com>
+>>>> Date: Wed, 4 Dec 2013 12:04:31 +0800
+>>>>
+>>>>> The destroying neigh could be trigger by userspace, just like set the ip address which
+>>>>> in arp table to the local device ip, some I could not control it, it maybe anytime,
+>>>>> but the timer handler is execute by logic, this is normal, so I think the logic
+>>>>> is no problem, and the process of destroying neigh may conflict with the timer handler,
+>>>>> it is a synchronous problem to make sure the timer should be finished before the
+>>>>> reference neigh is freed.
+>>>>
+>>>> The more I think about this, the more none of the explanations for this bug
+>>>> make any sense.
+>>>>
+>>>> neigh_destroy() _ONLY_ runs when:
+>>>>
+>>>> 	if (atomic_dec_and_test(&neigh->refcnt))
+>>>>
+>>>> triggers in neigh_release().
+>>>>
+>>>> This means it triggers if, and only if, neigh_refcnt goes to zero.
+>>>>
+>>>> If the refcnt goes to zero, NO TIMER can be running.  If the timer is
+>>>> running, then there refcnt must be at least '1'.
+>>>
+>>> Hi David:
+>>>
+>>> Yes, you are right, but when the timer is running and prior to get the neigh->lock, the refcnt
+>>> could be dec to 0, you could not stop it by existing mechanism.
+>>>
+>>> the refcnt of neighbour could only be inc by these actions:
+>>>
+>>> 1.create neighbour, the refcnt will be set to 1.
+>>> 2.add timer, the refcnt++.
+>>> 3.neigh_lookup, if found the neigh, refcnt++.
+>>>
+>>> I can show the whole process of my analysis:
+>>>
+>>> 		CPU 0				CPU 1
+>>> 		-----				-----
+>>> 	create_neigh() => refcnt = 1;		
+>>> 	add timer =>	refcnt++;
+>>> 						<SOFTIRQ>
+>>> 						base->running_timer = neigh->timer;
+>>> 						neigh_timer_handler() => at this time, refcnt is 2;
+>>>
+>>> user->	neigh_changeaddr()
+>>> 	neigh_flush_dev();
+>>> 	neigh_del_imer, refcnt dec to 1;
+>>
+>> Nope : del_timer() would return 0 here, so we do not decrement refcnt.
+>>
+> 
+> The first call for del_timer() will return 1, because the timer->entry.next is not NULL,
+> then in the neigh_destroy, the del_timer() again will return 0 because timer->entry.next is NULL. 
+> 
+>> I can tell you, if this was not the case, a lot of things would be
+>> terribly broken, like TCP stack.
+>>
+>>> 	release_neigh(), refcnt is 0,
+>>> 	destroy_neigh()
+>>> 	kfree(neighbour);
+>>> 						write(neigh->lock)
+>>>
+>>> So in my opinion, the point of the problem is that I should not kfree the neighbour until
+>>> the timer is not running on CPUs and not pending.
+>>>
+>>> If I miss someghing, pls point out.
+>>
+>> As David explained, if a timer is running, refcnt can not reach 0,
+>> untill the timer handler finished.
+>>
+>> So _something_ is calling neigh_release(n) without prior neigh_hold()
+>>
 
->> nope! with the latest net tree, after handle_offloads is called in
->> vxlan_xmit_skb and before iptunnel_xmit is invoked,
->> skb_shinfo(skb)->gso_type is either 0 or 0x201 which is
->> (SKB_GSO_UDP_TUNNEL | SKB_GSO_TCPV4) and its the same value whether
->> the session runs over veth device or directly over the bridge, where
->> over veth and > 1 stream we see drops, bad perf, etc.
->> I am very interested in the VM case too, so will check it out and let you know.
+seems like neigh_release in neigh_del_timer should be removed, it can't
+release the neigh for the timer which may want to call neigh_release too,
+this release job should be done by timer handler.
 
-> Ok, I was really hoping that would be the same...
+we should make sure if the timer is not pending, it doesn't have the
+reference of neigh.
 
-So when running traffic from VM I do see SKB_GSO_DODGY bit being set!
-my environment for
-running VMs with sane peformance was screwed  a bit, I will bring it
-up later today and see if unsetting the bit helps.
-
-
-> And just for the record,
-> you are seeing (SKB_UDP_TUNNEL | SKB_GSO_TCPV4) as 0x201 while I was
-> seeing it as 0x81 because commit 61c1db7fae "ipv6: sit: add GSO/TSO
-> support" pushed the SKB_UDP_TUNNEL two bits left, and I had done my tests
-> before it.
-
-indeed, also, on what kernel did you conducted your tests which you
-managed to WA the problem
-with unsetting that bit?
+It's great if we can reproduce this bug, but...
