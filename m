@@ -1,53 +1,57 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH v2] sctp: disable max_burst when the max_burst is 0
-Date: Wed, 04 Dec 2013 09:28:03 -0500
-Message-ID: <529F3BF3.40009@gmail.com>
-References: <529C2E01.3090005@huawei.com> <529EF6B7.7000501@huawei.com>
+From: =?utf-8?B?RnJhbsOnb2lzLVhhdmllciBMZSBCYWls?= <fx.lebail@yahoo.com>
+Subject: Re: [PATCH] ipv6 addrconf: source address selection, Rule 7: Prefer temporary addresses (RFC 6724)
+Date: Wed, 4 Dec 2013 06:29:46 -0800 (PST)
+Message-ID: <1386167386.3192.YahooMailBasic@web125505.mail.ne1.yahoo.com>
+References: <20131201.202237.1289362147164597952.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Wang Weidong <wangweidong1@huawei.com>, nhorman@tuxdriver.com,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f44.google.com ([209.85.213.44]:54152 "EHLO
-	mail-yh0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932301Ab3LDO2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 09:28:06 -0500
-In-Reply-To: <529EF6B7.7000501@huawei.com>
+Received: from nm31.bullet.mail.ne1.yahoo.com ([98.138.229.24]:32856 "HELO
+	nm31.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932165Ab3LDOcc convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Dec 2013 09:32:32 -0500
+In-Reply-To: <20131201.202237.1289362147164597952.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/04/2013 04:32 AM, Wang Weidong wrote:
-> As Michael pointed out that when max_burst is 0, it just disable
-> max_burst. It declared in rfc6458#section-8.1.24. so add the check
-> in sctp_transport_burst_limited, when it 0, just do nothing.
-> 
-> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
-> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
-> Suggested-by: Michael Tuexen <Michael.Tuexen@lurchi.franken.de>
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> ---
->  net/sctp/transport.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-> index e332efb..efc46ff 100644
-> --- a/net/sctp/transport.c
-> +++ b/net/sctp/transport.c
-> @@ -573,7 +573,7 @@ void sctp_transport_burst_limited(struct sctp_transport *t)
->  	u32 old_cwnd = t->cwnd;
->  	u32 max_burst_bytes;
->  
-> -	if (t->burst_limited)
-> +	if (t->burst_limited || asoc->max_burst == 0)
->  		return;
->  
->  	max_burst_bytes = t->flight_size + (asoc->max_burst * asoc->pathmtu);
-> 
+> On Monday, December 2, 2013 2:25 AM, David Miller <davem@davemloft.ne=
+t> wrote:
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+>> From: fx.lebail@yahoo.com
+>> Date: Mon, 25 Nov 2013 17:16:45 +0100
+>>  The RFC 6724 change the default recommendation for source address s=
+election
+>>  Rule 7 to prefer temporary addresses rather than public addresses,
+>>  while providing an administrative override.
+>>
+>>  The administrative override is based on the prefer_src_public sysct=
+l.
+>>
+>>  Signed-off-by: Francois-Xavier Le Bail <fx.lebail@yahoo.com>
+>
+> I think we need to preserve existing behavior, but this patch does no=
+t
+> do that.
+>
+> Sorry, I can't apply this.
+>
+> If someone was depending upon the old preferencing in some way, we wi=
+ll
+> break communications for them, and that really isn't acceptable.
+>
+> It's really ill advised for the RFC folks to create situations like
+> this, where implementations have to choose between following the
+> updated RFC to the letter and keeping existing setups working.
 
-Thanks
--vlad
+The change is explained here: http://tools.ietf.org/html/rfc6724#append=
+ix-B
+
+=E2=80=9C This change was made because of the increasing
+  importance of privacy considerations, as well as the fact that
+  widely deployed implementations have preferred temporary
+  addresses for many years without major application issues.=E2=80=9D
