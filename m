@@ -1,72 +1,53 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH openvswitch v3] netlink: Implement & enable memory mapped
- netlink i/o
-Date: Wed, 4 Dec 2013 14:20:53 -0800
-Message-ID: <CAEP_g=8jMEsrOEpU=LTsfp93RaOowR5DfRB=dzQ-OJEsAVmm0g@mail.gmail.com>
-References: <1d9af26b2798901c68ae9aef704d6313b71d3287.1386069453.git.tgraf@redhat.com>
- <20131204163328.GE30874@nicira.com> <529F6475.3090903@redhat.com>
- <20131204180818.GB16940@nicira.com> <529FA334.4050202@redhat.com>
+From: Johannes Weiner <hannes@cmpxchg.org>
+Subject: 2e685cad5790 build warning
+Date: Wed, 4 Dec 2013 17:29:43 -0500
+Message-ID: <20131204222943.GC21724@cmpxchg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Pfaff <blp@nicira.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>, ffusco@redhat.com,
-	fleitner@redhat.com, Cong Wang <xiyou.wangcong@gmail.com>
-To: Thomas Graf <tgraf@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Glauber Costa <glommer@gmail.com>, netdev@vger.kernel.org,
+	linux-mm@kvack.org, linux-kernel@kvack.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:51430 "HELO
-	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753128Ab3LDWVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 17:21:15 -0500
-Received: by mail-ie0-f170.google.com with SMTP id qd12so28255022ieb.15
-        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 14:21:13 -0800 (PST)
-In-Reply-To: <529FA334.4050202@redhat.com>
+Received: from zene.cmpxchg.org ([85.214.230.12]:44420 "EHLO zene.cmpxchg.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753068Ab3LDW3t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Dec 2013 17:29:49 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 4, 2013 at 1:48 PM, Thomas Graf <tgraf@redhat.com> wrote:
-> On 12/04/2013 07:08 PM, Ben Pfaff wrote:
->> if one can come up with a
->> good heuristic to decide which sockets should be mmaped.  One place
->> one could start would be to mmap the sockets that correspond to
->> physical ports.
->
->
-> That sounds reasonable, e.g. I would assume ports connected to tap
-> devices to produce only a limited number of upcalls anyway.
->
-> We can also consider enabling/disabling mmaped rings on demand based
-> on upcall statistics.
+Hi Eric,
 
-If enabling rings on demand can be done cleanly that might be best
-solution. To me, it seems difficult to generalize the upcall
-characteristics based on port type.
+commit 2e685cad57906e19add7189b5ff49dfb6aaa21d3
+Author: Eric W. Biederman <ebiederm@xmission.com>
+Date:   Sat Oct 19 16:26:19 2013 -0700
 
->> Maybe you mean that we should only create 16 or 32 Netlink sockets,
->> and divide the datapath ports among those sockets.  OVS once used this
->> approach.  We stopped using it because it has problems with fairness:
->> if two ports are assigned to one socket, and one of those ports has a
->> huge volume of new flows (or otherwise sends a lot of packets to
->> userspace), then it can drown out the occasional packet from the other
->> port.  We keep talking about new, more flexible approaches to
->> achieving fairness, though, and maybe some of those approaches would
->> allow us to reduce the number of sockets we need, which would make
->> mmaping all of them feasible.
->
->
-> I can see the fairness issue. It will result in a large amount of open
-> file descriptors though. I doubt this will scale much beyond 16K ports,
-> correct?
+    tcp_memcontrol: Kill struct tcp_memcontrol
+   =20
+    Replace the pointers in struct cg_proto with actual data fields and=
+ kill
+    struct tcp_memcontrol as it is not fully redundant.
+   =20
+    This removes a confusing, unnecessary layer of abstraction.
+   =20
+    Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-16K ports/sockets would seem to be a good upper bound. However, there
-are a couple of factors that might affect that number in the future.
-The first is that port might not be fine-grained enough - for example,
-on an uplink port it would be better to look at MAC or IP address to
-enforce fairness, which would tend to expand the number of sockets
-necessary (although there obviously won't be a 1:1 mapping, which
-means that we might have to come up with a more clever assignment
-algorithm). The second is that Alex has been working on a userspace
-mechanism for enforcing fairness (you probably have seen his recent
-patches on the mailing list), which could reduce the number of unique
-queues from the kernel.
+triggers a build warning because it removed the only reference to a
+function but not the function itself:
+
+linux/net/ipv4/tcp_memcontrol.c:9:13: warning: =E2=80=98memcg_tcp_enter=
+_memory_pressure=E2=80=99 defined but not used [-Wunused-function]
+ static void memcg_tcp_enter_memory_pressure(struct sock *sk)
+
+I can not see from the changelog why this function is no longer used,
+or who is supposed to now set cg_proto->memory_pressure which you
+still initialize etc.  Either way, the current state does not seem to
+make much sense.  The author would be the best person to double check
+such changes, but he wasn't copied on your patch, so I copied him now.
+
+Apologies if this has been brought up before, I could not find any
+reference on LKML of either this patch or a report of this warning.
+
+Thanks!
