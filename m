@@ -1,39 +1,64 @@
-From: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re:
- =?gb2312?b?tPC4tDogIFtQQVRDSCBvcGVudnN3aXRjaCB2M10gbmV0?=
- =?gb2312?b?bGluazogSW1wbGVtZW50ICYgZW5hYmxlIG1lbW9yeSBtYXBwZWQgbmV0bGlu?=
- =?gb2312?b?ayBpL28=?=
-Date: Wed, 04 Dec 2013 10:08:59 +0100
-Message-ID: <529EF12B.5050205@redhat.com>
-References: <1d9af26b2798901c68ae9aef704d6313b71d3287.1386069453.git.tgraf@redhat.com>
-	<9C2DE4B8FE85984BA1B0581235F6B2ED0F5D440A@SZXEMA502-MBS.china.huawei.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [ovs-dev] [PATCH v2.51 0/5] MPLS actions and matches
+Date: Wed, 4 Dec 2013 18:16:06 +0900
+Message-ID: <20131204091606.GG13951@verge.net.au>
+References: <1385005606-30130-1-git-send-email-horms@verge.net.au>
+ <20131126080759.GA26597@verge.net.au>
+ <20131126153347.GA2662@nicira.com>
+ <20131127001230.GB5192@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"fleitner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <fleitner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Zhuangyuxin <zhuangyuxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	"jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org" <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, "blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org" <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <9C2DE4B8FE85984BA1B0581235F6B2ED0F5D440A-tJwL4pWccCZdGU6diIvhbAK1hpo4iccwjNknBlVQO8k@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>, Ravi K <rkerur@gmail.com>
+To: Ben Pfaff <blp@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:38816 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754204Ab3LDJQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 04:16:09 -0500
+Content-Disposition: inline
+In-Reply-To: <20131127001230.GB5192@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/04/2013 02:54 AM, Zhuangyuxin wrote:
-> In this patch, each frame takes 16k mem. For sockets used for upcall, does it make more sense to calculate frame size based on MTU of the netdev on the port?
+On Wed, Nov 27, 2013 at 09:12:30AM +0900, Simon Horman wrote:
+> On Tue, Nov 26, 2013 at 07:33:47AM -0800, Ben Pfaff wrote:
+> > On Tue, Nov 26, 2013 at 05:08:04PM +0900, Simon Horman wrote:
+> > > On Thu, Nov 21, 2013 at 12:46:41PM +0900, Simon Horman wrote:
+> > > > Hi,
+> > > > 
+> > > > This series implements MPLS actions and matches based on work by
+> > > > Ravi K, Leo Alterman, Yamahata-san and Joe Stringer.
+> > > > 
+> > > > This series provides three changes
+> > > > 
+> > > > * Patches 1 - 3
+> > > > 
+> > > >   Provide user-space support for the VLAN/MPLS tag insertion order
+> > > >   up to and including OpenFlow 1.2, and the different ordering
+> > > >   specified from OpenFlow 1.3. In a nutshell the datapath always
+> > > >   uses the OpenFlow 1.3 ordering, which is to always insert tags
+> > > >   immediately after the L2 header, regardless of the presence of other
+> > > >   tags. And ovs-vswtichd provides compatibility for the behaviour up
+> > > >   to OpenFlow 1.2, which is that MPLS tags should follow VLAN tags
+> > > >   if present.
+> > > > 
+> > > >   Ben, these are for you to review.
+> > > 
+> > > Hi Ben,
+> > > 
+> > > I wonder if you could find some time to look over these.
+> > > 
+> > > I believe that the first patch has not previously been reviewed
+> > > but other than that there should be few areas of excitement.
+> > 
+> > I'm taking today and the remainder of this week off (Thursday and Friday
+> > are a holiday here in the U.S.), so unfortunately there is not much
+> > chance of progress before Monday.
+> 
+> Enjoy your break :)
 
-I assume you mean max(MTU) over all ports? We would have to replace the
-ring after each MTU change. Doing so in use is non trivial and
-expensive. The
-current frame size of 16K covers jumbo frames and is a sane default but can
-certainly be optimized further on, f.e. as we possibly extend OVS user space
-to handle GSO frames.
+Hi Ben,
+
+I know this has been dragging on and on.
+But I'd like to nicely ask you to consider reviewing this series.
