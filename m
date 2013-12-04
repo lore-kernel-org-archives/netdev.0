@@ -1,77 +1,51 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH RFCv2 5/6] net: phy: suspend unused PHYs on mdio_bus in
- late_initcall
-Date: Thu, 05 Dec 2013 00:05:44 +0300
-Message-ID: <529F9928.9090407@cogentembedded.com>
-References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com> <1386171888-28190-6-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: NAPI rescheduling and the delay caused by it
+Date: Wed, 04 Dec 2013 12:41:58 -0800
+Message-ID: <1386189718.30495.131.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <529F7A87.5080303@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386171888-28190-6-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	Malcolm Crossley <malcolm.crossley@citrix.com>,
+	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f41.google.com ([209.85.213.41]:39650 "EHLO
+	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933010Ab3LDUmC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 15:42:02 -0500
+Received: by mail-yh0-f41.google.com with SMTP id f11so11838194yha.14
+        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 12:42:01 -0800 (PST)
+In-Reply-To: <529F7A87.5080303@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Wed, 2013-12-04 at 18:55 +0000, Zoltan Kiss wrote:
 
-On 12/04/2013 06:44 PM, Sebastian Hesselbarth wrote:
+> So, my questions are:
+> - why is NAPI rescheduled on an another CPU?
+> - why does it cause a 3-4 milisec delay?
 
-> Since phy_attach ensures PHYs are resumed, we can now suspend all
-> PHYs that have no attached netdev after initcalls.
+NAPI can not be scheduled on another cpu.
 
-> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-> ---
-> Changelog:
-> RFCv1->RFCv2:
-> - only check for phydev->attached_dev and let phy_suspend decide on
->    performing suspend or not (Suggested by Florian)
+But at the time of napi_schedule() call, napi_struct can be already be
+scheduled by another cpu.
 
-> @Florian: You suggested to 'make sure that the MDIO bus suspend policy
-> was set to "auto"'. I wasn't able to find any clue how to check that,
-> so I ignored that for now.
+( NAPI_STATE_SCHED bit already set)
 
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: Mugunthan V N <mugunthanvnm@ti.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-kernel@vger.kernel.org
-> ---
->   drivers/net/phy/mdio_bus.c |   25 +++++++++++++++++++++++++
->   1 files changed, 25 insertions(+), 0 deletions(-)
+So I would say something made the 'other' cpu non responsive fast enough
+to softirq events being ready for service.
 
-> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-> index 5617876..f533d17 100644
-> --- a/drivers/net/phy/mdio_bus.c
-> +++ b/drivers/net/phy/mdio_bus.c
-> @@ -320,6 +320,31 @@ static int mdio_bus_match(struct device *dev, struct device_driver *drv)
->   		(phydev->phy_id & phydrv->phy_id_mask));
->   }
->
-> +static int mdio_bus_suspend_unused(struct device *busdev, void *data)
-> +{
-> +	struct mii_bus *bus = to_mii_bus(busdev);
-> +	struct phy_device *phydev;
-> +	int i;
-> +
-> +	for (i = 0; i < PHY_MAX_ADDR; i++) {
-> +		if (!bus->phy_map[i])
-> +			continue;
-> +
-> +		phydev = to_phy_device(&bus->phy_map[i]->dev);
+(Another wakeup happened 3-4 millisec later)
 
-    Why so complex? 'bus->phy_map[i]' already gives you 'phydev'.
+Really, I suspect your usage of netif_wake_queue() is simply wrong.
 
-> +		if (!phydev->attached_dev)
-> +			phy_suspend(phydev);
-> +	}
-> +
-> +	return 0;
-> +}
+Check why we have netif_rx() and netif_rx_ni() variants.
 
-WBR, Sergei
+And ask yourself if xenvif_notify_tx_completion() is correct, being
+called from process context.
