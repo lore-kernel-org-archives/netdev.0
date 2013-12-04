@@ -1,38 +1,51 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net 1/7] bridge: Fix the way finding the old local fdb
- entry in br_fdb_changeaddr
-Date: Wed, 04 Dec 2013 16:55:57 +0900
-Message-ID: <1386143757.3704.1.camel@ubuntu-vm-makita>
-References: <1385966439-26526-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <1385966439-26526-2-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <20131202180917.1e844dde@nehalam.linuxnetplumber.net>
-	 <1386075326.4038.66.camel@ubuntu-vm-makita>
-	 <20131203085035.6a11b1de@nehalam.linuxnetplumber.net>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] net: mac80211: tx.c: be sure of 'sdata->vif.type' must
+ be NL80211_IFTYPE_AP when be in NL80211_IFTYPE_AP case
+Date: Wed, 04 Dec 2013 09:04:41 +0100
+Message-ID: <1386144281.4284.0.camel@jlt4.sipsolutions.net>
+References: <528AEFB7.4060301@gmail.com>
+	  <20131125011938.GB18921@codeaurora.org> <5292B845.3010404@gmail.com>
+	  <5292B8A0.7020409@gmail.com> <5294255E.7040105@gmail.com>
+	  <52957ADA.2080704@gmail.com>
+	  (sfid-20131127_055211_558798_A7DF5684) <1385739487.8656.1.camel@jlt4.sipsolutions.net>
+	  <5299D306.7070701@gmail.com>
+	  (sfid-20131130_125901_519610_EDA4068E) <1385816013.4327.1.camel@jlt4.sipsolutions.net>
+	  <5299ED38.4090509@gmail.com> <5299EFDD.6060405@gmail.com>
+	  (sfid-20131130_150205_984535_068F14A9) <1385842134.6108.4.camel@jlt4.sipsolutions.net>
+	  <1385843940.2664.4.camel@joe-AO722>
+	  <1385890523.4171.1.camel@jlt4.sipsolutions.net>
+	  <1385937499.2664.21.camel@joe-AO722>
+	 <1385995738.20277.4.camel@jlt4.sipsolutions.net>
+	 <529E8F90.1020205@gmail.com> (sfid-20131204_031032_173575_B927B340)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:52968 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754500Ab3LDH4H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 02:56:07 -0500
-In-Reply-To: <20131203085035.6a11b1de@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	rkuo <rkuo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Chen Gang <gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <529E8F90.1020205-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (sfid-20131204_031032_173575_B927B340)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-12-03 at 08:50 -0800, Stephen Hemminger wrote:
-> On Tue, 03 Dec 2013 21:55:26 +0900
-> Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
+On Wed, 2013-12-04 at 10:12 +0800, Chen Gang wrote:
+
+> It is really not urgent, and for keeping quality, it is necessary to
+> spend suitable time resource (e.g 1 hour or more) to  make, review and
+> test this kind of patch carefully by oneself.
 > 
-> > Another approach I can conceive is:
-> > - Make fdb entries be able to be differentiated from those user added
-> >   by introducing a flag in struct net_bridge_fdb_entry. 
-> 
-> Yes, this makes more sense; and it would be useful for administration display commands.
+> So could you please help improve it when you have suitable related time
+> resources?
 
-Thanks, I will change and resend this.
+No. Who are you to suggest what I need to work on?
 
-Toshiaki Makita
+johannes
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
