@@ -1,121 +1,113 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Tue, 3 Dec 2013 17:59:36 -0800
-Message-ID: <CAMEtUuyoGjP3q3HZGXD5nGp5X9et2=RcN_aRszgQ_PGM7M+Baw@mail.gmail.com>
-References: <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
-	<1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com>
-	<20131203.165034.1085515763685633822.davem@davemloft.net>
-	<1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com>
-	<1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAMEtUuzEM957fRjsb5aSG7xHWKp13fy59QxWpsU_=d+-6ydazg@mail.gmail.com>
-	<1386117362.30495.49.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAMEtUuy8HA1nOQJTnxy+p7vNFV25zxMAmz1fh2spj0k4hYgh4w@mail.gmail.com>
-	<1386120216.30495.59.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
+Date: Wed, 4 Dec 2013 09:59:44 +0800
+Message-ID: <529E8C90.3050902@huawei.com>
+References: <529DE13D.2070509@huawei.com> <1386088121.30495.30.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Jerry Chu <hkchu@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"Joe Perches" <joe@perches.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:47628 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755651Ab3LDB7i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 20:59:38 -0500
-Received: by mail-we0-f181.google.com with SMTP id x55so14624605wes.12
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 17:59:36 -0800 (PST)
-In-Reply-To: <1386120216.30495.59.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:36328 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754817Ab3LDCBJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 21:01:09 -0500
+In-Reply-To: <1386088121.30495.30.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 3, 2013 at 5:23 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2013-12-03 at 16:55 -0800, Alexei Starovoitov wrote:
->> On Tue, Dec 3, 2013 at 4:36 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Tue, 2013-12-03 at 16:26 -0800, Alexei Starovoitov wrote:
->> >
->> >>
->> >> Could you use some other way to mark skb ?
->> >
->> > I could ;)
->> >
->> >> In tracing we might want to examine skb more carefully and not being
->> >> able to see the device
->> >> will limit the usability of this tracepoint.
->> >
->> > Unfortunately, using skb->dev as a pointer to device would be buggy or
->> > expensive (you would need to take a reference on device in order not
->> > letting it disappear, as we escape RCU protection)
+On 2013/12/4 0:28, Eric Dumazet wrote:
+> On Tue, 2013-12-03 at 21:48 +0800, Ding Tianhong wrote:
+>> I have met the oops in Suse11 SP2, the kernel is 2.6.32.59-0.7-default:
 >>
->> well, yes, you might have an skb around when device is already freed
->> when skb_dst_noref.
->> but I'm not suggesting anything expensive. Tracing definitely should
->> not add overhead by doing rcu_lock() or dev_hold(). Instead it can go
->> through skb, skb->dev, skb->dev->xxx via probe_kernel_read(). If dev
->> is gone, it's still safe.
->
-> Its certainly not safe to 'probe'.
->
-> Its not about faulting inexistent memory, that is the least of the
-> problem.
->
-> Any kind of information fetched from skb->dev might have been
-> overwritten.
->
-> You could for example fetch security sensitive data and expose it.
-
-Of course.
-Even without walking pointer chains with probe() you could infer all
-sorts of info from tracepoints.
-That's why tracing filters are for root only.
-
->> > Anyway, this magic is pretty easy to change, I am open to suggestions.
+>> [64306.089036] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+>> [64306.089343] IP: [<ffffffff812f8e36>] neigh_timer_handler+0x116/0x3b0
+>> [64306.089535] PGD 0
+>> [64306.089706] Oops: 0000 [#1] SMP
+>> [64306.089935] last sysfs file: /sys/devices/pci0000:00/0000:00:03.0/0000:02:00.0/host0/target0:1:0/0:1:0:0/scsi_generic/sg0/dev
+>> [64306.090142] Die func triggered, code:1
+>> [64306.090147] CPU 1
+>> [64306.090258] Supported: Yes, External
+>> [64306.090262] Pid: 58359, comm: socknal_cd04 Tainted: P          N  2.6.32.59-0.7-default #1 T3500 G3
+>> [64306.090266] RIP: 0010:[<ffffffff812f8e36>]  [<ffffffff812f8e36>] neigh_timer_handler+0x116/0x3b0
+>> [64306.090272] RSP: 0018:ffff880c273499d8  EFLAGS: 00010206
+>> [64306.090275] RAX: 0000000000000000 RBX: ffff8801cddf1500 RCX: ffff8801cddf14f2
+>> [64306.090278] RDX: 0000000000000000 RSI: ffff8805e40d3a28 RDI: ffff8801cddf1500
+>> [64306.090281] RBP: ffff8805e40d3a28 R08: ffff8801cddf1530 R09: ffff880c27349b17
+>> [64306.090284] R10: 000000000000000e R11: ffffffff812f8e22 R12: ffff880185c0e840
+>> [64306.090287] R13: 0000000000000000 R14: ffff8805e40d3a60 R15: 0000000003484560
+>> [64306.090291] FS:  00007f081210e700(0000) GS:ffff880036420000(0000) knlGS:0000000000000000
+>> [64306.090295] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+>> [64306.090297] CR2: 0000000000000008 CR3: 0000000001804000 CR4: 00000000000406e0
+>> [64306.090301] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+>> [64306.090304] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+>> [64306.090308] Process socknal_cd04 (pid: 58359, threadinfo ffff880c27348000, task ffff880c25d02300)
+>> [64306.090310] Stack:
+>> [64306.090426]  ffffffff8131f8e0 0000000000000003 ffff8801c189eb40 000000000000000a
+>> [64306.090437] <0> ffffffff00000000 0000000000000002 ffff880c27349a30 ffffffffa304790c
+>> [64306.090444] <0> 0000000000000246 000051010a010000 ffffffff81318357 31312d3300007fff
+>> [64306.090450] <0> ffff880c27349bb8 0248456003484560 ffff8801c189eb40 ffffffff81869300
+>> [64306.090456] <0> ffff880185c0e840 ffff8801cddf1514 ffff8805e40d3a28 00000000000000d0
+>> [64306.090464] Call Trace:
 >>
->> you're the expert :) use skb->mark field, since it's unused during
->> freeing path... ?
->
-> cache line miss ;)
->
-> skb->dev is in the first cache line, where we access skb->next anyway.
->
-> I could use skb->cb[] like the following patch :
->
-> +struct __dev_kfree_skb_cb {
-> +       unsigned int reason;
-> +};
-> +
-> +static inline struct __dev_kfree_skb_cb *get_kfree_skb_cb(const struct sk_buff *skb)
-> +{
-> +       return (struct __dev_kfree_skb_cb *)skb->cb;
-> +}
-> +
-> +enum {
-> +       SKB_REASON_CONSUMED,
-> +       SKB_REASON_DROPPED,
-> +};
-> +
->  /* Use this variant in places where it could be invoked
->   * from either hardware interrupt or other context, with hardware interrupts
->   * either disabled or enabled.
-> + * Note that TX completion should use dev_consume_skb_any()
->   */
-> -void dev_kfree_skb_any(struct sk_buff *skb);
-> +static inline void dev_kfree_skb_any(struct sk_buff *skb)
-> +{
-> +       get_kfree_skb_cb(skb)->reason = SKB_REASON_DROPPED;
-> +       __dev_kfree_skb_any(skb);
-> +}
-> +
-> +static inline void dev_consume_skb_any(struct sk_buff *skb)
-> +{
-> +       get_kfree_skb_cb(skb)->reason = SKB_REASON_CONSUMED;
-> +       __dev_kfree_skb_any(skb);
-> +}
+>> --------------------------- cut here -------------------------------------
+>>
+>> I found the NULL place int the neigh_timer_handler, the neigh->ops is NULL,
+>> so the calling of neigh->ops->solicit(neigh, skb) will panic, I found the
+>> neigh has been freed via the kdump, the so I think the neigh was kfreed while
+>> the neigh timer handler is running.
+>>
+>> The situation is that there are several server in the local lan:
+>> A: 128.5.10.83
+>> B: 128.5.10.85
+>> C: 128.5.10.xx
+>>
+>> I panic the A by manual, and set B's IP to 128.5.10.83, so send broadcast to tell
+>> the lan that B is 128.5.10.83, then the B panic, it is hard to appeared again, so
+>> I only met once.
+>>
+>> I think the reason is that:
+>>
+>> 	CPU0					CPU1
+>> 	-----					-----
+>> 						<SOFTIRQ>
+>> 						call_timer_fn();
+>> 						base->running_timer = neigh->timer;
+>> 						neigh_timer_handler();
+>> 	neigh_release();
+>> 	write_lock(&neigh->lock);
+>> 	del_timer(neigh->timer);
+>> 	write_unlock(&neigh->lock);
+>> 						write_lock(&neigh->lock);
+>> 	kfree(neigh);
+> 
+> Your patch would not help if the previous 2 actions are ordered like
+> that :
+> 
+>        kfree(neigh)
+>                                                write_lock(&neigh->lock);
+> 
 
-thanks. I think that is much cleaner. Ack.
+> I do not think this patch is correct.
+> 
+> You need to test _before_ the write_lock() call.
+> 
+>
+
+Agree, I miss it, thanks.
+
+I must make sure all pending timer is complete finished and not running on CPUs before kfree the neigh.
+
+Regards
+Ding
+
+> 
+> 
+> .
+> 
