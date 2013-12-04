@@ -1,89 +1,177 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
-Date: Wed, 4 Dec 2013 14:19:06 +0800
-Message-ID: <529EC95A.5080908@huawei.com>
-References: <529DE13D.2070509@huawei.com>	<529E9579.7090201@cn.fujitsu.com>	<529EA9CF.2090008@huawei.com> <20131203.232122.852236751455974887.davem@davemloft.net>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH] sctp: fix a BUG_ON on triggered by setting max_autoclose
+ to
+Date: Wed, 4 Dec 2013 14:21:37 +0800
+Message-ID: <529EC9F1.7050401@huawei.com>
+References: <529DADE5.4040701@huawei.com> <529E0242.6020008@gmail.com> <20131203181822.GB3251@neilslaptop.think-freely.org> <529E4BFA.8020501@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <gaofeng@cn.fujitsu.com>, <yoshfuji@linux-ipv6.org>,
-	<joe@perches.com>, <vfalico@redhat.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-sctp@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:9272 "EHLO
+Received: from szxga01-in.huawei.com ([119.145.14.64]:14635 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751400Ab3LDGT3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 01:19:29 -0500
-In-Reply-To: <20131203.232122.852236751455974887.davem@davemloft.net>
+	with ESMTP id S1751836Ab3LDGXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 01:23:39 -0500
+In-Reply-To: <529E4BFA.8020501@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/4 12:21, David Miller wrote:
-> From: Ding Tianhong <dingtianhong@huawei.com>
-> Date: Wed, 4 Dec 2013 12:04:31 +0800
+On 2013/12/4 5:24, Vlad Yasevich wrote:
+> On 12/03/2013 01:18 PM, Neil Horman wrote:
+>> On Tue, Dec 03, 2013 at 11:09:38AM -0500, Vlad Yasevich wrote:
+>>> On 12/03/2013 05:09 AM, Wang Weidong wrote:
+>>>> since 2692ba61, add the max_autoclose to sysctl. when I setted the
+>>>> max_autoclose to 0. Just do the test_autoclose, it will trigger that:
+>>>>
+>>>> [  608.056238] ------------[ cut here ]------------
+>>>> [  608.056244] kernel BUG at /home/wwd/work/linux/net/sctp/sm_sideeffect.c:1488!
+>>>> [  608.056250] invalid opcode: 0000 [#1] SMP
+>>>> [  608.056254] Modules linked in: md5 sctp(O) crc32c libcrc32c edd fuse loop dm_mod ipv6 8139too sg 8139cp mii i2c_piix4 i2c_core virtio_balloon intel_agp virtio_pci virtio_ring sr_mod cdrom rtc_cmos joydev hid_generic intel_gtt virtio floppy pcspkr button ext3 jbd mbcache usbhid hid uhci_hcd ehci_hcd usbcore sd_mod usb_common crc_t10dif crct10dif_common processor thermal_sys hwmon scsi_dh_emc scsi_dh_alua scsi_dh_hp_sw scsi_dh_rdac scsi_dh ata_generic ata_piix libata scsi_mod [last unloaded: sctp]
+>>>> [  608.056310] CPU: 5 PID: 4517 Comm: test_autoclose Tainted: G  R        O 3.13.0-rc1-0.27-default+ #2
+>>>> [  608.056315] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+>>>> [  608.056319] task: ffff8800372f5590 ti: ffff8800db882000 task.ti: ffff8800db882000
+>>>> [  608.056323] RIP: 0010:[<ffffffffa033e350>]  [<ffffffffa033e350>] sctp_cmd_interpreter+0x1010/0x1070 [sctp]
+>>>> [  608.056339] RSP: 0018:ffff880116f43928  EFLAGS: 00010246
+>>>> [  608.056343] RAX: 0000000000000009 RBX: ffff880116f43ab8 RCX: 0000000000000009
+>>>> [  608.056349] RDX: 0000000000000003 RSI: 0000000000000000 RDI: ffff880116f43a88
+>>>> [  608.056353] RBP: ffff880116f439d8 R08: 0000000000002029 R09: 0000000000000001
+>>>> [  608.056357] R10: 0000000000000000 R11: 0000000000000005 R12: ffff8800db7c9150
+>>>> [  608.056361] R13: 0000000000000000 R14: ffff8800db7c9000 R15: 0000000000000001
+>>>> [  608.056365] FS:  00007f942d71c700(0000) GS:ffff880116f40000(0000) knlGS:0000000000000000
+>>>> [  608.056370] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+>>>> [  608.056373] CR2: 00007f942d324d90 CR3: 00000000db094000 CR4: 00000000000006e0
+>>>> [  608.056382] Stack:
+>>>> [  608.056384]  0000000000000018 ffff880116f43988 ffff8800da569600 000000010000000a
+>>>> [  608.056391]  ffff880037265e40 0000000016f43988 ffff880116f439e8 0000000000000000
+>>>> [  608.056397]  ffffffffa0365101 0000000000000000 ffff880116f43a28 ffffffff812b7739
+>>>> [  608.056403] Call Trace:
+>>>> [  608.056406]  <IRQ>
+>>>> [  608.056409]
+>>>> [  608.056421]  [<ffffffff812b7739>] ? __dynamic_pr_debug+0x69/0x80
+>>>> [  608.056432]  [<ffffffff81097c6d>] ? trace_hardirqs_off+0xd/0x10
+>>>> [  608.056442]  [<ffffffff814e7258>] ? _raw_spin_unlock_irqrestore+0x58/0x60
+>>>> [  608.056451]  [<ffffffffa033e3e6>] sctp_side_effects+0x36/0x130 [sctp]
+>>>> [  608.056459]  [<ffffffffa033e5c7>] sctp_do_sm+0xe7/0x210 [sctp]
+>>>> [  608.056470]  [<ffffffffa0359860>] ? sctp_rcv+0x780/0x780 [sctp]
+>>>> [  608.056479]  [<ffffffffa0340a5f>] sctp_endpoint_bh_rcv+0x10f/0x220 [sctp]
+>>>> [  608.056489]  [<ffffffffa0349991>] sctp_inq_push+0x41/0x60 [sctp]
+>>>> [  608.056498]  [<ffffffffa03597b5>] sctp_rcv+0x6d5/0x780 [sctp]
+>>>> [  608.056508]  [<ffffffffa0358e00>] ? sctp_csum_combine+0x10/0x10 [sctp]
+>>>> [  608.056518]  [<ffffffffa0358df0>] ? sctp_v4_err+0x240/0x240 [sctp]
+>>>> [  608.056528]  [<ffffffff8145b8a4>] ip_local_deliver_finish+0xf4/0x270
+>>>> [  608.056533]  [<ffffffff8145b7f0>] ? ip_local_deliver_finish+0x40/0x270
+>>>> [  608.056538]  [<ffffffff8145b690>] ip_local_deliver+0x80/0x90
+>>>> [  608.056543]  [<ffffffff8145bbd3>] ip_rcv_finish+0x1b3/0x600
+>>>> [  608.056547]  [<ffffffff8145ba20>] ? ip_local_deliver_finish+0x270/0x270
+>>>> [  608.056552]  [<ffffffff8145b04f>] NF_HOOK+0x2f/0x70
+>>>> [  608.056565]  [<ffffffff81425853>] ? __netif_receive_skb_core+0x113/0x7a0
+>>>> [  608.056570]  [<ffffffff8145b365>] ip_rcv+0x2d5/0x3b0
+>>>> [  608.056575]  [<ffffffff81425e3f>] __netif_receive_skb_core+0x6ff/0x7a0
+>>>> [  608.056580]  [<ffffffff81425853>] ? __netif_receive_skb_core+0x113/0x7a0
+>>>> [  608.056585]  [<ffffffff81426108>] ? process_backlog+0x1a8/0x1c0
+>>>> [  608.056590]  [<ffffffff81425f0b>] __netif_receive_skb+0x2b/0x80
+>>>> [  608.056595]  [<ffffffff81426018>] process_backlog+0xb8/0x1c0
+>>>> [  608.056600]  [<ffffffff8142695c>] net_rx_action+0x11c/0x240
+>>>> [  608.056607]  [<ffffffff81050e18>] __do_softirq+0x118/0x290
+>>>> [  608.056615]  [<ffffffff814f0e0c>] do_softirq_own_stack+0x1c/0x30
+>>>> [  608.056618]  <EOI>
+>>>> [  608.056620]
+>>>> [  608.056623]  [<ffffffff81050bd5>] do_softirq+0x65/0x70
+>>>> [  608.056629]  [<ffffffff8140fddc>] ? release_sock+0x8c/0xa0
+>>>> [  608.056635]  [<ffffffff810518c3>] local_bh_enable_ip+0xb3/0xc0
+>>>> [  608.056640]  [<ffffffff814e71af>] _raw_spin_unlock_bh+0x2f/0x40
+>>>> [  608.056645]  [<ffffffff8140fddc>] release_sock+0x8c/0xa0
+>>>> [  608.056654]  [<ffffffffa0354c08>] sctp_sendmsg+0x3a8/0xcc0 [sctp]
+>>>> [  608.056661]  [<ffffffff8129924a>] ? number+0x33a/0x360
+>>>> [  608.056667]  [<ffffffff81497c3c>] inet_sendmsg+0x9c/0x100
+>>>> [  608.056672]  [<ffffffff81497ba0>] ? inet_recvmsg+0x110/0x110
+>>>> [  608.056679]  [<ffffffff8140a387>] sock_sendmsg+0x97/0xc0
+>>>> [  608.056690]  [<ffffffff8114caae>] ? might_fault+0x3e/0x90
+>>>> [  608.056695]  [<ffffffff8114caae>] ? might_fault+0x3e/0x90
+>>>> [  608.056700]  [<ffffffff81417a73>] ? verify_iovec+0x53/0x100
+>>>> [  608.056705]  [<ffffffff8140abb6>] ___sys_sendmsg+0x416/0x420
+>>>> [  608.056710]  [<ffffffff81151af6>] ? __do_fault+0x216/0x510
+>>>> [  608.056715]  [<ffffffff814eaf74>] ? __do_page_fault+0x2b4/0x4a0
+>>>> [  608.056720]  [<ffffffff81095c9e>] ? up_read+0x1e/0x40
+>>>> [  608.056724]  [<ffffffff814eaf74>] ? __do_page_fault+0x2b4/0x4a0
+>>>> [  608.056729]  [<ffffffff8140fddc>] ? release_sock+0x8c/0xa0
+>>>> [  608.056733]  [<ffffffff8140fddc>] ? release_sock+0x8c/0xa0
+>>>> [  608.056741]  [<ffffffff8109bb5d>] ? trace_hardirqs_on+0xd/0x10
+>>>> [  608.056746]  [<ffffffff81051875>] ? local_bh_enable_ip+0x65/0xc0
+>>>> [  608.056751]  [<ffffffff8140ad94>] __sys_sendmsg+0x44/0x80
+>>>> [  608.056756]  [<ffffffff8140ade4>] SyS_sendmsg+0x14/0x20
+>>>> [  608.056761]  [<ffffffff814ef5a2>] system_call_fastpath+0x16/0x1b
+>>>> -------------------------------------
+>>>>
+>>>> The reason is: In test_autoclose set the autoclose to 5 not 0(default). So when
+>>>> we init the association, the (sctp_sock) sp->autoclose is not 0 while asoc's 
+>>>> timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE] is 0.
+>>>> So when we process the COOKIE_ACK, the sctp_sf_do_5_1E_ca will be called, that
+>>>> will do that:
+>>>> 	if (asoc->autoclose) //asoc->autoclose is equal sp->autoclose
+>>>> 		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_START,
+>>>> 				SCTP_TO(SCTP_EVENT_TIMEOUT_AUTOCLOSE));
+>>>
+>>> this looks like a bug in how the timeout is being set.  The timeout
+>>> should be based on the association value, not some sysctl value.
+>>>
+>>> The typical socket option values go like this:
+>>>    socket value = starts at sysctl, changed by user.
+>>>    assoc value = starts at socket value, may be changed by user.
+>>>      any timer = starts at assoc value.
+>>>
+>>> this seems to be broken for autoclose.
+>>>
+>> Well, it is, but I think its a reasonable fix for the issue.  As I understand
+>> the description, the problem is that if autoclose is non-zero, and the default
+>> timeout is zero, then you'll get a BUG_ON halt because you need to set a timer
+>> that will expire immediately.  It seems reasonable to me to make a minimal
+>> default for the timeout to be non-zero, since it makes no sense to have a zero
+>> auto-close timeout.
 > 
->> The destroying neigh could be trigger by userspace, just like set the ip address which
->> in arp table to the local device ip, some I could not control it, it maybe anytime,
->> but the timer handler is execute by logic, this is normal, so I think the logic
->> is no problem, and the process of destroying neigh may conflict with the timer handler,
->> it is a synchronous problem to make sure the timer should be finished before the
->> reference neigh is freed.
+> Yes, the default timeout is zero because the timeout is latched by the
+> sysctl value while the association value is not.  So, the association
+> value is now out-of-sync with what the system does and we end up lying
+> to the user when they do a getsockopt().
 > 
-> The more I think about this, the more none of the explanations for this bug
-> make any sense.
+> If we simply latch the socket value properly, then we would have to
+> worry about this at all.  If the socket value is latched at 0, then
+> autoclose is disabled.
 > 
-> neigh_destroy() _ONLY_ runs when:
+Yes, At first add the sysctl max_autoclose is to fix incorrect overflow check on
+autoclose. why not we add the check in the setsockopt without the sysctl?
+
+I am uncertain about how to fix the problem.
+Do you or some other developers have stronger opinions on this?
+
+Thanks.
+
+>>
+>>>
+>>> allowing autoclose_min = 0 might be useful to disable
+>>> autoclose globally.  This is not a fix, but a bandaid.
+>>>
+>> I'm not sure I agree here.  Doesn't a socket already default to autoclose being
+>> zero?  That seems to obviate the need to have another global disable knob to me.
 > 
-> 	if (atomic_dec_and_test(&neigh->refcnt))
+> This is another issue that we can discuss separately.  Simply changing
+> the min is only going to solve part of the problem.
 > 
-> triggers in neigh_release().
+> -vlad
 > 
-> This means it triggers if, and only if, neigh_refcnt goes to zero.
+>> Neil
+>>
+>>> -vlad
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>
 > 
-> If the refcnt goes to zero, NO TIMER can be running.  If the timer is
-> running, then there refcnt must be at least '1'.
-
-Hi David:
-
-Yes, you are right, but when the timer is running and prior to get the neigh->lock, the refcnt
-could be dec to 0, you could not stop it by existing mechanism.
-
-the refcnt of neighbour could only be inc by these actions:
-
-1.create neighbour, the refcnt will be set to 1.
-2.add timer, the refcnt++.
-3.neigh_lookup, if found the neigh, refcnt++.
-
-I can show the whole process of my analysis:
-
-		CPU 0				CPU 1
-		-----				-----
-	create_neigh() => refcnt = 1;		
-	add timer =>	refcnt++;
-						<SOFTIRQ>
-						base->running_timer = neigh->timer;
-						neigh_timer_handler() => at this time, refcnt is 2;
-
-user->	neigh_changeaddr()
-	neigh_flush_dev();
-	neigh_del_imer, refcnt dec to 1;
-	release_neigh(), refcnt is 0,
-	destroy_neigh()
-	kfree(neighbour);
-						write(neigh->lock)
-
-So in my opinion, the point of the problem is that I should not kfree the neighbour until
-the timer is not running on CPUs and not pending.
-
-If I miss someghing, pls point out.
-
-Regards
-Ding
-
 > 
-> The only plausible theory would be that something is releasing a neigh
-> too early, when references to the neigh still actually exist.
-> 
-> And that's a bug that should be fixed.
-> 
+> .
 > 
