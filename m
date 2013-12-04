@@ -1,47 +1,64 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: Re: [PATCH] net: mac80211: tx.c: be sure of 'sdata->vif.type' must
- be NL80211_IFTYPE_AP when be in NL80211_IFTYPE_AP case
-Date: Wed, 04 Dec 2013 17:00:52 +0800
-Message-ID: <529EEF44.1020008@gmail.com>
-References: <528AEFB7.4060301@gmail.com>    <20131125011938.GB18921@codeaurora.org> <5292B845.3010404@gmail.com>    <5292B8A0.7020409@gmail.com> <5294255E.7040105@gmail.com>    <52957ADA.2080704@gmail.com>    (sfid-20131127_055211_558798_A7DF5684) <1385739487.8656.1.camel@jlt4.sipsolutions.net>    <5299D306.7070701@gmail.com>    (sfid-20131130_125901_519610_EDA4068E) <1385816013.4327.1.camel@jlt4.sipsolutions.net>    <5299ED38.4090509@gmail.com> <5299EFDD.6060405@gmail.com>    (sfid-20131130_150205_984535_068F14A9) <1385842134.6108.4.camel@jlt4.sipsolutions.net>    <1385843940.2664.4.camel@joe-AO722>    <1385890523.4171.1.camel@jlt4.sipsolutions.net>    <1385937499.2664.21.camel@joe-AO722>   <1385995738.20277.4.camel@jlt4.sipsolutions.net>   <529E8F90.1020205@gmail.com>  (sfid-20131204_031
- 032_173575_B927B340) <1386144281.4284.0.camel@jlt4.sipsolutions.net>  <529EEAC1.3010203@gmail.com> (sfid-20131204_093928_179625_C1EF906B) <1386146977.4284.11.camel@jlt4.sipsolutions.net>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: vxlan/veth performance issues on net.git + latest kernels
+Date: Wed, 4 Dec 2013 01:24:00 -0800 (PST)
+Message-ID: <alpine.LFD.2.03.1312040113290.14367@intel.com>
+References: <529DF340.70602@mellanox.com> <1386084620.30495.28.camel@edumazet-glaptop2.roam.corp.google.com> <CAJZOPZJ9WM1H9zKNzT5MvQ2UH7RxkTLk2Rhzsk9vdvKz6d2uAw@mail.gmail.com> <alpine.LFD.2.03.1312031310140.23893@intel.com>
+ <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com> <alpine.LFD.2.03.1312031500020.570@intel.com> <CAJZOPZLT_3msfz_XY45GOBMWK_y8WEYBTq3rGRUijpYyXE1ddg@mail.gmail.com> <alpine.LFD.2.03.1312031626400.7539@intel.com>
+ <CAJZOPZJKsrj2+SQJsgq-w7BrNwDR0OsYWiF+1CcRQ3-KhejZhQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	rkuo <rkuo@codeaurora.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jerry Chu <hkchu@google.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
 	David Miller <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386146977.4284.11.camel@jlt4.sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	netdev <netdev@vger.kernel.org>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:32381 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754269Ab3LDJGe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Dec 2013 04:06:34 -0500
+In-Reply-To: <CAJZOPZJKsrj2+SQJsgq-w7BrNwDR0OsYWiF+1CcRQ3-KhejZhQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/04/2013 04:49 PM, Johannes Berg wrote:
-> On Wed, 2013-12-04 at 16:41 +0800, Chen Gang wrote:
+
+
+On Wed, 4 Dec 2013, Or Gerlitz wrote:
+
+> On Wed, Dec 4, 2013 at 2:35 AM, Joseph Gasparakis
+> <joseph.gasparakis@intel.com> wrote:
 > 
->> According to our original discussion, it seems we agree that I am not
->> the suitable member to finish it, so I suggest you or another members to
->> try.
+> > I was printing the gso_type in vxlan_xmit_skb(), right before
+> > iptunnel_xmit() gets called (I was focus UDPv4 encap only). Then I saw the
+> > gso_type was different when a VM was involved and when it was not
+> > (although I was transmitting exactly the same packet), and then I replaced
+> > my printk with something like skb_shinfo(skb)->gso_type = <the gso type I had
+> > for non-VM skb> and it all worked.
+> >
+> > Then I looked into what was different between the two gso_types and the
+> > only difference was that SKB_GSO_DODGY was set when Tx'ing from the VM.
+> > I am sure I could have been more delicate with the aproach, but hey, it
+> > worked for me.
+> >
+> > I would be curious to see if this is the same issue as mine. It seems like it is.
 > 
-> There's nothing to finish here. The code is fine. The compiler is wrong,
-> but we haven't found a way to shut up the compiler without breaking the
-> code. Please let's just let it rest.
+> nope! with the latest net tree, after handle_offloads is called in
+> vxlan_xmit_skb and before iptunnel_xmit is invoked,
+> skb_shinfo(skb)->gso_type is either 0 or 0x201 which is
+> (SKB_GSO_UDP_TUNNEL | SKB_GSO_TCPV4) and its the same value whether
+> the session runs over veth device or directly over the bridge, where
+> over veth and > 1 stream we see drops, bad perf, etc.
+> 
+> I am very interested in the VM case too, so will check it out and let you know.
 > 
 
-For me, I still stick to the code can be improved, although it is not
-urgent.
-
-But just like you said, we can just stop discussing -- every members can
-save their own opinions.
-
-And I am not the related maintainer, so if no additional suggestions,
-discussions or completions, I will/should stop here.
-
-
-Thanks.
--- 
-Chen Gang
+Ok, I was really hoping that would be the same... And just for the record, 
+you are seeing (SKB_UDP_TUNNEL | SKB_GSO_TCPV4) as 0x201 while I was 
+seeing it as 0x81 because commit 61c1db7fae "ipv6: sit: add GSO/TSO 
+support" pushed the SKB_UDP_TUNNEL two bits left, and I had done my tests 
+before it.
