@@ -1,58 +1,89 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [net-next 3/7] openvswitch: Enable memory mapped Netlink i/o
-Date: Tue, 3 Dec 2013 21:45:02 -0800
-Message-ID: <CAEP_g=-LONa8uayCHYJ-Yve6PvxHJo7otWaZ80oYWeDC1Mjqmg@mail.gmail.com>
-References: <cover.1385813891.git.tgraf@suug.ch> <9f7f05a726935c434d43d92c2908a997c403725b.1385813891.git.tgraf@suug.ch>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
+Date: Wed, 4 Dec 2013 14:19:06 +0800
+Message-ID: <529EC95A.5080908@huawei.com>
+References: <529DE13D.2070509@huawei.com>	<529E9579.7090201@cn.fujitsu.com>	<529EA9CF.2090008@huawei.com> <20131203.232122.852236751455974887.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>, ffusco@redhat.com,
-	fleitner@redhat.com, Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <gaofeng@cn.fujitsu.com>, <yoshfuji@linux-ipv6.org>,
+	<joe@perches.com>, <vfalico@redhat.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog101.obsmtp.com ([74.125.149.67]:51420 "HELO
-	na3sys009aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751298Ab3LDFp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 00:45:27 -0500
-Received: by mail-ie0-f175.google.com with SMTP id x13so25208105ief.20
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 21:45:26 -0800 (PST)
-In-Reply-To: <9f7f05a726935c434d43d92c2908a997c403725b.1385813891.git.tgraf@suug.ch>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:9272 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400Ab3LDGT3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 01:19:29 -0500
+In-Reply-To: <20131203.232122.852236751455974887.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 30, 2013 at 4:21 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> Use memory mapped Netlink i/o for all unicast openvswitch
-> communication if a ring has been set up.
->
-> Benchmark
->   * pktgen -> ovs internal port
->   * 5M pkts, 5M flows
->   * 4 threads, 8 cores
->
-> Before:
-> Result: OK: 67418743(c67108212+d310530) usec, 5000000 (9000byte,0frags)
->   74163pps 5339Mb/sec (5339736000bps) errors: 0
->         +   2.98%     ovs-vswitchd  [k] copy_user_generic_string
->         +   2.49%     ovs-vswitchd  [k] memcpy
->         +   1.84%       kpktgend_2  [k] memcpy
->         +   1.81%       kpktgend_1  [k] memcpy
->         +   1.81%       kpktgend_3  [k] memcpy
->         +   1.78%       kpktgend_0  [k] memcpy
->
-> After:
-> Result: OK: 24229690(c24127165+d102524) usec, 5000000 (9000byte,0frags)
->   206358pps 14857Mb/sec (14857776000bps) errors: 0
->         +   2.80%     ovs-vswitchd  [k] memcpy
->         +   1.31%       kpktgend_2  [k] memcpy
->         +   1.23%       kpktgend_0  [k] memcpy
->         +   1.09%       kpktgend_1  [k] memcpy
->         +   1.04%       kpktgend_3  [k] memcpy
->         +   0.96%     ovs-vswitchd  [k] copy_user_generic_string
->
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
+On 2013/12/4 12:21, David Miller wrote:
+> From: Ding Tianhong <dingtianhong@huawei.com>
+> Date: Wed, 4 Dec 2013 12:04:31 +0800
+> 
+>> The destroying neigh could be trigger by userspace, just like set the ip address which
+>> in arp table to the local device ip, some I could not control it, it maybe anytime,
+>> but the timer handler is execute by logic, this is normal, so I think the logic
+>> is no problem, and the process of destroying neigh may conflict with the timer handler,
+>> it is a synchronous problem to make sure the timer should be finished before the
+>> reference neigh is freed.
+> 
+> The more I think about this, the more none of the explanations for this bug
+> make any sense.
+> 
+> neigh_destroy() _ONLY_ runs when:
+> 
+> 	if (atomic_dec_and_test(&neigh->refcnt))
+> 
+> triggers in neigh_release().
+> 
+> This means it triggers if, and only if, neigh_refcnt goes to zero.
+> 
+> If the refcnt goes to zero, NO TIMER can be running.  If the timer is
+> running, then there refcnt must be at least '1'.
 
-First three patches applied, thanks.
+Hi David:
+
+Yes, you are right, but when the timer is running and prior to get the neigh->lock, the refcnt
+could be dec to 0, you could not stop it by existing mechanism.
+
+the refcnt of neighbour could only be inc by these actions:
+
+1.create neighbour, the refcnt will be set to 1.
+2.add timer, the refcnt++.
+3.neigh_lookup, if found the neigh, refcnt++.
+
+I can show the whole process of my analysis:
+
+		CPU 0				CPU 1
+		-----				-----
+	create_neigh() => refcnt = 1;		
+	add timer =>	refcnt++;
+						<SOFTIRQ>
+						base->running_timer = neigh->timer;
+						neigh_timer_handler() => at this time, refcnt is 2;
+
+user->	neigh_changeaddr()
+	neigh_flush_dev();
+	neigh_del_imer, refcnt dec to 1;
+	release_neigh(), refcnt is 0,
+	destroy_neigh()
+	kfree(neighbour);
+						write(neigh->lock)
+
+So in my opinion, the point of the problem is that I should not kfree the neighbour until
+the timer is not running on CPUs and not pending.
+
+If I miss someghing, pls point out.
+
+Regards
+Ding
+
+> 
+> The only plausible theory would be that something is releasing a neigh
+> too early, when references to the neigh still actually exist.
+> 
+> And that's a bug that should be fixed.
+> 
+> 
