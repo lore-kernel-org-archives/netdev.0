@@ -1,97 +1,55 @@
-From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: Re: Spurious timeouts in mvmdio
-Date: Wed, 04 Dec 2013 12:40:24 +0100
-Message-ID: <529F14A8.3020109@freebox.fr>
-References: <529CA42A.3040504@freebox.fr> <20131203122346.GD29282@titan.lakedaemon.net> <20131203124033.GT16735@n2100.arm.linux.org.uk> <abe249f5cba5c267e2c536bd62c57908@doppler.thel33t.co.uk> <529E5F03.8040607@gmail.com> <8d65780eb7bfe49bb0734a09f05f70a6@doppler.thel33t.co.uk> <529E66A4.4050000@gmail.com> <ae69666fd3b61411d7bbd9ac993cec13@doppler.thel33t.co.uk> <20131203234209.GW16735@n2100.arm.linux.org.uk>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] sctp: disable max_burst when the max_burst is 0
+Date: Wed, 4 Dec 2013 06:45:41 -0500
+Message-ID: <20131204114541.GA4096@hmsreliant.think-freely.org>
+References: <529C2E01.3090005@huawei.com>
+ <529EF6B7.7000501@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	Florian Fainelli <florian@openwrt.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Leigh Brown <leigh@solinno.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131203234209.GW16735@n2100.arm.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, Daniel Borkmann <dborkman@redhat.com>
+To: Wang Weidong <wangweidong1@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55940 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754842Ab3LDLpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 06:45:55 -0500
+Content-Disposition: inline
+In-Reply-To: <529EF6B7.7000501@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/04/2013 12:42 AM, Russell King - ARM Linux wrote:
->> This will make it correct when using interrupts but it will make the
->> loop wait one jiffie longer than it should when polling.
->
-> Alternatively, code it like this instead.
->
->   drivers/net/ethernet/marvell/mvmdio.c |   32 +++++++++++++++-----------------
->   1 files changed, 15 insertions(+), 17 deletions(-)
->
-> diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-> index 7354960b583b..a6f59831fc5b 100644
-> --- a/drivers/net/ethernet/marvell/mvmdio.c
-> +++ b/drivers/net/ethernet/marvell/mvmdio.c
-> @@ -76,31 +76,29 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
->   {
->   	struct orion_mdio_dev *dev = bus->priv;
->   	unsigned long timeout = usecs_to_jiffies(MVMDIO_SMI_TIMEOUT);
-> -	unsigned long end = jiffies + timeout;
-> -	int timedout = 0;
->
-> -	while (1) {
-> -	        if (orion_mdio_smi_is_done(dev))
-> +	if (dev->err_interrupt > 0) {
-> +		if (wait_event_timeout(dev->smi_busy_wait,
-> +				       orion_mdio_smi_is_done(dev),
-> +				       1 + timeout))
->   			return 0;
-> -	        else if (timedout)
-> -			break;
-> +	} else {
-> +		unsigned long end = jiffies + timeout;
->
-> -	        if (dev->err_interrupt <= 0) {
-> -			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
-> -				     MVMDIO_SMI_POLL_INTERVAL_MAX);
-> +		while (1) {
-> +	        	if (orion_mdio_smi_is_done(dev))
-> +				return 0;
->
->   			if (time_is_before_jiffies(end))
-> -				++timedout;
-> -	        } else {
-> -			wait_event_timeout(dev->smi_busy_wait,
-> -				           orion_mdio_smi_is_done(dev),
-> -				           timeout);
-> -
-> -			++timedout;
-> -	        }
-> +				break;
-> +
-> +			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
-> +				     MVMDIO_SMI_POLL_INTERVAL_MAX);
-> +		}
->   	}
->
->   	dev_err(bus->parent, "Timeout: SMI busy for too long\n");
-> +
->   	return  -ETIMEDOUT;
->   }
-
-Hi Russell,
-
-I have just tested your patch on MV88F6281 and MV88F6282 both in polling and 
-irq mode and it works just fine.
-
-I had a similar patch almost ready to submit but you were faster than me.
-
-Feel free to add my:
-
-Tested-by: Nicolas Schichan <nschichan@freebox.fr>
-
-Thanks,
-
--- 
-Nicolas Schichan
-Freebox SAS
+On Wed, Dec 04, 2013 at 05:32:39PM +0800, Wang Weidong wrote:
+> As Michael pointed out that when max_burst is 0, it just disable
+> max_burst. It declared in rfc6458#section-8.1.24. so add the check
+> in sctp_transport_burst_limited, when it 0, just do nothing.
+> 
+> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
+> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
+> Suggested-by: Michael Tuexen <Michael.Tuexen@lurchi.franken.de>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> ---
+>  net/sctp/transport.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+> index e332efb..efc46ff 100644
+> --- a/net/sctp/transport.c
+> +++ b/net/sctp/transport.c
+> @@ -573,7 +573,7 @@ void sctp_transport_burst_limited(struct sctp_transport *t)
+>  	u32 old_cwnd = t->cwnd;
+>  	u32 max_burst_bytes;
+>  
+> -	if (t->burst_limited)
+> +	if (t->burst_limited || asoc->max_burst == 0)
+>  		return;
+>  
+>  	max_burst_bytes = t->flight_size + (asoc->max_burst * asoc->pathmtu);
+> -- 
+> 1.7.12
+> 
+> 
+> 
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
