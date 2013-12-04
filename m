@@ -1,51 +1,55 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net] forcedeth: run loopback test only on chipsets that support it
-Date: Wed,  4 Dec 2013 18:06:51 +0100
-Message-ID: <1386176811-7114-1-git-send-email-ivecera@redhat.com>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/5] net_sched: Fail if missing mandatory action
+ operation methods
+Date: Wed, 04 Dec 2013 09:03:50 -0800
+Message-ID: <1386176630.30495.110.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386167216-30281-1-git-send-email-jhs@mojatatu.com>
+	 <1386167216-30281-2-git-send-email-jhs@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	alexander.h.duyck@intel.com, ebiederm@xmission.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36377 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932556Ab3LDRGz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Dec 2013 12:06:55 -0500
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:62422 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932703Ab3LDRH0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 12:07:26 -0500
+Received: by mail-pd0-f182.google.com with SMTP id v10so22898543pde.27
+        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 09:07:25 -0800 (PST)
+In-Reply-To: <1386167216-30281-2-git-send-email-jhs@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver incorrectly run loopback test on chips that don't support it.
-Loopback test is only supported by chips that has DEV_HAS_TEST_EXTENDED
-flag and returns 4 (NV_TEST_COUNT_EXTENDED) as test count.
+On Wed, 2013-12-04 at 09:26 -0500, Jamal Hadi Salim wrote:
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> ---
+>  net/sched/act_api.c |   12 ++++++++----
+>  1 file changed, 8 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+> index fd70728..618695e 100644
+> --- a/net/sched/act_api.c
+> +++ b/net/sched/act_api.c
+> @@ -270,6 +270,10 @@ int tcf_register_action(struct tc_action_ops *act)
+>  {
+>  	struct tc_action_ops *a, **ap;
+>  
+> +	/* Must supply act, dump, cleanup and init */
+> +	if (!act->act || !act->dump || !act->cleanup || !act->init)
+> +		return -EINVAL;
+> +
+>  	write_lock(&act_mod_lock);
+>  	for (ap = &act_base; (a = *ap) != NULL; ap = &a->next) {
+>  		if (act->type == a->type || (strcmp(act->kind, a->kind) == 0)) {
+> @@ -381,7 +385,7 @@ int tcf_action_exec(struct sk_buff *skb, const struct tc_action *act,
+>  	}
+>  	while ((a = act) != NULL) {
+>  repeat:
+> -		if (a->ops && a->ops->act) {
+> +		if (a->ops) {
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/nvidia/forcedeth.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+Could we remove all these tests on a->ops being NULL or not ?
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 2d045be..1e8b951 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -5150,8 +5150,10 @@ static void nv_self_test(struct net_device *dev, struct ethtool_test *test, u64
- {
- 	struct fe_priv *np = netdev_priv(dev);
- 	u8 __iomem *base = get_hwbase(dev);
--	int result;
--	memset(buffer, 0, nv_get_sset_count(dev, ETH_SS_TEST)*sizeof(u64));
-+	int result, count;
-+
-+	count = nv_get_sset_count(dev, ETH_SS_TEST);
-+	memset(buffer, 0, count * sizeof(u64));
- 
- 	if (!nv_link_test(dev)) {
- 		test->flags |= ETH_TEST_FL_FAILED;
-@@ -5195,7 +5197,7 @@ static void nv_self_test(struct net_device *dev, struct ethtool_test *test, u64
- 			return;
- 		}
- 
--		if (!nv_loopback_test(dev)) {
-+		if (count > NV_TEST_COUNT_BASE && !nv_loopback_test(dev)) {
- 			test->flags |= ETH_TEST_FL_FAILED;
- 			buffer[3] = 1;
- 		}
--- 
-1.8.3.2
+IMHO a->ops cannot be NULL. If NULL, just crash by NULL deref.
