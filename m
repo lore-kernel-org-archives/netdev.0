@@ -1,45 +1,33 @@
-From: Michal Kalderon <michals@broadcom.com>
-Subject: [PATCH net] bnx2x: avoid null pointer dereference when enabling SR-IOV
-Date: Wed, 4 Dec 2013 12:04:54 +0200
-Message-ID: <1386151494-28876-1-git-send-email-michals@broadcom.com>
+From: Fiedler Roman <Roman.Fiedler@ait.ac.at>
+Subject: Change in IPv4 TCP reset behavior after kernel upgrade
+Date: Wed, 4 Dec 2013 10:09:01 +0000
+Message-ID: <2ECE9D9EEF1F524185270138AE2326593BF9B5EE@S0MSMAIL112.arc.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Michal Kalderon <michals@broadcom.com>,
-	Ariel Elior <ariele@broadcom.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:7701 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755297Ab3LDKOT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 05:14:19 -0500
+Received: from mx2.ait.ac.at ([62.218.164.132]:39881 "EHLO MX2.ait.ac.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755297Ab3LDKPS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 05:15:18 -0500
+Content-Language: de-DE
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixed NULL pointer dereference when dynamically activating SR-IOV after vf
-database failed to be allocated in probe stage (for example due to no ARI
-support in pci hub).
+Hello,
 
-Signed-off-by: Michal Kalderon <michals@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 5 +++++
- 1 file changed, 5 insertions(+)
+After upgrading from linux-image-3.10.17 to linux-image-3.10.21 I noticed, that afterwards reset packets started to be transmitted with ID != 0. For testing:
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 0216d59..2e46c28 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -3114,6 +3114,11 @@ int bnx2x_sriov_configure(struct pci_dev *dev, int num_vfs_param)
- {
- 	struct bnx2x *bp = netdev_priv(pci_get_drvdata(dev));
- 
-+	if (!IS_SRIOV(bp)) {
-+		BNX2X_ERR("failed to configure SR-IOV since vfdb was not allocated. Check dmesg for errors in probe stage\n");
-+		return -EINVAL;
-+	}
-+
- 	DP(BNX2X_MSG_IOV, "bnx2x_sriov_configure called with %d, BNX2X_NR_VIRTFN(bp) was %d\n",
- 	   num_vfs_param, BNX2X_NR_VIRTFN(bp));
- 
--- 
-1.8.5.rc3
+tcpdump -i eth0 -nn -s0 -X -vvv 'tcp[tcpflags] & tcp-rst != 0'
+
+I did a short search to find out when and why this was changed (PATCH), but did not get any wiser.
+
+Was this an intended change, e.g. to increase resilience against RST-packet injection/DOS scenarios? Is it just accidentally?
+
+The ID seems to be in sequence, so it is not uninitialized memory content.
+
+Roman
+
+PS: The kernel was patched with the vserver-patch, this might have an influence. I did not have time yet to build a kernel without that modification.
