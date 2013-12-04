@@ -1,53 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Change in IPv4 TCP reset behavior after kernel upgrade
-Date: Wed, 04 Dec 2013 10:29:34 -0800
-Message-ID: <1386181774.30495.113.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <2ECE9D9EEF1F524185270138AE2326593BF9B5EE@S0MSMAIL112.arc.local>
-	 <CADVnQynL6=91zAZXMAoKEeCY7=Eajfq1DyP+Dzd8xhzBhujtyQ@mail.gmail.com>
-	 <2ECE9D9EEF1F524185270138AE2326593BF9B935@S0MSMAIL112.arc.local>
-	 <20131204175610.GB27943@order.stressinduktion.org>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: NAPI rescheduling and the delay caused by it
+Date: Wed, 4 Dec 2013 18:55:03 +0000
+Message-ID: <529F7A87.5080303@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Fiedler Roman <Roman.Fiedler@ait.ac.at>,
-	Neal Cardwell <ncardwell@google.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	Malcolm Crossley <malcolm.crossley@citrix.com>,
+	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f46.google.com ([209.85.213.46]:56785 "EHLO
-	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755911Ab3LDS3j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 13:29:39 -0500
-Received: by mail-yh0-f46.google.com with SMTP id l109so11665727yhq.19
-        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 10:29:38 -0800 (PST)
-In-Reply-To: <20131204175610.GB27943@order.stressinduktion.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:1087 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933010Ab3LDSzG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Dec 2013 13:55:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-12-04 at 18:56 +0100, Hannes Frederic Sowa wrote:
-> On Wed, Dec 04, 2013 at 04:13:10PM +0000, Fiedler Roman wrote:
-> > -static inline void ip_select_ident_more(struct iphdr *iph, struct dst_entry *dst, struct sock *sk, int more)
-> > +static inline void ip_select_ident_more(struct sk_buff *skb, struct dst_entry *dst, struct sock *sk, int more)
-> > {
-> > - if (iph->frag_off & htons(IP_DF)) {
-> > + struct iphdr *iph = ip_hdr(skb);
-> > +
-> > + if ((iph->frag_off & htons(IP_DF)) && !skb->local_df) {
-> > if (sk && inet_sk(sk)->inet_daddr) {
-> > iph->id = htons(inet_sk(sk)->inet_id);
-> > inet_sk(sk)->inet_id += 1 + more;
-> > 
-> > ... from 3.10.16 would disable ID setting on some packets, where it was done previously. Perhaps this caused problems in and hence behaviour was changed by another patch to one of the following kernel versions. Or perhaps the additional vserver-patch in my kernel interacted with that change and made it first visible after 3.10.17.
-> > 
-> > At least there has been activity around that part of the TCP-stack near the relevant time window, so it is not completely unexpected.
-> > 
-> > Since it seems, that the patch only affects sending of RSTs, there should be no real security impact also: Only difference seems to be, that by sending SYNs to closed ports, you now can get some incrementing next ID value (do not know, where this number really comes from). With a quick look, I could not find out how this ID relates to other ID values of .e.g UDP/TCP activity, e.g. for packet spoofing. Only thing that is possible so far (and not very valuable from my point of view) is port/firewall-rule probing using SYN on closed port, mechanism:
-> 
-> E.g. icmp uses per-namespace per-cpu sockets where it counts the non-DF and
-> non-local_df fragments and increases that per-socket. TCP-RST use a global
-> per-cpu socket to send RST packets. ip_select_ident does increase inet_id for
-> each sent fragment.
+Hi,
 
-Well, it should not, because for this particular socket (assuming you
-speak of ip_send_unicast_reply()), inet_sk(sk)->inet_daddr is not set.
+Recently I've found a strange behaviour in NAPI, and I hope someone can 
+shed some light about it. The basic issue I see that an instance is 
+scheduled on one CPU, and then becomes rescheduled on an another one. I 
+don't understand why, there shouldn't be any load on that CPU, but it 
+would be fine, however there is a 3-4 msec delay between original 
+scheduling and actual run, and it causes terrible TCP single stream 
+performance. Let me explain it with some ftrace logs.
+I'm using Xen 4.3, Dom0 kernel is a net-next 3.12 one, the iperf client 
+guest (TX) has the same kernel, and the iperf server (RX) is a stock 
+Debian 7. vif2.0-10088 is the TX netback thread (it has to deal only 
+with the TCP ACKs mostly) and vif1.0-9854 is the RX thread (it copies 
+the packets to the receiving guest). I've added some trace_printk's to 
+get more details, and the ftrace filter is:
+
+echo net_rx_action kthread_should_stop xenvif_rx_action 
+xenvif_start_xmit xenvif_tx_action > /debug/tracing/set_ftrace_filter
+
+Also an important thing, that I set the affinity of vif interrupts and 
+vif2.0 to CPU#3, while vif1.0 is forced to run on CPU#2. That's not 
+necessarily ideal, but it can happen, and it does, that's why I started 
+to poke around with affinities. I've tried to pin vCPU's to make sure no 
+other domains are running on the same pCPU, but it haven't changed anything.
+
+Here are the logs and my inline comments:
+
+<idle>-0     [003] d.h. 73994.027432: xenvif_interrupt: vif1.0 interrupt
+<idle>-0     [003] d.h. 73994.027433: xenvif_tx_interrupt: vif1.0 
+tx_interrupt napi_schedule for tx_action
+<idle>-0     [003] d.h. 73994.027434: xenvif_rx_interrupt: vif1.0 
+rx_interrupt wake start_xmit
+Domain 1 sent an interrupt, we kicked the vif1.0 (TX) thread and woke 
+NAPI to deal with the sent packet.
+
+<idle>-0     [003] ..s. 73994.027436: net_rx_action <-__do_softirq
+<idle>-0     [003] ..s. 73994.027436: xenvif_tx_action <-xenvif_poll
+<idle>-0     [003] ..s. 73994.027460: xenvif_start_xmit 
+<-dev_hard_start_xmit
+<idle>-0     [003] .ps. 73994.027465: xenvif_start_xmit: vif2.0 
+packet_queued
+The sent packet is now at vif2.0's queue.
+
+vif2.0-10088 [003] .... 73994.027475: kthread_should_stop <-xenvif_kthread
+vif2.0-10088 [003] .... 73994.027475: xenvif_rx_action <-xenvif_kthread
+vif2.0-10088 [003] .... 73994.027483: kthread_should_stop <-xenvif_kthread
+vif2.0-10088 [003] .... 73994.027483: kthread_should_stop <-xenvif_kthread
+vif2.0-10088 [003] .... 73994.027484: kthread_should_stop <-xenvif_kthread
+vif2.0 thread now delivered the packet to Domain 2. It was probably a 
+TCP ACK anyway. The pattern of 3 kthread_should_stop marks that the 
+thread called schedule()
+
+<idle>-0     [003] d.h. 73994.027543: xenvif_interrupt: vif2.0 interrupt
+<idle>-0     [003] d.h. 73994.027544: xenvif_tx_interrupt: vif2.0 
+tx_interrupt napi_schedule for tx_action
+<idle>-0     [003] d.h. 73994.027545: xenvif_rx_interrupt: vif2.0 
+rx_interrupt wake start_xmit
+Domain2's iperf client sent a big packet, and here is the issue: despite 
+we scheduled NAPI on CPU#3, it will run on CPU#2 (which would be fine), 
+but there is an almost 4 milisec delay! Both threads are sleeping, and 
+there is no other load on the system which would justify such a delay.
+
+<idle>-0     [002] ..s. 73994.031248: net_rx_action <-__do_softirq
+<idle>-0     [002] ..s. 73994.031249: xenvif_tx_action <-xenvif_poll
+<idle>-0     [002] ..s. 73994.031323: xenvif_start_xmit 
+<-dev_hard_start_xmit
+<idle>-0     [002] .ps. 73994.031329: xenvif_start_xmit: vif1.0
+vif1.0-9854  [002] .... 73994.031338: kthread_should_stop <-xenvif_kthread
+vif1.0-9854  [002] .... 73994.031338: xenvif_rx_action <-xenvif_kthread
+vif1.0-9854  [002] .... 73994.031391: kthread_should_stop <-xenvif_kthread
+vif1.0-9854  [002] .... 73994.031391: kthread_should_stop <-xenvif_kthread
+vif1.0-9854  [002] .... 73994.031392: kthread_should_stop <-xenvif_kthread
+NAPI called the poll, and our thread woke up to serve the packet.
+
+So, my questions are:
+- why is NAPI rescheduled on an another CPU?
+- why does it cause a 3-4 milisec delay?
