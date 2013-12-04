@@ -1,112 +1,33 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for neigh_timer_handler()
-Date: Wed, 4 Dec 2013 17:16:58 +0800
-Message-ID: <529EF30A.4050609@huawei.com>
-References: <529DE13D.2070509@huawei.com>	<529E9579.7090201@cn.fujitsu.com>		<529EA9CF.2090008@huawei.com>	 <20131203.232122.852236751455974887.davem@davemloft.net>	 <529EC95A.5080908@huawei.com> <1386138457.30495.86.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <gaofeng@cn.fujitsu.com>,
-	<yoshfuji@linux-ipv6.org>, <joe@perches.com>, <vfalico@redhat.com>,
-	<netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:8093 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754889Ab3LDJTN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 04:19:13 -0500
-In-Reply-To: <1386138457.30495.86.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: [PATCH 1/2] macvtap: update file current position
+Date: Wed,  4 Dec 2013 17:29:00 +0800
+Message-ID: <1386149341-10485-1-git-send-email-zwu.kernel@gmail.com>
+Cc: linux-kernel@vger.kernel.org,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2013/12/4 14:27, Eric Dumazet wrote:
-> On Wed, 2013-12-04 at 14:19 +0800, Ding Tianhong wrote:
->> On 2013/12/4 12:21, David Miller wrote:
->>> From: Ding Tianhong <dingtianhong@huawei.com>
->>> Date: Wed, 4 Dec 2013 12:04:31 +0800
->>>
->>>> The destroying neigh could be trigger by userspace, just like set the ip address which
->>>> in arp table to the local device ip, some I could not control it, it maybe anytime,
->>>> but the timer handler is execute by logic, this is normal, so I think the logic
->>>> is no problem, and the process of destroying neigh may conflict with the timer handler,
->>>> it is a synchronous problem to make sure the timer should be finished before the
->>>> reference neigh is freed.
->>>
->>> The more I think about this, the more none of the explanations for this bug
->>> make any sense.
->>>
->>> neigh_destroy() _ONLY_ runs when:
->>>
->>> 	if (atomic_dec_and_test(&neigh->refcnt))
->>>
->>> triggers in neigh_release().
->>>
->>> This means it triggers if, and only if, neigh_refcnt goes to zero.
->>>
->>> If the refcnt goes to zero, NO TIMER can be running.  If the timer is
->>> running, then there refcnt must be at least '1'.
->>
->> Hi David:
->>
->> Yes, you are right, but when the timer is running and prior to get the neigh->lock, the refcnt
->> could be dec to 0, you could not stop it by existing mechanism.
->>
->> the refcnt of neighbour could only be inc by these actions:
->>
->> 1.create neighbour, the refcnt will be set to 1.
->> 2.add timer, the refcnt++.
->> 3.neigh_lookup, if found the neigh, refcnt++.
->>
->> I can show the whole process of my analysis:
->>
->> 		CPU 0				CPU 1
->> 		-----				-----
->> 	create_neigh() => refcnt = 1;		
->> 	add timer =>	refcnt++;
->> 						<SOFTIRQ>
->> 						base->running_timer = neigh->timer;
->> 						neigh_timer_handler() => at this time, refcnt is 2;
->>
->> user->	neigh_changeaddr()
->> 	neigh_flush_dev();
->> 	neigh_del_imer, refcnt dec to 1;
-> 
-> Nope : del_timer() would return 0 here, so we do not decrement refcnt.
-> 
+From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
 
-The first call for del_timer() will return 1, because the timer->entry.next is not NULL,
-then in the neigh_destroy, the del_timer() again will return 0 because timer->entry.next is NULL. 
+Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+---
+ drivers/net/macvtap.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-> I can tell you, if this was not the case, a lot of things would be
-> terribly broken, like TCP stack.
-> 
->> 	release_neigh(), refcnt is 0,
->> 	destroy_neigh()
->> 	kfree(neighbour);
->> 						write(neigh->lock)
->>
->> So in my opinion, the point of the problem is that I should not kfree the neighbour until
->> the timer is not running on CPUs and not pending.
->>
->> If I miss someghing, pls point out.
-> 
-> As David explained, if a timer is running, refcnt can not reach 0,
-> untill the timer handler finished.
-> 
-> So _something_ is calling neigh_release(n) without prior neigh_hold()
-> 
-
-Maybe I could try to find more about it, but it is hard to reoccur the problem.
-
-Regards
-Ding
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> .
-> 
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 9093004..957cc5c 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -876,6 +876,8 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+ 
+ 	ret = macvtap_do_read(q, iocb, iv, len, file->f_flags & O_NONBLOCK);
+ 	ret = min_t(ssize_t, ret, len); /* XXX copied from tun.c. Why? */
++	if (ret > 0)
++		iocb->ki_pos = ret;
+ out:
+ 	return ret;
+ }
+-- 
+1.7.6.5
