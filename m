@@ -1,8 +1,8 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [net-next 7/7] openvswitch: Use skb_zerocopy() for upcall
-Date: Tue, 3 Dec 2013 21:43:02 -0800
-Message-ID: <CAEP_g=8j_JUk9mDc0KLPSCoWuKwssfCrTi3-Vp8jX4iNN-9Sng@mail.gmail.com>
-References: <cover.1385813891.git.tgraf@suug.ch> <d840bbc411b72c1fe7c23a6afde6fc1ca20cca98.1385813891.git.tgraf@suug.ch>
+Subject: Re: [net-next 3/7] openvswitch: Enable memory mapped Netlink i/o
+Date: Tue, 3 Dec 2013 21:45:02 -0800
+Message-ID: <CAEP_g=-LONa8uayCHYJ-Yve6PvxHJo7otWaZ80oYWeDC1Mjqmg@mail.gmail.com>
+References: <cover.1385813891.git.tgraf@suug.ch> <9f7f05a726935c434d43d92c2908a997c403725b.1385813891.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: David Miller <davem@davemloft.net>,
@@ -13,60 +13,46 @@ Cc: David Miller <davem@davemloft.net>,
 	Ben Hutchings <bhutchings@solarflare.com>
 To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:50960 "HELO
-	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750809Ab3LDFnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 00:43:24 -0500
-Received: by mail-ie0-f177.google.com with SMTP id tp5so24778252ieb.8
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 21:43:23 -0800 (PST)
-In-Reply-To: <d840bbc411b72c1fe7c23a6afde6fc1ca20cca98.1385813891.git.tgraf@suug.ch>
+Received: from na3sys009aog101.obsmtp.com ([74.125.149.67]:51420 "HELO
+	na3sys009aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751298Ab3LDFp1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 00:45:27 -0500
+Received: by mail-ie0-f175.google.com with SMTP id x13so25208105ief.20
+        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 21:45:26 -0800 (PST)
+In-Reply-To: <9f7f05a726935c434d43d92c2908a997c403725b.1385813891.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Sat, Nov 30, 2013 at 4:21 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index 8eaa39a..867edf1 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-> +static int queue_gso_packets(struct datapath *, struct net *, int dp_ifindex,
-> +                            struct sk_buff *, const struct dp_upcall_info *);
-> +static int queue_userspace_packet(struct datapath *, struct net *,
-> +                                 int dp_ifindex, struct sk_buff *,
->                                   const struct dp_upcall_info *);
-
-Should we drop the dp_ifindex arguments from these functions? It
-should be trivially derivable from struct datapath.
-
->  static size_t upcall_msg_size(const struct sk_buff *skb,
-> -                             const struct nlattr *userdata)
-> +                             const struct nlattr *userdata,
-> +                             unsigned int hdrlen)
-
-I think that 'skb' is now unused.
-
-> @@ -427,7 +429,21 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
->                 goto out;
->         }
+> Use memory mapped Netlink i/o for all unicast openvswitch
+> communication if a ring has been set up.
 >
-> -       len = upcall_msg_size(skb, upcall_info->userdata);
-> +       /* Complete checksum if needed */
-> +       if (skb->ip_summed == CHECKSUM_PARTIAL &&
-> +           (err = skb_checksum_help(skb)))
-> +               goto out;
-
-I think that we can remove the hardware features argument to
-__skb_gso_segment() in queue_gso_packet(). It was there to take
-advantage of the copy and checksum optimization but that's no longer
-present.
-
-> @@ -447,13 +463,17 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
->                           nla_len(upcall_info->userdata),
->                           nla_data(upcall_info->userdata));
+> Benchmark
+>   * pktgen -> ovs internal port
+>   * 5M pkts, 5M flows
+>   * 4 threads, 8 cores
 >
-> -       nla = __nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, skb->len);
-> +       /* Only reserve room for attribute header, packet data is added
-> +        * in skb_zerocopy() */
-> +       if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0)))
-> +               goto out;
+> Before:
+> Result: OK: 67418743(c67108212+d310530) usec, 5000000 (9000byte,0frags)
+>   74163pps 5339Mb/sec (5339736000bps) errors: 0
+>         +   2.98%     ovs-vswitchd  [k] copy_user_generic_string
+>         +   2.49%     ovs-vswitchd  [k] memcpy
+>         +   1.84%       kpktgend_2  [k] memcpy
+>         +   1.81%       kpktgend_1  [k] memcpy
+>         +   1.81%       kpktgend_3  [k] memcpy
+>         +   1.78%       kpktgend_0  [k] memcpy
+>
+> After:
+> Result: OK: 24229690(c24127165+d102524) usec, 5000000 (9000byte,0frags)
+>   206358pps 14857Mb/sec (14857776000bps) errors: 0
+>         +   2.80%     ovs-vswitchd  [k] memcpy
+>         +   1.31%       kpktgend_2  [k] memcpy
+>         +   1.23%       kpktgend_0  [k] memcpy
+>         +   1.09%       kpktgend_1  [k] memcpy
+>         +   1.04%       kpktgend_3  [k] memcpy
+>         +   0.96%     ovs-vswitchd  [k] copy_user_generic_string
+>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
 
-Does this initialized 'err' on failure?
+First three patches applied, thanks.
