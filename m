@@ -1,55 +1,72 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Change in IPv4 TCP reset behavior after kernel upgrade
-Date: Wed, 4 Dec 2013 23:02:38 +0100
-Message-ID: <20131204220238.GA9110@order.stressinduktion.org>
-References: <2ECE9D9EEF1F524185270138AE2326593BF9B5EE@S0MSMAIL112.arc.local> <CADVnQynL6=91zAZXMAoKEeCY7=Eajfq1DyP+Dzd8xhzBhujtyQ@mail.gmail.com> <2ECE9D9EEF1F524185270138AE2326593BF9B935@S0MSMAIL112.arc.local> <20131204175610.GB27943@order.stressinduktion.org> <1386181774.30495.113.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH openvswitch v3] netlink: Implement & enable memory mapped
+ netlink i/o
+Date: Wed, 4 Dec 2013 14:20:53 -0800
+Message-ID: <CAEP_g=8jMEsrOEpU=LTsfp93RaOowR5DfRB=dzQ-OJEsAVmm0g@mail.gmail.com>
+References: <1d9af26b2798901c68ae9aef704d6313b71d3287.1386069453.git.tgraf@redhat.com>
+ <20131204163328.GE30874@nicira.com> <529F6475.3090903@redhat.com>
+ <20131204180818.GB16940@nicira.com> <529FA334.4050202@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Fiedler Roman <Roman.Fiedler@ait.ac.at>,
-	Neal Cardwell <ncardwell@google.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ben Pfaff <blp@nicira.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Daniel Borkmann <dborkman@redhat.com>, ffusco@redhat.com,
+	fleitner@redhat.com, Cong Wang <xiyou.wangcong@gmail.com>
+To: Thomas Graf <tgraf@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:59927 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754906Ab3LDWCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 17:02:39 -0500
-Content-Disposition: inline
-In-Reply-To: <1386181774.30495.113.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:51430 "HELO
+	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753128Ab3LDWVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 17:21:15 -0500
+Received: by mail-ie0-f170.google.com with SMTP id qd12so28255022ieb.15
+        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 14:21:13 -0800 (PST)
+In-Reply-To: <529FA334.4050202@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 04, 2013 at 10:29:34AM -0800, Eric Dumazet wrote:
-> On Wed, 2013-12-04 at 18:56 +0100, Hannes Frederic Sowa wrote:
-> > On Wed, Dec 04, 2013 at 04:13:10PM +0000, Fiedler Roman wrote:
-> > > -static inline void ip_select_ident_more(struct iphdr *iph, struct dst_entry *dst, struct sock *sk, int more)
-> > > +static inline void ip_select_ident_more(struct sk_buff *skb, struct dst_entry *dst, struct sock *sk, int more)
-> > > {
-> > > - if (iph->frag_off & htons(IP_DF)) {
-> > > + struct iphdr *iph = ip_hdr(skb);
-> > > +
-> > > + if ((iph->frag_off & htons(IP_DF)) && !skb->local_df) {
-> > > if (sk && inet_sk(sk)->inet_daddr) {
-> > > iph->id = htons(inet_sk(sk)->inet_id);
-> > > inet_sk(sk)->inet_id += 1 + more;
-> > > 
-> > > ... from 3.10.16 would disable ID setting on some packets, where it was done previously. Perhaps this caused problems in and hence behaviour was changed by another patch to one of the following kernel versions. Or perhaps the additional vserver-patch in my kernel interacted with that change and made it first visible after 3.10.17.
-> > > 
-> > > At least there has been activity around that part of the TCP-stack near the relevant time window, so it is not completely unexpected.
-> > > 
-> > > Since it seems, that the patch only affects sending of RSTs, there should be no real security impact also: Only difference seems to be, that by sending SYNs to closed ports, you now can get some incrementing next ID value (do not know, where this number really comes from). With a quick look, I could not find out how this ID relates to other ID values of .e.g UDP/TCP activity, e.g. for packet spoofing. Only thing that is possible so far (and not very valuable from my point of view) is port/firewall-rule probing using SYN on closed port, mechanism:
-> > 
-> > E.g. icmp uses per-namespace per-cpu sockets where it counts the non-DF and
-> > non-local_df fragments and increases that per-socket. TCP-RST use a global
-> > per-cpu socket to send RST packets. ip_select_ident does increase inet_id for
-> > each sent fragment.
-> 
-> Well, it should not, because for this particular socket (assuming you
-> speak of ip_send_unicast_reply()), inet_sk(sk)->inet_daddr is not set.
+On Wed, Dec 4, 2013 at 1:48 PM, Thomas Graf <tgraf@redhat.com> wrote:
+> On 12/04/2013 07:08 PM, Ben Pfaff wrote:
+>> if one can come up with a
+>> good heuristic to decide which sockets should be mmaped.  One place
+>> one could start would be to mmap the sockets that correspond to
+>> physical ports.
+>
+>
+> That sounds reasonable, e.g. I would assume ports connected to tap
+> devices to produce only a limited number of upcalls anyway.
+>
+> We can also consider enabling/disabling mmaped rings on demand based
+> on upcall statistics.
 
-Oh yes, actually looking at the code we definitely run into __ip_select_ident
-and generate an inetpeer and use the derived ipid from that.
+If enabling rings on demand can be done cleanly that might be best
+solution. To me, it seems difficult to generalize the upcall
+characteristics based on port type.
 
-Roman, I would be very interested why you only experienced that with
-3.10.21, could you share the specific vserver patch?
+>> Maybe you mean that we should only create 16 or 32 Netlink sockets,
+>> and divide the datapath ports among those sockets.  OVS once used this
+>> approach.  We stopped using it because it has problems with fairness:
+>> if two ports are assigned to one socket, and one of those ports has a
+>> huge volume of new flows (or otherwise sends a lot of packets to
+>> userspace), then it can drown out the occasional packet from the other
+>> port.  We keep talking about new, more flexible approaches to
+>> achieving fairness, though, and maybe some of those approaches would
+>> allow us to reduce the number of sockets we need, which would make
+>> mmaping all of them feasible.
+>
+>
+> I can see the fairness issue. It will result in a large amount of open
+> file descriptors though. I doubt this will scale much beyond 16K ports,
+> correct?
+
+16K ports/sockets would seem to be a good upper bound. However, there
+are a couple of factors that might affect that number in the future.
+The first is that port might not be fine-grained enough - for example,
+on an uplink port it would be better to look at MAC or IP address to
+enforce fairness, which would tend to expand the number of sockets
+necessary (although there obviously won't be a 1:1 mapping, which
+means that we might have to come up with a more clever assignment
+algorithm). The second is that Alex has been working on a userspace
+mechanism for enforcing fairness (you probably have seen his recent
+patches on the mailing list), which could reduce the number of unique
+queues from the kernel.
