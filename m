@@ -1,53 +1,53 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Tue, 3 Dec 2013 16:34:35 -0800
-Message-ID: <CAMEtUuzBpiZEzSxK7315dpJWT6LVb09hFNABUktq_0HMu9bhcQ@mail.gmail.com>
-References: <529DF340.70602@mellanox.com>
-	<1386084620.30495.28.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAJZOPZJ9WM1H9zKNzT5MvQ2UH7RxkTLk2Rhzsk9vdvKz6d2uAw@mail.gmail.com>
-	<alpine.LFD.2.03.1312031310140.23893@intel.com>
-	<CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
-	<alpine.LFD.2.03.1312031500020.570@intel.com>
-	<CAJZOPZLT_3msfz_XY45GOBMWK_y8WEYBTq3rGRUijpYyXE1ddg@mail.gmail.com>
-	<alpine.LFD.2.03.1312031626400.7539@intel.com>
+Date: Tue, 03 Dec 2013 16:36:02 -0800
+Message-ID: <1386117362.30495.49.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
+	 <1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com>
+	 <20131203.165034.1085515763685633822.davem@davemloft.net>
+	 <1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com>
+	 <1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAMEtUuzEM957fRjsb5aSG7xHWKp13fy59QxWpsU_=d+-6ydazg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
 	Jerry Chu <hkchu@google.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Eric Dumazet <edumazet@google.com>,
 	Pravin B Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Joseph Gasparakis <joseph.gasparakis@intel.com>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:52645 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751206Ab3LDAeh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 19:34:37 -0500
-Received: by mail-wg0-f46.google.com with SMTP id m15so14324063wgh.25
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 16:34:35 -0800 (PST)
-In-Reply-To: <alpine.LFD.2.03.1312031626400.7539@intel.com>
+Received: from mail-qc0-f175.google.com ([209.85.216.175]:62721 "EHLO
+	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754968Ab3LDAgF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 19:36:05 -0500
+Received: by mail-qc0-f175.google.com with SMTP id e9so2787333qcy.6
+        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 16:36:05 -0800 (PST)
+In-Reply-To: <CAMEtUuzEM957fRjsb5aSG7xHWKp13fy59QxWpsU_=d+-6ydazg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 3, 2013 at 4:35 PM, Joseph Gasparakis
-<joseph.gasparakis@intel.com> wrote:
->
-> I was printing the gso_type in vxlan_xmit_skb(), right before
-> iptunnel_xmit() gets called (I was focus UDPv4 encap only). Then I saw the
-> gso_type was different when a VM was involved and when it was not
-> (although I was transmitting exactly the same packet), and then I replaced
-> my printk with something like skb_shinfo(skb)->gso_type = <the gso type I had
-> for non-VM skb> and it all worked.
->
-> Then I looked into what was different between the two gso_types and the
-> only difference was that SKB_GSO_DODGY was set when Tx'ing from the VM.
-> I am sure I could have been more delicate with the aproach, but hey, it
-> worked for me.
+On Tue, 2013-12-03 at 16:26 -0800, Alexei Starovoitov wrote:
 
-hmm. dodgy should be a normal path from vm.
-kvm suppose to negotiate vnet_hdr for tap/macvtap and corresponding
-driver will be remapping virtio_net_gso* flags into skb_gso_* flags
-plus gso_dodgy.
+> 
+> Could you use some other way to mark skb ?
+
+I could ;)
+
+> In tracing we might want to examine skb more carefully and not being
+> able to see the device
+> will limit the usability of this tracepoint.
+
+Unfortunately, using skb->dev as a pointer to device would be buggy or
+expensive (you would need to take a reference on device in order not
+letting it disappear, as we escape RCU protection)
+
+Current TRACE_EVENT for trace_consume_skb() does not use skb->dev.
+
+Anyway, this magic is pretty easy to change, I am open to suggestions.
