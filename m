@@ -1,67 +1,78 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: NAPI rescheduling and the delay caused by it
-Date: Wed, 4 Dec 2013 21:23:23 +0000
-Message-ID: <529F9D4B.1020208@citrix.com>
-References: <529F7A87.5080303@citrix.com> <1386189718.30495.131.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ben Pfaff <blp@nicira.com>
+Subject: Re: [PATCH v2.51 1/5] ofp-actions: Allow Consistency checking of
+ OF1.3+ VLAN actions after mpls_push
+Date: Wed, 4 Dec 2013 13:24:29 -0800
+Message-ID: <20131204212429.GA11354@nicira.com>
+References: <1385005606-30130-1-git-send-email-horms@verge.net.au>
+ <1385005606-30130-2-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	Malcolm Crossley <malcolm.crossley@citrix.com>,
-	Jonathan Davies <Jonathan.Davies@eu.citrix.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ravi K <rkerur@gmail.com>, Joe Stringer <joe@wand.net.nz>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:18352 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753210Ab3LDVX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 16:23:27 -0500
-In-Reply-To: <1386189718.30495.131.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:49256 "HELO
+	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753864Ab3LDVYh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 16:24:37 -0500
+Received: by mail-qa0-f46.google.com with SMTP id f11so7014061qae.19
+        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 13:24:35 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1385005606-30130-2-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/12/13 20:41, Eric Dumazet wrote:
-> On Wed, 2013-12-04 at 18:55 +0000, Zoltan Kiss wrote:
->
->> So, my questions are:
->> - why is NAPI rescheduled on an another CPU?
->> - why does it cause a 3-4 milisec delay?
->
-> NAPI can not be scheduled on another cpu.
->
-> But at the time of napi_schedule() call, napi_struct can be already be
-> scheduled by another cpu.
->
-> ( NAPI_STATE_SCHED bit already set)
-> So I would say something made the 'other' cpu non responsive fast enough
-> to softirq events being ready for service.
->
-> (Another wakeup happened 3-4 millisec later)
-Oh, thanks! I forgot to mention, I have my grant mapping patches 
-applied. The callback when the previous packet is sent to the another 
-vif schedules the NAPI instance on that other CPU. But it's still not 
-clear why it takes so long to serve that softirq!
+On Thu, Nov 21, 2013 at 12:46:42PM +0900, Simon Horman wrote:
+> The aim of this patch is to support provide infrastructure for verification
+> of VLAN actions after an mpls_push action for OpenFlow1.3. This supplements
+> existing support for verifying these actions for pre-OpenFlow1.3.
+> 
+> In OpenFlow1.1 and 1.2 MPLS tags are pushed after any VLAN tags that
+> immediately follow the ethernet header. This is pre-OpenFlow1.3 tag
+> ordering. Open vSwitch also uses this ordering when supporting MPLS
+> actions via Nicira extensions to OpenFlow1.0.
+> 
+> When using pre-OpenFlow1.3 tag ordering an MPLS push action does not
+> affect the VLANs of a packet. If VLAN tags are present immediately after
+> the ethernet header then they remain present there.
+> 
+> In of OpenFlow1.3+ MPLS LSEs are pushed before any VLAN tags that
+> immediately follow the ethernet header. This is OpenFlow1.3+ tag
+> ordering.
+> 
+> When using OpenFlow1.3+ tag ordering an MPLS push action affects the
+> VLANs of a packet as any VLAN tags previously present after the ethernet
+> header are moved to be immediately after the newly pushed MPLS LSE. Thus
+> for the purpose of action consistency checking a packet may be changed
+> from a VLAN packet to a non-VLAN packet.
+> 
+> In this way the effective value of the VLAN TCI of a packet may differ
+> after an MPLS push depending on the OpenFlow version in use.
+> 
+> This patch does not enable the logic described above.
+> Rather it is disabled in ofpacts_check__(). It should
+> be enabled when support for OpenFlow1.3+ tag order is added
+> and enabled.
+> 
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
+As far as I can tell this doesn't make sense, because where the MPLS
+tag goes is a property of the action that we know at the time we parse
+the push_mpls action.  So why isn't this patch just the following?
 
-> Really, I suspect your usage of netif_wake_queue() is simply wrong.
->
-> Check why we have netif_rx() and netif_rx_ni() variants.
->
-> And ask yourself if xenvif_notify_tx_completion() is correct, being
-> called from process context.
-So, at the moment we use netif_wake_queue to notify the stack that it 
-can call xenvif_start_xmit, the thread is ready to accept new packets 
-for transmission. It is called when we get an interrupt from the 
-frontend (it marks it made room in the ring), and from 
-xenvif_notify_tx_completion at the end of the thread. The latter checks 
-if queueing were stopped in the meantime, and see if the guest made 
-space after our recent transmission.
-I see netif_rx_ni makes sure the softirq is executed, but I'm not sure I 
-get how is it related to wake_queue. Can you explain a bit more?
-
-Thanks,
-
-Zoli
+diff --git a/lib/ofp-actions.c b/lib/ofp-actions.c
+index a02f842..f444374 100644
+--- a/lib/ofp-actions.c
++++ b/lib/ofp-actions.c
+@@ -2071,6 +2071,9 @@ ofpact_check__(enum ofputil_protocol *usable_protocols, struct ofpact *a,
+          * Thus nothing can be assumed about the network protocol.
+          * Temporarily mark that we have no nw_proto. */
+         flow->nw_proto = 0;
++        if (ofpact_get_PUSH_MPLS(a)->position == OFPACT_MPLS_BEFORE_VLAN) {
++            flow->vlan_tci = 0;
++        }
+         return 0;
+ 
+     case OFPACT_POP_MPLS:
