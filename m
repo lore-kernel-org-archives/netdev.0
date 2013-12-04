@@ -1,112 +1,85 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: Supporting 4 way connections in LKSCTP
-Date: Wed, 04 Dec 2013 11:12:34 -0500
-Message-ID: <529F5472.9030207@gmail.com>
-References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>	<20131127124530.GA23369@hmsreliant.think-freely.org>	<CAFXGftJQV=5Pqs3bhfiS3T1VO1q8jfaMjAUiqm2tDbtSyBCM3A@mail.gmail.com>	<529C9B50.50002@gmail.com>	<CAGugRbXFirQ5P3ek9zN86h4vvO6qsy3eNEooJOApotA+dL+C_g@mail.gmail.com>	<529CB859.9090904@gmail.com>	<CAFXGft+F52p+oaa59=5e5pGfON44N36NA-XMYi5PorzWeybnKw@mail.gmail.com>	<CAFXGft+4o6fT4SYbu3musC+-BEi=xOEGUbZSavF1-0_V1mg6zg@mail.gmail.com>	<529D3BF9.3070208@gmail.com>	<CAFXGftJtCCJ=pVxg_DH-+n2bKmoKXavog0y8mfX+h-1z3hP49Q@mail.gmail.com>	<529DCF42.1070800@gmail.com>	<CAFXGftK5tz90OzObiV7Hi+g080j3zWCNdo217CKdNkOY4JWQUg@mail.gmail.com>	<529DF73E.7060604@gmail.com> <CAFXGftKZD0zN1S=UTa_bYr71-v=7mzU=_CewTNkjPv9CGGB_Fg@mail.gmail.com> <529F395B.9040308@gmail.com> <AE90C24D6B
- 3A694183C094C60CF0A2F6026B745D@saturn3.aculab.com> <529F4D1A.3050304@gmail.com> <7A4B9BD9-B2BF-4625-A2E5-500CD4A6D399@lurchi.franken.de>
+From: Fiedler Roman <Roman.Fiedler@ait.ac.at>
+Subject: AW: Change in IPv4 TCP reset behavior after kernel upgrade
+Date: Wed, 4 Dec 2013 16:13:10 +0000
+Message-ID: <2ECE9D9EEF1F524185270138AE2326593BF9B935@S0MSMAIL112.arc.local>
+References: <2ECE9D9EEF1F524185270138AE2326593BF9B5EE@S0MSMAIL112.arc.local>
+ <CADVnQynL6=91zAZXMAoKEeCY7=Eajfq1DyP+Dzd8xhzBhujtyQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	Sun Paul <paulrbk@gmail.com>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, Karl Heiss <kheiss@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-kernel@vger.kernel.org
-To: Michael Tuexen <Michael.Tuexen@lurchi.franken.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7A4B9BD9-B2BF-4625-A2E5-500CD4A6D399@lurchi.franken.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.ait.ac.at ([62.218.164.131]:44333 "EHLO mx1.ait.ac.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932824Ab3LDQNV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 11:13:21 -0500
+In-Reply-To: <CADVnQynL6=91zAZXMAoKEeCY7=Eajfq1DyP+Dzd8xhzBhujtyQ@mail.gmail.com>
+Content-Language: de-DE
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/04/2013 11:01 AM, Michael Tuexen wrote:
-> On Dec 4, 2013, at 4:41 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
+Hi,
+
+> Von: Neal Cardwell [mailto:ncardwell@google.com]
 > 
->> On 12/04/2013 09:50 AM, David Laight wrote:
->>>>> In normal operation, IP-A sends INIT to IP-X, IP-X returns INIT_ACK to
->>>>> IP-A. IP-A then sends HB to IP-X, IP-X then returns HB_ACK to IP-A. In
->>>>> the meantime, IP-B sends HB to IP-Y and IPY returns HB_ACK.
->>>>>
->>>>> In case of the path between IP-A and IP-X is broken, IP-B sends INIT
->>>>> to IP-X, NODE-B uses IP-Y to return INIT_ACK to IP-B. Then IP-B sends
->>>>> HB to IP-X, and IP-Y returns HB_ACK to IP-B. In the meantime, the HB
->>>>> communication between IP-B and IP-Y follows the normal flow.
->>>>>
->>>>> Can I confirm, is it really valid?
->>>>
->>>> As long as NODE-B knows about both IP-A and IP-B, and NODE-A knows about
->>>> both IP-X and IP-Y (meaning all the addresses were exchanged inside INIT
->>>> and INIT-ACK), then this situation is perfectly valid.  In fact, this
->>>> has been tested an multiple interops.
->>>
->>> There are some network configurations that do cause problems.
->>> Consider 4 systems with 3 LAN segments:
->>> A) 10.10.10.1 on LAN X and 192.168.1.1 on LAN Y.
->>> B) 10.10.10.2 on LAN X and 192.168.1.2 on LAN Y.
->>> C) 10.10.10.3 on LAN X.
->>> D) 10.10.10.4 on LAN X and 192.168.1.2 on LAN Z.
->>> There are no routers between the networks (and none of the systems
->>> are running IP forwarding).
->>>
->>> If A connects to B everything is fine - traffic can use either LAN.
->>>
->>> Connections from A to C are problematic if C tries to send anything
->>> (except a HB) to 192.168.1.1 before receiving a HB response.
->>> One of the SCTP stacks we've used did send messages to an
->>> inappropriate address, but I've forgotten which one.
->>
->> I guess that would be problematic if A can not receive traffic for
->> 192.168.1.1 on the interface connected to LAN X.  I shouldn't
->> technically be a problem for C as it should mark the path to 192.168.1.1
->> as down.  For A, as long as it doesn't decide to ABORT the association,
->> it shouldn't be a problem either.  It would be interesting to know more
->> about what problems you've observed.
->>
->>>
->>> Connections between A and D fail unless the HB errors A receives
->>> for 192.168.1.2 are ignored.
->>
->> Yes, this configuration is very error prone, especially if system B and
->> system D are up at the same time.  Any attempts by system A to use
->> LAN Y will result in an ABORT generated by system B.  I have seen
->> this issue well in production and we had to renumber system D to solve
->> it.
-> The point is that address scoping should be used. When sending an
-> INIT from 10.10.10.1 to 10.10.10.4 you should not list 192.168.1.1,
-> since you are transmitting an address to a node which might or might
-> not "be in the same scope". We had IDs for that in the past, but
-> they never made it to RFC state, because they were not progressed enough
-> by the authors. Maybe we should push them again...
-
-But these 2 are technically in the same scope.  They are both private
-address types.  Also, this will not solve the problem either since
-the configured addresses could be:
-System A) 10.0.0.1 on Lan X, 10.10.0.1 on Lan Y
-System B) 10.0.0.2 on Lan X, 10.10.0.2 on Lan Y
-System C) 10.0.0.3 on Lan X, 10.10.0.2 on Lan Z
-
-Same problem will occur.
-
-Btw, were there any IDs other then draft-stewart-tsvwg-sctp-ipv4?
-
-Thanks
--vlad
-
+> On Wed, Dec 4, 2013 at 5:09 AM, Fiedler Roman <Roman.Fiedler@ait.ac.at>
+> wrote:
+> > Hello,
+> >
+> > After upgrading from linux-image-3.10.17 to linux-image-3.10.21 I noticed,
+> that afterwards reset packets started to be transmitted with ID != 0. For
+> testing:
+> >
+> > tcpdump -i eth0 -nn -s0 -X -vvv 'tcp[tcpflags] & tcp-rst != 0'
+> >
+> > I did a short search to find out when and why this was changed (PATCH),
+> but did not get any wiser.
+> >
+> > Was this an intended change, e.g. to increase resilience against RST-packet
+> injection/DOS scenarios? Is it just accidentally?
+> >
+> > The ID seems to be in sequence, so it is not uninitialized memory content.
+> >
+> > Roman
+> >
+> > PS: The kernel was patched with the vserver-patch, this might have an
+> influence. I did not have time yet to build a kernel without that modification.
 > 
-> Best regards
-> Michael
->>
->> -vlad
->>>
->>> Of course the application could explicitly bind to only the 10.x address
->>> but that requires the application know the exact network topology
->>> and may be difficult for incoming calls.
->>>
->>> 	David
->>>
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
+> One possibly related commit would be:
 > 
+> ip: generate unique IP identificator if local fragmentation is allowed
+> 703133de331a7a7df47f31fb9de51dc6f68a9de8
+> 
+> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=703
+> 133de331a7a7df47f31fb9de51dc6f68a9de8
+> 
+> But that went into 3.10.16, which is one release outside the window
+> you mention....
+
+Thanks, but that is really close. If I'm not wrong the code ....
+
+-static inline void ip_select_ident_more(struct iphdr *iph, struct dst_entry *dst, struct sock *sk, int more)
++static inline void ip_select_ident_more(struct sk_buff *skb, struct dst_entry *dst, struct sock *sk, int more)
+{
+- if (iph->frag_off & htons(IP_DF)) {
++ struct iphdr *iph = ip_hdr(skb);
++
++ if ((iph->frag_off & htons(IP_DF)) && !skb->local_df) {
+if (sk && inet_sk(sk)->inet_daddr) {
+iph->id = htons(inet_sk(sk)->inet_id);
+inet_sk(sk)->inet_id += 1 + more;
+
+... from 3.10.16 would disable ID setting on some packets, where it was done previously. Perhaps this caused problems in and hence behaviour was changed by another patch to one of the following kernel versions. Or perhaps the additional vserver-patch in my kernel interacted with that change and made it first visible after 3.10.17.
+
+At least there has been activity around that part of the TCP-stack near the relevant time window, so it is not completely unexpected.
+
+Since it seems, that the patch only affects sending of RSTs, there should be no real security impact also: Only difference seems to be, that by sending SYNs to closed ports, you now can get some incrementing next ID value (do not know, where this number really comes from). With a quick look, I could not find out how this ID relates to other ID values of .e.g UDP/TCP activity, e.g. for packet spoofing. Only thing that is possible so far (and not very valuable from my point of view) is port/firewall-rule probing using SYN on closed port, mechanism:
+
+* Find one non-firewalled but closed port where you can send and receive responses, e.g. 443 on webserver without SSL (do not know, if that would work also when exhausting all connections to provoke RST?)
+* Send a SYN, record the ID
+* Spoof packets to other ports, perhaps using other source-IPs, that might suite firewall rules better to go through
+* See if the IDs in your test-SYN-responses start to increase faster, meaning that the port is not firewalled from the given source but currently no application listening on it
+
+Roman
