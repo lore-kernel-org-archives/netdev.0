@@ -1,373 +1,561 @@
-From: Zhuangyuxin <zhuangyuxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: =?gb2312?b?tPC4tDogIFtQQVRDSCBvcGVudnN3aXRjaCB2M10gbmV0?=
- =?gb2312?b?bGluazogSW1wbGVtZW50ICYgZW5hYmxlIG1lbW9yeQltYXBwZWQgbmV0bGlu?=
- =?gb2312?b?ayBpL28=?=
-Date: Wed, 4 Dec 2013 01:54:20 +0000
-Message-ID: <9C2DE4B8FE85984BA1B0581235F6B2ED0F5D440A@SZXEMA502-MBS.china.huawei.com>
-References: <1d9af26b2798901c68ae9aef704d6313b71d3287.1386069453.git.tgraf@redhat.com>
+From: Sun Paul <paulrbk@gmail.com>
+Subject: Re: Supporting 4 way connections in LKSCTP
+Date: Wed, 4 Dec 2013 09:59:29 +0800
+Message-ID: <CAFXGftKZD0zN1S=UTa_bYr71-v=7mzU=_CewTNkjPv9CGGB_Fg@mail.gmail.com>
+References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>
+	<5294BC01.7090605@gmail.com>
+	<CAFXGftLsKm9a5bmXX4Fe+rnSvYVdBDOyYGwisRP7XMu+ky=DGw@mail.gmail.com>
+	<CAFXGftLt1p6XpR2eGsMYKjEbbOHvch-LgcFw1sAXThcA2Rtjyw@mail.gmail.com>
+	<20131127124530.GA23369@hmsreliant.think-freely.org>
+	<CAFXGftJQV=5Pqs3bhfiS3T1VO1q8jfaMjAUiqm2tDbtSyBCM3A@mail.gmail.com>
+	<529C9B50.50002@gmail.com>
+	<CAGugRbXFirQ5P3ek9zN86h4vvO6qsy3eNEooJOApotA+dL+C_g@mail.gmail.com>
+	<529CB859.9090904@gmail.com>
+	<CAFXGft+F52p+oaa59=5e5pGfON44N36NA-XMYi5PorzWeybnKw@mail.gmail.com>
+	<CAFXGft+4o6fT4SYbu3musC+-BEi=xOEGUbZSavF1-0_V1mg6zg@mail.gmail.com>
+	<529D3BF9.3070208@gmail.com>
+	<CAFXGftJtCCJ=pVxg_DH-+n2bKmoKXavog0y8mfX+h-1z3hP49Q@mail.gmail.com>
+	<529DCF42.1070800@gmail.com>
+	<CAFXGftK5tz90OzObiV7Hi+g080j3zWCNdo217CKdNkOY4JWQUg@mail.gmail.com>
+	<529DF73E.7060604@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"fleitner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <fleitner-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org" <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>,
-	"blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org" <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1d9af26b2798901c68ae9aef704d6313b71d3287.1386069453.git.tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Content-Language: zh-CN
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Karl Heiss <kheiss@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-kernel@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <529DF73E.7060604@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SW4gdGhpcyBwYXRjaCwgZWFjaCBmcmFtZSB0YWtlcyAxNmsgbWVtLiBGb3Igc29ja2V0cyB1c2Vk
-IGZvciB1cGNhbGwsIGRvZXMgaXQgbWFrZSBtb3JlIHNlbnNlIHRvIGNhbGN1bGF0ZSBmcmFtZSBz
-aXplIGJhc2VkIG9uIE1UVSBvZiB0aGUgbmV0ZGV2IG9uIHRoZSBwb3J0Pw0KDQpUaGFua3MsDQpZ
-dXhpbg0KDQotLS0tLdPKvP7Urbz+LS0tLS0NCreivP7IyzogZGV2LWJvdW5jZXNAb3BlbnZzd2l0
-Y2gub3JnIFttYWlsdG86ZGV2LWJvdW5jZXNAb3BlbnZzd2l0Y2gub3JnXSC0+rHtIFRob21hcyBH
-cmFmDQq3osvNyrG85DogMjAxM8TqMTLUwjPI1SAxOToxOQ0KytW8/sjLOiBqZXNzZUBuaWNpcmEu
-Y29tOyBibHBAbmljaXJhLmNvbQ0Ks63LzTogZGV2QG9wZW52c3dpdGNoLm9yZzsgZmxlaXRuZXJA
-cmVkaGF0LmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0K1vfM4jogW292cy1kZXZdIFtQQVRD
-SCBvcGVudnN3aXRjaCB2M10gbmV0bGluazogSW1wbGVtZW50ICYgZW5hYmxlIG1lbW9yeSBtYXBw
-ZWQgbmV0bGluayBpL28NCg0KQmFzZWQgb24gdGhlIGluaXRpYWwgcGF0Y2ggYnkgQ29uZyBXYW5n
-IHBvc3RlZCBhIGNvdXBsZSBvZiBtb250aHMgYWdvLg0KDQpUaGlzIGlzIHRoZSB1c2VyIHNwYWNl
-IGNvdW50ZXJwYXJ0IG5lZWRlZCBmb3IgdGhlIGtlcm5lbCBwYXRjaCAnW1BBVENIIG5ldC1uZXh0
-IDMvOF0gb3BlbnZzd2l0Y2g6IEVuYWJsZSBtZW1vcnkgbWFwcGVkIE5ldGxpbmsgaS9vJw0KDQpB
-bGxvd3MgdGhlIGtlcm5lbCB0byBjb25zdHJ1Y3QgTmV0bGluayBtZXNzYWdlcyBvbiBtZW1vcnkg
-bWFwcGVkIGJ1ZmZlcnMgYW5kIHRodXMgYXZvaWRzIGNvcHlpbmcuIFRoZSBmdW5jdGlvbmFsaXR5
-IGlzIGVuYWJsZWQgb24gc29ja2V0cyB1c2VkIGZvciB1bmljYXN0IHRyYWZmaWMuDQoNCkZ1cnRo
-ZXIgb3B0aW1pemF0aW9ucyBhcmUgcG9zc2libGUgYnkgYXZvaWRpbmcgdGhlIGNvcHkgaW50byB0
-aGUgb2ZwYnVmIGFmdGVyIHJlYWRpbmcuDQoNClNpZ25lZC1vZmYtYnk6IFRob21hcyBHcmFmIDx0
-Z3JhZkByZWRoYXQuY29tPg0KLS0tDQpWMzogLSBQcm92aWRlIF9fQUxJR05fS0VSTkVMIGluIGNh
-c2UgPGxpbnV4L2tlcm5lbC5oPiBpcyBub3QgYXZhaWxhYmxlDQogICAgLSBTaWxlbmNlIENsYW5n
-IGFsaWdubWVudCBwcm9ibGVtIGZhbHNlIHBvc2l0aXZlDQpWMjogLSBQcm92aWRlIHJlcXVpcmVk
-IGRlZmluaXRpb25zIGluIG5ldGxpbmstcHJvdG9jb2wuaCBpZiA8bGludXgvbmV0bGluay5oPg0K
-ICAgICAgZG9lcyBub3QgY29udGFpbiB0aGVtLg0KDQogQVVUSE9SUyAgICAgICAgICAgICAgICB8
-ICAgMSArDQogbGliL2RwaWYtbGludXguYyAgICAgICB8ICAgNiArLQ0KIGxpYi9uZXRkZXYtbGlu
-dXguYyAgICAgfCAgIDIgKy0NCiBsaWIvbmV0bGluay1ub3RpZmllci5jIHwgICAyICstDQogbGli
-L25ldGxpbmstcHJvdG9jb2wuaCB8ICAzOSArKysrKysrDQogbGliL25ldGxpbmstc29ja2V0LmMg
-ICB8IDI4OCArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0t
-DQogbGliL25ldGxpbmstc29ja2V0LmggICB8ICAgMiArLQ0KIHV0aWxpdGllcy9ubG1vbi5jICAg
-ICAgfCAgIDIgKy0NCiA4IGZpbGVzIGNoYW5nZWQsIDMwNCBpbnNlcnRpb25zKCspLCAzOCBkZWxl
-dGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL0FVVEhPUlMgYi9BVVRIT1JTDQppbmRleCAxYzJkOWVh
-Li40ZDg2Zjg2IDEwMDY0NA0KLS0tIGEvQVVUSE9SUw0KKysrIGIvQVVUSE9SUw0KQEAgLTIzLDYg
-KzIzLDcgQEAgQnJ5YW4gUGhpbGxpcHBlICAgICAgICAgYnBAdG9yb2tpLmNvbQ0KIENhc2V5IEJh
-cmtlciAgICAgICAgICAgIGNyYmFya2VyQGdvb2dsZS5jb20NCiBDaHJpcyBXcmlnaHQgICAgICAg
-ICAgICBjaHJpc3dAc291cy1zb2wub3JnDQogQ2h1Y2sgU2hvcnQgICAgICAgICAgICAgenVsY3Nz
-QHVidW50dS5jb20NCitDb25nIFdhbmcgICAgICAgICAgICAgICBhbXdhbmdAcmVkaGF0LmNvbQ0K
-IERhbWllbiBNaWxsZXNjYW1wcyAgICAgIGRhbWllbi5taWxsZXNjYW1wc0A2d2luZC5jb20NCiBE
-YW4gQ2FycGVudGVyICAgICAgICAgICBkYW4uY2FycGVudGVyQG9yYWNsZS5jb20NCiBEYW4gV2Vu
-ZGxhbmR0ICAgICAgICAgICBkYW5AbmljaXJhLmNvbQ0KZGlmZiAtLWdpdCBhL2xpYi9kcGlmLWxp
-bnV4LmMgYi9saWIvZHBpZi1saW51eC5jIGluZGV4IDI1NzE1ZjQuLjZjNDgyZDAgMTAwNjQ0DQot
-LS0gYS9saWIvZHBpZi1saW51eC5jDQorKysgYi9saWIvZHBpZi1saW51eC5jDQpAQCAtNDk1LDcg
-KzQ5NSw3IEBAIGRwaWZfbGludXhfcG9ydF9hZGRfXyhzdHJ1Y3QgZHBpZiAqZHBpZl8sIHN0cnVj
-dCBuZXRkZXYgKm5ldGRldiwNCiAgICAgaW50IGVycm9yOw0KIA0KICAgICBpZiAoZHBpZi0+ZXBv
-bGxfZmQgPj0gMCkgew0KLSAgICAgICAgZXJyb3IgPSBubF9zb2NrX2NyZWF0ZShORVRMSU5LX0dF
-TkVSSUMsICZzb2NrKTsNCisgICAgICAgIGVycm9yID0gbmxfc29ja19jcmVhdGUoTkVUTElOS19H
-RU5FUklDLCAmc29jaywgdHJ1ZSk7DQogICAgICAgICBpZiAoZXJyb3IpIHsNCiAgICAgICAgICAg
-ICByZXR1cm4gZXJyb3I7DQogICAgICAgICB9DQpAQCAtNzY1LDcgKzc2NSw3IEBAIGRwaWZfbGlu
-dXhfcG9ydF9wb2xsKGNvbnN0IHN0cnVjdCBkcGlmICpkcGlmXywgY2hhciAqKmRldm5hbWVwKQ0K
-ICAgICAgICAgc3RydWN0IG5sX3NvY2sgKnNvY2s7DQogICAgICAgICBpbnQgZXJyb3I7DQogDQot
-ICAgICAgICBlcnJvciA9IG5sX3NvY2tfY3JlYXRlKE5FVExJTktfR0VORVJJQywgJnNvY2spOw0K
-KyAgICAgICAgZXJyb3IgPSBubF9zb2NrX2NyZWF0ZShORVRMSU5LX0dFTkVSSUMsICZzb2NrLCBm
-YWxzZSk7DQogICAgICAgICBpZiAoZXJyb3IpIHsNCiAgICAgICAgICAgICByZXR1cm4gZXJyb3I7
-DQogICAgICAgICB9DQpAQCAtMTI2NSw3ICsxMjY1LDcgQEAgZHBpZl9saW51eF9yZWN2X3NldF9f
-KHN0cnVjdCBkcGlmICpkcGlmXywgYm9vbCBlbmFibGUpDQogICAgICAgICAgICAgdWludDMyX3Qg
-dXBjYWxsX3BpZDsNCiAgICAgICAgICAgICBpbnQgZXJyb3I7DQogDQotICAgICAgICAgICAgZXJy
-b3IgPSBubF9zb2NrX2NyZWF0ZShORVRMSU5LX0dFTkVSSUMsICZzb2NrKTsNCisgICAgICAgICAg
-ICBlcnJvciA9IG5sX3NvY2tfY3JlYXRlKE5FVExJTktfR0VORVJJQywgJnNvY2ssIHRydWUpOw0K
-ICAgICAgICAgICAgIGlmIChlcnJvcikgew0KICAgICAgICAgICAgICAgICByZXR1cm4gZXJyb3I7
-DQogICAgICAgICAgICAgfQ0KZGlmZiAtLWdpdCBhL2xpYi9uZXRkZXYtbGludXguYyBiL2xpYi9u
-ZXRkZXYtbGludXguYyBpbmRleCAzZTBkYTQ4Li4zYmI0NjE4IDEwMDY0NA0KLS0tIGEvbGliL25l
-dGRldi1saW51eC5jDQorKysgYi9saWIvbmV0ZGV2LWxpbnV4LmMNCkBAIC00NzgsNyArNDc4LDcg
-QEAgbmV0ZGV2X2xpbnV4X25vdGlmeV9zb2NrKHZvaWQpDQogICAgIGlmIChvdnN0aHJlYWRfb25j
-ZV9zdGFydCgmb25jZSkpIHsNCiAgICAgICAgIGludCBlcnJvcjsNCiANCi0gICAgICAgIGVycm9y
-ID0gbmxfc29ja19jcmVhdGUoTkVUTElOS19ST1VURSwgJnNvY2spOw0KKyAgICAgICAgZXJyb3Ig
-PSBubF9zb2NrX2NyZWF0ZShORVRMSU5LX1JPVVRFLCAmc29jaywgZmFsc2UpOw0KICAgICAgICAg
-aWYgKCFlcnJvcikgew0KICAgICAgICAgICAgIGVycm9yID0gbmxfc29ja19qb2luX21jZ3JvdXAo
-c29jaywgUlROTEdSUF9MSU5LKTsNCiAgICAgICAgICAgICBpZiAoZXJyb3IpIHsNCmRpZmYgLS1n
-aXQgYS9saWIvbmV0bGluay1ub3RpZmllci5jIGIvbGliL25ldGxpbmstbm90aWZpZXIuYyBpbmRl
-eCA5YWExODVkLi4wNDdjZTc1IDEwMDY0NA0KLS0tIGEvbGliL25ldGxpbmstbm90aWZpZXIuYw0K
-KysrIGIvbGliL25ldGxpbmstbm90aWZpZXIuYw0KQEAgLTEwOSw3ICsxMDksNyBAQCBubG5fbm90
-aWZpZXJfY3JlYXRlKHN0cnVjdCBubG4gKm5sbiwgbmxuX25vdGlmeV9mdW5jICpjYiwgdm9pZCAq
-YXV4KQ0KICAgICAgICAgc3RydWN0IG5sX3NvY2sgKnNvY2s7DQogICAgICAgICBpbnQgZXJyb3I7
-DQogDQotICAgICAgICBlcnJvciA9IG5sX3NvY2tfY3JlYXRlKG5sbi0+cHJvdG9jb2wsICZzb2Nr
-KTsNCisgICAgICAgIGVycm9yID0gbmxfc29ja19jcmVhdGUobmxuLT5wcm90b2NvbCwgJnNvY2ss
-IGZhbHNlKTsNCiAgICAgICAgIGlmICghZXJyb3IpIHsNCiAgICAgICAgICAgICBlcnJvciA9IG5s
-X3NvY2tfam9pbl9tY2dyb3VwKHNvY2ssIG5sbi0+bXVsdGljYXN0X2dyb3VwKTsNCiAgICAgICAg
-IH0NCmRpZmYgLS1naXQgYS9saWIvbmV0bGluay1wcm90b2NvbC5oIGIvbGliL25ldGxpbmstcHJv
-dG9jb2wuaCBpbmRleCAzMDA5ZmM1Li5kNWI2NWFkIDEwMDY0NA0KLS0tIGEvbGliL25ldGxpbmst
-cHJvdG9jb2wuaA0KKysrIGIvbGliL25ldGxpbmstcHJvdG9jb2wuaA0KQEAgLTE3OSw0ICsxNzks
-NDMgQEAgZW51bSB7DQogI2RlZmluZSBDVFJMX0FUVFJfTUNBU1RfR1JQX01BWCAoX19DVFJMX0FU
-VFJfTUNBU1RfR1JQX01BWCAtIDEpICAjZW5kaWYgLyogQ1RSTF9BVFRSX01DQVNUX0dSUF9NQVgg
-Ki8NCiANCisjaWZuZGVmIF9fQUxJR05fS0VSTkVMDQorI2RlZmluZSBfX0FMSUdOX0tFUk5FTCh4
-LCBhKQkJX19BTElHTl9LRVJORUxfTUFTSyh4LCAodHlwZW9mKHgpKShhKSAtIDEpDQorI2RlZmlu
-ZSBfX0FMSUdOX0tFUk5FTF9NQVNLKHgsIG1hc2spCSgoKHgpICsgKG1hc2spKSAmIH4obWFzaykp
-DQorI2VuZGlmDQorDQorI2lmbmRlZiBORVRMSU5LX1JYX1JJTkcNCisjZGVmaW5lIE5FVExJTktf
-UlhfUklORwkJNg0KKyNkZWZpbmUgTkVUTElOS19UWF9SSU5HCQk3DQorDQorc3RydWN0IG5sX21t
-YXBfcmVxIHsNCisJdW5zaWduZWQgaW50CW5tX2Jsb2NrX3NpemU7DQorCXVuc2lnbmVkIGludAlu
-bV9ibG9ja19ucjsNCisJdW5zaWduZWQgaW50CW5tX2ZyYW1lX3NpemU7DQorCXVuc2lnbmVkIGlu
-dAlubV9mcmFtZV9ucjsNCit9Ow0KKw0KK3N0cnVjdCBubF9tbWFwX2hkciB7DQorCXVuc2lnbmVk
-IGludAlubV9zdGF0dXM7DQorCXVuc2lnbmVkIGludAlubV9sZW47DQorCV9fdTMyCQlubV9ncm91
-cDsNCisJLyogY3JlZGVudGlhbHMgKi8NCisJX191MzIJCW5tX3BpZDsNCisJX191MzIJCW5tX3Vp
-ZDsNCisJX191MzIJCW5tX2dpZDsNCit9Ow0KKw0KK2VudW0gbmxfbW1hcF9zdGF0dXMgew0KKwlO
-TF9NTUFQX1NUQVRVU19VTlVTRUQsDQorCU5MX01NQVBfU1RBVFVTX1JFU0VSVkVELA0KKwlOTF9N
-TUFQX1NUQVRVU19WQUxJRCwNCisJTkxfTU1BUF9TVEFUVVNfQ09QWSwNCisJTkxfTU1BUF9TVEFU
-VVNfU0tJUCwNCit9Ow0KKw0KKyNkZWZpbmUgTkxfTU1BUF9NU0dfQUxJR05NRU5UCQlOTE1TR19B
-TElHTlRPDQorI2RlZmluZSBOTF9NTUFQX01TR19BTElHTihzeikJCV9fQUxJR05fS0VSTkVMKHN6
-LCBOTF9NTUFQX01TR19BTElHTk1FTlQpDQorI2RlZmluZSBOTF9NTUFQX0hEUkxFTgkJCU5MX01N
-QVBfTVNHX0FMSUdOKHNpemVvZihzdHJ1Y3QgbmxfbW1hcF9oZHIpKQ0KKyNlbmRpZiAvKiBORVRM
-SU5LX1JYX1JJTkcgKi8NCisNCiAjZW5kaWYgLyogbmV0bGluay1wcm90b2NvbC5oICovDQpkaWZm
-IC0tZ2l0IGEvbGliL25ldGxpbmstc29ja2V0LmMgYi9saWIvbmV0bGluay1zb2NrZXQuYyBpbmRl
-eCA0YmQ2ZDM2Li4zM2ZhZDA5IDEwMDY0NA0KLS0tIGEvbGliL25ldGxpbmstc29ja2V0LmMNCisr
-KyBiL2xpYi9uZXRsaW5rLXNvY2tldC5jDQpAQCAtMjEsNiArMjEsNyBAQA0KICNpbmNsdWRlIDxz
-dGRsaWIuaD4NCiAjaW5jbHVkZSA8c3lzL3R5cGVzLmg+DQogI2luY2x1ZGUgPHN5cy91aW8uaD4N
-CisjaW5jbHVkZSA8c3lzL21tYW4uaD4NCiAjaW5jbHVkZSA8dW5pc3RkLmg+DQogI2luY2x1ZGUg
-ImNvdmVyYWdlLmgiDQogI2luY2x1ZGUgImR5bmFtaWMtc3RyaW5nLmgiDQpAQCAtNDAsNyArNDEs
-OSBAQCBWTE9HX0RFRklORV9USElTX01PRFVMRShuZXRsaW5rX3NvY2tldCk7DQogQ09WRVJBR0Vf
-REVGSU5FKG5ldGxpbmtfb3ZlcmZsb3cpOw0KIENPVkVSQUdFX0RFRklORShuZXRsaW5rX3JlY2Vp
-dmVkKTsNCiBDT1ZFUkFHRV9ERUZJTkUobmV0bGlua19yZWN2X2p1bWJvKTsNCitDT1ZFUkFHRV9E
-RUZJTkUobmV0bGlua19yZWN2X21tYXApOw0KIENPVkVSQUdFX0RFRklORShuZXRsaW5rX3NlbnQp
-Ow0KK0NPVkVSQUdFX0RFRklORShuZXRsaW5rX3NlbnRfbW1hcCk7DQogDQogLyogTGludXggaGVh
-ZGVyIGZpbGUgY29uZnVzaW9uIGNhdXNlcyB0aGlzIHRvIGJlIHVuZGVmaW5lZC4gKi8gICNpZm5k
-ZWYgU09MX05FVExJTksgQEAgLTU4LDEyICs2MSwyMiBAQCBzdGF0aWMgdm9pZCBsb2dfbmxtc2co
-Y29uc3QgY2hhciAqZnVuY3Rpb24sIGludCBlcnJvciwNCiANCg0KIC8qIE5ldGxpbmsgc29ja2V0
-cy4gKi8NCiANCitzdHJ1Y3QgbmxfcmluZyB7DQorICAgIHVuc2lnbmVkIGludCBoZWFkOw0KKyAg
-ICB2b2lkICpyaW5nOw0KK307DQorDQogc3RydWN0IG5sX3NvY2sgew0KICAgICBpbnQgZmQ7DQog
-ICAgIHVpbnQzMl90IG5leHRfc2VxOw0KICAgICB1aW50MzJfdCBwaWQ7DQogICAgIGludCBwcm90
-b2NvbDsNCiAgICAgdW5zaWduZWQgaW50IHJjdmJ1ZjsgICAgICAgIC8qIFJlY2VpdmUgYnVmZmVy
-IHNpemUgKFNPX1JDVkJVRikuICovDQorICAgIHVuc2lnbmVkIGludCBmcmFtZV9zaXplOw0KKyAg
-ICB1bnNpZ25lZCBpbnQgZnJhbWVfbnI7DQorICAgIHNpemVfdCByaW5nX3NpemU7DQorICAgIHN0
-cnVjdCBubF9yaW5nIHR4X3Jpbmc7DQorICAgIHN0cnVjdCBubF9yaW5nIHJ4X3Jpbmc7DQogfTsN
-CiANCiAvKiBDb21waWxlLXRpbWUgbGltaXQgb24gaW92ZWNzLCBzbyB0aGF0IHdlIGNhbiBhbGxv
-Y2F0ZSBhIG1heGltdW0tc2l6ZSBhcnJheSBAQCAtNzksMTEgKzkyLDUxIEBAIHN0YXRpYyBpbnQg
-bWF4X2lvdnM7ICBzdGF0aWMgaW50IG5sX3Bvb2xfYWxsb2MoaW50IHByb3RvY29sLCBzdHJ1Y3Qg
-bmxfc29jayAqKnNvY2twKTsgIHN0YXRpYyB2b2lkIG5sX3Bvb2xfcmVsZWFzZShzdHJ1Y3Qgbmxf
-c29jayAqKTsNCiANCitzdGF0aWMgaW50DQorbmxfc29ja19zZXRfcmluZyhzdHJ1Y3Qgbmxfc29j
-ayAqc29jaykNCit7DQorICAgIHNpemVfdCBibG9ja19zaXplID0gMTYgKiBnZXRwYWdlc2l6ZSgp
-Ow0KKyAgICBzaXplX3QgcmluZ19zaXplOw0KKyAgICB2b2lkICpyaW5nOw0KKyAgICBzdHJ1Y3Qg
-bmxfbW1hcF9yZXEgcmVxID0gew0KKyAgICAgICAgLm5tX2Jsb2NrX3NpemUgICAgICAgICAgPSBi
-bG9ja19zaXplLA0KKyAgICAgICAgLm5tX2Jsb2NrX25yICAgICAgICAgICAgPSA2NCwNCisgICAg
-ICAgIC5ubV9mcmFtZV9zaXplICAgICAgICAgID0gMTYzODQsDQorICAgIH07DQorDQorICAgIHJl
-cS5ubV9mcmFtZV9uciA9IHJlcS5ubV9ibG9ja19uciAqIGJsb2NrX3NpemUgLyByZXEubm1fZnJh
-bWVfc2l6ZTsNCisNCisgICAgaWYgKHNldHNvY2tvcHQoc29jay0+ZmQsIFNPTF9ORVRMSU5LLCBO
-RVRMSU5LX1JYX1JJTkcsICZyZXEsIHNpemVvZihyZXEpKSA8IDANCisgICAgICAgIHx8IHNldHNv
-Y2tvcHQoc29jay0+ZmQsIFNPTF9ORVRMSU5LLCBORVRMSU5LX1RYX1JJTkcsICZyZXEsIHNpemVv
-ZihyZXEpKSA8IDApIHsNCisgICAgICAgIFZMT0dfSU5GTygibW1hcCBuZXRsaW5rIGlzIG5vdCBz
-dXBwb3J0ZWQiKTsNCisgICAgICAgIHJldHVybiAwOw0KKyAgICB9DQorDQorDQorICAgIHJpbmdf
-c2l6ZSA9IHJlcS5ubV9ibG9ja19uciAqIHJlcS5ubV9ibG9ja19zaXplOw0KKyAgICByaW5nID0g
-bW1hcChOVUxMLCAyICogcmluZ19zaXplLCBQUk9UX1JFQUQgfCBQUk9UX1dSSVRFLA0KKyAgICAg
-ICAgICAgICAgICBNQVBfU0hBUkVELCBzb2NrLT5mZCwgMCk7DQorICAgIGlmIChyaW5nID09IE1B
-UF9GQUlMRUQpIHsNCisgICAgICAgIFZMT0dfRVJSKCJuZXRsaW5rIG1tYXA6ICVzIiwgb3ZzX3N0
-cmVycm9yKGVycm5vKSk7DQorICAgICAgICByZXR1cm4gZXJybm87DQorICAgIH0NCisNCisgICAg
-c29jay0+ZnJhbWVfc2l6ZSA9IHJlcS5ubV9mcmFtZV9zaXplOw0KKyAgICBzb2NrLT5mcmFtZV9u
-ciA9IHJlcS5ubV9mcmFtZV9uciAtIDE7DQorICAgIHNvY2stPnJpbmdfc2l6ZSA9IHJpbmdfc2l6
-ZTsNCisgICAgc29jay0+cnhfcmluZy5yaW5nID0gcmluZzsNCisgICAgc29jay0+cnhfcmluZy5o
-ZWFkID0gMDsNCisgICAgc29jay0+dHhfcmluZy5yaW5nID0gKGNoYXIgKikgcmluZyArIHJpbmdf
-c2l6ZTsNCisgICAgc29jay0+dHhfcmluZy5oZWFkID0gMDsNCisNCisgICAgcmV0dXJuIDA7DQor
-fQ0KKw0KIC8qIENyZWF0ZXMgYSBuZXcgbmV0bGluayBzb2NrZXQgZm9yIHRoZSBnaXZlbiBuZXRs
-aW5rICdwcm90b2NvbCcNCiAgKiAoTkVUTElOS19ST1VURSwgTkVUTElOS19HRU5FUklDLCAuLi4p
-LiAgUmV0dXJucyAwIGFuZCBzZXRzICcqc29ja3AnIHRvIHRoZQ0KICAqIG5ldyBzb2NrZXQgaWYg
-c3VjY2Vzc2Z1bCwgb3RoZXJ3aXNlIHJldHVybnMgYSBwb3NpdGl2ZSBlcnJubyB2YWx1ZS4gKi8g
-IGludCAtbmxfc29ja19jcmVhdGUoaW50IHByb3RvY29sLCBzdHJ1Y3Qgbmxfc29jayAqKnNvY2tw
-KQ0KK25sX3NvY2tfY3JlYXRlKGludCBwcm90b2NvbCwgc3RydWN0IG5sX3NvY2sgKipzb2NrcCwg
-Ym9vbCB1c2VfbW1hcCkNCiB7DQogICAgIHN0YXRpYyBzdHJ1Y3Qgb3ZzdGhyZWFkX29uY2Ugb25j
-ZSA9IE9WU1RIUkVBRF9PTkNFX0lOSVRJQUxJWkVSOw0KICAgICBzdHJ1Y3Qgbmxfc29jayAqc29j
-azsNCkBAIC0xMjAsNiArMTczLDcgQEAgbmxfc29ja19jcmVhdGUoaW50IHByb3RvY29sLCBzdHJ1
-Y3Qgbmxfc29jayAqKnNvY2twKQ0KICAgICB9DQogICAgIHNvY2stPnByb3RvY29sID0gcHJvdG9j
-b2w7DQogICAgIHNvY2stPm5leHRfc2VxID0gMTsNCisgICAgc29jay0+dHhfcmluZy5yaW5nID0g
-c29jay0+cnhfcmluZy5yaW5nID0gTlVMTDsNCiANCiAgICAgcmN2YnVmID0gMTAyNCAqIDEwMjQ7
-DQogICAgIGlmIChzZXRzb2Nrb3B0KHNvY2stPmZkLCBTT0xfU09DS0VULCBTT19SQ1ZCVUZGT1JD
-RSwgQEAgLTE2MSw2ICsyMTUsMTEgQEAgbmxfc29ja19jcmVhdGUoaW50IHByb3RvY29sLCBzdHJ1
-Y3Qgbmxfc29jayAqKnNvY2twKQ0KICAgICB9DQogICAgIHNvY2stPnBpZCA9IGxvY2FsLm5sX3Bp
-ZDsNCiANCisgICAgaWYgKHVzZV9tbWFwICYmIChyZXR2YWwgPSBubF9zb2NrX3NldF9yaW5nKHNv
-Y2spKSA8IDApIHsNCisgICAgICAgIFZMT0dfRVJSKCJmYWlsZWQgdG8gaW5pdGlhbGl6ZSBtZW1v
-cnkgbWFwcGVkIG5ldGxpbmsgc29ja2V0Iik7DQorICAgICAgICBnb3RvIGVycm9yOw0KKyAgICB9
-DQorDQogICAgICpzb2NrcCA9IHNvY2s7DQogICAgIHJldHVybiAwOw0KIA0KQEAgLTE3OCwxMyAr
-MjM3LDE5IEBAIGVycm9yOg0KICAgICByZXR1cm4gcmV0dmFsOw0KIH0NCiANCitzdGF0aWMgaW5s
-aW5lIGJvb2wNCitubF9zb2NrX2lzX21hcHBlZChjb25zdCBzdHJ1Y3Qgbmxfc29jayAqc29jaykg
-ew0KKyAgIHJldHVybiBzb2NrLT5yeF9yaW5nLnJpbmcgIT0gTlVMTDsNCit9DQorDQogLyogQ3Jl
-YXRlcyBhIG5ldyBuZXRsaW5rIHNvY2tldCBmb3IgdGhlIHNhbWUgcHJvdG9jb2wgYXMgJ3NyYycu
-ICBSZXR1cm5zIDAgYW5kDQogICogc2V0cyAnKnNvY2twJyB0byB0aGUgbmV3IHNvY2tldCBpZiBz
-dWNjZXNzZnVsLCBvdGhlcndpc2UgcmV0dXJucyBhIHBvc2l0aXZlDQogICogZXJybm8gdmFsdWUu
-ICAqLw0KIGludA0KIG5sX3NvY2tfY2xvbmUoY29uc3Qgc3RydWN0IG5sX3NvY2sgKnNyYywgc3Ry
-dWN0IG5sX3NvY2sgKipzb2NrcCkgIHsNCi0gICAgcmV0dXJuIG5sX3NvY2tfY3JlYXRlKHNyYy0+
-cHJvdG9jb2wsIHNvY2twKTsNCisgICAgcmV0dXJuIG5sX3NvY2tfY3JlYXRlKHNyYy0+cHJvdG9j
-b2wsIHNvY2twLCANCisgbmxfc29ja19pc19tYXBwZWQoc3JjKSk7DQogfQ0KIA0KIC8qIERlc3Ry
-b3lzIG5ldGxpbmsgc29ja2V0ICdzb2NrJy4gKi8NCkBAIC0xOTIsNiArMjU3LDkgQEAgdm9pZA0K
-IG5sX3NvY2tfZGVzdHJveShzdHJ1Y3Qgbmxfc29jayAqc29jaykNCiB7DQogICAgIGlmIChzb2Nr
-KSB7DQorICAgICAgICBjaGFyICpyeF9yaW5nID0gc29jay0+cnhfcmluZy5yaW5nOw0KKyAgICAg
-ICAgaWYgKHJ4X3JpbmcpDQorICAgICAgICAgICAgbXVubWFwKHJ4X3JpbmcsIDIgKiBzb2NrLT5y
-aW5nX3NpemUpOw0KICAgICAgICAgY2xvc2Uoc29jay0+ZmQpOw0KICAgICAgICAgZnJlZShzb2Nr
-KTsNCiAgICAgfQ0KQEAgLTI0Miw2ICszMTAsOTUgQEAgbmxfc29ja19sZWF2ZV9tY2dyb3VwKHN0
-cnVjdCBubF9zb2NrICpzb2NrLCB1bnNpZ25lZCBpbnQgbXVsdGljYXN0X2dyb3VwKQ0KICAgICBy
-ZXR1cm4gMDsNCiB9DQogDQorZW51bSByaW5nX3R5cGUgew0KKyAgICBSWF9SSU5HLA0KKyAgICBU
-WF9SSU5HLA0KK307DQorDQorc3RhdGljIHN0cnVjdCBubF9yaW5nICoNCittbWFwX3Jpbmcoc3Ry
-dWN0IG5sX3NvY2sgKnNvY2ssIGVudW0gcmluZ190eXBlIHJpbmcpIHsNCisgICAgcmV0dXJuIHJp
-bmcgPT0gUlhfUklORyA/ICZzb2NrLT5yeF9yaW5nIDogJnNvY2stPnR4X3Jpbmc7IH0NCisNCitz
-dGF0aWMgc3RydWN0IG5sX21tYXBfaGRyICoNCittbWFwX2ZyYW1lKHN0cnVjdCBubF9zb2NrICpz
-b2NrLCBlbnVtIHJpbmdfdHlwZSByaW5nKSB7DQorICAgIHN0cnVjdCBubF9yaW5nICpyID0gbW1h
-cF9yaW5nKHNvY2ssIHJpbmcpOw0KKyAgICBjaGFyICpzdGFydCA9IHItPnJpbmc7DQorDQorICAg
-IHJldHVybiAoc3RydWN0IG5sX21tYXBfaGRyICopKHZvaWQgKikoc3RhcnQgKyByLT5oZWFkICog
-DQorc29jay0+ZnJhbWVfc2l6ZSk7IH0NCisNCitzdGF0aWMgdm9pZA0KK21tYXBfYWR2YW5jZV9y
-aW5nKHN0cnVjdCBubF9zb2NrICpzb2NrLCBlbnVtIHJpbmdfdHlwZSByaW5nKSB7DQorICAgIHN0
-cnVjdCBubF9yaW5nICpyID0gbW1hcF9yaW5nKHNvY2ssIHJpbmcpOw0KKw0KKyAgICBpZiAoci0+
-aGVhZCAhPSBzb2NrLT5mcmFtZV9ucikgew0KKyAgICAgICAgci0+aGVhZCsrOw0KKyAgICB9IGVs
-c2Ugew0KKyAgICAgICAgci0+aGVhZCA9IDA7DQorICAgIH0NCit9DQorDQorc3RhdGljIGludA0K
-K25sX3NvY2tfc2VuZF9saW5lYXIoc3RydWN0IG5sX3NvY2sgKnNvY2ssIGNvbnN0IHN0cnVjdCBv
-ZnBidWYgKm1zZywNCisgICAgICAgICAgICAgICAgICAgIGJvb2wgd2FpdCkNCit7DQorICAgIGlu
-dCByZXR2YWwsIGVycm9yOw0KKw0KKyAgICBkbyB7DQorICAgICAgICByZXR2YWwgPSBzZW5kKHNv
-Y2stPmZkLCBtc2ctPmRhdGEsIG1zZy0+c2l6ZSwgd2FpdCA/IDAgOiBNU0dfRE9OVFdBSVQpOw0K
-KyAgICAgICAgZXJyb3IgPSByZXR2YWwgPCAwID8gZXJybm8gOiAwOw0KKyAgICB9IHdoaWxlIChl
-cnJvciA9PSBFSU5UUik7DQorDQorICAgIHJldHVybiBlcnJvcjsNCit9DQorDQorc3RhdGljIGlu
-dA0KK25sX3NvY2tfc2VuZF9tbWFwKHN0cnVjdCBubF9zb2NrICpzb2NrLCBjb25zdCBzdHJ1Y3Qg
-b2ZwYnVmICptc2csDQorICAgICAgICAgICAgICAgICAgYm9vbCB3YWl0KQ0KK3sNCisgICAgc3Ry
-dWN0IG5sX21tYXBfaGRyICpoZHI7DQorICAgIHN0cnVjdCBzb2NrYWRkcl9ubCBhZGRyID0gew0K
-KyAgICAgICAgLm5sX2ZhbWlseSAgICAgID0gQUZfTkVUTElOSywNCisgICAgfTsNCisgICAgaW50
-IHJldHZhbCwgZXJyb3I7DQorDQorICAgIGlmICgobXNnLT5zaXplICsgTkxfTU1BUF9IRFJMRU4p
-ID4gc29jay0+ZnJhbWVfc2l6ZSkNCisgICAgICAgIHJldHVybiBubF9zb2NrX3NlbmRfbGluZWFy
-KHNvY2ssIG1zZywgd2FpdCk7DQorDQorICAgIGhkciA9IG1tYXBfZnJhbWUoc29jaywgVFhfUklO
-Ryk7DQorDQorICAgIGlmIChoZHItPm5tX3N0YXR1cyAhPSBOTF9NTUFQX1NUQVRVU19VTlVTRUQp
-IHsNCisgICAgICAgIC8qIE5vIGZyYW1lIGF2YWlsYWJsZS4gQmxvY2s/ICovDQorICAgICAgICBp
-ZiAod2FpdCkgew0KKyAgICAgICAgICAgIG5sX3NvY2tfd2FpdChzb2NrLCBQT0xMT1VUIHwgUE9M
-TEVSUik7DQorICAgICAgICAgICAgcG9sbF9ibG9jaygpOw0KKyAgICAgICAgfSBlbHNlIHsNCisg
-ICAgICAgICAgICByZXR1cm4gRUFHQUlOOw0KKyAgICAgICAgfQ0KKyAgICB9DQorDQorICAgIG1l
-bWNweSgoY2hhciAqKSBoZHIgKyBOTF9NTUFQX0hEUkxFTiwgbXNnLT5kYXRhLCBtc2ctPnNpemUp
-Ow0KKyAgICBoZHItPm5tX2xlbiAgICAgPSBtc2ctPnNpemU7DQorICAgIGhkci0+bm1fc3RhdHVz
-ICA9IE5MX01NQVBfU1RBVFVTX1ZBTElEOw0KKw0KKyAgICBtbWFwX2FkdmFuY2VfcmluZyhzb2Nr
-LCBUWF9SSU5HKTsNCisNCisgICAgZG8gew0KKyAgICAgICAgcmV0dmFsID0gc2VuZHRvKHNvY2st
-PmZkLCBOVUxMLCAwLCAwLCAoc3RydWN0IHNvY2thZGRyICopJmFkZHIsIHNpemVvZihhZGRyKSk7
-DQorICAgICAgICBlcnJvciA9IHJldHZhbCA8IDAgPyBlcnJubyA6IDA7DQorICAgIH0gd2hpbGUg
-KGVycm9yID09IEVJTlRSKTsNCisNCisgICAgaWYgKCFlcnJvcikgew0KKyAgICAgICAgQ09WRVJB
-R0VfSU5DKG5ldGxpbmtfc2VudF9tbWFwKTsNCisgICAgfQ0KKw0KKyAgICByZXR1cm4gZXJyb3I7
-DQorfQ0KKw0KIHN0YXRpYyBpbnQNCiBubF9zb2NrX3NlbmRfXyhzdHJ1Y3Qgbmxfc29jayAqc29j
-aywgY29uc3Qgc3RydWN0IG9mcGJ1ZiAqbXNnLA0KICAgICAgICAgICAgICAgIHVpbnQzMl90IG5s
-bXNnX3NlcSwgYm9vbCB3YWl0KSBAQCAtMjUyLDExICs0MDksMTMgQEAgbmxfc29ja19zZW5kX18o
-c3RydWN0IG5sX3NvY2sgKnNvY2ssIGNvbnN0IHN0cnVjdCBvZnBidWYgKm1zZywNCiAgICAgbmxt
-c2ctPm5sbXNnX2xlbiA9IG1zZy0+c2l6ZTsNCiAgICAgbmxtc2ctPm5sbXNnX3NlcSA9IG5sbXNn
-X3NlcTsNCiAgICAgbmxtc2ctPm5sbXNnX3BpZCA9IHNvY2stPnBpZDsNCi0gICAgZG8gew0KLSAg
-ICAgICAgaW50IHJldHZhbDsNCi0gICAgICAgIHJldHZhbCA9IHNlbmQoc29jay0+ZmQsIG1zZy0+
-ZGF0YSwgbXNnLT5zaXplLCB3YWl0ID8gMCA6IE1TR19ET05UV0FJVCk7DQotICAgICAgICBlcnJv
-ciA9IHJldHZhbCA8IDAgPyBlcnJubyA6IDA7DQotICAgIH0gd2hpbGUgKGVycm9yID09IEVJTlRS
-KTsNCisNCisgICAgaWYgKHNvY2stPnR4X3JpbmcucmluZykgew0KKyAgICAgICAgZXJyb3IgPSBu
-bF9zb2NrX3NlbmRfbW1hcChzb2NrLCBtc2csIHdhaXQpOw0KKyAgICB9IGVsc2Ugew0KKyAgICAg
-ICAgZXJyb3IgPSBubF9zb2NrX3NlbmRfbGluZWFyKHNvY2ssIG1zZywgd2FpdCk7DQorICAgIH0N
-CisNCiAgICAgbG9nX25sbXNnKF9fZnVuY19fLCBlcnJvciwgbXNnLT5kYXRhLCBtc2ctPnNpemUs
-IHNvY2stPnByb3RvY29sKTsNCiAgICAgaWYgKCFlcnJvcikgew0KICAgICAgICAgQ09WRVJBR0Vf
-SU5DKG5ldGxpbmtfc2VudCk7DQpAQCAtMjk3LDI2ICs0NTYsMTcgQEAgbmxfc29ja19zZW5kX3Nl
-cShzdHJ1Y3Qgbmxfc29jayAqc29jaywgY29uc3Qgc3RydWN0IG9mcGJ1ZiAqbXNnLCAgfQ0KIA0K
-IHN0YXRpYyBpbnQNCi1ubF9zb2NrX3JlY3ZfXyhzdHJ1Y3Qgbmxfc29jayAqc29jaywgc3RydWN0
-IG9mcGJ1ZiAqYnVmLCBib29sIHdhaXQpDQorbmxfc29ja19yZWN2bXNnKHN0cnVjdCBubF9zb2Nr
-ICpzb2NrLCBzdHJ1Y3Qgb2ZwYnVmICpidWYsIGJvb2wgd2FpdCwNCisgICAgICAgICAgICAgICAg
-dWludDhfdCAqdGFpbCwgc2l6ZV90IHRhaWxsZW4pDQogew0KLSAgICAvKiBXZSBjYW4ndCBhY2N1
-cmF0ZWx5IHByZWRpY3QgdGhlIHNpemUgb2YgdGhlIGRhdGEgdG8gYmUgcmVjZWl2ZWQuICBUaGUN
-Ci0gICAgICogY2FsbGVyIGlzIHN1cHBvc2VkIHRvIGhhdmUgYWxsb2NhdGVkIGVub3VnaCBzcGFj
-ZSBpbiAnYnVmJyB0byBoYW5kbGUgdGhlDQotICAgICAqICJ0eXBpY2FsIiBjYXNlLiAgVG8gaGFu
-ZGxlIGV4Y2VwdGlvbnMsIHdlIG1ha2UgYXZhaWxhYmxlIGVub3VnaCBzcGFjZSBpbg0KLSAgICAg
-KiAndGFpbCcgdG8gYWxsb3cgTmV0bGluayBtZXNzYWdlcyB0byBiZSB1cCB0byA2NCBrQiBsb25n
-IChhIHJlYXNvbmFibGUNCi0gICAgICogZmlndXJlIHNpbmNlIHRoYXQncyB0aGUgbWF4aW11bSBs
-ZW5ndGggb2YgYSBOZXRsaW5rIGF0dHJpYnV0ZSkuICovDQotICAgIHN0cnVjdCBubG1zZ2hkciAq
-bmxtc2doZHI7DQotICAgIHVpbnQ4X3QgdGFpbFs2NTUzNl07DQogICAgIHN0cnVjdCBpb3ZlYyBp
-b3ZbMl07DQogICAgIHN0cnVjdCBtc2doZHIgbXNnOw0KLSAgICBzc2l6ZV90IHJldHZhbDsNCi0N
-Ci0gICAgb3ZzX2Fzc2VydChidWYtPmFsbG9jYXRlZCA+PSBzaXplb2YgKm5sbXNnaGRyKTsNCi0g
-ICAgb2ZwYnVmX2NsZWFyKGJ1Zik7DQorICAgIGludCByZXR2YWw7DQogDQogICAgIGlvdlswXS5p
-b3ZfYmFzZSA9IGJ1Zi0+YmFzZTsNCiAgICAgaW92WzBdLmlvdl9sZW4gPSBidWYtPmFsbG9jYXRl
-ZDsNCiAgICAgaW92WzFdLmlvdl9iYXNlID0gdGFpbDsNCi0gICAgaW92WzFdLmlvdl9sZW4gPSBz
-aXplb2YgdGFpbDsNCisgICAgaW92WzFdLmlvdl9sZW4gPSB0YWlsbGVuOw0KIA0KICAgICBtZW1z
-ZXQoJm1zZywgMCwgc2l6ZW9mIG1zZyk7DQogICAgIG1zZy5tc2dfaW92ID0gaW92Ow0KQEAgLTM0
-MiwyMSArNDkyLDk3IEBAIG5sX3NvY2tfcmVjdl9fKHN0cnVjdCBubF9zb2NrICpzb2NrLCBzdHJ1
-Y3Qgb2ZwYnVmICpidWYsIGJvb2wgd2FpdCkNCiAgICAgICAgIHJldHVybiBFMkJJRzsNCiAgICAg
-fQ0KIA0KLSAgICBubG1zZ2hkciA9IGJ1Zi0+ZGF0YTsNCi0gICAgaWYgKHJldHZhbCA8IHNpemVv
-ZiAqbmxtc2doZHINCi0gICAgICAgIHx8IG5sbXNnaGRyLT5ubG1zZ19sZW4gPCBzaXplb2YgKm5s
-bXNnaGRyDQotICAgICAgICB8fCBubG1zZ2hkci0+bmxtc2dfbGVuID4gcmV0dmFsKSB7DQotICAg
-ICAgICBWTE9HX0VSUl9STCgmcmwsICJyZWNlaXZlZCBpbnZhbGlkIG5sbXNnICglIlBSSXVTSVpF
-ImQgYnl0ZXMgPCAlIlBSSXVTSVpFIikiLA0KLSAgICAgICAgICAgICAgICAgICAgcmV0dmFsLCBz
-aXplb2YgKm5sbXNnaGRyKTsNCi0gICAgICAgIHJldHVybiBFUFJPVE87DQotICAgIH0NCi0NCiAg
-ICAgYnVmLT5zaXplID0gTUlOKHJldHZhbCwgYnVmLT5hbGxvY2F0ZWQpOw0KICAgICBpZiAocmV0
-dmFsID4gYnVmLT5hbGxvY2F0ZWQpIHsNCiAgICAgICAgIENPVkVSQUdFX0lOQyhuZXRsaW5rX3Jl
-Y3ZfanVtYm8pOw0KICAgICAgICAgb2ZwYnVmX3B1dChidWYsIHRhaWwsIHJldHZhbCAtIGJ1Zi0+
-YWxsb2NhdGVkKTsNCiAgICAgfQ0KIA0KKyAgICByZXR1cm4gMDsNCit9DQorDQorc3RhdGljIGlu
-dA0KK25sX3NvY2tfcmVjdl9tbWFwKHN0cnVjdCBubF9zb2NrICpzb2NrLCBzdHJ1Y3Qgb2ZwYnVm
-ICpidWYsIGJvb2wgd2FpdCwNCisgICAgICAgICAgICAgICAgICB1aW50OF90ICp0YWlsLCBzaXpl
-X3QgdGFpbGxlbikgew0KKyAgICBzdHJ1Y3QgbmxfbW1hcF9oZHIgKmhkcjsNCisgICAgaW50IHJl
-dHZhbCA9IDA7DQorDQorcmVzdGFydDoNCisgICAgaGRyID0gbW1hcF9mcmFtZShzb2NrLCBSWF9S
-SU5HKTsNCisNCisgICAgc3dpdGNoIChoZHItPm5tX3N0YXR1cykgew0KKyAgICBjYXNlIE5MX01N
-QVBfU1RBVFVTX1ZBTElEOg0KKyAgICAgICAgaWYgKGhkci0+bm1fbGVuID09IDApIHsNCisgICAg
-ICAgICAgICAvKiBlcnJvciBvY2N1cmVkIHdoaWxlIGNvbnN0cnVjdGluZyBtZXNzYWdlICovDQor
-ICAgICAgICAgICAgaGRyLT5ubV9zdGF0dXMgPSBOTF9NTUFQX1NUQVRVU19VTlVTRUQ7DQorICAg
-ICAgICAgICAgbW1hcF9hZHZhbmNlX3Jpbmcoc29jaywgUlhfUklORyk7DQorICAgICAgICAgICAg
-Z290byByZXN0YXJ0Ow0KKyAgICAgICAgfQ0KKw0KKyAgICAgICAgb2ZwYnVmX3B1dChidWYsIChj
-aGFyICopIGhkciArIE5MX01NQVBfSERSTEVOLCBoZHItPm5tX2xlbik7DQorICAgICAgICBDT1ZF
-UkFHRV9JTkMobmV0bGlua19yZWN2X21tYXApOw0KKyAgICAgICAgYnJlYWs7DQorDQorICAgIGNh
-c2UgTkxfTU1BUF9TVEFUVVNfQ09QWToNCisgICAgICAgIHJldHZhbCA9IG5sX3NvY2tfcmVjdm1z
-Zyhzb2NrLCBidWYsIE1TR19ET05UV0FJVCwgdGFpbCwgdGFpbGxlbik7DQorICAgICAgICBpZiAo
-cmV0dmFsKSB7DQorICAgICAgICAgICAgcmV0dXJuIHJldHZhbDsNCisgICAgICAgIH0NCisgICAg
-ICAgIGJyZWFrOw0KKw0KKyAgICBjYXNlIE5MX01NQVBfU1RBVFVTX1VOVVNFRDoNCisgICAgY2Fz
-ZSBOTF9NTUFQX1NUQVRVU19SRVNFUlZFRDoNCisgICAgZGVmYXVsdDoNCisgICAgICAgIGlmICh3
-YWl0KSB7DQorICAgICAgICAgICAgbmxfc29ja193YWl0KHNvY2ssIFBPTExJTiB8IFBPTExFUlIp
-Ow0KKyAgICAgICAgICAgIHBvbGxfYmxvY2soKTsNCisgICAgICAgICAgICBnb3RvIHJlc3RhcnQ7
-DQorICAgICAgICB9DQorDQorICAgICAgICByZXR1cm4gRUFHQUlOOw0KKyAgICB9DQorDQorICAg
-IGhkci0+bm1fc3RhdHVzID0gTkxfTU1BUF9TVEFUVVNfVU5VU0VEOw0KKyAgICBtbWFwX2FkdmFu
-Y2VfcmluZyhzb2NrLCBSWF9SSU5HKTsNCisNCisgICAgcmV0dXJuIHJldHZhbDsNCit9DQorDQor
-c3RhdGljIGludA0KK25sX3NvY2tfcmVjdl9fKHN0cnVjdCBubF9zb2NrICpzb2NrLCBzdHJ1Y3Qg
-b2ZwYnVmICpidWYsIGJvb2wgd2FpdCkgew0KKyAgICAvKiBXZSBjYW4ndCBhY2N1cmF0ZWx5IHBy
-ZWRpY3QgdGhlIHNpemUgb2YgdGhlIGRhdGEgdG8gYmUgcmVjZWl2ZWQuICBUaGUNCisgICAgICog
-Y2FsbGVyIGlzIHN1cHBvc2VkIHRvIGhhdmUgYWxsb2NhdGVkIGVub3VnaCBzcGFjZSBpbiAnYnVm
-JyB0byBoYW5kbGUgdGhlDQorICAgICAqICJ0eXBpY2FsIiBjYXNlLiAgVG8gaGFuZGxlIGV4Y2Vw
-dGlvbnMsIHdlIG1ha2UgYXZhaWxhYmxlIGVub3VnaCBzcGFjZSBpbg0KKyAgICAgKiAndGFpbCcg
-dG8gYWxsb3cgTmV0bGluayBtZXNzYWdlcyB0byBiZSB1cCB0byA2NCBrQiBsb25nIChhIHJlYXNv
-bmFibGUNCisgICAgICogZmlndXJlIHNpbmNlIHRoYXQncyB0aGUgbWF4aW11bSBsZW5ndGggb2Yg
-YSBOZXRsaW5rIGF0dHJpYnV0ZSkuICovDQorICAgIHN0cnVjdCBubG1zZ2hkciAqbmxtc2doZHI7
-DQorICAgIHVpbnQ4X3QgdGFpbFs2NTUzNl07DQorICAgIGludCByZXR2YWw7DQorDQorICAgIG92
-c19hc3NlcnQoYnVmLT5hbGxvY2F0ZWQgPj0gc2l6ZW9mICpubG1zZ2hkcik7DQorICAgIG9mcGJ1
-Zl9jbGVhcihidWYpOw0KKw0KKyAgICBpZiAoc29jay0+cnhfcmluZy5yaW5nKSB7DQorICAgICAg
-ICByZXR2YWwgPSBubF9zb2NrX3JlY3ZfbW1hcChzb2NrLCBidWYsIHdhaXQsIHRhaWwsIHNpemVv
-Zih0YWlsKSk7DQorICAgIH0gZWxzZSB7DQorICAgICAgICByZXR2YWwgPSBubF9zb2NrX3JlY3Zt
-c2coc29jaywgYnVmLCB3YWl0LCB0YWlsLCBzaXplb2YodGFpbCkpOw0KKyAgICB9DQorDQorICAg
-IGlmIChyZXR2YWwpIHsNCisgICAgICAgIHJldHVybiByZXR2YWw7DQorICAgIH0NCisNCisgICAg
-bmxtc2doZHIgPSBidWYtPmRhdGE7DQorICAgIGlmIChidWYtPnNpemUgPCBzaXplb2YgKm5sbXNn
-aGRyDQorICAgICAgICB8fCBubG1zZ2hkci0+bmxtc2dfbGVuIDwgc2l6ZW9mICpubG1zZ2hkcg0K
-KyAgICAgICAgfHwgbmxtc2doZHItPm5sbXNnX2xlbiA+IGJ1Zi0+c2l6ZSkgew0KKyAgICAgICAg
-VkxPR19FUlJfUkwoJnJsLCAicmVjZWl2ZWQgaW52YWxpZCBubG1zZyAoJSJQUkl1U0laRSJkIGJ5
-dGVzIDwgJSJQUkl1U0laRSIpIiwNCisgICAgICAgICAgICAgICAgICAgIGJ1Zi0+c2l6ZSwgc2l6
-ZW9mICpubG1zZ2hkcik7DQorICAgICAgICByZXR1cm4gRVBST1RPOw0KKyAgICB9DQorDQogICAg
-IGxvZ19ubG1zZyhfX2Z1bmNfXywgMCwgYnVmLT5kYXRhLCBidWYtPnNpemUsIHNvY2stPnByb3Rv
-Y29sKTsNCiAgICAgQ09WRVJBR0VfSU5DKG5ldGxpbmtfcmVjZWl2ZWQpOw0KIA0KQEAgLTg5Miw3
-ICsxMTE4LDcgQEAgZG9fbG9va3VwX2dlbmxfZmFtaWx5KGNvbnN0IGNoYXIgKm5hbWUsIHN0cnVj
-dCBubGF0dHIgKiphdHRycywNCiAgICAgaW50IGVycm9yOw0KIA0KICAgICAqcmVwbHlwID0gTlVM
-TDsNCi0gICAgZXJyb3IgPSBubF9zb2NrX2NyZWF0ZShORVRMSU5LX0dFTkVSSUMsICZzb2NrKTsN
-CisgICAgZXJyb3IgPSBubF9zb2NrX2NyZWF0ZShORVRMSU5LX0dFTkVSSUMsICZzb2NrLCBmYWxz
-ZSk7DQogICAgIGlmIChlcnJvcikgew0KICAgICAgICAgcmV0dXJuIGVycm9yOw0KICAgICB9DQpA
-QCAtMTAyOCw3ICsxMjU0LDcgQEAgbmxfcG9vbF9hbGxvYyhpbnQgcHJvdG9jb2wsIHN0cnVjdCBu
-bF9zb2NrICoqc29ja3ApDQogICAgICAgICAqc29ja3AgPSBzb2NrOw0KICAgICAgICAgcmV0dXJu
-IDA7DQogICAgIH0gZWxzZSB7DQotICAgICAgICByZXR1cm4gbmxfc29ja19jcmVhdGUocHJvdG9j
-b2wsIHNvY2twKTsNCisgICAgICAgIHJldHVybiBubF9zb2NrX2NyZWF0ZShwcm90b2NvbCwgc29j
-a3AsIHRydWUpOw0KICAgICB9DQogfQ0KIA0KZGlmZiAtLWdpdCBhL2xpYi9uZXRsaW5rLXNvY2tl
-dC5oIGIvbGliL25ldGxpbmstc29ja2V0LmggaW5kZXggMThkYjQxNy4uYzg1ZmQ2NCAxMDA2NDQN
-Ci0tLSBhL2xpYi9uZXRsaW5rLXNvY2tldC5oDQorKysgYi9saWIvbmV0bGluay1zb2NrZXQuaA0K
-QEAgLTUwLDcgKzUwLDcgQEAgc3RydWN0IG5sX3NvY2s7DQogI2VuZGlmDQogDQogLyogTmV0bGlu
-ayBzb2NrZXRzLiAqLw0KLWludCBubF9zb2NrX2NyZWF0ZShpbnQgcHJvdG9jb2wsIHN0cnVjdCBu
-bF9zb2NrICoqKTsNCitpbnQgbmxfc29ja19jcmVhdGUoaW50IHByb3RvY29sLCBzdHJ1Y3Qgbmxf
-c29jayAqKiwgYm9vbCk7DQogaW50IG5sX3NvY2tfY2xvbmUoY29uc3Qgc3RydWN0IG5sX3NvY2sg
-Kiwgc3RydWN0IG5sX3NvY2sgKiopOyAgdm9pZCBubF9zb2NrX2Rlc3Ryb3koc3RydWN0IG5sX3Nv
-Y2sgKik7DQogDQpkaWZmIC0tZ2l0IGEvdXRpbGl0aWVzL25sbW9uLmMgYi91dGlsaXRpZXMvbmxt
-b24uYyBpbmRleCA5OWIwNjBjLi5jYzZiYzY4IDEwMDY0NA0KLS0tIGEvdXRpbGl0aWVzL25sbW9u
-LmMNCisrKyBiL3V0aWxpdGllcy9ubG1vbi5jDQpAQCAtNDcsNyArNDcsNyBAQCBtYWluKGludCBh
-cmdjIE9WU19VTlVTRUQsIGNoYXIgKmFyZ3ZbXSkNCiAgICAgc2V0X3Byb2dyYW1fbmFtZShhcmd2
-WzBdKTsNCiAgICAgdmxvZ19zZXRfbGV2ZWxzKE5VTEwsIFZMRl9BTllfRkFDSUxJVFksIFZMTF9E
-QkcpOw0KIA0KLSAgICBlcnJvciA9IG5sX3NvY2tfY3JlYXRlKE5FVExJTktfUk9VVEUsICZzb2Nr
-KTsNCisgICAgZXJyb3IgPSBubF9zb2NrX2NyZWF0ZShORVRMSU5LX1JPVVRFLCAmc29jaywgdHJ1
-ZSk7DQogICAgIGlmIChlcnJvcikgew0KICAgICAgICAgb3ZzX2ZhdGFsKGVycm9yLCAiY291bGQg
-bm90IGNyZWF0ZSBydG5ldGxpbmsgc29ja2V0Iik7DQogICAgIH0NCi0tDQoxLjguMy4xDQoNCl9f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fDQpkZXYgbWFpbGlu
-ZyBsaXN0DQpkZXZAb3BlbnZzd2l0Y2gub3JnDQpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxt
-YW4vbGlzdGluZm8vZGV2DQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52
-c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+This is the most puzzling area. I really not sure whether it is really
+valid or not. Is there any documented statement supporting this?
+
+Let me summarize the behavior again.
+
+NODE-A
+eth1: IP-A
+eth2: IP-B
+
+NODE-B
+eth1: IP-X
+eth2: IP-Y
+
+In normal operation, IP-A sends INIT to IP-X, IP-X returns INIT_ACK to
+IP-A. IP-A then sends HB to IP-X, IP-X then returns HB_ACK to IP-A. In
+the meantime, IP-B sends HB to IP-Y and IPY returns HB_ACK.
+
+In case of the path between IP-A and IP-X is broken, IP-B sends INIT
+to IP-X, NODE-B uses IP-Y to return INIT_ACK to IP-B. Then IP-B sends
+HB to IP-X, and IP-Y returns HB_ACK to IP-B. In the meantime, the HB
+communication between IP-B and IP-Y follows the normal flow.
+
+Can I confirm, is it really valid?
+
+On Tue, Dec 3, 2013 at 11:22 PM, Vlad Yasevich <vyasevich@gmail.com> wrote:
+> On 12/03/2013 08:11 AM, Sun Paul wrote:
+>> But how about the HB and HB_ACK?  Still valid?
+>
+> As long as the source address is part of the association, then yes
+> it is perfectly valid.
+>
+> -vlad
+>
+>> On Dec 3, 2013 8:32 PM, "Vlad Yasevich" <vyasevich@gmail.com> wrote:
+>>
+>>> On 12/02/2013 09:19 PM, Sun Paul wrote:
+>>>> so in this case, says
+>>>>
+>>>> (NODE-A) IP-B send INIT to IP-X (NODE-B), and then IP-Y (NODE-B)
+>>>> returns INIT_ACK to IP-B (NODE-A)
+>>>>
+>>>> this is also treated as a valid, am I correct?
+>>>
+>>> As long as IP-X (Node-B) is present in the address list of the INIT-ACK
+>>> chunk, yes.
+>>>
+>>> There is the code in __sctp_rcv_lookup_harder() that looks for other
+>>> adddresses in the INIT and INIT-ACK chunks.
+>>>
+>>> -vlad
+>>>>
+>>>>
+>>>> On Tue, Dec 3, 2013 at 10:03 AM, Vlad Yasevich <vyasevich@gmail.com>
+>>> wrote:
+>>>>> On 12/02/2013 08:39 PM, Sun Paul wrote:
+>>>>>> Another question
+>>>>>>
+>>>>>> if a wrong source IP is used, does the association still classified as
+>>> normal?
+>>>>>
+>>>>> What do you mean my wrong source IP?  As long as the address is part of
+>>>>> the association, it can be used.
+>>>>>
+>>>>> -vlad
+>>>>>
+>>>>>>
+>>>>>> On Tue, Dec 3, 2013 at 9:31 AM, Sun Paul <paulrbk@gmail.com> wrote:
+>>>>>>> Thanks Vlad
+>>>>>>>
+>>>>>>> I checked on the route, and it looks correct.
+>>>>>>>
+>>>>>>> [root@localhost ~]# ip route get 11.1.1.1 from 110.1.1.1
+>>>>>>> 11.1.1.1 from 110.1.1.1 via 110.1.1.254 dev eth1
+>>>>>>>     cache  mtu 1500 advmss 1460 hoplimit 64
+>>>>>>>
+>>>>>>> [root@localhost ~]# ip route get 11.1.1.1 from 120.1.1.1
+>>>>>>> 11.1.1.1 from 120.1.1.1 via 120.1.1.254 dev eth2
+>>>>>>>     cache  mtu 1500 advmss 1460 hoplimit 64
+>>>>>>>
+>>>>>>> [root@localhost ~]# ip route get 12.1.1.1 from 120.1.1.1
+>>>>>>> 12.1.1.1 from 120.1.1.1 via 120.1.1.254 dev eth2
+>>>>>>>     cache  mtu 1500 advmss 1460 hoplimit 64
+>>>>>>>
+>>>>>>> [root@localhost ~]# ip route get 12.1.1.1 from 110.1.1.1
+>>>>>>> 12.1.1.1 from 110.1.1.1 via 110.1.1.254 dev eth1
+>>>>>>>     cache  mtu 1500 advmss 1460 hoplimit 64
+>>>>>>>
+>>>>>>> so, if this is not being handled in LKSCTP, is it possible to suggest
+>>>>>>> a way how we can achieve it?
+>>>>>>>
+>>>>>>> On Tue, Dec 3, 2013 at 12:42 AM, Vlad Yasevich <vyasevich@gmail.com>
+>>> wrote:
+>>>>>>>> On 12/02/2013 10:45 AM, Karl Heiss wrote:
+>>>>>>>>> On Mon, Dec 2, 2013 at 9:38 AM, Vlad Yasevich <vyasevich@gmail.com>
+>>> wrote:
+>>>>>>>>>> On 11/27/2013 11:03 PM, Sun Paul wrote:
+>>>>>>>>>>> How LKSCTP select which source address to use for the INIT_ACK or
+>>>>>>>>>>> HB_ACK? below is the testing result where a router is located in
+>>> the
+>>>>>>>>>>> middle.
+>>>>>>>>>>>
+>>>>>>>>>>> Before starting the application. the packet on eth1 and eth2 are
+>>>>>>>>>>>
+>>>>>>>>>>> eth1
+>>>>>>>>>>> 0 packets dropped by kernel
+>>>>>>>>>>> [root@localhost ~]# tcpdump -i eth1 -s 0 -nn
+>>>>>>>>>>> tcpdump: verbose output suppressed, use -v or -vv for full
+>>> protocol decode
+>>>>>>>>>>> listening on eth1, link-type EN10MB (Ethernet), capture size
+>>> 65535 bytes
+>>>>>>>>>>> 11:24:14.262489 IP 12.1.1.1.2905 > 110.1.1.1.2905: sctp (1) [INIT]
+>>>>>>>>>>> [init tag: 28362903] [rwnd: 102400] [OS: 16] [MIS: 16] [init TSN:
+>>> 0]
+>>>>>>>>>>> 11:24:14.262522 IP 110.1.1.1.2905 > 12.1.1.1.2905: sctp (1)
+>>> [ABORT]
+>>>>>>>>>>> 11:24:14.539486
+>>>>>>>>>>> 11:24:16.262488 IP 12.1.1.1.2905 > 110.1.1.1.2905: sctp (1) [INIT]
+>>>>>>>>>>> [init tag: 29391734] [rwnd: 102400] [OS: 16] [MIS: 16] [init TSN:
+>>> 0]
+>>>>>>>>>>> 11:24:16.262520 IP 110.1.1.1.2905 > 12.1.1.1.2905: sctp (1)
+>>> [ABORT]
+>>>>>>>>>>>
+>>>>>>>>>>> eth2
+>>>>>>>>>>> [root@localhost ~]# tcpdump -i eth2 -s 0 -nn
+>>>>>>>>>>> tcpdump: verbose output suppressed, use -v or -vv for full
+>>> protocol decode
+>>>>>>>>>>> listening on eth2, link-type EN10MB (Ethernet), capture size
+>>> 65535 bytes
+>>>>>>>>>>>
+>>>>>>>>>>> When starting the application. the packet show as below.
+>>>>>>>>>>>
+>>>>>>>>>>> eth1
+>>>>>>>>>>> 11:26:02.261511 IP 12.1.1.1.2905 > 110.1.1.1.2905: sctp (1) [INIT]
+>>>>>>>>>>> [init tag: 26256828] [rwnd: 102400] [OS: 16] [MIS: 16] [init TSN:
+>>> 0]
+>>>>>>>>>>> 11:26:02.263513 IP 12.1.1.1.2905 > 110.1.1.1.2905: sctp (1)
+>>> [COOKIE ECHO]
+>>>>>>>>>>> 11:26:02.264518 IP 12.1.1.1.2905 > 110.1.1.1.2905: sctp (1) [HB
+>>> REQ]
+>>>>>>>>>>> 11:26:02.563511 IP 12.1.1.1.2905 > 110.1.1.1.2905: sctp (1) [HB
+>>> REQ]
+>>>>>>>>>>>
+>>>>>>>>>>> eth2
+>>>>>>>>>>> 11:26:02.261604 IP 120.1.1.1.2905 > 12.1.1.1.2905: sctp (1) [INIT
+>>> ACK]
+>>>>>>>>>>> [init tag: 3478239387] [rwnd: 131072] [OS: 5] [MIS: 5] [init TSN:
+>>>>>>>>>>> 2330749678]
+>>>>>>>>>>> 11:26:02.263583 IP 120.1.1.1.2905 > 12.1.1.1.2905: sctp (1)
+>>> [COOKIE ACK]
+>>>>>>>>>>> 11:26:02.264548 IP 120.1.1.1.2905 > 12.1.1.1.2905: sctp (1) [HB
+>>> ACK]
+>>>>>>>>>>> 11:26:02.264652 IP 11.1.1.1.2905 > 120.1.1.1.2905: sctp (1) [HB
+>>> REQ]
+>>>>>>>>>>> 11:26:02.264705 IP 120.1.1.1.2905 > 11.1.1.1.2905: sctp (1) [HB
+>>> ACK]
+>>>>>>>>>>> 11:26:02.563543 IP 120.1.1.1.2905 > 12.1.1.1.2905: sctp (1) [HB
+>>> ACK]
+>>>>>>>>>>>
+>>>>>>>>>>> From the above result, you can see that the INIT, COOKIE ECHO and
+>>>>>>>>>>> HB_REQ originated from 12.1.1.1 on eth1, but the ACK (INIT_ACK,
+>>>>>>>>>>> COOKIE_ACK, HB_ACK) are returned on eth2 using source address
+>>>>>>>>>>> 120.1.1.1 instead of 110.1.1.1.
+>>>>>>>>>>>
+>>>>>>>>>>> Why LKSCTP use 120.1.1.1 as source instead of 110.1.1.1?
+>>>>>>>>>>>
+>>>>>>>>>>> For simple ICMP ping test, it is normal, but not for SCTP.
+>>>>>>>>>>>
+>>>>>>>>>>> eth1
+>>>>>>>>>>> 11:30:02.824548 IP 12.1.1.1 > 110.1.1.1: ICMP echo request, id
+>>> 37178,
+>>>>>>>>>>> seq 12, length 64
+>>>>>>>>>>> 11:30:02.824559 IP 110.1.1.1 > 12.1.1.1: ICMP echo reply, id
+>>> 37178,
+>>>>>>>>>>> seq 12, length 64
+>>>>>>>>>>> 11:30:03.825551 IP 12.1.1.1 > 110.1.1.1: ICMP echo request, id
+>>> 37178,
+>>>>>>>>>>> seq 13, length 64
+>>>>>>>>>>> 11:30:03.825561 IP 110.1.1.1 > 12.1.1.1: ICMP echo reply, id
+>>> 37178,
+>>>>>>>>>>> seq 13, length 64
+>>>>>>>>>>>
+>>>>>>>>>>> eth2
+>>>>>>>>>>> 11:30:34.027687 IP 11.1.1.1 > 120.1.1.1: ICMP echo request, id
+>>> 46138,
+>>>>>>>>>>> seq 2, length 64
+>>>>>>>>>>> 11:30:34.027697 IP 120.1.1.1 > 11.1.1.1: ICMP echo reply, id
+>>> 46138,
+>>>>>>>>>>> seq 2, length 64
+>>>>>>>>>>> 11:30:35.027686 IP 11.1.1.1 > 120.1.1.1: ICMP echo request, id
+>>> 46138,
+>>>>>>>>>>> seq 3, length 64
+>>>>>>>>>>> 11:30:35.027694 IP 120.1.1.1 > 11.1.1.1: ICMP echo reply, id
+>>> 46138,
+>>>>>>>>>>> seq 3, length 64
+>>>>>>>>>>>
+>>>>>>>>>>> Below is the route information
+>>>>>>>>>>> #route -n
+>>>>>>>>>>> Kernel IP routing table
+>>>>>>>>>>> Destination     Gateway         Genmask         Flags Metric Ref
+>>>    Use Iface
+>>>>>>>>>>> 110.1.1.0       0.0.0.0         255.255.255.0   U     0      0
+>>>      0 eth1
+>>>>>>>>>>> 120.1.1.0       0.0.0.0         255.255.255.0   U     0      0
+>>>      0 eth2
+>>>>>>>>>>>
+>>>>>>>>>>> # ip route show
+>>>>>>>>>>> 110.1.1.0/24 dev eth1  proto kernel  scope link  src 110.1.1.1
+>>>>>>>>>>> 120.1.1.0/24 dev eth2  proto kernel  scope link  src 120.1.1.1
+>>>>>>>>>>>
+>>>>>>>>>>> Since we are using iproute2, so we will have dedicate routing
+>>> table
+>>>>>>>>>>> per interface
+>>>>>>>>>>>
+>>>>>>>>>>> # ip route show table SCTP1
+>>>>>>>>>>> default via 110.1.1.254 dev eth1
+>>>>>>>>>>>
+>>>>>>>>>>> # ip route show table SCTP2
+>>>>>>>>>>> default via 120.1.1.254 dev eth2
+>>>>>>>>>>>
+>>>>>>>>>>> # ip rule ls
+>>>>>>>>>>> 0: from all lookup local
+>>>>>>>>>>> 101: from 110.1.1.1 lookup SCTP1
+>>>>>>>>>>> 102: from 120.1.1.1 lookup SCTP2
+>>>>>>>>>>> 32766: from all lookup main
+>>>>>>>>>>> 32767: from all lookup default
+>>>>>>>>>>>
+>>>>>>>>>>> How LKSCTP select source address to reply? If we know how it
+>>> works,
+>>>>>>>>>>> then we may know what is going wrong.
+>>>>>>>>>>
+>>>>>>>>>> LKSCTP will prefer the address returned from the routing table as
+>>> long
+>>>>>>>>>> as it is one of the addresses that is bound by the socket and are
+>>> usable
+>>>>>>>>>> by the association.
+>>>>>>>>>>
+>>>>>>>>>> If the address returned from the route lookup is not part of the
+>>>>>>>>>> association, then lksctp attempts to lookup routes using one of the
+>>>>>>>>>> source addresses it has available.  Usually the first lookup
+>>> succeeds
+>>>>>>>>>> due to the host-model implementation in linux.
+>>>>>>>>>>
+>>>>>>>>>> You may want to change your rule set to be destination based.  Then
+>>>>>>>>>> in the table associated with the rule, specify the source address
+>>>>>>>>>> you want to be used.
+>>>>>>>>>>
+>>>>>>>>>> -vlad
+>>>>>>>>>
+>>>>>>>>> I have had similar qualms myself about this behavior, and I honestly
+>>>>>>>>> don't know what the correct answer should be...
+>>>>>>>>>
+>>>>>>>>> In my opinion, shouldn't the source address "just work" for
+>>>>>>>>> acknowledgements? If the spec explicitly states that the ACK should
+>>>>>>>>> have a source address that matches the destination of the chunk
+>>> being
+>>>>>>>>> ACKed, why should someone have to configure this behavior outside of
+>>>>>>>>> the SCTP stack by default? Is it a technical limitation, or is this
+>>>>>>>>> done for a particular reason?  I can understand needing to override
+>>>>>>>>> the behavior, but why isn't the default "sane"?
+>>>>>>>>
+>>>>>>>> I think the results are sane, they simply may not match expectations.
+>>>>>>>> SCTP spec doesn't say anything about source address selection.  It
+>>>>>>>> says that a response should be send back to the source of the
+>>> request.
+>>>>>>>> This is being done in both cases, i.e. the destination address in
+>>>>>>>> INIT-ACK matches the source of the INIT.
+>>>>>>>>
+>>>>>>>> The spec does contain the MAY text that allows finer control of
+>>> source
+>>>>>>>> addresses, but lksctp doesn't seem to implement that.  Whenever we've
+>>>>>>>> tried, we couldn't get the generic mechanism working to please
+>>> everyone,
+>>>>>>>> as everyone had slightly different configurations and expectations.
+>>>  So
+>>>>>>>> we left it to the rules engine.
+>>>>>>>>
+>>>>>>>> In this setup, it just appears that the default routing is not what
+>>> you
+>>>>>>>> expect.  You can easily check this with 'ip route get' command.  If
+>>> it
+>>>>>>>> is not what you want linux allows you to change that via ip rules.
+>>>>>>>>
+>>>>>>>> -vlad
+>>>>>>>>
+>>>>>>>>>
+>>>>>>>>> Karl
+>>>>>>>>>
+>>>>>>>>>>>
+>>>>>>>>>>> On Wed, Nov 27, 2013 at 8:45 PM, Neil Horman <
+>>> nhorman@tuxdriver.com> wrote:
+>>>>>>>>>>>> On Wed, Nov 27, 2013 at 07:10:49AM +0800, Sun Paul wrote:
+>>>>>>>>>>>>> Hi Vlad
+>>>>>>>>>>>>>
+>>>>>>>>>>>>> Thank for your reply. If it is based on the destination IP to
+>>> find the
+>>>>>>>>>>>>> best route, why the problem didn't happen on single-homing
+>>> sample?
+>>>>>>>>>>>>>
+>>>>>>>>>>>> Because You only ever use one address from NODE A (12.1.1.1)
+>>>>>>>>>>>>
+>>>>>>>>>>>>> In the single-homing sample that provided in the original
+>>> email, both
+>>>>>>>>>>>>> of the interfaces (eth1 and eth2) are presented on NODE-B
+>>> during the
+>>>>>>>>>>>>> test. However, the LKSCTP library know to use the interface
+>>> eth1 to
+>>>>>>>>>>>>> respond to the SCTP request.
+>>>>>>>>>>>>>
+>>>>>>>>>>>> Yes, because it does a route lookup to each of the two ip
+>>> addresses to NODE B,
+>>>>>>>>>>>> and in both lookups, the route indicates that only one source
+>>> address should be
+>>>>>>>>>>>> used (12.1.1.1).  If you issue a ip route show command, you'll
+>>> see that routes
+>>>>>>>>>>>> to both address on NODE B match on a rule that specifies the
+>>> same src address
+>>>>>>>>>>>> and interface be used.
+>>>>>>>>>>>>
+>>>>>>>>>>>> Neil
+>>>>>>>>>>>>
+>>>>>>>>>>>>> - PS
+>>>>>>>>>>>>>
+>>>>>>>>>>>>> On Wed, Nov 27, 2013 at 7:09 AM, Sun Paul <paulrbk@gmail.com>
+>>> wrote:
+>>>>>>>>>>>>>> Hi Vlad
+>>>>>>>>>>>>>>
+>>>>>>>>>>>>>> Thank for your reply. If it is based on the destination IP to
+>>> find the
+>>>>>>>>>>>>>> best route, why the problem didn't happen on single-homing
+>>> sample?
+>>>>>>>>>>>>>>
+>>>>>>>>>>>>>> In the single-homing sample that provided in the original
+>>> email, both
+>>>>>>>>>>>>>> of the interfaces (eth1 and eth2) are presented on NODE-B
+>>> during the
+>>>>>>>>>>>>>> test. However, the LKSCTP library know to use the interface
+>>> eth1 to
+>>>>>>>>>>>>>> respond to the SCTP request.
+>>>>>>>>>>>>>>
+>>>>>>>>>>>>>> - PS
+>>>>>>>>>>>>>>
+>>>>>>>>>>>>>> On Tue, Nov 26, 2013 at 11:19 PM, Vlad Yasevich <
+>>> vyasevich@gmail.com> wrote:
+>>>>>>>>>>>>>>> On 11/25/2013 08:03 PM, Sun Paul wrote:
+>>>>>>>>>>>>>>>> Hi
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> we have a problem on using LKSCTP to form a 4 ways
+>>> multi-homing network.
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> Configuration
+>>>>>>>>>>>>>>>> - Node-A has 2 IP addresses in different subnets, known as
+>>> IP-A (eth1),
+>>>>>>>>>>>>>>>> IP-B (eth2)
+>>>>>>>>>>>>>>>> - Node-B has 2 IP addresses in different subnets, known as
+>>> IP-X (eth1),
+>>>>>>>>>>>>>>>> IP-Y (eth2)
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>> First of all, this is not a 4 way multi-homed network.  As
+>>> far as each
+>>>>>>>>>>>>>>> SCTP association is concerned, it has only 2 destinations to
+>>> send to
+>>>>>>>>>>>>>>> so it has only 2 ways to get there.  The fact that you have
+>>> multiple
+>>>>>>>>>>>>>>> local addresses doesn't mean that every local address can and
+>>> should
+>>>>>>>>>>>>>>> be used to connect to the remote.
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> the four way paths are shown below.
+>>>>>>>>>>>>>>>> 1. IP-A (11.1.1.1) to IP-X (11.1.1.11)
+>>>>>>>>>>>>>>>> 2. IP-B (12.1.1.1) to IP-Y (12.1.1.11)
+>>>>>>>>>>>>>>>> 3. IP-A (11.1.1.1) to IP-Y (12.1.1.11)
+>>>>>>>>>>>>>>>> 4. IP-B (12.1.1.1) to IP-X (11.1.1.11)
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>> No, actually you only have 2 paths:  one to IPX and one to
+>>> IP-Y.
+>>>>>>>>>>>>>>> Which source address you choose is based on routing policy
+>>>>>>>>>>>>>>> decisions and is outside the scope of SCTP.
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> the HB/HB_ACK is normal for the paths " IP-A to IP-X" and
+>>> "IP-B to
+>>>>>>>>>>>>>>>> IP-Y", but it is not correct for the rest of two.
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>> Right, because linux is using a host addressing model, not an
+>>> interface
+>>>>>>>>>>>>>>> addressing model.  SCTP stack simply finds the best source
+>>> address
+>>>>>>>>>>>>>>> that can be used to reach IP-X and it happens to be IP-A.  So
+>>> that
+>>>>>>>>>>>>>>> is what it is going to use.
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>> The above explains why you are seeing what you describe below.
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>> In the end, linux SCTP implementation determines paths solely
+>>> based
+>>>>>>>>>>>>>>> on the destination address.
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>> -vlad
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> First of all, we are using iproute2 to form 2 table such
+>>> that when
+>>>>>>>>>>>>>>>> IP-B arrives on IP-X, it will know how to route back to IP-B
+>>> on the
+>>>>>>>>>>>>>>>> same interface, i.e (eth1). Same logic for the path "IP-A to
+>>> IP-X".
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> What we observed here is that when 12.1.1.1 sends INIT to
+>>> 11.1.1.11,
+>>>>>>>>>>>>>>>> LKSCTP will send back the INIT_ACK to 12.1.1.1 using
+>>> 12.1.1.11 but not
+>>>>>>>>>>>>>>>> using the IP 11.1.1.11.
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> The above operation makes the subsequence HB/HB_ACK in using
+>>> wrong IP address.
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> TCP trace on eth1
+>>>>>>>>>>>>>>>> 18:02:41.058640 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1)
+>>> [INIT]
+>>>>>>>>>>>>>>>> [init tag: 19933036] [rwnd: 102400] [OS: 16] [MIS: 16] [init
+>>> TSN: 0]
+>>>>>>>>>>>>>>>> 18:02:41.061634 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1)
+>>> [COOKIE ECHO]
+>>>>>>>>>>>>>>>> 18:02:41.062642 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1)
+>>> [HB REQ]
+>>>>>>>>>>>>>>>> 18:02:41.062846 IP 11.1.1.11.2905 > 11.1.1.1.2905: sctp (1)
+>>> [HB ACK]
+>>>>>>>>>>>>>>>> 18:02:41.361811 IP 11.1.1.11.2905 > 11.1.1.1.2905: sctp (1)
+>>> [HB ACK]
+>>>>>>>>>>>>>>>> 18:02:41.661791 IP 11.1.1.11.2905 > 11.1.1.1.2905: sctp (1)
+>>> [HB ACK]
+>>>>>>>>>>>>>>>> 18:02:41.961791 IP 11.1.1.11.2905 > 11.1.1.1.2905: sctp (1)
+>>> [HB ACK]
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> TCP trace on eth2
+>>>>>>>>>>>>>>>> 18:02:41.058755 IP 12.1.1.11.2905 > 12.1.1.1.2905: sctp (1)
+>>> [INIT ACK]
+>>>>>>>>>>>>>>>> [init tag: 424726157] [rwnd: 131072] [OS: 5] [MIS: 5] [init
+>>> TSN:
+>>>>>>>>>>>>>>>> 3340756356]
+>>>>>>>>>>>>>>>> 18:02:41.061696 IP 12.1.1.11.2905 > 12.1.1.1.2905: sctp (1)
+>>> [COOKIE ACK]
+>>>>>>>>>>>>>>>> 18:02:41.062663 IP 12.1.1.11.2905 > 12.1.1.1.2905: sctp (1)
+>>> [HB ACK]
+>>>>>>>>>>>>>>>> 18:02:41.062791 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1)
+>>> [HB REQ]
+>>>>>>>>>>>>>>>> 18:02:41.361777 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1)
+>>> [HB REQ]
+>>>>>>>>>>>>>>>> 18:02:41.661772 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1)
+>>> [HB REQ]
+>>>>>>>>>>>>>>>> 18:02:41.961772 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1)
+>>> [HB REQ]
+>>>>>>>>>>>>>>>> 18:02:42.161771 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1)
+>>> [HB REQ]
+>>>>>>>>>>>>>>>> 18:02:42.461770 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1)
+>>> [HB REQ]
+>>>>>>>>>>>>>>>> 18:02:42.675770 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1)
+>>> [HB REQ]
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> If we are using single homing, there is no problem on the
+>>> SCTP
+>>>>>>>>>>>>>>>> communication. Below is the TCP trace on eth1 using sctp_test
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> 18:09:55.356727 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1)
+>>> [INIT]
+>>>>>>>>>>>>>>>> [init tag: 32516609] [rwnd: 102400] [OS: 16] [MIS: 16] [init
+>>> TSN: 0]
+>>>>>>>>>>>>>>>> 18:09:55.356811 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1)
+>>> [INIT ACK]
+>>>>>>>>>>>>>>>> [init tag: 3168861995] [rwnd: 131072] [OS: 10] [MIS: 16]
+>>> [init TSN:
+>>>>>>>>>>>>>>>> 1877695021]
+>>>>>>>>>>>>>>>> 18:09:55.357727 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1)
+>>> [COOKIE ECHO]
+>>>>>>>>>>>>>>>> 18:09:55.357788 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1)
+>>> [COOKIE ACK]
+>>>>>>>>>>>>>>>> 18:09:55.358724 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1)
+>>> [HB REQ]
+>>>>>>>>>>>>>>>> 18:09:55.358740 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1)
+>>> [HB ACK]
+>>>>>>>>>>>>>>>> 18:09:55.379715 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1)
+>>> [DATA]
+>>>>>>>>>>>>>>>> (B)(E) [TSN: 0] [SID: 0] [SSEQ 0] [PPID 0x3]
+>>>>>>>>>>>>>>>> 18:09:55.379735 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1)
+>>> [SACK]
+>>>>>>>>>>>>>>>> [cum ack 0] [a_rwnd 131064] [#gap acks 0] [#dup tsns 0]
+>>>>>>>>>>>>>>>> 18:09:55.657716 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1)
+>>> [HB REQ]
+>>>>>>>>>>>>>>>> 18:09:55.657732 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1)
+>>> [HB ACK]
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> From the observations, it seems that the LKSCTP library is
+>>> not able to
+>>>>>>>>>>>>>>>> use the original local address when multi-homing is being
+>>> used. Is
+>>>>>>>>>>>>>>>> there anyway can be resolved it?
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> Thanks
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>> PS
+>>>>>>>>>>>>>>>> --
+>>>>>>>>>>>>>>>> To unsubscribe from this list: send the line "unsubscribe
+>>> linux-sctp" in
+>>>>>>>>>>>>>>>> the body of a message to majordomo@vger.kernel.org
+>>>>>>>>>>>>>>>> More majordomo info at
+>>> http://vger.kernel.org/majordomo-info.html
+>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>> --
+>>>>>>>>>>>>> To unsubscribe from this list: send the line "unsubscribe
+>>> linux-sctp" in
+>>>>>>>>>>>>> the body of a message to majordomo@vger.kernel.org
+>>>>>>>>>>>>> More majordomo info at
+>>> http://vger.kernel.org/majordomo-info.html
+>>>>>>>>>>>>>
+>>>>>>>>>>
+>>>>>>>>>> --
+>>>>>>>>>> To unsubscribe from this list: send the line "unsubscribe
+>>> linux-sctp" in
+>>>>>>>>>> the body of a message to majordomo@vger.kernel.org
+>>>>>>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>>>>>>
+>>>>>
+>>>
+>>>
+>>
+>
