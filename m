@@ -1,185 +1,54 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: fix a BUG_ON on triggered by setting max_autoclose
- to
-Date: Wed, 04 Dec 2013 09:45:59 -0500
-Message-ID: <529F4027.30308@gmail.com>
-References: <529DADE5.4040701@huawei.com> <529E0242.6020008@gmail.com> <20131203181822.GB3251@neilslaptop.think-freely.org> <529E4BFA.8020501@gmail.com> <20131204132843.GB4096@hmsreliant.think-freely.org>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: Supporting 4 way connections in LKSCTP
+Date: Wed, 4 Dec 2013 14:50:46 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B745D@saturn3.aculab.com>
+References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>	<5294BC01.7090605@gmail.com>	<CAFXGftLsKm9a5bmXX4Fe+rnSvYVdBDOyYGwisRP7XMu+ky=DGw@mail.gmail.com>	<CAFXGftLt1p6XpR2eGsMYKjEbbOHvch-LgcFw1sAXThcA2Rtjyw@mail.gmail.com>	<20131127124530.GA23369@hmsreliant.think-freely.org>	<CAFXGftJQV=5Pqs3bhfiS3T1VO1q8jfaMjAUiqm2tDbtSyBCM3A@mail.gmail.com>	<529C9B50.50002@gmail.com>	<CAGugRbXFirQ5P3ek9zN86h4vvO6qsy3eNEooJOApotA+dL+C_g@mail.gmail.com>	<529CB859.9090904@gmail.com>	<CAFXGft+F52p+oaa59=5e5pGfON44N36NA-XMYi5PorzWeybnKw@mail.gmail.com>	<CAFXGft+4o6fT4SYbu3musC+-BEi=xOEGUbZSavF1-0_V1mg6zg@mail.gmail.com>	<529D3BF9.3070208@gmail.com>	<CAFXGftJtCCJ=pVxg_DH-+n2bKmoKXavog0y8mfX+h-1z3hP49Q@mail.gmail.com>	<529DCF42.1070800@gmail.com>	<CAFXGftK5tz90OzObiV7Hi+g080j3zWCNdo217C
+ KdNkOY4JWQUg@mail.gmail.com>	<529DF73E.7060604@gmail.com> <CAFXGftKZD0zN1S=UTa_bYr71-v=7mzU=_CewTNkjPv9CGGB_Fg@mail.gmail.com> <529F395B.9040308@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wang Weidong <wangweidong1@huawei.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f51.google.com ([209.85.213.51]:59049 "EHLO
-	mail-yh0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932178Ab3LDOqC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 09:46:02 -0500
-In-Reply-To: <20131204132843.GB4096@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>,
+	"Karl Heiss" <kheiss@gmail.com>,
+	"Neil Horman" <nhorman@tuxdriver.com>,
+	<linux-kernel@vger.kernel.org>
+To: "Vlad Yasevich" <vyasevich@gmail.com>,
+	"Sun Paul" <paulrbk@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <529F395B.9040308@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/04/2013 08:28 AM, Neil Horman wrote:
-> On Tue, Dec 03, 2013 at 04:24:10PM -0500, Vlad Yasevich wrote:
->> On 12/03/2013 01:18 PM, Neil Horman wrote:
->>> On Tue, Dec 03, 2013 at 11:09:38AM -0500, Vlad Yasevich wrote:
->>>> On 12/03/2013 05:09 AM, Wang Weidong wrote:
->>>>> since 2692ba61, add the max_autoclose to sysctl. when I setted the
->>>>> max_autoclose to 0. Just do the test_autoclose, it will trigger that:
->>>>>
->>>>> [  608.056238] ------------[ cut here ]------------
->>>>> [  608.056244] kernel BUG at /home/wwd/work/linux/net/sctp/sm_sideeffect.c:1488!
->>>>> [  608.056250] invalid opcode: 0000 [#1] SMP
->>>>> [  608.056254] Modules linked in: md5 sctp(O) crc32c libcrc32c edd fuse loop dm_mod ipv6 8139too sg 8139cp mii i2c_piix4 i2c_core virtio_balloon intel_agp virtio_pci virtio_ring sr_mod cdrom rtc_cmos joydev hid_generic intel_gtt virtio floppy pcspkr button ext3 jbd mbcache usbhid hid uhci_hcd ehci_hcd usbcore sd_mod usb_common crc_t10dif crct10dif_common processor thermal_sys hwmon scsi_dh_emc scsi_dh_alua scsi_dh_hp_sw scsi_dh_rdac scsi_dh ata_generic ata_piix libata scsi_mod [last unloaded: sctp]
->>>>> [  608.056310] CPU: 5 PID: 4517 Comm: test_autoclose Tainted: G  R        O 3.13.0-rc1-0.27-default+ #2
->>>>> [  608.056315] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
->>>>> [  608.056319] task: ffff8800372f5590 ti: ffff8800db882000 task.ti: ffff8800db882000
->>>>> [  608.056323] RIP: 0010:[<ffffffffa033e350>]  [<ffffffffa033e350>] sctp_cmd_interpreter+0x1010/0x1070 [sctp]
->>>>> [  608.056339] RSP: 0018:ffff880116f43928  EFLAGS: 00010246
->>>>> [  608.056343] RAX: 0000000000000009 RBX: ffff880116f43ab8 RCX: 0000000000000009
->>>>> [  608.056349] RDX: 0000000000000003 RSI: 0000000000000000 RDI: ffff880116f43a88
->>>>> [  608.056353] RBP: ffff880116f439d8 R08: 0000000000002029 R09: 0000000000000001
->>>>> [  608.056357] R10: 0000000000000000 R11: 0000000000000005 R12: ffff8800db7c9150
->>>>> [  608.056361] R13: 0000000000000000 R14: ffff8800db7c9000 R15: 0000000000000001
->>>>> [  608.056365] FS:  00007f942d71c700(0000) GS:ffff880116f40000(0000) knlGS:0000000000000000
->>>>> [  608.056370] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
->>>>> [  608.056373] CR2: 00007f942d324d90 CR3: 00000000db094000 CR4: 00000000000006e0
->>>>> [  608.056382] Stack:
->>>>> [  608.056384]  0000000000000018 ffff880116f43988 ffff8800da569600 000000010000000a
->>>>> [  608.056391]  ffff880037265e40 0000000016f43988 ffff880116f439e8 0000000000000000
->>>>> [  608.056397]  ffffffffa0365101 0000000000000000 ffff880116f43a28 ffffffff812b7739
->>>>> [  608.056403] Call Trace:
->>>>> [  608.056406]  <IRQ>
->>>>> [  608.056409]
->>>>> [  608.056421]  [<ffffffff812b7739>] ? __dynamic_pr_debug+0x69/0x80
->>>>> [  608.056432]  [<ffffffff81097c6d>] ? trace_hardirqs_off+0xd/0x10
->>>>> [  608.056442]  [<ffffffff814e7258>] ? _raw_spin_unlock_irqrestore+0x58/0x60
->>>>> [  608.056451]  [<ffffffffa033e3e6>] sctp_side_effects+0x36/0x130 [sctp]
->>>>> [  608.056459]  [<ffffffffa033e5c7>] sctp_do_sm+0xe7/0x210 [sctp]
->>>>> [  608.056470]  [<ffffffffa0359860>] ? sctp_rcv+0x780/0x780 [sctp]
->>>>> [  608.056479]  [<ffffffffa0340a5f>] sctp_endpoint_bh_rcv+0x10f/0x220 [sctp]
->>>>> [  608.056489]  [<ffffffffa0349991>] sctp_inq_push+0x41/0x60 [sctp]
->>>>> [  608.056498]  [<ffffffffa03597b5>] sctp_rcv+0x6d5/0x780 [sctp]
->>>>> [  608.056508]  [<ffffffffa0358e00>] ? sctp_csum_combine+0x10/0x10 [sctp]
->>>>> [  608.056518]  [<ffffffffa0358df0>] ? sctp_v4_err+0x240/0x240 [sctp]
->>>>> [  608.056528]  [<ffffffff8145b8a4>] ip_local_deliver_finish+0xf4/0x270
->>>>> [  608.056533]  [<ffffffff8145b7f0>] ? ip_local_deliver_finish+0x40/0x270
->>>>> [  608.056538]  [<ffffffff8145b690>] ip_local_deliver+0x80/0x90
->>>>> [  608.056543]  [<ffffffff8145bbd3>] ip_rcv_finish+0x1b3/0x600
->>>>> [  608.056547]  [<ffffffff8145ba20>] ? ip_local_deliver_finish+0x270/0x270
->>>>> [  608.056552]  [<ffffffff8145b04f>] NF_HOOK+0x2f/0x70
->>>>> [  608.056565]  [<ffffffff81425853>] ? __netif_receive_skb_core+0x113/0x7a0
->>>>> [  608.056570]  [<ffffffff8145b365>] ip_rcv+0x2d5/0x3b0
->>>>> [  608.056575]  [<ffffffff81425e3f>] __netif_receive_skb_core+0x6ff/0x7a0
->>>>> [  608.056580]  [<ffffffff81425853>] ? __netif_receive_skb_core+0x113/0x7a0
->>>>> [  608.056585]  [<ffffffff81426108>] ? process_backlog+0x1a8/0x1c0
->>>>> [  608.056590]  [<ffffffff81425f0b>] __netif_receive_skb+0x2b/0x80
->>>>> [  608.056595]  [<ffffffff81426018>] process_backlog+0xb8/0x1c0
->>>>> [  608.056600]  [<ffffffff8142695c>] net_rx_action+0x11c/0x240
->>>>> [  608.056607]  [<ffffffff81050e18>] __do_softirq+0x118/0x290
->>>>> [  608.056615]  [<ffffffff814f0e0c>] do_softirq_own_stack+0x1c/0x30
->>>>> [  608.056618]  <EOI>
->>>>> [  608.056620]
->>>>> [  608.056623]  [<ffffffff81050bd5>] do_softirq+0x65/0x70
->>>>> [  608.056629]  [<ffffffff8140fddc>] ? release_sock+0x8c/0xa0
->>>>> [  608.056635]  [<ffffffff810518c3>] local_bh_enable_ip+0xb3/0xc0
->>>>> [  608.056640]  [<ffffffff814e71af>] _raw_spin_unlock_bh+0x2f/0x40
->>>>> [  608.056645]  [<ffffffff8140fddc>] release_sock+0x8c/0xa0
->>>>> [  608.056654]  [<ffffffffa0354c08>] sctp_sendmsg+0x3a8/0xcc0 [sctp]
->>>>> [  608.056661]  [<ffffffff8129924a>] ? number+0x33a/0x360
->>>>> [  608.056667]  [<ffffffff81497c3c>] inet_sendmsg+0x9c/0x100
->>>>> [  608.056672]  [<ffffffff81497ba0>] ? inet_recvmsg+0x110/0x110
->>>>> [  608.056679]  [<ffffffff8140a387>] sock_sendmsg+0x97/0xc0
->>>>> [  608.056690]  [<ffffffff8114caae>] ? might_fault+0x3e/0x90
->>>>> [  608.056695]  [<ffffffff8114caae>] ? might_fault+0x3e/0x90
->>>>> [  608.056700]  [<ffffffff81417a73>] ? verify_iovec+0x53/0x100
->>>>> [  608.056705]  [<ffffffff8140abb6>] ___sys_sendmsg+0x416/0x420
->>>>> [  608.056710]  [<ffffffff81151af6>] ? __do_fault+0x216/0x510
->>>>> [  608.056715]  [<ffffffff814eaf74>] ? __do_page_fault+0x2b4/0x4a0
->>>>> [  608.056720]  [<ffffffff81095c9e>] ? up_read+0x1e/0x40
->>>>> [  608.056724]  [<ffffffff814eaf74>] ? __do_page_fault+0x2b4/0x4a0
->>>>> [  608.056729]  [<ffffffff8140fddc>] ? release_sock+0x8c/0xa0
->>>>> [  608.056733]  [<ffffffff8140fddc>] ? release_sock+0x8c/0xa0
->>>>> [  608.056741]  [<ffffffff8109bb5d>] ? trace_hardirqs_on+0xd/0x10
->>>>> [  608.056746]  [<ffffffff81051875>] ? local_bh_enable_ip+0x65/0xc0
->>>>> [  608.056751]  [<ffffffff8140ad94>] __sys_sendmsg+0x44/0x80
->>>>> [  608.056756]  [<ffffffff8140ade4>] SyS_sendmsg+0x14/0x20
->>>>> [  608.056761]  [<ffffffff814ef5a2>] system_call_fastpath+0x16/0x1b
->>>>> -------------------------------------
->>>>>
->>>>> The reason is: In test_autoclose set the autoclose to 5 not 0(default). So when
->>>>> we init the association, the (sctp_sock) sp->autoclose is not 0 while asoc's 
->>>>> timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE] is 0.
->>>>> So when we process the COOKIE_ACK, the sctp_sf_do_5_1E_ca will be called, that
->>>>> will do that:
->>>>> 	if (asoc->autoclose) //asoc->autoclose is equal sp->autoclose
->>>>> 		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_START,
->>>>> 				SCTP_TO(SCTP_EVENT_TIMEOUT_AUTOCLOSE));
->>>>
->>>> this looks like a bug in how the timeout is being set.  The timeout
->>>> should be based on the association value, not some sysctl value.
->>>>
->>>> The typical socket option values go like this:
->>>>    socket value = starts at sysctl, changed by user.
->>>>    assoc value = starts at socket value, may be changed by user.
->>>>      any timer = starts at assoc value.
->>>>
->>>> this seems to be broken for autoclose.
->>>>
->>> Well, it is, but I think its a reasonable fix for the issue.  As I understand
->>> the description, the problem is that if autoclose is non-zero, and the default
->>> timeout is zero, then you'll get a BUG_ON halt because you need to set a timer
->>> that will expire immediately.  It seems reasonable to me to make a minimal
->>> default for the timeout to be non-zero, since it makes no sense to have a zero
->>> auto-close timeout.
->>
->> Yes, the default timeout is zero because the timeout is latched by the
->> sysctl value while the association value is not.  So, the association
->> value is now out-of-sync with what the system does and we end up lying
->> to the user when they do a getsockopt().
->>
-> Thats not true, looking at the sctp_association_init code the timeout is
-> defaulted to the minimum of the socket value and the maxium timeout sysctl
-> value, the latter of which is defined as INT_MAX/HZ.  That seems reasonable to
-> me in that an association latches both the timeout value and the enabled value
-> from its parent socket at association init time (assoc->autoclose is assigned
-> from sp->autoclose farther down in sctp_association_init).
-
-Right, so let's see what happens.  Let the sysctl value be set to 1.
-The the socket is created and the option is used to set the value to 10.
-Now, association is created and the timeout is latched to 1.
-However, the autoclose value of the association is set to 10.  So now
-we are lying to the user about our autoclose value!
-
-This is what's causing the problem.  The timeout value is out of sync
-what what the requested timeout value is.
-
-Now, if we latch the socket value correctly, then everything just starts
-to work, even for sysctl value of 0, and we stop lying to the user on
-getsockopt() calls.  This is the real bug that causing the BUG_ON.
-
-> 
->> If we simply latch the socket value properly, then we would have to
->> worry about this at all.  If the socket value is latched at 0, then
->> autoclose is disabled.
->>
-> We are latching the value properly from what I can see.  The problem is that the
-> upper bound on the value we latch can be zero.  The only way this bug can occur
-> is if net->sctp.max_autoclose is 0.  Note that I'm not talking about the timeout
-> value itself, but its upper bound.  We shouldn't be allowed to set the autoclose
-> timeout sysctl range to [0..0], it just doesn't make sense.  It should be at
-> least [0..1], and the socket autoclose value can range properly within that.
-> From what I see, thats what this patch does.
-
-We don't allow the sysctl range of [0..0].  We allow the range of
-[0..max_autoclose_max].  This patch tries to change the range to
-[1..max_autoclose_max].  This may be a correct thing to do,
-but it is another issue.  That fact this change fixes the BUG_ON is
-a side-effect.  The real issue is in how we set set the timer value.
-
--vlad
-
-> 
-> Neil
-> 
+PiA+IEluIG5vcm1hbCBvcGVyYXRpb24sIElQLUEgc2VuZHMgSU5JVCB0byBJUC1YLCBJUC1YIHJl
+dHVybnMgSU5JVF9BQ0sgdG8NCj4gPiBJUC1BLiBJUC1BIHRoZW4gc2VuZHMgSEIgdG8gSVAtWCwg
+SVAtWCB0aGVuIHJldHVybnMgSEJfQUNLIHRvIElQLUEuIEluDQo+ID4gdGhlIG1lYW50aW1lLCBJ
+UC1CIHNlbmRzIEhCIHRvIElQLVkgYW5kIElQWSByZXR1cm5zIEhCX0FDSy4NCj4gPg0KPiA+IElu
+IGNhc2Ugb2YgdGhlIHBhdGggYmV0d2VlbiBJUC1BIGFuZCBJUC1YIGlzIGJyb2tlbiwgSVAtQiBz
+ZW5kcyBJTklUDQo+ID4gdG8gSVAtWCwgTk9ERS1CIHVzZXMgSVAtWSB0byByZXR1cm4gSU5JVF9B
+Q0sgdG8gSVAtQi4gVGhlbiBJUC1CIHNlbmRzDQo+ID4gSEIgdG8gSVAtWCwgYW5kIElQLVkgcmV0
+dXJucyBIQl9BQ0sgdG8gSVAtQi4gSW4gdGhlIG1lYW50aW1lLCB0aGUgSEINCj4gPiBjb21tdW5p
+Y2F0aW9uIGJldHdlZW4gSVAtQiBhbmQgSVAtWSBmb2xsb3dzIHRoZSBub3JtYWwgZmxvdy4NCj4g
+Pg0KPiA+IENhbiBJIGNvbmZpcm0sIGlzIGl0IHJlYWxseSB2YWxpZD8NCj4gDQo+IEFzIGxvbmcg
+YXMgTk9ERS1CIGtub3dzIGFib3V0IGJvdGggSVAtQSBhbmQgSVAtQiwgYW5kIE5PREUtQSBrbm93
+cyBhYm91dA0KPiBib3RoIElQLVggYW5kIElQLVkgKG1lYW5pbmcgYWxsIHRoZSBhZGRyZXNzZXMg
+d2VyZSBleGNoYW5nZWQgaW5zaWRlIElOSVQNCj4gYW5kIElOSVQtQUNLKSwgdGhlbiB0aGlzIHNp
+dHVhdGlvbiBpcyBwZXJmZWN0bHkgdmFsaWQuICBJbiBmYWN0LCB0aGlzDQo+IGhhcyBiZWVuIHRl
+c3RlZCBhbiBtdWx0aXBsZSBpbnRlcm9wcy4NCg0KVGhlcmUgYXJlIHNvbWUgbmV0d29yayBjb25m
+aWd1cmF0aW9ucyB0aGF0IGRvIGNhdXNlIHByb2JsZW1zLg0KQ29uc2lkZXIgNCBzeXN0ZW1zIHdp
+dGggMyBMQU4gc2VnbWVudHM6DQpBKSAxMC4xMC4xMC4xIG9uIExBTiBYIGFuZCAxOTIuMTY4LjEu
+MSBvbiBMQU4gWS4NCkIpIDEwLjEwLjEwLjIgb24gTEFOIFggYW5kIDE5Mi4xNjguMS4yIG9uIExB
+TiBZLg0KQykgMTAuMTAuMTAuMyBvbiBMQU4gWC4NCkQpIDEwLjEwLjEwLjQgb24gTEFOIFggYW5k
+IDE5Mi4xNjguMS4yIG9uIExBTiBaLg0KVGhlcmUgYXJlIG5vIHJvdXRlcnMgYmV0d2VlbiB0aGUg
+bmV0d29ya3MgKGFuZCBub25lIG9mIHRoZSBzeXN0ZW1zDQphcmUgcnVubmluZyBJUCBmb3J3YXJk
+aW5nKS4NCg0KSWYgQSBjb25uZWN0cyB0byBCIGV2ZXJ5dGhpbmcgaXMgZmluZSAtIHRyYWZmaWMg
+Y2FuIHVzZSBlaXRoZXIgTEFOLg0KDQpDb25uZWN0aW9ucyBmcm9tIEEgdG8gQyBhcmUgcHJvYmxl
+bWF0aWMgaWYgQyB0cmllcyB0byBzZW5kIGFueXRoaW5nDQooZXhjZXB0IGEgSEIpIHRvIDE5Mi4x
+NjguMS4xIGJlZm9yZSByZWNlaXZpbmcgYSBIQiByZXNwb25zZS4NCk9uZSBvZiB0aGUgU0NUUCBz
+dGFja3Mgd2UndmUgdXNlZCBkaWQgc2VuZCBtZXNzYWdlcyB0byBhbg0KaW5hcHByb3ByaWF0ZSBh
+ZGRyZXNzLCBidXQgSSd2ZSBmb3Jnb3R0ZW4gd2hpY2ggb25lLg0KDQpDb25uZWN0aW9ucyBiZXR3
+ZWVuIEEgYW5kIEQgZmFpbCB1bmxlc3MgdGhlIEhCIGVycm9ycyBBIHJlY2VpdmVzDQpmb3IgMTky
+LjE2OC4xLjIgYXJlIGlnbm9yZWQuDQoNCk9mIGNvdXJzZSB0aGUgYXBwbGljYXRpb24gY291bGQg
+ZXhwbGljaXRseSBiaW5kIHRvIG9ubHkgdGhlIDEwLnggYWRkcmVzcw0KYnV0IHRoYXQgcmVxdWly
+ZXMgdGhlIGFwcGxpY2F0aW9uIGtub3cgdGhlIGV4YWN0IG5ldHdvcmsgdG9wb2xvZ3kNCmFuZCBt
+YXkgYmUgZGlmZmljdWx0IGZvciBpbmNvbWluZyBjYWxscy4NCg0KCURhdmlkDQoNCg==
