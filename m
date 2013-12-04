@@ -1,31 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Wed, 04 Dec 2013 09:40:42 -0800
-Message-ID: <1386178842.30495.111.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com>
-	 <1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131204.013933.873780415547689253.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Change in IPv4 TCP reset behavior after kernel upgrade
+Date: Wed, 4 Dec 2013 18:56:11 +0100
+Message-ID: <20131204175610.GB27943@order.stressinduktion.org>
+References: <2ECE9D9EEF1F524185270138AE2326593BF9B5EE@S0MSMAIL112.arc.local> <CADVnQynL6=91zAZXMAoKEeCY7=Eajfq1DyP+Dzd8xhzBhujtyQ@mail.gmail.com> <2ECE9D9EEF1F524185270138AE2326593BF9B935@S0MSMAIL112.arc.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: or.gerlitz@gmail.com, joseph.gasparakis@intel.com,
-	hkchu@google.com, ogerlitz@mellanox.com, edumazet@google.com,
-	ast@plumgrid.com, pshelar@nicira.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: Neal Cardwell <ncardwell@google.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Fiedler Roman <Roman.Fiedler@ait.ac.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:35757 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753981Ab3LDRkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 12:40:47 -0500
-Received: by mail-pb0-f45.google.com with SMTP id rp16so23931514pbb.18
-        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 09:40:47 -0800 (PST)
-In-Reply-To: <20131204.013933.873780415547689253.davem@davemloft.net>
+Received: from order.stressinduktion.org ([87.106.68.36]:59422 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754327Ab3LDR4M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 12:56:12 -0500
+Content-Disposition: inline
+In-Reply-To: <2ECE9D9EEF1F524185270138AE2326593BF9B935@S0MSMAIL112.arc.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-12-04 at 01:39 -0500, David Miller wrote:
+On Wed, Dec 04, 2013 at 04:13:10PM +0000, Fiedler Roman wrote:
+> -static inline void ip_select_ident_more(struct iphdr *iph, struct dst_entry *dst, struct sock *sk, int more)
+> +static inline void ip_select_ident_more(struct sk_buff *skb, struct dst_entry *dst, struct sock *sk, int more)
+> {
+> - if (iph->frag_off & htons(IP_DF)) {
+> + struct iphdr *iph = ip_hdr(skb);
+> +
+> + if ((iph->frag_off & htons(IP_DF)) && !skb->local_df) {
+> if (sk && inet_sk(sk)->inet_daddr) {
+> iph->id = htons(inet_sk(sk)->inet_id);
+> inet_sk(sk)->inet_id += 1 + more;
+> 
+> ... from 3.10.16 would disable ID setting on some packets, where it was done previously. Perhaps this caused problems in and hence behaviour was changed by another patch to one of the following kernel versions. Or perhaps the additional vserver-patch in my kernel interacted with that change and made it first visible after 3.10.17.
+> 
+> At least there has been activity around that part of the TCP-stack near the relevant time window, so it is not completely unexpected.
+> 
+> Since it seems, that the patch only affects sending of RSTs, there should be no real security impact also: Only difference seems to be, that by sending SYNs to closed ports, you now can get some incrementing next ID value (do not know, where this number really comes from). With a quick look, I could not find out how this ID relates to other ID values of .e.g UDP/TCP activity, e.g. for packet spoofing. Only thing that is possible so far (and not very valuable from my point of view) is port/firewall-rule probing using SYN on closed port, mechanism:
 
-> I definitely prefer the control block approach to this.
+E.g. icmp uses per-namespace per-cpu sockets where it counts the non-DF and
+non-local_df fragments and increases that per-socket. TCP-RST use a global
+per-cpu socket to send RST packets. ip_select_ident does increase inet_id for
+each sent fragment.
 
-I polished the patch to keep this knowledge in net/core/dev.c
+Greetings,
+
+  Hannes
