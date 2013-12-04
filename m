@@ -1,61 +1,50 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Wed, 4 Dec 2013 17:20:03 +0200
-Message-ID: <CAJZOPZJv6rcxocqmk8K8XRcLAN-sVFWhN1eW0qjEpP==2joUtg@mail.gmail.com>
-References: <529DF340.70602@mellanox.com>
-	<1386084620.30495.28.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAJZOPZJ9WM1H9zKNzT5MvQ2UH7RxkTLk2Rhzsk9vdvKz6d2uAw@mail.gmail.com>
-	<alpine.LFD.2.03.1312031310140.23893@intel.com>
-	<CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
-	<alpine.LFD.2.03.1312031500020.570@intel.com>
-	<CAJZOPZLT_3msfz_XY45GOBMWK_y8WEYBTq3rGRUijpYyXE1ddg@mail.gmail.com>
-	<alpine.LFD.2.03.1312031626400.7539@intel.com>
-	<CAJZOPZJKsrj2+SQJsgq-w7BrNwDR0OsYWiF+1CcRQ3-KhejZhQ@mail.gmail.com>
-	<alpine.LFD.2.03.1312040113290.14367@intel.com>
-	<CAJZOPZJVBpqm-OduV4K2YwbXESP7awhsk0HbjuHazAiQJZTLWQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for
+ neigh_timer_handler()
+Date: Wed, 04 Dec 2013 07:24:05 -0800
+Message-ID: <1386170645.30495.108.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <529DE13D.2070509@huawei.com>	<529E9579.7090201@cn.fujitsu.com>
+			<529EA9CF.2090008@huawei.com>
+		 <20131203.232122.852236751455974887.davem@davemloft.net>
+		 <529EC95A.5080908@huawei.com>
+	 <1386138457.30495.86.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <529EF30A.4050609@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jerry Chu <hkchu@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, gaofeng@cn.fujitsu.com,
+	yoshfuji@linux-ipv6.org, joe@perches.com, vfalico@redhat.com,
+	netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:33099 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753488Ab3LDPUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 10:20:06 -0500
-Received: by mail-pb0-f54.google.com with SMTP id un15so23717887pbc.13
-        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 07:20:05 -0800 (PST)
-In-Reply-To: <CAJZOPZJVBpqm-OduV4K2YwbXESP7awhsk0HbjuHazAiQJZTLWQ@mail.gmail.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:48346 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932319Ab3LDPYH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 10:24:07 -0500
+Received: by mail-pd0-f172.google.com with SMTP id g10so22544779pdj.17
+        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 07:24:06 -0800 (PST)
+In-Reply-To: <529EF30A.4050609@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 4, 2013 at 11:41 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
-> On Wed, Dec 4, 2013 at 11:24 AM, Joseph Gasparakis
-> <joseph.gasparakis@intel.com> wrote:
->> On Wed, 4 Dec 2013, Or Gerlitz wrote:
->
->>> nope! with the latest net tree, after handle_offloads is called in
->>> vxlan_xmit_skb and before iptunnel_xmit is invoked,
->>> skb_shinfo(skb)->gso_type is either 0 or 0x201 which is
->>> (SKB_GSO_UDP_TUNNEL | SKB_GSO_TCPV4) and its the same value whether
->>> the session runs over veth device or directly over the bridge, where
->>> over veth and > 1 stream we see drops, bad perf, etc.
->>> I am very interested in the VM case too, so will check it out and let you know.
->
->> Ok, I was really hoping that would be the same...
->
-> So when running traffic from VM I do see SKB_GSO_DODGY bit being set!
-> my environment for running VMs with sane peformance was screwed  a bit, I will bring it
-> up later today and see if unsetting the bit helps.
+On Wed, 2013-12-04 at 17:16 +0800, Ding Tianhong wrote:
+> >> 						base->running_timer = neigh->timer;
+> >> 						neigh_timer_handler() => at this time, refcnt is 2;
+> >>
+> >> user->	neigh_changeaddr()
+> >> 	neigh_flush_dev();
+> >> 	neigh_del_imer, refcnt dec to 1;
+> > 
+> > Nope : del_timer() would return 0 here, so we do not decrement refcnt.
+> > 
+> 
+> The first call for del_timer() will return 1, because the timer->entry.next is not NULL,
+> then in the neigh_destroy, the del_timer() again will return 0 because timer->entry.next is NULL. 
 
-so if the DODGY bit is left set, it simply doesn't work! it seems that
-guest GSO packets are just dropped
+Again no. You are very mistaken.
 
-As for the performance when the bit is unset in the vxlan driver as
-you suggested, I need to tune the VMs a bit more, later or tomorrow
+del_timer() return code is not a hint. Its a precise meaning.
+
+It cannot return 1 if the timer function is running or is about to run.
+
+If you believe there is  bug in del_timer(), fix it ;)
