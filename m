@@ -1,55 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/5] net_sched: Fail if missing mandatory action
- operation methods
-Date: Wed, 04 Dec 2013 09:03:50 -0800
-Message-ID: <1386176630.30495.110.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386167216-30281-1-git-send-email-jhs@mojatatu.com>
-	 <1386167216-30281-2-git-send-email-jhs@mojatatu.com>
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: Re: [PATCH] xen/pvhvm: If xen_platform_pci=0 is set don't blow up.
+Date: Wed, 4 Dec 2013 09:08:37 -0800
+Message-ID: <20131204170837.GB8838@core.coreip.homeip.net>
+References: <1386105246-14337-1-git-send-email-konrad.wilk@oracle.com>
+ <20131204164218.GA8838@core.coreip.homeip.net>
+ <20131204164802.GG391@pegasus.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	alexander.h.duyck@intel.com, ebiederm@xmission.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:62422 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932703Ab3LDRH0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 12:07:26 -0500
-Received: by mail-pd0-f182.google.com with SMTP id v10so22898543pde.27
-        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 09:07:25 -0800 (PST)
-In-Reply-To: <1386167216-30281-2-git-send-email-jhs@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stefano.stabellini@eu.citrix.com, ian.campbell@citrix.com,
+	xen-devel@lists.xenproject.org, linux-kernel@vger.kernel.org,
+	boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
+	leosilva@linux.vnet.ibm.com, ashley@ashleylai.com,
+	peterhuewe@gmx.de, mail@srajiv.net, tpmdd@selhorst.net,
+	tpmdd@sirrix.com, bhelgaas@google.com, plagnioj@jcrosoft.com,
+	tomi.valkeinen@ti.com, tpmdd-devel@lists.sourceforge.net,
+	linux-input@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, linux-fbdev@vger.kernel.org
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-input-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131204164802.GG391@pegasus.dumpdata.com>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-12-04 at 09:26 -0500, Jamal Hadi Salim wrote:
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
->  net/sched/act_api.c |   12 ++++++++----
->  1 file changed, 8 insertions(+), 4 deletions(-)
+On Wed, Dec 04, 2013 at 11:48:03AM -0500, Konrad Rzeszutek Wilk wrote:
+> > > which is hardly nice. This patch fixes this by having each
+> > > PV driver check for:
+> > >  - if running in PV, then it is fine to execute (as that is their
+> > >    native environment).
+> > >  - if running in HVM, check if user wanted 'xen_emul_unplug=never',
+> > >    in which case bail out and don't load PV drivers.
+> > >  - if running in HVM, and if PCI device 5853:0001 (xen_platform_pci)
+> > >    does not exist, then bail out and not load PV drivers.
+> > > 
+> > > P.S.
+> > > Ian Campbell suggested getting rid of 'xen_platform_pci_unplug'
+> > > but unfortunatly the xen-blkfront driver is using it, so we
+> > > cannot do it.
+> > > 
+> > > Reported-by: Sander Eikelenboom <linux@eikelenboom.it
+> > > Reported-by: Anthony PERARD <anthony.perard@citrix.com>
+> > > Reported-by: Fabio Fantoni <fabio.fantoni@m2r.biz>
+> > 
+> > For input:
+> > 
+> > Acked-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
 > 
-> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-> index fd70728..618695e 100644
-> --- a/net/sched/act_api.c
-> +++ b/net/sched/act_api.c
-> @@ -270,6 +270,10 @@ int tcf_register_action(struct tc_action_ops *act)
->  {
->  	struct tc_action_ops *a, **ap;
->  
-> +	/* Must supply act, dump, cleanup and init */
-> +	if (!act->act || !act->dump || !act->cleanup || !act->init)
-> +		return -EINVAL;
-> +
->  	write_lock(&act_mod_lock);
->  	for (ap = &act_base; (a = *ap) != NULL; ap = &a->next) {
->  		if (act->type == a->type || (strcmp(act->kind, a->kind) == 0)) {
-> @@ -381,7 +385,7 @@ int tcf_action_exec(struct sk_buff *skb, const struct tc_action *act,
->  	}
->  	while ((a = act) != NULL) {
->  repeat:
-> -		if (a->ops && a->ops->act) {
-> +		if (a->ops) {
+> Thank you. I need to do some extra changes to the other subsystems but
+> for the fb/kbd itshould be still throught the same function as this
+> patch has exposed. I will repost it and include your Ack if you are OK
+> with that?
 
-Could we remove all these tests on a->ops being NULL or not ?
+Sure.
 
-IMHO a->ops cannot be NULL. If NULL, just crash by NULL deref.
+-- 
+Dmitry
