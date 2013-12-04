@@ -1,50 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: neighbour: add neighbour dead check for
- neigh_timer_handler()
-Date: Wed, 04 Dec 2013 07:24:05 -0800
-Message-ID: <1386170645.30495.108.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <529DE13D.2070509@huawei.com>	<529E9579.7090201@cn.fujitsu.com>
-			<529EA9CF.2090008@huawei.com>
-		 <20131203.232122.852236751455974887.davem@davemloft.net>
-		 <529EC95A.5080908@huawei.com>
-	 <1386138457.30495.86.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <529EF30A.4050609@huawei.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: Supporting 4 way connections in LKSCTP
+Date: Wed, 04 Dec 2013 10:41:14 -0500
+Message-ID: <529F4D1A.3050304@gmail.com>
+References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>	<CAFXGftLsKm9a5bmXX4Fe+rnSvYVdBDOyYGwisRP7XMu+ky=DGw@mail.gmail.com>	<CAFXGftLt1p6XpR2eGsMYKjEbbOHvch-LgcFw1sAXThcA2Rtjyw@mail.gmail.com>	<20131127124530.GA23369@hmsreliant.think-freely.org>	<CAFXGftJQV=5Pqs3bhfiS3T1VO1q8jfaMjAUiqm2tDbtSyBCM3A@mail.gmail.com>	<529C9B50.50002@gmail.com>	<CAGugRbXFirQ5P3ek9zN86h4vvO6qsy3eNEooJOApotA+dL+C_g@mail.gmail.com>	<529CB859.9090904@gmail.com>	<CAFXGft+F52p+oaa59=5e5pGfON44N36NA-XMYi5PorzWeybnKw@mail.gmail.com>	<CAFXGft+4o6fT4SYbu3musC+-BEi=xOEGUbZSavF1-0_V1mg6zg@mail.gmail.com>	<529D3BF9.3070208@gmail.com>	<CAFXGftJtCCJ=pVxg_DH-+n2bKmoKXavog0y8mfX+h-1z3hP49Q@mail.gmail.com>	<529DCF42.1070800@gmail.com>	<CAFXGftK5tz90OzObiV7Hi+g080j3zWCNdo217CKdNkOY4JWQUg@mail.gmail.com>	
+ <529DF73E.7060604@gmail.com> <CAFXGftKZD0zN1S=UTa_bYr71-v=7mzU=_CewTNkjPv9CGGB_Fg@mail.gmail.com> <529F395B.9040308@gmail.com> <AE90C24D6B3A694183C094C60CF0A2F6026B745D@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, gaofeng@cn.fujitsu.com,
-	yoshfuji@linux-ipv6.org, joe@perches.com, vfalico@redhat.com,
-	netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:48346 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932319Ab3LDPYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 10:24:07 -0500
-Received: by mail-pd0-f172.google.com with SMTP id g10so22544779pdj.17
-        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 07:24:06 -0800 (PST)
-In-Reply-To: <529EF30A.4050609@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Karl Heiss <kheiss@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-kernel@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>,
+	Sun Paul <paulrbk@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B745D@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-12-04 at 17:16 +0800, Ding Tianhong wrote:
-> >> 						base->running_timer = neigh->timer;
-> >> 						neigh_timer_handler() => at this time, refcnt is 2;
-> >>
-> >> user->	neigh_changeaddr()
-> >> 	neigh_flush_dev();
-> >> 	neigh_del_imer, refcnt dec to 1;
-> > 
-> > Nope : del_timer() would return 0 here, so we do not decrement refcnt.
-> > 
+On 12/04/2013 09:50 AM, David Laight wrote:
+>>> In normal operation, IP-A sends INIT to IP-X, IP-X returns INIT_ACK to
+>>> IP-A. IP-A then sends HB to IP-X, IP-X then returns HB_ACK to IP-A. In
+>>> the meantime, IP-B sends HB to IP-Y and IPY returns HB_ACK.
+>>>
+>>> In case of the path between IP-A and IP-X is broken, IP-B sends INIT
+>>> to IP-X, NODE-B uses IP-Y to return INIT_ACK to IP-B. Then IP-B sends
+>>> HB to IP-X, and IP-Y returns HB_ACK to IP-B. In the meantime, the HB
+>>> communication between IP-B and IP-Y follows the normal flow.
+>>>
+>>> Can I confirm, is it really valid?
+>>
+>> As long as NODE-B knows about both IP-A and IP-B, and NODE-A knows about
+>> both IP-X and IP-Y (meaning all the addresses were exchanged inside INIT
+>> and INIT-ACK), then this situation is perfectly valid.  In fact, this
+>> has been tested an multiple interops.
 > 
-> The first call for del_timer() will return 1, because the timer->entry.next is not NULL,
-> then in the neigh_destroy, the del_timer() again will return 0 because timer->entry.next is NULL. 
+> There are some network configurations that do cause problems.
+> Consider 4 systems with 3 LAN segments:
+> A) 10.10.10.1 on LAN X and 192.168.1.1 on LAN Y.
+> B) 10.10.10.2 on LAN X and 192.168.1.2 on LAN Y.
+> C) 10.10.10.3 on LAN X.
+> D) 10.10.10.4 on LAN X and 192.168.1.2 on LAN Z.
+> There are no routers between the networks (and none of the systems
+> are running IP forwarding).
+> 
+> If A connects to B everything is fine - traffic can use either LAN.
+> 
+> Connections from A to C are problematic if C tries to send anything
+> (except a HB) to 192.168.1.1 before receiving a HB response.
+> One of the SCTP stacks we've used did send messages to an
+> inappropriate address, but I've forgotten which one.
 
-Again no. You are very mistaken.
+I guess that would be problematic if A can not receive traffic for
+192.168.1.1 on the interface connected to LAN X.  I shouldn't
+technically be a problem for C as it should mark the path to 192.168.1.1
+as down.  For A, as long as it doesn't decide to ABORT the association,
+it shouldn't be a problem either.  It would be interesting to know more
+about what problems you've observed.
 
-del_timer() return code is not a hint. Its a precise meaning.
+> 
+> Connections between A and D fail unless the HB errors A receives
+> for 192.168.1.2 are ignored.
 
-It cannot return 1 if the timer function is running or is about to run.
+Yes, this configuration is very error prone, especially if system B and
+system D are up at the same time.  Any attempts by system A to use
+LAN Y will result in an ABORT generated by system B.  I have seen
+this issue well in production and we had to renumber system D to solve
+it.
 
-If you believe there is  bug in del_timer(), fix it ;)
+-vlad
+> 
+> Of course the application could explicitly bind to only the 10.x address
+> but that requires the application know the exact network topology
+> and may be difficult for incoming calls.
+> 
+> 	David
+> 
