@@ -1,88 +1,97 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] xen/pvhvm: If xen_platform_pci=0 is set don't blow up.
-Date: Wed, 4 Dec 2013 11:23:40 +0000
-Message-ID: <1386156220.17466.29.camel@kazak.uk.xensource.com>
-References: <1386105246-14337-1-git-send-email-konrad.wilk@oracle.com>
-	   <1386149848.13256.86.camel@kazak.uk.xensource.com>
-	   <alpine.DEB.2.02.1312041049310.7093@kaball.uk.xensource.com>
-	  <1386154783.17466.14.camel@kazak.uk.xensource.com>
-	  <alpine.DEB.2.02.1312041104110.7093@kaball.uk.xensource.com>
-	 <1386155291.17466.19.camel@kazak.uk.xensource.com>
-	 <alpine.DEB.2.02.1312041116230.7093@kaball.uk.xensource.com>
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: Re: Spurious timeouts in mvmdio
+Date: Wed, 04 Dec 2013 12:40:24 +0100
+Message-ID: <529F14A8.3020109@freebox.fr>
+References: <529CA42A.3040504@freebox.fr> <20131203122346.GD29282@titan.lakedaemon.net> <20131203124033.GT16735@n2100.arm.linux.org.uk> <abe249f5cba5c267e2c536bd62c57908@doppler.thel33t.co.uk> <529E5F03.8040607@gmail.com> <8d65780eb7bfe49bb0734a09f05f70a6@doppler.thel33t.co.uk> <529E66A4.4050000@gmail.com> <ae69666fd3b61411d7bbd9ac993cec13@doppler.thel33t.co.uk> <20131203234209.GW16735@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	<xen-devel@lists.xenproject.org>, <linux-kernel@vger.kernel.org>,
-	<boris.ostrovsky@oracle.com>, <david.vrabel@citrix.com>,
-	<leosilva@linux.vnet.ibm.com>, <ashley@ashleylai.com>,
-	<peterhuewe@gmx.de>, <mail@srajiv.net>, <tpmdd@selhorst.net>,
-	<tpmdd@sirrix.com>, <dmitry.torokhov@gmail.com>,
-	<bhelgaas@google.com>, <plagnioj@jcrosoft.com>,
-	<tomi.valkeinen@ti.com>, <tpmdd-devel@lists.sourceforge.net>,
-	<linux-input@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-pci@vger.kernel.org>, <linux-fbdev@vger.kernel.org>
-To: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Florian Fainelli <florian@openwrt.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Leigh Brown <leigh@solinno.co.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1312041116230.7093@kaball.uk.xensource.com>
+In-Reply-To: <20131203234209.GW16735@n2100.arm.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-12-04 at 11:18 +0000, Stefano Stabellini wrote:
-> On Wed, 4 Dec 2013, Ian Campbell wrote:
-> > On Wed, 2013-12-04 at 11:05 +0000, Stefano Stabellini wrote:
-> > > On Wed, 4 Dec 2013, Ian Campbell wrote:
-> > > > On Wed, 2013-12-04 at 10:51 +0000, Stefano Stabellini wrote:
-> > > > > On Wed, 4 Dec 2013, Ian Campbell wrote:
-> > > > > > > +bool xen_has_pv_devices(void)
-> > > > > > > +{
-> > > > > > > +	if (!xen_domain())
-> > > > > > > +		return false;
-> > > > > > > +
-> > > > > > > +	if (xen_hvm_domain()) {
-> > > > > > > +		/* User requested no unplug, so no PV drivers. */
-> > > > > > > +		if (xen_emul_unplug & XEN_UNPLUG_NEVER)
-> > > > > > > +			return false;
-> > > > > > 
-> > > > > > I think you need
-> > > > > > 		if (xen_emul_unpug & XEN_UNPLUG_UNNECESSARY)
-> > > > > > 			return true;
-> > > > > > don't you?
-> > > > > 
-> > > > > XEN_UNPLUG_UNNECESSARY was introduced to enable the platform PCI device
-> > > > > even if it didn't respond properly to the unplug protocol.
-> > > > > The corresponding parameter is called "unnecessary" because if you pass
-> > > > > it to the kernel you mean that it is unnecessary to unplug the emulated
-> > > > > devices but you can use the pv devices anyway.
-> > > > > 
-> > > > > So no, we shouldn't check for XEN_UNPLUG_UNNECESSARY here.
-> > > > 
-> > > > Oh, we will eventually fall through to the return true, so it does
-> > > > actually work out OK.
-> > > > 
-> > > > I'd still be in favour of handling each option explicitly, for clarity.
-> > > > Which means checking for XEN_UNPLUG_UNNECESSARY.
-> > > 
-> > > I think is wrong to check for any xen_emul_unpug options in this function.
-> > > The xen_emul_unpug options should be used to set the right value of
-> > > xen_platform_pci_unplug. (See my other reply.)
-> > 
-> > Whichever one we check we should still be checking explicitly for the
-> > "unnecessary" case, for clarity if nothing else.
-> 
-> Sure, that is OK for me.
-> In that case should we check for the full list of possible options?
+On 12/04/2013 12:42 AM, Russell King - ARM Linux wrote:
+>> This will make it correct when using interrupts but it will make the
+>> loop wait one jiffie longer than it should when polling.
+>
+> Alternatively, code it like this instead.
+>
+>   drivers/net/ethernet/marvell/mvmdio.c |   32 +++++++++++++++-----------------
+>   1 files changed, 15 insertions(+), 17 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+> index 7354960b583b..a6f59831fc5b 100644
+> --- a/drivers/net/ethernet/marvell/mvmdio.c
+> +++ b/drivers/net/ethernet/marvell/mvmdio.c
+> @@ -76,31 +76,29 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
+>   {
+>   	struct orion_mdio_dev *dev = bus->priv;
+>   	unsigned long timeout = usecs_to_jiffies(MVMDIO_SMI_TIMEOUT);
+> -	unsigned long end = jiffies + timeout;
+> -	int timedout = 0;
+>
+> -	while (1) {
+> -	        if (orion_mdio_smi_is_done(dev))
+> +	if (dev->err_interrupt > 0) {
+> +		if (wait_event_timeout(dev->smi_busy_wait,
+> +				       orion_mdio_smi_is_done(dev),
+> +				       1 + timeout))
+>   			return 0;
+> -	        else if (timedout)
+> -			break;
+> +	} else {
+> +		unsigned long end = jiffies + timeout;
+>
+> -	        if (dev->err_interrupt <= 0) {
+> -			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
+> -				     MVMDIO_SMI_POLL_INTERVAL_MAX);
+> +		while (1) {
+> +	        	if (orion_mdio_smi_is_done(dev))
+> +				return 0;
+>
+>   			if (time_is_before_jiffies(end))
+> -				++timedout;
+> -	        } else {
+> -			wait_event_timeout(dev->smi_busy_wait,
+> -				           orion_mdio_smi_is_done(dev),
+> -				           timeout);
+> -
+> -			++timedout;
+> -	        }
+> +				break;
+> +
+> +			usleep_range(MVMDIO_SMI_POLL_INTERVAL_MIN,
+> +				     MVMDIO_SMI_POLL_INTERVAL_MAX);
+> +		}
+>   	}
+>
+>   	dev_err(bus->parent, "Timeout: SMI busy for too long\n");
+> +
+>   	return  -ETIMEDOUT;
+>   }
 
-We probably should. That probably means an extra
-xen_has_pv_{disk,nic}_devices() which is the existing one plus the
-specific checks?
+Hi Russell,
 
-> 
->             ide-disks -- unplug primary master IDE devices
-> 			aux-ide-disks -- unplug non-primary-master IDE devices
-> 			nics -- unplug network devices
-> 			all -- unplug all emulated devices (NICs and IDE disks)
-> 			unnecessary -- unplugging emulated devices is
-> 				unnecessary even if the host did not respond to
-> 				the unplug protocol
-> 			never -- do not unplug even if version check succeeds
+I have just tested your patch on MV88F6281 and MV88F6282 both in polling and 
+irq mode and it works just fine.
+
+I had a similar patch almost ready to submit but you were faster than me.
+
+Feel free to add my:
+
+Tested-by: Nicolas Schichan <nschichan@freebox.fr>
+
+Thanks,
+
+-- 
+Nicolas Schichan
+Freebox SAS
