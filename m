@@ -1,62 +1,57 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
 Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Tue, 3 Dec 2013 16:55:33 -0800
-Message-ID: <CAMEtUuy8HA1nOQJTnxy+p7vNFV25zxMAmz1fh2spj0k4hYgh4w@mail.gmail.com>
-References: <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
-	<1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com>
-	<20131203.165034.1085515763685633822.davem@davemloft.net>
-	<1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com>
-	<1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAMEtUuzEM957fRjsb5aSG7xHWKp13fy59QxWpsU_=d+-6ydazg@mail.gmail.com>
-	<1386117362.30495.49.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Tue, 3 Dec 2013 17:29:06 -0800 (PST)
+Message-ID: <alpine.LFD.2.03.1312031725150.7539@intel.com>
+References: <529DF340.70602@mellanox.com> <1386084620.30495.28.camel@edumazet-glaptop2.roam.corp.google.com> <CAJZOPZJ9WM1H9zKNzT5MvQ2UH7RxkTLk2Rhzsk9vdvKz6d2uAw@mail.gmail.com> <alpine.LFD.2.03.1312031310140.23893@intel.com>
+ <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com> <alpine.LFD.2.03.1312031500020.570@intel.com> <CAJZOPZLT_3msfz_XY45GOBMWK_y8WEYBTq3rGRUijpYyXE1ddg@mail.gmail.com> <alpine.LFD.2.03.1312031626400.7539@intel.com>
+ <CAMEtUuzBpiZEzSxK7315dpJWT6LVb09hFNABUktq_0HMu9bhcQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
 	Jerry Chu <hkchu@google.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Eric Dumazet <edumazet@google.com>,
 	Pravin B Shelar <pshelar@nicira.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:53714 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755776Ab3LDAze (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Dec 2013 19:55:34 -0500
-Received: by mail-wi0-f178.google.com with SMTP id ca18so7418861wib.17
-        for <netdev@vger.kernel.org>; Tue, 03 Dec 2013 16:55:33 -0800 (PST)
-In-Reply-To: <1386117362.30495.49.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga09.intel.com ([134.134.136.24]:2413 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755412Ab3LDBLj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Dec 2013 20:11:39 -0500
+In-Reply-To: <CAMEtUuzBpiZEzSxK7315dpJWT6LVb09hFNABUktq_0HMu9bhcQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 3, 2013 at 4:36 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2013-12-03 at 16:26 -0800, Alexei Starovoitov wrote:
->
->>
->> Could you use some other way to mark skb ?
->
-> I could ;)
->
->> In tracing we might want to examine skb more carefully and not being
->> able to see the device
->> will limit the usability of this tracepoint.
->
-> Unfortunately, using skb->dev as a pointer to device would be buggy or
-> expensive (you would need to take a reference on device in order not
-> letting it disappear, as we escape RCU protection)
 
-well, yes, you might have an skb around when device is already freed
-when skb_dst_noref.
-but I'm not suggesting anything expensive. Tracing definitely should
-not add overhead by doing rcu_lock() or dev_hold(). Instead it can go
-through skb, skb->dev, skb->dev->xxx via probe_kernel_read(). If dev
-is gone, it's still safe.
 
-> Anyway, this magic is pretty easy to change, I am open to suggestions.
+On Tue, 3 Dec 2013, Alexei Starovoitov wrote:
 
-you're the expert :) use skb->mark field, since it's unused during
-freeing path... ?
+> On Tue, Dec 3, 2013 at 4:35 PM, Joseph Gasparakis
+> <joseph.gasparakis@intel.com> wrote:
+> >
+> > I was printing the gso_type in vxlan_xmit_skb(), right before
+> > iptunnel_xmit() gets called (I was focus UDPv4 encap only). Then I saw the
+> > gso_type was different when a VM was involved and when it was not
+> > (although I was transmitting exactly the same packet), and then I replaced
+> > my printk with something like skb_shinfo(skb)->gso_type = <the gso type I had
+> > for non-VM skb> and it all worked.
+> >
+> > Then I looked into what was different between the two gso_types and the
+> > only difference was that SKB_GSO_DODGY was set when Tx'ing from the VM.
+> > I am sure I could have been more delicate with the aproach, but hey, it
+> > worked for me.
+> 
+> hmm. dodgy should be a normal path from vm.
+> kvm suppose to negotiate vnet_hdr for tap/macvtap and corresponding
+> driver will be remapping virtio_net_gso* flags into skb_gso_* flags
+> plus gso_dodgy.
+> 
+
+Then would the fix be as simple as just unsetting the bit in vxlan? 
+Because I am guessing that there is a bug somewhere where the combination of 
+GSO_UDP_TUNNEL and GSO_DODGY. That would solve my problem, hopefully Or's 
+too if it is the same.
