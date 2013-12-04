@@ -1,54 +1,76 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: Supporting 4 way connections in LKSCTP
-Date: Wed, 4 Dec 2013 14:50:46 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B745D@saturn3.aculab.com>
-References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>	<5294BC01.7090605@gmail.com>	<CAFXGftLsKm9a5bmXX4Fe+rnSvYVdBDOyYGwisRP7XMu+ky=DGw@mail.gmail.com>	<CAFXGftLt1p6XpR2eGsMYKjEbbOHvch-LgcFw1sAXThcA2Rtjyw@mail.gmail.com>	<20131127124530.GA23369@hmsreliant.think-freely.org>	<CAFXGftJQV=5Pqs3bhfiS3T1VO1q8jfaMjAUiqm2tDbtSyBCM3A@mail.gmail.com>	<529C9B50.50002@gmail.com>	<CAGugRbXFirQ5P3ek9zN86h4vvO6qsy3eNEooJOApotA+dL+C_g@mail.gmail.com>	<529CB859.9090904@gmail.com>	<CAFXGft+F52p+oaa59=5e5pGfON44N36NA-XMYi5PorzWeybnKw@mail.gmail.com>	<CAFXGft+4o6fT4SYbu3musC+-BEi=xOEGUbZSavF1-0_V1mg6zg@mail.gmail.com>	<529D3BF9.3070208@gmail.com>	<CAFXGftJtCCJ=pVxg_DH-+n2bKmoKXavog0y8mfX+h-1z3hP49Q@mail.gmail.com>	<529DCF42.1070800@gmail.com>	<CAFXGftK5tz90OzObiV7Hi+g080j3zWCNdo217C
- KdNkOY4JWQUg@mail.gmail.com>	<529DF73E.7060604@gmail.com> <CAFXGftKZD0zN1S=UTa_bYr71-v=7mzU=_CewTNkjPv9CGGB_Fg@mail.gmail.com> <529F395B.9040308@gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v2] macvlan: Support creating macvtaps from macvlans
+Date: Wed, 04 Dec 2013 09:57:32 -0500
+Message-ID: <529F42DC.2060804@gmail.com>
+References: <1386043991-4372-1-git-send-email-kevin@pentabarf.net> <1386068122-12039-1-git-send-email-kevin@pentabarf.net> <529E0421.2090504@gmail.com> <20131203194707.GA32367@lion.mk-sys.cz> <529F3539.2070305@gmail.com> <20131204142314.GB28692@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>,
-	"Karl Heiss" <kheiss@gmail.com>,
-	"Neil Horman" <nhorman@tuxdriver.com>,
-	<linux-kernel@vger.kernel.org>
-To: "Vlad Yasevich" <vyasevich@gmail.com>,
-	"Sun Paul" <paulrbk@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <529F395B.9040308@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Kevin Wallace <kevin@pentabarf.net>, netdev@vger.kernel.org
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f47.google.com ([209.85.213.47]:49084 "EHLO
+	mail-yh0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932334Ab3LDO5g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 09:57:36 -0500
+Received: by mail-yh0-f47.google.com with SMTP id 29so11286199yhl.6
+        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 06:57:35 -0800 (PST)
+In-Reply-To: <20131204142314.GB28692@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiA+IEluIG5vcm1hbCBvcGVyYXRpb24sIElQLUEgc2VuZHMgSU5JVCB0byBJUC1YLCBJUC1YIHJl
-dHVybnMgSU5JVF9BQ0sgdG8NCj4gPiBJUC1BLiBJUC1BIHRoZW4gc2VuZHMgSEIgdG8gSVAtWCwg
-SVAtWCB0aGVuIHJldHVybnMgSEJfQUNLIHRvIElQLUEuIEluDQo+ID4gdGhlIG1lYW50aW1lLCBJ
-UC1CIHNlbmRzIEhCIHRvIElQLVkgYW5kIElQWSByZXR1cm5zIEhCX0FDSy4NCj4gPg0KPiA+IElu
-IGNhc2Ugb2YgdGhlIHBhdGggYmV0d2VlbiBJUC1BIGFuZCBJUC1YIGlzIGJyb2tlbiwgSVAtQiBz
-ZW5kcyBJTklUDQo+ID4gdG8gSVAtWCwgTk9ERS1CIHVzZXMgSVAtWSB0byByZXR1cm4gSU5JVF9B
-Q0sgdG8gSVAtQi4gVGhlbiBJUC1CIHNlbmRzDQo+ID4gSEIgdG8gSVAtWCwgYW5kIElQLVkgcmV0
-dXJucyBIQl9BQ0sgdG8gSVAtQi4gSW4gdGhlIG1lYW50aW1lLCB0aGUgSEINCj4gPiBjb21tdW5p
-Y2F0aW9uIGJldHdlZW4gSVAtQiBhbmQgSVAtWSBmb2xsb3dzIHRoZSBub3JtYWwgZmxvdy4NCj4g
-Pg0KPiA+IENhbiBJIGNvbmZpcm0sIGlzIGl0IHJlYWxseSB2YWxpZD8NCj4gDQo+IEFzIGxvbmcg
-YXMgTk9ERS1CIGtub3dzIGFib3V0IGJvdGggSVAtQSBhbmQgSVAtQiwgYW5kIE5PREUtQSBrbm93
-cyBhYm91dA0KPiBib3RoIElQLVggYW5kIElQLVkgKG1lYW5pbmcgYWxsIHRoZSBhZGRyZXNzZXMg
-d2VyZSBleGNoYW5nZWQgaW5zaWRlIElOSVQNCj4gYW5kIElOSVQtQUNLKSwgdGhlbiB0aGlzIHNp
-dHVhdGlvbiBpcyBwZXJmZWN0bHkgdmFsaWQuICBJbiBmYWN0LCB0aGlzDQo+IGhhcyBiZWVuIHRl
-c3RlZCBhbiBtdWx0aXBsZSBpbnRlcm9wcy4NCg0KVGhlcmUgYXJlIHNvbWUgbmV0d29yayBjb25m
-aWd1cmF0aW9ucyB0aGF0IGRvIGNhdXNlIHByb2JsZW1zLg0KQ29uc2lkZXIgNCBzeXN0ZW1zIHdp
-dGggMyBMQU4gc2VnbWVudHM6DQpBKSAxMC4xMC4xMC4xIG9uIExBTiBYIGFuZCAxOTIuMTY4LjEu
-MSBvbiBMQU4gWS4NCkIpIDEwLjEwLjEwLjIgb24gTEFOIFggYW5kIDE5Mi4xNjguMS4yIG9uIExB
-TiBZLg0KQykgMTAuMTAuMTAuMyBvbiBMQU4gWC4NCkQpIDEwLjEwLjEwLjQgb24gTEFOIFggYW5k
-IDE5Mi4xNjguMS4yIG9uIExBTiBaLg0KVGhlcmUgYXJlIG5vIHJvdXRlcnMgYmV0d2VlbiB0aGUg
-bmV0d29ya3MgKGFuZCBub25lIG9mIHRoZSBzeXN0ZW1zDQphcmUgcnVubmluZyBJUCBmb3J3YXJk
-aW5nKS4NCg0KSWYgQSBjb25uZWN0cyB0byBCIGV2ZXJ5dGhpbmcgaXMgZmluZSAtIHRyYWZmaWMg
-Y2FuIHVzZSBlaXRoZXIgTEFOLg0KDQpDb25uZWN0aW9ucyBmcm9tIEEgdG8gQyBhcmUgcHJvYmxl
-bWF0aWMgaWYgQyB0cmllcyB0byBzZW5kIGFueXRoaW5nDQooZXhjZXB0IGEgSEIpIHRvIDE5Mi4x
-NjguMS4xIGJlZm9yZSByZWNlaXZpbmcgYSBIQiByZXNwb25zZS4NCk9uZSBvZiB0aGUgU0NUUCBz
-dGFja3Mgd2UndmUgdXNlZCBkaWQgc2VuZCBtZXNzYWdlcyB0byBhbg0KaW5hcHByb3ByaWF0ZSBh
-ZGRyZXNzLCBidXQgSSd2ZSBmb3Jnb3R0ZW4gd2hpY2ggb25lLg0KDQpDb25uZWN0aW9ucyBiZXR3
-ZWVuIEEgYW5kIEQgZmFpbCB1bmxlc3MgdGhlIEhCIGVycm9ycyBBIHJlY2VpdmVzDQpmb3IgMTky
-LjE2OC4xLjIgYXJlIGlnbm9yZWQuDQoNCk9mIGNvdXJzZSB0aGUgYXBwbGljYXRpb24gY291bGQg
-ZXhwbGljaXRseSBiaW5kIHRvIG9ubHkgdGhlIDEwLnggYWRkcmVzcw0KYnV0IHRoYXQgcmVxdWly
-ZXMgdGhlIGFwcGxpY2F0aW9uIGtub3cgdGhlIGV4YWN0IG5ldHdvcmsgdG9wb2xvZ3kNCmFuZCBt
-YXkgYmUgZGlmZmljdWx0IGZvciBpbmNvbWluZyBjYWxscy4NCg0KCURhdmlkDQoNCg==
+On 12/04/2013 09:23 AM, Michal Kubecek wrote:
+> On Wed, Dec 04, 2013 at 08:59:21AM -0500, Vlad Yasevich wrote:
+>> On 12/03/2013 02:47 PM, Michal Kubecek wrote:
+>>> On Tue, Dec 03, 2013 at 11:17:37AM -0500, Vlad Yasevich wrote:
+>>>>
+>>>> the other question is should this be done in a loop?  What happens if
+>>>> you have nested namespaces?
+>>>
+>>> Nested namespaces are not a problem, what would be a problem, would be
+>>> having a macvlan (macvtap) device on top of another macvlan. But the
+>>> purpose of this particular code is to prevent it and use the underlying
+>>> "real" device instead. That's why unlike vlan_dev_real_dev(),
+>>> macvlan_dev_real_dev() doesn't need to recurse.
+>>
+>> Wait,  so you have a namespace that uses macvlan to access the net.
+>> That macvlan is configured on top of another macvlan, so you need to
+>> get to the lower level device.  I understand that.  What I am asking
+>> is that what happens if you have a namespace within a namespace with
+>> the same network access restrictions.  The code as is, will think that
+>> the first level macvlan is the real device.  Is this setup practical...
+> 
+> My understanding is this:
+> 
+> We have eth0, a real ethernet device in init_net. We create a macvlan
+> device mv1 on top of it and put it into a namespace, say ns1. Inside
+> ns1, we can't see eth0 so that we cannot do
+> 
+>   ip link add mv2 link eth0 type macvlan mode bridge
+> 
+> The purpose of this code is to allow
+> 
+>   ip link add mv2 link mv1 type macvlan mode bridge
+> 
+> but to use eth0 as lowerdev of mv2 instead. If we then put mv2 into
+> another namespace ns2, there is still no problem because its lowerdev is
+> also eth0 (even if we cannot see it inside ns2) so that
+> 
+>   ip link add mv3 link mv2 type macvlan mode bridge
+> 
+> in fact creates mv3 with lowerdev eth0 again.
+
+I see now, this makes total sense...
+
+> 
+> However, what I'm not sure about is whether there is something to
+> prevent building e.g. a macvlan on top of a (802.1q) VLAN on top of
+> a macvlan.
+
+That looks like it will create a new macvlan port on top of the VLAN
+interface and use the VLAN as the lower_dev.  I think it'll still work.
+
+-vlad
+> 
+>                                                      Michal Kubecek
+> 
