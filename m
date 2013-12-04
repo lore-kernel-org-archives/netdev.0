@@ -1,159 +1,120 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net 4/7] bridge: Fix the way checking if a local fdb entry
- can be deleted
-Date: Wed, 04 Dec 2013 11:40:58 -0500
-Message-ID: <529F5B1A.4030806@redhat.com>
-References: <1385966439-26526-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>	 <1385966439-26526-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>	 <529CBE61.8030402@redhat.com> <1386074738.4038.65.camel@ubuntu-vm-makita>	 <529DFB8C.2080300@redhat.com> <1386145789.3704.19.camel@ubuntu-vm-makita>
-Reply-To: vyasevic@redhat.com
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: Re: [PATCH] xen/pvhvm: If xen_platform_pci=0 is set don't blow up.
+Date: Wed, 4 Dec 2013 08:42:18 -0800
+Message-ID: <20131204164218.GA8838@core.coreip.homeip.net>
+References: <1386105246-14337-1-git-send-email-konrad.wilk@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19087 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754074Ab3LDQlH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Dec 2013 11:41:07 -0500
-In-Reply-To: <1386145789.3704.19.camel@ubuntu-vm-makita>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stefano.stabellini@eu.citrix.com, ian.campbell@citrix.com,
+	xen-devel@lists.xenproject.org, linux-kernel@vger.kernel.org,
+	boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
+	leosilva@linux.vnet.ibm.com, ashley@ashleylai.com,
+	peterhuewe@gmx.de, mail@srajiv.net, tpmdd@selhorst.net,
+	tpmdd@sirrix.com, bhelgaas@google.com, plagnioj@jcrosoft.com,
+	tomi.valkeinen@ti.com, tpmdd-devel@lists.sourceforge.net,
+	linux-input@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, linux-fbdev@vger.kernel.org
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-input-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1386105246-14337-1-git-send-email-konrad.wilk@oracle.com>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/04/2013 03:29 AM, Toshiaki Makita wrote:
-> On Tue, 2013-12-03 at 10:41 -0500, Vlad Yasevich wrote:
->> On 12/03/2013 07:45 AM, Toshiaki Makita wrote:
->>> On Mon, 2013-12-02 at 12:07 -0500, Vlad Yasevich wrote:
->>>> On 12/02/2013 01:40 AM, Toshiaki Makita wrote:
->>>>> We should take into account the followings when deleting a local fdb entry.
->>>>>
->>>>> - nbp_vlan_find() can be used only when vid != 0 to check if an entry is
->>>>>   deletable, because a fdb entry with vid 0 can exist at any time but
->>>>>   nbp_vlan_find() always return false with vid 0.
->>>>>
->>>>>   Example of problematic case:
->>>>>     ip link set eth0 address 12:34:56:78:90:ab
->>>>>     ip link set eth1 address 12:34:56:78:90:ab
->>>>>     brctl addif br0 eth0
->>>>>     brctl addif br0 eth1
->>>>>     ip link set eth0 address aa:bb:cc:dd:ee:ff
->>>>>   Then, the fdb entry 12:34:56:78:90:ab will be deleted even though the
->>>>>   bridge port eth1 still has that address.
->>>>>
->>>>> - The port to which the bridge device is attached might needs a local entry
->>>>>   if its mac address is set manually.
->>>>>
->>>>>   Example of problematic case:
->>>>>     ip link set eth0 address 12:34:56:78:90:ab
->>>>>     brctl addif br0 eth0
->>>>>     ip link set br0 address 12:34:56:78:90:ab
->>>>>     ip link set eth0 address aa:bb:cc:dd:ee:ff
->>>>>   Then, the fdb still must have the entry 12:34:56:78:90:ab, but it will be
->>>>>   deleted.
->>>>>
->>>>> We can use br->dev->addr_assign_type to check if the address is manually
->>>>> set or not, but I propose another approach.
->>>>>
->>>>> Since we delete and insert local entries whenever changing mac address
->>>>> of the bridge device, we can change dst of the entry to NULL regardless of
->>>>> addr_assign_type when deleting an entry associated with a certain port,
->>>>> and if it is found to be unnecessary later, then delete it.
->>>>> That is, if changing mac address of a port, the entry might be changed
->>>>> to its dst being NULL first, but is eventually deleted when recalculating
->>>>> and changing bridge id.
->>>>>
->>>>> This approach is useful when we want to share the code with deleting
->>>>> vlan in which the bridge device might want such an entry regardless of
->>>>> addr_assign_type, and makes things easy because we don't have to consider
->>>>> if mac address of the bridge device will be changed or not at
->>>>> fdb_delete_local().
->>>>
->>>> This is a nifty approach, but it does have one side-effect that I am not
->>>> sure is correct.  In the case where bridge mac address is not manually
->>>> set, a fdb entry for the removed address survives past the
->>>> synchronize_net() call.  This would result in a behavioral change where
->>>> packets that always used to flood, would now sometimes be delivered
->>>> only to the bridge.
->>>
->>> I think no unnecessary entry will survive in any case.
->>> It will survive only if the bridge device remains to have the same mac
->>> address, because we check if the entry is necessary or not whenever the
->>> address of the bridge device is changed (assuming patch 3/7 is applied).
->>>
->>> Further analysis:
->>> The function fdb_delete_local() (and __fdb_delete_local()) will called
->>> by br_fdb_changeaddr(), br_fdb_change_mac_address(),
->>> br_fdb_delete_by_port() (with do_all==1), br_vlan_delete(), and
->>> nbp_vlan_delete() after all of this patch series are applied.
->>> So, we have to consider only these 5 functions.
->>>
->>> br_fdb_changeaddr():
->>> It is called by br_device_event().
->>> br_device_event() calls br_stp_recalculate_bridge_id() right after
->>> calling br_fdb_changeaddr(), so if the address of bridge device should
->>> be changed, the fdb entry will immediately reflect it and be deleted.
->>
->> This doesn't happen until later.  Currently nbp_del() will remove all
->> fdb entries for a given port.  With this patch, the local fdb entry for
->> the port will survive the removal process and the fdb->dst will be set
->> to NULL.
->> The port is now removed from the list, rx_handler is unregistered and we
->> push call synchronize_net() trying flush all packets currently in rcu
->> section.  Once this completes, the port and all the fdbs for it should
->> be removed, but now they are not. We have to wait for br_del_if() to
->> call the notifier call chain to remove the the fdb entry.  Any packet
->> arriving at the bridge for the mac address of the port that just got
->> removed will now be handed over to the bridge, instead of being flooded.
->> This is a change in behavior.
+Hi Konrad,
+
+On Tue, Dec 03, 2013 at 04:14:06PM -0500, Konrad Rzeszutek Wilk wrote:
+> The user has the option of disabling the platform driver:
+> 00:02.0 Unassigned class [ff80]: XenSource, Inc. Xen Platform Device (rev 01)
 > 
-> I see. Indeed this is a change in behavior.
+> which is used to unplug the emulated drivers (IDE, Realtek 8169, etc)
+> and allow the PV drivers to take over. If the user wishes
+> to disable that they can set:
 > 
-> But the bridge device still has the mac address after synchronize_net(),
-> and it will be actually changed in br_stp_recalculate_bridge_id().
-> Though that port has gone, as the bridge still uses the address, I'm
-> thinking the corresponding entry should exist.
-
-You are right in that the address is still assigned to bridge.  This is
-the same exact state the we have when adding a port to the bridge.
->From br_add_if():
-        err = netdev_rx_handler_register(dev, br_handle_frame, p);
-        ...
-        list_add_rcu(&p->list, &br->port_list);
-        ....
-        changed_addr = br_stp_recalculate_bridge_id(br);
-        ....
-        if (br_fdb_insert(br, p, dev->dev_addr, 0))
-
-So, we add the the port to the list, set the bridge mac address and then
-add the local fdb.  So, we have a short window where a mac address
-assigned to the bridge does not have an associated fdb.
-
-As I stated before, I am not sure if the side-effect you are introducing
-is OK or not.  It doesn't appear to be a problem from the fdb inspection
-side of things since we are holding the rtnl here.
-It might cause an issue if the a host behind a port might start using
-the address while the fdb is still alive.
-
-Now the way I see it, you have 2 options:
-  1) Add some text to the commit log to explain the new state
-  2) Add a check for addr_type to the if statement below
-
-> +	/* Maybe bridge device has same hw addr? */
-> +	if (p && ether_addr_equal(br->dev->dev_addr, addr) &&
-> +	    (!vid || br_vlan_find(br, vid))) {
-> +		f->dst = NULL;
-> +		return;
-> +	}
-> +
-
--vlad
-
+>   xen_platform_pci=0
+>   (in the guest config file)
 > 
-> Thanks,
-> Toshiaki Makita
+> or
+>   xen_emul_unplug=never
+>   (on the Linux command line)
 > 
->>
->> -vlad
+> except it does not work properly. The PV drivers still try to
+> load and since the Xen platform driver is not run - and it
+> has not initialized the grant tables, most of the PV drivers
+> stumble upon:
 > 
+> input: Xen Virtual Keyboard as /devices/virtual/input/input5
+> input: Xen Virtual Pointer as /devices/virtual/input/input6M
+> ------------[ cut here ]------------
+> kernel BUG at /home/konrad/ssd/konrad/linux/drivers/xen/grant-table.c:1206!
+> invalid opcode: 0000 [#1] SMP
+> Modules linked in: xen_kbdfront(+) xenfs xen_privcmd
+> CPU: 6 PID: 1389 Comm: modprobe Not tainted 3.13.0-rc1upstream-00021-ga6c892b-dirty #1
+> Hardware name: Xen HVM domU, BIOS 4.4-unstable 11/26/2013
+> RIP: 0010:[<ffffffff813ddc40>]  [<ffffffff813ddc40>] get_free_entries+0x2e0/0x300
+> Call Trace:
+>  [<ffffffff8150d9a3>] ? evdev_connect+0x1e3/0x240
+>  [<ffffffff813ddd0e>] gnttab_grant_foreign_access+0x2e/0x70
+>  [<ffffffffa0010081>] xenkbd_connect_backend+0x41/0x290 [xen_kbdfront]
+>  [<ffffffffa0010a12>] xenkbd_probe+0x2f2/0x324 [xen_kbdfront]
+>  [<ffffffff813e5757>] xenbus_dev_probe+0x77/0x130
+>  [<ffffffff813e7217>] xenbus_frontend_dev_probe+0x47/0x50
+>  [<ffffffff8145e9a9>] driver_probe_device+0x89/0x230
+>  [<ffffffff8145ebeb>] __driver_attach+0x9b/0xa0
+>  [<ffffffff8145eb50>] ? driver_probe_device+0x230/0x230
+>  [<ffffffff8145eb50>] ? driver_probe_device+0x230/0x230
+>  [<ffffffff8145cf1c>] bus_for_each_dev+0x8c/0xb0
+>  [<ffffffff8145e7d9>] driver_attach+0x19/0x20
+>  [<ffffffff8145e260>] bus_add_driver+0x1a0/0x220
+>  [<ffffffff8145f1ff>] driver_register+0x5f/0xf0
+>  [<ffffffff813e55c5>] xenbus_register_driver_common+0x15/0x20
+>  [<ffffffff813e76b3>] xenbus_register_frontend+0x23/0x40
+>  [<ffffffffa0015000>] ? 0xffffffffa0014fff
+>  [<ffffffffa001502b>] xenkbd_init+0x2b/0x1000 [xen_kbdfront]
+>  [<ffffffff81002049>] do_one_initcall+0x49/0x170
 > 
+> .. snip..
+> 
+> which is hardly nice. This patch fixes this by having each
+> PV driver check for:
+>  - if running in PV, then it is fine to execute (as that is their
+>    native environment).
+>  - if running in HVM, check if user wanted 'xen_emul_unplug=never',
+>    in which case bail out and don't load PV drivers.
+>  - if running in HVM, and if PCI device 5853:0001 (xen_platform_pci)
+>    does not exist, then bail out and not load PV drivers.
+> 
+> P.S.
+> Ian Campbell suggested getting rid of 'xen_platform_pci_unplug'
+> but unfortunatly the xen-blkfront driver is using it, so we
+> cannot do it.
+> 
+> Reported-by: Sander Eikelenboom <linux@eikelenboom.it
+> Reported-by: Anthony PERARD <anthony.perard@citrix.com>
+> Reported-by: Fabio Fantoni <fabio.fantoni@m2r.biz>
+
+For input:
+
+Acked-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+
+...
+
+> +#if defined(CONFIG_XEN_PVHVM)
+> +extern bool xen_has_pv_devices(void);
+> +#else
+> +static inline bool xen_has_pv_devices(void)
+> +{
+> +#if defined(CONFIG_XEN)
+> +	return true;
+> +#else
+> +	return false;
+> +#endif
+
+	return IS_ENABLED(CONFIG_XEN);
+
+?
+
+Thanks.
+
+-- 
+Dmitry
