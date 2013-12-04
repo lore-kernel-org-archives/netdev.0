@@ -1,67 +1,75 @@
-From: Ben Pfaff <blp@nicira.com>
-Subject: Re: [PATCH openvswitch v3] netlink: Implement & enable memory mapped
- netlink i/o
-Date: Wed, 4 Dec 2013 10:08:18 -0800
-Message-ID: <20131204180818.GB16940@nicira.com>
-References: <1d9af26b2798901c68ae9aef704d6313b71d3287.1386069453.git.tgraf@redhat.com>
- <20131204163328.GE30874@nicira.com>
- <529F6475.3090903@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: Supporting 4 way connections in LKSCTP
+Date: Wed, 04 Dec 2013 13:15:44 -0500
+Message-ID: <529F7150.8080604@gmail.com>
+References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>	<CAFXGftLt1p6XpR2eGsMYKjEbbOHvch-LgcFw1sAXThcA2Rtjyw@mail.gmail.com>	<20131127124530.GA23369@hmsreliant.think-freely.org>	<CAFXGftJQV=5Pqs3bhfiS3T1VO1q8jfaMjAUiqm2tDbtSyBCM3A@mail.gmail.com>	<529C9B50.50002@gmail.com>	<CAGugRbXFirQ5P3ek9zN86h4vvO6qsy3eNEooJOApotA+dL+C_g@mail.gmail.com>	<529CB859.9090904@gmail.com>	<CAFXGft+F52p+oaa59=5e5pGfON44N36NA-XMYi5PorzWeybnKw@mail.gmail.com>	<CAFXGft+4o6fT4SYbu3musC+-BEi=xOEGUbZSavF1-0_V1mg6zg@mail.gmail.com>	<529D3BF9.3070208@gmail.com>	<CAFXGftJtCCJ=pVxg_DH-+n2bKmoKXavog0y8mfX+h-1z3hP49Q@mail.gmail.com>	<529DCF42.1070800@gmail.com>	<CAFXGftK5tz90OzObiV7Hi+g080j3zWCNdo217CKdNkOY4JWQUg@mail.gmail.com>	<529DF73E.7060604@gmail.com>	<CAFXGftKZD0zN1S=UTa_bYr71-v=7mzU=_CewTN
+ kjPv9CGGB_Fg@mail.gmail.com>	<529F395B.9040308@gmail.com>	<AE90C24D6B3A694183C094C60CF0A2F6026B745D@saturn3.aculab.com> <CAFXGftJsVzR8XgdEmcRKP8DePZoF+xGbaeS-RPgr2XNo7snF3g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jesse@nicira.com, dev@openvswitch.org, netdev@vger.kernel.org,
-	dborkman@redhat.com, ffusco@redhat.com, fleitner@redhat.com,
-	xiyou.wangcong@gmail.com
-To: Thomas Graf <tgraf@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:45376 "HELO
-	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932990Ab3LDSI0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 13:08:26 -0500
-Received: by mail-qc0-f176.google.com with SMTP id i8so3704732qcq.21
-        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 10:08:25 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <529F6475.3090903@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Karl Heiss <kheiss@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-kernel@vger.kernel.org
+To: Sun Paul <paulrbk@gmail.com>,
+	David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFXGftJsVzR8XgdEmcRKP8DePZoF+xGbaeS-RPgr2XNo7snF3g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 04, 2013 at 06:20:53PM +0100, Thomas Graf wrote:
-> On 12/04/2013 05:33 PM, Ben Pfaff wrote:
-> >If I'm doing the calculations correctly, this mmaps 8 MB per ring-based
-> >Netlink socket on a system with 4 kB pages.  OVS currently creates one
-> >Netlink socket for each datapath port.  With 1000 ports (a moderate
-> >number; we sometimes test with more), that is 8 GB of address space.  On
-> >a 32-bit architecture that is impossible.  On a 64-bit architecture it
-> >is possible but it may reserve an actual 8 GB of RAM: OVS often runs
-> >with mlockall() since it is something of a soft real-time system (users
-> >don't want their packet delivery delayed to page data back in).
-> >
-> >Do you have any thoughts about this issue?
+On 12/04/2013 12:57 PM, Sun Paul wrote:
+> As I know, the A to C and A to D case must have a router in between to form
+> SCTP multihome topology.
+
+Not necessary.  I've produced proper multihoming topologies with just
+VLANs and different subnet assignment.  You can even remove VLANs
+if you correctly set your arp_ignore and arp_announce values.
+
+-vlad
+
+> On Dec 4, 2013 10:51 PM, "David Laight" <David.Laight@aculab.com> wrote:
 > 
-> That's certainly a problem. I had the impression that the changes that
-> allow to consolidate multiple bridges to a single DP would minimize the
-> number of DPs used.
-
-Only one datapath is used, but OVS currently creates one Netlink
-socket for each port within that datapath.
-
-> How about we limit the number of mmaped sockets to a configurable
-> maximum that defaults to 16 or 32?
-
-Maybe you mean that we should only mmap some of the sockets that we
-create.  If so, this approach is reasonable, if one can come up with a
-good heuristic to decide which sockets should be mmaped.  One place
-one could start would be to mmap the sockets that correspond to
-physical ports.
-
-Maybe you mean that we should only create 16 or 32 Netlink sockets,
-and divide the datapath ports among those sockets.  OVS once used this
-approach.  We stopped using it because it has problems with fairness:
-if two ports are assigned to one socket, and one of those ports has a
-huge volume of new flows (or otherwise sends a lot of packets to
-userspace), then it can drown out the occasional packet from the other
-port.  We keep talking about new, more flexible approaches to
-achieving fairness, though, and maybe some of those approaches would
-allow us to reduce the number of sockets we need, which would make
-mmaping all of them feasible.
-
-Any further thoughts?
+>>>> In normal operation, IP-A sends INIT to IP-X, IP-X returns INIT_ACK to
+>>>> IP-A. IP-A then sends HB to IP-X, IP-X then returns HB_ACK to IP-A. In
+>>>> the meantime, IP-B sends HB to IP-Y and IPY returns HB_ACK.
+>>>>
+>>>> In case of the path between IP-A and IP-X is broken, IP-B sends INIT
+>>>> to IP-X, NODE-B uses IP-Y to return INIT_ACK to IP-B. Then IP-B sends
+>>>> HB to IP-X, and IP-Y returns HB_ACK to IP-B. In the meantime, the HB
+>>>> communication between IP-B and IP-Y follows the normal flow.
+>>>>
+>>>> Can I confirm, is it really valid?
+>>>
+>>> As long as NODE-B knows about both IP-A and IP-B, and NODE-A knows about
+>>> both IP-X and IP-Y (meaning all the addresses were exchanged inside INIT
+>>> and INIT-ACK), then this situation is perfectly valid.  In fact, this
+>>> has been tested an multiple interops.
+>>
+>> There are some network configurations that do cause problems.
+>> Consider 4 systems with 3 LAN segments:
+>> A) 10.10.10.1 on LAN X and 192.168.1.1 on LAN Y.
+>> B) 10.10.10.2 on LAN X and 192.168.1.2 on LAN Y.
+>> C) 10.10.10.3 on LAN X.
+>> D) 10.10.10.4 on LAN X and 192.168.1.2 on LAN Z.
+>> There are no routers between the networks (and none of the systems
+>> are running IP forwarding).
+>>
+>> If A connects to B everything is fine - traffic can use either LAN.
+>>
+>> Connections from A to C are problematic if C tries to send anything
+>> (except a HB) to 192.168.1.1 before receiving a HB response.
+>> One of the SCTP stacks we've used did send messages to an
+>> inappropriate address, but I've forgotten which one.
+>>
+>> Connections between A and D fail unless the HB errors A receives
+>> for 192.168.1.2 are ignored.
+>>
+>> Of course the application could explicitly bind to only the 10.x address
+>> but that requires the application know the exact network topology
+>> and may be difficult for incoming calls.
+>>
+>>         David
+>>
+>>
+> 
