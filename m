@@ -1,64 +1,63 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [ovs-dev] [PATCH v2.51 0/5] MPLS actions and matches
-Date: Wed, 4 Dec 2013 18:16:06 +0900
-Message-ID: <20131204091606.GG13951@verge.net.au>
-References: <1385005606-30130-1-git-send-email-horms@verge.net.au>
- <20131126080759.GA26597@verge.net.au>
- <20131126153347.GA2662@nicira.com>
- <20131127001230.GB5192@verge.net.au>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH] sctp: disable max_burst when the max_burst is 0
+Date: Wed, 4 Dec 2013 17:16:16 +0800
+Message-ID: <529EF2E0.7080606@huawei.com>
+References: <529C2E01.3090005@huawei.com> <20131202115640.GA10857@hmsreliant.think-freely.org> <DABC28BB-074A-42CE-ACEC-BE9893B4ED06@lurchi.franken.de> <529D7A82.3070207@huawei.com> <529EEE70.7090801@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dev@openvswitch.org, netdev@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>, Ravi K <rkerur@gmail.com>
-To: Ben Pfaff <blp@nicira.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Michael Tuexen <Michael.Tuexen@lurchi.franken.de>,
+	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<dingtianhong@huawei.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:38816 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754204Ab3LDJQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 04:16:09 -0500
-Content-Disposition: inline
-In-Reply-To: <20131127001230.GB5192@verge.net.au>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:27863 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754438Ab3LDJQ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 04:16:58 -0500
+In-Reply-To: <529EEE70.7090801@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 27, 2013 at 09:12:30AM +0900, Simon Horman wrote:
-> On Tue, Nov 26, 2013 at 07:33:47AM -0800, Ben Pfaff wrote:
-> > On Tue, Nov 26, 2013 at 05:08:04PM +0900, Simon Horman wrote:
-> > > On Thu, Nov 21, 2013 at 12:46:41PM +0900, Simon Horman wrote:
-> > > > Hi,
-> > > > 
-> > > > This series implements MPLS actions and matches based on work by
-> > > > Ravi K, Leo Alterman, Yamahata-san and Joe Stringer.
-> > > > 
-> > > > This series provides three changes
-> > > > 
-> > > > * Patches 1 - 3
-> > > > 
-> > > >   Provide user-space support for the VLAN/MPLS tag insertion order
-> > > >   up to and including OpenFlow 1.2, and the different ordering
-> > > >   specified from OpenFlow 1.3. In a nutshell the datapath always
-> > > >   uses the OpenFlow 1.3 ordering, which is to always insert tags
-> > > >   immediately after the L2 header, regardless of the presence of other
-> > > >   tags. And ovs-vswtichd provides compatibility for the behaviour up
-> > > >   to OpenFlow 1.2, which is that MPLS tags should follow VLAN tags
-> > > >   if present.
-> > > > 
-> > > >   Ben, these are for you to review.
-> > > 
-> > > Hi Ben,
-> > > 
-> > > I wonder if you could find some time to look over these.
-> > > 
-> > > I believe that the first patch has not previously been reviewed
-> > > but other than that there should be few areas of excitement.
-> > 
-> > I'm taking today and the remainder of this week off (Thursday and Friday
-> > are a holiday here in the U.S.), so unfortunately there is not much
-> > chance of progress before Monday.
+On 2013/12/4 16:57, Daniel Borkmann wrote:
+> On 12/03/2013 07:30 AM, Wang Weidong wrote:
+>> As Michael pointed out that when max_burst is 0, it just disable
+>> max_burst. It declared in rfc6458#section-8.1.24. so add the check
+>> in sctp_transport_burst_limited, when it 0, just do nothing.
+>>
+>> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
+>> Suggested-by: Michael Tuexen <Michael.Tuexen@lurchi.franken.de>
+>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>> ---
+>>   net/sctp/transport.c | 3 ++-
+>>   1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+>> index e332efb..e580e34 100644
+>> --- a/net/sctp/transport.c
+>> +++ b/net/sctp/transport.c
+>> @@ -573,7 +573,8 @@ void sctp_transport_burst_limited(struct sctp_transport *t)
+>>       u32 old_cwnd = t->cwnd;
+>>       u32 max_burst_bytes;
+>>
+>> -    if (t->burst_limited)
+>> +    /* if the max_burst is 0, do notihing */
+>> +    if (t->burst_limited || !asoc->max_burst)
+>>           return;
 > 
-> Enjoy your break :)
+> Minor nitpick ... you can remove the comment as it contains a typo and
+> basically says what the code is doing anyway, so you could instead make
+> the code a bit more clear for readers e.g. "asoc->max_burst == 0".
+> 
+Nice, Thanks for pointing it out for me. I will fix it in v2.
 
-Hi Ben,
+Regards.
 
-I know this has been dragging on and on.
-But I'd like to nicely ask you to consider reviewing this series.
+>>       max_burst_bytes = t->flight_size + (asoc->max_burst * asoc->pathmtu);
+>>
+> 
+> .
+> 
