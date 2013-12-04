@@ -1,78 +1,65 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: Supporting 4 way connections in LKSCTP
-Date: Wed, 04 Dec 2013 10:41:14 -0500
-Message-ID: <529F4D1A.3050304@gmail.com>
-References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>	<CAFXGftLsKm9a5bmXX4Fe+rnSvYVdBDOyYGwisRP7XMu+ky=DGw@mail.gmail.com>	<CAFXGftLt1p6XpR2eGsMYKjEbbOHvch-LgcFw1sAXThcA2Rtjyw@mail.gmail.com>	<20131127124530.GA23369@hmsreliant.think-freely.org>	<CAFXGftJQV=5Pqs3bhfiS3T1VO1q8jfaMjAUiqm2tDbtSyBCM3A@mail.gmail.com>	<529C9B50.50002@gmail.com>	<CAGugRbXFirQ5P3ek9zN86h4vvO6qsy3eNEooJOApotA+dL+C_g@mail.gmail.com>	<529CB859.9090904@gmail.com>	<CAFXGft+F52p+oaa59=5e5pGfON44N36NA-XMYi5PorzWeybnKw@mail.gmail.com>	<CAFXGft+4o6fT4SYbu3musC+-BEi=xOEGUbZSavF1-0_V1mg6zg@mail.gmail.com>	<529D3BF9.3070208@gmail.com>	<CAFXGftJtCCJ=pVxg_DH-+n2bKmoKXavog0y8mfX+h-1z3hP49Q@mail.gmail.com>	<529DCF42.1070800@gmail.com>	<CAFXGftK5tz90OzObiV7Hi+g080j3zWCNdo217CKdNkOY4JWQUg@mail.gmail.com>	
- <529DF73E.7060604@gmail.com> <CAFXGftKZD0zN1S=UTa_bYr71-v=7mzU=_CewTNkjPv9CGGB_Fg@mail.gmail.com> <529F395B.9040308@gmail.com> <AE90C24D6B3A694183C094C60CF0A2F6026B745D@saturn3.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Karl Heiss <kheiss@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-kernel@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>,
-	Sun Paul <paulrbk@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B745D@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: [PATCH RFCv2 1/6] net: mv643xx_eth: properly start/stop phy device
+Date: Wed,  4 Dec 2013 16:44:43 +0100
+Message-ID: <1386171888-28190-2-git-send-email-sebastian.hesselbarth@gmail.com>
+References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:46974 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932398Ab3LDPo6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 10:44:58 -0500
+In-Reply-To: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/04/2013 09:50 AM, David Laight wrote:
->>> In normal operation, IP-A sends INIT to IP-X, IP-X returns INIT_ACK to
->>> IP-A. IP-A then sends HB to IP-X, IP-X then returns HB_ACK to IP-A. In
->>> the meantime, IP-B sends HB to IP-Y and IPY returns HB_ACK.
->>>
->>> In case of the path between IP-A and IP-X is broken, IP-B sends INIT
->>> to IP-X, NODE-B uses IP-Y to return INIT_ACK to IP-B. Then IP-B sends
->>> HB to IP-X, and IP-Y returns HB_ACK to IP-B. In the meantime, the HB
->>> communication between IP-B and IP-Y follows the normal flow.
->>>
->>> Can I confirm, is it really valid?
->>
->> As long as NODE-B knows about both IP-A and IP-B, and NODE-A knows about
->> both IP-X and IP-Y (meaning all the addresses were exchanged inside INIT
->> and INIT-ACK), then this situation is perfectly valid.  In fact, this
->> has been tested an multiple interops.
-> 
-> There are some network configurations that do cause problems.
-> Consider 4 systems with 3 LAN segments:
-> A) 10.10.10.1 on LAN X and 192.168.1.1 on LAN Y.
-> B) 10.10.10.2 on LAN X and 192.168.1.2 on LAN Y.
-> C) 10.10.10.3 on LAN X.
-> D) 10.10.10.4 on LAN X and 192.168.1.2 on LAN Z.
-> There are no routers between the networks (and none of the systems
-> are running IP forwarding).
-> 
-> If A connects to B everything is fine - traffic can use either LAN.
-> 
-> Connections from A to C are problematic if C tries to send anything
-> (except a HB) to 192.168.1.1 before receiving a HB response.
-> One of the SCTP stacks we've used did send messages to an
-> inappropriate address, but I've forgotten which one.
+When using phydev, it should be phy_start/phy_stop'ed properly. This
+driver doesn't do that, so add the corresponding calls to port_start/
+stop respectively.
 
-I guess that would be problematic if A can not receive traffic for
-192.168.1.1 on the interface connected to LAN X.  I shouldn't
-technically be a problem for C as it should mark the path to 192.168.1.1
-as down.  For A, as long as it doesn't decide to ABORT the association,
-it shouldn't be a problem either.  It would be interesting to know more
-about what problems you've observed.
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+---
+Changelog:
+RFCv1->RFCv2:
+- initial, derived from netdev specific patches
+  (Suggested by Mugunthan and Florian)
 
-> 
-> Connections between A and D fail unless the HB errors A receives
-> for 192.168.1.2 are ignored.
+Cc: David Miller <davem@davemloft.net>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Mugunthan V N <mugunthanvnm@ti.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/ethernet/marvell/mv643xx_eth.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-Yes, this configuration is very error prone, especially if system B and
-system D are up at the same time.  Any attempts by system A to use
-LAN Y will result in an ABORT generated by system B.  I have seen
-this issue well in production and we had to renumber system D to solve
-it.
-
--vlad
-> 
-> Of course the application could explicitly bind to only the 10.x address
-> but that requires the application know the exact network topology
-> and may be difficult for incoming calls.
-> 
-> 	David
-> 
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 61088a6..3aa706f 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -2098,6 +2098,7 @@ static void port_start(struct mv643xx_eth_private *mp)
+ 		mv643xx_eth_get_settings(mp->dev, &cmd);
+ 		phy_reset(mp);
+ 		mv643xx_eth_set_settings(mp->dev, &cmd);
++		phy_start(mp->phy);
+ 	}
+ 
+ 	/*
+@@ -2293,7 +2294,8 @@ static int mv643xx_eth_stop(struct net_device *dev)
+ 	del_timer_sync(&mp->rx_oom);
+ 
+ 	netif_carrier_off(dev);
+-
++	if (mp->phy)
++		phy_stop(mp->phy);
+ 	free_irq(dev->irq, dev);
+ 
+ 	port_reset(mp);
+-- 
+1.7.2.5
