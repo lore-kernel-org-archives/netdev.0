@@ -1,69 +1,43 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH] xen/pvhvm: If xen_platform_pci=0 is set don't blow up.
-Date: Wed, 4 Dec 2013 11:48:03 -0500
-Message-ID: <20131204164802.GG391@pegasus.dumpdata.com>
-References: <1386105246-14337-1-git-send-email-konrad.wilk@oracle.com>
- <20131204164218.GA8838@core.coreip.homeip.net>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: Supporting 4 way connections in LKSCTP
+Date: Wed, 4 Dec 2013 16:48:16 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B745F@saturn3.aculab.com>
+References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>	<20131127124530.GA23369@hmsreliant.think-freely.org>	<CAFXGftJQV=5Pqs3bhfiS3T1VO1q8jfaMjAUiqm2tDbtSyBCM3A@mail.gmail.com>	<529C9B50.50002@gmail.com>	<CAGugRbXFirQ5P3ek9zN86h4vvO6qsy3eNEooJOApotA+dL+C_g@mail.gmail.com>	<529CB859.9090904@gmail.com>	<CAFXGft+F52p+oaa59=5e5pGfON44N36NA-XMYi5PorzWeybnKw@mail.gmail.com>	<CAFXGft+4o6fT4SYbu3musC+-BEi=xOEGUbZSavF1-0_V1mg6zg@mail.gmail.com>	<529D3BF9.3070208@gmail.com>	<CAFXGftJtCCJ=pVxg_DH-+n2bKmoKXavog0y8mfX+h-1z3hP49Q@mail.gmail.com>	<529DCF42.1070800@gmail.com>	<CAFXGftK5tz90OzObiV7Hi+g080j3zWCNdo217CKdNkOY4JWQUg@mail.gmail.com>	<529DF73E.7060604@gmail.com> <CAFXGftKZD0zN1S=UTa_bYr71-v=7mzU=_CewTNkjPv9CGGB_Fg@mail.gmail.com> <529F395B.9040308@gmail.com> <AE90C24D6B
+ 3A694183C094C60CF0A2F6026B745D@saturn3.aculab.com> <529F4D1A.3050304@gmail.com> <7A4B9BD9-B2BF-4625-A2E5-500CD4A6D399@lurchi.franken.de> <529F5472.9030207@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stefano.stabellini@eu.citrix.com, ian.campbell@citrix.com,
-	xen-devel@lists.xenproject.org, linux-kernel@vger.kernel.org,
-	boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
-	leosilva@linux.vnet.ibm.com, ashley@ashleylai.com,
-	peterhuewe@gmx.de, mail@srajiv.net, tpmdd@selhorst.net,
-	tpmdd@sirrix.com, bhelgaas@google.com, plagnioj@jcrosoft.com,
-	tomi.valkeinen@ti.com, tpmdd-devel@lists.sourceforge.net,
-	linux-input@vger.kernel.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, linux-fbdev@vger.kernel.org
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Sun Paul" <paulrbk@gmail.com>, <netdev@vger.kernel.org>,
+	<linux-sctp@vger.kernel.org>, "Karl Heiss" <kheiss@gmail.com>,
+	"Neil Horman" <nhorman@tuxdriver.com>,
+	<linux-kernel@vger.kernel.org>
+To: "Vlad Yasevich" <vyasevich@gmail.com>,
+	"Michael Tuexen" <Michael.Tuexen@lurchi.franken.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131204164218.GA8838@core.coreip.homeip.net>
+Content-class: urn:content-classes:message
+In-Reply-To: <529F5472.9030207@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > which is hardly nice. This patch fixes this by having each
-> > PV driver check for:
-> >  - if running in PV, then it is fine to execute (as that is their
-> >    native environment).
-> >  - if running in HVM, check if user wanted 'xen_emul_unplug=never',
-> >    in which case bail out and don't load PV drivers.
-> >  - if running in HVM, and if PCI device 5853:0001 (xen_platform_pci)
-> >    does not exist, then bail out and not load PV drivers.
-> > 
-> > P.S.
-> > Ian Campbell suggested getting rid of 'xen_platform_pci_unplug'
-> > but unfortunatly the xen-blkfront driver is using it, so we
-> > cannot do it.
-> > 
-> > Reported-by: Sander Eikelenboom <linux@eikelenboom.it
-> > Reported-by: Anthony PERARD <anthony.perard@citrix.com>
-> > Reported-by: Fabio Fantoni <fabio.fantoni@m2r.biz>
-> 
-> For input:
-> 
-> Acked-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+> The point is that address scoping should be used. When sending an
+> INIT from 10.10.10.1 to 10.10.10.4 you should not list 192.168.1.1,
+> since you are transmitting an address to a node which might or might
+> not "be in the same scope".
 
-Thank you. I need to do some extra changes to the other subsystems but
-for the fb/kbd itshould be still throught the same function as this
-patch has exposed. I will repost it and include your Ack if you are OK
-with that?
-> 
-> ...
-> 
-> > +#if defined(CONFIG_XEN_PVHVM)
-> > +extern bool xen_has_pv_devices(void);
-> > +#else
-> > +static inline bool xen_has_pv_devices(void)
-> > +{
-> > +#if defined(CONFIG_XEN)
-> > +	return true;
-> > +#else
-> > +	return false;
-> > +#endif
-> 
-> 	return IS_ENABLED(CONFIG_XEN);
-> 
-> ?
+You might have two machines that are connected via the public
+internet and also via a private network.
+The two sets of cabling being completely separate giving you
+resilience to network failure.
+In which case you definitely don't want address scoping.
 
-Oh, awesome!  Thanks!
+While you may not want the SCTP traffic on the public network
+itself, it could easily be routed separately.
+
+We have systems that 'sort of' designate one interface for SIP/RTP
+and the other for 'management'. They might run M3UA/SCTP but no one
+has really thought enough about which interface(s) the M3UA traffic
+should use.
+(Think of an ISUP/SIP gateway using M3UA for ISUP signalling.)
+
+	David
