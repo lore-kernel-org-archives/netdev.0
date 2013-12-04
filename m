@@ -1,55 +1,60 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2] sctp: disable max_burst when the max_burst is 0
-Date: Wed, 4 Dec 2013 06:45:41 -0500
-Message-ID: <20131204114541.GA4096@hmsreliant.think-freely.org>
-References: <529C2E01.3090005@huawei.com>
- <529EF6B7.7000501@huawei.com>
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: Re: [PATCH] vti: remove GRE_KEY flag for vti tunnel
+Date: Wed, 04 Dec 2013 13:46:40 +0100
+Message-ID: <529F2430.9050906@6wind.com>
+References: <1386146917-2951-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, Daniel Borkmann <dborkman@redhat.com>
-To: Wang Weidong <wangweidong1@huawei.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Saurabh Mohan <saurabh.mohan@vyatta.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Hangbin Liu <liuhangbin@gmail.com>,
+	network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:55940 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754842Ab3LDLpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 06:45:55 -0500
-Content-Disposition: inline
-In-Reply-To: <529EF6B7.7000501@huawei.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:55631 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932161Ab3LDMqn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 07:46:43 -0500
+Received: by mail-wi0-f178.google.com with SMTP id ca18so8087605wib.11
+        for <netdev@vger.kernel.org>; Wed, 04 Dec 2013 04:46:42 -0800 (PST)
+In-Reply-To: <1386146917-2951-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 04, 2013 at 05:32:39PM +0800, Wang Weidong wrote:
-> As Michael pointed out that when max_burst is 0, it just disable
-> max_burst. It declared in rfc6458#section-8.1.24. so add the check
-> in sctp_transport_burst_limited, when it 0, just do nothing.
-> 
-> Reviewed-by: Daniel Borkmann <dborkman@redhat.com>
-> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
-> Suggested-by: Michael Tuexen <Michael.Tuexen@lurchi.franken.de>
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+Hello Hangbin,
+
+vti interfaces precisely need an o_key to be configured (it must be set
+to the mark of ipsec policies attached to this interface). Consequently,
+this flag must not be removed.
+
+Best Regards,
+Christophe
+
+On 12/04/2013 09:48 AM, Hangbin Liu wrote:
+> vti tunnel use IPPROTO_IPIP instead of IPPROTO_GRE, and keys are not allowed
+> with ipip tunnel. So there is no reason to set GRE_KEY flag for vti.
+>
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
 > ---
->  net/sctp/transport.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-> index e332efb..efc46ff 100644
-> --- a/net/sctp/transport.c
-> +++ b/net/sctp/transport.c
-> @@ -573,7 +573,7 @@ void sctp_transport_burst_limited(struct sctp_transport *t)
->  	u32 old_cwnd = t->cwnd;
->  	u32 max_burst_bytes;
->  
-> -	if (t->burst_limited)
-> +	if (t->burst_limited || asoc->max_burst == 0)
->  		return;
->  
->  	max_burst_bytes = t->flight_size + (asoc->max_burst * asoc->pathmtu);
-> -- 
-> 1.7.12
-> 
-> 
-> 
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+>   net/ipv4/ip_vti.c | 6 ++----
+>   1 file changed, 2 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+> index 52b802a..58c4e6a 100644
+> --- a/net/ipv4/ip_vti.c
+> +++ b/net/ipv4/ip_vti.c
+> @@ -185,10 +185,8 @@ vti_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+>   	if (err)
+>   		return err;
+>
+> -	if (cmd != SIOCDELTUNNEL) {
+> -		p.i_flags |= GRE_KEY | VTI_ISVTI;
+> -		p.o_flags |= GRE_KEY;
+> -	}
+> +	if (cmd != SIOCDELTUNNEL)
+> +		p.i_flags |= VTI_ISVTI;
+>
+>   	if (copy_to_user(ifr->ifr_ifru.ifru_data, &p, sizeof(p)))
+>   		return -EFAULT;
+>
