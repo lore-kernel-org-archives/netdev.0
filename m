@@ -1,41 +1,40 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH] x25: convert printks to pr_<level>
-Date: Thu, 5 Dec 2013 12:19:00 +0800
-Message-ID: <529FFEB4.2030908@huawei.com>
-References: <529FEDBC.9030302@huawei.com> <1386216573.30493.86.camel@joe-AO722>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 3/8] IBM Akebono: Add support for a new PHY interface to
+ the IBM emac driver
+Date: Thu, 05 Dec 2013 15:49:51 +1100
+Message-ID: <1386218991.21910.18.camel@pasglop>
+References: <1385086057-10884-1-git-send-email-alistair@popple.id.au>
+ <1385086116-10972-3-git-send-email-alistair@popple.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <andrew.hendry@gmail.com>,
-	<linux-x25@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:59080 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751515Ab3LEETt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 23:19:49 -0500
-In-Reply-To: <1386216573.30493.86.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxppc-dev@ozlabs.org, "David S. Miller" <davem@davemloft.net>,
+ netdev@vger.kernel.org
+To: Alistair Popple <alistair@popple.id.au>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1385086116-10972-3-git-send-email-alistair@popple.id.au>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On 2013/12/5 12:09, Joe Perches wrote:
-> On Thu, 2013-12-05 at 11:06 +0800, Wang Weidong wrote:
->> use pr_<level> instead of printk(LEVEL)
+On Fri, 2013-11-22 at 13:08 +1100, Alistair Popple wrote:
+> The IBM PPC476GTR SoC that is used on the Akebono board uses a
+> different ethernet PHY interface that has wake on lan (WOL) support
+> with the IBM emac. This patch adds support to the IBM emac driver for
+> this new PHY interface.
 > 
-> Consider adding
-> #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> or
-> #define pr_fmt(fmt) "X25: " fmt
-> to each of these files before any #include
-> and removing the leading "X25: " in each of
-> the formats.
+> At this stage the wake on lan functionality has not been implemented.
 > 
+> Signed-off-by: Alistair Popple <alistair@popple.id.au>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
 
-Thanks for your suggestions. I will fix it in v2.
-
-Regards.
-
-> 
-> 
-> 
-> 
+Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
