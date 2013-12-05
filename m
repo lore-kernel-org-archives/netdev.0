@@ -1,65 +1,39 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH RFCv2 0/6] net: phy: Ethernet PHY powerdown optimization
-Date: Thu, 5 Dec 2013 13:27:34 +0530
-Message-ID: <52A031EE.1040301@ti.com>
-References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com> <1386171888-28190-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Fan Du <fan.du@windriver.com>
+Subject: [PATCH net] vxlan: release rt when found circular route
+Date: Thu, 5 Dec 2013 16:03:51 +0800
+Message-ID: <1386230631-2504-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	<netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:37461 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752722Ab3LEH6G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Dec 2013 02:58:06 -0500
-In-Reply-To: <1386171888-28190-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:65394 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750737Ab3LEIDw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 03:03:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 04 December 2013 09:14 PM, Sebastian Hesselbarth wrote:
-> This is v2 of an RFC sent earlier [1] to reduce power consumption of network
-> PHYs with link that are either unused or the corresponding netdev is down.
->
-> In contrast to RFCv1, this now integrates phy_suspend/phy_resume transparent
-> to the netdev drivers. Also, phy_suspend now only suspends the PHY if WOL is
-> disabled. Moreover, the phy state machine calls phy_suspend on entering
-> HALTED state.
->
-> Again, a branch with RFCv2 applied to v3.13-rc2 can also be found at
-> https://github.com/shesselba/linux-dove.git topic/ethphy-power-rfc-v2
->
-> [1] http://lwn.net/Articles/574426/
->
-> Sebastian Hesselbarth (6):
->   net: mv643xx_eth: properly start/stop phy device
->   net: phy: marvell: provide genphy suspend/resume
->   net: phy: provide phy_resume/phy_suspend helpers
->   net: phy: resume/suspend PHYs on attach/detach
->   net: phy: suspend unused PHYs on mdio_bus in late_initcall
->   net: phy: suspend phydev when going to HALTED
->
->  drivers/net/ethernet/marvell/mv643xx_eth.c |    4 +++-
->  drivers/net/phy/marvell.c                  |   22 ++++++++++++++++++++++
->  drivers/net/phy/mdio_bus.c                 |   25 +++++++++++++++++++++++++
->  drivers/net/phy/phy.c                      |    6 +++++-
->  drivers/net/phy/phy_device.c               |   27 +++++++++++++++++++++++++++
->  include/linux/phy.h                        |    2 ++
->  6 files changed, 84 insertions(+), 2 deletions(-)
->
-> ---
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: Mugunthan V N <mugunthanvnm@ti.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-kernel@vger.kernel.org
-Apart form Sergei's comment the patch series looks good to me.
+Otherwise causing dst memory leakage.
+Have Checked all other type tunnel device transmit implementation,
+no such things happens anymore.
 
-Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+Signed-off-by: Fan Du <fan.du@windriver.com>
+---
+ drivers/net/vxlan.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-Regards
-Mugunthan V N
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 78df8f3..97b4340 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1665,6 +1665,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 		}
+ 
+ 		if (rt->dst.dev == dev) {
++			ip_rt_put(rt);
+ 			netdev_dbg(dev, "circular route to %pI4\n",
+ 				   &dst->sin.sin_addr.s_addr);
+ 			dev->stats.collisions++;
+-- 
+1.7.9.5
