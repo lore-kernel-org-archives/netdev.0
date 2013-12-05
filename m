@@ -1,155 +1,208 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [PATCH v2.51 1/5] ofp-actions: Allow Consistency
- checking of OF1.3+ VLAN actions after mpls_push
-Date: Thu, 5 Dec 2013 11:26:06 +0900
-Message-ID: <20131205022606.GC21443@verge.net.au>
-References: <1385005606-30130-1-git-send-email-horms@verge.net.au>
-	<1385005606-30130-2-git-send-email-horms@verge.net.au>
-	<20131204212429.GA11354@nicira.com>
-	<20131204235849.GB21448@verge.net.au>
-	<20131205004417.GD11354@nicira.com>
-	<20131205005139.GA21443@verge.net.au>
-	<20131205010111.GE11354@nicira.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH] x25: convert printks to pr_<level>
+Date: Thu, 5 Dec 2013 11:06:36 +0800
+Message-ID: <529FEDBC.9030302@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20131205010111.GE11354-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux-x25@vger.kernel.org>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <andrew.hendry@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:64597 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750881Ab3LEDHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 22:07:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 04, 2013 at 05:01:11PM -0800, Ben Pfaff wrote:
-> On Thu, Dec 05, 2013 at 09:51:39AM +0900, Simon Horman wrote:
-> > On Wed, Dec 04, 2013 at 04:44:17PM -0800, Ben Pfaff wrote:
-> > > On Thu, Dec 05, 2013 at 08:58:49AM +0900, Simon Horman wrote:
-> > > > On Wed, Dec 04, 2013 at 01:24:29PM -0800, Ben Pfaff wrote:
-> > > > > On Thu, Nov 21, 2013 at 12:46:42PM +0900, Simon Horman wrote:
-> > > > > > The aim of this patch is to support provide infrastructure for verification
-> > > > > > of VLAN actions after an mpls_push action for OpenFlow1.3. This supplements
-> > > > > > existing support for verifying these actions for pre-OpenFlow1.3.
-> > > > > > 
-> > > > > > In OpenFlow1.1 and 1.2 MPLS tags are pushed after any VLAN tags that
-> > > > > > immediately follow the ethernet header. This is pre-OpenFlow1.3 tag
-> > > > > > ordering. Open vSwitch also uses this ordering when supporting MPLS
-> > > > > > actions via Nicira extensions to OpenFlow1.0.
-> > > > > > 
-> > > > > > When using pre-OpenFlow1.3 tag ordering an MPLS push action does not
-> > > > > > affect the VLANs of a packet. If VLAN tags are present immediately after
-> > > > > > the ethernet header then they remain present there.
-> > > > > > 
-> > > > > > In of OpenFlow1.3+ MPLS LSEs are pushed before any VLAN tags that
-> > > > > > immediately follow the ethernet header. This is OpenFlow1.3+ tag
-> > > > > > ordering.
-> > > > > > 
-> > > > > > When using OpenFlow1.3+ tag ordering an MPLS push action affects the
-> > > > > > VLANs of a packet as any VLAN tags previously present after the ethernet
-> > > > > > header are moved to be immediately after the newly pushed MPLS LSE. Thus
-> > > > > > for the purpose of action consistency checking a packet may be changed
-> > > > > > from a VLAN packet to a non-VLAN packet.
-> > > > > > 
-> > > > > > In this way the effective value of the VLAN TCI of a packet may differ
-> > > > > > after an MPLS push depending on the OpenFlow version in use.
-> > > > > > 
-> > > > > > This patch does not enable the logic described above.
-> > > > > > Rather it is disabled in ofpacts_check__(). It should
-> > > > > > be enabled when support for OpenFlow1.3+ tag order is added
-> > > > > > and enabled.
-> > > > > > 
-> > > > > > Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-> > > > > 
-> > > > > As far as I can tell this doesn't make sense, because where the MPLS
-> > > > > tag goes is a property of the action that we know at the time we parse
-> > > > > the push_mpls action.  So why isn't this patch just the following?
-> > > > > 
-> > > > > diff --git a/lib/ofp-actions.c b/lib/ofp-actions.c
-> > > > > index a02f842..f444374 100644
-> > > > > --- a/lib/ofp-actions.c
-> > > > > +++ b/lib/ofp-actions.c
-> > > > > @@ -2071,6 +2071,9 @@ ofpact_check__(enum ofputil_protocol *usable_protocols, struct ofpact *a,
-> > > > >           * Thus nothing can be assumed about the network protocol.
-> > > > >           * Temporarily mark that we have no nw_proto. */
-> > > > >          flow->nw_proto = 0;
-> > > > > +        if (ofpact_get_PUSH_MPLS(a)->position == OFPACT_MPLS_BEFORE_VLAN) {
-> > > > > +            flow->vlan_tci = 0;
-> > > > > +        }
-> > > > >          return 0;
-> > > > 
-> > > > That was more or less what I originally tried.  However I believe that it
-> > > > doesn't work because ofpact_get_PUSH_MPLS(a)->position may not have been
-> > > > set at the time that ofpact_check__ is called.  In particular this occurs
-> > > > when it is called indirectly from parse_ofp_str__.
-> > > > 
-> > > > Moreover, when ofpact_check__ is called indirectly from parse_ofp_str__ it
-> > > > is used to check actions when a one of number of protocols may be used,
-> > > > that is multiple bits of *usable_protocols.  If we could rely on
-> > > > ofpact_get_PUSH_MPLS(a)->position then I believe that implies that if it is
-> > > > set to OFPACT_MPLS_BEFORE_VLAN all pre-OpenFlow1.3 bits of
-> > > > *usable_protocols need to be cleared.  Otherwise all OpenFlow1.3+ bits
-> > > > would need to be cleared.
-> > > 
-> > > I think this might be a mistake in how we define the syntax that
-> > > parse_ofp_str__() parses.  If I write "actions=push_mpls" on an
-> > > ovs-ofctl command line, then I want that to have some specific
-> > > meaning.  I don't want it to mean "do one thing if you happen to
-> > > negotiate OpenFlow 1.2 or some other thing if you happen to negotiate
-> > > OpenFlow 1.3", because that's totally unusable and broken from a user
-> > > perspective.
-> > 
-> > To clarify, that is exactly what this series was trying to do.
-> > 
-> > I think there is some precedence in the handling of actions
-> > that set_vlans. Some OF versions implicitly push a tag, some don't.
-> 
-> Maybe that is worth fixing too.
-> 
-> > But I do agree that the behaviour you describe above would
-> > be very confusing for users.
-> > 
-> > > So if that the issue then I think we should change the
-> > > syntax.  One way would be to have "push_mpls" default to the 1.3
-> > > behavior (which seems generally saner) and allow the user to specify
-> > > an option to get the 1.2 behavior.
-> > 
-> > Sure, I think I am happy with that idea.
-> > 
-> > By an option do you mean a different action name, for example append_mpls,
-> > or push_mpls_after_vlan?
-> 
-> I was thinking of something like a push_mpls version of the
-> keyword-based fin_timeout syntax.  One option would be eth_type,
-> defaulting to ETH_TYPE_MPLS.  Another option would be position, with
-> after_vlan or before_vlan as allowed values, and probably after_vlan
-> as the default.
-> 
-> With this approach, any flow with a push_mpls could be used only with
-> pre-OF1.3 or OF1.3+, depending on the "position" value.  One wrinkle
-> that might be nice, if it isn't too nasty to implement, would be to
-> have a third value "no_vlan" as the default.  With no_vlan, we reject
-> the flow at check time if a VLAN is present; if no VLAN is present,
-> then push_mpls has the same behavior regardless of OpenFlow version.
+use pr_<level> instead of printk(LEVEL)
 
->From an ovs-ofctl point of view I think that makes a lot of sense and I
-think it should be clean enough to implement. My initial reaction is that
-using a position argument would be good and I don't see any particular
-problem with a no_vlan option. But I'll give some thought to an eth_type
-argument.
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+---
+ net/x25/af_x25.c         |  2 +-
+ net/x25/x25_dev.c        |  8 ++++----
+ net/x25/x25_facilities.c | 12 ++++++------
+ net/x25/x25_forward.c    |  2 +-
+ net/x25/x25_in.c         |  2 +-
+ net/x25/x25_link.c       |  4 ++--
+ net/x25/x25_subr.c       |  4 ++--
+ 7 files changed, 17 insertions(+), 17 deletions(-)
 
-I would like to clarify how you would like push_mpls to work in the case
-where flows are received from a controller. It seems to me that the
-behaviour should depend on the OpenFlow version used by the connection with
-the controller as we can't change the action to accommodate an extra
-argument. I think this is also easy enough to implement: actually I am
-pretty sure think the series currently does that and that the difficulty
-that this patch tried to address is only on the ovs-ofctl side. Regardless,
-I wanted to check that is the behaviour that you would like.
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 7622789..5142a40 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -1809,7 +1809,7 @@ static int __init x25_init(void)
+ 	if (rc != 0)
+ 		goto out_sock;
+ 
+-	printk(KERN_INFO "X.25 for Linux Version 0.2\n");
++	pr_info("X.25 for Linux Version 0.2\n");
+ 
+ 	x25_register_sysctl();
+ 	rc = x25_proc_init();
+diff --git a/net/x25/x25_dev.c b/net/x25/x25_dev.c
+index a8a2363..ccf8fd9 100644
+--- a/net/x25/x25_dev.c
++++ b/net/x25/x25_dev.c
+@@ -89,7 +89,7 @@ static int x25_receive_data(struct sk_buff *skb, struct x25_neigh *nb)
+ */
+ 
+ 	if (frametype != X25_CLEAR_CONFIRMATION)
+-		printk(KERN_DEBUG "x25_receive_data(): unknown frame type %2x\n",frametype);
++		pr_debug("x25_receive_data(): unknown frame type %2x\n",frametype);
+ 
+ 	return 0;
+ }
+@@ -114,7 +114,7 @@ int x25_lapb_receive_frame(struct sk_buff *skb, struct net_device *dev,
+ 	 */
+ 	nb = x25_get_neigh(dev);
+ 	if (!nb) {
+-		printk(KERN_DEBUG "X.25: unknown neighbour - %s\n", dev->name);
++		pr_debug("X.25: unknown neighbour - %s\n", dev->name);
+ 		goto drop;
+ 	}
+ 
+@@ -154,7 +154,7 @@ void x25_establish_link(struct x25_neigh *nb)
+ 	switch (nb->dev->type) {
+ 	case ARPHRD_X25:
+ 		if ((skb = alloc_skb(1, GFP_ATOMIC)) == NULL) {
+-			printk(KERN_ERR "x25_dev: out of memory\n");
++			pr_err("x25_dev: out of memory\n");
+ 			return;
+ 		}
+ 		ptr  = skb_put(skb, 1);
+@@ -189,7 +189,7 @@ void x25_terminate_link(struct x25_neigh *nb)
+ 
+ 	skb = alloc_skb(1, GFP_ATOMIC);
+ 	if (!skb) {
+-		printk(KERN_ERR "x25_dev: out of memory\n");
++		pr_err("x25_dev: out of memory\n");
+ 		return;
+ 	}
+ 
+diff --git a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
+index b825325..a4c2a2a 100644
+--- a/net/x25/x25_facilities.c
++++ b/net/x25/x25_facilities.c
+@@ -109,7 +109,7 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 			case X25_MARKER:
+ 				break;
+ 			default:
+-				printk(KERN_DEBUG "X.25: unknown facility "
++				pr_debug("X.25: unknown facility "
+ 				       "%02X, value %02X\n",
+ 				       p[0], p[1]);
+ 				break;
+@@ -132,7 +132,7 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 				*vc_fac_mask |= X25_MASK_WINDOW_SIZE;
+ 				break;
+ 			default:
+-				printk(KERN_DEBUG "X.25: unknown facility "
++				pr_debug("X.25: unknown facility "
+ 				       "%02X, values %02X, %02X\n",
+ 				       p[0], p[1], p[2]);
+ 				break;
+@@ -143,7 +143,7 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 		case X25_FAC_CLASS_C:
+ 			if (len < 4)
+ 				return -1;
+-			printk(KERN_DEBUG "X.25: unknown facility %02X, "
++			pr_debug("X.25: unknown facility %02X, "
+ 			       "values %02X, %02X, %02X\n",
+ 			       p[0], p[1], p[2], p[3]);
+ 			p   += 4;
+@@ -172,7 +172,7 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
+ 				*vc_fac_mask |= X25_MASK_CALLED_AE;
+ 				break;
+ 			default:
+-				printk(KERN_DEBUG "X.25: unknown facility %02X,"
++				pr_debug("X.25: unknown facility %02X,"
+ 					"length %d\n", p[0], p[1]);
+ 				break;
+ 			}
+@@ -341,12 +341,12 @@ void x25_limit_facilities(struct x25_facilities *facilities,
+ 
+ 	if (!nb->extended) {
+ 		if (facilities->winsize_in  > 7) {
+-			printk(KERN_DEBUG "X.25: incoming winsize limited to 7\n");
++			pr_debug("X.25: incoming winsize limited to 7\n");
+ 			facilities->winsize_in = 7;
+ 		}
+ 		if (facilities->winsize_out > 7) {
+ 			facilities->winsize_out = 7;
+-			printk( KERN_DEBUG "X.25: outgoing winsize limited to 7\n");
++			pr_debug("X.25: outgoing winsize limited to 7\n");
+ 		}
+ 	}
+ }
+diff --git a/net/x25/x25_forward.c b/net/x25/x25_forward.c
+index c541b62..a8b0778 100644
+--- a/net/x25/x25_forward.c
++++ b/net/x25/x25_forward.c
+@@ -51,7 +51,7 @@ int x25_forward_call(struct x25_address *dest_addr, struct x25_neigh *from,
+ 	list_for_each(entry, &x25_forward_list) {
+ 		x25_frwd = list_entry(entry, struct x25_forward, node);
+ 		if (x25_frwd->lci == lci) {
+-			printk(KERN_WARNING "X.25: call request for lci which is already registered!, transmitting but not registering new pair\n");
++			pr_warn("X.25: call request for lci which is already registered!, transmitting but not registering new pair\n");
+ 			same_lci = 1;
+ 		}
+ 	}
+diff --git a/net/x25/x25_in.c b/net/x25/x25_in.c
+index a49cd4e..20e850e 100644
+--- a/net/x25/x25_in.c
++++ b/net/x25/x25_in.c
+@@ -317,7 +317,7 @@ static int x25_state3_machine(struct sock *sk, struct sk_buff *skb, int frametyp
+ 			break;
+ 
+ 		default:
+-			printk(KERN_WARNING "x25: unknown %02X in state 3\n", frametype);
++			pr_warn("x25: unknown %02X in state 3\n", frametype);
+ 			break;
+ 	}
+ 
+diff --git a/net/x25/x25_link.c b/net/x25/x25_link.c
+index 4acacf3..b5f44d3 100644
+--- a/net/x25/x25_link.c
++++ b/net/x25/x25_link.c
+@@ -93,13 +93,13 @@ void x25_link_control(struct sk_buff *skb, struct x25_neigh *nb,
+ 		if (!pskb_may_pull(skb, X25_STD_MIN_LEN + 4))
+ 			break;
+ 
+-		printk(KERN_WARNING "x25: diagnostic #%d - %02X %02X %02X\n",
++		pr_warn("x25: diagnostic #%d - %02X %02X %02X\n",
+ 		       skb->data[3], skb->data[4],
+ 		       skb->data[5], skb->data[6]);
+ 		break;
+ 
+ 	default:
+-		printk(KERN_WARNING "x25: received unknown %02X with LCI 000\n",
++		pr_warn("x25: received unknown %02X with LCI 000\n",
+ 		       frametype);
+ 		break;
+ 	}
+diff --git a/net/x25/x25_subr.c b/net/x25/x25_subr.c
+index 5170d52..5e6d96b 100644
+--- a/net/x25/x25_subr.c
++++ b/net/x25/x25_subr.c
+@@ -148,7 +148,7 @@ void x25_write_internal(struct sock *sk, int frametype)
+ 	case X25_RESET_CONFIRMATION:
+ 		break;
+ 	default:
+-		printk(KERN_ERR "X.25: invalid frame type %02X\n", frametype);
++		pr_err("X.25: invalid frame type %02X\n", frametype);
+ 		return;
+ 	}
+ 
+@@ -338,7 +338,7 @@ int x25_decode(struct sock *sk, struct sk_buff *skb, int *ns, int *nr, int *q,
+ 		}
+ 	}
+ 
+-	printk(KERN_DEBUG "X.25: invalid PLP frame %02X %02X %02X\n",
++	pr_debug("X.25: invalid PLP frame %02X %02X %02X\n",
+ 	       frame[0], frame[1], frame[2]);
+ 
+ 	return X25_ILLEGAL;
+-- 
+1.7.12
