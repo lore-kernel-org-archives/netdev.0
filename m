@@ -1,91 +1,50 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH] net: mvneta: Fix incorrect DMA unmapping size
-Date: Thu,  5 Dec 2013 13:35:37 -0300
-Message-ID: <1386261337-26442-2-git-send-email-ezequiel.garcia@free-electrons.com>
-References: <1386261337-26442-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>, Willy Tarreau <w@1wt.eu>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: <netdev@vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: introduce dev_consume_skb_any()
+Date: Thu, 05 Dec 2013 08:38:05 -0800
+Message-ID: <1386261485.30495.203.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com>
+	 <20131203.165034.1085515763685633822.davem@davemloft.net>
+	 <1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com>
+	 <1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1386247508.30495.180.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131205141346.GB14095@order.stressinduktion.org>
+	 <1386254734.30495.186.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1386255952.30495.192.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131205154438.GA21745@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:47756 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932963Ab3LEQft (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 11:35:49 -0500
-In-Reply-To: <1386261337-26442-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:43586 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756857Ab3LEQiH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 11:38:07 -0500
+Received: by mail-pb0-f44.google.com with SMTP id rq2so26210502pbb.31
+        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 08:38:06 -0800 (PST)
+In-Reply-To: <20131205154438.GA21745@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current code unmaps the DMA mapping created for rx skb_buff's by
-using the data_size as the the mapping size. This is wrong since the
-correct size to specify should match the size used to create the mapping.
+On Thu, 2013-12-05 at 16:44 +0100, Hannes Frederic Sowa wrote:
 
-This commit removes the following DMA_API_DEBUG warning:
+> It makes some sense but I did not grasp the whole ->users dependency
+> picture, yet. I guess the barrier is only needed when refcount drops
+> down to 0 and we don't necessarily need one when incrementing ->users.
 
-------------[ cut here ]------------
-WARNING: at lib/dma-debug.c:887 check_unmap+0x3a8/0x860()
-mvneta d0070000.ethernet: DMA-API: device driver frees DMA memory with different size [device address=0x000000002eb80000] [map size=1600 bytes] [unmap size=66 bytes]
-CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.10.21-01444-ga88ae13-dirty #92
-[<c0013600>] (unwind_backtrace+0x0/0xf8) from [<c0010fb8>] (show_stack+0x10/0x14)
-[<c0010fb8>] (show_stack+0x10/0x14) from [<c001afa0>] (warn_slowpath_common+0x48/0x68)
-[<c001afa0>] (warn_slowpath_common+0x48/0x68) from [<c001b01c>] (warn_slowpath_fmt+0x30/0x40)
-[<c001b01c>] (warn_slowpath_fmt+0x30/0x40) from [<c018d0fc>] (check_unmap+0x3a8/0x860)
-[<c018d0fc>] (check_unmap+0x3a8/0x860) from [<c018d734>] (debug_dma_unmap_page+0x64/0x70)
-[<c018d734>] (debug_dma_unmap_page+0x64/0x70) from [<c0233f78>] (mvneta_rx+0xec/0x468)
-[<c0233f78>] (mvneta_rx+0xec/0x468) from [<c023436c>] (mvneta_poll+0x78/0x16c)
-[<c023436c>] (mvneta_poll+0x78/0x16c) from [<c02db468>] (net_rx_action+0x94/0x160)
-[<c02db468>] (net_rx_action+0x94/0x160) from [<c0021e68>] (__do_softirq+0xe8/0x1d0)
-[<c0021e68>] (__do_softirq+0xe8/0x1d0) from [<c0021ff8>] (do_softirq+0x4c/0x58)
-[<c0021ff8>] (do_softirq+0x4c/0x58) from [<c0022228>] (irq_exit+0x58/0x90)
-[<c0022228>] (irq_exit+0x58/0x90) from [<c000e7c8>] (handle_IRQ+0x3c/0x94)
-[<c000e7c8>] (handle_IRQ+0x3c/0x94) from [<c0008548>] (armada_370_xp_handle_irq+0x4c/0xb4)
-[<c0008548>] (armada_370_xp_handle_irq+0x4c/0xb4) from [<c000dc20>] (__irq_svc+0x40/0x50)
-Exception stack(0xc04f1f70 to 0xc04f1fb8)
-1f60:                                     c1fe46f8 00000000 00001d92 00001d92
-1f80: c04f0000 c04f0000 c04f84a4 c03e081c c05220e7 00000001 c05220e7 c04f0000
-1fa0: 00000000 c04f1fb8 c000eaf8 c004c048 60000113 ffffffff
-[<c000dc20>] (__irq_svc+0x40/0x50) from [<c004c048>] (cpu_startup_entry+0x54/0x128)
-[<c004c048>] (cpu_startup_entry+0x54/0x128) from [<c04c1a14>] (start_kernel+0x29c/0x2f0)
-[<c04c1a14>] (start_kernel+0x29c/0x2f0) from [<00008074>] (0x8074)
----[ end trace d4955f6acd178110 ]---
-Mapped at:
- [<c018d600>] debug_dma_map_page+0x4c/0x11c
- [<c0235d6c>] mvneta_setup_rxqs+0x398/0x598
- [<c0236084>] mvneta_open+0x40/0x17c
- [<c02dbbd4>] __dev_open+0x9c/0x100
- [<c02dbe58>] __dev_change_flags+0x7c/0x134
+If you are the only user of this skb, really no smp barrier is needed at
+all.
 
-Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+The problem comes when another cpu is working on the skb, and finally
+releases its reference on it.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index b8e232b..d5f0d72 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1378,7 +1378,7 @@ static void mvneta_rxq_drop_pkts(struct mvneta_port *pp,
- 
- 		dev_kfree_skb_any(skb);
- 		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
--				 rx_desc->data_size, DMA_FROM_DEVICE);
-+				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
- 	}
- 
- 	if (rx_done)
-@@ -1424,7 +1424,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
- 		}
- 
- 		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
--				 rx_desc->data_size, DMA_FROM_DEVICE);
-+				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
- 
- 		rx_bytes = rx_desc->data_size -
- 			(ETH_FCS_LEN + MVNETA_MH_SIZE);
--- 
-1.8.1.5
+Before releasing its reference, it must commit all changes it might have
+done onto skb. Otherwise another cpu might read stale data.
+
+The smp_wmb() is done by the atomic_dec_and_test(), as it contains a
+full barrier.
+
+So the smp_rmb() pairs with the barrier done in atomic_dec_and_test()
