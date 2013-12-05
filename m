@@ -1,98 +1,44 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net v5] xen-netback: fix fragment detection in checksum
- setup
-Date: Thu, 5 Dec 2013 09:08:15 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01A3C91@AMSPEX01CL01.citrite.net>
-References: <1386092369-13618-1-git-send-email-paul.durrant@citrix.com>
- <52A01CF8.4000804@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	"David Miller" <davem@davemloft.net>
-To: annie li <annie.li@oracle.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH 1/2] vxlan: remove vxlan_group_used in vxlan_open
+Date: Thu, 5 Dec 2013 17:01:35 +0800
+Message-ID: <1386234096-18441-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, Gao feng <gaofeng@cn.fujitsu.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:49513 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751053Ab3LEJIS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Dec 2013 04:08:18 -0500
-In-Reply-To: <52A01CF8.4000804@oracle.com>
-Content-Language: en-US
+Received: from cn.fujitsu.com ([222.73.24.84]:41382 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752259Ab3LEJPY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Dec 2013 04:15:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBhbm5pZSBsaSBbbWFpbHRvOmFu
-bmllLmxpQG9yYWNsZS5jb21dDQo+IFNlbnQ6IDA1IERlY2VtYmVyIDIwMTMgMDY6MjgNCj4gVG86
-IFBhdWwgRHVycmFudA0KPiBDYzogeGVuLWRldmVsQGxpc3RzLnhlbi5vcmc7IG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmc7IFpvbHRhbiBLaXNzOyBXZWkgTGl1Ow0KPiBJYW4gQ2FtcGJlbGw7IERhdmlk
-IFZyYWJlbDsgRGF2aWQgTWlsbGVyDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IHY1XSB4ZW4t
-bmV0YmFjazogZml4IGZyYWdtZW50IGRldGVjdGlvbiBpbiBjaGVja3N1bQ0KPiBzZXR1cA0KPiAN
-Cj4gDQo+IE9uIDIwMTMvMTIvNCAxOjM5LCBQYXVsIER1cnJhbnQgd3JvdGU6DQo+IA0KPiA+DQo+
-ID4gKy8qIFRoaXMgdmFsdWUgc2hvdWxkIGJlIGxhcmdlIGVub3VnaCB0byBjb3ZlciBhIHRhZ2dl
-ZCBldGhlcm5ldCBoZWFkZXINCj4gcGx1cw0KPiA+ICsgKiBhbiBJUHY2IGhlYWRlciwgYWxsIG9w
-dGlvbnMsIGFuZCBhIG1heGltYWwgVENQIG9yIFVEUCBoZWFkZXIuDQo+ID4gKyAqLw0KPiA+ICsj
-ZGVmaW5lIE1BWF9JUFY2X0hEUl9MRU4gMjU2DQo+ID4gKw0KPiA+ICsjZGVmaW5lIE9QVF9IRFIo
-dHlwZSwgc2tiLCBvZmYpIFwNCj4gPiArCSh0eXBlICopKHNrYl9uZXR3b3JrX2hlYWRlcihza2Ip
-ICsgKG9mZikpDQo+ID4gKw0KPiA+ICAgc3RhdGljIGludCBjaGVja3N1bV9zZXR1cF9pcHY2KHN0
-cnVjdCB4ZW52aWYgKnZpZiwgc3RydWN0IHNrX2J1ZmYgKnNrYiwNCj4gPiAgIAkJCSAgICAgICBp
-bnQgcmVjYWxjdWxhdGVfcGFydGlhbF9jc3VtKQ0KPiA+ICAgew0KPiA+IC0JaW50IGVyciA9IC1F
-UFJPVE87DQo+ID4gLQlzdHJ1Y3QgaXB2NmhkciAqaXB2NmggPSAodm9pZCAqKXNrYi0+ZGF0YTsN
-Cj4gPiArCWludCBlcnI7DQo+ID4gICAJdTggbmV4dGhkcjsNCj4gPiAtCXVuc2lnbmVkIGludCBo
-ZWFkZXJfc2l6ZTsNCj4gPiAgIAl1bnNpZ25lZCBpbnQgb2ZmOw0KPiA+ICsJdW5zaWduZWQgaW50
-IGxlbjsNCj4gPiAgIAlib29sIGZyYWdtZW50Ow0KPiA+ICAgCWJvb2wgZG9uZTsNCj4gPg0KPiA+
-ICsJZnJhZ21lbnQgPSBmYWxzZTsNCj4gPiAgIAlkb25lID0gZmFsc2U7DQo+ID4NCj4gPiAgIAlv
-ZmYgPSBzaXplb2Yoc3RydWN0IGlwdjZoZHIpOw0KPiA+DQo+ID4gLQloZWFkZXJfc2l6ZSA9IHNr
-Yi0+bmV0d29ya19oZWFkZXIgKyBvZmY7DQo+ID4gLQltYXliZV9wdWxsX3RhaWwoc2tiLCBoZWFk
-ZXJfc2l6ZSk7DQo+ID4gKwllcnIgPSBtYXliZV9wdWxsX3RhaWwoc2tiLCBvZmYsIE1BWF9JUFY2
-X0hEUl9MRU4pOw0KPiA+ICsJaWYgKGVyciA8IDApDQo+ID4gKwkJZ290byBvdXQ7DQo+ID4NCj4g
-PiAtCW5leHRoZHIgPSBpcHY2aC0+bmV4dGhkcjsNCj4gPiArCW5leHRoZHIgPSBpcHY2X2hkcihz
-a2IpLT5uZXh0aGRyOw0KPiA+DQo+ID4gLQl3aGlsZSAoKG9mZiA8PSBzaXplb2Yoc3RydWN0IGlw
-djZoZHIpICsgbnRvaHMoaXB2NmgtPnBheWxvYWRfbGVuKSkNCj4gJiYNCj4gPiAtCSAgICAgICAh
-ZG9uZSkgew0KPiA+ICsJbGVuID0gc2l6ZW9mKHN0cnVjdCBpcHY2aGRyKSArIG50b2hzKGlwdjZf
-aGRyKHNrYiktPnBheWxvYWRfbGVuKTsNCj4gPiArCXdoaWxlIChvZmYgPD0gbGVuICYmICFkb25l
-KSB7DQo+ID4gICAJCXN3aXRjaCAobmV4dGhkcikgew0KPiA+ICAgCQljYXNlIElQUFJPVE9fRFNU
-T1BUUzoNCj4gPiAgIAkJY2FzZSBJUFBST1RPX0hPUE9QVFM6DQo+ID4gICAJCWNhc2UgSVBQUk9U
-T19ST1VUSU5HOiB7DQo+ID4gLQkJCXN0cnVjdCBpcHY2X29wdF9oZHIgKmhwID0gKHZvaWQgKiko
-c2tiLT5kYXRhICsgb2ZmKTsNCj4gPiArCQkJc3RydWN0IGlwdjZfb3B0X2hkciAqaHA7DQo+ID4N
-Cj4gPiAtCQkJaGVhZGVyX3NpemUgPSBza2ItPm5ldHdvcmtfaGVhZGVyICsNCj4gPiAtCQkJCW9m
-ZiArDQo+ID4gLQkJCQlzaXplb2Yoc3RydWN0IGlwdjZfb3B0X2hkcik7DQo+ID4gLQkJCW1heWJl
-X3B1bGxfdGFpbChza2IsIGhlYWRlcl9zaXplKTsNCj4gPiArCQkJZXJyID0gbWF5YmVfcHVsbF90
-YWlsKHNrYiwNCj4gPiArCQkJCQkgICAgICBvZmYgKw0KPiA+ICsJCQkJCSAgICAgIHNpemVvZihz
-dHJ1Y3QgaXB2Nl9vcHRfaGRyKSwNCj4gPiArCQkJCQkgICAgICBNQVhfSVBWNl9IRFJfTEVOKTsN
-Cj4gPiArCQkJaWYgKGVyciA8IDApDQo+ID4gKwkJCQlnb3RvIG91dDsNCj4gPg0KPiA+ICsJCQlo
-cCA9IE9QVF9IRFIoc3RydWN0IGlwdjZfb3B0X2hkciwgc2tiLCBvZmYpOw0KPiA+ICAgCQkJbmV4
-dGhkciA9IGhwLT5uZXh0aGRyOw0KPiA+ICAgCQkJb2ZmICs9IGlwdjZfb3B0bGVuKGhwKTsNCj4g
-PiAgIAkJCWJyZWFrOw0KPiA+ICAgCQl9DQo+ID4gICAJCWNhc2UgSVBQUk9UT19BSDogew0KPiA+
-IC0JCQlzdHJ1Y3QgaXBfYXV0aF9oZHIgKmhwID0gKHZvaWQgKikoc2tiLT5kYXRhICsgb2ZmKTsN
-Cj4gPiArCQkJc3RydWN0IGlwX2F1dGhfaGRyICpocDsNCj4gPiArDQo+ID4gKwkJCWVyciA9IG1h
-eWJlX3B1bGxfdGFpbChza2IsDQo+ID4gKwkJCQkJICAgICAgb2ZmICsNCj4gPiArCQkJCQkgICAg
-ICBzaXplb2Yoc3RydWN0IGlwX2F1dGhfaGRyKSwNCj4gPiArCQkJCQkgICAgICBNQVhfSVBWNl9I
-RFJfTEVOKTsNCj4gPiArCQkJaWYgKGVyciA8IDApDQo+ID4gKwkJCQlnb3RvIG91dDsNCj4gPiAr
-DQo+ID4gKwkJCWhwID0gT1BUX0hEUihzdHJ1Y3QgaXBfYXV0aF9oZHIsIHNrYiwgb2ZmKTsNCj4g
-PiArCQkJbmV4dGhkciA9IGhwLT5uZXh0aGRyOw0KPiA+ICsJCQlvZmYgKz0gaXB2Nl9hdXRobGVu
-KGhwKTsNCj4gPiArCQkJYnJlYWs7DQo+ID4gKwkJfQ0KPiA+ICsJCWNhc2UgSVBQUk9UT19GUkFH
-TUVOVDogew0KPiA+ICsJCQlzdHJ1Y3QgZnJhZ19oZHIgKmhwOw0KPiA+DQo+ID4gLQkJCWhlYWRl
-cl9zaXplID0gc2tiLT5uZXR3b3JrX2hlYWRlciArDQo+ID4gLQkJCQlvZmYgKw0KPiA+IC0JCQkJ
-c2l6ZW9mKHN0cnVjdCBpcF9hdXRoX2hkcik7DQo+ID4gLQkJCW1heWJlX3B1bGxfdGFpbChza2Is
-IGhlYWRlcl9zaXplKTsNCj4gPiArCQkJZXJyID0gbWF5YmVfcHVsbF90YWlsKHNrYiwNCj4gPiAr
-CQkJCQkgICAgICBvZmYgKw0KPiA+ICsJCQkJCSAgICAgIHNpemVvZihzdHJ1Y3QgZnJhZ19oZHIp
-LA0KPiA+ICsJCQkJCSAgICAgIE1BWF9JUFY2X0hEUl9MRU4pOw0KPiA+ICsJCQlpZiAoZXJyIDwg
-MCkNCj4gPiArCQkJCWdvdG8gb3V0Ow0KPiA+ICsNCj4gPiArCQkJaHAgPSBPUFRfSERSKHN0cnVj
-dCBmcmFnX2hkciwgc2tiLCBvZmYpOw0KPiA+ICsNCj4gPiArCQkJaWYgKGhwLT5mcmFnX29mZiAm
-IGh0b25zKElQNl9PRkZTRVQgfCBJUDZfTUYpKQ0KPiA+ICsJCQkJZnJhZ21lbnQgPSB0cnVlOw0K
-PiA+DQo+ID4gICAJCQluZXh0aGRyID0gaHAtPm5leHRoZHI7DQo+ID4gLQkJCW9mZiArPSAoaHAt
-PmhkcmxlbisyKTw8MjsNCj4gPiArCQkJb2ZmICs9IHNpemVvZihzdHJ1Y3QgZnJhZ19oZHIpOw0K
-PiA+ICAgCQkJYnJlYWs7DQo+ID4gICAJCX0NCj4gPiAtCQljYXNlIElQUFJPVE9fRlJBR01FTlQ6
-DQo+ID4gLQkJCWZyYWdtZW50ID0gdHJ1ZTsNCj4gPiAtCQkJLyogZmFsbCB0aHJvdWdoICovDQo+
-IA0KPiBBYm91dCBJUHY2IGV4dGVuc2lvbiBoZWFkZXJzLCBzaG91bGQgIkVuY2Fwc3VsYXRpbmcg
-U2VjdXJpdHkgUGF5bG9hZCIgYmUNCj4gcHJvY2Vzc2VkIHRvbz8oU2VlIHJmYzI0NjAgYW5kIHJm
-YzI0MDYpIElzIHRoZXJlIGFueSBjb25jZXJuIHRvIGlnbm9yZQ0KPiBpdCBoZXJlPw0KPiANCg0K
-SXQncyBkZWxpYmVyYXRlbHkgaWdub3JlZC4gSWYgd2UgaGF2ZSBhbiBFU1AgaGVhZGVyIHRoZW4g
-dGhlIFRDUC9VRFAgaGVhZGVyIGFuZCBwYXlsb2FkIHdpbGwgYmUgZW5jcnlwdGVkIHNvIHlvdSBj
-YW4ndCBkbyBjaGVja3N1bSBvZmZsb2FkLCBoZW5jZSB0aGlzIGZ1bmN0aW9uIHNob3VsZCByZXR1
-cm4gYW4gZXJyb3IuDQoNCiAgUGF1bA0K
+In vxlan_open, vxlan_group_used always returns true,
+because the state of the vxlan deivces which we want
+to open has alreay been running. and it has already
+in vxlan_list.
+
+Since ip_mc_join_group takes care of the reference
+problem. we can remove vxlan_group_used here, let
+ip_mc_join_group resolve the reference problem.
+
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ drivers/net/vxlan.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 0358c07..8c40254 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1943,8 +1943,7 @@ static int vxlan_open(struct net_device *dev)
+ 	if (!vs)
+ 		return -ENOTCONN;
+ 
+-	if (vxlan_addr_multicast(&vxlan->default_dst.remote_ip) &&
+-	    vxlan_group_used(vn, &vxlan->default_dst.remote_ip)) {
++	if (vxlan_addr_multicast(&vxlan->default_dst.remote_ip)) {
+ 		vxlan_sock_hold(vs);
+ 		dev_hold(dev);
+ 		queue_work(vxlan_wq, &vxlan->igmp_join);
+-- 
+1.8.3.1
