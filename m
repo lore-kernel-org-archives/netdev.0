@@ -1,156 +1,155 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH v4] sctp: check the rto_min and rto_max
-Date: Thu, 5 Dec 2013 10:19:25 +0800
-Message-ID: <529FE2AD.5020700@huawei.com>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [PATCH v2.51 1/5] ofp-actions: Allow Consistency
+ checking of OF1.3+ VLAN actions after mpls_push
+Date: Thu, 5 Dec 2013 11:26:06 +0900
+Message-ID: <20131205022606.GC21443@verge.net.au>
+References: <1385005606-30130-1-git-send-email-horms@verge.net.au>
+	<1385005606-30130-2-git-send-email-horms@verge.net.au>
+	<20131204212429.GA11354@nicira.com>
+	<20131204235849.GB21448@verge.net.au>
+	<20131205004417.GD11354@nicira.com>
+	<20131205005139.GA21443@verge.net.au>
+	<20131205010111.GE11354@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:45920 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756298Ab3LECT6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Dec 2013 21:19:58 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ben Pfaff <blp-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20131205010111.GE11354-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-rto_min should be smaller than rto_max while rto_max should be larger
-than rto_min. Add two proc_handler for the checking. Add the check in
-sctp_setsockopt_rtoinfo.
-delete a blank line in proc_sctp_do_hmac_alg() declaration.
+On Wed, Dec 04, 2013 at 05:01:11PM -0800, Ben Pfaff wrote:
+> On Thu, Dec 05, 2013 at 09:51:39AM +0900, Simon Horman wrote:
+> > On Wed, Dec 04, 2013 at 04:44:17PM -0800, Ben Pfaff wrote:
+> > > On Thu, Dec 05, 2013 at 08:58:49AM +0900, Simon Horman wrote:
+> > > > On Wed, Dec 04, 2013 at 01:24:29PM -0800, Ben Pfaff wrote:
+> > > > > On Thu, Nov 21, 2013 at 12:46:42PM +0900, Simon Horman wrote:
+> > > > > > The aim of this patch is to support provide infrastructure for verification
+> > > > > > of VLAN actions after an mpls_push action for OpenFlow1.3. This supplements
+> > > > > > existing support for verifying these actions for pre-OpenFlow1.3.
+> > > > > > 
+> > > > > > In OpenFlow1.1 and 1.2 MPLS tags are pushed after any VLAN tags that
+> > > > > > immediately follow the ethernet header. This is pre-OpenFlow1.3 tag
+> > > > > > ordering. Open vSwitch also uses this ordering when supporting MPLS
+> > > > > > actions via Nicira extensions to OpenFlow1.0.
+> > > > > > 
+> > > > > > When using pre-OpenFlow1.3 tag ordering an MPLS push action does not
+> > > > > > affect the VLANs of a packet. If VLAN tags are present immediately after
+> > > > > > the ethernet header then they remain present there.
+> > > > > > 
+> > > > > > In of OpenFlow1.3+ MPLS LSEs are pushed before any VLAN tags that
+> > > > > > immediately follow the ethernet header. This is OpenFlow1.3+ tag
+> > > > > > ordering.
+> > > > > > 
+> > > > > > When using OpenFlow1.3+ tag ordering an MPLS push action affects the
+> > > > > > VLANs of a packet as any VLAN tags previously present after the ethernet
+> > > > > > header are moved to be immediately after the newly pushed MPLS LSE. Thus
+> > > > > > for the purpose of action consistency checking a packet may be changed
+> > > > > > from a VLAN packet to a non-VLAN packet.
+> > > > > > 
+> > > > > > In this way the effective value of the VLAN TCI of a packet may differ
+> > > > > > after an MPLS push depending on the OpenFlow version in use.
+> > > > > > 
+> > > > > > This patch does not enable the logic described above.
+> > > > > > Rather it is disabled in ofpacts_check__(). It should
+> > > > > > be enabled when support for OpenFlow1.3+ tag order is added
+> > > > > > and enabled.
+> > > > > > 
+> > > > > > Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+> > > > > 
+> > > > > As far as I can tell this doesn't make sense, because where the MPLS
+> > > > > tag goes is a property of the action that we know at the time we parse
+> > > > > the push_mpls action.  So why isn't this patch just the following?
+> > > > > 
+> > > > > diff --git a/lib/ofp-actions.c b/lib/ofp-actions.c
+> > > > > index a02f842..f444374 100644
+> > > > > --- a/lib/ofp-actions.c
+> > > > > +++ b/lib/ofp-actions.c
+> > > > > @@ -2071,6 +2071,9 @@ ofpact_check__(enum ofputil_protocol *usable_protocols, struct ofpact *a,
+> > > > >           * Thus nothing can be assumed about the network protocol.
+> > > > >           * Temporarily mark that we have no nw_proto. */
+> > > > >          flow->nw_proto = 0;
+> > > > > +        if (ofpact_get_PUSH_MPLS(a)->position == OFPACT_MPLS_BEFORE_VLAN) {
+> > > > > +            flow->vlan_tci = 0;
+> > > > > +        }
+> > > > >          return 0;
+> > > > 
+> > > > That was more or less what I originally tried.  However I believe that it
+> > > > doesn't work because ofpact_get_PUSH_MPLS(a)->position may not have been
+> > > > set at the time that ofpact_check__ is called.  In particular this occurs
+> > > > when it is called indirectly from parse_ofp_str__.
+> > > > 
+> > > > Moreover, when ofpact_check__ is called indirectly from parse_ofp_str__ it
+> > > > is used to check actions when a one of number of protocols may be used,
+> > > > that is multiple bits of *usable_protocols.  If we could rely on
+> > > > ofpact_get_PUSH_MPLS(a)->position then I believe that implies that if it is
+> > > > set to OFPACT_MPLS_BEFORE_VLAN all pre-OpenFlow1.3 bits of
+> > > > *usable_protocols need to be cleared.  Otherwise all OpenFlow1.3+ bits
+> > > > would need to be cleared.
+> > > 
+> > > I think this might be a mistake in how we define the syntax that
+> > > parse_ofp_str__() parses.  If I write "actions=push_mpls" on an
+> > > ovs-ofctl command line, then I want that to have some specific
+> > > meaning.  I don't want it to mean "do one thing if you happen to
+> > > negotiate OpenFlow 1.2 or some other thing if you happen to negotiate
+> > > OpenFlow 1.3", because that's totally unusable and broken from a user
+> > > perspective.
+> > 
+> > To clarify, that is exactly what this series was trying to do.
+> > 
+> > I think there is some precedence in the handling of actions
+> > that set_vlans. Some OF versions implicitly push a tag, some don't.
+> 
+> Maybe that is worth fixing too.
+> 
+> > But I do agree that the behaviour you describe above would
+> > be very confusing for users.
+> > 
+> > > So if that the issue then I think we should change the
+> > > syntax.  One way would be to have "push_mpls" default to the 1.3
+> > > behavior (which seems generally saner) and allow the user to specify
+> > > an option to get the 1.2 behavior.
+> > 
+> > Sure, I think I am happy with that idea.
+> > 
+> > By an option do you mean a different action name, for example append_mpls,
+> > or push_mpls_after_vlan?
+> 
+> I was thinking of something like a push_mpls version of the
+> keyword-based fin_timeout syntax.  One option would be eth_type,
+> defaulting to ETH_TYPE_MPLS.  Another option would be position, with
+> after_vlan or before_vlan as allowed values, and probably after_vlan
+> as the default.
+> 
+> With this approach, any flow with a push_mpls could be used only with
+> pre-OF1.3 or OF1.3+, depending on the "position" value.  One wrinkle
+> that might be nice, if it isn't too nasty to implement, would be to
+> have a third value "no_vlan" as the default.  With no_vlan, we reject
+> the flow at check time if a VLAN is present; if no VLAN is present,
+> then push_mpls has the same behavior regardless of OpenFlow version.
 
-Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/sctp/socket.c |  5 ++++
- net/sctp/sysctl.c | 74 +++++++++++++++++++++++++++++++++++++++++++++++++++----
- 2 files changed, 74 insertions(+), 5 deletions(-)
+>From an ovs-ofctl point of view I think that makes a lot of sense and I
+think it should be clean enough to implement. My initial reaction is that
+using a position argument would be good and I don't see any particular
+problem with a no_vlan option. But I'll give some thought to an eth_type
+argument.
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 72046b9..2e1af1b 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -2818,6 +2818,11 @@ static int sctp_setsockopt_rtoinfo(struct sock *sk, char __user *optval, unsigne
- 	if (copy_from_user(&rtoinfo, optval, optlen))
- 		return -EFAULT;
- 
-+	if (rtoinfo.srto_min < 1 ||
-+	    rtoinfo.srto_max > 86400000 ||
-+	    rtoinfo.srto_max < rtoinfo.srto_min)
-+		return -EINVAL;
-+
- 	asoc = sctp_id2assoc(sk, rtoinfo.srto_assoc_id);
- 
- 	/* Set the values to the specific association */
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 6b36561..8d6757a 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -59,8 +59,16 @@ extern int sysctl_sctp_wmem[3];
- static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
- 				int write,
- 				void __user *buffer, size_t *lenp,
--
- 				loff_t *ppos);
-+static int proc_sctp_do_rto_min(struct ctl_table *ctl,
-+				int write,
-+				void __user *buffer, size_t *lenp,
-+				loff_t *ppos);
-+static int proc_sctp_do_rto_max(struct ctl_table *ctl,
-+				int write,
-+				void __user *buffer, size_t *lenp,
-+				loff_t *ppos);
-+
- static struct ctl_table sctp_table[] = {
- 	{
- 		.procname	= "sctp_mem",
-@@ -102,17 +110,17 @@ static struct ctl_table sctp_net_table[] = {
- 		.data		= &init_net.sctp.rto_min,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec_minmax,
-+		.proc_handler	= proc_sctp_do_rto_min,
- 		.extra1         = &one,
--		.extra2         = &timer_max
-+		.extra2         = &init_net.sctp.rto_max
- 	},
- 	{
- 		.procname	= "rto_max",
- 		.data		= &init_net.sctp.rto_max,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec_minmax,
--		.extra1         = &one,
-+		.proc_handler	= proc_sctp_do_rto_max,
-+		.extra1         = &init_net.sctp.rto_min,
- 		.extra2         = &timer_max
- 	},
- 	{
-@@ -342,6 +350,62 @@ static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
- 	return ret;
- }
- 
-+static int proc_sctp_do_rto_min(struct ctl_table *ctl,
-+				int write,
-+				void __user*buffer, size_t *lenp,
-+				loff_t *ppos)
-+{
-+	struct net *net = current->nsproxy->net_ns;
-+	int new_value;
-+	struct ctl_table tbl;
-+	unsigned int min = *(unsigned int *) ctl->extra1;
-+	unsigned int max = *(unsigned int *) ctl->extra2;
-+	int ret;
-+
-+	memset(&tbl, 0, sizeof(struct ctl_table));
-+	tbl.maxlen = sizeof(unsigned int);
-+
-+	if (write)
-+		tbl.data = &new_value;
-+	else
-+		tbl.data = &net->sctp.rto_min;
-+	ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
-+	if (write) {
-+		if (ret || new_value > max || new_value < min)
-+			return -EINVAL;
-+		net->sctp.rto_min = new_value;
-+	}
-+	return ret;
-+}
-+
-+static int proc_sctp_do_rto_max(struct ctl_table *ctl,
-+				int write,
-+				void __user*buffer, size_t *lenp,
-+				loff_t *ppos)
-+{
-+	struct net *net = current->nsproxy->net_ns;
-+	int new_value;
-+	struct ctl_table tbl;
-+	unsigned int min = *(unsigned int *) ctl->extra1;
-+	unsigned int max = *(unsigned int *) ctl->extra2;
-+	int ret;
-+
-+	memset(&tbl, 0, sizeof(struct ctl_table));
-+	tbl.maxlen = sizeof(unsigned int);
-+
-+	if (write)
-+		tbl.data = &new_value;
-+	else
-+		tbl.data = &net->sctp.rto_max;
-+	ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
-+	if (write) {
-+                if (ret || new_value > max || new_value < min)
-+			return -EINVAL;
-+		net->sctp.rto_max = new_value;
-+	}
-+	return ret;
-+}
-+
- int sctp_sysctl_net_register(struct net *net)
- {
- 	struct ctl_table *table;
--- 
-1.7.12
+I would like to clarify how you would like push_mpls to work in the case
+where flows are received from a controller. It seems to me that the
+behaviour should depend on the OpenFlow version used by the connection with
+the controller as we can't change the action to accommodate an extra
+argument. I think this is also easy enough to implement: actually I am
+pretty sure think the series currently does that and that the difficulty
+that this patch tried to address is only on the ovs-ofctl side. Regardless,
+I wanted to check that is the behaviour that you would like.
