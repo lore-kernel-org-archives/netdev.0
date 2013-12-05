@@ -1,190 +1,48 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 1/7] net: of_mdio: factor PHY registration from of_mdiobus_register
-Date: Thu, 5 Dec 2013 14:52:10 -0800
-Message-ID: <1386283936-26104-2-git-send-email-florian@openwrt.org>
-References: <1386283936-26104-1-git-send-email-florian@openwrt.org>
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: RE: [PATCH] net: clear local_df when passing skb between namespaces
+Date: Thu, 5 Dec 2013 22:52:42 +0000
+Message-ID: <2134F8430051B64F815C691A62D9831816F994@XCH-BLV-504.nw.nos.boeing.com>
+References: <2134F8430051B64F815C691A62D9831816F612@XCH-BLV-504.nw.nos.boeing.com>
+ <2134F8430051B64F815C691A62D9831816F6A4@XCH-BLV-504.nw.nos.boeing.com>
+ <20131205201856.GC21745@order.stressinduktion.org>
+ <20131205222919.GD21745@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <grant.likely@linaro.org>,
-	<devicetree@vger.kernel.org>, <abrodkin@synopsys.com>,
-	<rob.herring@calxeda.com>, <mark.rutland@arm.com>,
-	<sebastian.hesselbarth@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:47732 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752355Ab3LEXBz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:01:55 -0500
-In-Reply-To: <1386283936-26104-1-git-send-email-florian@openwrt.org>
+Received: from stl-mbsout-01.boeing.com ([130.76.96.169]:49751 "EHLO
+	stl-mbsout-01.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755260Ab3LEXEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:04:41 -0500
+In-Reply-To: <20131205222919.GD21745@order.stressinduktion.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-
-Since commit 779d835e ("net: of_mdio: scan mdiobus for PHYs without reg
-property") we have two foreach loops which do pretty much the same
-thing. Factor the PHY device registration in a function helper:
-of_mdiobus_register_phy() which takes care of the details and allows for
-future PHY specific extensions.
-
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/of/of_mdio.c | 109 ++++++++++++++++++++++-----------------------------
- 1 file changed, 46 insertions(+), 63 deletions(-)
-
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index d5a57a9..82485d2 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -22,6 +22,47 @@
- MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
- MODULE_LICENSE("GPL");
- 
-+static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *child,
-+				   u32 addr)
-+{
-+	struct phy_device *phy;
-+	bool is_c45;
-+	int rc;
-+
-+	is_c45 = of_device_is_compatible(child,
-+					 "ethernet-phy-ieee802.3-c45");
-+
-+	phy = get_phy_device(mdio, addr, is_c45);
-+	if (!phy || IS_ERR(phy))
-+		return 1;
-+
-+	if (mdio->irq) {
-+		mdio->irq[addr] =
-+			irq_of_parse_and_map(child, 0);
-+		if (!mdio->irq[addr])
-+			mdio->irq[addr] = PHY_POLL;
-+	}
-+
-+	/* Associate the OF node with the device structure so it
-+	 * can be looked up later */
-+	of_node_get(child);
-+	phy->dev.of_node = child;
-+
-+	/* All data is now stored in the phy struct;
-+	 * register it */
-+	rc = phy_device_register(phy);
-+	if (rc) {
-+		phy_device_free(phy);
-+		of_node_put(child);
-+		return 1;
-+	}
-+
-+	dev_dbg(&mdio->dev, "registered phy %s at address %i\n",
-+		 child->name, addr);
-+
-+	return 0;
-+}
-+
- /**
-  * of_mdiobus_register - Register mii_bus and create PHYs from the device tree
-  * @mdio: pointer to mii_bus structure
-@@ -32,11 +73,10 @@ MODULE_LICENSE("GPL");
-  */
- int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- {
--	struct phy_device *phy;
- 	struct device_node *child;
- 	const __be32 *paddr;
- 	u32 addr;
--	bool is_c45, scanphys = false;
-+	bool scanphys = false;
- 	int rc, i, len;
- 
- 	/* Mask out all PHYs from auto probing.  Instead the PHYs listed in
-@@ -73,38 +113,9 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 			continue;
- 		}
- 
--		if (mdio->irq) {
--			mdio->irq[addr] = irq_of_parse_and_map(child, 0);
--			if (!mdio->irq[addr])
--				mdio->irq[addr] = PHY_POLL;
--		}
--
--		is_c45 = of_device_is_compatible(child,
--						 "ethernet-phy-ieee802.3-c45");
--		phy = get_phy_device(mdio, addr, is_c45);
--
--		if (!phy || IS_ERR(phy)) {
--			dev_err(&mdio->dev,
--				"cannot get PHY at address %i\n",
--				addr);
--			continue;
--		}
--
--		/* Associate the OF node with the device structure so it
--		 * can be looked up later */
--		of_node_get(child);
--		phy->dev.of_node = child;
--
--		/* All data is now stored in the phy struct; register it */
--		rc = phy_device_register(phy);
--		if (rc) {
--			phy_device_free(phy);
--			of_node_put(child);
-+		rc = of_mdiobus_register_phy(mdio, child, addr);
-+		if (rc)
- 			continue;
--		}
--
--		dev_dbg(&mdio->dev, "registered phy %s at address %i\n",
--			child->name, addr);
- 	}
- 
- 	if (!scanphys)
-@@ -117,9 +128,6 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 		if (paddr)
- 			continue;
- 
--		is_c45 = of_device_is_compatible(child,
--						 "ethernet-phy-ieee802.3-c45");
--
- 		for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
- 			/* skip already registered PHYs */
- 			if (mdio->phy_map[addr])
-@@ -129,34 +137,9 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 			dev_info(&mdio->dev, "scan phy %s at address %i\n",
- 				 child->name, addr);
- 
--			phy = get_phy_device(mdio, addr, is_c45);
--			if (!phy || IS_ERR(phy))
-+			rc = of_mdiobus_register_phy(mdio, child, addr);
-+			if (rc)
- 				continue;
--
--			if (mdio->irq) {
--				mdio->irq[addr] =
--					irq_of_parse_and_map(child, 0);
--				if (!mdio->irq[addr])
--					mdio->irq[addr] = PHY_POLL;
--			}
--
--			/* Associate the OF node with the device structure so it
--			 * can be looked up later */
--			of_node_get(child);
--			phy->dev.of_node = child;
--
--			/* All data is now stored in the phy struct;
--			 * register it */
--			rc = phy_device_register(phy);
--			if (rc) {
--				phy_device_free(phy);
--				of_node_put(child);
--				continue;
--			}
--
--			dev_info(&mdio->dev, "registered phy %s at address %i\n",
--				 child->name, addr);
--			break;
- 		}
- 	}
- 
--- 
-1.8.3.2
+Q29uY3VyIC0gdGVzdGluZyBvbiBhbiBlYXJsaWVyIGtlcm5lbCB2ZXJzaW9uIHNob3dzIHRoYXQg
+Y2xlYXJpbmcNCmxvY2FsX2RmIHNvbHZlcyB0aGUgcHJvYmxlbS4NCg0KRnJlZA0KDQo+IC0tLS0t
+T3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEhhbm5lcyBGcmVkZXJpYyBTb3dhIFttYWls
+dG86aGFubmVzQHN0cmVzc2luZHVrdGlvbi5vcmddDQo+IFNlbnQ6IFRodXJzZGF5LCBEZWNlbWJl
+ciAwNSwgMjAxMyAyOjI5IFBNDQo+IFRvOiBUZW1wbGluLCBGcmVkIEw7IG5ldGRldkB2Z2VyLmtl
+cm5lbC5vcmcNCj4gU3ViamVjdDogW1BBVENIXSBuZXQ6IGNsZWFyIGxvY2FsX2RmIHdoZW4gcGFz
+c2luZyBza2IgYmV0d2VlbiBuYW1lc3BhY2VzDQo+IA0KPiBXZSBtdXN0IGNsZWFyIGxvY2FsX2Rm
+IHdoZW4gcGFzc2luZyB0aGUgc2tiIGJldHdlZW4gbmFtZXNwYWNlcyBhcyB0aGUNCj4gcGFja2V0
+IGlzIG5vdCBsb2NhbCB0byB0aGUgbmV3IG5hbWVzcGFjZSBhbnkgbW9yZSBhbmQgdGh1cyBtYXkg
+bm90IGdldA0KPiBmcmFnbWVudGVkIGJ5IGxvY2FsIHJ1bGVzLiBGcmVkIFRlbXBsaW4gbm90aWNl
+ZCB0aGF0IG90aGVyIG5hbWVzcGFjZXMNCj4gZG8gZnJhZ21lbnQgSVB2NiBwYWNrZXRzIHdoaWxl
+IGZvcndhcmRpbmcuIEluc3RlYWQgdGhleSBzaG91bGQgaGF2ZSBzZW5kDQo+IGJhY2sgYSBQVEIu
+DQo+IA0KPiBUaGUgc2FtZSBwcm9ibGVtIHNob3VsZCBiZSBwcmVzZW50IHdoZW4gZm9yd2FyZGlu
+ZyBERi1JUHY0IHBhY2tldHMNCj4gYmV0d2VlbiBuYW1lc3BhY2VzLg0KPiANCj4gUmVwb3J0ZWQt
+Ynk6IFRlbXBsaW4sIEZyZWQgTCA8RnJlZC5MLlRlbXBsaW5AYm9laW5nLmNvbT4NCj4gU2lnbmVk
+LW9mZi1ieTogSGFubmVzIEZyZWRlcmljIFNvd2EgPGhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3Jn
+Pg0KPiAtLS0NCj4gIG5ldC9jb3JlL3NrYnVmZi5jIHwgMSArDQo+ICAxIGZpbGUgY2hhbmdlZCwg
+MSBpbnNlcnRpb24oKykNCj4gDQo+IGRpZmYgLS1naXQgYS9uZXQvY29yZS9za2J1ZmYuYyBiL25l
+dC9jb3JlL3NrYnVmZi5jDQo+IGluZGV4IDI3MThmZWQuLjA2ZTcyZDMgMTAwNjQ0DQo+IC0tLSBh
+L25ldC9jb3JlL3NrYnVmZi5jDQo+ICsrKyBiL25ldC9jb3JlL3NrYnVmZi5jDQo+IEBAIC0zNTg0
+LDYgKzM1ODQsNyBAQCB2b2lkIHNrYl9zY3J1Yl9wYWNrZXQoc3RydWN0IHNrX2J1ZmYgKnNrYiwg
+Ym9vbCB4bmV0KQ0KPiAgCXNrYi0+dHN0YW1wLnR2NjQgPSAwOw0KPiAgCXNrYi0+cGt0X3R5cGUg
+PSBQQUNLRVRfSE9TVDsNCj4gIAlza2ItPnNrYl9paWYgPSAwOw0KPiArCXNrYi0+bG9jYWxfZGYg
+PSAwOw0KPiAgCXNrYl9kc3RfZHJvcChza2IpOw0KPiAgCXNrYi0+bWFyayA9IDA7DQo+ICAJc2Vj
+cGF0aF9yZXNldChza2IpOw0KPiAtLQ0KPiAxLjguMy4xDQoNCg==
