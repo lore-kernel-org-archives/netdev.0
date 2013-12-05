@@ -1,62 +1,112 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: introduce dev_consume_skb_any()
-Date: Thu, 05 Dec 2013 07:05:52 -0800
-Message-ID: <1386255952.30495.192.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
-	 <1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com>
-	 <20131203.165034.1085515763685633822.davem@davemloft.net>
-	 <1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com>
-	 <1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1386247508.30495.180.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131205141346.GB14095@order.stressinduktion.org>
-	 <1386254734.30495.186.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [patch net/stable] br: fix use of ->rx_handler_data in
+ code executed on non-rx_handler path
+Date: Thu, 05 Dec 2013 07:18:13 -0800
+Message-ID: <1386256693.30495.194.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386255025-23823-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:56194 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932203Ab3LEPFy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 10:05:54 -0500
-Received: by mail-pd0-f178.google.com with SMTP id y10so24582253pdj.23
-        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 07:05:53 -0800 (PST)
-In-Reply-To: <1386254734.30495.186.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jtluka@redhat.com, mst@redhat.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, stephen@networkplumber.org,
+	edumazet@google.com, laine@redhat.com, zhiguohong@tencent.com,
+	davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1386255025-23823-1-git-send-email-jiri@resnulli.us>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-12-05 at 06:45 -0800, Eric Dumazet wrote:
-> On Thu, 2013-12-05 at 15:13 +0100, Hannes Frederic Sowa wrote:
-> > On Thu, Dec 05, 2013 at 04:45:08AM -0800, Eric Dumazet wrote:
-> > > -		local_irq_save(flags);
-> > > -		sd = &__get_cpu_var(softnet_data);
-> > > -		skb->next = sd->completion_queue;
-> > > -		sd->completion_queue = skb;
-> > > -		raise_softirq_irqoff(NET_TX_SOFTIRQ);
-> > > -		local_irq_restore(flags);
-> > > +	if (likely(atomic_read(&skb->users) == 1)) {
-> > > +		smp_rmb();
-> > 
-> > Could you give me a hint why this barrier is needed? IMHO the volatile
-> > access in atomic_read should get rid of the control dependency so I
-> > don't see a need for this barrier. Without the volatile access a
-> > compiler-barrier would still suffice, I guess?
+On Thu, 2013-12-05 at 15:50 +0100, Jiri Pirko wrote:
+> br_stp_rcv() is reached by non-rx_handler path. That means there is no
+> guarantee that dev is bridge port and therefore simple NULL check of
+> ->rx_handler_data is not enough. There is need to check if dev is really
+> bridge port and since only rcu read lock is held here, do it by checking
+> ->rx_handler pointer.
 > 
-> Please take a look at kfree_skb() implementation.
+> Note that synchronize_net() in netdev_rx_handler_unregister() ensures
+> this approach as valid.
 > 
-> If you think a comment is needed there, please feel free to add it.
+> Introduced originally by:
+> commit f350a0a87374418635689471606454abc7beaa3a
+>   "bridge: use rx_handler_data pointer to store net_bridge_port pointer"
 > 
+> Fixed but not in the best way by:
+> commit b5ed54e94d324f17c97852296d61a143f01b227a
+>   "bridge: fix RCU races with bridge port"
+> 
+> Reintroduced by:
+> commit 716ec052d2280d511e10e90ad54a86f5b5d4dcc2
+>   "bridge: fix NULL pointer deref of br_port_get_rcu"
+> 
+> Please apply to stable trees as well. Thanks.
+> 
+> Reported-by: Laine Stump <laine@redhat.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  net/bridge/br_private.h  | 12 ++++++++++++
+>  net/bridge/br_stp_bpdu.c |  2 +-
+>  2 files changed, 13 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index 229d820..67a2d4b 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -204,6 +204,13 @@ static inline struct net_bridge_port *br_port_get_rcu(const struct net_device *d
+>  	return rcu_dereference(dev->rx_handler_data);
+>  }
+>  
+> +static inline bool br_rx_handler_check_rcu(const struct net_device *dev);
+> +
 
-My understanding of this (old) barrier here is an implicit wmb in
-skb_get()
+Why doing this ugly forward declaration ?
 
-This probably needs something like :
+> +static inline struct net_bridge_port *br_port_get_check_rcu(const struct net_device *dev)
+> +{
+> +	return br_rx_handler_check_rcu(dev) ? br_port_get_rcu(dev) : NULL;
+> +}
+> +
+>  static inline struct net_bridge_port *br_port_get_rtnl(const struct net_device *dev)
+>  {
+>  	return br_port_exists(dev) ?
+> @@ -426,6 +433,11 @@ netdev_features_t br_features_recompute(struct net_bridge *br,
+>  int br_handle_frame_finish(struct sk_buff *skb);
+>  rx_handler_result_t br_handle_frame(struct sk_buff **pskb);
+>  
 
-static inline struct sk_buff *skb_get(struct sk_buff *skb)
-{
-	smp_mb__before_atomic_inc(); /* check {consume|kfree}_skb() */
-	atomic_inc(&skb->users);
-}
+
+
+> +static inline bool br_rx_handler_check_rcu(const struct net_device *dev)
+> +{
+> +	return rcu_dereference(dev->rx_handler) == br_handle_frame;
+> +}
+
+
+Move br_port_get_check_rcu() here ?
+
+
+> +
+>  /* br_ioctl.c */
+>  int br_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+>  int br_ioctl_deviceless_stub(struct net *net, unsigned int cmd,
+> diff --git a/net/bridge/br_stp_bpdu.c b/net/bridge/br_stp_bpdu.c
+> index 8660ea3..bdb459d 100644
+> --- a/net/bridge/br_stp_bpdu.c
+> +++ b/net/bridge/br_stp_bpdu.c
+> @@ -153,7 +153,7 @@ void br_stp_rcv(const struct stp_proto *proto, struct sk_buff *skb,
+>  	if (buf[0] != 0 || buf[1] != 0 || buf[2] != 0)
+>  		goto err;
+>  
+> -	p = br_port_get_rcu(dev);
+> +	p = br_port_get_check_rcu(dev);
+>  	if (!p)
+>  		goto err;
+>  
