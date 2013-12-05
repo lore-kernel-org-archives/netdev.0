@@ -1,67 +1,45 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v4] sctp: check the rto_min and rto_max
-Date: Thu, 05 Dec 2013 17:25:17 +0100
-Message-ID: <52A0A8ED.70903@redhat.com>
-References: <529FE2AD.5020700@huawei.com> <20131205133217.GA20349@hmsreliant.think-freely.org> <52A088A9.9090200@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Wang Weidong <weidong1991.wang@gmail.com>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: [PATCH] mvneta: DMA API misusage fix
+Date: Thu,  5 Dec 2013 13:35:36 -0300
+Message-ID: <1386261337-26442-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>, Willy Tarreau <w@1wt.eu>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:65410 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751949Ab3LEQZh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Dec 2013 11:25:37 -0500
-In-Reply-To: <52A088A9.9090200@gmail.com>
+Received: from top.free-electrons.com ([176.31.233.9]:47750 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932576Ab3LEQfs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 11:35:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/05/2013 03:07 PM, Wang Weidong wrote:
-> From: Wang Weidong <wangweidong1@huawei.com>
-> On 2013/12/5 21:32, Neil Horman wrote:
->> On Thu, Dec 05, 2013 at 10:19:25AM +0800, Wang Weidong wrote:
->>> rto_min should be smaller than rto_max while rto_max should be larger
->>> than rto_min. Add two proc_handler for the checking. Add the check in
->>> sctp_setsockopt_rtoinfo.
->>> delete a blank line in proc_sctp_do_hmac_alg() declaration.
->>>
->>> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
->>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->>> ---
->>>   net/sctp/socket.c |  5 ++++
->>>   net/sctp/sysctl.c | 74 +++++++++++++++++++++++++++++++++++++++++++++++++++----
->>>   2 files changed, 74 insertions(+), 5 deletions(-)
->>>
->>> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
->>> index 72046b9..2e1af1b 100644
->>> --- a/net/sctp/socket.c
->>> +++ b/net/sctp/socket.c
->>> @@ -2818,6 +2818,11 @@ static int sctp_setsockopt_rtoinfo(struct sock *sk, char __user *optval, unsigne
->>>       if (copy_from_user(&rtoinfo, optval, optlen))
->>>           return -EFAULT;
->>>
->>> +    if (rtoinfo.srto_min < 1 ||
->>> +        rtoinfo.srto_max > 86400000 ||
->> These should be defiend to some descriptive value.
->>
-> Thanks for your suggestion. I will fix it in v5.
+This small patch removes a DMA_API_DEBUG warning, fixing a DMA API misusage.
+The change is straightforward: rx DMA mappings are created setting a size
+(using some upper-limit buffer size), but destroyed (aka unmapped) setting
+the actual data size that was received.
 
-While you're on v5 anyway, please also fix up spacing in your
-commit from ...
+The fix replaces 'data_size' by the MVNETA_RX_BUF_SIZE in the unmap.
 
-static int proc_sctp_do_rto_min(struct ctl_table *ctl,
-				int write,
-				void __user*buffer, size_t *lenp,
-				loff_t *ppos)
+I'm not sure how serious this misusage is, so I'd like to ask for advise
+about marking this commit for stable. The problem is here since the
+introduction of the driver, namely since:
 
-... to something like ...
+  commit c5aff18204da025fdf714f8f6423372b4b8efd00
+  net: mvneta: driver for Marvell Armada 370/XP network unit
 
-static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
-				void __user *buffer, size_t *lenp,
-				loff_t *ppos)
+Thanks!
 
-Thanks !
+Ezequiel Garcia (1):
+  net: mvneta: Fix incorrect DMA unmapping size
+
+ drivers/net/ethernet/marvell/mvneta.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+-- 
+1.8.1.5
