@@ -1,109 +1,41 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Subject: [PATCH 2/2] net/fddi: Replace local marco with PCI standard macro
-Date: Thu, 5 Dec 2013 19:38:02 +0800
-Message-ID: <1386243482-32856-1-git-send-email-wangyijing@huawei.com>
+Subject: [PATCH 1/2] 3c59x/net: Use dev_is_pci() to simplify code
+Date: Thu, 5 Dec 2013 19:37:38 +0800
+Message-ID: <1386243458-32576-1-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	Yijing Wang <wangyijing@huawei.com>,
 	Hanjun Guo <guohanjun@huawei.com>
-To: "Maciej W. Rozycki" <macro@linux-mips.org>,
+To: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:54422 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753644Ab3LELiV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 06:38:21 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:10323 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755936Ab3LELju (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 06:39:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace local marco DFX_BUS_PCI with PCI standard marco
-dev_is_pci().
+Use standard PCI macro dev_is_pci() to simplify code.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- drivers/net/fddi/defxx.c |   20 +++++++-------------
- 1 files changed, 7 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/3com/3c59x.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/fddi/defxx.c b/drivers/net/fddi/defxx.c
-index 0b40e1c..0344f71 100644
---- a/drivers/net/fddi/defxx.c
-+++ b/drivers/net/fddi/defxx.c
-@@ -241,12 +241,6 @@ static char version[] =
-  */
- #define NEW_SKB_SIZE (PI_RCV_DATA_K_SIZE_MAX+128)
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index ad5272b..af24c3c 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -693,7 +693,7 @@ DEFINE_WINDOW_IO(16)
+ DEFINE_WINDOW_IO(32)
  
--#ifdef CONFIG_PCI
--#define DFX_BUS_PCI(dev) (dev->bus == &pci_bus_type)
--#else
--#define DFX_BUS_PCI(dev) 0
--#endif
--
- #ifdef CONFIG_EISA
- #define DFX_BUS_EISA(dev) (dev->bus == &eisa_bus_type)
+ #ifdef CONFIG_PCI
+-#define DEVICE_PCI(dev) (((dev)->bus == &pci_bus_type) ? to_pci_dev((dev)) : NULL)
++#define DEVICE_PCI(dev) ((dev_is_pci(dev)) ? to_pci_dev((dev)) : NULL)
  #else
-@@ -436,7 +430,7 @@ static void dfx_port_read_long(DFX_board_t *bp, int offset, u32 *data)
- static void dfx_get_bars(struct device *bdev,
- 			 resource_size_t *bar_start, resource_size_t *bar_len)
- {
--	int dfx_bus_pci = DFX_BUS_PCI(bdev);
-+	int dfx_bus_pci = dev_is_pci(bdev);
- 	int dfx_bus_eisa = DFX_BUS_EISA(bdev);
- 	int dfx_bus_tc = DFX_BUS_TC(bdev);
- 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
-@@ -518,7 +512,7 @@ static const struct net_device_ops dfx_netdev_ops = {
- static int dfx_register(struct device *bdev)
- {
- 	static int version_disp;
--	int dfx_bus_pci = DFX_BUS_PCI(bdev);
-+	int dfx_bus_pci = dev_is_pci(bdev);
- 	int dfx_bus_tc = DFX_BUS_TC(bdev);
- 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
- 	const char *print_name = dev_name(bdev);
-@@ -667,7 +661,7 @@ static void dfx_bus_init(struct net_device *dev)
- {
- 	DFX_board_t *bp = netdev_priv(dev);
- 	struct device *bdev = bp->bus_dev;
--	int dfx_bus_pci = DFX_BUS_PCI(bdev);
-+	int dfx_bus_pci = dev_is_pci(bdev);
- 	int dfx_bus_eisa = DFX_BUS_EISA(bdev);
- 	int dfx_bus_tc = DFX_BUS_TC(bdev);
- 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
-@@ -813,7 +807,7 @@ static void dfx_bus_uninit(struct net_device *dev)
- {
- 	DFX_board_t *bp = netdev_priv(dev);
- 	struct device *bdev = bp->bus_dev;
--	int dfx_bus_pci = DFX_BUS_PCI(bdev);
-+	int dfx_bus_pci = dev_is_pci(bdev);
- 	int dfx_bus_eisa = DFX_BUS_EISA(bdev);
- 	u8 val;
- 
-@@ -967,7 +961,7 @@ static int dfx_driver_init(struct net_device *dev, const char *print_name,
- {
- 	DFX_board_t *bp = netdev_priv(dev);
- 	struct device *bdev = bp->bus_dev;
--	int dfx_bus_pci = DFX_BUS_PCI(bdev);
-+	int dfx_bus_pci = dev_is_pci(bdev);
- 	int dfx_bus_eisa = DFX_BUS_EISA(bdev);
- 	int dfx_bus_tc = DFX_BUS_TC(bdev);
- 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
-@@ -1877,7 +1871,7 @@ static irqreturn_t dfx_interrupt(int irq, void *dev_id)
- 	struct net_device *dev = dev_id;
- 	DFX_board_t *bp = netdev_priv(dev);
- 	struct device *bdev = bp->bus_dev;
--	int dfx_bus_pci = DFX_BUS_PCI(bdev);
-+	int dfx_bus_pci = dev_is_pci(bdev);
- 	int dfx_bus_eisa = DFX_BUS_EISA(bdev);
- 	int dfx_bus_tc = DFX_BUS_TC(bdev);
- 
-@@ -3579,7 +3573,7 @@ static void dfx_unregister(struct device *bdev)
- {
- 	struct net_device *dev = dev_get_drvdata(bdev);
- 	DFX_board_t *bp = netdev_priv(dev);
--	int dfx_bus_pci = DFX_BUS_PCI(bdev);
-+	int dfx_bus_pci = dev_is_pci(bdev);
- 	int dfx_bus_tc = DFX_BUS_TC(bdev);
- 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
- 	resource_size_t bar_start = 0;		/* pointer to port */
+ #define DEVICE_PCI(dev) NULL
+ #endif
 -- 
 1.7.1
