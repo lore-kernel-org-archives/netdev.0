@@ -1,74 +1,168 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: introduce SO_BPF_EXTENSIONS
-Date: Thu, 05 Dec 2013 09:32:50 -0800
-Message-ID: <1386264770.30495.204.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1385639832-3938-1-git-send-email-msekleta@redhat.com>
-	 <1385659889.5352.25.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5298A0EF.70401@redhat.com>
-	 <CAJ7VeQwC7xPPujCN8kQ3KcJAhykwQXLFA=vw2gWABmpUvuz1og@mail.gmail.com>
+From: Ben Pfaff <blp@nicira.com>
+Subject: Re: [PATCH v2.51 1/5] ofp-actions: Allow Consistency checking of
+ OF1.3+ VLAN actions after mpls_push
+Date: Thu, 5 Dec 2013 09:56:25 -0800
+Message-ID: <20131205175625.GU30313@nicira.com>
+References: <1385005606-30130-1-git-send-email-horms@verge.net.au>
+ <1385005606-30130-2-git-send-email-horms@verge.net.au>
+ <20131204212429.GA11354@nicira.com>
+ <20131204235849.GB21448@verge.net.au>
+ <20131205004417.GD11354@nicira.com>
+ <20131205005139.GA21443@verge.net.au>
+ <20131205010111.GE11354@nicira.com>
+ <20131205022606.GC21443@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Michal Sekletar <msekleta@redhat.com>, netdev@vger.kernel.org,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: Michal =?ISO-8859-1?Q?Seklet=E1r?= <sekletar.m@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ravi K <rkerur@gmail.com>, Joe Stringer <joe@wand.net.nz>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:59197 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756993Ab3LERcv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 12:32:51 -0500
-Received: by mail-pb0-f44.google.com with SMTP id rq2so26317855pbb.31
-        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 09:32:51 -0800 (PST)
-In-Reply-To: <CAJ7VeQwC7xPPujCN8kQ3KcJAhykwQXLFA=vw2gWABmpUvuz1og@mail.gmail.com>
+Received: from na3sys009aog116.obsmtp.com ([74.125.149.240]:49640 "HELO
+	na3sys009aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933424Ab3LER4b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 12:56:31 -0500
+Received: by mail-pd0-f170.google.com with SMTP id g10so25221787pdj.29
+        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 09:56:30 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131205022606.GC21443@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-05 at 18:28 +0100, Michal Seklet=C3=A1r wrote:
-> On Fri, Nov 29, 2013 at 3:13 PM, Daniel Borkmann <dborkman@redhat.com=
-> wrote:
-> > On 11/28/2013 06:31 PM, Eric Dumazet wrote:
-> >>
-> >> On Thu, 2013-11-28 at 12:57 +0100, Michal Sekletar wrote:
-> >>
-> >>> +enum {
-> >>> +       BPF_ANC_FLAG_PROTOCOL         =3D (1 << 0),
-> >>> +       BPF_ANC_FLAG_PKTTYPE          =3D (1 << 1),
-> >>> +       BPF_ANC_FLAG_IFINDEX          =3D (1 << 2),
-> >>> +       BPF_ANC_FLAG_NLATTR           =3D (1 << 3),
-> >>> +       BPF_ANC_FLAG_NLATTR_NEST      =3D (1 << 4),
-> >>> +       BPF_ANC_FLAG_MARK             =3D (1 << 5),
-> >>> +       BPF_ANC_FLAG_QUEUE            =3D (1 << 6),
-> >>> +       BPF_ANC_FLAG_HATYPE           =3D (1 << 7),
-> >>> +       BPF_ANC_FLAG_RXHASH           =3D (1 << 8),
-> >>> +       BPF_ANC_FLAG_CPU              =3D (1 << 9),
-> >>> +       BPF_ANC_FLAG_ALU_XOR_X        =3D (1 << 10),
-> >>> +       BPF_ANC_FLAG_SECCOMP_LD_W     =3D (1 << 11),
-> >>> +       BPF_ANC_FLAG_VLAN_TAG         =3D (1 << 12),
-> >>> +       BPF_ANC_FLAG_VLAN_TAG_PRESENT =3D (1 << 13),
-> >>> +       BPF_ANC_FLAG_PAY_OFFSET       =3D (1 << 14),
-> >>> +};
-> >>> +
-> >>
-> >>
-> >> Why spending 15 bits (out of 32), for all these extensions ?
-> >>
-> >> It seems a single one should be enough.
-> >>
-> >> I do not think we will ever remove one of these extension.
-> >
-> >
-> > Agreed, this will just cripple of us adding other extensions in
-> > terms of uapi. I assume there won't be so much more extensions,
-> > but it's of course hard to predict the future. ;-)
-> >
->=20
-> Not sure I follow. Can you please elaborate on the explanation. Pleas=
-e
-> bare with me this is my first kernel patch submission.
+On Thu, Dec 05, 2013 at 11:26:06AM +0900, Simon Horman wrote:
+> On Wed, Dec 04, 2013 at 05:01:11PM -0800, Ben Pfaff wrote:
+> > On Thu, Dec 05, 2013 at 09:51:39AM +0900, Simon Horman wrote:
+> > > On Wed, Dec 04, 2013 at 04:44:17PM -0800, Ben Pfaff wrote:
+> > > > On Thu, Dec 05, 2013 at 08:58:49AM +0900, Simon Horman wrote:
+> > > > > On Wed, Dec 04, 2013 at 01:24:29PM -0800, Ben Pfaff wrote:
+> > > > > > On Thu, Nov 21, 2013 at 12:46:42PM +0900, Simon Horman wrote:
+> > > > > > > The aim of this patch is to support provide infrastructure for verification
+> > > > > > > of VLAN actions after an mpls_push action for OpenFlow1.3. This supplements
+> > > > > > > existing support for verifying these actions for pre-OpenFlow1.3.
+> > > > > > > 
+> > > > > > > In OpenFlow1.1 and 1.2 MPLS tags are pushed after any VLAN tags that
+> > > > > > > immediately follow the ethernet header. This is pre-OpenFlow1.3 tag
+> > > > > > > ordering. Open vSwitch also uses this ordering when supporting MPLS
+> > > > > > > actions via Nicira extensions to OpenFlow1.0.
+> > > > > > > 
+> > > > > > > When using pre-OpenFlow1.3 tag ordering an MPLS push action does not
+> > > > > > > affect the VLANs of a packet. If VLAN tags are present immediately after
+> > > > > > > the ethernet header then they remain present there.
+> > > > > > > 
+> > > > > > > In of OpenFlow1.3+ MPLS LSEs are pushed before any VLAN tags that
+> > > > > > > immediately follow the ethernet header. This is OpenFlow1.3+ tag
+> > > > > > > ordering.
+> > > > > > > 
+> > > > > > > When using OpenFlow1.3+ tag ordering an MPLS push action affects the
+> > > > > > > VLANs of a packet as any VLAN tags previously present after the ethernet
+> > > > > > > header are moved to be immediately after the newly pushed MPLS LSE. Thus
+> > > > > > > for the purpose of action consistency checking a packet may be changed
+> > > > > > > from a VLAN packet to a non-VLAN packet.
+> > > > > > > 
+> > > > > > > In this way the effective value of the VLAN TCI of a packet may differ
+> > > > > > > after an MPLS push depending on the OpenFlow version in use.
+> > > > > > > 
+> > > > > > > This patch does not enable the logic described above.
+> > > > > > > Rather it is disabled in ofpacts_check__(). It should
+> > > > > > > be enabled when support for OpenFlow1.3+ tag order is added
+> > > > > > > and enabled.
+> > > > > > > 
+> > > > > > > Signed-off-by: Simon Horman <horms@verge.net.au>
+> > > > > > 
+> > > > > > As far as I can tell this doesn't make sense, because where the MPLS
+> > > > > > tag goes is a property of the action that we know at the time we parse
+> > > > > > the push_mpls action.  So why isn't this patch just the following?
+> > > > > > 
+> > > > > > diff --git a/lib/ofp-actions.c b/lib/ofp-actions.c
+> > > > > > index a02f842..f444374 100644
+> > > > > > --- a/lib/ofp-actions.c
+> > > > > > +++ b/lib/ofp-actions.c
+> > > > > > @@ -2071,6 +2071,9 @@ ofpact_check__(enum ofputil_protocol *usable_protocols, struct ofpact *a,
+> > > > > >           * Thus nothing can be assumed about the network protocol.
+> > > > > >           * Temporarily mark that we have no nw_proto. */
+> > > > > >          flow->nw_proto = 0;
+> > > > > > +        if (ofpact_get_PUSH_MPLS(a)->position == OFPACT_MPLS_BEFORE_VLAN) {
+> > > > > > +            flow->vlan_tci = 0;
+> > > > > > +        }
+> > > > > >          return 0;
+> > > > > 
+> > > > > That was more or less what I originally tried.  However I believe that it
+> > > > > doesn't work because ofpact_get_PUSH_MPLS(a)->position may not have been
+> > > > > set at the time that ofpact_check__ is called.  In particular this occurs
+> > > > > when it is called indirectly from parse_ofp_str__.
+> > > > > 
+> > > > > Moreover, when ofpact_check__ is called indirectly from parse_ofp_str__ it
+> > > > > is used to check actions when a one of number of protocols may be used,
+> > > > > that is multiple bits of *usable_protocols.  If we could rely on
+> > > > > ofpact_get_PUSH_MPLS(a)->position then I believe that implies that if it is
+> > > > > set to OFPACT_MPLS_BEFORE_VLAN all pre-OpenFlow1.3 bits of
+> > > > > *usable_protocols need to be cleared.  Otherwise all OpenFlow1.3+ bits
+> > > > > would need to be cleared.
+> > > > 
+> > > > I think this might be a mistake in how we define the syntax that
+> > > > parse_ofp_str__() parses.  If I write "actions=push_mpls" on an
+> > > > ovs-ofctl command line, then I want that to have some specific
+> > > > meaning.  I don't want it to mean "do one thing if you happen to
+> > > > negotiate OpenFlow 1.2 or some other thing if you happen to negotiate
+> > > > OpenFlow 1.3", because that's totally unusable and broken from a user
+> > > > perspective.
+> > > 
+> > > To clarify, that is exactly what this series was trying to do.
+> > > 
+> > > I think there is some precedence in the handling of actions
+> > > that set_vlans. Some OF versions implicitly push a tag, some don't.
+> > 
+> > Maybe that is worth fixing too.
+> > 
+> > > But I do agree that the behaviour you describe above would
+> > > be very confusing for users.
+> > > 
+> > > > So if that the issue then I think we should change the
+> > > > syntax.  One way would be to have "push_mpls" default to the 1.3
+> > > > behavior (which seems generally saner) and allow the user to specify
+> > > > an option to get the 1.2 behavior.
+> > > 
+> > > Sure, I think I am happy with that idea.
+> > > 
+> > > By an option do you mean a different action name, for example append_mpls,
+> > > or push_mpls_after_vlan?
+> > 
+> > I was thinking of something like a push_mpls version of the
+> > keyword-based fin_timeout syntax.  One option would be eth_type,
+> > defaulting to ETH_TYPE_MPLS.  Another option would be position, with
+> > after_vlan or before_vlan as allowed values, and probably after_vlan
+> > as the default.
+> > 
+> > With this approach, any flow with a push_mpls could be used only with
+> > pre-OF1.3 or OF1.3+, depending on the "position" value.  One wrinkle
+> > that might be nice, if it isn't too nasty to implement, would be to
+> > have a third value "no_vlan" as the default.  With no_vlan, we reject
+> > the flow at check time if a VLAN is present; if no VLAN is present,
+> > then push_mpls has the same behavior regardless of OpenFlow version.
+> 
+> From an ovs-ofctl point of view I think that makes a lot of sense and I
+> think it should be clean enough to implement. My initial reaction is that
+> using a position argument would be good and I don't see any particular
+> problem with a no_vlan option. But I'll give some thought to an eth_type
+> argument.
 
-if SO_BPF_EXTENSIONS is supported, than you can assume that all current
-extensions are supported.
+push_mpls currently takes a required eth_type argument.  There are only
+two values and my understanding is that 0x8847 is more common, hence my
+suggestion that it be the default.
 
-No need to consume one bit per feature, as all these features wont ever
-disappear from linux.
+> I would like to clarify how you would like push_mpls to work in the case
+> where flows are received from a controller. It seems to me that the
+> behaviour should depend on the OpenFlow version used by the connection with
+> the controller as we can't change the action to accommodate an extra
+> argument. 
+
+Right, when push_mpls is received over OpenFlow then it always behaves
+as the particular OpenFlow version specifies.
+
+> I think this is also easy enough to implement: actually I am pretty
+> sure think the series currently does that and that the difficulty that
+> this patch tried to address is only on the ovs-ofctl side. Regardless,
+> I wanted to check that is the behaviour that you would like.
+
+I hope I clarified, let me know if it's still unclear.
