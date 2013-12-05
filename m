@@ -1,43 +1,67 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH iproute2] iptunnel: Allow GRE_KEY for vti interface
-Date: Fri,  6 Dec 2013 00:19:01 +0800
-Message-ID: <1386260341-9103-1-git-send-email-liuhangbin@gmail.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Hangbin Liu <liuhangbin@gmail.com>
-To: network dev <netdev@vger.kernel.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v4] sctp: check the rto_min and rto_max
+Date: Thu, 05 Dec 2013 17:25:17 +0100
+Message-ID: <52A0A8ED.70903@redhat.com>
+References: <529FE2AD.5020700@huawei.com> <20131205133217.GA20349@hmsreliant.think-freely.org> <52A088A9.9090200@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Wang Weidong <weidong1991.wang@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:37845 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756901Ab3LEQTQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 11:19:16 -0500
-Received: by mail-pb0-f45.google.com with SMTP id rp16so26222902pbb.32
-        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 08:19:15 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:65410 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751949Ab3LEQZh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Dec 2013 11:25:37 -0500
+In-Reply-To: <52A088A9.9090200@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The vti interface will use GRE_KEY to match the right policy in kernel. So we
-can not return fail when the tunnel is vti.
+On 12/05/2013 03:07 PM, Wang Weidong wrote:
+> From: Wang Weidong <wangweidong1@huawei.com>
+> On 2013/12/5 21:32, Neil Horman wrote:
+>> On Thu, Dec 05, 2013 at 10:19:25AM +0800, Wang Weidong wrote:
+>>> rto_min should be smaller than rto_max while rto_max should be larger
+>>> than rto_min. Add two proc_handler for the checking. Add the check in
+>>> sctp_setsockopt_rtoinfo.
+>>> delete a blank line in proc_sctp_do_hmac_alg() declaration.
+>>>
+>>> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
+>>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>>> ---
+>>>   net/sctp/socket.c |  5 ++++
+>>>   net/sctp/sysctl.c | 74 +++++++++++++++++++++++++++++++++++++++++++++++++++----
+>>>   2 files changed, 74 insertions(+), 5 deletions(-)
+>>>
+>>> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+>>> index 72046b9..2e1af1b 100644
+>>> --- a/net/sctp/socket.c
+>>> +++ b/net/sctp/socket.c
+>>> @@ -2818,6 +2818,11 @@ static int sctp_setsockopt_rtoinfo(struct sock *sk, char __user *optval, unsigne
+>>>       if (copy_from_user(&rtoinfo, optval, optlen))
+>>>           return -EFAULT;
+>>>
+>>> +    if (rtoinfo.srto_min < 1 ||
+>>> +        rtoinfo.srto_max > 86400000 ||
+>> These should be defiend to some descriptive value.
+>>
+> Thanks for your suggestion. I will fix it in v5.
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
----
- ip/iptunnel.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+While you're on v5 anyway, please also fix up spacing in your
+commit from ...
 
-diff --git a/ip/iptunnel.c b/ip/iptunnel.c
-index 40186d3..950f984 100644
---- a/ip/iptunnel.c
-+++ b/ip/iptunnel.c
-@@ -240,8 +240,8 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
- 		}
- 	}
- 
--	if (p->iph.protocol == IPPROTO_IPIP || p->iph.protocol == IPPROTO_IPV6) {
--		if ((p->i_flags & GRE_KEY) || (p->o_flags & GRE_KEY)) {
-+	if ((p->i_flags & GRE_KEY) || (p->o_flags & GRE_KEY)) {
-+		if (!(p->i_flags & VTI_ISVTI) && (p->iph.protocol != IPPROTO_GRE)) {
- 			fprintf(stderr, "Keys are not allowed with ipip and sit tunnels\n");
- 			return -1;
- 		}
--- 
-1.8.1.4
+static int proc_sctp_do_rto_min(struct ctl_table *ctl,
+				int write,
+				void __user*buffer, size_t *lenp,
+				loff_t *ppos)
+
+... to something like ...
+
+static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
+				void __user *buffer, size_t *lenp,
+				loff_t *ppos)
+
+Thanks !
