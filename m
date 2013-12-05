@@ -1,7 +1,7 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 3/7] net: of_mdio: do not overwrite PHY interrupt configuration
-Date: Thu, 5 Dec 2013 14:52:12 -0800
-Message-ID: <1386283936-26104-4-git-send-email-florian@openwrt.org>
+Subject: [PATCH 4/7] net: phy: breakdown PHY_*_FEATURES defines
+Date: Thu, 5 Dec 2013 14:52:13 -0800
+Message-ID: <1386283936-26104-5-git-send-email-florian@openwrt.org>
 References: <1386283936-26104-1-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,50 +14,60 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:8568 "EHLO
 	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752112Ab3LEXCE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:02:04 -0500
+	with ESMTP id S1754586Ab3LEXCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:02:05 -0500
 In-Reply-To: <1386283936-26104-1-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Florian Fainelli <f.fainelli@gmail.com>
 
-If irq_of_parse_and_map fails to find an interrupt line for a given PHY,
-we will force the PHY interrupt to be PHY_POLL, completely overriding
-the previous value that the MDIO bus may have set for us (e.g:
-PHY_IGNORE_INTERRUPT). In case of failure, just restore the previous
-value.
+Breakdown the PHY_*_FEATURES into per speed defines such that we can
+easily re-use them individually.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/of/of_mdio.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ include/linux/phy.h | 23 ++++++++++++++++-------
+ 1 file changed, 16 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index f93ebca..4923ab2 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -27,7 +27,7 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
- {
- 	struct phy_device *phy;
- 	bool is_c45;
--	int rc;
-+	int rc, prev_irq;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 48a4dc3..7ff751a 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -27,18 +27,27 @@
  
- 	is_c45 = of_device_is_compatible(child,
- 					 "ethernet-phy-ieee802.3-c45");
-@@ -37,10 +37,11 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
- 		return 1;
+ #include <linux/atomic.h>
  
- 	if (mdio->irq) {
-+		prev_irq= mdio->irq[addr];
- 		mdio->irq[addr] =
- 			irq_of_parse_and_map(child, 0);
- 		if (!mdio->irq[addr])
--			mdio->irq[addr] = PHY_POLL;
-+			mdio->irq[addr] = prev_irq;
- 	}
+-#define PHY_BASIC_FEATURES	(SUPPORTED_10baseT_Half | \
+-				 SUPPORTED_10baseT_Full | \
+-				 SUPPORTED_100baseT_Half | \
+-				 SUPPORTED_100baseT_Full | \
+-				 SUPPORTED_Autoneg | \
++#define PHY_DEFAULT_FEATURES	(SUPPORTED_Autoneg | \
+ 				 SUPPORTED_TP | \
+ 				 SUPPORTED_MII)
  
- 	/* Associate the OF node with the device structure so it
+-#define PHY_GBIT_FEATURES	(PHY_BASIC_FEATURES | \
+-				 SUPPORTED_1000baseT_Half | \
++#define PHY_10BT_FEATURES	(SUPPORTED_10baseT_Half | \
++				 SUPPORTED_10baseT_Full)
++
++#define PHY_100BT_FEATURES	(SUPPORTED_100baseT_Half | \
++				 SUPPORTED_100baseT_Full)
++
++#define PHY_1000BT_FEATURES	(SUPPORTED_1000baseT_Half | \
+ 				 SUPPORTED_1000baseT_Full)
+ 
++#define PHY_BASIC_FEATURES	(PHY_10BT_FEATURES | \
++				 PHY_100BT_FEATURES | \
++				 PHY_DEFAULT_FEATURES)
++
++#define PHY_GBIT_FEATURES	(PHY_BASIC_FEATURES | \
++				 PHY_1000BT_FEATURES)
++
++
+ /*
+  * Set phydev->irq to PHY_POLL if interrupts are not supported,
+  * or not desired for this PHY.  Set to PHY_IGNORE_INTERRUPT if
 -- 
 1.8.3.2
