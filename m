@@ -1,64 +1,186 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] bonding: fix packets_per_slave showing
-Date: Thu, 05 Dec 2013 04:33:55 -0800
-Message-ID: <1386246835.30495.175.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386239818-7408-1-git-send-email-nikolay@redhat.com>
-	 <20131205110843.GD23210@redhat.com>
+Subject: [PATCH net-next] net: introduce dev_consume_skb_any()
+Date: Thu, 05 Dec 2013 04:45:08 -0800
+Message-ID: <1386247508.30495.180.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
+	 <1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com>
+	 <20131203.165034.1085515763685633822.davem@davemloft.net>
+	 <1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com>
+	 <1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>, netdev@vger.kernel.org,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Veaceslav Falico <vfalico@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:47037 "EHLO
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:44954 "EHLO
 	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755984Ab3LEMd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 07:33:57 -0500
-Received: by mail-pd0-f175.google.com with SMTP id w10so24353266pde.6
-        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 04:33:56 -0800 (PST)
-In-Reply-To: <20131205110843.GD23210@redhat.com>
+	with ESMTP id S1756536Ab3LEMpK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 07:45:10 -0500
+Received: by mail-pd0-f175.google.com with SMTP id w10so24503574pde.20
+        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 04:45:09 -0800 (PST)
+In-Reply-To: <1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-05 at 12:08 +0100, Veaceslav Falico wrote:
-> On Thu, Dec 05, 2013 at 11:36:58AM +0100, Nikolay Aleksandrov wrote:
-> >There's an issue when showing the value of packets_per_slave due to
-> >using signed integer. The value may be < 0 and thus not put through
-> >reciprocal_value() before showing. This patch makes it use unsigned
-> >integer when showing it.
-> 
-> I was already checking my basic algebra knowledge here,
-> reciprocal_value(reciprocal_value(0..USHRT_MAX)) can become negative?!? :)
-> 
-> If anyone's also wondering...
-> 
-> packets_per_slave is reciprocal_value(0..USHRT_MAX), and thus can indeed be
-> negative, and then the code
-> 
-> 	if (packets_per_slave > 1)
-> 		packets_per_slave = reciprocal_value(packets_per_slave);
-> 
-> would fail to recognise that it's a reciprocal_divide() value, and not a
-> standard 0/1 option (in bond_rr_gen_slave_id() we verify it via a switch,
-> so we're safe there) - and thus output nonsense.
-> 
-> Acked-by: Veaceslav Falico <vfalico@redhat.com>
+From: Eric Dumazet <edumazet@google.com>
 
-This code is very confusing.
+Some network drivers use dev_kfree_skb_any() and dev_kfree_skb_irq()
+helpers to free skbs, both for dropped packets and TX completed ones.
 
-Please rename bond->params.packets_per_slave
-to bond->params.reciprocal_packets_per_slave 
+We need to separate the two causes to get better diagnostics
+given by dropwatch or "perf record -e skb:kfree_skb"
 
-To make clear that its the reciprocal value.
+This patch provides two new helpers, dev_consume_skb_any() and
+dev_consume_skb_irq() to be used for consumed skbs.
 
-Also the module parameter is named packets_per_slave, it would be nice
-if same name was not reused as local variable in bond_rr_gen_slave_id()
+__dev_kfree_skb_irq() is slightly optimized to remove one
+atomic_dec_and_test() in fast path, and use this_cpu_{r|w} accessors.
 
-bond_check_params() reads the sys value several times.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/linux/netdevice.h |   53 +++++++++++++++++++++++++++++-------
+ net/core/dev.c            |   45 ++++++++++++++++++++----------
+ 2 files changed, 74 insertions(+), 24 deletions(-)
 
-This is racy with /sys access.
-
-You should use ACCESS_ONCE() to make sure nothing bad happens.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 7f0ed423a360..c6d64d20050c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2368,17 +2368,52 @@ static inline int netif_copy_real_num_queues(struct net_device *to_dev,
+ #define DEFAULT_MAX_NUM_RSS_QUEUES	(8)
+ int netif_get_num_default_rss_queues(void);
+ 
+-/* Use this variant when it is known for sure that it
+- * is executing from hardware interrupt context or with hardware interrupts
+- * disabled.
+- */
+-void dev_kfree_skb_irq(struct sk_buff *skb);
++enum skb_free_reason {
++	SKB_REASON_CONSUMED,
++	SKB_REASON_DROPPED,
++};
++
++void __dev_kfree_skb_irq(struct sk_buff *skb, enum skb_free_reason reason);
++void __dev_kfree_skb_any(struct sk_buff *skb, enum skb_free_reason reason);
+ 
+-/* Use this variant in places where it could be invoked
+- * from either hardware interrupt or other context, with hardware interrupts
+- * either disabled or enabled.
++/*
++ * It is not allowed to call kfree_skb() or consume_skb() from hardware
++ * interrupt context or with hardware interrupts being disabled.
++ * (in_irq() || irqs_disabled())
++ *
++ * We provide four helpers that can be used in following contexts :
++ *
++ * dev_kfree_skb_irq(skb) when caller drops a packet from irq context,
++ *  replacing kfree_skb(skb)
++ *
++ * dev_consume_skb_irq(skb) when caller consumes a packet from irq context.
++ *  Typically used in place of consume_skb(skb) in TX completion path
++ *
++ * dev_kfree_skb_any(skb) when caller doesn't know its current irq context,
++ *  replacing kfree_skb(skb)
++ *
++ * dev_consume_skb_any(skb) when caller doesn't know its current irq context,
++ *  and consumed a packet. Used in place of consume_skb(skb)
+  */
+-void dev_kfree_skb_any(struct sk_buff *skb);
++static inline void dev_kfree_skb_irq(struct sk_buff *skb)
++{
++	__dev_kfree_skb_irq(skb, SKB_REASON_DROPPED);
++}
++
++static inline void dev_consume_skb_irq(struct sk_buff *skb)
++{
++	__dev_kfree_skb_irq(skb, SKB_REASON_CONSUMED);
++}
++
++static inline void dev_kfree_skb_any(struct sk_buff *skb)
++{
++	__dev_kfree_skb_any(skb, SKB_REASON_DROPPED);
++}
++
++static inline void dev_consume_skb_any(struct sk_buff *skb)
++{
++	__dev_kfree_skb_any(skb, SKB_REASON_CONSUMED);
++}
+ 
+ int netif_rx(struct sk_buff *skb);
+ int netif_rx_ni(struct sk_buff *skb);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ba3b7ea5ebb3..aa54a742f392 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2145,30 +2145,42 @@ void __netif_schedule(struct Qdisc *q)
+ }
+ EXPORT_SYMBOL(__netif_schedule);
+ 
+-void dev_kfree_skb_irq(struct sk_buff *skb)
++struct dev_kfree_skb_cb {
++	enum skb_free_reason reason;
++};
++
++static struct dev_kfree_skb_cb *get_kfree_skb_cb(const struct sk_buff *skb)
++{
++	return (struct dev_kfree_skb_cb *)skb->cb;
++}
++
++void __dev_kfree_skb_irq(struct sk_buff *skb, enum skb_free_reason reason)
+ {
+-	if (atomic_dec_and_test(&skb->users)) {
+-		struct softnet_data *sd;
+-		unsigned long flags;
++	unsigned long flags;
+ 
+-		local_irq_save(flags);
+-		sd = &__get_cpu_var(softnet_data);
+-		skb->next = sd->completion_queue;
+-		sd->completion_queue = skb;
+-		raise_softirq_irqoff(NET_TX_SOFTIRQ);
+-		local_irq_restore(flags);
++	if (likely(atomic_read(&skb->users) == 1)) {
++		smp_rmb();
++		atomic_set(&skb->users, 0);
++	} else if (likely(!atomic_dec_and_test(&skb->users))) {
++		return;
+ 	}
++	get_kfree_skb_cb(skb)->reason = reason;
++	local_irq_save(flags);
++	skb->next = __this_cpu_read(softnet_data.completion_queue);
++	__this_cpu_write(softnet_data.completion_queue, skb);
++	raise_softirq_irqoff(NET_TX_SOFTIRQ);
++	local_irq_restore(flags);
+ }
+-EXPORT_SYMBOL(dev_kfree_skb_irq);
++EXPORT_SYMBOL(__dev_kfree_skb_irq);
+ 
+-void dev_kfree_skb_any(struct sk_buff *skb)
++void __dev_kfree_skb_any(struct sk_buff *skb, enum skb_free_reason reason)
+ {
+ 	if (in_irq() || irqs_disabled())
+-		dev_kfree_skb_irq(skb);
++		__dev_kfree_skb_irq(skb, reason);
+ 	else
+ 		dev_kfree_skb(skb);
+ }
+-EXPORT_SYMBOL(dev_kfree_skb_any);
++EXPORT_SYMBOL(__dev_kfree_skb_any);
+ 
+ 
+ /**
+@@ -3306,7 +3318,10 @@ static void net_tx_action(struct softirq_action *h)
+ 			clist = clist->next;
+ 
+ 			WARN_ON(atomic_read(&skb->users));
+-			trace_kfree_skb(skb, net_tx_action);
++			if (likely(get_kfree_skb_cb(skb)->reason == SKB_REASON_CONSUMED))
++				trace_consume_skb(skb);
++			else
++				trace_kfree_skb(skb, net_tx_action);
+ 			__kfree_skb(skb);
+ 		}
+ 	}
