@@ -1,54 +1,71 @@
 From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net v5 0/2] net: sched: fix some issues
-Date: Thu, 5 Dec 2013 15:10:55 +0800
-Message-ID: <1386227457-86900-1-git-send-email-yangyingliang@huawei.com>
+Subject: [PATCH net v5 2/2] net: sched: htb: fix calculation of quantum
+Date: Thu, 5 Dec 2013 15:10:57 +0800
+Message-ID: <1386227457-86900-3-git-send-email-yangyingliang@huawei.com>
+References: <1386227457-86900-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
 	<jbrouer@redhat.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:9328 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751124Ab3LEHLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 02:11:37 -0500
+Received: from szxga01-in.huawei.com ([119.145.14.64]:25200 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751124Ab3LEHNK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 02:13:10 -0500
+In-Reply-To: <1386227457-86900-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fix calculation of max_size in tbf
-fix quantum calculation introduced by 64bit rates.
+Now, 32bit rates may be not the true rate.
+So use rate_bytes_ps which is from
+max(rate32, rate64) to calcualte quantum.
 
-v2
-  patch 1/2: redescribe the regression.
-  patch 2/2: add Eric's ack.
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/sch_htb.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-v3
-  patch 1/2: use psched_l2t_ns to calculate max_size
-  and cleanup exit/done section suggested by Jesper.
-
-v4
-  patch 1/2:
-  1.Update commit message suggested by Jesper.
-  2.Use a macro to replace 65535 constant.
-  3.Add condition that when peakrate is lower than rate, return -EINVAL.
-  4.Don't use cell_log anymore.
-
-v5
-  patch 1/2:
-  1.Remove rtab and ptab use suggested by Eric.
-  2.Don't reduce max_size to 65536, as Eric suggested that
-    if a burst set to 200KB, we do not want tbf use 64KB
-    or even less. So add a helper psched_ns_t2l to calculate
-    max_size directly.
-
-Yang Yingliang (2):
-  net: sched: tbf: fix calculation of max_size
-  net: sched: htb: fix calculation of quantum
-
- include/net/sch_generic.h | 46 ++++++++++++++++++++++++++++
- net/sched/sch_htb.c       | 18 ++++++-----
- net/sched/sch_tbf.c       | 76 ++++++++++++++++++++---------------------------
- 3 files changed, 89 insertions(+), 51 deletions(-)
-
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 0e1e38b..57c6678 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1477,11 +1477,20 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 		sch_tree_lock(sch);
+ 	}
+ 
++	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
++
++	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
++
++	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
++	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
++
+ 	/* it used to be a nasty bug here, we have to check that node
+ 	 * is really leaf before changing cl->un.leaf !
+ 	 */
+ 	if (!cl->level) {
+-		cl->quantum = hopt->rate.rate / q->rate2quantum;
++		u64 quantum = div64_u64(cl->rate.rate_bytes_ps,
++					q->rate2quantum);
++		cl->quantum = min_t(u64, quantum, INT_MAX);
+ 		if (!hopt->quantum && cl->quantum < 1000) {
+ 			pr_warning(
+ 			       "HTB: quantum of class %X is small. Consider r2q change.\n",
+@@ -1500,13 +1509,6 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 			cl->prio = TC_HTB_NUMPRIO - 1;
+ 	}
+ 
+-	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
+-
+-	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
+-
+-	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
+-	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
+-
+ 	cl->buffer = PSCHED_TICKS2NS(hopt->buffer);
+ 	cl->cbuffer = PSCHED_TICKS2NS(hopt->cbuffer);
+ 
 -- 
 1.8.0
