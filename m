@@ -1,89 +1,80 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 12/16] vxge: Implement the SIOCGHWTSTAMP ioctl
-Date: Thu, 5 Dec 2013 23:55:40 +0000
-Message-ID: <1386287740.1516.139.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 13/16] ti_cpsw: Implement the SIOCGHWTSTAMP ioctl
+Date: Thu, 5 Dec 2013 23:56:32 +0000
+Message-ID: <1386287792.1516.140.camel@bwh-desktop.uk.level5networks.com>
 References: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
 	"Richard Cochran" <richardcochran@gmail.com>,
-	Jon Mason <jdmason@kudzu.us>
+	Mugunthan V N <mugunthanvnm@ti.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6736 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:6774 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754650Ab3LEXzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:55:43 -0500
+	with ESMTP id S1756443Ab3LEX4g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:56:36 -0500
 In-Reply-To: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Compile-tested only.
+This is untested.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/neterion/vxge/vxge-main.c | 27 ++++++++++++++++++--------
- 1 file changed, 19 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 24 ++++++++++++++++++++++--
+ 1 file changed, 22 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-index 8614eeb7de81..33f98eca5dc3 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-@@ -3185,7 +3185,7 @@ static enum vxge_hw_status vxge_timestamp_config(struct __vxge_hw_device *devh)
- 	return status;
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 7536a4c01293..bc0cb154fc53 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1322,7 +1322,7 @@ static void cpsw_hwtstamp_v2(struct cpsw_priv *priv)
+ 	__raw_writel(ETH_P_1588, &priv->regs->ts_ltype);
  }
  
--static int vxge_hwtstamp_ioctl(struct vxgedev *vdev, void __user *data)
-+static int vxge_hwtstamp_set(struct vxgedev *vdev, void __user *data)
+-static int cpsw_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
++static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
  {
- 	struct hwtstamp_config config;
- 	int i;
-@@ -3246,6 +3246,21 @@ static int vxge_hwtstamp_ioctl(struct vxgedev *vdev, void __user *data)
- 	return 0;
+ 	struct cpsw_priv *priv = netdev_priv(dev);
+ 	struct cpts *cpts = priv->cpts;
+@@ -1383,6 +1383,24 @@ static int cpsw_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+ 	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
  }
  
-+static int vxge_hwtstamp_get(struct vxgedev *vdev, void __user *data)
++static int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
 +{
-+	struct hwtstamp_config config;
++	struct cpsw_priv *priv = netdev_priv(dev);
++	struct cpts *cpts = priv->cpts;
++	struct hwtstamp_config cfg;
 +
-+	config.flags = 0;
-+	config.tx_type = HWTSTAMP_TX_OFF;
-+	config.rx_filter = (vdev->rx_hwts ?
-+			    HWTSTAMP_FILTER_ALL : HWTSTAMP_FILTER_NONE);
++	if (priv->version != CPSW_VERSION_1 &&
++	    priv->version != CPSW_VERSION_2)
++		return -EOPNOTSUPP;
 +
-+	if (copy_to_user(data, &config, sizeof(config)))
-+		return -EFAULT;
++	cfg.flags = 0;
++	cfg.tx_type = cpts->tx_enable ? HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
++	cfg.rx_filter = (cpts->rx_enable ?
++			 HWTSTAMP_FILTER_PTP_V2_EVENT : HWTSTAMP_FILTER_NONE);
 +
-+	return 0;
++	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
 +}
 +
- /**
-  * vxge_ioctl
-  * @dev: Device pointer.
-@@ -3259,19 +3274,15 @@ static int vxge_hwtstamp_ioctl(struct vxgedev *vdev, void __user *data)
- static int vxge_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
- 	struct vxgedev *vdev = netdev_priv(dev);
--	int ret;
+ #endif /*CONFIG_TI_CPTS*/
  
+ static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
+@@ -1397,7 +1415,9 @@ static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
  	switch (cmd) {
+ #ifdef CONFIG_TI_CPTS
  	case SIOCSHWTSTAMP:
--		ret = vxge_hwtstamp_ioctl(vdev, rq->ifr_data);
--		if (ret)
--			return ret;
--		break;
-+		return vxge_hwtstamp_set(vdev, rq->ifr_data);
+-		return cpsw_hwtstamp_ioctl(dev, req);
++		return cpsw_hwtstamp_set(dev, req);
 +	case SIOCGHWTSTAMP:
-+		return vxge_hwtstamp_get(vdev, rq->ifr_data);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
--
--	return 0;
- }
- 
- /**
++		return cpsw_hwtstamp_get(dev, req);
+ #endif
+ 	case SIOCGMIIPHY:
+ 		data->phy_id = priv->slaves[slave_no].phy->addr;
 
 
 -- 
