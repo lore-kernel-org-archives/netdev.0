@@ -1,116 +1,63 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Pull request: SIOCGHWTSTAMP ioctl
-Date: Thu, 5 Dec 2013 23:37:12 +0000
-Message-ID: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 01/16] net_tstamp: Improve kernel-doc for struct
+ hwtstamp_config
+Date: Thu, 5 Dec 2013 23:38:50 +0000
+Message-ID: <1386286730.1516.121.camel@bwh-desktop.uk.level5networks.com>
+References: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="=-VtaGCwbFkCn7IgukV9i/"
-Cc: linux-net-drivers <linux-net-drivers@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	"Richard Cochran" <richardcochran@gmail.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:34507 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:34543 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754543Ab3LEXhV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:37:21 -0500
+	with ESMTP id S1751517Ab3LEXiy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:38:54 -0500
+In-Reply-To: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-VtaGCwbFkCn7IgukV9i/
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Fix the name of the rx_filter field.
 
-The following changes since commit 018c5bba052b3a383d83cf0c756da0e7bc748397=
-:
+Remove text about 32/64-bit compatibility; this works just the same as
+for most socket ioctls and as the structure is not allowed to grow
+there is no need to remind anyone how to maintain it.
 
-  net: Handle CHECKSUM_COMPLETE more adequately in pskb_trim_rcsum(). (2013=
--11-15 21:11:16 -0500)
+Add explanation about drivers changing the filter mode.
 
-are available in the git repository at:
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ include/uapi/linux/net_tstamp.h | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git siocghwtst=
-amp
+diff --git a/include/uapi/linux/net_tstamp.h b/include/uapi/linux/net_tstamp.h
+index ae5df122e42f..c9a7de2a6276 100644
+--- a/include/uapi/linux/net_tstamp.h
++++ b/include/uapi/linux/net_tstamp.h
+@@ -30,13 +30,13 @@ enum {
+  *
+  * @flags:	no flags defined right now, must be zero
+  * @tx_type:	one of HWTSTAMP_TX_*
+- * @rx_type:	one of one of HWTSTAMP_FILTER_*
++ * @rx_filter:	one of HWTSTAMP_FILTER_*
+  *
+  * %SIOCSHWTSTAMP expects a &struct ifreq with a ifr_data pointer to
+- * this structure. dev_ifsioc() in the kernel takes care of the
+- * translation between 32 bit userspace and 64 bit kernel. The
+- * structure is intentionally chosen so that it has the same layout on
+- * 32 and 64 bit systems, don't break this!
++ * this structure.  If the driver or hardware does not support the
++ * requested @rx_filter value, the driver may use a more general
++ * filter mode.  In this case @rx_filter will indicate the actual mode
++ * on return.
+  */
+ struct hwtstamp_config {
+ 	int flags;
 
-for you to fetch changes up to a4bcc795e9cc84902b86edbfbb755ecb38d11f91:
 
-  net_tstamp,doc: Add test program for SIOC{G,S}HWTSTAMP (2013-11-22 20:10:=
-53 +0000)
-
-1. Add the SIOCGHWTSTAMP ioctl and update the timestamping
-documentation.
-2. Implement SIOCGHWTSTAMP in most drivers that support SIOCSHWTSTAMP.
-3. Add a test program to exercise SIOC{G,S}HWTSTAMP.
-
-Ben.
-
-----------------------------------------------------------------
-Ben Hutchings (16):
-      net_tstamp: Improve kernel-doc for struct hwtstamp_config
-      net/compat: Fix minor information leak in siocdevprivate_ioctl()
-      net/compat: Merge multiple implementations of ifreq::ifr_data convers=
-ion
-      net_tstamp: Add SIOCGHWTSTAMP ioctl to match SIOCSHWTSTAMP
-      sfc: Implement the SIOCGHWTSTAMP ioctl
-      bfin_mac: Implement the SIOCGHWTSTAMP ioctl
-      tg3: Implement the SIOCGHWTSTAMP ioctl
-      fec: Implement the SIOCGHWTSTAMP ioctl
-      gianfar: Implement the SIOCGHWTSTAMP ioctl
-      e1000e: Implement the SIOCGHWTSTAMP ioctl
-      mlx4_en: Implement the SIOCGHWTSTAMP ioctl
-      vxge: Implement the SIOCGHWTSTAMP ioctl
-      ti_cpsw: Implement the SIOCGHWTSTAMP ioctl
-      tile_net: Implement the SIOCGHWTSTAMP ioctl
-      ixp4xx_eth: Implement the SIOCGHWTSTAMP ioctl
-      net_tstamp,doc: Add test program for SIOC{G,S}HWTSTAMP
-
- Documentation/networking/timestamping.txt          |   9 +-
- Documentation/networking/timestamping/.gitignore   |   1 +
- Documentation/networking/timestamping/Makefile     |   5 +-
- .../networking/timestamping/hwtstamp_config.c      | 134 +++++++++++++++++=
-++++
- drivers/net/ethernet/adi/bfin_mac.c                |  21 +++-
- drivers/net/ethernet/broadcom/tg3.c                |  71 ++++++++++-
- drivers/net/ethernet/freescale/fec.h               |   3 +-
- drivers/net/ethernet/freescale/fec_main.c          |   8 +-
- drivers/net/ethernet/freescale/fec_ptp.c           |  16 ++-
- drivers/net/ethernet/freescale/gianfar.c           |  22 +++-
- drivers/net/ethernet/intel/e1000e/netdev.c         |  14 ++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  14 ++-
- drivers/net/ethernet/neterion/vxge/vxge-main.c     |  27 +++--
- drivers/net/ethernet/sfc/efx.c                     |   4 +-
- drivers/net/ethernet/sfc/nic.h                     |   3 +-
- drivers/net/ethernet/sfc/ptp.c                     |  11 +-
- drivers/net/ethernet/ti/cpsw.c                     |  24 +++-
- drivers/net/ethernet/tile/tilegx.c                 |  22 +++-
- drivers/net/ethernet/xscale/ixp4xx_eth.c           |  36 +++++-
- include/uapi/linux/net_tstamp.h                    |  16 +--
- include/uapi/linux/sockios.h                       |   3 +-
- net/core/dev_ioctl.c                               |   2 +
- net/socket.c                                       |  57 ++-------
- 23 files changed, 423 insertions(+), 100 deletions(-)
- create mode 100644 Documentation/networking/timestamping/hwtstamp_config.c
-
---=20
+-- 
 Ben Hutchings, Staff Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
-
---=-VtaGCwbFkCn7IgukV9i/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.14 (GNU/Linux)
-
-iQEcBAABCAAGBQJSoQ4oAAoJEGkILBsOca601AgH/iwA1Xz/Ng5DrDkNf9cWh4gf
-5c3zRtzhb5TQFxTGvXjAVLhkEN8yhEUJJlCr58ckJIJW0BD9d4a4nkaCaZcNe9lc
-4Dy0aPJ2ijJD9vOxNMg6Oz2VIOs9kD2t8xfA6M9EUksR11JcYfIDedxq8OSdQ1Do
-y5i35XA+7iuVLbSuHT6QxbHRUJ9caSU7oF7ORReoY7Qla5aSsWj3hJTe3um7jJAr
-BVXJahmbZhwQ5/4037uAI+e3BDUzUoxMCoIndMMgSVjlmZl5Sad5r+0QNdWj8Y8k
-QkdwrrR3YYk5ElEtng6d9kepn2qdOnm7N2HFoVSy3Kl3cXSM5ZIludABmIlaq5Q=
-=S7Gc
------END PGP SIGNATURE-----
-
---=-VtaGCwbFkCn7IgukV9i/--
