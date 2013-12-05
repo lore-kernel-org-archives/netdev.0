@@ -1,40 +1,28 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 3/8] IBM Akebono: Add support for a new PHY interface to
- the IBM emac driver
-Date: Thu, 05 Dec 2013 15:49:51 +1100
-Message-ID: <1386218991.21910.18.camel@pasglop>
-References: <1385086057-10884-1-git-send-email-alistair@popple.id.au>
- <1385086116-10972-3-git-send-email-alistair@popple.id.au>
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Subject: [PATCH net 0/3] be2net fixes
+Date: Thu, 5 Dec 2013 10:34:00 +0530
+Message-ID: <72e434bb-7c52-4dbe-a406-c6e0ad49e909@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, "David S. Miller" <davem@davemloft.net>,
- netdev@vger.kernel.org
-To: Alistair Popple <alistair@popple.id.au>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1385086116-10972-3-git-send-email-alistair@popple.id.au>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:49634 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711Ab3LEFF3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 00:05:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-11-22 at 13:08 +1100, Alistair Popple wrote:
-> The IBM PPC476GTR SoC that is used on the Akebono board uses a
-> different ethernet PHY interface that has wake on lan (WOL) support
-> with the IBM emac. This patch adds support to the IBM emac driver for
-> this new PHY interface.
-> 
-> At this stage the wake on lan functionality has not been implemented.
-> 
-> Signed-off-by: Alistair Popple <alistair@popple.id.au>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
+Please apply.
 
-Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Somnath Kotur (3):
+  be2net: Fix Lancer error recovery to distinguish FW download
+  be2net: Log a kernel message when the user tries to configure more
+    Multicast addresses than supported
+  be2net: Free/delete pmacs (in be_clear()) only if they exist
+
+ drivers/net/ethernet/emulex/benet/be.h      |    1 +
+ drivers/net/ethernet/emulex/benet/be_hw.h   |    3 +
+ drivers/net/ethernet/emulex/benet/be_main.c |   72 +++++++++++++++++++-------
+ 3 files changed, 56 insertions(+), 20 deletions(-)
