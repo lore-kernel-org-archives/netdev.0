@@ -1,83 +1,98 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [tipc-discussion] [PATCH] tipc: fix a lockdep warning
-Date: Thu, 5 Dec 2013 16:56:54 +0800
-Message-ID: <52A03FD6.3060303@windriver.com>
-References: <528F136E.1030506@huawei.com> <528F1F2B.3080205@windriver.com> <EB28B29A-A58C-4A5C-A4F9-DD30E82B7449@gmail.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net v5] xen-netback: fix fragment detection in checksum
+ setup
+Date: Thu, 5 Dec 2013 09:08:15 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01A3C91@AMSPEX01CL01.citrite.net>
+References: <1386092369-13618-1-git-send-email-paul.durrant@citrix.com>
+ <52A01CF8.4000804@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: wangweidong <wangweidong1@huawei.com>,
-	"<jon.maloy@ericsson.com>" <jon.maloy@ericsson.com>,
-	"<allan.stephens@windriver.com>" <allan.stephens@windriver.com>,
-	"<davem@davemloft.net>" <davem@davemloft.net>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>,
-	"dingtianhong@huawei.com" <dingtianhong@huawei.com>
-To: Jason HU <huzhijiang@gmail.com>
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"David Miller" <davem@davemloft.net>
+To: annie li <annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:42422 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053Ab3LEI5R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 03:57:17 -0500
-In-Reply-To: <EB28B29A-A58C-4A5C-A4F9-DD30E82B7449@gmail.com>
+Received: from smtp.citrix.com ([66.165.176.89]:49513 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751053Ab3LEJIS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Dec 2013 04:08:18 -0500
+In-Reply-To: <52A01CF8.4000804@oracle.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
->>> diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
->>> index e0d0805..ab8f96c 100644
->>> --- a/net/tipc/name_distr.c
->>> +++ b/net/tipc/name_distr.c
->>> @@ -138,7 +138,9 @@ static void named_cluster_distribute(struct sk_buff *buf)
->>>            if (!buf_copy)
->>>                break;
->>>            msg_set_destnode(buf_msg(buf_copy), n_ptr->addr);
->>> +            write_unlock_bh(&tipc_nametbl_lock);
->>>            tipc_link_send(buf_copy, n_ptr->addr, n_ptr->addr);
->>> +            write_lock_bh(&tipc_nametbl_lock);
->>
->> We cannot temporarily release/hold tipc_nametbl_lock here, please see
->> below call path:
->>
->> tipc_nametbl_withdraw()
->>  tipc_named_withdraw()
->>    named_cluster_distribute()
->>      tipc_link_send()
->>
->> Especially in tipc_nametbl_withdraw(), we must hold tipc_nametbl_lock to
->> protect name table before tipc_named_withdraw() is called. If we
->> temporarily release tipc_nametbl_lock in named_cluster_distribute(), I
->> am afraid that name table might be changed by another thread at the
->> moment, having name table inconsistent possibly.
-> 
-> If the inconsistent possibility that you worried about is the matter of mutually exclusive between user threads which call bind(), then I think it will not occur, because we still got port lock hold when calling tipc_nametbl_publish(). So even we do not have to use tipc_nametbl_lock to warp up both tipc_nametbl_insert_publ() and tipc_name_publish() . Just tipc_nametbl_insert_publ() is enough. May be I missed something, please correct me.
-> 
-
-Actually now the key point for us is not to discuss whether the patch is
-right or not, but consider whether the patch is necessary or not. As I
-emphasized below, tipc_net_lock will be quickly removed completely. Even
-if the patch is correct now, we have to revert it after the removal of
-tipc_net_lock because:
-
-1. the patch reported warning will automatically disappear if
-tipc_net_lcok is removed.
-
-2. I believe no anyone likes what the patch is doing.
-
-Regards,
-Ying
-
-> 
-> 
->>
->> Actually we are implementing another patchset purging the tipc_net_lock
->> from TIPC stack. If the patchset is involved, I guess the issue would
->> disappear.
->>
->> If you have an interesting to see how to purge to tipc_net_lock, please
->> monitor tipc-discussion mail list.
->>
->> Regards,
->> Ying
->>
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBhbm5pZSBsaSBbbWFpbHRvOmFu
+bmllLmxpQG9yYWNsZS5jb21dDQo+IFNlbnQ6IDA1IERlY2VtYmVyIDIwMTMgMDY6MjgNCj4gVG86
+IFBhdWwgRHVycmFudA0KPiBDYzogeGVuLWRldmVsQGxpc3RzLnhlbi5vcmc7IG5ldGRldkB2Z2Vy
+Lmtlcm5lbC5vcmc7IFpvbHRhbiBLaXNzOyBXZWkgTGl1Ow0KPiBJYW4gQ2FtcGJlbGw7IERhdmlk
+IFZyYWJlbDsgRGF2aWQgTWlsbGVyDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IHY1XSB4ZW4t
+bmV0YmFjazogZml4IGZyYWdtZW50IGRldGVjdGlvbiBpbiBjaGVja3N1bQ0KPiBzZXR1cA0KPiAN
+Cj4gDQo+IE9uIDIwMTMvMTIvNCAxOjM5LCBQYXVsIER1cnJhbnQgd3JvdGU6DQo+IA0KPiA+DQo+
+ID4gKy8qIFRoaXMgdmFsdWUgc2hvdWxkIGJlIGxhcmdlIGVub3VnaCB0byBjb3ZlciBhIHRhZ2dl
+ZCBldGhlcm5ldCBoZWFkZXINCj4gcGx1cw0KPiA+ICsgKiBhbiBJUHY2IGhlYWRlciwgYWxsIG9w
+dGlvbnMsIGFuZCBhIG1heGltYWwgVENQIG9yIFVEUCBoZWFkZXIuDQo+ID4gKyAqLw0KPiA+ICsj
+ZGVmaW5lIE1BWF9JUFY2X0hEUl9MRU4gMjU2DQo+ID4gKw0KPiA+ICsjZGVmaW5lIE9QVF9IRFIo
+dHlwZSwgc2tiLCBvZmYpIFwNCj4gPiArCSh0eXBlICopKHNrYl9uZXR3b3JrX2hlYWRlcihza2Ip
+ICsgKG9mZikpDQo+ID4gKw0KPiA+ICAgc3RhdGljIGludCBjaGVja3N1bV9zZXR1cF9pcHY2KHN0
+cnVjdCB4ZW52aWYgKnZpZiwgc3RydWN0IHNrX2J1ZmYgKnNrYiwNCj4gPiAgIAkJCSAgICAgICBp
+bnQgcmVjYWxjdWxhdGVfcGFydGlhbF9jc3VtKQ0KPiA+ICAgew0KPiA+IC0JaW50IGVyciA9IC1F
+UFJPVE87DQo+ID4gLQlzdHJ1Y3QgaXB2NmhkciAqaXB2NmggPSAodm9pZCAqKXNrYi0+ZGF0YTsN
+Cj4gPiArCWludCBlcnI7DQo+ID4gICAJdTggbmV4dGhkcjsNCj4gPiAtCXVuc2lnbmVkIGludCBo
+ZWFkZXJfc2l6ZTsNCj4gPiAgIAl1bnNpZ25lZCBpbnQgb2ZmOw0KPiA+ICsJdW5zaWduZWQgaW50
+IGxlbjsNCj4gPiAgIAlib29sIGZyYWdtZW50Ow0KPiA+ICAgCWJvb2wgZG9uZTsNCj4gPg0KPiA+
+ICsJZnJhZ21lbnQgPSBmYWxzZTsNCj4gPiAgIAlkb25lID0gZmFsc2U7DQo+ID4NCj4gPiAgIAlv
+ZmYgPSBzaXplb2Yoc3RydWN0IGlwdjZoZHIpOw0KPiA+DQo+ID4gLQloZWFkZXJfc2l6ZSA9IHNr
+Yi0+bmV0d29ya19oZWFkZXIgKyBvZmY7DQo+ID4gLQltYXliZV9wdWxsX3RhaWwoc2tiLCBoZWFk
+ZXJfc2l6ZSk7DQo+ID4gKwllcnIgPSBtYXliZV9wdWxsX3RhaWwoc2tiLCBvZmYsIE1BWF9JUFY2
+X0hEUl9MRU4pOw0KPiA+ICsJaWYgKGVyciA8IDApDQo+ID4gKwkJZ290byBvdXQ7DQo+ID4NCj4g
+PiAtCW5leHRoZHIgPSBpcHY2aC0+bmV4dGhkcjsNCj4gPiArCW5leHRoZHIgPSBpcHY2X2hkcihz
+a2IpLT5uZXh0aGRyOw0KPiA+DQo+ID4gLQl3aGlsZSAoKG9mZiA8PSBzaXplb2Yoc3RydWN0IGlw
+djZoZHIpICsgbnRvaHMoaXB2NmgtPnBheWxvYWRfbGVuKSkNCj4gJiYNCj4gPiAtCSAgICAgICAh
+ZG9uZSkgew0KPiA+ICsJbGVuID0gc2l6ZW9mKHN0cnVjdCBpcHY2aGRyKSArIG50b2hzKGlwdjZf
+aGRyKHNrYiktPnBheWxvYWRfbGVuKTsNCj4gPiArCXdoaWxlIChvZmYgPD0gbGVuICYmICFkb25l
+KSB7DQo+ID4gICAJCXN3aXRjaCAobmV4dGhkcikgew0KPiA+ICAgCQljYXNlIElQUFJPVE9fRFNU
+T1BUUzoNCj4gPiAgIAkJY2FzZSBJUFBST1RPX0hPUE9QVFM6DQo+ID4gICAJCWNhc2UgSVBQUk9U
+T19ST1VUSU5HOiB7DQo+ID4gLQkJCXN0cnVjdCBpcHY2X29wdF9oZHIgKmhwID0gKHZvaWQgKiko
+c2tiLT5kYXRhICsgb2ZmKTsNCj4gPiArCQkJc3RydWN0IGlwdjZfb3B0X2hkciAqaHA7DQo+ID4N
+Cj4gPiAtCQkJaGVhZGVyX3NpemUgPSBza2ItPm5ldHdvcmtfaGVhZGVyICsNCj4gPiAtCQkJCW9m
+ZiArDQo+ID4gLQkJCQlzaXplb2Yoc3RydWN0IGlwdjZfb3B0X2hkcik7DQo+ID4gLQkJCW1heWJl
+X3B1bGxfdGFpbChza2IsIGhlYWRlcl9zaXplKTsNCj4gPiArCQkJZXJyID0gbWF5YmVfcHVsbF90
+YWlsKHNrYiwNCj4gPiArCQkJCQkgICAgICBvZmYgKw0KPiA+ICsJCQkJCSAgICAgIHNpemVvZihz
+dHJ1Y3QgaXB2Nl9vcHRfaGRyKSwNCj4gPiArCQkJCQkgICAgICBNQVhfSVBWNl9IRFJfTEVOKTsN
+Cj4gPiArCQkJaWYgKGVyciA8IDApDQo+ID4gKwkJCQlnb3RvIG91dDsNCj4gPg0KPiA+ICsJCQlo
+cCA9IE9QVF9IRFIoc3RydWN0IGlwdjZfb3B0X2hkciwgc2tiLCBvZmYpOw0KPiA+ICAgCQkJbmV4
+dGhkciA9IGhwLT5uZXh0aGRyOw0KPiA+ICAgCQkJb2ZmICs9IGlwdjZfb3B0bGVuKGhwKTsNCj4g
+PiAgIAkJCWJyZWFrOw0KPiA+ICAgCQl9DQo+ID4gICAJCWNhc2UgSVBQUk9UT19BSDogew0KPiA+
+IC0JCQlzdHJ1Y3QgaXBfYXV0aF9oZHIgKmhwID0gKHZvaWQgKikoc2tiLT5kYXRhICsgb2ZmKTsN
+Cj4gPiArCQkJc3RydWN0IGlwX2F1dGhfaGRyICpocDsNCj4gPiArDQo+ID4gKwkJCWVyciA9IG1h
+eWJlX3B1bGxfdGFpbChza2IsDQo+ID4gKwkJCQkJICAgICAgb2ZmICsNCj4gPiArCQkJCQkgICAg
+ICBzaXplb2Yoc3RydWN0IGlwX2F1dGhfaGRyKSwNCj4gPiArCQkJCQkgICAgICBNQVhfSVBWNl9I
+RFJfTEVOKTsNCj4gPiArCQkJaWYgKGVyciA8IDApDQo+ID4gKwkJCQlnb3RvIG91dDsNCj4gPiAr
+DQo+ID4gKwkJCWhwID0gT1BUX0hEUihzdHJ1Y3QgaXBfYXV0aF9oZHIsIHNrYiwgb2ZmKTsNCj4g
+PiArCQkJbmV4dGhkciA9IGhwLT5uZXh0aGRyOw0KPiA+ICsJCQlvZmYgKz0gaXB2Nl9hdXRobGVu
+KGhwKTsNCj4gPiArCQkJYnJlYWs7DQo+ID4gKwkJfQ0KPiA+ICsJCWNhc2UgSVBQUk9UT19GUkFH
+TUVOVDogew0KPiA+ICsJCQlzdHJ1Y3QgZnJhZ19oZHIgKmhwOw0KPiA+DQo+ID4gLQkJCWhlYWRl
+cl9zaXplID0gc2tiLT5uZXR3b3JrX2hlYWRlciArDQo+ID4gLQkJCQlvZmYgKw0KPiA+IC0JCQkJ
+c2l6ZW9mKHN0cnVjdCBpcF9hdXRoX2hkcik7DQo+ID4gLQkJCW1heWJlX3B1bGxfdGFpbChza2Is
+IGhlYWRlcl9zaXplKTsNCj4gPiArCQkJZXJyID0gbWF5YmVfcHVsbF90YWlsKHNrYiwNCj4gPiAr
+CQkJCQkgICAgICBvZmYgKw0KPiA+ICsJCQkJCSAgICAgIHNpemVvZihzdHJ1Y3QgZnJhZ19oZHIp
+LA0KPiA+ICsJCQkJCSAgICAgIE1BWF9JUFY2X0hEUl9MRU4pOw0KPiA+ICsJCQlpZiAoZXJyIDwg
+MCkNCj4gPiArCQkJCWdvdG8gb3V0Ow0KPiA+ICsNCj4gPiArCQkJaHAgPSBPUFRfSERSKHN0cnVj
+dCBmcmFnX2hkciwgc2tiLCBvZmYpOw0KPiA+ICsNCj4gPiArCQkJaWYgKGhwLT5mcmFnX29mZiAm
+IGh0b25zKElQNl9PRkZTRVQgfCBJUDZfTUYpKQ0KPiA+ICsJCQkJZnJhZ21lbnQgPSB0cnVlOw0K
+PiA+DQo+ID4gICAJCQluZXh0aGRyID0gaHAtPm5leHRoZHI7DQo+ID4gLQkJCW9mZiArPSAoaHAt
+PmhkcmxlbisyKTw8MjsNCj4gPiArCQkJb2ZmICs9IHNpemVvZihzdHJ1Y3QgZnJhZ19oZHIpOw0K
+PiA+ICAgCQkJYnJlYWs7DQo+ID4gICAJCX0NCj4gPiAtCQljYXNlIElQUFJPVE9fRlJBR01FTlQ6
+DQo+ID4gLQkJCWZyYWdtZW50ID0gdHJ1ZTsNCj4gPiAtCQkJLyogZmFsbCB0aHJvdWdoICovDQo+
+IA0KPiBBYm91dCBJUHY2IGV4dGVuc2lvbiBoZWFkZXJzLCBzaG91bGQgIkVuY2Fwc3VsYXRpbmcg
+U2VjdXJpdHkgUGF5bG9hZCIgYmUNCj4gcHJvY2Vzc2VkIHRvbz8oU2VlIHJmYzI0NjAgYW5kIHJm
+YzI0MDYpIElzIHRoZXJlIGFueSBjb25jZXJuIHRvIGlnbm9yZQ0KPiBpdCBoZXJlPw0KPiANCg0K
+SXQncyBkZWxpYmVyYXRlbHkgaWdub3JlZC4gSWYgd2UgaGF2ZSBhbiBFU1AgaGVhZGVyIHRoZW4g
+dGhlIFRDUC9VRFAgaGVhZGVyIGFuZCBwYXlsb2FkIHdpbGwgYmUgZW5jcnlwdGVkIHNvIHlvdSBj
+YW4ndCBkbyBjaGVja3N1bSBvZmZsb2FkLCBoZW5jZSB0aGlzIGZ1bmN0aW9uIHNob3VsZCByZXR1
+cm4gYW4gZXJyb3IuDQoNCiAgUGF1bA0K
