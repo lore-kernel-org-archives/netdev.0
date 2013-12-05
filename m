@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC 6/9] xfrm: Add xfrm_tunnel_skb_cb to the skb common buffer
-Date: Thu, 5 Dec 2013 13:03:53 +0100
-Message-ID: <20131205120353.GC31491@secunet.com>
+Subject: [PATCH RFC 7/9] ip_tunnel: Make vti work with i_key set
+Date: Thu, 5 Dec 2013 13:04:30 +0100
+Message-ID: <20131205120430.GD31491@secunet.com>
 References: <20131205120028.GW31491@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,80 +9,61 @@ Cc: Christophe Gouault <christophe.gouault@6wind.com>,
 	Saurabh Mohan <saurabh.mohan@vyatta.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:55541 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:55567 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755656Ab3LEMD4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Dec 2013 07:03:56 -0500
+	id S1755954Ab3LEMEd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Dec 2013 07:04:33 -0500
 Content-Disposition: inline
 In-Reply-To: <20131205120028.GW31491@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPsec vti_rcv needs to remind the tunnel pointer to
-check it later at the vti_rcv_cb callback. So add
-this pointer to the IPsec common buffer.
+Vti uses the o_key to mark packets that were transmitted or received
+by a vti interface. Unfortunately we can't apply different marks
+to in and outbound packets with only one key availabe. Vti interfaces
+typically use wildcard selectors for vti IPsec policies. On forwarding,
+the same output policy will match for both directions. This generates
+a loop between the IPsec gateways until the ttl of the packet is
+exceeded.
+
+The gre i_key/o_key are usually there to find the right gre tunnel
+during a lookup. When vti uses the i_key to mark packets, the tunnel
+lookup does not work any more because vti does not use the gre keys
+as a hash key for the lookup.
+
+This patch workarounds this my not including the i_key when comupting
+the hash for the tunnel lookup in case of vti tunnels.
+
+With this we have separate keys available for the transmitting and
+receiving side of the vti interface.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/xfrm.h |   26 ++++++++++++++------------
- 1 file changed, 14 insertions(+), 12 deletions(-)
+ net/ipv4/ip_tunnel.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 7f71462..8295b4c 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -600,16 +600,24 @@ struct xfrm_mgr {
- int xfrm_register_km(struct xfrm_mgr *km);
- int xfrm_unregister_km(struct xfrm_mgr *km);
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 90ff957..4bc7a6e 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -228,13 +228,17 @@ static struct hlist_head *ip_bucket(struct ip_tunnel_net *itn,
+ {
+ 	unsigned int h;
+ 	__be32 remote;
++	__be32 i_key = parms->i_key;
  
-+struct xfrm_tunnel_skb_cb {
-+	union {
-+		struct inet_skb_parm h4;
-+		struct inet6_skb_parm h6;
-+        } header;
+ 	if (parms->iph.daddr && !ipv4_is_multicast(parms->iph.daddr))
+ 		remote = parms->iph.daddr;
+ 	else
+ 		remote = 0;
+ 
+-	h = ip_tunnel_hash(itn, parms->i_key, remote);
++	if (!(parms->i_flags & TUNNEL_KEY) && (parms->i_flags & VTI_ISVTI))
++		i_key = 0;
 +
-+	struct ip_tunnel *tunnel;
-+};
-+
-+#define XFRM_TUNNEL_SKB_CB(__skb) ((struct xfrm_tunnel_skb_cb *)&((__skb)->cb[0]))
-+
- /*
-  * This structure is used for the duration where packets are being
-  * transformed by IPsec.  As soon as the packet leaves IPsec the
-  * area beyond the generic IP part may be overwritten.
-  */
- struct xfrm_skb_cb {
--	union {
--		struct inet_skb_parm h4;
--		struct inet6_skb_parm h6;
--        } header;
-+	struct xfrm_tunnel_skb_cb header;
++	h = ip_tunnel_hash(itn, i_key, remote);
+ 	return &itn->tunnels[h];
+ }
  
-         /* Sequence number for replay protection. */
- 	union {
-@@ -631,10 +639,7 @@ struct xfrm_skb_cb {
-  * to transmit header information to the mode input/output functions.
-  */
- struct xfrm_mode_skb_cb {
--	union {
--		struct inet_skb_parm h4;
--		struct inet6_skb_parm h6;
--	} header;
-+	struct xfrm_tunnel_skb_cb header;
- 
- 	/* Copied from header for IPv4, always set to zero and DF for IPv6. */
- 	__be16 id;
-@@ -666,10 +671,7 @@ struct xfrm_mode_skb_cb {
-  * related information.
-  */
- struct xfrm_spi_skb_cb {
--	union {
--		struct inet_skb_parm h4;
--		struct inet6_skb_parm h6;
--	} header;
-+	struct xfrm_tunnel_skb_cb header;
- 
- 	unsigned int daddroff;
- 	unsigned int family;
 -- 
 1.7.9.5
