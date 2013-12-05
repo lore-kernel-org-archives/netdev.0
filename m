@@ -1,76 +1,109 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net] bonding: fix packets_per_slave showing
-Date: Thu, 5 Dec 2013 12:08:43 +0100
-Message-ID: <20131205110843.GD23210@redhat.com>
-References: <1386239818-7408-1-git-send-email-nikolay@redhat.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Subject: [PATCH 2/2] net/fddi: Replace local marco with PCI standard macro
+Date: Thu, 5 Dec 2013 19:38:02 +0800
+Message-ID: <1386243482-32856-1-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
-	Jay Vosburgh <fubar@us.ibm.com>,
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Yijing Wang <wangyijing@huawei.com>,
+	Hanjun Guo <guohanjun@huawei.com>
+To: "Maciej W. Rozycki" <macro@linux-mips.org>,
 	"David S. Miller" <davem@davemloft.net>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24052 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755792Ab3LELLQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Dec 2013 06:11:16 -0500
-Content-Disposition: inline
-In-Reply-To: <1386239818-7408-1-git-send-email-nikolay@redhat.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:54422 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753644Ab3LELiV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 06:38:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 05, 2013 at 11:36:58AM +0100, Nikolay Aleksandrov wrote:
->There's an issue when showing the value of packets_per_slave due to
->using signed integer. The value may be < 0 and thus not put through
->reciprocal_value() before showing. This patch makes it use unsigned
->integer when showing it.
+Replace local marco DFX_BUS_PCI with PCI standard marco
+dev_is_pci().
 
-I was already checking my basic algebra knowledge here,
-reciprocal_value(reciprocal_value(0..USHRT_MAX)) can become negative?!? :)
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ drivers/net/fddi/defxx.c |   20 +++++++-------------
+ 1 files changed, 7 insertions(+), 13 deletions(-)
 
-If anyone's also wondering...
-
-packets_per_slave is reciprocal_value(0..USHRT_MAX), and thus can indeed be
-negative, and then the code
-
-	if (packets_per_slave > 1)
-		packets_per_slave = reciprocal_value(packets_per_slave);
-
-would fail to recognise that it's a reciprocal_divide() value, and not a
-standard 0/1 option (in bond_rr_gen_slave_id() we verify it via a switch,
-so we're safe there) - and thus output nonsense.
-
-Acked-by: Veaceslav Falico <vfalico@redhat.com>
-
->
->CC: Andy Gospodarek <andy@greyhouse.net>
->CC: Jay Vosburgh <fubar@us.ibm.com>
->CC: Veaceslav Falico <vfalico@redhat.com>
->CC: David S. Miller <davem@davemloft.net>
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->---
-> drivers/net/bonding/bond_sysfs.c | 4 ++--
-> 1 file changed, 2 insertions(+), 2 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
->index abf5e10..0ae580b 100644
->--- a/drivers/net/bonding/bond_sysfs.c
->+++ b/drivers/net/bonding/bond_sysfs.c
->@@ -1635,12 +1635,12 @@ static ssize_t bonding_show_packets_per_slave(struct device *d,
-> 					      char *buf)
-> {
-> 	struct bonding *bond = to_bond(d);
->-	int packets_per_slave = bond->params.packets_per_slave;
->+	unsigned int packets_per_slave = bond->params.packets_per_slave;
->
-> 	if (packets_per_slave > 1)
-> 		packets_per_slave = reciprocal_value(packets_per_slave);
->
->-	return sprintf(buf, "%d\n", packets_per_slave);
->+	return sprintf(buf, "%u\n", packets_per_slave);
-> }
->
-> static ssize_t bonding_store_packets_per_slave(struct device *d,
->-- 
->1.8.1.4
->
+diff --git a/drivers/net/fddi/defxx.c b/drivers/net/fddi/defxx.c
+index 0b40e1c..0344f71 100644
+--- a/drivers/net/fddi/defxx.c
++++ b/drivers/net/fddi/defxx.c
+@@ -241,12 +241,6 @@ static char version[] =
+  */
+ #define NEW_SKB_SIZE (PI_RCV_DATA_K_SIZE_MAX+128)
+ 
+-#ifdef CONFIG_PCI
+-#define DFX_BUS_PCI(dev) (dev->bus == &pci_bus_type)
+-#else
+-#define DFX_BUS_PCI(dev) 0
+-#endif
+-
+ #ifdef CONFIG_EISA
+ #define DFX_BUS_EISA(dev) (dev->bus == &eisa_bus_type)
+ #else
+@@ -436,7 +430,7 @@ static void dfx_port_read_long(DFX_board_t *bp, int offset, u32 *data)
+ static void dfx_get_bars(struct device *bdev,
+ 			 resource_size_t *bar_start, resource_size_t *bar_len)
+ {
+-	int dfx_bus_pci = DFX_BUS_PCI(bdev);
++	int dfx_bus_pci = dev_is_pci(bdev);
+ 	int dfx_bus_eisa = DFX_BUS_EISA(bdev);
+ 	int dfx_bus_tc = DFX_BUS_TC(bdev);
+ 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
+@@ -518,7 +512,7 @@ static const struct net_device_ops dfx_netdev_ops = {
+ static int dfx_register(struct device *bdev)
+ {
+ 	static int version_disp;
+-	int dfx_bus_pci = DFX_BUS_PCI(bdev);
++	int dfx_bus_pci = dev_is_pci(bdev);
+ 	int dfx_bus_tc = DFX_BUS_TC(bdev);
+ 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
+ 	const char *print_name = dev_name(bdev);
+@@ -667,7 +661,7 @@ static void dfx_bus_init(struct net_device *dev)
+ {
+ 	DFX_board_t *bp = netdev_priv(dev);
+ 	struct device *bdev = bp->bus_dev;
+-	int dfx_bus_pci = DFX_BUS_PCI(bdev);
++	int dfx_bus_pci = dev_is_pci(bdev);
+ 	int dfx_bus_eisa = DFX_BUS_EISA(bdev);
+ 	int dfx_bus_tc = DFX_BUS_TC(bdev);
+ 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
+@@ -813,7 +807,7 @@ static void dfx_bus_uninit(struct net_device *dev)
+ {
+ 	DFX_board_t *bp = netdev_priv(dev);
+ 	struct device *bdev = bp->bus_dev;
+-	int dfx_bus_pci = DFX_BUS_PCI(bdev);
++	int dfx_bus_pci = dev_is_pci(bdev);
+ 	int dfx_bus_eisa = DFX_BUS_EISA(bdev);
+ 	u8 val;
+ 
+@@ -967,7 +961,7 @@ static int dfx_driver_init(struct net_device *dev, const char *print_name,
+ {
+ 	DFX_board_t *bp = netdev_priv(dev);
+ 	struct device *bdev = bp->bus_dev;
+-	int dfx_bus_pci = DFX_BUS_PCI(bdev);
++	int dfx_bus_pci = dev_is_pci(bdev);
+ 	int dfx_bus_eisa = DFX_BUS_EISA(bdev);
+ 	int dfx_bus_tc = DFX_BUS_TC(bdev);
+ 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
+@@ -1877,7 +1871,7 @@ static irqreturn_t dfx_interrupt(int irq, void *dev_id)
+ 	struct net_device *dev = dev_id;
+ 	DFX_board_t *bp = netdev_priv(dev);
+ 	struct device *bdev = bp->bus_dev;
+-	int dfx_bus_pci = DFX_BUS_PCI(bdev);
++	int dfx_bus_pci = dev_is_pci(bdev);
+ 	int dfx_bus_eisa = DFX_BUS_EISA(bdev);
+ 	int dfx_bus_tc = DFX_BUS_TC(bdev);
+ 
+@@ -3579,7 +3573,7 @@ static void dfx_unregister(struct device *bdev)
+ {
+ 	struct net_device *dev = dev_get_drvdata(bdev);
+ 	DFX_board_t *bp = netdev_priv(dev);
+-	int dfx_bus_pci = DFX_BUS_PCI(bdev);
++	int dfx_bus_pci = dev_is_pci(bdev);
+ 	int dfx_bus_tc = DFX_BUS_TC(bdev);
+ 	int dfx_use_mmio = DFX_MMIO || dfx_bus_tc;
+ 	resource_size_t bar_start = 0;		/* pointer to port */
+-- 
+1.7.1
