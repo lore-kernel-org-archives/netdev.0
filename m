@@ -1,43 +1,76 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] net: introduce dev_consume_skb_any()
-Date: Thu, 5 Dec 2013 17:54:14 +0100
-Message-ID: <20131205165414.GB21745@order.stressinduktion.org>
-References: <20131203.165034.1085515763685633822.davem@davemloft.net> <1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com> <CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com> <1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com> <1386247508.30495.180.camel@edumazet-glaptop2.roam.corp.google.com> <20131205141346.GB14095@order.stressinduktion.org> <1386254734.30495.186.camel@edumazet-glaptop2.roam.corp.google.com> <1386255952.30495.192.camel@edumazet-glaptop2.roam.corp.google.com> <20131205154438.GA21745@order.stressinduktion.org> <1386261485.30495.203.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch net/stable v2] br: fix use of ->rx_handler_data in code
+ executed on non-rx_handler path
+Date: Thu, 5 Dec 2013 08:55:14 -0800
+Message-ID: <20131205085514.4c079747@nehalam.linuxnetplumber.net>
+References: <1386257257-25258-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jtluka@redhat.com,
+	zhiguohong@tencent.com, bridge@lists.linux-foundation.org,
+	edumazet@google.com, laine@redhat.com, mst@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:33469 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756866Ab3LEQyP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 11:54:15 -0500
-Content-Disposition: inline
-In-Reply-To: <1386261485.30495.203.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:41619 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756857Ab3LEQzT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 11:55:19 -0500
+Received: by mail-pd0-f182.google.com with SMTP id v10so25149158pde.27
+        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 08:55:19 -0800 (PST)
+In-Reply-To: <1386257257-25258-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 05, 2013 at 08:38:05AM -0800, Eric Dumazet wrote:
-> On Thu, 2013-12-05 at 16:44 +0100, Hannes Frederic Sowa wrote:
-> 
-> > It makes some sense but I did not grasp the whole ->users dependency
-> > picture, yet. I guess the barrier is only needed when refcount drops
-> > down to 0 and we don't necessarily need one when incrementing ->users.
-> 
-> If you are the only user of this skb, really no smp barrier is needed at
-> all.
-> 
-> The problem comes when another cpu is working on the skb, and finally
-> releases its reference on it.
-> 
-> Before releasing its reference, it must commit all changes it might have
-> done onto skb. Otherwise another cpu might read stale data.
-> 
-> The smp_wmb() is done by the atomic_dec_and_test(), as it contains a
-> full barrier.
-> 
-> So the smp_rmb() pairs with the barrier done in atomic_dec_and_test()
+On Thu,  5 Dec 2013 16:27:37 +0100
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-Ha, it all makes sense now! Thanks, Eric!
+> br_stp_rcv() is reached by non-rx_handler path. That means there is no
+> guarantee that dev is bridge port and therefore simple NULL check of
+> ->rx_handler_data is not enough. There is need to check if dev is really
+> bridge port and since only rcu read lock is held here, do it by checking
+> ->rx_handler pointer.
+> 
+> Note that synchronize_net() in netdev_rx_handler_unregister() ensures
+> this approach as valid.
+> 
 
-(Sorry for the noise but I find this kind of problems very interesting)
+
+I think this patch is simpler/better, it restores the old logic.
+
+Ps. submitting patches to bugzilla is a good way to have them ignored.
+
+>From Stephen Hemminger <stephen@networkplumber.org>
+
+Check that incoming STP packet is received on a port assigned to bridge
+before processing. It is possible to receive packet on non-bridge port
+because they are multicast.
+
+See:
+ https://bugzilla.kernel.org/show_bug.cgi?id=64911
+
+
+Regression introduced by:
+commit 716ec052d2280d511e10e90ad54a86f5b5d4dcc2
+Author: Hong Zhiguo <zhiguohong@tencent.com>
+Date:   Sat Sep 14 22:42:28 2013 +0800
+
+    bridge: fix NULL pointer deref of br_port_get_rcu
+
+
+Reported-by: Alexander Y. Fomichev
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+
+--- a/net/bridge/br_stp_bpdu.c	2013-06-11 09:50:21.522919061 -0700
++++ b/net/bridge/br_stp_bpdu.c	2013-12-05 08:46:56.090463702 -0800
+@@ -153,6 +153,9 @@ void br_stp_rcv(const struct stp_proto *
+ 	if (buf[0] != 0 || buf[1] != 0 || buf[2] != 0)
+ 		goto err;
+ 
++	if (!br_port_exists(dev))
++		goto err;
++
+ 	p = br_port_get_rcu(dev);
+ 	if (!p)
+ 		goto err;
