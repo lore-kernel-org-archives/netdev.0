@@ -1,88 +1,84 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 05/16] sfc: Implement the SIOCGHWTSTAMP ioctl
-Date: Thu, 5 Dec 2013 23:45:52 +0000
-Message-ID: <1386287152.1516.129.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 06/16] bfin_mac: Implement the SIOCGHWTSTAMP ioctl
+Date: Thu, 5 Dec 2013 23:47:39 +0000
+Message-ID: <1386287259.1516.131.camel@bwh-desktop.uk.level5networks.com>
 References: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	"Richard Cochran" <richardcochran@gmail.com>
+	"Richard Cochran" <richardcochran@gmail.com>,
+	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:34800 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:34846 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753869Ab3LEXp4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:45:56 -0500
+	with ESMTP id S1755111Ab3LEXrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:47:43 -0500
 In-Reply-To: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Compile-tested only (thanks to the kbuild test robot).
+
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c |  4 +++-
- drivers/net/ethernet/sfc/nic.h |  3 ++-
- drivers/net/ethernet/sfc/ptp.c | 11 ++++++++++-
- 3 files changed, 15 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/adi/bfin_mac.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 07c9bc4c61bc..22ca5cd3f722 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -1857,7 +1857,9 @@ static int efx_ioctl(struct net_device *net_dev, struct ifreq *ifr, int cmd)
- 	struct mii_ioctl_data *data = if_mii(ifr);
- 
- 	if (cmd == SIOCSHWTSTAMP)
--		return efx_ptp_ioctl(efx, ifr, cmd);
-+		return efx_ptp_set_ts_config(efx, ifr);
-+	if (cmd == SIOCGHWTSTAMP)
-+		return efx_ptp_get_ts_config(efx, ifr);
- 
- 	/* Convert phy_id from older PRTAD/DEVAD format */
- 	if ((cmd == SIOCGMIIREG || cmd == SIOCSMIIREG) &&
-diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index 11b6112d9249..33852e824f12 100644
---- a/drivers/net/ethernet/sfc/nic.h
-+++ b/drivers/net/ethernet/sfc/nic.h
-@@ -555,7 +555,8 @@ int efx_sriov_set_vf_spoofchk(struct net_device *net_dev, int vf,
- 
- struct ethtool_ts_info;
- void efx_ptp_probe(struct efx_nic *efx);
--int efx_ptp_ioctl(struct efx_nic *efx, struct ifreq *ifr, int cmd);
-+int efx_ptp_set_ts_config(struct efx_nic *efx, struct ifreq *ifr);
-+int efx_ptp_get_ts_config(struct efx_nic *efx, struct ifreq *ifr);
- void efx_ptp_get_ts_info(struct efx_nic *efx, struct ethtool_ts_info *ts_info);
- bool efx_ptp_is_ptp_tx(struct efx_nic *efx, struct sk_buff *skb);
- int efx_ptp_tx(struct efx_nic *efx, struct sk_buff *skb);
-diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-index 03acf57df045..afd4d3a50460 100644
---- a/drivers/net/ethernet/sfc/ptp.c
-+++ b/drivers/net/ethernet/sfc/ptp.c
-@@ -1231,7 +1231,7 @@ void efx_ptp_get_ts_info(struct efx_nic *efx, struct ethtool_ts_info *ts_info)
- 			       1 << HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ);
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index 75fb1d20d6fd..0d4f29579879 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -667,8 +667,8 @@ static u32 bfin_select_phc_clock(u32 input_clk, unsigned int *shift_result)
+ 	return 1000000000UL / ppn;
  }
  
--int efx_ptp_ioctl(struct efx_nic *efx, struct ifreq *ifr, int cmd)
-+int efx_ptp_set_ts_config(struct efx_nic *efx, struct ifreq *ifr)
+-static int bfin_mac_hwtstamp_ioctl(struct net_device *netdev,
+-		struct ifreq *ifr, int cmd)
++static int bfin_mac_hwtstamp_set(struct net_device *netdev,
++				 struct ifreq *ifr)
  {
  	struct hwtstamp_config config;
- 	int rc;
-@@ -1251,6 +1251,15 @@ int efx_ptp_ioctl(struct efx_nic *efx, struct ifreq *ifr, int cmd)
- 		? -EFAULT : 0;
+ 	struct bfin_mac_local *lp = netdev_priv(netdev);
+@@ -824,6 +824,16 @@ static int bfin_mac_hwtstamp_ioctl(struct net_device *netdev,
+ 		-EFAULT : 0;
  }
  
-+int efx_ptp_get_ts_config(struct efx_nic *efx, struct ifreq *ifr)
++static int bfin_mac_hwtstamp_get(struct net_device *netdev,
++				 struct ifreq *ifr)
 +{
-+	if (!efx->ptp_data)
-+		return -EOPNOTSUPP;
++	struct bfin_mac_local *lp = netdev_priv(netdev);
 +
-+	return copy_to_user(ifr->ifr_data, &efx->ptp_data->config,
-+			    sizeof(efx->ptp_data->config)) ? -EFAULT : 0;
++	return copy_to_user(ifr->ifr_data, &lp->stamp_cfg,
++			    sizeof(lp->stamp_cfg)) ?
++		-EFAULT : 0;
 +}
 +
- static void ptp_event_failure(struct efx_nic *efx, int expected_frag_len)
+ static void bfin_tx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
  {
- 	struct efx_ptp_data *ptp = efx->ptp_data;
+ 	struct bfin_mac_local *lp = netdev_priv(netdev);
+@@ -1062,7 +1072,8 @@ static void bfin_phc_release(struct bfin_mac_local *lp)
+ #else
+ # define bfin_mac_hwtstamp_is_none(cfg) 0
+ # define bfin_mac_hwtstamp_init(dev)
+-# define bfin_mac_hwtstamp_ioctl(dev, ifr, cmd) (-EOPNOTSUPP)
++# define bfin_mac_hwtstamp_set(dev, ifr) (-EOPNOTSUPP)
++# define bfin_mac_hwtstamp_get(dev, ifr) (-EOPNOTSUPP)
+ # define bfin_rx_hwtstamp(dev, skb)
+ # define bfin_tx_hwtstamp(dev, skb)
+ # define bfin_phc_init(netdev, dev) 0
+@@ -1496,7 +1507,9 @@ static int bfin_mac_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+ 
+ 	switch (cmd) {
+ 	case SIOCSHWTSTAMP:
+-		return bfin_mac_hwtstamp_ioctl(netdev, ifr, cmd);
++		return bfin_mac_hwtstamp_set(netdev, ifr);
++	case SIOCGHWTSTAMP:
++		return bfin_mac_hwtstamp_get(netdev, ifr);
+ 	default:
+ 		if (lp->phydev)
+ 			return phy_mii_ioctl(lp->phydev, ifr, cmd);
 
 
 -- 
