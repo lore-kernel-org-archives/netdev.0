@@ -1,50 +1,32 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: [PATCH] virtio-net: free bufs correctly on invalid packet length
-Date: Thu,  5 Dec 2013 12:16:52 -0800
-Message-ID: <1386274612-18379-1-git-send-email-mwdalton@google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Possible IPv6 fragmentation/pmtud bug
+Date: Thu, 5 Dec 2013 21:18:57 +0100
+Message-ID: <20131205201856.GC21745@order.stressinduktion.org>
+References: <2134F8430051B64F815C691A62D9831816F612@XCH-BLV-504.nw.nos.boeing.com> <2134F8430051B64F815C691A62D9831816F6A4@XCH-BLV-504.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrey Vagin <avagin@openvz.org>, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, Michael Dalton <mwdalton@google.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:34022 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752675Ab3LEUS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 15:18:58 -0500
+Content-Disposition: inline
+In-Reply-To: <2134F8430051B64F815C691A62D9831816F6A4@XCH-BLV-504.nw.nos.boeing.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When a packet with invalid length arrives, ensure that the packet
-is freed correctly if mergeable packet buffers and big packets
-(GUEST_TSO4) are both enabled.
----
- drivers/net/virtio_net.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+On Thu, Dec 05, 2013 at 08:13:25PM +0000, Templin, Fred L wrote:
+> Another clue that I should have mentioned in my initial message; the
+> "hosts", "routers" and "links" are not physical nodes but rather
+> network namespace virtual nodes running within a single linux 3.10.17
+> emulation server. Could there be some sort of weird "cross-talk"
+> between VMs that is making the router believe it is a host?
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 916241d..6a4665c 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -426,10 +426,10 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
- 		pr_debug("%s: short packet %i\n", dev->name, len);
- 		dev->stats.rx_length_errors++;
--		if (vi->big_packets)
--			give_pages(rq, buf);
--		else if (vi->mergeable_rx_bufs)
-+		if (vi->mergeable_rx_bufs)
- 			put_page(virt_to_head_page(buf));
-+		else if (vi->big_packets)
-+			give_pages(rq, buf);
- 		else
- 			dev_kfree_skb(buf);
- 		return;
--- 
-1.8.5.1
+That is probable. With a quick test I could not reproduce it. I guess we don't
+reset skb->local_df after creation. I'll check it out.
+
+Thanks for the report,
+
+  Hannes
