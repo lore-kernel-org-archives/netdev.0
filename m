@@ -1,7 +1,8 @@
 From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH] mvneta: DMA API misusage fix
-Date: Thu,  5 Dec 2013 13:35:36 -0300
-Message-ID: <1386261337-26442-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Subject: [PATCH] net: mvneta: Fix incorrect DMA unmapping size
+Date: Thu,  5 Dec 2013 13:35:37 -0300
+Message-ID: <1386261337-26442-2-git-send-email-ezequiel.garcia@free-electrons.com>
+References: <1386261337-26442-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Gregory Clement <gregory.clement@free-electrons.com>,
 	Lior Amsalem <alior@marvell.com>, Willy Tarreau <w@1wt.eu>,
@@ -12,34 +13,79 @@ Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:47750 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:47756 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932576Ab3LEQfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 11:35:48 -0500
+	with ESMTP id S932963Ab3LEQft (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 11:35:49 -0500
+In-Reply-To: <1386261337-26442-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This small patch removes a DMA_API_DEBUG warning, fixing a DMA API misusage.
-The change is straightforward: rx DMA mappings are created setting a size
-(using some upper-limit buffer size), but destroyed (aka unmapped) setting
-the actual data size that was received.
+The current code unmaps the DMA mapping created for rx skb_buff's by
+using the data_size as the the mapping size. This is wrong since the
+correct size to specify should match the size used to create the mapping.
 
-The fix replaces 'data_size' by the MVNETA_RX_BUF_SIZE in the unmap.
+This commit removes the following DMA_API_DEBUG warning:
 
-I'm not sure how serious this misusage is, so I'd like to ask for advise
-about marking this commit for stable. The problem is here since the
-introduction of the driver, namely since:
+------------[ cut here ]------------
+WARNING: at lib/dma-debug.c:887 check_unmap+0x3a8/0x860()
+mvneta d0070000.ethernet: DMA-API: device driver frees DMA memory with different size [device address=0x000000002eb80000] [map size=1600 bytes] [unmap size=66 bytes]
+CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.10.21-01444-ga88ae13-dirty #92
+[<c0013600>] (unwind_backtrace+0x0/0xf8) from [<c0010fb8>] (show_stack+0x10/0x14)
+[<c0010fb8>] (show_stack+0x10/0x14) from [<c001afa0>] (warn_slowpath_common+0x48/0x68)
+[<c001afa0>] (warn_slowpath_common+0x48/0x68) from [<c001b01c>] (warn_slowpath_fmt+0x30/0x40)
+[<c001b01c>] (warn_slowpath_fmt+0x30/0x40) from [<c018d0fc>] (check_unmap+0x3a8/0x860)
+[<c018d0fc>] (check_unmap+0x3a8/0x860) from [<c018d734>] (debug_dma_unmap_page+0x64/0x70)
+[<c018d734>] (debug_dma_unmap_page+0x64/0x70) from [<c0233f78>] (mvneta_rx+0xec/0x468)
+[<c0233f78>] (mvneta_rx+0xec/0x468) from [<c023436c>] (mvneta_poll+0x78/0x16c)
+[<c023436c>] (mvneta_poll+0x78/0x16c) from [<c02db468>] (net_rx_action+0x94/0x160)
+[<c02db468>] (net_rx_action+0x94/0x160) from [<c0021e68>] (__do_softirq+0xe8/0x1d0)
+[<c0021e68>] (__do_softirq+0xe8/0x1d0) from [<c0021ff8>] (do_softirq+0x4c/0x58)
+[<c0021ff8>] (do_softirq+0x4c/0x58) from [<c0022228>] (irq_exit+0x58/0x90)
+[<c0022228>] (irq_exit+0x58/0x90) from [<c000e7c8>] (handle_IRQ+0x3c/0x94)
+[<c000e7c8>] (handle_IRQ+0x3c/0x94) from [<c0008548>] (armada_370_xp_handle_irq+0x4c/0xb4)
+[<c0008548>] (armada_370_xp_handle_irq+0x4c/0xb4) from [<c000dc20>] (__irq_svc+0x40/0x50)
+Exception stack(0xc04f1f70 to 0xc04f1fb8)
+1f60:                                     c1fe46f8 00000000 00001d92 00001d92
+1f80: c04f0000 c04f0000 c04f84a4 c03e081c c05220e7 00000001 c05220e7 c04f0000
+1fa0: 00000000 c04f1fb8 c000eaf8 c004c048 60000113 ffffffff
+[<c000dc20>] (__irq_svc+0x40/0x50) from [<c004c048>] (cpu_startup_entry+0x54/0x128)
+[<c004c048>] (cpu_startup_entry+0x54/0x128) from [<c04c1a14>] (start_kernel+0x29c/0x2f0)
+[<c04c1a14>] (start_kernel+0x29c/0x2f0) from [<00008074>] (0x8074)
+---[ end trace d4955f6acd178110 ]---
+Mapped at:
+ [<c018d600>] debug_dma_map_page+0x4c/0x11c
+ [<c0235d6c>] mvneta_setup_rxqs+0x398/0x598
+ [<c0236084>] mvneta_open+0x40/0x17c
+ [<c02dbbd4>] __dev_open+0x9c/0x100
+ [<c02dbe58>] __dev_change_flags+0x7c/0x134
 
-  commit c5aff18204da025fdf714f8f6423372b4b8efd00
-  net: mvneta: driver for Marvell Armada 370/XP network unit
-
-Thanks!
-
-Ezequiel Garcia (1):
-  net: mvneta: Fix incorrect DMA unmapping size
-
+Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+---
  drivers/net/ethernet/marvell/mvneta.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index b8e232b..d5f0d72 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1378,7 +1378,7 @@ static void mvneta_rxq_drop_pkts(struct mvneta_port *pp,
+ 
+ 		dev_kfree_skb_any(skb);
+ 		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
+-				 rx_desc->data_size, DMA_FROM_DEVICE);
++				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
+ 	}
+ 
+ 	if (rx_done)
+@@ -1424,7 +1424,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 		}
+ 
+ 		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
+-				 rx_desc->data_size, DMA_FROM_DEVICE);
++				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
+ 
+ 		rx_bytes = rx_desc->data_size -
+ 			(ETH_FCS_LEN + MVNETA_MH_SIZE);
 -- 
 1.8.1.5
