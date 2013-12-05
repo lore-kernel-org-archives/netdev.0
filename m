@@ -1,50 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: introduce dev_consume_skb_any()
-Date: Thu, 05 Dec 2013 08:38:05 -0800
-Message-ID: <1386261485.30495.203.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com>
-	 <20131203.165034.1085515763685633822.davem@davemloft.net>
-	 <1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com>
-	 <1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1386247508.30495.180.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131205141346.GB14095@order.stressinduktion.org>
-	 <1386254734.30495.186.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1386255952.30495.192.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131205154438.GA21745@order.stressinduktion.org>
+From: Fiedler Roman <Roman.Fiedler@ait.ac.at>
+Subject: AW: Change in IPv4 TCP reset behavior after kernel upgrade
+Date: Thu, 5 Dec 2013 16:41:46 +0000
+Message-ID: <2ECE9D9EEF1F524185270138AE2326593BFA6507@S0MSMAIL112.arc.local>
+References: <2ECE9D9EEF1F524185270138AE2326593BF9B5EE@S0MSMAIL112.arc.local>
+ <CADVnQynL6=91zAZXMAoKEeCY7=Eajfq1DyP+Dzd8xhzBhujtyQ@mail.gmail.com>
+ <2ECE9D9EEF1F524185270138AE2326593BF9B935@S0MSMAIL112.arc.local>
+ <20131204175610.GB27943@order.stressinduktion.org>
+ <1386181774.30495.113.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20131204220238.GA9110@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Neal Cardwell <ncardwell@google.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:43586 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756857Ab3LEQiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 11:38:07 -0500
-Received: by mail-pb0-f44.google.com with SMTP id rq2so26210502pbb.31
-        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 08:38:06 -0800 (PST)
-In-Reply-To: <20131205154438.GA21745@order.stressinduktion.org>
+Received: from mx2.ait.ac.at ([62.218.164.132]:40989 "EHLO MX2.ait.ac.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751947Ab3LEQl5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Dec 2013 11:41:57 -0500
+In-Reply-To: <20131204220238.GA9110@order.stressinduktion.org>
+Content-Language: de-DE
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-05 at 16:44 +0100, Hannes Frederic Sowa wrote:
-
-> It makes some sense but I did not grasp the whole ->users dependency
-> picture, yet. I guess the barrier is only needed when refcount drops
-> down to 0 and we don't necessarily need one when incrementing ->users.
-
-If you are the only user of this skb, really no smp barrier is needed at
-all.
-
-The problem comes when another cpu is working on the skb, and finally
-releases its reference on it.
-
-Before releasing its reference, it must commit all changes it might have
-done onto skb. Otherwise another cpu might read stale data.
-
-The smp_wmb() is done by the atomic_dec_and_test(), as it contains a
-full barrier.
-
-So the smp_rmb() pairs with the barrier done in atomic_dec_and_test()
+PiBWb246IEhhbm5lcyBGcmVkZXJpYyBTb3dhIFttYWlsdG86aGFubmVzQHN0cmVzc2luZHVrdGlv
+bi5vcmddDQo+IA0KPiBPbiBXZWQsIERlYyAwNCwgMjAxMyBhdCAxMDoyOTozNEFNIC0wODAwLCBF
+cmljIER1bWF6ZXQgd3JvdGU6DQo+ID4gT24gV2VkLCAyMDEzLTEyLTA0IGF0IDE4OjU2ICswMTAw
+LCBIYW5uZXMgRnJlZGVyaWMgU293YSB3cm90ZToNCj4gPiA+IE9uIFdlZCwgRGVjIDA0LCAyMDEz
+IGF0IDA0OjEzOjEwUE0gKzAwMDAsIEZpZWRsZXIgUm9tYW4gd3JvdGU6DQo+ID4gPiA+IC1zdGF0
+aWMgaW5saW5lIHZvaWQgaXBfc2VsZWN0X2lkZW50X21vcmUoc3RydWN0IGlwaGRyICppcGgsIHN0
+cnVjdA0KPiBkc3RfZW50cnkgKmRzdCwgc3RydWN0IHNvY2sgKnNrLCBpbnQgbW9yZSkNCj4gPiA+
+ID4gK3N0YXRpYyBpbmxpbmUgdm9pZCBpcF9zZWxlY3RfaWRlbnRfbW9yZShzdHJ1Y3Qgc2tfYnVm
+ZiAqc2tiLCBzdHJ1Y3QNCj4gZHN0X2VudHJ5ICpkc3QsIHN0cnVjdCBzb2NrICpzaywgaW50IG1v
+cmUpDQo+ID4gPiA+IHsNCj4gPiA+ID4gLSBpZiAoaXBoLT5mcmFnX29mZiAmIGh0b25zKElQX0RG
+KSkgew0KPiA+ID4gPiArIHN0cnVjdCBpcGhkciAqaXBoID0gaXBfaGRyKHNrYik7DQo+ID4gPiA+
+ICsNCj4gPiA+ID4gKyBpZiAoKGlwaC0+ZnJhZ19vZmYgJiBodG9ucyhJUF9ERikpICYmICFza2It
+PmxvY2FsX2RmKSB7DQo+ID4gPiA+IGlmIChzayAmJiBpbmV0X3NrKHNrKS0+aW5ldF9kYWRkcikg
+ew0KPiA+ID4gPiBpcGgtPmlkID0gaHRvbnMoaW5ldF9zayhzayktPmluZXRfaWQpOw0KPiA+ID4g
+PiBpbmV0X3NrKHNrKS0+aW5ldF9pZCArPSAxICsgbW9yZTsNCj4gPiA+ID4NCj4gPiA+ID4gLi4u
+IGZyb20gMy4xMC4xNiB3b3VsZCBkaXNhYmxlIElEIHNldHRpbmcgb24gc29tZSBwYWNrZXRzLCB3
+aGVyZSBpdCB3YXMNCj4gZG9uZSBwcmV2aW91c2x5LiBQZXJoYXBzIHRoaXMgY2F1c2VkIHByb2Js
+ZW1zIGluIGFuZCBoZW5jZSBiZWhhdmlvdXIgd2FzDQo+IGNoYW5nZWQgYnkgYW5vdGhlciBwYXRj
+aCB0byBvbmUgb2YgdGhlIGZvbGxvd2luZyBrZXJuZWwgdmVyc2lvbnMuIE9yDQo+IHBlcmhhcHMg
+dGhlIGFkZGl0aW9uYWwgdnNlcnZlci1wYXRjaCBpbiBteSBrZXJuZWwgaW50ZXJhY3RlZCB3aXRo
+IHRoYXQNCj4gY2hhbmdlIGFuZCBtYWRlIGl0IGZpcnN0IHZpc2libGUgYWZ0ZXIgMy4xMC4xNy4N
+Cj4gPiA+ID4NCj4gPiA+ID4gQXQgbGVhc3QgdGhlcmUgaGFzIGJlZW4gYWN0aXZpdHkgYXJvdW5k
+IHRoYXQgcGFydCBvZiB0aGUgVENQLXN0YWNrIG5lYXINCj4gdGhlIHJlbGV2YW50IHRpbWUgd2lu
+ZG93LCBzbyBpdCBpcyBub3QgY29tcGxldGVseSB1bmV4cGVjdGVkLg0KPiA+ID4gPg0KPiA+ID4g
+PiBTaW5jZSBpdCBzZWVtcywgdGhhdCB0aGUgcGF0Y2ggb25seSBhZmZlY3RzIHNlbmRpbmcgb2Yg
+UlNUcywgdGhlcmUgc2hvdWxkDQo+IGJlIG5vIHJlYWwgc2VjdXJpdHkgaW1wYWN0IGFsc286IE9u
+bHkgZGlmZmVyZW5jZSBzZWVtcyB0byBiZSwgdGhhdCBieSBzZW5kaW5nDQo+IFNZTnMgdG8gY2xv
+c2VkIHBvcnRzLCB5b3Ugbm93IGNhbiBnZXQgc29tZSBpbmNyZW1lbnRpbmcgbmV4dCBJRCB2YWx1
+ZSAoZG8NCj4gbm90IGtub3csIHdoZXJlIHRoaXMgbnVtYmVyIHJlYWxseSBjb21lcyBmcm9tKS4g
+V2l0aCBhIHF1aWNrIGxvb2ssIEkgY291bGQNCj4gbm90IGZpbmQgb3V0IGhvdyB0aGlzIElEIHJl
+bGF0ZXMgdG8gb3RoZXIgSUQgdmFsdWVzIG9mIC5lLmcgVURQL1RDUCBhY3Rpdml0eSwNCj4gZS5n
+LiBmb3IgcGFja2V0IHNwb29maW5nLiBPbmx5IHRoaW5nIHRoYXQgaXMgcG9zc2libGUgc28gZmFy
+IChhbmQgbm90IHZlcnkNCj4gdmFsdWFibGUgZnJvbSBteSBwb2ludCBvZiB2aWV3KSBpcyBwb3J0
+L2ZpcmV3YWxsLXJ1bGUgcHJvYmluZyB1c2luZyBTWU4gb24NCj4gY2xvc2VkIHBvcnQsIG1lY2hh
+bmlzbToNCj4gPiA+DQo+ID4gPiBFLmcuIGljbXAgdXNlcyBwZXItbmFtZXNwYWNlIHBlci1jcHUg
+c29ja2V0cyB3aGVyZSBpdCBjb3VudHMgdGhlIG5vbi0NCj4gREYgYW5kDQo+ID4gPiBub24tbG9j
+YWxfZGYgZnJhZ21lbnRzIGFuZCBpbmNyZWFzZXMgdGhhdCBwZXItc29ja2V0LiBUQ1AtUlNUIHVz
+ZSBhDQo+IGdsb2JhbA0KPiA+ID4gcGVyLWNwdSBzb2NrZXQgdG8gc2VuZCBSU1QgcGFja2V0cy4g
+aXBfc2VsZWN0X2lkZW50IGRvZXMgaW5jcmVhc2UNCj4gaW5ldF9pZCBmb3INCj4gPiA+IGVhY2gg
+c2VudCBmcmFnbWVudC4NCj4gPg0KPiA+IFdlbGwsIGl0IHNob3VsZCBub3QsIGJlY2F1c2UgZm9y
+IHRoaXMgcGFydGljdWxhciBzb2NrZXQgKGFzc3VtaW5nIHlvdQ0KPiA+IHNwZWFrIG9mIGlwX3Nl
+bmRfdW5pY2FzdF9yZXBseSgpKSwgaW5ldF9zayhzayktPmluZXRfZGFkZHIgaXMgbm90IHNldC4N
+Cj4gDQo+IE9oIHllcywgYWN0dWFsbHkgbG9va2luZyBhdCB0aGUgY29kZSB3ZSBkZWZpbml0ZWx5
+IHJ1biBpbnRvIF9faXBfc2VsZWN0X2lkZW50DQo+IGFuZCBnZW5lcmF0ZSBhbiBpbmV0cGVlciBh
+bmQgdXNlIHRoZSBkZXJpdmVkIGlwaWQgZnJvbSB0aGF0Lg0KPg0KPiBSb21hbiwgSSB3b3VsZCBi
+ZSB2ZXJ5IGludGVyZXN0ZWQgd2h5IHlvdSBvbmx5IGV4cGVyaWVuY2VkIHRoYXQgd2l0aA0KPiAz
+LjEwLjIxLCBjb3VsZCB5b3Ugc2hhcmUgdGhlIHNwZWNpZmljIHZzZXJ2ZXIgcGF0Y2g/DQoNCkkg
+ZHVnIG91dCB0aGUgdHdvIHByZXZpb3VzIGtlcm5lbCBidWlsZHMgMy4xMC4xNyBhbmQgMy4xMC4x
+NS4gVGFraW5nIGEgY2xvc2VyIGxvb2ssIDMuMTAuMTcgYWxyZWFkeSBleHBvc2VzIHRoZSBjaGFu
+Z2VkIGJlaGF2aW91ci4gSSBtdXN0IGhhdmUgbG9va2VkIG92ZXIgaXQgaW4gdGhlIG9sZCBmaXJl
+d2FsbCBsb2dzIHNpbmNlIDMuMTAuMTcgd2FzIG5vdCBkZXBsb3llZCBvbiBhbGwgbWFjaGluZXMs
+IHNvIG9ubHkgd2VhayBzaWduYWwuIFdpdGggdGhlIGxhc3QgdXBkYXRlLCAzLjEwLjIxIHdhcyB3
+aWRlbHkgZGVwbG95ZWQgYW5kIGZyb20gZmlyZXdhbGwgbG9ncyBhZnRlciBjaGFuZ2UgSSBmaXJz
+dCBub3RpY2VkIHRoZSBuZXcgUlNULXBhY2tldCBJRCB2YWx1ZXMuIEkgYWxzbyB0ZXN0ZWQgMy4x
+MC4xNSB3aGljaCBzdGlsbCBoYXMgSUQ9MCByZXNldCBwYWNrZXRzLg0KDQpTbyBldmVyeXRoaW5n
+IHNlZW1zIHRvIG1hdGNoIHRoZSBoeXBvdGhlc2lzIG9mIHNpbmdsZSBjaGFuZ2UgaW4gMy4xMC4x
+NiAoaXA6IGdlbmVyYXRlIHVuaXF1ZSBJUCBpZGVudGlmaWNhdG9yIGlmIGxvY2FsIGZyYWdtZW50
+YXRpb24gaXMgYWxsb3dlZCA3MDMxMzNkZTMzMWE3YTdkZjQ3ZjMxZmI5ZGU1MWRjNmY2OGE5ZGU4
+KS4NCg==
