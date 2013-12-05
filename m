@@ -1,52 +1,46 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: [PATCH v2] virtio-net: free bufs correctly on invalid packet length
-Date: Thu,  5 Dec 2013 13:14:05 -0800
-Message-ID: <1386278045-23542-1-git-send-email-mwdalton@google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: handle error more gracefully in socketpair()
+Date: Thu, 05 Dec 2013 16:23:33 -0500 (EST)
+Message-ID: <20131205.162333.1525865133149454763.davem@davemloft.net>
+References: <1385977019-12282-1-git-send-email-ydroneaud@opteya.com>
+	<1385979146-13825-1-git-send-email-ydroneaud@opteya.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrey Vagin <avagin@openvz.org>, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>, Michael Dalton <mwdalton@google.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	viro@zeniv.linux.org.uk
+To: ydroneaud@opteya.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1385979146-13825-1-git-send-email-ydroneaud@opteya.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When a packet with invalid length arrives, ensure that the packet
-is freed correctly if mergeable packet buffers and big packets
-(GUEST_TSO4) are both enabled.
+From: Yann Droneaud <ydroneaud@opteya.com>
+Date: Mon,  2 Dec 2013 11:12:26 +0100
 
-Signed-off-by: Michael Dalton <mwdalton@google.com>
----
- drivers/net/virtio_net.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+> socketpair() error paths can be simplified to not call
+> heavy-weight sys_close().
+> 
+> This patch makes socketpair() use of error paths which do not
+> rely on heavy-weight call to sys_lose(): it's better to try
+> to push the file descriptor to userspace before installing
+> the socket file to the file descriptor, so that errors are
+> catched earlier and being easier to handle.
+> 
+> Three distinct error paths are needed since calling fput()
+> on file structure returned by sock_alloc_file() will
+> implicitly call sock_release() on the associated socket
+> structure.
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Al Viro <viro@zeniv.linux.org.uk>
+> Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
+> Link: http://marc.info/?i=1385977019-12282-1-git-send-email-ydroneaud@opteya.com
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 916241d..6a4665c 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -426,10 +426,10 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
- 		pr_debug("%s: short packet %i\n", dev->name, len);
- 		dev->stats.rx_length_errors++;
--		if (vi->big_packets)
--			give_pages(rq, buf);
--		else if (vi->mergeable_rx_bufs)
-+		if (vi->mergeable_rx_bufs)
- 			put_page(virt_to_head_page(buf));
-+		else if (vi->big_packets)
-+			give_pages(rq, buf);
- 		else
- 			dev_kfree_skb(buf);
- 		return;
--- 
-1.8.5.1
+I know that sys_close() is expensive, _but_ erroring out on
+the put_user() is extremely rare and logically it makes
+a ton more sense to fully install a file descriptor before
+writing it's numeric value into userspace.
+
+Sorry, I think the current code is fine and I'm not going
+to apply this, thanks.
