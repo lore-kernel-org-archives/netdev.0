@@ -1,83 +1,29 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v5 2/2] net: sched: htb: fix calculation of quantum
-Date: Thu, 05 Dec 2013 04:18:52 -0800
-Message-ID: <1386245932.30495.169.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386227457-86900-1-git-send-email-yangyingliang@huawei.com>
-	 <1386227457-86900-3-git-send-email-yangyingliang@huawei.com>
+Subject: Re: [PATCH net] vxlan: release rt when found circular route
+Date: Thu, 05 Dec 2013 04:22:28 -0800
+Message-ID: <1386246148.30495.170.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386230631-2504-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, brouer@redhat.com,
-	jpirko@redhat.com, jbrouer@redhat.com
-To: Yang Yingliang <yangyingliang@huawei.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:59200 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753232Ab3LEMSy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 07:18:54 -0500
-Received: by mail-pb0-f47.google.com with SMTP id um1so25570640pbc.6
-        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 04:18:53 -0800 (PST)
-In-Reply-To: <1386227457-86900-3-git-send-email-yangyingliang@huawei.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:59973 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020Ab3LEMW3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 07:22:29 -0500
+Received: by mail-pb0-f46.google.com with SMTP id md12so25541907pbc.5
+        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 04:22:29 -0800 (PST)
+In-Reply-To: <1386230631-2504-1-git-send-email-fan.du@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-05 at 15:10 +0800, Yang Yingliang wrote:
-> Now, 32bit rates may be not the true rate.
-> So use rate_bytes_ps which is from
-> max(rate32, rate64) to calcualte quantum.
+On Thu, 2013-12-05 at 16:03 +0800, Fan Du wrote:
+> Otherwise causing dst memory leakage.
+> Have Checked all other type tunnel device transmit implementation,
+> no such things happens anymore.
 > 
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> ---
->  net/sched/sch_htb.c | 18 ++++++++++--------
->  1 file changed, 10 insertions(+), 8 deletions(-)
-> 
-> diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-> index 0e1e38b..57c6678 100644
-> --- a/net/sched/sch_htb.c
-> +++ b/net/sched/sch_htb.c
-> @@ -1477,11 +1477,20 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
->  		sch_tree_lock(sch);
->  	}
->  
-> +	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
-> +
-> +	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
-> +
-> +	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
-> +	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
-> +
->  	/* it used to be a nasty bug here, we have to check that node
->  	 * is really leaf before changing cl->un.leaf !
->  	 */
->  	if (!cl->level) {
-> -		cl->quantum = hopt->rate.rate / q->rate2quantum;
-> +		u64 quantum = div64_u64(cl->rate.rate_bytes_ps,
-> +					q->rate2quantum);
+> Signed-off-by: Fan Du <fan.du@windriver.com>
 
-		q->rate2quantum being 32bit, prefer the following :
-
-		u64 quantum = cl->rate.rate_bytes_ps;
-
-		do_div(quantum, q->rate2quantum);
-
-		Since it maps to better assembly code on 32bit arches.
-
-> +		cl->quantum = min_t(u64, quantum, INT_MAX);
->  		if (!hopt->quantum && cl->quantum < 1000) {
->  			pr_warning(
->  			       "HTB: quantum of class %X is small. Consider r2q change.\n",
-> @@ -1500,13 +1509,6 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
->  			cl->prio = TC_HTB_NUMPRIO - 1;
->  	}
->  
-> -	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
-> -
-> -	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
-> -
-> -	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
-> -	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
-> -
->  	cl->buffer = PSCHED_TICKS2NS(hopt->buffer);
->  	cl->cbuffer = PSCHED_TICKS2NS(hopt->cbuffer);
->  
+Acked-by: Eric Dumazet <edumazet@google.com>
