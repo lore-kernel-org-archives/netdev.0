@@ -1,139 +1,65 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [PATCH RFC 4/5] {pktgen, xfrm} Introduce xfrm_state_lookup_byspi for pktgen
-Date: Thu, 5 Dec 2013 15:57:18 +0800
-Message-ID: <1386230239-31860-5-git-send-email-fan.du@windriver.com>
-References: <1386230239-31860-1-git-send-email-fan.du@windriver.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH RFCv2 0/6] net: phy: Ethernet PHY powerdown optimization
+Date: Thu, 5 Dec 2013 13:27:34 +0530
+Message-ID: <52A031EE.1040301@ti.com>
+References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com> <1386171888-28190-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>, <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	<netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:39346 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753128Ab3LEH5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 02:57:30 -0500
-In-Reply-To: <1386230239-31860-1-git-send-email-fan.du@windriver.com>
+Received: from comal.ext.ti.com ([198.47.26.152]:37461 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752722Ab3LEH6G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Dec 2013 02:58:06 -0500
+In-Reply-To: <1386171888-28190-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce xfrm_state_lookup_byspi to find user specified by custom
-from "pgset spi xxx". Using this scheme, any flow regardless its
-saddr/daddr could be transform by SA specified with configurable
-spi.
+On Wednesday 04 December 2013 09:14 PM, Sebastian Hesselbarth wrote:
+> This is v2 of an RFC sent earlier [1] to reduce power consumption of network
+> PHYs with link that are either unused or the corresponding netdev is down.
+>
+> In contrast to RFCv1, this now integrates phy_suspend/phy_resume transparent
+> to the netdev drivers. Also, phy_suspend now only suspends the PHY if WOL is
+> disabled. Moreover, the phy state machine calls phy_suspend on entering
+> HALTED state.
+>
+> Again, a branch with RFCv2 applied to v3.13-rc2 can also be found at
+> https://github.com/shesselba/linux-dove.git topic/ethphy-power-rfc-v2
+>
+> [1] http://lwn.net/Articles/574426/
+>
+> Sebastian Hesselbarth (6):
+>   net: mv643xx_eth: properly start/stop phy device
+>   net: phy: marvell: provide genphy suspend/resume
+>   net: phy: provide phy_resume/phy_suspend helpers
+>   net: phy: resume/suspend PHYs on attach/detach
+>   net: phy: suspend unused PHYs on mdio_bus in late_initcall
+>   net: phy: suspend phydev when going to HALTED
+>
+>  drivers/net/ethernet/marvell/mv643xx_eth.c |    4 +++-
+>  drivers/net/phy/marvell.c                  |   22 ++++++++++++++++++++++
+>  drivers/net/phy/mdio_bus.c                 |   25 +++++++++++++++++++++++++
+>  drivers/net/phy/phy.c                      |    6 +++++-
+>  drivers/net/phy/phy_device.c               |   27 +++++++++++++++++++++++++++
+>  include/linux/phy.h                        |    2 ++
+>  6 files changed, 84 insertions(+), 2 deletions(-)
+>
+> ---
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linux-kernel@vger.kernel.org
+Apart form Sergei's comment the patch series looks good to me.
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- include/net/xfrm.h    |    7 ++-----
- net/core/pktgen.c     |   13 +++++--------
- net/xfrm/xfrm_state.c |   43 +++++++++++++++++--------------------------
- 3 files changed, 24 insertions(+), 39 deletions(-)
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 6b82fdf..68ad3f8 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1417,11 +1417,8 @@ struct xfrm_state *xfrm_state_find(const xfrm_address_t *daddr,
- 				   struct xfrm_tmpl *tmpl,
- 				   struct xfrm_policy *pol, int *err,
- 				   unsigned short family);
--struct xfrm_state *xfrm_stateonly_find(struct net *net, u32 mark,
--				       xfrm_address_t *daddr,
--				       xfrm_address_t *saddr,
--				       unsigned short family,
--				       u8 mode, u8 proto, u32 reqid);
-+struct xfrm_state *xfrm_state_lookup_byspi(struct net *net, __be32 spi,
-+					      unsigned short family);
- int xfrm_state_check_expire(struct xfrm_state *x);
- void xfrm_state_insert(struct xfrm_state *x);
- int xfrm_state_add(struct xfrm_state *x);
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index c30df28..6e30160 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2238,19 +2238,16 @@ static inline int f_pick(struct pktgen_dev *pkt_dev)
- /* If there was already an IPSEC SA, we keep it as is, else
-  * we go look for it ...
- */
--#define DUMMY_MARK 0
- static void get_ipsec_sa(struct pktgen_dev *pkt_dev, int flow)
- {
- 	struct xfrm_state *x = pkt_dev->flows[flow].x;
- 	struct pktgen_net *pn = net_generic(dev_net(pkt_dev->odev), pg_net_id);
- 	if (!x) {
--		/*slow path: we dont already have xfrm_state*/
--		x = xfrm_stateonly_find(pn->net, DUMMY_MARK,
--					(xfrm_address_t *)&pkt_dev->cur_daddr,
--					(xfrm_address_t *)&pkt_dev->cur_saddr,
--					AF_INET,
--					pkt_dev->ipsmode,
--					pkt_dev->ipsproto, 0);
-+		/* We need as quick as possible to find the right SA
-+		 * Searching with minimum criteria to archieve this.
-+		 */
-+		x = xfrm_state_lookup_byspi(pn->net, htonl(pkt_dev->spi),
-+						AF_INET);
- 		if (x) {
- 			pkt_dev->flows[flow].x = x;
- 			set_pkt_overhead(pkt_dev);
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 68c2f35..6a9c402 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -892,38 +892,29 @@ out:
- 	return x;
- }
- 
--struct xfrm_state *
--xfrm_stateonly_find(struct net *net, u32 mark,
--		    xfrm_address_t *daddr, xfrm_address_t *saddr,
--		    unsigned short family, u8 mode, u8 proto, u32 reqid)
-+struct xfrm_state *xfrm_state_lookup_byspi(struct net *net, __be32 spi,
-+					      unsigned short family)
- {
--	unsigned int h;
--	struct xfrm_state *rx = NULL, *x = NULL;
-+	struct xfrm_state *x;
-+	struct xfrm_state_walk *w;
- 
--	spin_lock(&xfrm_state_lock);
--	h = xfrm_dst_hash(net, daddr, saddr, reqid, family);
--	hlist_for_each_entry(x, net->xfrm.state_bydst+h, bydst) {
--		if (x->props.family == family &&
--		    x->props.reqid == reqid &&
--		    (mark & x->mark.m) == x->mark.v &&
--		    !(x->props.flags & XFRM_STATE_WILDRECV) &&
--		    xfrm_state_addr_check(x, daddr, saddr, family) &&
--		    mode == x->props.mode &&
--		    proto == x->id.proto &&
--		    x->km.state == XFRM_STATE_VALID) {
--			rx = x;
--			break;
--		}
--	}
-+	spin_lock_bh(&xfrm_state_lock);
-+	list_for_each_entry(w, &net->xfrm.state_all, all) {
- 
--	if (rx)
--		xfrm_state_hold(rx);
--	spin_unlock(&xfrm_state_lock);
-+		x = container_of(w, struct xfrm_state, km);
-+		if (x->props.family != family ||
-+			x->id.spi != spi)
-+			continue;
- 
-+		spin_unlock_bh(&xfrm_state_lock);
-+		xfrm_state_hold(x);
-+		return x;
-+	}
-+	spin_unlock_bh(&xfrm_state_lock);
- 
--	return rx;
-+	return NULL;
- }
--EXPORT_SYMBOL(xfrm_stateonly_find);
-+EXPORT_SYMBOL(xfrm_state_lookup_byspi);
- 
- static void __xfrm_state_insert(struct xfrm_state *x)
- {
--- 
-1.7.9.5
+Regards
+Mugunthan V N
