@@ -1,40 +1,28 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next] netfilter: add IPComp extension match support
-Date: Thu, 5 Dec 2013 19:34:02 +0100
-Message-ID: <20131205183402.GA8949@localhost>
-References: <1385607204-27650-1-git-send-email-fan.du@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/3] be2net fixes
+Date: Thu, 05 Dec 2013 13:36:58 -0500 (EST)
+Message-ID: <20131205.133658.1284215652394971811.davem@davemloft.net>
+References: <7F44EA5110810A40B7DAFB605C41975D2C96279B@CMEXMB1.ad.emulex.com>
+	<20131205.012813.2201475304685818121.davem@davemloft.net>
+	<1386259125.1516.115.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: steffen.klassert@secunet.com, kaber@trash.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1385607204-27650-1-git-send-email-fan.du@windriver.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Somnath.Kotur@Emulex.Com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56435 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752009Ab3LEShF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 13:37:05 -0500
+In-Reply-To: <1386259125.1516.115.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 5 Dec 2013 15:58:45 +0000
 
-On Thu, Nov 28, 2013 at 10:53:24AM +0800, Fan Du wrote:
-> With this plugin, user could specify IPComp tagged with certain 
-> CPI that host not interested will be DROPped or any other action.
-> 
-> For example:
-> iptables -A INPUT -p 108 -m ipcomp --ipcompspi 0x87 -j DROP
-> 
-> Then input IPComp packet with CPI equates 0x87 will not reach
-> upper layer anymore.
+> It seems like it would be useful to expose the real state of the
+> hardware filter to userland - just not through log messages.
 
-I think that, with a little bit more work, you can add support for
-IPv6 as well. From RFC 3173:
-
-"In the IPv6 context, IPComp is viewed as an end-to-end payload, and
-MUST NOT apply to hop-by-hop, routing, and fragmentation extension
-headers.
-
-You can perform that IPv6-specific handling to skip these extension
-headers and reach the IPComp header by means of the ipv6_find_hdr()
-helper function.
-
-BTW, please post the iptables userspace part as well.
+This is what I meant.
