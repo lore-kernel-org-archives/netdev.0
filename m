@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC 4/9] ah4: Use the IPsec protocol multiplexer API
-Date: Thu, 5 Dec 2013 13:02:41 +0100
-Message-ID: <20131205120241.GA31491@secunet.com>
+Subject: [PATCH RFC 5/9] ah4: Export ah4_err
+Date: Thu, 5 Dec 2013 13:03:20 +0100
+Message-ID: <20131205120320.GB31491@secunet.com>
 References: <20131205120028.GW31491@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,107 +9,56 @@ Cc: Christophe Gouault <christophe.gouault@6wind.com>,
 	Saurabh Mohan <saurabh.mohan@vyatta.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:55506 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:55510 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755736Ab3LEMCo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Dec 2013 07:02:44 -0500
+	id S1755656Ab3LEMDW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Dec 2013 07:03:22 -0500
 Content-Disposition: inline
 In-Reply-To: <20131205120028.GW31491@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Switch ah4 to use the new IPsec protocol multiplexer.
+ah4_err can be shared with the upcomming vti ah handler.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv4/ah4.c |   24 +++++++++++++++---------
- 1 file changed, 15 insertions(+), 9 deletions(-)
+ include/net/ah.h |    2 ++
+ net/ipv4/ah4.c   |    3 ++-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
+diff --git a/include/net/ah.h b/include/net/ah.h
+index ca95b98..6aa0f43 100644
+--- a/include/net/ah.h
++++ b/include/net/ah.h
+@@ -6,6 +6,8 @@
+ /* This is the maximum truncated ICV length that we know of. */
+ #define MAX_AH_AUTH_LEN	64
+ 
++int ah4_err(struct sk_buff *skb, u32 info);
++
+ struct crypto_ahash;
+ 
+ struct ah_data {
 diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-index 7179026..ea30e4e 100644
+index ea30e4e..4374671 100644
 --- a/net/ipv4/ah4.c
 +++ b/net/ipv4/ah4.c
 @@ -397,7 +397,7 @@ out:
  	return err;
  }
  
--static void ah4_err(struct sk_buff *skb, u32 info)
-+static int ah4_err(struct sk_buff *skb, u32 info)
+-static int ah4_err(struct sk_buff *skb, u32 info)
++int ah4_err(struct sk_buff *skb, u32 info)
  {
  	struct net *net = dev_net(skb->dev);
  	const struct iphdr *iph = (const struct iphdr *)skb->data;
-@@ -407,23 +407,25 @@ static void ah4_err(struct sk_buff *skb, u32 info)
- 	switch (icmp_hdr(skb)->type) {
- 	case ICMP_DEST_UNREACH:
- 		if (icmp_hdr(skb)->code != ICMP_FRAG_NEEDED)
--			return;
-+			return 0;
- 	case ICMP_REDIRECT:
- 		break;
- 	default:
--		return;
-+		return 0;
- 	}
+@@ -427,6 +427,7 @@ static int ah4_err(struct sk_buff *skb, u32 info)
  
- 	x = xfrm_state_lookup(net, skb->mark, (const xfrm_address_t *)&iph->daddr,
- 			      ah->spi, IPPROTO_AH, AF_INET);
- 	if (!x)
--		return;
-+		return 0;
- 
- 	if (icmp_hdr(skb)->type == ICMP_DEST_UNREACH)
- 		ipv4_update_pmtu(skb, net, info, 0, 0, IPPROTO_AH, 0);
- 	else
- 		ipv4_redirect(skb, net, 0, 0, IPPROTO_AH, 0);
- 	xfrm_state_put(x);
-+
-+	return 0;
+ 	return 0;
  }
++EXPORT_SYMBOL(ah4_err);
  
  static int ah_init_state(struct xfrm_state *x)
-@@ -505,6 +507,10 @@ static void ah_destroy(struct xfrm_state *x)
- 	kfree(ahp);
- }
- 
-+static int ah4_rcv_cb(struct sk_buff *skb, int err)
-+{
-+	return 0;
-+}
- 
- static const struct xfrm_type ah_type =
  {
-@@ -518,11 +524,11 @@ static const struct xfrm_type ah_type =
- 	.output		= ah_output
- };
- 
--static const struct net_protocol ah4_protocol = {
-+static struct xfrm4_protocol ah4_protocol = {
- 	.handler	=	xfrm4_rcv,
-+	.cb_handler	=	ah4_rcv_cb,
- 	.err_handler	=	ah4_err,
--	.no_policy	=	1,
--	.netns_ok	=	1,
-+	.priority	=	0,
- };
- 
- static int __init ah4_init(void)
-@@ -531,7 +537,7 @@ static int __init ah4_init(void)
- 		pr_info("%s: can't add xfrm type\n", __func__);
- 		return -EAGAIN;
- 	}
--	if (inet_add_protocol(&ah4_protocol, IPPROTO_AH) < 0) {
-+	if (xfrm4_protocol_register(&ah4_protocol, IPPROTO_AH) < 0) {
- 		pr_info("%s: can't add protocol\n", __func__);
- 		xfrm_unregister_type(&ah_type, AF_INET);
- 		return -EAGAIN;
-@@ -541,7 +547,7 @@ static int __init ah4_init(void)
- 
- static void __exit ah4_fini(void)
- {
--	if (inet_del_protocol(&ah4_protocol, IPPROTO_AH) < 0)
-+	if (xfrm4_protocol_deregister(&ah4_protocol, IPPROTO_AH) < 0)
- 		pr_info("%s: can't remove protocol\n", __func__);
- 	if (xfrm_unregister_type(&ah_type, AF_INET) < 0)
- 		pr_info("%s: can't remove xfrm type\n", __func__);
 -- 
 1.7.9.5
