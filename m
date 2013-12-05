@@ -1,104 +1,84 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/2] virtio: delete napi structures from netdev before
-	releasing memory
-Date: Thu, 5 Dec 2013 16:53:39 +0200
-Message-ID: <20131205145339.GB23147@redhat.com>
-References: <1386254181-17257-1-git-send-email-avagin@openvz.org>
-	<1386254181-17257-3-git-send-email-avagin@openvz.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] net: introduce dev_consume_skb_any()
+Date: Thu, 5 Dec 2013 16:44:38 +0100
+Message-ID: <20131205154438.GA21745@order.stressinduktion.org>
+References: <1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com> <CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com> <20131203.165034.1085515763685633822.davem@davemloft.net> <1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com> <CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com> <1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com> <1386247508.30495.180.camel@edumazet-glaptop2.roam.corp.google.com> <20131205141346.GB14095@order.stressinduktion.org> <1386254734.30495.186.camel@edumazet-glaptop2.roam.corp.google.com> <1386255952.30495.192.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:33320 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932452Ab3LEPoj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 10:44:39 -0500
 Content-Disposition: inline
-In-Reply-To: <1386254181-17257-3-git-send-email-avagin@openvz.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1386255952.30495.192.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 05, 2013 at 06:36:21PM +0400, Andrey Vagin wrote:
-> free_netdev calls netif_napi_del too, but it's too late, because napi
-> structures are placed on vi->rq. netif_napi_add() is called from
-> virtnet_alloc_queues.
+On Thu, Dec 05, 2013 at 07:05:52AM -0800, Eric Dumazet wrote:
+> On Thu, 2013-12-05 at 06:45 -0800, Eric Dumazet wrote:
+> > On Thu, 2013-12-05 at 15:13 +0100, Hannes Frederic Sowa wrote:
+> > > On Thu, Dec 05, 2013 at 04:45:08AM -0800, Eric Dumazet wrote:
+> > > > -		local_irq_save(flags);
+> > > > -		sd = &__get_cpu_var(softnet_data);
+> > > > -		skb->next = sd->completion_queue;
+> > > > -		sd->completion_queue = skb;
+> > > > -		raise_softirq_irqoff(NET_TX_SOFTIRQ);
+> > > > -		local_irq_restore(flags);
+> > > > +	if (likely(atomic_read(&skb->users) == 1)) {
+> > > > +		smp_rmb();
+> > > 
+> > > Could you give me a hint why this barrier is needed? IMHO the volatile
+> > > access in atomic_read should get rid of the control dependency so I
+> > > don't see a need for this barrier. Without the volatile access a
+> > > compiler-barrier would still suffice, I guess?
+> > 
+> > Please take a look at kfree_skb() implementation.
+> > 
+> > If you think a comment is needed there, please feel free to add it.
+> > 
 > 
-> general protection fault: 0000 [#1] SMP
-> Dumping ftrace buffer:
->    (ftrace buffer empty)
-> Modules linked in: ip6table_filter ip6_tables iptable_filter ip_tables virtio_balloon pcspkr virtio_net(-) i2c_pii
-> CPU: 1 PID: 347 Comm: rmmod Not tainted 3.13.0-rc2+ #171
-> Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> task: ffff8800b779c420 ti: ffff8800379e0000 task.ti: ffff8800379e0000
-> RIP: 0010:[<ffffffff81322e19>]  [<ffffffff81322e19>] __list_del_entry+0x29/0xd0
-> RSP: 0018:ffff8800379e1dd0  EFLAGS: 00010a83
-> RAX: 6b6b6b6b6b6b6b6b RBX: ffff8800379c2fd0 RCX: dead000000200200
-> RDX: 6b6b6b6b6b6b6b6b RSI: 0000000000000001 RDI: ffff8800379c2fd0
-> RBP: ffff8800379e1dd0 R08: 0000000000000001 R09: 0000000000000000
-> R10: 0000000000000000 R11: 0000000000000001 R12: ffff8800379c2f90
-> R13: ffff880037839160 R14: 0000000000000000 R15: 00000000013352f0
-> FS:  00007f1400e34740(0000) GS:ffff8800bfb00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: 00007f464124c763 CR3: 00000000b68cf000 CR4: 00000000000006e0
-> Stack:
->  ffff8800379e1df0 ffffffff8155beab 6b6b6b6b6b6b6b2b ffff8800378391c0
->  ffff8800379e1e18 ffffffff8156499b ffff880037839be0 ffff880037839d20
->  ffff88003779d3f0 ffff8800379e1e38 ffffffffa003477c ffff88003779d388
-> Call Trace:
->  [<ffffffff8155beab>] netif_napi_del+0x1b/0x80
->  [<ffffffff8156499b>] free_netdev+0x8b/0x110
->  [<ffffffffa003477c>] virtnet_remove+0x7c/0x90 [virtio_net]
->  [<ffffffff813ae323>] virtio_dev_remove+0x23/0x80
->  [<ffffffff813f62ef>] __device_release_driver+0x7f/0xf0
->  [<ffffffff813f6ca0>] driver_detach+0xc0/0xd0
->  [<ffffffff813f5f28>] bus_remove_driver+0x58/0xd0
->  [<ffffffff813f72ec>] driver_unregister+0x2c/0x50
->  [<ffffffff813ae65e>] unregister_virtio_driver+0xe/0x10
->  [<ffffffffa0036942>] virtio_net_driver_exit+0x10/0x6ce [virtio_net]
->  [<ffffffff810d7cf2>] SyS_delete_module+0x172/0x220
->  [<ffffffff810a732d>] ? trace_hardirqs_on+0xd/0x10
->  [<ffffffff810f5d4c>] ? __audit_syscall_entry+0x9c/0xf0
->  [<ffffffff81677f69>] system_call_fastpath+0x16/0x1b
-> Code: 00 00 55 48 8b 17 48 b9 00 01 10 00 00 00 ad de 48 8b 47 08 48 89 e5 48 39 ca 74 29 48 b9 00 02 20 00 00 00
-> RIP  [<ffffffff81322e19>] __list_del_entry+0x29/0xd0
->  RSP <ffff8800379e1dd0>
-> ---[ end trace d5931cd3f87c9763 ]---
+> My understanding of this (old) barrier here is an implicit wmb in
+> skb_get()
 > 
-> Fixes: 986a4f4d452d (virtio_net: multiqueue support)
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: "Michael S. Tsirkin" <mst@redhat.com>
-> Signed-off-by: Andrey Vagin <avagin@openvz.org>
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-This is needed for stable.
-
-> ---
->  drivers/net/virtio_net.c | 5 +++++
->  1 file changed, 5 insertions(+)
+> This probably needs something like :
 > 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 930039a..c293764 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1367,6 +1367,11 @@ static void virtnet_config_changed(struct virtio_device *vdev)
->  
->  static void virtnet_free_queues(struct virtnet_info *vi)
->  {
-> +	int i;
-> +
-> +	for (i = 0; i < vi->max_queue_pairs; i++)
-> +		netif_napi_del(&vi->rq[i].napi);
-> +
->  	kfree(vi->rq);
->  	kfree(vi->sq);
->  }
-> -- 
-> 1.8.3.1
+> static inline struct sk_buff *skb_get(struct sk_buff *skb)
+> {
+> 	smp_mb__before_atomic_inc(); /* check {consume|kfree}_skb() */
+> 	atomic_inc(&skb->users);
+> }
+
+Thanks for the pointer to kfree_skb. I found this commit which added the
+barrier in kfree_skb (from history.git):
+
+commit 09d3e84de438f217510b604a980befd07b0c8262
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Sat Feb 5 03:23:27 2005 -0800
+
+    [NET]: Add missing memory barrier to kfree_skb().
+    
+    Also kill kfree_skb_fast(), that is a relic from fast switching
+    which was killed off years ago.
+    
+    The bug is that in the case where we do the atomic_read()
+    optimization, we need to make sure that reads of skb state
+    later in __kfree_skb() processing (particularly the skb->list
+    BUG check) are not reordered to occur before the counter
+    read by the cpu.
+    
+    Thanks to Olaf Kirch and Anton Blanchard for discovering
+    and helping fix this bug.
+    
+    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+It makes some sense but I did not grasp the whole ->users dependency
+picture, yet. I guess the barrier is only needed when refcount drops
+down to 0 and we don't necessarily need one when incrementing ->users.
+
+Thank you,
+
+  Hannes
