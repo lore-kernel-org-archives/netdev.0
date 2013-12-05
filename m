@@ -1,34 +1,32 @@
-From: Veaceslav Falico <vfalico@redhat.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
 Subject: Re: [PATCH net] bonding: fix packets_per_slave showing
-Date: Thu, 5 Dec 2013 13:42:59 +0100
-Message-ID: <20131205124259.GE23210@redhat.com>
-References: <1386239818-7408-1-git-send-email-nikolay@redhat.com>
- <20131205110843.GD23210@redhat.com>
- <1386246835.30495.175.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Thu, 05 Dec 2013 13:42:08 +0100
+Message-ID: <52A074A0.7050807@redhat.com>
+References: <1386239818-7408-1-git-send-email-nikolay@redhat.com>	 <20131205110843.GD23210@redhat.com> <1386246835.30495.175.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>, netdev@vger.kernel.org,
-	Andy Gospodarek <andy@greyhouse.net>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
 	Jay Vosburgh <fubar@us.ibm.com>,
 	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44094 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:14390 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756646Ab3LEMpf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Dec 2013 07:45:35 -0500
-Content-Disposition: inline
+	id S1755709Ab3LEMqc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Dec 2013 07:46:32 -0500
 In-Reply-To: <1386246835.30495.175.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 05, 2013 at 04:33:55AM -0800, Eric Dumazet wrote:
->On Thu, 2013-12-05 at 12:08 +0100, Veaceslav Falico wrote:
+On 12/05/2013 01:33 PM, Eric Dumazet wrote:
+> On Thu, 2013-12-05 at 12:08 +0100, Veaceslav Falico wrote:
 >> On Thu, Dec 05, 2013 at 11:36:58AM +0100, Nikolay Aleksandrov wrote:
->> >There's an issue when showing the value of packets_per_slave due to
->> >using signed integer. The value may be < 0 and thus not put through
->> >reciprocal_value() before showing. This patch makes it use unsigned
->> >integer when showing it.
+>>> There's an issue when showing the value of packets_per_slave due to
+>>> using signed integer. The value may be < 0 and thus not put through
+>>> reciprocal_value() before showing. This patch makes it use unsigned
+>>> integer when showing it.
 >>
 >> I was already checking my basic algebra knowledge here,
 >> reciprocal_value(reciprocal_value(0..USHRT_MAX)) can become negative?!? :)
@@ -46,29 +44,34 @@ On Thu, Dec 05, 2013 at 04:33:55AM -0800, Eric Dumazet wrote:
 >> so we're safe there) - and thus output nonsense.
 >>
 >> Acked-by: Veaceslav Falico <vfalico@redhat.com>
->
->This code is very confusing.
->
->Please rename bond->params.packets_per_slave
->to bond->params.reciprocal_packets_per_slave
->
->To make clear that its the reciprocal value.
->
->Also the module parameter is named packets_per_slave, it would be nice
->if same name was not reused as local variable in bond_rr_gen_slave_id()
+> 
+> This code is very confusing.
+> 
+> Please rename bond->params.packets_per_slave
+> to bond->params.reciprocal_packets_per_slave 
+> 
+> To make clear that its the reciprocal value.
+> 
+> Also the module parameter is named packets_per_slave, it would be nice
+> if same name was not reused as local variable in bond_rr_gen_slave_id()
+> 
+> bond_check_params() reads the sys value several times.
+> 
+> This is racy with /sys access.
+> 
+IIRC bond_check_params() runs before sysfs is initialized for the bond device.
 
-Agreed, but I think it'd be rather net-next material. Here we have a clear
-bug...
+> You should use ACCESS_ONCE() to make sure nothing bad happens.
+> 
+Actually I think ACCESS_ONCE() should be added to bond_show_packets_per_slave
+and to bond_rr_gen_slave_id() just as a precaution. It'll also serve the purpose
+to show what's intended.
+What do you think ?
+> 
+> 
+Thanks for the feedback, I'll address the ACCESS_ONCE() in a separate patch for
+net and leave the renaming to my net-next patch which will take care of the
+types as well.
 
->
->bond_check_params() reads the sys value several times.
->
->This is racy with /sys access.
->
->You should use ACCESS_ONCE() to make sure nothing bad happens.
-
-Hrm? bond_check_params() isn't involved in sysfs at all :-/, it's called
-only via bonding_init(). And bond->params.packets_per_slave isn't read
-there at all, only assigned.
-
-Or, given the naming confusions, I'm again missing something?
+Cheers,
+ Nik
