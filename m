@@ -1,77 +1,91 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 14/16] tile_net: Implement the SIOCGHWTSTAMP ioctl
-Date: Thu, 5 Dec 2013 23:57:14 +0000
-Message-ID: <1386287834.1516.141.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 15/16] ixp4xx_eth: Implement the SIOCGHWTSTAMP ioctl
+Date: Thu, 5 Dec 2013 23:57:51 +0000
+Message-ID: <1386287871.1516.142.camel@bwh-desktop.uk.level5networks.com>
 References: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
 	"Richard Cochran" <richardcochran@gmail.com>,
-	Chris Metcalf <cmetcalf@tilera.com>
+	Krzysztof Halasa <khc@pm.waw.pl>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6790 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:6814 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754242Ab3LEX5S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:57:18 -0500
+	with ESMTP id S1752923Ab3LEX5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:57:55 -0500
 In-Reply-To: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Compile-tested only (thanks to the kbuild test robot).
+This is untested.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/tile/tilegx.c | 22 +++++++++++++++++++---
- 1 file changed, 19 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/xscale/ixp4xx_eth.c | 36 +++++++++++++++++++++++++++++---
+ 1 file changed, 33 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-index 628b736e5ae7..858f9a786b8c 100644
---- a/drivers/net/ethernet/tile/tilegx.c
-+++ b/drivers/net/ethernet/tile/tilegx.c
-@@ -481,8 +481,7 @@ static void tile_tx_timestamp(struct sk_buff *skb, int instance)
+diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+index bcc224a83734..25283f17d82f 100644
+--- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
++++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+@@ -373,7 +373,7 @@ static void ixp_tx_timestamp(struct port *port, struct sk_buff *skb)
+ 	__raw_writel(TX_SNAPSHOT_LOCKED, &regs->channel[ch].ch_event);
  }
  
- /* Use ioctl() to enable or disable TX or RX timestamping. */
--static int tile_hwtstamp_ioctl(struct net_device *dev, struct ifreq *rq,
--			       int cmd)
-+static int tile_hwtstamp_set(struct net_device *dev, struct ifreq *rq)
+-static int hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
++static int hwtstamp_set(struct net_device *netdev, struct ifreq *ifr)
  {
- #ifdef CONFIG_PTP_1588_CLOCK_TILEGX
- 	struct hwtstamp_config config;
-@@ -535,6 +534,21 @@ static int tile_hwtstamp_ioctl(struct net_device *dev, struct ifreq *rq,
- #endif
+ 	struct hwtstamp_config cfg;
+ 	struct ixp46x_ts_regs *regs;
+@@ -417,6 +417,32 @@ static int hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+ 	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
  }
  
-+static int tile_hwtstamp_get(struct net_device *dev, struct ifreq *rq)
++static int hwtstamp_get(struct net_device *netdev, struct ifreq *ifr)
 +{
-+#ifdef CONFIG_PTP_1588_CLOCK_TILEGX
-+	struct tile_net_priv *priv = netdev_priv(dev);
++	struct hwtstamp_config cfg;
++	struct port *port = netdev_priv(netdev);
 +
-+	if (copy_to_user(rq->ifr_data, &priv->stamp_cfg,
-+			 sizeof(priv->stamp_cfg)))
-+		return -EFAULT;
++	cfg.flags = 0;
++	cfg.tx_type = port->hwts_tx_en ? HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
 +
-+	return 0;
-+#else
-+	return -EOPNOTSUPP;
-+#endif
++	switch (port->hwts_rx_en) {
++	case 0:
++		cfg.rx_filter = HWTSTAMP_FILTER_NONE;
++		break;
++	case PTP_SLAVE_MODE:
++		cfg.rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_SYNC;
++		break;
++	case PTP_MASTER_MODE:
++		cfg.rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ;
++		break;
++	default:
++		WARN_ON_ONCE(1);
++		return -ERANGE;
++	}
++
++	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
 +}
 +
- static inline bool filter_packet(struct net_device *dev, void *buf)
+ static int ixp4xx_mdio_cmd(struct mii_bus *bus, int phy_id, int location,
+ 			   int write, u16 cmd)
  {
- 	/* Filter packets received before we're up. */
-@@ -2098,7 +2112,9 @@ static void tile_net_tx_timeout(struct net_device *dev)
- static int tile_net_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
- 	if (cmd == SIOCSHWTSTAMP)
--		return tile_hwtstamp_ioctl(dev, rq, cmd);
-+		return tile_hwtstamp_set(dev, rq);
-+	if (cmd == SIOCGHWTSTAMP)
-+		return tile_hwtstamp_get(dev, rq);
+@@ -959,8 +985,12 @@ static int eth_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
  
- 	return -EOPNOTSUPP;
+-	if (cpu_is_ixp46x() && cmd == SIOCSHWTSTAMP)
+-		return hwtstamp_ioctl(dev, req, cmd);
++	if (cpu_is_ixp46x()) {
++		if (cmd == SIOCSHWTSTAMP)
++			return hwtstamp_set(dev, req);
++		if (cmd == SIOCGHWTSTAMP)
++			return hwtstamp_get(dev, req);
++	}
+ 
+ 	return phy_mii_ioctl(port->phydev, req, cmd);
  }
 
 
