@@ -1,7 +1,7 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 6/7] arc_emac: remove custom "max-speed" parsing code
-Date: Thu, 5 Dec 2013 14:52:15 -0800
-Message-ID: <1386283936-26104-7-git-send-email-florian@openwrt.org>
+Subject: [PATCH 5/7] net: of_mdio: parse "max-speed" property to set PHY supported features
+Date: Thu, 5 Dec 2013 14:52:14 -0800
+Message-ID: <1386283936-26104-6-git-send-email-florian@openwrt.org>
 References: <1386283936-26104-1-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,85 +14,73 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:38756 "EHLO
 	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754242Ab3LEXCB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:02:01 -0500
+	with ESMTP id S1754206Ab3LEXCA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:02:00 -0500
 In-Reply-To: <1386283936-26104-1-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Florian Fainelli <f.fainelli@gmail.com>
 
-The ARC emac driver was the only in-tree to parse a PHY device
-'max-speed' property but yet failed to do it correctly because
-'max-speed' is supposed to set a PHY device supported features, not the
-advertising features as it was done.
-
-Now that of_mdiobus_register() takes care of doing that, remove the
-custom 'max-speed' parsing code.
+The "max-speed" property is defined per the ePAPR specification to
+express the maximum speed a PHY supports. Use that property, if present
+to set the phydev->supported features which properly restricts the PHY
+within the range of defined speeds.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/arc/emac.h      |  2 --
- drivers/net/ethernet/arc/emac_main.c | 20 +-------------------
- 2 files changed, 1 insertion(+), 21 deletions(-)
+ drivers/of/of_mdio.c | 25 ++++++++++++++++++++++++-
+ 1 file changed, 24 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/arc/emac.h b/drivers/net/ethernet/arc/emac.h
-index dc08678..928fac6 100644
---- a/drivers/net/ethernet/arc/emac.h
-+++ b/drivers/net/ethernet/arc/emac.h
-@@ -122,7 +122,6 @@ struct buffer_state {
-  * @link:	PHY's last seen link state.
-  * @duplex:	PHY's last set duplex mode.
-  * @speed:	PHY's last set speed.
-- * @max_speed:	Maximum supported by current system network data-rate.
-  */
- struct arc_emac_priv {
- 	/* Devices */
-@@ -152,7 +151,6 @@ struct arc_emac_priv {
- 	unsigned int link;
- 	unsigned int duplex;
- 	unsigned int speed;
--	unsigned int max_speed;
- };
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 4923ab2..e1e19e5 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -22,12 +22,30 @@
+ MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
+ MODULE_LICENSE("GPL");
  
- /**
-diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
-index b2ffad1..eedf2a5 100644
---- a/drivers/net/ethernet/arc/emac_main.c
-+++ b/drivers/net/ethernet/arc/emac_main.c
-@@ -381,17 +381,7 @@ static int arc_emac_open(struct net_device *ndev)
- 	phy_dev->autoneg = AUTONEG_ENABLE;
- 	phy_dev->speed = 0;
- 	phy_dev->duplex = 0;
--	phy_dev->advertising = phy_dev->supported;
--
--	if (priv->max_speed > 100) {
--		phy_dev->advertising &= PHY_GBIT_FEATURES;
--	} else if (priv->max_speed <= 100) {
--		phy_dev->advertising &= PHY_BASIC_FEATURES;
--		if (priv->max_speed <= 10) {
--			phy_dev->advertising &= ~SUPPORTED_100baseT_Half;
--			phy_dev->advertising &= ~SUPPORTED_100baseT_Full;
--		}
--	}
-+	phy_dev->advertising &= phy_dev->supported;
++static void of_set_phy_supported(struct phy_device *phydev, u32 max_speed)
++{
++	phydev->supported |= PHY_DEFAULT_FEATURES;
++
++	switch (max_speed) {
++	default:
++		return;
++
++	case SPEED_1000:
++		phydev->supported |= PHY_1000BT_FEATURES;
++	case SPEED_100:
++		phydev->supported |= PHY_100BT_FEATURES;
++	case SPEED_10:
++		phydev->supported |= PHY_10BT_FEATURES;
++	}
++}
++
+ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *child,
+ 				   u32 addr)
+ {
+ 	struct phy_device *phy;
+ 	bool is_c45;
+ 	int rc, prev_irq;
++	u32 max_speed = 0;
  
- 	priv->last_rx_bd = 0;
+ 	is_c45 = of_device_is_compatible(child,
+ 					 "ethernet-phy-ieee802.3-c45");
+@@ -58,8 +76,13 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
+ 		return 1;
+ 	}
  
-@@ -704,14 +694,6 @@ static int arc_emac_probe(struct platform_device *pdev)
- 	/* Set poll rate so that it polls every 1 ms */
- 	arc_reg_set(priv, R_POLLRATE, clock_frequency / 1000000);
++	/* Set phydev->supported based on the "max-speed" property
++	 * if present */
++	if (!of_property_read_u32(child, "max-speed", &max_speed))
++		of_set_phy_supported(phy, max_speed);
++
+ 	dev_dbg(&mdio->dev, "registered phy %s at address %i\n",
+-		 child->name, addr);
++		child->name, addr);
  
--	/* Get max speed of operation from device tree */
--	if (of_property_read_u32(pdev->dev.of_node, "max-speed",
--				 &priv->max_speed)) {
--		dev_err(&pdev->dev, "failed to retrieve <max-speed> from device tree\n");
--		err = -EINVAL;
--		goto out;
--	}
--
- 	ndev->irq = irq;
- 	dev_info(&pdev->dev, "IRQ is %d\n", ndev->irq);
- 
+ 	return 0;
+ }
 -- 
 1.8.3.2
