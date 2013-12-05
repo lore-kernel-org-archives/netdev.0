@@ -1,124 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] pkt_sched: give visibility to mq slave qdiscs
-Date: Thu, 05 Dec 2013 11:12:02 -0800
-Message-ID: <1386270722.30495.210.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: Possible IPv6 fragmentation/pmtud bug
+Date: Thu, 5 Dec 2013 19:39:52 +0000
+Message-ID: <2134F8430051B64F815C691A62D9831816F612@XCH-BLV-504.nw.nos.boeing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:52204 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751202Ab3LETME (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 14:12:04 -0500
-Received: by mail-pb0-f48.google.com with SMTP id md12so26246859pbc.7
-        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 11:12:04 -0800 (PST)
+Received: from slb-mbsout-02.boeing.com ([130.76.64.129]:56248 "EHLO
+	slb-mbsout-02.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752046Ab3LETrz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 14:47:55 -0500
+Received: from XCH-PHX-312.sw.nos.boeing.com (xch-phx-312.sw.nos.boeing.com [130.247.25.173])
+	by slb-mbsout-02.boeing.com (8.14.4/8.14.4/UPSTREAM_MBSOUT) with ESMTP id rB5JdrF4010502
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 5 Dec 2013 11:39:53 -0800
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hi,
 
-Commit 6da7c8fcbcbd ("qdisc: allow setting default queuing discipline")
-added the ability to change default qdisc from pfifo_fast to say fq
+I have the following test network configuration (all linux nodes
+running the 3.10.17 kernel):
 
-But as most modern ethernet devices are multiqueue, we cant really
-see all the statistics from "tc -s qdisc show", as the default root
-qdisc is mq.
 
-This patch adds the calls to qdisc_list_add() to mq and mqprio
+h1 <-----------> r1 <-----------> r2 <-----------> h2
+   8000 MTU link    4000 MTU link    8000 MTU link
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
----
- include/net/pkt_sched.h |    1 +
- net/sched/sch_api.c     |    3 ++-
- net/sched/sch_mq.c      |   13 +++++++++----
- net/sched/sch_mqprio.c  |   10 ++++++----
- 4 files changed, 18 insertions(+), 9 deletions(-)
+When host h1 ping6's host h2, routers r1 and r2 forward the ICMPv6
+echo request/reply packets as expected. But, when I set a ping6
+packet size that is larger than the router-to-router link MTU:
 
-diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-index 59ec3cd15d68..891d80d2c4d2 100644
---- a/include/net/pkt_sched.h
-+++ b/include/net/pkt_sched.h
-@@ -88,6 +88,7 @@ int unregister_qdisc(struct Qdisc_ops *qops);
- void qdisc_get_default(char *id, size_t len);
- int qdisc_set_default(const char *id);
- 
-+void qdisc_list_add(struct Qdisc *q);
- void qdisc_list_del(struct Qdisc *q);
- struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle);
- struct Qdisc *qdisc_lookup_class(struct net_device *dev, u32 handle);
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index cd81505662b8..547b4a88ae2a 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -271,11 +271,12 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
- 	return NULL;
- }
- 
--static void qdisc_list_add(struct Qdisc *q)
-+void qdisc_list_add(struct Qdisc *q)
- {
- 	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS))
- 		list_add_tail(&q->list, &qdisc_dev(q)->qdisc->list);
- }
-+EXPORT_SYMBOL(qdisc_list_add);
- 
- void qdisc_list_del(struct Qdisc *q)
- {
-diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-index 2e56185736d6..a8b2864a696b 100644
---- a/net/sched/sch_mq.c
-+++ b/net/sched/sch_mq.c
-@@ -78,14 +78,19 @@ static void mq_attach(struct Qdisc *sch)
- {
- 	struct net_device *dev = qdisc_dev(sch);
- 	struct mq_sched *priv = qdisc_priv(sch);
--	struct Qdisc *qdisc;
-+	struct Qdisc *qdisc, *old;
- 	unsigned int ntx;
- 
- 	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
- 		qdisc = priv->qdiscs[ntx];
--		qdisc = dev_graft_qdisc(qdisc->dev_queue, qdisc);
--		if (qdisc)
--			qdisc_destroy(qdisc);
-+		old = dev_graft_qdisc(qdisc->dev_queue, qdisc);
-+		if (old)
-+			qdisc_destroy(old);
-+#ifdef CONFIG_NET_SCHED
-+		if (ntx < dev->real_num_tx_queues)
-+			qdisc_list_add(qdisc);
-+#endif
-+
- 	}
- 	kfree(priv->qdiscs);
- 	priv->qdiscs = NULL;
-diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index d44c868cb537..6749e2f540d0 100644
---- a/net/sched/sch_mqprio.c
-+++ b/net/sched/sch_mqprio.c
-@@ -167,15 +167,17 @@ static void mqprio_attach(struct Qdisc *sch)
- {
- 	struct net_device *dev = qdisc_dev(sch);
- 	struct mqprio_sched *priv = qdisc_priv(sch);
--	struct Qdisc *qdisc;
-+	struct Qdisc *qdisc, *old;
- 	unsigned int ntx;
- 
- 	/* Attach underlying qdisc */
- 	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
- 		qdisc = priv->qdiscs[ntx];
--		qdisc = dev_graft_qdisc(qdisc->dev_queue, qdisc);
--		if (qdisc)
--			qdisc_destroy(qdisc);
-+		old = dev_graft_qdisc(qdisc->dev_queue, qdisc);
-+		if (old)
-+			qdisc_destroy(old);
-+		if (ntx < dev->real_num_tx_queues)
-+			qdisc_list_add(qdisc);
- 	}
- 	kfree(priv->qdiscs);
- 	priv->qdiscs = NULL;
+  h1# ping6 -s 5000 h2
+
+router r1 does NOT send an ICMPv6 Packet Too Big message back
+to host h1 but rather fragments the ICMPv6 echo request packets
+itself before forwarding on to router r2 then ultimately host h1.
+The ping6's still succeed because of IPv6 fragmentation, but it
+is *router r1* that is doing the fragmentation instead of host h1.
+
+This seems to be related to the setting of the "skb->local_df" flag,
+which should only be set for locally-generated packets; not for
+packets that are being forwarded by a router. Does anyone have any
+idea as to why my router is performing fragmentation when it forwards
+an ICMPv6 packet?
+
+Thanks - Fred
+fred.l.templin@boeing.com
