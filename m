@@ -1,41 +1,435 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 0/2] virtio-net: Fix two bugs on unloading the module
-Date: Thu, 5 Dec 2013 16:54:18 +0200
-Message-ID: <20131205145418.GC23147@redhat.com>
-References: <1386254181-17257-1-git-send-email-avagin@openvz.org>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net v5] xen-netback: fix fragment detection in checksum
+ setup
+Date: Thu, 5 Dec 2013 14:53:50 +0000
+Message-ID: <20131205145350.GD18325@zion.uk.xensource.com>
+References: <1386092369-13618-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	David Miller <davem@davemloft.net>
+To: Paul Durrant <paul.durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:46179 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754486Ab3LEOxw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 09:53:52 -0500
 Content-Disposition: inline
-In-Reply-To: <1386254181-17257-1-git-send-email-avagin@openvz.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1386092369-13618-1-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 05, 2013 at 06:36:19PM +0400, Andrey Vagin wrote:
-> They can be easy to reproduce, if you try to unload virtio-net
+On Tue, Dec 03, 2013 at 05:39:29PM +0000, Paul Durrant wrote:
+> The code to detect fragments in checksum_setup() was missing for IPv4 and
+> too eager for IPv6. (It transpires that Windows seems to send IPv6 packets
+> with a fragment header even if they are not a fragment - i.e. offset is zero,
+> and M bit is not set).
 > 
-> Andrey Vagin (2):
->   virtio-net: determine type of bufs correctly
->   virtio: delete napi objects from netdev before releasing memory
-
-Thanks a lot for the patches!
-
->  drivers/net/virtio_net.c | 10 +++++++---
->  1 file changed, 7 insertions(+), 3 deletions(-)
+> This patch also incorporates a fix to callers of maybe_pull_tail() where
+> skb->network_header was being erroneously added to the length argument.
 > 
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: David Vrabel <david.vrabel@citrix.com>
+> cc: David Miller <davem@davemloft.net>
+
+Acked-by: Wei Liu <wei.liu2@citrix.com>
+
+Thanks
+Wei.
+
+> ---
+> v5
+> - Return an error from maybe_pull_tail() to distiguish issues due to the
+>   frontend from those due to the backend.
+> 
+> v4
+> - Re-work maybe_pull_tail() to have a failure path and update mac and
+>   network header pointers on success.
+> - Re-work callers of maybe_pull_tail() to handle failures and allow for
+>   movement of skb header pointers.
+> - Incorporate fixes from patch "Fix pull size in checksum_setup_ip" since
+>   it also modifies callers of maybe_pull_tail().
+> - Remove error messages in checksum routines that could be triggered by frontends
+> 
+> v3
+> - Use defined values for 'fragment offset' and 'more fragments'
+> 
+> v2
+> - Added comments noting what fragment/offset masks mean
+> 
+>  drivers/net/xen-netback/netback.c |  236 +++++++++++++++++++++----------------
+>  include/linux/ipv6.h              |    1 +
+>  include/net/ipv6.h                |    3 +-
+>  3 files changed, 140 insertions(+), 100 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 64f0e0d..acf1392 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1149,49 +1149,72 @@ static int xenvif_set_skb_gso(struct xenvif *vif,
+>  	return 0;
+>  }
+>  
+> -static inline void maybe_pull_tail(struct sk_buff *skb, unsigned int len)
+> +static inline int maybe_pull_tail(struct sk_buff *skb, unsigned int len,
+> +				  unsigned int max)
+>  {
+> -	if (skb_is_nonlinear(skb) && skb_headlen(skb) < len) {
+> -		/* If we need to pullup then pullup to the max, so we
+> -		 * won't need to do it again.
+> -		 */
+> -		int target = min_t(int, skb->len, MAX_TCP_HEADER);
+> -		__pskb_pull_tail(skb, target - skb_headlen(skb));
+> -	}
+> +	if (skb_headlen(skb) >= len)
+> +		return 0;
+> +
+> +	/* If we need to pullup then pullup to the max, so we
+> +	 * won't need to do it again.
+> +	 */
+> +	if (max > skb->len)
+> +		max = skb->len;
+> +
+> +	if (__pskb_pull_tail(skb, max - skb_headlen(skb)) == NULL)
+> +		return -ENOMEM;
+> +
+> +	if (skb_headlen(skb) < len)
+> +		return -EPROTO;
+> +
+> +	return 0;
+>  }
+>  
+> +/* This value should be large enough to cover a tagged ethernet header plus
+> + * maximally sized IP and TCP or UDP headers.
+> + */
+> +#define MAX_IP_HDR_LEN 128
+> +
+>  static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+>  			     int recalculate_partial_csum)
+>  {
+> -	struct iphdr *iph = (void *)skb->data;
+> -	unsigned int header_size;
+>  	unsigned int off;
+> -	int err = -EPROTO;
+> +	bool fragment;
+> +	int err;
+> +
+> +	fragment = false;
+> +
+> +	err = maybe_pull_tail(skb,
+> +			      sizeof(struct iphdr),
+> +			      MAX_IP_HDR_LEN);
+> +	if (err < 0)
+> +		goto out;
+>  
+> -	off = sizeof(struct iphdr);
+> +	if (ip_hdr(skb)->frag_off & htons(IP_OFFSET | IP_MF))
+> +		fragment = true;
+>  
+> -	header_size = skb->network_header + off + MAX_IPOPTLEN;
+> -	maybe_pull_tail(skb, header_size);
+> +	off = ip_hdrlen(skb);
+>  
+> -	off = iph->ihl * 4;
+> +	err = -EPROTO;
+>  
+> -	switch (iph->protocol) {
+> +	switch (ip_hdr(skb)->protocol) {
+>  	case IPPROTO_TCP:
+>  		if (!skb_partial_csum_set(skb, off,
+>  					  offsetof(struct tcphdr, check)))
+>  			goto out;
+>  
+>  		if (recalculate_partial_csum) {
+> -			struct tcphdr *tcph = tcp_hdr(skb);
+> -
+> -			header_size = skb->network_header +
+> -				off +
+> -				sizeof(struct tcphdr);
+> -			maybe_pull_tail(skb, header_size);
+> -
+> -			tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+> -							 skb->len - off,
+> -							 IPPROTO_TCP, 0);
+> +			err = maybe_pull_tail(skb,
+> +					      off + sizeof(struct tcphdr),
+> +					      MAX_IP_HDR_LEN);
+> +			if (err < 0)
+> +				goto out;
+> +
+> +			tcp_hdr(skb)->check =
+> +				~csum_tcpudp_magic(ip_hdr(skb)->saddr,
+> +						   ip_hdr(skb)->daddr,
+> +						   skb->len - off,
+> +						   IPPROTO_TCP, 0);
+>  		}
+>  		break;
+>  	case IPPROTO_UDP:
+> @@ -1200,24 +1223,20 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+>  			goto out;
+>  
+>  		if (recalculate_partial_csum) {
+> -			struct udphdr *udph = udp_hdr(skb);
+> -
+> -			header_size = skb->network_header +
+> -				off +
+> -				sizeof(struct udphdr);
+> -			maybe_pull_tail(skb, header_size);
+> -
+> -			udph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+> -							 skb->len - off,
+> -							 IPPROTO_UDP, 0);
+> +			err = maybe_pull_tail(skb,
+> +					      off + sizeof(struct udphdr),
+> +					      MAX_IP_HDR_LEN);
+> +			if (err < 0)
+> +				goto out;
+> +
+> +			udp_hdr(skb)->check =
+> +				~csum_tcpudp_magic(ip_hdr(skb)->saddr,
+> +						   ip_hdr(skb)->daddr,
+> +						   skb->len - off,
+> +						   IPPROTO_UDP, 0);
+>  		}
+>  		break;
+>  	default:
+> -		if (net_ratelimit())
+> -			netdev_err(vif->dev,
+> -				   "Attempting to checksum a non-TCP/UDP packet, "
+> -				   "dropping a protocol %d packet\n",
+> -				   iph->protocol);
+>  		goto out;
+>  	}
+>  
+> @@ -1227,75 +1246,99 @@ out:
+>  	return err;
+>  }
+>  
+> +/* This value should be large enough to cover a tagged ethernet header plus
+> + * an IPv6 header, all options, and a maximal TCP or UDP header.
+> + */
+> +#define MAX_IPV6_HDR_LEN 256
+> +
+> +#define OPT_HDR(type, skb, off) \
+> +	(type *)(skb_network_header(skb) + (off))
+> +
+>  static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
+>  			       int recalculate_partial_csum)
+>  {
+> -	int err = -EPROTO;
+> -	struct ipv6hdr *ipv6h = (void *)skb->data;
+> +	int err;
+>  	u8 nexthdr;
+> -	unsigned int header_size;
+>  	unsigned int off;
+> +	unsigned int len;
+>  	bool fragment;
+>  	bool done;
+>  
+> +	fragment = false;
+>  	done = false;
+>  
+>  	off = sizeof(struct ipv6hdr);
+>  
+> -	header_size = skb->network_header + off;
+> -	maybe_pull_tail(skb, header_size);
+> +	err = maybe_pull_tail(skb, off, MAX_IPV6_HDR_LEN);
+> +	if (err < 0)
+> +		goto out;
+>  
+> -	nexthdr = ipv6h->nexthdr;
+> +	nexthdr = ipv6_hdr(skb)->nexthdr;
+>  
+> -	while ((off <= sizeof(struct ipv6hdr) + ntohs(ipv6h->payload_len)) &&
+> -	       !done) {
+> +	len = sizeof(struct ipv6hdr) + ntohs(ipv6_hdr(skb)->payload_len);
+> +	while (off <= len && !done) {
+>  		switch (nexthdr) {
+>  		case IPPROTO_DSTOPTS:
+>  		case IPPROTO_HOPOPTS:
+>  		case IPPROTO_ROUTING: {
+> -			struct ipv6_opt_hdr *hp = (void *)(skb->data + off);
+> +			struct ipv6_opt_hdr *hp;
+>  
+> -			header_size = skb->network_header +
+> -				off +
+> -				sizeof(struct ipv6_opt_hdr);
+> -			maybe_pull_tail(skb, header_size);
+> +			err = maybe_pull_tail(skb,
+> +					      off +
+> +					      sizeof(struct ipv6_opt_hdr),
+> +					      MAX_IPV6_HDR_LEN);
+> +			if (err < 0)
+> +				goto out;
+>  
+> +			hp = OPT_HDR(struct ipv6_opt_hdr, skb, off);
+>  			nexthdr = hp->nexthdr;
+>  			off += ipv6_optlen(hp);
+>  			break;
+>  		}
+>  		case IPPROTO_AH: {
+> -			struct ip_auth_hdr *hp = (void *)(skb->data + off);
+> +			struct ip_auth_hdr *hp;
+> +
+> +			err = maybe_pull_tail(skb,
+> +					      off +
+> +					      sizeof(struct ip_auth_hdr),
+> +					      MAX_IPV6_HDR_LEN);
+> +			if (err < 0)
+> +				goto out;
+> +
+> +			hp = OPT_HDR(struct ip_auth_hdr, skb, off);
+> +			nexthdr = hp->nexthdr;
+> +			off += ipv6_authlen(hp);
+> +			break;
+> +		}
+> +		case IPPROTO_FRAGMENT: {
+> +			struct frag_hdr *hp;
+>  
+> -			header_size = skb->network_header +
+> -				off +
+> -				sizeof(struct ip_auth_hdr);
+> -			maybe_pull_tail(skb, header_size);
+> +			err = maybe_pull_tail(skb,
+> +					      off +
+> +					      sizeof(struct frag_hdr),
+> +					      MAX_IPV6_HDR_LEN);
+> +			if (err < 0)
+> +				goto out;
+> +
+> +			hp = OPT_HDR(struct frag_hdr, skb, off);
+> +
+> +			if (hp->frag_off & htons(IP6_OFFSET | IP6_MF))
+> +				fragment = true;
+>  
+>  			nexthdr = hp->nexthdr;
+> -			off += (hp->hdrlen+2)<<2;
+> +			off += sizeof(struct frag_hdr);
+>  			break;
+>  		}
+> -		case IPPROTO_FRAGMENT:
+> -			fragment = true;
+> -			/* fall through */
+>  		default:
+>  			done = true;
+>  			break;
+>  		}
+>  	}
+>  
+> -	if (!done) {
+> -		if (net_ratelimit())
+> -			netdev_err(vif->dev, "Failed to parse packet header\n");
+> -		goto out;
+> -	}
+> +	err = -EPROTO;
+>  
+> -	if (fragment) {
+> -		if (net_ratelimit())
+> -			netdev_err(vif->dev, "Packet is a fragment!\n");
+> +	if (!done || fragment)
+>  		goto out;
+> -	}
+>  
+>  	switch (nexthdr) {
+>  	case IPPROTO_TCP:
+> @@ -1304,17 +1347,17 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
+>  			goto out;
+>  
+>  		if (recalculate_partial_csum) {
+> -			struct tcphdr *tcph = tcp_hdr(skb);
+> -
+> -			header_size = skb->network_header +
+> -				off +
+> -				sizeof(struct tcphdr);
+> -			maybe_pull_tail(skb, header_size);
+> -
+> -			tcph->check = ~csum_ipv6_magic(&ipv6h->saddr,
+> -						       &ipv6h->daddr,
+> -						       skb->len - off,
+> -						       IPPROTO_TCP, 0);
+> +			err = maybe_pull_tail(skb,
+> +					      off + sizeof(struct tcphdr),
+> +					      MAX_IPV6_HDR_LEN);
+> +			if (err < 0)
+> +				goto out;
+> +
+> +			tcp_hdr(skb)->check =
+> +				~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+> +						 &ipv6_hdr(skb)->daddr,
+> +						 skb->len - off,
+> +						 IPPROTO_TCP, 0);
+>  		}
+>  		break;
+>  	case IPPROTO_UDP:
+> @@ -1323,25 +1366,20 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
+>  			goto out;
+>  
+>  		if (recalculate_partial_csum) {
+> -			struct udphdr *udph = udp_hdr(skb);
+> -
+> -			header_size = skb->network_header +
+> -				off +
+> -				sizeof(struct udphdr);
+> -			maybe_pull_tail(skb, header_size);
+> -
+> -			udph->check = ~csum_ipv6_magic(&ipv6h->saddr,
+> -						       &ipv6h->daddr,
+> -						       skb->len - off,
+> -						       IPPROTO_UDP, 0);
+> +			err = maybe_pull_tail(skb,
+> +					      off + sizeof(struct udphdr),
+> +					      MAX_IPV6_HDR_LEN);
+> +			if (err < 0)
+> +				goto out;
+> +
+> +			udp_hdr(skb)->check =
+> +				~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+> +						 &ipv6_hdr(skb)->daddr,
+> +						 skb->len - off,
+> +						 IPPROTO_UDP, 0);
+>  		}
+>  		break;
+>  	default:
+> -		if (net_ratelimit())
+> -			netdev_err(vif->dev,
+> -				   "Attempting to checksum a non-TCP/UDP packet, "
+> -				   "dropping a protocol %d packet\n",
+> -				   nexthdr);
+>  		goto out;
+>  	}
+>  
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index 5d89d1b..c56c350 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -4,6 +4,7 @@
+>  #include <uapi/linux/ipv6.h>
+>  
+>  #define ipv6_optlen(p)  (((p)->hdrlen+1) << 3)
+> +#define ipv6_authlen(p) (((p)->hdrlen+2) << 2)
+>  /*
+>   * This structure contains configuration options per IPv6 link.
+>   */
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index eb198ac..488316e 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -110,7 +110,8 @@ struct frag_hdr {
+>  	__be32	identification;
+>  };
+>  
+> -#define	IP6_MF	0x0001
+> +#define	IP6_MF		0x0001
+> +#define	IP6_OFFSET	0xFFF8
+>  
+>  #include <net/sock.h>
+>  
 > -- 
-> 1.8.3.1
+> 1.7.10.4
