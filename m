@@ -1,74 +1,52 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net v6 1/2] net: sched: tbf: fix the calculation of max_size
-Date: Fri, 6 Dec 2013 10:56:41 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7468@saturn3.aculab.com>
-References: <1386313205-87660-1-git-send-email-yangyingliang@huawei.com> <1386313205-87660-2-git-send-email-yangyingliang@huawei.com>
+From: Wang Weidong <wangweidong1-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] wireless: fix build warning of used uninitialized variable
+Date: Fri, 6 Dec 2013 19:10:44 +0800
+Message-ID: <52A1B0B4.9060703@huawei.com>
+References: <52A15777.5000508@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
-	<jbrouer@redhat.com>
-To: "Yang Yingliang" <yangyingliang@huawei.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:38150 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1757660Ab3LFK50 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 05:57:26 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 06763-07 for <netdev@vger.kernel.org>;
- Fri,  6 Dec 2013 10:57:24 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1386313205-87660-2-git-send-email-yangyingliang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52A15777.5000508-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> From: Yang Yingliang
-...
+On 2013/12/6 12:49, Wang Weidong wrote:
+> nl80211.c: In function __cfg80211_wdev_from_attrs
+> nl80211.c:77: warning: wdev_id may be used uninitialized in this function
 > 
-> +/* Time to Length, convert time in ns to length in bytes
-> + * to determinate how many bytes can be sent in given time.
-> + */
-> +static u64 psched_ns_t2l(const struct psched_ratecfg *r,
-> +			 u64 time_in_ns)
-> +{
-> +	/* The formula is :
-> +	 * len = (time_in_ns * r->rate_bytes_ps) / NSEC_PER_SEC
-> +	 */
-> +	u64 len = time_in_ns * r->rate_bytes_ps;
-> +
-> +	do_div(len, NSEC_PER_SEC);
 
-You are multiplying two values then dividing by 10**9
-I'd guess that the intermediate value might exceed 2**64.
+Sorry. My complier version is too low so that I got this warning.
+Just ignore it.
 
-> +	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
-> +		len = (len / 53) * 48;
+Regards.
+Wang
 
-You probably want to do the multiply first.
-But why not scale rate_bytes_ps instead.
+> Signed-off-by: Wang Weidong <wangweidong1-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> ---
+>  net/wireless/nl80211.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+> index 138dc3b..6894229 100644
+> --- a/net/wireless/nl80211.c
+> +++ b/net/wireless/nl80211.c
+> @@ -74,7 +74,7 @@ __cfg80211_wdev_from_attrs(struct net *netns, struct nlattr **attrs)
+>  	struct wireless_dev *result = NULL;
+>  	bool have_ifidx = attrs[NL80211_ATTR_IFINDEX];
+>  	bool have_wdev_id = attrs[NL80211_ATTR_WDEV];
+> -	u64 wdev_id;
+> +	u64 wdev_id = 0;
+>  	int wiphy_idx = -1;
+>  	int ifidx = -1;
+>  
+> 
 
-> +	if (len > r->overhead)
-> +		len -= r->overhead;
-> +	else
-> +		len = 0;
-> +
-> +	return len;
-> +}
 
-Personally I'd work out how much time you have to send each byte.
-So if you want a rate of 1MB/sec you have a 'time cost' per byte of 1000ns.
-The cost of sending a packet is simply the length multiplied by this cost.
-To work out whether a packet can be sent you have a credit variable that
-tracks current time.
-If 'credit > now' the packet can't be sent, queue and schedule a wakeup.
-if 'credit + backlog < now' set credit = now - backlog.
-if 'credit <= now' send the packet and add the packet's 'cost' to 'credit'.
-
-In the non-ratelimited case this is almost no work.
-
-You'd probably need to work in 1/1024ns time units and/or blocks of 16 bytes.
-
-	David
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
