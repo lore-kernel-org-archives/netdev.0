@@ -1,69 +1,43 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH v3 net-next 4/4] sctp: fix some comments in associola.c
-Date: Fri, 6 Dec 2013 09:36:30 +0800
-Message-ID: <1386293790-19956-5-git-send-email-wangweidong1@huawei.com>
-References: <1386293790-19956-1-git-send-email-wangweidong1@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: davinci_emac: Fix platform data handling and make
+ usable for am3517
+Date: Thu, 05 Dec 2013 20:39:55 -0500 (EST)
+Message-ID: <20131205.203955.1282361417309480469.davem@davemloft.net>
+References: <20131203231301.GN26766@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>
-To: <nhorman@tuxdriver.com>, <vyasevich@gmail.com>,
-	<davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mugunthanvnm@ti.com, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org, linux-omap@vger.kernel.org
+To: tony@atomide.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:52456 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752702Ab3LFBhO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 20:37:14 -0500
-In-Reply-To: <1386293790-19956-1-git-send-email-wangweidong1@huawei.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60400 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752086Ab3LFBj5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 20:39:57 -0500
+In-Reply-To: <20131203231301.GN26766@atomide.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fix some typos
+From: Tony Lindgren <tony@atomide.com>
+Date: Tue, 3 Dec 2013 15:13:02 -0800
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/sctp/associola.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+> When booted with device tree, we may still have platform data passed
+> as auxdata. For am3517 this is needed for passing the interrupt_enable
+> and interrupt_disable callbacks that access the omap system control module
+> registers. These callback functions will eventually go away when we have
+> a separate system control module driver.
+> 
+> Some of the things that are currently passed as platform data we don't need
+> to set up as device tree properties as they are always the same on am3517.
+> So let's use a new compatible flag for those so we can get those from
+> the device tree match data.
+> 
+> Also note that we need to fix setting of phy_dev to NULL instead of an empty
+> string as the code later on uses that to find the first phy on the mdio bus.
+> This seems to have been caused by 5d69e0076a72 (net: davinci_emac: switch to
+> new mdio).
+> 
+> Signed-off-by: Tony Lindgren <tony@atomide.com>
 
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index bf61fe7..812b2ce 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -128,7 +128,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
- 	 */
- 	asoc->param_flags = sp->param_flags;
- 
--	/* Initialize the maximum mumber of new data packets that can be sent
-+	/* Initialize the maximum number of new data packets that can be sent
- 	 * in a burst.
- 	 */
- 	asoc->max_burst = sp->max_burst;
-@@ -231,7 +231,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
- 
- 	/* Assume that the peer will tell us if he recognizes ASCONF
- 	 * as part of INIT exchange.
--	 * The sctp_addip_noauth option is there for backward compatibilty
-+	 * The sctp_addip_noauth option is there for backward compatibility
- 	 * and will revert old behavior.
- 	 */
- 	if (net->sctp.addip_noauth)
-@@ -1223,7 +1223,7 @@ void sctp_assoc_update(struct sctp_association *asoc,
- 		}
- 	}
- 
--	/* SCTP-AUTH: Save the peer parameters from the new assocaitions
-+	/* SCTP-AUTH: Save the peer parameters from the new associations
- 	 * and also move the association shared keys over
- 	 */
- 	kfree(asoc->peer.peer_random);
-@@ -1448,7 +1448,7 @@ void sctp_assoc_rwnd_decrease(struct sctp_association *asoc, unsigned int len)
- 
- 	/* If we've reached or overflowed our receive buffer, announce
- 	 * a 0 rwnd if rwnd would still be positive.  Store the
--	 * the pottential pressure overflow so that the window can be restored
-+	 * the potential pressure overflow so that the window can be restored
- 	 * back to original value.
- 	 */
- 	if (rx_count >= asoc->base.sk->sk_rcvbuf)
--- 
-1.7.12
+Applied, thanks.
