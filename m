@@ -1,8 +1,7 @@
 From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH 02/10] net: stmmac: Honor DT parameter to force
- DMA store and forward mode
-Date: Sat,  7 Dec 2013 01:29:35 +0800
-Message-ID: <1386350983-13281-3-git-send-email-wens@csie.org>
+Subject: [PATCH 10/10] ARM: dts: sun7i: Add ethernet alias for GMAC
+Date: Sat,  7 Dec 2013 01:29:43 +0800
+Message-ID: <1386350983-13281-11-git-send-email-wens@csie.org>
 References: <1386350983-13281-1-git-send-email-wens@csie.org>
 Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
@@ -27,25 +26,29 @@ List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:
 List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-"snps,force_sf_dma_mode" is documented in stmmac device tree bindings,
-but is never handled by the driver.
+U-Boot will insert MAC address into the device tree image.
+It looks up ethernet[0-5] aliases to find the ethernet nodes.
+Alias GMAC as ethernet0, as it is the only ethernet controller used.
 
 Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 +
- 1 file changed, 1 insertion(+)
+ arch/arm/boot/dts/sun7i-a20.dtsi | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 51c9069..74c7aef 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -47,6 +47,7 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
- 		plat->bus_id = 0;
+diff --git a/arch/arm/boot/dts/sun7i-a20.dtsi b/arch/arm/boot/dts/sun7i-a20.dtsi
+index 64b1391..f7c57c6 100644
+--- a/arch/arm/boot/dts/sun7i-a20.dtsi
++++ b/arch/arm/boot/dts/sun7i-a20.dtsi
+@@ -16,6 +16,10 @@
+ / {
+ 	interrupt-parent = <&gic>;
  
- 	of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr);
-+	plat->force_sf_dma_mode = of_property_read_bool(np, "snps,force_sf_dma_mode");
- 
- 	plat->mdio_bus_data = devm_kzalloc(&pdev->dev,
- 					   sizeof(struct stmmac_mdio_bus_data),
++	aliases {
++		ethernet0 = &gmac;
++	};
++
+ 	cpus {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
 -- 
 1.8.5.1
