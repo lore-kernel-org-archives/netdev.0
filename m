@@ -1,54 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/6] tipc: add link_kfree_skbuff helper function
-Date: Thu, 05 Dec 2013 22:44:27 -0800
-Message-ID: <1386312267.30495.247.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386311022-11176-1-git-send-email-wangweidong1@huawei.com>
-	 <1386311022-11176-2-git-send-email-wangweidong1@huawei.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH 1/1] drivers: net : cpsw: Use netdev_name while requesting irq
+Date: Fri, 6 Dec 2013 12:28:27 +0530
+Message-ID: <1386313107-8597-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, allan.stephens@windriver.com,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: Wang Weidong <wangweidong1@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:65095 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751333Ab3LFGo3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 01:44:29 -0500
-Received: by mail-pd0-f174.google.com with SMTP id y13so490701pdi.19
-        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 22:44:29 -0800 (PST)
-In-Reply-To: <1386311022-11176-2-git-send-email-wangweidong1@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
+	George Cherian <george.cherian@ti.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-12-06 at 14:23 +0800, Wang Weidong wrote:
-> replaces some chunks of code that kfree the sk_buff.
-> This is just code simplification, no functional changes.
-> 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-> ---
->  net/tipc/link.c | 58 +++++++++++++++++++--------------------------------------
->  1 file changed, 19 insertions(+), 39 deletions(-)
-> 
-> diff --git a/net/tipc/link.c b/net/tipc/link.c
-> index 69cd9bf..1c27d7b 100644
-> --- a/net/tipc/link.c
-> +++ b/net/tipc/link.c
-> @@ -100,6 +100,17 @@ static unsigned int align(unsigned int i)
->  	return (i + 3) & ~3u;
->  }
->  
-> +static void link_kfree_skbuff(struct sk_buff *buf)
-> +{
-> +	struct sk_buff *next;
-> +
-> +	while (buf) {
-> +		next = buf->next;
-> +		kfree_skb(buf);
-> +		buf = next;
-> +	}
-> +}
-> +
+From: George Cherian <george.cherian@ti.com>
 
-Oh well, this looks like kfree_skb_list() to me.
+Use netdev_name while requesting irq so that eth* name is shown
+in /proc/interrupts. Previously it was showing device name as (null)
+for cpsw interrupts. For using netdev_name register_netdev and then
+call devm_request_irq.
+
+Signed-off-by: George Cherian <george.cherian@ti.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 26 +++++++++++++-------------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index a91f0c9..61ae17f 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -2090,19 +2090,6 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ale_ret;
+ 	}
+ 
+-	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
+-		for (i = res->start; i <= res->end; i++) {
+-			if (devm_request_irq(&pdev->dev, i, cpsw_interrupt, 0,
+-					     dev_name(priv->dev), priv)) {
+-				dev_err(priv->dev, "error attaching irq\n");
+-				goto clean_ale_ret;
+-			}
+-			priv->irqs_table[k] = i;
+-			priv->num_irqs = k + 1;
+-		}
+-		k++;
+-	}
+-
+ 	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+ 
+ 	ndev->netdev_ops = &cpsw_netdev_ops;
+@@ -2118,6 +2105,19 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_ale_ret;
+ 	}
+ 
++	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
++		for (i = res->start; i <= res->end; i++) {
++			if (devm_request_irq(&pdev->dev, i, cpsw_interrupt, 0,
++					     netdev_name(ndev), priv)) {
++				dev_err(priv->dev, "error attaching irq\n");
++				goto clean_ale_ret;
++			}
++			priv->irqs_table[k] = i;
++			priv->num_irqs = k + 1;
++		}
++		k++;
++	}
++
+ 	if (cpts_register(&pdev->dev, priv->cpts,
+ 			  data->cpts_clock_mult, data->cpts_clock_shift))
+ 		dev_err(priv->dev, "error registering cpts device\n");
+-- 
+1.8.5.rc3.2.gc302941
+
