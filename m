@@ -1,71 +1,61 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next v2] unix: convert printks to pr_<level>
-Date: Fri, 6 Dec 2013 18:03:36 +0800
-Message-ID: <52A1A0F8.9080506@huawei.com>
-References: <52A16A19.60001@huawei.com>
+From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+Subject: Re: [PATCH -next] batadv: Slight optimization of
+	batadv_compare_eth
+Date: Fri, 06 Dec 2013 11:10:31 +0100
+Message-ID: <52A1A297.9010208@meshcoding.com>
+References: <1386317890.31845.26.camel@joe-AO722>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: <edumazet@google.com>, <ebiederm@xmission.com>,
-	<gaofeng@cn.fujitsu.com>, <jacob.e.keller@intel.com>,
-	<netdev@vger.kernel.org>, Daniel Borkmann <dborkman@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:2135 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751961Ab3LFKEK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 05:04:10 -0500
-In-Reply-To: <52A16A19.60001@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>,
+ Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1386317890.31845.26.camel@joe-AO722>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-use pr_<level> instead of printk(LEVEL)
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/unix/af_unix.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+On 06/12/13 09:18, Joe Perches wrote:
+> Use CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS to check if this
+> function can be optimized by using the generic ether_addr_equal.
+> 
+> Remove the unnecessary ?: after the unoptimized memcmp.
+> 
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 01625cc..8136222 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -80,6 +80,8 @@
-  *		  with BSD names.
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/signal.h>
-@@ -366,7 +368,7 @@ static void unix_sock_destructor(struct sock *sk)
- 	WARN_ON(!sk_unhashed(sk));
- 	WARN_ON(sk->sk_socket);
- 	if (!sock_flag(sk, SOCK_DEAD)) {
--		printk(KERN_INFO "Attempt to release alive unix socket: %p\n", sk);
-+		pr_info("Attempt to release alive unix socket: %p\n", sk);
- 		return;
- 	}
- 
-@@ -378,7 +380,7 @@ static void unix_sock_destructor(struct sock *sk)
- 	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
- 	local_bh_enable();
- #ifdef UNIX_REFCNT_DEBUG
--	printk(KERN_DEBUG "UNIX %p is destroyed, %ld are still alive.\n", sk,
-+	pr_debug("UNIX %p is destroyed, %ld are still alive.\n", sk,
- 		atomic_long_read(&unix_nr_socks));
- #endif
- }
-@@ -2433,8 +2435,7 @@ static int __init af_unix_init(void)
- 
- 	rc = proto_register(&unix_proto, 1);
- 	if (rc != 0) {
--		printk(KERN_CRIT "%s: Cannot create unix_sock SLAB cache!\n",
--		       __func__);
-+		pr_crit("%s: Cannot create unix_sock SLAB cache!\n", __func__);
- 		goto out;
- 	}
- 
--- 
-1.7.12
+Acked-by: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
+
+
+- -- 
+Antonio Quartulli
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJSoaKXAAoJEEKTMo6mOh1VMjoP/3GqGy0TQG1yXRzbrzAbbklJ
+8Oa6DHQd2pSN/cJkR501JYwSUnCGh3m7eh7qc1HZYrEIgxIrJDLHWSqBL3FPtgap
+gQ92BBQG/pd38ZmmWSeZob44bEMEGAn00B1kgFx+Xb4YW4bP2rDAlvPxjjaqjT3U
+tBNbNYxUTBY2JMftI7WwEOwMWgLPVoHR1PhAbBTpbXMXCRrGp/vXN1xXam1xIDNx
+kahFmHA1Dc91dwr8ev4bcUjfGO2tXkQOEoqKRkwc1SEzuKTjgJNDxdbFNqG6vMAm
+k/aXhMvf3DOUkaCeslRQIkwefbKmzN69c1x2ND7S8mLEMIKyBuhKUFcf6PebD9SK
+Dc+KdwIx0lsaS2vGqOt6mUSie1KfY8QNAc74eF6XjDhKyJynYXe6S3L40uT4eLXR
+8fwGClJmyYVIiYD65NOtiIx6C2uHFchjDpXjlz0X8N9oQ2Azr4e2RMTGkkoihvOh
+94r1dmAaBrnRiAu6AkImhgN+lWgLglHWD5trmmRCxNEJf0iW+x9ZaR4yAQFDUP3k
+mrk5AN8JuRZkOeY5QK4AIZ0bFUh8tKW6JaNb8VHQGsLqjhAB/HPS6VljyRgMalyQ
+c/kLlEOIIZ9dsjMwKMgyoJ9bMtTYUTxrriKz12mQbx8mWvm4CMFEQglljQiuTyvh
+J+UsjAHs/ffW59JIGCfB
+=8xL7
+-----END PGP SIGNATURE-----
