@@ -1,30 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] tg3: Misc fixes
-Date: Fri, 06 Dec 2013 15:11:24 -0500 (EST)
-Message-ID: <20131206.151124.2190667307742487496.davem@davemloft.net>
-References: <1386352400-9623-1-git-send-email-nsujir@broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nsujir@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42062 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752661Ab3LFULZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 15:11:25 -0500
-In-Reply-To: <1386352400-9623-1-git-send-email-nsujir@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: [PATCH v4 net-next 0/4] net: some cleanups
+Date: Sat,  7 Dec 2013 04:13:02 +0800
+Message-ID: <1386360786-17687-1-git-send-email-zwu.kernel@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nithin Nayak Sujir <nsujir@broadcom.com>
-Date: Fri, 6 Dec 2013 09:53:15 -0800
+From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
 
-> Nithin Nayak Sujir (5):
->   tg3: Don't add rxbds_empty to rx_over_errors
->   tg3: Add flag to disable 1G Half Duplex advertisement
->   tg3: Fix bit definition for the nvram Auto Power Down setting
->   tg3: Expand multicast drop counter miscounting fix to 5762
->   tg3: Update version to 3.135
+Since net-next is open now, it's time to post them out again.
 
-Series applied, thanks.
+Changelog from v3:
+ -combine the change that removes the return value check with
+the change which adjusts the function return type to "void". [David Miller]
+
+Zhi Yong Wu (4):
+  vhost: remove the dead branch
+  macvtap: remove the dead branch
+  macvtap: remove unused parameter in macvtap_do_read()
+  tun: remove unused parameter in tun_do_read()
+
+ drivers/net/macvtap.c |   14 +++++---------
+ drivers/net/tun.c     |    7 +++----
+ drivers/vhost/net.c   |    9 ++-------
+ drivers/vhost/scsi.c  |    7 +------
+ drivers/vhost/test.c  |    8 +-------
+ drivers/vhost/vhost.c |    4 +---
+ drivers/vhost/vhost.h |    2 +-
+ 7 files changed, 14 insertions(+), 37 deletions(-)
+
+-- 
+1.7.6.5
