@@ -1,7 +1,8 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 0/9] net: phy: PHY reset consolidation
-Date: Thu, 5 Dec 2013 16:55:08 -0800
-Message-ID: <1386291317-1202-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH 3/9] net: greth: use phy_read_status()
+Date: Thu, 5 Dec 2013 16:55:11 -0800
+Message-ID: <1386291317-1202-4-git-send-email-f.fainelli@gmail.com>
+References: <1386291317-1202-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <sebastian.hesselbarth@gmail.com>,
@@ -9,47 +10,37 @@ Cc: <davem@davemloft.net>, <sebastian.hesselbarth@gmail.com>,
 	<kyle@moffetthome.net>, Florian Fainelli <f.fainelli@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:21606 "EHLO
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:21883 "EHLO
 	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752514Ab3LFBFE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 20:05:04 -0500
+	with ESMTP id S1752224Ab3LFBFA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 20:05:00 -0500
+In-Reply-To: <1386291317-1202-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+In case the greth driver is bound to anything but the Generic PHY
+driver or the PHY has a special read_status callback implemented,
+unexpected things will happen. Make sure we that we use
+phy_read_status() which does the proper abstraction of calling the
+driver specific read_status() callback for a given PHY.
 
-Over the past few months there have been various attempts at doing
-"wild" PHY resets eventually bypassing the PHY state machine and causing
-various sort of issues whenever auto-negotiation as not enabled.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/aeroflex/greth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-This patchset resumes the work Kyle Moffett started here:
-https://lkml.org/lkml/2011/10/20/301
-
-Once Sebastian's phy_resume/suspend patchet is in, we can also make sure
-we consolidate PHY resets after resuming from S2/S3 suspend modes.
-
-Florian Fainelli (9):
-  net: phy: report link partner features through ethtool
-  net: phy: use phy_init_hw instead of open-coding it
-  net: greth: use phy_read_status()
-  net: bfin_mac: do not reset PHY after phy_start()
-  net: phy: consolidate PHY reset in phy_init_hw()
-  net: mv643xx_eth: use phy_init_hw to reset PHY
-  net: pxa168_eth: use phy_init_hw for PHY reset
-  net: tc35815: use phy_init_hw for PHY reset
-  net: sh_eth: do not issue a wild PHY reset through BMCR
-
- Documentation/networking/phy.txt           |  3 +-
- drivers/net/ethernet/adi/bfin_mac.c        |  1 -
- drivers/net/ethernet/aeroflex/greth.c      |  2 +-
- drivers/net/ethernet/marvell/mv643xx_eth.c | 21 +---------
- drivers/net/ethernet/marvell/pxa168_eth.c  | 19 +--------
- drivers/net/ethernet/renesas/sh_eth.c      |  5 ++-
- drivers/net/ethernet/toshiba/tc35815.c     | 15 ++------
- drivers/net/phy/phy.c                      | 11 +++---
- drivers/net/phy/phy_device.c               | 62 +++++++++++++++++++++++++++++-
- include/linux/phy.h                        |  5 ++-
- 10 files changed, 82 insertions(+), 62 deletions(-)
-
+diff --git a/drivers/net/ethernet/aeroflex/greth.c b/drivers/net/ethernet/aeroflex/greth.c
+index e066945..b20cbf0 100644
+--- a/drivers/net/ethernet/aeroflex/greth.c
++++ b/drivers/net/ethernet/aeroflex/greth.c
+@@ -1361,7 +1361,7 @@ static int greth_mdio_init(struct greth_private *greth)
+ 		timeout = jiffies + 6*HZ;
+ 		while (!phy_aneg_done(greth->phy) && time_before(jiffies, timeout)) {
+ 		}
+-		genphy_read_status(greth->phy);
++		phy_read_status(greth->phy);
+ 		greth_link_change(greth->netdev);
+ 	}
+ 
 -- 
 1.8.3.2
