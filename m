@@ -1,26 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 4/6] usb: Fix FSF address in file headers
-Date: Fri, 06 Dec 2013 12:38:31 -0500 (EST)
-Message-ID: <20131206.123831.320851488966959415.davem@davemloft.net>
+Subject: Re: [net 6/6] sctp: Fix FSF address in file headers
+Date: Fri, 06 Dec 2013 12:38:46 -0500 (EST)
+Message-ID: <20131206.123846.1794851889265553317.davem@davemloft.net>
 References: <1386340128-23397-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1386340128-23397-4-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1386340128-23397-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	oliver@neukum.org, steve.glendinning@shawell.net, oneukum@suse.de
+	vyasevich@gmail.com, nhorman@tuxdriver.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40514 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40532 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758073Ab3LFRid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 12:38:33 -0500
-In-Reply-To: <1386340128-23397-4-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1758073Ab3LFRir (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 12:38:47 -0500
+In-Reply-To: <1386340128-23397-6-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri,  6 Dec 2013 06:28:46 -0800
+Date: Fri,  6 Dec 2013 06:28:48 -0800
 
 > Several files refer to an old address for the Free Software Foundation
 > in the file header comment.  Resolve by replacing the address with
