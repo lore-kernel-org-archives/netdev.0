@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 8/9] net: tc35815: use phy_init_hw for PHY reset
-Date: Fri, 6 Dec 2013 13:01:37 -0800
-Message-ID: <1386363698-8407-9-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 3/9] net: greth: use phy_read_status()
+Date: Fri, 6 Dec 2013 13:01:32 -0800
+Message-ID: <1386363698-8407-4-git-send-email-f.fainelli@gmail.com>
 References: <1386363698-8407-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,50 +10,37 @@ Cc: <davem@davemloft.net>, <sebastian.hesselbarth@gmail.com>,
 	<kyle@moffetthome.net>, Florian Fainelli <f.fainelli@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:43535 "EHLO
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:56936 "EHLO
 	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757977Ab3LFVB7 (ORCPT
+	with ESMTP id S1754634Ab3LFVB7 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 16:01:59 -0500
 In-Reply-To: <1386363698-8407-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of open-coding the PHY reset through MII BMCR, use phy_init_hw()
-which does that for us and also makes sure that any PHY specific fixups
-are applied.
+In case the greth driver is bound to anything but the Generic PHY
+driver or the PHY has a special read_status callback implemented,
+unexpected things will happen. Make sure we that we use
+phy_read_status() which does the proper abstraction of calling the
+driver specific read_status() callback for a given PHY.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/toshiba/tc35815.c | 15 ++++-----------
- 1 file changed, 4 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/aeroflex/greth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/toshiba/tc35815.c b/drivers/net/ethernet/toshiba/tc35815.c
-index 1322546..f6b3212 100644
---- a/drivers/net/ethernet/toshiba/tc35815.c
-+++ b/drivers/net/ethernet/toshiba/tc35815.c
-@@ -1170,19 +1170,12 @@ static int tc35815_tx_full(struct net_device *dev)
- static void tc35815_restart(struct net_device *dev)
- {
- 	struct tc35815_local *lp = netdev_priv(dev);
-+	int ret;
- 
- 	if (lp->phy_dev) {
--		int timeout;
--
--		phy_write(lp->phy_dev, MII_BMCR, BMCR_RESET);
--		timeout = 100;
--		while (--timeout) {
--			if (!(phy_read(lp->phy_dev, MII_BMCR) & BMCR_RESET))
--				break;
--			udelay(1);
--		}
--		if (!timeout)
--			printk(KERN_ERR "%s: BMCR reset failed.\n", dev->name);
-+		ret = phy_init_hw(lp->phy_dev);
-+		if (ret)
-+			printk(KERN_ERR "%s: PHY init failed.\n", dev->name);
+diff --git a/drivers/net/ethernet/aeroflex/greth.c b/drivers/net/ethernet/aeroflex/greth.c
+index e066945..b20cbf0 100644
+--- a/drivers/net/ethernet/aeroflex/greth.c
++++ b/drivers/net/ethernet/aeroflex/greth.c
+@@ -1361,7 +1361,7 @@ static int greth_mdio_init(struct greth_private *greth)
+ 		timeout = jiffies + 6*HZ;
+ 		while (!phy_aneg_done(greth->phy) && time_before(jiffies, timeout)) {
+ 		}
+-		genphy_read_status(greth->phy);
++		phy_read_status(greth->phy);
+ 		greth_link_change(greth->netdev);
  	}
  
- 	spin_lock_bh(&lp->rx_lock);
 -- 
 1.8.3.2
