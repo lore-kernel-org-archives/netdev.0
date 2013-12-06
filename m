@@ -1,17 +1,18 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] virtio-net: determine type of bufs correctly
-Date: Fri, 06 Dec 2013 15:30:44 -0500 (EST)
-Message-ID: <20131206.153044.1353870753889298332.davem@davemloft.net>
+Subject: Re: [PATCH 2/2] virtio: delete napi structures from netdev before
+	releasing memory
+Date: Fri, 06 Dec 2013 15:30:58 -0500 (EST)
+Message-ID: <20131206.153058.1741013299538900621.davem@davemloft.net>
 References: <1386254181-17257-1-git-send-email-avagin@openvz.org>
-	<1386254181-17257-2-git-send-email-avagin@openvz.org>
+	<1386254181-17257-3-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mwdalton@google.com, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, mst@redhat.com, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
 To: avagin@openvz.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1386254181-17257-2-git-send-email-avagin@openvz.org>
+In-Reply-To: <1386254181-17257-3-git-send-email-avagin@openvz.org>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -24,17 +25,15 @@ Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 From: Andrey Vagin <avagin@openvz.org>
-Date: Thu,  5 Dec 2013 18:36:20 +0400
+Date: Thu,  5 Dec 2013 18:36:21 +0400
 
-> free_unused_bufs must check vi->mergeable_rx_bufs before
-> vi->big_packets, because we use this sequence in other places.
-> Otherwise we allocate buffer of one type, then free it as another
-> type.
+> free_netdev calls netif_napi_del too, but it's too late, because napi
+> structures are placed on vi->rq. netif_napi_add() is called from
+> virtnet_alloc_queues.
  ...
-> Fixes: 2613af0ed18a (virtio_net: migrate mergeable rx buffers to page frag allocators)
-> Cc: Michael Dalton <mwdalton@google.com>
+> Fixes: 986a4f4d452d (virtio_net: multiqueue support)
 > Cc: Rusty Russell <rusty@rustcorp.com.au>
 > Cc: "Michael S. Tsirkin" <mst@redhat.com>
 > Signed-off-by: Andrey Vagin <avagin@openvz.org>
 
-Applied.
+Applied and queued up for -stable, thanks.
