@@ -1,60 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/15] i40e: restrict diag test length
-Date: Fri,  6 Dec 2013 00:06:27 -0800
-Message-ID: <1386317188-13944-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] i40e: sync header files with hardware
+Date: Fri,  6 Dec 2013 00:06:28 -0800
+Message-ID: <1386317188-13944-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1386317188-13944-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:42213 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:42214 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753325Ab3LFIGh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753527Ab3LFIGh (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 6 Dec 2013 03:06:37 -0500
 In-Reply-To: <1386317188-13944-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamil Krawczyk <kamil.krawczyk@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-The diagnostics test needs some slightly different limits
-in order to succeed.
+Update the PCTYPE table
+fix fcoe HMC object sizes
 
-Change-Id: Ia1c49148af92fa4be20778a819f69350381bf865
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
+Change-Id: I1f12cd2653168859661e8700f929b7c65b0e21b7
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_diag.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h |  4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_type.h    | 11 ++++-------
+ 2 files changed, 6 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_diag.c b/drivers/net/ethernet/intel/i40e/i40e_diag.c
-index de25514..dc6c41f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_diag.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_diag.c
-@@ -68,16 +68,16 @@ static i40e_status i40e_diag_reg_pattern_test(struct i40e_hw *hw,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h
+index 00ff35006..f8afbcb0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h
+@@ -113,8 +113,8 @@ enum i40e_hmc_lan_object_size {
+ #define I40E_HMC_L2OBJ_BASE_ALIGNMENT 512
+ #define I40E_HMC_OBJ_SIZE_TXQ         128
+ #define I40E_HMC_OBJ_SIZE_RXQ         32
+-#define I40E_HMC_OBJ_SIZE_FCOE_CNTX   128
+-#define I40E_HMC_OBJ_SIZE_FCOE_FILT   32
++#define I40E_HMC_OBJ_SIZE_FCOE_CNTX   64
++#define I40E_HMC_OBJ_SIZE_FCOE_FILT   64
  
- struct i40e_diag_reg_test_info i40e_reg_list[] = {
- 	/* offset               mask         elements   stride */
--	{I40E_QTX_CTL(0),       0x0000FFBF,  64, I40E_QTX_CTL(1) - I40E_QTX_CTL(0)},
-+	{I40E_QTX_CTL(0),       0x0000FFBF,   4, I40E_QTX_CTL(1) - I40E_QTX_CTL(0)},
- 	{I40E_PFINT_ITR0(0),    0x00000FFF,   3, I40E_PFINT_ITR0(1) - I40E_PFINT_ITR0(0)},
- 	{I40E_PFINT_ITRN(0, 0), 0x00000FFF,  64, I40E_PFINT_ITRN(0, 1) - I40E_PFINT_ITRN(0, 0)},
- 	{I40E_PFINT_ITRN(1, 0), 0x00000FFF,  64, I40E_PFINT_ITRN(1, 1) - I40E_PFINT_ITRN(1, 0)},
- 	{I40E_PFINT_ITRN(2, 0), 0x00000FFF,  64, I40E_PFINT_ITRN(2, 1) - I40E_PFINT_ITRN(2, 0)},
- 	{I40E_PFINT_STAT_CTL0,  0x0000000C,   1, 0},
- 	{I40E_PFINT_LNKLST0,    0x00001FFF,   1, 0},
--	{I40E_PFINT_LNKLSTN(0), 0x000007FF, 511, I40E_PFINT_LNKLSTN(1) - I40E_PFINT_LNKLSTN(0)},
--	{I40E_QINT_TQCTL(0),    0x000000FF, I40E_QINT_TQCTL_MAX_INDEX + 1, I40E_QINT_TQCTL(1) - I40E_QINT_TQCTL(0)},
--	{I40E_QINT_RQCTL(0),    0x000000FF, I40E_QINT_RQCTL_MAX_INDEX + 1, I40E_QINT_RQCTL(1) - I40E_QINT_RQCTL(0)},
-+	{I40E_PFINT_LNKLSTN(0), 0x000007FF,  64, I40E_PFINT_LNKLSTN(1) - I40E_PFINT_LNKLSTN(0)},
-+	{I40E_QINT_TQCTL(0),    0x000000FF,  64, I40E_QINT_TQCTL(1) - I40E_QINT_TQCTL(0)},
-+	{I40E_QINT_RQCTL(0),    0x000000FF,  64, I40E_QINT_RQCTL(1) - I40E_QINT_RQCTL(0)},
- 	{I40E_PFINT_ICR0_ENA,   0xF7F20000,   1, 0},
- 	{ 0 }
+ enum i40e_hmc_lan_rsrc_type {
+ 	I40E_HMC_LAN_FULL  = 0,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index f3f22b2..5f81bd5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -852,10 +852,7 @@ struct i40e_filter_program_desc {
+ 
+ /* Packet Classifier Types for filters */
+ enum i40e_filter_pctype {
+-	/* Note: Value 0-25 are reserved for future use */
+-	I40E_FILTER_PCTYPE_IPV4_TEREDO_UDP		= 26,
+-	I40E_FILTER_PCTYPE_IPV6_TEREDO_UDP		= 27,
+-	I40E_FILTER_PCTYPE_NONF_IPV4_1588_UDP		= 28,
++	/* Note: Values 0-28 are reserved for future use */
+ 	I40E_FILTER_PCTYPE_NONF_UNICAST_IPV4_UDP	= 29,
+ 	I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV4_UDP	= 30,
+ 	I40E_FILTER_PCTYPE_NONF_IPV4_UDP		= 31,
+@@ -864,8 +861,7 @@ enum i40e_filter_pctype {
+ 	I40E_FILTER_PCTYPE_NONF_IPV4_SCTP		= 34,
+ 	I40E_FILTER_PCTYPE_NONF_IPV4_OTHER		= 35,
+ 	I40E_FILTER_PCTYPE_FRAG_IPV4			= 36,
+-	/* Note: Value 37 is reserved for future use */
+-	I40E_FILTER_PCTYPE_NONF_IPV6_1588_UDP		= 38,
++	/* Note: Values 37-38 are reserved for future use */
+ 	I40E_FILTER_PCTYPE_NONF_UNICAST_IPV6_UDP	= 39,
+ 	I40E_FILTER_PCTYPE_NONF_MULTICAST_IPV6_UDP	= 40,
+ 	I40E_FILTER_PCTYPE_NONF_IPV6_UDP		= 41,
+@@ -877,7 +873,8 @@ enum i40e_filter_pctype {
+ 	/* Note: Value 47 is reserved for future use */
+ 	I40E_FILTER_PCTYPE_FCOE_OX			= 48,
+ 	I40E_FILTER_PCTYPE_FCOE_RX			= 49,
+-	/* Note: Value 50-62 are reserved for future use */
++	I40E_FILTER_PCTYPE_FCOE_OTHER			= 50,
++	/* Note: Values 51-62 are reserved for future use */
+ 	I40E_FILTER_PCTYPE_L2_PAYLOAD			= 63,
  };
+ 
 -- 
 1.8.3.1
