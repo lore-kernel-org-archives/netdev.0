@@ -1,25 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net] MAINTAINERS: Update Intel Wired Ethernet LAN Maintainers
-Date: Thu, 05 Dec 2013 20:01:26 -0500 (EST)
-Message-ID: <20131205.200126.829587994017374605.davem@davemloft.net>
-References: <1386289520-15950-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH 9/9] net: sh_eth: do not issue a wild PHY reset through BMCR
+Date: Thu, 5 Dec 2013 16:55:17 -0800
+Message-ID: <1386291317-1202-10-git-send-email-f.fainelli@gmail.com>
+References: <1386291317-1202-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386289520-15950-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <sebastian.hesselbarth@gmail.com>,
+	<sergei.shtylyov@cogentembedded.com>, <afleming@gmail.com>,
+	<kyle@moffetthome.net>, Florian Fainelli <f.fainelli@gmail.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:19161 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751130Ab3LFBEy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 20:04:54 -0500
+In-Reply-To: <1386291317-1202-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu,  5 Dec 2013 16:25:20 -0800
+The sh_eth driver issues an uncontrolled PHY reset through the MII
+register BMCR but fails to wait for the reset to complete, and will also
+implicitely wipe out all possible PHY fixups applied. Use phy_init_hw()
+which remedies both problems.
 
-> Remove Tushar and Peter (PJ) as maintainers, since they have moved out
-> of our group and no longer work on Wired Ethernet.
-> 
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/renesas/sh_eth.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Applied, thanks Jeff.
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index d256ce1..6761dde 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1704,7 +1704,10 @@ static int sh_eth_phy_start(struct net_device *ndev)
+ 		return ret;
+ 
+ 	/* reset phy - this also wakes it from PDOWN */
+-	phy_write(mdp->phydev, MII_BMCR, BMCR_RESET);
++	ret = phy_init_hw(mdp->phydev);
++	if (ret)
++		return ret;
++
+ 	phy_start(mdp->phydev);
+ 
+ 	return 0;
+-- 
+1.8.3.2
