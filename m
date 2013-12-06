@@ -1,32 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net 6/6] sctp: Fix FSF address in file headers
-Date: Fri, 06 Dec 2013 12:38:46 -0500 (EST)
-Message-ID: <20131206.123846.1794851889265553317.davem@davemloft.net>
-References: <1386340128-23397-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1386340128-23397-6-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Pull request: SIOCGHWTSTAMP ioctl
+Date: Fri, 6 Dec 2013 17:38:35 +0000
+Message-ID: <1386351515.1516.156.camel@bwh-desktop.uk.level5networks.com>
+References: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com>
+	 <20131205.194624.1335606571649336470.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	vyasevich@gmail.com, nhorman@tuxdriver.com
-To: jeffrey.t.kirsher@intel.com
+Cc: <netdev@vger.kernel.org>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>,
+	David Daney <david.daney@cavium.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Takahiro Shimizu <tshimizu818@gmail.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: David Miller <davem@davemloft.net>, <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40532 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758073Ab3LFRir (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 12:38:47 -0500
-In-Reply-To: <1386340128-23397-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:29762 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758073Ab3LFRik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 12:38:40 -0500
+In-Reply-To: <20131205.194624.1335606571649336470.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri,  6 Dec 2013 06:28:48 -0800
-
-> Several files refer to an old address for the Free Software Foundation
-> in the file header comment.  Resolve by replacing the address with
-> the URL <http://www.gnu.org/licenses/> so that we do not have to keep
-> updating the header comments anytime the address changes.
+On Thu, 2013-12-05 at 19:46 -0500, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Thu, 5 Dec 2013 23:37:12 +0000
 > 
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > 1. Add the SIOCGHWTSTAMP ioctl and update the timestamping
+> > documentation.
+> > 2. Implement SIOCGHWTSTAMP in most drivers that support SIOCSHWTSTAMP.
+> > 3. Add a test program to exercise SIOC{G,S}HWTSTAMP.
+> 
+> Pulled, thanks Ben.
 
-Applied.
+Thanks.  I hope all the drivers still work, as you didn't leave long for
+review.
+
+There are a few drivers I didn't touch because they don't appear to keep
+a soft copy of the timestamp configuration:
+
+drivers/net/ethernet/intel/igb/igb_main.c
+drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+drivers/net/ethernet/octeon/octeon_mgmt.c
+drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+
+phylib and the dp83640 driver will also need to be updated to support
+this.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
