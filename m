@@ -1,178 +1,46 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC] virtio_net: multicast address list never sent to host
-Date: Fri, 06 Dec 2013 09:38:35 -0500
-Message-ID: <52A1E16B.8050507@redhat.com>
-References: <20131205152052.064319c9@nehalam.linuxnetplumber.net>
-Reply-To: vyasevic@redhat.com
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [GIT PULL] xhci: Regression fix for 3.13.
+Date: Fri, 6 Dec 2013 07:25:12 -0800
+Message-ID: <20131206152512.GA23212@kroah.com>
+References: <cover.1386017042.git.sarah.a.sharp@linux.intel.com>
+ <20131202214205.GA26175@kroah.com>
+ <52A166CB.4020508@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	Alex Williamson <alex.williamson@hp.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sarah Sharp <sarah.a.sharp@linux.intel.com>,
+	linux-usb@vger.kernel.org, David Laight <David.Laight@ACULAB.COM>,
+	netdev@vger.kernel.org
+To: Mark Lord <mlord@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38473 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752886Ab3LFPWs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Dec 2013 10:22:48 -0500
-In-Reply-To: <20131205152052.064319c9@nehalam.linuxnetplumber.net>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:54995 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751341Ab3LFPXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 10:23:46 -0500
+Content-Disposition: inline
+In-Reply-To: <52A166CB.4020508@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/05/2013 06:20 PM, Stephen Hemminger wrote:
+On Fri, Dec 06, 2013 at 12:55:23AM -0500, Mark Lord wrote:
+> On 13-12-02 04:42 PM, Greg Kroah-Hartman wrote:
+> > On Mon, Dec 02, 2013 at 12:49:08PM -0800, Sarah Sharp wrote:
+> >> The following changes since commit c24cb6c8b501ebdf1aacec7960110a9741a45ced:
+> >>
+> >>   Merge tag 'fixes-for-v3.13-rc2' of git://git.kernel.org/pub/scm/linux/kernel/git/balbi/usb into usb-linus (2013-11-27 09:49:03 -0800)
+> >>
+> >> are available in the git repository at:
+> >>
+> >>
+> >>   git://git.kernel.org/pub/scm/linux/kernel/git/sarah/xhci.git tags/for-usb-linus-2013-12-02
+> > 
+> > Pulled and pushed out, thanks.
 > 
-> The virtio_net driver never sends the second address list to
-> the host. This is because send command takes a pointer to scatter list
-> to send but only inserts that one entry into the scatter list that
-> is sent to the host.
-> 
-> This bug has been there since:
-> commit f565a7c259d71cc186753653d978c646d2354b36
-> Author: Alex Williamson <alex.williamson@hp.com>
-> Date:   Wed Feb 4 09:02:45 2009 +0000
-> 
->     virtio_net: Add a MAC filter table
-> 
-> 
-> I also dropped the in argument since it is never used.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> 
-> 
-> --- a/drivers/net/virtio_net.c	2013-12-05 15:11:34.000000000 -0800
-> +++ b/drivers/net/virtio_net.c	2013-12-05 15:17:16.211568831 -0800
-> @@ -877,16 +877,16 @@ static netdev_tx_t start_xmit(struct sk_
->   * never fail unless improperly formated.
->   */
->  static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
-> -				 struct scatterlist *out,
-> -				 struct scatterlist *in)
-> +				 struct scatterlist *out, unsigned out_cnt)
->  {
->  	struct scatterlist *sgs[4], hdr, stat;
->  	struct virtio_net_ctrl_hdr ctrl;
->  	virtio_net_ctrl_ack status = ~0;
-> -	unsigned out_num = 0, in_num = 0, tmp;
-> +	unsigned out_num = 0, tmp;
->  
->  	/* Caller should know better */
->  	BUG_ON(!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ));
-> +	BUG_ON(out_cnt > 2);
->  
+> Did this commit make it into linux-3.12.3 ?
 
-Not sure if we need this. Right now we only pass 2, but if some
-future command needs more, this is yet another place that needs
-to change.
+There's this cool tool called 'git' where you can look these things
+up... :)
 
->  	ctrl.class = class;
->  	ctrl.cmd = cmd;
-> @@ -894,17 +894,14 @@ static bool virtnet_send_command(struct
->  	sg_init_one(&hdr, &ctrl, sizeof(ctrl));
->  	sgs[out_num++] = &hdr;
->  
-> -	if (out)
-> -		sgs[out_num++] = out;
-> -	if (in)
-> -		sgs[out_num + in_num++] = in;
-> +	while (out_cnt-- > 0)
-> +		sgs[out_num++] = out++;
+No, it's not there yet, as it's not in Linus's tree yet, give me a
+chance...
 
-I think we can skip sg_count and just use
-        while ((sg = sg_next(out)) != NULL)
-                sgs[out_num++] = sg;
-
-And we can probably do this loop for both 'in' and 'out' pointers.
-
--vlad
-
->  
->  	/* Add return status. */
->  	sg_init_one(&stat, &status, sizeof(status));
-> -	sgs[out_num + in_num++] = &stat;
-> +	sgs[out_num] = &stat;
->  
-> -	BUG_ON(out_num + in_num > ARRAY_SIZE(sgs));
-> -	BUG_ON(virtqueue_add_sgs(vi->cvq, sgs, out_num, in_num, vi, GFP_ATOMIC)
-> +	BUG_ON(virtqueue_add_sgs(vi->cvq, sgs, out_num, 1, vi, GFP_ATOMIC)
->  	       < 0);
->  
->  	if (unlikely(!virtqueue_kick(vi->cvq)))
-> @@ -936,7 +933,7 @@ static int virtnet_set_mac_address(struc
->  		sg_init_one(&sg, addr->sa_data, dev->addr_len);
->  		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
->  					  VIRTIO_NET_CTRL_MAC_ADDR_SET,
-> -					  &sg, NULL)) {
-> +					  &sg, 1)) {
->  			dev_warn(&vdev->dev,
->  				 "Failed to set mac address by vq command.\n");
->  			return -EINVAL;
-> @@ -1009,7 +1006,7 @@ static void virtnet_ack_link_announce(st
->  {
->  	rtnl_lock();
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_ANNOUNCE,
-> -				  VIRTIO_NET_CTRL_ANNOUNCE_ACK, NULL, NULL))
-> +				  VIRTIO_NET_CTRL_ANNOUNCE_ACK, NULL, 0))
->  		dev_warn(&vi->dev->dev, "Failed to ack link announce.\n");
->  	rtnl_unlock();
->  }
-> @@ -1027,7 +1024,7 @@ static int virtnet_set_queues(struct vir
->  	sg_init_one(&sg, &s, sizeof(s));
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MQ,
-> -				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg, NULL)) {
-> +				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg, 1)) {
->  		dev_warn(&dev->dev, "Fail to set num of queue pairs to %d\n",
->  			 queue_pairs);
->  		return -EINVAL;
-> @@ -1078,7 +1075,7 @@ static void virtnet_set_rx_mode(struct n
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
->  				  VIRTIO_NET_CTRL_RX_PROMISC,
-> -				  sg, NULL))
-> +				  sg, 1))
->  		dev_warn(&dev->dev, "Failed to %sable promisc mode.\n",
->  			 promisc ? "en" : "dis");
->  
-> @@ -1086,7 +1083,7 @@ static void virtnet_set_rx_mode(struct n
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
->  				  VIRTIO_NET_CTRL_RX_ALLMULTI,
-> -				  sg, NULL))
-> +				  sg, 1))
->  		dev_warn(&dev->dev, "Failed to %sable allmulti mode.\n",
->  			 allmulti ? "en" : "dis");
->  
-> @@ -1123,7 +1120,7 @@ static void virtnet_set_rx_mode(struct n
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
->  				  VIRTIO_NET_CTRL_MAC_TABLE_SET,
-> -				  sg, NULL))
-> +				  sg, 2))
->  		dev_warn(&dev->dev, "Failed to set MAC filter table.\n");
->  
->  	kfree(buf);
-> @@ -1138,7 +1135,7 @@ static int virtnet_vlan_rx_add_vid(struc
->  	sg_init_one(&sg, &vid, sizeof(vid));
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> -				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, NULL))
-> +				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, 1))
->  		dev_warn(&dev->dev, "Failed to add VLAN ID %d.\n", vid);
->  	return 0;
->  }
-> @@ -1152,7 +1149,7 @@ static int virtnet_vlan_rx_kill_vid(stru
->  	sg_init_one(&sg, &vid, sizeof(vid));
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> -				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, NULL))
-> +				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, 1))
->  		dev_warn(&dev->dev, "Failed to kill VLAN ID %d.\n", vid);
->  	return 0;
->  }
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+greg k-h
