@@ -1,72 +1,56 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH -next] etherdevice: Add
-	ether_addr_equal_unaligned
-Date: Fri, 06 Dec 2013 14:21:01 -0800
-Message-ID: <1386368461.31845.38.camel@joe-AO722>
-References: <1386317890.31845.26.camel@joe-AO722>
- <20131206.153944.1382127535160341376.davem@davemloft.net>
- <1386364621.31845.32.camel@joe-AO722>
- <20131206.163806.1555069105347405484.davem@davemloft.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: ems_usb: fix a leak in ems_usb_start_xmit()
+Date: Fri, 06 Dec 2013 23:28:12 +0100
+Message-ID: <6e046a57-0383-41ae-bc8c-8eaaa4709a4c@email.android.com>
+References: <1386363082-15144-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20131206.163806.1555069105347405484.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1386363082-15144-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a generic routine to test if possibly unaligned
-to u16 Ethernet addresses are equal.
 
-If CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set,
-this uses the slightly faster generic routine
-ether_addr_equal, otherwise this uses memcmp.
 
-Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
----
- include/linux/etherdevice.h | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
 
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index 3526e81..eb36845 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -266,6 +266,24 @@ static inline bool ether_addr_equal_64bits(const u8 addr1[6+2],
- }
- 
- /**
-+ * ether_addr_equal_unaligned - Compare two not u16 aligned Ethernet addresses
-+ * @addr1: Pointer to a six-byte array containing the Ethernet address
-+ * @addr2: Pointer other six-byte array containing the Ethernet address
-+ *
-+ * Compare two Ethernet addresses, returns true if equal
-+ *
-+ * Please note: Use only when any Ethernet address may not be u16 aligned.
-+ */
-+static inline bool ether_addr_equal_unaligned(const u8 *addr1, const u8 *addr2)
-+{
-+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-+	return ether_addr_equal(addr1, addr2);
-+#else
-+	return memcmp(addr1, addr2, ETH_ALEN) == 0;
-+#endif
-+}
-+
-+/**
-  * is_etherdev_addr - Tell if given Ethernet address belongs to the device.
-  * @dev: Pointer to a device structure
-  * @addr: Pointer to a six-byte array containing the Ethernet address
+
+Alexey Khoroshilov <khoroshilov@ispras.ru> schrieb:
+>There is spare code with obvious misprint in ems_usb_start_xmit():
+>usb_free_urb() should be used to deallocate urb instead of
+>usb_unanchor_urb().
+>
+>Found by Linux Driver Verification project (linuxtesting.org).
+>
+>Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+>---
+> drivers/net/can/usb/ems_usb.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/can/usb/ems_usb.c
+>b/drivers/net/can/usb/ems_usb.c
+>index 5f9a7ad9b964..beae1ec255f4 100644
+>--- a/drivers/net/can/usb/ems_usb.c
+>+++ b/drivers/net/can/usb/ems_usb.c
+>@@ -798,7 +798,7 @@ static netdev_tx_t ems_usb_start_xmit(struct
+>sk_buff *skb, struct net_device *ne
+> 	 * allowed (MAX_TX_URBS).
+> 	 */
+> 	if (!context) {
+>-		usb_unanchor_urb(urb);
+>+		usb_free_urb(urb);
+> 		usb_free_coherent(dev->udev, size, buf, urb->transfer_dma);
+> 
+
+looks like you are introducing a new use after free problem here ...
+
+> 		netdev_warn(netdev, "couldn't find free context\n");
+
+-- 
+Diese Nachricht wurde von meinem Android-Mobiltelefon mit K-9 Mail gesendet.
