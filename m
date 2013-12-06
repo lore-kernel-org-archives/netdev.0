@@ -1,66 +1,57 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 2/2] add support for IFA_F_MANAGETEMPADDR
-Date: Fri,  6 Dec 2013 09:46:27 +0100
-Message-ID: <1386319587-2149-2-git-send-email-jiri@resnulli.us>
-References: <1386319522-2102-1-git-send-email-jiri@resnulli.us>
- <1386319587-2149-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
-	stephen@networkplumber.org, hannes@stressinduktion.org,
-	vyasevich@gmail.com, dcbw@redhat.com, David.Laight@ACULAB.COM
-To: netdev@vger.kernel.org
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH v4] sctp: check the rto_min and rto_max
+Date: Fri, 6 Dec 2013 16:48:45 +0800
+Message-ID: <52A18F6D.9010606@huawei.com>
+References: <529FE2AD.5020700@huawei.com> <20131205133217.GA20349@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-sctp@vger.kernel.org>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:49340 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754069Ab3LFIqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 03:46:32 -0500
-Received: by mail-ea0-f178.google.com with SMTP id d10so149405eaj.23
-        for <netdev@vger.kernel.org>; Fri, 06 Dec 2013 00:46:31 -0800 (PST)
-In-Reply-To: <1386319587-2149-1-git-send-email-jiri@resnulli.us>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:56594 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753513Ab3LFItR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 03:49:17 -0500
+In-Reply-To: <20131205133217.GA20349@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- include/linux/if_addr.h | 1 +
- ip/ipaddress.c          | 6 ++++++
- 2 files changed, 7 insertions(+)
+On 2013/12/5 21:32, Neil Horman wrote:
+> On Thu, Dec 05, 2013 at 10:19:25AM +0800, Wang Weidong wrote:
+>> rto_min should be smaller than rto_max while rto_max should be larger
+>> than rto_min. Add two proc_handler for the checking. Add the check in
+>> sctp_setsockopt_rtoinfo.
+>> delete a blank line in proc_sctp_do_hmac_alg() declaration.
+>>
+>> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
+>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>> ---
+>>  net/sctp/socket.c |  5 ++++
+>>  net/sctp/sysctl.c | 74 +++++++++++++++++++++++++++++++++++++++++++++++++++----
+>>  2 files changed, 74 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+>> index 72046b9..2e1af1b 100644
+>> --- a/net/sctp/socket.c
+>> +++ b/net/sctp/socket.c
+>> @@ -2818,6 +2818,11 @@ static int sctp_setsockopt_rtoinfo(struct sock *sk, char __user *optval, unsigne
+>>  	if (copy_from_user(&rtoinfo, optval, optlen))
+>>  		return -EFAULT;
+>>  
+>> +	if (rtoinfo.srto_min < 1 ||
+>> +	    rtoinfo.srto_max > 86400000 ||
+> These should be defiend to some descriptive value.
+> 
+> 
+Hi Neil,
 
-diff --git a/include/linux/if_addr.h b/include/linux/if_addr.h
-index cced59f..e1e95ce 100644
---- a/include/linux/if_addr.h
-+++ b/include/linux/if_addr.h
-@@ -45,6 +45,7 @@ enum {
- #define IFA_F_DEPRECATED	0x20
- #define IFA_F_TENTATIVE		0x40
- #define IFA_F_PERMANENT		0x80
-+#define IFA_F_MANAGETEMPADDR	0x0100
- 
- struct ifa_cacheinfo {
- 	__u32	ifa_prefered;
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index e012f8e..a4a19cc 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -703,6 +703,10 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 		ifa_flags &= ~IFA_F_NODAD;
- 		fprintf(fp, "nodad ");
- 	}
-+	if (ifa_flags & IFA_F_MANAGETEMPADDR) {
-+		ifa_flags &= ~IFA_F_MANAGETEMPADDR;
-+		fprintf(fp, "mngtmpaddr ");
-+	}
- 	if (!(ifa_flags & IFA_F_PERMANENT)) {
- 		fprintf(fp, "dynamic ");
- 	} else
-@@ -1345,6 +1349,8 @@ static int ipaddr_modify(int cmd, int flags, int argc, char **argv)
- 			ifa_flags |= IFA_F_HOMEADDRESS;
- 		} else if (strcmp(*argv, "nodad") == 0) {
- 			ifa_flags |= IFA_F_NODAD;
-+		} else if (strcmp(*argv, "mngtmpaddr") == 0) {
-+			ifa_flags |= IFA_F_MANAGETEMPADDR;
- 		} else {
- 			if (strcmp(*argv, "local") == 0) {
- 				NEXT_ARG();
--- 
-1.8.3.1
+Should I define it in net/sctp/sctp.h, so sysctl.c can use it as well.
+Or I just define it in the socket.c same as the definition in sysctl.c?
+
+Regards.
+Wang
+
+> 
