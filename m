@@ -1,51 +1,34 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [ethtool] ethtool: Fix FSF address in file headers
-Date: Fri,  6 Dec 2013 11:32:00 -0800
-Message-ID: <1386358320-26283-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:43795 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753417Ab3LFTcX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Dec 2013 14:32:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-next 2013-12-06
+Date: Fri, 06 Dec 2013 14:45:26 -0500 (EST)
+Message-ID: <20131206.144526.1713594401898800646.davem@davemloft.net>
+References: <20131206184920.GG13285@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131206184920.GG13285@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Several files refer to an old address for the Free Software Foundation
-in the file header comment.  Resolve by replacing the address with
-the URL <http://www.gnu.org/licenses/> so that we do not have to keep
-updating the header comments anytime the address changes.
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 6 Dec 2013 13:49:20 -0500
 
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- COPYING | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+> Please pull this batch of updates intended for the 3.14 stream...
+> 
+> For the mac80211 bits, Johannes says:
+> 
+> "I have various improvements/cleanups/fixes all over, but the shortlog
+> shows that Luis's regulatory work and mesh work from the cozybit folks
+> are the biggest ones, along with the CSA fixes."
+> 
+> Along with that, we have big batches of updates to brcmfmac, rtlwifi,
+> and ath9k.  There are updates to wcn36xx, rt2x00, and a handful of
+> others as well.
+> 
+> Please let me know if there are problems!
 
-diff --git a/COPYING b/COPYING
-index d60c31a..ea117cd 100644
---- a/COPYING
-+++ b/COPYING
-@@ -1,8 +1,7 @@
- 		    GNU GENERAL PUBLIC LICENSE
- 		       Version 2, June 1991
- 
-- Copyright (C) 1989, 1991 Free Software Foundation, Inc.
--     59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ Copyright (C) 1989, 1991 Free Software Foundation, Inc. <http://fsf.org/>
-  Everyone is permitted to copy and distribute verbatim copies
-  of this license document, but changing it is not allowed.
- 
-@@ -304,8 +303,7 @@ the "copyright" line and a pointer to where the full notice is found.
-     GNU General Public License for more details.
- 
-     You should have received a copy of the GNU General Public License
--    along with this program; if not, write to the Free Software
--    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+    along with this program; if not, see <http://www.gnu.org/licenses/>.
- 
- 
- Also add information on how to contact you by electronic and paper mail.
--- 
-1.8.3.1
+Pulled, thanks a lot John.
