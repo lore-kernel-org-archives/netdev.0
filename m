@@ -1,56 +1,103 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH net-next 0/3] IPComp fixes
-Date: Fri, 6 Dec 2013 17:58:30 +0800
-Message-ID: <52A19FC6.8060107@windriver.com>
-References: <1385607161-27597-1-git-send-email-fan.du@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:55779 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751961Ab3LFJ63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 04:58:29 -0500
-In-Reply-To: <1385607161-27597-1-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: freddy@asix.com.tw
+Subject: [PATCH 1/1] AX88179_178A: Enable the hardware pseudo header in case of the NET_IP_ALIGN equals 0
+Date: Fri,  6 Dec 2013 17:58:18 +0800
+Message-ID: <1386323898-2246-1-git-send-email-freddy@asix.com.tw>
+Cc: Freddy Xin <freddy@asix.com.tw>
+To: davem@davemloft.net, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	louis@asix.com.tw, allan@asix.com.tw
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hallo, Steffen
+From: Freddy Xin <freddy@asix.com.tw>
 
-Do I need to resend this IPcomp patch set for review?
+The AX88179_178A has a hardware feature that it can insert a 2-bytes pseudo
+header in front of each received frame by setting the AX_RX_CTL_IPE bit.
+This feature is used to let the IP header be aligned on a doubleword-aligned address,
+but the NET_IP_ALIGN may equals to 2 and the __netdev_alloc_skb_ip_align in USBNET will
+reserve 2 bytes also, so in this case the driver shouldn't enable this bit.
 
-Thanks :)
+This patch modifies the driver to set AX_RX_CTL_IPE just in case of the NET_IP_ALIGN equals 0.
 
-On 2013=E5=B9=B411=E6=9C=8828=E6=97=A5 10:52, Fan Du wrote:
-> Hi,
->
-> This patchset includes bug fix focusing on IPComp mainly, which addre=
-sses
-> IPComp Compression Parameter Index(CPI, 16bits of 32bits SPI value) p=
-roblem.
->
-> And other issue is the compression part, undesirable packet will not =
-be
-> compressed, and then send into wire, this packet will be dropped by p=
-olicy
-> checking in the receiver side.
->
-> Fan Du (3):
->    xfrm: check user specified spi for IPComp
->    xfrm: clamp down spi range for IPComp when allocating spi
->    xfrm: Restrict "level use" for IPComp configuration
->
->   net/key/af_key.c      |    6 ++++++
->   net/xfrm/xfrm_state.c |   13 +++++++++++++
->   net/xfrm/xfrm_user.c  |    7 ++++++-
->   3 files changed, 25 insertions(+), 1 deletion(-)
->
+Signed-off-by: Freddy Xin <freddy@asix.com.tw>
+---
+ drivers/net/usb/ax88179_178a.c | 28 +++++++++++++++++++---------
+ 1 file changed, 19 insertions(+), 9 deletions(-)
 
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan fan
+diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
+index 8e8d0fc..d84f0e0 100644
+--- a/drivers/net/usb/ax88179_178a.c
++++ b/drivers/net/usb/ax88179_178a.c
+@@ -473,8 +473,10 @@ static int ax88179_resume(struct usb_interface *intf)
+ 	msleep(100);
+ 
+ 	/* Configure RX control register => start operation */
+-	tmp16 = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_IPE | AX_RX_CTL_START |
+-		AX_RX_CTL_AP | AX_RX_CTL_AMALL | AX_RX_CTL_AB;
++	tmp16 = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_START | AX_RX_CTL_AP |
++		AX_RX_CTL_AMALL | AX_RX_CTL_AB;
++	if (NET_IP_ALIGN == 0)
++		tmp16 |= AX_RX_CTL_IPE;
+ 	ax88179_write_cmd_nopm(dev, AX_ACCESS_MAC, AX_RX_CTL, 2, 2, &tmp16);
+ 
+ 	return usbnet_resume(intf);
+@@ -599,7 +601,9 @@ static void ax88179_set_multicast(struct net_device *net)
+ 	struct ax88179_data *data = (struct ax88179_data *)dev->data;
+ 	u8 *m_filter = ((u8 *)dev->data) + 12;
+ 
+-	data->rxctl = (AX_RX_CTL_START | AX_RX_CTL_AB | AX_RX_CTL_IPE);
++	data->rxctl = (AX_RX_CTL_START | AX_RX_CTL_AB);
++	if (NET_IP_ALIGN == 0)
++		data->rxctl |= AX_RX_CTL_IPE;
+ 
+ 	if (net->flags & IFF_PROMISC) {
+ 		data->rxctl |= AX_RX_CTL_PRO;
+@@ -1054,8 +1058,10 @@ static int ax88179_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_TXCOE_CTL, 1, 1, tmp);
+ 
+ 	/* Configure RX control register => start operation */
+-	*tmp16 = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_IPE | AX_RX_CTL_START |
+-		 AX_RX_CTL_AP | AX_RX_CTL_AMALL | AX_RX_CTL_AB;
++	*tmp16 = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_START | AX_RX_CTL_AP |
++		 AX_RX_CTL_AMALL | AX_RX_CTL_AB;
++	if (NET_IP_ALIGN == 0)
++		*tmp16 |= AX_RX_CTL_IPE;
+ 	ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_RX_CTL, 2, 2, tmp16);
+ 
+ 	*tmp = AX_MONITOR_MODE_PMETYPE | AX_MONITOR_MODE_PMEPOL |
+@@ -1143,7 +1149,8 @@ static int ax88179_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 
+ 		if (pkt_cnt == 0) {
+ 			/* Skip IP alignment psudo header */
+-			skb_pull(skb, 2);
++			if (NET_IP_ALIGN == 0)
++				skb_pull(skb, 2);
+ 			skb->len = pkt_len;
+ 			skb_set_tail_pointer(skb, pkt_len);
+ 			skb->truesize = pkt_len + sizeof(struct sk_buff);
+@@ -1154,7 +1161,8 @@ static int ax88179_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 		ax_skb = skb_clone(skb, GFP_ATOMIC);
+ 		if (ax_skb) {
+ 			ax_skb->len = pkt_len;
+-			ax_skb->data = skb->data + 2;
++			if (NET_IP_ALIGN == 0)
++				ax_skb->data = skb->data + 2;
+ 			skb_set_tail_pointer(ax_skb, pkt_len);
+ 			ax_skb->truesize = pkt_len + sizeof(struct sk_buff);
+ 			ax88179_rx_checksum(ax_skb, pkt_hdr);
+@@ -1328,8 +1336,10 @@ static int ax88179_reset(struct usbnet *dev)
+ 	ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_TXCOE_CTL, 1, 1, tmp);
+ 
+ 	/* Configure RX control register => start operation */
+-	*tmp16 = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_IPE | AX_RX_CTL_START |
+-		 AX_RX_CTL_AP | AX_RX_CTL_AMALL | AX_RX_CTL_AB;
++	*tmp16 = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_START | AX_RX_CTL_AP |
++		 AX_RX_CTL_AMALL | AX_RX_CTL_AB;
++	if (NET_IP_ALIGN == 0)
++		*tmp16 |= AX_RX_CTL_IPE;
+ 	ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_RX_CTL, 2, 2, tmp16);
+ 
+ 	*tmp = AX_MONITOR_MODE_PMETYPE | AX_MONITOR_MODE_PMEPOL |
+-- 
+1.8.3.2
