@@ -1,35 +1,39 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: [net-next PATCHv2 3/8] macvtap: remove the dead branch
-Date: Fri,  6 Dec 2013 10:24:04 +0800
-Message-ID: <1386296649-6453-4-git-send-email-zwu.kernel@gmail.com>
-References: <1386296649-6453-1-git-send-email-zwu.kernel@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386296649-6453-1-git-send-email-zwu.kernel@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: [PATCH net v5 2/2] net: sched: htb: fix calculation of quantum
+Date: Fri, 6 Dec 2013 10:36:26 +0800
+Message-ID: <52A1382A.6030504@huawei.com>
+References: <1386227457-86900-1-git-send-email-yangyingliang@huawei.com>	 <1386227457-86900-3-git-send-email-yangyingliang@huawei.com> <1386245932.30495.169.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<brouer@redhat.com>, <jpirko@redhat.com>, <jbrouer@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:2551 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751807Ab3LFCg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 21:36:58 -0500
+In-Reply-To: <1386245932.30495.169.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+On 2013/12/5 20:18, Eric Dumazet wrote:
+> On Thu, 2013-12-05 at 15:10 +0800, Yang Yingliang wrote:
+>>  	if (!cl->level) {
+>> -		cl->quantum = hopt->rate.rate / q->rate2quantum;
+>> +		u64 quantum = div64_u64(cl->rate.rate_bytes_ps,
+>> +					q->rate2quantum);
+> 
+> 		q->rate2quantum being 32bit, prefer the following :
+> 
+> 		u64 quantum = cl->rate.rate_bytes_ps;
+> 
+> 		do_div(quantum, q->rate2quantum);
+> 
+> 		Since it maps to better assembly code on 32bit arches.
 
-Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
----
- drivers/net/macvtap.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+Change it in v6, thanks!
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 9093004..d271fb4 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -779,8 +779,6 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 			return -EINVAL;
- 
- 		ret = macvtap_skb_to_vnet_hdr(skb, &vnet_hdr);
--		if (ret)
--			return ret;
- 
- 		if (memcpy_toiovecend(iv, (void *)&vnet_hdr, 0, sizeof(vnet_hdr)))
- 			return -EFAULT;
--- 
-1.7.6.5
+Regards,
+Yang
