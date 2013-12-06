@@ -1,70 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFCv2 3/6] net: phy: provide phy_resume/phy_suspend helpers
-Date: Thu, 5 Dec 2013 16:08:44 -0800
-Message-ID: <CAGVrzcaTVbHCty2RWZM9jvETYVHV8fFRV1RXOYVauzf0-Arj7g@mail.gmail.com>
-References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com> <1386171888-28190-4-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH v2] virtio-net: free bufs correctly on invalid packet
+	length
+Date: Thu, 5 Dec 2013 16:09:22 -0800
+Message-ID: <CANJ5vPJgN+kc3STB9XYUxoKygWVWwen2Si6UmDKByz--qzH_Mg@mail.gmail.com>
+References: <1386278045-23542-1-git-send-email-mwdalton@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386171888-28190-4-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrey Vagin <avagin@openvz.org>, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>, Michael Dalton <mwdalton@google.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1386278045-23542-1-git-send-email-mwdalton@google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-2013/12/4 Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>:
-> This adds helper functions to resume and suspend a given phy_device
-> by calling the corresponding driver callbacks if available.
->
-> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-> ---
-> Changelog:
-> RFCv1->RFCv2:
-> - only suspend if WOL is not enabled
-> - remove EXPORT_SYMBOL for phy_suspend/resume
->
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: Mugunthan V N <mugunthanvnm@ti.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-kernel@vger.kernel.org
-> ---
->  drivers/net/phy/phy_device.c |   24 ++++++++++++++++++++++++
->  include/linux/phy.h          |    2 ++
->  2 files changed, 26 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index d6447b3..6f0e9e4 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -625,6 +625,30 @@ void phy_detach(struct phy_device *phydev)
->  }
->  EXPORT_SYMBOL(phy_detach);
->
-> +int phy_suspend(struct phy_device *phydev)
-> +{
-> +       struct phy_driver *phydrv = to_phy_driver(phydev->dev.driver);
-> +       struct ethtool_wolinfo wol;
-> +
-> +       /* If the device has WOL enabled, we cannot suspend the PHY */
-> +       wol.cmd = ETHTOOL_GWOL;
-> +       phy_ethtool_get_wol(phydev, &wol);
-> +       if (wol.wolopts)
-> +               return -EBUSY;
+Hi,
 
-I wonder if we should not set a flag in the phy device structure which
-says "someone called my phydrv->set_wol() callback, this succeeded and
-WoL is now enabled for me", rather than using this potentially racy
-call? This would have to be modified in phy_ethtool_set_wol() for
-instance?
+A quick note on this patch: I have confirmed that without this
+patch a kernel crash occurs if we force a 'packet too short' error
+sufficiently many times. This patch eliminates the kernel crash.
 
-This is kind of theoretical though as I can't picture a case where
-this sequence of events would happen in real-life.
---
-Florian
+Since this crash would be triggered by a hypervisor bug, I made a
+small change not reflected in the above patch to make the crash easier
+to reproduce for testing purposes. I treated 1 out of every 128 packets
+with len < MERGE_BUFFER_LEN as 'too short'. With this change in
+place, just running netperf will cause the sender to crash very quickly
+(the receiver will transmit pure data ACKs that meet the drop criteria).
+
+If anyone would like to reproduce the crash using the above setup,
+I added an unsigned int num_packets field to struct receive_queue and
+changed the if condition for the packet too short check in receive_buf()
+from:
+        if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
+to:
+        if (unlikely((len < sizeof(struct virtio_net_hdr) + ETH_HLEN) ||
+                     (len < MERGE_BUFFER_LEN &&
+                      ((++rq->num_packets & 127) == 0)))) {
+
+Best,
+
+Mike
