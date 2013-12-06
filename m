@@ -1,73 +1,47 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net v6 2/2] net: sched: htb: fix the calculation of quantum
-Date: Fri, 6 Dec 2013 15:00:05 +0800
-Message-ID: <1386313205-87660-3-git-send-email-yangyingliang@huawei.com>
-References: <1386313205-87660-1-git-send-email-yangyingliang@huawei.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Subject: Re: [PATCH 2/2] net/fddi: Replace local marco with PCI standard macro
+Date: Fri, 6 Dec 2013 15:11:20 +0800
+Message-ID: <52A17898.1090004@huawei.com>
+References: <1386243482-32856-1-git-send-email-wangyijing@huawei.com>	<alpine.LFD.2.10.1312052154190.1599@eddie.linux-mips.org>	<52A13F34.2010403@huawei.com> <20131205.234420.2000965496889063263.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
-	<jbrouer@redhat.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:4038 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751041Ab3LFHBB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 02:01:01 -0500
-In-Reply-To: <1386313205-87660-1-git-send-email-yangyingliang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <macro@linux-mips.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <guohanjun@huawei.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131205.234420.2000965496889063263.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now, 32bit rates may be not the true rate.
-So use rate_bytes_ps which is from
-max(rate32, rate64) to calcualte quantum.
+On 2013/12/6 12:44, David Miller wrote:
+> From: Yijing Wang <wangyijing@huawei.com>
+> Date: Fri, 6 Dec 2013 11:06:28 +0800
+> 
+>> On 2013/12/6 6:06, Maciej W. Rozycki wrote:
+>>> On Thu, 5 Dec 2013, Yijing Wang wrote:
+>>>
+>>>> Replace local marco DFX_BUS_PCI with PCI standard marco
+>>>> dev_is_pci().
+>>>
+>>>  Typos above: marco -> macro
+>>
+>> Sorry for the mistake, David, should i need to resend this patch to fix this typo error?
+> 
+> You have to resubmit all of these conversions again because you posted
+> them before the net-next tree was even open for submissions.
+> 
+> So you might as well fix the typos etc. while doing so.
+> 
+> 
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
- net/sched/sch_htb.c | 20 ++++++++++++--------
- 1 file changed, 12 insertions(+), 8 deletions(-)
+OK, I have resent the two refreshed patches.
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 0e1e38b..717b210 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1477,11 +1477,22 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 		sch_tree_lock(sch);
- 	}
- 
-+	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
-+
-+	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
-+
-+	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
-+	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
-+
- 	/* it used to be a nasty bug here, we have to check that node
- 	 * is really leaf before changing cl->un.leaf !
- 	 */
- 	if (!cl->level) {
--		cl->quantum = hopt->rate.rate / q->rate2quantum;
-+		u64 quantum = cl->rate.rate_bytes_ps;
-+
-+		do_div(quantum, q->rate2quantum);
-+		cl->quantum = min_t(u64, quantum, INT_MAX);
-+
- 		if (!hopt->quantum && cl->quantum < 1000) {
- 			pr_warning(
- 			       "HTB: quantum of class %X is small. Consider r2q change.\n",
-@@ -1500,13 +1511,6 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 			cl->prio = TC_HTB_NUMPRIO - 1;
- 	}
- 
--	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
--
--	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
--
--	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
--	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
--
- 	cl->buffer = PSCHED_TICKS2NS(hopt->buffer);
- 	cl->cbuffer = PSCHED_TICKS2NS(hopt->cbuffer);
- 
+
+Thanks!
+Yijing.
+
+
 -- 
-1.8.0
+Thanks!
+Yijing
