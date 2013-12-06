@@ -1,56 +1,56 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] can: ems_usb: fix a leak in ems_usb_start_xmit()
-Date: Fri, 06 Dec 2013 23:28:12 +0100
-Message-ID: <6e046a57-0383-41ae-bc8c-8eaaa4709a4c@email.android.com>
-References: <1386363082-15144-1-git-send-email-khoroshilov@ispras.ru>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH -next] batadv: Slight optimization of
+	batadv_compare_eth
+Date: Fri, 06 Dec 2013 14:39:46 -0800
+Message-ID: <1386369586.31845.42.camel@joe-AO722>
+References: <1386317890.31845.26.camel@joe-AO722>
+ <20131206.153944.1382127535160341376.davem@davemloft.net>
+ <1386364621.31845.32.camel@joe-AO722>
+ <20131206.163806.1555069105347405484.davem@davemloft.net>
+ <1386368461.31845.38.camel@joe-AO722>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ldv-project@linuxtesting.org
-To: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386363082-15144-1-git-send-email-khoroshilov@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1386368461.31845.38.camel@joe-AO722>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
+Use the newly added generic routine ether_addr_equal_unaligned
+to test if possibly unaligned to u16 Ethernet addresses are equal.
 
+This slightly improves comparison time for systems with
+CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS.
 
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+---
+ net/batman-adv/main.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
-Alexey Khoroshilov <khoroshilov@ispras.ru> schrieb:
->There is spare code with obvious misprint in ems_usb_start_xmit():
->usb_free_urb() should be used to deallocate urb instead of
->usb_unanchor_urb().
->
->Found by Linux Driver Verification project (linuxtesting.org).
->
->Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
->---
-> drivers/net/can/usb/ems_usb.c | 2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
->
->diff --git a/drivers/net/can/usb/ems_usb.c
->b/drivers/net/can/usb/ems_usb.c
->index 5f9a7ad9b964..beae1ec255f4 100644
->--- a/drivers/net/can/usb/ems_usb.c
->+++ b/drivers/net/can/usb/ems_usb.c
->@@ -798,7 +798,7 @@ static netdev_tx_t ems_usb_start_xmit(struct
->sk_buff *skb, struct net_device *ne
-> 	 * allowed (MAX_TX_URBS).
-> 	 */
-> 	if (!context) {
->-		usb_unanchor_urb(urb);
->+		usb_free_urb(urb);
-> 		usb_free_coherent(dev->udev, size, buf, urb->transfer_dma);
-> 
-
-looks like you are introducing a new use after free problem here ...
-
-> 		netdev_warn(netdev, "couldn't find free context\n");
-
--- 
-Diese Nachricht wurde von meinem Android-Mobiltelefon mit K-9 Mail gesendet.
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index f94f287b..322dd73 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -266,7 +266,7 @@ static inline void batadv_dbg(int type __always_unused,
+  */
+ static inline int batadv_compare_eth(const void *data1, const void *data2)
+ {
+-	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
++	return ether_addr_equal_unaligned(data1, data2);
+ }
+ 
+ /**
