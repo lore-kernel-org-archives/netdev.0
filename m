@@ -1,436 +1,178 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/1] tipc: remove interface state
-	mirroring in bearer
-Date: Fri,  6 Dec 2013 10:08:00 -0500
-Message-ID: <1386342480-2382-1-git-send-email-jon.maloy@ericsson.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [RFC] virtio_net: multicast address list never sent to host
+Date: Fri, 06 Dec 2013 09:38:35 -0500
+Message-ID: <52A1E16B.8050507@redhat.com>
+References: <20131205152052.064319c9@nehalam.linuxnetplumber.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	Alex Williamson <alex.williamson@hp.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38473 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752886Ab3LFPWs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Dec 2013 10:22:48 -0500
+In-Reply-To: <20131205152052.064319c9@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+On 12/05/2013 06:20 PM, Stephen Hemminger wrote:
+> 
+> The virtio_net driver never sends the second address list to
+> the host. This is because send command takes a pointer to scatter list
+> to send but only inserts that one entry into the scatter list that
+> is sent to the host.
+> 
+> This bug has been there since:
+> commit f565a7c259d71cc186753653d978c646d2354b36
+> Author: Alex Williamson <alex.williamson@hp.com>
+> Date:   Wed Feb 4 09:02:45 2009 +0000
+> 
+>     virtio_net: Add a MAC filter table
+> 
+> 
+> I also dropped the in argument since it is never used.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
+> 
+> --- a/drivers/net/virtio_net.c	2013-12-05 15:11:34.000000000 -0800
+> +++ b/drivers/net/virtio_net.c	2013-12-05 15:17:16.211568831 -0800
+> @@ -877,16 +877,16 @@ static netdev_tx_t start_xmit(struct sk_
+>   * never fail unless improperly formated.
+>   */
+>  static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
+> -				 struct scatterlist *out,
+> -				 struct scatterlist *in)
+> +				 struct scatterlist *out, unsigned out_cnt)
+>  {
+>  	struct scatterlist *sgs[4], hdr, stat;
+>  	struct virtio_net_ctrl_hdr ctrl;
+>  	virtio_net_ctrl_ack status = ~0;
+> -	unsigned out_num = 0, in_num = 0, tmp;
+> +	unsigned out_num = 0, tmp;
+>  
+>  	/* Caller should know better */
+>  	BUG_ON(!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ));
+> +	BUG_ON(out_cnt > 2);
+>  
 
-struct 'tipc_bearer' is a generic representation of the underlying
-media type, and exists in a one-to-one relationship to each interface
-TIPC is using. The struct contains a 'blocked' flag that mirrors the
-operational and execution state of the represented interface, and is
-updated through notification calls from the latter. The users of
-tipc_bearer are checking this flag before each attempt to send a
-packet via the interface.
+Not sure if we need this. Right now we only pass 2, but if some
+future command needs more, this is yet another place that needs
+to change.
 
-This state mirroring serves no purpose in the current code base. TIPC
-links will not discover a media failure any faster through this
-mechanism, and in reality the flag only adds overhead at packet
-sending and reception.
+>  	ctrl.class = class;
+>  	ctrl.cmd = cmd;
+> @@ -894,17 +894,14 @@ static bool virtnet_send_command(struct
+>  	sg_init_one(&hdr, &ctrl, sizeof(ctrl));
+>  	sgs[out_num++] = &hdr;
+>  
+> -	if (out)
+> -		sgs[out_num++] = out;
+> -	if (in)
+> -		sgs[out_num + in_num++] = in;
+> +	while (out_cnt-- > 0)
+> +		sgs[out_num++] = out++;
 
-Furthermore, the fact that the flag needs to be protected by a spinlock
-aggregated into tipc_bearer has turned out to cause a serious and
-completely unnecessary deadlock problem.
+I think we can skip sg_count and just use
+        while ((sg = sg_next(out)) != NULL)
+                sgs[out_num++] = sg;
 
-CPU0                                    CPU1
-----                                    ----
-Time 0: bearer_disable()                link_timeout()
-Time 1:   spin_lock_bh(&b_ptr->lock)      tipc_link_push_queue()
-Time 2:   tipc_link_delete()                tipc_bearer_blocked(b_ptr)
-Time 3:     k_cancel_timer(&req->timer)       spin_lock_bh(&b_ptr->lock)
-Time 4:       del_timer_sync(&req->timer)
+And we can probably do this loop for both 'in' and 'out' pointers.
 
-I.e., del_timer_sync() on CPU0 never returns, because the timer handler
-on CPU1 is waiting for the bearer lock.
+-vlad
 
-We eliminate the 'blocked' flag from struct tipc_bearer, along with all
-tests on this flag. This not only resolves the deadlock, but also
-simplifies and speeds up the data path execution of TIPC. It also fits
-well into our ongoing effort to make the locking policy simpler and
-more manageable.
-
-An effect of this change is that we can get rid of functions such as
-tipc_bearer_blocked(), tipc_continue() and tipc_block_bearer().
-We replace the latter with a new function, tipc_reset_bearer(), which
-resets all links associated to the bearer immediately after an
-interface goes down.
-
-A user might notice one slight change in link behaviour after this
-change. When an interface goes down, (e.g. through a NETDEV_DOWN
-event) all attached links will be reset immediately, instead of
-leaving it to each link to detect the failure through a timer-driven
-mechanism. We consider this an improvement, and see no obvious risks
-with the new behavior.
-
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Paul Gortmaker <Paul.Gortmaker@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/bcast.c     |    6 ------
- net/tipc/bearer.c    |   33 +++---------------------------
- net/tipc/bearer.h    |    6 +-----
- net/tipc/discover.c  |   17 ++++------------
- net/tipc/eth_media.c |   14 ++-----------
- net/tipc/ib_media.c  |   14 ++-----------
- net/tipc/link.c      |   55 +++++++++++++++-----------------------------------
- 7 files changed, 28 insertions(+), 117 deletions(-)
-
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 0d44025..4c2a80b 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -621,12 +621,6 @@ static int tipc_bcbearer_send(struct sk_buff *buf, struct tipc_bearer *unused1,
- 		if (!p)
- 			break; /* No more bearers to try */
- 
--		if (tipc_bearer_blocked(p)) {
--			if (!s || tipc_bearer_blocked(s))
--				continue; /* Can't use either bearer */
--			b = s;
--		}
--
- 		tipc_nmap_diff(&bcbearer->remains, &b->nodes,
- 			       &bcbearer->remains_new);
- 		if (bcbearer->remains_new.count == bcbearer->remains.count)
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 3f9707a..c2101c0 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -275,31 +275,6 @@ void tipc_bearer_remove_dest(struct tipc_bearer *b_ptr, u32 dest)
- 	tipc_disc_remove_dest(b_ptr->link_req);
- }
- 
--/*
-- * Interrupt enabling new requests after bearer blocking:
-- * See bearer_send().
-- */
--void tipc_continue(struct tipc_bearer *b)
--{
--	spin_lock_bh(&b->lock);
--	b->blocked = 0;
--	spin_unlock_bh(&b->lock);
--}
--
--/*
-- * tipc_bearer_blocked - determines if bearer is currently blocked
-- */
--int tipc_bearer_blocked(struct tipc_bearer *b)
--{
--	int res;
--
--	spin_lock_bh(&b->lock);
--	res = b->blocked;
--	spin_unlock_bh(&b->lock);
--
--	return res;
--}
--
- /**
-  * tipc_enable_bearer - enable bearer with the given name
-  */
-@@ -420,17 +395,16 @@ exit:
- }
- 
- /**
-- * tipc_block_bearer - Block the bearer, and reset all its links
-+ * tipc_reset_bearer - Reset all links established over this bearer
-  */
--int tipc_block_bearer(struct tipc_bearer *b_ptr)
-+int tipc_reset_bearer(struct tipc_bearer *b_ptr)
- {
- 	struct tipc_link *l_ptr;
- 	struct tipc_link *temp_l_ptr;
- 
- 	read_lock_bh(&tipc_net_lock);
--	pr_info("Blocking bearer <%s>\n", b_ptr->name);
-+	pr_info("Resetting bearer <%s>\n", b_ptr->name);
- 	spin_lock_bh(&b_ptr->lock);
--	b_ptr->blocked = 1;
- 	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
- 		struct tipc_node *n_ptr = l_ptr->owner;
- 
-@@ -456,7 +430,6 @@ static void bearer_disable(struct tipc_bearer *b_ptr)
- 
- 	pr_info("Disabling bearer <%s>\n", b_ptr->name);
- 	spin_lock_bh(&b_ptr->lock);
--	b_ptr->blocked = 1;
- 	b_ptr->media->disable_media(b_ptr);
- 	list_for_each_entry_safe(l_ptr, temp_l_ptr, &b_ptr->links, link_list) {
- 		tipc_link_delete(l_ptr);
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index e5e04be..cc780bb 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -108,7 +108,6 @@ struct tipc_media {
-  * struct tipc_bearer - TIPC bearer structure
-  * @usr_handle: pointer to additional media-specific information about bearer
-  * @mtu: max packet size bearer can support
-- * @blocked: non-zero if bearer is blocked
-  * @lock: spinlock for controlling access to bearer
-  * @addr: media-specific address associated with bearer
-  * @name: bearer name (format = media:interface)
-@@ -130,7 +129,6 @@ struct tipc_media {
- struct tipc_bearer {
- 	void *usr_handle;			/* initalized by media */
- 	u32 mtu;				/* initalized by media */
--	int blocked;				/* initalized by media */
- 	struct tipc_media_addr addr;		/* initalized by media */
- 	char name[TIPC_MAX_BEARER_NAME];
- 	spinlock_t lock;
-@@ -163,8 +161,7 @@ int tipc_register_media(struct tipc_media *m_ptr);
- 
- void tipc_recv_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr);
- 
--int  tipc_block_bearer(struct tipc_bearer *b_ptr);
--void tipc_continue(struct tipc_bearer *tb_ptr);
-+int  tipc_reset_bearer(struct tipc_bearer *b_ptr);
- 
- int tipc_enable_bearer(const char *bearer_name, u32 disc_domain, u32 priority);
- int tipc_disable_bearer(const char *name);
-@@ -194,7 +191,6 @@ void tipc_bearer_remove_dest(struct tipc_bearer *b_ptr, u32 dest);
- struct tipc_bearer *tipc_bearer_find(const char *name);
- struct tipc_bearer *tipc_bearer_find_interface(const char *if_name);
- struct tipc_media *tipc_media_find(const char *name);
--int tipc_bearer_blocked(struct tipc_bearer *b_ptr);
- void tipc_bearer_stop(void);
- 
- /**
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index ecc758c..bc849f1 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -239,7 +239,7 @@ void tipc_disc_recv_msg(struct sk_buff *buf, struct tipc_bearer *b_ptr)
- 	/* Accept discovery message & send response, if necessary */
- 	link_fully_up = link_working_working(link);
- 
--	if ((type == DSC_REQ_MSG) && !link_fully_up && !b_ptr->blocked) {
-+	if ((type == DSC_REQ_MSG) && !link_fully_up) {
- 		rbuf = tipc_disc_init_msg(DSC_RESP_MSG, orig, b_ptr);
- 		if (rbuf) {
- 			tipc_bearer_send(b_ptr, rbuf, &media_addr);
-@@ -288,16 +288,6 @@ void tipc_disc_remove_dest(struct tipc_link_req *req)
- }
- 
- /**
-- * disc_send_msg - send link setup request message
-- * @req: ptr to link request structure
-- */
--static void disc_send_msg(struct tipc_link_req *req)
--{
--	if (!req->bearer->blocked)
--		tipc_bearer_send(req->bearer, req->buf, &req->dest);
--}
--
--/**
-  * disc_timeout - send a periodic link setup request
-  * @req: ptr to link request structure
-  *
-@@ -322,7 +312,8 @@ static void disc_timeout(struct tipc_link_req *req)
- 	 * hold at fast polling rate if don't have any associated nodes,
- 	 * otherwise hold at slow polling rate
- 	 */
--	disc_send_msg(req);
-+	tipc_bearer_send(req->bearer, req->buf, &req->dest);
-+
- 
- 	req->timer_intv *= 2;
- 	if (req->num_nodes)
-@@ -368,7 +359,7 @@ int tipc_disc_create(struct tipc_bearer *b_ptr, struct tipc_media_addr *dest,
- 	k_init_timer(&req->timer, (Handler)disc_timeout, (unsigned long)req);
- 	k_start_timer(&req->timer, req->timer_intv);
- 	b_ptr->link_req = req;
--	disc_send_msg(req);
-+	tipc_bearer_send(req->bearer, req->buf, &req->dest);
- 	return 0;
- }
- 
-diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index f80d59f..1e3c332 100644
---- a/net/tipc/eth_media.c
-+++ b/net/tipc/eth_media.c
-@@ -199,7 +199,6 @@ static int enable_media(struct tipc_bearer *tb_ptr)
- 	tb_ptr->bcast_addr.media_id = TIPC_MEDIA_TYPE_ETH;
- 	tb_ptr->bcast_addr.broadcast = 1;
- 	tb_ptr->mtu = dev->mtu;
--	tb_ptr->blocked = 0;
- 	eth_media_addr_set(tb_ptr, &tb_ptr->addr, (char *)dev->dev_addr);
- 	return 0;
- }
-@@ -263,20 +262,11 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
- 	switch (evt) {
- 	case NETDEV_CHANGE:
- 		if (netif_carrier_ok(dev))
--			tipc_continue(eb_ptr->bearer);
--		else
--			tipc_block_bearer(eb_ptr->bearer);
--		break;
--	case NETDEV_UP:
--		tipc_continue(eb_ptr->bearer);
--		break;
-+			break;
- 	case NETDEV_DOWN:
--		tipc_block_bearer(eb_ptr->bearer);
--		break;
- 	case NETDEV_CHANGEMTU:
- 	case NETDEV_CHANGEADDR:
--		tipc_block_bearer(eb_ptr->bearer);
--		tipc_continue(eb_ptr->bearer);
-+		tipc_reset_bearer(eb_ptr->bearer);
- 		break;
- 	case NETDEV_UNREGISTER:
- 	case NETDEV_CHANGENAME:
-diff --git a/net/tipc/ib_media.c b/net/tipc/ib_media.c
-index c139892..cbe7fe1 100644
---- a/net/tipc/ib_media.c
-+++ b/net/tipc/ib_media.c
-@@ -192,7 +192,6 @@ static int enable_media(struct tipc_bearer *tb_ptr)
- 	tb_ptr->bcast_addr.media_id = TIPC_MEDIA_TYPE_IB;
- 	tb_ptr->bcast_addr.broadcast = 1;
- 	tb_ptr->mtu = dev->mtu;
--	tb_ptr->blocked = 0;
- 	ib_media_addr_set(tb_ptr, &tb_ptr->addr, (char *)dev->dev_addr);
- 	return 0;
- }
-@@ -256,20 +255,11 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
- 	switch (evt) {
- 	case NETDEV_CHANGE:
- 		if (netif_carrier_ok(dev))
--			tipc_continue(ib_ptr->bearer);
--		else
--			tipc_block_bearer(ib_ptr->bearer);
--		break;
--	case NETDEV_UP:
--		tipc_continue(ib_ptr->bearer);
--		break;
-+			break;
- 	case NETDEV_DOWN:
--		tipc_block_bearer(ib_ptr->bearer);
--		break;
- 	case NETDEV_CHANGEMTU:
- 	case NETDEV_CHANGEADDR:
--		tipc_block_bearer(ib_ptr->bearer);
--		tipc_continue(ib_ptr->bearer);
-+		tipc_reset_bearer(ib_ptr->bearer);
- 		break;
- 	case NETDEV_UNREGISTER:
- 	case NETDEV_CHANGENAME:
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 69cd9bf..fd340ad 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -790,8 +790,7 @@ int tipc_link_send_buf(struct tipc_link *l_ptr, struct sk_buff *buf)
- 		return link_send_long_buf(l_ptr, buf);
- 
- 	/* Packet can be queued or sent. */
--	if (likely(!tipc_bearer_blocked(l_ptr->b_ptr) &&
--		   !link_congested(l_ptr))) {
-+	if (likely(!link_congested(l_ptr))) {
- 		link_add_to_outqueue(l_ptr, buf, msg);
- 
- 		tipc_bearer_send(l_ptr->b_ptr, buf, &l_ptr->media_addr);
-@@ -957,14 +956,13 @@ static int link_send_buf_fast(struct tipc_link *l_ptr, struct sk_buff *buf,
- 
- 	if (likely(!link_congested(l_ptr))) {
- 		if (likely(msg_size(msg) <= l_ptr->max_pkt)) {
--			if (likely(!tipc_bearer_blocked(l_ptr->b_ptr))) {
--				link_add_to_outqueue(l_ptr, buf, msg);
--				tipc_bearer_send(l_ptr->b_ptr, buf,
--						 &l_ptr->media_addr);
--				l_ptr->unacked_window = 0;
--				return res;
--			}
--		} else
-+			link_add_to_outqueue(l_ptr, buf, msg);
-+			tipc_bearer_send(l_ptr->b_ptr, buf,
-+					 &l_ptr->media_addr);
-+			l_ptr->unacked_window = 0;
-+			return res;
-+		}
-+		else
- 			*used_max_pkt = l_ptr->max_pkt;
- 	}
- 	return tipc_link_send_buf(l_ptr, buf);  /* All other cases */
-@@ -1013,8 +1011,7 @@ exit:
- 			}
- 
- 			/* Exit if link (or bearer) is congested */
--			if (link_congested(l_ptr) ||
--			    tipc_bearer_blocked(l_ptr->b_ptr)) {
-+			if (link_congested(l_ptr)) {
- 				res = link_schedule_port(l_ptr,
- 							 sender->ref, res);
- 				goto exit;
-@@ -1281,9 +1278,6 @@ void tipc_link_push_queue(struct tipc_link *l_ptr)
- {
- 	u32 res;
- 
--	if (tipc_bearer_blocked(l_ptr->b_ptr))
--		return;
--
- 	do {
- 		res = tipc_link_push_packet(l_ptr);
- 	} while (!res);
-@@ -1370,26 +1364,15 @@ void tipc_link_retransmit(struct tipc_link *l_ptr, struct sk_buff *buf,
- 
- 	msg = buf_msg(buf);
- 
--	if (tipc_bearer_blocked(l_ptr->b_ptr)) {
--		if (l_ptr->retransm_queue_size == 0) {
--			l_ptr->retransm_queue_head = msg_seqno(msg);
--			l_ptr->retransm_queue_size = retransmits;
--		} else {
--			pr_err("Unexpected retransmit on link %s (qsize=%d)\n",
--			       l_ptr->name, l_ptr->retransm_queue_size);
-+	/* Detect repeated retransmit failures */
-+	if (l_ptr->last_retransmitted == msg_seqno(msg)) {
-+		if (++l_ptr->stale_count > 100) {
-+			link_retransmit_failure(l_ptr, buf);
-+			return;
- 		}
--		return;
- 	} else {
--		/* Detect repeated retransmit failures on unblocked bearer */
--		if (l_ptr->last_retransmitted == msg_seqno(msg)) {
--			if (++l_ptr->stale_count > 100) {
--				link_retransmit_failure(l_ptr, buf);
--				return;
--			}
--		} else {
--			l_ptr->last_retransmitted = msg_seqno(msg);
--			l_ptr->stale_count = 1;
--		}
-+		l_ptr->last_retransmitted = msg_seqno(msg);
-+		l_ptr->stale_count = 1;
- 	}
- 
- 	while (retransmits && (buf != l_ptr->next_out) && buf) {
-@@ -1861,12 +1844,6 @@ void tipc_link_send_proto_msg(struct tipc_link *l_ptr, u32 msg_typ,
- 	skb_copy_to_linear_data(buf, msg, sizeof(l_ptr->proto_msg));
- 	buf->priority = TC_PRIO_CONTROL;
- 
--	/* Defer message if bearer is already blocked */
--	if (tipc_bearer_blocked(l_ptr->b_ptr)) {
--		l_ptr->proto_msg_queue = buf;
--		return;
--	}
--
- 	tipc_bearer_send(l_ptr->b_ptr, buf, &l_ptr->media_addr);
- 	l_ptr->unacked_window = 0;
- 	kfree_skb(buf);
--- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
-Sponsored by Intel(R) XDK 
-Develop, test and display web and hybrid apps with a single code base.
-Download it for free now!
-http://pubads.g.doubleclick.net/gampad/clk?id=111408631&iu=/4140/ostg.clktrk
+>  
+>  	/* Add return status. */
+>  	sg_init_one(&stat, &status, sizeof(status));
+> -	sgs[out_num + in_num++] = &stat;
+> +	sgs[out_num] = &stat;
+>  
+> -	BUG_ON(out_num + in_num > ARRAY_SIZE(sgs));
+> -	BUG_ON(virtqueue_add_sgs(vi->cvq, sgs, out_num, in_num, vi, GFP_ATOMIC)
+> +	BUG_ON(virtqueue_add_sgs(vi->cvq, sgs, out_num, 1, vi, GFP_ATOMIC)
+>  	       < 0);
+>  
+>  	if (unlikely(!virtqueue_kick(vi->cvq)))
+> @@ -936,7 +933,7 @@ static int virtnet_set_mac_address(struc
+>  		sg_init_one(&sg, addr->sa_data, dev->addr_len);
+>  		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
+>  					  VIRTIO_NET_CTRL_MAC_ADDR_SET,
+> -					  &sg, NULL)) {
+> +					  &sg, 1)) {
+>  			dev_warn(&vdev->dev,
+>  				 "Failed to set mac address by vq command.\n");
+>  			return -EINVAL;
+> @@ -1009,7 +1006,7 @@ static void virtnet_ack_link_announce(st
+>  {
+>  	rtnl_lock();
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_ANNOUNCE,
+> -				  VIRTIO_NET_CTRL_ANNOUNCE_ACK, NULL, NULL))
+> +				  VIRTIO_NET_CTRL_ANNOUNCE_ACK, NULL, 0))
+>  		dev_warn(&vi->dev->dev, "Failed to ack link announce.\n");
+>  	rtnl_unlock();
+>  }
+> @@ -1027,7 +1024,7 @@ static int virtnet_set_queues(struct vir
+>  	sg_init_one(&sg, &s, sizeof(s));
+>  
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MQ,
+> -				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg, NULL)) {
+> +				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg, 1)) {
+>  		dev_warn(&dev->dev, "Fail to set num of queue pairs to %d\n",
+>  			 queue_pairs);
+>  		return -EINVAL;
+> @@ -1078,7 +1075,7 @@ static void virtnet_set_rx_mode(struct n
+>  
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
+>  				  VIRTIO_NET_CTRL_RX_PROMISC,
+> -				  sg, NULL))
+> +				  sg, 1))
+>  		dev_warn(&dev->dev, "Failed to %sable promisc mode.\n",
+>  			 promisc ? "en" : "dis");
+>  
+> @@ -1086,7 +1083,7 @@ static void virtnet_set_rx_mode(struct n
+>  
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
+>  				  VIRTIO_NET_CTRL_RX_ALLMULTI,
+> -				  sg, NULL))
+> +				  sg, 1))
+>  		dev_warn(&dev->dev, "Failed to %sable allmulti mode.\n",
+>  			 allmulti ? "en" : "dis");
+>  
+> @@ -1123,7 +1120,7 @@ static void virtnet_set_rx_mode(struct n
+>  
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
+>  				  VIRTIO_NET_CTRL_MAC_TABLE_SET,
+> -				  sg, NULL))
+> +				  sg, 2))
+>  		dev_warn(&dev->dev, "Failed to set MAC filter table.\n");
+>  
+>  	kfree(buf);
+> @@ -1138,7 +1135,7 @@ static int virtnet_vlan_rx_add_vid(struc
+>  	sg_init_one(&sg, &vid, sizeof(vid));
+>  
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
+> -				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, NULL))
+> +				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, 1))
+>  		dev_warn(&dev->dev, "Failed to add VLAN ID %d.\n", vid);
+>  	return 0;
+>  }
+> @@ -1152,7 +1149,7 @@ static int virtnet_vlan_rx_kill_vid(stru
+>  	sg_init_one(&sg, &vid, sizeof(vid));
+>  
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
+> -				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, NULL))
+> +				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, 1))
+>  		dev_warn(&dev->dev, "Failed to kill VLAN ID %d.\n", vid);
+>  	return 0;
+>  }
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
