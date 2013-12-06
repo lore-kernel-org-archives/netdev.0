@@ -1,41 +1,40 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH] unix: fix build warning of used uninitialized variable
-Date: Fri, 6 Dec 2013 14:05:24 +0800
-Message-ID: <52A16924.9050407@huawei.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [net-next PATCH 3/6] macvtap: remove the dead branch
+Date: Thu, 05 Dec 2013 22:08:20 -0800
+Message-ID: <52A169D4.4060209@roeck-us.net>
+References: <1386282527-14094-1-git-send-email-zwu.kernel@gmail.com> <1386282527-14094-4-git-send-email-zwu.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <edumazet@google.com>, <ebiederm@xmission.com>,
-	<gaofeng@cn.fujitsu.com>, <jacob.e.keller@intel.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:36291 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751292Ab3LFGGL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 01:06:11 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Zhi Yong Wu <zwu.kernel@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1386282527-14094-4-git-send-email-zwu.kernel@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-af_unix.c: In function unix_bind
-af_unix.c:893: warning: path may be used uninitialized in this function
+On 12/05/2013 02:28 PM, Zhi Yong Wu wrote:
+> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>
+> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> ---
+>   drivers/net/macvtap.c |    2 --
+>   1 files changed, 0 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 9093004..d271fb4 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -779,8 +779,6 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+>   			return -EINVAL;
+>
+>   		ret = macvtap_skb_to_vnet_hdr(skb, &vnet_hdr);
+> -		if (ret)
+> -			return ret;
+>
+Assigning the function's return value to ret just to ignore it seems odd.
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/unix/af_unix.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Might make sense to change the function type to void.
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 01625cc..4155ed3 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -893,6 +893,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 		struct path path;
- 		umode_t mode = S_IFSOCK |
- 		       (SOCK_INODE(sock)->i_mode & ~current_umask());
-+		memset(&path, 0, sizeof(path));
- 		err = unix_mknod(sun_path, mode, &path);
- 		if (err) {
- 			if (err == -EEXIST)
--- 
-1.6.0.2
+Guenter
