@@ -1,106 +1,368 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH -next] etherdevice: Optimize a few is_<foo>_ether_addr
- functions
-Date: Fri, 06 Dec 2013 15:44:21 -0800
-Message-ID: <1386373461.31845.50.camel@joe-AO722>
-References: <1386317890.31845.26.camel@joe-AO722>
-	 <20131206.153944.1382127535160341376.davem@davemloft.net>
-	 <1386364621.31845.32.camel@joe-AO722>
-	 <20131206.163806.1555069105347405484.davem@davemloft.net>
-	 <1386368461.31845.38.camel@joe-AO722>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH] bgmac: connect to PHY and make use of PHY device
+Date: Sat,  7 Dec 2013 00:53:55 +0100
+Message-ID: <1386374035-31762-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386368461.31845.38.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hauke Mehrtens <hauke@hauke-m.de>,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:49650 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161722Ab3LFXyG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 18:54:06 -0500
+Received: by mail-ee0-f47.google.com with SMTP id e51so565136eek.20
+        for <netdev@vger.kernel.org>; Fri, 06 Dec 2013 15:54:05 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set,
-several is_<foo>_ether_addr functions can be slightly
-improved by using u32 dereferences.
+We were already registering MDIO bus, but we were not connecting bgmac
+to the PHY. Add proper call and implement adjust link function to switc=
+h
+MAC into requested state.
+At the same time it's possible to drop our internal PHY management.
+This is a "standard" PHY, so the "Generic PHY" driver works perfectly
+fine with this. Don't duplicate the code.
+=46inally make use of phy_ethtool_[gs]set functions instead implementin=
+g
+them from scratch.
 
-I believe all current uses of is_zero_ether_addr and
-is_broadcast_ether_addr are u16 aligned, so always use
-u16 references to improve those functions performance.
+This change was successfully tested on BCM5357. I was able to
+autonegotiate 1000Mb/s full duplex, as well as force any of the
+10/100/1000 half/full modes.
 
-Document the u16 alignment requirements.
-
-Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 ---
- include/linux/etherdevice.h | 25 +++++++++++++++++++++++--
- 1 file changed, 23 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bgmac.c |  190 +++++++++++--------------=
+--------
+ drivers/net/ethernet/broadcom/bgmac.h |   12 +--
+ 2 files changed, 64 insertions(+), 138 deletions(-)
 
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index 3526e81..9518e59 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -61,6 +61,8 @@ static const u8 eth_reserved_addr_base[ETH_ALEN] __aligned(2) =
-  *
-  * Return true if address is link local reserved addr (01:80:c2:00:00:0X) per
-  * IEEE 802.1Q 8.6.3 Frame filtering.
-+ *
-+ * Please note: addr must be aligned to u16.
-  */
- static inline bool is_link_local_ether_addr(const u8 *addr)
- {
-@@ -68,7 +70,12 @@ static inline bool is_link_local_ether_addr(const u8 *addr)
- 	static const __be16 *b = (const __be16 *)eth_reserved_addr_base;
- 	static const __be16 m = cpu_to_be16(0xfff0);
- 
-+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-+	return (((*(const u32 *)addr) ^ (*(const u32 *)b)) |
-+		((a[2] ^ b[2]) & m)) == 0;
-+#else
- 	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | ((a[2] ^ b[2]) & m)) == 0;
-+#endif
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index e2aa09c..0452937 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -682,70 +682,6 @@ static int bgmac_phy_write(struct bgmac *bgmac, u8=
+ phyaddr, u8 reg, u16 value)
+ 	return 0;
  }
- 
- /**
-@@ -76,10 +83,18 @@ static inline bool is_link_local_ether_addr(const u8 *addr)
-  * @addr: Pointer to a six-byte array containing the Ethernet address
-  *
-  * Return true if the address is all zeroes.
-+ *
-+ * Please note: addr must be aligned to u16.
-  */
- static inline bool is_zero_ether_addr(const u8 *addr)
+=20
+-/* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipphyforce */
+-static void bgmac_phy_force(struct bgmac *bgmac)
+-{
+-	u16 ctl;
+-	u16 mask =3D ~(BGMAC_PHY_CTL_SPEED | BGMAC_PHY_CTL_SPEED_MSB |
+-		     BGMAC_PHY_CTL_ANENAB | BGMAC_PHY_CTL_DUPLEX);
+-
+-	if (bgmac->phyaddr =3D=3D BGMAC_PHY_NOREGS)
+-		return;
+-
+-	if (bgmac->autoneg)
+-		return;
+-
+-	ctl =3D bgmac_phy_read(bgmac, bgmac->phyaddr, BGMAC_PHY_CTL);
+-	ctl &=3D mask;
+-	if (bgmac->full_duplex)
+-		ctl |=3D BGMAC_PHY_CTL_DUPLEX;
+-	if (bgmac->speed =3D=3D BGMAC_SPEED_100)
+-		ctl |=3D BGMAC_PHY_CTL_SPEED_100;
+-	else if (bgmac->speed =3D=3D BGMAC_SPEED_1000)
+-		ctl |=3D BGMAC_PHY_CTL_SPEED_1000;
+-	bgmac_phy_write(bgmac, bgmac->phyaddr, BGMAC_PHY_CTL, ctl);
+-}
+-
+-/* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipphyadvertise */
+-static void bgmac_phy_advertise(struct bgmac *bgmac)
+-{
+-	u16 adv;
+-
+-	if (bgmac->phyaddr =3D=3D BGMAC_PHY_NOREGS)
+-		return;
+-
+-	if (!bgmac->autoneg)
+-		return;
+-
+-	/* Adv selected 10/100 speeds */
+-	adv =3D bgmac_phy_read(bgmac, bgmac->phyaddr, BGMAC_PHY_ADV);
+-	adv &=3D ~(BGMAC_PHY_ADV_10HALF | BGMAC_PHY_ADV_10FULL |
+-		 BGMAC_PHY_ADV_100HALF | BGMAC_PHY_ADV_100FULL);
+-	if (!bgmac->full_duplex && bgmac->speed & BGMAC_SPEED_10)
+-		adv |=3D BGMAC_PHY_ADV_10HALF;
+-	if (!bgmac->full_duplex && bgmac->speed & BGMAC_SPEED_100)
+-		adv |=3D BGMAC_PHY_ADV_100HALF;
+-	if (bgmac->full_duplex && bgmac->speed & BGMAC_SPEED_10)
+-		adv |=3D BGMAC_PHY_ADV_10FULL;
+-	if (bgmac->full_duplex && bgmac->speed & BGMAC_SPEED_100)
+-		adv |=3D BGMAC_PHY_ADV_100FULL;
+-	bgmac_phy_write(bgmac, bgmac->phyaddr, BGMAC_PHY_ADV, adv);
+-
+-	/* Adv selected 1000 speeds */
+-	adv =3D bgmac_phy_read(bgmac, bgmac->phyaddr, BGMAC_PHY_ADV2);
+-	adv &=3D ~(BGMAC_PHY_ADV2_1000HALF | BGMAC_PHY_ADV2_1000FULL);
+-	if (!bgmac->full_duplex && bgmac->speed & BGMAC_SPEED_1000)
+-		adv |=3D BGMAC_PHY_ADV2_1000HALF;
+-	if (bgmac->full_duplex && bgmac->speed & BGMAC_SPEED_1000)
+-		adv |=3D BGMAC_PHY_ADV2_1000FULL;
+-	bgmac_phy_write(bgmac, bgmac->phyaddr, BGMAC_PHY_ADV2, adv);
+-
+-	/* Restart */
+-	bgmac_phy_write(bgmac, bgmac->phyaddr, BGMAC_PHY_CTL,
+-			bgmac_phy_read(bgmac, bgmac->phyaddr, BGMAC_PHY_CTL) |
+-			BGMAC_PHY_CTL_RESTART);
+-}
+-
+ /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipphyinit */
+ static void bgmac_phy_init(struct bgmac *bgmac)
  {
--	return !(addr[0] | addr[1] | addr[2] | addr[3] | addr[4] | addr[5]);
-+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-+	return ((*(const u32 *)addr) | (*(const u16 *)(addr + 4))) == 0;
-+#else
-+	return (*(const u16 *)(addr + 0) |
-+		*(const u16 *)(addr + 2) |
-+		*(const u16 *)(addr + 4)) == 0;
-+#endif
+@@ -876,19 +812,28 @@ static void bgmac_clear_mib(struct bgmac *bgmac)
  }
- 
- /**
-@@ -110,10 +125,14 @@ static inline bool is_local_ether_addr(const u8 *addr)
-  * @addr: Pointer to a six-byte array containing the Ethernet address
-  *
-  * Return true if the address is the broadcast address.
-+ *
-+ * Please note: addr must be aligned to u16.
-  */
- static inline bool is_broadcast_ether_addr(const u8 *addr)
+=20
+ /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/gmac_speed */
+-static void bgmac_speed(struct bgmac *bgmac, int speed)
++static void bgmac_mac_speed(struct bgmac *bgmac)
  {
--	return (addr[0] & addr[1] & addr[2] & addr[3] & addr[4] & addr[5]) == 0xff;
-+	return (*(const u16 *)(addr + 0) &
-+		*(const u16 *)(addr + 2) &
-+		*(const u16 *)(addr + 4)) == 0xffff;
+ 	u32 mask =3D ~(BGMAC_CMDCFG_ES_MASK | BGMAC_CMDCFG_HD);
+ 	u32 set =3D 0;
+=20
+-	if (speed & BGMAC_SPEED_10)
++	switch (bgmac->mac_speed) {
++	case SPEED_10:
+ 		set |=3D BGMAC_CMDCFG_ES_10;
+-	if (speed & BGMAC_SPEED_100)
++		break;
++	case SPEED_100:
+ 		set |=3D BGMAC_CMDCFG_ES_100;
+-	if (speed & BGMAC_SPEED_1000)
++		break;
++	case SPEED_1000:
+ 		set |=3D BGMAC_CMDCFG_ES_1000;
+-	if (!bgmac->full_duplex)
++		break;
++	default:
++		bgmac_err(bgmac, "Unsupported speed: %d\n", bgmac->mac_speed);
++	}
++
++	if (bgmac->mac_duplex =3D=3D DUPLEX_HALF)
+ 		set |=3D BGMAC_CMDCFG_HD;
++
+ 	bgmac_cmdcfg_maskset(bgmac, mask, set, true);
  }
- 
- /**
-@@ -135,6 +154,8 @@ static inline bool is_unicast_ether_addr(const u8 *addr)
-  * a multicast address, and is not FF:FF:FF:FF:FF:FF.
-  *
-  * Return true if the address is valid.
-+ *
-+ * Please note: addr must be aligned to u16.
-  */
- static inline bool is_valid_ether_addr(const u8 *addr)
+=20
+@@ -897,10 +842,9 @@ static void bgmac_miiconfig(struct bgmac *bgmac)
+ 	u8 imode =3D (bgmac_read(bgmac, BGMAC_DEV_STATUS) & BGMAC_DS_MM_MASK)=
+ >>
+ 			BGMAC_DS_MM_SHIFT;
+ 	if (imode =3D=3D 0 || imode =3D=3D 1) {
+-		if (bgmac->autoneg)
+-			bgmac_speed(bgmac, BGMAC_SPEED_100);
+-		else
+-			bgmac_speed(bgmac, bgmac->speed);
++		bgmac->mac_speed =3D SPEED_100;
++		bgmac->mac_duplex =3D DUPLEX_FULL;
++		bgmac_mac_speed(bgmac);
+ 	}
+ }
+=20
+@@ -1108,13 +1052,6 @@ static void bgmac_chip_init(struct bgmac *bgmac,=
+ bool full_init)
+=20
+ 	bgmac_write(bgmac, BGMAC_RXMAX_LENGTH, 32 + ETHER_MAX_LEN);
+=20
+-	if (!bgmac->autoneg) {
+-		bgmac_speed(bgmac, bgmac->speed);
+-		bgmac_phy_force(bgmac);
+-	} else if (bgmac->speed) { /* if there is anything to adv */
+-		bgmac_phy_advertise(bgmac);
+-	}
+-
+ 	if (full_init) {
+ 		bgmac_dma_init(bgmac);
+ 		if (1) /* FIXME: is there any case we don't want IRQs? */
+@@ -1294,61 +1231,16 @@ static int bgmac_get_settings(struct net_device=
+ *net_dev,
  {
+ 	struct bgmac *bgmac =3D netdev_priv(net_dev);
+=20
+-	cmd->supported =3D SUPPORTED_10baseT_Half |
+-			 SUPPORTED_10baseT_Full |
+-			 SUPPORTED_100baseT_Half |
+-			 SUPPORTED_100baseT_Full |
+-			 SUPPORTED_1000baseT_Half |
+-			 SUPPORTED_1000baseT_Full |
+-			 SUPPORTED_Autoneg;
+-
+-	if (bgmac->autoneg) {
+-		WARN_ON(cmd->advertising);
+-		if (bgmac->full_duplex) {
+-			if (bgmac->speed & BGMAC_SPEED_10)
+-				cmd->advertising |=3D ADVERTISED_10baseT_Full;
+-			if (bgmac->speed & BGMAC_SPEED_100)
+-				cmd->advertising |=3D ADVERTISED_100baseT_Full;
+-			if (bgmac->speed & BGMAC_SPEED_1000)
+-				cmd->advertising |=3D ADVERTISED_1000baseT_Full;
+-		} else {
+-			if (bgmac->speed & BGMAC_SPEED_10)
+-				cmd->advertising |=3D ADVERTISED_10baseT_Half;
+-			if (bgmac->speed & BGMAC_SPEED_100)
+-				cmd->advertising |=3D ADVERTISED_100baseT_Half;
+-			if (bgmac->speed & BGMAC_SPEED_1000)
+-				cmd->advertising |=3D ADVERTISED_1000baseT_Half;
+-		}
+-	} else {
+-		switch (bgmac->speed) {
+-		case BGMAC_SPEED_10:
+-			ethtool_cmd_speed_set(cmd, SPEED_10);
+-			break;
+-		case BGMAC_SPEED_100:
+-			ethtool_cmd_speed_set(cmd, SPEED_100);
+-			break;
+-		case BGMAC_SPEED_1000:
+-			ethtool_cmd_speed_set(cmd, SPEED_1000);
+-			break;
+-		}
+-	}
+-
+-	cmd->duplex =3D bgmac->full_duplex ? DUPLEX_FULL : DUPLEX_HALF;
+-
+-	cmd->autoneg =3D bgmac->autoneg;
+-
+-	return 0;
++	return phy_ethtool_gset(bgmac->phy_dev, cmd);
+ }
+=20
+-#if 0
+ static int bgmac_set_settings(struct net_device *net_dev,
+ 			      struct ethtool_cmd *cmd)
+ {
+ 	struct bgmac *bgmac =3D netdev_priv(net_dev);
+=20
+-	return -1;
++	return phy_ethtool_sset(bgmac->phy_dev, cmd);
+ }
+-#endif
+=20
+ static void bgmac_get_drvinfo(struct net_device *net_dev,
+ 			      struct ethtool_drvinfo *info)
+@@ -1359,6 +1251,7 @@ static void bgmac_get_drvinfo(struct net_device *=
+net_dev,
+=20
+ static const struct ethtool_ops bgmac_ethtool_ops =3D {
+ 	.get_settings		=3D bgmac_get_settings,
++	.set_settings		=3D bgmac_set_settings,
+ 	.get_drvinfo		=3D bgmac_get_drvinfo,
+ };
+=20
+@@ -1377,9 +1270,35 @@ static int bgmac_mii_write(struct mii_bus *bus, =
+int mii_id, int regnum,
+ 	return bgmac_phy_write(bus->priv, mii_id, regnum, value);
+ }
+=20
++static void bgmac_adjust_link(struct net_device *net_dev)
++{
++	struct bgmac *bgmac =3D netdev_priv(net_dev);
++	struct phy_device *phy_dev =3D bgmac->phy_dev;
++	bool update =3D false;
++
++	if (phy_dev->link) {
++		if (phy_dev->speed !=3D bgmac->mac_speed) {
++			bgmac->mac_speed =3D phy_dev->speed;
++			update =3D true;
++		}
++
++		if (phy_dev->duplex !=3D bgmac->mac_duplex) {
++			bgmac->mac_duplex =3D phy_dev->duplex;
++			update =3D true;
++		}
++	}
++
++	if (update) {
++		bgmac_mac_speed(bgmac);
++		phy_print_status(phy_dev);
++	}
++}
++
+ static int bgmac_mii_register(struct bgmac *bgmac)
+ {
+ 	struct mii_bus *mii_bus;
++	struct phy_device *phy_dev;
++	char bus_id[MII_BUS_ID_SIZE + 3];
+ 	int i, err =3D 0;
+=20
+ 	mii_bus =3D mdiobus_alloc();
+@@ -1411,8 +1330,22 @@ static int bgmac_mii_register(struct bgmac *bgma=
+c)
+=20
+ 	bgmac->mii_bus =3D mii_bus;
+=20
++	/* Connect to the PHY */
++	snprintf(bus_id, sizeof(bus_id), PHY_ID_FMT, mii_bus->id,
++		 bgmac->phyaddr);
++	phy_dev =3D phy_connect(bgmac->net_dev, bus_id, &bgmac_adjust_link,
++			      PHY_INTERFACE_MODE_MII);
++	if (IS_ERR(phy_dev)) {
++		bgmac_err(bgmac, "PHY connecton failed\n");
++		err =3D PTR_ERR(phy_dev);
++		goto err_unregister_bus;
++	}
++	bgmac->phy_dev =3D phy_dev;
++
+ 	return err;
+=20
++err_unregister_bus:
++	mdiobus_unregister(mii_bus);
+ err_free_irq:
+ 	kfree(mii_bus->irq);
+ err_free_bus:
+@@ -1467,9 +1400,6 @@ static int bgmac_probe(struct bcma_device *core)
+ 	bcma_set_drvdata(core, bgmac);
+=20
+ 	/* Defaults */
+-	bgmac->autoneg =3D true;
+-	bgmac->full_duplex =3D true;
+-	bgmac->speed =3D BGMAC_SPEED_10 | BGMAC_SPEED_100 | BGMAC_SPEED_1000;
+ 	memcpy(bgmac->net_dev->dev_addr, mac, ETH_ALEN);
+=20
+ 	/* On BCM4706 we need common core to access PHY */
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethern=
+et/broadcom/bgmac.h
+index 66c8afb..550f2a8 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -342,10 +342,6 @@
+ #define BGMAC_CHIPCTL_1_SW_TYPE_RGMII		0x000000C0
+ #define BGMAC_CHIPCTL_1_RXC_DLL_BYPASS		0x00010000
+=20
+-#define BGMAC_SPEED_10				0x0001
+-#define BGMAC_SPEED_100				0x0002
+-#define BGMAC_SPEED_1000			0x0004
+-
+ #define BGMAC_WEIGHT	64
+=20
+ #define ETHER_MAX_LEN   1518
+@@ -402,6 +398,7 @@ struct bgmac {
+ 	struct net_device *net_dev;
+ 	struct napi_struct napi;
+ 	struct mii_bus *mii_bus;
++	struct phy_device *phy_dev;
+=20
+ 	/* DMA */
+ 	struct bgmac_dma_ring tx_ring[BGMAC_MAX_TX_RINGS];
+@@ -416,10 +413,9 @@ struct bgmac {
+ 	u32 int_mask;
+ 	u32 int_status;
+=20
+-	/* Speed-related */
+-	int speed;
+-	bool autoneg;
+-	bool full_duplex;
++	/* Current MAC state */
++	int mac_speed;
++	int mac_duplex;
+=20
+ 	u8 phyaddr;
+ 	bool has_robosw;
+--=20
+1.7.10.4
