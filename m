@@ -1,35 +1,37 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: introduce SO_BPF_EXTENSIONS
-Date: Fri, 6 Dec 2013 09:50:49 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7466@saturn3.aculab.com>
-References: <1385639832-3938-1-git-send-email-msekleta@redhat.com> <1385659889.5352.25.camel@edumazet-glaptop2.roam.corp.google.com> <5298A0EF.70401@redhat.com> <CAJ7VeQwC7xPPujCN8kQ3KcJAhykwQXLFA=vw2gWABmpUvuz1og@mail.gmail.com> <1386264770.30495.204.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH v4] sctp: check the rto_min and rto_max
+Date: Fri, 6 Dec 2013 17:52:45 +0800
+Message-ID: <52A19E6D.1090503@huawei.com>
+References: <529FE2AD.5020700@huawei.com> <20131205133217.GA20349@hmsreliant.think-freely.org> <52A18F6D.9010606@huawei.com> <52A19DF6.1080808@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-Cc: "Daniel Borkmann" <dborkman@redhat.com>,
-	"Michal Sekletar" <msekleta@redhat.com>, <netdev@vger.kernel.org>,
-	"Michael Kerrisk" <mtk.manpages@gmail.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	=?UTF-8?B?TWljaGFsIFNla2xldMOhcg==?= <sekletar.m@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-sctp@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:36981 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1757132Ab3LFJvd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Dec 2013 04:51:33 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 22516-09 for <netdev@vger.kernel.org>;
- Fri,  6 Dec 2013 09:51:31 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1386264770.30495.204.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:59921 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754029Ab3LFJx3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 04:53:29 -0500
+In-Reply-To: <52A19DF6.1080808@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBpZiBTT19CUEZfRVhURU5TSU9OUyBpcyBzdXBwb3J0ZWQsIHRoYW4geW91IGNhbiBhc3N1bWUg
-dGhhdCBhbGwgY3VycmVudA0KPiBleHRlbnNpb25zIGFyZSBzdXBwb3J0ZWQuDQo+IA0KPiBObyBu
-ZWVkIHRvIGNvbnN1bWUgb25lIGJpdCBwZXIgZmVhdHVyZSwgYXMgYWxsIHRoZXNlIGZlYXR1cmVz
-IHdvbnQgZXZlcg0KPiBkaXNhcHBlYXIgZnJvbSBsaW51eC4NCg0KSG93ZXZlciBvbmUgb2YgdGhl
-IEJTRHMgY291bGQgYWRkIGEgc3Vic2V0IG9mIHRoZSBmZWF0dXJlcyBhbmQNCndpc2ggdG8gYWR2
-ZXJ0aXNlIHRoZSBmYWN0Lg0KU28gdXNpbmcgZXh0cmEgZmxhZ3MgZm9yIG5vbi10cml2aWFsIGV4
-dGVuc2lvbnMgY291bGQgYmUgdXNlZnVsLg0KDQoJRGF2aWQNCg0K
+On 2013/12/6 17:50, Daniel Borkmann wrote:
+> On 12/06/2013 09:48 AM, Wang Weidong wrote:
+> 
+>> Should I define it in net/sctp/sctp.h, so sysctl.c can use it as well.
+>> Or I just define it in the socket.c same as the definition in sysctl.c?
+> 
+> Preferably in include/net/sctp/constants.h where we already have most
+> other constants anyway.
+> 
+
+Nice, Thanks for your suggestion.
+
+Regards.
+Wang
+> 
