@@ -1,61 +1,60 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv2 net-next 2/5] {pktgen, xfrm} Using "pgset spi xxx" to spedifiy SA for a given flow
-Date: Fri, 6 Dec 2013 17:53:31 +0800
-Message-ID: <1386323614-5077-3-git-send-email-fan.du@windriver.com>
-References: <1386323614-5077-1-git-send-email-fan.du@windriver.com>
+Subject: Re: [PATCH net-next] netfilter: add IPComp extension match support
+Date: Fri, 6 Dec 2013 17:56:09 +0800
+Message-ID: <52A19F39.3030702@windriver.com>
+References: <1385607204-27650-1-git-send-email-fan.du@windriver.com> <20131205183402.GA8949@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:55571 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757278Ab3LFJxn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 04:53:43 -0500
-In-Reply-To: <1386323614-5077-1-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <steffen.klassert@secunet.com>, <kaber@trash.net>,
+	<netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20131205183402.GA8949@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-User could set specific SPI value to arm pktgen flow with IPsec
-transformation, instead of looking up SA by sadr/daddr. The reaseon
-to do so is because current state lookup scheme is both slow and, most
-important of all, in fact pktgen doesn't need to match any SA state
-addresses information, all it needs is the SA transfromation shell to
-do the encapuslation.
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
- net/core/pktgen.c |   11 +++++++++++
- 1 file changed, 11 insertions(+)
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index e6820e5..717e0b7 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -387,6 +387,7 @@ struct pktgen_dev {
- 	int node;               /* Memory node */
- 
- #ifdef CONFIG_XFRM
-+	__u32 spi;
- #endif
- 	char result[512];
- };
-@@ -1474,6 +1475,16 @@ static ssize_t pktgen_if_write(struct file *file,
- 		sprintf(pg_result, "OK: flows=%u", pkt_dev->cflows);
- 		return count;
- 	}
-+	if (!strcmp(name, "spi")) {
-+		len = num_arg(&user_buffer[i], 10, &value);
-+		if (len < 0)
-+			return len;
-+
-+		i += len;
-+		pkt_dev->spi = value;
-+		sprintf(pg_result, "OK: spi=%u", pkt_dev->spi);
-+		return count;
-+	}
- 
- 	if (!strcmp(name, "flowlen")) {
- 		len = num_arg(&user_buffer[i], 10, &value);
--- 
-1.7.9.5
+On 2013=E5=B9=B412=E6=9C=8806=E6=97=A5 02:34, Pablo Neira Ayuso wrote:
+> Hi,
+>
+> On Thu, Nov 28, 2013 at 10:53:24AM +0800, Fan Du wrote:
+>> With this plugin, user could specify IPComp tagged with certain
+>> CPI that host not interested will be DROPped or any other action.
+>>
+>> For example:
+>> iptables -A INPUT -p 108 -m ipcomp --ipcompspi 0x87 -j DROP
+>>
+>> Then input IPComp packet with CPI equates 0x87 will not reach
+>> upper layer anymore.
+>
+> I think that, with a little bit more work, you can add support for
+> IPv6 as well. From RFC 3173:
+>
+> "In the IPv6 context, IPComp is viewed as an end-to-end payload, and
+> MUST NOT apply to hop-by-hop, routing, and fragmentation extension
+> headers.
+>
+> You can perform that IPv6-specific handling to skip these extension
+> headers and reach the IPComp header by means of the ipv6_find_hdr()
+> helper function.
+>
+> BTW, please post the iptables userspace part as well.
+
+Thanks for your attention, Pablo.
+I will try to finish your request this weekend, hopefully post the whol=
+e
+patch set in early next week.
+
+--=20
+=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
+=E7=AC=91
+
+--fan fan
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
