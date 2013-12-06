@@ -1,70 +1,48 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next] unix: convert printks to pr_<level>
-Date: Fri, 6 Dec 2013 14:09:29 +0800
-Message-ID: <52A16A19.60001@huawei.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] gro: small napi_get_frags() optim
+Date: Thu, 05 Dec 2013 22:11:08 -0800
+Message-ID: <1386310268.31845.13.camel@joe-AO722>
+References: <1386308667.30495.230.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <edumazet@google.com>, <ebiederm@xmission.com>,
-	<gaofeng@cn.fujitsu.com>, <jacob.e.keller@intel.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:26081 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751048Ab3LFGKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 01:10:13 -0500
+Received: from smtprelay0099.hostedemail.com ([216.40.44.99]:46897 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751048Ab3LFGLW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 01:11:22 -0500
+Received: from smtprelay.hostedemail.com (ff-bigip1 [10.5.19.254])
+	by smtpgrave05.hostedemail.com (Postfix) with ESMTP id 00094183FF2
+	for <netdev@vger.kernel.org>; Fri,  6 Dec 2013 06:11:21 +0000 (UTC)
+In-Reply-To: <1386308667.30495.230.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-use pr_<level> instead of printk(LEVEL)
+On Thu, 2013-12-05 at 21:44 -0800, Eric Dumazet wrote:
+> Remove one useless conditional branch : 
+> napi->skb is NULL, so nothing bad can happen.
+[]
+> diff --git a/net/core/dev.c b/net/core/dev.c
+[]
+> @@ -3981,8 +3981,7 @@ struct sk_buff *napi_get_frags(struct napi_struct *napi)
+>  
+>  	if (!skb) {
+>  		skb = netdev_alloc_skb_ip_align(napi->dev, GRO_MAX_HEAD);
+> -		if (skb)
+> -			napi->skb = skb;
+> +		napi->skb = skb;
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/unix/af_unix.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+Thanks, I agree this patch is appropriate as skb is unlikely
+to be NULL in normal cases.
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 4155ed3..ca98e61 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -80,6 +80,9 @@
-  *		  with BSD names.
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+#define DEBUG
-+
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/signal.h>
-@@ -366,7 +369,7 @@ static void unix_sock_destructor(struct sock *sk)
- 	WARN_ON(!sk_unhashed(sk));
- 	WARN_ON(sk->sk_socket);
- 	if (!sock_flag(sk, SOCK_DEAD)) {
--		printk(KERN_INFO "Attempt to release alive unix socket: %p\n", sk);
-+		pr_info("Attempt to release alive unix socket: %p\n", sk);
- 		return;
- 	}
- 
-@@ -378,7 +381,7 @@ static void unix_sock_destructor(struct sock *sk)
- 	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
- 	local_bh_enable();
- #ifdef UNIX_REFCNT_DEBUG
--	printk(KERN_DEBUG "UNIX %p is destroyed, %ld are still alive.\n", sk,
-+	pr_debug("UNIX %p is destroyed, %ld are still alive.\n", sk,
- 		atomic_long_read(&unix_nr_socks));
- #endif
- }
-@@ -2434,8 +2437,7 @@ static int __init af_unix_init(void)
- 
- 	rc = proto_register(&unix_proto, 1);
- 	if (rc != 0) {
--		printk(KERN_CRIT "%s: Cannot create unix_sock SLAB cache!\n",
--		       __func__);
-+		pr_crit("%s: Cannot create unix_sock SLAB cache!\n", __func__);
- 		goto out;
- 	}
- 
--- 
-1.6.0.2
+But just for thought: isn't the test expense essentially
+free when skb is in a register vs the member set cost?
+
+Also, netdev_alloc_skb_ip_align is static inline and it has
+a test of
+	if (NET_IP_ALIGN && skb)
+just before the return so this "if (skb)" test could already
+be elided by a good compiler but this change requires an
+unconditional set.
