@@ -1,7 +1,9 @@
 From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH 00/10] net: stmmac: Add sun7i GMAC glue layer
-Date: Sat,  7 Dec 2013 01:29:33 +0800
-Message-ID: <1386350983-13281-1-git-send-email-wens@csie.org>
+Subject: [PATCH 04/10] net: stmmac: sunxi platfrom extensions
+ for GMAC in Allwinner A20 SoC's
+Date: Sat,  7 Dec 2013 01:29:37 +0800
+Message-ID: <1386350983-13281-5-git-send-email-wens@csie.org>
+References: <1386350983-13281-1-git-send-email-wens@csie.org>
 Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -15,7 +17,8 @@ To: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
 	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBUETRCKQKGQEF4CAV4Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBUUTRCKQKGQEQBTL7VI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <1386350983-13281-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
 List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Archive: <http://groups.google.com/group/linux-sunxi>
@@ -24,63 +27,198 @@ List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:
 List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+The Allwinner A20 has an ethernet controller that seems to be
+an early version of Synopsys DesignWare MAC 10/100/1000 Universal,
+which is supported by the stmmac driver.
 
-This patch series adds Allwinner sun7i support to stmmac.
-The Allwinner sun7i SoC A20 integrates an early version of
-dwmac IP from Synopsys. On top of that is a hardware glue
-layer. This layer needs to be configured before the dwmac
-can be used.
+Allwinner's GMAC requires setting additional registers in the SoC's
+clock control unit.
 
-The glue layer is implemented with existing callbacks in
-stmmac platform data. Hardware feature flags are also passed
-to the driver through platform data. As suggested by Maxime,
-the platform data is tied to our compatible string.
-Minimal modifications to stmmac core are made.
+The exact version of the DWMAC IP that Allwinner uses is unknown,
+thus the exact feature set is unknown.
 
-This version of dwmac IP requires store and forward DMA mode.
-The relevant device tree property was documented, but not
-implemented. The second patch adds this to stmmac platform
-driver.
-
-During testing, with stmmac built as a module, loading the
-driver fails during the hardware probe phase. The main clock
-is not enabled, and the hardware returns bogus results.
-The first patch addresses this.
-
-Comments?
-
-Thanks,
-
-wens
-
-
-Chen-Yu Tsai (10):
-  net: stmmac: Enable stmmac main clock when probing hardware
-  net: stmmac: Honor DT parameter to force DMA store and forward mode
-  net: stmmac: Use platform data tied with compatible strings
-  net: stmmac: sunxi platfrom extensions for GMAC in Allwinner A20 SoC's
-  ARM: dts: sun7i: Add GMAC controller node to sun7i DTSI
-  ARM: dts: sun7i: Add pin muxing options for the GMAC
-  ARM: dts: sun7i: cubietruck: Enable the GMAC
-  ARM: dts: sun7i: cubieboard2: Enable GMAC instead of EMAC
-  ARM: dts: sun7i: olinuxino-micro: Enable GMAC instead of EMAC
-  ARM: dts: sun7i: Add ethernet alias for GMAC
-
+Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+---
  .../bindings/net/allwinner,sun7i-gmac.txt          | 22 +++++++
- arch/arm/boot/dts/sun7i-a20-cubieboard2.dts        | 23 +++----
- arch/arm/boot/dts/sun7i-a20-cubietruck.dts         |  8 +++
- arch/arm/boot/dts/sun7i-a20-olinuxino-micro.dts    | 23 +++----
- arch/arm/boot/dts/sun7i-a20.dtsi                   | 40 ++++++++++++
  drivers/net/ethernet/stmicro/stmmac/Kconfig        | 12 ++++
  drivers/net/ethernet/stmicro/stmmac/Makefile       |  1 +
  drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c  | 76 ++++++++++++++++++++++
  drivers/net/ethernet/stmicro/stmmac/stmmac.h       |  3 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 24 ++++---
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 33 +++++++---
- 11 files changed, 215 insertions(+), 50 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun7i-gmac.txt
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  3 +
+ 6 files changed, 117 insertions(+)
 
+diff --git a/Documentation/devicetree/bindings/net/allwinner,sun7i-gmac.txt b/Documentation/devicetree/bindings/net/allwinner,sun7i-gmac.txt
+new file mode 100644
+index 0000000..271554a
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/allwinner,sun7i-gmac.txt
+@@ -0,0 +1,22 @@
++* Allwinner GMAC ethernet controller
++
++This device is a platform glue layer for stmmac.
++Please see stmmac.txt for the other unchanged properties.
++
++Required properties:
++ - compatible:  Should be "allwinner,sun7i-gmac"
++ - reg: Address and length of register set for the device and corresponding
++   clock control
++
++Examples:
++
++	gmac: ethernet@01c50000 {
++		compatible = "allwinner,sun7i-gmac";
++		reg = <0x01c50000 0x10000>,
++		      <0x01c20164 0x4>;
++		interrupts = <0 85 1>;
++		interrupt-names = "macirq";
++		clocks = <&ahb_gates 49>;
++		clock-names = "stmmaceth";
++		phy-mode = "mii";
++	};
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+index 6e52c0f..6d71210 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -25,6 +25,18 @@ config STMMAC_PLATFORM
+ 
+ 	  If unsure, say N.
+ 
++config DWMAC_SUNXI
++	bool "Allwinner GMAC support"
++	depends on STMMAC_PLATFORM
++	depends on ARCH_SUNXI
++	default y
++	---help---
++	  Support for Allwinner A20 GMAC ethernet driver.
++
++	  This selects Allwinner SoC glue layer support for the
++	  stmmac device driver. This driver is used for A20 GMAC
++	  ethernet controller.
++
+ config STMMAC_PCI
+ 	bool "STMMAC PCI bus support"
+ 	depends on STMMAC_ETH && PCI
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
+index 356a9dd..ecadece 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Makefile
++++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+@@ -1,6 +1,7 @@
+ obj-$(CONFIG_STMMAC_ETH) += stmmac.o
+ stmmac-$(CONFIG_STMMAC_PLATFORM) += stmmac_platform.o
+ stmmac-$(CONFIG_STMMAC_PCI) += stmmac_pci.o
++stmmac-$(CONFIG_DWMAC_SUNXI) += dwmac-sunxi.o
+ stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o ring_mode.o	\
+ 	      chain_mode.o dwmac_lib.o dwmac1000_core.o  dwmac1000_dma.o \
+ 	      dwmac100_core.o dwmac100_dma.o enh_desc.o  norm_desc.o \
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
+new file mode 100644
+index 0000000..6c9fdb0
+--- /dev/null
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c
+@@ -0,0 +1,76 @@
++/**
++ * dwmac-sunxi.c - Allwinner sunxi DWMAC specific glue layer
++ *
++ * Copyright (C) 2013 Chen-Yu Tsai
++ *
++ * Chen-Yu Tsai  <wens-jdAy2FN1RRM@public.gmane.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++#include <linux/clk.h>
++#include <linux/phy.h>
++#include <linux/stmmac.h>
++
++#define GMAC_IF_TYPE_RGMII	0x4
++
++#define GMAC_TX_CLK_MASK	0x3
++#define GMAC_TX_CLK_MII		0x0
++#define GMAC_TX_CLK_RGMII_INT	0x2
++
++static int sun7i_gmac_init(struct platform_device *pdev)
++{
++	struct resource *res;
++	struct device *dev = &pdev->dev;
++	void __iomem *addr = NULL;
++	struct plat_stmmacenet_data *plat_dat = NULL;
++	u32 priv_clk_reg;
++
++	plat_dat = dev_get_platdata(&pdev->dev);
++	if (!plat_dat)
++		return -EINVAL;
++
++	/* Get GMAC clock register in CCU */
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++	addr = devm_ioremap_resource(dev, res);
++	if (IS_ERR(addr))
++		return PTR_ERR(addr);
++
++	priv_clk_reg = readl(addr);
++
++	/* Set GMAC interface port mode */
++	if (plat_dat->interface == PHY_INTERFACE_MODE_RGMII)
++		priv_clk_reg |= GMAC_IF_TYPE_RGMII;
++	else
++		priv_clk_reg &= ~GMAC_IF_TYPE_RGMII;
++
++	/* Set GMAC transmit clock source. */
++	priv_clk_reg &= ~GMAC_TX_CLK_MASK;
++	if (plat_dat->interface == PHY_INTERFACE_MODE_RGMII
++			|| plat_dat->interface == PHY_INTERFACE_MODE_GMII)
++		priv_clk_reg |= GMAC_TX_CLK_RGMII_INT;
++	else
++		priv_clk_reg |= GMAC_TX_CLK_MII;
++
++	writel(priv_clk_reg, addr);
++
++	/* mask out phy addr 0x0 */
++	plat_dat->mdio_bus_data->phy_mask = 0x1;
++
++	return 0;
++}
++
++const struct plat_stmmacenet_data sun7i_gmac_data = {
++	.has_gmac = 1,
++	.tx_coe = 1,
++	.init = sun7i_gmac_init,
++};
++
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index f16a9bd..c6e1f93 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -130,6 +130,9 @@ void stmmac_disable_eee_mode(struct stmmac_priv *priv);
+ bool stmmac_eee_init(struct stmmac_priv *priv);
+ 
+ #ifdef CONFIG_STMMAC_PLATFORM
++#ifdef CONFIG_DWMAC_SUNXI
++extern const struct plat_stmmacenet_data sun7i_gmac_data;
++#endif
+ extern struct platform_driver stmmac_pltfr_driver;
+ static inline int stmmac_register_platform(void)
+ {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index df3fd1c..6cf8292 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -35,6 +35,9 @@ static const struct of_device_id stmmac_dt_ids[] = {
+ 	{ .compatible = "snps,dwmac-3.70a"},
+ 	{ .compatible = "snps,dwmac-3.710"},
+ 	{ .compatible = "snps,dwmac"},
++#ifdef CONFIG_DWMAC_SUNXI
++	{ .compatible = "allwinner,sun7i-gmac", .data = &sun7i_gmac_data},
++#endif
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, stmmac_dt_ids);
 -- 
 1.8.5.1
