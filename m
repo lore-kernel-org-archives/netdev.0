@@ -1,64 +1,93 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [net 5/6] drivers/net/*: Fix FSF address in file headers
-Date: Fri, 6 Dec 2013 17:29:34 +0000
-Message-ID: <424cba8302314ebd8f3bc6af170146c3@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1386340128-23397-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1386340128-23397-5-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Subject: Re: [GIT PULL] xhci: Regression fix for 3.13.
+Date: Fri, 6 Dec 2013 10:19:47 -0800
+Message-ID: <20131206181947.GB14254@xanatos>
+References: <52A166CB.4020508@pobox.com>
+ <20131206170325.GA14254@xanatos>
+ <20131206172947.GA13222@kroah.com>
+ <20131206.123218.1113571734746378151.davem@davemloft.net>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B746F@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	KY Srinivasan <kys@microsoft.com>,
-	Paul Mackerras <paulus@samba.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	David Laight <David.Laight@ACULAB.COM>, mlord@pobox.com,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na01-by1-obe.ptr.o365filtering.com ([64.4.22.87]:58783 "EHLO
-	na01-by1-obe.outbound.o365filtering.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754779Ab3LFSEs convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Dec 2013 13:04:48 -0500
-In-Reply-To: <1386340128-23397-5-git-send-email-jeffrey.t.kirsher@intel.com>
-Content-Language: en-US
+Received: from mga02.intel.com ([134.134.136.20]:63772 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753616Ab3LFSTu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Dec 2013 13:19:50 -0500
+Content-Disposition: inline
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B746F@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: Jeff Kirsher [mailto:jeffrey.t.kirsher@intel.com]
-> Sent: Friday, December 6, 2013 9:29 AM
-> To: davem@davemloft.net
-> Cc: Jeff Kirsher; netdev@vger.kernel.org; gospo@redhat.com;
-> sassmann@redhat.com; Jay Vosburgh; Veaceslav Falico; Andy Gospodarek;
-> Haiyang Zhang; KY Srinivasan; Paul Mackerras; Ian Campbell; Wei Liu; Rusty
-> Russell; Michael S. Tsirkin
-> Subject: [net 5/6] drivers/net/*: Fix FSF address in file headers
+On Fri, Dec 06, 2013 at 05:46:40PM -0000, David Laight wrote:
+> > From: David Miller [mailto:davem@davemloft.net]
+> > > From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> > > Date: Fri, 6 Dec 2013 09:29:47 -0800
+> > 
+> > > On Fri, Dec 06, 2013 at 09:03:25AM -0800, Sarah Sharp wrote:
+> > >> On Fri, Dec 06, 2013 at 12:55:23AM -0500, Mark Lord wrote:
+> > >> > On 13-12-02 04:42 PM, Greg Kroah-Hartman wrote:
+> > >> > > On Mon, Dec 02, 2013 at 12:49:08PM -0800, Sarah Sharp wrote:
+> > >> > >> The following changes since commit c24cb6c8b501ebdf1aacec7960110a9741a45ced:
+> > >> > >>
+> > >> > >>   Merge tag 'fixes-for-v3.13-rc2' of git://git.kernel.org/pub/scm/linux/kernel/git/balbi/usb
+> > into usb-linus (2013-11-27 09:49:03 -0800)
+> > >> > >>
+> > >> > >> are available in the git repository at:
+> > >> > >>
+> > >> > >>
+> > >> > >>   git://git.kernel.org/pub/scm/linux/kernel/git/sarah/xhci.git tags/for-usb-linus-2013-12-02
+> > >> > >
+> > >> > > Pulled and pushed out, thanks.
+> > >> >
+> > >> > Did this commit make it into linux-3.12.3 ?
+> > >> >
+> > >> > I ask, because the NIC still locks up with that kernel,
+> > >> > and even with the patch I had been using from David Laight.
+> > >> >
+> > >> > Reverting the change that originally broke it still works though.
+> > >> > Could we please get this reverted until such time as a reworked
+> > >> > patch can be prepared for it?
+> > >>
+> > >> Greg, can you please revert David's patch (commit 35773dac5f86 from your
+> > >> usb-linus branch)?
+> > >
+> > > Now reverted.
+> > 
+> > Please NO!
+> > 
+> > Merge the XHCI change, the change you have reverted actually fixes
+> > things for some people and the XHCI change gets rid of the stated
+> > regression.
 > 
-> Several files refer to an old address for the Free Software Foundation
-> in the file header comment.  Resolve by replacing the address with
-> the URL <http://www.gnu.org/licenses/> so that we do not have to keep
-> updating the header comments anytime the address changes.
-> 
-> CC: Jay Vosburgh <fubar@us.ibm.com>
-> CC: Veaceslav Falico <vfalico@redhat.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: Haiyang Zhang <haiyangz@microsoft.com>
-> CC: "K. Y. Srinivasan" <kys@microsoft.com>
-> CC: Paul Mackerras <paulus@samba.org>
-> CC: Ian Campbell <ian.campbell@citrix.com>
-> CC: Wei Liu <wei.liu2@citrix.com>
-> CC: Rusty Russell <rusty@rustcorp.com.au>
-> CC: "Michael S. Tsirkin" <mst@redhat.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> I thought Mark had said that my patch fixed things for him with the
+> earlier kernel.  It certainly makes a massive difference on my system.
+> And I ran with enough diagnostics to work out when the tx side
+> stopped.  The last packet for which an ack was received was the one
+> before the one that straddled the ring end.
+>
+> If you want to change the ax179 driver you need to stop it using
+> SG and segmentation offload.
+> The patch that mark is talking about isn't really the one that makes a
+> difference.
+> I think it just forces the skb be linearised at that point. Which mostly
+> means that there won't be any fragments.
 
-Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
+Ok, so David verifies the xHCI driver does have an issue, and the patch
+does fix the issue as stated.  Fine, let's merge that patch and see if
+it helps.  Greg, can you fix this?  Sorry for the churn.
+
+> I know that some of the xhci ring code is rather complex [1].
+> But that particular patch should be completely safe as it just adds
+> some extra nop commands into the ring.
+> 
+> Possibly Mark is seeing some additional failure caused by something else.
+
+All right, let's get this patch into linus' tree, and track down exactly
+what's causing Mark's issues after it's merged.
+
+Sarah Sharp
