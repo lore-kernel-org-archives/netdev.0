@@ -1,52 +1,98 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp_memcontrol: Cleanup/fix cg_proto->memory_pressure
- handling.
-Date: Thu, 05 Dec 2013 21:01:22 -0500 (EST)
-Message-ID: <20131205.210122.1665109336067593941.davem@davemloft.net>
-References: <20131204222943.GC21724@cmpxchg.org>
-	<20131204.175028.1602944177771517327.davem@davemloft.net>
-	<87mwkg542z.fsf_-_@xmission.com>
+From: Sun Paul <paulrbk@gmail.com>
+Subject: Re: Supporting 4 way connections in LKSCTP
+Date: Fri, 6 Dec 2013 10:12:01 +0800
+Message-ID: <CAFXGft+2vxKnQ88988L9v+YrWB3OBxUqDwEAO4tLFH+CEyGNJA@mail.gmail.com>
+References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hannes@cmpxchg.org, glommer@gmail.com, netdev@vger.kernel.org,
- linux-mm@kvack.org, linux-kernel@kvack.org
-To: ebiederm@xmission.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <87mwkg542z.fsf_-_@xmission.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Wed, 04 Dec 2013 20:12:04 -0800
+So, can I get confirmation that whether we can enhance to support the
+scenarios or any resolution on providing the correct routing?
 
-> 
-> kill memcg_tcp_enter_memory_pressure.  The only function of
-> memcg_tcp_enter_memory_pressure was to reduce deal with the
-> unnecessary abstraction that was tcp_memcontrol.  Now that struct
-> tcp_memcontrol is gone remove this unnecessary function, the
-> unnecessary function pointer, and modify sk_enter_memory_pressure to
-> set this field directly, just as sk_leave_memory_pressure cleas this
-> field directly.
-> 
-> This fixes a small bug I intruduced when killing struct tcp_memcontrol
-> that caused memcg_tcp_enter_memory_pressure to never be called and
-> thus failed to ever set cg_proto->memory_pressure.
-> 
-> Remove the cg_proto enter_memory_pressure function as it now serves
-> no useful purpose.
-> 
-> Don't test cg_proto->memory_presser in sk_leave_memory_pressure before
-> clearing it.  The test was originally there to ensure that the pointer
-> was non-NULL.  Now that cg_proto is not a pointer the pointer does not
-> matter.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-
-Applied.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+On Tue, Nov 26, 2013 at 9:03 AM, Sun Paul <paulrbk@gmail.com> wrote:
+> Hi
+>
+> we have a problem on using LKSCTP to form a 4 ways multi-homing network.
+>
+> Configuration
+> - Node-A has 2 IP addresses in different subnets, known as IP-A (eth1),
+> IP-B (eth2)
+> - Node-B has 2 IP addresses in different subnets, known as IP-X (eth1),
+> IP-Y (eth2)
+>
+> the four way paths are shown below.
+> 1. IP-A (11.1.1.1) to IP-X (11.1.1.11)
+> 2. IP-B (12.1.1.1) to IP-Y (12.1.1.11)
+> 3. IP-A (11.1.1.1) to IP-Y (12.1.1.11)
+> 4. IP-B (12.1.1.1) to IP-X (11.1.1.11)
+>
+> the HB/HB_ACK is normal for the paths " IP-A to IP-X" and "IP-B to
+> IP-Y", but it is not correct for the rest of two.
+>
+> First of all, we are using iproute2 to form 2 table such that when
+> IP-B arrives on IP-X, it will know how to route back to IP-B on the
+> same interface, i.e (eth1). Same logic for the path "IP-A to IP-X".
+>
+> What we observed here is that when 12.1.1.1 sends INIT to 11.1.1.11,
+> LKSCTP will send back the INIT_ACK to 12.1.1.1 using 12.1.1.11 but not
+> using the IP 11.1.1.11.
+>
+> The above operation makes the subsequence HB/HB_ACK in using wrong IP address.
+>
+> TCP trace on eth1
+> 18:02:41.058640 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [INIT]
+> [init tag: 19933036] [rwnd: 102400] [OS: 16] [MIS: 16] [init TSN: 0]
+> 18:02:41.061634 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [COOKIE ECHO]
+> 18:02:41.062642 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [HB REQ]
+> 18:02:41.062846 IP 11.1.1.11.2905 > 11.1.1.1.2905: sctp (1) [HB ACK]
+> 18:02:41.361811 IP 11.1.1.11.2905 > 11.1.1.1.2905: sctp (1) [HB ACK]
+> 18:02:41.661791 IP 11.1.1.11.2905 > 11.1.1.1.2905: sctp (1) [HB ACK]
+> 18:02:41.961791 IP 11.1.1.11.2905 > 11.1.1.1.2905: sctp (1) [HB ACK]
+>
+> TCP trace on eth2
+> 18:02:41.058755 IP 12.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [INIT ACK]
+> [init tag: 424726157] [rwnd: 131072] [OS: 5] [MIS: 5] [init TSN:
+> 3340756356]
+> 18:02:41.061696 IP 12.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [COOKIE ACK]
+> 18:02:41.062663 IP 12.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [HB ACK]
+> 18:02:41.062791 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
+> 18:02:41.361777 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
+> 18:02:41.661772 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
+> 18:02:41.961772 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
+> 18:02:42.161771 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
+> 18:02:42.461770 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
+> 18:02:42.675770 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
+>
+>
+> If we are using single homing, there is no problem on the SCTP
+> communication. Below is the TCP trace on eth1 using sctp_test
+>
+> 18:09:55.356727 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [INIT]
+> [init tag: 32516609] [rwnd: 102400] [OS: 16] [MIS: 16] [init TSN: 0]
+> 18:09:55.356811 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [INIT ACK]
+> [init tag: 3168861995] [rwnd: 131072] [OS: 10] [MIS: 16] [init TSN:
+> 1877695021]
+> 18:09:55.357727 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [COOKIE ECHO]
+> 18:09:55.357788 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [COOKIE ACK]
+> 18:09:55.358724 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [HB REQ]
+> 18:09:55.358740 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [HB ACK]
+> 18:09:55.379715 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [DATA]
+> (B)(E) [TSN: 0] [SID: 0] [SSEQ 0] [PPID 0x3]
+> 18:09:55.379735 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [SACK]
+> [cum ack 0] [a_rwnd 131064] [#gap acks 0] [#dup tsns 0]
+> 18:09:55.657716 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [HB REQ]
+> 18:09:55.657732 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [HB ACK]
+>
+> From the observations, it seems that the LKSCTP library is not able to
+> use the original local address when multi-homing is being used. Is
+> there anyway can be resolved it?
+>
+> Thanks
+>
+> PS
