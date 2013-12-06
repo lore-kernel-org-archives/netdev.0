@@ -1,104 +1,101 @@
-From: Yann Droneaud <ydroneaud@opteya.com>
-Subject: Re: [PATCH v2] net: handle error more gracefully in socketpair()
-Date: Fri, 06 Dec 2013 11:10:55 +0100
-Message-ID: <1386324655.18074.75.camel@localhost.localdomain>
-References: <1385979146-13825-1-git-send-email-ydroneaud@opteya.com>
-	 <20131205.162333.1525865133149454763.davem@davemloft.net>
-	 <1386285331.18074.47.camel@localhost.localdomain>
-	 <20131205.194355.1677309681391704143.davem@davemloft.net>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: vxlan/veth performance issues on net.git + latest kernels
+Date: Fri, 6 Dec 2013 02:30:54 -0800 (PST)
+Message-ID: <alpine.LFD.2.03.1312060205220.3499@intel.com>
+References: <529DF340.70602@mellanox.com> <1386084620.30495.28.camel@edumazet-glaptop2.roam.corp.google.com> <CAJZOPZJ9WM1H9zKNzT5MvQ2UH7RxkTLk2Rhzsk9vdvKz6d2uAw@mail.gmail.com> <alpine.LFD.2.03.1312031310140.23893@intel.com>
+ <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com> <alpine.LFD.2.03.1312031500020.570@intel.com> <CAJZOPZLT_3msfz_XY45GOBMWK_y8WEYBTq3rGRUijpYyXE1ddg@mail.gmail.com> <alpine.LFD.2.03.1312031626400.7539@intel.com>
+ <CAJZOPZJKsrj2+SQJsgq-w7BrNwDR0OsYWiF+1CcRQ3-KhejZhQ@mail.gmail.com> <alpine.LFD.2.03.1312040113290.14367@intel.com> <CAJZOPZJVBpqm-OduV4K2YwbXESP7awhsk0HbjuHazAiQJZTLWQ@mail.gmail.com> <52A197DF.5010806@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	viro@zeniv.linux.org.uk, Yann Droneaud <ydroneaud@opteya.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131205.194355.1677309681391704143.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi,=20
-
-Le jeudi 05 d=C3=A9cembre 2013 =C3=A0 19:43 -0500, David Miller a =C3=A9=
-crit :
-> From: Yann Droneaud <ydroneaud@opteya.com>
-> Date: Fri, 06 Dec 2013 00:15:31 +0100
->=20
-> > AFAIK, using sys_close() seems to be the exception, and writing the=
- file
-> > descriptor before installing it is the more or less the norm.
->=20
-> What other system call in the kernel writes a file descriptor's value
-> into the address space of a user process before the file descriptor
-> is actually usable?
->=20
-
-Some carefully chosen examples:
-
-- recvmsg() through
-  - netlink_recvmsg() / unix_dgram_recvmsg() / unix_stream_recvmsg()
-  - scm_recv()
-  - scm_detach_fds(), scm.c:280
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/net=
-/core/scm.c?id=3Dv3.13-rc2#n280
-  - scm_detach_fds_compat(), compat.c:296
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/net=
-/compat.c?id=3Dv3.13-rc2#n296
-
-- pipe() / pipe2(), pipe.c:969, through
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/fs/=
-pipe.c?id=3Dv3.13-rc2#n969
-  - __do_pipe_flags, pipe.c:919
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/fs/=
-pipe.c?id=3Dv3.13-rc2#n919
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jerry Chu <hkchu@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, jeffrey.t.kirsher@intel.com,
+	John Fastabend <john.fastabend@gmail.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:36753 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754029Ab3LFKNY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Dec 2013 05:13:24 -0500
+In-Reply-To: <52A197DF.5010806@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> That's really terrible semantically.
 
-In fact, it's better:
+On Fri, 6 Dec 2013, Or Gerlitz wrote:
 
-1) get_unused_fd_flags() mark a file descriptor as 'reserved',
-   so no other syscall would be able to allocate it.
+> On 04/12/2013 11:41, Or Gerlitz wrote:
+> > On Wed, Dec 4, 2013 at 11:24 AM, Joseph
+> > Gasparakis<joseph.gasparakis@intel.com>  wrote:
+> > > >And just for the record,
+> > > >you are seeing (SKB_UDP_TUNNEL | SKB_GSO_TCPV4) as 0x201 while I was
+> > > >seeing it as 0x81 because commit 61c1db7fae "ipv6: sit: add GSO/TSO
+> > > >support" pushed the SKB_UDP_TUNNEL two bits left, and I had done my tests
+> > > before it.
+> > indeed, also, on what kernel did you conducted your tests which you managed
+> > to WA the problem with unsetting that bit?
+> 
+> 
+> Hi Joseph,
+> 
+> Really need your response here --
 
-   At this point, even if another userspace thread guess the correct
-   file descriptor number, trying to use it will give it -EBADFD,
-   since the file descriptor is not tied to a file (see __close_fd(),=20
-   open.c:589 for example)
+I'm sorry Or, I managed to miss your original request...
 
-2) file descriptor is wrote in userspace memory, using=20
-   put_user()/copy_to_user().
+> 
+> 1. on which kernel did you manage to get along fine vxlan performance wise
+> with this hack?
+> 
 
-   At this point, the userspace (another thread) could potentially
-   read the memory location and use the file descriptor, but here
-   again, it will give -EBADFD for the very same reason.
+I was running 3.10.6.
 
-3) fd_install() link the file descriptor to the file.
+> 2. did the hack helped for both veth host traffic or only on PV VM traffic?
+> 
 
-   Now, the userspace (another thread) could read the memory location
-   and use the file descriptor even if the syscall which create it=20
-   haven't return to the userspace caller yet.
+No, just VM. I haven't tried veth.
 
-If we arrange to put the call to fd_install() in the very last step
-of the syscall, the window where the file descriptor is usable by
-userspace but not yet validly returned to userspace is very tiny.
+If you leave the DODGY bit, does your traffic get droped on Tx, after it 
+leaves vxlan and before it hits your driver, which is what I had seen. Is 
+that right?
 
-In the other hand, when writing the file descriptor in the last step,
-eg. doing 1), 3) and 2), it makes possible for userspace to guess and
-manipulate the file descriptor while the syscall is not near completion=
-,
-eg. kernel could have some things to do on the file, device, socket, ..=
-=2E
-before returning to userspace.
-In such case, bad things might happen if another userspace thread is
-trying to play a bad game with the file descriptor.
-BTW I'm not aware of any security implication of this issue, but I thin=
-k
-it's better (safer) to have fd_install() being the very last step of a
-syscall. It should be the default good habit when dealing with file
-descriptor creation.
+If you unset it, do you recover?
 
-Regards.
+What is the output of your ethtool -k on the interface you are 
+transmitting from?
 
---=20
-Yann Droneaud
-OPTEYA
+> Currently it doesn't converge with 3.12.x or net.git, with veth/vxlan the
+> DODGE bit isn't set when looking on the skb in the vxlan xmit time, so there's
+> nothing for me to hack there. For VMs without unsetting the bit things don't
+> really work, but unsetting it for itself so far didn't get me far performance
+> wise.
+> 
+> BTW guys, I saw the issues with both bridge/openvswitch configuration - seems
+> that we might have here somehow large breakage of the system w.r.t vxlan
+> traffic for rates that go over few Gbs -- so would love to get feedback of any
+> kind from the people that were involved with vxlan over the last months/year.
+> 
+> Or.
+> 
+> net.git]# grep -rn  SKB_GSO_DODGY drivers/net/ net/ipv4 net/core
+> drivers/net/macvtap.c:585: skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
+> drivers/net/tun.c:1135:         skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
+> drivers/net/virtio_net.c:497: skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
+> drivers/net/xen-netback/netback.c:1146: skb_shinfo(skb)->gso_type |=
+> SKB_GSO_DODGY;
+> drivers/net/xen-netfront.c:823: skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
+> net/ipv4/af_inet.c:1264:                       SKB_GSO_DODGY |
+> net/ipv4/tcp_offload.c:56: SKB_GSO_DODGY |
+> net/ipv4/gre_offload.c:40: SKB_GSO_DODGY |
+> net/ipv4/udp_offload.c:53:              if (unlikely(type & ~(SKB_GSO_UDP |
+> SKB_GSO_DODGY |
+> net/core/dev.c:2694:            if (shinfo->gso_type & SKB_GSO_DODGY)
+> 
+> 
+> 
