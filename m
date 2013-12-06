@@ -1,35 +1,34 @@
 From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: [PATCH 2/2] tun: update file current position
-Date: Fri,  6 Dec 2013 14:16:51 +0800
-Message-ID: <1386310611-9294-2-git-send-email-zwu.kernel@gmail.com>
-References: <1386310611-9294-1-git-send-email-zwu.kernel@gmail.com>
+Subject: [net-next PATCH v3 0/6] net: some cleanups
+Date: Fri,  6 Dec 2013 14:19:36 +0800
+Message-ID: <1386310782-9378-1-git-send-email-zwu.kernel@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386310611-9294-1-git-send-email-zwu.kernel@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
 
-Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
----
- drivers/net/tun.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Since net-next is open now, it's time to post them again.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 782e38b..e26cbea 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1356,6 +1356,8 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
- 	ret = tun_do_read(tun, tfile, iocb, iv, len,
- 			  file->f_flags & O_NONBLOCK);
- 	ret = min_t(ssize_t, ret, len);
-+	if (ret > 0)
-+		iocb->ki_pos = ret;
- out:
- 	tun_put(tun);
- 	return ret;
+Zhi Yong Wu (6):
+  vhost: remove the dead branch
+  vhost: adjust vhost_dev_init() to be void
+  macvtap: remove the dead branch
+  macvtap: adjust macvtap_skb_to_vnet_hdr() to be void
+  macvtap: remove unused parameter in macvtap_do_read()
+  tun: remove unused parameter in tun_do_read()
+
+ drivers/net/macvtap.c |   14 +++++---------
+ drivers/net/tun.c     |    7 +++----
+ drivers/vhost/net.c   |    9 ++-------
+ drivers/vhost/scsi.c  |    7 +------
+ drivers/vhost/test.c  |    8 +-------
+ drivers/vhost/vhost.c |    4 +---
+ drivers/vhost/vhost.h |    2 +-
+ 7 files changed, 14 insertions(+), 37 deletions(-)
+
 -- 
 1.7.6.5
