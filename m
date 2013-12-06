@@ -1,125 +1,164 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: optimize some skb_shinfo(skb) uses
-Date: Thu, 05 Dec 2013 22:31:30 -0800
-Message-ID: <1386311490.30495.243.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next 1/6] tipc: add link_kfree_skbuff helper function
+Date: Fri, 6 Dec 2013 14:34:27 +0800
+Message-ID: <52A16FF3.7040107@windriver.com>
+References: <1386311022-11176-1-git-send-email-wangweidong1@huawei.com> <1386311022-11176-2-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
+To: Wang Weidong <wangweidong1@huawei.com>, <jon.maloy@ericsson.com>,
+	<allan.stephens@windriver.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:58104 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751185Ab3LFGbc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 01:31:32 -0500
-Received: by mail-pd0-f173.google.com with SMTP id p10so478062pdj.4
-        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 22:31:31 -0800 (PST)
+Received: from mail1.windriver.com ([147.11.146.13]:45550 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751294Ab3LFGeq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 01:34:46 -0500
+In-Reply-To: <1386311022-11176-2-git-send-email-wangweidong1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 12/06/2013 02:23 PM, Wang Weidong wrote:
+> replaces some chunks of code that kfree the sk_buff.
+> This is just code simplification, no functional changes.
+> 
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> ---
+>  net/tipc/link.c | 58 +++++++++++++++++++--------------------------------------
+>  1 file changed, 19 insertions(+), 39 deletions(-)
+> 
+> diff --git a/net/tipc/link.c b/net/tipc/link.c
+> index 69cd9bf..1c27d7b 100644
+> --- a/net/tipc/link.c
+> +++ b/net/tipc/link.c
+> @@ -100,6 +100,17 @@ static unsigned int align(unsigned int i)
+>  	return (i + 3) & ~3u;
+>  }
+>  
+> +static void link_kfree_skbuff(struct sk_buff *buf)
+> +{
+> +	struct sk_buff *next;
+> +
+> +	while (buf) {
+> +		next = buf->next;
+> +		kfree_skb(buf);
+> +		buf = next;
+> +	}
+> +}
+> +
 
-Compiler doesn't know skb_shinfo(skb) pointer is usually constant.
+Your new defined function is unnecessary, instead we already have
+another patch doing the same thing with kfree_skb_list(), and the patch
+will be to be sent out soon.
 
-By using a temporary variable, we help generating smaller code.
+Please see below link:
 
-For example, tcp_init_nondata_skb() is inlined after this patch.
+http://article.gmane.org/gmane.network.tipc.general/5140/
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_output.c |   36 +++++++++++++++++++++---------------
- 1 file changed, 21 insertions(+), 15 deletions(-)
+And the patch cleans up more things than your patch.
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 7820f3a7dd70..993da005e087 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -363,15 +363,17 @@ static inline void TCP_ECN_send(struct sock *sk, struct sk_buff *skb,
-  */
- static void tcp_init_nondata_skb(struct sk_buff *skb, u32 seq, u8 flags)
- {
-+	struct skb_shared_info *shinfo = skb_shinfo(skb);
-+
- 	skb->ip_summed = CHECKSUM_PARTIAL;
- 	skb->csum = 0;
- 
- 	TCP_SKB_CB(skb)->tcp_flags = flags;
- 	TCP_SKB_CB(skb)->sacked = 0;
- 
--	skb_shinfo(skb)->gso_segs = 1;
--	skb_shinfo(skb)->gso_size = 0;
--	skb_shinfo(skb)->gso_type = 0;
-+	shinfo->gso_segs = 1;
-+	shinfo->gso_size = 0;
-+	shinfo->gso_type = 0;
- 
- 	TCP_SKB_CB(skb)->seq = seq;
- 	if (flags & (TCPHDR_SYN | TCPHDR_FIN))
-@@ -986,6 +988,8 @@ static void tcp_queue_skb(struct sock *sk, struct sk_buff *skb)
- static void tcp_set_skb_tso_segs(const struct sock *sk, struct sk_buff *skb,
- 				 unsigned int mss_now)
- {
-+	struct skb_shared_info *shinfo = skb_shinfo(skb);
-+
- 	/* Make sure we own this skb before messing gso_size/gso_segs */
- 	WARN_ON_ONCE(skb_cloned(skb));
- 
-@@ -993,13 +997,13 @@ static void tcp_set_skb_tso_segs(const struct sock *sk, struct sk_buff *skb,
- 		/* Avoid the costly divide in the normal
- 		 * non-TSO case.
- 		 */
--		skb_shinfo(skb)->gso_segs = 1;
--		skb_shinfo(skb)->gso_size = 0;
--		skb_shinfo(skb)->gso_type = 0;
-+		shinfo->gso_segs = 1;
-+		shinfo->gso_size = 0;
-+		shinfo->gso_type = 0;
- 	} else {
--		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss_now);
--		skb_shinfo(skb)->gso_size = mss_now;
--		skb_shinfo(skb)->gso_type = sk->sk_gso_type;
-+		shinfo->gso_segs = DIV_ROUND_UP(skb->len, mss_now);
-+		shinfo->gso_size = mss_now;
-+		shinfo->gso_type = sk->sk_gso_type;
- 	}
- }
- 
-@@ -1146,6 +1150,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
-  */
- static void __pskb_trim_head(struct sk_buff *skb, int len)
- {
-+	struct skb_shared_info *shinfo;
- 	int i, k, eat;
- 
- 	eat = min_t(int, len, skb_headlen(skb));
-@@ -1157,23 +1162,24 @@ static void __pskb_trim_head(struct sk_buff *skb, int len)
- 	}
- 	eat = len;
- 	k = 0;
--	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
--		int size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
-+	shinfo = skb_shinfo(skb);
-+	for (i = 0; i < shinfo->nr_frags; i++) {
-+		int size = skb_frag_size(&shinfo->frags[i]);
- 
- 		if (size <= eat) {
- 			skb_frag_unref(skb, i);
- 			eat -= size;
- 		} else {
--			skb_shinfo(skb)->frags[k] = skb_shinfo(skb)->frags[i];
-+			shinfo->frags[k] = shinfo->frags[i];
- 			if (eat) {
--				skb_shinfo(skb)->frags[k].page_offset += eat;
--				skb_frag_size_sub(&skb_shinfo(skb)->frags[k], eat);
-+				shinfo->frags[k].page_offset += eat;
-+				skb_frag_size_sub(&shinfo->frags[k], eat);
- 				eat = 0;
- 			}
- 			k++;
- 		}
- 	}
--	skb_shinfo(skb)->nr_frags = k;
-+	shinfo->nr_frags = k;
- 
- 	skb_reset_tail_pointer(skb);
- 	skb->data_len -= len;
+Regards,
+Ying
+
+>  static void link_init_max_pkt(struct tipc_link *l_ptr)
+>  {
+>  	u32 max_pkt;
+> @@ -387,13 +398,8 @@ exit:
+>  static void link_release_outqueue(struct tipc_link *l_ptr)
+>  {
+>  	struct sk_buff *buf = l_ptr->first_out;
+> -	struct sk_buff *next;
+>  
+> -	while (buf) {
+> -		next = buf->next;
+> -		kfree_skb(buf);
+> -		buf = next;
+> -	}
+> +	link_kfree_skbuff(buf);
+>  	l_ptr->first_out = NULL;
+>  	l_ptr->out_queue_size = 0;
+>  }
+> @@ -416,21 +422,12 @@ void tipc_link_reset_fragments(struct tipc_link *l_ptr)
+>  void tipc_link_stop(struct tipc_link *l_ptr)
+>  {
+>  	struct sk_buff *buf;
+> -	struct sk_buff *next;
+>  
+>  	buf = l_ptr->oldest_deferred_in;
+> -	while (buf) {
+> -		next = buf->next;
+> -		kfree_skb(buf);
+> -		buf = next;
+> -	}
+> +	link_kfree_skbuff(buf);
+>  
+>  	buf = l_ptr->first_out;
+> -	while (buf) {
+> -		next = buf->next;
+> -		kfree_skb(buf);
+> -		buf = next;
+> -	}
+> +	link_kfree_skbuff(buf);
+>  
+>  	tipc_link_reset_fragments(l_ptr);
+>  
+> @@ -472,11 +469,7 @@ void tipc_link_reset(struct tipc_link *l_ptr)
+>  	kfree_skb(l_ptr->proto_msg_queue);
+>  	l_ptr->proto_msg_queue = NULL;
+>  	buf = l_ptr->oldest_deferred_in;
+> -	while (buf) {
+> -		struct sk_buff *next = buf->next;
+> -		kfree_skb(buf);
+> -		buf = next;
+> -	}
+> +	link_kfree_skbuff(buf);
+>  	if (!list_empty(&l_ptr->waiting_ports))
+>  		tipc_link_wakeup_ports(l_ptr, 1);
+>  
+> @@ -1127,10 +1120,7 @@ again:
+>  		if (copy_from_user(buf->data + fragm_crs, sect_crs, sz)) {
+>  			res = -EFAULT;
+>  error:
+> -			for (; buf_chain; buf_chain = buf) {
+> -				buf = buf_chain->next;
+> -				kfree_skb(buf_chain);
+> -			}
+> +			link_kfree_skbuff(buf_chain);
+>  			return res;
+>  		}
+>  		sect_crs += sz;
+> @@ -1180,18 +1170,12 @@ error:
+>  		if (l_ptr->max_pkt < max_pkt) {
+>  			sender->max_pkt = l_ptr->max_pkt;
+>  			tipc_node_unlock(node);
+> -			for (; buf_chain; buf_chain = buf) {
+> -				buf = buf_chain->next;
+> -				kfree_skb(buf_chain);
+> -			}
+> +			link_kfree_skbuff(buf_chain);
+>  			goto again;
+>  		}
+>  	} else {
+>  reject:
+> -		for (; buf_chain; buf_chain = buf) {
+> -			buf = buf_chain->next;
+> -			kfree_skb(buf_chain);
+> -		}
+> +		link_kfree_skbuff(buf_chain);
+>  		return tipc_port_reject_sections(sender, hdr, msg_sect,
+>  						 len, TIPC_ERR_NO_NODE);
+>  	}
+> @@ -2306,11 +2290,7 @@ static int link_send_long_buf(struct tipc_link *l_ptr, struct sk_buff *buf)
+>  		fragm = tipc_buf_acquire(fragm_sz + INT_H_SIZE);
+>  		if (fragm == NULL) {
+>  			kfree_skb(buf);
+> -			while (buf_chain) {
+> -				buf = buf_chain;
+> -				buf_chain = buf_chain->next;
+> -				kfree_skb(buf);
+> -			}
+> +			link_kfree_skbuff(buf_chain);
+>  			return -ENOMEM;
+>  		}
+>  		msg_set_size(&fragm_hdr, fragm_sz + INT_H_SIZE);
+> 
