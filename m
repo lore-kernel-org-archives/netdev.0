@@ -1,32 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC 0/9] vti4: prepare namespace and interfamily
- support.
-Date: Fri, 06 Dec 2013 15:20:31 -0500 (EST)
-Message-ID: <20131206.152031.319788789530762875.davem@davemloft.net>
-References: <20131205120028.GW31491@secunet.com>
+Subject: Re: [PATCH v4 net-next 0/4] net: some cleanups
+Date: Fri, 06 Dec 2013 15:22:27 -0500 (EST)
+Message-ID: <20131206.152227.1496961403659620861.davem@davemloft.net>
+References: <1386360786-17687-1-git-send-email-zwu.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, christophe.gouault@6wind.com,
-	saurabh.mohan@vyatta.com
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42144 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758737Ab3LFUUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 15:20:33 -0500
-In-Reply-To: <20131205120028.GW31491@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	wuzhy@linux.vnet.ibm.com
+To: zwu.kernel@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1386360786-17687-1-git-send-email-zwu.kernel@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Thu, 5 Dec 2013 13:00:28 +0100
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Date: Sat,  7 Dec 2013 04:13:02 +0800
 
-> The patchset that implements an IPsec protocol multiplexer, so that vti
-> can register it's own receive path hooks. Further it makes the i_key
-> usable for vti and changes the vti4 code to do the following:
+> Since net-next is open now, it's time to post them out again.
 > 
-> vti uses the IPsec protocol multiplexer to register it's
-> own receive side hooks for ESP and AH.
+> Changelog from v3:
+>  -combine the change that removes the return value check with
+> the change which adjusts the function return type to "void". [David Miller]
 
-I have no fundamental objections to this series, looks good.
+Looks good, series applied, thanks.
