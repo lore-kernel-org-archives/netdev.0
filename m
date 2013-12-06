@@ -1,26 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 0/4] net: some cleanups
-Date: Fri, 06 Dec 2013 15:22:27 -0500 (EST)
-Message-ID: <20131206.152227.1496961403659620861.davem@davemloft.net>
-References: <1386360786-17687-1-git-send-email-zwu.kernel@gmail.com>
+Subject: Re: [PATCH net-next] net: introduce dev_consume_skb_any()
+Date: Fri, 06 Dec 2013 15:24:36 -0500 (EST)
+Message-ID: <20131206.152436.287525112174057174.davem@davemloft.net>
+References: <CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com>
+	<1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1386247508.30495.180.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	wuzhy@linux.vnet.ibm.com
-To: zwu.kernel@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386360786-17687-1-git-send-email-zwu.kernel@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42187 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751030Ab3LFUYh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 15:24:37 -0500
+In-Reply-To: <1386247508.30495.180.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Date: Sat,  7 Dec 2013 04:13:02 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 05 Dec 2013 04:45:08 -0800
 
-> Since net-next is open now, it's time to post them out again.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Changelog from v3:
->  -combine the change that removes the return value check with
-> the change which adjusts the function return type to "void". [David Miller]
+> Some network drivers use dev_kfree_skb_any() and dev_kfree_skb_irq()
+> helpers to free skbs, both for dropped packets and TX completed ones.
+> 
+> We need to separate the two causes to get better diagnostics
+> given by dropwatch or "perf record -e skb:kfree_skb"
+> 
+> This patch provides two new helpers, dev_consume_skb_any() and
+> dev_consume_skb_irq() to be used for consumed skbs.
+> 
+> __dev_kfree_skb_irq() is slightly optimized to remove one
+> atomic_dec_and_test() in fast path, and use this_cpu_{r|w} accessors.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Looks good, series applied, thanks.
+Applied, thanks Eric.
