@@ -1,60 +1,68 @@
-From: Andrew Vagin <avagin@parallels.com>
-Subject: Re: [PATCH v2] virtio-net: free bufs correctly on invalid packet
- length
-Date: Fri, 6 Dec 2013 09:09:57 +0400
-Message-ID: <20131206050956.GA17752@paralelels.com>
-References: <1386278045-23542-1-git-send-email-mwdalton@google.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH net-next] packet: use macro GET_PBDQC_FROM_RB to simplify
+ the codes
+Date: Fri, 06 Dec 2013 13:29:36 +0800
+Message-ID: <52A160C0.6080805@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="koi8-r"
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Eric Dumazet" <edumazet@google.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Andrey Vagin <avagin@openvz.org>,
-	<virtualization@lists.linux-foundation.org>
-To: Michael Dalton <mwdalton@google.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:37641 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750703Ab3LFFNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 00:13:54 -0500
-Content-Disposition: inline
-In-Reply-To: <1386278045-23542-1-git-send-email-mwdalton@google.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:12526 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750752Ab3LFFcK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Dec 2013 00:32:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 05, 2013 at 01:14:05PM -0800, Michael Dalton wrote:
-> When a packet with invalid length arrives, ensure that the packet
-> is freed correctly if mergeable packet buffers and big packets
-> (GUEST_TSO4) are both enabled.
-> 
-> Signed-off-by: Michael Dalton <mwdalton@google.com>
 
-Acked-by: Andrew Vagin <avagin@openvz.org>
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ net/packet/af_packet.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-> ---
->  drivers/net/virtio_net.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 916241d..6a4665c 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -426,10 +426,10 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
->  	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
->  		pr_debug("%s: short packet %i\n", dev->name, len);
->  		dev->stats.rx_length_errors++;
-> -		if (vi->big_packets)
-> -			give_pages(rq, buf);
-> -		else if (vi->mergeable_rx_bufs)
-> +		if (vi->mergeable_rx_bufs)
->  			put_page(virt_to_head_page(buf));
-> +		else if (vi->big_packets)
-> +			give_pages(rq, buf);
->  		else
->  			dev_kfree_skb(buf);
->  		return;
-> -- 
-> 1.8.5.1
-> 
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index ba2548b..c235da9 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -437,7 +437,8 @@ static void prb_shutdown_retire_blk_timer(struct packet_sock *po,
+ {
+ 	struct tpacket_kbdq_core *pkc;
+ 
+-	pkc = tx_ring ? &po->tx_ring.prb_bdqc : &po->rx_ring.prb_bdqc;
++	pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring) :
++			GET_PBDQC_FROM_RB(&po->rx_ring);
+ 
+ 	spin_lock_bh(&rb_queue->lock);
+ 	pkc->delete_blk_timer = 1;
+@@ -463,7 +464,8 @@ static void prb_setup_retire_blk_timer(struct packet_sock *po, int tx_ring)
+ 	if (tx_ring)
+ 		BUG();
+ 
+-	pkc = tx_ring ? &po->tx_ring.prb_bdqc : &po->rx_ring.prb_bdqc;
++	pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring) :
++			GET_PBDQC_FROM_RB(&po->rx_ring);
+ 	prb_init_blk_timer(po, pkc, prb_retire_rx_blk_timer_expired);
+ }
+ 
+@@ -521,7 +523,7 @@ static void init_prb_bdqc(struct packet_sock *po,
+ 			struct pgv *pg_vec,
+ 			union tpacket_req_u *req_u, int tx_ring)
+ {
+-	struct tpacket_kbdq_core *p1 = &rb->prb_bdqc;
++	struct tpacket_kbdq_core *p1 = GET_PBDQC_FROM_RB(rb);
+ 	struct tpacket_block_desc *pbd;
+ 
+ 	memset(p1, 0x0, sizeof(*p1));
+@@ -585,7 +587,7 @@ static void _prb_refresh_rx_retire_blk_timer(struct tpacket_kbdq_core *pkc)
+ static void prb_retire_rx_blk_timer_expired(unsigned long data)
+ {
+ 	struct packet_sock *po = (struct packet_sock *)data;
+-	struct tpacket_kbdq_core *pkc = &po->rx_ring.prb_bdqc;
++	struct tpacket_kbdq_core *pkc = GET_PBDQC_FROM_RB(&po->rx_ring);
+ 	unsigned int frozen;
+ 	struct tpacket_block_desc *pbd;
+ 
+-- 
+1.8.3.1
