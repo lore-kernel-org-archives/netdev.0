@@ -1,42 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: don't count addrconf generated routes against gc
- limit
-Date: Fri, 06 Dec 2013 16:21:24 -0500 (EST)
-Message-ID: <20131206.162124.1642753475890720004.davem@davemloft.net>
-References: <20131206172556.GF26746@order.stressinduktion.org>
+Subject: Re: [PATCH 02/10] net: stmmac: Honor DT parameter to force DMA
+ store and forward mode
+Date: Fri, 06 Dec 2013 16:26:06 -0500 (EST)
+Message-ID: <20131206.162606.2277176361893801778.davem@davemloft.net>
+References: <1386350983-13281-1-git-send-email-wens@csie.org>
+	<1386350983-13281-3-git-send-email-wens@csie.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brett.ciphery@windriver.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42651 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753798Ab3LFVV0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 16:21:26 -0500
-In-Reply-To: <20131206172556.GF26746@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	rob.herring@calxeda.com, devicetree@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	linux-sunxi@googlegroups.com, srinivas.kandagatla@st.com,
+	maxime.ripard@free-electrons.com
+To: wens@csie.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1386350983-13281-3-git-send-email-wens@csie.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 6 Dec 2013 18:25:56 +0100
+From: Chen-Yu Tsai <wens@csie.org>
+Date: Sat,  7 Dec 2013 01:29:35 +0800
 
-> @@ -2166,7 +2166,8 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
->  				    bool anycast)
->  {
->  	struct net *net = dev_net(idev->dev);
-> -	struct rt6_info *rt = ip6_dst_alloc(net, net->loopback_dev, 0, NULL);
-> +	struct rt6_info *rt = ip6_dst_alloc(net, net->loopback_dev,
-> +					    DST_NOCOUNT, NULL);
+> @@ -47,6 +47,7 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+>  		plat->bus_id = 0;
 >  
->  	if (!rt) {
->  		net_warn_ratelimited("Maximum number of routes reached, consider increasing route/max_size\n");
+>  	of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr);
+> +	plat->force_sf_dma_mode = of_property_read_bool(np, "snps,force_sf_dma_mode");
 
-So basically, we only want to count routes that will have RTF_CACHE
-set on them.
+Will this do the right thing for when the property is not present?
+Right now the force_sf_dma_mode value is always false.
 
-This warning in the net_warn_ratelimited() is no longer relevant, only
-hard memory allocation failures can result in this !rt condition.  So
-please respin this patch with that warning removed.
-
-Thanks.
+In fact won't it override the explicit settings done elsewhere in the
+driver?
