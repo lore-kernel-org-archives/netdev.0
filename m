@@ -1,98 +1,36 @@
-From: Sun Paul <paulrbk@gmail.com>
-Subject: Re: Supporting 4 way connections in LKSCTP
-Date: Fri, 6 Dec 2013 10:12:01 +0800
-Message-ID: <CAFXGft+2vxKnQ88988L9v+YrWB3OBxUqDwEAO4tLFH+CEyGNJA@mail.gmail.com>
-References: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Subject: [net-next PATCHv2 0/8] net: some cleanups
+Date: Fri,  6 Dec 2013 10:24:01 +0800
+Message-ID: <1386296649-6453-1-git-send-email-zwu.kernel@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFXGft+CXk3W8=3w=AuYzqYtYnR8nH4Of9=668tUeT+tugD9-A@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-So, can I get confirmation that whether we can enhance to support the
-scenarios or any resolution on providing the correct routing?
+From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
 
-On Tue, Nov 26, 2013 at 9:03 AM, Sun Paul <paulrbk@gmail.com> wrote:
-> Hi
->
-> we have a problem on using LKSCTP to form a 4 ways multi-homing network.
->
-> Configuration
-> - Node-A has 2 IP addresses in different subnets, known as IP-A (eth1),
-> IP-B (eth2)
-> - Node-B has 2 IP addresses in different subnets, known as IP-X (eth1),
-> IP-Y (eth2)
->
-> the four way paths are shown below.
-> 1. IP-A (11.1.1.1) to IP-X (11.1.1.11)
-> 2. IP-B (12.1.1.1) to IP-Y (12.1.1.11)
-> 3. IP-A (11.1.1.1) to IP-Y (12.1.1.11)
-> 4. IP-B (12.1.1.1) to IP-X (11.1.1.11)
->
-> the HB/HB_ACK is normal for the paths " IP-A to IP-X" and "IP-B to
-> IP-Y", but it is not correct for the rest of two.
->
-> First of all, we are using iproute2 to form 2 table such that when
-> IP-B arrives on IP-X, it will know how to route back to IP-B on the
-> same interface, i.e (eth1). Same logic for the path "IP-A to IP-X".
->
-> What we observed here is that when 12.1.1.1 sends INIT to 11.1.1.11,
-> LKSCTP will send back the INIT_ACK to 12.1.1.1 using 12.1.1.11 but not
-> using the IP 11.1.1.11.
->
-> The above operation makes the subsequence HB/HB_ACK in using wrong IP address.
->
-> TCP trace on eth1
-> 18:02:41.058640 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [INIT]
-> [init tag: 19933036] [rwnd: 102400] [OS: 16] [MIS: 16] [init TSN: 0]
-> 18:02:41.061634 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [COOKIE ECHO]
-> 18:02:41.062642 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [HB REQ]
-> 18:02:41.062846 IP 11.1.1.11.2905 > 11.1.1.1.2905: sctp (1) [HB ACK]
-> 18:02:41.361811 IP 11.1.1.11.2905 > 11.1.1.1.2905: sctp (1) [HB ACK]
-> 18:02:41.661791 IP 11.1.1.11.2905 > 11.1.1.1.2905: sctp (1) [HB ACK]
-> 18:02:41.961791 IP 11.1.1.11.2905 > 11.1.1.1.2905: sctp (1) [HB ACK]
->
-> TCP trace on eth2
-> 18:02:41.058755 IP 12.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [INIT ACK]
-> [init tag: 424726157] [rwnd: 131072] [OS: 5] [MIS: 5] [init TSN:
-> 3340756356]
-> 18:02:41.061696 IP 12.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [COOKIE ACK]
-> 18:02:41.062663 IP 12.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [HB ACK]
-> 18:02:41.062791 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
-> 18:02:41.361777 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
-> 18:02:41.661772 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
-> 18:02:41.961772 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
-> 18:02:42.161771 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
-> 18:02:42.461770 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
-> 18:02:42.675770 IP 11.1.1.1.2905 > 12.1.1.11.2905: sctp (1) [HB REQ]
->
->
-> If we are using single homing, there is no problem on the SCTP
-> communication. Below is the TCP trace on eth1 using sctp_test
->
-> 18:09:55.356727 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [INIT]
-> [init tag: 32516609] [rwnd: 102400] [OS: 16] [MIS: 16] [init TSN: 0]
-> 18:09:55.356811 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [INIT ACK]
-> [init tag: 3168861995] [rwnd: 131072] [OS: 10] [MIS: 16] [init TSN:
-> 1877695021]
-> 18:09:55.357727 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [COOKIE ECHO]
-> 18:09:55.357788 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [COOKIE ACK]
-> 18:09:55.358724 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [HB REQ]
-> 18:09:55.358740 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [HB ACK]
-> 18:09:55.379715 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [DATA]
-> (B)(E) [TSN: 0] [SID: 0] [SSEQ 0] [PPID 0x3]
-> 18:09:55.379735 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [SACK]
-> [cum ack 0] [a_rwnd 131064] [#gap acks 0] [#dup tsns 0]
-> 18:09:55.657716 IP 12.1.1.1.2905 > 11.1.1.11.2905: sctp (1) [HB REQ]
-> 18:09:55.657732 IP 11.1.1.11.2905 > 12.1.1.1.2905: sctp (1) [HB ACK]
->
-> From the observations, it seems that the LKSCTP library is not able to
-> use the original local address when multi-homing is being used. Is
-> there anyway can be resolved it?
->
-> Thanks
->
-> PS
+Since net-next is open now, it's time to post them out again.
+
+Zhi Yong Wu (8):
+  vhost: remove the dead branch
+  vhost: adjust vhost_dev_init() to be void
+  macvtap: remove the dead branch
+  macvtap: adjust macvtap_skb_to_vnet_hdr() to be void
+  macvtap: update file current position
+  macvtap: remove unused parameter in macvtap_do_read()
+  tun: update file current position
+  tun: remove unused parameter in tun_do_read()
+
+ drivers/net/macvtap.c |   16 +++++++---------
+ drivers/net/tun.c     |    9 +++++----
+ drivers/vhost/net.c   |    9 ++-------
+ drivers/vhost/scsi.c  |    7 +------
+ drivers/vhost/test.c  |    8 +-------
+ drivers/vhost/vhost.c |    4 +---
+ drivers/vhost/vhost.h |    2 +-
+ 7 files changed, 18 insertions(+), 37 deletions(-)
+
+-- 
+1.7.6.5
