@@ -1,101 +1,42 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Fri, 6 Dec 2013 02:30:54 -0800 (PST)
-Message-ID: <alpine.LFD.2.03.1312060205220.3499@intel.com>
-References: <529DF340.70602@mellanox.com> <1386084620.30495.28.camel@edumazet-glaptop2.roam.corp.google.com> <CAJZOPZJ9WM1H9zKNzT5MvQ2UH7RxkTLk2Rhzsk9vdvKz6d2uAw@mail.gmail.com> <alpine.LFD.2.03.1312031310140.23893@intel.com>
- <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com> <alpine.LFD.2.03.1312031500020.570@intel.com> <CAJZOPZLT_3msfz_XY45GOBMWK_y8WEYBTq3rGRUijpYyXE1ddg@mail.gmail.com> <alpine.LFD.2.03.1312031626400.7539@intel.com>
- <CAJZOPZJKsrj2+SQJsgq-w7BrNwDR0OsYWiF+1CcRQ3-KhejZhQ@mail.gmail.com> <alpine.LFD.2.03.1312040113290.14367@intel.com> <CAJZOPZJVBpqm-OduV4K2YwbXESP7awhsk0HbjuHazAiQJZTLWQ@mail.gmail.com> <52A197DF.5010806@mellanox.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] net: introduce SO_BPF_EXTENSIONS
+Date: Fri, 06 Dec 2013 11:02:01 +0100
+Message-ID: <52A1A099.3010901@redhat.com>
+References: <1385639832-3938-1-git-send-email-msekleta@redhat.com> <1385659889.5352.25.camel@edumazet-glaptop2.roam.corp.google.com> <5298A0EF.70401@redhat.com> <CAJ7VeQwC7xPPujCN8kQ3KcJAhykwQXLFA=vw2gWABmpUvuz1og@mail.gmail.com> <1386264770.30495.204.camel@edumazet-glaptop2.roam.corp.google.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7466@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jerry Chu <hkchu@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, jeffrey.t.kirsher@intel.com,
-	John Fastabend <john.fastabend@gmail.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?B?TWljaGFsIFNla2xldMOh?= =?UTF-8?B?cg==?=
+	<sekletar.m@gmail.com>, Michal Sekletar <msekleta@redhat.com>,
+	netdev@vger.kernel.org, Michael Kerrisk <mtk.manpages@gmail.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:36753 "EHLO mga02.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54811 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754029Ab3LFKNY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Dec 2013 05:13:24 -0500
-In-Reply-To: <52A197DF.5010806@mellanox.com>
+	id S1751961Ab3LFK1T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Dec 2013 05:27:19 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7466@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 12/06/2013 10:50 AM, David Laight wrote:
+>> if SO_BPF_EXTENSIONS is supported, than you can assume that all current
+>> extensions are supported.
+>>
+>> No need to consume one bit per feature, as all these features wont ever
+>> disappear from linux.
+>
+> However one of the BSDs could add a subset of the features and
+> wish to advertise the fact.
+> So using extra flags for non-trivial extensions could be useful.
 
+Haven't had a closer look at the BSD BPF code /yet/, so ...
 
-On Fri, 6 Dec 2013, Or Gerlitz wrote:
+  i) Does BSD have such extensions and if so do we overlap some?
 
-> On 04/12/2013 11:41, Or Gerlitz wrote:
-> > On Wed, Dec 4, 2013 at 11:24 AM, Joseph
-> > Gasparakis<joseph.gasparakis@intel.com>  wrote:
-> > > >And just for the record,
-> > > >you are seeing (SKB_UDP_TUNNEL | SKB_GSO_TCPV4) as 0x201 while I was
-> > > >seeing it as 0x81 because commit 61c1db7fae "ipv6: sit: add GSO/TSO
-> > > >support" pushed the SKB_UDP_TUNNEL two bits left, and I had done my tests
-> > > before it.
-> > indeed, also, on what kernel did you conducted your tests which you managed
-> > to WA the problem with unsetting that bit?
-> 
-> 
-> Hi Joseph,
-> 
-> Really need your response here --
+ii) Is it planned to also introduce SO_BPF_EXTENSIONS for BSD kernels
+     to have one common api (that i.e. libpcap would then make use of)?
 
-I'm sorry Or, I managed to miss your original request...
-
-> 
-> 1. on which kernel did you manage to get along fine vxlan performance wise
-> with this hack?
-> 
-
-I was running 3.10.6.
-
-> 2. did the hack helped for both veth host traffic or only on PV VM traffic?
-> 
-
-No, just VM. I haven't tried veth.
-
-If you leave the DODGY bit, does your traffic get droped on Tx, after it 
-leaves vxlan and before it hits your driver, which is what I had seen. Is 
-that right?
-
-If you unset it, do you recover?
-
-What is the output of your ethtool -k on the interface you are 
-transmitting from?
-
-> Currently it doesn't converge with 3.12.x or net.git, with veth/vxlan the
-> DODGE bit isn't set when looking on the skb in the vxlan xmit time, so there's
-> nothing for me to hack there. For VMs without unsetting the bit things don't
-> really work, but unsetting it for itself so far didn't get me far performance
-> wise.
-> 
-> BTW guys, I saw the issues with both bridge/openvswitch configuration - seems
-> that we might have here somehow large breakage of the system w.r.t vxlan
-> traffic for rates that go over few Gbs -- so would love to get feedback of any
-> kind from the people that were involved with vxlan over the last months/year.
-> 
-> Or.
-> 
-> net.git]# grep -rn  SKB_GSO_DODGY drivers/net/ net/ipv4 net/core
-> drivers/net/macvtap.c:585: skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
-> drivers/net/tun.c:1135:         skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
-> drivers/net/virtio_net.c:497: skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
-> drivers/net/xen-netback/netback.c:1146: skb_shinfo(skb)->gso_type |=
-> SKB_GSO_DODGY;
-> drivers/net/xen-netfront.c:823: skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
-> net/ipv4/af_inet.c:1264:                       SKB_GSO_DODGY |
-> net/ipv4/tcp_offload.c:56: SKB_GSO_DODGY |
-> net/ipv4/gre_offload.c:40: SKB_GSO_DODGY |
-> net/ipv4/udp_offload.c:53:              if (unlikely(type & ~(SKB_GSO_UDP |
-> SKB_GSO_DODGY |
-> net/core/dev.c:2694:            if (shinfo->gso_type & SKB_GSO_DODGY)
-> 
-> 
-> 
+> 	David
+>
