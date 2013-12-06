@@ -1,80 +1,60 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH 08/10] ARM: dts: sun7i: cubieboard2: Enable GMAC
- instead of EMAC
-Date: Sat,  7 Dec 2013 01:29:41 +0800
-Message-ID: <1386350983-13281-9-git-send-email-wens@csie.org>
-References: <1386350983-13281-1-git-send-email-wens@csie.org>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] xhci: Regression fix for 3.13.
+Date: Fri, 06 Dec 2013 12:32:18 -0500 (EST)
+Message-ID: <20131206.123218.1113571734746378151.davem@davemloft.net>
+References: <52A166CB.4020508@pobox.com>
+	<20131206170325.GA14254@xanatos>
+	<20131206172947.GA13222@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-	Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>,
-	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-To: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBZ4TRCKQKGQEUWO5ALY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1386350983-13281-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sarah.a.sharp@linux.intel.com, mlord@pobox.com,
+	linux-usb@vger.kernel.org, David.Laight@ACULAB.COM,
+	netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40454 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753223Ab3LFRcU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 12:32:20 -0500
+In-Reply-To: <20131206172947.GA13222@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-GMAC has better performance and fewer hardware issues.
-Use the GMAC in MII mode for ethernet instead of the EMAC.
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Fri, 6 Dec 2013 09:29:47 -0800
 
-Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
----
- arch/arm/boot/dts/sun7i-a20-cubieboard2.dts | 23 ++++++++---------------
- 1 file changed, 8 insertions(+), 15 deletions(-)
+> On Fri, Dec 06, 2013 at 09:03:25AM -0800, Sarah Sharp wrote:
+>> On Fri, Dec 06, 2013 at 12:55:23AM -0500, Mark Lord wrote:
+>> > On 13-12-02 04:42 PM, Greg Kroah-Hartman wrote:
+>> > > On Mon, Dec 02, 2013 at 12:49:08PM -0800, Sarah Sharp wrote:
+>> > >> The following changes since commit c24cb6c8b501ebdf1aacec7960110a9741a45ced:
+>> > >>
+>> > >>   Merge tag 'fixes-for-v3.13-rc2' of git://git.kernel.org/pub/scm/linux/kernel/git/balbi/usb into usb-linus (2013-11-27 09:49:03 -0800)
+>> > >>
+>> > >> are available in the git repository at:
+>> > >>
+>> > >>
+>> > >>   git://git.kernel.org/pub/scm/linux/kernel/git/sarah/xhci.git tags/for-usb-linus-2013-12-02
+>> > > 
+>> > > Pulled and pushed out, thanks.
+>> > 
+>> > Did this commit make it into linux-3.12.3 ?
+>> > 
+>> > I ask, because the NIC still locks up with that kernel,
+>> > and even with the patch I had been using from David Laight.
+>> > 
+>> > Reverting the change that originally broke it still works though.
+>> > Could we please get this reverted until such time as a reworked
+>> > patch can be prepared for it?
+>> 
+>> Greg, can you please revert David's patch (commit 35773dac5f86 from your
+>> usb-linus branch)?
+> 
+> Now reverted.
 
-diff --git a/arch/arm/boot/dts/sun7i-a20-cubieboard2.dts b/arch/arm/boot/dts/sun7i-a20-cubieboard2.dts
-index 5c51cb8..9ef5848 100644
---- a/arch/arm/boot/dts/sun7i-a20-cubieboard2.dts
-+++ b/arch/arm/boot/dts/sun7i-a20-cubieboard2.dts
-@@ -19,21 +19,6 @@
- 	compatible = "cubietech,cubieboard2", "allwinner,sun7i-a20";
- 
- 	soc@01c00000 {
--		emac: ethernet@01c0b000 {
--			pinctrl-names = "default";
--			pinctrl-0 = <&emac_pins_a>;
--			phy = <&phy1>;
--			status = "okay";
--		};
--
--		mdio@01c0b080 {
--			status = "okay";
--
--			phy1: ethernet-phy@1 {
--				reg = <1>;
--			};
--		};
--
- 		pinctrl@01c20800 {
- 			led_pins_cubieboard2: led_pins@0 {
- 				allwinner,pins = "PH20", "PH21";
-@@ -60,6 +45,14 @@
- 			pinctrl-0 = <&i2c1_pins_a>;
- 			status = "okay";
- 		};
-+
-+		gmac: ethernet@01c50000 {
-+			pinctrl-names = "default";
-+			pinctrl-0 = <&gmac_pins_mii>;
-+			snps,phy-addr = <1>;
-+			phy-mode = "mii";
-+			status = "okay";
-+		};
- 	};
- 
- 	leds {
--- 
-1.8.5.1
+Please NO!
+
+Merge the XHCI change, the change you have reverted actually fixes
+things for some people and the XHCI change gets rid of the stated
+regression.
