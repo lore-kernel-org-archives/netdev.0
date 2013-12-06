@@ -1,76 +1,38 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: Pull request: SIOCGHWTSTAMP ioctl
-Date: Fri, 6 Dec 2013 09:41:45 -0800
-Message-ID: <52A20C59.2010705@caviumnetworks.com>
-References: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com>
-	<20131205.194624.1335606571649336470.davem@davemloft.net>
-	<1386351515.1516.156.camel@bwh-desktop.uk.level5networks.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] tcp: auto corking
+Date: Fri, 6 Dec 2013 17:57:44 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7470@saturn3.aculab.com>
+References: <1386311765.30495.246.camel@edumazet-glaptop2.roam.corp.google.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7467@saturn3.aculab.com> <52A1F603.2030208@hp.com> <1386351976.30495.266.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Veaceslav Falico <vfalico@redhat.com>, David Daney <david.daney@cavium.com>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>,
-	netdev@vger.kernel.org, Takahiro Shimizu <tshimizu818@gmail.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	David Miller <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1386351515.1516.156.camel@bwh-desktop.uk.level5networks.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: "David Miller" <davem@davemloft.net>,
+	"netdev" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Rick Jones" <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:48106 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751625Ab3LFR6c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Dec 2013 12:58:32 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 26979-05 for <netdev@vger.kernel.org>;
+ Fri,  6 Dec 2013 17:58:28 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1386351976.30495.266.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/06/2013 09:38 AM, Ben Hutchings wrote:
-> On Thu, 2013-12-05 at 19:46 -0500, David Miller wrote:
->> From: Ben Hutchings <bhutchings@solarflare.com>
->> Date: Thu, 5 Dec 2013 23:37:12 +0000
->>
->>> 1. Add the SIOCGHWTSTAMP ioctl and update the timestamping
->>> documentation.
->>> 2. Implement SIOCGHWTSTAMP in most drivers that support SIOCSHWTSTAMP.
->>> 3. Add a test program to exercise SIOC{G,S}HWTSTAMP.
->>
->> Pulled, thanks Ben.
->
-> Thanks.  I hope all the drivers still work, as you didn't leave long for
-> review.
->
-> There are a few drivers I didn't touch because they don't appear to keep
-> a soft copy of the timestamp configuration:
->
-> drivers/net/ethernet/intel/igb/igb_main.c
-> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> drivers/net/ethernet/octeon/octeon_mgmt.c
-
-I will look at modifying octeon_mgmt to support this.
-
-Thanks,
-David Daney
-
-
-> drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->
-> phylib and the dp83640 driver will also need to be updated to support
-> this.
->
-> Ben.
->
-
-
-------------------------------------------------------------------------------
-Sponsored by Intel(R) XDK 
-Develop, test and display web and hybrid apps with a single code base.
-Download it for free now!
-http://pubads.g.doubleclick.net/gampad/clk?id=111408631&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+PiBXZWxsIHdyaXR0ZW4gYXBwbGljYXRpb25zIHVzZSBUQ1BfQ09SSyBvciBNU0dfTU9SRSwgYnV0
+IHVuZm9ydHVuYXRlbHkNCj4gbWFueSBhcHBsaWNhdGlvbnMgYXJlIG5vdCB3ZWxsIHdyaXR0ZW4u
+DQoNCklmIHlvdSBrbm93IHlvdSBoYXZlIG11bHRpcGxlIGJ1ZmZlcnMgdG8gc2VuZCwgeW91IGNh
+biB1c2Ugd3JpdGV2KCkNCmFuZCBzYXZlIGFsbCB0aGUgc3lzdGVtIGNhbGxzLg0KVGhlIHByb2Js
+ZW0gaXMgYXBwbGljYXRpb25zIHRoYXQgZG9uJ3Qga25vdyB0aGF0IHRoZXkgYXJlIGdvaW5nIHRv
+DQpoYXZlIG1vcmUgZGF0YSBpbiBhIGZldyBtaWNyb3NlY29uZHMuDQoNCkJ1ZmZlcmluZyBkYXRh
+IHVudGlsIHRoZSBza2IgZm9yIGVhcmxpZXIgbWVzc2FnZXMgaGF2ZSBiZWVuIGZyZWVkDQpzZWVt
+cyB0byBiZSBoaWdobHkgcmVsaWFudCBvbiB0aGUgbWFjIGRyaXZlciB0YWtpbmcgJ2VuZCBvZiB0
+cmFuc21pdCcNCmludGVycnVwdHMgLSBldmVuIG1vcmUgc28gdGhhbiB1c3VhbC4gSSBndWVzcyB0
+aGF0IGRyaXZlcnMgb2ZmZXJpbmcNCnNtYWxsIHF1ZXVlIGNvdW50cyBhcmUgZ2VuZXJhdGluZyB0
+aG9zZSBpbnRlcnJ1cHRzLg0KDQoJRGF2aWQNCg0K
