@@ -1,8 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 2/9] net: phy: use phy_init_hw instead of open-coding it
-Date: Thu, 5 Dec 2013 16:55:10 -0800
-Message-ID: <1386291317-1202-3-git-send-email-f.fainelli@gmail.com>
-References: <1386291317-1202-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH 0/9] net: phy: PHY reset consolidation
+Date: Thu, 5 Dec 2013 16:55:08 -0800
+Message-ID: <1386291317-1202-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <sebastian.hesselbarth@gmail.com>,
@@ -10,40 +9,47 @@ Cc: <davem@davemloft.net>, <sebastian.hesselbarth@gmail.com>,
 	<kyle@moffetthome.net>, Florian Fainelli <f.fainelli@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:3593 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752426Ab3LFBFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 20:05:03 -0500
-In-Reply-To: <1386291317-1202-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:21606 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752514Ab3LFBFE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 20:05:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use phy_init_hw() instead of open-coding it in phy_mii_ioctl(), this
-improves consistenty and makes sure that we will not duplicate the same
-routine somewhere else.
+Hi all,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/phy.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+Over the past few months there have been various attempts at doing
+"wild" PHY resets eventually bypassing the PHY state machine and causing
+various sort of issues whenever auto-negotiation as not enabled.
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 05cb8fe..5d7101b 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -361,11 +361,8 @@ int phy_mii_ioctl(struct phy_device *phydev,
- 			      mii_data->reg_num, val);
- 
- 		if (mii_data->reg_num == MII_BMCR &&
--		    val & BMCR_RESET &&
--		    phydev->drv->config_init) {
--			phy_scan_fixups(phydev);
--			phydev->drv->config_init(phydev);
--		}
-+		    val & BMCR_RESET)
-+			phy_init_hw(phydev);
- 		break;
- 
- 	case SIOCSHWTSTAMP:
+This patchset resumes the work Kyle Moffett started here:
+https://lkml.org/lkml/2011/10/20/301
+
+Once Sebastian's phy_resume/suspend patchet is in, we can also make sure
+we consolidate PHY resets after resuming from S2/S3 suspend modes.
+
+Florian Fainelli (9):
+  net: phy: report link partner features through ethtool
+  net: phy: use phy_init_hw instead of open-coding it
+  net: greth: use phy_read_status()
+  net: bfin_mac: do not reset PHY after phy_start()
+  net: phy: consolidate PHY reset in phy_init_hw()
+  net: mv643xx_eth: use phy_init_hw to reset PHY
+  net: pxa168_eth: use phy_init_hw for PHY reset
+  net: tc35815: use phy_init_hw for PHY reset
+  net: sh_eth: do not issue a wild PHY reset through BMCR
+
+ Documentation/networking/phy.txt           |  3 +-
+ drivers/net/ethernet/adi/bfin_mac.c        |  1 -
+ drivers/net/ethernet/aeroflex/greth.c      |  2 +-
+ drivers/net/ethernet/marvell/mv643xx_eth.c | 21 +---------
+ drivers/net/ethernet/marvell/pxa168_eth.c  | 19 +--------
+ drivers/net/ethernet/renesas/sh_eth.c      |  5 ++-
+ drivers/net/ethernet/toshiba/tc35815.c     | 15 ++------
+ drivers/net/phy/phy.c                      | 11 +++---
+ drivers/net/phy/phy_device.c               | 62 +++++++++++++++++++++++++++++-
+ include/linux/phy.h                        |  5 ++-
+ 10 files changed, 82 insertions(+), 62 deletions(-)
+
 -- 
 1.8.3.2
