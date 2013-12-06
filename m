@@ -1,53 +1,70 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 07/10] ARM: dts: sun7i: cubietruck: Enable the GMAC
-Date: Fri, 6 Dec 2013 13:09:06 -0800
-Message-ID: <CAGVrzcb_r9_p4urz4XkE2A-G85KAHJa4PJ=Gt9a4RPYQNJ6j0g@mail.gmail.com>
-References: <1386350983-13281-1-git-send-email-wens@csie.org> <1386350983-13281-8-git-send-email-wens@csie.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch net/stable v2] br: fix use of ->rx_handler_data
+ in code executed on non-rx_handler path
+Date: Fri, 6 Dec 2013 13:10:28 -0800
+Message-ID: <20131206131028.41b5b8b1@nehalam.linuxnetplumber.net>
+References: <1386257257-25258-1-git-send-email-jiri@resnulli.us>
+	<20131206.154321.1673089712073824539.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev <netdev@vger.kernel.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-sunxi@googlegroups.com,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Srinivas Kandagatla <srinivas.kandagatla@st.com>
-To: Chen-Yu Tsai <wens@csie.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386350983-13281-8-git-send-email-wens@csie.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jtluka@redhat.com, jiri@resnulli.us, mst@redhat.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, edumazet@google.com,
+	laine@redhat.com, zhiguohong@tencent.com
+To: David Miller <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20131206.154321.1673089712073824539.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-2013/12/6 Chen-Yu Tsai <wens@csie.org>:
-> The CubieTruck uses the GMAC with an RGMII phy.
->
-> Signed-off-by: Chen-Yu Tsai <wens@csie.org>
-> ---
->  arch/arm/boot/dts/sun7i-a20-cubietruck.dts | 8 ++++++++
->  1 file changed, 8 insertions(+)
->
-> diff --git a/arch/arm/boot/dts/sun7i-a20-cubietruck.dts b/arch/arm/boot/dts/sun7i-a20-cubietruck.dts
-> index 8a1009d..af212a2 100644
-> --- a/arch/arm/boot/dts/sun7i-a20-cubietruck.dts
-> +++ b/arch/arm/boot/dts/sun7i-a20-cubietruck.dts
-> @@ -33,6 +33,14 @@
->                         pinctrl-0 = <&uart0_pins_a>;
->                         status = "okay";
->                 };
-> +
-> +               gmac: ethernet@01c50000 {
-> +                       pinctrl-names = "default";
-> +                       pinctrl-0 = <&gmac_pins_rgmii>;
-> +                       snps,phy-addr = <1>;
+On Fri, 06 Dec 2013 15:43:21 -0500 (EST)
+David Miller <davem@davemloft.net> wrote:
 
-What is this snps,phy-addr property? Why is not a standard device tree
-node for an Ethernet PHY node used?
+> From: Jiri Pirko <jiri@resnulli.us>
+> Date: Thu,  5 Dec 2013 16:27:37 +0100
+> 
+> > br_stp_rcv() is reached by non-rx_handler path. That means there is no
+> > guarantee that dev is bridge port and therefore simple NULL check of
+> > ->rx_handler_data is not enough. There is need to check if dev is really
+> > bridge port and since only rcu read lock is held here, do it by checking
+> > ->rx_handler pointer.
+> > 
+> > Note that synchronize_net() in netdev_rx_handler_unregister() ensures
+> > this approach as valid.
+> > 
+> > Introduced originally by:
+> > commit f350a0a87374418635689471606454abc7beaa3a
+> >   "bridge: use rx_handler_data pointer to store net_bridge_port pointer"
+> > 
+> > Fixed but not in the best way by:
+> > commit b5ed54e94d324f17c97852296d61a143f01b227a
+> >   "bridge: fix RCU races with bridge port"
+> > 
+> > Reintroduced by:
+> > commit 716ec052d2280d511e10e90ad54a86f5b5d4dcc2
+> >   "bridge: fix NULL pointer deref of br_port_get_rcu"
+> > 
+> > Please apply to stable trees as well. Thanks.
+> > 
+> > RH bugzilla reference: https://bugzilla.redhat.com/show_bug.cgi?id=1025770
+> > 
+> > Reported-by: Laine Stump <laine@redhat.com>
+> > Debugged-by: Michael S. Tsirkin <mst@redhat.com>
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> > ---
+> > v1->v2: moved br_port_get_check_rcu definition below br_handle_frame definition
+> 
+> Applied and queued up for -stable, thanks Jiri.
 
-> +                       phy-mode = "rgmii";
-
-Especially since you use the relatively standard "phy-mode" property here?
---
-Florian
+How come you ignored my simpler fix, that used the existing logic.
+I don't like introducing this especially into the stable; much prefer
+to go back to testing the flag as was being done before.
