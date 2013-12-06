@@ -1,37 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ether_addr_equal: Optimize implementation,
- remove unused compare_ether_addr
-Date: Fri, 06 Dec 2013 16:37:58 -0500 (EST)
-Message-ID: <20131206.163758.1360809557088338617.davem@davemloft.net>
-References: <34a0bad292ab2535a3a2e757a83eca13408e55b7.1386283991.git.joe@perches.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH -next] batadv: Slight optimization of
+	batadv_compare_eth
+Date: Fri, 06 Dec 2013 16:38:06 -0500 (EST)
+Message-ID: <20131206.163806.1555069105347405484.davem@davemloft.net>
+References: <1386317890.31845.26.camel@joe-AO722>
+ <20131206.153944.1382127535160341376.davem@davemloft.net>
+ <1386364621.31845.32.camel@joe-AO722>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rob@landley.net, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <34a0bad292ab2535a3a2e757a83eca13408e55b7.1386283991.git.joe@perches.com>
-Sender: linux-doc-owner@vger.kernel.org
+Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
+To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1386364621.31845.32.camel@joe-AO722>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Thu,  5 Dec 2013 14:54:38 -0800
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Date: Fri, 06 Dec 2013 13:17:01 -0800
 
-> Add a new check for CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS to reduce
-> the number of or's used in the ether_addr_equal comparison to very
-> slightly improve function performance.
+> On Fri, 2013-12-06 at 15:39 -0500, David Miller wrote:
+>> If so, make a function for that in linux/etherdevice.h and invoke it
+>> in such places.  You can name it something like
+>> "ether_addr_equal_unaligned()" or similar.
 > 
-> Simplify the ether_addr_equal_64bits implementation.
-> Integrate and remove the zap_last_2bytes helper as it's now
-> used only once.
-> 
-> Remove the now unused compare_ether_addr function.
-> 
-> Update the unaligned-memory-access documentation to remove the
-> compare_ether_addr description and show how unaligned accesses
-> could occur with ether_addr_equal.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> I'll resubmit if/after you apply the
+> ether_addr_equal/compare_ether_addr removal.
 
-Applied.
+Done.
