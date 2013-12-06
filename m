@@ -1,64 +1,64 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] tcp: auto corking
-Date: Fri, 06 Dec 2013 10:02:54 -0800
-Message-ID: <52A2114E.1070208@hp.com>
-References: <1386311765.30495.246.camel@edumazet-glaptop2.roam.corp.google.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7467@saturn3.aculab.com> <52A1F603.2030208@hp.com> <1386351976.30495.266.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [net 5/6] drivers/net/*: Fix FSF address in file headers
+Date: Fri, 6 Dec 2013 17:29:34 +0000
+Message-ID: <424cba8302314ebd8f3bc6af170146c3@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1386340128-23397-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1386340128-23397-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	KY Srinivasan <kys@microsoft.com>,
+	Paul Mackerras <paulus@samba.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:18659 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754166Ab3LFSC6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 13:02:58 -0500
-In-Reply-To: <1386351976.30495.266.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from na01-by1-obe.ptr.o365filtering.com ([64.4.22.87]:58783 "EHLO
+	na01-by1-obe.outbound.o365filtering.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754779Ab3LFSEs convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Dec 2013 13:04:48 -0500
+In-Reply-To: <1386340128-23397-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/06/2013 09:46 AM, Eric Dumazet wrote:
-> On Fri, 2013-12-06 at 08:06 -0800, Rick Jones wrote:
->> On 12/06/2013 02:30 AM, David Laight wrote:
->>>> From: Eric Dumazet <edumazet@google.com>
->>>>
->>>> With the introduction of TCP Small Queues, TSO auto sizing, and TCP
->>>> pacing, we can implement Automatic Corking in the kernel, to help
->>>> applications doing small write()/sendmsg() to TCP sockets.
->>>
->>> Presumably this has the greatest effect on connections with Nagle
->>> disabled?
->>
->> I was wondering why Nagle didn't catch these things as well.  The
->> netperf command line Eric provided though didn't include the
->> test-specific -D option that would have disabled Nagle.  At least not
->> unless the "super_netperf" wrapper was adding it.
->>
->> So, why doesn't Nagle catch what is presumably a sub-MSS send while
->> there is data outstanding on the connection?
->
-> super_netperf do not add any option.
->
-> Note the netperf results do no really show the improvements of this
-> patch. It's a side effect of the short cut.
->
-> You kind of need a TCP_RR workload, but splitting the request into small
-> chunks.
 
-You mean write, write, read?
 
-If all you need is multiple, small sends in flight at one time, you can 
-light-up the burst mode option of netperf and ask it to put multiple 
-"transactions" into flight at one time.  But that won't be the same as 
-"write, write, read" (when an application presents logically associated 
-data to the transport at the same time).  There will still be a 1-1 
-correspondence between writes and reads with netperf's burst mode.
+> -----Original Message-----
+> From: Jeff Kirsher [mailto:jeffrey.t.kirsher@intel.com]
+> Sent: Friday, December 6, 2013 9:29 AM
+> To: davem@davemloft.net
+> Cc: Jeff Kirsher; netdev@vger.kernel.org; gospo@redhat.com;
+> sassmann@redhat.com; Jay Vosburgh; Veaceslav Falico; Andy Gospodarek;
+> Haiyang Zhang; KY Srinivasan; Paul Mackerras; Ian Campbell; Wei Liu; Rusty
+> Russell; Michael S. Tsirkin
+> Subject: [net 5/6] drivers/net/*: Fix FSF address in file headers
+> 
+> Several files refer to an old address for the Free Software Foundation
+> in the file header comment.  Resolve by replacing the address with
+> the URL <http://www.gnu.org/licenses/> so that we do not have to keep
+> updating the header comments anytime the address changes.
+> 
+> CC: Jay Vosburgh <fubar@us.ibm.com>
+> CC: Veaceslav Falico <vfalico@redhat.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> CC: Haiyang Zhang <haiyangz@microsoft.com>
+> CC: "K. Y. Srinivasan" <kys@microsoft.com>
+> CC: Paul Mackerras <paulus@samba.org>
+> CC: Ian Campbell <ian.campbell@citrix.com>
+> CC: Wei Liu <wei.liu2@citrix.com>
+> CC: Rusty Russell <rusty@rustcorp.com.au>
+> CC: "Michael S. Tsirkin" <mst@redhat.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-> Well written applications use TCP_CORK or MSG_MORE, but unfortunately
-> many applications are not well written.
-
-I still like the likes of writev() and other gathering sends better :)
-
-rick jones
+Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
