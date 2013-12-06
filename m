@@ -1,8 +1,8 @@
 From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: [PATCH 06/10] ARM: dts: sun7i: Add pin muxing options
- for the GMAC
-Date: Sat,  7 Dec 2013 01:29:39 +0800
-Message-ID: <1386350983-13281-7-git-send-email-wens@csie.org>
+Subject: [PATCH 05/10] ARM: dts: sun7i: Add GMAC controller node
+ to sun7i DTSI
+Date: Sat,  7 Dec 2013 01:29:38 +0800
+Message-ID: <1386350983-13281-6-git-send-email-wens@csie.org>
 References: <1386350983-13281-1-git-send-email-wens@csie.org>
 Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
@@ -17,7 +17,7 @@ To: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
 	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBS4TRCKQKGQEF6XZICY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBTETRCKQKGQENHQH6XI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 In-Reply-To: <1386350983-13281-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
 List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -27,46 +27,35 @@ List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:
 List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-The A20 has EMAC and GMAC muxed on the same pins.
-Add pin sets with gmac function for MII and RGMII mode to the DTSI.
-
 Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
 ---
- arch/arm/boot/dts/sun7i-a20.dtsi | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+ arch/arm/boot/dts/sun7i-a20.dtsi | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
 diff --git a/arch/arm/boot/dts/sun7i-a20.dtsi b/arch/arm/boot/dts/sun7i-a20.dtsi
-index ebb2cce..64b1391 100644
+index e46cfed..ebb2cce 100644
 --- a/arch/arm/boot/dts/sun7i-a20.dtsi
 +++ b/arch/arm/boot/dts/sun7i-a20.dtsi
-@@ -246,6 +246,28 @@
- 				allwinner,drive = <0>;
- 				allwinner,pull = <0>;
- 			};
-+
-+			gmac_pins_mii: gmac_mii {
-+				allwinner,pins = "PA0", "PA1", "PA2",
-+						"PA3", "PA4", "PA5", "PA6",
-+						"PA7", "PA8", "PA9", "PA10",
-+						"PA11", "PA12", "PA13", "PA14",
-+						"PA15", "PA16";
-+				allwinner,function = "gmac";
-+				allwinner,drive = <3>;
-+				allwinner,pull = <0>;
-+			};
-+
-+			gmac_pins_rgmii: gmac_rgmii {
-+				allwinner,pins = "PA0", "PA1", "PA2",
-+						"PA3", "PA4", "PA5", "PA6",
-+						"PA7", "PA8", "PA10",
-+						"PA11", "PA12", "PA13",
-+						"PA15", "PA16";
-+				allwinner,function = "gmac";
-+				allwinner,drive = <3>;
-+				allwinner,pull = <0>;
-+			};
+@@ -395,6 +395,20 @@
+ 			status = "disabled";
  		};
  
- 		timer@01c20c00 {
++		gmac: ethernet@01c50000 {
++			compatible = "allwinner,sun7i-gmac", "snps,dwmac";
++			reg = <0x01c50000 0x10000>,
++			      <0x01c20164 0x4>;
++			interrupts = <0 85 1>;
++			interrupt-names = "macirq";
++			clocks = <&ahb_gates 49>;
++			clock-names = "stmmaceth";
++			snps,pbl = <2>;
++			snps,fixed-burst;
++			snps,force_sf_dma_mode;
++			status = "disabled";
++		};
++
+ 		gic: interrupt-controller@01c81000 {
+ 			compatible = "arm,cortex-a7-gic", "arm,cortex-a15-gic";
+ 			reg = <0x01c81000 0x1000>,
 -- 
 1.8.5.1
