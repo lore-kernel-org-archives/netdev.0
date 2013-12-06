@@ -1,36 +1,34 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] tcp: auto corking
-Date: Fri, 06 Dec 2013 13:34:28 -0800
-Message-ID: <52A242E4.2090304@hp.com>
-References: <1386311765.30495.246.camel@edumazet-glaptop2.roam.corp.google.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7467@saturn3.aculab.com> <52A1F603.2030208@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 1/2] ipv6 addrconf: extend ifa_flags to u32
+Date: Fri, 06 Dec 2013 16:35:18 -0500 (EST)
+Message-ID: <20131206.163518.1817492341433351545.davem@davemloft.net>
+References: <1386319522-2102-1-git-send-email-jiri@resnulli.us>
+	<1386319522-2102-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
+	stephen@networkplumber.org, hannes@stressinduktion.org,
+	vyasevich@gmail.com, dcbw@redhat.com, David.Laight@ACULAB.COM
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0187.atlanta.hp.com ([15.193.32.64]:39437 "EHLO
-	g6t0187.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752511Ab3LFVeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 16:34:31 -0500
-In-Reply-To: <52A1F603.2030208@hp.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42767 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758386Ab3LFVfU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 16:35:20 -0500
+In-Reply-To: <1386319522-2102-2-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/06/2013 08:06 AM, Rick Jones wrote:
-> I was wondering why Nagle didn't catch these things as well.  The
-> netperf command line Eric provided though didn't include the
-> test-specific -D option that would have disabled Nagle.  At least not
-> unless the "super_netperf" wrapper was adding it.
->
-> So, why doesn't Nagle catch what is presumably a sub-MSS send while
-> there is data outstanding on the connection?
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri,  6 Dec 2013 09:45:21 +0100
 
-Because this is operating "above" (as it were) Nagle and is looking only 
-to try to get the successive small sends into a smaller number of skbs 
-yes? So that when there is either no data outstanding, or an MSS's worth 
-of data it will be in a small(ish) number of skbs not a long chain of them.
+> There is no more space in u8 ifa_flags. So do what davem suffested and
+> add another netlink attr called IFA_FLAGS for carry more flags.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> Signed-off-by: Thomas Haller <thaller@redhat.com>
 
-rick jones
+Applied, can you extend the handling of this attribute to the other
+protocols as I asked you to?
