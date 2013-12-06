@@ -1,53 +1,56 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH net 1/3] qlge: Fix ethtool statistics
-Date: Thu, 5 Dec 2013 18:11:22 -0500
-Message-ID: <1386285084-25250-2-git-send-email-jitendra.kalsaria@qlogic.com>
-References: <1386285084-25250-1-git-send-email-jitendra.kalsaria@qlogic.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 3/7] net: of_mdio: do not overwrite PHY interrupt configuration
+Date: Fri, 06 Dec 2013 03:45:04 +0300
+Message-ID: <52A11E10.5080909@cogentembedded.com>
+References: <1386283936-26104-1-git-send-email-florian@openwrt.org> <1386283936-26104-4-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <ron.mercer@qlogic.com>,
-	<Dept-HSGLinuxNICDev@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, grant.likely@linaro.org,
+	devicetree@vger.kernel.org, abrodkin@synopsys.com,
+	rob.herring@calxeda.com, mark.rutland@arm.com,
+	sebastian.hesselbarth@gmail.com,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:37095 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756030Ab3LEXoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:44:04 -0500
-In-Reply-To: <1386285084-25250-1-git-send-email-jitendra.kalsaria@qlogic.com>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:52460 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752107Ab3LEXpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 18:45:03 -0500
+Received: by mail-la0-f50.google.com with SMTP id el20so10864795lab.9
+        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 15:45:01 -0800 (PST)
+In-Reply-To: <1386283936-26104-4-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Hello.
 
-o Receive mac error stat was getting overwritten by other stats.
+On 12/06/2013 01:52 AM, Florian Fainelli wrote:
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+> From: Florian Fainelli <f.fainelli@gmail.com>
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-index 0780e03..8dee1be 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_ethtool.c
-@@ -181,6 +181,7 @@ static const char ql_gstrings_test[][ETH_GSTRING_LEN] = {
- };
- #define QLGE_TEST_LEN (sizeof(ql_gstrings_test) / ETH_GSTRING_LEN)
- #define QLGE_STATS_LEN ARRAY_SIZE(ql_gstrings_stats)
-+#define QLGE_RCV_MAC_ERR_STATS	7
- 
- static int ql_update_ring_coalescing(struct ql_adapter *qdev)
- {
-@@ -280,6 +281,9 @@ static void ql_update_stats(struct ql_adapter *qdev)
- 		iter++;
- 	}
- 
-+	/* Update receive mac error statistics */
-+	iter += QLGE_RCV_MAC_ERR_STATS;
-+
- 	/*
- 	 * Get Per-priority TX pause frame counter statistics.
- 	 */
--- 
-1.7.6.rc1.1.g2c162b
+> If irq_of_parse_and_map fails to find an interrupt line for a given PHY,
+> we will force the PHY interrupt to be PHY_POLL, completely overriding
+> the previous value that the MDIO bus may have set for us (e.g:
+> PHY_IGNORE_INTERRUPT). In case of failure, just restore the previous
+> value.
+
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>   drivers/of/of_mdio.c | 5 +++--
+>   1 file changed, 3 insertions(+), 2 deletions(-)
+
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index f93ebca..4923ab2 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+[...]
+> @@ -37,10 +37,11 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
+>   		return 1;
+>
+>   	if (mdio->irq) {
+> +		prev_irq= mdio->irq[addr];
+
+    You forgot space before =.
+
+WBR, Sergei
