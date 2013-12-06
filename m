@@ -1,252 +1,140 @@
-From: Sebastian Reichel <sre@debian.org>
-Subject: [PATCHv2 2/5] wl1251: move power GPIO handling into the driver
-Date: Fri,  6 Dec 2013 01:22:13 +0100
-Message-ID: <1386289336-26704-3-git-send-email-sre@debian.org>
-References: <1382890469-25286-1-git-send-email-sre@debian.org>
- <1386289336-26704-1-git-send-email-sre@debian.org>
-Cc: Rob Herring <rob.herring@calxeda.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Rob Landley <rob@landley.net>,
-	Kumar Gala <galak@codeaurora.org>, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-	Sebastian Reichel <sre@debian.org>
-To: Sebastian Reichel <sre@ring0.de>, Luciano Coelho <luca@coelho.fi>,
-	Tony Lindgren <tony@atomide.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386289336-26704-1-git-send-email-sre@debian.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nithin Nayak Sujir <nsujir@broadcom.com>
+Subject: Re: [PATCH net-next 07/16] tg3: Implement the SIOCGHWTSTAMP ioctl
+Date: Thu, 5 Dec 2013 16:14:56 -0800
+Message-ID: <52A11700.6090600@broadcom.com>
+References: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com> <1386287352.1516.132.camel@bwh-desktop.uk.level5networks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Michael Chan <mchan@broadcom.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:57122 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752874Ab3LFAYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 19:24:43 -0500
+In-Reply-To: <1386287352.1516.132.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Move the power GPIO handling from the board code into
-the driver. This is a dependency for device tree support.
 
-Signed-off-by: Sebastian Reichel <sre@debian.org>
-Reviewed-by: Pavel Machek <pavel@ucw.cz>
----
- arch/arm/mach-omap2/board-omap3pandora.c     |  2 ++
- arch/arm/mach-omap2/board-rx51-peripherals.c | 11 ++--------
- drivers/net/wireless/ti/wl1251/sdio.c        | 21 +++++++++++++-----
- drivers/net/wireless/ti/wl1251/spi.c         | 33 ++++++++++++++++++----------
- drivers/net/wireless/ti/wl1251/wl1251.h      |  2 +-
- include/linux/wl12xx.h                       |  2 +-
- 6 files changed, 43 insertions(+), 28 deletions(-)
 
-diff --git a/arch/arm/mach-omap2/board-omap3pandora.c b/arch/arm/mach-omap2/board-omap3pandora.c
-index 24f3c1b..cf18340 100644
---- a/arch/arm/mach-omap2/board-omap3pandora.c
-+++ b/arch/arm/mach-omap2/board-omap3pandora.c
-@@ -541,6 +541,8 @@ static void __init pandora_wl1251_init(void)
- 
- 	memset(&pandora_wl1251_pdata, 0, sizeof(pandora_wl1251_pdata));
- 
-+	pandora_wl1251_pdata.power_gpio = -1;
-+
- 	ret = gpio_request_one(PANDORA_WIFI_IRQ_GPIO, GPIOF_IN, "wl1251 irq");
- 	if (ret < 0)
- 		goto fail;
-diff --git a/arch/arm/mach-omap2/board-rx51-peripherals.c b/arch/arm/mach-omap2/board-rx51-peripherals.c
-index 01e8bef..6538184 100644
---- a/arch/arm/mach-omap2/board-rx51-peripherals.c
-+++ b/arch/arm/mach-omap2/board-rx51-peripherals.c
-@@ -1166,13 +1166,7 @@ static inline void board_smc91x_init(void)
- 
- #endif
- 
--static void rx51_wl1251_set_power(bool enable)
--{
--	gpio_set_value(RX51_WL1251_POWER_GPIO, enable);
--}
--
- static struct gpio rx51_wl1251_gpios[] __initdata = {
--	{ RX51_WL1251_POWER_GPIO, GPIOF_OUT_INIT_LOW,	"wl1251 power"	},
- 	{ RX51_WL1251_IRQ_GPIO,	  GPIOF_IN,		"wl1251 irq"	},
- };
- 
-@@ -1189,17 +1183,16 @@ static void __init rx51_init_wl1251(void)
- 	if (irq < 0)
- 		goto err_irq;
- 
--	wl1251_pdata.set_power = rx51_wl1251_set_power;
-+	wl1251_pdata.power_gpio = RX51_WL1251_POWER_GPIO;
- 	rx51_peripherals_spi_board_info[RX51_SPI_WL1251].irq = irq;
- 
- 	return;
- 
- err_irq:
- 	gpio_free(RX51_WL1251_IRQ_GPIO);
--	gpio_free(RX51_WL1251_POWER_GPIO);
- error:
- 	printk(KERN_ERR "wl1251 board initialisation failed\n");
--	wl1251_pdata.set_power = NULL;
-+	wl1251_pdata.power_gpio = -1;
- 
- 	/*
- 	 * Now rx51_peripherals_spi_board_info[1].irq is zero and
-diff --git a/drivers/net/wireless/ti/wl1251/sdio.c b/drivers/net/wireless/ti/wl1251/sdio.c
-index b75a37a..b661f89 100644
---- a/drivers/net/wireless/ti/wl1251/sdio.c
-+++ b/drivers/net/wireless/ti/wl1251/sdio.c
-@@ -28,6 +28,7 @@
- #include <linux/wl12xx.h>
- #include <linux/irq.h>
- #include <linux/pm_runtime.h>
-+#include <linux/gpio.h>
- 
- #include "wl1251.h"
- 
-@@ -182,8 +183,9 @@ static int wl1251_sdio_set_power(struct wl1251 *wl, bool enable)
- 		 * callback in case it wants to do any additional setup,
- 		 * for example enabling clock buffer for the module.
- 		 */
--		if (wl->set_power)
--			wl->set_power(true);
-+		if (gpio_is_valid(wl->power_gpio))
-+			gpio_set_value(wl->power_gpio, true);
-+
- 
- 		ret = pm_runtime_get_sync(&func->dev);
- 		if (ret < 0) {
-@@ -203,8 +205,8 @@ static int wl1251_sdio_set_power(struct wl1251 *wl, bool enable)
- 		if (ret < 0)
- 			goto out;
- 
--		if (wl->set_power)
--			wl->set_power(false);
-+		if (gpio_is_valid(wl->power_gpio))
-+			gpio_set_value(wl->power_gpio, false);
- 	}
- 
- out:
-@@ -256,11 +258,20 @@ static int wl1251_sdio_probe(struct sdio_func *func,
- 
- 	wl1251_board_data = wl1251_get_platform_data();
- 	if (!IS_ERR(wl1251_board_data)) {
--		wl->set_power = wl1251_board_data->set_power;
-+		wl->power_gpio = wl1251_board_data->power_gpio;
- 		wl->irq = wl1251_board_data->irq;
- 		wl->use_eeprom = wl1251_board_data->use_eeprom;
- 	}
- 
-+	if (gpio_is_valid(wl->power_gpio)) {
-+		ret = devm_gpio_request(&func->dev, wl->power_gpio,
-+								"wl1251 power");
-+		if (ret) {
-+			wl1251_error("Failed to request gpio: %d\n", ret);
-+			goto disable;
-+		}
-+	}
-+
- 	if (wl->irq) {
- 		irq_set_status_flags(wl->irq, IRQ_NOAUTOEN);
- 		ret = request_irq(wl->irq, wl1251_line_irq, 0, "wl1251", wl);
-diff --git a/drivers/net/wireless/ti/wl1251/spi.c b/drivers/net/wireless/ti/wl1251/spi.c
-index 62403a1..6abcbc3 100644
---- a/drivers/net/wireless/ti/wl1251/spi.c
-+++ b/drivers/net/wireless/ti/wl1251/spi.c
-@@ -26,6 +26,7 @@
- #include <linux/crc7.h>
- #include <linux/spi/spi.h>
- #include <linux/wl12xx.h>
-+#include <linux/gpio.h>
- 
- #include "wl1251.h"
- #include "reg.h"
-@@ -221,8 +222,8 @@ static void wl1251_spi_disable_irq(struct wl1251 *wl)
- 
- static int wl1251_spi_set_power(struct wl1251 *wl, bool enable)
- {
--	if (wl->set_power)
--		wl->set_power(enable);
-+	if (gpio_is_valid(wl->power_gpio))
-+		gpio_set_value(wl->power_gpio, enable);
- 
- 	return 0;
- }
-@@ -271,22 +272,33 @@ static int wl1251_spi_probe(struct spi_device *spi)
- 		goto out_free;
- 	}
- 
--	wl->set_power = pdata->set_power;
--	if (!wl->set_power) {
--		wl1251_error("set power function missing in platform data");
--		return -ENODEV;
-+	wl->power_gpio = pdata->power_gpio;
-+
-+	if (gpio_is_valid(wl->power_gpio)) {
-+		ret = devm_gpio_request_one(&spi->dev, wl->power_gpio,
-+					GPIOF_OUT_INIT_LOW, "wl1251 power");
-+		if (ret) {
-+			wl1251_error("Failed to request gpio: %d\n", ret);
-+			goto out_free;
-+		}
-+	} else {
-+		wl1251_error("set power gpio missing in platform data");
-+		ret = -ENODEV;
-+		goto out_free;
- 	}
- 
- 	wl->irq = spi->irq;
- 	if (wl->irq < 0) {
- 		wl1251_error("irq missing in platform data");
--		return -ENODEV;
-+		ret = -ENODEV;
-+		goto out_free;
- 	}
- 
- 	wl->use_eeprom = pdata->use_eeprom;
- 
- 	irq_set_status_flags(wl->irq, IRQ_NOAUTOEN);
--	ret = request_irq(wl->irq, wl1251_irq, 0, DRIVER_NAME, wl);
-+	ret = devm_request_irq(&spi->dev, wl->irq, wl1251_irq, 0,
-+							DRIVER_NAME, wl);
- 	if (ret < 0) {
- 		wl1251_error("request_irq() failed: %d", ret);
- 		goto out_free;
-@@ -296,13 +308,10 @@ static int wl1251_spi_probe(struct spi_device *spi)
- 
- 	ret = wl1251_init_ieee80211(wl);
- 	if (ret)
--		goto out_irq;
-+		goto out_free;
- 
- 	return 0;
- 
-- out_irq:
--	free_irq(wl->irq, wl);
--
-  out_free:
- 	ieee80211_free_hw(hw);
- 
-diff --git a/drivers/net/wireless/ti/wl1251/wl1251.h b/drivers/net/wireless/ti/wl1251/wl1251.h
-index 2c3bd1b..f396a95 100644
---- a/drivers/net/wireless/ti/wl1251/wl1251.h
-+++ b/drivers/net/wireless/ti/wl1251/wl1251.h
-@@ -275,7 +275,7 @@ struct wl1251 {
- 	void *if_priv;
- 	const struct wl1251_if_operations *if_ops;
- 
--	void (*set_power)(bool enable);
-+	int power_gpio;
- 	int irq;
- 	bool use_eeprom;
- 
-diff --git a/include/linux/wl12xx.h b/include/linux/wl12xx.h
-index b516b4f..a9c723b 100644
---- a/include/linux/wl12xx.h
-+++ b/include/linux/wl12xx.h
-@@ -49,7 +49,7 @@ enum {
- };
- 
- struct wl1251_platform_data {
--	void (*set_power)(bool enable);
-+	int power_gpio;
- 	/* SDIO only: IRQ number if WLAN_IRQ line is used, 0 for SDIO IRQs */
- 	int irq;
- 	bool use_eeprom;
--- 
-1.8.4.3
+On 12/05/2013 03:49 PM, Ben Hutchings wrote:
+> While we're doing this, fix the error code for SIOCSHWTSTAMP ioctl on
+> non-timestamping hardware.
+>
+> Compile-tested only.
+>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+>   drivers/net/ethernet/broadcom/tg3.c | 71 ++++++++++++++++++++++++++++++++++---
+>   1 file changed, 67 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index a9e068423ba0..539c6ace1706 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -13603,14 +13603,13 @@ static void tg3_self_test(struct net_device *dev, struct ethtool_test *etest,
+>
+>   }
+>
+> -static int tg3_hwtstamp_ioctl(struct net_device *dev,
+> -			      struct ifreq *ifr, int cmd)
+> +static int tg3_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
+>   {
+>   	struct tg3 *tp = netdev_priv(dev);
+>   	struct hwtstamp_config stmpconf;
+>
+>   	if (!tg3_flag(tp, PTP_CAPABLE))
+> -		return -EINVAL;
+> +		return -EOPNOTSUPP;
+>
+>   	if (copy_from_user(&stmpconf, ifr->ifr_data, sizeof(stmpconf)))
+>   		return -EFAULT;
+> @@ -13691,6 +13690,67 @@ static int tg3_hwtstamp_ioctl(struct net_device *dev,
+>   		-EFAULT : 0;
+>   }
+>
+> +static int tg3_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
+> +{
+> +	struct tg3 *tp = netdev_priv(dev);
+> +	struct hwtstamp_config stmpconf;
+> +
+> +	if (!tg3_flag(tp, PTP_CAPABLE))
+> +		return -EOPNOTSUPP;
+> +
+> +	stmpconf.flags = 0;
+> +	stmpconf.tx_type = (tg3_flag(tp, TX_TSTAMP_EN) ?
+> +			    HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF);
+> +
+> +	switch (tp->rxptpctl) {
+> +	case 0:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_NONE;
+> +		break;
+> +	case TG3_RX_PTP_CTL_RX_PTP_V1_EN | TG3_RX_PTP_CTL_ALL_V1_EVENTS:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_EVENT;
+> +		break;
+> +	case TG3_RX_PTP_CTL_RX_PTP_V1_EN | TG3_RX_PTP_CTL_SYNC_EVNT:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_SYNC;
+> +		break;
+> +	case TG3_RX_PTP_CTL_RX_PTP_V1_EN | TG3_RX_PTP_CTL_DELAY_REQ:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ;
+> +		break;
+> +	case TG3_RX_PTP_CTL_RX_PTP_V2_EN | TG3_RX_PTP_CTL_ALL_V2_EVENTS:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
+> +		break;
+> +	case TG3_RX_PTP_CTL_RX_PTP_V2_L2_EN | TG3_RX_PTP_CTL_ALL_V2_EVENTS:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_PTP_V2_L2_EVENT;
+> +		break;
+> +	case TG3_RX_PTP_CTL_RX_PTP_V2_L4_EN | TG3_RX_PTP_CTL_ALL_V2_EVENTS:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_PTP_V2_L4_EVENT;
+> +		break;
+> +	case TG3_RX_PTP_CTL_RX_PTP_V2_EN | TG3_RX_PTP_CTL_SYNC_EVNT:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_PTP_V2_SYNC;
+> +		break;
+> +	case TG3_RX_PTP_CTL_RX_PTP_V2_L2_EN | TG3_RX_PTP_CTL_SYNC_EVNT:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_PTP_V2_L2_SYNC;
+> +		break;
+> +	case TG3_RX_PTP_CTL_RX_PTP_V2_L4_EN | TG3_RX_PTP_CTL_SYNC_EVNT:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_PTP_V2_L4_SYNC;
+> +		break;
+> +	case TG3_RX_PTP_CTL_RX_PTP_V2_EN | TG3_RX_PTP_CTL_DELAY_REQ:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_PTP_V2_DELAY_REQ;
+> +		break;
+> +	case TG3_RX_PTP_CTL_RX_PTP_V2_L2_EN | TG3_RX_PTP_CTL_DELAY_REQ:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ;
+> +		break;
+> +	case TG3_RX_PTP_CTL_RX_PTP_V2_L4_EN | TG3_RX_PTP_CTL_DELAY_REQ:
+> +		stmpconf.rx_filter = HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ;
+> +		break;
+> +	default:
+> +		WARN_ON_ONCE(1);
+> +		return -ERANGE;
+> +	}
+> +
+> +	return copy_to_user(ifr->ifr_data, &stmpconf, sizeof(stmpconf)) ?
+> +		-EFAULT : 0;
+> +}
+> +
+>   static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+>   {
+>   	struct mii_ioctl_data *data = if_mii(ifr);
+> @@ -13744,7 +13804,10 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+>   		return err;
+>
+>   	case SIOCSHWTSTAMP:
+> -		return tg3_hwtstamp_ioctl(dev, ifr, cmd);
+> +		return tg3_hwtstamp_set(dev, ifr);
+> +
+> +	case SIOCGHWTSTAMP:
+> +		return tg3_hwtstamp_get(dev, ifr);
+>
+>   	default:
+>   		/* do nothing */
+>
+>
+
+Acked-by: Nithin Nayak Sujir <nsujir@broadcom.com>
