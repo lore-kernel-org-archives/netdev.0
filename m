@@ -1,69 +1,69 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFCv2 0/6] net: phy: Ethernet PHY powerdown optimization
-Date: Thu, 5 Dec 2013 16:16:32 -0800
-Message-ID: <CAGVrzcYjcXfbYR7uyL1fAc2bdNhCUA9wAjZk4nsF2K0FRL2_pA@mail.gmail.com>
-References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1386171888-28190-1-git-send-email-sebastian.hesselbarth@gmail.com> <52A031EE.1040301@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52A031EE.1040301@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Sebastian Reichel <sre-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
+Subject: [PATCHv2 0/5] wl1251 device tree support
+Date: Fri,  6 Dec 2013 01:22:11 +0100
+Message-ID: <1386289336-26704-1-git-send-email-sre@debian.org>
+References: <1382890469-25286-1-git-send-email-sre@debian.org>
+Cc: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Rob Landley <rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Sebastian Reichel <sre-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
+To: Sebastian Reichel <sre-GFxCN5SEZAc@public.gmane.org>, Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
+	Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1382890469-25286-1-git-send-email-sre-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-2013/12/4 Mugunthan V N <mugunthanvnm@ti.com>:
-> On Wednesday 04 December 2013 09:14 PM, Sebastian Hesselbarth wrote:
->> This is v2 of an RFC sent earlier [1] to reduce power consumption of network
->> PHYs with link that are either unused or the corresponding netdev is down.
->>
->> In contrast to RFCv1, this now integrates phy_suspend/phy_resume transparent
->> to the netdev drivers. Also, phy_suspend now only suspends the PHY if WOL is
->> disabled. Moreover, the phy state machine calls phy_suspend on entering
->> HALTED state.
->>
->> Again, a branch with RFCv2 applied to v3.13-rc2 can also be found at
->> https://github.com/shesselba/linux-dove.git topic/ethphy-power-rfc-v2
->>
->> [1] http://lwn.net/Articles/574426/
->>
->> Sebastian Hesselbarth (6):
->>   net: mv643xx_eth: properly start/stop phy device
->>   net: phy: marvell: provide genphy suspend/resume
->>   net: phy: provide phy_resume/phy_suspend helpers
->>   net: phy: resume/suspend PHYs on attach/detach
->>   net: phy: suspend unused PHYs on mdio_bus in late_initcall
->>   net: phy: suspend phydev when going to HALTED
->>
->>  drivers/net/ethernet/marvell/mv643xx_eth.c |    4 +++-
->>  drivers/net/phy/marvell.c                  |   22 ++++++++++++++++++++++
->>  drivers/net/phy/mdio_bus.c                 |   25 +++++++++++++++++++++++++
->>  drivers/net/phy/phy.c                      |    6 +++++-
->>  drivers/net/phy/phy_device.c               |   27 +++++++++++++++++++++++++++
->>  include/linux/phy.h                        |    2 ++
->>  6 files changed, 84 insertions(+), 2 deletions(-)
->>
->> ---
->> Cc: David Miller <davem@davemloft.net>
->> Cc: Florian Fainelli <f.fainelli@gmail.com>
->> Cc: Mugunthan V N <mugunthanvnm@ti.com>
->> Cc: netdev@vger.kernel.org
->> Cc: linux-arm-kernel@lists.infradead.org
->> Cc: linux-kernel@vger.kernel.org
-> Apart form Sergei's comment the patch series looks good to me.
->
-> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+Hi,
 
-Looks good to me as well:
+The following patchset adds device tree support to
+the spi variant of the wl1251 driver.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Changes since v1 [0]:
+ * Added some Reviewed-By: Pavel Machek
+ * Splitted DT binding documentation into its own patch
+ * Added ti, prefix to power-gpio
+ * Renamed ti,use-eeprom to ti,wl1251-has-eeprom
+ * Updated description for ti,wl1251-has-eeprom
+ * Removed boardcode update from regulator patch to avoid
+   useless merge conflicts (all relevant boardcode will be
+   removed in 3.14).
 
-Thanks Sebastian!
+[0] https://lkml.org/lkml/2013/10/27/112
+
+-- Sebastian
+
+Luciano Coelho (1):
+  wl1251: split wl251 platform data to a separate structure
+
+Sebastian Reichel (4):
+  wl1251: move power GPIO handling into the driver
+  wl1251: spi: add vio regulator support
+  wl1251: spi: add device tree support
+  Documentation: dt: wireless: Add wl1251
+
+ .../devicetree/bindings/net/wireless/ti,wl1251.txt | 39 ++++++++++++
+ arch/arm/mach-omap2/board-omap3pandora.c           |  6 +-
+ arch/arm/mach-omap2/board-rx51-peripherals.c       | 13 +---
+ drivers/net/wireless/ti/wilink_platform_data.c     | 37 +++++++++--
+ drivers/net/wireless/ti/wl1251/sdio.c              | 31 +++++++---
+ drivers/net/wireless/ti/wl1251/spi.c               | 71 ++++++++++++++++------
+ drivers/net/wireless/ti/wl1251/wl1251.h            |  4 +-
+ include/linux/wl12xx.h                             | 24 +++++++-
+ 8 files changed, 176 insertions(+), 49 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/wireless/ti,wl1251.txt
+
 -- 
-Florian
+1.8.4.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
