@@ -1,56 +1,63 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH -next] batadv: Slight optimization of
-	batadv_compare_eth
-Date: Fri, 06 Dec 2013 14:39:46 -0800
-Message-ID: <1386369586.31845.42.camel@joe-AO722>
-References: <1386317890.31845.26.camel@joe-AO722>
- <20131206.153944.1382127535160341376.davem@davemloft.net>
- <1386364621.31845.32.camel@joe-AO722>
- <20131206.163806.1555069105347405484.davem@davemloft.net>
- <1386368461.31845.38.camel@joe-AO722>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC] virtio_net: multicast address list never sent to host
+Date: Fri, 6 Dec 2013 14:51:45 -0800
+Message-ID: <20131206145145.29d204f9@nehalam.linuxnetplumber.net>
+References: <20131205152052.064319c9@nehalam.linuxnetplumber.net>
+	<52A1E16B.8050507@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1386368461.31845.38.camel@joe-AO722>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: Alex Williamson <alex.williamson@hp.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
+To: vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:52937 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759212Ab3LFWvt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 17:51:49 -0500
+Received: by mail-pb0-f44.google.com with SMTP id rq2so1876998pbb.31
+        for <netdev@vger.kernel.org>; Fri, 06 Dec 2013 14:51:48 -0800 (PST)
+In-Reply-To: <52A1E16B.8050507@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use the newly added generic routine ether_addr_equal_unaligned
-to test if possibly unaligned to u16 Ethernet addresses are equal.
+On Fri, 06 Dec 2013 09:38:35 -0500
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-This slightly improves comparison time for systems with
-CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS.
+> > -		sgs[out_num++] = out;
+> > -	if (in)
+> > -		sgs[out_num + in_num++] = in;
+> > +	while (out_cnt-- > 0)
+> > +		sgs[out_num++] = out++;  
+> 
+> I think we can skip sg_count and just use
+>         while ((sg = sg_next(out)) != NULL)
+>                 sgs[out_num++] = sg;
+> 
+> And we can probably do this loop for both 'in' and 'out' pointers.
+> 
+> -vlad
 
-Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
----
- net/batman-adv/main.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index f94f287b..322dd73 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -266,7 +266,7 @@ static inline void batadv_dbg(int type __always_unused,
-  */
- static inline int batadv_compare_eth(const void *data1, const void *data2)
- {
--	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
-+	return ether_addr_equal_unaligned(data1, data2);
- }
- 
- /**
+That won't work because callers pass a list with a single element,
+as in:
+
+> static int virtnet_set_mac_address(struct net_device *dev, void *p)
+> {
+> 	struct virtnet_info *vi = netdev_priv(dev);
+> 	struct virtio_device *vdev = vi->vdev;
+> 	int ret;
+> 	struct sockaddr *addr = p;
+> 	struct scatterlist sg;
+> 
+> 	ret = eth_prepare_mac_addr_change(dev, p);
+> 	if (ret)
+> 		return ret;
+> 
+> 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR)) {
+> 		sg_init_one(&sg, addr->sa_data, dev->addr_len);
+> 		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
+> 					  VIRTIO_NET_CTRL_MAC_ADDR_SET,
+> 					  &sg, NULL)) {
+> 			dev_warn(&vdev->dev,
