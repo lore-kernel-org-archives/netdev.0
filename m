@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 2/2] ipv6 addrconf: introduce
- IFA_F_MANAGETEMPADDR to tell kernel to manage temporary addresses
-Date: Fri, 06 Dec 2013 16:35:24 -0500 (EST)
-Message-ID: <20131206.163524.1939184522364402939.davem@davemloft.net>
-References: <1386319522-2102-1-git-send-email-jiri@resnulli.us>
-	<1386319522-2102-3-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH net-next v2] unix: convert printks to pr_<level>
+Date: Fri, 06 Dec 2013 16:36:13 -0500 (EST)
+Message-ID: <20131206.163613.1075839481647624361.davem@davemloft.net>
+References: <52A16A19.60001@huawei.com>
+	<52A1A0F8.9080506@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
-	stephen@networkplumber.org, hannes@stressinduktion.org,
-	vyasevich@gmail.com, dcbw@redhat.com, David.Laight@ACULAB.COM
-To: jiri@resnulli.us
+Cc: edumazet@google.com, ebiederm@xmission.com, gaofeng@cn.fujitsu.com,
+	jacob.e.keller@intel.com, netdev@vger.kernel.org,
+	dborkman@redhat.com
+To: wangweidong1@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42788 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42796 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758386Ab3LFVf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 16:35:26 -0500
-In-Reply-To: <1386319522-2102-3-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1758136Ab3LFVgO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 16:36:14 -0500
+In-Reply-To: <52A1A0F8.9080506@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri,  6 Dec 2013 09:45:22 +0100
+From: Wang Weidong <wangweidong1@huawei.com>
+Date: Fri, 6 Dec 2013 18:03:36 +0800
 
-> Creating an address with this flag set will result in kernel taking care
-> of temporary addresses in the same way as if the address was created by
-> kernel itself (after RA receive). This allows userspace applications
-> implementing the autoconfiguration (NetworkManager for example) to
-> implement ipv6 addresses privacy.
+> use pr_<level> instead of printk(LEVEL)
 > 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> Signed-off-by: Thomas Haller <thaller@redhat.com>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 
-Applied.
+Applied, thanks.
