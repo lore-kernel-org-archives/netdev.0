@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v3 4/6] macvtap: adjust
- macvtap_skb_to_vnet_hdr() to be void
-Date: Fri, 06 Dec 2013 12:53:33 -0500 (EST)
-Message-ID: <20131206.125333.99786964245578540.davem@davemloft.net>
-References: <1386310782-9378-1-git-send-email-zwu.kernel@gmail.com>
-	<1386310782-9378-5-git-send-email-zwu.kernel@gmail.com>
+Subject: Re: [PATCH net-next] tcp: optimize some skb_shinfo(skb) uses
+Date: Fri, 06 Dec 2013 12:53:46 -0500 (EST)
+Message-ID: <20131206.125346.2255922273599914894.davem@davemloft.net>
+References: <1386311490.30495.243.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	wuzhy@linux.vnet.ibm.com
-To: zwu.kernel@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386310782-9378-5-git-send-email-zwu.kernel@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40761 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758388Ab3LFRxu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 12:53:50 -0500
+In-Reply-To: <1386311490.30495.243.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Date: Fri,  6 Dec 2013 14:19:40 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 05 Dec 2013 22:31:30 -0800
 
-> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> Compiler doesn't know skb_shinfo(skb) pointer is usually constant.
+> 
+> By using a temporary variable, we help generating smaller code.
+> 
+> For example, tcp_init_nondata_skb() is inlined after this patch.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-As mentioned elsewhere, please combine the change that removes the return
-value check with the change which adjusts the function return type to "void".
-
-Thank you.
+Applied.
