@@ -1,60 +1,42 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH -next] batadv: Slight optimization of
-	batadv_compare_eth
-Date: Fri, 06 Dec 2013 13:17:01 -0800
-Message-ID: <1386364621.31845.32.camel@joe-AO722>
-References: <1386317890.31845.26.camel@joe-AO722>
- <20131206.153944.1382127535160341376.davem@davemloft.net>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: don't count addrconf generated routes against gc
+ limit
+Date: Fri, 06 Dec 2013 16:21:24 -0500 (EST)
+Message-ID: <20131206.162124.1642753475890720004.davem@davemloft.net>
+References: <20131206172556.GF26746@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20131206.153944.1382127535160341376.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, brett.ciphery@windriver.com
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42651 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753798Ab3LFVV0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 16:21:26 -0500
+In-Reply-To: <20131206172556.GF26746@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-12-06 at 15:39 -0500, David Miller wrote:
-> From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-> Date: Fri, 06 Dec 2013 00:18:10 -0800
-> 
-> > @@ -266,7 +266,11 @@ static inline void batadv_dbg(int type __always_unused,
-> >   */
-> >  static inline int batadv_compare_eth(const void *data1, const void *data2)
-> >  {
-> > -	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
-> > +#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-> > +	return ether_addr_equal(data1, data2);
-> > +#else
-> > +	return memcmp(data1, data2, ETH_ALEN) == 0;
-> > +#endif
-> >  }
-> 
-> Let's not crap up implementations with these ifdefs.
-> 
-> What's the specific situation here?  Is it that 'data1' and/or
-> 'data2' my not be u16 aligned?
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Fri, 6 Dec 2013 18:25:56 +0100
 
-Yes.
+> @@ -2166,7 +2166,8 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+>  				    bool anycast)
+>  {
+>  	struct net *net = dev_net(idev->dev);
+> -	struct rt6_info *rt = ip6_dst_alloc(net, net->loopback_dev, 0, NULL);
+> +	struct rt6_info *rt = ip6_dst_alloc(net, net->loopback_dev,
+> +					    DST_NOCOUNT, NULL);
+>  
+>  	if (!rt) {
+>  		net_warn_ratelimited("Maximum number of routes reached, consider increasing route/max_size\n");
 
-> If so, make a function for that in linux/etherdevice.h and invoke it
-> in such places.  You can name it something like
-> "ether_addr_equal_unaligned()" or similar.
+So basically, we only want to count routes that will have RTF_CACHE
+set on them.
 
-I'll resubmit if/after you apply the
-ether_addr_equal/compare_ether_addr removal.
+This warning in the net_warn_ratelimited() is no longer relevant, only
+hard memory allocation failures can result in this !rt condition.  So
+please respin this patch with that warning removed.
 
-cheers, Joe
+Thanks.
