@@ -1,53 +1,69 @@
-From: Michael Dalton <mwdalton@google.com>
-Subject: Re: [PATCH v2] virtio-net: free bufs correctly on invalid packet
-	length
-Date: Thu, 5 Dec 2013 16:09:22 -0800
-Message-ID: <CANJ5vPJgN+kc3STB9XYUxoKygWVWwen2Si6UmDKByz--qzH_Mg@mail.gmail.com>
-References: <1386278045-23542-1-git-send-email-mwdalton@google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFCv2 0/6] net: phy: Ethernet PHY powerdown optimization
+Date: Thu, 5 Dec 2013 16:16:32 -0800
+Message-ID: <CAGVrzcYjcXfbYR7uyL1fAc2bdNhCUA9wAjZk4nsF2K0FRL2_pA@mail.gmail.com>
+References: <1384978913-8052-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1386171888-28190-1-git-send-email-sebastian.hesselbarth@gmail.com> <52A031EE.1040301@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrey Vagin <avagin@openvz.org>, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org,
-	lf-virt <virtualization@lists.linux-foundation.org>,
-	Eric Dumazet <edumazet@google.com>, Michael Dalton <mwdalton@google.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1386278045-23542-1-git-send-email-mwdalton@google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52A031EE.1040301@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+2013/12/4 Mugunthan V N <mugunthanvnm@ti.com>:
+> On Wednesday 04 December 2013 09:14 PM, Sebastian Hesselbarth wrote:
+>> This is v2 of an RFC sent earlier [1] to reduce power consumption of network
+>> PHYs with link that are either unused or the corresponding netdev is down.
+>>
+>> In contrast to RFCv1, this now integrates phy_suspend/phy_resume transparent
+>> to the netdev drivers. Also, phy_suspend now only suspends the PHY if WOL is
+>> disabled. Moreover, the phy state machine calls phy_suspend on entering
+>> HALTED state.
+>>
+>> Again, a branch with RFCv2 applied to v3.13-rc2 can also be found at
+>> https://github.com/shesselba/linux-dove.git topic/ethphy-power-rfc-v2
+>>
+>> [1] http://lwn.net/Articles/574426/
+>>
+>> Sebastian Hesselbarth (6):
+>>   net: mv643xx_eth: properly start/stop phy device
+>>   net: phy: marvell: provide genphy suspend/resume
+>>   net: phy: provide phy_resume/phy_suspend helpers
+>>   net: phy: resume/suspend PHYs on attach/detach
+>>   net: phy: suspend unused PHYs on mdio_bus in late_initcall
+>>   net: phy: suspend phydev when going to HALTED
+>>
+>>  drivers/net/ethernet/marvell/mv643xx_eth.c |    4 +++-
+>>  drivers/net/phy/marvell.c                  |   22 ++++++++++++++++++++++
+>>  drivers/net/phy/mdio_bus.c                 |   25 +++++++++++++++++++++++++
+>>  drivers/net/phy/phy.c                      |    6 +++++-
+>>  drivers/net/phy/phy_device.c               |   27 +++++++++++++++++++++++++++
+>>  include/linux/phy.h                        |    2 ++
+>>  6 files changed, 84 insertions(+), 2 deletions(-)
+>>
+>> ---
+>> Cc: David Miller <davem@davemloft.net>
+>> Cc: Florian Fainelli <f.fainelli@gmail.com>
+>> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+>> Cc: netdev@vger.kernel.org
+>> Cc: linux-arm-kernel@lists.infradead.org
+>> Cc: linux-kernel@vger.kernel.org
+> Apart form Sergei's comment the patch series looks good to me.
+>
+> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-A quick note on this patch: I have confirmed that without this
-patch a kernel crash occurs if we force a 'packet too short' error
-sufficiently many times. This patch eliminates the kernel crash.
+Looks good to me as well:
 
-Since this crash would be triggered by a hypervisor bug, I made a
-small change not reflected in the above patch to make the crash easier
-to reproduce for testing purposes. I treated 1 out of every 128 packets
-with len < MERGE_BUFFER_LEN as 'too short'. With this change in
-place, just running netperf will cause the sender to crash very quickly
-(the receiver will transmit pure data ACKs that meet the drop criteria).
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-If anyone would like to reproduce the crash using the above setup,
-I added an unsigned int num_packets field to struct receive_queue and
-changed the if condition for the packet too short check in receive_buf()
-from:
-        if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
-to:
-        if (unlikely((len < sizeof(struct virtio_net_hdr) + ETH_HLEN) ||
-                     (len < MERGE_BUFFER_LEN &&
-                      ((++rq->num_packets & 127) == 0)))) {
-
-Best,
-
-Mike
+Thanks Sebastian!
+-- 
+Florian
