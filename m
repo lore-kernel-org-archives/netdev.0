@@ -1,50 +1,49 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] can: ems_usb: fix urb leaks on failure paths
-Date: Sat,  7 Dec 2013 03:10:35 +0400
-Message-ID: <1386371435-17597-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Wolfgang Grandegger <wg@grandegger.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Michael Dalton <mwdalton@google.com>
+Subject: Re: [PATCH v2] virtio-net: free bufs correctly on invalid packet
+	length
+Date: Fri, 6 Dec 2013 15:32:48 -0800
+Message-ID: <CANJ5vPJp+6NyeT+bbfGSS0TS+Em4Qx3GTb3a2uTrs5jAAPgeBw@mail.gmail.com>
+References: <1386278045-23542-1-git-send-email-mwdalton@google.com>
+	<20131206.163235.687717622324552173.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrey Vagin <avagin@openvz.org>, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org,
+	lf-virt <virtualization@lists.linux-foundation.org>,
+	Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20131206.163235.687717622324552173.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-There are a couple failure paths where urb leaks.
-Is spare code within ems_usb_start_xmit(),
-usb_free_urb() should be used to deallocate urb instead of usb_unanchor_urb().
-In ems_usb_start() there is no usb_free_urb() if usb_submit_urb() fails.
+Hi David,
 
-Found by Linux Driver Verification project (linuxtesting.org).
+This patch fixes a bug introduced by 2613af0ed18a ("virtio_net:
+migrate mergeable rx buffers to page frag allocators"). The bug
+is present in both net-next and net. Thanks
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/can/usb/ems_usb.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Best,
 
-diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
-index 5f9a7ad9b964..8aeec0b4601a 100644
---- a/drivers/net/can/usb/ems_usb.c
-+++ b/drivers/net/can/usb/ems_usb.c
-@@ -625,6 +625,7 @@ static int ems_usb_start(struct ems_usb *dev)
- 			usb_unanchor_urb(urb);
- 			usb_free_coherent(dev->udev, RX_BUFFER_SIZE, buf,
- 					  urb->transfer_dma);
-+			usb_free_urb(urb);
- 			break;
- 		}
- 
-@@ -798,8 +799,8 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
- 	 * allowed (MAX_TX_URBS).
- 	 */
- 	if (!context) {
--		usb_unanchor_urb(urb);
- 		usb_free_coherent(dev->udev, size, buf, urb->transfer_dma);
-+		usb_free_urb(urb);
- 
- 		netdev_warn(netdev, "couldn't find free context\n");
- 
--- 
-1.8.3.2
+Mike
+
+On Fri, Dec 6, 2013 at 1:32 PM, David Miller <davem@davemloft.net> wrote:
+> From: Michael Dalton <mwdalton@google.com>
+> Date: Thu,  5 Dec 2013 13:14:05 -0800
+>
+>> When a packet with invalid length arrives, ensure that the packet
+>> is freed correctly if mergeable packet buffers and big packets
+>> (GUEST_TSO4) are both enabled.
+>>
+>> Signed-off-by: Michael Dalton <mwdalton@google.com>
+>
+> Applied, is this needed for -stable?
