@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] i40e: properly add VF MAC addresses
-Date: Fri,  6 Dec 2013 00:06:22 -0800
-Message-ID: <1386317188-13944-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] i40e: set pf_id based on device and function numbers
+Date: Fri,  6 Dec 2013 00:06:14 -0800
+Message-ID: <1386317188-13944-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1386317188-13944-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Christopher Pau <christopher.pau@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,38 +11,42 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:42214 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752963Ab3LFIGg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Dec 2013 03:06:36 -0500
+	id S1751276Ab3LFIGd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Dec 2013 03:06:33 -0500
 In-Reply-To: <1386317188-13944-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Christopher Pau <christopher.pau@intel.com>
 
-The code that added new MAC addresses from the VFs did not, in
-fact, work. Due to inverse logic, the only addresses that could
-be added were addresses that already had been added.
+pf_id needs to be encoded for cards with ARI enabled, which
+allows for larger function numbers than 8.
 
-Change-Id: Idce9169bd2f36e2c5ee10b130587a65705465d31
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Commit-Id: I23fa7df9dabf3878cc08c9b2151729c8539f5f17
+Signed-off-by: Christopher Pau <christopher.pau@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index d98cc9b..5997301 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1603,7 +1603,7 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 		struct i40e_mac_filter *f;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 1e4ea13..9e868ea 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -297,7 +297,11 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
+ 	}
  
- 		f = i40e_find_mac(vsi, al->list[i].addr, true, false);
--		if (f) {
-+		if (!f) {
- 			if (i40e_is_vsi_in_vlan(vsi))
- 				f = i40e_put_mac_in_vlan(vsi, al->list[i].addr,
- 							 true, false);
+ 	/* Determine the PF number based on the PCI fn */
+-	hw->pf_id = (u8)hw->bus.func;
++	reg = rd32(hw, I40E_GLPCI_CAPSUP);
++	if (reg & I40E_GLPCI_CAPSUP_ARI_EN_MASK)
++		hw->pf_id = (u8)((hw->bus.device << 3) | hw->bus.func);
++	else
++		hw->pf_id = (u8)hw->bus.func;
+ 
+ 	/* If there was a Global Reset in progress when we got here,
+ 	 * we don't need to do the PF Reset
 -- 
 1.8.3.1
