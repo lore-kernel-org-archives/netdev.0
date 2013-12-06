@@ -1,189 +1,60 @@
-From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH man-pages] man: packet.7: document fanout, ring and auxiliary
- options
-Date: Fri, 06 Dec 2013 17:14:15 +0100
-Message-ID: <52A1F7D7.6040305@redhat.com>
-References: <cover.1386081779.git.dborkman@redhat.com> <a19a6633601bbc10867ac57e4a601df847cf47cc.1386081779.git.dborkman@redhat.com> <CA+FuTSdCfH_yum57ZWV9tw5cd0=DkWWR-OvnaUEkUf5O7JCQYg@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp: properly latch and use autoclose value from sock
+ to association
+Date: Fri, 6 Dec 2013 11:29:31 -0500
+Message-ID: <20131206162931.GC1426@hmsreliant.think-freely.org>
+References: <52A0A300.3010409@gmail.com>
+ <1386343755-14130-1-git-send-email-nhorman@tuxdriver.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B746B@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Kerrisk-manpages <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+FuTSdCfH_yum57ZWV9tw5cd0=DkWWR-OvnaUEkUf5O7JCQYg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, Wang Weidong <wangweidong1@huawei.com>,
+	David Miller <davem@davemloft.net>,
+	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36411 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753539Ab3LFQ3j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 11:29:39 -0500
+Content-Disposition: inline
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B746B@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/06/2013 05:11 PM, Willem de Bruijn wrote:
->>   [Very minor fixups. -dborkman]
->>
->> Signed-off-by: Willem de Bruijn <willemb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
->> Acked-by: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->> ---
->>   Just a resend of something that got lost in March this year.
->
-> Thanks for dusting this off, Daniel!
->
-> I spotted a few small issues. We also introduced a few new flags since
-> the last revision. If we have to make changes anyway, may as well
-> describe those, too. Let me know if you will resubmit or prefer me to
-> do it.
->
-> I did not test the output of my changes yet, btw.
+On Fri, Dec 06, 2013 at 03:46:31PM -0000, David Laight wrote:
+> > From: Neil Horman
+> > Currently, sctp associations latch a sockets autoclose value to an association
+> > at association init time, subject to capping constraints from the max_autoclose
+> > sysctl value.  This leads to an odd situation where an application may set a
+> > socket level autoclose timeout, but sliently sctp will limit the autoclose
+> > timeout to something less than that.
+> > 
+> > Fix this by modifying the autoclose setsockopt function to check the limit, cap
+> > it and warn the user via syslog that the timeout is capped.  This will allow
+> > getsockopt to return valid autoclose timeout values that reflect what subsequent
+> > associations actually use.
+> ...
+> > +	if (sp->autoclose > net->sctp.max_autoclose) {
+> > +		pr_warn("Capping autoclose value %d to defined maximum of %lu\n",
+> > +			sp->autoclose, net->sctp.max_autoclose);
+> > +		sp->autoclose = net->sctp.max_autoclose;
+> > +	}
+> 
+> Is it really reasonable to allow a user to spam syslog this way?
+> 
+> 	David
+> 
+> 
+Actually, I think its ok, or at least common.  Theres lots of pr_messages
+checking common user errors in the various setockopt paths.  We should probably
+undertake a larger effort to convert those all to printk_ratelimited with some
+level of sctp shared state.
+Neil
 
-Feel free and take this over and resubmit.
-
-I just didn't want to get this effort lost somewhere.
-
-Thanks Willem !
-
->> +.I tp_net
->> +stores the offset to the network layer.
->> +If the packet socket is of type
->> +.BR SOCK_DGRAM ,
->> +then
->> +.I tp_mac
->> +is the same.
->> +If it is of type
->> +.BR SOCK_RAW ,
->> +then that field stores the offset to the link layer frame.
->
-> This only applies to the metadata when passed in a packet ring frame
-> and has to be moved there. The ring metadata structure is very similar
-> to tpacket_auxdata (as mentioned below), but they differ in this
-> regard: with recvmsg/auxdata the mac always starts at offset 0 for
-> obvious reasons.
->
->> +.TP
->> +.BR PACKET_FANOUT " (since Linux 3.1)"
->> +.\" commit dc99f600698dcac69b8f56dda9a8a00d645c5ffc
->> +To scale processing across threads, packet sockets can form a fanout
->> +group.
->> +In this mode, each matching packet is enqueued onto only one
->> +socket in the group.
->> +A socket joins a fanout group by calling
->> +.BR setsockopt (2)
->> +with level
->> +.B SOL_PACKET
->> +and option
->> +.BR PACKET_FANOUT .
->> +Each network namespace can have up to 65536 independent groups.
->> +A socket selects a group by encoding the ID in the first 16 bits of
->> +the integer option value.
->> +The first packet socket to join a group implicitly creates it.
->> +To successfully join an existing group, subsequent packet sockets
->> +must have the same protocol, device settings and fanout mode and
->> +flags (see below).
->> +Packet sockets can leave a fanout group only by closing the socket.
->> +The group is deleted when the last socket is closed.
->> +
->> +Fanout supports multiple algorithms to spread traffic between sockets.
->> +The default mode,
->> +.BR PACKET_FANOUT_HASH ,
->> +sends packets from the same flow to the same socket to maintain
->> +per-flow ordering.
->> +For each packet, it chooses a socket by taking the packet flow hash
->> +modulo the number of sockets in the group, where a flow hash is a hash
->> +over network layer address and optional transport layer port fields.
->> +The load balance mode
->> +.BR PACKET_FANOUT_LB
->> +implements a round-robin algorithm.
->> +.BR PACKET_FANOUT_CPU
->> +selects the socket based on the CPU that the packet arrived on.
->
-> New options since the last patch:
->
-> +.BR PACKET_FANOUT_ROLLOVER
-> +processes all data on a single socket, moves to the next when one
-> becomes backlogged.
-> +.BR PACKET_FANOUT_RND:
-> +selects the socket using a pseudo random number generator.
->
->> +
->> +Fanout modes can take additional options.
->> +IP fragmentation causes packets from the same flow to have different
->> +flow hashes.
->> +The flag
->> +.BR PACKET_FANOUT_FLAG_DEFRAG ,
->> +if set, causes packet to be defragmented before fanout is applied, to
->> +preserve order even in this case.
->> +Fanout mode and options are communicated in the second 16 bits of the
->> +integer option value.
->
-> .BR PACKET_FANOUT_FLAG_ROLLOVER ,
-> +if set, enables the roll over mechanism as a backup strategy. If the
-> +original fanout algorithm selects a backlogged cpu, roll over to the
-> +next available one.
->
->> +.TP
->> +.BR PACKET_LOSS " (with PACKET_TX_RING)"
->> +If set, do not silently drop a packet on transmission error, but
->> +return it with status set to
->> +.BR TP_STATUS_WRONG_FORMAT .
->> +.TP
->> +.BR PACKET_RESERVE " (with PACKET_RX_RING)"
->> +By default, a packet receive ring writes packets immediately following the
->> +metadata structure and alignment padding.
->> +This integer option reserves additional headroom.
->> +.TP
->> +.BR PACKET_RX_RING
->> +Create a memory mapped ring buffer for asynchronous packet reception.
->> +The packet socket reserves a contiguous region of application address
->> +space, lays it out into an array of packet slots and copies packets
->> +(up to
->> +.IR tp_snaplen
->> +) into subsequent slots.
->> +Each packet is preceded by a metadata structure similar to
->> +.IR tpacket_auxdata .
->
-> This is where the mac discussion from above belongs.
->
->> +Packet socket and application communicate the head and tail of the ring
->> +through the
->> +.I tp_status
->> +field.
->> +The packet socket owns all slots with status
->> +.BR TP_STATUS_KERNEL .
->> +After filling a slot, it changes the status of the slot to transfer
->> +ownership to the application.
->> +During normal operation, the new status is
->> +.BR TP_STATUS_USER ,
->> +to signal that a correctly received packet has been stored.
->> +When the application has finished processing a packet, it transfers
->> +ownership of the slot back to the socket by setting the status to
->> +.BR TP_STATUS_KERNEL .
->> +Packet sockets implement multiple variants of the packet ring.
->> +The implementation details are described in
->> +.IR Documentation/networking/packet_mmap.txt
->> +in the Linux kernel source tree.
->> +.TP
->> +.BR PACKET_STATISTICS
->> +Retrieve packet socket statistics in the form of a structure
->> +
->> +.in +4n
->> +.nf
->> +struct tpacket_stats {
->> +    __u32 tp_packets;  /* total packet count */
->> +    __u32 tp_drops;    /* dropped packet count */
->
-> these should apparently be
->
-> +    unsigned int tp_packets;  /* total packet count */
-> +    unsigned int tp_drops;    /* dropped packet count */
->
->> +};
->> +.fi
->> +.in
->> +
->
-> All the rest looked fine.
+> 
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
