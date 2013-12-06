@@ -1,68 +1,99 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH net-next] packet: use macro GET_PBDQC_FROM_RB to simplify
- the codes
-Date: Fri, 06 Dec 2013 13:29:36 +0800
-Message-ID: <52A160C0.6080805@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ipv6: consistent use of IP6_INC_STATS_BH() in
+ ip6_forward()
+Date: Thu, 05 Dec 2013 21:38:06 -0800
+Message-ID: <1386308286.30495.227.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, dborkman@redhat.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:12526 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750752Ab3LFFcK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Dec 2013 00:32:10 -0500
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:64708 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750752Ab3LFFiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 00:38:08 -0500
+Received: by mail-pb0-f51.google.com with SMTP id up15so420919pbc.24
+        for <netdev@vger.kernel.org>; Thu, 05 Dec 2013 21:38:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+ip6_forward() runs from softirq context, we can use the SNMP macros
+assuming this.
+
+Use same indentation for all IP6_INC_STATS_BH() calls.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/packet/af_packet.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ net/ipv6/ip6_output.c |   25 ++++++++++++++-----------
+ 1 file changed, 14 insertions(+), 11 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index ba2548b..c235da9 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -437,7 +437,8 @@ static void prb_shutdown_retire_blk_timer(struct packet_sock *po,
- {
- 	struct tpacket_kbdq_core *pkc;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 59df872e2f4d..5f70f88baa52 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -336,7 +336,8 @@ int ip6_forward(struct sk_buff *skb)
+ 		goto drop;
  
--	pkc = tx_ring ? &po->tx_ring.prb_bdqc : &po->rx_ring.prb_bdqc;
-+	pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring) :
-+			GET_PBDQC_FROM_RB(&po->rx_ring);
+ 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_FWD, skb)) {
+-		IP6_INC_STATS(net, ip6_dst_idev(dst), IPSTATS_MIB_INDISCARDS);
++		IP6_INC_STATS_BH(net, ip6_dst_idev(dst),
++				 IPSTATS_MIB_INDISCARDS);
+ 		goto drop;
+ 	}
  
- 	spin_lock_bh(&rb_queue->lock);
- 	pkc->delete_blk_timer = 1;
-@@ -463,7 +464,8 @@ static void prb_setup_retire_blk_timer(struct packet_sock *po, int tx_ring)
- 	if (tx_ring)
- 		BUG();
+@@ -370,8 +371,8 @@ int ip6_forward(struct sk_buff *skb)
+ 		/* Force OUTPUT device used as source address */
+ 		skb->dev = dst->dev;
+ 		icmpv6_send(skb, ICMPV6_TIME_EXCEED, ICMPV6_EXC_HOPLIMIT, 0);
+-		IP6_INC_STATS_BH(net,
+-				 ip6_dst_idev(dst), IPSTATS_MIB_INHDRERRORS);
++		IP6_INC_STATS_BH(net, ip6_dst_idev(dst),
++				 IPSTATS_MIB_INHDRERRORS);
  
--	pkc = tx_ring ? &po->tx_ring.prb_bdqc : &po->rx_ring.prb_bdqc;
-+	pkc = tx_ring ? GET_PBDQC_FROM_RB(&po->tx_ring) :
-+			GET_PBDQC_FROM_RB(&po->rx_ring);
- 	prb_init_blk_timer(po, pkc, prb_retire_rx_blk_timer_expired);
- }
+ 		kfree_skb(skb);
+ 		return -ETIMEDOUT;
+@@ -384,14 +385,15 @@ int ip6_forward(struct sk_buff *skb)
+ 		if (proxied > 0)
+ 			return ip6_input(skb);
+ 		else if (proxied < 0) {
+-			IP6_INC_STATS(net, ip6_dst_idev(dst),
+-				      IPSTATS_MIB_INDISCARDS);
++			IP6_INC_STATS_BH(net, ip6_dst_idev(dst),
++					 IPSTATS_MIB_INDISCARDS);
+ 			goto drop;
+ 		}
+ 	}
  
-@@ -521,7 +523,7 @@ static void init_prb_bdqc(struct packet_sock *po,
- 			struct pgv *pg_vec,
- 			union tpacket_req_u *req_u, int tx_ring)
- {
--	struct tpacket_kbdq_core *p1 = &rb->prb_bdqc;
-+	struct tpacket_kbdq_core *p1 = GET_PBDQC_FROM_RB(rb);
- 	struct tpacket_block_desc *pbd;
+ 	if (!xfrm6_route_forward(skb)) {
+-		IP6_INC_STATS(net, ip6_dst_idev(dst), IPSTATS_MIB_INDISCARDS);
++		IP6_INC_STATS_BH(net, ip6_dst_idev(dst),
++				 IPSTATS_MIB_INDISCARDS);
+ 		goto drop;
+ 	}
+ 	dst = skb_dst(skb);
+@@ -448,16 +450,17 @@ int ip6_forward(struct sk_buff *skb)
+ 		/* Again, force OUTPUT device used as source address */
+ 		skb->dev = dst->dev;
+ 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+-		IP6_INC_STATS_BH(net,
+-				 ip6_dst_idev(dst), IPSTATS_MIB_INTOOBIGERRORS);
+-		IP6_INC_STATS_BH(net,
+-				 ip6_dst_idev(dst), IPSTATS_MIB_FRAGFAILS);
++		IP6_INC_STATS_BH(net, ip6_dst_idev(dst),
++				 IPSTATS_MIB_INTOOBIGERRORS);
++		IP6_INC_STATS_BH(net, ip6_dst_idev(dst),
++				 IPSTATS_MIB_FRAGFAILS);
+ 		kfree_skb(skb);
+ 		return -EMSGSIZE;
+ 	}
  
- 	memset(p1, 0x0, sizeof(*p1));
-@@ -585,7 +587,7 @@ static void _prb_refresh_rx_retire_blk_timer(struct tpacket_kbdq_core *pkc)
- static void prb_retire_rx_blk_timer_expired(unsigned long data)
- {
- 	struct packet_sock *po = (struct packet_sock *)data;
--	struct tpacket_kbdq_core *pkc = &po->rx_ring.prb_bdqc;
-+	struct tpacket_kbdq_core *pkc = GET_PBDQC_FROM_RB(&po->rx_ring);
- 	unsigned int frozen;
- 	struct tpacket_block_desc *pbd;
+ 	if (skb_cow(skb, dst->dev->hard_header_len)) {
+-		IP6_INC_STATS(net, ip6_dst_idev(dst), IPSTATS_MIB_OUTDISCARDS);
++		IP6_INC_STATS_BH(net, ip6_dst_idev(dst),
++				 IPSTATS_MIB_OUTDISCARDS);
+ 		goto drop;
+ 	}
  
--- 
-1.8.3.1
