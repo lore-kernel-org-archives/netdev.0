@@ -1,38 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net/stable v2] br: fix use of ->rx_handler_data in code
- executed on non-rx_handler path
-Date: Fri, 06 Dec 2013 16:16:27 -0500 (EST)
-Message-ID: <20131206.161627.917770459585726728.davem@davemloft.net>
-References: <1386257257-25258-1-git-send-email-jiri@resnulli.us>
-	<20131206.154321.1673089712073824539.davem@davemloft.net>
-	<20131206131028.41b5b8b1@nehalam.linuxnetplumber.net>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH -next] batadv: Slight optimization of
+	batadv_compare_eth
+Date: Fri, 06 Dec 2013 13:17:01 -0800
+Message-ID: <1386364621.31845.32.camel@joe-AO722>
+References: <1386317890.31845.26.camel@joe-AO722>
+ <20131206.153944.1382127535160341376.davem@davemloft.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, jtluka@redhat.com,
-	zhiguohong@tencent.com, bridge@lists.linux-foundation.org,
-	edumazet@google.com, laine@redhat.com, mst@redhat.com
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42620 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758136Ab3LFVQb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 16:16:31 -0500
-In-Reply-To: <20131206131028.41b5b8b1@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20131206.153944.1382127535160341376.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 6 Dec 2013 13:10:28 -0800
+On Fri, 2013-12-06 at 15:39 -0500, David Miller wrote:
+> From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+> Date: Fri, 06 Dec 2013 00:18:10 -0800
+> 
+> > @@ -266,7 +266,11 @@ static inline void batadv_dbg(int type __always_unused,
+> >   */
+> >  static inline int batadv_compare_eth(const void *data1, const void *data2)
+> >  {
+> > -	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
+> > +#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
+> > +	return ether_addr_equal(data1, data2);
+> > +#else
+> > +	return memcmp(data1, data2, ETH_ALEN) == 0;
+> > +#endif
+> >  }
+> 
+> Let's not crap up implementations with these ifdefs.
+> 
+> What's the specific situation here?  Is it that 'data1' and/or
+> 'data2' my not be u16 aligned?
 
-> How come you ignored my simpler fix, that used the existing logic.
-> I don't like introducing this especially into the stable; much prefer
-> to go back to testing the flag as was being done before.
+Yes.
 
-I thought Jiri's response to your suggestion was adequate, that's
-all.
+> If so, make a function for that in linux/etherdevice.h and invoke it
+> in such places.  You can name it something like
+> "ether_addr_equal_unaligned()" or similar.
 
-I can revert and take your version if you want me to, just make
-a formal submission and get agreement from Jiri.
+I'll resubmit if/after you apply the
+ether_addr_equal/compare_ether_addr removal.
 
-Thanks.
+cheers, Joe
