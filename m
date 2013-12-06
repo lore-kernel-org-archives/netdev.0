@@ -1,60 +1,196 @@
 From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net v6 0/2] net: sched: fix two issues
-Date: Fri, 6 Dec 2013 15:00:03 +0800
-Message-ID: <1386313205-87660-1-git-send-email-yangyingliang@huawei.com>
+Subject: [PATCH net v6 1/2] net: sched: tbf: fix the calculation of max_size
+Date: Fri, 6 Dec 2013 15:00:04 +0800
+Message-ID: <1386313205-87660-2-git-send-email-yangyingliang@huawei.com>
+References: <1386313205-87660-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
 	<jbrouer@redhat.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:58278 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:58393 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751350Ab3LFHAT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 02:00:19 -0500
+	with ESMTP id S1752589Ab3LFHA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 02:00:26 -0500
+In-Reply-To: <1386313205-87660-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fix calculation of max_size in tbf
-fix quantum calculation introduced by 64bit rates.
+Current max_size is caluated from rate table. Now, the rate table
+has been replaced and it's wrong to caculate max_size based on this
+rate table. It can lead wrong calculation of max_size.
 
-v6
-  patch 1/2:
-  1.Use a simpler and better way to calculate length in psched_ns_t2l().
-  2.Replace pr_err() with pr_warn_ratelimited().
+The burst in kernel may be lower than user asked, because burst may gets
+some loss when transform it to buffer(E.g. "burst 40kb rate 30mbit/s")
+and it seems we cannot avoid this loss. Burst's value(max_size) based on
+rate table may be equal user asked. If a packet's length is max_size, this
+packet will be stalled in tbf_dequeue() because its length is above the
+burst in kernel so that it cannot get enough tokens. The max_size guards
+against enqueuing packet sizes above q->buffer "time" in tbf_enqueue().
 
-  patch 2/2: Replace div64_u64() with do_div() suggested by Eric.
+To make consistent with the calculation of tokens, this patch add a helper
+psched_ns_t2l() to calculate burst(max_size) directly to fix this problem.
 
-v5
-  patch 1/2:
-  1.Remove rtab and ptab use suggested by Eric.
-  2.Don't reduce max_size to 65536, as Eric suggested that
-    if a burst set to 200KB, we do not want tbf use 64KB
-    or even less. So add a helper psched_ns_t2l to calculate
-    max_size directly.
+After this fix, we can support to using 64bit rates to calculate burst as well.
 
-v4
-  patch 1/2:
-  1.Update commit message suggested by Jesper.
-  2.Use a macro to replace 65535 constant.
-  3.Add condition that when peakrate is lower than rate, return -EINVAL.
-  4.Don't use cell_log anymore.
-
-v3
-  patch 1/2: use psched_l2t_ns to calculate max_size
-  and cleanup exit/done section suggested by Jesper.
-
-v2
-  patch 1/2: redescribe the regression.
-  patch 2/2: add Eric's ack.
-
-Yang Yingliang (2):
-  net: sched: tbf: fix the calculation of max_size
-  net: sched: htb: fix the calculation of quantum
-
- net/sched/sch_htb.c |  20 ++++++----
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
  net/sched/sch_tbf.c | 104 ++++++++++++++++++++++++++++++----------------------
- 2 files changed, 73 insertions(+), 51 deletions(-)
+ 1 file changed, 61 insertions(+), 43 deletions(-)
 
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index a609005..dd731f5 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -118,6 +118,30 @@ struct tbf_sched_data {
+ };
+ 
+ 
++/* Time to Length, convert time in ns to length in bytes
++ * to determinate how many bytes can be sent in given time.
++ */
++static u64 psched_ns_t2l(const struct psched_ratecfg *r,
++			 u64 time_in_ns)
++{
++	/* The formula is :
++	 * len = (time_in_ns * r->rate_bytes_ps) / NSEC_PER_SEC
++	 */
++	u64 len = time_in_ns * r->rate_bytes_ps;
++
++	do_div(len, NSEC_PER_SEC);
++
++	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
++		len = (len / 53) * 48;
++
++	if (len > r->overhead)
++		len -= r->overhead;
++	else
++		len = 0;
++
++	return len;
++}
++
+ /*
+  * Return length of individual segments of a gso packet,
+  * including all headers (MAC, IP, TCP/UDP)
+@@ -289,10 +313,8 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 	struct nlattr *tb[TCA_TBF_MAX + 1];
+ 	struct tc_tbf_qopt *qopt;
+-	struct qdisc_rate_table *rtab = NULL;
+-	struct qdisc_rate_table *ptab = NULL;
+ 	struct Qdisc *child = NULL;
+-	int max_size, n;
++	u64 max_size;
+ 	u64 rate64 = 0, prate64 = 0;
+ 
+ 	err = nla_parse_nested(tb, TCA_TBF_MAX, opt, tbf_policy);
+@@ -304,38 +326,13 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 		goto done;
+ 
+ 	qopt = nla_data(tb[TCA_TBF_PARMS]);
+-	rtab = qdisc_get_rtab(&qopt->rate, tb[TCA_TBF_RTAB]);
+-	if (rtab == NULL)
+-		goto done;
+-
+-	if (qopt->peakrate.rate) {
+-		if (qopt->peakrate.rate > qopt->rate.rate)
+-			ptab = qdisc_get_rtab(&qopt->peakrate, tb[TCA_TBF_PTAB]);
+-		if (ptab == NULL)
+-			goto done;
+-	}
++	if (qopt->rate.linklayer == TC_LINKLAYER_UNAWARE)
++		qdisc_put_rtab(qdisc_get_rtab(&qopt->rate,
++					      tb[TCA_TBF_RTAB]));
+ 
+-	for (n = 0; n < 256; n++)
+-		if (rtab->data[n] > qopt->buffer)
+-			break;
+-	max_size = (n << qopt->rate.cell_log) - 1;
+-	if (ptab) {
+-		int size;
+-
+-		for (n = 0; n < 256; n++)
+-			if (ptab->data[n] > qopt->mtu)
+-				break;
+-		size = (n << qopt->peakrate.cell_log) - 1;
+-		if (size < max_size)
+-			max_size = size;
+-	}
+-	if (max_size < 0)
+-		goto done;
+-
+-	if (max_size < psched_mtu(qdisc_dev(sch)))
+-		pr_warn_ratelimited("sch_tbf: burst %u is lower than device %s mtu (%u) !\n",
+-				    max_size, qdisc_dev(sch)->name,
+-				    psched_mtu(qdisc_dev(sch)));
++	if (qopt->peakrate.linklayer == TC_LINKLAYER_UNAWARE)
++			qdisc_put_rtab(qdisc_get_rtab(&qopt->peakrate,
++						      tb[TCA_TBF_PTAB]));
+ 
+ 	if (q->qdisc != &noop_qdisc) {
+ 		err = fifo_set_limit(q->qdisc, qopt->limit);
+@@ -357,30 +354,51 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	}
+ 	q->limit = qopt->limit;
+ 	q->mtu = PSCHED_TICKS2NS(qopt->mtu);
+-	q->max_size = max_size;
+ 	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
+ 	q->tokens = q->buffer;
+ 	q->ptokens = q->mtu;
+ 
+ 	if (tb[TCA_TBF_RATE64])
+ 		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
+-	psched_ratecfg_precompute(&q->rate, &rtab->rate, rate64);
+-	if (ptab) {
++	psched_ratecfg_precompute(&q->rate, &qopt->rate, rate64);
++	if (!q->rate.rate_bytes_ps)
++		goto unlock_done;
++
++	max_size = min_t(u64, psched_ns_t2l(&q->rate, q->buffer), ~0U);
++
++	if (qopt->peakrate.rate) {
+ 		if (tb[TCA_TBF_PRATE64])
+ 			prate64 = nla_get_u64(tb[TCA_TBF_PRATE64]);
+-		psched_ratecfg_precompute(&q->peak, &ptab->rate, prate64);
++		psched_ratecfg_precompute(&q->peak, &qopt->peakrate, prate64);
++		if (q->peak.rate_bytes_ps <= q->rate.rate_bytes_ps) {
++			pr_warn_ratelimited("sch_tbf: peakrate %llu is lower than or equals to rate %llu !\n",
++					    q->peak.rate_bytes_ps, q->rate.rate_bytes_ps);
++			goto unlock_done;
++		}
++
++		max_size = min_t(u64, max_size, psched_ns_t2l(&q->peak, q->mtu));
+ 		q->peak_present = true;
+ 	} else {
+ 		q->peak_present = false;
+ 	}
+ 
++	if (max_size < psched_mtu(qdisc_dev(sch)))
++		pr_warn_ratelimited("sch_tbf: burst %llu is lower than device %s mtu (%u) !\n",
++				    max_size, qdisc_dev(sch)->name,
++				    psched_mtu(qdisc_dev(sch)));
++
++	if (!max_size)
++		goto unlock_done;
++
++	q->max_size = max_size;
++
+ 	sch_tree_unlock(sch);
+-	err = 0;
++	return 0;
++
++unlock_done:
++	sch_tree_unlock(sch);
++	err = -EINVAL;
+ done:
+-	if (rtab)
+-		qdisc_put_rtab(rtab);
+-	if (ptab)
+-		qdisc_put_rtab(ptab);
+ 	return err;
+ }
+ 
 -- 
 1.8.0
