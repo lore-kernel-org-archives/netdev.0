@@ -1,16 +1,21 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 5/6] net/irda: Fix FSF address in file headers
-Date: Fri,  6 Dec 2013 09:13:43 -0800
-Message-ID: <1386350024-25308-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 6/6] net/*: Fix FSF address in file headers
+Date: Fri,  6 Dec 2013 09:13:44 -0800
+Message-ID: <1386350024-25308-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1386350024-25308-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Samuel Ortiz <samuel@sortiz.org>
+	John Fastabend <john.r.fastabend@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:54635 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:54624 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755025Ab3LFROO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755519Ab3LFROO (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 6 Dec 2013 12:14:14 -0500
 In-Reply-To: <1386350024-25308-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -21,234 +26,135 @@ in the file header comment.  Resolve by replacing the address with
 the URL <http://www.gnu.org/licenses/> so that we do not have to keep
 updating the header comments anytime the address changes.
 
-CC: Samuel Ortiz <samuel@sortiz.org>
+CC: John Fastabend <john.r.fastabend@intel.com>
+CC: Alex Duyck <alexander.h.duyck@intel.com>
+CC: Marcel Holtmann <marcel@holtmann.org>
+CC: Gustavo Padovan <gustavo@padovan.org>
+CC: Johan Hedberg <johan.hedberg@gmail.com>
+CC: Jamal Hadi Salim <jhs@mojatatu.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/irda/af_irda.c                  | 4 +---
- net/irda/discovery.c                | 4 +---
- net/irda/ircomm/ircomm_core.c       | 4 +---
- net/irda/ircomm/ircomm_event.c      | 4 +---
- net/irda/ircomm/ircomm_lmp.c        | 4 +---
- net/irda/ircomm/ircomm_param.c      | 4 +---
- net/irda/ircomm/ircomm_ttp.c        | 4 +---
- net/irda/ircomm/ircomm_tty.c        | 4 +---
- net/irda/ircomm/ircomm_tty_attach.c | 4 +---
- net/irda/ircomm/ircomm_tty_ioctl.c  | 4 +---
- net/irda/irda_device.c              | 4 +---
- net/irda/irlap.c                    | 4 +---
- net/irda/parameters.c               | 4 +---
- net/irda/qos.c                      | 4 +---
- 14 files changed, 14 insertions(+), 42 deletions(-)
+ net/bluetooth/bnep/bnep.h    | 3 +--
+ net/dcb/dcbevent.c           | 3 +--
+ net/dcb/dcbnl.c              | 3 +--
+ net/dns_resolver/dns_key.c   | 3 +--
+ net/dns_resolver/dns_query.c | 3 +--
+ net/dns_resolver/internal.h  | 3 +--
+ net/sched/act_skbedit.c      | 3 +--
+ net/sched/sch_multiq.c       | 3 +--
+ 8 files changed, 8 insertions(+), 16 deletions(-)
 
-diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
-index de7db23..73baf9b 100644
---- a/net/irda/af_irda.c
-+++ b/net/irda/af_irda.c
-@@ -25,9 +25,7 @@
-  *     GNU General Public License for more details.
-  *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
-  *
-  *     Linux-IrDA now supports four different types of IrDA sockets:
-  *
-diff --git a/net/irda/discovery.c b/net/irda/discovery.c
-index b0b56a3..6786e7f 100644
---- a/net/irda/discovery.c
-+++ b/net/irda/discovery.c
-@@ -24,9 +24,7 @@
-  *     GNU General Public License for more details.
-  *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
-  *
-  ********************************************************************/
+diff --git a/net/bluetooth/bnep/bnep.h b/net/bluetooth/bnep/bnep.h
+index e7ee531..5a5b16f 100644
+--- a/net/bluetooth/bnep/bnep.h
++++ b/net/bluetooth/bnep/bnep.h
+@@ -12,8 +12,7 @@
+   GNU General Public License for more details.
  
-diff --git a/net/irda/ircomm/ircomm_core.c b/net/irda/ircomm/ircomm_core.c
-index b797daa..4490a67 100644
---- a/net/irda/ircomm/ircomm_core.c
-+++ b/net/irda/ircomm/ircomm_core.c
-@@ -23,9 +23,7 @@
-  *     GNU General Public License for more details.
-  *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
-  *
-  ********************************************************************/
+   You should have received a copy of the GNU General Public License
+-  along with this program; if not, write to the Free Software
+-  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
++  along with this program; if not, see <http://www.gnu.org/licenses/>.
+ */
  
-diff --git a/net/irda/ircomm/ircomm_event.c b/net/irda/ircomm/ircomm_event.c
-index d78554f..b172c65 100644
---- a/net/irda/ircomm/ircomm_event.c
-+++ b/net/irda/ircomm/ircomm_event.c
-@@ -22,9 +22,7 @@
-  *     GNU General Public License for more details.
+ #ifndef _BNEP_H
+diff --git a/net/dcb/dcbevent.c b/net/dcb/dcbevent.c
+index 4f72fc4..a520d80 100644
+--- a/net/dcb/dcbevent.c
++++ b/net/dcb/dcbevent.c
+@@ -11,8 +11,7 @@
+  * more details.
   *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
+  * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+- * Place - Suite 330, Boston, MA 02111-1307 USA.
++ * this program; if not, see <http://www.gnu.org/licenses/>.
   *
-  ********************************************************************/
+  * Author: John Fastabend <john.r.fastabend@intel.com>
+  */
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index 40d5829..66fbe19 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -11,8 +11,7 @@
+  * more details.
+  *
+  * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+- * Place - Suite 330, Boston, MA 02111-1307 USA.
++ * this program; if not, see <http://www.gnu.org/licenses/>.
+  *
+  * Author: Lucy Liu <lucy.liu@intel.com>
+  */
+diff --git a/net/dns_resolver/dns_key.c b/net/dns_resolver/dns_key.c
+index f347a2c..bf85843 100644
+--- a/net/dns_resolver/dns_key.c
++++ b/net/dns_resolver/dns_key.c
+@@ -19,8 +19,7 @@
+  *   the GNU Lesser General Public License for more details.
+  *
+  *   You should have received a copy of the GNU Lesser General Public License
+- *   along with this library; if not, write to the Free Software
+- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++ *   along with this library; if not, see <http://www.gnu.org/licenses/>.
+  */
+ #include <linux/module.h>
+ #include <linux/moduleparam.h>
+diff --git a/net/dns_resolver/dns_query.c b/net/dns_resolver/dns_query.c
+index c32be29..e7b6d53 100644
+--- a/net/dns_resolver/dns_query.c
++++ b/net/dns_resolver/dns_query.c
+@@ -32,8 +32,7 @@
+  *   the GNU Lesser General Public License for more details.
+  *
+  *   You should have received a copy of the GNU Lesser General Public License
+- *   along with this library; if not, write to the Free Software
+- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++ *   along with this library; if not, see <http://www.gnu.org/licenses/>.
+  */
  
-diff --git a/net/irda/ircomm/ircomm_lmp.c b/net/irda/ircomm/ircomm_lmp.c
-index 3b8095c..6536114 100644
---- a/net/irda/ircomm/ircomm_lmp.c
-+++ b/net/irda/ircomm/ircomm_lmp.c
-@@ -24,9 +24,7 @@
-  *     GNU General Public License for more details.
+ #include <linux/module.h>
+diff --git a/net/dns_resolver/internal.h b/net/dns_resolver/internal.h
+index 17c7886..7af1ed3 100644
+--- a/net/dns_resolver/internal.h
++++ b/net/dns_resolver/internal.h
+@@ -15,8 +15,7 @@
+  *   the GNU Lesser General Public License for more details.
   *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
-  *
-  ********************************************************************/
+  *   You should have received a copy of the GNU Lesser General Public License
+- *   along with this library; if not, write to the Free Software
+- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++ *   along with this library; if not, see <http://www.gnu.org/licenses/>.
+  */
  
-diff --git a/net/irda/ircomm/ircomm_param.c b/net/irda/ircomm/ircomm_param.c
-index 3089391..f80b1a6 100644
---- a/net/irda/ircomm/ircomm_param.c
-+++ b/net/irda/ircomm/ircomm_param.c
-@@ -22,9 +22,7 @@
-  *     GNU General Public License for more details.
+ #include <linux/compiler.h>
+diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
+index 35ea643..cf20add 100644
+--- a/net/sched/act_skbedit.c
++++ b/net/sched/act_skbedit.c
+@@ -11,8 +11,7 @@
+  * more details.
   *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
+  * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+- * Place - Suite 330, Boston, MA 02111-1307 USA.
++ * this program; if not, see <http://www.gnu.org/licenses/>.
   *
-  ********************************************************************/
- 
-diff --git a/net/irda/ircomm/ircomm_ttp.c b/net/irda/ircomm/ircomm_ttp.c
-index 6e6509f..d362d71 100644
---- a/net/irda/ircomm/ircomm_ttp.c
-+++ b/net/irda/ircomm/ircomm_ttp.c
-@@ -23,9 +23,7 @@
-  *     GNU General Public License for more details.
+  * Author: Alexander Duyck <alexander.h.duyck@intel.com>
+  */
+diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
+index 2a2b096..afb050a 100644
+--- a/net/sched/sch_multiq.c
++++ b/net/sched/sch_multiq.c
+@@ -11,8 +11,7 @@
+  * more details.
   *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
+  * You should have received a copy of the GNU General Public License along with
+- * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+- * Place - Suite 330, Boston, MA 02111-1307 USA.
++ * this program; if not, see <http://www.gnu.org/licenses/>.
   *
-  ********************************************************************/
- 
-diff --git a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
-index 41ac7938..2ba8b97 100644
---- a/net/irda/ircomm/ircomm_tty.c
-+++ b/net/irda/ircomm/ircomm_tty.c
-@@ -24,9 +24,7 @@
-  *     GNU General Public License for more details.
-  *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
-  *
-  ********************************************************************/
- 
-diff --git a/net/irda/ircomm/ircomm_tty_attach.c b/net/irda/ircomm/ircomm_tty_attach.c
-index a2a508f..2ee87bf 100644
---- a/net/irda/ircomm/ircomm_tty_attach.c
-+++ b/net/irda/ircomm/ircomm_tty_attach.c
-@@ -23,9 +23,7 @@
-  *     GNU General Public License for more details.
-  *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
-  *
-  ********************************************************************/
- 
-diff --git a/net/irda/ircomm/ircomm_tty_ioctl.c b/net/irda/ircomm/ircomm_tty_ioctl.c
-index b343f50..ce94385 100644
---- a/net/irda/ircomm/ircomm_tty_ioctl.c
-+++ b/net/irda/ircomm/ircomm_tty_ioctl.c
-@@ -22,9 +22,7 @@
-  *     GNU General Public License for more details.
-  *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
-  *
-  ********************************************************************/
- 
-diff --git a/net/irda/irda_device.c b/net/irda/irda_device.c
-index 14653b8..365b895 100644
---- a/net/irda/irda_device.c
-+++ b/net/irda/irda_device.c
-@@ -23,9 +23,7 @@
-  *     GNU General Public License for more details.
-  *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
-  *
-  ********************************************************************/
- 
-diff --git a/net/irda/irlap.c b/net/irda/irlap.c
-index 005b424..a778df5 100644
---- a/net/irda/irlap.c
-+++ b/net/irda/irlap.c
-@@ -23,9 +23,7 @@
-  *     GNU General Public License for more details.
-  *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
-  *
-  ********************************************************************/
- 
-diff --git a/net/irda/parameters.c b/net/irda/parameters.c
-index 71cd38c..6d08697 100644
---- a/net/irda/parameters.c
-+++ b/net/irda/parameters.c
-@@ -22,9 +22,7 @@
-  *     GNU General Public License for more details.
-  *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
-  *
-  ********************************************************************/
- 
-diff --git a/net/irda/qos.c b/net/irda/qos.c
-index 798ffd9..11a7cc0 100644
---- a/net/irda/qos.c
-+++ b/net/irda/qos.c
-@@ -24,9 +24,7 @@
-  *     GNU General Public License for more details.
-  *
-  *     You should have received a copy of the GNU General Public License
-- *     along with this program; if not, write to the Free Software
-- *     Foundation, Inc., 59 Temple Place, Suite 330, Boston,
-- *     MA 02111-1307 USA
-+ *     along with this program; if not, see <http://www.gnu.org/licenses/>.
-  *
-  ********************************************************************/
- 
+  * Author: Alexander Duyck <alexander.h.duyck@intel.com>
+  */
 -- 
 1.8.3.1
