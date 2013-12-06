@@ -1,48 +1,44 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: [PATCH 2/2] tun: remove useless codes in tun_chr_aio_read() and tun_recvmsg()
-Date: Sat,  7 Dec 2013 04:55:00 +0800
-Message-ID: <1386363300-19040-2-git-send-email-zwu.kernel@gmail.com>
-References: <1386363300-19040-1-git-send-email-zwu.kernel@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386363300-19040-1-git-send-email-zwu.kernel@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 4/9] net: bfin_mac: do not reset PHY after phy_start()
+Date: Fri, 6 Dec 2013 13:01:33 -0800
+Message-ID: <1386363698-8407-5-git-send-email-f.fainelli@gmail.com>
+References: <1386363698-8407-1-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <sebastian.hesselbarth@gmail.com>,
+	<sergei.shtylyov@cogentembedded.com>, <afleming@gmail.com>,
+	<kyle@moffetthome.net>, Florian Fainelli <f.fainelli@gmail.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:20824 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757384Ab3LFVB7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 16:01:59 -0500
+In-Reply-To: <1386363698-8407-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+The PHY is already reset during driver probing, and this manual reset
+after calling phy_start() will wipe out board-specific PHY fixups and
+driver specific configuration initialization. Remove that explicit PHY
+reset.
 
-By checking related codes, it is impossible that ret > len or total_len,
-so we should remove some useless codes in both above functions.
-
-Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/tun.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/adi/bfin_mac.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index f9c935a..d61719c 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1354,7 +1354,6 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index 0d4f295..c0f68dc 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -1557,7 +1557,6 @@ static int bfin_mac_open(struct net_device *dev)
+ 		return ret;
  
- 	ret = tun_do_read(tun, tfile, iv, len,
- 			  file->f_flags & O_NONBLOCK);
--	ret = min_t(ssize_t, ret, len);
- out:
- 	tun_put(tun);
- 	return ret;
-@@ -1453,10 +1452,6 @@ static int tun_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	}
- 	ret = tun_do_read(tun, tfile, m->msg_iov, total_len,
- 			  flags & MSG_DONTWAIT);
--	if (ret > total_len) {
--		m->msg_flags |= MSG_TRUNC;
--		ret = flags & MSG_TRUNC ? ret : total_len;
--	}
- out:
- 	tun_put(tun);
- 	return ret;
+ 	phy_start(lp->phydev);
+-	phy_write(lp->phydev, MII_BMCR, BMCR_RESET);
+ 	setup_system_regs(dev);
+ 	setup_mac_addr(dev->dev_addr);
+ 
 -- 
-1.7.6.5
+1.8.3.2
