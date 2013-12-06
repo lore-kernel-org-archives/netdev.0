@@ -1,87 +1,52 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv2 net-next 3/5] {pktgen,xfrm} Construct skb dst for tunnel mode transformation
-Date: Fri, 6 Dec 2013 17:53:32 +0800
-Message-ID: <1386323614-5077-4-git-send-email-fan.du@windriver.com>
-References: <1386323614-5077-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv2 net-next 0/5] pktgen IPsec support
+Date: Fri, 6 Dec 2013 17:53:29 +0800
+Message-ID: <1386323614-5077-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:50713 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757230Ab3LFJxm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 04:53:42 -0500
-In-Reply-To: <1386323614-5077-1-git-send-email-fan.du@windriver.com>
+Received: from mail1.windriver.com ([147.11.146.13]:55563 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756818Ab3LFJxi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 04:53:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPsec tunnel mode encapuslation needs to set outter ip header
-with right protocol/ttl/id value with regard to skb->dst->child.
+Hi, Dave/Steffen
 
-Looking up a rt in a standard way is absolutely wrong for every
-packet transmission. In a simple way, construct a dst by setting
-neccessary information to make tunnel mode encapuslation working.
+Current pktgen IPsec supports only transport/ESP combinnation,
+and it's buggy before I fixed transformed IP header/length issue
+a few days ago.
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
----
+This patchset enables user to do almost any IPsec transformation,
+both transport/tunnel mode, and AH/ESP/IPcomp type.
+
+Below configuration has been tested, and using Wireshark could decrypt
+out plain text in good formation without any checksum/auth errors:
+
+Mode/TYPE	AH	ESP
+Transport	x	x
+Tunnel		x	x
+
+ChangeLog
 v2:
- -Point dst->child into dst itself to save space.
----
- net/core/pktgen.c |   20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
+  Rebase patchset against newest net-next.
+  Patch1: Remove adding rebundant empty line spotted by Sergei.
+  Patch2: Use only one dst pointing into itself to save space.
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 717e0b7..2f4f90c 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -388,6 +388,8 @@ struct pktgen_dev {
- 
- #ifdef CONFIG_XFRM
- 	__u32 spi;
-+	struct dst_entry dst;
-+	struct dst_ops dstops;
- #endif
- 	char result[512];
- };
-@@ -2484,6 +2486,11 @@ static void mod_cur_headers(struct pktgen_dev *pkt_dev)
- 
- 
- #ifdef CONFIG_XFRM
-+u32 pktgen_dst_metrics[RTAX_MAX + 1] = {
-+
-+	[RTAX_HOPLIMIT] = 0x5, /* Set a static hoplimit */
-+};
-+
- static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
- {
- 	struct xfrm_state *x = pkt_dev->flows[pkt_dev->curfl].x;
-@@ -2492,6 +2499,9 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
- 	if (!x)
- 		return 0;
- 
-+	if (x->props.mode == XFRM_MODE_TUNNEL)
-+		__skb_dst_set_noref(skb, &pkt_dev->dst, true);
-+
- 	spin_lock(&x->lock);
- 
- 	err = x->outer_mode->output(x, skb);
-@@ -3545,6 +3555,16 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
- 		goto out2;
- 	}
- #ifdef CONFIG_XFRM
-+	/* xfrm tunnel mode needs additional dst to extract outter
-+	 * ip header protocol/ttl/id field, here creat a phony one.
-+	 * instead of looking for a valid rt, which definitely hurting
-+	 * performance under such circumstance.
-+	 */
-+	pkt_dev->dstops.family = AF_INET;
-+	pkt_dev->dst.dev = pkt_dev->odev;
-+	dst_init_metrics(&pkt_dev->dst, pktgen_dst_metrics, false);
-+	pkt_dev->dst.child = &pkt_dev->dst;
-+	pkt_dev->dst.ops = &pkt_dev->dstops;
- #endif
- 
- 	return add_dev_to_thread(t, pkt_dev);
+Fan Du (5):
+  {pktgen, xfrm} Remove original pktgen ipsec fixed configuration
+  {pktgen, xfrm} Using "pgset spi xxx" to spedifiy SA for a given flow
+  {pktgen, xfrm} Construct skb dst for tunnel mode transformation
+  {pktgen, xfrm} Introduce xfrm_state_lookup_byspi for pktgen
+  {pktgen, xfrm} Correct xfrm state lock usage when transforming
+
+ include/net/xfrm.h    |    7 ++-----
+ net/core/pktgen.c     |   55 +++++++++++++++++++++++++++++++++----------------
+ net/xfrm/xfrm_state.c |   43 +++++++++++++++-----------------------
+ 3 files changed, 56 insertions(+), 49 deletions(-)
+
 -- 
 1.7.9.5
