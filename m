@@ -1,103 +1,71 @@
-From: freddy@asix.com.tw
-Subject: [PATCH 1/1] AX88179_178A: Enable the hardware pseudo header in case of the NET_IP_ALIGN equals 0
-Date: Fri,  6 Dec 2013 17:58:18 +0800
-Message-ID: <1386323898-2246-1-git-send-email-freddy@asix.com.tw>
-Cc: Freddy Xin <freddy@asix.com.tw>
-To: davem@davemloft.net, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	louis@asix.com.tw, allan@asix.com.tw
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH net-next v2] unix: convert printks to pr_<level>
+Date: Fri, 6 Dec 2013 18:03:36 +0800
+Message-ID: <52A1A0F8.9080506@huawei.com>
+References: <52A16A19.60001@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <edumazet@google.com>, <ebiederm@xmission.com>,
+	<gaofeng@cn.fujitsu.com>, <jacob.e.keller@intel.com>,
+	<netdev@vger.kernel.org>, Daniel Borkmann <dborkman@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:2135 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751961Ab3LFKEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 05:04:10 -0500
+In-Reply-To: <52A16A19.60001@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Freddy Xin <freddy@asix.com.tw>
+use pr_<level> instead of printk(LEVEL)
 
-The AX88179_178A has a hardware feature that it can insert a 2-bytes pseudo
-header in front of each received frame by setting the AX_RX_CTL_IPE bit.
-This feature is used to let the IP header be aligned on a doubleword-aligned address,
-but the NET_IP_ALIGN may equals to 2 and the __netdev_alloc_skb_ip_align in USBNET will
-reserve 2 bytes also, so in this case the driver shouldn't enable this bit.
-
-This patch modifies the driver to set AX_RX_CTL_IPE just in case of the NET_IP_ALIGN equals 0.
-
-Signed-off-by: Freddy Xin <freddy@asix.com.tw>
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 ---
- drivers/net/usb/ax88179_178a.c | 28 +++++++++++++++++++---------
- 1 file changed, 19 insertions(+), 9 deletions(-)
+ net/unix/af_unix.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index 8e8d0fc..d84f0e0 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -473,8 +473,10 @@ static int ax88179_resume(struct usb_interface *intf)
- 	msleep(100);
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 01625cc..8136222 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -80,6 +80,8 @@
+  *		  with BSD names.
+  */
  
- 	/* Configure RX control register => start operation */
--	tmp16 = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_IPE | AX_RX_CTL_START |
--		AX_RX_CTL_AP | AX_RX_CTL_AMALL | AX_RX_CTL_AB;
-+	tmp16 = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_START | AX_RX_CTL_AP |
-+		AX_RX_CTL_AMALL | AX_RX_CTL_AB;
-+	if (NET_IP_ALIGN == 0)
-+		tmp16 |= AX_RX_CTL_IPE;
- 	ax88179_write_cmd_nopm(dev, AX_ACCESS_MAC, AX_RX_CTL, 2, 2, &tmp16);
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/signal.h>
+@@ -366,7 +368,7 @@ static void unix_sock_destructor(struct sock *sk)
+ 	WARN_ON(!sk_unhashed(sk));
+ 	WARN_ON(sk->sk_socket);
+ 	if (!sock_flag(sk, SOCK_DEAD)) {
+-		printk(KERN_INFO "Attempt to release alive unix socket: %p\n", sk);
++		pr_info("Attempt to release alive unix socket: %p\n", sk);
+ 		return;
+ 	}
  
- 	return usbnet_resume(intf);
-@@ -599,7 +601,9 @@ static void ax88179_set_multicast(struct net_device *net)
- 	struct ax88179_data *data = (struct ax88179_data *)dev->data;
- 	u8 *m_filter = ((u8 *)dev->data) + 12;
+@@ -378,7 +380,7 @@ static void unix_sock_destructor(struct sock *sk)
+ 	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
+ 	local_bh_enable();
+ #ifdef UNIX_REFCNT_DEBUG
+-	printk(KERN_DEBUG "UNIX %p is destroyed, %ld are still alive.\n", sk,
++	pr_debug("UNIX %p is destroyed, %ld are still alive.\n", sk,
+ 		atomic_long_read(&unix_nr_socks));
+ #endif
+ }
+@@ -2433,8 +2435,7 @@ static int __init af_unix_init(void)
  
--	data->rxctl = (AX_RX_CTL_START | AX_RX_CTL_AB | AX_RX_CTL_IPE);
-+	data->rxctl = (AX_RX_CTL_START | AX_RX_CTL_AB);
-+	if (NET_IP_ALIGN == 0)
-+		data->rxctl |= AX_RX_CTL_IPE;
+ 	rc = proto_register(&unix_proto, 1);
+ 	if (rc != 0) {
+-		printk(KERN_CRIT "%s: Cannot create unix_sock SLAB cache!\n",
+-		       __func__);
++		pr_crit("%s: Cannot create unix_sock SLAB cache!\n", __func__);
+ 		goto out;
+ 	}
  
- 	if (net->flags & IFF_PROMISC) {
- 		data->rxctl |= AX_RX_CTL_PRO;
-@@ -1054,8 +1058,10 @@ static int ax88179_bind(struct usbnet *dev, struct usb_interface *intf)
- 	ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_TXCOE_CTL, 1, 1, tmp);
- 
- 	/* Configure RX control register => start operation */
--	*tmp16 = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_IPE | AX_RX_CTL_START |
--		 AX_RX_CTL_AP | AX_RX_CTL_AMALL | AX_RX_CTL_AB;
-+	*tmp16 = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_START | AX_RX_CTL_AP |
-+		 AX_RX_CTL_AMALL | AX_RX_CTL_AB;
-+	if (NET_IP_ALIGN == 0)
-+		*tmp16 |= AX_RX_CTL_IPE;
- 	ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_RX_CTL, 2, 2, tmp16);
- 
- 	*tmp = AX_MONITOR_MODE_PMETYPE | AX_MONITOR_MODE_PMEPOL |
-@@ -1143,7 +1149,8 @@ static int ax88179_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 
- 		if (pkt_cnt == 0) {
- 			/* Skip IP alignment psudo header */
--			skb_pull(skb, 2);
-+			if (NET_IP_ALIGN == 0)
-+				skb_pull(skb, 2);
- 			skb->len = pkt_len;
- 			skb_set_tail_pointer(skb, pkt_len);
- 			skb->truesize = pkt_len + sizeof(struct sk_buff);
-@@ -1154,7 +1161,8 @@ static int ax88179_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 		ax_skb = skb_clone(skb, GFP_ATOMIC);
- 		if (ax_skb) {
- 			ax_skb->len = pkt_len;
--			ax_skb->data = skb->data + 2;
-+			if (NET_IP_ALIGN == 0)
-+				ax_skb->data = skb->data + 2;
- 			skb_set_tail_pointer(ax_skb, pkt_len);
- 			ax_skb->truesize = pkt_len + sizeof(struct sk_buff);
- 			ax88179_rx_checksum(ax_skb, pkt_hdr);
-@@ -1328,8 +1336,10 @@ static int ax88179_reset(struct usbnet *dev)
- 	ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_TXCOE_CTL, 1, 1, tmp);
- 
- 	/* Configure RX control register => start operation */
--	*tmp16 = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_IPE | AX_RX_CTL_START |
--		 AX_RX_CTL_AP | AX_RX_CTL_AMALL | AX_RX_CTL_AB;
-+	*tmp16 = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_START | AX_RX_CTL_AP |
-+		 AX_RX_CTL_AMALL | AX_RX_CTL_AB;
-+	if (NET_IP_ALIGN == 0)
-+		*tmp16 |= AX_RX_CTL_IPE;
- 	ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_RX_CTL, 2, 2, tmp16);
- 
- 	*tmp = AX_MONITOR_MODE_PMETYPE | AX_MONITOR_MODE_PMEPOL |
 -- 
-1.8.3.2
+1.7.12
