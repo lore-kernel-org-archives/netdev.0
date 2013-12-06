@@ -1,43 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: davinci_emac: Fix platform data handling and make
- usable for am3517
-Date: Thu, 05 Dec 2013 20:39:55 -0500 (EST)
-Message-ID: <20131205.203955.1282361417309480469.davem@davemloft.net>
-References: <20131203231301.GN26766@atomide.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH v3 net-next 0/4] sctp: do some clean ups
+Date: Fri, 6 Dec 2013 09:36:26 +0800
+Message-ID: <1386293790-19956-1-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, devicetree@vger.kernel.org,
-	netdev@vger.kernel.org, linux-omap@vger.kernel.org
-To: tony@atomide.com
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-sctp@vger.kernel.org>
+To: <nhorman@tuxdriver.com>, <vyasevich@gmail.com>,
+	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60400 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752086Ab3LFBj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 20:39:57 -0500
-In-Reply-To: <20131203231301.GN26766@atomide.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:20711 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970Ab3LFBmx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Dec 2013 20:42:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tony Lindgren <tony@atomide.com>
-Date: Tue, 3 Dec 2013 15:13:02 -0800
+This patch series include: remove the duplicate initialize,
+make code simple, convert func to boolean, fix some typos.
 
-> When booted with device tree, we may still have platform data passed
-> as auxdata. For am3517 this is needed for passing the interrupt_enable
-> and interrupt_disable callbacks that access the omap system control module
-> registers. These callback functions will eventually go away when we have
-> a separate system control module driver.
-> 
-> Some of the things that are currently passed as platform data we don't need
-> to set up as device tree properties as they are always the same on am3517.
-> So let's use a new compatible flag for those so we can get those from
-> the device tree match data.
-> 
-> Also note that we need to fix setting of phy_dev to NULL instead of an empty
-> string as the code later on uses that to find the first phy on the mdio bus.
-> This seems to have been caused by 5d69e0076a72 (net: davinci_emac: switch to
-> new mdio).
-> 
-> Signed-off-by: Tony Lindgren <tony@atomide.com>
+v2 -> v3:
+  - patch1: add Neil's ACK
+  - patch2: add Joe's suggested and Neil's ACK
+  - patch3: add Neil's ACK
+  - patch4: add Neil's ACK
 
-Applied, thanks.
+Wang Weidong (4):
+  sctp: remove the duplicate initialize
+  sctp: remove the else path
+  sctp: convert sctp_peer_needs_update to boolean
+  sctp: fix some comments in associola.c
+
+ net/sctp/associola.c | 65 ++++++++--------------------------------------------
+ 1 file changed, 10 insertions(+), 55 deletions(-)
+
+-- 
+1.7.12
