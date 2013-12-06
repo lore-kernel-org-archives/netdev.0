@@ -1,42 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] batadv: Slight optimization of batadv_compare_eth
-Date: Fri, 06 Dec 2013 15:39:44 -0500 (EST)
-Message-ID: <20131206.153944.1382127535160341376.davem@davemloft.net>
-References: <1386317890.31845.26.camel@joe-AO722>
+Subject: Re: [patch net/stable v2] br: fix use of ->rx_handler_data in code
+ executed on non-rx_handler path
+Date: Fri, 06 Dec 2013 15:43:21 -0500 (EST)
+Message-ID: <20131206.154321.1673089712073824539.davem@davemloft.net>
+References: <1386257257-25258-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mareklindner@neomailbox.ch, sw@simonwunderlich.de,
-	antonio@meshcoding.com, b.a.t.m.a.n@lists.open-mesh.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386317890.31845.26.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jtluka@redhat.com, zhiguohong@tencent.com,
+	bridge@lists.linux-foundation.org, stephen@networkplumber.org,
+	edumazet@google.com, laine@redhat.com, mst@redhat.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42365 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751030Ab3LFUnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 15:43:23 -0500
+In-Reply-To: <1386257257-25258-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Fri, 06 Dec 2013 00:18:10 -0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu,  5 Dec 2013 16:27:37 +0100
 
-> @@ -266,7 +266,11 @@ static inline void batadv_dbg(int type __always_unused,
->   */
->  static inline int batadv_compare_eth(const void *data1, const void *data2)
->  {
-> -	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
-> +#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-> +	return ether_addr_equal(data1, data2);
-> +#else
-> +	return memcmp(data1, data2, ETH_ALEN) == 0;
-> +#endif
->  }
+> br_stp_rcv() is reached by non-rx_handler path. That means there is no
+> guarantee that dev is bridge port and therefore simple NULL check of
+> ->rx_handler_data is not enough. There is need to check if dev is really
+> bridge port and since only rcu read lock is held here, do it by checking
+> ->rx_handler pointer.
+> 
+> Note that synchronize_net() in netdev_rx_handler_unregister() ensures
+> this approach as valid.
+> 
+> Introduced originally by:
+> commit f350a0a87374418635689471606454abc7beaa3a
+>   "bridge: use rx_handler_data pointer to store net_bridge_port pointer"
+> 
+> Fixed but not in the best way by:
+> commit b5ed54e94d324f17c97852296d61a143f01b227a
+>   "bridge: fix RCU races with bridge port"
+> 
+> Reintroduced by:
+> commit 716ec052d2280d511e10e90ad54a86f5b5d4dcc2
+>   "bridge: fix NULL pointer deref of br_port_get_rcu"
+> 
+> Please apply to stable trees as well. Thanks.
+> 
+> RH bugzilla reference: https://bugzilla.redhat.com/show_bug.cgi?id=1025770
+> 
+> Reported-by: Laine Stump <laine@redhat.com>
+> Debugged-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+> v1->v2: moved br_port_get_check_rcu definition below br_handle_frame definition
 
-Let's not crap up implementations with these ifdefs.
-
-What's the specific situation here?  Is it that 'data1' and/or
-'data2' my not be u16 aligned?
-
-If so, make a function for that in linux/etherdevice.h and invoke it
-in such places.  You can name it something like
-"ether_addr_equal_unaligned()" or similar.
-
-Thanks.
+Applied and queued up for -stable, thanks Jiri.
