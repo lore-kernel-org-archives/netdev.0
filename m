@@ -1,42 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] sch_htb: add HTB_LEAF_LIMIT attribute
-Date: Fri, 06 Dec 2013 05:48:52 -0800
-Message-ID: <1386337732.30495.260.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386322324-87976-1-git-send-email-yangyingliang@huawei.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Re: MLD maturity in kernel version 2.6.32.60
+Date: Fri, 6 Dec 2013 14:53:36 +0100
+Message-ID: <20131206135336.GA7108@order.stressinduktion.org>
+References: <trinity-825e48d2-0bab-4020-84f0-77800e55f25a-1384777048114@3capp-gmx-bs16> <20131118221850.GO16541@order.stressinduktion.org> <528AACF4.1090302@redhat.com> <528B1340.2050807@redhat.com> <trinity-cb6e2f21-801a-4eaa-80f7-74348e998e46-1386315616016@3capp-gmx-bs22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jhs@mojatatu.com
-To: Yang Yingliang <yangyingliang@huawei.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
+To: Simon Schneider <simon-schneider@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:47000 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161749Ab3LFNsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 08:48:55 -0500
-Received: by mail-pb0-f50.google.com with SMTP id rr13so1089846pbb.23
-        for <netdev@vger.kernel.org>; Fri, 06 Dec 2013 05:48:55 -0800 (PST)
-In-Reply-To: <1386322324-87976-1-git-send-email-yangyingliang@huawei.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:36167 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758047Ab3LFNxi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 08:53:38 -0500
+Content-Disposition: inline
+In-Reply-To: <trinity-cb6e2f21-801a-4eaa-80f7-74348e998e46-1386315616016@3capp-gmx-bs22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-12-06 at 17:32 +0800, Yang Yingliang wrote:
-> HTB uses an internal pfifo queue, which limit is inherited from
-> device tx_queue_len. But virtual device's tx_queue_len is 0, so
-> the limit will be initialized to 1.
-> 
-> Introduce TCA_HTB_LEAF_LIMIT attribute to allow finer control.
+On Fri, Dec 06, 2013 at 08:40:16AM +0100, Simon Schneider wrote:
+> thanks for your help so far.
+> =C2=A0
+> We start with IPv6 now on a different product, which already uses ker=
+nel version 3.8.4.
+> =C2=A0
+> Can we expect that the existing MLD patches are already integrated in=
+ that kernel?
 
-Most users overcome this by explicitly attach pfifo or whatever qdisc
-they want on the htb class.
+Nope:
+$ git describe --contains 89225d1ce6af3916bf32aecbe9d83f571a098588
+v3.12-rc1~132^2~23
 
-As a bonus, this qdisc is visible and we can get a rate estimator, and
-all the stats.
+You will have to backport them yourself. There aren't lots of changes a=
+nd they
+are rather independent. So a backport should not be too complicated.
 
-And if somebody attaches a HTB qdisc to a virtual device, he also
-changes txqueuelen before doing so.
+> Or are there still major differences between that kernel and the late=
+st one, regarding MLD?
 
-Anyway, I was working on being able to attach fq instead of pifo, with
-a variant of fq sharing the hash table.
+Yes, I guess so. Especially in the MLD v1<->v2 switcheroo.
 
-I cannot really understand how people can still use pfifo on htb classes
-nowadays.
+Greetings,
+
+  Hannes
