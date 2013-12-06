@@ -1,37 +1,74 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH v2] net: handle error more gracefully in socketpair()
-Date: Fri, 6 Dec 2013 10:48:05 +0000
-Message-ID: <20131206104805.GM10323@ZenIV.linux.org.uk>
-References: <1385979146-13825-1-git-send-email-ydroneaud@opteya.com>
- <20131205.162333.1525865133149454763.davem@davemloft.net>
- <1386285331.18074.47.camel@localhost.localdomain>
- <20131205.194355.1677309681391704143.davem@davemloft.net>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net v6 1/2] net: sched: tbf: fix the calculation of max_size
+Date: Fri, 6 Dec 2013 10:56:41 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7468@saturn3.aculab.com>
+References: <1386313205-87660-1-git-send-email-yangyingliang@huawei.com> <1386313205-87660-2-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ydroneaud@opteya.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131205.194355.1677309681391704143.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
+	<jbrouer@redhat.com>
+To: "Yang Yingliang" <yangyingliang@huawei.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:38150 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1757660Ab3LFK50 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 05:57:26 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 06763-07 for <netdev@vger.kernel.org>;
+ Fri,  6 Dec 2013 10:57:24 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1386313205-87660-2-git-send-email-yangyingliang@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 05, 2013 at 07:43:55PM -0500, David Miller wrote:
-> From: Yann Droneaud <ydroneaud@opteya.com>
-> Date: Fri, 06 Dec 2013 00:15:31 +0100
+> From: Yang Yingliang
+...
 > 
-> > AFAIK, using sys_close() seems to be the exception, and writing the file
-> > descriptor before installing it is the more or less the norm.
-> 
-> What other system call in the kernel writes a file descriptor's value
-> into the address space of a user process before the file descriptor
-> is actually usable?
-> 
-> That's really terrible semantically.
+> +/* Time to Length, convert time in ns to length in bytes
+> + * to determinate how many bytes can be sent in given time.
+> + */
+> +static u64 psched_ns_t2l(const struct psched_ratecfg *r,
+> +			 u64 time_in_ns)
+> +{
+> +	/* The formula is :
+> +	 * len = (time_in_ns * r->rate_bytes_ps) / NSEC_PER_SEC
+> +	 */
+> +	u64 len = time_in_ns * r->rate_bytes_ps;
+> +
+> +	do_div(len, NSEC_PER_SEC);
 
-What's the problem with that?  If nothing else, shared descriptor table is
-a lot more visible to other threads than two-element array, most likely
-in stack frame of whoever makes that syscall...
+You are multiplying two values then dividing by 10**9
+I'd guess that the intermediate value might exceed 2**64.
 
-As for your question, how about pipe(2)?
+> +	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
+> +		len = (len / 53) * 48;
+
+You probably want to do the multiply first.
+But why not scale rate_bytes_ps instead.
+
+> +	if (len > r->overhead)
+> +		len -= r->overhead;
+> +	else
+> +		len = 0;
+> +
+> +	return len;
+> +}
+
+Personally I'd work out how much time you have to send each byte.
+So if you want a rate of 1MB/sec you have a 'time cost' per byte of 1000ns.
+The cost of sending a packet is simply the length multiplied by this cost.
+To work out whether a packet can be sent you have a credit variable that
+tracks current time.
+If 'credit > now' the packet can't be sent, queue and schedule a wakeup.
+if 'credit + backlog < now' set credit = now - backlog.
+if 'credit <= now' send the packet and add the packet's 'cost' to 'credit'.
+
+In the non-ratelimited case this is almost no work.
+
+You'd probably need to work in 1/1024ns time units and/or blocks of 16 bytes.
+
+	David
