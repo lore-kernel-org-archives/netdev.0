@@ -1,60 +1,56 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH net-next] netfilter: add IPComp extension match support
-Date: Fri, 6 Dec 2013 17:56:09 +0800
-Message-ID: <52A19F39.3030702@windriver.com>
-References: <1385607204-27650-1-git-send-email-fan.du@windriver.com> <20131205183402.GA8949@localhost>
+Subject: Re: [PATCH net-next 0/3] IPComp fixes
+Date: Fri, 6 Dec 2013 17:58:30 +0800
+Message-ID: <52A19FC6.8060107@windriver.com>
+References: <1385607161-27597-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <steffen.klassert@secunet.com>, <kaber@trash.net>,
-	<netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20131205183402.GA8949@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:55779 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751961Ab3LFJ63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 04:58:29 -0500
+In-Reply-To: <1385607161-27597-1-git-send-email-fan.du@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hallo, Steffen
 
+Do I need to resend this IPcomp patch set for review?
 
-On 2013=E5=B9=B412=E6=9C=8806=E6=97=A5 02:34, Pablo Neira Ayuso wrote:
+Thanks :)
+
+On 2013=E5=B9=B411=E6=9C=8828=E6=97=A5 10:52, Fan Du wrote:
 > Hi,
 >
-> On Thu, Nov 28, 2013 at 10:53:24AM +0800, Fan Du wrote:
->> With this plugin, user could specify IPComp tagged with certain
->> CPI that host not interested will be DROPped or any other action.
->>
->> For example:
->> iptables -A INPUT -p 108 -m ipcomp --ipcompspi 0x87 -j DROP
->>
->> Then input IPComp packet with CPI equates 0x87 will not reach
->> upper layer anymore.
+> This patchset includes bug fix focusing on IPComp mainly, which addre=
+sses
+> IPComp Compression Parameter Index(CPI, 16bits of 32bits SPI value) p=
+roblem.
 >
-> I think that, with a little bit more work, you can add support for
-> IPv6 as well. From RFC 3173:
+> And other issue is the compression part, undesirable packet will not =
+be
+> compressed, and then send into wire, this packet will be dropped by p=
+olicy
+> checking in the receiver side.
 >
-> "In the IPv6 context, IPComp is viewed as an end-to-end payload, and
-> MUST NOT apply to hop-by-hop, routing, and fragmentation extension
-> headers.
+> Fan Du (3):
+>    xfrm: check user specified spi for IPComp
+>    xfrm: clamp down spi range for IPComp when allocating spi
+>    xfrm: Restrict "level use" for IPComp configuration
 >
-> You can perform that IPv6-specific handling to skip these extension
-> headers and reach the IPComp header by means of the ipv6_find_hdr()
-> helper function.
+>   net/key/af_key.c      |    6 ++++++
+>   net/xfrm/xfrm_state.c |   13 +++++++++++++
+>   net/xfrm/xfrm_user.c  |    7 ++++++-
+>   3 files changed, 25 insertions(+), 1 deletion(-)
 >
-> BTW, please post the iptables userspace part as well.
-
-Thanks for your attention, Pablo.
-I will try to finish your request this weekend, hopefully post the whol=
-e
-patch set in early next week.
 
 --=20
 =E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
 =E7=AC=91
 
 --fan fan
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
