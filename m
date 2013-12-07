@@ -1,78 +1,152 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/14] i40e: Add a new variable to track number of pf instances
-Date: Fri,  6 Dec 2013 18:17:23 -0800
-Message-ID: <1386382643-29055-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/14] i40e: refactor ethtool tests
+Date: Fri,  6 Dec 2013 18:17:21 -0800
+Message-ID: <1386382643-29055-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1386382643-29055-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:61597 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758203Ab3LGCRe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Dec 2013 21:17:34 -0500
+	id S1758321Ab3LGCRc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Dec 2013 21:17:32 -0500
 In-Reply-To: <1386382643-29055-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Track the number of physical functions (PFs) found, this is a global counter
-on purpose so that each pf loaded has a unique ID.
+Put the print and reset statements in the actual test functions to make
+them more self-contained, and only run the reset for tests that need it.
 
-Change-Id: I74d618520afbce4a774d0235449e3b5f97ff6d4a
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-Id: Ic70f49b11bf8bae82e59d8fd25b46215c90c4510
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      | 2 ++
- drivers/net/ethernet/intel/i40e/i40e_main.c | 4 ++++
- 2 files changed, 6 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 57 ++++++++++++++------------
+ 1 file changed, 30 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 5aa2ea2..001d7cf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -276,6 +276,8 @@ struct i40e_pf {
- 	struct dentry *i40e_dbg_pf;
- #endif /* CONFIG_DEBUG_FS */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 44d4a7f..f0bab17 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -706,8 +706,12 @@ static int i40e_get_ts_info(struct net_device *dev,
+ 	return ethtool_op_get_ts_info(dev, info);
+ }
  
-+	u16 instance; /* A unique number per i40e_pf instance in the system */
+-static int i40e_link_test(struct i40e_pf *pf, u64 *data)
++static int i40e_link_test(struct net_device *netdev, u64 *data)
+ {
++	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	struct i40e_pf *pf = np->vsi->back;
 +
- 	/* sr-iov config info */
- 	struct i40e_vf *vf;
- 	int num_alloc_vfs;	/* actual number of VFs allocated */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 08ac960..d2b48bb2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7176,6 +7176,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct i40e_driver_version dv;
- 	struct i40e_pf *pf;
- 	struct i40e_hw *hw;
-+	static u16 pfs_found;
- 	int err = 0;
- 	u32 len;
++	netdev_info(netdev, "link test\n");
+ 	if (i40e_get_link_status(&pf->hw))
+ 		*data = 0;
+ 	else
+@@ -716,30 +720,36 @@ static int i40e_link_test(struct i40e_pf *pf, u64 *data)
+ 	return *data;
+ }
  
-@@ -7241,6 +7242,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	hw->subsystem_device_id = pdev->subsystem_device;
- 	hw->bus.device = PCI_SLOT(pdev->devfn);
- 	hw->bus.func = PCI_FUNC(pdev->devfn);
-+	pf->instance = pfs_found;
+-static int i40e_reg_test(struct i40e_pf *pf, u64 *data)
++static int i40e_reg_test(struct net_device *netdev, u64 *data)
+ {
+-	i40e_status ret;
++	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	struct i40e_pf *pf = np->vsi->back;
  
- 	/* do a special CORER for clearing PXE mode once at init */
- 	if (hw->revision_id == 0 &&
-@@ -7391,6 +7393,8 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		i40e_flush(hw);
- 	}
+-	ret = i40e_diag_reg_test(&pf->hw);
+-	*data = ret;
++	netdev_info(netdev, "register test\n");
++	*data = i40e_diag_reg_test(&pf->hw);
  
-+	pfs_found++;
-+
- 	i40e_dbg_pf_init(pf);
+-	return ret;
++	i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
++	return *data;
+ }
  
- 	/* tell the firmware that we're starting */
+-static int i40e_eeprom_test(struct i40e_pf *pf, u64 *data)
++static int i40e_eeprom_test(struct net_device *netdev, u64 *data)
+ {
+-	i40e_status ret;
++	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	struct i40e_pf *pf = np->vsi->back;
+ 
+-	ret = i40e_diag_eeprom_test(&pf->hw);
+-	*data = ret;
++	netdev_info(netdev, "eeprom test\n");
++	*data = i40e_diag_eeprom_test(&pf->hw);
+ 
+-	return ret;
++	return *data;
+ }
+ 
+-static int i40e_intr_test(struct i40e_pf *pf, u64 *data)
++static int i40e_intr_test(struct net_device *netdev, u64 *data)
+ {
++	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	struct i40e_pf *pf = np->vsi->back;
+ 	u16 swc_old = pf->sw_int_count;
+ 
++	netdev_info(netdev, "interrupt test\n");
+ 	wr32(&pf->hw, I40E_PFINT_DYN_CTL0,
+ 	     (I40E_PFINT_DYN_CTL0_INTENA_MASK |
+ 	      I40E_PFINT_DYN_CTL0_SWINT_TRIG_MASK));
+@@ -749,8 +759,9 @@ static int i40e_intr_test(struct i40e_pf *pf, u64 *data)
+ 	return *data;
+ }
+ 
+-static int i40e_loopback_test(struct i40e_pf *pf, u64 *data)
++static int i40e_loopback_test(struct net_device *netdev, u64 *data)
+ {
++	netdev_info(netdev, "loopback test not implemented\n");
+ 	*data = 0;
+ 
+ 	return *data;
+@@ -771,33 +782,25 @@ static void i40e_diag_test(struct net_device *netdev,
+ 		/* Link test performed before hardware reset
+ 		 * so autoneg doesn't interfere with test result
+ 		 */
+-		netdev_info(netdev, "link test starting\n");
+-		if (i40e_link_test(pf, &data[I40E_ETH_TEST_LINK]))
++		if (i40e_link_test(netdev, &data[I40E_ETH_TEST_LINK]))
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
+-		netdev_info(netdev, "register test starting\n");
+-		if (i40e_reg_test(pf, &data[I40E_ETH_TEST_REG]))
++		if (i40e_reg_test(netdev, &data[I40E_ETH_TEST_REG]))
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
+-		i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
+-		netdev_info(netdev, "eeprom test starting\n");
+-		if (i40e_eeprom_test(pf, &data[I40E_ETH_TEST_EEPROM]))
++		if (i40e_eeprom_test(netdev, &data[I40E_ETH_TEST_EEPROM]))
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
+-		i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
+-		netdev_info(netdev, "interrupt test starting\n");
+-		if (i40e_intr_test(pf, &data[I40E_ETH_TEST_INTR]))
++		if (i40e_intr_test(netdev, &data[I40E_ETH_TEST_INTR]))
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
+-		i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
+-		netdev_info(netdev, "loopback test starting\n");
+-		if (i40e_loopback_test(pf, &data[I40E_ETH_TEST_LOOPBACK]))
++		if (i40e_loopback_test(netdev, &data[I40E_ETH_TEST_LOOPBACK]))
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
+ 	} else {
+ 		netdev_info(netdev, "online test starting\n");
+ 		/* Online tests */
+-		if (i40e_link_test(pf, &data[I40E_ETH_TEST_LINK]))
++		if (i40e_link_test(netdev, &data[I40E_ETH_TEST_LINK]))
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
+ 		/* Offline only tests, not run in online; pass by default */
 -- 
 1.8.3.1
