@@ -1,101 +1,56 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/3] netfilter: nf_tables: fix missing rules flushing per table
-Date: Sun,  8 Dec 2013 00:13:30 +0100
-Message-ID: <1386458010-4615-4-git-send-email-pablo@netfilter.org>
-References: <1386458010-4615-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+Subject: Re: [PATCH net-next] netfilter: add IPComp extension match support
+Date: Sun, 8 Dec 2013 00:55:39 +0100
+Message-ID: <20131207235539.GA6693@localhost>
+References: <1385607204-27650-1-git-send-email-fan.du@windriver.com>
+ <20131205183402.GA8949@localhost>
+ <52A19F39.3030702@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: steffen.klassert@secunet.com, kaber@trash.net,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1386458010-4615-1-git-send-email-pablo@netfilter.org>
+Content-Disposition: inline
+In-Reply-To: <52A19F39.3030702@windriver.com>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch allows you to atomically remove all rules stored in
-a table via the NFT_MSG_DELRULE command. You only need to indicate
-the specific table and no chain to flush all rules stored in that
-table.
+On Fri, Dec 06, 2013 at 05:56:09PM +0800, Fan Du wrote:
+>=20
+>=20
+> On 2013=E5=B9=B412=E6=9C=8806=E6=97=A5 02:34, Pablo Neira Ayuso wrote=
+:
+> >Hi,
+> >
+> >On Thu, Nov 28, 2013 at 10:53:24AM +0800, Fan Du wrote:
+> >>With this plugin, user could specify IPComp tagged with certain
+> >>CPI that host not interested will be DROPped or any other action.
+> >>
+> >>For example:
+> >>iptables -A INPUT -p 108 -m ipcomp --ipcompspi 0x87 -j DROP
+> >>
+> >>Then input IPComp packet with CPI equates 0x87 will not reach
+> >>upper layer anymore.
+> >
+> >I think that, with a little bit more work, you can add support for
+> >IPv6 as well. From RFC 3173:
+> >
+> >"In the IPv6 context, IPComp is viewed as an end-to-end payload, and
+> >MUST NOT apply to hop-by-hop, routing, and fragmentation extension
+> >headers.
+> >
+> >You can perform that IPv6-specific handling to skip these extension
+> >headers and reach the IPComp header by means of the ipv6_find_hdr()
+> >helper function.
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_tables_api.c |   46 +++++++++++++++++++++++++++++------------
- 1 file changed, 33 insertions(+), 13 deletions(-)
-
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index dcddc49..f93b7d0 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -1717,6 +1717,19 @@ nf_tables_delrule_one(struct nft_ctx *ctx, struct nft_rule *rule)
- 	return -ENOENT;
- }
- 
-+static int nf_table_delrule_by_chain(struct nft_ctx *ctx)
-+{
-+	struct nft_rule *rule;
-+	int err;
-+
-+	list_for_each_entry(rule, &ctx->chain->rules, list) {
-+		err = nf_tables_delrule_one(ctx, rule);
-+		if (err < 0)
-+			return err;
-+	}
-+	return 0;
-+}
-+
- static int nf_tables_delrule(struct sock *nlsk, struct sk_buff *skb,
- 			     const struct nlmsghdr *nlh,
- 			     const struct nlattr * const nla[])
-@@ -1725,8 +1738,8 @@ static int nf_tables_delrule(struct sock *nlsk, struct sk_buff *skb,
- 	const struct nft_af_info *afi;
- 	struct net *net = sock_net(skb->sk);
- 	const struct nft_table *table;
--	struct nft_chain *chain;
--	struct nft_rule *rule, *tmp;
-+	struct nft_chain *chain = NULL;
-+	struct nft_rule *rule;
- 	int family = nfmsg->nfgen_family, err = 0;
- 	struct nft_ctx ctx;
- 
-@@ -1738,22 +1751,29 @@ static int nf_tables_delrule(struct sock *nlsk, struct sk_buff *skb,
- 	if (IS_ERR(table))
- 		return PTR_ERR(table);
- 
--	chain = nf_tables_chain_lookup(table, nla[NFTA_RULE_CHAIN]);
--	if (IS_ERR(chain))
--		return PTR_ERR(chain);
-+	if (nla[NFTA_RULE_CHAIN]) {
-+		chain = nf_tables_chain_lookup(table, nla[NFTA_RULE_CHAIN]);
-+		if (IS_ERR(chain))
-+			return PTR_ERR(chain);
-+	}
- 
- 	nft_ctx_init(&ctx, skb, nlh, afi, table, chain, nla);
- 
--	if (nla[NFTA_RULE_HANDLE]) {
--		rule = nf_tables_rule_lookup(chain, nla[NFTA_RULE_HANDLE]);
--		if (IS_ERR(rule))
--			return PTR_ERR(rule);
-+	if (chain) {
-+		if (nla[NFTA_RULE_HANDLE]) {
-+			rule = nf_tables_rule_lookup(chain,
-+						     nla[NFTA_RULE_HANDLE]);
-+			if (IS_ERR(rule))
-+				return PTR_ERR(rule);
- 
--		err = nf_tables_delrule_one(&ctx, rule);
--	} else {
--		/* Remove all rules in this chain */
--		list_for_each_entry_safe(rule, tmp, &chain->rules, list) {
- 			err = nf_tables_delrule_one(&ctx, rule);
-+		} else {
-+			err = nf_table_delrule_by_chain(&ctx);
-+		}
-+	} else {
-+		list_for_each_entry(chain, &table->chains, list) {
-+			ctx.chain = chain;
-+			err = nf_table_delrule_by_chain(&ctx);
- 			if (err < 0)
- 				break;
- 		}
--- 
-1.7.10.4
-
+I just noted that you always have to use -p 108 to get this match
+working, in that case the ip6_tables already sets par->thoff that you
+can use to reach the transport header, so you can skip calling
+ipv6_find_hdr(). So adding IPv6 support is even easier to make.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
