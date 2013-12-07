@@ -1,19 +1,20 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 1/2] virtio-net: determine type of bufs correctly
-Date: Sat, 07 Dec 2013 11:05:02 +1030
-Message-ID: <8738m55wi1.fsf@rustcorp.com.au>
+Subject: Re: [PATCH 2/2] virtio: delete napi structures from netdev before
+	releasing memory
+Date: Sat, 07 Dec 2013 11:02:59 +1030
+Message-ID: <8761r15wlg.fsf@rustcorp.com.au>
 References: <1386254181-17257-1-git-send-email-avagin@openvz.org>
-	<1386254181-17257-2-git-send-email-avagin@openvz.org>
-	<52A14262.6080407@redhat.com>
+	<1386254181-17257-3-git-send-email-avagin@openvz.org>
+	<52A142CC.5000707@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	linux-kernel@vger.kernel.org, Michael Dalton <mwdalton@google.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
 To: Jason Wang <jasowang@redhat.com>, Andrey Vagin <avagin@openvz.org>,
 	virtualization@lists.linux-foundation.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <52A14262.6080407@redhat.com>
+In-Reply-To: <52A142CC.5000707@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -27,84 +28,81 @@ List-Id: netdev.vger.kernel.org
 
 Jason Wang <jasowang@redhat.com> writes:
 > On 12/05/2013 10:36 PM, Andrey Vagin wrote:
->> free_unused_bufs must check vi->mergeable_rx_bufs before
->> vi->big_packets, because we use this sequence in other places.
->> Otherwise we allocate buffer of one type, then free it as another
->> type.
+>> free_netdev calls netif_napi_del too, but it's too late, because napi
+>> structures are placed on vi->rq. netif_napi_add() is called from
+>> virtnet_alloc_queues.
 >>
 >> general protection fault: 0000 [#1] SMP
 >> Dumping ftrace buffer:
 >>    (ftrace buffer empty)
->> Modules linked in: ip6table_filter ip6_tables iptable_filter ip_tables pcspkr virtio_balloon virtio_net(-) i2c_pii
->> CPU: 0 PID: 400 Comm: rmmod Not tainted 3.13.0-rc2+ #170
+>> Modules linked in: ip6table_filter ip6_tables iptable_filter ip_tables virtio_balloon pcspkr virtio_net(-) i2c_pii
+>> CPU: 1 PID: 347 Comm: rmmod Not tainted 3.13.0-rc2+ #171
 >> Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
->> task: ffff8800b6d2a210 ti: ffff8800aed32000 task.ti: ffff8800aed32000
->> RIP: 0010:[<ffffffffa00345f3>]  [<ffffffffa00345f3>] free_unused_bufs+0xc3/0x190 [virtio_net]
->> RSP: 0018:ffff8800aed33dd8  EFLAGS: 00010202
->> RAX: ffff8800b1fe2c00 RBX: ffff8800b66a7240 RCX: 6b6b6b6b6b6b6b6b
->> RDX: 6b6b6b6b6b6b6b6b RSI: ffff8800b8419a68 RDI: ffff8800b66a1148
->> RBP: ffff8800aed33e00 R08: 0000000000000001 R09: 0000000000000000
->> R10: 0000000000000000 R11: 0000000000000001 R12: 0000000000000000
->> R13: ffff8800b66a1148 R14: 0000000000000000 R15: 000077ff80000000
->> FS:  00007fc4f9c4e740(0000) GS:ffff8800bfa00000(0000) knlGS:0000000000000000
+>> task: ffff8800b779c420 ti: ffff8800379e0000 task.ti: ffff8800379e0000
+>> RIP: 0010:[<ffffffff81322e19>]  [<ffffffff81322e19>] __list_del_entry+0x29/0xd0
+>> RSP: 0018:ffff8800379e1dd0  EFLAGS: 00010a83
+>> RAX: 6b6b6b6b6b6b6b6b RBX: ffff8800379c2fd0 RCX: dead000000200200
+>> RDX: 6b6b6b6b6b6b6b6b RSI: 0000000000000001 RDI: ffff8800379c2fd0
+>> RBP: ffff8800379e1dd0 R08: 0000000000000001 R09: 0000000000000000
+>> R10: 0000000000000000 R11: 0000000000000001 R12: ffff8800379c2f90
+>> R13: ffff880037839160 R14: 0000000000000000 R15: 00000000013352f0
+>> FS:  00007f1400e34740(0000) GS:ffff8800bfb00000(0000) knlGS:0000000000000000
 >> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
->> CR2: 00007f63f432f000 CR3: 00000000b6538000 CR4: 00000000000006f0
+>> CR2: 00007f464124c763 CR3: 00000000b68cf000 CR4: 00000000000006e0
 >> Stack:
->>  ffff8800b66a7240 ffff8800b66a7380 ffff8800377bd3f0 0000000000000000
->>  00000000023302f0 ffff8800aed33e18 ffffffffa00346e2 ffff8800b66a7240
->>  ffff8800aed33e38 ffffffffa003474d ffff8800377bd388 ffff8800377bd390
+>>  ffff8800379e1df0 ffffffff8155beab 6b6b6b6b6b6b6b2b ffff8800378391c0
+>>  ffff8800379e1e18 ffffffff8156499b ffff880037839be0 ffff880037839d20
+>>  ffff88003779d3f0 ffff8800379e1e38 ffffffffa003477c ffff88003779d388
 >> Call Trace:
->>  [<ffffffffa00346e2>] remove_vq_common+0x22/0x40 [virtio_net]
->>  [<ffffffffa003474d>] virtnet_remove+0x4d/0x90 [virtio_net]
->>  [<ffffffff813ae303>] virtio_dev_remove+0x23/0x80
->>  [<ffffffff813f62cf>] __device_release_driver+0x7f/0xf0
->>  [<ffffffff813f6c80>] driver_detach+0xc0/0xd0
->>  [<ffffffff813f5f08>] bus_remove_driver+0x58/0xd0
->>  [<ffffffff813f72cc>] driver_unregister+0x2c/0x50
->>  [<ffffffff813ae63e>] unregister_virtio_driver+0xe/0x10
->>  [<ffffffffa0036852>] virtio_net_driver_exit+0x10/0x7be [virtio_net]
+>>  [<ffffffff8155beab>] netif_napi_del+0x1b/0x80
+>>  [<ffffffff8156499b>] free_netdev+0x8b/0x110
+>>  [<ffffffffa003477c>] virtnet_remove+0x7c/0x90 [virtio_net]
+>>  [<ffffffff813ae323>] virtio_dev_remove+0x23/0x80
+>>  [<ffffffff813f62ef>] __device_release_driver+0x7f/0xf0
+>>  [<ffffffff813f6ca0>] driver_detach+0xc0/0xd0
+>>  [<ffffffff813f5f28>] bus_remove_driver+0x58/0xd0
+>>  [<ffffffff813f72ec>] driver_unregister+0x2c/0x50
+>>  [<ffffffff813ae65e>] unregister_virtio_driver+0xe/0x10
+>>  [<ffffffffa0036942>] virtio_net_driver_exit+0x10/0x6ce [virtio_net]
 >>  [<ffffffff810d7cf2>] SyS_delete_module+0x172/0x220
 >>  [<ffffffff810a732d>] ? trace_hardirqs_on+0xd/0x10
 >>  [<ffffffff810f5d4c>] ? __audit_syscall_entry+0x9c/0xf0
 >>  [<ffffffff81677f69>] system_call_fastpath+0x16/0x1b
->> Code: c0 74 55 0f 1f 44 00 00 80 7b 30 00 74 7a 48 8b 50 30 4c 89 e6 48 03 73 20 48 85 d2 0f 84 bb 00 00 00 66 0f
->> RIP  [<ffffffffa00345f3>] free_unused_bufs+0xc3/0x190 [virtio_net]
->>  RSP <ffff8800aed33dd8>
->> ---[ end trace edb570ea923cce9c ]---
+>> Code: 00 00 55 48 8b 17 48 b9 00 01 10 00 00 00 ad de 48 8b 47 08 48 89 e5 48 39 ca 74 29 48 b9 00 02 20 00 00 00
+>> RIP  [<ffffffff81322e19>] __list_del_entry+0x29/0xd0
+>>  RSP <ffff8800379e1dd0>
+>> ---[ end trace d5931cd3f87c9763 ]---
 >>
->> Fixes: 2613af0ed18a (virtio_net: migrate mergeable rx buffers to page frag allocators)
->> Cc: Michael Dalton <mwdalton@google.com>
+>> Fixes: 986a4f4d452d (virtio_net: multiqueue support)
 >> Cc: Rusty Russell <rusty@rustcorp.com.au>
 >> Cc: "Michael S. Tsirkin" <mst@redhat.com>
 >> Signed-off-by: Andrey Vagin <avagin@openvz.org>
 >> ---
->>  drivers/net/virtio_net.c | 6 +++---
->>  1 file changed, 3 insertions(+), 3 deletions(-)
+>>  drivers/net/virtio_net.c | 5 +++++
+>>  1 file changed, 5 insertions(+)
 >>
 >> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 916241d..930039a 100644
+>> index 930039a..c293764 100644
 >> --- a/drivers/net/virtio_net.c
 >> +++ b/drivers/net/virtio_net.c
->> @@ -1396,10 +1396,10 @@ static void free_unused_bufs(struct virtnet_info *vi)
->>  		struct virtqueue *vq = vi->rq[i].vq;
+>> @@ -1367,6 +1367,11 @@ static void virtnet_config_changed(struct virtio_device *vdev)
 >>  
->>  		while ((buf = virtqueue_detach_unused_buf(vq)) != NULL) {
->> -			if (vi->big_packets)
->> -				give_pages(&vi->rq[i], buf);
->> -			else if (vi->mergeable_rx_bufs)
->> +			if (vi->mergeable_rx_bufs)
->>  				put_page(virt_to_head_page(buf));
->> +			else if (vi->big_packets)
->> +				give_pages(&vi->rq[i], buf);
->>  			else
->>  				dev_kfree_skb(buf);
->>  			--vi->rq[i].num;
+>>  static void virtnet_free_queues(struct virtnet_info *vi)
+>>  {
+>> +	int i;
+>> +
+>> +	for (i = 0; i < vi->max_queue_pairs; i++)
+>> +		netif_napi_del(&vi->rq[i].napi);
+>> +
+>>  	kfree(vi->rq);
+>>  	kfree(vi->sq);
+>>  }
 >
 > Acked-by: Jason Wang <jasowang@redhat.com>
 
 Acked-by: Rusty Russell <rusty@rustcorp.com.au>
 
-Dave, please apply.
+Needed since v3.8.  Dave, please apply.
 
-Thanks,
+Cheers,
 Rusty.
