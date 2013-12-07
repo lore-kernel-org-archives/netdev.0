@@ -1,79 +1,45 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH] net: unix: allow set_peek_off to fail
-Date: Sat,  7 Dec 2013 17:26:27 -0500
-Message-ID: <1386455187-28597-1-git-send-email-sasha.levin@oracle.com>
-Cc: edumazet@google.com, netdev@vger.kernel.org, xemul@parallels.com,
-	linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: netfilter: ipset: fix incorret comparison in
+ hash_netnet4_data_equal()
+Date: Sat, 7 Dec 2013 23:34:36 +0100
+Message-ID: <20131207223436.GA3927@localhost>
+References: <20131114154101.GA22625@redhat.com>
+ <20131125214511.GA10043@localhost>
+ <19530135.WLZhKuFLxq@gentoovm>
+ <alpine.DEB.2.10.1312072052580.11375@blackhole.kfki.hu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Oliver <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>,
+	Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.10.1312072052580.11375@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-unix_dgram_recvmsg() will hold the readlock of the socket until recv
-is complete.
+On Sat, Dec 07, 2013 at 08:53:52PM +0100, Jozsef Kadlecsik wrote:
+> On Sat, 7 Dec 2013, Oliver wrote:
+> 
+> > On Monday 25 November 2013 22:45:11 Pablo Neira Ayuso wrote:
+> > > On Thu, Nov 14, 2013 at 10:41:01AM -0500, Dave Jones wrote:
+> > > > Both sides of the comparison are the same, looks like a cut-and-paste
+> > > > error.
+> > 
+> > Just a typo unfortunately.
+> > 
+> > The change should definitely make its way into mainline before 3.13 gets 
+> > released - is it on track to be pulled into davem's net tree or should I 
+> > get that sorted out myself?
+> 
+> I'm going to submit the patch to Pablo at the beginning of next week, so 
+> it'll follow the normal track.
 
-In the same time, we may try to setsockopt(SO_PEEK_OFF) which will hang until
-unix_dgram_recvmsg() will complete (which can take a while) without allowing
-us to break out of it, triggering a hung task spew.
+JFYI, I applied this already:
 
-Instead, allow set_peek_off to fail, this way userspace will not hang.
+http://www.spinics.net/lists/netfilter-devel/msg29031.html
 
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- include/linux/net.h |    2 +-
- net/core/sock.c     |    2 +-
- net/unix/af_unix.c  |    8 ++++++--
- 3 files changed, 8 insertions(+), 4 deletions(-)
+If unsure, please check my tree:
 
-diff --git a/include/linux/net.h b/include/linux/net.h
-index 4bcee94..69be3e6 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -181,7 +181,7 @@ struct proto_ops {
- 				      int offset, size_t size, int flags);
- 	ssize_t 	(*splice_read)(struct socket *sock,  loff_t *ppos,
- 				       struct pipe_inode_info *pipe, size_t len, unsigned int flags);
--	void		(*set_peek_off)(struct sock *sk, int val);
-+	int		(*set_peek_off)(struct sock *sk, int val);
- };
- 
- #define DECLARE_SOCKADDR(type, dst, src)	\
-diff --git a/net/core/sock.c b/net/core/sock.c
-index ab20ed9..5393b4b 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -882,7 +882,7 @@ set_rcvbuf:
- 
- 	case SO_PEEK_OFF:
- 		if (sock->ops->set_peek_off)
--			sock->ops->set_peek_off(sk, val);
-+			ret = sock->ops->set_peek_off(sk, val);
- 		else
- 			ret = -EOPNOTSUPP;
- 		break;
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 01625cc..a0ca162 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -530,13 +530,17 @@ static int unix_seqpacket_sendmsg(struct kiocb *, struct socket *,
- static int unix_seqpacket_recvmsg(struct kiocb *, struct socket *,
- 				  struct msghdr *, size_t, int);
- 
--static void unix_set_peek_off(struct sock *sk, int val)
-+static int unix_set_peek_off(struct sock *sk, int val)
- {
- 	struct unix_sock *u = unix_sk(sk);
- 
--	mutex_lock(&u->readlock);
-+	if (mutex_lock_interruptible(&u->readlock))
-+		return -EINTR;
-+
- 	sk->sk_peek_off = val;
- 	mutex_unlock(&u->readlock);
-+
-+	return 0;
- }
- 
- 
--- 
-1.7.10.4
+http://git.kernel.org/cgit/linux/kernel/git/pablo/nf.git/
