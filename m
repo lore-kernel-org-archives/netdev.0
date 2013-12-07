@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v4 5/11] bonding: create bond_first_slave_rcu()
-Date: Sat, 7 Dec 2013 15:45:47 +0800
-Message-ID: <52A2D22B.7090109@huawei.com>
+Subject: [PATCH net-next v4 11/11] bonding: rebuild the bond_resend_igmp_join_requests_delayed()
+Date: Sat, 7 Dec 2013 15:46:12 +0800
+Message-ID: <52A2D244.3000107@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,88 +12,71 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:5900 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:5992 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751396Ab3LGHqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 02:46:16 -0500
+	with ESMTP id S1752403Ab3LGHqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 02:46:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_first_slave_rcu() will be used to instead of bond_first_slave()
-in rcu_read_lock().
+The bond_resend_igmp_join_requests_delayed() and
+bond_resend_igmp_join_requests() should be integrated,
+because the bond_resend_igmp_join_requests_delayed() did
+nothing except bond_resend_igmp_join_requests().
 
-According to the Jay Vosburgh's suggestion, the struct netdev_adjacent
-should hide from users who wanted to use it directly. so I package a
-new function to get the first slave of the bond.
+The bond igmp_retrans could only be changed in bond_change_active_slave
+and here, bond_change_active_slave will be called in RTNL and curr_slave_lock,
+the bond_resend_igmp_join_requests already hold RTNL, so no need
+to free RTNL and hold curr_slave_lock again, it may be a small optimization,
+so move the igmp_retrans in RTNL and remove the curr_slave_lock.
 
-Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
-Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
-Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bonding.h |  4 ++++
- include/linux/netdevice.h     |  1 +
- net/core/dev.c                | 21 +++++++++++++++++++++
- 3 files changed, 26 insertions(+)
+ drivers/net/bonding/bond_main.c | 21 +++++----------------
+ 1 file changed, 5 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 77a07a1..9337f8a 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -91,6 +91,10 @@
- 		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
- 		NULL)
- 
-+/* Caller must have rcu_read_lock */
-+#define bond_first_slave_rcu(bond) \
-+	netdev_lower_get_first_private_rcu(bond->dev)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 77fdb78..556a53d 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -591,33 +591,22 @@ static int bond_set_allmulti(struct bonding *bond, int inc)
+  * device and retransmit an IGMP JOIN request to the current active
+  * slave.
+  */
+-static void bond_resend_igmp_join_requests(struct bonding *bond)
++static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
+ {
++	struct bonding *bond = container_of(work, struct bonding,
++					    mcast_work.work);
 +
- #define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
- #define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
+ 	if (!rtnl_trylock()) {
+ 		queue_delayed_work(bond->wq, &bond->mcast_work, 1);
+ 		return;
+ 	}
+ 	call_netdevice_notifiers(NETDEV_RESEND_IGMP, bond->dev);
+-	rtnl_unlock();
  
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 15fa01c..abfcfad 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2869,6 +2869,7 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
- 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
+-	/* We use curr_slave_lock to protect against concurrent access to
+-	 * igmp_retrans from multiple running instances of this function and
+-	 * bond_change_active_slave
+-	 */
+-	write_lock_bh(&bond->curr_slave_lock);
+ 	if (bond->igmp_retrans > 1) {
+ 		bond->igmp_retrans--;
+ 		queue_delayed_work(bond->wq, &bond->mcast_work, HZ/5);
+ 	}
+-	write_unlock_bh(&bond->curr_slave_lock);
+-}
+-
+-static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
+-{
+-	struct bonding *bond = container_of(work, struct bonding,
+-					    mcast_work.work);
+-
+-	bond_resend_igmp_join_requests(bond);
++	rtnl_unlock();
+ }
  
- void *netdev_adjacent_get_private(struct list_head *adj_list);
-+void *netdev_lower_get_first_private_rcu(struct net_device *dev);
- struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
- struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
- int netdev_upper_dev_link(struct net_device *dev, struct net_device *upper_dev);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8ffc52e..51feddb 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4570,6 +4570,27 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
- EXPORT_SYMBOL(netdev_lower_get_next_private_rcu);
- 
- /**
-+ * netdev_lower_get_first_private_rcu - Get the first ->private from the
-+ *				       lower neighbour list, RCU
-+ *				       variant
-+ * @dev: device
-+ *
-+ * Gets the first netdev_adjacent->private from the dev's lower neighbour
-+ * list. The caller must hold RCU read lock.
-+ */
-+void *netdev_lower_get_first_private_rcu(struct net_device *dev)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	lower = list_first_or_null_rcu(&dev->adj_list.lower,
-+			struct netdev_adjacent, list);
-+	if (lower)
-+		return lower->private;
-+	return NULL;
-+}
-+EXPORT_SYMBOL(netdev_lower_get_first_private_rcu);
-+
-+/**
-  * netdev_master_upper_dev_get_rcu - Get master upper device
-  * @dev: device
-  *
+ /* Flush bond's hardware addresses from slave
 -- 
 1.8.2.1
