@@ -1,108 +1,163 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2/2] virtio: delete napi structures from netdev before
-	releasing memory
-Date: Sat, 07 Dec 2013 11:02:59 +1030
-Message-ID: <8761r15wlg.fsf@rustcorp.com.au>
-References: <1386254181-17257-1-git-send-email-avagin@openvz.org>
-	<1386254181-17257-3-git-send-email-avagin@openvz.org>
-	<52A142CC.5000707@redhat.com>
+Subject: Re: [RFC] virtio_net: multicast address list never sent to host
+Date: Sat, 07 Dec 2013 11:12:44 +1030
+Message-ID: <87wqjh4hkr.fsf@rustcorp.com.au>
+References: <20131205152052.064319c9@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	Alex Williamson <alex.williamson@hp.com>,
 	"Michael S. Tsirkin" <mst@redhat.com>
-To: Jason Wang <jasowang@redhat.com>, Andrey Vagin <avagin@openvz.org>,
-	virtualization@lists.linux-foundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <52A142CC.5000707@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:37485 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752630Ab3LGBMt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Dec 2013 20:12:49 -0500
+In-Reply-To: <20131205152052.064319c9@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jason Wang <jasowang@redhat.com> writes:
-> On 12/05/2013 10:36 PM, Andrey Vagin wrote:
->> free_netdev calls netif_napi_del too, but it's too late, because napi
->> structures are placed on vi->rq. netif_napi_add() is called from
->> virtnet_alloc_queues.
->>
->> general protection fault: 0000 [#1] SMP
->> Dumping ftrace buffer:
->>    (ftrace buffer empty)
->> Modules linked in: ip6table_filter ip6_tables iptable_filter ip_tables virtio_balloon pcspkr virtio_net(-) i2c_pii
->> CPU: 1 PID: 347 Comm: rmmod Not tainted 3.13.0-rc2+ #171
->> Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
->> task: ffff8800b779c420 ti: ffff8800379e0000 task.ti: ffff8800379e0000
->> RIP: 0010:[<ffffffff81322e19>]  [<ffffffff81322e19>] __list_del_entry+0x29/0xd0
->> RSP: 0018:ffff8800379e1dd0  EFLAGS: 00010a83
->> RAX: 6b6b6b6b6b6b6b6b RBX: ffff8800379c2fd0 RCX: dead000000200200
->> RDX: 6b6b6b6b6b6b6b6b RSI: 0000000000000001 RDI: ffff8800379c2fd0
->> RBP: ffff8800379e1dd0 R08: 0000000000000001 R09: 0000000000000000
->> R10: 0000000000000000 R11: 0000000000000001 R12: ffff8800379c2f90
->> R13: ffff880037839160 R14: 0000000000000000 R15: 00000000013352f0
->> FS:  00007f1400e34740(0000) GS:ffff8800bfb00000(0000) knlGS:0000000000000000
->> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
->> CR2: 00007f464124c763 CR3: 00000000b68cf000 CR4: 00000000000006e0
->> Stack:
->>  ffff8800379e1df0 ffffffff8155beab 6b6b6b6b6b6b6b2b ffff8800378391c0
->>  ffff8800379e1e18 ffffffff8156499b ffff880037839be0 ffff880037839d20
->>  ffff88003779d3f0 ffff8800379e1e38 ffffffffa003477c ffff88003779d388
->> Call Trace:
->>  [<ffffffff8155beab>] netif_napi_del+0x1b/0x80
->>  [<ffffffff8156499b>] free_netdev+0x8b/0x110
->>  [<ffffffffa003477c>] virtnet_remove+0x7c/0x90 [virtio_net]
->>  [<ffffffff813ae323>] virtio_dev_remove+0x23/0x80
->>  [<ffffffff813f62ef>] __device_release_driver+0x7f/0xf0
->>  [<ffffffff813f6ca0>] driver_detach+0xc0/0xd0
->>  [<ffffffff813f5f28>] bus_remove_driver+0x58/0xd0
->>  [<ffffffff813f72ec>] driver_unregister+0x2c/0x50
->>  [<ffffffff813ae65e>] unregister_virtio_driver+0xe/0x10
->>  [<ffffffffa0036942>] virtio_net_driver_exit+0x10/0x6ce [virtio_net]
->>  [<ffffffff810d7cf2>] SyS_delete_module+0x172/0x220
->>  [<ffffffff810a732d>] ? trace_hardirqs_on+0xd/0x10
->>  [<ffffffff810f5d4c>] ? __audit_syscall_entry+0x9c/0xf0
->>  [<ffffffff81677f69>] system_call_fastpath+0x16/0x1b
->> Code: 00 00 55 48 8b 17 48 b9 00 01 10 00 00 00 ad de 48 8b 47 08 48 89 e5 48 39 ca 74 29 48 b9 00 02 20 00 00 00
->> RIP  [<ffffffff81322e19>] __list_del_entry+0x29/0xd0
->>  RSP <ffff8800379e1dd0>
->> ---[ end trace d5931cd3f87c9763 ]---
->>
->> Fixes: 986a4f4d452d (virtio_net: multiqueue support)
->> Cc: Rusty Russell <rusty@rustcorp.com.au>
->> Cc: "Michael S. Tsirkin" <mst@redhat.com>
->> Signed-off-by: Andrey Vagin <avagin@openvz.org>
->> ---
->>  drivers/net/virtio_net.c | 5 +++++
->>  1 file changed, 5 insertions(+)
->>
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 930039a..c293764 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
->> @@ -1367,6 +1367,11 @@ static void virtnet_config_changed(struct virtio_device *vdev)
->>  
->>  static void virtnet_free_queues(struct virtnet_info *vi)
->>  {
->> +	int i;
->> +
->> +	for (i = 0; i < vi->max_queue_pairs; i++)
->> +		netif_napi_del(&vi->rq[i].napi);
->> +
->>  	kfree(vi->rq);
->>  	kfree(vi->sq);
->>  }
+Stephen Hemminger <stephen@networkplumber.org> writes:
+> The virtio_net driver never sends the second address list to
+> the host. This is because send command takes a pointer to scatter list
+> to send but only inserts that one entry into the scatter list that
+> is sent to the host.
 >
-> Acked-by: Jason Wang <jasowang@redhat.com>
+> This bug has been there since:
+> commit f565a7c259d71cc186753653d978c646d2354b36
+> Author: Alex Williamson <alex.williamson@hp.com>
+> Date:   Wed Feb 4 09:02:45 2009 +0000
+>
+>     virtio_net: Add a MAC filter table
+>
+>
+> I also dropped the in argument since it is never used.
+>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+Ouch.  Took me a while to untangle the two changes (arg change and the
+VIRTIO_NET_CTRL_MAC_TABLE_SET change which is the actual fix), but it
+looks good.
 
 Acked-by: Rusty Russell <rusty@rustcorp.com.au>
 
-Needed since v3.8.  Dave, please apply.
-
-Cheers,
+Thanks!
 Rusty.
+
+> --- a/drivers/net/virtio_net.c	2013-12-05 15:11:34.000000000 -0800
+> +++ b/drivers/net/virtio_net.c	2013-12-05 15:17:16.211568831 -0800
+> @@ -877,16 +877,16 @@ static netdev_tx_t start_xmit(struct sk_
+>   * never fail unless improperly formated.
+>   */
+>  static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
+> -				 struct scatterlist *out,
+> -				 struct scatterlist *in)
+> +				 struct scatterlist *out, unsigned out_cnt)
+>  {
+>  	struct scatterlist *sgs[4], hdr, stat;
+>  	struct virtio_net_ctrl_hdr ctrl;
+>  	virtio_net_ctrl_ack status = ~0;
+> -	unsigned out_num = 0, in_num = 0, tmp;
+> +	unsigned out_num = 0, tmp;
+>  
+>  	/* Caller should know better */
+>  	BUG_ON(!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ));
+> +	BUG_ON(out_cnt > 2);
+>  
+>  	ctrl.class = class;
+>  	ctrl.cmd = cmd;
+> @@ -894,17 +894,14 @@ static bool virtnet_send_command(struct
+>  	sg_init_one(&hdr, &ctrl, sizeof(ctrl));
+>  	sgs[out_num++] = &hdr;
+>  
+> -	if (out)
+> -		sgs[out_num++] = out;
+> -	if (in)
+> -		sgs[out_num + in_num++] = in;
+> +	while (out_cnt-- > 0)
+> +		sgs[out_num++] = out++;
+>  
+>  	/* Add return status. */
+>  	sg_init_one(&stat, &status, sizeof(status));
+> -	sgs[out_num + in_num++] = &stat;
+> +	sgs[out_num] = &stat;
+>  
+> -	BUG_ON(out_num + in_num > ARRAY_SIZE(sgs));
+> -	BUG_ON(virtqueue_add_sgs(vi->cvq, sgs, out_num, in_num, vi, GFP_ATOMIC)
+> +	BUG_ON(virtqueue_add_sgs(vi->cvq, sgs, out_num, 1, vi, GFP_ATOMIC)
+>  	       < 0);
+>  
+>  	if (unlikely(!virtqueue_kick(vi->cvq)))
+> @@ -936,7 +933,7 @@ static int virtnet_set_mac_address(struc
+>  		sg_init_one(&sg, addr->sa_data, dev->addr_len);
+>  		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
+>  					  VIRTIO_NET_CTRL_MAC_ADDR_SET,
+> -					  &sg, NULL)) {
+> +					  &sg, 1)) {
+>  			dev_warn(&vdev->dev,
+>  				 "Failed to set mac address by vq command.\n");
+>  			return -EINVAL;
+> @@ -1009,7 +1006,7 @@ static void virtnet_ack_link_announce(st
+>  {
+>  	rtnl_lock();
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_ANNOUNCE,
+> -				  VIRTIO_NET_CTRL_ANNOUNCE_ACK, NULL, NULL))
+> +				  VIRTIO_NET_CTRL_ANNOUNCE_ACK, NULL, 0))
+>  		dev_warn(&vi->dev->dev, "Failed to ack link announce.\n");
+>  	rtnl_unlock();
+>  }
+> @@ -1027,7 +1024,7 @@ static int virtnet_set_queues(struct vir
+>  	sg_init_one(&sg, &s, sizeof(s));
+>  
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MQ,
+> -				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg, NULL)) {
+> +				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg, 1)) {
+>  		dev_warn(&dev->dev, "Fail to set num of queue pairs to %d\n",
+>  			 queue_pairs);
+>  		return -EINVAL;
+> @@ -1078,7 +1075,7 @@ static void virtnet_set_rx_mode(struct n
+>  
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
+>  				  VIRTIO_NET_CTRL_RX_PROMISC,
+> -				  sg, NULL))
+> +				  sg, 1))
+>  		dev_warn(&dev->dev, "Failed to %sable promisc mode.\n",
+>  			 promisc ? "en" : "dis");
+>  
+> @@ -1086,7 +1083,7 @@ static void virtnet_set_rx_mode(struct n
+>  
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
+>  				  VIRTIO_NET_CTRL_RX_ALLMULTI,
+> -				  sg, NULL))
+> +				  sg, 1))
+>  		dev_warn(&dev->dev, "Failed to %sable allmulti mode.\n",
+>  			 allmulti ? "en" : "dis");
+>  
+> @@ -1123,7 +1120,7 @@ static void virtnet_set_rx_mode(struct n
+>  
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
+>  				  VIRTIO_NET_CTRL_MAC_TABLE_SET,
+> -				  sg, NULL))
+> +				  sg, 2))
+>  		dev_warn(&dev->dev, "Failed to set MAC filter table.\n");
+>  
+>  	kfree(buf);
+> @@ -1138,7 +1135,7 @@ static int virtnet_vlan_rx_add_vid(struc
+>  	sg_init_one(&sg, &vid, sizeof(vid));
+>  
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
+> -				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, NULL))
+> +				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, 1))
+>  		dev_warn(&dev->dev, "Failed to add VLAN ID %d.\n", vid);
+>  	return 0;
+>  }
+> @@ -1152,7 +1149,7 @@ static int virtnet_vlan_rx_kill_vid(stru
+>  	sg_init_one(&sg, &vid, sizeof(vid));
+>  
+>  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
+> -				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, NULL))
+> +				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, 1))
+>  		dev_warn(&dev->dev, "Failed to kill VLAN ID %d.\n", vid);
+>  	return 0;
+>  }
