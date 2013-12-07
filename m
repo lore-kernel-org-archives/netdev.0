@@ -1,202 +1,95 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v4 6/11] bonding: rebuild the lock use for bond_activebackup_arp_mon()
-Date: Sat, 7 Dec 2013 15:45:51 +0800
-Message-ID: <52A2D22F.1000902@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+From: Srikanth Thokala <sthokal@xilinx.com>
+Subject: [PATCH v2 1/2] net: emaclite: Remove unnecessary code that enables/disables interrupts on PONG buffers
+Date: Sat,  7 Dec 2013 13:40:48 +0530
+Message-ID: <1386403849-3153-1-git-send-email-sthokal@xilinx.com>
+Cc: davem@davemloft.net, michal.simek@xilinx.com,
+	Srikanth Thokala <sthokal@xilinx.com>
+To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:64753 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753389Ab3LGHwC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 02:52:02 -0500
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:41914 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751990Ab3LGILH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 03:11:07 -0500
+Received: by mail-pd0-f172.google.com with SMTP id g10so2268777pdj.17
+        for <netdev@vger.kernel.org>; Sat, 07 Dec 2013 00:11:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_activebackup_arp_mon() use the bond lock for read to
-protect the slave list, it is no effect, and the RTNL is only
-called for bond_ab_arp_commit() and peer notify, for the performance
-better, use RCU to replace with the bond lock, to the bond slave
-list need to called in RCU, add a new bond_first_slave_rcu()
-to get the first slave in RCU protection.
+There are no specific interrupts for the PONG buffer on both
+transmit and receive side, same interrupt is valid for both
+buffers. So, this patch removes this code.
 
-In bond_ab_arp_probe(), the bond->current_arp_slave may changd
-if bond release slave, just like:
-
-	bond_ab_arp_probe()			bond_release()
-	cpu 0					cpu 1
-	...
-	if (bond->current_arp_slave...)		...
-	...				bond->current_arp_slave = NULl
-	bond->current_arp_slave->dev->name	...
-
-So the current_arp_slave need to dereference in the section.
-
-When bond_ab_arp_inspect() and should_notify_peers is true, the
-RTNL will called twice, it is a loss of performance, so make the
-two RTNL together to avoid performance loss.
-
-Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
-Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
-Suggested-by: Veaceslav Falico <vfalico@redhat.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
+Reviewed-by: Michal Simek <monstr@monstr.eu>
 ---
- drivers/net/bonding/bond_main.c | 49 +++++++++++++++++++++--------------------
- 1 file changed, 25 insertions(+), 24 deletions(-)
+Changes in v2:
+	rebased on v3.13.0-rc3.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 1f5e709..d9bb5ee 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2521,7 +2521,7 @@ re_arm:
-  * place for the slave.  Returns 0 if no changes are found, >0 if changes
-  * to link states must be committed.
-  *
-- * Called with bond->lock held for read.
-+ * Called with rcu_read_lock hold.
-  */
- static int bond_ab_arp_inspect(struct bonding *bond)
- {
-@@ -2530,7 +2530,7 @@ static int bond_ab_arp_inspect(struct bonding *bond)
- 	struct slave *slave;
- 	int commit = 0;
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c |   38 -------------------------
+ 1 file changed, 38 deletions(-)
+
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+index 74234a5..b2850fd 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -163,26 +163,9 @@ static void xemaclite_enable_interrupts(struct net_local *drvdata)
+ 	__raw_writel(reg_data | XEL_TSR_XMIT_IE_MASK,
+ 		     drvdata->base_addr + XEL_TSR_OFFSET);
  
--	bond_for_each_slave(bond, slave, iter) {
-+	bond_for_each_slave_rcu(bond, slave, iter) {
- 		slave->new_link = BOND_LINK_NOCHANGE;
- 		last_rx = slave_last_rx(bond, slave);
- 
-@@ -2592,7 +2592,7 @@ static int bond_ab_arp_inspect(struct bonding *bond)
-  * Called to commit link state changes noted by inspection step of
-  * active-backup mode ARP monitor.
-  *
-- * Called with RTNL and bond->lock for read.
-+ * Called with RTNL hold.
-  */
- static void bond_ab_arp_commit(struct bonding *bond)
- {
-@@ -2667,19 +2667,20 @@ do_failover:
- /*
-  * Send ARP probes for active-backup mode ARP monitor.
-  *
-- * Called with bond->lock held for read.
-+ * Called with rcu_read_lock hold.
-  */
- static void bond_ab_arp_probe(struct bonding *bond)
- {
--	struct slave *slave, *before = NULL, *new_slave = NULL;
-+	struct slave *slave, *before = NULL, *new_slave = NULL,
-+		     *curr_arp_slave = rcu_dereference(bond->current_arp_slave);
- 	struct list_head *iter;
- 	bool found = false;
- 
- 	read_lock(&bond->curr_slave_lock);
- 
--	if (bond->current_arp_slave && bond->curr_active_slave)
-+	if (curr_arp_slave && bond->curr_active_slave)
- 		pr_info("PROBE: c_arp %s && cas %s BAD\n",
--			bond->current_arp_slave->dev->name,
-+			curr_arp_slave->dev->name,
- 			bond->curr_active_slave->dev->name);
- 
- 	if (bond->curr_active_slave) {
-@@ -2695,15 +2696,15 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 	 * for becoming the curr_active_slave
- 	 */
- 
--	if (!bond->current_arp_slave) {
--		bond->current_arp_slave = bond_first_slave(bond);
--		if (!bond->current_arp_slave)
-+	if (!curr_arp_slave) {
-+		curr_arp_slave = bond_first_slave_rcu(bond);
-+		if (!curr_arp_slave)
- 			return;
- 	}
- 
--	bond_set_slave_inactive_flags(bond->current_arp_slave);
-+	bond_set_slave_inactive_flags(curr_arp_slave);
- 
--	bond_for_each_slave(bond, slave, iter) {
-+	bond_for_each_slave_rcu(bond, slave, iter) {
- 		if (!found && !before && IS_UP(slave->dev))
- 			before = slave;
- 
-@@ -2726,7 +2727,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 			pr_info("%s: backup interface %s is now down.\n",
- 				bond->dev->name, slave->dev->name);
- 		}
--		if (slave == bond->current_arp_slave)
-+		if (slave == curr_arp_slave)
- 			found = true;
- 	}
- 
-@@ -2740,8 +2741,7 @@ static void bond_ab_arp_probe(struct bonding *bond)
- 	bond_set_slave_active_flags(new_slave);
- 	bond_arp_send_all(bond, new_slave);
- 	new_slave->jiffies = jiffies;
--	bond->current_arp_slave = new_slave;
+-	/* Enable the Tx interrupts for the second Buffer if
+-	 * configured in HW */
+-	if (drvdata->tx_ping_pong != 0) {
+-		reg_data = __raw_readl(drvdata->base_addr +
+-				   XEL_BUFFER_OFFSET + XEL_TSR_OFFSET);
+-		__raw_writel(reg_data | XEL_TSR_XMIT_IE_MASK,
+-			     drvdata->base_addr + XEL_BUFFER_OFFSET +
+-			     XEL_TSR_OFFSET);
+-	}
 -
-+	rcu_assign_pointer(bond->current_arp_slave, new_slave);
+ 	/* Enable the Rx interrupts for the first buffer */
+ 	__raw_writel(XEL_RSR_RECV_IE_MASK, drvdata->base_addr + XEL_RSR_OFFSET);
+ 
+-	/* Enable the Rx interrupts for the second Buffer if
+-	 * configured in HW */
+-	if (drvdata->rx_ping_pong != 0) {
+-		__raw_writel(XEL_RSR_RECV_IE_MASK, drvdata->base_addr +
+-			     XEL_BUFFER_OFFSET + XEL_RSR_OFFSET);
+-	}
+-
+ 	/* Enable the Global Interrupt Enable */
+ 	__raw_writel(XEL_GIER_GIE_MASK, drvdata->base_addr + XEL_GIER_OFFSET);
+ }
+@@ -206,31 +189,10 @@ static void xemaclite_disable_interrupts(struct net_local *drvdata)
+ 	__raw_writel(reg_data & (~XEL_TSR_XMIT_IE_MASK),
+ 		     drvdata->base_addr + XEL_TSR_OFFSET);
+ 
+-	/* Disable the Tx interrupts for the second Buffer
+-	 * if configured in HW */
+-	if (drvdata->tx_ping_pong != 0) {
+-		reg_data = __raw_readl(drvdata->base_addr + XEL_BUFFER_OFFSET +
+-				   XEL_TSR_OFFSET);
+-		__raw_writel(reg_data & (~XEL_TSR_XMIT_IE_MASK),
+-			     drvdata->base_addr + XEL_BUFFER_OFFSET +
+-			     XEL_TSR_OFFSET);
+-	}
+-
+ 	/* Disable the Rx interrupts for the first buffer */
+ 	reg_data = __raw_readl(drvdata->base_addr + XEL_RSR_OFFSET);
+ 	__raw_writel(reg_data & (~XEL_RSR_RECV_IE_MASK),
+ 		     drvdata->base_addr + XEL_RSR_OFFSET);
+-
+-	/* Disable the Rx interrupts for the second buffer
+-	 * if configured in HW */
+-	if (drvdata->rx_ping_pong != 0) {
+-
+-		reg_data = __raw_readl(drvdata->base_addr + XEL_BUFFER_OFFSET +
+-				   XEL_RSR_OFFSET);
+-		__raw_writel(reg_data & (~XEL_RSR_RECV_IE_MASK),
+-			     drvdata->base_addr + XEL_BUFFER_OFFSET +
+-			     XEL_RSR_OFFSET);
+-	}
  }
  
- void bond_activebackup_arp_mon(struct work_struct *work)
-@@ -2751,17 +2751,17 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 	bool should_notify_peers = false;
- 	int delta_in_ticks;
- 
--	read_lock(&bond->lock);
--
- 	delta_in_ticks = msecs_to_jiffies(bond->params.arp_interval);
- 
- 	if (!bond_has_slaves(bond))
- 		goto re_arm;
- 
-+	rcu_read_lock();
-+
- 	should_notify_peers = bond_should_notify_peers(bond);
- 
- 	if (bond_ab_arp_inspect(bond)) {
--		read_unlock(&bond->lock);
-+		rcu_read_unlock();
- 
- 		/* Race avoidance with bond_close flush of workqueue */
- 		if (!rtnl_trylock()) {
-@@ -2771,23 +2771,24 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 			goto re_arm;
- 		}
- 
--		read_lock(&bond->lock);
--
- 		bond_ab_arp_commit(bond);
-+		if (should_notify_peers) {
-+			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
-+					bond->dev);
-+			should_notify_peers = false;
-+		}
- 
--		read_unlock(&bond->lock);
- 		rtnl_unlock();
--		read_lock(&bond->lock);
-+		rcu_read_lock();
- 	}
- 
- 	bond_ab_arp_probe(bond);
-+	rcu_read_unlock();
- 
- re_arm:
- 	if (bond->params.arp_interval)
- 		queue_delayed_work(bond->wq, &bond->arp_work, delta_in_ticks);
- 
--	read_unlock(&bond->lock);
--
- 	if (should_notify_peers) {
- 		if (!rtnl_trylock())
- 			return;
+ /**
 -- 
-1.8.2.1
+1.7.9.5
