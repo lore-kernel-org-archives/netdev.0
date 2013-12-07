@@ -1,102 +1,64 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [patch net/stable v2] br: fix use of ->rx_handler_data in code
- executed on non-rx_handler path
-Date: Fri, 06 Dec 2013 20:44:11 -0500
-Message-ID: <52A27D6B.10508@gmail.com>
-References: <1386257257-25258-1-git-send-email-jiri@resnulli.us> <20131205085514.4c079747@nehalam.linuxnetplumber.net> <52A135C2.9020406@cn.fujitsu.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/4 net-next] net: phy: add Generic Netlink Ethernet
+ switch configuration API
+Date: Fri, 6 Dec 2013 17:45:46 -0800
+Message-ID: <CAGVrzcZd_gdKn7QK0qRW9XKMhPuLNm45J6oKqJut7ix2EZseFA@mail.gmail.com>
+References: <5267BB53.8030703@openwrt.org> <5267C6B9.4000704@mojatatu.com>
+ <5267CFAB.9090100@openwrt.org> <5267D8AE.7080009@mojatatu.com>
+ <5267DDE6.70600@openwrt.org> <526A5949.6040404@mojatatu.com>
+ <526A6BB3.7050507@openwrt.org> <526D4B06.8040505@mojatatu.com>
+ <526D6EBA.3020903@openwrt.org> <526EEAE9.6090508@mojatatu.com>
+ <20131030172756.GM8570@wantstofly.org> <52716252.9060502@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jtluka@redhat.com,
-	zhiguohong@tencent.com, bridge@lists.linux-foundation.org,
-	edumazet@google.com, laine@redhat.com, mst@redhat.com
-To: Gao feng <gaofeng@cn.fujitsu.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	John Crispin <blogic@openwrt.org>,
+	Jonas Gorski <jogo@openwrt.org>,
+	Gary Thomas <gary@mlbassoc.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
 	Stephen Hemminger <stephen@networkplumber.org>,
-	Jiri Pirko <jiri@resnulli.us>
+	Chris Healy <cphealy@gmail.com>
+To: Felix Fietkau <nbd@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f41.google.com ([209.85.128.41]:48987 "EHLO
-	mail-qe0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754026Ab3LGBoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 20:44:16 -0500
-Received: by mail-qe0-f41.google.com with SMTP id gh4so1209565qeb.0
-        for <netdev@vger.kernel.org>; Fri, 06 Dec 2013 17:44:15 -0800 (PST)
-In-Reply-To: <52A135C2.9020406@cn.fujitsu.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:42112 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754026Ab3LGBq1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 20:46:27 -0500
+Received: by mail-pd0-f169.google.com with SMTP id v10so1958640pde.14
+        for <netdev@vger.kernel.org>; Fri, 06 Dec 2013 17:46:27 -0800 (PST)
+In-Reply-To: <52716252.9060502@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/05/2013 09:26 PM, Gao feng wrote:
-> On 12/06/2013 12:55 AM, Stephen Hemminger wrote:
->> On Thu,  5 Dec 2013 16:27:37 +0100
->> Jiri Pirko <jiri@resnulli.us> wrote:
->>
->>> br_stp_rcv() is reached by non-rx_handler path. That means there is no
->>> guarantee that dev is bridge port and therefore simple NULL check of
->>> ->rx_handler_data is not enough. There is need to check if dev is really
->>> bridge port and since only rcu read lock is held here, do it by checking
->>> ->rx_handler pointer.
->>>
->>> Note that synchronize_net() in netdev_rx_handler_unregister() ensures
->>> this approach as valid.
->>>
->>
->>
->> I think this patch is simpler/better, it restores the old logic.
->>
->> Ps. submitting patches to bugzilla is a good way to have them ignored.
->>
->> >From Stephen Hemminger <stephen@networkplumber.org>
->>
->> Check that incoming STP packet is received on a port assigned to bridge
->> before processing. It is possible to receive packet on non-bridge port
->> because they are multicast.
->>
->> See:
->>  https://bugzilla.kernel.org/show_bug.cgi?id=64911
->>
->>
->> Regression introduced by:
->> commit 716ec052d2280d511e10e90ad54a86f5b5d4dcc2
->> Author: Hong Zhiguo <zhiguohong@tencent.com>
->> Date:   Sat Sep 14 22:42:28 2013 +0800
->>
->>     bridge: fix NULL pointer deref of br_port_get_rcu
->>
->>
->> Reported-by: Alexander Y. Fomichev
->> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->>
->>
->> --- a/net/bridge/br_stp_bpdu.c	2013-06-11 09:50:21.522919061 -0700
->> +++ b/net/bridge/br_stp_bpdu.c	2013-12-05 08:46:56.090463702 -0800
->> @@ -153,6 +153,9 @@ void br_stp_rcv(const struct stp_proto *
->>  	if (buf[0] != 0 || buf[1] != 0 || buf[2] != 0)
->>  		goto err;
->>  
->> +	if (!br_port_exists(dev))
->> +		goto err;
->> +
->>  	p = br_port_get_rcu(dev);
->>  	if (!p)
->>  		goto err;
-> 
-> 
-> We alreay did some cleanup jobs before mark this dev is not a port of bridge (dev->priv_flags &= ~IFF_BRIDGE_PORT),
-> such as remove the fdb related to this port(br_fdb_delete_by_port).
-> 
-> and seems like after these cleanup jobs, before unregister this device, if new skb is received,
-> br_handle_local_finish will call br_fdb_update to create a new fdb whose dst points to the will-be-destroied-port.
+2013/10/30 Felix Fietkau <nbd@openwrt.org>:
+>> With DSA, you would bridge between port1.4 and port2.400.  I'm still
+>> not sure what your argument is arguing for or against.
+> I'm saying most switches that we support cannot do DSA-style packet port
+> tagging for ingress/egress. That kind of setup can be done with some
+> software bridging when setting up VLAN tables appropriately, but I'm not
+> sure it's possible to emulate this if you're treating the switch as a
+> 'bridge' and trying to do handle this via the FDB API, which is what we
+> were discussing earlier.
 
-Not really.  We disable the port first before removing the fdb
-as a result, br_handle_local_finish() will not update the fdb because
-the port is in disabled state.
+DSA works nicely because it has its own Ethertype, and also because
+the switches are configurable enough to allow for the insertion of a
+custom Ethertype for which you can register a corresponding
+dev_add_pack() handler. Even on some switches which support custom
+tags appended or prepended such as those from Broadcom, a tag is
+usually inserted between ethe Ethernet Source Address and the
+Ethertype, but this tag has variable fields. I could imagine that we
+extend the dev_add_pack() to include a mask to perform the matching,
+but this is going to add an "and" logical operation in a hot-path,
+would that be acceptable?
 
--vlad
-
-> 
-> I don't know if this will cause some problems.
-> seems we should also make sure port is unavailable before we do cleanup.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+And this only works when the tag is prepended, if it is appended, we
+are kind of stuck because we do not really have any way to look for it
+at the end of the frame but assume that is here/not here...
+-- 
+Florian
