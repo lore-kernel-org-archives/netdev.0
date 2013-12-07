@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 4/5] neigh: restore old behaviour of default parms values
-Date: Sat,  7 Dec 2013 19:26:56 +0100
-Message-ID: <1386440817-7846-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 3/5] neigh: use tbl->family to distinguish ipv4 from ipv6
+Date: Sat,  7 Dec 2013 19:26:55 +0100
+Message-ID: <1386440817-7846-4-git-send-email-jiri@resnulli.us>
 References: <1386440817-7846-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
 	yoshfuji@linux-ipv6.org, kaber@trash.net,
@@ -9,288 +9,139 @@ Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
 	joe@perches.com, herbert@gondor.apana.org.au
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f175.google.com ([209.85.215.175]:53003 "EHLO
-	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758258Ab3LGS1K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 13:27:10 -0500
-Received: by mail-ea0-f175.google.com with SMTP id z10so839741ead.34
-        for <netdev@vger.kernel.org>; Sat, 07 Dec 2013 10:27:09 -0800 (PST)
+Received: from mail-ea0-f179.google.com ([209.85.215.179]:45704 "EHLO
+	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753491Ab3LGS1I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 13:27:08 -0500
+Received: by mail-ea0-f179.google.com with SMTP id r15so843952ead.10
+        for <netdev@vger.kernel.org>; Sat, 07 Dec 2013 10:27:07 -0800 (PST)
 In-Reply-To: <1386440817-7846-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Previously inet devices were only constructed when addresses are added.
-Therefore the default neigh parms values they get are the ones at the
-time of these operations.
-
-Now that we're creating inet devices earlier, this changes the behaviour
-of default neigh parms values in an incompatible way (see bug #8519).
-
-This patch creates a compromise by setting the default values at the
-same point as before but only for those that have not been explicitly
-set by the user since the inet device's creation.
-
-Introduced by:
-commit 8030f54499925d073a88c09f30d5d844fb1b3190
-Author: Herbert Xu <herbert@gondor.apana.org.au>
-Date:   Thu Feb 22 01:53:47 2007 +0900
-
-    [IPV4] devinet: Register inetdev earlier.
-
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/linux/inetdevice.h |  7 +++++
- include/net/neighbour.h    | 13 ++++++++
- net/core/neighbour.c       | 74 ++++++++++++++++++++++++++++++++++++++++++----
- net/ipv4/devinet.c         |  2 ++
- net/ipv4/ipmr.c            |  2 ++
- 5 files changed, 92 insertions(+), 6 deletions(-)
+ include/net/neighbour.h |  7 ++++++-
+ net/core/neighbour.c    | 14 +++++++++++++-
+ net/ipv4/arp.c          |  2 +-
+ net/ipv4/devinet.c      |  2 +-
+ net/ipv6/addrconf.c     |  2 +-
+ net/ipv6/ndisc.c        |  2 +-
+ 6 files changed, 23 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index 0d678ae..ae174ca 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -220,6 +220,13 @@ static inline struct in_device *__in_dev_get_rtnl(const struct net_device *dev)
- 	return rtnl_dereference(dev->ip_ptr);
- }
- 
-+static inline struct neigh_parms *__in_dev_arp_parms_get_rcu(const struct net_device *dev)
-+{
-+	struct in_device *in_dev = __in_dev_get_rcu(dev);
-+
-+	return in_dev ? in_dev->arp_parms : NULL;
-+}
-+
- void in_dev_finish_destroy(struct in_device *idev);
- 
- static inline void in_dev_put(struct in_device *idev)
 diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index 95615c9..41b1ce6 100644
+index ed7eba0..95615c9 100644
 --- a/include/net/neighbour.h
 +++ b/include/net/neighbour.h
-@@ -21,6 +21,7 @@
- #include <linux/skbuff.h>
- #include <linux/rcupdate.h>
- #include <linux/seq_file.h>
-+#include <linux/bitmap.h>
- 
- #include <linux/err.h>
- #include <linux/sysctl.h>
-@@ -81,16 +82,28 @@ struct neigh_parms {
- 
- 	int	reachable_time;
- 	int	data[NEIGH_VAR_DATA_MAX];
-+	DECLARE_BITMAP(data_state, NEIGH_VAR_DATA_MAX);
+@@ -202,6 +202,11 @@ struct neigh_table {
+ 	struct pneigh_entry	**phash_buckets;
  };
  
- static inline void neigh_var_set(struct neigh_parms *p, int index, int val)
- {
-+	set_bit(index, p->data_state);
- 	p->data[index] = val;
- }
- 
- #define NEIGH_VAR(p, attr) ((p)->data[NEIGH_VAR_ ## attr])
- #define NEIGH_VAR_SET(p, attr, val) neigh_var_set(p, NEIGH_VAR_ ## attr, val)
- 
-+static inline void neigh_parms_data_state_setall(struct neigh_parms *p)
++static inline int neigh_parms_family(struct neigh_parms *p)
 +{
-+	bitmap_fill(p->data_state, NEIGH_VAR_DATA_MAX);
++	return p->tbl->family;
 +}
 +
-+static inline void neigh_parms_data_state_cleanall(struct neigh_parms *p)
-+{
-+	bitmap_zero(p->data_state, NEIGH_VAR_DATA_MAX);
-+}
-+
- struct neigh_statistics {
- 	unsigned long allocs;		/* number of allocated neighs */
- 	unsigned long destroys;		/* number of destroyed neighs */
+ #define NEIGH_PRIV_ALIGN	sizeof(long long)
+ #define NEIGH_ENTRY_SIZE(size)	ALIGN((size), NEIGH_PRIV_ALIGN)
+ 
+@@ -306,7 +311,7 @@ int neigh_proc_dointvec_ms_jiffies(struct ctl_table *ctl, int write,
+ 				   size_t *lenp, loff_t *ppos);
+ 
+ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
+-			  char *p_name, proc_handler *proc_handler);
++			  proc_handler *proc_handler);
+ void neigh_sysctl_unregister(struct neigh_parms *p);
+ 
+ static inline void __neigh_parms_put(struct neigh_parms *parms)
 diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 65ead08..c4a7879 100644
+index 60edd97..65ead08 100644
 --- a/net/core/neighbour.c
 +++ b/net/core/neighbour.c
-@@ -38,6 +38,7 @@
- #include <linux/random.h>
- #include <linux/string.h>
- #include <linux/log2.h>
-+#include <linux/inetdevice.h>
+@@ -2947,12 +2947,13 @@ static struct neigh_sysctl_table {
+ };
  
- #define DEBUG
- #define NEIGH_DEBUG 1
-@@ -1464,6 +1465,8 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
- 		p->next		= tbl->parms.next;
- 		tbl->parms.next = p;
- 		write_unlock_bh(&tbl->lock);
-+
-+		neigh_parms_data_state_cleanall(p);
- 	}
- 	return p;
- }
-@@ -2813,22 +2816,68 @@ static int proc_unres_qlen(struct ctl_table *ctl, int write,
- 	return ret;
- }
+ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
+-			  char *p_name, proc_handler *handler)
++			  proc_handler *handler)
+ {
+ 	int i;
+ 	struct neigh_sysctl_table *t;
+ 	const char *dev_name_source;
+ 	char neigh_path[ sizeof("net//neigh/") + IFNAMSIZ + IFNAMSIZ ];
++	char *p_name;
  
-+static struct neigh_parms *neigh_get_dev_parms_rcu(struct net_device *dev,
-+						   int family)
-+{
-+	if (family == AF_INET)
-+		return __in_dev_arp_parms_get_rcu(dev);
-+	return NULL;
-+}
-+
-+static void neigh_copy_dflt_parms(struct net *net, struct neigh_parms *p,
-+				  int index)
-+{
-+	struct net_device *dev;
-+	int family = neigh_parms_family(p);
-+
-+	rcu_read_lock();
-+	for_each_netdev_rcu(net, dev) {
-+		struct neigh_parms *dst_p =
-+				neigh_get_dev_parms_rcu(dev, family);
-+
-+		if (dst_p && !test_bit(index, dst_p->data_state))
-+			dst_p->data[index] = p->data[index];
+ 	t = kmemdup(&neigh_sysctl_template, sizeof(*t), GFP_KERNEL);
+ 	if (!t)
+@@ -2991,6 +2992,17 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
+ 	if (neigh_parms_net(p)->user_ns != &init_user_ns)
+ 		t->neigh_vars[0].procname = NULL;
+ 
++	switch (neigh_parms_family(p)) {
++	case AF_INET:
++	      p_name = "ipv4";
++	      break;
++	case AF_INET6:
++	      p_name = "ipv6";
++	      break;
++	default:
++	      BUG();
 +	}
-+	rcu_read_unlock();
-+}
 +
-+static void neigh_proc_update(struct ctl_table *ctl, int write)
-+{
-+	struct net_device *dev = ctl->extra1;
-+	struct neigh_parms *p = ctl->extra2;
-+	struct net *net = p->net;
-+	int index = (int *) ctl->data - p->data;
-+
-+	if (!write)
-+		return;
-+
-+	set_bit(index, p->data_state);
-+	if (!dev) /* NULL dev means this is default value */
-+		neigh_copy_dflt_parms(net, p, index);
-+}
-+
- static int neigh_proc_dointvec_zero_intmax(struct ctl_table *ctl, int write,
- 					   void __user *buffer,
- 					   size_t *lenp, loff_t *ppos)
- {
- 	struct ctl_table tmp = *ctl;
-+	int ret;
- 
- 	tmp.extra1 = &zero;
- 	tmp.extra2 = &int_max;
- 
--	return proc_dointvec_minmax(&tmp, write, buffer, lenp, ppos);
-+	ret = proc_dointvec_minmax(&tmp, write, buffer, lenp, ppos);
-+	neigh_proc_update(ctl, write);
-+	return ret;
+ 	snprintf(neigh_path, sizeof(neigh_path), "net/%s/neigh/%s",
+ 		p_name, dev_name_source);
+ 	t->sysctl_header =
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 3a37c7d..f041858 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1287,7 +1287,7 @@ void __init arp_init(void)
+ 	dev_add_pack(&arp_packet_type);
+ 	arp_proc_init();
+ #ifdef CONFIG_SYSCTL
+-	neigh_sysctl_register(NULL, &arp_tbl.parms, "ipv4", NULL);
++	neigh_sysctl_register(NULL, &arp_tbl.parms, NULL);
+ #endif
+ 	register_netdevice_notifier(&arp_netdev_notifier);
  }
- 
- int neigh_proc_dointvec(struct ctl_table *ctl, int write,
- 			void __user *buffer, size_t *lenp, loff_t *ppos)
- {
--	return proc_dointvec(ctl, write, buffer, lenp, ppos);
-+	int ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-+
-+	neigh_proc_update(ctl, write);
-+	return ret;
- }
- EXPORT_SYMBOL(neigh_proc_dointvec);
- 
-@@ -2836,7 +2885,10 @@ int neigh_proc_dointvec_jiffies(struct ctl_table *ctl, int write,
- 				void __user *buffer,
- 				size_t *lenp, loff_t *ppos)
- {
--	return proc_dointvec_jiffies(ctl, write, buffer, lenp, ppos);
-+	int ret = proc_dointvec_jiffies(ctl, write, buffer, lenp, ppos);
-+
-+	neigh_proc_update(ctl, write);
-+	return ret;
- }
- EXPORT_SYMBOL(neigh_proc_dointvec_jiffies);
- 
-@@ -2844,14 +2896,20 @@ static int neigh_proc_dointvec_userhz_jiffies(struct ctl_table *ctl, int write,
- 					      void __user *buffer,
- 					      size_t *lenp, loff_t *ppos)
- {
--	return proc_dointvec_userhz_jiffies(ctl, write, buffer, lenp, ppos);
-+	int ret = proc_dointvec_userhz_jiffies(ctl, write, buffer, lenp, ppos);
-+
-+	neigh_proc_update(ctl, write);
-+	return ret;
- }
- 
- int neigh_proc_dointvec_ms_jiffies(struct ctl_table *ctl, int write,
- 				   void __user *buffer,
- 				   size_t *lenp, loff_t *ppos)
- {
--	return proc_dointvec_ms_jiffies(ctl, write, buffer, lenp, ppos);
-+	int ret = proc_dointvec_ms_jiffies(ctl, write, buffer, lenp, ppos);
-+
-+	neigh_proc_update(ctl, write);
-+	return ret;
- }
- EXPORT_SYMBOL(neigh_proc_dointvec_ms_jiffies);
- 
-@@ -2859,7 +2917,10 @@ static int neigh_proc_dointvec_unres_qlen(struct ctl_table *ctl, int write,
- 					  void __user *buffer,
- 					  size_t *lenp, loff_t *ppos)
- {
--	return proc_unres_qlen(ctl, write, buffer, lenp, ppos);
-+	int ret = proc_unres_qlen(ctl, write, buffer, lenp, ppos);
-+
-+	neigh_proc_update(ctl, write);
-+	return ret;
- }
- 
- #define NEIGH_PARMS_DATA_OFFSET(index)	\
-@@ -2962,6 +3023,7 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
- 	for (i = 0; i < ARRAY_SIZE(t->neigh_vars); i++) {
- 		t->neigh_vars[i].data += (long) p;
- 		t->neigh_vars[i].extra1 = dev;
-+		t->neigh_vars[i].extra2 = p;
- 	}
- 
- 	if (dev) {
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index e1c1953..43065be 100644
+index a1b5bcb..e1c1953 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -500,6 +500,7 @@ static int inet_set_ifa(struct net_device *dev, struct in_ifaddr *ifa)
- 		return -ENOBUFS;
- 	}
- 	ipv4_devconf_setall(in_dev);
-+	neigh_parms_data_state_setall(in_dev->arp_parms);
- 	if (ifa->ifa_dev != in_dev) {
- 		WARN_ON(ifa->ifa_dev);
- 		in_dev_hold(in_dev);
-@@ -747,6 +748,7 @@ static struct in_ifaddr *rtm_to_ifaddr(struct net *net, struct nlmsghdr *nlh,
- 		goto errout;
+@@ -2160,7 +2160,7 @@ static void __devinet_sysctl_unregister(struct ipv4_devconf *cnf)
  
- 	ipv4_devconf_setall(in_dev);
-+	neigh_parms_data_state_setall(in_dev->arp_parms);
- 	in_dev_hold(in_dev);
+ static void devinet_sysctl_register(struct in_device *idev)
+ {
+-	neigh_sysctl_register(idev->dev, idev->arp_parms, "ipv4", NULL);
++	neigh_sysctl_register(idev->dev, idev->arp_parms, NULL);
+ 	__devinet_sysctl_register(dev_net(idev->dev), idev->dev->name,
+ 					&idev->cnf);
+ }
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 26b46e9..0b05ad8 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4993,7 +4993,7 @@ static void __addrconf_sysctl_unregister(struct ipv6_devconf *p)
  
- 	if (tb[IFA_ADDRESS] == NULL)
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 62212c7..421a249 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -425,6 +425,7 @@ struct net_device *ipmr_new_tunnel(struct net *net, struct vifctl *v)
- 				goto failure;
+ static void addrconf_sysctl_register(struct inet6_dev *idev)
+ {
+-	neigh_sysctl_register(idev->dev, idev->nd_parms, "ipv6",
++	neigh_sysctl_register(idev->dev, idev->nd_parms,
+ 			      &ndisc_ifinfo_sysctl_change);
+ 	__addrconf_sysctl_register(dev_net(idev->dev), idev->dev->name,
+ 					idev, &idev->cnf);
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 5fc6f69..09a22f4 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1730,7 +1730,7 @@ int __init ndisc_init(void)
+ 	neigh_table_init(&nd_tbl);
  
- 			ipv4_devconf_setall(in_dev);
-+			neigh_parms_data_state_setall(in_dev->arp_parms);
- 			IPV4_DEVCONF(in_dev->cnf, RP_FILTER) = 0;
- 
- 			if (dev_open(dev))
-@@ -517,6 +518,7 @@ static struct net_device *ipmr_reg_vif(struct net *net, struct mr_table *mrt)
- 	}
- 
- 	ipv4_devconf_setall(in_dev);
-+	neigh_parms_data_state_setall(in_dev->arp_parms);
- 	IPV4_DEVCONF(in_dev->cnf, RP_FILTER) = 0;
- 	rcu_read_unlock();
- 
+ #ifdef CONFIG_SYSCTL
+-	err = neigh_sysctl_register(NULL, &nd_tbl.parms, "ipv6",
++	err = neigh_sysctl_register(NULL, &nd_tbl.parms,
+ 				    &ndisc_ifinfo_sysctl_change);
+ 	if (err)
+ 		goto out_unregister_pernet;
 -- 
 1.8.3.1
