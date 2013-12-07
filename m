@@ -1,231 +1,42 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/14] i40e: enable early hardware support
-Date: Fri,  6 Dec 2013 18:17:14 -0800
-Message-ID: <1386382643-29055-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/14] i40e: whitespace
+Date: Fri,  6 Dec 2013 18:17:15 -0800
+Message-ID: <1386382643-29055-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1386382643-29055-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:14062 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:64593 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758132Ab3LGCR2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Dec 2013 21:17:28 -0500
+	id S1758146Ab3LGCR3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Dec 2013 21:17:29 -0500
 In-Reply-To: <1386382643-29055-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Whitespace fixes
 
-Enable a couple of workarounds based on revision ID that allow the
-driver to work more fully on early hardware.
-
+Change-Id: I95f4d02e4a2a92d6b6fca3ae2b7865c4b916a9bb
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h          |  1 +
- drivers/net/ethernet/intel/i40e/i40e_common.c   | 22 ++++++++---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 49 ++++++++++++++++++++++---
- drivers/net/ethernet/intel/i40e/i40e_register.h |  6 +++
- 4 files changed, 68 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_register.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index df685bc..5aa2ea2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -61,6 +61,7 @@
- #define I40E_BASE_VSI_SEID    512
- #define I40E_BASE_VEB_SEID    288
- #define I40E_MAX_VEB          16
-+#define I40E_MAX_NPAR_QPS     32
- 
- #define I40E_MAX_NUM_DESCRIPTORS      4096
- #define I40E_MAX_REGISTER     0x0038FFFF
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 1300d3d..0b52fbc 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -312,6 +312,8 @@ static enum i40e_media_type i40e_get_media_type(struct i40e_hw *hw)
- 	return media;
- }
- 
-+#define I40E_PF_RESET_WAIT_COUNT_A0	200
-+#define I40E_PF_RESET_WAIT_COUNT	10
- /**
-  * i40e_pf_reset - Reset the PF
-  * @hw: pointer to the hardware structure
-@@ -321,7 +323,7 @@ static enum i40e_media_type i40e_get_media_type(struct i40e_hw *hw)
-  **/
- i40e_status i40e_pf_reset(struct i40e_hw *hw)
- {
--	u32 wait_cnt = 0;
-+	u32 cnt = 0;
- 	u32 reg = 0;
- 	u32 grst_del;
- 
-@@ -331,7 +333,7 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
- 	 */
- 	grst_del = rd32(hw, I40E_GLGEN_RSTCTL) & I40E_GLGEN_RSTCTL_GRSTDEL_MASK
- 			>> I40E_GLGEN_RSTCTL_GRSTDEL_SHIFT;
--	for (wait_cnt = 0; wait_cnt < grst_del + 2; wait_cnt++) {
-+	for (cnt = 0; cnt < grst_del + 2; cnt++) {
- 		reg = rd32(hw, I40E_GLGEN_RSTAT);
- 		if (!(reg & I40E_GLGEN_RSTAT_DEVSTATE_MASK))
- 			break;
-@@ -352,11 +354,15 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
- 	/* If there was a Global Reset in progress when we got here,
- 	 * we don't need to do the PF Reset
- 	 */
--	if (!wait_cnt) {
-+	if (!cnt) {
-+		if (hw->revision_id == 0)
-+			cnt = I40E_PF_RESET_WAIT_COUNT_A0;
-+		else
-+			cnt = I40E_PF_RESET_WAIT_COUNT;
- 		reg = rd32(hw, I40E_PFGEN_CTRL);
- 		wr32(hw, I40E_PFGEN_CTRL,
- 		     (reg | I40E_PFGEN_CTRL_PFSWR_MASK));
--		for (wait_cnt = 0; wait_cnt < 10; wait_cnt++) {
-+		for (; cnt; cnt--) {
- 			reg = rd32(hw, I40E_PFGEN_CTRL);
- 			if (!(reg & I40E_PFGEN_CTRL_PFSWR_MASK))
- 				break;
-@@ -385,7 +391,13 @@ void i40e_clear_pxe_mode(struct i40e_hw *hw)
- 
- 	/* Clear single descriptor fetch/write-back mode */
- 	reg = rd32(hw, I40E_GLLAN_RCTL_0);
--	wr32(hw, I40E_GLLAN_RCTL_0, (reg | I40E_GLLAN_RCTL_0_PXE_MODE_MASK));
-+
-+	if (hw->revision_id == 0) {
-+		/* As a work around clear PXE_MODE instead of setting it */
-+		wr32(hw, I40E_GLLAN_RCTL_0, (reg & (~I40E_GLLAN_RCTL_0_PXE_MODE_MASK)));
-+	} else {
-+		wr32(hw, I40E_GLLAN_RCTL_0, (reg | I40E_GLLAN_RCTL_0_PXE_MODE_MASK));
-+	}
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b6d6494..ee8152b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -574,10 +574,11 @@ static void i40e_update_veb_stats(struct i40e_veb *veb)
- 	i40e_stat_update32(hw, I40E_GLSW_TDPC(idx),
- 			   veb->stat_offsets_loaded,
- 			   &oes->tx_discards, &es->tx_discards);
--	i40e_stat_update32(hw, I40E_GLSW_RUPP(idx),
--			   veb->stat_offsets_loaded,
--			   &oes->rx_unknown_protocol, &es->rx_unknown_protocol);
--
-+	if (hw->revision_id > 0)
-+		i40e_stat_update32(hw, I40E_GLSW_RUPP(idx),
-+				   veb->stat_offsets_loaded,
-+				   &oes->rx_unknown_protocol,
-+				   &es->rx_unknown_protocol);
- 	i40e_stat_update48(hw, I40E_GLSW_GORCH(idx), I40E_GLSW_GORCL(idx),
- 			   veb->stat_offsets_loaded,
- 			   &oes->rx_bytes, &es->rx_bytes);
-@@ -2240,7 +2241,10 @@ static int i40e_configure_rx_ring(struct i40e_ring *ring)
- 	rx_ctx.tphwdesc_ena = 1;
- 	rx_ctx.tphdata_ena = 1;
- 	rx_ctx.tphhead_ena = 1;
--	rx_ctx.lrxqthresh = 2;
-+	if (hw->revision_id == 0)
-+		rx_ctx.lrxqthresh = 0;
-+	else
-+		rx_ctx.lrxqthresh = 2;
- 	rx_ctx.crcstrip = 1;
- 	rx_ctx.l2tsel = 1;
- 	rx_ctx.showiv = 1;
-@@ -3021,6 +3025,9 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
- 		}
- 	}
- 
-+	if (hw->revision_id == 0)
-+		mdelay(50);
-+
- 	return 0;
- }
- 
-@@ -4612,6 +4619,13 @@ static int i40e_get_capabilities(struct i40e_pf *pf)
- 		}
- 	} while (err);
- 
-+	if (pf->hw.revision_id == 0 && pf->hw.func_caps.npar_enable) {
-+		pf->hw.func_caps.num_msix_vectors += 1;
-+		pf->hw.func_caps.num_tx_qp =
-+			min_t(int, pf->hw.func_caps.num_tx_qp,
-+			      I40E_MAX_NPAR_QPS);
-+	}
-+
- 	if (pf->hw.debug_mask & I40E_DEBUG_USER)
- 		dev_info(&pf->pdev->dev,
- 			 "pf=%d, num_vfs=%d, msix_pf=%d, msix_vf=%d, fd_g=%d, fd_b=%d, pf_max_q=%d num_vsi=%d\n",
-@@ -4623,6 +4637,15 @@ static int i40e_get_capabilities(struct i40e_pf *pf)
- 			 pf->hw.func_caps.num_tx_qp,
- 			 pf->hw.func_caps.num_vsis);
- 
-+#define DEF_NUM_VSI (1 + (pf->hw.func_caps.fcoe ? 1 : 0) \
-+		       + pf->hw.func_caps.num_vfs)
-+	if (pf->hw.revision_id == 0 && (DEF_NUM_VSI > pf->hw.func_caps.num_vsis)) {
-+		dev_info(&pf->pdev->dev,
-+			 "got num_vsis %d, setting num_vsis to %d\n",
-+			 pf->hw.func_caps.num_vsis, DEF_NUM_VSI);
-+		pf->hw.func_caps.num_vsis = DEF_NUM_VSI;
-+	}
-+
- 	return 0;
- }
- 
-@@ -5618,7 +5641,12 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 		    I40E_FLAG_MQ_ENABLED      |
- 		    I40E_FLAG_RX_1BUF_ENABLED;
- 
-+	/* Depending on PF configurations, it is possible that the RSS
-+	 * maximum might end up larger than the available queues
-+	 */
- 	pf->rss_size_max = 0x1 << pf->hw.func_caps.rss_table_entry_width;
-+	pf->rss_size_max = min_t(int, pf->rss_size_max,
-+				 pf->hw.func_caps.num_tx_qp);
- 	if (pf->hw.func_caps.rss) {
- 		pf->flags |= I40E_FLAG_RSS_ENABLED;
- 		pf->rss_size = min_t(int, pf->rss_size_max,
-@@ -7142,6 +7170,17 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	hw->bus.device = PCI_SLOT(pdev->devfn);
- 	hw->bus.func = PCI_FUNC(pdev->devfn);
- 
-+	/* do a special CORER for clearing PXE mode once at init */
-+	if (hw->revision_id == 0 &&
-+	    (rd32(hw, I40E_GLLAN_RCTL_0) & I40E_GLLAN_RCTL_0_PXE_MODE_MASK)) {
-+		wr32(hw, I40E_GLGEN_RTRIG, I40E_GLGEN_RTRIG_CORER_MASK);
-+		i40e_flush(hw);
-+		msleep(200);
-+		pf->corer_count++;
-+
-+		i40e_clear_pxe_mode(hw);
-+	}
-+
- 	/* Reset here to make sure all is clean and to define PF 'n' */
- 	err = i40e_pf_reset(hw);
- 	if (err) {
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_register.h b/drivers/net/ethernet/intel/i40e/i40e_register.h
-index db4958b..46a2f40 100644
+index 46a2f40..2394c66 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_register.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e_register.h
-@@ -2187,6 +2187,12 @@
- #define I40E_GLPCI_PCIERR 0x000BE4FC
- #define I40E_GLPCI_PCIERR_PCIE_ERR_REP_SHIFT 0
- #define I40E_GLPCI_PCIERR_PCIE_ERR_REP_MASK (0xFFFFFFFF << I40E_GLPCI_PCIERR_PCIE_ERR_REP_SHIFT)
-+#define I40E_GLPCI_PCITEST2 0x000BE4BC
-+#define I40E_GLPCI_PCITEST2_IOV_TEST_MODE_SHIFT 0
-+#define I40E_GLPCI_PCITEST2_IOV_TEST_MODE_MASK (0x1 << I40E_GLPCI_PCITEST2_IOV_TEST_MODE_SHIFT)
-+#define I40E_GLPCI_PCITEST2_TAG_ALLOC_SHIFT 1
-+#define I40E_GLPCI_PCITEST2_TAG_ALLOC_MASK (0x1 << I40E_GLPCI_PCITEST2_TAG_ALLOC_SHIFT)
+@@ -66,6 +66,7 @@
+ #define I40E_PFPCI_VM_FLUSH_DONE 0x0009C880
+ #define I40E_PFPCI_VM_FLUSH_DONE_FLUSH_DONE_SHIFT 0
+ #define I40E_PFPCI_VM_FLUSH_DONE_FLUSH_DONE_MASK (0x1 << I40E_PFPCI_VM_FLUSH_DONE_FLUSH_DONE_SHIFT)
 +
- #define I40E_GLPCI_PKTCT 0x0009C4BC
- #define I40E_GLPCI_PKTCT_PCI_COUNT_BW_PCT_SHIFT 0
- #define I40E_GLPCI_PKTCT_PCI_COUNT_BW_PCT_MASK (0xFFFFFFFF << I40E_GLPCI_PKTCT_PCI_COUNT_BW_PCT_SHIFT)
+ #define I40E_PF_ARQBAH 0x00080180
+ #define I40E_PF_ARQBAH_ARQBAH_SHIFT 0
+ #define I40E_PF_ARQBAH_ARQBAH_MASK (0xFFFFFFFF << I40E_PF_ARQBAH_ARQBAH_SHIFT)
 -- 
 1.8.3.1
