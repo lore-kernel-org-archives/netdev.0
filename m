@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v4 0/11] bonding: rebuild the lock use for bond monitor
-Date: Sat, 7 Dec 2013 15:45:23 +0800
-Message-ID: <52A2D213.70102@huawei.com>
+Subject: [PATCH net-next v4 5/11] bonding: create bond_first_slave_rcu()
+Date: Sat, 7 Dec 2013 15:45:47 +0800
+Message-ID: <52A2D22B.7090109@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -10,89 +10,90 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Nikolay Aleksandrov <nikolay@redhat.com>
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:2550 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751396Ab3LGHqN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 02:46:13 -0500
+Received: from szxga02-in.huawei.com ([119.145.14.65]:5900 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751396Ab3LGHqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 02:46:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now the bond slave list is not protected by bond lock, only by RTNL,
-but the monitor still use the bond lock to protect the slave list,
-it is useless, according to the Veaceslav's opinion, there were
-three way to fix the protect problem:
+The bond_first_slave_rcu() will be used to instead of bond_first_slave()
+in rcu_read_lock().
 
-1. add bond_master_upper_dev_link() and bond_upper_dev_unlink()
-   in bond->lock, but it is unsafe to call call_netdevice_notifiers()
-   in write lock.
-2. remove unused bond->lock for monitor function, only use the exist
-   rtnl lock(), it will take performance loss in fast path.
-3. use RCU to protect the slave list, of course, performance is better,
-   but in slow path, it is ignored.
+According to the Jay Vosburgh's suggestion, the struct netdev_adjacent
+should hide from users who wanted to use it directly. so I package a
+new function to get the first slave of the bond.
 
-obviously the solution 1 is not fit here, I will consider the 2 and 3
-solution. My principle is simple, if in fast path, RCU is better,
-otherwise in slow path, both is well, but according to the Jay Vosburgh's
-opinion, the monitor will loss performace if use RTNL to protect the all
-slave list, so remove the bond lock and replace with RCU.
+Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
+Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bonding.h |  4 ++++
+ include/linux/netdevice.h     |  1 +
+ net/core/dev.c                | 21 +++++++++++++++++++++
+ 3 files changed, 26 insertions(+)
 
-The second problem is the curr_slave_lock for bond, it is too old and
-unwanted in many place, because the curr_active_slave would only be
-changed in 3 place:
-
-1. enslave slave.
-2. release slave.
-3. change active slave.
-
-all above were already holding bond lock, RTNL and curr_slave_lock
-together, it is tedious and no need to add so mach lock, when change
-the curr_active_slave, you have to hold the RTNL and curr_slave_lock
-together, and when you read the curr_active_slave, RTNL or curr_slave_lock,
-any one of them is no problem.
-
-for the stability, I did not change the logic for the monitor,
-all change is clear and simple, I have test the patch set for lockdep,
-it work well and stability.
-
-v2. accept the Jay Vosburgh's opinion, remove the RTNL and replace with RCU,
-    also add some rcu function for bond use, so the patch set reach 10.
-
-v3. accept the Nikolay Aleksandrov's opinion, remove no needed bond_has_slave_rcu(),
-    add protection for several 3ad mode handler functions and current_arp_slave.
-    rebuild the bond_first_slave_rcu(), make it more clear.
-
-v4. because the struct netdev_adjacent should not be exist in netdevice.h, so I have
-    to make a new function to support micro bond_first_slave_rcu().
-    also add a new patch to simplify the bond_resend_igmp_join_requests_delayed().
-
-Best Regards
-Ding Tianhong
-
-Ding Tianhong (11):
-  bonding: remove the no effect lock for bond_select_active_slave()
-  bonding: rebuild the lock use for bond_mii_monitor()
-  bonding: rebuild the lock use for bond_alb_monitor()
-  bonding: rebuild the lock use for bond_loadbalance_arp_mon()
-  bonding: create bond_first_slave_rcu()
-  bonding: rebuild the lock use for bond_activebackup_arp_mon()
-  bonding: rebuild the lock use for bond_3ad_state_machine_handler()
-  bonding: remove unwanted lock for bond_option_active_slave_set()
-  bonding: remove unwanted lock for bond enslave and release
-  bonding: remove unwanted lock for bond_store_primaryxxx()
-  bonding: rebuild the bond_resend_igmp_join_requests_delayed()
-
- drivers/net/bonding/bond_3ad.c     |  53 +++++++-----
- drivers/net/bonding/bond_alb.c     |  34 +++-----
- drivers/net/bonding/bond_main.c    | 172 ++++++++++++++++---------------------
- drivers/net/bonding/bond_options.c |   2 -
- drivers/net/bonding/bond_sysfs.c   |   4 -
- drivers/net/bonding/bonding.h      |   4 +
- include/linux/netdevice.h          |   1 +
- net/core/dev.c                     |  21 +++++
- 8 files changed, 142 insertions(+), 149 deletions(-)
-
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 77a07a1..9337f8a 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -91,6 +91,10 @@
+ 		netdev_adjacent_get_private(bond_slave_list(bond)->prev) : \
+ 		NULL)
+ 
++/* Caller must have rcu_read_lock */
++#define bond_first_slave_rcu(bond) \
++	netdev_lower_get_first_private_rcu(bond->dev)
++
+ #define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
+ #define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
+ 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 15fa01c..abfcfad 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2869,6 +2869,7 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
+ 
+ void *netdev_adjacent_get_private(struct list_head *adj_list);
++void *netdev_lower_get_first_private_rcu(struct net_device *dev);
+ struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+ struct net_device *netdev_master_upper_dev_get_rcu(struct net_device *dev);
+ int netdev_upper_dev_link(struct net_device *dev, struct net_device *upper_dev);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8ffc52e..51feddb 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4570,6 +4570,27 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ EXPORT_SYMBOL(netdev_lower_get_next_private_rcu);
+ 
+ /**
++ * netdev_lower_get_first_private_rcu - Get the first ->private from the
++ *				       lower neighbour list, RCU
++ *				       variant
++ * @dev: device
++ *
++ * Gets the first netdev_adjacent->private from the dev's lower neighbour
++ * list. The caller must hold RCU read lock.
++ */
++void *netdev_lower_get_first_private_rcu(struct net_device *dev)
++{
++	struct netdev_adjacent *lower;
++
++	lower = list_first_or_null_rcu(&dev->adj_list.lower,
++			struct netdev_adjacent, list);
++	if (lower)
++		return lower->private;
++	return NULL;
++}
++EXPORT_SYMBOL(netdev_lower_get_first_private_rcu);
++
++/**
+  * netdev_master_upper_dev_get_rcu - Get master upper device
+  * @dev: device
+  *
 -- 
 1.8.2.1
