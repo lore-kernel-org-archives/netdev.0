@@ -1,103 +1,48 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [patch net/stable v2] br: fix use of ->rx_handler_data in code
- executed on non-rx_handler path
-Date: Sat, 07 Dec 2013 14:10:45 -0500
-Message-ID: <52A372B5.8010602@gmail.com>
-References: <1386257257-25258-1-git-send-email-jiri@resnulli.us> <20131206.154321.1673089712073824539.davem@davemloft.net> <20131206131028.41b5b8b1@nehalam.linuxnetplumber.net> <20131207085105.GA2496@minipsycho.orion>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 09/14] i40e: Enable all PCTYPEs except FCOE for RSS.
+Date: Sat, 07 Dec 2013 23:12:31 +0300
+Message-ID: <52A3812F.4070701@cogentembedded.com>
+References: <1386382643-29055-1-git-send-email-jeffrey.t.kirsher@intel.com>	 <1386382643-29055-10-git-send-email-jeffrey.t.kirsher@intel.com>	 <52A36235.1040406@cogentembedded.com> <1386440208.2195.3.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jtluka@redhat.com, zhiguohong@tencent.com,
-	bridge@lists.linux-foundation.org, edumazet@google.com,
-	laine@redhat.com, mst@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Cc: davem@davemloft.net,
+	Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f50.google.com ([209.85.216.50]:33915 "EHLO
-	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754307Ab3LGTKs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 14:10:48 -0500
-Received: by mail-qa0-f50.google.com with SMTP id i13so1511661qae.16
-        for <netdev@vger.kernel.org>; Sat, 07 Dec 2013 11:10:47 -0800 (PST)
-In-Reply-To: <20131207085105.GA2496@minipsycho.orion>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:61892 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755619Ab3LGTM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 14:12:29 -0500
+Received: by mail-lb0-f179.google.com with SMTP id l4so779787lbv.38
+        for <netdev@vger.kernel.org>; Sat, 07 Dec 2013 11:12:27 -0800 (PST)
+In-Reply-To: <1386440208.2195.3.camel@jtkirshe-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/07/2013 03:51 AM, Jiri Pirko wrote:
-> Fri, Dec 06, 2013 at 10:10:28PM CET, stephen@networkplumber.org wrote:
->> On Fri, 06 Dec 2013 15:43:21 -0500 (EST)
->> David Miller <davem@davemloft.net> wrote:
->>
->>> From: Jiri Pirko <jiri@resnulli.us>
->>> Date: Thu,  5 Dec 2013 16:27:37 +0100
->>>
->>>> br_stp_rcv() is reached by non-rx_handler path. That means there is no
->>>> guarantee that dev is bridge port and therefore simple NULL check of
->>>> ->rx_handler_data is not enough. There is need to check if dev is really
->>>> bridge port and since only rcu read lock is held here, do it by checking
->>>> ->rx_handler pointer.
->>>>
->>>> Note that synchronize_net() in netdev_rx_handler_unregister() ensures
->>>> this approach as valid.
->>>>
->>>> Introduced originally by:
->>>> commit f350a0a87374418635689471606454abc7beaa3a
->>>>   "bridge: use rx_handler_data pointer to store net_bridge_port pointer"
->>>>
->>>> Fixed but not in the best way by:
->>>> commit b5ed54e94d324f17c97852296d61a143f01b227a
->>>>   "bridge: fix RCU races with bridge port"
->>>>
->>>> Reintroduced by:
->>>> commit 716ec052d2280d511e10e90ad54a86f5b5d4dcc2
->>>>   "bridge: fix NULL pointer deref of br_port_get_rcu"
->>>>
->>>> Please apply to stable trees as well. Thanks.
->>>>
->>>> RH bugzilla reference: https://bugzilla.redhat.com/show_bug.cgi?id=1025770
->>>>
->>>> Reported-by: Laine Stump <laine@redhat.com>
->>>> Debugged-by: Michael S. Tsirkin <mst@redhat.com>
->>>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>>> ---
->>>> v1->v2: moved br_port_get_check_rcu definition below br_handle_frame definition
->>>
->>> Applied and queued up for -stable, thanks Jiri.
->>
->> How come you ignored my simpler fix, that used the existing logic.
->> I don't like introducing this especially into the stable; much prefer
->> to go back to testing the flag as was being done before.
-> 
-> Although your patch is technically sane, it depends on rtnl indirectly.
+Hello.
 
-Pardon my ignorance, but I've been staring at this and I can't for
-the life of me see the dependency.
+On 12/07/2013 09:16 PM, Jeff Kirsher wrote:
 
-The IFF_BRIDGE_PORT flag is set after the rx_handler is registered,
-so we are safe there.  The rcu primitives will guarantee that the flag
-will be set by the time rx_handler and rx_handler_data are set.
+>>> From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-The flag is cleared before rx_handler is unregistered, so it is
-still valid to check for it in stp code.  Once the flag is cleared
-we may still have a valid rx_handler during the rcu grace period, but
-will still avoid doing processing.
+>>> RSS can steer packets based on recognition of all
+>>> sorts of different headers.  Enable some more of them.
 
-So, where is the dependency on the rtnl?
+>>> Change-Id: I2264dedae66fb0bceca6fb6e772e050e3ca8efc8
 
-Thanks
--vlad
+>>      This line has no place in the upstream patches, and I'm seeing it
+>> in
+>> several patches of this series.
 
-> My patch depends on rcu locking and synchronize_rcu which is direct.
-> Therefore I think it is more appropriate.
-> 
-> Jiri
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> This is an internal hash id, so that we can track upstream changes back
+> to internal git tree changes.  I did verify that this was acceptable and
+> is being used in the kernel in upstream patches before pushing this
+> information.
+
+    First time I hear about that. Its use is constantly denied in linux-usb at 
+least. Maybe netdev has its own rules regarding this though...
+
+WBR, Sergei
