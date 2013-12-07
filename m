@@ -1,45 +1,75 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: netfilter: ipset: fix incorret comparison in
- hash_netnet4_data_equal()
-Date: Sat, 7 Dec 2013 23:34:36 +0100
-Message-ID: <20131207223436.GA3927@localhost>
-References: <20131114154101.GA22625@redhat.com>
- <20131125214511.GA10043@localhost>
- <19530135.WLZhKuFLxq@gentoovm>
- <alpine.DEB.2.10.1312072052580.11375@blackhole.kfki.hu>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v2] sh_eth: add R8A7791 support
+Date: Sun, 8 Dec 2013 02:59:18 +0300
+Message-ID: <201312080259.19163.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oliver <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>,
-	Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.10.1312072052580.11375@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:35122 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753222Ab3LGW7T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 17:59:19 -0500
+Received: by mail-la0-f44.google.com with SMTP id ep20so821642lab.17
+        for <netdev@vger.kernel.org>; Sat, 07 Dec 2013 14:59:18 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 07, 2013 at 08:53:52PM +0100, Jozsef Kadlecsik wrote:
-> On Sat, 7 Dec 2013, Oliver wrote:
-> 
-> > On Monday 25 November 2013 22:45:11 Pablo Neira Ayuso wrote:
-> > > On Thu, Nov 14, 2013 at 10:41:01AM -0500, Dave Jones wrote:
-> > > > Both sides of the comparison are the same, looks like a cut-and-paste
-> > > > error.
-> > 
-> > Just a typo unfortunately.
-> > 
-> > The change should definitely make its way into mainline before 3.13 gets 
-> > released - is it on track to be pulled into davem's net tree or should I 
-> > get that sorted out myself?
-> 
-> I'm going to submit the patch to Pablo at the beginning of next week, so 
-> it'll follow the normal track.
+Add support for yet another ARM member of the R-Car family, R-Car M2, also known
+as R8A7791 -- it will share the code and data with previously added R8A7790.
+Despite the Ether devices in these SoCs are indistinguishable at least from the
+driver's point of view, we do introduce a new platform device ID "r8a7791-ether"
+unlike the wildcard ID used for R8A7778/9 SoCs, due to newly established policy
+for the Renesas SoCs.
 
-JFYI, I applied this already:
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-http://www.spinics.net/lists/netfilter-devel/msg29031.html
+---
+This patch is atop of DaveM's 'net-next.git' repo.
 
-If unsure, please check my tree:
+Changes in version 2:
+- added a new platform device ID for R8A7791 instead of changing the existing ID
+  for R8A7790 to a R8A779x wildcard ID.
 
-http://git.kernel.org/cgit/linux/kernel/git/pablo/nf.git/
+ drivers/net/ethernet/renesas/Kconfig  |    2 +-
+ drivers/net/ethernet/renesas/sh_eth.c |    7 ++++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
+
+Index: net-next/drivers/net/ethernet/renesas/Kconfig
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/Kconfig
++++ net-next/drivers/net/ethernet/renesas/Kconfig
+@@ -13,4 +13,4 @@ config SH_ETH
+ 	  Renesas SuperH Ethernet device driver.
+ 	  This driver supporting CPUs are:
+ 		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
+-		  R8A7740, R8A777x and R8A7790.
++		  R8A7740, R8A777x and R8A779x.
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -395,8 +395,8 @@ static struct sh_eth_cpu_data r8a777x_da
+ 	.hw_swap	= 1,
+ };
+ 
+-/* R8A7790 */
+-static struct sh_eth_cpu_data r8a7790_data = {
++/* R8A7790/1 */
++static struct sh_eth_cpu_data r8a779x_data = {
+ 	.set_duplex	= sh_eth_set_duplex,
+ 	.set_rate	= sh_eth_set_rate_r8a777x,
+ 
+@@ -2807,7 +2807,8 @@ static struct platform_device_id sh_eth_
+ 	{ "sh7763-gether", (kernel_ulong_t)&sh7763_data },
+ 	{ "r8a7740-gether", (kernel_ulong_t)&r8a7740_data },
+ 	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
+-	{ "r8a7790-ether", (kernel_ulong_t)&r8a7790_data },
++	{ "r8a7790-ether", (kernel_ulong_t)&r8a779x_data },
++	{ "r8a7791-ether", (kernel_ulong_t)&r8a779x_data },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(platform, sh_eth_id_table);
