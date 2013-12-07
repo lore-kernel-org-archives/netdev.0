@@ -1,68 +1,112 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v5 1/2] sctp: check the rto_min and rto_max
-Date: Sat, 07 Dec 2013 22:12:22 +0100
-Message-ID: <52A38F36.8080609@redhat.com>
-References: <1386400651-21744-1-git-send-email-wangweidong1@huawei.com> <1386400651-21744-2-git-send-email-wangweidong1@huawei.com> <52A31805.8020305@redhat.com> <52A37080.2010703@gmail.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: vxlan/veth performance issues on net.git + latest kernels
+Date: Sat, 7 Dec 2013 23:20:40 +0200
+Message-ID: <CAJZOPZLqVxS_=9CLfodz2=ncZ0K2xEJaOVoUWUgoSDY7q4yKWg@mail.gmail.com>
+References: <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
+	<1386105850.30495.38.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAJZOPZ+vnqLpdjS0TNdxDa4CNTzzfqp1=Ftjf86Fd5Lb+QdSzw@mail.gmail.com>
+	<20131203.165034.1085515763685633822.davem@davemloft.net>
+	<1386107714.30495.40.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAJZOPZ+bkvg4G6qzY6YmMui9-KmGmpHyFCJUD2xsFLOXm12rgA@mail.gmail.com>
+	<1386115199.30495.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAMEtUuzEM957fRjsb5aSG7xHWKp13fy59QxWpsU_=d+-6ydazg@mail.gmail.com>
+	<1386117362.30495.49.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAMEtUuy8HA1nOQJTnxy+p7vNFV25zxMAmz1fh2spj0k4hYgh4w@mail.gmail.com>
+	<1386120216.30495.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAJZOPZK8UnjGYDdZ4=6BQq55WviSkKA36WHfsmk03u6S7BxZNA@mail.gmail.com>
+	<1386337011.30495.253.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Wang Weidong <wangweidong1@huawei.com>, nhorman@tuxdriver.com,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	David Miller <davem@davemloft.net>,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Jerry Chu <hkchu@google.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62986 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754375Ab3LGVMi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Dec 2013 16:12:38 -0500
-In-Reply-To: <52A37080.2010703@gmail.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:47417 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754506Ab3LGVUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 16:20:41 -0500
+Received: by mail-pd0-f176.google.com with SMTP id w10so2909205pde.7
+        for <netdev@vger.kernel.org>; Sat, 07 Dec 2013 13:20:41 -0800 (PST)
+In-Reply-To: <1386337011.30495.253.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/07/2013 08:01 PM, Vlad Yasevich wrote:
-> On 12/07/2013 07:43 AM, Daniel Borkmann wrote:
->> On 12/07/2013 08:17 AM, Wang Weidong wrote:
->>> rto_min should be smaller than rto_max while rto_max should be larger
->>> than rto_min. Add two proc_handler for the checking. Add the check in
->>> sctp_setsockopt_rtoinfo.
->>>
->>> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
->>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->>> ---
+On Fri, Dec 6, 2013 at 3:36 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2013-12-06 at 11:06 +0200, Or Gerlitz wrote:
+>> On Wed, Dec 4, 2013 at 3:23 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > skb->dev is in the first cache line, where we access skb->next anyway.
+>> > I could use skb->cb[] like the following patch :
 >>
->> Thanks Wang, also for your second patch.
+>> Hi Eric, I applied on the net tree the patch you posted yesterday
+>> "net: introduce dev_consume_skb_any()" along with the network drivers
+>> part of this patch, unless I got it wrong, I assume both pieces are
+>> needed?
 >>
->> Second one looks good to me, thanks for the cleanup!
+>> So I re-run the vxlan/veth test that we suspect goes through packet drops on TX.
 >>
->> I was wondering where 86400000 comes from? Looking through the git
->> history didn't give much clues and the RFC4960 neither. Clearly,
->> section 15 of RFC4960 *recommends* as initial values ...
+>> With the patches applied I have almost no samples of that event
 >>
->>    RTO.Initial - 3 seconds
->>    RTO.Min - 1 second
->>    RTO.Max - 60 seconds
->>
->> ... which we have as constants in [1] and are assigned to globals
->> initially in [2,3] with those recommended values. That's all good.
->>
->> But still [not *directly* related to your patch though], where does
->> 86400000 come from? I expect that's for the max SCTP heartbeat
->> interval or max cookie lifetime?
+>> $ ./perf report -i perf.data
 >
-> No, initially it was defined as rto_timer_max and was the upper bound
-> for the rto timer.   When you think about it, it's a bit ridiculous
-> really.  What you are saying is that your rto timer is allowed to
-> grow as long as 1 day, so you would at an absolute maximum retransmit
-> one packet per day :)
+> How did you get this perf.data file ? There are a few drops.
 
-Exactly, maybe initial SCTP implementors already took into account
-we could have SCTP connections to other galaxies, but clearly untested
-so far? :)
+Using the command you suggested on the active side while running
+traffic (iperf tcp)
 
-I think we should be absolutely fine with a max configurable upper
-limit of twice the recommended RTO.Max value from the RFC.
+$ ./perf record -e skb:kfree_skb -g -a sleep 10
 
-> I don't think this limit is specified anywhere as is though.  It
-> was something that's been there since the 2.5 days.
+>> Samples: 89  of event 'skb:kfree_skb', Event count (approx.): 89
+>> +  39.33%  ksoftirqd/2  [kernel.kallsyms]  [k] net_tx_action
+>> +  28.09%      swapper  [kernel.kallsyms]  [k] net_tx_action
+>> +  28.09%         sshd  [kernel.kallsyms]  [k] net_tx_action
+>> +   2.25%      swapper  [kernel.kallsyms]  [k] kfree_skb
+>> +   1.12%  kworker/2:2  [kernel.kallsyms]  [k] net_tx_action
+>> +   1.12%        iperf  [kernel.kallsyms]  [k] net_tx_action
+
+>>  ./perf report -i perf.data --sort dso,symbol
+>> Samples: 89  of event 'skb:kfree_skb', Event count (approx.): 89
+>> +  97.75%  [kernel.kallsyms]  [k] net_tx_action
+>> +   2.25%  [kernel.kallsyms]  [k] kfree_skb
+>> --
+
+> OK, this means your driver drops few packets in its ndo_start_xmit()
+> handler.
 >
-> -vlad
+> Could you give us "ifconfig -a" reports as I already asked  ?
+
+will do tomorrow while infront of the setup.
+
+When I provided you the info last time
+http://marc.info/?l=linux-netdev&m=138610891121531&w=2 it included the
+ifconfig -a output and no drops were seen there
+
+
+>
+> You could temporary change the dev_kfree_skb_any() in mlx4_en_xmit()
+> to call kfree_skb(skb) instead, to get  a stack trace (perf record -a -g
+> -e skb:kfree_skb sleep 20 ; perf report)
+
+yes, tomorrow
+
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> index f54ebd5a1702..53130f27dec0 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> @@ -873,7 +873,7 @@ tx_drop_unmap:
+>         }
+>
+>  tx_drop:
+> -       dev_kfree_skb_any(skb);
+> +       kfree_skb(skb);
+>         priv->stats.tx_dropped++;
+>         return NETDEV_TX_OK;
+>  }
+>
+>
