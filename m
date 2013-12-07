@@ -1,41 +1,31 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/2] ipv6 addrconf: extend ifa_flags to u32
-Date: Sat, 7 Dec 2013 09:51:47 +0100
-Message-ID: <20131207085147.GB2496@minipsycho.orion>
-References: <1386319522-2102-1-git-send-email-jiri@resnulli.us>
- <1386319522-2102-2-git-send-email-jiri@resnulli.us>
- <20131206.163518.1817492341433351545.davem@davemloft.net>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH] bgmac: connect to PHY and make use of PHY device
+Date: Sat, 7 Dec 2013 10:09:55 +0100
+Message-ID: <CACna6ryyzKo4mg9Y=sfuA4i_QJv_+cSNYwXsmfgWmO2UDDweWQ@mail.gmail.com>
+References: <1386374035-31762-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
-	stephen@networkplumber.org, hannes@stressinduktion.org,
-	vyasevich@gmail.com, dcbw@redhat.com, David.Laight@ACULAB.COM
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hauke Mehrtens <hauke@hauke-m.de>
+To: Network Development <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f45.google.com ([74.125.83.45]:62207 "EHLO
-	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752036Ab3LGIvv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 03:51:51 -0500
-Received: by mail-ee0-f45.google.com with SMTP id d49so673750eek.4
-        for <netdev@vger.kernel.org>; Sat, 07 Dec 2013 00:51:50 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20131206.163518.1817492341433351545.davem@davemloft.net>
+Received: from mail-oa0-f47.google.com ([209.85.219.47]:62829 "EHLO
+	mail-oa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752181Ab3LGJJ5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 04:09:57 -0500
+Received: by mail-oa0-f47.google.com with SMTP id k1so1907588oag.20
+        for <netdev@vger.kernel.org>; Sat, 07 Dec 2013 01:09:57 -0800 (PST)
+In-Reply-To: <1386374035-31762-1-git-send-email-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Dec 06, 2013 at 10:35:18PM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Fri,  6 Dec 2013 09:45:21 +0100
->
->> There is no more space in u8 ifa_flags. So do what davem suffested and
->> add another netlink attr called IFA_FLAGS for carry more flags.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> Signed-off-by: Thomas Haller <thaller@redhat.com>
->
->Applied, can you extend the handling of this attribute to the other
->protocols as I asked you to?
+2013/12/7 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
+> This change was successfully tested on BCM5357. I was able to
+> autonegotiate 1000Mb/s full duplex, as well as force any of the
+> 10/100/1000 half/full modes.
 
+Today I've tested this patch on BCM4706 with out-of-tree b53 PHY
+driver. It is still working, I can choose any speed on my PC.
 
-Will send follow-up. Thanks.
+So this patch should be good & safe for all users.
