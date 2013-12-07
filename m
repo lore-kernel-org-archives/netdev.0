@@ -1,75 +1,63 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v2] sh_eth: add R8A7791 support
-Date: Sun, 8 Dec 2013 02:59:18 +0300
-Message-ID: <201312080259.19163.sergei.shtylyov@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/3] Netfilter fixes for net
+Date: Sun,  8 Dec 2013 00:13:27 +0100
+Message-ID: <1386458010-4615-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:35122 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753222Ab3LGW7T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 17:59:19 -0500
-Received: by mail-la0-f44.google.com with SMTP id ep20so821642lab.17
-        for <netdev@vger.kernel.org>; Sat, 07 Dec 2013 14:59:18 -0800 (PST)
+Received: from mail.us.es ([193.147.175.20]:43620 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754183Ab3LGXNo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Dec 2013 18:13:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for yet another ARM member of the R-Car family, R-Car M2, also known
-as R8A7791 -- it will share the code and data with previously added R8A7790.
-Despite the Ether devices in these SoCs are indistinguishable at least from the
-driver's point of view, we do introduce a new platform device ID "r8a7791-ether"
-unlike the wildcard ID used for R8A7778/9 SoCs, due to newly established policy
-for the Renesas SoCs.
+Hi David,
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+The following patchset contains three Netfilter fixes for your net tree,
+they are:
 
----
-This patch is atop of DaveM's 'net-next.git' repo.
+* fix incorrect comparison in the new netnet hash ipset type, from
+  Dave Jones.
 
-Changes in version 2:
-- added a new platform device ID for R8A7791 instead of changing the existing ID
-  for R8A7790 to a R8A779x wildcard ID.
+* fix splat in hashlimit due to missing removal of the content of its
+  proc entry in netnamespaces, from Sergey Popovich.
 
- drivers/net/ethernet/renesas/Kconfig  |    2 +-
- drivers/net/ethernet/renesas/sh_eth.c |    7 ++++---
- 2 files changed, 5 insertions(+), 4 deletions(-)
+* fix missing rule flushing operation by table in nf_tables. Table
+  flushing was already discussed back in October but this got lost and
+  no patch has hit the tree to address this issue so far, from me.
 
-Index: net-next/drivers/net/ethernet/renesas/Kconfig
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/Kconfig
-+++ net-next/drivers/net/ethernet/renesas/Kconfig
-@@ -13,4 +13,4 @@ config SH_ETH
- 	  Renesas SuperH Ethernet device driver.
- 	  This driver supporting CPUs are:
- 		- SH7619, SH7710, SH7712, SH7724, SH7734, SH7763, SH7757,
--		  R8A7740, R8A777x and R8A7790.
-+		  R8A7740, R8A777x and R8A779x.
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -395,8 +395,8 @@ static struct sh_eth_cpu_data r8a777x_da
- 	.hw_swap	= 1,
- };
- 
--/* R8A7790 */
--static struct sh_eth_cpu_data r8a7790_data = {
-+/* R8A7790/1 */
-+static struct sh_eth_cpu_data r8a779x_data = {
- 	.set_duplex	= sh_eth_set_duplex,
- 	.set_rate	= sh_eth_set_rate_r8a777x,
- 
-@@ -2807,7 +2807,8 @@ static struct platform_device_id sh_eth_
- 	{ "sh7763-gether", (kernel_ulong_t)&sh7763_data },
- 	{ "r8a7740-gether", (kernel_ulong_t)&r8a7740_data },
- 	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
--	{ "r8a7790-ether", (kernel_ulong_t)&r8a7790_data },
-+	{ "r8a7790-ether", (kernel_ulong_t)&r8a779x_data },
-+	{ "r8a7791-ether", (kernel_ulong_t)&r8a779x_data },
- 	{ }
- };
- MODULE_DEVICE_TABLE(platform, sh_eth_id_table);
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 2c7a9dc1641664173211c4ebc5db510a08684c46:
+
+  be2net: Avoid programming permenant MAC by BE3-R VFs (2013-11-23 15:11:07 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to cf9dc09d0949f0b5953fb08caa10bba0dc7ee71f:
+
+  netfilter: nf_tables: fix missing rules flushing per table (2013-12-07 22:55:48 +0100)
+
+----------------------------------------------------------------
+Dave Jones (1):
+      netfilter: ipset: fix incorret comparison in hash_netnet4_data_equal()
+
+Pablo Neira Ayuso (1):
+      netfilter: nf_tables: fix missing rules flushing per table
+
+Sergey Popovich (1):
+      netfilter: xt_hashlimit: fix proc entry leak in netns destroy path
+
+ net/netfilter/ipset/ip_set_hash_netnet.c |    2 +-
+ net/netfilter/nf_tables_api.c            |   46 +++++++++++++++++++++---------
+ net/netfilter/xt_hashlimit.c             |   25 +++++++---------
+ 3 files changed, 45 insertions(+), 28 deletions(-)
