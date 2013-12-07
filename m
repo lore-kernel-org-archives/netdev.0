@@ -1,48 +1,62 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] bgmac: connect to PHY and make use of PHY device
-Date: Fri, 6 Dec 2013 16:59:26 -0800
-Message-ID: <CAGVrzcbQPugVMG7N7y4BP4d_Z2i_DLRqBPVpbqaFQhA4nbM4sQ@mail.gmail.com>
-References: <1386374035-31762-1-git-send-email-zajec5@gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH v2] virtio-net: free bufs correctly on invalid packet
+	length
+Date: Sat, 07 Dec 2013 11:06:23 +1030
+Message-ID: <87zjod4hvc.fsf@rustcorp.com.au>
+References: <1386278045-23542-1-git-send-email-mwdalton@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:51882 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755901Ab3LGBAH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 20:00:07 -0500
-Received: by mail-pb0-f41.google.com with SMTP id jt11so2024280pbb.28
-        for <netdev@vger.kernel.org>; Fri, 06 Dec 2013 17:00:07 -0800 (PST)
-In-Reply-To: <1386374035-31762-1-git-send-email-zajec5@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrey Vagin <avagin@openvz.org>, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>, Michael Dalton <mwdalton@google.com>
+To: Michael Dalton <mwdalton@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1386278045-23542-1-git-send-email-mwdalton@google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-2013/12/6 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
-> We were already registering MDIO bus, but we were not connecting bgma=
-c
-> to the PHY. Add proper call and implement adjust link function to swi=
-tch
-> MAC into requested state.
-> At the same time it's possible to drop our internal PHY management.
-> This is a "standard" PHY, so the "Generic PHY" driver works perfectly
-> fine with this. Don't duplicate the code.
-> Finally make use of phy_ethtool_[gs]set functions instead implementin=
-g
-> them from scratch.
+Michael Dalton <mwdalton@google.com> writes:
+> When a packet with invalid length arrives, ensure that the packet
+> is freed correctly if mergeable packet buffers and big packets
+> (GUEST_TSO4) are both enabled.
 >
-> This change was successfully tested on BCM5357. I was able to
-> autonegotiate 1000Mb/s full duplex, as well as force any of the
-> 10/100/1000 half/full modes.
+> Signed-off-by: Michael Dalton <mwdalton@google.com>
 
-The diffstat is really impressive, nice job!
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
 
+Thanks!
+
+> ---
+>  drivers/net/virtio_net.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
 >
-> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
---
-=46lorian
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 916241d..6a4665c 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -426,10 +426,10 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+>  	if (unlikely(len < sizeof(struct virtio_net_hdr) + ETH_HLEN)) {
+>  		pr_debug("%s: short packet %i\n", dev->name, len);
+>  		dev->stats.rx_length_errors++;
+> -		if (vi->big_packets)
+> -			give_pages(rq, buf);
+> -		else if (vi->mergeable_rx_bufs)
+> +		if (vi->mergeable_rx_bufs)
+>  			put_page(virt_to_head_page(buf));
+> +		else if (vi->big_packets)
+> +			give_pages(rq, buf);
+>  		else
+>  			dev_kfree_skb(buf);
+>  		return;
+> -- 
+> 1.8.5.1
