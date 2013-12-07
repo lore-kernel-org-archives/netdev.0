@@ -1,63 +1,84 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH] net: allwinner: emac: Add missing free_irq
-Date: Sat, 07 Dec 2013 20:57:05 +0400
-Message-ID: <52A35361.8090608@cogentembedded.com>
-References: <1386415902-32697-1-git-send-email-maxime.ripard@free-electrons.com>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch net/stable v2] br: fix use of ->rx_handler_data in code
+ executed on non-rx_handler path
+Date: Sat, 7 Dec 2013 09:42:35 -0800
+Message-ID: <20131207094235.2541c81f@samsung-9.home.lan>
+References: <1386257257-25258-1-git-send-email-jiri@resnulli.us>
+	<20131206.154321.1673089712073824539.davem@davemloft.net>
+	<20131206131028.41b5b8b1@nehalam.linuxnetplumber.net>
+	<20131207085105.GA2496@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-sunxi+bncBC6MFNV32EFRBX5GRWKQKGQEGYGVIPA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1386415902-32697-1-git-send-email-maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jtluka@redhat.com, zhiguohong@tencent.com,
+	bridge@lists.linux-foundation.org, edumazet@google.com,
+	laine@redhat.com, mst@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:45847 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754180Ab3LGRmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 12:42:39 -0500
+Received: by mail-pd0-f179.google.com with SMTP id r10so2746484pdi.38
+        for <netdev@vger.kernel.org>; Sat, 07 Dec 2013 09:42:38 -0800 (PST)
+In-Reply-To: <20131207085105.GA2496@minipsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Sat, 7 Dec 2013 09:51:05 +0100
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-On 07-12-2013 15:31, Maxime Ripard wrote:
+> Fri, Dec 06, 2013 at 10:10:28PM CET, stephen@networkplumber.org wrote:
+> >On Fri, 06 Dec 2013 15:43:21 -0500 (EST)
+> >David Miller <davem@davemloft.net> wrote:
+> >
+> >> From: Jiri Pirko <jiri@resnulli.us>
+> >> Date: Thu,  5 Dec 2013 16:27:37 +0100
+> >> 
+> >> > br_stp_rcv() is reached by non-rx_handler path. That means there is no
+> >> > guarantee that dev is bridge port and therefore simple NULL check of
+> >> > ->rx_handler_data is not enough. There is need to check if dev is really
+> >> > bridge port and since only rcu read lock is held here, do it by checking
+> >> > ->rx_handler pointer.
+> >> > 
+> >> > Note that synchronize_net() in netdev_rx_handler_unregister() ensures
+> >> > this approach as valid.
+> >> > 
+> >> > Introduced originally by:
+> >> > commit f350a0a87374418635689471606454abc7beaa3a
+> >> >   "bridge: use rx_handler_data pointer to store net_bridge_port pointer"
+> >> > 
+> >> > Fixed but not in the best way by:
+> >> > commit b5ed54e94d324f17c97852296d61a143f01b227a
+> >> >   "bridge: fix RCU races with bridge port"
+> >> > 
+> >> > Reintroduced by:
+> >> > commit 716ec052d2280d511e10e90ad54a86f5b5d4dcc2
+> >> >   "bridge: fix NULL pointer deref of br_port_get_rcu"
+> >> > 
+> >> > Please apply to stable trees as well. Thanks.
+> >> > 
+> >> > RH bugzilla reference: https://bugzilla.redhat.com/show_bug.cgi?id=1025770
+> >> > 
+> >> > Reported-by: Laine Stump <laine@redhat.com>
+> >> > Debugged-by: Michael S. Tsirkin <mst@redhat.com>
+> >> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> >> > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> >> > ---
+> >> > v1->v2: moved br_port_get_check_rcu definition below br_handle_frame definition
+> >> 
+> >> Applied and queued up for -stable, thanks Jiri.
+> >
+> >How come you ignored my simpler fix, that used the existing logic.
+> >I don't like introducing this especially into the stable; much prefer
+> >to go back to testing the flag as was being done before.
+> 
+> Although your patch is technically sane, it depends on rtnl indirectly.
+> My patch depends on rcu locking and synchronize_rcu which is direct.
+> Therefore I think it is more appropriate.
 
-> The sun4i-emac driver uses devm_request_irq at .ndo_open time, but relies on
-> the managed device mechanism to actually free it. This causes an issue whenever
-> someone wants to restart the interface, the interrupt still being held, and not
-> yet released.
+After more review and thought I agree. But could we put some comments
+in br_private.h to describe the dependency on ordering (synchronize_net).
 
-> Fall back to using the regular request_irq at .ndo_open time, and introduce a
-> free_irq during .ndo_stop.
-
-> Signed-off-by: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-> ---
-> Hi David,
-
-> It would be great if this patch would be applied to 3.13.
-
-> Thanks,
-> Maxime
-
-
->   drivers/net/ethernet/allwinner/sun4i-emac.c | 6 ++++--
->   1 file changed, 4 insertions(+), 2 deletions(-)
-
-> diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
-> index 50b853a..38aba50 100644
-> --- a/drivers/net/ethernet/allwinner/sun4i-emac.c
-> +++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
-> @@ -717,8 +717,8 @@ static int emac_open(struct net_device *dev)
->   	if (netif_msg_ifup(db))
->   		dev_dbg(db->dev, "enabling %s\n", dev->name);
->
-> -	if (devm_request_irq(db->dev, dev->irq, &emac_interrupt,
-> -			     0, dev->name, dev))
-> +	if (request_irq(dev->irq, &emac_interrupt,
-> +			0, dev->name, dev))
-
-    Doesn't it fit into single line?
-
-WBR, Sergei
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
