@@ -1,147 +1,189 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 3/5] neigh: use tbl->family to distinguish ipv4 from ipv6
-Date: Sat,  7 Dec 2013 19:26:55 +0100
-Message-ID: <1386440817-7846-4-git-send-email-jiri@resnulli.us>
-References: <1386440817-7846-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	hannes@stressinduktion.org, bcrl@kvack.org, gaofeng@cn.fujitsu.com,
-	joe@perches.com, herbert@gondor.apana.org.au
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v5 1/2] sctp: check the rto_min and rto_max
+Date: Sat, 07 Dec 2013 13:54:25 -0500
+Message-ID: <52A36EE1.4010209@gmail.com>
+References: <1386400651-21744-1-git-send-email-wangweidong1@huawei.com> <1386400651-21744-2-git-send-email-wangweidong1@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: dborkman@redhat.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Wang Weidong <wangweidong1@huawei.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:45704 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753491Ab3LGS1I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 13:27:08 -0500
-Received: by mail-ea0-f179.google.com with SMTP id r15so843952ead.10
-        for <netdev@vger.kernel.org>; Sat, 07 Dec 2013 10:27:07 -0800 (PST)
-In-Reply-To: <1386440817-7846-1-git-send-email-jiri@resnulli.us>
+Received: from mail-qe0-f42.google.com ([209.85.128.42]:37659 "EHLO
+	mail-qe0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755694Ab3LGSyb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 13:54:31 -0500
+In-Reply-To: <1386400651-21744-2-git-send-email-wangweidong1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- include/net/neighbour.h |  7 ++++++-
- net/core/neighbour.c    | 14 +++++++++++++-
- net/ipv4/arp.c          |  2 +-
- net/ipv4/devinet.c      |  2 +-
- net/ipv6/addrconf.c     |  2 +-
- net/ipv6/ndisc.c        |  2 +-
- 6 files changed, 23 insertions(+), 6 deletions(-)
+On 12/07/2013 02:17 AM, Wang Weidong wrote:
+> rto_min should be smaller than rto_max while rto_max should be larger
+> than rto_min. Add two proc_handler for the checking. Add the check in
+> sctp_setsockopt_rtoinfo.
+> 
+> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> ---
+>  include/net/sctp/constants.h |  3 ++
+>  net/sctp/socket.c            |  5 +++
+>  net/sctp/sysctl.c            | 73 ++++++++++++++++++++++++++++++++++++++++----
+>  3 files changed, 75 insertions(+), 6 deletions(-)
+> 
+> diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+> index 2f0a565..d276978 100644
+> --- a/include/net/sctp/constants.h
+> +++ b/include/net/sctp/constants.h
+> @@ -279,6 +279,9 @@ enum { SCTP_MAX_GABS = 16 };
+>  #define SCTP_RTO_ALPHA          3   /* 1/8 when converted to right shifts. */
+>  #define SCTP_RTO_BETA           2   /* 1/4 when converted to right shifts. */
+>  
+> +#define SCTP_ONE                1        /* 1 ms */
+> +#define SCTP_TIMER_MAX          86400000 /* ms in one day */
+> +
+>  /* Maximum number of new data packets that can be sent in a burst.  */
+>  #define SCTP_DEFAULT_MAX_BURST		4
+>  
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 72046b9..13411ad 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -2818,6 +2818,11 @@ static int sctp_setsockopt_rtoinfo(struct sock *sk, char __user *optval, unsigne
+>  	if (copy_from_user(&rtoinfo, optval, optlen))
+>  		return -EFAULT;
+>  
+> +	if (rtoinfo.srto_min < SCTP_ONE ||
+> +	    rtoinfo.srto_max > SCTP_TIMER_MAX ||
+> +	    rtoinfo.srto_max < rtoinfo.srto_min)
+> +		return -EINVAL;
+> +
 
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index ed7eba0..95615c9 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -202,6 +202,11 @@ struct neigh_table {
- 	struct pneigh_entry	**phash_buckets;
- };
- 
-+static inline int neigh_parms_family(struct neigh_parms *p)
-+{
-+	return p->tbl->family;
-+}
-+
- #define NEIGH_PRIV_ALIGN	sizeof(long long)
- #define NEIGH_ENTRY_SIZE(size)	ALIGN((size), NEIGH_PRIV_ALIGN)
- 
-@@ -306,7 +311,7 @@ int neigh_proc_dointvec_ms_jiffies(struct ctl_table *ctl, int write,
- 				   size_t *lenp, loff_t *ppos);
- 
- int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
--			  char *p_name, proc_handler *proc_handler);
-+			  proc_handler *proc_handler);
- void neigh_sysctl_unregister(struct neigh_parms *p);
- 
- static inline void __neigh_parms_put(struct neigh_parms *parms)
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 60edd97..65ead08 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2947,12 +2947,13 @@ static struct neigh_sysctl_table {
- };
- 
- int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
--			  char *p_name, proc_handler *handler)
-+			  proc_handler *handler)
- {
- 	int i;
- 	struct neigh_sysctl_table *t;
- 	const char *dev_name_source;
- 	char neigh_path[ sizeof("net//neigh/") + IFNAMSIZ + IFNAMSIZ ];
-+	char *p_name;
- 
- 	t = kmemdup(&neigh_sysctl_template, sizeof(*t), GFP_KERNEL);
- 	if (!t)
-@@ -2991,6 +2992,17 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
- 	if (neigh_parms_net(p)->user_ns != &init_user_ns)
- 		t->neigh_vars[0].procname = NULL;
- 
-+	switch (neigh_parms_family(p)) {
-+	case AF_INET:
-+	      p_name = "ipv4";
-+	      break;
-+	case AF_INET6:
-+	      p_name = "ipv6";
-+	      break;
-+	default:
-+	      BUG();
-+	}
-+
- 	snprintf(neigh_path, sizeof(neigh_path), "net/%s/neigh/%s",
- 		p_name, dev_name_source);
- 	t->sysctl_header =
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 3a37c7d..f041858 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -1287,7 +1287,7 @@ void __init arp_init(void)
- 	dev_add_pack(&arp_packet_type);
- 	arp_proc_init();
- #ifdef CONFIG_SYSCTL
--	neigh_sysctl_register(NULL, &arp_tbl.parms, "ipv4", NULL);
-+	neigh_sysctl_register(NULL, &arp_tbl.parms, NULL);
- #endif
- 	register_netdevice_notifier(&arp_netdev_notifier);
- }
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index a1b5bcb..e1c1953 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -2160,7 +2160,7 @@ static void __devinet_sysctl_unregister(struct ipv4_devconf *cnf)
- 
- static void devinet_sysctl_register(struct in_device *idev)
- {
--	neigh_sysctl_register(idev->dev, idev->arp_parms, "ipv4", NULL);
-+	neigh_sysctl_register(idev->dev, idev->arp_parms, NULL);
- 	__devinet_sysctl_register(dev_net(idev->dev), idev->dev->name,
- 					&idev->cnf);
- }
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 26b46e9..0b05ad8 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4993,7 +4993,7 @@ static void __addrconf_sysctl_unregister(struct ipv6_devconf *p)
- 
- static void addrconf_sysctl_register(struct inet6_dev *idev)
- {
--	neigh_sysctl_register(idev->dev, idev->nd_parms, "ipv6",
-+	neigh_sysctl_register(idev->dev, idev->nd_parms,
- 			      &ndisc_ifinfo_sysctl_change);
- 	__addrconf_sysctl_register(dev_net(idev->dev), idev->dev->name,
- 					idev, &idev->cnf);
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 5fc6f69..09a22f4 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1730,7 +1730,7 @@ int __init ndisc_init(void)
- 	neigh_table_init(&nd_tbl);
- 
- #ifdef CONFIG_SYSCTL
--	err = neigh_sysctl_register(NULL, &nd_tbl.parms, "ipv6",
-+	err = neigh_sysctl_register(NULL, &nd_tbl.parms,
- 				    &ndisc_ifinfo_sysctl_change);
- 	if (err)
- 		goto out_unregister_pernet;
--- 
-1.8.3.1
+You can not do the check for srto_min < 1.  The following is the text
+from the spec:
+   All times are given in milliseconds.  A value of 0, when modifying
+   the parameters, indicates that the current value should not be
+   changed.
+
+So, it is valid for a user to pass in a value of 0.  Also, I am not sure
+if it makes sense to bind the upper limit here, as well.
+
+-vlad
+
+>  	asoc = sctp_id2assoc(sk, rtoinfo.srto_assoc_id);
+>  
+>  	/* Set the values to the specific association */
+> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+> index 6b36561..33c56c6 100644
+> --- a/net/sctp/sysctl.c
+> +++ b/net/sctp/sysctl.c
+> @@ -40,8 +40,8 @@
+>  #include <linux/sysctl.h>
+>  
+>  static int zero = 0;
+> -static int one = 1;
+> -static int timer_max = 86400000; /* ms in one day */
+> +static int one = SCTP_ONE;
+> +static int timer_max = SCTP_TIMER_MAX;
+>  static int int_max = INT_MAX;
+>  static int sack_timer_min = 1;
+>  static int sack_timer_max = 500;
+> @@ -61,6 +61,13 @@ static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
+>  				void __user *buffer, size_t *lenp,
+>  
+>  				loff_t *ppos);
+> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
+> +				void __user *buffer, size_t *lenp,
+> +				loff_t *ppos);
+> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+> +				void __user *buffer, size_t *lenp,
+> +				loff_t *ppos);
+> +
+>  static struct ctl_table sctp_table[] = {
+>  	{
+>  		.procname	= "sctp_mem",
+> @@ -102,17 +109,17 @@ static struct ctl_table sctp_net_table[] = {
+>  		.data		= &init_net.sctp.rto_min,
+>  		.maxlen		= sizeof(unsigned int),
+>  		.mode		= 0644,
+> -		.proc_handler	= proc_dointvec_minmax,
+> +		.proc_handler	= proc_sctp_do_rto_min,
+>  		.extra1         = &one,
+> -		.extra2         = &timer_max
+> +		.extra2         = &init_net.sctp.rto_max
+>  	},
+>  	{
+>  		.procname	= "rto_max",
+>  		.data		= &init_net.sctp.rto_max,
+>  		.maxlen		= sizeof(unsigned int),
+>  		.mode		= 0644,
+> -		.proc_handler	= proc_dointvec_minmax,
+> -		.extra1         = &one,
+> +		.proc_handler	= proc_sctp_do_rto_max,
+> +		.extra1         = &init_net.sctp.rto_min,
+>  		.extra2         = &timer_max
+>  	},
+>  	{
+> @@ -342,6 +349,60 @@ static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
+>  	return ret;
+>  }
+>  
+> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
+> +				void __user*buffer, size_t *lenp,
+> +				loff_t *ppos)
+> +{
+> +	struct net *net = current->nsproxy->net_ns;
+> +	int new_value;
+> +	struct ctl_table tbl;
+> +	unsigned int min = *(unsigned int *) ctl->extra1;
+> +	unsigned int max = *(unsigned int *) ctl->extra2;
+> +	int ret;
+> +
+> +	memset(&tbl, 0, sizeof(struct ctl_table));
+> +	tbl.maxlen = sizeof(unsigned int);
+> +
+> +	if (write)
+> +		tbl.data = &new_value;
+> +	else
+> +		tbl.data = &net->sctp.rto_min;
+> +	ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
+> +	if (write) {
+> +		if (ret || new_value > max || new_value < min)
+> +			return -EINVAL;
+> +		net->sctp.rto_min = new_value;
+> +	}
+> +	return ret;
+> +}
+> +
+> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+> +				void __user*buffer, size_t *lenp,
+> +				loff_t *ppos)
+> +{
+> +	struct net *net = current->nsproxy->net_ns;
+> +	int new_value;
+> +	struct ctl_table tbl;
+> +	unsigned int min = *(unsigned int *) ctl->extra1;
+> +	unsigned int max = *(unsigned int *) ctl->extra2;
+> +	int ret;
+> +
+> +	memset(&tbl, 0, sizeof(struct ctl_table));
+> +	tbl.maxlen = sizeof(unsigned int);
+> +
+> +	if (write)
+> +		tbl.data = &new_value;
+> +	else
+> +		tbl.data = &net->sctp.rto_max;
+> +	ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
+> +	if (write) {
+> +                if (ret || new_value > max || new_value < min)
+> +			return -EINVAL;
+> +		net->sctp.rto_max = new_value;
+> +	}
+> +	return ret;
+> +}
+> +
+>  int sctp_sysctl_net_register(struct net *net)
+>  {
+>  	struct ctl_table *table;
+> 
