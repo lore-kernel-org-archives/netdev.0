@@ -1,97 +1,255 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/14] i40e: only set up the rings to be used
-Date: Fri,  6 Dec 2013 18:17:19 -0800
-Message-ID: <1386382643-29055-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/14] i40e: refactor reset code
+Date: Fri,  6 Dec 2013 18:17:17 -0800
+Message-ID: <1386382643-29055-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1386382643-29055-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:44976 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:23891 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758032Ab3LGCRa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Dec 2013 21:17:30 -0500
+	id S1755196Ab3LGCR3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Dec 2013 21:17:29 -0500
 In-Reply-To: <1386382643-29055-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-The VSI may be allocated more queues (alloc_queue_pairs) than actually
-are to be used (num_queue_pairs), so only allocate rings for the queues
-to be used.  The numbers will likely be the same for most VSIs, but can
-be different based on how TCs are assigned and enabled.
+In order to re-size queues and vectors while the interface is
+still up, we need to be able to call functions to free and
+re-allocate without bringing down the VSI.
 
-Change-Id: Ie40f7ad0affbc4b45d6f049bcf02ee2fa24edc74
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+We also need to reset the existing setup, update the
+configuration and then rebuild again. This requires us to have
+the reset flow broken down into two parts.
+
+Change-Id: I374dd25aabf769decda69b676491c7b7730a4635
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 131 ++++++++++++++++++++--------
+ 1 file changed, 95 insertions(+), 36 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 40c64c4..aae2f04 100644
+index 969a687..273db99 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5087,12 +5087,11 @@ static int i40e_vsi_alloc_arrays(struct i40e_vsi *vsi)
- 	int size;
- 	int ret = 0;
+@@ -4716,22 +4716,20 @@ static void i40e_fdir_teardown(struct i40e_pf *pf)
+ }
+ 
+ /**
+- * i40e_handle_reset_warning - prep for the core to reset
++ * i40e_prep_for_reset - prep for the core to reset
+  * @pf: board private structure
+  *
+- * Close up the VFs and other things in prep for a Core Reset,
+- * then get ready to rebuild the world.
+- **/
+-static void i40e_handle_reset_warning(struct i40e_pf *pf)
++ * Close up the VFs and other things in prep for pf Reset.
++  **/
++static int i40e_prep_for_reset(struct i40e_pf *pf)
+ {
+-	struct i40e_driver_version dv;
+ 	struct i40e_hw *hw = &pf->hw;
+ 	i40e_status ret;
+ 	u32 v;
+ 
+ 	clear_bit(__I40E_RESET_INTR_RECEIVED, &pf->state);
+ 	if (test_and_set_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state))
+-		return;
++		return 0;
+ 
+ 	dev_info(&pf->pdev->dev, "Tearing down internal switch for reset\n");
+ 
+@@ -4747,6 +4745,26 @@ static void i40e_handle_reset_warning(struct i40e_pf *pf)
+ 
+ 	i40e_shutdown_adminq(&pf->hw);
+ 
++	/* call shutdown HMC */
++	ret = i40e_shutdown_lan_hmc(hw);
++	if (ret) {
++		dev_info(&pf->pdev->dev, "shutdown_lan_hmc failed: %d\n", ret);
++		clear_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state);
++	}
++	return ret;
++}
++
++/**
++ * i40e_reset_and_rebuild - reset and rebuid using a saved config
++ * @pf: board private structure
++ **/
++static void i40e_reset_and_rebuild(struct i40e_pf *pf)
++{
++	struct i40e_driver_version dv;
++	struct i40e_hw *hw = &pf->hw;
++	i40e_status ret;
++	u32 v;
++
+ 	/* Now we wait for GRST to settle out.
+ 	 * We don't have to delete the VEBs or VSIs from the hw switch
+ 	 * because the reset will make them disappear.
+@@ -4774,13 +4792,6 @@ static void i40e_handle_reset_warning(struct i40e_pf *pf)
+ 		goto end_core_reset;
+ 	}
+ 
+-	/* call shutdown HMC */
+-	ret = i40e_shutdown_lan_hmc(hw);
+-	if (ret) {
+-		dev_info(&pf->pdev->dev, "shutdown_lan_hmc failed: %d\n", ret);
+-		goto end_core_reset;
+-	}
+-
+ 	ret = i40e_init_lan_hmc(hw, hw->func_caps.num_tx_qp,
+ 				hw->func_caps.num_rx_qp,
+ 				pf->fcoe_hmc_cntx_num, pf->fcoe_hmc_filt_num);
+@@ -4874,6 +4885,22 @@ end_core_reset:
+ }
+ 
+ /**
++ * i40e_handle_reset_warning - prep for the pf to reset, reset and rebuild
++ * @pf: board private structure
++ *
++ * Close up the VFs and other things in prep for a Core Reset,
++ * then get ready to rebuild the world.
++ **/
++static void i40e_handle_reset_warning(struct i40e_pf *pf)
++{
++	i40e_status ret;
++
++	ret = i40e_prep_for_reset(pf);
++	if (!ret)
++		i40e_reset_and_rebuild(pf);
++}
++
++/**
+  * i40e_handle_mdd_event
+  * @pf: pointer to the pf structure
+  *
+@@ -5049,6 +5076,40 @@ static int i40e_set_num_rings_in_vsi(struct i40e_vsi *vsi)
+ }
+ 
+ /**
++ * i40e_vsi_alloc_arrays - Allocate queue and vector pointer arrays for the vsi
++ * @type: VSI pointer
++ *
++ * On error: returns error code (negative)
++ * On success: returns 0
++ **/
++static int i40e_vsi_alloc_arrays(struct i40e_vsi *vsi)
++{
++	int size;
++	int ret = 0;
++
++	/* allocate memory for ring pointers */
++	size = sizeof(struct i40e_ring *) * vsi->alloc_queue_pairs * 2;
++	vsi->tx_rings = kzalloc(size, GFP_KERNEL);
++	if (!vsi->tx_rings)
++		return -ENOMEM;
++
++	vsi->rx_rings = &vsi->tx_rings[vsi->alloc_queue_pairs];
++
++	/* allocate memory for q_vector pointers */
++	size = sizeof(struct i40e_q_vectors *) * vsi->num_q_vectors;
++	vsi->q_vectors = kzalloc(size, GFP_KERNEL);
++	if (!vsi->q_vectors) {
++		ret = -ENOMEM;
++		goto err_vectors;
++	}
++	return ret;
++
++err_vectors:
++	kfree(vsi->tx_rings);
++	return ret;
++}
++
++/**
+  * i40e_vsi_mem_alloc - Allocates the next available struct vsi in the PF
+  * @pf: board private structure
+  * @type: type of VSI
+@@ -5060,8 +5121,6 @@ static int i40e_vsi_mem_alloc(struct i40e_pf *pf, enum i40e_vsi_type type)
+ {
+ 	int ret = -ENODEV;
+ 	struct i40e_vsi *vsi;
+-	int sz_vectors;
+-	int sz_rings;
+ 	int vsi_idx;
+ 	int i;
+ 
+@@ -5111,22 +5170,9 @@ static int i40e_vsi_mem_alloc(struct i40e_pf *pf, enum i40e_vsi_type type)
+ 	if (ret)
+ 		goto err_rings;
  
 -	/* allocate memory for ring pointers */
-+	/* allocate memory for both Tx and Rx ring pointers */
- 	size = sizeof(struct i40e_ring *) * vsi->alloc_queue_pairs * 2;
- 	vsi->tx_rings = kzalloc(size, GFP_KERNEL);
- 	if (!vsi->tx_rings)
- 		return -ENOMEM;
+-	sz_rings = sizeof(struct i40e_ring *) * vsi->alloc_queue_pairs * 2;
+-	vsi->tx_rings = kzalloc(sz_rings, GFP_KERNEL);
+-	if (!vsi->tx_rings) {
+-		ret = -ENOMEM;
++	ret = i40e_vsi_alloc_arrays(vsi);
++	if (ret)
+ 		goto err_rings;
+-	}
+-	vsi->rx_rings = &vsi->tx_rings[vsi->alloc_queue_pairs];
 -
- 	vsi->rx_rings = &vsi->tx_rings[vsi->alloc_queue_pairs];
+-	/* allocate memory for q_vector pointers */
+-	sz_vectors = sizeof(struct i40e_q_vectors *) * vsi->num_q_vectors;
+-	vsi->q_vectors = kzalloc(sz_vectors, GFP_KERNEL);
+-	if (!vsi->q_vectors) {
+-		ret = -ENOMEM;
+-		goto err_vectors;
+-	}
  
- 	/* allocate memory for q_vector pointers */
-@@ -5265,7 +5264,7 @@ static s32 i40e_vsi_clear_rings(struct i40e_vsi *vsi)
- 	int i;
+ 	/* Setup default MSIX irq handler for VSI */
+ 	i40e_vsi_setup_irqhandler(vsi, i40e_msix_clean_rings);
+@@ -5135,8 +5181,6 @@ static int i40e_vsi_mem_alloc(struct i40e_pf *pf, enum i40e_vsi_type type)
+ 	ret = vsi_idx;
+ 	goto unlock_pf;
  
- 	if (vsi->tx_rings[0])
--		for (i = 0; i < vsi->alloc_queue_pairs; i++) {
-+		for (i = 0; i < vsi->num_queue_pairs; i++) {
- 			kfree_rcu(vsi->tx_rings[i], rcu);
- 			vsi->tx_rings[i] = NULL;
- 			vsi->rx_rings[i] = NULL;
-@@ -5284,10 +5283,11 @@ static int i40e_alloc_rings(struct i40e_vsi *vsi)
- 	int i;
+-err_vectors:
+- 	kfree(vsi->tx_rings);
+ err_rings:
+ 	pf->next_vsi = i - 1;
+ 	kfree(vsi);
+@@ -5146,6 +5190,23 @@ unlock_pf:
+ }
  
- 	/* Set basic values in the rings to be used later during open() */
--	for (i = 0; i < vsi->alloc_queue_pairs; i++) {
-+	for (i = 0; i < vsi->num_queue_pairs; i++) {
- 		struct i40e_ring *tx_ring;
- 		struct i40e_ring *rx_ring;
+ /**
++ * i40e_vsi_free_arrays - Free queue and vector pointer arrays for the VSI
++ * @type: VSI pointer
++ *
++ * On error: returns error code (negative)
++ * On success: returns 0
++ **/
++static void i40e_vsi_free_arrays(struct i40e_vsi *vsi)
++{
++	/* free the ring and vector containers */
++	kfree(vsi->q_vectors);
++	vsi->q_vectors = NULL;
++	kfree(vsi->tx_rings);
++	vsi->tx_rings = NULL;
++	vsi->rx_rings = NULL;
++}
++
++/**
+  * i40e_vsi_clear - Deallocate the VSI provided
+  * @vsi: the VSI being un-configured
+  **/
+@@ -5181,9 +5242,7 @@ static int i40e_vsi_clear(struct i40e_vsi *vsi)
+ 	i40e_put_lump(pf->qp_pile, vsi->base_queue, vsi->idx);
+ 	i40e_put_lump(pf->irq_pile, vsi->base_vector, vsi->idx);
  
-+		/* allocate space for both Tx and Rx in one shot */
- 		tx_ring = kzalloc(sizeof(struct i40e_ring) * 2, GFP_KERNEL);
- 		if (!tx_ring)
- 			goto err_out;
-@@ -5858,7 +5858,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
- 	int etherdev_size;
+-	/* free the ring and vector containers */
+-	kfree(vsi->q_vectors);
+-	kfree(vsi->tx_rings);
++	i40e_vsi_free_arrays(vsi);
  
- 	etherdev_size = sizeof(struct i40e_netdev_priv);
--	netdev = alloc_etherdev_mq(etherdev_size, vsi->alloc_queue_pairs);
-+	netdev = alloc_etherdev_mq(etherdev_size, vsi->num_queue_pairs);
- 	if (!netdev)
- 		return -ENOMEM;
- 
-@@ -6939,8 +6939,8 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf)
- 		 * into the pf, since this newer code pushes the pf queue
- 		 * info down a level into a VSI
- 		 */
--		pf->num_rx_queues = vsi->alloc_queue_pairs;
--		pf->num_tx_queues = vsi->alloc_queue_pairs;
-+		pf->num_rx_queues = vsi->num_queue_pairs;
-+		pf->num_tx_queues = vsi->num_queue_pairs;
- 	} else {
- 		/* force a reset of TC and queue layout configurations */
- 		u8 enabled_tc = pf->vsi[pf->lan_vsi]->tc_config.enabled_tc;
+ 	pf->vsi[vsi->idx] = NULL;
+ 	if (vsi->idx < pf->next_vsi)
 -- 
 1.8.3.1
