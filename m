@@ -1,202 +1,150 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH net-next 1/6] tipc: add link_kfree_skbuff helper function
-Date: Sat, 7 Dec 2013 12:52:49 +0800
-Message-ID: <52A2A9A1.7000402@huawei.com>
-References: <1386311022-11176-1-git-send-email-wangweidong1@huawei.com> <1386311022-11176-2-git-send-email-wangweidong1@huawei.com> <52A16FF3.7040107@windriver.com> <52A171E4.4070806@huawei.com> <52A1DB98.60109@ericsson.com>
+From: Sage Weil <sage@inktank.com>
+Subject: Re: [PATCH 2/4] Documentation: Document the cephroot functionality
+Date: Fri, 6 Dec 2013 21:57:20 -0800 (PST)
+Message-ID: <alpine.DEB.2.00.1312062154530.1560@cobra.newdream.net>
+References: <1385000024-23463-1-git-send-email-mark.doffman@codethink.co.uk> <1385000024-23463-3-git-send-email-mark.doffman@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ying Xue <ying.xue@windriver.com>, <allan.stephens@windriver.com>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<tipc-discussion@lists.sourceforge.net>
-To: Jon Maloy <jon.maloy@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:50638 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754167Ab3LGE44 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 23:56:56 -0500
-In-Reply-To: <52A1DB98.60109@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: ceph-devel@vger.kernel.org,
+	Rob Taylor <rob.taylor@codethink.co.uk>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-nfs@vger.kernel.org
+To: Mark Doffman <mark.doffman@codethink.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1385000024-23463-3-git-send-email-mark.doffman@codethink.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2013/12/6 22:13, Jon Maloy wrote:
-> Wang,
-> I am very happy to see you posting improvements to TIPC, but please synch up
-> with the TIPC development team (i.e., use tipc_discussion), before posting 
-> it to netdev. As Ying stated,we have a patch series in the pipe that deals 
-> with exactly this issue, and more.
+On Wed, 20 Nov 2013, mark.doffman@codethink.co.uk wrote:
+> From: Rob Taylor <rob.taylor@codethink.co.uk>
 > 
-> Regards
-> ///jon
+> Document using the cephfs as a root device, its purpose,
+> functionality and use.
 > 
+> Signed-off-by: Mark Doffman <mark.doffman@codethink.co.uk>
+> Signed-off-by: Rob Taylor <rob.taylor@codethink.co.uk>
+> Reviewed-by: Ian Molton <ian.molton@codethink.co.uk>
+> ---
+>  Documentation/filesystems/{ => ceph}/ceph.txt |  0
+>  Documentation/filesystems/ceph/cephroot.txt   | 81 +++++++++++++++++++++++++++
+>  2 files changed, 81 insertions(+)
+>  rename Documentation/filesystems/{ => ceph}/ceph.txt (100%)
+>  create mode 100644 Documentation/filesystems/ceph/cephroot.txt
+> 
+> diff --git a/Documentation/filesystems/ceph.txt b/Documentation/filesystems/ceph/ceph.txt
+> similarity index 100%
+> rename from Documentation/filesystems/ceph.txt
+> rename to Documentation/filesystems/ceph/ceph.txt
+> diff --git a/Documentation/filesystems/ceph/cephroot.txt b/Documentation/filesystems/ceph/cephroot.txt
+> new file mode 100644
+> index 0000000..ae0f5bb
+> --- /dev/null
+> +++ b/Documentation/filesystems/ceph/cephroot.txt
+> @@ -0,0 +1,81 @@
+> +Mounting the root filesystem via Ceph (cephroot)
+> +===============================================
+> +
+> +Written 2013 by Rob Taylor <rob.taylor@codethink.co.uk>
+> +
+> +derived from nfsroot.txt:
+> +
+> +Written 1996 by Gero Kuhlmann <gero@gkminix.han.de>
+> +Updated 1997 by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
+> +Updated 2006 by Nico Schottelius <nico-kernel-nfsroot@schottelius.org>
+> +Updated 2006 by Horms <horms@verge.net.au>
+> +
+> +
+> +
+> +In order to use a diskless system, such as an X-terminal or printer server
+> +for example, it is necessary for the root filesystem to be present on a
+> +non-disk device. This may be an initramfs (see Documentation/filesystems/
+> +ramfs-rootfs-initramfs.txt), a ramdisk (see Documentation/initrd.txt), a
+> +filesystem mounted via NFS or a filesystem mounted via Ceph. The following
+> +text describes on how to use Ceph for the root filesystem.
+> +
+> +For the rest of this text 'client' means the diskless system, and 'server'
+> +means the Ceph server.
+> +
+> +
+> +1.) Enabling cephroot capabilities
+> +    -----------------------------
+> +
+> +In order to use cephroot, CEPH_FS needs to be selected as
+> +built-in during configuration. Once this has been selected, the cephroot
+> +option will become available, which should also be selected.
+> +
+> +In the networking options, kernel level autoconfiguration can be selected,
+> +along with the types of autoconfiguration to support. Selecting all of
+> +DHCP, BOOTP and RARP is safe.
+> +
+> +
+> +2.) Kernel command line
+> +    -------------------
+> +
+> +When the kernel has been loaded by a boot loader (see below) it needs to be
+> +told what root fs device to use. And in the case of cephroot, where to find
+> +both the server and the name of the directory on the server to mount as root.
+> +This can be established using the following kernel command line parameters:
+> +
+> +root=/dev/ceph
+> +
+> +This is necessary to enable the pseudo-Ceph-device. Note that it's not a
+> +real device but just a synonym to tell the kernel to use Ceph instead of
+> +a real device.
+> +
+> +cephroot=<monaddr>:/[<subdir>],<ceph-opts>
+> +
+> +  <monaddr>     Monitor address. Each takes the form host[:port]. If the port
+> +		is not specified, the Ceph default of 6789 is assumed.
+> +
+> +  <subdir>	A subdirectory subdir may be specified if a subset of the file
+> +		system is to be mounted
+> +
+> +  <ceph-opts>	Standard Ceph options. All options are separated by commas.
+> +		See Documentation/filesystems/ceph/ceph.txt for options and
+> +		their defaults.
 
-Hi Jon,
+Maybe there is an existing convention here, but: it seems like it would be 
+simpler to do something like
 
-Thanks for your reply. Now I am more clearly about how to do it.
+ cephroot=<ip[:<port>][,...]>:/[<subdir>]
 
-Regards.
-Wang
+i.e., the existing syntax used by mount, that (among other things) can 
+also include a port, or be a list of mon ips, so that the parsing code 
+can be re-used.  Then,
 
+ cephopts=<ceph-opts>
+
+Hopefully this would avoid the parsing in root.c and make things behave 
+more consistently with respect to how mount(8) is used?
+
+sage
+
+> +
+> +4.) References
+> +    ----------
+> +
+> +
+> +5.) Credits
+> +    -------
+> +
+> +  cephroot was derived from nfsroot by Rob Taylor <rob.taylor@codethink.co.uk>
+> +  and Mark Doffman <mark.doffman@codethink.co.uk>
+> +
+> +  The nfsroot code in the kernel and the RARP support have been written
+> +  by Gero Kuhlmann <gero@gkminix.han.de>.
+> +
+> +  The rest of the IP layer autoconfiguration code has been written
+> +  by Martin Mares <mj@atrey.karlin.mff.cuni.cz>.
+> +
+> +  In order to write the initial version of nfsroot I would like to thank
+> +  Jens-Uwe Mager <jum@anubis.han.de> for his help.
+> -- 
+> 1.8.4
 > 
+> --
+> To unsubscribe from this list: send the line "unsubscribe ceph-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
-> 
-> On 12/06/2013 01:42 AM, Wang Weidong wrote:
->> On 2013/12/6 14:34, Ying Xue wrote:
->>> On 12/06/2013 02:23 PM, Wang Weidong wrote:
->>>> replaces some chunks of code that kfree the sk_buff.
->>>> This is just code simplification, no functional changes.
->>>>
->>>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->>>> ---
->>>>  net/tipc/link.c | 58 +++++++++++++++++++--------------------------------------
->>>>  1 file changed, 19 insertions(+), 39 deletions(-)
->>>>
->>>> diff --git a/net/tipc/link.c b/net/tipc/link.c
->>>> index 69cd9bf..1c27d7b 100644
->>>> --- a/net/tipc/link.c
->>>> +++ b/net/tipc/link.c
->>>> @@ -100,6 +100,17 @@ static unsigned int align(unsigned int i)
->>>>  	return (i + 3) & ~3u;
->>>>  }
->>>>  
->>>> +static void link_kfree_skbuff(struct sk_buff *buf)
->>>> +{
->>>> +	struct sk_buff *next;
->>>> +
->>>> +	while (buf) {
->>>> +		next = buf->next;
->>>> +		kfree_skb(buf);
->>>> +		buf = next;
->>>> +	}
->>>> +}
->>>> +
->>>
->>> Your new defined function is unnecessary, instead we already have
->>> another patch doing the same thing with kfree_skb_list(), and the patch
->>> will be to be sent out soon.
->>>
->>> Please see below link:
->>>
->>> http://article.gmane.org/gmane.network.tipc.general/5140/
->>>
->>> And the patch cleans up more things than your patch.
->>>
->>
->> Yes, You are right. 
->> Thanks.
->>
->>> Regards,
->>> Ying
->>>
->>>>  static void link_init_max_pkt(struct tipc_link *l_ptr)
->>>>  {
->>>>  	u32 max_pkt;
->>>> @@ -387,13 +398,8 @@ exit:
->>>>  static void link_release_outqueue(struct tipc_link *l_ptr)
->>>>  {
->>>>  	struct sk_buff *buf = l_ptr->first_out;
->>>> -	struct sk_buff *next;
->>>>  
->>>> -	while (buf) {
->>>> -		next = buf->next;
->>>> -		kfree_skb(buf);
->>>> -		buf = next;
->>>> -	}
->>>> +	link_kfree_skbuff(buf);
->>>>  	l_ptr->first_out = NULL;
->>>>  	l_ptr->out_queue_size = 0;
->>>>  }
->>>> @@ -416,21 +422,12 @@ void tipc_link_reset_fragments(struct tipc_link *l_ptr)
->>>>  void tipc_link_stop(struct tipc_link *l_ptr)
->>>>  {
->>>>  	struct sk_buff *buf;
->>>> -	struct sk_buff *next;
->>>>  
->>>>  	buf = l_ptr->oldest_deferred_in;
->>>> -	while (buf) {
->>>> -		next = buf->next;
->>>> -		kfree_skb(buf);
->>>> -		buf = next;
->>>> -	}
->>>> +	link_kfree_skbuff(buf);
->>>>  
->>>>  	buf = l_ptr->first_out;
->>>> -	while (buf) {
->>>> -		next = buf->next;
->>>> -		kfree_skb(buf);
->>>> -		buf = next;
->>>> -	}
->>>> +	link_kfree_skbuff(buf);
->>>>  
->>>>  	tipc_link_reset_fragments(l_ptr);
->>>>  
->>>> @@ -472,11 +469,7 @@ void tipc_link_reset(struct tipc_link *l_ptr)
->>>>  	kfree_skb(l_ptr->proto_msg_queue);
->>>>  	l_ptr->proto_msg_queue = NULL;
->>>>  	buf = l_ptr->oldest_deferred_in;
->>>> -	while (buf) {
->>>> -		struct sk_buff *next = buf->next;
->>>> -		kfree_skb(buf);
->>>> -		buf = next;
->>>> -	}
->>>> +	link_kfree_skbuff(buf);
->>>>  	if (!list_empty(&l_ptr->waiting_ports))
->>>>  		tipc_link_wakeup_ports(l_ptr, 1);
->>>>  
->>>> @@ -1127,10 +1120,7 @@ again:
->>>>  		if (copy_from_user(buf->data + fragm_crs, sect_crs, sz)) {
->>>>  			res = -EFAULT;
->>>>  error:
->>>> -			for (; buf_chain; buf_chain = buf) {
->>>> -				buf = buf_chain->next;
->>>> -				kfree_skb(buf_chain);
->>>> -			}
->>>> +			link_kfree_skbuff(buf_chain);
->>>>  			return res;
->>>>  		}
->>>>  		sect_crs += sz;
->>>> @@ -1180,18 +1170,12 @@ error:
->>>>  		if (l_ptr->max_pkt < max_pkt) {
->>>>  			sender->max_pkt = l_ptr->max_pkt;
->>>>  			tipc_node_unlock(node);
->>>> -			for (; buf_chain; buf_chain = buf) {
->>>> -				buf = buf_chain->next;
->>>> -				kfree_skb(buf_chain);
->>>> -			}
->>>> +			link_kfree_skbuff(buf_chain);
->>>>  			goto again;
->>>>  		}
->>>>  	} else {
->>>>  reject:
->>>> -		for (; buf_chain; buf_chain = buf) {
->>>> -			buf = buf_chain->next;
->>>> -			kfree_skb(buf_chain);
->>>> -		}
->>>> +		link_kfree_skbuff(buf_chain);
->>>>  		return tipc_port_reject_sections(sender, hdr, msg_sect,
->>>>  						 len, TIPC_ERR_NO_NODE);
->>>>  	}
->>>> @@ -2306,11 +2290,7 @@ static int link_send_long_buf(struct tipc_link *l_ptr, struct sk_buff *buf)
->>>>  		fragm = tipc_buf_acquire(fragm_sz + INT_H_SIZE);
->>>>  		if (fragm == NULL) {
->>>>  			kfree_skb(buf);
->>>> -			while (buf_chain) {
->>>> -				buf = buf_chain;
->>>> -				buf_chain = buf_chain->next;
->>>> -				kfree_skb(buf);
->>>> -			}
->>>> +			link_kfree_skbuff(buf_chain);
->>>>  			return -ENOMEM;
->>>>  		}
->>>>  		msg_set_size(&fragm_hdr, fragm_sz + INT_H_SIZE);
->>>>
->>>
->>>
->>> .
->>>
->>
->>
-> 
-> 
-> .
 > 
