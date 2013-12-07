@@ -1,121 +1,101 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/3] netfilter: xt_hashlimit: fix proc entry leak in netns destroy path
-Date: Sun,  8 Dec 2013 00:13:29 +0100
-Message-ID: <1386458010-4615-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/3] netfilter: nf_tables: fix missing rules flushing per table
+Date: Sun,  8 Dec 2013 00:13:30 +0100
+Message-ID: <1386458010-4615-4-git-send-email-pablo@netfilter.org>
 References: <1386458010-4615-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:43626 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754778Ab3LGXNs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Dec 2013 18:13:48 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1386458010-4615-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sergey Popovich <popovich_sergei@mail.ru>
+This patch allows you to atomically remove all rules stored in
+a table via the NFT_MSG_DELRULE command. You only need to indicate
+the specific table and no chain to flush all rules stored in that
+table.
 
-In (32263dd1b netfilter: xt_hashlimit: fix namespace destroy path)
-the hashlimit_net_exit() function is always called right before
-hashlimit_mt_destroy() to release netns data. If you use xt_hashlimit
-with IPv4 and IPv6 together, this produces the following splat via
-netconsole in the netns destroy path:
-
- Pid: 9499, comm: kworker/u:0 Tainted: G        WC O 3.2.0-5-netctl-amd64-core2
- Call Trace:
-  [<ffffffff8104708d>] ? warn_slowpath_common+0x78/0x8c
-  [<ffffffff81047139>] ? warn_slowpath_fmt+0x45/0x4a
-  [<ffffffff81144a99>] ? remove_proc_entry+0xd8/0x22e
-  [<ffffffff810ebbaa>] ? kfree+0x5b/0x6c
-  [<ffffffffa043c501>] ? hashlimit_net_exit+0x45/0x8d [xt_hashlimit]
-  [<ffffffff8128ab30>] ? ops_exit_list+0x1c/0x44
-  [<ffffffff8128b28e>] ? cleanup_net+0xf1/0x180
-  [<ffffffff810369fc>] ? should_resched+0x5/0x23
-  [<ffffffff8105b8f9>] ? process_one_work+0x161/0x269
-  [<ffffffff8105aea5>] ? cwq_activate_delayed_work+0x3c/0x48
-  [<ffffffff8105c8c2>] ? worker_thread+0xc2/0x145
-  [<ffffffff8105c800>] ? manage_workers.isra.25+0x15b/0x15b
-  [<ffffffff8105fa01>] ? kthread+0x76/0x7e
-  [<ffffffff813581f4>] ? kernel_thread_helper+0x4/0x10
-  [<ffffffff8105f98b>] ? kthread_worker_fn+0x139/0x139
-  [<ffffffff813581f0>] ? gs_change+0x13/0x13
- ---[ end trace d8c3cc0ad163ef79 ]---
- ------------[ cut here ]------------
- WARNING: at /usr/src/linux-3.2.52/debian/build/source_netctl/fs/proc/generic.c:849
- remove_proc_entry+0x217/0x22e()
- Hardware name:
- remove_proc_entry: removing non-empty directory 'net/ip6t_hashlimit', leaking at least 'IN-REJECT'
-
-This is due to lack of removal net/ip6t_hashlimit/* entries in
-hashlimit_proc_net_exit(), since only IPv4 entries are deleted. Fix
-it by always removing the IPv4 and IPv6 entries and their parent
-directories in the netns destroy path.
-
-Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_hashlimit.c |   25 +++++++++++--------------
- 1 file changed, 11 insertions(+), 14 deletions(-)
+ net/netfilter/nf_tables_api.c |   46 +++++++++++++++++++++++++++++------------
+ 1 file changed, 33 insertions(+), 13 deletions(-)
 
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 9ff035c..a3910fc 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -325,21 +325,24 @@ static void htable_gc(unsigned long htlong)
- 	add_timer(&ht->timer);
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index dcddc49..f93b7d0 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -1717,6 +1717,19 @@ nf_tables_delrule_one(struct nft_ctx *ctx, struct nft_rule *rule)
+ 	return -ENOENT;
  }
  
--static void htable_destroy(struct xt_hashlimit_htable *hinfo)
-+static void htable_remove_proc_entry(struct xt_hashlimit_htable *hinfo)
- {
- 	struct hashlimit_net *hashlimit_net = hashlimit_pernet(hinfo->net);
- 	struct proc_dir_entry *parent;
- 
--	del_timer_sync(&hinfo->timer);
--
- 	if (hinfo->family == NFPROTO_IPV4)
- 		parent = hashlimit_net->ipt_hashlimit;
- 	else
- 		parent = hashlimit_net->ip6t_hashlimit;
- 
--	if(parent != NULL)
-+	if (parent != NULL)
- 		remove_proc_entry(hinfo->name, parent);
-+}
- 
-+static void htable_destroy(struct xt_hashlimit_htable *hinfo)
++static int nf_table_delrule_by_chain(struct nft_ctx *ctx)
 +{
-+	del_timer_sync(&hinfo->timer);
-+	htable_remove_proc_entry(hinfo);
- 	htable_selective_cleanup(hinfo, select_all);
- 	kfree(hinfo->name);
- 	vfree(hinfo);
-@@ -883,21 +886,15 @@ static int __net_init hashlimit_proc_net_init(struct net *net)
- static void __net_exit hashlimit_proc_net_exit(struct net *net)
- {
- 	struct xt_hashlimit_htable *hinfo;
--	struct proc_dir_entry *pde;
- 	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
++	struct nft_rule *rule;
++	int err;
++
++	list_for_each_entry(rule, &ctx->chain->rules, list) {
++		err = nf_tables_delrule_one(ctx, rule);
++		if (err < 0)
++			return err;
++	}
++	return 0;
++}
++
+ static int nf_tables_delrule(struct sock *nlsk, struct sk_buff *skb,
+ 			     const struct nlmsghdr *nlh,
+ 			     const struct nlattr * const nla[])
+@@ -1725,8 +1738,8 @@ static int nf_tables_delrule(struct sock *nlsk, struct sk_buff *skb,
+ 	const struct nft_af_info *afi;
+ 	struct net *net = sock_net(skb->sk);
+ 	const struct nft_table *table;
+-	struct nft_chain *chain;
+-	struct nft_rule *rule, *tmp;
++	struct nft_chain *chain = NULL;
++	struct nft_rule *rule;
+ 	int family = nfmsg->nfgen_family, err = 0;
+ 	struct nft_ctx ctx;
  
--	/* recent_net_exit() is called before recent_mt_destroy(). Make sure
--	 * that the parent xt_recent proc entry is is empty before trying to
--	 * remove it.
-+	/* hashlimit_net_exit() is called before hashlimit_mt_destroy().
-+	 * Make sure that the parent ipt_hashlimit and ip6t_hashlimit proc
-+	 * entries is empty before trying to remove it.
- 	 */
- 	mutex_lock(&hashlimit_mutex);
--	pde = hashlimit_net->ipt_hashlimit;
--	if (pde == NULL)
--		pde = hashlimit_net->ip6t_hashlimit;
--
- 	hlist_for_each_entry(hinfo, &hashlimit_net->htables, node)
--		remove_proc_entry(hinfo->name, pde);
--
-+		htable_remove_proc_entry(hinfo);
- 	hashlimit_net->ipt_hashlimit = NULL;
- 	hashlimit_net->ip6t_hashlimit = NULL;
- 	mutex_unlock(&hashlimit_mutex);
+@@ -1738,22 +1751,29 @@ static int nf_tables_delrule(struct sock *nlsk, struct sk_buff *skb,
+ 	if (IS_ERR(table))
+ 		return PTR_ERR(table);
+ 
+-	chain = nf_tables_chain_lookup(table, nla[NFTA_RULE_CHAIN]);
+-	if (IS_ERR(chain))
+-		return PTR_ERR(chain);
++	if (nla[NFTA_RULE_CHAIN]) {
++		chain = nf_tables_chain_lookup(table, nla[NFTA_RULE_CHAIN]);
++		if (IS_ERR(chain))
++			return PTR_ERR(chain);
++	}
+ 
+ 	nft_ctx_init(&ctx, skb, nlh, afi, table, chain, nla);
+ 
+-	if (nla[NFTA_RULE_HANDLE]) {
+-		rule = nf_tables_rule_lookup(chain, nla[NFTA_RULE_HANDLE]);
+-		if (IS_ERR(rule))
+-			return PTR_ERR(rule);
++	if (chain) {
++		if (nla[NFTA_RULE_HANDLE]) {
++			rule = nf_tables_rule_lookup(chain,
++						     nla[NFTA_RULE_HANDLE]);
++			if (IS_ERR(rule))
++				return PTR_ERR(rule);
+ 
+-		err = nf_tables_delrule_one(&ctx, rule);
+-	} else {
+-		/* Remove all rules in this chain */
+-		list_for_each_entry_safe(rule, tmp, &chain->rules, list) {
+ 			err = nf_tables_delrule_one(&ctx, rule);
++		} else {
++			err = nf_table_delrule_by_chain(&ctx);
++		}
++	} else {
++		list_for_each_entry(chain, &table->chains, list) {
++			ctx.chain = chain;
++			err = nf_table_delrule_by_chain(&ctx);
+ 			if (err < 0)
+ 				break;
+ 		}
 -- 
 1.7.10.4
+
