@@ -1,7 +1,8 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v4 11/11] bonding: rebuild the bond_resend_igmp_join_requests_delayed()
-Date: Sat, 7 Dec 2013 15:46:12 +0800
-Message-ID: <52A2D244.3000107@huawei.com>
+Subject: [PATCH net-next v4 9/11] bonding: remove unwanted lock for bond enslave
+ and release
+Date: Sat, 7 Dec 2013 15:46:04 +0800
+Message-ID: <52A2D23C.7060806@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,71 +13,144 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:5992 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752403Ab3LGHqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 02:46:49 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:2597 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752403Ab3LGHrA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 02:47:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_resend_igmp_join_requests_delayed() and
-bond_resend_igmp_join_requests() should be integrated,
-because the bond_resend_igmp_join_requests_delayed() did
-nothing except bond_resend_igmp_join_requests().
+The bond_change_active_slave() and bond_select_active_slave()
+don't need bond lock anymore, so remove the unwanted bond lock
+for these two functions.
 
-The bond igmp_retrans could only be changed in bond_change_active_slave
-and here, bond_change_active_slave will be called in RTNL and curr_slave_lock,
-the bond_resend_igmp_join_requests already hold RTNL, so no need
-to free RTNL and hold curr_slave_lock again, it may be a small optimization,
-so move the igmp_retrans in RTNL and remove the curr_slave_lock.
+The bond_select_active_slave() will release and acquire
+curr_slave_lock, so the curr_slave_lock need to protect
+the function.
 
+In bond enslave and bond release, the bond slave list is also
+protected by RTNL, so bond lock is no need to exist, remove
+the lock and clean the functions.
+
+Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
+Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 21 +++++----------------
- 1 file changed, 5 insertions(+), 16 deletions(-)
+ drivers/net/bonding/bond_main.c | 27 ++++++---------------------
+ 1 file changed, 6 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 77fdb78..556a53d 100644
+index d9bb5ee..77fdb78 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -591,33 +591,22 @@ static int bond_set_allmulti(struct bonding *bond, int inc)
-  * device and retransmit an IGMP JOIN request to the current active
-  * slave.
-  */
--static void bond_resend_igmp_join_requests(struct bonding *bond)
-+static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
- {
-+	struct bonding *bond = container_of(work, struct bonding,
-+					    mcast_work.work);
-+
- 	if (!rtnl_trylock()) {
- 		queue_delayed_work(bond->wq, &bond->mcast_work, 1);
- 		return;
- 	}
- 	call_netdevice_notifiers(NETDEV_RESEND_IGMP, bond->dev);
--	rtnl_unlock();
+@@ -1589,11 +1589,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	bond_set_carrier(bond);
  
--	/* We use curr_slave_lock to protect against concurrent access to
--	 * igmp_retrans from multiple running instances of this function and
--	 * bond_change_active_slave
--	 */
--	write_lock_bh(&bond->curr_slave_lock);
- 	if (bond->igmp_retrans > 1) {
- 		bond->igmp_retrans--;
- 		queue_delayed_work(bond->wq, &bond->mcast_work, HZ/5);
+ 	if (USES_PRIMARY(bond->params.mode)) {
+-		read_lock(&bond->lock);
+ 		write_lock_bh(&bond->curr_slave_lock);
+ 		bond_select_active_slave(bond);
+ 		write_unlock_bh(&bond->curr_slave_lock);
+-		read_unlock(&bond->lock);
  	}
--	write_unlock_bh(&bond->curr_slave_lock);
--}
--
--static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
--{
--	struct bonding *bond = container_of(work, struct bonding,
--					    mcast_work.work);
--
--	bond_resend_igmp_join_requests(bond);
-+	rtnl_unlock();
- }
  
- /* Flush bond's hardware addresses from slave
+ 	pr_info("%s: enslaving %s as a%s interface with a%s link.\n",
+@@ -1613,19 +1611,13 @@ err_detach:
+ 		bond_hw_addr_flush(bond_dev, slave_dev);
+ 
+ 	vlan_vids_del_by_dev(slave_dev, bond_dev);
+-	write_lock_bh(&bond->lock);
+ 	if (bond->primary_slave == new_slave)
+ 		bond->primary_slave = NULL;
+ 	if (bond->curr_active_slave == new_slave) {
+-		bond_change_active_slave(bond, NULL);
+-		write_unlock_bh(&bond->lock);
+-		read_lock(&bond->lock);
+ 		write_lock_bh(&bond->curr_slave_lock);
++		bond_change_active_slave(bond, NULL);
+ 		bond_select_active_slave(bond);
+ 		write_unlock_bh(&bond->curr_slave_lock);
+-		read_unlock(&bond->lock);
+-	} else {
+-		write_unlock_bh(&bond->lock);
+ 	}
+ 	slave_disable_netpoll(new_slave);
+ 
+@@ -1690,20 +1682,16 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	}
+ 
+ 	block_netpoll_tx();
+-	write_lock_bh(&bond->lock);
+ 
+ 	slave = bond_get_slave_by_dev(bond, slave_dev);
+ 	if (!slave) {
+ 		/* not a slave of this bond */
+ 		pr_info("%s: %s not enslaved\n",
+ 			bond_dev->name, slave_dev->name);
+-		write_unlock_bh(&bond->lock);
+ 		unblock_netpoll_tx();
+ 		return -EINVAL;
+ 	}
+ 
+-	write_unlock_bh(&bond->lock);
+-
+ 	/* release the slave from its bond */
+ 	bond->slave_cnt--;
+ 
+@@ -1721,6 +1709,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		 */
+ 		bond_3ad_unbind_slave(slave);
+ 	}
++	write_unlock_bh(&bond->lock);
+ 
+ 	pr_info("%s: releasing %s interface %s\n",
+ 		bond_dev->name,
+@@ -1743,8 +1732,11 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	if (bond->primary_slave == slave)
+ 		bond->primary_slave = NULL;
+ 
+-	if (oldcurrent == slave)
++	if (oldcurrent == slave) {
++		write_lock_bh(&bond->curr_slave_lock);
+ 		bond_change_active_slave(bond, NULL);
++		write_unlock_bh(&bond->curr_slave_lock);
++	}
+ 
+ 	if (bond_is_lb(bond)) {
+ 		/* Must be called only after the slave has been
+@@ -1752,9 +1744,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		 * has been cleared (if our_slave == old_current),
+ 		 * but before a new active slave is selected.
+ 		 */
+-		write_unlock_bh(&bond->lock);
+ 		bond_alb_deinit_slave(bond, slave);
+-		write_lock_bh(&bond->lock);
+ 	}
+ 
+ 	if (all) {
+@@ -1765,15 +1755,11 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		 * is no concern that another slave add/remove event
+ 		 * will interfere.
+ 		 */
+-		write_unlock_bh(&bond->lock);
+-		read_lock(&bond->lock);
+ 		write_lock_bh(&bond->curr_slave_lock);
+ 
+ 		bond_select_active_slave(bond);
+ 
+ 		write_unlock_bh(&bond->curr_slave_lock);
+-		read_unlock(&bond->lock);
+-		write_lock_bh(&bond->lock);
+ 	}
+ 
+ 	if (!bond_has_slaves(bond)) {
+@@ -1788,7 +1774,6 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		}
+ 	}
+ 
+-	write_unlock_bh(&bond->lock);
+ 	unblock_netpoll_tx();
+ 	synchronize_rcu();
+ 
 -- 
 1.8.2.1
