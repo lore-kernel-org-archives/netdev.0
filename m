@@ -1,163 +1,98 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC] virtio_net: multicast address list never sent to host
-Date: Sat, 07 Dec 2013 11:12:44 +1030
-Message-ID: <87wqjh4hkr.fsf@rustcorp.com.au>
-References: <20131205152052.064319c9@nehalam.linuxnetplumber.net>
+From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Subject: Re: [PATCH 02/10] net: stmmac: Honor DT parameter to
+ force DMA store and forward mode
+Date: Sat, 7 Dec 2013 09:19:55 +0800
+Message-ID: <CAGb2v64WAV_xWNuneKZr0=7g8_=G5_q5hFax2+8xJiopnm3uPg@mail.gmail.com>
+References: <1386350983-13281-1-git-send-email-wens@csie.org>
+ <1386350983-13281-3-git-send-email-wens@csie.org> <20131206.162606.2277176361893801778.davem@davemloft.net>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	Alex Williamson <alex.williamson@hp.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:37485 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752630Ab3LGBMt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Dec 2013 20:12:49 -0500
-In-Reply-To: <20131205152052.064319c9@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/alternative; boundary=001a11c3e47ca62b1c04ece790b0
+Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	Srinivas KANDAGATLA <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBT7PRGKQKGQEW6XXUMQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20131206.162606.2277176361893801778.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
-> The virtio_net driver never sends the second address list to
-> the host. This is because send command takes a pointer to scatter list
-> to send but only inserts that one entry into the scatter list that
-> is sent to the host.
->
-> This bug has been there since:
-> commit f565a7c259d71cc186753653d978c646d2354b36
-> Author: Alex Williamson <alex.williamson@hp.com>
-> Date:   Wed Feb 4 09:02:45 2009 +0000
->
->     virtio_net: Add a MAC filter table
->
->
-> I also dropped the in argument since it is never used.
->
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+--001a11c3e47ca62b1c04ece790b0
+Content-Type: text/plain; charset=ISO-8859-1
 
-Ouch.  Took me a while to untangle the two changes (arg change and the
-VIRTIO_NET_CTRL_MAC_TABLE_SET change which is the actual fix), but it
-looks good.
+On Sat, Dec 7, 2013 at 5:26 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+> Date: Sat,  7 Dec 2013 01:29:35 +0800
+>
+>> @@ -47,6 +47,7 @@ static int stmmac_probe_config_dt(struct
+platform_device *pdev,
+>>               plat->bus_id = 0;
+>>
+>>       of_property_read_u32(np, "snps,phy-addr", &plat->phy_addr);
+>> +     plat->force_sf_dma_mode = of_property_read_bool(np,
+"snps,force_sf_dma_mode");
+>
+> Will this do the right thing for when the property is not present?
+> Right now the force_sf_dma_mode value is always false.
 
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+of_property_read_bool will return false when the property is not present.
 
-Thanks!
-Rusty.
+> In fact won't it override the explicit settings done elsewhere in the
+> driver?
 
-> --- a/drivers/net/virtio_net.c	2013-12-05 15:11:34.000000000 -0800
-> +++ b/drivers/net/virtio_net.c	2013-12-05 15:17:16.211568831 -0800
-> @@ -877,16 +877,16 @@ static netdev_tx_t start_xmit(struct sk_
->   * never fail unless improperly formated.
->   */
->  static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
-> -				 struct scatterlist *out,
-> -				 struct scatterlist *in)
-> +				 struct scatterlist *out, unsigned out_cnt)
->  {
->  	struct scatterlist *sgs[4], hdr, stat;
->  	struct virtio_net_ctrl_hdr ctrl;
->  	virtio_net_ctrl_ack status = ~0;
-> -	unsigned out_num = 0, in_num = 0, tmp;
-> +	unsigned out_num = 0, tmp;
->  
->  	/* Caller should know better */
->  	BUG_ON(!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ));
-> +	BUG_ON(out_cnt > 2);
->  
->  	ctrl.class = class;
->  	ctrl.cmd = cmd;
-> @@ -894,17 +894,14 @@ static bool virtnet_send_command(struct
->  	sg_init_one(&hdr, &ctrl, sizeof(ctrl));
->  	sgs[out_num++] = &hdr;
->  
-> -	if (out)
-> -		sgs[out_num++] = out;
-> -	if (in)
-> -		sgs[out_num + in_num++] = in;
-> +	while (out_cnt-- > 0)
-> +		sgs[out_num++] = out++;
->  
->  	/* Add return status. */
->  	sg_init_one(&stat, &status, sizeof(status));
-> -	sgs[out_num + in_num++] = &stat;
-> +	sgs[out_num] = &stat;
->  
-> -	BUG_ON(out_num + in_num > ARRAY_SIZE(sgs));
-> -	BUG_ON(virtqueue_add_sgs(vi->cvq, sgs, out_num, in_num, vi, GFP_ATOMIC)
-> +	BUG_ON(virtqueue_add_sgs(vi->cvq, sgs, out_num, 1, vi, GFP_ATOMIC)
->  	       < 0);
->  
->  	if (unlikely(!virtqueue_kick(vi->cvq)))
-> @@ -936,7 +933,7 @@ static int virtnet_set_mac_address(struc
->  		sg_init_one(&sg, addr->sa_data, dev->addr_len);
->  		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
->  					  VIRTIO_NET_CTRL_MAC_ADDR_SET,
-> -					  &sg, NULL)) {
-> +					  &sg, 1)) {
->  			dev_warn(&vdev->dev,
->  				 "Failed to set mac address by vq command.\n");
->  			return -EINVAL;
-> @@ -1009,7 +1006,7 @@ static void virtnet_ack_link_announce(st
->  {
->  	rtnl_lock();
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_ANNOUNCE,
-> -				  VIRTIO_NET_CTRL_ANNOUNCE_ACK, NULL, NULL))
-> +				  VIRTIO_NET_CTRL_ANNOUNCE_ACK, NULL, 0))
->  		dev_warn(&vi->dev->dev, "Failed to ack link announce.\n");
->  	rtnl_unlock();
->  }
-> @@ -1027,7 +1024,7 @@ static int virtnet_set_queues(struct vir
->  	sg_init_one(&sg, &s, sizeof(s));
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MQ,
-> -				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg, NULL)) {
-> +				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg, 1)) {
->  		dev_warn(&dev->dev, "Fail to set num of queue pairs to %d\n",
->  			 queue_pairs);
->  		return -EINVAL;
-> @@ -1078,7 +1075,7 @@ static void virtnet_set_rx_mode(struct n
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
->  				  VIRTIO_NET_CTRL_RX_PROMISC,
-> -				  sg, NULL))
-> +				  sg, 1))
->  		dev_warn(&dev->dev, "Failed to %sable promisc mode.\n",
->  			 promisc ? "en" : "dis");
->  
-> @@ -1086,7 +1083,7 @@ static void virtnet_set_rx_mode(struct n
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
->  				  VIRTIO_NET_CTRL_RX_ALLMULTI,
-> -				  sg, NULL))
-> +				  sg, 1))
->  		dev_warn(&dev->dev, "Failed to %sable allmulti mode.\n",
->  			 allmulti ? "en" : "dis");
->  
-> @@ -1123,7 +1120,7 @@ static void virtnet_set_rx_mode(struct n
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
->  				  VIRTIO_NET_CTRL_MAC_TABLE_SET,
-> -				  sg, NULL))
-> +				  sg, 2))
->  		dev_warn(&dev->dev, "Failed to set MAC filter table.\n");
->  
->  	kfree(buf);
-> @@ -1138,7 +1135,7 @@ static int virtnet_vlan_rx_add_vid(struc
->  	sg_init_one(&sg, &vid, sizeof(vid));
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> -				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, NULL))
-> +				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, 1))
->  		dev_warn(&dev->dev, "Failed to add VLAN ID %d.\n", vid);
->  	return 0;
->  }
-> @@ -1152,7 +1149,7 @@ static int virtnet_vlan_rx_kill_vid(stru
->  	sg_init_one(&sg, &vid, sizeof(vid));
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> -				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, NULL))
-> +				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, 1))
->  		dev_warn(&dev->dev, "Failed to kill VLAN ID %d.\n", vid);
->  	return 0;
->  }
+Point taken. The current implementation will override settings passed from
+platform data. ORing the two would be better.
+
+
+Thanks
+
+-- 
+You received this message because you are subscribed to the Google Groups "linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
+
+--001a11c3e47ca62b1c04ece790b0
+Content-Type: text/html; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr"><div><span style=3D"font-family:courier new,monospace"><br=
+>On Sat, Dec 7, 2013 at 5:26 AM, David Miller &lt;<a href=3D"mailto:davem@d=
+avemloft.net">davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org</a>&gt; wrote:<br>&gt; From: Chen-Yu Tsai=
+ &lt;<a href=3D"mailto:wens-jdAy2FN1RRM@public.gmane.org">wens-jdAy2FN1RRM@public.gmane.org</a>&gt;<br>
+
+&gt; Date: Sat, =A07 Dec 2013 01:29:35 +0800<br>&gt;<br>&gt;&gt; @@ -47,6 +=
+47,7 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,<br>=
+&gt;&gt; =A0 =A0 =A0 =A0 =A0 =A0 =A0 plat-&gt;bus_id =3D 0;<br>&gt;&gt;<br>=
+&gt;&gt; =A0 =A0 =A0 of_property_read_u32(np, &quot;snps,phy-addr&quot;, &a=
+mp;plat-&gt;phy_addr);<br>
+
+&gt;&gt; + =A0 =A0 plat-&gt;force_sf_dma_mode =3D of_property_read_bool(np,=
+ &quot;snps,force_sf_dma_mode&quot;);<br>&gt;<br>&gt; Will this do the righ=
+t thing for when the property is not present?<br>&gt; Right now the force_s=
+f_dma_mode value is always false.<br>
+
+<br>of_property_read_bool will return false when the property is not presen=
+t.<br><br>&gt; In fact won&#39;t it override the explicit settings done els=
+ewhere in the<br>&gt; driver?<br><br>Point taken. The current implementatio=
+n will override settings passed from<br>
+
+platform data. ORing the two would be better.<br><br><br></span></div><span=
+ style=3D"font-family:courier new,monospace">Thanks<br></span></div>
+
+<p></p>
+
+-- <br />
+You received this message because you are subscribed to the Google Groups &=
+quot;linux-sunxi&quot; group.<br />
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org<br />
+For more options, visit <a href=3D"https://groups.google.com/groups/opt_out=
+">https://groups.google.com/groups/opt_out</a>.<br />
+
+--001a11c3e47ca62b1c04ece790b0--
