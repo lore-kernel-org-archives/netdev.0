@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v4 7/11] bonding: rebuild the lock use for bond_3ad_state_machine_handler()
-Date: Sat, 7 Dec 2013 15:45:55 +0800
-Message-ID: <52A2D233.6090905@huawei.com>
+Subject: [PATCH net-next v4 4/11] bonding: rebuild the lock use for bond_loadbalance_arp_mon()
+Date: Sat, 7 Dec 2013 15:45:43 +0800
+Message-ID: <52A2D227.1090800@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,195 +12,87 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:2636 "EHLO
+Received: from szxga03-in.huawei.com ([119.145.14.66]:2634 "EHLO
 	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752452Ab3LGHrf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 02:47:35 -0500
+	with ESMTP id S1752403Ab3LGHre (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 02:47:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_3ad_state_machine_handler() use the bond lock to protect
-the bond slave list and slave port, so as the before patch said,
-I remove bond lock and replace with RCU.
+The bond_loadbalance_arp_mon() use the bond lock to protect the
+bond slave list, it is no effect, so I could use RTNL or RCU to
+replace it, considering the performance impact, the RCU is more
+better here, so the bond lock replace with the RCU.
 
-There was a lot of function need RCU protect, I have two choice
-to make the function in RCU-safe, (1) create new similar functions
-and make the bond slave list in RCU. (2) modify the existed functions
-and make them in read-side critical section, because the RCU
-read-side critical sections may be nested.
+The bond_select_active_slave() need RTNL and curr_slave_lock
+together, but there is no RTNL lock here, so add a rtnl_rtylock.
 
-I choose (2) because it is no need to create more similar functions.
-
-The nots in the function is still too old, clean up the nots.
-
-Suggested-by: Nikolay Aleksandrov <nikolay@redhat.com>
 Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
 Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_3ad.c | 53 ++++++++++++++++++++++++------------------
- 1 file changed, 31 insertions(+), 22 deletions(-)
+ drivers/net/bonding/bond_main.c | 18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 187b1b7..d935da5 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -147,11 +147,12 @@ static inline struct aggregator *__get_first_agg(struct port *port)
- 	struct bonding *bond = __get_bond_by_port(port);
- 	struct slave *first_slave;
- 
--	// If there's no bond for this port, or bond has no slaves
-+	/* If there's no bond for this port, or bond has no slaves */
- 	if (bond == NULL)
- 		return NULL;
--	first_slave = bond_first_slave(bond);
--
-+	rcu_read_lock();
-+	first_slave = bond_first_slave_rcu(bond);
-+	rcu_read_unlock();
- 	return first_slave ? &(SLAVE_AD_INFO(first_slave).aggregator) : NULL;
- }
- 
-@@ -702,9 +703,13 @@ static struct aggregator *__get_active_agg(struct aggregator *aggregator)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index ab55429..1f5e709 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2415,12 +2415,12 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
  	struct list_head *iter;
- 	struct slave *slave;
+ 	int do_failover = 0;
  
--	bond_for_each_slave(bond, slave, iter)
--		if (SLAVE_AD_INFO(slave).aggregator.is_active)
+-	read_lock(&bond->lock);
+-
+ 	if (!bond_has_slaves(bond))
+ 		goto re_arm;
+ 
+-	oldcurrent = bond->curr_active_slave;
 +	rcu_read_lock();
-+	bond_for_each_slave_rcu(bond, slave, iter)
-+		if (SLAVE_AD_INFO(slave).aggregator.is_active) {
-+			rcu_read_unlock();
- 			return &(SLAVE_AD_INFO(slave).aggregator);
-+		}
-+	rcu_read_unlock();
- 
- 	return NULL;
- }
-@@ -1471,7 +1476,8 @@ static void ad_agg_selection_logic(struct aggregator *agg)
- 	active = __get_active_agg(agg);
- 	best = (active && agg_device_up(active)) ? active : NULL;
- 
++
++	oldcurrent = ACCESS_ONCE(bond->curr_active_slave);
+ 	/* see if any of the previous devices are up now (i.e. they have
+ 	 * xmt and rcv traffic). the curr_active_slave does not come into
+ 	 * the picture unless it is null. also, slave->jiffies is not needed
+@@ -2429,7 +2429,7 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 	 * TODO: what about up/down delay in arp mode? it wasn't here before
+ 	 *       so it can wait
+ 	 */
 -	bond_for_each_slave(bond, slave, iter) {
-+	rcu_read_lock();
 +	bond_for_each_slave_rcu(bond, slave, iter) {
- 		agg = &(SLAVE_AD_INFO(slave).aggregator);
+ 		unsigned long trans_start = dev_trans_start(slave->dev);
  
- 		agg->is_active = 0;
-@@ -1505,7 +1511,7 @@ static void ad_agg_selection_logic(struct aggregator *agg)
- 		active->is_active = 1;
- 	}
- 
--	// if there is new best aggregator, activate it
-+	/* if there is new best aggregator, activate it */
- 	if (best) {
- 		pr_debug("best Agg=%d; P=%d; a k=%d; p k=%d; Ind=%d; Act=%d\n",
- 			 best->aggregator_identifier, best->num_of_ports,
-@@ -1516,7 +1522,7 @@ static void ad_agg_selection_logic(struct aggregator *agg)
- 			 best->lag_ports, best->slave,
- 			 best->slave ? best->slave->dev->name : "NULL");
- 
--		bond_for_each_slave(bond, slave, iter) {
-+		bond_for_each_slave_rcu(bond, slave, iter) {
- 			agg = &(SLAVE_AD_INFO(slave).aggregator);
- 
- 			pr_debug("Agg=%d; P=%d; a k=%d; p k=%d; Ind=%d; Act=%d\n",
-@@ -1526,10 +1532,10 @@ static void ad_agg_selection_logic(struct aggregator *agg)
- 				 agg->is_individual, agg->is_active);
- 		}
- 
--		// check if any partner replys
-+		/* check if any partner replys */
- 		if (best->is_individual) {
- 			pr_warning("%s: Warning: No 802.3ad response from the link partner for any adapters in the bond\n",
--				   best->slave ? best->slave->bond->dev->name : "NULL");
-+			best->slave ? best->slave->bond->dev->name : "NULL");
- 		}
- 
- 		best->is_active = 1;
-@@ -1541,7 +1547,7 @@ static void ad_agg_selection_logic(struct aggregator *agg)
- 			 best->partner_oper_aggregator_key,
- 			 best->is_individual, best->is_active);
- 
--		// disable the ports that were related to the former active_aggregator
-+		/* disable the ports that were related to the former active_aggregator */
- 		if (active) {
- 			for (port = active->lag_ports; port;
- 			     port = port->next_port_in_aggregator) {
-@@ -1565,6 +1571,8 @@ static void ad_agg_selection_logic(struct aggregator *agg)
- 		}
+ 		if (slave->link != BOND_LINK_UP) {
+@@ -2491,7 +2491,14 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
+ 			bond_arp_send_all(bond, slave);
  	}
  
 +	rcu_read_unlock();
 +
- 	bond_3ad_set_carrier(bond);
- }
+ 	if (do_failover) {
++		/* the bond_select_active_slave must hold RTNL
++		 * and curr_slave_lock for write.
++		 */
++		if (!rtnl_trylock())
++			goto re_arm;
+ 		block_netpoll_tx();
+ 		write_lock_bh(&bond->curr_slave_lock);
  
-@@ -2068,18 +2076,18 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
- 	struct slave *slave;
- 	struct port *port;
+@@ -2499,14 +2506,13 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
  
--	read_lock(&bond->lock);
-+	rcu_read_lock();
- 
--	//check if there are any slaves
-+	/* check if there are any slaves */
- 	if (!bond_has_slaves(bond))
- 		goto re_arm;
- 
--	// check if agg_select_timer timer after initialize is timed out
-+	/* check if agg_select_timer timer after initialize is timed out */
- 	if (BOND_AD_INFO(bond).agg_select_timer && !(--BOND_AD_INFO(bond).agg_select_timer)) {
--		slave = bond_first_slave(bond);
-+		slave = bond_first_slave_rcu(bond);
- 		port = slave ? &(SLAVE_AD_INFO(slave).port) : NULL;
- 
--		// select the active aggregator for the bond
-+		/* select the active aggregator for the bond */
- 		if (port) {
- 			if (!port->slave) {
- 				pr_warning("%s: Warning: bond's first port is uninitialized\n",
-@@ -2093,8 +2101,8 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
- 		bond_3ad_set_carrier(bond);
- 	}
- 
--	// for each port run the state machines
--	bond_for_each_slave(bond, slave, iter) {
-+	/* for each port run the state machines */
-+	bond_for_each_slave_rcu(bond, slave, iter) {
- 		port = &(SLAVE_AD_INFO(slave).port);
- 		if (!port->slave) {
- 			pr_warning("%s: Warning: Found an uninitialized port\n",
-@@ -2114,7 +2122,7 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
- 		ad_mux_machine(port);
- 		ad_tx_machine(port);
- 
--		// turn off the BEGIN bit, since we already handled it
-+		/* turn off the BEGIN bit, since we already handled it */
- 		if (port->sm_vars & AD_PORT_BEGIN)
- 			port->sm_vars &= ~AD_PORT_BEGIN;
- 
-@@ -2122,9 +2130,8 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
+ 		write_unlock_bh(&bond->curr_slave_lock);
+ 		unblock_netpoll_tx();
++		rtnl_unlock();
  	}
  
  re_arm:
-+	rcu_read_unlock();
- 	queue_delayed_work(bond->wq, &bond->ad_work, ad_delta_in_ticks);
+ 	if (bond->params.arp_interval)
+ 		queue_delayed_work(bond->wq, &bond->arp_work,
+ 				   msecs_to_jiffies(bond->params.arp_interval));
 -
 -	read_unlock(&bond->lock);
  }
  
- /**
-@@ -2303,7 +2310,9 @@ int bond_3ad_set_carrier(struct bonding *bond)
- 	struct aggregator *active;
- 	struct slave *first_slave;
- 
--	first_slave = bond_first_slave(bond);
-+	rcu_read_lock();
-+	first_slave = bond_first_slave_rcu(bond);
-+	rcu_read_unlock();
- 	if (!first_slave)
- 		return 0;
- 	active = __get_active_agg(&(SLAVE_AD_INFO(first_slave).aggregator));
+ /*
 -- 
 1.8.2.1
