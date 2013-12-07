@@ -1,91 +1,186 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [E1000-devel] Pull request: SIOCGHWTSTAMP ioctl
-Date: Fri, 06 Dec 2013 23:30:58 -0800
-Message-ID: <1386401458.2365.29.camel@jtkirshe-mobl>
-References: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com>
-	 <20131205.194624.1335606571649336470.davem@davemloft.net>
-	 <1386351515.1516.156.camel@bwh-desktop.uk.level5networks.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v4 1/11] bonding: remove the no effect lock for bond_select_active_slave()
+Date: Sat, 7 Dec 2013 15:45:28 +0800
+Message-ID: <52A2D218.1010501@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-VbUB9WE2HdZari6us9UQ"
-Cc: David Miller <davem@davemloft.net>, richardcochran@gmail.com,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
-	David Daney <david.daney@cavium.com>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>,
-	netdev@vger.kernel.org, Takahiro Shimizu <tshimizu818@gmail.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:32167 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751774Ab3LGHbY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Dec 2013 02:31:24 -0500
-In-Reply-To: <1386351515.1516.156.camel@bwh-desktop.uk.level5networks.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:5876 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751396Ab3LGHqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 02:46:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The bond slave list was no longer protected by bond lock and only
+protected by RTNL or RCU, so anywhere that use bond lock to protect
+slave list is meaningless.
 
---=-VbUB9WE2HdZari6us9UQ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+remove the release and acquire bond lock for bond_select_active_slave().
 
-On Fri, 2013-12-06 at 17:38 +0000, Ben Hutchings wrote:
-> On Thu, 2013-12-05 at 19:46 -0500, David Miller wrote:
-> > From: Ben Hutchings <bhutchings@solarflare.com>
-> > Date: Thu, 5 Dec 2013 23:37:12 +0000
-> >=20
-> > > 1. Add the SIOCGHWTSTAMP ioctl and update the timestamping
-> > > documentation.
-> > > 2. Implement SIOCGHWTSTAMP in most drivers that support
-> SIOCSHWTSTAMP.
-> > > 3. Add a test program to exercise SIOC{G,S}HWTSTAMP.
-> >=20
-> > Pulled, thanks Ben.
->=20
-> Thanks.  I hope all the drivers still work, as you didn't leave long
-> for
-> review.
->=20
-> There are a few drivers I didn't touch because they don't appear to
-> keep
-> a soft copy of the timestamp configuration:
->=20
-> drivers/net/ethernet/intel/igb/igb_main.c
-> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> drivers/net/ethernet/octeon/octeon_mgmt.c
-> drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->=20
-> phylib and the dp83640 driver will also need to be updated to support
-> this.
->=20
-> Ben.
+The curr_active_slave could only be changed in 3 place:
 
-Thanks Ben, I have let Carolyn Wyborny (igb/igbvf) and Don Skidmore
-(ixgbe/ixgbevf) aware of your changes so that they can possible make the
-changes to those drivers as well, if need be.
+1. enslave slave.
+2. release slave.
+3. change_active_slave.
 
---=-VbUB9WE2HdZari6us9UQ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+all above place were holding bond lock, RTNL and curr_slave_lock
+together, it is tedious and meaningless, obviously bond lock is no
+need here, but RTNL or curr_slave_lock is needed, so if you want
+to access active slave, you have to choose one lock, RTNL or
+curr_slave_lock, if RTNL is exist, no need to add curr_slave_lock,
+otherwise curr_slave_lock is better, because of the performance.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
+there are several place calling bond_select_active_slave() and
+bond_change_active_slave(), the next step I will clean these place
+and remove the no effect lock.
 
-iQIcBAABCgAGBQJSos6yAAoJEOVv75VaS+3OXyMQAIlDPg6Kg9XFDx88hfdUIuMS
-/xckijayZgWzHBMfjb0dAP6P52H38HQFjTMqc2++5Wa3rsUswptGbZGq8af9D+Al
-ShvvM8Lwy81orxZpNuhJ4EHWeLTymWLJLcv5NvahV7wdWcodAHuezKC3++rhgdbg
-YI48YKAVr1VckchuIFERRY7NHxahQOuGRWQl/XOt2lshLPBWBXE8CNfDuTZCndIx
-XeOxHZZGw1ZTgH11rn1zkKL4ZdKrco8iYKYmT/SmJ1YbPp5kWaxEXmsNwjZGrLlU
-NAwJb7MOSK1QAZbuJ0f7uaA8cvRoTQWzA5Q9tb5TNdRrbS9he+VmSaOLWASiCHc3
-JmDBjhC1T5hc1rOMnElnXE/yEJoL9o1Nxt3mOc5UHZDMl6CoTX6WPWICqt8xZI/T
-FUiLZW04eG6MsJ4H8Pi8toxdb7IEhxNcT79qfINnd1lJzFE0+DEtM7epIUeb4XRy
-Di2WHI3MbXRsJExh+G9SVH5US3zJ2ypLvTERGfy2ltqAcxRJdKPEwU8fUwDbXRux
-76zOoslTc2cdLz9ZL9vyO5KNTeiCONplATAXzqTfSpOJo7QfSRMh0QkUqcRPfEkM
-Wr7C/jVzn2tfp4rnWkyR2jzPoio1QUYFcvxW/hPBoIeVgYOSltDWk96p4zz9qc+3
-Zh5cPCM6ZN4rsfzUHtiA
-=r3nO
------END PGP SIGNATURE-----
+there are some document changed together when update the function.
 
---=-VbUB9WE2HdZari6us9UQ--
+Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
+Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bond_alb.c  | 12 +++---------
+ drivers/net/bonding/bond_main.c | 15 +++------------
+ 2 files changed, 6 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 0287240..1fae915 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -470,7 +470,7 @@ static void rlb_teach_disabled_mac_on_primary(struct bonding *bond, u8 addr[])
+ 
+ /* slave being removed should not be active at this point
+  *
+- * Caller must hold bond lock for read
++ * Caller must hold rtnl.
+  */
+ static void rlb_clear_slave(struct bonding *bond, struct slave *slave)
+ {
+@@ -1680,14 +1680,11 @@ void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char
+  * If new_slave is NULL, caller must hold curr_slave_lock or
+  * bond->lock for write.
+  *
+- * If new_slave is not NULL, caller must hold RTNL, bond->lock for
+- * read and curr_slave_lock for write.  Processing here may sleep, so
+- * no other locks may be held.
++ * If new_slave is not NULL, caller must hold RTNL, curr_slave_lock
++ * for write.  Processing here may sleep, so no other locks may be held.
+  */
+ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave)
+ 	__releases(&bond->curr_slave_lock)
+-	__releases(&bond->lock)
+-	__acquires(&bond->lock)
+ 	__acquires(&bond->curr_slave_lock)
+ {
+ 	struct slave *swap_slave;
+@@ -1723,7 +1720,6 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+ 	tlb_clear_slave(bond, new_slave, 1);
+ 
+ 	write_unlock_bh(&bond->curr_slave_lock);
+-	read_unlock(&bond->lock);
+ 
+ 	ASSERT_RTNL();
+ 
+@@ -1749,11 +1745,9 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+ 		/* swap mac address */
+ 		alb_swap_mac_addr(swap_slave, new_slave);
+ 		alb_fasten_mac_swap(bond, swap_slave, new_slave);
+-		read_lock(&bond->lock);
+ 	} else {
+ 		/* set the new_slave to the bond mac address */
+ 		alb_set_slave_mac_addr(new_slave, bond->dev->dev_addr);
+-		read_lock(&bond->lock);
+ 		alb_send_learning_packets(new_slave, bond->dev->dev_addr);
+ 	}
+ 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 4dd5ee2..f5145ea 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -697,14 +697,12 @@ static void bond_set_dev_addr(struct net_device *bond_dev,
+  *
+  * Perform special MAC address swapping for fail_over_mac settings
+  *
+- * Called with RTNL, bond->lock for read, curr_slave_lock for write_bh.
++ * Called with RTNL, curr_slave_lock for write_bh.
+  */
+ static void bond_do_fail_over_mac(struct bonding *bond,
+ 				  struct slave *new_active,
+ 				  struct slave *old_active)
+ 	__releases(&bond->curr_slave_lock)
+-	__releases(&bond->lock)
+-	__acquires(&bond->lock)
+ 	__acquires(&bond->curr_slave_lock)
+ {
+ 	u8 tmp_mac[ETH_ALEN];
+@@ -715,9 +713,7 @@ static void bond_do_fail_over_mac(struct bonding *bond,
+ 	case BOND_FOM_ACTIVE:
+ 		if (new_active) {
+ 			write_unlock_bh(&bond->curr_slave_lock);
+-			read_unlock(&bond->lock);
+ 			bond_set_dev_addr(bond->dev, new_active->dev);
+-			read_lock(&bond->lock);
+ 			write_lock_bh(&bond->curr_slave_lock);
+ 		}
+ 		break;
+@@ -731,7 +727,6 @@ static void bond_do_fail_over_mac(struct bonding *bond,
+ 			return;
+ 
+ 		write_unlock_bh(&bond->curr_slave_lock);
+-		read_unlock(&bond->lock);
+ 
+ 		if (old_active) {
+ 			memcpy(tmp_mac, new_active->dev->dev_addr, ETH_ALEN);
+@@ -761,7 +756,6 @@ static void bond_do_fail_over_mac(struct bonding *bond,
+ 			pr_err("%s: Error %d setting MAC of slave %s\n",
+ 			       bond->dev->name, -rv, new_active->dev->name);
+ out:
+-		read_lock(&bond->lock);
+ 		write_lock_bh(&bond->curr_slave_lock);
+ 		break;
+ 	default:
+@@ -846,8 +840,7 @@ static bool bond_should_notify_peers(struct bonding *bond)
+  * because it is apparently the best available slave we have, even though its
+  * updelay hasn't timed out yet.
+  *
+- * If new_active is not NULL, caller must hold bond->lock for read and
+- * curr_slave_lock for write_bh.
++ * If new_active is not NULL, caller must hold curr_slave_lock for write_bh.
+  */
+ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ {
+@@ -916,14 +909,12 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 			}
+ 
+ 			write_unlock_bh(&bond->curr_slave_lock);
+-			read_unlock(&bond->lock);
+ 
+ 			call_netdevice_notifiers(NETDEV_BONDING_FAILOVER, bond->dev);
+ 			if (should_notify_peers)
+ 				call_netdevice_notifiers(NETDEV_NOTIFY_PEERS,
+ 							 bond->dev);
+ 
+-			read_lock(&bond->lock);
+ 			write_lock_bh(&bond->curr_slave_lock);
+ 		}
+ 	}
+@@ -949,7 +940,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+  * - The primary_slave has got its link back.
+  * - A slave has got its link back and there's no old curr_active_slave.
+  *
+- * Caller must hold bond->lock for read and curr_slave_lock for write_bh.
++ * Caller must hold curr_slave_lock for write_bh.
+  */
+ void bond_select_active_slave(struct bonding *bond)
+ {
+-- 
+1.8.2.1
