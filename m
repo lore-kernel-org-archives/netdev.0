@@ -1,68 +1,68 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH] net: allwinner: emac: Add missing free_irq
-Date: Sat,  7 Dec 2013 12:31:42 +0100
-Message-ID: <1386415902-32697-1-git-send-email-maxime.ripard@free-electrons.com>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: ems_usb: fix urb leaks on failure paths
+Date: Sat, 07 Dec 2013 12:42:54 +0100
+Message-ID: <52A309BE.7000602@hartkopp.net>
+References: <1386371435-17597-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-sunxi+bncBD2ZNBF5VYJRBXESRSKQKGQEBO4HTGI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Transfer-Encoding: 7bit
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	Sebastian Haas <dev@sebastianhaas.info>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1386371435-17597-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The sun4i-emac driver uses devm_request_irq at .ndo_open time, but relies on
-the managed device mechanism to actually free it. This causes an issue whenever
-someone wants to restart the interface, the interrupt still being held, and not
-yet released.
+Hello Alexey,
 
-Fall back to using the regular request_irq at .ndo_open time, and introduce a
-free_irq during .ndo_stop.
+looks better :-)
 
-Signed-off-by: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
----
-Hi David,
+I added the author of this driver to double check the patch and for his
+Acked-by ...
 
-It would be great if this patch would be applied to 3.13.
+@Sebastian: Would you like to update your e-mail address too?
 
-Thanks,
-Maxime
+Best regards,
+Oliver
 
 
- drivers/net/ethernet/allwinner/sun4i-emac.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
-index 50b853a..38aba50 100644
---- a/drivers/net/ethernet/allwinner/sun4i-emac.c
-+++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
-@@ -717,8 +717,8 @@ static int emac_open(struct net_device *dev)
- 	if (netif_msg_ifup(db))
- 		dev_dbg(db->dev, "enabling %s\n", dev->name);
- 
--	if (devm_request_irq(db->dev, dev->irq, &emac_interrupt,
--			     0, dev->name, dev))
-+	if (request_irq(dev->irq, &emac_interrupt,
-+			0, dev->name, dev))
- 		return -EAGAIN;
- 
- 	/* Initialize EMAC board */
-@@ -774,6 +774,8 @@ static int emac_stop(struct net_device *ndev)
- 
- 	emac_shutdown(ndev);
- 
-+	free_irq(ndev->irq, ndev);
-+
- 	return 0;
- }
- 
--- 
-1.8.4.2
+On 07.12.2013 00:10, Alexey Khoroshilov wrote:
+> There are a couple failure paths where urb leaks.
+> Is spare code within ems_usb_start_xmit(),
+> usb_free_urb() should be used to deallocate urb instead of usb_unanchor_urb().
+> In ems_usb_start() there is no usb_free_urb() if usb_submit_urb() fails.
+> 
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> ---
+>  drivers/net/can/usb/ems_usb.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
+> index 5f9a7ad9b964..8aeec0b4601a 100644
+> --- a/drivers/net/can/usb/ems_usb.c
+> +++ b/drivers/net/can/usb/ems_usb.c
+> @@ -625,6 +625,7 @@ static int ems_usb_start(struct ems_usb *dev)
+>  			usb_unanchor_urb(urb);
+>  			usb_free_coherent(dev->udev, RX_BUFFER_SIZE, buf,
+>  					  urb->transfer_dma);
+> +			usb_free_urb(urb);
+>  			break;
+>  		}
+>  
+> @@ -798,8 +799,8 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
+>  	 * allowed (MAX_TX_URBS).
+>  	 */
+>  	if (!context) {
+> -		usb_unanchor_urb(urb);
+>  		usb_free_coherent(dev->udev, size, buf, urb->transfer_dma);
+> +		usb_free_urb(urb);
+>  
+>  		netdev_warn(netdev, "couldn't find free context\n");
+>  
+> 
