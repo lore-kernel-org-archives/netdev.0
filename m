@@ -1,40 +1,121 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/3] netfilter: ipset: fix incorret comparison in hash_netnet4_data_equal()
-Date: Sun,  8 Dec 2013 00:13:28 +0100
-Message-ID: <1386458010-4615-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/3] netfilter: xt_hashlimit: fix proc entry leak in netns destroy path
+Date: Sun,  8 Dec 2013 00:13:29 +0100
+Message-ID: <1386458010-4615-3-git-send-email-pablo@netfilter.org>
 References: <1386458010-4615-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:43626 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754778Ab3LGXNs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 7 Dec 2013 18:13:48 -0500
 In-Reply-To: <1386458010-4615-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dave Jones <davej@redhat.com>
+From: Sergey Popovich <popovich_sergei@mail.ru>
 
-Both sides of the comparison are the same, looks like a cut-and-paste error.
+In (32263dd1b netfilter: xt_hashlimit: fix namespace destroy path)
+the hashlimit_net_exit() function is always called right before
+hashlimit_mt_destroy() to release netns data. If you use xt_hashlimit
+with IPv4 and IPv6 together, this produces the following splat via
+netconsole in the netns destroy path:
 
-Spotted by Coverity.
+ Pid: 9499, comm: kworker/u:0 Tainted: G        WC O 3.2.0-5-netctl-amd64-core2
+ Call Trace:
+  [<ffffffff8104708d>] ? warn_slowpath_common+0x78/0x8c
+  [<ffffffff81047139>] ? warn_slowpath_fmt+0x45/0x4a
+  [<ffffffff81144a99>] ? remove_proc_entry+0xd8/0x22e
+  [<ffffffff810ebbaa>] ? kfree+0x5b/0x6c
+  [<ffffffffa043c501>] ? hashlimit_net_exit+0x45/0x8d [xt_hashlimit]
+  [<ffffffff8128ab30>] ? ops_exit_list+0x1c/0x44
+  [<ffffffff8128b28e>] ? cleanup_net+0xf1/0x180
+  [<ffffffff810369fc>] ? should_resched+0x5/0x23
+  [<ffffffff8105b8f9>] ? process_one_work+0x161/0x269
+  [<ffffffff8105aea5>] ? cwq_activate_delayed_work+0x3c/0x48
+  [<ffffffff8105c8c2>] ? worker_thread+0xc2/0x145
+  [<ffffffff8105c800>] ? manage_workers.isra.25+0x15b/0x15b
+  [<ffffffff8105fa01>] ? kthread+0x76/0x7e
+  [<ffffffff813581f4>] ? kernel_thread_helper+0x4/0x10
+  [<ffffffff8105f98b>] ? kthread_worker_fn+0x139/0x139
+  [<ffffffff813581f0>] ? gs_change+0x13/0x13
+ ---[ end trace d8c3cc0ad163ef79 ]---
+ ------------[ cut here ]------------
+ WARNING: at /usr/src/linux-3.2.52/debian/build/source_netctl/fs/proc/generic.c:849
+ remove_proc_entry+0x217/0x22e()
+ Hardware name:
+ remove_proc_entry: removing non-empty directory 'net/ip6t_hashlimit', leaking at least 'IN-REJECT'
 
-Signed-off-by: Dave Jones <davej@fedoraproject.org>
+This is due to lack of removal net/ip6t_hashlimit/* entries in
+hashlimit_proc_net_exit(), since only IPv4 entries are deleted. Fix
+it by always removing the IPv4 and IPv6 entries and their parent
+directories in the netns destroy path.
+
+Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_hash_netnet.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/xt_hashlimit.c |   25 +++++++++++--------------
+ 1 file changed, 11 insertions(+), 14 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_hash_netnet.c b/net/netfilter/ipset/ip_set_hash_netnet.c
-index 2bc2dec..6226803 100644
---- a/net/netfilter/ipset/ip_set_hash_netnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_netnet.c
-@@ -59,7 +59,7 @@ hash_netnet4_data_equal(const struct hash_netnet4_elem *ip1,
- 		     u32 *multi)
- {
- 	return ip1->ipcmp == ip2->ipcmp &&
--	       ip2->ccmp == ip2->ccmp;
-+	       ip1->ccmp == ip2->ccmp;
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 9ff035c..a3910fc 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -325,21 +325,24 @@ static void htable_gc(unsigned long htlong)
+ 	add_timer(&ht->timer);
  }
  
- static inline int
+-static void htable_destroy(struct xt_hashlimit_htable *hinfo)
++static void htable_remove_proc_entry(struct xt_hashlimit_htable *hinfo)
+ {
+ 	struct hashlimit_net *hashlimit_net = hashlimit_pernet(hinfo->net);
+ 	struct proc_dir_entry *parent;
+ 
+-	del_timer_sync(&hinfo->timer);
+-
+ 	if (hinfo->family == NFPROTO_IPV4)
+ 		parent = hashlimit_net->ipt_hashlimit;
+ 	else
+ 		parent = hashlimit_net->ip6t_hashlimit;
+ 
+-	if(parent != NULL)
++	if (parent != NULL)
+ 		remove_proc_entry(hinfo->name, parent);
++}
+ 
++static void htable_destroy(struct xt_hashlimit_htable *hinfo)
++{
++	del_timer_sync(&hinfo->timer);
++	htable_remove_proc_entry(hinfo);
+ 	htable_selective_cleanup(hinfo, select_all);
+ 	kfree(hinfo->name);
+ 	vfree(hinfo);
+@@ -883,21 +886,15 @@ static int __net_init hashlimit_proc_net_init(struct net *net)
+ static void __net_exit hashlimit_proc_net_exit(struct net *net)
+ {
+ 	struct xt_hashlimit_htable *hinfo;
+-	struct proc_dir_entry *pde;
+ 	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
+ 
+-	/* recent_net_exit() is called before recent_mt_destroy(). Make sure
+-	 * that the parent xt_recent proc entry is is empty before trying to
+-	 * remove it.
++	/* hashlimit_net_exit() is called before hashlimit_mt_destroy().
++	 * Make sure that the parent ipt_hashlimit and ip6t_hashlimit proc
++	 * entries is empty before trying to remove it.
+ 	 */
+ 	mutex_lock(&hashlimit_mutex);
+-	pde = hashlimit_net->ipt_hashlimit;
+-	if (pde == NULL)
+-		pde = hashlimit_net->ip6t_hashlimit;
+-
+ 	hlist_for_each_entry(hinfo, &hashlimit_net->htables, node)
+-		remove_proc_entry(hinfo->name, pde);
+-
++		htable_remove_proc_entry(hinfo);
+ 	hashlimit_net->ipt_hashlimit = NULL;
+ 	hashlimit_net->ip6t_hashlimit = NULL;
+ 	mutex_unlock(&hashlimit_mutex);
 -- 
 1.7.10.4
-
