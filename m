@@ -1,69 +1,67 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH v2] ipv6: don't count addrconf generated routes against gc limit
-Date: Sat, 7 Dec 2013 03:33:45 +0100
-Message-ID: <20131207023345.GA16799@order.stressinduktion.org>
-References: <20131206172556.GF26746@order.stressinduktion.org> <20131206.162124.1642753475890720004.davem@davemloft.net>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH 1/2] macvtap: remove useless codes in macvtap_aio_read()
+ and macvtap_recvmsg()
+Date: Fri, 06 Dec 2013 21:38:43 -0500
+Message-ID: <52A28A33.4080306@gmail.com>
+References: <1386363300-19040-1-git-send-email-zwu.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, brett.ciphery@windriver.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:37970 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753700Ab3LGCdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Dec 2013 21:33:46 -0500
-Content-Disposition: inline
-In-Reply-To: <20131206.162124.1642753475890720004.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
+	Jason Wang <jasowang@redhat.com>
+To: Zhi Yong Wu <zwu.kernel@gmail.com>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1386363300-19040-1-git-send-email-zwu.kernel@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Brett Ciphery reported that new ipv6 addresses failed to get installed
-because the addrconf generated dsts where counted against the dst gc
-limit. We don't need to count those routes like we currently don't count
-administratively added routes.
+On 12/06/2013 03:54 PM, Zhi Yong Wu wrote:
+> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> 
+> By checking related codes, it is impossible that ret > len or total_len,
+> so we should remove some useless coeds in both above functions.
 
-Because the max_addresses check enforces a limit on unbounded address
-generation first in case someone plays with router advertisments, we
-are still safe here.
+Looks like commit 6680ec68eff47d36f67b4351bc9836fd6cba9532
+Author: Jason Wang <jasowang@redhat.com>
+Date:   Thu Jul 25 13:00:33 2013 +0800
 
-Reported-by: Brett Ciphery <brett.ciphery@windriver.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
+    tuntap: hardware vlan tx support
 
-On Fri, Dec 06, 2013 at 04:21:24PM -0500, David Miller wrote:
-> So basically, we only want to count routes that will have RTF_CACHE
-> set on them.
+Introduced a change in tun_put_user() where we can
+never return a length longer then len or total_len.
+This has an effect that is now impossible to signal
+truncated status.  It seems like a potential loss
+of functionality and it might make sense to restore it.
 
-Exactly.
-
-> This warning in the net_warn_ratelimited() is no longer relevant, only
-> hard memory allocation failures can result in this !rt condition.  So
-> please respin this patch with that warning removed.
-
-Sorry, I spinned the patch too fast after testing.
-
- net/ipv6/route.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index ddb9d41..a0a48ac 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2166,12 +2166,10 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
- 				    bool anycast)
- {
- 	struct net *net = dev_net(idev->dev);
--	struct rt6_info *rt = ip6_dst_alloc(net, net->loopback_dev, 0, NULL);
--
--	if (!rt) {
--		net_warn_ratelimited("Maximum number of routes reached, consider increasing route/max_size\n");
-+	struct rt6_info *rt = ip6_dst_alloc(net, net->loopback_dev,
-+					    DST_NOCOUNT, NULL);
-+	if (!rt)
- 		return ERR_PTR(-ENOMEM);
--	}
- 
- 	in6_dev_hold(idev);
- 
--- 
-1.8.3.1
+-vlad
+> 
+> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> ---
+>  drivers/net/macvtap.c |    5 -----
+>  1 files changed, 0 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 4c6f84c..7f4ccdd 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -871,7 +871,6 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+>  	}
+>  
+>  	ret = macvtap_do_read(q, iv, len, file->f_flags & O_NONBLOCK);
+> -	ret = min_t(ssize_t, ret, len); /* XXX copied from tun.c. Why? */
+>  out:
+>  	return ret;
+>  }
+> @@ -1104,10 +1103,6 @@ static int macvtap_recvmsg(struct kiocb *iocb, struct socket *sock,
+>  		return -EINVAL;
+>  	ret = macvtap_do_read(q, m->msg_iov, total_len,
+>  			  flags & MSG_DONTWAIT);
+> -	if (ret > total_len) {
+> -		m->msg_flags |= MSG_TRUNC;
+> -		ret = flags & MSG_TRUNC ? ret : total_len;
+> -	}
+>  	return ret;
+>  }
+>  
+> 
