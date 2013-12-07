@@ -1,247 +1,123 @@
-From: Wang Weidong <weidong1991.wang@gmail.com>
-Subject: Re: [PATCH v5 1/2] sctp: check the rto_min and rto_max
-Date: Sat, 07 Dec 2013 21:13:32 +0800
-Message-ID: <52A31EFC.4080805@gmail.com>
-References: <1386400651-21744-1-git-send-email-wangweidong1@huawei.com> <1386400651-21744-2-git-send-email-wangweidong1@huawei.com> <52A31805.8020305@redhat.com>
+From: =?ISO-8859-1?Q?Emilio_L=F3pez?= <emilio-0Z03zUJReD5OxF6Tv1QG9Q@public.gmane.org>
+Subject: Re: Re: [PATCH 04/10] net: stmmac: sunxi platfrom
+ extensions for GMAC in Allwinner A20 SoC's
+Date: Sat, 07 Dec 2013 10:34:17 -0300
+Message-ID: <52A323D9.5080806@elopez.com.ar>
+References: <1386350983-13281-1-git-send-email-wens@csie.org> <2030454.PFLhh6xOPI@flatron> <20131207114616.GM24519@lukather> <1455361.VIrFSPex2v@flatron>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>,
-	Wang Weidong <wangweidong1@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:51866 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752482Ab3LGNNX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 08:13:23 -0500
-In-Reply-To: <52A31805.8020305@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Mike Turquette <mturquette-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
+ devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
+To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+ Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-sunxi+bncBD73XIMS3EHBB2WHRSKQKGQEYKKRQHA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <1455361.VIrFSPex2v@flatron>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
- From Wang Weidong <wangweidong1@huawei.com>
+El 07/12/13 09:50, Tomasz Figa escribi=F3:
+> On Saturday 07 of December 2013 12:46:16 Maxime Ripard wrote:
+>> On Sat, Dec 07, 2013 at 12:12:26PM +0100, Tomasz Figa wrote:
+>>> On Saturday 07 of December 2013 11:27:10 Maxime Ripard wrote:
+>>>> Chen-Yu, Mike,
+>>>>
+>>>> On Sat, Dec 07, 2013 at 01:29:37AM +0800, Chen-Yu Tsai wrote:
+>>>>> The Allwinner A20 has an ethernet controller that seems to be
+>>>>> an early version of Synopsys DesignWare MAC 10/100/1000 Universal,
+>>>>> which is supported by the stmmac driver.
+>>>>>
+>>>>> Allwinner's GMAC requires setting additional registers in the SoC's
+>>>>> clock control unit.
+>>>>>
+>>>>> The exact version of the DWMAC IP that Allwinner uses is unknown,
+>>>>> thus the exact feature set is unknown.
+>>>>>
+>>>>> Signed-off-by: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+>>>>> ---
+>>>>>   .../bindings/net/allwinner,sun7i-gmac.txt          | 22 +++++++
+>>>>>   drivers/net/ethernet/stmicro/stmmac/Kconfig        | 12 ++++
+>>>>>   drivers/net/ethernet/stmicro/stmmac/Makefile       |  1 +
+>>>>>   drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c  | 76 +++++++++++=
++++++++++++
+>>>>>   drivers/net/ethernet/stmicro/stmmac/stmmac.h       |  3 +
+>>>>>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  3 +
+>>>>>   6 files changed, 117 insertions(+)
+>>>>>
+>>>>> diff --git a/Documentation/devicetree/bindings/net/allwinner,sun7i-gm=
+ac.txt b/Documentation/devicetree/bindings/net/allwinner,sun7i-gmac.txt
+>>>>> new file mode 100644
+>>>>> index 0000000..271554a
+>>>>> --- /dev/null
+>>>>> +++ b/Documentation/devicetree/bindings/net/allwinner,sun7i-gmac.txt
+>>>>> @@ -0,0 +1,22 @@
+>>>>> +* Allwinner GMAC ethernet controller
+>>>>> +
+>>>>> +This device is a platform glue layer for stmmac.
+>>>>> +Please see stmmac.txt for the other unchanged properties.
+>>>>> +
+>>>>> +Required properties:
+>>>>> + - compatible:  Should be "allwinner,sun7i-gmac"
+>>>>
+>>>> Please use sun7i-a20-gmac here.
+>>>>
+>>>>> + - reg: Address and length of register set for the device and corres=
+ponding
+>>>>> +   clock control
+>>>>>
+>>>>> +Examples:
+>>>>> +
+>>>>> +	gmac: ethernet@01c50000 {
+>>>>> +		compatible =3D "allwinner,sun7i-gmac";
+>>>>> +		reg =3D <0x01c50000 0x10000>,
+>>>>> +		      <0x01c20164 0x4>;
+>>>>
+>>>> This is actually a clock, and should probably be registered in the
+>>>> common clock framework.
+>>>>
+>>>> Mike: This small register actually is a regular muxer/divider, except
+>>>> that it has some bits that are of interest to the ethernet controller
+>>>> (for example to set wether it's using GMII or RGMII to communicate
+>>>> with the phy), that, as far as I'm aware of, aren't really fitting
+>>>> into the CCF.
+>>>>
+>>>> Do you have some recommendation on how to proceed?
+>>>>
+>>>> Maybe make a thin "real" clock driver in this hardware glue, that
+>>>> provides !exported function to set this *GMII thing.
+>>>
+>>> Is this register part of a bigger IP block that manages clocks for othe=
+r
+>>> IP blocks than stmmac as well? If not, I don't see a point of exporting
+>>> a clock from inside of the GMAC "domain" just to feed it back into it
+>>> as the only user.
+>>
+>> This register is actually part of the SoC clock controller. So it sits
+>> right beside the other clocks registers controlling the clocks of the
+>> other devices, and is not part of the GMAC IP itself.
+>
+> Is there any description for GMAC_IF_TYPE_RGMII and GMAC_TX_CLK fields?
+>
+> Name of the latter sounds like a normal clock mux, but the former is
+> just a mystery (especially why it is a part of the clock controller).
 
-On 2013/12/7 20:43, Daniel Borkmann wrote:
-> On 12/07/2013 08:17 AM, Wang Weidong wrote:
->> rto_min should be smaller than rto_max while rto_max should be larger
->> than rto_min. Add two proc_handler for the checking. Add the check in
->> sctp_setsockopt_rtoinfo.
->>
->> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
->> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->> ---
->
-> Thanks Wang, also for your second patch.
->
-> Second one looks good to me, thanks for the cleanup!
->
-> I was wondering where 86400000 comes from? Looking through the git
-> history didn't give much clues and the RFC4960 neither. Clearly,
-> section 15 of RFC4960 *recommends* as initial values ...
->
->    RTO.Initial - 3 seconds
->    RTO.Min - 1 second
->    RTO.Max - 60 seconds
->
-> ... which we have as constants in [1] and are assigned to globals
-> initially in [2,3] with those recommended values. That's all good.
->
-> But still [not *directly* related to your patch though], where does
-> 86400000 come from? I expect that's for the max SCTP heartbeat
-> interval or max cookie lifetime?
->
-Sorry, I don't know 86400000 come form as well.
+You can find the register documented on page 89, table 1.5.4.65 of
 
-> Hence, timer_max is used in multiple contexts for timers here,
-> which seems a bit confusing. If it really makes sense to have such
-> a huge RTO max though, then it at least needs a comment explaining
-> so. ;)
->
-> Wang, just a minor nitpick, I would much rather name them those
-> defines like ...
->
->    SCTP_RTO_MIN_LIMIT
->    SCTP_RTO_MAX_LIMIT
->
-> ... just so that we have recommended and upper limit constants with
-> a more clear naming as obviously SCTP_ONE doesn't make much sense.
->
->   [1] include/net/sctp/constants.h +269
->   [2] include/net/netns/sctp.h +39
->   [3] net/sctp/protocol.c +1169
->
-> More below ...
->
->>   include/net/sctp/constants.h |  3 ++
->>   net/sctp/socket.c            |  5 +++
->>   net/sctp/sysctl.c            | 73 ++++++++++++++++++++++++++++++++++++++++----
->>   3 files changed, 75 insertions(+), 6 deletions(-)
->>
->> diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
->> index 2f0a565..d276978 100644
->> --- a/include/net/sctp/constants.h
->> +++ b/include/net/sctp/constants.h
->> @@ -279,6 +279,9 @@ enum { SCTP_MAX_GABS = 16 };
->>   #define SCTP_RTO_ALPHA          3   /* 1/8 when converted to right shifts. */
->>   #define SCTP_RTO_BETA           2   /* 1/4 when converted to right shifts. */
->>
->> +#define SCTP_ONE                1        /* 1 ms */
->> +#define SCTP_TIMER_MAX          86400000 /* ms in one day */
->> +
->>   /* Maximum number of new data packets that can be sent in a burst.  */
->>   #define SCTP_DEFAULT_MAX_BURST        4
->>
->> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
->> index 72046b9..13411ad 100644
->> --- a/net/sctp/socket.c
->> +++ b/net/sctp/socket.c
->> @@ -2818,6 +2818,11 @@ static int sctp_setsockopt_rtoinfo(struct sock *sk, char __user *optval, unsigne
->>       if (copy_from_user(&rtoinfo, optval, optlen))
->>           return -EFAULT;
->>
->> +    if (rtoinfo.srto_min < SCTP_ONE ||
->> +        rtoinfo.srto_max > SCTP_TIMER_MAX ||
->> +        rtoinfo.srto_max < rtoinfo.srto_min)
->> +        return -EINVAL;
->> +
->>       asoc = sctp_id2assoc(sk, rtoinfo.srto_assoc_id);
->>
->>       /* Set the values to the specific association */
->> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
->> index 6b36561..33c56c6 100644
->> --- a/net/sctp/sysctl.c
->> +++ b/net/sctp/sysctl.c
->> @@ -40,8 +40,8 @@
->>   #include <linux/sysctl.h>
->>
->>   static int zero = 0;
->> -static int one = 1;
->> -static int timer_max = 86400000; /* ms in one day */
->> +static int one = SCTP_ONE;
->> +static int timer_max = SCTP_TIMER_MAX;
->
-> So here, I'd do something like this ...
->
-> static int one = 1;              (leaving this as is)
-> static int timer_max = 86400000; /* Max 1 day for HB interval, cookie life-time*/
->
-> static int rto_timer_min = SCTP_RTO_MIN_LIMIT;
-> static int rto_timer_max = SCTP_RTO_MAX_LIMIT;
->
-> ... so that we have sack_timer_{min,max} and rto_timer_{min,max}.
->
-> Opinions, thoughts?
->
-Agree. Your Opinions is very good.
+http://dl.linux-sunxi.org/A20/A20%20User%20Manual%202013-03-22.pdf
 
-Thanks a lot, you help me so much.  I think I should wait for the
-explanation of the 86400000, then send the v6.
-
-Regards.
-Wang
-
->>   static int int_max = INT_MAX;
->>   static int sack_timer_min = 1;
->>   static int sack_timer_max = 500;
->> @@ -61,6 +61,13 @@ static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
->>                   void __user *buffer, size_t *lenp,
->>
->>                   loff_t *ppos);
->> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
->> +                void __user *buffer, size_t *lenp,
->> +                loff_t *ppos);
->> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
->> +                void __user *buffer, size_t *lenp,
->> +                loff_t *ppos);
->> +
->>   static struct ctl_table sctp_table[] = {
->>       {
->>           .procname    = "sctp_mem",
->> @@ -102,17 +109,17 @@ static struct ctl_table sctp_net_table[] = {
->>           .data        = &init_net.sctp.rto_min,
->>           .maxlen        = sizeof(unsigned int),
->>           .mode        = 0644,
->> -        .proc_handler    = proc_dointvec_minmax,
->> +        .proc_handler    = proc_sctp_do_rto_min,
->>           .extra1         = &one,
->> -        .extra2         = &timer_max
->> +        .extra2         = &init_net.sctp.rto_max
->>       },
->>       {
->>           .procname    = "rto_max",
->>           .data        = &init_net.sctp.rto_max,
->>           .maxlen        = sizeof(unsigned int),
->>           .mode        = 0644,
->> -        .proc_handler    = proc_dointvec_minmax,
->> -        .extra1         = &one,
->> +        .proc_handler    = proc_sctp_do_rto_max,
->> +        .extra1         = &init_net.sctp.rto_min,
->>           .extra2         = &timer_max
->>       },
->>       {
->> @@ -342,6 +349,60 @@ static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
->>       return ret;
->>   }
->>
->> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
->> +                void __user*buffer, size_t *lenp,
->> +                loff_t *ppos)
->> +{
->> +    struct net *net = current->nsproxy->net_ns;
->> +    int new_value;
->> +    struct ctl_table tbl;
->> +    unsigned int min = *(unsigned int *) ctl->extra1;
->> +    unsigned int max = *(unsigned int *) ctl->extra2;
->> +    int ret;
->> +
->> +    memset(&tbl, 0, sizeof(struct ctl_table));
->> +    tbl.maxlen = sizeof(unsigned int);
->> +
->> +    if (write)
->> +        tbl.data = &new_value;
->> +    else
->> +        tbl.data = &net->sctp.rto_min;
->> +    ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
->> +    if (write) {
->> +        if (ret || new_value > max || new_value < min)
->> +            return -EINVAL;
->> +        net->sctp.rto_min = new_value;
->> +    }
->> +    return ret;
->> +}
->> +
->> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
->> +                void __user*buffer, size_t *lenp,
->> +                loff_t *ppos)
->> +{
->> +    struct net *net = current->nsproxy->net_ns;
->> +    int new_value;
->> +    struct ctl_table tbl;
->> +    unsigned int min = *(unsigned int *) ctl->extra1;
->> +    unsigned int max = *(unsigned int *) ctl->extra2;
->> +    int ret;
->> +
->> +    memset(&tbl, 0, sizeof(struct ctl_table));
->> +    tbl.maxlen = sizeof(unsigned int);
->> +
->> +    if (write)
->> +        tbl.data = &new_value;
->> +    else
->> +        tbl.data = &net->sctp.rto_max;
->> +    ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
->> +    if (write) {
->> +                if (ret || new_value > max || new_value < min)
->> +            return -EINVAL;
->> +        net->sctp.rto_max = new_value;
->> +    }
->> +    return ret;
->> +}
->> +
->>   int sctp_sysctl_net_register(struct net *net)
->>   {
->>       struct ctl_table *table;
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/groups/opt_out.
