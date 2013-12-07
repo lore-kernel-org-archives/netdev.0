@@ -1,379 +1,202 @@
-From: Sage Weil <sage-4GqslpFJ+cxBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH 1/4] init: Add a new root device option, the Ceph file
- system
-Date: Fri, 6 Dec 2013 22:10:02 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1312062203050.1560@cobra.newdream.net>
-References: <1385000024-23463-1-git-send-email-mark.doffman@codethink.co.uk> <1385000024-23463-2-git-send-email-mark.doffman@codethink.co.uk>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH v2] sctp: properly latch and use autoclose value from
+ sock to association
+Date: Sat, 7 Dec 2013 14:29:49 +0800
+Message-ID: <52A2C05D.3080608@huawei.com>
+References: <52A1EEFA.601@gmail.com> <1386350560-20920-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ceph-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	rob.taylor-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Mark Doffman <mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1385000024-23463-2-git-send-email-mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Vlad Yasevich <vyasevich@gmail.com>, <netdev@vger.kernel.org>
+To: Neil Horman <nhorman@tuxdriver.com>, <linux-sctp@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:57327 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750833Ab3LGGaI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Dec 2013 01:30:08 -0500
+In-Reply-To: <1386350560-20920-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[adding linux-fsdevel]
-
-Hi Mark!
-
-There was a question on this thread earlier about whether it makes sense 
-to support this in-kernel or make users build an initrd.  This looks 
-pretty simple to me and is certainly easier for users, so (with some 
-adjustments) I'm happy with it, but I think the folks on 
-linux-fsdevel may have a more informed opinion than do.
-
-See below for a few comments...
-
-On Wed, 20 Nov 2013, mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org wrote:
-> From: Mark Doffman <mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+On 2013/12/7 1:22, Neil Horman wrote:
+> Currently, sctp associations latch a sockets autoclose value to an association
+> at association init time, subject to capping constraints from the max_autoclose
+> sysctl value.  This leads to an odd situation where an application may set a
+> socket level autoclose timeout, but sliently sctp will limit the autoclose
+> timeout to something less than that.
 > 
-> Analogous to NFS add a new root device option, the ability
-> to boot using the Ceph networked file system as the root fs.
+> Fix this by modifying the autoclose setsockopt function to check the limit, cap
+> it and warn the user via syslog that the timeout is capped.  This will allow
+> getsockopt to return valid autoclose timeout values that reflect what subsequent
+> associations actually use.
 > 
-> This patch adds a new root device option '/dev/ceph' that
-> uses a ceph networked file system. File system parameters
-> are passed using a new kernel parameter: 'cephroot'.
+> While were at it, also elimintate the assoc->autoclose variable, it duplicates
+> whats in the timeout array, which leads to multiple sources for the same
+> information, that may differ (as the former isn't subject to any capping).  This
+> gives us the timeout information in a canonical place and saves some space in
+> the association structure as well.
 > 
-> The 'cephroot' parameters are very similar to 'nfsroot'.
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> CC: Wang Weidong <wangweidong1@huawei.com>
+> CC: David Miller <davem@davemloft.net>
+> CC: Vlad Yasevich <vyasevich@gmail.com>
+> CC: netdev@vger.kernel.org
 > 
-> Signed-off-by: Mark Doffman <mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-> Reviewed-by: Ian Molton <ian.molton-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
 > ---
->  fs/ceph/Kconfig                |  10 +++
->  fs/ceph/Makefile               |   1 +
->  fs/ceph/root.c                 | 163 +++++++++++++++++++++++++++++++++++++++++
->  include/linux/ceph/ceph_root.h |  10 +++
->  include/linux/root_dev.h       |   1 +
->  init/do_mounts.c               |  32 +++++++-
->  6 files changed, 216 insertions(+), 1 deletion(-)
->  create mode 100644 fs/ceph/root.c
->  create mode 100644 include/linux/ceph/ceph_root.h
+> Change notes:
 > 
-> diff --git a/fs/ceph/Kconfig b/fs/ceph/Kconfig
-> index ac9a2ef..325e83d 100644
-> --- a/fs/ceph/Kconfig
-> +++ b/fs/ceph/Kconfig
-> @@ -25,3 +25,13 @@ config CEPH_FSCACHE
->  	  caching support for Ceph clients using FS-Cache
+> V2) Based on conversation with Vlad, removing the cap operation from
+> sctp_association_init.  The spec is vague as to how we should handle this, and
+> so we're removing it as a code savings, and will readdress if anyone complains.
+> ---
+>  include/net/sctp/structs.h |  6 ------
+>  net/sctp/associola.c       |  5 +----
+>  net/sctp/output.c          |  3 ++-
+>  net/sctp/sm_statefuns.c    | 12 ++++++------
+>  net/sctp/socket.c          |  7 +++++++
+>  5 files changed, 16 insertions(+), 17 deletions(-)
+> 
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 2174d8d..0b069a0 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -1725,12 +1725,6 @@ struct sctp_association {
+>  	/* How many duplicated TSNs have we seen?  */
+>  	int numduptsns;
 >  
->  endif
-> +
-> +config ROOT_CEPH
-> +	bool "Root file system on Ceph FS"
-> +	depends on CEPH_FS=y && IP_PNP
-> +	help
-> +	  If you want your system to mount its root file system via CEPH,
-> +	  choose Y here.  For details, read
-> +	  <file:Documentation/filesystems/ceph/cephroot.txt>.
-> +
-> +	  If unsure say N.
-> diff --git a/fs/ceph/Makefile b/fs/ceph/Makefile
-> index 32e3010..af2dcbf 100644
-> --- a/fs/ceph/Makefile
-> +++ b/fs/ceph/Makefile
-> @@ -10,3 +10,4 @@ ceph-y := super.o inode.o dir.o file.o locks.o addr.o ioctl.o \
->  	debugfs.o
->  
->  ceph-$(CONFIG_CEPH_FSCACHE) += cache.o
-> +ceph-$(CONFIG_ROOT_CEPH) += root.o
-> diff --git a/fs/ceph/root.c b/fs/ceph/root.c
-> new file mode 100644
-> index 0000000..bff67fb
-> --- /dev/null
-> +++ b/fs/ceph/root.c
-> @@ -0,0 +1,163 @@
-> +/*
-> + * Copyright (C) 2012 Codethink Ltd. <mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-> + *
-> + * This file is released under the GPL v2
-> + *
-> + * Allow a CephFS filesystem to be mounted as root.
-> + */
-> +
-> +#include <linux/kernel.h>
-> +#include <linux/types.h>
-> +#include <linux/string.h>
-> +#include <linux/init.h>
-> +#include <linux/slab.h>
-> +#include <linux/utsname.h>
-> +#include <linux/root_dev.h>
-> +#include <linux/in.h>
-> +#include <net/ipconfig.h>
-> +#include <linux/ceph/ceph_root.h>
-> +
-> +/* linux/net/ipv4/ipconfig.c: trims ip addr off front of name, too. */
-> +extern __be32 root_nfs_parse_addr(char *name); /*__init*/
-> +
-> +#define MAXPATHLEN 1024
-> +
-> +/* Parameters passed from the kernel command line */
-> +static char ceph_root_params[256] __initdata;
-> +
-> +/* Address of CEPH server */
-> +static __be32 servaddr __initdata = htonl(INADDR_NONE);
-
-IPv4 only?
-
-> +
-> +/* Name of directory to mount */
-> +static char ceph_export_path[MAXPATHLEN + 1] __initdata;
-> +
-> +/* Text-based mount options */
-> +static char ceph_root_options[256] __initdata;
-> +
-> +/* server:path string passed to mount */
-> +static char ceph_root_device[MAXPATHLEN + 1] __initdata;
-> +
-> +/* Address of CEPH server */
-> +static __be32 root_ceph_server_addr = htonl(INADDR_NONE);
-> +
-> +/*
-> + * Parse out root export path and mount options from
-> + * passed-in string @incoming.
-> + *
-> + * Copy the export path into @exppath.
-> + *
-> + * Returns 0 on success -E2BIG if the resulting options string is too long.
-> + */
-> +static int __init root_ceph_parse_options(char *incoming, char *exppath,
-> +						const size_t exppathlen)
-> +{
-> +	char *p;
-> +	int res = 0;
-> +
-> +	/*
-> +	 * Set the remote path
-> +	 */
-> +	p = strsep(&incoming, ",");
-> +	if (*p != '\0' && strcmp(p, "default") != 0)
-> +		strlcpy(exppath, p, exppathlen);
-> +
-> +	/*
-> +	 * @incoming now points to the rest of the string; if it
-> +	 * contains something, append it to our root options buffer
-> +	 */
-> +	if (incoming != NULL && *incoming != '\0') {
-> +		size_t len = strlen(ceph_root_options);
-> +		size_t destlen = sizeof(ceph_root_options);
-> +
-> +		if (len && ceph_root_options[len - 1] != ',') {
-> +			if (strlcat(ceph_root_options, ",", destlen) > destlen)
-> +				res = -E2BIG;
-> +		}
-> +
-> +		if (strlcat(ceph_root_options, incoming, destlen) > destlen)
-> +			res = -E2BIG;
-> +
-> +	}
-> +	return res;
-> +}
-> +
-> +/*
-> + *  Parse CephFS server and directory information passed on the kernel
-> + *  command line.
-> + *
-> + *  cephroot=[<server-ip>:]<root-dir>[,<cephfs-options>]
-> + */
-
-I think we would be better off using the parsing code in fs/ceph/super.c, 
-which handles both IPv4 and IPv6, and more importantly lets you provide a 
-list of monitors.  Providing only a single server IP makes it a single 
-point of failure during mount (though of course if/when we connect we will 
-discover the current set of mons).
-
-Attaching the options at the end doesn't appeal to me cosmetically, but I 
-can see how it's useful to have it all in a single string that DHCP can 
-provide.
-
-sage
-
-
-> +static int __init ceph_root_setup(char *line)
-> +{
-> +	ROOT_DEV = Root_CEPH;
-> +
-> +	strlcpy(ceph_root_params, line, sizeof(ceph_root_params));
-> +
-> +	/*
-> +	 * Note: root_nfs_parse_addr() removes the server-ip from
-> +	 * ceph_root_params, if it exists.
-> +	 */
-> +	root_ceph_server_addr = root_nfs_parse_addr(ceph_root_params);
-> +
-> +	return 1;
-> +}
-> +
-> +__setup("cephroot=", ceph_root_setup);
-> +
-> +/*
-> + * ceph_root_data - Return mount device and data for CEPHROOT mount.
-> + *
-> + * @root_device: OUT: Address of string containing CEPHROOT device.
-> + * @root_data: OUT: Address of string containing CEPHROOT mount options.
-> + *
-> + * Returns: 0 and sets @root_device and @root_data if successful.
-> + *          error code if unsuccessful.
-> + */
-> +int __init ceph_root_data(char **root_device, char **root_data)
-> +{
-> +	char *tmp = NULL;
-> +	const size_t tmplen = sizeof(ceph_export_path);
-> +	int len;
-> +	int ret = -E2BIG;
-> +
-> +	servaddr = root_ceph_server_addr;
-> +	if (servaddr == htonl(INADDR_NONE))
-> +		return -ENOENT;
-> +
-> +	tmp = kzalloc(tmplen, GFP_KERNEL);
-> +	if (tmp == NULL)
-> +		return -ENOMEM;
-> +
-> +	if (ceph_root_params[0] != '\0') {
-> +		if (root_ceph_parse_options(ceph_root_params, tmp, tmplen))
-> +			goto out;
-> +	}
-> +
-> +	/*
-> +	 * Set up ceph_root_device. This looks like: server:/path
-> +	 *
-> +	 * At this point, utsname()->nodename contains our local
-> +	 * IP address or hostname, set by ipconfig.  If "%s" exists
-> +	 * in tmp, substitute the nodename, then shovel the whole
-> +	 * mess into ceph_root_device.
-> +	 */
-> +	len = snprintf(ceph_export_path, sizeof(ceph_export_path),
-> +				tmp, utsname()->nodename);
-> +	if (len > (int)sizeof(ceph_export_path))
-> +		goto out;
-> +	len = snprintf(ceph_root_device, sizeof(ceph_root_device),
-> +				"%pI4:%s", &servaddr, ceph_export_path);
-> +	if (len > (int)sizeof(ceph_root_device))
-> +		goto out;
-> +
-> +	pr_debug("Root-CEPH: Root device: %s\n", ceph_root_device);
-> +	pr_debug("Root-CEPH: Root options: %s\n", ceph_root_options);
-> +	*root_device = ceph_root_device;
-> +	*root_data = ceph_root_options;
-> +
-> +	ret = 0;
-> +
-> +out:
-> +	kfree(tmp);
-> +	return ret;
-> +}
-> diff --git a/include/linux/ceph/ceph_root.h b/include/linux/ceph/ceph_root.h
-> new file mode 100644
-> index 0000000..e6bae63
-> --- /dev/null
-> +++ b/include/linux/ceph/ceph_root.h
-> @@ -0,0 +1,10 @@
-> +/*
-> + * Copyright (C) 2012 Codethink Ltd. <mark.doffman-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
-> + *
-> + * This file is released under the GPL v2
-> + *
-> + * ceph_root.h
-> + */
-> +
-> +/* linux/fs/ceph/root.c */
-> +extern int ceph_root_data(char **root_device, char **root_data); /*__init*/
-> diff --git a/include/linux/root_dev.h b/include/linux/root_dev.h
-> index ed241aa..af6b182 100644
-> --- a/include/linux/root_dev.h
-> +++ b/include/linux/root_dev.h
-> @@ -16,6 +16,7 @@ enum {
->  	Root_SDA2 = MKDEV(SCSI_DISK0_MAJOR, 2),
->  	Root_HDC1 = MKDEV(IDE1_MAJOR, 1),
->  	Root_SR0 = MKDEV(SCSI_CDROM_MAJOR, 0),
-> +	Root_CEPH = MKDEV(UNNAMED_MAJOR, 254),
->  };
->  
->  extern dev_t ROOT_DEV;
-> diff --git a/init/do_mounts.c b/init/do_mounts.c
-> index 8e5addc..d075020 100644
-> --- a/init/do_mounts.c
-> +++ b/init/do_mounts.c
-> @@ -33,6 +33,8 @@
->  #include <linux/nfs_fs_sb.h>
->  #include <linux/nfs_mount.h>
->  
-> +#include <linux/ceph/ceph_root.h>
-> +
->  #include "do_mounts.h"
->  
->  int __initdata rd_doload;	/* 1 = load RAM disk, 0 = don't load */
-> @@ -199,6 +201,7 @@ done:
->   *	   a partition with a known unique id.
->   *	8) <major>:<minor> major and minor number of the device separated by
->   *	   a colon.
-> + *	9) /dev/ceph represents Root_CEPH
->   *
->   *	If name doesn't have fall into the categories above, we return (0,0).
->   *	block_class is used to check if something is a disk name. If the disk
-> @@ -245,7 +248,9 @@ dev_t name_to_dev_t(char *name)
->  	res = Root_RAM0;
->  	if (strcmp(name, "ram") == 0)
->  		goto done;
+> -	/* Number of seconds of idle time before an association is closed.
+> -	 * In the association context, this is really used as a boolean
+> -	 * since the real timeout is stored in the timeouts array
+> -	 */
+> -	__u32 autoclose;
 > -
-> +	res = Root_CEPH;
-> +	if (strcmp(name, "ceph") == 0)
-> +		goto done;
->  	if (strlen(name) > 31)
->  		goto fail;
->  	strcpy(s, name);
-> @@ -473,6 +478,22 @@ static int __init mount_nfs_root(void)
->  }
->  #endif
+>  	/* These are to support
+>  	 * "SCTP Extensions for Dynamic Reconfiguration of IP Addresses
+>  	 *  and Enforcement of Flow and Message Limits"
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index c9b91cb..be939b1 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -154,8 +154,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
 >  
-> +#ifdef CONFIG_ROOT_CEPH
-> +static int __init mount_ceph_root(void)
-> +{
-> +	char *root_dev, *root_data;
-> +
-> +	if (ceph_root_data(&root_dev, &root_data))
-> +		return 0;
-> +
-> +	if (do_mount_root(root_dev, "ceph",
-> +				root_mountflags, root_data))
-> +		return 0;
-> +
-> +	return 1;
-> +}
-> +#endif
-> +
->  #if defined(CONFIG_BLK_DEV_RAM) || defined(CONFIG_BLK_DEV_FD)
->  void __init change_floppy(char *fmt, ...)
->  {
-> @@ -514,6 +535,15 @@ void __init mount_root(void)
->  		ROOT_DEV = Root_FD0;
+>  	asoc->timeouts[SCTP_EVENT_TIMEOUT_HEARTBEAT] = 0;
+>  	asoc->timeouts[SCTP_EVENT_TIMEOUT_SACK] = asoc->sackdelay;
+> -	asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE] =
+> -		min_t(unsigned long, sp->autoclose, net->sctp.max_autoclose) * HZ;
+> +	asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE] = sp->autoclose * HZ;
+>  
+>  	/* Initializes the timers */
+>  	for (i = SCTP_EVENT_TIMEOUT_NONE; i < SCTP_NUM_TIMEOUT_TYPES; ++i)
+> @@ -291,8 +290,6 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
+>  		asoc->peer.ipv6_address = 1;
+>  	INIT_LIST_HEAD(&asoc->asocs);
+>  
+> -	asoc->autoclose = sp->autoclose;
+> -
+>  	asoc->default_stream = sp->default_stream;
+>  	asoc->default_ppid = sp->default_ppid;
+>  	asoc->default_flags = sp->default_flags;
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index e650978..c89e57d 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -580,7 +580,8 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+>  		unsigned long timeout;
+>  
+>  		/* Restart the AUTOCLOSE timer when sending data. */
+> -		if (sctp_state(asoc, ESTABLISHED) && asoc->autoclose) {
+> +		if (sctp_state(asoc, ESTABLISHED) &&
+> +		    asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE]) {
+>  			timer = &asoc->timers[SCTP_EVENT_TIMEOUT_AUTOCLOSE];
+>  			timeout = asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE];
+>  
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index dfe3f36..a26065b 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -820,7 +820,7 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(struct net *net,
+>  	SCTP_INC_STATS(net, SCTP_MIB_PASSIVEESTABS);
+>  	sctp_add_cmd_sf(commands, SCTP_CMD_HB_TIMERS_START, SCTP_NULL());
+>  
+> -	if (new_asoc->autoclose)
+> +	if (new_asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE])
+>  		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_START,
+>  				SCTP_TO(SCTP_EVENT_TIMEOUT_AUTOCLOSE));
+>  
+> @@ -908,7 +908,7 @@ sctp_disposition_t sctp_sf_do_5_1E_ca(struct net *net,
+>  	SCTP_INC_STATS(net, SCTP_MIB_CURRESTAB);
+>  	SCTP_INC_STATS(net, SCTP_MIB_ACTIVEESTABS);
+>  	sctp_add_cmd_sf(commands, SCTP_CMD_HB_TIMERS_START, SCTP_NULL());
+> -	if (asoc->autoclose)
+> +	if (asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE])
+>  		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_START,
+>  				SCTP_TO(SCTP_EVENT_TIMEOUT_AUTOCLOSE));
+>  
+> @@ -2970,7 +2970,7 @@ sctp_disposition_t sctp_sf_eat_data_6_2(struct net *net,
+>  	if (chunk->chunk_hdr->flags & SCTP_DATA_SACK_IMM)
+>  		force = SCTP_FORCE();
+>  
+> -	if (asoc->autoclose) {
+> +	if (asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE]) {
+>  		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_RESTART,
+>  				SCTP_TO(SCTP_EVENT_TIMEOUT_AUTOCLOSE));
 >  	}
->  #endif
-> +#ifdef CONFIG_ROOT_CEPH
-> +	if (ROOT_DEV == Root_CEPH) {
-> +		if (mount_ceph_root())
-> +			return;
-> +
-> +		printk(KERN_ERR "VFS: Unable to mount root fs via CephFS, trying floppy.\n");
-> +		ROOT_DEV = Root_FD0;
+> @@ -3878,7 +3878,7 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn(struct net *net,
+>  				SCTP_CHUNK(chunk));
+>  
+>  	/* Count this as receiving DATA. */
+> -	if (asoc->autoclose) {
+> +	if (asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE]) {
+>  		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_RESTART,
+>  				SCTP_TO(SCTP_EVENT_TIMEOUT_AUTOCLOSE));
+>  	}
+> @@ -5267,7 +5267,7 @@ sctp_disposition_t sctp_sf_do_9_2_start_shutdown(
+>  	sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_RESTART,
+>  			SCTP_TO(SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD));
+>  
+> -	if (asoc->autoclose)
+> +	if (asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE])
+>  		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
+>  				SCTP_TO(SCTP_EVENT_TIMEOUT_AUTOCLOSE));
+>  
+> @@ -5346,7 +5346,7 @@ sctp_disposition_t sctp_sf_do_9_2_shutdown_ack(
+>  	sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_RESTART,
+>  			SCTP_TO(SCTP_EVENT_TIMEOUT_T2_SHUTDOWN));
+>  
+> -	if (asoc->autoclose)
+> +	if (asoc->timeouts[SCTP_EVENT_TIMEOUT_AUTOCLOSE])
+>  		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
+>  				SCTP_TO(SCTP_EVENT_TIMEOUT_AUTOCLOSE));
+>  
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 72046b9..9486ffd 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -2196,6 +2196,7 @@ static int sctp_setsockopt_autoclose(struct sock *sk, char __user *optval,
+>  				     unsigned int optlen)
+>  {
+>  	struct sctp_sock *sp = sctp_sk(sk);
+> +	struct net *net = sock_net(sk);
+>  
+>  	/* Applicable to UDP-style socket only */
+>  	if (sctp_style(sk, TCP))
+> @@ -2205,6 +2206,12 @@ static int sctp_setsockopt_autoclose(struct sock *sk, char __user *optval,
+>  	if (copy_from_user(&sp->autoclose, optval, optlen))
+>  		return -EFAULT;
+>  
+> +	if (sp->autoclose > net->sctp.max_autoclose) {
+> +		pr_warn("Capping autoclose value %d to defined maximum of %lu\n",
+> +			sp->autoclose, net->sctp.max_autoclose);
+> +		sp->autoclose = net->sctp.max_autoclose;
 > +	}
-> +#endif
->  #ifdef CONFIG_BLK_DEV_FD
->  	if (MAJOR(ROOT_DEV) == FLOPPY_MAJOR) {
->  		/* rd_doload is 2 for a dual initrd/ramload setup */
-> -- 
-> 1.8.4
+> +
+>  	return 0;
+>  }
+>  
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe ceph-devel" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+I test it on my machine. And it works for me.
+Thanks.
+
+Acked-by: Wang Weidong <wangweidong1@huawei.com>
