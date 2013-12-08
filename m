@@ -1,52 +1,73 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 08/12] net/mlx4_core: Set CQE/EQE size to 64B by default
-Date: Sun,  8 Dec 2013 14:35:48 +0200
-Message-ID: <1386506152-10298-9-git-send-email-amirv@mellanox.com>
-References: <1386506152-10298-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 00/12] net/mlx4: Mellanox driver update 08-12-2013
+Date: Sun,  8 Dec 2013 14:35:40 +0200
+Message-ID: <1386506152-10298-1-git-send-email-amirv@mellanox.com>
 Cc: Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Eyal Perry <eyalpe@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:59491 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:59488 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753947Ab3LHMgM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753483Ab3LHMgM (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 8 Dec 2013 07:36:12 -0500
-In-Reply-To: <1386506152-10298-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eyal Perry <eyalpe@mellanox.com>
+Hi Dave,
 
-To achieve out of the box performance default is to use 64 byte CQE/EQE.
-In tests that we conduct in our labs, we achieved a performance
-improvement of twice the message rate. For older VF/libmlx4 support,
-enable_64b_cqe_eqe must be set to 0 (disabled).
+This patchset was tested contains:
+1. An overhaul to the rx flow memory allocation done by Jenny (Eugenia). It
+   gives a performance boost when SR-IOV is enabled.
+2. Support in ndo_get_phys_port_id added by Hadar.
+3. Change the driver to use by default CQE/EQE size of 64 bytes done by Eyal.
+   This doubles the packet-rate  of the NIC.
+4. Configure the XPS queue mapping on driver load - added by Ido.
+5. Fixes for some small bugs done by Jenny, Matan and Rana
 
+Patchset was applied and tested against commit: "0d74c42 ether_addr_equal:
+Optimize implementation, remove unused compare_ether_addr"
 
-Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Thanks,
+Amir
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index d5f5dcb..9a024ae 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -96,10 +96,10 @@ MODULE_PARM_DESC(log_num_mgm_entry_size, "log mgm size, that defines the num"
- 					 " To activate device managed"
- 					 " flow steering when available, set to -1");
- 
--static bool enable_64b_cqe_eqe;
-+static bool enable_64b_cqe_eqe = true;
- module_param(enable_64b_cqe_eqe, bool, 0444);
- MODULE_PARM_DESC(enable_64b_cqe_eqe,
--		 "Enable 64 byte CQEs/EQEs when the FW supports this");
-+		 "Enable 64 byte CQEs/EQEs when the FW supports this (default: True)");
- 
- #define HCA_GLOBAL_CAP_MASK            0
- 
+Eugenia Emantayev (3):
+  net/mlx4_en: Reuse mapped memory in RX flow
+  net/mlx4_en: Ignore irrelevant hypervisor events
+  net/mlx4_en: Add NAPI support for transmit side
+
+Eyal Perry (1):
+  net/mlx4_core: Set CQE/EQE size to 64B by default
+
+Hadar Hen Zion (5):
+  net/mlx4_core: Remove zeroed out of explicit QUERY_FUNC_CAP fields
+  net/mlx4_core: Rename QUERY_FUNC_CAP fields
+  net/mlx4_core: Introduce nic_info new flag in QUERY_FUNC_CAP
+  net/mlx4_core: Expose physical port id as PF/VF capability
+  net/mlx4_en: Implement ndo_get_phys_port_id
+
+Ido Shamay (1):
+  net/mlx4_en: Configure the XPS queue mapping on driver load
+
+Matan Barak (1):
+  net/mlx4_core: Check port number for validity before accessing data
+
+Rana Shahout (1):
+  net/mlx4_en: Fix Supported/Advertised link mode reported by ethtool
+
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c      |  12 +-
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  24 +-
+ drivers/net/ethernet/mellanox/mlx4/en_main.c    |   3 +
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |  41 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c      | 723 +++++++++---------------
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c      |  48 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c         |  74 ++-
+ drivers/net/ethernet/mellanox/mlx4/fw.h         |   2 +
+ drivers/net/ethernet/mellanox/mlx4/main.c       |   9 +-
+ drivers/net/ethernet/mellanox/mlx4/mcg.c        |  28 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  66 +--
+ include/linux/mlx4/device.h                     |   2 +
+ 12 files changed, 504 insertions(+), 528 deletions(-)
+
 -- 
 1.8.3.4
