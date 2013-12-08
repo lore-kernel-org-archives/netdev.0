@@ -1,97 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net-gro: Prepare GRO stack for the upcoming
- tunneling support
-Date: Sun, 08 Dec 2013 11:43:59 -0800
-Message-ID: <1386531839.30495.296.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386518682-30488-1-git-send-email-hkchu@google.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: vxlan/veth performance issues on net.git + latest kernels
+Date: Sun, 8 Dec 2013 22:12:32 +0200
+Message-ID: <CAJZOPZJACTX1giFudwbBqppE_GyQVzamNqiO61vL3d0eoaJoFQ@mail.gmail.com>
+References: <529DF340.70602@mellanox.com>
+	<1386084620.30495.28.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAJZOPZJ9WM1H9zKNzT5MvQ2UH7RxkTLk2Rhzsk9vdvKz6d2uAw@mail.gmail.com>
+	<alpine.LFD.2.03.1312031310140.23893@intel.com>
+	<CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com>
+	<alpine.LFD.2.03.1312031500020.570@intel.com>
+	<CAJZOPZLT_3msfz_XY45GOBMWK_y8WEYBTq3rGRUijpYyXE1ddg@mail.gmail.com>
+	<alpine.LFD.2.03.1312031626400.7539@intel.com>
+	<CAJZOPZJKsrj2+SQJsgq-w7BrNwDR0OsYWiF+1CcRQ3-KhejZhQ@mail.gmail.com>
+	<alpine.LFD.2.03.1312040113290.14367@intel.com>
+	<CAJZOPZJVBpqm-OduV4K2YwbXESP7awhsk0HbjuHazAiQJZTLWQ@mail.gmail.com>
+	<52A197DF.5010806@mellanox.com>
+	<alpine.LFD.2.03.1312060205220.3499@intel.com>
+	<CAJZOPZ+o=gjhmyvDwVCO8pOTJSf8aKLfB9sqjmbW-1+YjLLAaQ@mail.gmail.com>
+	<alpine.LFD.2.03.1312080951160.23234@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net,
-	netdev <netdev@vger.kernel.org>
-To: "H.K. Jerry Chu" <hkchu@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jerry Chu <hkchu@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	John Fastabend <john.fastabend@gmail.com>
+To: Joseph Gasparakis <joseph.gasparakis@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:63918 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755051Ab3LHToE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 14:44:04 -0500
-Received: by mail-pb0-f48.google.com with SMTP id md12so4063911pbc.35
-        for <netdev@vger.kernel.org>; Sun, 08 Dec 2013 11:44:04 -0800 (PST)
-In-Reply-To: <1386518682-30488-1-git-send-email-hkchu@google.com>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:62640 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755051Ab3LHUMd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 15:12:33 -0500
+Received: by mail-pb0-f51.google.com with SMTP id up15so4113419pbc.10
+        for <netdev@vger.kernel.org>; Sun, 08 Dec 2013 12:12:32 -0800 (PST)
+In-Reply-To: <alpine.LFD.2.03.1312080951160.23234@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-12-08 at 08:04 -0800, H.K. Jerry Chu wrote:
-> From: Jerry Chu <hkchu@google.com>
-> 
-> This patch modifies the GRO stack to remove the assumption that
-> only one IP hdr is present in the encapsulation chain. It avoids
-> the use of ip_hdr()/ipv6_hdr() macro in IP's *_gro_receive()/
-> *_gro_complete() functions because there may be more than one IP
-> hdr present in the encapsulation chain when various flavors of IP
-> tunneling support are added. By doing so it also allows multiple
-> level, not just a single level (i.e., with only two IP hdrs like
-> IP-in-IP) of encapsulation to be supported in the future.
-> 
-> With this patch, the GRO stack traversing now is mostly based on
-> skb_gro_offset rather than special hdr offsets saved in skb (e.g.,
-> skb->network_header, skb->transport_header,...) As a consequence
-> all but the top layer (which is likely to be the transport layer)
-> must have hdrs of the same length in order for a pkt to be
-> considered for aggregation. Therefore when adding a new layer
-> (e.g., for tunneling), one must check and skip flows (e.g., setting
-> NAPI_GRO_CB(p)->same_flow to 0) that have a different hdr length.
-> 
+On Sun, Joseph Gasparakis <joseph.gasparakis@intel.com> wrote:
 
->  
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 2718fed..53e3e9f 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3083,7 +3083,6 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
->  
->  	skb_set_mac_header(nskb, skb_mac_header(p) - p->data);
->  	skb_set_network_header(nskb, skb_network_offset(p));
-> -	skb_set_transport_header(nskb, skb_transport_offset(p));
->  
->  	__skb_pull(p, skb_gro_offset(p));
->  	memcpy(skb_mac_header(nskb), skb_mac_header(p),
+>> What I saw is that if I leave the DODGY bit set, practically things
+>> don't work at all, its not that some packets are dropped, was that
+>> what you saw?
+
+> What I saw was gso packets badly segmented, causing many re-transmissions
+> and dropping the performance to a few MB/s.
+
+Yes, in my testbed upto about 400Mbs (b not B..., yes!)
 
 
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 70011e0..cb406e9 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1397,8 +1401,12 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
->  	}
->  
->  	NAPI_GRO_CB(skb)->flush |= flush;
-> +	skb_set_network_header(skb, off);
-> +	/* The above will be needed by the transport layer if there is one
-> +	 * immediately following this IP hdr.
-> +	 */
-> +
->  	skb_gro_pull(skb, sizeof(*iph));
-> -	skb_set_transport_header(skb, skb_gro_offset(skb));
->  
->  	pp = ops->callbacks.gro_receive(head, skb);
->  
+>> Also, did you hack/modified the VM NIC MTU to take into the account
+>> the encapsulation overhead?
 
-I am wondering if you tested installing a qdisc at ingress ?
+> The virtio interfaces I used had MTU 1500, but the MTU of the physical NIC
+> was increased to 1600.
 
-qdisc_pkt_len_init() depends that GRO packets have set transport header.
+mmm, that's sort of equivalent, but zero touch VM wise, nice!
 
-Note this might be hidden by the check done in
-__netif_receive_skb_core()
 
-if (!skb_transport_header_was_set(skb))
-    skb_reset_transport_header(skb);
+> I have only noticed this with the offloads on. Turning off encapsuation
+> TSO off, would simply make the gso's to get segmented in dev_hard_xmit()
+> as expected.
 
-To test your changes without playing with ingress qdisc, you could add :
+mmm, I am not sure this is the case with kernels > 3.10.x, but I'd
+like to double check that, basically, its possible that I didn't make
+sure to always have "proper" MTU at the VM @ all times.
 
-if (!skb_transport_header_was_set(skb)) {
-    BUG_ON(skb_is_gso(skb))
-    skb_reset_transport_header(skb);
-}
+Also, did you see the unsimilarity between TX/RX which I reported
+earlier today, that is accelerated TX from single VM can go as far as
+> 30Gbs while RX to single VM or even multiple VMs doesn't go beyond
+5-6Gbs probably as of the lack of GRO?
