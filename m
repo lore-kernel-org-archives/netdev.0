@@ -1,117 +1,90 @@
-From: Zhi Yong Wu <zwu.kernel@gmail.com>
-Subject: Re: [ANNOUNCE] iproute2 3.12.0 release
-Date: Sun, 8 Dec 2013 23:10:45 +0800
-Message-ID: <CAEH94Lh1cgMbTOgp_Td2SSE=UQ+XzdPmifS58BgcrQTR7HpL+w@mail.gmail.com>
-References: <20131122172036.169467a4@nehalam.linuxnetplumber.net>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: vxlan/veth performance issues on net.git + latest kernels
+Date: Sun, 8 Dec 2013 17:21:43 +0200
+Message-ID: <52A48E87.1010704@mellanox.com>
+References: <529DF340.70602@mellanox.com> <1386084620.30495.28.camel@edumazet-glaptop2.roam.corp.google.com> <CAJZOPZJ9WM1H9zKNzT5MvQ2UH7RxkTLk2Rhzsk9vdvKz6d2uAw@mail.gmail.com> <alpine.LFD.2.03.1312031310140.23893@intel.com> <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com> <alpine.LFD.2.03.1312031500020.570@intel.com> <CAJZOPZLT_3msfz_XY45GOBMWK_y8WEYBTq3rGRUijpYyXE1ddg@mail.gmail.com> <alpine.LFD.2.03.1312031626400.7539@intel.com> <CAJZOPZJKsrj2+SQJsgq-w7BrNwDR0OsYWiF+1CcRQ3-KhejZhQ@mail.gmail.com> <alpine.LFD.2.03.1312040113290.14367@intel.com> <CAJZOPZJVBpqm-OduV4K2YwbXESP7awhsk0HbjuHazAiQJZTLWQ@mail.gmail.com> <52A197DF.5010806@mellanox.com> <alpine.LFD.2.03.1312060205220.3499@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	linux-kernel mlist <linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131122172036.169467a4@nehalam.linuxnetplumber.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pravin B Shelar <pshelar@nicira.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jerry Chu <hkchu@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, <jeffrey.t.kirsher@intel.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Jerry Chu <hkchu@google.com>
+To: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:36095 "EHLO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755254Ab3LHPV4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 10:21:56 -0500
+In-Reply-To: <alpine.LFD.2.03.1312060205220.3499@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-HI
+On 06/12/2013 12:30, Joseph Gasparakis wrote:
+> On Fri, 6 Dec 2013, Or Gerlitz wrote:
+>
+>
+>> 1. on which kernel did you manage to get along fine vxlan performance wise
+>> with this hack?
+>>
+> I was running 3.10.6.
+>
+>> 2. did the hack helped for both veth host traffic or only on PV VM traffic?
+>>
+> No, just VM. I haven't tried veth.
+>
+> If you leave the DODGY bit, does your traffic get droped on Tx, after it
+> leaves vxlan and before it hits your driver, which is what I had seen. Is
+> that right?
+>
+> If you unset it, do you recover?
+>
+> What is the output of your ethtool -k on the interface you are
+> transmitting from?
+>
+>> Currently it doesn't converge with 3.12.x or net.git, with veth/vxlan the
+>> DODGE bit isn't set when looking on the skb in the vxlan xmit time, so there's
+>> nothing for me to hack there. For VMs without unsetting the bit things don't
+>> really work, but unsetting it for itself so far didn't get me far performance
+>> wise.
+>>
+>> BTW guys, I saw the issues with both bridge/openvswitch configuration - seems
+>> that we might have here somehow large breakage of the system w.r.t vxlan
+>> traffic for rates that go over few Gbs -- so would love to get feedback of any
+>> kind from the people that were involved with vxlan over the last months/year.
+>>
+>>
 
-The manpage of tc hasn't any info related to "tc action", is there any
-plan to add it recently? or do i miss anything?
+OK!! so finally I managed to get some hacked but stable ground to step 
+on .... indeed  with 3.10.X (I tried 3.10.19) if you
 
-On Sat, Nov 23, 2013 at 9:20 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> A little late but ready and toasty warm here is iproute2 to go with
-> 3.12.0 (aka One Giant Leap for Frogkind).
->
-> In addition to the usual build  documentation fixes, this
-> version includes support for ipv6 on vxlan and GRE.
-> As well as fair queue packet scheduler.
->
-> If you have been sitting on changes to iproute2 that are in
-> net-next for 3.12 merge window, please submit them now.
->
-> Iproute2 package is available at:
->   http://kernel.org/pub/linux/utils/net/iproute2/iproute2-3.12.0.tar.=
-gz
->
-> You can download the source from:
->   git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.g=
-it
->
-> Stay Warm!
->
-> ---
-> Andreas Henriksson (1):
->       ss: avoid passing negative numbers to malloc
->
-> Christophe Gouault (1):
->       xfrm: enable to set non-wildcard mark 0 on SAs and SPs
->
-> Eric Dumazet (3):
->       pkt_sched: fq: Fair Queue packet scheduler
->       tc: support TCA_STATS_RATE_EST64
->       htb: add support for direct_qlen attribute
->
-> Fan Du (1):
->       xfrm: use memcpy to suppress gcc phony buffer overflow warning.
->
-> Hangbin Liu (1):
->       ipaddrlabel: use uint32_t instead of int32_t
->
-> Jamal Hadi Salim (2):
->       tc: introduce simple action
->       action: typo nat fix
->
-> Nicolas Dichtel (1):
->       iplink: update available type list
->
-> Nigel Kukard (1):
->       Fix tc stats when using -batch mode
->
-> Petr P=C3=ADsa=C5=99 (2):
->       iproute2: bridge: document mdb
->       iproute2: bridge: Close file with bridge monitor file
->
-> Sami Kerola (1):
->       ip: make -resolve addr to print names rather than addresses
->
-> Stefan Tomanek (1):
->       ip rule: add route suppression options
->
-> Stephen Hemminger (14):
->       Update kernel headers to net-next for 3.12
->       Update to 3.11 net-next kernel headers
->       nstat: add json output format
->       Update to 3.12-rc1 headers
->       nstat: revise json output
->       ifstat: add json output format
->       lnstat: add json output format
->       lnstat, nstat, ifstat: update man pages
->       tc: add default action to kernel headers
->       ipv6 gre: add entry to ether types
->       Fix handling of qdis without options
->       htb: remove old unused duplicate qdisc name
->       update kernel headers
->       v3.12.0
->
-> WANG Cong (1):
->       vxlan: add ipv6 support
->
-> xeb@mail.ru (2):
->       iproute2: GRE over IPv6 tunnel support.
->       iproute2: ip6gre: update man pages
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+1. reduce the VM PV NIC MTU to account for the vxlan tunneling overhead 
+(e.g to 1450 vs 1500)
+2. unset the DODGY bit for GSO packets in the vxlan driver 
+handle_offloads function
+
+--> You get sane vxlan performance when the VM xmits, without HW 
+offloads I got up to 4-5 Gbs for single VM and with HW offloads > 30Gbs 
+for single VM when the VM is sending to a peer hypervisor.
+
+On VM RX side, it doesn't go too much higher, e.g stays in the order of 
+3-4Gbs for single receiving VM, I am pretty sure this relates to the no 
+GRO for vxlan which is pretty much terrible for VM traffic.
+
+So it seems the TODO here is the following:
+
+1. manage to get the hack for vm-vxlan traffic to work on the net tree
+2. fix the bug that make the hack necessary
+3. find the problem with veth-vxlan traffic on the net tree
+4. add GRO support for encapsulated/vxlan traffic
 
 
+Or.
 
---=20
-Regards,
-
-Zhi Yong Wu
+Or.
