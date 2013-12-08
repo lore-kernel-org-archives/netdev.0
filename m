@@ -1,206 +1,152 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: Re: [PATCH 1/7] net: of_mdio: factor PHY registration from of_mdiobus_register
-Date: Sun, 08 Dec 2013 10:00:16 -0600
-Message-ID: <52A49790.5080901@gmail.com>
-References: <1386283936-26104-1-git-send-email-florian@openwrt.org> <1386283936-26104-2-git-send-email-florian@openwrt.org>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH net-next] 6lowpan: Moving generic compression code into
+ 6lowpan_iphc.c
+Date: Sun, 8 Dec 2013 17:00:40 +0100
+Message-ID: <20131208160039.GA25554@omega>
+References: <1386439370-14549-1-git-send-email-jukka.rissanen@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, grant.likely@linaro.org,
-	devicetree@vger.kernel.org, abrodkin@synopsys.com,
-	rob.herring@calxeda.com, mark.rutland@arm.com,
-	sebastian.hesselbarth@gmail.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
+To: Jukka Rissanen <jukka.rissanen@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:46774 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755010Ab3LHQAT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 11:00:19 -0500
-In-Reply-To: <1386283936-26104-2-git-send-email-florian@openwrt.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:57021 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751412Ab3LHQAq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 11:00:46 -0500
+Received: by mail-wi0-f174.google.com with SMTP id z2so2768444wiv.1
+        for <netdev@vger.kernel.org>; Sun, 08 Dec 2013 08:00:45 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1386439370-14549-1-git-send-email-jukka.rissanen@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/05/2013 04:52 PM, Florian Fainelli wrote:
-> From: Florian Fainelli <f.fainelli@gmail.com>
+Hi Jukka,
+
+there is something wrong with the debug output. :-)
+
+On Sat, Dec 07, 2013 at 08:02:50PM +0200, Jukka Rissanen wrote:
+> Because the IEEE 802154 and Bluetooth share the IP header compression
+> and uncompression code, the common code is moved to 6lowpan_iphc.c
+> file.
 > 
-> Since commit 779d835e ("net: of_mdio: scan mdiobus for PHYs without reg
-> property") we have two foreach loops which do pretty much the same
-> thing. Factor the PHY device registration in a function helper:
-> of_mdiobus_register_phy() which takes care of the details and allows for
-> future PHY specific extensions.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-
-A couple of formatting nits, but otherwise:
-
-Acked-by: Rob Herring <rob.herring@calxeda.com>
-
-BTW, unless David has objections, I'd like to see this file moved to
-drivers/net. He tends to merge the of_mdio.c changes anyway. We've moved
-most other subsystem parsing code out of drivers/of.
-
+> Signed-off-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
 > ---
->  drivers/of/of_mdio.c | 109 ++++++++++++++++++++++-----------------------------
->  1 file changed, 46 insertions(+), 63 deletions(-)
+> Hi,
 > 
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index d5a57a9..82485d2 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -22,6 +22,47 @@
->  MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
->  MODULE_LICENSE("GPL");
->  
-> +static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *child,
-> +				   u32 addr)
+> this is just refactoring code so that Bluetooth LE 6LoWPAN
+> patches (sent to bluetooth mailing list) can use it.
+> No functionality changes by this patch.
+> 
+> Cheers,
+> Jukka
+> 
+>  net/ieee802154/6lowpan.c      | 753 ++-------------------------------------
+>  net/ieee802154/6lowpan.h      |  32 ++
+>  net/ieee802154/6lowpan_iphc.c | 807 ++++++++++++++++++++++++++++++++++++++++++
+>  net/ieee802154/Makefile       |   2 +-
+>  4 files changed, 875 insertions(+), 719 deletions(-)
+>  create mode 100644 net/ieee802154/6lowpan_iphc.c
+> 
+...
+> diff --git a/net/ieee802154/6lowpan_iphc.c b/net/ieee802154/6lowpan_iphc.c
+> new file mode 100644
+> index 0000000..57c0b7a
+> --- /dev/null
+> +++ b/net/ieee802154/6lowpan_iphc.c
+> @@ -0,0 +1,807 @@
+> +/*
+> + * Copyright 2011, Siemens AG
+> + * written by Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+> + */
+> +
+> +/*
+> + * Based on patches from Jon Smirl <jonsmirl@gmail.com>
+> + * Copyright (c) 2011 Jon Smirl <jonsmirl@gmail.com>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License version 2
+> + * as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License along
+> + * with this program; if not, write to the Free Software Foundation, Inc.,
+> + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+> + */
+> +
+> +/* Jon's code is based on 6lowpan implementation for Contiki which is:
+> + * Copyright (c) 2008, Swedish Institute of Computer Science.
+> + * All rights reserved.
+> + *
+> + * Redistribution and use in source and binary forms, with or without
+> + * modification, are permitted provided that the following conditions
+> + * are met:
+> + * 1. Redistributions of source code must retain the above copyright
+> + *    notice, this list of conditions and the following disclaimer.
+> + * 2. Redistributions in binary form must reproduce the above copyright
+> + *    notice, this list of conditions and the following disclaimer in the
+> + *    documentation and/or other materials provided with the distribution.
+> + * 3. Neither the name of the Institute nor the names of its contributors
+> + *    may be used to endorse or promote products derived from this software
+> + *    without specific prior written permission.
+> + *
+> + * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND
+> + * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+> + * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+> + * ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE
+> + * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+> + * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+> + * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+> + * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+> + * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+> + * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+> + * SUCH DAMAGE.
+> + */
+> +
+> +#include <linux/bitops.h>
+> +#include <linux/if_arp.h>
+> +#include <linux/netdevice.h>
+> +#include <net/ipv6.h>
+> +#include <net/af_ieee802154.h>
+> +
+> +#include "6lowpan.h"
+> +
+> +/* print data in line */
+> +static inline void raw_dump_inline(const char *caller, char *msg,
+> +				   unsigned char *buf, int len)
 > +{
-> +	struct phy_device *phy;
-> +	bool is_c45;
-> +	int rc;
-> +
-> +	is_c45 = of_device_is_compatible(child,
-> +					 "ethernet-phy-ieee802.3-c45");
-
-This looks like it can be 1 line.
-
-> +
-> +	phy = get_phy_device(mdio, addr, is_c45);
-> +	if (!phy || IS_ERR(phy))
-> +		return 1;
-> +
-> +	if (mdio->irq) {
-> +		mdio->irq[addr] =
-> +			irq_of_parse_and_map(child, 0);
-
-ditto
-
-> +		if (!mdio->irq[addr])
-> +			mdio->irq[addr] = PHY_POLL;
-> +	}
-> +
-> +	/* Associate the OF node with the device structure so it
-> +	 * can be looked up later */
-> +	of_node_get(child);
-> +	phy->dev.of_node = child;
-> +
-> +	/* All data is now stored in the phy struct;
-> +	 * register it */
-> +	rc = phy_device_register(phy);
-> +	if (rc) {
-> +		phy_device_free(phy);
-> +		of_node_put(child);
-> +		return 1;
-> +	}
-> +
-> +	dev_dbg(&mdio->dev, "registered phy %s at address %i\n",
-> +		 child->name, addr);
-> +
-> +	return 0;
+> +	if (msg)
+> +		pr_debug("%s():%s: ", caller, msg);
+> +	print_hex_dump_debug("", DUMP_PREFIX_NONE,
+> +		       16, 1, buf, len, false);
 > +}
 > +
->  /**
->   * of_mdiobus_register - Register mii_bus and create PHYs from the device tree
->   * @mdio: pointer to mii_bus structure
-> @@ -32,11 +73,10 @@ MODULE_LICENSE("GPL");
->   */
->  int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
->  {
-> -	struct phy_device *phy;
->  	struct device_node *child;
->  	const __be32 *paddr;
->  	u32 addr;
-> -	bool is_c45, scanphys = false;
-> +	bool scanphys = false;
->  	int rc, i, len;
->  
->  	/* Mask out all PHYs from auto probing.  Instead the PHYs listed in
-> @@ -73,38 +113,9 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
->  			continue;
->  		}
->  
-> -		if (mdio->irq) {
-> -			mdio->irq[addr] = irq_of_parse_and_map(child, 0);
-> -			if (!mdio->irq[addr])
-> -				mdio->irq[addr] = PHY_POLL;
-> -		}
-> -
-> -		is_c45 = of_device_is_compatible(child,
-> -						 "ethernet-phy-ieee802.3-c45");
-> -		phy = get_phy_device(mdio, addr, is_c45);
-> -
-> -		if (!phy || IS_ERR(phy)) {
-> -			dev_err(&mdio->dev,
-> -				"cannot get PHY at address %i\n",
-> -				addr);
-> -			continue;
-> -		}
-> -
-> -		/* Associate the OF node with the device structure so it
-> -		 * can be looked up later */
-> -		of_node_get(child);
-> -		phy->dev.of_node = child;
-> -
-> -		/* All data is now stored in the phy struct; register it */
-> -		rc = phy_device_register(phy);
-> -		if (rc) {
-> -			phy_device_free(phy);
-> -			of_node_put(child);
-> +		rc = of_mdiobus_register_phy(mdio, child, addr);
-> +		if (rc)
->  			continue;
-> -		}
-> -
-> -		dev_dbg(&mdio->dev, "registered phy %s at address %i\n",
-> -			child->name, addr);
->  	}
->  
->  	if (!scanphys)
-> @@ -117,9 +128,6 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
->  		if (paddr)
->  			continue;
->  
-> -		is_c45 = of_device_is_compatible(child,
-> -						 "ethernet-phy-ieee802.3-c45");
-> -
->  		for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
->  			/* skip already registered PHYs */
->  			if (mdio->phy_map[addr])
-> @@ -129,34 +137,9 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
->  			dev_info(&mdio->dev, "scan phy %s at address %i\n",
->  				 child->name, addr);
->  
-> -			phy = get_phy_device(mdio, addr, is_c45);
-> -			if (!phy || IS_ERR(phy))
-> +			rc = of_mdiobus_register_phy(mdio, child, addr);
-> +			if (rc)
->  				continue;
-> -
-> -			if (mdio->irq) {
-> -				mdio->irq[addr] =
-> -					irq_of_parse_and_map(child, 0);
-> -				if (!mdio->irq[addr])
-> -					mdio->irq[addr] = PHY_POLL;
-> -			}
-> -
-> -			/* Associate the OF node with the device structure so it
-> -			 * can be looked up later */
-> -			of_node_get(child);
-> -			phy->dev.of_node = child;
-> -
-> -			/* All data is now stored in the phy struct;
-> -			 * register it */
-> -			rc = phy_device_register(phy);
-> -			if (rc) {
-> -				phy_device_free(phy);
-> -				of_node_put(child);
-> -				continue;
-> -			}
-> -
-> -			dev_info(&mdio->dev, "registered phy %s at address %i\n",
-> -				 child->name, addr);
-> -			break;
->  		}
->  	}
->  
-> 
+You should set here a:
+#ifdef DEBUG
+...
+#endif
+> +/*
+> + * print data in a table format:
+> + *
+> + * addr: xx xx xx xx xx xx
+> + * addr: xx xx xx xx xx xx
+> + * ...
+> + */
+> +static inline void raw_dump_table(const char *caller, char *msg,
+> +				unsigned char *buf, int len)
+> +{
+> +	if (msg)
+> +		pr_debug("%s():%s:\n", caller, msg);
+> +	print_hex_dump_debug("\t", DUMP_PREFIX_OFFSET,
+> +		       16, 1, buf, len, false);
+> +}
+> +
+here too...
+
+I get many debug output and I don't set any debug options. That's
+something which should fixed in this patch.
+
+- Alex
