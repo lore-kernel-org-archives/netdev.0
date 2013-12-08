@@ -1,61 +1,75 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 07/12] net/mlx4_en: Configure the XPS queue mapping
- on driver load
-Date: Sun, 08 Dec 2013 19:28:30 +0400
-Message-ID: <52A4901E.2030906@cogentembedded.com>
-References: <1386506152-10298-1-git-send-email-amirv@mellanox.com> <1386506152-10298-8-git-send-email-amirv@mellanox.com>
+From: "Mr. Smith" <ecoloanfirm@qq.com>
+Subject: Zajam Ponuda
+Date: Sun, 08 Dec 2013 15:52:55 +0100
+Message-ID: <E1Vpfk2-000MFn-3S@mercury>
+Reply-To: <ecoloanfirm@qq.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	netdev@vger.kernel.org, Ido Shamay <idos@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <ecoloanfirm@qq.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:39809 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755254Ab3LHP2d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 10:28:33 -0500
-Received: by mail-la0-f51.google.com with SMTP id ec20so987748lab.10
-        for <netdev@vger.kernel.org>; Sun, 08 Dec 2013 07:28:32 -0800 (PST)
-In-Reply-To: <1386506152-10298-8-git-send-email-amirv@mellanox.com>
+Received: from mx3.kolporter.com.pl ([91.197.155.14]:39457 "EHLO
+	mx3.kolporter.com.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754700Ab3LHPhX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 10:37:23 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+POZOR!!
+Jeste li poslovni covjek / =9Eena? Jeste li u bilo koje financijske ner=
+ed ili trebate
+sredstva za pokretanje vlastitog posla? ili isplatiti svoje racune ili =
+zapoceti dobro
+posao?
+Imate nisku kreditnu rezultat i imaju pote=9Akoca u dobivanju radne
+kapitala krediti od domacih ili drugih financijskih institucija i banak=
+a?
+  Ako to i jo=9A mnogo toga su va=9Ai strahovi, javite nam se putem e-m=
+aila na ecoloanfirm@qq.com, Mi smo trenutno nude kredit uz 4% kamatne s=
+tope bez kolateralna.
+  Ako se zainteresirani Molimo ispunite obrazac zahtjeva za kredit u na=
+stavku, za daljnju obradu.
 
-On 08-12-2013 16:35, Amir Vadai wrote:
+Ime ----
+iznos ----
+Trajanje ----
+Telefonski broj ---
+Dr=9Eava ---
+seks -------
+Zanimanje -----
 
-> From: Ido Shamay <idos@mellanox.com>
+Tako se u kontaktu s nama danas i opra=9Ataju se od svojih financijskih=
+ problema
 
-> Only TX rings of User Piority 0 are mapped.
-> TX rings of other UP's are using UP 0 mapping.
-> XPS is not in use when num_tc is set.
+hvala
+Gospodin Lucas Moore
 
-> Signed-off-by: Ido Shamay <idos@mellanox.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-[...]
+ATTENTION!!!!!
+Are you a businessman / woman? Are you in any financial mess or you nee=
+d=20
+funds to start your own business? or to pay off your bills or start a g=
+ood=20
+business?=20
+Do You have a low credit score and have difficulty in obtaining working=
+=20
+capital loans from local or other financial institutions and banks?
+ If these and many more are your fears, contact us now via email at eco=
+loanfirm@qq.com, We are currently offering Loan with 4% interest Rate w=
+ith no collateral.
+ If interested Please fill the Loan application Form below, for further=
+ processing.
 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> index fa33a83..a4cdd7d 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-[...]
-> @@ -708,8 +710,9 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb);
->   netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev);
->
->   int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
-> -			   struct mlx4_en_tx_ring **pring,
-> -			   int qpn, u32 size, u16 stride, int node);
-> +			struct mlx4_en_tx_ring **pring,
-> +			int qpn, u32 size, u16 stride,
-> +			int node, int queue_index);
+Name----=20
+Amount----=20
+Duration----=20
+Phone number---=20
+Country---=20
+Sex-------=20
+Occupation-----=20
 
-    Why you've changed the indentation here -- it was alright before.
+So get in touch with us today and bid goodbye to your financial trouble=
+s
 
->   void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
->   			     struct mlx4_en_tx_ring **pring);
->   int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
-
-WBR, Sergei
+Thanks
+Mr. Lucas Moore
