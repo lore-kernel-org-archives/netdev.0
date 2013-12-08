@@ -1,238 +1,255 @@
-From: =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2 06/16] wl1251: configure hardware en-/decryption for monitor mode
-Date: Sun,  8 Dec 2013 10:25:04 +0100
-Message-ID: <1386494714-21070-7-git-send-email-pali.rohar@gmail.com>
+From: =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar@gmail.com>
+Subject: [PATCH v2 07/16] wl1251: implement multicast address filtering
+Date: Sun,  8 Dec 2013 10:25:05 +0100
+Message-ID: <1386494714-21070-8-git-send-email-pali.rohar@gmail.com>
 References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
  <1386494714-21070-1-git-send-email-pali.rohar@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, freemangordon-uiMcrn6V0Vs@public.gmane.org,
-	aaro.koskinen-X3B1VOXEql0@public.gmane.org, pavel-+ZI9xUNit7I@public.gmane.org, sre-GFxCN5SEZAc@public.gmane.org,
-	joni.lapilainen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>,
-	=?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1386494714-21070-1-git-send-email-pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
+	aaro.koskinen@iki.fi, pavel@ucw.cz, sre@ring0.de,
+	joni.lapilainen@gmail.com,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Felipe Contreras <felipe.contreras@gmail.com>,
+	David Gnedt <david.gnedt@davizone.at>,
+	=?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar@gmail.com>
+To: Luciano Coelho <luca@coelho.fi>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1386494714-21070-1-git-send-email-pali.rohar@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>
+=46rom: David Gnedt <david.gnedt@davizone.at>
 
-Disable hardware encryption (DF_ENCRYPTION_DISABLE) and decryption
-(DF_SNIFF_MODE_ENABLE) via wl1251_acx_feature_cfg while monitor interfa=
-ce is
-present.
+Port multicast address filtering from wl1271 driver.
+It sets up the hardware multicast address filter in configure_filter() =
+with
+addresses supplied through prepare_multicast().
 
-Signed-off-by: David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>
-Signed-off-by: Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: David Gnedt <david.gnedt@davizone.at>
+Signed-off-by: Pali Roh=C3=A1r <pali.rohar@gmail.com>
 ---
- drivers/net/wireless/ti/wl1251/acx.c    |    6 +++---
- drivers/net/wireless/ti/wl1251/acx.h    |    2 +-
+ drivers/net/wireless/ti/wl1251/acx.c    |    9 ++---
+ drivers/net/wireless/ti/wl1251/acx.h    |    9 ++---
  drivers/net/wireless/ti/wl1251/init.c   |    2 +-
- drivers/net/wireless/ti/wl1251/main.c   |   34 +++++++++++++++++++++++=
-+++-----
- drivers/net/wireless/ti/wl1251/rx.c     |    2 +-
- drivers/net/wireless/ti/wl1251/tx.c     |    3 +++
+ drivers/net/wireless/ti/wl1251/main.c   |   57 +++++++++++++++++++++++=
+++++++--
  drivers/net/wireless/ti/wl1251/wl1251.h |    1 +
- 7 files changed, 39 insertions(+), 11 deletions(-)
+ 5 files changed, 67 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/wireless/ti/wl1251/acx.c b/drivers/net/wireles=
 s/ti/wl1251/acx.c
-index 5f4a552..1ec98e9 100644
+index 1ec98e9..f772e62 100644
 --- a/drivers/net/wireless/ti/wl1251/acx.c
 +++ b/drivers/net/wireless/ti/wl1251/acx.c
-@@ -209,7 +209,7 @@ out:
+@@ -408,7 +408,8 @@ out:
  	return ret;
  }
 =20
--int wl1251_acx_feature_cfg(struct wl1251 *wl)
-+int wl1251_acx_feature_cfg(struct wl1251 *wl, u32 data_flow_options)
+-int wl1251_acx_group_address_tbl(struct wl1251 *wl)
++int wl1251_acx_group_address_tbl(struct wl1251 *wl, bool enable,
++				 void *mc_list, u32 mc_list_len)
  {
- 	struct acx_feature_config *feature;
+ 	struct acx_dot11_grp_addr_tbl *acx;
  	int ret;
-@@ -222,8 +222,8 @@ int wl1251_acx_feature_cfg(struct wl1251 *wl)
- 		goto out;
+@@ -422,9 +423,9 @@ int wl1251_acx_group_address_tbl(struct wl1251 *wl)
  	}
 =20
--	/* DF_ENCRYPTION_DISABLE and DF_SNIFF_MODE_ENABLE are disabled */
--	feature->data_flow_options =3D 0;
-+	/* DF_ENCRYPTION_DISABLE and DF_SNIFF_MODE_ENABLE can be set */
-+	feature->data_flow_options =3D data_flow_options;
- 	feature->options =3D 0;
+ 	/* MAC filtering */
+-	acx->enabled =3D 0;
+-	acx->num_groups =3D 0;
+-	memset(acx->mac_table, 0, ADDRESS_GROUP_MAX_LEN);
++	acx->enabled =3D enable;
++	acx->num_groups =3D mc_list_len;
++	memcpy(acx->mac_table, mc_list, mc_list_len * ETH_ALEN);
 =20
- 	ret =3D wl1251_cmd_configure(wl, ACX_FEATURE_CFG,
+ 	ret =3D wl1251_cmd_configure(wl, DOT11_GROUP_ADDRESS_TBL,
+ 				   acx, sizeof(*acx));
 diff --git a/drivers/net/wireless/ti/wl1251/acx.h b/drivers/net/wireles=
 s/ti/wl1251/acx.h
-index 4444cd0..bea2e67 100644
+index bea2e67..820573c 100644
 --- a/drivers/net/wireless/ti/wl1251/acx.h
 +++ b/drivers/net/wireless/ti/wl1251/acx.h
-@@ -1455,7 +1455,7 @@ int wl1251_acx_wake_up_conditions(struct wl1251 *=
-wl, u8 wake_up_event,
- int wl1251_acx_sleep_auth(struct wl1251 *wl, u8 sleep_auth);
- int wl1251_acx_fw_version(struct wl1251 *wl, char *buf, size_t len);
- int wl1251_acx_tx_power(struct wl1251 *wl, int power);
--int wl1251_acx_feature_cfg(struct wl1251 *wl);
-+int wl1251_acx_feature_cfg(struct wl1251 *wl, u32 data_flow_options);
- int wl1251_acx_mem_map(struct wl1251 *wl,
- 		       struct acx_header *mem_map, size_t len);
- int wl1251_acx_data_path_params(struct wl1251 *wl,
+@@ -350,8 +350,8 @@ struct acx_slot {
+ } __packed;
+=20
+=20
+-#define ADDRESS_GROUP_MAX	(8)
+-#define ADDRESS_GROUP_MAX_LEN	(ETH_ALEN * ADDRESS_GROUP_MAX)
++#define ACX_MC_ADDRESS_GROUP_MAX	(8)
++#define ACX_MC_ADDRESS_GROUP_MAX_LEN	(ETH_ALEN * ACX_MC_ADDRESS_GROUP_=
+MAX)
+=20
+ struct acx_dot11_grp_addr_tbl {
+ 	struct acx_header header;
+@@ -359,7 +359,7 @@ struct acx_dot11_grp_addr_tbl {
+ 	u8 enabled;
+ 	u8 num_groups;
+ 	u8 pad[2];
+-	u8 mac_table[ADDRESS_GROUP_MAX_LEN];
++	u8 mac_table[ACX_MC_ADDRESS_GROUP_MAX_LEN];
+ } __packed;
+=20
+=20
+@@ -1464,7 +1464,8 @@ int wl1251_acx_rx_msdu_life_time(struct wl1251 *w=
+l, u32 life_time);
+ int wl1251_acx_rx_config(struct wl1251 *wl, u32 config, u32 filter);
+ int wl1251_acx_pd_threshold(struct wl1251 *wl);
+ int wl1251_acx_slot(struct wl1251 *wl, enum acx_slot_type slot_time);
+-int wl1251_acx_group_address_tbl(struct wl1251 *wl);
++int wl1251_acx_group_address_tbl(struct wl1251 *wl, bool enable,
++				 void *mc_list, u32 mc_list_len);
+ int wl1251_acx_service_period_timeout(struct wl1251 *wl);
+ int wl1251_acx_rts_threshold(struct wl1251 *wl, u16 rts_threshold);
+ int wl1251_acx_beacon_filter_opt(struct wl1251 *wl, bool enable_filter=
+);
 diff --git a/drivers/net/wireless/ti/wl1251/init.c b/drivers/net/wirele=
 ss/ti/wl1251/init.c
-index 424ce01..92de289 100644
+index 92de289..f8a2ea9 100644
 --- a/drivers/net/wireless/ti/wl1251/init.c
 +++ b/drivers/net/wireless/ti/wl1251/init.c
-@@ -33,7 +33,7 @@ int wl1251_hw_init_hwenc_config(struct wl1251 *wl)
- {
- 	int ret;
-=20
--	ret =3D wl1251_acx_feature_cfg(wl);
-+	ret =3D wl1251_acx_feature_cfg(wl, 0);
- 	if (ret < 0) {
- 		wl1251_warning("couldn't set feature config");
+@@ -127,7 +127,7 @@ int wl1251_hw_init_phy_config(struct wl1251 *wl)
+ 	if (ret < 0)
  		return ret;
+=20
+-	ret =3D wl1251_acx_group_address_tbl(wl);
++	ret =3D wl1251_acx_group_address_tbl(wl, true, NULL, 0);
+ 	if (ret < 0)
+ 		return ret;
+=20
 diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wirele=
 ss/ti/wl1251/main.c
-index 0e27f1f..39a6105 100644
+index 39a6105..ee318c8 100644
 --- a/drivers/net/wireless/ti/wl1251/main.c
 +++ b/drivers/net/wireless/ti/wl1251/main.c
-@@ -485,6 +485,7 @@ static void wl1251_op_stop(struct ieee80211_hw *hw)
- 	wl->power_level =3D WL1251_DEFAULT_POWER_LEVEL;
- 	wl->rssi_thold =3D 0;
- 	wl->channel =3D WL1251_DEFAULT_CHANNEL;
-+	wl->monitor_present =3D false;
+@@ -29,6 +29,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/platform_device.h>
+ #include <linux/slab.h>
++#include <linux/netdevice.h>
 =20
- 	wl1251_debugfs_reset(wl);
+ #include "wl1251.h"
+ #include "wl12xx_80211.h"
+@@ -678,6 +679,44 @@ out:
+ 	return ret;
+ }
 =20
-@@ -577,8 +578,10 @@ static int wl1251_op_config(struct ieee80211_hw *h=
-w, u32 changed)
- 	channel =3D ieee80211_frequency_to_channel(
- 			conf->chandef.chan->center_freq);
-=20
--	wl1251_debug(DEBUG_MAC80211, "mac80211 config ch %d psm %s power %d",
-+	wl1251_debug(DEBUG_MAC80211,
-+		     "mac80211 config ch %d monitor %s psm %s power %d",
- 		     channel,
-+		     conf->flags & IEEE80211_CONF_MONITOR ? "on" : "off",
- 		     conf->flags & IEEE80211_CONF_PS ? "on" : "off",
- 		     conf->power_level);
-=20
-@@ -588,6 +591,22 @@ static int wl1251_op_config(struct ieee80211_hw *h=
-w, u32 changed)
- 	if (ret < 0)
- 		goto out;
-=20
-+	if (changed & IEEE80211_CONF_CHANGE_MONITOR) {
-+		u32 mode;
++struct wl1251_filter_params {
++	bool enabled;
++	int mc_list_length;
++	u8 mc_list[ACX_MC_ADDRESS_GROUP_MAX][ETH_ALEN];
++};
 +
-+		if (conf->flags & IEEE80211_CONF_MONITOR) {
-+			wl->monitor_present =3D true;
-+			mode =3D DF_SNIFF_MODE_ENABLE | DF_ENCRYPTION_DISABLE;
-+		} else {
-+			wl->monitor_present =3D false;
-+			mode =3D 0;
-+		}
++static u64 wl1251_op_prepare_multicast(struct ieee80211_hw *hw,
++				       struct netdev_hw_addr_list *mc_list)
++{
++	struct wl1251_filter_params *fp;
++	struct netdev_hw_addr *ha;
++	struct wl1251 *wl =3D hw->priv;
 +
-+		ret =3D wl1251_acx_feature_cfg(wl, mode);
-+		if (ret < 0)
-+			goto out_sleep;
++	if (unlikely(wl->state =3D=3D WL1251_STATE_OFF))
++		return 0;
++
++	fp =3D kzalloc(sizeof(*fp), GFP_ATOMIC);
++	if (!fp) {
++		wl1251_error("Out of memory setting filters.");
++		return 0;
 +	}
 +
- 	if (channel !=3D wl->channel) {
- 		wl->channel =3D channel;
++	/* update multicast filtering parameters */
++	fp->mc_list_length =3D 0;
++	if (netdev_hw_addr_list_count(mc_list) > ACX_MC_ADDRESS_GROUP_MAX) {
++		fp->enabled =3D false;
++	} else {
++		fp->enabled =3D true;
++		netdev_hw_addr_list_for_each(ha, mc_list) {
++			memcpy(fp->mc_list[fp->mc_list_length],
++					ha->addr, ETH_ALEN);
++			fp->mc_list_length++;
++		}
++	}
++
++	return (u64)(unsigned long)fp;
++}
++
+ #define WL1251_SUPPORTED_FILTERS (FIF_PROMISC_IN_BSS | \
+ 				  FIF_ALLMULTI | \
+ 				  FIF_FCSFAIL | \
+@@ -688,8 +727,9 @@ out:
 =20
-@@ -804,12 +823,12 @@ static int wl1251_op_set_key(struct ieee80211_hw =
-*hw, enum set_key_cmd cmd,
+ static void wl1251_op_configure_filter(struct ieee80211_hw *hw,
+ 				       unsigned int changed,
+-				       unsigned int *total,u64 multicast)
++				       unsigned int *total, u64 multicast)
+ {
++	struct wl1251_filter_params *fp =3D (void *)(unsigned long)multicast;
+ 	struct wl1251 *wl =3D hw->priv;
+ 	int ret;
+=20
+@@ -698,9 +738,11 @@ static void wl1251_op_configure_filter(struct ieee=
+80211_hw *hw,
+ 	*total &=3D WL1251_SUPPORTED_FILTERS;
+ 	changed &=3D WL1251_SUPPORTED_FILTERS;
+=20
+-	if (changed =3D=3D 0)
++	if (changed =3D=3D 0) {
+ 		/* no filters which we support changed */
++		kfree(fp);
+ 		return;
++	}
 =20
  	mutex_lock(&wl->mutex);
 =20
--	ret =3D wl1251_ps_elp_wakeup(wl);
--	if (ret < 0)
--		goto out_unlock;
--
- 	switch (cmd) {
- 	case SET_KEY:
-+		if (wl->monitor_present) {
-+			ret =3D -EOPNOTSUPP;
-+			goto out_unlock;
-+		}
- 		wl_cmd->key_action =3D KEY_ADD_OR_REPLACE;
- 		break;
- 	case DISABLE_KEY:
-@@ -820,6 +839,10 @@ static int wl1251_op_set_key(struct ieee80211_hw *=
-hw, enum set_key_cmd cmd,
- 		break;
- 	}
+@@ -737,6 +779,15 @@ static void wl1251_op_configure_filter(struct ieee=
+80211_hw *hw,
+ 	if (ret < 0)
+ 		goto out;
 =20
-+	ret =3D wl1251_ps_elp_wakeup(wl);
++	if (*total & FIF_ALLMULTI || *total & FIF_PROMISC_IN_BSS)
++		ret =3D wl1251_acx_group_address_tbl(wl, false, NULL, 0);
++	else if (fp)
++		ret =3D wl1251_acx_group_address_tbl(wl, fp->enabled,
++						   fp->mc_list,
++						   fp->mc_list_length);
 +	if (ret < 0)
-+		goto out_unlock;
++		goto out;
 +
- 	ret =3D wl1251_set_key_type(wl, wl_cmd, cmd, key, addr);
- 	if (ret < 0) {
- 		wl1251_error("Set KEY type failed");
-@@ -1520,6 +1543,7 @@ struct ieee80211_hw *wl1251_alloc_hw(void)
+ 	/* send filters to firmware */
+ 	wl1251_acx_rx_config(wl, wl->rx_config, wl->rx_filter);
 =20
- 	INIT_DELAYED_WORK(&wl->elp_work, wl1251_elp_work);
- 	wl->channel =3D WL1251_DEFAULT_CHANNEL;
-+	wl->monitor_present =3D false;
- 	wl->scanning =3D false;
- 	wl->default_key =3D 0;
- 	wl->listen_int =3D 1;
-diff --git a/drivers/net/wireless/ti/wl1251/rx.c b/drivers/net/wireless=
-/ti/wl1251/rx.c
-index 23289d4..123c4bb 100644
---- a/drivers/net/wireless/ti/wl1251/rx.c
-+++ b/drivers/net/wireless/ti/wl1251/rx.c
-@@ -83,7 +83,7 @@ static void wl1251_rx_status(struct wl1251 *wl,
+@@ -744,6 +795,7 @@ static void wl1251_op_configure_filter(struct ieee8=
+0211_hw *hw,
 =20
- 	status->flag |=3D RX_FLAG_MACTIME_START;
+ out:
+ 	mutex_unlock(&wl->mutex);
++	kfree(fp);
+ }
 =20
--	if (desc->flags & RX_DESC_ENCRYPTION_MASK) {
-+	if (!wl->monitor_present && (desc->flags & RX_DESC_ENCRYPTION_MASK)) =
+ /* HW encryption */
+@@ -1283,6 +1335,7 @@ static const struct ieee80211_ops wl1251_ops =3D =
 {
- 		status->flag |=3D RX_FLAG_IV_STRIPPED | RX_FLAG_MMIC_STRIPPED;
-=20
- 		if (likely(!(desc->flags & RX_DESC_DECRYPT_FAIL)))
-diff --git a/drivers/net/wireless/ti/wl1251/tx.c b/drivers/net/wireless=
-/ti/wl1251/tx.c
-index 28121c5..3cc82fd 100644
---- a/drivers/net/wireless/ti/wl1251/tx.c
-+++ b/drivers/net/wireless/ti/wl1251/tx.c
-@@ -287,6 +287,9 @@ static int wl1251_tx_frame(struct wl1251 *wl, struc=
-t sk_buff *skb)
- 	info =3D IEEE80211_SKB_CB(skb);
-=20
- 	if (info->control.hw_key) {
-+		if (unlikely(wl->monitor_present))
-+			return -1;
-+
- 		idx =3D info->control.hw_key->hw_key_idx;
- 		if (unlikely(wl->default_key !=3D idx)) {
- 			ret =3D wl1251_acx_default_key(wl, idx);
+ 	.add_interface =3D wl1251_op_add_interface,
+ 	.remove_interface =3D wl1251_op_remove_interface,
+ 	.config =3D wl1251_op_config,
++	.prepare_multicast =3D wl1251_op_prepare_multicast,
+ 	.configure_filter =3D wl1251_op_configure_filter,
+ 	.tx =3D wl1251_op_tx,
+ 	.set_key =3D wl1251_op_set_key,
 diff --git a/drivers/net/wireless/ti/wl1251/wl1251.h b/drivers/net/wire=
 less/ti/wl1251/wl1251.h
-index de9e418..45df03a 100644
+index 45df03a..93c18d2 100644
 --- a/drivers/net/wireless/ti/wl1251/wl1251.h
 +++ b/drivers/net/wireless/ti/wl1251/wl1251.h
-@@ -309,6 +309,7 @@ struct wl1251 {
- 	u8 bss_type;
- 	u8 listen_int;
- 	int channel;
-+	bool monitor_present;
+@@ -93,6 +93,7 @@ enum {
+ 	} while (0)
 =20
- 	void *target_mem_map;
- 	struct acx_data_path_params_resp *data_path;
+ #define WL1251_DEFAULT_RX_CONFIG (CFG_UNI_FILTER_EN |	\
++				  CFG_MC_FILTER_EN |	\
+ 				  CFG_BSSID_FILTER_EN)
+=20
+ #define WL1251_DEFAULT_RX_FILTER (CFG_RX_PRSP_EN |  \
 --=20
 1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
