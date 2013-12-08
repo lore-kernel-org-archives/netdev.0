@@ -1,90 +1,61 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: vxlan/veth performance issues on net.git + latest kernels
-Date: Sun, 8 Dec 2013 17:21:43 +0200
-Message-ID: <52A48E87.1010704@mellanox.com>
-References: <529DF340.70602@mellanox.com> <1386084620.30495.28.camel@edumazet-glaptop2.roam.corp.google.com> <CAJZOPZJ9WM1H9zKNzT5MvQ2UH7RxkTLk2Rhzsk9vdvKz6d2uAw@mail.gmail.com> <alpine.LFD.2.03.1312031310140.23893@intel.com> <CAJZOPZL9LxB5HdqS=+gQW-MjvW2NsZOt3NPB7v1iOFoEB7SsMQ@mail.gmail.com> <alpine.LFD.2.03.1312031500020.570@intel.com> <CAJZOPZLT_3msfz_XY45GOBMWK_y8WEYBTq3rGRUijpYyXE1ddg@mail.gmail.com> <alpine.LFD.2.03.1312031626400.7539@intel.com> <CAJZOPZJKsrj2+SQJsgq-w7BrNwDR0OsYWiF+1CcRQ3-KhejZhQ@mail.gmail.com> <alpine.LFD.2.03.1312040113290.14367@intel.com> <CAJZOPZJVBpqm-OduV4K2YwbXESP7awhsk0HbjuHazAiQJZTLWQ@mail.gmail.com> <52A197DF.5010806@mellanox.com> <alpine.LFD.2.03.1312060205220.3499@intel.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 07/12] net/mlx4_en: Configure the XPS queue mapping
+ on driver load
+Date: Sun, 08 Dec 2013 19:28:30 +0400
+Message-ID: <52A4901E.2030906@cogentembedded.com>
+References: <1386506152-10298-1-git-send-email-amirv@mellanox.com> <1386506152-10298-8-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jerry Chu <hkchu@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, <jeffrey.t.kirsher@intel.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Jerry Chu <hkchu@google.com>
-To: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	netdev@vger.kernel.org, Ido Shamay <idos@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:36095 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755254Ab3LHPV4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 10:21:56 -0500
-In-Reply-To: <alpine.LFD.2.03.1312060205220.3499@intel.com>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:39809 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755254Ab3LHP2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 10:28:33 -0500
+Received: by mail-la0-f51.google.com with SMTP id ec20so987748lab.10
+        for <netdev@vger.kernel.org>; Sun, 08 Dec 2013 07:28:32 -0800 (PST)
+In-Reply-To: <1386506152-10298-8-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/12/2013 12:30, Joseph Gasparakis wrote:
-> On Fri, 6 Dec 2013, Or Gerlitz wrote:
+Hello.
+
+On 08-12-2013 16:35, Amir Vadai wrote:
+
+> From: Ido Shamay <idos@mellanox.com>
+
+> Only TX rings of User Piority 0 are mapped.
+> TX rings of other UP's are using UP 0 mapping.
+> XPS is not in use when num_tc is set.
+
+> Signed-off-by: Ido Shamay <idos@mellanox.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+[...]
+
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> index fa33a83..a4cdd7d 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+[...]
+> @@ -708,8 +710,9 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb);
+>   netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev);
 >
->
->> 1. on which kernel did you manage to get along fine vxlan performance wise
->> with this hack?
->>
-> I was running 3.10.6.
->
->> 2. did the hack helped for both veth host traffic or only on PV VM traffic?
->>
-> No, just VM. I haven't tried veth.
->
-> If you leave the DODGY bit, does your traffic get droped on Tx, after it
-> leaves vxlan and before it hits your driver, which is what I had seen. Is
-> that right?
->
-> If you unset it, do you recover?
->
-> What is the output of your ethtool -k on the interface you are
-> transmitting from?
->
->> Currently it doesn't converge with 3.12.x or net.git, with veth/vxlan the
->> DODGE bit isn't set when looking on the skb in the vxlan xmit time, so there's
->> nothing for me to hack there. For VMs without unsetting the bit things don't
->> really work, but unsetting it for itself so far didn't get me far performance
->> wise.
->>
->> BTW guys, I saw the issues with both bridge/openvswitch configuration - seems
->> that we might have here somehow large breakage of the system w.r.t vxlan
->> traffic for rates that go over few Gbs -- so would love to get feedback of any
->> kind from the people that were involved with vxlan over the last months/year.
->>
->>
+>   int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+> -			   struct mlx4_en_tx_ring **pring,
+> -			   int qpn, u32 size, u16 stride, int node);
+> +			struct mlx4_en_tx_ring **pring,
+> +			int qpn, u32 size, u16 stride,
+> +			int node, int queue_index);
 
-OK!! so finally I managed to get some hacked but stable ground to step 
-on .... indeed  with 3.10.X (I tried 3.10.19) if you
+    Why you've changed the indentation here -- it was alright before.
 
-1. reduce the VM PV NIC MTU to account for the vxlan tunneling overhead 
-(e.g to 1450 vs 1500)
-2. unset the DODGY bit for GSO packets in the vxlan driver 
-handle_offloads function
+>   void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
+>   			     struct mlx4_en_tx_ring **pring);
+>   int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
 
---> You get sane vxlan performance when the VM xmits, without HW 
-offloads I got up to 4-5 Gbs for single VM and with HW offloads > 30Gbs 
-for single VM when the VM is sending to a peer hypervisor.
-
-On VM RX side, it doesn't go too much higher, e.g stays in the order of 
-3-4Gbs for single receiving VM, I am pretty sure this relates to the no 
-GRO for vxlan which is pretty much terrible for VM traffic.
-
-So it seems the TODO here is the following:
-
-1. manage to get the hack for vm-vxlan traffic to work on the net tree
-2. fix the bug that make the hack necessary
-3. find the problem with veth-vxlan traffic on the net tree
-4. add GRO support for encapsulated/vxlan traffic
-
-
-Or.
-
-Or.
+WBR, Sergei
