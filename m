@@ -1,67 +1,95 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next 07/12] net/mlx4_en: Configure the XPS queue mapping
- on driver load
-Date: Sun, 8 Dec 2013 17:42:39 +0200
-Message-ID: <52A4936F.3040004@mellanox.com>
-References: <1386506152-10298-1-git-send-email-amirv@mellanox.com> <1386506152-10298-8-git-send-email-amirv@mellanox.com> <52A4901E.2030906@cogentembedded.com>
+From: Rob Herring <robherring2@gmail.com>
+Subject: Re: [PATCH 5/7] net: of_mdio: parse "max-speed" property to set PHY
+ supported features
+Date: Sun, 08 Dec 2013 09:51:34 -0600
+Message-ID: <52A49586.8000201@gmail.com>
+References: <1386283936-26104-1-git-send-email-florian@openwrt.org> <1386283936-26104-6-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	<netdev@vger.kernel.org>, Ido Shamay <idos@mellanox.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: davem@davemloft.net, grant.likely@linaro.org,
+	devicetree@vger.kernel.org, abrodkin@synopsys.com,
+	mark.rutland@arm.com, sebastian.hesselbarth@gmail.com,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:45599 "EHLO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755000Ab3LHPmp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 10:42:45 -0500
-In-Reply-To: <52A4901E.2030906@cogentembedded.com>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:36024 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754916Ab3LHPvj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 10:51:39 -0500
+In-Reply-To: <1386283936-26104-6-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/12/2013 17:28, Sergei Shtylyov wrote:
-> Hello.
+On 12/05/2013 04:52 PM, Florian Fainelli wrote:
+> From: Florian Fainelli <f.fainelli@gmail.com>
 > 
-> On 08-12-2013 16:35, Amir Vadai wrote:
+> The "max-speed" property is defined per the ePAPR specification to
+> express the maximum speed a PHY supports. Use that property, if present
+> to set the phydev->supported features which properly restricts the PHY
+> within the range of defined speeds.
 > 
->> From: Ido Shamay <idos@mellanox.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/of/of_mdio.c | 25 ++++++++++++++++++++++++-
+>  1 file changed, 24 insertions(+), 1 deletion(-)
 > 
->> Only TX rings of User Piority 0 are mapped.
->> TX rings of other UP's are using UP 0 mapping.
->> XPS is not in use when num_tc is set.
-> 
->> Signed-off-by: Ido Shamay <idos@mellanox.com>
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-> [...]
-> 
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
->> b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
->> index fa33a83..a4cdd7d 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
->> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> [...]
->> @@ -708,8 +710,9 @@ u16 mlx4_en_select_queue(struct net_device *dev,
->> struct sk_buff *skb);
->>   netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev);
->>
->>   int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
->> -               struct mlx4_en_tx_ring **pring,
->> -               int qpn, u32 size, u16 stride, int node);
->> +            struct mlx4_en_tx_ring **pring,
->> +            int qpn, u32 size, u16 stride,
->> +            int node, int queue_index);
-> 
->    Why you've changed the indentation here -- it was alright before.
-Right - changed by mistake. Will be fixed in V1.
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index 4923ab2..e1e19e5 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+> @@ -22,12 +22,30 @@
+>  MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
+>  MODULE_LICENSE("GPL");
+>  
+> +static void of_set_phy_supported(struct phy_device *phydev, u32 max_speed)
+> +{
+> +	phydev->supported |= PHY_DEFAULT_FEATURES;
+> +
+> +	switch (max_speed) {
+> +	default:
+> +		return;
+> +
+> +	case SPEED_1000:
+> +		phydev->supported |= PHY_1000BT_FEATURES;
 
-> 
->>   void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
->>                    struct mlx4_en_tx_ring **pring);
->>   int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
-> 
-> WBR, Sergei
-> 
+This assumes the speed is not already set. Do you need to first mask
+speeds out?
 
-Amir
+No need to support 10G PHYs?
+
+A fall-thru note would be helpful here.
+
+> +	case SPEED_100:
+> +		phydev->supported |= PHY_100BT_FEATURES;
+> +	case SPEED_10:
+> +		phydev->supported |= PHY_10BT_FEATURES;
+> +	}
+> +}
+> +
+>  static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *child,
+>  				   u32 addr)
+>  {
+>  	struct phy_device *phy;
+>  	bool is_c45;
+>  	int rc, prev_irq;
+> +	u32 max_speed = 0;
+>  
+>  	is_c45 = of_device_is_compatible(child,
+>  					 "ethernet-phy-ieee802.3-c45");
+> @@ -58,8 +76,13 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
+>  		return 1;
+>  	}
+>  
+> +	/* Set phydev->supported based on the "max-speed" property
+> +	 * if present */
+> +	if (!of_property_read_u32(child, "max-speed", &max_speed))
+> +		of_set_phy_supported(phy, max_speed);
+> +
+>  	dev_dbg(&mdio->dev, "registered phy %s at address %i\n",
+> -		 child->name, addr);
+> +		child->name, addr);
+>  
+>  	return 0;
+>  }
+> 
