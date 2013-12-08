@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 06/13] bna: UDP RX Processing Improvements
-Date: Sat, 7 Dec 2013 21:48:37 -0800
-Message-ID: <1386481724-32367-7-git-send-email-rmody@brocade.com>
+Subject: [net-next 11/13] bna: Embed SKB Length in TX Vector
+Date: Sat, 7 Dec 2013 21:48:42 -0800
+Message-ID: <1386481724-32367-12-git-send-email-rmody@brocade.com>
 References: <1386481724-32367-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,79 +10,65 @@ Cc: <netdev@vger.kernel.org>,
 	Rasesh Mody <rmody@Brocade.COM>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:23395 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:51865 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751331Ab3LHFtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 00:49:20 -0500
+	by vger.kernel.org with ESMTP id S1751745Ab3LHFtt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 00:49:49 -0500
 In-Reply-To: <1386481724-32367-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change Details:
- - Prefetch header in GRO path. This reduces napi_frags_skb time from 9% to 5%.
- - Changed the configurable limit of RxQ depth to 16384 (was 2048).
- - Rx unmap structure of 40 bytes is packed to 32 bytes reducing unmap_q size by 16K.
- - bnad_rx_unmap_q elements are cachealigned.
+ - Store the length of the skb buffer mapped along with the handle and use it
+   while unmapping the buffer.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c | 5 +++++
- drivers/net/ethernet/brocade/bna/bnad.h | 8 ++++----
- 2 files changed, 9 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.c | 6 ++++--
+ drivers/net/ethernet/brocade/bna/bnad.h | 1 +
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 33aeff2..849de5a 100644
+index 2db645a..5f95663 100644
 --- a/drivers/net/ethernet/brocade/bna/bnad.c
 +++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -540,6 +540,11 @@ bnad_cq_setup_skb_frags(struct bna_rcb *rcb, struct sk_buff *skb,
+@@ -146,7 +146,8 @@ bnad_tx_buff_unmap(struct bnad *bnad,
  
- 	unmap_q = rcb->unmap_q;
- 	bnad = rcb->bnad;
-+
-+	/* prefetch header */
-+	prefetch(page_address(unmap_q->unmap[sop_ci].page) +
-+			unmap_q->unmap[sop_ci].page_offset);
-+
- 	for (vec = 1, ci = sop_ci; vec <= nvecs; vec++) {
- 		unmap = &unmap_q->unmap[ci];
- 		BNA_QE_INDX_INC(ci, rcb->q_depth);
+ 		dma_unmap_page(&bnad->pcidev->dev,
+ 			dma_unmap_addr(&unmap->vectors[vector], dma_addr),
+-			skb_shinfo(skb)->frags[nvecs].size, DMA_TO_DEVICE);
++			dma_unmap_len(&unmap->vectors[vector], dma_len),
++			DMA_TO_DEVICE);
+ 		dma_unmap_addr_set(&unmap->vectors[vector], dma_addr, 0);
+ 		nvecs--;
+ 	}
+@@ -3034,7 +3035,7 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 	for (i = 0, vect_id = 0; i < vectors - 1; i++) {
+ 		const struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
+-		u16		size = skb_frag_size(frag);
++		u32		size = skb_frag_size(frag);
+ 
+ 		if (unlikely(size == 0)) {
+ 			/* Undo the changes starting at tcb->producer_index */
+@@ -3059,6 +3060,7 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 		dma_addr = skb_frag_dma_map(&bnad->pcidev->dev, frag,
+ 					    0, size, DMA_TO_DEVICE);
++		unmap->vectors[vect_id].dma_len = size;
+ 		BNA_SET_DMA_ADDR(dma_addr, &txqent->vector[vect_id].host_addr);
+ 		txqent->vector[vect_id].length = htons(size);
+ 		dma_unmap_addr_set(&unmap->vectors[vect_id], dma_addr,
 diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-index 03de9cc..d1dc930 100644
+index f2b50d9..474a597 100644
 --- a/drivers/net/ethernet/brocade/bna/bnad.h
 +++ b/drivers/net/ethernet/brocade/bna/bnad.h
-@@ -84,7 +84,7 @@ struct bnad_rx_ctrl {
- #define BNAD_IOCETH_TIMEOUT	     10000
+@@ -222,6 +222,7 @@ struct bnad_rx_info {
  
- #define BNAD_MIN_Q_DEPTH		512
--#define BNAD_MAX_RXQ_DEPTH		2048
-+#define BNAD_MAX_RXQ_DEPTH		16384
- #define BNAD_MAX_TXQ_DEPTH		2048
- 
- #define BNAD_JUMBO_MTU			9000
-@@ -233,13 +233,13 @@ struct bnad_tx_unmap {
- struct bnad_rx_vector {
+ struct bnad_tx_vector {
  	DEFINE_DMA_UNMAP_ADDR(dma_addr);
- 	u32			len;
--};
-+} __packed;
- 
- struct bnad_rx_unmap {
- 	struct page		*page;
--	u32			page_offset;
- 	struct sk_buff		*skb;
- 	struct bnad_rx_vector	vector;
-+	u32			page_offset;
++	DEFINE_DMA_UNMAP_LEN(dma_len);
  };
  
- enum bnad_rxbuf_type {
-@@ -257,7 +257,7 @@ struct bnad_rx_unmap_q {
- 	int			alloc_order;
- 	u32			map_size;
- 	enum bnad_rxbuf_type	type;
--	struct bnad_rx_unmap	unmap[0];
-+	struct bnad_rx_unmap	unmap[0] ____cacheline_aligned;
- };
- 
- #define BNAD_PCI_DEV_IS_CAT2(_bnad) \
+ struct bnad_tx_unmap {
 -- 
 1.8.2.3
