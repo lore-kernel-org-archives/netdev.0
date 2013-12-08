@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 09/13] bna: Add NULL Check Before Dereferencing TCB
-Date: Sat, 7 Dec 2013 21:48:40 -0800
-Message-ID: <1386481724-32367-10-git-send-email-rmody@brocade.com>
+Subject: [net-next 10/13] bna: Handle the TX Setup Failures
+Date: Sat, 7 Dec 2013 21:48:41 -0800
+Message-ID: <1386481724-32367-11-git-send-email-rmody@brocade.com>
 References: <1386481724-32367-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,54 +10,63 @@ Cc: <netdev@vger.kernel.org>,
 	Rasesh Mody <rmody@Brocade.COM>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:49620 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751745Ab3LHFtf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 00:49:35 -0500
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:17265 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751745Ab3LHFtk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 00:49:40 -0500
 In-Reply-To: <1386481724-32367-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we already check to see whether the BNAD_TXQ_TX_STARTED cleared.
-But if the tcb structure which contains this flag is also already freed by that
-time, we would dereference the NULL pointer. This patch is to check tcb for NULL
-pointer, before dereferencing it.
+Change details:
+ - When bnad_setup_tx() returns NULL, the error is NOT returned to the caller.
+   The caller will incorrectly assume success. So Return ENOMEM when bna_tx_create()
+   fails.
+ - If bnad_tx_msix_register() fails, call bna_tx_destroy() to free tx & to NULL
+   the bnad reference to tcb.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index cd29069..27bdd6c 100644
+index 27bdd6c..2db645a 100644
 --- a/drivers/net/ethernet/brocade/bna/bnad.c
 +++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -2947,21 +2947,21 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+@@ -1987,8 +1987,10 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_id)
+ 	tx = bna_tx_create(&bnad->bna, bnad, tx_config, &tx_cbfn, res_info,
+ 			tx_info);
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+-	if (!tx)
++	if (!tx) {
++		err = -ENOMEM;
+ 		goto err_return;
++	}
+ 	tx_info->tx = tx;
+ 
+ 	INIT_DELAYED_WORK(&tx_info->tx_cleanup_work,
+@@ -1999,7 +2001,7 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_id)
+ 		err = bnad_tx_msix_register(bnad, tx_info,
+ 			tx_id, bnad->num_txq_per_tx);
+ 		if (err)
+-			goto err_return;
++			goto cleanup_tx;
  	}
  
- 	tcb = bnad->tx_info[0].tcb[txq_id];
--	q_depth = tcb->q_depth;
--	prod = tcb->producer_index;
--
--	unmap_q = tcb->unmap_q;
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+@@ -2008,6 +2010,12 @@ bnad_setup_tx(struct bnad *bnad, u32 tx_id)
  
- 	/*
- 	 * Takes care of the Tx that is scheduled between clearing the flag
- 	 * and the netif_tx_stop_all_queues() call.
- 	 */
--	if (unlikely(!test_bit(BNAD_TXQ_TX_STARTED, &tcb->flags))) {
-+	if (unlikely(!tcb || !test_bit(BNAD_TXQ_TX_STARTED, &tcb->flags))) {
- 		dev_kfree_skb(skb);
- 		BNAD_UPDATE_CTR(bnad, tx_skb_stopping);
- 		return NETDEV_TX_OK;
- 	}
+ 	return 0;
  
-+	q_depth = tcb->q_depth;
-+	prod = tcb->producer_index;
-+	unmap_q = tcb->unmap_q;
-+
- 	vectors = 1 + skb_shinfo(skb)->nr_frags;
- 	wis = BNA_TXQ_WI_NEEDED(vectors);	/* 4 vectors per work item */
- 
++cleanup_tx:
++	spin_lock_irqsave(&bnad->bna_lock, flags);
++	bna_tx_destroy(tx_info->tx);
++	spin_unlock_irqrestore(&bnad->bna_lock, flags);
++	tx_info->tx = NULL;
++	tx_info->tx_id = 0;
+ err_return:
+ 	bnad_tx_res_free(bnad, res_info);
+ 	return err;
 -- 
 1.8.2.3
