@@ -1,53 +1,34 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: netfilter: ipset: fix incorret comparison in
- hash_netnet4_data_equal()
-Date: Sun, 8 Dec 2013 10:31:29 +0100 (CET)
-Message-ID: <alpine.DEB.2.10.1312081030450.12477@blackhole.kfki.hu>
-References: <20131114154101.GA22625@redhat.com> <20131125214511.GA10043@localhost> <19530135.WLZhKuFLxq@gentoovm> <alpine.DEB.2.10.1312072052580.11375@blackhole.kfki.hu> <20131207223436.GA3927@localhost>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Oliver <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>,
-	Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20131207223436.GA3927@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 0/2] add support for IFA_FLAGS nl attribute
+Date: Sun,  8 Dec 2013 12:16:08 +0100
+Message-ID: <1386501370-9007-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	hannes@stressinduktion.org, bcrl@kvack.org, gaofeng@cn.fujitsu.com,
+	joe@perches.com, tgraf@suug.ch
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:53740 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753245Ab3LHLQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 06:16:15 -0500
+Received: by mail-ee0-f47.google.com with SMTP id e51so1026326eek.6
+        for <netdev@vger.kernel.org>; Sun, 08 Dec 2013 03:16:14 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 7 Dec 2013, Pablo Neira Ayuso wrote:
+As this was recently added for ipv6, add it for the rest of occurences
+as requested by DaveM.
 
-> On Sat, Dec 07, 2013 at 08:53:52PM +0100, Jozsef Kadlecsik wrote:
-> > On Sat, 7 Dec 2013, Oliver wrote:
-> > 
-> > > On Monday 25 November 2013 22:45:11 Pablo Neira Ayuso wrote:
-> > > > On Thu, Nov 14, 2013 at 10:41:01AM -0500, Dave Jones wrote:
-> > > > > Both sides of the comparison are the same, looks like a cut-and-paste
-> > > > > error.
-> > > 
-> > > Just a typo unfortunately.
-> > > 
-> > > The change should definitely make its way into mainline before 3.13 gets 
-> > > released - is it on track to be pulled into davem's net tree or should I 
-> > > get that sorted out myself?
-> > 
-> > I'm going to submit the patch to Pablo at the beginning of next week, so 
-> > it'll follow the normal track.
-> 
-> JFYI, I applied this already:
-> 
-> http://www.spinics.net/lists/netfilter-devel/msg29031.html
-> 
-> If unsure, please check my tree:
-> 
-> http://git.kernel.org/cgit/linux/kernel/git/pablo/nf.git/
+Jiri Pirko (2):
+  dn_dev: add support for IFA_FLAGS nl attribute
+  ipv4: add support for IFA_FLAGS nl attribute
 
-Great, thanks indeed!
+ include/linux/inetdevice.h |  2 +-
+ include/net/dn_dev.h       |  2 +-
+ net/decnet/dn_dev.c        | 13 +++++++++----
+ net/ipv4/devinet.c         |  8 ++++++--
+ 4 files changed, 17 insertions(+), 8 deletions(-)
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+-- 
+1.8.3.1
