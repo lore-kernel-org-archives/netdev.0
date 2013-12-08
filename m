@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 03/13] bna: Fix Filter Add Del
-Date: Sat, 7 Dec 2013 21:48:34 -0800
-Message-ID: <1386481724-32367-4-git-send-email-rmody@brocade.com>
+Subject: [net-next 05/13] bna: Enable Multi Buffer RX
+Date: Sat, 7 Dec 2013 21:48:36 -0800
+Message-ID: <1386481724-32367-6-git-send-email-rmody@brocade.com>
 References: <1386481724-32367-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,361 +10,853 @@ Cc: <netdev@vger.kernel.org>,
 	Rasesh Mody <rmody@Brocade.COM>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:30513 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:35531 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750796Ab3LHFtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 00:49:09 -0500
+	by vger.kernel.org with ESMTP id S1750918Ab3LHFtR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 00:49:17 -0500
 In-Reply-To: <1386481724-32367-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change Details:
- - bna_rx_mcast_listset() API first looks at free_q only and not at other
-   pending Qs rendering it non-deterministic of giving an upper limit.
-   Modify bna_rx_mcast_listset() implementation to not use only half of the
-   limit.
- - Allocate and initialize queue for deleting
- - Segregate the adding and deleting process by using separate queues.
- - The filter framework in bna does not let adding addresses to its max capacity
-   due to asynchronous operations involved.
-   Provide a synchronous option to set a given list.
+The CT2 HW supports multi-buffer Rx. This patch provides the necessary changes
+for bnad to use multi-buffer Rx feature. For BNAD, multi-buffer Rx is by
+default enabled when MTU is > 4096. Using module parameter bnad_multi_buffer_rx
+this behavior can be reverted. For >4096 MTU, q0 data/large buffers are of 2048
+size. As the resource requirements of multi-buffer Rx are different new Rx needs
+to be created to use this feature. ASIC posts multiple completions if frame
+exceeds buffer size. The last completion is marked with EOP flag.
+ - Separate HQ and DQ enums for resource allocations and configurations.
+ - rx_config and rxq structure changes to pass the correct info from bnad.
+ - DQ depth need not be same as HQ depth. So CQ depth is adjusted accordingly.
+ - Rx CFG frame size is taken from configured MTU.
+ - Rx q0 buffer size is configured from bnad s rx_config when multi-buffer is
+   enabled.
+ - Poll for entire frame completion.
+ - Once EOP completion is received gather the number of vectors used by the
+   frame to submit it to the stack.
+ - Changed MTU to frame size wherever necessary.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bna.h       | 16 ++++---
- drivers/net/ethernet/brocade/bna/bna_enet.c  | 48 +++++++++-----------
- drivers/net/ethernet/brocade/bna/bna_tx_rx.c | 67 ++++++++++++++++------------
- drivers/net/ethernet/brocade/bna/bna_types.h |  8 ++--
- 4 files changed, 74 insertions(+), 65 deletions(-)
+ drivers/net/ethernet/brocade/bna/bfi_enet.h    |   3 +-
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h |   4 +
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c   |  66 +++--
+ drivers/net/ethernet/brocade/bna/bna_types.h   |  49 ++--
+ drivers/net/ethernet/brocade/bna/bnad.c        | 320 ++++++++++++++++++-------
+ drivers/net/ethernet/brocade/bna/bnad.h        |  19 +-
+ 6 files changed, 336 insertions(+), 125 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bna.h b/drivers/net/ethernet/brocade/bna/bna.h
-index f1eafc4..b11fa6c 100644
---- a/drivers/net/ethernet/brocade/bna/bna.h
-+++ b/drivers/net/ethernet/brocade/bna/bna.h
-@@ -354,6 +354,14 @@ do {									\
- 	}								\
- } while (0)
+diff --git a/drivers/net/ethernet/brocade/bna/bfi_enet.h b/drivers/net/ethernet/brocade/bna/bfi_enet.h
+index 7d10e33..ae072dc 100644
+--- a/drivers/net/ethernet/brocade/bna/bfi_enet.h
++++ b/drivers/net/ethernet/brocade/bna/bfi_enet.h
+@@ -472,7 +472,8 @@ enum bfi_enet_hds_type {
  
-+#define bna_mcam_mod_free_q(_bna) (&(_bna)->mcam_mod.free_q)
-+
-+#define bna_mcam_mod_del_q(_bna) (&(_bna)->mcam_mod.del_q)
-+
-+#define bna_ucam_mod_free_q(_bna) (&(_bna)->ucam_mod.free_q)
-+
-+#define bna_ucam_mod_del_q(_bna) (&(_bna)->ucam_mod.del_q)
-+
- /*  Inline functions  */
+ struct bfi_enet_rx_cfg {
+ 	u8		rxq_type;
+-	u8		rsvd[3];
++	u8		rsvd[1];
++	u16		frame_size;
  
- static inline struct bna_mac *bna_mac_find(struct list_head *q, u8 *addr)
-@@ -391,12 +399,8 @@ int bna_num_rxp_set(struct bna *bna, int num_rxp);
- void bna_hw_stats_get(struct bna *bna);
+ 	struct {
+ 		u8			max_header_size;
+diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+index af3f7bb..2702d02 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
++++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+@@ -322,6 +322,10 @@ do {									\
+ #define	BNA_CQ_EF_REMOTE	(1 << 19)
  
- /* APIs for RxF */
--struct bna_mac *bna_ucam_mod_mac_get(struct bna_ucam_mod *ucam_mod);
--void bna_ucam_mod_mac_put(struct bna_ucam_mod *ucam_mod,
--			  struct bna_mac *mac);
--struct bna_mac *bna_mcam_mod_mac_get(struct bna_mcam_mod *mcam_mod);
--void bna_mcam_mod_mac_put(struct bna_mcam_mod *mcam_mod,
--			  struct bna_mac *mac);
-+struct bna_mac *bna_cam_mod_mac_get(struct list_head *head);
-+void bna_cam_mod_mac_put(struct list_head *tail, struct bna_mac *mac);
- struct bna_mcam_handle *bna_mcam_mod_handle_get(struct bna_mcam_mod *mod);
- void bna_mcam_mod_handle_put(struct bna_mcam_mod *mcam_mod,
- 			  struct bna_mcam_handle *handle);
-diff --git a/drivers/net/ethernet/brocade/bna/bna_enet.c b/drivers/net/ethernet/brocade/bna/bna_enet.c
-index 3ca77fa..79afa11 100644
---- a/drivers/net/ethernet/brocade/bna/bna_enet.c
-+++ b/drivers/net/ethernet/brocade/bna/bna_enet.c
-@@ -1811,6 +1811,13 @@ bna_ucam_mod_init(struct bna_ucam_mod *ucam_mod, struct bna *bna,
- 		list_add_tail(&ucam_mod->ucmac[i].qe, &ucam_mod->free_q);
- 	}
+ #define	BNA_CQ_EF_LOCAL		(1 << 20)
++/* CAT2 ASIC does not use bit 21 as per the SPEC.
++ * Bit 31 is set in every end of frame completion
++ */
++#define BNA_CQ_EF_EOP		(1 << 31)
  
-+	/* A separate queue to allow synchronous setting of a list of MACs */
-+	INIT_LIST_HEAD(&ucam_mod->del_q);
-+	for (i = i; i < (bna->ioceth.attr.num_ucmac * 2); i++) {
-+		bfa_q_qe_init(&ucam_mod->ucmac[i].qe);
-+		list_add_tail(&ucam_mod->ucmac[i].qe, &ucam_mod->del_q);
-+	}
-+
- 	ucam_mod->bna = bna;
- }
+ /* Data structures */
  
-@@ -1851,6 +1858,13 @@ bna_mcam_mod_init(struct bna_mcam_mod *mcam_mod, struct bna *bna,
- 				&mcam_mod->free_handle_q);
- 	}
- 
-+	/* A separate queue to allow synchronous setting of a list of MACs */
-+	INIT_LIST_HEAD(&mcam_mod->del_q);
-+	for (i = i; i < (bna->ioceth.attr.num_mcmac * 2); i++) {
-+		bfa_q_qe_init(&mcam_mod->mcmac[i].qe);
-+		list_add_tail(&mcam_mod->mcmac[i].qe, &mcam_mod->del_q);
-+	}
-+
- 	mcam_mod->bna = bna;
- }
- 
-@@ -1976,7 +1990,7 @@ bna_mod_res_req(struct bna *bna, struct bna_res_info *res_info)
- 		BNA_MEM_T_KVA;
- 	res_info[BNA_MOD_RES_MEM_T_UCMAC_ARRAY].res_u.mem_info.num = 1;
- 	res_info[BNA_MOD_RES_MEM_T_UCMAC_ARRAY].res_u.mem_info.len =
--		attr->num_ucmac * sizeof(struct bna_mac);
-+		(attr->num_ucmac * 2) * sizeof(struct bna_mac);
- 
- 	/* Virtual memory for Multicast MAC address - stored by mcam module */
- 	res_info[BNA_MOD_RES_MEM_T_MCMAC_ARRAY].res_type = BNA_RES_T_MEM;
-@@ -1984,7 +1998,7 @@ bna_mod_res_req(struct bna *bna, struct bna_res_info *res_info)
- 		BNA_MEM_T_KVA;
- 	res_info[BNA_MOD_RES_MEM_T_MCMAC_ARRAY].res_u.mem_info.num = 1;
- 	res_info[BNA_MOD_RES_MEM_T_MCMAC_ARRAY].res_u.mem_info.len =
--		attr->num_mcmac * sizeof(struct bna_mac);
-+		(attr->num_mcmac * 2) * sizeof(struct bna_mac);
- 
- 	/* Virtual memory for Multicast handle - stored by mcam module */
- 	res_info[BNA_MOD_RES_MEM_T_MCHANDLE_ARRAY].res_type = BNA_RES_T_MEM;
-@@ -2080,41 +2094,21 @@ bna_num_rxp_set(struct bna *bna, int num_rxp)
- }
- 
- struct bna_mac *
--bna_ucam_mod_mac_get(struct bna_ucam_mod *ucam_mod)
-+bna_cam_mod_mac_get(struct list_head *head)
- {
- 	struct list_head *qe;
- 
--	if (list_empty(&ucam_mod->free_q))
-+	if (list_empty(head))
- 		return NULL;
- 
--	bfa_q_deq(&ucam_mod->free_q, &qe);
--
--	return (struct bna_mac *)qe;
--}
--
--void
--bna_ucam_mod_mac_put(struct bna_ucam_mod *ucam_mod, struct bna_mac *mac)
--{
--	list_add_tail(&mac->qe, &ucam_mod->free_q);
--}
--
--struct bna_mac *
--bna_mcam_mod_mac_get(struct bna_mcam_mod *mcam_mod)
--{
--	struct list_head *qe;
--
--	if (list_empty(&mcam_mod->free_q))
--		return NULL;
--
--	bfa_q_deq(&mcam_mod->free_q, &qe);
--
-+	bfa_q_deq(head, &qe);
- 	return (struct bna_mac *)qe;
- }
- 
- void
--bna_mcam_mod_mac_put(struct bna_mcam_mod *mcam_mod, struct bna_mac *mac)
-+bna_cam_mod_mac_put(struct list_head *tail, struct bna_mac *mac)
- {
--	list_add_tail(&mac->qe, &mcam_mod->free_q);
-+	list_add_tail(&mac->qe, tail);
- }
- 
- struct bna_mcam_handle *
 diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-index 3c07064..40558b6 100644
+index e02c126..85e6354 100644
 --- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
 +++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-@@ -529,13 +529,13 @@ bna_rxf_mcast_cfg_apply(struct bna_rxf *rxf)
- 	struct list_head *qe;
- 	int ret;
+@@ -1811,6 +1811,7 @@ bna_bfi_rx_enet_start(struct bna_rx *rx)
+ 	cfg_req->mh.num_entries = htons(
+ 		bfi_msgq_num_cmd_entries(sizeof(struct bfi_enet_rx_cfg_req)));
  
--	/* Delete multicast entries previousely added */
-+	/* First delete multicast entries to maintain the count */
- 	while (!list_empty(&rxf->mcast_pending_del_q)) {
- 		bfa_q_deq(&rxf->mcast_pending_del_q, &qe);
- 		bfa_q_qe_init(qe);
- 		mac = (struct bna_mac *)qe;
- 		ret = bna_rxf_mcast_del(rxf, mac, BNA_HARD_CLEANUP);
--		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
-+		bna_cam_mod_mac_put(bna_mcam_mod_del_q(rxf->rx->bna), mac);
- 		if (ret)
- 			return ret;
- 	}
-@@ -586,7 +586,7 @@ bna_rxf_mcast_cfg_reset(struct bna_rxf *rxf, enum bna_cleanup_type cleanup)
- 		bfa_q_qe_init(qe);
- 		mac = (struct bna_mac *)qe;
- 		ret = bna_rxf_mcast_del(rxf, mac, cleanup);
--		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
-+		bna_cam_mod_mac_put(bna_mcam_mod_del_q(rxf->rx->bna), mac);
- 		if (ret)
- 			return ret;
- 	}
-@@ -796,20 +796,20 @@ bna_rxf_uninit(struct bna_rxf *rxf)
- 	while (!list_empty(&rxf->ucast_pending_add_q)) {
- 		bfa_q_deq(&rxf->ucast_pending_add_q, &mac);
- 		bfa_q_qe_init(&mac->qe);
--		bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
-+		bna_cam_mod_mac_put(bna_ucam_mod_free_q(rxf->rx->bna), mac);
- 	}
++	cfg_req->rx_cfg.frame_size = bna_enet_mtu_get(&rx->bna->enet);
+ 	cfg_req->num_queue_sets = rx->num_paths;
+ 	for (i = 0, rxp_qe = bfa_q_first(&rx->rxp_q);
+ 		i < rx->num_paths;
+@@ -1832,8 +1833,17 @@ bna_bfi_rx_enet_start(struct bna_rx *rx)
+ 			/* Large/Single RxQ */
+ 			bfi_enet_datapath_q_init(&cfg_req->q_cfg[i].ql.q,
+ 						&q0->qpt);
+-			q0->buffer_size =
+-				bna_enet_mtu_get(&rx->bna->enet);
++			if (q0->multi_buffer)
++				/* multi-buffer is enabled by allocating
++				 * a new rx with new set of resources.
++				 * q0->buffer_size should be initialized to
++				 * fragment size.
++				 */
++				cfg_req->rx_cfg.multi_buffer =
++					BNA_STATUS_T_ENABLED;
++			else
++				q0->buffer_size =
++					bna_enet_mtu_get(&rx->bna->enet);
+ 			cfg_req->q_cfg[i].ql.rx_buffer_size =
+ 				htons((u16)q0->buffer_size);
+ 			break;
+@@ -2383,8 +2393,8 @@ bna_rx_res_req(struct bna_rx_config *q_cfg, struct bna_res_info *res_info)
+ 	u32 hq_depth;
+ 	u32 dq_depth;
  
- 	if (rxf->ucast_pending_mac) {
- 		bfa_q_qe_init(&rxf->ucast_pending_mac->qe);
--		bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod,
--			rxf->ucast_pending_mac);
-+		bna_cam_mod_mac_put(bna_ucam_mod_free_q(rxf->rx->bna),
-+				    rxf->ucast_pending_mac);
- 		rxf->ucast_pending_mac = NULL;
- 	}
+-	dq_depth = q_cfg->q_depth;
+-	hq_depth = ((q_cfg->rxp_type == BNA_RXP_SINGLE) ? 0 : q_cfg->q_depth);
++	dq_depth = q_cfg->q0_depth;
++	hq_depth = ((q_cfg->rxp_type == BNA_RXP_SINGLE) ? 0 : q_cfg->q1_depth);
+ 	cq_depth = dq_depth + hq_depth;
  
- 	while (!list_empty(&rxf->mcast_pending_add_q)) {
- 		bfa_q_deq(&rxf->mcast_pending_add_q, &mac);
- 		bfa_q_qe_init(&mac->qe);
--		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
-+		bna_cam_mod_mac_put(bna_mcam_mod_free_q(rxf->rx->bna), mac);
- 	}
+ 	BNA_TO_POWER_OF_2_HIGH(cq_depth);
+@@ -2501,10 +2511,10 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
+ 	struct bna_rxq *q0;
+ 	struct bna_rxq *q1;
+ 	struct bna_intr_info *intr_info;
+-	u32 page_count;
++	struct bna_mem_descr *hqunmap_mem;
++	struct bna_mem_descr *dqunmap_mem;
+ 	struct bna_mem_descr *ccb_mem;
+ 	struct bna_mem_descr *rcb_mem;
+-	struct bna_mem_descr *unmapq_mem;
+ 	struct bna_mem_descr *cqpt_mem;
+ 	struct bna_mem_descr *cswqpt_mem;
+ 	struct bna_mem_descr *cpage_mem;
+@@ -2514,8 +2524,10 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
+ 	struct bna_mem_descr *dsqpt_mem;
+ 	struct bna_mem_descr *hpage_mem;
+ 	struct bna_mem_descr *dpage_mem;
+-	int i;
+-	int dpage_count, hpage_count, rcb_idx;
++	u32 dpage_count, hpage_count;
++	u32 hq_idx, dq_idx, rcb_idx;
++	u32 cq_depth, i;
++	u32 page_count;
  
- 	rxf->rxmode_pending = 0;
-@@ -869,7 +869,7 @@ bna_rx_ucast_set(struct bna_rx *rx, u8 *ucmac,
- 
- 	if (rxf->ucast_pending_mac == NULL) {
- 		rxf->ucast_pending_mac =
--				bna_ucam_mod_mac_get(&rxf->rx->bna->ucam_mod);
-+			bna_cam_mod_mac_get(bna_ucam_mod_free_q(rxf->rx->bna));
- 		if (rxf->ucast_pending_mac == NULL)
- 			return BNA_CB_UCAST_CAM_FULL;
- 		bfa_q_qe_init(&rxf->ucast_pending_mac->qe);
-@@ -900,7 +900,7 @@ bna_rx_mcast_add(struct bna_rx *rx, u8 *addr,
- 		return BNA_CB_SUCCESS;
- 	}
- 
--	mac = bna_mcam_mod_mac_get(&rxf->rx->bna->mcam_mod);
-+	mac = bna_cam_mod_mac_get(bna_mcam_mod_free_q(rxf->rx->bna));
- 	if (mac == NULL)
- 		return BNA_CB_MCAST_LIST_FULL;
- 	bfa_q_qe_init(&mac->qe);
-@@ -919,32 +919,20 @@ enum bna_cb_status
- bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mclist,
- 		     void (*cbfn)(struct bnad *, struct bna_rx *))
- {
-+	struct bna_mcam_mod *mcam_mod = &rx->bna->mcam_mod;
- 	struct bna_rxf *rxf = &rx->rxf;
- 	struct list_head list_head;
- 	struct list_head *qe;
- 	u8 *mcaddr;
--	struct bna_mac *mac;
-+	struct bna_mac *mac, *del_mac;
- 	int i;
- 
--	/* Allocate nodes */
--	INIT_LIST_HEAD(&list_head);
--	for (i = 0, mcaddr = mclist; i < count; i++) {
--		mac = bna_mcam_mod_mac_get(&rxf->rx->bna->mcam_mod);
--		if (mac == NULL)
--			goto err_return;
--		bfa_q_qe_init(&mac->qe);
--		memcpy(mac->addr, mcaddr, ETH_ALEN);
--		list_add_tail(&mac->qe, &list_head);
--
--		mcaddr += ETH_ALEN;
--	}
--
- 	/* Purge the pending_add_q */
- 	while (!list_empty(&rxf->mcast_pending_add_q)) {
- 		bfa_q_deq(&rxf->mcast_pending_add_q, &qe);
- 		bfa_q_qe_init(qe);
- 		mac = (struct bna_mac *)qe;
--		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
-+		bna_cam_mod_mac_put(&mcam_mod->free_q, mac);
+ 	if (!bna_rx_res_check(rx_mod, rx_cfg))
+ 		return NULL;
+@@ -2523,7 +2535,8 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
+ 	intr_info = &res_info[BNA_RX_RES_T_INTR].res_u.intr_info;
+ 	ccb_mem = &res_info[BNA_RX_RES_MEM_T_CCB].res_u.mem_info.mdl[0];
+ 	rcb_mem = &res_info[BNA_RX_RES_MEM_T_RCB].res_u.mem_info.mdl[0];
+-	unmapq_mem = &res_info[BNA_RX_RES_MEM_T_UNMAPQ].res_u.mem_info.mdl[0];
++	dqunmap_mem = &res_info[BNA_RX_RES_MEM_T_UNMAPDQ].res_u.mem_info.mdl[0];
++	hqunmap_mem = &res_info[BNA_RX_RES_MEM_T_UNMAPHQ].res_u.mem_info.mdl[0];
+ 	cqpt_mem = &res_info[BNA_RX_RES_MEM_T_CQPT].res_u.mem_info.mdl[0];
+ 	cswqpt_mem = &res_info[BNA_RX_RES_MEM_T_CSWQPT].res_u.mem_info.mdl[0];
+ 	cpage_mem = &res_info[BNA_RX_RES_MEM_T_CQPT_PAGE].res_u.mem_info.mdl[0];
+@@ -2575,7 +2588,8 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
  	}
  
- 	/* Schedule active_q entries for deletion */
-@@ -952,7 +940,26 @@ bna_rx_mcast_listset(struct bna_rx *rx, int count, u8 *mclist,
- 		bfa_q_deq(&rxf->mcast_active_q, &qe);
- 		mac = (struct bna_mac *)qe;
- 		bfa_q_qe_init(&mac->qe);
--		list_add_tail(&mac->qe, &rxf->mcast_pending_del_q);
-+
-+		del_mac = bna_cam_mod_mac_get(&mcam_mod->del_q);
-+
-+		memcpy(del_mac, mac, sizeof(*mac));
-+		list_add_tail(&del_mac->qe, &rxf->mcast_pending_del_q);
-+		mac->handle = NULL;
-+		bna_cam_mod_mac_put(&mcam_mod->free_q, mac);
-+	}
-+
-+	/* Allocate nodes */
-+	INIT_LIST_HEAD(&list_head);
-+	for (i = 0, mcaddr = mclist; i < count; i++) {
-+		mac = bna_cam_mod_mac_get(&mcam_mod->free_q);
-+		if (mac == NULL)
-+			goto err_return;
-+		bfa_q_qe_init(&mac->qe);
-+		memcpy(mac->addr, mcaddr, ETH_ALEN);
-+		list_add_tail(&mac->qe, &list_head);
-+
-+		mcaddr += ETH_ALEN;
- 	}
+ 	rx->num_paths = rx_cfg->num_paths;
+-	for (i = 0, rcb_idx = 0; i < rx->num_paths; i++) {
++	for (i = 0, hq_idx = 0, dq_idx = 0, rcb_idx = 0;
++			i < rx->num_paths; i++) {
+ 		rxp = bna_rxp_get(rx_mod);
+ 		list_add_tail(&rxp->qe, &rx->rxp_q);
+ 		rxp->type = rx_cfg->rxp_type;
+@@ -2618,9 +2632,13 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
+ 		q0->rxp = rxp;
  
- 	/* Add the new entries */
-@@ -974,7 +981,7 @@ err_return:
- 		bfa_q_deq(&list_head, &qe);
- 		mac = (struct bna_mac *)qe;
- 		bfa_q_qe_init(&mac->qe);
--		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
-+		bna_cam_mod_mac_put(&mcam_mod->free_q, mac);
- 	}
+ 		q0->rcb = (struct bna_rcb *) rcb_mem[rcb_idx].kva;
+-		q0->rcb->unmap_q = (void *)unmapq_mem[rcb_idx].kva;
+-		rcb_idx++;
+-		q0->rcb->q_depth = rx_cfg->q_depth;
++		q0->rcb->unmap_q = (void *)dqunmap_mem[dq_idx].kva;
++		rcb_idx++; dq_idx++;
++		q0->rcb->q_depth = rx_cfg->q0_depth;
++		q0->q_depth = rx_cfg->q0_depth;
++		q0->multi_buffer = rx_cfg->q0_multi_buf;
++		q0->buffer_size = rx_cfg->q0_buf_size;
++		q0->num_vecs = rx_cfg->q0_num_vecs;
+ 		q0->rcb->rxq = q0;
+ 		q0->rcb->bnad = bna->bnad;
+ 		q0->rcb->id = 0;
+@@ -2640,15 +2658,18 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
+ 			q1->rxp = rxp;
  
- 	return BNA_CB_MCAST_LIST_FULL;
-@@ -1022,7 +1029,7 @@ bna_rxf_ucast_cfg_apply(struct bna_rxf *rxf)
- 		bfa_q_qe_init(qe);
- 		mac = (struct bna_mac *)qe;
- 		bna_bfi_ucast_req(rxf, mac, BFI_ENET_H2I_MAC_UCAST_DEL_REQ);
--		bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
-+		bna_cam_mod_mac_put(bna_ucam_mod_del_q(rxf->rx->bna), mac);
- 		return 1;
- 	}
+ 			q1->rcb = (struct bna_rcb *) rcb_mem[rcb_idx].kva;
+-			q1->rcb->unmap_q = (void *)unmapq_mem[rcb_idx].kva;
+-			rcb_idx++;
+-			q1->rcb->q_depth = rx_cfg->q_depth;
++			q1->rcb->unmap_q = (void *)hqunmap_mem[hq_idx].kva;
++			rcb_idx++; hq_idx++;
++			q1->rcb->q_depth = rx_cfg->q1_depth;
++			q1->q_depth = rx_cfg->q1_depth;
++			q1->multi_buffer = BNA_STATUS_T_DISABLED;
++			q1->num_vecs = 1;
+ 			q1->rcb->rxq = q1;
+ 			q1->rcb->bnad = bna->bnad;
+ 			q1->rcb->id = 1;
+ 			q1->buffer_size = (rx_cfg->rxp_type == BNA_RXP_HDS) ?
+ 					rx_cfg->hds_config.forced_offset
+-					: rx_cfg->small_buff_size;
++					: rx_cfg->q1_buf_size;
+ 			q1->rx_packets = q1->rx_bytes = 0;
+ 			q1->rx_packets_with_error = q1->rxbuf_alloc_failed = 0;
  
-@@ -1062,11 +1069,13 @@ bna_rxf_ucast_cfg_reset(struct bna_rxf *rxf, enum bna_cleanup_type cleanup)
- 		bfa_q_qe_init(qe);
- 		mac = (struct bna_mac *)qe;
- 		if (cleanup == BNA_SOFT_CLEANUP)
--			bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
-+			bna_cam_mod_mac_put(bna_ucam_mod_del_q(rxf->rx->bna),
-+					    mac);
- 		else {
- 			bna_bfi_ucast_req(rxf, mac,
- 				BFI_ENET_H2I_MAC_UCAST_DEL_REQ);
--			bna_ucam_mod_mac_put(&rxf->rx->bna->ucam_mod, mac);
-+			bna_cam_mod_mac_put(bna_ucam_mod_del_q(rxf->rx->bna),
-+					    mac);
- 			return 1;
- 		}
- 	}
+@@ -2663,9 +2684,14 @@ bna_rx_create(struct bna *bna, struct bnad *bnad,
+ 		/* Setup CQ */
+ 
+ 		rxp->cq.ccb = (struct bna_ccb *) ccb_mem[i].kva;
+-		rxp->cq.ccb->q_depth =	rx_cfg->q_depth +
+-					((rx_cfg->rxp_type == BNA_RXP_SINGLE) ?
+-					0 : rx_cfg->q_depth);
++		cq_depth = rx_cfg->q0_depth +
++			((rx_cfg->rxp_type == BNA_RXP_SINGLE) ?
++			 0 : rx_cfg->q1_depth);
++		/* if multi-buffer is enabled sum of q0_depth
++		 * and q1_depth need not be a power of 2
++		 */
++		BNA_TO_POWER_OF_2_HIGH(cq_depth);
++		rxp->cq.ccb->q_depth = cq_depth;
+ 		rxp->cq.ccb->cq = &rxp->cq;
+ 		rxp->cq.ccb->rcb[0] = q0->rcb;
+ 		q0->rcb->ccb = rxp->cq.ccb;
 diff --git a/drivers/net/ethernet/brocade/bna/bna_types.h b/drivers/net/ethernet/brocade/bna/bna_types.h
-index dc50f78..acedac2 100644
+index acedac2..621547c 100644
 --- a/drivers/net/ethernet/brocade/bna/bna_types.h
 +++ b/drivers/net/ethernet/brocade/bna/bna_types.h
-@@ -866,8 +866,9 @@ struct bna_rx_mod {
- /* CAM */
- 
- struct bna_ucam_mod {
--	struct bna_mac *ucmac;		/* BFI_MAX_UCMAC entries */
-+	struct bna_mac *ucmac;		/* num_ucmac * 2 entries */
- 	struct list_head			free_q;
-+	struct list_head			del_q;
- 
- 	struct bna *bna;
+@@ -109,20 +109,21 @@ enum bna_tx_res_req_type {
+ enum bna_rx_mem_type {
+ 	BNA_RX_RES_MEM_T_CCB		= 0,	/* CQ context */
+ 	BNA_RX_RES_MEM_T_RCB		= 1,	/* CQ context */
+-	BNA_RX_RES_MEM_T_UNMAPQ		= 2,	/* UnmapQ for RxQs */
+-	BNA_RX_RES_MEM_T_CQPT		= 3,	/* CQ QPT */
+-	BNA_RX_RES_MEM_T_CSWQPT		= 4,	/* S/W QPT */
+-	BNA_RX_RES_MEM_T_CQPT_PAGE	= 5,	/* CQPT page */
+-	BNA_RX_RES_MEM_T_HQPT		= 6,	/* RX QPT */
+-	BNA_RX_RES_MEM_T_DQPT		= 7,	/* RX QPT */
+-	BNA_RX_RES_MEM_T_HSWQPT		= 8,	/* RX s/w QPT */
+-	BNA_RX_RES_MEM_T_DSWQPT		= 9,	/* RX s/w QPT */
+-	BNA_RX_RES_MEM_T_DPAGE		= 10,	/* RX s/w QPT */
+-	BNA_RX_RES_MEM_T_HPAGE		= 11,	/* RX s/w QPT */
+-	BNA_RX_RES_MEM_T_IBIDX		= 12,
+-	BNA_RX_RES_MEM_T_RIT		= 13,
+-	BNA_RX_RES_T_INTR		= 14,	/* Rx interrupts */
+-	BNA_RX_RES_T_MAX		= 15
++	BNA_RX_RES_MEM_T_UNMAPHQ	= 2,
++	BNA_RX_RES_MEM_T_UNMAPDQ	= 3,
++	BNA_RX_RES_MEM_T_CQPT		= 4,
++	BNA_RX_RES_MEM_T_CSWQPT		= 5,
++	BNA_RX_RES_MEM_T_CQPT_PAGE	= 6,
++	BNA_RX_RES_MEM_T_HQPT		= 7,
++	BNA_RX_RES_MEM_T_DQPT		= 8,
++	BNA_RX_RES_MEM_T_HSWQPT		= 9,
++	BNA_RX_RES_MEM_T_DSWQPT		= 10,
++	BNA_RX_RES_MEM_T_DPAGE		= 11,
++	BNA_RX_RES_MEM_T_HPAGE		= 12,
++	BNA_RX_RES_MEM_T_IBIDX		= 13,
++	BNA_RX_RES_MEM_T_RIT		= 14,
++	BNA_RX_RES_T_INTR		= 15,
++	BNA_RX_RES_T_MAX		= 16
  };
-@@ -880,9 +881,10 @@ struct bna_mcam_handle {
+ 
+ enum bna_tx_type {
+@@ -583,6 +584,8 @@ struct bna_rxq {
+ 
+ 	int			buffer_size;
+ 	int			q_depth;
++	u32			num_vecs;
++	enum bna_status		multi_buffer;
+ 
+ 	struct bna_qpt qpt;
+ 	struct bna_rcb *rcb;
+@@ -632,6 +635,8 @@ struct bna_ccb {
+ 	struct bna_rcb *rcb[2];
+ 	void			*ctrl; /* For bnad */
+ 	struct bna_pkt_rate pkt_rate;
++	u32			pkts_una;
++	u32			bytes_per_intr;
+ 
+ 	/* Control path */
+ 	struct bna_cq *cq;
+@@ -671,14 +676,22 @@ struct bna_rx_config {
+ 	int			num_paths;
+ 	enum bna_rxp_type rxp_type;
+ 	int			paused;
+-	int			q_depth;
+ 	int			coalescing_timeo;
+ 	/*
+ 	 * Small/Large (or Header/Data) buffer size to be configured
+-	 * for SLR and HDS queue type. Large buffer size comes from
+-	 * enet->mtu.
++	 * for SLR and HDS queue type.
+ 	 */
+-	int			small_buff_size;
++	u32			frame_size;
++
++	/* header or small queue */
++	u32			q1_depth;
++	u32			q1_buf_size;
++
++	/* data or large queue */
++	u32			q0_depth;
++	u32			q0_buf_size;
++	u32			q0_num_vecs;
++	enum bna_status		q0_multi_buf;
+ 
+ 	enum bna_status rss_status;
+ 	struct bna_rss_config rss_config;
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index 225939c..33aeff2 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -49,6 +49,10 @@ module_param(bna_debugfs_enable, uint, S_IRUGO | S_IWUSR);
+ MODULE_PARM_DESC(bna_debugfs_enable, "Enables debugfs feature, default=1,"
+ 		 " Range[false:0|true:1]");
+ 
++static uint bnad_multi_buffer_rx = 1;
++module_param(bnad_multi_buffer_rx, uint, 0444);
++MODULE_PARM_DESC(bnad_multi_buffer_rx, "Multi-buffer Rx; 1 - en(default), 0 - dis");
++
+ /*
+  * Global variables
+  */
+@@ -282,27 +286,32 @@ static int
+ bnad_rxq_alloc_init(struct bnad *bnad, struct bna_rcb *rcb)
+ {
+ 	struct bnad_rx_unmap_q *unmap_q = rcb->unmap_q;
+-	int mtu, order;
++	int order;
+ 
+ 	bnad_rxq_alloc_uninit(bnad, rcb);
+ 
+-	mtu = bna_enet_mtu_get(&bnad->bna.enet);
+-	order = get_order(mtu);
++	order = get_order(rcb->rxq->buffer_size);
++
++	unmap_q->type = BNAD_RXBUF_PAGE;
+ 
+ 	if (bna_is_small_rxq(rcb->id)) {
+ 		unmap_q->alloc_order = 0;
+ 		unmap_q->map_size = rcb->rxq->buffer_size;
+ 	} else {
+-		unmap_q->alloc_order = order;
+-		unmap_q->map_size =
+-			(rcb->rxq->buffer_size > 2048) ?
+-			PAGE_SIZE << order : 2048;
++		if (rcb->rxq->multi_buffer) {
++			unmap_q->alloc_order = 0;
++			unmap_q->map_size = rcb->rxq->buffer_size;
++			unmap_q->type = BNAD_RXBUF_MULTI_BUFF;
++		} else {
++			unmap_q->alloc_order = order;
++			unmap_q->map_size =
++				(rcb->rxq->buffer_size > 2048) ?
++				PAGE_SIZE << order : 2048;
++		}
+ 	}
+ 
+ 	BUG_ON(((PAGE_SIZE << order) % unmap_q->map_size));
+ 
+-	unmap_q->type = BNAD_RXBUF_PAGE;
+-
+ 	return 0;
+ }
+ 
+@@ -345,10 +354,10 @@ bnad_rxq_cleanup(struct bnad *bnad, struct bna_rcb *rcb)
+ 	for (i = 0; i < rcb->q_depth; i++) {
+ 		struct bnad_rx_unmap *unmap = &unmap_q->unmap[i];
+ 
+-		if (BNAD_RXBUF_IS_PAGE(unmap_q->type))
+-			bnad_rxq_cleanup_page(bnad, unmap);
+-		else
++		if (BNAD_RXBUF_IS_SK_BUFF(unmap_q->type))
+ 			bnad_rxq_cleanup_skb(bnad, unmap);
++		else
++			bnad_rxq_cleanup_page(bnad, unmap);
+ 	}
+ 	bnad_rxq_alloc_uninit(bnad, rcb);
+ }
+@@ -480,10 +489,10 @@ bnad_rxq_post(struct bnad *bnad, struct bna_rcb *rcb)
+ 	if (!(to_alloc >> BNAD_RXQ_REFILL_THRESHOLD_SHIFT))
+ 		return;
+ 
+-	if (BNAD_RXBUF_IS_PAGE(unmap_q->type))
+-		bnad_rxq_refill_page(bnad, rcb, to_alloc);
+-	else
++	if (BNAD_RXBUF_IS_SK_BUFF(unmap_q->type))
+ 		bnad_rxq_refill_skb(bnad, rcb, to_alloc);
++	else
++		bnad_rxq_refill_page(bnad, rcb, to_alloc);
+ }
+ 
+ #define flags_cksum_prot_mask (BNA_CQ_EF_IPV4 | BNA_CQ_EF_L3_CKSUM_OK | \
+@@ -500,62 +509,91 @@ bnad_rxq_post(struct bnad *bnad, struct bna_rcb *rcb)
+ #define flags_udp6 (BNA_CQ_EF_IPV6 | \
+ 				BNA_CQ_EF_UDP | BNA_CQ_EF_L4_CKSUM_OK)
+ 
+-static inline struct sk_buff *
+-bnad_cq_prepare_skb(struct bnad_rx_ctrl *rx_ctrl,
+-		struct bnad_rx_unmap_q *unmap_q,
+-		struct bnad_rx_unmap *unmap,
+-		u32 length, u32 flags)
++static void
++bnad_cq_drop_packet(struct bnad *bnad, struct bna_rcb *rcb,
++		    u32 sop_ci, u32 nvecs)
+ {
+-	struct bnad *bnad = rx_ctrl->bnad;
+-	struct sk_buff *skb;
++	struct bnad_rx_unmap_q *unmap_q;
++	struct bnad_rx_unmap *unmap;
++	u32 ci, vec;
++
++	unmap_q = rcb->unmap_q;
++	for (vec = 0, ci = sop_ci; vec < nvecs; vec++) {
++		unmap = &unmap_q->unmap[ci];
++		BNA_QE_INDX_INC(ci, rcb->q_depth);
++
++		if (BNAD_RXBUF_IS_SK_BUFF(unmap_q->type))
++			bnad_rxq_cleanup_skb(bnad, unmap);
++		else
++			bnad_rxq_cleanup_page(bnad, unmap);
++	}
++}
+ 
+-	if (BNAD_RXBUF_IS_PAGE(unmap_q->type)) {
+-		skb = napi_get_frags(&rx_ctrl->napi);
+-		if (unlikely(!skb))
+-			return NULL;
++static void
++bnad_cq_setup_skb_frags(struct bna_rcb *rcb, struct sk_buff *skb,
++			u32 sop_ci, u32 nvecs, u32 last_fraglen)
++{
++	struct bnad *bnad;
++	u32 ci, vec, len, totlen = 0;
++	struct bnad_rx_unmap_q *unmap_q;
++	struct bnad_rx_unmap *unmap;
++
++	unmap_q = rcb->unmap_q;
++	bnad = rcb->bnad;
++	for (vec = 1, ci = sop_ci; vec <= nvecs; vec++) {
++		unmap = &unmap_q->unmap[ci];
++		BNA_QE_INDX_INC(ci, rcb->q_depth);
+ 
+ 		dma_unmap_page(&bnad->pcidev->dev,
+ 				dma_unmap_addr(&unmap->vector, dma_addr),
+ 				unmap->vector.len, DMA_FROM_DEVICE);
++
++		len = (vec == nvecs) ?
++			last_fraglen : unmap->vector.len;
++		totlen += len;
++
+ 		skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
+-				unmap->page, unmap->page_offset, length);
+-		skb->len += length;
+-		skb->data_len += length;
+-		skb->truesize += length;
++				unmap->page, unmap->page_offset, len);
+ 
+ 		unmap->page = NULL;
+ 		unmap->vector.len = 0;
+-
+-		return skb;
+ 	}
+ 
+-	skb = unmap->skb;
+-	BUG_ON(!skb);
++	skb->len += totlen;
++	skb->data_len += totlen;
++	skb->truesize += totlen;
++}
++
++static inline void
++bnad_cq_setup_skb(struct bnad *bnad, struct sk_buff *skb,
++		  struct bnad_rx_unmap *unmap, u32 len)
++{
++	prefetch(skb->data);
+ 
+ 	dma_unmap_single(&bnad->pcidev->dev,
+ 			dma_unmap_addr(&unmap->vector, dma_addr),
+ 			unmap->vector.len, DMA_FROM_DEVICE);
+ 
+-	skb_put(skb, length);
+-
++	skb_put(skb, len);
+ 	skb->protocol = eth_type_trans(skb, bnad->netdev);
+ 
+ 	unmap->skb = NULL;
+ 	unmap->vector.len = 0;
+-	return skb;
+ }
+ 
+ static u32
+ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ {
+-	struct bna_cq_entry *cq, *cmpl;
++	struct bna_cq_entry *cq, *cmpl, *next_cmpl;
+ 	struct bna_rcb *rcb = NULL;
+ 	struct bnad_rx_unmap_q *unmap_q;
+-	struct bnad_rx_unmap *unmap;
+-	struct sk_buff *skb;
++	struct bnad_rx_unmap *unmap = NULL;
++	struct sk_buff *skb = NULL;
+ 	struct bna_pkt_rate *pkt_rt = &ccb->pkt_rate;
+ 	struct bnad_rx_ctrl *rx_ctrl = ccb->ctrl;
+-	u32 packets = 0, length = 0, flags, masked_flags;
++	u32 packets = 0, len = 0, totlen = 0;
++	u32 pi, vec, sop_ci = 0, nvecs = 0;
++	u32 flags, masked_flags;
+ 
+ 	prefetch(bnad->netdev);
+ 
+@@ -563,9 +601,6 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ 	cmpl = &cq[ccb->producer_index];
+ 
+ 	while (cmpl->valid && (packets < budget)) {
+-		packets++;
+-		flags = ntohl(cmpl->flags);
+-		length = ntohs(cmpl->length);
+ 		BNA_UPDATE_PKT_CNT(pkt_rt, ntohs(cmpl->length));
+ 
+ 		if (bna_is_small_rxq(cmpl->rxq_id))
+@@ -574,25 +609,68 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ 			rcb = ccb->rcb[0];
+ 
+ 		unmap_q = rcb->unmap_q;
+-		unmap = &unmap_q->unmap[rcb->consumer_index];
+ 
+-		if (unlikely(flags & (BNA_CQ_EF_MAC_ERROR |
+-					BNA_CQ_EF_FCS_ERROR |
+-					BNA_CQ_EF_TOO_LONG))) {
+-			if (BNAD_RXBUF_IS_PAGE(unmap_q->type))
+-				bnad_rxq_cleanup_page(bnad, unmap);
+-			else
+-				bnad_rxq_cleanup_skb(bnad, unmap);
++		/* start of packet ci */
++		sop_ci = rcb->consumer_index;
++
++		if (BNAD_RXBUF_IS_SK_BUFF(unmap_q->type)) {
++			unmap = &unmap_q->unmap[sop_ci];
++			skb = unmap->skb;
++		} else {
++			skb = napi_get_frags(&rx_ctrl->napi);
++			if (unlikely(!skb))
++				break;
++		}
++		prefetch(skb);
+ 
++		flags = ntohl(cmpl->flags);
++		len = ntohs(cmpl->length);
++		totlen = len;
++		nvecs = 1;
++
++		/* Check all the completions for this frame.
++		 * busy-wait doesn't help much, break here.
++		 */
++		if (BNAD_RXBUF_IS_MULTI_BUFF(unmap_q->type) &&
++		    (flags & BNA_CQ_EF_EOP) == 0) {
++			pi = ccb->producer_index;
++			do {
++				BNA_QE_INDX_INC(pi, ccb->q_depth);
++				next_cmpl = &cq[pi];
++
++				if (!next_cmpl->valid)
++					break;
++
++				len = ntohs(next_cmpl->length);
++				flags = ntohl(next_cmpl->flags);
++
++				nvecs++;
++				totlen += len;
++			} while ((flags & BNA_CQ_EF_EOP) == 0);
++
++			if (!next_cmpl->valid)
++				break;
++		}
++
++		/* TODO: BNA_CQ_EF_LOCAL ? */
++		if (unlikely(flags & (BNA_CQ_EF_MAC_ERROR |
++						BNA_CQ_EF_FCS_ERROR |
++						BNA_CQ_EF_TOO_LONG))) {
++			bnad_cq_drop_packet(bnad, rcb, sop_ci, nvecs);
+ 			rcb->rxq->rx_packets_with_error++;
++
+ 			goto next;
+ 		}
+ 
+-		skb = bnad_cq_prepare_skb(ccb->ctrl, unmap_q, unmap,
+-				length, flags);
++		if (BNAD_RXBUF_IS_SK_BUFF(unmap_q->type))
++			bnad_cq_setup_skb(bnad, skb, unmap, len);
++		else
++			bnad_cq_setup_skb_frags(rcb, skb, sop_ci, nvecs, len);
+ 
+-		if (unlikely(!skb))
+-			break;
++		packets++;
++		rcb->rxq->rx_packets++;
++		rcb->rxq->rx_bytes += totlen;
++		ccb->bytes_per_intr += totlen;
+ 
+ 		masked_flags = flags & flags_cksum_prot_mask;
+ 
+@@ -606,21 +684,21 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ 		else
+ 			skb_checksum_none_assert(skb);
+ 
+-		rcb->rxq->rx_packets++;
+-		rcb->rxq->rx_bytes += length;
+-
+ 		if (flags & BNA_CQ_EF_VLAN)
+ 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(cmpl->vlan_tag));
+ 
+-		if (BNAD_RXBUF_IS_PAGE(unmap_q->type))
+-			napi_gro_frags(&rx_ctrl->napi);
+-		else
++		if (BNAD_RXBUF_IS_SK_BUFF(unmap_q->type))
+ 			netif_receive_skb(skb);
++		else
++			napi_gro_frags(&rx_ctrl->napi);
+ 
+ next:
+-		cmpl->valid = 0;
+-		BNA_QE_INDX_INC(rcb->consumer_index, rcb->q_depth);
+-		BNA_QE_INDX_INC(ccb->producer_index, ccb->q_depth);
++		BNA_QE_INDX_ADD(rcb->consumer_index, nvecs, rcb->q_depth);
++		for (vec = 0; vec < nvecs; vec++) {
++			cmpl = &cq[ccb->producer_index];
++			cmpl->valid = 0;
++			BNA_QE_INDX_INC(ccb->producer_index, ccb->q_depth);
++		}
+ 		cmpl = &cq[ccb->producer_index];
+ 	}
+ 
+@@ -1950,10 +2028,38 @@ bnad_init_rx_config(struct bnad *bnad, struct bna_rx_config *rx_config)
+ 		memset(&rx_config->rss_config, 0,
+ 		       sizeof(rx_config->rss_config));
+ 	}
++
++	rx_config->frame_size = BNAD_FRAME_SIZE(bnad->netdev->mtu);
++
++	/* BNA_RXP_SINGLE - one data-buffer queue
++	 * BNA_RXP_SLR - one small-buffer and one large-buffer queues
++	 * BNA_RXP_HDS - one header-buffer and one data-buffer queues
++	 */
++	/* TODO: configurable param for queue type */
+ 	rx_config->rxp_type = BNA_RXP_SLR;
+-	rx_config->q_depth = bnad->rxq_depth;
+ 
+-	rx_config->small_buff_size = BFI_SMALL_RXBUF_SIZE;
++	if (BNAD_PCI_DEV_IS_CAT2(bnad) &&
++	    bnad_enable_multi_buffer(rx_config->frame_size)) {
++		/* though size_routing_enable is set in SLR,
++		 * small packets may get routed to same rxq.
++		 * set buf_size to 2048 instead of PAGE_SIZE.
++		 */
++		rx_config->q0_buf_size = 2048;
++		/* this should be in multiples of 2 */
++		rx_config->q0_num_vecs = 4;
++		rx_config->q0_depth = bnad->rxq_depth * rx_config->q0_num_vecs;
++		rx_config->q0_multi_buf = BNA_STATUS_T_ENABLED;
++	} else {
++		rx_config->q0_buf_size = rx_config->frame_size;
++		rx_config->q0_num_vecs = 1;
++		rx_config->q0_depth = bnad->rxq_depth;
++	}
++
++	/* initialize for q1 for BNA_RXP_SLR/BNA_RXP_HDS */
++	if (rx_config->rxp_type == BNA_RXP_SLR) {
++		rx_config->q1_depth = bnad->rxq_depth;
++		rx_config->q1_buf_size = BFI_SMALL_RXBUF_SIZE;
++	}
+ 
+ 	rx_config->vlan_strip_status = BNA_STATUS_T_ENABLED;
+ }
+@@ -1969,6 +2075,41 @@ bnad_rx_ctrl_init(struct bnad *bnad, u32 rx_id)
+ }
+ 
+ /* Called with mutex_lock(&bnad->conf_mutex) held */
++u32
++bnad_reinit_rx(struct bnad *bnad)
++{
++	struct net_device *netdev = bnad->netdev;
++	u32 err = 0, current_err = 0;
++	u32 rx_id = 0, count = 0;
++	unsigned long flags;
++
++	/* destroy and create new rx objects */
++	for (rx_id = 0; rx_id < bnad->num_rx; rx_id++) {
++		if (!bnad->rx_info[rx_id].rx)
++			continue;
++		count++;
++		bnad_destroy_rx(bnad, rx_id);
++		current_err = bnad_setup_rx(bnad, rx_id);
++		if (current_err && !err) {
++			err = current_err;
++			pr_err("RXQ:%u setup failed\n", rx_id);
++		}
++	}
++
++	/* restore rx configuration */
++	if (bnad->rx_info[0].rx && !err) {
++		bnad_restore_vlans(bnad, 0);
++		bnad_enable_default_bcast(bnad);
++		spin_lock_irqsave(&bnad->bna_lock, flags);
++		bnad_mac_addr_set_locked(bnad, netdev->dev_addr);
++		spin_unlock_irqrestore(&bnad->bna_lock, flags);
++		bnad_set_rx_mode(netdev);
++	}
++
++	return count;
++}
++
++/* Called with bnad_conf_lock() held */
+ void
+ bnad_destroy_rx(struct bnad *bnad, u32 rx_id)
+ {
+@@ -2047,13 +2188,19 @@ bnad_setup_rx(struct bnad *bnad, u32 rx_id)
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ 
+ 	/* Fill Unmap Q memory requirements */
+-	BNAD_FILL_UNMAPQ_MEM_REQ(&res_info[BNA_RX_RES_MEM_T_UNMAPQ],
+-			rx_config->num_paths +
+-			((rx_config->rxp_type == BNA_RXP_SINGLE) ?
+-			 0 : rx_config->num_paths),
+-			((bnad->rxq_depth * sizeof(struct bnad_rx_unmap)) +
+-			 sizeof(struct bnad_rx_unmap_q)));
+-
++	BNAD_FILL_UNMAPQ_MEM_REQ(&res_info[BNA_RX_RES_MEM_T_UNMAPDQ],
++				 rx_config->num_paths,
++			(rx_config->q0_depth *
++			 sizeof(struct bnad_rx_unmap)) +
++			 sizeof(struct bnad_rx_unmap_q));
++
++	if (rx_config->rxp_type != BNA_RXP_SINGLE) {
++		BNAD_FILL_UNMAPQ_MEM_REQ(&res_info[BNA_RX_RES_MEM_T_UNMAPHQ],
++					 rx_config->num_paths,
++				(rx_config->q1_depth *
++				 sizeof(struct bnad_rx_unmap) +
++				 sizeof(struct bnad_rx_unmap_q)));
++	}
+ 	/* Allocate resource */
+ 	err = bnad_rx_res_alloc(bnad, res_info, rx_id);
+ 	if (err)
+@@ -2548,7 +2695,6 @@ bnad_open(struct net_device *netdev)
+ 	int err;
+ 	struct bnad *bnad = netdev_priv(netdev);
+ 	struct bna_pause_config pause_config;
+-	int mtu;
+ 	unsigned long flags;
+ 
+ 	mutex_lock(&bnad->conf_mutex);
+@@ -2567,10 +2713,9 @@ bnad_open(struct net_device *netdev)
+ 	pause_config.tx_pause = 0;
+ 	pause_config.rx_pause = 0;
+ 
+-	mtu = ETH_HLEN + VLAN_HLEN + bnad->netdev->mtu + ETH_FCS_LEN;
+-
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+-	bna_enet_mtu_set(&bnad->bna.enet, mtu, NULL);
++	bna_enet_mtu_set(&bnad->bna.enet,
++			 BNAD_FRAME_SIZE(bnad->netdev->mtu), NULL);
+ 	bna_enet_pause_config(&bnad->bna.enet, &pause_config, NULL);
+ 	bna_enet_enable(&bnad->bna.enet);
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+@@ -3092,14 +3237,14 @@ bnad_set_mac_address(struct net_device *netdev, void *mac_addr)
+ }
+ 
+ static int
+-bnad_mtu_set(struct bnad *bnad, int mtu)
++bnad_mtu_set(struct bnad *bnad, int frame_size)
+ {
+ 	unsigned long flags;
+ 
+ 	init_completion(&bnad->bnad_completions.mtu_comp);
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+-	bna_enet_mtu_set(&bnad->bna.enet, mtu, bnad_cb_enet_mtu_set);
++	bna_enet_mtu_set(&bnad->bna.enet, frame_size, bnad_cb_enet_mtu_set);
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ 
+ 	wait_for_completion(&bnad->bnad_completions.mtu_comp);
+@@ -3110,18 +3255,27 @@ bnad_mtu_set(struct bnad *bnad, int mtu)
+ static int
+ bnad_change_mtu(struct net_device *netdev, int new_mtu)
+ {
+-	int err, mtu = netdev->mtu;
++	int err, mtu;
+ 	struct bnad *bnad = netdev_priv(netdev);
++	u32 rx_count = 0;
+ 
+ 	if (new_mtu + ETH_HLEN < ETH_ZLEN || new_mtu > BNAD_JUMBO_MTU)
+ 		return -EINVAL;
+ 
+ 	mutex_lock(&bnad->conf_mutex);
+ 
++	mtu = netdev->mtu;
+ 	netdev->mtu = new_mtu;
+ 
+-	mtu = ETH_HLEN + VLAN_HLEN + new_mtu + ETH_FCS_LEN;
+-	err = bnad_mtu_set(bnad, mtu);
++	/* check if multi-buffer needs to be enabled */
++	if (BNAD_PCI_DEV_IS_CAT2(bnad) &&
++	    bnad_reinit_rx_needed(BNAD_FRAME_SIZE(new_mtu)))
++		rx_count = bnad_reinit_rx(bnad);
++
++	/* rx_count > 0 - new rx created
++	 *	- Linux set err = 0 and return
++	 */
++	err = bnad_mtu_set(bnad, new_mtu);
+ 	if (err)
+ 		err = -EBUSY;
+ 
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+index 7055432..03de9cc 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.h
++++ b/drivers/net/ethernet/brocade/bna/bnad.h
+@@ -105,6 +105,9 @@ struct bnad_rx_ctrl {
+ #define BNAD_NUM_TXQ			(bnad->num_tx * bnad->num_txq_per_tx)
+ #define BNAD_NUM_RXP			(bnad->num_rx * bnad->num_rxp_per_rx)
+ 
++#define BNAD_FRAME_SIZE(_mtu) \
++	(ETH_HLEN + VLAN_HLEN + (_mtu) + ETH_FCS_LEN)
++
+ /*
+  * DATA STRUCTURES
+  */
+@@ -241,12 +244,13 @@ struct bnad_rx_unmap {
+ 
+ enum bnad_rxbuf_type {
+ 	BNAD_RXBUF_NONE		= 0,
+-	BNAD_RXBUF_SKB		= 1,
++	BNAD_RXBUF_SK_BUFF	= 1,
+ 	BNAD_RXBUF_PAGE		= 2,
+-	BNAD_RXBUF_MULTI	= 3
++	BNAD_RXBUF_MULTI_BUFF	= 3
  };
  
- struct bna_mcam_mod {
--	struct bna_mac *mcmac;		/* BFI_MAX_MCMAC entries */
--	struct bna_mcam_handle *mchandle;	/* BFI_MAX_MCMAC entries */
-+	struct bna_mac *mcmac;		/* num_mcmac * 2 entries */
-+	struct bna_mcam_handle *mchandle;	/* num_mcmac entries */
- 	struct list_head			free_q;
-+	struct list_head			del_q;
- 	struct list_head			free_handle_q;
+-#define BNAD_RXBUF_IS_PAGE(_type)	((_type) == BNAD_RXBUF_PAGE)
++#define BNAD_RXBUF_IS_SK_BUFF(_type)	((_type) == BNAD_RXBUF_SK_BUFF)
++#define BNAD_RXBUF_IS_MULTI_BUFF(_type)	((_type) == BNAD_RXBUF_MULTI_BUFF)
  
- 	struct bna *bna;
+ struct bnad_rx_unmap_q {
+ 	int			reuse_pi;
+@@ -256,6 +260,15 @@ struct bnad_rx_unmap_q {
+ 	struct bnad_rx_unmap	unmap[0];
+ };
+ 
++#define BNAD_PCI_DEV_IS_CAT2(_bnad) \
++	((_bnad)->pcidev->device == BFA_PCI_DEVICE_ID_CT2)
++
++#define bnad_enable_multi_buffer(_mtu) \
++		bnad_reinit_rx_needed((_mtu))
++
++#define bnad_reinit_rx_needed(_frame) \
++	(bnad_multi_buffer_rx && (_frame) > 4096)
++
+ /* Bit mask values for bnad->cfg_flags */
+ #define	BNAD_CF_DIM_ENABLED		0x01	/* DIM */
+ #define	BNAD_CF_PROMISC			0x02
 -- 
 1.8.2.3
