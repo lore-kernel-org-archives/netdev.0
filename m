@@ -1,52 +1,123 @@
-From: =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2 16/16] wl1251: fix NULL pointer dereference
-Date: Sun,  8 Dec 2013 10:25:14 +0100
-Message-ID: <1386494714-21070-17-git-send-email-pali.rohar@gmail.com>
+From: =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar@gmail.com>
+Subject: [PATCH v2 15/16] wl1251: Add sysfs file address for setting permanent mac address
+Date: Sun,  8 Dec 2013 10:25:13 +0100
+Message-ID: <1386494714-21070-16-git-send-email-pali.rohar@gmail.com>
 References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
  <1386494714-21070-1-git-send-email-pali.rohar@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, freemangordon-uiMcrn6V0Vs@public.gmane.org,
-	aaro.koskinen-X3B1VOXEql0@public.gmane.org, pavel-+ZI9xUNit7I@public.gmane.org, sre-GFxCN5SEZAc@public.gmane.org,
-	joni.lapilainen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	=?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1386494714-21070-1-git-send-email-pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
+	aaro.koskinen@iki.fi, pavel@ucw.cz, sre@ring0.de,
+	joni.lapilainen@gmail.com,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Felipe Contreras <felipe.contreras@gmail.com>,
+	=?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar@gmail.com>
+To: Luciano Coelho <luca@coelho.fi>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f170.google.com ([209.85.215.170]:62279 "EHLO
+	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754784Ab3LHJ1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 04:27:36 -0500
+In-Reply-To: <1386494714-21070-1-git-send-email-pali.rohar@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Reported-by: Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Driver wl1251 generating mac address randomly at startup and there is n=
+o way to
+set permanent mac address via SET_IEEE80211_PERM_ADDR. This patch expor=
+t sysfs
+file which can set permanent mac address by userspace helper program. P=
+atch is
+needed for devices which do not store mac address in internal wl1251 ee=
+prom.
+
+Signed-off-by: Pali Roh=C3=A1r <pali.rohar@gmail.com>
 ---
- drivers/net/wireless/ti/wl1251/event.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/ti/wl1251/main.c |   52 +++++++++++++++++++++++++=
+++++++++
+ 1 file changed, 52 insertions(+)
 
-diff --git a/drivers/net/wireless/ti/wl1251/event.c b/drivers/net/wirel=
-ess/ti/wl1251/event.c
-index 192cebd..db01053 100644
---- a/drivers/net/wireless/ti/wl1251/event.c
-+++ b/drivers/net/wireless/ti/wl1251/event.c
-@@ -124,7 +124,7 @@ static int wl1251_event_process(struct wl1251 *wl, =
-struct event_mailbox *mbox)
- 			return ret;
+diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wirele=
+ss/ti/wl1251/main.c
+index 42730b7..a69b741 100644
+--- a/drivers/net/wireless/ti/wl1251/main.c
++++ b/drivers/net/wireless/ti/wl1251/main.c
+@@ -1377,6 +1377,46 @@ static const struct ieee80211_ops wl1251_ops =3D=
+ {
+ 	.get_survey =3D wl1251_op_get_survey,
+ };
+=20
++static ssize_t wl1251_sysfs_show_address(struct device *dev,
++					 struct device_attribute *attr,
++					 char *buf)
++{
++	struct wl1251 *wl =3D dev_get_drvdata(dev);
++	ssize_t len;
++
++	/* FIXME: what's the maximum length of buf? page size?*/
++	len =3D 500;
++
++	len =3D snprintf(buf, len, "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
++		       wl->mac_addr[0], wl->mac_addr[1], wl->mac_addr[2],
++		       wl->mac_addr[3], wl->mac_addr[4], wl->mac_addr[5]);
++
++	return len;
++}
++
++static ssize_t wl1251_sysfs_store_address(struct device *dev,
++					  struct device_attribute *attr,
++					  const char *buf, size_t count)
++{
++	struct wl1251 *wl =3D dev_get_drvdata(dev);
++	unsigned int addr[6];
++	int ret, i;
++
++	ret =3D sscanf(buf, "%2x:%2x:%2x:%2x:%2x:%2x\n",
++			&addr[0], &addr[1], &addr[2],
++			&addr[3], &addr[4], &addr[5]);
++
++	if (ret !=3D 6)
++		return -EINVAL;
++
++	for (i =3D 0; i < 6; i++)
++		wl->mac_addr[i] =3D addr[i] & 0xff;
++
++	SET_IEEE80211_PERM_ADDR(wl->hw, wl->mac_addr);
++
++	return count;
++}
++
+ static ssize_t wl1251_sysfs_show_tx_mgmt_frm_rate(struct device *dev,
+ 						  struct device_attribute *attr,
+ 						  char *buf)
+@@ -1586,6 +1626,10 @@ out:
+ 	return count;
+ }
+=20
++static DEVICE_ATTR(address, S_IRUGO | S_IWUSR,
++		   wl1251_sysfs_show_address,
++		   wl1251_sysfs_store_address);
++
+ static DEVICE_ATTR(tx_mgmt_frm_rate, S_IRUGO | S_IWUSR,
+ 		   wl1251_sysfs_show_tx_mgmt_frm_rate,
+ 		   wl1251_sysfs_store_tx_mgmt_frm_rate);
+@@ -1730,6 +1774,14 @@ int wl1251_init_ieee80211(struct wl1251 *wl)
  	}
+ 	dev_set_drvdata(&wl1251_device.dev, wl);
 =20
--	if (vector & SYNCHRONIZATION_TIMEOUT_EVENT_ID) {
-+	if (wl->vif && vector & SYNCHRONIZATION_TIMEOUT_EVENT_ID) {
- 		wl1251_debug(DEBUG_EVENT, "SYNCHRONIZATION_TIMEOUT_EVENT");
-=20
- 		/* indicate to the stack, that beacons have been lost */
++	/* Create sysfs file address */
++	ret =3D device_create_file(&wl1251_device.dev,
++				 &dev_attr_address);
++	if (ret < 0) {
++		wl1251_error("failed to create sysfs file address");
++		goto out;
++	}
++
+ 	/* Create sysfs file tx_mgmt_frm_rate */
+ 	ret =3D device_create_file(&wl1251_device.dev,
+ 				 &dev_attr_tx_mgmt_frm_rate);
 --=20
 1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
