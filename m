@@ -1,56 +1,63 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next] netfilter: add IPComp extension match support
-Date: Sun, 8 Dec 2013 00:55:39 +0100
-Message-ID: <20131207235539.GA6693@localhost>
-References: <1385607204-27650-1-git-send-email-fan.du@windriver.com>
- <20131205183402.GA8949@localhost>
- <52A19F39.3030702@windriver.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [net-next 00/13] bna: Update the Driver to v3.2.23.0
+Date: Sat, 7 Dec 2013 21:48:31 -0800
+Message-ID: <1386481724-32367-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: steffen.klassert@secunet.com, kaber@trash.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Fan Du <fan.du@windriver.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <52A19F39.3030702@windriver.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	<adapter_linux_open_src_team@Brocade.COM>,
+	Rasesh Mody <rmody@Brocade.COM>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:50365 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750740Ab3LHFsx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 00:48:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 06, 2013 at 05:56:09PM +0800, Fan Du wrote:
->=20
->=20
-> On 2013=E5=B9=B412=E6=9C=8806=E6=97=A5 02:34, Pablo Neira Ayuso wrote=
-:
-> >Hi,
-> >
-> >On Thu, Nov 28, 2013 at 10:53:24AM +0800, Fan Du wrote:
-> >>With this plugin, user could specify IPComp tagged with certain
-> >>CPI that host not interested will be DROPped or any other action.
-> >>
-> >>For example:
-> >>iptables -A INPUT -p 108 -m ipcomp --ipcompspi 0x87 -j DROP
-> >>
-> >>Then input IPComp packet with CPI equates 0x87 will not reach
-> >>upper layer anymore.
-> >
-> >I think that, with a little bit more work, you can add support for
-> >IPv6 as well. From RFC 3173:
-> >
-> >"In the IPv6 context, IPComp is viewed as an end-to-end payload, and
-> >MUST NOT apply to hop-by-hop, routing, and fragmentation extension
-> >headers.
-> >
-> >You can perform that IPv6-specific handling to skip these extension
-> >headers and reach the IPComp header by means of the ipv6_find_hdr()
-> >helper function.
+Hi Dave,
 
-I just noted that you always have to use -p 108 to get this match
-working, in that case the ip6_tables already sets par->thoff that you
-can use to reach the transport header, so you can skip calling
-ipv6_find_hdr(). So adding IPv6 support is even easier to make.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This patch set consists of feature additions like s/w ptp support, multi-buffer
+RX, firmware patch simplification, enhancements for RX filters, RX processing,
+bug fixes and updates the firmware version to v3.2.3.0.
+
+This patch set updates the BNA driver to v3.2.23.0 and was tested against
+net-next 3.12.0-rc6 kernel.
+
+Thanks
+Rasesh
+
+Rasesh Mody (13):
+  bna: Add software PTP support
+  bna: Set Get IOC fw State
+  bna: Fix Filter Add Del
+  bna: RX Filter Enhancements
+  bna: Enable Multi Buffer RX
+  bna: UDP RX Processing Improvements
+  bna: Fix Stale MTU used to Configure Multi-buffer RX
+  bna: CQ Read Fix
+  bna: Add NULL Check Before Dereferencing TCB
+  bna: Handle the TX Setup Failures
+  bna: Embed SKB Length in TX Vector
+  bna: Firmware Patch Simplification
+  bna: Update the Driver Version to 3.2.23.0
+
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c      | 650 ++++++++++++++++++++++--
+ drivers/net/ethernet/brocade/bna/bfa_ioc.h      |   8 +
+ drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c   |  40 ++
+ drivers/net/ethernet/brocade/bna/bfi.h          |  33 +-
+ drivers/net/ethernet/brocade/bna/bfi_enet.h     |   3 +-
+ drivers/net/ethernet/brocade/bna/bna.h          |  24 +-
+ drivers/net/ethernet/brocade/bna/bna_enet.c     |  58 ++-
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h  |   4 +
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c    | 251 +++++++--
+ drivers/net/ethernet/brocade/bna/bna_types.h    |  57 ++-
+ drivers/net/ethernet/brocade/bna/bnad.c         | 543 ++++++++++++++------
+ drivers/net/ethernet/brocade/bna/bnad.h         |  29 +-
+ drivers/net/ethernet/brocade/bna/bnad_ethtool.c |   1 +
+ drivers/net/ethernet/brocade/bna/cna.h          |   4 +-
+ 14 files changed, 1412 insertions(+), 293 deletions(-)
+
+-- 
+1.8.2.3
