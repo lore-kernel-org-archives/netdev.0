@@ -1,123 +1,81 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 12/12] net/mlx4_core: Check port number for validity before accessing data
-Date: Sun,  8 Dec 2013 14:35:52 +0200
-Message-ID: <1386506152-10298-13-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 06/12] net/mlx4_en: Implement ndo_get_phys_port_id
+Date: Sun,  8 Dec 2013 14:35:46 +0200
+Message-ID: <1386506152-10298-7-git-send-email-amirv@mellanox.com>
 References: <1386506152-10298-1-git-send-email-amirv@mellanox.com>
 Cc: Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Matan Barak <matanb@mellanox.com>
+	Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:59513 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:59489 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754998Ab3LHMgQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Dec 2013 07:36:16 -0500
+	id S1754686Ab3LHMgO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Dec 2013 07:36:14 -0500
 In-Reply-To: <1386506152-10298-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matan Barak <matanb@mellanox.com>
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-Need to validate port number at mlx4_promisc_qp() before use.
-Since port number is extracted from gid, as a cooked or corrupted gid
-could lead to a crash.
+Use the port GUID read from the firmware to identify the physical port.
+This port identifier is available via ndo_get_phys_port_id for both PF
+and VF net-devices.
 
-Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mcg.c | 28 +++++++++++++++++++++++++++-
- 1 file changed, 27 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index acf9d5f..289a09b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -125,9 +125,14 @@ static struct mlx4_promisc_qp *get_promisc_qp(struct mlx4_dev *dev, u8 port,
- 					      enum mlx4_steer_type steer,
- 					      u32 qpn)
- {
--	struct mlx4_steer *s_steer = &mlx4_priv(dev)->steer[port - 1];
-+	struct mlx4_steer *s_steer;
- 	struct mlx4_promisc_qp *pqp;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 9270006..44a1cc2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2168,6 +2168,27 @@ static int mlx4_en_set_vf_link_state(struct net_device *dev, int vf, int link_st
  
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return NULL;
+ 	return mlx4_set_vf_link_state(mdev->dev, en_priv->port, vf, link_state);
+ }
 +
-+	s_steer = &mlx4_priv(dev)->steer[port - 1];
++#define PORT_ID_BYTE_LEN 8
++static int mlx4_en_get_phys_port_id(struct net_device *dev,
++				    struct netdev_phys_port_id *ppid)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_dev *mdev = priv->mdev->dev;
++	int i;
++	u64 phys_port_id = mdev->caps.phys_port_id[priv->port];
 +
- 	list_for_each_entry(pqp, &s_steer->promisc_qps[steer], list) {
- 		if (pqp->qpn == qpn)
- 			return pqp;
-@@ -154,6 +159,9 @@ static int new_steering_entry(struct mlx4_dev *dev, u8 port,
- 	u32 prot;
- 	int err;
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return -EINVAL;
++	if (!phys_port_id)
++		return -EOPNOTSUPP;
 +
- 	s_steer = &mlx4_priv(dev)->steer[port - 1];
- 	new_entry = kzalloc(sizeof *new_entry, GFP_KERNEL);
- 	if (!new_entry)
-@@ -238,6 +246,9 @@ static int existing_steering_entry(struct mlx4_dev *dev, u8 port,
- 	struct mlx4_promisc_qp *pqp;
- 	struct mlx4_promisc_qp *dqp;
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return -EINVAL;
++	ppid->id_len = sizeof(phys_port_id);
++	for (i = PORT_ID_BYTE_LEN - 1; i >= 0; --i) {
++		ppid->id[i] =  phys_port_id & 0xff;
++		phys_port_id >>= 8;
++	}
++	return 0;
++}
 +
- 	s_steer = &mlx4_priv(dev)->steer[port - 1];
+ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_open		= mlx4_en_open,
+ 	.ndo_stop		= mlx4_en_close,
+@@ -2193,6 +2214,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ 	.ndo_busy_poll		= mlx4_en_low_latency_recv,
+ #endif
++	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
+ };
  
- 	pqp = get_promisc_qp(dev, port, steer, qpn);
-@@ -283,6 +294,9 @@ static bool check_duplicate_entry(struct mlx4_dev *dev, u8 port,
- 	struct mlx4_steer_index *tmp_entry, *entry = NULL;
- 	struct mlx4_promisc_qp *dqp, *tmp_dqp;
+ static const struct net_device_ops mlx4_netdev_ops_master = {
+@@ -2221,6 +2243,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
+ #endif
++	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
+ };
  
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return NULL;
-+
- 	s_steer = &mlx4_priv(dev)->steer[port - 1];
- 
- 	/* if qp is not promisc, it cannot be duplicated */
-@@ -324,6 +338,9 @@ static bool can_remove_steering_entry(struct mlx4_dev *dev, u8 port,
- 	bool ret = false;
- 	int i;
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return NULL;
-+
- 	s_steer = &mlx4_priv(dev)->steer[port - 1];
- 
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
-@@ -378,6 +395,9 @@ static int add_promisc_qp(struct mlx4_dev *dev, u8 port,
- 	int err;
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return -EINVAL;
-+
- 	s_steer = &mlx4_priv(dev)->steer[port - 1];
- 
- 	mutex_lock(&priv->mcg_table.mutex);
-@@ -484,6 +504,9 @@ static int remove_promisc_qp(struct mlx4_dev *dev, u8 port,
- 	int loc, i;
- 	int err;
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return -EINVAL;
-+
- 	s_steer = &mlx4_priv(dev)->steer[port - 1];
- 	mutex_lock(&priv->mcg_table.mutex);
- 
-@@ -910,6 +933,9 @@ int mlx4_qp_attach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 	u8 port = gid[5];
- 	u8 new_entry = 0;
- 
-+	if (port < 1 || port > dev->caps.num_ports)
-+		return -EINVAL;
-+
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
- 	if (IS_ERR(mailbox))
- 		return PTR_ERR(mailbox);
+ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
 -- 
 1.8.3.4
