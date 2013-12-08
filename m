@@ -1,86 +1,72 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 04/12] net/mlx4_core: Introduce nic_info new flag in QUERY_FUNC_CAP
-Date: Sun,  8 Dec 2013 14:35:44 +0200
-Message-ID: <1386506152-10298-5-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 11/12] net/mlx4_en: Fix Supported/Advertised link mode reported by ethtool
+Date: Sun,  8 Dec 2013 14:35:51 +0200
+Message-ID: <1386506152-10298-12-git-send-email-amirv@mellanox.com>
 References: <1386506152-10298-1-git-send-email-amirv@mellanox.com>
 Cc: Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Hadar Hen Zion <hadarh@mellanox.com>
+	Rana Shahout <ranas@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.co.il>,
+	Eyal Perry <eyalpe@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:59490 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:40373 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754670Ab3LHMgO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Dec 2013 07:36:14 -0500
+	id S1752765Ab3LHMgQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Dec 2013 07:36:16 -0500
 In-Reply-To: <1386506152-10298-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+From: Rana Shahout <ranas@mellanox.com>
 
-Set nic_info field in QUERY_FUNC_CAP, which designates
-supplementary NIC information is provided by the hypervisor.
-When set, the following fields are valid: nic_num_rings,
-nic_indirection_tbl_sz, cur_mac and phys_port_id.
+Correctly report the support for 1/10/40Gbps link-speed as
+supported/advertised link mode in ethtool's get_settings command.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+
+Signed-off-by: Rana Shahout <ranas@mellanox.com>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.co.il>
+Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/fw.c | 11 ++++++++---
- drivers/net/ethernet/mellanox/mlx4/fw.h |  1 +
- 2 files changed, 9 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 24 ++++++++++++++++++++++--
+ 1 file changed, 22 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 58ca7de..bfe91ae 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -217,10 +217,15 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 0596f9f..a601869 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -367,8 +367,28 @@ static int mlx4_en_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	int trans_type;
  
- #define QUERY_FUNC_CAP_FLAGS1_FORCE_MAC		0x40
- #define QUERY_FUNC_CAP_FLAGS1_FORCE_VLAN	0x80
-+#define QUERY_FUNC_CAP_FLAGS1_NIC_INFO			0x10
- 
- #define QUERY_FUNC_CAP_FLAGS0_FORCE_PHY_WQE_GID 0x80
- 
- 	if (vhcr->op_modifier == 1) {
-+		/* Set nic_info bit to mark new fields support */
-+		field  = QUERY_FUNC_CAP_FLAGS1_NIC_INFO;
-+		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_FLAGS1_OFFSET);
+ 	cmd->autoneg = AUTONEG_DISABLE;
+-	cmd->supported = SUPPORTED_10000baseT_Full;
+-	cmd->advertising = ADVERTISED_10000baseT_Full;
 +
- 		field = vhcr->in_modifier; /* phys-port = logical-port */
- 		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_PHYS_PORT_OFFSET);
++	cmd->supported = SUPPORTED_1000baseT_Full |
++		SUPPORTED_10000baseT_Full |
++		SUPPORTED_1000baseKX_Full |
++		SUPPORTED_10000baseKX4_Full |
++		SUPPORTED_10000baseKR_Full |
++		SUPPORTED_10000baseR_FEC |
++		SUPPORTED_40000baseKR4_Full |
++		SUPPORTED_40000baseCR4_Full |
++		SUPPORTED_40000baseSR4_Full |
++		SUPPORTED_40000baseLR4_Full;
++
++	cmd->advertising = ADVERTISED_1000baseT_Full |
++		ADVERTISED_10000baseT_Full |
++		ADVERTISED_1000baseKX_Full |
++		ADVERTISED_10000baseKX4_Full |
++		ADVERTISED_10000baseKR_Full |
++		ADVERTISED_10000baseR_FEC |
++		ADVERTISED_40000baseKR4_Full |
++		ADVERTISED_40000baseCR4_Full |
++		ADVERTISED_40000baseSR4_Full |
++		ADVERTISED_40000baseLR4_Full;
  
-@@ -385,15 +390,15 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u32 gen_or_port,
- 		goto out;
- 	}
- 
-+	MLX4_GET(func_cap->flags1, outbox, QUERY_FUNC_CAP_FLAGS1_OFFSET);
- 	if (dev->caps.port_type[gen_or_port] == MLX4_PORT_TYPE_ETH) {
--		MLX4_GET(field, outbox, QUERY_FUNC_CAP_FLAGS1_OFFSET);
--		if (field & QUERY_FUNC_CAP_FLAGS1_FORCE_VLAN) {
-+		if (func_cap->flags1 & QUERY_FUNC_CAP_FLAGS1_OFFSET) {
- 			mlx4_err(dev, "VLAN is enforced on this port\n");
- 			err = -EPROTONOSUPPORT;
- 			goto out;
- 		}
- 
--		if (field & QUERY_FUNC_CAP_FLAGS1_FORCE_MAC) {
-+		if (func_cap->flags1 & QUERY_FUNC_CAP_FLAGS1_FORCE_MAC) {
- 			mlx4_err(dev, "Force mac is enabled on this port\n");
- 			err = -EPROTONOSUPPORT;
- 			goto out;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
-index a0a368b..9d95298 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
-@@ -140,6 +140,7 @@ struct mlx4_func_cap {
- 	u32	qp1_proxy_qpn;
- 	u8	physical_port;
- 	u8	port_flags;
-+	u8	flags1;
- };
- 
- struct mlx4_adapter {
+ 	if (mlx4_en_QUERY_PORT(priv->mdev, priv->port))
+ 		return -ENOMEM;
 -- 
 1.8.3.4
