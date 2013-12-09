@@ -1,228 +1,147 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH v2 14/16] wl1251: Add sysfs file tx_mgmt_frm_rate for
- setting rate
-Date: Mon, 09 Dec 2013 10:50:47 -0600
-Message-ID: <1386607847.24473.10.camel@dcbw.foobar.com>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
-	 <1386494714-21070-1-git-send-email-pali.rohar@gmail.com>
-	 <1386494714-21070-15-git-send-email-pali.rohar@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Luciano Coelho <luca@coelho.fi>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
-	aaro.koskinen@iki.fi, pavel@ucw.cz, sre@ring0.de,
-	joni.lapilainen@gmail.com,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Felipe Contreras <felipe.contreras@gmail.com>
-To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Subject: [patch net-next] ipv6: log autoconfiguration failures
+Date: Mon,  9 Dec 2013 17:26:48 +0100
+Message-ID: <1386606408-21552-1-git-send-email-dvlasenk@redhat.com>
+Cc: Denys Vlasenko <dvlasenk@redhat.com>, davem@davemloft.net,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, jpirko@redhat.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386494714-21070-15-git-send-email-pali.rohar@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-12-08 at 10:25 +0100, Pali Roh=C3=A1r wrote:
-> This patch adds support for configuring reg domains.
-> Patch was extracted from Maemo 2.6.28 kernel.
->=20
-> Signed-off-by: Pali Roh=C3=A1r <pali.rohar@gmail.com>
-> ---
->  drivers/net/wireless/ti/wl1251/main.c |  152 +++++++++++++++++++++++=
-++++++++++
->  1 file changed, 152 insertions(+)
+If ipv6 auto-configuration does not work, currently it's hard
+to track what's going on. This change adds log messages
+(at debug level) on every code path where ipv6 autoconf fails.
 
-Isn't this supposed to be done automatically by the rate control
-modules?  Seems pretty wrong to have it done via a sysfs file.  If the
-maemo code was twiddling the TX rate for management frames so that it
-could get more reliable DHCP or 802.1x, we have better nl80211
-mechanisms for that now.
+Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+---
+ net/ipv6/addrconf.c | 45 ++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 36 insertions(+), 9 deletions(-)
 
-Also, the patch description is wrong.  This doesn't really add support
-for "configuring reg domains" at all.
-
-Dan
-
-> diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wire=
-less/ti/wl1251/main.c
-> index 382dedf..42730b7 100644
-> --- a/drivers/net/wireless/ti/wl1251/main.c
-> +++ b/drivers/net/wireless/ti/wl1251/main.c
-> @@ -1377,6 +1377,147 @@ static const struct ieee80211_ops wl1251_ops =
-=3D {
->  	.get_survey =3D wl1251_op_get_survey,
->  };
-> =20
-> +static ssize_t wl1251_sysfs_show_tx_mgmt_frm_rate(struct device *dev=
-,
-> +						  struct device_attribute *attr,
-> +						  char *buf)
-> +{
-> +	struct wl1251 *wl =3D dev_get_drvdata(dev);
-> +	ssize_t len;
-> +	int val;
-> +
-> +	/* FIXME: what's the maximum length of buf? page size?*/
-> +	len =3D 500;
-> +
-> +	switch (wl->tx_mgmt_frm_rate) {
-> +		/* skip 1 and 12 Mbps because they have same value 0x0a */
-> +	case RATE_2MBPS:
-> +		val =3D 20;
-> +		break;
-> +	case RATE_5_5MBPS:
-> +		val =3D 55;
-> +		break;
-> +	case RATE_11MBPS:
-> +		val =3D 110;
-> +		break;
-> +	case RATE_6MBPS:
-> +		val =3D 60;
-> +		break;
-> +	case RATE_9MBPS:
-> +		val =3D 90;
-> +		break;
-> +	case RATE_12MBPS:
-> +		val =3D 120;
-> +		break;
-> +	case RATE_18MBPS:
-> +		val =3D 180;
-> +		break;
-> +	case RATE_24MBPS:
-> +		val =3D 240;
-> +		break;
-> +	case RATE_36MBPS:
-> +		val =3D 360;
-> +		break;
-> +	case RATE_48MBPS:
-> +		val =3D 480;
-> +		break;
-> +	case RATE_54MBPS:
-> +		val =3D 540;
-> +		break;
-> +	default:
-> +		val =3D 10;
-> +	}
-> +
-> +	/* for 1 and 12 Mbps we have to check the modulation */
-> +	if (wl->tx_mgmt_frm_rate =3D=3D RATE_1MBPS) {
-> +		switch (wl->tx_mgmt_frm_rate) {
-> +		case CCK_LONG:
-> +			val =3D 10;
-> +			break;
-> +		case OFDM:
-> +			val =3D 120;
-> +			break;
-> +		default:
-> +			val =3D 10;
-> +			break;
-> +		}
-> +	}
-> +	len =3D snprintf(buf, len, "%d", val);
-> +
-> +	return len;
-> +}
-> +
-> +static ssize_t wl1251_sysfs_store_tx_mgmt_frm_rate(struct device *de=
-v,
-> +					struct device_attribute *attr,
-> +					const char *buf, size_t count)
-> +{
-> +	struct wl1251 *wl =3D dev_get_drvdata(dev);
-> +	unsigned long res;
-> +	int ret;
-> +
-> +	ret =3D strict_strtoul(buf, 10, &res);
-> +
-> +	if (ret < 0) {
-> +		wl1251_warning("incorrect value written to tx_mgmt_frm_rate");
-> +		return 0;
-> +	}
-> +
-> +	switch (res) {
-> +	case 10:
-> +		wl->tx_mgmt_frm_rate =3D RATE_1MBPS;
-> +		wl->tx_mgmt_frm_mod =3D CCK_LONG;
-> +		break;
-> +	case 20:
-> +		wl->tx_mgmt_frm_rate =3D RATE_2MBPS;
-> +		wl->tx_mgmt_frm_mod =3D CCK_LONG;
-> +		break;
-> +	case 55:
-> +		wl->tx_mgmt_frm_rate =3D RATE_5_5MBPS;
-> +		wl->tx_mgmt_frm_mod =3D CCK_LONG;
-> +		break;
-> +	case 110:
-> +		wl->tx_mgmt_frm_rate =3D RATE_11MBPS;
-> +		wl->tx_mgmt_frm_mod =3D CCK_LONG;
-> +		break;
-> +	case 60:
-> +		wl->tx_mgmt_frm_rate =3D RATE_6MBPS;
-> +		wl->tx_mgmt_frm_mod =3D OFDM;
-> +		break;
-> +	case 90:
-> +		wl->tx_mgmt_frm_rate =3D RATE_9MBPS;
-> +		wl->tx_mgmt_frm_mod =3D OFDM;
-> +		break;
-> +	case 120:
-> +		wl->tx_mgmt_frm_rate =3D RATE_12MBPS;
-> +		wl->tx_mgmt_frm_mod =3D OFDM;
-> +		break;
-> +	case 180:
-> +		wl->tx_mgmt_frm_rate =3D RATE_18MBPS;
-> +		wl->tx_mgmt_frm_mod =3D OFDM;
-> +		break;
-> +	case 240:
-> +		wl->tx_mgmt_frm_rate =3D RATE_24MBPS;
-> +		wl->tx_mgmt_frm_mod =3D OFDM;
-> +		break;
-> +	case 360:
-> +		wl->tx_mgmt_frm_rate =3D RATE_36MBPS;
-> +		wl->tx_mgmt_frm_mod =3D OFDM;
-> +		break;
-> +	case 480:
-> +		wl->tx_mgmt_frm_rate =3D RATE_48MBPS;
-> +		wl->tx_mgmt_frm_mod =3D OFDM;
-> +		break;
-> +	case 540:
-> +		wl->tx_mgmt_frm_rate =3D RATE_54MBPS;
-> +		wl->tx_mgmt_frm_mod =3D OFDM;
-> +		break;
-> +	default:
-> +		wl1251_warning("incorrect value written to tx_mgmt_frm_rate");
-> +		return 0;
-> +	}
-> +
-> +	return count;
-> +}
-> +
->  static ssize_t wl1251_sysfs_show_bt_coex_mode(struct device *dev,
->  					      struct device_attribute *attr,
->  					      char *buf)
-> @@ -1445,6 +1586,10 @@ out:
->  	return count;
->  }
-> =20
-> +static DEVICE_ATTR(tx_mgmt_frm_rate, S_IRUGO | S_IWUSR,
-> +		   wl1251_sysfs_show_tx_mgmt_frm_rate,
-> +		   wl1251_sysfs_store_tx_mgmt_frm_rate);
-> +
->  static DEVICE_ATTR(bt_coex_mode, S_IRUGO | S_IWUSR,
->  		   wl1251_sysfs_show_bt_coex_mode,
->  		   wl1251_sysfs_store_bt_coex_mode);
-> @@ -1585,6 +1730,13 @@ int wl1251_init_ieee80211(struct wl1251 *wl)
->  	}
->  	dev_set_drvdata(&wl1251_device.dev, wl);
-> =20
-> +	/* Create sysfs file tx_mgmt_frm_rate */
-> +	ret =3D device_create_file(&wl1251_device.dev,
-> +				 &dev_attr_tx_mgmt_frm_rate);
-> +	if (ret < 0) {
-> +		wl1251_error("failed to create sysfs file tx_mgmt_frm_rate");
-> +		goto out;
-> +	}
-> =20
->  	/* Create sysfs file to control bt coex state */
->  	ret =3D device_create_file(&wl1251_device.dev, &dev_attr_bt_coex_mo=
-de);
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 5087cc5..e75428f 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1692,8 +1692,11 @@ static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
+ 
+ static int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
+ {
+-	if (dev->addr_len != ETH_ALEN)
++	if (dev->addr_len != ETH_ALEN) {
++		pr_debug("IPv6 addrconf: %s: address length %d != %s\n",
++				dev->name, dev->addr_len, "ETH_ALEN");
+ 		return -1;
++	}
+ 	memcpy(eui, dev->dev_addr, 3);
+ 	memcpy(eui + 5, dev->dev_addr + 3, 3);
+ 
+@@ -1723,8 +1726,11 @@ static int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
+ 
+ static int addrconf_ifid_eui64(u8 *eui, struct net_device *dev)
+ {
+-	if (dev->addr_len != IEEE802154_ADDR_LEN)
++	if (dev->addr_len != IEEE802154_ADDR_LEN) {
++		pr_debug("IPv6 addrconf: %s: address length %d != %s\n",
++			dev->name, dev->addr_len, "IEEE802154_ADDR_LEN");
+ 		return -1;
++	}
+ 	memcpy(eui, dev->dev_addr, 8);
+ 	eui[0] ^= 2;
+ 	return 0;
+@@ -1734,8 +1740,11 @@ static int addrconf_ifid_ieee1394(u8 *eui, struct net_device *dev)
+ {
+ 	union fwnet_hwaddr *ha;
+ 
+-	if (dev->addr_len != FWNET_ALEN)
++	if (dev->addr_len != FWNET_ALEN) {
++		pr_debug("IPv6 addrconf: %s: address length %d != %s\n",
++			dev->name, dev->addr_len, "FWNET_ALEN");
+ 		return -1;
++	}
+ 
+ 	ha = (union fwnet_hwaddr *)dev->dev_addr;
+ 
+@@ -1747,8 +1756,11 @@ static int addrconf_ifid_ieee1394(u8 *eui, struct net_device *dev)
+ static int addrconf_ifid_arcnet(u8 *eui, struct net_device *dev)
+ {
+ 	/* XXX: inherit EUI-64 from other interface -- yoshfuji */
+-	if (dev->addr_len != ARCNET_ALEN)
++	if (dev->addr_len != ARCNET_ALEN) {
++		pr_debug("IPv6 addrconf: %s: address length %d != %s\n",
++			dev->name, dev->addr_len, "ARCNET_ALEN");
+ 		return -1;
++	}
+ 	memset(eui, 0, 7);
+ 	eui[7] = *(u8 *)dev->dev_addr;
+ 	return 0;
+@@ -1756,17 +1768,25 @@ static int addrconf_ifid_arcnet(u8 *eui, struct net_device *dev)
+ 
+ static int addrconf_ifid_infiniband(u8 *eui, struct net_device *dev)
+ {
+-	if (dev->addr_len != INFINIBAND_ALEN)
++	if (dev->addr_len != INFINIBAND_ALEN) {
++		pr_debug("IPv6 addrconf: %s: address length %d != %s\n",
++			dev->name, dev->addr_len, "INFINIBAND_ALEN");
+ 		return -1;
++	}
+ 	memcpy(eui, dev->dev_addr + 12, 8);
+ 	eui[0] |= 2;
+ 	return 0;
+ }
+ 
+-static int __ipv6_isatap_ifid(u8 *eui, __be32 addr)
++static int __ipv6_isatap_ifid(u8 *eui, struct net_device *dev)
+ {
+-	if (addr == 0)
++	__be32 addr = *(__be32 *)dev->dev_addr;
++
++	if (addr == 0) {
++		pr_debug("IPv6 addrconf: %s: bad dev_addr %pM\n",
++				dev->name, dev->dev_addr);
+ 		return -1;
++	}
+ 	eui[0] = (ipv4_is_zeronet(addr) || ipv4_is_private_10(addr) ||
+ 		  ipv4_is_loopback(addr) || ipv4_is_linklocal_169(addr) ||
+ 		  ipv4_is_private_172(addr) || ipv4_is_test_192(addr) ||
+@@ -1783,13 +1803,14 @@ static int __ipv6_isatap_ifid(u8 *eui, __be32 addr)
+ static int addrconf_ifid_sit(u8 *eui, struct net_device *dev)
+ {
+ 	if (dev->priv_flags & IFF_ISATAP)
+-		return __ipv6_isatap_ifid(eui, *(__be32 *)dev->dev_addr);
++		return __ipv6_isatap_ifid(eui, dev);
++	pr_debug("IPv6 addrconf: %s: IFF_ISATAP is unset\n", dev->name);
+ 	return -1;
+ }
+ 
+ static int addrconf_ifid_gre(u8 *eui, struct net_device *dev)
+ {
+-	return __ipv6_isatap_ifid(eui, *(__be32 *)dev->dev_addr);
++	return __ipv6_isatap_ifid(eui, dev);
+ }
+ 
+ static int addrconf_ifid_ip6tnl(u8 *eui, struct net_device *dev)
+@@ -1823,6 +1844,8 @@ static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
+ 	case ARPHRD_TUNNEL6:
+ 		return addrconf_ifid_ip6tnl(eui, dev);
+ 	}
++	pr_debug("IPv6 addrconf: %s: dev->type %d is not supported\n",
++			dev->name, dev->type);
+ 	return -1;
+ }
+ 
+@@ -1840,6 +1863,10 @@ static int ipv6_inherit_eui64(u8 *eui, struct inet6_dev *idev)
+ 		}
+ 	}
+ 	read_unlock_bh(&idev->lock);
++	if (err)
++		pr_debug("IPv6 addrconf: "
++			"%s: no link-local address to inherit\n",
++			idev->dev->name);
+ 	return err;
+ }
+ 
+-- 
+1.8.1.4
