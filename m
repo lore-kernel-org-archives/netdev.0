@@ -1,44 +1,47 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: Re: [PATCH RFC 0/9] vti4: prepare namespace and interfamily support.
-Date: Mon, 09 Dec 2013 10:17:38 +0100
-Message-ID: <52A58AB2.9010100@6wind.com>
-References: <20131205120028.GW31491@secunet.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH 1/1] drivers: net : cpsw: Use netdev_name while requesting
+ irq
+Date: Mon, 9 Dec 2013 14:59:05 +0530
+Message-ID: <52A58D61.9060404@ti.com>
+References: <1386313107-8597-1-git-send-email-mugunthanvnm@ti.com> <20131206.154640.2274056773488827363.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Saurabh Mohan <saurabh.mohan@vyatta.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:41585 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932191Ab3LIJRm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 04:17:42 -0500
-Received: by mail-wg0-f48.google.com with SMTP id z12so3069064wgg.3
-        for <netdev@vger.kernel.org>; Mon, 09 Dec 2013 01:17:41 -0800 (PST)
-In-Reply-To: <20131205120028.GW31491@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+	<george.cherian@ti.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <20131206.154640.2274056773488827363.davem@davemloft.net>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Steffen,
-
-On 12/05/2013 01:00 PM, Steffen Klassert wrote:
-> This patchset prepares vti4 for proper namespace and interfamily support.
-> It is based on the net tree because net-next is still too far behind the
-> mainline.
-[...]
+On Saturday 07 December 2013 02:16 AM, David Miller wrote:
+> From: Mugunthan V N <mugunthanvnm@ti.com>
+> Date: Fri, 6 Dec 2013 12:28:27 +0530
 >
-> It has not much testing so far. I can setup the vti tunnels and ping through
-> it. That's all I tried so test carefully ;-).
-
-This series of patchs looks good and seems to address all identified 
-limitations of the current vti implementation.
-
-I'll try to run deeper tests this week. Thank you for working on 
-improving vti.
-
-Best Regards,
-Christophe
-
-> I'll start to care about the ipv6 side after I've got some feedback on this.
+>> From: George Cherian <george.cherian@ti.com>
+>>
+>> Use netdev_name while requesting irq so that eth* name is shown
+>> in /proc/interrupts. Previously it was showing device name as (null)
+>> for cpsw interrupts. For using netdev_name register_netdev and then
+>> call devm_request_irq.
+>>
+>> Signed-off-by: George Cherian <george.cherian@ti.com>
+>> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Why is it showing "(null)" as the name, is dev_name() not working
+> properly for this device?
 >
+> The only change you are making is passing netdev_name() instead
+> of dev_name().  dev_name() giving NULL doesn't make much sense
+> to me.
+priv->dev is a network device which is registered to network stack after
+request interrupt, so dev name is null, with this patch request
+interrupt is moved below after registering the network device with the
+network
+
+Initial driver was using DT node name for the interrupts, but with the
+devm changes by Daniel Mack in commit 50a5fb068 it was changed to ndev
+name which introduced this issue.
+
+Regards
+Mugunthan V N
