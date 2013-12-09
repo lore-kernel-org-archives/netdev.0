@@ -1,60 +1,33 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: RE: NAPI rescheduling and the delay caused by it
-Date: Mon, 9 Dec 2013 23:39:06 +0000
-Message-ID: <6F39C955CEA9D14BAA91CC78568B93012D5039@AMSPEX01CL02.citrite.net>
-References: <529F7A87.5080303@citrix.com>
-	 <1386189718.30495.131.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <529F9D4B.1020208@citrix.com>
- <1386199931.30495.139.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 1/5] ipv6: add flowinfo for tcp6 pkt_options for all cases
+Date: Tue, 10 Dec 2013 00:41:09 +0100
+Message-ID: <20131209234109.GA7396@order.stressinduktion.org>
+References: <1386514021-11646-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"Malcolm Crossley" <malcolm.crossley@citrix.com>,
-	Jonathan Davies <Jonathan.Davies@citrix.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:17043 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750947Ab3LIXjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Dec 2013 18:39:09 -0500
-In-Reply-To: <1386199931.30495.139.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from order.stressinduktion.org ([87.106.68.36]:43533 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750707Ab3LIXlL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 18:41:11 -0500
+Content-Disposition: inline
+In-Reply-To: <1386514021-11646-1-git-send-email-florent.fourcot@enst-bretagne.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGksDQoNCkkgdHJpZWQgdGhhdCwgaXQgZGlkbid0IGhlbHAgaW4gbXkgY2FzZS4gSSB0aGluayB4
-ZW52aWZfbm90aWZ5X3R4X2NvbXBsZXRpb24gaXMgb25seSBhIHNob3J0Y3V0IHRvIHdha2UgdGhl
-IHF1ZXVlIGVhcmxpZXIuIE90aGVyd2lzZSB3ZSBzaG91bGQgd2FpdCBmb3IgdGhlIGludGVycnVw
-dCBmcm9tIHRoZSBndWVzdCB0byBhcnJpdmUgKHNlZSByeF9pbnRlcnJ1cHQpLCBob3dldmVyIHdl
-IGtub3cgaXQgY2FuIGJlIGRvbmUuIE9yIGRvZXMgdGhpcyBjYWxsIGZyb20gdGhlIGtlcm5lbCB0
-aHJlYWQgbWFrZXMgdGhpbmdzIHdvcnNlIHRoYW4gYSBsYXRlciBjYWxsIGZyb20gdGhlIGludGVy
-cnVwdCBjb250ZXh0Pw0KSSBmb3VuZCBhbm90aGVyIHN1c3BlY3QgaG93ZXZlcjogbXkgZ3JhbnQg
-bWFwcGluZyBwYXRjaGVzIGRvIHRoZSB1bm1hcHBpbmcgZnJvbSB0aGUgTkFQSSBpbnN0YW5jZSB3
-aGVyZSBvdGhlcndpc2Ugd2UgcmVjZWl2ZSB0aGUgcGFja2V0cyBmcm9tIHRoZSBndWVzdC4gQnV0
-IHRoaXMgbWVhbnMgd2UgY2FsbCBuYXBpX3NjaGVkdWxlIGZyb20gdGhlIHplcm9jb3B5IGNhbGxi
-YWNrLCB3aGljaCBjYW4gYmUgcnVuIGJ5IGFueW9uZSB3aG8gZnJlZSB1cCB0aGF0IHNrYiwgaW5j
-bHVkaW5nIGFuIGFub3RoZXIgVklGJ3MgUlggdGhyZWFkICh3aGljaCBhY3R1YWxseSBkb2VzIHRo
-ZSB0cmFuc21pdCBUTyB0aGUgZ3Vlc3QpLiBJIGd1ZXNzIHRoYXQgbWlnaHQgYmUgYmFkLg0KDQpa
-b2xpDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIu
-a2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFs
-ZiBPZiBFcmljIER1bWF6ZXQNClNlbnQ6IDA0IERlY2VtYmVyIDIwMTMgMjM6MzINClRvOiBab2x0
-YW4gS2lzcw0KQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHhlbi1kZXZlbEBsaXN0cy54ZW5w
-cm9qZWN0Lm9yZzsgTWFsY29sbSBDcm9zc2xleTsgSm9uYXRoYW4gRGF2aWVzOyBQYXVsIER1cnJh
-bnQ7IFdlaSBMaXU7IElhbiBDYW1wYmVsbA0KU3ViamVjdDogUmU6IE5BUEkgcmVzY2hlZHVsaW5n
-IGFuZCB0aGUgZGVsYXkgY2F1c2VkIGJ5IGl0DQoNCk9uIFdlZCwgMjAxMy0xMi0wNCBhdCAyMToy
-MyArMDAwMCwgWm9sdGFuIEtpc3Mgd3JvdGU6DQoNCj4gSSBzZWUgbmV0aWZfcnhfbmkgbWFrZXMg
-c3VyZSB0aGUgc29mdGlycSBpcyBleGVjdXRlZCwgYnV0IEknbSBub3Qgc3VyZSANCj4gSSBnZXQg
-aG93IGlzIGl0IHJlbGF0ZWQgdG8gd2FrZV9xdWV1ZS4gQ2FuIHlvdSBleHBsYWluIGEgYml0IG1v
-cmU/DQo+IA0KDQpDYWxsaW5nIG5ldGlmX3dha2VfcXVldWUoKSBmcm9tIHByb2Nlc3MgY29udGV4
-dCBtYWtlcyBubyBndWFyYW50ZWUgdGhlIFRYIHNvZnRpcnEgaXMgcHJvY2Vzc2VkIGluIHRoZSBm
-b2xsb3dpbmcgY3ljbGVzLg0KDQpUaGlzIGludGVyZmFjZSBpcyBtZWFudCB0byBiZSB1c2VkIGZy
-b20gc29mdGlycSBjb250ZXh0Lg0KDQoNClRyeSB0byBlbmNsb3NlIGl0IGluIDoNCg0Kdm9pZCB4
-ZW52aWZfbm90aWZ5X3R4X2NvbXBsZXRpb24oc3RydWN0IHhlbnZpZiAqdmlmKSB7DQoJaWYgKG5l
-dGlmX3F1ZXVlX3N0b3BwZWQodmlmLT5kZXYpICYmIHhlbnZpZl9yeF9zY2hlZHVsYWJsZSh2aWYp
-KSB7DQoJCWxvY2FsX2JoX2Rpc2FibGUoKTsNCgkJbmV0aWZfd2FrZV9xdWV1ZSh2aWYtPmRldik7
-DQoJCWxvY2FsX2JoX2VuYWJsZSgpOw0KCX0NCn0NCg0K
+On Sun, Dec 08, 2013 at 03:46:57PM +0100, Florent Fourcot wrote:
+> The current implementation of IPV6_FLOWINFO only gives a
+> result if pktoptions is available (thanks to the
+> ip6_datagram_recv_ctl function).
+> It gives inconsistent results to user space, sometimes
+> there is a result for getsockopt(IPV6_FLOWINFO), sometimes
+> not.
+> 
+> This patch add rcv_flowinfo to store it, and return it to
+> the userspace in the same way than other pkt_options.
+> 
+> Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+
+Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
