@@ -1,43 +1,66 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: Re: [PATCH 02/10] net: stmmac: Honor DT parameter
- to force DMA store and forward mode
-Date: Mon, 9 Dec 2013 10:59:38 +0800
-Message-ID: <CAGb2v64BMNjbbc7j2XesuPEXZV+RnjtP1sAPQ4icU=-wjh3YNQ@mail.gmail.com>
-References: <1386350983-13281-1-git-send-email-wens@csie.org>
- <CAGb2v67ZNtbQm+ZW5v_3wNbz1=oLhXks6gbTSjLYa=Nnoz8w-A@mail.gmail.com>
- <20131207100737.GI24519@lukather> <2994980.boLDbkkER8@flatron>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net-gro: Prepare GRO stack for the upcoming
+ tunneling support
+Date: Sun, 08 Dec 2013 19:04:23 -0800
+Message-ID: <1386558263.30495.311.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386518682-30488-1-git-send-email-hkchu@google.com>
+	 <1386531839.30495.296.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAPshTCiv1HxL9pRg3vp7pAOtdOOKoMVRQ4w8acq3aMga07NRig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "maxime.ripard" <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"rob.herring" <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Srinivas KANDAGATLA <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
-To: linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Return-path: <linux-sunxi+bncBCMILY6JWQBBBL7ESSKQKGQE4GNZSUY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <2994980.boLDbkkER8@flatron>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jerry Chu <hkchu@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:43820 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760097Ab3LIDEZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 22:04:25 -0500
+Received: by mail-pd0-f175.google.com with SMTP id w10so4304182pde.6
+        for <netdev@vger.kernel.org>; Sun, 08 Dec 2013 19:04:24 -0800 (PST)
+In-Reply-To: <CAPshTCiv1HxL9pRg3vp7pAOtdOOKoMVRQ4w8acq3aMga07NRig@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 7, 2013 at 7:06 PM, Tomasz Figa <tomasz.figa-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Saturday 07 of December 2013 11:07:37 maxime.ripard wrote:
->> On Sat, Dec 07, 2013 at 09:23:27AM +0800, Chen-Yu Tsai wrote:
->> > Point taken. The current implementation will override settings passed from
->> > platform data. ORing the two would be better.
->>
->> Platform_data and DT-based configuration are pretty unlikely to be
->> used together, so ORing it doesn't have much sense.
->
-> In fact, the recommended way is to always use platform data alone if it is
-> present or try to parse DT otherwise, so no mixing of data from these two
-> sources should be done.
+On Mon, 2013-12-09 at 10:48 +0800, Jerry Chu wrote:
 
-Would binding platform data with compatibles, as I did so in this patch
-series, be a bad idea then?
+> Not sure why ingress qdisc - it seems that qdisc_pkt_len_init() is only called
+> by the egress path (__dev_xmit_skb())
+> .
+
+Yeah, Qdisc was meant to be used for egress.
+
+Then to get qdisc for ingress, we use IFB to reinject packets through
+the qdisc layer.
+
+Sample of script :
+
+ETH=eth0
+IFB=ifb0
+RTT_HALF=50ms
+REORDER=1500us
+
+modprobe ifb
+ip link set dev $IFB up
+
+tc qdisc add dev $ETH ingress 2>/dev/null
+
+tc filter add dev $ETH parent ffff: \
+   protocol ip u32 match u32 0 0 flowid 1:1 action mirred egress \
+   redirect dev $IFB
+
+tc qdisc del dev $IFB root 2>/dev/null
+tc qdisc add dev $IFB root netem limit 100000 delay $RTT_HALF $REORDER 
+
+
+
+> Strange why is it the business of *netif_receive_skb*() to set the
+> transport header
+> before IP has a chance to parse the IP hdr?
+> 
+
+Maybe you should use git blame ;)
