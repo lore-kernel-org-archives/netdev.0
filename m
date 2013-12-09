@@ -1,30 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] wan: wanxl: remove unnecessary pci_set_drvdata()
-Date: Mon, 09 Dec 2013 18:10:55 -0500 (EST)
-Message-ID: <20131209.181055.2301154890068153550.davem@davemloft.net>
-References: <000a01cef48e$e88de5f0$b9a9b1d0$%han@samsung.com>
-	<000e01cef48f$3e91db50$bbb591f0$%han@samsung.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: RE: NAPI rescheduling and the delay caused by it
+Date: Mon, 9 Dec 2013 23:39:06 +0000
+Message-ID: <6F39C955CEA9D14BAA91CC78568B93012D5039@AMSPEX01CL02.citrite.net>
+References: <529F7A87.5080303@citrix.com>
+	 <1386189718.30495.131.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <529F9D4B.1020208@citrix.com>
+ <1386199931.30495.139.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, khc@pm.waw.pl
-To: jg1.han@samsung.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"Malcolm Crossley" <malcolm.crossley@citrix.com>,
+	Jonathan Davies <Jonathan.Davies@citrix.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44042 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755206Ab3LIXK4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 18:10:56 -0500
-In-Reply-To: <000e01cef48f$3e91db50$bbb591f0$%han@samsung.com>
+Received: from smtp.citrix.com ([66.165.176.89]:17043 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750947Ab3LIXjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Dec 2013 18:39:09 -0500
+In-Reply-To: <1386199931.30495.139.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jingoo Han <jg1.han@samsung.com>
-Date: Mon, 09 Dec 2013 12:32:10 +0900
-
-> The driver core clears the driver data to NULL after device_release
-> or on probe failure. Thus, it is not needed to manually clear the
-> device driver data to NULL.
-> 
-> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
-
-Applied.
+SGksDQoNCkkgdHJpZWQgdGhhdCwgaXQgZGlkbid0IGhlbHAgaW4gbXkgY2FzZS4gSSB0aGluayB4
+ZW52aWZfbm90aWZ5X3R4X2NvbXBsZXRpb24gaXMgb25seSBhIHNob3J0Y3V0IHRvIHdha2UgdGhl
+IHF1ZXVlIGVhcmxpZXIuIE90aGVyd2lzZSB3ZSBzaG91bGQgd2FpdCBmb3IgdGhlIGludGVycnVw
+dCBmcm9tIHRoZSBndWVzdCB0byBhcnJpdmUgKHNlZSByeF9pbnRlcnJ1cHQpLCBob3dldmVyIHdl
+IGtub3cgaXQgY2FuIGJlIGRvbmUuIE9yIGRvZXMgdGhpcyBjYWxsIGZyb20gdGhlIGtlcm5lbCB0
+aHJlYWQgbWFrZXMgdGhpbmdzIHdvcnNlIHRoYW4gYSBsYXRlciBjYWxsIGZyb20gdGhlIGludGVy
+cnVwdCBjb250ZXh0Pw0KSSBmb3VuZCBhbm90aGVyIHN1c3BlY3QgaG93ZXZlcjogbXkgZ3JhbnQg
+bWFwcGluZyBwYXRjaGVzIGRvIHRoZSB1bm1hcHBpbmcgZnJvbSB0aGUgTkFQSSBpbnN0YW5jZSB3
+aGVyZSBvdGhlcndpc2Ugd2UgcmVjZWl2ZSB0aGUgcGFja2V0cyBmcm9tIHRoZSBndWVzdC4gQnV0
+IHRoaXMgbWVhbnMgd2UgY2FsbCBuYXBpX3NjaGVkdWxlIGZyb20gdGhlIHplcm9jb3B5IGNhbGxi
+YWNrLCB3aGljaCBjYW4gYmUgcnVuIGJ5IGFueW9uZSB3aG8gZnJlZSB1cCB0aGF0IHNrYiwgaW5j
+bHVkaW5nIGFuIGFub3RoZXIgVklGJ3MgUlggdGhyZWFkICh3aGljaCBhY3R1YWxseSBkb2VzIHRo
+ZSB0cmFuc21pdCBUTyB0aGUgZ3Vlc3QpLiBJIGd1ZXNzIHRoYXQgbWlnaHQgYmUgYmFkLg0KDQpa
+b2xpDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIu
+a2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFs
+ZiBPZiBFcmljIER1bWF6ZXQNClNlbnQ6IDA0IERlY2VtYmVyIDIwMTMgMjM6MzINClRvOiBab2x0
+YW4gS2lzcw0KQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHhlbi1kZXZlbEBsaXN0cy54ZW5w
+cm9qZWN0Lm9yZzsgTWFsY29sbSBDcm9zc2xleTsgSm9uYXRoYW4gRGF2aWVzOyBQYXVsIER1cnJh
+bnQ7IFdlaSBMaXU7IElhbiBDYW1wYmVsbA0KU3ViamVjdDogUmU6IE5BUEkgcmVzY2hlZHVsaW5n
+IGFuZCB0aGUgZGVsYXkgY2F1c2VkIGJ5IGl0DQoNCk9uIFdlZCwgMjAxMy0xMi0wNCBhdCAyMToy
+MyArMDAwMCwgWm9sdGFuIEtpc3Mgd3JvdGU6DQoNCj4gSSBzZWUgbmV0aWZfcnhfbmkgbWFrZXMg
+c3VyZSB0aGUgc29mdGlycSBpcyBleGVjdXRlZCwgYnV0IEknbSBub3Qgc3VyZSANCj4gSSBnZXQg
+aG93IGlzIGl0IHJlbGF0ZWQgdG8gd2FrZV9xdWV1ZS4gQ2FuIHlvdSBleHBsYWluIGEgYml0IG1v
+cmU/DQo+IA0KDQpDYWxsaW5nIG5ldGlmX3dha2VfcXVldWUoKSBmcm9tIHByb2Nlc3MgY29udGV4
+dCBtYWtlcyBubyBndWFyYW50ZWUgdGhlIFRYIHNvZnRpcnEgaXMgcHJvY2Vzc2VkIGluIHRoZSBm
+b2xsb3dpbmcgY3ljbGVzLg0KDQpUaGlzIGludGVyZmFjZSBpcyBtZWFudCB0byBiZSB1c2VkIGZy
+b20gc29mdGlycSBjb250ZXh0Lg0KDQoNClRyeSB0byBlbmNsb3NlIGl0IGluIDoNCg0Kdm9pZCB4
+ZW52aWZfbm90aWZ5X3R4X2NvbXBsZXRpb24oc3RydWN0IHhlbnZpZiAqdmlmKSB7DQoJaWYgKG5l
+dGlmX3F1ZXVlX3N0b3BwZWQodmlmLT5kZXYpICYmIHhlbnZpZl9yeF9zY2hlZHVsYWJsZSh2aWYp
+KSB7DQoJCWxvY2FsX2JoX2Rpc2FibGUoKTsNCgkJbmV0aWZfd2FrZV9xdWV1ZSh2aWYtPmRldik7
+DQoJCWxvY2FsX2JoX2VuYWJsZSgpOw0KCX0NCn0NCg0K
