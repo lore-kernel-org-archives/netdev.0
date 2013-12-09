@@ -1,23 +1,20 @@
 From: raspl@linux.vnet.ibm.com
 Subject: [PATCH ethtool 1/3] ethtool: Add callback to indicate adjacent switch port attributes
-Date: Mon, 09 Dec 2013 09:11:41 +0100
-Message-ID: <20131209081252.296317035@linux.vnet.ibm.com>
-References: <20131209081140.196136547@linux.vnet.ibm.com>
-Cc: David Miller <davem@davemloft.net>,
-	Frank Blaschka <blaschka@linux.vnet.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-s390 <linux-s390@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Stefan Raspl <raspl@linux.vnet.ibm.com>
+Date: Mon, 09 Dec 2013 07:31:55 +0100
+Message-ID: <20131209063312.413393059@linux.vnet.ibm.com>
+References: <20131209063154.508075549@linux.vnet.ibm.com>
+Cc: davem@davemloft.net, blaschka@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:52463 "EHLO
-	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751467Ab3LLIdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 03:33:12 -0500
+Received: from e06smtp12.uk.ibm.com ([195.75.94.108]:34675 "EHLO
+	e06smtp12.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751872Ab3LLIdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 03:33:11 -0500
 Received: from /spool/local
-	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <raspl@linux.vnet.ibm.com>;
-	Thu, 12 Dec 2013 08:33:08 -0000
+	Thu, 12 Dec 2013 08:33:09 -0000
 Content-Disposition: inline; filename=ethtool_add_query_swport_settings.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
