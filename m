@@ -1,48 +1,58 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH net-next v2 6/9] net: mv643xx_eth: use phy_init_hw to
- reset PHY
-Date: Mon, 09 Dec 2013 21:09:27 +0100
-Message-ID: <52A62377.7050406@gmail.com>
-References: <1386363698-8407-1-git-send-email-f.fainelli@gmail.com> <1386363698-8407-7-git-send-email-f.fainelli@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net-tg3: Initialize REG_BASE_ADDR at PCI config offset
+ 120 to 0
+Date: Tue, 10 Dec 2013 00:18:44 +0300
+Message-ID: <52A633B4.9000307@cogentembedded.com>
+References: <1386614601-9453-1-git-send-email-natg@google.com>	<1386615608.1752.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com> <CAGmqidkxoi9EEe0uC18QQUXwjFP1e_1MXL7VPk+NtU-Ta6FGUg@mail.gmail.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, sergei.shtylyov@cogentembedded.com,
-	afleming@gmail.com, kyle@moffetthome.net
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Cc: nsujir@broadcom.com, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Natarajan Gurumoorthy <natg@google.com>,
+	Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f177.google.com ([209.85.215.177]:34150 "EHLO
-	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932101Ab3LIUJd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 15:09:33 -0500
-Received: by mail-ea0-f177.google.com with SMTP id n15so1816131ead.8
-        for <netdev@vger.kernel.org>; Mon, 09 Dec 2013 12:09:32 -0800 (PST)
-In-Reply-To: <1386363698-8407-7-git-send-email-f.fainelli@gmail.com>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:64119 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753970Ab3LIUSq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 15:18:46 -0500
+Received: by mail-la0-f49.google.com with SMTP id er20so1949219lab.8
+        for <netdev@vger.kernel.org>; Mon, 09 Dec 2013 12:18:45 -0800 (PST)
+In-Reply-To: <CAGmqidkxoi9EEe0uC18QQUXwjFP1e_1MXL7VPk+NtU-Ta6FGUg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/06/2013 10:01 PM, Florian Fainelli wrote:
-> Instead of open-coding a PHY reset through the MII BMCR register, use
-> phy_init_hw() which does that for us and will also make sure that PHY
-> fixups are applied if required. We also remove a call to phy_reset()
-> due to the following sequence of calls in the driver:
->
-> phy_scan()
-> 	-> phy_connect()
-> 		-> phy_connect_direct()
-> 			-> phy_attach_direct()
-> 				-> phy_init_hw()
->
-> and we only have a call to phy_init() after phy_scan().
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
-> Changes since v2:
-> - improved commit message and explain why phy_reset() can go away
->    entirely
+Hello.
 
-Series tested on mv643xx_eth with Marvell Dove SoC.
+On 12/09/2013 10:22 PM, Natarajan Gurumoorthy wrote:
 
-Tested-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> Michael,
+>        We had crashes when the PCI config space got scanned via
+> /sys/devices/pcixxxx/....../config.
 
->   drivers/net/ethernet/marvell/mv643xx_eth.c | 21 +--------------------
->   1 file changed, 1 insertion(+), 20 deletions(-)
+> I agree that this fix will not help if the scan happens before the tg3
+> driver gets loaded.
+
+    Then perhaps a better place for such fixup would be a PCI quirk?
+
+> Regards
+> Nat
+
+> On Mon, Dec 9, 2013 at 11:00 AM, Michael Chan <mchan@broadcom.com> wrote:
+>> On Mon, 2013-12-09 at 10:43 -0800, Nat Gurumoorthy wrote:
+>>> The new tg3 driver leaves REG_BASE_ADDR (PCI config offset 120)
+>>> uninitialized. From power on reset this register may have garbage in it. The
+>>> Register Base Address register defines the device local address of a
+>>> register. The data pointed to by this location is read or written using
+>>> the Register Data register (PCI config offset 128). When REG_BASE_ADDR has
+>>> garbage any read or write of Register Data Register (PCI 128) will cause the
+>>> PCI bus to lock up. The TCO watchdog will fire and bring down the system.
+
+
+>> Is this to prevent problem from other software that may be scanning the
+>> PCI config space?  It won't help if this happens before the tg3 driver
+>> is loaded, right?
+
+>> Thanks.
+
+WBR, Sergei
