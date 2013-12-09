@@ -1,116 +1,295 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH net-next] net-gro: Prepare GRO stack for the upcoming
- tunneling support
-Date: Mon, 9 Dec 2013 10:48:23 +0800
-Message-ID: <CAPshTCiv1HxL9pRg3vp7pAOtdOOKoMVRQ4w8acq3aMga07NRig@mail.gmail.com>
-References: <1386518682-30488-1-git-send-email-hkchu@google.com>
-	<1386531839.30495.296.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH v5 1/2] sctp: check the rto_min and rto_max
+Date: Mon, 9 Dec 2013 10:51:10 +0800
+Message-ID: <52A5301E.3060105@huawei.com>
+References: <1386400651-21744-1-git-send-email-wangweidong1@huawei.com> <1386400651-21744-2-git-send-email-wangweidong1@huawei.com> <52A36EE1.4010209@gmail.com> <52A522A3.7010201@huawei.com> <52A52894.6060600@gmail.com> <52A52AC9.6050907@huawei.com> <52A52D8F.7010202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>,
+	<linux-sctp@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f170.google.com ([209.85.128.170]:51950 "EHLO
-	mail-ve0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760163Ab3LICsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 21:48:24 -0500
-Received: by mail-ve0-f170.google.com with SMTP id oy12so3104347veb.15
-        for <netdev@vger.kernel.org>; Sun, 08 Dec 2013 18:48:23 -0800 (PST)
-In-Reply-To: <1386531839.30495.296.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:52933 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760229Ab3LICwJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 21:52:09 -0500
+In-Reply-To: <52A52D8F.7010202@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 9, 2013 at 3:43 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2013-12-08 at 08:04 -0800, H.K. Jerry Chu wrote:
->> From: Jerry Chu <hkchu@google.com>
+On 2013/12/9 10:40, Vlad Yasevich wrote:
+> On 12/08/2013 09:28 PM, Wang Weidong wrote:
+>> On 2013/12/9 10:19, Vlad Yasevich wrote:
+>>> On 12/08/2013 08:53 PM, Wang Weidong wrote:
+>>>> On 2013/12/8 2:54, Vlad Yasevich wrote:
+>>>>> On 12/07/2013 02:17 AM, Wang Weidong wrote:
+>>>>>> rto_min should be smaller than rto_max while rto_max should be larger
+>>>>>> than rto_min. Add two proc_handler for the checking. Add the check in
+>>>>>> sctp_setsockopt_rtoinfo.
+>>>>>>
+>>>>>> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
+>>>>>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>>>>>> ---
+>>>>>>  include/net/sctp/constants.h |  3 ++
+>>>>>>  net/sctp/socket.c            |  5 +++
+>>>>>>  net/sctp/sysctl.c            | 73 ++++++++++++++++++++++++++++++++++++++++----
+>>>>>>  3 files changed, 75 insertions(+), 6 deletions(-)
+>>>>>>
+>>>>>> diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+>>>>>> index 2f0a565..d276978 100644
+>>>>>> --- a/include/net/sctp/constants.h
+>>>>>> +++ b/include/net/sctp/constants.h
+>>>>>> @@ -279,6 +279,9 @@ enum { SCTP_MAX_GABS = 16 };
+>>>>>>  #define SCTP_RTO_ALPHA          3   /* 1/8 when converted to right shifts. */
+>>>>>>  #define SCTP_RTO_BETA           2   /* 1/4 when converted to right shifts. */
+>>>>>>  
+>>>>>> +#define SCTP_ONE                1        /* 1 ms */
+>>>>>> +#define SCTP_TIMER_MAX          86400000 /* ms in one day */
+>>>>>> +
+>>>>>>  /* Maximum number of new data packets that can be sent in a burst.  */
+>>>>>>  #define SCTP_DEFAULT_MAX_BURST		4
+>>>>>>  
+>>>>>> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+>>>>>> index 72046b9..13411ad 100644
+>>>>>> --- a/net/sctp/socket.c
+>>>>>> +++ b/net/sctp/socket.c
+>>>>>> @@ -2818,6 +2818,11 @@ static int sctp_setsockopt_rtoinfo(struct sock *sk, char __user *optval, unsigne
+>>>>>>  	if (copy_from_user(&rtoinfo, optval, optlen))
+>>>>>>  		return -EFAULT;
+>>>>>>  
+>>>>>> +	if (rtoinfo.srto_min < SCTP_ONE ||
+>>>>>> +	    rtoinfo.srto_max > SCTP_TIMER_MAX ||
+>>>>>> +	    rtoinfo.srto_max < rtoinfo.srto_min)
+>>>>>> +		return -EINVAL;
+>>>>>> +
+>>>>>
+>>>>> You can not do the check for srto_min < 1.  The following is the text
+>>>>> from the spec:
+>>>>>    All times are given in milliseconds.  A value of 0, when modifying
+>>>>>    the parameters, indicates that the current value should not be
+>>>>>    changed.
+>>>>>
+>>>> Yes, Your are right, I found it in draft-ietf-tsvwg-sctpsocket-14.txt.
+>>>> Thanks.
+>>>>
+>>>>> So, it is valid for a user to pass in a value of 0.  Also, I am not sure
+>>>>> if it makes sense to bind the upper limit here, as well.
+>>>>>
+>>>>> -vlad
+>>>>>
+>>>> Here, I am not sure as well. I think it should like what we do to the
+>>>> init_net.sctp.rto_max when set larger than timer_max. Just not change the value.
+>>>>
+>>>
+>>> So, the basic reason that sysctl is limited is that it is a default
+>>> for all sctp association on the system.  It makes some sense to limit
+>>> what the max value here could be.  Limiting it to double suggested
+>>> RTO.MAX would only make it 2 minutes and may be insufficient for some
+>>> of the high latency low-throughput wireless links.  Making it about an
+>>> hour should be fine...  This would be a separate patch though...
+>>>
+>> Here, you mean that we should use 3600*1000 rather than 86400000? So
+>> we should use another patch to fix that after my patchs?
 >>
->> This patch modifies the GRO stack to remove the assumption that
->> only one IP hdr is present in the encapsulation chain. It avoids
->> the use of ip_hdr()/ipv6_hdr() macro in IP's *_gro_receive()/
->> *_gro_complete() functions because there may be more than one IP
->> hdr present in the encapsulation chain when various flavors of IP
->> tunneling support are added. By doing so it also allows multiple
->> level, not just a single level (i.e., with only two IP hdrs like
->> IP-in-IP) of encapsulation to be supported in the future.
->>
->> With this patch, the GRO stack traversing now is mostly based on
->> skb_gro_offset rather than special hdr offsets saved in skb (e.g.,
->> skb->network_header, skb->transport_header,...) As a consequence
->> all but the top layer (which is likely to be the transport layer)
->> must have hdrs of the same length in order for a pkt to be
->> considered for aggregation. Therefore when adding a new layer
->> (e.g., for tunneling), one must check and skip flows (e.g., setting
->> NAPI_GRO_CB(p)->same_flow to 0) that have a different hdr length.
->>
->
->>
->> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> index 2718fed..53e3e9f 100644
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -3083,7 +3083,6 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
->>
->>       skb_set_mac_header(nskb, skb_mac_header(p) - p->data);
->>       skb_set_network_header(nskb, skb_network_offset(p));
->> -     skb_set_transport_header(nskb, skb_transport_offset(p));
->>
->>       __skb_pull(p, skb_gro_offset(p));
->>       memcpy(skb_mac_header(nskb), skb_mac_header(p),
->
->
->> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
->> index 70011e0..cb406e9 100644
->> --- a/net/ipv4/af_inet.c
->> +++ b/net/ipv4/af_inet.c
->> @@ -1397,8 +1401,12 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
->>       }
->>
->>       NAPI_GRO_CB(skb)->flush |= flush;
->> +     skb_set_network_header(skb, off);
->> +     /* The above will be needed by the transport layer if there is one
->> +      * immediately following this IP hdr.
->> +      */
->> +
->>       skb_gro_pull(skb, sizeof(*iph));
->> -     skb_set_transport_header(skb, skb_gro_offset(skb));
->>
->>       pp = ops->callbacks.gro_receive(head, skb);
->>
->
-> I am wondering if you tested installing a qdisc at ingress ?
->
-> qdisc_pkt_len_init() depends that GRO packets have set transport header.
+>>> Limiting the user-supplied value is not as appropriate since the
+>>> assumption is that user application may know better what it's
+>>> requirements are and it is not up to the stack to limit those.  As
+>>> long as the user value is withing the usable range (and the kernel
+>>> will already knows how and does limit this range), we should not
+>>> limit this further.
+>>>
+>>> -vlad
+>>>
+>> Agree, So I should check like this:
+>> !srto_min || !srto_max || srto_min > srto_max ?
+>> And no need to add macros for checking.
+> 
+> No, I think this would have to be a little more complicated :(
+> Remember it's ok to have srto_min == 0 and srto_max == 0.  It just
+> means that no change happens.
+> 
+> You may need to do something like
+> 
+>   unsigned long rto_max, rto_min;
+> 
+>   if (rtoinfo.srto_max)
+>      rto_max = msecs_to_jiffies(rtoinfo.srto_max);
+>   else
+>      rto_max = asoc ? asoc->rto_max : sp->rto_max;
+> 
+>   if (rtoinfo.srto_min)
+>      rto_min = msecs_to_jiffies(rtoinfo.srto_min);
+>   else
+>      rto_min = asoc ? asoc->rto_min : sp->rto_min;
+> 
+>   if (rto_min > rto_max)
+>       return -EINVAL;
+> 
+>   if (asoc) {
+>       asoc->rto_min = rto_min;
+>       asoc->rto_max = rto_max;
+>    ...
+>    etc....
+> 
+> This way we make sure that the user that supplied just rto_min or just
+> rto_max didn't set them so that min > max.
+> 
+> -vlad
 
-Not sure why ingress qdisc - it seems that qdisc_pkt_len_init() is only called
-by the egress path (__dev_xmit_skb()).
+Nice.
 
->
-> Note this might be hidden by the check done in
-> __netif_receive_skb_core()
->
-> if (!skb_transport_header_was_set(skb))
->     skb_reset_transport_header(skb);
+Thanks. 
 
-Strange why is it the business of *netif_receive_skb*() to set the
-transport header
-before IP has a chance to parse the IP hdr?
-
->
-> To test your changes without playing with ingress qdisc, you could add :
->
-> if (!skb_transport_header_was_set(skb)) {
->     BUG_ON(skb_is_gso(skb))
->     skb_reset_transport_header(skb);
-> }
-
-Perhaps you meant the forwarding path (ingress followed by egress)? In that
-case __netif_receive_skb_core() may set the transport header incorrectly (?)
-
-Jerry
-
->
->
+>>
+>> Thanks.
+>>
+>>>>
+>>>> Regards.
+>>>> Wang
+>>>>
+>>>>>>  	asoc = sctp_id2assoc(sk, rtoinfo.srto_assoc_id);
+>>>>>>  
+>>>>>>  	/* Set the values to the specific association */
+>>>>>> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+>>>>>> index 6b36561..33c56c6 100644
+>>>>>> --- a/net/sctp/sysctl.c
+>>>>>> +++ b/net/sctp/sysctl.c
+>>>>>> @@ -40,8 +40,8 @@
+>>>>>>  #include <linux/sysctl.h>
+>>>>>>  
+>>>>>>  static int zero = 0;
+>>>>>> -static int one = 1;
+>>>>>> -static int timer_max = 86400000; /* ms in one day */
+>>>>>> +static int one = SCTP_ONE;
+>>>>>> +static int timer_max = SCTP_TIMER_MAX;
+>>>>>>  static int int_max = INT_MAX;
+>>>>>>  static int sack_timer_min = 1;
+>>>>>>  static int sack_timer_max = 500;
+>>>>>> @@ -61,6 +61,13 @@ static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
+>>>>>>  				void __user *buffer, size_t *lenp,
+>>>>>>  
+>>>>>>  				loff_t *ppos);
+>>>>>> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
+>>>>>> +				void __user *buffer, size_t *lenp,
+>>>>>> +				loff_t *ppos);
+>>>>>> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+>>>>>> +				void __user *buffer, size_t *lenp,
+>>>>>> +				loff_t *ppos);
+>>>>>> +
+>>>>>>  static struct ctl_table sctp_table[] = {
+>>>>>>  	{
+>>>>>>  		.procname	= "sctp_mem",
+>>>>>> @@ -102,17 +109,17 @@ static struct ctl_table sctp_net_table[] = {
+>>>>>>  		.data		= &init_net.sctp.rto_min,
+>>>>>>  		.maxlen		= sizeof(unsigned int),
+>>>>>>  		.mode		= 0644,
+>>>>>> -		.proc_handler	= proc_dointvec_minmax,
+>>>>>> +		.proc_handler	= proc_sctp_do_rto_min,
+>>>>>>  		.extra1         = &one,
+>>>>>> -		.extra2         = &timer_max
+>>>>>> +		.extra2         = &init_net.sctp.rto_max
+>>>>>>  	},
+>>>>>>  	{
+>>>>>>  		.procname	= "rto_max",
+>>>>>>  		.data		= &init_net.sctp.rto_max,
+>>>>>>  		.maxlen		= sizeof(unsigned int),
+>>>>>>  		.mode		= 0644,
+>>>>>> -		.proc_handler	= proc_dointvec_minmax,
+>>>>>> -		.extra1         = &one,
+>>>>>> +		.proc_handler	= proc_sctp_do_rto_max,
+>>>>>> +		.extra1         = &init_net.sctp.rto_min,
+>>>>>>  		.extra2         = &timer_max
+>>>>>>  	},
+>>>>>>  	{
+>>>>>> @@ -342,6 +349,60 @@ static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
+>>>>>>  	return ret;
+>>>>>>  }
+>>>>>>  
+>>>>>> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
+>>>>>> +				void __user*buffer, size_t *lenp,
+>>>>>> +				loff_t *ppos)
+>>>>>> +{
+>>>>>> +	struct net *net = current->nsproxy->net_ns;
+>>>>>> +	int new_value;
+>>>>>> +	struct ctl_table tbl;
+>>>>>> +	unsigned int min = *(unsigned int *) ctl->extra1;
+>>>>>> +	unsigned int max = *(unsigned int *) ctl->extra2;
+>>>>>> +	int ret;
+>>>>>> +
+>>>>>> +	memset(&tbl, 0, sizeof(struct ctl_table));
+>>>>>> +	tbl.maxlen = sizeof(unsigned int);
+>>>>>> +
+>>>>>> +	if (write)
+>>>>>> +		tbl.data = &new_value;
+>>>>>> +	else
+>>>>>> +		tbl.data = &net->sctp.rto_min;
+>>>>>> +	ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
+>>>>>> +	if (write) {
+>>>>>> +		if (ret || new_value > max || new_value < min)
+>>>>>> +			return -EINVAL;
+>>>>>> +		net->sctp.rto_min = new_value;
+>>>>>> +	}
+>>>>>> +	return ret;
+>>>>>> +}
+>>>>>> +
+>>>>>> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+>>>>>> +				void __user*buffer, size_t *lenp,
+>>>>>> +				loff_t *ppos)
+>>>>>> +{
+>>>>>> +	struct net *net = current->nsproxy->net_ns;
+>>>>>> +	int new_value;
+>>>>>> +	struct ctl_table tbl;
+>>>>>> +	unsigned int min = *(unsigned int *) ctl->extra1;
+>>>>>> +	unsigned int max = *(unsigned int *) ctl->extra2;
+>>>>>> +	int ret;
+>>>>>> +
+>>>>>> +	memset(&tbl, 0, sizeof(struct ctl_table));
+>>>>>> +	tbl.maxlen = sizeof(unsigned int);
+>>>>>> +
+>>>>>> +	if (write)
+>>>>>> +		tbl.data = &new_value;
+>>>>>> +	else
+>>>>>> +		tbl.data = &net->sctp.rto_max;
+>>>>>> +	ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
+>>>>>> +	if (write) {
+>>>>>> +                if (ret || new_value > max || new_value < min)
+>>>>>> +			return -EINVAL;
+>>>>>> +		net->sctp.rto_max = new_value;
+>>>>>> +	}
+>>>>>> +	return ret;
+>>>>>> +}
+>>>>>> +
+>>>>>>  int sctp_sysctl_net_register(struct net *net)
+>>>>>>  {
+>>>>>>  	struct ctl_table *table;
+>>>>>>
+>>>>>
+>>>>> --
+>>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>>>> the body of a message to majordomo@vger.kernel.org
+>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>>>
+>>>>> .
+>>>>>
+>>>>
+>>>>
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>
+>>> .
+>>>
+>>
+>>
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> .
+> 
