@@ -1,141 +1,196 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net/stable v2] br: fix use of ->rx_handler_data in code
- executed on non-rx_handler path
-Date: Mon, 9 Dec 2013 10:36:03 +0100
-Message-ID: <20131209093603.GA2449@minipsycho.orion>
-References: <1386257257-25258-1-git-send-email-jiri@resnulli.us>
- <20131206.154321.1673089712073824539.davem@davemloft.net>
- <20131206131028.41b5b8b1@nehalam.linuxnetplumber.net>
- <20131207085105.GA2496@minipsycho.orion>
- <52A372B5.8010602@gmail.com>
- <20131207200720.GB2516@minipsycho.orion>
- <52A525D6.7050409@gmail.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next 01/12] net/mlx4_en: Reuse mapped memory in RX
+ flow
+Date: Mon, 9 Dec 2013 11:44:16 +0200
+Message-ID: <52A590F0.7000508@mellanox.com>
+References: <1386506152-10298-1-git-send-email-amirv@mellanox.com>	 <1386506152-10298-2-git-send-email-amirv@mellanox.com> <1386530458.30495.286.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jtluka@redhat.com, zhiguohong@tencent.com,
-	bridge@lists.linux-foundation.org, edumazet@google.com,
-	laine@redhat.com, mst@redhat.com
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	<netdev@vger.kernel.org>, Eugenia Emantayev <eugenia@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f41.google.com ([74.125.83.41]:44543 "EHLO
-	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760322Ab3LIJgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 04:36:08 -0500
-Received: by mail-ee0-f41.google.com with SMTP id t10so1434639eei.28
-        for <netdev@vger.kernel.org>; Mon, 09 Dec 2013 01:36:06 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <52A525D6.7050409@gmail.com>
+Received: from eu1sys200aog123.obsmtp.com ([207.126.144.155]:57511 "EHLO
+	eu1sys200aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761268Ab3LIJoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 04:44:22 -0500
+In-Reply-To: <1386530458.30495.286.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Dec 09, 2013 at 03:07:18AM CET, vyasevich@gmail.com wrote:
->On 12/07/2013 03:07 PM, Jiri Pirko wrote:
->> Sat, Dec 07, 2013 at 08:10:45PM CET, vyasevich@gmail.com wrote:
->>> On 12/07/2013 03:51 AM, Jiri Pirko wrote:
->>>> Fri, Dec 06, 2013 at 10:10:28PM CET, stephen@networkplumber.org wrote:
->>>>> On Fri, 06 Dec 2013 15:43:21 -0500 (EST)
->>>>> David Miller <davem@davemloft.net> wrote:
->>>>>
->>>>>> From: Jiri Pirko <jiri@resnulli.us>
->>>>>> Date: Thu,  5 Dec 2013 16:27:37 +0100
->>>>>>
->>>>>>> br_stp_rcv() is reached by non-rx_handler path. That means there is no
->>>>>>> guarantee that dev is bridge port and therefore simple NULL check of
->>>>>>> ->rx_handler_data is not enough. There is need to check if dev is really
->>>>>>> bridge port and since only rcu read lock is held here, do it by checking
->>>>>>> ->rx_handler pointer.
->>>>>>>
->>>>>>> Note that synchronize_net() in netdev_rx_handler_unregister() ensures
->>>>>>> this approach as valid.
->>>>>>>
->>>>>>> Introduced originally by:
->>>>>>> commit f350a0a87374418635689471606454abc7beaa3a
->>>>>>>   "bridge: use rx_handler_data pointer to store net_bridge_port pointer"
->>>>>>>
->>>>>>> Fixed but not in the best way by:
->>>>>>> commit b5ed54e94d324f17c97852296d61a143f01b227a
->>>>>>>   "bridge: fix RCU races with bridge port"
->>>>>>>
->>>>>>> Reintroduced by:
->>>>>>> commit 716ec052d2280d511e10e90ad54a86f5b5d4dcc2
->>>>>>>   "bridge: fix NULL pointer deref of br_port_get_rcu"
->>>>>>>
->>>>>>> Please apply to stable trees as well. Thanks.
->>>>>>>
->>>>>>> RH bugzilla reference: https://bugzilla.redhat.com/show_bug.cgi?id=1025770
->>>>>>>
->>>>>>> Reported-by: Laine Stump <laine@redhat.com>
->>>>>>> Debugged-by: Michael S. Tsirkin <mst@redhat.com>
->>>>>>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->>>>>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>>>>>> ---
->>>>>>> v1->v2: moved br_port_get_check_rcu definition below br_handle_frame definition
->>>>>>
->>>>>> Applied and queued up for -stable, thanks Jiri.
->>>>>
->>>>> How come you ignored my simpler fix, that used the existing logic.
->>>>> I don't like introducing this especially into the stable; much prefer
->>>>> to go back to testing the flag as was being done before.
->>>>
->>>> Although your patch is technically sane, it depends on rtnl indirectly.
->>>
->>> Pardon my ignorance, but I've been staring at this and I can't for
->>> the life of me see the dependency.
->>>
->>> The IFF_BRIDGE_PORT flag is set after the rx_handler is registered,
->>> so we are safe there.  The rcu primitives will guarantee that the flag
->>> will be set by the time rx_handler and rx_handler_data are set.
->>>
->>> The flag is cleared before rx_handler is unregistered, so it is
->>> still valid to check for it in stp code.  Once the flag is cleared
->>> we may still have a valid rx_handler during the rcu grace period, but
->>> will still avoid doing processing.
->>>
->>> So, where is the dependency on the rtnl?
->> 
->> 
->> Imagine br would release the netdev and some other rx_handler user would
->> enslave the same netdev. This two events would happen between
->> IFF_BRIDGE_PORT flag check and rx_handler_data get. That is what
->> rtnl_lock prevents from happening.
->
->I don't think this can happen.  Inside br_stp_rcv(), we are in an rcu
->critical section.  The release of the netdev (rx_handler unregister)
->forces us to to wait until synchronize_net() completes.  So, if under
->rcu we checked the flag and it's on, the rx_handler will not change for
->the duration of that rcu section and we can safely process the packet
->even if the port is in the middle of going away.  Howe does the race
->you describe happen?
+On 08/12/2013 21:20, Eric Dumazet wrote:
+> On Sun, 2013-12-08 at 14:35 +0200, Amir Vadai wrote:
+>> From: Eugenia Emantayev <eugenia@mellanox.com>
+>>
+>> In receive flow use one fragment instead of multiple fragments.
+>> Always allocate at least twice memory than needed for current MTU
+>> and on each cycle use one hunk of the mapped memory.
+>> Realloc and map new page only if this page was not freed.
+>> This behavior allows to save unnecessary dma (un)mapping
+>> operations that are very expensive when IOMMU is enabled.
+>>
+>>
+>> Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+>> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+>> ---
+>>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  12 +-
+>>  drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 723 +++++++++----------------
+>>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  56 +-
+>>  3 files changed, 299 insertions(+), 492 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> index 709e5ec..9270006 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> @@ -1490,7 +1490,11 @@ int mlx4_en_start_port(struct net_device *dev)
+>>  
+>>  	/* Calculate Rx buf size */
+>>  	dev->mtu = min(dev->mtu, priv->max_mtu);
+>> -	mlx4_en_calc_rx_buf(dev);
+>> +	priv->rx_skb_size = dev->mtu + ETH_HLEN + VLAN_HLEN;
+>> +	priv->rx_buf_size = roundup_pow_of_two(priv->rx_skb_size);
+>> +	priv->rx_alloc_size = max_t(int, 2 * priv->rx_buf_size, PAGE_SIZE);
+>> +	priv->rx_alloc_order = get_order(priv->rx_alloc_size);
+>> +	priv->log_rx_info = ROUNDUP_LOG2(sizeof(struct mlx4_en_rx_buf));
+>>  	en_dbg(DRV, priv, "Rx buf size:%d\n", priv->rx_skb_size);
+>>  
+>>  	/* Configure rx cq's and rings */
+>> @@ -1923,7 +1927,7 @@ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv)
+>>  			goto err;
+>>  
+>>  		if (mlx4_en_create_rx_ring(priv, &priv->rx_ring[i],
+>> -					   prof->rx_ring_size, priv->stride,
+>> +					   prof->rx_ring_size,
+>>  					   node))
+>>  			goto err;
+>>  	}
+>> @@ -2316,7 +2320,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+>>  	memcpy(priv->prev_mac, dev->dev_addr, sizeof(priv->prev_mac));
+>>  
+>>  	priv->stride = roundup_pow_of_two(sizeof(struct mlx4_en_rx_desc) +
+>> -					  DS_SIZE * MLX4_EN_MAX_RX_FRAGS);
+>> +					  DS_SIZE);
+>>  	err = mlx4_en_alloc_resources(priv);
+>>  	if (err)
+>>  		goto out;
+>> @@ -2393,7 +2397,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+>>  	mlx4_en_update_loopback_state(priv->dev, priv->dev->features);
+>>  
+>>  	/* Configure port */
+>> -	mlx4_en_calc_rx_buf(dev);
+>> +	priv->rx_skb_size = dev->mtu + ETH_HLEN + VLAN_HLEN;
+>>  	err = mlx4_SET_PORT_general(mdev->dev, priv->port,
+>>  				    priv->rx_skb_size + ETH_FCS_LEN,
+>>  				    prof->tx_pause, prof->tx_ppp,
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+>> index 07a1d0f..965c021 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+>> @@ -43,197 +43,72 @@
+>>  
+>>  #include "mlx4_en.h"
+>>  
+>> -static int mlx4_alloc_pages(struct mlx4_en_priv *priv,
+>> -			    struct mlx4_en_rx_alloc *page_alloc,
+>> -			    const struct mlx4_en_frag_info *frag_info,
+>> -			    gfp_t _gfp)
+>> +static int mlx4_en_alloc_frag(struct mlx4_en_priv *priv,
+>> +			      struct mlx4_en_rx_ring *ring,
+>> +			      struct mlx4_en_rx_desc *rx_desc,
+>> +			      struct mlx4_en_rx_buf *rx_buf,
+>> +			      enum mlx4_en_alloc_type type)
+>>  {
+>> -	int order;
+>> +	struct device *dev = priv->ddev;
+>>  	struct page *page;
+>> -	dma_addr_t dma;
+>> -
+>> -	for (order = MLX4_EN_ALLOC_PREFER_ORDER; ;) {
+>> -		gfp_t gfp = _gfp;
+>> -
+>> -		if (order)
+>> -			gfp |= __GFP_COMP | __GFP_NOWARN;
+>> -		page = alloc_pages(gfp, order);
+>> -		if (likely(page))
+>> -			break;
+>> -		if (--order < 0 ||
+>> -		    ((PAGE_SIZE << order) < frag_info->frag_size))
+>> +	dma_addr_t dma = 0;
+>> +	gfp_t gfp = GFP_ATOMIC | __GFP_COLD | __GFP_COMP | __GFP_NOWARN;
+>> +
+>> +	/* alloc new page */
+>> +	page = alloc_pages_node(ring->numa_node, gfp, ring->rx_alloc_order);
+> 
+> Hey... what is numa_node ?
+We get optimal performance when rx rings are mapped 1:1 to cpu's - IRQ
+affinity is set to this CPU, and memory is allocated on the NUMA node
+close to it (ring->numa_node)
+In order to do that, we will post a patch soon to use
+irq_set_affinity_hint() in order to hint the irq balancer. Till this
+patch is applied, users should set irq affinity through sysfs and
+disable the irq balancer.
 
-You are right. It cannot happen.
+> 
+>> +	if (unlikely(!page)) {
+>> +		page = alloc_pages(gfp, ring->rx_alloc_order);
+>> +		if (unlikely(!page))
+>>  			return -ENOMEM;
+>>  	}
+> 
+> I find very worrying such a change, with non documented features.
+> (Not even mentioned in the changelog)
+Will improve the changelog in V1
 
->
->The reason I ask, is that we check priv_flags under rcu in other
->places to make sure that the device we are passing data to can handle
->it.  If it's not safe, then those other places are vulnerable too.
->It doesn't seem to me that it is unsafe.
->
->Thanks
->-vlad
->
->> 
->>>
->>> Thanks
->>> -vlad
->>>
->>>> My patch depends on rcu locking and synchronize_rcu which is direct.
->>>> Therefore I think it is more appropriate.
->>>>
->>>> Jiri
->>>>
->>>>
->>>>
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>>
->>>
->
+> 
+> We made a change in the past [1], that allocations always should be done
+> on the node of the cpu handling the RX irqs.
+This is the intention here too.
+But, if can't do the allocation on the needed node (close to the cpu
+handling the RX irqs), fallback to allocate from any node.
+
+> 
+> Have you tested the performance changes of this patch ?
+Sure
+
+> If yes, please describe the protocol.
+Will send it later today
+
+> 
+> [1] commit 564824b0c52c34692d804bb6ea214451615b0b50
+> ("net: allocate skbs on local node")
+> 
+> Also, it looks like your patch is now using 2048 bytes per frame,
+> instead of 1536, yet truesize is not changed.
+> 
+> In fact, it seems you added yet another skb->truesize lie
+> 
+> As in :
+> 
+> 	skb->truesize = length + sizeof(struct sk_buff);
+I'm sorry, the fix in [1] was dropped by mistake.
+Will remove this line in V1
+
+[1] 90278c9 "mlx4_en: fix skb truesize underestimation"
+
+> 
+> And :
+> 
+> 	skb->truesize += ring->rx_buf_size;
+This is a bug - should be ring->rx_skb_size which is 1536 and not 2K.
+Also used by mistake rx_buf_size when posted buffers to the HW - this
+will also be fixed for V1.
+
+> 
+> This is absolutely wrong, I am very upset by this patch, its a step
+> back.
+This is part of a process we do to have only one driver (upstream
+kernel) instead of having two: MLNX_OFED driver and upstream driver.
+I hope that in the end it will be a huge step forward...
+
+> 
+> You drivers guys cannot ignore how the whole networking stack works.
+If we ignored something it was by mistake. We take it very seriously,
+and appreciate the hard work done here.
