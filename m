@@ -1,84 +1,44 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH net-next 2/3] xfrm: clamp down spi range for IPComp when
- allocating spi
-Date: Mon, 9 Dec 2013 17:13:52 +0800
-Message-ID: <52A589D0.4000802@windriver.com>
-References: <1385607161-27597-1-git-send-email-fan.du@windriver.com> <1385607161-27597-3-git-send-email-fan.du@windriver.com> <20131206114248.GG31491@secunet.com> <52A562DF.4090302@windriver.com> <20131209085703.GJ31491@secunet.com>
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: Re: [PATCH RFC 0/9] vti4: prepare namespace and interfamily support.
+Date: Mon, 09 Dec 2013 10:17:38 +0100
+Message-ID: <52A58AB2.9010100@6wind.com>
+References: <20131205120028.GW31491@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Saurabh Mohan <saurabh.mohan@vyatta.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:53298 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932279Ab3LIJOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 04:14:05 -0500
-In-Reply-To: <20131209085703.GJ31491@secunet.com>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:41585 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932191Ab3LIJRm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 04:17:42 -0500
+Received: by mail-wg0-f48.google.com with SMTP id z12so3069064wgg.3
+        for <netdev@vger.kernel.org>; Mon, 09 Dec 2013 01:17:41 -0800 (PST)
+In-Reply-To: <20131205120028.GW31491@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Steffen,
 
-
-On 2013=E5=B9=B412=E6=9C=8809=E6=97=A5 16:57, Steffen Klassert wrote:
-> On Mon, Dec 09, 2013 at 02:27:43PM +0800, Fan Du wrote:
->> On 2013=E5=B9=B412=E6=9C=8806=E6=97=A5 19:42, Steffen Klassert wrote=
-:
->>>
->>> Also, the spi range is user defined, we should respect the
->>> users configuration if the range is valid.
->>
->> Ok, then, speaking of respect user defined range, how about below in=
-formal
->> patch which only check the validity of the range? My original though=
-ts is CPI
->> is only 16bits wide, kernel itself can keep the CPI's validity. btw,=
- v2 will
->> also fix patch1/3 align issue.
->>
->> diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
->> index 6a9c402..2c6fb99 100644
->> --- a/net/xfrm/xfrm_state.c
->> +++ b/net/xfrm/xfrm_state.c
->> @@ -1507,6 +1507,9 @@ int xfrm_alloc_spi(struct xfrm_state *x, u32 l=
-ow, u32 high)
->>
->>          err =3D -ENOENT;
->>
->> +       if ((x->id.proto =3D=3D IPPROTO_COMP)&&  (high>  0xFFFF))
->> +               goto unlock;
->> +
+On 12/05/2013 01:00 PM, Steffen Klassert wrote:
+> This patchset prepares vti4 for proper namespace and interfamily support.
+> It is based on the net tree because net-next is still too far behind the
+> mainline.
+[...]
 >
-> This check is already done in verify_userspi_info() if xfrm_alloc_spi=
-()
-> is called from xfrm_alloc_userspi().
+> It has not much testing so far. I can setup the vti tunnels and ping through
+> it. That's all I tried so test carefully ;-).
+
+This series of patchs looks good and seems to address all identified 
+limitations of the current vti implementation.
+
+I'll try to run deeper tests this week. Thank you for working on 
+improving vti.
+
+Best Regards,
+Christophe
+
+> I'll start to care about the ipv6 side after I've got some feedback on this.
 >
-> Instead of doing this check here again, we should implement an equiva=
-lent
-> to verify_userspi_info() for pfkey. Then we are sure to have a valid =
-range
-> in any case.
->
-
-How about export an common function in xfrm_state.c to check this corne=
-r case?
-This could be shared by both netlink and pfkey interface, and verify_us=
-erspi_info
-simplified also?
-
-int check_ipcomp_spirange(u8 proto, u32 high)
-{
-	if ((proto =3D=3D IPPROTO_COMP) && (high > 0xFFFF))
-		return -EINVAL;
-	else return 0;
-}
-EXPORT_SYMBOL(check_ipcomp_spirange);
-
-
-
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
-
---fan
