@@ -1,25 +1,39 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 5/5] ipv6: use ip6_flowinfo helper
-Date: Tue, 10 Dec 2013 00:42:43 +0100
-Message-ID: <20131209234243.GE7396@order.stressinduktion.org>
-References: <1386514021-11646-1-git-send-email-florent.fourcot@enst-bretagne.fr> <1386514021-11646-5-git-send-email-florent.fourcot@enst-bretagne.fr>
+Subject: Re: [PATCH 1/1] ipv6 addrconf:fix preferred lifetime state-changing behavior while valid_lft is infinity
+Date: Tue, 10 Dec 2013 00:47:04 +0100
+Message-ID: <20131209234704.GF7396@order.stressinduktion.org>
+References: <4AE7B88EC8BA74469869BB7EEB7D66671BF656D2@g01jpexmbyt23>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Asano, Yasushi" <yasushi.asano@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:43556 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:43566 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750750Ab3LIXmo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 18:42:44 -0500
+	with ESMTP id S1750989Ab3LIXrF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 18:47:05 -0500
 Content-Disposition: inline
-In-Reply-To: <1386514021-11646-5-git-send-email-florent.fourcot@enst-bretagne.fr>
+In-Reply-To: <4AE7B88EC8BA74469869BB7EEB7D66671BF656D2@g01jpexmbyt23>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 08, 2013 at 03:47:01PM +0100, Florent Fourcot wrote:
-> Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+On Mon, Dec 09, 2013 at 05:54:37AM +0000, Asano, Yasushi wrote:
+> from: Yasushi Asano  <yasushi.asano@jp.fujitsu.com>
+> 
+> There is a problem when setting the lifetime of an IPv6 address.
+> When I set preferred_lft to a value not zero or infinity, while valid_lft is infinity(0xffffffff)
+> preferred lifetime is set to forever and does not update.
+> Therefore preferred lifetime never becomes deprecated.
+> 
+> I think valid lifetime and preferred lifetime should be set independently,
+> even if valid lifetime is infinity, preferred lifetime must expire correctly (meaning it must eventually become deprecated)
+> 
+> I made a patch for 3.12 stable to solve the problem.
 
-Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+This indeed could be improved. Thanks for the patch. But you should base
+it on net-next so it can be applied and please clean up the warnings
+and errors if you run the patch through ./scripts/checkpatch --strict.
 
-Thanks, series looks good!
+Thank you,
+
+  Hannes
