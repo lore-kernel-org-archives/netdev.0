@@ -1,62 +1,166 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: ems_usb: fix urb leaks on failure paths
-Date: Mon, 09 Dec 2013 11:45:59 +0100
-Message-ID: <52A59F67.7060008@pengutronix.de>
-References: <1386371435-17597-1-git-send-email-khoroshilov@ispras.ru>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net 1/2] tun: unbreak truncated packet signalling
+Date: Mon, 9 Dec 2013 12:55:29 +0200
+Message-ID: <20131209105529.GD15055@redhat.com>
+References: <1386584717-5776-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="8x4v4XrLHekBw42bbav4o8D45lMNw3pRf"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1386371435-17597-1-git-send-email-khoroshilov@ispras.ru>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43568 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755315Ab3LIKvy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Dec 2013 05:51:54 -0500
+Content-Disposition: inline
+In-Reply-To: <1386584717-5776-1-git-send-email-jasowang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---8x4v4XrLHekBw42bbav4o8D45lMNw3pRf
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Mon, Dec 09, 2013 at 06:25:16PM +0800, Jason Wang wrote:
+> Commit 6680ec68eff47d36f67b4351bc9836fd6cba9532
+> (tuntap: hardware vlan tx support) breaks the truncated packet signal by never
+> return a length greater than iov length in tun_put_user(). This patch fixes this
+> by always return the length of packet plus possible vlan header. Caller can
+> detect the truncated packet by comparing the return value and the size of iov
+> length.
+> 
+> Reported-by: Vlad Yasevich <vyasevich@gmail.com>
+> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-On 12/07/2013 12:10 AM, Alexey Khoroshilov wrote:
-> There are a couple failure paths where urb leaks.
-> Is spare code within ems_usb_start_xmit(),
-> usb_free_urb() should be used to deallocate urb instead of usb_unanchor=
-_urb().
-> In ems_usb_start() there is no usb_free_urb() if usb_submit_urb() fails=
-=2E
->=20
-> Found by Linux Driver Verification project (linuxtesting.org).
->=20
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+So writer gets back a value greater than what was written?
 
-Applied to the can-tree.
+> ---
+> The patch is needed for stable.
+> ---
+>  drivers/net/tun.c | 23 ++++++++++++-----------
+>  1 file changed, 12 insertions(+), 11 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index e26cbea..dd1bd7a 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1183,7 +1183,11 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>  			    const struct iovec *iv, int len)
+>  {
+>  	struct tun_pi pi = { 0, skb->protocol };
+> -	ssize_t total = 0;
+> +	struct {
+> +		__be16 h_vlan_proto;
+> +		__be16 h_vlan_TCI;
+> +	} veth;
+> +	ssize_t total = 0, off = 0;
 
-Thx, Marc
+Why off = 0 here?
+We initialize it to total unconditionally, don't we?
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+>  	int vlan_offset = 0;
+>  
+>  	if (!(tun->flags & TUN_NO_PI)) {
+> @@ -1248,14 +1252,11 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>  		total += tun->vnet_hdr_sz;
+>  	}
+>  
+> +	off = total;
+>  	if (!vlan_tx_tag_present(skb)) {
+>  		len = min_t(int, skb->len, len);
+>  	} else {
+>  		int copy, ret;
+> -		struct {
+> -			__be16 h_vlan_proto;
+> -			__be16 h_vlan_TCI;
+> -		} veth;
+>  
+>  		veth.h_vlan_proto = skb->vlan_proto;
+>  		veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
+> @@ -1264,22 +1265,22 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>  		len = min_t(int, skb->len + VLAN_HLEN, len);
+>  
+>  		copy = min_t(int, vlan_offset, len);
+> -		ret = skb_copy_datagram_const_iovec(skb, 0, iv, total, copy);
+> +		ret = skb_copy_datagram_const_iovec(skb, 0, iv, off, copy);
+>  		len -= copy;
+> -		total += copy;
+> +		off += copy;
+>  		if (ret || !len)
+>  			goto done;
+>  
+>  		copy = min_t(int, sizeof(veth), len);
+> -		ret = memcpy_toiovecend(iv, (void *)&veth, total, copy);
+> +		ret = memcpy_toiovecend(iv, (void *)&veth, off, copy);
+>  		len -= copy;
+> -		total += copy;
+> +		off += copy;
+>  		if (ret || !len)
+>  			goto done;
+
+This seems wrong: if one of the branches above is taken, total is
+never incremented.
+
+>  	}
+>  
+> -	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, total, len);
+> -	total += len;
+> +	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, off, len);
+> +	total += skb->len + (vlan_offset ? sizeof(veth) : 0);
+>  
+>  done:
+>  	tun->dev->stats.tx_packets++;
+
+I also think it's inelegant that the veth struct is now in the
+outside scope, and the extra ? is also ugly.
+
+Here's a smaller patch to fix all these problems - what do you think?
 
 
---8x4v4XrLHekBw42bbav4o8D45lMNw3pRf
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-iEYEARECAAYFAlKln2cACgkQjTAFq1RaXHP1+QCdHK4Lx9tQ2zf25u2PnqGQeo9y
-pswAnRTHbjBrmdE/ducyCI1bIp/htdvN
-=arqc
------END PGP SIGNATURE-----
+---
 
---8x4v4XrLHekBw42bbav4o8D45lMNw3pRf--
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 782e38b..3297e41 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1183,7 +1183,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			    const struct iovec *iv, int len)
+ {
+ 	struct tun_pi pi = { 0, skb->protocol };
+-	ssize_t total = 0;
++	ssize_t total = 0, offset;
+ 	int vlan_offset = 0;
+ 
+ 	if (!(tun->flags & TUN_NO_PI)) {
+@@ -1248,6 +1248,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 		total += tun->vnet_hdr_sz;
+ 	}
+ 
++	offset = total;
++	total += skb->len;
+ 	if (!vlan_tx_tag_present(skb)) {
+ 		len = min_t(int, skb->len, len);
+ 	} else {
+@@ -1257,6 +1259,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			__be16 h_vlan_TCI;
+ 		} veth;
+ 
++		total += sizeof(veth);
++
+ 		veth.h_vlan_proto = skb->vlan_proto;
+ 		veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
+ 
+@@ -1279,7 +1283,6 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 	}
+ 
+ 	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, total, len);
+-	total += len;
+ 
+ done:
+ 	tun->dev->stats.tx_packets++;
+
+> -- 
+> 1.8.3.2
