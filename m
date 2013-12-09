@@ -1,26 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] net: forcedeth: remove unnecessary
+Subject: Re: [PATCH 1/2] irda: via-ircc: remove unnecessary
  pci_set_drvdata()
-Date: Mon, 09 Dec 2013 18:10:09 -0500 (EST)
-Message-ID: <20131209.181009.2081733327327053925.davem@davemloft.net>
-References: <000001cef48e$1ee3c4e0$5cab4ea0$%han@samsung.com>
-	<000701cef48e$a37a7cd0$ea6f7670$%han@samsung.com>
+Date: Mon, 09 Dec 2013 18:10:15 -0500 (EST)
+Message-ID: <20131209.181015.744003565916796601.davem@davemloft.net>
+References: <000801cef48e$ba4f5de0$2eee19a0$%han@samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, samuel@sortiz.org
 To: jg1.han@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44011 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44014 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754286Ab3LIXKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 18:10:10 -0500
-In-Reply-To: <000701cef48e$a37a7cd0$ea6f7670$%han@samsung.com>
+	with ESMTP id S1754286Ab3LIXKQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 18:10:16 -0500
+In-Reply-To: <000801cef48e$ba4f5de0$2eee19a0$%han@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jingoo Han <jg1.han@samsung.com>
-Date: Mon, 09 Dec 2013 12:27:50 +0900
+Date: Mon, 09 Dec 2013 12:28:28 +0900
 
 > The driver core clears the driver data to NULL after device_release
 > or on probe failure. Thus, it is not needed to manually clear the
