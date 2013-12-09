@@ -1,59 +1,314 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 2/2] irda: vlsi_ir: remove unnecessary pci_set_drvdata()
-Date: Mon, 09 Dec 2013 12:29:08 +0900
-Message-ID: <000901cef48e$d1dda3e0$7598eba0$%han@samsung.com>
-References: <000801cef48e$ba4f5de0$2eee19a0$%han@samsung.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: Re: [PATCH v5 1/2] sctp: check the rto_min and rto_max
+Date: Mon, 9 Dec 2013 11:28:44 +0800
+Message-ID: <52A538EC.9000200@huawei.com>
+References: <1386400651-21744-1-git-send-email-wangweidong1@huawei.com> <1386400651-21744-2-git-send-email-wangweidong1@huawei.com> <52A36EE1.4010209@gmail.com> <52A522A3.7010201@huawei.com> <52A52894.6060600@gmail.com> <52A52AC9.6050907@huawei.com> <52A52D8F.7010202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Samuel Ortiz' <samuel@sortiz.org>,
-	'Jingoo Han' <jg1.han@samsung.com>
-To: 'David Miller' <davem@davemloft.net>
+Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>,
+	<linux-sctp@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:47186 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760403Ab3LID3K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 22:29:10 -0500
-Received: from epcpsbgr2.samsung.com
- (u142.gpu120.samsung.co.kr [203.254.230.142])
- by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MXI00509SCL4R90@mailout3.samsung.com> for
- netdev@vger.kernel.org; Mon, 09 Dec 2013 12:29:09 +0900 (KST)
-In-reply-to: <000801cef48e$ba4f5de0$2eee19a0$%han@samsung.com>
-Content-language: ko
+Received: from szxga02-in.huawei.com ([119.145.14.65]:21187 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760287Ab3LID3Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 22:29:24 -0500
+In-Reply-To: <52A52D8F.7010202@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver core clears the driver data to NULL after device_release
-or on probe failure. Thus, it is not needed to manually clear the
-device driver data to NULL.
+On 2013/12/9 10:40, Vlad Yasevich wrote:
+> On 12/08/2013 09:28 PM, Wang Weidong wrote:
+>> On 2013/12/9 10:19, Vlad Yasevich wrote:
+>>> On 12/08/2013 08:53 PM, Wang Weidong wrote:
+>>>> On 2013/12/8 2:54, Vlad Yasevich wrote:
+>>>>> On 12/07/2013 02:17 AM, Wang Weidong wrote:
+>>>>>> rto_min should be smaller than rto_max while rto_max should be larger
+>>>>>> than rto_min. Add two proc_handler for the checking. Add the check in
+>>>>>> sctp_setsockopt_rtoinfo.
+>>>>>>
+>>>>>> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
+>>>>>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+>>>>>> ---
+>>>>>>  include/net/sctp/constants.h |  3 ++
+>>>>>>  net/sctp/socket.c            |  5 +++
+>>>>>>  net/sctp/sysctl.c            | 73 ++++++++++++++++++++++++++++++++++++++++----
+>>>>>>  3 files changed, 75 insertions(+), 6 deletions(-)
+>>>>>>
+>>>>>> diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+>>>>>> index 2f0a565..d276978 100644
+>>>>>> --- a/include/net/sctp/constants.h
+>>>>>> +++ b/include/net/sctp/constants.h
+>>>>>> @@ -279,6 +279,9 @@ enum { SCTP_MAX_GABS = 16 };
+>>>>>>  #define SCTP_RTO_ALPHA          3   /* 1/8 when converted to right shifts. */
+>>>>>>  #define SCTP_RTO_BETA           2   /* 1/4 when converted to right shifts. */
+>>>>>>  
+>>>>>> +#define SCTP_ONE                1        /* 1 ms */
+>>>>>> +#define SCTP_TIMER_MAX          86400000 /* ms in one day */
+>>>>>> +
+>>>>>>  /* Maximum number of new data packets that can be sent in a burst.  */
+>>>>>>  #define SCTP_DEFAULT_MAX_BURST		4
+>>>>>>  
+>>>>>> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+>>>>>> index 72046b9..13411ad 100644
+>>>>>> --- a/net/sctp/socket.c
+>>>>>> +++ b/net/sctp/socket.c
+>>>>>> @@ -2818,6 +2818,11 @@ static int sctp_setsockopt_rtoinfo(struct sock *sk, char __user *optval, unsigne
+>>>>>>  	if (copy_from_user(&rtoinfo, optval, optlen))
+>>>>>>  		return -EFAULT;
+>>>>>>  
+>>>>>> +	if (rtoinfo.srto_min < SCTP_ONE ||
+>>>>>> +	    rtoinfo.srto_max > SCTP_TIMER_MAX ||
+>>>>>> +	    rtoinfo.srto_max < rtoinfo.srto_min)
+>>>>>> +		return -EINVAL;
+>>>>>> +
+>>>>>
+>>>>> You can not do the check for srto_min < 1.  The following is the text
+>>>>> from the spec:
+>>>>>    All times are given in milliseconds.  A value of 0, when modifying
+>>>>>    the parameters, indicates that the current value should not be
+>>>>>    changed.
+>>>>>
+>>>> Yes, Your are right, I found it in draft-ietf-tsvwg-sctpsocket-14.txt.
+>>>> Thanks.
+>>>>
+>>>>> So, it is valid for a user to pass in a value of 0.  Also, I am not sure
+>>>>> if it makes sense to bind the upper limit here, as well.
+>>>>>
+>>>>> -vlad
+>>>>>
+>>>> Here, I am not sure as well. I think it should like what we do to the
+>>>> init_net.sctp.rto_max when set larger than timer_max. Just not change the value.
+>>>>
+>>>
+>>> So, the basic reason that sysctl is limited is that it is a default
+>>> for all sctp association on the system.  It makes some sense to limit
+>>> what the max value here could be.  Limiting it to double suggested
+>>> RTO.MAX would only make it 2 minutes and may be insufficient for some
+>>> of the high latency low-throughput wireless links.  Making it about an
+>>> hour should be fine...  This would be a separate patch though...
+>>>
+>> Here, you mean that we should use 3600*1000 rather than 86400000? So
+>> we should use another patch to fix that after my patchs?
+>>
+>>> Limiting the user-supplied value is not as appropriate since the
+>>> assumption is that user application may know better what it's
+>>> requirements are and it is not up to the stack to limit those.  As
+>>> long as the user value is withing the usable range (and the kernel
+>>> will already knows how and does limit this range), we should not
+>>> limit this further.
+>>>
+>>> -vlad
+>>>
+>> Agree, So I should check like this:
+>> !srto_min || !srto_max || srto_min > srto_max ?
+>> And no need to add macros for checking.
+> 
+> No, I think this would have to be a little more complicated :(
+> Remember it's ok to have srto_min == 0 and srto_max == 0.  It just
+> means that no change happens.
+> 
+> You may need to do something like
+> 
+>   unsigned long rto_max, rto_min;
+> 
+>   if (rtoinfo.srto_max)
+>      rto_max = msecs_to_jiffies(rtoinfo.srto_max);
+>   else
+>      rto_max = asoc ? asoc->rto_max : sp->rto_max;
+> 
+>   if (rtoinfo.srto_min)
+>      rto_min = msecs_to_jiffies(rtoinfo.srto_min);
+>   else
+>      rto_min = asoc ? asoc->rto_min : sp->rto_min;
+> 
+>   if (rto_min > rto_max)
+>       return -EINVAL;
+> 
+>   if (asoc) {
+>       asoc->rto_min = rto_min;
+>       asoc->rto_max = rto_max;
+>    ...
+>    etc....
+> 
+> This way we make sure that the user that supplied just rto_min or just
+> rto_max didn't set them so that min > max.
+> 
+> -vlad
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/irda/vlsi_ir.c |    3 ---
- 1 file changed, 3 deletions(-)
+Hi vald,
 
-diff --git a/drivers/net/irda/vlsi_ir.c b/drivers/net/irda/vlsi_ir.c
-index cc9b866..4850066 100644
---- a/drivers/net/irda/vlsi_ir.c
-+++ b/drivers/net/irda/vlsi_ir.c
-@@ -1693,7 +1693,6 @@ out_freedev:
- out_disable:
- 	pci_disable_device(pdev);
- out:
--	pci_set_drvdata(pdev, NULL);
- 	return -ENODEV;
- }
- 
-@@ -1719,8 +1718,6 @@ static void vlsi_irda_remove(struct pci_dev *pdev)
- 
- 	free_netdev(ndev);
- 
--	pci_set_drvdata(pdev, NULL);
--
- 	IRDA_MESSAGE("%s: %s removed\n", drivername, pci_name(pdev));
- }
- 
--- 
-1.7.10.4
+I found that we had checked the value of 0 in sctp_setsockopt_rtoinfo.
+So I only do this:
+
+if (asoc) {
++	if (msecs_to_jiffies(rtoinfo.srto_min) >
++                   msecs_to_jiffies(rtoinfo.srto_max))
++                       return -EINVAL;
+	...
+} else {
+	...
++	if (rtoinfo.srto_min > rtoinfo.srto_max)
++                       return -EINVAL;
+	...
+}
+
+There because we set value to asoc and sp is not same. So I add the
+check into two path.
+
+Regards.
+Wang
+
+>>
+>> Thanks.
+>>
+>>>>
+>>>> Regards.
+>>>> Wang
+>>>>
+>>>>>>  	asoc = sctp_id2assoc(sk, rtoinfo.srto_assoc_id);
+>>>>>>  
+>>>>>>  	/* Set the values to the specific association */
+>>>>>> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+>>>>>> index 6b36561..33c56c6 100644
+>>>>>> --- a/net/sctp/sysctl.c
+>>>>>> +++ b/net/sctp/sysctl.c
+>>>>>> @@ -40,8 +40,8 @@
+>>>>>>  #include <linux/sysctl.h>
+>>>>>>  
+>>>>>>  static int zero = 0;
+>>>>>> -static int one = 1;
+>>>>>> -static int timer_max = 86400000; /* ms in one day */
+>>>>>> +static int one = SCTP_ONE;
+>>>>>> +static int timer_max = SCTP_TIMER_MAX;
+>>>>>>  static int int_max = INT_MAX;
+>>>>>>  static int sack_timer_min = 1;
+>>>>>>  static int sack_timer_max = 500;
+>>>>>> @@ -61,6 +61,13 @@ static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
+>>>>>>  				void __user *buffer, size_t *lenp,
+>>>>>>  
+>>>>>>  				loff_t *ppos);
+>>>>>> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
+>>>>>> +				void __user *buffer, size_t *lenp,
+>>>>>> +				loff_t *ppos);
+>>>>>> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+>>>>>> +				void __user *buffer, size_t *lenp,
+>>>>>> +				loff_t *ppos);
+>>>>>> +
+>>>>>>  static struct ctl_table sctp_table[] = {
+>>>>>>  	{
+>>>>>>  		.procname	= "sctp_mem",
+>>>>>> @@ -102,17 +109,17 @@ static struct ctl_table sctp_net_table[] = {
+>>>>>>  		.data		= &init_net.sctp.rto_min,
+>>>>>>  		.maxlen		= sizeof(unsigned int),
+>>>>>>  		.mode		= 0644,
+>>>>>> -		.proc_handler	= proc_dointvec_minmax,
+>>>>>> +		.proc_handler	= proc_sctp_do_rto_min,
+>>>>>>  		.extra1         = &one,
+>>>>>> -		.extra2         = &timer_max
+>>>>>> +		.extra2         = &init_net.sctp.rto_max
+>>>>>>  	},
+>>>>>>  	{
+>>>>>>  		.procname	= "rto_max",
+>>>>>>  		.data		= &init_net.sctp.rto_max,
+>>>>>>  		.maxlen		= sizeof(unsigned int),
+>>>>>>  		.mode		= 0644,
+>>>>>> -		.proc_handler	= proc_dointvec_minmax,
+>>>>>> -		.extra1         = &one,
+>>>>>> +		.proc_handler	= proc_sctp_do_rto_max,
+>>>>>> +		.extra1         = &init_net.sctp.rto_min,
+>>>>>>  		.extra2         = &timer_max
+>>>>>>  	},
+>>>>>>  	{
+>>>>>> @@ -342,6 +349,60 @@ static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
+>>>>>>  	return ret;
+>>>>>>  }
+>>>>>>  
+>>>>>> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
+>>>>>> +				void __user*buffer, size_t *lenp,
+>>>>>> +				loff_t *ppos)
+>>>>>> +{
+>>>>>> +	struct net *net = current->nsproxy->net_ns;
+>>>>>> +	int new_value;
+>>>>>> +	struct ctl_table tbl;
+>>>>>> +	unsigned int min = *(unsigned int *) ctl->extra1;
+>>>>>> +	unsigned int max = *(unsigned int *) ctl->extra2;
+>>>>>> +	int ret;
+>>>>>> +
+>>>>>> +	memset(&tbl, 0, sizeof(struct ctl_table));
+>>>>>> +	tbl.maxlen = sizeof(unsigned int);
+>>>>>> +
+>>>>>> +	if (write)
+>>>>>> +		tbl.data = &new_value;
+>>>>>> +	else
+>>>>>> +		tbl.data = &net->sctp.rto_min;
+>>>>>> +	ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
+>>>>>> +	if (write) {
+>>>>>> +		if (ret || new_value > max || new_value < min)
+>>>>>> +			return -EINVAL;
+>>>>>> +		net->sctp.rto_min = new_value;
+>>>>>> +	}
+>>>>>> +	return ret;
+>>>>>> +}
+>>>>>> +
+>>>>>> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+>>>>>> +				void __user*buffer, size_t *lenp,
+>>>>>> +				loff_t *ppos)
+>>>>>> +{
+>>>>>> +	struct net *net = current->nsproxy->net_ns;
+>>>>>> +	int new_value;
+>>>>>> +	struct ctl_table tbl;
+>>>>>> +	unsigned int min = *(unsigned int *) ctl->extra1;
+>>>>>> +	unsigned int max = *(unsigned int *) ctl->extra2;
+>>>>>> +	int ret;
+>>>>>> +
+>>>>>> +	memset(&tbl, 0, sizeof(struct ctl_table));
+>>>>>> +	tbl.maxlen = sizeof(unsigned int);
+>>>>>> +
+>>>>>> +	if (write)
+>>>>>> +		tbl.data = &new_value;
+>>>>>> +	else
+>>>>>> +		tbl.data = &net->sctp.rto_max;
+>>>>>> +	ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
+>>>>>> +	if (write) {
+>>>>>> +                if (ret || new_value > max || new_value < min)
+>>>>>> +			return -EINVAL;
+>>>>>> +		net->sctp.rto_max = new_value;
+>>>>>> +	}
+>>>>>> +	return ret;
+>>>>>> +}
+>>>>>> +
+>>>>>>  int sctp_sysctl_net_register(struct net *net)
+>>>>>>  {
+>>>>>>  	struct ctl_table *table;
+>>>>>>
+>>>>>
+>>>>> --
+>>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>>>> the body of a message to majordomo@vger.kernel.org
+>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>>>
+>>>>> .
+>>>>>
+>>>>
+>>>>
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>
+>>> .
+>>>
+>>
+>>
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> .
+> 
