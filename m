@@ -1,46 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next] net-gro: Prepare GRO stack for the upcoming
- tunneling support
-Date: Mon, 9 Dec 2013 11:16:08 +0800
-Message-ID: <20131209031608.GA30758@gondor.apana.org.au>
-References: <1386518682-30488-1-git-send-email-hkchu@google.com>
- <1386531839.30495.296.camel@edumazet-glaptop2.roam.corp.google.com>
- <CAPshTCiv1HxL9pRg3vp7pAOtdOOKoMVRQ4w8acq3aMga07NRig@mail.gmail.com>
- <1386558263.30495.311.camel@edumazet-glaptop2.roam.corp.google.com>
- <20131209030830.GA30565@gondor.apana.org.au>
- <1386558820.30495.313.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 1/5] net: sfc: remove unnecessary pci_set_drvdata()
+Date: Mon, 09 Dec 2013 12:24:07 +0900
+Message-ID: <000001cef48e$1ee3c4e0$5cab4ea0$%han@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jerry Chu <hkchu@google.com>, Eric Dumazet <edumazet@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>,
+	linux-net-drivers@solarflare.com,
+	'Ben Hutchings' <bhutchings@solarflare.com>
+To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:50002 "EHLO
-	ringil.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760364Ab3LIDQQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 22:16:16 -0500
-Content-Disposition: inline
-In-Reply-To: <1386558820.30495.313.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mailout1.samsung.com ([203.254.224.24]:57981 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760297Ab3LIDYJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 22:24:09 -0500
+Received: from epcpsbgr2.samsung.com
+ (u142.gpu120.samsung.co.kr [203.254.230.142])
+ by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MXI00JJSS48NC80@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Mon, 09 Dec 2013 12:24:08 +0900 (KST)
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 08, 2013 at 07:13:40PM -0800, Eric Dumazet wrote:
->
-> Thats not what I said.
-> 
-> Please read 1def9238d4aa2146924994aa4b7dc861f03b9362 changelog
-> for details.
-> 
-> If GRO is off, of course qdisc_pkt_len_init() has no problem.
+The driver core clears the driver data to NULL after device_release
+or on probe failure. Thus, it is not needed to manually clear the
+device driver data to NULL.
 
-Fair enough.  For GSO packets yes transport_header is required.
-It's been this way from the very start since we need it for
-checksums too.
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+---
+ drivers/net/ethernet/sfc/efx.c |    2 --
+ 1 file changed, 2 deletions(-)
 
-Cheers,
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 958d8c7..12f60e7 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2643,7 +2643,6 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
+ 	netif_dbg(efx, drv, efx->net_dev, "shutdown successful\n");
+ 
+ 	efx_fini_struct(efx);
+-	pci_set_drvdata(pci_dev, NULL);
+ 	free_netdev(efx->net_dev);
+ 
+ 	pci_disable_pcie_error_reporting(pci_dev);
+@@ -2837,7 +2836,6 @@ static int efx_pci_probe(struct pci_dev *pci_dev,
+  fail2:
+ 	efx_fini_struct(efx);
+  fail1:
+-	pci_set_drvdata(pci_dev, NULL);
+ 	WARN_ON(rc > 0);
+ 	netif_dbg(efx, drv, efx->net_dev, "initialisation failed. rc=%d\n", rc);
+ 	free_netdev(net_dev);
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.10.4
