@@ -1,69 +1,64 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: Re: [PATCH net-next 2/3] xfrm: clamp down spi range for IPComp when
- allocating spi
-Date: Mon, 9 Dec 2013 17:58:49 +0800
-Message-ID: <52A59459.1010102@windriver.com>
-References: <1385607161-27597-1-git-send-email-fan.du@windriver.com> <1385607161-27597-3-git-send-email-fan.du@windriver.com> <20131206114248.GG31491@secunet.com> <52A562DF.4090302@windriver.com> <20131209085703.GJ31491@secunet.com> <52A589D0.4000802@windriver.com> <20131209095133.GK31491@secunet.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net v6 1/2] net: sched: tbf: fix the calculation of max_size
+Date: Mon, 9 Dec 2013 10:07:53 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7471@saturn3.aculab.com>
+References: <1386313205-87660-1-git-send-email-yangyingliang@huawei.com> <1386313205-87660-2-git-send-email-yangyingliang@huawei.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7468@saturn3.aculab.com> <52A5384A.8050106@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
+	<jbrouer@redhat.com>
+To: "Yang Yingliang" <yangyingliang@huawei.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:61128 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751330Ab3LIJ7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 04:59:00 -0500
-In-Reply-To: <20131209095133.GK31491@secunet.com>
+Received: from mx0.aculab.com ([213.249.233.131]:60606 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750740Ab3LIKIs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 05:08:48 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 12446-02 for <netdev@vger.kernel.org>;
+ Mon,  9 Dec 2013 10:08:45 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <52A5384A.8050106@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> From: Yang Yingliang
+> On 2013/12/6 18:56, David Laight wrote:
+> >> From: Yang Yingliang
+> > ...
+> >
+> > You are multiplying two values then dividing by 10**9
+> > I'd guess that the intermediate value might exceed 2**64.
+> >
+> >> +	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
+> >> +		len = (len / 53) * 48;
+> >
+> > You probably want to do the multiply first.
+> > But why not scale rate_bytes_ps instead.
+> >
+> 
+> When the linklayer is ATM, the formula to calculate tokens is:
+> 
+> ((u64)(DIV_ROUND_UP(len,48)*53) * r->mult) >> r->shift
+> 
+> So, I scale len here.
 
+Seems to me that there are a lot of unnecessary multiplies and
+divides going on here.
+Looks to me like the code was originally written to require one
+multiply and one shift for each packet.
 
-On 2013=E5=B9=B412=E6=9C=8809=E6=97=A5 17:51, Steffen Klassert wrote:
-> On Mon, Dec 09, 2013 at 05:13:52PM +0800, Fan Du wrote:
->>
->>
->> On 2013=E5=B9=B412=E6=9C=8809=E6=97=A5 16:57, Steffen Klassert wrote=
-:
->>>
->>> Instead of doing this check here again, we should implement an equi=
-valent
->>> to verify_userspi_info() for pfkey. Then we are sure to have a vali=
-d range
->>> in any case.
->>>
->>
->> How about export an common function in xfrm_state.c to check this co=
-rner case?
->> This could be shared by both netlink and pfkey interface, and verify=
-_userspi_info
->> simplified also?
->>
->> int check_ipcomp_spirange(u8 proto, u32 high)
->> {
->> 	if ((proto =3D=3D IPPROTO_COMP)&&  (high>  0xFFFF))
->> 		return -EINVAL;
->> 	else return 0;
->> }
->> EXPORT_SYMBOL(check_ipcomp_spirange);
->
-> I don't think that we should export such a function,
-> it is not sufficient.
->
-> The netlink interface is ok, it does verify_userspi_info(),
-> and the pfkey interface need all the checks done in
-> verify_userspi_info() too. In particular the check if
-> the minimum spi value is not bigger than the maximum.
->
-> So we could either make verify_userspi_info() shared,
+In any case the latter code is allowing for more of the ATM cell
+overhead. I'm not at all sure the intent is to remove that when
+setting up the constants.
 
-Ok, I will try to export verify_userspi_info then.
-Is there any comments on patch3/3 before I make v2?
+OTOH should this code be worrying about the packet overheads at all?
+Does it add in the ethernet pre-emable, CRC and inter packet gap?
 
---=20
-=E6=B5=AE=E6=B2=89=E9=9A=8F=E6=B5=AA=E5=8F=AA=E8=AE=B0=E4=BB=8A=E6=9C=9D=
-=E7=AC=91
+I'd guess that the most the ATM code should do it round the length
+up to a multiple of 48 (user payload in a cell).
 
---fan
+	David
