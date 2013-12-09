@@ -1,208 +1,130 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH v5 1/2] sctp: check the rto_min and rto_max
-Date: Mon, 9 Dec 2013 09:53:39 +0800
-Message-ID: <52A522A3.7010201@huawei.com>
-References: <1386400651-21744-1-git-send-email-wangweidong1@huawei.com> <1386400651-21744-2-git-send-email-wangweidong1@huawei.com> <52A36EE1.4010209@gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [patch net/stable v2] br: fix use of ->rx_handler_data in code
+ executed on non-rx_handler path
+Date: Sun, 08 Dec 2013 21:07:18 -0500
+Message-ID: <52A525D6.7050409@gmail.com>
+References: <1386257257-25258-1-git-send-email-jiri@resnulli.us> <20131206.154321.1673089712073824539.davem@davemloft.net> <20131206131028.41b5b8b1@nehalam.linuxnetplumber.net> <20131207085105.GA2496@minipsycho.orion> <52A372B5.8010602@gmail.com> <20131207200720.GB2516@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>,
-	<linux-sctp@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
-	<davem@davemloft.net>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jtluka@redhat.com, zhiguohong@tencent.com,
+	bridge@lists.linux-foundation.org, edumazet@google.com,
+	laine@redhat.com, mst@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:28692 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760160Ab3LIByj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 20:54:39 -0500
-In-Reply-To: <52A36EE1.4010209@gmail.com>
+Received: from mail-qe0-f54.google.com ([209.85.128.54]:58719 "EHLO
+	mail-qe0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759080Ab3LICHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Dec 2013 21:07:24 -0500
+Received: by mail-qe0-f54.google.com with SMTP id cy11so2314275qeb.13
+        for <netdev@vger.kernel.org>; Sun, 08 Dec 2013 18:07:22 -0800 (PST)
+In-Reply-To: <20131207200720.GB2516@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/12/8 2:54, Vlad Yasevich wrote:
-> On 12/07/2013 02:17 AM, Wang Weidong wrote:
->> rto_min should be smaller than rto_max while rto_max should be larger
->> than rto_min. Add two proc_handler for the checking. Add the check in
->> sctp_setsockopt_rtoinfo.
+On 12/07/2013 03:07 PM, Jiri Pirko wrote:
+> Sat, Dec 07, 2013 at 08:10:45PM CET, vyasevich@gmail.com wrote:
+>> On 12/07/2013 03:51 AM, Jiri Pirko wrote:
+>>> Fri, Dec 06, 2013 at 10:10:28PM CET, stephen@networkplumber.org wrote:
+>>>> On Fri, 06 Dec 2013 15:43:21 -0500 (EST)
+>>>> David Miller <davem@davemloft.net> wrote:
+>>>>
+>>>>> From: Jiri Pirko <jiri@resnulli.us>
+>>>>> Date: Thu,  5 Dec 2013 16:27:37 +0100
+>>>>>
+>>>>>> br_stp_rcv() is reached by non-rx_handler path. That means there is no
+>>>>>> guarantee that dev is bridge port and therefore simple NULL check of
+>>>>>> ->rx_handler_data is not enough. There is need to check if dev is really
+>>>>>> bridge port and since only rcu read lock is held here, do it by checking
+>>>>>> ->rx_handler pointer.
+>>>>>>
+>>>>>> Note that synchronize_net() in netdev_rx_handler_unregister() ensures
+>>>>>> this approach as valid.
+>>>>>>
+>>>>>> Introduced originally by:
+>>>>>> commit f350a0a87374418635689471606454abc7beaa3a
+>>>>>>   "bridge: use rx_handler_data pointer to store net_bridge_port pointer"
+>>>>>>
+>>>>>> Fixed but not in the best way by:
+>>>>>> commit b5ed54e94d324f17c97852296d61a143f01b227a
+>>>>>>   "bridge: fix RCU races with bridge port"
+>>>>>>
+>>>>>> Reintroduced by:
+>>>>>> commit 716ec052d2280d511e10e90ad54a86f5b5d4dcc2
+>>>>>>   "bridge: fix NULL pointer deref of br_port_get_rcu"
+>>>>>>
+>>>>>> Please apply to stable trees as well. Thanks.
+>>>>>>
+>>>>>> RH bugzilla reference: https://bugzilla.redhat.com/show_bug.cgi?id=1025770
+>>>>>>
+>>>>>> Reported-by: Laine Stump <laine@redhat.com>
+>>>>>> Debugged-by: Michael S. Tsirkin <mst@redhat.com>
+>>>>>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>>>>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>>>>>> ---
+>>>>>> v1->v2: moved br_port_get_check_rcu definition below br_handle_frame definition
+>>>>>
+>>>>> Applied and queued up for -stable, thanks Jiri.
+>>>>
+>>>> How come you ignored my simpler fix, that used the existing logic.
+>>>> I don't like introducing this especially into the stable; much prefer
+>>>> to go back to testing the flag as was being done before.
+>>>
+>>> Although your patch is technically sane, it depends on rtnl indirectly.
 >>
->> Suggested-by: Vlad Yasevich <vyasevich@gmail.com>
->> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->> ---
->>  include/net/sctp/constants.h |  3 ++
->>  net/sctp/socket.c            |  5 +++
->>  net/sctp/sysctl.c            | 73 ++++++++++++++++++++++++++++++++++++++++----
->>  3 files changed, 75 insertions(+), 6 deletions(-)
+>> Pardon my ignorance, but I've been staring at this and I can't for
+>> the life of me see the dependency.
 >>
->> diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
->> index 2f0a565..d276978 100644
->> --- a/include/net/sctp/constants.h
->> +++ b/include/net/sctp/constants.h
->> @@ -279,6 +279,9 @@ enum { SCTP_MAX_GABS = 16 };
->>  #define SCTP_RTO_ALPHA          3   /* 1/8 when converted to right shifts. */
->>  #define SCTP_RTO_BETA           2   /* 1/4 when converted to right shifts. */
->>  
->> +#define SCTP_ONE                1        /* 1 ms */
->> +#define SCTP_TIMER_MAX          86400000 /* ms in one day */
->> +
->>  /* Maximum number of new data packets that can be sent in a burst.  */
->>  #define SCTP_DEFAULT_MAX_BURST		4
->>  
->> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
->> index 72046b9..13411ad 100644
->> --- a/net/sctp/socket.c
->> +++ b/net/sctp/socket.c
->> @@ -2818,6 +2818,11 @@ static int sctp_setsockopt_rtoinfo(struct sock *sk, char __user *optval, unsigne
->>  	if (copy_from_user(&rtoinfo, optval, optlen))
->>  		return -EFAULT;
->>  
->> +	if (rtoinfo.srto_min < SCTP_ONE ||
->> +	    rtoinfo.srto_max > SCTP_TIMER_MAX ||
->> +	    rtoinfo.srto_max < rtoinfo.srto_min)
->> +		return -EINVAL;
->> +
-> 
-> You can not do the check for srto_min < 1.  The following is the text
-> from the spec:
->    All times are given in milliseconds.  A value of 0, when modifying
->    the parameters, indicates that the current value should not be
->    changed.
-> 
-Yes, Your are right, I found it in draft-ietf-tsvwg-sctpsocket-14.txt.
-Thanks.
-
-> So, it is valid for a user to pass in a value of 0.  Also, I am not sure
-> if it makes sense to bind the upper limit here, as well.
-> 
-> -vlad
-> 
-Here, I am not sure as well. I think it should like what we do to the
-init_net.sctp.rto_max when set larger than timer_max. Just not change the value.
-
-
-Regards.
-Wang
-
->>  	asoc = sctp_id2assoc(sk, rtoinfo.srto_assoc_id);
->>  
->>  	/* Set the values to the specific association */
->> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
->> index 6b36561..33c56c6 100644
->> --- a/net/sctp/sysctl.c
->> +++ b/net/sctp/sysctl.c
->> @@ -40,8 +40,8 @@
->>  #include <linux/sysctl.h>
->>  
->>  static int zero = 0;
->> -static int one = 1;
->> -static int timer_max = 86400000; /* ms in one day */
->> +static int one = SCTP_ONE;
->> +static int timer_max = SCTP_TIMER_MAX;
->>  static int int_max = INT_MAX;
->>  static int sack_timer_min = 1;
->>  static int sack_timer_max = 500;
->> @@ -61,6 +61,13 @@ static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
->>  				void __user *buffer, size_t *lenp,
->>  
->>  				loff_t *ppos);
->> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
->> +				void __user *buffer, size_t *lenp,
->> +				loff_t *ppos);
->> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
->> +				void __user *buffer, size_t *lenp,
->> +				loff_t *ppos);
->> +
->>  static struct ctl_table sctp_table[] = {
->>  	{
->>  		.procname	= "sctp_mem",
->> @@ -102,17 +109,17 @@ static struct ctl_table sctp_net_table[] = {
->>  		.data		= &init_net.sctp.rto_min,
->>  		.maxlen		= sizeof(unsigned int),
->>  		.mode		= 0644,
->> -		.proc_handler	= proc_dointvec_minmax,
->> +		.proc_handler	= proc_sctp_do_rto_min,
->>  		.extra1         = &one,
->> -		.extra2         = &timer_max
->> +		.extra2         = &init_net.sctp.rto_max
->>  	},
->>  	{
->>  		.procname	= "rto_max",
->>  		.data		= &init_net.sctp.rto_max,
->>  		.maxlen		= sizeof(unsigned int),
->>  		.mode		= 0644,
->> -		.proc_handler	= proc_dointvec_minmax,
->> -		.extra1         = &one,
->> +		.proc_handler	= proc_sctp_do_rto_max,
->> +		.extra1         = &init_net.sctp.rto_min,
->>  		.extra2         = &timer_max
->>  	},
->>  	{
->> @@ -342,6 +349,60 @@ static int proc_sctp_do_hmac_alg(struct ctl_table *ctl,
->>  	return ret;
->>  }
->>  
->> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
->> +				void __user*buffer, size_t *lenp,
->> +				loff_t *ppos)
->> +{
->> +	struct net *net = current->nsproxy->net_ns;
->> +	int new_value;
->> +	struct ctl_table tbl;
->> +	unsigned int min = *(unsigned int *) ctl->extra1;
->> +	unsigned int max = *(unsigned int *) ctl->extra2;
->> +	int ret;
->> +
->> +	memset(&tbl, 0, sizeof(struct ctl_table));
->> +	tbl.maxlen = sizeof(unsigned int);
->> +
->> +	if (write)
->> +		tbl.data = &new_value;
->> +	else
->> +		tbl.data = &net->sctp.rto_min;
->> +	ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
->> +	if (write) {
->> +		if (ret || new_value > max || new_value < min)
->> +			return -EINVAL;
->> +		net->sctp.rto_min = new_value;
->> +	}
->> +	return ret;
->> +}
->> +
->> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
->> +				void __user*buffer, size_t *lenp,
->> +				loff_t *ppos)
->> +{
->> +	struct net *net = current->nsproxy->net_ns;
->> +	int new_value;
->> +	struct ctl_table tbl;
->> +	unsigned int min = *(unsigned int *) ctl->extra1;
->> +	unsigned int max = *(unsigned int *) ctl->extra2;
->> +	int ret;
->> +
->> +	memset(&tbl, 0, sizeof(struct ctl_table));
->> +	tbl.maxlen = sizeof(unsigned int);
->> +
->> +	if (write)
->> +		tbl.data = &new_value;
->> +	else
->> +		tbl.data = &net->sctp.rto_max;
->> +	ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
->> +	if (write) {
->> +                if (ret || new_value > max || new_value < min)
->> +			return -EINVAL;
->> +		net->sctp.rto_max = new_value;
->> +	}
->> +	return ret;
->> +}
->> +
->>  int sctp_sysctl_net_register(struct net *net)
->>  {
->>  	struct ctl_table *table;
+>> The IFF_BRIDGE_PORT flag is set after the rx_handler is registered,
+>> so we are safe there.  The rcu primitives will guarantee that the flag
+>> will be set by the time rx_handler and rx_handler_data are set.
 >>
+>> The flag is cleared before rx_handler is unregistered, so it is
+>> still valid to check for it in stp code.  Once the flag is cleared
+>> we may still have a valid rx_handler during the rcu grace period, but
+>> will still avoid doing processing.
+>>
+>> So, where is the dependency on the rtnl?
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
-> .
+> Imagine br would release the netdev and some other rx_handler user would
+> enslave the same netdev. This two events would happen between
+> IFF_BRIDGE_PORT flag check and rx_handler_data get. That is what
+> rtnl_lock prevents from happening.
+
+I don't think this can happen.  Inside br_stp_rcv(), we are in an rcu
+critical section.  The release of the netdev (rx_handler unregister)
+forces us to to wait until synchronize_net() completes.  So, if under
+rcu we checked the flag and it's on, the rx_handler will not change for
+the duration of that rcu section and we can safely process the packet
+even if the port is in the middle of going away.  Howe does the race
+you describe happen?
+
+The reason I ask, is that we check priv_flags under rcu in other
+places to make sure that the device we are passing data to can handle
+it.  If it's not safe, then those other places are vulnerable too.
+It doesn't seem to me that it is unsafe.
+
+Thanks
+-vlad
+
 > 
+>>
+>> Thanks
+>> -vlad
+>>
+>>> My patch depends on rcu locking and synchronize_rcu which is direct.
+>>> Therefore I think it is more appropriate.
+>>>
+>>> Jiri
+>>>
+>>>
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>
+>>
