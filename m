@@ -1,122 +1,73 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net 2/2] macvtap: signal truncated packets
-Date: Mon, 9 Dec 2013 13:02:51 +0200
-Message-ID: <20131209110251.GE15055@redhat.com>
-References: <1386584717-5776-1-git-send-email-jasowang@redhat.com>
- <1386584717-5776-2-git-send-email-jasowang@redhat.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [net-next v2] xen-netback: improve guest-receive-side flow
+ control
+Date: Mon, 9 Dec 2013 11:12:27 +0000
+Message-ID: <20131209111227.GH32155@zion.uk.xensource.com>
+References: <1386347767-9819-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Annie Li <annie.li@oracle.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+To: Paul Durrant <paul.durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:24044 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753358Ab3LILM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 06:12:29 -0500
 Content-Disposition: inline
-In-Reply-To: <1386584717-5776-2-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1386347767-9819-1-git-send-email-paul.durrant@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 09, 2013 at 06:25:17PM +0800, Jason Wang wrote:
-> macvtap_put_user() never return a value grater than iov length, this in fact
-> bypasses the truncated checking in macvtap_recvmsg(). Fix this by always
-> returning the size of packet plus the possible vlan header to let the truncated
-> checking work.
+On Fri, Dec 06, 2013 at 04:36:07PM +0000, Paul Durrant wrote:
+> The way that flow control works without this patch is that, in start_xmit()
+> the code uses xenvif_count_skb_slots() to predict how many slots
+> xenvif_gop_skb() will consume and then adds this to a 'req_cons_peek'
+> counter which it then uses to determine if the shared ring has that amount
+> of space available by checking whether 'req_prod' has passed that value.
+> If the ring doesn't have space the tx queue is stopped.
+> xenvif_gop_skb() will then consume slots and update 'req_cons' and issue
+> responses, updating 'rsp_prod' as it goes. The frontend will consume those
+> responses and post new requests, by updating req_prod. So, req_prod chases
+> req_cons which chases rsp_prod, and can never exceed that value. Thus if
+> xenvif_count_skb_slots() ever returns a number of slots greater than
+> xenvif_gop_skb() uses, req_cons_peek will get to a value that req_prod cannot
+> possibly achieve (since it's limited by the 'real' req_cons) and, if this
+> happens enough times, req_cons_peek gets more than a ring size ahead of
+> req_cons and the tx queue then remains stopped forever waiting for an
+> unachievable amount of space to become available in the ring.
 > 
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-
-Same comments as for tun really, but here it's also
-kind of ugly to call a variable copied if we don't copy.
-
-Also, maybe we should name the variable "copied" for tun,
-this would make the code more similar.
-
-> ---
-> The patch is needed for stable.
-> ---
->  drivers/net/macvtap.c | 27 ++++++++++++++-------------
->  1 file changed, 14 insertions(+), 13 deletions(-)
+> Having two routines trying to calculate the same value is always going to be
+> fragile, so this patch does away with that. All we essentially need to do is
+> make sure that we have 'enough stuff' on our internal queue without letting
+> it build up uncontrollably. So start_xmit() makes a cheap optimistic check
+> of how much space is needed for an skb and only turns the queue off if that
+> is unachievable. net_rx_action() is the place where we could do with an
+> accurate predicition but, since that has proven tricky to calculate, a cheap
+> worse-case (but not too bad) estimate is all we really need since the only
+> thing we *must* prevent is xenvif_gop_skb() consuming more slots than are
+> available.
 > 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 957cc5c..7544a0c 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -767,10 +767,14 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
->  				const struct sk_buff *skb,
->  				const struct iovec *iv, int len)
->  {
-> -	int ret;
-> +	int ret, off;
->  	int vnet_hdr_len = 0;
->  	int vlan_offset = 0;
->  	int copied;
-> +	struct {
-> +		__be16 h_vlan_proto;
-> +		__be16 h_vlan_TCI;
-> +	} veth;
->  
->  	if (q->flags & IFF_VNET_HDR) {
->  		struct virtio_net_hdr vnet_hdr;
-> @@ -785,16 +789,13 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
->  		if (memcpy_toiovecend(iv, (void *)&vnet_hdr, 0, sizeof(vnet_hdr)))
->  			return -EFAULT;
->  	}
-> -	copied = vnet_hdr_len;
-> +	off = copied = vnet_hdr_len;
->  
->  	if (!vlan_tx_tag_present(skb))
->  		len = min_t(int, skb->len, len);
->  	else {
->  		int copy;
-> -		struct {
-> -			__be16 h_vlan_proto;
-> -			__be16 h_vlan_TCI;
-> -		} veth;
-> +
->  		veth.h_vlan_proto = skb->vlan_proto;
->  		veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
->  
-> @@ -802,22 +803,22 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
->  		len = min_t(int, skb->len + VLAN_HLEN, len);
->  
->  		copy = min_t(int, vlan_offset, len);
-> -		ret = skb_copy_datagram_const_iovec(skb, 0, iv, copied, copy);
-> +		ret = skb_copy_datagram_const_iovec(skb, 0, iv, off, copy);
->  		len -= copy;
-> -		copied += copy;
-> +		off += copy;
->  		if (ret || !len)
->  			goto done;
->  
->  		copy = min_t(int, sizeof(veth), len);
-> -		ret = memcpy_toiovecend(iv, (void *)&veth, copied, copy);
-> +		ret = memcpy_toiovecend(iv, (void *)&veth, off, copy);
->  		len -= copy;
-> -		copied += copy;
-> +		off += copy;
->  		if (ret || !len)
->  			goto done;
->  	}
->  
-> -	ret = skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
-> -	copied += len;
-> +	ret = skb_copy_datagram_const_iovec(skb, vlan_offset, iv, off, len);
-> +	copied += skb->len + (vlan_offset ? sizeof(veth) : 0);
->  
->  done:
->  	return ret ? ret : copied;
-> @@ -875,7 +876,7 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
->  	}
->  
->  	ret = macvtap_do_read(q, iocb, iv, len, file->f_flags & O_NONBLOCK);
-> -	ret = min_t(ssize_t, ret, len); /* XXX copied from tun.c. Why? */
-> +	ret = min_t(ssize_t, ret, len);
->  	if (ret > 0)
->  		iocb->ki_pos = ret;
->  out:
+> Without this patch I can trivially stall netback permanently by just doing
+> a large guest to guest file copy between two Windows Server 2008R2 VMs on a
+> single host.
+> 
+> Patch tested with frontends in:
+> - Windows Server 2008R2
+> - CentOS 6.0
+> - Debian Squeeze
+> - Debian Wheezy
+> - SLES11
+> 
 
+Looks good to me. And given that it has been tested with several
+frontends:
 
+Acked-by: Wei Liu <wei.liu2@citrix.com>
 
-> -- 
-> 1.8.3.2
+Thanks
+Wei.
