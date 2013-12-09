@@ -1,35 +1,48 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: [PATCH net-next 14/16] tile_net: Implement the SIOCGHWTSTAMP
- ioctl
-Date: Mon, 9 Dec 2013 14:39:49 -0500
-Message-ID: <52A61C85.1060408@tilera.com>
-References: <1386286632.1516.120.camel@bwh-desktop.uk.level5networks.com> <1386287834.1516.141.camel@bwh-desktop.uk.level5networks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH net-next v2 6/9] net: mv643xx_eth: use phy_init_hw to
+ reset PHY
+Date: Mon, 09 Dec 2013 21:09:27 +0100
+Message-ID: <52A62377.7050406@gmail.com>
+References: <1386363698-8407-1-git-send-email-f.fainelli@gmail.com> <1386363698-8407-7-git-send-email-f.fainelli@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, sergei.shtylyov@cogentembedded.com,
+	afleming@gmail.com, kyle@moffetthome.net
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usmamail.tilera.com ([12.216.194.151]:26891 "EHLO
-	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932216Ab3LITjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 14:39:51 -0500
-In-Reply-To: <1386287834.1516.141.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-ea0-f177.google.com ([209.85.215.177]:34150 "EHLO
+	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932101Ab3LIUJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 15:09:33 -0500
+Received: by mail-ea0-f177.google.com with SMTP id n15so1816131ead.8
+        for <netdev@vger.kernel.org>; Mon, 09 Dec 2013 12:09:32 -0800 (PST)
+In-Reply-To: <1386363698-8407-7-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/5/2013 6:57 PM, Ben Hutchings wrote:
-> Compile-tested only (thanks to the kbuild test robot).
+On 12/06/2013 10:01 PM, Florian Fainelli wrote:
+> Instead of open-coding a PHY reset through the MII BMCR register, use
+> phy_init_hw() which does that for us and will also make sure that PHY
+> fixups are applied if required. We also remove a call to phy_reset()
+> due to the following sequence of calls in the driver:
 >
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> phy_scan()
+> 	-> phy_connect()
+> 		-> phy_connect_direct()
+> 			-> phy_attach_direct()
+> 				-> phy_init_hw()
+>
+> and we only have a call to phy_init() after phy_scan().
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 > ---
->  drivers/net/ethernet/tile/tilegx.c | 22 +++++++++++++++++++---
->  1 file changed, 19 insertions(+), 3 deletions(-)
+> Changes since v2:
+> - improved commit message and explain why phy_reset() can go away
+>    entirely
 
-Acked-by: Chris Metcalf <cmetcalf@tilera.com>
+Series tested on mv643xx_eth with Marvell Dove SoC.
 
--- 
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+Tested-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+
+>   drivers/net/ethernet/marvell/mv643xx_eth.c | 21 +--------------------
+>   1 file changed, 1 insertion(+), 20 deletions(-)
