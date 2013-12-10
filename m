@@ -1,51 +1,40 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next] net: ovs: use CRC32 accelerated flow hash if available
-Date: Tue, 10 Dec 2013 13:40:39 -0800
-Message-ID: <CAEP_g=9m9iSM8eKrTCfZpomRGKJA7+cLG8KQOzpuVGCDAr7gsg@mail.gmail.com>
-References: <1386669178-14450-1-git-send-email-ffusco@redhat.com>
- <CAEP_g=_t750s50-F7A_hWD_yNs3MnKWN8WDBjzgoF8Mu+28Wyw@mail.gmail.com>
- <20131210.143652.1279430126319061689.davem@davemloft.net> <CA+mtBx_FPUf=K=tBKmwe8-r7OsgiMS8VE6bYpyQa+OY7Cn=MaQ@mail.gmail.com>
+From: ajay seshadri <seshajay@gmail.com>
+Subject: Re: Fwd: UDP/IPv6 performance issue
+Date: Tue, 10 Dec 2013 17:11:36 -0500
+Message-ID: <CAGA2gK5CTj0ELTLnQEEZptWuRj+EGRgU4Nw5nH1CwqQigghSfg@mail.gmail.com>
+References: <CAGA2gK6rf8E7cCO=RwbdFAt2ucfxUbCjqhVoga9cnHrEKxcp9g@mail.gmail.com>
+	<CAGA2gK5gfdaKeQWzT4Dd45AhavD4pYaCVyayf7Hd+q5pPUjfKQ@mail.gmail.com>
+	<20131210171248.GA23216@order.stressinduktion.org>
+	<CAGA2gK5pxQXAxgffYgitWg9jUUkxnz7EEhjQZ2aSvgnWFyR9RQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Francesco Fusco <ffusco@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Thomas Graf <tgraf@redhat.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog106.obsmtp.com ([74.125.149.77]:46595 "HELO
-	na3sys009aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751333Ab3LJVlA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 16:41:00 -0500
-Received: by mail-ie0-f181.google.com with SMTP id e14so9733294iej.12
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 13:41:00 -0800 (PST)
-In-Reply-To: <CA+mtBx_FPUf=K=tBKmwe8-r7OsgiMS8VE6bYpyQa+OY7Cn=MaQ@mail.gmail.com>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:50301 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751779Ab3LJWLh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 17:11:37 -0500
+Received: by mail-ig0-f173.google.com with SMTP id uq10so2864394igb.0
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 14:11:36 -0800 (PST)
+In-Reply-To: <CAGA2gK5pxQXAxgffYgitWg9jUUkxnz7EEhjQZ2aSvgnWFyR9RQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 10, 2013 at 1:27 PM, Tom Herbert <therbert@google.com> wrote:
-> On Tue, Dec 10, 2013 at 11:36 AM, David Miller <davem@davemloft.net> wrote:
->> From: Jesse Gross <jesse@nicira.com>
->> Date: Tue, 10 Dec 2013 11:28:08 -0800
->>
->>> I think this is definitely a good optimization to do given that so
->>> much of the work that OVS does is hashing. However, isn't there a
->>> library where there would be a more appropriate place to put this?
->>
->> I also honestly don't see why we want to special case OVS at all
->> here.  This faster hashing would be useful for socket demux and
->> other locations in the kernel.
->>
+On Tue, Dec 10, 2013 at 2:46 PM, ajay seshadri <seshajay@gmail.com> wrote:
+> On Tue, Dec 10, 2013 at 12:12 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>> A cached entry will be inserted nontheless. If you don't hit the max_size
+>> route entries limit I guess there could be a bug which triggers needless gc
+>> invocation.
 >
-> Also, we already do a lot of work to compute flow hashes for packets
-> in both TX and RX.  Can these be leveraged? For instance, if OVS is
-> computing a 5-tuple hash on an RX packet it's probably redundant to
-> skb->rxhash.
+> I am leaning towards needless invocation of gc. At this point in time,
+> I am not sure why.
 
-That's true if we care about exactly the 5-tuple. However, the set of
-fields that are included in the OVS flow lookup is dynamically
-generated down to a bit mask so I don't know if it's worth special
-casing. (In fact, I don't think that current OVS userspace will ever
-actually emit exactly a 5-tuple.)
+
+Additionally,  fib6_force_start_gc() doesn't show up in TCP/IPv6 tests
+when I disable TSO and am CPU bound. With TSO turned off TCP/IPv4 and
+TCP/IPv6 throughputs are identical.
+
+Thanks,
+Ajay
