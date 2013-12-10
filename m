@@ -1,49 +1,214 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 2/7] net: fddi: remove unnecessary pci_set_drvdata()
-Date: Tue, 10 Dec 2013 12:49:34 +0900
-Message-ID: <000c01cef55a$d6f56030$84e02090$%han@samsung.com>
-References: <000601cef55a$b605fab0$2211f010$%han@samsung.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net v7 1/2] net: sched: tbf: fix the calculation of max_size
+Date: Tue, 10 Dec 2013 11:49:17 +0800
+Message-ID: <1386647358-47944-2-git-send-email-yangyingliang@huawei.com>
+References: <1386647358-47944-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
+	<jbrouer@redhat.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:30936 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751529Ab3LJDtg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 22:49:36 -0500
-Received: from epcpsbgr1.samsung.com
- (u141.gpu120.samsung.co.kr [203.254.230.141])
- by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MXK007XQNYMB990@mailout2.samsung.com> for
- netdev@vger.kernel.org; Tue, 10 Dec 2013 12:49:34 +0900 (KST)
-In-reply-to: <000601cef55a$b605fab0$2211f010$%han@samsung.com>
-Content-language: ko
+Received: from szxga02-in.huawei.com ([119.145.14.65]:6000 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751632Ab3LJDti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 22:49:38 -0500
+In-Reply-To: <1386647358-47944-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver core clears the driver data to NULL after device_release
-or on probe failure. Thus, it is not needed to manually clear the
-device driver data to NULL.
+Current max_size is caluated from rate table. Now, the rate table
+has been replaced and it's wrong to caculate max_size based on this
+rate table. It can lead wrong calculation of max_size.
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+The burst in kernel may be lower than user asked, because burst may gets
+some loss when transform it to buffer(E.g. "burst 40kb rate 30mbit/s")
+and it seems we cannot avoid this loss. Burst's value(max_size) based on
+rate table may be equal user asked. If a packet's length is max_size, this
+packet will be stalled in tbf_dequeue() because its length is above the
+burst in kernel so that it cannot get enough tokens. The max_size guards
+against enqueuing packet sizes above q->buffer "time" in tbf_enqueue().
+
+To make consistent with the calculation of tokens, this patch add a helper
+psched_ns_t2l() to calculate burst(max_size) directly to fix this problem.
+
+After this fix, we can support to using 64bit rates to calculate burst as well.
+
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 ---
- drivers/net/fddi/skfp/skfddi.c |    1 -
- 1 file changed, 1 deletion(-)
+ net/sched/sch_tbf.c | 119 +++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 71 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/fddi/skfp/skfddi.c b/drivers/net/fddi/skfp/skfddi.c
-index 713d303..d5f5812 100644
---- a/drivers/net/fddi/skfp/skfddi.c
-+++ b/drivers/net/fddi/skfp/skfddi.c
-@@ -351,7 +351,6 @@ static void skfp_remove_one(struct pci_dev *pdev)
- 	free_netdev(p);
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index a609005..b7f0683 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -118,6 +118,30 @@ struct tbf_sched_data {
+ };
  
- 	pci_disable_device(pdev);
--	pci_set_drvdata(pdev, NULL);
+ 
++/* Time to Length, convert time in ns to length in bytes
++ * to determinate how many bytes can be sent in given time.
++ */
++static u64 psched_ns_t2l(const struct psched_ratecfg *r,
++			 u64 time_in_ns)
++{
++	/* The formula is :
++	 * len = (time_in_ns * r->rate_bytes_ps) / NSEC_PER_SEC
++	 */
++	u64 len = time_in_ns * r->rate_bytes_ps;
++
++	do_div(len, NSEC_PER_SEC);
++
++	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
++		len = (len / 53) * 48;
++
++	if (len > r->overhead)
++		len -= r->overhead;
++	else
++		len = 0;
++
++	return len;
++}
++
+ /*
+  * Return length of individual segments of a gso packet,
+  * including all headers (MAC, IP, TCP/UDP)
+@@ -289,10 +313,9 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 	struct nlattr *tb[TCA_TBF_MAX + 1];
+ 	struct tc_tbf_qopt *qopt;
+-	struct qdisc_rate_table *rtab = NULL;
+-	struct qdisc_rate_table *ptab = NULL;
+ 	struct Qdisc *child = NULL;
+-	int max_size, n;
++	u64 max_size;
++	s64 buffer, mtu;
+ 	u64 rate64 = 0, prate64 = 0;
+ 
+ 	err = nla_parse_nested(tb, TCA_TBF_MAX, opt, tbf_policy);
+@@ -304,38 +327,13 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 		goto done;
+ 
+ 	qopt = nla_data(tb[TCA_TBF_PARMS]);
+-	rtab = qdisc_get_rtab(&qopt->rate, tb[TCA_TBF_RTAB]);
+-	if (rtab == NULL)
+-		goto done;
++	if (qopt->rate.linklayer == TC_LINKLAYER_UNAWARE)
++		qdisc_put_rtab(qdisc_get_rtab(&qopt->rate,
++					      tb[TCA_TBF_RTAB]));
+ 
+-	if (qopt->peakrate.rate) {
+-		if (qopt->peakrate.rate > qopt->rate.rate)
+-			ptab = qdisc_get_rtab(&qopt->peakrate, tb[TCA_TBF_PTAB]);
+-		if (ptab == NULL)
+-			goto done;
+-	}
+-
+-	for (n = 0; n < 256; n++)
+-		if (rtab->data[n] > qopt->buffer)
+-			break;
+-	max_size = (n << qopt->rate.cell_log) - 1;
+-	if (ptab) {
+-		int size;
+-
+-		for (n = 0; n < 256; n++)
+-			if (ptab->data[n] > qopt->mtu)
+-				break;
+-		size = (n << qopt->peakrate.cell_log) - 1;
+-		if (size < max_size)
+-			max_size = size;
+-	}
+-	if (max_size < 0)
+-		goto done;
+-
+-	if (max_size < psched_mtu(qdisc_dev(sch)))
+-		pr_warn_ratelimited("sch_tbf: burst %u is lower than device %s mtu (%u) !\n",
+-				    max_size, qdisc_dev(sch)->name,
+-				    psched_mtu(qdisc_dev(sch)));
++	if (qopt->peakrate.linklayer == TC_LINKLAYER_UNAWARE)
++			qdisc_put_rtab(qdisc_get_rtab(&qopt->peakrate,
++						      tb[TCA_TBF_PTAB]));
+ 
+ 	if (q->qdisc != &noop_qdisc) {
+ 		err = fifo_set_limit(q->qdisc, qopt->limit);
+@@ -349,38 +347,63 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 		}
+ 	}
+ 
++	buffer = min_t(u64, PSCHED_TICKS2NS(qopt->buffer), ~0U);
++	mtu = min_t(u64, PSCHED_TICKS2NS(qopt->mtu), ~0U);
++
+ 	sch_tree_lock(sch);
+ 	if (child) {
+ 		qdisc_tree_decrease_qlen(q->qdisc, q->qdisc->q.qlen);
+ 		qdisc_destroy(q->qdisc);
+ 		q->qdisc = child;
+ 	}
+-	q->limit = qopt->limit;
+-	q->mtu = PSCHED_TICKS2NS(qopt->mtu);
+-	q->max_size = max_size;
+-	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
+-	q->tokens = q->buffer;
+-	q->ptokens = q->mtu;
+ 
+ 	if (tb[TCA_TBF_RATE64])
+ 		rate64 = nla_get_u64(tb[TCA_TBF_RATE64]);
+-	psched_ratecfg_precompute(&q->rate, &rtab->rate, rate64);
+-	if (ptab) {
++	psched_ratecfg_precompute(&q->rate, &qopt->rate, rate64);
++	if (!q->rate.rate_bytes_ps)
++		goto unlock_done;
++
++	max_size = min_t(u64, psched_ns_t2l(&q->rate, buffer), ~0U);
++
++	if (qopt->peakrate.rate) {
+ 		if (tb[TCA_TBF_PRATE64])
+ 			prate64 = nla_get_u64(tb[TCA_TBF_PRATE64]);
+-		psched_ratecfg_precompute(&q->peak, &ptab->rate, prate64);
++		psched_ratecfg_precompute(&q->peak, &qopt->peakrate, prate64);
++		if (q->peak.rate_bytes_ps <= q->rate.rate_bytes_ps) {
++			pr_warn_ratelimited("sch_tbf: peakrate %llu is lower than or equals to rate %llu !\n",
++					    q->peak.rate_bytes_ps, q->rate.rate_bytes_ps);
++			goto unlock_done;
++		}
++
++		max_size = min_t(u64, max_size, psched_ns_t2l(&q->peak, mtu));
++
+ 		q->peak_present = true;
+ 	} else {
+ 		q->peak_present = false;
+ 	}
+ 
++	if (max_size < psched_mtu(qdisc_dev(sch)))
++		pr_warn_ratelimited("sch_tbf: burst %llu is lower than device %s mtu (%u) !\n",
++				    max_size, qdisc_dev(sch)->name,
++				    psched_mtu(qdisc_dev(sch)));
++
++	if (!max_size)
++		goto unlock_done;
++
++	q->limit = qopt->limit;
++	q->mtu = PSCHED_TICKS2NS(qopt->mtu);
++	q->max_size = max_size;
++	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
++	q->tokens = q->buffer;
++	q->ptokens = q->mtu;
++
++	sch_tree_unlock(sch);
++	return 0;
++
++unlock_done:
+ 	sch_tree_unlock(sch);
+-	err = 0;
++	err = -EINVAL;
+ done:
+-	if (rtab)
+-		qdisc_put_rtab(rtab);
+-	if (ptab)
+-		qdisc_put_rtab(ptab);
+ 	return err;
  }
  
- /*
 -- 
-1.7.10.4
+1.8.0
