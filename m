@@ -1,57 +1,89 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH v2 net-next 1/2] vxlan: remove vxlan_group_used in vxlan_open
-Date: Tue, 10 Dec 2013 16:37:32 +0800
-Message-ID: <1386664653-27082-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH v2 net-next 2/2] vxlan: leave multicast group when vxlan device down
+Date: Tue, 10 Dec 2013 16:37:33 +0800
+Message-ID: <1386664653-27082-2-git-send-email-gaofeng@cn.fujitsu.com>
+References: <1386664653-27082-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: stephen@networkplumber.org, davem@davemloft.net,
 	Gao feng <gaofeng@cn.fujitsu.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cn.fujitsu.com ([222.73.24.84]:13094 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755820Ab3LJIgv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Dec 2013 03:36:51 -0500
+	id S1755823Ab3LJIgw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Dec 2013 03:36:52 -0500
+In-Reply-To: <1386664653-27082-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In vxlan_open, vxlan_group_used always returns true,
-because the state of the vxlan deivces which we want
-to open has alreay been running. and it has already
-in vxlan_list.
+vxlan_group_used only allows device to leave multicast group
+when the remote_ip of this vxlan device is difference from
+other vxlan devices' remote_ip. this will cause device not
+leave multicast group untile the vn_sock of this vxlan deivce
+being released.
 
-Since ip_mc_join_group takes care of the reference
-of struct ip_mc_list. removing vxlan_group_used here
-is safe.
+The check in vxlan_group_used is not quite precise. since even
+the remote_ip is same, but these vxlan devices may use different
+lower devices, and they may use different vn_socks.
+
+Only when some vxlan devices use the same vn_sock,same lower
+device and same remote_ip, the mc_list of the vn_sock should
+not be changed.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
-Change from v1:
- remove unused var vn.
- change changelog, remove the confused "reference problem".
-
- drivers/net/vxlan.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/vxlan.c | 27 +++++++++++++++++++++------
+ 1 file changed, 21 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 0358c07..43dc9ee 100644
+index 43dc9ee..58f6a0c 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -1935,7 +1935,6 @@ static void vxlan_uninit(struct net_device *dev)
- /* Start ageing timer and join group when device is brought up */
- static int vxlan_open(struct net_device *dev)
+@@ -916,17 +916,32 @@ static bool vxlan_snoop(struct net_device *dev,
+ }
+ 
+ /* See if multicast group is already in use by other ID */
+-static bool vxlan_group_used(struct vxlan_net *vn, union vxlan_addr *remote_ip)
++static bool vxlan_group_used(struct vxlan_net *vn, struct vxlan_dev *dev)
  {
--	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 	struct vxlan_dev *vxlan;
+ 
++	/* The vxlan_sock is only used by dev, leaving group has
++	 * no effect on other vxlan devices.
++	 */
++	if (atomic_read(&dev->vn_sock->refcnt) == 1)
++		return false;
++
+ 	list_for_each_entry(vxlan, &vn->vxlan_list, next) {
+-		if (!netif_running(vxlan->dev))
++		if (!netif_running(vxlan->dev) || vxlan == dev)
+ 			continue;
+ 
+-		if (vxlan_addr_equal(&vxlan->default_dst.remote_ip,
+-				     remote_ip))
+-			return true;
++		if (vxlan->vn_sock != dev->vn_sock)
++			continue;
++
++		if (!vxlan_addr_equal(&vxlan->default_dst.remote_ip,
++				      &dev->default_dst.remote_ip))
++			continue;
++
++		if (vxlan->default_dst.remote_ifindex !=
++		    dev->default_dst.remote_ifindex)
++			continue;
++
++		return true;
+ 	}
+ 
+ 	return false;
+@@ -1981,7 +1996,7 @@ static int vxlan_stop(struct net_device *dev)
  	struct vxlan_sock *vs = vxlan->vn_sock;
  
-@@ -1943,8 +1942,7 @@ static int vxlan_open(struct net_device *dev)
- 	if (!vs)
- 		return -ENOTCONN;
- 
--	if (vxlan_addr_multicast(&vxlan->default_dst.remote_ip) &&
--	    vxlan_group_used(vn, &vxlan->default_dst.remote_ip)) {
-+	if (vxlan_addr_multicast(&vxlan->default_dst.remote_ip)) {
+ 	if (vs && vxlan_addr_multicast(&vxlan->default_dst.remote_ip) &&
+-	    ! vxlan_group_used(vn, &vxlan->default_dst.remote_ip)) {
++	    !vxlan_group_used(vn, vxlan)) {
  		vxlan_sock_hold(vs);
  		dev_hold(dev);
- 		queue_work(vxlan_wq, &vxlan->igmp_join);
+ 		queue_work(vxlan_wq, &vxlan->igmp_leave);
 -- 
 1.8.3.1
