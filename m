@@ -1,98 +1,51 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net V2 1/2] tun: unbreak truncated packet signalling
-Date: Tue, 10 Dec 2013 17:32:56 +0200
-Message-ID: <20131210153256.GF25293@redhat.com>
-References: <1386654586-18151-1-git-send-email-jasowang@redhat.com>
+From: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2 14/16] wl1251: Add sysfs file tx_mgmt_frm_rate for setting rate
+Date: Tue, 10 Dec 2013 17:36:52 +0200
+Message-ID: <877gbcra3v.fsf@purkki.adurom.net>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+	<1386494714-21070-1-git-send-email-pali.rohar@gmail.com>
+	<1386494714-21070-15-git-send-email-pali.rohar@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1386654586-18151-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, freemangordon-uiMcrn6V0Vs@public.gmane.org,
+	aaro.koskinen-X3B1VOXEql0@public.gmane.org, pavel-+ZI9xUNit7I@public.gmane.org, sre-GFxCN5SEZAc@public.gmane.org,
+	joni.lapilainen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Pali =?utf-8?Q?Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1386494714-21070-15-git-send-email-pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+ ("Pali
+	=?utf-8?Q?Roh=C3=A1r=22's?= message of "Sun, 8 Dec 2013 10:25:12 +0100")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 10, 2013 at 01:49:45PM +0800, Jason Wang wrote:
-> Commit 6680ec68eff47d36f67b4351bc9836fd6cba9532
-> (tuntap: hardware vlan tx support) breaks the truncated packet signal by nev
-> return a length greater than iov length in tun_put_user(). This patch fixes
-> by always return the length of packet plus possible vlan header. Caller can
-> detect the truncated packet by comparing the return value and the size of io
-> length.
-> 
-> Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
-> Changes from v1:
-> - increase total unconditionally
-> - do not move veth structure out of the vlan handing block
-> ---
->  drivers/net/tun.c | 16 +++++++++-------
->  1 file changed, 9 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index e26cbea..cd142134 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1184,7 +1184,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
->  {
->  	struct tun_pi pi = { 0, skb->protocol };
->  	ssize_t total = 0;
-> -	int vlan_offset = 0;
-> +	int vlan_offset = 0, offset;
->  
->  	if (!(tun->flags & TUN_NO_PI)) {
->  		if ((len -= sizeof(pi)) < 0)
-> @@ -1248,6 +1248,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
->  		total += tun->vnet_hdr_sz;
->  	}
->  
-> +	offset = total;
-> +	total += skb->len;
->  	if (!vlan_tx_tag_present(skb)) {
->  		len = min_t(int, skb->len, len);
->  	} else {
-> @@ -1262,24 +1264,24 @@ static ssize_t tun_put_user(struct tun_struct *tun,
->  
->  		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
->  		len = min_t(int, skb->len + VLAN_HLEN, len);
-> +		total += VLAN_HLEN;
->  
->  		copy = min_t(int, vlan_offset, len);
-> -		ret = skb_copy_datagram_const_iovec(skb, 0, iv, total, copy);
-> +		ret = skb_copy_datagram_const_iovec(skb, 0, iv, offset, copy);
->  		len -= copy;
-> -		total += copy;
-> +		offset += copy;
->  		if (ret || !len)
->  			goto done;
->  
->  		copy = min_t(int, sizeof(veth), len);
-> -		ret = memcpy_toiovecend(iv, (void *)&veth, total, copy);
-> +		ret = memcpy_toiovecend(iv, (void *)&veth, offset, copy);
->  		len -= copy;
-> -		total += copy;
-> +		offset += copy;
->  		if (ret || !len)
->  			goto done;
->  	}
->  
-> -	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, total, len);
-> -	total += len;
-> +	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, offset, len);
->  
->  done:
->  	tun->dev->stats.tx_packets++;
+Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-offset is not descriptive. I would call new variable "copied",
-and change all code to use that, do
-total = copied + skb->len, total is then the total length.
+> This patch adds support for configuring reg domains.
+> Patch was extracted from Maemo 2.6.28 kernel.
+>
+> Signed-off-by: Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-> -- 
-> 1.8.3.2
+[...]
+
+> +	/* FIXME: what's the maximum length of buf? page size?*/
+> +	len =3D 500;
+
+Based on the comment here I'm guessing that I wrote this horrible hack =
+:)
+
+I can't recall anymore why it was needed, maybe something for BT coex?
+But this code should never go upstream.
+
+--=20
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
