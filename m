@@ -1,42 +1,44 @@
-From: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2 01/16] wl1251: fix scan behaviour while not associated
-Date: Tue, 10 Dec 2013 17:41:04 +0200
-Message-ID: <8738m0r9wv.fsf@purkki.adurom.net>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
-	<1386494714-21070-1-git-send-email-pali.rohar@gmail.com>
-	<1386494714-21070-2-git-send-email-pali.rohar@gmail.com>
-	<20131210092114.GB22756@amd.pavel.ucw.cz>
+From: Wang Weidong <weidong1991.wang@gmail.com>
+Subject: Re: [PATCH v6 2/3] sctp: add check rto_min and rto_max in sysctl
+Date: Tue, 10 Dec 2013 23:42:37 +0800
+Message-ID: <52A7366D.4090309@gmail.com>
+References: <1386643597-22156-1-git-send-email-wangweidong1@huawei.com> <1386643597-22156-3-git-send-email-wangweidong1@huawei.com> <52A72666.5010304@gmail.com> <52A730B9.7060909@gmail.com> <52A73167.6000106@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pali =?utf-8?Q?Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, freemangordon-uiMcrn6V0Vs@public.gmane.org,
-	aaro.koskinen-X3B1VOXEql0@public.gmane.org, sre-GFxCN5SEZAc@public.gmane.org, joni.lapilainen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>
-To: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20131210092114.GB22756-tWAi6jLit6GreWDznjuHag@public.gmane.org> (Pavel Machek's message
-	of "Tue, 10 Dec 2013 10:21:14 +0100")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevich@gmail.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:63427 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750789Ab3LJPmR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 10:42:17 -0500
+In-Reply-To: <52A73167.6000106@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org> writes:
 
-> ssids can have \0s in them... and what is worse, they may not be 0
-> terminated AFAICT.
+
+On 2013/12/10 23:21, Daniel Borkmann wrote:
+> On 12/10/2013 04:18 PM, Wang Weidong wrote:
+> ...
+>>>> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
+>>>> +                                void __user*buffer, size_t *lenp,
+>>>                                           ^^^^
+>>> Please put a space before the '*'.
+> ...
+>>>> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+>>>> +                                void __user*buffer, size_t *lenp,
+>>>                                           ^^^^
+>>> Please put a space after the before the '*'.
+>>>
+>> Ok, I will fix them.
+>> What Daniel point out is that? I no need to line up them?
 >
-> Potential solution is at
-> http://www.spinics.net/lists/linux-wireless/msg98640.html . 
+> Yes, what Vlad pointed out to you is what I meant in my reply to
+> your cover letter ...
+Nice. I get it.
 
-I just use print_hex_dump_bytes() to print SSIDs.
-
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks.
