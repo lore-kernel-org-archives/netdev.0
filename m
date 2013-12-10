@@ -1,151 +1,38 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 2/3] virtio_net: remove unused parameter to
-	send_command
-Date: Tue, 10 Dec 2013 17:25:11 +0200
-Message-ID: <20131210152511.GC25293@redhat.com>
-References: <20131209161632.5ac96e5a@nehalam.linuxnetplumber.net>
-	<20131209161740.5f2cfae7@nehalam.linuxnetplumber.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v6 2/3] sctp: add check rto_min and rto_max in sysctl
+Date: Tue, 10 Dec 2013 16:21:11 +0100
+Message-ID: <52A73167.6000106@redhat.com>
+References: <1386643597-22156-1-git-send-email-wangweidong1@huawei.com> <1386643597-22156-3-git-send-email-wangweidong1@huawei.com> <52A72666.5010304@gmail.com> <52A730B9.7060909@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	virtualization@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20131209161740.5f2cfae7@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Vlad Yasevich <vyasevich@gmail.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Wang Weidong <weidong1991.wang@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:3329 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753815Ab3LJPVb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Dec 2013 10:21:31 -0500
+In-Reply-To: <52A730B9.7060909@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 09, 2013 at 04:17:40PM -0800, Stephen Hemminger wrote:
-> All the code passes NULL for the last sg list (in).
-> Simplify by just removing it.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+On 12/10/2013 04:18 PM, Wang Weidong wrote:
+...
+>>> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
+>>> +                                void __user*buffer, size_t *lenp,
+>>                                           ^^^^
+>> Please put a space before the '*'.
+...
+>>> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+>>> +                                void __user*buffer, size_t *lenp,
+>>                                           ^^^^
+>> Please put a space after the before the '*'.
+>>
+> Ok, I will fix them.
+> What Daniel point out is that? I no need to line up them?
 
-When we need it we can re-add it.
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-> 
-> --- a/drivers/net/virtio_net.c	2013-12-09 16:12:36.353164803 -0800
-> +++ b/drivers/net/virtio_net.c	2013-12-09 16:12:41.409051865 -0800
-> @@ -876,13 +876,12 @@ static netdev_tx_t start_xmit(struct sk_
->   * never fail unless improperly formated.
->   */
->  static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
-> -				 struct scatterlist *out,
-> -				 struct scatterlist *in)
-> +				 struct scatterlist *out)
->  {
->  	struct scatterlist *sgs[4], hdr, stat;
->  	struct virtio_net_ctrl_hdr ctrl;
->  	virtio_net_ctrl_ack status = ~0;
-> -	unsigned out_num = 0, in_num = 0, tmp;
-> +	unsigned out_num = 0, tmp;
->  
->  	/* Caller should know better */
->  	BUG_ON(!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ));
-> @@ -895,16 +894,13 @@ static bool virtnet_send_command(struct
->  
->  	for (; out; out = sg_next(out))
->  		sgs[out_num++] = out;
-> -	if (in)
-> -		sgs[out_num + in_num++] = in;
->  
->  	/* Add return status. */
->  	sg_init_one(&stat, &status, sizeof(status));
-> -	sgs[out_num + in_num++] = &stat;
-> +	sgs[out_num] = &stat;
->  
-> -	BUG_ON(out_num + in_num > ARRAY_SIZE(sgs));
-> -	BUG_ON(virtqueue_add_sgs(vi->cvq, sgs, out_num, in_num, vi, GFP_ATOMIC)
-> -	       < 0);
-> +	BUG_ON(out_num + 1 > ARRAY_SIZE(sgs));
-> +	BUG_ON(virtqueue_add_sgs(vi->cvq, sgs, out_num, 1, vi, GFP_ATOMIC) < 0);
->  
->  	if (unlikely(!virtqueue_kick(vi->cvq)))
->  		return status == VIRTIO_NET_OK;
-> @@ -934,8 +930,7 @@ static int virtnet_set_mac_address(struc
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR)) {
->  		sg_init_one(&sg, addr->sa_data, dev->addr_len);
->  		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
-> -					  VIRTIO_NET_CTRL_MAC_ADDR_SET,
-> -					  &sg, NULL)) {
-> +					  VIRTIO_NET_CTRL_MAC_ADDR_SET, &sg)) {
->  			dev_warn(&vdev->dev,
->  				 "Failed to set mac address by vq command.\n");
->  			return -EINVAL;
-> @@ -1008,7 +1003,7 @@ static void virtnet_ack_link_announce(st
->  {
->  	rtnl_lock();
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_ANNOUNCE,
-> -				  VIRTIO_NET_CTRL_ANNOUNCE_ACK, NULL, NULL))
-> +				  VIRTIO_NET_CTRL_ANNOUNCE_ACK, NULL))
->  		dev_warn(&vi->dev->dev, "Failed to ack link announce.\n");
->  	rtnl_unlock();
->  }
-> @@ -1026,7 +1021,7 @@ static int virtnet_set_queues(struct vir
->  	sg_init_one(&sg, &s, sizeof(s));
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MQ,
-> -				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg, NULL)) {
-> +				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg)) {
->  		dev_warn(&dev->dev, "Fail to set num of queue pairs to %d\n",
->  			 queue_pairs);
->  		return -EINVAL;
-> @@ -1076,16 +1071,14 @@ static void virtnet_set_rx_mode(struct n
->  	sg_init_one(sg, &promisc, sizeof(promisc));
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
-> -				  VIRTIO_NET_CTRL_RX_PROMISC,
-> -				  sg, NULL))
-> +				  VIRTIO_NET_CTRL_RX_PROMISC, sg))
->  		dev_warn(&dev->dev, "Failed to %sable promisc mode.\n",
->  			 promisc ? "en" : "dis");
->  
->  	sg_init_one(sg, &allmulti, sizeof(allmulti));
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RX,
-> -				  VIRTIO_NET_CTRL_RX_ALLMULTI,
-> -				  sg, NULL))
-> +				  VIRTIO_NET_CTRL_RX_ALLMULTI, sg))
->  		dev_warn(&dev->dev, "Failed to %sable allmulti mode.\n",
->  			 allmulti ? "en" : "dis");
->  
-> @@ -1121,8 +1114,7 @@ static void virtnet_set_rx_mode(struct n
->  		   sizeof(mac_data->entries) + (mc_count * ETH_ALEN));
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
-> -				  VIRTIO_NET_CTRL_MAC_TABLE_SET,
-> -				  sg, NULL))
-> +				  VIRTIO_NET_CTRL_MAC_TABLE_SET, sg))
->  		dev_warn(&dev->dev, "Failed to set MAC filter table.\n");
->  
->  	kfree(buf);
-> @@ -1137,7 +1129,7 @@ static int virtnet_vlan_rx_add_vid(struc
->  	sg_init_one(&sg, &vid, sizeof(vid));
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> -				  VIRTIO_NET_CTRL_VLAN_ADD, &sg, NULL))
-> +				  VIRTIO_NET_CTRL_VLAN_ADD, &sg))
->  		dev_warn(&dev->dev, "Failed to add VLAN ID %d.\n", vid);
->  	return 0;
->  }
-> @@ -1151,7 +1143,7 @@ static int virtnet_vlan_rx_kill_vid(stru
->  	sg_init_one(&sg, &vid, sizeof(vid));
->  
->  	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
-> -				  VIRTIO_NET_CTRL_VLAN_DEL, &sg, NULL))
-> +				  VIRTIO_NET_CTRL_VLAN_DEL, &sg))
->  		dev_warn(&dev->dev, "Failed to kill VLAN ID %d.\n", vid);
->  	return 0;
->  }
+Yes, what Vlad pointed out to you is what I meant in my reply to
+your cover letter ...
