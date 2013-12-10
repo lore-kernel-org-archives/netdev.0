@@ -1,77 +1,117 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH 1/4] wl1251: split wl251 platform data to a separate
- structure
-Date: Mon, 9 Dec 2013 19:28:00 -0800
-Message-ID: <20131210032800.GE13171@atomide.com>
-References: <1382890469-25286-1-git-send-email-sre@debian.org>
- <1382890469-25286-2-git-send-email-sre@debian.org>
- <20131114185132.GQ10317@atomide.com>
- <20131114230330.GB6383@earth.universe>
- <20131114232217.GV10317@atomide.com>
- <20131115143254.GA7079@tuxdriver.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v4 6/11] bonding: rebuild the lock use for bond_activebackup_arp_mon()
+Date: Tue, 10 Dec 2013 11:28:16 +0800
+Message-ID: <52A68A50.7010404@huawei.com>
+References: <52A2D22F.1000902@huawei.com> <7308.1386643143@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Luciano Coelho <luca@coelho.fi>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Rob Landley <rob@landley.net>,
-	Russell King <linux@arm.linux.org.uk>,
-	Felipe Balbi <balbi@ti.com>,
-	Sachin Kamat <sachin.kamat@linaro.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Bill Pemberton <wfp5p@virginia.edu>,
-	devicetree@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Luciano Coelho <coelho@ti.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131115143254.GA7079@tuxdriver.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	"Veaceslav Falico" <vfalico@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:56970 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222Ab3LJDaT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 22:30:19 -0500
+In-Reply-To: <7308.1386643143@death.nxdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* John W. Linville <linville@tuxdriver.com> [131115 06:46]:
-> On Thu, Nov 14, 2013 at 03:22:18PM -0800, Tony Lindgren wrote:
-> > * Sebastian Reichel <sre@debian.org> [131114 15:04]:
-> > > On Thu, Nov 14, 2013 at 10:51:33AM -0800, Tony Lindgren wrote:
-> > > > [...]
-> > > >
-> > > > If this is not going into v3.13, these will cause conflicts
-> > > > with the mach-omap2/board-*.c files for v3.14.
-> > > > 
-> > > > So it might be best to do a minimal header patch first that
-> > > > can be merged in by both linux-omap and wireless trees.
-> > > 
-> > > I guess this patch is pretty minimal. It also seems to be acked by
-> > > the involved Maintainers, so maybe just merge Patch 1 without the
-> > > other patches?
-> > > 
-> > > This does not solve the problem with the struct modification from
-> > > the second patch, but I guess it's the more intrusive patch.
-> > 
-> > Once at least the first two patches are ready, how about I queue
-> > them after -rc1 and set up an immutable branch that can be merged
-> > in by linux-omap tree and the wireless tree?
+On 2013/12/10 10:39, Jay Vosburgh wrote:
+> Ding Tianhong <dingtianhong@huawei.com> wrote:
 > 
-> That sounds reasonable to me.
+>> The bond_activebackup_arp_mon() use the bond lock for read to
+>> protect the slave list, it is no effect, and the RTNL is only
+>> called for bond_ab_arp_commit() and peer notify, for the performance
+>> better, use RCU to replace with the bond lock, to the bond slave
+>> list need to called in RCU, add a new bond_first_slave_rcu()
+>> to get the first slave in RCU protection.
+>>
+>> In bond_ab_arp_probe(), the bond->current_arp_slave may changd
+>> if bond release slave, just like:
+>>
+>> 	bond_ab_arp_probe()			bond_release()
+>> 	cpu 0					cpu 1
+>> 	...
+>> 	if (bond->current_arp_slave...)		...
+>> 	...				bond->current_arp_slave = NULl
+>> 	bond->current_arp_slave->dev->name	...
+>>
+>> So the current_arp_slave need to dereference in the section.
+>>
+>> When bond_ab_arp_inspect() and should_notify_peers is true, the
+>> RTNL will called twice, it is a loss of performance, so make the
+>> two RTNL together to avoid performance loss.
+> 
+> 	Just for the record, we cannot acquire RTNL every single pass of
+> the monitor (at typically ten per second), but the situation you cite is
+> rare, and the performance impact of two round trips on RTNL is minimal.
+> That said, if the code is clear, there's no disadvantage with arranging
+> for just one round trip on RTNL.
+> 
+yes, it is a very slight improvement and hardly convincing to make two
+rounds to one, if you strongly disagree with it, I will abandon the modify.
 
-OK sorry it took a while, I was chasing bugs and did not get around
-to doing this until now. I've applied only the first two patches from
-the v2 set of patches later on in this thread against v3.13-rc1 into
-a signed tag wl1251-pdata-signed here:
+> 	In patch 2 of the series you reorganized the RTNL locking around
+> the inspect / notify_peers logic in bond_mii_monitor to be generally:
+> 
+> 	if (inspect) {
+> 		[ acquire RTNL ]
+> 		[ do commit activity, et al ]
+> 
+> 		if (should_notify_peers)
+> 			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS);
+> 
+> 		[ release RNTL ]
+> 	} else {
+> 		if (should_notify_peers) {
+> 			[ acquire RTNL ]
+> 			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS);
+> 			[ release RTNL ]
+> 		}
+> 	}
+> 
+> 	but in this patch, the new logic in bond_activebackup_arp_mon
+> is:
+> 
+> 	if (inspect) {
+> 		[ acquire RTNL ]
+> 		[ do commit activity, et al ]
+> 
+> 		if (should_notify_peers) {
+> 			call_netdevice_notifiers(NETDEV_NOTIFY_PEERS);
+> 			should_notify_peers = false;
+> 		}
+> 		[ release RNTL ]
+> 	}
+> 
+> [ ... ]
+> 
+> re_arm:
+> 
+> 	if (should_notify_peers) {
+> 		[ acquire RTNL ]
+> 		call_netdevice_notifiers(NETDEV_NOTIFY_PEERS);
+> 		[ release RTNL ]
+> 	}
+> 
+> 
+> 	Is there a reason not to have these both operate the same way?
+> 
+> 	I found the version in bond_mii_monitor (from patch 2 of the
+> series) easier to follow than this version for bond_activebackup_arp_mon
+> (because the two calls are closer together, and the "should_notify_peers
+> = false" is easy to miss on a first read).
+>
 
-http://git.kernel.org/cgit/linux/kernel/git/tmlind/linux-omap.git/tag/?id=wl1251-pdata-signed
+yes, it is true, although in fact they have same logic, I think the version
+in bond_mii_monitor is easy to read, so if you thought the version in 
+bond_activebackup_arp_mon is bad, I will just follow the version of bond_mii_monitor.
 
-John, please feel free to pull the branch above also into the wireless
-tree so you can apply the remaining wl1251 patches from Sebastian.
-This way things keep working without creating merge conflicts with the
-linux-omap tree.
-
-Regards,
-
-Tony
+Regards
+Ding
+ 
