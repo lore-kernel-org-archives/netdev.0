@@ -1,45 +1,41 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] micrel: add support for KSZ8041RNLI
-Date: Tue, 10 Dec 2013 21:21:38 +0400
-Message-ID: <52A74DA2.40201@cogentembedded.com>
-References: <201312100220.42153.sergei.shtylyov@cogentembedded.com> <CAMuHMdXdvF+N0+b0Mo3DO4Vj3NCymh-ySU_SMRATFUekSfnaRg@mail.gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Fwd: UDP/IPv6 performance issue
+Date: Tue, 10 Dec 2013 09:24:02 -0800
+Message-ID: <52A74E32.4040900@hp.com>
+References: <CAGA2gK6rf8E7cCO=RwbdFAt2ucfxUbCjqhVoga9cnHrEKxcp9g@mail.gmail.com> <CAGA2gK5gfdaKeQWzT4Dd45AhavD4pYaCVyayf7Hd+q5pPUjfKQ@mail.gmail.com> <52A749CB.1010909@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdXdvF+N0+b0Mo3DO4Vj3NCymh-ySU_SMRATFUekSfnaRg@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: ajay seshadri <seshajay@gmail.com>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:46173 "EHLO
+	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752892Ab3LJRYE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 12:24:04 -0500
+In-Reply-To: <52A749CB.1010909@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 10-12-2013 17:19, Geert Uytterhoeven wrote:
-
->> Renesas R-Car development boards use KSZ8041RNLI PHY which for some reason has
->> ID of 0x00221537 that is not documented for KSZ8041-family PHYs and does not
->> match the  documented ID of  0x0022151x (where 'x' is the revision).  We have
->> to add the new #define PHY_ID_* and new ksphy_driver[] entry, almost the same
->> as KSZ8041 one, differing only in the 'phy_id' and 'name' fields.
-
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-> Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
-
-    Thanks. Though it's not the last version probably...
-
-> I don't seem to get "net eth0: Receive FIFO Overflow" anymore after applying
-> this patch.
-
-    Cool.
-    So you also enabled the Micrel PHY driver in .config? Asking because it's 
-not in 'koelsch_defconfig' or any other R-Car defconfig yet...
-
-> Gr{oetje,eeting}s,
+On 12/10/2013 09:05 AM, Rick Jones wrote:
+> If you want to compare the "fundamental" path length difference between
+> IPv4 and IPv6, without any concerns about stateless offloads like CKO or
+> GRO et al, you could use something like a single-byte netperf TCP_RR test.
 >
->                          Geert
+> netperf -c -C -H <remote> -t TCP_RR
 
-WBR, Sergei
+Or UDP_RR, since that is your usage case...
 
+rick
+
+>
+> and then compare service demands between the two cases.   You can add a
+> "-i 30,3" to have netperf run several iterations to get a better idea of
+> how close it is to the "real" mean result.
+>
+> happy benchmarking,
+>
+> rick jones
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
