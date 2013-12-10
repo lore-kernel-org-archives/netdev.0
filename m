@@ -1,55 +1,72 @@
-From: =?UTF-8?B?0JjQstCw0LnQu9C+INCU0LjQvNC40YLRgNC+0LI=?=
-	<freemangordon@abv.bg>
-Subject: Re: [PATCH v2 01/16] wl1251: fix scan behaviour while not associated
-Date: Wed, 11 Dec 2013 00:16:58 +0200 (EET)
-Message-ID: <1209321878.38095.1386713818964.JavaMail.apache@mail82.abv.bg>
+From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+Subject: [PATCH] inet: fix NULL pointer Oops in fib(6)_rule_suppress
+Date: Tue, 10 Dec 2013 23:21:25 +0100
+Message-ID: <20131210222124.GG3260@zirkel.wertarbyte.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kvalo@adurom.com, pavel@ucw.cz, luca@coelho.fi,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	aaro.koskinen@iki.fi, sre@ring0.de, joni.lapilainen@gmail.com,
-	johannes@sipsolutions.net, felipe.contreras@gmail.com,
-	david.gnedt@davizone.at
-To: =?UTF-8?Q?Pali_Roh=C3=A1r?= <pali.rohar@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, daniel.golle@gmail.com,
+	sergei.shtylyov@cogentembedded.com, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zirkel.wertarbyte.de ([188.40.44.137]:36924 "EHLO
+	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751096Ab3LJWVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 17:21:33 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  >-------- =D0=9E=D1=80=D0=B8=D0=B3=D0=B8=D0=BD=D0=B0=D0=BB=D0=BD=D0=BE=
- =D0=BF=D0=B8=D1=81=D0=BC=D0=BE --------
- >=D0=9E=D1=82:  Pali Roh=C3=A1r=20
- >=D0=9E=D1=82=D0=BD=D0=BE=D1=81=D0=BD=D0=BE: Re: [PATCH v2 01/16] wl12=
-51: fix scan behaviour while not associated
- >=D0=94=D0=BE: Kalle Valo ,
- Pavel Machek=20
- >=D0=98=D0=B7=D0=BF=D1=80=D0=B0=D1=82=D0=B5=D0=BD=D0=BE =D0=BD=D0=B0: =
-=D0=92=D1=82=D0=BE=D1=80=D0=BD=D0=B8=D0=BA, 2013, =D0=94=D0=B5=D0=BA=D0=
-=B5=D0=BC=D0=B2=D1=80=D0=B8 10 19:08:44 EET
- >
- >
- >On Tuesday 10 December 2013 16:41:04 Kalle Valo wrote:
- >> Pavel Machek  writes:
- >> > ssids can have &#92;0s in them... and what is worse, they may
- >> > not be 0 terminated AFAICT.
- >> >=20
- >> > Potential solution is at
- >> > http://www.spinics.net/lists/linux-wireless/msg98640.html .
- >>=20
- >> I just use print_hex_dump_bytes() to print SSIDs.
- >
- >Ok and has kernel printf modifier for size_t?
- >
- >--=20
- >Pali Roh=C3=A1r
- >pali.rohar@gmail.com
- >
+This changes ensures that the routing entry investigated by the suppress
+function actually does point to a device struct before following that pointer,
+fixing a possible kernel oops situation when verifying the interface group
+associated with a routing table entry.
 
-If I read lib/vsprintf.c correctly, you can use 'z'
+According to Daniel Golle, this Oops can be triggered by a user process trying
+to establish an outgoing IPv6 connection while having no real IPv6 connectivity
+set up (only autoassigned link-local addresses).
 
-Regards,
-Ivo
+Fixes: 6ef94cfafba15 ("fib_rules: add route suppression based on ifgroup")
 
-PS: Please use my gmail address when cc-ing me, LKML really hates my ab=
-v dot bg account :)
+Reported-by: Daniel Golle <daniel.golle@gmail.com>
+Tested-by: Daniel Golle <daniel.golle@gmail.com>
+Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+---
+ net/ipv4/fib_rules.c  |    5 ++++-
+ net/ipv6/fib6_rules.c |    6 +++++-
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 523be38..f2e1573 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -104,7 +104,10 @@ errout:
+ static bool fib4_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg)
+ {
+ 	struct fib_result *result = (struct fib_result *) arg->result;
+-	struct net_device *dev = result->fi->fib_dev;
++	struct net_device *dev = NULL;
++
++	if (result->fi)
++		dev = result->fi->fib_dev;
+ 
+ 	/* do not accept result if the route does
+ 	 * not meet the required prefix length
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index e275916..3fd0a57 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -122,7 +122,11 @@ out:
+ static bool fib6_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg)
+ {
+ 	struct rt6_info *rt = (struct rt6_info *) arg->result;
+-	struct net_device *dev = rt->rt6i_idev->dev;
++	struct net_device *dev = NULL;
++
++	if (rt->rt6i_idev)
++		dev = rt->rt6i_idev->dev;
++
+ 	/* do not accept result if the route does
+ 	 * not meet the required prefix length
+ 	 */
+-- 
+1.7.10.4
