@@ -1,59 +1,63 @@
-From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: Re: [PATCH v2 01/16] wl1251: fix scan behaviour while not associated
-Date: Tue, 10 Dec 2013 18:08:44 +0100
-Message-ID: <201312101808.44713@pali>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com> <20131210092114.GB22756@amd.pavel.ucw.cz> <8738m0r9wv.fsf@purkki.adurom.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/2] bgmac: drop duplicated PHY defines
+Date: Tue, 10 Dec 2013 09:10:36 -0800
+Message-ID: <CAGVrzcYCT0QUKuRGktH-4xVrXtort-Uy4phvq8yZg3nU8SPFjw@mail.gmail.com>
+References: <1386668966-24562-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1950882.g5FqhQI21j";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Luciano Coelho <luca@coelho.fi>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
-	aaro.koskinen@iki.fi, sre@ring0.de, joni.lapilainen@gmail.com,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Felipe Contreras <felipe.contreras@gmail.com>,
-	David Gnedt <david.gnedt@davizone.at>
-To: Kalle Valo <kvalo@adurom.com>, Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8738m0r9wv.fsf@purkki.adurom.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:37601 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754089Ab3LJRLQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 12:11:16 -0500
+Received: by mail-pb0-f48.google.com with SMTP id md12so8035541pbc.21
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 09:11:16 -0800 (PST)
+In-Reply-To: <1386668966-24562-1-git-send-email-zajec5@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart1950882.g5FqhQI21j
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+Hello Rafal
 
-On Tuesday 10 December 2013 16:41:04 Kalle Valo wrote:
-> Pavel Machek <pavel@ucw.cz> writes:
-> > ssids can have \0s in them... and what is worse, they may
-> > not be 0 terminated AFAICT.
-> >=20
-> > Potential solution is at
-> > http://www.spinics.net/lists/linux-wireless/msg98640.html .
->=20
-> I just use print_hex_dump_bytes() to print SSIDs.
+2013/12/10 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/bgmac.c |    6 ++----
+>  drivers/net/ethernet/broadcom/bgmac.h |   21 ---------------------
+>  2 files changed, 2 insertions(+), 25 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethe=
+rnet/broadcom/bgmac.c
+> index 0452937..ad4b2f1 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -725,11 +725,9 @@ static void bgmac_phy_reset(struct bgmac *bgmac)
+>         if (bgmac->phyaddr =3D=3D BGMAC_PHY_NOREGS)
+>                 return;
+>
+> -       bgmac_phy_write(bgmac, bgmac->phyaddr, BGMAC_PHY_CTL,
+> -                       BGMAC_PHY_CTL_RESET);
+> +       bgmac_phy_write(bgmac, bgmac->phyaddr, MII_BMCR, BMCR_RESET);
+>         udelay(100);
+> -       if (bgmac_phy_read(bgmac, bgmac->phyaddr, BGMAC_PHY_CTL) &
+> -           BGMAC_PHY_CTL_RESET)
+> +       if (bgmac_phy_read(bgmac, bgmac->phyaddr, MII_BMCR) & BMCR_RE=
+SET)
+>                 bgmac_err(bgmac, "PHY reset failed\n");
+>         bgmac_phy_init(bgmac);
 
-Ok and has kernel printf modifier for size_t?
+phy_init_hw() now issues a PHY reset through BMCR_RESET, you might
+want to use it instead of this here:
 
-=2D-=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
+- the 100 microseconds delay might not be sufficient for all PHYs out t=
+here
+- any PHY fixup (although there are none for BCM47xx yet) would be
+wiped out by this "wild" PHY reset
 
---nextPart1950882.g5FqhQI21j
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEABECAAYFAlKnSpwACgkQi/DJPQPkQ1L9pQCgjFc7/1zXxMNs6AWKB6PogyxB
-v9MAoIMHpQbRIy/N2p6/y3ViuvDYtIcf
-=/Nzb
------END PGP SIGNATURE-----
-
---nextPart1950882.g5FqhQI21j--
+This is quite new, so I do not expect you knew about this.
+--
+=46lorian
