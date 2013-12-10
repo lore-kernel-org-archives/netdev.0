@@ -1,49 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] vxlan: remove vxlan_group_used in vxlan_open
-Date: Mon, 09 Dec 2013 19:32:44 -0500 (EST)
-Message-ID: <20131209.193244.2227545675987687506.davem@davemloft.net>
-References: <1386234096-18441-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH net-next] pkt_sched: give visibility to mq slave qdiscs
+Date: Mon, 09 Dec 2013 19:55:19 -0500 (EST)
+Message-ID: <20131209.195519.1782933721679697565.davem@davemloft.net>
+References: <1386270722.30495.210.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: gaofeng@cn.fujitsu.com
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44557 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44648 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751294Ab3LJAcq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 19:32:46 -0500
-In-Reply-To: <1386234096-18441-1-git-send-email-gaofeng@cn.fujitsu.com>
+	with ESMTP id S1751376Ab3LJAzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 19:55:23 -0500
+In-Reply-To: <1386270722.30495.210.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Thu, 5 Dec 2013 17:01:35 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 05 Dec 2013 11:12:02 -0800
 
-> In vxlan_open, vxlan_group_used always returns true,
-> because the state of the vxlan deivces which we want
-> to open has alreay been running. and it has already
-> in vxlan_list.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Since ip_mc_join_group takes care of the reference
-> problem. we can remove vxlan_group_used here, let
-> ip_mc_join_group resolve the reference problem.
+> Commit 6da7c8fcbcbd ("qdisc: allow setting default queuing discipline")
+> added the ability to change default qdisc from pfifo_fast to say fq
 > 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> But as most modern ethernet devices are multiqueue, we cant really
+> see all the statistics from "tc -s qdisc show", as the default root
+> qdisc is mq.
+> 
+> This patch adds the calls to qdisc_list_add() to mq and mqprio
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-"already" is misspelled in this commit message.
-
-Please describe what "the reference problem" actually is.
-
-> @@ -1943,8 +1943,7 @@ static int vxlan_open(struct net_device *dev)
->  	if (!vs)
->  		return -ENOTCONN;
->  
-> -	if (vxlan_addr_multicast(&vxlan->default_dst.remote_ip) &&
-> -	    vxlan_group_used(vn, &vxlan->default_dst.remote_ip)) {
-> +	if (vxlan_addr_multicast(&vxlan->default_dst.remote_ip)) {
-
-This makes "vn" unused, please remove it.
-
-The compiler even warns about this, are you watching the build
-after making changes for messages like that?
+Applied, thanks Eric.
