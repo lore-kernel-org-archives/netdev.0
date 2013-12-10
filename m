@@ -1,140 +1,121 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net v2] xen-netback: fix abuse of napi budget
-Date: Tue, 10 Dec 2013 11:32:01 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01ABE30@AMSPEX01CL01.citrite.net>
-References: <1386674864-27703-1-git-send-email-paul.durrant@citrix.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: ifconfig doesn't show assignment ip-addresses
+Date: Tue, 10 Dec 2013 12:43:39 +0100
+Message-ID: <20131210114339.GB2469@minipsycho.orion>
+References: <20131209153238.GA10317@omega>
+ <20131210105741.GA2469@minipsycho.orion>
+ <20131210110648.GA18196@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Paul Durrant <Paul.Durrant@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:34583 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010Ab3LJLdA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 06:33:00 -0500
-In-Reply-To: <1386674864-27703-1-git-send-email-paul.durrant@citrix.com>
-Content-Language: en-US
+Received: from mail-ea0-f175.google.com ([209.85.215.175]:38577 "EHLO
+	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751874Ab3LJLnn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 06:43:43 -0500
+Received: by mail-ea0-f175.google.com with SMTP id z10so2176640ead.34
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 03:43:41 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131210110648.GA18196@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Paul Durrant [mailto:paul.durrant@citrix.com]
-> Sent: 10 December 2013 11:28
-> To: xen-devel@lists.xen.org; netdev@vger.kernel.org
-> Cc: Paul Durrant; Wei Liu; Ian Campbell; David Vrabel
-> Subject: [PATCH net v2] xen-netback: fix abuse of napi budget
-> 
-> netback seemed to be somewhat confused about the napi budget
-> parameter. The
-> parameter is supposed to limit the number of skgs process in each poll, but
-> netback had this confused with grant operations.
-> 
-> This patch fixes that, properly limiting the work done in each poll. Note
-> that this limit makes sure we do not process any more data from the shared
-> ring than we intend to pass back from the poll. This is important to
-> prevent tx_queue potentially growing without bound.
-> 
-> This patch also changes the RING_FINAL_CHECK_FOR_REQUESTS in
-> xenvif_build_tx_gops to a check for RING_HAS_UNCONSUMED_REQUESTS
-> as the
-> former call has the side effect of advancing the ring event pointer and
-> therefore inviting another interrupt from the frontend before the napi
-> poll has actually finished, thereby defeating the point of napi.
-> 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Tue, Dec 10, 2013 at 12:06:49PM CET, alex.aring@gmail.com wrote:
+>Hi,
+>
+>thanks for your reply.
+>
+>On Tue, Dec 10, 2013 at 11:57:41AM +0100, Jiri Pirko wrote:
+>> Mon, Dec 09, 2013 at 04:32:39PM CET, alex.aring@gmail.com wrote:
+>> >Hi,
+>> >
+>> >On current net-next with a lowpan interface created with:
+>> >
+>> >ip link add link wpan0 name lowpan0 type lowpan
+>> >
+>> >I don't see any ipv6 addresses in ifconfig anymore. The addresses exist,
+>> >because I can ping my device.
+>> 
+>> 
+>> Can you see the address in "ip a" ? Would you send me output of
+>> "ifconfig" and "ip a" please? Is this a problem for lowpan only or do
+>> you see this with other device types as well?
+>> 
 
-Sorry, this patch is incomplete. I need to remove the decrement of the work_to_do variable in xenvif_tx_build_gops too.
+The problem is that ifconfig parses /proc/net/if_inet6 which changed
+flag format from 2 hexa chars to 3.
+I will send revert for this change in couple of minutes.
 
-  Paul
 
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: David Vrabel <david.vrabel@citrix.com>
-> ---
-> v2:
-> - More elaborate description of the problem and the fix in the comment.
-> - Modified the check in xenvif_build_tx_gops.
-> 
->  drivers/net/xen-netback/netback.c |   17 ++++++++---------
->  1 file changed, 8 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
-> netback/netback.c
-> index 43341b8..0c8ca76 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1351,14 +1351,15 @@ static bool tx_credit_exceeded(struct xenvif *vif,
-> unsigned size)
->  	return false;
->  }
-> 
-> -static unsigned xenvif_tx_build_gops(struct xenvif *vif)
-> +static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
->  {
->  	struct gnttab_copy *gop = vif->tx_copy_ops, *request_gop;
->  	struct sk_buff *skb;
->  	int ret;
-> 
->  	while ((nr_pending_reqs(vif) + XEN_NETBK_LEGACY_SLOTS_MAX
-> -		< MAX_PENDING_REQS)) {
-> +		< MAX_PENDING_REQS) &&
-> +	       (skb_queue_len(&vif->tx_queue) < budget)) {
->  		struct xen_netif_tx_request txreq;
->  		struct xen_netif_tx_request
-> txfrags[XEN_NETBK_LEGACY_SLOTS_MAX];
->  		struct page *page;
-> @@ -1380,8 +1381,7 @@ static unsigned xenvif_tx_build_gops(struct xenvif
-> *vif)
->  			continue;
->  		}
-> 
-> -		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx,
-> work_to_do);
-> -		if (!work_to_do)
-> +		if (!RING_HAS_UNCONSUMED_REQUESTS(&vif->tx))
->  			break;
-> 
->  		idx = vif->tx.req_cons;
-> @@ -1520,14 +1520,13 @@ static unsigned xenvif_tx_build_gops(struct
-> xenvif *vif)
->  }
-> 
-> 
-> -static int xenvif_tx_submit(struct xenvif *vif, int budget)
-> +static int xenvif_tx_submit(struct xenvif *vif)
->  {
->  	struct gnttab_copy *gop = vif->tx_copy_ops;
->  	struct sk_buff *skb;
->  	int work_done = 0;
-> 
-> -	while (work_done < budget &&
-> -	       (skb = __skb_dequeue(&vif->tx_queue)) != NULL) {
-> +	while ((skb = __skb_dequeue(&vif->tx_queue)) != NULL) {
->  		struct xen_netif_tx_request *txp;
->  		u16 pending_idx;
->  		unsigned data_len;
-> @@ -1602,14 +1601,14 @@ int xenvif_tx_action(struct xenvif *vif, int
-> budget)
->  	if (unlikely(!tx_work_todo(vif)))
->  		return 0;
-> 
-> -	nr_gops = xenvif_tx_build_gops(vif);
-> +	nr_gops = xenvif_tx_build_gops(vif, budget);
-> 
->  	if (nr_gops == 0)
->  		return 0;
-> 
->  	gnttab_batch_copy(vif->tx_copy_ops, nr_gops);
-> 
-> -	work_done = xenvif_tx_submit(vif, nr_gops);
-> +	work_done = xenvif_tx_submit(vif);
-> 
->  	return work_done;
->  }
-> --
-> 1.7.10.4
+>
+>Yes I can see the address in "ip a".
+>
+>Output of "ip a":
+>
+>1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue 
+>    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+>    inet 127.0.0.1/8 scope host lo
+>       valid_lft forever preferred_lft forever
+>    inet6 ::1/128 scope host 
+>       valid_lft forever preferred_lft forever
+>2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast qlen 1000
+>    link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
+>    inet6 2001::2/64 scope global 
+>       valid_lft forever preferred_lft forever
+>    inet6 2001::3/64 scope global 
+>       valid_lft forever preferred_lft forever
+>    inet6 fe80::5054:ff:fe12:3456/64 scope link 
+>       valid_lft forever preferred_lft forever
+>3: sit0: <NOARP> mtu 1480 qdisc noop 
+>    link/sit 0.0.0.0 brd 0.0.0.0
+>4: wpan0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 127 qdisc pfifo_fast qlen 300
+>    link/[804] aa:aa:aa:aa:aa:aa:aa:aa brd ff:ff:ff:ff:ff:ff:ff:ff
+>5: lowpan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1281 qdisc noqueue 
+>    link/[804] aa:aa:aa:aa:aa:aa:aa:aa brd ff:ff:ff:ff:ff:ff:ff:ff
+>    inet6 2001::1/64 scope global 
+>       valid_lft forever preferred_lft forever
+>    inet6 fe80::1/64 scope link 
+>       valid_lft forever preferred_lft forever
+>    inet6 fe80::a8aa:aaaa:aaaa:aaaa/64 scope link 
+>       valid_lft forever preferred_lft forever
+>
+>Output of "ifconfig":
+>
+>eth0      Link encap:Ethernet  HWaddr 52:54:00:12:34:56  
+>          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+>          TX packets:12 errors:0 dropped:0 overruns:0 carrier:0
+>          collisions:0 txqueuelen:1000 
+>          RX bytes:0 (0.0 B)  TX bytes:1144 (1.1 KiB)
+>
+>lo        Link encap:Local Loopback  
+>          inet addr:127.0.0.1  Mask:255.0.0.0
+>          UP LOOPBACK RUNNING  MTU:65536  Metric:1
+>          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+>          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+>          collisions:0 txqueuelen:0 
+>          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+>
+>lowpan0   Link encap:UNSPEC  HWaddr AA-AA-AA-AA-AA-AA-AA-AA-00-00-00-00-00-00-00-00  
+>          UP BROADCAST RUNNING MULTICAST  MTU:1281  Metric:1
+>          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+>          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+>          collisions:0 txqueuelen:0 
+>          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+>
+>wpan0     Link encap:UNSPEC  HWaddr AA-AA-AA-AA-AA-AA-AA-AA-00-00-00-00-00-00-00-00  
+>          UP BROADCAST RUNNING NOARP  MTU:127  Metric:1
+>          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+>          TX packets:10 errors:0 dropped:0 overruns:0 carrier:0
+>          collisions:0 txqueuelen:300 
+>          RX bytes:0 (0.0 B)  TX bytes:597 (597.0 B)
+>
+>So i can't see any inet6 addresses on eth0 interface, so maybe it isn't
+>a lowpan specific problem.
+>
+>I use ip/ifconfig from busybox at version:
+>
+>BusyBox v1.20.2 (2013-11-16 07:37:30 CET) multi-call binary.
+>
+>- Alex
