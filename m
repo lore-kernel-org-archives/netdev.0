@@ -1,40 +1,55 @@
-From: ajay seshadri <seshajay@gmail.com>
-Subject: Re: Fwd: UDP/IPv6 performance issue
-Date: Tue, 10 Dec 2013 17:11:36 -0500
-Message-ID: <CAGA2gK5CTj0ELTLnQEEZptWuRj+EGRgU4Nw5nH1CwqQigghSfg@mail.gmail.com>
-References: <CAGA2gK6rf8E7cCO=RwbdFAt2ucfxUbCjqhVoga9cnHrEKxcp9g@mail.gmail.com>
-	<CAGA2gK5gfdaKeQWzT4Dd45AhavD4pYaCVyayf7Hd+q5pPUjfKQ@mail.gmail.com>
-	<20131210171248.GA23216@order.stressinduktion.org>
-	<CAGA2gK5pxQXAxgffYgitWg9jUUkxnz7EEhjQZ2aSvgnWFyR9RQ@mail.gmail.com>
+From: =?UTF-8?B?0JjQstCw0LnQu9C+INCU0LjQvNC40YLRgNC+0LI=?=
+	<freemangordon@abv.bg>
+Subject: Re: [PATCH v2 01/16] wl1251: fix scan behaviour while not associated
+Date: Wed, 11 Dec 2013 00:16:58 +0200 (EET)
+Message-ID: <1209321878.38095.1386713818964.JavaMail.apache@mail82.abv.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:50301 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751779Ab3LJWLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 17:11:37 -0500
-Received: by mail-ig0-f173.google.com with SMTP id uq10so2864394igb.0
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 14:11:36 -0800 (PST)
-In-Reply-To: <CAGA2gK5pxQXAxgffYgitWg9jUUkxnz7EEhjQZ2aSvgnWFyR9RQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kvalo@adurom.com, pavel@ucw.cz, luca@coelho.fi,
+	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	aaro.koskinen@iki.fi, sre@ring0.de, joni.lapilainen@gmail.com,
+	johannes@sipsolutions.net, felipe.contreras@gmail.com,
+	david.gnedt@davizone.at
+To: =?UTF-8?Q?Pali_Roh=C3=A1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 10, 2013 at 2:46 PM, ajay seshadri <seshajay@gmail.com> wrote:
-> On Tue, Dec 10, 2013 at 12:12 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> A cached entry will be inserted nontheless. If you don't hit the max_size
->> route entries limit I guess there could be a bug which triggers needless gc
->> invocation.
->
-> I am leaning towards needless invocation of gc. At this point in time,
-> I am not sure why.
+  >-------- =D0=9E=D1=80=D0=B8=D0=B3=D0=B8=D0=BD=D0=B0=D0=BB=D0=BD=D0=BE=
+ =D0=BF=D0=B8=D1=81=D0=BC=D0=BE --------
+ >=D0=9E=D1=82:  Pali Roh=C3=A1r=20
+ >=D0=9E=D1=82=D0=BD=D0=BE=D1=81=D0=BD=D0=BE: Re: [PATCH v2 01/16] wl12=
+51: fix scan behaviour while not associated
+ >=D0=94=D0=BE: Kalle Valo ,
+ Pavel Machek=20
+ >=D0=98=D0=B7=D0=BF=D1=80=D0=B0=D1=82=D0=B5=D0=BD=D0=BE =D0=BD=D0=B0: =
+=D0=92=D1=82=D0=BE=D1=80=D0=BD=D0=B8=D0=BA, 2013, =D0=94=D0=B5=D0=BA=D0=
+=B5=D0=BC=D0=B2=D1=80=D0=B8 10 19:08:44 EET
+ >
+ >
+ >On Tuesday 10 December 2013 16:41:04 Kalle Valo wrote:
+ >> Pavel Machek  writes:
+ >> > ssids can have &#92;0s in them... and what is worse, they may
+ >> > not be 0 terminated AFAICT.
+ >> >=20
+ >> > Potential solution is at
+ >> > http://www.spinics.net/lists/linux-wireless/msg98640.html .
+ >>=20
+ >> I just use print_hex_dump_bytes() to print SSIDs.
+ >
+ >Ok and has kernel printf modifier for size_t?
+ >
+ >--=20
+ >Pali Roh=C3=A1r
+ >pali.rohar@gmail.com
+ >
 
+If I read lib/vsprintf.c correctly, you can use 'z'
 
-Additionally,  fib6_force_start_gc() doesn't show up in TCP/IPv6 tests
-when I disable TSO and am CPU bound. With TSO turned off TCP/IPv4 and
-TCP/IPv6 throughputs are identical.
+Regards,
+Ivo
 
-Thanks,
-Ajay
+PS: Please use my gmail address when cc-ing me, LKML really hates my ab=
+v dot bg account :)
