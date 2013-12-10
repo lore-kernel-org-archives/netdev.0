@@ -1,124 +1,113 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net] xen-netback: fix abuse of napi budget
-Date: Tue, 10 Dec 2013 11:03:22 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01ABDD1@AMSPEX01CL01.citrite.net>
-References: <1386670600-5882-1-git-send-email-paul.durrant@citrix.com>
- <1386671136.11925.46.camel@kazak.uk.xensource.com>
- <52A6ED35.7070003@citrix.com> <20131210103736.GJ32155@zion.uk.xensource.com>
- <20131210104443.GK32155@zion.uk.xensource.com>
- <9AAE0902D5BC7E449B7C8E4E778ABCD01ABD2E@AMSPEX01CL01.citrite.net>
- <20131210105514.GL32155@zion.uk.xensource.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: ifconfig doesn't show assignment ip-addresses
+Date: Tue, 10 Dec 2013 12:06:49 +0100
+Message-ID: <20131210110648.GA18196@omega>
+References: <20131209153238.GA10317@omega>
+ <20131210105741.GA2469@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:3609 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751596Ab3LJLDX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 06:03:23 -0500
-In-Reply-To: <20131210105514.GL32155@zion.uk.xensource.com>
-Content-Language: en-US
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:63556 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751687Ab3LJLG7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 06:06:59 -0500
+Received: by mail-wg0-f52.google.com with SMTP id x13so4781524wgg.7
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 03:06:57 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131210105741.GA2469@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Wei Liu [mailto:wei.liu2@citrix.com]
-> Sent: 10 December 2013 10:55
-> To: Paul Durrant
-> Cc: Wei Liu; David Vrabel; Ian Campbell; xen-devel@lists.xen.org;
-> netdev@vger.kernel.org
-> Subject: Re: [PATCH net] xen-netback: fix abuse of napi budget
-> 
-> On Tue, Dec 10, 2013 at 10:48:13AM +0000, Paul Durrant wrote:
-> > > -----Original Message-----
-> > > From: Wei Liu [mailto:wei.liu2@citrix.com]
-> > > Sent: 10 December 2013 10:45
-> > > To: David Vrabel
-> > > Cc: Ian Campbell; Paul Durrant; xen-devel@lists.xen.org;
-> > > netdev@vger.kernel.org; Wei Liu
-> > > Subject: Re: [PATCH net] xen-netback: fix abuse of napi budget
-> > >
-> > > On Tue, Dec 10, 2013 at 10:37:36AM +0000, Wei Liu wrote:
-> > > > On Tue, Dec 10, 2013 at 10:30:13AM +0000, David Vrabel wrote:
-> > > > > On 10/12/13 10:25, Ian Campbell wrote:
-> > > > > > On Tue, 2013-12-10 at 10:16 +0000, Paul Durrant wrote:
-> > > > > >> netback seemed to be somewhat confused about the napi budget
-> > > parameter and
-> > > > > >> basically ignored it. This patch fixes that, properly limiting the work
-> > > done
-> > > > > >> in each poll.
-> > > > > >
-> > > > > > What do you mean "ignored", xenvif_tx_submit seems to be
-> tracking
-> > > and
-> > > > > > testing work_done against the budget.
-> > > > >
-> > > > > I have seen this warning in net_rx_action() trigger.
-> > > > >
-> > > > > 	WARN_ON_ONCE(work > weight);
-> > > > >
-> > > > > Which means netback wasn't limiting the work done.
-> > > > >
-> > > >
-> > > > But in the original code work_done is returned by xenvif_tx_submit
-> which
-> > > > has guard against that situation, right?
-> > > >
-> > >
-> > > And now I think I spot a bug...
-> > >
-> > >   work_done = xenvif_tx_submit(vif, nr_gops);
-> > >
-> > > The second argument should really be "budget". :-(
-> > >
+Hi,
+
+thanks for your reply.
+
+On Tue, Dec 10, 2013 at 11:57:41AM +0100, Jiri Pirko wrote:
+> Mon, Dec 09, 2013 at 04:32:39PM CET, alex.aring@gmail.com wrote:
+> >Hi,
 > >
-> > Yep - that's basically the problem.
+> >On current net-next with a lowpan interface created with:
 > >
+> >ip link add link wpan0 name lowpan0 type lowpan
+> >
+> >I don't see any ipv6 addresses in ifconfig anymore. The addresses exist,
+> >because I can ping my device.
 > 
-> So size-wise the attached patch is smaller. Now the only problem is that
-> is it better to move flow control earlier.
+> 
+> Can you see the address in "ip a" ? Would you send me output of
+> "ifconfig" and "ip a" please? Is this a problem for lowpan only or do
+> you see this with other device types as well?
 > 
 
-Yes, but I think that patch is dangerous as I explained to Ian. If we don't limit early then tx_queue can grow uncontrollably if the frontend continues to throw more data into the ring than we actually ship out on each napi poll. I will re-submit with a more elaborate description.
+Yes I can see the address in "ip a".
 
-  Paul
+Output of "ip a":
 
-> Wei.
-> 
-> ---8<---
-> From 11db4a9cd7267a621725c48f0e0a99c1d6d31866 Mon Sep 17 00:00:00
-> 2001
-> From: Wei Liu <wei.liu2@citrix.com>
-> Date: Tue, 10 Dec 2013 10:49:59 +0000
-> Subject: [PATCH] xen-netback: correct typo nr_gops -> budget
-> 
-> work_done should be limited by budget not nr_gops. Otherwise we trigger
-> "WARN_ON_ONCE(work > weight)" in net/dev/core:net_rx_action.
-> 
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> ---
->  drivers/net/xen-netback/netback.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-
-> netback/netback.c
-> index acf1392..b11f65d 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1707,7 +1707,7 @@ int xenvif_tx_action(struct xenvif *vif, int budget)
-> 
->  	gnttab_batch_copy(vif->tx_copy_ops, nr_gops);
-> 
-> -	work_done = xenvif_tx_submit(vif, nr_gops);
-> +	work_done = xenvif_tx_submit(vif, budget);
-> 
->  	return work_done;
->  }
-> --
-> 1.7.10.4
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast qlen 1000
+    link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
+    inet6 2001::2/64 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 2001::3/64 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::5054:ff:fe12:3456/64 scope link 
+       valid_lft forever preferred_lft forever
+3: sit0: <NOARP> mtu 1480 qdisc noop 
+    link/sit 0.0.0.0 brd 0.0.0.0
+4: wpan0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 127 qdisc pfifo_fast qlen 300
+    link/[804] aa:aa:aa:aa:aa:aa:aa:aa brd ff:ff:ff:ff:ff:ff:ff:ff
+5: lowpan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1281 qdisc noqueue 
+    link/[804] aa:aa:aa:aa:aa:aa:aa:aa brd ff:ff:ff:ff:ff:ff:ff:ff
+    inet6 2001::1/64 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::1/64 scope link 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::a8aa:aaaa:aaaa:aaaa/64 scope link 
+       valid_lft forever preferred_lft forever
+
+Output of "ifconfig":
+
+eth0      Link encap:Ethernet  HWaddr 52:54:00:12:34:56  
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:12 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:0 (0.0 B)  TX bytes:1144 (1.1 KiB)
+
+lo        Link encap:Local Loopback  
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          UP LOOPBACK RUNNING  MTU:65536  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+lowpan0   Link encap:UNSPEC  HWaddr AA-AA-AA-AA-AA-AA-AA-AA-00-00-00-00-00-00-00-00  
+          UP BROADCAST RUNNING MULTICAST  MTU:1281  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+wpan0     Link encap:UNSPEC  HWaddr AA-AA-AA-AA-AA-AA-AA-AA-00-00-00-00-00-00-00-00  
+          UP BROADCAST RUNNING NOARP  MTU:127  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:10 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:300 
+          RX bytes:0 (0.0 B)  TX bytes:597 (597.0 B)
+
+So i can't see any inet6 addresses on eth0 interface, so maybe it isn't
+a lowpan specific problem.
+
+I use ip/ifconfig from busybox at version:
+
+BusyBox v1.20.2 (2013-11-16 07:37:30 CET) multi-call binary.
+
+- Alex
