@@ -1,72 +1,67 @@
-From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: Re: [PATCH v2 15/16] wl1251: Add sysfs file address for setting permanent mac address
-Date: Tue, 10 Dec 2013 18:14:34 +0100
-Message-ID: <201312101814.35112@pali>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com> <87txegpuyk.fsf@purkki.adurom.net> <201312101710.51015@pali>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: No netlink notification for user-initiated NUD state change
+Date: Tue, 10 Dec 2013 18:15:48 +0100
+Message-ID: <52A74C44.9060600@6wind.com>
+References: <529558B7.5000506@aristanetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2810353.qq4FXZTbCO";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Luciano Coelho <luca@coelho.fi>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
-	aaro.koskinen@iki.fi, pavel@ucw.cz, sre@ring0.de,
-	joni.lapilainen@gmail.com,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Felipe Contreras <felipe.contreras@gmail.com>
-To: Kalle Valo <kvalo@adurom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201312101710.51015@pali>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Bob Gilligan <gilligan@aristanetworks.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:64189 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754805Ab3LJRPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 12:15:53 -0500
+Received: by mail-we0-f176.google.com with SMTP id w62so5335274wes.35
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 09:15:52 -0800 (PST)
+In-Reply-To: <529558B7.5000506@aristanetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart2810353.qq4FXZTbCO
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tuesday 10 December 2013 17:10:50 Pali Roh=C3=A1r wrote:
-> On Tuesday 10 December 2013 16:49:23 Kalle Valo wrote:
-> > Pali Roh=C3=A1r <pali.rohar@gmail.com> writes:
-> > > Driver wl1251 generating mac address randomly at startup
-> > > and there is no way to set permanent mac address via
-> > > SET_IEEE80211_PERM_ADDR. This patch export sysfs file
-> > > which can set permanent mac address by userspace helper
-> > > program. Patch is needed for devices which do not store
-> > > mac address in internal wl1251 eeprom.
-> > >=20
-> > > Signed-off-by: Pali Roh=C3=A1r <pali.rohar@gmail.com>
-> >=20
-> > We have ioctl() command for setting the mac address.
->=20
-> Really? Is there ioctl for setting permanent mac address?
-> Can you show me it?
-
-Now I looked at it again and I did not found any ioctl for it.=20
-There is only ioctl cmd for getting address, not setting it.
-
-#define SIOCETHTOOL 0x8946
-
-/* Get permanent hardware address */
-#define ETHTOOL_GPERMADDR 0x00000020
-
-=2D-=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
-
---nextPart2810353.qq4FXZTbCO
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEABECAAYFAlKnS/sACgkQi/DJPQPkQ1J31wCgrIJnLvfHn3mrxDuz5NXWGAZp
-TdYAnAi+f8roZoYzm97nHVHz9VY/2KqV
-=7/CT
------END PGP SIGNATURE-----
-
---nextPart2810353.qq4FXZTbCO--
+Le 27/11/2013 03:28, Bob Gilligan a =E9crit :
+> Hi -- The neighbour code sends up an RTM_NEWNEIGH netlink notificatio=
+n
+> if the NUD state of a neighbour cache entry is changed by a timer (e.=
+g.
+> from REACHABLE to STALE), even if the lladdr of the entry has not cha=
+nged.
+>
+> But a user-initiated change to the the NUD state of a neighbour cache
+> entry that does not change the lladdr (e.g. via "ip -4 neigh change .=
+=2E.
+> nud ...") does not trigger a netlink notification.
+>
+> I'm wondering if that is intended behavior?  Is there any reason not =
+to
+> send a netlink notification in this case?  The situation we've seen
+> where it would be nice to have these notifications is if a user chang=
+es
+> an existing resolved entry to PERMANENT.
+>
+> This one-line change to neigh_update() would trigger netlink
+> notifications on all user-initiated state changes:
+>
+> Index: linux-3.12.1/net/core/neighbour.c
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> --- linux-3.12.1.orig/net/core/neighbour.c
+> +++ linux-3.12.1/net/core/neighbour.c
+> @@ -1161,6 +1161,7 @@ int neigh_update(struct neighbour *neigh
+>
+> neigh->parms->reachable_time :
+>                                                   0)));
+>                  neigh->nud_state =3D new;
+> +               notify =3D 1;
+>          }
+>
+>          if (lladdr !=3D neigh->ha) {
+>
+>
+>
+> I'd be happy to submit a properly formatted patch if there's agreemen=
+t
+> that this is an issue.
+I think this patch is good, please could you submit it properly?
