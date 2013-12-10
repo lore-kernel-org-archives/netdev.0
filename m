@@ -1,55 +1,111 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 3/3] virtio_net: spelling fixes
-Date: Tue, 10 Dec 2013 17:25:31 +0200
-Message-ID: <20131210152531.GD25293@redhat.com>
-References: <20131209161632.5ac96e5a@nehalam.linuxnetplumber.net>
-	<20131209161845.218642f7@nehalam.linuxnetplumber.net>
+From: Wang Weidong <weidong1991.wang@gmail.com>
+Subject: Re: [PATCH v6 0/3] sctp: check the rto_min and rto_max
+Date: Tue, 10 Dec 2013 23:24:48 +0800
+Message-ID: <52A73240.900@gmail.com>
+References: <1386643597-22156-1-git-send-email-wangweidong1@huawei.com> <52A70E38.9020906@redhat.com> <52A72660.9050403@gmail.com> <52A72780.4020405@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	virtualization@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20131209161845.218642f7@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: nhorman@tuxdriver.com, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Wang Weidong <wangweidong1@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:43706 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750705Ab3LJPYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 10:24:30 -0500
+In-Reply-To: <52A72780.4020405@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 09, 2013 at 04:18:45PM -0800, Stephen Hemminger wrote:
-> 
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> 
+From: Wang Weidong <wangweidong1@huawei.com>
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+On 2013/12/10 22:38, Vlad Yasevich wrote:
+> On 12/10/2013 09:34 AM, Wang Weidong wrote:
+>> From: Wang Weidong <wangweidong1@huawei.com>
+>>
+>> On 2013/12/10 20:51, Daniel Borkmann wrote:
+>>> On 12/10/2013 03:46 AM, Wang Weidong wrote:
+>>>> v5 -> v6
+>>>>     -patch1: do rto_min/max socket option handling in its own patch, and
+>>>>      fix the check of rto_min/max.
+>>>>     -patch2: do rto_min/max sysctl handling in its own patch.
+>>>>     -patch3: add Suggested-by Daniel.
+>>>
+>>> Fyi, for future submission, please keep the full changelog.
+>>>
+>>
+>> Yeah, Thanks! I will do this in future submission.
+>>
+>>> I would have much rather liked seeing you with finishing the last
+>>> 2 patches first, and then approach the newly introduced 1st one
+>>> in this series for now. You still haven't fully fixed whitespace
+>>> issues in your second patch in the function itself which I hoped
+>>> you would address, but fair enough ...
+>>>
+>>
+>> As Vlad's suggestion, I split it to 2 patches. Should I combine these
+>> 2 patch to one?
+>
+> No, they deserve a separate patch.  What Daniel meant was that you
+> should have addressed the sysctl control issues first.  It doesn't
+> really matter all that much here.  In fact the last whitespace patch
+> is the one that doesn't really fit in this series as it fixes something
+> quite unrelated to the reset of the series, but we are talking semantics.
+>
+> I am fine with the series as long as you address the spacing issue
+> in the new proc handler functions.
+>
+Nice, I will fix them in v7.
 
+Regards.
+Wang
 
-> --- a/drivers/net/virtio_net.c	2013-12-09 16:12:41.409051865 -0800
-> +++ b/drivers/net/virtio_net.c	2013-12-09 16:12:43.872996856 -0800
-> @@ -873,7 +873,7 @@ static netdev_tx_t start_xmit(struct sk_
->  /*
->   * Send command via the control virtqueue and check status.  Commands
->   * supported by the hypervisor, as indicated by feature bits, should
-> - * never fail unless improperly formated.
-> + * never fail unless improperly formatted.
->   */
->  static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
->  				 struct scatterlist *out)
-> @@ -1061,7 +1061,7 @@ static void virtnet_set_rx_mode(struct n
->  	void *buf;
->  	int i;
->  
-> -	/* We can't dynamicaly set ndo_set_rx_mode, so return gracefully */
-> +	/* We can't dynamically set ndo_set_rx_mode, so return gracefully */
->  	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_RX))
->  		return;
->  
+>>
+>> The second patch, do you mean that?
+>> I should do it from
+>>
+>> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
+>> +                void __user *buffer, size_t *lenp,
+>> +                loff_t *ppos);
+>> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+>> +                void __user *buffer, size_t *lenp,
+>> +                loff_t *ppos);
+>>
+>> to
+>>
+>> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
+>> +                 void __user *buffer, size_t *lenp,
+>> +                 loff_t *ppos);
+>> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+>> +                 void __user *buffer, size_t *lenp,
+>> +                 loff_t *ppos);
+>>
+>> Just line up to first line? And I should change the third patch as well.
+>
+> No, the prototypes are fine.  I sent a separate comment pointing out
+> the spacing issue.
+>
+> -vlad
+>
+>>
+>> Regards.
+>> Wang
+>>
+>>>> Wang Weidong (3):
+>>>>     sctp: check the rto_min and rto_max in setsockopt
+>>>>     sctp: add check rto_min and rto_max in sysctl
+>>>>     sctp: fix up a spacing
+>>>>
+>>>>    net/sctp/socket.c | 32 +++++++++++++++--------
+>>>>    net/sctp/sysctl.c | 76
+>>>> ++++++++++++++++++++++++++++++++++++++++++++++++-------
+>>>>    2 files changed, 89 insertions(+), 19 deletions(-)
+>>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
