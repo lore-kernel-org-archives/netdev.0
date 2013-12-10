@@ -1,36 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] Netfilter fixes for net
-Date: Mon, 09 Dec 2013 20:43:59 -0500 (EST)
-Message-ID: <20131209.204359.870819413394556150.davem@davemloft.net>
-References: <1386458010-4615-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net-next v4 0/11] bonding: rebuild the lock use for
+ bond monitor
+Date: Mon, 09 Dec 2013 20:46:39 -0500 (EST)
+Message-ID: <20131209.204639.2305259363851633807.davem@davemloft.net>
+References: <52A2D213.70102@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1386458010-4615-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: fubar@us.ibm.com, andy@greyhouse.net, nikolay@redhat.com,
+	vfalico@redhat.com, netdev@vger.kernel.org
+To: dingtianhong@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44933 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750740Ab3LJBqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 20:46:40 -0500
+In-Reply-To: <52A2D213.70102@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sun,  8 Dec 2013 00:13:27 +0100
 
-> The following patchset contains three Netfilter fixes for your net tree,
-> they are:
-> 
-> * fix incorrect comparison in the new netnet hash ipset type, from
->   Dave Jones.
-> 
-> * fix splat in hashlimit due to missing removal of the content of its
->   proc entry in netnamespaces, from Sergey Popovich.
-> 
-> * fix missing rule flushing operation by table in nf_tables. Table
->   flushing was already discussed back in October but this got lost and
->   no patch has hit the tree to address this issue so far, from me.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+Can a bonding expert please review this patch series?
 
-Pulled, thanks Pablo.
+Thanks.
