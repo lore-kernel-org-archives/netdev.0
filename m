@@ -1,43 +1,45 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH 2/2] tun: remove useless codes in tun_chr_aio_read() and
- tun_recvmsg()
-Date: Tue, 10 Dec 2013 12:18:09 -0500
-Message-ID: <52A74CD1.808@gmail.com>
-References: <1386363300-19040-1-git-send-email-zwu.kernel@gmail.com>	<1386363300-19040-2-git-send-email-zwu.kernel@gmail.com> <20131209.203646.425478975392590777.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] micrel: add support for KSZ8041RNLI
+Date: Tue, 10 Dec 2013 21:21:38 +0400
+Message-ID: <52A74DA2.40201@cogentembedded.com>
+References: <201312100220.42153.sergei.shtylyov@cogentembedded.com> <CAMuHMdXdvF+N0+b0Mo3DO4Vj3NCymh-ySU_SMRATFUekSfnaRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	wuzhy@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>, zwu.kernel@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131209.203646.425478975392590777.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdXdvF+N0+b0Mo3DO4Vj3NCymh-ySU_SMRATFUekSfnaRg@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/09/2013 08:36 PM, David Miller wrote:
-> From: Zhi Yong Wu <zwu.kernel@gmail.com>
-> Date: Sat,  7 Dec 2013 04:55:00 +0800
-> 
->> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
->>
->> By checking related codes, it is impossible that ret > len or total_len,
->> so we should remove some useless codes in both above functions.
->>
->> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> 
-> Applied.
+Hello.
 
-Wait a sec.  We want to be able to return a value bigger then len
-to trigger a MSG_TRUNC.  Jason has patches for to fix this.  If you
-apply this, we'll have to re-introduce this code back in.
+On 10-12-2013 17:19, Geert Uytterhoeven wrote:
 
-Same goes for patch 1/2.
+>> Renesas R-Car development boards use KSZ8041RNLI PHY which for some reason has
+>> ID of 0x00221537 that is not documented for KSZ8041-family PHYs and does not
+>> match the  documented ID of  0x0022151x (where 'x' is the revision).  We have
+>> to add the new #define PHY_ID_* and new ksphy_driver[] entry, almost the same
+>> as KSZ8041 one, differing only in the 'phy_id' and 'name' fields.
 
--vlad
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
+
+    Thanks. Though it's not the last version probably...
+
+> I don't seem to get "net eth0: Receive FIFO Overflow" anymore after applying
+> this patch.
+
+    Cool.
+    So you also enabled the Micrel PHY driver in .config? Asking because it's 
+not in 'koelsch_defconfig' or any other R-Car defconfig yet...
+
+> Gr{oetje,eeting}s,
+>
+>                          Geert
+
+WBR, Sergei
+
