@@ -1,38 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/9] net: phy: consolidate PHY reset
-Date: Mon, 09 Dec 2013 20:39:48 -0500 (EST)
-Message-ID: <20131209.203948.65965061063587576.davem@davemloft.net>
-References: <1386363698-8407-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH 0/3] Netfilter fixes for net
+Date: Mon, 09 Dec 2013 20:43:59 -0500 (EST)
+Message-ID: <20131209.204359.870819413394556150.davem@davemloft.net>
+References: <1386458010-4615-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sebastian.hesselbarth@gmail.com,
-	sergei.shtylyov@cogentembedded.com, afleming@gmail.com,
-	kyle@moffetthome.net
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44914 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750902Ab3LJBju (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 20:39:50 -0500
-In-Reply-To: <1386363698-8407-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1386458010-4615-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 6 Dec 2013 13:01:29 -0800
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Sun,  8 Dec 2013 00:13:27 +0100
 
-> This patchset consolidates the PHY reset through the MII BMCR
-> register by using a central place were this is done.
+> The following patchset contains three Netfilter fixes for your net tree,
+> they are:
 > 
-> This patchset resumes the work Kyle Moffett started here:
-> https://lkml.org/lkml/2011/10/20/301
+> * fix incorrect comparison in the new netnet hash ipset type, from
+>   Dave Jones.
 > 
-> Note that at this point, drivers doing funky things after issuing
-> a PHY reset using phy_init_hw() will still suffer from PHY state
-> machine problems, this will be taken care of later on.
+> * fix splat in hashlimit due to missing removal of the content of its
+>   proc entry in netnamespaces, from Sergey Popovich.
+> 
+> * fix missing rule flushing operation by table in nf_tables. Table
+>   flushing was already discussed back in October but this got lost and
+>   no patch has hit the tree to address this issue so far, from me.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
 
-This looks fantastic, thanks for tackling this I know it isn't
-easy.
-
-Applied, thanks again!
+Pulled, thanks Pablo.
