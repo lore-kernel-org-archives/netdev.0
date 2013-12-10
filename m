@@ -1,108 +1,58 @@
-From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Subject: [PATCH net] ipv6: do not erase dst address with flow label destination
-Date: Tue, 10 Dec 2013 15:15:46 +0100
-Message-ID: <1386684946-18510-1-git-send-email-florent.fourcot@enst-bretagne.fr>
-Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-To: netdev@vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH net-next v2] 6lowpan: Moving generic compression code
+ into 6lowpan_iphc.c
+Date: Tue, 10 Dec 2013 15:19:24 +0100
+Message-ID: <20131210141923.GA32698@omega>
+References: <1386576963-21764-1-git-send-email-jukka.rissanen@linux.intel.com>
+ <20131209081833.GB2062@omega>
+ <09E9761B-6A18-4F28-9315-DD6D44C45597@holtmann.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Jukka Rissanen <jukka.rissanen@linux.intel.com>,
+	netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fourcot.fr ([217.70.191.14]:49082 "EHLO olfflo.fourcot.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753139Ab3LJOP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Dec 2013 09:15:59 -0500
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:43285 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751954Ab3LJOTb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 09:19:31 -0500
+Received: by mail-wi0-f170.google.com with SMTP id hq4so5390984wib.5
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 06:19:29 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <09E9761B-6A18-4F28-9315-DD6D44C45597@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is following b579035ff766c9412e2b92abf5cab794bff102b6
-	"ipv6: remove old conditions on flow label sharing"
+On Tue, Dec 10, 2013 at 01:12:10PM +0100, Marcel Holtmann wrote:
+> Hi Alexander,
+> 
+> > thanks for working on this! Now my acked-by is correct, sry. Didn't
+> > catch the debug output at first time.
+> > 
+> >> Because the IEEE 802154 and Bluetooth share the IP header compression
+> >> and uncompression code, the common code is moved to 6lowpan_iphc.c
+> >> file.
+> >> 
+> >> Signed-off-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+> >> ---
+> > 
+> > Acked-by: Alexander Aring <alex.aring@gmail.com>
+> 
+> are you fine with us carrying these patches through bluetooth-next tree.
+> 
 
-Since there is no reason to restrict a label to a
-destination, we should not erase the destination value of a
-socket with the value contained in the flow label storage.
+yes.
 
-This patch allows to really have the same flow label to more
-than one destination.
+> Dave, or do you want to merge this one into net-next and then we have wireless-next pulling that in.
+> 
+> I am trying to figure out on how we get this handled with the minimum of conflicts during the next merge window. And also at the same time get enough exposure via linux-next. The Bluetooth part is getting ready to be pushed into bluetooth-next.
+> 
+I have some pending patches for udp iphc format and a rework of the
+fragmentation api. I already rebased these patches on Jukka's patch.
 
-Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
----
- net/dccp/ipv6.c     | 1 -
- net/ipv6/datagram.c | 1 -
- net/ipv6/raw.c      | 1 -
- net/ipv6/tcp_ipv6.c | 1 -
- net/ipv6/udp.c      | 1 -
- net/l2tp/l2tp_ip6.c | 1 -
- 6 files changed, 6 deletions(-)
+So you can apply this patch in bluetooth-next.
+Then I will wait until bluetooth-next is merged into net-next.
 
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 4ac71ff..2b90a78 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -851,7 +851,6 @@ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 			flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
- 			if (flowlabel == NULL)
- 				return -EINVAL;
--			usin->sin6_addr = flowlabel->dst;
- 			fl6_sock_release(flowlabel);
- 		}
- 	}
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 8dfe1f4..93b1aa3 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -73,7 +73,6 @@ int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 			flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
- 			if (flowlabel == NULL)
- 				return -EINVAL;
--			usin->sin6_addr = flowlabel->dst;
- 		}
- 	}
- 
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 7fb4e14..b6bb87e 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -792,7 +792,6 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 				flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
- 				if (flowlabel == NULL)
- 					return -EINVAL;
--				daddr = &flowlabel->dst;
- 			}
- 		}
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 7d61263..9a6ca1d 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -156,7 +156,6 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 			flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
- 			if (flowlabel == NULL)
- 				return -EINVAL;
--			usin->sin6_addr = flowlabel->dst;
- 			fl6_sock_release(flowlabel);
- 		}
- 	}
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index bcd5699..089c741 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1140,7 +1140,6 @@ do_udp_sendmsg:
- 				flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
- 				if (flowlabel == NULL)
- 					return -EINVAL;
--				daddr = &flowlabel->dst;
- 			}
- 		}
- 
-diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index d9b437e..bb6e206 100644
---- a/net/l2tp/l2tp_ip6.c
-+++ b/net/l2tp/l2tp_ip6.c
-@@ -528,7 +528,6 @@ static int l2tp_ip6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 				flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
- 				if (flowlabel == NULL)
- 					return -EINVAL;
--				daddr = &flowlabel->dst;
- 			}
- 		}
- 
--- 
-1.8.5.1
+Is that okay for you?
+
+- Alex
