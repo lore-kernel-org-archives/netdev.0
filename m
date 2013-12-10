@@ -1,319 +1,108 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [patch net-next v2 4/5] neigh: restore old behaviour of default
- parms values
-Date: Tue, 10 Dec 2013 16:09:05 +0200
-Message-ID: <CAJZOPZ+9uFxfSbatKmOUy1pqPC9qQPnH5O90YzB8VAMK-p72VQ@mail.gmail.com>
-References: <1386440817-7846-1-git-send-email-jiri@resnulli.us>
-	<1386440817-7846-5-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: [PATCH net] ipv6: do not erase dst address with flow label destination
+Date: Tue, 10 Dec 2013 15:15:46 +0100
+Message-ID: <1386684946-18510-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:47555 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752766Ab3LJOJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 09:09:07 -0500
-Received: by mail-pb0-f45.google.com with SMTP id rp16so7713707pbb.32
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 06:09:05 -0800 (PST)
-In-Reply-To: <1386440817-7846-5-git-send-email-jiri@resnulli.us>
+Received: from fourcot.fr ([217.70.191.14]:49082 "EHLO olfflo.fourcot.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753139Ab3LJOP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Dec 2013 09:15:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 7, 2013 at 8:26 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Previously inet devices were only constructed when addresses are added.
-> Therefore the default neigh parms values they get are the ones at the
-> time of these operations.
+This patch is following b579035ff766c9412e2b92abf5cab794bff102b6
+	"ipv6: remove old conditions on flow label sharing"
 
->
-> Now that we're creating inet devices earlier, this changes the behaviour
-> of default neigh parms values in an incompatible way (see bug #8519).
->
-> This patch creates a compromise by setting the default values at the
-> same point as before but only for those that have not been explicitly
-> set by the user since the inet device's creation.
->
-> Introduced by:
-> commit 8030f54499925d073a88c09f30d5d844fb1b3190
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Thu Feb 22 01:53:47 2007 +0900
->
->     [IPV4] devinet: Register inetdev earlier.
->
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  include/linux/inetdevice.h |  7 +++++
->  include/net/neighbour.h    | 13 ++++++++
->  net/core/neighbour.c       | 74 ++++++++++++++++++++++++++++++++++++++++++----
->  net/ipv4/devinet.c         |  2 ++
->  net/ipv4/ipmr.c            |  2 ++
->  5 files changed, 92 insertions(+), 6 deletions(-)
->
-> diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-> index 0d678ae..ae174ca 100644
-> --- a/include/linux/inetdevice.h
-> +++ b/include/linux/inetdevice.h
-> @@ -220,6 +220,13 @@ static inline struct in_device *__in_dev_get_rtnl(const struct net_device *dev)
->         return rtnl_dereference(dev->ip_ptr);
->  }
->
-> +static inline struct neigh_parms *__in_dev_arp_parms_get_rcu(const struct net_device *dev)
-> +{
-> +       struct in_device *in_dev = __in_dev_get_rcu(dev);
-> +
-> +       return in_dev ? in_dev->arp_parms : NULL;
-> +}
-> +
->  void in_dev_finish_destroy(struct in_device *idev);
->
->  static inline void in_dev_put(struct in_device *idev)
-> diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-> index 95615c9..41b1ce6 100644
-> --- a/include/net/neighbour.h
-> +++ b/include/net/neighbour.h
-> @@ -21,6 +21,7 @@
->  #include <linux/skbuff.h>
->  #include <linux/rcupdate.h>
->  #include <linux/seq_file.h>
-> +#include <linux/bitmap.h>
->
->  #include <linux/err.h>
->  #include <linux/sysctl.h>
-> @@ -81,16 +82,28 @@ struct neigh_parms {
->
->         int     reachable_time;
->         int     data[NEIGH_VAR_DATA_MAX];
-> +       DECLARE_BITMAP(data_state, NEIGH_VAR_DATA_MAX);
->  };
->
->  static inline void neigh_var_set(struct neigh_parms *p, int index, int val)
->  {
-> +       set_bit(index, p->data_state);
->         p->data[index] = val;
->  }
->
->  #define NEIGH_VAR(p, attr) ((p)->data[NEIGH_VAR_ ## attr])
->  #define NEIGH_VAR_SET(p, attr, val) neigh_var_set(p, NEIGH_VAR_ ## attr, val)
->
-> +static inline void neigh_parms_data_state_setall(struct neigh_parms *p)
-> +{
-> +       bitmap_fill(p->data_state, NEIGH_VAR_DATA_MAX);
-> +}
-> +
-> +static inline void neigh_parms_data_state_cleanall(struct neigh_parms *p)
-> +{
-> +       bitmap_zero(p->data_state, NEIGH_VAR_DATA_MAX);
-> +}
-> +
->  struct neigh_statistics {
->         unsigned long allocs;           /* number of allocated neighs */
->         unsigned long destroys;         /* number of destroyed neighs */
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 65ead08..c4a7879 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -38,6 +38,7 @@
->  #include <linux/random.h>
->  #include <linux/string.h>
->  #include <linux/log2.h>
-> +#include <linux/inetdevice.h>
->
->  #define DEBUG
->  #define NEIGH_DEBUG 1
-> @@ -1464,6 +1465,8 @@ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
->                 p->next         = tbl->parms.next;
->                 tbl->parms.next = p;
->                 write_unlock_bh(&tbl->lock);
-> +
-> +               neigh_parms_data_state_cleanall(p);
->         }
->         return p;
->  }
-> @@ -2813,22 +2816,68 @@ static int proc_unres_qlen(struct ctl_table *ctl, int write,
->         return ret;
->  }
->
-> +static struct neigh_parms *neigh_get_dev_parms_rcu(struct net_device *dev,
-> +                                                  int family)
-> +{
-> +       if (family == AF_INET)
-> +               return __in_dev_arp_parms_get_rcu(dev);
-> +       return NULL;
-> +}
-> +
-> +static void neigh_copy_dflt_parms(struct net *net, struct neigh_parms *p,
-> +                                 int index)
-> +{
-> +       struct net_device *dev;
-> +       int family = neigh_parms_family(p);
-> +
-> +       rcu_read_lock();
-> +       for_each_netdev_rcu(net, dev) {
-> +               struct neigh_parms *dst_p =
-> +                               neigh_get_dev_parms_rcu(dev, family);
-> +
-> +               if (dst_p && !test_bit(index, dst_p->data_state))
-> +                       dst_p->data[index] = p->data[index];
-> +       }
-> +       rcu_read_unlock();
-> +}
-> +
-> +static void neigh_proc_update(struct ctl_table *ctl, int write)
-> +{
-> +       struct net_device *dev = ctl->extra1;
-> +       struct neigh_parms *p = ctl->extra2;
-> +       struct net *net = p->net;
+Since there is no reason to restrict a label to a
+destination, we should not erase the destination value of a
+socket with the value contained in the flow label storage.
 
+This patch allows to really have the same flow label to more
+than one destination.
 
-Jiri, net-next build fails as of this line, if one doesn't have
-CONFIG_NET_NS on their .config
+Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+---
+ net/dccp/ipv6.c     | 1 -
+ net/ipv6/datagram.c | 1 -
+ net/ipv6/raw.c      | 1 -
+ net/ipv6/tcp_ipv6.c | 1 -
+ net/ipv6/udp.c      | 1 -
+ net/l2tp/l2tp_ip6.c | 1 -
+ 6 files changed, 6 deletions(-)
 
-net/core/neighbour.c: In function neigh_proc_update:
-net/core/neighbour.c:2853: error: struct neigh_parms has no member named net
-
-can you please fix?
-
-Or.
-
-
-
-
-> +       int index = (int *) ctl->data - p->data;
-> +
-> +       if (!write)
-> +               return;
-> +
-> +       set_bit(index, p->data_state);
-> +       if (!dev) /* NULL dev means this is default value */
-> +               neigh_copy_dflt_parms(net, p, index);
-> +}
-> +
->  static int neigh_proc_dointvec_zero_intmax(struct ctl_table *ctl, int write,
->                                            void __user *buffer,
->                                            size_t *lenp, loff_t *ppos)
->  {
->         struct ctl_table tmp = *ctl;
-> +       int ret;
->
->         tmp.extra1 = &zero;
->         tmp.extra2 = &int_max;
->
-> -       return proc_dointvec_minmax(&tmp, write, buffer, lenp, ppos);
-> +       ret = proc_dointvec_minmax(&tmp, write, buffer, lenp, ppos);
-> +       neigh_proc_update(ctl, write);
-> +       return ret;
->  }
->
->  int neigh_proc_dointvec(struct ctl_table *ctl, int write,
->                         void __user *buffer, size_t *lenp, loff_t *ppos)
->  {
-> -       return proc_dointvec(ctl, write, buffer, lenp, ppos);
-> +       int ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-> +
-> +       neigh_proc_update(ctl, write);
-> +       return ret;
->  }
->  EXPORT_SYMBOL(neigh_proc_dointvec);
->
-> @@ -2836,7 +2885,10 @@ int neigh_proc_dointvec_jiffies(struct ctl_table *ctl, int write,
->                                 void __user *buffer,
->                                 size_t *lenp, loff_t *ppos)
->  {
-> -       return proc_dointvec_jiffies(ctl, write, buffer, lenp, ppos);
-> +       int ret = proc_dointvec_jiffies(ctl, write, buffer, lenp, ppos);
-> +
-> +       neigh_proc_update(ctl, write);
-> +       return ret;
->  }
->  EXPORT_SYMBOL(neigh_proc_dointvec_jiffies);
->
-> @@ -2844,14 +2896,20 @@ static int neigh_proc_dointvec_userhz_jiffies(struct ctl_table *ctl, int write,
->                                               void __user *buffer,
->                                               size_t *lenp, loff_t *ppos)
->  {
-> -       return proc_dointvec_userhz_jiffies(ctl, write, buffer, lenp, ppos);
-> +       int ret = proc_dointvec_userhz_jiffies(ctl, write, buffer, lenp, ppos);
-> +
-> +       neigh_proc_update(ctl, write);
-> +       return ret;
->  }
->
->  int neigh_proc_dointvec_ms_jiffies(struct ctl_table *ctl, int write,
->                                    void __user *buffer,
->                                    size_t *lenp, loff_t *ppos)
->  {
-> -       return proc_dointvec_ms_jiffies(ctl, write, buffer, lenp, ppos);
-> +       int ret = proc_dointvec_ms_jiffies(ctl, write, buffer, lenp, ppos);
-> +
-> +       neigh_proc_update(ctl, write);
-> +       return ret;
->  }
->  EXPORT_SYMBOL(neigh_proc_dointvec_ms_jiffies);
->
-> @@ -2859,7 +2917,10 @@ static int neigh_proc_dointvec_unres_qlen(struct ctl_table *ctl, int write,
->                                           void __user *buffer,
->                                           size_t *lenp, loff_t *ppos)
->  {
-> -       return proc_unres_qlen(ctl, write, buffer, lenp, ppos);
-> +       int ret = proc_unres_qlen(ctl, write, buffer, lenp, ppos);
-> +
-> +       neigh_proc_update(ctl, write);
-> +       return ret;
->  }
->
->  #define NEIGH_PARMS_DATA_OFFSET(index) \
-> @@ -2962,6 +3023,7 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
->         for (i = 0; i < ARRAY_SIZE(t->neigh_vars); i++) {
->                 t->neigh_vars[i].data += (long) p;
->                 t->neigh_vars[i].extra1 = dev;
-> +               t->neigh_vars[i].extra2 = p;
->         }
->
->         if (dev) {
-> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-> index e1c1953..43065be 100644
-> --- a/net/ipv4/devinet.c
-> +++ b/net/ipv4/devinet.c
-> @@ -500,6 +500,7 @@ static int inet_set_ifa(struct net_device *dev, struct in_ifaddr *ifa)
->                 return -ENOBUFS;
->         }
->         ipv4_devconf_setall(in_dev);
-> +       neigh_parms_data_state_setall(in_dev->arp_parms);
->         if (ifa->ifa_dev != in_dev) {
->                 WARN_ON(ifa->ifa_dev);
->                 in_dev_hold(in_dev);
-> @@ -747,6 +748,7 @@ static struct in_ifaddr *rtm_to_ifaddr(struct net *net, struct nlmsghdr *nlh,
->                 goto errout;
->
->         ipv4_devconf_setall(in_dev);
-> +       neigh_parms_data_state_setall(in_dev->arp_parms);
->         in_dev_hold(in_dev);
->
->         if (tb[IFA_ADDRESS] == NULL)
-> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-> index 62212c7..421a249 100644
-> --- a/net/ipv4/ipmr.c
-> +++ b/net/ipv4/ipmr.c
-> @@ -425,6 +425,7 @@ struct net_device *ipmr_new_tunnel(struct net *net, struct vifctl *v)
->                                 goto failure;
->
->                         ipv4_devconf_setall(in_dev);
-> +                       neigh_parms_data_state_setall(in_dev->arp_parms);
->                         IPV4_DEVCONF(in_dev->cnf, RP_FILTER) = 0;
->
->                         if (dev_open(dev))
-> @@ -517,6 +518,7 @@ static struct net_device *ipmr_reg_vif(struct net *net, struct mr_table *mrt)
->         }
->
->         ipv4_devconf_setall(in_dev);
-> +       neigh_parms_data_state_setall(in_dev->arp_parms);
->         IPV4_DEVCONF(in_dev->cnf, RP_FILTER) = 0;
->         rcu_read_unlock();
->
-> --
-> 1.8.3.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 4ac71ff..2b90a78 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -851,7 +851,6 @@ static int dccp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 			flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
+ 			if (flowlabel == NULL)
+ 				return -EINVAL;
+-			usin->sin6_addr = flowlabel->dst;
+ 			fl6_sock_release(flowlabel);
+ 		}
+ 	}
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 8dfe1f4..93b1aa3 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -73,7 +73,6 @@ int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 			flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
+ 			if (flowlabel == NULL)
+ 				return -EINVAL;
+-			usin->sin6_addr = flowlabel->dst;
+ 		}
+ 	}
+ 
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 7fb4e14..b6bb87e 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -792,7 +792,6 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 				flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
+ 				if (flowlabel == NULL)
+ 					return -EINVAL;
+-				daddr = &flowlabel->dst;
+ 			}
+ 		}
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 7d61263..9a6ca1d 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -156,7 +156,6 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
+ 			flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
+ 			if (flowlabel == NULL)
+ 				return -EINVAL;
+-			usin->sin6_addr = flowlabel->dst;
+ 			fl6_sock_release(flowlabel);
+ 		}
+ 	}
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index bcd5699..089c741 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1140,7 +1140,6 @@ do_udp_sendmsg:
+ 				flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
+ 				if (flowlabel == NULL)
+ 					return -EINVAL;
+-				daddr = &flowlabel->dst;
+ 			}
+ 		}
+ 
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index d9b437e..bb6e206 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -528,7 +528,6 @@ static int l2tp_ip6_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 				flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
+ 				if (flowlabel == NULL)
+ 					return -EINVAL;
+-				daddr = &flowlabel->dst;
+ 			}
+ 		}
+ 
+-- 
+1.8.5.1
