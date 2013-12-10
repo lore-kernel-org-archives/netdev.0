@@ -1,89 +1,92 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH v2 net-next 2/2] vxlan: leave multicast group when vxlan device down
-Date: Tue, 10 Dec 2013 16:37:33 +0800
-Message-ID: <1386664653-27082-2-git-send-email-gaofeng@cn.fujitsu.com>
-References: <1386664653-27082-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: stephen@networkplumber.org, davem@davemloft.net,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: netdev@vger.kernel.org
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next] net_sched: add messages to distinguish errors when modify qdisc
+Date: Tue, 10 Dec 2013 16:49:00 +0800
+Message-ID: <1386665340-16820-1-git-send-email-yangyingliang@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:13094 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755823Ab3LJIgw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Dec 2013 03:36:52 -0500
-In-Reply-To: <1386664653-27082-1-git-send-email-gaofeng@cn.fujitsu.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:16089 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752123Ab3LJItS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 03:49:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-vxlan_group_used only allows device to leave multicast group
-when the remote_ip of this vxlan device is difference from
-other vxlan devices' remote_ip. this will cause device not
-leave multicast group untile the vn_sock of this vxlan deivce
-being released.
+When tc_modify_qdisc return EINVAL, user cannot distinguish
+errors easliy. Add some messages to make it easier.
 
-The check in vxlan_group_used is not quite precise. since even
-the remote_ip is same, but these vxlan devices may use different
-lower devices, and they may use different vn_socks.
-
-Only when some vxlan devices use the same vn_sock,same lower
-device and same remote_ip, the mc_list of the vn_sock should
-not be changed.
-
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 ---
- drivers/net/vxlan.c | 27 +++++++++++++++++++++------
- 1 file changed, 21 insertions(+), 6 deletions(-)
+ net/sched/sch_api.c | 25 ++++++++++++++++++++-----
+ 1 file changed, 20 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 43dc9ee..58f6a0c 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -916,17 +916,32 @@ static bool vxlan_snoop(struct net_device *dev,
- }
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index cd81505..6b0e53c 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -995,8 +995,11 @@ static int qdisc_change(struct Qdisc *sch, struct nlattr **tca)
+ 	int err = 0;
  
- /* See if multicast group is already in use by other ID */
--static bool vxlan_group_used(struct vxlan_net *vn, union vxlan_addr *remote_ip)
-+static bool vxlan_group_used(struct vxlan_net *vn, struct vxlan_dev *dev)
- {
- 	struct vxlan_dev *vxlan;
- 
-+	/* The vxlan_sock is only used by dev, leaving group has
-+	 * no effect on other vxlan devices.
-+	 */
-+	if (atomic_read(&dev->vn_sock->refcnt) == 1)
-+		return false;
-+
- 	list_for_each_entry(vxlan, &vn->vxlan_list, next) {
--		if (!netif_running(vxlan->dev))
-+		if (!netif_running(vxlan->dev) || vxlan == dev)
- 			continue;
- 
--		if (vxlan_addr_equal(&vxlan->default_dst.remote_ip,
--				     remote_ip))
--			return true;
-+		if (vxlan->vn_sock != dev->vn_sock)
-+			continue;
-+
-+		if (!vxlan_addr_equal(&vxlan->default_dst.remote_ip,
-+				      &dev->default_dst.remote_ip))
-+			continue;
-+
-+		if (vxlan->default_dst.remote_ifindex !=
-+		    dev->default_dst.remote_ifindex)
-+			continue;
-+
-+		return true;
+ 	if (tca[TCA_OPTIONS]) {
+-		if (sch->ops->change == NULL)
++		if (sch->ops->change == NULL) {
++			pr_err_ratelimited("Can't change %s qdisc parameters.\n",
++					   sch->ops->id);
+ 			return -EINVAL;
++		}
+ 		err = sch->ops->change(sch, tca[TCA_OPTIONS]);
+ 		if (err)
+ 			return err;
+@@ -1186,15 +1189,20 @@ replay:
+ 			if (tcm->tcm_handle) {
+ 				if (q && !(n->nlmsg_flags & NLM_F_REPLACE))
+ 					return -EEXIST;
+-				if (TC_H_MIN(tcm->tcm_handle))
++				if (TC_H_MIN(tcm->tcm_handle)) {
++					pr_err_ratelimited("Wrong minor handle, it must be 0.\n");
+ 					return -EINVAL;
++				}
+ 				q = qdisc_lookup(dev, tcm->tcm_handle);
+ 				if (!q)
+ 					goto create_n_graft;
+ 				if (n->nlmsg_flags & NLM_F_EXCL)
+ 					return -EEXIST;
+-				if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], q->ops->id))
++				if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], q->ops->id)) {
++					pr_err_ratelimited("A different qdisc(%s) with handle %d: already exists.\n",
++							   q->ops->id, TC_H_MAJ(tcm->tcm_handle) >> 16);
+ 					return -EINVAL;
++				}
+ 				if (q == p ||
+ 				    (p && check_loop(q, p, 0)))
+ 					return -ELOOP;
+@@ -1232,8 +1240,10 @@ replay:
+ 			}
+ 		}
+ 	} else {
+-		if (!tcm->tcm_handle)
++		if (!tcm->tcm_handle) {
++			pr_err_ratelimited("Wrong handle, it can't be 0.\n");
+ 			return -EINVAL;
++		}
+ 		q = qdisc_lookup(dev, tcm->tcm_handle);
  	}
  
- 	return false;
-@@ -1981,7 +1996,7 @@ static int vxlan_stop(struct net_device *dev)
- 	struct vxlan_sock *vs = vxlan->vn_sock;
- 
- 	if (vs && vxlan_addr_multicast(&vxlan->default_dst.remote_ip) &&
--	    ! vxlan_group_used(vn, &vxlan->default_dst.remote_ip)) {
-+	    !vxlan_group_used(vn, vxlan)) {
- 		vxlan_sock_hold(vs);
- 		dev_hold(dev);
- 		queue_work(vxlan_wq, &vxlan->igmp_leave);
+@@ -1242,8 +1252,13 @@ replay:
+ 		return -ENOENT;
+ 	if (n->nlmsg_flags & NLM_F_EXCL)
+ 		return -EEXIST;
+-	if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], q->ops->id))
++	if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], q->ops->id)) {
++		char name[IFNAMSIZ];
++		nla_strlcpy(name, tca[TCA_KIND], IFNAMSIZ);
++		pr_err_ratelimited("A %s qdisc already exists, can't change its parameters to %s's.\n",
++				   q->ops->id, name);
+ 		return -EINVAL;
++	}
+ 	err = qdisc_change(q, tca);
+ 	if (err == 0)
+ 		qdisc_notify(net, skb, n, clid, NULL, q);
 -- 
-1.8.3.1
+1.8.0
