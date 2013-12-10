@@ -1,88 +1,63 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH 1/2] bgmac: drop duplicated PHY defines
-Date: Tue, 10 Dec 2013 18:36:49 +0100
-Message-ID: <CACna6rzRVQYrOnnJQiHE83d+aj6Hf693gnLY-m-iWffffzD3jQ@mail.gmail.com>
-References: <1386668966-24562-1-git-send-email-zajec5@gmail.com>
-	<CAGVrzcYCT0QUKuRGktH-4xVrXtort-Uy4phvq8yZg3nU8SPFjw@mail.gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 1/3] virtio_net: set multicast filter list to
+ host
+Date: Tue, 10 Dec 2013 12:40:19 -0500
+Message-ID: <52A75203.30505@gmail.com>
+References: <20131209161632.5ac96e5a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:46091 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754597Ab3LJRgu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 12:36:50 -0500
-Received: by mail-ob0-f181.google.com with SMTP id uy5so5707571obc.12
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 09:36:50 -0800 (PST)
-In-Reply-To: <CAGVrzcYCT0QUKuRGktH-4xVrXtort-Uy4phvq8yZg3nU8SPFjw@mail.gmail.com>
+Received: from mail-yh0-f43.google.com ([209.85.213.43]:37656 "EHLO
+	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752303Ab3LJRkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 12:40:24 -0500
+Received: by mail-yh0-f43.google.com with SMTP id a41so4057201yho.2
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 09:40:23 -0800 (PST)
+In-Reply-To: <20131209161632.5ac96e5a@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/12/10 Florian Fainelli <f.fainelli@gmail.com>:
-> Hello Rafal
->
-> 2013/12/10 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
->> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
->> ---
->>  drivers/net/ethernet/broadcom/bgmac.c |    6 ++----
->>  drivers/net/ethernet/broadcom/bgmac.h |   21 ---------------------
->>  2 files changed, 2 insertions(+), 25 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/eth=
-ernet/broadcom/bgmac.c
->> index 0452937..ad4b2f1 100644
->> --- a/drivers/net/ethernet/broadcom/bgmac.c
->> +++ b/drivers/net/ethernet/broadcom/bgmac.c
->> @@ -725,11 +725,9 @@ static void bgmac_phy_reset(struct bgmac *bgmac=
-)
->>         if (bgmac->phyaddr =3D=3D BGMAC_PHY_NOREGS)
->>                 return;
->>
->> -       bgmac_phy_write(bgmac, bgmac->phyaddr, BGMAC_PHY_CTL,
->> -                       BGMAC_PHY_CTL_RESET);
->> +       bgmac_phy_write(bgmac, bgmac->phyaddr, MII_BMCR, BMCR_RESET)=
-;
->>         udelay(100);
->> -       if (bgmac_phy_read(bgmac, bgmac->phyaddr, BGMAC_PHY_CTL) &
->> -           BGMAC_PHY_CTL_RESET)
->> +       if (bgmac_phy_read(bgmac, bgmac->phyaddr, MII_BMCR) & BMCR_R=
-ESET)
->>                 bgmac_err(bgmac, "PHY reset failed\n");
->>         bgmac_phy_init(bgmac);
->
-> phy_init_hw() now issues a PHY reset through BMCR_RESET, you might
-> want to use it instead of this here:
->
-> - the 100 microseconds delay might not be sufficient for all PHYs out=
- there
-> - any PHY fixup (although there are none for BCM47xx yet) would be
-> wiped out by this "wild" PHY reset
->
-> This is quite new, so I do not expect you knew about this.
+On 12/09/2013 07:16 PM, Stephen Hemminger wrote:
+> The virtio_net driver never sends the multicast address list to
+> the host. This is because send command takes a pointer to scatter list
+> to send but only inserts that one entry into the outgoing scatter list.
+> 
+> This bug has been there since:
+> commit f565a7c259d71cc186753653d978c646d2354b36
+> Author: Alex Williamson <alex.williamson@hp.com>
+> Date:   Wed Feb 4 09:02:45 2009 +0000
+> 
+>     virtio_net: Add a MAC filter table
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
+> --- a/drivers/net/virtio_net.c	2013-12-09 16:12:03.897891975 -0800
+> +++ b/drivers/net/virtio_net.c	2013-12-09 16:12:36.353164803 -0800
+> @@ -893,7 +893,7 @@ static bool virtnet_send_command(struct
+>  	sg_init_one(&hdr, &ctrl, sizeof(ctrl));
+>  	sgs[out_num++] = &hdr;
+>  
+> -	if (out)
+> +	for (; out; out = sg_next(out))
+>  		sgs[out_num++] = out;
+>  	if (in)
+>  		sgs[out_num + in_num++] = in;
 
-Thanks for pointing that! I was looking for BMCR_RESET usages with:
-http://lxr.free-electrons.com/ident?v=3D3.12;i=3DBMCR_RESET
-but it didn't find any interesting (because it uses 3.12 kernel sources=
-).
+Hi Stephen
 
-This udelay is from specs based on Broadcom's code. What you have in
-phy_poll_reset sounds indeed much more sane.
+Amos Kong pointed out in your original thread, that this doesn't seem to
+be needed and is working for him.  I just checked my VMs and it's
+working for me as well without this.  Have you seen it fail?
 
-If you take a look at bgmac_phy_init, it actually has kind of fixups.
-They are just programmed per-Broadcom chip id and not per PHY id as
-you normally do that with phy_register_fixup_for_uid. But I think we
-should be able to workaround that.
+Amos did a very good job explaining, but it basically boils down to the
+fact that virtqueue_add_sgs() treats each entry of the sgs array
+as a list and walks each list using exactly the same code as this patch
+proposes :).  virtqueue_add() also walks each array element as a list.
 
-So I fully agree we should use phy_init_hw, but I think we should
-implement that in a separated patch and on top of PHY cleanups I
-recently did. Just to simplify bisecting potential regressions.
-
-Are you OK with applying this patch as-is and working on another one
-cleaning PHY reset/init in a nicer way?
-
---=20
-Rafa=C5=82
+-vlad
