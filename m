@@ -1,89 +1,89 @@
-From: Paul Durrant <paul.durrant@citrix.com>
-Subject: [PATCH net] xen-netback: fix abuse of napi budget
-Date: Tue, 10 Dec 2013 10:16:40 +0000
-Message-ID: <1386670600-5882-1-git-send-email-paul.durrant@citrix.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] net: ovs: use CRC32 accelerated flow hash if available
+Date: Tue, 10 Dec 2013 10:20:46 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7475@saturn3.aculab.com>
+References: <1386669178-14450-1-git-send-email-ffusco@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Durrant <paul.durrant@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <dev@openvswitch.org>,
+	"Daniel Borkmann" <dborkman@redhat.com>,
+	"Thomas Graf" <tgraf@redhat.com>
+To: "Francesco Fusco" <ffusco@redhat.com>, <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:53022 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753035Ab3LJKQp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 05:16:45 -0500
+Received: from mx0.aculab.com ([213.249.233.131]:34980 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752628Ab3LJKVo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 05:21:44 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 20831-07 for <netdev@vger.kernel.org>;
+ Tue, 10 Dec 2013 10:21:43 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1386669178-14450-1-git-send-email-ffusco@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netback seemed to be somewhat confused about the napi budget parameter and
-basically ignored it. This patch fixes that, properly limiting the work done
-in each poll.
+> From: Francesco Fusco
+...
+> One possible direction to achieve higher performance consists
+> of replacing jhash2() with an architecture specific hash
+> function pretty much like the Intel folks have proposed in
+> DPDK. DPDK provides a very fast hash function that leverages
+> the 32bit crc32l instruction part of the Intel SSE4.2
+> instruction set.
+...
 
-Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
----
- drivers/net/xen-netback/netback.c |   14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+IIRC the cpu can execute multiple crc32l instructions in parallel.
+If you use a software lookup table to crc (say) 256 zero bytes
+it should be possible to crc chunks of a large buffer in parallel.
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 43341b8..83b4e5b 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1351,14 +1351,15 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
- 	return false;
- }
- 
--static unsigned xenvif_tx_build_gops(struct xenvif *vif)
-+static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
- {
- 	struct gnttab_copy *gop = vif->tx_copy_ops, *request_gop;
- 	struct sk_buff *skb;
- 	int ret;
- 
- 	while ((nr_pending_reqs(vif) + XEN_NETBK_LEGACY_SLOTS_MAX
--		< MAX_PENDING_REQS)) {
-+		< MAX_PENDING_REQS) &&
-+	       (skb_queue_len(&vif->tx_queue) < budget)) {
- 		struct xen_netif_tx_request txreq;
- 		struct xen_netif_tx_request txfrags[XEN_NETBK_LEGACY_SLOTS_MAX];
- 		struct page *page;
-@@ -1520,14 +1521,13 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif)
- }
- 
- 
--static int xenvif_tx_submit(struct xenvif *vif, int budget)
-+static int xenvif_tx_submit(struct xenvif *vif)
- {
- 	struct gnttab_copy *gop = vif->tx_copy_ops;
- 	struct sk_buff *skb;
- 	int work_done = 0;
- 
--	while (work_done < budget &&
--	       (skb = __skb_dequeue(&vif->tx_queue)) != NULL) {
-+	while ((skb = __skb_dequeue(&vif->tx_queue)) != NULL) {
- 		struct xen_netif_tx_request *txp;
- 		u16 pending_idx;
- 		unsigned data_len;
-@@ -1602,14 +1602,14 @@ int xenvif_tx_action(struct xenvif *vif, int budget)
- 	if (unlikely(!tx_work_todo(vif)))
- 		return 0;
- 
--	nr_gops = xenvif_tx_build_gops(vif);
-+	nr_gops = xenvif_tx_build_gops(vif, budget);
- 
- 	if (nr_gops == 0)
- 		return 0;
- 
- 	gnttab_batch_copy(vif->tx_copy_ops, nr_gops);
- 
--	work_done = xenvif_tx_submit(vif, nr_gops);
-+	work_done = xenvif_tx_submit(vif);
- 
- 	return work_done;
- }
--- 
-1.7.10.4
+> +#ifdef CONFIG_X86_64
+
+Why not also i386?
+
+> +static inline u32 ovs_flow_hash_crc_4b(u32 crc, u32 val)
+> +{
+> +	asm ("crc32l %[val], %[crc]\n"
+> +		: [crc] "+r" (crc)
+> +		: [val] "rm" (val));
+> +	return crc;
+> +}
+> +
+> +static inline u32 ovs_flow_hash_crc(const u32 *data, u32 len, u32 seed)
+> +{
+> +	const u32 *p32 = (const u32 *) data;
+> +	u32 i, tmp = 0;
+> +
+> +	for (i = 0; i < len; i++)
+> +		seed = ovs_flow_hash_crc_4b(*p32++, seed);
+
+Doesn't that have the arguments if the wrong order ?
+Maybe it doesn't affect the result, but the asm pattern works better
+the other way around.
+
+> +	switch (3 - ((len * 4) & 0x03)) {
+
+This looked like an obscure way to calculate the remainder,
+then I noticed the 'len *4' which means it is always 3
+(no residual).
+
+> +	case 0:
+> +		tmp |= *((const u8 *) p32 + 2) << 16;
+> +		/* Fallthrough */
+> +	case 1:
+> +		tmp |= *((const u8 *) p32 + 1) << 8;
+> +		/* Fallthrough */
+> +	case 2:
+> +		tmp |= *((const u8 *) p32);
+> +		seed = ovs_flow_hash_crc_4b(tmp, seed);
+> +	default:
+> +		break;
+> +	}
+> +
+> +	return seed;
+> +}
+> +#endif
+
+	David
