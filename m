@@ -1,106 +1,42 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net v2] xen-netback: fix abuse of napi budget
-Date: Tue, 10 Dec 2013 11:50:32 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01ABE8D@AMSPEX01CL01.citrite.net>
-References: <1386674864-27703-1-git-send-email-paul.durrant@citrix.com>
- <1386675863.11925.60.camel@kazak.uk.xensource.com>
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: Re: ifconfig doesn't show assignment ip-addresses
+Date: Tue, 10 Dec 2013 12:52:20 +0100
+Message-ID: <52A70074.2000607@enst-bretagne.fr>
+References: <20131209153238.GA10317@omega> <20131210105741.GA2469@minipsycho.orion> <20131210110648.GA18196@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>, jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:15610 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752298Ab3LJLuf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 06:50:35 -0500
-In-Reply-To: <1386675863.11925.60.camel@kazak.uk.xensource.com>
-Content-Language: en-US
+Received: from fourcot.fr ([217.70.191.14]:48124 "EHLO olfflo.fourcot.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751725Ab3LJLwX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Dec 2013 06:52:23 -0500
+In-Reply-To: <20131210110648.GA18196@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwNCj4gU2Vu
-dDogMTAgRGVjZW1iZXIgMjAxMyAxMTo0NA0KPiBUbzogUGF1bCBEdXJyYW50DQo+IENjOiB4ZW4t
-ZGV2ZWxAbGlzdHMueGVuLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgV2VpIExpdTsgRGF2
-aWQgVnJhYmVsDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IHYyXSB4ZW4tbmV0YmFjazogZml4
-IGFidXNlIG9mIG5hcGkgYnVkZ2V0DQo+IA0KPiBPbiBUdWUsIDIwMTMtMTItMTAgYXQgMTE6Mjcg
-KzAwMDAsIFBhdWwgRHVycmFudCB3cm90ZToNCj4gPiBuZXRiYWNrIHNlZW1lZCB0byBiZSBzb21l
-d2hhdCBjb25mdXNlZCBhYm91dCB0aGUgbmFwaSBidWRnZXQNCj4gcGFyYW1ldGVyLiBUaGUNCj4g
-PiBwYXJhbWV0ZXIgaXMgc3VwcG9zZWQgdG8gbGltaXQgdGhlIG51bWJlciBvZiBza2dzIHByb2Nl
-c3MgaW4gZWFjaCBwb2xsLCBidXQNCj4gDQo+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgc2ticw0KPiANCj4gPiBuZXRiYWNrIGhhZCB0aGlzIGNvbmZ1c2Vk
-IHdpdGggZ3JhbnQgb3BlcmF0aW9ucy4NCj4gPg0KPiA+IFRoaXMgcGF0Y2ggZml4ZXMgdGhhdCwg
-cHJvcGVybHkgbGltaXRpbmcgdGhlIHdvcmsgZG9uZSBpbiBlYWNoIHBvbGwuIE5vdGUNCj4gPiB0
-aGF0IHRoaXMgbGltaXQgbWFrZXMgc3VyZSB3ZSBkbyBub3QgcHJvY2VzcyBhbnkgbW9yZSBkYXRh
-IGZyb20gdGhlDQo+IHNoYXJlZA0KPiA+IHJpbmcgdGhhbiB3ZSBpbnRlbmQgdG8gcGFzcyBiYWNr
-IGZyb20gdGhlIHBvbGwuIFRoaXMgaXMgaW1wb3J0YW50IHRvDQo+ID4gcHJldmVudCB0eF9xdWV1
-ZSBwb3RlbnRpYWxseSBncm93aW5nIHdpdGhvdXQgYm91bmQuDQo+ID4NCj4gPiBUaGlzIHBhdGNo
-IGFsc28gY2hhbmdlcyB0aGUgUklOR19GSU5BTF9DSEVDS19GT1JfUkVRVUVTVFMgaW4NCj4gPiB4
-ZW52aWZfYnVpbGRfdHhfZ29wcyB0byBhIGNoZWNrIGZvciBSSU5HX0hBU19VTkNPTlNVTUVEX1JF
-UVVFU1RTDQo+IGFzIHRoZQ0KPiA+IGZvcm1lciBjYWxsIGhhcyB0aGUgc2lkZSBlZmZlY3Qgb2Yg
-YWR2YW5jaW5nIHRoZSByaW5nIGV2ZW50IHBvaW50ZXIgYW5kDQo+ID4gdGhlcmVmb3JlIGludml0
-aW5nIGFub3RoZXIgaW50ZXJydXB0IGZyb20gdGhlIGZyb250ZW5kIGJlZm9yZSB0aGUgbmFwaQ0K
-PiA+IHBvbGwgaGFzIGFjdHVhbGx5IGZpbmlzaGVkLCB0aGVyZWJ5IGRlZmVhdGluZyB0aGUgcG9p
-bnQgb2YgbmFwaS4NCj4gDQo+IENhbiB5b3UgYWRkIGEgcmVtaW5kZXIgb2Ygd2hlbi93aGVyZSB0
-aGUgcmluZyBldmVudCBwb2ludGVyIGlzDQo+IGV2ZW50dWFsbHkgYWR2YW5jZWQgbm93IHBsZWFz
-ZS4NCj4gDQo+IFRoaXMgc2VlbXMgbGlrZSBhIHNsaWdodGx5IHN1YnRsZSBjaGFuZ2UsIGVzcGVj
-aWFsbHkgd2hlbiBtaXhlZCBpbiB3aXRoDQo+IHRoZSBidWRnZXQgaGFuZGxpbmcgY2hhbmdlcy4g
-UGxlYXNlIGNhbiB3ZSBkbyBpdCBpbiBhIHNlcGFyYXRlIHBhdGNoLg0KPiANCg0KT2suIEdpdmVu
-IEkgYWxzbyBzcG90dGVkIHRoZSBtaXN0YWtlIHdpdGggd29ya190b19kbywgSSdsbCBtYWtlIHRo
-aXMgYSAyIHBhdGNoIHNlcmllcy4NCg0KICBQYXVsDQoNCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6
-IFBhdWwgRHVycmFudCA8cGF1bC5kdXJyYW50QGNpdHJpeC5jb20+DQo+ID4gQ2M6IFdlaSBMaXUg
-PHdlaS5saXUyQGNpdHJpeC5jb20+DQo+ID4gQ2M6IElhbiBDYW1wYmVsbCA8aWFuLmNhbXBiZWxs
-QGNpdHJpeC5jb20+DQo+ID4gQ2M6IERhdmlkIFZyYWJlbCA8ZGF2aWQudnJhYmVsQGNpdHJpeC5j
-b20+DQo+ID4gLS0tDQo+ID4gdjI6DQo+ID4gLSBNb3JlIGVsYWJvcmF0ZSBkZXNjcmlwdGlvbiBv
-ZiB0aGUgcHJvYmxlbSBhbmQgdGhlIGZpeCBpbiB0aGUgY29tbWVudC4NCj4gPiAtIE1vZGlmaWVk
-IHRoZSBjaGVjayBpbiB4ZW52aWZfYnVpbGRfdHhfZ29wcy4NCj4gPg0KPiA+ICBkcml2ZXJzL25l
-dC94ZW4tbmV0YmFjay9uZXRiYWNrLmMgfCAgIDE3ICsrKysrKysrLS0tLS0tLS0tDQo+ID4gIDEg
-ZmlsZSBjaGFuZ2VkLCA4IGluc2VydGlvbnMoKyksIDkgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBk
-aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jIGIvZHJpdmVycy9u
-ZXQveGVuLQ0KPiBuZXRiYWNrL25ldGJhY2suYw0KPiA+IGluZGV4IDQzMzQxYjguLjBjOGNhNzYg
-MTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jDQo+ID4g
-KysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jDQo+ID4gQEAgLTEzNTEsMTQg
-KzEzNTEsMTUgQEAgc3RhdGljIGJvb2wgdHhfY3JlZGl0X2V4Y2VlZGVkKHN0cnVjdCB4ZW52aWYN
-Cj4gKnZpZiwgdW5zaWduZWQgc2l6ZSkNCj4gPiAgCXJldHVybiBmYWxzZTsNCj4gPiAgfQ0KPiA+
-DQo+ID4gLXN0YXRpYyB1bnNpZ25lZCB4ZW52aWZfdHhfYnVpbGRfZ29wcyhzdHJ1Y3QgeGVudmlm
-ICp2aWYpDQo+ID4gK3N0YXRpYyB1bnNpZ25lZCB4ZW52aWZfdHhfYnVpbGRfZ29wcyhzdHJ1Y3Qg
-eGVudmlmICp2aWYsIGludCBidWRnZXQpDQo+ID4gIHsNCj4gPiAgCXN0cnVjdCBnbnR0YWJfY29w
-eSAqZ29wID0gdmlmLT50eF9jb3B5X29wcywgKnJlcXVlc3RfZ29wOw0KPiA+ICAJc3RydWN0IHNr
-X2J1ZmYgKnNrYjsNCj4gPiAgCWludCByZXQ7DQo+ID4NCj4gPiAgCXdoaWxlICgobnJfcGVuZGlu
-Z19yZXFzKHZpZikgKyBYRU5fTkVUQktfTEVHQUNZX1NMT1RTX01BWA0KPiA+IC0JCTwgTUFYX1BF
-TkRJTkdfUkVRUykpIHsNCj4gPiArCQk8IE1BWF9QRU5ESU5HX1JFUVMpICYmDQo+ID4gKwkgICAg
-ICAgKHNrYl9xdWV1ZV9sZW4oJnZpZi0+dHhfcXVldWUpIDwgYnVkZ2V0KSkgew0KPiA+ICAJCXN0
-cnVjdCB4ZW5fbmV0aWZfdHhfcmVxdWVzdCB0eHJlcTsNCj4gPiAgCQlzdHJ1Y3QgeGVuX25ldGlm
-X3R4X3JlcXVlc3QNCj4gdHhmcmFnc1tYRU5fTkVUQktfTEVHQUNZX1NMT1RTX01BWF07DQo+ID4g
-IAkJc3RydWN0IHBhZ2UgKnBhZ2U7DQo+ID4gQEAgLTEzODAsOCArMTM4MSw3IEBAIHN0YXRpYyB1
-bnNpZ25lZCB4ZW52aWZfdHhfYnVpbGRfZ29wcyhzdHJ1Y3QNCj4geGVudmlmICp2aWYpDQo+ID4g
-IAkJCWNvbnRpbnVlOw0KPiA+ICAJCX0NCj4gPg0KPiA+IC0JCVJJTkdfRklOQUxfQ0hFQ0tfRk9S
-X1JFUVVFU1RTKCZ2aWYtPnR4LA0KPiB3b3JrX3RvX2RvKTsNCj4gDQo+IElzIHdvcmtfdG9fZG8g
-bm93IHVzZWQgdW5pbml0aWFsaXNlZCBhdCB2YXJpb3VzIHN1YnNlcXVlbnQgcG9pbnRzPyAoaW4N
-Cj4geW91ciBuZXh0IHJlcGx5IHlvdSBtZW50aW9uZWQgdGhlIGRlY3JlYXNlLCBidXQgd2hhdCBh
-Ym91dCBlLmcuIHRoZSBjYWxsDQo+IHRvIHhlbnZpZl9nZXRfZXh0cmFzPykNCj4gDQo+ID4gLQkJ
-aWYgKCF3b3JrX3RvX2RvKQ0KPiA+ICsJCWlmICghUklOR19IQVNfVU5DT05TVU1FRF9SRVFVRVNU
-UygmdmlmLT50eCkpDQo+ID4gIAkJCWJyZWFrOw0KPiA+DQo+ID4gIAkJaWR4ID0gdmlmLT50eC5y
-ZXFfY29uczsNCj4gPiBAQCAtMTUyMCwxNCArMTUyMCwxMyBAQCBzdGF0aWMgdW5zaWduZWQgeGVu
-dmlmX3R4X2J1aWxkX2dvcHMoc3RydWN0DQo+IHhlbnZpZiAqdmlmKQ0KPiA+ICB9DQo+ID4NCj4g
-Pg0KPiA+IC1zdGF0aWMgaW50IHhlbnZpZl90eF9zdWJtaXQoc3RydWN0IHhlbnZpZiAqdmlmLCBp
-bnQgYnVkZ2V0KQ0KPiA+ICtzdGF0aWMgaW50IHhlbnZpZl90eF9zdWJtaXQoc3RydWN0IHhlbnZp
-ZiAqdmlmKQ0KPiA+ICB7DQo+ID4gIAlzdHJ1Y3QgZ250dGFiX2NvcHkgKmdvcCA9IHZpZi0+dHhf
-Y29weV9vcHM7DQo+ID4gIAlzdHJ1Y3Qgc2tfYnVmZiAqc2tiOw0KPiA+ICAJaW50IHdvcmtfZG9u
-ZSA9IDA7DQo+ID4NCj4gPiAtCXdoaWxlICh3b3JrX2RvbmUgPCBidWRnZXQgJiYNCj4gPiAtCSAg
-ICAgICAoc2tiID0gX19za2JfZGVxdWV1ZSgmdmlmLT50eF9xdWV1ZSkpICE9IE5VTEwpIHsNCj4g
-PiArCXdoaWxlICgoc2tiID0gX19za2JfZGVxdWV1ZSgmdmlmLT50eF9xdWV1ZSkpICE9IE5VTEwp
-IHsNCj4gPiAgCQlzdHJ1Y3QgeGVuX25ldGlmX3R4X3JlcXVlc3QgKnR4cDsNCj4gPiAgCQl1MTYg
-cGVuZGluZ19pZHg7DQo+ID4gIAkJdW5zaWduZWQgZGF0YV9sZW47DQo+ID4gQEAgLTE2MDIsMTQg
-KzE2MDEsMTQgQEAgaW50IHhlbnZpZl90eF9hY3Rpb24oc3RydWN0IHhlbnZpZiAqdmlmLCBpbnQN
-Cj4gYnVkZ2V0KQ0KPiA+ICAJaWYgKHVubGlrZWx5KCF0eF93b3JrX3RvZG8odmlmKSkpDQo+ID4g
-IAkJcmV0dXJuIDA7DQo+ID4NCj4gPiAtCW5yX2dvcHMgPSB4ZW52aWZfdHhfYnVpbGRfZ29wcyh2
-aWYpOw0KPiA+ICsJbnJfZ29wcyA9IHhlbnZpZl90eF9idWlsZF9nb3BzKHZpZiwgYnVkZ2V0KTsN
-Cj4gPg0KPiA+ICAJaWYgKG5yX2dvcHMgPT0gMCkNCj4gPiAgCQlyZXR1cm4gMDsNCj4gPg0KPiA+
-ICAJZ250dGFiX2JhdGNoX2NvcHkodmlmLT50eF9jb3B5X29wcywgbnJfZ29wcyk7DQo+ID4NCj4g
-PiAtCXdvcmtfZG9uZSA9IHhlbnZpZl90eF9zdWJtaXQodmlmLCBucl9nb3BzKTsNCj4gPiArCXdv
-cmtfZG9uZSA9IHhlbnZpZl90eF9zdWJtaXQodmlmKTsNCj4gPg0KPiA+ICAJcmV0dXJuIHdvcmtf
-ZG9uZTsNCj4gPiAgfQ0KPiANCg0K
+I think this is not a lowpan specific problem, I have the same here:
+
+$ /sbin/ifconfig eth1
+eth1      Link encap:Ethernet  HWaddr 08:00:27:27:58:92
+          inet adr:192.168.56.2  Bcast:192.168.56.255
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:494 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:380 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 lg file transmission:1000
+          RX bytes:41584 (40.6 KiB)  TX bytes:51017 (49.8 KiB)
+
+$ ip -6 addr show eth1
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+    inet6 2001:470:51a3:666::666/128 scope global
+       valid_lft forever preferred_lft forever
+    inet6 fe80::a00:27ff:fe27:5892/64 scope link
+       valid_lft forever preferred_lft forever
+
+(standard ethernet interface of a virtual machine).
+
+Regards,
+
+Florent.
