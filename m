@@ -1,107 +1,36 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
+From: David Vrabel <david.vrabel@citrix.com>
 Subject: Re: [PATCH net] xen-netback: fix abuse of napi budget
-Date: Tue, 10 Dec 2013 10:25:36 +0000
-Message-ID: <1386671136.11925.46.camel@kazak.uk.xensource.com>
-References: <1386670600-5882-1-git-send-email-paul.durrant@citrix.com>
+Date: Tue, 10 Dec 2013 10:30:13 +0000
+Message-ID: <52A6ED35.7070003@citrix.com>
+References: <1386670600-5882-1-git-send-email-paul.durrant@citrix.com> <1386671136.11925.46.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+Cc: Paul Durrant <paul.durrant@citrix.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, Wei Liu <wei.liu2@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:14420 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751750Ab3LJKZj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 05:25:39 -0500
-In-Reply-To: <1386670600-5882-1-git-send-email-paul.durrant@citrix.com>
+Received: from smtp.citrix.com ([66.165.176.89]:11236 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750787Ab3LJKaP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Dec 2013 05:30:15 -0500
+In-Reply-To: <1386671136.11925.46.camel@kazak.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-10 at 10:16 +0000, Paul Durrant wrote:
-> netback seemed to be somewhat confused about the napi budget parameter and
-> basically ignored it. This patch fixes that, properly limiting the work done
-> in each poll.
-
-What do you mean "ignored", xenvif_tx_submit seems to be tracking and
-testing work_done against the budget.
-
-I suspect this change is probably worthwhile but it would be good to get
-an accurate description of why, which I presume is because the tx
-process is xenvif_tx_build_gops followed by, gnttab_batch_copy then
-xenvif_tx_submit and that it is better to do the budget enforcement
-earlier on.
-
-How does this change impact the batching in gnttab_batch_copy and
-therefore performance? Do we need to tweak the the NAPI budget to ensure
-we are getting good batching? I suspect that netback is a bit unusual
-among NIC drivers in that the rx path contains a fair bit of actual work
-to do, so perhaps the NAPI defaults are not necessarily going to be the
-best for it.
-
+On 10/12/13 10:25, Ian Campbell wrote:
+> On Tue, 2013-12-10 at 10:16 +0000, Paul Durrant wrote:
+>> netback seemed to be somewhat confused about the napi budget parameter and
+>> basically ignored it. This patch fixes that, properly limiting the work done
+>> in each poll.
 > 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: David Vrabel <david.vrabel@citrix.com>
-> ---
->  drivers/net/xen-netback/netback.c |   14 +++++++-------
->  1 file changed, 7 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 43341b8..83b4e5b 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1351,14 +1351,15 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
->  	return false;
->  }
->  
-> -static unsigned xenvif_tx_build_gops(struct xenvif *vif)
-> +static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
->  {
->  	struct gnttab_copy *gop = vif->tx_copy_ops, *request_gop;
->  	struct sk_buff *skb;
->  	int ret;
->  
->  	while ((nr_pending_reqs(vif) + XEN_NETBK_LEGACY_SLOTS_MAX
-> -		< MAX_PENDING_REQS)) {
-> +		< MAX_PENDING_REQS) &&
-> +	       (skb_queue_len(&vif->tx_queue) < budget)) {
->  		struct xen_netif_tx_request txreq;
->  		struct xen_netif_tx_request txfrags[XEN_NETBK_LEGACY_SLOTS_MAX];
->  		struct page *page;
-> @@ -1520,14 +1521,13 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif)
->  }
->  
-> 
-> -static int xenvif_tx_submit(struct xenvif *vif, int budget)
-> +static int xenvif_tx_submit(struct xenvif *vif)
->  {
->  	struct gnttab_copy *gop = vif->tx_copy_ops;
->  	struct sk_buff *skb;
->  	int work_done = 0;
->  
-> -	while (work_done < budget &&
-> -	       (skb = __skb_dequeue(&vif->tx_queue)) != NULL) {
-> +	while ((skb = __skb_dequeue(&vif->tx_queue)) != NULL) {
->  		struct xen_netif_tx_request *txp;
->  		u16 pending_idx;
->  		unsigned data_len;
-> @@ -1602,14 +1602,14 @@ int xenvif_tx_action(struct xenvif *vif, int budget)
->  	if (unlikely(!tx_work_todo(vif)))
->  		return 0;
->  
-> -	nr_gops = xenvif_tx_build_gops(vif);
-> +	nr_gops = xenvif_tx_build_gops(vif, budget);
->  
->  	if (nr_gops == 0)
->  		return 0;
->  
->  	gnttab_batch_copy(vif->tx_copy_ops, nr_gops);
->  
-> -	work_done = xenvif_tx_submit(vif, nr_gops);
-> +	work_done = xenvif_tx_submit(vif);
->  
->  	return work_done;
->  }
+> What do you mean "ignored", xenvif_tx_submit seems to be tracking and
+> testing work_done against the budget.
+
+I have seen this warning in net_rx_action() trigger.
+
+	WARN_ON_ONCE(work > weight);
+
+Which means netback wasn't limiting the work done.
+
+David
