@@ -1,60 +1,52 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net-next 3/6] net_sched: change "foo* bar" to "foo *bar"
-Date: Tue, 10 Dec 2013 20:55:31 +0800
-Message-ID: <1386680134-85452-4-git-send-email-yangyingliang@huawei.com>
-References: <1386680134-85452-1-git-send-email-yangyingliang@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] ipv6 addrconf: revert /proc/net/if_inet6 ifa_flag format
+Date: Tue, 10 Dec 2013 13:56:29 +0100
+Message-ID: <1386680189-7852-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
+	alex.aring@gmail.com, florent.fourcot@enst-bretagne.fr
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:5189 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753168Ab3LJMzt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 07:55:49 -0500
-In-Reply-To: <1386680134-85452-1-git-send-email-yangyingliang@huawei.com>
+Received: from mail-ea0-f170.google.com ([209.85.215.170]:59586 "EHLO
+	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751823Ab3LJM4d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 07:56:33 -0500
+Received: by mail-ea0-f170.google.com with SMTP id k10so2244774eaj.29
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 04:56:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"foo* bar" or "foo * bar" should be "foo *bar".
+Turned out that applications like ifconfig do not handle the change.
+So revert ifa_flag format back to 2-letter hex value.
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+Introduced by:
+commit 479840ffdbe4242e8a25349218c8e0859223aa35
+    "ipv6 addrconf: extend ifa_flags to u32"
+
+Reported-by: Alexander Aring <alex.aring@gmail.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/sched/cls_u32.c     | 2 +-
- net/sched/sch_generic.c | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ net/ipv6/addrconf.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index eb07a1e..59e546c 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -352,7 +352,7 @@ static int u32_destroy_key(struct tcf_proto *tp, struct tc_u_knode *n)
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index be4dbbd..3c3425e 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3367,12 +3367,12 @@ static void if6_seq_stop(struct seq_file *seq, void *v)
+ static int if6_seq_show(struct seq_file *seq, void *v)
+ {
+ 	struct inet6_ifaddr *ifp = (struct inet6_ifaddr *)v;
+-	seq_printf(seq, "%pi6 %02x %02x %02x %03x %8s\n",
++	seq_printf(seq, "%pi6 %02x %02x %02x %02x %8s\n",
+ 		   &ifp->addr,
+ 		   ifp->idev->dev->ifindex,
+ 		   ifp->prefix_len,
+ 		   ifp->scope,
+-		   ifp->flags,
++		   (u8) ifp->flags,
+ 		   ifp->idev->dev->name);
  	return 0;
  }
- 
--static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode* key)
-+static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
- {
- 	struct tc_u_knode **kp;
- 	struct tc_u_hnode *ht = key->ht_up;
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 922a094..6a91d7d 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -338,13 +338,13 @@ EXPORT_SYMBOL(netif_carrier_off);
-    cheaper.
-  */
- 
--static int noop_enqueue(struct sk_buff *skb, struct Qdisc * qdisc)
-+static int noop_enqueue(struct sk_buff *skb, struct Qdisc *qdisc)
- {
- 	kfree_skb(skb);
- 	return NET_XMIT_CN;
- }
- 
--static struct sk_buff *noop_dequeue(struct Qdisc * qdisc)
-+static struct sk_buff *noop_dequeue(struct Qdisc *qdisc)
- {
- 	return NULL;
- }
 -- 
-1.8.0
+1.8.3.1
