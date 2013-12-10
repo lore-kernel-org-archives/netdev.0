@@ -1,60 +1,114 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next] net: ovs: use CRC32 accelerated flow hash if available
-Date: Tue, 10 Dec 2013 11:28:08 -0800
-Message-ID: <CAEP_g=_t750s50-F7A_hWD_yNs3MnKWN8WDBjzgoF8Mu+28Wyw@mail.gmail.com>
-References: <1386669178-14450-1-git-send-email-ffusco@redhat.com>
+From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH v2 15/16] wl1251: Add sysfs file address for setting permanent mac address
+Date: Tue, 10 Dec 2013 20:31:23 +0100
+Message-ID: <201312102031.23797@pali>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com> <201312101852.17030@pali> <1386703339.30202.19.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Thomas Graf <tgraf@redhat.com>
-To: Francesco Fusco <ffusco@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog107.obsmtp.com ([74.125.149.197]:41341 "HELO
-	na3sys009aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751018Ab3LJT2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 14:28:30 -0500
-Received: by mail-ie0-f180.google.com with SMTP id tp5so9373140ieb.39
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 11:28:29 -0800 (PST)
-In-Reply-To: <1386669178-14450-1-git-send-email-ffusco@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed;
+  boundary="nextPart2284039.d878SBvJzH";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo@adurom.com>, Luciano Coelho <luca@coelho.fi>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
+	aaro.koskinen@iki.fi, pavel@ucw.cz, sre@ring0.de,
+	joni.lapilainen@gmail.com,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Felipe Contreras <felipe.contreras@gmail.com>
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1386703339.30202.19.camel@dcbw.foobar.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 10, 2013 at 1:52 AM, Francesco Fusco <ffusco@redhat.com> wrote:
-> Currently OVS uses jhash2() for calculating flow hashes in its
-> internal flow_hash() function. The performance of the flow_hash()
-> function is critical, as the input data can be hundreds of bytes
-> long.
->
-> One possible direction to achieve higher performance consists
-> of replacing jhash2() with an architecture specific hash
-> function pretty much like the Intel folks have proposed in
-> DPDK. DPDK provides a very fast hash function that leverages
-> the 32bit crc32l instruction part of the Intel SSE4.2
-> instruction set.
->
-> OVS is largely deployed in x86_64 based datacenters.
-> Therefore, we argue that the performance critical fast path
-> of OVS should exploit underlying CPU features in order to reduce
-> the per packet processing costs.
->
-> We adapted and integrated Intel's hashing function from DPDK in
-> order to be used with OVS internally. Our patch greatly reduces
-> the hash footprint from ~200 cycles of jhash2() to around ~90
-> cycles in case of ovs_flow_hash_crc() (measured with rdtsc over
-> maximum length flow keys on an i7 Intel CPU).
->
-> Additionally, we wrote a microbenchmark to stress the flow table
-> performance. The benchmark inserts random flows into the flow
-> hash and then performs lookups. Our hash deployed on a CRC32
-> capable CPU reduces the lookup for 1000 flows, 100 masks from
-> ~10,100us to ~6,700us, for example.
->
-> Signed-off-by: Francesco Fusco <ffusco@redhat.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Thomas Graf <tgraf@redhat.com>
+--nextPart2284039.d878SBvJzH
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-I think this is definitely a good optimization to do given that so
-much of the work that OVS does is hashing. However, isn't there a
-library where there would be a more appropriate place to put this?
+On Tuesday 10 December 2013 20:22:19 Dan Williams wrote:
+> On Tue, 2013-12-10 at 18:52 +0100, Pali Roh=C3=A1r wrote:
+> > On Tuesday 10 December 2013 18:49:22 Dan Williams wrote:
+> > > On Tue, 2013-12-10 at 18:14 +0100, Pali Roh=C3=A1r wrote:
+> > > > On Tuesday 10 December 2013 17:10:50 Pali Roh=C3=A1r wrote:
+> > > > > On Tuesday 10 December 2013 16:49:23 Kalle Valo wrote:
+> > > > > > Pali Roh=C3=A1r <pali.rohar@gmail.com> writes:
+> > > > > > > Driver wl1251 generating mac address randomly at
+> > > > > > > startup and there is no way to set permanent mac
+> > > > > > > address via SET_IEEE80211_PERM_ADDR. This patch
+> > > > > > > export sysfs file which can set permanent mac
+> > > > > > > address by userspace helper program. Patch is
+> > > > > > > needed for devices which do not store mac address
+> > > > > > > in internal wl1251 eeprom.
+> > > > > > >=20
+> > > > > > > Signed-off-by: Pali Roh=C3=A1r <pali.rohar@gmail.com>
+> > > > > >=20
+> > > > > > We have ioctl() command for setting the mac address.
+> > > > >=20
+> > > > > Really? Is there ioctl for setting permanent mac
+> > > > > address? Can you show me it?
+> > > >=20
+> > > > Now I looked at it again and I did not found any ioctl
+> > > > for it. There is only ioctl cmd for getting address,
+> > > > not setting it.
+> > > >=20
+> > > > #define SIOCETHTOOL 0x8946
+> > > >=20
+> > > > /* Get permanent hardware address */
+> > > > #define ETHTOOL_GPERMADDR 0x00000020
+> > >=20
+> > > Yeah, because it's supposed to be permanent and
+> > > unchanging. Which means if there was an ioctl for it,
+> > > that would be contrary to the purpose of a permanent MAC
+> > > address.
+> > >=20
+> > > I realize the N900 stores the WiFi MAC address completely
+> > > differently than many other systems, and that's why this
+> > > sysfs file was created.  I don't really have a great
+> > > converged solution for that, other than what you've
+> > > currently got, or perhaps adding SPERMADDR to ethtool.=20
+> > > One thing I *would* like though, is a restriction on the
+> > > sysfs file such that if the permanent MAC is already set,
+> > > it cannot be set again.  Otherwise the permanent MAC
+> > > address isn't permanent at all.
+> > >=20
+> > > Dan
+> >=20
+> > Maybe another way could be to use request_firmware to load
+> > address from userspace... Or what do you think?
+>=20
+> That sounds like a great idea to try.  A number of devices
+> either need stub firmware to read the MAC from EEPROM, or do
+> use request_firmware() to load firmware before they read the
+> MAC.  You may have to use request_firmware() synchronously
+> though to ensure that the MAC is read before registering with
+> mac80211.
+>=20
+> Dan
+
+So, if you like this idea, can you help me how to write udev rule=20
+which will run my own program (it print mac address) and send mac=20
+address when driver ask for mac address in request_firmware?=20
+Problem is that default udev rule for firmware trying to load data=20
+from /lib/firmware/... but in this case mac address first must be=20
+read from special location and converted to correct format.
+
+=2D-=20
+Pali Roh=C3=A1r
+pali.rohar@gmail.com
+
+--nextPart2284039.d878SBvJzH
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iEYEABECAAYFAlKnbAsACgkQi/DJPQPkQ1KMAwCfZsn5s3EjIltZnqxjpd4lo+9v
+CQEAn1wBPRMrVsWALaU9ItBeBSaB6Iki
+=vT15
+-----END PGP SIGNATURE-----
+
+--nextPart2284039.d878SBvJzH--
