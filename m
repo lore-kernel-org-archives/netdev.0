@@ -1,92 +1,113 @@
-From: Pablo Neira Ayuso <pablo@gnumonks.org>
-Subject: [PATCH net] net: tipc: fix possible CPU stall while removing module
-Date: Tue, 10 Dec 2013 18:54:31 +0100
-Message-ID: <1386698071-9214-1-git-send-email-pablo@gnumonks.org>
-Cc: davem@davemloft.net, jon.maloy@ericsson.com,
-	allan.stephens@windriver.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:53994 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754683Ab3LJRyr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Dec 2013 12:54:47 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH] net: allwinner: emac: Add missing free_irq
+Date: Tue, 10 Dec 2013 18:52:05 +0100
+Message-ID: <20131210175205.GA3651@lukather>
+References: <1386415902-32697-1-git-send-email-maxime.ripard@free-electrons.com>
+ <52A35361.8090608@cogentembedded.com>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="DocE+STaALJfprDB"
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-sunxi+bncBD2ZNBF5VYJRB55KTWKQKGQEGCBNNCQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <52A35361.8090608-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-The following stall is possible while removing the tipc module:
 
-[ 4244.091196] INFO: rcu_sched self-detected stall on CPU { 41}  (t=30001 jiffies)
-[ 4244.091414] Pid: 5311, comm: rmmod Tainted: G           O 3.4.51 #1
-[ 4244.091524] Call Trace:
-[ 4244.091618]  <IRQ>  [<ffffffff810b3741>] ? __rcu_pending+0x1a1/0x4d0
-[ 4244.091741]  [<ffffffff81085030>] ? tick_nohz_handler+0xe0/0xe0
-[ 4244.091848]  [<ffffffff810b3b18>] ? rcu_check_callbacks+0xa8/0x150
-[ 4244.091957]  [<ffffffff81046f3f>] ? update_process_times+0x3f/0x80
-[ 4244.092065]  [<ffffffff8108508b>] ? tick_sched_timer+0x5b/0xb0
-[ 4244.092172]  [<ffffffff8105d967>] ? __run_hrtimer+0x77/0x1c0
-[ 4244.092278]  [<ffffffff8105dd1f>] ? hrtimer_interrupt+0xef/0x270
-[ 4244.092386]  [<ffffffff8106714d>] ? ttwu_do_wakeup+0x3d/0x100
-[ 4244.092494]  [<ffffffff81020d43>] ? smp_apic_timer_interrupt+0x63/0xa0
-[ 4244.092605]  [<ffffffff8167fc4a>] ? apic_timer_interrupt+0x6a/0x70
-[ 4244.092714]  [<ffffffff81677985>] ? _raw_spin_lock_bh+0x25/0x30
-[ 4244.092820]  [<ffffffff81677969>] ? _raw_spin_lock_bh+0x9/0x30
-[ 4244.092936]  [<ffffffffa0333c45>] ? tipc_nodesub_unsubscribe+0x15/0x50 [tipc]
-[ 4244.093049]  [<ffffffffa03303ea>] ? named_purge_publ+0x3a/0x90 [tipc]
-[ 4244.093158]  [<ffffffff8103ee15>] ? __do_softirq+0xd5/0x1e0
-[ 4244.093266]  [<ffffffffa032a25b>] ? process_signal_queue+0x7b/0xc0 [tipc]
-[ 4244.093376]  [<ffffffff8103f41b>] ? tasklet_action+0xbb/0xd0
-[ 4244.093482]  [<ffffffff8103edf1>] ? __do_softirq+0xb1/0x1e0
-[ 4244.093589]  [<ffffffff8168059c>] ? call_softirq+0x1c/0x30
-[ 4244.093691]  <EOI>  [<ffffffff810041e5>] ? do_softirq+0x65/0xa0
-[ 4244.095460]  [<ffffffff8103f834>] ? local_bh_enable_ip+0x94/0xa0
-[ 4244.095570]  [<ffffffffa0332c93>] ? tipc_net_stop+0x73/0x90 [tipc]
-[ 4244.095679]  [<ffffffffa0339d61>] ? tipc_exit+0x9/0x29 [tipc]
-[ 4244.095786]  [<ffffffff8108e8bf>] ? sys_delete_module+0x1af/0x2b0
-[ 4244.095894]  [<ffffffff81677d75>] ? page_fault+0x25/0x30
-[ 4244.095999]  [<ffffffff8167f1b9>] ? system_call_fastpath+0x16/0x1b
+--DocE+STaALJfprDB
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-The two things that trigger this oops are related to tipc_net_stop(), they
-are:
+Hi,
 
-* tipc_net_stop() schedules the removal of the bearers via workqueue, which
-  includes the removal of the packet handler for the TIPC protocol family. So,
-  we have no time guarantees when the packet handler is removed.
+On Sat, Dec 07, 2013 at 08:57:05PM +0400, Sergei Shtylyov wrote:
+> Hello.
+>=20
+> On 07-12-2013 15:31, Maxime Ripard wrote:
+>=20
+> >The sun4i-emac driver uses devm_request_irq at .ndo_open time, but relie=
+s on
+> >the managed device mechanism to actually free it. This causes an issue w=
+henever
+> >someone wants to restart the interface, the interrupt still being held, =
+and not
+> >yet released.
+>=20
+> >Fall back to using the regular request_irq at .ndo_open time, and introd=
+uce a
+> >free_irq during .ndo_stop.
+>=20
+> >Signed-off-by: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+> >---
+> >Hi David,
+>=20
+> >It would be great if this patch would be applied to 3.13.
+>=20
+> >Thanks,
+> >Maxime
+>=20
+>=20
+> >  drivers/net/ethernet/allwinner/sun4i-emac.c | 6 ++++--
+> >  1 file changed, 4 insertions(+), 2 deletions(-)
+>=20
+> >diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/e=
+thernet/allwinner/sun4i-emac.c
+> >index 50b853a..38aba50 100644
+> >--- a/drivers/net/ethernet/allwinner/sun4i-emac.c
+> >+++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
+> >@@ -717,8 +717,8 @@ static int emac_open(struct net_device *dev)
+> >  	if (netif_msg_ifup(db))
+> >  		dev_dbg(db->dev, "enabling %s\n", dev->name);
+> >
+> >-	if (devm_request_irq(db->dev, dev->irq, &emac_interrupt,
+> >-			     0, dev->name, dev))
+> >+	if (request_irq(dev->irq, &emac_interrupt,
+> >+			0, dev->name, dev))
+>=20
+>    Doesn't it fit into single line?
 
-* tipc_net_stop() cleans up the the tipc_node_list, so it releases all
-  tipc_node structures. However, the tipc_node_subscr structure still holds
-  a reference to the tipc_node structures, which is now invalid.
+Hmmm, yes, probably.
 
-After leaving tipc_net_stop, BH are enabled again. If we have a TIPC
-message that is pending to be handled (in the softirq path), the packet
-handler will likely be still there, so it passes the packet to tipc_recv_msg().
-In that path, if the TIPC message announces a new service publication,
-named_purge_publ() is invoked, then tipc_nodesub_unsubscribe() to remove
-the node subscription happens. This function tries to get the node lock, but
-that structure was already released by tipc_net_stop(), so it stalls.
+I'll send a v2.
 
-The proposed fix removes the bearers first so we make sure we get no more
-TIPC packets running through the input path, accessing the name-service
-base in inconsistent state (as tipc_node structures are not there anymore).
+Maxime
 
-Signed-off-by: Pablo Neira Ayuso <pablo@gnumonks.org>
----
- net/tipc/core.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
 
-diff --git a/net/tipc/core.c b/net/tipc/core.c
-index fd4eeea..7373fd9 100644
---- a/net/tipc/core.c
-+++ b/net/tipc/core.c
-@@ -81,9 +81,9 @@ struct sk_buff *tipc_buf_acquire(u32 size)
-  */
- static void tipc_core_stop_net(void)
- {
--	tipc_net_stop();
- 	tipc_eth_media_stop();
- 	tipc_ib_media_stop();
-+	tipc_net_stop();
- }
- 
- /**
--- 
-1.7.10.4
+--DocE+STaALJfprDB
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQIcBAEBAgAGBQJSp1TFAAoJEBx+YmzsjxAgal4QALzA8nqCyoYkCsQFUcty6rne
+KXR92Sr2XgmUp0OMsSpMxUl27AkoTJyE9TtsKkL0AX/v45H3GYwAGpZBi0IRA5iD
+5ZU7m2s6u8RyqdUxRVT9ZVQ3olAJ/8dFvmsQh69ND7jDsYuGaCmjYq7xAWmFR8KR
+im0qGvoYOVJql9BfvbDo1Z+VHro2hoxVDmSl5ue/hH1ONbbVoMRsuTc9zSW4FYzX
+sziQwKvah4l+dckHkW+8HVE5PL7UB8u/3zOAc6WumAAQVsPJMsvnhvVVkCXFKEfS
+ITKkBEGUhUH4ZKLHBa08PyLytr/enqGMNIDBXN/mpsRtEyLhUIcQCtrFB9nnhFSV
+h0ignXTp+PG6kg3otULcFIKuNWnFZrNlfYjSqKrRggo2Jene9QclA76KGJpxIyQZ
+VCmvXhZuPQmloMv7UBK2oinziG7d+AW3giVy0DIiSU45PnkMYNnSCsmBO8BH+hCQ
+FmkCefNsz1CYjTCJIN++eRXMl0N9wXvsVynGQOOjUfREAL2hGNWGwkJW190t+9eY
+Klvn81ci86n0oIQZglqz1Nq3Ktgy1Oy/+4WbZuTUS/D9NM02zUIMn5VaPeUam/EJ
+C5kz9U0rxjxbt9U2ODXQHnWguCK/iLRP5/7N3DQM+5u5sEzC6WIVcmpnAxgAM9XT
+DGdt+eMF/mm8jDKXUn2G
+=wC2S
+-----END PGP SIGNATURE-----
+
+--DocE+STaALJfprDB--
