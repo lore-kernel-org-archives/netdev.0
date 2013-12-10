@@ -1,47 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-tg3: Initialize REG_BASE_ADDR at PCI config offset
- 120 to 0
-Date: Tue, 10 Dec 2013 13:43:40 -0500 (EST)
-Message-ID: <20131210.134340.114603867817512238.davem@davemloft.net>
-References: <52A633B4.9000307@cogentembedded.com>
-	<1386623253.1752.6.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<1386658724.1752.19.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH v2] net: allwinner: emac: Add missing free_irq
+Date: Tue, 10 Dec 2013 19:40:43 +0100
+Message-ID: <1386700849-8496-1-git-send-email-maxime.ripard@free-electrons.com>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, natg@google.com,
-	nsujir@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mchan@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386658724.1752.19.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-sunxi+bncBD2ZNBF5VYJRBLWCTWKQKGQEFOVB4BA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Michael Chan <mchan@broadcom.com>
-Date: Mon, 9 Dec 2013 22:58:44 -0800
+The sun4i-emac driver uses devm_request_irq at .ndo_open time, but relies on
+the managed device mechanism to actually free it. This causes an issue whenever
+someone wants to restart the interface, the interrupt still being held, and not
+yet released.
 
-> On Mon, 2013-12-09 at 13:07 -0800, Michael Chan wrote: 
->> On Tue, 2013-12-10 at 00:18 +0300, Sergei Shtylyov wrote: 
->> > >        We had crashes when the PCI config space got scanned via
->> > > /sys/devices/pcixxxx/....../config.
->> > 
->> > > I agree that this fix will not help if the scan happens before the tg3
->> > > driver gets loaded.
->> > 
->> >     Then perhaps a better place for such fixup would be a PCI quirk?
->> > 
->> Yes, I agree.  Thanks.
->> 
-> 
-> On second thought, I think your original patch should be sufficient and
-> we don't need to add the PCI quirk to cover so many devices.  The reason
-> is that indirect access needs to be explicitly enabled in the
-> MISC_HOST_CTRL (0x68) register.  The default value for register 0x68
-> should have indirect access disabled.
-> 
-> Nat, does this match what you're seeing?  Did you ever see any system
-> crash before tg3 loads?
+Fall back to using the regular request_irq at .ndo_open time, and introduce a
+free_irq during .ndo_stop.
 
-What if the kernel is booted via kexec, and the driver in the kernel
-we are kexec'ing from left indirect access enabled in MISC_HOST_CTRL?
+Signed-off-by: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org # 3.11+
+
+---
+Changes from v1:
+  - Fixed the wrapping of request_irq
+
+ drivers/net/ethernet/allwinner/sun4i-emac.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
+index 50b853a..46dfb13 100644
+--- a/drivers/net/ethernet/allwinner/sun4i-emac.c
++++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
+@@ -717,8 +717,7 @@ static int emac_open(struct net_device *dev)
+ 	if (netif_msg_ifup(db))
+ 		dev_dbg(db->dev, "enabling %s\n", dev->name);
+ 
+-	if (devm_request_irq(db->dev, dev->irq, &emac_interrupt,
+-			     0, dev->name, dev))
++	if (request_irq(dev->irq, &emac_interrupt, 0, dev->name, dev))
+ 		return -EAGAIN;
+ 
+ 	/* Initialize EMAC board */
+@@ -774,6 +773,8 @@ static int emac_stop(struct net_device *ndev)
+ 
+ 	emac_shutdown(ndev);
+ 
++	free_irq(ndev->irq, ndev);
++
+ 	return 0;
+ }
+ 
+-- 
+1.8.4.2
