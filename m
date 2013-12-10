@@ -1,115 +1,55 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH net-next] ipv6: router reachability probing
-Date: Tue, 10 Dec 2013 17:15:44 +0100
-Message-ID: <ce8e9118b640b938048aaf18b59e998d46ab400e.1386692051.git.jbenc@redhat.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: netdev@vger.kernel.org
+From: ajay seshadri <seshajay@gmail.com>
+Subject: Fwd: UDP/IPv6 performance issue
+Date: Tue, 10 Dec 2013 11:19:29 -0500
+Message-ID: <CAGA2gK5gfdaKeQWzT4Dd45AhavD4pYaCVyayf7Hd+q5pPUjfKQ@mail.gmail.com>
+References: <CAGA2gK6rf8E7cCO=RwbdFAt2ucfxUbCjqhVoga9cnHrEKxcp9g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55779 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753422Ab3LJQQx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Dec 2013 11:16:53 -0500
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:57709 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753904Ab3LJQT3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 11:19:29 -0500
+Received: by mail-ie0-f171.google.com with SMTP id ar20so8991474iec.16
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 08:19:29 -0800 (PST)
+In-Reply-To: <CAGA2gK6rf8E7cCO=RwbdFAt2ucfxUbCjqhVoga9cnHrEKxcp9g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC 4191 states in 3.5:
+Hi,
 
-   When a host avoids using any non-reachable router X and instead sends
-   a data packet to another router Y, and the host would have used
-   router X if router X were reachable, then the host SHOULD probe each
-   such router X's reachability by sending a single Neighbor
-   Solicitation to that router's address.  A host MUST NOT probe a
-   router's reachability in the absence of useful traffic that the host
-   would have sent to the router if it were reachable.  In any case,
-   these probes MUST be rate-limited to no more than one per minute per
-   router.
+I have been testing network performance using my application and other
+third party tools like netperf on my systems that have 10G NIC Cards.
+It's a simple back to back setup with no switches in between.
 
-Currently, when the neighbour corresponding to a router falls into
-NUD_FAILED, it's never considered again. Introduce a new rt6_nud_state
-value, RT6_NUD_FAIL_PROBE, which suggests the route should not be used but
-should be probed with a single NS. The probe is ratelimited by the existing
-code. To better distinguish meanings of the failure values, rename
-RT6_NUD_FAIL_SOFT to RT6_NUD_FAIL_DO_RR.
+I see about 15 to 20% performance degradation for UDP/IPv6 as compared
+to UDP/IPv4 for packets of size 1500.
 
-We also need to accept NAs when in NUD_FAILED state.
+On performing "perf top" analysis for ipv6 traffic, I identified the
+following functions as some hot functions:
+fib6_force_start_gc()
+csum_partial_copy_generic()
+udp_v6_flush_pending_frames()
+dst_mtu()
 
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
----
-I admit I'm not much sure about the removal of the NUD_FAILED check in
-ndisc_recv_na. I can't find anything in RFC 4861 nor in RFC 4191 which would
-prohibit taking the neighbor entry out of failed state if a NA is received.
-I also cannot find any place where such change would cause problems in the
-kernel, but I may have easily overlooked something. Comments are welcome.
----
- net/ipv6/ndisc.c |    3 ---
- net/ipv6/route.c |   14 +++++++++-----
- 2 files changed, 9 insertions(+), 8 deletions(-)
+csum_partial_copy_generic() shows up because my card doesn't support
+checksum offloading for ipv6 packets. In fact turning off rx / tx
+checksum offloading for ipv4 showed the same function in the "perf
+top" profile, but did not cause any performance degradation.
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 09a22f4f36c9..faf67efc4c99 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -918,9 +918,6 @@ static void ndisc_recv_na(struct sk_buff *skb)
- 		u8 old_flags = neigh->flags;
- 		struct net *net = dev_net(dev);
- 
--		if (neigh->nud_state & NUD_FAILED)
--			goto out;
--
- 		/*
- 		 * Don't update the neighbor cache entry on a proxy NA from
- 		 * ourselves because either the proxied node is off link or it
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index ddb9d41c8eea..147c39f7f70d 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -66,8 +66,9 @@
- #endif
- 
- enum rt6_nud_state {
--	RT6_NUD_FAIL_HARD = -2,
--	RT6_NUD_FAIL_SOFT = -1,
-+	RT6_NUD_FAIL_HARD = -3,
-+	RT6_NUD_FAIL_PROBE = -2,
-+	RT6_NUD_FAIL_DO_RR = -1,
- 	RT6_NUD_SUCCEED = 1
- };
- 
-@@ -577,11 +578,13 @@ static inline enum rt6_nud_state rt6_check_neigh(struct rt6_info *rt)
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 		else if (!(neigh->nud_state & NUD_FAILED))
- 			ret = RT6_NUD_SUCCEED;
-+		else
-+			ret = RT6_NUD_FAIL_PROBE;
- #endif
- 		read_unlock(&neigh->lock);
- 	} else {
- 		ret = IS_ENABLED(CONFIG_IPV6_ROUTER_PREF) ?
--		      RT6_NUD_SUCCEED : RT6_NUD_FAIL_SOFT;
-+		      RT6_NUD_SUCCEED : RT6_NUD_FAIL_DO_RR;
- 	}
- 	rcu_read_unlock_bh();
- 
-@@ -618,16 +621,17 @@ static struct rt6_info *find_match(struct rt6_info *rt, int oif, int strict,
- 		goto out;
- 
- 	m = rt6_score_route(rt, oif, strict);
--	if (m == RT6_NUD_FAIL_SOFT) {
-+	if (m == RT6_NUD_FAIL_DO_RR) {
- 		match_do_rr = true;
- 		m = 0; /* lowest valid score */
--	} else if (m < 0) {
-+	} else if (m == RT6_NUD_FAIL_HARD) {
- 		goto out;
- 	}
- 
- 	if (strict & RT6_LOOKUP_F_REACHABLE)
- 		rt6_probe(rt);
- 
-+	/* note that m can be RT6_NUD_FAIL_PROBE at this point */
- 	if (m > *mpri) {
- 		*do_rr = match_do_rr;
- 		*mpri = m;
--- 
-1.7.6.5
+Now I am CPU bound on packets of size 1500 and I am not using GSO (for
+both IPv4 and IPv6). I tried twiddling with the route cache garbage
+collection timer values and tried to set the socket options to disable
+pmtu discovery and set the mtu for the socket, but it did not make any
+difference.
+
+I am wondering if this is a known performance issue or can I fine tune
+the system to match UDP / IPv4 performance with UDP / IPv6? As I am
+CPU bound, the functions I identified are using up CPU cycles that i
+could probably save.
+
+Any help is appreciated.
+
+Thanks,
+Ajay
