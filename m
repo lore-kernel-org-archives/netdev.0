@@ -1,52 +1,64 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] ipv6 addrconf: revert /proc/net/if_inet6 ifa_flag format
-Date: Tue, 10 Dec 2013 13:56:29 +0100
-Message-ID: <1386680189-7852-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, thaller@redhat.com,
-	alex.aring@gmail.com, florent.fourcot@enst-bretagne.fr
-To: netdev@vger.kernel.org
+Subject: Re: ifconfig doesn't show assignment ip-addresses
+Date: Tue, 10 Dec 2013 13:57:54 +0100
+Message-ID: <20131210125754.GC2469@minipsycho.orion>
+References: <20131209153238.GA10317@omega>
+ <20131210105741.GA2469@minipsycho.orion>
+ <20131210110648.GA18196@omega>
+ <20131210114339.GB2469@minipsycho.orion>
+ <20131210114847.GA20146@omega>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f170.google.com ([209.85.215.170]:59586 "EHLO
-	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751823Ab3LJM4d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 07:56:33 -0500
-Received: by mail-ea0-f170.google.com with SMTP id k10so2244774eaj.29
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 04:56:32 -0800 (PST)
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:40310 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751498Ab3LJM56 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 07:57:58 -0500
+Received: by mail-ee0-f50.google.com with SMTP id c41so2185766eek.23
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 04:57:57 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20131210114847.GA20146@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Turned out that applications like ifconfig do not handle the change.
-So revert ifa_flag format back to 2-letter hex value.
+Tue, Dec 10, 2013 at 12:48:48PM CET, alex.aring@gmail.com wrote:
+>On Tue, Dec 10, 2013 at 12:43:39PM +0100, Jiri Pirko wrote:
+>> Tue, Dec 10, 2013 at 12:06:49PM CET, alex.aring@gmail.com wrote:
+>> >Hi,
+>> >
+>> >thanks for your reply.
+>> >
+>> >On Tue, Dec 10, 2013 at 11:57:41AM +0100, Jiri Pirko wrote:
+>> >> Mon, Dec 09, 2013 at 04:32:39PM CET, alex.aring@gmail.com wrote:
+>> >> >Hi,
+>> >> >
+>> >> >On current net-next with a lowpan interface created with:
+>> >> >
+>> >> >ip link add link wpan0 name lowpan0 type lowpan
+>> >> >
+>> >> >I don't see any ipv6 addresses in ifconfig anymore. The addresses exist,
+>> >> >because I can ping my device.
+>> >> 
+>> >> 
+>> >> Can you see the address in "ip a" ? Would you send me output of
+>> >> "ifconfig" and "ip a" please? Is this a problem for lowpan only or do
+>> >> you see this with other device types as well?
+>> >> 
+>> 
+>> The problem is that ifconfig parses /proc/net/if_inet6 which changed
+>> flag format from 2 hexa chars to 3.
+>> I will send revert for this change in couple of minutes.
+>> 
+>
+>ah, nice to known. Thanks!
+>
+>What would be a proper solution to add a u32 flag property? Or we never
+>should change this, because we want backwards compatibility?
 
-Introduced by:
-commit 479840ffdbe4242e8a25349218c8e0859223aa35
-    "ipv6 addrconf: extend ifa_flags to u32"
+I think that we should leave this as it is. The u32 flags are reachable
+via Netlink and that is the preferred way nowadays.
 
-Reported-by: Alexander Aring <alex.aring@gmail.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/ipv6/addrconf.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index be4dbbd..3c3425e 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3367,12 +3367,12 @@ static void if6_seq_stop(struct seq_file *seq, void *v)
- static int if6_seq_show(struct seq_file *seq, void *v)
- {
- 	struct inet6_ifaddr *ifp = (struct inet6_ifaddr *)v;
--	seq_printf(seq, "%pi6 %02x %02x %02x %03x %8s\n",
-+	seq_printf(seq, "%pi6 %02x %02x %02x %02x %8s\n",
- 		   &ifp->addr,
- 		   ifp->idev->dev->ifindex,
- 		   ifp->prefix_len,
- 		   ifp->scope,
--		   ifp->flags,
-+		   (u8) ifp->flags,
- 		   ifp->idev->dev->name);
- 	return 0;
- }
--- 
-1.8.3.1
+>
+>- Alex
