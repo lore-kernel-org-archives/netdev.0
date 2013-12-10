@@ -1,76 +1,58 @@
 From: Paul Durrant <Paul.Durrant@citrix.com>
 Subject: RE: [PATCH net] xen-netback: fix abuse of napi budget
-Date: Tue, 10 Dec 2013 10:48:13 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01ABD2E@AMSPEX01CL01.citrite.net>
+Date: Tue, 10 Dec 2013 10:52:58 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01ABD49@AMSPEX01CL01.citrite.net>
 References: <1386670600-5882-1-git-send-email-paul.durrant@citrix.com>
  <1386671136.11925.46.camel@kazak.uk.xensource.com>
- <52A6ED35.7070003@citrix.com> <20131210103736.GJ32155@zion.uk.xensource.com>
- <20131210104443.GK32155@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
 	David Vrabel <david.vrabel@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:16333 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751687Ab3LJKsQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 05:48:16 -0500
-In-Reply-To: <20131210104443.GK32155@zion.uk.xensource.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:45349 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352Ab3LJKxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 05:53:24 -0500
+In-Reply-To: <1386671136.11925.46.camel@kazak.uk.xensource.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Wei Liu [mailto:wei.liu2@citrix.com]
-> Sent: 10 December 2013 10:45
-> To: David Vrabel
-> Cc: Ian Campbell; Paul Durrant; xen-devel@lists.xen.org;
-> netdev@vger.kernel.org; Wei Liu
-> Subject: Re: [PATCH net] xen-netback: fix abuse of napi budget
-> 
-> On Tue, Dec 10, 2013 at 10:37:36AM +0000, Wei Liu wrote:
-> > On Tue, Dec 10, 2013 at 10:30:13AM +0000, David Vrabel wrote:
-> > > On 10/12/13 10:25, Ian Campbell wrote:
-> > > > On Tue, 2013-12-10 at 10:16 +0000, Paul Durrant wrote:
-> > > >> netback seemed to be somewhat confused about the napi budget
-> parameter and
-> > > >> basically ignored it. This patch fixes that, properly limiting the work
-> done
-> > > >> in each poll.
-> > > >
-> > > > What do you mean "ignored", xenvif_tx_submit seems to be tracking
-> and
-> > > > testing work_done against the budget.
-> > >
-> > > I have seen this warning in net_rx_action() trigger.
-> > >
-> > > 	WARN_ON_ONCE(work > weight);
-> > >
-> > > Which means netback wasn't limiting the work done.
-> > >
-> >
-> > But in the original code work_done is returned by xenvif_tx_submit which
-> > has guard against that situation, right?
-> >
-> 
-> And now I think I spot a bug...
-> 
->   work_done = xenvif_tx_submit(vif, nr_gops);
-> 
-> The second argument should really be "budget". :-(
-> 
-
-Yep - that's basically the problem.
-
-  Paul
-
-> Wei.
-> 
-> > Wei.
-> >
-> > > David
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwNCj4gU2Vu
+dDogMTAgRGVjZW1iZXIgMjAxMyAxMDoyNg0KPiBUbzogUGF1bCBEdXJyYW50DQo+IENjOiB4ZW4t
+ZGV2ZWxAbGlzdHMueGVuLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgV2VpIExpdTsgRGF2
+aWQgVnJhYmVsDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0XSB4ZW4tbmV0YmFjazogZml4IGFi
+dXNlIG9mIG5hcGkgYnVkZ2V0DQo+IA0KPiBPbiBUdWUsIDIwMTMtMTItMTAgYXQgMTA6MTYgKzAw
+MDAsIFBhdWwgRHVycmFudCB3cm90ZToNCj4gPiBuZXRiYWNrIHNlZW1lZCB0byBiZSBzb21ld2hh
+dCBjb25mdXNlZCBhYm91dCB0aGUgbmFwaSBidWRnZXQNCj4gcGFyYW1ldGVyIGFuZA0KPiA+IGJh
+c2ljYWxseSBpZ25vcmVkIGl0LiBUaGlzIHBhdGNoIGZpeGVzIHRoYXQsIHByb3Blcmx5IGxpbWl0
+aW5nIHRoZSB3b3JrIGRvbmUNCj4gPiBpbiBlYWNoIHBvbGwuDQo+IA0KPiBXaGF0IGRvIHlvdSBt
+ZWFuICJpZ25vcmVkIiwgeGVudmlmX3R4X3N1Ym1pdCBzZWVtcyB0byBiZSB0cmFja2luZyBhbmQN
+Cj4gdGVzdGluZyB3b3JrX2RvbmUgYWdhaW5zdCB0aGUgYnVkZ2V0Lg0KPiANCj4gSSBzdXNwZWN0
+IHRoaXMgY2hhbmdlIGlzIHByb2JhYmx5IHdvcnRod2hpbGUgYnV0IGl0IHdvdWxkIGJlIGdvb2Qg
+dG8gZ2V0DQo+IGFuIGFjY3VyYXRlIGRlc2NyaXB0aW9uIG9mIHdoeSwgd2hpY2ggSSBwcmVzdW1l
+IGlzIGJlY2F1c2UgdGhlIHR4DQo+IHByb2Nlc3MgaXMgeGVudmlmX3R4X2J1aWxkX2dvcHMgZm9s
+bG93ZWQgYnksIGdudHRhYl9iYXRjaF9jb3B5IHRoZW4NCj4geGVudmlmX3R4X3N1Ym1pdCBhbmQg
+dGhhdCBpdCBpcyBiZXR0ZXIgdG8gZG8gdGhlIGJ1ZGdldCBlbmZvcmNlbWVudA0KPiBlYXJsaWVy
+IG9uLg0KPiANCg0KWWVzLCB0aGUgYnVkZ2V0IG5lZWRzIHRvIGxpbWl0IHdoYXQgd2UgcHJvY2Vz
+cyBmcm9tIHRoZSBzaGFyZWQgcmluZyBiZWNhdXNlIG90aGVyd2lzZSB3ZSByaXNrIHR4X3F1ZXVl
+IGdyb3dpbmcgd2l0aG91dCBib3VuZC4NCg0KPiBIb3cgZG9lcyB0aGlzIGNoYW5nZSBpbXBhY3Qg
+dGhlIGJhdGNoaW5nIGluIGdudHRhYl9iYXRjaF9jb3B5IGFuZA0KPiB0aGVyZWZvcmUgcGVyZm9y
+bWFuY2U/IERvIHdlIG5lZWQgdG8gdHdlYWsgdGhlIHRoZSBOQVBJIGJ1ZGdldCB0bw0KPiBlbnN1
+cmUNCj4gd2UgYXJlIGdldHRpbmcgZ29vZCBiYXRjaGluZz8gSSBzdXNwZWN0IHRoYXQgbmV0YmFj
+ayBpcyBhIGJpdCB1bnVzdWFsDQo+IGFtb25nIE5JQyBkcml2ZXJzIGluIHRoYXQgdGhlIHJ4IHBh
+dGggY29udGFpbnMgYSBmYWlyIGJpdCBvZiBhY3R1YWwgd29yaw0KPiB0byBkbywgc28gcGVyaGFw
+cyB0aGUgTkFQSSBkZWZhdWx0cyBhcmUgbm90IG5lY2Vzc2FyaWx5IGdvaW5nIHRvIGJlIHRoZQ0K
+PiBiZXN0IGZvciBpdC4NCj4gDQoNCldlIGhhdmUgYSBidWRnZXQgb2YgNjQgYXQgdGhlIG1vbWVu
+dCwgd2hpY2ggSSB0aGluayBpcyBiaWcgZW5vdWdoIGFuZCBhY3R1YWxseSBwb3NzaWJseSB0b28g
+YmlnLiBXZSBuZWVkIGEgdmFsdWUgdGhhdCBnaXZlcyB1cyBhIHJlYXNvbmFibGUgYW1vdW50IG9m
+IGdyYW50IG9wIGJhdGNoaW5nIGJ1dCBpc24ndCBzbyBiaWcgdGhhdCB3ZSdyZSBmb3JldmVyIGJv
+dW5jaW5nIGFuZCBpbiBhbmQgb3V0IG9mIGludGVycnVwdCBtb2RlLCB3aGljaCBJIHN1c3BlY3Qg
+aXMgd2hhdCdzIGhhcHBlbmluZyBub3cuIEl0IHdvdWxkIGJlIHJlYWxseSB1c2VmdWwgaWYgbmFw
+aSBidWRnZXQgY291bGQgYmUgdHVuZWQgZHluYW1pY2FsbHkgc28gd2UgY291bGQgcnVuIHNvbWUg
+cGVyZiB0ZXN0cyB3aXRob3V0IGhhdmluZyB0byByZWxvYWQgYnV0IGdvb2dsZSBoYXMgZHJhd24g
+YSBibGFuayBzbyBmYXIuDQoNCiAgUGF1bA0K
