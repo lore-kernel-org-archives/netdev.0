@@ -1,43 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/5] qlcnic: Use correct netif api to enable tx
- queues.
-Date: Tue, 10 Dec 2013 17:49:07 -0500 (EST)
-Message-ID: <20131210.174907.841340337177313599.davem@davemloft.net>
-References: <cover.1386648865.git.himanshu.madhani@qlogic.com>
-	<a124e077076f2a1d1107200e629945108bd467bd.1386648865.git.himanshu.madhani@qlogic.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: himanshu.madhani@qlogic.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] neigh: use neigh_parms_net() to get struct neigh_parms->net pointer
+Date: Tue, 10 Dec 2013 23:55:07 +0100
+Message-ID: <1386716107-18843-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52823 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751429Ab3LJWtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 17:49:08 -0500
-In-Reply-To: <a124e077076f2a1d1107200e629945108bd467bd.1386648865.git.himanshu.madhani@qlogic.com>
+Received: from mail-ea0-f179.google.com ([209.85.215.179]:47161 "EHLO
+	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750960Ab3LJWzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 17:55:12 -0500
+Received: by mail-ea0-f179.google.com with SMTP id r15so2562584ead.38
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 14:55:11 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Date: Tue, 10 Dec 2013 12:33:01 -0500
+This fixes compile error when CONFIG_NET_NS is not set.
 
-> From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-> 
-> o commit id 012ec81223aa45d2b80aeafb77392fd1a19c7b10
->   ("qlcnic: Multi Tx queue support for 82xx Series adapter.")
->   enabled multiple tx queue API's for qlcnic driver.
->   During link change event, driver will stop/start Tx queues
->   which manages Link up event is received after Tx context is created
->   driver needs to call netif_tx_wake_all_queues()
-> 
-> Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Introduced by:
+commit 1d4c8c29841b9991cdf3c7cc4ba7f96a94f104ca
+    "neigh: restore old behaviour of default parms values"
 
-This is a symptom of the fact that this driver does not manage it's
-queues correctly.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/core/neighbour.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-When the carrier is marked off, the core networking will not queue
-packets to the device.
-
-You should never manage queue state manually in response to link
-state changes, netif_carrir_{on,off}() takes care of everything.
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index ce2b775..8be82a7 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2850,7 +2850,7 @@ static void neigh_proc_update(struct ctl_table *ctl, int write)
+ {
+ 	struct net_device *dev = ctl->extra1;
+ 	struct neigh_parms *p = ctl->extra2;
+-	struct net *net = p->net;
++	struct net *net = neigh_parms_net(p);
+ 	int index = (int *) ctl->data - p->data;
+ 
+ 	if (!write)
+-- 
+1.8.3.1
