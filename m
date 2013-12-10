@@ -1,63 +1,58 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/2] bgmac: drop duplicated PHY defines
-Date: Tue, 10 Dec 2013 09:10:36 -0800
-Message-ID: <CAGVrzcYCT0QUKuRGktH-4xVrXtort-Uy4phvq8yZg3nU8SPFjw@mail.gmail.com>
-References: <1386668966-24562-1-git-send-email-zajec5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH net-next v2] 6lowpan: Moving generic compression code into 6lowpan_iphc.c
+Date: Tue, 10 Dec 2013 18:11:07 +0100
+Message-ID: <D0DC33A0-C735-4935-8FA6-D2CFC3FB958C@holtmann.org>
+References: <1386576963-21764-1-git-send-email-jukka.rissanen@linux.intel.com> <20131209081833.GB2062@omega> <09E9761B-6A18-4F28-9315-DD6D44C45597@holtmann.org> <20131210141923.GA32698@omega>
+Mime-Version: 1.0 (Mac OS X Mail 7.0 \(1822\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Jukka Rissanen <jukka.rissanen@linux.intel.com>,
+	netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:37601 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754089Ab3LJRLQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 12:11:16 -0500
-Received: by mail-pb0-f48.google.com with SMTP id md12so8035541pbc.21
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 09:11:16 -0800 (PST)
-In-Reply-To: <1386668966-24562-1-git-send-email-zajec5@gmail.com>
+Received: from senator.holtmann.net ([87.106.208.187]:43066 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755050Ab3LJRLW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 12:11:22 -0500
+In-Reply-To: <20131210141923.GA32698@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Rafal
+Hi Alexander,
 
-2013/12/10 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
-> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-> ---
->  drivers/net/ethernet/broadcom/bgmac.c |    6 ++----
->  drivers/net/ethernet/broadcom/bgmac.h |   21 ---------------------
->  2 files changed, 2 insertions(+), 25 deletions(-)
->
-> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethe=
-rnet/broadcom/bgmac.c
-> index 0452937..ad4b2f1 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac.c
-> +++ b/drivers/net/ethernet/broadcom/bgmac.c
-> @@ -725,11 +725,9 @@ static void bgmac_phy_reset(struct bgmac *bgmac)
->         if (bgmac->phyaddr =3D=3D BGMAC_PHY_NOREGS)
->                 return;
->
-> -       bgmac_phy_write(bgmac, bgmac->phyaddr, BGMAC_PHY_CTL,
-> -                       BGMAC_PHY_CTL_RESET);
-> +       bgmac_phy_write(bgmac, bgmac->phyaddr, MII_BMCR, BMCR_RESET);
->         udelay(100);
-> -       if (bgmac_phy_read(bgmac, bgmac->phyaddr, BGMAC_PHY_CTL) &
-> -           BGMAC_PHY_CTL_RESET)
-> +       if (bgmac_phy_read(bgmac, bgmac->phyaddr, MII_BMCR) & BMCR_RE=
-SET)
->                 bgmac_err(bgmac, "PHY reset failed\n");
->         bgmac_phy_init(bgmac);
+>>> thanks for working on this! Now my acked-by is correct, sry. Didn't
+>>> catch the debug output at first time.
+>>> 
+>>>> Because the IEEE 802154 and Bluetooth share the IP header compression
+>>>> and uncompression code, the common code is moved to 6lowpan_iphc.c
+>>>> file.
+>>>> 
+>>>> Signed-off-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+>>>> ---
+>>> 
+>>> Acked-by: Alexander Aring <alex.aring@gmail.com>
+>> 
+>> are you fine with us carrying these patches through bluetooth-next tree.
+>> 
+> 
+> yes.
 
-phy_init_hw() now issues a PHY reset through BMCR_RESET, you might
-want to use it instead of this here:
+okay then, we will carry this patch through bluetooth-next tree now.
 
-- the 100 microseconds delay might not be sufficient for all PHYs out t=
-here
-- any PHY fixup (although there are none for BCM47xx yet) would be
-wiped out by this "wild" PHY reset
+>> Dave, or do you want to merge this one into net-next and then we have wireless-next pulling that in.
+>> 
+>> I am trying to figure out on how we get this handled with the minimum of conflicts during the next merge window. And also at the same time get enough exposure via linux-next. The Bluetooth part is getting ready to be pushed into bluetooth-next.
+>> 
+> I have some pending patches for udp iphc format and a rework of the
+> fragmentation api. I already rebased these patches on Jukka's patch.
+> 
+> So you can apply this patch in bluetooth-next.
+> Then I will wait until bluetooth-next is merged into net-next.
+> 
+> Is that okay for you?
 
-This is quite new, so I do not expect you knew about this.
---
-=46lorian
+Yes that is fine. Just CC linux-bluetooth@vger.kernel.org and I take care of the patches.
+
+Regards
+
+Marcel
