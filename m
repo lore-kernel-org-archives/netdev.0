@@ -1,34 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] etherdevice: Optimize a few is_<foo>_ether_addr
- functions
-Date: Mon, 09 Dec 2013 20:58:38 -0500 (EST)
-Message-ID: <20131209.205838.1809285255471420654.davem@davemloft.net>
-References: <20131206.163806.1555069105347405484.davem@davemloft.net>
-	<1386368461.31845.38.camel@joe-AO722>
-	<1386373461.31845.50.camel@joe-AO722>
+Subject: Re: [PATCH] bgmac: connect to PHY and make use of PHY device
+Date: Mon, 09 Dec 2013 20:59:47 -0500 (EST)
+Message-ID: <20131209.205947.2139145054909970576.davem@davemloft.net>
+References: <1386374035-31762-1-git-send-email-zajec5@gmail.com>
+	<CAGVrzcbQPugVMG7N7y4BP4d_Z2i_DLRqBPVpbqaFQhA4nbM4sQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386373461.31845.50.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: zajec5@gmail.com, netdev@vger.kernel.org, hauke@hauke-m.de
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45039 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970Ab3LJB7t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 20:59:49 -0500
+In-Reply-To: <CAGVrzcbQPugVMG7N7y4BP4d_Z2i_DLRqBPVpbqaFQhA4nbM4sQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Fri, 06 Dec 2013 15:44:21 -0800
+=46rom: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri, 6 Dec 2013 16:59:26 -0800
 
-> If CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is set,
-> several is_<foo>_ether_addr functions can be slightly
-> improved by using u32 dereferences.
-> 
-> I believe all current uses of is_zero_ether_addr and
-> is_broadcast_ether_addr are u16 aligned, so always use
-> u16 references to improve those functions performance.
-> 
-> Document the u16 alignment requirements.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> 2013/12/6 Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>:
+>> We were already registering MDIO bus, but we were not connecting bgm=
+ac
+>> to the PHY. Add proper call and implement adjust link function to sw=
+itch
+>> MAC into requested state.
+>> At the same time it's possible to drop our internal PHY management.
+>> This is a "standard" PHY, so the "Generic PHY" driver works perfectl=
+y
+>> fine with this. Don't duplicate the code.
+>> Finally make use of phy_ethtool_[gs]set functions instead implementi=
+ng
+>> them from scratch.
+>>
+>> This change was successfully tested on BCM5357. I was able to
+>> autonegotiate 1000Mb/s full duplex, as well as force any of the
+>> 10/100/1000 half/full modes.
+>=20
+> The diffstat is really impressive, nice job!
+>=20
+>>
+>> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+>=20
+> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Applied.
+Applied, thanks everyone.
