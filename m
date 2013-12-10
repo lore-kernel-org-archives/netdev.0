@@ -1,63 +1,75 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 1/3] virtio_net: set multicast filter list to
- host
-Date: Tue, 10 Dec 2013 12:40:19 -0500
-Message-ID: <52A75203.30505@gmail.com>
-References: <20131209161632.5ac96e5a@nehalam.linuxnetplumber.net>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2 15/16] wl1251: Add sysfs file address for setting
+ permanent mac address
+Date: Tue, 10 Dec 2013 11:49:22 -0600
+Message-ID: <1386697762.30202.6.camel@dcbw.foobar.com>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+	 <87txegpuyk.fsf@purkki.adurom.net> <201312101710.51015@pali>
+	 <201312101814.35112@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f43.google.com ([209.85.213.43]:37656 "EHLO
-	mail-yh0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752303Ab3LJRkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 12:40:24 -0500
-Received: by mail-yh0-f43.google.com with SMTP id a41so4057201yho.2
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 09:40:23 -0800 (PST)
-In-Reply-To: <20131209161632.5ac96e5a@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>, Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, freemangordon-uiMcrn6V0Vs@public.gmane.org,
+	aaro.koskinen-X3B1VOXEql0@public.gmane.org, pavel-+ZI9xUNit7I@public.gmane.org, sre-GFxCN5SEZAc@public.gmane.org,
+	joni.lapilainen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201312101814.35112@pali>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 12/09/2013 07:16 PM, Stephen Hemminger wrote:
-> The virtio_net driver never sends the multicast address list to
-> the host. This is because send command takes a pointer to scatter list
-> to send but only inserts that one entry into the outgoing scatter list.
-> 
-> This bug has been there since:
-> commit f565a7c259d71cc186753653d978c646d2354b36
-> Author: Alex Williamson <alex.williamson@hp.com>
-> Date:   Wed Feb 4 09:02:45 2009 +0000
-> 
->     virtio_net: Add a MAC filter table
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> 
-> --- a/drivers/net/virtio_net.c	2013-12-09 16:12:03.897891975 -0800
-> +++ b/drivers/net/virtio_net.c	2013-12-09 16:12:36.353164803 -0800
-> @@ -893,7 +893,7 @@ static bool virtnet_send_command(struct
->  	sg_init_one(&hdr, &ctrl, sizeof(ctrl));
->  	sgs[out_num++] = &hdr;
->  
-> -	if (out)
-> +	for (; out; out = sg_next(out))
->  		sgs[out_num++] = out;
->  	if (in)
->  		sgs[out_num + in_num++] = in;
+On Tue, 2013-12-10 at 18:14 +0100, Pali Roh=C3=A1r wrote:
+> On Tuesday 10 December 2013 17:10:50 Pali Roh=C3=A1r wrote:
+> > On Tuesday 10 December 2013 16:49:23 Kalle Valo wrote:
+> > > Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+> > > > Driver wl1251 generating mac address randomly at startup
+> > > > and there is no way to set permanent mac address via
+> > > > SET_IEEE80211_PERM_ADDR. This patch export sysfs file
+> > > > which can set permanent mac address by userspace helper
+> > > > program. Patch is needed for devices which do not store
+> > > > mac address in internal wl1251 eeprom.
+> > > >=20
+> > > > Signed-off-by: Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > >=20
+> > > We have ioctl() command for setting the mac address.
+> >=20
+> > Really? Is there ioctl for setting permanent mac address?
+> > Can you show me it?
+>=20
+> Now I looked at it again and I did not found any ioctl for it.=20
+> There is only ioctl cmd for getting address, not setting it.
+>=20
+> #define SIOCETHTOOL 0x8946
+>=20
+> /* Get permanent hardware address */
+> #define ETHTOOL_GPERMADDR 0x00000020
 
-Hi Stephen
+Yeah, because it's supposed to be permanent and unchanging.  Which mean=
+s
+if there was an ioctl for it, that would be contrary to the purpose of =
+a
+permanent MAC address.
 
-Amos Kong pointed out in your original thread, that this doesn't seem to
-be needed and is working for him.  I just checked my VMs and it's
-working for me as well without this.  Have you seen it fail?
+I realize the N900 stores the WiFi MAC address completely differently
+than many other systems, and that's why this sysfs file was created.  I
+don't really have a great converged solution for that, other than what
+you've currently got, or perhaps adding SPERMADDR to ethtool.  One thin=
+g
+I *would* like though, is a restriction on the sysfs file such that if
+the permanent MAC is already set, it cannot be set again.  Otherwise th=
+e
+permanent MAC address isn't permanent at all.
 
-Amos did a very good job explaining, but it basically boils down to the
-fact that virtqueue_add_sgs() treats each entry of the sgs array
-as a list and walks each list using exactly the same code as this patch
-proposes :).  virtqueue_add() also walks each array element as a list.
+Dan
 
--vlad
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
