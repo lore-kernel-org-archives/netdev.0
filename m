@@ -1,42 +1,25 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] micrel: add support for KSZ8041RNLI
-Date: Tue, 10 Dec 2013 14:19:13 +0100
-Message-ID: <CAMuHMdXdvF+N0+b0Mo3DO4Vj3NCymh-ySU_SMRATFUekSfnaRg@mail.gmail.com>
-References: <201312100220.42153.sergei.shtylyov@cogentembedded.com>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net v3 0/2] xen-netback: napi fixes
+Date: Tue, 10 Dec 2013 13:39:40 +0000
+Message-ID: <1386682782-7052-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201312100220.42153.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:27072 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752376Ab3LJNjs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 08:39:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
+This 2 patch series is essentially v3 of "xen-netback: fix abuse of napi
+budget".
 
-On Tue, Dec 10, 2013 at 12:20 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Renesas R-Car development boards use KSZ8041RNLI PHY which for some reason has
-> ID of 0x00221537 that is not documented for KSZ8041-family PHYs and does not
-> match the  documented ID of  0x0022151x (where 'x' is the revision).  We have
-> to add the new #define PHY_ID_* and new ksphy_driver[] entry, almost the same
-> as KSZ8041 one, differing only in the 'phy_id' and 'name' fields.
->
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+v3:
+- Break into two patches
+- Don't lose the work_to_do value in xenvif_build_tx_gops
 
-Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
-
-I don't seem to get "net eth0: Receive FIFO Overflow" anymore after applying
-this patch.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+v2:
+- More elaborate description of the problem and the fix in the comment.
+- Modified the check in xenvif_build_tx_gops.
