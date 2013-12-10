@@ -1,33 +1,41 @@
-From: Debbie Mayorga <benco_98@voila.fr>
-Subject: Hello Dear,
-Date: Wed, 11 Dec 2013 03:50:59 +0800 (SGT)
-Message-ID: <1386705059.77257.YahooMailBasic@web194002.mail.sg3.yahoo.com>
-Reply-To: benco_98@voila.fr
+From: Paul Moore <pmoore@redhat.com>
+Subject: [PATCH v2] cipso: cleanup cipso_v4_translate() when !CONFIG_NETLABEL
+Date: Tue, 10 Dec 2013 15:00:50 -0500
+Message-ID: <20131210200050.5847.32493.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: undisclosed recipients:;
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm48.bullet.mail.ne1.yahoo.com ([98.138.120.55]:43258 "HELO
-	nm48.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751178Ab3LJTxy convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Dec 2013 14:53:54 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:8862 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751253Ab3LJUAz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Dec 2013 15:00:55 -0500
+Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id rBAK0r9a002024
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 15:00:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Don't needlessly recompute 'opt[opt_iter + 1]' as we already have it
+stored in 'tag_len'.
 
-Hello Dear,
- 
-I know this means of communication may not be morally right to you as a person but I also have had a great thought about it and I have come to this conclusion which I am about to share with you.
- 
- INTRODUCTION: I am the Credit Manager Bank of Africa Ouagadougou Burkina Faso and in one way or the other was hoping you will cooperate with me as a partner in a project of transferring an abandoned fund of a late customer of the bank worth of $13,250,000 (Thirteen Million two hundred and fifty thousand Dollars US).
- 
-This will be disbursed or shared between the both of us in these percentages, 60% to me and 30% to you while 10% will be for the expenses both parties might have incurred during the process of transferring.
- 
-I will send you more details about this deal and the procedures to follow when I receive a positive response from you,
- 
- Best Regards,
+Signed-off-by: Paul Moore <pmoore@redhat.com>
+---
+ include/net/cipso_ipv4.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- Yours Faithfully
- Mr. Debbie Mayorga
+diff --git a/include/net/cipso_ipv4.h b/include/net/cipso_ipv4.h
+index a8c2ef6..2244e02 100644
+--- a/include/net/cipso_ipv4.h
++++ b/include/net/cipso_ipv4.h
+@@ -304,7 +304,7 @@ static inline int cipso_v4_validate(const struct sk_buff *skb,
+ 
+ 	for (opt_iter = 6; opt_iter < opt_len;) {
+ 		tag_len = opt[opt_iter + 1];
+-		if ((tag_len == 0) || (opt[opt_iter + 1] > (opt_len - opt_iter))) {
++		if ((tag_len == 0) || (tag_len > (opt_len - opt_iter))) {
+ 			err_offset = opt_iter + 1;
+ 			goto out;
+ 		}
