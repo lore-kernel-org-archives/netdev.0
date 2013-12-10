@@ -1,88 +1,58 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net V2 1/2] tun: unbreak truncated packet signalling
-Date: Tue, 10 Dec 2013 13:49:45 +0800
-Message-ID: <1386654586-18151-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH 1/2] vxlan: remove vxlan_group_used in vxlan_open
+Date: Tue, 10 Dec 2013 14:26:30 +0800
+Message-ID: <52A6B416.7@cn.fujitsu.com>
+References: <1386234096-18441-1-git-send-email-gaofeng@cn.fujitsu.com> <20131209.193244.2227545675987687506.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:28443 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750764Ab3LJGZX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Dec 2013 01:25:23 -0500
+In-Reply-To: <20131209.193244.2227545675987687506.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 6680ec68eff47d36f67b4351bc9836fd6cba9532
-(tuntap: hardware vlan tx support) breaks the truncated packet signal by nev
-return a length greater than iov length in tun_put_user(). This patch fixes
-by always return the length of packet plus possible vlan header. Caller can
-detect the truncated packet by comparing the return value and the size of io
-length.
+On 12/10/2013 08:32 AM, David Miller wrote:
+> From: Gao feng <gaofeng@cn.fujitsu.com>
+> Date: Thu, 5 Dec 2013 17:01:35 +0800
+> 
+>> In vxlan_open, vxlan_group_used always returns true,
+>> because the state of the vxlan deivces which we want
+>> to open has alreay been running. and it has already
+>> in vxlan_list.
+>>
+>> Since ip_mc_join_group takes care of the reference
+>> problem. we can remove vxlan_group_used here, let
+>> ip_mc_join_group resolve the reference problem.
+>>
+>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> 
+> "already" is misspelled in this commit message.
+> 
+> Please describe what "the reference problem" actually is.
+> 
 
-Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-Changes from v1:
-- increase total unconditionally
-- do not move veth structure out of the vlan handing block
----
- drivers/net/tun.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+There is no reference bug here. just means we needn't to take
+care of the reference of ip_mc_list, vxlan_group_used has no use here.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index e26cbea..cd142134 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1184,7 +1184,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- {
- 	struct tun_pi pi = { 0, skb->protocol };
- 	ssize_t total = 0;
--	int vlan_offset = 0;
-+	int vlan_offset = 0, offset;
- 
- 	if (!(tun->flags & TUN_NO_PI)) {
- 		if ((len -= sizeof(pi)) < 0)
-@@ -1248,6 +1248,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 		total += tun->vnet_hdr_sz;
- 	}
- 
-+	offset = total;
-+	total += skb->len;
- 	if (!vlan_tx_tag_present(skb)) {
- 		len = min_t(int, skb->len, len);
- 	} else {
-@@ -1262,24 +1264,24 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 
- 		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
- 		len = min_t(int, skb->len + VLAN_HLEN, len);
-+		total += VLAN_HLEN;
- 
- 		copy = min_t(int, vlan_offset, len);
--		ret = skb_copy_datagram_const_iovec(skb, 0, iv, total, copy);
-+		ret = skb_copy_datagram_const_iovec(skb, 0, iv, offset, copy);
- 		len -= copy;
--		total += copy;
-+		offset += copy;
- 		if (ret || !len)
- 			goto done;
- 
- 		copy = min_t(int, sizeof(veth), len);
--		ret = memcpy_toiovecend(iv, (void *)&veth, total, copy);
-+		ret = memcpy_toiovecend(iv, (void *)&veth, offset, copy);
- 		len -= copy;
--		total += copy;
-+		offset += copy;
- 		if (ret || !len)
- 			goto done;
- 	}
- 
--	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, total, len);
--	total += len;
-+	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, offset, len);
- 
- done:
- 	tun->dev->stats.tx_packets++;
--- 
-1.8.3.2
+>> @@ -1943,8 +1943,7 @@ static int vxlan_open(struct net_device *dev)
+>>  	if (!vs)
+>>  		return -ENOTCONN;
+>>  
+>> -	if (vxlan_addr_multicast(&vxlan->default_dst.remote_ip) &&
+>> -	    vxlan_group_used(vn, &vxlan->default_dst.remote_ip)) {
+>> +	if (vxlan_addr_multicast(&vxlan->default_dst.remote_ip)) {
+> 
+> This makes "vn" unused, please remove it.
+> 
+> The compiler even warns about this, are you watching the build
+> after making changes for messages like that?
+
+Sorry for this. I will take care of this.
+
+Thanks!
