@@ -1,70 +1,117 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/12] i40e: remove and fix confusing define name
-Date: Tue, 10 Dec 2013 02:22:33 -0800
-Message-ID: <1386670961-20392-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/12] i40e: restrict diag test messages
+Date: Tue, 10 Dec 2013 02:22:30 -0800
+Message-ID: <1386670961-20392-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1386670961-20392-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18536 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:30241 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752785Ab3LJKXN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752777Ab3LJKXN (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 10 Dec 2013 05:23:13 -0500
 In-Reply-To: <1386670961-20392-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-I40E_ITR_NONE was being used as an ITRN register index by
-accident because it was easily associated with the I40E_RX_ITR
-and friends defines.
+Use the netif_info() macro to restrict messaging to when the HW
+bit is enabled in the msglvl netdev message mask.
 
-Change the name slightly in order to make it clear that
-I40E_ITR_NONE is really associated with the DYN_CTL register
-sets.
-
-Change-Id: I04702c027c7495b90a8bf2db85d3e085a2c7d02a
+Change-Id: I83030d4402991cfb7da100da00f05ce502ada4ae
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.h | 21 +++++++++++++++++----
- 1 file changed, 17 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index db55d99..faabf22 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -49,10 +49,23 @@
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index f0bab17..b04e433 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -711,7 +711,7 @@ static int i40e_link_test(struct net_device *netdev, u64 *data)
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_pf *pf = np->vsi->back;
  
- #define I40E_QUEUE_END_OF_LIST 0x7FF
+-	netdev_info(netdev, "link test\n");
++	netif_info(pf, hw, netdev, "link test\n");
+ 	if (i40e_get_link_status(&pf->hw))
+ 		*data = 0;
+ 	else
+@@ -725,7 +725,7 @@ static int i40e_reg_test(struct net_device *netdev, u64 *data)
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_pf *pf = np->vsi->back;
  
--#define I40E_ITR_NONE  3
--#define I40E_RX_ITR    0
--#define I40E_TX_ITR    1
--#define I40E_PE_ITR    2
-+/* this enum matches hardware bits and is meant to be used by DYN_CTLN
-+ * registers and QINT registers or more generally anywhere in the manual
-+ * mentioning ITR_INDX, ITR_NONE cannot be used as an index 'n' into any
-+ * register but instead is a special value meaning "don't update" ITR0/1/2.
-+ */
-+enum i40e_dyn_idx_t {
-+	I40E_IDX_ITR0 = 0,
-+	I40E_IDX_ITR1 = 1,
-+	I40E_IDX_ITR2 = 2,
-+	I40E_ITR_NONE = 3	/* ITR_NONE must not be used as an index */
-+};
+-	netdev_info(netdev, "register test\n");
++	netif_info(pf, hw, netdev, "register test\n");
+ 	*data = i40e_diag_reg_test(&pf->hw);
+ 
+ 	i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
+@@ -737,7 +737,7 @@ static int i40e_eeprom_test(struct net_device *netdev, u64 *data)
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+ 	struct i40e_pf *pf = np->vsi->back;
+ 
+-	netdev_info(netdev, "eeprom test\n");
++	netif_info(pf, hw, netdev, "eeprom test\n");
+ 	*data = i40e_diag_eeprom_test(&pf->hw);
+ 
+ 	return *data;
+@@ -749,7 +749,7 @@ static int i40e_intr_test(struct net_device *netdev, u64 *data)
+ 	struct i40e_pf *pf = np->vsi->back;
+ 	u16 swc_old = pf->sw_int_count;
+ 
+-	netdev_info(netdev, "interrupt test\n");
++	netif_info(pf, hw, netdev, "interrupt test\n");
+ 	wr32(&pf->hw, I40E_PFINT_DYN_CTL0,
+ 	     (I40E_PFINT_DYN_CTL0_INTENA_MASK |
+ 	      I40E_PFINT_DYN_CTL0_SWINT_TRIG_MASK));
+@@ -761,7 +761,10 @@ static int i40e_intr_test(struct net_device *netdev, u64 *data)
+ 
+ static int i40e_loopback_test(struct net_device *netdev, u64 *data)
+ {
+-	netdev_info(netdev, "loopback test not implemented\n");
++	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	struct i40e_pf *pf = np->vsi->back;
 +
-+/* these are indexes into ITRN registers */
-+#define I40E_RX_ITR    I40E_IDX_ITR0
-+#define I40E_TX_ITR    I40E_IDX_ITR1
-+#define I40E_PE_ITR    I40E_IDX_ITR2
++	netif_info(pf, hw, netdev, "loopback test not implemented\n");
+ 	*data = 0;
+ 
+ 	return *data;
+@@ -776,8 +779,7 @@ static void i40e_diag_test(struct net_device *netdev,
+ 	set_bit(__I40E_TESTING, &pf->state);
+ 	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
+ 		/* Offline tests */
+-
+-		netdev_info(netdev, "offline testing starting\n");
++		netif_info(pf, drv, netdev, "offline testing starting\n");
+ 
+ 		/* Link test performed before hardware reset
+ 		 * so autoneg doesn't interfere with test result
+@@ -798,8 +800,9 @@ static void i40e_diag_test(struct net_device *netdev,
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
+ 	} else {
+-		netdev_info(netdev, "online test starting\n");
+ 		/* Online tests */
++		netif_info(pf, drv, netdev, "online testing starting\n");
 +
- /* Supported Rx Buffer Sizes */
- #define I40E_RXBUFFER_512   512    /* Used for packet split */
- #define I40E_RXBUFFER_2048  2048
+ 		if (i40e_link_test(netdev, &data[I40E_ETH_TEST_LINK]))
+ 			eth_test->flags |= ETH_TEST_FL_FAILED;
+ 
+@@ -811,7 +814,7 @@ static void i40e_diag_test(struct net_device *netdev,
+ 	}
+ 	clear_bit(__I40E_TESTING, &pf->state);
+ 
+-	netdev_info(netdev, "testing finished\n");
++	netif_info(pf, drv, netdev, "testing finished\n");
+ }
+ 
+ static void i40e_get_wol(struct net_device *netdev,
 -- 
 1.8.3.1
