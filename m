@@ -1,111 +1,107 @@
-From: Wang Weidong <weidong1991.wang@gmail.com>
-Subject: Re: [PATCH v6 0/3] sctp: check the rto_min and rto_max
-Date: Tue, 10 Dec 2013 23:24:48 +0800
-Message-ID: <52A73240.900@gmail.com>
-References: <1386643597-22156-1-git-send-email-wangweidong1@huawei.com> <52A70E38.9020906@redhat.com> <52A72660.9050403@gmail.com> <52A72780.4020405@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net V2 2/2] macvtap: signal truncated packets
+Date: Tue, 10 Dec 2013 17:29:51 +0200
+Message-ID: <20131210152951.GE25293@redhat.com>
+References: <1386654586-18151-1-git-send-email-jasowang@redhat.com>
+ <1386654586-18151-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Wang Weidong <wangweidong1@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:43706 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750705Ab3LJPYa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 10:24:30 -0500
-In-Reply-To: <52A72780.4020405@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1386654586-18151-2-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wang Weidong <wangweidong1@huawei.com>
+On Tue, Dec 10, 2013 at 01:49:46PM +0800, Jason Wang wrote:
+> macvtap_put_user() never return a value grater than iov length, this in fact
+> bypasses the truncated checking in macvtap_recvmsg(). Fix this by always
+> returning the size of packet plus the possible vlan header to let the trunca
+> checking work.
+> 
+> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+> Changes from v1:
+> - increase total unconditionally
+> - do not move the structure veth out of the vlan handling block
+> ---
+>  drivers/net/macvtap.c | 19 ++++++++++---------
+>  1 file changed, 10 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 957cc5c..ded4b2c 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -770,7 +770,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+>  	int ret;
+>  	int vnet_hdr_len = 0;
+>  	int vlan_offset = 0;
+> -	int copied;
+> +	int copied, offset;
+>  
+>  	if (q->flags & IFF_VNET_HDR) {
+>  		struct virtio_net_hdr vnet_hdr;
+> @@ -785,7 +785,8 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+>  		if (memcpy_toiovecend(iv, (void *)&vnet_hdr, 0, sizeof(vnet_hdr)))
+>  			return -EFAULT;
+>  	}
+> -	copied = vnet_hdr_len;
+> +	offset = copied = vnet_hdr_len;
+> +	copied += skb->len;
+>  
+>  	if (!vlan_tx_tag_present(skb))
+>  		len = min_t(int, skb->len, len);
+> @@ -800,24 +801,24 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+>  
+>  		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
+>  		len = min_t(int, skb->len + VLAN_HLEN, len);
+> +		copied += VLAN_HLEN;
+>  
+>  		copy = min_t(int, vlan_offset, len);
+> -		ret = skb_copy_datagram_const_iovec(skb, 0, iv, copied, copy);
+> +		ret = skb_copy_datagram_const_iovec(skb, 0, iv, offset, copy);
+>  		len -= copy;
+> -		copied += copy;
+> +		offset += copy;
+>  		if (ret || !len)
+>  			goto done;
+>  
+>  		copy = min_t(int, sizeof(veth), len);
+> -		ret = memcpy_toiovecend(iv, (void *)&veth, copied, copy);
+> +		ret = memcpy_toiovecend(iv, (void *)&veth, offset, copy);
+>  		len -= copy;
+> -		copied += copy;
+> +		offset += copy;
+>  		if (ret || !len)
+>  			goto done;
+>  	}
+>  
+> -	ret = skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
+> -	copied += len;
+> +	ret = skb_copy_datagram_const_iovec(skb, vlan_offset, iv, offset, len);
+>  
+>  done:
+>  	return ret ? ret : copied;
 
-On 2013/12/10 22:38, Vlad Yasevich wrote:
-> On 12/10/2013 09:34 AM, Wang Weidong wrote:
->> From: Wang Weidong <wangweidong1@huawei.com>
->>
->> On 2013/12/10 20:51, Daniel Borkmann wrote:
->>> On 12/10/2013 03:46 AM, Wang Weidong wrote:
->>>> v5 -> v6
->>>>     -patch1: do rto_min/max socket option handling in its own patch, and
->>>>      fix the check of rto_min/max.
->>>>     -patch2: do rto_min/max sysctl handling in its own patch.
->>>>     -patch3: add Suggested-by Daniel.
->>>
->>> Fyi, for future submission, please keep the full changelog.
->>>
->>
->> Yeah, Thanks! I will do this in future submission.
->>
->>> I would have much rather liked seeing you with finishing the last
->>> 2 patches first, and then approach the newly introduced 1st one
->>> in this series for now. You still haven't fully fixed whitespace
->>> issues in your second patch in the function itself which I hoped
->>> you would address, but fair enough ...
->>>
->>
->> As Vlad's suggestion, I split it to 2 patches. Should I combine these
->> 2 patch to one?
->
-> No, they deserve a separate patch.  What Daniel meant was that you
-> should have addressed the sysctl control issues first.  It doesn't
-> really matter all that much here.  In fact the last whitespace patch
-> is the one that doesn't really fit in this series as it fixes something
-> quite unrelated to the reset of the series, but we are talking semantics.
->
-> I am fine with the series as long as you address the spacing issue
-> in the new proc handler functions.
->
-Nice, I will fix them in v7.
+I commented on this already. copied is how much we copied,
+so its value is correct.
+You want to name the new one total_len or something along
+these lines and return it.
 
-Regards.
-Wang
-
->>
->> The second patch, do you mean that?
->> I should do it from
->>
->> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
->> +                void __user *buffer, size_t *lenp,
->> +                loff_t *ppos);
->> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
->> +                void __user *buffer, size_t *lenp,
->> +                loff_t *ppos);
->>
->> to
->>
->> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
->> +                 void __user *buffer, size_t *lenp,
->> +                 loff_t *ppos);
->> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
->> +                 void __user *buffer, size_t *lenp,
->> +                 loff_t *ppos);
->>
->> Just line up to first line? And I should change the third patch as well.
->
-> No, the prototypes are fine.  I sent a separate comment pointing out
-> the spacing issue.
->
-> -vlad
->
->>
->> Regards.
->> Wang
->>
->>>> Wang Weidong (3):
->>>>     sctp: check the rto_min and rto_max in setsockopt
->>>>     sctp: add check rto_min and rto_max in sysctl
->>>>     sctp: fix up a spacing
->>>>
->>>>    net/sctp/socket.c | 32 +++++++++++++++--------
->>>>    net/sctp/sysctl.c | 76
->>>> ++++++++++++++++++++++++++++++++++++++++++++++++-------
->>>>    2 files changed, 89 insertions(+), 19 deletions(-)
->>>>
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> @@ -875,7 +876,7 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
+>  	}
+>  
+>  	ret = macvtap_do_read(q, iocb, iv, len, file->f_flags & O_NONBLOCK);
+> -	ret = min_t(ssize_t, ret, len); /* XXX copied from tun.c. Why? */
+> +	ret = min_t(ssize_t, ret, len);
+>  	if (ret > 0)
+>  		iocb->ki_pos = ret;
+>  out:
+> -- 
+> 1.8.3.2
