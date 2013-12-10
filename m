@@ -1,38 +1,55 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v6 2/3] sctp: add check rto_min and rto_max in sysctl
-Date: Tue, 10 Dec 2013 16:21:11 +0100
-Message-ID: <52A73167.6000106@redhat.com>
-References: <1386643597-22156-1-git-send-email-wangweidong1@huawei.com> <1386643597-22156-3-git-send-email-wangweidong1@huawei.com> <52A72666.5010304@gmail.com> <52A730B9.7060909@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 3/3] virtio_net: spelling fixes
+Date: Tue, 10 Dec 2013 17:25:31 +0200
+Message-ID: <20131210152531.GD25293@redhat.com>
+References: <20131209161632.5ac96e5a@nehalam.linuxnetplumber.net>
+	<20131209161845.218642f7@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>, nhorman@tuxdriver.com,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Wang Weidong <weidong1991.wang@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3329 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753815Ab3LJPVb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Dec 2013 10:21:31 -0500
-In-Reply-To: <52A730B9.7060909@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	virtualization@lists.linux-foundation.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20131209161845.218642f7@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 12/10/2013 04:18 PM, Wang Weidong wrote:
-...
->>> +static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
->>> +                                void __user*buffer, size_t *lenp,
->>                                           ^^^^
->> Please put a space before the '*'.
-...
->>> +static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
->>> +                                void __user*buffer, size_t *lenp,
->>                                           ^^^^
->> Please put a space after the before the '*'.
->>
-> Ok, I will fix them.
-> What Daniel point out is that? I no need to line up them?
+On Mon, Dec 09, 2013 at 04:18:45PM -0800, Stephen Hemminger wrote:
+> 
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
 
-Yes, what Vlad pointed out to you is what I meant in my reply to
-your cover letter ...
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+
+> --- a/drivers/net/virtio_net.c	2013-12-09 16:12:41.409051865 -0800
+> +++ b/drivers/net/virtio_net.c	2013-12-09 16:12:43.872996856 -0800
+> @@ -873,7 +873,7 @@ static netdev_tx_t start_xmit(struct sk_
+>  /*
+>   * Send command via the control virtqueue and check status.  Commands
+>   * supported by the hypervisor, as indicated by feature bits, should
+> - * never fail unless improperly formated.
+> + * never fail unless improperly formatted.
+>   */
+>  static bool virtnet_send_command(struct virtnet_info *vi, u8 class, u8 cmd,
+>  				 struct scatterlist *out)
+> @@ -1061,7 +1061,7 @@ static void virtnet_set_rx_mode(struct n
+>  	void *buf;
+>  	int i;
+>  
+> -	/* We can't dynamicaly set ndo_set_rx_mode, so return gracefully */
+> +	/* We can't dynamically set ndo_set_rx_mode, so return gracefully */
+>  	if (!virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_RX))
+>  		return;
+>  
