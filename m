@@ -1,54 +1,47 @@
-From: Andrzej Pietrasiewicz <andrzej.p-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH] net: sk == 0xffffffff fix - not for commit
-Date: Tue, 10 Dec 2013 07:55:02 +0100
-Message-ID: <52A6BAC6.4090407@samsung.com>
-References: <1386589672-5830-1-git-send-email-andrzej.p@samsung.com>
- <1386603119.30495.331.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [PATCH] net-tg3: Initialize REG_BASE_ADDR at PCI config offset
+ 120 to 0
+Date: Mon, 9 Dec 2013 22:58:44 -0800
+Message-ID: <1386658724.1752.19.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1386614601-9453-1-git-send-email-natg@google.com>
+	 <1386615608.1752.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <CAGmqidkxoi9EEe0uC18QQUXwjFP1e_1MXL7VPk+NtU-Ta6FGUg@mail.gmail.com>
+	 <52A633B4.9000307@cogentembedded.com>
+	 <1386623253.1752.6.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="cp1252"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Kyungmin Park <kyungmin.park-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Marek Szyprowski <m.szyprowski-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Michal Nazarewicz <mina86-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-reply-to: <1386603119.30495.331.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Natarajan Gurumoorthy <natg@google.com>, <nsujir@broadcom.com>,
+	<netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:31093 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352Ab3LJG6s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 01:58:48 -0500
+In-Reply-To: <1386623253.1752.6.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-W dniu 09.12.2013 16:31, Eric Dumazet pisze:
-> On Mon, 2013-12-09 at 12:47 +0100, Andrzej Pietrasiewicz wrote:
->> NOT FOR COMMITTING TO MAINLINE.
->>
->> With g_ether loaded the sk occasionally becomes 0xffffffff.
->> It happens usually after transferring few hundreds of kilobytes to few
->> tens of megabytes. If sk is 0xffffffff then dereferencing it causes
->> kernel panic.
->>
->> This is a *workaround*. I don't know enough net code to understand the core
->> of the problem. However, with this patch applied the problems are gone,
->> or at least pushed farther away.
->
-> Is it happening on SMP or UP ?
+On Mon, 2013-12-09 at 13:07 -0800, Michael Chan wrote: 
+> On Tue, 2013-12-10 at 00:18 +0300, Sergei Shtylyov wrote: 
+> > >        We had crashes when the PCI config space got scanned via
+> > > /sys/devices/pcixxxx/....../config.
+> > 
+> > > I agree that this fix will not help if the scan happens before the tg3
+> > > driver gets loaded.
+> > 
+> >     Then perhaps a better place for such fixup would be a PCI quirk?
+> > 
+> Yes, I agree.  Thanks.
+> 
 
-UP build, S5PC110
+On second thought, I think your original patch should be sufficient and
+we don't need to add the PCI quirk to cover so many devices.  The reason
+is that indirect access needs to be explicitly enabled in the
+MISC_HOST_CTRL (0x68) register.  The default value for register 0x68
+should have indirect access disabled.
 
->
-> Crash should happen earlier in __inet_lookup_established()
->
->
->
-
-AP
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Nat, does this match what you're seeing?  Did you ever see any system
+crash before tg3 loads?
