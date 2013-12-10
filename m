@@ -1,80 +1,59 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] bgmac: start/stop PHY on netdev open/stop
-Date: Tue, 10 Dec 2013 09:07:01 -0800
-Message-ID: <CAGVrzcbGte8-30e8QG9UX2aOyfSJFN40b9Un_0Lc00d75_AapA@mail.gmail.com>
-References: <1386692379-16648-1-git-send-email-zajec5@gmail.com>
+From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH v2 01/16] wl1251: fix scan behaviour while not associated
+Date: Tue, 10 Dec 2013 18:08:44 +0100
+Message-ID: <201312101808.44713@pali>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com> <20131210092114.GB22756@amd.pavel.ucw.cz> <8738m0r9wv.fsf@purkki.adurom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:60653 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752717Ab3LJRHm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 12:07:42 -0500
-Received: by mail-pb0-f52.google.com with SMTP id uo5so8016404pbc.25
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 09:07:42 -0800 (PST)
-In-Reply-To: <1386692379-16648-1-git-send-email-zajec5@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed;
+  boundary="nextPart1950882.g5FqhQI21j";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Luciano Coelho <luca@coelho.fi>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
+	aaro.koskinen@iki.fi, sre@ring0.de, joni.lapilainen@gmail.com,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Felipe Contreras <felipe.contreras@gmail.com>,
+	David Gnedt <david.gnedt@davizone.at>
+To: Kalle Valo <kvalo@adurom.com>, Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8738m0r9wv.fsf@purkki.adurom.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2013/12/10 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
-> I've realized that I need to call ethtool command to get Ethernet
-> working after booting. Ex call: ethtool -s eth0 autoneg on
-> It was fixing Ethernet even if auto-negotiation was already on.
->
-> Adding calls to phy_start and phy_stop look like a real solution.
+--nextPart1950882.g5FqhQI21j
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-I kind of missed that too during the review, thanks for fixing this! I
-wonder if we could somehow
-issue a warning in libphy if we manage to go past ndo_start_xmit() and
-we have not yet started the PHY state machine.
+On Tuesday 10 December 2013 16:41:04 Kalle Valo wrote:
+> Pavel Machek <pavel@ucw.cz> writes:
+> > ssids can have \0s in them... and what is worse, they may
+> > not be 0 terminated AFAICT.
+> >=20
+> > Potential solution is at
+> > http://www.spinics.net/lists/linux-wireless/msg98640.html .
+>=20
+> I just use print_hex_dump_bytes() to print SSIDs.
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Ok and has kernel printf modifier for size_t?
 
->
-> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-> ---
->  drivers/net/ethernet/broadcom/bgmac.c |    4 ++++
->  1 file changed, 4 insertions(+)
->
-> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethe=
-rnet/broadcom/bgmac.c
-> index db71d75..055204e 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac.c
-> +++ b/drivers/net/ethernet/broadcom/bgmac.c
-> @@ -1139,6 +1139,8 @@ static int bgmac_open(struct net_device *net_de=
-v)
->         }
->         napi_enable(&bgmac->napi);
->
-> +       phy_start(bgmac->phy_dev);
-> +
->         netif_carrier_on(net_dev);
->
->  err_out:
-> @@ -1151,6 +1153,8 @@ static int bgmac_stop(struct net_device *net_de=
-v)
->
->         netif_carrier_off(net_dev);
->
-> +       phy_stop(bgmac->phy_dev);
-> +
->         napi_disable(&bgmac->napi);
->         bgmac_chip_intrs_off(bgmac);
->         free_irq(bgmac->core->irq, net_dev);
-> --
-> 1.7.10.4
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+=2D-=20
+Pali Roh=C3=A1r
+pali.rohar@gmail.com
 
+--nextPart1950882.g5FqhQI21j
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
---=20
-=46lorian
+iEYEABECAAYFAlKnSpwACgkQi/DJPQPkQ1L9pQCgjFc7/1zXxMNs6AWKB6PogyxB
+v9MAoIMHpQbRIy/N2p6/y3ViuvDYtIcf
+=/Nzb
+-----END PGP SIGNATURE-----
+
+--nextPart1950882.g5FqhQI21j--
