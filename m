@@ -1,42 +1,43 @@
-From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Subject: Re: ifconfig doesn't show assignment ip-addresses
-Date: Tue, 10 Dec 2013 12:52:20 +0100
-Message-ID: <52A70074.2000607@enst-bretagne.fr>
-References: <20131209153238.GA10317@omega> <20131210105741.GA2469@minipsycho.orion> <20131210110648.GA18196@omega>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alexander Aring <alex.aring@gmail.com>, jiri@resnulli.us
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH net-next v2] 6lowpan: Moving generic compression code into 6lowpan_iphc.c
+Date: Tue, 10 Dec 2013 13:12:10 +0100
+Message-ID: <09E9761B-6A18-4F28-9315-DD6D44C45597@holtmann.org>
+References: <1386576963-21764-1-git-send-email-jukka.rissanen@linux.intel.com> <20131209081833.GB2062@omega>
+Mime-Version: 1.0 (Mac OS X Mail 7.0 \(1822\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Jukka Rissanen <jukka.rissanen@linux.intel.com>,
+	netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fourcot.fr ([217.70.191.14]:48124 "EHLO olfflo.fourcot.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751725Ab3LJLwX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Dec 2013 06:52:23 -0500
-In-Reply-To: <20131210110648.GA18196@omega>
+Received: from senator.holtmann.net ([87.106.208.187]:57971 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752145Ab3LJMMY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 07:12:24 -0500
+In-Reply-To: <20131209081833.GB2062@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I think this is not a lowpan specific problem, I have the same here:
+Hi Alexander,
 
-$ /sbin/ifconfig eth1
-eth1      Link encap:Ethernet  HWaddr 08:00:27:27:58:92
-          inet adr:192.168.56.2  Bcast:192.168.56.255
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:494 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:380 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 lg file transmission:1000
-          RX bytes:41584 (40.6 KiB)  TX bytes:51017 (49.8 KiB)
+> thanks for working on this! Now my acked-by is correct, sry. Didn't
+> catch the debug output at first time.
+> 
+>> Because the IEEE 802154 and Bluetooth share the IP header compression
+>> and uncompression code, the common code is moved to 6lowpan_iphc.c
+>> file.
+>> 
+>> Signed-off-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+>> ---
+> 
+> Acked-by: Alexander Aring <alex.aring@gmail.com>
 
-$ ip -6 addr show eth1
-3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
-    inet6 2001:470:51a3:666::666/128 scope global
-       valid_lft forever preferred_lft forever
-    inet6 fe80::a00:27ff:fe27:5892/64 scope link
-       valid_lft forever preferred_lft forever
+are you fine with us carrying these patches through bluetooth-next tree.
 
-(standard ethernet interface of a virtual machine).
+Dave, or do you want to merge this one into net-next and then we have wireless-next pulling that in.
 
-Regards,
+I am trying to figure out on how we get this handled with the minimum of conflicts during the next merge window. And also at the same time get enough exposure via linux-next. The Bluetooth part is getting ready to be pushed into bluetooth-next.
 
-Florent.
+Regards
+
+Marcel
