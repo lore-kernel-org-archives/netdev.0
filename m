@@ -1,66 +1,83 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: sk == 0xffffffff fix - not for commit
-Date: Tue, 10 Dec 2013 06:25:57 -0800
-Message-ID: <1386685557.30495.344.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386589672-5830-1-git-send-email-andrzej.p@samsung.com>
-	 <1386603119.30495.331.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <52A6BAC6.4090407@samsung.com>
+From: Wang Weidong <weidong1991.wang@gmail.com>
+Subject: Re: [PATCH v6 0/3] sctp: check the rto_min and rto_max
+Date: Tue, 10 Dec 2013 22:34:08 +0800
+Message-ID: <52A72660.9050403@gmail.com>
+References: <1386643597-22156-1-git-send-email-wangweidong1@huawei.com> <52A70E38.9020906@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Kyungmin Park <kyungmin.park-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Marek Szyprowski <m.szyprowski-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Michal Nazarewicz <mina86-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andrzej Pietrasiewicz <andrzej.p-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52A6BAC6.4090407-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>,
+	Wang Weidong <wangweidong1@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:60866 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109Ab3LJOd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 09:33:58 -0500
+In-Reply-To: <52A70E38.9020906@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-10 at 07:55 +0100, Andrzej Pietrasiewicz wrote:
-> W dniu 09.12.2013 16:31, Eric Dumazet pisze:
-> > On Mon, 2013-12-09 at 12:47 +0100, Andrzej Pietrasiewicz wrote:
-> >> NOT FOR COMMITTING TO MAINLINE.
-> >>
-> >> With g_ether loaded the sk occasionally becomes 0xffffffff.
-> >> It happens usually after transferring few hundreds of kilobytes to few
-> >> tens of megabytes. If sk is 0xffffffff then dereferencing it causes
-> >> kernel panic.
-> >>
-> >> This is a *workaround*. I don't know enough net code to understand the core
-> >> of the problem. However, with this patch applied the problems are gone,
-> >> or at least pushed farther away.
-> >
-> > Is it happening on SMP or UP ?
-> 
-> UP build, S5PC110
+From: Wang Weidong <wangweidong1@huawei.com>
 
-OK
+On 2013/12/10 20:51, Daniel Borkmann wrote:
+> On 12/10/2013 03:46 AM, Wang Weidong wrote:
+>> v5 -> v6
+>>    -patch1: do rto_min/max socket option handling in its own patch, and
+>>     fix the check of rto_min/max.
+>>    -patch2: do rto_min/max sysctl handling in its own patch.
+>>    -patch3: add Suggested-by Daniel.
+>
+> Fyi, for future submission, please keep the full changelog.
+>
 
-I believe you need additional debugging to track the exact moment
-0xffffffff is fed to 'sk'
+Yeah, Thanks! I will do this in future submission.
 
-It looks like a very strange bug, involving a problem in some assembly
-helper, register save/restore, compiler bug or stack corruption or
-something.
+> I would have much rather liked seeing you with finishing the last
+> 2 patches first, and then approach the newly introduced 1st one
+> in this series for now. You still haven't fully fixed whitespace
+> issues in your second patch in the function itself which I hoped
+> you would address, but fair enough ...
+>
 
-You should not have more than 150 instructions to decode, including
-__inet_lookup_established()
+As Vlad's suggestion, I split it to 2 patches. Should I combine these
+2 patch to one?
 
-Since __inet_lookup_established() dereferences the socket pointer, I do
-not see why it would crash ~20 instructions _later_
+The second patch, do you mean that?
+I should do it from
 
++static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
++				void __user *buffer, size_t *lenp,
++				loff_t *ppos);
++static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
++				void __user *buffer, size_t *lenp,
++				loff_t *ppos);
 
+to
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
++static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
++				 void __user *buffer, size_t *lenp,
++				 loff_t *ppos);
++static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
++				 void __user *buffer, size_t *lenp,
++				 loff_t *ppos);
+
+Just line up to first line? And I should change the third patch as well.
+
+Regards.
+Wang
+
+>> Wang Weidong (3):
+>>    sctp: check the rto_min and rto_max in setsockopt
+>>    sctp: add check rto_min and rto_max in sysctl
+>>    sctp: fix up a spacing
+>>
+>>   net/sctp/socket.c | 32 +++++++++++++++--------
+>>   net/sctp/sysctl.c | 76 ++++++++++++++++++++++++++++++++++++++++++++++++-------
+>>   2 files changed, 89 insertions(+), 19 deletions(-)
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
