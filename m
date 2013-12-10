@@ -1,132 +1,81 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] net-gro: Prepare GRO stack for the upcoming
- tunneling support
-Date: Tue, 10 Dec 2013 19:19:31 +0000
-Message-ID: <1386703171.1516.203.camel@bwh-desktop.uk.level5networks.com>
-References: <1386518682-30488-1-git-send-email-hkchu@google.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH v2 15/16] wl1251: Add sysfs file address for setting
+ permanent mac address
+Date: Tue, 10 Dec 2013 13:22:19 -0600
+Message-ID: <1386703339.30202.19.camel@dcbw.foobar.com>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+	 <201312101814.35112@pali> <1386697762.30202.6.camel@dcbw.foobar.com>
+	 <201312101852.17030@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Or Gerlitz <ogerlitz@mellanox.com>, <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: "H.K. Jerry Chu" <hkchu@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17662 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753025Ab3LJTTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 14:19:36 -0500
-In-Reply-To: <1386518682-30488-1-git-send-email-hkchu@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kalle Valo <kvalo@adurom.com>, Luciano Coelho <luca@coelho.fi>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, freemangordon@abv.bg,
+	aaro.koskinen@iki.fi, pavel@ucw.cz, sre@ring0.de,
+	joni.lapilainen@gmail.com,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Felipe Contreras <felipe.contreras@gmail.com>
+To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201312101852.17030@pali>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-12-08 at 08:04 -0800, H.K. Jerry Chu wrote:
-> From: Jerry Chu <hkchu@google.com>
-> 
-> This patch modifies the GRO stack to remove the assumption that
-> only one IP hdr is present in the encapsulation chain. It avoids
-> the use of ip_hdr()/ipv6_hdr() macro in IP's *_gro_receive()/
-> *_gro_complete() functions because there may be more than one IP
-> hdr present in the encapsulation chain when various flavors of IP
-> tunneling support are added. By doing so it also allows multiple
-> level, not just a single level (i.e., with only two IP hdrs like
-> IP-in-IP) of encapsulation to be supported in the future.
-> 
-> With this patch, the GRO stack traversing now is mostly based on
-> skb_gro_offset rather than special hdr offsets saved in skb (e.g.,
-> skb->network_header, skb->transport_header,...) As a consequence
-> all but the top layer (which is likely to be the transport layer)
-> must have hdrs of the same length in order for a pkt to be
-> considered for aggregation. Therefore when adding a new layer
-> (e.g., for tunneling), one must check and skip flows (e.g., setting
-> NAPI_GRO_CB(p)->same_flow to 0) that have a different hdr length.
-> 
-> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
-> Suggested-by: Eric Dumazet <edumazet@google.com>
-> Reviewed-by: Eric Dumazet <edumazet@google.com>
-[...]
-> --- a/net/ipv4/tcp_offload.c
-> +++ b/net/ipv4/tcp_offload.c
-[...]
-> @@ -303,16 +308,16 @@ skip_csum:
->  	return tcp_gro_receive(head, skb);
->  }
->  
-> -static int tcp4_gro_complete(struct sk_buff *skb)
-> +static int tcp4_gro_complete(struct sk_buff *skb, int nhoff)
+On Tue, 2013-12-10 at 18:52 +0100, Pali Roh=C3=A1r wrote:
+> On Tuesday 10 December 2013 18:49:22 Dan Williams wrote:
+> > On Tue, 2013-12-10 at 18:14 +0100, Pali Roh=C3=A1r wrote:
+> > > On Tuesday 10 December 2013 17:10:50 Pali Roh=C3=A1r wrote:
+> > > > On Tuesday 10 December 2013 16:49:23 Kalle Valo wrote:
+> > > > > Pali Roh=C3=A1r <pali.rohar@gmail.com> writes:
+> > > > > > Driver wl1251 generating mac address randomly at
+> > > > > > startup and there is no way to set permanent mac
+> > > > > > address via SET_IEEE80211_PERM_ADDR. This patch
+> > > > > > export sysfs file which can set permanent mac address
+> > > > > > by userspace helper program. Patch is needed for
+> > > > > > devices which do not store mac address in internal
+> > > > > > wl1251 eeprom.
+> > > > > >=20
+> > > > > > Signed-off-by: Pali Roh=C3=A1r <pali.rohar@gmail.com>
+> > > > >=20
+> > > > > We have ioctl() command for setting the mac address.
+> > > >=20
+> > > > Really? Is there ioctl for setting permanent mac address?
+> > > > Can you show me it?
+> > >=20
+> > > Now I looked at it again and I did not found any ioctl for
+> > > it. There is only ioctl cmd for getting address, not
+> > > setting it.
+> > >=20
+> > > #define SIOCETHTOOL 0x8946
+> > >=20
+> > > /* Get permanent hardware address */
+> > > #define ETHTOOL_GPERMADDR 0x00000020
+> >=20
+> > Yeah, because it's supposed to be permanent and unchanging.=20
+> > Which means if there was an ioctl for it, that would be
+> > contrary to the purpose of a permanent MAC address.
+> >=20
+> > I realize the N900 stores the WiFi MAC address completely
+> > differently than many other systems, and that's why this
+> > sysfs file was created.  I don't really have a great
+> > converged solution for that, other than what you've currently
+> > got, or perhaps adding SPERMADDR to ethtool.  One thing I
+> > *would* like though, is a restriction on the sysfs file such
+> > that if the permanent MAC is already set, it cannot be set
+> > again.  Otherwise the permanent MAC address isn't permanent
+> > at all.
+> >=20
+> > Dan
+>=20
+> Maybe another way could be to use request_firmware to load address=20
+> from userspace... Or what do you think?
 
-The offset should definitely be called thoff in this function.
+That sounds like a great idea to try.  A number of devices either need
+stub firmware to read the MAC from EEPROM, or do use request_firmware()
+to load firmware before they read the MAC.  You may have to use
+request_firmware() synchronously though to ensure that the MAC is read
+before registering with mac80211.
 
-[...]
-> --- a/net/ipv6/ip6_offload.c
-> +++ b/net/ipv6/ip6_offload.c
-[...]
-> @@ -198,25 +228,28 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
->  
->  		iph = ipv6_hdr(skb);
->  	}
-> -
->  	NAPI_GRO_CB(skb)->proto = proto;
->  
->  	flush--;
-> -	nlen = skb_network_header_len(skb);
-> +	nlen = next_header - skb->network_header;
->  
->  	for (p = *head; p; p = p->next) {
-> -		const struct ipv6hdr *iph2;
-> +		struct ipv6hdr *iph2;
-
-Why remove const here?
-
-[...]
-> -static int ipv6_gro_complete(struct sk_buff *skb)
-> +static int ipv6_gro_complete(struct sk_buff *skb, int nhoff)
->  {
->  	const struct net_offload *ops;
-> -	struct ipv6hdr *iph = ipv6_hdr(skb);
-> +	struct ipv6hdr *iph = (struct ipv6hdr *)(skb->data + nhoff);
->  	int err = -ENOSYS;
->  
-> -	iph->payload_len = htons(skb->len - skb_network_offset(skb) -
-> -				 sizeof(*iph));
-> +	iph->payload_len = htons(skb->len - nhoff - sizeof(*iph));
->  
->  	rcu_read_lock();
-> -	ops = rcu_dereference(inet6_offloads[NAPI_GRO_CB(skb)->proto]);
-> +
-> +	nhoff += sizeof(*iph) + ipv6_exthdrs_len(iph, &ops);
-
-Would be clearer as:
-	int thoff;
-	...
-	thoff = nhoff + ...
-
->  	if (WARN_ON(!ops || !ops->callbacks.gro_complete))
->  		goto out_unlock;
->  
-> -	err = ops->callbacks.gro_complete(skb);
-> +	err = ops->callbacks.gro_complete(skb, nhoff);
->  
->  out_unlock:
->  	rcu_read_unlock();
-> diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
-> index 6d18157..a107ad6 100644
-> --- a/net/ipv6/tcpv6_offload.c
-> +++ b/net/ipv6/tcpv6_offload.c
-> @@ -66,16 +66,16 @@ skip_csum:
->  	return tcp_gro_receive(head, skb);
->  }
->  
-> -static int tcp6_gro_complete(struct sk_buff *skb)
-> +static int tcp6_gro_complete(struct sk_buff *skb, int nhoff)
-[...]
-
-Same comment as for tcp4_gro_complete().
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Dan
