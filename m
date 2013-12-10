@@ -1,59 +1,173 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: Re: [PATCH 3/7] net: vmxnet3: remove unnecessary pci_set_drvdata()
-Date: Tue, 10 Dec 2013 13:53:51 +0900
-Message-ID: <000001cef563$d2638cf0$772aa6d0$%han@samsung.com>
-References: <000601cef55a$b605fab0$2211f010$%han@samsung.com>
- <000d01cef55a$ebbfa430$c33eec90$%han@samsung.com>
- <138955249.12889474.1386650249416.JavaMail.root@vmware.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net 1/2] tun: unbreak truncated packet signalling
+Date: Tue, 10 Dec 2013 13:39:04 +0800
+Message-ID: <52A6A8F8.9020201@redhat.com>
+References: <1386584717-5776-1-git-send-email-jasowang@redhat.com> <20131209105529.GD15055@redhat.com> <20131209105638.GA15332@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org,
-	pv-drivers@vmware.com, 'Andy King' <acking@vmware.com>,
-	'Aditya Sarwade' <asarwade@vmware.com>,
-	'George Zhang' <georgezhang@vmware.com>,
-	'Dmitry Torokhov' <dtor@vmware.com>,
-	'Jingoo Han' <jg1.han@samsung.com>
-To: 'Shreyas Bhatewara' <sbhatewara@vmware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:23577 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742Ab3LJExx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 23:53:53 -0500
-Received: from epcpsbgr1.samsung.com
- (u141.gpu120.samsung.co.kr [203.254.230.141])
- by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MXK005QXQXSXWD0@mailout1.samsung.com> for
- netdev@vger.kernel.org; Tue, 10 Dec 2013 13:53:52 +0900 (KST)
-In-reply-to: <138955249.12889474.1386650249416.JavaMail.root@vmware.com>
-Content-language: ko
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131209105638.GA15332@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday, December 10, 2013 1:37 PM, Shreyas Bhatewara wrote:
-> On Monday, November 25, 2013 11:05:23 AM Jingoo Han wrote:
-> > The driver core clears the driver data to NULL after device_release
-> > or on probe failure. Thus, it is not needed to manually clear the
-> > device driver data to NULL.
-> >
-> > Signed-off-by: Jingoo Han <jg1.han@samsung.com>
-> 
-> Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+On 12/09/2013 06:56 PM, Michael S. Tsirkin wrote:
+> On Mon, Dec 09, 2013 at 12:55:29PM +0200, Michael S. Tsirkin wrote:
+>> On Mon, Dec 09, 2013 at 06:25:16PM +0800, Jason Wang wrote:
+>>> Commit 6680ec68eff47d36f67b4351bc9836fd6cba9532
+>>> (tuntap: hardware vlan tx support) breaks the truncated packet signal by never
+>>> return a length greater than iov length in tun_put_user(). This patch fixes this
+>>> by always return the length of packet plus possible vlan header. Caller can
+>>> detect the truncated packet by comparing the return value and the size of iov
+>>> length.
+>>>
+>>> Reported-by: Vlad Yasevich <vyasevich@gmail.com>
+>>> Cc: Vlad Yasevich <vyasevich@gmail.com>
+>>> Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> So writer gets back a value greater than what was written?
+> Pls ignore this question - wrote it before I understood the
+> patch, and forgot to remove.
+> The rest of the comments and the proposed alternative patch
+> still stand.
+>
+>>> ---
+>>> The patch is needed for stable.
+>>> ---
+>>>  drivers/net/tun.c | 23 ++++++++++++-----------
+>>>  1 file changed, 12 insertions(+), 11 deletions(-)
+>>>
+>>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>>> index e26cbea..dd1bd7a 100644
+>>> --- a/drivers/net/tun.c
+>>> +++ b/drivers/net/tun.c
+>>> @@ -1183,7 +1183,11 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>>>  			    const struct iovec *iv, int len)
+>>>  {
+>>>  	struct tun_pi pi = { 0, skb->protocol };
+>>> -	ssize_t total = 0;
+>>> +	struct {
+>>> +		__be16 h_vlan_proto;
+>>> +		__be16 h_vlan_TCI;
+>>> +	} veth;
+>>> +	ssize_t total = 0, off = 0;
+>> Why off = 0 here?
+>> We initialize it to total unconditionally, don't we?
 
-(+cc Dmitry Torokhov)
+True, it's useless.
+>>>  	int vlan_offset = 0;
+>>>  
+>>>  	if (!(tun->flags & TUN_NO_PI)) {
+>>> @@ -1248,14 +1252,11 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>>>  		total += tun->vnet_hdr_sz;
+>>>  	}
+>>>  
+>>> +	off = total;
+>>>  	if (!vlan_tx_tag_present(skb)) {
+>>>  		len = min_t(int, skb->len, len);
+>>>  	} else {
+>>>  		int copy, ret;
+>>> -		struct {
+>>> -			__be16 h_vlan_proto;
+>>> -			__be16 h_vlan_TCI;
+>>> -		} veth;
+>>>  
+>>>  		veth.h_vlan_proto = skb->vlan_proto;
+>>>  		veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
+>>> @@ -1264,22 +1265,22 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>>>  		len = min_t(int, skb->len + VLAN_HLEN, len);
+>>>  
+>>>  		copy = min_t(int, vlan_offset, len);
+>>> -		ret = skb_copy_datagram_const_iovec(skb, 0, iv, total, copy);
+>>> +		ret = skb_copy_datagram_const_iovec(skb, 0, iv, off, copy);
+>>>  		len -= copy;
+>>> -		total += copy;
+>>> +		off += copy;
+>>>  		if (ret || !len)
+>>>  			goto done;
+>>>  
+>>>  		copy = min_t(int, sizeof(veth), len);
+>>> -		ret = memcpy_toiovecend(iv, (void *)&veth, total, copy);
+>>> +		ret = memcpy_toiovecend(iv, (void *)&veth, off, copy);
+>>>  		len -= copy;
+>>> -		total += copy;
+>>> +		off += copy;
+>>>  		if (ret || !len)
+>>>  			goto done;
+>> This seems wrong: if one of the branches above is taken, total is
+>> never incremented.
 
-Hi Shreyas Bhatewara,
+Right.
+>>>  	}
+>>>  
+>>> -	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, total, len);
+>>> -	total += len;
+>>> +	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, off, len);
+>>> +	total += skb->len + (vlan_offset ? sizeof(veth) : 0);
+>>>  
+>>>  done:
+>>>  	tun->dev->stats.tx_packets++;
+>> I also think it's inelegant that the veth struct is now in the
+>> outside scope, and the extra ? is also ugly.
+>>
+>> Here's a smaller patch to fix all these problems - what do you think?
+>>
+>>
+>>
+>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>>
+>> ---
+>>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index 782e38b..3297e41 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -1183,7 +1183,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>>  			    const struct iovec *iv, int len)
+>>  {
+>>  	struct tun_pi pi = { 0, skb->protocol };
+>> -	ssize_t total = 0;
+>> +	ssize_t total = 0, offset;
+>>  	int vlan_offset = 0;
+>>  
+>>  	if (!(tun->flags & TUN_NO_PI)) {
+>> @@ -1248,6 +1248,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>>  		total += tun->vnet_hdr_sz;
+>>  	}
+>>  
+>> +	offset = total;
+>> +	total += skb->len;
+>>  	if (!vlan_tx_tag_present(skb)) {
+>>  		len = min_t(int, skb->len, len);
+>>  	} else {
+>> @@ -1257,6 +1259,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>>  			__be16 h_vlan_TCI;
+>>  		} veth;
+>>  
+>> +		total += sizeof(veth);
+>> +
+>>  		veth.h_vlan_proto = skb->vlan_proto;
+>>  		veth.h_vlan_TCI = htons(vlan_tx_tag_get(skb));
+>>  
+>> @@ -1279,7 +1283,6 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>>  	}
+>>  
+>>  	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, total, len);
+>> -	total += len;
+>>  
 
-It may be 'Acked-by' instead of 'Signed-off-by', right?
-
-Also, I missed 'Acked-by' from Dmitry Torokhov.
-Acked-by: Dmitry Torokhov <dtor@vmware.com>
-
-So, Dmitry Torokhov's 'Acked-by' should be added,
-when this commit is merged.
-
-Thank you for your feedback. :-)
-
-Best regards,
-Jingoo Han
+We should use offset here and it should be advanced during vlan tag putting.
+>>  done:
+>>  	tun->dev->stats.tx_packets++;
+>>
+>>> -- 
+>>> 1.8.3.2
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
