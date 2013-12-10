@@ -1,58 +1,66 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH net-next v2] 6lowpan: Moving generic compression code
- into 6lowpan_iphc.c
-Date: Tue, 10 Dec 2013 15:19:24 +0100
-Message-ID: <20131210141923.GA32698@omega>
-References: <1386576963-21764-1-git-send-email-jukka.rissanen@linux.intel.com>
- <20131209081833.GB2062@omega>
- <09E9761B-6A18-4F28-9315-DD6D44C45597@holtmann.org>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] net: sk == 0xffffffff fix - not for commit
+Date: Tue, 10 Dec 2013 06:25:57 -0800
+Message-ID: <1386685557.30495.344.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386589672-5830-1-git-send-email-andrzej.p@samsung.com>
+	 <1386603119.30495.331.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <52A6BAC6.4090407@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jukka Rissanen <jukka.rissanen@linux.intel.com>,
-	netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:43285 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751954Ab3LJOTb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 09:19:31 -0500
-Received: by mail-wi0-f170.google.com with SMTP id hq4so5390984wib.5
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 06:19:29 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <09E9761B-6A18-4F28-9315-DD6D44C45597@holtmann.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Kyungmin Park <kyungmin.park-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Marek Szyprowski <m.szyprowski-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	Michal Nazarewicz <mina86-deATy8a+UHjQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andrzej Pietrasiewicz <andrzej.p-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <52A6BAC6.4090407-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 10, 2013 at 01:12:10PM +0100, Marcel Holtmann wrote:
-> Hi Alexander,
+On Tue, 2013-12-10 at 07:55 +0100, Andrzej Pietrasiewicz wrote:
+> W dniu 09.12.2013 16:31, Eric Dumazet pisze:
+> > On Mon, 2013-12-09 at 12:47 +0100, Andrzej Pietrasiewicz wrote:
+> >> NOT FOR COMMITTING TO MAINLINE.
+> >>
+> >> With g_ether loaded the sk occasionally becomes 0xffffffff.
+> >> It happens usually after transferring few hundreds of kilobytes to few
+> >> tens of megabytes. If sk is 0xffffffff then dereferencing it causes
+> >> kernel panic.
+> >>
+> >> This is a *workaround*. I don't know enough net code to understand the core
+> >> of the problem. However, with this patch applied the problems are gone,
+> >> or at least pushed farther away.
+> >
+> > Is it happening on SMP or UP ?
 > 
-> > thanks for working on this! Now my acked-by is correct, sry. Didn't
-> > catch the debug output at first time.
-> > 
-> >> Because the IEEE 802154 and Bluetooth share the IP header compression
-> >> and uncompression code, the common code is moved to 6lowpan_iphc.c
-> >> file.
-> >> 
-> >> Signed-off-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
-> >> ---
-> > 
-> > Acked-by: Alexander Aring <alex.aring@gmail.com>
-> 
-> are you fine with us carrying these patches through bluetooth-next tree.
-> 
+> UP build, S5PC110
 
-yes.
+OK
 
-> Dave, or do you want to merge this one into net-next and then we have wireless-next pulling that in.
-> 
-> I am trying to figure out on how we get this handled with the minimum of conflicts during the next merge window. And also at the same time get enough exposure via linux-next. The Bluetooth part is getting ready to be pushed into bluetooth-next.
-> 
-I have some pending patches for udp iphc format and a rework of the
-fragmentation api. I already rebased these patches on Jukka's patch.
+I believe you need additional debugging to track the exact moment
+0xffffffff is fed to 'sk'
 
-So you can apply this patch in bluetooth-next.
-Then I will wait until bluetooth-next is merged into net-next.
+It looks like a very strange bug, involving a problem in some assembly
+helper, register save/restore, compiler bug or stack corruption or
+something.
 
-Is that okay for you?
+You should not have more than 150 instructions to decode, including
+__inet_lookup_established()
 
-- Alex
+Since __inet_lookup_established() dereferences the socket pointer, I do
+not see why it would crash ~20 instructions _later_
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
