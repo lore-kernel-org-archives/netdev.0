@@ -1,61 +1,70 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 1/7] net: hippi: remove unnecessary pci_set_drvdata()
-Date: Tue, 10 Dec 2013 12:48:38 +0900
-Message-ID: <000601cef55a$b605fab0$2211f010$%han@samsung.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net v7 0/2] net: sched: fix two issues
+Date: Tue, 10 Dec 2013 11:49:16 +0800
+Message-ID: <1386647358-47944-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-hippi@sunsite.dk,
-	'Jes Sorensen' <jes@trained-monkey.org>,
-	'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
+	<jbrouer@redhat.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:11601 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707Ab3LJDsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 22:48:45 -0500
-Received: from epcpsbgr4.samsung.com
- (u144.gpu120.samsung.co.kr [203.254.230.144])
- by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MXK005BGNX3XW80@mailout1.samsung.com> for
- netdev@vger.kernel.org; Tue, 10 Dec 2013 12:48:39 +0900 (KST)
-Content-language: ko
+Received: from szxga01-in.huawei.com ([119.145.14.64]:1702 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751048Ab3LJDt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 22:49:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver core clears the driver data to NULL after device_release
-or on probe failure. Thus, it is not needed to manually clear the
-device driver data to NULL.
+fix calculation of max_size in tbf
+fix quantum calculation introduced by 64bit rates.
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
----
- drivers/net/hippi/rrunner.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+v7
+  patch 1/2:
+  1.Set member of "struct tbf_sched_data *q" after calculating
+  max_size successfully, or it will change the old settings while
+  calculating failed.
+  2.If time_in_ns is bigger than ~0U(about 4 sec), it's useless,
+  use ~0U instead.
 
-diff --git a/drivers/net/hippi/rrunner.c b/drivers/net/hippi/rrunner.c
-index 00ed751..cd85f24 100644
---- a/drivers/net/hippi/rrunner.c
-+++ b/drivers/net/hippi/rrunner.c
-@@ -213,10 +213,8 @@ static int rr_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 				    rrpriv->tx_ring_dma);
- 	if (rrpriv->regs)
- 		pci_iounmap(pdev, rrpriv->regs);
--	if (pdev) {
-+	if (pdev)
- 		pci_release_regions(pdev);
--		pci_set_drvdata(pdev, NULL);
--	}
-  out2:
- 	free_netdev(dev);
-  out3:
-@@ -244,7 +242,6 @@ static void rr_remove_one(struct pci_dev *pdev)
- 	pci_iounmap(pdev, rr->regs);
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
--	pci_set_drvdata(pdev, NULL);
- 	free_netdev(dev);
- }
- 
+v6
+  patch 1/2:
+  1.Use a simpler and better way to calculate length in psched_ns_t2l().
+  2.Replace pr_err() with pr_warn_ratelimited().
+
+  patch 2/2: Replace div64_u64() with do_div() suggested by Eric.
+
+v5
+  patch 1/2:
+  1.Remove rtab and ptab use suggested by Eric.
+  2.Don't reduce max_size to 65536, as Eric suggested that
+    if a burst set to 200KB, we do not want tbf use 64KB
+    or even less. So add a helper psched_ns_t2l to calculate
+    max_size directly.
+
+v4
+  patch 1/2:
+  1.Update commit message suggested by Jesper.
+  2.Use a macro to replace 65535 constant.
+  3.Add condition that when peakrate is lower than rate, return -EINVAL.
+  4.Don't use cell_log anymore.
+
+v3
+  patch 1/2: use psched_l2t_ns to calculate max_size
+  and cleanup exit/done section suggested by Jesper.
+
+v2
+  patch 1/2: redescribe the regression.
+  patch 2/2: add Eric's ack.
+
+*** BLURB HERE ***
+
+Yang Yingliang (2):
+  net: sched: tbf: fix the calculation of max_size
+  net: sched: htb: fix the calculation of quantum
+
+ net/sched/sch_htb.c |  20 +++++----
+ net/sched/sch_tbf.c | 119 +++++++++++++++++++++++++++++++---------------------
+ 2 files changed, 83 insertions(+), 56 deletions(-)
+
 -- 
-1.7.10.4
+1.8.0
