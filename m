@@ -1,392 +1,196 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/12] igb: Add new feature Media Auto Sense for 82580 devices only
-Date: Tue, 10 Dec 2013 02:22:39 -0800
-Message-ID: <1386670961-20392-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/12] igb: Add media switching feature for i354 PHY's
+Date: Tue, 10 Dec 2013 02:22:37 -0800
+Message-ID: <1386670961-20392-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1386670961-20392-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:30241 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:18536 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752890Ab3LJKXV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Dec 2013 05:23:21 -0500
+	id S1752885Ab3LJKXQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Dec 2013 05:23:16 -0500
 In-Reply-To: <1386670961-20392-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-This patch adds support for the hardware feature Media Auto Sense.  This
-feature requires a custom EEPROM image provided by our customer support
-team.  The feature allows hardware designed with dual PHY's, fiber and
-copper to be used with either media without additional EEPROM changes.
-Fiber is preferred and driver will swap and configure for fiber media if
-sensed by the device at any time. Device will swap back to copper if it
-is the only media detected.
+This patch adds a new feature which is supported in some PHY's on some i354
+devices.  This feature is Auto Media Detect and allows which ever media is
+detected first by the PHY to be the media used and configured by the
+device.  This is a media swapping feature that is wholly contained in the
+Marvell PHY.
 
 Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c   |  13 ++
- drivers/net/ethernet/intel/igb/e1000_defines.h |   5 +
- drivers/net/ethernet/intel/igb/e1000_hw.h      |   1 +
- drivers/net/ethernet/intel/igb/igb.h           |  10 ++
- drivers/net/ethernet/intel/igb/igb_ethtool.c   |   4 +
- drivers/net/ethernet/intel/igb/igb_main.c      | 193 +++++++++++++++++++++++++
- 6 files changed, 226 insertions(+)
+ drivers/net/ethernet/intel/igb/e1000_82575.c   | 76 ++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_defines.h | 11 ++++
+ drivers/net/ethernet/intel/igb/e1000_hw.h      |  2 +
+ drivers/net/ethernet/intel/igb/igb.h           |  1 +
+ drivers/net/ethernet/intel/igb/igb_main.c      |  6 ++
+ 5 files changed, 96 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index fe9db48..06df692 100644
+index 47c2d10..fe9db48 100644
 --- a/drivers/net/ethernet/intel/igb/e1000_82575.c
 +++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -441,6 +441,19 @@ static s32 igb_init_mac_params_82575(struct e1000_hw *hw)
- 			? igb_setup_copper_link_82575
- 			: igb_setup_serdes_link_82575;
- 
-+	if (mac->type == e1000_82580) {
-+		switch (hw->device_id) {
-+		/* feature not supported on these id's */
-+		case E1000_DEV_ID_DH89XXCC_SGMII:
-+		case E1000_DEV_ID_DH89XXCC_SERDES:
-+		case E1000_DEV_ID_DH89XXCC_BACKPLANE:
-+		case E1000_DEV_ID_DH89XXCC_SFP:
-+			break;
-+		default:
-+			hw->dev_spec._82575.mas_capable = true;
-+			break;
-+		}
-+	}
- 	return 0;
+@@ -113,6 +113,59 @@ static bool igb_sgmii_uses_mdio_82575(struct e1000_hw *hw)
  }
  
+ /**
++ *  igb_check_for_link_media_swap - Check which M88E1112 interface linked
++ *  @hw: pointer to the HW structure
++ *
++ *  Poll the M88E1112 interfaces to see which interface achieved link.
++ */
++static s32 igb_check_for_link_media_swap(struct e1000_hw *hw)
++{
++	struct e1000_phy_info *phy = &hw->phy;
++	s32 ret_val;
++	u16 data;
++	u8 port = 0;
++
++	/* Check the copper medium. */
++	ret_val = phy->ops.write_reg(hw, E1000_M88E1112_PAGE_ADDR, 0);
++	if (ret_val)
++		return ret_val;
++
++	ret_val = phy->ops.read_reg(hw, E1000_M88E1112_STATUS, &data);
++	if (ret_val)
++		return ret_val;
++
++	if (data & E1000_M88E1112_STATUS_LINK)
++		port = E1000_MEDIA_PORT_COPPER;
++
++	/* Check the other medium. */
++	ret_val = phy->ops.write_reg(hw, E1000_M88E1112_PAGE_ADDR, 1);
++	if (ret_val)
++		return ret_val;
++
++	ret_val = phy->ops.read_reg(hw, E1000_M88E1112_STATUS, &data);
++	if (ret_val)
++		return ret_val;
++
++	/* reset page to 0 */
++	ret_val = phy->ops.write_reg(hw, E1000_M88E1112_PAGE_ADDR, 0);
++	if (ret_val)
++		return ret_val;
++
++	if (data & E1000_M88E1112_STATUS_LINK)
++		port = E1000_MEDIA_PORT_OTHER;
++
++	/* Determine if a swap needs to happen. */
++	if (port && (hw->dev_spec._82575.media_port != port)) {
++		hw->dev_spec._82575.media_port = port;
++		hw->dev_spec._82575.media_changed = true;
++	} else {
++		ret_val = igb_check_for_link_82575(hw);
++	}
++
++	return E1000_SUCCESS;
++}
++
++/**
+  *  igb_init_phy_params_82575 - Init PHY func ptrs.
+  *  @hw: pointer to the HW structure
+  **/
+@@ -189,6 +242,29 @@ static s32 igb_init_phy_params_82575(struct e1000_hw *hw)
+ 		else
+ 			phy->ops.get_cable_length = igb_get_cable_length_m88;
+ 		phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_m88;
++		/* Check if this PHY is confgured for media swap. */
++		if (phy->id == M88E1112_E_PHY_ID) {
++			u16 data;
++
++			ret_val = phy->ops.write_reg(hw,
++						     E1000_M88E1112_PAGE_ADDR,
++						     2);
++			if (ret_val)
++				goto out;
++
++			ret_val = phy->ops.read_reg(hw,
++						    E1000_M88E1112_MAC_CTRL_1,
++						    &data);
++			if (ret_val)
++				goto out;
++
++			data = (data & E1000_M88E1112_MAC_CTRL_1_MODE_MASK) >>
++			       E1000_M88E1112_MAC_CTRL_1_MODE_SHIFT;
++			if (data == E1000_M88E1112_AUTO_COPPER_SGMII ||
++			    data == E1000_M88E1112_AUTO_COPPER_BASEX)
++				hw->mac.ops.check_for_link =
++						igb_check_for_link_media_swap;
++		}
+ 		break;
+ 	case IGP03E1000_E_PHY_ID:
+ 		phy->type = e1000_phy_igp_3;
 diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index 378ca21..0571b97 100644
+index 978eca3..378ca21 100644
 --- a/drivers/net/ethernet/intel/igb/e1000_defines.h
 +++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -205,6 +205,11 @@
-  */
+@@ -532,6 +532,17 @@
+ #define E1000_MDICNFG_PHY_MASK    0x03E00000
+ #define E1000_MDICNFG_PHY_SHIFT   21
  
- #define E1000_CONNSW_ENRGSRC             0x4
-+#define E1000_CONNSW_PHYSD		0x400
-+#define E1000_CONNSW_PHY_PDN		0x800
-+#define E1000_CONNSW_SERDESD		0x200
-+#define E1000_CONNSW_AUTOSENSE_CONF	0x2
-+#define E1000_CONNSW_AUTOSENSE_EN	0x1
- #define E1000_PCS_CFG_PCS_EN             8
- #define E1000_PCS_LCTL_FLV_LINK_UP       1
- #define E1000_PCS_LCTL_FSV_100           2
++#define E1000_MEDIA_PORT_COPPER			1
++#define E1000_MEDIA_PORT_OTHER			2
++#define E1000_M88E1112_AUTO_COPPER_SGMII	0x2
++#define E1000_M88E1112_AUTO_COPPER_BASEX	0x3
++#define E1000_M88E1112_STATUS_LINK		0x0004 /* Interface Link Bit */
++#define E1000_M88E1112_MAC_CTRL_1		0x10
++#define E1000_M88E1112_MAC_CTRL_1_MODE_MASK	0x0380 /* Mode Select */
++#define E1000_M88E1112_MAC_CTRL_1_MODE_SHIFT	7
++#define E1000_M88E1112_PAGE_ADDR		0x16
++#define E1000_M88E1112_STATUS			0x01
++
+ /* PCI Express Control */
+ #define E1000_GCR_CMPL_TMOUT_MASK       0x0000F000
+ #define E1000_GCR_CMPL_TMOUT_10ms       0x00001000
 diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
-index 5f9758f..ab99e2b 100644
+index 2e166b2..5f9758f 100644
 --- a/drivers/net/ethernet/intel/igb/e1000_hw.h
 +++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
-@@ -535,6 +535,7 @@ struct e1000_dev_spec_82575 {
+@@ -533,6 +533,8 @@ struct e1000_dev_spec_82575 {
+ 	bool clear_semaphore_once;
+ 	struct e1000_sfp_flags eth_flags;
  	bool module_plugged;
- 	u8 media_port;
- 	bool media_changed;
-+	bool mas_capable;
++	u8 media_port;
++	bool media_changed;
  };
  
  struct e1000_hw {
 diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 6c80792..11173f4 100644
+index 5e9ed89..6c80792 100644
 --- a/drivers/net/ethernet/intel/igb/igb.h
 +++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -450,6 +450,8 @@ struct igb_adapter {
- 	u8 rss_indir_tbl[IGB_RETA_SIZE];
- 
- 	unsigned long link_check_timeout;
-+	int copper_tries;
-+	struct e1000_info ei;
- };
- 
- #define IGB_FLAG_HAS_MSI		(1 << 0)
-@@ -463,6 +465,14 @@ struct igb_adapter {
+@@ -462,6 +462,7 @@ struct igb_adapter {
+ #define IGB_FLAG_RSS_FIELD_IPV6_UDP	(1 << 7)
  #define IGB_FLAG_WOL_SUPPORTED		(1 << 8)
  #define IGB_FLAG_NEED_LINK_UPDATE	(1 << 9)
- #define IGB_FLAG_MEDIA_RESET		(1 << 10)
-+#define IGB_FLAG_MAS_CAPABLE		(1 << 11)
-+#define IGB_FLAG_MAS_ENABLE		(1 << 12)
-+
-+/* Media Auto Sense */
-+#define IGB_MAS_ENABLE_0		0X0001
-+#define IGB_MAS_ENABLE_1		0X0002
-+#define IGB_MAS_ENABLE_2		0X0004
-+#define IGB_MAS_ENABLE_3		0X0008
++#define IGB_FLAG_MEDIA_RESET		(1 << 10)
  
  /* DMA Coalescing defines */
  #define IGB_MIN_TXPBSIZE	20408
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index c3143da..1c7d238 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -1983,6 +1983,10 @@ static void igb_diag_test(struct net_device *netdev,
- 	bool if_running = netif_running(netdev);
- 
- 	set_bit(__IGB_TESTING, &adapter->state);
-+
-+	/* can't do offline tests on media switching devices */
-+	if (adapter->hw.dev_spec._82575.mas_capable)
-+		eth_test->flags &= ~ETH_TEST_FL_OFFLINE;
- 	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
- 		/* Offline tests */
- 
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index ed129f1..3bc10bd 100644
+index 025e5f4..6da479b 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1607,6 +1607,73 @@ static void igb_power_down_link(struct igb_adapter *adapter)
- }
- 
- /**
-+ * Detect and switch function for Media Auto Sense
-+ * @adapter: address of the board private structure
-+ **/
-+static void igb_check_swap_media(struct igb_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 ctrl_ext, connsw;
-+	bool swap_now = false;
-+
-+	ctrl_ext = rd32(E1000_CTRL_EXT);
-+	connsw = rd32(E1000_CONNSW);
-+
-+	/* need to live swap if current media is copper and we have fiber/serdes
-+	 * to go to.
-+	 */
-+
-+	if ((hw->phy.media_type == e1000_media_type_copper) &&
-+	    (!(connsw & E1000_CONNSW_AUTOSENSE_EN))) {
-+		swap_now = true;
-+	} else if (!(connsw & E1000_CONNSW_SERDESD)) {
-+		/* copper signal takes time to appear */
-+		if (adapter->copper_tries < 4) {
-+			adapter->copper_tries++;
-+			connsw |= E1000_CONNSW_AUTOSENSE_CONF;
-+			wr32(E1000_CONNSW, connsw);
-+			return;
-+		} else {
-+			adapter->copper_tries = 0;
-+			if ((connsw & E1000_CONNSW_PHYSD) &&
-+			    (!(connsw & E1000_CONNSW_PHY_PDN))) {
-+				swap_now = true;
-+				connsw &= ~E1000_CONNSW_AUTOSENSE_CONF;
-+				wr32(E1000_CONNSW, connsw);
-+			}
-+		}
-+	}
-+
-+	if (!swap_now)
-+		return;
-+
-+	switch (hw->phy.media_type) {
-+	case e1000_media_type_copper:
-+		netdev_info(adapter->netdev,
-+			"MAS: changing media to fiber/serdes\n");
-+		ctrl_ext |=
-+			E1000_CTRL_EXT_LINK_MODE_PCIE_SERDES;
-+		adapter->flags |= IGB_FLAG_MEDIA_RESET;
-+		adapter->copper_tries = 0;
-+		break;
-+	case e1000_media_type_internal_serdes:
-+	case e1000_media_type_fiber:
-+		netdev_info(adapter->netdev,
-+			"MAS: changing media to copper\n");
-+		ctrl_ext &=
-+			~E1000_CTRL_EXT_LINK_MODE_PCIE_SERDES;
-+		adapter->flags |= IGB_FLAG_MEDIA_RESET;
-+		break;
-+	default:
-+		/* shouldn't get here during regular operation */
-+		netdev_err(adapter->netdev,
-+			"AMS: Invalid media type found, returning\n");
-+		break;
-+	}
-+	wr32(E1000_CTRL_EXT, ctrl_ext);
-+}
-+
-+/**
-  *  igb_up - Open the interface and prepare it to handle traffic
-  *  @adapter: board private structure
-  **/
-@@ -1719,6 +1786,37 @@ void igb_reinit_locked(struct igb_adapter *adapter)
- 	clear_bit(__IGB_RESETTING, &adapter->state);
- }
- 
-+/** igb_enable_mas - Media Autosense re-enable after swap
-+ *
-+ * @adapter: adapter struct
-+ **/
-+static s32 igb_enable_mas(struct igb_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 connsw;
-+	s32 ret_val = 0;
-+
-+	connsw = rd32(E1000_CONNSW);
-+	if (!(hw->phy.media_type == e1000_media_type_copper))
-+		return ret_val;
-+
-+	/* configure for SerDes media detect */
-+	if (!(connsw & E1000_CONNSW_SERDESD)) {
-+		connsw |= E1000_CONNSW_ENRGSRC;
-+		connsw |= E1000_CONNSW_AUTOSENSE_EN;
-+		wr32(E1000_CONNSW, connsw);
-+		wrfl();
-+	} else if (connsw & E1000_CONNSW_SERDESD) {
-+		/* already SerDes, no need to enable anything */
-+		return ret_val;
-+	} else {
-+		netdev_info(adapter->netdev,
-+			"MAS: Unable to configure feature, disabling..\n");
-+		adapter->flags &= ~IGB_FLAG_MAS_ENABLE;
-+	}
-+	return ret_val;
-+}
-+
- void igb_reset(struct igb_adapter *adapter)
- {
- 	struct pci_dev *pdev = adapter->pdev;
-@@ -1830,6 +1928,16 @@ void igb_reset(struct igb_adapter *adapter)
- 	hw->mac.ops.reset_hw(hw);
- 	wr32(E1000_WUC, 0);
- 
-+	if (adapter->flags & IGB_FLAG_MEDIA_RESET) {
-+		/* need to resetup here after media swap */
-+		adapter->ei.get_invariants(hw);
-+		adapter->flags &= ~IGB_FLAG_MEDIA_RESET;
-+	}
-+	if (adapter->flags & IGB_FLAG_MAS_ENABLE) {
-+		if (igb_enable_mas(adapter))
-+			dev_err(&pdev->dev,
-+				"Error enabling Media Auto Sense\n");
-+	}
- 	if (hw->mac.ops.init_hw(hw))
- 		dev_err(&pdev->dev, "Hardware Error\n");
- 
-@@ -1976,6 +2084,58 @@ void igb_set_fw_version(struct igb_adapter *adapter)
- }
- 
- /**
-+ * igb_init_mas - init Media Autosense feature if enabled in the NVM
-+ *
-+ * @adapter: adapter struct
-+ **/
-+static void igb_init_mas(struct igb_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u16 eeprom_data;
-+
-+	hw->nvm.ops.read(hw, NVM_COMPAT, 1, &eeprom_data);
-+	switch (hw->bus.func) {
-+	case E1000_FUNC_0:
-+		if (eeprom_data & IGB_MAS_ENABLE_0) {
-+			adapter->flags |= IGB_FLAG_MAS_ENABLE;
-+			netdev_info(adapter->netdev,
-+				"MAS: Enabling Media Autosense for port %d\n",
-+				hw->bus.func);
-+		}
-+		break;
-+	case E1000_FUNC_1:
-+		if (eeprom_data & IGB_MAS_ENABLE_1) {
-+			adapter->flags |= IGB_FLAG_MAS_ENABLE;
-+			netdev_info(adapter->netdev,
-+				"MAS: Enabling Media Autosense for port %d\n",
-+				hw->bus.func);
-+		}
-+		break;
-+	case E1000_FUNC_2:
-+		if (eeprom_data & IGB_MAS_ENABLE_2) {
-+			adapter->flags |= IGB_FLAG_MAS_ENABLE;
-+			netdev_info(adapter->netdev,
-+				"MAS: Enabling Media Autosense for port %d\n",
-+				hw->bus.func);
-+		}
-+		break;
-+	case E1000_FUNC_3:
-+		if (eeprom_data & IGB_MAS_ENABLE_3) {
-+			adapter->flags |= IGB_FLAG_MAS_ENABLE;
-+			netdev_info(adapter->netdev,
-+				"MAS: Enabling Media Autosense for port %d\n",
-+				hw->bus.func);
-+		}
-+		break;
-+	default:
-+		/* Shouldn't get here */
-+		netdev_err(adapter->netdev,
-+			"MAS: Invalid port configuration, returning\n");
-+		break;
-+	}
-+}
-+
-+/**
-  *  igb_init_i2c - Init I2C interface
-  *  @adapter: pointer to adapter structure
-  **/
-@@ -2346,6 +2506,11 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		adapter->ets = false;
- 	}
- #endif
-+	/* Check if Media Autosense is enabled */
-+	adapter->ei = *ei;
-+	if (hw->dev_spec._82575.mas_capable)
-+		igb_init_mas(adapter);
-+
- 	/* do hw tstamp init after resetting */
- 	igb_ptp_init(adapter);
- 
-@@ -3931,6 +4096,7 @@ static void igb_watchdog_task(struct work_struct *work)
- 	struct net_device *netdev = adapter->netdev;
- 	u32 link;
- 	int i;
-+	u32 connsw;
- 
- 	link = igb_has_link(adapter);
- 
-@@ -3941,6 +4107,14 @@ static void igb_watchdog_task(struct work_struct *work)
- 			link = false;
+@@ -3946,6 +3946,12 @@ static void igb_watchdog_task(struct work_struct *work)
  	}
  
-+	/* Force link down if we have fiber to swap to */
-+	if (adapter->flags & IGB_FLAG_MAS_ENABLE) {
-+		if (hw->phy.media_type == e1000_media_type_copper) {
-+			connsw = rd32(E1000_CONNSW);
-+			if (!(connsw & E1000_CONNSW_AUTOSENSE_EN))
-+				link = 0;
-+		}
-+	}
  	if (link) {
- 		/* Perform a reset if the media type changed. */
- 		if (hw->dev_spec._82575.media_changed) {
-@@ -4028,8 +4202,27 @@ static void igb_watchdog_task(struct work_struct *work)
- 				mod_timer(&adapter->phy_info_timer,
- 					  round_jiffies(jiffies + 2 * HZ));
- 
-+			/* link is down, time to check for alternate media */
-+			if (adapter->flags & IGB_FLAG_MAS_ENABLE) {
-+				igb_check_swap_media(adapter);
-+				if (adapter->flags & IGB_FLAG_MEDIA_RESET) {
-+					schedule_work(&adapter->reset_task);
-+					/* return immediately */
-+					return;
-+				}
-+			}
- 			pm_schedule_suspend(netdev->dev.parent,
- 					    MSEC_PER_SEC * 5);
-+
-+		/* also check for alternate media here */
-+		} else if (!netif_carrier_ok(netdev) &&
-+			   (adapter->flags & IGB_FLAG_MAS_ENABLE)) {
-+			igb_check_swap_media(adapter);
-+			if (adapter->flags & IGB_FLAG_MEDIA_RESET) {
-+				schedule_work(&adapter->reset_task);
-+				/* return immediately */
-+				return;
-+			}
- 		}
- 	}
++		/* Perform a reset if the media type changed. */
++		if (hw->dev_spec._82575.media_changed) {
++			hw->dev_spec._82575.media_changed = false;
++			adapter->flags |= IGB_FLAG_MEDIA_RESET;
++			igb_reset(adapter);
++		}
+ 		/* Cancel scheduled suspend requests. */
+ 		pm_runtime_resume(netdev->dev.parent);
  
 -- 
 1.8.3.1
