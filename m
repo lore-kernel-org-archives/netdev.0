@@ -1,39 +1,47 @@
 From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net-next 2/6] net_sched: cls_bpf: use tabs to do indent
-Date: Tue, 10 Dec 2013 20:55:30 +0800
-Message-ID: <1386680134-85452-3-git-send-email-yangyingliang@huawei.com>
+Subject: [PATCH net-next 5/6] net_sched: sfq: put sfq_unlink in a do - while loop
+Date: Tue, 10 Dec 2013 20:55:33 +0800
+Message-ID: <1386680134-85452-6-git-send-email-yangyingliang@huawei.com>
 References: <1386680134-85452-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:4252 "EHLO
+Received: from szxga01-in.huawei.com ([119.145.14.64]:4282 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753023Ab3LJMzr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 07:55:47 -0500
+	with ESMTP id S1753145Ab3LJMzv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 07:55:51 -0500
 In-Reply-To: <1386680134-85452-1-git-send-email-yangyingliang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Code indent should use tabs where possible
+Macros with multiple statements should be enclosed in a do - while loop
 
 Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 ---
- net/sched/cls_bpf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/sched/sch_sfq.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 1002a82..d7c72be 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -323,7 +323,7 @@ static int cls_bpf_dump(struct tcf_proto *tp, unsigned long fh,
- 	if (nla == NULL)
- 		goto nla_put_failure;
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index d3a1bc2..76f01e0 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -237,10 +237,12 @@ static inline void sfq_link(struct sfq_sched_data *q, sfq_index x)
+ }
  
--        memcpy(nla_data(nla), prog->bpf_ops, nla_len(nla));
-+	memcpy(nla_data(nla), prog->bpf_ops, nla_len(nla));
+ #define sfq_unlink(q, x, n, p)			\
+-	n = q->slots[x].dep.next;		\
+-	p = q->slots[x].dep.prev;		\
+-	sfq_dep_head(q, p)->next = n;		\
+-	sfq_dep_head(q, n)->prev = p
++	do {					\
++		n = q->slots[x].dep.next;	\
++		p = q->slots[x].dep.prev;	\
++		sfq_dep_head(q, p)->next = n;	\
++		sfq_dep_head(q, n)->prev = p;	\
++	} while (0)
  
- 	if (tcf_exts_dump(skb, &prog->exts, &bpf_ext_map) < 0)
- 		goto nla_put_failure;
+ 
+ static inline void sfq_dec(struct sfq_sched_data *q, sfq_index x)
 -- 
 1.8.0
