@@ -1,73 +1,49 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net v7 2/2] net: sched: htb: fix the calculation of quantum
-Date: Tue, 10 Dec 2013 11:49:18 +0800
-Message-ID: <1386647358-47944-3-git-send-email-yangyingliang@huawei.com>
-References: <1386647358-47944-1-git-send-email-yangyingliang@huawei.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 2/7] net: fddi: remove unnecessary pci_set_drvdata()
+Date: Tue, 10 Dec 2013 12:49:34 +0900
+Message-ID: <000c01cef55a$d6f56030$84e02090$%han@samsung.com>
+References: <000601cef55a$b605fab0$2211f010$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <eric.dumazet@gmail.com>, <brouer@redhat.com>, <jpirko@redhat.com>,
-	<jbrouer@redhat.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
+To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:5881 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751191Ab3LJDt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 22:49:28 -0500
-In-Reply-To: <1386647358-47944-1-git-send-email-yangyingliang@huawei.com>
+Received: from mailout2.samsung.com ([203.254.224.25]:30936 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751529Ab3LJDtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 22:49:36 -0500
+Received: from epcpsbgr1.samsung.com
+ (u141.gpu120.samsung.co.kr [203.254.230.141])
+ by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MXK007XQNYMB990@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Tue, 10 Dec 2013 12:49:34 +0900 (KST)
+In-reply-to: <000601cef55a$b605fab0$2211f010$%han@samsung.com>
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now, 32bit rates may be not the true rate.
-So use rate_bytes_ps which is from
-max(rate32, rate64) to calcualte quantum.
+The driver core clears the driver data to NULL after device_release
+or on probe failure. Thus, it is not needed to manually clear the
+device driver data to NULL.
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- net/sched/sch_htb.c | 20 ++++++++++++--------
- 1 file changed, 12 insertions(+), 8 deletions(-)
+ drivers/net/fddi/skfp/skfddi.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 0e1e38b..717b210 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1477,11 +1477,22 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 		sch_tree_lock(sch);
- 	}
+diff --git a/drivers/net/fddi/skfp/skfddi.c b/drivers/net/fddi/skfp/skfddi.c
+index 713d303..d5f5812 100644
+--- a/drivers/net/fddi/skfp/skfddi.c
++++ b/drivers/net/fddi/skfp/skfddi.c
+@@ -351,7 +351,6 @@ static void skfp_remove_one(struct pci_dev *pdev)
+ 	free_netdev(p);
  
-+	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
-+
-+	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
-+
-+	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
-+	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
-+
- 	/* it used to be a nasty bug here, we have to check that node
- 	 * is really leaf before changing cl->un.leaf !
- 	 */
- 	if (!cl->level) {
--		cl->quantum = hopt->rate.rate / q->rate2quantum;
-+		u64 quantum = cl->rate.rate_bytes_ps;
-+
-+		do_div(quantum, q->rate2quantum);
-+		cl->quantum = min_t(u64, quantum, INT_MAX);
-+
- 		if (!hopt->quantum && cl->quantum < 1000) {
- 			pr_warning(
- 			       "HTB: quantum of class %X is small. Consider r2q change.\n",
-@@ -1500,13 +1511,6 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 			cl->prio = TC_HTB_NUMPRIO - 1;
- 	}
+ 	pci_disable_device(pdev);
+-	pci_set_drvdata(pdev, NULL);
+ }
  
--	rate64 = tb[TCA_HTB_RATE64] ? nla_get_u64(tb[TCA_HTB_RATE64]) : 0;
--
--	ceil64 = tb[TCA_HTB_CEIL64] ? nla_get_u64(tb[TCA_HTB_CEIL64]) : 0;
--
--	psched_ratecfg_precompute(&cl->rate, &hopt->rate, rate64);
--	psched_ratecfg_precompute(&cl->ceil, &hopt->ceil, ceil64);
--
- 	cl->buffer = PSCHED_TICKS2NS(hopt->buffer);
- 	cl->cbuffer = PSCHED_TICKS2NS(hopt->cbuffer);
- 
+ /*
 -- 
-1.8.0
+1.7.10.4
