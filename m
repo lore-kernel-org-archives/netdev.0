@@ -1,58 +1,106 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: ifconfig doesn't show assignment ip-addresses
-Date: Tue, 10 Dec 2013 12:48:48 +0100
-Message-ID: <20131210114847.GA20146@omega>
-References: <20131209153238.GA10317@omega>
- <20131210105741.GA2469@minipsycho.orion>
- <20131210110648.GA18196@omega>
- <20131210114339.GB2469@minipsycho.orion>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net v2] xen-netback: fix abuse of napi budget
+Date: Tue, 10 Dec 2013 11:50:32 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01ABE8D@AMSPEX01CL01.citrite.net>
+References: <1386674864-27703-1-git-send-email-paul.durrant@citrix.com>
+ <1386675863.11925.60.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:33048 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753016Ab3LJLs4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 06:48:56 -0500
-Received: by mail-wi0-f178.google.com with SMTP id bz8so5084081wib.17
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 03:48:55 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20131210114339.GB2469@minipsycho.orion>
+Received: from smtp02.citrix.com ([66.165.176.63]:15610 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752298Ab3LJLuf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 06:50:35 -0500
+In-Reply-To: <1386675863.11925.60.camel@kazak.uk.xensource.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 10, 2013 at 12:43:39PM +0100, Jiri Pirko wrote:
-> Tue, Dec 10, 2013 at 12:06:49PM CET, alex.aring@gmail.com wrote:
-> >Hi,
-> >
-> >thanks for your reply.
-> >
-> >On Tue, Dec 10, 2013 at 11:57:41AM +0100, Jiri Pirko wrote:
-> >> Mon, Dec 09, 2013 at 04:32:39PM CET, alex.aring@gmail.com wrote:
-> >> >Hi,
-> >> >
-> >> >On current net-next with a lowpan interface created with:
-> >> >
-> >> >ip link add link wpan0 name lowpan0 type lowpan
-> >> >
-> >> >I don't see any ipv6 addresses in ifconfig anymore. The addresses exist,
-> >> >because I can ping my device.
-> >> 
-> >> 
-> >> Can you see the address in "ip a" ? Would you send me output of
-> >> "ifconfig" and "ip a" please? Is this a problem for lowpan only or do
-> >> you see this with other device types as well?
-> >> 
-> 
-> The problem is that ifconfig parses /proc/net/if_inet6 which changed
-> flag format from 2 hexa chars to 3.
-> I will send revert for this change in couple of minutes.
-> 
-
-ah, nice to known. Thanks!
-
-What would be a proper solution to add a u32 flag property? Or we never
-should change this, because we want backwards compatibility?
-
-- Alex
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwNCj4gU2Vu
+dDogMTAgRGVjZW1iZXIgMjAxMyAxMTo0NA0KPiBUbzogUGF1bCBEdXJyYW50DQo+IENjOiB4ZW4t
+ZGV2ZWxAbGlzdHMueGVuLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgV2VpIExpdTsgRGF2
+aWQgVnJhYmVsDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IHYyXSB4ZW4tbmV0YmFjazogZml4
+IGFidXNlIG9mIG5hcGkgYnVkZ2V0DQo+IA0KPiBPbiBUdWUsIDIwMTMtMTItMTAgYXQgMTE6Mjcg
+KzAwMDAsIFBhdWwgRHVycmFudCB3cm90ZToNCj4gPiBuZXRiYWNrIHNlZW1lZCB0byBiZSBzb21l
+d2hhdCBjb25mdXNlZCBhYm91dCB0aGUgbmFwaSBidWRnZXQNCj4gcGFyYW1ldGVyLiBUaGUNCj4g
+PiBwYXJhbWV0ZXIgaXMgc3VwcG9zZWQgdG8gbGltaXQgdGhlIG51bWJlciBvZiBza2dzIHByb2Nl
+c3MgaW4gZWFjaCBwb2xsLCBidXQNCj4gDQo+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgc2ticw0KPiANCj4gPiBuZXRiYWNrIGhhZCB0aGlzIGNvbmZ1c2Vk
+IHdpdGggZ3JhbnQgb3BlcmF0aW9ucy4NCj4gPg0KPiA+IFRoaXMgcGF0Y2ggZml4ZXMgdGhhdCwg
+cHJvcGVybHkgbGltaXRpbmcgdGhlIHdvcmsgZG9uZSBpbiBlYWNoIHBvbGwuIE5vdGUNCj4gPiB0
+aGF0IHRoaXMgbGltaXQgbWFrZXMgc3VyZSB3ZSBkbyBub3QgcHJvY2VzcyBhbnkgbW9yZSBkYXRh
+IGZyb20gdGhlDQo+IHNoYXJlZA0KPiA+IHJpbmcgdGhhbiB3ZSBpbnRlbmQgdG8gcGFzcyBiYWNr
+IGZyb20gdGhlIHBvbGwuIFRoaXMgaXMgaW1wb3J0YW50IHRvDQo+ID4gcHJldmVudCB0eF9xdWV1
+ZSBwb3RlbnRpYWxseSBncm93aW5nIHdpdGhvdXQgYm91bmQuDQo+ID4NCj4gPiBUaGlzIHBhdGNo
+IGFsc28gY2hhbmdlcyB0aGUgUklOR19GSU5BTF9DSEVDS19GT1JfUkVRVUVTVFMgaW4NCj4gPiB4
+ZW52aWZfYnVpbGRfdHhfZ29wcyB0byBhIGNoZWNrIGZvciBSSU5HX0hBU19VTkNPTlNVTUVEX1JF
+UVVFU1RTDQo+IGFzIHRoZQ0KPiA+IGZvcm1lciBjYWxsIGhhcyB0aGUgc2lkZSBlZmZlY3Qgb2Yg
+YWR2YW5jaW5nIHRoZSByaW5nIGV2ZW50IHBvaW50ZXIgYW5kDQo+ID4gdGhlcmVmb3JlIGludml0
+aW5nIGFub3RoZXIgaW50ZXJydXB0IGZyb20gdGhlIGZyb250ZW5kIGJlZm9yZSB0aGUgbmFwaQ0K
+PiA+IHBvbGwgaGFzIGFjdHVhbGx5IGZpbmlzaGVkLCB0aGVyZWJ5IGRlZmVhdGluZyB0aGUgcG9p
+bnQgb2YgbmFwaS4NCj4gDQo+IENhbiB5b3UgYWRkIGEgcmVtaW5kZXIgb2Ygd2hlbi93aGVyZSB0
+aGUgcmluZyBldmVudCBwb2ludGVyIGlzDQo+IGV2ZW50dWFsbHkgYWR2YW5jZWQgbm93IHBsZWFz
+ZS4NCj4gDQo+IFRoaXMgc2VlbXMgbGlrZSBhIHNsaWdodGx5IHN1YnRsZSBjaGFuZ2UsIGVzcGVj
+aWFsbHkgd2hlbiBtaXhlZCBpbiB3aXRoDQo+IHRoZSBidWRnZXQgaGFuZGxpbmcgY2hhbmdlcy4g
+UGxlYXNlIGNhbiB3ZSBkbyBpdCBpbiBhIHNlcGFyYXRlIHBhdGNoLg0KPiANCg0KT2suIEdpdmVu
+IEkgYWxzbyBzcG90dGVkIHRoZSBtaXN0YWtlIHdpdGggd29ya190b19kbywgSSdsbCBtYWtlIHRo
+aXMgYSAyIHBhdGNoIHNlcmllcy4NCg0KICBQYXVsDQoNCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6
+IFBhdWwgRHVycmFudCA8cGF1bC5kdXJyYW50QGNpdHJpeC5jb20+DQo+ID4gQ2M6IFdlaSBMaXUg
+PHdlaS5saXUyQGNpdHJpeC5jb20+DQo+ID4gQ2M6IElhbiBDYW1wYmVsbCA8aWFuLmNhbXBiZWxs
+QGNpdHJpeC5jb20+DQo+ID4gQ2M6IERhdmlkIFZyYWJlbCA8ZGF2aWQudnJhYmVsQGNpdHJpeC5j
+b20+DQo+ID4gLS0tDQo+ID4gdjI6DQo+ID4gLSBNb3JlIGVsYWJvcmF0ZSBkZXNjcmlwdGlvbiBv
+ZiB0aGUgcHJvYmxlbSBhbmQgdGhlIGZpeCBpbiB0aGUgY29tbWVudC4NCj4gPiAtIE1vZGlmaWVk
+IHRoZSBjaGVjayBpbiB4ZW52aWZfYnVpbGRfdHhfZ29wcy4NCj4gPg0KPiA+ICBkcml2ZXJzL25l
+dC94ZW4tbmV0YmFjay9uZXRiYWNrLmMgfCAgIDE3ICsrKysrKysrLS0tLS0tLS0tDQo+ID4gIDEg
+ZmlsZSBjaGFuZ2VkLCA4IGluc2VydGlvbnMoKyksIDkgZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBk
+aWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jIGIvZHJpdmVycy9u
+ZXQveGVuLQ0KPiBuZXRiYWNrL25ldGJhY2suYw0KPiA+IGluZGV4IDQzMzQxYjguLjBjOGNhNzYg
+MTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jDQo+ID4g
+KysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jDQo+ID4gQEAgLTEzNTEsMTQg
+KzEzNTEsMTUgQEAgc3RhdGljIGJvb2wgdHhfY3JlZGl0X2V4Y2VlZGVkKHN0cnVjdCB4ZW52aWYN
+Cj4gKnZpZiwgdW5zaWduZWQgc2l6ZSkNCj4gPiAgCXJldHVybiBmYWxzZTsNCj4gPiAgfQ0KPiA+
+DQo+ID4gLXN0YXRpYyB1bnNpZ25lZCB4ZW52aWZfdHhfYnVpbGRfZ29wcyhzdHJ1Y3QgeGVudmlm
+ICp2aWYpDQo+ID4gK3N0YXRpYyB1bnNpZ25lZCB4ZW52aWZfdHhfYnVpbGRfZ29wcyhzdHJ1Y3Qg
+eGVudmlmICp2aWYsIGludCBidWRnZXQpDQo+ID4gIHsNCj4gPiAgCXN0cnVjdCBnbnR0YWJfY29w
+eSAqZ29wID0gdmlmLT50eF9jb3B5X29wcywgKnJlcXVlc3RfZ29wOw0KPiA+ICAJc3RydWN0IHNr
+X2J1ZmYgKnNrYjsNCj4gPiAgCWludCByZXQ7DQo+ID4NCj4gPiAgCXdoaWxlICgobnJfcGVuZGlu
+Z19yZXFzKHZpZikgKyBYRU5fTkVUQktfTEVHQUNZX1NMT1RTX01BWA0KPiA+IC0JCTwgTUFYX1BF
+TkRJTkdfUkVRUykpIHsNCj4gPiArCQk8IE1BWF9QRU5ESU5HX1JFUVMpICYmDQo+ID4gKwkgICAg
+ICAgKHNrYl9xdWV1ZV9sZW4oJnZpZi0+dHhfcXVldWUpIDwgYnVkZ2V0KSkgew0KPiA+ICAJCXN0
+cnVjdCB4ZW5fbmV0aWZfdHhfcmVxdWVzdCB0eHJlcTsNCj4gPiAgCQlzdHJ1Y3QgeGVuX25ldGlm
+X3R4X3JlcXVlc3QNCj4gdHhmcmFnc1tYRU5fTkVUQktfTEVHQUNZX1NMT1RTX01BWF07DQo+ID4g
+IAkJc3RydWN0IHBhZ2UgKnBhZ2U7DQo+ID4gQEAgLTEzODAsOCArMTM4MSw3IEBAIHN0YXRpYyB1
+bnNpZ25lZCB4ZW52aWZfdHhfYnVpbGRfZ29wcyhzdHJ1Y3QNCj4geGVudmlmICp2aWYpDQo+ID4g
+IAkJCWNvbnRpbnVlOw0KPiA+ICAJCX0NCj4gPg0KPiA+IC0JCVJJTkdfRklOQUxfQ0hFQ0tfRk9S
+X1JFUVVFU1RTKCZ2aWYtPnR4LA0KPiB3b3JrX3RvX2RvKTsNCj4gDQo+IElzIHdvcmtfdG9fZG8g
+bm93IHVzZWQgdW5pbml0aWFsaXNlZCBhdCB2YXJpb3VzIHN1YnNlcXVlbnQgcG9pbnRzPyAoaW4N
+Cj4geW91ciBuZXh0IHJlcGx5IHlvdSBtZW50aW9uZWQgdGhlIGRlY3JlYXNlLCBidXQgd2hhdCBh
+Ym91dCBlLmcuIHRoZSBjYWxsDQo+IHRvIHhlbnZpZl9nZXRfZXh0cmFzPykNCj4gDQo+ID4gLQkJ
+aWYgKCF3b3JrX3RvX2RvKQ0KPiA+ICsJCWlmICghUklOR19IQVNfVU5DT05TVU1FRF9SRVFVRVNU
+UygmdmlmLT50eCkpDQo+ID4gIAkJCWJyZWFrOw0KPiA+DQo+ID4gIAkJaWR4ID0gdmlmLT50eC5y
+ZXFfY29uczsNCj4gPiBAQCAtMTUyMCwxNCArMTUyMCwxMyBAQCBzdGF0aWMgdW5zaWduZWQgeGVu
+dmlmX3R4X2J1aWxkX2dvcHMoc3RydWN0DQo+IHhlbnZpZiAqdmlmKQ0KPiA+ICB9DQo+ID4NCj4g
+Pg0KPiA+IC1zdGF0aWMgaW50IHhlbnZpZl90eF9zdWJtaXQoc3RydWN0IHhlbnZpZiAqdmlmLCBp
+bnQgYnVkZ2V0KQ0KPiA+ICtzdGF0aWMgaW50IHhlbnZpZl90eF9zdWJtaXQoc3RydWN0IHhlbnZp
+ZiAqdmlmKQ0KPiA+ICB7DQo+ID4gIAlzdHJ1Y3QgZ250dGFiX2NvcHkgKmdvcCA9IHZpZi0+dHhf
+Y29weV9vcHM7DQo+ID4gIAlzdHJ1Y3Qgc2tfYnVmZiAqc2tiOw0KPiA+ICAJaW50IHdvcmtfZG9u
+ZSA9IDA7DQo+ID4NCj4gPiAtCXdoaWxlICh3b3JrX2RvbmUgPCBidWRnZXQgJiYNCj4gPiAtCSAg
+ICAgICAoc2tiID0gX19za2JfZGVxdWV1ZSgmdmlmLT50eF9xdWV1ZSkpICE9IE5VTEwpIHsNCj4g
+PiArCXdoaWxlICgoc2tiID0gX19za2JfZGVxdWV1ZSgmdmlmLT50eF9xdWV1ZSkpICE9IE5VTEwp
+IHsNCj4gPiAgCQlzdHJ1Y3QgeGVuX25ldGlmX3R4X3JlcXVlc3QgKnR4cDsNCj4gPiAgCQl1MTYg
+cGVuZGluZ19pZHg7DQo+ID4gIAkJdW5zaWduZWQgZGF0YV9sZW47DQo+ID4gQEAgLTE2MDIsMTQg
+KzE2MDEsMTQgQEAgaW50IHhlbnZpZl90eF9hY3Rpb24oc3RydWN0IHhlbnZpZiAqdmlmLCBpbnQN
+Cj4gYnVkZ2V0KQ0KPiA+ICAJaWYgKHVubGlrZWx5KCF0eF93b3JrX3RvZG8odmlmKSkpDQo+ID4g
+IAkJcmV0dXJuIDA7DQo+ID4NCj4gPiAtCW5yX2dvcHMgPSB4ZW52aWZfdHhfYnVpbGRfZ29wcyh2
+aWYpOw0KPiA+ICsJbnJfZ29wcyA9IHhlbnZpZl90eF9idWlsZF9nb3BzKHZpZiwgYnVkZ2V0KTsN
+Cj4gPg0KPiA+ICAJaWYgKG5yX2dvcHMgPT0gMCkNCj4gPiAgCQlyZXR1cm4gMDsNCj4gPg0KPiA+
+ICAJZ250dGFiX2JhdGNoX2NvcHkodmlmLT50eF9jb3B5X29wcywgbnJfZ29wcyk7DQo+ID4NCj4g
+PiAtCXdvcmtfZG9uZSA9IHhlbnZpZl90eF9zdWJtaXQodmlmLCBucl9nb3BzKTsNCj4gPiArCXdv
+cmtfZG9uZSA9IHhlbnZpZl90eF9zdWJtaXQodmlmKTsNCj4gPg0KPiA+ICAJcmV0dXJuIHdvcmtf
+ZG9uZTsNCj4gPiAgfQ0KPiANCg0K
