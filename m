@@ -1,72 +1,92 @@
-From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
-Subject: [PATCH] inet: fix NULL pointer Oops in fib(6)_rule_suppress
-Date: Tue, 10 Dec 2013 23:21:25 +0100
-Message-ID: <20131210222124.GG3260@zirkel.wertarbyte.de>
+From: ajay seshadri <seshajay@gmail.com>
+Subject: Re: Fwd: UDP/IPv6 performance issue
+Date: Tue, 10 Dec 2013 17:25:52 -0500
+Message-ID: <CAGA2gK6-9QednGxrPr_zrTHYm4W6t7yrrBOSNitujTMLibuOww@mail.gmail.com>
+References: <CAGA2gK6rf8E7cCO=RwbdFAt2ucfxUbCjqhVoga9cnHrEKxcp9g@mail.gmail.com>
+	<CAGA2gK5gfdaKeQWzT4Dd45AhavD4pYaCVyayf7Hd+q5pPUjfKQ@mail.gmail.com>
+	<52A749CB.1010909@hp.com>
+	<52A74E32.4040900@hp.com>
+	<CAGA2gK7tjQZ6sq1qqTua_J0uY47Dq7h-vWR=c_LQReq3Rwc=_Q@mail.gmail.com>
+	<52A78809.4020103@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, daniel.golle@gmail.com,
-	sergei.shtylyov@cogentembedded.com, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zirkel.wertarbyte.de ([188.40.44.137]:36924 "EHLO
-	zirkel.wertarbyte.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751096Ab3LJWVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 17:21:33 -0500
-Content-Disposition: inline
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:53222 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751236Ab3LJWZx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 17:25:53 -0500
+Received: by mail-ig0-f171.google.com with SMTP id c10so2875813igq.4
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 14:25:52 -0800 (PST)
+In-Reply-To: <52A78809.4020103@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This changes ensures that the routing entry investigated by the suppress
-function actually does point to a device struct before following that pointer,
-fixing a possible kernel oops situation when verifying the interface group
-associated with a routing table entry.
+Hi Rick,
 
-According to Daniel Golle, this Oops can be triggered by a user process trying
-to establish an outgoing IPv6 connection while having no real IPv6 connectivity
-set up (only autoassigned link-local addresses).
+On Tue, Dec 10, 2013 at 4:30 PM, Rick Jones <rick.jones2@hp.com> wrote:
 
-Fixes: 6ef94cfafba15 ("fib_rules: add route suppression based on ifgroup")
+> I mean how many instructions/cycles it takes to send/receive a single
+> packet, where all the costs are the per-packet costs and the per-byte costs
+> are kept at a minimum.  And also where the stateless offloads won't matter.
+> That way whether a stateless offload is enabled for one protocol or another
+> is essentially a don't care.
 
-Reported-by: Daniel Golle <daniel.golle@gmail.com>
-Tested-by: Daniel Golle <daniel.golle@gmail.com>
-Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
----
- net/ipv4/fib_rules.c  |    5 ++++-
- net/ipv6/fib6_rules.c |    6 +++++-
- 2 files changed, 9 insertions(+), 2 deletions(-)
+Given below are the results for tests you recommended:
+IPv6:
 
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 523be38..f2e1573 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -104,7 +104,10 @@ errout:
- static bool fib4_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg)
- {
- 	struct fib_result *result = (struct fib_result *) arg->result;
--	struct net_device *dev = result->fi->fib_dev;
-+	struct net_device *dev = NULL;
-+
-+	if (result->fi)
-+		dev = result->fi->fib_dev;
- 
- 	/* do not accept result if the route does
- 	 * not meet the required prefix length
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index e275916..3fd0a57 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -122,7 +122,11 @@ out:
- static bool fib6_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg)
- {
- 	struct rt6_info *rt = (struct rt6_info *) arg->result;
--	struct net_device *dev = rt->rt6i_idev->dev;
-+	struct net_device *dev = NULL;
-+
-+	if (rt->rt6i_idev)
-+		dev = rt->rt6i_idev->dev;
-+
- 	/* do not accept result if the route does
- 	 * not meet the required prefix length
- 	 */
--- 
-1.7.10.4
+MIGRATED UDP REQUEST/RESPONSE TEST from ::0 (::) port 0 AF_INET6 to
+1111::80 () port 0 AF_INET6 : first burst 0
+Local /Remote
+Socket        Size        Request Resp. Elapsed Trans.     CPU    CPU
+  S.dem   S.dem
+Send          Recv       Size        Size   Time       Rate
+local  remote local   remote
+bytes          bytes       bytes     bytes  secs.      per sec   % S
+ % S    us/Tr   us/Tr
+
+10485760 10485760 1            1        10.00   16977.61   5.12   5.46
+  24.138  25.721
+10485760 10485760
+
+IPv4:
+
+MIGRATED UDP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0
+AF_INET to 192.168.31.80 () port 0 AF_INET : first burst 0
+Local /Remote
+Socket       Size          Request Resp.  Elapsed Trans.       CPU
+CPU    S.dem   S.dem
+Send         Recv         Size       Size     Time      Rate
+local  remote local   remote
+bytes         bytes        bytes      bytes  secs.      per sec      %
+S    % S    us/Tr   us/Tr
+
+10485760 10485760  1            1        10.00      20414.38   5.24
+4.70   20.522  18.417
+10485760 10485760
+
+The transaction rate for IPv6 is less.
+
+
+> So, single-byte _RR since it is sending only one byte at a time will
+> effectively "bypass" the offloads.  I use it as something of a proxy for
+> those things that aren't blasting great quantities of data.
+
+With no segmentation offload, I was treating the CPU as a known
+bottleneck in both the cases and trying to do an apples to apples
+comparison between UDP IPv4 and IPv6 performance. As we take a 15 -
+20% performance hit for IPv6, I was trying to understand why the ipv6
+route cache gc functions showed up in the profile, which was a bit
+surprising.
+
+
+> I presume you are looking at the receive throughput and not the reported
+> send side throughput right?
+
+I am looking at the bytes received. In fact the two are identical as
+the network no longer is the bottleneck and we are pegged by the CPU
+on the sender for 1500 byte packets.
+
+Thanks,
+Ajay
