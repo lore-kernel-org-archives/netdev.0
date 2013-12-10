@@ -1,61 +1,32 @@
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
-Subject: [PATCH net 4/5] qlcnic: Fix TSS/RSS validation for 83xx/84xx series adapter.
-Date: Tue, 10 Dec 2013 12:33:04 -0500
-Message-ID: <e454138e411e9a06274ceb26bbf1b01120cfa783.1386648865.git.himanshu.madhani@qlogic.com>
-References: <cover.1386648865.git.himanshu.madhani@qlogic.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [PATCH] net-tg3: Initialize REG_BASE_ADDR at PCI config offset
+ 120 to 0
+Date: Tue, 10 Dec 2013 10:40:32 -0800
+Message-ID: <1386700832.1752.21.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1386614601-9453-1-git-send-email-natg@google.com>
+	 <1386615608.1752.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <CAGmqidkxoi9EEe0uC18QQUXwjFP1e_1MXL7VPk+NtU-Ta6FGUg@mail.gmail.com>
+	 <52A633B4.9000307@cogentembedded.com>
+	 <1386623253.1752.6.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <1386658724.1752.19.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <CAGmqidnusPSYt9GHfQVs7SP620jyEN=Aicr1jS3Esb9C5Ov2wA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:56867 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755579Ab3LJSFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 13:05:50 -0500
-In-Reply-To: <cover.1386648865.git.himanshu.madhani@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	<nsujir@broadcom.com>, <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Natarajan Gurumoorthy <natg@google.com>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGmqidnusPSYt9GHfQVs7SP620jyEN=Aicr1jS3Esb9C5Ov2wA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+On Tue, 2013-12-10 at 07:01 -0800, Natarajan Gurumoorthy wrote:
+>      The only time I see crashes is after the tg3 driver has been
+> loaded into the system. I our use case we are poking around
+> /sys/devices/pcixxxx/......../config. 
 
-o Remove check for validation for TSS/RSS when user wants to
-  change TSS/RSS ring using set_channel ops in ethtool for
-  multiple Tx supported adapters. This regression was introduced
-  by commit id 18afc102fdcb95d6c7d57f2967a06f2f8fe3ba4c
-  ("qlcnic: Enable multiple Tx queue support for 83xx/84xx Series adapter.")
+David, please apply this first patch.
 
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c | 11 +----------
- 1 file changed, 1 insertion(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 78f5e81..e3be276 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -680,21 +680,12 @@ static int qlcnic_validate_ring_count(struct qlcnic_adapter *adapter,
- 	}
- 
- 	 if (tx_ring != 0) {
--		if (qlcnic_82xx_check(adapter) &&
--		    (tx_ring > adapter->max_tx_rings)) {
-+		if (tx_ring > adapter->max_tx_rings) {
- 			netdev_err(adapter->netdev,
- 				   "Invalid ring count, Tx ring count %d should not be greater than max %d driver Tx rings.\n",
- 				   tx_ring, adapter->max_tx_rings);
- 			return -EINVAL;
- 		}
--
--		if (qlcnic_83xx_check(adapter) &&
--		    (tx_ring > QLCNIC_SINGLE_RING)) {
--			netdev_err(adapter->netdev,
--				   "Invalid ring count, Tx ring count %d should not be greater than %d driver Tx rings.\n",
--				   tx_ring, QLCNIC_SINGLE_RING);
--			 return -EINVAL;
--		}
- 	}
- 
- 	return 0;
--- 
-1.8.1.4
+Acked-by: Michael Chan <mchan@broadcom.com>
