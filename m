@@ -1,33 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] New ARPHRD type for 6LoWPAN
-Date: Mon, 09 Dec 2013 21:06:29 -0500 (EST)
-Message-ID: <20131209.210629.1931927418156313725.davem@davemloft.net>
-References: <1386439737-14894-1-git-send-email-jukka.rissanen@linux.intel.com>
+Subject: Re: [PATCHv2 net-next 0/5] pktgen IPsec support
+Date: Mon, 09 Dec 2013 21:09:16 -0500 (EST)
+Message-ID: <20131209.210916.1684103670392129860.davem@davemloft.net>
+References: <52A66C0D.4050409@windriver.com>
+	<20131209.202321.2134510956668375662.davem@davemloft.net>
+	<52A6763C.4050101@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jukka.rissanen@linux.intel.com
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: fan.du@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45107 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45122 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970Ab3LJCGb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 21:06:31 -0500
-In-Reply-To: <1386439737-14894-1-git-send-email-jukka.rissanen@linux.intel.com>
+	with ESMTP id S1751208Ab3LJCJS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 21:09:18 -0500
+In-Reply-To: <52A6763C.4050101@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jukka Rissanen <jukka.rissanen@linux.intel.com>
-Date: Sat,  7 Dec 2013 20:08:55 +0200
+From: Fan Du <fan.du@windriver.com>
+Date: Tue, 10 Dec 2013 10:02:36 +0800
 
-> new ARPHRD needed for 6LoWPAN networks. Initially this will
-> be used by Bluetooth sub-system but IEEE 802154 will be converted
-> to use it also. The patch using this new ARPHRD is sent to
-> bluetooth mailing list.
+> Can I just reply to custom "Yes, wrong checksum value and
+> non-decrypted packet
+> is not big deal when your peer host receiving them"?
 
-Please add this to the tree when the bluetooth code that uses it
-is added, you can add my:
+It's a packet spamming tool, take that into consideration.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Regardless of what you may think, it is simply the case that you can't
+just remove something because you perceive it as not useful to anyone.
 
-when you do so.
+This goes doubly for something exposed to users for a decade.
+
+Please change your patch series to retain the feature.
+
+Thanks.
