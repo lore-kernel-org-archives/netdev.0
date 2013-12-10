@@ -1,64 +1,79 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: ifconfig doesn't show assignment ip-addresses
-Date: Tue, 10 Dec 2013 13:57:54 +0100
-Message-ID: <20131210125754.GC2469@minipsycho.orion>
-References: <20131209153238.GA10317@omega>
- <20131210105741.GA2469@minipsycho.orion>
- <20131210110648.GA18196@omega>
- <20131210114339.GB2469@minipsycho.orion>
- <20131210114847.GA20146@omega>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2] packet: Deliver VLAN TPID to userspace
+Date: Tue, 10 Dec 2013 12:59:15 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7476@saturn3.aculab.com>
+References: <8738m0q3nq.wl%atzm@stratosphere.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Alexander Aring <alex.aring@gmail.com>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Stephen Hemminger" <stephen@networkplumber.org>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Daniel Borkmann" <dborkman@redhat.com>
+To: "Atzm Watanabe" <atzm@stratosphere.co.jp>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:40310 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751498Ab3LJM56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 07:57:58 -0500
-Received: by mail-ee0-f50.google.com with SMTP id c41so2185766eek.23
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 04:57:57 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20131210114847.GA20146@omega>
+Received: from mx0.aculab.com ([213.249.233.131]:37983 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751908Ab3LJNAO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 08:00:14 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 21528-08 for <netdev@vger.kernel.org>;
+ Tue, 10 Dec 2013 13:00:12 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <8738m0q3nq.wl%atzm@stratosphere.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Dec 10, 2013 at 12:48:48PM CET, alex.aring@gmail.com wrote:
->On Tue, Dec 10, 2013 at 12:43:39PM +0100, Jiri Pirko wrote:
->> Tue, Dec 10, 2013 at 12:06:49PM CET, alex.aring@gmail.com wrote:
->> >Hi,
->> >
->> >thanks for your reply.
->> >
->> >On Tue, Dec 10, 2013 at 11:57:41AM +0100, Jiri Pirko wrote:
->> >> Mon, Dec 09, 2013 at 04:32:39PM CET, alex.aring@gmail.com wrote:
->> >> >Hi,
->> >> >
->> >> >On current net-next with a lowpan interface created with:
->> >> >
->> >> >ip link add link wpan0 name lowpan0 type lowpan
->> >> >
->> >> >I don't see any ipv6 addresses in ifconfig anymore. The addresses exist,
->> >> >because I can ping my device.
->> >> 
->> >> 
->> >> Can you see the address in "ip a" ? Would you send me output of
->> >> "ifconfig" and "ip a" please? Is this a problem for lowpan only or do
->> >> you see this with other device types as well?
->> >> 
->> 
->> The problem is that ifconfig parses /proc/net/if_inet6 which changed
->> flag format from 2 hexa chars to 3.
->> I will send revert for this change in couple of minutes.
->> 
->
->ah, nice to known. Thanks!
->
->What would be a proper solution to add a u32 flag property? Or we never
->should change this, because we want backwards compatibility?
+> From: Atzm Watanabe
+> Sent: 10 December 2013 12:41
+> After the 802.1AD support, userspace packet receivers (packet dumper,
+> software switch, and the like) need how to know VLAN TPID in order to
+> reconstruct original tagged frame.
+...
+> -#define TP_STATUS_VLAN_VALID	(1 << 4) /* auxdata has valid tp_vlan_tci */
+> +#define TP_STATUS_VLAN_VALID	(1 << 4) /* auxdata has valid tp_vlan_tci and tp_vlan_tpid */
 
-I think that we should leave this as it is. The u32 flags are reachable
-via Netlink and that is the preferred way nowadays.
+How can userland (I presume) determine whether tp_vlan_tpid is valid?
 
->
->- Alex
+...
+> +struct tpacket_hdr_variant2 {
+> +	__u32	tp_rxhash;
+> +	__u32	tp_vlan_tci;
+> +	__u32	tp_vlan_tpid;
+> +};
+> +
+>  struct tpacket3_hdr {
+>  	__u32		tp_next_offset;
+>  	__u32		tp_sec;
+> @@ -153,6 +159,7 @@ struct tpacket3_hdr {
+>  	/* pkt_hdr variants */
+>  	union {
+>  		struct tpacket_hdr_variant1 hv1;
+> +		struct tpacket_hdr_variant2 hv2;
+>  	};
+>  };
+
+You've defined a new header variant, but all the code seems to rely
+on the fact that the 'new' variant is identical to the old one
+with the addition of an extra field at the end.
+
+In which case it ought to be valid to just extend the old header variant.
+If the header really can change format there ought to be a discriminating
+member somewhere - which you don't seem to have changed.
+ 
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 9d70f13..3c75878 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -975,11 +975,15 @@ static void prb_clear_rxhash(struct tpacket_kbdq_core *pkc,
+>  static void prb_fill_vlan_info(struct tpacket_kbdq_core *pkc,
+>  			struct tpacket3_hdr *ppd)
+>  {
+> +	BUILD_BUG_ON(TPACKET_ALIGN(sizeof(*ppd)) != 48);
+
+I'd add a comment about why check matters.
+(ie the fact that it can safely grow until that is no longer true.)
+
+	David
