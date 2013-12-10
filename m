@@ -1,53 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 0/5] pktgen IPsec support
-Date: Mon, 09 Dec 2013 19:58:54 -0500 (EST)
-Message-ID: <20131209.195854.223825767831436997.davem@davemloft.net>
-References: <1386323614-5077-1-git-send-email-fan.du@windriver.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/1] AX88179_178A: Enable the hardware pseudo header in
+ case of the NET_IP_ALIGN equals 0
+Date: Mon, 09 Dec 2013 20:01:31 -0500 (EST)
+Message-ID: <20131209.200131.1376169274733452706.davem@davemloft.net>
+References: <1386323898-2246-1-git-send-email-freddy@asix.com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
-To: fan.du@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44665 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927Ab3LJA6z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 19:58:55 -0500
-In-Reply-To: <1386323614-5077-1-git-send-email-fan.du@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, louis-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org, allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org
+To: freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1386323898-2246-1-git-send-email-freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Fan Du <fan.du@windriver.com>
-Date: Fri, 6 Dec 2013 17:53:29 +0800
+From: freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org
+Date: Fri,  6 Dec 2013 17:58:18 +0800
 
-> Hi, Dave/Steffen
+> From: Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
 > 
-> Current pktgen IPsec supports only transport/ESP combinnation,
-> and it's buggy before I fixed transformed IP header/length issue
-> a few days ago.
+> The AX88179_178A has a hardware feature that it can insert a 2-bytes pseudo
+> header in front of each received frame by setting the AX_RX_CTL_IPE bit.
+> This feature is used to let the IP header be aligned on a doubleword-aligned address,
+> but the NET_IP_ALIGN may equals to 2 and the __netdev_alloc_skb_ip_align in USBNET will
+> reserve 2 bytes also, so in this case the driver shouldn't enable this bit.
 > 
-> This patchset enables user to do almost any IPsec transformation,
-> both transport/tunnel mode, and AH/ESP/IPcomp type.
+> This patch modifies the driver to set AX_RX_CTL_IPE just in case of the NET_IP_ALIGN equals 0.
 > 
-> Below configuration has been tested, and using Wireshark could decrypt
-> out plain text in good formation without any checksum/auth errors:
-> 
-> Mode/TYPE	AH	ESP
-> Transport	x	x
-> Tunnel		x	x
-> 
-> ChangeLog
-> v2:
->   Rebase patchset against newest net-next.
->   Patch1: Remove adding rebundant empty line spotted by Sergei.
->   Patch2: Use only one dst pointing into itself to save space.
+> Signed-off-by: Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
 
-I don't like how you've arranged this.
+Please avoid larger than 80 column lines in your commit messages,
+people use text-only tools to viee these.
 
-The existing mechanism might be used by someone, and in patch #1
-you just remove it.
+Next, it makes no sense to restrict your change to NET_IP_ALIGN==0
 
-It's fixed, but so what?  It might useful for someone.
-
-You must make your changes such that existing setups still
-work, you can't just break things on people.
+Simply handle any case, by undoing the reservation if it's getting
+in the way.  If there isn't an appropriate helper for this, add one.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
