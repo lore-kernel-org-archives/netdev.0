@@ -1,35 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2] net: allwinner: emac: Add missing free_irq
-Date: Tue, 10 Dec 2013 18:01:38 -0500 (EST)
-Message-ID: <20131210.180138.15284905537878885.davem@davemloft.net>
-References: <1386700849-8496-1-git-send-email-maxime.ripard@free-electrons.com>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next] neigh: use neigh_parms_net() to get struct
+ neigh_parms->net pointer
+Date: Tue, 10 Dec 2013 15:09:25 -0800
+Message-ID: <1386716965.30495.350.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386716107-18843-1-git-send-email-jiri@resnulli.us>
+	 <20131210.175929.828518960842627263.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=ISO-8859-1
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
-Return-path: <linux-sunxi+bncBDCIDJ4RTAOBBVF2T2KQKGQEMCJUZVA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1386700849-8496-1-git-send-email-maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f49.google.com ([209.85.213.49]:44956 "EHLO
+	mail-yh0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750776Ab3LJXJ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 18:09:29 -0500
+Received: by mail-yh0-f49.google.com with SMTP id z20so4469210yhz.36
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 15:09:28 -0800 (PST)
+In-Reply-To: <20131210.175929.828518960842627263.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Date: Tue, 10 Dec 2013 19:40:43 +0100
-
-> The sun4i-emac driver uses devm_request_irq at .ndo_open time, but relies on
-> the managed device mechanism to actually free it. This causes an issue whenever
-> someone wants to restart the interface, the interrupt still being held, and not
-> yet released.
+On Tue, 2013-12-10 at 17:59 -0500, David Miller wrote:
+> From: Jiri Pirko <jiri@resnulli.us>
+> Date: Tue, 10 Dec 2013 23:55:07 +0100
 > 
-> Fall back to using the regular request_irq at .ndo_open time, and introduce a
-> free_irq during .ndo_stop.
+> > This fixes compile error when CONFIG_NET_NS is not set.
+> > 
+> > Introduced by:
+> > commit 1d4c8c29841b9991cdf3c7cc4ba7f96a94f104ca
+> >     "neigh: restore old behaviour of default parms values"
+> > 
+> > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>  ...
+> > -	struct net *net = p->net;
+> > +	struct net *net = neigh_parms_net(p);
 > 
-> Signed-off-by: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+> Hey look at that, the interface already existed :-)
 
-Applied, thanks.
+Yep, provided in commit e42ea986e4a4ca about 5 years ago ;)
