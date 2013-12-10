@@ -1,105 +1,180 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: [PATCH net] net: tipc: fix possible CPU stall while removing
- module
-Date: Tue, 10 Dec 2013 12:20:20 -0800
-Message-ID: <52A77784.1040309@ericsson.com>
-References: <1386698071-9214-1-git-send-email-pablo@gnumonks.org>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 04/10] net: stmmac: sunxi platfrom
+ extensions for GMAC in Allwinner A20 SoC's
+Date: Tue, 10 Dec 2013 21:23:00 +0100
+Message-ID: <20131210202300.GG3651@lukather>
+References: <1386350983-13281-1-git-send-email-wens@csie.org>
+ <1386350983-13281-5-git-send-email-wens@csie.org>
+ <52A5A52C.50605@st.com>
+ <CAGb2v67WiCaMpJEzA_X6o7uOu6i3w3FCEz7=N5HY0amQb01SZA@mail.gmail.com>
+ <52A72C6D.60100@st.com>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <allan.stephens@windriver.com>
-To: Pablo Neira Ayuso <pablo@gnumonks.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg21.ericsson.net ([198.24.6.65]:62011 "EHLO
-	usevmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751691Ab3LJUUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 15:20:30 -0500
-In-Reply-To: <1386698071-9214-1-git-send-email-pablo@gnumonks.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="j2AXaZ4YhVcLc+PQ"
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
+	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+To: srinivas kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
+Return-path: <linux-sunxi+bncBD2ZNBF5VYJRBH7RTWKQKGQE4PIUASQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <52A72C6D.60100-qxv4g6HH51o@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-There is already a patch in the queue fixing this issue.
 
-http://marc.info/?l=linux-netdev&m=138665890819879&w=2
+--j2AXaZ4YhVcLc+PQ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Regards
-///jon
+On Tue, Dec 10, 2013 at 02:59:57PM +0000, srinivas kandagatla wrote:
+>=20
+> On 09/12/13 17:34, Chen-Yu Tsai wrote:
+> > Hi,
+> >=20
+> > On Mon, Dec 9, 2013 at 7:10 PM, srinivas kandagatla
+> > <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org> wrote:
+> >> Hi Chen,
+> >> Good to know that Allwinner uses gmac.
+> >=20
+> > To my knowledge, Allwinner has never confirmed this.
+> >=20
+> >> On ST SoC, we have very similar requirements, before we merge any of
+> >> these changes I think we need to come up with common way to solve both
+> >> Allwinner and ST SOCs use cases.
+> >>
+> >> I have already posted few patches on to net-dev
+> >> http://lkml.org/lkml/2013/11/12/243 to add Glue driver on top of stmmac
+> >> driver.
+> >>
+> >>
+> >> There are few reasons for the way I have done it.
+> >>
+> >> 1> I did not want to modify gmac driver in any sense to when a new SOC
+> >> support is added.
+> >=20
+> > My approach would add one line (compatible strings) each time.
+>=20
+> This would be a best case, But in reality the defination of the
+> configuration register can change per each soc, so the data associated
+> with it will also change and hence you will have to change more than
+> then just compatible strings.
+>=20
+>=20
+> >=20
+> >> 2> As the SOC specific glue logic sits on top of standard GMAC IP, it
+> >> makes sense to represent it proper harware hierarchy.
+> >=20
+> > My feeling is that the SoC specifics are not a glue layer around dwmac,
+> > rather an interconnected extension. Arguably I do not have the whole
+> > picture. Allwinner has refused to provide us with any specifics beyond
+> > the SoC manual and drivers. As such I can only make educated guesses on
+> > how the dwmac core interacts with the other modules.
+>=20
+> I would be good to get actual picture of this hw setup, On ST the
+> additional glue logic which sits on top of the GMAC is to resposible for
+> selecting the correct retime clock.
+>=20
+> >=20
+> >> 3> Did not want to change any generic gmac bindings for SOC specific
+> >> stuff as requirements if SOC glue would be very different in each case.
+> >=20
+> > We could try to define a standard set of clocks and reset controllers.
+> > The dwmac does not have much additional tunables in the driver.
+> > Anything else should be SoC specific, put in an extension, and
+> > documented as such.
+>=20
+> I think it will be impossible to standardize SOC specifics as this
+> glue/logic keeps changing across SOCs/Vendors.
 
+In our case, it's barely just an additional clock (and a reset line in
+the not-yet-submitted A31 GMAC).
 
-On 12/10/2013 09:54 AM, Pablo Neira Ayuso wrote:
-> The following stall is possible while removing the tipc module:
-> 
-> [ 4244.091196] INFO: rcu_sched self-detected stall on CPU { 41}  (t=30001 jiffies)
-> [ 4244.091414] Pid: 5311, comm: rmmod Tainted: G           O 3.4.51 #1
-> [ 4244.091524] Call Trace:
-> [ 4244.091618]  <IRQ>  [<ffffffff810b3741>] ? __rcu_pending+0x1a1/0x4d0
-> [ 4244.091741]  [<ffffffff81085030>] ? tick_nohz_handler+0xe0/0xe0
-> [ 4244.091848]  [<ffffffff810b3b18>] ? rcu_check_callbacks+0xa8/0x150
-> [ 4244.091957]  [<ffffffff81046f3f>] ? update_process_times+0x3f/0x80
-> [ 4244.092065]  [<ffffffff8108508b>] ? tick_sched_timer+0x5b/0xb0
-> [ 4244.092172]  [<ffffffff8105d967>] ? __run_hrtimer+0x77/0x1c0
-> [ 4244.092278]  [<ffffffff8105dd1f>] ? hrtimer_interrupt+0xef/0x270
-> [ 4244.092386]  [<ffffffff8106714d>] ? ttwu_do_wakeup+0x3d/0x100
-> [ 4244.092494]  [<ffffffff81020d43>] ? smp_apic_timer_interrupt+0x63/0xa0
-> [ 4244.092605]  [<ffffffff8167fc4a>] ? apic_timer_interrupt+0x6a/0x70
-> [ 4244.092714]  [<ffffffff81677985>] ? _raw_spin_lock_bh+0x25/0x30
-> [ 4244.092820]  [<ffffffff81677969>] ? _raw_spin_lock_bh+0x9/0x30
-> [ 4244.092936]  [<ffffffffa0333c45>] ? tipc_nodesub_unsubscribe+0x15/0x50 [tipc]
-> [ 4244.093049]  [<ffffffffa03303ea>] ? named_purge_publ+0x3a/0x90 [tipc]
-> [ 4244.093158]  [<ffffffff8103ee15>] ? __do_softirq+0xd5/0x1e0
-> [ 4244.093266]  [<ffffffffa032a25b>] ? process_signal_queue+0x7b/0xc0 [tipc]
-> [ 4244.093376]  [<ffffffff8103f41b>] ? tasklet_action+0xbb/0xd0
-> [ 4244.093482]  [<ffffffff8103edf1>] ? __do_softirq+0xb1/0x1e0
-> [ 4244.093589]  [<ffffffff8168059c>] ? call_softirq+0x1c/0x30
-> [ 4244.093691]  <EOI>  [<ffffffff810041e5>] ? do_softirq+0x65/0xa0
-> [ 4244.095460]  [<ffffffff8103f834>] ? local_bh_enable_ip+0x94/0xa0
-> [ 4244.095570]  [<ffffffffa0332c93>] ? tipc_net_stop+0x73/0x90 [tipc]
-> [ 4244.095679]  [<ffffffffa0339d61>] ? tipc_exit+0x9/0x29 [tipc]
-> [ 4244.095786]  [<ffffffff8108e8bf>] ? sys_delete_module+0x1af/0x2b0
-> [ 4244.095894]  [<ffffffff81677d75>] ? page_fault+0x25/0x30
-> [ 4244.095999]  [<ffffffff8167f1b9>] ? system_call_fastpath+0x16/0x1b
-> 
-> The two things that trigger this oops are related to tipc_net_stop(), they
-> are:
-> 
-> * tipc_net_stop() schedules the removal of the bearers via workqueue, which
->   includes the removal of the packet handler for the TIPC protocol family. So,
->   we have no time guarantees when the packet handler is removed.
-> 
-> * tipc_net_stop() cleans up the the tipc_node_list, so it releases all
->   tipc_node structures. However, the tipc_node_subscr structure still holds
->   a reference to the tipc_node structures, which is now invalid.
-> 
-> After leaving tipc_net_stop, BH are enabled again. If we have a TIPC
-> message that is pending to be handled (in the softirq path), the packet
-> handler will likely be still there, so it passes the packet to tipc_recv_msg().
-> In that path, if the TIPC message announces a new service publication,
-> named_purge_publ() is invoked, then tipc_nodesub_unsubscribe() to remove
-> the node subscription happens. This function tries to get the node lock, but
-> that structure was already released by tipc_net_stop(), so it stalls.
-> 
-> The proposed fix removes the bearers first so we make sure we get no more
-> TIPC packets running through the input path, accessing the name-service
-> base in inconsistent state (as tipc_node structures are not there anymore).
-> 
-> Signed-off-by: Pablo Neira Ayuso <pablo@gnumonks.org>
-> ---
->  net/tipc/core.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/tipc/core.c b/net/tipc/core.c
-> index fd4eeea..7373fd9 100644
-> --- a/net/tipc/core.c
-> +++ b/net/tipc/core.c
-> @@ -81,9 +81,9 @@ struct sk_buff *tipc_buf_acquire(u32 size)
->   */
->  static void tipc_core_stop_net(void)
->  {
-> -	tipc_net_stop();
->  	tipc_eth_media_stop();
->  	tipc_ib_media_stop();
-> +	tipc_net_stop();
->  }
->  
->  /**
-> 
+So I can't really get what is !standard about that. We already have
+defined bindings for such cases, that we can totally make optionnal.
+
+We don't have anything like you seem to have in ST SoCs, where you
+actually have some hardware around the GMAC IP. We don't. It's really
+only about clocks and reset.
+
+[...]
+
+> >>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> >>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> >>> @@ -35,6 +35,9 @@ static const struct of_device_id stmmac_dt_ids[] =
+=3D {
+> >>>       { .compatible =3D "snps,dwmac-3.70a"},
+> >>>       { .compatible =3D "snps,dwmac-3.710"},
+> >>>       { .compatible =3D "snps,dwmac"},
+> >>> +#ifdef CONFIG_DWMAC_SUNXI
+> >>> +     { .compatible =3D "allwinner,sun7i-gmac", .data =3D &sun7i_gmac=
+_data},
+> >>> +#endif
+> >> ...]
+> >>
+> >> Personally, I did not want to do this kind of stuff in stmmac, As this
+> >> list would keep growing, and this file need to be edited for every new
+> >> SOC or every different type of glue logic.
+> >>
+> >> Please let me know what your opnion on doing Allwinner glue driver in
+> >> line with http://lkml.org/lkml/2013/11/12/462
+> >=20
+> >=20
+> > I needed to set some fields in the platform data,
+> > as was set in the driver provided by Allwinner, and
+> > out of our own needs.
+>=20
+> >=20
+> > 1. .tx_coe
+> >    This is not exported in the DT bindings.
+> >    Looking at stmmac code, not setting this seems to disable all
+> >    checksum offloading.
+>=20
+> Why cant this go via DT as well?
+> I think, this will be overriden by stmmac on MACs > 3.50a.
+
+How is that about hardware? Especially if we can derive it from the
+version of the IP, and hence from the compatible, putting it into the
+DT would be both redundant and useless.
+
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
+
+--j2AXaZ4YhVcLc+PQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.14 (GNU/Linux)
+
+iQIcBAEBAgAGBQJSp3gjAAoJEBx+YmzsjxAgrNkQAIcbAET1V4+SOX29gmFs+f9V
+KrusqP52YDmDnLFrE9/Aa7X2WEw9/dfl/nnLAok1y5Thr4OFKQdHbEnqp1vpqqQY
+lF879Ptu0jJWPniPb1GZdHSQFWFXmsL7s78qfm5St0dNlGlmghMsKLFWxwdOwnxi
+SPbg9m/DRwUgMjnxrO7x9gpvPepHxCcLqxgl1ttRPuKef0rhJ5i7VUh1rkFmJ+Ux
+cV8VpPLTh5xXZmcuLYQUpsCA2Jai8lvbVcEKr5S8WkQ6GYjs/kbOb0337flsH2Cc
+hAdBOzPYD9QXiP1DNXC2hoaw/32JIVgBSxnAluu4gAebhK85B3Q9kYpuoKPhAD10
+mQU/xyoVSjKgJSl9O3DIiY+lvvCNwb1EFAG5A/9I+iVBAFJmj8lumaj+RcMVVQbH
+Msm/d6OsCntcpIW9t1nSPqEZtkPSidVcipAAsA69u4ZgwRSwfOEGIzmXQbA9MJQ8
+Z4aO0C8jb1ZuR1qySgZMVtnwR9m0GGPs3GRcekFpK6bxkb1Zm2YFwWy5b5HjqylO
+iKJbYMOwB39b4NqPMiKn2qSPDkHLlznsj7WcgiC8GHRe3q/LsWOfYjAn7ocBDKYc
+XoRAZpg9vuvdumDh1ze3zwmaFqQKpYj/habxV5mwRMTp6789x6HXeZxhSEHYRkeM
+vbqtIJZ7nyfe48+xkFEh
+=OQi3
+-----END PGP SIGNATURE-----
+
+--j2AXaZ4YhVcLc+PQ--
