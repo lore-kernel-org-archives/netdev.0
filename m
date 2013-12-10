@@ -1,41 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next] neigh: use neigh_parms_net() to get struct
- neigh_parms->net pointer
-Date: Tue, 10 Dec 2013 15:09:25 -0800
-Message-ID: <1386716965.30495.350.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1386716107-18843-1-git-send-email-jiri@resnulli.us>
-	 <20131210.175929.828518960842627263.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bgmac: start/stop PHY on netdev open/stop
+Date: Tue, 10 Dec 2013 18:10:02 -0500 (EST)
+Message-ID: <20131210.181002.2084260138032882245.davem@davemloft.net>
+References: <1386692379-16648-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, hauke@hauke-m.de
+To: zajec5@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f49.google.com ([209.85.213.49]:44956 "EHLO
-	mail-yh0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750776Ab3LJXJ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 18:09:29 -0500
-Received: by mail-yh0-f49.google.com with SMTP id z20so4469210yhz.36
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 15:09:28 -0800 (PST)
-In-Reply-To: <20131210.175929.828518960842627263.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52942 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751243Ab3LJXKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 18:10:03 -0500
+In-Reply-To: <1386692379-16648-1-git-send-email-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-10 at 17:59 -0500, David Miller wrote:
-> From: Jiri Pirko <jiri@resnulli.us>
-> Date: Tue, 10 Dec 2013 23:55:07 +0100
-> 
-> > This fixes compile error when CONFIG_NET_NS is not set.
-> > 
-> > Introduced by:
-> > commit 1d4c8c29841b9991cdf3c7cc4ba7f96a94f104ca
-> >     "neigh: restore old behaviour of default parms values"
-> > 
-> > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->  ...
-> > -	struct net *net = p->net;
-> > +	struct net *net = neigh_parms_net(p);
-> 
-> Hey look at that, the interface already existed :-)
+=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+Date: Tue, 10 Dec 2013 17:19:39 +0100
 
-Yep, provided in commit e42ea986e4a4ca about 5 years ago ;)
+> I've realized that I need to call ethtool command to get Ethernet
+> working after booting. Ex call: ethtool -s eth0 autoneg on
+> It was fixing Ethernet even if auto-negotiation was already on.
+>=20
+> Adding calls to phy_start and phy_stop look like a real solution.
+>=20
+> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+
+Applied.
+
+Please in the future make it clear what tree a patch is meant for,
+I assumed this is only for net-next so that's where I applied it.
+
+Thanks.
