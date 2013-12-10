@@ -1,42 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] neigh: use neigh_parms_net() to get struct neigh_parms->net pointer
-Date: Tue, 10 Dec 2013 23:55:07 +0100
-Message-ID: <1386716107-18843-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] inet: fix NULL pointer Oops in fib(6)_rule_suppress
+Date: Tue, 10 Dec 2013 17:56:11 -0500 (EST)
+Message-ID: <20131210.175611.817301757454300416.davem@davemloft.net>
+References: <20131210222124.GG3260@zirkel.wertarbyte.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel.golle@gmail.com,
+	sergei.shtylyov@cogentembedded.com, eric.dumazet@gmail.com
+To: stefan.tomanek@wertarbyte.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:47161 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750960Ab3LJWzM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 17:55:12 -0500
-Received: by mail-ea0-f179.google.com with SMTP id r15so2562584ead.38
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 14:55:11 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:52859 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703Ab3LJW4N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 17:56:13 -0500
+In-Reply-To: <20131210222124.GG3260@zirkel.wertarbyte.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes compile error when CONFIG_NET_NS is not set.
+From: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
+Date: Tue, 10 Dec 2013 23:21:25 +0100
 
-Introduced by:
-commit 1d4c8c29841b9991cdf3c7cc4ba7f96a94f104ca
-    "neigh: restore old behaviour of default parms values"
+> This changes ensures that the routing entry investigated by the suppress
+> function actually does point to a device struct before following that pointer,
+> fixing a possible kernel oops situation when verifying the interface group
+> associated with a routing table entry.
+> 
+> According to Daniel Golle, this Oops can be triggered by a user process trying
+> to establish an outgoing IPv6 connection while having no real IPv6 connectivity
+> set up (only autoassigned link-local addresses).
+> 
+> Fixes: 6ef94cfafba15 ("fib_rules: add route suppression based on ifgroup")
+> 
+> Reported-by: Daniel Golle <daniel.golle@gmail.com>
+> Tested-by: Daniel Golle <daniel.golle@gmail.com>
+> Signed-off-by: Stefan Tomanek <stefan.tomanek@wertarbyte.de>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/core/neighbour.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index ce2b775..8be82a7 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2850,7 +2850,7 @@ static void neigh_proc_update(struct ctl_table *ctl, int write)
- {
- 	struct net_device *dev = ctl->extra1;
- 	struct neigh_parms *p = ctl->extra2;
--	struct net *net = p->net;
-+	struct net *net = neigh_parms_net(p);
- 	int index = (int *) ctl->data - p->data;
- 
- 	if (!write)
--- 
-1.8.3.1
+Looks good, applied and queued up for -stable, thanks!
