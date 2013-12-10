@@ -1,94 +1,92 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/2] bgmac: drop duplicated PHY defines
-Date: Tue, 10 Dec 2013 09:53:28 -0800
-Message-ID: <CAGVrzcbYv=9W_0nYh_6G0m8G6CdkhAWaYuoynAcBYCrXs8Tnpg@mail.gmail.com>
-References: <1386668966-24562-1-git-send-email-zajec5@gmail.com>
- <CAGVrzcYCT0QUKuRGktH-4xVrXtort-Uy4phvq8yZg3nU8SPFjw@mail.gmail.com> <CACna6rzRVQYrOnnJQiHE83d+aj6Hf693gnLY-m-iWffffzD3jQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+From: Pablo Neira Ayuso <pablo@gnumonks.org>
+Subject: [PATCH net] net: tipc: fix possible CPU stall while removing module
+Date: Tue, 10 Dec 2013 18:54:31 +0100
+Message-ID: <1386698071-9214-1-git-send-email-pablo@gnumonks.org>
+Cc: davem@davemloft.net, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:37005 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752641Ab3LJRyI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 12:54:08 -0500
-Received: by mail-pd0-f171.google.com with SMTP id z10so7796657pdj.30
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 09:54:08 -0800 (PST)
-In-Reply-To: <CACna6rzRVQYrOnnJQiHE83d+aj6Hf693gnLY-m-iWffffzD3jQ@mail.gmail.com>
+Received: from mail.us.es ([193.147.175.20]:53994 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754683Ab3LJRyr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Dec 2013 12:54:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/12/10 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
-> 2013/12/10 Florian Fainelli <f.fainelli@gmail.com>:
->> Hello Rafal
->>
->> 2013/12/10 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
->>> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
->>> ---
->>>  drivers/net/ethernet/broadcom/bgmac.c |    6 ++----
->>>  drivers/net/ethernet/broadcom/bgmac.h |   21 ---------------------
->>>  2 files changed, 2 insertions(+), 25 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/et=
-hernet/broadcom/bgmac.c
->>> index 0452937..ad4b2f1 100644
->>> --- a/drivers/net/ethernet/broadcom/bgmac.c
->>> +++ b/drivers/net/ethernet/broadcom/bgmac.c
->>> @@ -725,11 +725,9 @@ static void bgmac_phy_reset(struct bgmac *bgma=
-c)
->>>         if (bgmac->phyaddr =3D=3D BGMAC_PHY_NOREGS)
->>>                 return;
->>>
->>> -       bgmac_phy_write(bgmac, bgmac->phyaddr, BGMAC_PHY_CTL,
->>> -                       BGMAC_PHY_CTL_RESET);
->>> +       bgmac_phy_write(bgmac, bgmac->phyaddr, MII_BMCR, BMCR_RESET=
-);
->>>         udelay(100);
->>> -       if (bgmac_phy_read(bgmac, bgmac->phyaddr, BGMAC_PHY_CTL) &
->>> -           BGMAC_PHY_CTL_RESET)
->>> +       if (bgmac_phy_read(bgmac, bgmac->phyaddr, MII_BMCR) & BMCR_=
-RESET)
->>>                 bgmac_err(bgmac, "PHY reset failed\n");
->>>         bgmac_phy_init(bgmac);
->>
->> phy_init_hw() now issues a PHY reset through BMCR_RESET, you might
->> want to use it instead of this here:
->>
->> - the 100 microseconds delay might not be sufficient for all PHYs ou=
-t there
->> - any PHY fixup (although there are none for BCM47xx yet) would be
->> wiped out by this "wild" PHY reset
->>
->> This is quite new, so I do not expect you knew about this.
->
-> Thanks for pointing that! I was looking for BMCR_RESET usages with:
-> http://lxr.free-electrons.com/ident?v=3D3.12;i=3DBMCR_RESET
-> but it didn't find any interesting (because it uses 3.12 kernel sourc=
-es).
->
-> This udelay is from specs based on Broadcom's code. What you have in
-> phy_poll_reset sounds indeed much more sane.
->
-> If you take a look at bgmac_phy_init, it actually has kind of fixups.
-> They are just programmed per-Broadcom chip id and not per PHY id as
-> you normally do that with phy_register_fixup_for_uid. But I think we
-> should be able to workaround that.
->
-> So I fully agree we should use phy_init_hw, but I think we should
-> implement that in a separated patch and on top of PHY cleanups I
-> recently did. Just to simplify bisecting potential regressions.
+The following stall is possible while removing the tipc module:
 
-Sounds good!
+[ 4244.091196] INFO: rcu_sched self-detected stall on CPU { 41}  (t=30001 jiffies)
+[ 4244.091414] Pid: 5311, comm: rmmod Tainted: G           O 3.4.51 #1
+[ 4244.091524] Call Trace:
+[ 4244.091618]  <IRQ>  [<ffffffff810b3741>] ? __rcu_pending+0x1a1/0x4d0
+[ 4244.091741]  [<ffffffff81085030>] ? tick_nohz_handler+0xe0/0xe0
+[ 4244.091848]  [<ffffffff810b3b18>] ? rcu_check_callbacks+0xa8/0x150
+[ 4244.091957]  [<ffffffff81046f3f>] ? update_process_times+0x3f/0x80
+[ 4244.092065]  [<ffffffff8108508b>] ? tick_sched_timer+0x5b/0xb0
+[ 4244.092172]  [<ffffffff8105d967>] ? __run_hrtimer+0x77/0x1c0
+[ 4244.092278]  [<ffffffff8105dd1f>] ? hrtimer_interrupt+0xef/0x270
+[ 4244.092386]  [<ffffffff8106714d>] ? ttwu_do_wakeup+0x3d/0x100
+[ 4244.092494]  [<ffffffff81020d43>] ? smp_apic_timer_interrupt+0x63/0xa0
+[ 4244.092605]  [<ffffffff8167fc4a>] ? apic_timer_interrupt+0x6a/0x70
+[ 4244.092714]  [<ffffffff81677985>] ? _raw_spin_lock_bh+0x25/0x30
+[ 4244.092820]  [<ffffffff81677969>] ? _raw_spin_lock_bh+0x9/0x30
+[ 4244.092936]  [<ffffffffa0333c45>] ? tipc_nodesub_unsubscribe+0x15/0x50 [tipc]
+[ 4244.093049]  [<ffffffffa03303ea>] ? named_purge_publ+0x3a/0x90 [tipc]
+[ 4244.093158]  [<ffffffff8103ee15>] ? __do_softirq+0xd5/0x1e0
+[ 4244.093266]  [<ffffffffa032a25b>] ? process_signal_queue+0x7b/0xc0 [tipc]
+[ 4244.093376]  [<ffffffff8103f41b>] ? tasklet_action+0xbb/0xd0
+[ 4244.093482]  [<ffffffff8103edf1>] ? __do_softirq+0xb1/0x1e0
+[ 4244.093589]  [<ffffffff8168059c>] ? call_softirq+0x1c/0x30
+[ 4244.093691]  <EOI>  [<ffffffff810041e5>] ? do_softirq+0x65/0xa0
+[ 4244.095460]  [<ffffffff8103f834>] ? local_bh_enable_ip+0x94/0xa0
+[ 4244.095570]  [<ffffffffa0332c93>] ? tipc_net_stop+0x73/0x90 [tipc]
+[ 4244.095679]  [<ffffffffa0339d61>] ? tipc_exit+0x9/0x29 [tipc]
+[ 4244.095786]  [<ffffffff8108e8bf>] ? sys_delete_module+0x1af/0x2b0
+[ 4244.095894]  [<ffffffff81677d75>] ? page_fault+0x25/0x30
+[ 4244.095999]  [<ffffffff8167f1b9>] ? system_call_fastpath+0x16/0x1b
 
->
-> Are you OK with applying this patch as-is and working on another one
-> cleaning PHY reset/init in a nicer way?
+The two things that trigger this oops are related to tipc_net_stop(), they
+are:
 
-Oh yes, this patch just made me look at the code, but your cleanups
-are good. Thanks!
---=20
-=46lorian
+* tipc_net_stop() schedules the removal of the bearers via workqueue, which
+  includes the removal of the packet handler for the TIPC protocol family. So,
+  we have no time guarantees when the packet handler is removed.
+
+* tipc_net_stop() cleans up the the tipc_node_list, so it releases all
+  tipc_node structures. However, the tipc_node_subscr structure still holds
+  a reference to the tipc_node structures, which is now invalid.
+
+After leaving tipc_net_stop, BH are enabled again. If we have a TIPC
+message that is pending to be handled (in the softirq path), the packet
+handler will likely be still there, so it passes the packet to tipc_recv_msg().
+In that path, if the TIPC message announces a new service publication,
+named_purge_publ() is invoked, then tipc_nodesub_unsubscribe() to remove
+the node subscription happens. This function tries to get the node lock, but
+that structure was already released by tipc_net_stop(), so it stalls.
+
+The proposed fix removes the bearers first so we make sure we get no more
+TIPC packets running through the input path, accessing the name-service
+base in inconsistent state (as tipc_node structures are not there anymore).
+
+Signed-off-by: Pablo Neira Ayuso <pablo@gnumonks.org>
+---
+ net/tipc/core.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index fd4eeea..7373fd9 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -81,9 +81,9 @@ struct sk_buff *tipc_buf_acquire(u32 size)
+  */
+ static void tipc_core_stop_net(void)
+ {
+-	tipc_net_stop();
+ 	tipc_eth_media_stop();
+ 	tipc_ib_media_stop();
++	tipc_net_stop();
+ }
+ 
+ /**
+-- 
+1.7.10.4
