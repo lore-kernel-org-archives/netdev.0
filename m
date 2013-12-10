@@ -1,28 +1,44 @@
-From: "Membership Authentification Form" <c.care_web@blumail.org>
-Subject: ATTENTION:
-Date: Tue, 10 Dec 2013 07:13:17 +0100
-Message-ID: <20131210061329.A754B4081F__38178.2679389746$1386657158$gmane$org@vmx7.jaringonecloud.my>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 0/2] tipc: corrections related to
+	tasklet job mechanism
+Date: Mon,  9 Dec 2013 22:54:45 -0800
+Message-ID: <1386658487-5463-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <c.care_web@blumail.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-j2.jaringonecloud.my ([202.187.161.27]:53049 "EHLO
-	smtp-j2.jaringonecloud.my" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750883Ab3LJGcO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 01:32:14 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-ATTENTION:
+These commits correct two bugs related to tipc' service for launching
+functions for asynchronous execution in a separate tasklet.
 
-Monday 9th of  December 2013 08:16:22 MYT from 41.206.151.183, your account
-was recently accessed with this details, please if you recognize this
-details,ignore this message, or use this web link to reconfirm your
-account details to prevent spammers and unauthorized users to gain access
-to your account;
+Jon Maloy (1):
+  tipc: correct the order of stopping services at rmmod
 
-http://www.emailmeform.com/builder/form/z7KbBhGaf0YV9X4
+Ying Xue (1):
+  tipc: protect handler_enabled variable with qitem_lock spin lock
 
-@2013 all right reserve Security Alert! Webmaster Administration.
+ net/tipc/core.c    |    7 ++++---
+ net/tipc/handler.c |   11 ++++++++---
+ 2 files changed, 12 insertions(+), 6 deletions(-)
+
+-- 
+1.7.9.5
+
+
+------------------------------------------------------------------------------
+Sponsored by Intel(R) XDK 
+Develop, test and display web and hybrid apps with a single code base.
+Download it for free now!
+http://pubads.g.doubleclick.net/gampad/clk?id=111408631&iu=/4140/ostg.clktrk
