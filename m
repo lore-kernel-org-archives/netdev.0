@@ -1,72 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] tipc: remove interface state mirroring in
- bearer
-Date: Mon, 09 Dec 2013 20:31:24 -0500 (EST)
-Message-ID: <20131209.203124.480496339513116139.davem@davemloft.net>
-References: <1386342480-2382-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH] sctp: properly latch and use autoclose value from sock
+ to association
+Date: Mon, 09 Dec 2013 20:32:38 -0500 (EST)
+Message-ID: <20131209.203238.1909015829128815864.davem@davemloft.net>
+References: <52A0A300.3010409@gmail.com>
+	<1386343755-14130-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Cc: linux-sctp@vger.kernel.org, wangweidong1@huawei.com,
+	vyasevich@gmail.com, netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44868 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44873 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750805Ab3LJBb0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 20:31:26 -0500
-In-Reply-To: <1386342480-2382-1-git-send-email-jon.maloy@ericsson.com>
+	with ESMTP id S1750740Ab3LJBck (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 20:32:40 -0500
+In-Reply-To: <1386343755-14130-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Fri,  6 Dec 2013 10:08:00 -0500
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Fri,  6 Dec 2013 10:29:15 -0500
 
-> From: Erik Hugne <erik.hugne@ericsson.com>
-> 
-> struct 'tipc_bearer' is a generic representation of the underlying
-> media type, and exists in a one-to-one relationship to each interface
-> TIPC is using. The struct contains a 'blocked' flag that mirrors the
-> operational and execution state of the represented interface, and is
-> updated through notification calls from the latter. The users of
-> tipc_bearer are checking this flag before each attempt to send a
-> packet via the interface.
-> 
-> This state mirroring serves no purpose in the current code base. TIPC
-> links will not discover a media failure any faster through this
-> mechanism, and in reality the flag only adds overhead at packet
-> sending and reception.
-> 
-> Furthermore, the fact that the flag needs to be protected by a spinlock
-> aggregated into tipc_bearer has turned out to cause a serious and
-> completely unnecessary deadlock problem.
- ...
-> I.e., del_timer_sync() on CPU0 never returns, because the timer handler
-> on CPU1 is waiting for the bearer lock.
-> 
-> We eliminate the 'blocked' flag from struct tipc_bearer, along with all
-> tests on this flag. This not only resolves the deadlock, but also
-> simplifies and speeds up the data path execution of TIPC. It also fits
-> well into our ongoing effort to make the locking policy simpler and
-> more manageable.
-> 
-> An effect of this change is that we can get rid of functions such as
-> tipc_bearer_blocked(), tipc_continue() and tipc_block_bearer().
-> We replace the latter with a new function, tipc_reset_bearer(), which
-> resets all links associated to the bearer immediately after an
-> interface goes down.
-> 
-> A user might notice one slight change in link behaviour after this
-> change. When an interface goes down, (e.g. through a NETDEV_DOWN
-> event) all attached links will be reset immediately, instead of
-> leaving it to each link to detect the failure through a timer-driven
-> mechanism. We consider this an improvement, and see no obvious risks
-> with the new behavior.
-> 
-> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-> Reviewed-by: Ying Xue <ying.xue@windriver.com>
-> Reviewed-by: Paul Gortmaker <Paul.Gortmaker@windriver.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> @@ -2205,6 +2206,12 @@ static int sctp_setsockopt_autoclose(struct sock *sk, char __user *optval,
+>  	if (copy_from_user(&sp->autoclose, optval, optlen))
+>  		return -EFAULT;
+>  
+> +	if (sp->autoclose > net->sctp.max_autoclose) {
+> +		pr_warn("Capping autoclose value %d to defined maximum of %lu\n",
+> +			sp->autoclose, net->sctp.max_autoclose);
+> +		sp->autoclose = net->sctp.max_autoclose;
+> +	}
 
-Applied, thanks.
+Please don't add this warning.
+
+If we already do this for certain setsockopt calls in SCTP, that just
+means we have bugs to fix.
