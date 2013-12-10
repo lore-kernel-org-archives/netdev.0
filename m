@@ -1,29 +1,48 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next] net: ovs: use kfree_rcu instead of rcu_free_{sw_flow_mask_cb,acts_callback}
-Date: Tue, 10 Dec 2013 13:18:40 -0800
-Message-ID: <CAEP_g=_97j4e9u=WgUHQuHZw9N14ooRKQfiKfPCi14C9zf0eXg@mail.gmail.com>
-References: <1386673323-17101-1-git-send-email-dborkman@redhat.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next] net: ovs: use CRC32 accelerated flow hash if available
+Date: Tue, 10 Dec 2013 13:27:28 -0800
+Message-ID: <CA+mtBx_FPUf=K=tBKmwe8-r7OsgiMS8VE6bYpyQa+OY7Cn=MaQ@mail.gmail.com>
+References: <1386669178-14450-1-git-send-email-ffusco@redhat.com>
+	<CAEP_g=_t750s50-F7A_hWD_yNs3MnKWN8WDBjzgoF8Mu+28Wyw@mail.gmail.com>
+	<20131210.143652.1279430126319061689.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jesse Gross <jesse@nicira.com>, ffusco@redhat.com,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	dev@openvswitch.org, Daniel Borkmann <dborkman@redhat.com>,
+	tgraf@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:37806 "HELO
-	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751046Ab3LJVTB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 16:19:01 -0500
-Received: by mail-ie0-f181.google.com with SMTP id e14so9101301iej.26
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 13:19:00 -0800 (PST)
-In-Reply-To: <1386673323-17101-1-git-send-email-dborkman@redhat.com>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:65036 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751740Ab3LJV13 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 16:27:29 -0500
+Received: by mail-ie0-f170.google.com with SMTP id qd12so9773178ieb.29
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 13:27:29 -0800 (PST)
+In-Reply-To: <20131210.143652.1279430126319061689.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 10, 2013 at 3:02 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> As we're only doing a kfree() anyway in the RCU callback, we can
-> simply use kfree_rcu, which does the same job, and remove the
-> function rcu_free_sw_flow_mask_cb() and rcu_free_acts_callback().
+On Tue, Dec 10, 2013 at 11:36 AM, David Miller <davem@davemloft.net> wrote:
+> From: Jesse Gross <jesse@nicira.com>
+> Date: Tue, 10 Dec 2013 11:28:08 -0800
 >
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> I think this is definitely a good optimization to do given that so
+>> much of the work that OVS does is hashing. However, isn't there a
+>> library where there would be a more appropriate place to put this?
+>
+> I also honestly don't see why we want to special case OVS at all
+> here.  This faster hashing would be useful for socket demux and
+> other locations in the kernel.
+>
 
-Applied, thanks.
+Also, we already do a lot of work to compute flow hashes for packets
+in both TX and RX.  Can these be leveraged? For instance, if OVS is
+computing a 5-tuple hash on an RX packet it's probably redundant to
+skb->rxhash.
+
+> When I see changes like this my only reaction is "sad face".
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
