@@ -1,43 +1,54 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/1] AX88179_178A: Enable the hardware pseudo header in
- case of the NET_IP_ALIGN equals 0
-Date: Mon, 09 Dec 2013 20:01:31 -0500 (EST)
-Message-ID: <20131209.200131.1376169274733452706.davem@davemloft.net>
-References: <1386323898-2246-1-git-send-email-freddy@asix.com.tw>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: NAPI rescheduling and the delay caused by it
+Date: Mon, 09 Dec 2013 17:14:25 -0800
+Message-ID: <1386638065.30495.338.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <529F7A87.5080303@citrix.com>
+	 <1386189718.30495.131.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <529F9D4B.1020208@citrix.com>
+	 <1386199931.30495.139.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <6F39C955CEA9D14BAA91CC78568B93012D5039@AMSPEX01CL02.citrite.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, louis-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org, allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org
-To: freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1386323898-2246-1-git-send-email-freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	Malcolm Crossley <malcolm.crossley@citrix.com>,
+	Jonathan Davies <Jonathan.Davies@citrix.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f47.google.com ([209.85.213.47]:58559 "EHLO
+	mail-yh0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750881Ab3LJBO2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Dec 2013 20:14:28 -0500
+Received: by mail-yh0-f47.google.com with SMTP id 29so3406421yhl.34
+        for <netdev@vger.kernel.org>; Mon, 09 Dec 2013 17:14:28 -0800 (PST)
+In-Reply-To: <6F39C955CEA9D14BAA91CC78568B93012D5039@AMSPEX01CL02.citrite.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org
-Date: Fri,  6 Dec 2013 17:58:18 +0800
-
-> From: Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+On Mon, 2013-12-09 at 23:39 +0000, Zoltan Kiss wrote:
+> Hi,
 > 
-> The AX88179_178A has a hardware feature that it can insert a 2-bytes pseudo
-> header in front of each received frame by setting the AX_RX_CTL_IPE bit.
-> This feature is used to let the IP header be aligned on a doubleword-aligned address,
-> but the NET_IP_ALIGN may equals to 2 and the __netdev_alloc_skb_ip_align in USBNET will
-> reserve 2 bytes also, so in this case the driver shouldn't enable this bit.
-> 
-> This patch modifies the driver to set AX_RX_CTL_IPE just in case of the NET_IP_ALIGN equals 0.
-> 
-> Signed-off-by: Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+> I tried that, it didn't help in my case. I think
+> xenvif_notify_tx_completion is only a shortcut to wake the queue
+> earlier. Otherwise we should wait for the interrupt from the guest to
+> arrive (see rx_interrupt), however we know it can be done. Or does
+> this call from the kernel thread makes things worse than a later call
+> from the interrupt context?
 
-Please avoid larger than 80 column lines in your commit messages,
-people use text-only tools to viee these.
+Well, the call through ksoftirqd only adds some latency, and extra
+context switch. This is delayed by the time your current process exits
+the kernel (or you need CONFIG_PREEMPT)
 
-Next, it makes no sense to restrict your change to NET_IP_ALIGN==0
+> I found another suspect however: my grant mapping patches do the
+> unmapping from the NAPI instance where otherwise we receive the
+> packets from the guest. But this means we call napi_schedule from the
+> zerocopy callback, which can be run by anyone who free up that skb,
+> including an another VIF's RX thread (which actually does the transmit
+> TO the guest). I guess that might be bad.
 
-Simply handle any case, by undoing the reservation if it's getting
-in the way.  If there isn't an appropriate helper for this, add one.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Same problem : napi_schedule() is meant to be used from interrupt
+context.
