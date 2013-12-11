@@ -1,38 +1,159 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 4/4] asix: C1 DUB-E100 double rx_urb_size to 4096
-Date: Wed, 11 Dec 2013 16:28:50 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7481@saturn3.aculab.com>
-References: <1386759028-3534-1-git-send-email-Dean_Jenkins@mentor.com> <1386759028-3534-5-git-send-email-Dean_Jenkins@mentor.com> <AE90C24D6B3A694183C094C60CF0A2F6026B747E@saturn3.aculab.com> <1386774802.30495.369.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Paul Durrant <paul.durrant@citrix.com>
+Subject: [PATCH net] xen-netback: make sure skb linear area covers checksum field
+Date: Wed, 11 Dec 2013 16:37:40 +0000
+Message-ID: <1386779860-19338-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-Cc: "Dean Jenkins" <Dean_Jenkins@mentor.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: Paul Durrant <paul.durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:49308 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750904Ab3LKQeD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Dec 2013 11:34:03 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 17381-09 for <netdev@vger.kernel.org>;
- Wed, 11 Dec 2013 16:34:00 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1386774802.30495.369.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtp.citrix.com ([66.165.176.89]:47881 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751036Ab3LKQhn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Dec 2013 11:37:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBFcmljIER1bWF6ZXQNCi4uLg0KPiBJIGZlYXIgdGhhdCBkb3VibGluZyByeF91cmJf
-c2l6ZSBpcyBhcnRpZmljaWFsbHkgZG91YmxpbmcgdGhlIHNrYg0KPiB0cnVlc2l6ZSAob3Igbm90
-LCBhbmQgdGhpcyB3b3VsZCBiZSBhIGJ1ZyksIGFuZCB0aGlzIGhhcw0KPiBhbiBpbXBhY3Qgb24g
-Z2VuZXJhbCBwZXJmb3JtYW5jZSBvZiBUQ1Agc3RhY2suDQoNCldoaWNoIG1lYW5zIHRoYXQgdGhl
-IGNvZGUgaW4gdGhlIGF4MTc5XzE3OGEgZHJpdmVyIGlzIHJlYWxseSBob3JyaWQuDQpJdCBjYXVz
-ZXMgMjBrQiBVUkIgdG8gYmUgcGFzc2VkIHRvIHRoZSB4aGNpIGRyaXZlci4NCg0KSSBrbm93IHRo
-YXQgaGFyZHdhcmUgc3VwcG9ydHMgdGNwIHRyYW5zbWl0IHNlZ21lbnRhdGlvbiBvZmZsb2FkLg0K
-SSBkb24ndCBrbm93IGl0IGlmIHN1cHBvcnRzIHJlY2VpdmUgb2ZmbG9hZC4NCkJlc3Qgd2F5IHRv
-IHRlc3QgaXMgcHJvYmFibHkgcnVubmluZyBhdCBHZSBzcGVlZHMgYXQgdXNiMiBzcGVlZHMNCi0g
-Y29ubmVjdCB0byBhbiB4aGNpIHBvcnQgd2l0aCBhIFVTQjIgZXh0ZW5zaW9uIGNhYmxlLg0KDQpJ
-J20gd2FpdGluZyBmb3IgbXkgZXhpc3RpbmcgeGhjaSBwYXRjaGVzIHRvIGdldCBwcm9jZXNzZWQg
-YmVmb3JlDQpJIHdyaXRlIGFueSBtb3JlLg0KDQoJRGF2aWQNCg0K
+skb_partial_csum_set requires that the linear area of the skb covers the
+checksum field. The checksum setup code in netback was only doing that
+pullup in the case when the pseudo header checksum was being recalculated
+though. This patch makes that pullup unconditional. (I pullup the whole
+transport header just for simplicity; the requirement is only for the check
+field but in the case of UDP this is the last field in the header and in the
+case of TCP it's the last but one).
+
+The lack of pullup manifested as failures running Microsoft HCK network
+tests on a pair of Windows 8 VMs and it has been verified that this patch
+fixes the problem.
+
+Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+Cc: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netback/netback.c |   60 +++++++++++++++++--------------------
+ 1 file changed, 28 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index acf1392..56c3e5a 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1199,42 +1199,40 @@ static int checksum_setup_ip(struct xenvif *vif, struct sk_buff *skb,
+ 
+ 	switch (ip_hdr(skb)->protocol) {
+ 	case IPPROTO_TCP:
++		err = maybe_pull_tail(skb,
++				      off + sizeof(struct tcphdr),
++				      MAX_IP_HDR_LEN);
++		if (err < 0)
++			goto out;
++
+ 		if (!skb_partial_csum_set(skb, off,
+ 					  offsetof(struct tcphdr, check)))
+ 			goto out;
+ 
+-		if (recalculate_partial_csum) {
+-			err = maybe_pull_tail(skb,
+-					      off + sizeof(struct tcphdr),
+-					      MAX_IP_HDR_LEN);
+-			if (err < 0)
+-				goto out;
+-
++		if (recalculate_partial_csum)
+ 			tcp_hdr(skb)->check =
+ 				~csum_tcpudp_magic(ip_hdr(skb)->saddr,
+ 						   ip_hdr(skb)->daddr,
+ 						   skb->len - off,
+ 						   IPPROTO_TCP, 0);
+-		}
+ 		break;
+ 	case IPPROTO_UDP:
++		err = maybe_pull_tail(skb,
++				      off + sizeof(struct udphdr),
++				      MAX_IP_HDR_LEN);
++		if (err < 0)
++			goto out;
++
+ 		if (!skb_partial_csum_set(skb, off,
+ 					  offsetof(struct udphdr, check)))
+ 			goto out;
+ 
+-		if (recalculate_partial_csum) {
+-			err = maybe_pull_tail(skb,
+-					      off + sizeof(struct udphdr),
+-					      MAX_IP_HDR_LEN);
+-			if (err < 0)
+-				goto out;
+-
++		if (recalculate_partial_csum)
+ 			udp_hdr(skb)->check =
+ 				~csum_tcpudp_magic(ip_hdr(skb)->saddr,
+ 						   ip_hdr(skb)->daddr,
+ 						   skb->len - off,
+ 						   IPPROTO_UDP, 0);
+-		}
+ 		break;
+ 	default:
+ 		goto out;
+@@ -1342,42 +1340,40 @@ static int checksum_setup_ipv6(struct xenvif *vif, struct sk_buff *skb,
+ 
+ 	switch (nexthdr) {
+ 	case IPPROTO_TCP:
++		err = maybe_pull_tail(skb,
++				      off + sizeof(struct tcphdr),
++				      MAX_IPV6_HDR_LEN);
++		if (err < 0)
++			goto out;
++ 
+ 		if (!skb_partial_csum_set(skb, off,
+ 					  offsetof(struct tcphdr, check)))
+ 			goto out;
+ 
+-		if (recalculate_partial_csum) {
+-			err = maybe_pull_tail(skb,
+-					      off + sizeof(struct tcphdr),
+-					      MAX_IPV6_HDR_LEN);
+-			if (err < 0)
+-				goto out;
+-
++		if (recalculate_partial_csum)
+ 			tcp_hdr(skb)->check =
+ 				~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 						 &ipv6_hdr(skb)->daddr,
+ 						 skb->len - off,
+ 						 IPPROTO_TCP, 0);
+-		}
+ 		break;
+ 	case IPPROTO_UDP:
++		err = maybe_pull_tail(skb,
++				      off + sizeof(struct udphdr),
++				      MAX_IPV6_HDR_LEN);
++		if (err < 0)
++			goto out;
++
+ 		if (!skb_partial_csum_set(skb, off,
+ 					  offsetof(struct udphdr, check)))
+ 			goto out;
+ 
+-		if (recalculate_partial_csum) {
+-			err = maybe_pull_tail(skb,
+-					      off + sizeof(struct udphdr),
+-					      MAX_IPV6_HDR_LEN);
+-			if (err < 0)
+-				goto out;
+-
++		if (recalculate_partial_csum)
+ 			udp_hdr(skb)->check =
+ 				~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 						 &ipv6_hdr(skb)->daddr,
+ 						 skb->len - off,
+ 						 IPPROTO_UDP, 0);
+-		}
+ 		break;
+ 	default:
+ 		goto out;
+-- 
+1.7.10.4
