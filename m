@@ -1,41 +1,36 @@
-From: Christian Grothoff <grothoff@in.tum.de>
-Subject: Re: [PATCH] TCP: add option for silent port knocking with integrity
- protection
-Date: Wed, 11 Dec 2013 21:19:00 +0100
-Message-ID: <52A8C8B4.4060109@in.tum.de>
-References: <52A75EF8.3010308@in.tum.de> <20131211.150137.368953964178408437.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net V3 1/2] tun: unbreak truncated packet signalling
+Date: Wed, 11 Dec 2013 15:26:22 -0500 (EST)
+Message-ID: <20131211.152622.282773097382499363.davem@davemloft.net>
+References: <1386738514-1502-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	knock@gnunet.org, jacob@appelbaum.net
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131211.150137.368953964178408437.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	wuzhy@linux.vnet.ibm.com, mst@redhat.com, vyasevich@gmail.com
+To: jasowang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59289 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750922Ab3LKU0Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 15:26:25 -0500
+In-Reply-To: <1386738514-1502-1-git-send-email-jasowang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/11/2013 09:01 PM, David Miller wrote:
-> From: Christian Grothoff <grothoff@in.tum.de>
-> Date: Tue, 10 Dec 2013 19:35:36 +0100
-> 
->> Only NAT implementations that change the SQN are not supported
->> (those should be rare, but we have no hard data on this).
-> 
-> Even Linux's netfilter can and does do this, it is absolutely necessary
-> for tracking SIP and FTP protocols, and it's also used in our virtual
-> server load balancing modules.
-> 
+From: Jason Wang <jasowang@redhat.com>
+Date: Wed, 11 Dec 2013 13:08:33 +0800
 
-We're aware that Linux _can_ do this.  I was not aware it was doing this
-for
-SIP and FTP specifically; regardless, what implementations can do is less
-important than what they are configured to do most of the time, and that's
-what we'd need hard data on.  Anyway, I'd be very interested to learn how
-you use this for SIP/FTP to evaluate the impact.  Do you have documentation
-on this?
+> Commit 6680ec68eff47d36f67b4351bc9836fd6cba9532
+> (tuntap: hardware vlan tx support) breaks the truncated packet signal by nev
+> return a length greater than iov length in tun_put_user(). This patch fixes
+> by always return the length of packet plus possible vlan header. Caller can
+> detect the truncated packet by comparing the return value and the size of io
+> length.
+> 
+> Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-As for server load balancing, I suspect that those are not the kinds of
-services that one would typically use port knocking for.  Still, again a
-good hint as to where trouble might lurk (and we will definitively include
-those points in the next revision of the documentation).
+Applied and queued up for -stable.
