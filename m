@@ -1,35 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net V3 2/2] macvtap: signal truncated packets
-Date: Wed, 11 Dec 2013 15:26:33 -0500 (EST)
-Message-ID: <20131211.152633.1259772133334006433.davem@davemloft.net>
-References: <1386738514-1502-1-git-send-email-jasowang@redhat.com>
-	<1386738514-1502-2-git-send-email-jasowang@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] micrel: add support for KSZ8041RNLI
+Date: Thu, 12 Dec 2013 00:28:47 +0300
+Message-ID: <52A8D90F.9090002@cogentembedded.com>
+References: <201312100220.42153.sergei.shtylyov@cogentembedded.com> <20131211.135841.1810559740815410070.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	vyasevich@gmail.com, wuzhy@linux.vnet.ibm.com, mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59295 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751339Ab3LKU0f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 15:26:35 -0500
-In-Reply-To: <1386738514-1502-2-git-send-email-jasowang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20131211.135841.1810559740815410070.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Wed, 11 Dec 2013 13:08:34 +0800
+Hello.
 
-> macvtap_put_user() never return a value grater than iov length, this in fact
-> bypasses the truncated checking in macvtap_recvmsg(). Fix this by always
-> returning the size of packet plus the possible vlan header to let the trunca
-> checking work.
-> 
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+On 12/11/2013 09:58 PM, David Miller wrote:
 
-Also applied and queued up for -stable, thanks.
+>> Renesas R-Car development boards use KSZ8041RNLI PHY which for some reason has
+>> ID of 0x00221537 that is not documented for KSZ8041-family PHYs and does not
+>> match the  documented ID of  0x0022151x (where 'x' is the revision).  We have
+>> to add the new #define PHY_ID_* and new ksphy_driver[] entry, almost the same
+>> as KSZ8041 one, differing only in the 'phy_id' and 'name' fields.
+
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+>> ---
+>> This patch is atop of DaveM's 'net-next.git' repo.
+
+> Since this is just a simple device ID addition, I applied this to
+> 'net', thanks.
+
+    Hm, thanks, of course. But I don't see much difference w/my 'sh_eth' 
+driver patch adding support for R8A7791 which you've queued for 3.14. Oh, 
+well, not that it matters much...
+
+WBR, Sergei
+
