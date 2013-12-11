@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: unix: allow set_peek_off to fail
-Date: Tue, 10 Dec 2013 21:45:46 -0500 (EST)
-Message-ID: <20131210.214546.2076606671956419677.davem@davemloft.net>
-References: <1386455187-28597-1-git-send-email-sasha.levin@oracle.com>
-	<52A5721E.6020709@parallels.com>
+Subject: Re: [PATCH v2] sh_eth: add R8A7791 support
+Date: Tue, 10 Dec 2013 21:47:54 -0500 (EST)
+Message-ID: <20131210.214754.1553999236888329751.davem@davemloft.net>
+References: <201312080259.19163.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sasha.levin@oracle.com, edumazet@google.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: xemul@parallels.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52A5721E.6020709@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <201312080259.19163.sergei.shtylyov@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Mon, 9 Dec 2013 11:32:46 +0400
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sun, 8 Dec 2013 02:59:18 +0300
 
-> On 12/08/2013 02:26 AM, Sasha Levin wrote:
->> unix_dgram_recvmsg() will hold the readlock of the socket until recv
->> is complete.
->> 
->> In the same time, we may try to setsockopt(SO_PEEK_OFF) which will hang until
->> unix_dgram_recvmsg() will complete (which can take a while) without allowing
->> us to break out of it, triggering a hung task spew.
->> 
->> Instead, allow set_peek_off to fail, this way userspace will not hang.
->> 
->> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> Add support for yet another ARM member of the R-Car family, R-Car M2, also known
+> as R8A7791 -- it will share the code and data with previously added R8A7790.
+> Despite the Ether devices in these SoCs are indistinguishable at least from the
+> driver's point of view, we do introduce a new platform device ID "r8a7791-ether"
+> unlike the wildcard ID used for R8A7778/9 SoCs, due to newly established policy
+> for the Renesas SoCs.
 > 
-> Acked-by: Pavel Emelyanov <xemul@parallels.com>
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thank you.
