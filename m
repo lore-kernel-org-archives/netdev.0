@@ -1,21 +1,22 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH net V3 2/2] macvtap: signal truncated packets
-Date: Wed, 11 Dec 2013 09:25:08 -0500
-Message-ID: <52A875C4.5040900@gmail.com>
-References: <1386738514-1502-1-git-send-email-jasowang@redhat.com> <1386738514-1502-2-git-send-email-jasowang@redhat.com>
+Date: Wed, 11 Dec 2013 16:32:23 +0200
+Message-ID: <20131211143223.GB23860@redhat.com>
+References: <1386738514-1502-1-git-send-email-jasowang@redhat.com>
+ <1386738514-1502-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 In-Reply-To: <1386738514-1502-2-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/11/2013 12:08 AM, Jason Wang wrote:
+On Wed, Dec 11, 2013 at 01:08:34PM +0800, Jason Wang wrote:
 > macvtap_put_user() never return a value grater than iov length, this in fact
 > bypasses the truncated checking in macvtap_recvmsg(). Fix this by always
 > returning the size of packet plus the possible vlan header to let the trunca
@@ -26,9 +27,8 @@ On 12/11/2013 12:08 AM, Jason Wang wrote:
 > Cc: Michael S. Tsirkin <mst@redhat.com>
 > Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
--vlad
 > ---
 > Changes from V2:
 > - use total as the bytes of packet returned
@@ -91,4 +91,5 @@ Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 >  	if (ret > 0)
 >  		iocb->ki_pos = ret;
 >  out:
-> 
+> -- 
+> 1.8.3.2
