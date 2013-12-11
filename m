@@ -1,1489 +1,1052 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 1/3] filter: bpf_dbg: add minimal bpf debugger
-Date: Wed, 11 Dec 2013 23:43:43 +0100
-Message-ID: <1386801825-15388-2-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 2/3] filter: bpf_asm: add minimal bpf asm tool
+Date: Wed, 11 Dec 2013 23:43:44 +0100
+Message-ID: <1386801825-15388-3-git-send-email-dborkman@redhat.com>
 References: <1386801825-15388-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55651 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54662 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751222Ab3LKWnv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Dec 2013 17:43:51 -0500
+	id S1751222Ab3LKWny (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Dec 2013 17:43:54 -0500
 In-Reply-To: <1386801825-15388-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a minimal BPF debugger that "emulates" the kernel's
-BPF engine (w/o extensions) and allows for single stepping (forwards
-and backwards through BPF code) or running with >=1 breakpoints through
-selected or all packets from a pcap file with a provided user filter
-in order to facilitate verification of a BPF program. When a breakpoint
-is being hit, it dumps all register contents, decoded instructions and
-in case of branches both decoded branch targets as well as other useful
-information.
+There are a couple of valid use cases for a minimal low-level bpf asm
+like tool, for example, using/linking to libpcap is not an option, the
+required BPF filters use Linux extensions that are not supported by
+libpcap's compiler, a filter might be more complex and not cleanly
+implementable with libpcap's compiler, particular filter codes should
+be optimized differently than libpcap's internal BPF compiler does,
+or for security audits of emitted BPF JIT code for prepared set of BPF
+instructions resp. BPF JIT compiler development in general.
 
-Having this facility is in particular useful to verify BPF programs
-against given test traffic *before* attaching to a live system.
+Then, in such cases writing such a filter in low-level syntax can be
+an good alternative, for example, xt_bpf and cls_bpf users might have
+requirements that could result in more complex filter code, or one that
+cannot be expressed with libpcap (e.g. different return codes in
+cls_bpf for flowids on various BPF code paths).
 
-With the general availability of cls_bpf, xt_bpf, socket filters,
-team driver and e.g. PTP code, all BPF users, quite often a single
-more complex BPF program is being used. Reasons for a more complex
-BPF program are primarily to optimize execution time for making a
-verdict when multiple simple BPF programs are combined into one in
-order to prevent parsing same headers multiple times. In particular,
-for cls_bpf that can have various return paths for encoding flowids,
-and xt_bpf to come to a fw verdict this can be the case.
-
-Therefore, as this can result in more complex and harder to debug
-code, it would be very useful to have this minimal tool for testing
-purposes. It can also be of help for BPF JIT developers as filters
-are "test attached" to the kernel on a temporary socket thus
-triggering a JIT image dump when enabled. The tool uses an interactive
-libreadline shell with auto-completion and history support.
+Moreover, BPF JIT implementors may wish to manually write test cases
+in order to verify the resulting JIT image, and thus need low-level
+access to BPF code generation as well. Therefore, complete the available
+toolchain for BPF with this small bpf_asm helper tool for the tools/net/
+directory. These 3 complementary minimal helper tools round up and
+facilitate BPF development.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- tools/net/Makefile  |    9 +-
- tools/net/bpf_dbg.c | 1404 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 1411 insertions(+), 2 deletions(-)
- create mode 100644 tools/net/bpf_dbg.c
+ tools/net/Makefile  |  18 +-
+ tools/net/bpf_asm.c |  52 ++++
+ tools/net/bpf_exp.l | 143 ++++++++++
+ tools/net/bpf_exp.y | 749 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 960 insertions(+), 2 deletions(-)
+ create mode 100644 tools/net/bpf_asm.c
+ create mode 100644 tools/net/bpf_exp.l
+ create mode 100644 tools/net/bpf_exp.y
 
 diff --git a/tools/net/Makefile b/tools/net/Makefile
-index b4444d5..0f30d92 100644
+index 0f30d92..004cd74 100644
 --- a/tools/net/Makefile
 +++ b/tools/net/Makefile
-@@ -2,14 +2,19 @@ prefix = /usr
+@@ -1,8 +1,16 @@
+ prefix = /usr
  
  CC = gcc
++LEX = flex
++YACC = bison
  
--all : bpf_jit_disasm
-+all : bpf_jit_disasm bpf_dbg
+-all : bpf_jit_disasm bpf_dbg
++%.yacc.c: %.y
++	$(YACC) -o $@ -d $<
++
++%.lex.c: %.l
++	$(LEX) -o $@ $<
++
++all : bpf_jit_disasm bpf_dbg bpf_asm
  
  bpf_jit_disasm : CFLAGS = -Wall -O2
  bpf_jit_disasm : LDLIBS = -lopcodes -lbfd -ldl
- bpf_jit_disasm : bpf_jit_disasm.o
+@@ -12,9 +20,15 @@ bpf_dbg : CFLAGS = -Wall -O2
+ bpf_dbg : LDLIBS = -lreadline
+ bpf_dbg : bpf_dbg.o
  
-+bpf_dbg : CFLAGS = -Wall -O2
-+bpf_dbg : LDLIBS = -lreadline
-+bpf_dbg : bpf_dbg.o
++bpf_asm : CFLAGS = -Wall -O2 -I.
++bpf_asm : LDLIBS =
++bpf_asm : bpf_asm.o bpf_exp.yacc.o bpf_exp.lex.o
++bpf_exp.lex.o : bpf_exp.yacc.c
 +
  clean :
--	rm -rf *.o bpf_jit_disasm
-+	rm -rf *.o bpf_jit_disasm bpf_dbg
+-	rm -rf *.o bpf_jit_disasm bpf_dbg
++	rm -rf *.o bpf_jit_disasm bpf_dbg bpf_asm bpf_exp.yacc.* bpf_exp.lex.*
  
  install :
  	install bpf_jit_disasm $(prefix)/bin/bpf_jit_disasm
-+	install bpf_dbg $(prefix)/bin/bpf_dbg
-diff --git a/tools/net/bpf_dbg.c b/tools/net/bpf_dbg.c
+ 	install bpf_dbg $(prefix)/bin/bpf_dbg
++	install bpf_asm $(prefix)/bin/bpf_asm
+diff --git a/tools/net/bpf_asm.c b/tools/net/bpf_asm.c
 new file mode 100644
-index 0000000..0fdcb70
+index 0000000..c15aef0
 --- /dev/null
-+++ b/tools/net/bpf_dbg.c
-@@ -0,0 +1,1404 @@
++++ b/tools/net/bpf_asm.c
+@@ -0,0 +1,52 @@
 +/*
-+ * Minimal BPF debugger
++ * Minimal BPF assembler
 + *
-+ * Minimal BPF debugger that mimics the kernel's engine (w/o extensions)
-+ * and allows for single stepping through selected packets from a pcap
-+ * with a provided user filter in order to facilitate verification of a
-+ * BPF program. Besides others, this is useful to verify BPF programs
-+ * before attaching to a live system, and can be used in socket filters,
-+ * cls_bpf, xt_bpf, team driver and e.g. PTP code; in particular when a
-+ * single more complex BPF program is being used. Reasons for a more
-+ * complex BPF program are likely primarily to optimize execution time
-+ * for making a verdict when multiple simple BPF programs are combined
-+ * into one in order to prevent parsing same headers multiple times.
++ * Instead of libpcap high-level filter expressions, it can be quite
++ * useful to define filters in low-level BPF assembler (that is kept
++ * close to Steven McCanne and Van Jacobson's original BPF paper).
++ * In particular for BPF JIT implementors, JIT security auditors, or
++ * just for defining BPF expressions that contain extensions which are
++ * not supported by compilers.
 + *
-+ * More on how to debug BPF opcodes see Documentation/networking/filter.txt
-+ * which is the main document on BPF. Mini howto for getting started:
++ * How to get into it:
 + *
-+ *  1) `./bpf_dbg` to enter the shell (shell cmds denoted with '>'):
-+ *  2) > load bpf 6,40 0 0 12,21 0 3 20... (output from `bpf_asm` or
-+ *     `tcpdump -iem1 -ddd port 22 | tr '\n' ','` to load as filter)
-+ *  3) > load pcap foo.pcap
-+ *  4) > run <n>/disassemble/dump/quit (self-explanatory)
-+ *  5) > breakpoint 2 (sets bp at loaded BPF insns 2, do `run` then;
-+ *       multiple bps can be set, of course, a call to `breakpoint`
-+ *       w/o args shows currently loaded bps, `breakpoint reset` for
-+ *       resetting all breakpoints)
-+ *  6) > select 3 (`run` etc will start from the 3rd packet in the pcap)
-+ *  7) > step [-<n>, +<n>] (performs single stepping through the BPF)
++ * 1) read Documentation/networking/filter.txt
++ * 2) Run `bpf_asm [-c] <filter-prog file>` to translate into binary
++ *    blob that is loadable with xt_bpf, cls_bpf et al. Note: -c will
++ *    pretty print a C-like construct.
 + *
 + * Copyright 2013 Daniel Borkmann <borkmann@redhat.com>
 + * Licensed under the GNU General Public License, version 2.0 (GPLv2)
 + */
 +
-+#include <stdio.h>
-+#include <unistd.h>
-+#include <stdlib.h>
-+#include <ctype.h>
 +#include <stdbool.h>
-+#include <stdarg.h>
-+#include <setjmp.h>
-+#include <linux/filter.h>
-+#include <linux/if_packet.h>
-+#include <readline/readline.h>
-+#include <readline/history.h>
-+#include <sys/types.h>
-+#include <sys/socket.h>
-+#include <sys/stat.h>
-+#include <sys/mman.h>
-+#include <fcntl.h>
-+#include <errno.h>
-+#include <signal.h>
-+#include <arpa/inet.h>
-+#include <net/ethernet.h>
++#include <stdio.h>
++#include <string.h>
 +
-+#define TCPDUMP_MAGIC	0xa1b2c3d4
-+
-+#define BPF_LDX_B	(BPF_LDX | BPF_B)
-+#define BPF_LDX_W	(BPF_LDX | BPF_W)
-+#define BPF_JMP_JA	(BPF_JMP | BPF_JA)
-+#define BPF_JMP_JEQ	(BPF_JMP | BPF_JEQ)
-+#define BPF_JMP_JGT	(BPF_JMP | BPF_JGT)
-+#define BPF_JMP_JGE	(BPF_JMP | BPF_JGE)
-+#define BPF_JMP_JSET	(BPF_JMP | BPF_JSET)
-+#define BPF_ALU_ADD	(BPF_ALU | BPF_ADD)
-+#define BPF_ALU_SUB	(BPF_ALU | BPF_SUB)
-+#define BPF_ALU_MUL	(BPF_ALU | BPF_MUL)
-+#define BPF_ALU_DIV	(BPF_ALU | BPF_DIV)
-+#define BPF_ALU_MOD	(BPF_ALU | BPF_MOD)
-+#define BPF_ALU_NEG	(BPF_ALU | BPF_NEG)
-+#define BPF_ALU_AND	(BPF_ALU | BPF_AND)
-+#define BPF_ALU_OR	(BPF_ALU | BPF_OR)
-+#define BPF_ALU_XOR	(BPF_ALU | BPF_XOR)
-+#define BPF_ALU_LSH	(BPF_ALU | BPF_LSH)
-+#define BPF_ALU_RSH	(BPF_ALU | BPF_RSH)
-+#define BPF_MISC_TAX	(BPF_MISC | BPF_TAX)
-+#define BPF_MISC_TXA	(BPF_MISC | BPF_TXA)
-+#define BPF_LD_B	(BPF_LD | BPF_B)
-+#define BPF_LD_H	(BPF_LD | BPF_H)
-+#define BPF_LD_W	(BPF_LD | BPF_W)
-+
-+#ifndef array_size
-+# define array_size(x)	(sizeof(x) / sizeof((x)[0]))
-+#endif
-+
-+#ifndef __check_format_printf
-+# define __check_format_printf(pos_fmtstr, pos_fmtargs) \
-+	__attribute__ ((format (printf, (pos_fmtstr), (pos_fmtargs))))
-+#endif
-+
-+#define CMD(_name, _func) { .name = _name, .func = _func, }
-+#define OP(_op, _name)      [_op] = _name
-+
-+enum {
-+	CMD_OK,
-+	CMD_ERR,
-+	CMD_EX,
-+};
-+
-+struct shell_cmd {
-+	const char *name;
-+	int (*func)(char *args);
-+};
-+
-+struct pcap_filehdr {
-+	uint32_t magic;
-+	uint16_t version_major;
-+	uint16_t version_minor;
-+	int32_t  thiszone;
-+	uint32_t sigfigs;
-+	uint32_t snaplen;
-+	uint32_t linktype;
-+};
-+
-+struct pcap_timeval {
-+	int32_t tv_sec;
-+	int32_t tv_usec;
-+};
-+
-+struct pcap_pkthdr {
-+	struct pcap_timeval ts;
-+	uint32_t caplen;
-+	uint32_t len;
-+};
-+
-+struct bpf_regs {
-+	uint32_t A;
-+	uint32_t X;
-+	uint32_t M[BPF_MEMWORDS];
-+	uint32_t R;
-+	bool     Rs;
-+	uint16_t Pc;
-+};
-+
-+static struct sock_filter bpf_image[BPF_MAXINSNS + 1];
-+static unsigned int bpf_prog_len = 0;
-+
-+static int bpf_breakpoints[64];
-+static struct bpf_regs bpf_regs[BPF_MAXINSNS + 1];
-+static struct bpf_regs bpf_curr;
-+static unsigned int bpf_regs_len = 0;
-+
-+static int pcap_fd = -1;
-+static unsigned int pcap_packet = 0;
-+static size_t pcap_map_size = 0;
-+static char *pcap_ptr_va_start, *pcap_ptr_va_curr;
-+
-+static const char * const op_table[] = {
-+	OP(BPF_ST, "st"),
-+	OP(BPF_STX, "stx"),
-+	OP(BPF_LD_B, "ldb"),
-+	OP(BPF_LD_H, "ldh"),
-+	OP(BPF_LD_W, "ld"),
-+	OP(BPF_LDX, "ldx"),
-+	OP(BPF_LDX_B, "ldxb"),
-+	OP(BPF_JMP_JA, "ja"),
-+	OP(BPF_JMP_JEQ, "jeq"),
-+	OP(BPF_JMP_JGT, "jgt"),
-+	OP(BPF_JMP_JGE, "jge"),
-+	OP(BPF_JMP_JSET, "jset"),
-+	OP(BPF_ALU_ADD, "add"),
-+	OP(BPF_ALU_SUB, "sub"),
-+	OP(BPF_ALU_MUL, "mul"),
-+	OP(BPF_ALU_DIV, "div"),
-+	OP(BPF_ALU_MOD, "mod"),
-+	OP(BPF_ALU_NEG, "neg"),
-+	OP(BPF_ALU_AND, "and"),
-+	OP(BPF_ALU_OR, "or"),
-+	OP(BPF_ALU_XOR, "xor"),
-+	OP(BPF_ALU_LSH, "lsh"),
-+	OP(BPF_ALU_RSH, "rsh"),
-+	OP(BPF_MISC_TAX, "tax"),
-+	OP(BPF_MISC_TXA, "txa"),
-+	OP(BPF_RET, "ret"),
-+};
-+
-+static __check_format_printf(1, 2) int rl_printf(const char *fmt, ...)
-+{
-+	int ret;
-+	va_list vl;
-+
-+	va_start(vl, fmt);
-+	ret = vfprintf(rl_outstream, fmt, vl);
-+	va_end(vl);
-+
-+	return ret;
-+}
-+
-+static int matches(const char *cmd, const char *pattern)
-+{
-+	int len = strlen(cmd);
-+
-+	if (len > strlen(pattern))
-+		return -1;
-+
-+	return memcmp(pattern, cmd, len);
-+}
-+
-+static void hex_dump(const uint8_t *buf, size_t len)
-+{
-+	int i;
-+
-+	rl_printf("%3u: ", 0);
-+	for (i = 0; i < len; i++) {
-+		if (i && !(i % 16))
-+			rl_printf("\n%3u: ", i);
-+		rl_printf("%02x ", buf[i]);
-+	}
-+	rl_printf("\n");
-+}
-+
-+static bool bpf_prog_loaded(void)
-+{
-+	if (bpf_prog_len == 0)
-+		rl_printf("no bpf program loaded!\n");
-+
-+	return bpf_prog_len > 0;
-+}
-+
-+static void bpf_disasm(const struct sock_filter f, unsigned int i)
-+{
-+	const char *op, *fmt;
-+	int val = f.k;
-+	char buf[256];
-+
-+	switch (f.code) {
-+	case BPF_RET | BPF_K:
-+		op = op_table[BPF_RET];
-+		fmt = "#%#x";
-+		break;
-+	case BPF_RET | BPF_A:
-+		op = op_table[BPF_RET];
-+		fmt = "a";
-+		break;
-+	case BPF_RET | BPF_X:
-+		op = op_table[BPF_RET];
-+		fmt = "x";
-+		break;
-+	case BPF_MISC_TAX:
-+		op = op_table[BPF_MISC_TAX];
-+		fmt = "";
-+		break;
-+	case BPF_MISC_TXA:
-+		op = op_table[BPF_MISC_TXA];
-+		fmt = "";
-+		break;
-+	case BPF_ST:
-+		op = op_table[BPF_ST];
-+		fmt = "M[%d]";
-+		break;
-+	case BPF_STX:
-+		op = op_table[BPF_STX];
-+		fmt = "M[%d]";
-+		break;
-+	case BPF_LD_W | BPF_ABS:
-+		op = op_table[BPF_LD_W];
-+		fmt = "[%d]";
-+		break;
-+	case BPF_LD_H | BPF_ABS:
-+		op = op_table[BPF_LD_H];
-+		fmt = "[%d]";
-+		break;
-+	case BPF_LD_B | BPF_ABS:
-+		op = op_table[BPF_LD_B];
-+		fmt = "[%d]";
-+		break;
-+	case BPF_LD_W | BPF_LEN:
-+		op = op_table[BPF_LD_W];
-+		fmt = "#len";
-+		break;
-+	case BPF_LD_W | BPF_IND:
-+		op = op_table[BPF_LD_W];
-+		fmt = "[x+%d]";
-+		break;
-+	case BPF_LD_H | BPF_IND:
-+		op = op_table[BPF_LD_H];
-+		fmt = "[x+%d]";
-+		break;
-+	case BPF_LD_B | BPF_IND:
-+		op = op_table[BPF_LD_B];
-+		fmt = "[x+%d]";
-+		break;
-+	case BPF_LD | BPF_IMM:
-+		op = op_table[BPF_LD_W];
-+		fmt = "#%#x";
-+		break;
-+	case BPF_LDX | BPF_IMM:
-+		op = op_table[BPF_LDX];
-+		fmt = "#%#x";
-+		break;
-+	case BPF_LDX_B | BPF_MSH:
-+		op = op_table[BPF_LDX_B];
-+		fmt = "4*([%d]&0xf)";
-+		break;
-+	case BPF_LD | BPF_MEM:
-+		op = op_table[BPF_LD_W];
-+		fmt = "M[%d]";
-+		break;
-+	case BPF_LDX | BPF_MEM:
-+		op = op_table[BPF_LDX];
-+		fmt = "M[%d]";
-+		break;
-+	case BPF_JMP_JA:
-+		op = op_table[BPF_JMP_JA];
-+		fmt = "%d";
-+		val = i + 1 + f.k;
-+		break;
-+	case BPF_JMP_JGT | BPF_X:
-+		op = op_table[BPF_JMP_JGT];
-+		fmt = "x";
-+		break;
-+	case BPF_JMP_JGT | BPF_K:
-+		op = op_table[BPF_JMP_JGT];
-+		fmt = "#%#x";
-+		break;
-+	case BPF_JMP_JGE | BPF_X:
-+		op = op_table[BPF_JMP_JGE];
-+		fmt = "x";
-+		break;
-+	case BPF_JMP_JGE | BPF_K:
-+		op = op_table[BPF_JMP_JGE];
-+		fmt = "#%#x";
-+		break;
-+	case BPF_JMP_JEQ | BPF_X:
-+		op = op_table[BPF_JMP_JEQ];
-+		fmt = "x";
-+		break;
-+	case BPF_JMP_JEQ | BPF_K:
-+		op = op_table[BPF_JMP_JEQ];
-+		fmt = "#%#x";
-+		break;
-+	case BPF_JMP_JSET | BPF_X:
-+		op = op_table[BPF_JMP_JSET];
-+		fmt = "x";
-+		break;
-+	case BPF_JMP_JSET | BPF_K:
-+		op = op_table[BPF_JMP_JSET];
-+		fmt = "#%#x";
-+		break;
-+	case BPF_ALU_NEG:
-+		op = op_table[BPF_ALU_NEG];
-+		fmt = "";
-+		break;
-+	case BPF_ALU_LSH | BPF_X:
-+		op = op_table[BPF_ALU_LSH];
-+		fmt = "x";
-+		break;
-+	case BPF_ALU_LSH | BPF_K:
-+		op = op_table[BPF_ALU_LSH];
-+		fmt = "#%d";
-+		break;
-+	case BPF_ALU_RSH | BPF_X:
-+		op = op_table[BPF_ALU_RSH];
-+		fmt = "x";
-+		break;
-+	case BPF_ALU_RSH | BPF_K:
-+		op = op_table[BPF_ALU_RSH];
-+		fmt = "#%d";
-+		break;
-+	case BPF_ALU_ADD | BPF_X:
-+		op = op_table[BPF_ALU_ADD];
-+		fmt = "x";
-+		break;
-+	case BPF_ALU_ADD | BPF_K:
-+		op = op_table[BPF_ALU_ADD];
-+		fmt = "#%d";
-+		break;
-+	case BPF_ALU_SUB | BPF_X:
-+		op = op_table[BPF_ALU_SUB];
-+		fmt = "x";
-+		break;
-+	case BPF_ALU_SUB | BPF_K:
-+		op = op_table[BPF_ALU_SUB];
-+		fmt = "#%d";
-+		break;
-+	case BPF_ALU_MUL | BPF_X:
-+		op = op_table[BPF_ALU_MUL];
-+		fmt = "x";
-+		break;
-+	case BPF_ALU_MUL | BPF_K:
-+		op = op_table[BPF_ALU_MUL];
-+		fmt = "#%d";
-+		break;
-+	case BPF_ALU_DIV | BPF_X:
-+		op = op_table[BPF_ALU_DIV];
-+		fmt = "x";
-+		break;
-+	case BPF_ALU_DIV | BPF_K:
-+		op = op_table[BPF_ALU_DIV];
-+		fmt = "#%d";
-+		break;
-+	case BPF_ALU_MOD | BPF_X:
-+		op = op_table[BPF_ALU_MOD];
-+		fmt = "x";
-+		break;
-+	case BPF_ALU_MOD | BPF_K:
-+		op = op_table[BPF_ALU_MOD];
-+		fmt = "#%d";
-+		break;
-+	case BPF_ALU_AND | BPF_X:
-+		op = op_table[BPF_ALU_AND];
-+		fmt = "x";
-+		break;
-+	case BPF_ALU_AND | BPF_K:
-+		op = op_table[BPF_ALU_AND];
-+		fmt = "#%#x";
-+		break;
-+	case BPF_ALU_OR | BPF_X:
-+		op = op_table[BPF_ALU_OR];
-+		fmt = "x";
-+		break;
-+	case BPF_ALU_OR | BPF_K:
-+		op = op_table[BPF_ALU_OR];
-+		fmt = "#%#x";
-+		break;
-+	case BPF_ALU_XOR | BPF_X:
-+		op = op_table[BPF_ALU_XOR];
-+		fmt = "x";
-+		break;
-+	case BPF_ALU_XOR | BPF_K:
-+		op = op_table[BPF_ALU_XOR];
-+		fmt = "#%#x";
-+		break;
-+	default:
-+		op = "nosup";
-+		fmt = "%#x";
-+		val = f.code;
-+		break;
-+	}
-+
-+	memset(buf, 0, sizeof(buf));
-+	snprintf(buf, sizeof(buf), fmt, val);
-+	buf[sizeof(buf) - 1] = 0;
-+
-+	if ((BPF_CLASS(f.code) == BPF_JMP && BPF_OP(f.code) != BPF_JA))
-+		rl_printf("l%d:\t%s %s, l%d, l%d\n", i, op, buf,
-+			  i + 1 + f.jt, i + 1 + f.jf);
-+	else
-+		rl_printf("l%d:\t%s %s\n", i, op, buf);
-+}
-+
-+static void bpf_dump_curr(struct bpf_regs *r, struct sock_filter *f)
-+{
-+	int i, m = 0;
-+
-+	rl_printf("pc:       [%u]\n", r->Pc);
-+	rl_printf("code:     [%u] jt[%u] jf[%u] k[%u]\n",
-+		  f->code, f->jt, f->jf, f->k);
-+	rl_printf("curr:     ");
-+	bpf_disasm(*f, r->Pc);
-+
-+	if (f->jt || f->jf) {
-+		rl_printf("jt:       ");
-+		bpf_disasm(*(f + f->jt + 1), r->Pc + f->jt + 1);
-+		rl_printf("jf:       ");
-+		bpf_disasm(*(f + f->jf + 1), r->Pc + f->jf + 1);
-+	}
-+
-+	rl_printf("A:        [%#08x][%u]\n", r->A, r->A);
-+	rl_printf("X:        [%#08x][%u]\n", r->X, r->X);
-+	if (r->Rs)
-+		rl_printf("ret:      [%#08x][%u]!\n", r->R, r->R);
-+
-+	for (i = 0; i < BPF_MEMWORDS; i++) {
-+		if (r->M[i]) {
-+			m++;
-+			rl_printf("M[%d]: [%#08x][%u]\n", i, r->M[i], r->M[i]);
-+		}
-+	}
-+	if (m == 0)
-+		rl_printf("M[0,%d]:  [%#08x][%u]\n", BPF_MEMWORDS - 1, 0, 0);
-+}
-+
-+static void bpf_dump_pkt(uint8_t *pkt, uint32_t pkt_caplen, uint32_t pkt_len)
-+{
-+	if (pkt_caplen != pkt_len)
-+		rl_printf("cap: %u, len: %u\n", pkt_caplen, pkt_len);
-+	else
-+		rl_printf("len: %u\n", pkt_len);
-+
-+	hex_dump(pkt, pkt_caplen);
-+}
-+
-+static void bpf_disasm_all(const struct sock_filter *f, unsigned int len)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < len; i++)
-+		bpf_disasm(f[i], i);
-+}
-+
-+static void bpf_dump_all(const struct sock_filter *f, unsigned int len)
-+{
-+	unsigned int i;
-+
-+	rl_printf("/* { op, jt, jf, k }, */\n");
-+	for (i = 0; i < len; i++)
-+		rl_printf("{ %#04x, %2u, %2u, %#010x },\n",
-+			  f[i].code, f[i].jt, f[i].jf, f[i].k);
-+}
-+
-+static bool bpf_runnable(struct sock_filter *f, unsigned int len)
-+{
-+	int sock, ret, i;
-+	struct sock_fprog bpf = {
-+		.filter = f,
-+		.len = len,
-+	};
-+
-+	sock = socket(AF_INET, SOCK_DGRAM, 0);
-+	if (sock < 0) {
-+		rl_printf("cannot open socket!\n");
-+		return false;
-+	}
-+	ret = setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf));
-+	if (ret < 0) {
-+		rl_printf("program not allowed to run by kernel!\n");
-+		return false;
-+	}
-+	close(sock);
-+	for (i = 0; i < len; i++) {
-+		if (BPF_CLASS(f[i].code) == BPF_LD &&
-+		    f[i].k > SKF_AD_OFF) {
-+			rl_printf("extensions currently not supported!\n");
-+			return false;
-+		}
-+	}
-+
-+	return true;
-+}
-+
-+static void bpf_reset_breakpoints(void)
-+{
-+	int i;
-+
-+	for (i = 0; i < array_size(bpf_breakpoints); i++)
-+		bpf_breakpoints[i] = -1;
-+}
-+
-+static void bpf_set_breakpoints(unsigned int where)
-+{
-+	int i;
-+	bool set = false;
-+
-+	for (i = 0; i < array_size(bpf_breakpoints); i++) {
-+		if (bpf_breakpoints[i] == (int) where) {
-+			rl_printf("breakpoint already set!\n");
-+			set = true;
-+			break;
-+		}
-+
-+		if (bpf_breakpoints[i] == -1 && set == false) {
-+			bpf_breakpoints[i] = where;
-+			set = true;
-+		}
-+	}
-+
-+	if (!set)
-+		rl_printf("too many breakpoints set, reset first!\n");
-+}
-+
-+static void bpf_dump_breakpoints(void)
-+{
-+	int i;
-+
-+	rl_printf("breakpoints: ");
-+
-+	for (i = 0; i < array_size(bpf_breakpoints); i++) {
-+		if (bpf_breakpoints[i] < 0)
-+			continue;
-+		rl_printf("%d ", bpf_breakpoints[i]);
-+	}
-+
-+	rl_printf("\n");
-+}
-+
-+static void bpf_reset(void)
-+{
-+	bpf_regs_len = 0;
-+
-+	memset(bpf_regs, 0, sizeof(bpf_regs));
-+	memset(&bpf_curr, 0, sizeof(bpf_curr));
-+}
-+
-+static void bpf_safe_regs(void)
-+{
-+	memcpy(&bpf_regs[bpf_regs_len++], &bpf_curr, sizeof(bpf_curr));
-+}
-+
-+static bool bpf_restore_regs(int off)
-+{
-+	unsigned int index = bpf_regs_len - 1 + off;
-+
-+	if (index == 0) {
-+		bpf_reset();
-+		return true;
-+	} else if (index < bpf_regs_len) {
-+		memcpy(&bpf_curr, &bpf_regs[index], sizeof(bpf_curr));
-+		bpf_regs_len = index;
-+		return true;
-+	} else {
-+		rl_printf("reached bottom of register history stack!\n");
-+		return false;
-+	}
-+}
-+
-+static uint32_t extract_u32(uint8_t *pkt, uint32_t off)
-+{
-+	uint32_t r;
-+
-+	memcpy(&r, &pkt[off], sizeof(r));
-+
-+	return ntohl(r);
-+}
-+
-+static uint16_t extract_u16(uint8_t *pkt, uint32_t off)
-+{
-+	uint16_t r;
-+
-+	memcpy(&r, &pkt[off], sizeof(r));
-+
-+	return ntohs(r);
-+}
-+
-+static uint8_t extract_u8(uint8_t *pkt, uint32_t off)
-+{
-+	return pkt[off];
-+}
-+
-+static void set_return(struct bpf_regs *r)
-+{
-+	r->R = 0;
-+	r->Rs = true;
-+}
-+
-+static void bpf_single_step(struct bpf_regs *r, struct sock_filter *f,
-+			    uint8_t *pkt, uint32_t pkt_caplen,
-+			    uint32_t pkt_len)
-+{
-+	uint32_t K = f->k;
-+	int d;
-+
-+	switch (f->code) {
-+	case BPF_RET | BPF_K:
-+		r->R = K;
-+		r->Rs = true;
-+		break;
-+	case BPF_RET | BPF_A:
-+		r->R = r->A;
-+		r->Rs = true;
-+		break;
-+	case BPF_RET | BPF_X:
-+		r->R = r->X;
-+		r->Rs = true;
-+		break;
-+	case BPF_MISC_TAX:
-+		r->X = r->A;
-+		break;
-+	case BPF_MISC_TXA:
-+		r->A = r->X;
-+		break;
-+	case BPF_ST:
-+		r->M[K] = r->A;
-+		break;
-+	case BPF_STX:
-+		r->M[K] = r->X;
-+		break;
-+	case BPF_LD_W | BPF_ABS:
-+		d = pkt_caplen - K;
-+		if (d >= sizeof(uint32_t))
-+			r->A = extract_u32(pkt, K);
-+		else
-+			set_return(r);
-+		break;
-+	case BPF_LD_H | BPF_ABS:
-+		d = pkt_caplen - K;
-+		if (d >= sizeof(uint16_t))
-+			r->A = extract_u16(pkt, K);
-+		else
-+			set_return(r);
-+		break;
-+	case BPF_LD_B | BPF_ABS:
-+		d = pkt_caplen - K;
-+		if (d >= sizeof(uint8_t))
-+			r->A = extract_u8(pkt, K);
-+		else
-+			set_return(r);
-+		break;
-+	case BPF_LD_W | BPF_IND:
-+		d = pkt_caplen - (r->X + K);
-+		if (d >= sizeof(uint32_t))
-+			r->A = extract_u32(pkt, r->X + K);
-+		break;
-+	case BPF_LD_H | BPF_IND:
-+		d = pkt_caplen - (r->X + K);
-+		if (d >= sizeof(uint16_t))
-+			r->A = extract_u16(pkt, r->X + K);
-+		else
-+			set_return(r);
-+		break;
-+	case BPF_LD_B | BPF_IND:
-+		d = pkt_caplen - (r->X + K);
-+		if (d >= sizeof(uint8_t))
-+			r->A = extract_u8(pkt, r->X + K);
-+		else
-+			set_return(r);
-+		break;
-+	case BPF_LDX_B | BPF_MSH:
-+		d = pkt_caplen - K;
-+		if (d >= sizeof(uint8_t)) {
-+			r->X = extract_u8(pkt, K);
-+			r->X = (r->X & 0xf) << 2;
-+		} else
-+			set_return(r);
-+		break;
-+	case BPF_LD_W | BPF_LEN:
-+		r->A = pkt_len;
-+		break;
-+	case BPF_LDX_W | BPF_LEN:
-+		r->A = pkt_len;
-+		break;
-+	case BPF_LD | BPF_IMM:
-+		r->A = K;
-+		break;
-+	case BPF_LDX | BPF_IMM:
-+		r->X = K;
-+		break;
-+	case BPF_LD | BPF_MEM:
-+		r->A = r->M[K];
-+		break;
-+	case BPF_LDX | BPF_MEM:
-+		r->X = r->M[K];
-+		break;
-+	case BPF_JMP_JA:
-+		r->Pc += K;
-+		break;
-+	case BPF_JMP_JGT | BPF_X:
-+		r->Pc += r->A > r->X ? f->jt : f->jf;
-+		break;
-+	case BPF_JMP_JGT | BPF_K:
-+		r->Pc += r->A > K ? f->jt : f->jf;
-+		break;
-+	case BPF_JMP_JGE | BPF_X:
-+		r->Pc += r->A >= r->X ? f->jt : f->jf;
-+		break;
-+	case BPF_JMP_JGE | BPF_K:
-+		r->Pc += r->A >= K ? f->jt : f->jf;
-+		break;
-+	case BPF_JMP_JEQ | BPF_X:
-+		r->Pc += r->A == r->X ? f->jt : f->jf;
-+		break;
-+	case BPF_JMP_JEQ | BPF_K:
-+		r->Pc += r->A == K ? f->jt : f->jf;
-+		break;
-+	case BPF_JMP_JSET | BPF_X:
-+		r->Pc += r->A & r->X ? f->jt : f->jf;
-+		break;
-+	case BPF_JMP_JSET | BPF_K:
-+		r->Pc += r->A & K ? f->jt : f->jf;
-+		break;
-+	case BPF_ALU_NEG:
-+		r->A = -r->A;
-+		break;
-+	case BPF_ALU_LSH | BPF_X:
-+		r->A <<= r->X;
-+		break;
-+	case BPF_ALU_LSH | BPF_K:
-+		r->A <<= K;
-+		break;
-+	case BPF_ALU_RSH | BPF_X:
-+		r->A >>= r->X;
-+		break;
-+	case BPF_ALU_RSH | BPF_K:
-+		r->A >>= K;
-+		break;
-+	case BPF_ALU_ADD | BPF_X:
-+		r->A += r->X;
-+		break;
-+	case BPF_ALU_ADD | BPF_K:
-+		r->A += K;
-+		break;
-+	case BPF_ALU_SUB | BPF_X:
-+		r->A -= r->X;
-+		break;
-+	case BPF_ALU_SUB | BPF_K:
-+		r->A -= K;
-+		break;
-+	case BPF_ALU_MUL | BPF_X:
-+		r->A *= r->X;
-+		break;
-+	case BPF_ALU_MUL | BPF_K:
-+		r->A *= K;
-+		break;
-+	case BPF_ALU_DIV | BPF_X:
-+	case BPF_ALU_MOD | BPF_X:
-+		if (r->X == 0) {
-+			set_return(r);
-+			break;
-+		}
-+		goto do_div;
-+	case BPF_ALU_DIV | BPF_K:
-+	case BPF_ALU_MOD | BPF_K:
-+		if (K == 0) {
-+			set_return(r);
-+			break;
-+		}
-+do_div:
-+		switch (f->code) {
-+		case BPF_ALU_DIV | BPF_X:
-+			r->A /= r->X;
-+			break;
-+		case BPF_ALU_DIV | BPF_K:
-+			r->A /= K;
-+			break;
-+		case BPF_ALU_MOD | BPF_X:
-+			r->A %= r->X;
-+			break;
-+		case BPF_ALU_MOD | BPF_K:
-+			r->A %= K;
-+			break;
-+		}
-+		break;
-+	case BPF_ALU_AND | BPF_X:
-+		r->A &= r->X;
-+		break;
-+	case BPF_ALU_AND | BPF_K:
-+		r->A &= r->X;
-+		break;
-+	case BPF_ALU_OR | BPF_X:
-+		r->A |= r->X;
-+		break;
-+	case BPF_ALU_OR | BPF_K:
-+		r->A |= K;
-+		break;
-+	case BPF_ALU_XOR | BPF_X:
-+		r->A ^= r->X;
-+		break;
-+	case BPF_ALU_XOR | BPF_K:
-+		r->A ^= K;
-+		break;
-+	}
-+}
-+
-+static bool bpf_pc_has_breakpoint(uint16_t pc)
-+{
-+	int i;
-+
-+	for (i = 0; i < array_size(bpf_breakpoints); i++) {
-+		if (bpf_breakpoints[i] < 0)
-+			continue;
-+		if (bpf_breakpoints[i] == pc)
-+			return true;
-+	}
-+
-+	return false;
-+}
-+
-+static bool bpf_handle_breakpoint(struct bpf_regs *r, struct sock_filter *f,
-+				  uint8_t *pkt, uint32_t pkt_caplen,
-+				  uint32_t pkt_len)
-+{
-+	rl_printf("-- register dump --\n");
-+	bpf_dump_curr(r, &f[r->Pc]);
-+	rl_printf("-- packet dump --\n");
-+	bpf_dump_pkt(pkt, pkt_caplen, pkt_len);
-+	rl_printf("(breakpoint)\n");
-+	return true;
-+}
-+
-+static int bpf_run_all(struct sock_filter *f, uint16_t bpf_len, uint8_t *pkt,
-+		       uint32_t pkt_caplen, uint32_t pkt_len)
-+{
-+	bool stop = false;
-+
-+	while (bpf_curr.Rs == false && stop == false) {
-+		bpf_safe_regs();
-+
-+		if (bpf_pc_has_breakpoint(bpf_curr.Pc))
-+			stop = bpf_handle_breakpoint(&bpf_curr, f, pkt,
-+						     pkt_caplen, pkt_len);
-+
-+		bpf_single_step(&bpf_curr, &f[bpf_curr.Pc], pkt, pkt_caplen,
-+				pkt_len);
-+		bpf_curr.Pc++;
-+	}
-+
-+	return stop ? -1 : bpf_curr.R;
-+}
-+
-+static int bpf_run_stepping(struct sock_filter *f, uint16_t bpf_len,
-+			    uint8_t *pkt, uint32_t pkt_caplen,
-+			    uint32_t pkt_len, int next)
-+{
-+	bool stop = false;
-+	int i = 1;
-+
-+	while (bpf_curr.Rs == false && stop == false) {
-+		bpf_safe_regs();
-+
-+		if (i++ == next)
-+			stop = bpf_handle_breakpoint(&bpf_curr, f, pkt,
-+						     pkt_caplen, pkt_len);
-+
-+		bpf_single_step(&bpf_curr, &f[bpf_curr.Pc], pkt, pkt_caplen,
-+				pkt_len);
-+		bpf_curr.Pc++;
-+	}
-+
-+	return stop ? -1 : bpf_curr.R;
-+}
-+
-+static bool pcap_loaded(void)
-+{
-+	if (pcap_fd < 0)
-+		rl_printf("no pcap file loaded!\n");
-+
-+	return pcap_fd >= 0;
-+}
-+
-+static struct pcap_pkthdr *pcap_curr_pkt(void)
-+{
-+	return (void *) pcap_ptr_va_curr;
-+}
-+
-+static bool pcap_next_pkt(void)
-+{
-+	struct pcap_pkthdr *hdr = pcap_curr_pkt();
-+
-+	if (pcap_ptr_va_curr + sizeof(*hdr) -
-+	    pcap_ptr_va_start >= pcap_map_size)
-+		return false;
-+	if (hdr->caplen == 0 || hdr->len == 0 || hdr->caplen > hdr->len)
-+		return false;
-+	if (pcap_ptr_va_curr + sizeof(*hdr) + hdr->caplen -
-+	    pcap_ptr_va_start >= pcap_map_size)
-+		return false;
-+
-+	pcap_ptr_va_curr += (sizeof(*hdr) + hdr->caplen);
-+	return true;
-+}
-+
-+static void pcap_reset_pkt(void)
-+{
-+	pcap_ptr_va_curr = pcap_ptr_va_start + sizeof(struct pcap_filehdr);
-+}
-+
-+static int try_load_pcap(const char *file)
-+{
-+	struct pcap_filehdr *hdr;
-+	struct stat sb;
-+	int ret;
-+
-+	pcap_fd = open(file, O_RDONLY);
-+	if (pcap_fd < 0) {
-+		rl_printf("cannot open pcap [%s]!\n", strerror(errno));
-+		return CMD_ERR;
-+	}
-+
-+	ret = fstat(pcap_fd, &sb);
-+	if (ret < 0) {
-+		rl_printf("cannot fstat pcap file!\n");
-+		return CMD_ERR;
-+	}
-+
-+	if (!S_ISREG(sb.st_mode)) {
-+		rl_printf("not a regular pcap file, duh!\n");
-+		return CMD_ERR;
-+	}
-+
-+	pcap_map_size = sb.st_size;
-+	if (pcap_map_size <= sizeof(struct pcap_filehdr)) {
-+		rl_printf("pcap file too small!\n");
-+		return CMD_ERR;
-+	}
-+
-+	pcap_ptr_va_start = mmap(NULL, pcap_map_size, PROT_READ,
-+				 MAP_SHARED | MAP_LOCKED, pcap_fd, 0);
-+	if (pcap_ptr_va_start == MAP_FAILED) {
-+		rl_printf("mmap of file failed!");
-+		return CMD_ERR;
-+	}
-+
-+	hdr = (void *) pcap_ptr_va_start;
-+	if (hdr->magic != TCPDUMP_MAGIC) {
-+		rl_printf("wrong pcap magic!\n");
-+		return CMD_ERR;
-+	}
-+
-+	pcap_reset_pkt();
-+
-+	return CMD_OK;
-+
-+}
-+
-+static void try_close_pcap(void)
-+{
-+	if (pcap_fd >= 0) {
-+		munmap(pcap_ptr_va_start, pcap_map_size);
-+		close(pcap_fd);
-+
-+		pcap_ptr_va_start = pcap_ptr_va_curr = NULL;
-+		pcap_map_size = 0;
-+		pcap_packet = 0;
-+		pcap_fd = -1;
-+	}
-+}
-+
-+static int cmd_load_bpf(char *bpf_string)
-+{
-+	char sp, *token, separator = ',';
-+	unsigned short bpf_len, i = 0;
-+	struct sock_filter tmp;
-+
-+	bpf_prog_len = 0;
-+	memset(bpf_image, 0, sizeof(bpf_image));
-+
-+	if (sscanf(bpf_string, "%hu%c", &bpf_len, &sp) != 2 ||
-+	    sp != separator || bpf_len > BPF_MAXINSNS || bpf_len == 0) {
-+		rl_printf("syntax error in head length encoding!\n");
-+		return CMD_ERR;
-+	}
-+
-+	token = bpf_string;
-+	while ((token = strchr(token, separator)) && (++token)[0]) {
-+		if (i >= bpf_len) {
-+			rl_printf("program exceeds encoded length!\n");
-+			return CMD_ERR;
-+		}
-+
-+		if (sscanf(token, "%hu %hhu %hhu %u,",
-+			   &tmp.code, &tmp.jt, &tmp.jf, &tmp.k) != 4) {
-+			rl_printf("syntax error at instruction %d!\n", i);
-+			return CMD_ERR;
-+		}
-+
-+		bpf_image[i].code = tmp.code;
-+		bpf_image[i].jt = tmp.jt;
-+		bpf_image[i].jf = tmp.jf;
-+		bpf_image[i].k = tmp.k;
-+
-+		i++;
-+	}
-+
-+	if (i != bpf_len) {
-+		rl_printf("syntax error exceeding encoded length!\n");
-+		return CMD_ERR;
-+	} else
-+		bpf_prog_len = bpf_len;
-+	if (!bpf_runnable(bpf_image, bpf_prog_len))
-+		bpf_prog_len = 0;
-+
-+	return CMD_OK;
-+}
-+
-+static int cmd_load_pcap(char *file)
-+{
-+	char *file_trim, *tmp;
-+
-+	file_trim = strtok_r(file, " ", &tmp);
-+	if (file_trim == NULL)
-+		return CMD_ERR;
-+
-+	try_close_pcap();
-+
-+	return try_load_pcap(file_trim);
-+}
-+
-+static int cmd_load(char *arg)
-+{
-+	char *subcmd, *cont, *tmp = strdup(arg);
-+	int ret = CMD_OK;
-+
-+	subcmd = strtok_r(tmp, " ", &cont);
-+	if (subcmd == NULL)
-+		goto out;
-+	if (matches(subcmd, "bpf") == 0) {
-+		bpf_reset();
-+		bpf_reset_breakpoints();
-+
-+		ret = cmd_load_bpf(cont);
-+	} else if (matches(subcmd, "pcap") == 0) {
-+		ret = cmd_load_pcap(cont);
-+	} else {
-+out:
-+		rl_printf("bpf <code>:  load bpf code\n");
-+		rl_printf("pcap <file>: load pcap file\n");
-+		ret = CMD_ERR;
-+	}
-+
-+	free(tmp);
-+	return ret;
-+}
-+
-+static int cmd_step(char *num)
-+{
-+	struct pcap_pkthdr *hdr;
-+	int steps, ret;
-+
-+	if (!bpf_prog_loaded() || !pcap_loaded())
-+		return CMD_ERR;
-+
-+	steps = strtol(num, NULL, 10);
-+	if (steps == 0 || strlen(num) == 0)
-+		steps = 1;
-+	if (steps < 0) {
-+		if (!bpf_restore_regs(steps))
-+			return CMD_ERR;
-+		steps = 1;
-+	}
-+
-+	hdr = pcap_curr_pkt();
-+	ret = bpf_run_stepping(bpf_image, bpf_prog_len,
-+			       (uint8_t *) hdr + sizeof(*hdr),
-+			       hdr->caplen, hdr->len, steps);
-+	if (ret >= 0 || bpf_curr.Rs) {
-+		bpf_reset();
-+		if (!pcap_next_pkt()) {
-+			rl_printf("(going back to first packet)\n");
-+			pcap_reset_pkt();
-+		} else {
-+			rl_printf("(next packet)\n");
-+		}
-+	}
-+
-+	return CMD_OK;
-+}
-+
-+static int cmd_select(char *num)
-+{
-+	unsigned int which, i;
-+	struct pcap_pkthdr *hdr;
-+	bool have_next = true;
-+
-+	if (!pcap_loaded() || strlen(num) == 0)
-+		return CMD_ERR;
-+
-+	which = strtoul(num, NULL, 10);
-+	if (which == 0) {
-+		rl_printf("packet count starts with 1, clamping!\n");
-+		which = 1;
-+	}
-+
-+	pcap_reset_pkt();
-+	bpf_reset();
-+
-+	for (i = 0; i < which && (have_next = pcap_next_pkt()); i++)
-+		/* noop */;
-+	if (!have_next || (hdr = pcap_curr_pkt()) == NULL) {
-+		rl_printf("no packet #%u available!\n", which);
-+		pcap_reset_pkt();
-+		return CMD_ERR;
-+	}
-+
-+	return CMD_OK;
-+}
-+
-+static int cmd_breakpoint(char *subcmd)
-+{
-+	if (!bpf_prog_loaded())
-+		return CMD_ERR;
-+	if (strlen(subcmd) == 0)
-+		bpf_dump_breakpoints();
-+	else if (matches(subcmd, "reset") == 0)
-+		bpf_reset_breakpoints();
-+	else {
-+		unsigned int where = strtoul(subcmd, NULL, 10);
-+
-+		if (where < bpf_prog_len) {
-+			bpf_set_breakpoints(where);
-+			rl_printf("breakpoint at: ");
-+			bpf_disasm(bpf_image[where], where);
-+		}
-+	}
-+
-+	return CMD_OK;
-+}
-+
-+static int cmd_run(char *num)
-+{
-+	static uint32_t pass = 0, fail = 0;
-+	struct pcap_pkthdr *hdr;
-+	bool has_limit = true;
-+	int ret, pkts = 0, i = 0;
-+
-+	if (!bpf_prog_loaded() || !pcap_loaded())
-+		return CMD_ERR;
-+
-+	pkts = strtol(num, NULL, 10);
-+	if (pkts == 0 || strlen(num) == 0)
-+		has_limit = false;
-+
-+	do {
-+		hdr = pcap_curr_pkt();
-+		ret = bpf_run_all(bpf_image, bpf_prog_len,
-+				  (uint8_t *) hdr + sizeof(*hdr),
-+				  hdr->caplen, hdr->len);
-+		if (ret > 0)
-+			pass++;
-+		else if (ret == 0)
-+			fail++;
-+		else
-+			return CMD_OK;
-+		bpf_reset();
-+	} while (pcap_next_pkt() && (!has_limit || (has_limit && ++i < pkts)));
-+
-+	rl_printf("bpf passes:%u fails:%u\n", pass, fail);
-+
-+	pcap_reset_pkt();
-+	bpf_reset();
-+
-+	pass = fail = 0;
-+	return CMD_OK;
-+}
-+
-+static int cmd_disassemble(char *line_string)
-+{
-+	bool single_line = false;
-+	unsigned long line;
-+
-+	if (!bpf_prog_loaded())
-+		return CMD_ERR;
-+	if (strlen(line_string) > 0 &&
-+	    (line = strtoul(line_string, NULL, 10)) < bpf_prog_len)
-+		single_line = true;
-+	if (single_line)
-+		bpf_disasm(bpf_image[line], line);
-+	else
-+		bpf_disasm_all(bpf_image, bpf_prog_len);
-+
-+	return CMD_OK;
-+}
-+
-+static int cmd_dump(char *dontcare)
-+{
-+	if (!bpf_prog_loaded())
-+		return CMD_ERR;
-+
-+	bpf_dump_all(bpf_image, bpf_prog_len);
-+
-+	return CMD_OK;
-+}
-+
-+static int cmd_quit(char *dontcare)
-+{
-+	return CMD_EX;
-+}
-+
-+static const struct shell_cmd cmds[] = {
-+	CMD("load",		cmd_load),
-+	CMD("select",		cmd_select),
-+	CMD("step",		cmd_step),
-+	CMD("run",		cmd_run),
-+	CMD("breakpoint",	cmd_breakpoint),
-+	CMD("disassemble",	cmd_disassemble),
-+	CMD("dump",		cmd_dump),
-+	CMD("quit",		cmd_quit),
-+};
-+
-+static int execf(char *arg)
-+{
-+	char *cmd, *cont, *tmp = strdup(arg);
-+	int i, ret = 0, len;
-+
-+	cmd = strtok_r(tmp, " ", &cont);
-+	if (cmd == NULL)
-+		goto out;
-+	len = strlen(cmd);
-+	for (i = 0; i < array_size(cmds); i++) {
-+		if (len != strlen(cmds[i].name))
-+			continue;
-+		if (strncmp(cmds[i].name, cmd, len) == 0) {
-+			ret = cmds[i].func(cont);
-+			break;
-+		}
-+	}
-+out:
-+	free(tmp);
-+	return ret;
-+}
-+
-+static char *shell_comp_gen(const char *buf, int state)
-+{
-+	static int list_index, len;
-+	const char *name;
-+
-+	if (!state) {
-+		list_index = 0;
-+		len = strlen(buf);
-+	}
-+
-+	for (; list_index < array_size(cmds); ) {
-+		name = cmds[list_index].name;
-+		list_index++;
-+
-+		if (strncmp(name, buf, len) == 0)
-+			return strdup(name);
-+	}
-+
-+	return NULL;
-+}
-+
-+static char **shell_completion(const char *buf, int start, int end)
-+{
-+	char **matches = NULL;
-+
-+	if (start == 0)
-+		matches = rl_completion_matches(buf, shell_comp_gen);
-+
-+	return matches;
-+}
-+
-+static void intr_shell(int sig)
-+{
-+	if (rl_end)
-+		rl_kill_line(-1, 0);
-+
-+	rl_crlf();
-+	rl_refresh_line(0, 0);
-+	rl_free_line_state();
-+}
-+
-+static void init_shell(FILE *fin, FILE *fout)
-+{
-+	char file[128];
-+
-+	memset(file, 0, sizeof(file));
-+	snprintf(file, sizeof(file) - 1,
-+		 "%s/.bpf_dbg_history", getenv("HOME"));
-+
-+	read_history(file);
-+
-+	memset(file, 0, sizeof(file));
-+	snprintf(file, sizeof(file) - 1,
-+		 "%s/.bpf_dbg_init", getenv("HOME"));
-+
-+	rl_instream = fin;
-+	rl_outstream = fout;
-+
-+	rl_readline_name = "bpf_dbg";
-+	rl_terminal_name = getenv("TERM");
-+
-+	rl_catch_signals = 0;
-+	rl_catch_sigwinch = 1;
-+
-+	rl_attempted_completion_function = shell_completion;
-+
-+	rl_bind_key('\t', rl_complete);
-+
-+	rl_bind_key_in_map('\t', rl_complete, emacs_meta_keymap);
-+	rl_bind_key_in_map('\033', rl_complete, emacs_meta_keymap);
-+
-+	rl_read_init_file(file);
-+	rl_prep_terminal(0);
-+	rl_set_signals();
-+
-+	signal(SIGINT, intr_shell);
-+}
-+
-+static void exit_shell(void)
-+{
-+	char file[128];
-+
-+	memset(file, 0, sizeof(file));
-+	snprintf(file, sizeof(file) - 1,
-+		 "%s/.bpf_dbg_history", getenv("HOME"));
-+
-+	write_history(file);
-+	clear_history();
-+	rl_deprep_terminal();
-+
-+	try_close_pcap();
-+}
-+
-+static int run_shell_loop(FILE *fin, FILE *fout)
-+{
-+	char *buf;
-+	int ret;
-+
-+	init_shell(fin, fout);
-+
-+	while ((buf = readline("> ")) != NULL) {
-+		ret = execf(buf);
-+		if (ret == CMD_EX)
-+			break;
-+		if (ret == CMD_OK && strlen(buf) > 0)
-+			add_history(buf);
-+
-+		free(buf);
-+	}
-+
-+	exit_shell();
-+	return 0;
-+}
++extern void bpf_asm_compile(FILE *fp, bool cstyle);
 +
 +int main(int argc, char **argv)
 +{
-+	FILE *fin = NULL, *fout = NULL;
++	FILE *fp = stdin;
++	bool cstyle = false;
++	int i;
 +
-+	if (argc >= 2)
-+		fin = fopen(argv[1], "r");
-+	if (argc >= 3)
-+		fout = fopen(argv[2], "w");
++	for (i = 1; i < argc; i++) {
++		if (!strncmp("-c", argv[i], 2)) {
++			cstyle = true;
++			continue;
++		}
 +
-+	return run_shell_loop(fin ? : stdin, fout ? : stdout);
++		fp = fopen(argv[i], "r");
++		if (!fp) {
++			fp = stdin;
++			continue;
++		}
++
++		break;
++	}
++
++	bpf_asm_compile(fp, cstyle);
++
++	return 0;
++}
+diff --git a/tools/net/bpf_exp.l b/tools/net/bpf_exp.l
+new file mode 100644
+index 0000000..bf7be77
+--- /dev/null
++++ b/tools/net/bpf_exp.l
+@@ -0,0 +1,143 @@
++/*
++ * BPF asm code lexer
++ *
++ * This program is free software; you can distribute it and/or modify
++ * it under the terms of the GNU General Public License as published
++ * by the Free Software Foundation; either version 2 of the License,
++ * or (at your option) any later version.
++ *
++ * Syntax kept close to:
++ *
++ * Steven McCanne and Van Jacobson. 1993. The BSD packet filter: a new
++ * architecture for user-level packet capture. In Proceedings of the
++ * USENIX Winter 1993 Conference Proceedings on USENIX Winter 1993
++ * Conference Proceedings (USENIX'93). USENIX Association, Berkeley,
++ * CA, USA, 2-2.
++ *
++ * Copyright 2013 Daniel Borkmann <borkmann@redhat.com>
++ * Licensed under the GNU General Public License, version 2.0 (GPLv2)
++ */
++
++%{
++
++#include <stdio.h>
++#include <stdint.h>
++#include <stdlib.h>
++
++#include "bpf_exp.yacc.h"
++
++extern void yyerror(const char *str);
++
++%}
++
++%option align
++%option ecs
++
++%option nounput
++%option noreject
++%option noinput
++%option noyywrap
++
++%option 8bit
++%option caseless
++%option yylineno
++
++%%
++
++"ldb"		{ return OP_LDB; }
++"ldh"		{ return OP_LDH; }
++"ld"		{ return OP_LD; }
++"ldi"		{ return OP_LDI; }
++"ldx"		{ return OP_LDX; }
++"ldxi"		{ return OP_LDXI; }
++"ldxb"		{ return OP_LDXB; }
++"st"		{ return OP_ST; }
++"stx"		{ return OP_STX; }
++"jmp"		{ return OP_JMP; }
++"ja"		{ return OP_JMP; }
++"jeq"		{ return OP_JEQ; }
++"jneq"		{ return OP_JNEQ; }
++"jne"		{ return OP_JNEQ; }
++"jlt"		{ return OP_JLT; }
++"jle"		{ return OP_JLE; }
++"jgt"		{ return OP_JGT; }
++"jge"		{ return OP_JGE; }
++"jset"		{ return OP_JSET; }
++"add"		{ return OP_ADD; }
++"sub"		{ return OP_SUB; }
++"mul"		{ return OP_MUL; }
++"div"		{ return OP_DIV; }
++"mod"		{ return OP_MOD; }
++"neg"		{ return OP_NEG; }
++"and"		{ return OP_AND; }
++"xor"		{ return OP_XOR; }
++"or"		{ return OP_OR; }
++"lsh"		{ return OP_LSH; }
++"rsh"		{ return OP_RSH; }
++"ret"		{ return OP_RET; }
++"tax"		{ return OP_TAX; }
++"txa"		{ return OP_TXA; }
++
++"#"?("len")	{ return K_PKT_LEN; }
++"#"?("proto")	{ return K_PROTO; }
++"#"?("type")	{ return K_TYPE; }
++"#"?("poff")	{ return K_POFF; }
++"#"?("ifidx")	{ return K_IFIDX; }
++"#"?("nla")	{ return K_NLATTR; }
++"#"?("nlan")	{ return K_NLATTR_NEST; }
++"#"?("mark")	{ return K_MARK; }
++"#"?("queue")	{ return K_QUEUE; }
++"#"?("hatype")	{ return K_HATYPE; }
++"#"?("rxhash")	{ return K_RXHASH; }
++"#"?("cpu")	{ return K_CPU; }
++"#"?("vlan_tci") { return K_VLANT; }
++"#"?("vlan_pr")	{ return K_VLANP; }
++
++":"		{ return ':'; }
++","		{ return ','; }
++"#"		{ return '#'; }
++"%"		{ return '%'; }
++"["		{ return '['; }
++"]"		{ return ']'; }
++"("		{ return '('; }
++")"		{ return ')'; }
++"x"		{ return 'x'; }
++"a"		{ return 'a'; }
++"+"		{ return '+'; }
++"M"		{ return 'M'; }
++"*"		{ return '*'; }
++"&"		{ return '&'; }
++
++([0][x][a-fA-F0-9]+) {
++			yylval.number = strtoul(yytext, NULL, 16);
++			return number;
++		}
++([0][b][0-1]+)	{
++			yylval.number = strtol(yytext + 2, NULL, 2);
++			return number;
++		}
++(([0])|([-+]?[1-9][0-9]*)) {
++			yylval.number = strtol(yytext, NULL, 10);
++			return number;
++		}
++([0][0-9]+)	{
++			yylval.number = strtol(yytext + 1, NULL, 8);
++			return number;
++		}
++[a-zA-Z_][a-zA-Z0-9_]+ {
++			yylval.label = strdup(yytext);
++			return label;
++		}
++
++"/*"([^\*]|\*[^/])*"*/"		{ /* NOP */ }
++";"[^\n]*			{ /* NOP */ }
++^#.*				{ /* NOP */ }
++[ \t]+				{ /* NOP */ }
++[ \n]+				{ /* NOP */ }
++
++.		{
++			printf("unknown character \'%s\'", yytext);
++			yyerror("lex unknown character");
++		}
++
++%%
+diff --git a/tools/net/bpf_exp.y b/tools/net/bpf_exp.y
+new file mode 100644
+index 0000000..f524110
+--- /dev/null
++++ b/tools/net/bpf_exp.y
+@@ -0,0 +1,749 @@
++/*
++ * BPF asm code parser
++ *
++ * This program is free software; you can distribute it and/or modify
++ * it under the terms of the GNU General Public License as published
++ * by the Free Software Foundation; either version 2 of the License,
++ * or (at your option) any later version.
++ *
++ * Syntax kept close to:
++ *
++ * Steven McCanne and Van Jacobson. 1993. The BSD packet filter: a new
++ * architecture for user-level packet capture. In Proceedings of the
++ * USENIX Winter 1993 Conference Proceedings on USENIX Winter 1993
++ * Conference Proceedings (USENIX'93). USENIX Association, Berkeley,
++ * CA, USA, 2-2.
++ *
++ * Copyright 2013 Daniel Borkmann <borkmann@redhat.com>
++ * Licensed under the GNU General Public License, version 2.0 (GPLv2)
++ */
++
++%{
++
++#include <stdio.h>
++#include <string.h>
++#include <stdint.h>
++#include <stdlib.h>
++#include <stdbool.h>
++#include <unistd.h>
++#include <errno.h>
++#include <assert.h>
++#include <linux/filter.h>
++
++#include "bpf_exp.yacc.h"
++
++enum jmp_type { JTL, JFL, JKL };
++
++extern FILE *yyin;
++extern int yylex(void);
++extern void yyerror(const char *str);
++
++extern void bpf_asm_compile(FILE *fp, bool cstyle);
++static void bpf_set_curr_instr(uint16_t op, uint8_t jt, uint8_t jf, uint32_t k);
++static void bpf_set_curr_label(const char *label);
++static void bpf_set_jmp_label(const char *label, enum jmp_type type);
++
++%}
++
++%union {
++	char *label;
++	uint32_t number;
++}
++
++%token OP_LDB OP_LDH OP_LD OP_LDX OP_ST OP_STX OP_JMP OP_JEQ OP_JGT OP_JGE
++%token OP_JSET OP_ADD OP_SUB OP_MUL OP_DIV OP_AND OP_OR OP_XOR OP_LSH OP_RSH
++%token OP_RET OP_TAX OP_TXA OP_LDXB OP_MOD OP_NEG OP_JNEQ OP_JLT OP_JLE OP_LDI
++%token OP_LDXI
++
++%token K_PKT_LEN K_PROTO K_TYPE K_NLATTR K_NLATTR_NEST K_MARK K_QUEUE K_HATYPE
++%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF
++
++%token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
++
++%token number label
++
++%type <label> label
++%type <number> number
++
++%%
++
++prog
++	: line
++	| prog line
++	;
++
++line
++	: instr
++	| labelled_instr
++	;
++
++labelled_instr
++	: labelled instr
++	;
++
++instr
++	: ldb
++	| ldh
++	| ld
++	| ldi
++	| ldx
++	| ldxi
++	| st
++	| stx
++	| jmp
++	| jeq
++	| jneq
++	| jlt
++	| jle
++	| jgt
++	| jge
++	| jset
++	| add
++	| sub
++	| mul
++	| div
++	| mod
++	| neg
++	| and
++	| or
++	| xor
++	| lsh
++	| rsh
++	| ret
++	| tax
++	| txa
++	;
++
++labelled
++	: label ':' { bpf_set_curr_label($1); }
++	;
++
++ldb
++	: OP_LDB '[' 'x' '+' number ']' {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_IND, 0, 0, $5); }
++	| OP_LDB '[' '%' 'x' '+' number ']' {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_IND, 0, 0, $6); }
++	| OP_LDB '[' number ']' {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0, $3); }
++	| OP_LDB K_PROTO {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_PROTOCOL); }
++	| OP_LDB K_TYPE {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_PKTTYPE); }
++	| OP_LDB K_IFIDX {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_IFINDEX); }
++	| OP_LDB K_NLATTR {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_NLATTR); }
++	| OP_LDB K_NLATTR_NEST {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_NLATTR_NEST); }
++	| OP_LDB K_MARK {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_MARK); }
++	| OP_LDB K_QUEUE {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_QUEUE); }
++	| OP_LDB K_HATYPE {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_HATYPE); }
++	| OP_LDB K_RXHASH {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_RXHASH); }
++	| OP_LDB K_CPU {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_CPU); }
++	| OP_LDB K_VLANT {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_VLAN_TAG); }
++	| OP_LDB K_VLANP {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_VLAN_TAG_PRESENT); }
++	| OP_LDB K_POFF {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
++	;
++
++ldh
++	: OP_LDH '[' 'x' '+' number ']' {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_IND, 0, 0, $5); }
++	| OP_LDH '[' '%' 'x' '+' number ']' {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_IND, 0, 0, $6); }
++	| OP_LDH '[' number ']' {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0, $3); }
++	| OP_LDH K_PROTO {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_PROTOCOL); }
++	| OP_LDH K_TYPE {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_PKTTYPE); }
++	| OP_LDH K_IFIDX {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_IFINDEX); }
++	| OP_LDH K_NLATTR {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_NLATTR); }
++	| OP_LDH K_NLATTR_NEST {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_NLATTR_NEST); }
++	| OP_LDH K_MARK {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_MARK); }
++	| OP_LDH K_QUEUE {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_QUEUE); }
++	| OP_LDH K_HATYPE {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_HATYPE); }
++	| OP_LDH K_RXHASH {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_RXHASH); }
++	| OP_LDH K_CPU {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_CPU); }
++	| OP_LDH K_VLANT {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_VLAN_TAG); }
++	| OP_LDH K_VLANP {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_VLAN_TAG_PRESENT); }
++	| OP_LDH K_POFF {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
++	;
++
++ldi
++	: OP_LDI '#' number {
++		bpf_set_curr_instr(BPF_LD | BPF_IMM, 0, 0, $3); }
++	| OP_LDI number {
++		bpf_set_curr_instr(BPF_LD | BPF_IMM, 0, 0, $2); }
++	;
++
++ld
++	: OP_LD '#' number {
++		bpf_set_curr_instr(BPF_LD | BPF_IMM, 0, 0, $3); }
++	| OP_LD K_PKT_LEN {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_LEN, 0, 0, 0); }
++	| OP_LD K_PROTO {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_PROTOCOL); }
++	| OP_LD K_TYPE {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_PKTTYPE); }
++	| OP_LD K_IFIDX {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_IFINDEX); }
++	| OP_LD K_NLATTR {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_NLATTR); }
++	| OP_LD K_NLATTR_NEST {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_NLATTR_NEST); }
++	| OP_LD K_MARK {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_MARK); }
++	| OP_LD K_QUEUE {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_QUEUE); }
++	| OP_LD K_HATYPE {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_HATYPE); }
++	| OP_LD K_RXHASH {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_RXHASH); }
++	| OP_LD K_CPU {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_CPU); }
++	| OP_LD K_VLANT {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_VLAN_TAG); }
++	| OP_LD K_VLANP {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_VLAN_TAG_PRESENT); }
++	| OP_LD K_POFF {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
++	| OP_LD 'M' '[' number ']' {
++		bpf_set_curr_instr(BPF_LD | BPF_MEM, 0, 0, $4); }
++	| OP_LD '[' 'x' '+' number ']' {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_IND, 0, 0, $5); }
++	| OP_LD '[' '%' 'x' '+' number ']' {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_IND, 0, 0, $6); }
++	| OP_LD '[' number ']' {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0, $3); }
++	;
++
++ldxi
++	: OP_LDXI '#' number {
++		bpf_set_curr_instr(BPF_LDX | BPF_IMM, 0, 0, $3); }
++	| OP_LDXI number {
++		bpf_set_curr_instr(BPF_LDX | BPF_IMM, 0, 0, $2); }
++	;
++
++ldx
++	: OP_LDX '#' number {
++		bpf_set_curr_instr(BPF_LDX | BPF_IMM, 0, 0, $3); }
++	| OP_LDX K_PKT_LEN {
++		bpf_set_curr_instr(BPF_LDX | BPF_W | BPF_LEN, 0, 0, 0); }
++	| OP_LDX 'M' '[' number ']' {
++		bpf_set_curr_instr(BPF_LDX | BPF_MEM, 0, 0, $4); }
++	| OP_LDXB number '*' '(' '[' number ']' '&' number ')' {
++		if ($2 != 4 || $9 != 0xf) {
++			fprintf(stderr, "ldxb offset not supported!\n");
++			exit(0);
++		} else {
++			bpf_set_curr_instr(BPF_LDX | BPF_MSH | BPF_B, 0, 0, $6); } }
++	| OP_LDX number '*' '(' '[' number ']' '&' number ')' {
++		if ($2 != 4 || $9 != 0xf) {
++			fprintf(stderr, "ldxb offset not supported!\n");
++			exit(0);
++		} else {
++			bpf_set_curr_instr(BPF_LDX | BPF_MSH | BPF_B, 0, 0, $6); } }
++	;
++
++st
++	: OP_ST 'M' '[' number ']' {
++		bpf_set_curr_instr(BPF_ST, 0, 0, $4); }
++	;
++
++stx
++	: OP_STX 'M' '[' number ']' {
++		bpf_set_curr_instr(BPF_STX, 0, 0, $4); }
++	;
++
++jmp
++	: OP_JMP label {
++		bpf_set_jmp_label($2, JKL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JA, 0, 0, 0); }
++	;
++
++jeq
++	: OP_JEQ '#' number ',' label ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_jmp_label($7, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, $3); }
++	| OP_JEQ 'x' ',' label ',' label {
++		bpf_set_jmp_label($4, JTL);
++		bpf_set_jmp_label($6, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
++	| OP_JEQ '%' 'x' ',' label ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_jmp_label($7, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
++	| OP_JEQ '#' number ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, $3); }
++	| OP_JEQ 'x' ',' label {
++		bpf_set_jmp_label($4, JTL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
++	| OP_JEQ '%' 'x' ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
++	;
++
++jneq
++	: OP_JNEQ '#' number ',' label {
++		bpf_set_jmp_label($5, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, $3); }
++	| OP_JNEQ 'x' ',' label {
++		bpf_set_jmp_label($4, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
++	| OP_JNEQ '%' 'x' ',' label {
++		bpf_set_jmp_label($5, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
++	;
++
++jlt
++	: OP_JLT '#' number ',' label {
++		bpf_set_jmp_label($5, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_K, 0, 0, $3); }
++	| OP_JLT 'x' ',' label {
++		bpf_set_jmp_label($4, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
++	| OP_JLT '%' 'x' ',' label {
++		bpf_set_jmp_label($5, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
++	;
++
++jle
++	: OP_JLE '#' number ',' label {
++		bpf_set_jmp_label($5, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_K, 0, 0, $3); }
++	| OP_JLE 'x' ',' label {
++		bpf_set_jmp_label($4, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
++	| OP_JLE '%' 'x' ',' label {
++		bpf_set_jmp_label($5, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
++	;
++
++jgt
++	: OP_JGT '#' number ',' label ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_jmp_label($7, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_K, 0, 0, $3); }
++	| OP_JGT 'x' ',' label ',' label {
++		bpf_set_jmp_label($4, JTL);
++		bpf_set_jmp_label($6, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
++	| OP_JGT '%' 'x' ',' label ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_jmp_label($7, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
++	| OP_JGT '#' number ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_K, 0, 0, $3); }
++	| OP_JGT 'x' ',' label {
++		bpf_set_jmp_label($4, JTL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
++	| OP_JGT '%' 'x' ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
++	;
++
++jge
++	: OP_JGE '#' number ',' label ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_jmp_label($7, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_K, 0, 0, $3); }
++	| OP_JGE 'x' ',' label ',' label {
++		bpf_set_jmp_label($4, JTL);
++		bpf_set_jmp_label($6, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
++	| OP_JGE '%' 'x' ',' label ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_jmp_label($7, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
++	| OP_JGE '#' number ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_K, 0, 0, $3); }
++	| OP_JGE 'x' ',' label {
++		bpf_set_jmp_label($4, JTL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
++	| OP_JGE '%' 'x' ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
++	;
++
++jset
++	: OP_JSET '#' number ',' label ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_jmp_label($7, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JSET | BPF_K, 0, 0, $3); }
++	| OP_JSET 'x' ',' label ',' label {
++		bpf_set_jmp_label($4, JTL);
++		bpf_set_jmp_label($6, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JSET | BPF_X, 0, 0, 0); }
++	| OP_JSET '%' 'x' ',' label ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_jmp_label($7, JFL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JSET | BPF_X, 0, 0, 0); }
++	| OP_JSET '#' number ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JSET | BPF_K, 0, 0, $3); }
++	| OP_JSET 'x' ',' label {
++		bpf_set_jmp_label($4, JTL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JSET | BPF_X, 0, 0, 0); }
++	| OP_JSET '%' 'x' ',' label {
++		bpf_set_jmp_label($5, JTL);
++		bpf_set_curr_instr(BPF_JMP | BPF_JSET | BPF_X, 0, 0, 0); }
++	;
++
++add
++	: OP_ADD '#' number {
++		bpf_set_curr_instr(BPF_ALU | BPF_ADD | BPF_K, 0, 0, $3); }
++	| OP_ADD 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_ADD | BPF_X, 0, 0, 0); }
++	| OP_ADD '%' 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_ADD | BPF_X, 0, 0, 0); }
++	;
++
++sub
++	: OP_SUB '#' number {
++		bpf_set_curr_instr(BPF_ALU | BPF_SUB | BPF_K, 0, 0, $3); }
++	| OP_SUB 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_SUB | BPF_X, 0, 0, 0); }
++	| OP_SUB '%' 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_SUB | BPF_X, 0, 0, 0); }
++	;
++
++mul
++	: OP_MUL '#' number {
++		bpf_set_curr_instr(BPF_ALU | BPF_MUL | BPF_K, 0, 0, $3); }
++	| OP_MUL 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_MUL | BPF_X, 0, 0, 0); }
++	| OP_MUL '%' 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_MUL | BPF_X, 0, 0, 0); }
++	;
++
++div
++	: OP_DIV '#' number {
++		bpf_set_curr_instr(BPF_ALU | BPF_DIV | BPF_K, 0, 0, $3); }
++	| OP_DIV 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_DIV | BPF_X, 0, 0, 0); }
++	| OP_DIV '%' 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_DIV | BPF_X, 0, 0, 0); }
++	;
++
++mod
++	: OP_MOD '#' number {
++		bpf_set_curr_instr(BPF_ALU | BPF_MOD | BPF_K, 0, 0, $3); }
++	| OP_MOD 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_MOD | BPF_X, 0, 0, 0); }
++	| OP_MOD '%' 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_MOD | BPF_X, 0, 0, 0); }
++	;
++
++neg
++	: OP_NEG {
++		bpf_set_curr_instr(BPF_ALU | BPF_NEG, 0, 0, 0); }
++	;
++
++and
++	: OP_AND '#' number {
++		bpf_set_curr_instr(BPF_ALU | BPF_AND | BPF_K, 0, 0, $3); }
++	| OP_AND 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_AND | BPF_X, 0, 0, 0); }
++	| OP_AND '%' 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_AND | BPF_X, 0, 0, 0); }
++	;
++
++or
++	: OP_OR '#' number {
++		bpf_set_curr_instr(BPF_ALU | BPF_OR | BPF_K, 0, 0, $3); }
++	| OP_OR 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_OR | BPF_X, 0, 0, 0); }
++	| OP_OR '%' 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_OR | BPF_X, 0, 0, 0); }
++	;
++
++xor
++	: OP_XOR '#' number {
++		bpf_set_curr_instr(BPF_ALU | BPF_XOR | BPF_K, 0, 0, $3); }
++	| OP_XOR 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_XOR | BPF_X, 0, 0, 0); }
++	| OP_XOR '%' 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_XOR | BPF_X, 0, 0, 0); }
++	;
++
++lsh
++	: OP_LSH '#' number {
++		bpf_set_curr_instr(BPF_ALU | BPF_LSH | BPF_K, 0, 0, $3); }
++	| OP_LSH 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_LSH | BPF_X, 0, 0, 0); }
++	| OP_LSH '%' 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_LSH | BPF_X, 0, 0, 0); }
++	;
++
++rsh
++	: OP_RSH '#' number {
++		bpf_set_curr_instr(BPF_ALU | BPF_RSH | BPF_K, 0, 0, $3); }
++	| OP_RSH 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_RSH | BPF_X, 0, 0, 0); }
++	| OP_RSH '%' 'x' {
++		bpf_set_curr_instr(BPF_ALU | BPF_RSH | BPF_X, 0, 0, 0); }
++	;
++
++ret
++	: OP_RET 'a' {
++		bpf_set_curr_instr(BPF_RET | BPF_A, 0, 0, 0); }
++	| OP_RET '%' 'a' {
++		bpf_set_curr_instr(BPF_RET | BPF_A, 0, 0, 0); }
++	| OP_RET 'x' {
++		bpf_set_curr_instr(BPF_RET | BPF_X, 0, 0, 0); }
++	| OP_RET '%' 'x' {
++		bpf_set_curr_instr(BPF_RET | BPF_X, 0, 0, 0); }
++	| OP_RET '#' number {
++		bpf_set_curr_instr(BPF_RET | BPF_K, 0, 0, $3); }
++	;
++
++tax
++	: OP_TAX {
++		bpf_set_curr_instr(BPF_MISC | BPF_TAX, 0, 0, 0); }
++	;
++
++txa
++	: OP_TXA {
++		bpf_set_curr_instr(BPF_MISC | BPF_TXA, 0, 0, 0); }
++	;
++
++%%
++
++static int curr_instr = 0;
++static struct sock_filter out[BPF_MAXINSNS];
++static const char **labels, **labels_jt, **labels_jf, **labels_k;
++
++static void bpf_assert_max(void)
++{
++	if (curr_instr >= BPF_MAXINSNS) {
++		fprintf(stderr, "only max %u insns allowed!\n", BPF_MAXINSNS);
++		exit(0);
++	}
++}
++
++static void bpf_set_curr_instr(uint16_t code, uint8_t jt, uint8_t jf,
++			       uint32_t k)
++{
++	bpf_assert_max();
++	out[curr_instr].code = code;
++	out[curr_instr].jt = jt;
++	out[curr_instr].jf = jf;
++	out[curr_instr].k = k;
++	curr_instr++;
++}
++
++static void bpf_set_curr_label(const char *label)
++{
++	bpf_assert_max();
++        labels[curr_instr] = label;
++}
++
++static void bpf_set_jmp_label(const char *label, enum jmp_type type)
++{
++	bpf_assert_max();
++	switch (type) {
++	case JTL:
++		labels_jt[curr_instr] = label;
++		break;
++	case JFL:
++		labels_jf[curr_instr] = label;
++		break;
++	case JKL:
++		labels_k[curr_instr] = label;
++		break;
++	}
++}
++
++static int bpf_find_insns_offset(const char *label)
++{
++	int i, max = curr_instr, ret = -ENOENT;
++
++	for (i = 0; i < max; i++) {
++		if (labels[i] && !strcmp(label, labels[i])) {
++			ret = i;
++			break;
++		}
++	}
++
++	if (ret == -ENOENT) {
++		fprintf(stderr, "no such label \'%s\'!\n", label);
++		exit(0);
++	}
++
++	return ret;
++}
++
++static void bpf_stage_1_insert_insns(void)
++{
++	yyparse();
++}
++
++static void bpf_reduce_k_jumps(void)
++{
++	int i;
++
++	for (i = 0; i < curr_instr; i++) {
++		if (labels_k[i]) {
++			int off = bpf_find_insns_offset(labels_k[i]);
++			out[i].k = (uint32_t) (off - i - 1);
++		}
++	}
++}
++
++static void bpf_reduce_jt_jumps(void)
++{
++	int i;
++
++	for (i = 0; i < curr_instr; i++) {
++		if (labels_jt[i]) {
++			int off = bpf_find_insns_offset(labels_jt[i]);
++			out[i].jt = (uint8_t) (off - i -1);
++		}
++	}
++}
++
++static void bpf_reduce_jf_jumps(void)
++{
++	int i;
++
++	for (i = 0; i < curr_instr; i++) {
++		if (labels_jf[i]) {
++			int off = bpf_find_insns_offset(labels_jf[i]);
++			out[i].jf = (uint8_t) (off - i - 1);
++		}
++	}
++}
++
++static void bpf_stage_2_reduce_labels(void)
++{
++	bpf_reduce_k_jumps();
++	bpf_reduce_jt_jumps();
++	bpf_reduce_jf_jumps();
++}
++
++static void bpf_pretty_print_c(void)
++{
++	int i;
++
++	for (i = 0; i < curr_instr; i++)
++		printf("{ %#04x, %2u, %2u, %#010x },\n", out[i].code,
++		       out[i].jt, out[i].jf, out[i].k);
++}
++
++static void bpf_pretty_print(void)
++{
++	int i;
++
++	printf("%u,", curr_instr);
++	for (i = 0; i < curr_instr; i++)
++		printf("%u %u %u %u,", out[i].code,
++		       out[i].jt, out[i].jf, out[i].k);
++	printf("\n");
++}
++
++static void bpf_init(void)
++{
++	memset(out, 0, sizeof(out));
++
++	labels = calloc(BPF_MAXINSNS, sizeof(*labels));
++	assert(labels);
++	labels_jt = calloc(BPF_MAXINSNS, sizeof(*labels_jt));
++	assert(labels_jt);
++	labels_jf = calloc(BPF_MAXINSNS, sizeof(*labels_jf));
++	assert(labels_jf);
++	labels_k = calloc(BPF_MAXINSNS, sizeof(*labels_k));
++	assert(labels_k);
++}
++
++static void bpf_destroy(void)
++{
++	free(labels);
++	free(labels_jt);
++	free(labels_jf);
++	free(labels_k);
++}
++
++void bpf_asm_compile(FILE *fp, bool cstyle)
++{
++	yyin = fp;
++
++	bpf_init();
++	bpf_stage_1_insert_insns();
++	bpf_stage_2_reduce_labels();
++	bpf_destroy();
++
++	if (cstyle)
++		bpf_pretty_print_c();
++	else
++		bpf_pretty_print();
++
++	if (fp != stdin)
++		fclose(yyin);
++}
++
++void yyerror(const char *str)
++{
++	exit(1);
 +}
 -- 
 1.8.3.1
