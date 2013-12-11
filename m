@@ -1,517 +1,104 @@
-From: "H.K. Jerry Chu" <hkchu@google.com>
-Subject: [PATCH v2 net-next] net-gro: Prepare GRO stack for the upcoming tunneling support
-Date: Wed, 11 Dec 2013 11:04:01 -0800
-Message-ID: <1386788641-16200-1-git-send-email-hkchu@google.com>
-Cc: Jerry Chu <hkchu@google.com>
-To: edumazet@google.com, herbert@gondor.apana.org.au,
-	ogerlitz@mellanox.com, bhutchings@solarflare.com,
-	davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f73.google.com ([209.85.219.73]:34472 "EHLO
-	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751084Ab3LKTEV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 14:04:21 -0500
-Received: by mail-oa0-f73.google.com with SMTP id i4so1416954oah.2
-        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 11:04:20 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
+Date: Wed, 11 Dec 2013 20:06:51 +0100
+Message-ID: <716357837.20131211200651@eikelenboom.it>
+References: <1507831110.20131018194349@eikelenboom.it> <792757788.20131023142849@eikelenboom.it> <1819533168.20131211161710@eikelenboom.it> <CAB=NE6V-RSnqbAC-0tfYK=WGJLp1aPC2UpFDurs49h+wXr9UfQ@mail.gmail.com> <1818324675.20131211175350@eikelenboom.it> <CAB=NE6Wf=T0bGLSYPDyb=-fMAVnGcbGkeaBiNrzwV-Lpxr6VZg@mail.gmail.com> <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com> <871324710.20131211191104@eikelenboom.it> <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Berg, Johannes" <johannes.berg@intel.com>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jerry Chu <hkchu@google.com>
 
-This patch modifies the GRO stack to avoid the use of "network_header"
-and associated macros like ip_hdr() and ipv6_hdr() in order to allow
-an arbitary number of IP hdrs (v4 or v6) to be used in the
-encapsulation chain. This lays the foundation for various IP
-tunneling support (IP-in-IP, GRE, VXLAN, SIT,...) to be added later.
+Wednesday, December 11, 2013, 7:38:50 PM, you wrote:
 
-With this patch, the GRO stack traversing now is mostly based on
-skb_gro_offset rather than special hdr offsets saved in skb (e.g.,
-skb->network_header). As a result all but the top layer (i.e., the
-the transport layer) must have hdrs of the same length in order for
-a pkt to be considered for aggregation. Therefore when adding a new
-encap layer (e.g., for tunneling), one must check and skip flows
-(e.g., by setting NAPI_GRO_CB(p)->same_flow to 0) that have a
-different hdr length.
+> On Wed, Dec 11, 2013 at 7:11 PM, Sander Eikelenboom
+> <linux@eikelenboom.it> wrote:
+>>
+>> Wednesday, December 11, 2013, 6:53:07 PM, you wrote:
+>>
+>>> The best way to address all this is by automatic region awareness and
+>>> doing the right thing on devices, this however requires good
+>>> architecture / calibration data  / etc and all that needs to be
+>>> verified by the system integrators, and finally they need to be
+>>> certified. If you want to hack your firmware and software go at it,
+>>> just be aware there are reasons for things.
+>>
+>> Well the general problem seems to be "we don't trust the user" so we FORCE him to the lowest
+>> common denominator (without a way to overrule that) so he is forced to operate *well* within the law.
 
-Note that unlike the network header, the transport header can and
-will continue to be set by the GRO code since there will be at
-most one "transport layer" in the encap chain.
+> Its simply stupid to have the user be involved, period, the fact that
+> a user would be involved should only be for testing or helping
+> compliance for a busted device, development, research and obviously
+> hacking. Linux allows all these but by default a device with firmware
+> and a custom regdomain that will barf if you try to use a channel that
+> is not allowed is a restriction in firmware. Feel free to reverse
+> engineer that if you don't like it but it just won't be supported or
+> go upstream. Now, the common denominator is generally optimized for
+> best performance as well so you shouldn't have to do anything, and for
+> APs -- this is typically carefully crafted for a region, also highly
+> optimized.
 
-Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Reviewed-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/netdevice.h |  2 +-
- include/net/tcp.h         |  1 +
- net/core/dev.c            | 76 ++++++++++++++++-------------------------------
- net/ipv4/af_inet.c        | 26 +++++++++++-----
- net/ipv4/tcp_offload.c    | 28 ++++++++++-------
- net/ipv6/ip6_offload.c    | 64 +++++++++++++++++++++++++++++----------
- net/ipv6/tcpv6_offload.c  | 10 +++----
- 7 files changed, 117 insertions(+), 90 deletions(-)
+Well how about a car maker shipping al his cars capped to say 10 miles an hour,
+because somewhere in the world that's the lowest. So to prevent you from breaking the law
+we will cap your 500HP engine, owh in your country you have a higher speedlimit, ah wel bad luck for you then.
+We need to enforce this so no one is going to brake any law any where.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9d55e51..ba321f1b 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1673,7 +1673,7 @@ struct offload_callbacks {
- 	int			(*gso_send_check)(struct sk_buff *skb);
- 	struct sk_buff		**(*gro_receive)(struct sk_buff **head,
- 					       struct sk_buff *skb);
--	int			(*gro_complete)(struct sk_buff *skb);
-+	int			(*gro_complete)(struct sk_buff *skb, int nhoff);
- };
- 
- struct packet_offload {
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index f7e1ab2..bcd73ff 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1549,6 +1549,7 @@ void tcp_v4_destroy_sock(struct sock *sk);
- struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
- 				netdev_features_t features);
- struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb);
-+int __tcp_gro_complete(struct sk_buff *skb, struct tcphdr *th);
- int tcp_gro_complete(struct sk_buff *skb);
- 
- void __tcp_v4_send_check(struct sk_buff *skb, __be32 saddr, __be32 daddr);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6cc98dd..bd71bec 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3767,7 +3767,7 @@ static int napi_gro_complete(struct sk_buff *skb)
- 		if (ptype->type != type || !ptype->callbacks.gro_complete)
- 			continue;
- 
--		err = ptype->callbacks.gro_complete(skb);
-+		err = ptype->callbacks.gro_complete(skb, 0);
- 		break;
- 	}
- 	rcu_read_unlock();
-@@ -3833,6 +3833,23 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
- 	}
- }
- 
-+static void skb_gro_reset_offset(struct sk_buff *skb)
-+{
-+	const struct skb_shared_info *pinfo = skb_shinfo(skb);
-+	const skb_frag_t *frag0 = &pinfo->frags[0];
-+
-+	NAPI_GRO_CB(skb)->data_offset = 0;
-+	NAPI_GRO_CB(skb)->frag0 = NULL;
-+	NAPI_GRO_CB(skb)->frag0_len = 0;
-+
-+	if (skb_mac_header(skb) == skb_tail_pointer(skb) &&
-+	    pinfo->nr_frags &&
-+	    !PageHighMem(skb_frag_page(frag0))) {
-+		NAPI_GRO_CB(skb)->frag0 = skb_frag_address(frag0);
-+		NAPI_GRO_CB(skb)->frag0_len = skb_frag_size(frag0);
-+	}
-+}
-+
- static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- {
- 	struct sk_buff **pp = NULL;
-@@ -3848,6 +3865,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 	if (skb_is_gso(skb) || skb_has_frag_list(skb))
- 		goto normal;
- 
-+	skb_gro_reset_offset(skb);
- 	gro_list_prepare(napi, skb);
- 
- 	rcu_read_lock();
-@@ -3953,27 +3971,8 @@ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
- 	return ret;
- }
- 
--static void skb_gro_reset_offset(struct sk_buff *skb)
--{
--	const struct skb_shared_info *pinfo = skb_shinfo(skb);
--	const skb_frag_t *frag0 = &pinfo->frags[0];
--
--	NAPI_GRO_CB(skb)->data_offset = 0;
--	NAPI_GRO_CB(skb)->frag0 = NULL;
--	NAPI_GRO_CB(skb)->frag0_len = 0;
--
--	if (skb_mac_header(skb) == skb_tail_pointer(skb) &&
--	    pinfo->nr_frags &&
--	    !PageHighMem(skb_frag_page(frag0))) {
--		NAPI_GRO_CB(skb)->frag0 = skb_frag_address(frag0);
--		NAPI_GRO_CB(skb)->frag0_len = skb_frag_size(frag0);
--	}
--}
--
- gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- {
--	skb_gro_reset_offset(skb);
--
- 	return napi_skb_finish(dev_gro_receive(napi, skb), skb);
- }
- EXPORT_SYMBOL(napi_gro_receive);
-@@ -4007,12 +4006,7 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *
- {
- 	switch (ret) {
- 	case GRO_NORMAL:
--	case GRO_HELD:
--		skb->protocol = eth_type_trans(skb, skb->dev);
--
--		if (ret == GRO_HELD)
--			skb_gro_pull(skb, -ETH_HLEN);
--		else if (netif_receive_skb(skb))
-+		if (netif_receive_skb(skb))
- 			ret = GRO_DROP;
- 		break;
- 
-@@ -4021,6 +4015,7 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *
- 		napi_reuse_skb(napi, skb);
- 		break;
- 
-+	case GRO_HELD:
- 	case GRO_MERGED:
- 		break;
- 	}
-@@ -4031,36 +4026,15 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *
- static struct sk_buff *napi_frags_skb(struct napi_struct *napi)
- {
- 	struct sk_buff *skb = napi->skb;
--	struct ethhdr *eth;
--	unsigned int hlen;
--	unsigned int off;
- 
- 	napi->skb = NULL;
- 
--	skb_reset_mac_header(skb);
--	skb_gro_reset_offset(skb);
--
--	off = skb_gro_offset(skb);
--	hlen = off + sizeof(*eth);
--	eth = skb_gro_header_fast(skb, off);
--	if (skb_gro_header_hard(skb, hlen)) {
--		eth = skb_gro_header_slow(skb, hlen, off);
--		if (unlikely(!eth)) {
--			napi_reuse_skb(napi, skb);
--			skb = NULL;
--			goto out;
--		}
-+	if (unlikely(!pskb_may_pull(skb, sizeof(struct ethhdr)))) {
-+		napi_reuse_skb(napi, skb);
-+		return NULL;
- 	}
-+	skb->protocol = eth_type_trans(skb, skb->dev);
- 
--	skb_gro_pull(skb, sizeof(*eth));
--
--	/*
--	 * This works because the only protocols we care about don't require
--	 * special handling.  We'll fix it up properly at the end.
--	 */
--	skb->protocol = eth->h_proto;
--
--out:
- 	return skb;
- }
- 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 70011e0..cb406e9 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1377,8 +1377,12 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 		if (!NAPI_GRO_CB(p)->same_flow)
- 			continue;
- 
--		iph2 = ip_hdr(p);
--
-+		iph2 = (struct iphdr *)(p->data + off);
-+		/* The above works because, with the exception of the top
-+		 * (inner most) layer, we only aggregate pkts with the same
-+		 * hdr length so all the hdrs we'll need to verify will start
-+		 * at the same offset.
-+		 */
- 		if ((iph->protocol ^ iph2->protocol) |
- 		    ((__force u32)iph->saddr ^ (__force u32)iph2->saddr) |
- 		    ((__force u32)iph->daddr ^ (__force u32)iph2->daddr)) {
-@@ -1397,8 +1401,12 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 	}
- 
- 	NAPI_GRO_CB(skb)->flush |= flush;
-+	skb_set_network_header(skb, off);
-+	/* The above will be needed by the transport layer if there is one
-+	 * immediately following this IP hdr.
-+	 */
-+
- 	skb_gro_pull(skb, sizeof(*iph));
--	skb_set_transport_header(skb, skb_gro_offset(skb));
- 
- 	pp = ops->callbacks.gro_receive(head, skb);
- 
-@@ -1411,10 +1419,10 @@ out:
- 	return pp;
- }
- 
--static int inet_gro_complete(struct sk_buff *skb)
-+static int inet_gro_complete(struct sk_buff *skb, int nhoff)
- {
--	__be16 newlen = htons(skb->len - skb_network_offset(skb));
--	struct iphdr *iph = ip_hdr(skb);
-+	__be16 newlen = htons(skb->len - nhoff);
-+	struct iphdr *iph = (struct iphdr *)(skb->data + nhoff);
- 	const struct net_offload *ops;
- 	int proto = iph->protocol;
- 	int err = -ENOSYS;
-@@ -1427,7 +1435,11 @@ static int inet_gro_complete(struct sk_buff *skb)
- 	if (WARN_ON(!ops || !ops->callbacks.gro_complete))
- 		goto out_unlock;
- 
--	err = ops->callbacks.gro_complete(skb);
-+	/* Only need to add sizeof(*iph) to get to the next hdr below
-+	 * because any hdr with option will have been flushed in
-+	 * inet_gro_receive().
-+	 */
-+	err = ops->callbacks.gro_complete(skb, nhoff + sizeof(*iph));
- 
- out_unlock:
- 	rcu_read_unlock();
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 0560635..c67bb45 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -175,6 +175,7 @@ struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 			goto out;
- 	}
- 
-+	skb_set_transport_header(skb, off);
- 	skb_gro_pull(skb, thlen);
- 
- 	len = skb_gro_len(skb);
-@@ -184,7 +185,7 @@ struct sk_buff **tcp_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 		if (!NAPI_GRO_CB(p)->same_flow)
- 			continue;
- 
--		th2 = tcp_hdr(p);
-+		th2 = (struct tcphdr *)(p->data + off);
- 
- 		if (*(u32 *)&th->source ^ *(u32 *)&th2->source) {
- 			NAPI_GRO_CB(p)->same_flow = 0;
-@@ -217,7 +218,7 @@ found:
- 	}
- 
- 	p = *head;
--	th2 = tcp_hdr(p);
-+	th2 = (struct tcphdr *)(p->data + off);
- 	tcp_flag_word(th2) |= flags & (TCP_FLAG_FIN | TCP_FLAG_PSH);
- 
- out_check_final:
-@@ -236,11 +237,9 @@ out:
- }
- EXPORT_SYMBOL(tcp_gro_receive);
- 
--int tcp_gro_complete(struct sk_buff *skb)
-+int __tcp_gro_complete(struct sk_buff *skb, struct tcphdr *th)
- {
--	struct tcphdr *th = tcp_hdr(skb);
--
--	skb->csum_start = skb_transport_header(skb) - skb->head;
-+	skb->csum_start = (unsigned char *)th - skb->head;
- 	skb->csum_offset = offsetof(struct tcphdr, check);
- 	skb->ip_summed = CHECKSUM_PARTIAL;
- 
-@@ -251,6 +250,12 @@ int tcp_gro_complete(struct sk_buff *skb)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(__tcp_gro_complete);
-+
-+int tcp_gro_complete(struct sk_buff *skb)
-+{
-+	return __tcp_gro_complete(skb,  tcp_hdr(skb));
-+}
- EXPORT_SYMBOL(tcp_gro_complete);
- 
- static int tcp_v4_gso_send_check(struct sk_buff *skb)
-@@ -272,6 +277,7 @@ static int tcp_v4_gso_send_check(struct sk_buff *skb)
- 
- static struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- {
-+	/* Use the IP hdr immediately proceeding for this transport */
- 	const struct iphdr *iph = skb_gro_network_header(skb);
- 	__wsum wsum;
- 
-@@ -303,16 +309,16 @@ skip_csum:
- 	return tcp_gro_receive(head, skb);
- }
- 
--static int tcp4_gro_complete(struct sk_buff *skb)
-+static int tcp4_gro_complete(struct sk_buff *skb, int thoff)
- {
- 	const struct iphdr *iph = ip_hdr(skb);
--	struct tcphdr *th = tcp_hdr(skb);
-+	struct tcphdr *th = (struct tcphdr *)(skb->data + thoff);
- 
--	th->check = ~tcp_v4_check(skb->len - skb_transport_offset(skb),
--				  iph->saddr, iph->daddr, 0);
-+	th->check = ~tcp_v4_check(skb->len - thoff, iph->saddr,
-+				  iph->daddr, 0);
- 	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
- 
--	return tcp_gro_complete(skb);
-+	return __tcp_gro_complete(skb, th);
- }
- 
- static const struct net_offload tcpv4_offload = {
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 4b85169..448d238 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -154,6 +154,35 @@ out:
- 	return segs;
- }
- 
-+/* Return the total length of all the extension hdrs, following the same
-+ * logic in ipv6_gso_pull_exthdrs() when parsing ext-hdrs.
-+ */
-+static int ipv6_exthdrs_len(struct ipv6hdr *iph,
-+			    const struct net_offload **opps)
-+{
-+	struct ipv6_opt_hdr *opth = NULL;
-+	int len = 0, proto, optlen;
-+
-+	proto = iph->nexthdr;
-+	for (;;) {
-+		if (proto != NEXTHDR_HOP) {
-+			*opps = rcu_dereference(inet6_offloads[proto]);
-+			if (unlikely(!(*opps)))
-+				break;
-+			if (!((*opps)->flags & INET6_PROTO_GSO_EXTHDR))
-+				break;
-+		}
-+		if (opth == NULL)
-+			opth = (void *)(iph+1);
-+		else
-+			opth = (void *)opth + optlen;
-+		optlen = ipv6_optlen(opth);
-+		len += optlen;
-+		proto = opth->nexthdr;
-+	}
-+	return len;
-+}
-+
- static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 					 struct sk_buff *skb)
- {
-@@ -167,6 +196,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 	int flush = 1;
- 	int proto;
- 	__wsum csum;
-+	__u16	next_header;
- 
- 	off = skb_gro_offset(skb);
- 	hlen = off + sizeof(*iph);
-@@ -176,9 +206,9 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 		if (unlikely(!iph))
- 			goto out;
- 	}
--
-+	skb_set_network_header(skb, off);
- 	skb_gro_pull(skb, sizeof(*iph));
--	skb_set_transport_header(skb, skb_gro_offset(skb));
-+	next_header = skb->data - skb->head + skb_gro_offset(skb);
- 
- 	flush += ntohs(iph->payload_len) != skb_gro_len(skb);
- 
-@@ -188,8 +218,8 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 	if (!ops || !ops->callbacks.gro_receive) {
- 		__pskb_pull(skb, skb_gro_offset(skb));
- 		proto = ipv6_gso_pull_exthdrs(skb, proto);
--		skb_gro_pull(skb, -skb_transport_offset(skb));
--		skb_reset_transport_header(skb);
-+		skb_gro_pull(skb, -(int)(skb->head + next_header - skb->data));
-+		next_header = skb->data - skb->head;
- 		__skb_push(skb, skb_gro_offset(skb));
- 
- 		ops = rcu_dereference(inet6_offloads[proto]);
-@@ -202,7 +232,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 	NAPI_GRO_CB(skb)->proto = proto;
- 
- 	flush--;
--	nlen = skb_network_header_len(skb);
-+	nlen = next_header - skb->network_header;
- 
- 	for (p = *head; p; p = p->next) {
- 		const struct ipv6hdr *iph2;
-@@ -211,12 +241,16 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 		if (!NAPI_GRO_CB(p)->same_flow)
- 			continue;
- 
--		iph2 = ipv6_hdr(p);
-+		iph2 = (struct ipv6hdr *)(p->data + off);
- 		first_word = *(__be32 *)iph ^ *(__be32 *)iph2 ;
- 
--		/* All fields must match except length and Traffic Class. */
--		if (nlen != skb_network_header_len(p) ||
--		    (first_word & htonl(0xF00FFFFF)) ||
-+		/* All fields must match except length and Traffic Class.
-+		 * XXX skbs on the gro_list have all been parsed and pulled
-+		 * already so we don't need to compare nlen
-+		 * (nlen != (sizeof(*iph2) + ipv6_exthdrs_len(iph2, &ops)))
-+		 * memcmp() alone below is suffcient, right?
-+		 */
-+		 if ((first_word & htonl(0xF00FFFFF)) ||
- 		    memcmp(&iph->nexthdr, &iph2->nexthdr,
- 			   nlen - offsetof(struct ipv6hdr, nexthdr))) {
- 			NAPI_GRO_CB(p)->same_flow = 0;
-@@ -245,21 +279,21 @@ out:
- 	return pp;
- }
- 
--static int ipv6_gro_complete(struct sk_buff *skb)
-+static int ipv6_gro_complete(struct sk_buff *skb, int nhoff)
- {
- 	const struct net_offload *ops;
--	struct ipv6hdr *iph = ipv6_hdr(skb);
-+	struct ipv6hdr *iph = (struct ipv6hdr *)(skb->data + nhoff);
- 	int err = -ENOSYS;
- 
--	iph->payload_len = htons(skb->len - skb_network_offset(skb) -
--				 sizeof(*iph));
-+	iph->payload_len = htons(skb->len - nhoff - sizeof(*iph));
- 
- 	rcu_read_lock();
--	ops = rcu_dereference(inet6_offloads[NAPI_GRO_CB(skb)->proto]);
-+
-+	nhoff += sizeof(*iph) + ipv6_exthdrs_len(iph, &ops);
- 	if (WARN_ON(!ops || !ops->callbacks.gro_complete))
- 		goto out_unlock;
- 
--	err = ops->callbacks.gro_complete(skb);
-+	err = ops->callbacks.gro_complete(skb, nhoff);
- 
- out_unlock:
- 	rcu_read_unlock();
-diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
-index 6d18157..7878ca2 100644
---- a/net/ipv6/tcpv6_offload.c
-+++ b/net/ipv6/tcpv6_offload.c
-@@ -66,16 +66,16 @@ skip_csum:
- 	return tcp_gro_receive(head, skb);
- }
- 
--static int tcp6_gro_complete(struct sk_buff *skb)
-+static int tcp6_gro_complete(struct sk_buff *skb, int thoff)
- {
- 	const struct ipv6hdr *iph = ipv6_hdr(skb);
--	struct tcphdr *th = tcp_hdr(skb);
-+	struct tcphdr *th = (struct tcphdr *)(skb->data + thoff);
- 
--	th->check = ~tcp_v6_check(skb->len - skb_transport_offset(skb),
--				  &iph->saddr, &iph->daddr, 0);
-+	th->check = ~tcp_v6_check(skb->len - thoff, &iph->saddr,
-+				  &iph->daddr, 0);
- 	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
- 
--	return tcp_gro_complete(skb);
-+	return __tcp_gro_complete(skb, th);
- }
- 
- static const struct net_offload tcpv6_offload = {
--- 
-1.8.5.1
+It's just plain stupid in my opinion (but not something linux can do much about, but it's about enforcing this stuff in firmware in general
+and thinking too much for the user (fine if you are capable to do so, but in this case clearly not, since there is no automatic way to detect in which country the device is,
+except by relying on user input).
+Why just don't set the safe and restricted value on boot and let the user overrule that if he wishes.
+(that means the user has to invoke a action, so he also should be aware of the consequences).
+
+
+>>>>> It doesn't seem like you are getting your original requests getting
+>>>>> processed, so I don't think CRDA is passing it. Can you verify running
+>>>>> from CRDA code:
+>>>>
+>>>> They don't get processed unless i remove the return from the code as i indicated.
+>>>> If i remove that return it processes the request.
+>>>>
+>>>>> ./regdbdump /usr/lib/crda/regulatory.bin
+>>>>
+>>>> Although it's in a different location on Debian, /lib/crda/regulatory.bin
+>>>> the dump seems fine.
+>>
+>>> OK thanks. Can you send a patch of what exact change you made, it was
+>>> unclear from the paste you made.
+>>
+>>> diff -u file.c.orig file.c
+>>
+>> Well i just did a pull from wireless-next, to try Avinash Patil's patch.
+>> net/wireless/reg.c had already changed much so i couldn't apply his patch without.
+>>
+>> With his patch it sets the regulatory domain, although as now expected i still can not use channels 12 and 13 yet,
+>> probably due to those firmware restrictions.
+
+> Its unclear what results you got, and yeah if the device is restricted
+> then its just the fw telling the driver its channels and you can't use
+> them. That's it. You won't be able to override information then unless
+> you hack the firmware.
+
+Without the patch:
+
+- "iw reg get" gives country 00
+- now do a "iw reg set US", no error so it should be fine
+- now do a "iw reg get" .. gives country 00 again, so it has not been set to the country requested.
+
+With the patch:
+
+- "iw reg get" gives country 00
+- now do a "iw reg set US", no error so it should be fine
+- now do a "iw reg get" .. gives country US, so it has been set to the country requested.
+
+>   Luis
