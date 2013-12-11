@@ -1,57 +1,47 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2] packet: Deliver VLAN TPID to userspace
-Date: Wed, 11 Dec 2013 13:19:21 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7480@saturn3.aculab.com>
-References: <8738m0q3nq.wl%atzm@stratosphere.co.jp>	<AE90C24D6B3A694183C094C60CF0A2F6026B7476@saturn3.aculab.com> <87txef7dmy.wl%atzm@stratosphere.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>,
-	"Stephen Hemminger" <stephen@networkplumber.org>,
-	"Ben Hutchings" <bhutchings@solarflare.com>,
-	"David Miller" <davem@davemloft.net>,
-	"Daniel Borkmann" <dborkman@redhat.com>
-To: "Atzm Watanabe" <atzm@stratosphere.co.jp>
+From: Stefan Raspl <raspl@linux.vnet.ibm.com>
+Subject: [PATCH 0/2] Display adjacent switch port's attributes
+Date: Wed, 11 Dec 2013 14:28:58 +0100
+Message-ID: <1386768540-48188-1-git-send-email-raspl@linux.vnet.ibm.com>
+Cc: bhutchings@solarflare.com, blaschka@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Stefan Raspl <raspl@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:57614 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751345Ab3LKNU0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 08:20:26 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 09348-05 for <netdev@vger.kernel.org>;
- Wed, 11 Dec 2013 13:20:21 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <87txef7dmy.wl%atzm@stratosphere.co.jp>
+Received: from e06smtp11.uk.ibm.com ([195.75.94.107]:36900 "EHLO
+	e06smtp11.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751346Ab3LKN3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 08:29:33 -0500
+Received: from /spool/local
+	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <raspl@linux.vnet.ibm.com>;
+	Wed, 11 Dec 2013 13:29:31 -0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Atzm Watanabe
-...
-> > You've defined a new header variant, but all the code seems to rely
-> > on the fact that the 'new' variant is identical to the old one
-> > with the addition of an extra field at the end.
-> >
-> > In which case it ought to be valid to just extend the old header variant.
-> > If the header really can change format there ought to be a discriminating
-> > member somewhere - which you don't seem to have changed.
-> 
-> Yes.  I think that struct tpacket3_hdr can grow safely until 48 bytes,
-> so I'd just like to extend tpacket_hdr_variant1 like you said.
-> 
-> But in the past discussions, there were mentions that a new member
-> cannot be added into struct tpacket_hdr_variant1, and possibly the
-> variant which includes a new member should be separated from the old
-> one.
-> 
->   http://patchwork.ozlabs.org/patch/284671/
->   http://patchwork.ozlabs.org/patch/285382/
+This patch series adds a new callback for ethtool to display the adjacent switch
+port's attributes, as perceived by the NIC, e.g. through respective LLDP message
+exchanges.
+A patch for the qeth device driver provides a sample exploiter for the new
+functionality.
+A new option for ethtool to display the settings will be posted in a separate
+patch.
 
-I don't remember it being mentioned earlier that there are pad bytes
-following the header.
+Best regards,
+Stefan Raspl
 
-Might be worth explicitly defining the pad bytes and zeroing them.
-That could make additional changes easier.
+Stefan Raspl (2):
+  ethtool: Add callback to indicate adjacent switch port attributes
+  qeth: Display adjacent switch port attributes in ethtool
 
-	David
+ drivers/s390/net/qeth_core.h      |  7 ++++
+ drivers/s390/net/qeth_core_main.c | 79 +++++++++++++++++++++++++++++++++++++++
+ drivers/s390/net/qeth_core_mpc.h  | 17 +++++++++
+ drivers/s390/net/qeth_l2_main.c   |  1 +
+ drivers/s390/net/qeth_l3_main.c   |  1 +
+ include/linux/ethtool.h           |  3 ++
+ include/uapi/linux/ethtool.h      | 35 +++++++++++++++++
+ net/core/ethtool.c                | 22 +++++++++++
+ 8 files changed, 165 insertions(+)
+
+-- 
+1.8.3.4
