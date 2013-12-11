@@ -1,46 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] ipv4: fix wildcard search with
- inet_confirm_addr()
-Date: Wed, 11 Dec 2013 14:49:10 -0500 (EST)
-Message-ID: <20131211.144910.1065298780981411778.davem@davemloft.net>
-References: <alpine.LFD.2.03.1311132244001.1712@ssi.bg>
-	<1386684160-4394-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH v4 net-next] net: pkt_sched: PIE AQM scheme
+Date: Wed, 11 Dec 2013 14:56:22 -0500 (EST)
+Message-ID: <20131211.145622.877928141690222897.davem@davemloft.net>
+References: <1386386283-16728-1-git-send-email-subramanian.vijay@gmail.com>
+	<CAGK4HS9GqZVOydfHM+NtYWjhBaqbSLa9jWgGb7=z+jMSS9zqQQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
+Cc: netdev@vger.kernel.org, vijaynsu@cisco.com
+To: subramanian.vijay@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59007 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59076 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860Ab3LKTtT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 14:49:19 -0500
-In-Reply-To: <1386684160-4394-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1751253Ab3LKT4Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 14:56:24 -0500
+In-Reply-To: <CAGK4HS9GqZVOydfHM+NtYWjhBaqbSLa9jWgGb7=z+jMSS9zqQQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue, 10 Dec 2013 15:02:40 +0100
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Date: Wed, 11 Dec 2013 11:33:08 -0800
 
-> 39a6d0630012 ("[NETNS]: Process inet_confirm_addr in the
-> correct namespace."), the code supposes that it will never be NULL. This
-> function is never called with in_dev == NULL, but it's exported and may be used
-> by an external module.
-> 
-> Because this patch restore the ability to call inet_confirm_addr() with in_dev
-> == NULL, I partially revert the above commit, as suggested by Julian.
-> 
-> CC: Julian Anastasov <ja@ssi.bg>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Reviewed-by: Julian Anastasov <ja@ssi.bg>
+> This patch seems to have been rejected. Can you clarify if this is due
+> to apparent issue with IETF disclosure statement for PIE?
+> If so, can you please specify what the criteria will be for you to
+> reconsider this patch for inclusion?
 
-I personally think that we may be over analyzing this, because if some
-external module actually cared, someone would have complained in the
-last _5_ years as that's how long the new semantics have been in
-place.
+The intellectual property issue has not been resolved as far as I am
+aware, and nobody seems to want to take an official stand on that
+issue so I refuse to even consider the patch.
 
-Nevertheless, passing in the network namespace explicitly is a bit
-nicer than having special behavior for RT_SCOPE_LINE, thus I've
-applied this.
+In fact, the last time I was CC:'d on private correspondance on this
+matter, people on Cisco's end seemed irritated that they were still
+being asked about it.  That's not acceptable.
 
-Thanks.
+That attitude has to change, because this issue is just as important
+as the correctness of the code for inclusion.
