@@ -1,109 +1,75 @@
-From: Grant Likely <grant.likely@linaro.org>
-Subject: Re: [PATCH 5/7] net: of_mdio: parse "max-speed" property to set PHY supported features
-Date: Wed, 11 Dec 2013 14:02:00 +0000
-Message-ID: <20131211140200.DCD09C4061A@trevor.secretlab.ca>
-References: <1386283936-26104-1-git-send-email-florian@openwrt.org> < 1386283936-26104-6-git-send-email-florian@openwrt.org>
-Cc: davem@davemloft.net, devicetree@vger.kernel.org,
-	abrodkin@synopsys.com, rob.herring@calxeda.com,
-	mark.rutland@arm.com, sebastian.hesselbarth@gmail.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] igb: enable VLAN stripping for VMs with i350
+Date: Wed, 11 Dec 2013 06:05:49 -0800
+Message-ID: <1386770749.2204.17.camel@jtkirshe-mobl>
+References: <1386754354-22039-1-git-send-email-sassmann@kpanic.de>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-wdrQ3i6NjKahmc+tRpiq"
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	e1000-devel@lists.sourceforge.net, carolyn.wyborny@intel.com
+To: Stefan Assmann <sassmann@kpanic.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f175.google.com ([209.85.215.175]:33871 "EHLO
-	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751496Ab3LKOCL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 09:02:11 -0500
-Received: by mail-ea0-f175.google.com with SMTP id z10so2940519ead.34
-        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 06:02:10 -0800 (PST)
-In-Reply-To: <1386283936-26104-6-git-send-email-florian@openwrt.org>
+Received: from mga02.intel.com ([134.134.136.20]:57907 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751380Ab3LKOG0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Dec 2013 09:06:26 -0500
+In-Reply-To: <1386754354-22039-1-git-send-email-sassmann@kpanic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 5 Dec 2013 14:52:14 -0800, Florian Fainelli <florian@openwrt.org> wrote:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> The "max-speed" property is defined per the ePAPR specification to
-> express the maximum speed a PHY supports. Use that property, if present
-> to set the phydev->supported features which properly restricts the PHY
-> within the range of defined speeds.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+--=-wdrQ3i6NjKahmc+tRpiq
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2013-12-11 at 10:32 +0100, Stefan Assmann wrote:
+> For i350 VLAN stripping for VMs is not enabled in the VMOLR register
+> but in
+> the DVMOLR register. Making the changes accordingly. It's not
+> necessary to
+> unset the E1000_VMOLR_STRVLAN bit on i350 as the hardware will simply
+> ignore
+> it.
+>=20
+> Without this change if a VLAN is configured for a VF assigned to a
+> guest
+> via (i.e.)
+> ip link set p1p1 vf 0 vlan 10
+> the VLAN tag will not be stripped from packets going into the VM.
+> Which they
+> should be because the VM itself is not aware of the VLAN at all.
+>=20
+> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 > ---
->  drivers/of/of_mdio.c | 25 ++++++++++++++++++++++++-
->  1 file changed, 24 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index 4923ab2..e1e19e5 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -22,12 +22,30 @@
->  MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
->  MODULE_LICENSE("GPL");
->  
-> +static void of_set_phy_supported(struct phy_device *phydev, u32 max_speed)
-> +{
-> +	phydev->supported |= PHY_DEFAULT_FEATURES;
-> +
-> +	switch (max_speed) {
-> +	default:
-> +		return;
+>  drivers/net/ethernet/intel/igb/e1000_82575.h | 4 ++++
+>  drivers/net/ethernet/intel/igb/e1000_regs.h  | 1 +
+>  drivers/net/ethernet/intel/igb/igb_main.c    | 7 +++++++
+>  3 files changed, 12 insertions(+)
 
-No need for a default clause.
+Thanks Stefan, I have added this patch to my queue.
 
-> +
-> +	case SPEED_1000:
-> +		phydev->supported |= PHY_1000BT_FEATURES;
-> +	case SPEED_100:
-> +		phydev->supported |= PHY_100BT_FEATURES;
-> +	case SPEED_10:
-> +		phydev->supported |= PHY_10BT_FEATURES;
-> +	}
-> +}
-> +
->  static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *child,
->  				   u32 addr)
->  {
->  	struct phy_device *phy;
->  	bool is_c45;
->  	int rc, prev_irq;
-> +	u32 max_speed = 0;
->  
->  	is_c45 = of_device_is_compatible(child,
->  					 "ethernet-phy-ieee802.3-c45");
-> @@ -58,8 +76,13 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
->  		return 1;
->  	}
->  
-> +	/* Set phydev->supported based on the "max-speed" property
-> +	 * if present */
-> +	if (!of_property_read_u32(child, "max-speed", &max_speed))
-> +		of_set_phy_supported(phy, max_speed);
-> +
+--=-wdrQ3i6NjKahmc+tRpiq
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-Why the separate function? There is no need since there is only one
-caller and the block is very short. Just do this:
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
 
-	if (!of_property_read_u32(child, "max-speed", &max_speed)) {
-		phydev->supported |= PHY_DEFAULT_FEATURES;
-		switch (max_speed) {
-		case SPEED_1000:
-			phydev->supported |= PHY_1000BT_FEATURES;
-		case SPEED_100:
-			phydev->supported |= PHY_100BT_FEATURES;
-		case SPEED_10:
-			phydev->supported |= PHY_10BT_FEATURES;
-		}
-	}
+iQIcBAABCgAGBQJSqHE9AAoJEOVv75VaS+3OyOoP/i+fLgpDJxfnQkcl4IH6Choh
+JJJD8RZpMigPJz7e7DK3B+N2ppc6Tp8sreG8sH8Nii8mqUmCWQ1fTgA79gQelBzq
+H5xsCxP6dTmb1U1G3sxRKUSWi83seykWmr2NOYVXHad6NjWkKk6xyHo59eVl2ube
+/Nhe8fie3qb0NJBLu9IhqRAQxBdetAuYotyYWB5EwuWpRMOXDDWfMK8d0Ry2COE6
+LzNkBUOMIcioJvBIBtuh43QLAYo+MmojLcZfLJpupCxHUBTRAEwopkKyz0g4cqpT
+go2yI5SB7kzwxbn0jtj3IcfTA8MgIVeRjI8NRMD7AuHsdHE//4uKDoF3W2o3iz4k
+GGAqKLfmJkdBkjUpeK1yEMxMtCR0Rzy3gfIl3Tm9yUnvbgr6aNyVI0d7GB6MDBcg
+S+HhdP0cZIyweqe3rVAF0c16hWj5l8C1YL2NC3TxFBONs6q9ToA88+2w4aybaTQo
+a5iV1xLj4QC45iK6UCoq5T+QSvBWv068CLrGXwvz9sC0WBq9kVR6OKwLFzVIbdQq
+uPoZ9H5BzZ91m9tels9QdZ+Vxx6qSKCFFm7fnMRu1rYakNgXGfv7T5i/Tv4ED1Ke
+FKwOLN+SIYqFk9a1Aew7AKEJB/1nr6vxORT761pTKQea6oZ2+7T0PSsf0w6gKDm/
+Ocvc84Ga3SPVCoMweJpu
+=iu33
+-----END PGP SIGNATURE-----
 
->  	dev_dbg(&mdio->dev, "registered phy %s at address %i\n",
-> -		 child->name, addr);
-> +		child->name, addr);
-
-Unrelated whitespace change. I wouldn't even bother with changing this.
-It adds noise.
-
-However, those are style concerns. The content looks fine.
-
-Acked-by: Grant Likely <grant.likely@linaro.org>
-
-g.
+--=-wdrQ3i6NjKahmc+tRpiq--
