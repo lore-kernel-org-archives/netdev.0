@@ -1,7 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 0/7] tipc: cleanups in media and bearer layer
-Date: Tue, 10 Dec 2013 20:45:37 -0800
-Message-ID: <1386737144-32334-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net 2/7] tipc: initiate media type array at compile time
+Date: Tue, 10 Dec 2013 20:45:39 -0800
+Message-ID: <1386737144-32334-3-git-send-email-jon.maloy@ericsson.com>
+References: <1386737144-32334-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
@@ -9,38 +10,268 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.ne1.yahoo.com ([98.138.207.11]:45324 "HELO
+Received: from smtp104.biz.mail.ne1.yahoo.com ([98.138.207.11]:45343 "HELO
 	smtp104.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750862Ab3LKEqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 23:46:22 -0500
+	by vger.kernel.org with SMTP id S1751125Ab3LKEqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 23:46:24 -0500
+In-Reply-To: <1386737144-32334-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit series performs a number cleanups in order to make the 
-bearer and media part of the code more comprehensible and manageable.
+Communication media types are abstracted through the struct 'tipc_media',
+one per media type. These structs are allocated statically inside their
+respective media file.
 
+Furthermore, in order to be able to reach all instances from a central
+location, we keep a static array with pointers to these structs. This
+array is currently initialized at runtime, under protection of
+tipc_net_lock. However, since the contents of the array itself never
+changes after initialization, we can just as well initialize it at
+compile time and make it 'const', at the same time making it obvious
+that no lock protection is needed here.
 
-Jon Maloy (2):
-  tipc: initiate media type array at compile time
-  tipc: improve naming and comment consistency in media layer
+This commit makes the array constant and removes the redundant lock
+protection.
 
-Ying Xue (5):
-  tipc: eliminate redundant code with kfree_skb_list routine
-  tipc: remove TIPC usage of field af_packet_priv in struct net_device
-  tipc: relocate common functions from media to bearer
-  tipc: eliminate code duplication in media layer
-  tipc: remove unused 'blocked' flag from tipc_link struct
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/bearer.c    |   63 +++++++++++++-------------------------------------
+ net/tipc/bearer.h    |    5 ++--
+ net/tipc/eth_media.c |   10 +++-----
+ net/tipc/ib_media.c  |    7 +-----
+ 4 files changed, 23 insertions(+), 62 deletions(-)
 
- include/linux/netdevice.h |    3 +
- net/tipc/bearer.c         |  292 ++++++++++++++++++++++++++++++++---------
- net/tipc/bearer.h         |   48 +++----
- net/tipc/core.c           |    8 +-
- net/tipc/eth_media.c      |  316 +++------------------------------------------
- net/tipc/ib_media.c       |  309 +++-----------------------------------------
- net/tipc/link.c           |   69 +++-------
- net/tipc/link.h           |    7 -
- net/tipc/node.c           |    6 +-
- 9 files changed, 311 insertions(+), 747 deletions(-)
-
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index c2101c0..826aa9f 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/bearer.c: TIPC bearer code
+  *
+- * Copyright (c) 1996-2006, Ericsson AB
++ * Copyright (c) 1996-2006, 2013, Ericsson AB
+  * Copyright (c) 2004-2006, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+@@ -41,8 +41,13 @@
+ 
+ #define MAX_ADDR_STR 60
+ 
+-static struct tipc_media *media_list[MAX_MEDIA];
+-static u32 media_count;
++static struct tipc_media * const media_list[] = {
++	&eth_media_info,
++#ifdef CONFIG_TIPC_MEDIA_IB
++	&ib_media_info,
++#endif
++	NULL
++};
+ 
+ struct tipc_bearer tipc_bearers[MAX_BEARERS];
+ 
+@@ -55,11 +60,11 @@ struct tipc_media *tipc_media_find(const char *name)
+ {
+ 	u32 i;
+ 
+-	for (i = 0; i < media_count; i++) {
++	for (i = 0; media_list[i] != NULL; i++) {
+ 		if (!strcmp(media_list[i]->name, name))
+-			return media_list[i];
++			break;
+ 	}
+-	return NULL;
++	return media_list[i];
+ }
+ 
+ /**
+@@ -69,44 +74,11 @@ static struct tipc_media *media_find_id(u8 type)
+ {
+ 	u32 i;
+ 
+-	for (i = 0; i < media_count; i++) {
++	for (i = 0; media_list[i] != NULL; i++) {
+ 		if (media_list[i]->type_id == type)
+-			return media_list[i];
++			break;
+ 	}
+-	return NULL;
+-}
+-
+-/**
+- * tipc_register_media - register a media type
+- *
+- * Bearers for this media type must be activated separately at a later stage.
+- */
+-int tipc_register_media(struct tipc_media *m_ptr)
+-{
+-	int res = -EINVAL;
+-
+-	write_lock_bh(&tipc_net_lock);
+-
+-	if ((strlen(m_ptr->name) + 1) > TIPC_MAX_MEDIA_NAME)
+-		goto exit;
+-	if (m_ptr->priority > TIPC_MAX_LINK_PRI)
+-		goto exit;
+-	if ((m_ptr->tolerance < TIPC_MIN_LINK_TOL) ||
+-	    (m_ptr->tolerance > TIPC_MAX_LINK_TOL))
+-		goto exit;
+-	if (media_count >= MAX_MEDIA)
+-		goto exit;
+-	if (tipc_media_find(m_ptr->name) || media_find_id(m_ptr->type_id))
+-		goto exit;
+-
+-	media_list[media_count] = m_ptr;
+-	media_count++;
+-	res = 0;
+-exit:
+-	write_unlock_bh(&tipc_net_lock);
+-	if (res)
+-		pr_warn("Media <%s> registration error\n", m_ptr->name);
+-	return res;
++	return media_list[i];
+ }
+ 
+ /**
+@@ -144,13 +116,11 @@ struct sk_buff *tipc_media_get_names(void)
+ 	if (!buf)
+ 		return NULL;
+ 
+-	read_lock_bh(&tipc_net_lock);
+-	for (i = 0; i < media_count; i++) {
++	for (i = 0; media_list[i] != NULL; i++) {
+ 		tipc_cfg_append_tlv(buf, TIPC_TLV_MEDIA_NAME,
+ 				    media_list[i]->name,
+ 				    strlen(media_list[i]->name) + 1);
+ 	}
+-	read_unlock_bh(&tipc_net_lock);
+ 	return buf;
+ }
+ 
+@@ -247,7 +217,7 @@ struct sk_buff *tipc_bearer_get_names(void)
+ 		return NULL;
+ 
+ 	read_lock_bh(&tipc_net_lock);
+-	for (i = 0; i < media_count; i++) {
++	for (i = 0; media_list[i] != NULL; i++) {
+ 		for (j = 0; j < MAX_BEARERS; j++) {
+ 			b_ptr = &tipc_bearers[j];
+ 			if (b_ptr->active && (b_ptr->media == media_list[i])) {
+@@ -472,5 +442,4 @@ void tipc_bearer_stop(void)
+ 		if (tipc_bearers[i].active)
+ 			bearer_disable(&tipc_bearers[i]);
+ 	}
+-	media_count = 0;
+ }
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index cc780bb..516af8c05 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/bearer.h: Include file for TIPC bearer code
+  *
+- * Copyright (c) 1996-2006, Ericsson AB
++ * Copyright (c) 1996-2006, 2013, Ericsson AB
+  * Copyright (c) 2005, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+@@ -157,7 +157,6 @@ extern struct tipc_bearer tipc_bearers[];
+ /*
+  * TIPC routines available to supported media types
+  */
+-int tipc_register_media(struct tipc_media *m_ptr);
+ 
+ void tipc_recv_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr);
+ 
+@@ -171,10 +170,12 @@ int tipc_disable_bearer(const char *name);
+  */
+ int  tipc_eth_media_start(void);
+ void tipc_eth_media_stop(void);
++extern struct tipc_media eth_media_info;
+ 
+ #ifdef CONFIG_TIPC_MEDIA_IB
+ int  tipc_ib_media_start(void);
+ void tipc_ib_media_stop(void);
++extern struct tipc_media ib_media_info;
+ #else
+ static inline int tipc_ib_media_start(void) { return 0; }
+ static inline void tipc_ib_media_stop(void) { return; }
+diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
+index 1e3c332..37fb145 100644
+--- a/net/tipc/eth_media.c
++++ b/net/tipc/eth_media.c
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/eth_media.c: Ethernet bearer support for TIPC
+  *
+- * Copyright (c) 2001-2007, Ericsson AB
++ * Copyright (c) 2001-2007, 2013, Ericsson AB
+  * Copyright (c) 2005-2008, 2011-2013, Wind River Systems
+  * All rights reserved.
+  *
+@@ -57,7 +57,7 @@ struct eth_media {
+ 	struct work_struct cleanup;
+ };
+ 
+-static struct tipc_media eth_media_info;
++
+ static struct eth_media eth_media_array[MAX_ETH_MEDIA];
+ static int eth_started;
+ 
+@@ -315,7 +315,7 @@ static int eth_msg2addr(const struct tipc_bearer *tb_ptr,
+ /*
+  * Ethernet media registration info
+  */
+-static struct tipc_media eth_media_info = {
++struct tipc_media eth_media_info = {
+ 	.send_msg	= send_msg,
+ 	.enable_media	= enable_media,
+ 	.disable_media	= disable_media,
+@@ -342,10 +342,6 @@ int tipc_eth_media_start(void)
+ 	if (eth_started)
+ 		return -EINVAL;
+ 
+-	res = tipc_register_media(&eth_media_info);
+-	if (res)
+-		return res;
+-
+ 	res = register_netdevice_notifier(&notifier);
+ 	if (!res)
+ 		eth_started = 1;
+diff --git a/net/tipc/ib_media.c b/net/tipc/ib_media.c
+index cbe7fe1..48e1c07 100644
+--- a/net/tipc/ib_media.c
++++ b/net/tipc/ib_media.c
+@@ -60,7 +60,6 @@ struct ib_media {
+ 	struct work_struct cleanup;
+ };
+ 
+-static struct tipc_media ib_media_info;
+ static struct ib_media ib_media_array[MAX_IB_MEDIA];
+ static int ib_started;
+ 
+@@ -311,7 +310,7 @@ static int ib_msg2addr(const struct tipc_bearer *tb_ptr,
+ /*
+  * InfiniBand media registration info
+  */
+-static struct tipc_media ib_media_info = {
++struct tipc_media ib_media_info = {
+ 	.send_msg	= send_msg,
+ 	.enable_media	= enable_media,
+ 	.disable_media	= disable_media,
+@@ -338,10 +337,6 @@ int tipc_ib_media_start(void)
+ 	if (ib_started)
+ 		return -EINVAL;
+ 
+-	res = tipc_register_media(&ib_media_info);
+-	if (res)
+-		return res;
+-
+ 	res = register_netdevice_notifier(&notifier);
+ 	if (!res)
+ 		ib_started = 1;
 -- 
 1.7.9.5
