@@ -1,37 +1,46 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] TCP: add option for silent port knocking with integrity protection
-Date: Wed, 11 Dec 2013 13:25:22 -0800
-Message-ID: <87bo0nulkt.fsf@tassilo.jf.intel.com>
-References: <52A75EF8.3010308@in.tum.de>
-	<20131211.150137.368953964178408437.davem@davemloft.net>
-	<52A8C8B4.4060109@in.tum.de>
-	<20131211122637.75b09074@nehalam.linuxnetplumber.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2 15/16] wl1251: Add sysfs file address for setting
+ permanent mac address
+Date: Wed, 11 Dec 2013 21:26:15 +0000
+Message-ID: <1386797175.1516.272.camel@bwh-desktop.uk.level5networks.com>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+	 <201312101852.17030@pali> <1386703339.30202.19.camel@dcbw.foobar.com>
+	 <201312102031.23797@pali>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Christian Grothoff <grothoff@in.tum.de>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, knock@gnunet.org, jacob@appelbaum.net
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dan Williams <dcbw@redhat.com>, Kalle Valo <kvalo@adurom.com>,
+	"Luciano Coelho" <luca@coelho.fi>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <freemangordon@abv.bg>,
+	<aaro.koskinen@iki.fi>, <pavel@ucw.cz>, <sre@ring0.de>,
+	<joni.lapilainen@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Felipe Contreras <felipe.contreras@gmail.com>
+To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131211122637.75b09074@nehalam.linuxnetplumber.net> (Stephen
-	Hemminger's message of "Wed, 11 Dec 2013 12:26:37 -0800")
+In-Reply-To: <201312102031.23797@pali>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <stephen@networkplumber.org> writes:
->
-> The point is that doing it outside of TCP core is safer, less error prone
-> and more flexible.
+On Tue, 2013-12-10 at 20:31 +0100, Pali Roh=C3=A1r wrote:
+[...]
+> So, if you like this idea, can you help me how to write udev rule=20
+> which will run my own program (it print mac address) and send mac=20
+> address when driver ask for mac address in request_firmware?=20
+> Problem is that default udev rule for firmware trying to load data=20
+> from /lib/firmware/... but in this case mac address first must be=20
+> read from special location and converted to correct format.
 
-Or to put the question differently: what hooks would be needed to make
-this efficiently work in user space?
+Unfortunately, udev no longer supports firmware loading during module
+loading (unless that was fixed - I don't think it has been).  Loading
+firmware *files* still works because the kernel can read those directly
+rather than requesting them from udev.
 
-It could be something like this: Firewall the port with forwarding the 
-SYN packets using nfqueue, check for the SYN having the right magic,
-change a firewall rule, re-inject using nfqueue (not fully sure how
-well that works)
+Ben.
 
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
