@@ -1,8 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v5 9/11] bonding: remove unwanted lock for bond enslave
- and release
-Date: Wed, 11 Dec 2013 13:01:08 +0800
-Message-ID: <52A7F194.6010107@huawei.com>
+Subject: [PATCH net-next v5 10/11] bonding: remove unwanted lock for bond_store_primaryxxx()
+Date: Wed, 11 Dec 2013 13:01:12 +0800
+Message-ID: <52A7F198.60804@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,144 +12,56 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
 	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:64356 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751076Ab3LKFCU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 00:02:20 -0500
+Received: from szxga03-in.huawei.com ([119.145.14.66]:31644 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751076Ab3LKFC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 00:02:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bond_change_active_slave() and bond_select_active_slave()
-don't need bond lock anymore, so remove the unwanted bond lock
-for these two functions.
-
-The bond_select_active_slave() will release and acquire
-curr_slave_lock, so the curr_slave_lock need to protect
-the function.
-
-In bond enslave and bond release, the bond slave list is also
-protected by RTNL, so bond lock is no need to exist, remove
-the lock and clean the functions.
+The bond_select_active_slave() will not release and acquire
+bond lock, so it is no need to read the bond lock for them,
+and the bond_store_primaryxxx() is already in RTNL, so remove the
+unwanted lock.
 
 Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
 Suggested-by: Veaceslav Falico <vfalico@redhat.com>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bond_main.c | 27 ++++++---------------------
- 1 file changed, 6 insertions(+), 21 deletions(-)
+ drivers/net/bonding/bond_sysfs.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index d9bb5ee..77fdb78 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1589,11 +1589,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	bond_set_carrier(bond);
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 75dc4d0..4838a97 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1069,7 +1069,6 @@ static ssize_t bonding_store_primary(struct device *d,
+ 	if (!rtnl_trylock())
+ 		return restart_syscall();
+ 	block_netpoll_tx();
+-	read_lock(&bond->lock);
+ 	write_lock_bh(&bond->curr_slave_lock);
  
- 	if (USES_PRIMARY(bond->params.mode)) {
--		read_lock(&bond->lock);
- 		write_lock_bh(&bond->curr_slave_lock);
- 		bond_select_active_slave(bond);
- 		write_unlock_bh(&bond->curr_slave_lock);
--		read_unlock(&bond->lock);
- 	}
+ 	if (!USES_PRIMARY(bond->params.mode)) {
+@@ -1109,7 +1108,6 @@ static ssize_t bonding_store_primary(struct device *d,
+ 		bond->dev->name, ifname, bond->dev->name);
+ out:
+ 	write_unlock_bh(&bond->curr_slave_lock);
+-	read_unlock(&bond->lock);
+ 	unblock_netpoll_tx();
+ 	rtnl_unlock();
  
- 	pr_info("%s: enslaving %s as a%s interface with a%s link.\n",
-@@ -1613,19 +1611,13 @@ err_detach:
- 		bond_hw_addr_flush(bond_dev, slave_dev);
- 
- 	vlan_vids_del_by_dev(slave_dev, bond_dev);
--	write_lock_bh(&bond->lock);
- 	if (bond->primary_slave == new_slave)
- 		bond->primary_slave = NULL;
- 	if (bond->curr_active_slave == new_slave) {
--		bond_change_active_slave(bond, NULL);
--		write_unlock_bh(&bond->lock);
--		read_lock(&bond->lock);
- 		write_lock_bh(&bond->curr_slave_lock);
-+		bond_change_active_slave(bond, NULL);
- 		bond_select_active_slave(bond);
- 		write_unlock_bh(&bond->curr_slave_lock);
--		read_unlock(&bond->lock);
--	} else {
--		write_unlock_bh(&bond->lock);
- 	}
- 	slave_disable_netpoll(new_slave);
- 
-@@ -1690,20 +1682,16 @@ static int __bond_release_one(struct net_device *bond_dev,
- 	}
+@@ -1157,11 +1155,9 @@ static ssize_t bonding_store_primary_reselect(struct device *d,
+ 		new_value);
  
  	block_netpoll_tx();
--	write_lock_bh(&bond->lock);
- 
- 	slave = bond_get_slave_by_dev(bond, slave_dev);
- 	if (!slave) {
- 		/* not a slave of this bond */
- 		pr_info("%s: %s not enslaved\n",
- 			bond_dev->name, slave_dev->name);
--		write_unlock_bh(&bond->lock);
- 		unblock_netpoll_tx();
- 		return -EINVAL;
- 	}
- 
--	write_unlock_bh(&bond->lock);
--
- 	/* release the slave from its bond */
- 	bond->slave_cnt--;
- 
-@@ -1721,6 +1709,7 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		 */
- 		bond_3ad_unbind_slave(slave);
- 	}
-+	write_unlock_bh(&bond->lock);
- 
- 	pr_info("%s: releasing %s interface %s\n",
- 		bond_dev->name,
-@@ -1743,8 +1732,11 @@ static int __bond_release_one(struct net_device *bond_dev,
- 	if (bond->primary_slave == slave)
- 		bond->primary_slave = NULL;
- 
--	if (oldcurrent == slave)
-+	if (oldcurrent == slave) {
-+		write_lock_bh(&bond->curr_slave_lock);
- 		bond_change_active_slave(bond, NULL);
-+		write_unlock_bh(&bond->curr_slave_lock);
-+	}
- 
- 	if (bond_is_lb(bond)) {
- 		/* Must be called only after the slave has been
-@@ -1752,9 +1744,7 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		 * has been cleared (if our_slave == old_current),
- 		 * but before a new active slave is selected.
- 		 */
--		write_unlock_bh(&bond->lock);
- 		bond_alb_deinit_slave(bond, slave);
--		write_lock_bh(&bond->lock);
- 	}
- 
- 	if (all) {
-@@ -1765,15 +1755,11 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		 * is no concern that another slave add/remove event
- 		 * will interfere.
- 		 */
--		write_unlock_bh(&bond->lock);
--		read_lock(&bond->lock);
- 		write_lock_bh(&bond->curr_slave_lock);
- 
- 		bond_select_active_slave(bond);
- 
- 		write_unlock_bh(&bond->curr_slave_lock);
--		read_unlock(&bond->lock);
--		write_lock_bh(&bond->lock);
- 	}
- 
- 	if (!bond_has_slaves(bond)) {
-@@ -1788,7 +1774,6 @@ static int __bond_release_one(struct net_device *bond_dev,
- 		}
- 	}
- 
--	write_unlock_bh(&bond->lock);
+-	read_lock(&bond->lock);
+ 	write_lock_bh(&bond->curr_slave_lock);
+ 	bond_select_active_slave(bond);
+ 	write_unlock_bh(&bond->curr_slave_lock);
+-	read_unlock(&bond->lock);
  	unblock_netpoll_tx();
- 	synchronize_rcu();
- 
+ out:
+ 	rtnl_unlock();
 -- 
 1.8.2.1
