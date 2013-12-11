@@ -1,40 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] udp: ipv4: fix an use after free in __udp4_lib_rcv()
-Date: Tue, 10 Dec 2013 22:59:06 -0500 (EST)
-Message-ID: <20131210.225906.1861492646485883383.davem@davemloft.net>
-References: <20131211003948.GA18825@redhat.com>
-	<1386723287.30495.352.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1386727643.30495.363.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, sbohrer@rgmadvisors.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 0/7] tipc: cleanups in media and bearer layer
+Date: Tue, 10 Dec 2013 20:45:37 -0800
+Message-ID: <1386737144-32334-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54249 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751224Ab3LKD7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 22:59:08 -0500
-In-Reply-To: <1386727643.30495.363.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtp104.biz.mail.ne1.yahoo.com ([98.138.207.11]:45324 "HELO
+	smtp104.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750862Ab3LKEqW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 23:46:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 10 Dec 2013 18:07:23 -0800
+This commit series performs a number cleanups in order to make the 
+bearer and media part of the code more comprehensible and manageable.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Dave Jones reported a use after free in UDP stack :
- ...
-> We need to keep a reference on the socket, by using skb_steal_sock()
-> at the right place.
-> 
-> Note that another patch is needed to fix a race in
-> udp_sk_rx_dst_set(), as we hold no lock protecting the dst.
-> 
-> Fixes: 421b3885bf6d ("udp: ipv4: Add udp early demux")
-> Reported-by: Dave Jones <davej@redhat.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>
 
-Applied, thanks Eric.
+Jon Maloy (2):
+  tipc: initiate media type array at compile time
+  tipc: improve naming and comment consistency in media layer
+
+Ying Xue (5):
+  tipc: eliminate redundant code with kfree_skb_list routine
+  tipc: remove TIPC usage of field af_packet_priv in struct net_device
+  tipc: relocate common functions from media to bearer
+  tipc: eliminate code duplication in media layer
+  tipc: remove unused 'blocked' flag from tipc_link struct
+
+ include/linux/netdevice.h |    3 +
+ net/tipc/bearer.c         |  292 ++++++++++++++++++++++++++++++++---------
+ net/tipc/bearer.h         |   48 +++----
+ net/tipc/core.c           |    8 +-
+ net/tipc/eth_media.c      |  316 +++------------------------------------------
+ net/tipc/ib_media.c       |  309 +++-----------------------------------------
+ net/tipc/link.c           |   69 +++-------
+ net/tipc/link.h           |    7 -
+ net/tipc/node.c           |    6 +-
+ 9 files changed, 311 insertions(+), 747 deletions(-)
+
+-- 
+1.7.9.5
