@@ -1,43 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/7] tipc: cleanups in media and
-	bearer layer
-Date: Wed, 11 Dec 2013 00:18:45 -0500 (EST)
-Message-ID: <20131211.001845.920061009324507763.davem@davemloft.net>
-References: <1386737144-32334-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH -next 0/3] seq_printf/puts/putc: Start to convert to
+ return void
+Date: Wed, 11 Dec 2013 00:20:40 -0500 (EST)
+Message-ID: <20131211.002040.1061939246483044835.davem@davemloft.net>
+References: <cover.1386738050.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1386737144-32334-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Cc: viro@zeniv.linux.org.uk, keescook@chromium.org,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
+	b.a.t.m.a.n@lists.open-mesh.org
+To: joe@perches.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <cover.1386738050.git.joe@perches.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Tue, 10 Dec 2013 20:45:37 -0800
+From: Joe Perches <joe@perches.com>
+Date: Tue, 10 Dec 2013 21:12:41 -0800
 
-> This commit series performs a number cleanups in order to make the 
-> bearer and media part of the code more comprehensible and manageable.
+> Many uses of the return value of seq_printf/seq_puts/seq_putc are
+> incorrect.  Many assume that the return value is the number of
+> chars emitted into a buffer like printf/puts/putc.
+> 
+> It would be better to make the return value of these functions void
+> to avoid these misuses.
+> 
+> Start to do so.
+> Convert seq_overflow to a public function from a static function.
+> 
+> Remove the return uses of seq_printf/seq_puts/seq_putc from net.
+> Add a seq_overflow function call instead.
 
-When submitting patches targetted at the "net-next" tree, as these
-changes must be since they are cleanups/enhancements rather than
-bug fixes (which would be targetted at the "net" tree) indicate
-this explicitly in your Subject lines by saying "net-next" instead
-of "net".
+I'm fine with this going in whatever tree is appropriate for
+the seq_overflow un-static change:
 
-Series applied, thanks.
-
-------------------------------------------------------------------------------
-Rapidly troubleshoot problems before they affect your business. Most IT 
-organizations don't have a clear picture of how application performance 
-affects their revenue. With AppDynamics, you get 100% visibility into your 
-Java,.NET, & PHP application. Start your 15-day FREE TRIAL of AppDynamics Pro!
-http://pubads.g.doubleclick.net/gampad/clk?id=84349831&iu=/4140/ostg.clktrk
+Acked-by: David S. Miller <davem@davemloft.net>
