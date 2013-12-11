@@ -1,34 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net 2/8] sfc: PTP: Moderate log message on event queue
- overflow
-Date: Tue, 10 Dec 2013 18:15:53 -0800
-Message-ID: <1386728153.8168.27.camel@joe-AO722>
-References: <1386726826.1516.238.camel@bwh-desktop.uk.level5networks.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: [PATCH net-next 6/6] net_sched: make macro be enclosed in parenthesis
+Date: Wed, 11 Dec 2013 10:16:35 +0800
+Message-ID: <52A7CB03.2000209@huawei.com>
+References: <1386680134-85452-1-git-send-email-yangyingliang@huawei.com> <1386680134-85452-7-git-send-email-yangyingliang@huawei.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7477@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0251.hostedemail.com ([216.40.44.251]:39854 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750980Ab3LKCP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 21:15:57 -0500
-In-Reply-To: <1386726826.1516.238.camel@bwh-desktop.uk.level5networks.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:20405 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751706Ab3LKCQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 21:16:54 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7477@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-12-11 at 01:53 +0000, Ben Hutchings wrote:
-> From: Laurence Evans <levans@solarflare.com>
-[]
-> diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-[]
-> @@ -270,6 +271,7 @@ struct efx_ptp_data {
->  	struct list_head evt_list;
->  	struct list_head evt_free_list;
->  	spinlock_t evt_lock;
-> +	bool evt_overflow;
+On 2013/12/10 21:01, David Laight wrote:
+>>  #define SKIP_NONLOCAL(skb)			\
+>> +({						\
+>>  	if (unlikely(skb->sk == NULL)) {	\
+>>  		*err = -1;			\
+>>  		return;				\
+>> -	}
+>> +	}					\
+>> +})
+> 
+> That one should be lined up against the fence and shot :-)
+> 
+> 
 
-It might be nice to move the bools in this struct together
-to reduce the number of struct holes.
+Hmm, not fully understand, did you mean that:
+
+#define SKIP_NONLOCAL(skb) ({			\
+ 	if (unlikely(skb->sk == NULL)) {	\
+ 		*err = -1;			\
+		return;				\
+	}					\
+})
