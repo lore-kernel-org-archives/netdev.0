@@ -1,63 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: smc91x: Fix device tree based configuration so
- it's usable
-Date: Wed, 11 Dec 2013 15:44:26 -0500 (EST)
-Message-ID: <20131211.154426.2252395344655389568.davem@davemloft.net>
-References: <20131127185657.GA26766@atomide.com>
-	<52A8ADE6.8010209@ti.com>
+From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Subject: Re: [PATCH v2 01/16] wl1251: fix scan behaviour while not associated
+Date: Wed, 11 Dec 2013 20:44:40 +0000
+Message-ID: <1386794680.1516.249.camel@bwh-desktop.uk.level5networks.com>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+	 <20131210092114.GB22756@amd.pavel.ucw.cz>
+	 <8738m0r9wv.fsf@purkki.adurom.net> <201312101808.44713@pali>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tony@atomide.com, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, nico@fluxnic.net, mark.rutland@arm.com
-To: nm@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59389 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750873Ab3LKUo3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 15:44:29 -0500
-In-Reply-To: <52A8ADE6.8010209@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>, Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+	"Luciano Coelho" <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <freemangordon-uiMcrn6V0Vs@public.gmane.org>,
+	<aaro.koskinen-X3B1VOXEql0@public.gmane.org>, <sre-GFxCN5SEZAc@public.gmane.org>,
+	<joni.lapilainen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>
+To: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201312101808.44713@pali>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Nishanth Menon <nm@ti.com>
-Date: Wed, 11 Dec 2013 12:24:38 -0600
+On Tue, 2013-12-10 at 18:08 +0100, Pali Roh=C3=A1r wrote:
+> On Tuesday 10 December 2013 16:41:04 Kalle Valo wrote:
+> > Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org> writes:
+> > > ssids can have \0s in them... and what is worse, they may
+> > > not be 0 terminated AFAICT.
+> > >=20
+> > > Potential solution is at
+> > > http://www.spinics.net/lists/linux-wireless/msg98640.html .
+> >=20
+> > I just use print_hex_dump_bytes() to print SSIDs.
+>=20
+> Ok and has kernel printf modifier for size_t?
 
-> Hi Tony,
-> On 11/27/2013 12:56 PM, Tony Lindgren wrote:
->> Commit 89ce376c6bdc (drivers/net: Use of_match_ptr() macro in smc91x.c)
->> added minimal device tree support to smc91x, but it's not working on
->> many platforms because of the lack of some key configuration bits.
->> 
->> Fix the issue by parsing the necessary configuration like the
->> smc911x driver is doing. As most smc91x users seem to use 16-bit
->> access, let's default to that if no reg-io-width is specified.
->> 
->> Cc: Nicolas Pitre <nico@fluxnic.net>
->> Cc: Mark Rutland <mark.rutland@arm.com>
->> Cc: netdev@vger.kernel.org
->> Cc: devicetree@vger.kernel.org
->> Signed-off-by: Tony Lindgren <tony@atomide.com>
->> 
->> ---
->> 
->> Device tree folks, any objection to using the reg-io-width property
->> as a mask here?
->> 
->> Looks like we can use reg-io-width as a mask too if needed, it seems
->> to play fine with combinations of 1 = 8-bit, 2 = 16-bit, 4 = 32-bit
->> and so on.
->> 
->> I would like to see this merged during the -rc cycle as this makes
->> my test devices behave the same way when booted in legacy platform
->> data mode compared to when booted with device tree.
->> 
-> please feel free to add my:
-> Acked-by: Nishanth Menon <nm@ti.com>
-> 
-> Also tested on SDP2430:
-> http://pastebin.mozilla.org/3756403
+It is 'z', same as in userland.
 
-That patch needs changes, it adds a warning when CONFIG_OF is disabled
-because the variable 'np' only gets used in the CONFIG_OF protected
-code block yet is declared unconditionally.
+Ben.
+
+--=20
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
