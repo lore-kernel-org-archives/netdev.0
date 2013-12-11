@@ -1,108 +1,57 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless 2013-12-11
-Date: Wed, 11 Dec 2013 10:48:10 -0500
-Message-ID: <20131211154810.GB7411@tuxdriver.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH 1/2] net: smc91x: Read hardware behavior flags from
+ device tree
+Date: Wed, 11 Dec 2013 08:04:40 -0800
+Message-ID: <20131211160440.GA13171@atomide.com>
+References: <1386757305-12545-1-git-send-email-nm@ti.com>
+ <1386757305-12545-2-git-send-email-nm@ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="gBBFr7Ir9EOA20Yy"
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: devicetree@vger.kernel.org, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	=?utf-8?Q?Beno=C3=AEt?= Cousson <bcousson@baylibre.com>
+To: Nishanth Menon <nm@ti.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1386757305-12545-2-git-send-email-nm@ti.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+* Nishanth Menon <nm@ti.com> [131211 02:23]:
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/smsc91x.txt
+> @@ -0,0 +1,45 @@
+> +* Smart Mixed-Signal Connectivity (SMSC) LAN91c94/91c111 Controller
+> +
+> +Required properties:
+> +- compatible : Should be one of:
+> +	"smsc,lan91c94"
+> +	"smsc,lan91c111"
+> +- reg : Address and length of the io space for SMSC LAN
+> +- interrupts : Should contain SMSC LAN interrupt line
+> +- interrupt-parent : Should be the phandle for the interrupt controller
+> +  that services interrupts for this device
+> +
+> +Optional properties:
+> +- reg-shift : Specify the quantity to shift the register offsets by
+> +- reg-io-width : Specify the size (in bytes) of the IO accesses that
+> +  should be performed on the device.  Valid value for SMSC LAN is
+> +  1, 2 or 4.
 
---gBBFr7Ir9EOA20Yy
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I posted a minimal regression fix for this a few weeks ago that we
+should merge to the v3.13-rc cycle:
 
-Dave,
+http://www.spinics.net/lists/netdev/msg258913.html
 
-Just one patch this time -- a fix from Felix Fietkau to fix the
-duration calculation for non-aggregated packets in ath9k.  This is
-a small change and it is obviously specific to ath9k.
+Care to ack that one? Then if that works for you, maybe rebase these on
+that one for the upcoming merge window?
 
-Please let me know if there are problems!
+Note that for the -rc cycle we don't need these extra properties as we
+can get the interrupts from the struct resource after fix
+4a43d686fe336c (of/irq: Pass trigger type in IRQ resource flags)
+got merged.
 
-Thanks,
+Regards,
 
-John
-
----
-
-The following changes since commit 8afdd99a1315e759de04ad6e2344f0c5f17ecb1b:
-
-  udp: ipv4: fix an use after free in __udp4_lib_rcv() (2013-12-10 22:58:40=
- -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-d=
-avem
-
-for you to fetch changes up to 33457ff7cdd48c54723ab8c550deec28dd904659:
-
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/li=
-nville/wireless into for-davem (2013-12-11 10:41:56 -0500)
-
-----------------------------------------------------------------
-
-Felix Fietkau (1):
-      ath9k: fix duration calculation for non-aggregated packets
-
-John W. Linville (1):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless i=
-nto for-davem
-
- drivers/net/wireless/ath/ath9k/xmit.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/wireless/ath/ath9k/xmit.c b/drivers/net/wireless/a=
-th/ath9k/xmit.c
-index 09cdbcd09739..b5a19e098f2d 100644
---- a/drivers/net/wireless/ath/ath9k/xmit.c
-+++ b/drivers/net/wireless/ath/ath9k/xmit.c
-@@ -1276,6 +1276,10 @@ static void ath_tx_fill_desc(struct ath_softc *sc, s=
-truct ath_buf *bf,
- 				if (!rts_thresh || (len > rts_thresh))
- 					rts =3D true;
- 			}
-+
-+			if (!aggr)
-+				len =3D fi->framelen;
-+
- 			ath_buf_set_rate(sc, bf, &info, len, rts);
- 		}
-=20
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
-
---gBBFr7Ir9EOA20Yy
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIcBAEBAgAGBQJSqIk6AAoJEJctW/TcYTgG0HQP/2A982a2xUiISAHGSc82shSi
-rRNc5+9xe7sz+249lsXW6ZJEbhd77KbhP5y8xVhF0U4RLQ9z62QRp2qQmg5rxS0r
-3IaJSUf+AfLRafEQSMqxByW98NR2z73jURewRdKPMbNYCdBHhRFIHTlwXBZHVqaE
-zulRYyRZ+Byt5bG82M89NUwG+iyD7iU9Wan+nyR3b7xAvfCy1jsDz+TAaOtm3eIL
-+FEzcQyvnWD/TPngzEtH8jhGiKAzJlwjTSk9UEbU7t+KxOPJLGUj4uX8BdM8m9Ar
-+UEh2X/EOIdb4nbRKGadFNq0/GWi6SdFQNWjpSCkTAP2f1Hh9wiTRZ56YB68JIcu
-A4+zFArbsWqVX549Bnag4+W/7pSUXjouOB+zfE5a2k4qBiNBbGNRDkrsE4ENLWu0
-/09wFQ+XB8Vey6dN45YSYdflpSJDiQAFtGzuXqRqNM7c8xxSblK+IHGKitspAZHx
-lvGb0t5RQiRHkG863zN3+lrW79Y/frsQRBHoc2j4eZFWO3dpdtuycGZgxauvov+x
-oamVChjNfvAc89ngfvxPHICRPKV7YBp0KfpYh8Yd6o2VpBHdVf2Sx4AOjKCil35R
-edC7z2ISfpy1KZt3BcpcLWoKmkr6LUqh+yyOg3bb/wZ8+KOONlxeqq8aWMgmd0+U
-R0gZZLPze8SHb1ElrWdy
-=qyhn
------END PGP SIGNATURE-----
-
---gBBFr7Ir9EOA20Yy--
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Tony
