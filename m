@@ -1,134 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] udp: ipv4: fix an use after free in __udp4_lib_rcv()
-Date: Tue, 10 Dec 2013 18:07:23 -0800
-Message-ID: <1386727643.30495.363.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131211003948.GA18825@redhat.com>
-	 <1386723287.30495.352.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 06/13] bna: UDP RX Processing Improvements
+Date: Tue, 10 Dec 2013 21:11:20 -0500 (EST)
+Message-ID: <20131210.211120.1956754760208726379.davem@davemloft.net>
+References: <1386481724-32367-7-git-send-email-rmody@brocade.com>
+	<20131209.191755.1735369355458133155.davem@davemloft.net>
+	<E5313AF6F2BFD14293E5FD0F94750F86B69010DB7B@HQ1-EXCH01.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>,
-	David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@Brocade.COM
+To: rmody@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:58822 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460Ab3LKCHc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 21:07:32 -0500
-Received: by mail-pb0-f48.google.com with SMTP id md12so8907432pbc.21
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 18:07:32 -0800 (PST)
-In-Reply-To: <1386723287.30495.352.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53657 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750960Ab3LKCLZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 21:11:25 -0500
+In-Reply-To: <E5313AF6F2BFD14293E5FD0F94750F86B69010DB7B@HQ1-EXCH01.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Rasesh Mody <rmody@brocade.com>
+Date: Tue, 10 Dec 2013 16:05:46 -0800
 
-Dave Jones reported a use after free in UDP stack :
+> By having the bnad_rx_unmap structure marked as __packed we were trying to
+> reduce the unmap_q size by 16K, __packed would ensure the RX unmap
+> structure of 40 bytes is packed to 32 bytes. This change was also captured
+> as a part of the commit message of patch #6 under change details.
 
-[ 5059.434216] =========================
-[ 5059.434314] [ BUG: held lock freed! ]
-[ 5059.434420] 3.13.0-rc3+ #9 Not tainted
-[ 5059.434520] -------------------------
-[ 5059.434620] named/863 is freeing memory ffff88005e960000-ffff88005e96061f, with a lock still held there!
-[ 5059.434815]  (slock-AF_INET){+.-...}, at: [<ffffffff8149bd21>] udp_queue_rcv_skb+0xd1/0x4b0
-[ 5059.435012] 3 locks held by named/863:
-[ 5059.435086]  #0:  (rcu_read_lock){.+.+..}, at: [<ffffffff8143054d>] __netif_receive_skb_core+0x11d/0x940
-[ 5059.435295]  #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff81467a5e>] ip_local_deliver_finish+0x3e/0x410
-[ 5059.435500]  #2:  (slock-AF_INET){+.-...}, at: [<ffffffff8149bd21>] udp_queue_rcv_skb+0xd1/0x4b0
-[ 5059.435734] 
-stack backtrace:
-[ 5059.435858] CPU: 0 PID: 863 Comm: named Not tainted 3.13.0-rc3+ #9 [loadavg: 0.21 0.06 0.06 1/115 1365]
-[ 5059.436052] Hardware name:                  /D510MO, BIOS MOPNV10J.86A.0175.2010.0308.0620 03/08/2010
-[ 5059.436223]  0000000000000002 ffff88007e203ad8 ffffffff8153a372 ffff8800677130e0
-[ 5059.436390]  ffff88007e203b10 ffffffff8108cafa ffff88005e960000 ffff88007b00cfc0
-[ 5059.436554]  ffffea00017a5800 ffffffff8141c490 0000000000000246 ffff88007e203b48
-[ 5059.436718] Call Trace:
-[ 5059.436769]  <IRQ>  [<ffffffff8153a372>] dump_stack+0x4d/0x66
-[ 5059.436904]  [<ffffffff8108cafa>] debug_check_no_locks_freed+0x15a/0x160
-[ 5059.437037]  [<ffffffff8141c490>] ? __sk_free+0x110/0x230
-[ 5059.437147]  [<ffffffff8112da2a>] kmem_cache_free+0x6a/0x150
-[ 5059.437260]  [<ffffffff8141c490>] __sk_free+0x110/0x230
-[ 5059.437364]  [<ffffffff8141c5c9>] sk_free+0x19/0x20
-[ 5059.437463]  [<ffffffff8141cb25>] sock_edemux+0x25/0x40
-[ 5059.437567]  [<ffffffff8141c181>] sock_queue_rcv_skb+0x81/0x280
-[ 5059.437685]  [<ffffffff8149bd21>] ? udp_queue_rcv_skb+0xd1/0x4b0
-[ 5059.437805]  [<ffffffff81499c82>] __udp_queue_rcv_skb+0x42/0x240
-[ 5059.437925]  [<ffffffff81541d25>] ? _raw_spin_lock+0x65/0x70
-[ 5059.438038]  [<ffffffff8149bebb>] udp_queue_rcv_skb+0x26b/0x4b0
-[ 5059.438155]  [<ffffffff8149c712>] __udp4_lib_rcv+0x152/0xb00
-[ 5059.438269]  [<ffffffff8149d7f5>] udp_rcv+0x15/0x20
-[ 5059.438367]  [<ffffffff81467b2f>] ip_local_deliver_finish+0x10f/0x410
-[ 5059.438492]  [<ffffffff81467a5e>] ? ip_local_deliver_finish+0x3e/0x410
-[ 5059.438621]  [<ffffffff81468653>] ip_local_deliver+0x43/0x80
-[ 5059.438733]  [<ffffffff81467f70>] ip_rcv_finish+0x140/0x5a0
-[ 5059.438843]  [<ffffffff81468926>] ip_rcv+0x296/0x3f0
-[ 5059.438945]  [<ffffffff81430b72>] __netif_receive_skb_core+0x742/0x940
-[ 5059.439074]  [<ffffffff8143054d>] ? __netif_receive_skb_core+0x11d/0x940
-[ 5059.442231]  [<ffffffff8108c81d>] ? trace_hardirqs_on+0xd/0x10
-[ 5059.442231]  [<ffffffff81430d83>] __netif_receive_skb+0x13/0x60
-[ 5059.442231]  [<ffffffff81431c1e>] netif_receive_skb+0x1e/0x1f0
-[ 5059.442231]  [<ffffffff814334e0>] napi_gro_receive+0x70/0xa0
-[ 5059.442231]  [<ffffffffa01de426>] rtl8169_poll+0x166/0x700 [r8169]
-[ 5059.442231]  [<ffffffff81432bc9>] net_rx_action+0x129/0x1e0
-[ 5059.442231]  [<ffffffff810478cd>] __do_softirq+0xed/0x240
-[ 5059.442231]  [<ffffffff81047e25>] irq_exit+0x125/0x140
-[ 5059.442231]  [<ffffffff81004241>] do_IRQ+0x51/0xc0
-[ 5059.442231]  [<ffffffff81542bef>] common_interrupt+0x6f/0x6f
+Do you have any idea what the costs are on certain architectures
+for adding this attribute?
 
-We need to keep a reference on the socket, by using skb_steal_sock()
-at the right place.
+When you mark something __packed, the compiler can no longer assume
+anything about the alignment of any instance of that structure, nor
+nor any structure which is contained within that type either.
 
-Note that another patch is needed to fix a race in
-udp_sk_rx_dst_set(), as we hold no lock protecting the dst.
+So the compiler will, for example, emit byte by byte operations
+to load multi-byte quantities on architectures where unaligned
+data accesses can trap.
 
-Fixes: 421b3885bf6d ("udp: ipv4: Add udp early demux")
-Reported-by: Dave Jones <davej@redhat.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>
----
- net/ipv4/udp.c |   16 ++++++----------
- 1 file changed, 6 insertions(+), 10 deletions(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 44f6a20..2e2aecb 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -560,15 +560,11 @@ static inline struct sock *__udp4_lib_lookup_skb(struct sk_buff *skb,
- 						 __be16 sport, __be16 dport,
- 						 struct udp_table *udptable)
- {
--	struct sock *sk;
- 	const struct iphdr *iph = ip_hdr(skb);
- 
--	if (unlikely(sk = skb_steal_sock(skb)))
--		return sk;
--	else
--		return __udp4_lib_lookup(dev_net(skb_dst(skb)->dev), iph->saddr, sport,
--					 iph->daddr, dport, inet_iif(skb),
--					 udptable);
-+	return __udp4_lib_lookup(dev_net(skb_dst(skb)->dev), iph->saddr, sport,
-+				 iph->daddr, dport, inet_iif(skb),
-+				 udptable);
- }
- 
- struct sock *udp4_lib_lookup(struct net *net, __be32 saddr, __be16 sport,
-@@ -1739,15 +1735,15 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	if (udp4_csum_init(skb, uh, proto))
- 		goto csum_error;
- 
--	if (skb->sk) {
-+	sk = skb_steal_sock(skb);
-+	if (sk) {
- 		int ret;
--		sk = skb->sk;
- 
- 		if (unlikely(sk->sk_rx_dst == NULL))
- 			udp_sk_rx_dst_set(sk, skb);
- 
- 		ret = udp_queue_rcv_skb(sk, skb);
--
-+		sock_put(sk);
- 		/* a return value > 0 means to resubmit the input, but
- 		 * it wants the return to be -protocol, or 0
- 		 */
+You should only use __packed as the extreme, very last resort method
+to achieve a certain goal.  Frankly I think it should never be used
+except in cases where layout is dictated by a network protocol or
+hardware descriptor _AND_ the layout cannot be achieved using portable
+fixed sized types.
