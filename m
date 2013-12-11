@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 05/12] bna: Enable Multi Buffer RX
-Date: Wed, 11 Dec 2013 12:27:18 -0500 (EST)
-Message-ID: <20131211.122718.1401456146385583996.davem@davemloft.net>
-References: <1386745251-13710-1-git-send-email-rmody@brocade.com>
-	<1386745251-13710-6-git-send-email-rmody@brocade.com>
+Subject: Re: [PATCH v1 1/6] net: mv643xx_eth: properly start/stop phy device
+Date: Wed, 11 Dec 2013 12:28:15 -0500 (EST)
+Message-ID: <20131211.122815.155153567731141533.davem@davemloft.net>
+References: <20131210.215253.2121948728095674632.davem@davemloft.net>
+	<20131210.215654.1165181423931409066.davem@davemloft.net>
+	<52A80EFC.8070806@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, adapter_linux_open_src_team@Brocade.COM
-To: rmody@brocade.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58177 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750971Ab3LKR1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 12:27:21 -0500
-In-Reply-To: <1386745251-13710-6-git-send-email-rmody@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: f.fainelli@gmail.com, mugunthanvnm@ti.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: sebastian.hesselbarth@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <52A80EFC.8070806@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rasesh Mody <rmody@brocade.com>
-Date: Tue, 10 Dec 2013 23:00:44 -0800
-
-> Using module parameter bnad_multi_buffer_rx this behavior can be reverted.
-
-Sorry, I've told you guys a thousand times to use generic
-configuration mechanisms, such as ethtool, to control behavior rather
-than module parameters.
-
-If the generic facility you need doesn't exist, make it, don't
-do you own custom thing.
+RnJvbTogU2ViYXN0aWFuIEhlc3NlbGJhcnRoIDxzZWJhc3RpYW4uaGVzc2VsYmFydGhAZ21haWwu
+Y29tPg0KRGF0ZTogV2VkLCAxMSBEZWMgMjAxMyAwODowNjozNiArMDEwMA0KDQo+IE9uIDEyLzEx
+LzIwMTMgMDM6NTYgQU0sIERhdmlkIE1pbGxlciB3cm90ZToNCj4+IEZyb206IERhdmlkIE1pbGxl
+ciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4+IERhdGU6IFR1ZSwgMTAgRGVjIDIwMTMgMjE6NTI6
+NTMgLTA1MDAgKEVTVCkNCj4+DQo+Pj4NCj4+PiBUaGlzIHNlcmllcyBsb29rcyBnb29kLCBhcHBs
+aWVkIHRvIG5ldC1uZXh0LCB0aGFua3MuDQo+Pg0KPj4gQWN0dWFsbHksIEkgaGFkIHRvIHJldmVy
+dC4NCj4+DQo+PiBZb3UgY2Fubm90IHVzZSBsYXRlX2luaXRjYWxsX3N5bmMoKSBmcm9tIGNvZGUg
+dGhhdCBpcyBwb3RlbnRpYWxseQ0KPj4gYnVpbHQgbW9kdWxhciwgdGhpcyBjYXVzZWQgbXkgYnVp
+bGQgdG8gZmFpbCBhdCB0aGUgbWRpb19idXMgY29kZS4NCj4+DQo+PiBkcml2ZXJzL25ldC9waHkv
+bWRpb19idXMuYzozNDQ6MTogd2FybmluZzogZGF0YSBkZWZpbml0aW9uIGhhcyBubyB0eXBlDQo+
+PiBvciBzdG9yYWdlIGNsYXNzIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQo+PiBkcml2ZXJzL25ldC9w
+aHkvbWRpb19idXMuYzozNDQ6MTogZXJyb3I6IHR5cGUgZGVmYXVsdHMgdG8goWludKIgaW4NCj4+
+IGRlY2xhcmF0aW9uIG9mIKFsYXRlX2luaXRjYWxsX3N5bmOiIFstV2Vycm9yPWltcGxpY2l0LWlu
+dF0NCj4+IGRyaXZlcnMvbmV0L3BoeS9tZGlvX2J1cy5jOjM0NDoxOiB3YXJuaW5nOiBwYXJhbWV0
+ZXIgbmFtZXMgKHdpdGhvdXQNCj4+IHR5cGVzKSBpbiBmdW5jdGlvbiBkZWNsYXJhdGlvbiBbZW5h
+YmxlZCBieSBkZWZhdWx0XQ0KPj4gZHJpdmVycy9uZXQvcGh5L21kaW9fYnVzLmM6MzM5OjEyOiB3
+YXJuaW5nOg0KPj4goW1kaW9fYnVzX2NsYXNzX3N1c3BlbmRfdW51c2VkoiBkZWZpbmVkIGJ1dCBu
+b3QgdXNlZA0KPj4gWy1XdW51c2VkLWZ1bmN0aW9uXQ0KPj4NCj4gDQo+IEhtbSwgSSBzZWUuIFdo
+YXQgYWJvdXQgeW91IGRyb3AgcGF0Y2ggNSAoIm5ldDogcGh5OiBzdXNwZW5kIHVudXNlZA0KPiBQ
+SFlzDQo+IG9uIG1kaW9fYnVzIGluIGxhdGVfaW5pdGNhbGwiKSwgdGFrZSB0aGUgcmVzdCwgYW5k
+IEknbGwgaGF2ZSBsb29rIGF0DQo+IHN1c3BlbmRpbmcgdW51c2VkIFBIWXMgbGF0ZXI/DQoNCldo
+YXQgYWJvdXQgeW91IHJlc3VibWl0IHRoZSBzZXJpZXMgdGhhdCB5b3Ugd2FudCBtZSB0byBhcHBs
+eT8NCg0KVGhhbmtzLg0K
