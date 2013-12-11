@@ -1,60 +1,47 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: RE: [net-next 06/13] bna: UDP RX Processing Improvements
-Date: Tue, 10 Dec 2013 16:05:46 -0800
-Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86B69010DB7B@HQ1-EXCH01.corp.brocade.com>
-References: <1386481724-32367-1-git-send-email-rmody@brocade.com>
-	<1386481724-32367-7-git-send-email-rmody@brocade.com>
- <20131209.191755.1735369355458133155.davem@davemloft.net>
+From: Soren Brinkmann <soren.brinkmann@xilinx.com>
+Subject: [PATCH v2 0/5] net: macb updates
+Date: Tue, 10 Dec 2013 16:07:18 -0800
+Message-ID: <1386720443-24100-1-git-send-email-soren.brinkmann@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Adapter Linux Open SRC Team"
-	<adapter_linux_open_src_team@Brocade.COM>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	=?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
+	Michal Simek <michal.simek@xilinx.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:22167 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751036Ab3LKAFu convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Dec 2013 19:05:50 -0500
-Received: from pps.filterd (m0000542 [127.0.0.1])
-	by mx0a-000f0801.pphosted.com (8.14.5/8.14.5) with SMTP id rBANMHM3013909
-	for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 16:05:49 -0800
-Received: from hq1wp-exchub02.corp.brocade.com ([144.49.131.13])
-	by mx0a-000f0801.pphosted.com with ESMTP id 1gp3qygj4y-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 16:05:49 -0800
-In-Reply-To: <20131209.191755.1735369355458133155.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:48833 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751105Ab3LKAHi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 19:07:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+I'd really like to have Ethernet working for Zynq, so I want to at leas=
+t
+revive this discussion regarding this patchset. And the first four
+patches should not even be too controversial.
+I didn't change anything compared to my original RFC submission, except
+for a typo in one of the commit messages.
+Handling the tx_clk as optional clock input seems a little bit weird,
+but it works on my Zynq platform and should be compatible with other
+users of macb and their DT descriptions.
 
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Monday, December 09, 2013 4:18 PM
->
->From: Rasesh Mody <rmody@brocade.com>
->Date: Sat, 7 Dec 2013 21:48:37 -0800
->
->> @@ -233,13 +233,13 @@ struct bnad_tx_unmap {  struct bnad_rx_vector {
->>  	DEFINE_DMA_UNMAP_ADDR(dma_addr);
->>  	u32			len;
->> -};
->> +} __packed;
->
->This is absolutely unacceptable, and at best not even mentioned in your
->commit message.
->
->There is no reason whatsoever to mark this structure as __packed.
+	Thanks,
+	S=C3=B6ren
 
-By having the bnad_rx_unmap structure marked as __packed we were trying to
-reduce the unmap_q size by 16K, __packed would ensure the RX unmap
-structure of 40 bytes is packed to 32 bytes. This change was also captured
-as a part of the commit message of patch #6 under change details.
+Soren Brinkmann (5):
+  net: macb: Migrate to dev_pm_ops
+  net: macb: Migrate to devm clock interface
+  net: macb: Use devm_ioremap()
+  net: macb: Use devm_request_irq()
+  net: macb: Adjust tx_clk when link speed changes
 
-We'll address your concern and resubmit the patches.
+ drivers/net/ethernet/cadence/macb.c | 126 +++++++++++++++++++++++++++-=
+--------
+ drivers/net/ethernet/cadence/macb.h |   1 +
+ 2 files changed, 98 insertions(+), 29 deletions(-)
 
-Thanks,
---Rasesh
+--=20
+1.8.5.1
