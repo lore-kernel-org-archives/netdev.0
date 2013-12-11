@@ -1,26 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] micrel: add support for KSZ8041RNLI
-Date: Wed, 11 Dec 2013 17:10:05 -0500 (EST)
-Message-ID: <20131211.171005.1026686921972557583.davem@davemloft.net>
-References: <52A8D90F.9090002@cogentembedded.com>
-	<20131211.161146.379334754489134708.davem@davemloft.net>
-	<52A8EEF8.3090503@cogentembedded.com>
+Subject: Re: [PATCH v4 net-next] 8390 : Replace ei_debug with
+ msg_enable/NETIF_MSG_* feature
+Date: Wed, 11 Dec 2013 17:12:24 -0500 (EST)
+Message-ID: <20131211.171224.2111686395095015308.davem@davemloft.net>
+References: <1386799259-31623-1-git-send-email-tedheadster@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <52A8EEF8.3090503@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: tedheadster@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60104 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751941Ab3LKWM1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 17:12:27 -0500
+In-Reply-To: <1386799259-31623-1-git-send-email-tedheadster@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Thu, 12 Dec 2013 02:02:16 +0300
+From: Matthew Whitehead <tedheadster@gmail.com>
+Date: Wed, 11 Dec 2013 17:00:59 -0500
 
->    Well, the R8A7791 Ether platform support should appear only in 3.14,
->    so don't bother. I just wanted to understand the principle you
->    follow...
+> Removed the shared ei_debug variable. Replaced it by adding u32 msg_enable to
+> the private struct ei_device. Now each 8390 ethernet instance has a per-device
+> logging variable.
+> 
+> Changed older style printk() calls to more canonical forms.
+> 
+> Tested on: ne, ne2k-pci, smc-ultra, and wd hardware.
+> 
+> V4.0
+> - Substituted pr_info() and pr_debug() for printk() KERN_INFO and KERN_DEBUG
+> 
+> V3.0
+> - Checked for cases where pr_cont() was most appropriate choice.
+> - Changed module parameter from 'debug' to 'msg_enable' because debug was
+> no longer the best description.
+> 
+> V2.0
+> - Changed netif_msg_(drv|probe|ifdown|rx_err|tx_err|tx_queued|intr|rx_status|hw)
+> to netif_(dbg|info|warn|err) where possible.
+> 
+> Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
 
-Generally speaking, if the change to support a new device is simply
-a matter of adding a new device ID I tend to queue it up for 'net'.
+Applied, but there was some trailing whitespace I had to edit out while
+applying this, thanks.
