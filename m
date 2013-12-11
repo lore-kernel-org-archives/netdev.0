@@ -1,27 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Add packet capture support on macvtap
- device
-Date: Wed, 11 Dec 2013 16:44:51 -0500 (EST)
-Message-ID: <20131211.164451.1269905635782238966.davem@davemloft.net>
-References: <1386786431-22592-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH net] xen-netback: make sure skb linear area covers
+ checksum field
+Date: Wed, 11 Dec 2013 16:47:16 -0500 (EST)
+Message-ID: <20131211.164716.1397098528848980750.davem@davemloft.net>
+References: <1386779860-19338-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, kaber@trash.net
-To: vyasevic@redhat.com
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	wei.liu2@citrix.com, ian.campbell@citrix.com,
+	david.vrabel@citrix.com
+To: paul.durrant@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59875 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59899 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750996Ab3LKVox (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 16:44:53 -0500
-In-Reply-To: <1386786431-22592-1-git-send-email-vyasevic@redhat.com>
+	with ESMTP id S1750992Ab3LKVrT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 16:47:19 -0500
+In-Reply-To: <1386779860-19338-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Wed, 11 Dec 2013 13:27:09 -0500
+From: Paul Durrant <paul.durrant@citrix.com>
+Date: Wed, 11 Dec 2013 16:37:40 +0000
 
-> This series adds support for packet capturing on macvtap device.
+> skb_partial_csum_set requires that the linear area of the skb covers the
+> checksum field. The checksum setup code in netback was only doing that
+> pullup in the case when the pseudo header checksum was being recalculated
+> though. This patch makes that pullup unconditional. (I pullup the whole
+> transport header just for simplicity; the requirement is only for the check
+> field but in the case of UDP this is the last field in the header and in the
+> case of TCP it's the last but one).
+> 
+> The lack of pullup manifested as failures running Microsoft HCK network
+> tests on a pair of Windows 8 VMs and it has been verified that this patch
+> fixes the problem.
+> 
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
 
-This looks fine to me, I'll let it get some more review before I
-apply it, thanks.
+Applied, thank you.
