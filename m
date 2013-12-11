@@ -1,98 +1,64 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net V3 1/2] tun: unbreak truncated packet signalling
-Date: Wed, 11 Dec 2013 16:32:35 +0200
-Message-ID: <20131211143235.GC23860@redhat.com>
-References: <1386738514-1502-1-git-send-email-jasowang@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next] sctp: remove redundant null check on asoc
+Date: Wed, 11 Dec 2013 09:38:58 -0500
+Message-ID: <52A87902.8070900@gmail.com>
+References: <52A82566.1050601@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1386738514-1502-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Wang Weidong <wangweidong1@huawei.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f54.google.com ([209.85.213.54]:54358 "EHLO
+	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750965Ab3LKOjC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 09:39:02 -0500
+In-Reply-To: <52A82566.1050601@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 11, 2013 at 01:08:33PM +0800, Jason Wang wrote:
-> Commit 6680ec68eff47d36f67b4351bc9836fd6cba9532
-> (tuntap: hardware vlan tx support) breaks the truncated packet signal by nev
-> return a length greater than iov length in tun_put_user(). This patch fixes
-> by always return the length of packet plus possible vlan header. Caller can
-> detect the truncated packet by comparing the return value and the size of io
-> length.
+On 12/11/2013 03:42 AM, Wang Weidong wrote:
+> In sctp_err_lookup, goto out while the asoc is not NULL, so remove the
+> check NULL. Also, in sctp_err_finish which called by sctp_v4_err and
+> sctp_v6_err, they pass asoc to sctp_err_finish while the asoc is not
+> NULL, so remove the check.
 > 
-> Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+
+Thanks
+-vlad
 
 > ---
-> Changes from V2:
-> - use "copied" as the variable name instead to be more descriptive
-> Changes from v1:
-> - increase total unconditionally
-> - do not move veth structure out of the vlan handing block
-> ---
->  drivers/net/tun.c | 16 +++++++++-------
->  1 file changed, 9 insertions(+), 7 deletions(-)
+>  net/sctp/input.c | 6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
 > 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index e26cbea..7c8343a 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1184,7 +1184,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+> diff --git a/net/sctp/input.c b/net/sctp/input.c
+> index 6603853..2a192a7 100644
+> --- a/net/sctp/input.c
+> +++ b/net/sctp/input.c
+> @@ -536,8 +536,7 @@ struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *skb,
+>  	return sk;
+>  
+>  out:
+> -	if (asoc)
+> -		sctp_association_put(asoc);
+> +	sctp_association_put(asoc);
+>  	return NULL;
+>  }
+>  
+> @@ -545,8 +544,7 @@ out:
+>  void sctp_err_finish(struct sock *sk, struct sctp_association *asoc)
 >  {
->  	struct tun_pi pi = { 0, skb->protocol };
->  	ssize_t total = 0;
-> -	int vlan_offset = 0;
-> +	int vlan_offset = 0, copied;
+>  	sctp_bh_unlock_sock(sk);
+> -	if (asoc)
+> -		sctp_association_put(asoc);
+> +	sctp_association_put(asoc);
+>  }
 >  
->  	if (!(tun->flags & TUN_NO_PI)) {
->  		if ((len -= sizeof(pi)) < 0)
-> @@ -1248,6 +1248,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
->  		total += tun->vnet_hdr_sz;
->  	}
->  
-> +	copied = total;
-> +	total += skb->len;
->  	if (!vlan_tx_tag_present(skb)) {
->  		len = min_t(int, skb->len, len);
->  	} else {
-> @@ -1262,24 +1264,24 @@ static ssize_t tun_put_user(struct tun_struct *tun,
->  
->  		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
->  		len = min_t(int, skb->len + VLAN_HLEN, len);
-> +		total += VLAN_HLEN;
->  
->  		copy = min_t(int, vlan_offset, len);
-> -		ret = skb_copy_datagram_const_iovec(skb, 0, iv, total, copy);
-> +		ret = skb_copy_datagram_const_iovec(skb, 0, iv, copied, copy);
->  		len -= copy;
-> -		total += copy;
-> +		copied += copy;
->  		if (ret || !len)
->  			goto done;
->  
->  		copy = min_t(int, sizeof(veth), len);
-> -		ret = memcpy_toiovecend(iv, (void *)&veth, total, copy);
-> +		ret = memcpy_toiovecend(iv, (void *)&veth, copied, copy);
->  		len -= copy;
-> -		total += copy;
-> +		copied += copy;
->  		if (ret || !len)
->  			goto done;
->  	}
->  
-> -	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, total, len);
-> -	total += len;
-> +	skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
->  
->  done:
->  	tun->dev->stats.tx_packets++;
-> -- 
-> 1.8.3.2
+>  /*
+> 
