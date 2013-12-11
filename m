@@ -1,40 +1,64 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: do not erase dst address with flow label
- destination
-Date: Tue, 10 Dec 2013 22:51:20 -0500 (EST)
-Message-ID: <20131210.225120.1914484052513584704.davem@davemloft.net>
-References: <1386684946-18510-1-git-send-email-florent.fourcot@enst-bretagne.fr>
-	<20131210205822.GB25505@order.stressinduktion.org>
+Subject: Re: [PATCH v7 0/3] sctp: check the rto_min and rto_max
+Date: Tue, 10 Dec 2013 22:54:55 -0500 (EST)
+Message-ID: <20131210.225455.153484626789533860.davem@davemloft.net>
+References: <1386726640-9584-1-git-send-email-wangweidong1@huawei.com>
+	<52A7D0E0.4080506@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: florent.fourcot@enst-bretagne.fr, netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Cc: wangweidong1@huawei.com, nhorman@tuxdriver.com,
+	dborkman@redhat.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54218 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54234 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750921Ab3LKDvV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 22:51:21 -0500
-In-Reply-To: <20131210205822.GB25505@order.stressinduktion.org>
+	with ESMTP id S1750942Ab3LKDy5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 22:54:57 -0500
+In-Reply-To: <52A7D0E0.4080506@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 10 Dec 2013 21:58:22 +0100
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Tue, 10 Dec 2013 21:41:36 -0500
 
-> On Tue, Dec 10, 2013 at 03:15:46PM +0100, Florent Fourcot wrote:
->> This patch is following b579035ff766c9412e2b92abf5cab794bff102b6
->> 	"ipv6: remove old conditions on flow label sharing"
+> On 12/10/2013 08:50 PM, Wang Weidong wrote:
+>> v6 -> v7:
+>>   -patch2: fix the whitespace issues which pointed out by Daniel
 >> 
->> Since there is no reason to restrict a label to a
->> destination, we should not erase the destination value of a
->> socket with the value contained in the flow label storage.
+>> v5 -> v6:
+>>   split the v5' first patch to patch1 and patch2, and remove the
+>>   macro in constants.h
 >> 
->> This patch allows to really have the same flow label to more
->> than one destination.
+>>   -patch1: do rto_min/max socket option handling in its own patch, and
+>>    fix the check of rto_min/max.
+>>   -patch2: do rto_min/max sysctl handling in its own patch.
+>>   -patch3: add Suggested-by Daniel.
 >> 
->> Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+>> v4 -> v5:
+>>   - patch1: add marco in constants.h and fix up spacing as
+>>     suggested by Daniel
+>>   - patch2: add a patch for fix up do_hmac_alg for according
+>>     to do_rto_min[max]
+>> 
+>> v3 -> v4:
+>>   -patch1: fix use init_net directly which suggested by Vlad.
+>> 
+>> v2 -> v3:
+>>   -patch1: add proc_handler for check rto_min and rto_max which suggested
+>>    by Vlad
+>> 
+>> v1 -> v2:
+>>   -patch1: fix the From Name which pointed out by David, and
+>>    add the ACK by Neil
+>> 
+>> Wang Weidong (3):
+>>   sctp: check the rto_min and rto_max in setsockopt
+>>   sctp: add check rto_min and rto_max in sysctl
+>>   sctp: fix up a spacing
 > 
-> Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Series
+> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-Applied, thanks.
+Series applied, thanks.
