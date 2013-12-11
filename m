@@ -1,52 +1,52 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] rtlwifi: pci: Fix oops on driver unload
-Date: Wed, 11 Dec 2013 17:13:10 -0600
-Message-ID: <1386803590-8688-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: linville@tuxdriver.com
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [PATCH] net-tg3: Initialize REG_BASE_ADDR at PCI config offset
+ 120 to 0
+Date: Wed, 11 Dec 2013 15:21:18 -0800
+Message-ID: <1386804078.1752.58.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1386658724.1752.19.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <20131210.134340.114603867817512238.davem@davemloft.net>
+	 <1386701379.1752.26.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <20131210.222313.694303616856894486.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: <sergei.shtylyov@cogentembedded.com>, <natg@google.com>,
+	<nsujir@broadcom.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131210.222313.694303616856894486.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fedora systems, unloading rtl8192ce causes an oops. This patch fixes the
-problem reported at https://bugzilla.redhat.com/show_bug.cgi?id=852761.
+On Tue, 2013-12-10 at 22:23 -0500, David Miller wrote:
+> Ok, that may be true, but I'd like to consider the much larger issue
+> at hand.
+> 
+> If the indirect mechanism is enabled, some of the offsets that may be
+> in there might be value, but would be entirely undesirable to be read
+> because the read has side effects.
+> 
+> What if the interrupt status register is what gets read if the user
+> scans config space at just the wrong moment, and therefore an
+> interrupt gets lost?
+> 
+I did a quick audit of the driver to see if we are seriously exposed to
+this problem.  Only very old chips (5700 to 5703) use indirect register
+access as workarounds for various issues.  I looked at the IRQ path
+which uses status block to determine if there is work to do.  If status
+block contains no new data, we check the PCI_STATE register and the bits
+don't get cleared on read.  MAC status register which is used to
+determine link status does not have bits that are cleared on read.  So
+we should be ok.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org>
----
- drivers/net/wireless/rtlwifi/pci.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+We use the statistics block for counters on these older chips so there
+is no conflict.  On newer chips, we read counters from registers which
+get cleared on read, but we never use indirect methods to read these
+counters.
 
-diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
-index 8707d1a..d7aa165 100644
---- a/drivers/net/wireless/rtlwifi/pci.c
-+++ b/drivers/net/wireless/rtlwifi/pci.c
-@@ -738,6 +738,8 @@ static void _rtl_pci_rx_interrupt(struct ieee80211_hw *hw)
- 	};
- 	int index = rtlpci->rx_ring[rx_queue_idx].idx;
- 
-+	if (rtlpci->driver_is_goingto_unload)
-+		return;
- 	/*RX NORMAL PKT */
- 	while (count--) {
- 		/*rx descriptor */
-@@ -1634,6 +1636,7 @@ static void rtl_pci_stop(struct ieee80211_hw *hw)
- 	 */
- 	set_hal_stop(rtlhal);
- 
-+	rtlpci->driver_is_goingto_unload = true;
- 	rtlpriv->cfg->ops->disable_interrupt(hw);
- 	cancel_work_sync(&rtlpriv->works.lps_change_work);
- 
-@@ -1651,7 +1654,6 @@ static void rtl_pci_stop(struct ieee80211_hw *hw)
- 	ppsc->rfchange_inprogress = true;
- 	spin_unlock_irqrestore(&rtlpriv->locks.rf_ps_lock, flags);
- 
--	rtlpci->driver_is_goingto_unload = true;
- 	rtlpriv->cfg->ops->hw_disable(hw);
- 	/* some things are not needed if firmware not available */
- 	if (!rtlpriv->max_fw_size)
--- 
-1.8.4
+On all new chips, indirect method is not used except to download
+firmware (on 57766 only).  Userspace read will not interfere with
+firmware download.
+
+So it looks to me that we are in good shape.  Thanks.
