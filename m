@@ -1,49 +1,53 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH RFC] mlx4_en: Add PTP hardware clock
-Date: Wed, 11 Dec 2013 22:47:51 +0200
-Message-ID: <CAJZOPZJF=uZWGeC_NMw4u+D6YxkmzNNwRQJ24whvvtNshxkx2Q@mail.gmail.com>
-References: <1386786265-6322-1-git-send-email-shawn.bohrer@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next v2] ipv6: log autoconfiguration failures
+Date: Wed, 11 Dec 2013 15:54:52 -0500 (EST)
+Message-ID: <20131211.155452.558417595732985707.davem@davemloft.net>
+References: <1386762314-5149-1-git-send-email-dvlasenk@redhat.com>
+	<20131211192138.GB4675@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	tomk@rgmadvisors.com, Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Shawn Bohrer <shawn.bohrer@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dvlasenk@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	jpirko@redhat.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:45999 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750719Ab3LKUrv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 15:47:51 -0500
-Received: by mail-pb0-f52.google.com with SMTP id uo5so10693840pbc.39
-        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 12:47:51 -0800 (PST)
-In-Reply-To: <1386786265-6322-1-git-send-email-shawn.bohrer@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59442 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751053Ab3LKUyz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 15:54:55 -0500
+In-Reply-To: <20131211192138.GB4675@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 11, 2013 Shawn Bohrer <shawn.bohrer@gmail.com> wrote:
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 11 Dec 2013 20:21:38 +0100
 
-> @@ -264,10 +267,6 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
->         mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_ETH)
->                 mdev->port_cnt++;
->
-> -       /* Initialize time stamp mechanism */
-> -       if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
-> -               mlx4_en_init_timestamp(mdev);
-> -
->         mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_ETH) {
->                 if (!dev->caps.comp_pool) {
->                         mdev->profile.prof[i].rx_ring_num =
-> @@ -305,6 +304,10 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
->                         mdev->pndev[i] = NULL;
->         }
->
-> +       /* Initialize time stamp mechanism */
-> +       if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
-> +               mlx4_en_init_timestamp(mdev);
-> +
->         return mdev;
+> On Wed, Dec 11, 2013 at 12:45:14PM +0100, Denys Vlasenko wrote:
+>> If ipv6 auto-configuration does not work, currently it's hard
+>> to track what's going on. This change adds log messages
+>> (at debug level) on every code path where ipv6 autoconf fails.
+>> 
+>> v2: fixed indentation in multi-line log output statements.
+> 
+> Have you seen lots of those problems? Some of those seem like very
+> serious problems and maybe could also deserve a pr_warn or pr_err.
+> 
+> I hope these are one-time errors, so I don't think counters would
+> be helpful.
 
-so you are reverting here commit 1ec4864b1017 "net/mlx4_en: Fixed
-crash when port type is changed" -- why?
+I still think that statitics would better serve this issue.
+
+For one thing, the event would always be counted, whereas with
+pr_debug() someone has to turn on dynamic debugging in order
+to see the message.
+
+You can make them part of the per-inet6_dev MIB, and therefore
+implicitly letting the admin know what interface the events
+occurred on.
+
+I would even prefer an approach involving signalling netlink
+events in such circumstances with more detailed information.
+
+Thanks.
