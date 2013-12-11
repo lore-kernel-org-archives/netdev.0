@@ -1,80 +1,41 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
-Date: Wed, 11 Dec 2013 19:38:50 +0100
-Message-ID: <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>
-References: <1507831110.20131018194349@eikelenboom.it> <792757788.20131023142849@eikelenboom.it>
- <1819533168.20131211161710@eikelenboom.it> <CAB=NE6V-RSnqbAC-0tfYK=WGJLp1aPC2UpFDurs49h+wXr9UfQ@mail.gmail.com>
- <1818324675.20131211175350@eikelenboom.it> <CAB=NE6Wf=T0bGLSYPDyb=-fMAVnGcbGkeaBiNrzwV-Lpxr6VZg@mail.gmail.com>
- <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com>
- <871324710.20131211191104@eikelenboom.it>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: NAPI rescheduling and the delay caused by it
+Date: Wed, 11 Dec 2013 18:52:21 +0000
+Message-ID: <52A8B465.60304@citrix.com>
+References: <529F7A87.5080303@citrix.com>	 <1386189718.30495.131.camel@edumazet-glaptop2.roam.corp.google.com>	 <529F9D4B.1020208@citrix.com>	 <1386199931.30495.139.camel@edumazet-glaptop2.roam.corp.google.com>	 <6F39C955CEA9D14BAA91CC78568B93012D5039@AMSPEX01CL02.citrite.net> <1386638065.30495.338.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Berg, Johannes" <johannes.berg@intel.com>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ilw@linux.intel.com" <ilw@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Sander Eikelenboom <linux@eikelenboom.it>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <871324710.20131211191104@eikelenboom.it>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	Malcolm Crossley <malcolm.crossley@citrix.com>,
+	Jonathan Davies <Jonathan.Davies@citrix.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:24638 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750800Ab3LKSwY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Dec 2013 13:52:24 -0500
+In-Reply-To: <1386638065.30495.338.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 11, 2013 at 7:11 PM, Sander Eikelenboom
-<linux@eikelenboom.it> wrote:
+On 10/12/13 01:14, Eric Dumazet wrote:
+> On Mon, 2013-12-09 at 23:39 +0000, Zoltan Kiss wrote:
+>> I found another suspect however: my grant mapping patches do the
+>> unmapping from the NAPI instance where otherwise we receive the
+>> packets from the guest. But this means we call napi_schedule from the
+>> zerocopy callback, which can be run by anyone who free up that skb,
+>> including an another VIF's RX thread (which actually does the transmit
+>> TO the guest). I guess that might be bad.
 >
-> Wednesday, December 11, 2013, 6:53:07 PM, you wrote:
->
->> The best way to address all this is by automatic region awareness and
->> doing the right thing on devices, this however requires good
->> architecture / calibration data  / etc and all that needs to be
->> verified by the system integrators, and finally they need to be
->> certified. If you want to hack your firmware and software go at it,
->> just be aware there are reasons for things.
->
-> Well the general problem seems to be "we don't trust the user" so we FORCE him to the lowest
-> common denominator (without a way to overrule that) so he is forced to operate *well* within the law.
+> Same problem : napi_schedule() is meant to be used from interrupt
+> context.
 
-Its simply stupid to have the user be involved, period, the fact that
-a user would be involved should only be for testing or helping
-compliance for a busted device, development, research and obviously
-hacking. Linux allows all these but by default a device with firmware
-and a custom regdomain that will barf if you try to use a channel that
-is not allowed is a restriction in firmware. Feel free to reverse
-engineer that if you don't like it but it just won't be supported or
-go upstream. Now, the common denominator is generally optimized for
-best performance as well so you shouldn't have to do anything, and for
-APs -- this is typically carefully crafted for a region, also highly
-optimized.
+Indeed, avoiding napi_schedule seems to solve the issue. Thanks for the 
+advices!
 
->>>> It doesn't seem like you are getting your original requests getting
->>>> processed, so I don't think CRDA is passing it. Can you verify running
->>>> from CRDA code:
->>>
->>> They don't get processed unless i remove the return from the code as i indicated.
->>> If i remove that return it processes the request.
->>>
->>>> ./regdbdump /usr/lib/crda/regulatory.bin
->>>
->>> Although it's in a different location on Debian, /lib/crda/regulatory.bin
->>> the dump seems fine.
->
->> OK thanks. Can you send a patch of what exact change you made, it was
->> unclear from the paste you made.
->
->> diff -u file.c.orig file.c
->
-> Well i just did a pull from wireless-next, to try Avinash Patil's patch.
-> net/wireless/reg.c had already changed much so i couldn't apply his patch without.
->
-> With his patch it sets the regulatory domain, although as now expected i still can not use channels 12 and 13 yet,
-> probably due to those firmware restrictions.
-
-Its unclear what results you got, and yeah if the device is restricted
-then its just the fw telling the driver its channels and you can't use
-them. That's it. You won't be able to override information then unless
-you hack the firmware.
-
-  Luis
+Zoli
