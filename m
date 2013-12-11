@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v5 0/11] bonding: rebuild the lock use for bond monitor
-Date: Wed, 11 Dec 2013 12:59:52 +0800
-Message-ID: <52A7F148.6000302@huawei.com>
+Subject: [PATCH net-next v5 2/11] bonding: rebuild the lock use for bond_mii_monitor()
+Date: Wed, 11 Dec 2013 13:00:34 +0800
+Message-ID: <52A7F172.5010004@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -10,95 +10,113 @@ To: Jay Vosburgh <fubar@us.ibm.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
 	Veaceslav Falico <vfalico@redhat.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Nikolay Aleksandrov <nikolay@redhat.com>
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:34192 "EHLO
+Received: from szxga03-in.huawei.com ([119.145.14.66]:34271 "EHLO
 	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751292Ab3LKFFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 00:05:22 -0500
+	with ESMTP id S1751265Ab3LKFFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 00:05:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now the bond slave list is not protected by bond lock, only by RTNL,
-but the monitor still use the bond lock to protect the slave list,
-it is useless, according to the Veaceslav's opinion, there were
-three way to fix the protect problem:
+The bond_mii_monitor() still use bond lock to protect bond slave list,
+it is no effect, I have 2 way to fix the problem, move the RTNL to the
+top of the function, or add RCU to protect the bond slave list,
+according to the Jay Vosburgh's opinion, 10 times one second is a
+truely big performance loss if use RTNL to protect the whole monitor,
+so I would take the advice and use RCU to protect the bond slave list.
 
-1. add bond_master_upper_dev_link() and bond_upper_dev_unlink()
-   in bond->lock, but it is unsafe to call call_netdevice_notifiers()
-   in write lock.
-2. remove unused bond->lock for monitor function, only use the exist
-   rtnl lock(), it will take performance loss in fast path.
-3. use RCU to protect the slave list, of course, performance is better,
-   but in slow path, it is ignored.
+The bond_has_slave() will not protect by anything, there will no things
+happen if the slave list is be changed, unless the bond was free, but
+it will not happened before the monitor, the bond will closed before
+be freed.
 
-obviously the solution 1 is not fit here, I will consider the 2 and 3
-solution. My principle is simple, if in fast path, RCU is better,
-otherwise in slow path, both is well, but according to the Jay Vosburgh's
-opinion, the monitor will loss performace if use RTNL to protect the all
-slave list, so remove the bond lock and replace with RCU.
+The peers notify for the bond will calling curr_active_slave, so
+derefence the slave to make sure we will accessing the same slave
+if the curr_active_slave changed, as the rcu dereference need in
+read-side critical sector and bond_change_active_slave() will call
+it with no RCU hold,  so add peer notify in rcu_read_lock which
+will be nested in monitor.
 
-The second problem is the curr_slave_lock for bond, it is too old and
-unwanted in many place, because the curr_active_slave would only be
-changed in 3 place:
+Suggested-by: Jay Vosburgh <fubar@us.ibm.com>
+Suggested-by: Veaceslav Falico <vfalico@redhat.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bond_main.c | 24 +++++++++++-------------
+ 1 file changed, 11 insertions(+), 13 deletions(-)
 
-1. enslave slave.
-2. release slave.
-3. change active slave.
-
-all above were already holding bond lock, RTNL and curr_slave_lock
-together, it is tedious and no need to add so mach lock, when change
-the curr_active_slave, you have to hold the RTNL and curr_slave_lock
-together, and when you read the curr_active_slave, RTNL or curr_slave_lock,
-any one of them is no problem.
-
-for the stability, I did not change the logic for the monitor,
-all change is clear and simple, I have test the patch set for lockdep,
-it work well and stability.
-
-v2. accept the Jay Vosburgh's opinion, remove the RTNL and replace with RCU,
-    also add some rcu function for bond use, so the patch set reach 10.
-
-v3. accept the Nikolay Aleksandrov's opinion, remove no needed bond_has_slave_rcu(),
-    add protection for several 3ad mode handler functions and current_arp_slave.
-    rebuild the bond_first_slave_rcu(), make it more clear.
-
-v4. because the struct netdev_adjacent should not be exist in netdevice.h, so I have
-    to make a new function to support micro bond_first_slave_rcu().
-    also add a new patch to simplify the bond_resend_igmp_join_requests_delayed().
-
-v5. according the Jay Vosburgh's opinion, in patch 2 and 6, the calling of notify
-    peer is hardly to happen with the bond_xxx_commit() when the monitoring is running,
-    so the performance impact about make two round trips to one trip on RTNL is minimal,
-    no need to do that,the reason is very clear, so modify the patch 2 and 6, recover
-    the notify peer in RTNL alone.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 7d007d1..93b6eaa 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -815,7 +815,11 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
  
-Best Regards
-Ding Tianhong
-
-Ding Tianhong (11):
-  bonding: remove the no effect lock for bond_select_active_slave()
-  bonding: rebuild the lock use for bond_mii_monitor()
-  bonding: rebuild the lock use for bond_alb_monitor()
-  bonding: rebuild the lock use for bond_loadbalance_arp_mon()
-  bonding: create bond_first_slave_rcu()
-  bonding: rebuild the lock use for bond_activebackup_arp_mon()
-  bonding: rebuild the lock use for bond_3ad_state_machine_handler()
-  bonding: remove unwanted lock for bond_option_active_slave_set()
-  bonding: remove unwanted lock for bond enslave and release
-  bonding: remove unwanted lock for bond_store_primaryxxx()
-  bonding: rebuild the bond_resend_igmp_join_requests_delayed()
-
- drivers/net/bonding/bond_3ad.c     |  53 +++++++------
- drivers/net/bonding/bond_alb.c     |  34 +++------
- drivers/net/bonding/bond_main.c    | 150 ++++++++++++++-----------------------
- drivers/net/bonding/bond_options.c |   2 -
- drivers/net/bonding/bond_sysfs.c   |   4 -
- drivers/net/bonding/bonding.h      |   4 +
- include/linux/netdevice.h          |   1 +
- net/core/dev.c                     |  21 ++++++
- 8 files changed, 126 insertions(+), 143 deletions(-)
-
+ static bool bond_should_notify_peers(struct bonding *bond)
+ {
+-	struct slave *slave = bond->curr_active_slave;
++	struct slave *slave;
++
++	rcu_read_lock();
++	slave = rcu_dereference(bond->curr_active_slave);
++	rcu_read_unlock();
+ 
+ 	pr_debug("bond_should_notify_peers: bond %s slave %s\n",
+ 		 bond->dev->name, slave ? slave->dev->name : "NULL");
+@@ -1919,7 +1923,7 @@ static int bond_miimon_inspect(struct bonding *bond)
+ 
+ 	ignore_updelay = !bond->curr_active_slave ? true : false;
+ 
+-	bond_for_each_slave(bond, slave, iter) {
++	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		slave->new_link = BOND_LINK_NOCHANGE;
+ 
+ 		link_state = bond_check_dev_link(bond, slave->dev, 0);
+@@ -2117,41 +2121,35 @@ void bond_mii_monitor(struct work_struct *work)
+ 	bool should_notify_peers = false;
+ 	unsigned long delay;
+ 
+-	read_lock(&bond->lock);
+-
+ 	delay = msecs_to_jiffies(bond->params.miimon);
+ 
+ 	if (!bond_has_slaves(bond))
+ 		goto re_arm;
+ 
++	rcu_read_lock();
++
+ 	should_notify_peers = bond_should_notify_peers(bond);
+ 
+ 	if (bond_miimon_inspect(bond)) {
+-		read_unlock(&bond->lock);
++		rcu_read_unlock();
+ 
+ 		/* Race avoidance with bond_close cancel of workqueue */
+ 		if (!rtnl_trylock()) {
+-			read_lock(&bond->lock);
+ 			delay = 1;
+ 			should_notify_peers = false;
+ 			goto re_arm;
+ 		}
+ 
+-		read_lock(&bond->lock);
+-
+ 		bond_miimon_commit(bond);
+ 
+-		read_unlock(&bond->lock);
+ 		rtnl_unlock();	/* might sleep, hold no other locks */
+-		read_lock(&bond->lock);
+-	}
++	} else
++		rcu_read_unlock();
+ 
+ re_arm:
+ 	if (bond->params.miimon)
+ 		queue_delayed_work(bond->wq, &bond->mii_work, delay);
+ 
+-	read_unlock(&bond->lock);
+-
+ 	if (should_notify_peers) {
+ 		if (!rtnl_trylock())
+ 			return;
 -- 
 1.8.0
