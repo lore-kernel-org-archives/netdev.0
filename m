@@ -1,64 +1,293 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next] sctp: remove redundant null check on asoc
-Date: Wed, 11 Dec 2013 09:38:58 -0500
-Message-ID: <52A87902.8070900@gmail.com>
-References: <52A82566.1050601@huawei.com>
+From: srinivas kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
+Subject: Re: [PATCH 04/10] net: stmmac: sunxi platfrom
+ extensions for GMAC in Allwinner A20 SoC's
+Date: Wed, 11 Dec 2013 14:45:08 +0000
+Message-ID: <52A87A74.8040807@st.com>
+References: <1386350983-13281-1-git-send-email-wens@csie.org> <1386350983-13281-5-git-send-email-wens@csie.org> <52A5A52C.50605@st.com> <CAGb2v67WiCaMpJEzA_X6o7uOu6i3w3FCEz7=N5HY0amQb01SZA@mail.gmail.com> <52A72C6D.60100@st.com> <CAGb2v64qQvqJSicA6MTAxeh1sGjWY=Pk=vDq=9J3pTQW+wkXrA@mail.gmail.com>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: Wang Weidong <wangweidong1@huawei.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f54.google.com ([209.85.213.54]:54358 "EHLO
-	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750965Ab3LKOjC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 09:39:02 -0500
-In-Reply-To: <52A82566.1050601@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
+	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Return-path: <linux-sunxi+bncBCWP54GV3EBRB6PXUGKQKGQEZ2NKKCI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <CAGb2v64qQvqJSicA6MTAxeh1sGjWY=Pk=vDq=9J3pTQW+wkXrA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 12/11/2013 03:42 AM, Wang Weidong wrote:
-> In sctp_err_lookup, goto out while the asoc is not NULL, so remove the
-> check NULL. Also, in sctp_err_finish which called by sctp_v4_err and
-> sctp_v6_err, they pass asoc to sctp_err_finish while the asoc is not
-> NULL, so remove the check.
+Hi Chen,
+
+On 11/12/13 12:17, Chen-Yu Tsai wrote:
+
+>>
+>> I would be good to get actual picture of this hw setup, On ST the
+>> additional glue logic which sits on top of the GMAC is to resposible for
+>> selecting the correct retime clock.
 > 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-
-
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-
-Thanks
--vlad
-
-> ---
->  net/sctp/input.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
+> I would have liked to look at the internal design, how the dwmac core
+> is connected to the clock control, but that is out of the question.
+> Still, based on the documents, I think our clock controller is partially
+> intertwined with the GMAC. It takes GMAC's internally generated clock
+> as one of several inputs, then sends it back to the GMAC to time tx data.
 > 
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index 6603853..2a192a7 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -536,8 +536,7 @@ struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *skb,
->  	return sk;
->  
->  out:
-> -	if (asoc)
-> -		sctp_association_put(asoc);
-> +	sctp_association_put(asoc);
->  	return NULL;
->  }
->  
-> @@ -545,8 +544,7 @@ out:
->  void sctp_err_finish(struct sock *sk, struct sctp_association *asoc)
->  {
->  	sctp_bh_unlock_sock(sk);
-> -	if (asoc)
-> -		sctp_association_put(asoc);
-> +	sctp_association_put(asoc);
->  }
->  
->  /*
+This is very much similar to ST glue, one of the selected clk is used
+for retime the tx data lines. This selection is more of board dependent.
+It totally depends on how the GMAC is wired up with PHY.
+
+> Judging by the register definitions listed in the A20 manual,
+> the SoC glue layer clocks is something like this:
+> 
+>                                _________________________
+>   MII TX clock from PHY >-----|___________    _________|----> to GMAC core
+>   GMAC Int. RGMII TX clk >----|___________\__/__gate---|----> to PHY
+>   Ext. 125MHz RGMII TX clk >--|__divider__/            |
+>                               |________________________|
+> 
+> 
+> For MII mode, the glue layer should select the TX clock from the PHY.
+> The gate to the PHY should be disabled.
+> 
+> For RGMII mode, either the internal clock generated by the GMAC core,
+> or the external 125MHz reference generated by the PHY can be selected.
+> And the clock gate to the PHY should be enabled.
+> If the 125MHz reference is used, the glue layer should select the proper
+> divider (/1, /5, /50) based on the link speed.
+> 
+> For GMII mode, under 10/100 speeds, the operation matches MII mode.
+> For gigabit speeds, should use a 125MHz clock (internal or external)
+> and enable the output gate.
+> 
+> The glue layer may indeed sit on top or around the GMAC core.
+> Nevertheless, its operational state does depend on the GMAC.
+> The current callbacks present in the stmmac driver are a good model
+> for this.
+
+Callbacks are OK with me, as they give good level of abstraction as you
+said.
+
+But I don't like the idea of glue drivers passing the full platform data
+to stmmac or glue driver parsing the platform data, which is going to
+look as very ugly fixups.
+
+Also, currently callbacks just take pdev, which seems to be forcing glue
+drivers to use platform data as the only data structure to pass information.
+
+My recommendation would be to add new parameter to these callbacks ,
+which can be used for to store glue private datastructure, we could
+actually use bsp_priv variable from platform data.
+
+So the of_data structure would have some thing like:
+
+struct stmmac_of_data {
+        void * (*setup)(struct platform_device *pdev);
+        void (*bus_setup)(struct platform_device *pdev, void *priv, void
+__iomem *ioaddr);
+        int (*init)(struct platform_device *pdev, void *priv);
+        void (*exit)(struct platform_device *pdev, void *priv);
+        void (*fix_mac_speed)(struct platform_device *pdev, void *priv,
+unnsigned int speed);
+
+};
+
+setup() would return a private data struct of glue driver which can be
+stored in plat->bsp_priv. Should be done at DT parsing level.
+
+Regarding the bindings, If Peppe is happy to allow optional SOC specific
+binding in it, it is Ok with me too.
+
+But all SOC specific resources names and properties have to be properly
+prefexed so that its not confused with dwmac properties.
+
+Regarding reset, I think we can add the support in stmmac driver itself.
+
+Regarding clocks, on STi glue we can not represent the configuration in
+proper clock infrastructure.
+
+Am happy to change sti glue driver to this interface style, if you are
+Ok with this approach Or if you have any other better ideas, lets discuss.
+
+Feel free to change the above proposed new APIs..
+
+> 
+>>>> I see issues with this approach, which are addressed in my patches.
+>>>>
+>>>> Please have a look at the http://lkml.org/lkml/2013/11/12/462 patch on
+>>>> STi SOC glue, which does implement a very similar glue driver.
+>>>>
+>>>> Do you see any issues not to do that way?
+>>>
+>>> The glue layer driver would not have access to any of dwmac driver's
+>>> internals, nor could it respond to any state changes.
+>>
+>> Should it have access to this in the first place?
+>> Should SOC Glue driver actually change the internal data structures of
+>> the stmmac? I guess No.
+>>
+>> I think all you need is to know the interface type which can be derived
+>> from a child node as I did in my glue driver.
+> 
+> The interface type is not enough. In GMII mode, you would have to change
+> the tx clock parent to match the link speed, as I mentioned in a previous
+> section.
+
+Ok, this should be specific to the glue driver I guess.
+
+
+> 
+> This I am working on. Here is what I propose:
+> 
+> stmmac takes a second optional clock, named "tx_clk".
+
+> The clock provider should:
+> 
+[---
+>   1. put the glue layer into MII mode when the clock is disabled
+>   2. put the glue layer into RGMII mode when the clock is enabled
+>   3. support clk_set_rate at 125, 25, or 2.5 MHz for RGMII link
+>      speed changes. This could be a no-op for the internal clock.
+>
+---]
+I think this is capturing your glue implementation details which might
+not be true with other glue drivers.
+
+> While we're at it, we can also make stmmac take an optional reset handler.
+> 
+> I think this solves both our problems, while being both generic and
+> part of the gmac core hardware.
+> 
+> The rest of my requirements for Allwinner A20/A31 gmac can be solved
+> with proper PHY node support, which I will implement, and
+> "snps,force_sf_dma_mode" and "snps,tx-coe" properties.
+
+This makes sense, I think this aread would need a cleanup any way.
+
+> 
+>>>>> +     plat_dat = dev_get_platdata(&pdev->dev);
+>>>> This is not valid for DT case.
+>>>> In DT case stmmac maintains its own instance of platform data.
+>>>>
+>>>> Setting platform data dynamically after probe to a device is not the
+>>>> right way to do.
+>>>
+>>> I see. And stmmac's own instance of platform data is associated with the
+>>> device in stmmac_dvr_probe. To make this work, we would have to move
+>>> setting dev->priv->plat in front of the .init callback.
+>>
+>> No it would not work either, as platform data is stmmac is stored in its
+>> private data structure.
+> 
+> With these modifications, the .init and .exit callbacks will have access
+> to stmmac's private data structure, as they are passed dev as the sole
+> argument.
+
+Your suggestion looks like a hack, lets do it properly, as I suggested
+and at the start.
+
+>>>
+>>> 1. .tx_coe
+>>>    This is not exported in the DT bindings.
+>>>    Looking at stmmac code, not setting this seems to disable all
+>>>    checksum offloading.
+>>
+>> Why cant this go via DT as well?
+> 
+> If you and Giuseppe are OK with this, why not?
+Am Ok with it.
+
+>>> 3. .mdio_bus_data
+>>>    The PHY mask is something we would like to have at the board level.
+>>>    The PHY on one of our boards, RTL8211E from Realtek, responds to
+>>>    commands sent to phy address 0, regardless what it's actual address is.
+>>
+>> Sounds correct.as
+>>
+>>>    This is documented in RTL8211E's datasheet:
+>>>
+>>>       The RTL8211E-VB(VL)/RTL8211EG-VB support PHY addresses from 00001 to
+>>>       00111. PHY address 0 is a broadcast from the MAC; each PHY device
+>>>       should respond.
+>>>
+>>>    Without the PHY mask, probing the MDIO bus would yield two devices,
+>>>    when in reality there is only one. This results in some confusion.
+>> Can you explain the issue in more detail.
+>>
+>> Why is it a confusion? PHYs are supposed to respond to address 00000.
+> 
+> If you look under /sys/bus/mdio_bus/devices/, for PHYs supporting
+> address 00000 as broadcast, you would see 2 devices.
+> stmmac debug messages will also report 2 devices found.
+> 
+> Also, not all PHY devices respond to address 00000.
+> The Realtek RTL8201CP PHY on one of our other boards, does not.
+> 
+> I could not find a reference to "supposed to respond to address 00000".
+> IEEE 802.3 only defines the address space, not intended uses.
+Here is the reference:
+
+"22.2.4.5.5 PHYAD (PHY Address): The PHY Address is five bits, allowing
+32 unique PHY addresses. The first PHY address bit transmitted and
+received is the MSB of the address. A PHY that is connected to the
+station management entity via the mechanical interface defined in 22.6
+shall always respond to transactions addressed to PHY Address zero
+<00000>. A station management entity that is attached to multiple PHYs
+must have prior knowledge of the appropriate PHY Address for each PHY."
+
+
+> 
+>> MDIO bus could have multiple PHYS on the bus, it does not matter as long
+>> as you address them with correct PHYID.
+> 
+> Correct. I assume by PHYID you mean PHY address.
+> Florian has pointed out that "snps,phy-addr" is !standard, and we
+> should replace it with standard PHY node support. I can address this
+> in the patch series.
+
+I agree, if you have bandwidth cleanup in this area would be good.
+
+Anyway I have limited access to emails for the next 3 weeks, so I can
+not respond quickly.
+
+Hope you have a good Christmas and new year..
+
+Will talk to you after new year.
+
+Thanks,
+srini
+> 
+> Thanks,
+> ChenYu
+> 
+>> Thanks,
+>> srini
+>>>
+>>>    This should definitely be exported as a DT binding.
+>>>
+>>> I am also unable to add a generic compatible string for our particular
+>>> dwmac, because I do not know the exact version of the IP, only that
+>>> it is earlier than 3.50. No hardware DMA capability flags.
+>>>
+>>> Using something like "snps,dwmac-pre-3.50" is IMO worse.
+>>>
+>>>>>       { /* sentinel */ }
+>>>>>  };
+>>>>>  MODULE_DEVICE_TABLE(of, stmmac_dt_ids);
+>>>>>
+>>>>
+>>>
+>>> ChenYu
+>>>
+>>>
+>>
+> 
 > 
