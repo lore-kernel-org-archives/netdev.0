@@ -1,91 +1,54 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 6/6] net_sched: make macro be enclosed in parenthesis
-Date: Wed, 11 Dec 2013 10:20:32 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B747A@saturn3.aculab.com>
-References: <1386680134-85452-1-git-send-email-yangyingliang@huawei.com><1386680134-85452-7-git-send-email-yangyingliang@huawei.com> <20131210.224900.1427512059771492387.davem@davemloft.net>
+From: Nishanth Menon <nm@ti.com>
+Subject: [PATCH 2/2] ARM: dts: omap2430-sdp: add flags for ethernet
+ functionality
+Date: Wed, 11 Dec 2013 04:21:45 -0600
+Message-ID: <1386757305-12545-3-git-send-email-nm@ti.com>
+References: <1386757305-12545-1-git-send-email-nm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>, <yangyingliang@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:54271 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751009Ab3LKKVf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 05:21:35 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 06490-07 for <netdev@vger.kernel.org>;
- Wed, 11 Dec 2013 10:21:31 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20131210.224900.1427512059771492387.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Nishanth Menon <nm@ti.com>, linux-doc@vger.kernel.org,
+ Tony Lindgren <tony@atomide.com>, linux-kernel@vger.kernel.org,
+ =?UTF-8?q?Beno=C3=AEt=20Cousson?= <bcousson@baylibre.com>,
+ linux-arm-kernel@lists.infradead.org
+To: <devicetree@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+ <netdev@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1386757305-12545-1-git-send-email-nm@ti.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of David Miller
-> From: Yang Yingliang <yangyingliang@huawei.com>
-> Date: Tue, 10 Dec 2013 20:55:34 +0800
-> 
-> > Macros with complex values should be enclosed in parenthesis
-> >
-> > Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-> > ---
-> >  net/sched/em_meta.c | 4 +++-
-> >  1 file changed, 3 insertions(+), 1 deletion(-)
-> >
-> > diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
-> > index e5cef956..852cd62 100644
-> > --- a/net/sched/em_meta.c
-> > +++ b/net/sched/em_meta.c
-> > @@ -272,10 +272,12 @@ META_COLLECTOR(int_rtiif)
-> >   **************************************************************************/
-> >
-> >  #define SKIP_NONLOCAL(skb)			\
-> > +({						\
-> >  	if (unlikely(skb->sk == NULL)) {	\
-> >  		*err = -1;			\
-> >  		return;				\
-> > -	}
-> > +	}					\
-> > +})
-> 
-> I can't apply this.
-> 
-> First of all, "({ })" is for statements that evaluate to an lvalue,
-> this macro does not.
-> 
-> Second of all, and more importantly, this macro needs to be eliminated
-> entirely.  It completely hides control flow, and in the past we've
-> killed macros which do this such as the old netlink attribute
-> builders.
-> 
-> The control flow should be inlined and expanded explicitly in the
-> code so that someone who reads it can tell the control flow can
-> be changed by the statement.  Compare:
-> 
-> 	SKIP_NONLOCAL(skb)
-> 
-> to:
-> 
-> 	if (skip_nonlocal(skb)) {
-> 		*err = -1;
-> 		return;
-> 	}
+Ethernet transition from board file to dts missed the required pdata
+conversion. So fix the same.
 
-Or:
-	if (!skb->sk)
-		goto no_sk;
-	...
-	return;
+Signed-off-by: Nishanth Menon <nm@ti.com>
+---
+ arch/arm/boot/dts/omap2430-sdp.dts |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-no_sk:
-	*err = -1;
-	return;
-
-Actually WTF is a void function doing having an 'int *err' argument?
-These should just be:
-	if (!skb->sk)
-		return -1;
-
-	David
+diff --git a/arch/arm/boot/dts/omap2430-sdp.dts b/arch/arm/boot/dts/omap2430-sdp.dts
+index 2c90d29..ec9263a 100644
+--- a/arch/arm/boot/dts/omap2430-sdp.dts
++++ b/arch/arm/boot/dts/omap2430-sdp.dts
+@@ -39,6 +39,11 @@
+ 	ranges = <5 0 0x08000000 0x01000000>;
+ 	ethernet@gpmc {
+ 		compatible = "smsc,lan91c94";
++		reg-io-width = <2>;
++		smsc,nowait;
++		smsc,leda = "100_10";
++		smsc,ledb = "TX_RX";
++
+ 		interrupt-parent = <&gpio5>;
+ 		interrupts = <21 IRQ_TYPE_LEVEL_LOW>;	/* gpio149 */
+ 		reg = <5 0x300 0xf>;
+-- 
+1.7.9.5
