@@ -1,54 +1,59 @@
-From: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-Subject: Re: [PATCH -next 2/3] batman-adv: Use seq_overflow
-Date: Wed, 11 Dec 2013 08:05:04 +0000
-Message-ID: <20131211080504.GT10323@ZenIV.linux.org.uk>
-References: <cover.1386738050.git.joe@perches.com>
- <e7104b35287b1e1ec456734c1b5e1aa98dac99f8.1386738050.git.joe@perches.com>
- <20131211075526.GR10323@ZenIV.linux.org.uk>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH] net: macb: Fix build warning
+Date: Wed, 11 Dec 2013 09:07:44 +0100
+Message-ID: <52A81D50.8080805@atmel.com>
+References: <1386737877-16531-1-git-send-email-soren.brinkmann@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20131211075526.GR10323-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	"kbuild test robot" <fengguang.wu@intel.com>
+To: Soren Brinkmann <soren.brinkmann@xilinx.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1386737877-16531-1-git-send-email-soren.brinkmann@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 11, 2013 at 07:55:26AM +0000, Al Viro wrote:
+On 11/12/2013 05:57, Soren Brinkmann :
+> When adjusting the link speed, the target frequency is determined by a
+> 'swith (LINK_SPEED)' statement, that assigns the target rate only for
+> valid and expected LINK_SPEED values. This incomplete switch statement
+> leads to the following build warning:
+>       drivers/net/ethernet/cadence/macb.c: In function 'macb_handle_link_change':
+>    >> drivers/net/ethernet/cadence/macb.c:241:14: warning: 'rate' may be used uninitialized in this function [-Wmaybe-uninitialized]
+>          netdev_warn(dev, "unable to generate target frequency: %ld Hz\n",
+>                     ^
+>       drivers/net/ethernet/cadence/macb.c:215:13: note: 'rate' was declared here
+>         long ferr, rate, rate_rounded;
+>
+> Fixing this by bailing out of that function in the switch's default case
+> before the rate variable is used.
+>
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
 
-> This sucker should return 0.  Insufficiently large buffer will be handled
-> by caller, TYVM, if you give that caller a chance to do so.  Returning 1
-> from ->show() is a bug in almost all cases, and definitely so in this one.
-> 
-> Just in case somebody decides that above is worth copying: It Is Not.
-> Original code is buggy, plain and simple.  This one trades the older
-> bug ("fail with -EINVAL whenever the buffer is too small") with just as buggy
-> "silently skip an entry entirely whenever the buffer is too small".
-> 
-> Don't Do That.
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Pardon - Joe has made seq_overflow return -1 instead of true.  Correction
-to the above, then - s/This trades.*\./This is just as buggy./
+> ---
+>   drivers/net/ethernet/cadence/macb.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index 419529a9309d..3190d38e16fb 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -225,7 +225,7 @@ static void macb_set_tx_clk(struct clk *clk, int speed, struct net_device *dev)
+>   		rate = 125000000;
+>   		break;
+>   	default:
+> -		break;
+> +		return;
+>   	}
+>
+>   	rate_rounded = clk_round_rate(clk, rate);
+>
 
-Conclusion is still the same - Don't Do That.  Returning -1 on insufficiently
-large buffer is a bug, plain and simple.
 
-And this patch series is completely misguided - it doesn't fix any bugs
-*and* it provides a misleading example for everyone.  See the reaction
-right in this thread, proposing to spread the same bug to currently
-working iterators.
+-- 
+Nicolas Ferre
