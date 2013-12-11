@@ -1,45 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] 8390 : Replace ei_debug with
- msg_enable/NETIF_MSG_* feature
-Date: Wed, 11 Dec 2013 16:34:56 -0500 (EST)
-Message-ID: <20131211.163456.285803377239228949.davem@davemloft.net>
-References: <1386795818-25828-1-git-send-email-tedheadster@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH RFC] mlx4_en: Add PTP hardware clock
+Date: Wed, 11 Dec 2013 21:35:11 +0000
+Message-ID: <1386797711.1516.279.camel@bwh-desktop.uk.level5networks.com>
+References: <1386786265-6322-1-git-send-email-shawn.bohrer@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tedheadster@gmail.com
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Richard Cochran <richardcochran@gmail.com>,
+	<netdev@vger.kernel.org>, <tomk@rgmadvisors.com>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Shawn Bohrer <shawn.bohrer@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59776 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750911Ab3LKVe7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 16:34:59 -0500
-In-Reply-To: <1386795818-25828-1-git-send-email-tedheadster@gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:63428 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751086Ab3LKVfQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 16:35:16 -0500
+In-Reply-To: <1386786265-6322-1-git-send-email-shawn.bohrer@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Whitehead <tedheadster@gmail.com>
-Date: Wed, 11 Dec 2013 16:03:38 -0500
+On Wed, 2013-12-11 at 12:24 -0600, Shawn Bohrer wrote:
+[...]
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
+[...]
+> -void mlx4_en_ptp_overflow_check(struct mlx4_en_dev *mdev)
+> -{
+> -	bool timeout = time_is_before_jiffies(mdev->last_overflow_check +
+> -					      mdev->overflow_period);
+> +	/* Configure the PHC */
+> +	mdev->ptp_clock_info = mlx4_en_ptp_clock_info;
+> +	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_ETH) {
+> +		snprintf(mdev->ptp_clock_info.name,
+> +			 sizeof(mdev->ptp_clock_info.name), "%pm",
+[...]
 
-> @@ -133,11 +139,11 @@ struct net_device * __init apne_probe(int unit)
->  	if ( !(AMIGAHW_PRESENT(PCMCIA)) )
->  		return ERR_PTR(-ENODEV);
->  
-> -	printk("Looking for PCMCIA ethernet card : ");
-> +	printk(KERN_INFO "Looking for PCMCIA ethernet card : ");
+Name should be "mlx4", I think.
 
-"pr_info()"
+Does each function have an independent clock or is this shared between
+functions?
 
-> @@ -536,8 +546,8 @@ static irqreturn_t apne_interrupt(int irq, void *dev_id)
->          pcmcia_ack_int(pcmcia_intreq);
->          return IRQ_NONE;
->      }
-> -    if (ei_debug > 3)
-> -        printk("pcmcia intreq = %x\n", pcmcia_intreq);
-> +    if (apne_msg_enable & NETIF_MSG_INTR)
-> +	printk(KERN_DEBUG "pcmcia intreq = %x\n", pcmcia_intreq);
->      pcmcia_disable_irq();			/* to get rid of the sti() within ei_interrupt */
->      ei_interrupt(irq, dev_id);
->      pcmcia_ack_int(pcmcia_get_intreq());
+Ben.
 
-Maybe "pr_debug()"?
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
