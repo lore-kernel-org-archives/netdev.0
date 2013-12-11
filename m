@@ -1,66 +1,80 @@
-From: Nishanth Menon <nm-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH 1/2] net: smc91x: Read hardware behavior flags from device tree
-Date: Wed, 11 Dec 2013 12:27:55 -0600
-Message-ID: <CAGo_u6oHPJSfDF=9WVTb2ukmwxDoasho=4L7qJmnYng6-84N0Q@mail.gmail.com>
-References: <1386757305-12545-1-git-send-email-nm@ti.com>
-	<1386757305-12545-2-git-send-email-nm@ti.com>
-	<20131211160440.GA13171@atomide.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
+Date: Wed, 11 Dec 2013 19:38:50 +0100
+Message-ID: <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>
+References: <1507831110.20131018194349@eikelenboom.it> <792757788.20131023142849@eikelenboom.it>
+ <1819533168.20131211161710@eikelenboom.it> <CAB=NE6V-RSnqbAC-0tfYK=WGJLp1aPC2UpFDurs49h+wXr9UfQ@mail.gmail.com>
+ <1818324675.20131211175350@eikelenboom.it> <CAB=NE6Wf=T0bGLSYPDyb=-fMAVnGcbGkeaBiNrzwV-Lpxr6VZg@mail.gmail.com>
+ <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com>
+ <871324710.20131211191104@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: dt list <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	=?ISO-8859-1?Q?Beno=EEt_Cousson?= <bcousson-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-	linux-omap <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20131211160440.GA13171-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Berg, Johannes" <johannes.berg@intel.com>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Sander Eikelenboom <linux@eikelenboom.it>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <871324710.20131211191104@eikelenboom.it>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 11, 2013 at 10:04 AM, Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org> wrote:
-> * Nishanth Menon <nm-l0cyMroinI0@public.gmane.org> [131211 02:23]:
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/smsc91x.txt
->> @@ -0,0 +1,45 @@
->> +* Smart Mixed-Signal Connectivity (SMSC) LAN91c94/91c111 Controller
->> +
->> +Required properties:
->> +- compatible : Should be one of:
->> +     "smsc,lan91c94"
->> +     "smsc,lan91c111"
->> +- reg : Address and length of the io space for SMSC LAN
->> +- interrupts : Should contain SMSC LAN interrupt line
->> +- interrupt-parent : Should be the phandle for the interrupt controller
->> +  that services interrupts for this device
->> +
->> +Optional properties:
->> +- reg-shift : Specify the quantity to shift the register offsets by
->> +- reg-io-width : Specify the size (in bytes) of the IO accesses that
->> +  should be performed on the device.  Valid value for SMSC LAN is
->> +  1, 2 or 4.
+On Wed, Dec 11, 2013 at 7:11 PM, Sander Eikelenboom
+<linux@eikelenboom.it> wrote:
 >
-> I posted a minimal regression fix for this a few weeks ago that we
-> should merge to the v3.13-rc cycle:
+> Wednesday, December 11, 2013, 6:53:07 PM, you wrote:
 >
-> http://www.spinics.net/lists/netdev/msg258913.html
+>> The best way to address all this is by automatic region awareness and
+>> doing the right thing on devices, this however requires good
+>> architecture / calibration data  / etc and all that needs to be
+>> verified by the system integrators, and finally they need to be
+>> certified. If you want to hack your firmware and software go at it,
+>> just be aware there are reasons for things.
 >
-> Care to ack that one?
-Done.
+> Well the general problem seems to be "we don't trust the user" so we FORCE him to the lowest
+> common denominator (without a way to overrule that) so he is forced to operate *well* within the law.
 
-> Then if that works for you, maybe rebase these on
-> that one for the upcoming merge window?
-it seems like omap is the only folks who are currently using this
-driver in dt form, I kinda proposed to do these as add on changes to
-your patch, lets see if anyone cares about it.
+Its simply stupid to have the user be involved, period, the fact that
+a user would be involved should only be for testing or helping
+compliance for a busted device, development, research and obviously
+hacking. Linux allows all these but by default a device with firmware
+and a custom regdomain that will barf if you try to use a channel that
+is not allowed is a restriction in firmware. Feel free to reverse
+engineer that if you don't like it but it just won't be supported or
+go upstream. Now, the common denominator is generally optimized for
+best performance as well so you shouldn't have to do anything, and for
+APs -- this is typically carefully crafted for a region, also highly
+optimized.
 
-but I agree to drop my series at this point,
+>>>> It doesn't seem like you are getting your original requests getting
+>>>> processed, so I don't think CRDA is passing it. Can you verify running
+>>>> from CRDA code:
+>>>
+>>> They don't get processed unless i remove the return from the code as i indicated.
+>>> If i remove that return it processes the request.
+>>>
+>>>> ./regdbdump /usr/lib/crda/regulatory.bin
+>>>
+>>> Although it's in a different location on Debian, /lib/crda/regulatory.bin
+>>> the dump seems fine.
+>
+>> OK thanks. Can you send a patch of what exact change you made, it was
+>> unclear from the paste you made.
+>
+>> diff -u file.c.orig file.c
+>
+> Well i just did a pull from wireless-next, to try Avinash Patil's patch.
+> net/wireless/reg.c had already changed much so i couldn't apply his patch without.
+>
+> With his patch it sets the regulatory domain, although as now expected i still can not use channels 12 and 13 yet,
+> probably due to those firmware restrictions.
 
-Regards,
-Nishanth Menon
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Its unclear what results you got, and yeah if the device is restricted
+then its just the fw telling the driver its channels and you can't use
+them. That's it. You won't be able to override information then unless
+you hack the firmware.
+
+  Luis
