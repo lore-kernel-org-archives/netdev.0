@@ -1,30 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/1] AX88179_178A: Enable the hardware pseudo header in
- case of the NET_IP_ALIGN equals 0
-Date: Wed, 11 Dec 2013 12:16:12 -0500 (EST)
-Message-ID: <20131211.121612.1818249304919726954.davem@davemloft.net>
-References: <1386323898-2246-1-git-send-email-freddy@asix.com.tw>
-	<20131209.200131.1376169274733452706.davem@davemloft.net>
-	<52A80397.2080508@asix.com.tw>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
+Date: Wed, 11 Dec 2013 18:17:19 +0100
+Message-ID: <CAB=NE6UP876LzOi9-51dokRyT8TyftGitRSDz1FptSJZ9uK4PQ@mail.gmail.com>
+References: <1507831110.20131018194349@eikelenboom.it> <792757788.20131023142849@eikelenboom.it>
+ <1819533168.20131211161710@eikelenboom.it> <CAB=NE6V-RSnqbAC-0tfYK=WGJLp1aPC2UpFDurs49h+wXr9UfQ@mail.gmail.com>
+ <CAJwzM1nwFa7z5gwh42aj39M2dxVXnuecDrhQkVyL+DDFAXwwbg@mail.gmail.com> <12930742.20131211180047@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, louis-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org, allan-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org
-To: freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <52A80397.2080508-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Avinash Patil <avinashapatil@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>
+To: Sander Eikelenboom <linux@eikelenboom.it>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:61553 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751287Ab3LKRRk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 12:17:40 -0500
+In-Reply-To: <12930742.20131211180047@eikelenboom.it>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Freddy Xin <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Date: Wed, 11 Dec 2013 14:17:59 +0800
+On Wed, Dec 11, 2013 at 6:00 PM, Sander Eikelenboom
+<linux@eikelenboom.it> wrote:
+> Could you send me the patch (or a link to it), i can't find it on the linux-wireless list.
 
-> I think there is no way of undoing the reservation in the driver.
+I looked for such a patch and didn't find it either, perhaps both of
+your issues are the same as with CRDA and the wireless-regdb not
+having a proper signature set. You can verify if this is the case by
+just downloading the git repo for wireless-regdb and CRDA and on both
+just do:
 
-Then you should add a flag that, indeed, tells usbnet not to do the
-reservation in the first place.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+make
+sudo make install
+
+After doing this on wireless-regdb just get the $USER.key.pub.pem and
+stash that into the crda/pubkeys/ before compiling. That will let CRDA
+trust your own key.
+
+  Luis
