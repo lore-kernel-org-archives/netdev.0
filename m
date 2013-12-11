@@ -1,50 +1,52 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH v2 net-next] ipv6: router reachability probing
-Date: Thu, 12 Dec 2013 00:12:36 +0100
-Message-ID: <20131211231236.GA8953@lion.mk-sys.cz>
-References: <d483b5eedcbfedc2002c458b15586679e7795399.1386766078.git.jbenc@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lion.mk-sys.cz ([213.168.178.121]:48133 "EHLO lion.mk-sys.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750873Ab3LKXMj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Dec 2013 18:12:39 -0500
-Content-Disposition: inline
-In-Reply-To: <d483b5eedcbfedc2002c458b15586679e7795399.1386766078.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] rtlwifi: pci: Fix oops on driver unload
+Date: Wed, 11 Dec 2013 17:13:10 -0600
+Message-ID: <1386803590-8688-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
+To: linville@tuxdriver.com
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 11, 2013 at 01:48:20PM +0100, Jiri Benc wrote:
-> RFC 4191 states in 3.5:
-> 
->    When a host avoids using any non-reachable router X and instead sends
->    a data packet to another router Y, and the host would have used
->    router X if router X were reachable, then the host SHOULD probe each
->    such router X's reachability by sending a single Neighbor
->    Solicitation to that router's address.  A host MUST NOT probe a
->    router's reachability in the absence of useful traffic that the host
->    would have sent to the router if it were reachable.  In any case,
->    these probes MUST be rate-limited to no more than one per minute per
->    router.
-> 
-> Currently, when the neighbour corresponding to a router falls into
-> NUD_FAILED, it's never considered again.
+On Fedora systems, unloading rtl8192ce causes an oops. This patch fixes the
+problem reported at https://bugzilla.redhat.com/show_bug.cgi?id=852761.
 
-Is it really the case in current mainline kernels? In my tests, this
-behaviour in 3.0 kernel (SLES 11 SP3) was caused by the reference held
-by struct dst_entry which caused that in neigh_periodic_work(),
-n->refcnt was always bigger than one so that the neighbour entry was
-never cleaned up.  But when I tested with 3.11.6 (OpenSuSE 13.1) where
-neighbour is no longer cached in struct dst_entry, the neighbour was
-cleaned up eventually and new lookup was performed.
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Stable <stable@vger.kernel.org>
+---
+ drivers/net/wireless/rtlwifi/pci.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-I believe the patch would be useful anyway as it would speed up the
-detection that the router is reachable again, I just want to make sure
-my analysis wasn't completely wrong.
-
-                                                        Michal Kubecek
+diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+index 8707d1a..d7aa165 100644
+--- a/drivers/net/wireless/rtlwifi/pci.c
++++ b/drivers/net/wireless/rtlwifi/pci.c
+@@ -738,6 +738,8 @@ static void _rtl_pci_rx_interrupt(struct ieee80211_hw *hw)
+ 	};
+ 	int index = rtlpci->rx_ring[rx_queue_idx].idx;
+ 
++	if (rtlpci->driver_is_goingto_unload)
++		return;
+ 	/*RX NORMAL PKT */
+ 	while (count--) {
+ 		/*rx descriptor */
+@@ -1634,6 +1636,7 @@ static void rtl_pci_stop(struct ieee80211_hw *hw)
+ 	 */
+ 	set_hal_stop(rtlhal);
+ 
++	rtlpci->driver_is_goingto_unload = true;
+ 	rtlpriv->cfg->ops->disable_interrupt(hw);
+ 	cancel_work_sync(&rtlpriv->works.lps_change_work);
+ 
+@@ -1651,7 +1654,6 @@ static void rtl_pci_stop(struct ieee80211_hw *hw)
+ 	ppsc->rfchange_inprogress = true;
+ 	spin_unlock_irqrestore(&rtlpriv->locks.rf_ps_lock, flags);
+ 
+-	rtlpci->driver_is_goingto_unload = true;
+ 	rtlpriv->cfg->ops->hw_disable(hw);
+ 	/* some things are not needed if firmware not available */
+ 	if (!rtlpriv->max_fw_size)
+-- 
+1.8.4
