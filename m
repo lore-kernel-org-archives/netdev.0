@@ -1,41 +1,65 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: NAPI rescheduling and the delay caused by it
-Date: Wed, 11 Dec 2013 18:52:21 +0000
-Message-ID: <52A8B465.60304@citrix.com>
-References: <529F7A87.5080303@citrix.com>	 <1386189718.30495.131.camel@edumazet-glaptop2.roam.corp.google.com>	 <529F9D4B.1020208@citrix.com>	 <1386199931.30495.139.camel@edumazet-glaptop2.roam.corp.google.com>	 <6F39C955CEA9D14BAA91CC78568B93012D5039@AMSPEX01CL02.citrite.net> <1386638065.30495.338.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH RFC] mlx4_en: Add PTP hardware clock
+Date: Wed, 11 Dec 2013 19:54:39 +0100
+Message-ID: <20131211185438.GC4371@netboy>
+References: <1386786265-6322-1-git-send-email-shawn.bohrer@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	Malcolm Crossley <malcolm.crossley@citrix.com>,
-	Jonathan Davies <Jonathan.Davies@citrix.com>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	tomk@rgmadvisors.com, Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Shawn Bohrer <shawn.bohrer@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:24638 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750800Ab3LKSwY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Dec 2013 13:52:24 -0500
-In-Reply-To: <1386638065.30495.338.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ea0-f172.google.com ([209.85.215.172]:59421 "EHLO
+	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750922Ab3LKSy6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 13:54:58 -0500
+Received: by mail-ea0-f172.google.com with SMTP id q10so2912731ead.31
+        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 10:54:54 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1386786265-6322-1-git-send-email-shawn.bohrer@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/12/13 01:14, Eric Dumazet wrote:
-> On Mon, 2013-12-09 at 23:39 +0000, Zoltan Kiss wrote:
->> I found another suspect however: my grant mapping patches do the
->> unmapping from the NAPI instance where otherwise we receive the
->> packets from the guest. But this means we call napi_schedule from the
->> zerocopy callback, which can be run by anyone who free up that skb,
->> including an another VIF's RX thread (which actually does the transmit
->> TO the guest). I guess that might be bad.
->
-> Same problem : napi_schedule() is meant to be used from interrupt
-> context.
+On Wed, Dec 11, 2013 at 12:24:25PM -0600, Shawn Bohrer wrote:
+> From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> 
+> This adds a PHC to the mlx4_en driver.  This is largely based off of the
+> e1000e driver (drivers/net/ethernet/intel/e1000e/ptp.c) which seemed
+> very similar.  One thing I am unsure about is that in the e1000e driver
+> they protect the timecounter code with a spinlock because the hardware
+> reports the time in two 32bit registers.  The Mellanox code looks
+> similar however the existing timecounter code in the mlx4_en driver
+> wasn't protected with a lock so I left the lock out here as well.
 
-Indeed, avoiding napi_schedule seems to solve the issue. Thanks for the 
-advices!
+Before, there were only three call sites,
 
-Zoli
+grep -nH -e timecounter_ *
+en_clock.c:108:	nsec = timecounter_cyc2time(&mdev->clock, timestamp);
+en_clock.c:131:	timecounter_init(&mdev->clock, &mdev->cycles,
+en_clock.c:148:		timecounter_read(&mdev->clock);
+
+and so perhaps the locking was unnecessary (but maybe not).
+In any case, the code that you added definitely needs locks.
+
+> Additionally here the mlx4_en_phc_adjfreq() method simply returns
+> -EOPNOTSUPP because I don't have the relevant hardware documentation on
+> how to do this.  I'm hoping one of the Mellanox developers can either
+> provide this documentation or provide a patch to implement that
+> function.
+
+Since the code already uses timecounter_read to convert clock ticks
+into nanoseconds, why not simply adjust the 'mult' as other drivers
+do?
+
+[ If the clock is easily adjustable in hardware, then, by all means,
+  do it that way. ]
+ 
+> This is minimally tested at this point but Documentation/ptp/testptp
+> appears to work on a Mellanox ConnectX-3 card.
+
+Once you have the adjustment in place, then you can try it with
+linuxptp.
+
+Thanks,
+Richard
