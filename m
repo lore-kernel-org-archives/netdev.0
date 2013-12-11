@@ -1,64 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] udp: ipv4: fix potential use after free in
- udp_v4_early_demux()
-Date: Wed, 11 Dec 2013 08:10:05 -0800
-Message-ID: <1386778205.30495.374.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20131211003948.GA18825@redhat.com>
-	 <1386723287.30495.352.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1386727643.30495.363.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 4/4] asix: C1 DUB-E100 double rx_urb_size to 4096
+Date: Wed, 11 Dec 2013 16:28:50 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7481@saturn3.aculab.com>
+References: <1386759028-3534-1-git-send-email-Dean_Jenkins@mentor.com> <1386759028-3534-5-git-send-email-Dean_Jenkins@mentor.com> <AE90C24D6B3A694183C094C60CF0A2F6026B747E@saturn3.aculab.com> <1386774802.30495.369.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: "Dean Jenkins" <Dean_Jenkins@mentor.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:61275 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945Ab3LKQKH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 11:10:07 -0500
-Received: by mail-pd0-f172.google.com with SMTP id g10so9757494pdj.31
-        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 08:10:07 -0800 (PST)
-In-Reply-To: <1386727643.30495.363.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0.aculab.com ([213.249.233.131]:49308 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750904Ab3LKQeD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Dec 2013 11:34:03 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 17381-09 for <netdev@vger.kernel.org>;
+ Wed, 11 Dec 2013 16:34:00 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1386774802.30495.369.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-pskb_may_pull() can reallocate skb->head, we need to move the
-initialization of iph and uh pointers after its call.
-
-Fixes: 421b3885bf6d ("udp: ipv4: Add udp early demux")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>
----
- net/ipv4/udp.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 2e2aecbe22c4..16d246a51a02 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1909,17 +1909,20 @@ static struct sock *__udp4_lib_demux_lookup(struct net *net,
- 
- void udp_v4_early_demux(struct sk_buff *skb)
- {
--	const struct iphdr *iph = ip_hdr(skb);
--	const struct udphdr *uh = udp_hdr(skb);
-+	struct net *net = dev_net(skb->dev);
-+	const struct iphdr *iph;
-+	const struct udphdr *uh;
- 	struct sock *sk;
- 	struct dst_entry *dst;
--	struct net *net = dev_net(skb->dev);
- 	int dif = skb->dev->ifindex;
- 
- 	/* validate the packet */
- 	if (!pskb_may_pull(skb, skb_transport_offset(skb) + sizeof(struct udphdr)))
- 		return;
- 
-+	iph = ip_hdr(skb);
-+	uh = udp_hdr(skb);
-+
- 	if (skb->pkt_type == PACKET_BROADCAST ||
- 	    skb->pkt_type == PACKET_MULTICAST)
- 		sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
+PiBGcm9tOiBFcmljIER1bWF6ZXQNCi4uLg0KPiBJIGZlYXIgdGhhdCBkb3VibGluZyByeF91cmJf
+c2l6ZSBpcyBhcnRpZmljaWFsbHkgZG91YmxpbmcgdGhlIHNrYg0KPiB0cnVlc2l6ZSAob3Igbm90
+LCBhbmQgdGhpcyB3b3VsZCBiZSBhIGJ1ZyksIGFuZCB0aGlzIGhhcw0KPiBhbiBpbXBhY3Qgb24g
+Z2VuZXJhbCBwZXJmb3JtYW5jZSBvZiBUQ1Agc3RhY2suDQoNCldoaWNoIG1lYW5zIHRoYXQgdGhl
+IGNvZGUgaW4gdGhlIGF4MTc5XzE3OGEgZHJpdmVyIGlzIHJlYWxseSBob3JyaWQuDQpJdCBjYXVz
+ZXMgMjBrQiBVUkIgdG8gYmUgcGFzc2VkIHRvIHRoZSB4aGNpIGRyaXZlci4NCg0KSSBrbm93IHRo
+YXQgaGFyZHdhcmUgc3VwcG9ydHMgdGNwIHRyYW5zbWl0IHNlZ21lbnRhdGlvbiBvZmZsb2FkLg0K
+SSBkb24ndCBrbm93IGl0IGlmIHN1cHBvcnRzIHJlY2VpdmUgb2ZmbG9hZC4NCkJlc3Qgd2F5IHRv
+IHRlc3QgaXMgcHJvYmFibHkgcnVubmluZyBhdCBHZSBzcGVlZHMgYXQgdXNiMiBzcGVlZHMNCi0g
+Y29ubmVjdCB0byBhbiB4aGNpIHBvcnQgd2l0aCBhIFVTQjIgZXh0ZW5zaW9uIGNhYmxlLg0KDQpJ
+J20gd2FpdGluZyBmb3IgbXkgZXhpc3RpbmcgeGhjaSBwYXRjaGVzIHRvIGdldCBwcm9jZXNzZWQg
+YmVmb3JlDQpJIHdyaXRlIGFueSBtb3JlLg0KDQoJRGF2aWQNCg0K
