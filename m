@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 2/7] tipc: initiate media type array at compile time
-Date: Tue, 10 Dec 2013 20:45:39 -0800
-Message-ID: <1386737144-32334-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net 1/7] tipc: eliminate redundant code with kfree_skb_list routine
+Date: Tue, 10 Dec 2013 20:45:38 -0800
+Message-ID: <1386737144-32334-2-git-send-email-jon.maloy@ericsson.com>
 References: <1386737144-32334-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,268 +10,160 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.ne1.yahoo.com ([98.138.207.11]:45343 "HELO
+Received: from smtp104.biz.mail.ne1.yahoo.com ([98.138.207.11]:45333 "HELO
 	smtp104.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751125Ab3LKEqY (ORCPT
+	by vger.kernel.org with SMTP id S1751056Ab3LKEqY (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 23:46:24 -0500
 In-Reply-To: <1386737144-32334-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Communication media types are abstracted through the struct 'tipc_media',
-one per media type. These structs are allocated statically inside their
-respective media file.
+From: Ying Xue <ying.xue@windriver.com>
 
-Furthermore, in order to be able to reach all instances from a central
-location, we keep a static array with pointers to these structs. This
-array is currently initialized at runtime, under protection of
-tipc_net_lock. However, since the contents of the array itself never
-changes after initialization, we can just as well initialize it at
-compile time and make it 'const', at the same time making it obvious
-that no lock protection is needed here.
+sk_buff lists are currently relased by looping over the list and
+explicitly releasing each buffer.
 
-This commit makes the array constant and removes the redundant lock
-protection.
+We replace all occurrences of this loop with a call to kfree_skb_list().
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/bearer.c    |   63 +++++++++++++-------------------------------------
- net/tipc/bearer.h    |    5 ++--
- net/tipc/eth_media.c |   10 +++-----
- net/tipc/ib_media.c  |    7 +-----
- 4 files changed, 23 insertions(+), 62 deletions(-)
+ net/tipc/link.c |   58 ++++++++-----------------------------------------------
+ net/tipc/node.c |    6 +-----
+ 2 files changed, 9 insertions(+), 55 deletions(-)
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index c2101c0..826aa9f 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/bearer.c: TIPC bearer code
-  *
-- * Copyright (c) 1996-2006, Ericsson AB
-+ * Copyright (c) 1996-2006, 2013, Ericsson AB
-  * Copyright (c) 2004-2006, 2010-2011, Wind River Systems
-  * All rights reserved.
-  *
-@@ -41,8 +41,13 @@
- 
- #define MAX_ADDR_STR 60
- 
--static struct tipc_media *media_list[MAX_MEDIA];
--static u32 media_count;
-+static struct tipc_media * const media_list[] = {
-+	&eth_media_info,
-+#ifdef CONFIG_TIPC_MEDIA_IB
-+	&ib_media_info,
-+#endif
-+	NULL
-+};
- 
- struct tipc_bearer tipc_bearers[MAX_BEARERS];
- 
-@@ -55,11 +60,11 @@ struct tipc_media *tipc_media_find(const char *name)
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index fd340ad..ac26f8a 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -386,14 +386,7 @@ exit:
+  */
+ static void link_release_outqueue(struct tipc_link *l_ptr)
  {
- 	u32 i;
- 
--	for (i = 0; i < media_count; i++) {
-+	for (i = 0; media_list[i] != NULL; i++) {
- 		if (!strcmp(media_list[i]->name, name))
--			return media_list[i];
-+			break;
- 	}
--	return NULL;
-+	return media_list[i];
+-	struct sk_buff *buf = l_ptr->first_out;
+-	struct sk_buff *next;
+-
+-	while (buf) {
+-		next = buf->next;
+-		kfree_skb(buf);
+-		buf = next;
+-	}
++	kfree_skb_list(l_ptr->first_out);
+ 	l_ptr->first_out = NULL;
+ 	l_ptr->out_queue_size = 0;
  }
- 
- /**
-@@ -69,44 +74,11 @@ static struct tipc_media *media_find_id(u8 type)
+@@ -415,32 +408,15 @@ void tipc_link_reset_fragments(struct tipc_link *l_ptr)
+  */
+ void tipc_link_stop(struct tipc_link *l_ptr)
  {
- 	u32 i;
- 
--	for (i = 0; i < media_count; i++) {
-+	for (i = 0; media_list[i] != NULL; i++) {
- 		if (media_list[i]->type_id == type)
--			return media_list[i];
-+			break;
- 	}
--	return NULL;
--}
+-	struct sk_buff *buf;
+-	struct sk_buff *next;
 -
--/**
-- * tipc_register_media - register a media type
-- *
-- * Bearers for this media type must be activated separately at a later stage.
-- */
--int tipc_register_media(struct tipc_media *m_ptr)
--{
--	int res = -EINVAL;
+-	buf = l_ptr->oldest_deferred_in;
+-	while (buf) {
+-		next = buf->next;
+-		kfree_skb(buf);
+-		buf = next;
+-	}
 -
--	write_lock_bh(&tipc_net_lock);
+-	buf = l_ptr->first_out;
+-	while (buf) {
+-		next = buf->next;
+-		kfree_skb(buf);
+-		buf = next;
+-	}
 -
--	if ((strlen(m_ptr->name) + 1) > TIPC_MAX_MEDIA_NAME)
--		goto exit;
--	if (m_ptr->priority > TIPC_MAX_LINK_PRI)
--		goto exit;
--	if ((m_ptr->tolerance < TIPC_MIN_LINK_TOL) ||
--	    (m_ptr->tolerance > TIPC_MAX_LINK_TOL))
--		goto exit;
--	if (media_count >= MAX_MEDIA)
--		goto exit;
--	if (tipc_media_find(m_ptr->name) || media_find_id(m_ptr->type_id))
--		goto exit;
++	kfree_skb_list(l_ptr->oldest_deferred_in);
++	kfree_skb_list(l_ptr->first_out);
+ 	tipc_link_reset_fragments(l_ptr);
 -
--	media_list[media_count] = m_ptr;
--	media_count++;
--	res = 0;
--exit:
--	write_unlock_bh(&tipc_net_lock);
--	if (res)
--		pr_warn("Media <%s> registration error\n", m_ptr->name);
--	return res;
-+	return media_list[i];
+ 	kfree_skb(l_ptr->proto_msg_queue);
+ 	l_ptr->proto_msg_queue = NULL;
  }
  
- /**
-@@ -144,13 +116,11 @@ struct sk_buff *tipc_media_get_names(void)
- 	if (!buf)
- 		return NULL;
+ void tipc_link_reset(struct tipc_link *l_ptr)
+ {
+-	struct sk_buff *buf;
+ 	u32 prev_state = l_ptr->state;
+ 	u32 checkpoint = l_ptr->next_in_no;
+ 	int was_active_link = tipc_link_is_active(l_ptr);
+@@ -471,12 +447,7 @@ void tipc_link_reset(struct tipc_link *l_ptr)
+ 	link_release_outqueue(l_ptr);
+ 	kfree_skb(l_ptr->proto_msg_queue);
+ 	l_ptr->proto_msg_queue = NULL;
+-	buf = l_ptr->oldest_deferred_in;
+-	while (buf) {
+-		struct sk_buff *next = buf->next;
+-		kfree_skb(buf);
+-		buf = next;
+-	}
++	kfree_skb_list(l_ptr->oldest_deferred_in);
+ 	if (!list_empty(&l_ptr->waiting_ports))
+ 		tipc_link_wakeup_ports(l_ptr, 1);
  
--	read_lock_bh(&tipc_net_lock);
--	for (i = 0; i < media_count; i++) {
-+	for (i = 0; media_list[i] != NULL; i++) {
- 		tipc_cfg_append_tlv(buf, TIPC_TLV_MEDIA_NAME,
- 				    media_list[i]->name,
- 				    strlen(media_list[i]->name) + 1);
+@@ -1124,10 +1095,7 @@ again:
+ 		if (copy_from_user(buf->data + fragm_crs, sect_crs, sz)) {
+ 			res = -EFAULT;
+ error:
+-			for (; buf_chain; buf_chain = buf) {
+-				buf = buf_chain->next;
+-				kfree_skb(buf_chain);
+-			}
++			kfree_skb_list(buf_chain);
+ 			return res;
+ 		}
+ 		sect_crs += sz;
+@@ -1177,18 +1145,12 @@ error:
+ 		if (l_ptr->max_pkt < max_pkt) {
+ 			sender->max_pkt = l_ptr->max_pkt;
+ 			tipc_node_unlock(node);
+-			for (; buf_chain; buf_chain = buf) {
+-				buf = buf_chain->next;
+-				kfree_skb(buf_chain);
+-			}
++			kfree_skb_list(buf_chain);
+ 			goto again;
+ 		}
+ 	} else {
+ reject:
+-		for (; buf_chain; buf_chain = buf) {
+-			buf = buf_chain->next;
+-			kfree_skb(buf_chain);
+-		}
++		kfree_skb_list(buf_chain);
+ 		return tipc_port_reject_sections(sender, hdr, msg_sect,
+ 						 len, TIPC_ERR_NO_NODE);
  	}
--	read_unlock_bh(&tipc_net_lock);
- 	return buf;
- }
+@@ -2283,11 +2245,7 @@ static int link_send_long_buf(struct tipc_link *l_ptr, struct sk_buff *buf)
+ 		fragm = tipc_buf_acquire(fragm_sz + INT_H_SIZE);
+ 		if (fragm == NULL) {
+ 			kfree_skb(buf);
+-			while (buf_chain) {
+-				buf = buf_chain;
+-				buf_chain = buf_chain->next;
+-				kfree_skb(buf);
+-			}
++			kfree_skb_list(buf_chain);
+ 			return -ENOMEM;
+ 		}
+ 		msg_set_size(&fragm_hdr, fragm_sz + INT_H_SIZE);
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 25100c0..bf1ac89 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -291,11 +291,7 @@ static void node_lost_contact(struct tipc_node *n_ptr)
  
-@@ -247,7 +217,7 @@ struct sk_buff *tipc_bearer_get_names(void)
- 		return NULL;
+ 	/* Flush broadcast link info associated with lost node */
+ 	if (n_ptr->bclink.recv_permitted) {
+-		while (n_ptr->bclink.deferred_head) {
+-			struct sk_buff *buf = n_ptr->bclink.deferred_head;
+-			n_ptr->bclink.deferred_head = buf->next;
+-			kfree_skb(buf);
+-		}
++		kfree_skb_list(n_ptr->bclink.deferred_head);
+ 		n_ptr->bclink.deferred_size = 0;
  
- 	read_lock_bh(&tipc_net_lock);
--	for (i = 0; i < media_count; i++) {
-+	for (i = 0; media_list[i] != NULL; i++) {
- 		for (j = 0; j < MAX_BEARERS; j++) {
- 			b_ptr = &tipc_bearers[j];
- 			if (b_ptr->active && (b_ptr->media == media_list[i])) {
-@@ -472,5 +442,4 @@ void tipc_bearer_stop(void)
- 		if (tipc_bearers[i].active)
- 			bearer_disable(&tipc_bearers[i]);
- 	}
--	media_count = 0;
- }
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index cc780bb..516af8c05 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/bearer.h: Include file for TIPC bearer code
-  *
-- * Copyright (c) 1996-2006, Ericsson AB
-+ * Copyright (c) 1996-2006, 2013, Ericsson AB
-  * Copyright (c) 2005, 2010-2011, Wind River Systems
-  * All rights reserved.
-  *
-@@ -157,7 +157,6 @@ extern struct tipc_bearer tipc_bearers[];
- /*
-  * TIPC routines available to supported media types
-  */
--int tipc_register_media(struct tipc_media *m_ptr);
- 
- void tipc_recv_msg(struct sk_buff *buf, struct tipc_bearer *tb_ptr);
- 
-@@ -171,10 +170,12 @@ int tipc_disable_bearer(const char *name);
-  */
- int  tipc_eth_media_start(void);
- void tipc_eth_media_stop(void);
-+extern struct tipc_media eth_media_info;
- 
- #ifdef CONFIG_TIPC_MEDIA_IB
- int  tipc_ib_media_start(void);
- void tipc_ib_media_stop(void);
-+extern struct tipc_media ib_media_info;
- #else
- static inline int tipc_ib_media_start(void) { return 0; }
- static inline void tipc_ib_media_stop(void) { return; }
-diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index 1e3c332..37fb145 100644
---- a/net/tipc/eth_media.c
-+++ b/net/tipc/eth_media.c
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/eth_media.c: Ethernet bearer support for TIPC
-  *
-- * Copyright (c) 2001-2007, Ericsson AB
-+ * Copyright (c) 2001-2007, 2013, Ericsson AB
-  * Copyright (c) 2005-2008, 2011-2013, Wind River Systems
-  * All rights reserved.
-  *
-@@ -57,7 +57,7 @@ struct eth_media {
- 	struct work_struct cleanup;
- };
- 
--static struct tipc_media eth_media_info;
-+
- static struct eth_media eth_media_array[MAX_ETH_MEDIA];
- static int eth_started;
- 
-@@ -315,7 +315,7 @@ static int eth_msg2addr(const struct tipc_bearer *tb_ptr,
- /*
-  * Ethernet media registration info
-  */
--static struct tipc_media eth_media_info = {
-+struct tipc_media eth_media_info = {
- 	.send_msg	= send_msg,
- 	.enable_media	= enable_media,
- 	.disable_media	= disable_media,
-@@ -342,10 +342,6 @@ int tipc_eth_media_start(void)
- 	if (eth_started)
- 		return -EINVAL;
- 
--	res = tipc_register_media(&eth_media_info);
--	if (res)
--		return res;
--
- 	res = register_netdevice_notifier(&notifier);
- 	if (!res)
- 		eth_started = 1;
-diff --git a/net/tipc/ib_media.c b/net/tipc/ib_media.c
-index cbe7fe1..48e1c07 100644
---- a/net/tipc/ib_media.c
-+++ b/net/tipc/ib_media.c
-@@ -60,7 +60,6 @@ struct ib_media {
- 	struct work_struct cleanup;
- };
- 
--static struct tipc_media ib_media_info;
- static struct ib_media ib_media_array[MAX_IB_MEDIA];
- static int ib_started;
- 
-@@ -311,7 +310,7 @@ static int ib_msg2addr(const struct tipc_bearer *tb_ptr,
- /*
-  * InfiniBand media registration info
-  */
--static struct tipc_media ib_media_info = {
-+struct tipc_media ib_media_info = {
- 	.send_msg	= send_msg,
- 	.enable_media	= enable_media,
- 	.disable_media	= disable_media,
-@@ -338,10 +337,6 @@ int tipc_ib_media_start(void)
- 	if (ib_started)
- 		return -EINVAL;
- 
--	res = tipc_register_media(&ib_media_info);
--	if (res)
--		return res;
--
- 	res = register_netdevice_notifier(&notifier);
- 	if (!res)
- 		ib_started = 1;
+ 		if (n_ptr->bclink.reasm_head) {
 -- 
 1.7.9.5
