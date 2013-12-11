@@ -1,58 +1,66 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net-next 0/2] Add packet capture support on macvtap device
-Date: Wed, 11 Dec 2013 13:27:09 -0500
-Message-ID: <1386786431-22592-1-git-send-email-vyasevic@redhat.com>
-Cc: mst@redhat.com, kaber@trash.net,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56539 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750779Ab3LKS1S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Dec 2013 13:27:18 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nishanth Menon <nm-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH 1/2] net: smc91x: Read hardware behavior flags from device tree
+Date: Wed, 11 Dec 2013 12:27:55 -0600
+Message-ID: <CAGo_u6oHPJSfDF=9WVTb2ukmwxDoasho=4L7qJmnYng6-84N0Q@mail.gmail.com>
+References: <1386757305-12545-1-git-send-email-nm@ti.com>
+	<1386757305-12545-2-git-send-email-nm@ti.com>
+	<20131211160440.GA13171@atomide.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: dt list <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	=?ISO-8859-1?Q?Beno=EEt_Cousson?= <bcousson-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+	linux-omap <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20131211160440.GA13171-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Change from RFC:
-  - moved to the rx_handler approach.
+On Wed, Dec 11, 2013 at 10:04 AM, Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org> wrote:
+> * Nishanth Menon <nm-l0cyMroinI0@public.gmane.org> [131211 02:23]:
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/smsc91x.txt
+>> @@ -0,0 +1,45 @@
+>> +* Smart Mixed-Signal Connectivity (SMSC) LAN91c94/91c111 Controller
+>> +
+>> +Required properties:
+>> +- compatible : Should be one of:
+>> +     "smsc,lan91c94"
+>> +     "smsc,lan91c111"
+>> +- reg : Address and length of the io space for SMSC LAN
+>> +- interrupts : Should contain SMSC LAN interrupt line
+>> +- interrupt-parent : Should be the phandle for the interrupt controller
+>> +  that services interrupts for this device
+>> +
+>> +Optional properties:
+>> +- reg-shift : Specify the quantity to shift the register offsets by
+>> +- reg-io-width : Specify the size (in bytes) of the IO accesses that
+>> +  should be performed on the device.  Valid value for SMSC LAN is
+>> +  1, 2 or 4.
+>
+> I posted a minimal regression fix for this a few weeks ago that we
+> should merge to the v3.13-rc cycle:
+>
+> http://www.spinics.net/lists/netdev/msg258913.html
+>
+> Care to ack that one?
+Done.
 
-This series adds support for packet capturing on macvtap device.
-The initial approach was to simply export the capturing code as
-a function from the core network.  While simple, it was not
-a very architecturally clean approach.
+> Then if that works for you, maybe rebase these on
+> that one for the upcoming merge window?
+it seems like omap is the only folks who are currently using this
+driver in dt form, I kinda proposed to do these as add on changes to
+your patch, lets see if anyone cares about it.
 
-The new appraoch is to provide macvtap with its rx_handler which can
-is attached to the macvtap device itself.   Macvlan will simply requeue
-the packet with an updated skb->dev.  BTW, macvlan layer already does this
-for macvlan devices.  So, now macvtap and macvlan have almost the
-same exact input path.
+but I agree to drop my series at this point,
 
-I've toyed with short-circuting the input path for macvtap by returning
-RX_HANDLER_ANOTHER, but that just made the code more complicated and
-didn't provide any kind of measurable gain (at least according to
-netperf and perf runs on the host).
-
-To see if there was a performance regression, I ran 1, 2 and 4 netperf
-STREAM and MAERTS tests agains the VM from both remote host and another
-guest on the same system.   The command ran was
-    netperf -H $host -t $test -l 20 -i 10 -I 95 -c -C
-
-The numbers I was getting with the new code were consistently very
-slightly (1-2%) better then the old code.  I don't consider this
-an improvement, but it's not a regression! :)
-
-Running 'perf record' on the host didn't show any new hot spots
-and cpu utilization stayed about the same.  This was better
-then I expected from simply looking at the code.
-
-Vlad Yasevich (2):
-  macvtap: Add support of packet capture on macvtap device.
-  macvlan: Remove custom recieve and forward handlers
-
- drivers/net/macvlan.c      | 17 ++++---------
- drivers/net/macvtap.c      | 63 +++++++++++++++++++++++++---------------------
- include/linux/if_macvlan.h |  7 +-----
- 3 files changed, 41 insertions(+), 46 deletions(-)
-
--- 
-1.8.4.2
+Regards,
+Nishanth Menon
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
