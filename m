@@ -1,69 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 6/6] net_sched: make macro be enclosed in
- parenthesis
-Date: Tue, 10 Dec 2013 22:49:00 -0500 (EST)
-Message-ID: <20131210.224900.1427512059771492387.davem@davemloft.net>
-References: <1386680134-85452-1-git-send-email-yangyingliang@huawei.com>
-	<1386680134-85452-7-git-send-email-yangyingliang@huawei.com>
+Subject: Re: [PATCH net] ipv6: do not erase dst address with flow label
+ destination
+Date: Tue, 10 Dec 2013 22:51:20 -0500 (EST)
+Message-ID: <20131210.225120.1914484052513584704.davem@davemloft.net>
+References: <1386684946-18510-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+	<20131210205822.GB25505@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yangyingliang@huawei.com
+Cc: florent.fourcot@enst-bretagne.fr, netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54203 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54218 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751634Ab3LKDtB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 22:49:01 -0500
-In-Reply-To: <1386680134-85452-7-git-send-email-yangyingliang@huawei.com>
+	with ESMTP id S1750921Ab3LKDvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 22:51:21 -0500
+In-Reply-To: <20131210205822.GB25505@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yang Yingliang <yangyingliang@huawei.com>
-Date: Tue, 10 Dec 2013 20:55:34 +0800
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue, 10 Dec 2013 21:58:22 +0100
 
-> Macros with complex values should be enclosed in parenthesis
+> On Tue, Dec 10, 2013 at 03:15:46PM +0100, Florent Fourcot wrote:
+>> This patch is following b579035ff766c9412e2b92abf5cab794bff102b6
+>> 	"ipv6: remove old conditions on flow label sharing"
+>> 
+>> Since there is no reason to restrict a label to a
+>> destination, we should not erase the destination value of a
+>> socket with the value contained in the flow label storage.
+>> 
+>> This patch allows to really have the same flow label to more
+>> than one destination.
+>> 
+>> Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 > 
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
-> ---
->  net/sched/em_meta.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
-> index e5cef956..852cd62 100644
-> --- a/net/sched/em_meta.c
-> +++ b/net/sched/em_meta.c
-> @@ -272,10 +272,12 @@ META_COLLECTOR(int_rtiif)
->   **************************************************************************/
->  
->  #define SKIP_NONLOCAL(skb)			\
-> +({						\
->  	if (unlikely(skb->sk == NULL)) {	\
->  		*err = -1;			\
->  		return;				\
-> -	}
-> +	}					\
-> +})
+> Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-I can't apply this.
-
-First of all, "({ })" is for statements that evaluate to an lvalue,
-this macro does not.
-
-Second of all, and more importantly, this macro needs to be eliminated
-entirely.  It completely hides control flow, and in the past we've
-killed macros which do this such as the old netlink attribute
-builders.
-
-The control flow should be inlined and expanded explicitly in the
-code so that someone who reads it can tell the control flow can
-be changed by the statement.  Compare:
-
-	SKIP_NONLOCAL(skb)
-
-to:
-
-	if (skip_nonlocal(skb)) {
-		*err = -1;
-		return;
-	}
+Applied, thanks.
