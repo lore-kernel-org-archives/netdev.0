@@ -1,40 +1,43 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 12/12] bna: Update the Driver Version to 3.2.23.0
-Date: Tue, 10 Dec 2013 23:00:51 -0800
-Message-ID: <1386745251-13710-13-git-send-email-rmody@brocade.com>
-References: <1386745251-13710-1-git-send-email-rmody@brocade.com>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH v1 1/6] net: mv643xx_eth: properly start/stop phy device
+Date: Wed, 11 Dec 2013 08:06:36 +0100
+Message-ID: <52A80EFC.8070806@gmail.com>
+References: <1386513631-11284-1-git-send-email-sebastian.hesselbarth@gmail.com> <1386513631-11284-2-git-send-email-sebastian.hesselbarth@gmail.com> <20131210.215253.2121948728095674632.davem@davemloft.net> <20131210.215654.1165181423931409066.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	<adapter_linux_open_src_team@Brocade.COM>,
-	Rasesh Mody <rmody@Brocade.COM>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:20526 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751183Ab3LKHCL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 02:02:11 -0500
-In-Reply-To: <1386745251-13710-1-git-send-email-rmody@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: f.fainelli@gmail.com, mugunthanvnm@ti.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20131210.215654.1165181423931409066.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
----
- drivers/net/ethernet/brocade/bna/bnad.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On 12/11/2013 03:56 AM, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Tue, 10 Dec 2013 21:52:53 -0500 (EST)
+>
+>>
+>> This series looks good, applied to net-next, thanks.
+>
+> Actually, I had to revert.
+>
+> You cannot use late_initcall_sync() from code that is potentially
+> built modular, this caused my build to fail at the mdio_bus code.
+>
+> drivers/net/phy/mdio_bus.c:344:1: warning: data definition has no typ=
+e or storage class [enabled by default]
+> drivers/net/phy/mdio_bus.c:344:1: error: type defaults to =A1int=A2 i=
+n declaration of =A1late_initcall_sync=A2 [-Werror=3Dimplicit-int]
+> drivers/net/phy/mdio_bus.c:344:1: warning: parameter names (without t=
+ypes) in function declaration [enabled by default]
+> drivers/net/phy/mdio_bus.c:339:12: warning: =A1mdio_bus_class_suspend=
+_unused=A2 defined but not used [-Wunused-function]
+>
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-index b4b5485..a754e67 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.h
-+++ b/drivers/net/ethernet/brocade/bna/bnad.h
-@@ -71,7 +71,7 @@ struct bnad_rx_ctrl {
- #define BNAD_NAME			"bna"
- #define BNAD_NAME_LEN			64
- 
--#define BNAD_VERSION			"3.2.21.1"
-+#define BNAD_VERSION			"3.2.23.0"
- 
- #define BNAD_MAILBOX_MSIX_INDEX		0
- #define BNAD_MAILBOX_MSIX_VECTORS	1
--- 
-1.8.2.3
+Hmm, I see. What about you drop patch 5 ("net: phy: suspend unused PHYs
+on mdio_bus in late_initcall"), take the rest, and I'll have look at
+suspending unused PHYs later?
+
+Sebastian
