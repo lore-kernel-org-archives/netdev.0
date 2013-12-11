@@ -1,44 +1,62 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH net-next] bgmac: reset cached MAC state during chip reset
-Date: Wed, 11 Dec 2013 07:44:14 +0100
-Message-ID: <1386744254-32408-1-git-send-email-zajec5@gmail.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [net-next 00/12] bna: Update the Driver to v3.2.23.0
+Date: Tue, 10 Dec 2013 23:00:39 -0800
+Message-ID: <1386745251-13710-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hauke Mehrtens <hauke@hauke-m.de>,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	<adapter_linux_open_src_team@Brocade.COM>,
+	Rasesh Mody <rmody@Brocade.COM>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f175.google.com ([209.85.215.175]:35623 "EHLO
-	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751030Ab3LKGoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 01:44:24 -0500
-Received: by mail-ea0-f175.google.com with SMTP id z10so2659213ead.6
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 22:44:23 -0800 (PST)
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:20704 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750719Ab3LKHBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 02:01:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without this bgmac_adjust_link didn't know it should re-initialize MAC
-state. This led to the MAC not working after if down & up routine.
+Hi Dave,
 
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
----
- drivers/net/ethernet/broadcom/bgmac.c |    2 ++
- 1 file changed, 2 insertions(+)
+This patch set consists of feature additions like s/w timestamping support,
+multi-buffer RX, firmware patch simplification, enhancements for RX filters,
+RX processing changes, bug fixes and updates the firmware version to v3.2.3.0.
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
-et/broadcom/bgmac.c
-index 055204e..5b5ac71 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -951,6 +951,8 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
- 			     BGMAC_CMDCFG_CFE |
- 			     BGMAC_CMDCFG_SR,
- 			     false);
-+	bgmac->mac_speed =3D SPEED_UNKNOWN;
-+	bgmac->mac_duplex =3D DUPLEX_UNKNOWN;
-=20
- 	bgmac_clear_mib(bgmac);
- 	if (core->id.id =3D=3D BCMA_CORE_4706_MAC_GBIT)
---=20
-1.7.10.4
+This patch set updates the BNA driver to v3.2.23.0 and was tested against
+net-next 3.12.0-rc6 kernel.
+
+Thanks
+Rasesh
+
+Rasesh Mody (12):
+  bna: Add software timestamping support
+  bna: Set Get IOC fw State
+  bna: Fix Filter Add Del
+  bna: RX Filter Enhancements
+  bna: Enable Multi Buffer RX
+  bna: RX Processing and Config Changes
+  bna: CQ Read Fix
+  bna: Add NULL Check Before Dereferencing TCB
+  bna: Handle the TX Setup Failures
+  bna: Embed SKB Length in TX Vector
+  bna: Firmware Patch Simplification
+  bna: Update the Driver Version to 3.2.23.0
+
+ drivers/net/ethernet/brocade/bna/bfa_ioc.c      | 650 ++++++++++++++++++++++--
+ drivers/net/ethernet/brocade/bna/bfa_ioc.h      |   8 +
+ drivers/net/ethernet/brocade/bna/bfa_ioc_ct.c   |  40 ++
+ drivers/net/ethernet/brocade/bna/bfi.h          |  33 +-
+ drivers/net/ethernet/brocade/bna/bfi_enet.h     |   3 +-
+ drivers/net/ethernet/brocade/bna/bna.h          |  24 +-
+ drivers/net/ethernet/brocade/bna/bna_enet.c     |  58 ++-
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h  |   4 +
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c    | 251 +++++++--
+ drivers/net/ethernet/brocade/bna/bna_types.h    |  57 ++-
+ drivers/net/ethernet/brocade/bna/bnad.c         | 543 ++++++++++++++------
+ drivers/net/ethernet/brocade/bna/bnad.h         |  27 +-
+ drivers/net/ethernet/brocade/bna/bnad_ethtool.c |   1 +
+ drivers/net/ethernet/brocade/bna/cna.h          |   4 +-
+ 14 files changed, 1411 insertions(+), 292 deletions(-)
+
+-- 
+1.8.2.3
