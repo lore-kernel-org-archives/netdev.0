@@ -1,57 +1,64 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH 1/2] net: smc91x: Read hardware behavior flags from
- device tree
-Date: Wed, 11 Dec 2013 08:04:40 -0800
-Message-ID: <20131211160440.GA13171@atomide.com>
-References: <1386757305-12545-1-git-send-email-nm@ti.com>
- <1386757305-12545-2-git-send-email-nm@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] udp: ipv4: fix potential use after free in
+ udp_v4_early_demux()
+Date: Wed, 11 Dec 2013 08:10:05 -0800
+Message-ID: <1386778205.30495.374.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20131211003948.GA18825@redhat.com>
+	 <1386723287.30495.352.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1386727643.30495.363.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devicetree@vger.kernel.org, linux-omap@vger.kernel.org,
-	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	=?utf-8?Q?Beno=C3=AEt?= Cousson <bcousson@baylibre.com>
-To: Nishanth Menon <nm@ti.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1386757305-12545-2-git-send-email-nm@ti.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:61275 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945Ab3LKQKH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 11:10:07 -0500
+Received: by mail-pd0-f172.google.com with SMTP id g10so9757494pdj.31
+        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 08:10:07 -0800 (PST)
+In-Reply-To: <1386727643.30495.363.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Nishanth Menon <nm@ti.com> [131211 02:23]:
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/smsc91x.txt
-> @@ -0,0 +1,45 @@
-> +* Smart Mixed-Signal Connectivity (SMSC) LAN91c94/91c111 Controller
-> +
-> +Required properties:
-> +- compatible : Should be one of:
-> +	"smsc,lan91c94"
-> +	"smsc,lan91c111"
-> +- reg : Address and length of the io space for SMSC LAN
-> +- interrupts : Should contain SMSC LAN interrupt line
-> +- interrupt-parent : Should be the phandle for the interrupt controller
-> +  that services interrupts for this device
-> +
-> +Optional properties:
-> +- reg-shift : Specify the quantity to shift the register offsets by
-> +- reg-io-width : Specify the size (in bytes) of the IO accesses that
-> +  should be performed on the device.  Valid value for SMSC LAN is
-> +  1, 2 or 4.
+From: Eric Dumazet <edumazet@google.com>
 
-I posted a minimal regression fix for this a few weeks ago that we
-should merge to the v3.13-rc cycle:
+pskb_may_pull() can reallocate skb->head, we need to move the
+initialization of iph and uh pointers after its call.
 
-http://www.spinics.net/lists/netdev/msg258913.html
+Fixes: 421b3885bf6d ("udp: ipv4: Add udp early demux")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Shawn Bohrer <sbohrer@rgmadvisors.com>
+---
+ net/ipv4/udp.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-Care to ack that one? Then if that works for you, maybe rebase these on
-that one for the upcoming merge window?
-
-Note that for the -rc cycle we don't need these extra properties as we
-can get the interrupts from the struct resource after fix
-4a43d686fe336c (of/irq: Pass trigger type in IRQ resource flags)
-got merged.
-
-Regards,
-
-Tony
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 2e2aecbe22c4..16d246a51a02 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1909,17 +1909,20 @@ static struct sock *__udp4_lib_demux_lookup(struct net *net,
+ 
+ void udp_v4_early_demux(struct sk_buff *skb)
+ {
+-	const struct iphdr *iph = ip_hdr(skb);
+-	const struct udphdr *uh = udp_hdr(skb);
++	struct net *net = dev_net(skb->dev);
++	const struct iphdr *iph;
++	const struct udphdr *uh;
+ 	struct sock *sk;
+ 	struct dst_entry *dst;
+-	struct net *net = dev_net(skb->dev);
+ 	int dif = skb->dev->ifindex;
+ 
+ 	/* validate the packet */
+ 	if (!pskb_may_pull(skb, skb_transport_offset(skb) + sizeof(struct udphdr)))
+ 		return;
+ 
++	iph = ip_hdr(skb);
++	uh = udp_hdr(skb);
++
+ 	if (skb->pkt_type == PACKET_BROADCAST ||
+ 	    skb->pkt_type == PACKET_MULTICAST)
+ 		sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
