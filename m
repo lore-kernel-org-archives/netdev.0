@@ -1,153 +1,124 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH net-next] net-gro: Prepare GRO stack for the upcoming
- tunneling support
-Date: Thu, 12 Dec 2013 02:07:25 +0800
-Message-ID: <CAPshTCjYDfuR8pzhB_zwupWyb-7n7k30riyc5h8fgGKs36TYjg@mail.gmail.com>
-References: <1386518682-30488-1-git-send-email-hkchu@google.com>
-	<1386703171.1516.203.camel@bwh-desktop.uk.level5networks.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
+Date: Wed, 11 Dec 2013 19:11:04 +0100
+Message-ID: <871324710.20131211191104@eikelenboom.it>
+References: <1507831110.20131018194349@eikelenboom.it> <792757788.20131023142849@eikelenboom.it> <1819533168.20131211161710@eikelenboom.it> <CAB=NE6V-RSnqbAC-0tfYK=WGJLp1aPC2UpFDurs49h+wXr9UfQ@mail.gmail.com> <1818324675.20131211175350@eikelenboom.it> <CAB=NE6Wf=T0bGLSYPDyb=-fMAVnGcbGkeaBiNrzwV-Lpxr6VZg@mail.gmail.com> <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <edumazet@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f54.google.com ([209.85.128.54]:46974 "EHLO
-	mail-qe0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751590Ab3LKSH0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 13:07:26 -0500
-Received: by mail-qe0-f54.google.com with SMTP id cy11so5538669qeb.41
-        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 10:07:25 -0800 (PST)
-In-Reply-To: <1386703171.1516.203.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Berg, Johannes" <johannes.berg@intel.com>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ilw@linux.intel.com" <ilw@linux.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 11, 2013 at 3:19 AM, Ben Hutchings
-<bhutchings@solarflare.com> wrote:
-> On Sun, 2013-12-08 at 08:04 -0800, H.K. Jerry Chu wrote:
->> From: Jerry Chu <hkchu@google.com>
->>
->> This patch modifies the GRO stack to remove the assumption that
->> only one IP hdr is present in the encapsulation chain. It avoids
->> the use of ip_hdr()/ipv6_hdr() macro in IP's *_gro_receive()/
->> *_gro_complete() functions because there may be more than one IP
->> hdr present in the encapsulation chain when various flavors of IP
->> tunneling support are added. By doing so it also allows multiple
->> level, not just a single level (i.e., with only two IP hdrs like
->> IP-in-IP) of encapsulation to be supported in the future.
->>
->> With this patch, the GRO stack traversing now is mostly based on
->> skb_gro_offset rather than special hdr offsets saved in skb (e.g.,
->> skb->network_header, skb->transport_header,...) As a consequence
->> all but the top layer (which is likely to be the transport layer)
->> must have hdrs of the same length in order for a pkt to be
->> considered for aggregation. Therefore when adding a new layer
->> (e.g., for tunneling), one must check and skip flows (e.g., setting
->> NAPI_GRO_CB(p)->same_flow to 0) that have a different hdr length.
->>
->> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
->> Suggested-by: Eric Dumazet <edumazet@google.com>
->> Reviewed-by: Eric Dumazet <edumazet@google.com>
-> [...]
->> --- a/net/ipv4/tcp_offload.c
->> +++ b/net/ipv4/tcp_offload.c
-> [...]
->> @@ -303,16 +308,16 @@ skip_csum:
->>       return tcp_gro_receive(head, skb);
->>  }
->>
->> -static int tcp4_gro_complete(struct sk_buff *skb)
->> +static int tcp4_gro_complete(struct sk_buff *skb, int nhoff)
->
-> The offset should definitely be called thoff in this function.
 
-Ok.
+Wednesday, December 11, 2013, 6:53:07 PM, you wrote:
 
->
-> [...]
->> --- a/net/ipv6/ip6_offload.c
->> +++ b/net/ipv6/ip6_offload.c
-> [...]
->> @@ -198,25 +228,28 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+> On Wed, Dec 11, 2013 at 6:28 PM, Sander Eikelenboom
+> <linux@eikelenboom.it> wrote:
+>> Wednesday, December 11, 2013, 6:14:16 PM, you wrote:
+>>> Yeap, that's the case for Intel Atheros, and I think nowadays new
+>>> broadcom upstream drivers too. Users should not have to be involved on
+>>> setting the regulatory domain, everything should just work
+>>> automatically.
 >>
->>               iph = ipv6_hdr(skb);
->>       }
->> -
->>       NAPI_GRO_CB(skb)->proto = proto;
->>
->>       flush--;
->> -     nlen = skb_network_header_len(skb);
->> +     nlen = next_header - skb->network_header;
->>
->>       for (p = *head; p; p = p->next) {
->> -             const struct ipv6hdr *iph2;
->> +             struct ipv6hdr *iph2;
->
-> Why remove const here?
+>> Erhmm yes that works, under the assumption that the device is not leaving the country it was programmed for at the factory.
 
-Done to make the compiler happy but now the call to ipv6_exthdrs_len() may
-not be necessary so i'll put the const back.
+> Moving out of a region that you purchased a device is called to "world
+> roam". Believe it or not some devices are designed with the intent you
+> do not take it out of a country. The Playstation comes to mind as an
+> example but I believe some Apple tablets are also in the same
+> situation. Some devices like mobile phones obviously need to support
+> world roaming and they do, what they do then is build architecture to
+> support a base set and then rely on your APs around to see the country
+> IE to determine region. Some other devices rely on cellular base
+> station information, but that is allowed only in a few countries right
+> now and in the US at least this requires some sort of special review
+> from FCC on the design. We support all this in the Linux kernel today,
+> its up to system integrators to do things and certify things properly.
 
->
-> [...]
->> -static int ipv6_gro_complete(struct sk_buff *skb)
->> +static int ipv6_gro_complete(struct sk_buff *skb, int nhoff)
->>  {
->>       const struct net_offload *ops;
->> -     struct ipv6hdr *iph = ipv6_hdr(skb);
->> +     struct ipv6hdr *iph = (struct ipv6hdr *)(skb->data + nhoff);
->>       int err = -ENOSYS;
+>> (Or you like to be limited in your abilities, channel 12 and 13 are legal here)
+>> That there is a restriction on boot or on first use, i can understand. Crippling a device for it's life time though.
+
+> The best way to address all this is by automatic region awareness and
+> doing the right thing on devices, this however requires good
+> architecture / calibration data  / etc and all that needs to be
+> verified by the system integrators, and finally they need to be
+> certified. If you want to hack your firmware and software go at it,
+> just be aware there are reasons for things.
+
+Well the general problem seems to be "we don't trust the user" so we FORCE him to the lowest
+common denominator (without a way to overrule that) so he is forced to operate *well* within the law.
+
+>>> It doesn't seem like you are getting your original requests getting
+>>> processed, so I don't think CRDA is passing it. Can you verify running
+>>> from CRDA code:
 >>
->> -     iph->payload_len = htons(skb->len - skb_network_offset(skb) -
->> -                              sizeof(*iph));
->> +     iph->payload_len = htons(skb->len - nhoff - sizeof(*iph));
+>> They don't get processed unless i remove the return from the code as i indicated.
+>> If i remove that return it processes the request.
 >>
->>       rcu_read_lock();
->> -     ops = rcu_dereference(inet6_offloads[NAPI_GRO_CB(skb)->proto]);
->> +
->> +     nhoff += sizeof(*iph) + ipv6_exthdrs_len(iph, &ops);
->
-> Would be clearer as:
->         int thoff;
->         ...
->         thoff = nhoff + ...
-
-Perhaps...
-
->
->>       if (WARN_ON(!ops || !ops->callbacks.gro_complete))
->>               goto out_unlock;
+>>> ./regdbdump /usr/lib/crda/regulatory.bin
 >>
->> -     err = ops->callbacks.gro_complete(skb);
->> +     err = ops->callbacks.gro_complete(skb, nhoff);
->>
->>  out_unlock:
->>       rcu_read_unlock();
->> diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
->> index 6d18157..a107ad6 100644
->> --- a/net/ipv6/tcpv6_offload.c
->> +++ b/net/ipv6/tcpv6_offload.c
->> @@ -66,16 +66,16 @@ skip_csum:
->>       return tcp_gro_receive(head, skb);
->>  }
->>
->> -static int tcp6_gro_complete(struct sk_buff *skb)
->> +static int tcp6_gro_complete(struct sk_buff *skb, int nhoff)
-> [...]
->
-> Same comment as for tcp4_gro_complete().
+>> Although it's in a different location on Debian, /lib/crda/regulatory.bin
+>> the dump seems fine.
 
-Ok.
+> OK thanks. Can you send a patch of what exact change you made, it was
+> unclear from the paste you made.
 
-Jerry
+> diff -u file.c.orig file.c
 
->
-> Ben.
->
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
->
+Well i just did a pull from wireless-next, to try Avinash Patil's patch.
+net/wireless/reg.c had already changed much so i couldn't apply his patch without.
+
+With his patch it sets the regulatory domain, although as now expected i still can not use channels 12 and 13 yet,
+probably due to those firmware restrictions.
+
+His patch is copy pasted below.
+
+
+>   Luis
+
+
+---------- Forwarded message ----------
+From: "Avinash Patil" <patila@marvell.com>
+Date: Dec 6, 2013 8:31 PM
+Subject: [RFC] cfg80211: set regulatory request processed for initiator core
+To: <johannes@sipsolutions.net>, <linux-wireless@vger.kernel.org>
+Cc:
+
+During cfg80211 init, cfg80211 initializes regulatory to set to
+world domain. Here we dont set last request processed flag.
+This results into further request set to pending indefinitely.
+
+This patch fixes this by setting last request to processed.
+
+Signed-off-by: Avinash Patil <patila@marvell.com>
+---
+ net/wireless/reg.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/net/wireless/reg.c b/net/wireless/reg.c
+index ec54e1a..70a8f0a 100644
+--- a/net/wireless/reg.c
++++ b/net/wireless/reg.c
+@@ -1670,6 +1670,8 @@ static void reg_process_hint(struct
+regulatory_request *reg_request)
+        switch (reg_request->initiator) {
+        case NL80211_REGDOM_SET_BY_CORE:
+                reg_process_hint_core(reg_request);
++               nl80211_send_reg_change_event(reg_request);
++               reg_set_request_processed();
+                return;
+        case NL80211_REGDOM_SET_BY_USER:
+                treatment = reg_process_hint_user(reg_request);
+--
+1.7.3.4
+
