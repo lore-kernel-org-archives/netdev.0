@@ -1,48 +1,57 @@
-From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
-Subject: [PATCH] Do not listen if rtnl_send() fails in ip link iplink_have_newlink() test
-Date: Wed, 11 Dec 2013 14:01:29 +0100
-Message-ID: <1386766889-19062-1-git-send-email-ppisar@redhat.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2] packet: Deliver VLAN TPID to userspace
+Date: Wed, 11 Dec 2013 13:19:21 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7480@saturn3.aculab.com>
+References: <8738m0q3nq.wl%atzm@stratosphere.co.jp>	<AE90C24D6B3A694183C094C60CF0A2F6026B7476@saturn3.aculab.com> <87txef7dmy.wl%atzm@stratosphere.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	=?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>,
+	"Stephen Hemminger" <stephen@networkplumber.org>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Daniel Borkmann" <dborkman@redhat.com>
+To: "Atzm Watanabe" <atzm@stratosphere.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6298 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751245Ab3LKNCC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Dec 2013 08:02:02 -0500
+Received: from mx0.aculab.com ([213.249.233.131]:57614 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751345Ab3LKNU0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 08:20:26 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 09348-05 for <netdev@vger.kernel.org>;
+ Wed, 11 Dec 2013 13:20:21 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <87txef7dmy.wl%atzm@stratosphere.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If rtnl_send() fails in iplink_have_newlink() test, listening for
-response will result in indefinite hang. This can be demonstrated by
-"ip link show" while SELinux preventing from sending the RTM_NEWLINK
-over netlink.
+> From: Atzm Watanabe
+...
+> > You've defined a new header variant, but all the code seems to rely
+> > on the fact that the 'new' variant is identical to the old one
+> > with the addition of an extra field at the end.
+> >
+> > In which case it ought to be valid to just extend the old header variant.
+> > If the header really can change format there ought to be a discriminating
+> > member somewhere - which you don't seem to have changed.
+> 
+> Yes.  I think that struct tpacket3_hdr can grow safely until 48 bytes,
+> so I'd just like to extend tpacket_hdr_variant1 like you said.
+> 
+> But in the past discussions, there were mentions that a new member
+> cannot be added into struct tpacket_hdr_variant1, and possibly the
+> variant which includes a new member should be separated from the old
+> one.
+> 
+>   http://patchwork.ozlabs.org/patch/284671/
+>   http://patchwork.ozlabs.org/patch/285382/
 
-This patch checks for the return value as is done at all other
-rtnl_send() calls.
+I don't remember it being mentioned earlier that there are pad bytes
+following the header.
 
-Signed-off-by: Petr P=C3=ADsa=C5=99 <ppisar@redhat.com>
----
- ip/iplink.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Might be worth explicitly defining the pad bytes and zeroing them.
+That could make additional changes easier.
 
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 58b6c20..f7d9e17 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -178,8 +178,8 @@ static int iplink_have_newlink(void)
- 		req.n.nlmsg_type =3D RTM_NEWLINK;
- 		req.i.ifi_family =3D AF_UNSPEC;
-=20
--		rtnl_send(&rth, &req.n, req.n.nlmsg_len);
--		rtnl_listen(&rth, accept_msg, NULL);
-+		if (rtnl_send(&rth, &req.n, req.n.nlmsg_len) >=3D 0)
-+			rtnl_listen(&rth, accept_msg, NULL);
- 	}
- 	return have_rtnl_newlink;
- }
---=20
-1.8.3.1
+	David
