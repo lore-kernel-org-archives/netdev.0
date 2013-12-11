@@ -1,115 +1,59 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH net-next] bgmac: replace some magic values with defines
-Date: Wed, 11 Dec 2013 08:44:37 +0100
-Message-ID: <1386747877-2327-1-git-send-email-zajec5@gmail.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next] sch_htb: remove unnecessary NULL pointer judgment
+Date: Wed, 11 Dec 2013 15:48:37 +0800
+Message-ID: <1386748117-27072-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hauke Mehrtens <hauke@hauke-m.de>,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f53.google.com ([74.125.83.53]:49183 "EHLO
-	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779Ab3LKHoq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 02:44:46 -0500
-Received: by mail-ee0-f53.google.com with SMTP id b57so2649358eek.26
-        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 23:44:45 -0800 (PST)
+Received: from szxga02-in.huawei.com ([119.145.14.65]:51684 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751048Ab3LKHwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 02:52:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+It already has a NULL pointer judgment of rtab in qdisc_put_rtab().
+Remove the judgment outside of qdisc_put_rtab().
 
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
 ---
-David: this patch adds few wide lines (over 80 chars). This was needed
-to improve code readability, I believe this case matches CodingStyle
-allowed exception. Thanks to that we keep one chip identification per
-line. I believe it's important here as we use similar names (like
-BCMA_CHIP_ID vs. BCMA_PKG_ID) and putting them in separated lines make
-code a bit messy.
+ net/sched/sch_htb.c | 16 +++++-----------
+ 1 file changed, 5 insertions(+), 11 deletions(-)
 
-Can you accept that?
----
- drivers/net/ethernet/broadcom/bgmac.c |   21 +++++++++++++--------
- drivers/net/ethernet/broadcom/bgmac.h |    6 +++++-
- 2 files changed, 18 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
-et/broadcom/bgmac.c
-index 5b5ac71..39efb86 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -875,9 +875,9 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
- 	}
-=20
- 	iost =3D bcma_aread32(core, BCMA_IOST);
--	if ((ci->id =3D=3D BCMA_CHIP_ID_BCM5357 && ci->pkg =3D=3D 10) ||
-+	if ((ci->id =3D=3D BCMA_CHIP_ID_BCM5357 && ci->pkg =3D=3D BCMA_PKG_ID=
-_BCM47186) ||
- 	    (ci->id =3D=3D BCMA_CHIP_ID_BCM4749 && ci->pkg =3D=3D 10) ||
--	    (ci->id =3D=3D BCMA_CHIP_ID_BCM53572 && ci->pkg =3D=3D 9))
-+	    (ci->id =3D=3D BCMA_CHIP_ID_BCM53572 && ci->pkg =3D=3D BCMA_PKG_I=
-D_BCM47188))
- 		iost &=3D ~BGMAC_BCMA_IOST_ATTACHED;
-=20
- 	if (iost & BGMAC_BCMA_IOST_ATTACHED) {
-@@ -889,12 +889,16 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
- 	bcma_core_enable(core, flags);
-=20
- 	if (core->id.rev > 2) {
--		bgmac_set(bgmac, BCMA_CLKCTLST, 1 << 8);
--		bgmac_wait_value(bgmac->core, BCMA_CLKCTLST, 1 << 24, 1 << 24,
-+		bgmac_set(bgmac, BCMA_CLKCTLST,
-+			  BGMAC_BCMA_CLKCTLST_MISC_PLL_REQ);
-+		bgmac_wait_value(bgmac->core, BCMA_CLKCTLST,
-+				 BGMAC_BCMA_CLKCTLST_MISC_PLL_ST,
-+				 BGMAC_BCMA_CLKCTLST_MISC_PLL_ST,
- 				 1000);
- 	}
-=20
--	if (ci->id =3D=3D BCMA_CHIP_ID_BCM5357 || ci->id =3D=3D BCMA_CHIP_ID_=
-BCM4749 ||
-+	if (ci->id =3D=3D BCMA_CHIP_ID_BCM5357 ||
-+	    ci->id =3D=3D BCMA_CHIP_ID_BCM4749 ||
- 	    ci->id =3D=3D BCMA_CHIP_ID_BCM53572) {
- 		struct bcma_drv_cc *cc =3D &bgmac->core->bus->drv_cc;
- 		u8 et_swtype =3D 0;
-@@ -909,10 +913,11 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
- 			et_swtype &=3D 0x0f;
- 			et_swtype <<=3D 4;
- 			sw_type =3D et_swtype;
--		} else if (ci->id =3D=3D BCMA_CHIP_ID_BCM5357 && ci->pkg =3D=3D 9) {
-+		} else if (ci->id =3D=3D BCMA_CHIP_ID_BCM5357 && ci->pkg =3D=3D BCMA=
-_PKG_ID_BCM5358) {
- 			sw_type =3D BGMAC_CHIPCTL_1_SW_TYPE_EPHYRMII;
--		} else if ((ci->id !=3D BCMA_CHIP_ID_BCM53572 && ci->pkg =3D=3D 10) =
-||
--			   (ci->id =3D=3D BCMA_CHIP_ID_BCM53572 && ci->pkg =3D=3D 9)) {
-+		} else if ((ci->id =3D=3D BCMA_CHIP_ID_BCM5357 && ci->pkg =3D=3D BCM=
-A_PKG_ID_BCM47186) ||
-+			   (ci->id =3D=3D BCMA_CHIP_ID_BCM4749 && ci->pkg =3D=3D 10) ||
-+			   (ci->id =3D=3D BCMA_CHIP_ID_BCM53572 && ci->pkg =3D=3D BCMA_PKG_=
-ID_BCM47188)) {
- 			sw_type =3D BGMAC_CHIPCTL_1_IF_TYPE_RGMII |
- 				  BGMAC_CHIPCTL_1_SW_TYPE_RGMII;
- 		}
-diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethern=
-et/broadcom/bgmac.h
-index 1c752ce..130b16b 100644
---- a/drivers/net/ethernet/broadcom/bgmac.h
-+++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -95,7 +95,11 @@
- #define  BGMAC_RXQ_CTL_MDP_SHIFT		24
- #define BGMAC_GPIO_SELECT			0x194
- #define BGMAC_GPIO_OUTPUT_EN			0x198
--/* For 0x1e0 see BCMA_CLKCTLST */
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 0e1e38b..830c64f 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1337,7 +1337,6 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 	struct htb_sched *q = qdisc_priv(sch);
+ 	struct htb_class *cl = (struct htb_class *)*arg, *parent;
+ 	struct nlattr *opt = tca[TCA_OPTIONS];
+-	struct qdisc_rate_table *rtab = NULL, *ctab = NULL;
+ 	struct nlattr *tb[TCA_HTB_MAX + 1];
+ 	struct tc_htb_opt *hopt;
+ 	u64 rate64, ceil64;
+@@ -1361,16 +1360,11 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 		goto failure;
+ 
+ 	/* Keeping backward compatible with rate_table based iproute2 tc */
+-	if (hopt->rate.linklayer == TC_LINKLAYER_UNAWARE) {
+-		rtab = qdisc_get_rtab(&hopt->rate, tb[TCA_HTB_RTAB]);
+-		if (rtab)
+-			qdisc_put_rtab(rtab);
+-	}
+-	if (hopt->ceil.linklayer == TC_LINKLAYER_UNAWARE) {
+-		ctab = qdisc_get_rtab(&hopt->ceil, tb[TCA_HTB_CTAB]);
+-		if (ctab)
+-			qdisc_put_rtab(ctab);
+-	}
++	if (hopt->rate.linklayer == TC_LINKLAYER_UNAWARE)
++		qdisc_put_rtab(qdisc_get_rtab(&hopt->rate, tb[TCA_HTB_RTAB]));
 +
-+/* For 0x1e0 see BCMA_CLKCTLST. Below are BGMAC specific bits */
-+#define  BGMAC_BCMA_CLKCTLST_MISC_PLL_REQ	0x00000100
-+#define  BGMAC_BCMA_CLKCTLST_MISC_PLL_ST	0x01000000
-+
- #define BGMAC_HW_WAR				0x1e4
- #define BGMAC_PWR_CTL				0x1e8
- #define BGMAC_DMA_BASE0				0x200		/* Tx and Rx controller */
---=20
-1.7.10.4
++	if (hopt->ceil.linklayer == TC_LINKLAYER_UNAWARE)
++		qdisc_put_rtab(qdisc_get_rtab(&hopt->ceil, tb[TCA_HTB_CTAB]));
+ 
+ 	if (!cl) {		/* new class */
+ 		struct Qdisc *new_q;
+-- 
+1.8.0
