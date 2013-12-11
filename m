@@ -1,43 +1,128 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH v1 1/6] net: mv643xx_eth: properly start/stop phy device
-Date: Wed, 11 Dec 2013 08:06:36 +0100
-Message-ID: <52A80EFC.8070806@gmail.com>
-References: <1386513631-11284-1-git-send-email-sebastian.hesselbarth@gmail.com> <1386513631-11284-2-git-send-email-sebastian.hesselbarth@gmail.com> <20131210.215253.2121948728095674632.davem@davemloft.net> <20131210.215654.1165181423931409066.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2] Documentation: Add MDIO bus node to PHY binding document
+Date: Wed, 11 Dec 2013 07:11:14 +0000
+Message-ID: <3125212.eYMMS8pR1J@lenovo>
+References: <1384174825-14249-1-git-send-email-jonas.jensen@gmail.com> <1384351669-8325-1-git-send-email-jonas.jensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: f.fainelli@gmail.com, mugunthanvnm@ti.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: devicetree@vger.kernel.org, grant.likely@secretlab.ca,
+	rob.herring@calxeda.com, linux-kernel@vger.kernel.org,
+	mark.rutland@arm.com, netdev@vger.kernel.org
+To: Jonas Jensen <jonas.jensen@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131210.215654.1165181423931409066.davem@davemloft.net>
+In-Reply-To: <1384351669-8325-1-git-send-email-jonas.jensen@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/11/2013 03:56 AM, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 10 Dec 2013 21:52:53 -0500 (EST)
->
->>
->> This series looks good, applied to net-next, thanks.
->
-> Actually, I had to revert.
->
-> You cannot use late_initcall_sync() from code that is potentially
-> built modular, this caused my build to fail at the mdio_bus code.
->
-> drivers/net/phy/mdio_bus.c:344:1: warning: data definition has no typ=
-e or storage class [enabled by default]
-> drivers/net/phy/mdio_bus.c:344:1: error: type defaults to =A1int=A2 i=
-n declaration of =A1late_initcall_sync=A2 [-Werror=3Dimplicit-int]
-> drivers/net/phy/mdio_bus.c:344:1: warning: parameter names (without t=
-ypes) in function declaration [enabled by default]
-> drivers/net/phy/mdio_bus.c:339:12: warning: =A1mdio_bus_class_suspend=
-_unused=A2 defined but not used [-Wunused-function]
->
+Le mercredi 13 novembre 2013, 15:07:49 Jonas Jensen a =E9crit :
+> Add MDIO bus node segment and update the example,
+> allowing trivial bindings to break out boilerplate.
+>=20
+> Signed-off-by: Jonas Jensen <jonas.jensen@gmail.com>
+> ---
+>=20
+> Notes:
+>     Thanks Mark,
+>=20
+>     This should have the changes from your comments. It also adds opt=
+ional
+> properties "compatible" and "reg", were those overlooked or left out
+> intentionally?
 
-Hmm, I see. What about you drop patch 5 ("net: phy: suspend unused PHYs
-on mdio_bus in late_initcall"), take the rest, and I'll have look at
-suspending unused PHYs later?
+Please CC netdev@vger.kernel.org too as there might be some interest fr=
+om=20
+networking folks not actively following devicetree-discuss.
 
-Sebastian
+This does looks good to me, there is not much to be said to the point w=
+here I=20
+wonder if this even deserves such an example, but it cannot hurt.
+
+>=20
+>     Changes since v1:
+>=20
+>     1. reformat "MDIO bus node" description and add, node name should=
+ be
+> "mdio" 2. reformat property descriptions, describe what the cells rep=
+resent
+> 3. add optional properties
+>     4. add a description after "PHY nodes"
+>=20
+>     Applies to next-20131113
+>=20
+>  Documentation/devicetree/bindings/net/phy.txt | 48
+> ++++++++++++++++++++++----- 1 file changed, 40 insertions(+), 8
+> deletions(-)
+>=20
+> diff --git a/Documentation/devicetree/bindings/net/phy.txt
+> b/Documentation/devicetree/bindings/net/phy.txt index 7cd18fb..4179a7=
+0
+> 100644
+> --- a/Documentation/devicetree/bindings/net/phy.txt
+> +++ b/Documentation/devicetree/bindings/net/phy.txt
+> @@ -1,5 +1,26 @@
+> +MDIO Bus Nodes
+> +
+> +An MDIO bus node describes an MDIO bus, and is a container for PHY n=
+odes
+> +as described below. An MDIO bus node should be named "mdio".
+> +
+> +Required properties:
+> +
+> +- #address-cells =3D Should be <1>, specifies the number of cells ne=
+eded
+> +  to encode the PHY address
+> +- #size-cells =3D Should be <0>
+> +
+> +Optional Properties:
+> +
+> +- compatible : Should contain a specific name for the MDIO bus,
+> +  if known, followed by "-mdio"
+> +- reg : Should contain register location and length
+> +
+> +
+>  PHY nodes
+>=20
+> +Describes the PHY chip. A MAC connecting the PHY may use a phandle t=
+o
+> +this node.
+> +
+>  Required properties:
+>=20
+>   - device_type : Should be "ethernet-phy"
+> @@ -23,13 +44,24 @@ Optional Properties:
+>    assume clause 22. The compatible list may also contain other
+>    elements.
+>=20
+> +
+>  Example:
+>=20
+> -ethernet-phy@0 {
+> -	compatible =3D "ethernet-phy-ieee802.3-c22";
+> -	linux,phandle =3D <2452000>;
+> -	interrupt-parent =3D <40000>;
+> -	interrupts =3D <35 1>;
+> -	reg =3D <0>;
+> -	device_type =3D "ethernet-phy";
+> -};
+> +mdio {
+> +	#address-cells =3D <1>;
+> +	#size-cells =3D <0>;
+> +
+> +	ethernet-phy@0 {
+> +		device_type =3D "ethernet-phy";
+> +		compatible =3D "...", "ethernet-phy-ieee802.3-c22";
+> +		reg =3D <0>;
+> +		interrupts =3D <24 0>;
+> +	}
+> +
+> +	ethernet-phy@1 {
+> +		device_type =3D "ethernet-phy";
+> +		compatible =3D "...";
+> +		reg =3D <1>;
+> +		interrupts =3D <35 1>;
+> +	}
+> +}
+
+--=20
+=46lorian
