@@ -1,89 +1,58 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net V3 2/2] macvtap: signal truncated packets
-Date: Wed, 11 Dec 2013 13:08:34 +0800
-Message-ID: <1386738514-1502-2-git-send-email-jasowang@redhat.com>
-References: <1386738514-1502-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386738514-1502-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH -next 0/3] seq_printf/puts/putc: Start to convert to return void
+Date: Tue, 10 Dec 2013 21:12:41 -0800
+Message-ID: <cover.1386738050.git.joe@perches.com>
+Cc: Kees Cook <keescook@chromium.org>, linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: Alexander Viro <viro@zeniv.linux.org.uk>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-macvtap_put_user() never return a value grater than iov length, this in fact
-bypasses the truncated checking in macvtap_recvmsg(). Fix this by always
-returning the size of packet plus the possible vlan header to let the trunca
-checking work.
+Many uses of the return value of seq_printf/seq_puts/seq_putc are
+incorrect.  Many assume that the return value is the number of
+chars emitted into a buffer like printf/puts/putc.
 
-Cc: Vlad Yasevich <vyasevich@gmail.com>
-Cc: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-Changes from V2:
-- use total as the bytes of packet returned
-Changes from V1:
-- increase total unconditionally
-- do not move the structure veth out of the vlan handling block
----
- drivers/net/macvtap.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+It would be better to make the return value of these functions void
+to avoid these misuses.
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 957cc5c..2a89da0 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -770,7 +770,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 	int ret;
- 	int vnet_hdr_len = 0;
- 	int vlan_offset = 0;
--	int copied;
-+	int copied, total;
- 
- 	if (q->flags & IFF_VNET_HDR) {
- 		struct virtio_net_hdr vnet_hdr;
-@@ -785,7 +785,8 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 		if (memcpy_toiovecend(iv, (void *)&vnet_hdr, 0, sizeof(vnet_hdr)))
- 			return -EFAULT;
- 	}
--	copied = vnet_hdr_len;
-+	total = copied = vnet_hdr_len;
-+	total += skb->len;
- 
- 	if (!vlan_tx_tag_present(skb))
- 		len = min_t(int, skb->len, len);
-@@ -800,6 +801,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 
- 		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
- 		len = min_t(int, skb->len + VLAN_HLEN, len);
-+		total += VLAN_HLEN;
- 
- 		copy = min_t(int, vlan_offset, len);
- 		ret = skb_copy_datagram_const_iovec(skb, 0, iv, copied, copy);
-@@ -817,10 +819,9 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 	}
- 
- 	ret = skb_copy_datagram_const_iovec(skb, vlan_offset, iv, copied, len);
--	copied += len;
- 
- done:
--	return ret ? ret : copied;
-+	return ret ? ret : total;
- }
- 
- static ssize_t macvtap_do_read(struct macvtap_queue *q, struct kiocb *iocb,
-@@ -875,7 +876,7 @@ static ssize_t macvtap_aio_read(struct kiocb *iocb, const struct iovec *iv,
- 	}
- 
- 	ret = macvtap_do_read(q, iocb, iv, len, file->f_flags & O_NONBLOCK);
--	ret = min_t(ssize_t, ret, len); /* XXX copied from tun.c. Why? */
-+	ret = min_t(ssize_t, ret, len);
- 	if (ret > 0)
- 		iocb->ki_pos = ret;
- out:
+Start to do so.
+Convert seq_overflow to a public function from a static function.
+
+Remove the return uses of seq_printf/seq_puts/seq_putc from net.
+Add a seq_overflow function call instead.
+
+Joe Perches (3):
+  seq: Add a seq_overflow test.
+  batman-adv: Use seq_overflow
+  netfilter: Use seq_overflow
+
+ fs/seq_file.c                                      | 15 ++++----
+ include/linux/seq_file.h                           |  2 +
+ include/net/netfilter/nf_conntrack_acct.h          |  3 +-
+ net/batman-adv/gateway_client.c                    | 25 ++++++------
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c     |  6 ++-
+ .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   | 42 +++++++++++++--------
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c     |  6 ++-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c     | 10 +++--
+ net/netfilter/nf_conntrack_acct.c                  | 11 +++---
+ net/netfilter/nf_conntrack_expect.c                |  4 +-
+ net/netfilter/nf_conntrack_proto_dccp.c            | 12 ++++--
+ net/netfilter/nf_conntrack_proto_gre.c             | 15 +++++---
+ net/netfilter/nf_conntrack_proto_sctp.c            | 12 ++++--
+ net/netfilter/nf_conntrack_proto_tcp.c             | 11 ++++--
+ net/netfilter/nf_conntrack_proto_udp.c             |  7 ++--
+ net/netfilter/nf_conntrack_proto_udplite.c         |  7 ++--
+ net/netfilter/nf_conntrack_standalone.c            | 44 +++++++++++++---------
+ net/netfilter/nf_log.c                             | 26 ++++++-------
+ net/netfilter/nfnetlink_log.c                      | 12 +++---
+ net/netfilter/nfnetlink_queue_core.c               | 14 ++++---
+ net/netfilter/x_tables.c                           |  8 ++--
+ net/netfilter/xt_hashlimit.c                       | 34 +++++++++--------
+ 22 files changed, 191 insertions(+), 135 deletions(-)
+
 -- 
-1.8.3.2
+1.8.1.2.459.gbcd45b4.dirty
+
