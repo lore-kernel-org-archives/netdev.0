@@ -1,159 +1,225 @@
 From: Stefan Raspl <raspl@linux.vnet.ibm.com>
-Subject: [PATCH 1/2] ethtool: Add callback to indicate adjacent switch port attributes
-Date: Wed, 11 Dec 2013 14:28:59 +0100
-Message-ID: <1386768540-48188-2-git-send-email-raspl@linux.vnet.ibm.com>
+Subject: [PATCH 2/2] qeth: Display adjacent switch port attributes in ethtool
+Date: Wed, 11 Dec 2013 14:29:00 +0100
+Message-ID: <1386768540-48188-3-git-send-email-raspl@linux.vnet.ibm.com>
 References: <1386768540-48188-1-git-send-email-raspl@linux.vnet.ibm.com>
 Cc: bhutchings@solarflare.com, blaschka@linux.vnet.ibm.com,
 	netdev@vger.kernel.org, linux-s390@vger.kernel.org,
 	Stefan Raspl <raspl@linux.vnet.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp13.uk.ibm.com ([195.75.94.109]:37848 "EHLO
-	e06smtp13.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827Ab3LKN3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 08:29:43 -0500
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:57729 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751839Ab3LKN3o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 08:29:44 -0500
 Received: from /spool/local
-	by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <raspl@linux.vnet.ibm.com>;
-	Wed, 11 Dec 2013 13:29:41 -0000
+	Wed, 11 Dec 2013 13:29:43 -0000
 In-Reply-To: <1386768540-48188-1-git-send-email-raspl@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Switches supporting LLDP can communicate port attributes to connected devices.
-Device drivers capable of accessing this information from the devices can use
-the new callback get_switch_port_attrs() to report supported and enabled
-settings in the card's adjacent switch port for display in ethtool.
-Implementors have to use the respective SUPPORTED_SP_* and ENABLED_SP_* defines
-to indicate the current settings.
+Add support for get_switch_port_attrs() callback in ethtool to display
+adjacent switch port's attributes.
 
 Signed-off-by: Stefan Raspl <raspl@linux.vnet.ibm.com>
+Acked-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
 ---
- include/linux/ethtool.h      |  3 +++
- include/uapi/linux/ethtool.h | 35 +++++++++++++++++++++++++++++++++++
- net/core/ethtool.c           | 22 ++++++++++++++++++++++
- 3 files changed, 60 insertions(+)
+ drivers/s390/net/qeth_core.h      |  7 ++++
+ drivers/s390/net/qeth_core_main.c | 79 +++++++++++++++++++++++++++++++++++++++
+ drivers/s390/net/qeth_core_mpc.h  | 17 +++++++++
+ drivers/s390/net/qeth_l2_main.c   |  1 +
+ drivers/s390/net/qeth_l3_main.c   |  1 +
+ 5 files changed, 105 insertions(+)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index c8e3e7e3..940c7b1 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -177,6 +177,7 @@ static inline u32 ethtool_rxfh_indir_default(u32 index, u32 n_rx_rings)
-  * @get_module_eeprom: Get the eeprom information from the plug-in module
-  * @get_eee: Get Energy-Efficient (EEE) supported and status.
-  * @set_eee: Set EEE status (enable/disable) as well as LPI timers.
-+ * @get_switch_port_attrs: Get adjacent switch port attributes.
-  *
-  * All operations are optional (i.e. the function pointer may be set
-  * to %NULL) and callers must take this into account.  Callers must
-@@ -245,6 +246,8 @@ struct ethtool_ops {
- 				     struct ethtool_eeprom *, u8 *);
- 	int	(*get_eee)(struct net_device *, struct ethtool_eee *);
- 	int	(*set_eee)(struct net_device *, struct ethtool_eee *);
-+	int     (*get_switch_port_attrs)(struct net_device *,
-+					 struct ethtool_swport_attrs *);
- 
- 
- };
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 38dbafa..f5843ac 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -136,6 +136,22 @@ struct ethtool_eeprom {
+diff --git a/drivers/s390/net/qeth_core.h b/drivers/s390/net/qeth_core.h
+index 41ef943..bc30a2a 100644
+--- a/drivers/s390/net/qeth_core.h
++++ b/drivers/s390/net/qeth_core.h
+@@ -738,6 +738,11 @@ struct qeth_rx {
+ 	int qdio_err;
  };
  
- /**
-+ * struct ethtool_swport_attrs - query adjacent switch port attributes
-+ * @cmd: ETHTOOL_GPORT
-+ * @port_rc: Use GPORT_RC_* as appropriate.
-+ * @supported: Forwarding modes and capabilities supported by the switch port,
-+ *	see SUPPORTED_SP_* flags.
-+ * @enabled: Forwarding modes and capabilities currently activated at the
-+ *	adjacent switch port, see ENABLED_SP_* flags.
-+ */
-+struct ethtool_swport_attrs {
-+	__u32	cmd;
-+	__u32	port_rc;
-+	__u32	supported;
-+	__u32	enabled;
++struct qeth_switch_info {
++        __u32 capabilities;
++        __u32 settings;
 +};
 +
-+/**
-  * struct ethtool_eee - Energy Efficient Ethernet information
-  * @cmd: ETHTOOL_{G,S}EEE
-  * @supported: Mask of %SUPPORTED_* flags for the speed/duplex combinations
-@@ -900,6 +916,7 @@ enum ethtool_sfeatures_retval_bits {
- #define ETHTOOL_GMODULEEEPROM	0x00000043 /* Get plug-in module eeprom */
- #define ETHTOOL_GEEE		0x00000044 /* Get EEE settings */
- #define ETHTOOL_SEEE		0x00000045 /* Set EEE settings */
-+#define ETHTOOL_GPORT		0x00000046 /* Get switch port attributes */
+ #define QETH_NAPI_WEIGHT NAPI_POLL_WEIGHT
  
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-@@ -1067,6 +1084,24 @@ enum ethtool_sfeatures_retval_bits {
- #define ETH_MODULE_SFF_8472		0x2
- #define ETH_MODULE_SFF_8472_LEN		512
- 
-+/* Bad return codes for switch ports */
-+#define GPORT_RC_LLDP_UNSUP	1	/* switch port doesn't support */
-+					/* required LLDP EVB TLV       */
-+
-+/* Indicates what features the adjacent switch port supports. */
-+#define SUPPORTED_SP_FWD_802_1	(1 << 0)
-+#define SUPPORTED_SP_FWD_RR	(1 << 1)
-+#define SUPPORTED_SP_CAP_RTE	(1 << 9)
-+#define SUPPORTED_SP_CAP_ECP	(1 << 10)
-+#define SUPPORTED_SP_CAP_VDP	(1 << 11)
-+
-+/* Indicates what features the adjacent switch port has enabled. */
-+#define ENABLED_SP_FWD_802_1	(1 << 0)
-+#define ENABLED_SP_FWD_RR	(1 << 1)
-+#define ENABLED_SP_CAP_RTE	(1 << 9)
-+#define ENABLED_SP_CAP_ECP	(1 << 10)
-+#define ENABLED_SP_CAP_VDP	(1 << 11)
-+
- /* Reset flags */
- /* The reset() operation must clear the flags for the components which
-  * were actually reset.  On successful return, the flags indicate the
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 30071de..84f69f1 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1446,6 +1446,25 @@ static int ethtool_get_module_eeprom(struct net_device *dev,
- 				      modinfo.eeprom_len);
+ struct qeth_card {
+@@ -914,6 +919,8 @@ struct qeth_cmd_buffer *qeth_wait_for_buffer(struct qeth_channel *);
+ int qeth_mdio_read(struct net_device *, int, int);
+ int qeth_snmp_command(struct qeth_card *, char __user *);
+ int qeth_query_oat_command(struct qeth_card *, char __user *);
++int qeth_core_ethtool_get_switch_port_attrs(struct net_device *,
++						struct ethtool_swport_attrs *);
+ int qeth_send_control_data(struct qeth_card *, int, struct qeth_cmd_buffer *,
+ 	int (*reply_cb)(struct qeth_card *, struct qeth_reply*, unsigned long),
+ 	void *reply_param);
+diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
+index eb4e1f8..b8827bd 100644
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -3036,6 +3036,42 @@ int qeth_query_ipassists(struct qeth_card *card, enum qeth_prot_versions prot)
  }
+ EXPORT_SYMBOL_GPL(qeth_query_ipassists);
  
-+static int ethtool_get_switch_port_attrs(struct net_device *dev,
-+							void __user *useraddr)
++static int qeth_query_switch_port_attributes_cb(struct qeth_card *card,
++				struct qeth_reply *reply, unsigned long data)
 +{
-+	struct ethtool_swport_attrs attrs = { ETHTOOL_GPORT };
-+	int rc;
++	struct qeth_ipa_cmd *cmd;
++	struct qeth_switch_info *sw_info;
++	struct qeth_query_switch_attributes *attrs;
 +
-+	if (!dev->ethtool_ops->get_switch_port_attrs)
-+		return -EOPNOTSUPP;
-+
-+	rc = dev->ethtool_ops->get_switch_port_attrs(dev, &attrs);
-+	if (rc)
-+		return rc;
-+
-+	if (copy_to_user(useraddr, &attrs, sizeof(attrs)))
-+		return -EFAULT;
++	QETH_CARD_TEXT(card, 2, "qsqiatcb");
++	cmd = (struct qeth_ipa_cmd *) data;
++	sw_info = (struct qeth_switch_info *)reply->param;
++	if (cmd->data.setadapterparms.hdr.return_code == 0) {
++		attrs = &cmd->data.setadapterparms.data.query_switch_attributes;
++		sw_info->capabilities = attrs->capabilities;
++		sw_info->settings = attrs->settings;
++	}
++	qeth_default_setadapterparms_cb(card, reply, (unsigned long) cmd);
 +
 +	return 0;
 +}
 +
- /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
++static int qeth_query_switch_port_attributes(struct qeth_card *card,
++					struct qeth_switch_info *sw_info)
++{
++	struct qeth_cmd_buffer *iob;
++
++	QETH_CARD_TEXT(card, 2, "qswiattr");
++	if (!qeth_adp_supported(card, IPA_SETADP_QUERY_SWITCH_ATTRIBUTES))
++		return -EOPNOTSUPP;
++	if (!netif_carrier_ok(card->dev))
++		return -ENOMEDIUM;
++	iob = qeth_get_adapter_cmd(card, IPA_SETADP_QUERY_SWITCH_ATTRIBUTES,
++				sizeof(struct qeth_ipacmd_setadpparms_hdr));
++	return qeth_send_ipa_cmd(card, iob,
++				qeth_query_switch_port_attributes_cb, sw_info);
++}
++
+ static int qeth_query_setdiagass_cb(struct qeth_card *card,
+ 		struct qeth_reply *reply, unsigned long data)
+ {
+@@ -5696,6 +5732,49 @@ int qeth_core_ethtool_get_settings(struct net_device *netdev,
+ }
+ EXPORT_SYMBOL_GPL(qeth_core_ethtool_get_settings);
  
- int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -1675,6 +1694,9 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_GMODULEEEPROM:
- 		rc = ethtool_get_module_eeprom(dev, useraddr);
- 		break;
-+	case ETHTOOL_GPORT:
-+		rc = ethtool_get_switch_port_attrs(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
++int qeth_core_ethtool_get_switch_port_attrs(struct net_device *netdev,
++					struct ethtool_swport_attrs *attrs)
++{
++	int rc, i;
++	struct qeth_card *card = netdev->ml_priv;
++	struct qeth_switch_info sw_info;
++	static const struct {
++		int qeth_cap;
++		int etht_cap_sup;
++		int etht_cap_enbl;
++	} qattrs[] = {
++		{ QETH_SWITCH_FORW_802_1, SUPPORTED_SP_FWD_802_1,
++		  ENABLED_SP_FWD_802_1 },
++		{ QETH_SWITCH_FORW_REFL_RELAY, SUPPORTED_SP_FWD_RR,
++		  ENABLED_SP_FWD_RR },
++		{ QETH_SWITCH_CAP_RTE, SUPPORTED_SP_CAP_RTE,
++		  ENABLED_SP_CAP_RTE },
++		{ QETH_SWITCH_CAP_ECP, SUPPORTED_SP_CAP_ECP,
++		  ENABLED_SP_CAP_ECP },
++		{ QETH_SWITCH_CAP_VDP, SUPPORTED_SP_CAP_VDP,
++		  ENABLED_SP_CAP_VDP }
++	};
++
++	rc = qeth_query_switch_port_attributes(card, &sw_info);
++	if (rc)
++		return rc;
++
++	if (!sw_info.capabilities) {
++		attrs->port_rc = GPORT_RC_LLDP_UNSUP;
++		return 0;
++	}
++	for (i = 0; i < ARRAY_SIZE(qattrs); i++) {
++		if (sw_info.capabilities & qattrs[i].qeth_cap) {
++			attrs->supported |= qattrs[i].etht_cap_sup;
++			if (sw_info.settings & qattrs[i].qeth_cap)
++				attrs->enabled |= qattrs[i].etht_cap_enbl;
++		}
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(qeth_core_ethtool_get_switch_port_attrs);
++
+ static int __init qeth_core_init(void)
+ {
+ 	int rc;
+diff --git a/drivers/s390/net/qeth_core_mpc.h b/drivers/s390/net/qeth_core_mpc.h
+index 07085d5..9f9b034 100644
+--- a/drivers/s390/net/qeth_core_mpc.h
++++ b/drivers/s390/net/qeth_core_mpc.h
+@@ -240,6 +240,7 @@ enum qeth_ipa_setadp_cmd {
+ 	IPA_SETADP_SET_DIAG_ASSIST		= 0x00002000L,
+ 	IPA_SETADP_SET_ACCESS_CONTROL		= 0x00010000L,
+ 	IPA_SETADP_QUERY_OAT			= 0x00080000L,
++	IPA_SETADP_QUERY_SWITCH_ATTRIBUTES	= 0x00100000L,
+ };
+ enum qeth_ipa_mac_ops {
+ 	CHANGE_ADDR_READ_MAC		= 0,
+@@ -404,6 +405,21 @@ struct qeth_qoat_priv {
+ 	char *buffer;
+ };
+ 
++#define QETH_SWITCH_FORW_802_1		0x00000001
++#define QETH_SWITCH_FORW_REFL_RELAY	0x00000002
++#define QETH_SWITCH_CAP_RTE		0x00000004
++#define QETH_SWITCH_CAP_ECP		0x00000008
++#define QETH_SWITCH_CAP_VDP		0x00000010
++
++struct qeth_query_switch_attributes {
++	__u8  version;
++	__u8  reserved1;
++	__u16 reserved2;
++	__u32 capabilities;
++	__u32 settings;
++	__u8  reserved3[8];
++};
++
+ struct qeth_ipacmd_setadpparms_hdr {
+ 	__u32 supp_hw_cmds;
+ 	__u32 reserved1;
+@@ -424,6 +440,7 @@ struct qeth_ipacmd_setadpparms {
+ 		struct qeth_snmp_cmd snmp;
+ 		struct qeth_set_access_ctrl set_access_ctrl;
+ 		struct qeth_query_oat query_oat;
++		struct qeth_query_switch_attributes query_switch_attributes;
+ 		__u32 mode;
+ 	} data;
+ } __attribute__ ((packed));
+diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
+index ec8ccda..ae4de33 100644
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -911,6 +911,7 @@ static const struct ethtool_ops qeth_l2_ethtool_ops = {
+ 	.get_sset_count = qeth_core_get_sset_count,
+ 	.get_drvinfo = qeth_core_get_drvinfo,
+ 	.get_settings = qeth_core_ethtool_get_settings,
++	.get_switch_port_attrs = qeth_core_ethtool_get_switch_port_attrs,
+ };
+ 
+ static const struct ethtool_ops qeth_l2_osn_ops = {
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index c1b0b27..356076a 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -3198,6 +3198,7 @@ static const struct ethtool_ops qeth_l3_ethtool_ops = {
+ 	.get_sset_count = qeth_core_get_sset_count,
+ 	.get_drvinfo = qeth_core_get_drvinfo,
+ 	.get_settings = qeth_core_ethtool_get_settings,
++	.get_switch_port_attrs = qeth_core_ethtool_get_switch_port_attrs,
+ };
+ 
+ /*
 -- 
 1.8.3.4
