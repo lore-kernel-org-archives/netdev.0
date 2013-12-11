@@ -1,48 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: handle error more gracefully in socketpair()
-Date: Tue, 10 Dec 2013 22:24:29 -0500 (EST)
-Message-ID: <20131210.222429.1538443980618684288.davem@davemloft.net>
-References: <20131206104805.GM10323@ZenIV.linux.org.uk>
-	<20131206.121411.2205219888474731457.davem@davemloft.net>
-	<1386625340-8490-1-git-send-email-ydroneaud@opteya.com>
+Subject: Re: [PATCH] micrel: add support for KSZ8041RNLI
+Date: Tue, 10 Dec 2013 22:26:39 -0500 (EST)
+Message-ID: <20131210.222639.2106376982664488750.davem@davemloft.net>
+References: <201312100220.42153.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: ydroneaud@opteya.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386625340-8490-1-git-send-email-ydroneaud@opteya.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <201312100220.42153.sergei.shtylyov@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yann Droneaud <ydroneaud@opteya.com>
-Date: Mon,  9 Dec 2013 22:42:20 +0100
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Tue, 10 Dec 2013 02:20:41 +0300
 
-> This patch makes socketpair() use error paths which do not
-> rely on heavy-weight call to sys_close(): it's better to try
-> to push the file descriptor to userspace before installing
-> the socket file to the file descriptor, so that errors are
-> catched earlier and being easier to handle.
+> Renesas R-Car development boards use KSZ8041RNLI PHY which for some reason has
+> ID of 0x00221537 that is not documented for KSZ8041-family PHYs and does not
+> match the  documented ID of  0x0022151x (where 'x' is the revision).  We have
+> to add the new #define PHY_ID_* and new ksphy_driver[] entry, almost the same
+> as KSZ8041 one, differing only in the 'phy_id' and 'name' fields. 
 > 
-> Using sys_close() seems to be the exception, while writing the
-> file descriptor before installing it look like it's more or less
-> the norm: eg. except for code used in init/, error handling
-> involve fput() and put_unused_fd(), but not sys_close().
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 > 
-> This make socketpair() usage of sys_close() quite unusual.
-> So it deserves to be replaced by the common pattern relying on
-> fput() and put_unused_fd() just like, for example, the one used
-> in pipe(2) or recvmsg(2).
-> 
-> Three distinct error paths are still needed since calling
-> fput() on file structure returned by sock_alloc_file() will
-> implicitly call sock_release() on the associated socket
-> structure.
-> 
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Al Viro <viro@zeniv.linux.org.uk>
-> Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
-> Link: http://marc.info/?i=1385979146-13825-1-git-send-email-ydroneaud@opteya.com
+> ---
+> This patch is atop of DaveM's 'net-next.git' repo.
 
-Applied to net-next, thanks.
+You said something to Geert about "Though it's not the last version
+probably..." are you talking about this patch needing more revisions?
+If so, please make it explicit that you are posting something that is
+just for feedback and not applying by using "RFC" in the subject line.
+
+Thanks.
