@@ -1,49 +1,91 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net v5] xen-netback: fix fragment detection
- in checksum setup
-Date: Wed, 11 Dec 2013 09:47:50 +0000
-Message-ID: <1386755270.30271.5.camel@kazak.uk.xensource.com>
-References: <1386092369-13618-1-git-send-email-paul.durrant@citrix.com>
-	 <52A74B56020000780010BFB9@nat28.tlf.novell.com>
-	 <9AAE0902D5BC7E449B7C8E4E778ABCD01ACF1F@AMSPEX01CL01.citrite.net>
-	 <1386695522.30495.349.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 6/6] net_sched: make macro be enclosed in parenthesis
+Date: Wed, 11 Dec 2013 10:20:32 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B747A@saturn3.aculab.com>
+References: <1386680134-85452-1-git-send-email-yangyingliang@huawei.com><1386680134-85452-7-git-send-email-yangyingliang@huawei.com> <20131210.224900.1427512059771492387.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Durrant <Paul.Durrant@citrix.com>,
-	Jan Beulich <JBeulich@suse.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	David Miller <davem@davemloft.net>,
-	xen-devel <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>, <yangyingliang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:19347 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750774Ab3LKJrx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Dec 2013 04:47:53 -0500
-In-Reply-To: <1386695522.30495.349.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0.aculab.com ([213.249.233.131]:54271 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751009Ab3LKKVf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 05:21:35 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 06490-07 for <netdev@vger.kernel.org>;
+ Wed, 11 Dec 2013 10:21:31 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20131210.224900.1427512059771492387.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-12-10 at 09:12 -0800, Eric Dumazet wrote:
-> On Tue, 2013-12-10 at 16:24 +0000, Paul Durrant wrote:
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of David Miller
+> From: Yang Yingliang <yangyingliang@huawei.com>
+> Date: Tue, 10 Dec 2013 20:55:34 +0800
 > 
-> > Yes, I guess that's true but if we decide to pull up at all then is it harmful to pull more than we absolutely need?
+> > Macros with complex values should be enclosed in parenthesis
+> >
+> > Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+> > ---
+> >  net/sched/em_meta.c | 4 +++-
+> >  1 file changed, 3 insertions(+), 1 deletion(-)
+> >
+> > diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
+> > index e5cef956..852cd62 100644
+> > --- a/net/sched/em_meta.c
+> > +++ b/net/sched/em_meta.c
+> > @@ -272,10 +272,12 @@ META_COLLECTOR(int_rtiif)
+> >   **************************************************************************/
+> >
+> >  #define SKIP_NONLOCAL(skb)			\
+> > +({						\
+> >  	if (unlikely(skb->sk == NULL)) {	\
+> >  		*err = -1;			\
+> >  		return;				\
+> > -	}
+> > +	}					\
+> > +})
 > 
-> Pulling too many bytes might hurt aggregation.
+> I can't apply this.
 > 
-> When one skb is merged to another one (skb_try_coalesce()), if you have
-> payload in skb->head, we cannot free the head, and need one additional
-> 'frag'
+> First of all, "({ })" is for statements that evaluate to an lvalue,
+> this macro does not.
+> 
+> Second of all, and more importantly, this macro needs to be eliminated
+> entirely.  It completely hides control flow, and in the past we've
+> killed macros which do this such as the old netlink attribute
+> builders.
+> 
+> The control flow should be inlined and expanded explicitly in the
+> code so that someone who reads it can tell the control flow can
+> be changed by the statement.  Compare:
+> 
+> 	SKIP_NONLOCAL(skb)
+> 
+> to:
+> 
+> 	if (skip_nonlocal(skb)) {
+> 		*err = -1;
+> 		return;
+> 	}
 
-Does that ever happen to skb's which are received by a NIC and passed up
-to the network stack (including forwarding by bridging of netfilter)? I
-thought this path only happened for locally generated traffic.
+Or:
+	if (!skb->sk)
+		goto no_sk;
+	...
+	return;
 
-If it can happen for received skb's then that seems like a pretty solid
-reason not to over estimate in the pull up phase.
+no_sk:
+	*err = -1;
+	return;
 
-Ian.
+Actually WTF is a void function doing having an 'int *err' argument?
+These should just be:
+	if (!skb->sk)
+		return -1;
+
+	David
