@@ -1,104 +1,109 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [cfg80211 / iwlwifi] setting wireless regulatory domain doesn't work.
-Date: Wed, 11 Dec 2013 20:06:51 +0100
-Message-ID: <716357837.20131211200651@eikelenboom.it>
-References: <1507831110.20131018194349@eikelenboom.it> <792757788.20131023142849@eikelenboom.it> <1819533168.20131211161710@eikelenboom.it> <CAB=NE6V-RSnqbAC-0tfYK=WGJLp1aPC2UpFDurs49h+wXr9UfQ@mail.gmail.com> <1818324675.20131211175350@eikelenboom.it> <CAB=NE6Wf=T0bGLSYPDyb=-fMAVnGcbGkeaBiNrzwV-Lpxr6VZg@mail.gmail.com> <1342235583.20131211182804@eikelenboom.it> <CAB=NE6UfumA2xez1DvtDSBDZ72WF_tOozFo_8LRnMryYiSqD-A@mail.gmail.com> <871324710.20131211191104@eikelenboom.it> <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH net-next] net-gro: Prepare GRO stack for the upcoming
+ tunneling support
+Date: Thu, 12 Dec 2013 03:07:33 +0800
+Message-ID: <CAPshTCjaDSgq4y72Lc2rDsTS3O+pFE5ZUwjgKKdpoMZbepJrcg@mail.gmail.com>
+References: <1386518682-30488-1-git-send-email-hkchu@google.com>
+	<1386531839.30495.296.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Berg, Johannes" <johannes.berg@intel.com>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ilw@linux.intel.com" <ilw@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6XRnE0j9NMW0K1vKzEO9v70arSH4YXZjudqa0ZxiLB4AA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qe0-f53.google.com ([209.85.128.53]:54299 "EHLO
+	mail-qe0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750800Ab3LKTHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 14:07:36 -0500
+Received: by mail-qe0-f53.google.com with SMTP id nc12so5557227qeb.40
+        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 11:07:36 -0800 (PST)
+In-Reply-To: <1386531839.30495.296.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-Wednesday, December 11, 2013, 7:38:50 PM, you wrote:
-
-> On Wed, Dec 11, 2013 at 7:11 PM, Sander Eikelenboom
-> <linux@eikelenboom.it> wrote:
+On Mon, Dec 9, 2013 at 3:43 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Sun, 2013-12-08 at 08:04 -0800, H.K. Jerry Chu wrote:
+>> From: Jerry Chu <hkchu@google.com>
 >>
->> Wednesday, December 11, 2013, 6:53:07 PM, you wrote:
+>> This patch modifies the GRO stack to remove the assumption that
+>> only one IP hdr is present in the encapsulation chain. It avoids
+>> the use of ip_hdr()/ipv6_hdr() macro in IP's *_gro_receive()/
+>> *_gro_complete() functions because there may be more than one IP
+>> hdr present in the encapsulation chain when various flavors of IP
+>> tunneling support are added. By doing so it also allows multiple
+>> level, not just a single level (i.e., with only two IP hdrs like
+>> IP-in-IP) of encapsulation to be supported in the future.
 >>
->>> The best way to address all this is by automatic region awareness and
->>> doing the right thing on devices, this however requires good
->>> architecture / calibration data  / etc and all that needs to be
->>> verified by the system integrators, and finally they need to be
->>> certified. If you want to hack your firmware and software go at it,
->>> just be aware there are reasons for things.
+>> With this patch, the GRO stack traversing now is mostly based on
+>> skb_gro_offset rather than special hdr offsets saved in skb (e.g.,
+>> skb->network_header, skb->transport_header,...) As a consequence
+>> all but the top layer (which is likely to be the transport layer)
+>> must have hdrs of the same length in order for a pkt to be
+>> considered for aggregation. Therefore when adding a new layer
+>> (e.g., for tunneling), one must check and skip flows (e.g., setting
+>> NAPI_GRO_CB(p)->same_flow to 0) that have a different hdr length.
 >>
->> Well the general problem seems to be "we don't trust the user" so we FORCE him to the lowest
->> common denominator (without a way to overrule that) so he is forced to operate *well* within the law.
-
-> Its simply stupid to have the user be involved, period, the fact that
-> a user would be involved should only be for testing or helping
-> compliance for a busted device, development, research and obviously
-> hacking. Linux allows all these but by default a device with firmware
-> and a custom regdomain that will barf if you try to use a channel that
-> is not allowed is a restriction in firmware. Feel free to reverse
-> engineer that if you don't like it but it just won't be supported or
-> go upstream. Now, the common denominator is generally optimized for
-> best performance as well so you shouldn't have to do anything, and for
-> APs -- this is typically carefully crafted for a region, also highly
-> optimized.
-
-Well how about a car maker shipping al his cars capped to say 10 miles an hour,
-because somewhere in the world that's the lowest. So to prevent you from breaking the law
-we will cap your 500HP engine, owh in your country you have a higher speedlimit, ah wel bad luck for you then.
-We need to enforce this so no one is going to brake any law any where.
-
-It's just plain stupid in my opinion (but not something linux can do much about, but it's about enforcing this stuff in firmware in general
-and thinking too much for the user (fine if you are capable to do so, but in this case clearly not, since there is no automatic way to detect in which country the device is,
-except by relying on user input).
-Why just don't set the safe and restricted value on boot and let the user overrule that if he wishes.
-(that means the user has to invoke a action, so he also should be aware of the consequences).
-
-
->>>>> It doesn't seem like you are getting your original requests getting
->>>>> processed, so I don't think CRDA is passing it. Can you verify running
->>>>> from CRDA code:
->>>>
->>>> They don't get processed unless i remove the return from the code as i indicated.
->>>> If i remove that return it processes the request.
->>>>
->>>>> ./regdbdump /usr/lib/crda/regulatory.bin
->>>>
->>>> Although it's in a different location on Debian, /lib/crda/regulatory.bin
->>>> the dump seems fine.
+>
 >>
->>> OK thanks. Can you send a patch of what exact change you made, it was
->>> unclear from the paste you made.
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index 2718fed..53e3e9f 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -3083,7 +3083,6 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
 >>
->>> diff -u file.c.orig file.c
+>>       skb_set_mac_header(nskb, skb_mac_header(p) - p->data);
+>>       skb_set_network_header(nskb, skb_network_offset(p));
+>> -     skb_set_transport_header(nskb, skb_transport_offset(p));
 >>
->> Well i just did a pull from wireless-next, to try Avinash Patil's patch.
->> net/wireless/reg.c had already changed much so i couldn't apply his patch without.
+>>       __skb_pull(p, skb_gro_offset(p));
+>>       memcpy(skb_mac_header(nskb), skb_mac_header(p),
+>
+>
+>> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+>> index 70011e0..cb406e9 100644
+>> --- a/net/ipv4/af_inet.c
+>> +++ b/net/ipv4/af_inet.c
+>> @@ -1397,8 +1401,12 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+>>       }
 >>
->> With his patch it sets the regulatory domain, although as now expected i still can not use channels 12 and 13 yet,
->> probably due to those firmware restrictions.
+>>       NAPI_GRO_CB(skb)->flush |= flush;
+>> +     skb_set_network_header(skb, off);
+>> +     /* The above will be needed by the transport layer if there is one
+>> +      * immediately following this IP hdr.
+>> +      */
+>> +
+>>       skb_gro_pull(skb, sizeof(*iph));
+>> -     skb_set_transport_header(skb, skb_gro_offset(skb));
+>>
+>>       pp = ops->callbacks.gro_receive(head, skb);
+>>
+>
+> I am wondering if you tested installing a qdisc at ingress ?
+>
+> qdisc_pkt_len_init() depends that GRO packets have set transport header.
+>
+> Note this might be hidden by the check done in
+> __netif_receive_skb_core()
+>
+> if (!skb_transport_header_was_set(skb))
+>     skb_reset_transport_header(skb);
+>
+> To test your changes without playing with ingress qdisc, you could add :
+>
+> if (!skb_transport_header_was_set(skb)) {
+>     BUG_ON(skb_is_gso(skb))
+>     skb_reset_transport_header(skb);
 
-> Its unclear what results you got, and yeah if the device is restricted
-> then its just the fw telling the driver its channels and you can't use
-> them. That's it. You won't be able to override information then unless
-> you hack the firmware.
+Yes indeed GSO skb will get here w/o transport header set. This has been fixed
+in the v2 patch.
 
-Without the patch:
+Thanks,
 
-- "iw reg get" gives country 00
-- now do a "iw reg set US", no error so it should be fine
-- now do a "iw reg get" .. gives country 00 again, so it has not been set to the country requested.
+Jerry
 
-With the patch:
-
-- "iw reg get" gives country 00
-- now do a "iw reg set US", no error so it should be fine
-- now do a "iw reg get" .. gives country US, so it has been set to the country requested.
-
->   Luis
+> }
+>
+>
