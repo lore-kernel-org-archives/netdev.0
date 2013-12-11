@@ -1,47 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next] 8390 : Replace ei_debug with
- msg_enable/NETIF_MSG_* feature
-Date: Wed, 11 Dec 2013 17:12:24 -0500 (EST)
-Message-ID: <20131211.171224.2111686395095015308.davem@davemloft.net>
-References: <1386799259-31623-1-git-send-email-tedheadster@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Re: [PATCH v2 15/16] wl1251: Add sysfs file address for setting
+ permanent mac address
+Date: Wed, 11 Dec 2013 22:15:35 +0000
+Message-ID: <1386800135.1516.296.camel@bwh-desktop.uk.level5networks.com>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+		 <201312101814.35112@pali> <1386697762.30202.6.camel@dcbw.foobar.com>
+		 <201312101852.17030@pali>
+	 <1386796654.1516.268.camel@bwh-desktop.uk.level5networks.com>
+	 <52A8DA9A.50501@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tedheadster@gmail.com
+Cc: Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
+	Dan Williams <dcbw@redhat.com>, Kalle Valo <kvalo@adurom.com>,
+	Luciano Coelho <luca@coelho.fi>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <freemangordon@abv.bg>,
+	<aaro.koskinen@iki.fi>, <pavel@ucw.cz>, <sre@ring0.de>,
+	<joni.lapilainen@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Felipe Contreras <felipe.contreras@gmail.com>
+To: Ivajlo Dimitrov <ivo.g.dimitrov.75@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60104 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751941Ab3LKWM1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 17:12:27 -0500
-In-Reply-To: <1386799259-31623-1-git-send-email-tedheadster@gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:22828 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751230Ab3LKWPl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 17:15:41 -0500
+In-Reply-To: <52A8DA9A.50501@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Whitehead <tedheadster@gmail.com>
-Date: Wed, 11 Dec 2013 17:00:59 -0500
+On Wed, 2013-12-11 at 23:35 +0200, Ivajlo Dimitrov wrote:
+> On 11.12.2013 23:17, Ben Hutchings wrote:
+> > I think that's an even worse idea.  This is not firmware and it already
+> > exists in separate storage.
+> >
+> > I think that rx51_init_wl1251() in
+> > arch/arm/mach-omap2/board-rx51-peripherals.c should either copy the MAC
+> > address out of NVRAM, or if it's too early to do that, then schedule a
+> > function to run later and only then set up wl1251 platform data.
+> >
+> > Ben.
+> >
+> 
+> And how will that work with DT when board files will be in the history?
 
-> Removed the shared ei_debug variable. Replaced it by adding u32 msg_enable to
-> the private struct ei_device. Now each 8390 ethernet instance has a per-device
-> logging variable.
-> 
-> Changed older style printk() calls to more canonical forms.
-> 
-> Tested on: ne, ne2k-pci, smc-ultra, and wd hardware.
-> 
-> V4.0
-> - Substituted pr_info() and pr_debug() for printk() KERN_INFO and KERN_DEBUG
-> 
-> V3.0
-> - Checked for cases where pr_cont() was most appropriate choice.
-> - Changed module parameter from 'debug' to 'msg_enable' because debug was
-> no longer the best description.
-> 
-> V2.0
-> - Changed netif_msg_(drv|probe|ifdown|rx_err|tx_err|tx_queued|intr|rx_status|hw)
-> to netif_(dbg|info|warn|err) where possible.
-> 
-> Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
+1. Boot loader reads the MAC address from NVRAM and puts it in the DT
+node.
+or
+2. NVRAM reading is done by a tiny driver that is loaded based on the
+platform name and updates the DT node in memory.  (But I don't know how
+wl1251 should decide to defer probing if it's probed before that other
+driver.)
 
-Applied, but there was some trailing whitespace I had to edit out while
-applying this, thanks.
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
