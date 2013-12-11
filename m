@@ -1,76 +1,115 @@
-From: Antonio Quartulli <antonio-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-Subject: Re: [PATCH -next 2/3] batman-adv: Use seq_overflow
-Date: Wed, 11 Dec 2013 08:31:35 +0100
-Message-ID: <52A814D7.1060805@meshcoding.com>
-References: <cover.1386738050.git.joe@perches.com>
- <e7104b35287b1e1ec456734c1b5e1aa98dac99f8.1386738050.git.joe@perches.com>
- <52A813C1.8070404@meshcoding.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH net-next] bgmac: replace some magic values with defines
+Date: Wed, 11 Dec 2013 08:44:37 +0100
+Message-ID: <1386747877-2327-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="bbG9snU5osjWRKo4NB4AAansjRPstJHRd"
-Cc: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
- Alexander Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <52A813C1.8070404-x4xJYDvStAgysxA8WJXlww@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---bbG9snU5osjWRKo4NB4AAansjRPstJHRd
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Joe,
-
-we have other places in the batman-adv code where we use seq_printf, but
-at the moment we don't check the return value and we always return 0 at
-the end of the function.
-
-I think we could use seq_overflow here as well?
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hauke Mehrtens <hauke@hauke-m.de>,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:49183 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750779Ab3LKHoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 02:44:46 -0500
+Received: by mail-ee0-f53.google.com with SMTP id b57so2649358eek.26
+        for <netdev@vger.kernel.org>; Tue, 10 Dec 2013 23:44:45 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Thanks,
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+---
+David: this patch adds few wide lines (over 80 chars). This was needed
+to improve code readability, I believe this case matches CodingStyle
+allowed exception. Thanks to that we keep one chip identification per
+line. I believe it's important here as we use similar names (like
+BCMA_CHIP_ID vs. BCMA_PKG_ID) and putting them in separated lines make
+code a bit messy.
 
+Can you accept that?
+---
+ drivers/net/ethernet/broadcom/bgmac.c |   21 +++++++++++++--------
+ drivers/net/ethernet/broadcom/bgmac.h |    6 +++++-
+ 2 files changed, 18 insertions(+), 9 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index 5b5ac71..39efb86 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -875,9 +875,9 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 	}
+=20
+ 	iost =3D bcma_aread32(core, BCMA_IOST);
+-	if ((ci->id =3D=3D BCMA_CHIP_ID_BCM5357 && ci->pkg =3D=3D 10) ||
++	if ((ci->id =3D=3D BCMA_CHIP_ID_BCM5357 && ci->pkg =3D=3D BCMA_PKG_ID=
+_BCM47186) ||
+ 	    (ci->id =3D=3D BCMA_CHIP_ID_BCM4749 && ci->pkg =3D=3D 10) ||
+-	    (ci->id =3D=3D BCMA_CHIP_ID_BCM53572 && ci->pkg =3D=3D 9))
++	    (ci->id =3D=3D BCMA_CHIP_ID_BCM53572 && ci->pkg =3D=3D BCMA_PKG_I=
+D_BCM47188))
+ 		iost &=3D ~BGMAC_BCMA_IOST_ATTACHED;
+=20
+ 	if (iost & BGMAC_BCMA_IOST_ATTACHED) {
+@@ -889,12 +889,16 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 	bcma_core_enable(core, flags);
+=20
+ 	if (core->id.rev > 2) {
+-		bgmac_set(bgmac, BCMA_CLKCTLST, 1 << 8);
+-		bgmac_wait_value(bgmac->core, BCMA_CLKCTLST, 1 << 24, 1 << 24,
++		bgmac_set(bgmac, BCMA_CLKCTLST,
++			  BGMAC_BCMA_CLKCTLST_MISC_PLL_REQ);
++		bgmac_wait_value(bgmac->core, BCMA_CLKCTLST,
++				 BGMAC_BCMA_CLKCTLST_MISC_PLL_ST,
++				 BGMAC_BCMA_CLKCTLST_MISC_PLL_ST,
+ 				 1000);
+ 	}
+=20
+-	if (ci->id =3D=3D BCMA_CHIP_ID_BCM5357 || ci->id =3D=3D BCMA_CHIP_ID_=
+BCM4749 ||
++	if (ci->id =3D=3D BCMA_CHIP_ID_BCM5357 ||
++	    ci->id =3D=3D BCMA_CHIP_ID_BCM4749 ||
+ 	    ci->id =3D=3D BCMA_CHIP_ID_BCM53572) {
+ 		struct bcma_drv_cc *cc =3D &bgmac->core->bus->drv_cc;
+ 		u8 et_swtype =3D 0;
+@@ -909,10 +913,11 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 			et_swtype &=3D 0x0f;
+ 			et_swtype <<=3D 4;
+ 			sw_type =3D et_swtype;
+-		} else if (ci->id =3D=3D BCMA_CHIP_ID_BCM5357 && ci->pkg =3D=3D 9) {
++		} else if (ci->id =3D=3D BCMA_CHIP_ID_BCM5357 && ci->pkg =3D=3D BCMA=
+_PKG_ID_BCM5358) {
+ 			sw_type =3D BGMAC_CHIPCTL_1_SW_TYPE_EPHYRMII;
+-		} else if ((ci->id !=3D BCMA_CHIP_ID_BCM53572 && ci->pkg =3D=3D 10) =
+||
+-			   (ci->id =3D=3D BCMA_CHIP_ID_BCM53572 && ci->pkg =3D=3D 9)) {
++		} else if ((ci->id =3D=3D BCMA_CHIP_ID_BCM5357 && ci->pkg =3D=3D BCM=
+A_PKG_ID_BCM47186) ||
++			   (ci->id =3D=3D BCMA_CHIP_ID_BCM4749 && ci->pkg =3D=3D 10) ||
++			   (ci->id =3D=3D BCMA_CHIP_ID_BCM53572 && ci->pkg =3D=3D BCMA_PKG_=
+ID_BCM47188)) {
+ 			sw_type =3D BGMAC_CHIPCTL_1_IF_TYPE_RGMII |
+ 				  BGMAC_CHIPCTL_1_SW_TYPE_RGMII;
+ 		}
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethern=
+et/broadcom/bgmac.h
+index 1c752ce..130b16b 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -95,7 +95,11 @@
+ #define  BGMAC_RXQ_CTL_MDP_SHIFT		24
+ #define BGMAC_GPIO_SELECT			0x194
+ #define BGMAC_GPIO_OUTPUT_EN			0x198
+-/* For 0x1e0 see BCMA_CLKCTLST */
++
++/* For 0x1e0 see BCMA_CLKCTLST. Below are BGMAC specific bits */
++#define  BGMAC_BCMA_CLKCTLST_MISC_PLL_REQ	0x00000100
++#define  BGMAC_BCMA_CLKCTLST_MISC_PLL_ST	0x01000000
++
+ #define BGMAC_HW_WAR				0x1e4
+ #define BGMAC_PWR_CTL				0x1e8
+ #define BGMAC_DMA_BASE0				0x200		/* Tx and Rx controller */
 --=20
-Antonio Quartulli
-
-
---bbG9snU5osjWRKo4NB4AAansjRPstJHRd
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJSqBTbAAoJEEKTMo6mOh1VQRAQAJ5F+K+L3WKBmDNEm5hDwEqH
-QEkP/hoUahL+awpng34XuxE90ci9GksBZfm6kXADZhtqRH1SeXh89D99sX/BKL0N
-4POYhXv9Z5NVSfEl0FqEcaidSIKfoHuLXl0vHFNLT+UKnZZ1Hx/RIHF74hcSbCTj
-niKhmWEt1OUKmUiQcLz5FKWF6VG1AJL2kT2MISgHHahNEBZDwuOIgjY+unL0MsAS
-ClAuSgym5MDoPRcPzARDq7znt1Ql4aOgjo8n5lCymDW/zJ922UHJSU31N4IRkU6R
-c4Fsx2AWorasM6PMgma+sUPAZTRdsekDHI1hNPNK3cHuaBLBPBOHD1Bljdc69ILy
-rtKcUoW6E8I4P2EzV+p37Eahn+xoNI/mQUV0fIAsRk2fFICKul9urswD33WRBiqs
-CaB7twGviBUCpou+Q4AdxQH+Yz50aXRosz1aEjcWSGniVmI1Vll6m+Z4lxLneHzs
-LDm0WwLZFxZt1tvb/xnLs/VsIFsS22XEr1VsBb5oEDKSaWcTzEwSCZg8MH/3cy1f
-6bE0tGQ8mDiagr/cVizLU6VCSTCt3W9iiOacL8xv8vLI3oR8y/8aWOv/m63EwSbL
-KV0Wg+U4mpXo8E/Cc6v+8/W9+V4h2dAUHmXf9/8q675ZXu99hrJl3HaOSSuxaRPx
-Or7pQuy6CQNhXL9jaNij
-=s7fm
------END PGP SIGNATURE-----
-
---bbG9snU5osjWRKo4NB4AAansjRPstJHRd--
+1.7.10.4
