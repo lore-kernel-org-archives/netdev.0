@@ -1,1052 +1,643 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 2/3] filter: bpf_asm: add minimal bpf asm tool
-Date: Wed, 11 Dec 2013 23:43:44 +0100
-Message-ID: <1386801825-15388-3-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 3/3] filter: doc: improve BPF documentation
+Date: Wed, 11 Dec 2013 23:43:45 +0100
+Message-ID: <1386801825-15388-4-git-send-email-dborkman@redhat.com>
 References: <1386801825-15388-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54662 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46507 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751222Ab3LKWny (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Dec 2013 17:43:54 -0500
+	id S1751615Ab3LKWn6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Dec 2013 17:43:58 -0500
 In-Reply-To: <1386801825-15388-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are a couple of valid use cases for a minimal low-level bpf asm
-like tool, for example, using/linking to libpcap is not an option, the
-required BPF filters use Linux extensions that are not supported by
-libpcap's compiler, a filter might be more complex and not cleanly
-implementable with libpcap's compiler, particular filter codes should
-be optimized differently than libpcap's internal BPF compiler does,
-or for security audits of emitted BPF JIT code for prepared set of BPF
-instructions resp. BPF JIT compiler development in general.
-
-Then, in such cases writing such a filter in low-level syntax can be
-an good alternative, for example, xt_bpf and cls_bpf users might have
-requirements that could result in more complex filter code, or one that
-cannot be expressed with libpcap (e.g. different return codes in
-cls_bpf for flowids on various BPF code paths).
-
-Moreover, BPF JIT implementors may wish to manually write test cases
-in order to verify the resulting JIT image, and thus need low-level
-access to BPF code generation as well. Therefore, complete the available
-toolchain for BPF with this small bpf_asm helper tool for the tools/net/
-directory. These 3 complementary minimal helper tools round up and
-facilitate BPF development.
+This patch significantly updates the BPF documentation and describes
+its internal architecture, Linux extensions, and handling of the
+kernel's BPF and JIT engine, plus documents how development can be
+facilitated with the help of bpf_dbg, bpf_asm, bpf_jit_disasm.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- tools/net/Makefile  |  18 +-
- tools/net/bpf_asm.c |  52 ++++
- tools/net/bpf_exp.l | 143 ++++++++++
- tools/net/bpf_exp.y | 749 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 960 insertions(+), 2 deletions(-)
- create mode 100644 tools/net/bpf_asm.c
- create mode 100644 tools/net/bpf_exp.l
- create mode 100644 tools/net/bpf_exp.y
+ Documentation/networking/filter.txt | 608 +++++++++++++++++++++++++++++++++---
+ 1 file changed, 561 insertions(+), 47 deletions(-)
 
-diff --git a/tools/net/Makefile b/tools/net/Makefile
-index 0f30d92..004cd74 100644
---- a/tools/net/Makefile
-+++ b/tools/net/Makefile
-@@ -1,8 +1,16 @@
- prefix = /usr
+diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
+index cdb3e40..11052fe 100644
+--- a/Documentation/networking/filter.txt
++++ b/Documentation/networking/filter.txt
+@@ -1,49 +1,563 @@
+-filter.txt: Linux Socket Filtering
+-Written by: Jay Schulist <jschlst@samba.org>
++Linux Socket Filtering aka Berkeley Packet Filter (BPF)
++=======================================================
  
- CC = gcc
-+LEX = flex
-+YACC = bison
- 
--all : bpf_jit_disasm bpf_dbg
-+%.yacc.c: %.y
-+	$(YACC) -o $@ -d $<
-+
-+%.lex.c: %.l
-+	$(LEX) -o $@ $<
-+
-+all : bpf_jit_disasm bpf_dbg bpf_asm
- 
- bpf_jit_disasm : CFLAGS = -Wall -O2
- bpf_jit_disasm : LDLIBS = -lopcodes -lbfd -ldl
-@@ -12,9 +20,15 @@ bpf_dbg : CFLAGS = -Wall -O2
- bpf_dbg : LDLIBS = -lreadline
- bpf_dbg : bpf_dbg.o
- 
-+bpf_asm : CFLAGS = -Wall -O2 -I.
-+bpf_asm : LDLIBS =
-+bpf_asm : bpf_asm.o bpf_exp.yacc.o bpf_exp.lex.o
-+bpf_exp.lex.o : bpf_exp.yacc.c
-+
- clean :
--	rm -rf *.o bpf_jit_disasm bpf_dbg
-+	rm -rf *.o bpf_jit_disasm bpf_dbg bpf_asm bpf_exp.yacc.* bpf_exp.lex.*
- 
- install :
- 	install bpf_jit_disasm $(prefix)/bin/bpf_jit_disasm
- 	install bpf_dbg $(prefix)/bin/bpf_dbg
-+	install bpf_asm $(prefix)/bin/bpf_asm
-diff --git a/tools/net/bpf_asm.c b/tools/net/bpf_asm.c
-new file mode 100644
-index 0000000..c15aef0
---- /dev/null
-+++ b/tools/net/bpf_asm.c
-@@ -0,0 +1,52 @@
-+/*
-+ * Minimal BPF assembler
-+ *
-+ * Instead of libpcap high-level filter expressions, it can be quite
-+ * useful to define filters in low-level BPF assembler (that is kept
-+ * close to Steven McCanne and Van Jacobson's original BPF paper).
-+ * In particular for BPF JIT implementors, JIT security auditors, or
-+ * just for defining BPF expressions that contain extensions which are
-+ * not supported by compilers.
-+ *
-+ * How to get into it:
-+ *
-+ * 1) read Documentation/networking/filter.txt
-+ * 2) Run `bpf_asm [-c] <filter-prog file>` to translate into binary
-+ *    blob that is loadable with xt_bpf, cls_bpf et al. Note: -c will
-+ *    pretty print a C-like construct.
-+ *
-+ * Copyright 2013 Daniel Borkmann <borkmann@redhat.com>
-+ * Licensed under the GNU General Public License, version 2.0 (GPLv2)
-+ */
-+
-+#include <stdbool.h>
-+#include <stdio.h>
-+#include <string.h>
-+
-+extern void bpf_asm_compile(FILE *fp, bool cstyle);
-+
-+int main(int argc, char **argv)
-+{
-+	FILE *fp = stdin;
-+	bool cstyle = false;
-+	int i;
-+
-+	for (i = 1; i < argc; i++) {
-+		if (!strncmp("-c", argv[i], 2)) {
-+			cstyle = true;
-+			continue;
-+		}
-+
-+		fp = fopen(argv[i], "r");
-+		if (!fp) {
-+			fp = stdin;
-+			continue;
-+		}
-+
-+		break;
-+	}
-+
-+	bpf_asm_compile(fp, cstyle);
-+
-+	return 0;
-+}
-diff --git a/tools/net/bpf_exp.l b/tools/net/bpf_exp.l
-new file mode 100644
-index 0000000..bf7be77
---- /dev/null
-+++ b/tools/net/bpf_exp.l
-@@ -0,0 +1,143 @@
-+/*
-+ * BPF asm code lexer
-+ *
-+ * This program is free software; you can distribute it and/or modify
-+ * it under the terms of the GNU General Public License as published
-+ * by the Free Software Foundation; either version 2 of the License,
-+ * or (at your option) any later version.
-+ *
-+ * Syntax kept close to:
-+ *
-+ * Steven McCanne and Van Jacobson. 1993. The BSD packet filter: a new
-+ * architecture for user-level packet capture. In Proceedings of the
-+ * USENIX Winter 1993 Conference Proceedings on USENIX Winter 1993
-+ * Conference Proceedings (USENIX'93). USENIX Association, Berkeley,
-+ * CA, USA, 2-2.
-+ *
-+ * Copyright 2013 Daniel Borkmann <borkmann@redhat.com>
-+ * Licensed under the GNU General Public License, version 2.0 (GPLv2)
-+ */
-+
-+%{
-+
-+#include <stdio.h>
-+#include <stdint.h>
-+#include <stdlib.h>
-+
-+#include "bpf_exp.yacc.h"
-+
-+extern void yyerror(const char *str);
-+
-+%}
-+
-+%option align
-+%option ecs
-+
-+%option nounput
-+%option noreject
-+%option noinput
-+%option noyywrap
-+
-+%option 8bit
-+%option caseless
-+%option yylineno
-+
-+%%
-+
-+"ldb"		{ return OP_LDB; }
-+"ldh"		{ return OP_LDH; }
-+"ld"		{ return OP_LD; }
-+"ldi"		{ return OP_LDI; }
-+"ldx"		{ return OP_LDX; }
-+"ldxi"		{ return OP_LDXI; }
-+"ldxb"		{ return OP_LDXB; }
-+"st"		{ return OP_ST; }
-+"stx"		{ return OP_STX; }
-+"jmp"		{ return OP_JMP; }
-+"ja"		{ return OP_JMP; }
-+"jeq"		{ return OP_JEQ; }
-+"jneq"		{ return OP_JNEQ; }
-+"jne"		{ return OP_JNEQ; }
-+"jlt"		{ return OP_JLT; }
-+"jle"		{ return OP_JLE; }
-+"jgt"		{ return OP_JGT; }
-+"jge"		{ return OP_JGE; }
-+"jset"		{ return OP_JSET; }
-+"add"		{ return OP_ADD; }
-+"sub"		{ return OP_SUB; }
-+"mul"		{ return OP_MUL; }
-+"div"		{ return OP_DIV; }
-+"mod"		{ return OP_MOD; }
-+"neg"		{ return OP_NEG; }
-+"and"		{ return OP_AND; }
-+"xor"		{ return OP_XOR; }
-+"or"		{ return OP_OR; }
-+"lsh"		{ return OP_LSH; }
-+"rsh"		{ return OP_RSH; }
-+"ret"		{ return OP_RET; }
-+"tax"		{ return OP_TAX; }
-+"txa"		{ return OP_TXA; }
-+
-+"#"?("len")	{ return K_PKT_LEN; }
-+"#"?("proto")	{ return K_PROTO; }
-+"#"?("type")	{ return K_TYPE; }
-+"#"?("poff")	{ return K_POFF; }
-+"#"?("ifidx")	{ return K_IFIDX; }
-+"#"?("nla")	{ return K_NLATTR; }
-+"#"?("nlan")	{ return K_NLATTR_NEST; }
-+"#"?("mark")	{ return K_MARK; }
-+"#"?("queue")	{ return K_QUEUE; }
-+"#"?("hatype")	{ return K_HATYPE; }
-+"#"?("rxhash")	{ return K_RXHASH; }
-+"#"?("cpu")	{ return K_CPU; }
-+"#"?("vlan_tci") { return K_VLANT; }
-+"#"?("vlan_pr")	{ return K_VLANP; }
-+
-+":"		{ return ':'; }
-+","		{ return ','; }
-+"#"		{ return '#'; }
-+"%"		{ return '%'; }
-+"["		{ return '['; }
-+"]"		{ return ']'; }
-+"("		{ return '('; }
-+")"		{ return ')'; }
-+"x"		{ return 'x'; }
-+"a"		{ return 'a'; }
-+"+"		{ return '+'; }
-+"M"		{ return 'M'; }
-+"*"		{ return '*'; }
-+"&"		{ return '&'; }
-+
-+([0][x][a-fA-F0-9]+) {
-+			yylval.number = strtoul(yytext, NULL, 16);
-+			return number;
-+		}
-+([0][b][0-1]+)	{
-+			yylval.number = strtol(yytext + 2, NULL, 2);
-+			return number;
-+		}
-+(([0])|([-+]?[1-9][0-9]*)) {
-+			yylval.number = strtol(yytext, NULL, 10);
-+			return number;
-+		}
-+([0][0-9]+)	{
-+			yylval.number = strtol(yytext + 1, NULL, 8);
-+			return number;
-+		}
-+[a-zA-Z_][a-zA-Z0-9_]+ {
-+			yylval.label = strdup(yytext);
-+			return label;
-+		}
-+
-+"/*"([^\*]|\*[^/])*"*/"		{ /* NOP */ }
-+";"[^\n]*			{ /* NOP */ }
-+^#.*				{ /* NOP */ }
-+[ \t]+				{ /* NOP */ }
-+[ \n]+				{ /* NOP */ }
-+
-+.		{
-+			printf("unknown character \'%s\'", yytext);
-+			yyerror("lex unknown character");
-+		}
-+
-+%%
-diff --git a/tools/net/bpf_exp.y b/tools/net/bpf_exp.y
-new file mode 100644
-index 0000000..f524110
---- /dev/null
-+++ b/tools/net/bpf_exp.y
-@@ -0,0 +1,749 @@
-+/*
-+ * BPF asm code parser
-+ *
-+ * This program is free software; you can distribute it and/or modify
-+ * it under the terms of the GNU General Public License as published
-+ * by the Free Software Foundation; either version 2 of the License,
-+ * or (at your option) any later version.
-+ *
-+ * Syntax kept close to:
-+ *
-+ * Steven McCanne and Van Jacobson. 1993. The BSD packet filter: a new
-+ * architecture for user-level packet capture. In Proceedings of the
-+ * USENIX Winter 1993 Conference Proceedings on USENIX Winter 1993
-+ * Conference Proceedings (USENIX'93). USENIX Association, Berkeley,
-+ * CA, USA, 2-2.
-+ *
-+ * Copyright 2013 Daniel Borkmann <borkmann@redhat.com>
-+ * Licensed under the GNU General Public License, version 2.0 (GPLv2)
-+ */
-+
-+%{
-+
-+#include <stdio.h>
-+#include <string.h>
-+#include <stdint.h>
-+#include <stdlib.h>
-+#include <stdbool.h>
-+#include <unistd.h>
-+#include <errno.h>
-+#include <assert.h>
-+#include <linux/filter.h>
-+
-+#include "bpf_exp.yacc.h"
-+
-+enum jmp_type { JTL, JFL, JKL };
-+
-+extern FILE *yyin;
-+extern int yylex(void);
-+extern void yyerror(const char *str);
-+
-+extern void bpf_asm_compile(FILE *fp, bool cstyle);
-+static void bpf_set_curr_instr(uint16_t op, uint8_t jt, uint8_t jf, uint32_t k);
-+static void bpf_set_curr_label(const char *label);
-+static void bpf_set_jmp_label(const char *label, enum jmp_type type);
-+
-+%}
-+
-+%union {
-+	char *label;
-+	uint32_t number;
-+}
-+
-+%token OP_LDB OP_LDH OP_LD OP_LDX OP_ST OP_STX OP_JMP OP_JEQ OP_JGT OP_JGE
-+%token OP_JSET OP_ADD OP_SUB OP_MUL OP_DIV OP_AND OP_OR OP_XOR OP_LSH OP_RSH
-+%token OP_RET OP_TAX OP_TXA OP_LDXB OP_MOD OP_NEG OP_JNEQ OP_JLT OP_JLE OP_LDI
-+%token OP_LDXI
-+
-+%token K_PKT_LEN K_PROTO K_TYPE K_NLATTR K_NLATTR_NEST K_MARK K_QUEUE K_HATYPE
-+%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF
-+
-+%token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
-+
-+%token number label
-+
-+%type <label> label
-+%type <number> number
-+
-+%%
-+
-+prog
-+	: line
-+	| prog line
-+	;
-+
-+line
-+	: instr
-+	| labelled_instr
-+	;
-+
-+labelled_instr
-+	: labelled instr
-+	;
-+
-+instr
-+	: ldb
-+	| ldh
-+	| ld
-+	| ldi
-+	| ldx
-+	| ldxi
-+	| st
-+	| stx
-+	| jmp
-+	| jeq
-+	| jneq
-+	| jlt
-+	| jle
-+	| jgt
-+	| jge
-+	| jset
-+	| add
-+	| sub
-+	| mul
-+	| div
-+	| mod
-+	| neg
-+	| and
-+	| or
-+	| xor
-+	| lsh
-+	| rsh
-+	| ret
-+	| tax
-+	| txa
-+	;
-+
-+labelled
-+	: label ':' { bpf_set_curr_label($1); }
-+	;
-+
-+ldb
-+	: OP_LDB '[' 'x' '+' number ']' {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_IND, 0, 0, $5); }
-+	| OP_LDB '[' '%' 'x' '+' number ']' {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_IND, 0, 0, $6); }
-+	| OP_LDB '[' number ']' {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0, $3); }
-+	| OP_LDB K_PROTO {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_PROTOCOL); }
-+	| OP_LDB K_TYPE {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_PKTTYPE); }
-+	| OP_LDB K_IFIDX {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_IFINDEX); }
-+	| OP_LDB K_NLATTR {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_NLATTR); }
-+	| OP_LDB K_NLATTR_NEST {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_NLATTR_NEST); }
-+	| OP_LDB K_MARK {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_MARK); }
-+	| OP_LDB K_QUEUE {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_QUEUE); }
-+	| OP_LDB K_HATYPE {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_HATYPE); }
-+	| OP_LDB K_RXHASH {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_RXHASH); }
-+	| OP_LDB K_CPU {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_CPU); }
-+	| OP_LDB K_VLANT {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_VLAN_TAG); }
-+	| OP_LDB K_VLANP {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_VLAN_TAG_PRESENT); }
-+	| OP_LDB K_POFF {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
-+	;
-+
-+ldh
-+	: OP_LDH '[' 'x' '+' number ']' {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_IND, 0, 0, $5); }
-+	| OP_LDH '[' '%' 'x' '+' number ']' {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_IND, 0, 0, $6); }
-+	| OP_LDH '[' number ']' {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0, $3); }
-+	| OP_LDH K_PROTO {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_PROTOCOL); }
-+	| OP_LDH K_TYPE {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_PKTTYPE); }
-+	| OP_LDH K_IFIDX {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_IFINDEX); }
-+	| OP_LDH K_NLATTR {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_NLATTR); }
-+	| OP_LDH K_NLATTR_NEST {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_NLATTR_NEST); }
-+	| OP_LDH K_MARK {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_MARK); }
-+	| OP_LDH K_QUEUE {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_QUEUE); }
-+	| OP_LDH K_HATYPE {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_HATYPE); }
-+	| OP_LDH K_RXHASH {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_RXHASH); }
-+	| OP_LDH K_CPU {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_CPU); }
-+	| OP_LDH K_VLANT {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_VLAN_TAG); }
-+	| OP_LDH K_VLANP {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_VLAN_TAG_PRESENT); }
-+	| OP_LDH K_POFF {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
-+	;
-+
-+ldi
-+	: OP_LDI '#' number {
-+		bpf_set_curr_instr(BPF_LD | BPF_IMM, 0, 0, $3); }
-+	| OP_LDI number {
-+		bpf_set_curr_instr(BPF_LD | BPF_IMM, 0, 0, $2); }
-+	;
-+
-+ld
-+	: OP_LD '#' number {
-+		bpf_set_curr_instr(BPF_LD | BPF_IMM, 0, 0, $3); }
-+	| OP_LD K_PKT_LEN {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_LEN, 0, 0, 0); }
-+	| OP_LD K_PROTO {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_PROTOCOL); }
-+	| OP_LD K_TYPE {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_PKTTYPE); }
-+	| OP_LD K_IFIDX {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_IFINDEX); }
-+	| OP_LD K_NLATTR {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_NLATTR); }
-+	| OP_LD K_NLATTR_NEST {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_NLATTR_NEST); }
-+	| OP_LD K_MARK {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_MARK); }
-+	| OP_LD K_QUEUE {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_QUEUE); }
-+	| OP_LD K_HATYPE {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_HATYPE); }
-+	| OP_LD K_RXHASH {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_RXHASH); }
-+	| OP_LD K_CPU {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_CPU); }
-+	| OP_LD K_VLANT {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_VLAN_TAG); }
-+	| OP_LD K_VLANP {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_VLAN_TAG_PRESENT); }
-+	| OP_LD K_POFF {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_PAY_OFFSET); }
-+	| OP_LD 'M' '[' number ']' {
-+		bpf_set_curr_instr(BPF_LD | BPF_MEM, 0, 0, $4); }
-+	| OP_LD '[' 'x' '+' number ']' {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_IND, 0, 0, $5); }
-+	| OP_LD '[' '%' 'x' '+' number ']' {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_IND, 0, 0, $6); }
-+	| OP_LD '[' number ']' {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0, $3); }
-+	;
-+
-+ldxi
-+	: OP_LDXI '#' number {
-+		bpf_set_curr_instr(BPF_LDX | BPF_IMM, 0, 0, $3); }
-+	| OP_LDXI number {
-+		bpf_set_curr_instr(BPF_LDX | BPF_IMM, 0, 0, $2); }
-+	;
-+
-+ldx
-+	: OP_LDX '#' number {
-+		bpf_set_curr_instr(BPF_LDX | BPF_IMM, 0, 0, $3); }
-+	| OP_LDX K_PKT_LEN {
-+		bpf_set_curr_instr(BPF_LDX | BPF_W | BPF_LEN, 0, 0, 0); }
-+	| OP_LDX 'M' '[' number ']' {
-+		bpf_set_curr_instr(BPF_LDX | BPF_MEM, 0, 0, $4); }
-+	| OP_LDXB number '*' '(' '[' number ']' '&' number ')' {
-+		if ($2 != 4 || $9 != 0xf) {
-+			fprintf(stderr, "ldxb offset not supported!\n");
-+			exit(0);
-+		} else {
-+			bpf_set_curr_instr(BPF_LDX | BPF_MSH | BPF_B, 0, 0, $6); } }
-+	| OP_LDX number '*' '(' '[' number ']' '&' number ')' {
-+		if ($2 != 4 || $9 != 0xf) {
-+			fprintf(stderr, "ldxb offset not supported!\n");
-+			exit(0);
-+		} else {
-+			bpf_set_curr_instr(BPF_LDX | BPF_MSH | BPF_B, 0, 0, $6); } }
-+	;
-+
-+st
-+	: OP_ST 'M' '[' number ']' {
-+		bpf_set_curr_instr(BPF_ST, 0, 0, $4); }
-+	;
-+
-+stx
-+	: OP_STX 'M' '[' number ']' {
-+		bpf_set_curr_instr(BPF_STX, 0, 0, $4); }
-+	;
-+
-+jmp
-+	: OP_JMP label {
-+		bpf_set_jmp_label($2, JKL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JA, 0, 0, 0); }
-+	;
-+
-+jeq
-+	: OP_JEQ '#' number ',' label ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_jmp_label($7, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, $3); }
-+	| OP_JEQ 'x' ',' label ',' label {
-+		bpf_set_jmp_label($4, JTL);
-+		bpf_set_jmp_label($6, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
-+	| OP_JEQ '%' 'x' ',' label ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_jmp_label($7, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
-+	| OP_JEQ '#' number ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, $3); }
-+	| OP_JEQ 'x' ',' label {
-+		bpf_set_jmp_label($4, JTL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
-+	| OP_JEQ '%' 'x' ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
-+	;
-+
-+jneq
-+	: OP_JNEQ '#' number ',' label {
-+		bpf_set_jmp_label($5, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, $3); }
-+	| OP_JNEQ 'x' ',' label {
-+		bpf_set_jmp_label($4, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
-+	| OP_JNEQ '%' 'x' ',' label {
-+		bpf_set_jmp_label($5, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
-+	;
-+
-+jlt
-+	: OP_JLT '#' number ',' label {
-+		bpf_set_jmp_label($5, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_K, 0, 0, $3); }
-+	| OP_JLT 'x' ',' label {
-+		bpf_set_jmp_label($4, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
-+	| OP_JLT '%' 'x' ',' label {
-+		bpf_set_jmp_label($5, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
-+	;
-+
-+jle
-+	: OP_JLE '#' number ',' label {
-+		bpf_set_jmp_label($5, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_K, 0, 0, $3); }
-+	| OP_JLE 'x' ',' label {
-+		bpf_set_jmp_label($4, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
-+	| OP_JLE '%' 'x' ',' label {
-+		bpf_set_jmp_label($5, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
-+	;
-+
-+jgt
-+	: OP_JGT '#' number ',' label ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_jmp_label($7, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_K, 0, 0, $3); }
-+	| OP_JGT 'x' ',' label ',' label {
-+		bpf_set_jmp_label($4, JTL);
-+		bpf_set_jmp_label($6, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
-+	| OP_JGT '%' 'x' ',' label ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_jmp_label($7, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
-+	| OP_JGT '#' number ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_K, 0, 0, $3); }
-+	| OP_JGT 'x' ',' label {
-+		bpf_set_jmp_label($4, JTL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
-+	| OP_JGT '%' 'x' ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
-+	;
-+
-+jge
-+	: OP_JGE '#' number ',' label ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_jmp_label($7, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_K, 0, 0, $3); }
-+	| OP_JGE 'x' ',' label ',' label {
-+		bpf_set_jmp_label($4, JTL);
-+		bpf_set_jmp_label($6, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
-+	| OP_JGE '%' 'x' ',' label ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_jmp_label($7, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
-+	| OP_JGE '#' number ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_K, 0, 0, $3); }
-+	| OP_JGE 'x' ',' label {
-+		bpf_set_jmp_label($4, JTL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
-+	| OP_JGE '%' 'x' ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
-+	;
-+
-+jset
-+	: OP_JSET '#' number ',' label ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_jmp_label($7, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JSET | BPF_K, 0, 0, $3); }
-+	| OP_JSET 'x' ',' label ',' label {
-+		bpf_set_jmp_label($4, JTL);
-+		bpf_set_jmp_label($6, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JSET | BPF_X, 0, 0, 0); }
-+	| OP_JSET '%' 'x' ',' label ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_jmp_label($7, JFL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JSET | BPF_X, 0, 0, 0); }
-+	| OP_JSET '#' number ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JSET | BPF_K, 0, 0, $3); }
-+	| OP_JSET 'x' ',' label {
-+		bpf_set_jmp_label($4, JTL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JSET | BPF_X, 0, 0, 0); }
-+	| OP_JSET '%' 'x' ',' label {
-+		bpf_set_jmp_label($5, JTL);
-+		bpf_set_curr_instr(BPF_JMP | BPF_JSET | BPF_X, 0, 0, 0); }
-+	;
-+
-+add
-+	: OP_ADD '#' number {
-+		bpf_set_curr_instr(BPF_ALU | BPF_ADD | BPF_K, 0, 0, $3); }
-+	| OP_ADD 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_ADD | BPF_X, 0, 0, 0); }
-+	| OP_ADD '%' 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_ADD | BPF_X, 0, 0, 0); }
-+	;
-+
-+sub
-+	: OP_SUB '#' number {
-+		bpf_set_curr_instr(BPF_ALU | BPF_SUB | BPF_K, 0, 0, $3); }
-+	| OP_SUB 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_SUB | BPF_X, 0, 0, 0); }
-+	| OP_SUB '%' 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_SUB | BPF_X, 0, 0, 0); }
-+	;
-+
-+mul
-+	: OP_MUL '#' number {
-+		bpf_set_curr_instr(BPF_ALU | BPF_MUL | BPF_K, 0, 0, $3); }
-+	| OP_MUL 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_MUL | BPF_X, 0, 0, 0); }
-+	| OP_MUL '%' 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_MUL | BPF_X, 0, 0, 0); }
-+	;
-+
-+div
-+	: OP_DIV '#' number {
-+		bpf_set_curr_instr(BPF_ALU | BPF_DIV | BPF_K, 0, 0, $3); }
-+	| OP_DIV 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_DIV | BPF_X, 0, 0, 0); }
-+	| OP_DIV '%' 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_DIV | BPF_X, 0, 0, 0); }
-+	;
-+
-+mod
-+	: OP_MOD '#' number {
-+		bpf_set_curr_instr(BPF_ALU | BPF_MOD | BPF_K, 0, 0, $3); }
-+	| OP_MOD 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_MOD | BPF_X, 0, 0, 0); }
-+	| OP_MOD '%' 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_MOD | BPF_X, 0, 0, 0); }
-+	;
-+
-+neg
-+	: OP_NEG {
-+		bpf_set_curr_instr(BPF_ALU | BPF_NEG, 0, 0, 0); }
-+	;
-+
-+and
-+	: OP_AND '#' number {
-+		bpf_set_curr_instr(BPF_ALU | BPF_AND | BPF_K, 0, 0, $3); }
-+	| OP_AND 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_AND | BPF_X, 0, 0, 0); }
-+	| OP_AND '%' 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_AND | BPF_X, 0, 0, 0); }
-+	;
-+
-+or
-+	: OP_OR '#' number {
-+		bpf_set_curr_instr(BPF_ALU | BPF_OR | BPF_K, 0, 0, $3); }
-+	| OP_OR 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_OR | BPF_X, 0, 0, 0); }
-+	| OP_OR '%' 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_OR | BPF_X, 0, 0, 0); }
-+	;
-+
-+xor
-+	: OP_XOR '#' number {
-+		bpf_set_curr_instr(BPF_ALU | BPF_XOR | BPF_K, 0, 0, $3); }
-+	| OP_XOR 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_XOR | BPF_X, 0, 0, 0); }
-+	| OP_XOR '%' 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_XOR | BPF_X, 0, 0, 0); }
-+	;
-+
-+lsh
-+	: OP_LSH '#' number {
-+		bpf_set_curr_instr(BPF_ALU | BPF_LSH | BPF_K, 0, 0, $3); }
-+	| OP_LSH 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_LSH | BPF_X, 0, 0, 0); }
-+	| OP_LSH '%' 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_LSH | BPF_X, 0, 0, 0); }
-+	;
-+
-+rsh
-+	: OP_RSH '#' number {
-+		bpf_set_curr_instr(BPF_ALU | BPF_RSH | BPF_K, 0, 0, $3); }
-+	| OP_RSH 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_RSH | BPF_X, 0, 0, 0); }
-+	| OP_RSH '%' 'x' {
-+		bpf_set_curr_instr(BPF_ALU | BPF_RSH | BPF_X, 0, 0, 0); }
-+	;
-+
-+ret
-+	: OP_RET 'a' {
-+		bpf_set_curr_instr(BPF_RET | BPF_A, 0, 0, 0); }
-+	| OP_RET '%' 'a' {
-+		bpf_set_curr_instr(BPF_RET | BPF_A, 0, 0, 0); }
-+	| OP_RET 'x' {
-+		bpf_set_curr_instr(BPF_RET | BPF_X, 0, 0, 0); }
-+	| OP_RET '%' 'x' {
-+		bpf_set_curr_instr(BPF_RET | BPF_X, 0, 0, 0); }
-+	| OP_RET '#' number {
-+		bpf_set_curr_instr(BPF_RET | BPF_K, 0, 0, $3); }
-+	;
-+
-+tax
-+	: OP_TAX {
-+		bpf_set_curr_instr(BPF_MISC | BPF_TAX, 0, 0, 0); }
-+	;
-+
-+txa
-+	: OP_TXA {
-+		bpf_set_curr_instr(BPF_MISC | BPF_TXA, 0, 0, 0); }
-+	;
-+
-+%%
-+
-+static int curr_instr = 0;
-+static struct sock_filter out[BPF_MAXINSNS];
-+static const char **labels, **labels_jt, **labels_jf, **labels_k;
-+
-+static void bpf_assert_max(void)
-+{
-+	if (curr_instr >= BPF_MAXINSNS) {
-+		fprintf(stderr, "only max %u insns allowed!\n", BPF_MAXINSNS);
-+		exit(0);
-+	}
-+}
-+
-+static void bpf_set_curr_instr(uint16_t code, uint8_t jt, uint8_t jf,
-+			       uint32_t k)
-+{
-+	bpf_assert_max();
-+	out[curr_instr].code = code;
-+	out[curr_instr].jt = jt;
-+	out[curr_instr].jf = jf;
-+	out[curr_instr].k = k;
-+	curr_instr++;
-+}
-+
-+static void bpf_set_curr_label(const char *label)
-+{
-+	bpf_assert_max();
-+        labels[curr_instr] = label;
-+}
-+
-+static void bpf_set_jmp_label(const char *label, enum jmp_type type)
-+{
-+	bpf_assert_max();
-+	switch (type) {
-+	case JTL:
-+		labels_jt[curr_instr] = label;
-+		break;
-+	case JFL:
-+		labels_jf[curr_instr] = label;
-+		break;
-+	case JKL:
-+		labels_k[curr_instr] = label;
-+		break;
-+	}
-+}
-+
-+static int bpf_find_insns_offset(const char *label)
-+{
-+	int i, max = curr_instr, ret = -ENOENT;
-+
-+	for (i = 0; i < max; i++) {
-+		if (labels[i] && !strcmp(label, labels[i])) {
-+			ret = i;
-+			break;
-+		}
-+	}
-+
-+	if (ret == -ENOENT) {
-+		fprintf(stderr, "no such label \'%s\'!\n", label);
-+		exit(0);
-+	}
-+
-+	return ret;
-+}
-+
-+static void bpf_stage_1_insert_insns(void)
-+{
-+	yyparse();
-+}
-+
-+static void bpf_reduce_k_jumps(void)
-+{
-+	int i;
-+
-+	for (i = 0; i < curr_instr; i++) {
-+		if (labels_k[i]) {
-+			int off = bpf_find_insns_offset(labels_k[i]);
-+			out[i].k = (uint32_t) (off - i - 1);
-+		}
-+	}
-+}
-+
-+static void bpf_reduce_jt_jumps(void)
-+{
-+	int i;
-+
-+	for (i = 0; i < curr_instr; i++) {
-+		if (labels_jt[i]) {
-+			int off = bpf_find_insns_offset(labels_jt[i]);
-+			out[i].jt = (uint8_t) (off - i -1);
-+		}
-+	}
-+}
-+
-+static void bpf_reduce_jf_jumps(void)
-+{
-+	int i;
-+
-+	for (i = 0; i < curr_instr; i++) {
-+		if (labels_jf[i]) {
-+			int off = bpf_find_insns_offset(labels_jf[i]);
-+			out[i].jf = (uint8_t) (off - i - 1);
-+		}
-+	}
-+}
-+
-+static void bpf_stage_2_reduce_labels(void)
-+{
-+	bpf_reduce_k_jumps();
-+	bpf_reduce_jt_jumps();
-+	bpf_reduce_jf_jumps();
-+}
-+
-+static void bpf_pretty_print_c(void)
-+{
-+	int i;
-+
-+	for (i = 0; i < curr_instr; i++)
-+		printf("{ %#04x, %2u, %2u, %#010x },\n", out[i].code,
-+		       out[i].jt, out[i].jf, out[i].k);
-+}
-+
-+static void bpf_pretty_print(void)
-+{
-+	int i;
-+
-+	printf("%u,", curr_instr);
-+	for (i = 0; i < curr_instr; i++)
-+		printf("%u %u %u %u,", out[i].code,
-+		       out[i].jt, out[i].jf, out[i].k);
-+	printf("\n");
-+}
-+
-+static void bpf_init(void)
-+{
-+	memset(out, 0, sizeof(out));
-+
-+	labels = calloc(BPF_MAXINSNS, sizeof(*labels));
-+	assert(labels);
-+	labels_jt = calloc(BPF_MAXINSNS, sizeof(*labels_jt));
-+	assert(labels_jt);
-+	labels_jf = calloc(BPF_MAXINSNS, sizeof(*labels_jf));
-+	assert(labels_jf);
-+	labels_k = calloc(BPF_MAXINSNS, sizeof(*labels_k));
-+	assert(labels_k);
-+}
-+
-+static void bpf_destroy(void)
-+{
-+	free(labels);
-+	free(labels_jt);
-+	free(labels_jf);
-+	free(labels_k);
-+}
-+
-+void bpf_asm_compile(FILE *fp, bool cstyle)
-+{
-+	yyin = fp;
-+
-+	bpf_init();
-+	bpf_stage_1_insert_insns();
-+	bpf_stage_2_reduce_labels();
-+	bpf_destroy();
-+
-+	if (cstyle)
-+		bpf_pretty_print_c();
-+	else
-+		bpf_pretty_print();
-+
-+	if (fp != stdin)
-+		fclose(yyin);
-+}
-+
-+void yyerror(const char *str)
-+{
-+	exit(1);
-+}
+ Introduction
+-============
+-
+-	Linux Socket Filtering is derived from the Berkeley
+-Packet Filter. There are some distinct differences between
+-the BSD and Linux Kernel Filtering.
+-
+-Linux Socket Filtering (LSF) allows a user-space program to
+-attach a filter onto any socket and allow or disallow certain
+-types of data to come through the socket. LSF follows exactly
+-the same filter code structure as the BSD Berkeley Packet Filter
+-(BPF), so referring to the BSD bpf.4 manpage is very helpful in
+-creating filters.
+-
+-LSF is much simpler than BPF. One does not have to worry about
+-devices or anything like that. You simply create your filter
+-code, send it to the kernel via the SO_ATTACH_FILTER option and
+-if your filter code passes the kernel check on it, you then
+-immediately begin filtering data on that socket.
+-
+-You can also detach filters from your socket via the
+-SO_DETACH_FILTER option. This will probably not be used much
+-since when you close a socket that has a filter on it the
+-filter is automagically removed. The other less common case
+-may be adding a different filter on the same socket where you had another
+-filter that is still running: the kernel takes care of removing
+-the old one and placing your new one in its place, assuming your
+-filter has passed the checks, otherwise if it fails the old filter
+-will remain on that socket.
+-
+-SO_LOCK_FILTER option allows to lock the filter attached to a
+-socket. Once set, a filter cannot be removed or changed. This allows
+-one process to setup a socket, attach a filter, lock it then drop
+-privileges and be assured that the filter will be kept until the
+-socket is closed.
+-
+-Examples
+-========
+-
+-Ioctls-
+-setsockopt(sockfd, SOL_SOCKET, SO_ATTACH_FILTER, &Filter, sizeof(Filter));
+-setsockopt(sockfd, SOL_SOCKET, SO_DETACH_FILTER, &value, sizeof(value));
+-setsockopt(sockfd, SOL_SOCKET, SO_LOCK_FILTER, &value, sizeof(value));
+-
+-See the BSD bpf.4 manpage and the BSD Packet Filter paper written by
+-Steven McCanne and Van Jacobson of Lawrence Berkeley Laboratory.
++------------
++
++Linux Socket Filtering (LSF) is derived from the Berkeley Packet Filter.
++Though there are some distinct differences between the BSD and Linux
++Kernel filtering, but when we speak of BPF or LSF in Linux context, we
++mean the very same mechanism of filtering in the Linux kernel.
++
++BPF allows a user-space program to attach a filter onto any socket and
++allow or disallow certain types of data to come through the socket. LSF
++follows exactly the same filter code structure as BSD's BPF, so referring
++to the BSD bpf.4 manpage is very helpful in creating filters.
++
++On Linux, BPF is much simpler than on BSD. One does not have to worry
++about devices or anything like that. You simply create your filter code,
++send it to the kernel via the SO_ATTACH_FILTER option and if your filter
++code passes the kernel check on it, you then immediately begin filtering
++data on that socket.
++
++You can also detach filters from your socket via the SO_DETACH_FILTER
++option. This will probably not be used much since when you close a socket
++that has a filter on it the filter is automagically removed. The other
++less common case may be adding a different filter on the same socket where
++you had another filter that is still running: the kernel takes care of
++removing the old one and placing your new one in its place, assuming your
++filter has passed the checks, otherwise if it fails the old filter will
++remain on that socket.
++
++SO_LOCK_FILTER option allows to lock the filter attached to a socket. Once
++set, a filter cannot be removed or changed. This allows one process to
++setup a socket, attach a filter, lock it then drop privileges and be
++assured that the filter will be kept until the socket is closed.
++
++The biggest user of this construct might be libpcap. Issuing a high-level
++filter command like `tcpdump -i em1 port 22` passes through the libpcap
++internal compiler that generates a structure that can eventually be loaded
++via SO_ATTACH_FILTER to the kernel. `tcpdump -i em1 port 22 -ddd`
++displays what is being placed into this structure.
++
++Although we were only speaking about sockets here, BPF in Linux is used
++in many more places. There's xt_bpf for netfilter, cls_bpf in the kernel
++qdisc layer, SECCOMP-BPF (SECure COMPuting [1]), and lots of other places
++such as team driver, PTP code, etc where BPF is being used.
++
++ [1] Documentation/prctl/seccomp_filter.txt
++
++Original BPF paper:
++
++Steven McCanne and Van Jacobson. 1993. The BSD packet filter: a new
++architecture for user-level packet capture. In Proceedings of the
++USENIX Winter 1993 Conference Proceedings on USENIX Winter 1993
++Conference Proceedings (USENIX'93). USENIX Association, Berkeley,
++CA, USA, 2-2. [http://www.tcpdump.org/papers/bpf-usenix93.pdf]
++
++Structure
++---------
++
++User space applications include <linux/filter.h> which contains the
++following relevant structures:
++
++struct sock_filter {	/* Filter block */
++	__u16	code;   /* Actual filter code */
++	__u8	jt;	/* Jump true */
++	__u8	jf;	/* Jump false */
++	__u32	k;      /* Generic multiuse field */
++};
++
++Such a structure is assembled as an array of 4-tuples, that contains
++a code, jt, jf and k value. jt and jf are jump offsets and k a generic
++value to be used for a provided code.
++
++struct sock_fprog {			/* Required for SO_ATTACH_FILTER. */
++	unsigned short		   len;	/* Number of filter blocks */
++	struct sock_filter __user *filter;
++};
++
++For socket filtering, a pointer to this structure (as shown in
++follow-up example) is being passed to the kernel through setsockopt(2).
++
++Example
++-------
++
++#include <sys/socket.h>
++#include <sys/types.h>
++#include <arpa/inet.h>
++#include <linux/if_ether.h>
++/* ... */
++
++/* From the example above: tcpdump -i em1 port 22 -dd */
++struct sock_filter code[] = {
++	{ 0x28,  0,  0, 0x0000000c },
++	{ 0x15,  0,  8, 0x000086dd },
++	{ 0x30,  0,  0, 0x00000014 },
++	{ 0x15,  2,  0, 0x00000084 },
++	{ 0x15,  1,  0, 0x00000006 },
++	{ 0x15,  0, 17, 0x00000011 },
++	{ 0x28,  0,  0, 0x00000036 },
++	{ 0x15, 14,  0, 0x00000016 },
++	{ 0x28,  0,  0, 0x00000038 },
++	{ 0x15, 12, 13, 0x00000016 },
++	{ 0x15,  0, 12, 0x00000800 },
++	{ 0x30,  0,  0, 0x00000017 },
++	{ 0x15,  2,  0, 0x00000084 },
++	{ 0x15,  1,  0, 0x00000006 },
++	{ 0x15,  0,  8, 0x00000011 },
++	{ 0x28,  0,  0, 0x00000014 },
++	{ 0x45,  6,  0, 0x00001fff },
++	{ 0xb1,  0,  0, 0x0000000e },
++	{ 0x48,  0,  0, 0x0000000e },
++	{ 0x15,  2,  0, 0x00000016 },
++	{ 0x48,  0,  0, 0x00000010 },
++	{ 0x15,  0,  1, 0x00000016 },
++	{ 0x06,  0,  0, 0x0000ffff },
++	{ 0x06,  0,  0, 0x00000000 },
++};
++
++struct sock_fprog bpf = {
++	.len = ARRAY_SIZE(code),
++	.filter = code,
++};
++
++sock = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
++if (sock < 0)
++	/* ... bail out ... */
++
++ret = setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf));
++if (ret < 0)
++	/* ... bail out ... */
++
++/* ... */
++close(sock);
++
++The above example code attaches a socket filter for a PF_PACKET socket
++in order to let all IPv4/IPv6 packets with port 22 pass. The rest will
++be dropped for this socket.
++
++The setsockopt(2) call to SO_DETACH_FILTER doesn't need any arguments
++and SO_LOCK_FILTER for preventing the filter to be detached, takes an
++integer value with 0 or 1.
++
++Note that socket filters are not restricted to PF_PACKET sockets only,
++but can also be used on other socket families.
++
++Summary of system calls:
++
++ * setsockopt(sockfd, SOL_SOCKET, SO_ATTACH_FILTER, &val, sizeof(val));
++ * setsockopt(sockfd, SOL_SOCKET, SO_DETACH_FILTER, &val, sizeof(val));
++ * setsockopt(sockfd, SOL_SOCKET, SO_LOCK_FILTER,   &val, sizeof(val));
++
++Normally, most use cases for socket filtering on packet sockets will be
++covered by libpcap in high-level syntax, so as an application developer
++you should stick to that. libpcap wraps its own layer around all that.
++
++Unless i) using/linking to libpcap is not an option, ii) the required BPF
++filters use Linux extensions that are not supported by libpcap's compiler,
++iii) a filter might be more complex and not cleanly implementable with
++libpcap's compiler, or iv) particular filter codes should be optimized
++differently than libpcap's internal compiler does; then in such cases
++writing such a filter "by hand" can be of an alternative. For example,
++xt_bpf and cls_bpf users might have requirements that could result in
++more complex filter code, or one that cannot be expressed with libpcap
++(e.g. different return codes for various code paths). Moreover, BPF JIT
++implementors may wish to manually write test cases and thus need low-level
++access to BPF code as well.
++
++BPF engine and instruction set
++------------------------------
++
++Under tools/net/ there's a small helper tool called bpf_asm which can
++be used to write low-level filters for example scenarios mentioned in the
++previous section. Asm-like syntax mentioned here has been implemented in
++bpf_asm and will be used for further explanations (instead of dealing with
++less readable opcodes directly, principles are the same). The syntax is
++closely modelled after Steven McCanne's and Van Jacobson's BPF paper.
++
++The BPF architecture consists of the following basic elements:
++
++  Element          Description
++
++  A                32 bit wide accumulator
++  X                32 bit wide X register
++  M[]              16 x 32 bit wide misc registers aka "scratch memory
++                   store", addressable from 0 to 15
++
++A program, that is translated by bpf_asm into "opcodes" is an array that
++consists of the following elements (as already mentioned):
++
++  op:16, jt:8, jf:8, k:32
++
++The element op is a 16 bit wide opcode that has a particular instruction
++encoded. jt and jf are two 8 bit wide jump targets, one for condition
++"jump if true", the other one "jump if false". Eventually, element k
++contains a miscellaneous argument that can be interpreted in different
++ways depending on the given instruction in op.
++
++The instruction set consists of load, store, branch, alu, miscellaneous
++and return instructions that are also represented in bpf_asm syntax. This
++table lists all bpf_asm instructions available resp. what their underlying
++opcodes as defined in linux/filter.h stand for:
++
++  Instruction      Addressing mode      Description
++
++  ld               1, 2, 3, 4, 10       Load word into A
++  ldi              4                    Load word into A
++  ldh              1, 2                 Load half-word into A
++  ldb              1, 2                 Load byte into A
++  ldx              3, 4, 5, 10          Load word into X
++  ldxi             4                    Load word into X
++  ldxb             5                    Load byte into X
++
++  st               3                    Store A into M[]
++  stx              3                    Store X into M[]
++
++  jmp              6                    Jump to label
++  ja               6                    Jump to label
++  jeq              7, 8                 Jump on k == A
++  jneq             8                    Jump on k != A
++  jne              8                    Jump on k != A
++  jlt              8                    Jump on k < A
++  jle              8                    Jump on k <= A
++  jgt              7, 8                 Jump on k > A
++  jge              7, 8                 Jump on k >= A
++  jset             7, 8                 Jump on k & A
++
++  add              0, 4                 A + <x>
++  sub              0, 4                 A - <x>
++  mul              0, 4                 A * <x>
++  div              0, 4                 A / <x>
++  mod              0, 4                 A % <x>
++  neg              0, 4                 !A
++  and              0, 4                 A & <x>
++  or               0, 4                 A | <x>
++  xor              0, 4                 A ^ <x>
++  lsh              0, 4                 A << <x>
++  rsh              0, 4                 A >> <x>
++
++  tax                                   Copy A into X
++  txa                                   Copy X into A
++
++  ret              4, 9                 Return
++
++The next table shows addressing formats from the 2nd column:
++
++  Addressing mode  Syntax               Description
++
++   0               x/%x                 Register X
++   1               [k]                  BHW at byte offset k in the packet
++   2               [x + k]              BHW at the offset X + k in the packet
++   3               M[k]                 Word at offset k in M[]
++   4               #k                   Literal value stored in k
++   5               4*([k]&0xf)          Lower nibble * 4 at byte offset k in the packet
++   6               L                    Jump label L
++   7               #k,Lt,Lf             Jump to Lt if true, otherwise jump to Lf
++   8               #k,Lt                Jump to Lt if predicate is true
++   9               a/%a                 Accumulator A
++  10               extension            BPF extension
++
++The Linux kernel also has a couple of BPF extensions that are used along
++with the class of load instructions by "overloading" the k argument with
++a negative offset + a particular extension offset. The result of such BPF
++extensions are loaded into A.
++
++Possible BPF extensions are shown in the following table:
++
++  Extension                             Description
++
++  len                                   skb->len
++  proto                                 skb->protocol
++  type                                  skb->pkt_type
++  poff                                  Payload start offset
++  ifidx                                 skb->dev->ifindex
++  nla                                   Netlink attribute of type X with offset A
++  nlan                                  Nested Netlink attribute of type X with offset A
++  mark                                  skb->mark
++  queue                                 skb->queue_mapping
++  hatype                                skb->dev->type
++  rxhash                                skb->rxhash
++  cpu                                   raw_smp_processor_id()
++  vlan_tci                              vlan_tx_tag_get(skb)
++  vlan_pr                               vlan_tx_tag_present(skb)
++
++These extensions can also be prefixed with '#'.
++Examples for low-level BPF:
++
++** ARP packets:
++
++  ldh [12]
++  jne #0x806, drop
++  ret #-1
++  drop: ret #0
++
++** IPv4 TCP packets:
++
++  ldh [12]
++  jne #0x800, drop
++  ldb [23]
++  jneq #6, drop
++  ret #-1
++  drop: ret #0
++
++** (Accelerated) VLAN w/ id 10:
++
++  ld vlan_tci
++  jneq #10, drop
++  ret #-1
++  drop: ret #0
++
++** SECCOMP filter example:
++
++  ld [4]                  /* offsetof(struct seccomp_data, arch) */
++  jne #0xc000003e, bad    /* AUDIT_ARCH_X86_64 */
++  ld [0]                  /* offsetof(struct seccomp_data, nr) */
++  jeq #15, good           /* __NR_rt_sigreturn */
++  jeq #231, good          /* __NR_exit_group */
++  jeq #60, good           /* __NR_exit */
++  jeq #0, good            /* __NR_read */
++  jeq #1, good            /* __NR_write */
++  jeq #5, good            /* __NR_fstat */
++  jeq #9, good            /* __NR_mmap */
++  jeq #14, good           /* __NR_rt_sigprocmask */
++  jeq #13, good           /* __NR_rt_sigaction */
++  jeq #35, good           /* __NR_nanosleep */
++  bad: ret #0             /* SECCOMP_RET_KILL */
++  good: ret #0x7fff0000   /* SECCOMP_RET_ALLOW */
++
++The above example code can be placed into a file (here called "foo"), and
++then be passed to the bpf_asm tool for generating opcodes, output that xt_bpf
++and cls_bpf understands and can directly be loaded with. Example with above
++ARP code:
++
++$ ./bpf_asm foo
++4,40 0 0 12,21 0 1 2054,6 0 0 4294967295,6 0 0 0,
++
++In copy and paste C-like output:
++
++$ ./bpf_asm -c foo
++{ 0x28,  0,  0, 0x0000000c },
++{ 0x15,  0,  1, 0x00000806 },
++{ 0x06,  0,  0, 0xffffffff },
++{ 0x06,  0,  0, 0000000000 },
++
++In particular, as usage with xt_bpf or cls_bpf can result in more complex BPF
++filters that might not be obvious at first, it's good to test filters before
++attaching to a live system. For that purpose, there's a small tool called
++bpf_dbg under tools/net/ in the kernel source directory. This debugger allows
++for testing BPF filters against given pcap files, single stepping through the
++BPF code on the pcap's packets and to do BPF machine register dumps.
++
++Starting bpf_dbg is trivial and just requires issuing:
++
++# ./bpf_dbg
++
++In case input and output do not equal stdin/stdout, bpf_dbg takes an
++alternative stdin source as a first argument, and an alternative stdout
++sink as a second one, e.g. `./bpf_dbg test_in.txt test_out.txt`.
++
++Other than that, a particular libreadline configuration can be set via
++file "~/.bpf_dbg_init" and the command history is stored in the file
++"~/.bpf_dbg_history".
++
++Interaction in bpf_dbg happens through a shell that also has auto-completion
++support (follow-up example commands starting with '>' denote bpf_dbg shell).
++The usual workflow would be to ...
++
++> load bpf 6,40 0 0 12,21 0 3 2048,48 0 0 23,21 0 1 1,6 0 0 65535,6 0 0 0
++  Loads a BPF filter from standard output of bpf_asm, or transformed via
++  e.g. `tcpdump -iem1 -ddd port 22 | tr '\n' ','`. Note that for JIT
++  debugging (next section), this command creates a temporary socket and
++  loads the BPF code into the kernel. Thus, this will also be useful for
++  JIT developers.
++
++> load pcap foo.pcap
++  Loads standard tcpdump pcap file.
++
++> run [<n>]
++bpf passes:1 fails:9
++  Runs through all packets from a pcap to account how many passes and fails
++  the filter will generate. A limit of packets to traverse can be given.
++
++> disassemble
++l0:	ldh [12]
++l1:	jeq #0x800, l2, l5
++l2:	ldb [23]
++l3:	jeq #0x1, l4, l5
++l4:	ret #0xffff
++l5:	ret #0
++  Prints out BPF code disassembly.
++
++> dump
++/* { op, jt, jf, k }, */
++{ 0x28,  0,  0, 0x0000000c },
++{ 0x15,  0,  3, 0x00000800 },
++{ 0x30,  0,  0, 0x00000017 },
++{ 0x15,  0,  1, 0x00000001 },
++{ 0x06,  0,  0, 0x0000ffff },
++{ 0x06,  0,  0, 0000000000 },
++  Prints out C-style BPF code dump.
++
++> breakpoint 0
++breakpoint at: l0:	ldh [12]
++> breakpoint 1
++breakpoint at: l1:	jeq #0x800, l2, l5
++  ...
++  Sets breakpoints at particular BPF instructions. Issuing a `run` command
++  will walk through the pcap file continuing from the current packet and
++  break when a breakpoint is being hit (another `run` will continue from
++  the currently active breakpoint executing next instructions):
++
++  > run
++  -- register dump --
++  pc:       [0]                       <-- program counter
++  code:     [40] jt[0] jf[0] k[12]    <-- plain BPF code of current instruction
++  curr:     l0:	ldh [12]              <-- disassembly of current instruction
++  A:        [00000000][0]             <-- content of A (hex, decimal)
++  X:        [00000000][0]             <-- content of X (hex, decimal)
++  M[0,15]:  [00000000][0]             <-- folded content of M (hex, decimal)
++  -- packet dump --                   <-- Current packet from pcap (hex)
++  len: 42
++    0: 00 19 cb 55 55 a4 00 14 a4 43 78 69 08 06 00 01
++   16: 08 00 06 04 00 01 00 14 a4 43 78 69 0a 3b 01 26
++   32: 00 00 00 00 00 00 0a 3b 01 01
++  (breakpoint)
++  >
++
++> breakpoint
++breakpoints: 0 1
++  Prints currently set breakpoints.
++
++> step [-<n>, +<n>]
++  Performs single stepping through the BPF program from the current pc
++  offset. Thus, on each step invocation, above register dump is issued.
++  This can go forwards and backwards in time, a plain `step` will break
++  on the next BPF instruction, thus +1. (No `run` needs to be issued here.)
++
++> select <n>
++  Selects a given packet from the pcap file to continue from. Thus, on
++  the next `run` or `step`, the BPF program is being evaluated against
++  the user pre-selected packet. Numbering starts just as in Wireshark
++  with index 1.
++
++> quit
++#
++  Exits bpf_dbg.
++
++JIT compiler
++------------
++
++The Linux kernel has a built-in BPF JIT compiler for x86_64, SPARC, PowerPC,
++ARM and s390 and can be enabled through CONFIG_BPF_JIT. The JIT compiler is
++transparently invoked for each attached filter from user space or for internal
++kernel users if it has been previously enabled by root:
++
++  echo 1 > /proc/sys/net/core/bpf_jit_enable
++
++For JIT developers, doing audits etc, each compile run can output the generated
++opcode image into the kernel log via:
++
++  echo 2 > /proc/sys/net/core/bpf_jit_enable
++
++Example output from dmesg:
++
++[ 3389.935842] flen=6 proglen=70 pass=3 image=ffffffffa0069c8f
++[ 3389.935847] JIT code: 00000000: 55 48 89 e5 48 83 ec 60 48 89 5d f8 44 8b 4f 68
++[ 3389.935849] JIT code: 00000010: 44 2b 4f 6c 4c 8b 87 d8 00 00 00 be 0c 00 00 00
++[ 3389.935850] JIT code: 00000020: e8 1d 94 ff e0 3d 00 08 00 00 75 16 be 17 00 00
++[ 3389.935851] JIT code: 00000030: 00 e8 28 94 ff e0 83 f8 01 75 07 b8 ff ff 00 00
++[ 3389.935852] JIT code: 00000040: eb 02 31 c0 c9 c3
++
++In the kernel source tree under tools/net/, there's bpf_jit_disasm for
++generating disassembly out of the kernel log's hexdump:
++
++# ./bpf_jit_disasm
++70 bytes emitted from JIT compiler (pass:3, flen:6)
++ffffffffa0069c8f + <x>:
++   0:	push   %rbp
++   1:	mov    %rsp,%rbp
++   4:	sub    $0x60,%rsp
++   8:	mov    %rbx,-0x8(%rbp)
++   c:	mov    0x68(%rdi),%r9d
++  10:	sub    0x6c(%rdi),%r9d
++  14:	mov    0xd8(%rdi),%r8
++  1b:	mov    $0xc,%esi
++  20:	callq  0xffffffffe0ff9442
++  25:	cmp    $0x800,%eax
++  2a:	jne    0x0000000000000042
++  2c:	mov    $0x17,%esi
++  31:	callq  0xffffffffe0ff945e
++  36:	cmp    $0x1,%eax
++  39:	jne    0x0000000000000042
++  3b:	mov    $0xffff,%eax
++  40:	jmp    0x0000000000000044
++  42:	xor    %eax,%eax
++  44:	leaveq
++  45:	retq
++
++Issuing option `-o` will "annotate" opcodes to resulting assembler
++instructions, which can be very useful for JIT developers:
++
++# ./bpf_jit_disasm -o
++70 bytes emitted from JIT compiler (pass:3, flen:6)
++ffffffffa0069c8f + <x>:
++   0:	push   %rbp
++	55
++   1:	mov    %rsp,%rbp
++	48 89 e5
++   4:	sub    $0x60,%rsp
++	48 83 ec 60
++   8:	mov    %rbx,-0x8(%rbp)
++	48 89 5d f8
++   c:	mov    0x68(%rdi),%r9d
++	44 8b 4f 68
++  10:	sub    0x6c(%rdi),%r9d
++	44 2b 4f 6c
++  14:	mov    0xd8(%rdi),%r8
++	4c 8b 87 d8 00 00 00
++  1b:	mov    $0xc,%esi
++	be 0c 00 00 00
++  20:	callq  0xffffffffe0ff9442
++	e8 1d 94 ff e0
++  25:	cmp    $0x800,%eax
++	3d 00 08 00 00
++  2a:	jne    0x0000000000000042
++	75 16
++  2c:	mov    $0x17,%esi
++	be 17 00 00 00
++  31:	callq  0xffffffffe0ff945e
++	e8 28 94 ff e0
++  36:	cmp    $0x1,%eax
++	83 f8 01
++  39:	jne    0x0000000000000042
++	75 07
++  3b:	mov    $0xffff,%eax
++	b8 ff ff 00 00
++  40:	jmp    0x0000000000000044
++	eb 02
++  42:	xor    %eax,%eax
++	31 c0
++  44:	leaveq
++	c9
++  45:	retq
++	c3
++
++For BPF JIT developers, bpf_jit_disasm, bpf_asm and bpf_dbg provides a useful
++toolchain for developing and testing the kernel's JIT compiler.
++
++Misc
++----
++
++Also trinity, the Linux syscall fuzzer, has built-in support for BPF and
++SECCOMP-BPF kernel fuzzing.
++
++Written by
++----------
++
++The document was written in the hope that it is found useful and in order
++to give potential BPF hackers or security auditors a better overview of
++the underlying architecture.
++
++Jay Schulist <jschlst@samba.org>
++Daniel Borkmann <dborkman@redhat.com>
 -- 
 1.8.3.1
