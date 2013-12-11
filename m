@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] ipv6: log autoconfiguration failures
-Date: Tue, 10 Dec 2013 22:16:13 -0500 (EST)
-Message-ID: <20131210.221613.1663906151846555561.davem@davemloft.net>
-References: <1386606408-21552-1-git-send-email-dvlasenk@redhat.com>
+Subject: Re: [PATCH 2/2] tun: remove useless codes in tun_chr_aio_read()
+ and tun_recvmsg()
+Date: Tue, 10 Dec 2013 22:19:12 -0500 (EST)
+Message-ID: <20131210.221912.1575828670029427023.davem@davemloft.net>
+References: <52A74CD1.808@gmail.com>
+	<20131210.140036.1328560146971385473.davem@davemloft.net>
+	<CAEH94Li+9tNP_U-og7oSyez4stqUTJ6xGCPaCmTSkyNZsRTT7w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, jpirko@redhat.com
-To: dvlasenk@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386606408-21552-1-git-send-email-dvlasenk@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jasowang@redhat.com, mst@redhat.com, vyasevich@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: zwu.kernel@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53977 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750921Ab3LKDTO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Dec 2013 22:19:14 -0500
+In-Reply-To: <CAEH94Li+9tNP_U-og7oSyez4stqUTJ6xGCPaCmTSkyNZsRTT7w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Denys Vlasenko <dvlasenk@redhat.com>
-Date: Mon,  9 Dec 2013 17:26:48 +0100
+From: Zhi Yong Wu <zwu.kernel@gmail.com>
+Date: Wed, 11 Dec 2013 11:14:04 +0800
 
-> If ipv6 auto-configuration does not work, currently it's hard
-> to track what's going on. This change adds log messages
-> (at debug level) on every code path where ipv6 autoconf fails.
-> 
-> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+> Only one reminder, since David has committed the two patches, you
+> maybe need to take their impact on your patches into account.
 
-Add statistics, those are more globally useful.
-
-> +		pr_debug("IPv6 addrconf: %s: address length %d != %s\n",
-> +				dev->name, dev->addr_len, "ETH_ALEN");
-
-And this is not indented correctly, the arguments on lines after the
-first must line up exactly to the column after the openning parenthesis
-of the function call.
-
-The idea isn't to use just TABs until you think it looks nice, rather
-you should use the appropriate number of SPACE and TAB characters
-necessary to reach the exact column.
+I reverted these changes from net-next.
