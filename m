@@ -1,39 +1,50 @@
-From: phdm@macqel.be
-Subject: [PATCH] net:fec: remove duplicate lines in comment about errata ERR006358
-Date: Wed, 11 Dec 2013 23:50:52 +0100
-Message-ID: <1386802252-5817-1-git-send-email-phdm@macqel.be>
-Cc: Philippe De Muyter <phdm@macqel.be>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	frank.li@freescale.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH v2 net-next] ipv6: router reachability probing
+Date: Thu, 12 Dec 2013 00:12:36 +0100
+Message-ID: <20131211231236.GA8953@lion.mk-sys.cz>
+References: <d483b5eedcbfedc2002c458b15586679e7795399.1386766078.git.jbenc@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lion.mk-sys.cz ([213.168.178.121]:48133 "EHLO lion.mk-sys.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750873Ab3LKXMj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Dec 2013 18:12:39 -0500
+Content-Disposition: inline
+In-Reply-To: <d483b5eedcbfedc2002c458b15586679e7795399.1386766078.git.jbenc@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philippe De Muyter <phdm@macqel.be>
+On Wed, Dec 11, 2013 at 01:48:20PM +0100, Jiri Benc wrote:
+> RFC 4191 states in 3.5:
+> 
+>    When a host avoids using any non-reachable router X and instead sends
+>    a data packet to another router Y, and the host would have used
+>    router X if router X were reachable, then the host SHOULD probe each
+>    such router X's reachability by sending a single Neighbor
+>    Solicitation to that router's address.  A host MUST NOT probe a
+>    router's reachability in the absence of useful traffic that the host
+>    would have sent to the router if it were reachable.  In any case,
+>    these probes MUST be rate-limited to no more than one per minute per
+>    router.
+> 
+> Currently, when the neighbour corresponding to a router falls into
+> NUD_FAILED, it's never considered again.
 
-commit 031916568a1aa2ef1809f86d26f0bcfa215ff5c0 worked around
-errata ERR006358, but comment contains duplicated lines, impairing
-the readability.  Remove them.
+Is it really the case in current mainline kernels? In my tests, this
+behaviour in 3.0 kernel (SLES 11 SP3) was caused by the reference held
+by struct dst_entry which caused that in neigh_periodic_work(),
+n->refcnt was always bigger than one so that the neighbour entry was
+never cleaned up.  But when I tested with 3.11.6 (OpenSuSE 13.1) where
+neighbour is no longer cached in struct dst_entry, the neighbour was
+cleaned up eventually and new lookup was performed.
 
-Signed-off-by: Philippe De Muyter <phdm@macqel.be>
----
- drivers/net/ethernet/freescale/fec_main.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+I believe the patch would be useful anyway as it would speed up the
+detection that the router is reachable again, I just want to make sure
+my analysis wasn't completely wrong.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 4cbebf3..36bcc48 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -98,10 +98,6 @@ static void set_multicast_list(struct net_device *ndev);
-  * detected as not set during a prior frame transmission, then the
-  * ENET_TDAR[TDAR] bit is cleared at a later time, even if additional TxBDs
-  * were added to the ring and the ENET_TDAR[TDAR] bit is set. This results in
-- * If the ready bit in the transmit buffer descriptor (TxBD[R]) is previously
-- * detected as not set during a prior frame transmission, then the
-- * ENET_TDAR[TDAR] bit is cleared at a later time, even if additional TxBDs
-- * were added to the ring and the ENET_TDAR[TDAR] bit is set. This results in
-  * frames not being transmitted until there is a 0-to-1 transition on
-  * ENET_TDAR[TDAR].
-  */
--- 
-1.7.5.3
+                                                        Michal Kubecek
