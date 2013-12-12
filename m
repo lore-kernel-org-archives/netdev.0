@@ -1,64 +1,62 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net] xen-netback: fix gso_prefix check
-Date: Thu, 12 Dec 2013 14:42:22 +0000
-Message-ID: <1386859342.18946.18.camel@kazak.uk.xensource.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH net] xen-netback: fix gso_prefix check
+Date: Thu, 12 Dec 2013 14:44:16 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD01B0F2E@AMSPEX01CL01.citrite.net>
 References: <1386858013-20544-1-git-send-email-paul.durrant@citrix.com>
+ <1386859342.18946.18.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Wei Liu <wei.liu2@citrix.com>,
 	David Vrabel <david.vrabel@citrix.com>
-To: Paul Durrant <paul.durrant@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:6011 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751901Ab3LLOm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Dec 2013 09:42:26 -0500
-In-Reply-To: <1386858013-20544-1-git-send-email-paul.durrant@citrix.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:60960 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751474Ab3LLOoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 09:44:19 -0500
+In-Reply-To: <1386859342.18946.18.camel@kazak.uk.xensource.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-12 at 14:20 +0000, Paul Durrant wrote:
-> There is a mistake in checking the gso_prefix mask when passing large
-> packets to a guest. The wrong shift is applied to the bit - the raw skb
-> gso type is used rather then the translated one. This leads to large packets
-> being handed to the guest without the GSO metadata. This patch fixes the
-> check.
-> 
-> The mistake manifested as errors whilst running Microsoft HCK large packet
-> offload tests between a pair of Windows 8 VMs. I have verified this patch
-> fixes those errors.
-> 
-> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: David Vrabel <david.vrabel@citrix.com>
-> ---
->  drivers/net/xen-netback/netback.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 56c3e5a..999e290 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -452,7 +452,7 @@ static int xenvif_gop_skb(struct sk_buff *skb,
->  	}
->  
->  	/* Set up a GSO prefix descriptor, if necessary */
-> -	if ((1 << skb_shinfo(skb)->gso_type) & vif->gso_prefix_mask) {
-> +	if ((1 << gso_type) & vif->gso_prefix_mask) {
-
-gso_type here is XEN_NETIF_GSO_TYPE_TCPV4, vif->gso_prefix_mask is
-initialised with GSO_BIT(TCPV4) et al. Where
-        #define GSO_BIT(type) \
-                (1 << XEN_NETIF_GSO_TYPE_ ## type)
-        
-So, 
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
-
-But it might be nice to use BIT() from bitops.h for both GSO_BIT and the
-check, since it took me quite a bit of wandering around to figure out
-how these ended up the same.
-
-Ian.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBJYW4gQ2FtcGJlbGwNCj4gU2Vu
+dDogMTIgRGVjZW1iZXIgMjAxMyAxNDo0Mg0KPiBUbzogUGF1bCBEdXJyYW50DQo+IENjOiB4ZW4t
+ZGV2ZWxAbGlzdHMueGVuLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgV2VpIExpdTsgRGF2
+aWQgVnJhYmVsDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0XSB4ZW4tbmV0YmFjazogZml4IGdz
+b19wcmVmaXggY2hlY2sNCj4gDQo+IE9uIFRodSwgMjAxMy0xMi0xMiBhdCAxNDoyMCArMDAwMCwg
+UGF1bCBEdXJyYW50IHdyb3RlOg0KPiA+IFRoZXJlIGlzIGEgbWlzdGFrZSBpbiBjaGVja2luZyB0
+aGUgZ3NvX3ByZWZpeCBtYXNrIHdoZW4gcGFzc2luZyBsYXJnZQ0KPiA+IHBhY2tldHMgdG8gYSBn
+dWVzdC4gVGhlIHdyb25nIHNoaWZ0IGlzIGFwcGxpZWQgdG8gdGhlIGJpdCAtIHRoZSByYXcgc2ti
+DQo+ID4gZ3NvIHR5cGUgaXMgdXNlZCByYXRoZXIgdGhlbiB0aGUgdHJhbnNsYXRlZCBvbmUuIFRo
+aXMgbGVhZHMgdG8gbGFyZ2UgcGFja2V0cw0KPiA+IGJlaW5nIGhhbmRlZCB0byB0aGUgZ3Vlc3Qg
+d2l0aG91dCB0aGUgR1NPIG1ldGFkYXRhLiBUaGlzIHBhdGNoIGZpeGVzIHRoZQ0KPiA+IGNoZWNr
+Lg0KPiA+DQo+ID4gVGhlIG1pc3Rha2UgbWFuaWZlc3RlZCBhcyBlcnJvcnMgd2hpbHN0IHJ1bm5p
+bmcgTWljcm9zb2Z0IEhDSyBsYXJnZSBwYWNrZXQNCj4gPiBvZmZsb2FkIHRlc3RzIGJldHdlZW4g
+YSBwYWlyIG9mIFdpbmRvd3MgOCBWTXMuIEkgaGF2ZSB2ZXJpZmllZCB0aGlzIHBhdGNoDQo+ID4g
+Zml4ZXMgdGhvc2UgZXJyb3JzLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogUGF1bCBEdXJyYW50
+IDxwYXVsLmR1cnJhbnRAY2l0cml4LmNvbT4NCj4gPiBDYzogV2VpIExpdSA8d2VpLmxpdTJAY2l0
+cml4LmNvbT4NCj4gPiBDYzogSWFuIENhbXBiZWxsIDxpYW4uY2FtcGJlbGxAY2l0cml4LmNvbT4N
+Cj4gPiBDYzogRGF2aWQgVnJhYmVsIDxkYXZpZC52cmFiZWxAY2l0cml4LmNvbT4NCj4gPiAtLS0N
+Cj4gPiAgZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jIHwgICAgMiArLQ0KPiA+ICAx
+IGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDEgZGVsZXRpb24oLSkNCj4gPg0KPiA+IGRp
+ZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmMgYi9kcml2ZXJzL25l
+dC94ZW4tDQo+IG5ldGJhY2svbmV0YmFjay5jDQo+ID4gaW5kZXggNTZjM2U1YS4uOTk5ZTI5MCAx
+MDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmMNCj4gPiAr
+KysgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmMNCj4gPiBAQCAtNDUyLDcgKzQ1
+Miw3IEBAIHN0YXRpYyBpbnQgeGVudmlmX2dvcF9za2Ioc3RydWN0IHNrX2J1ZmYgKnNrYiwNCj4g
+PiAgCX0NCj4gPg0KPiA+ICAJLyogU2V0IHVwIGEgR1NPIHByZWZpeCBkZXNjcmlwdG9yLCBpZiBu
+ZWNlc3NhcnkgKi8NCj4gPiAtCWlmICgoMSA8PCBza2Jfc2hpbmZvKHNrYiktPmdzb190eXBlKSAm
+IHZpZi0+Z3NvX3ByZWZpeF9tYXNrKSB7DQo+ID4gKwlpZiAoKDEgPDwgZ3NvX3R5cGUpICYgdmlm
+LT5nc29fcHJlZml4X21hc2spIHsNCj4gDQo+IGdzb190eXBlIGhlcmUgaXMgWEVOX05FVElGX0dT
+T19UWVBFX1RDUFY0LCB2aWYtPmdzb19wcmVmaXhfbWFzayBpcw0KPiBpbml0aWFsaXNlZCB3aXRo
+IEdTT19CSVQoVENQVjQpIGV0IGFsLiBXaGVyZQ0KPiAgICAgICAgICNkZWZpbmUgR1NPX0JJVCh0
+eXBlKSBcDQo+ICAgICAgICAgICAgICAgICAoMSA8PCBYRU5fTkVUSUZfR1NPX1RZUEVfICMjIHR5
+cGUpDQo+IA0KPiBTbywNCj4gQWNrZWQtYnk6IElhbiBDYW1wYmVsbCA8aWFuLmNhbXBiZWxsQGNp
+dHJpeC5jb20+DQo+IA0KPiBCdXQgaXQgbWlnaHQgYmUgbmljZSB0byB1c2UgQklUKCkgZnJvbSBi
+aXRvcHMuaCBmb3IgYm90aCBHU09fQklUIGFuZCB0aGUNCj4gY2hlY2ssIHNpbmNlIGl0IHRvb2sg
+bWUgcXVpdGUgYSBiaXQgb2Ygd2FuZGVyaW5nIGFyb3VuZCB0byBmaWd1cmUgb3V0DQo+IGhvdyB0
+aGVzZSBlbmRlZCB1cCB0aGUgc2FtZS4NCj4gDQoNCk9rLiBJJ2xsIGNvbWUgdXAgd2l0aCBhIHNl
+cGFyYXRlIHBhdGNoIGZvciB0aGF0Lg0KDQogIFBhdWwNCg==
