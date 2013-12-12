@@ -1,7 +1,7 @@
 From: Scott Feldman <sfeldma@cumulusnetworks.com>
-Subject: [PATCH net-next v2 1/8] bonding: add miimon netlink support
-Date: Thu, 12 Dec 2013 14:09:55 -0800
-Message-ID: <20131212220955.21629.17005.stgit@monster-03.cumulusnetworks.com>
+Subject: [PATCH net-next v2 2/8] bonding: add updelay netlink support
+Date: Thu, 12 Dec 2013 14:10:02 -0800
+Message-ID: <20131212221002.21629.240.stgit@monster-03.cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,174 +9,114 @@ Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	shm@cumulusnetworks.com
 To: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:53249 "EHLO
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:53298 "EHLO
 	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751496Ab3LLWJ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 17:09:59 -0500
+	with ESMTP id S1751889Ab3LLWKG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 17:10:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add IFLA_BOND_MIIMON to allow get/set of bonding parameter
-miimon via netlink.
+Add IFLA_BOND_UPDELAY to allow get/set of bonding parameter
+updelay via netlink.
 
 Signed-off-by: Scott Feldman <sfeldma@cumulusnetworks.com>
 ---
- drivers/net/bonding/bond_netlink.c |   32 ++++++++++++++++++----
- drivers/net/bonding/bond_options.c |   42 +++++++++++++++++++++++++++++
- drivers/net/bonding/bond_sysfs.c   |   53 +++++++-----------------------------
+ drivers/net/bonding/bond_netlink.c |   13 +++++++++++
+ drivers/net/bonding/bond_options.c |   29 +++++++++++++++++++++++++
+ drivers/net/bonding/bond_sysfs.c   |   42 +++++++++---------------------------
  drivers/net/bonding/bonding.h      |    1 +
  include/uapi/linux/if_link.h       |    1 +
- 5 files changed, 80 insertions(+), 49 deletions(-)
+ 5 files changed, 54 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-index 40e7b1c..28a88be 100644
+index 28a88be..086cf4f 100644
 --- a/drivers/net/bonding/bond_netlink.c
 +++ b/drivers/net/bonding/bond_netlink.c
-@@ -1,6 +1,7 @@
- /*
-  * drivers/net/bond/bond_netlink.c - Netlink interface for bonding
-  * Copyright (c) 2013 Jiri Pirko <jiri@resnulli.us>
-+ * Copyright (c) 2013 Scott Feldman <sfeldma@cumulusnetworks.com>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -23,6 +24,7 @@
- static const struct nla_policy bond_policy[IFLA_BOND_MAX + 1] = {
+@@ -25,6 +25,7 @@ static const struct nla_policy bond_policy[IFLA_BOND_MAX + 1] = {
  	[IFLA_BOND_MODE]		= { .type = NLA_U8 },
  	[IFLA_BOND_ACTIVE_SLAVE]	= { .type = NLA_U32 },
-+	[IFLA_BOND_MIIMON]		= { .type = NLA_U32 },
+ 	[IFLA_BOND_MIIMON]		= { .type = NLA_U32 },
++	[IFLA_BOND_UPDELAY]		= { .type = NLA_U32 },
  };
  
  static int bond_validate(struct nlattr *tb[], struct nlattr *data[])
-@@ -42,14 +44,17 @@ static int bond_changelink(struct net_device *bond_dev,
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	int err;
- 
--	if (data && data[IFLA_BOND_MODE]) {
-+	if (!data)
-+		return 0;
-+
-+	if (data[IFLA_BOND_MODE]) {
- 		int mode = nla_get_u8(data[IFLA_BOND_MODE]);
- 
- 		err = bond_option_mode_set(bond, mode);
+@@ -77,6 +78,13 @@ static int bond_changelink(struct net_device *bond_dev,
  		if (err)
  			return err;
  	}
--	if (data && data[IFLA_BOND_ACTIVE_SLAVE]) {
-+	if (data[IFLA_BOND_ACTIVE_SLAVE]) {
- 		int ifindex = nla_get_u32(data[IFLA_BOND_ACTIVE_SLAVE]);
- 		struct net_device *slave_dev;
- 
-@@ -65,6 +70,13 @@ static int bond_changelink(struct net_device *bond_dev,
- 		if (err)
- 			return err;
- 	}
-+	if (data[IFLA_BOND_MIIMON]) {
-+		int miimon = nla_get_u32(data[IFLA_BOND_MIIMON]);
++	if (data[IFLA_BOND_UPDELAY]) {
++		int updelay = nla_get_u32(data[IFLA_BOND_UPDELAY]);
 +
-+		err = bond_option_miimon_set(bond, miimon);
++		err = bond_option_updelay_set(bond, updelay);
 +		if (err)
 +			return err;
 +	}
  	return 0;
  }
  
-@@ -83,7 +95,9 @@ static int bond_newlink(struct net *src_net, struct net_device *bond_dev,
- static size_t bond_get_size(const struct net_device *bond_dev)
- {
+@@ -97,6 +105,7 @@ static size_t bond_get_size(const struct net_device *bond_dev)
  	return nla_total_size(sizeof(u8)) +	/* IFLA_BOND_MODE */
--		nla_total_size(sizeof(u32));	/* IFLA_BOND_ACTIVE_SLAVE */
-+		nla_total_size(sizeof(u32)) +	/* IFLA_BOND_ACTIVE_SLAVE */
-+		nla_total_size(sizeof(u32)) +	/* IFLA_BOND_MIIMON */
-+		0;
+ 		nla_total_size(sizeof(u32)) +	/* IFLA_BOND_ACTIVE_SLAVE */
+ 		nla_total_size(sizeof(u32)) +	/* IFLA_BOND_MIIMON */
++		nla_total_size(sizeof(u32)) +	/* IFLA_BOND_UPDELAY */
+ 		0;
  }
  
- static int bond_fill_info(struct sk_buff *skb,
-@@ -92,10 +106,16 @@ static int bond_fill_info(struct sk_buff *skb,
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct net_device *slave_dev = bond_option_active_slave_get(bond);
- 
--	if (nla_put_u8(skb, IFLA_BOND_MODE, bond->params.mode) ||
--	    (slave_dev &&
--	     nla_put_u32(skb, IFLA_BOND_ACTIVE_SLAVE, slave_dev->ifindex)))
-+	if (nla_put_u8(skb, IFLA_BOND_MODE, bond->params.mode))
+@@ -116,6 +125,10 @@ static int bond_fill_info(struct sk_buff *skb,
+ 	if (nla_put_u32(skb, IFLA_BOND_MIIMON, bond->params.miimon))
  		goto nla_put_failure;
-+
-+	if (slave_dev &&
-+	    nla_put_u32(skb, IFLA_BOND_ACTIVE_SLAVE, slave_dev->ifindex))
-+		goto nla_put_failure;
-+
-+	if (nla_put_u32(skb, IFLA_BOND_MIIMON, bond->params.miimon))
+ 
++	if (nla_put_u32(skb, IFLA_BOND_UPDELAY,
++			bond->params.updelay * bond->params.miimon))
 +		goto nla_put_failure;
 +
  	return 0;
  
  nla_put_failure:
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index ea6f640..8ae42d3 100644
+index 8ae42d3..ae94b84 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -1,6 +1,7 @@
- /*
-  * drivers/net/bond/bond_options.c - bonding options
-  * Copyright (c) 2013 Jiri Pirko <jiri@resnulli.us>
-+ * Copyright (c) 2013 Scott Feldman <sfeldma@cumulusnetworks.com>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -145,3 +146,44 @@ int bond_option_active_slave_set(struct bonding *bond,
- 	unblock_netpoll_tx();
- 	return ret;
+@@ -187,3 +187,32 @@ int bond_option_miimon_set(struct bonding *bond, int miimon)
+ 	}
+ 	return 0;
  }
 +
-+int bond_option_miimon_set(struct bonding *bond, int miimon)
++int bond_option_updelay_set(struct bonding *bond, int updelay)
 +{
-+	if (miimon < 0) {
-+		pr_err("%s: Invalid miimon value %d not in range %d-%d; rejected.\n",
-+		       bond->dev->name, miimon, 0, INT_MAX);
-+		return -EINVAL;
++	if (!(bond->params.miimon)) {
++		pr_err("%s: Unable to set up delay as MII monitoring is disabled\n",
++		       bond->dev->name);
++		return -EPERM;
 +	}
-+	pr_info("%s: Setting MII monitoring interval to %d.\n",
-+		bond->dev->name, miimon);
-+	bond->params.miimon = miimon;
-+	if (bond->params.updelay)
-+		pr_info("%s: Note: Updating updelay (to %d) since it is a multiple of the miimon value.\n",
++
++	if (updelay < 0) {
++		pr_err("%s: Invalid up delay value %d not in range %d-%d; rejected.\n",
++		       bond->dev->name, updelay, 0, INT_MAX);
++		return -EINVAL;
++	} else {
++		if ((updelay % bond->params.miimon) != 0) {
++			pr_warn("%s: Warning: up delay (%d) is not a multiple of miimon (%d), updelay rounded to %d ms\n",
++				bond->dev->name, updelay,
++				bond->params.miimon,
++				(updelay / bond->params.miimon) *
++				bond->params.miimon);
++		}
++		bond->params.updelay = updelay / bond->params.miimon;
++		pr_info("%s: Setting up delay to %d.\n",
 +			bond->dev->name,
 +			bond->params.updelay * bond->params.miimon);
-+	if (bond->params.downdelay)
-+		pr_info("%s: Note: Updating downdelay (to %d) since it is a multiple of the miimon value.\n",
-+			bond->dev->name,
-+			bond->params.downdelay * bond->params.miimon);
-+	if (miimon && bond->params.arp_interval) {
-+		pr_info("%s: MII monitoring cannot be used with ARP monitoring. Disabling ARP monitoring...\n",
-+			bond->dev->name);
-+		bond->params.arp_interval = 0;
-+		if (bond->params.arp_validate)
-+			bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
 +	}
-+	if (bond->dev->flags & IFF_UP) {
-+		/* If the interface is up, we may need to fire off
-+		 * the MII timer. If the interface is down, the
-+		 * timer will get fired off when the open function
-+		 * is called.
-+		 */
-+		if (!miimon) {
-+			cancel_delayed_work_sync(&bond->mii_work);
-+		} else {
-+			cancel_delayed_work_sync(&bond->arp_work);
-+			queue_delayed_work(bond->wq, &bond->mii_work, 0);
-+		}
-+	}
++
 +	return 0;
 +}
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index e464676..d6d6fc7 100644
+index d6d6fc7..4dcbec4 100644
 --- a/drivers/net/bonding/bond_sysfs.c
 +++ b/drivers/net/bonding/bond_sysfs.c
-@@ -970,55 +970,22 @@ static ssize_t bonding_store_miimon(struct device *d,
- 				    struct device_attribute *attr,
- 				    const char *buf, size_t count)
+@@ -747,44 +747,22 @@ static ssize_t bonding_store_updelay(struct device *d,
+ 				     struct device_attribute *attr,
+ 				     const char *buf, size_t count)
  {
 -	int new_value, ret = count;
 +	int new_value, ret;
@@ -184,56 +124,45 @@ index e464676..d6d6fc7 100644
  
 -	if (!rtnl_trylock())
 -		return restart_syscall();
+-	if (!(bond->params.miimon)) {
+-		pr_err("%s: Unable to set up delay as MII monitoring is disabled\n",
+-		       bond->dev->name);
+-		ret = -EPERM;
+-		goto out;
+-	}
+-
  	if (sscanf(buf, "%d", &new_value) != 1) {
- 		pr_err("%s: no miimon value specified.\n",
- 		       bond->dev->name);
+ 		pr_err("%s: no up delay value specified.\n",
+-		       bond->dev->name);
 -		ret = -EINVAL;
 -		goto out;
 -	}
 -	if (new_value < 0) {
--		pr_err("%s: Invalid miimon value %d not in range %d-%d; rejected.\n",
+-		pr_err("%s: Invalid up delay value %d not in range %d-%d; rejected.\n",
 -		       bond->dev->name, new_value, 0, INT_MAX);
 -		ret = -EINVAL;
 -		goto out;
--	}
--	pr_info("%s: Setting MII monitoring interval to %d.\n",
--		bond->dev->name, new_value);
--	bond->params.miimon = new_value;
--	if (bond->params.updelay)
--		pr_info("%s: Note: Updating updelay (to %d) since it is a multiple of the miimon value.\n",
+-	} else {
+-		if ((new_value % bond->params.miimon) != 0) {
+-			pr_warning("%s: Warning: up delay (%d) is not a multiple of miimon (%d), updelay rounded to %d ms\n",
+-				   bond->dev->name, new_value,
+-				   bond->params.miimon,
+-				   (new_value / bond->params.miimon) *
+-				   bond->params.miimon);
+-		}
+-		bond->params.updelay = new_value / bond->params.miimon;
+-		pr_info("%s: Setting up delay to %d.\n",
 -			bond->dev->name,
 -			bond->params.updelay * bond->params.miimon);
--	if (bond->params.downdelay)
--		pr_info("%s: Note: Updating downdelay (to %d) since it is a multiple of the miimon value.\n",
--			bond->dev->name,
--			bond->params.downdelay * bond->params.miimon);
--	if (new_value && bond->params.arp_interval) {
--		pr_info("%s: MII monitoring cannot be used with ARP monitoring. Disabling ARP monitoring...\n",
--			bond->dev->name);
--		bond->params.arp_interval = 0;
--		if (bond->params.arp_validate)
--			bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
--	}
--	if (bond->dev->flags & IFF_UP) {
--		/* If the interface is up, we may need to fire off
--		 * the MII timer. If the interface is down, the
--		 * timer will get fired off when the open function
--		 * is called.
--		 */
--		if (!new_value) {
--			cancel_delayed_work_sync(&bond->mii_work);
--		} else {
--			cancel_delayed_work_sync(&bond->arp_work);
--			queue_delayed_work(bond->wq, &bond->mii_work, 0);
--		}
++		bond->dev->name);
 +		return -EINVAL;
  	}
+ 
 -out:
-+
 +	if (!rtnl_trylock())
 +		return restart_syscall();
 +
-+	ret = bond_option_miimon_set(bond, new_value);
++	ret = bond_option_updelay_set(bond, new_value);
 +	if (!ret)
 +		ret = count;
 +
@@ -241,26 +170,26 @@ index e464676..d6d6fc7 100644
  	return ret;
  }
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index a74c92c..b146479 100644
+index b146479..8a91f71 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -439,6 +439,7 @@ int bond_netlink_init(void);
- void bond_netlink_fini(void);
+@@ -440,6 +440,7 @@ void bond_netlink_fini(void);
  int bond_option_mode_set(struct bonding *bond, int mode);
  int bond_option_active_slave_set(struct bonding *bond, struct net_device *slave_dev);
-+int bond_option_miimon_set(struct bonding *bond, int miimon);
+ int bond_option_miimon_set(struct bonding *bond, int miimon);
++int bond_option_updelay_set(struct bonding *bond, int updelay);
  struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond);
  struct net_device *bond_option_active_slave_get(struct bonding *bond);
  
 diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 6db4601..739b2db 100644
+index 739b2db..7588c81 100644
 --- a/include/uapi/linux/if_link.h
 +++ b/include/uapi/linux/if_link.h
-@@ -331,6 +331,7 @@ enum {
- 	IFLA_BOND_UNSPEC,
+@@ -332,6 +332,7 @@ enum {
  	IFLA_BOND_MODE,
  	IFLA_BOND_ACTIVE_SLAVE,
-+	IFLA_BOND_MIIMON,
+ 	IFLA_BOND_MIIMON,
++	IFLA_BOND_UPDELAY,
  	__IFLA_BOND_MAX,
  };
  
