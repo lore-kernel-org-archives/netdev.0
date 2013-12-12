@@ -1,58 +1,160 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH 0/2] Display adjacent switch port's attributes
-Date: Thu, 12 Dec 2013 09:52:13 -0800
-Message-ID: <52A9F7CD.5050904@intel.com>
-References: <1386768540-48188-1-git-send-email-raspl@linux.vnet.ibm.com> <20131211121357.4742d9e8@nehalam.linuxnetplumber.net> <52A9C0BE.5090801@linux.vnet.ibm.com> <20131212.122801.1249371766101769652.davem@davemloft.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2 1/2] lib: introduce arch optimized hash library
+Date: Thu, 12 Dec 2013 18:54:23 +0100
+Message-ID: <52A9F84F.8060500@6wind.com>
+References: <1386860946-1621-1-git-send-email-ffusco@redhat.com> <1386860946-1621-2-git-send-email-ffusco@redhat.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	bhutchings@solarflare.com, blaschka@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: raspl@linux.vnet.ibm.com
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Thomas Graf <tgraf@redhat.com>, linux-kernel@vger.kernel.org
+To: Francesco Fusco <ffusco@redhat.com>, jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:11785 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751884Ab3LLRwX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Dec 2013 12:52:23 -0500
-In-Reply-To: <20131212.122801.1249371766101769652.davem@davemloft.net>
+Received: from mail-we0-f175.google.com ([74.125.82.175]:44999 "EHLO
+	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751079Ab3LLRy0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 12:54:26 -0500
+Received: by mail-we0-f175.google.com with SMTP id t60so808437wes.34
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 09:54:25 -0800 (PST)
+In-Reply-To: <1386860946-1621-2-git-send-email-ffusco@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/12/2013 9:28 AM, David Miller wrote:
-> From: Stefan Raspl <raspl@linux.vnet.ibm.com>
-> Date: Thu, 12 Dec 2013 14:57:18 +0100
+Le 12/12/2013 16:09, Francesco Fusco a =C3=A9crit :
+> We introduce a new hashing library that is meant to be used in
+> the contexts where speed is more important than uniformity of the
+> hashed values. The hash library leverages architecture specific
+> implementation to achieve high performance and fall backs to
+> jhash() for the generic case.
 >
->> I agree, netlink would certainly be nice. But ethtool is the
->> de-facto standard for now, and there doesn't seem to be a
->> netlink-based alternative in sight - or is there?
->> Offering a netlink based tool seems to be a different discussion,
->> and if that takes shape, existing ethtool functionality (including
->> this series) can and should be migrated.
+> On Intel-based x86 architectures, the library can exploit the crc32l
+> instruction, part of the Intel SSE4.2 instruction set, if the
+> instruction is supported by the processor. This implementation
+> is twice as fast as the jhash() implementation on an i7 processor.
 >
-> I completely disagree, ethtool is not de-facto for anything in
-> particular.  It's suitable for some things, not suitable for
-> others.
+> Additional architectures, such as Arm64 provide instructions for
+> accelerating the computation of CRC, so they could be added as well
+> in follow-up work.
 >
-> And just because it's used for other aspects of a device's
-> configuration doesn't mean that netlink isn't appropriate for other
-> apsects.
+> Signed-off-by: Francesco Fusco <ffusco@redhat.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Thomas Graf <tgraf@redhat.com>
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>   arch/x86/include/asm/hash.h |  7 ++++
+>   arch/x86/lib/Makefile       |  2 +-
+>   arch/x86/lib/hash.c         | 88 ++++++++++++++++++++++++++++++++++=
++++++++++++
+>   include/asm-generic/hash.h  |  9 +++++
+>   include/linux/hash.h        | 36 +++++++++++++++++++
+>   lib/Makefile                |  2 +-
+>   lib/hash.c                  | 38 ++++++++++++++++++++
+>   7 files changed, 180 insertions(+), 2 deletions(-)
+>   create mode 100644 arch/x86/include/asm/hash.h
+>   create mode 100644 arch/x86/lib/hash.c
+>   create mode 100644 include/asm-generic/hash.h
+>   create mode 100644 lib/hash.c
+>
+> diff --git a/arch/x86/include/asm/hash.h b/arch/x86/include/asm/hash.=
+h
+> new file mode 100644
+> index 0000000..e8c58f8
+> --- /dev/null
+> +++ b/arch/x86/include/asm/hash.h
+> @@ -0,0 +1,7 @@
+> +#ifndef _ASM_X86_HASH_H
+> +#define _ASM_X86_HASH_H
+> +
+> +struct fast_hash_ops;
+> +extern void setup_arch_fast_hash(struct fast_hash_ops *ops);
+> +
+> +#endif /* _ASM_X86_HASH_H */
+> diff --git a/arch/x86/lib/Makefile b/arch/x86/lib/Makefile
+> index 992d63b..eabcb6e 100644
+> --- a/arch/x86/lib/Makefile
+> +++ b/arch/x86/lib/Makefile
+> @@ -24,7 +24,7 @@ lib-$(CONFIG_SMP) +=3D rwlock.o
+>   lib-$(CONFIG_RWSEM_XCHGADD_ALGORITHM) +=3D rwsem.o
+>   lib-$(CONFIG_INSTRUCTION_DECODER) +=3D insn.o inat.o
+>
+> -obj-y +=3D msr.o msr-reg.o msr-reg-export.o
+> +obj-y +=3D msr.o msr-reg.o msr-reg-export.o hash.o
+>
+>   ifeq ($(CONFIG_X86_32),y)
+>           obj-y +=3D atomic64_32.o
+> diff --git a/arch/x86/lib/hash.c b/arch/x86/lib/hash.c
+> new file mode 100644
+> index 0000000..3056702
+> --- /dev/null
+> +++ b/arch/x86/lib/hash.c
+> @@ -0,0 +1,88 @@
+> +/*
+> + * Some portions derived from code covered by the following notice:
+> + *
+> + * Copyright (c) 2010-2013 Intel Corporation. All rights reserved.
+> + * All rights reserved.
+Is it possible to trace that this comes from the DPDK?
+At least in the commit log, like it was done in the v1.
 
-Just to elaborate...
+> + *
+> + * Redistribution and use in source and binary forms, with or withou=
+t
+> + * modification, are permitted provided that the following condition=
+s
+> + * are met:
+> + *
+> + *   * Redistributions of source code must retain the above copyrigh=
+t
+> + *     notice, this list of conditions and the following disclaimer.
+> + *   * Redistributions in binary form must reproduce the above copyr=
+ight
+> + *     notice, this list of conditions and the following disclaimer =
+in
+> + *     the documentation and/or other materials provided with the
+> + *     distribution.
+> + *   * Neither the name of Intel Corporation nor the names of its
+> + *     contributors may be used to endorse or promote products deriv=
+ed
+> + *     from this software without specific prior written permission.
+> + *
+> + * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTO=
+RS
+> + * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+> + * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS=
+ FOR
+> + * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRI=
+GHT
+> + * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDEN=
+TAL,
+> + * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+> + * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF =
+USE,
+> + * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON=
+ ANY
+> + * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TO=
+RT
+> + * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE=
+ USE
+> + * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMA=
+GE.
+> + */
+> +
+> +#include <linux/hash.h>
+> +
+> +#include <asm/processor.h>
+> +#include <asm/cpufeature.h>
+> +#include <asm/hash.h>
+> +
+> +static inline u32 crc32_u32(u32 crc, u32 val)
+> +{
+> +	asm ("crc32l %1,%0\n" : "+r" (crc) : "rm" (val));
+I'm not an expert, but is it not possible to use intrisics functions, l=
+ike it is
+done in the original code?
 
-Any application using lldp information will want to get events when
-TLVs change. Maybe you can contrive ethtool to do this but its going to
-be ugly. Netlink can support multicast events and applications can
-register for them. Also netlink's TLV format matches nicely with LLDPs
-TLV format.
 
-If you push an ethtool interface now we get stuck with an interface
-that is only useful in a very narrow use case. And netlink interfaces
-are relatively easy to construct so lets do this right the first time.
-I also happen to maintain lldpad and would be happy to plug in support
-for this via netlink so we can push firmware and software based agent
-LLDP info up to libvirt/network manager whatever in a consistent way.
-Similarly other existing lldp agents could do the same.
-
-Thanks,
-.John
+Regards,
+Nicolas
