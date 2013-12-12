@@ -1,55 +1,92 @@
-From: Jacob Appelbaum <jacob@appelbaum.net>
-Subject: Re: [PATCH] TCP: add option for silent port knocking with integrity
- protection
-Date: Thu, 12 Dec 2013 10:19:43 +0000
-Message-ID: <52A98DBF.4090702@appelbaum.net>
-References: <52A75EF8.3010308@in.tum.de> <20131211.150137.368953964178408437.davem@davemloft.net> <52A8C8B4.4060109@in.tum.de> <20131211122637.75b09074@nehalam.linuxnetplumber.net> <87bo0nulkt.fsf@tassilo.jf.intel.com> <52A8ECF5.3070604@in.tum.de> <20131212012317.GL21717@two.firstfloor.org>
+From: "Asano, Yasushi" <yasushi.asano@jp.fujitsu.com>
+Subject: RE: [PATCH 1/1] ipv6 addrconf:fix preferred lifetime state-changing
+ behavior while valid_lft is infinity
+Date: Thu, 12 Dec 2013 10:46:23 +0000
+Message-ID: <4AE7B88EC8BA74469869BB7EEB7D66671BF67ADE@g01jpexmbyt23>
+References: <4AE7B88EC8BA74469869BB7EEB7D66671BF656D2@g01jpexmbyt23>
+ <20131209234704.GF7396@order.stressinduktion.org>
+ <4AE7B88EC8BA74469869BB7EEB7D66671BF674D0@g01jpexmbyt23>
+ <20131212010348.GD4675@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Christian Grothoff <grothoff@in.tum.de>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, knock@gnunet.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20131212012317.GL21717@two.firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:38550 "EHLO
+	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751658Ab3LLKq2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 05:46:28 -0500
+Received: from m1.gw.fujitsu.co.jp (unknown [10.0.50.71])
+	by fgwmail5.fujitsu.co.jp (Postfix) with ESMTP id 887AC3EE166
+	for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 19:46:26 +0900 (JST)
+Received: from smail (m1 [127.0.0.1])
+	by outgoing.m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 7932545DE5C
+	for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 19:46:26 +0900 (JST)
+Received: from s1.gw.fujitsu.co.jp (s1.gw.nic.fujitsu.com [10.0.50.91])
+	by m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 643BF45DE55
+	for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 19:46:26 +0900 (JST)
+Received: from s1.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 576601DB804C
+	for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 19:46:26 +0900 (JST)
+Received: from g01jpfmpwyt02.exch.g01.fujitsu.local (g01jpfmpwyt02.exch.g01.fujitsu.local [10.128.193.56])
+	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 04A9EE08004
+	for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 19:46:26 +0900 (JST)
+In-Reply-To: <20131212010348.GD4675@order.stressinduktion.org>
+Content-Language: ja-JP
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Andi Kleen:
->> ... and then do the same for the first TCP packet with payload? And you
-> 
-> That gets passed through by the firewall rule.
-> 
-As an application developer, I find it very common for our users to have
-difficulty synchronizing userspace program needs and firewall rules.
-This option would greatly enable hiding of Tor bridges and other
-services where mere presence on the network is in itself a vulnerability.
-
->> seriously would consider that "safer" or "less error prone", starting
-> 
-> Yes the risk of adding exploitable holes to the kernel is signficantly
-> lower.
-
-In the case of a Tor bridge, when people are able to scan the entire
-internet, as they are, they find Tor bridges and then add those bridges
-to a database or to various national firewalls.
-
-Increasing scanning resistance improves the security of such bridges -
-though a passive (eg: sniffing) adversary may still discover such a
-bridge for blocking, this kernel modification has a second benefit - it
-will prevent most exploitable conditions from having an avenue of
-attack. Such an attacker, even if they know the IP of a bridge will need
-to find a way to break TLS or any of our other transport layer security
-protocol that we're using.
-
-I think that generally, I would prefer if the code didn't use MD5 but
-otherwise, I don't see any real disk of adding an exploitable hole. It
-seems silly to disable it by default though - ideally, I'd like a sysctl
-to ensure that Tor could use this without making the user recompile
-their kernel. That is more of a pain than running a userspace helper, I
-think.
-
-All the best,
-Jacob
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBIYW5uZXMgRnJlZGVyaWMgU293
+YSBbbWFpbHRvOmhhbm5lc0BzdHJlc3NpbmR1a3Rpb24ub3JnXQ0KPiBTZW50OiBUaHVyc2RheSwg
+RGVjZW1iZXIgMTIsIDIwMTMgMTA6MDQgQU0NCj4gVG86IEFzYW5vLCBZYXN1c2hpL+a1hemHjiDm
+ga3lj7INCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRD
+SCAxLzFdIGlwdjYgYWRkcmNvbmY6Zml4IHByZWZlcnJlZCBsaWZldGltZQ0KPiBzdGF0ZS1jaGFu
+Z2luZyBiZWhhdmlvciB3aGlsZSB2YWxpZF9sZnQgaXMgaW5maW5pdHkNCj4gSW1wb3J0YW5jZTog
+SGlnaA0KPiANCj4gT24gVGh1LCBEZWMgMTIsIDIwMTMgYXQgMTI6NTg6MTBBTSArMDAwMCwgQXNh
+bm8sIFlhc3VzaGkgd3JvdGU6DQo+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+
+ID4gRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZw0KPiA+ID4gW21haWx0bzpuZXRk
+ZXYtb3duZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2YgSGFubmVzIEZyZWRlcmljIFNv
+d2ENCj4gPiA+IFNlbnQ6IFR1ZXNkYXksIERlY2VtYmVyIDEwLCAyMDEzIDg6NDcgQU0NCj4gPiA+
+IFRvOiBBc2FubywgWWFzdXNoaQ0KPiA+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4g
+PiA+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggMS8xXSBpcHY2IGFkZHJjb25mOmZpeCBwcmVmZXJyZWQg
+bGlmZXRpbWUNCj4gPiA+IHN0YXRlLWNoYW5naW5nIGJlaGF2aW9yIHdoaWxlIHZhbGlkX2xmdCBp
+cyBpbmZpbml0eQ0KPiA+ID4gSW1wb3J0YW5jZTogSGlnaA0KPiA+ID4NCj4gPiA+IE9uIE1vbiwg
+RGVjIDA5LCAyMDEzIGF0IDA1OjU0OjM3QU0gKzAwMDAsIEFzYW5vLCBZYXN1c2hpIHdyb3RlOg0K
+PiA+ID4gPiBmcm9tOiBZYXN1c2hpIEFzYW5vICA8eWFzdXNoaS5hc2Fub0BqcC5mdWppdHN1LmNv
+bT4NCj4gPiA+ID4NCj4gPiA+ID4gVGhlcmUgaXMgYSBwcm9ibGVtIHdoZW4gc2V0dGluZyB0aGUg
+bGlmZXRpbWUgb2YgYW4gSVB2NiBhZGRyZXNzLg0KPiA+ID4gPiBXaGVuIEkgc2V0IHByZWZlcnJl
+ZF9sZnQgdG8gYSB2YWx1ZSBub3QgemVybyBvciBpbmZpbml0eSwgd2hpbGUgdmFsaWRfbGZ0DQo+
+ID4gPiBpcyBpbmZpbml0eSgweGZmZmZmZmZmKQ0KPiA+ID4gPiBwcmVmZXJyZWQgbGlmZXRpbWUg
+aXMgc2V0IHRvIGZvcmV2ZXIgYW5kIGRvZXMgbm90IHVwZGF0ZS4NCj4gPiA+ID4gVGhlcmVmb3Jl
+IHByZWZlcnJlZCBsaWZldGltZSBuZXZlciBiZWNvbWVzIGRlcHJlY2F0ZWQuDQo+ID4gPiA+DQo+
+ID4gPiA+IEkgdGhpbmsgdmFsaWQgbGlmZXRpbWUgYW5kIHByZWZlcnJlZCBsaWZldGltZSBzaG91
+bGQgYmUgc2V0DQo+IGluZGVwZW5kZW50bHksDQo+ID4gPiA+IGV2ZW4gaWYgdmFsaWQgbGlmZXRp
+bWUgaXMgaW5maW5pdHksIHByZWZlcnJlZCBsaWZldGltZSBtdXN0IGV4cGlyZQ0KPiA+ID4gY29y
+cmVjdGx5IChtZWFuaW5nIGl0IG11c3QgZXZlbnR1YWxseSBiZWNvbWUgZGVwcmVjYXRlZCkNCj4g
+PiA+ID4NCj4gPiA+ID4gSSBtYWRlIGEgcGF0Y2ggZm9yIDMuMTIgc3RhYmxlIHRvIHNvbHZlIHRo
+ZSBwcm9ibGVtLg0KPiA+ID4NCj4gPiA+IFRoaXMgaW5kZWVkIGNvdWxkIGJlIGltcHJvdmVkLiBU
+aGFua3MgZm9yIHRoZSBwYXRjaC4gQnV0IHlvdSBzaG91bGQNCj4gYmFzZQ0KPiA+ID4gaXQgb24g
+bmV0LW5leHQgc28gaXQgY2FuIGJlIGFwcGxpZWQgYW5kIHBsZWFzZSBjbGVhbiB1cCB0aGUgd2Fy
+bmluZ3MNCj4gPiA+IGFuZCBlcnJvcnMgaWYgeW91IHJ1biB0aGUgcGF0Y2ggdGhyb3VnaCAuL3Nj
+cmlwdHMvY2hlY2twYXRjaCAtLXN0cmljdC4NCj4gPiA+DQo+ID4gPiBUaGFuayB5b3UsDQo+ID4g
+Pg0KPiA+ID4gICBIYW5uZXMNCj4gPiA+DQo+ID4gSSBtYWRlIGEgcGF0Y2ggYmFzZWQgb24gbmV0
+LW5leHQgYW5kIGVtYWlsZWQgTUwgdXNpbmcgZ2l0IHNlbmQtZW1haWwgbGFzdA0KPiBuaWdodC4N
+Cj4gPg0KPiA+IFN1YmplY3Q6IFtQQVRDSCAxLzFdIGlwdjYgYWRkcmNvbmY6Zml4IHByZWZlcnJl
+ZCBsaWZldGltZSBzdGF0ZS1jaGFuZ2luZw0KPiBiZWhhdmlvciB3aGlsZSB2YWxpZF9sZnQgaXMg
+aW5maW5pdHkNCj4gPiBEYXRlOiBXZWQsIDExIERlYyAyMDEzIDE5OjU3OjMyICswOTAwDQo+ID4g
+TWVzc2FnZS1JRDoNCj4gPDEzODY3NTk0NTItMjIxNTktMS1naXQtc2VuZC1lbWFpbC15YXN1c2hp
+LmFzYW5vQGpwLmZ1aml0c3UuY29tPg0KPiA+IFgtTWFpbGVyOiBnaXQtc2VuZC1lbWFpbCAxLjcu
+MTIuNA0KPiA+DQo+ID4gVGhhbmsgeW91IGZvciB5b3VyIHRpbWUgYW5kIGFzc2lzdGFuY2UgcmVn
+YXJkaW5nIHRoaXMgbWF0dGVyLg0KPiA+IFlhc3VzaGkNCj4gDQo+IEh1Y2g/IEkgaGF2ZSBub3Qg
+c2VlbiBhbnl0aGluZyBub3IgaGFzIHBhdGNod29ya3M6DQo+IGh0dHA6Ly9wYXRjaHdvcmsub3ps
+YWJzLm9yZy9wcm9qZWN0L25ldGRldi9saXN0Lw0KPiANCj4gR3JlZXRpbmdzLA0KPiANCj4gICBI
+YW5uZXMNCg0KSSdtIHNvcnJ5LCBJIGNvdWxkbid0IHNlbmQgYW4gZW1haWwgY29ycmVjdGx5Lg0K
+SSB0cmllZCBpdCBhZ2Fpbi4gYnV0IEkgc2VudCB0aGUgZS1tYWlsIHR3aWNlIGJ5IG1pc3Rha2Uu
+IFNvcnJ5IGFnYWluLg0KDQpJIHNlbnQgYSBwYXRjaCBiYXNlZCBvbiAgbmV0LW5leHQNCg0KU3Vi
+amVjdDogW1BBVENIIDEvMV0gaXB2NiBhZGRyY29uZjpmaXggcHJlZmVycmVkIGxpZmV0aW1lIHN0
+YXRlLWNoYW5naW5nIGJlaGF2aW9yIHdoaWxlIHZhbGlkX2xmdCBpcyBpbmZpbml0eQ0KRGF0ZTog
+VGh1LCAxMiBEZWMgMjAxMyAxOToxNTo0NyArMDkwMA0KTWVzc2FnZS1JRDogPDEzODY4NDMzNDct
+MjcyNS0xLWdpdC1zZW5kLWVtYWlsLXlhenplcEBnbWFpbC5jb20+DQoNClRoYW5rIHlvdSBmb3Ig
+eW91ciB0aW1lIGFuZCBhc3Npc3RhbmNlIHJlZ2FyZGluZyB0aGlzIG1hdHRlci4NCllhc3VzaGkN
+Cg0K
