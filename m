@@ -1,48 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] TCP: add option for silent port knocking with integrity
- protection
-Date: Thu, 12 Dec 2013 07:33:41 -0800
-Message-ID: <1386862421.19078.67.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <52A75EF8.3010308@in.tum.de>
-	  <20131211.150137.368953964178408437.davem@davemloft.net>
-	  <52A8C8B4.4060109@in.tum.de>
-	  <20131211122637.75b09074@nehalam.linuxnetplumber.net>
-	  <87bo0nulkt.fsf@tassilo.jf.intel.com> <52A8ECF5.3070604@in.tum.de>
-	  <20131212012317.GL21717@two.firstfloor.org>
-	  <52A98DBF.4090702@appelbaum.net> <52A9A17F.6050505@in.tum.de>
-	 <1386858864.19078.60.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <52A9D125.9080701@in.tum.de>
+From: Felipe Balbi <balbi@ti.com>
+Subject: Re: [PATCH 1/2] drivers: net: cpsw: fix dt probe for one port
+ ethernet
+Date: Thu, 12 Dec 2013 09:44:58 -0600
+Message-ID: <20131212154458.GA31694@saruman.home>
+References: <1386821345-30555-1-git-send-email-balbi@ti.com>
+ <52A96F9F.7060801@ti.com>
+Reply-To: <balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jacob Appelbaum <jacob@appelbaum.net>,
-	Andi Kleen <andi@firstfloor.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, knock@gnunet.org
-To: Christian Grothoff <grothoff@in.tum.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:36934 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751702Ab3LLPdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 10:33:44 -0500
-In-Reply-To: <52A9D125.9080701@in.tum.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="82I3+IH0IqGh5yIs"
+Cc: Felipe Balbi <balbi@ti.com>, <davem@davemloft.net>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	<netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux OMAP Mailing List <linux-omap@vger.kernel.org>
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <52A96F9F.7060801@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-12-12 at 16:07 +0100, Christian Grothoff wrote:
+--82I3+IH0IqGh5yIs
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> I'm already having fun with IETF and pTLDs right now, one war at a time
-> ;-).  I also figured it might be easier to have a reasonable working
-> reference implementation first and then standardize.  After all, with my
-> recent draft some people at IETF suggested I should get 1,000,000+ users
-> first and then ask again.
+Hi,
 
-Honestly, breaking the detection of old packets (PAWS) is not going to
-fly. Its not even mentioned in your doc.
+On Thu, Dec 12, 2013 at 01:41:11PM +0530, Mugunthan V N wrote:
+> On Thursday 12 December 2013 09:39 AM, Felipe Balbi wrote:
+> > From: Mugunthan V N <mugunthanvnm@ti.com>
+> >
+> > When only one port of the two port is pinned out, then dt probe is fail=
+ing
+> > because second port phy is not found. fixing this by checking the numbe=
+r of
+> > slaves and breaking the loop.
+> >
+> > Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> > Signed-off-by: Felipe Balbi <balbi@ti.com>
+>=20
+> This patch is already applied to net branch and its commit id is
+> 3a27bfac17fe375539c4e0a53478679645eb5ae2.
 
-If a client uses the same ISN for two consecutive connexions to a
-server, how the server can decide the 2nd SYN is not a duplicate ?
+Ok, cool. Should it be backported to v3.12 stable tree ? I can see it's
+applicable there too.
 
-You really need more than 3 pages to fully investigate all the pros/cons
-of this idea.
+--=20
+balbi
+
+--82I3+IH0IqGh5yIs
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.15 (GNU/Linux)
+
+iQIcBAEBAgAGBQJSqdn6AAoJEIaOsuA1yqREhIEQAJ2Tr3WJhAsFUixl41XBCl3+
+KM6nm+IeZY1tlnDFoTpGQu7q0J2k099q0xeUOE7/OMdcWk1bw9Jc1Ii3MiCno+d5
+IvLDWJ+ixFS1T9cLqn+e4QYxqCBf10ZaCpq/3OE2e9Nb9ya2wNNq7iEEnOFl2RHi
+rAY8RgQF5bXQ5e6TS8/5qydupsp9RglOa12k8T7ja+IA/+z4HB9n1PTO0Q8mXFIb
+Y6455R5DGwsxfVFRJemoK9pi2MXPvNS3Np7q26jhFZy9InJEKWEz8CM0rfw2Wj93
+4nbo2HG3ps/VrRmLIGNPRcZCTs6oE4ev1G8buFdDYuEamuiUAT3SaIn8BtTPJSZb
+yn26oaDmuEW4I53IMzKC3f3pKtzgIGw7NfbZBwOJO/bd4KxPi6KjIT3cdSJOLCPV
++ENtPEsXLEe8M1L/e1MG4uf1kNVFA9qY4lOysITVtf5/stxIHOZbhIPPEdYZfDAl
+NzF4wp9iDdQlDAh8xirovr+Fd4NTuLYmPeXMzkk5DJixyhjYE6juf2B4/rCKbK4d
+YpOepvLTTBHLb8tDTkZSAIHYhbKL4f84gMfR4DmBTfWv5pnOVPl25+JngT9zL+TI
+/tjySoB/bg3XtyMVQzZ8POVo2zJbLri+vY0qYQgxUGNWHnOD2ZV6ev5GdCTsA/HH
+7pOL+6WXSU37B6d8Qpqg
+=3Hjl
+-----END PGP SIGNATURE-----
+
+--82I3+IH0IqGh5yIs--
