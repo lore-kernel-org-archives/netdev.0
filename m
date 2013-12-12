@@ -1,416 +1,228 @@
-From: "H.K. Jerry Chu" <hkchu@google.com>
-Subject: [PATCH v3 net-next] net-gro: Prepare GRO stack for the upcoming tunneling support
-Date: Wed, 11 Dec 2013 20:53:45 -0800
-Message-ID: <1386824025-27413-1-git-send-email-hkchu@google.com>
-Cc: Jerry Chu <hkchu@google.com>
-To: edumazet@google.com, herbert@gondor.apana.org.au,
-	ogerlitz@mellanox.com, bhutchings@solarflare.com,
-	davem@davemloft.net, netdev@vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH] net: Cache route in IP tunnels
+Date: Wed, 11 Dec 2013 22:17:29 -0800 (PST)
+Message-ID: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:63322 "EHLO
-	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751028Ab3LLExz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 23:53:55 -0500
-Received: by mail-ob0-f202.google.com with SMTP id gq1so1581419obb.5
-        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 20:53:55 -0800 (PST)
+Received: from mail-vb0-f73.google.com ([209.85.212.73]:54066 "EHLO
+	mail-vb0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751165Ab3LLGRa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 01:17:30 -0500
+Received: by mail-vb0-f73.google.com with SMTP id m10so374180vbh.2
+        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 22:17:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jerry Chu <hkchu@google.com>
+Avoid doing a route lookup on every packet being tunneled.
 
-This patch modifies the GRO stack to avoid the use of "network_header"
-and associated macros like ip_hdr() and ipv6_hdr() in order to allow
-an arbitary number of IP hdrs (v4 or v6) to be used in the
-encapsulation chain. This lays the foundation for various IP
-tunneling support (IP-in-IP, GRE, VXLAN, SIT,...) to be added later.
+In ip_tunnel.c cache the route returned from ip_route_output if
+the tunnel is "connected", that is all the routing parameters are
+taken from tunnel parms for a packet. Specifically, not NBMA tunnel
+and tos is from tunnel parms (not inner packet).
 
-With this patch, the GRO stack traversing now is mostly based on
-skb_gro_offset rather than special hdr offsets saved in skb (e.g.,
-skb->network_header). As a result all but the top layer (i.e., the
-the transport layer) must have hdrs of the same length in order for
-a pkt to be considered for aggregation. Therefore when adding a new
-encap layer (e.g., for tunneling), one must check and skip flows
-(e.g., by setting NAPI_GRO_CB(p)->same_flow to 0) that have a
-different hdr length.
-
-Note that unlike the network header, the transport header can and
-will continue to be set by the GRO code since there will be at
-most one "transport layer" in the encap chain.
-
-Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Reviewed-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/linux/netdevice.h |  2 +-
- net/core/dev.c            | 76 ++++++++++++++++-------------------------------
- net/ipv4/af_inet.c        | 25 ++++++++++++----
- net/ipv4/tcp_offload.c    |  9 +++---
- net/ipv6/ip6_offload.c    | 54 ++++++++++++++++++++++++++-------
- net/ipv6/tcpv6_offload.c  |  6 ++--
- 6 files changed, 97 insertions(+), 75 deletions(-)
+ include/net/ip_tunnels.h |   3 ++
+ net/ipv4/ip_tunnel.c     | 106 +++++++++++++++++++++++++++++++++++++----------
+ 2 files changed, 86 insertions(+), 23 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9d55e51..ba321f1b 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1673,7 +1673,7 @@ struct offload_callbacks {
- 	int			(*gso_send_check)(struct sk_buff *skb);
- 	struct sk_buff		**(*gro_receive)(struct sk_buff **head,
- 					       struct sk_buff *skb);
--	int			(*gro_complete)(struct sk_buff *skb);
-+	int			(*gro_complete)(struct sk_buff *skb, int nhoff);
- };
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 732f8c6..bde50fc 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -54,6 +54,9 @@ struct ip_tunnel {
+ 	int		hlen;		/* Precalculated header length */
+ 	int		mlink;
  
- struct packet_offload {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6cc98dd..bd71bec 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3767,7 +3767,7 @@ static int napi_gro_complete(struct sk_buff *skb)
- 		if (ptype->type != type || !ptype->callbacks.gro_complete)
- 			continue;
++	struct		dst_entry __rcu *dst_cache;
++	spinlock_t	dst_lock;
++
+ 	struct ip_tunnel_parm parms;
  
--		err = ptype->callbacks.gro_complete(skb);
-+		err = ptype->callbacks.gro_complete(skb, 0);
- 		break;
- 	}
- 	rcu_read_unlock();
-@@ -3833,6 +3833,23 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
- 	}
+ 	/* for SIT */
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 90ff957..c4db0cc 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -68,6 +68,50 @@ static unsigned int ip_tunnel_hash(struct ip_tunnel_net *itn,
+ 			 IP_TNL_HASH_BITS);
  }
  
-+static void skb_gro_reset_offset(struct sk_buff *skb)
++static inline void
++tunnel_dst_set(struct ip_tunnel *t, struct dst_entry *dst)
 +{
-+	const struct skb_shared_info *pinfo = skb_shinfo(skb);
-+	const skb_frag_t *frag0 = &pinfo->frags[0];
++	struct dst_entry *old_dst;
 +
-+	NAPI_GRO_CB(skb)->data_offset = 0;
-+	NAPI_GRO_CB(skb)->frag0 = NULL;
-+	NAPI_GRO_CB(skb)->frag0_len = 0;
-+
-+	if (skb_mac_header(skb) == skb_tail_pointer(skb) &&
-+	    pinfo->nr_frags &&
-+	    !PageHighMem(skb_frag_page(frag0))) {
-+		NAPI_GRO_CB(skb)->frag0 = skb_frag_address(frag0);
-+		NAPI_GRO_CB(skb)->frag0_len = skb_frag_size(frag0);
-+	}
++	spin_lock(&t->dst_lock);
++	old_dst = rcu_dereference_raw(t->dst_cache);
++	rcu_assign_pointer(t->dst_cache, dst);
++	dst_release(old_dst);
++	spin_unlock(&t->dst_lock);
 +}
 +
- static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- {
- 	struct sk_buff **pp = NULL;
-@@ -3848,6 +3865,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 	if (skb_is_gso(skb) || skb_has_frag_list(skb))
- 		goto normal;
- 
-+	skb_gro_reset_offset(skb);
- 	gro_list_prepare(napi, skb);
- 
- 	rcu_read_lock();
-@@ -3953,27 +3971,8 @@ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
- 	return ret;
- }
- 
--static void skb_gro_reset_offset(struct sk_buff *skb)
--{
--	const struct skb_shared_info *pinfo = skb_shinfo(skb);
--	const skb_frag_t *frag0 = &pinfo->frags[0];
--
--	NAPI_GRO_CB(skb)->data_offset = 0;
--	NAPI_GRO_CB(skb)->frag0 = NULL;
--	NAPI_GRO_CB(skb)->frag0_len = 0;
--
--	if (skb_mac_header(skb) == skb_tail_pointer(skb) &&
--	    pinfo->nr_frags &&
--	    !PageHighMem(skb_frag_page(frag0))) {
--		NAPI_GRO_CB(skb)->frag0 = skb_frag_address(frag0);
--		NAPI_GRO_CB(skb)->frag0_len = skb_frag_size(frag0);
--	}
--}
--
- gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- {
--	skb_gro_reset_offset(skb);
--
- 	return napi_skb_finish(dev_gro_receive(napi, skb), skb);
- }
- EXPORT_SYMBOL(napi_gro_receive);
-@@ -4007,12 +4006,7 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *
- {
- 	switch (ret) {
- 	case GRO_NORMAL:
--	case GRO_HELD:
--		skb->protocol = eth_type_trans(skb, skb->dev);
--
--		if (ret == GRO_HELD)
--			skb_gro_pull(skb, -ETH_HLEN);
--		else if (netif_receive_skb(skb))
-+		if (netif_receive_skb(skb))
- 			ret = GRO_DROP;
- 		break;
- 
-@@ -4021,6 +4015,7 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *
- 		napi_reuse_skb(napi, skb);
- 		break;
- 
-+	case GRO_HELD:
- 	case GRO_MERGED:
- 		break;
- 	}
-@@ -4031,36 +4026,15 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *
- static struct sk_buff *napi_frags_skb(struct napi_struct *napi)
- {
- 	struct sk_buff *skb = napi->skb;
--	struct ethhdr *eth;
--	unsigned int hlen;
--	unsigned int off;
- 
- 	napi->skb = NULL;
- 
--	skb_reset_mac_header(skb);
--	skb_gro_reset_offset(skb);
--
--	off = skb_gro_offset(skb);
--	hlen = off + sizeof(*eth);
--	eth = skb_gro_header_fast(skb, off);
--	if (skb_gro_header_hard(skb, hlen)) {
--		eth = skb_gro_header_slow(skb, hlen, off);
--		if (unlikely(!eth)) {
--			napi_reuse_skb(napi, skb);
--			skb = NULL;
--			goto out;
--		}
-+	if (unlikely(!pskb_may_pull(skb, sizeof(struct ethhdr)))) {
-+		napi_reuse_skb(napi, skb);
++static inline void
++tunnel_dst_reset(struct ip_tunnel *t)
++{
++	tunnel_dst_set(t, NULL);
++}
++
++static inline struct dst_entry *
++tunnel_dst_get(struct ip_tunnel *t)
++{
++	struct dst_entry *dst;
++
++	rcu_read_lock();
++	dst = rcu_dereference(t->dst_cache);
++	if (dst)
++		dst_hold(dst);
++	rcu_read_unlock();
++	return dst;
++}
++
++struct dst_entry *tunnel_dst_check(struct ip_tunnel *t, u32 cookie)
++{
++	struct dst_entry *dst = tunnel_dst_get(t);
++
++	if (dst && dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
++		tunnel_dst_reset(t);
++		dst_release(dst);
 +		return NULL;
- 	}
-+	skb->protocol = eth_type_trans(skb, skb->dev);
- 
--	skb_gro_pull(skb, sizeof(*eth));
--
--	/*
--	 * This works because the only protocols we care about don't require
--	 * special handling.  We'll fix it up properly at the end.
--	 */
--	skb->protocol = eth->h_proto;
--
--out:
- 	return skb;
- }
- 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 70011e0..ef4f9df 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1377,8 +1377,12 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 		if (!NAPI_GRO_CB(p)->same_flow)
- 			continue;
- 
--		iph2 = ip_hdr(p);
--
-+		iph2 = (struct iphdr *)(p->data + off);
-+		/* The above works because, with the exception of the top
-+		 * (inner most) layer, we only aggregate pkts with the same
-+		 * hdr length so all the hdrs we'll need to verify will start
-+		 * at the same offset.
-+		 */
- 		if ((iph->protocol ^ iph2->protocol) |
- 		    ((__force u32)iph->saddr ^ (__force u32)iph2->saddr) |
- 		    ((__force u32)iph->daddr ^ (__force u32)iph2->daddr)) {
-@@ -1397,6 +1401,11 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 	}
- 
- 	NAPI_GRO_CB(skb)->flush |= flush;
-+	skb_set_network_header(skb, off);
-+	/* The above will be needed by the transport layer if there is one
-+	 * immediately following this IP hdr.
-+	 */
-+
- 	skb_gro_pull(skb, sizeof(*iph));
- 	skb_set_transport_header(skb, skb_gro_offset(skb));
- 
-@@ -1411,10 +1420,10 @@ out:
- 	return pp;
- }
- 
--static int inet_gro_complete(struct sk_buff *skb)
-+static int inet_gro_complete(struct sk_buff *skb, int nhoff)
- {
--	__be16 newlen = htons(skb->len - skb_network_offset(skb));
--	struct iphdr *iph = ip_hdr(skb);
-+	__be16 newlen = htons(skb->len - nhoff);
-+	struct iphdr *iph = (struct iphdr *)(skb->data + nhoff);
- 	const struct net_offload *ops;
- 	int proto = iph->protocol;
- 	int err = -ENOSYS;
-@@ -1427,7 +1436,11 @@ static int inet_gro_complete(struct sk_buff *skb)
- 	if (WARN_ON(!ops || !ops->callbacks.gro_complete))
- 		goto out_unlock;
- 
--	err = ops->callbacks.gro_complete(skb);
-+	/* Only need to add sizeof(*iph) to get to the next hdr below
-+	 * because any hdr with option will have been flushed in
-+	 * inet_gro_receive().
-+	 */
-+	err = ops->callbacks.gro_complete(skb, nhoff + sizeof(*iph));
- 
- out_unlock:
- 	rcu_read_unlock();
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 0560635..2658a27 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -240,7 +240,7 @@ int tcp_gro_complete(struct sk_buff *skb)
- {
- 	struct tcphdr *th = tcp_hdr(skb);
- 
--	skb->csum_start = skb_transport_header(skb) - skb->head;
-+	skb->csum_start = (unsigned char *)th - skb->head;
- 	skb->csum_offset = offsetof(struct tcphdr, check);
- 	skb->ip_summed = CHECKSUM_PARTIAL;
- 
-@@ -272,6 +272,7 @@ static int tcp_v4_gso_send_check(struct sk_buff *skb)
- 
- static struct sk_buff **tcp4_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- {
-+	/* Use the IP hdr immediately proceeding for this transport */
- 	const struct iphdr *iph = skb_gro_network_header(skb);
- 	__wsum wsum;
- 
-@@ -303,13 +304,13 @@ skip_csum:
- 	return tcp_gro_receive(head, skb);
- }
- 
--static int tcp4_gro_complete(struct sk_buff *skb)
-+static int tcp4_gro_complete(struct sk_buff *skb, int thoff)
- {
- 	const struct iphdr *iph = ip_hdr(skb);
- 	struct tcphdr *th = tcp_hdr(skb);
- 
--	th->check = ~tcp_v4_check(skb->len - skb_transport_offset(skb),
--				  iph->saddr, iph->daddr, 0);
-+	th->check = ~tcp_v4_check(skb->len - thoff, iph->saddr,
-+				  iph->daddr, 0);
- 	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
- 
- 	return tcp_gro_complete(skb);
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 4b85169..7540a0e 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -154,6 +154,35 @@ out:
- 	return segs;
- }
- 
-+/* Return the total length of all the extension hdrs, following the same
-+ * logic in ipv6_gso_pull_exthdrs() when parsing ext-hdrs.
-+ */
-+static int ipv6_exthdrs_len(struct ipv6hdr *iph,
-+			    const struct net_offload **opps)
-+{
-+	struct ipv6_opt_hdr *opth = NULL;
-+	int len = 0, proto, optlen;
-+
-+	proto = iph->nexthdr;
-+	for (;;) {
-+		if (proto != NEXTHDR_HOP) {
-+			*opps = rcu_dereference(inet6_offloads[proto]);
-+			if (unlikely(!(*opps)))
-+				break;
-+			if (!((*opps)->flags & INET6_PROTO_GSO_EXTHDR))
-+				break;
-+		}
-+		if (opth == NULL)
-+			opth = (void *)(iph+1);
-+		else
-+			opth = (void *)opth + optlen;
-+		optlen = ipv6_optlen(opth);
-+		len += optlen;
-+		proto = opth->nexthdr;
 +	}
-+	return len;
++
++	return dst;
 +}
 +
- static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 					 struct sk_buff *skb)
+ /* Often modified stats are per cpu, other are shared (netdev->stats) */
+ struct rtnl_link_stats64 *ip_tunnel_get_stats64(struct net_device *dev,
+ 						struct rtnl_link_stats64 *tot)
+@@ -318,11 +362,9 @@ failed:
+ 	return ERR_PTR(err);
+ }
+ 
+-static inline struct rtable *ip_route_output_tunnel(struct net *net,
+-						    struct flowi4 *fl4,
+-						    int proto,
+-						    __be32 daddr, __be32 saddr,
+-						    __be32 key, __u8 tos, int oif)
++static inline void init_tunnel_flow(struct flowi4 *fl4, int proto,
++				    __be32 daddr, __be32 saddr,
++				    __be32 key, __u8 tos, int oif)
  {
-@@ -177,6 +206,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 			goto out;
+ 	memset(fl4, 0, sizeof(*fl4));
+ 	fl4->flowi4_oif = oif;
+@@ -331,7 +373,6 @@ static inline struct rtable *ip_route_output_tunnel(struct net *net,
+ 	fl4->flowi4_tos = tos;
+ 	fl4->flowi4_proto = proto;
+ 	fl4->fl4_gre_key = key;
+-	return ip_route_output_key(net, fl4);
+ }
+ 
+ static int ip_tunnel_bind_dev(struct net_device *dev)
+@@ -350,12 +391,11 @@ static int ip_tunnel_bind_dev(struct net_device *dev)
+ 		struct flowi4 fl4;
+ 		struct rtable *rt;
+ 
+-		rt = ip_route_output_tunnel(tunnel->net, &fl4,
+-					    tunnel->parms.iph.protocol,
+-					    iph->daddr, iph->saddr,
+-					    tunnel->parms.o_key,
+-					    RT_TOS(iph->tos),
+-					    tunnel->parms.link);
++		init_tunnel_flow(&fl4, iph->protocol, iph->daddr,
++				 iph->saddr, tunnel->parms.o_key,
++				 RT_TOS(iph->tos), tunnel->parms.link);
++		rt = ip_route_output_key(tunnel->net, &fl4);
++
+ 		if (!IS_ERR(rt)) {
+ 			tdev = rt->dst.dev;
+ 			ip_rt_put(rt);
+@@ -532,6 +572,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	unsigned int max_headroom;	/* The extra header space needed */
+ 	__be32 dst;
+ 	int err;
++	bool connected = true;
+ 
+ 	inner_iph = (const struct iphdr *)skb_inner_network_header(skb);
+ 
+@@ -581,26 +622,39 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ #endif
+ 		else
+ 			goto tx_error;
++
++		connected = false;
  	}
  
-+	skb_set_network_header(skb, off);
- 	skb_gro_pull(skb, sizeof(*iph));
- 	skb_set_transport_header(skb, skb_gro_offset(skb));
+ 	tos = tnl_params->tos;
+ 	if (tos & 0x1) {
+ 		tos &= ~0x1;
+-		if (skb->protocol == htons(ETH_P_IP))
++		if (skb->protocol == htons(ETH_P_IP)) {
+ 			tos = inner_iph->tos;
+-		else if (skb->protocol == htons(ETH_P_IPV6))
++			connected = false;
++		} else if (skb->protocol == htons(ETH_P_IPV6)) {
+ 			tos = ipv6_get_dsfield((const struct ipv6hdr *)inner_iph);
++			connected = false;
++		}
+ 	}
  
-@@ -211,12 +241,16 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 		if (!NAPI_GRO_CB(p)->same_flow)
- 			continue;
- 
--		iph2 = ipv6_hdr(p);
-+		iph2 = (struct ipv6hdr *)(p->data + off);
- 		first_word = *(__be32 *)iph ^ *(__be32 *)iph2 ;
- 
--		/* All fields must match except length and Traffic Class. */
--		if (nlen != skb_network_header_len(p) ||
--		    (first_word & htonl(0xF00FFFFF)) ||
-+		/* All fields must match except length and Traffic Class.
-+		 * XXX skbs on the gro_list have all been parsed and pulled
-+		 * already so we don't need to compare nlen
-+		 * (nlen != (sizeof(*iph2) + ipv6_exthdrs_len(iph2, &ops)))
-+		 * memcmp() alone below is suffcient, right?
-+		 */
-+		 if ((first_word & htonl(0xF00FFFFF)) ||
- 		    memcmp(&iph->nexthdr, &iph2->nexthdr,
- 			   nlen - offsetof(struct ipv6hdr, nexthdr))) {
- 			NAPI_GRO_CB(p)->same_flow = 0;
-@@ -245,21 +279,21 @@ out:
- 	return pp;
- }
- 
--static int ipv6_gro_complete(struct sk_buff *skb)
-+static int ipv6_gro_complete(struct sk_buff *skb, int nhoff)
- {
- 	const struct net_offload *ops;
--	struct ipv6hdr *iph = ipv6_hdr(skb);
-+	struct ipv6hdr *iph = (struct ipv6hdr *)(skb->data + nhoff);
- 	int err = -ENOSYS;
- 
--	iph->payload_len = htons(skb->len - skb_network_offset(skb) -
--				 sizeof(*iph));
-+	iph->payload_len = htons(skb->len - nhoff - sizeof(*iph));
- 
- 	rcu_read_lock();
--	ops = rcu_dereference(inet6_offloads[NAPI_GRO_CB(skb)->proto]);
+-	rt = ip_route_output_tunnel(tunnel->net, &fl4,
+-				    protocol,
+-				    dst, tnl_params->saddr,
+-				    tunnel->parms.o_key,
+-				    RT_TOS(tos),
+-				    tunnel->parms.link);
+-	if (IS_ERR(rt)) {
+-		dev->stats.tx_carrier_errors++;
+-		goto tx_error;
++	init_tunnel_flow(&fl4, protocol, dst, tnl_params->saddr,
++			 tunnel->parms.o_key, RT_TOS(tos), tunnel->parms.link);
 +
-+	nhoff += sizeof(*iph) + ipv6_exthdrs_len(iph, &ops);
- 	if (WARN_ON(!ops || !ops->callbacks.gro_complete))
- 		goto out_unlock;
- 
--	err = ops->callbacks.gro_complete(skb);
-+	err = ops->callbacks.gro_complete(skb, nhoff);
- 
- out_unlock:
- 	rcu_read_unlock();
-diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
-index 6d18157..0d78132 100644
---- a/net/ipv6/tcpv6_offload.c
-+++ b/net/ipv6/tcpv6_offload.c
-@@ -66,13 +66,13 @@ skip_csum:
- 	return tcp_gro_receive(head, skb);
++	if (connected)
++		rt = (struct rtable *)tunnel_dst_check(tunnel, 0);
++	else
++		rt = NULL;
++
++	if (!rt) {
++		rt = ip_route_output_key(tunnel->net, &fl4);
++
++		if (IS_ERR(rt)) {
++			dev->stats.tx_carrier_errors++;
++			goto tx_error;
++		}
++		if (connected)
++			tunnel_dst_set(tunnel, dst_clone(&rt->dst));
+ 	}
+ 	if (rt->dst.dev == dev) {
+ 		ip_rt_put(rt);
+@@ -696,6 +750,7 @@ static void ip_tunnel_update(struct ip_tunnel_net *itn,
+ 		if (set_mtu)
+ 			dev->mtu = mtu;
+ 	}
++	tunnel_dst_reset(t);
+ 	netdev_state_change(dev);
  }
  
--static int tcp6_gro_complete(struct sk_buff *skb)
-+static int tcp6_gro_complete(struct sk_buff *skb, int thoff)
- {
- 	const struct ipv6hdr *iph = ipv6_hdr(skb);
- 	struct tcphdr *th = tcp_hdr(skb);
+@@ -1001,6 +1056,9 @@ int ip_tunnel_init(struct net_device *dev)
+ 	iph->version		= 4;
+ 	iph->ihl		= 5;
  
--	th->check = ~tcp_v6_check(skb->len - skb_transport_offset(skb),
--				  &iph->saddr, &iph->daddr, 0);
-+	th->check = ~tcp_v6_check(skb->len - thoff, &iph->saddr,
-+				  &iph->daddr, 0);
- 	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
++	tunnel->dst_cache = NULL;
++	spin_lock_init(&tunnel->dst_lock);
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_init);
+@@ -1015,6 +1073,8 @@ void ip_tunnel_uninit(struct net_device *dev)
+ 	/* fb_tunnel_dev will be unregisted in net-exit call. */
+ 	if (itn->fb_tunnel_dev != dev)
+ 		ip_tunnel_del(netdev_priv(dev));
++
++	tunnel_dst_reset(tunnel);
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_uninit);
  
- 	return tcp_gro_complete(skb);
 -- 
 1.8.5.1
