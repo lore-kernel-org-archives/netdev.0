@@ -1,41 +1,27 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next v2] ipv6: log autoconfiguration failures
-Date: Thu, 12 Dec 2013 20:00:42 +0100
-Message-ID: <20131212190042.GH4675@order.stressinduktion.org>
-References: <52A99B56.1070503@redhat.com> <20131212.122241.2022824170198915190.davem@davemloft.net> <52A9F93A.5040104@gmail.com> <20131212.132441.1907656115241279246.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/6] sched: remove get_stats from tc_action_ops
+Date: Thu, 12 Dec 2013 14:01:01 -0500 (EST)
+Message-ID: <20131212.140101.1628224553291583449.davem@davemloft.net>
+References: <1386829833-4219-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: vyasevich@gmail.com, dvlasenk@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	jpirko@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20131212.132441.1907656115241279246.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39050 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751853Ab3LLTBD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 14:01:03 -0500
+In-Reply-To: <1386829833-4219-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 12, 2013 at 01:24:41PM -0500, David Miller wrote:
-> From: Vlad Yasevich <vyasevich@gmail.com>
-> Date: Thu, 12 Dec 2013 12:58:18 -0500
-> 
-> > On 12/12/2013 12:22 PM, David Miller wrote:
-> >> Give it statistics just like we have for every other kind of similar
-> >> event.
-> > 
-> > The fact that link-local address could not be generated for a specific
-> > device type does not lend itself well to counting.  There is no way
-> > from to tell from the counter which device does not support IPv6 autoconfig.
-> 
-> If the statistic is per-device, which I recommended it be implemented as,
-> you indeed can.
-> 
-> And I do not buy the argument that this is "useless" because the admin
-> is just going to kill the interface and create a new one.  When you
-> notice there is a problem, you look at the statistics before doing
-> that!
 
-Granted.
+Please provide a cover posting with subject "[PATCH net-next 0/6] xxx"
+to describe the overall goals of the patch series.
 
-IMHO both ways are fine with a slight opionion to counters being overkill. ;)
+Otherwise I have nothing to reply to which is a reasonable for giving
+feedback about the patch series as a whole.
+
+Thank you.
