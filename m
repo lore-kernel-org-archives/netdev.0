@@ -1,63 +1,67 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next v2 0/9] xen-netback: TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy
-Date: Thu, 12 Dec 2013 23:48:08 +0000
-Message-ID: <1386892097-15502-1-git-send-email-zoltan.kiss@citrix.com>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH v3 net-next] net-gro: Prepare GRO stack for the upcoming
+ tunneling support
+Date: Fri, 13 Dec 2013 07:48:18 +0800
+Message-ID: <CAPshTCj-N6d0astJAQZa-qqCCgdcidbjsNLCZcydsw8EAH1hsw@mail.gmail.com>
+References: <1386824025-27413-1-git-send-email-hkchu@google.com>
+	<20131212.134808.116829709834251220.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
-To: <ian.campbell@citrix.com>, <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <jonathan.davies@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <edumazet@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ranjit Manomohan <ranjitm@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f178.google.com ([209.85.216.178]:38015 "EHLO
+	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751614Ab3LLXsU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 18:48:20 -0500
+Received: by mail-qc0-f178.google.com with SMTP id i17so927278qcy.37
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 15:48:19 -0800 (PST)
+In-Reply-To: <20131212.134808.116829709834251220.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A long known problem of the upstream netback implementation that on the TX
-path (from guest to Dom0) it copies the whole packet from guest memory into
-Dom0. That simply became a bottleneck with 10Gb NICs, and generally it's a
-huge perfomance penalty. The classic kernel version of netback used grant
-mapping, and to get notified when the page can be unmapped, it used page
-destructors. Unfortunately that destructor is not an upstreamable solution.
-Ian Campbell's skb fragment destructor patch series [1] tried to solve this
-problem, however it seems to be very invasive on the network stack's code,
-and therefore haven't progressed very well.
-This patch series use SKBTX_DEV_ZEROCOPY flags to tell the stack it needs to
-know when the skb is freed up. That is the way KVM solved the same problem,
-and based on my initial tests it can do the same for us. Avoiding the extra
-copy boosted up TX throughput from 6.8 Gbps to 7.9 (I used a slower
-Interlagos box, both Dom0 and guest on upstream kernel, on the same NUMA node,
-running iperf 2.0.5, and the remote end was a bare metal box on the same 10Gb
-switch)
-Based on my investigations the packet get only copied if it is delivered to
-Dom0 stack, which is due to this [2] patch. That's a bit unfortunate, but
-luckily it doesn't cause a major regression for this usecase. In the future
-we should try to eliminate that copy somehow.
-There are a few spinoff tasks which will be addressed in separate patches:
-- grant copy the header directly instead of map and memcpy. This should help
-  us avoiding TLB flushing
-- use something else than ballooned pages
-- fix grant map to use page->index properly
-I will run some more extensive tests, but some basic XenRT tests were already
-passed with good results.
-I've tried to broke it down to smaller patches, with mixed results, so I
-welcome suggestions on that part as well:
-1: Introduce TX grant map definitions
-2: Change TX path from grant copy to mapping
-3: Remove old TX grant copy definitons and fix indentations
-4: Change RX path for mapped SKB fragments
-5: Add stat counters for zerocopy
-6: Handle guests with too many frags
-7: Add stat counters for frag_list skbs
-8: Timeout packets in RX path
-9: Aggregate TX unmap operations
+On Fri, Dec 13, 2013 at 2:48 AM, David Miller <davem@davemloft.net> wrote:
+> From: "H.K. Jerry Chu" <hkchu@google.com>
+> Date: Wed, 11 Dec 2013 20:53:45 -0800
+>
+>> From: Jerry Chu <hkchu@google.com>
+>>
+>> This patch modifies the GRO stack to avoid the use of "network_header"
+>> and associated macros like ip_hdr() and ipv6_hdr() in order to allow
+>> an arbitary number of IP hdrs (v4 or v6) to be used in the
+>> encapsulation chain. This lays the foundation for various IP
+>> tunneling support (IP-in-IP, GRE, VXLAN, SIT,...) to be added later.
+>>
+>> With this patch, the GRO stack traversing now is mostly based on
+>> skb_gro_offset rather than special hdr offsets saved in skb (e.g.,
+>> skb->network_header). As a result all but the top layer (i.e., the
+>> the transport layer) must have hdrs of the same length in order for
+>> a pkt to be considered for aggregation. Therefore when adding a new
+>> encap layer (e.g., for tunneling), one must check and skip flows
+>> (e.g., by setting NAPI_GRO_CB(p)->same_flow to 0) that have a
+>> different hdr length.
+>>
+>> Note that unlike the network header, the transport header can and
+>> will continue to be set by the GRO code since there will be at
+>> most one "transport layer" in the encap chain.
+>>
+>> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+>> Suggested-by: Eric Dumazet <edumazet@google.com>
+>> Reviewed-by: Eric Dumazet <edumazet@google.com>
+>
+> Applied, thanks.
 
-v2: I've fixed some smaller things, see the individual patches. I've added a
-few new stat counters, and handling the important use case when an older guest
-sends lots of slots. Instead of delayed copy now we timeout packets on the RX
-path, based on the assumption that otherwise packets should get stucked
-anywhere else. Finally some unmap batching to avoid too much TLB flush
+Thanks, David. I will submit a patch for GRE soon to demonstrate
+just how easy it is to add tunneling support to GRO after the assumption
+of only one IP hdr in the encap chain is removed. (I already have the
+code but it doesn't support the CSUM flag. I'm thinking adding it
+plus csum offload support before submitting the patch.)
 
-[1] http://lwn.net/Articles/491522/
-[2] https://lkml.org/lkml/2012/7/20/363
+Best,
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+Jerry
