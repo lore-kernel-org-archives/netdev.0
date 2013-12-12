@@ -1,34 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH resend net] sch_tbf: use do_div() for 64-bit divide
-Date: Wed, 11 Dec 2013 22:54:04 -0500 (EST)
-Message-ID: <20131211.225404.2106014728866445709.davem@davemloft.net>
-References: <1386814923-56180-1-git-send-email-yangyingliang@huawei.com>
-	<52A92612.5080401@huawei.com>
+From: Felipe Balbi <balbi@ti.com>
+Subject: [PATCH 1/2] drivers: net: cpsw: fix dt probe for one port ethernet
+Date: Wed, 11 Dec 2013 22:09:04 -0600
+Message-ID: <1386821345-30555-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com, kbuild-all@01.org
-To: yangyingliang@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33492 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751339Ab3LLDyJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 22:54:09 -0500
-In-Reply-To: <52A92612.5080401@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <mugunthanvnm@ti.com>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	<netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux OMAP Mailing List <linux-omap@vger.kernel.org>,
+	Felipe Balbi <balbi@ti.com>
+To: <davem@davemloft.net>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yang Yingliang <yangyingliang@huawei.com>
-Date: Thu, 12 Dec 2013 10:57:22 +0800
+From: Mugunthan V N <mugunthanvnm@ti.com>
 
-> It's doing a 64-bit divide which is not supported
-> on 32-bit architectures in psched_ns_t2l(). The
-> correct way to do this is to use do_div().
-> 
-> It's introduced by commit cc106e441a63
-> ("net: sched: tbf: fix the calculation of max_size")
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+When only one port of the two port is pinned out, then dt probe is failing
+because second port phy is not found. fixing this by checking the number of
+slaves and breaking the loop.
 
-Applied, thanks.
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+---
+
+both patches were taken from TI's 3.12 tree [1]
+and have been tested on am335x, am437x and
+dra7xx.
+
+Mugunthan, I took the patches because I got bug reports
+on v3.13-rc which these patches fix. Let me know if you
+prefer to send another version of them for whatever
+reason.
+
+cheers
+
+ drivers/net/ethernet/ti/cpsw.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 7536a4c..a91f0c9 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1816,6 +1816,8 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 		}
+ 
+ 		i++;
++		if (i == data->slaves)
++			break;
+ 	}
+ 
+ 	return 0;
+-- 
+1.8.4.GIT
+
