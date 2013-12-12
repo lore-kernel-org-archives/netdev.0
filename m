@@ -1,40 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/sched/sch_tbf.c: fix linking error
-Date: Thu, 12 Dec 2013 12:25:42 -0500 (EST)
-Message-ID: <20131212.122542.1538675820432940524.davem@davemloft.net>
-References: <1386851936-1582-1-git-send-email-qais.yousef@imgtec.com>
+Subject: Re: [PATCH 0/2] Display adjacent switch port's attributes
+Date: Thu, 12 Dec 2013 12:28:01 -0500 (EST)
+Message-ID: <20131212.122801.1249371766101769652.davem@davemloft.net>
+References: <1386768540-48188-1-git-send-email-raspl@linux.vnet.ibm.com>
+	<20131211121357.4742d9e8@nehalam.linuxnetplumber.net>
+	<52A9C0BE.5090801@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yangyingliang@huawei.com, edumazet@google.com, jhs@mojatatu.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org
-To: qais.yousef@imgtec.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1386851936-1582-1-git-send-email-qais.yousef@imgtec.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen@networkplumber.org, bhutchings@solarflare.com,
+	blaschka@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
+To: raspl@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38502 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751914Ab3LLR2E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 12:28:04 -0500
+In-Reply-To: <52A9C0BE.5090801@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Qais Yousef <qais.yousef@imgtec.com>
-Date: Thu, 12 Dec 2013 12:38:56 +0000
+From: Stefan Raspl <raspl@linux.vnet.ibm.com>
+Date: Thu, 12 Dec 2013 14:57:18 +0100
 
-> ERROR: "__udivdi3" [net/sched/sch_tbf.ko] undefined!
-> 
-> introduced by: cc106e441a63 (net: sched: tbf: fix the calculation of max_size)
-> 
-> which adds a 64 by 32 bit division without using do_div().
-> Fix it by using do_div(len/ 53) instead of len/53.
-> 
-> Signed-off-by: Qais Yousef <qais.yousef@imgtec.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: linux-next@vger.kernel.org
-> ---
-> We caught this error on linux-next today. This is my quick attemp of a fix.
-> If it's not appropriate or doesn't make sense my apologies and feel free to
-> resend a better fix :)
+> I agree, netlink would certainly be nice. But ethtool is the
+> de-facto standard for now, and there doesn't seem to be a
+> netlink-based alternative in sight - or is there?
+> Offering a netlink based tool seems to be a different discussion,
+> and if that takes shape, existing ethtool functionality (including
+> this series) can and should be migrated.
 
-This is already fixed in the net-next tree.
+I completely disagree, ethtool is not de-facto for anything in
+particular.  It's suitable for some things, not suitable for
+others.
+
+And just because it's used for other aspects of a device's
+configuration doesn't mean that netlink isn't appropriate for other
+apsects.
