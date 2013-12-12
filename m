@@ -1,62 +1,63 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 11/15] i40e: debugfs command to change RSS queue count
-Date: Thu, 12 Dec 2013 18:13:58 +0400
-Message-ID: <52A9C4A6.9020409@cogentembedded.com>
-References: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com> <1386852051-27907-12-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net/sched/sch_tbf.c: fix linking error
+Date: Thu, 12 Dec 2013 06:18:19 -0800
+Message-ID: <1386857899.19078.49.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1386851936-1582-1-git-send-email-qais.yousef@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:44436 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751461Ab3LLON4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 09:13:56 -0500
-Received: by mail-la0-f49.google.com with SMTP id er20so343867lab.22
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 06:13:54 -0800 (PST)
-In-Reply-To: <1386852051-27907-12-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Yang Yingliang <yangyingliang@huawei.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
+To: Qais Yousef <qais.yousef@imgtec.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <1386851936-1582-1-git-send-email-qais.yousef@imgtec.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 12-12-2013 16:40, Jeff Kirsher wrote:
-
-> From: Anjali Singhai Jain <anjali.singhai@intel.com>
-
-> This is the 3rd of 3 patches that implements changing the number
-> of queues on the fly.
-
-> This patch adds the debugfs hook for calling the change queues
-> flow with a request to change the number of RSS queues.
-
-> This is intended to also be called eventually from ethtool.
-
-> Change-Id: Ib6b332f0ec8e58989ef8c65ec30079d01fdf6c9a
-> Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On Thu, 2013-12-12 at 12:38 +0000, Qais Yousef wrote:
+> ERROR: "__udivdi3" [net/sched/sch_tbf.ko] undefined!
+> 
+> introduced by: cc106e441a63 (net: sched: tbf: fix the calculation of max_size)
+> 
+> which adds a 64 by 32 bit division without using do_div().
+> Fix it by using do_div(len/ 53) instead of len/53.
+> 
+> Signed-off-by: Qais Yousef <qais.yousef@imgtec.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: linux-next@vger.kernel.org
 > ---
->   drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 12 ++++++++++++
->   1 file changed, 12 insertions(+)
+> We caught this error on linux-next today. This is my quick attemp of a fix.
+> If it's not appropriate or doesn't make sense my apologies and feel free to
+> resend a better fix :)
+> 
+>  net/sched/sch_tbf.c |    6 ++++--
+>  1 files changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+> index a44928c..771cbec 100644
+> --- a/net/sched/sch_tbf.c
+> +++ b/net/sched/sch_tbf.c
+> @@ -131,8 +131,10 @@ static u64 psched_ns_t2l(const struct psched_ratecfg *r,
+>  
+>  	do_div(len, NSEC_PER_SEC);
+>  
+> -	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
+> -		len = (len / 53) * 48;
+> +	if (unlikely(r->linklayer == TC_LINKLAYER_ATM)) {
+> +		do_div(len, 53);
+> +		len *= 48;
+> +	}
+>  
+>  	if (len > r->overhead)
+>  		len -= r->overhead;
 
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-> index 9c675b5..3303b43 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-> @@ -1792,6 +1792,17 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
->   		}
->   		kfree(buff);
->   		buff = NULL;
-> +	} else if (strncmp(cmd_buf, "set rss_size", 12) == 0) {
-> +		u16 queue_count;
+This looks like this was already fixed yesterday in David net tree : 
 
-    Please insert empty line after declaration.
-
-> +		cnt = sscanf(&cmd_buf[12], "%hi", &queue_count);
-
-WBR, Sergei
+http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=d55d282e6af88120ad90e93a88f70e3116dc0e3d
