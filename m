@@ -1,75 +1,50 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] i40e: make functions static and remove dead
- code
-Date: Thu, 12 Dec 2013 12:25:14 -0800
-Message-ID: <1386879914.2204.91.camel@jtkirshe-mobl>
-References: <20131212120759.430fab12@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Cache route in IP tunnels
+Date: Thu, 12 Dec 2013 12:29:56 -0800
+Message-ID: <1386880196.19078.95.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
+	 <1386833838.19078.45.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20131212.135433.87781160683841713.davem@davemloft.net>
+	 <CA+mtBx9GNG3XuyczBAJT4o2FnRBbHTV5U6PYnAJA1gf84ExeNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-e+vcKShjucDT66ld90fR"
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:16369 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751585Ab3LLUZP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Dec 2013 15:25:15 -0500
-In-Reply-To: <20131212120759.430fab12@nehalam.linuxnetplumber.net>
+Received: from mail-yh0-f49.google.com ([209.85.213.49]:54474 "EHLO
+	mail-yh0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519Ab3LLU37 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 15:29:59 -0500
+Received: by mail-yh0-f49.google.com with SMTP id z20so795313yhz.36
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 12:29:59 -0800 (PST)
+In-Reply-To: <CA+mtBx9GNG3XuyczBAJT4o2FnRBbHTV5U6PYnAJA1gf84ExeNQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2013-12-12 at 12:19 -0800, Tom Herbert wrote:
 
---=-e+vcKShjucDT66ld90fR
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> btw, I needed to disable gro on the tun interface. With it enabled,
+> performance in TCP_RR is abysmal. Looking into that.
 
-On Thu, 2013-12-12 at 12:07 -0800, Stephen Hemminger wrote:
->=20
-> Make local functions static in the file they are used.
->=20
-> Remove functions i40e_aq_add_vlan and i40e_aq_remove_vlan since
-> they are not used anywhere by current code.
->=20
-> Compile tested only.
->=20
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->=20
->=20
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_adminq.c    |    6 +
->  drivers/net/ethernet/intel/i40e/i40e_common.c    |   80
-> -----------------------
->  drivers/net/ethernet/intel/i40e/i40e_prototype.h |    8 --
->  3 files changed, 4 insertions(+), 90 deletions(-)
+This is a known problem.
 
-Thanks Stephen, currently I have nearly 80 i40e patches in my queue
-right now which may take advantage of these functions.  If not, I will
-add your patch to my queue.  I am hoping to get all these patches for
-i40e out over the next couple of weeks, so if there are patches in my
-queue that will take advantage of these functions, they will be pushed
-soon.
+Given that Jerry is working on GRO I was not really wanting to fix
+this...
 
---=-e+vcKShjucDT66ld90fR
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Thats a basically revert of
+( http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=693019e90ca45d881109d32c0c6d29adf03f6447 ) 
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.15 (GNU/Linux)
-
-iQIcBAABCgAGBQJSqhuqAAoJEOVv75VaS+3O8u8QAIKpvsuOncXjiSxvY9ZYyH5d
-QimQEtgWHmWtpLQkaTpabP5EYJUsOurvKodPfBBhG0KYZ0MwxQ97kQsTb4Y8jCKD
-5mBHs5tEJqg4wZiw6NP4fvqX4cWuve4QJMiWn2YrZToTkNDAu2/fzqxVUe3AcmJE
-mXsySfOG+/CchzEOLkgu8WDXcISnUoaGW+4NWIwD7WUH1ztzVruNpx3YCoowtewS
-qXSqp2nA/FNEQOUB7Dt3yXwKYnB28nk3BQdaZXgHGvPCf3k3hwMpv7+BZRTMjYJT
-zrrKSZqpQwMwDMff1P6unkiIOTBVNGlDmmYVAc+bd90vKlVgom6LRuTrgSba/a0p
-N8jwpb0ZGq8g4+V8GAuR3fgn+vXNYeNMZMiCYSFZTKnnT6cShpOm3Ej2jDG2mdxe
-GOQVhPGVa6V5NEgn5vt93ntDf2JE3r0YGp5EPR5XLSas5BTr+MAL6d/w59MbfqqC
-axN4SYhfaRTpArtDZbKOoZD7hjG/mh4zUNd3BoXrQpvKQicFdf6Z3Fc4GpvM2Xoo
-dLMyj4YqAcnoGhfjMoEySsMTe77AikJq1f7hwP5RGhIQSZ/kSeWvc2PeeG0CjazL
-D/CZITkRoyrCOe6MhK2ainBNGBAKUpFwVY6RPi6s1U0fbTjJwV7SOvescDqkxQhp
-7ykpm2PZSkfZQvirxC+q
-=y05+
------END PGP SIGNATURE-----
-
---=-e+vcKShjucDT66ld90fR--
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index 42ffbc8d65c6..dc7de784e934 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -111,7 +111,6 @@ int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto)
+ 		skb->rxhash = 0;
+ 	skb_dst_drop(skb);
+ 	skb->vlan_tci = 0;
+-	skb_set_queue_mapping(skb, 0);
+ 	skb->pkt_type = PACKET_HOST;
+ 	return 0;
+ }
