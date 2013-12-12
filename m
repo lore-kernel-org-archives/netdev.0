@@ -1,96 +1,143 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/15] i40e: Remove FCoE in i40e_virtchnl_pf.c code
-Date: Thu, 12 Dec 2013 04:40:51 -0800
-Message-ID: <1386852051-27907-16-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] i40e: Add basic support for get/set channels for RSS
+Date: Thu, 12 Dec 2013 04:40:48 -0800
+Message-ID: <1386852051-27907-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <Neerav.Parikh@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:26106 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751790Ab3LLMlH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Dec 2013 07:41:07 -0500
+	id S1751711Ab3LLMlF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Dec 2013 07:41:05 -0500
 In-Reply-To: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neerav Parikh <Neerav.Parikh@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Remove FCoE code from the VF interface, as the feature will
-not be supported on VF interfaces.
+Implement the number of receive/transmit queue pair being
+changed on the fly by ethtool.
 
-Change-Id: Ie9db04fa2e37fa14ac3e73a9c20980348d931357
-Signed-off-by: Neerav Parikh <Neerav.Parikh@intel.com>
+Change-Id: I70df2363f1ca40b63610baa561c5b6b92b81bca7
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 29 ++--------------------
- 1 file changed, 2 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 90 ++++++++++++++++++++++++++
+ 1 file changed, 90 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index e7bdd47..68e1f8e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -521,6 +521,7 @@ static int i40e_alloc_vsi_res(struct i40e_vf *vf, enum i40e_vsi_type type)
- 		f = i40e_add_filter(vsi, vf->default_lan_addr.addr,
- 				    0, true, false);
- 	}
-+
- 	if (!f) {
- 		dev_err(&pf->pdev->dev, "Unable to add ucast filter\n");
- 		ret = -ENOMEM;
-@@ -763,6 +764,7 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
- 		vf->lan_vsi_index = 0;
- 		vf->lan_vsi_id = 0;
- 	}
-+
- 	/* reset some of the state varibles keeping
- 	 * track of the resources
- 	 */
-@@ -1777,30 +1779,6 @@ error_param:
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index fcb6def..d6681f6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1472,6 +1472,94 @@ static int i40e_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd)
+ 	return ret;
  }
  
- /**
-- * i40e_vc_fcoe_msg
-- * @vf: pointer to the vf info
-- * @msg: pointer to the msg buffer
-- * @msglen: msg length
-- *
-- * called from the vf for the fcoe msgs
-- **/
--static int i40e_vc_fcoe_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
--{
--	i40e_status aq_ret = 0;
--
--	if (!test_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states) ||
--	    !test_bit(I40E_VF_STAT_FCOEENA, &vf->vf_states)) {
--		aq_ret = I40E_ERR_PARAM;
--		goto error_param;
--	}
--	aq_ret = I40E_ERR_NOT_IMPLEMENTED;
--
--error_param:
--	/* send the response to the vf */
--	return i40e_vc_send_resp_to_vf(vf, I40E_VIRTCHNL_OP_FCOE, aq_ret);
--}
--
--/**
-  * i40e_vc_validate_vf_msg
-  * @vf: pointer to the vf info
-  * @msg: pointer to the msg buffer
-@@ -1973,9 +1951,6 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
- 	case I40E_VIRTCHNL_OP_GET_STATS:
- 		ret = i40e_vc_get_stats_msg(vf, msg, msglen);
- 		break;
--	case I40E_VIRTCHNL_OP_FCOE:
--		ret = i40e_vc_fcoe_msg(vf, msg, msglen);
--		break;
- 	case I40E_VIRTCHNL_OP_UNKNOWN:
- 	default:
- 		dev_err(&pf->pdev->dev,
++/**
++ * i40e_max_channels - get Max number of combined channels supported
++ * @vsi: vsi pointer
++ **/
++static unsigned int i40e_max_channels(struct i40e_vsi *vsi)
++{
++	/* TODO: This code assumes DCB and FD is disabled for now. */
++	return vsi->alloc_queue_pairs;
++}
++
++/**
++ * i40e_get_channels - Get the current channels enabled and max supported etc.
++ * @netdev: network interface device structure
++ * @ch: ethtool channels structure
++ *
++ * We don't support separate tx and rx queues as channels. The other count
++ * represents how many queues are being used for control. max_combined counts
++ * how many queue pairs we can support. They may not be mapped 1 to 1 with
++ * q_vectors since we support a lot more queue pairs than q_vectors.
++ **/
++static void i40e_get_channels(struct net_device *dev,
++			       struct ethtool_channels *ch)
++{
++	struct i40e_netdev_priv *np = netdev_priv(dev);
++	struct i40e_vsi *vsi = np->vsi;
++	struct i40e_pf *pf = vsi->back;
++
++	/* report maximum channels */
++	ch->max_combined = i40e_max_channels(vsi);
++
++	/* report info for other vector */
++	ch->other_count = (pf->flags & I40E_FLAG_FDIR_ENABLED) ? 1 : 0;
++	ch->max_other = ch->other_count;
++
++	/* Note: This code assumes DCB is disabled for now. */
++	ch->combined_count = vsi->num_queue_pairs;
++}
++
++/**
++ * i40e_set_channels - Set the new channels count.
++ * @netdev: network interface device structure
++ * @ch: ethtool channels structure
++ *
++ * The new channels count may not be the same as requested by the user
++ * since it gets rounded down to a power of 2 value.
++ **/
++static int i40e_set_channels(struct net_device *dev,
++			      struct ethtool_channels *ch)
++{
++	struct i40e_netdev_priv *np = netdev_priv(dev);
++	unsigned int count = ch->combined_count;
++	struct i40e_vsi *vsi = np->vsi;
++	struct i40e_pf *pf = vsi->back;
++	int new_count;
++
++	/* We do not support setting channels for any other VSI at present */
++	if (vsi->type != I40E_VSI_MAIN)
++		return -EINVAL;
++
++	/* verify they are not requesting separate vectors */
++	if (!count || ch->rx_count || ch->tx_count)
++		return -EINVAL;
++
++	/* verify other_count has not changed */
++	if (ch->other_count != ((pf->flags & I40E_FLAG_FDIR_ENABLED) ? 1 : 0))
++		return -EINVAL;
++
++	/* verify the number of channels does not exceed hardware limits */
++	if (count > i40e_max_channels(vsi))
++		return -EINVAL;
++
++	/* update feature limits from largest to smallest supported values */
++	/* TODO: Flow director limit, DCB etc */
++
++	/* cap RSS limit */
++	if (count > pf->rss_size_max)
++		count = pf->rss_size_max;
++
++	/* use rss_reconfig to rebuild with new queue count and update traffic
++	 * class queue mapping
++	 */
++	new_count = i40e_reconfig_rss_queues(pf, count);
++	if (new_count > 1)
++		return 0;
++	else
++		return -EINVAL;
++}
++
+ static const struct ethtool_ops i40e_ethtool_ops = {
+ 	.get_settings		= i40e_get_settings,
+ 	.get_drvinfo		= i40e_get_drvinfo,
+@@ -1496,6 +1584,8 @@ static const struct ethtool_ops i40e_ethtool_ops = {
+ 	.get_ethtool_stats	= i40e_get_ethtool_stats,
+ 	.get_coalesce		= i40e_get_coalesce,
+ 	.set_coalesce		= i40e_set_coalesce,
++	.get_channels		= i40e_get_channels,
++	.set_channels		= i40e_set_channels,
+ 	.get_ts_info		= i40e_get_ts_info,
+ };
+ 
 -- 
 1.8.3.1
