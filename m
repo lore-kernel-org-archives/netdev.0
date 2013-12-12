@@ -1,69 +1,55 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCH v2 0/5] net: macb updates
-Date: Wed, 11 Dec 2013 23:00:16 -0800
-Message-ID: <CAOesGMjcmeiBfc=EOvWazebg-9vnMuQtRC0aeHJy7Q=02RdRPA@mail.gmail.com>
-References: <1386720443-24100-1-git-send-email-soren.brinkmann@xilinx.com>
+From: =?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+Subject: [PATCH] Do not listen if rtnl_send() fails in ip link iplink_have_newlink() test
+Date: Thu, 12 Dec 2013 08:18:25 +0100
+Message-ID: <1386832705-3101-1-git-send-email-ppisar@redhat.com>
+References: <20131211105749.1ee87844@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Michal Simek <michal.simek@xilinx.com>
-To: Soren Brinkmann <soren.brinkmann@xilinx.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?q?Petr=20P=C3=ADsa=C5=99?= <ppisar@redhat.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:49457 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751364Ab3LLHAR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 02:00:17 -0500
-Received: by mail-qc0-f170.google.com with SMTP id x13so6053295qcv.29
-        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 23:00:17 -0800 (PST)
-In-Reply-To: <1386720443-24100-1-git-send-email-soren.brinkmann@xilinx.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33139 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751402Ab3LLHTg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Dec 2013 02:19:36 -0500
+In-Reply-To: <20131211105749.1ee87844@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Soren,
+If rtnl_send() fails in iplink_have_newlink() test, listening for
+response will result in indefinite hang. This can be demonstrated by
+"ip link show" while SELinux preventing from sending the RTM_NEWLINK
+over netlink.
 
-On Tue, Dec 10, 2013 at 4:07 PM, Soren Brinkmann
-<soren.brinkmann@xilinx.com> wrote:
+This patch checks for the return value as is done at all other
+rtnl_send() calls. It falls back to IOCTL in case of failure.
 
-> Soren Brinkmann (5):
->   net: macb: Adjust tx_clk when link speed changes
+Signed-off-by: Petr P=C3=ADsa=C5=99 <ppisar@redhat.com>
+---
+ ip/iplink.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-This patch causes build issues on some at91 platforms, namely
-at91sam9263 that lacks programmable clocks. So it doesn't implement
-clk_set_rate() and clk_round_rate().
-
-I don't know if there's any reasonable config option to check for
-(that wouldn't add at91-specific stuff to the driver which we don't
-want). So I suspect the best way would be to implement dummy versions
-for at91 when CONFIG_AT91_PROGRAMMABLE_CLOCKS isn't set.
-
-Nicolas, you OK with that? It'd be something like the below
-(copy-paste, whitespace damage, just RFC):
-
-diff --git a/arch/arm/mach-at91/clock.c b/arch/arm/mach-at91/clock.c
-index 6b2630a..17c52a7 100644
---- a/arch/arm/mach-at91/clock.c
-+++ b/arch/arm/mach-at91/clock.c
-@@ -459,6 +459,22 @@ static void __init init_programmable_clock(struct clk *clk)
-        clk->rate_hz = parent->rate_hz / pmc_prescaler_divider(pckr);
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 58b6c20..5132868 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -178,8 +178,13 @@ static int iplink_have_newlink(void)
+ 		req.n.nlmsg_type =3D RTM_NEWLINK;
+ 		req.i.ifi_family =3D AF_UNSPEC;
+=20
+-		rtnl_send(&rth, &req.n, req.n.nlmsg_len);
+-		rtnl_listen(&rth, accept_msg, NULL);
++		if (rtnl_send(&rth, &req.n, req.n.nlmsg_len) < 0) {
++			perror("Could not check for "
++				"link configuration over netlink support");
++			have_rtnl_newlink =3D 0;
++		} else {
++			rtnl_listen(&rth, accept_msg, NULL);
++		}
+ 	}
+ 	return have_rtnl_newlink;
  }
-
-+#else  /* CONFIG_AT91_PROGRAMMABLE_CLOCKS */
-+
-+int clk_set_rate(struct clk *clk, unsigned long rate)
-+{
-+       if (rate == clk_get_rate(clk))
-+               return 0;
-+
-+       return -EINVAL;
-+}
-+
-+long clk_round_rate(struct clk *clk, unsigned long rate)
-+{
-+       /* There's really nothing sane to return here. */
-+       return clk_get_rate(clk);
-+}
-+
- #endif /* CONFIG_AT91_PROGRAMMABLE_CLOCKS */
+--=20
+1.8.3.1
