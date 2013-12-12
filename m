@@ -1,87 +1,185 @@
-From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Subject: Re: Re: [PATCH v2 15/16] wl1251: Add sysfs file address for setting
- permanent mac address
-Date: Thu, 12 Dec 2013 19:55:59 +0000
-Message-ID: <1386878159.1516.312.camel@bwh-desktop.uk.level5networks.com>
-References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
-	 <201312101814.35112@pali> <1386697762.30202.6.camel@dcbw.foobar.com>
-	 <201312101852.17030@pali>
-	 <1386796654.1516.268.camel@bwh-desktop.uk.level5networks.com>
-	 <52A8DA9A.50501@gmail.com>
-	 <1386800135.1516.296.camel@bwh-desktop.uk.level5networks.com>
-	 <1386802416.17188.69.camel@dcbw.foobar.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] i40e: make functions static and remove dead code
+Date: Thu, 12 Dec 2013 12:07:59 -0800
+Message-ID: <20131212120759.430fab12@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ivajlo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>, Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <freemangordon-uiMcrn6V0Vs@public.gmane.org>,
-	<aaro.koskinen-X3B1VOXEql0@public.gmane.org>, <pavel-+ZI9xUNit7I@public.gmane.org>, <sre-GFxCN5SEZAc@public.gmane.org>,
-	<joni.lapilainen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1386802416.17188.69.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:44340 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751856Ab3LLUIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 15:08:02 -0500
+Received: by mail-pd0-f181.google.com with SMTP id p10so1087483pdj.40
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 12:08:02 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-12-11 at 16:53 -0600, Dan Williams wrote:
-> On Wed, 2013-12-11 at 22:15 +0000, Ben Hutchings wrote:
-> > On Wed, 2013-12-11 at 23:35 +0200, Ivajlo Dimitrov wrote:
-> > > On 11.12.2013 23:17, Ben Hutchings wrote:
-> > > > I think that's an even worse idea.  This is not firmware and it already
-> > > > exists in separate storage.
-> > > >
-> > > > I think that rx51_init_wl1251() in
-> > > > arch/arm/mach-omap2/board-rx51-peripherals.c should either copy the MAC
-> > > > address out of NVRAM, or if it's too early to do that, then schedule a
-> > > > function to run later and only then set up wl1251 platform data.
-> > > >
-> > > > Ben.
-> > > >
-> > > 
-> > > And how will that work with DT when board files will be in the history?
-> > 
-> > 1. Boot loader reads the MAC address from NVRAM and puts it in the DT
-> > node.
-> > or
-> > 2. NVRAM reading is done by a tiny driver that is loaded based on the
-> > platform name and updates the DT node in memory.  (But I don't know how
-> > wl1251 should decide to defer probing if it's probed before that other
-> > driver.)
-> 
-> I'm uncomfortable with it too, and yes the permanent MAC should really
-> be known before the interface is even registered, but...
-> 
-> Imagine if the MAC address for your ethernet device was stored
-> in /etc/my-mac-addr.txt, except that /etc was a read-only protected
-> partition from a very small SSD.  That's essentially the N900; it's
-> stored in a file in a normal ext2/ext3 (?) filesystem on a partition of
-> the internal flash.
 
-Oh, from my quick look I got the impression that this 'CAL' was stored
-directly in a specific flash partition.
+Make local functions static in the file they are used.
 
->   It seems like overkill to write a small driver that
-> duplicates the ext3 + MTD drivers just to read the MAC.
-[...]
+Remove functions i40e_aq_add_vlan and i40e_aq_remove_vlan since
+they are not used anywhere by current code.
 
-I don't see that anything would need to be duplicated.  But reading
-files from the kernel is really ugly, and deciding when to read the file
-would be another problem (as you noted).
+Compile tested only.
 
-Ben
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c    |    6 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c    |   80 -----------------------
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |    8 --
+ 3 files changed, 4 insertions(+), 90 deletions(-)
+
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c	2013-12-12 12:02:29.532586603 -0800
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c	2013-12-12 12:02:50.204265322 -0800
+@@ -31,6 +31,8 @@
+ #include "i40e_adminq.h"
+ #include "i40e_prototype.h"
+ 
++static void i40e_resume_aq(struct i40e_hw *hw);
++
+ /**
+  *  i40e_adminq_init_regs - Initialize AdminQ registers
+  *  @hw: pointer to the hardware structure
+@@ -675,7 +677,7 @@ static u16 i40e_clean_asq(struct i40e_hw
+  *  Returns true if the firmware has processed all descriptors on the
+  *  admin send queue. Returns false if there are still requests pending.
+  **/
+-bool i40e_asq_done(struct i40e_hw *hw)
++static bool i40e_asq_done(struct i40e_hw *hw)
+ {
+ 	/* AQ designers suggest use of head for better
+ 	 * timing reliability than DD bit
+@@ -963,7 +965,7 @@ clean_arq_element_out:
+ 	return ret_code;
+ }
+ 
+-void i40e_resume_aq(struct i40e_hw *hw)
++static void i40e_resume_aq(struct i40e_hw *hw)
+ {
+ 	u32 reg = 0;
+ 
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c	2013-12-12 12:02:29.532586603 -0800
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c	2013-12-12 12:03:20.427795620 -0800
+@@ -1129,86 +1129,6 @@ i40e_status i40e_aq_remove_macvlan(struc
+ }
+ 
+ /**
+- * i40e_aq_add_vlan - Add VLAN ids to the HW filtering
+- * @hw: pointer to the hw struct
+- * @seid: VSI for the vlan filters
+- * @v_list: list of vlan filters to be added
+- * @count: length of the list
+- * @cmd_details: pointer to command details structure or NULL
+- **/
+-i40e_status i40e_aq_add_vlan(struct i40e_hw *hw, u16 seid,
+-			struct i40e_aqc_add_remove_vlan_element_data *v_list,
+-			u8 count, struct i40e_asq_cmd_details *cmd_details)
+-{
+-	struct i40e_aq_desc desc;
+-	struct i40e_aqc_macvlan *cmd =
+-		(struct i40e_aqc_macvlan *)&desc.params.raw;
+-	i40e_status status;
+-	u16 buf_size;
+-
+-	if (count == 0 || !v_list || !hw)
+-		return I40E_ERR_PARAM;
+-
+-	buf_size = count * sizeof(struct i40e_aqc_add_remove_vlan_element_data);
+-
+-	/* prep the rest of the request */
+-	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_add_vlan);
+-	cmd->num_addresses = cpu_to_le16(count);
+-	cmd->seid[0] = cpu_to_le16(seid | I40E_AQC_MACVLAN_CMD_SEID_VALID);
+-	cmd->seid[1] = 0;
+-	cmd->seid[2] = 0;
+-
+-	desc.flags |= cpu_to_le16((u16)(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD));
+-	if (buf_size > I40E_AQ_LARGE_BUF)
+-		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
+-
+-	status = i40e_asq_send_command(hw, &desc, v_list, buf_size,
+-				       cmd_details);
+-
+-	return status;
+-}
+-
+-/**
+- * i40e_aq_remove_vlan - Remove VLANs from the HW filtering
+- * @hw: pointer to the hw struct
+- * @seid: VSI for the vlan filters
+- * @v_list: list of macvlans to be removed
+- * @count: length of the list
+- * @cmd_details: pointer to command details structure or NULL
+- **/
+-i40e_status i40e_aq_remove_vlan(struct i40e_hw *hw, u16 seid,
+-			struct i40e_aqc_add_remove_vlan_element_data *v_list,
+-			u8 count, struct i40e_asq_cmd_details *cmd_details)
+-{
+-	struct i40e_aq_desc desc;
+-	struct i40e_aqc_macvlan *cmd =
+-		(struct i40e_aqc_macvlan *)&desc.params.raw;
+-	i40e_status status;
+-	u16 buf_size;
+-
+-	if (count == 0 || !v_list || !hw)
+-		return I40E_ERR_PARAM;
+-
+-	buf_size = count * sizeof(struct i40e_aqc_add_remove_vlan_element_data);
+-
+-	/* prep the rest of the request */
+-	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_remove_vlan);
+-	cmd->num_addresses = cpu_to_le16(count);
+-	cmd->seid[0] = cpu_to_le16(seid | I40E_AQC_MACVLAN_CMD_SEID_VALID);
+-	cmd->seid[1] = 0;
+-	cmd->seid[2] = 0;
+-
+-	desc.flags |= cpu_to_le16((u16)(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD));
+-	if (buf_size > I40E_AQ_LARGE_BUF)
+-		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
+-
+-	status = i40e_asq_send_command(hw, &desc, v_list, buf_size,
+-				       cmd_details);
+-
+-	return status;
+-}
+-
+-/**
+  * i40e_aq_send_msg_to_vf
+  * @hw: pointer to the hardware structure
+  * @vfid: vf id to send msg
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h	2013-12-12 12:02:29.532586603 -0800
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h	2013-12-12 12:02:50.204265322 -0800
+@@ -51,7 +51,6 @@ i40e_status i40e_asq_send_command(struct
+ 				void *buff, /* can be NULL */
+ 				u16  buff_size,
+ 				struct i40e_asq_cmd_details *cmd_details);
+-bool i40e_asq_done(struct i40e_hw *hw);
+ 
+ /* debug function for adminq */
+ void i40e_debug_aq(struct i40e_hw *hw,
+@@ -60,7 +59,6 @@ void i40e_debug_aq(struct i40e_hw *hw,
+ 		   void *buffer);
+ 
+ void i40e_idle_aq(struct i40e_hw *hw);
+-void i40e_resume_aq(struct i40e_hw *hw);
+ 
+ u32 i40e_led_get(struct i40e_hw *hw);
+ void i40e_led_set(struct i40e_hw *hw, u32 mode);
+@@ -120,12 +118,6 @@ i40e_status i40e_aq_add_macvlan(struct i
+ i40e_status i40e_aq_remove_macvlan(struct i40e_hw *hw, u16 vsi_id,
+ 			struct i40e_aqc_remove_macvlan_element_data *mv_list,
+ 			u16 count, struct i40e_asq_cmd_details *cmd_details);
+-i40e_status i40e_aq_add_vlan(struct i40e_hw *hw, u16 vsi_id,
+-			struct i40e_aqc_add_remove_vlan_element_data *v_list,
+-			u8 count, struct i40e_asq_cmd_details *cmd_details);
+-i40e_status i40e_aq_remove_vlan(struct i40e_hw *hw, u16 vsi_id,
+-			struct i40e_aqc_add_remove_vlan_element_data *v_list,
+-			u8 count, struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_send_msg_to_vf(struct i40e_hw *hw, u16 vfid,
+ 				u32 v_opcode, u32 v_retval, u8 *msg, u16 msglen,
+ 				struct i40e_asq_cmd_details *cmd_details);
