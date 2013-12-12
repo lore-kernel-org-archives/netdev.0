@@ -1,105 +1,45 @@
-From: yazzep@gmail.com
-Subject: [PATCH 1/1] ipv6 addrconf:fix preferred lifetime state-changing behavior while valid_lft is infinity
-Date: Thu, 12 Dec 2013 19:15:47 +0900
-Message-ID: <1386843347-2725-1-git-send-email-yazzep@gmail.com>
-References: <20131212010348.GD4675@order.stressinduktion.org>
-Cc: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
-To: netdev@vger.kernel.org
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH resend net] sch_tbf: use do_div() for 64-bit divide
+Date: Thu, 12 Dec 2013 10:28:36 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7483@saturn3.aculab.com>
+References: <1386814923-56180-1-git-send-email-yangyingliang@huawei.com> <52A92612.5080401@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <fengguang.wu@intel.com>, <kbuild-all@01.org>
+To: "Yang Yingliang" <yangyingliang@huawei.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:42148 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751311Ab3LLKQF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 05:16:05 -0500
-Received: by mail-pb0-f53.google.com with SMTP id ma3so253424pbc.40
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 02:16:03 -0800 (PST)
-In-Reply-To: <20131212010348.GD4675@order.stressinduktion.org>
+Received: from mx0.aculab.com ([213.249.233.131]:43820 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751155Ab3LLK3m convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 05:29:42 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 04617-02 for <netdev@vger.kernel.org>;
+ Thu, 12 Dec 2013 10:29:40 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <52A92612.5080401@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
+> From: Yang Yingliang
+> It's doing a 64-bit divide which is not supported
+> on 32-bit architectures in psched_ns_t2l(). The
+> correct way to do this is to use do_div().
 
- Fixed a problem with setting the lifetime of an IPv6
- address. When setting preferred_lft to a value not zero or
- infinity, while valid_lft is infinity(0xffffffff) preferred
- lifetime is set to forever and does not update. Therefore
- preferred lifetime never becomes deprecated. valid lifetime
- and preferred lifetime should be set independently, even if
- valid lifetime is infinity, preferred lifetime must expire
- correctly (meaning it must eventually become deprecated)
+The 'len' value has just been divided by 1000000000, can
+it actually be larger than 32bit when the divide by 53 is done?
 
+...
+>  	do_div(len, NSEC_PER_SEC);
+> 
+> -	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
+> -		len = (len / 53) * 48;
+> +	if (unlikely(r->linklayer == TC_LINKLAYER_ATM)) {
+> +		do_div(len, 53);
+> +		len = len * 48;
+> +	}
 
-Signed-off-by: Yasushi Asano <yasushi.asano@jp.fujitsu.com>
----
- net/ipv6/addrconf.c |   34 ++++++++++++++++++++--------------
- 1 files changed, 20 insertions(+), 14 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 3c3425e..17b4097 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -948,18 +948,22 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
- 					if (!onlink)
- 						onlink = -1;
- 
--					spin_lock(&ifa->lock);
--
--					lifetime = addrconf_timeout_fixup(ifa->valid_lft, HZ);
--					/*
--					 * Note: Because this address is
--					 * not permanent, lifetime <
--					 * LONG_MAX / HZ here.
--					 */
--					if (time_before(expires,
--							ifa->tstamp + lifetime * HZ))
--						expires = ifa->tstamp + lifetime * HZ;
--					spin_unlock(&ifa->lock);
-+					if (ifp->valid_lft !=
-+						INFINITY_LIFE_TIME) {
-+						spin_lock(&ifa->lock);
-+
-+						lifetime = addrconf_timeout_fixup(
-+								ifa->valid_lft,	HZ);
-+						/*
-+						 * Note: Because this address is
-+						 * not permanent, lifetime <
-+						 * LONG_MAX / HZ here.
-+						 */
-+						if (time_before(expires,
-+								ifa->tstamp + lifetime * HZ))
-+							expires = ifa->tstamp +	lifetime * HZ;
-+						spin_unlock(&ifa->lock);
-+					}
- 				}
- 			}
- 		}
-@@ -2415,7 +2419,6 @@ static int inet6_addr_add(struct net *net, int ifindex,
- 	} else {
- 		expires = 0;
- 		flags = 0;
--		ifa_flags |= IFA_F_PERMANENT;
- 	}
- 
- 	timeout = addrconf_timeout_fixup(prefered_lft, HZ);
-@@ -3497,8 +3500,12 @@ restart:
- 					ifp->flags |= IFA_F_DEPRECATED;
- 				}
- 
--				if (time_before(ifp->tstamp + ifp->valid_lft * HZ, next))
--					next = ifp->tstamp + ifp->valid_lft * HZ;
-+				if (ifp->valid_lft != INFINITY_LIFE_TIME) {
-+					if (time_before(ifp->tstamp +
-+							ifp->valid_lft * HZ, next))
-+						next = ifp->tstamp +
-+							ifp->valid_lft * HZ;
-+				}
- 
- 				spin_unlock(&ifp->lock);
- 
-@@ -3635,7 +3642,6 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u32 ifa_flags,
- 	} else {
- 		expires = 0;
- 		flags = 0;
--		ifa_flags |= IFA_F_PERMANENT;
- 	}
- 
- 	timeout = addrconf_timeout_fixup(prefered_lft, HZ);
+	David
