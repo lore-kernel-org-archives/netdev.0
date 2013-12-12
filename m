@@ -1,27 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] forcedeth: add MII ioctls support
-Date: Thu, 12 Dec 2013 13:56:44 -0500 (EST)
-Message-ID: <20131212.135644.122378813786715365.davem@davemloft.net>
-References: <1386829089-24477-1-git-send-email-noureddine@aristanetworks.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next v2] ipv6: log autoconfiguration failures
+Date: Thu, 12 Dec 2013 20:00:42 +0100
+Message-ID: <20131212190042.GH4675@order.stressinduktion.org>
+References: <52A99B56.1070503@redhat.com> <20131212.122241.2022824170198915190.davem@davemloft.net> <52A9F93A.5040104@gmail.com> <20131212.132441.1907656115241279246.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, kaber@trash.net, Larry.Finger@lwfinger.net,
-	peterz@infradead.org, netdev@vger.kernel.org
-To: noureddine@aristanetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39020 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751171Ab3LLS4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 13:56:46 -0500
-In-Reply-To: <1386829089-24477-1-git-send-email-noureddine@aristanetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: vyasevich@gmail.com, dvlasenk@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	jpirko@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20131212.132441.1907656115241279246.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Salam Noureddine <noureddine@aristanetworks.com>
-Date: Wed, 11 Dec 2013 22:18:09 -0800
+On Thu, Dec 12, 2013 at 01:24:41PM -0500, David Miller wrote:
+> From: Vlad Yasevich <vyasevich@gmail.com>
+> Date: Thu, 12 Dec 2013 12:58:18 -0500
+> 
+> > On 12/12/2013 12:22 PM, David Miller wrote:
+> >> Give it statistics just like we have for every other kind of similar
+> >> event.
+> > 
+> > The fact that link-local address could not be generated for a specific
+> > device type does not lend itself well to counting.  There is no way
+> > from to tell from the counter which device does not support IPv6 autoconfig.
+> 
+> If the statistic is per-device, which I recommended it be implemented as,
+> you indeed can.
+> 
+> And I do not buy the argument that this is "useless" because the admin
+> is just going to kill the interface and create a new one.  When you
+> notice there is a problem, you look at the statistics before doing
+> that!
 
-> Signed-off-by: Salam Noureddine <noureddine@aristanetworks.com>
+Granted.
 
-I agree with Florian that using phylib would be a cleaner way to get
-this facility (and more).
+IMHO both ways are fine with a slight opionion to counters being overkill. ;)
