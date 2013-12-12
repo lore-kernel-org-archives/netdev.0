@@ -1,37 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] drivers: net: cpsw: fix for cpsw crash when build
- as modules
-Date: Thu, 12 Dec 2013 13:47:20 -0500 (EST)
-Message-ID: <20131212.134720.844724034413976971.davem@davemloft.net>
-References: <1386821345-30555-1-git-send-email-balbi@ti.com>
-	<1386821345-30555-2-git-send-email-balbi@ti.com>
+Subject: Re: [PATCH v3 net-next] net-gro: Prepare GRO stack for the
+ upcoming tunneling support
+Date: Thu, 12 Dec 2013 13:48:08 -0500 (EST)
+Message-ID: <20131212.134808.116829709834251220.davem@davemloft.net>
+References: <1386824025-27413-1-git-send-email-hkchu@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, bigeasy@linutronix.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org
-To: balbi@ti.com
+Cc: edumazet@google.com, herbert@gondor.apana.org.au,
+	ogerlitz@mellanox.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: hkchu@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38910 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38937 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752149Ab3LLSrW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 13:47:22 -0500
-In-Reply-To: <1386821345-30555-2-git-send-email-balbi@ti.com>
+	with ESMTP id S1752160Ab3LLSsK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 13:48:10 -0500
+In-Reply-To: <1386824025-27413-1-git-send-email-hkchu@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felipe Balbi <balbi@ti.com>
-Date: Wed, 11 Dec 2013 22:09:05 -0600
+From: "H.K. Jerry Chu" <hkchu@google.com>
+Date: Wed, 11 Dec 2013 20:53:45 -0800
 
-> From: Mugunthan V N <mugunthanvnm@ti.com>
+> From: Jerry Chu <hkchu@google.com>
 > 
-> When CPSW and Davinci MDIO are build as modules, CPSW crashes when
-> accessing CPSW registers in CPSW probe. The same is working in built-in
-> as the CPSW clocks are enabled in Davindi MDIO probe, SO Enabling the
-> clocks before accessing the version register and moving out the other
-> register access to cpsw device open.
+> This patch modifies the GRO stack to avoid the use of "network_header"
+> and associated macros like ip_hdr() and ipv6_hdr() in order to allow
+> an arbitary number of IP hdrs (v4 or v6) to be used in the
+> encapsulation chain. This lays the foundation for various IP
+> tunneling support (IP-in-IP, GRE, VXLAN, SIT,...) to be added later.
 > 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> Signed-off-by: Felipe Balbi <balbi@ti.com>
+> With this patch, the GRO stack traversing now is mostly based on
+> skb_gro_offset rather than special hdr offsets saved in skb (e.g.,
+> skb->network_header). As a result all but the top layer (i.e., the
+> the transport layer) must have hdrs of the same length in order for
+> a pkt to be considered for aggregation. Therefore when adding a new
+> encap layer (e.g., for tunneling), one must check and skip flows
+> (e.g., by setting NAPI_GRO_CB(p)->same_flow to 0) that have a
+> different hdr length.
+> 
+> Note that unlike the network header, the transport header can and
+> will continue to be set by the GRO code since there will be at
+> most one "transport layer" in the encap chain.
+> 
+> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+> Suggested-by: Eric Dumazet <edumazet@google.com>
+> Reviewed-by: Eric Dumazet <edumazet@google.com>
 
 Applied, thanks.
