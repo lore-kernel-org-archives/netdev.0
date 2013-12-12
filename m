@@ -1,295 +1,82 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH -next 2/2] netfilter: Convert print_tuple functions to return void
-Date: Wed, 11 Dec 2013 19:44:12 -0800
-Message-ID: <fdd62757f3d2dd66e65c4a0c5bd61be97e14a29b.1386819513.git.joe@perches.com>
-References: <cover.1386819513.git.joe@perches.com>
-Cc: Kees Cook <keescook@chromium.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Alexander Viro <viro@zeniv.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1386819513.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 1/2] macvtap: Add support of packet capture on
+ macvtap device.
+Date: Thu, 12 Dec 2013 11:45:02 +0800
+Message-ID: <52A9313E.6040602@redhat.com>
+References: <1386786431-22592-1-git-send-email-vyasevic@redhat.com> <1386786431-22592-2-git-send-email-vyasevic@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, kaber@trash.net
+To: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:9566 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751374Ab3LLDp2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Dec 2013 22:45:28 -0500
+In-Reply-To: <1386786431-22592-2-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since adding a new function to seq_file (seq_is_buf_full)
-there isn't any value for functions called from seq_show to
-return anything.   Remove the int returns of the various
-print_tuple/<foo>_print_tuple functions.
+On 12/12/2013 02:27 AM, Vlad Yasevich wrote:
+> Macvtap device currently doesn not allow a user to capture
+> traffic on due to the fact that it steals the packets
+> from the network stack before the skb->dev is set correctly
+> on the receive side, and that use uses macvlan transmit
+> path directly on the send side.  As a result, we never
+> get a change to give traffic to the taps while the correct
+> device is set in the skb.
+>
+> This patch makes macvtap device behave almost exaclty like
+> macvlan.  On the send side, we switch to using dev_queue_xmit().
+> On the receive side, to deliver packets to macvtap, we now
+> use netif_rx and dev_forward_skb just like macvlan.  The only
+> differnce now is that macvtap has its own rx_handler which is
+> attached to the macvtap netdev.  It is here that we now steal
+> the packet and provide it to the socket.
+>
+> As a result, we can now capture traffic on the macvtap device:
+>    tcpdump -i macvtap0
+>
+> It also gives us the abilit to add tc actions to the macvtap
+> device and actually utilize different bandwidth management
+> queues on output.
+>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  drivers/net/macvtap.c | 59 ++++++++++++++++++++++++++++-----------------------
+>  1 file changed, 32 insertions(+), 27 deletions(-)
+>
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 4c6f84c..f9847da 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -70,6 +70,11 @@ static const struct proto_ops macvtap_socket_ops;
+>  #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
+>  #define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG)
+>  
+[...]
+>  
+>  static void macvtap_dellink(struct net_device *dev,
+>  			    struct list_head *head)
+>  {
+> +	netdev_rx_handler_unregister(dev);
+>  	macvtap_del_queues(dev);
+>  	macvlan_dellink(dev, head);
+>  }
+> @@ -725,9 +731,8 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
+>  		skb_shinfo(skb)->tx_flags |= SKBTX_SHARED_FRAG;
+>  	}
+>  	if (vlan) {
+> -		local_bh_disable();
+> -		macvlan_start_xmit(skb, vlan->dev);
+> -		local_bh_enable();
+> +		skb->dev = vlan->dev;
+> +		dev_queue_xmit(skb);
+>  	} else {
+>  		kfree_skb(skb);
+>  	}
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- include/net/netfilter/nf_conntrack_core.h    |  2 +-
- include/net/netfilter/nf_conntrack_l3proto.h |  4 ++--
- include/net/netfilter/nf_conntrack_l4proto.h |  4 ++--
- net/netfilter/nf_conntrack_l3proto_generic.c |  5 ++---
- net/netfilter/nf_conntrack_proto_dccp.c      | 10 +++++-----
- net/netfilter/nf_conntrack_proto_generic.c   |  5 ++---
- net/netfilter/nf_conntrack_proto_gre.c       | 10 +++++-----
- net/netfilter/nf_conntrack_proto_sctp.c      | 10 +++++-----
- net/netfilter/nf_conntrack_proto_tcp.c       | 10 +++++-----
- net/netfilter/nf_conntrack_proto_udp.c       | 10 +++++-----
- net/netfilter/nf_conntrack_proto_udplite.c   | 10 +++++-----
- net/netfilter/nf_conntrack_standalone.c      | 15 +++++++--------
- 12 files changed, 46 insertions(+), 49 deletions(-)
-
-diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
-index 15308b8..7b8f18c 100644
---- a/include/net/netfilter/nf_conntrack_core.h
-+++ b/include/net/netfilter/nf_conntrack_core.h
-@@ -72,7 +72,7 @@ static inline int nf_conntrack_confirm(struct sk_buff *skb)
- 	return ret;
- }
- 
--int
-+void
- print_tuple(struct seq_file *s, const struct nf_conntrack_tuple *tuple,
-             const struct nf_conntrack_l3proto *l3proto,
-             const struct nf_conntrack_l4proto *proto);
-diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
-index 3efab70..9e349db 100644
---- a/include/net/netfilter/nf_conntrack_l3proto.h
-+++ b/include/net/netfilter/nf_conntrack_l3proto.h
-@@ -38,8 +38,8 @@ struct nf_conntrack_l3proto {
- 			     const struct nf_conntrack_tuple *orig);
- 
- 	/* Print out the per-protocol part of the tuple. */
--	int (*print_tuple)(struct seq_file *s,
--			   const struct nf_conntrack_tuple *);
-+	void (*print_tuple)(struct seq_file *s,
-+			    const struct nf_conntrack_tuple *);
- 
- 	/*
- 	 * Called before tracking. 
-diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
-index 4c8d573..fead8ee 100644
---- a/include/net/netfilter/nf_conntrack_l4proto.h
-+++ b/include/net/netfilter/nf_conntrack_l4proto.h
-@@ -56,8 +56,8 @@ struct nf_conntrack_l4proto {
- 		     u_int8_t pf, unsigned int hooknum);
- 
- 	/* Print out the per-protocol part of the tuple. Return like seq_* */
--	int (*print_tuple)(struct seq_file *s,
--			   const struct nf_conntrack_tuple *);
-+	void (*print_tuple)(struct seq_file *s,
-+			    const struct nf_conntrack_tuple *);
- 
- 	/* Print out the private part of the conntrack. */
- 	int (*print_conntrack)(struct seq_file *s, struct nf_conn *);
-diff --git a/net/netfilter/nf_conntrack_l3proto_generic.c b/net/netfilter/nf_conntrack_l3proto_generic.c
-index e7eb807..cf9ace7 100644
---- a/net/netfilter/nf_conntrack_l3proto_generic.c
-+++ b/net/netfilter/nf_conntrack_l3proto_generic.c
-@@ -49,10 +49,9 @@ static bool generic_invert_tuple(struct nf_conntrack_tuple *tuple,
- 	return true;
- }
- 
--static int generic_print_tuple(struct seq_file *s,
--			    const struct nf_conntrack_tuple *tuple)
-+static void generic_print_tuple(struct seq_file *s,
-+				const struct nf_conntrack_tuple *tuple)
- {
--	return 0;
- }
- 
- static int generic_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
-diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
-index a99b6c3..d357f11 100644
---- a/net/netfilter/nf_conntrack_proto_dccp.c
-+++ b/net/netfilter/nf_conntrack_proto_dccp.c
-@@ -618,12 +618,12 @@ out_invalid:
- 	return -NF_ACCEPT;
- }
- 
--static int dccp_print_tuple(struct seq_file *s,
--			    const struct nf_conntrack_tuple *tuple)
-+static void dccp_print_tuple(struct seq_file *s,
-+			     const struct nf_conntrack_tuple *tuple)
- {
--	return seq_printf(s, "sport=%hu dport=%hu ",
--			  ntohs(tuple->src.u.dccp.port),
--			  ntohs(tuple->dst.u.dccp.port));
-+	seq_printf(s, "sport=%hu dport=%hu ",
-+		   ntohs(tuple->src.u.dccp.port),
-+		   ntohs(tuple->dst.u.dccp.port));
- }
- 
- static int dccp_print_conntrack(struct seq_file *s, struct nf_conn *ct)
-diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
-index d25f2937..0a3ded1 100644
---- a/net/netfilter/nf_conntrack_proto_generic.c
-+++ b/net/netfilter/nf_conntrack_proto_generic.c
-@@ -39,10 +39,9 @@ static bool generic_invert_tuple(struct nf_conntrack_tuple *tuple,
- }
- 
- /* Print out the per-protocol part of the tuple. */
--static int generic_print_tuple(struct seq_file *s,
--			       const struct nf_conntrack_tuple *tuple)
-+static void generic_print_tuple(struct seq_file *s,
-+				const struct nf_conntrack_tuple *tuple)
- {
--	return 0;
- }
- 
- static unsigned int *generic_get_timeouts(struct net *net)
-diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
-index 9d9c0da..802b72c 100644
---- a/net/netfilter/nf_conntrack_proto_gre.c
-+++ b/net/netfilter/nf_conntrack_proto_gre.c
-@@ -227,12 +227,12 @@ static bool gre_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
- }
- 
- /* print gre part of tuple */
--static int gre_print_tuple(struct seq_file *s,
--			   const struct nf_conntrack_tuple *tuple)
-+static void gre_print_tuple(struct seq_file *s,
-+			    const struct nf_conntrack_tuple *tuple)
- {
--	return seq_printf(s, "srckey=0x%x dstkey=0x%x ",
--			  ntohs(tuple->src.u.gre.key),
--			  ntohs(tuple->dst.u.gre.key));
-+	seq_printf(s, "srckey=0x%x dstkey=0x%x ",
-+		   ntohs(tuple->src.u.gre.key),
-+		   ntohs(tuple->dst.u.gre.key));
- }
- 
- /* print private data for conntrack */
-diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
-index 1314d33..1b1d0e9 100644
---- a/net/netfilter/nf_conntrack_proto_sctp.c
-+++ b/net/netfilter/nf_conntrack_proto_sctp.c
-@@ -166,12 +166,12 @@ static bool sctp_invert_tuple(struct nf_conntrack_tuple *tuple,
- }
- 
- /* Print out the per-protocol part of the tuple. */
--static int sctp_print_tuple(struct seq_file *s,
--			    const struct nf_conntrack_tuple *tuple)
-+static void sctp_print_tuple(struct seq_file *s,
-+			     const struct nf_conntrack_tuple *tuple)
- {
--	return seq_printf(s, "sport=%hu dport=%hu ",
--			  ntohs(tuple->src.u.sctp.port),
--			  ntohs(tuple->dst.u.sctp.port));
-+	seq_printf(s, "sport=%hu dport=%hu ",
-+		   ntohs(tuple->src.u.sctp.port),
-+		   ntohs(tuple->dst.u.sctp.port));
- }
- 
- /* Print out the private part of the conntrack. */
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 44d1ea3..c2693e78 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -302,12 +302,12 @@ static bool tcp_invert_tuple(struct nf_conntrack_tuple *tuple,
- }
- 
- /* Print out the per-protocol part of the tuple. */
--static int tcp_print_tuple(struct seq_file *s,
--			   const struct nf_conntrack_tuple *tuple)
-+static void tcp_print_tuple(struct seq_file *s,
-+			    const struct nf_conntrack_tuple *tuple)
- {
--	return seq_printf(s, "sport=%hu dport=%hu ",
--			  ntohs(tuple->src.u.tcp.port),
--			  ntohs(tuple->dst.u.tcp.port));
-+	seq_printf(s, "sport=%hu dport=%hu ",
-+		   ntohs(tuple->src.u.tcp.port),
-+		   ntohs(tuple->dst.u.tcp.port));
- }
- 
- /* Print out the private part of the conntrack. */
-diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
-index 9d7721c..6957281 100644
---- a/net/netfilter/nf_conntrack_proto_udp.c
-+++ b/net/netfilter/nf_conntrack_proto_udp.c
-@@ -63,12 +63,12 @@ static bool udp_invert_tuple(struct nf_conntrack_tuple *tuple,
- }
- 
- /* Print out the per-protocol part of the tuple. */
--static int udp_print_tuple(struct seq_file *s,
--			   const struct nf_conntrack_tuple *tuple)
-+static void udp_print_tuple(struct seq_file *s,
-+			    const struct nf_conntrack_tuple *tuple)
- {
--	return seq_printf(s, "sport=%hu dport=%hu ",
--			  ntohs(tuple->src.u.udp.port),
--			  ntohs(tuple->dst.u.udp.port));
-+	seq_printf(s, "sport=%hu dport=%hu ",
-+		   ntohs(tuple->src.u.udp.port),
-+		   ntohs(tuple->dst.u.udp.port));
- }
- 
- static unsigned int *udp_get_timeouts(struct net *net)
-diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
-index 2750e6c..c5903d1 100644
---- a/net/netfilter/nf_conntrack_proto_udplite.c
-+++ b/net/netfilter/nf_conntrack_proto_udplite.c
-@@ -71,12 +71,12 @@ static bool udplite_invert_tuple(struct nf_conntrack_tuple *tuple,
- }
- 
- /* Print out the per-protocol part of the tuple. */
--static int udplite_print_tuple(struct seq_file *s,
--			       const struct nf_conntrack_tuple *tuple)
-+static void udplite_print_tuple(struct seq_file *s,
-+				const struct nf_conntrack_tuple *tuple)
- {
--	return seq_printf(s, "sport=%hu dport=%hu ",
--			  ntohs(tuple->src.u.udp.port),
--			  ntohs(tuple->dst.u.udp.port));
-+	seq_printf(s, "sport=%hu dport=%hu ",
-+		   ntohs(tuple->src.u.udp.port),
-+		   ntohs(tuple->dst.u.udp.port));
- }
- 
- static unsigned int *udplite_get_timeouts(struct net *net)
-diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
-index f641751..26f49be 100644
---- a/net/netfilter/nf_conntrack_standalone.c
-+++ b/net/netfilter/nf_conntrack_standalone.c
-@@ -36,12 +36,13 @@
- MODULE_LICENSE("GPL");
- 
- #ifdef CONFIG_NF_CONNTRACK_PROCFS
--int
-+void
- print_tuple(struct seq_file *s, const struct nf_conntrack_tuple *tuple,
-             const struct nf_conntrack_l3proto *l3proto,
-             const struct nf_conntrack_l4proto *l4proto)
- {
--	return l3proto->print_tuple(s, tuple) || l4proto->print_tuple(s, tuple);
-+	l3proto->print_tuple(s, tuple);
-+	l4proto->print_tuple(s, tuple);
- }
- EXPORT_SYMBOL_GPL(print_tuple);
- 
-@@ -202,9 +203,8 @@ static int ct_seq_show(struct seq_file *s, void *v)
- 	if (l4proto->print_conntrack && l4proto->print_conntrack(s, ct))
- 		goto release;
- 
--	if (print_tuple(s, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
--			l3proto, l4proto))
--		goto release;
-+	print_tuple(s, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
-+		    l3proto, l4proto);
- 
- 	if (seq_print_acct(s, ct, IP_CT_DIR_ORIGINAL))
- 		goto release;
-@@ -213,9 +213,8 @@ static int ct_seq_show(struct seq_file *s, void *v)
- 		if (seq_printf(s, "[UNREPLIED] "))
- 			goto release;
- 
--	if (print_tuple(s, &ct->tuplehash[IP_CT_DIR_REPLY].tuple,
--			l3proto, l4proto))
--		goto release;
-+	print_tuple(s, &ct->tuplehash[IP_CT_DIR_REPLY].tuple,
-+		    l3proto, l4proto);
- 
- 	if (seq_print_acct(s, ct, IP_CT_DIR_REPLY))
- 		goto release;
--- 
-1.8.1.2.459.gbcd45b4.dirty
+An issue here: macvlan is a NETIF_F_LLTX device with only one transmit
+queue, we may get contention on qdisc lock of macvtap when transmitting
+through multiple tx queues.
