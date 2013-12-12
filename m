@@ -1,98 +1,112 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/15] i40e: fix pf reset after offline test
-Date: Thu, 12 Dec 2013 04:40:39 -0800
-Message-ID: <1386852051-27907-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/15] i40e: fix up some of the ethtool connection reporting
+Date: Thu, 12 Dec 2013 04:40:38 -0800
+Message-ID: <1386852051-27907-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Shannon Nelson <shannon.nelson@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:26106 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:4524 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751535Ab3LLMlA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Dec 2013 07:41:00 -0500
+	id S1751604Ab3LLMk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Dec 2013 07:40:59 -0500
 In-Reply-To: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-When the ethtool testing starts it sets the I40E_TESTING state
-bit, which blocks new netdev opens so that things don't get
-confused, while the testing might be messing with register and
-other things.  Unfortunately, that was keeping the PF resets
-after the register test from working correctly because the netdev
-would not get reopened.  This patch reorders the tests to put the
-register test last as it is the only one that needs a reset, and
-we wait to trigger the reset until after we clear the
-I40E_TESTING bit.
+Get some more reasonable information reported back out to ethtool
+for the different types of connections supported.
 
-Change-Id: Ieaa18d74264250ac336b0656b490125ee8a22d2a
+Change-Id: I57b153f86b9cdd04ad7cb5bf7d1c45873c196a7a
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 32 +++++++++++++++++++-------
+ drivers/net/ethernet/intel/i40e/i40e_type.h    |  4 ++++
+ 2 files changed, 28 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index eb34375..9c380a8 100644
+index fd3e379..eb34375 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -748,7 +748,6 @@ static int i40e_reg_test(struct net_device *netdev, u64 *data)
- 	netif_info(pf, hw, netdev, "register test\n");
- 	*data = i40e_diag_reg_test(&pf->hw);
- 
--	i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
- 	return *data;
- }
- 
-@@ -796,20 +795,18 @@ static void i40e_diag_test(struct net_device *netdev,
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_pf *pf = np->vsi->back;
- 
--	set_bit(__I40E_TESTING, &pf->state);
- 	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
- 		/* Offline tests */
- 		netif_info(pf, drv, netdev, "offline testing starting\n");
- 
-+		set_bit(__I40E_TESTING, &pf->state);
-+
- 		/* Link test performed before hardware reset
- 		 * so autoneg doesn't interfere with test result
- 		 */
- 		if (i40e_link_test(netdev, &data[I40E_ETH_TEST_LINK]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
--		if (i40e_reg_test(netdev, &data[I40E_ETH_TEST_REG]))
--			eth_test->flags |= ETH_TEST_FL_FAILED;
--
- 		if (i40e_eeprom_test(netdev, &data[I40E_ETH_TEST_EEPROM]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
-@@ -819,6 +816,12 @@ static void i40e_diag_test(struct net_device *netdev,
- 		if (i40e_loopback_test(netdev, &data[I40E_ETH_TEST_LOOPBACK]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
-+		/* run reg test last, a reset is required after it */
-+		if (i40e_reg_test(netdev, &data[I40E_ETH_TEST_REG]))
-+			eth_test->flags |= ETH_TEST_FL_FAILED;
-+
-+		clear_bit(__I40E_TESTING, &pf->state);
-+		i40e_do_reset(pf, (1 << __I40E_PF_RESET_REQUESTED));
- 	} else {
- 		/* Online tests */
- 		netif_info(pf, drv, netdev, "online testing starting\n");
-@@ -832,7 +835,6 @@ static void i40e_diag_test(struct net_device *netdev,
- 		data[I40E_ETH_TEST_INTR] = 0;
- 		data[I40E_ETH_TEST_LOOPBACK] = 0;
+@@ -193,32 +193,48 @@ static int i40e_get_settings(struct net_device *netdev,
+ 		ecmd->supported = SUPPORTED_10000baseKR_Full;
+ 		ecmd->advertising = ADVERTISED_10000baseKR_Full;
+ 		break;
+-	case I40E_PHY_TYPE_10GBASE_T:
+ 	default:
+-		ecmd->supported = SUPPORTED_10000baseT_Full;
+-		ecmd->advertising = ADVERTISED_10000baseT_Full;
++		if (i40e_is_40G_device(hw->device_id)) {
++			ecmd->supported = SUPPORTED_40000baseSR4_Full;
++			ecmd->advertising = ADVERTISED_40000baseSR4_Full;
++		} else {
++			ecmd->supported = SUPPORTED_10000baseT_Full;
++			ecmd->advertising = ADVERTISED_10000baseT_Full;
++		}
+ 		break;
  	}
--	clear_bit(__I40E_TESTING, &pf->state);
  
- 	netif_info(pf, drv, netdev, "testing finished\n");
- }
+-	/* for now just say autoneg all the time */
+ 	ecmd->supported |= SUPPORTED_Autoneg;
++	ecmd->advertising |= ADVERTISED_Autoneg;
++	ecmd->autoneg = ((hw_link_info->an_info & I40E_AQ_AN_COMPLETED) ?
++			  AUTONEG_ENABLE : AUTONEG_DISABLE);
+ 
+-	if (hw->phy.media_type == I40E_MEDIA_TYPE_BACKPLANE) {
++	switch (hw->phy.media_type) {
++	case I40E_MEDIA_TYPE_BACKPLANE:
+ 		ecmd->supported |= SUPPORTED_Backplane;
+ 		ecmd->advertising |= ADVERTISED_Backplane;
+ 		ecmd->port = PORT_NONE;
+-	} else if (hw->phy.media_type == I40E_MEDIA_TYPE_BASET) {
++		break;
++	case I40E_MEDIA_TYPE_BASET:
+ 		ecmd->supported |= SUPPORTED_TP;
+ 		ecmd->advertising |= ADVERTISED_TP;
+ 		ecmd->port = PORT_TP;
+-	} else if (hw->phy.media_type == I40E_MEDIA_TYPE_DA) {
++		break;
++	case I40E_MEDIA_TYPE_DA:
++	case I40E_MEDIA_TYPE_CX4:
+ 		ecmd->supported |= SUPPORTED_FIBRE;
+ 		ecmd->advertising |= ADVERTISED_FIBRE;
+ 		ecmd->port = PORT_DA;
+-	} else {
++		break;
++	case I40E_MEDIA_TYPE_FIBER:
+ 		ecmd->supported |= SUPPORTED_FIBRE;
+ 		ecmd->advertising |= ADVERTISED_FIBRE;
+ 		ecmd->port = PORT_FIBRE;
++		break;
++	case I40E_MEDIA_TYPE_UNKNOWN:
++	default:
++		ecmd->port = PORT_OTHER;
++		break;
+ 	}
+ 
+ 	ecmd->transceiver = XCVR_EXTERNAL;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 8ae6445..72a6028 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -49,6 +49,10 @@
+ #define I40E_VF_DEVICE_ID		0x154C
+ #define I40E_VF_HV_DEVICE_ID		0x1571
+ 
++#define i40e_is_40G_device(d)		((d) == I40E_QSFP_A_DEVICE_ID  || \
++					 (d) == I40E_QSFP_B_DEVICE_ID  || \
++					 (d) == I40E_QSFP_C_DEVICE_ID)
++
+ #define I40E_FW_API_VERSION_MAJOR  0x0001
+ #define I40E_FW_API_VERSION_MINOR  0x0000
+ 
 -- 
 1.8.3.1
