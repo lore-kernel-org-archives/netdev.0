@@ -1,57 +1,46 @@
-From: Qais Yousef <qais.yousef@imgtec.com>
-Subject: [PATCH] net/sched/sch_tbf.c: fix linking error
-Date: Thu, 12 Dec 2013 12:38:56 +0000
-Message-ID: <1386851936-1582-1-git-send-email-qais.yousef@imgtec.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Qais Yousef <qais.yousef@imgtec.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linux-next@vger.kernel.org>
-To: Yang Yingliang <yangyingliang@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] i40e: fix null dereference
+Date: Thu, 12 Dec 2013 04:40:37 -0800
+Message-ID: <1386852051-27907-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:26106 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751567Ab3LLMk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Dec 2013 07:40:59 -0500
+In-Reply-To: <1386852051-27907-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ERROR: "__udivdi3" [net/sched/sch_tbf.ko] undefined!
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-introduced by: cc106e441a63 (net: sched: tbf: fix the calculation of max_size)
+If the vsi->tx_rings structure is NULL we don't want to panic.
 
-which adds a 64 by 32 bit division without using do_div().
-Fix it by using do_div(len/ 53) instead of len/53.
-
-Signed-off-by: Qais Yousef <qais.yousef@imgtec.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: linux-next@vger.kernel.org
+Change-Id: Ic694f043701738c434e8ebe0caf0673f4410dc10
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-We caught this error on linux-next today. This is my quick attemp of a fix.
-If it's not appropriate or doesn't make sense my apologies and feel free to
-resend a better fix :)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
- net/sched/sch_tbf.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index a44928c..771cbec 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -131,8 +131,10 @@ static u64 psched_ns_t2l(const struct psched_ratecfg *r,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index a6291e2..1ef311a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -354,6 +354,9 @@ static struct rtnl_link_stats64 *i40e_get_netdev_stats_struct(
+ 	struct rtnl_link_stats64 *vsi_stats = i40e_get_vsi_stats_struct(vsi);
+ 	int i;
  
- 	do_div(len, NSEC_PER_SEC);
- 
--	if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
--		len = (len / 53) * 48;
-+	if (unlikely(r->linklayer == TC_LINKLAYER_ATM)) {
-+		do_div(len, 53);
-+		len *= 48;
-+	}
- 
- 	if (len > r->overhead)
- 		len -= r->overhead;
++	if (!vsi->tx_rings)
++		return stats;
++
+ 	rcu_read_lock();
+ 	for (i = 0; i < vsi->num_queue_pairs; i++) {
+ 		struct i40e_ring *tx_ring, *rx_ring;
 -- 
-1.7.1
+1.8.3.1
