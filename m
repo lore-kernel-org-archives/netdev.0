@@ -1,142 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: remove a bogus TSO split
-Date: Thu, 12 Dec 2013 11:28:43 -0800
-Message-ID: <1386876523.19078.93.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Subject: Re: Re: [PATCH v2 15/16] wl1251: Add sysfs file address for setting
+ permanent mac address
+Date: Thu, 12 Dec 2013 19:55:59 +0000
+Message-ID: <1386878159.1516.312.camel@bwh-desktop.uk.level5networks.com>
+References: <1382819655-30430-1-git-send-email-pali.rohar@gmail.com>
+	 <201312101814.35112@pali> <1386697762.30202.6.camel@dcbw.foobar.com>
+	 <201312101852.17030@pali>
+	 <1386796654.1516.268.camel@bwh-desktop.uk.level5networks.com>
+	 <52A8DA9A.50501@gmail.com>
+	 <1386800135.1516.296.camel@bwh-desktop.uk.level5networks.com>
+	 <1386802416.17188.69.camel@dcbw.foobar.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Van Jacobson <vanj@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f47.google.com ([209.85.213.47]:60217 "EHLO
-	mail-yh0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751387Ab3LLT2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 14:28:47 -0500
-Received: by mail-yh0-f47.google.com with SMTP id 29so723088yhl.34
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 11:28:46 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ivajlo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Pali =?ISO-8859-1?Q?Roh=E1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>, Luciano Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <freemangordon-uiMcrn6V0Vs@public.gmane.org>,
+	<aaro.koskinen-X3B1VOXEql0@public.gmane.org>, <pavel-+ZI9xUNit7I@public.gmane.org>, <sre-GFxCN5SEZAc@public.gmane.org>,
+	<joni.lapilainen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Felipe Contreras <felipe.contreras-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1386802416.17188.69.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, 2013-12-11 at 16:53 -0600, Dan Williams wrote:
+> On Wed, 2013-12-11 at 22:15 +0000, Ben Hutchings wrote:
+> > On Wed, 2013-12-11 at 23:35 +0200, Ivajlo Dimitrov wrote:
+> > > On 11.12.2013 23:17, Ben Hutchings wrote:
+> > > > I think that's an even worse idea.  This is not firmware and it already
+> > > > exists in separate storage.
+> > > >
+> > > > I think that rx51_init_wl1251() in
+> > > > arch/arm/mach-omap2/board-rx51-peripherals.c should either copy the MAC
+> > > > address out of NVRAM, or if it's too early to do that, then schedule a
+> > > > function to run later and only then set up wl1251 platform data.
+> > > >
+> > > > Ben.
+> > > >
+> > > 
+> > > And how will that work with DT when board files will be in the history?
+> > 
+> > 1. Boot loader reads the MAC address from NVRAM and puts it in the DT
+> > node.
+> > or
+> > 2. NVRAM reading is done by a tiny driver that is loaded based on the
+> > platform name and updates the DT node in memory.  (But I don't know how
+> > wl1251 should decide to defer probing if it's probed before that other
+> > driver.)
+> 
+> I'm uncomfortable with it too, and yes the permanent MAC should really
+> be known before the interface is even registered, but...
+> 
+> Imagine if the MAC address for your ethernet device was stored
+> in /etc/my-mac-addr.txt, except that /etc was a read-only protected
+> partition from a very small SSD.  That's essentially the N900; it's
+> stored in a file in a normal ext2/ext3 (?) filesystem on a partition of
+> the internal flash.
 
-While investigating performance problems on small RPC workloads,
-I noticed linux TCP stack was always splitting the last TSO skb
-into two parts (skbs). One being a multiple of MSS, and a small one
-with the Push flag. This split is done even if TCP_NODELAY is set.
+Oh, from my quick look I got the impression that this 'CAL' was stored
+directly in a specific flash partition.
 
-Example with request/response of 4K/4K
+>   It seems like overkill to write a small driver that
+> duplicates the ext3 + MTD drivers just to read the MAC.
+[...]
 
-IP A > B: . ack 68432 win 2783 <nop,nop,timestamp 6524593 6525001>
-IP A > B: . 65537:68433(2896) ack 69632 win 2783 <nop,nop,timestamp 6524593 6525001>
-IP A > B: P 68433:69633(1200) ack 69632 win 2783 <nop,nop,timestamp 6524593 6525001>
-IP B > A: . ack 68433 win 2768 <nop,nop,timestamp 6525001 6524593>
-IP B > A: . 69632:72528(2896) ack 69633 win 2768 <nop,nop,timestamp 6525001 6524593>
-IP B > A: P 72528:73728(1200) ack 69633 win 2768 <nop,nop,timestamp 6525001 6524593>
-IP A > B: . ack 72528 win 2783 <nop,nop,timestamp 6524593 6525001>
-IP A > B: . 69633:72529(2896) ack 73728 win 2783 <nop,nop,timestamp 6524593 6525001>
-IP A > B: P 72529:73729(1200) ack 73728 win 2783 <nop,nop,timestamp 6524593 6525001>
+I don't see that anything would need to be duplicated.  But reading
+files from the kernel is really ugly, and deciding when to read the file
+would be another problem (as you noted).
 
-We think this is not needed.
+Ben
 
-All the Nagle/window tests are done at this point.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-This patch tremendously improves performance, as the traffic now looks
-like :
-
-IP A > B: . ack 98304 win 2783 <nop,nop,timestamp 6834277 6834685>
-IP A > B: P 94209:98305(4096) ack 98304 win 2783 <nop,nop,timestamp 6834277 6834685>
-IP B > A: . ack 98305 win 2768 <nop,nop,timestamp 6834686 6834277>
-IP B > A: P 98304:102400(4096) ack 98305 win 2768 <nop,nop,timestamp 6834686 6834277>
-IP A > B: . ack 102400 win 2783 <nop,nop,timestamp 6834279 6834686>
-IP A > B: P 98305:102401(4096) ack 102400 win 2783 <nop,nop,timestamp 6834279 6834686>
-IP B > A: . ack 102401 win 2768 <nop,nop,timestamp 6834687 6834279>
-IP B > A: P 102400:106496(4096) ack 102401 win 2768 <nop,nop,timestamp 6834687 6834279>
-IP A > B: . ack 106496 win 2783 <nop,nop,timestamp 6834280 6834687>
-IP A > B: P 102401:106497(4096) ack 106496 win 2783 <nop,nop,timestamp 6834280 6834687>
-IP B > A: . ack 106497 win 2768 <nop,nop,timestamp 6834688 6834280>
-IP B > A: P 106496:110592(4096) ack 106497 win 2768 <nop,nop,timestamp 6834688 6834280>
-
-
-Before :
-
-lpq83:~# nstat >/dev/null;perf stat ./super_netperf 200 -t TCP_RR -H lpq84 -l 20 -- -r 4K,4K
-280774
-
- Performance counter stats for './super_netperf 200 -t TCP_RR -H lpq84 -l 20 -- -r 4K,4K':
-
-     205719.049006 task-clock                #    9.278 CPUs utilized          
-         8,449,968 context-switches          #    0.041 M/sec                  
-         1,935,997 CPU-migrations            #    0.009 M/sec                  
-           160,541 page-faults               #    0.780 K/sec                  
-   548,478,722,290 cycles                    #    2.666 GHz                     [83.20%]
-   455,240,670,857 stalled-cycles-frontend   #   83.00% frontend cycles idle    [83.48%]
-   272,881,454,275 stalled-cycles-backend    #   49.75% backend  cycles idle    [66.73%]
-   166,091,460,030 instructions              #    0.30  insns per cycle        
-                                             #    2.74  stalled cycles per insn [83.39%]
-    29,150,229,399 branches                  #  141.699 M/sec                   [83.30%]
-     1,943,814,026 branch-misses             #    6.67% of all branches         [83.32%]
-
-      22.173517844 seconds time elapsed
-
-lpq83:~# nstat | egrep "IpOutRequests|IpExtOutOctets"
-IpOutRequests                   16851063           0.0
-IpExtOutOctets                  23878580777        0.0
-
-After patch :
-
-lpq83:~# nstat >/dev/null;perf stat ./super_netperf 200 -t TCP_RR -H lpq84 -l 20 -- -r 4K,4K
-280877
-
- Performance counter stats for './super_netperf 200 -t TCP_RR -H lpq84 -l 20 -- -r 4K,4K':
-
-     107496.071918 task-clock                #    4.847 CPUs utilized          
-         5,635,458 context-switches          #    0.052 M/sec                  
-         1,374,707 CPU-migrations            #    0.013 M/sec                  
-           160,920 page-faults               #    0.001 M/sec                  
-   281,500,010,924 cycles                    #    2.619 GHz                     [83.28%]
-   228,865,069,307 stalled-cycles-frontend   #   81.30% frontend cycles idle    [83.38%]
-   142,462,742,658 stalled-cycles-backend    #   50.61% backend  cycles idle    [66.81%]
-    95,227,712,566 instructions              #    0.34  insns per cycle        
-                                             #    2.40  stalled cycles per insn [83.43%]
-    16,209,868,171 branches                  #  150.795 M/sec                   [83.20%]
-       874,252,952 branch-misses             #    5.39% of all branches         [83.37%]
-
-      22.175821286 seconds time elapsed
-
-lpq83:~# nstat | egrep "IpOutRequests|IpExtOutOctets"
-IpOutRequests                   11239428           0.0
-IpExtOutOctets                  23595191035        0.0
-
-Indeed, the occupancy of tx skbs (IpExtOutOctets/IpOutRequests) is higher :
-2099 instead of 1417, thus helping GRO to be more efficient when using FQ packet
-scheduler.
-
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Nandita Dukkipati <nanditad@google.com>
-Cc: Van Jacobson <vanj@google.com>
----
- net/ipv4/tcp_output.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 2a69f42e51ca..335e110e86ba 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1410,10 +1410,7 @@ static unsigned int tcp_mss_split_point(const struct sock *sk, const struct sk_b
- 
- 	needed = min(skb->len, window);
- 
--	if (max_len <= needed)
--		return max_len;
--
--	return needed - needed % mss_now;
-+	return min(max_len, needed);
- }
- 
- /* Can at least one segment of SKB be sent right now, according to the
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
