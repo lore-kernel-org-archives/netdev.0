@@ -1,51 +1,55 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCH] net: eth: 8390: remove section warning in etherh.c
-Date: Thu, 12 Dec 2013 00:53:00 -0800
-Message-ID: <CAOesGMj_0m-Y8TvrZF=zgT33RuDtismjY=k6pbfm+MFmp2p=_w@mail.gmail.com>
-References: <1386837577-15130-1-git-send-email-olof@lixom.net>
-	<CAP8WD_aJEmBYbM0BmQodGJsOPqZ+vqk9B15n297q_+aCorR=VQ@mail.gmail.com>
+From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
+Subject: [PATCH net] ip_gre: fix msg_name parsing for recvfrom/recvmsg
+Date: Thu, 12 Dec 2013 10:53:52 +0200
+Message-ID: <1386838432-18889-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: whiteheadm@acm.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAP8WD_aJEmBYbM0BmQodGJsOPqZ+vqk9B15n297q_+aCorR=VQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:61163 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751671Ab3LLIxy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 03:53:54 -0500
+Received: by mail-la0-f42.google.com with SMTP id ec20so74382lab.1
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 00:53:52 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 12, 2013 at 12:46 AM, tedheadster <tedheadster@gmail.com> wrote:
-> On Thu, Dec 12, 2013 at 3:39 AM, Olof Johansson <olof@lixom.net> wrote:
->>
->> Commit c45f812f0280 ('8390 : Replace ei_debug with msg_enable/NETIF_MSG_*
->> feature') ended up moving the printout of version[] from something that
->> will be compiled out due to defines, to something that is now evaluated
->> at runtime.
->>
->> That means that what always used to be an access to an __initdata string
->> from non-__init code started showing up as a section mismatch when it
->> didn't before.
->>
->> All other 8390 versions skip __initdata on the version string, and
->> starting to annotate the whole chain of callers with __init seems like
->> more churn than it's worth on this driver, so remove it from etherh.c as
->> well.
->>
->
-> Olof,
->   should you also remove the __init tag from etherh_banner() since it is
-> called from etherh_probe(), which does not have an __init tag?
+ipgre_header_parse() needs to parse the tunnel's ip header for getting
+the link-layer addresses, and uses mac_header to get the header. This
+fixes setting mac_header on the receive path to original behaviour.
 
-Hmm.
+Bug added in commit c54419321455 (GRE: Refactor GRE tunneling code.)
 
-The section warning functionality is clever enough to not trigger when
-a function is named _probe() and references __initdata, and discarding
-etherh_banner() should be just fine so I don't see a need to remove
-it.
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
+---
+Alternate would be to do skb_reset_inner_headers() in ip_tunnel_rcv() a=
+nd
+update ipgre_header_parse() to use skb_inner_network_header(). Though, =
+then
+inner would then be referring to the "outer" headers.
 
+If applied as-is, should go to -stable too.
 
--Olof
+ net/ipv4/ip_gre.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index d7aea4c..cc2c7f1 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -217,6 +217,7 @@ static int ipgre_rcv(struct sk_buff *skb, const str=
+uct tnl_ptk_info *tpi)
+ 				  iph->saddr, iph->daddr, tpi->key);
+=20
+ 	if (tunnel) {
++		skb->mac_header =3D skb->network_header;
+ 		ip_tunnel_rcv(tunnel, skb, tpi, log_ecn_error);
+ 		return PACKET_RCVD;
+ 	}
+--=20
+1.8.5.1
