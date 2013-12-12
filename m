@@ -1,68 +1,56 @@
-From: Terry Lam <vtlam@google.com>
-Subject: Re: [PATCH v2] net-qdisc-hhf: Heavy-Hitter Filter (HHF) qdisc
-Date: Wed, 11 Dec 2013 20:21:56 -0800
-Message-ID: <CAHy_qTwj8nNrgq=i6Qfmqh5GdnVE=p_yxmYawPcFXLu50NGACg@mail.gmail.com>
-References: <1386746796-490-1-git-send-email-vtlam@google.com>
-	<1386814204-16000-1-git-send-email-vtlam@google.com>
-	<1386820274.19078.30.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Subject: Re: [PATCH 01/10] net: stmmac: Enable stmmac main clock
+ when probing hardware
+Date: Thu, 12 Dec 2013 12:31:53 +0800
+Message-ID: <CAGb2v67TkxcMSrFsMtAy8TaMG_VZWt73xZZcuqkJ71VO4y=7_w@mail.gmail.com>
+References: <1386350983-13281-1-git-send-email-wens@csie.org>
+ <1386350983-13281-2-git-send-email-wens@csie.org> <20131207103335.GL24519@lukather>
+ <CAGb2v65YOSq_BMWSzSHX8w_hbo+0vwquBT2pnLuwNVZkWRfLvA@mail.gmail.com> <20131210200529.GD3651@lukather>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Nandita Dukkipati <nanditad@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:41556 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086Ab3LLEV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Dec 2013 23:21:57 -0500
-Received: by mail-ob0-f173.google.com with SMTP id gq1so8071698obb.32
-        for <netdev@vger.kernel.org>; Wed, 11 Dec 2013 20:21:56 -0800 (PST)
-In-Reply-To: <1386820274.19078.30.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>, devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+	Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
+To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-sunxi+bncBCMILY6JWQBBBTXYUSKQKGQE4RI3AYI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20131210200529.GD3651@lukather>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi>
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 11, 2013 at 7:51 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2013-12-11 at 18:10 -0800, Terry Lam wrote:
->
->> +static u32 hhf_time_stamp(void)
->> +{
->> +     return jiffies;
->> +}
->
->
-> This is a 32 bit value (For a good reason)
->
->> +{
->> +     struct hh_flow_state *flow, *next;
->> +     unsigned long now = hhf_time_stamp();
->
-> stored in a 'unsigned long'
->
->> +
->> +     if (list_empty(head))
->> +             return NULL;
->> +
->> +     list_for_each_entry_safe(flow, next, head, flowchain) {
->> +             unsigned long prev = flow->hit_timestamp + q->hhf_evict_timeout;
->
->
-> 32bit + ...
->
->> +
->> +             if (time_before(prev, now)) {
->
-> This wont work on 64 bit arches : Wrapping wont be detected anymore.
->
-> We keep 32bit variables to lower memory usage,
-> this is why we have special macros in include/net/codel.h
->
-> Please make sure you test your v3 patch, there is no hurry ;)
->
+Hi,
 
-Thanks for spotting out this, Eric! time_before() needs an "unsigned
-long" to avoid compile warning and I was confused by the existence of
-both time_before() and time_before64() in jiffies.h.
+On Wed, Dec 11, 2013 at 4:05 AM, Maxime Ripard
+<maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org> wrote:
+> Hi,
+>
+> On Mon, Dec 09, 2013 at 10:43:29AM +0800, Chen-Yu Tsai wrote:
+>> >> @@ -2759,15 +2760,18 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
+>> >>               }
+>> >>       }
+>> >>
+>> >> +     clk_disable_unprepare(priv->stmmac_clk);
+>> >> +
+>> >
+>> > Hu? Why do you disable the clock? don't you need it afterwards?
+>>
+>> The clock is enabled in *_open (when the network interface is used),
+>> and disabled in *_close.
+>
+> Maybe it is the real issue then.
+>
+> Why don't you move the clk_disable to _remove then?
 
-I agree we should keep 32bit to save memory, so the best solution here
-is to put back hhf_time_before() definition.
+I wasn't sure this was the proper way. However, looking around, it
+seems other drivers enable the clock in, _probe, and disable it in
+_remove. I will modify stmmac to do so as well.
+
+
+ChenYu
