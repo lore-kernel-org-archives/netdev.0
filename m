@@ -1,35 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Cache route in IP tunnels
-Date: Thu, 12 Dec 2013 13:11:05 -0800
-Message-ID: <1386882665.19078.97.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
-	 <1386833838.19078.45.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20131212.135433.87781160683841713.davem@davemloft.net>
-	 <CA+mtBx9GNG3XuyczBAJT4o2FnRBbHTV5U6PYnAJA1gf84ExeNQ@mail.gmail.com>
-	 <1386880196.19078.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CA+mtBx-hCve-NXDkQLv0bVrrESLOKPH17nzbhMAPORweFr11Og@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/2] ovs: introduce arch-specific fast
+ hashing improvements
+Date: Thu, 12 Dec 2013 16:12:41 -0500 (EST)
+Message-ID: <20131212.161241.862399141932943486.davem@davemloft.net>
+References: <1386860946-1621-1-git-send-email-ffusco@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Cc: jesse@nicira.com, netdev@vger.kernel.org, dev@openvswitch.org,
+	dborkman@redhat.com
+To: ffusco@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f50.google.com ([209.85.213.50]:57628 "EHLO
-	mail-yh0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751527Ab3LLVLJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 16:11:09 -0500
-Received: by mail-yh0-f50.google.com with SMTP id b6so851694yha.37
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 13:11:08 -0800 (PST)
-In-Reply-To: <CA+mtBx-hCve-NXDkQLv0bVrrESLOKPH17nzbhMAPORweFr11Og@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39797 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751526Ab3LLVMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 16:12:47 -0500
+In-Reply-To: <1386860946-1621-1-git-send-email-ffusco@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-12-12 at 12:56 -0800, Tom Herbert wrote:
+From: Francesco Fusco <ffusco@redhat.com>
+Date: Thu, 12 Dec 2013 16:09:04 +0100
 
-> Reverting that patch doesn't fix the problem. We are hitting the
-> spinlock in gro_cells_receive a lot though.
+> We are introducing a fast hash function (see patch1) that can be
+> used in the context of OpenVSwitch to reduce the hashing footprint
+> (patch2). For details, please see individual patches!
 
-Well, something broke then.
+No objections from my side, I'll let the x86 folks get a chance to
+review this.  I can add this optimization on sparc64 chips that have
+the crc instructions too.
 
-I was able to reach line rate at the time I did this work.
+I think we'll need to add implementations hash_3words, hash_2words,
+and hash_1word when we try to take advantage of this in the networking
+more generally.
