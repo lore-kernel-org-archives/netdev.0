@@ -1,51 +1,71 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH] net: Cache route in IP tunnels
-Date: Thu, 12 Dec 2013 14:54:13 -0800
-Message-ID: <CA+mtBx9umr3CPysnKYPCv0NqJicg6rEo6Cg-scUTZWaya-Fz5A@mail.gmail.com>
-References: <alpine.DEB.2.02.1312112207400.27914@tomh.mtv.corp.google.com>
-	<1386833838.19078.45.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20131212.135433.87781160683841713.davem@davemloft.net>
-	<CA+mtBx9GNG3XuyczBAJT4o2FnRBbHTV5U6PYnAJA1gf84ExeNQ@mail.gmail.com>
-	<1386880196.19078.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CA+mtBx-hCve-NXDkQLv0bVrrESLOKPH17nzbhMAPORweFr11Og@mail.gmail.com>
-	<1386882665.19078.97.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next 04/16] sfc: Tighten the check for RX merged
+ completion events
+Date: Thu, 12 Dec 2013 23:00:18 +0000
+Message-ID: <1386889218.1516.341.camel@bwh-desktop.uk.level5networks.com>
+References: <1386888977.1516.337.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:38926 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751715Ab3LLXAC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 18:00:02 -0500
-Received: by mail-ie0-f178.google.com with SMTP id lx4so1742743iec.37
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 15:00:01 -0800 (PST)
-In-Reply-To: <1386882665.19078.97.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:43709 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751715Ab3LLXAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 18:00:22 -0500
+In-Reply-To: <1386888977.1516.337.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 12, 2013 at 1:11 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2013-12-12 at 12:56 -0800, Tom Herbert wrote:
->
->> Reverting that patch doesn't fix the problem. We are hitting the
->> spinlock in gro_cells_receive a lot though.
->
-> Well, something broke then.
->
+The addition of RX event merging support means we don't reliably
+detect dropped RX events now.  Currently we will only detect them if
+the previous event for the RX queue had the CONT bit set.
 
-The test I'm running is over a single tunnel between two hosts, so all
-packets will be hitting the same RX queue since we only steer by
-3-tuple hash. Clearing or not clearing hash will have no effect.
+Only accept RX completion events as merged if the
+GET_CAPABILITIES_OUT_RX_BATCHING bit is set in datapath_caps (which it
+won't be for the low-latency datapath) and the CONT bit is not set on
+the event.
 
-Nevertheless, I don't see how code how gro_cells_receive (called via
-ip_tunnel_rcv) could have ever have worked right for tunnels. By the
-time this function is called, we've probably already spread the
-packets from RX queue across multiple CPUs via RPS/RFS. So putting
-them back on a queue based on RX queue would be a source of
-contention.  It seems like we should be using another per CPU backlog.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/ef10.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
-> I was able to reach line rate at the time I did this work.
->
->
->
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 5d46d155b642..2f77359607d2 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -1766,6 +1766,8 @@ static int efx_ef10_handle_rx_event(struct efx_channel *channel,
+ 		   ((1 << ESF_DZ_RX_DSC_PTR_LBITS_WIDTH) - 1));
+ 
+ 	if (n_descs != rx_queue->scatter_n + 1) {
++		struct efx_ef10_nic_data *nic_data = efx->nic_data;
++
+ 		/* detect rx abort */
+ 		if (unlikely(n_descs == rx_queue->scatter_n)) {
+ 			WARN_ON(rx_bytes != 0);
+@@ -1773,10 +1775,13 @@ static int efx_ef10_handle_rx_event(struct efx_channel *channel,
+ 			return 0;
+ 		}
+ 
+-		if (unlikely(rx_queue->scatter_n != 0)) {
+-			/* Scattered packet completions cannot be
+-			 * merged, so something has gone wrong.
+-			 */
++		/* Check that RX completion merging is valid, i.e.
++		 * the current firmware supports it and this is a
++		 * non-scattered packet.
++		 */
++		if (!(nic_data->datapath_caps &
++		      (1 << MC_CMD_GET_CAPABILITIES_OUT_RX_BATCHING_LBN)) ||
++		    rx_queue->scatter_n != 0 || rx_cont) {
+ 			efx_ef10_handle_rx_bad_lbits(
+ 				rx_queue, next_ptr_lbits,
+ 				(rx_queue->removed_count +
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
