@@ -1,185 +1,66 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] i40e: make functions static and remove dead code
-Date: Thu, 12 Dec 2013 12:07:59 -0800
-Message-ID: <20131212120759.430fab12@nehalam.linuxnetplumber.net>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: so_linger + shutdown() still sends a tcp fin on timeout
+Date: Thu, 12 Dec 2013 15:09:01 -0500
+Message-ID: <52AA17DD.4020500@gmail.com>
+References: <9D8F8769F710A44DA16BEA3DC7ABFF55097EE2D9@ESESSMB101.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Anders Franzen <anders.franzen@ericsson.com>
+To: Daniel Andersson Tenninge
+	<daniel.andersson.tenninge@ericsson.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:44340 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751856Ab3LLUIC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 15:08:02 -0500
-Received: by mail-pd0-f181.google.com with SMTP id p10so1087483pdj.40
-        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 12:08:02 -0800 (PST)
+Received: from mail-yh0-f53.google.com ([209.85.213.53]:38228 "EHLO
+	mail-yh0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751761Ab3LLUJF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Dec 2013 15:09:05 -0500
+Received: by mail-yh0-f53.google.com with SMTP id b20so774660yha.12
+        for <netdev@vger.kernel.org>; Thu, 12 Dec 2013 12:09:03 -0800 (PST)
+In-Reply-To: <9D8F8769F710A44DA16BEA3DC7ABFF55097EE2D9@ESESSMB101.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 12/12/2013 11:48 AM, Daniel Andersson Tenninge wrote:
+> Hi,
+> 
+> There seems to be a way in the kernel to avoid TCP sockets to end up in TIME-WAIT using the SO_LINGER setsockopt. Setting linger on but with timeout set to zero cause a call to close() to send out a TCP RST instead of FIN. Apparently some (including Apache Thrift) use this for short lived connections to avoid ending up with a lot of sockets in TIME-WAIT.
+> 
+> However, if a call to shutdown() for both read and write (SHUT_RDWR) is made the TCP stack still closes the connection using FIN and if a subsequent call to close() is made before the connection is deleted an RST is sent. So a call to shutdown()+close() will tear down the TCP connection using FIN+RST. According to RFC1122 section 4.2.2.13 a connection can be close normally by sending a FIN or aborted by sending a RST.
+> 
+> See http://pastebin.com/AzCCEbjJ for an example that will cause the kernel to send the following packets:
+> 
+> 17:41:53.627071 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [S], seq 2968732977, win 14120, options [mss 1412,sackOK,TS val 17286889 ecr 0,nop,wscale 4], length 0
+> 17:41:53.629052 IP 192.168.10.10.123 > 10.0.0.1.59968: Flags [S.], seq 1683464704, ack 2968732978, win 14480, options [mss 1460,sackOK,TS val17277856 ecr 17286889,nop,wscale 4], length 0
+> 17:41:53.629086 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [.], ack 1, win 883, options [nop,nop,TS val 17286890 ecr 17277856], length 0
+> 17:41:53.629151 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [P.], seq 1:7, ack 1, win 883, options [nop,nop,TS val 17286890 ecr 17277856], length 6
+> 17:41:53.629567 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [F.], seq 7, ack 1, win 883, options [nop,nop,TS val 17286890 ecr 17277856], length 0
+> 17:41:53.630040 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [R.], seq 8, ack 1, win 883, options [nop,nop,TS val 17286890 ecr 17277856], length 0
+> 17:41:53.630716 IP 192.168.10.10.123 > 10.0.0.1.59968: Flags [.], ack 7, win 905, options [nop,nop,TS val 17277856 ecr 17286890], length 0
+> 17:41:53.630736 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [R], seq 2968732984, win 0, length 0
+> 17:41:53.631799 IP 192.168.10.10.123 > 10.0.0.1.59968: Flags [F.], seq 1, ack 8, win 905, options [nop,nop,TS val 17277857 ecr 17286890], length 0
+> 17:41:53.631823 IP 10.0.0.1.59968 > 192.168.10.10.123: Flags [R], seq 2968732985, win 0, length 0
+> 
+> Is this simply a miss in the shutdown procedure for TCP that doesn't check the linger option on the socket or are there more to it? Wouldn't it be better that a call to shutdown() checks the linger option and if set it closes with RST after timeout and a subsequent call to close only cleans up the socket if the connection already is closed.
+> 
 
-Make local functions static in the file they are used.
+SO_LINGER typically only applies to close(), not shutdown.  I can
+see a valid scenario for the behavior you are describing.
+For example, if after SHUT_WR, the connection is not terminated
+for a specific period of time, the application may call close()
+and trigger a reset.
 
-Remove functions i40e_aq_add_vlan and i40e_aq_remove_vlan since
-they are not used anywhere by current code.
+Triggering RST on shutdown(SHUT_WR) seems counter-intuitive as
+the application usually wants to continue reading data.
 
-Compile tested only.
+It might make sense on if SHUT_RDWR mask is used.
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+-vlad
 
-
----
- drivers/net/ethernet/intel/i40e/i40e_adminq.c    |    6 +
- drivers/net/ethernet/intel/i40e/i40e_common.c    |   80 -----------------------
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |    8 --
- 3 files changed, 4 insertions(+), 90 deletions(-)
-
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c	2013-12-12 12:02:29.532586603 -0800
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c	2013-12-12 12:02:50.204265322 -0800
-@@ -31,6 +31,8 @@
- #include "i40e_adminq.h"
- #include "i40e_prototype.h"
- 
-+static void i40e_resume_aq(struct i40e_hw *hw);
-+
- /**
-  *  i40e_adminq_init_regs - Initialize AdminQ registers
-  *  @hw: pointer to the hardware structure
-@@ -675,7 +677,7 @@ static u16 i40e_clean_asq(struct i40e_hw
-  *  Returns true if the firmware has processed all descriptors on the
-  *  admin send queue. Returns false if there are still requests pending.
-  **/
--bool i40e_asq_done(struct i40e_hw *hw)
-+static bool i40e_asq_done(struct i40e_hw *hw)
- {
- 	/* AQ designers suggest use of head for better
- 	 * timing reliability than DD bit
-@@ -963,7 +965,7 @@ clean_arq_element_out:
- 	return ret_code;
- }
- 
--void i40e_resume_aq(struct i40e_hw *hw)
-+static void i40e_resume_aq(struct i40e_hw *hw)
- {
- 	u32 reg = 0;
- 
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c	2013-12-12 12:02:29.532586603 -0800
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c	2013-12-12 12:03:20.427795620 -0800
-@@ -1129,86 +1129,6 @@ i40e_status i40e_aq_remove_macvlan(struc
- }
- 
- /**
-- * i40e_aq_add_vlan - Add VLAN ids to the HW filtering
-- * @hw: pointer to the hw struct
-- * @seid: VSI for the vlan filters
-- * @v_list: list of vlan filters to be added
-- * @count: length of the list
-- * @cmd_details: pointer to command details structure or NULL
-- **/
--i40e_status i40e_aq_add_vlan(struct i40e_hw *hw, u16 seid,
--			struct i40e_aqc_add_remove_vlan_element_data *v_list,
--			u8 count, struct i40e_asq_cmd_details *cmd_details)
--{
--	struct i40e_aq_desc desc;
--	struct i40e_aqc_macvlan *cmd =
--		(struct i40e_aqc_macvlan *)&desc.params.raw;
--	i40e_status status;
--	u16 buf_size;
--
--	if (count == 0 || !v_list || !hw)
--		return I40E_ERR_PARAM;
--
--	buf_size = count * sizeof(struct i40e_aqc_add_remove_vlan_element_data);
--
--	/* prep the rest of the request */
--	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_add_vlan);
--	cmd->num_addresses = cpu_to_le16(count);
--	cmd->seid[0] = cpu_to_le16(seid | I40E_AQC_MACVLAN_CMD_SEID_VALID);
--	cmd->seid[1] = 0;
--	cmd->seid[2] = 0;
--
--	desc.flags |= cpu_to_le16((u16)(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD));
--	if (buf_size > I40E_AQ_LARGE_BUF)
--		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
--
--	status = i40e_asq_send_command(hw, &desc, v_list, buf_size,
--				       cmd_details);
--
--	return status;
--}
--
--/**
-- * i40e_aq_remove_vlan - Remove VLANs from the HW filtering
-- * @hw: pointer to the hw struct
-- * @seid: VSI for the vlan filters
-- * @v_list: list of macvlans to be removed
-- * @count: length of the list
-- * @cmd_details: pointer to command details structure or NULL
-- **/
--i40e_status i40e_aq_remove_vlan(struct i40e_hw *hw, u16 seid,
--			struct i40e_aqc_add_remove_vlan_element_data *v_list,
--			u8 count, struct i40e_asq_cmd_details *cmd_details)
--{
--	struct i40e_aq_desc desc;
--	struct i40e_aqc_macvlan *cmd =
--		(struct i40e_aqc_macvlan *)&desc.params.raw;
--	i40e_status status;
--	u16 buf_size;
--
--	if (count == 0 || !v_list || !hw)
--		return I40E_ERR_PARAM;
--
--	buf_size = count * sizeof(struct i40e_aqc_add_remove_vlan_element_data);
--
--	/* prep the rest of the request */
--	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_remove_vlan);
--	cmd->num_addresses = cpu_to_le16(count);
--	cmd->seid[0] = cpu_to_le16(seid | I40E_AQC_MACVLAN_CMD_SEID_VALID);
--	cmd->seid[1] = 0;
--	cmd->seid[2] = 0;
--
--	desc.flags |= cpu_to_le16((u16)(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD));
--	if (buf_size > I40E_AQ_LARGE_BUF)
--		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
--
--	status = i40e_asq_send_command(hw, &desc, v_list, buf_size,
--				       cmd_details);
--
--	return status;
--}
--
--/**
-  * i40e_aq_send_msg_to_vf
-  * @hw: pointer to the hardware structure
-  * @vfid: vf id to send msg
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h	2013-12-12 12:02:29.532586603 -0800
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h	2013-12-12 12:02:50.204265322 -0800
-@@ -51,7 +51,6 @@ i40e_status i40e_asq_send_command(struct
- 				void *buff, /* can be NULL */
- 				u16  buff_size,
- 				struct i40e_asq_cmd_details *cmd_details);
--bool i40e_asq_done(struct i40e_hw *hw);
- 
- /* debug function for adminq */
- void i40e_debug_aq(struct i40e_hw *hw,
-@@ -60,7 +59,6 @@ void i40e_debug_aq(struct i40e_hw *hw,
- 		   void *buffer);
- 
- void i40e_idle_aq(struct i40e_hw *hw);
--void i40e_resume_aq(struct i40e_hw *hw);
- 
- u32 i40e_led_get(struct i40e_hw *hw);
- void i40e_led_set(struct i40e_hw *hw, u32 mode);
-@@ -120,12 +118,6 @@ i40e_status i40e_aq_add_macvlan(struct i
- i40e_status i40e_aq_remove_macvlan(struct i40e_hw *hw, u16 vsi_id,
- 			struct i40e_aqc_remove_macvlan_element_data *mv_list,
- 			u16 count, struct i40e_asq_cmd_details *cmd_details);
--i40e_status i40e_aq_add_vlan(struct i40e_hw *hw, u16 vsi_id,
--			struct i40e_aqc_add_remove_vlan_element_data *v_list,
--			u8 count, struct i40e_asq_cmd_details *cmd_details);
--i40e_status i40e_aq_remove_vlan(struct i40e_hw *hw, u16 vsi_id,
--			struct i40e_aqc_add_remove_vlan_element_data *v_list,
--			u8 count, struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_send_msg_to_vf(struct i40e_hw *hw, u16 vfid,
- 				u32 v_opcode, u32 v_retval, u8 *msg, u16 msglen,
- 				struct i40e_asq_cmd_details *cmd_details);
+> Regards,
+> Daniel
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
